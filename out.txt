@@ -1,0 +1,181 @@
+warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+Error: Prisma schema validation - (get-config wasm)
+Error code: P1012
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:65
+   | 
+64 | enum TaskStatus { TODO, IN_PROGRESS, REVIEW, DONE }
+65 | enum TaskPriority { LOW, MEDIUM, HIGH }
+66 | 
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:67
+   | 
+66 | 
+67 | model Task {
+68 |   id          String       @id @default(uuid())
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:68
+   | 
+67 | model Task {
+68 |   id          String       @id @default(uuid())
+69 |   taskId      String       @unique @default(dbgenerated("generate_task_id()"))
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:69
+   | 
+68 |   id          String       @id @default(uuid())
+69 |   taskId      String       @unique @default(dbgenerated("generate_task_id()"))
+70 |   title       String       
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:70
+   | 
+69 |   taskId      String       @unique @default(dbgenerated("generate_task_id()"))
+70 |   title       String       
+71 |   description String?      @db.Text 
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:71
+   | 
+70 |   title       String       
+71 |   description String?      @db.Text 
+72 |   status      TaskStatus   @default(TODO) 
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:72
+   | 
+71 |   description String?      @db.Text 
+72 |   status      TaskStatus   @default(TODO) 
+73 |   priority    TaskPriority @default(MEDIUM)
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:73
+   | 
+72 |   status      TaskStatus   @default(TODO) 
+73 |   priority    TaskPriority @default(MEDIUM)
+74 |   startDate   DateTime?
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:74
+   | 
+73 |   priority    TaskPriority @default(MEDIUM)
+74 |   startDate   DateTime?
+75 |   dueDate     DateTime?    
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:75
+   | 
+74 |   startDate   DateTime?
+75 |   dueDate     DateTime?    
+76 |   
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:77
+   | 
+76 |   
+77 |   projectId   String
+78 |   assigneeId  String?      
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:78
+   | 
+77 |   projectId   String
+78 |   assigneeId  String?      
+79 |   creatorId   String       
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:79
+   | 
+78 |   assigneeId  String?      
+79 |   creatorId   String       
+80 | 
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:81
+   | 
+80 | 
+81 |   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+82 |   assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:82
+   | 
+81 |   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+82 |   assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+83 |   creator     User         @relation("TaskCreator", fields: [creatorId], references: [id])
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:83
+   | 
+82 |   assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+83 |   creator     User         @relation("TaskCreator", fields: [creatorId], references: [id])
+84 |   comments    Comment[]    
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:84
+   | 
+83 |   creator     User         @relation("TaskCreator", fields: [creatorId], references: [id])
+84 |   comments    Comment[]    
+85 | 
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:86
+   | 
+85 | 
+86 |   createdAt   DateTime     @default(now())
+87 |   updatedAt   DateTime     @updatedAt
+   | 
+
+
+error: Error validating: This line is not an enum value definition.
+  -->  prisma\schema.prisma:87
+   | 
+86 |   createdAt   DateTime     @default(now())
+87 |   updatedAt   DateTime     @updatedAt
+88 | 
+   | 
+
+Validation Error Count: 19
+[Context: getConfig]
+
+Prisma CLI Version : 6.19.2
