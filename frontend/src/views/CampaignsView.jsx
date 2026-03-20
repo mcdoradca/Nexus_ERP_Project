@@ -8,8 +8,12 @@ const CampaignsView = ({
   timelineRange,
   setTimelineRange,
   setSelectedCampaign,
+  setIsNewCampaignModalOpen,
   devMode
 }) => {
+  const [selectedBrandFilter, setSelectedBrandFilter] = React.useState('ALL');
+  const [selectedStatusFilter, setSelectedStatusFilter] = React.useState('ALL');
+
   // ---- TIMELINE LOGIC ----
   const now = new Date();
   let timelineStartDate = new Date(now);
@@ -75,20 +79,21 @@ const CampaignsView = ({
           </div>
           <div className="h-6 w-px bg-slate-200"></div>
           <div className="flex space-x-2">
-             <select className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-[10px] font-black text-slate-600 uppercase tracking-widest outline-none shadow-sm cursor-pointer hover:border-indigo-300 transition-all">
-               <option>Firma: Wszystkie</option>
-               {brands.map(b => <option key={b.id}>{b.name}</option>)}
+             <select value={selectedBrandFilter} onChange={(e) => setSelectedBrandFilter(e.target.value)} className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-[10px] font-black text-slate-600 uppercase tracking-widest outline-none shadow-sm cursor-pointer hover:border-indigo-300 transition-all">
+               <option value="ALL">Firma: Wszystkie</option>
+               {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
              </select>
-             <select className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-[10px] font-black text-slate-600 uppercase tracking-widest outline-none shadow-sm cursor-pointer hover:border-indigo-300 transition-all">
-               <option>Status Kampanii</option>
-               <option>W trakcie</option>
-               <option>Zatrzymana</option>
-               <option>Przygotowanie</option>
-               <option>Zakończona</option>
+             <select value={selectedStatusFilter} onChange={(e) => setSelectedStatusFilter(e.target.value)} className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-[10px] font-black text-slate-600 uppercase tracking-widest outline-none shadow-sm cursor-pointer hover:border-indigo-300 transition-all">
+               <option value="ALL">Status: Wszystkie</option>
+               <option value="Planowana">Planowana</option>
+               <option value="W trakcie">W trakcie</option>
+               <option value="Zatrzymana">Zatrzymana</option>
+               <option value="Przygotowanie">Przygotowanie</option>
+               <option value="Zakończona">Zakończona</option>
              </select>
           </div>
         </div>
-        <button className="px-6 py-2.5 bg-slate-900 text-white rounded-sm text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 shadow-xl shadow-slate-900/10 flex items-center transition-all active:scale-95 group">
+        <button onClick={() => setIsNewCampaignModalOpen(true)} className="px-6 py-2.5 bg-slate-900 text-white rounded-sm text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 shadow-xl shadow-slate-900/10 flex items-center transition-all active:scale-95 group">
           <Plus className="w-4 h-4 mr-2 group-hover:rotate-90 transition-transform" /> Dodaj Oś Kampanii
         </button>
       </div>
@@ -98,7 +103,7 @@ const CampaignsView = ({
           <div className="h-16 border-b border-slate-200 flex items-center px-6 bg-white font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 shrink-0">
             Podmiot / Marka
           </div>
-          {brands.map((b, idx) => (
+          {brands.filter(b => selectedBrandFilter === 'ALL' || b.id === selectedBrandFilter).map((b, idx) => (
             <div key={b.id} className={`h-32 px-6 py-4 flex flex-col justify-center border-b border-slate-100/80 ${idx % 2 === 0 ? 'bg-white' : 'bg-transparent'} shrink-0`}>
               <div className="flex items-center">
                 <div className="w-10 h-10 rounded-sm bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mr-4 shrink-0 shadow-inner"><Target className="w-5 h-5" /></div>
@@ -118,8 +123,8 @@ const CampaignsView = ({
              ))}
           </div>
           
-          {brands.map((b, idx) => {
-            const brandCampaigns = campaigns.filter(c => c.brandId === b.id);
+          {brands.filter(b => selectedBrandFilter === 'ALL' || b.id === selectedBrandFilter).map((b, idx) => {
+            const brandCampaigns = campaigns.filter(c => c.brandId === b.id && (selectedStatusFilter === 'ALL' || c.status === selectedStatusFilter));
             return (
               <div key={b.id} className={`h-32 flex relative border-b border-slate-100/80 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} shrink-0`}>
                 {columns.map(w => (

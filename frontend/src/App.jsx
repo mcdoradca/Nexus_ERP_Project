@@ -5,6 +5,8 @@ import TaskDetailsDrawer from './views/TaskDetailsDrawer';
 import KanbanView from './views/KanbanView';
 import ProjectsView from './views/ProjectsView';
 import CampaignsView from './views/CampaignsView';
+import NewCampaignModal from './views/NewCampaignModal';
+import CampaignDetailsDrawer from './views/CampaignDetailsDrawer';
 import ProductsView from './views/ProductsView';
 import AdminPanelView from './views/AdminPanelView';
 import axios from 'axios';
@@ -45,6 +47,7 @@ function App() {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isNewBrandModalOpen, setIsNewBrandModalOpen] = useState(false);
   const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false);
+  const [isNewCampaignModalOpen, setIsNewCampaignModalOpen] = useState(false);
   const [timelineRange, setTimelineRange] = useState('4_WEEKS');
   const [isUserEditModalOpen, setIsUserEditModalOpen] = useState(false);
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
@@ -770,6 +773,17 @@ function App() {
           API_URL={API_URL} 
         />
 
+        {/* Nowa Kampania */}
+        <NewCampaignModal 
+          isOpen={isNewCampaignModalOpen} 
+          onClose={() => setIsNewCampaignModalOpen(false)} 
+          brands={brands} 
+          products={products} 
+          fetchData={fetchData} 
+          token={token} 
+          API_URL={API_URL} 
+        />
+
         {/* Nowa Marka (PIM) */}
         {isNewBrandModalOpen && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6 animate-in fade-in duration-300">
@@ -863,7 +877,7 @@ function App() {
         )}
         {renderProjectDetails()}
         {selectedTask && <TaskDetailsDrawer task={selectedTask} onClose={() => setSelectedTask(null)} currentUser={currentUser} users={users} tasks={tasks} socket={socket} fetchData={fetchData} token={token} API_URL={API_URL} onSelectTask={(t) => setSelectedTask(t)} />}
-        {renderCampaignDetails()}
+        {selectedCampaign && <CampaignDetailsDrawer campaign={selectedCampaign} onClose={() => setSelectedCampaign(null)} currentUser={currentUser} tasks={tasks} socket={socket} />}
       </>
     );
   };
@@ -977,7 +991,7 @@ function App() {
       {/* RENDEROWANIE WIDOKÓW */}
       <main className="flex-1 min-h-0 bg-[#f8fafc] flex flex-col relative w-full overflow-hidden">
           {activeTab === 'kanban' && <KanbanView tasks={tasks} projects={projects} campaigns={campaigns} selectedFilterId={selectedFilterId} setSelectedFilterId={setSelectedFilterId} setIsNewTaskModalOpen={setIsNewTaskModalOpen} setSelectedTask={setSelectedTask} devMode={devMode} />}
-          {activeTab === 'campaigns' && <CampaignsView campaigns={campaigns} brands={brands} timelineRange={timelineRange} setTimelineRange={setTimelineRange} setSelectedCampaign={setSelectedCampaign} devMode={devMode} />}
+          {activeTab === 'campaigns' && <CampaignsView campaigns={campaigns} brands={brands} timelineRange={timelineRange} setTimelineRange={setTimelineRange} setSelectedCampaign={setSelectedCampaign} setIsNewCampaignModalOpen={setIsNewCampaignModalOpen} devMode={devMode} />}
           {activeTab === 'projects' && <ProjectsView projects={projects} tasks={tasks} currentUser={currentUser} setIsNewProjectModalOpen={setIsNewProjectModalOpen} setSelectedProject={setSelectedProject} devMode={devMode} />}
           {activeTab === 'products' && <ProductsView products={products} currentUser={currentUser} setIsNewBrandModalOpen={setIsNewBrandModalOpen} setIsNewProductModalOpen={setIsNewProductModalOpen} />}
           {activeTab === 'chat' && renderChatInterface()}
