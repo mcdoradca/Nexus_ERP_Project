@@ -1,0 +1,71 @@
+﻿node.exe : file:///Z:/
+Nexus_ERP_Project/fron
+tend/node_modules/vite
+/dist/node/cli.js:366
+At line:1 char:1
++ & "C:\Program Files\
+nodejs/node.exe" "C:\P
+rogram Files\nodejs/no
+de_mo ...
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (file:///Z:   
+ /Nexu...node/cli.    
+js:366:String) []    ,
+ RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+			for (const name of 
+Object.keys(options)) 
+if (name !== "--" && !
+this.hasOption(name) &
+& !globalCommand.hasOp
+tion(name)) throw new 
+CACError(`Unknown opti
+on \`${name.length > 1
+ ? `--${name}` : `-${n
+ame}`}\``);
+			                   
+                      
+                      
+                      
+                      
+                  ^
+
+CACError: Unknown opti
+on `--color`
+    at Command.checkUn
+knownOptions (file:///
+Z:/Nexus_ERP_Project/f
+rontend/node_modules/v
+ite/dist/node/cli.js:3
+66:129)
+    at CAC.runMatchedC
+ommand (file:///Z:/Nex
+us_ERP_Project/fronten
+d/node_modules/vite/di
+st/node/cli.js:607:11)
+    at CAC.parse (file
+:///Z:/Nexus_ERP_Proje
+ct/frontend/node_modul
+es/vite/dist/node/cli.
+js:563:17)
+    at file:///Z:/Nexu
+s_ERP_Project/frontend
+/node_modules/vite/dis
+t/node/cli.js:835:5
+    at ModuleJob.run (
+node:internal/modules/
+esm/module_job:345:25)
+    at async onImport.
+tracePromise.__proto__
+ (node:internal/module
+s/esm/loader:651:26)
+
+Node.js v22.19.0

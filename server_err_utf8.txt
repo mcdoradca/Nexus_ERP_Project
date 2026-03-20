@@ -1,0 +1,59 @@
+﻿node : node:internal/m
+odules/cjs/loader:1386
+At line:1 char:1
++ node server.js > ser
+ver_err.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (node:inter   
+ nal/modules/cjs/l    
+oader:1386:String    )
+ [], RemoteExcep    ti
+on
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+  throw err;
+  ^
+
+Error: Cannot find mod
+ule 'Z:\Nexus_ERP_Proj
+ect\server.js'
+    at Function._resol
+veFilename (node:inter
+nal/modules/cjs/loader
+:1383:15)
+    at defaultResolveI
+mpl (node:internal/mod
+ules/cjs/loader:1025:1
+9)
+    at resolveForCJSWi
+thHooks (node:internal
+/modules/cjs/loader:10
+30:22)
+    at Function._load 
+(node:internal/modules
+/cjs/loader:1192:37)
+    at TracingChannel.
+traceSync (node:diagno
+stics_channel:322:14)
+    at wrapModuleLoad 
+(node:internal/modules
+/cjs/loader:237:24)
+    at Function.execut
+eUserEntryPoint [as ru
+nMain] (node:internal/
+modules/run_main:171:5
+)
+    at node:internal/m
+ain/run_main_module:36
+:49 {
+  code: 'MODULE_NOT_FO
+UND',
+  requireStack: []
+}
+
+Node.js v22.19.0

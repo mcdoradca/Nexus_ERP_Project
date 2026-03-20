@@ -1,4 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import NewTaskModal from './views/NewTaskModal';
+import UniversalChat from './components/UniversalChat';
+import TaskDetailsDrawer from './views/TaskDetailsDrawer';
+import KanbanView from './views/KanbanView';
+import ProjectsView from './views/ProjectsView';
+import CampaignsView from './views/CampaignsView';
+import ProductsView from './views/ProductsView';
+import AdminPanelView from './views/AdminPanelView';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { 
@@ -8,6 +16,8 @@ import {
   Loader2, Paperclip, Send, Users, User, DollarSign, ArrowRight, CheckCircle2,
   Trash2, Mail, Lock, Shield, Eye, EyeOff, Check, Filter, Calendar
 } from 'lucide-react';
+
+import { getInitials, getDepartmentColor } from './utils';
 
 const API_URL = 'http://localhost:3001';
 
@@ -33,10 +43,17 @@ function App() {
   const [selectedFilterId, setSelectedFilterId] = useState('all');
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
-  const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false);
   const [isNewBrandModalOpen, setIsNewBrandModalOpen] = useState(false);
+  const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false);
+  const [timelineRange, setTimelineRange] = useState('4_WEEKS');
   const [isUserEditModalOpen, setIsUserEditModalOpen] = useState(false);
+  const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
+  
   const [editingUser, setEditingUser] = useState(null);
+  const [newUserForm, setNewUserForm] = useState({ 
+    email: '', name: '', password: '', role: 'USER', group: 'PRACOWNICY', department: 'BRAK', color: 'bg-emerald-500', accessibleModules: ["kanban", "campaigns", "projects", "products", "chat"] 
+  });
+  const [devMode, setDevMode] = useState(false); // DEV MAP MODE
   
   // Form States
   const [newTaskForm, setNewTaskForm] = useState({ title: '', description: '', priority: 'MEDIUM', projectId: '', campaignId: '', assigneeIds: [], dueDate: '' });
@@ -118,7 +135,7 @@ function App() {
     try {
       const res = await axios.get(`${API_URL}/api/chat/unread`, { headers: { Authorization: `Bearer ${token}` } });
       setUnreadDMs({ total: res.data.totalUnread, perUser: res.data.unreadPerUser });
-    } catch (err) {}
+    } catch (err) { console.error('Błąd pobierania liczby wiadomości', err); }
   };
 
   const handleLogin = async (e) => {
@@ -129,7 +146,10 @@ function App() {
       localStorage.setItem('aps_user', JSON.stringify(res.data.user));
       setToken(res.data.token);
       setCurrentUser(res.data.user);
-    } catch (err) { alert('Błąd logowania'); }
+    } catch (err) { 
+      console.error('Błąd logowania', err); 
+      alert('Błąd logowania'); 
+    }
   };
 
   const handleLogout = () => {
@@ -166,11 +186,44 @@ function App() {
     } catch (err) { alert('Błąd tworzenia produktu'); }
   };
 
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post(`${API_URL}/api/users`, newUserForm, { headers: { Authorization: `Bearer ${token}` } });
+      setIsNewUserModalOpen(false);
+      setNewUserForm({ email: '', name: '', password: '', role: 'USER', group: 'PRACOWNICY', department: 'BRAK', color: 'bg-emerald-500', accessibleModules: ["kanban"] });
+      fetchData();
+    } catch (err) {
+      console.error('Błąd tworzenia operatora', err);
+      alert('Nie udało się utworzyć operatora. Upewnij się, że adres email jest unikalny.');
+    }
+  };
+
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    try {
+      await axios.patch(`${API_URL}/api/users/${editingUser.id}`, {
+        role: editingUser.role,
+        group: editingUser.group,
+        department: editingUser.department,
+        accessibleModules: editingUser.accessibleModules
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      
+      setIsUserEditModalOpen(false);
+      setEditingUser(null);
+      fetchData();
+    } catch (err) {
+      console.error('Błąd edycji operatora:', err);
+      alert('Nie udało się zapisać zmian w uprawnieniach. Odmowa dostępu lub błąd serwera.');
+    }
+  };
+
   const handleUpdateTaskStatus = async (taskId, status) => {
     try {
       await axios.patch(`${API_URL}/api/tasks/${taskId}/status`, { status }, { headers: { Authorization: `Bearer ${token}` } });
       fetchData();
-    } catch (err) {}
+    } catch (err) { console.error('Błąd aktualizacji', err); }
   };
 
   const handleNotificationClick = (n) => {
@@ -181,125 +234,19 @@ function App() {
     setShowNotifications(false);
   };
 
-  const getInitials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?';
+
+
+  // --- KOMPONENT DEV BADGE ---
+  const DevBadge = ({ id }) => {
+    if (!devMode) return null;
+    return (
+      <span className="absolute top-2 left-2 z-[9999] bg-fuchsia-500 text-white text-[10px] font-black px-2 py-0.5 rounded shadow-[0_0_15px_rgba(217,70,239,0.6)] pointer-events-none border-[1.5px] border-white uppercase tracking-widest hover:scale-150 transition-transform origin-top-left flex items-center justify-center opacity-90 backdrop-blur-sm">
+        {id}
+      </span>
+    );
+  };
 
   // --- RENDERERS ---
-  // --- RENDERERS ---
-  const renderProjectsView = () => (
-    <div className="flex-1 flex flex-col p-10 bg-[#f8fafc] min-h-0 overflow-hidden">
-      <div className="flex items-center justify-between mb-10 shrink-0">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Projekty Operacyjne</h2>
-          <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-1">Zarządzanie Jednostkami i Zadaniami Zespołu</p>
-        </div>
-        {currentUser?.role === 'ADMIN' && (
-          <button onClick={() => setIsNewProjectModalOpen(true)} className="px-8 py-3 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-2xl flex items-center">
-            <Plus className="w-4 h-4 mr-3" /> Nowy Projekt
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 overflow-y-auto custom-scrollbar pr-4 pb-12">
-        {projects.map(p => {
-          const projectTasks = tasks.filter(t => t.projectId === p.id);
-          const doneTasks = projectTasks.filter(t => t.status === 'DONE').length;
-          const progress = projectTasks.length > 0 ? (doneTasks / projectTasks.length) * 100 : 0;
-          
-          return (
-            <div key={p.id} onClick={() => setSelectedProject(p)} className="group bg-white rounded-[3rem] border border-slate-100 p-10 shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:shadow-[0_25px_60px_rgba(0,0,0,0.1)] hover:border-indigo-200 transition-all cursor-pointer relative overflow-hidden flex flex-col active:scale-[0.98]">
-              <div className={`absolute top-0 left-0 w-3 h-full ${p.color} shadow-lg shadow-black/5`}></div>
-              
-              <div className="flex justify-between items-start mb-8">
-                <div className={`px-4 py-1.5 rounded-xl border ${p.color.replace('bg-', 'bg-').replace('500', '50')} ${p.color.replace('bg-', 'text-').replace('500', '700')} ${p.color.replace('bg-', 'border-').replace('500', '100')} text-[10px] font-black uppercase tracking-widest`}>
-                  {p.category || 'PROJEKT ERP'}
-                </div>
-                <ChevronRight className="w-5 h-5 text-slate-200 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
-              </div>
-
-              <h3 className="text-xl font-black text-slate-800 mb-4 uppercase leading-tight group-hover:text-indigo-600 transition-colors tracking-tight">{p.name}</h3>
-              <p className="text-xs text-slate-500 font-bold mb-10 line-clamp-3 leading-relaxed opacity-70 group-hover:opacity-100 transition-opacity">{p.description}</p>
-              
-              <div className="mt-auto">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Postęp Realizacji</span>
-                  <span className="text-[10px] font-black text-slate-900">{Math.round(progress)}%</span>
-                </div>
-                <div className="h-2 w-full bg-slate-50 rounded-full overflow-hidden border border-slate-100 shadow-inner mb-8">
-                  <div className={`h-full ${p.color} transition-all duration-1000 shadow-sm`} style={{ width: `${progress}%` }}></div>
-                </div>
-
-                <div className="flex items-center justify-between pt-8 border-t border-slate-50">
-                   <div className="flex items-center text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                     <Clock className="w-3.5 h-3.5 mr-2" /> Start: {new Date(p.createdAt).toLocaleDateString()}
-                   </div>
-                   <div className="flex -space-x-3">
-                     {projectTasks.slice(0, 4).map(t => (
-                       <div key={t.id} className="w-9 h-9 rounded-2xl bg-slate-900 border-4 border-white flex items-center justify-center text-[9px] font-black text-white shadow-xl">{getInitials(t.assignees?.[0]?.name)}</div>
-                     ))}
-                     {projectTasks.length > 4 && (
-                       <div className="w-9 h-9 rounded-2xl bg-indigo-600 border-4 border-white flex items-center justify-center text-[9px] font-black text-white shadow-xl">+{projectTasks.length - 4}</div>
-                     )}
-                   </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  const renderCampaigns = () => (
-    <div className="flex-1 flex flex-col p-10 bg-[#f8fafc] min-h-0 overflow-hidden">
-      <div className="flex items-center justify-between mb-10 shrink-0">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Kampanie Marketingowe</h2>
-          <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-1">Planowanie Strategiczne i Performance</p>
-        </div>
-      </div>
-
-      <div className="space-y-8 overflow-y-auto custom-scrollbar pr-4 pb-12">
-        {campaigns.map(c => {
-          const campaignTasks = tasks.filter(t => t.campaignId === c.id);
-          return (
-            <div key={c.id} className="bg-white rounded-[3rem] border border-slate-100 p-10 shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.1)] transition-all relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-10 group">
-              <div className={`absolute top-0 left-0 w-full h-2 ${c.color} shadow-lg`}></div>
-              
-              <div className="flex-1 max-w-2xl">
-                <div className={`inline-flex items-center px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] mb-4 ${c.status === 'ACTIVE' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'}`}>
-                  {c.status === 'ACTIVE' ? 'KAMPANIA AKTYWNA' : 'PLANOWANIE'}
-                </div>
-                <h3 className="text-2xl font-black text-slate-800 mb-3 uppercase tracking-tight group-hover:text-pink-600 transition-colors">{c.name}</h3>
-                <p className="text-sm text-slate-500 font-bold leading-relaxed opacity-70 group-hover:opacity-100 transition-opacity">{c.description}</p>
-              </div>
-
-              <div className="flex items-center space-x-12 shrink-0 bg-slate-50/50 p-8 rounded-[2.5rem] border border-slate-100">
-                <div className="text-center">
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Zasoby / Zadania</div>
-                  <div className="text-3xl font-black text-slate-900 tabular-nums">{campaignTasks.length}</div>
-                </div>
-                
-                <div className="h-12 w-px bg-slate-200"></div>
-
-                <div className="text-center">
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Postęp</div>
-                  <div className="flex items-center space-x-2">
-                     <span className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse shadow-lg shadow-emerald-500/20"></span>
-                     <span className="text-[11px] font-black text-slate-900 uppercase">Live Metrics</span>
-                  </div>
-                </div>
-
-                <button onClick={() => { setSelectedFilterId(c.id); setActiveTab('kanban'); }} className="p-5 bg-slate-900 text-white rounded-[1.5rem] hover:bg-slate-800 transition-all shadow-2xl hover:scale-110 active:scale-95 group-hover:bg-pink-600">
-                  <ArrowRight className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-
   const renderChatInterface = () => (
     <div className="flex-1 flex h-full min-h-0 overflow-hidden bg-white relative">
       <div className="w-96 border-r border-slate-100 flex flex-col shrink-0 bg-[#f8fafc]">
@@ -307,14 +254,14 @@ function App() {
           <h3 className="text-xs font-black text-slate-800 uppercase tracking-[0.3em] mb-6">Wiadomości i Kanały</h3>
           <div className="relative group">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors"/>
-            <input className="w-full pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-2xl text-xs outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold placeholder:text-slate-400" placeholder="Szukaj osób..."/>
+            <input className="w-full pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-sm text-xs outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold placeholder:text-slate-400" placeholder="Szukaj osób..."/>
           </div>
         </div>
         
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-3">
           <div onClick={() => setActiveChat('general')} className={`p-6 rounded-[2rem] cursor-pointer transition-all flex items-center justify-between group ${activeChat === 'general' ? 'bg-indigo-600 shadow-2xl shadow-indigo-600/20 text-white' : 'bg-white border border-slate-100 hover:border-indigo-200'}`}>
             <div className="flex items-center">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${activeChat === 'general' ? 'bg-indigo-500/50' : 'bg-indigo-50 text-indigo-600'}`}>
+              <div className={`w-12 h-12 rounded-sm flex items-center justify-center shadow-sm ${activeChat === 'general' ? 'bg-indigo-500/50' : 'bg-indigo-50 text-indigo-600'}`}>
                 <Hash className="w-6 h-6"/>
               </div>
               <div className="ml-4">
@@ -331,7 +278,7 @@ function App() {
             <div key={u.id} onClick={() => setActiveChat(u.id)} className={`p-5 rounded-[2rem] cursor-pointer transition-all flex items-center justify-between group ${activeChat === u.id ? 'bg-slate-900 shadow-2xl shadow-slate-900/20 text-white' : 'bg-white border border-slate-100 hover:border-slate-300'}`}>
               <div className="flex items-center">
                 <div className="relative">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xs font-black ${u.color} text-white shadow-inner`}>{getInitials(u.name)}</div>
+                  <div className={`w-12 h-12 rounded-sm flex items-center justify-center text-xs font-black ${getDepartmentColor(u.department)}`}>{getInitials(u.name)}</div>
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-4 border-white rounded-full"></div>
                 </div>
                 <div className="ml-4">
@@ -346,164 +293,14 @@ function App() {
       </div>
 
       <div className="flex-1 flex flex-col bg-white min-w-0">
-        <div className="h-28 border-b border-slate-100 flex items-center justify-between px-10 bg-white/50 backdrop-blur-xl shrink-0 z-10">
-          <div className="flex items-center">
-            <div className={`w-14 h-14 rounded-[1.5rem] flex items-center justify-center text-sm font-black shadow-2xl ${activeChat === 'general' ? 'bg-indigo-600 text-white' : (users.find(u => u.id === activeChat)?.color || 'bg-slate-900') + ' text-white'}`}>
-              {activeChat === 'general' ? <Hash className="w-7 h-7"/> : getInitials(users.find(u => u.id === activeChat)?.name)}
-            </div>
-            <div className="ml-6">
-              <h3 className="text-lg font-black text-slate-900 uppercase tracking-widest leading-none">{activeChat === 'general' ? 'Strumień Ogólny' : users.find(u => u.id === activeChat)?.name}</h3>
-              <div className="flex items-center mt-2.5">
-                <span className="w-2 h-2 bg-emerald-500 rounded-full mr-3 shadow-lg shadow-emerald-500/20 animate-pulse"></span>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{activeChat === 'general' ? 'Otwarta dyskusja strategiczna' : 'Bezpośredni kanał szyfrowany'}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex -space-x-3">
-             {users.slice(0, 5).map(u => (
-               <div key={u.id} className={`w-10 h-10 rounded-2xl border-4 border-white ${u.color} flex items-center justify-center text-[10px] font-black text-white shadow-xl`}>{getInitials(u.name)}</div>
-             ))}
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-10 space-y-8 bg-slate-50/20 relative">
-          {chatMessages.map((m, idx) => {
-            const isMe = m.senderId === currentUser.id;
-            return (
-              <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-4 duration-500`} style={{ animationDelay: `${idx * 50}ms` }}>
-                <div className={`max-w-[65%] group`}>
-                  <div className={`flex items-center mb-3 px-2 ${isMe ? 'flex-row-reverse text-right' : 'flex-row text-left'}`}>
-                    <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{m.sender?.name}</span>
-                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-tighter mx-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                  <div className={`p-6 rounded-[2.5rem] shadow-[0_8px_30px_rgba(0,0,0,0.03)] text-[13px] font-bold leading-relaxed border ${isMe ? 'bg-indigo-600 text-white rounded-tr-none border-indigo-500 shadow-indigo-200/40' : 'bg-white text-slate-800 border-slate-100 rounded-tl-none shadow-slate-200/20'}`}>
-                    {m.content}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          <div ref={commentsEndRef}/>
-        </div>
-
-        <div className="p-10 bg-white border-t border-slate-100 shrink-0 z-10">
-          <form onSubmit={(e) => { e.preventDefault(); if(!newChatMessage.trim()) return; /* sendMessage logic would normally go here if implemented in handler */ }} className="flex items-center space-x-4 bg-slate-100/50 p-3 rounded-[2.5rem] border border-slate-200 focus-within:ring-8 focus-within:ring-indigo-500/5 transition-all">
-            <button type="button" className="p-5 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-[1.5rem] transition-all"><Paperclip className="w-6 h-6"/></button>
-            <input value={newChatMessage} onChange={(e) => setNewChatMessage(e.target.value)} placeholder="Napisz do zespołu..." className="flex-1 bg-transparent border-none outline-none text-sm font-bold py-2 px-4 placeholder:text-slate-400"/>
-            <button type="submit" disabled={!newChatMessage.trim()} className={`p-5 rounded-[1.5rem] transition-all shadow-2xl active:scale-90 ${newChatMessage.trim() ? 'bg-slate-900 text-white hover:bg-indigo-600 hover:scale-110' : 'bg-slate-200 text-slate-400 opacity-50'}`}>
-              <Send className="w-6 h-6"/>
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderAdminPanel = () => (
-    <div className="flex-1 flex flex-col p-12 bg-[#f8fafc] min-h-0 overflow-hidden">
-      <div className="flex items-center justify-between mb-12 shrink-0">
-        <div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Panel Kontrolny</h2>
-          <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-2">Zarządzanie infrastrukturą Nexus ERP</p>
-        </div>
-        <div className="flex space-x-4">
-          <button className="px-8 py-3 bg-white border border-slate-200 text-slate-900 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all shadow-sm">Eksport Danych</button>
-          <button className="px-8 py-3 bg-indigo-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-500 shadow-2xl shadow-indigo-200 transition-all">Nowy Operator</button>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-12 overflow-y-auto custom-scrollbar pb-12 pr-4">
-        {/* User Management Module */}
-        <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col h-[40rem] relative group">
-          <div className="p-10 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center sticky top-0 z-10 backdrop-blur-md">
-            <div className="flex items-center">
-              <div className="w-14 h-14 bg-indigo-600 rounded-[1.5rem] flex items-center justify-center mr-6 shadow-2xl shadow-indigo-200">
-                <Users className="w-6 h-6 text-white"/>
-              </div>
-              <h3 className="text-sm font-black text-slate-800 uppercase tracking-[0.25em]">Kadra Pracownicza</h3>
-            </div>
-            <button className="p-3 bg-white border border-slate-200 hover:bg-indigo-600 hover:text-white rounded-2xl text-slate-400 transition-all shadow-sm"><Plus className="w-6 h-6"/></button>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] sticky top-0 z-10 border-b border-slate-100">
-                <tr>
-                  <th className="px-10 py-6">Konsultant / Operator</th>
-                  <th className="px-10 py-6 text-center">Rola Systemowa</th>
-                  <th className="px-10 py-6 text-right">Zarządzanie</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {users.map(u => (
-                  <tr key={u.id} className="hover:bg-slate-50/50 transition-all">
-                    <td className="px-10 py-8">
-                      <div className="flex items-center text-left">
-                        <div className={`w-12 h-12 rounded-[1.25rem] ${u.color} flex items-center justify-center text-[11px] font-black text-white mr-5 shadow-xl border-4 border-white`}>
-                          {getInitials(u.name)}
-                        </div>
-                        <div>
-                          <div className="text-[13px] font-black text-slate-900 uppercase tracking-tight leading-none mb-1.5">{u.name}</div>
-                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{u.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-10 py-8 text-center">
-                      <div className="flex flex-col items-center">
-                        <span className="px-5 py-2 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-[0.2em] mb-2 shadow-lg">{u.role}</span>
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{u.group || 'STANDARD'}</span>
-                      </div>
-                    </td>
-                    <td className="px-10 py-8 text-right">
-                      <div className="flex justify-end space-x-3">
-                        <button onClick={() => { setEditingUser(u); setIsUserEditModalOpen(true); }} className="p-4 bg-indigo-50 text-indigo-600 rounded-[1.25rem] hover:bg-slate-900 hover:text-white transition-all shadow-sm active:scale-90">
-                          <Settings className="w-5 h-5"/>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* System Health Module */}
-        <div className="bg-slate-900 rounded-[3rem] p-12 text-white shadow-2xl relative overflow-hidden flex flex-col justify-center">
-           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/20 blur-[100px] rounded-full"></div>
-           <div className="relative z-10">
-              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.4em] mb-8">System Health & Metrics</h3>
-              <div className="grid grid-cols-2 gap-10">
-                 <div>
-                    <div className="text-4xl font-black tracking-tighter mb-2">99.9%</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Uptime Core</div>
-                 </div>
-                 <div>
-                    <div className="text-4xl font-black tracking-tighter mb-2">24ms</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">API Latency</div>
-                 </div>
-                 <div>
-                    <div className="text-4xl font-black tracking-tighter mb-2">Active</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PIM Sync</div>
-                 </div>
-                 <div>
-                    <div className="text-4xl font-black tracking-tighter mb-2">Safe</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Encryption</div>
-                 </div>
-              </div>
-              <div className="mt-12 p-8 bg-white/5 rounded-[2rem] border border-white/10">
-                 <div className="flex items-center justify-between mb-4">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Database Load</span>
-                    <span className="text-[10px] font-black text-emerald-400">Normal</span>
-                 </div>
-                 <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-500 w-1/3 shadow-lg shadow-indigo-500/50"></div>
-                 </div>
-              </div>
-           </div>
-        </div>
+        <UniversalChat 
+          mode={activeChat === 'general' ? 'global' : 'direct'}
+          targetId={activeChat === 'general' ? null : activeChat}
+          currentUser={currentUser}
+          socket={socket}
+          title={activeChat === 'general' ? 'Strumień Ogólny' : users.find(u => u.id === activeChat)?.name}
+          subtitle={activeChat === 'general' ? 'Otwarta dyskusja strategiczna' : 'Bezpośredni kanał szyfrowany'}
+        />
       </div>
     </div>
   );
@@ -528,7 +325,7 @@ function App() {
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] block ml-4">Identyfikator E-mail</label>
             <div className="relative group">
               <Mail className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
-              <input type="email" required placeholder="admin@nexus.local" className="w-full pl-16 pr-8 py-5 bg-white/5 border border-white/10 rounded-3xl outline-none focus:ring-4 focus:ring-indigo-500/20 text-white font-bold transition-all placeholder:text-slate-600" value={loginForm.email} onChange={e => setLoginForm({...loginForm, email: e.target.value})} />
+              <input type="email" required placeholder="admin@nexus.local" className="w-full pl-16 pr-8 py-5 bg-white/5 border border-white/10 rounded-sm outline-none focus:ring-4 focus:ring-indigo-500/20 text-white font-bold transition-all placeholder:text-slate-600" value={loginForm.email} onChange={e => setLoginForm({...loginForm, email: e.target.value})} />
             </div>
           </div>
 
@@ -536,11 +333,11 @@ function App() {
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] block ml-4">Hasło Dostępowe</label>
             <div className="relative group">
               <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
-              <input type="password" required placeholder="••••••••" className="w-full pl-16 pr-8 py-5 bg-white/5 border border-white/10 rounded-3xl outline-none focus:ring-4 focus:ring-indigo-500/20 text-white font-bold transition-all placeholder:text-slate-600" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} />
+              <input type="password" required placeholder="••••••••" className="w-full pl-16 pr-8 py-5 bg-white/5 border border-white/10 rounded-sm outline-none focus:ring-4 focus:ring-indigo-500/20 text-white font-bold transition-all placeholder:text-slate-600" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} />
             </div>
           </div>
 
-          <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-6 rounded-3xl transition-all shadow-2xl shadow-indigo-600/30 uppercase tracking-[0.2em] text-sm mt-4 active:scale-95">Inicjalizuj Sesję</button>
+          <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-6 rounded-sm transition-all shadow-2xl shadow-indigo-600/30 uppercase tracking-[0.2em] text-sm mt-4 active:scale-95">Inicjalizuj Sesję</button>
         </form>
 
         <div className="mt-16 text-center border-t border-white/5 pt-8">
@@ -549,230 +346,6 @@ function App() {
       </div>
     </div>
   );
-
-  const renderProducts = () => {
-    const isAdmin = currentUser?.role === 'ADMIN';
-    return (
-      <div className="flex-1 flex flex-col p-10 bg-[#f8fafc] h-full w-full relative min-h-0 overflow-hidden">
-        <div className="flex items-center justify-between mb-10 shrink-0">
-          <div>
-            <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Katalog SKU</h2>
-            <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-1">Product Information Management & Unit Economics</p>
-          </div>
-          <div className="flex space-x-4">
-            {isAdmin && (
-              <>
-                <button onClick={() => setIsNewBrandModalOpen(true)} className="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 shadow-sm flex items-center group transition-all">
-                  <Target className="w-4 h-4 mr-3 text-indigo-500 group-hover:scale-110 transition-transform" /> Dodaj Markę
-                </button>
-                <button onClick={() => setIsNewProductModalOpen(true)} className="px-8 py-3 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 shadow-2xl flex items-center transition-all">
-                  <Plus className="w-4 h-4 mr-3" /> Nowe SKU
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-[3rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.08)] border border-slate-200/50 flex-1 flex flex-col min-h-0 overflow-hidden relative">
-          <div className="p-0 overflow-auto custom-scrollbar flex-1">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-slate-50/80 sticky top-0 z-10 border-b border-slate-100 backdrop-blur-xl">
-                <tr>
-                  <th className="p-8 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400">Identyfikacja Produkty</th>
-                  <th className="p-8 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 text-center">Status PIM</th>
-                  <th className="p-8 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400">Marka</th>
-                  <th className="p-8 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 text-center">Stock</th>
-                  <th className="p-8 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 text-center">API Sync</th>
-                  {isAdmin && (
-                    <>
-                      <th className="p-8 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400">Struktura Kosztów</th>
-                      <th className="p-8 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 text-right">Analiza Unit Econ.</th>
-                    </>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {products.map(p => {
-                  const tc = p.basePrice + p.inboundTransportCost + p.packagingCost + p.bdoEprCost + p.outboundTransportCost;
-                  const margin = p.salePrice - tc;
-                  return (
-                    <tr key={p.id} className="hover:bg-slate-50/50 transition-all group">
-                      <td className="p-8">
-                        <div className="font-mono text-[9px] font-black text-slate-400 tracking-wider mb-1 uppercase">{p.ean || 'BRAK EAN'}</div>
-                        <div className="font-black text-slate-900 text-sm uppercase tracking-tight group-hover:text-indigo-600 transition-colors">{p.name}</div>
-                        <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase">SKU: {p.sku}</div>
-                      </td>
-                      <td className="p-8 text-center">
-                        <span className={`text-[9px] font-black px-4 py-1.5 rounded-xl uppercase tracking-widest ${p.status === 'Aktywny' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200'}`}>{p.status}</span>
-                      </td>
-                      <td className="p-8">
-                        <div className="inline-flex items-center px-4 py-2 bg-indigo-50/50 text-indigo-700 rounded-2xl text-[10px] font-black uppercase tracking-tighter border border-indigo-100/50">
-                          <Target className="w-3 h-3 mr-2" /> {p.brand?.name || 'Bez Marki'}
-                        </div>
-                      </td>
-                      <td className="p-8 text-center">
-                        <div className="font-black text-slate-800 text-lg tabular-nums tracking-tighter">{p.stock}</div>
-                        <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Sztuk</div>
-                      </td>
-                      <td className="p-8 text-center">
-                        <div className="flex items-center justify-center space-x-3">
-                          <div className={`p-2 rounded-xl border ${p.subiektId ? 'bg-emerald-50 border-emerald-100 text-emerald-600 shadow-lg shadow-emerald-500/10' : 'bg-slate-50 border-slate-100 text-slate-300 opacity-30 grayscale'}`}>
-                            <Cloud className="w-5 h-5" />
-                          </div>
-                          <div className={`p-2 rounded-xl border ${p.baselinkerId ? 'bg-blue-50 border-blue-100 text-blue-600 shadow-lg shadow-blue-500/10' : 'bg-slate-50 border-slate-100 text-slate-300 opacity-30 grayscale'}`}>
-                            <CloudLightning className="w-5 h-5" />
-                          </div>
-                        </div>
-                      </td>
-                      {isAdmin && (
-                        <>
-                          <td className="p-8">
-                            <div className="flex items-center justify-between text-[10px] mb-1">
-                              <span className="font-black text-slate-400 uppercase tracking-widest">Koszty Zakupu:</span>
-                              <span className="font-bold text-slate-700 tabular-nums">{p.basePrice.toFixed(2)} zł</span>
-                            </div>
-                            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mb-2">
-                               <div className="h-full bg-slate-400" style={{ width: `${(tc/p.salePrice)*100}%` }}></div>
-                            </div>
-                            <div className="text-[11px] font-black text-slate-900 tabular-nums">TC: {tc.toFixed(2)} zł</div>
-                          </td>
-                          <td className="p-8 text-right">
-                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Profitability</div>
-                            <div className={`text-xl font-black tabular-nums tracking-tighter ${margin > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                              {margin > 0 ? '+' : ''}{margin.toFixed(2)} zł
-                            </div>
-                            <div className={`text-[10px] font-black uppercase ${margin > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                              {((margin / p.salePrice) * 100).toFixed(1)}% Marży
-                            </div>
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          
-          <div className="p-8 bg-slate-50/50 border-t border-slate-100 shrink-0 flex justify-between items-center">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Łącznie produktów: {products.length}</span>
-            <div className="flex space-x-2">
-               <button className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-indigo-600 shadow-sm transition-all"><ArrowRight className="w-4 h-4 rotate-180" /></button>
-               <button className="px-5 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl">1 – 10</button>
-               <button className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-indigo-600 shadow-sm transition-all"><ArrowRight className="w-4 h-4" /></button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderKanban = () => {
-    const columns = [
-      { id: 'TODO', name: 'Zaległe / Backlog', color: 'bg-slate-100', icon: <Clock className="w-3 h-3 mr-2" />, dot: 'bg-slate-400' },
-      { id: 'IN_PROGRESS', name: 'W Realizacji', color: 'bg-indigo-50', icon: <PlayCircle className="w-3 h-3 mr-2 text-indigo-600" />, dot: 'bg-indigo-600' },
-      { id: 'REVIEW', name: 'Weryfikacja QA', color: 'bg-amber-50', icon: <Eye className="w-3 h-3 mr-2 text-amber-600" />, dot: 'bg-amber-600' },
-      { id: 'DONE', name: 'Zakończone', color: 'bg-emerald-50', icon: <CheckCircle2 className="w-3 h-3 mr-2 text-emerald-600" />, dot: 'bg-emerald-600' }
-    ];
-
-    let filteredTasks = tasks;
-    if (selectedFilterId !== 'all') {
-      if (selectedFilterId.startsWith('proj_')) {
-        filteredTasks = tasks.filter(t => t.projectId === selectedFilterId.replace('proj_', ''));
-      } else {
-        filteredTasks = tasks.filter(t => t.campaignId === selectedFilterId);
-      }
-    }
-
-    return (
-      <div className="flex-1 flex flex-col h-full bg-[#f8fafc] min-h-0 overflow-hidden">
-        {/* KANBAN FILTERS / TOOLBAR */}
-        <div className="px-10 py-6 flex items-center justify-between border-b border-slate-200/50 bg-white/50 shrink-0">
-          <div className="flex items-center space-x-3 overflow-x-auto custom-scrollbar no-scrollbar scroll-smooth">
-            <div onClick={() => setSelectedFilterId('all')} className={`px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest cursor-pointer border-2 transition-all shrink-0 ${selectedFilterId === 'all' ? 'bg-slate-900 text-white border-slate-900 shadow-xl shadow-slate-900/20' : 'bg-white text-slate-500 border-slate-100 hover:border-indigo-200'}`}>Wszystkie</div>
-            {campaigns.map(c => (
-              <div key={c.id} onClick={() => setSelectedFilterId(c.id)} className={`px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest cursor-pointer border-2 transition-all shrink-0 flex items-center ${selectedFilterId === c.id ? `${c.color} text-white border-transparent shadow-xl shadow-pink-200/50 scale-105` : 'bg-white text-slate-500 border-slate-100 hover:border-pink-200 group'}`}>
-                <Megaphone className="w-3.5 h-3.5 mr-2" /> {c.name}
-              </div>
-            ))}
-            {projects.map(p => (
-              <div key={p.id} onClick={() => setSelectedFilterId(`proj_${p.id}`)} className={`px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest cursor-pointer border-2 transition-all shrink-0 flex items-center ${selectedFilterId === `proj_${p.id}` ? `${p.color} text-white border-transparent shadow-xl shadow-indigo-200/50 scale-105` : 'bg-white text-slate-500 border-slate-100 hover:border-indigo-200'}`}>
-                <Folder className="w-3.5 h-3.5 mr-2" /> {p.name}
-              </div>
-            ))}
-          </div>
-
-          <button onClick={() => setIsNewTaskModalOpen(true)} className="px-8 py-3 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-2xl flex items-center">
-            <Plus className="w-4 h-4 mr-2" /> Dodaj Zadanie
-          </button>
-        </div>
-
-        {/* KANBAN BOARD CONTENT */}
-        <div className="flex-1 overflow-x-auto p-10 flex space-x-10 scroll-smooth">
-          {columns.map(col => (
-            <div key={col.id} className="w-[22rem] flex-shrink-0 flex flex-col min-h-0 bg-slate-50/50 rounded-[3rem] p-4 border border-slate-200/30">
-              <div className="flex items-center justify-between px-6 py-4 mb-4">
-                <div className="flex items-center">
-                  <span className={`w-2 h-2 rounded-full ${col.dot} mr-3 shadow-md`}></span>
-                  <span className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em]">{col.name}</span>
-                </div>
-                <span className="bg-white/80 px-3 py-1 rounded-xl text-[10px] font-black text-slate-500 border border-slate-100 shadow-sm">{filteredTasks.filter(t => t.status === col.id).length}</span>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-5 px-2 pb-6">
-                {filteredTasks.filter(t => t.status === col.id).map(task => (
-                  <div key={task.id} onClick={() => setSelectedTask(task)} className="group bg-white p-6 rounded-[2rem] border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] hover:border-indigo-200 transition-all cursor-pointer relative overflow-hidden active:scale-[0.98]">
-                    {task.isBlocked && <div className="absolute top-0 right-0 bg-red-500 text-white p-2 rounded-bl-2xl shadow-lg ring-4 ring-white animate-bounce z-10"><AlertOctagon className="w-4 h-4" /></div>}
-                    
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-2">
-                         <span className={`text-[9px] font-black text-slate-400 font-mono tracking-tight uppercase`}>{task.taskId}</span>
-                         <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest ${task.priority === 'HIGH' ? 'bg-red-50 text-red-600' : task.priority === 'MEDIUM' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'}`}>
-                           {task.priority}
-                         </span>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-200 group-hover:text-indigo-400 transition-colors" />
-                    </div>
-
-                    <h3 className="text-[13px] font-black text-slate-800 leading-snug mb-4 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">{task.title}</h3>
-                    
-                    {task.project && (
-                      <div className={`inline-flex items-center px-4 py-1.5 rounded-xl border border-slate-50 bg-slate-50/50 text-[10px] font-black text-slate-500 uppercase tracking-tighter mb-5`}>
-                        <Folder className="w-3 h-3 mr-2" /> {task.project.name}
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                      <div className="flex -space-x-2">
-                        {task.assignees?.slice(0, 3).map(a => (
-                          <div key={a.id} title={a.name} className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black ${a.color} text-white ring-4 ring-white shadow-sm`}>{getInitials(a.name)}</div>
-                        ))}
-                        {task.assignees?.length > 3 && (
-                          <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-[8px] font-black text-slate-400 ring-4 ring-white shadow-sm">+{task.assignees.length - 3}</div>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center space-x-3 text-slate-400">
-                        {task._count?.comments > 0 && <div className="text-[10px] font-black flex items-center"><MessageCircle className="w-3.5 h-3.5 mr-1" /> {task._count.comments}</div>}
-                        <Clock className="w-3.5 h-3.5" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                
-                {filteredTasks.filter(t => t.status === col.id).length === 0 && (
-                  <div className="py-20 flex flex-col items-center justify-center opacity-30 grayscale pointer-events-none">
-                    <Zap className="w-10 h-10 text-slate-300 mb-4" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pusto...</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
 
   const renderProjectDetails = () => {
     if (!selectedProject) return null;
@@ -791,14 +364,14 @@ function App() {
               <div>
                 <div className="flex items-center space-x-3 mb-2">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Operational Unit</span>
-                  <span className={`px-3 py-1 rounded-lg ${selectedProject.color.replace('bg-', 'bg-').replace('500', '50')} ${selectedProject.color.replace('bg-', 'text-').replace('500', '700')} text-[9px] font-black uppercase tracking-widest`}>{selectedProject.category || 'PROJECT'}</span>
+                  <span className={`px-3 py-1 rounded-sm ${selectedProject.color.replace('bg-', 'bg-').replace('500', '50')} ${selectedProject.color.replace('bg-', 'text-').replace('500', '700')} text-[9px] font-black uppercase tracking-widest`}>{selectedProject.category || 'PROJECT'}</span>
                 </div>
                 <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">{selectedProject.name}</h3>
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <button className="p-4 hover:bg-white bg-slate-100/50 rounded-2xl text-slate-400 hover:text-indigo-600 transition-all border border-transparent hover:border-slate-100"><Settings className="w-6 h-6" /></button>
-              <button onClick={() => setSelectedProject(null)} className="p-4 hover:bg-slate-900 bg-slate-100 rounded-2xl text-slate-400 hover:text-white transition-all shadow-sm"><X className="w-6 h-6" /></button>
+              <button className="p-4 hover:bg-white bg-slate-100/50 rounded-sm text-slate-400 hover:text-indigo-600 transition-all border border-transparent hover:border-slate-100"><Settings className="w-6 h-6" /></button>
+              <button onClick={() => setSelectedProject(null)} className="p-4 hover:bg-slate-900 bg-slate-100 rounded-sm text-slate-400 hover:text-white transition-all shadow-sm"><X className="w-6 h-6" /></button>
             </div>
           </div>
 
@@ -838,7 +411,7 @@ function App() {
               <div className="flex flex-wrap gap-4">
                 {projectUsers.length > 0 ? projectUsers.map(u => (
                   <div key={u.id} className="flex items-center bg-white px-6 py-3 rounded-[1.5rem] border border-slate-100 shadow-sm hover:border-indigo-200 transition-all cursor-default">
-                    <div className={`w-10 h-10 rounded-2xl ${u.color} flex items-center justify-center text-[10px] font-black text-white mr-4 shadow-xl border-4 border-white`}>{getInitials(u.name)}</div>
+                    <div className={`w-10 h-10 rounded-sm ${getDepartmentColor(u.department)} flex items-center justify-center text-[10px] font-black mr-4`}>{getInitials(u.name)}</div>
                     <div>
                       <div className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{u.name}</div>
                       <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{u.department}</div>
@@ -866,14 +439,14 @@ function App() {
                        <div>
                          <div className="flex items-center space-x-3 mb-1">
                            <span className="text-[9px] font-black text-slate-400 font-mono">{t.taskId}</span>
-                           <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest ${t.status === 'DONE' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>{t.status}</span>
+                           <span className={`px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest ${t.status === 'DONE' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>{t.status}</span>
                          </div>
                          <h5 className="text-[13px] font-black text-slate-800 uppercase tracking-tight group-hover:text-indigo-600 transition-colors leading-tight">{t.title}</h5>
                        </div>
                     </div>
                     <div className="flex -space-x-2">
                       {t.assignees?.slice(0, 2).map(a => (
-                        <div key={a.id} className={`w-8 h-8 rounded-xl border-2 border-white ${a.color} flex items-center justify-center text-[8px] font-black text-white shadow-sm`}>{getInitials(a.name)}</div>
+                        <div key={a.id} className={`w-8 h-8 rounded-sm ${getDepartmentColor(a.department)} flex items-center justify-center text-[8px] font-black`}>{getInitials(a.name)}</div>
                       ))}
                     </div>
                   </div>
@@ -885,12 +458,17 @@ function App() {
           
           {/* Footer Drawer */}
           <div className="p-10 bg-slate-50 border-t border-slate-100 shrink-0">
-             <div className="flex items-center justify-between">
+             <div className="flex items-center justify-between mt-8">
                 <div className="flex flex-col">
                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Utworzono</span>
                    <span className="text-xs font-black text-slate-800 uppercase">{new Date(selectedProject.createdAt).toLocaleDateString()}</span>
                 </div>
                 <button className="px-10 py-5 bg-slate-900 text-white rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest hover:bg-slate-800 hover:scale-105 active:scale-95 transition-all shadow-2xl">Zakończ Projekt</button>
+             </div>
+             
+             {/* Sekcja Komunikatora - Projekt */}
+             <div className="mt-12 h-[500px] border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm">
+                <UniversalChat mode="project" targetId={selectedProject.id} currentUser={currentUser} socket={socket} title={`Wątek #P-${selectedProject.projectId.split('-').pop()}`} subtitle="Tablica Główna Projektu" />
              </div>
           </div>
         </div>
@@ -898,161 +476,299 @@ function App() {
     );
   };
 
-  const renderTaskDetails = () => {
-    if (!selectedTask) return null;
+
+  const renderCampaignDetails = () => {
+    if (!selectedCampaign) return null;
+    const projectTasks = tasks.filter(t => t.campaignId === selectedCampaign.id);
+    
     return (
-      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xl z-[110] flex items-center justify-center p-8 animate-in fade-in duration-300">
-        <div className="w-full max-w-5xl bg-white h-full max-h-[55rem] rounded-[4rem] shadow-[0_50px_150px_rgba(0,0,0,0.3)] flex flex-col animate-in zoom-in duration-500 overflow-hidden relative">
-          
-          {/* Top Bar */}
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex justify-end animate-in fade-in duration-300">
+        <div className="w-full max-w-[55rem] bg-white h-full shadow-[-40px_0_100px_rgba(0,0,0,0.2)] flex flex-col animate-in slide-in-from-right duration-500 overflow-hidden relative">
+          <DevBadge id="D-40" />
+          {/* Header */}
           <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-[#f8fafc] shrink-0">
             <div className="flex items-center space-x-6">
-              <span className="text-xs font-black text-slate-400 font-mono tracking-widest">{selectedTask.taskId}</span>
-              <div className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg ${selectedTask.status === 'DONE' ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-indigo-600 text-white shadow-indigo-600/20'}`}>{selectedTask.status}</div>
-              <div className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border-2 ${selectedTask.priority === 'HIGH' ? 'border-red-500 text-red-600' : 'border-slate-200 text-slate-400'}`}>{selectedTask.priority} Priority</div>
+              <div className="w-16 h-16 bg-slate-900 rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-slate-900/20 text-white"><Megaphone className="w-8 h-8" /></div>
+              <div>
+                <div className="flex items-center space-x-3 mb-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Oś Czasu / PIM</span>
+                  <span className={`px-3 py-1 rounded-sm ${selectedCampaign.color?.replace('bg-', 'bg-')?.replace('500', '50')} ${selectedCampaign.color?.replace('bg-', 'text-')?.replace('500', '600')} text-[9px] font-black uppercase tracking-widest`}>{selectedCampaign.status}</span>
+                </div>
+                <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">{selectedCampaign.name}</h3>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2 block">{selectedCampaign.product?.name || 'Promocja Wieloproduktowa'}</span>
+              </div>
             </div>
-            <button onClick={() => setSelectedTask(null)} className="p-5 hover:bg-slate-900 hover:text-white bg-white border border-slate-100 rounded-[2rem] transition-all text-slate-400 shadow-sm"><X className="w-6 h-6" /></button>
+            <div className="flex items-center space-x-4">
+              <button className="p-4 hover:bg-white bg-slate-100/50 rounded-sm text-slate-400 hover:text-pink-600 transition-all border border-transparent hover:border-slate-100 shadow-sm"><Settings className="w-6 h-6" /></button>
+              <button onClick={() => setSelectedCampaign(null)} className="p-4 hover:bg-slate-900 bg-slate-100 rounded-sm text-slate-400 hover:text-white transition-all shadow-sm"><X className="w-6 h-6" /></button>
+            </div>
           </div>
 
-          <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
-            {/* Left Content */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-12 space-y-12">
-               <div>
-                 <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-tight mb-6">{selectedTask.title}</h2>
-                 <p className="text-slate-500 font-bold leading-relaxed text-base italic opacity-80 border-l-4 border-indigo-100 pl-8 transition-opacity hover:opacity-100">{selectedTask.description || 'Pusto tutaj... brak opisu technicznego.'}</p>
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-10 bg-white grid grid-cols-3 gap-8 content-start">
+            
+            {/* Top Metrics / KPIs */}
+            <div className="col-span-3 grid grid-cols-4 gap-6">
+               <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                  <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center"><Target className="w-3 h-3 mr-2" /> Marka</div>
+                  <div className="text-sm font-black text-slate-900 uppercase truncate">{selectedCampaign.brand?.name || 'Brak'}</div>
                </div>
-
-               {selectedTask.isBlocked && (
-                 <div className="bg-rose-50 border border-rose-100 rounded-[2.5rem] p-10 flex items-start space-x-6 shadow-2xl shadow-rose-500/10">
-                   <div className="p-4 bg-rose-500 rounded-3xl text-white shadow-lg animate-pulse"><AlertOctagon className="w-8 h-8" /></div>
-                   <div>
-                     <h4 className="text-sm font-black text-rose-900 uppercase tracking-tight mb-2">Blokada Systemowa</h4>
-                     <p className="text-rose-600 text-sm font-bold leading-relaxed">{selectedTask.blockReason}</p>
-                   </div>
-                 </div>
-               )}
-
-               <div className="pt-12 border-t border-slate-50">
-                 <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mb-10 flex items-center">
-                   <MessageCircle className="w-5 h-5 mr-4" /> Activity Stream
-                 </h4>
-                 <div className="space-y-10">
-                    <div className="flex space-x-6 animate-in slide-in-from-left duration-300">
-                       <div className="w-12 h-12 rounded-2xl bg-slate-900 flex-shrink-0 flex items-center justify-center text-[10px] font-black text-white shadow-lg">AD</div>
-                       <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                             <span className="text-[11px] font-black text-slate-900 uppercase tracking-tight">System Admin</span>
-                             <span className="text-[9px] font-black text-slate-300 uppercase">Dzisiaj, 14:20</span>
-                          </div>
-                          <div className="bg-slate-50 p-6 rounded-[2rem] rounded-tl-none border border-slate-100 text-[13px] font-bold text-slate-600 leading-relaxed">System zsynchronizował to zadanie z tablicą Nexus 2.0. Status ustawiony na domyślny.</div>
-                       </div>
-                    </div>
-                    {/* Placeholder for real comments */}
-                    <div className="text-center py-16 text-slate-300 font-black text-[10px] uppercase tracking-widest border-2 border-dashed border-slate-50 rounded-[3rem]">Brak nowych komentarzy w wątku</div>
-                 </div>
+               <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+                  <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center"><DollarSign className="w-3 h-3 mr-2" /> Budżet</div>
+                  <div className="text-sm font-black text-slate-900 tabular-nums uppercase">{selectedCampaign.budget} PLN</div>
+               </div>
+               <div className="p-6 bg-emerald-50 rounded-[2rem] border border-emerald-100 col-span-2 flex justify-between items-center relative overflow-hidden">
+                  <div className="absolute right-[-10%] top-[-50%] opacity-10"><Target className="w-32 h-32 text-emerald-600"/></div>
+                  <div>
+                    <div className="text-[9px] font-black text-emerald-600/70 uppercase tracking-widest mb-1 flex items-center">Realizacja Celu Sprzedaży</div>
+                    <div className="text-2xl font-black text-emerald-600 tabular-nums">{selectedCampaign.soldCount || 0} / {selectedCampaign.plannedCount || 0} <span className="text-sm opacity-50">SZT</span></div>
+                  </div>
+                  <button className="relative z-10 px-6 py-3 bg-white text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-sm shadow-lg border border-emerald-100 hover:scale-105 active:scale-95 transition-all">Rozlicz</button>
                </div>
             </div>
 
-            {/* Right Sidebar Details */}
-            <div className="w-full lg:w-96 bg-[#f8fafc] border-l border-slate-100 p-12 space-y-10 shrink-0">
-               <div className="space-y-3">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Jednostka Nadrzędna</h4>
-                  <div className="flex items-center bg-white p-5 rounded-[1.5rem] border border-slate-100 shadow-sm hover:border-indigo-200 transition-colors">
-                     <Folder className="w-5 h-5 text-indigo-500 mr-4" />
-                     <span className="text-xs font-black text-slate-800 uppercase truncate">{selectedTask.project?.name || selectedTask.campaign?.name || 'Operacja Wolnostojąca'}</span>
+            {/* Left Column (2/3 width) */}
+            <div className="col-span-2 space-y-10">
+               {/* Instructions */}
+               <div>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center"><MessageCircle className="w-4 h-4 mr-3" /> Instrukcje dla Handlowców / Agencji</h4>
+                  <div className="bg-slate-50/70 rounded-[2.5rem] p-8 border border-slate-100 relative group min-h-[8rem]">
+                    <p className="text-slate-600 text-sm font-bold leading-relaxed">{selectedCampaign.instructions || 'Brak wdrożonych wytycznych operacyjnych.'}</p>
                   </div>
                </div>
 
-               <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Operatorzy</h4>
-                  <div className="space-y-3">
-                    {selectedTask.assignees?.map(a => (
-                      <div key={a.id} className="flex items-center bg-white px-5 py-3 rounded-[1.5rem] border border-slate-100 shadow-sm">
-                        <div className={`w-10 h-10 rounded-2xl ${a.color} flex items-center justify-center text-[10px] font-black text-white mr-4 shadow-xl border-4 border-white`}>{getInitials(a.name)}</div>
-                        <span className="text-xs font-black text-slate-900 uppercase tracking-tight">{a.name}</span>
+               {/* Tasks */}
+               <div>
+                  <div className="flex items-center justify-between mb-6">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center"><Zap className="w-4 h-4 mr-3" /> Zadania Operacyjne (Tik-Tok, Darkposty)</h4>
+                    <button className="text-[9px] font-black text-pink-600 hover:text-pink-800 uppercase tracking-widest">Więcej</button>
+                  </div>
+                  <div className="space-y-4">
+                    {projectTasks.map(t => (
+                      <div key={t.id} className="p-5 bg-white border border-slate-100 rounded-[1.5rem] shadow-sm flex items-center justify-between">
+                         <div className="flex items-center space-x-4">
+                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${t.status==='DONE' ? 'bg-emerald-50 text-emerald-500' : 'bg-slate-100 text-slate-400'}`}>
+                             <CheckCircle2 className="w-4 h-4" />
+                           </div>
+                           <div>
+                             <div className="text-[11px] font-black text-slate-800 uppercase tracking-tight">{t.title}</div>
+                             <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{t.status}</div>
+                           </div>
+                         </div>
                       </div>
                     ))}
-                    {(!selectedTask.assignees || selectedTask.assignees.length === 0) && <div className="text-[10px] font-black text-slate-300 uppercase py-4">Brak operatorów</div>}
-                  </div>
-                  <button className="w-full py-4 text-[10px] font-black text-indigo-600 hover:bg-white rounded-2xl border border-dashed border-indigo-200 uppercase tracking-widest transition-all mt-4">+ Przypisz Osobę</button>
-               </div>
-
-               <div className="pt-10 space-y-6">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Timeline</h4>
-                  <div className="flex items-center text-xs font-black text-slate-800">
-                     <Clock className="w-5 h-5 mr-4 text-slate-300" />
-                     <span className="uppercase">Due Date: </span>
-                     <span className="ml-auto">Brak Terminu</span>
+                    {projectTasks.length === 0 && <div className="p-10 text-center text-slate-300 font-black text-[10px] uppercase tracking-widest border-2 border-dashed border-slate-50 rounded-[2rem]">Brak Aktywnych Zadań</div>}
                   </div>
                </div>
             </div>
-          </div>
 
-          {/* Comment Input Footer */}
-          <div className="p-12 bg-white border-t border-slate-100 shrink-0">
-            <div className="flex items-center space-x-6">
-               <div className="w-14 h-14 bg-indigo-600 rounded-[1.5rem] flex items-center justify-center text-white shadow-2xl flex-shrink-0">{getInitials(currentUser?.name)}</div>
-               <div className="flex-1 flex items-center bg-slate-50 p-3 rounded-[2.5rem] border border-slate-200 focus-within:ring-8 focus-within:ring-indigo-600/5 transition-all">
-                  <input placeholder="Dodaj komentarz techniczny..." className="flex-1 bg-transparent border-none outline-none px-6 py-2 text-sm font-bold placeholder:text-slate-400" />
-                  <button className="p-5 bg-slate-900 text-white rounded-[1.5rem] hover:bg-indigo-600 transition-all shadow-xl active:scale-90"><Send className="w-6 h-6"/></button>
+            {/* Right Column (1/3 width) */}
+            <div className="col-span-1 border-l border-slate-100 pl-8 space-y-10">
+               {/* Assets */}
+               <div>
+                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center"><Folder className="w-4 h-4 mr-3" /> Materiały POSM</h4>
+                 <div className="space-y-3">
+                   <button className="w-full p-4 border-2 border-dashed border-slate-200 rounded-[1.5rem] text-[10px] font-black text-slate-400 uppercase tracking-widest hover:border-indigo-400 hover:text-indigo-600 transition-colors">+ Wgraj Plik</button>
+                 </div>
                </div>
+
+               {/* Assignees */}
+               <div>
+                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center"><Users className="w-4 h-4 mr-3" /> Obsługa</h4>
+                 <div className="flex -space-x-2">
+                    {/* Placeholder for Assignees (Users that own the tasks inside the campaign) */}
+                    <div className="w-10 h-10 rounded-[1rem] bg-indigo-600 border-2 border-white flex items-center justify-center text-[10px] font-black text-white shadow-md">KAM</div>
+                    <div className="w-10 h-10 rounded-[1rem] bg-pink-500 border-2 border-white flex items-center justify-center text-[10px] font-black text-white shadow-md">AG</div>
+                 </div>
+               </div>
+            </div>
+            </div>
+            
+            {/* Kampania Chat */}
+            <div className="h-[400px] border-t border-slate-100 shrink-0 relative z-0">
+                 <UniversalChat mode="campaign" targetId={selectedCampaign.id} currentUser={currentUser} socket={socket} title="Szybka Komunikacja w Kampanii" subtitle={`Marketing: ${selectedCampaign.brand?.name || ''}`} />
             </div>
           </div>
         </div>
-      </div>
     );
   };
 
   const renderModals = () => {
-    const inputClass = "w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-slate-800 focus:ring-4 focus:ring-indigo-600/10 focus:border-indigo-600/30 transition-all placeholder:text-slate-400";
+    const inputClass = "w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-sm outline-none font-bold text-slate-800 focus:ring-4 focus:ring-indigo-600/10 focus:border-indigo-600/30 transition-all placeholder:text-slate-400";
     const labelClass = "text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3 block ml-2";
+
+    const ALL_MODULES = [
+      { id: 'kanban', label: 'Tablica Wydarzeń (Zadania)' },
+      { id: 'campaigns', label: 'Centrum Kampanii' },
+      { id: 'projects', label: 'Projekty' },
+      { id: 'products', label: 'Katalog SKU (PIM)' },
+      { id: 'chat', label: 'Komunikator' },
+      { id: 'admin', label: 'Ustawienia Master (Opcjonalne)' }
+    ];
 
     return (
       <>
-        {/* Nowe Zadanie */}
-        {isNewTaskModalOpen && (
+        {/* Rejestracja Nowego Operatora (Z Hasłem) */}
+        {isNewUserModalOpen && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[3rem] shadow-[0_50px_100px_rgba(0,0,0,0.3)] w-full max-w-2xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[90vh]">
-              <div className="p-10 bg-[#f8fafc] border-b border-slate-100 flex justify-between items-center shrink-0">
-                <div className="flex items-center">
-                  <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center mr-6 shadow-xl">
-                    <Zap className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Inicjacja Zadania</h3>
-                </div>
-                <button onClick={() => setIsNewTaskModalOpen(false)} className="p-4 hover:bg-white rounded-2xl transition-all text-slate-400 border border-transparent hover:border-slate-100"><X className="w-6 h-6" /></button>
+            <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[90vh]">
+              <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-[#f8fafc] shrink-0">
+                 <div className="flex items-center">
+                    <div className="w-12 h-12 bg-emerald-500 rounded-sm flex items-center justify-center mr-6 shadow-xl shadow-emerald-200">
+                       <Plus className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Rejestracja Operatora</h3>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Stwórz nowy profil dostępu i wyznacz hasło</p>
+                    </div>
+                 </div>
+                 <button onClick={() => setIsNewUserModalOpen(false)} className="p-4 hover:bg-white rounded-sm transition-all text-slate-400"><X className="w-6 h-6" /></button>
               </div>
-              <form onSubmit={handleCreateTask} className="p-10 space-y-8 overflow-y-auto custom-scrollbar">
-                <div>
-                  <label className={labelClass}>Tytuł Operacyjny</label>
-                  <input required placeholder="Np. Optymalizacja konwersji Checkout..." className={inputClass} value={newTaskForm.title} onChange={e => setNewTaskForm({...newTaskForm, title: e.target.value})} />
-                </div>
-                <div>
-                  <label className={labelClass}>Szczegółowy Opis Techniczny</label>
-                  <textarea placeholder="Zdefiniuj zakres prac i oczekiwany rezultat..." className={`${inputClass} h-40 resize-none`} value={newTaskForm.description} onChange={e => setNewTaskForm({...newTaskForm, description: e.target.value})} />
-                </div>
-                <div className="grid grid-cols-2 gap-8">
+              <form onSubmit={handleCreateUser} className="p-10 space-y-8 overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <label className={labelClass}>Przypisz do Projektu</label>
-                    <select className={inputClass} value={newTaskForm.projectId} onChange={e => setNewTaskForm({...newTaskForm, projectId: e.target.value})}>
-                      <option value="">Brak (Zadanie Generalne)</option>
-                      {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    <label className={labelClass}>Imię i Nazwisko / Login</label>
+                    <input required placeholder="Jan Kowalski" className={inputClass} value={newUserForm.name} onChange={e => setNewUserForm({...newUserForm, name: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Adres Email</label>
+                    <input required type="email" placeholder="jan@nexus.local" className={inputClass} value={newUserForm.email} onChange={e => setNewUserForm({...newUserForm, email: e.target.value})} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className={labelClass}>Hasło Startowe (Wymagane)</label>
+                    <input required type="password" placeholder="••••••••" className={inputClass} value={newUserForm.password} onChange={e => setNewUserForm({...newUserForm, password: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Rola Systemowa</label>
+                    <select required className={inputClass} value={newUserForm.role} onChange={e => setNewUserForm({...newUserForm, role: e.target.value})}>
+                      <option value="USER">Standardowy Operator (USER)</option>
+                      <option value="ADMIN">Administrator Główy (ADMIN)</option>
                     </select>
                   </div>
                   <div>
-                    <label className={labelClass}>Priorytet Realizacji</label>
-                    <select className={inputClass} value={newTaskForm.priority} onChange={e => setNewTaskForm({...newTaskForm, priority: e.target.value})}>
-                      <option value="LOW">LOW - Standard</option>
-                      <option value="MEDIUM">MEDIUM - Business Needs</option>
-                      <option value="HIGH">HIGH - Critical / Hotfix</option>
+                    <label className={labelClass}>Przydział do Departamentu</label>
+                    <select required className={inputClass} value={newUserForm.department} onChange={e => setNewUserForm({...newUserForm, department: e.target.value})}>
+                      <option value="BRAK">Nieprzydzielony (BRAK)</option>
+                      <option value="MARKETING">Marketing</option>
+                      <option value="BIURO">Biuro</option>
+                      <option value="HANDLOWCY">Handlowcy B2B</option>
                     </select>
                   </div>
                 </div>
-                <button type="submit" className="w-full py-6 bg-slate-900 text-white font-black rounded-3xl shadow-2xl hover:bg-indigo-600 hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-[0.2em] text-sm mt-4">Uruchom Przepływ Zadania</button>
+
+                <div className="pt-8 border-t border-slate-100">
+                  <label className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4 block">Zezwolenia Modułowe dla Operatora</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    {ALL_MODULES.map(m => (
+                      <label key={m.id} className="flex items-center space-x-3 cursor-pointer p-4 border border-slate-100 rounded-sm hover:bg-slate-50 transition-colors">
+                        <input type="checkbox" className="w-4 h-4 text-emerald-600 rounded" 
+                          checked={newUserForm.accessibleModules?.includes(m.id)}
+                          onChange={(e) => {
+                            const newModules = e.target.checked 
+                                ? [...(newUserForm.accessibleModules || []), m.id]
+                                : (newUserForm.accessibleModules || []).filter(x => x !== m.id);
+                            setNewUserForm({...newUserForm, accessibleModules: newModules});
+                          }} />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-700">{m.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <button type="submit" className="w-full py-6 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-sm shadow-2xl transition-all uppercase tracking-[0.2em] text-sm active:scale-95 flex items-center justify-center group">
+                  <Plus className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform" /> Stwórz Użytkownika
+                </button>
               </form>
             </div>
           </div>
         )}
+
+        {/* Edycja Użytkownika (Admin) */}
+        {isUserEditModalOpen && editingUser && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6 animate-in fade-in duration-300">
+            <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-500">
+              <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-[#f8fafc]">
+                 <div className="flex items-center">
+                    <div className="w-12 h-12 bg-indigo-600 rounded-sm flex items-center justify-center mr-6 shadow-xl shadow-indigo-200">
+                       <Settings className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Uprawnienia</h3>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{editingUser.email}</p>
+                    </div>
+                 </div>
+                 <button onClick={() => {setIsUserEditModalOpen(false); setEditingUser(null);}} className="p-4 hover:bg-white rounded-sm transition-all text-slate-400"><X className="w-6 h-6" /></button>
+              </div>
+              <form onSubmit={handleUpdateUser} className="p-10 space-y-8">
+                <div>
+                  <label className={labelClass}>Rola Systemowa</label>
+                  <select required className={inputClass} value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value})}>
+                    <option value="USER">Standardowy Operator (USER)</option>
+                    <option value="ADMIN">Administrator Główy (ADMIN)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Grupa Uprawnień (RBAC)</label>
+                  <select required className={inputClass} value={editingUser.group} onChange={e => setEditingUser({...editingUser, group: e.target.value})}>
+                    <option value="PRACOWNICY">Pracownik Nexusa</option>
+                    <option value="AGENCJE">Agencja Reklamowa</option>
+                    <option value="GOSC">Ograniczone Konto Gościa</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Przydział do Departamentu</label>
+                  <select required className={inputClass} value={editingUser.department} onChange={e => setEditingUser({...editingUser, department: e.target.value})}>
+                    <option value="BRAK">Nieprzydzielony (BRAK)</option>
+                    <option value="MARKETING">Sekcja Marketingu</option>
+                    <option value="BIURO">Centralne Biuro</option>
+                    <option value="MAGAZYN">Logistyka i Magazyn</option>
+                    <option value="HANDLOWCY">Pion Handlowców B2B</option>
+                    <option value="KAM">Pion Key Account (KAM)</option>
+                    <option value="PREZES">Zarząd Główny (PREZES)</option>
+                    <option value="ECOMMERCE">Dział E-commerce</option>
+                    <option value="SERWIS">Serwis Techniczny</option>
+                    <option value="AGENCJA">Zewnętrzna Agencja (AGENCJA)</option>
+                    <option value="GOŚĆ">Konto Tymczasowe (GOŚĆ)</option>
+                  </select>
+                </div>
+
+                <div className="pt-8 border-t border-slate-100">
+                  <label className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4 block">Widoczne Moduły Paska Nawigacji</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    {ALL_MODULES.map(m => (
+                      <label key={m.id} className="flex items-center space-x-3 cursor-pointer p-4 border border-slate-100 rounded-sm hover:bg-slate-50 transition-colors">
+                        <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" 
+                          checked={editingUser.accessibleModules?.includes(m.id)}
+                          onChange={(e) => {
+                            const newModules = e.target.checked 
+                                ? [...(editingUser.accessibleModules || []), m.id]
+                                : (editingUser.accessibleModules || []).filter(x => x !== m.id);
+                            setEditingUser({...editingUser, accessibleModules: newModules});
+                          }} />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-700">{m.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <button type="submit" className="w-full py-6 bg-slate-900 hover:bg-indigo-600 text-white font-black rounded-sm shadow-2xl transition-all uppercase tracking-[0.2em] text-sm active:scale-95 flex items-center justify-center group">
+                  <Cloud className="w-6 h-6 mr-3 group-hover:animate-bounce" /> Wykonaj Aktualizację w Bazie
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Nowe Zadanie */}
+        <NewTaskModal 
+          isOpen={isNewTaskModalOpen} 
+          onClose={() => setIsNewTaskModalOpen(false)} 
+          projects={projects} 
+          campaigns={campaigns} 
+          users={users} 
+          fetchData={fetchData} 
+          token={token} 
+          API_URL={API_URL} 
+        />
 
         {/* Nowa Marka (PIM) */}
         {isNewBrandModalOpen && (
@@ -1060,19 +776,19 @@ function App() {
             <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-500">
               <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-[#f8fafc]">
                  <div className="flex items-center">
-                    <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center mr-6 shadow-xl shadow-indigo-200">
+                    <div className="w-12 h-12 bg-indigo-600 rounded-sm flex items-center justify-center mr-6 shadow-xl shadow-indigo-200">
                        <Target className="w-6 h-6 text-white" />
                     </div>
                     <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Rejestracja Marki</h3>
                  </div>
-                 <button onClick={() => setIsNewBrandModalOpen(false)} className="p-4 hover:bg-white rounded-2xl transition-all text-slate-400"><X className="w-6 h-6" /></button>
+                 <button onClick={() => setIsNewBrandModalOpen(false)} className="p-4 hover:bg-white rounded-sm transition-all text-slate-400"><X className="w-6 h-6" /></button>
               </div>
               <form onSubmit={handleCreateBrand} className="p-10 space-y-8">
                 <div>
                   <label className={labelClass}>Nazwa Brandu</label>
                   <input required placeholder="Np. Nexus Luxury..." type="text" className={inputClass} value={newBrandName} onChange={e => setNewBrandName(e.target.value)} />
                 </div>
-                <button type="submit" className="w-full py-6 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-3xl shadow-2xl shadow-indigo-600/20 transition-all uppercase tracking-[0.2em] text-sm active:scale-95">Zatwierdź w Bazie PIM</button>
+                <button type="submit" className="w-full py-6 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-sm shadow-2xl shadow-indigo-600/20 transition-all uppercase tracking-[0.2em] text-sm active:scale-95">Zatwierdź w Bazie PIM</button>
               </form>
             </div>
           </div>
@@ -1092,7 +808,7 @@ function App() {
                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Inicjalizacja Modułu PIM & Unit Economics</p>
                    </div>
                 </div>
-                <button onClick={() => setIsNewProductModalOpen(false)} className="p-6 hover:bg-white rounded-3xl transition-all text-slate-400 border border-transparent hover:border-slate-100 shadow-sm"><X className="w-8 h-8" /></button>
+                <button onClick={() => setIsNewProductModalOpen(false)} className="p-6 hover:bg-white rounded-sm transition-all text-slate-400 border border-transparent hover:border-slate-100 shadow-sm"><X className="w-8 h-8" /></button>
               </div>
               <form onSubmit={handleCreateProduct} className="p-12 space-y-12 overflow-y-auto custom-scrollbar">
                 <div className="grid grid-cols-2 gap-10">
@@ -1133,7 +849,7 @@ function App() {
                     <div><label className={labelClass}>Logistyka Out</label><input type="number" step="0.01" className={inputClass} value={newProductForm.outboundTransportCost} onChange={e => setNewProductForm({...newProductForm, outboundTransportCost: e.target.value})} /></div>
                     <div>
                       <label className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em] mb-3 block ml-2">Cena Sprzedaży Detalicznej *</label>
-                      <input required type="number" step="0.01" className="w-full px-6 py-4 bg-indigo-50 border-2 border-indigo-200 rounded-2xl outline-none font-black text-indigo-700 text-lg shadow-inner focus:ring-8 focus:ring-indigo-600/5 transition-all" value={newProductForm.salePrice} onChange={e => setNewProductForm({...newProductForm, salePrice: e.target.value})} />
+                      <input required type="number" step="0.01" className="w-full px-6 py-4 bg-indigo-50 border-2 border-indigo-200 rounded-sm outline-none font-black text-indigo-700 text-lg shadow-inner focus:ring-8 focus:ring-indigo-600/5 transition-all" value={newProductForm.salePrice} onChange={e => setNewProductForm({...newProductForm, salePrice: e.target.value})} />
                     </div>
                   </div>
                 </div>
@@ -1146,7 +862,8 @@ function App() {
           </div>
         )}
         {renderProjectDetails()}
-        {renderTaskDetails()}
+        {selectedTask && <TaskDetailsDrawer task={selectedTask} onClose={() => setSelectedTask(null)} currentUser={currentUser} users={users} tasks={tasks} socket={socket} fetchData={fetchData} token={token} API_URL={API_URL} onSelectTask={(t) => setSelectedTask(t)} />}
+        {renderCampaignDetails()}
       </>
     );
   };
@@ -1154,131 +871,127 @@ function App() {
   if (!token) return renderLogin();
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] text-slate-900 font-sans overflow-hidden">
-      {/* ENTERPRISE SIDEBAR */}
-      <aside className="w-80 bg-slate-900 flex flex-col z-[60] shadow-[10px_0_40px_rgba(0,0,0,0.1)] relative">
-        <div className="p-8 pb-12">
-          <div className="flex items-center space-x-4 mb-4">
-            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
-              <Zap className="w-7 h-7 text-white fill-white" />
+    <div className="flex flex-col h-screen bg-[#f8fafc] text-slate-900 font-sans overflow-hidden relative">
+      <header className="h-20 bg-white border-b border-slate-200/50 flex items-center justify-between px-8 z-50 shrink-0 shadow-[0_4px_20px_rgba(0,0,0,0.02)] relative">
+        <DevBadge id="H-1" />
+        <div className="flex items-center">
+          <div className="flex items-center cursor-pointer mr-12 group relative">
+            <DevBadge id="MENU-1" />
+            <div className="w-10 h-10 bg-indigo-600 rounded-[0.9rem] flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:scale-105 transition-transform">
+              <Zap className="w-5 h-5 text-white fill-white" />
             </div>
-            <div>
-              <h1 className="text-xl font-black text-white tracking-tighter leading-none">NEXUS ERP</h1>
-              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] mt-1 block">APS Workspace</span>
+            <div className="ml-4">
+              <h1 className="text-lg font-black text-slate-800 tracking-tighter leading-none mb-0.5 group-hover:text-indigo-600 transition-colors">APS IE Workspace</h1>
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em] block">Nexus Network</span>
             </div>
           </div>
-        </div>
 
-        <nav className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar">
-          <div className="px-4 mb-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Menu Systemowe</div>
-          
-          <button onClick={() => setActiveTab('kanban')} className={`w-full px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center group ${activeTab === 'kanban' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-            <Layout className={`w-5 h-5 mr-4 transition-colors ${activeTab === 'kanban' ? 'text-white' : 'text-slate-500 group-hover:text-indigo-400'}`} /> 
-            Tablica Zadań
-          </button>
-
-          <button onClick={() => setActiveTab('campaigns')} className={`w-full px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center group ${activeTab === 'campaigns' ? 'bg-white/10 text-white border border-white/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-            <Megaphone className={`w-5 h-5 mr-4 transition-colors ${activeTab === 'campaigns' ? 'text-pink-400' : 'text-slate-500 group-hover:text-pink-400'}`} /> 
-            Kampanie Marketing
-          </button>
-
-          {currentUser?.group !== 'AGENCJE' && (
-            <>
-              <button onClick={() => setActiveTab('projects')} className={`w-full px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center group ${activeTab === 'projects' ? 'bg-white/10 text-white border border-white/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                <Folder className={`w-5 h-5 mr-4 transition-colors ${activeTab === 'projects' ? 'text-emerald-400' : 'text-slate-500 group-hover:text-emerald-400'}`} /> 
-                Projekty i Jednostki
+          <nav className="hidden lg:flex items-center space-x-1 bg-slate-50/80 p-1.5 rounded-sm border border-slate-100 backdrop-blur-sm">
+            
+            {/* Ochrona zakładek na bazie modyfikatora accessibleModules zapisywanego z backendu */}
+            {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('kanban')) && (
+              <button onClick={() => setActiveTab('kanban')} className={`px-5 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center h-10 ${activeTab === 'kanban' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'}`}>
+                <Layout className={`w-4 h-4 mr-2 ${activeTab === 'kanban' ? 'text-indigo-500' : 'text-slate-400'}`} /> Tablica
               </button>
-              
-              <button onClick={() => setActiveTab('products')} className={`w-full px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center group ${activeTab === 'products' ? 'bg-white/10 text-white border border-white/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                <Hash className={`w-5 h-5 mr-4 transition-colors ${activeTab === 'products' ? 'text-orange-400' : 'text-slate-500 group-hover:text-orange-400'}`} /> 
-                Katalog SKU (PIM)
-              </button>
-
-              <button onClick={() => setActiveTab('chat')} className={`w-full px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center group relative ${activeTab === 'chat' ? 'bg-white/10 text-white border border-white/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                <MessageCircle className={`w-5 h-5 mr-4 transition-colors ${activeTab === 'chat' ? 'text-indigo-400' : 'text-slate-500 group-hover:text-indigo-400'}`} /> 
-                Komunikator
-                {unreadDMs.total > 0 && <span className="ml-auto bg-red-600 text-white text-[10px] font-black h-5 w-5 rounded-full flex items-center justify-center animate-pulse">{unreadDMs.total}</span>}
-              </button>
-            </>
-          )}
-
-          {currentUser?.role === 'ADMIN' && (
-            <div className="pt-8">
-              <div className="px-4 mb-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Administracja</div>
-              <button onClick={() => setActiveTab('admin')} className={`w-full px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center group ${activeTab === 'admin' ? 'bg-white/10 text-white border border-white/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                <Settings className={`w-5 h-5 mr-4 transition-colors ${activeTab === 'admin' ? 'text-white' : 'text-slate-500 group-hover:text-white'}`} /> 
-                Ustawienia Master
-              </button>
-            </div>
-          )}
-        </nav>
-
-        <div className="p-6 mt-auto">
-          <div className="bg-slate-800/50 rounded-[2rem] p-4 border border-slate-700/50">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-[10px] font-black text-white shadow-inner">{getInitials(currentUser?.name)}</div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-[10px] font-black text-white truncate leading-none">{currentUser?.name}</span>
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1 truncate">{currentUser?.department}</span>
-              </div>
-            </div>
-            <button onClick={handleLogout} className="w-full mt-4 py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">Wyloguj</button>
-          </div>
-        </div>
-      </aside>
-
-      {/* MAIN CONTENT AREA */}
-      <main className="flex-1 flex flex-col min-w-0 relative">
-        <header className="h-24 sticky top-0 flex items-center justify-between px-10 bg-white/70 backdrop-blur-xl border-b border-slate-200/50 z-50">
-          <div className="flex items-center space-x-6">
-            <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">
-              {activeTab === 'kanban' && 'Tablica Zadań'}
-              {activeTab === 'campaigns' && 'Kampanie Marketingowe'}
-              {activeTab === 'projects' && 'Zarządzanie Projektami'}
-              {activeTab === 'products' && 'Katalog Produktów SKU'}
-              {activeTab === 'chat' && 'Centrum Komunikacji'}
-              {activeTab === 'admin' && 'Panel Administratora Systemu'}
-            </h2>
-          </div>
-
-          <div className="flex items-center space-x-6">
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 transition-colors group-focus-within:text-indigo-600" />
-              <input type="text" placeholder="Szukaj w Nexus..." className="pl-12 pr-6 py-3 bg-slate-100 border-none rounded-2xl text-xs font-bold focus:ring-2 focus:ring-indigo-600/20 w-64 transition-all" />
-            </div>
-
-            <button onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) fetchData(); }} className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-2xl transition-all relative border border-transparent">
-              <Bell className="w-6 h-6" />
-              {notifications.some(n => !n.isRead) && <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
-            </button>
-
-            {showNotifications && (
-              <div className="absolute right-10 top-24 w-96 bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-slate-100 z-[100] overflow-hidden">
-                <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center"><h4 className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-800">Powiadomienia</h4><button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-slate-800"><X className="w-5 h-5"/></button></div>
-                <div className="max-h-[30rem] overflow-y-auto custom-scrollbar">
-                  {notifications.length === 0 ? <div className="p-10 text-center text-slate-400 font-bold text-xs italic">Brak nowych powiadomień</div> : notifications.map(n => (
-                    <div key={n.id} onClick={() => handleNotificationClick(n)} className={`p-6 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-all ${n.isRead ? 'opacity-50' : ''}`}>
-                      <div className="flex items-center mb-1">
-                        <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{n.title}</span>
-                      </div>
-                      <p className="text-xs text-slate-500 font-bold leading-relaxed">{n.message}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
             )}
-          </div>
-        </header>
 
-        <div className="flex-1 overflow-hidden relative">
-          {activeTab === 'kanban' && renderKanban()}
-          {activeTab === 'campaigns' && renderCampaigns()}
-          {activeTab === 'projects' && renderProjectsView()}
-          {activeTab === 'products' && renderProducts()}
-          {activeTab === 'chat' && renderChatInterface()}
-          {activeTab === 'admin' && renderAdminPanel()}
+            {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('campaigns')) && (
+              <button onClick={() => setActiveTab('campaigns')} className={`px-5 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center h-10 ${activeTab === 'campaigns' ? 'bg-white text-pink-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'}`}>
+                 <Megaphone className={`w-4 h-4 mr-2 ${activeTab === 'campaigns' ? 'text-pink-500' : 'text-slate-400'}`} /> Kampanie
+              </button>
+            )}
+
+            {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('projects')) && (
+              <button onClick={() => setActiveTab('projects')} className={`px-5 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center h-10 ${activeTab === 'projects' ? 'bg-white text-emerald-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'}`}>
+                <Folder className={`w-4 h-4 mr-2 ${activeTab === 'projects' ? 'text-emerald-500' : 'text-slate-400'}`} /> Projekty
+              </button>
+            )}
+
+            {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('products')) && (
+              <button onClick={() => setActiveTab('products')} className={`px-5 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center h-10 ${activeTab === 'products' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'}`}>
+                <Hash className={`w-4 h-4 mr-2 ${activeTab === 'products' ? 'text-orange-500' : 'text-slate-400'}`} /> Katalog (PIM)
+              </button>
+            )}
+
+            {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('chat')) && (
+              <button onClick={() => setActiveTab('chat')} className={`px-5 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center h-10 relative ${activeTab === 'chat' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'}`}>
+                <MessageCircle className={`w-4 h-4 mr-2 ${activeTab === 'chat' ? 'text-indigo-500' : 'text-slate-400'}`} /> Komunikator
+                {unreadDMs.total > 0 && <span className="absolute top-1 right-1 bg-red-500 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center animate-pulse">{unreadDMs.total}</span>}
+              </button>
+            )}
+
+            {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('admin')) && (
+              <button onClick={() => setActiveTab('admin')} className={`px-5 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center h-10 ${activeTab === 'admin' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'}`}>
+                <Settings className={`w-4 h-4 mr-2 ${activeTab === 'admin' ? 'text-slate-300' : 'text-slate-400'}`} /> Admin Panel
+              </button>
+            )}
+          </nav>
         </div>
+
+        <div className="flex items-center space-x-5">
+          <div className="relative group hidden xl:block">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 transition-colors group-focus-within:text-indigo-600" />
+            <input type="text" placeholder="Globalne wyszukiwanie..." className="pl-12 pr-6 py-2.5 bg-slate-50 border border-slate-100 rounded-[1rem] text-[11px] font-bold focus:ring-4 focus:ring-indigo-600/10 focus:border-indigo-300 w-56 transition-all outline-none" />
+          </div>
+
+          <button onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) fetchData(); }} className="relative p-3 bg-slate-50 border border-slate-100 rounded-[1rem] text-slate-500 hover:text-indigo-600 hover:bg-white transition-all">
+             <Bell className="w-5 h-5" />
+             {notifications.some(n => !n.isRead) && <span className="absolute top-0 right-0 w-3 h-3 bg-rose-500 rounded-full border-2 border-white translate-x-1 -translate-y-1 shadow-md"></span>}
+          </button>
+          
+          <div className="w-px h-8 bg-slate-200 mx-2"></div>
+          
+          <div className="flex items-center cursor-pointer group px-2">
+             <div className={`w-10 h-10 rounded-sm flex items-center justify-center text-[10px] font-black group-hover:-translate-y-0.5 transition-transform ${getDepartmentColor(currentUser?.department)}`}>{getInitials(currentUser?.name)}</div>
+             <div className="hidden lg:block ml-4">
+               <div className="text-[11px] font-black text-slate-900 uppercase tracking-tight leading-none mb-1">{currentUser?.name}</div>
+               <div className="text-[8px] font-black text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2 py-0.5 rounded-md inline-flex border border-indigo-100/50">{currentUser?.department || 'System'}</div>
+             </div>
+          </div>
+          
+          <button onClick={handleLogout} className="text-[10px] font-black text-slate-400 hover:text-rose-600 uppercase tracking-widest transition-colors mx-3">Wyloguj</button>
+          
+          <button onClick={() => setIsNewTaskModalOpen(true)} className="ml-2 px-6 py-3 bg-indigo-600 text-white rounded-[1.25rem] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-indigo-500 active:scale-95 transition-all shadow-[0_8px_25px_rgba(79,70,229,0.3)] flex items-center">
+             <Plus className="w-4 h-4 mr-2" /> Zadanie
+          </button>
+        </div>
+      </header>
+
+      {showNotifications && (
+        <div className="absolute right-32 top-24 w-96 bg-white rounded-sm shadow-[0_40px_100px_rgba(0,0,0,0.15)] border border-slate-200 z-[100] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="p-6 border-b border-slate-100 bg-[#f8fafc] flex justify-between items-center"><h4 className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-800">Powiadomienia</h4><button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-rose-500 bg-white p-2 rounded-sm shadow-sm"><X className="w-4 h-4"/></button></div>
+          <div className="max-h-[30rem] overflow-y-auto custom-scrollbar">
+            {notifications.length === 0 ? <div className="p-12 text-center text-slate-400 font-bold text-xs">Brak aktywnych notyfikacji</div> : notifications.map(n => (
+              <div key={n.id} onClick={() => handleNotificationClick(n)} className={`p-6 border-b border-slate-50 cursor-pointer hover:bg-indigo-50/30 transition-all ${n.isRead ? 'opacity-60' : ''}`}>
+                <div className="flex items-center mb-2">
+                  <span className={`w-2 h-2 rounded-full mr-3 ${n.isRead ? 'bg-slate-300' : 'bg-indigo-500 animate-pulse'}`}></span>
+                  <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{n.title}</span>
+                </div>
+                <p className="text-xs text-slate-500 font-bold leading-relaxed ml-5">{n.message}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* RENDEROWANIE WIDOKÓW */}
+      <main className="flex-1 min-h-0 bg-[#f8fafc] flex flex-col relative w-full overflow-hidden">
+          {activeTab === 'kanban' && <KanbanView tasks={tasks} projects={projects} campaigns={campaigns} selectedFilterId={selectedFilterId} setSelectedFilterId={setSelectedFilterId} setIsNewTaskModalOpen={setIsNewTaskModalOpen} setSelectedTask={setSelectedTask} devMode={devMode} />}
+          {activeTab === 'campaigns' && <CampaignsView campaigns={campaigns} brands={brands} timelineRange={timelineRange} setTimelineRange={setTimelineRange} setSelectedCampaign={setSelectedCampaign} devMode={devMode} />}
+          {activeTab === 'projects' && <ProjectsView projects={projects} tasks={tasks} currentUser={currentUser} setIsNewProjectModalOpen={setIsNewProjectModalOpen} setSelectedProject={setSelectedProject} devMode={devMode} />}
+          {activeTab === 'products' && <ProductsView products={products} currentUser={currentUser} setIsNewBrandModalOpen={setIsNewBrandModalOpen} setIsNewProductModalOpen={setIsNewProductModalOpen} />}
+          {activeTab === 'chat' && renderChatInterface()}
+          {activeTab === 'admin' && <AdminPanelView users={users} setIsNewUserModalOpen={setIsNewUserModalOpen} setEditingUser={setEditingUser} setIsUserEditModalOpen={setIsUserEditModalOpen} token={token} API_URL={API_URL} />}
       </main>
+
+      {/* DEV MAP TRIGGER BUTTON */}
+      <button 
+        onClick={() => setDevMode(!devMode)} 
+        className={`fixed bottom-8 right-8 z-[9000] rounded-full p-4 shadow-2xl transition-all ${devMode ? 'bg-fuchsia-600 text-white animate-pulse' : 'bg-slate-900 opacity-30 hover:opacity-100 text-white'}`}
+        title="Przełącz Widok Deweloperski (DEV MAP)"
+      >
+        <Layout className="w-5 h-5" />
+      </button>
 
       {renderModals()}
     </div>

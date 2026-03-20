@@ -1,0 +1,142 @@
+    } catch (err) {}
+    } catch (err) { alert('B┼é─ůd logowania'); }
+  const renderCampaigns = () => (
+    <div className="flex-1 flex flex-col p-10 bg-[#f8fafc] min-h-0 overflow-hidden">
+      <div className="flex items-center justify-between mb-10 shrink-0">
+        <div>
+          <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Kampanie Marketingowe</h2>
+          <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-1">Planowanie Strategiczne i Performance</p>
+      </div>
+      <div className="space-y-8 overflow-y-auto custom-scrollbar pr-4 pb-12">
+        {campaigns.map(c => {
+          const campaignTasks = tasks.filter(t => t.campaignId === c.id);
+          return (
+            <div key={c.id} className="bg-white rounded-[3rem] border border-slate-100 p-10 shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_80px_rgba(0,0,0,0.1)] transition-all relative overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-10 group">
+              <div className={`absolute top-0 left-0 w-full h-2 ${c.color} shadow-lg`}></div>
+              
+              <div className="flex-1 max-w-2xl">
+                <div className={`inline-flex items-center px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] mb-4 ${c.status === 'ACTIVE' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'}`}>
+                  {c.status === 'ACTIVE' ? 'KAMPANIA AKTYWNA' : 'PLANOWANIE'}
+                <h3 className="text-2xl font-black text-slate-800 mb-3 uppercase tracking-tight group-hover:text-pink-600 transition-colors">{c.name}</h3>
+                <p className="text-sm text-slate-500 font-bold leading-relaxed opacity-70 group-hover:opacity-100 transition-opacity">{c.description}</p>
+              <div className="flex items-center space-x-12 shrink-0 bg-slate-50/50 p-8 rounded-[2.5rem] border border-slate-100">
+                <div className="text-center">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Zasoby / Zadania</div>
+                  <div className="text-3xl font-black text-slate-900 tabular-nums">{campaignTasks.length}</div>
+                </div>
+                
+                <div className="h-12 w-px bg-slate-200"></div>
+                <div className="text-center">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Post─Öp</div>
+                  <div className="flex items-center space-x-2">
+                     <span className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse shadow-lg shadow-emerald-500/20"></span>
+                     <span className="text-[11px] font-black text-slate-900 uppercase">Live Metrics</span>
+                  </div>
+                </div>
+                <button onClick={() => { setSelectedFilterId(c.id); setActiveTab('kanban'); }} className="p-5 bg-slate-900 text-white rounded-[1.5rem] hover:bg-slate-800 transition-all shadow-2xl hover:scale-110 active:scale-95 group-hover:bg-pink-600">
+                  <ArrowRight className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+    </div>
+  );
+    <div className="flex h-screen bg-[#f8fafc] text-slate-900 font-sans overflow-hidden">
+      {/* ENTERPRISE SIDEBAR */}
+      <aside className="w-80 bg-slate-900 flex flex-col z-[60] shadow-[10px_0_40px_rgba(0,0,0,0.1)] relative">
+        <div className="p-8 pb-12">
+          <div className="flex items-center space-x-4 mb-4">
+            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+              <Zap className="w-7 h-7 text-white fill-white" />
+            <div>
+              <h1 className="text-xl font-black text-white tracking-tighter leading-none">NEXUS ERP</h1>
+              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] mt-1 block">APS Workspace</span>
+        </div>
+        <nav className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar">
+          <div className="px-4 mb-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Menu Systemowe</div>
+          
+          <button onClick={() => setActiveTab('kanban')} className={`w-full px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center group ${activeTab === 'kanban' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <Layout className={`w-5 h-5 mr-4 transition-colors ${activeTab === 'kanban' ? 'text-white' : 'text-slate-500 group-hover:text-indigo-400'}`} /> 
+            Tablica Zada┼ä
+          </button>
+          <button onClick={() => setActiveTab('campaigns')} className={`w-full px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center group ${activeTab === 'campaigns' ? 'bg-white/10 text-white border border-white/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <Megaphone className={`w-5 h-5 mr-4 transition-colors ${activeTab === 'campaigns' ? 'text-pink-400' : 'text-slate-500 group-hover:text-pink-400'}`} /> 
+            Kampanie Marketing
+          </button>
+          {currentUser?.group !== 'AGENCJE' && (
+            <>
+              <button onClick={() => setActiveTab('projects')} className={`w-full px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center group ${activeTab === 'projects' ? 'bg-white/10 text-white border border-white/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                <Folder className={`w-5 h-5 mr-4 transition-colors ${activeTab === 'projects' ? 'text-emerald-400' : 'text-slate-500 group-hover:text-emerald-400'}`} /> 
+                Projekty i Jednostki
+              </button>
+              
+              <button onClick={() => setActiveTab('products')} className={`w-full px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center group ${activeTab === 'products' ? 'bg-white/10 text-white border border-white/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                <Hash className={`w-5 h-5 mr-4 transition-colors ${activeTab === 'products' ? 'text-orange-400' : 'text-slate-500 group-hover:text-orange-400'}`} /> 
+                Katalog SKU (PIM)
+              </button>
+              <button onClick={() => setActiveTab('chat')} className={`w-full px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center group relative ${activeTab === 'chat' ? 'bg-white/10 text-white border border-white/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                <MessageCircle className={`w-5 h-5 mr-4 transition-colors ${activeTab === 'chat' ? 'text-indigo-400' : 'text-slate-500 group-hover:text-indigo-400'}`} /> 
+                Komunikator
+                {unreadDMs.total > 0 && <span className="ml-auto bg-red-600 text-white text-[10px] font-black h-5 w-5 rounded-full flex items-center justify-center animate-pulse">{unreadDMs.total}</span>}
+              </button>
+            </>
+          )}
+          {currentUser?.role === 'ADMIN' && (
+            <div className="pt-8">
+              <div className="px-4 mb-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Administracja</div>
+              <button onClick={() => setActiveTab('admin')} className={`w-full px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center group ${activeTab === 'admin' ? 'bg-white/10 text-white border border-white/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                <Settings className={`w-5 h-5 mr-4 transition-colors ${activeTab === 'admin' ? 'text-white' : 'text-slate-500 group-hover:text-white'}`} /> 
+                Ustawienia Master
+            </div>
+          )}
+        </nav>
+        <div className="p-6 mt-auto">
+          <div className="bg-slate-800/50 rounded-[2rem] p-4 border border-slate-700/50">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-[10px] font-black text-white shadow-inner">{getInitials(currentUser?.name)}</div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[10px] font-black text-white truncate leading-none">{currentUser?.name}</span>
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1 truncate">{currentUser?.department}</span>
+              </div>
+            </div>
+            <button onClick={handleLogout} className="w-full mt-4 py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">Wyloguj</button>
+          </div>
+      </aside>
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 flex flex-col min-w-0 relative">
+        <header className="h-24 sticky top-0 flex items-center justify-between px-10 bg-white/70 backdrop-blur-xl border-b border-slate-200/50 z-50">
+          <div className="flex items-center space-x-6">
+            <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">
+              {activeTab === 'kanban' && 'Tablica Zada┼ä'}
+              {activeTab === 'campaigns' && 'Kampanie Marketingowe'}
+              {activeTab === 'projects' && 'Zarz─ůdzanie Projektami'}
+              {activeTab === 'products' && 'Katalog Produkt├│w SKU'}
+              {activeTab === 'chat' && 'Centrum Komunikacji'}
+              {activeTab === 'admin' && 'Panel Administratora Systemu'}
+            </h2>
+          <div className="flex items-center space-x-6">
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 transition-colors group-focus-within:text-indigo-600" />
+              <input type="text" placeholder="Szukaj w Nexus..." className="pl-12 pr-6 py-3 bg-slate-100 border-none rounded-2xl text-xs font-bold focus:ring-2 focus:ring-indigo-600/20 w-64 transition-all" />
+            </div>
+            <button onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) fetchData(); }} className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-2xl transition-all relative border border-transparent">
+              <Bell className="w-6 h-6" />
+              {notifications.some(n => !n.isRead) && <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
+            </button>
+            {showNotifications && (
+              <div className="absolute right-10 top-24 w-96 bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-slate-100 z-[100] overflow-hidden">
+                <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center"><h4 className="font-black text-[10px] uppercase tracking-[0.2em] text-slate-800">Powiadomienia</h4><button onClick={() => setShowNotifications(false)} className="text-slate-400 hover:text-slate-800"><X className="w-5 h-5"/></button></div>
+                <div className="max-h-[30rem] overflow-y-auto custom-scrollbar">
+                  {notifications.length === 0 ? <div className="p-10 text-center text-slate-400 font-bold text-xs italic">Brak nowych powiadomie┼ä</div> : notifications.map(n => (
+                    <div key={n.id} onClick={() => handleNotificationClick(n)} className={`p-6 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-all ${n.isRead ? 'opacity-50' : ''}`}>
+                      <div className="flex items-center mb-1">
+                        <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{n.title}</span>
+                      </div>
+                      <p className="text-xs text-slate-500 font-bold leading-relaxed">{n.message}</p>
+                    </div>
+                  ))}
+            )}
+        </header>
+        <div className="flex-1 overflow-hidden relative">
+        </div>

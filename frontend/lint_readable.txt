@@ -1,0 +1,89 @@
+
+--- Z:\Nexus_ERP_Project\frontend\src\App.jsx ---
+Line 41: 'selectedProject' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 42: 'selectedCampaign' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 42: 'setSelectedCampaign' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 45: 'isNewProjectModalOpen' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 46: 'isNewProductModalOpen' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 47: 'isNewBrandModalOpen' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 48: 'isUserEditModalOpen' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 49: 'editingUser' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 52: 'setNewTaskForm' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 63: 'taskComments' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 63: 'setTaskComments' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 64: 'newCommentText' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 64: 'setNewCommentText' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 65: 'isUploading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 65: 'setIsUploading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 66: 'isBlockingMode' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 66: 'setIsBlockingMode' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 67: 'blockReason' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 67: 'setBlockReason' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 70: 'fileInputRef' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 75: Error: Cannot access variable before it is declared
+
+`fetchData` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+  73 |   useEffect(() => {
+  74 |     if (token) {
+> 75 |       fetchData();
+     |       ^^^^^^^^^ `fetchData` accessed before it is declared
+  76 |       fetchTasks();
+  77 |     }
+  78 |   }, [token, fetchTasks]);
+
+   78 |   }, [token, fetchTasks]);
+   79 |
+>  80 |   const fetchData = async () => {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+>  81 |     try {
+      | ^^^^^^^^^
+>  82 |       const config = { headers: { Authorization: `Bearer ${token}` } };
+      …
+      | ^^^^^^^^^
+> 100 |     }
+      | ^^^^^^^^^
+> 101 |   };
+      | ^^^^^ `fetchData` is declared here
+  102 |
+  103 |   const fetchUnreadCount = async () => {
+  104 |     try {
+Line 78: React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array.
+Line 107: 'err' is defined but never used.
+Line 107: Empty block statement.
+Line 111: 'socket' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 121: 'err' is defined but never used.
+Line 132: 'handleCreateTask' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 138: 'err' is defined but never used.
+Line 141: 'handleCreateBrand' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 146: 'err' is defined but never used.
+Line 149: 'handleCreateProduct' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 155: 'err' is defined but never used.
+Line 158: 'handleUpdateTaskStatus' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 162: 'err' is defined but never used.
+Line 162: Empty block statement.
+Line 197: 'inputClass' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Line 198: 'labelClass' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+--- Z:\Nexus_ERP_Project\frontend\src\auth.middleware.js ---
+Line 1: 'require' is not defined.
+Line 2: 'process' is not defined.
+Line 30: 'module' is not defined.
+--- Z:\Nexus_ERP_Project\frontend\src\useNexusEngine.js ---
+Line 11: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+   9 |
+  10 |     const newSocket = io(API_URL, { auth: { token } });
+> 11 |     setSocket(newSocket);
+     |     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  12 |     fetchData(); // Inicjalne pobranie danych po autoryzacji
+  13 |     
+  14 |     newSocket.on('receive_global_message', (msg) => {
+Line 33: React Hook useEffect has missing dependencies: 'API_URL', 'fetchData', 'fetchUnreadCount', 'setChatMessages', and 'setNotifications'. Either include them or remove the dependency array. If 'fetchData' changes too often, find the parent component that defines it and wrap that definition in useCallback.
+--- Z:\Nexus_ERP_Project\frontend\src\views\ProductsView.jsx ---
+Line 4: 'brands' is defined but never used.
