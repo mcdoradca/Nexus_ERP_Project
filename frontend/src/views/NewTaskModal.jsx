@@ -67,7 +67,7 @@ const NewTaskModal = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6 animate-in fade-in duration-300">
-      <div className="bg-white rounded-[3rem] shadow-[0_50px_100px_rgba(0,0,0,0.3)] w-full max-w-4xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[95vh]">
+      <div className="bg-white rounded-[3rem] shadow-[0_50px_100px_rgba(0,0,0,0.3)] w-full max-w-4xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[85vh] min-h-0">
         <div className="p-10 bg-[#f8fafc] border-b border-slate-100 flex justify-between items-center shrink-0">
           <div className="flex items-center">
             <div className="w-12 h-12 bg-indigo-600 rounded-sm flex items-center justify-center mr-6 shadow-xl shadow-indigo-600/30">
@@ -81,7 +81,7 @@ const NewTaskModal = ({
           <button onClick={onClose} className="p-4 hover:bg-white rounded-sm transition-all text-slate-400 border border-transparent hover:border-slate-100"><X className="w-6 h-6" /></button>
         </div>
 
-        <form onSubmit={handleCreate} className="p-10 overflow-y-auto custom-scrollbar flex-1 flex flex-col space-y-10">
+        <form onSubmit={handleCreate} className="p-10 overflow-y-auto custom-scrollbar flex-1 flex flex-col space-y-10 min-h-0">
           
           <div className="space-y-8">
             <div>

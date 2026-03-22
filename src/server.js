@@ -36,6 +36,7 @@ const campaignsRoutes = require('./modules/campaigns/campaigns.routes');
 const projectsRoutes = require('./modules/projects/projects.routes');
 const tasksRoutes = require('./modules/tasks/tasks.routes');
 const announcementsRoutes = require('./modules/announcements/announcements.routes');
+const crmRoutes = require('./modules/crm/crm.routes');
 const { registerCommunicationListeners } = require('./modules/communication/communication.listeners');
 const { registerCampaignListeners } = require('./modules/campaigns/campaigns.listeners');
 const { registerTasksListeners } = require('./modules/tasks/tasks.listeners');
@@ -88,6 +89,7 @@ app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/projects', projectsRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/announcements', announcementsRoutes);
+app.use('/api/crm', crmRoutes);
 
 // ASORTYMENT (PIM)
 app.get('/api/brands', authenticateToken, async (req, res) => {
@@ -111,6 +113,123 @@ app.get('/api/products', authenticateToken, async (req, res) => {
         const products = await prisma.product.findMany({ include: { brand: true }, orderBy: { name: 'asc' } });
         res.status(200).json(products);
     } catch (error) { res.status(500).json({ error: 'Blad' }); }
+});
+// --- System Settings API ---
+app.get('/api/settings/:key', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
+    try {
+        const setting = await prisma.systemSetting.findUnique({ where: { key: req.params.key } });
+        res.json(setting || { value: '' });
+    } catch (error) { res.status(500).json({ error: 'Błąd serwera ustawień' }); }
+});
+
+app.post('/api/settings', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
+    try {
+        const { key, value } = req.body;
+        const setting = await prisma.systemSetting.upsert({
+            where: { key },
+            update: { value },
+            create: { key, value }
+        });
+        res.json(setting);
+    } catch (error) { res.status(500).json({ error: 'Błąd serwera ustawień' }); }
+});
+
+// --- PIM API ---
+app.get('/api/products/autofill/:ean', async (req, res) => {
+    try {
+        const { ean } = req.params;
+        
+        // 0. BaseLinker Integration (PRIORYTET)
+        let blDebug = null;
+        try {
+            const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN' } });
+            if (tokenRecord && tokenRecord.value && tokenRecord.value.length > 5) {
+                // Najpierw pobierz ID pierwszego domyślnego magazynu z konta
+                const invFormData = new URLSearchParams();
+                invFormData.append('method', 'getInventories');
+                invFormData.append('parameters', JSON.stringify({}));
+                
+                const invRes = await fetch('https://api.baselinker.com/connector.php', {
+                    method: 'POST',
+                    headers: { 'X-BLToken': tokenRecord.value },
+                    body: invFormData
+                });
+                const invData = await invRes.json();
+                
+                let targetInventoryId = null;
+                if (invData.status === 'SUCCESS' && invData.inventories && invData.inventories.length > 0) {
+                    targetInventoryId = invData.inventories[0].inventory_id;
+                }
+
+                blDebug = { inventories: invData };
+
+                if (targetInventoryId !== null) {
+                    const formData = new URLSearchParams();
+                    formData.append('method', 'getInventoryProductsList');
+                    formData.append('parameters', JSON.stringify({ "inventory_id": targetInventoryId, "filter_ean": ean }));
+                    
+                    const blRes = await fetch('https://api.baselinker.com/connector.php', {
+                        method: 'POST',
+                        headers: { 'X-BLToken': tokenRecord.value },
+                        body: formData
+                    });
+                    
+                    const blData = await blRes.json();
+                    blDebug.productsFetch = blData;
+                    
+                    if (blData.status === 'SUCCESS' && blData.products && Object.keys(blData.products).length > 0) {
+                        const firstId = Object.keys(blData.products)[0];
+                        const prod = blData.products[firstId];
+                        return res.status(200).json({ name: prod.name, brand: '', sku: prod.sku || '' });
+                    }
+                }
+            }
+        } catch (blError) {
+            console.log('BaseLinker Fallback Error:', blError);
+            blDebug = { error: blError.message };
+        }
+
+        // Helper dla darmowych baz uodporniający Nexusa na pady serwerów zewnętrznych.
+        const safeFetch = async (url) => {
+            try {
+                const r = await fetch(url, { timeout: 4000 });
+                return r.ok ? await r.json() : null;
+            } catch (e) {
+                return null;
+            }
+        };
+
+        // 1. Open Beauty Facts (Kosmetyki)
+        let data = await safeFetch(`https://world.openbeautyfacts.org/api/v0/product/${ean}.json`);
+        if (data && data.status === 1 && data.product) {
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '' });
+        }
+
+        // 2. Open Food Facts (FMCG)
+        data = await safeFetch(`https://world.openfoodfacts.org/api/v0/product/${ean}.json`);
+        if (data && data.status === 1 && data.product) {
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '' });
+        }
+        
+        // 3. Open Product Facts (Inne)
+        data = await safeFetch(`https://world.openproductfacts.org/api/v0/product/${ean}.json`);
+        if (data && data.status === 1 && data.product) {
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '' });
+        }
+
+        // 4. UPC Item DB (Globalny Mix)
+        data = await safeFetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${ean}`);
+        if (data && data.code === 'OK' && data.items && data.items.length > 0) {
+            return res.status(200).json({ name: data.items[0].title || '', brand: data.items[0].brand || '' });
+        }
+
+        res.status(404).json({ error: 'Kod niezarejestrowany w żadnej 4 z darmowych baz OpenSource ani w asortymencie BaseLinkerze.', debug: blDebug });
+    } catch (error) {
+        require('fs').appendFileSync('z:\\Nexus_ERP_Project\\error_500.txt', error.stack + '\n');
+        res.status(500).json({ error: 'Błąd serwera agregatora EAN.', details: error.message });
+    }
 });
 
 app.post('/api/products', authenticateToken, async (req, res) => {

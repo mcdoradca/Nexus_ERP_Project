@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Users, Settings, Archive, RotateCcw, Search } from 'lucide-react';
+import { Plus, Users, Settings, Archive, RotateCcw, Search, CloudLightning, Save, CheckCircle2 } from 'lucide-react';
 import { getInitials, getDepartmentColor } from '../utils';
 
 const AdminPanelView = ({
@@ -11,16 +11,30 @@ const AdminPanelView = ({
   token,
   API_URL
 }) => {
-  const [activeTab, setActiveTab] = useState('USERS'); // 'USERS' | 'ARCHIVE'
+  const [activeTab, setActiveTab] = useState('USERS'); // 'USERS' | 'ARCHIVE' | 'INTEGRATIONS'
   const [archivedTasks, setArchivedTasks] = useState([]);
+  const [baseLinkerToken, setBaseLinkerToken] = useState('');
+  const [tokenSaved, setTokenSaved] = useState(false);
   
   useEffect(() => {
     if (activeTab === 'ARCHIVE') {
        axios.get(`${API_URL}/api/tasks/archive/list`, { headers: { Authorization: `Bearer ${token}` } })
          .then(res => setArchivedTasks(res.data))
          .catch(err => console.error(err));
+    } else if (activeTab === 'INTEGRATIONS') {
+       axios.get(`${API_URL}/api/settings/BASELINKER_TOKEN`, { headers: { Authorization: `Bearer ${token}` } })
+         .then(res => setBaseLinkerToken(res.data.value || ''))
+         .catch(err => console.error(err));
     }
   }, [activeTab, API_URL, token]);
+
+  const handleSaveToken = async () => {
+     try {
+        await axios.post(`${API_URL}/api/settings`, { key: 'BASELINKER_TOKEN', value: baseLinkerToken }, { headers: { Authorization: `Bearer ${token}` } });
+        setTokenSaved(true);
+        setTimeout(() => setTokenSaved(false), 3000);
+     } catch (err) { alert('Błąd synchronizacji integracji'); }
+  };
 
   const handleRestore = async (taskId) => {
      try {
@@ -50,6 +64,9 @@ const AdminPanelView = ({
          <button onClick={() => setActiveTab('ARCHIVE')} className={`px-6 py-3 rounded-sm text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center shadow-sm ${activeTab === 'ARCHIVE' ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`}>
             <Archive className="w-4 h-4 mr-2" /> Archiwum Zadań
          </button>
+         <button onClick={() => setActiveTab('INTEGRATIONS')} className={`px-6 py-3 rounded-sm text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center shadow-sm ${activeTab === 'INTEGRATIONS' ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`}>
+            <CloudLightning className="w-4 h-4 mr-2" /> Integracje API
+         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
@@ -57,10 +74,14 @@ const AdminPanelView = ({
           <div className="p-8 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center sticky top-0 z-10 backdrop-blur-md">
             <div className="flex items-center">
               <div className="w-12 h-12 bg-slate-900 rounded-[1.25rem] flex items-center justify-center mr-5 shadow-xl shadow-slate-900/20">
-                {activeTab === 'USERS' ? <Users className="w-5 h-5 text-white"/> : <Archive className="w-5 h-5 text-emerald-400" />}
+                {activeTab === 'USERS' && <Users className="w-5 h-5 text-white"/>}
+                {activeTab === 'ARCHIVE' && <Archive className="w-5 h-5 text-emerald-400" />}
+                {activeTab === 'INTEGRATIONS' && <CloudLightning className="w-5 h-5 text-fuchsia-400" />}
               </div>
               <h3 className="text-xs font-black text-slate-800 uppercase tracking-[0.25em]">
-                {activeTab === 'USERS' ? 'Kadra Pracownicza i Uprawnienia' : 'Globalne Repozytorium Historycznych Zadań'}
+                {activeTab === 'USERS' && 'Kadra Pracownicza i Uprawnienia'}
+                {activeTab === 'ARCHIVE' && 'Globalne Repozytorium Historycznych Zadań'}
+                {activeTab === 'INTEGRATIONS' && 'Skarbiec Kluczy Autoryzacyjnych API'}
               </h3>
             </div>
           </div>
@@ -122,7 +143,7 @@ const AdminPanelView = ({
                 ))}
               </tbody>
             </table>
-            ) : (
+            ) : activeTab === 'ARCHIVE' ? (
                 <table className="w-full text-left whitespace-nowrap">
                   <thead className="bg-slate-50/80 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
                     <tr>
@@ -167,7 +188,41 @@ const AdminPanelView = ({
                     )}
                   </tbody>
                 </table>
-            )}
+            ) : activeTab === 'INTEGRATIONS' ? (
+                <div className="p-12">
+                   <div className="max-w-3xl bg-white border border-slate-100 rounded-[2rem] p-10 shadow-[0_15px_40px_rgba(0,0,0,0.03)] focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all">
+                      <div className="flex items-center mb-8">
+                         <div className="w-16 h-16 bg-blue-50 rounded-[1.5rem] flex items-center justify-center mr-6 border border-blue-100">
+                            <CloudLightning className="w-8 h-8 text-blue-600 drop-shadow-sm" />
+                         </div>
+                         <div>
+                            <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Połączenie BaseLinker</h4>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Główny Token Personalny / X-BLToken</p>
+                         </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                         <p className="text-xs text-slate-500 font-bold mb-6">Wklej tutaj swój wygenerowany BaseLinker Token. Umożliwi on systemowi Nexus autoryzowane odpytywanie Twojego prywatnego magazynu celem pobierania EAN'ów oraz nazw asortymentu w module PIM.</p>
+                         
+                         <div className="flex space-x-4">
+                            <input 
+                               type="password" 
+                               placeholder="1000000-xxxx-xxxx-xxxx-xxxxxxxxxxxx" 
+                               className="flex-1 px-6 py-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono text-slate-900 focus:border-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-300"
+                               value={baseLinkerToken}
+                               onChange={(e) => setBaseLinkerToken(e.target.value)}
+                            />
+                            <button 
+                               onClick={handleSaveToken} 
+                               className="px-8 py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 shadow-xl shadow-slate-900/10 transition-all active:scale-95 flex items-center hover:shadow-indigo-500/20"
+                            >
+                               {tokenSaved ? <><CheckCircle2 className="w-4 h-4 mr-2 text-emerald-400"/> Zapisano</> : <><Save className="w-4 h-4 mr-2"/> Zapisz Klucz</>}
+                            </button>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+            ) : null}
           </div>
         </div>
       </div>

@@ -122,7 +122,7 @@ const NewCampaignModal = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6 animate-in fade-in duration-300">
-      <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[85vh] min-h-0">
         
         {/* Header */}
         <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-[#f8fafc] shrink-0">
@@ -137,11 +137,11 @@ const NewCampaignModal = ({
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Zdefiniuj Ramy Czasowe i Budżet Projektu</p>
               </div>
            </div>
-           <button onClick={onClose} className="p-4 hover:bg-white rounded-sm transition-all text-slate-400"><X className="w-6 h-6" /></button>
+           <button type="button" onClick={onClose} className="p-4 hover:bg-white rounded-sm transition-all text-slate-400"><X className="w-6 h-6" /></button>
         </div>
 
         {/* Body */}
-        <form onSubmit={handleCreateOrUpdate} className="p-10 space-y-8 overflow-y-auto custom-scrollbar flex-1">
+        <form onSubmit={handleCreateOrUpdate} className="p-10 space-y-8 overflow-y-auto custom-scrollbar flex-1 min-h-0">
           
           <div className="grid grid-cols-2 gap-8">
             <div className="col-span-2">

@@ -10,10 +10,11 @@ import CampaignDetailsModal from './views/CampaignDetailsModal';
 import ProductsView from './views/ProductsView';
 import AdminPanelView from './views/AdminPanelView';
 import MToolView from './views/MToolView';
+import CrmView from './views/CrmView';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { 
-  Plus, Layout, Settings, Folder, Hash, MessageCircle, Megaphone, 
+  Building2, Plus, Layout, Settings, Folder, Hash, MessageCircle, Megaphone, 
   Bell, X, Search, ChevronRight, Clock, ShieldAlert, AlertOctagon, 
   PlayCircle, StopCircle, Cloud, CloudLightning, Target, Zap, 
   Loader2, Paperclip, Send, Users, User, DollarSign, ArrowRight, CheckCircle2,
@@ -48,6 +49,7 @@ function App() {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [isNewBrandModalOpen, setIsNewBrandModalOpen] = useState(false);
   const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false);
+  const [autofillEanLoading, setAutofillEanLoading] = useState(false);
   const [isNewCampaignModalOpen, setIsNewCampaignModalOpen] = useState(false);
   const [campaignForEdit, setCampaignForEdit] = useState(null); // FAZA 17
   const [timelineRange, setTimelineRange] = useState('4_WEEKS');
@@ -182,6 +184,24 @@ function App() {
     } catch (err) { alert('Błąd tworzenia marki'); }
   };
 
+  const handleAutofillEAN = async () => {
+    if (!newProductForm.ean) return alert('Zeskanuj lub wpisz kod EAN do wyszukania.');
+    setAutofillEanLoading(true);
+    try {
+      const res = await axios.get(`${API_URL}/api/products/autofill/${newProductForm.ean}`, { headers: { Authorization: `Bearer ${token}` } });
+      setNewProductForm({
+        ...newProductForm,
+        name: res.data.name || newProductForm.name
+      });
+    } catch (err) {
+      const debugInfo = err.response?.data?.debug;
+      console.log('--- BASELINKER DEBUG INFO ---', debugInfo);
+      alert(`Brak EAN w bazach lub BaseLinker odmówił dostępu.\nSprawdź konsolę (F12) by zobaczyć co odpowiedział serwer bazy!`);
+    } finally {
+      setAutofillEanLoading(false);
+    }
+  };
+
   const handleCreateProduct = async (e) => {
     e.preventDefault();
     try {
@@ -209,6 +229,9 @@ function App() {
     if (!editingUser) return;
     try {
       await axios.patch(`${API_URL}/api/users/${editingUser.id}`, {
+        name: editingUser.name,
+        email: editingUser.email,
+        password: editingUser.password,
         role: editingUser.role,
         group: editingUser.group,
         department: editingUser.department,
@@ -604,7 +627,8 @@ function App() {
     const ALL_MODULES = [
       { id: 'kanban', label: 'Tablica Wydarzeń (Zadania)' },
       { id: 'campaigns', label: 'Centrum Kampanii' },
-      { id: 'mtool', label: 'Harmonogram SMI (MTool)' },
+      { id: 'mtool', label: 'Narzędzia MTool' },
+      { id: 'crm', label: 'Katalog Firm (CRM)' },
       { id: 'projects', label: 'Projekty' },
       { id: 'products', label: 'Katalog SKU (PIM)' },
       { id: 'chat', label: 'Komunikator' },
@@ -616,20 +640,20 @@ function App() {
         {/* Rejestracja Nowego Operatora (Z Hasłem) */}
         {isNewUserModalOpen && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[90vh]">
+            <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[85vh] min-h-0">
               <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-[#f8fafc] shrink-0">
                  <div className="flex items-center">
                     <div className="w-12 h-12 bg-emerald-500 rounded-sm flex items-center justify-center mr-6 shadow-xl shadow-emerald-200">
                        <Plus className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Rejestracja Operatora</h3>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Stwórz nowy profil dostępu i wyznacz hasło</p>
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Załóż Nowy Pomyślnie</h3>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Stwórz nowy profil dostępowy.</p>
                     </div>
                  </div>
                  <button onClick={() => setIsNewUserModalOpen(false)} className="p-4 hover:bg-white rounded-sm transition-all text-slate-400"><X className="w-6 h-6" /></button>
               </div>
-              <form onSubmit={handleCreateUser} className="p-10 space-y-8 overflow-y-auto custom-scrollbar">
+              <form onSubmit={handleCreateUser} className="p-10 space-y-8 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <label className={labelClass}>Imię i Nazwisko / Login</label>
@@ -691,8 +715,8 @@ function App() {
         {/* Edycja Użytkownika (Admin) */}
         {isUserEditModalOpen && editingUser && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-500">
-              <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-[#f8fafc]">
+            <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[85vh] min-h-0">
+              <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-[#f8fafc] shrink-0">
                  <div className="flex items-center">
                     <div className="w-12 h-12 bg-indigo-600 rounded-sm flex items-center justify-center mr-6 shadow-xl shadow-indigo-200">
                        <Settings className="w-6 h-6 text-white" />
@@ -702,9 +726,25 @@ function App() {
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{editingUser.email}</p>
                     </div>
                  </div>
-                 <button onClick={() => {setIsUserEditModalOpen(false); setEditingUser(null);}} className="p-4 hover:bg-white rounded-sm transition-all text-slate-400"><X className="w-6 h-6" /></button>
+                 <button type="button" onClick={() => {setIsUserEditModalOpen(false); setEditingUser(null);}} className="p-4 hover:bg-white rounded-sm transition-all text-slate-400"><X className="w-6 h-6" /></button>
               </div>
-              <form onSubmit={handleUpdateUser} className="p-10 space-y-8">
+              <form onSubmit={handleUpdateUser} className="p-10 space-y-8 overflow-y-auto custom-scrollbar flex-1 min-h-0">
+                <div className="p-6 bg-indigo-50/50 border border-indigo-100 rounded-xl space-y-4">
+                  <h4 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-2">Dane Autoryzacyjne Pracownika</h4>
+                  <div>
+                    <label className={labelClass}>Imię i Nazwisko</label>
+                    <input type="text" required className={inputClass} value={editingUser.name || ''} onChange={e => setEditingUser({...editingUser, name: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Służbowy Adres E-mail</label>
+                    <input type="email" required className={inputClass} value={editingUser.email || ''} onChange={e => setEditingUser({...editingUser, email: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Nowe Hasło (Pole Zabezpieczone)</label>
+                    <input type="password" placeholder="...zostaw rygorystycznie puste wyłączając procedurę ratunkową zmiany hasła" className={`${inputClass} !bg-white focus:!border-rose-300 focus:!ring-rose-500/20`} value={editingUser.password || ''} onChange={e => setEditingUser({...editingUser, password: e.target.value})} />
+                  </div>
+                </div>
+
                 <div>
                   <label className={labelClass}>Rola Systemowa</label>
                   <select required className={inputClass} value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value})}>
@@ -816,28 +856,37 @@ function App() {
         {/* Nowy Produkt (PIM) */}
         {isNewProductModalOpen && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[4rem] shadow-[0_50px_150px_rgba(0,0,0,0.4)] w-full max-w-4xl overflow-hidden animate-in zoom-in duration-700 max-h-[90vh] flex flex-col relative">
-              <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-[#f8fafc] shrink-0">
-                <div className="flex items-center">
-                   <div className="w-16 h-16 bg-slate-900 rounded-[1.5rem] flex items-center justify-center mr-8 shadow-2xl shadow-black/20">
-                      <Hash className="w-8 h-8 text-white" />
+            <div className="bg-white rounded-[4rem] shadow-[0_50px_150px_rgba(0,0,0,0.4)] w-full max-w-4xl overflow-hidden animate-in zoom-in duration-700 max-h-[85vh] flex flex-col relative min-h-0">
+               <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-fuchsia-500 via-indigo-500 to-emerald-500"></div>
+               <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-[#f8fafc] shrink-0">
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-slate-900 rounded-[1rem] flex items-center justify-center mr-6">
+                      <Hash className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Rejestr Nowego Produktu</h3>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Zdefiniuj Kartotekę PIM (Ceny, Cło, Parametry BDO)</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setIsNewProductModalOpen(false)} className="p-4 hover:bg-slate-900 rounded-[1.5rem] transition-all text-slate-400 hover:text-white"><X className="w-6 h-6" /></button>
+               </div>
+              <form onSubmit={handleCreateProduct} className="p-12 space-y-12 overflow-y-auto custom-scrollbar flex-1 min-h-0">
+                
+                {/* Moduł API EAN */}
+                <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-sm mb-6 flex items-end justify-between">
+                   <div className="w-[60%]">
+                     <label className="text-[10px] font-black text-indigo-800 uppercase tracking-widest mb-2 flex items-center"><CloudLightning className="w-4 h-4 mr-2"/> Automatyka Globalnej Sieci (EAN)</label>
+                     <input type="text" placeholder="Zeskanuj kod kreskowy tu..." className="w-full px-4 py-3 bg-white border border-blue-200 rounded-sm text-sm font-bold text-slate-800 focus:border-indigo-500 outline-none font-mono tracking-widest" value={newProductForm.ean} onChange={e => setNewProductForm({...newProductForm, ean: e.target.value})} />
                    </div>
-                   <div>
-                     <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Nowa Karta Produktu SKU</h3>
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Inicjalizacja Modułu PIM & Unit Economics</p>
-                   </div>
+                   <button type="button" onClick={handleAutofillEAN} disabled={autofillEanLoading} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest rounded-sm shadow-md transition-all flex items-center">
+                     {autofillEanLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Search className="w-4 h-4 mr-2"/> } {autofillEanLoading ? 'Szukam...' : 'Interpoluj EAN'}
+                   </button>
                 </div>
-                <button onClick={() => setIsNewProductModalOpen(false)} className="p-6 hover:bg-white rounded-sm transition-all text-slate-400 border border-transparent hover:border-slate-100 shadow-sm"><X className="w-8 h-8" /></button>
-              </div>
-              <form onSubmit={handleCreateProduct} className="p-12 space-y-12 overflow-y-auto custom-scrollbar">
+
                 <div className="grid grid-cols-2 gap-10">
                   <div className="col-span-2">
                     <label className={labelClass}>Oficjalna Nazwa Handlowa *</label>
                     <input required placeholder="Np. Nexus Core Ultra S1..." type="text" className={inputClass} value={newProductForm.name} onChange={e => setNewProductForm({...newProductForm, name: e.target.value})} />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Indywidualny Kod EAN *</label>
-                    <input required placeholder="8-13 cyfr..." type="text" className={`${inputClass} font-mono`} value={newProductForm.ean} onChange={e => setNewProductForm({...newProductForm, ean: e.target.value})} />
                   </div>
                   <div>
                     <label className={labelClass}>SKU (Identyfikator Wewnętrzny) *</label>
@@ -916,7 +965,7 @@ function App() {
 
             {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('mtool')) && (
               <button onClick={() => setActiveTab('mtool')} className={`px-5 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center h-10 ${activeTab === 'mtool' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'}`}>
-                 <Briefcase className={`w-4 h-4 mr-2 ${activeTab === 'mtool' ? 'text-white' : 'text-slate-400'}`} /> MTool SMI
+                 <Target className={`w-4 h-4 mr-2 ${activeTab === 'mtool' ? 'text-white' : 'text-slate-400'}`} /> MTool
               </button>
             )}
 
@@ -935,6 +984,12 @@ function App() {
             {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('products')) && (
               <button onClick={() => setActiveTab('products')} className={`px-5 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center h-10 ${activeTab === 'products' ? 'bg-white text-orange-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'}`}>
                 <Hash className={`w-4 h-4 mr-2 ${activeTab === 'products' ? 'text-orange-500' : 'text-slate-400'}`} /> Katalog (PIM)
+              </button>
+            )}
+
+            {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('crm')) && (
+              <button onClick={() => setActiveTab('crm')} className={`px-5 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center h-10 ${activeTab === 'crm' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'}`}>
+                <Building2 className={`w-4 h-4 mr-2 ${activeTab === 'crm' ? 'text-blue-500' : 'text-slate-400'}`} /> Kontrahenci
               </button>
             )}
 
@@ -1005,6 +1060,7 @@ function App() {
           {activeTab === 'campaigns' && <CampaignsView campaigns={campaigns} brands={brands} timelineRange={timelineRange} setTimelineRange={setTimelineRange} setSelectedCampaign={setSelectedCampaign} setIsNewCampaignModalOpen={setIsNewCampaignModalOpen} devMode={devMode} />}
           {activeTab === 'mtool' && <MToolView token={token} API_URL={API_URL} currentUser={currentUser} campaigns={campaigns} />}
           {activeTab === 'projects' && <ProjectsView projects={projects} tasks={tasks} currentUser={currentUser} setIsNewProjectModalOpen={setIsNewProjectModalOpen} setSelectedProject={setSelectedProject} devMode={devMode} />}
+          {activeTab === 'crm' && <CrmView token={token} API_URL={API_URL} currentUser={currentUser} />}
           {activeTab === 'products' && <ProductsView products={products} currentUser={currentUser} setIsNewBrandModalOpen={setIsNewBrandModalOpen} setIsNewProductModalOpen={setIsNewProductModalOpen} />}
           {activeTab === 'chat' && renderChatInterface()}
           {activeTab === 'admin' && <AdminPanelView users={users} setIsNewUserModalOpen={setIsNewUserModalOpen} setEditingUser={setEditingUser} setIsUserEditModalOpen={setIsUserEditModalOpen} token={token} API_URL={API_URL} />}

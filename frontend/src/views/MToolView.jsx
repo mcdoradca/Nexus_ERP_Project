@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Search, Loader2, Upload, Maximize2, Trash2, Edit3, Save, X, Image as ImageIcon, Briefcase, Plus, Instagram, CalendarDays, LayoutDashboard, Target, CheckCircle2, Megaphone } from 'lucide-react';
+import { Search, Loader2, Upload, Maximize2, Trash2, Edit3, Save, X, Image as ImageIcon, Briefcase, Plus, Instagram, CalendarDays, LayoutDashboard, Target, CheckCircle2, Megaphone, Calculator, Users } from 'lucide-react';
 
 const POST_TYPES = ['Zdjęcie', 'Rozbudowana Karuzela', 'Rolka (Reels)', 'Insta Story', 'Infografika'];
 const STATUSES = ['Szkic', 'Do Akceptacji', 'Zatwierdzone', 'Opublikowane'];
@@ -91,12 +91,26 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
     }
   };
 
+  const handleRemoveMedia = async (post, urlToRemove, indexToRemove) => {
+    if (currentUser?.department === 'HANDLOWCY') return alert("Odmowa dostępu do usuwania materiałów.");
+    if (!window.confirm("Potwierdź trwałe usunięcie wybranego załącznika z chmury. Komórka zostanie zaktualizowana.")) return;
+    try {
+      const newUrls = (post.mediaUrls || []).filter((u, i) => i !== indexToRemove);
+      const newTypes = (post.mediaTypes || []).filter((t, i) => i !== indexToRemove);
+      await axios.patch(`${API_URL}/api/campaigns/${post.campaignId}/smi/${post.id}`, { mediaUrls: newUrls, mediaTypes: newTypes }, { headers: { Authorization: `Bearer ${token}` } });
+      fetchPosts();
+    } catch (err) {
+      console.error(err);
+      alert("Błąd przy usuwaniu załącznika graficznego z bazy.");
+    }
+  };
+
   const openNewPostForm = () => {
     setCurrentPost({
       id: `new-${Date.now()}`,
       campaignId: campaigns && campaigns.length > 0 ? campaigns[0].id : '',
       brandLine: '', publishDate: new Date().toISOString().split('T')[0], postType: 'Zdjęcie',
-      content: '', hashtags: '', notes: '', redirectUrl: '', adBudgetInfo: '', status: 'Szkic', mediaUrl: null
+      content: '', hashtags: '', notes: '', redirectUrl: '', adBudgetInfo: '', status: 'Szkic', mediaUrls: [], mediaTypes: []
     });
     setIsEditing(true);
   };
@@ -133,10 +147,48 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
     }
   };
 
+  const [activeSubTool, setActiveSubTool] = useState('SMI');
+
   return (
-    <div className="flex-1 flex flex-col bg-[#f8fafc] text-slate-900 font-sans overflow-hidden">
-      
-      <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
+    <div className="flex-1 flex bg-[#f8fafc] overflow-hidden">
+      {/* Centrala MTool - Sidebar */}
+      <div className="w-64 bg-white border-r border-slate-200 shrink-0 flex flex-col shadow-[10px_0_30px_rgba(0,0,0,0.02)] z-30 relative">
+         <div className="h-20 flex flex-col justify-center px-6 border-b border-slate-100 bg-gradient-to-br from-indigo-600 to-purple-700 shrink-0">
+            <h2 className="text-[16px] font-black text-white uppercase tracking-tighter flex items-center"><Target className="w-5 h-5 mr-3 opacity-80" /> MTool HQ</h2>
+            <p className="text-[8px] font-black text-indigo-200 uppercase tracking-widest mt-0.5">Centrum Narzędzi Marketingo...</p>
+         </div>
+         <div className="p-4 space-y-2 flex-1 overflow-y-auto custom-scrollbar">
+            <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 mt-2 px-2">Aktywne Narzędzia</div>
+            <button 
+              onClick={() => setActiveSubTool('SMI')}
+              className={`w-full text-left px-4 py-3 rounded-sm text-[11px] font-black uppercase tracking-widest flex items-center transition-all ${activeSubTool === 'SMI' ? 'bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              <Instagram className={`w-4 h-4 mr-3 ${activeSubTool==='SMI'?'text-indigo-500':'text-slate-400'}`} /> Harmonogram SMI
+            </button>
+            <div className="pt-6 pb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center"><Loader2 className="w-3 h-3 mr-2 animate-spin"/> Wkrótce</div>
+            <button 
+              onClick={() => setActiveSubTool('CALCULATOR')}
+              className={`w-full text-left px-4 py-3 rounded-sm text-[11px] font-black uppercase tracking-widest flex items-center transition-all ${activeSubTool === 'CALCULATOR' ? 'bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100' : 'text-slate-400 hover:bg-slate-50 opacity-70'}`}
+            >
+              <Calculator className={`w-4 h-4 mr-3 ${activeSubTool==='CALCULATOR'?'text-indigo-500':'text-slate-300'}`} /> Kalkulator Ofert
+            </button>
+            <button 
+              onClick={() => setActiveSubTool('INFLUENCERS')}
+              className={`w-full text-left px-4 py-3 rounded-sm text-[11px] font-black uppercase tracking-widest flex items-center transition-all ${activeSubTool === 'INFLUENCERS' ? 'bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100' : 'text-slate-400 hover:bg-slate-50 opacity-70'}`}
+            >
+              <Users className={`w-4 h-4 mr-3 ${activeSubTool==='INFLUENCERS'?'text-indigo-500':'text-slate-300'}`} /> Baza Influencerów
+            </button>
+         </div>
+         <div className="p-4 border-t border-slate-100 bg-slate-50">
+            <div className="text-[10px] font-bold text-slate-500 text-center uppercase tracking-widest">Wersja Modułu: 1.0</div>
+         </div>
+      </div>
+
+      {/* Wybrany Pod-Moduł */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+         {activeSubTool === 'SMI' && (
+            <div className="flex-1 flex flex-col bg-[#f8fafc] text-slate-900 font-sans overflow-hidden animate-in fade-in duration-300">
+               <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
 
       {lightboxUrl && (
         <div className="fixed inset-0 bg-slate-900/90 z-[300] flex items-center justify-center p-4 backdrop-blur-md cursor-pointer" onClick={() => setLightboxUrl(null)}>
@@ -252,8 +304,8 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
              </div>
            )}
 
-           {/* MAIN TABULAR GRID (Z "SKIN CARE KOREA" EXCELA 1:1) Z DODANYMI ZAWINRYMI TREŚCIAMI */}
-           <div className="flex-1 bg-white overflow-auto p-8 relative custom-scrollbar">
+           {/* MAIN TABULAR GRID (Z "SKIN CARE KOREA" EXCELA 1:1) Z DODANYMI ZAWINRYMI TREŚCIAMI I CZARNYMI LINIAMI */}
+           <div className="flex-1 bg-white overflow-auto relative custom-scrollbar">
               {loading ? (
                 <div className="flex items-center justify-center h-full text-slate-400 text-xs font-black uppercase tracking-widest"><Loader2 className="w-6 h-6 animate-spin mr-3"/> Wczytywanie danych układu...</div>
               ) : filteredPosts.length === 0 ? (
@@ -263,67 +315,80 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-2">Brak wyników do wyświetlenia w tabeli</p>
                 </div>
               ) : (
-                <div className="min-w-[1550px]">
-                   {/* KLASYCZNY NAGŁÓWEK TABELI 1:1 JAK EXCEL W SmiWorkspaceModal */}
-                   <div className="grid grid-cols-12 gap-4 pb-4 border-b-2 border-slate-900 mb-4 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                      <div className="col-span-1 text-center">Dodatek Media</div>
-                      <div className="col-span-1">Data / Kampania</div>
-                      <div className="col-span-1">Marka / Format</div>
-                      <div className="col-span-3">Struktura Copywritingu (Treść)</div>
-                      <div className="col-span-2">Blok Hashtagów</div>
-                      <div className="col-span-2">Dystrybucja / Budżet</div>
-                      <div className="col-span-1">Status</div>
-                      <div className="col-span-1 text-right">Akcja</div>
+                <div className="min-w-[1550px] border-l border-r border-black">
+                   {/* KLASYCZNY NAGŁÓWEK TABELI ZABLOKOWANY PODCZAS SCROLL (STICKY) I TWARDE LINIE */}
+                   <div className="sticky top-0 z-30 bg-slate-200 grid grid-cols-12 gap-0 border-b-2 border-t-2 border-black text-[9px] font-black text-slate-800 uppercase tracking-[0.2em] shadow-sm">
+                      <div className="col-span-1 text-center p-3 border-r border-black flex items-center justify-center">Dodatek Media</div>
+                      <div className="col-span-1 p-3 border-r border-black flex items-center">Data / Kampania</div>
+                      <div className="col-span-1 p-3 border-r border-black flex items-center">Marka / Format</div>
+                      <div className="col-span-3 p-3 border-r border-black flex items-center">Struktura Copywritingu (Treść)</div>
+                      <div className="col-span-2 p-3 border-r border-black flex items-center">Blok Hashtagów</div>
+                      <div className="col-span-2 p-3 border-r border-black flex items-center">Dystrybucja / Budżet</div>
+                      <div className="col-span-1 p-3 border-r border-black flex items-center">Status</div>
+                      <div className="col-span-1 p-3 flex items-center justify-end">Akcja</div>
                    </div>
                    
-                   {/* WIERSZE */}
-                   <div className="space-y-4">
+                   {/* WIERSZE Z CZARNYMI KRAWĘDZIAMI */}
+                   <div className="flex flex-col">
                      {filteredPosts.map(p => {
                         const dateObj = new Date(p.publishDate);
                         const dayName = dateObj.toLocaleDateString('pl-PL', { weekday: 'long' });
                         const isDraft = p.status === 'Szkic';
                         
                         return (
-                          <div key={p.id} className={`grid grid-cols-12 gap-4 p-4 rounded-sm border transition-shadow items-start ${isDraft ? 'bg-slate-50/50 border-slate-200 border-dashed' : 'bg-white border-slate-100 shadow-sm hover:shadow-lg'}`}>
+                          <div key={p.id} className={`grid grid-cols-12 gap-0 border-b border-black transition-colors items-stretch ${isDraft ? 'bg-slate-50 opacity-80' : 'bg-white hover:bg-slate-50'}`}>
                              
-                             {/* Media (NOWE: Kliknij aby powiększyć) */}
-                             <div className="col-span-1 flex justify-center">
-                               <div className="w-[65px] h-[65px] bg-slate-100 border border-slate-200 rounded-sm overflow-hidden relative group cursor-pointer flex items-center justify-center" onClick={() => p.mediaUrl ? setLightboxUrl(p.mediaUrl) : triggerUpload(p.id)}>
-                                  {isUploading === p.id ? (
-                                    <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
-                                  ) : p.mediaUrl ? (
-                                    <>
-                                      {p.mediaType === 'VIDEO' ? (
-                                        <video src={p.mediaUrl} className="w-full h-full object-cover" />
-                                      ) : (
-                                        <img src={p.mediaUrl} className="w-full h-full object-cover hover:scale-110 transition-transform" />
-                                      )}
-                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"><Maximize2 className="w-4 h-4"/></div>
-                                    </>
-                                  ) : (
-                                    <div className="text-slate-300 group-hover:text-indigo-500 transition-colors tooltip flex flex-col items-center">
-                                      <Upload className="w-4 h-4" />
-                                      <span className="text-[6px] font-black uppercase tracking-widest mt-1">Wgraj</span>
+                             {/* Media (ZMODYFIKOWANE: Galeria WieloZdjęciowa) */}
+                             <div className="col-span-1 p-3 border-r border-black flex items-center justify-start overflow-x-auto custom-scrollbar gap-2">
+                               {isUploading === p.id && (
+                                 <div className="w-[65px] h-[65px] bg-slate-50 border border-slate-200 rounded-sm flex items-center justify-center shrink-0">
+                                   <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+                                 </div>
+                               )}
+                               
+                               {(p.mediaUrls || []).map((url, idx) => (
+                                 <div key={idx} className="w-[65px] h-[65px] bg-slate-100 border border-slate-300 rounded-sm overflow-hidden relative group shrink-0 shadow-sm flex items-center justify-center">
+                                    {(p.mediaTypes && p.mediaTypes[idx] === 'VIDEO') ? (
+                                      <video src={url} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <img src={url} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                    )}
+                                    {/* Sub-akcje per-plik */}
+                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1">
+                                       <button onClick={(e) => { e.stopPropagation(); setLightboxUrl(url); }} className="w-full bg-white text-slate-800 hover:bg-indigo-500 hover:text-white rounded-sm shadow-sm transition-colors text-[9px] font-black uppercase tracking-widest py-0.5 tooltip" title="Zobacz Powiększenie"><Maximize2 className="w-3 h-3 mx-auto"/></button>
+                                       <button onClick={(e) => { e.stopPropagation(); handleRemoveMedia(p, url, idx); }} className="w-full bg-white text-slate-800 hover:bg-rose-500 hover:text-white rounded-sm shadow-sm transition-colors text-[9px] font-black uppercase tracking-widest py-0.5 tooltip" title="Wyrzuć do kosza"><Trash2 className="w-3 h-3 mx-auto"/></button>
                                     </div>
-                                  )}
-                               </div>
+                                 </div>
+                               ))}
+
+                               {/* Przycisk dodający kolejne/pierwsze zdjęcie niezależnie czy galeria pusta czy pełna */}
+                               {(p.mediaUrls || []).length === 0 ? (
+                                 <div className="w-[65px] h-[65px] border border-dashed border-slate-300 bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-500 hover:border-indigo-300 rounded-sm cursor-pointer transition-all flex flex-col items-center justify-center shrink-0" onClick={() => triggerUpload(p.id)}>
+                                    <Upload className="w-4 h-4 mb-1" />
+                                    <span className="text-[6px] font-black uppercase tracking-widest text-center">Wgraj<br/>Zasób</span>
+                                 </div>
+                               ) : (
+                                 <div className="w-[30px] h-[65px] border border-dashed border-slate-300 bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-500 hover:border-indigo-300 rounded-sm cursor-pointer transition-all flex items-center justify-center shrink-0 tooltip" title="Dopnij kolejne zdjęcie/video" onClick={() => triggerUpload(p.id)}>
+                                    <Plus className="w-4 h-4" />
+                                 </div>
+                               )}
                              </div>
 
                              {/* Data / Kampania */}
-                             <div className="col-span-1 flex flex-col">
+                             <div className="col-span-1 p-3 border-r border-black flex flex-col justify-start">
                                <span className="text-[12px] font-black text-slate-800">{dateObj.toLocaleDateString('pl-PL', {day:'2-digit', month:'2-digit'})}</span>
-                               <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest mt-0.5 capitalize mb-2">{dayName}</span>
-                               <span className="text-[8px] font-black uppercase text-white px-1.5 py-0.5 rounded-sm line-clamp-1 w-max" style={{ backgroundColor: p.campaign?.color?.replace('bg-', '') || '#6366f1'}}>{p.campaign?.name || 'BRAK'}</span>
+                               <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-widest mt-0.5 capitalize mb-2">{dayName}</span>
+                               <span className="text-[8px] font-black uppercase text-white px-1.5 py-0.5 rounded-sm line-clamp-1 w-max shadow-sm" style={{ backgroundColor: p.campaign?.color?.replace('bg-', '') || '#6366f1'}}>{p.campaign?.name || 'BRAK'}</span>
                              </div>
                              
                              {/* Marka / Format */}
-                             <div className="col-span-1 flex flex-col">
-                               <span className="text-[10px] font-black text-slate-900 uppercase tracking-tight break-words bg-slate-100 p-1.5 rounded-sm inline-block w-max mb-2 max-w-[100px] truncate">{p.brandLine}</span>
-                               <span className="text-[8px] font-bold text-slate-500 uppercase flex items-center"><LayoutDashboard className="w-3 h-3 mr-1"/> {p.postType}</span>
+                             <div className="col-span-1 p-3 border-r border-black flex flex-col justify-start">
+                               <span className="text-[10px] font-black text-slate-900 uppercase tracking-tight break-words bg-slate-200 p-1.5 rounded-sm inline-block w-max mb-2 max-w-[100px] truncate shadow-sm">{p.brandLine}</span>
+                               <span className="text-[8px] font-bold text-slate-600 uppercase flex items-center"><LayoutDashboard className="w-3 h-3 mr-1"/> {p.postType}</span>
                              </div>
 
                              {/* Treść (Naprawione zawinięcie, elastyczne bloki) */}
-                             <div className="col-span-3 relative group">
+                             <div className="col-span-3 p-3 border-r border-black relative group">
                                {/* POPRAWKA: break-words, whitespace-pre-wrap, overflow ukryty ale pozwala na scrool w ramce lub rozciaga wgniatajac sie w grid */}
                                <div className="text-[11px] text-slate-700 font-medium whitespace-pre-wrap break-words leading-relaxed max-h-[120px] overflow-y-auto custom-scrollbar pr-2">
                                   {p.content}
@@ -337,29 +402,29 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
                              </div>
 
                              {/* Hashtagi */}
-                             <div className="col-span-2">
-                               <p className="text-[10px] font-bold text-blue-500 break-words whitespace-pre-wrap">{p.hashtags}</p>
+                             <div className="col-span-2 p-3 border-r border-black">
+                               <p className="text-[10px] font-bold text-blue-600 break-words whitespace-pre-wrap">{p.hashtags}</p>
                              </div>
 
                              {/* Odsyłacz / Budżet */}
-                             <div className="col-span-2 flex flex-col space-y-3">
+                             <div className="col-span-2 p-3 border-r border-black flex flex-col space-y-3">
                                {p.redirectUrl && (
                                  <div className="break-words">
-                                   <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Odsyłamy do:</span>
-                                   <span className="text-[9px] font-black text-slate-800">{p.redirectUrl}</span>
+                                   <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block mb-0.5">Odsyłamy do:</span>
+                                   <span className="text-[9px] font-black text-slate-900">{p.redirectUrl}</span>
                                  </div>
                                )}
                                {p.adBudgetInfo && (
-                                 <div className="bg-pink-50 p-1.5 border border-pink-100 rounded-sm">
-                                   <span className="text-[7px] font-black text-pink-400 uppercase tracking-widest block mb-0.5">Media Budżet Plan:</span>
-                                   <span className="text-[9px] font-black text-pink-700 block">{p.adBudgetInfo}</span>
+                                 <div className="bg-pink-100 p-1.5 border border-pink-200 rounded-sm shadow-sm">
+                                   <span className="text-[7px] font-black text-pink-500 uppercase tracking-widest block mb-0.5">Media Budżet Plan:</span>
+                                   <span className="text-[9px] font-black text-pink-800 block">{p.adBudgetInfo}</span>
                                  </div>
                                )}
                              </div>
 
                              {/* Status */}
-                             <div className="col-span-1 flex flex-col items-start pt-1">
-                               <span className={`px-2.5 py-1 text-[8px] font-black uppercase tracking-widest rounded-sm ${
+                             <div className="col-span-1 p-3 border-r border-black flex flex-col items-start justify-start">
+                               <span className={`px-2.5 py-1 text-[8px] font-black uppercase tracking-widest rounded-sm shadow-sm border ${
                                   p.status === 'Opublikowane' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
                                   p.status === 'Zatwierdzone' ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' :
                                   p.status === 'Do Akceptacji' ? 'bg-orange-100 text-orange-700 border border-orange-200' :
@@ -370,9 +435,9 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
                              </div>
 
                              {/* Akcje */}
-                             <div className="col-span-1 flex items-start justify-end space-x-2 pt-1">
-                               <button onClick={() => { setCurrentPost(p); setIsEditing(true); }} className="p-2 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 text-slate-400 rounded-sm transition-colors border border-slate-100"><Edit3 className="w-4 h-4"/></button>
-                               <button onClick={() => handleDelete(p.id, p.campaignId)} className="p-2 bg-slate-50 hover:bg-red-50 hover:text-red-500 text-slate-400 rounded-sm transition-colors border border-slate-100"><Trash2 className="w-4 h-4"/></button>
+                             <div className="col-span-1 p-3 flex items-start justify-end space-x-2">
+                               <button onClick={() => { setCurrentPost(p); setIsEditing(true); }} className="p-2 bg-slate-100 hover:bg-indigo-100 hover:text-indigo-600 text-slate-500 rounded-sm transition-colors border border-slate-300 shadow-sm"><Edit3 className="w-4 h-4"/></button>
+                               <button onClick={() => handleDelete(p.id, p.campaignId)} className="p-2 bg-slate-100 hover:bg-red-100 hover:text-red-600 text-slate-500 rounded-sm transition-colors border border-slate-300 shadow-sm"><Trash2 className="w-4 h-4"/></button>
                              </div>
                           </div>
                         )
@@ -383,6 +448,35 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
                 </div>
               )}
            </div>
+         </div>
+       </div>
+       )}
+         
+         {activeSubTool === 'CALCULATOR' && (
+            <div className="flex-1 flex flex-col items-center justify-center bg-[#f8fafc] p-10 animate-in fade-in zoom-in-95 duration-500">
+              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-xl border border-slate-100">
+                <Calculator className="w-10 h-10 text-indigo-400" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Kalkulator Ofert B2B</h2>
+              <p className="text-sm font-bold text-slate-400 max-w-sm text-center mt-3 leading-relaxed">Potężne narzędzie matematyczne służące wycenianiu kampanii i kosztów hurtowych w oparciu o marże.</p>
+              <div className="mt-8 px-6 py-2 bg-indigo-50 border border-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm">
+                 Wkrótce Dostępne
+              </div>
+            </div>
+         )}
+         
+         {activeSubTool === 'INFLUENCERS' && (
+            <div className="flex-1 flex flex-col items-center justify-center bg-[#f8fafc] p-10 animate-in fade-in zoom-in-95 duration-500">
+              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-xl border border-slate-100">
+                <Users className="w-10 h-10 text-indigo-400" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Baza Influencerów</h2>
+              <p className="text-sm font-bold text-slate-400 max-w-sm text-center mt-3 leading-relaxed">Zaawansowany zbiór profili twórców uwzględniający historyczne wyniki zasięgowe oraz wydane im paczki PR.</p>
+              <div className="mt-8 px-6 py-2 bg-indigo-50 border border-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm">
+                 Wkrótce Dostępne
+              </div>
+            </div>
+         )}
       </div>
     </div>
   );

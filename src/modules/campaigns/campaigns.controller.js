@@ -124,7 +124,14 @@ async function uploadSmiMedia(req, res) {
         
         const mediaType = file.mimetype.startsWith('video/') ? 'VIDEO' : 'IMAGE';
         
-        const updated = await campaignsService.updateSmiPost(req.params.smiId, { mediaUrl: publicUrl, mediaType });
+        const { PrismaClient } = require('@prisma/client');
+        const prisma = new PrismaClient();
+        const post = await prisma.smiPost.findUnique({ where: { id: req.params.smiId } });
+        
+        const newMediaUrls = [...(post.mediaUrls || []), publicUrl];
+        const newMediaTypes = [...(post.mediaTypes || []), mediaType];
+        
+        const updated = await campaignsService.updateSmiPost(req.params.smiId, { mediaUrls: newMediaUrls, mediaTypes: newMediaTypes });
         res.status(200).json(updated);
     } catch (error) { res.status(500).json({ error: 'Błąd wgrywania pliku medialnego SMI' }); }
 }

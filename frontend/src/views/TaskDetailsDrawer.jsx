@@ -147,7 +147,7 @@ const TaskDetailsDrawer = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xl z-[110] flex items-center justify-center p-8 animate-in fade-in duration-300">
-      <div className="w-full max-w-[1400px] bg-white h-full max-h-[90vh] rounded-sm shadow-[0_30px_100px_rgba(0,0,0,0.4)] flex flex-col animate-in zoom-in duration-500 overflow-hidden relative">
+      <div className="w-full max-w-[1400px] bg-white h-full max-h-[85vh] rounded-sm shadow-[0_30px_100px_rgba(0,0,0,0.4)] flex flex-col animate-in zoom-in duration-500 overflow-hidden relative min-h-0">
         
         {/* Top Bar */}
         <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-[#f8fafc] shrink-0">

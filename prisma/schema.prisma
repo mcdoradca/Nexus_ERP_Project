@@ -324,16 +324,85 @@ model SmiPost {
   content         String?  @db.Text
   hashtags        String?  @db.Text
   hasGraphics     Boolean  @default(false)
-  mediaUrl        String?
-  mediaType       String?  // 'IMAGE' lub 'VIDEO'
   notes           String?  @db.Text
   redirectUrl     String?  
   adBudgetInfo    String?  
   status          String   @default("Szkic") 
+  mediaUrls       String[] @default([])
+  mediaTypes      String[] @default([])
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
   campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@index([campaignId])
+}
+
+model Company {
+  id          String   @id @default(uuid())
+  taxId       String?  @unique // NIP
+  regon       String?
+  krs         String?
+  name        String
+  legalForm   String?  // np. "Sp. z o.o."
+  industry    String?  
+  website     String?
+  mainPhone   String?
+  mainEmail   String?
+  status      String   @default("Aktywny") // Aktywny, Zablokowany, Prospekt
+  rating      Int?     @default(0)         // 1-5 gwiazdek
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  branches    CompanyBranch[]
+  contacts    ContactPerson[]
+}
+
+model CompanyBranch {
+  id             String   @id @default(uuid())
+  companyId      String
+  name           String   // np. "Magazyn Główny", "Siedziba"
+  type           String   @default("Oddział") // Siedziba, Magazyn, Sklep, Biuro
+  street         String?
+  building       String?
+  city           String?
+  postalCode     String?
+  country        String   @default("Polska")
+  isHeadquarters Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contacts       ContactPerson[]
+  
+  @@index([companyId])
+}
+
+model ContactPerson {
+  id          String   @id @default(uuid())
+  companyId   String
+  branchId    String?
+  firstName   String
+  lastName    String
+  role        String?  // Dyrektor, Księgowość, Handlowiec
+  phone       String?
+  email       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch      CompanyBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([branchId])
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -46,7 +46,7 @@ const CampaignDetailsModal = ({ campaign, onClose, onEdit, currentUser, tasks, s
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in duration-300">
-      <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-7xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[95vh] relative">
+      <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-7xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[85vh] relative min-h-0">
         <DevBadge id="D-40 (MODAL)" />
         
         {/* Header */}

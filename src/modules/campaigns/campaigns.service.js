@@ -131,7 +131,7 @@ async function getAllSmiPosts() {
 }
 
 async function createSmiPost(campaignId, data) {
-    const { brandLine, publishDate, postType, content, hashtags, notes, redirectUrl, adBudgetInfo, status, mediaUrl, mediaType } = data;
+    const { brandLine, publishDate, postType, content, hashtags, notes, redirectUrl, adBudgetInfo, status, mediaUrls, mediaTypes } = data;
     return prisma.smiPost.create({
         data: {
             campaignId,
@@ -144,8 +144,8 @@ async function createSmiPost(campaignId, data) {
             redirectUrl,
             adBudgetInfo,
             status: status || 'Szkic',
-            mediaUrl,
-            mediaType
+            mediaUrls: mediaUrls || [],
+            mediaTypes: mediaTypes || []
         }
     });
 }
