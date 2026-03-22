@@ -72,4 +72,61 @@ async function approveAsset(req, res) {
     } catch (error) { res.status(500).json({ error: 'Błąd zmiany statusu' }); }
 }
 
-module.exports = { getAll, getOne, create, update, addProduct, uploadAsset, approveAsset };
+async function getSmiPosts(req, res) {
+    try {
+        const posts = await campaignsService.getSmiPosts(req.params.id);
+        res.status(200).json(posts);
+    } catch (error) { res.status(500).json({ error: 'Błąd pobierania SMI' }); }
+}
+
+async function createSmiPost(req, res) {
+    if (!hasMarketingRights(req.user)) return res.status(403).json({ error: 'Brak uprawnień. Tylko Marketing/Zarząd.' });
+    try {
+        const post = await campaignsService.createSmiPost(req.params.id, req.body);
+        res.status(201).json(post);
+    } catch (error) { res.status(500).json({ error: 'Błąd tworzenia posta SMI' }); }
+}
+
+async function updateSmiPost(req, res) {
+    if (!hasMarketingRights(req.user)) return res.status(403).json({ error: 'Brak uprawnień.' });
+    try {
+        const post = await campaignsService.updateSmiPost(req.params.smiId, req.body);
+        res.status(200).json(post);
+    } catch (error) { res.status(500).json({ error: 'Błąd aktualizacji SMI' }); }
+}
+
+async function deleteSmiPost(req, res) {
+    if (!hasMarketingRights(req.user)) return res.status(403).json({ error: 'Brak uprawnień.' });
+    try {
+        await campaignsService.deleteSmiPost(req.params.smiId);
+        res.status(204).send();
+    } catch (error) { res.status(500).json({ error: 'Błąd usuwania SMI' }); }
+}
+
+async function getGlobalSmi(req, res) {
+    try {
+        const posts = await campaignsService.getAllSmiPosts();
+        res.status(200).json(posts);
+    } catch (error) { res.status(500).json({ error: 'Błąd pobierania panelu MTool' }); }
+}
+
+async function uploadSmiMedia(req, res) {
+    if (!hasMarketingRights(req.user)) return res.status(403).json({ error: 'Brak uprawnień do edycji harmonogramu.' });
+    try {
+        const file = req.file; if (!file) return res.status(400).json({ error: 'Brak pliku' });
+        const fileExt = file.originalname.split('.').pop();
+        const fileName = `smi-media-${req.params.smiId}-${Date.now()}.${fileExt}`;
+        
+        const { error } = await supabase.storage.from('nexus-files').upload(fileName, file.buffer, { contentType: file.mimetype });
+        if (error) return res.status(500).json({ error: `Supabase Error: ${error.message}` });
+        
+        const { data: { publicUrl } } = supabase.storage.from('nexus-files').getPublicUrl(fileName);
+        
+        const mediaType = file.mimetype.startsWith('video/') ? 'VIDEO' : 'IMAGE';
+        
+        const updated = await campaignsService.updateSmiPost(req.params.smiId, { mediaUrl: publicUrl, mediaType });
+        res.status(200).json(updated);
+    } catch (error) { res.status(500).json({ error: 'Błąd wgrywania pliku medialnego SMI' }); }
+}
+
+module.exports = { getAll, getOne, create, update, addProduct, uploadAsset, approveAsset, getSmiPosts, createSmiPost, updateSmiPost, deleteSmiPost, getGlobalSmi, uploadSmiMedia };

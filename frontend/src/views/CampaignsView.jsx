@@ -132,11 +132,18 @@ const CampaignsView = ({
                 ))}
 
                 {brandCampaigns.map((c) => {
-                  const statusClass = getStatusColor(c.status);
-                  const campStart = resetTime(c.startDate).getTime();
-                  const campEnd = resetTime(c.endDate).getTime();
-                  const daysOffset = (campStart - tStart) / 86400000;
-                  const durationDays = (campEnd - campStart) / 86400000;
+                  const statusClass = c.color || getStatusColor(c.status);
+                  
+                  // BEZWZGLĘDNA MATEMATYKA DAT (Bez stref czasowych, pełne i zamknięte daty)
+                  const getDaysDiff = (d1Str, d2Str) => {
+                     const d1 = new Date(d1Str); const d2 = new Date(d2Str);
+                     const u1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate());
+                     const u2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
+                     return Math.round((u1 - u2) / 86400000);
+                  };
+
+                  const daysOffset = getDaysDiff(c.startDate, timelineStartDate);
+                  const durationDays = getDaysDiff(c.endDate, c.startDate) + 1; // + 1 Bo kampania trwa przez CAŁY dzień końcowy (inclusive)
                   
                   if (daysOffset + durationDays < 0) return null;
 
@@ -151,7 +158,7 @@ const CampaignsView = ({
                            <span className="font-black text-xs uppercase tracking-widest truncate">{c.name}</span>
                            <span className={`text-[9px] font-bold opacity-80 mt-1 uppercase tracking-wider truncate ${timelineRange === 'YEAR' && widthPx < 180 ? 'hidden' : 'block'}`}>{c.product?.name || 'Wiele produktów'}</span>
                         </div>
-                        {widthPx > 150 && <div className="bg-black/30 px-3 py-1 rounded-sm text-[9px] font-black uppercase tracking-widest backdrop-blur-sm border border-white/10">{c.status}</div>}
+                        {widthPx > 150 && <div className="bg-black/30 px-3 py-1 rounded-sm text-[9px] font-black uppercase tracking-widest backdrop-blur-sm border border-white/10 text-white">{c.status}</div>}
                       </div>
                       
                       <div className="flex items-center justify-between w-full relative z-10 mt-auto">

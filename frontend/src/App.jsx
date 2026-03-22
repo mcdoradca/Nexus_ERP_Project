@@ -6,9 +6,10 @@ import KanbanView from './views/KanbanView';
 import ProjectsView from './views/ProjectsView';
 import CampaignsView from './views/CampaignsView';
 import NewCampaignModal from './views/NewCampaignModal';
-import CampaignDetailsDrawer from './views/CampaignDetailsDrawer';
+import CampaignDetailsModal from './views/CampaignDetailsModal';
 import ProductsView from './views/ProductsView';
 import AdminPanelView from './views/AdminPanelView';
+import MToolView from './views/MToolView';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { 
@@ -16,7 +17,7 @@ import {
   Bell, X, Search, ChevronRight, Clock, ShieldAlert, AlertOctagon, 
   PlayCircle, StopCircle, Cloud, CloudLightning, Target, Zap, 
   Loader2, Paperclip, Send, Users, User, DollarSign, ArrowRight, CheckCircle2,
-  Trash2, Mail, Lock, Shield, Eye, EyeOff, Check, Filter, Calendar
+  Trash2, Mail, Lock, Shield, Eye, EyeOff, Check, Filter, Calendar, Briefcase
 } from 'lucide-react';
 
 import { getInitials, getDepartmentColor } from './utils';
@@ -48,13 +49,14 @@ function App() {
   const [isNewBrandModalOpen, setIsNewBrandModalOpen] = useState(false);
   const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false);
   const [isNewCampaignModalOpen, setIsNewCampaignModalOpen] = useState(false);
+  const [campaignForEdit, setCampaignForEdit] = useState(null); // FAZA 17
   const [timelineRange, setTimelineRange] = useState('4_WEEKS');
   const [isUserEditModalOpen, setIsUserEditModalOpen] = useState(false);
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
   
   const [editingUser, setEditingUser] = useState(null);
   const [newUserForm, setNewUserForm] = useState({ 
-    email: '', name: '', password: '', role: 'USER', group: 'PRACOWNICY', department: 'BRAK', color: 'bg-emerald-500', accessibleModules: ["kanban", "campaigns", "projects", "products", "chat"] 
+    email: '', name: '', password: '', role: 'USER', group: 'PRACOWNICY', department: 'BRAK', color: 'bg-emerald-500', accessibleModules: ["kanban", "campaigns", "mtool", "projects", "products", "chat"] 
   });
   const [devMode, setDevMode] = useState(false); // DEV MAP MODE
   
@@ -602,6 +604,7 @@ function App() {
     const ALL_MODULES = [
       { id: 'kanban', label: 'Tablica Wydarzeń (Zadania)' },
       { id: 'campaigns', label: 'Centrum Kampanii' },
+      { id: 'mtool', label: 'Harmonogram SMI (MTool)' },
       { id: 'projects', label: 'Projekty' },
       { id: 'products', label: 'Katalog SKU (PIM)' },
       { id: 'chat', label: 'Komunikator' },
@@ -773,15 +776,17 @@ function App() {
           API_URL={API_URL} 
         />
 
-        {/* Nowa Kampania */}
+        {/* Nowa Kampania / Edycja Kampanii */}
         <NewCampaignModal 
-          isOpen={isNewCampaignModalOpen} 
-          onClose={() => setIsNewCampaignModalOpen(false)} 
+          isOpen={isNewCampaignModalOpen || !!campaignForEdit} 
+          onClose={() => { setIsNewCampaignModalOpen(false); setCampaignForEdit(null); }} 
           brands={brands} 
           products={products} 
+          users={users}
           fetchData={fetchData} 
           token={token} 
           API_URL={API_URL} 
+          initialData={campaignForEdit}
         />
 
         {/* Nowa Marka (PIM) */}
@@ -877,7 +882,7 @@ function App() {
         )}
         {renderProjectDetails()}
         {selectedTask && <TaskDetailsDrawer task={selectedTask} onClose={() => setSelectedTask(null)} currentUser={currentUser} users={users} tasks={tasks} socket={socket} fetchData={fetchData} token={token} API_URL={API_URL} onSelectTask={(t) => setSelectedTask(t)} />}
-        {selectedCampaign && <CampaignDetailsDrawer campaign={selectedCampaign} onClose={() => setSelectedCampaign(null)} currentUser={currentUser} tasks={tasks} socket={socket} />}
+        {selectedCampaign && <CampaignDetailsModal campaign={campaigns.find(c => c.id === selectedCampaign.id) || selectedCampaign} onClose={() => setSelectedCampaign(null)} onEdit={(c) => setCampaignForEdit(c)} currentUser={currentUser} tasks={tasks} socket={socket} token={token} API_URL={API_URL} fetchData={fetchData} />}
       </>
     );
   };
@@ -906,6 +911,12 @@ function App() {
             {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('kanban')) && (
               <button onClick={() => setActiveTab('kanban')} className={`px-5 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center h-10 ${activeTab === 'kanban' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'}`}>
                 <Layout className={`w-4 h-4 mr-2 ${activeTab === 'kanban' ? 'text-indigo-500' : 'text-slate-400'}`} /> Tablica
+              </button>
+            )}
+
+            {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('mtool')) && (
+              <button onClick={() => setActiveTab('mtool')} className={`px-5 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center h-10 ${activeTab === 'mtool' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'}`}>
+                 <Briefcase className={`w-4 h-4 mr-2 ${activeTab === 'mtool' ? 'text-white' : 'text-slate-400'}`} /> MTool SMI
               </button>
             )}
 
@@ -992,6 +1003,7 @@ function App() {
       <main className="flex-1 min-h-0 bg-[#f8fafc] flex flex-col relative w-full overflow-hidden">
           {activeTab === 'kanban' && <KanbanView tasks={tasks} projects={projects} campaigns={campaigns} selectedFilterId={selectedFilterId} setSelectedFilterId={setSelectedFilterId} setIsNewTaskModalOpen={setIsNewTaskModalOpen} setSelectedTask={setSelectedTask} devMode={devMode} />}
           {activeTab === 'campaigns' && <CampaignsView campaigns={campaigns} brands={brands} timelineRange={timelineRange} setTimelineRange={setTimelineRange} setSelectedCampaign={setSelectedCampaign} setIsNewCampaignModalOpen={setIsNewCampaignModalOpen} devMode={devMode} />}
+          {activeTab === 'mtool' && <MToolView token={token} API_URL={API_URL} currentUser={currentUser} campaigns={campaigns} />}
           {activeTab === 'projects' && <ProjectsView projects={projects} tasks={tasks} currentUser={currentUser} setIsNewProjectModalOpen={setIsNewProjectModalOpen} setSelectedProject={setSelectedProject} devMode={devMode} />}
           {activeTab === 'products' && <ProductsView products={products} currentUser={currentUser} setIsNewBrandModalOpen={setIsNewBrandModalOpen} setIsNewProductModalOpen={setIsNewProductModalOpen} />}
           {activeTab === 'chat' && renderChatInterface()}

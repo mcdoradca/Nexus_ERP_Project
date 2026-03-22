@@ -8,7 +8,281 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// --- NOWE SŁOWNIKI KONTROLI DOSTĘPU (RBAC) ---
+model User {
+  id                     String             @id @default(uuid())
+  email                  String             @unique
+  name                   String
+  role                   String             @default("USER")
+  color                  String
+  isActive               Boolean            @default(true)
+  createdAt              DateTime           @default(now())
+  department             Department         @default(BRAK)
+  group                  UserGroup          @default(PRACOWNICY)
+  isOnline               Boolean            @default(false)
+  lastSeen               DateTime           @default(now())
+  passwordHash           String
+  activeTaskId           String?
+  accessibleModules      String[]           @default(["kanban", "campaigns", "projects", "products", "chat"])
+  authoredAnnouncements  Announcement[]
+  readAnnouncements      AnnouncementRead[]
+  uploadedAssets         CampaignAsset[]
+  assignedCampaigns      Campaign[]         @relation("CampaignAssignees")
+  comments               Comment[]
+  receivedDirectMessages DirectMessage[]    @relation("ReceivedDirectMessages")
+  sentDirectMessages     DirectMessage[]    @relation("SentDirectMessages")
+  globalMessages         GlobalMessage[]
+  notifications          Notification[]
+  ownedProjects          Project[]          @relation("ProjectOwner")
+  managedProjects        Project[]          @relation("ProjectManager")
+  blockingTasks          Task[]             @relation("TaskBlocker")
+  createdTasks           Task[]             @relation("TaskCreator")
+  ownedTasks             Task[]             @relation("TaskOwner")
+  activeTask             Task?              @relation("ActiveWorker", fields: [activeTaskId], references: [id])
+  assignedTasks          Task[]             @relation("TaskAssignees")
+}
+
+model Project {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  progress    Int       @default(0)
+  isArchived  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  endDate     DateTime?
+  startDate   DateTime?
+  budget      Float     @default(0.0)
+  ownerId     String?
+  pmId        String?
+  color       String    @default("bg-emerald-500")
+  status      String    @default("AKTYWNY")
+  comments    Comment[]
+  owner       User?     @relation("ProjectOwner", fields: [ownerId], references: [id])
+  pm          User?     @relation("ProjectManager", fields: [pmId], references: [id])
+  tasks       Task[]
+}
+
+model Task {
+  id             String       @id @default(uuid())
+  taskId         String       @unique @default(dbgenerated("generate_task_id()"))
+  title          String
+  description    String?
+  status         TaskStatus   @default(TODO)
+  priority       TaskPriority @default(MEDIUM)
+  dueDate        DateTime?
+  projectId      String?
+  creatorId      String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  startDate      DateTime?
+  blockReason    String?
+  campaignId     String?
+  isBlocked      Boolean      @default(false)
+  blockerId      String?
+  estimatedHours Float        @default(0.0)
+  loggedHours    Float        @default(0.0)
+  ownerId        String?
+  parentTaskId   String?
+  assignedGroups String[]     @default([])
+  isArchived     Boolean      @default(false)
+  comments       Comment[]
+  blocker        User?        @relation("TaskBlocker", fields: [blockerId], references: [id])
+  campaign       Campaign?    @relation(fields: [campaignId], references: [id])
+  creator        User         @relation("TaskCreator", fields: [creatorId], references: [id])
+  owner          User?        @relation("TaskOwner", fields: [ownerId], references: [id])
+  parentTask     Task?        @relation("SubTasks", fields: [parentTaskId], references: [id])
+  subTasks       Task[]       @relation("SubTasks")
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  activeWorkers  User[]       @relation("ActiveWorker")
+  assignees      User[]       @relation("TaskAssignees")
+
+  @@index([status])
+  @@index([projectId])
+  @@index([campaignId])
+}
+
+model Comment {
+  id         String    @id @default(uuid())
+  content    String
+  actionType String    @default("message")
+  taskId     String?
+  authorId   String
+  createdAt  DateTime  @default(now())
+  fileName   String?
+  fileUrl    String?
+  campaignId String?
+  projectId  String?
+  author     User      @relation(fields: [authorId], references: [id])
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  project    Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task       Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([projectId])
+  @@index([campaignId])
+}
+
+model GlobalMessage {
+  id         String   @id @default(uuid())
+  content    String
+  authorId   String
+  createdAt  DateTime @default(now())
+  actionType String   @default("message")
+  fileName   String?
+  fileUrl    String?
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+model Notification {
+  id            String   @id @default(uuid())
+  userId        String
+  title         String
+  message       String
+  type          String   @default("info")
+  isRead        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  taskId        String?
+  relatedTaskId String?
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model DirectMessage {
+  id         String   @id @default(uuid())
+  content    String
+  isRead     Boolean  @default(false)
+  senderId   String
+  receiverId String
+  createdAt  DateTime @default(now())
+  actionType String   @default("message")
+  fileName   String?
+  fileUrl    String?
+  receiver   User     @relation("ReceivedDirectMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender     User     @relation("SentDirectMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId])
+  @@index([receiverId, senderId])
+}
+
+model Announcement {
+  id         String             @id @default(uuid())
+  title      String
+  content    String
+  priority   String             @default("NORMAL")
+  isRequired Boolean            @default(true)
+  authorId   String
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  author     User               @relation(fields: [authorId], references: [id])
+  reads      AnnouncementRead[]
+}
+
+model AnnouncementRead {
+  id             String       @id @default(uuid())
+  userId         String
+  announcementId String
+  readAt         DateTime     @default(now())
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, announcementId])
+}
+
+model Campaign {
+  id               String            @id @default(uuid())
+  name             String
+  description      String?
+  budget           Float             @default(0.0)
+  networks         String?
+  startDate        DateTime
+  endDate          DateTime
+  status           String            @default("Planowana")
+  color            String            @default("bg-blue-500")
+  assignees        User[]            @relation("CampaignAssignees")
+  assignedGroups   String[]          @default([])
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  budgetAgency     Float             @default(0.0)
+  budgetMedia      Float             @default(0.0)
+  budgetPOSM       Float             @default(0.0)
+  markets          String?
+  brandId          String?
+  instructions     String?
+  plannedCount     Int               @default(0)
+  productId        String?
+  soldCount        Int               @default(0)
+  brand            Brand?            @relation(fields: [brandId], references: [id])
+  product          Product?          @relation("CampaignPromotedProduct", fields: [productId], references: [id])
+  assets           CampaignAsset[]
+  campaignProducts CampaignProduct[]
+  comments         Comment[]
+  tasks            Task[]
+  smiPosts         SmiPost[]
+}
+
+model Brand {
+  id        String     @id @default(uuid())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  campaigns Campaign[]
+  products  Product[]
+}
+
+model CampaignProduct {
+  id             String   @id @default(uuid())
+  campaignId     String
+  productId      String
+  promoMechanic  String?
+  posmAllocation Int      @default(0)
+  campaign       Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, productId])
+}
+
+model CampaignAsset {
+  id         String   @id @default(uuid())
+  campaignId String
+  uploaderId String
+  name       String
+  fileUrl    String
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  uploader   User     @relation(fields: [uploaderId], references: [id])
+}
+
+model Product {
+  id                    String            @id @default(uuid())
+  ean                   String            @unique
+  sku                   String            @unique
+  name                  String
+  stock                 Int               @default(0)
+  salePrice             Float             @default(0.0)
+  basePrice             Float             @default(0.0)
+  inboundTransportCost  Float             @default(0.0)
+  packagingCost         Float             @default(0.0)
+  bdoEprCost            Float             @default(0.0)
+  outboundTransportCost Float             @default(0.0)
+  status                String            @default("Aktywny")
+  subiektId             String?           @unique
+  baselinkerId          String?           @unique
+  isSynced              Boolean           @default(false)
+  brandId               String
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  campaignsAsMain       Campaign[]        @relation("CampaignPromotedProduct")
+  campaignProducts      CampaignProduct[]
+  brand                 Brand             @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId])
+  @@index([sku])
+  @@index([ean])
+}
+
 enum UserGroup {
   PRACOWNICY
   GOSC
@@ -24,341 +298,42 @@ enum Department {
   PREZES
   ECOMMERCE
   SERWIS
-  BRAK 
+  BRAK
 }
 
-model User {
-  id           String     @id @default(uuid())
-  email        String     @unique
-  passwordHash String     // Zahaszowane hasło
-  name         String   
-  group        UserGroup  @default(PRACOWNICY)
-  department   Department @default(BRAK)
-  role         String     @default("USER") // ADMIN lub USER
-  color        String   
-  isActive     Boolean    @default(true)
-  isOnline     Boolean    @default(false)
-  accessibleModules String[] @default(["kanban", "campaigns", "projects", "products", "chat"])
-  lastSeen     DateTime   @default(now())
-  createdAt    DateTime   @default(now())
-
-  assignedTasks Task[]    @relation("TaskAssignees")
-  createdTasks  Task[]    @relation("TaskCreator")
-  comments      Comment[] 
-  globalMessages GlobalMessage[]
-  notifications  Notification[]
-  uploadedAssets CampaignAsset[]
-  
-  // Relacje dla wiadomości prywatnych (Direct Messages)
-  sentDirectMessages     DirectMessage[] @relation("SentDirectMessages")
-  receivedDirectMessages DirectMessage[] @relation("ReceivedDirectMessages")
-  
-  // Relacje dla Zarządzania Projektami Enterprise
-  ownedProjects Project[] @relation("ProjectOwner")
-  managedProjects Project[] @relation("ProjectManager")
-  ownedTasks    Task[]    @relation("TaskOwner")
-  blockingTasks Task[]    @relation("TaskBlocker")
-
-  // NOWOŚĆ: Tablica i Cyfrowy Profil Pracownika (Compliance)
-  authoredAnnouncements Announcement[]
-  readAnnouncements     AnnouncementRead[]
-
-  // NOWOŚĆ: Śledzenie kto aktualnie pracuje nad jakim zadaniem (Focus Mode)
-  activeTaskId  String?
-  activeTask    Task?           @relation("ActiveWorker", fields: [activeTaskId], references: [id])
-}
-
-model Project {
-  id          String     @id @default(uuid())
-  name        String   
-  description String?  
-  progress    Int        @default(0) 
-  startDate   DateTime?
-  endDate     DateTime?
-  isArchived  Boolean    @default(false)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  status      String     @default("AKTYWNY") 
-  color       String     @default("bg-emerald-500")
-  budget      Float      @default(0.0)
-  ownerId     String?
-  pmId        String?
-  owner       User?      @relation("ProjectOwner", fields: [ownerId], references: [id])
-  pm          User?      @relation("ProjectManager", fields: [pmId], references: [id])
-
-  tasks       Task[]
-  comments    Comment[]
-}
-
-enum TaskStatus { 
+enum TaskStatus {
   TODO
   IN_PROGRESS
   REVIEW
-  DONE 
+  DONE
 }
 
-enum TaskPriority { 
+enum TaskPriority {
   LOW
   MEDIUM
-  HIGH 
+  HIGH
   URGENT
 }
 
-model Task {
-  id          String       @id @default(uuid())
-  taskId      String       @unique @default(dbgenerated("generate_task_id()"))
-  title       String       
-  description String?      @db.Text 
-  status      TaskStatus   @default(TODO) 
-  priority    TaskPriority @default(MEDIUM)
-  startDate   DateTime?
-  dueDate     DateTime?    
-  
-  // NOWOŚĆ: Hierarchia i Architektura Enterprise
-  parentTaskId  String?
-  parentTask    Task?        @relation("SubTasks", fields: [parentTaskId], references: [id])
-  subTasks      Task[]       @relation("SubTasks")
-  
-  ownerId       String?      // Single Point of Accountability
-  owner         User?        @relation("TaskOwner", fields: [ownerId], references: [id])
-  
-  estimatedHours Float       @default(0.0) // Zarządzanie Przepustowością
-  loggedHours    Float       @default(0.0) // Time Tracking
-  
-  // NOWOŚĆ: Protokół Wąskiego Gardła (Bottleneck Protocol)
-  isBlocked   Boolean      @default(false)
-  blockReason String?      @db.Text
-  blockerId     String?      // Wskazanie winnego przestoju
-  blocker       User?        @relation("TaskBlocker", fields: [blockerId], references: [id])
-  
-  // NOWOŚĆ: Archiwizacja Zadań
-  isArchived  Boolean      @default(false)
-  
-  activeWorkers User[]     @relation("ActiveWorker")
-  
-  projectId   String?
-  campaignId  String?      // Zadanie może być opcjonalnie podpięte pod Kampanię
-  creatorId   String       
-
-  project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  campaign    Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  assignees   User[]       @relation("TaskAssignees")
-  assignedGroups String[]    @default([])
-  creator     User         @relation("TaskCreator", fields: [creatorId], references: [id])
-  comments    Comment[]    
-
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  @@index([status])
-  @@index([projectId])
-  @@index([campaignId])
-}
-
-model Comment {
-  id         String   @id @default(uuid())
-  content    String   @db.Text 
-  actionType String   @default("message") 
-  fileUrl    String?  // Link do pliku w Supabase Storage
-  fileName   String?  // Oryginalna nazwa pliku
-  taskId     String?
-  projectId  String?
-  campaignId String?
-  authorId   String
-
-  task       Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  project    Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  
-  author     User     @relation(fields: [authorId], references: [id])
-  createdAt  DateTime @default(now()) 
-
-  @@index([taskId])
-  @@index([projectId])
-  @@index([campaignId])
-}
-
-model GlobalMessage {
-  id        String   @id @default(uuid())
-  content   String   @db.Text
-  actionType String  @default("message") // message, file, image
-  fileUrl   String?
-  fileName  String?
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-
-  @@index([createdAt])
-}
-
-model Notification {
-  id        String   @id @default(uuid())
-  userId    String   
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  message   String
-  type      String   @default("info") // "task_new", "deadline", "idle"
-  isRead    Boolean  @default(false)
-  taskId    String?  
-  relatedTaskId String?
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-}
-
-model DirectMessage {
-  id         String   @id @default(uuid())
-  content    String   @db.Text
-  actionType String   @default("message") 
-  fileUrl    String?  
-  fileName   String?  
-  isRead     Boolean  @default(false)
-  
-  senderId   String
-  receiverId String
-  
-  sender     User     @relation("SentDirectMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver   User     @relation("ReceivedDirectMessages", fields: [receiverId], references: [id], onDelete: Cascade)
-
-  createdAt  DateTime @default(now())
-
-  @@index([senderId, receiverId])
-  @@index([receiverId, senderId])
-}
-
-// NOWOŚĆ: Tablica Informacyjna (Company Board)
-model Announcement {
-  id          String   @id @default(uuid())
-  title       String
-  content     String   @db.Text
-  priority    String   @default("NORMAL") // NORMAL, URGENT, CRITICAL
-  isRequired  Boolean  @default(true)     // Czy wymaga bezwzględnego zatwierdzenia?
-  
-  authorId    String
-  author      User     @relation(fields: [authorId], references: [id])
-  
-  reads       AnnouncementRead[] // Dziennik logów (Kto i kiedy przeczytał)
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model AnnouncementRead {
-  id             String   @id @default(uuid())
-  userId         String
-  announcementId String
-  readAt         DateTime @default(now()) // Twardy dowód zapoznania się
-
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, announcementId]) // Jeden użytkownik może zatwierdzić tylko raz
-}
-
-// NOWOŚĆ: Zaawansowany model Kampanii Marketingowych
-model Campaign {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  budget      Float    @default(0.0)
-  
-  // ROZBICIE BUDŻETU
-  budgetMedia   Float  @default(0.0)
-  budgetPOSM    Float  @default(0.0)
-  budgetAgency  Float  @default(0.0)
-
-  // RELACJE PIM DLA OSI CZASU
-  brandId       String?
-  brand         Brand?   @relation(fields: [brandId], references: [id])
-  productId     String?
-  product       Product? @relation("CampaignPromotedProduct", fields: [productId], references: [id])
-  
-  // ZARZĄDZANIE SPRZEDAŻĄ I INSTRUKCJE
-  plannedCount  Int      @default(0)
-  soldCount     Int      @default(0)
-  instructions  String?  @db.Text
-
-  markets     String?  // Rynki docelowe, np. "PL, CZ, SK"
-  networks    String?  // Kanały dystrybucji, np. "Allegro, Hebe, Notino"
-  startDate   DateTime
-  endDate     DateTime
-  status      String   @default("Planowana") // Planowana, W trakcie, Zakończona, Zablokowana
-  color       String   @default("bg-blue-500") // Domyślnie NIEBIESKI wg wytycznych -> Zaplanowana
-  
-  tasks       Task[]
-  campaignProducts CampaignProduct[]
-  assets           CampaignAsset[]
-  comments         Comment[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Brand {
-  id          String    @id @default(uuid())
-  name        String    @unique
-  products    Product[]
-  campaigns   Campaign[]
-  createdAt   DateTime  @default(now())
-}
-
-model CampaignProduct {
+model SmiPost {
   id              String   @id @default(uuid())
   campaignId      String
-  productId       String
-  promoMechanic   String?  // np. "-20%", "Zestaw 2+1", "Darmowa wysyłka"
-  posmAllocation  Int      @default(0) // Alokacja materiałów POSM (ilość)
-
+  brandLine       String?
+  publishDate     DateTime
+  postType        String?  
+  content         String?  @db.Text
+  hashtags        String?  @db.Text
+  hasGraphics     Boolean  @default(false)
+  mediaUrl        String?
+  mediaType       String?  // 'IMAGE' lub 'VIDEO'
+  notes           String?  @db.Text
+  redirectUrl     String?  
+  adBudgetInfo    String?  
+  status          String   @default("Szkic") 
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
   campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  @@unique([campaignId, productId])
-}
-
-model CampaignAsset {
-  id          String   @id @default(uuid())
-  campaignId  String
-  uploaderId  String
-  name        String
-  fileUrl     String
-  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  createdAt   DateTime @default(now())
-
-  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  uploader    User     @relation(fields: [uploaderId], references: [id])
-}
-
-model Product {
-  id                    String   @id @default(uuid())
-  ean                   String   @unique // Kod kreskowy - główny identyfikator
-  sku                   String   @unique
-  name                  String
-  stock                 Int      @default(0)
-  salePrice             Float    @default(0.0) // Cena sprzedaży
-  
-  // UNIT ECONOMICS (Koszty zmienne przypisane do 1 sztuki)
-  basePrice             Float    @default(0.0) // Cena zakupu
-  inboundTransportCost  Float    @default(0.0) // Transport do firmy, cła
-  packagingCost         Float    @default(0.0) // Karton, pakowanie
-  bdoEprCost            Float    @default(0.0) // Podatki BDO / śmieci
-  outboundTransportCost Float    @default(0.0) // Transport do klienta
-  
-  status                String   @default("Aktywny") 
-  
-  // INTEGRACJE (Gotowość na synchronizację API)
-  subiektId             String?  @unique // ID z bazy MS SQL Subiekt GT
-  baselinkerId          String?  @unique // ID z bazy Baselinker
-  isSynced              Boolean  @default(false)
-  
-  brandId               String
-  brand                 Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  campaignProducts      CampaignProduct[]
-  campaignsAsMain       Campaign[] @relation("CampaignPromotedProduct")
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  @@index([brandId])
-  @@index([sku])
-  @@index([ean])
+  @@index([campaignId])
 }
