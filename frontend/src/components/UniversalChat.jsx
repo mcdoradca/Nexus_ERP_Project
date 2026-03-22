@@ -6,14 +6,13 @@ import EmojiPicker from 'emoji-picker-react';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // mode: 'global' | 'direct' | 'task' | 'campaign' | 'project'
-export default function UniversalChat({ mode, targetId, currentUser, socket, title, subtitle }) {
+export default function UniversalChat({ mode, targetId, currentUser, socket, title, subtitle, token }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef(null);
   const commentsEndRef = useRef(null);
-  const token = localStorage.getItem('token');
 
   const scrollToBottom = () => {
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });

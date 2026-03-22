@@ -418,7 +418,7 @@ const TaskDetailsDrawer = ({
           {/* Kolumna 3: Czat przymocowany na prawej flance (max 25%) */}
           <div className="w-full lg:w-[35%] order-3 lg:order-3 min-w-[320px] bg-emerald-50/80 flex flex-col p-4 shrink-0 border-l border-emerald-100">
              <div className="flex-1 border-2 border-emerald-200 rounded-sm overflow-hidden flex flex-col bg-emerald-50/50 shadow-sm ring-4 ring-emerald-500/10">
-                <UniversalChat mode="task" targetId={currentTask.id} currentUser={currentUser} socket={socket} title="Wątek Techniczny Zlecenia" subtitle={`Task ID: ${currentTask.taskId}`} />
+                <UniversalChat mode="task" targetId={currentTask.id} currentUser={currentUser} socket={socket} token={token} title="Wątek Techniczny Zlecenia" subtitle={`Task ID: ${currentTask.taskId}`} />
              </div>
           </div>
         </div>

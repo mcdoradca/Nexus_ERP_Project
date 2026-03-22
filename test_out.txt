@@ -1,0 +1,50 @@
+
+Invalid `prisma.campaign.update()` invocation in
+Z:\Nexus_ERP_Project\src\modules\campaigns\campaigns.service.js:115:51
+
+  112     updateData.product = { disconnect: true };
+  113 }
+  114 
+→ 115 const updatedCampaign = await prisma.campaign.update({
+        where: {
+          id: "5141a518-d3d7-4a6f-b67d-b37b090da605"
+        },
+        data: {
+          name: "TEST NAME",
+          description: "",
+          instructions: "",
+          color: "bg-blue-500",
+          assignedGroups: [],
+          startDate: new Date("2026-03-24T00:00:00.000Z"),
+          endDate: new Date("2026-03-30T00:00:00.000Z"),
+          budget: 0,
+          plannedCount: 0,
+          ~~~~~~~~~~~~
+          budgetPOSM: 0,
+          budgetMedia: 0,
+          budgetAgency: 0,
+          assignees: {
+            set: []
+          },
+          brands: {
+            set: []
+          },
+          contractors: {
+            set: []
+          },
+      ?   id?: String | StringFieldUpdateOperationsInput,
+      ?   networks?: String | NullableStringFieldUpdateOperationsInput | Null,
+      ?   status?: String | StringFieldUpdateOperationsInput,
+      ?   createdAt?: DateTime | DateTimeFieldUpdateOperationsInput,
+      ?   updatedAt?: DateTime | DateTimeFieldUpdateOperationsInput,
+      ?   soldCount?: Int | IntFieldUpdateOperationsInput,
+      ?   product?: ProductUpdateOneWithoutCampaignsAsMainNestedInput,
+      ?   assets?: CampaignAssetUpdateManyWithoutCampaignNestedInput,
+      ?   campaignProducts?: CampaignProductUpdateManyWithoutCampaignNestedInput,
+      ?   comments?: CommentUpdateManyWithoutCampaignNestedInput,
+      ?   tasks?: TaskUpdateManyWithoutCampaignNestedInput,
+      ?   smiPosts?: SmiPostUpdateManyWithoutCampaignNestedInput
+        }
+      })
+
+Unknown argument `plannedCount`. Available options are marked with ?.

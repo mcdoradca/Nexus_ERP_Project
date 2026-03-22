@@ -195,6 +195,7 @@ model Campaign {
   id               String            @id @default(uuid())
   name             String
   description      String?
+  instructions     String?           @default("")
   budget           Float             @default(0.0)
   networks         String?
   startDate        DateTime
@@ -208,13 +209,11 @@ model Campaign {
   budgetAgency     Float             @default(0.0)
   budgetMedia      Float             @default(0.0)
   budgetPOSM       Float             @default(0.0)
-  markets          String?
-  brandId          String?
-  instructions     String?
-  plannedCount     Int               @default(0)
   productId        String?
+  plannedCount     Int               @default(0)
   soldCount        Int               @default(0)
-  brand            Brand?            @relation(fields: [brandId], references: [id])
+  brands           Brand[]
+  contractors      Company[]
   product          Product?          @relation("CampaignPromotedProduct", fields: [productId], references: [id])
   assets           CampaignAsset[]
   campaignProducts CampaignProduct[]
@@ -357,6 +356,7 @@ model Company {
 
   branches    CompanyBranch[]
   contacts    ContactPerson[]
+  campaigns   Campaign[]
 }
 
 model CompanyBranch {

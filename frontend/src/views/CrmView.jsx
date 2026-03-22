@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Building2, Search, Plus, MapPin, Users, Phone, Mail, Globe, Hash, Edit3, Trash2, Loader2, ArrowRight, X, CloudLightning } from 'lucide-react';
 
-const CrmView = ({ token, API_URL, currentUser }) => {
+const CrmView = ({ token, API_URL, currentUser, fetchAppGlobalData }) => {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
   const [selectedCompany, setSelectedCompany] = useState(null);
@@ -53,7 +54,7 @@ const CrmView = ({ token, API_URL, currentUser }) => {
         notes: `Adres zarejestrowany: ${res.data.address}`
       });
     } catch (err) {
-      alert('Nie odnaleziono podmiotu w bazie Ministerstwa Finansów lub serwer odrzucił połączenie.');
+      alert('Nie odnaleziono kontrahenta w bazie Ministerstwa Finansów lub serwer odrzucił połączenie.');
     } finally {
       setAutofilling(false);
     }
@@ -62,6 +63,8 @@ const CrmView = ({ token, API_URL, currentUser }) => {
   // --- SUBMITS ---
   const handleSaveCompany = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       if (companyForm.id) {
         await axios.patch(`${API_URL}/api/crm/companies/${companyForm.id}`, companyForm, { headers: { Authorization: `Bearer ${token}` } });
@@ -69,9 +72,12 @@ const CrmView = ({ token, API_URL, currentUser }) => {
         await axios.post(`${API_URL}/api/crm/companies`, companyForm, { headers: { Authorization: `Bearer ${token}` } });
       }
       setIsCompanyModalOpen(false);
-      fetchCompanies();
+      fetchCompanies(); // odśwież lokalny stan CRM
+      if (typeof fetchAppGlobalData === 'function') fetchAppGlobalData(); // odśwież globalny stan ERP
     } catch (err) {
-      alert(err.response?.data?.error || 'Błąd zapisu firmy');
+      alert(err.response?.data?.error || 'Błąd zapisu kontrahenta');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -133,12 +139,12 @@ const CrmView = ({ token, API_URL, currentUser }) => {
   return (
     <div className="flex-1 flex overflow-hidden bg-[#f8fafc] text-slate-900 font-sans">
       
-      {/* LEWY PANEL - LISTA FIRM */}
+      {/* LEWY PANEL - LISTA KONTRAHENTÓW */}
       <div className="w-80 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20 shadow-[5px_0_30px_rgba(0,0,0,0.02)]">
         <div className="p-6 border-b border-slate-100 shrink-0">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-black text-slate-800 uppercase tracking-tighter flex items-center">
-              <Building2 className="w-5 h-5 mr-3 text-indigo-600" /> Baza Firm
+              <Building2 className="w-5 h-5 mr-3 text-indigo-600" /> Baza Kontrahentów
             </h2>
             <button onClick={() => { setCompanyForm({ id: '', taxId: '', regon: '', krs: '', name: '', legalForm: '', industry: '', website: '', mainPhone: '', mainEmail: '', status: 'Aktywny', notes: '' }); setIsCompanyModalOpen(true); }} className="p-2 bg-indigo-50 text-indigo-600 rounded-sm hover:bg-indigo-600 hover:text-white transition-colors tooltip" title="Zarejestruj nową">
               <Plus className="w-4 h-4" />
@@ -166,18 +172,18 @@ const CrmView = ({ token, API_URL, currentUser }) => {
         </div>
       </div>
 
-      {/* PRAWY PANEL - SZCZEGÓŁY FIRMY */}
+      {/* PRAWY PANEL - SZCZEGÓŁY KONTRAHENTA */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] overflow-y-auto relative custom-scrollbar">
         {!selectedCompany ? (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-300">
             <Building2 className="w-24 h-24 mb-6 opacity-20" />
-            <h3 className="text-xl font-black uppercase tracking-widest text-slate-400 mb-2">Wybierz lub dodaj firmę</h3>
+            <h3 className="text-xl font-black uppercase tracking-widest text-slate-400 mb-2">Wybierz lub dodaj kontrahenta</h3>
             <p className="text-xs font-bold uppercase tracking-widest max-w-sm text-center opacity-60">Zarządzaj ujednoliconą bazą B2B, dodawaj jej oddziały (Siedziby, Magazyny) oraz koordynuj z osobami kontaktowymi.</p>
           </div>
         ) : (
           <div className="p-10 max-w-6xl mx-auto w-full animate-in slide-in-from-bottom-8 duration-500">
             
-            {/* HERADER FIRMY */}
+            {/* HEADER KONTRAHENTA */}
             <div className="bg-white rounded-sm shadow-sm border border-slate-200 p-8 mb-8 relative overflow-hidden group">
                <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
                  <button onClick={() => { setCompanyForm(selectedCompany); setIsCompanyModalOpen(true); }} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-sm text-[9px] font-black uppercase tracking-widest flex items-center"><Edit3 className="w-3 h-3 mr-2"/> Edytuj</button>
@@ -201,7 +207,7 @@ const CrmView = ({ token, API_URL, currentUser }) => {
                        {selectedCompany.mainPhone && <div className="flex items-center"><Phone className="w-4 h-4 mr-2 text-slate-400"/> {selectedCompany.mainPhone}</div>}
                        {selectedCompany.website && <div className="flex items-center"><Globe className="w-4 h-4 mr-2 text-slate-400"/> {selectedCompany.website}</div>}
                     </div>
-                    {selectedCompany.notes && <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-sm text-xs font-bold text-yellow-800 break-words"><span className="uppercase tracking-widest text-[9px] mb-1 block opacity-60">Notatka Organizacyjna:</span>{selectedCompany.notes}</div>}
+                    {selectedCompany.notes && <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-sm text-xs font-bold text-yellow-800 break-words"><span className="uppercase tracking-widest text-[9px] mb-1 block opacity-60">Notatka Organizacyjna o Kontrahencie:</span>{selectedCompany.notes}</div>}
                   </div>
                </div>
             </div>
@@ -213,8 +219,9 @@ const CrmView = ({ token, API_URL, currentUser }) => {
                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center"><MapPin className="w-4 h-4 mr-2 text-indigo-600"/> Receptory / Oddziały</h3>
                     <button onClick={() => { setBranchForm({ id: '', name: '', type: 'Oddział', street: '', building: '', city: '', postalCode: '', country: 'Polska', isHeadquarters: false }); setIsBranchModalOpen(true); }} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline flex items-center"><Plus className="w-3 h-3 mr-1"/> Dodaj Punkt</button>
                   </div>
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Adresy i Oddziały Kontrahenta</h4>
                   <div className="space-y-4">
-                     {selectedCompany.branches?.length === 0 ? <p className="text-xs text-slate-400 font-bold italic">Firma nie posiada jeszcze zdefiniowanych oddziałów adresowych. Dodaj Główną Siedzibę dla celów transportowych.</p> : selectedCompany.branches?.map(b => (
+                     {selectedCompany.branches?.length === 0 ? <p className="text-xs text-slate-400 font-bold italic">Kontrahent nie posiada jeszcze zdefiniowanych oddziałów adresowych. Dodaj Główną Siedzibę dla celów logistycznych.</p> : selectedCompany.branches?.map(b => (
                        <div key={b.id} className="bg-white border border-slate-200 rounded-sm p-5 shadow-sm hover:border-indigo-300 transition-all group relative">
                           <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
                              <button onClick={() => { setBranchForm(b); setIsBranchModalOpen(true); }} className="text-slate-400 hover:text-indigo-600"><Edit3 className="w-3 h-3"/></button>
@@ -275,13 +282,13 @@ const CrmView = ({ token, API_URL, currentUser }) => {
         )}
       </div>
 
-      {/* MODAL: FIrma */}
+      {/* MODAL: Kontrahent */}
       {isCompanyModalOpen && (
          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-6 animate-in fade-in">
             <div className="bg-white rounded-sm shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] min-h-0 animate-in zoom-in-95">
                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
                  <div>
-                   <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">{companyForm.id ? 'Edycja Firmy' : 'Rejestracja Podmiotu B2B'}</h3>
+                   <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">{companyForm.id ? 'Edycja Kontrahenta' : 'Rejestracja Kontrahenta B2B'}</h3>
                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Główny Rekord Systemowy CRM</p>
                  </div>
                  <button onClick={() => setIsCompanyModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-sm transition-all"><X className="w-5 h-5 text-slate-400" /></button>
@@ -301,8 +308,8 @@ const CrmView = ({ token, API_URL, currentUser }) => {
 
                  <div className="grid grid-cols-2 gap-6">
                    <div className="col-span-2">
-                     <label className={labelClass}>Nazwa Przedsiębiorstwa (Pełna)</label>
-                     <input required placeholder="Firma XYZ..." type="text" className={inputClass} value={companyForm.name} onChange={e => setCompanyForm({...companyForm, name: e.target.value})} />
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Pełna Nazwa Kontrahenta</label>
+                     <input required placeholder="Kontrahent XYZ..." type="text" className={inputClass} value={companyForm.name} onChange={e => setCompanyForm({...companyForm, name: e.target.value})} />
                    </div>
                    <div>
                      <label className={labelClass}>Forma Prawna</label>
@@ -345,9 +352,12 @@ const CrmView = ({ token, API_URL, currentUser }) => {
                      <textarea className={`${inputClass} min-h-[100px] resize-y`} value={companyForm.notes} onChange={e => setCompanyForm({...companyForm, notes: e.target.value})}></textarea>
                    </div>
                  </div>
-                 <div className="pt-4 pb-2">
-                    <button type="submit" className="w-full py-4 bg-slate-900 hover:bg-indigo-600 text-white font-black uppercase tracking-[0.2em] text-xs rounded-sm shadow-xl transition-all">Zapisz Rekord Systemowy</button>
-                 </div>
+                  <div className="pt-4 pb-2">
+                     <button type="submit" disabled={isSubmitting} className={`w-full py-4 bg-slate-900 hover:bg-indigo-600 text-white font-black uppercase tracking-[0.2em] text-xs rounded-sm shadow-xl transition-all flex items-center justify-center ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}>
+                       {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                       Zapisz Rekord Systemowy
+                     </button>
+                  </div>
                </form>
             </div>
          </div>

@@ -8,7 +8,8 @@ async function getCampaignsForUser(user) {
                 campaignProducts: { include: { product: true } }, 
                 assets: { include: { uploader: { select: { name: true } } } }, 
                 tasks: true, 
-                brand: true, 
+                brands: true, 
+                contractors: true,
                 product: true,
                 assignees: { select: { id: true, name: true, color: true, department: true } }
             },
@@ -18,14 +19,14 @@ async function getCampaignsForUser(user) {
     if (user.group === 'AGENCJE') {
         return prisma.campaign.findMany({
             where: { tasks: { some: { assignees: { some: { id: user.id } } } } },
-            select: { id: true, name: true, description: true, startDate: true, endDate: true, status: true, color: true, tasks: { include: { assignees: true } }, assets: true, brand: true, product: true, brandId: true, productId: true, soldCount: true, plannedCount: true, instructions: true, budget: true },
+            select: { id: true, name: true, description: true, startDate: true, endDate: true, status: true, color: true, tasks: { include: { assignees: true } }, assets: true, brands: true, contractors: true, product: true, productId: true, soldCount: true, plannedCount: true, instructions: true, budget: true },
             orderBy: { startDate: 'asc' }
         });
     }
     if (user.department === 'HANDLOWCY') {
         return prisma.campaign.findMany({
             where: { status: { in: ['Zatwierdzona', 'W trakcie', 'Planowana'] } },
-            select: { id: true, name: true, description: true, startDate: true, endDate: true, status: true, color: true, campaignProducts: { include: { product: { select: { sku: true, name: true, stock: true } } } }, assets: { where: { status: 'APPROVED' } }, brand: true, product: true, brandId: true, productId: true, soldCount: true, plannedCount: true, instructions: true, budget: true },
+            select: { id: true, name: true, description: true, startDate: true, endDate: true, status: true, color: true, campaignProducts: { include: { product: { select: { sku: true, name: true, stock: true } } } }, assets: { where: { status: 'APPROVED' } }, brands: true, contractors: true, product: true, productId: true, soldCount: true, plannedCount: true, instructions: true, budget: true },
             orderBy: { startDate: 'asc' }
         });
     }
@@ -37,7 +38,8 @@ async function getCampaignById(id) {
         where: { id },
         include: {
             campaignProducts: { include: { product: true } },
-            brand: true,
+            brands: true,
+            contractors: true,
             product: true,
             assignees: { select: { id: true, name: true, color: true, email: true } },
             assets: { include: { uploader: { select: { id: true, name: true, color: true } } }, orderBy: { createdAt: 'desc' } },
@@ -47,21 +49,31 @@ async function getCampaignById(id) {
 }
 
 async function createCampaign(data, creatorId) {
-    const { name, description, startDate, endDate, budget, budgetMedia, budgetPOSM, budgetAgency, markets, networks, color, brandId, productId, plannedCount, soldCount, instructions, assignees, assignedGroups } = data;
+    const { name, description, startDate, endDate, budget, budgetMedia, budgetPOSM, budgetAgency, markets, networks, color, brandIds, contractorIds, productId, plannedCount, soldCount, instructions, assignees, assignedGroups } = data;
     
     // Obsługa relacji wielu-do-wielu dla zespołu przypisanego
     const assigneesQuery = assignees && Array.isArray(assignees) && assignees.length > 0 
         ? { connect: assignees.map(id => ({ id })) } 
         : undefined;
 
+    const brandsQuery = brandIds && Array.isArray(brandIds) && brandIds.length > 0
+        ? { connect: brandIds.map(id => ({ id })) }
+        : undefined;
+
+    const contractorsQuery = contractorIds && Array.isArray(contractorIds) && contractorIds.length > 0
+        ? { connect: contractorIds.map(id => ({ id })) }
+        : undefined;
+
     const newCampaign = await prisma.campaign.create({ 
         data: { 
             name, description, startDate: new Date(startDate), endDate: new Date(endDate), 
             budget: parseFloat(budget)||0, budgetMedia: parseFloat(budgetMedia)||0, budgetPOSM: parseFloat(budgetPOSM)||0, budgetAgency: parseFloat(budgetAgency)||0, 
-            markets, networks, color, brandId, productId: productId || null, 
+            markets, networks, color, productId: productId || null, 
             plannedCount: parseInt(plannedCount)||0, soldCount: parseInt(soldCount)||0, instructions,
             assignedGroups: assignedGroups || [],
-            ...(assigneesQuery && { assignees: assigneesQuery })
+            ...(assigneesQuery && { assignees: assigneesQuery }),
+            ...(brandsQuery && { brands: brandsQuery }),
+            ...(contractorsQuery && { contractors: contractorsQuery })
         } 
     });
     EventBus.publish('CampaignCreated', { campaignId: newCampaign.id, creatorId });
@@ -69,7 +81,7 @@ async function createCampaign(data, creatorId) {
 }
 
 async function updateCampaign(id, data, editorId) {
-    const { assignees, assignedGroups, startDate, endDate, budget, plannedCount, soldCount, budgetPOSM, budgetMedia, budgetAgency, ...rest } = data;
+    const { assignees, assignedGroups, startDate, endDate, budget, plannedCount, soldCount, budgetPOSM, budgetMedia, budgetAgency, brandIds, contractorIds, productId, ...rest } = data;
     
     const updateData = { ...rest };
     if (assignedGroups !== undefined) updateData.assignedGroups = assignedGroups;
@@ -86,8 +98,19 @@ async function updateCampaign(id, data, editorId) {
     if (assignees && Array.isArray(assignees)) {
         updateData.assignees = { set: assignees.map(aId => ({ id: aId })) };
     }
+    if (brandIds && Array.isArray(brandIds)) {
+        updateData.brands = { set: brandIds.map(bId => ({ id: bId })) };
+    }
+    if (contractorIds && Array.isArray(contractorIds)) {
+        updateData.contractors = { set: contractorIds.map(cId => ({ id: cId })) };
+    }
     
-    if (updateData.productId === '') updateData.productId = null; // Zabezpieczenie na puste stringi UUID
+    // Zabezpieczenie asocjacji klucza obcego Prisma
+    if (productId) {
+        updateData.product = { connect: { id: productId } };
+    } else if (productId === '') {
+        updateData.product = { disconnect: true };
+    }
 
     const updatedCampaign = await prisma.campaign.update({
         where: { id },

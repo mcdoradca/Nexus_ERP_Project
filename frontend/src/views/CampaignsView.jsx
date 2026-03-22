@@ -5,6 +5,7 @@ import { DevBadge } from '../components/DevBadge';
 const CampaignsView = ({
   campaigns,
   brands,
+  companies,
   timelineRange,
   setTimelineRange,
   setSelectedCampaign,
@@ -12,7 +13,45 @@ const CampaignsView = ({
   devMode
 }) => {
   const [selectedBrandFilter, setSelectedBrandFilter] = React.useState('ALL');
+  const [selectedContractorFilter, setSelectedContractorFilter] = React.useState('ALL');
   const [selectedStatusFilter, setSelectedStatusFilter] = React.useState('ALL');
+  const [displayMode, setDisplayMode] = React.useState('BRAND'); // 'BRAND' | 'CONTRACTOR' | 'BOTH'
+
+  const rows = React.useMemo(() => {
+    let result = [];
+    if (displayMode === 'BRAND') {
+      result = brands
+        .filter(b => selectedBrandFilter === 'ALL' || b.id === selectedBrandFilter)
+        .map(b => ({ id: `b_${b.id}`, name: b.name, brandId: b.id, contractorId: null }));
+    } else if (displayMode === 'CONTRACTOR') {
+      result = (companies || [])
+        .filter(c => selectedContractorFilter === 'ALL' || c.id === selectedContractorFilter)
+        .map(c => ({ id: `c_${c.id}`, name: c.name, brandId: null, contractorId: c.id }));
+    } else if (displayMode === 'BOTH') {
+      const map = new Map();
+      campaigns.forEach(c => {
+         if (selectedStatusFilter !== 'ALL' && c.status !== selectedStatusFilter) return;
+
+         const cBrands = c.brands && c.brands.length > 0 ? c.brands : [{ id: 'none', name: 'Brak Marki' }];
+         const cContracts = c.contractors && c.contractors.length > 0 ? c.contractors : [{ id: 'none', name: 'Brak Kontrahenta' }];
+
+         cBrands.forEach(br => {
+             if (selectedBrandFilter !== 'ALL' && br.id !== selectedBrandFilter) return;
+             
+             cContracts.forEach(co => {
+                 if (selectedContractorFilter !== 'ALL' && co.id !== selectedContractorFilter) return;
+                 
+                 const key = `${br.id}_${co.id}`;
+                 if (!map.has(key)) {
+                    map.set(key, { id: key, name: `${br.name} / ${co.name}`, brandId: br.id === 'none' ? null : br.id, contractorId: co.id === 'none' ? null : co.id });
+                 }
+             });
+         });
+      });
+      result = Array.from(map.values());
+    }
+    return result;
+  }, [brands, companies, campaigns, displayMode, selectedBrandFilter, selectedContractorFilter, selectedStatusFilter]);
 
   // ---- TIMELINE LOGIC ----
   const now = new Date();
@@ -77,11 +116,20 @@ const CampaignsView = ({
              <button onClick={()=>setTimelineRange('12_WEEKS')} className={`px-4 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all ${timelineRange==='12_WEEKS'?'bg-white text-indigo-600 shadow-sm border border-slate-200':'text-slate-400 hover:text-slate-800'}`}>Kwartał</button>
              <button onClick={()=>setTimelineRange('YEAR')} className={`px-4 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all ${timelineRange==='YEAR'?'bg-white text-indigo-600 shadow-sm border border-slate-200':'text-slate-400 hover:text-slate-800'}`}>Rok</button>
           </div>
+          <div className="flex space-x-2 bg-slate-50 p-1 rounded-sm border border-slate-200/70">
+             <button onClick={()=>setDisplayMode('BRAND')} className={`px-4 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all ${displayMode==='BRAND'?'bg-white text-indigo-600 shadow-sm border border-slate-200':'text-slate-400 hover:text-slate-800'}`}>Własna Marka</button>
+             <button onClick={()=>setDisplayMode('CONTRACTOR')} className={`px-4 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all ${displayMode==='CONTRACTOR'?'bg-white text-indigo-600 shadow-sm border border-slate-200':'text-slate-400 hover:text-slate-800'}`}>Kontrahent (CRM)</button>
+             <button onClick={()=>setDisplayMode('BOTH')} className={`px-4 py-1.5 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all ${displayMode==='BOTH'?'bg-white text-indigo-600 shadow-sm border border-slate-200':'text-slate-400 hover:text-slate-800'}`}>Obydwa (Mix)</button>
+          </div>
           <div className="h-6 w-px bg-slate-200"></div>
           <div className="flex space-x-2">
              <select value={selectedBrandFilter} onChange={(e) => setSelectedBrandFilter(e.target.value)} className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-[10px] font-black text-slate-600 uppercase tracking-widest outline-none shadow-sm cursor-pointer hover:border-indigo-300 transition-all">
-               <option value="ALL">Firma: Wszystkie</option>
+               <option value="ALL">Marka: Wszystkie</option>
                {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+             </select>
+             <select value={selectedContractorFilter} onChange={(e) => setSelectedContractorFilter(e.target.value)} className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-[10px] font-black text-slate-600 uppercase tracking-widest outline-none shadow-sm cursor-pointer hover:border-indigo-300 transition-all">
+               <option value="ALL">Kontrahent: Wszyscy</option>
+               {companies?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
              </select>
              <select value={selectedStatusFilter} onChange={(e) => setSelectedStatusFilter(e.target.value)} className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-sm text-[10px] font-black text-slate-600 uppercase tracking-widest outline-none shadow-sm cursor-pointer hover:border-indigo-300 transition-all">
                <option value="ALL">Status: Wszystkie</option>
@@ -101,13 +149,13 @@ const CampaignsView = ({
       <div className="flex-1 overflow-auto flex relative bg-white custom-scrollbar-horizontal">
         <div className="w-72 flex-shrink-0 border-r border-slate-200 bg-slate-50/80 flex flex-col sticky left-0 z-30 shadow-[10px_0_20px_rgba(0,0,0,0.03)] backdrop-blur-md">
           <div className="h-16 border-b border-slate-200 flex items-center px-6 bg-white font-black text-[10px] uppercase tracking-[0.2em] text-slate-400 shrink-0">
-            Podmiot / Marka
+            {displayMode === 'BRAND' ? 'Marka Kosmetyczna' : displayMode === 'CONTRACTOR' ? 'Kontrahent B2B (Logistyka)' : 'Kontrahent & Marka Promowana'}
           </div>
-          {brands.filter(b => selectedBrandFilter === 'ALL' || b.id === selectedBrandFilter).map((b, idx) => (
-            <div key={b.id} className={`h-32 px-6 py-4 flex flex-col justify-center border-b border-slate-100/80 ${idx % 2 === 0 ? 'bg-white' : 'bg-transparent'} shrink-0`}>
+          {rows.map((row, idx) => (
+            <div key={row.id} className={`h-32 px-6 py-4 flex flex-col justify-center border-b border-slate-100/80 ${idx % 2 === 0 ? 'bg-white' : 'bg-transparent'} shrink-0`}>
               <div className="flex items-center">
                 <div className="w-10 h-10 rounded-sm bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mr-4 shrink-0 shadow-inner"><Target className="w-5 h-5" /></div>
-                <h3 className="font-black text-[13px] text-slate-800 uppercase tracking-tight truncate">{b.name}</h3>
+                <h3 className="font-black text-[13px] text-slate-800 uppercase tracking-tight truncate" title={row.name}>{row.name}</h3>
               </div>
             </div>
           ))}
@@ -123,15 +171,31 @@ const CampaignsView = ({
              ))}
           </div>
           
-          {brands.filter(b => selectedBrandFilter === 'ALL' || b.id === selectedBrandFilter).map((b, idx) => {
-            const brandCampaigns = campaigns.filter(c => c.brandId === b.id && (selectedStatusFilter === 'ALL' || c.status === selectedStatusFilter));
+          {rows.map((row, idx) => {
+            const rowCampaigns = campaigns.filter(c => {
+               if (selectedStatusFilter !== 'ALL' && c.status !== selectedStatusFilter) return false;
+               
+               const hasBrand = (brId) => {
+                  if (brId === null) return !c.brands || c.brands.length === 0;
+                  return c.brands && c.brands.some(b => b.id === brId);
+               };
+               const hasContractor = (coId) => {
+                  if (coId === null) return !c.contractors || c.contractors.length === 0;
+                  return c.contractors && c.contractors.some(co => co.id === coId);
+               };
+
+               if (displayMode === 'BRAND') return hasBrand(row.brandId);
+               if (displayMode === 'CONTRACTOR') return hasContractor(row.contractorId);
+               if (displayMode === 'BOTH') return hasBrand(row.brandId) && hasContractor(row.contractorId);
+               return false;
+            });
             return (
-              <div key={b.id} className={`h-32 flex relative border-b border-slate-100/80 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} shrink-0`}>
+              <div key={row.id} className={`h-32 flex relative border-b border-slate-100/80 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'} shrink-0`}>
                 {columns.map(w => (
                   <div key={w.id} style={{ width: `${w.width}px` }} className="border-r border-slate-100/50 flex-shrink-0 h-full"></div>
                 ))}
 
-                {brandCampaigns.map((c) => {
+                {rowCampaigns.map((c) => {
                   const statusClass = c.color || getStatusColor(c.status);
                   
                   // BEZWZGLĘDNA MATEMATYKA DAT (Bez stref czasowych, pełne i zamknięte daty)
@@ -175,7 +239,7 @@ const CampaignsView = ({
                     </div>
                   );
                 })}
-                {brandCampaigns.length === 0 && (
+                {rowCampaigns.length === 0 && (
                   <div className="absolute left-10 top-1/2 -translate-y-1/2 flex items-center opacity-30">
                      <Megaphone className="w-4 h-4 mr-2 text-slate-400" />
                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Brak Aktywacji</span>

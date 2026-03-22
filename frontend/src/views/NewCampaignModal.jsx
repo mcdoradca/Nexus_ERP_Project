@@ -1,6 +1,80 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { X, Megaphone, Calendar, DollarSign, Target, AlignLeft, Users, Palette, Check, Folder } from 'lucide-react';
+
+const MultiSelectDropdown = ({ options, selectedIds, onToggle, selectionLabel, searchPlaceholder }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const filteredOptions = (options || []).filter(o => o.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button 
+        type="button" 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-sm text-[11px] font-black text-slate-800 flex justify-between items-center transition-all hover:border-indigo-300"
+      >
+        <span className="truncate pr-4">
+          {selectedIds.length === 0 
+            ? selectionLabel 
+            : `Wybrano (${selectedIds.length}): ${(options||[]).filter(o => selectedIds.includes(o.id)).map(o => o.name).join(', ')}`
+          }
+        </span>
+        <div className="shrink-0">
+          <svg className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-200 rounded-sm shadow-2xl flex flex-col max-h-72 overflow-hidden">
+          <div className="p-2 border-b border-slate-100 shrink-0 bg-slate-50">
+             <input 
+               type="text" 
+               placeholder={searchPlaceholder}
+               className="w-full px-3 py-2 bg-white border border-slate-200 rounded-sm text-[10px] font-black outline-none focus:border-indigo-300"
+               value={search}
+               onChange={(e) => setSearch(e.target.value)}
+             />
+          </div>
+          <div className="overflow-y-auto custom-scrollbar p-1">
+            {filteredOptions.length === 0 ? (
+               <div className="p-4 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Brak wyników wyszukiwania</div>
+            ) : (
+               filteredOptions.map(option => {
+                 const isSelected = selectedIds.includes(option.id);
+                 return (
+                   <button
+                     key={option.id}
+                     type="button"
+                     onClick={() => onToggle(option.id)}
+                     className={`w-full text-left px-3 py-2.5 flex items-center rounded-sm text-[10px] font-black uppercase tracking-widest transition-all mb-0.5 ${isSelected ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50 text-slate-700'}`}
+                   >
+                     <div className={`w-4 h-4 rounded-sm border mr-3 flex shrink-0 items-center justify-center transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-white'}`}>
+                       {isSelected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>}
+                     </div>
+                     <span className="truncate">{option.name}</span>
+                   </button>
+                 );
+               })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const COLORS = [
   { id: 'bg-blue-500', label: 'Niebieski' },
@@ -19,6 +93,7 @@ const NewCampaignModal = ({
   brands,
   products,
   users = [],
+  companies,
   fetchData,
   token,
   API_URL,
@@ -33,7 +108,8 @@ const NewCampaignModal = ({
     budgetMedia: '',
     budgetPOSM: '',
     budgetAgency: '',
-    brandId: '',
+    brandIds: [],
+    contractorIds: [],
     productId: '',
     plannedCount: '',
     instructions: '',
@@ -53,8 +129,9 @@ const NewCampaignModal = ({
         budgetMedia: initialData.budgetMedia || '',
         budgetPOSM: initialData.budgetPOSM || '',
         budgetAgency: initialData.budgetAgency || '',
-        brandId: initialData.brandId || '',
-        productId: initialData.productId || '',
+        brandIds: initialData.brands ? initialData.brands.map(b => b.id) : [],
+        contractorIds: initialData.contractors ? initialData.contractors.map(c => c.id) : [],
+        productId: initialData?.productId || '',
         plannedCount: initialData.plannedCount || '',
         instructions: initialData.instructions || '',
         color: initialData.color || 'bg-blue-500',
@@ -63,7 +140,7 @@ const NewCampaignModal = ({
       });
     } else if (isOpen) {
       setFormData({
-        name: '', description: '', startDate: '', endDate: '', budget: '', budgetMedia: '', budgetPOSM: '', budgetAgency: '', brandId: '', productId: '', plannedCount: '', instructions: '', color: 'bg-blue-500', assignees: [], assignedGroups: []
+        name: '', description: '', startDate: '', endDate: '', budget: '', budgetMedia: '', budgetPOSM: '', budgetAgency: '', brandIds: [], contractorIds: [], productId: '', plannedCount: '', instructions: '', color: 'bg-blue-500', assignees: [], assignedGroups: []
       });
     }
   }, [initialData, isOpen]);
@@ -103,6 +180,20 @@ const NewCampaignModal = ({
       assignees: prev.assignees.includes(userId) 
         ? prev.assignees.filter(id => id !== userId)
         : [...prev.assignees, userId]
+    }));
+  };
+
+  const handleBrandToggle = (bId) => {
+    setFormData(prev => ({
+      ...prev,
+      brandIds: prev.brandIds.includes(bId) ? prev.brandIds.filter(id => id !== bId) : [...prev.brandIds, bId]
+    }));
+  };
+
+  const handleContractorToggle = (cId) => {
+    setFormData(prev => ({
+      ...prev,
+      contractorIds: prev.contractorIds.includes(cId) ? prev.contractorIds.filter(id => id !== cId) : [...prev.contractorIds, cId]
     }));
   };
 
@@ -172,17 +263,30 @@ const NewCampaignModal = ({
             <div className="space-y-6">
               <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] border-b border-slate-100 pb-2 mb-4"><Target className="w-3 h-3 inline mr-2"/>Asortyment PIM</h4>
               <div>
-                <label className={labelClass}>Podmiot / Marka</label>
-                <select required className={inputClass} value={formData.brandId} onChange={e => setFormData({...formData, brandId: e.target.value})}>
-                  <option value="" disabled>Wybierz Markę / Firmę</option>
-                  {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
+                <label className={labelClass}>Wybór Marek Kosmetycznych (Multi-Select)</label>
+                <MultiSelectDropdown 
+                  options={brands} 
+                  selectedIds={formData.brandIds} 
+                  onToggle={handleBrandToggle} 
+                  selectionLabel="Zaznacz promowane marki z PIM..." 
+                  searchPlaceholder="Szukaj marki..." 
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Wybór Kontrahentów CRM (Multi-Select)</label>
+                <MultiSelectDropdown 
+                  options={companies} 
+                  selectedIds={formData.contractorIds} 
+                  onToggle={handleContractorToggle} 
+                  selectionLabel="Zaznacz sieci B2B / Sklepy..." 
+                  searchPlaceholder="Szukaj kontrahenta CRM..." 
+                />
               </div>
               <div>
                 <label className={labelClass}>Promowany SKU (Opcjonalnie)</label>
                 <select className={inputClass} value={formData.productId} onChange={e => setFormData({...formData, productId: e.target.value})}>
                   <option value="">Wiele produktów (Ogólna)</option>
-                  {formData.brandId && products.filter(p => p.brandId === formData.brandId).map(p => (
+                  {formData.brandIds.length > 0 && products.filter(p => formData.brandIds.includes(p.brandId)).map(p => (
                     <option key={p.id} value={p.id}>[{p.sku}] {p.name}</option>
                   ))}
                 </select>

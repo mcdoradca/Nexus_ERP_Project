@@ -255,3 +255,4 @@ app.post('/api/products', authenticateToken, async (req, res) => {
 
 app.get('/api/health', async (req, res) => { res.status(200).json({ status: '🟢 ONLINE - Marketing Engine' }); });
 server.listen(PORT, () => console.log(`🚀 APS IE SERVER (Marketing Engine) uruchomiony na porcie ${PORT}`));
+// Nodemon Auto-Wakeup trigger

@@ -18,6 +18,14 @@ const crmService = {
   },
 
   async createCompany(data) {
+    if (data.taxId === '') data.taxId = null;
+    if (data.id === '') delete data.id;
+    
+    // Zabezpieczenie przed przesyłaniem niechcianych pustych parametrów w relacjach
+    delete data.branches;
+    delete data.contacts;
+    delete data.campaigns;
+
     return prisma.company.create({
       data,
       include: { branches: true, contacts: true }
@@ -25,6 +33,7 @@ const crmService = {
   },
 
   async updateCompany(id, data) {
+    if (data.taxId === '') data.taxId = null;
     return prisma.company.update({
       where: { id },
       data,
@@ -38,6 +47,7 @@ const crmService = {
 
   // Branches
   async createBranch(companyId, data) {
+    if (data.id === '') delete data.id;
     return prisma.companyBranch.create({
       data: { ...data, companyId }
     });
@@ -53,6 +63,7 @@ const crmService = {
 
   // Contacts
   async createContact(companyId, data) {
+    if (data.id === '') delete data.id;
     return prisma.contactPerson.create({
       data: { ...data, companyId }
     });

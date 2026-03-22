@@ -15,13 +15,13 @@ async function authenticateToken(req, res, next) {
         const user = await prisma.user.findUnique({ where: { id: decoded.id } });
 
         if (!user) {
-            return res.status(403).json({ error: 'Użytkownik nie znaleziony' });
+            return res.status(401).json({ error: 'Użytkownik nie znaleziony' });
         }
 
         req.user = user;
         next();
     } catch (err) {
-        return res.status(403).json({ error: 'Nieprawidłowy token' });
+        return res.status(401).json({ error: 'Nieprawidłowy token' });
     }
 }
 

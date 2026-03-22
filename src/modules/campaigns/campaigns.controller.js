@@ -32,7 +32,10 @@ async function update(req, res) {
     try {
         const updated = await campaignsService.updateCampaign(req.params.id, req.body, req.user.id);
         res.status(200).json(updated);
-    } catch (error) { res.status(500).json({ error: 'Błąd aktualizacji' }); }
+    } catch (error) { 
+        console.error("FATAL BŁĄD AKTUALIZACJI KAMPANII:", error);
+        res.status(500).json({ error: 'Błąd aktualizacji', details: error.message }); 
+    }
 }
 
 async function addProduct(req, res) {

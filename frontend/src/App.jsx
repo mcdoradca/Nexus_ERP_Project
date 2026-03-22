@@ -39,6 +39,7 @@ function App() {
   const [products, setProducts] = useState([]);
   const [brands, setBrands] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [companies, setCompanies] = useState([]);
   
   // UI States
   const [selectedTask, setSelectedTask] = useState(null);
@@ -116,14 +117,15 @@ function App() {
   const fetchData = async () => {
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const [t, p, c, u, b, pr, n] = await Promise.all([
+      const [t, p, c, u, b, pr, n, co] = await Promise.all([
         axios.get(`${API_URL}/api/tasks`, config),
         axios.get(`${API_URL}/api/projects`, config),
         axios.get(`${API_URL}/api/campaigns`, config),
         axios.get(`${API_URL}/api/users`, config),
         axios.get(`${API_URL}/api/brands`, config),
         axios.get(`${API_URL}/api/products`, config),
-        axios.get(`${API_URL}/api/notifications`, config)
+        axios.get(`${API_URL}/api/notifications`, config),
+        axios.get(`${API_URL}/api/crm/companies`, config)
       ]);
       setTasks(t.data);
       setProjects(p.data);
@@ -132,6 +134,7 @@ function App() {
       setBrands(b.data);
       setProducts(pr.data);
       setNotifications(n.data);
+      setCompanies(co.data);
       fetchUnreadCount();
     } catch (err) {
       if (err.response?.status === 401) handleLogout();
@@ -326,6 +329,7 @@ function App() {
           targetId={activeChat === 'general' ? null : activeChat}
           currentUser={currentUser}
           socket={socket}
+          token={token}
           title={activeChat === 'general' ? 'Strumień Ogólny' : users.find(u => u.id === activeChat)?.name}
           subtitle={activeChat === 'general' ? 'Otwarta dyskusja strategiczna' : 'Bezpośredni kanał szyfrowany'}
         />
@@ -496,7 +500,7 @@ function App() {
              
              {/* Sekcja Komunikatora - Projekt */}
              <div className="mt-12 h-[500px] border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm">
-                <UniversalChat mode="project" targetId={selectedProject.id} currentUser={currentUser} socket={socket} title={`Wątek #P-${selectedProject.projectId.split('-').pop()}`} subtitle="Tablica Główna Projektu" />
+                <UniversalChat mode="project" targetId={selectedProject.id} currentUser={currentUser} socket={socket} token={token} title={`Wątek #P-${selectedProject.projectId.split('-').pop()}`} subtitle="Tablica Główna Projektu" />
              </div>
           </div>
         </div>
@@ -613,7 +617,7 @@ function App() {
             
             {/* Kampania Chat */}
             <div className="h-[400px] border-t border-slate-100 shrink-0 relative z-0">
-                 <UniversalChat mode="campaign" targetId={selectedCampaign.id} currentUser={currentUser} socket={socket} title="Szybka Komunikacja w Kampanii" subtitle={`Marketing: ${selectedCampaign.brand?.name || ''}`} />
+                 <UniversalChat mode="campaign" targetId={selectedCampaign.id} currentUser={currentUser} socket={socket} token={token} title="Szybka Komunikacja w Kampanii" subtitle={`Marketing: ${selectedCampaign.brand?.name || ''}`} />
             </div>
           </div>
         </div>
@@ -821,6 +825,7 @@ function App() {
           isOpen={isNewCampaignModalOpen || !!campaignForEdit} 
           onClose={() => { setIsNewCampaignModalOpen(false); setCampaignForEdit(null); }} 
           brands={brands} 
+          companies={companies}
           products={products} 
           users={users}
           fetchData={fetchData} 
@@ -1057,10 +1062,10 @@ function App() {
       {/* RENDEROWANIE WIDOKÓW */}
       <main className="flex-1 min-h-0 bg-[#f8fafc] flex flex-col relative w-full overflow-hidden">
           {activeTab === 'kanban' && <KanbanView tasks={tasks} projects={projects} campaigns={campaigns} selectedFilterId={selectedFilterId} setSelectedFilterId={setSelectedFilterId} setIsNewTaskModalOpen={setIsNewTaskModalOpen} setSelectedTask={setSelectedTask} devMode={devMode} />}
-          {activeTab === 'campaigns' && <CampaignsView campaigns={campaigns} brands={brands} timelineRange={timelineRange} setTimelineRange={setTimelineRange} setSelectedCampaign={setSelectedCampaign} setIsNewCampaignModalOpen={setIsNewCampaignModalOpen} devMode={devMode} />}
+          {activeTab === 'campaigns' && <CampaignsView campaigns={campaigns} brands={brands} companies={companies} timelineRange={timelineRange} setTimelineRange={setTimelineRange} setSelectedCampaign={setSelectedCampaign} setIsNewCampaignModalOpen={setIsNewCampaignModalOpen} devMode={devMode} />}
           {activeTab === 'mtool' && <MToolView token={token} API_URL={API_URL} currentUser={currentUser} campaigns={campaigns} />}
           {activeTab === 'projects' && <ProjectsView projects={projects} tasks={tasks} currentUser={currentUser} setIsNewProjectModalOpen={setIsNewProjectModalOpen} setSelectedProject={setSelectedProject} devMode={devMode} />}
-          {activeTab === 'crm' && <CrmView token={token} API_URL={API_URL} currentUser={currentUser} />}
+          {activeTab === 'crm' && <CrmView token={token} API_URL={API_URL} currentUser={currentUser} fetchAppGlobalData={fetchData} />}
           {activeTab === 'products' && <ProductsView products={products} currentUser={currentUser} setIsNewBrandModalOpen={setIsNewBrandModalOpen} setIsNewProductModalOpen={setIsNewProductModalOpen} />}
           {activeTab === 'chat' && renderChatInterface()}
           {activeTab === 'admin' && <AdminPanelView users={users} setIsNewUserModalOpen={setIsNewUserModalOpen} setEditingUser={setEditingUser} setIsUserEditModalOpen={setIsUserEditModalOpen} token={token} API_URL={API_URL} />}
