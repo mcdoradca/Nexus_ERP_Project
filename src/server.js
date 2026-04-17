@@ -110,7 +110,13 @@ app.post('/api/brands', authenticateToken, async (req, res) => {
 
 app.get('/api/products', authenticateToken, async (req, res) => {
     try {
-        const products = await prisma.product.findMany({ include: { brand: true }, orderBy: { name: 'asc' } });
+        const products = await prisma.product.findMany({ 
+            include: { 
+               brand: true,
+               bomElements: { include: { material: true } }
+            }, 
+            orderBy: { name: 'asc' } 
+        });
         res.status(200).json(products);
     } catch (error) { res.status(500).json({ error: 'Blad' }); }
 });
@@ -181,8 +187,52 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
                     
                     if (blData.status === 'SUCCESS' && blData.products && Object.keys(blData.products).length > 0) {
                         const firstId = Object.keys(blData.products)[0];
-                        const prod = blData.products[firstId];
-                        return res.status(200).json({ name: prod.name, brand: '', sku: prod.sku || '' });
+                        
+                        // Krok 2: Pobierz szczegóły produktu (Cena, Marka/Cechy)
+                        const dataFormData = new URLSearchParams();
+                        dataFormData.append('method', 'getInventoryProductsData');
+                        dataFormData.append('parameters', JSON.stringify({ "inventory_id": targetInventoryId, "products": [firstId] }));
+                        
+                        const blDataRes = await fetch('https://api.baselinker.com/connector.php', {
+                            method: 'POST',
+                            headers: { 'X-BLToken': tokenRecord.value },
+                            body: dataFormData
+                        });
+                        const dataFull = await blDataRes.json();
+                        
+                        if (dataFull.status === 'SUCCESS' && dataFull.products && dataFull.products[firstId]) {
+                            const fullProd = dataFull.products[firstId];
+                            let brandName = fullProd.brand || ''; // Podstawa
+                            if (!brandName && fullProd.features) {
+                                // Fallback w atrybutach produktowych
+                                brandName = fullProd.features['Marka'] || fullProd.features['Producent'] || fullProd.features['Brand'] || '';
+                            }
+                            
+                            let price = 0;
+                            if (fullProd.prices && Object.keys(fullProd.prices).length > 0) {
+                                price = fullProd.prices[Object.keys(fullProd.prices)[0]]; // Złap sztywno pierwszą grupę cenową
+                            }
+
+                            let stockQty = 0;
+                            if (fullProd.stock && typeof fullProd.stock === 'object') {
+                                stockQty = Object.values(fullProd.stock).reduce((z, b) => z + Number(b), 0);
+                            }
+
+                            let imageUrl = '';
+                            if (fullProd.images && Object.keys(fullProd.images).length > 0) {
+                                imageUrl = fullProd.images[Object.keys(fullProd.images)[0]];
+                            }
+                            
+                            return res.status(200).json({ 
+                                name: fullProd.name || fullProd.text_fields?.name || '', 
+                                brand: brandName, 
+                                sku: fullProd.sku || '',
+                                price: parseFloat(price) || 0,
+                                stock: stockQty,
+                                baselinkerId: firstId,
+                                imageUrl: imageUrl
+                            });
+                        }
                     }
                 }
             }
@@ -235,10 +285,15 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
 app.post('/api/products', authenticateToken, async (req, res) => {
     if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
     try {
-        const { ean, sku, name, stock, salePrice, basePrice, inboundTransportCost, packagingCost, bdoEprCost, outboundTransportCost, brandId, status, subiektId, baselinkerId } = req.body;
+        const { ean, sku, name, stock, salePrice, basePrice, inboundTransportCost, packagingCost, bdoEprCost, outboundTransportCost, brandId, status, subiektId, baselinkerId, imageUrl } = req.body;
+        
+        let safeBrandId = (brandId === '' || brandId === undefined) ? null : brandId;
+        let safeSubiektId = (subiektId === '' || subiektId === undefined) ? null : subiektId;
+        let safeBaselinkerId = (baselinkerId === '' || baselinkerId === undefined) ? null : baselinkerId;
+
         const newProduct = await prisma.product.create({
             data: {
-                ean, sku, name, brandId, status: status || 'Aktywny',
+                ean, sku, name, brandId: safeBrandId, status: status || 'Aktywny',
                 stock: parseInt(stock) || 0,
                 salePrice: parseFloat(salePrice) || 0.0,
                 basePrice: parseFloat(basePrice) || 0.0,
@@ -246,13 +301,167 @@ app.post('/api/products', authenticateToken, async (req, res) => {
                 packagingCost: parseFloat(packagingCost) || 0.0,
                 bdoEprCost: parseFloat(bdoEprCost) || 0.0,
                 outboundTransportCost: parseFloat(outboundTransportCost) || 0.0,
-                subiektId, baselinkerId
+                subiektId: safeSubiektId, baselinkerId: safeBaselinkerId,
+                imageUrl: imageUrl || null
             }
         });
         res.status(201).json(newProduct);
     } catch (error) { res.status(500).json({ error: 'Blad', details: error.message }); }
 });
 
-app.get('/api/health', async (req, res) => { res.status(200).json({ status: '🟢 ONLINE - Marketing Engine' }); });
-server.listen(PORT, () => console.log(`🚀 APS IE SERVER (Marketing Engine) uruchomiony na porcie ${PORT}`));
+app.patch('/api/products/:id', authenticateToken, async (req, res) => {
+    try {
+        const payload = req.body;
+        
+        // Nie aktualizujemy ID
+        delete payload.id;
+        delete payload.createdAt;
+        delete payload.updatedAt;
+        delete payload.bomElements; // BOM jest zagnieżdżony, nie aktualizujemy go tutaj
+        delete payload.brand;
+        
+        const updatedProduct = await prisma.product.update({
+            where: { id: req.params.id },
+            data: {
+                ...payload,
+                stock: parseFloat(payload.stock) || 0,
+                salePrice: parseFloat(payload.salePrice) || 0.0,
+                basePrice: parseFloat(payload.basePrice) || 0.0,
+                inboundTransportCost: parseFloat(payload.inboundTransportCost) || 0.0,
+                packagingCost: parseFloat(payload.packagingCost) || 0.0,
+                bdoEprCost: parseFloat(payload.bdoEprCost) || 0.0,
+                outboundTransportCost: parseFloat(payload.outboundTransportCost) || 0.0,
+            }
+        });
+        res.status(200).json(updatedProduct);
+    } catch (error) { 
+        console.error("PATCH error:", error);
+        res.status(500).json({ error: 'Blad edycji produktu' }); 
+    }
+});
+
+// --- ECO BOM API ---
+app.get('/api/eco/materials', authenticateToken, async (req, res) => {
+    try {
+        const materials = await prisma.ecoMaterial.findMany({ orderBy: { name: 'asc' } });
+        res.status(200).json(materials);
+    } catch (error) { res.status(500).json({ error: 'Blad pobierania stawek' }); }
+});
+
+app.post('/api/eco/materials', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
+    try {
+        const { name, ratePerKg } = req.body;
+        const newMat = await prisma.ecoMaterial.create({ data: { name, ratePerKg: parseFloat(ratePerKg) || 0.0 } });
+        res.status(201).json(newMat);
+    } catch (error) { res.status(500).json({ error: 'Blad zapisu stawki' }); }
+});
+
+app.patch('/api/eco/materials/:id', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
+    try {
+        const { ratePerKg, name } = req.body;
+        const updated = await prisma.ecoMaterial.update({
+            where: { id: req.params.id },
+            data: { ratePerKg: parseFloat(ratePerKg), name }
+        });
+        res.status(200).json(updated);
+    } catch (error) { res.status(500).json({ error: 'Blad edycji stawki' }); }
+});
+
+app.delete('/api/eco/materials/:id', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
+    try {
+        await prisma.ecoMaterial.delete({ where: { id: req.params.id } });
+        res.status(200).json({ status: 'Deleted' });
+    } catch (error) { res.status(500).json({ error: 'Blad usuwania stawki' }); }
+});
+
+app.get('/api/products/:productId/bom', authenticateToken, async (req, res) => {
+    try {
+        const boms = await prisma.productBom.findMany({
+            where: { productId: req.params.productId },
+            include: { material: true }
+        });
+        res.status(200).json(boms);
+    } catch (error) { res.status(500).json({ error: 'Blad pobierania BOM' }); }
+});
+
+app.post('/api/products/:productId/bom', authenticateToken, async (req, res) => {
+    try {
+        const { materialId, weightGrams } = req.body;
+        const newBom = await prisma.productBom.create({
+            data: { productId: req.params.productId, materialId, weightGrams: parseFloat(weightGrams) || 0.0 },
+            include: { material: true }
+        });
+        res.status(201).json(newBom);
+    } catch (error) { res.status(500).json({ error: 'Blad zapisu elementu BOM' }); }
+});
+
+app.delete('/api/products/:productId/bom/:bomId', authenticateToken, async (req, res) => {
+    try {
+        await prisma.productBom.delete({ where: { id: req.params.bomId } });
+        res.status(200).json({ status: 'Deleted' });
+    } catch (error) { res.status(500).json({ error: 'Blad usuwania z BOM' }); }
+});
+
+app.get('/api/health', async (req, res) => { res.status(200).json({ status: '🟢 ONLINE' }); });
+server.listen(PORT, () => console.log(`[BOOT] System podniesiony na porcie ${PORT}...`));
+
+// --- TŁO: CRON JOB BASELINKER SYNC (FAZA 33) ---
+cron.schedule('0 * * * *', async () => {
+    console.log('[CRON Worker] Uruchamiam cykliczną interpolację i synchronizację z BaseLinkerem...');
+    try {
+        const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN' } });
+        if (!tokenRecord || !tokenRecord.value || tokenRecord.value.length < 5) return;
+        
+        // Namierz Default Inventory
+        const invFormData = new URLSearchParams();
+        invFormData.append('method', 'getInventories');
+        invFormData.append('parameters', JSON.stringify({}));
+        const invRes = await fetch('https://api.baselinker.com/connector.php', { method: 'POST', headers: { 'X-BLToken': tokenRecord.value }, body: invFormData });
+        const invData = await invRes.json();
+        if (invData.status !== 'SUCCESS' || !invData.inventories || invData.inventories.length === 0) return;
+        const targetInventoryId = invData.inventories[0].inventory_id;
+
+        // Baza PIM Nexusa - Znajdź połączone artykuły
+        const linkedProducts = await prisma.product.findMany({ where: { baselinkerId: { not: null } } });
+        if (linkedProducts.length === 0) return console.log('[CRON Worker] Brak rekordów PIM w puli synchronizacji.');
+        
+        // Zabezpieczenie przed limitami poprzez paczkowanie zapytań (paginacja tablic w pamięci RAM)
+        for (let i = 0; i < linkedProducts.length; i += 100) {
+            const chunk = linkedProducts.slice(i, i + 100);
+            const chunkIds = chunk.map(p => p.baselinkerId);
+            
+            const reqFormData = new URLSearchParams();
+            reqFormData.append('method', 'getInventoryProductsData');
+            reqFormData.append('parameters', JSON.stringify({ "inventory_id": targetInventoryId, "products": chunkIds }));
+            
+            const chunkRes = await fetch('https://api.baselinker.com/connector.php', { method: 'POST', headers: { 'X-BLToken': tokenRecord.value }, body: reqFormData });
+            const chunkData = await chunkRes.json();
+            
+            if (chunkData.status === 'SUCCESS' && chunkData.products) {
+                // Odświeżanie w wektorowej bazie
+                for (const p of chunk) {
+                    const zew = chunkData.products[p.baselinkerId];
+                    if (zew) {
+                        let zewStock = p.stock;
+                        if (zew.stock) zewStock = Object.values(zew.stock).reduce((a, b) => a + Number(b), 0);
+                        
+                        let zewSalePrice = p.salePrice;
+                        if (zew.prices && Object.keys(zew.prices).length > 0) zewSalePrice = parseFloat(zew.prices[Object.keys(zew.prices)[0]]);
+                        
+                        await prisma.product.update({
+                            where: { id: p.id },
+                            data: { stock: zewStock, salePrice: zewSalePrice }
+                        });
+                    }
+                }
+            }
+        }
+        console.log('[CRON Worker] Synchronizacja BaseLinkera Zakończona Sukcesem ✅');
+    } catch (eee) {
+        console.error('[CRON Worker] Skok Napiecia Cron:', eee);
+    }
+});
 // Nodemon Auto-Wakeup trigger

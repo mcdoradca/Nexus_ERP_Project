@@ -269,17 +269,39 @@ model Product {
   status                String            @default("Aktywny")
   subiektId             String?           @unique
   baselinkerId          String?           @unique
+  imageUrl              String?           @db.Text
   isSynced              Boolean           @default(false)
   brandId               String
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
   campaignsAsMain       Campaign[]        @relation("CampaignPromotedProduct")
   campaignProducts      CampaignProduct[]
+  bomElements           ProductBom[]      @relation("ProductBomElements")
   brand                 Brand             @relation(fields: [brandId], references: [id], onDelete: Cascade)
 
   @@index([brandId])
   @@index([sku])
   @@index([ean])
+}
+
+model EcoMaterial {
+  id        String       @id @default(uuid())
+  name      String       @unique
+  ratePerKg Float        @default(0.0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  boms      ProductBom[]
+}
+
+model ProductBom {
+  id           String      @id @default(uuid())
+  productId    String
+  materialId   String
+  weightGrams  Float
+  product      Product     @relation("ProductBomElements", fields: [productId], references: [id], onDelete: Cascade)
+  material     EcoMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  
+  @@unique([productId, materialId])
 }
 
 enum UserGroup {

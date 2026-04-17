@@ -25,13 +25,26 @@ async function getProjectById(id) {
 }
 
 async function createProject(data, creatorId) {
-    const project = await prisma.project.create({ data });
+    const { name, category, description, startDate, endDate, status, color, ownerId, pmId, department } = data;
+    const safeData = { name, category, description, startDate, endDate, status, color, ownerId, pmId, department };
+    // Usunięcie undefined
+    Object.keys(safeData).forEach(key => safeData[key] === undefined && delete safeData[key]);
+
+    const project = await prisma.project.create({ data: safeData });
     EventBus.publish('ProjectCreated', { projectId: project.id, creatorId });
     return project;
 }
 
 async function updateProject(id, data, editorId) {
-    const updated = await prisma.project.update({ where: { id }, data });
+    const { name, category, description, startDate, endDate, status, color, ownerId, pmId, department } = data;
+    const safeData = { name, category, description, startDate, endDate, status, color, ownerId, pmId, department };
+    
+    // Zabezpieczenie na wzór kampanii: odcięcie nadmiarowych/rozłącznych Propsów
+    Object.keys(safeData).forEach(key => safeData[key] === undefined && delete safeData[key]);
+    if (safeData.ownerId === '') safeData.ownerId = null;
+    if (safeData.pmId === '') safeData.pmId = null;
+
+    const updated = await prisma.project.update({ where: { id }, data: safeData });
     return updated;
 }
 

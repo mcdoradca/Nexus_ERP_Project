@@ -58,6 +58,7 @@ function App() {
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
   
   const [editingUser, setEditingUser] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
   const [newUserForm, setNewUserForm] = useState({ 
     email: '', name: '', password: '', role: 'USER', group: 'PRACOWNICY', department: 'BRAK', color: 'bg-emerald-500', accessibleModules: ["kanban", "campaigns", "mtool", "projects", "products", "chat"] 
   });
@@ -192,10 +193,35 @@ function App() {
     setAutofillEanLoading(true);
     try {
       const res = await axios.get(`${API_URL}/api/products/autofill/${newProductForm.ean}`, { headers: { Authorization: `Bearer ${token}` } });
-      setNewProductForm({
-        ...newProductForm,
-        name: res.data.name || newProductForm.name
-      });
+      const { name, brand, sku, price, stock, baselinkerId, imageUrl } = res.data;
+      
+      let matchedBrandId = newProductForm.brandId;
+      if (brand && typeof brand === 'string') {
+          const cleanBrand = brand.toLowerCase().trim();
+          const matchedBrand = brands.find(b => b.name.toLowerCase().trim() === cleanBrand);
+          
+          if (matchedBrand) {
+              matchedBrandId = matchedBrand.id;
+          } else {
+              try {
+                  const brandRes = await axios.post(`${API_URL}/api/brands`, { name: brand.trim() }, { headers: { Authorization: `Bearer ${token}` } });
+                  matchedBrandId = brandRes.data.id;
+                  setBrands(prev => [...prev, brandRes.data]); 
+                  fetchData(); 
+              } catch (be) { console.error('Błąd auto-tworzenia marki', be); }
+          }
+      }
+
+      setNewProductForm(prev => ({
+        ...prev,
+        name: name || prev.name,
+        sku: sku || prev.sku,
+        salePrice: price || prev.salePrice,
+        stock: stock !== undefined ? stock : prev.stock,
+        baselinkerId: baselinkerId || prev.baselinkerId,
+        brandId: matchedBrandId || prev.brandId,
+        imageUrl: imageUrl || prev.imageUrl
+      }));
     } catch (err) {
       const debugInfo = err.response?.data?.debug;
       console.log('--- BASELINKER DEBUG INFO ---', debugInfo);
@@ -208,10 +234,19 @@ function App() {
   const handleCreateProduct = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_URL}/api/products`, newProductForm, { headers: { Authorization: `Bearer ${token}` } });
-      setIsNewProductModalOpen(false); fetchData();
+      if (editingProduct) {
+        await axios.patch(`${API_URL}/api/products/${editingProduct}`, newProductForm, { headers: { Authorization: `Bearer ${token}` } });
+      } else {
+        await axios.post(`${API_URL}/api/products`, newProductForm, { headers: { Authorization: `Bearer ${token}` } });
+      }
+      setIsNewProductModalOpen(false);
+      setEditingProduct(null);
       setNewProductForm({ ean: '', sku: '', name: '', brandId: '', stock: 0, salePrice: 0, basePrice: 0, inboundTransportCost: 0, packagingCost: 0, bdoEprCost: 0, outboundTransportCost: 0, status: 'Aktywny', subiektId: '', baselinkerId: '' });
-    } catch (err) { alert('Błąd tworzenia produktu'); }
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      alert("Błąd. Upewnij się czy SKU i EAN są unikalne, jeśli to nowy kod.");
+    }
   };
 
   const handleCreateUser = async (e) => {
@@ -523,7 +558,7 @@ function App() {
               <div className="w-16 h-16 bg-slate-900 rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-slate-900/20 text-white"><Megaphone className="w-8 h-8" /></div>
               <div>
                 <div className="flex items-center space-x-3 mb-2">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Oś Czasu / PIM</span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">=Oś Czasu / PIM</span>
                   <span className={`px-3 py-1 rounded-sm ${selectedCampaign.color?.replace('bg-', 'bg-')?.replace('500', '50')} ${selectedCampaign.color?.replace('bg-', 'text-')?.replace('500', '600')} text-[9px] font-black uppercase tracking-widest`}>{selectedCampaign.status}</span>
                 </div>
                 <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">{selectedCampaign.name}</h3>
@@ -869,12 +904,21 @@ function App() {
                       <Hash className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Rejestr Nowego Produktu</h3>
+                      <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
+                         {editingProduct ? 'Edycja Kartoteki PIM' : 'Rejestr Nowego Produktu'}
+                      </h3>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Zdefiniuj Kartotekę PIM (Ceny, Cło, Parametry BDO)</p>
                     </div>
                   </div>
-                  <button onClick={() => setIsNewProductModalOpen(false)} className="p-4 hover:bg-slate-900 rounded-[1.5rem] transition-all text-slate-400 hover:text-white"><X className="w-6 h-6" /></button>
+                  <button onClick={() => { setIsNewProductModalOpen(false); setEditingProduct(null); }} className="p-4 hover:bg-slate-900 rounded-[1.5rem] transition-all text-slate-400 hover:text-white"><X className="w-6 h-6" /></button>
                </div>
+                
+               {newProductForm.imageUrl && (
+                  <div className="absolute top-28 right-16 animate-in slide-in-from-right-8 pointer-events-none z-50 hidden md:block">
+                     <img src={newProductForm.imageUrl} alt="PIM Thumbnail" className="w-32 h-32 object-contain bg-white rounded-[2rem] shadow-[0_20px_40px_rgba(30,27,75,0.1)] border-4 border-white rotate-6" />
+                  </div>
+               )}
+               
               <form onSubmit={handleCreateProduct} className="p-12 space-y-12 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                 
                 {/* Moduł API EAN */}
@@ -898,7 +942,7 @@ function App() {
                     <input required placeholder="NEX-XXX-001..." type="text" className={`${inputClass} font-mono`} value={newProductForm.sku} onChange={e => setNewProductForm({...newProductForm, sku: e.target.value})} />
                   </div>
                   <div>
-                    <label className={labelClass}>Przynależność Brandowa *</label>
+                    <label className={labelClass}>Marka *</label>
                     <select required className={inputClass} value={newProductForm.brandId} onChange={e => setNewProductForm({...newProductForm, brandId: e.target.value})}>
                       <option value="">Wybierz markę z listy...</option>
                       {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -1066,7 +1110,26 @@ function App() {
           {activeTab === 'mtool' && <MToolView token={token} API_URL={API_URL} currentUser={currentUser} campaigns={campaigns} />}
           {activeTab === 'projects' && <ProjectsView projects={projects} tasks={tasks} currentUser={currentUser} setIsNewProjectModalOpen={setIsNewProjectModalOpen} setSelectedProject={setSelectedProject} devMode={devMode} />}
           {activeTab === 'crm' && <CrmView token={token} API_URL={API_URL} currentUser={currentUser} fetchAppGlobalData={fetchData} />}
-          {activeTab === 'products' && <ProductsView products={products} currentUser={currentUser} setIsNewBrandModalOpen={setIsNewBrandModalOpen} setIsNewProductModalOpen={setIsNewProductModalOpen} />}
+          {activeTab === 'products' && <ProductsView 
+          products={products} 
+          currentUser={currentUser} 
+          setIsNewBrandModalOpen={setIsNewBrandModalOpen} 
+          setIsNewProductModalOpen={() => {
+             setEditingProduct(null);
+             setNewProductForm({ ean: '', sku: '', name: '', brandId: '', stock: 0, salePrice: 0, basePrice: 0, inboundTransportCost: 0, packagingCost: 0, bdoEprCost: 0, outboundTransportCost: 0, status: 'Aktywny', subiektId: '', baselinkerId: '' });
+             setIsNewProductModalOpen(true);
+          }}
+          onEditProduct={(p) => {
+             setEditingProduct(p.id);
+             let calcBdo = parseFloat(p.bdoEprCost) || 0;
+             if (p.bomElements && p.bomElements.length > 0) {
+                 calcBdo = 0;
+                 p.bomElements.forEach(b => { calcBdo += (parseFloat(b.weightGrams) / 1000) * parseFloat(b.material.ratePerKg); });
+             }
+             setNewProductForm({ ...p, bdoEprCost: parseFloat(calcBdo.toFixed(4)) });
+             setIsNewProductModalOpen(true);
+          }}
+        />}
           {activeTab === 'chat' && renderChatInterface()}
           {activeTab === 'admin' && <AdminPanelView users={users} setIsNewUserModalOpen={setIsNewUserModalOpen} setEditingUser={setEditingUser} setIsUserEditModalOpen={setIsUserEditModalOpen} token={token} API_URL={API_URL} />}
       </main>

@@ -323,7 +323,7 @@ const TaskDetailsDrawer = ({
                   <h4 className="text-[9px] font-black text-emerald-700 uppercase tracking-widest mb-3 flex items-center"><Zap className="w-3 h-3 mr-2 animate-pulse" /> Live: Tracker Czasu</h4>
                   <div className="flex flex-wrap gap-2">
                     {currentTask.activeWorkers.map(w => (
-                       <div key={w.id} className={`px-3 py-1.5 rounded-sm ${getDepartmentColor(a.department)} flex items-center text-[9px] font-black tracking-widest animate-in zoom-in`}>
+                       <div key={w.id} className={`px-3 py-1.5 rounded-sm ${getDepartmentColor(w.department)} flex items-center text-[9px] font-black tracking-widest animate-in zoom-in`}>
                           <div className="w-1.5 h-1.5 bg-white rounded-full mr-2 animate-ping"></div> {w.name.split(' ')[0]}
                        </div>
                     ))}
