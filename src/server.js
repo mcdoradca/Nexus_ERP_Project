@@ -22,9 +22,11 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SECRET_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const path = require('path');
 
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, '../frontend/public/uploads')));
 
 // --- NOWA ARCHITEKTURA DOMENOWA (IMPORTY) ---
 const { authenticateToken } = require('./middlewares/auth.middleware');
@@ -37,6 +39,7 @@ const projectsRoutes = require('./modules/projects/projects.routes');
 const tasksRoutes = require('./modules/tasks/tasks.routes');
 const announcementsRoutes = require('./modules/announcements/announcements.routes');
 const crmRoutes = require('./modules/crm/crm.routes');
+const influencersRoutes = require('./modules/influencers/influencers.routes');
 const { registerCommunicationListeners } = require('./modules/communication/communication.listeners');
 const { registerCampaignListeners } = require('./modules/campaigns/campaigns.listeners');
 const { registerTasksListeners } = require('./modules/tasks/tasks.listeners');
@@ -90,6 +93,9 @@ app.use('/api/projects', projectsRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/announcements', announcementsRoutes);
 app.use('/api/crm', crmRoutes);
+app.use('/api/influencers', influencersRoutes);
+const photoAiRoutes = require('./modules/photoai/photoai.routes');
+app.use('/api/photoai', photoAiRoutes);
 
 // ASORTYMENT (PIM)
 app.get('/api/brands', authenticateToken, async (req, res) => {
@@ -464,4 +470,5 @@ cron.schedule('0 * * * *', async () => {
         console.error('[CRON Worker] Skok Napiecia Cron:', eee);
     }
 });
+// Nodemon Auto-Wakeup trigger
 // Nodemon Auto-Wakeup trigger

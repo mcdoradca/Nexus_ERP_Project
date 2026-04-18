@@ -220,6 +220,7 @@ model Campaign {
   comments         Comment[]
   tasks            Task[]
   smiPosts         SmiPost[]
+  dealsIRM         DealIRM[]         @relation("ZawieraDeal")
 }
 
 model Brand {
@@ -278,6 +279,7 @@ model Product {
   campaignProducts      CampaignProduct[]
   bomElements           ProductBom[]      @relation("ProductBomElements")
   brand                 Brand             @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  dealsIRM              DealIRM[]         @relation("LokowanyProdukt")
 
   @@index([brandId])
   @@index([sku])
@@ -427,4 +429,71 @@ model SystemSetting {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// INFLU-MATCH-ENTERPRISE-CRM MODELS
+// ==========================================
+
+model InfluencerProfile {
+  id               String   @id @default(uuid())
+  name             String
+  handle           String   @unique
+  platform         String   @default("INSTAGRAM")
+  email            String?
+  followers        Int      @default(0)
+  engagementRate   Float    @default(0.0)
+  authenticityScore Float   @default(1.0)
+  vectorData       String[] @default([])
+  demographicData  Json     @default("{}")
+  gdprConsent      Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  // --- POLA KOMERCYJNE (NANOOINFLU) ---
+  preferredCollab  String   @default("BARTER") // "BARTER", "PAID", "MIXED"
+  minRate          Int      @default(0)
+  maxRate          Int      @default(0)
+  avatarUrl        String?
+  socialUrl        String?
+  deals            DealIRM[] @relation("RealizujeDeal")
+  notes            InfluencerNote[] @relation("PosiadaNotatki")
+}
+
+model InfluencerNote {
+  id              String            @id @default(uuid())
+  influencerId    String
+  content         String            @db.Text
+  createdAt       DateTime          @default(now())
+  
+  influencer      InfluencerProfile @relation("PosiadaNotatki", fields: [influencerId], references: [id], onDelete: Cascade)
+}
+
+model DealIRM {
+  id                String            @id @default(uuid())
+  influencerId      String
+  campaignId        String
+  productId         String
+  status            String            @default("NAWIAZANIE")
+  proposedFee       Float             @default(0.0)
+  isUokikCompliant  Boolean           @default(false)
+  calculatedEMV     Float             @default(0.0)
+  createdAt         DateTime          @default(now())
+  
+  influencer        InfluencerProfile @relation("RealizujeDeal", fields: [influencerId], references: [id], onDelete: Cascade)
+  campaign          Campaign          @relation("ZawieraDeal", fields: [campaignId], references: [id], onDelete: Cascade)
+  product           Product           @relation("LokowanyProdukt", fields: [productId], references: [id], onDelete: Cascade)
+  
+  logs              ActionLog[]       @relation("GenerujeLogi")
+
+  @@unique([influencerId, campaignId, productId])
+}
+
+model ActionLog {
+  id          String   @id @default(uuid())
+  dealId      String
+  actionType  String   @default("VIEW")
+  description String?
+  timestamp   DateTime @default(now())
+  
+  deal        DealIRM  @relation("GenerujeLogi", fields: [dealId], references: [id], onDelete: Cascade)
 }

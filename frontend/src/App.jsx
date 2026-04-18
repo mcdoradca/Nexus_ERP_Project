@@ -18,7 +18,7 @@ import {
   Bell, X, Search, ChevronRight, Clock, ShieldAlert, AlertOctagon, 
   PlayCircle, StopCircle, Cloud, CloudLightning, Target, Zap, 
   Loader2, Paperclip, Send, Users, User, DollarSign, ArrowRight, CheckCircle2,
-  Trash2, Mail, Lock, Shield, Eye, EyeOff, Check, Filter, Calendar, Briefcase
+  Trash2, Mail, Lock, Shield, Eye, EyeOff, Check, Filter, Calendar, Briefcase, TrendingUp
 } from 'lucide-react';
 
 import { getInitials, getDepartmentColor } from './utils';
@@ -1041,6 +1041,8 @@ function App() {
                 <Building2 className={`w-4 h-4 mr-2 ${activeTab === 'crm' ? 'text-blue-500' : 'text-slate-400'}`} /> Kontrahenci
               </button>
             )}
+
+
 
             {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('chat')) && (
               <button onClick={() => setActiveTab('chat')} className={`px-5 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center h-10 relative ${activeTab === 'chat' ? 'bg-white text-indigo-600 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'}`}>

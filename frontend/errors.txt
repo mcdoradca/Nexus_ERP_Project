@@ -1,0 +1,53 @@
+Z:\Nexus_ERP_Project\frontend\build.js:7:3 'process' is not defined.
+Z:\Nexus_ERP_Project\frontend\parseLint.js:1:12 'require' is not defined.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:1:38 'useMemo' is defined but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:50:10 'isNewProjectModalOpen' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:67:23 'setNewTaskForm' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:73:10 'chatMessages' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:74:10 'newChatMessage' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:74:26 'setNewChatMessage' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:79:10 'taskComments' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:79:24 'setTaskComments' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:80:10 'newCommentText' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:80:26 'setNewCommentText' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:81:10 'isUploading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:81:23 'setIsUploading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:82:10 'isBlockingMode' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:82:26 'setIsBlockingMode' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:83:10 'blockReason' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:83:23 'setBlockReason' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:86:9 'fileInputRef' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:87:9 'commentsEndRef' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:173:9 'handleCreateTask' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:179:14 'err' is defined but never used.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:187:14 'err' is defined but never used.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:214:14 'err' is defined but never used.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:253:9 'handleUpdateTaskStatus' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\App.jsx:512:9 'renderCampaignDetails' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\views\AdminPanelView.jsx:36:15 'err' is defined but never used.
+Z:\Nexus_ERP_Project\frontend\src\views\CampaignsView.jsx:92:9 'tStart' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.
+Z:\Nexus_ERP_Project\frontend\src\views\CrmView.jsx:56:14 'err' is defined but never used.
+Z:\Nexus_ERP_Project\frontend\src\views\CrmView.jsx:90:14 'err' is defined but never used.
+Z:\Nexus_ERP_Project\frontend\src\views\CrmView.jsx:103:14 'err' is defined but never used.
+Z:\Nexus_ERP_Project\frontend\src\views\CrmView.jsx:111:14 'err' is defined but never used.
+Z:\Nexus_ERP_Project\frontend\src\views\CrmView.jsx:125:14 'err' is defined but never used.
+Z:\Nexus_ERP_Project\frontend\src\views\CrmView.jsx:133:14 'err' is defined but never used.
+Z:\Nexus_ERP_Project\frontend\src\views\KanbanView.jsx:10:10 'projects' is defined but never used.
+Z:\Nexus_ERP_Project\frontend\src\views\KanbanView.jsx:10:20 'campaigns' is defined but never used.
+Z:\Nexus_ERP_Project\frontend\src\views\KanbanView.jsx:11:21 'setSelectedFilterId' is defined but never used.
+Z:\Nexus_ERP_Project\frontend\src\views\NewCampaignModal.jsx:123:7 Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  121 |   useEffect(() => {
+  122 |     if (initialData && isOpen) {
+> 123 |       setFormData({
+      |       ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  124 |         name: initialData.name || '',
+  125 |         description: initialData.description || '',
+  126 |         startDate: initialData.startDate ? new Date(initialData.startDate).toISOString().split('T')[0] : '',
+Z:\Nexus_ERP_Project\frontend\src\views\TaskDetailsDrawer.jsx:326:96 'a' is not defined.

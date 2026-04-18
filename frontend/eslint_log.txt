@@ -1,0 +1,89 @@
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+Z:\Nexus_ERP_Project\frontend\build.js
+  7:3  error  'process' is not defined  no-undef
+
+Z:\Nexus_ERP_Project\frontend\parseLint.js
+  1:12  error  'require' is not defined  no-undef
+
+Z:\Nexus_ERP_Project\frontend\src\App.jsx
+    1:38  error    'useMemo' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                                                                            no-unused-vars
+   50:10  error    'isNewProjectModalOpen' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                     no-unused-vars
+   67:23  error    'setNewTaskForm' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                            no-unused-vars
+   73:10  error    'chatMessages' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                              no-unused-vars
+   74:10  error    'newChatMessage' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                            no-unused-vars
+   74:26  error    'setNewChatMessage' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                         no-unused-vars
+   79:10  error    'taskComments' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                              no-unused-vars
+   79:24  error    'setTaskComments' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                           no-unused-vars
+   80:10  error    'newCommentText' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                            no-unused-vars
+   80:26  error    'setNewCommentText' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                         no-unused-vars
+   81:10  error    'isUploading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                               no-unused-vars
+   81:23  error    'setIsUploading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                            no-unused-vars
+   82:10  error    'isBlockingMode' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                            no-unused-vars
+   82:26  error    'setIsBlockingMode' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                         no-unused-vars
+   83:10  error    'blockReason' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                               no-unused-vars
+   83:23  error    'setBlockReason' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                            no-unused-vars
+   86:9   error    'fileInputRef' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                              no-unused-vars
+   87:9   error    'commentsEndRef' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                            no-unused-vars
+  115:6   warning  React Hook useEffect has missing dependencies: 'currentUser.id', 'fetchData', and 'fetchUnreadCount'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  173:9   error    'handleCreateTask' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                          no-unused-vars
+  179:14  error    'err' is defined but never used                                                                                                                           no-unused-vars
+  187:14  error    'err' is defined but never used                                                                                                                           no-unused-vars
+  214:14  error    'err' is defined but never used                                                                                                                           no-unused-vars
+  253:9   error    'handleUpdateTaskStatus' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                    no-unused-vars
+  512:9   error    'renderCampaignDetails' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                     no-unused-vars
+
+Z:\Nexus_ERP_Project\frontend\src\components\UniversalChat.jsx
+  23:6  warning  React Hook useEffect has a missing dependency: 'fetchMessages'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+Z:\Nexus_ERP_Project\frontend\src\useNexusEngine.js
+  34:6  warning  React Hook useEffect has missing dependencies: 'API_URL', 'fetchData', 'fetchUnreadCount', 'setChatMessages', and 'setNotifications'. Either include them or remove the dependency array. If 'fetchData' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+
+Z:\Nexus_ERP_Project\frontend\src\views\AdminPanelView.jsx
+  36:15  error  'err' is defined but never used  no-unused-vars
+
+Z:\Nexus_ERP_Project\frontend\src\views\CampaignsView.jsx
+  92:9  error  'tStart' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+Z:\Nexus_ERP_Project\frontend\src\views\CrmView.jsx
+   27:6   warning  React Hook useEffect has a missing dependency: 'fetchCompanies'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   56:14  error    'err' is defined but never used                                                                                    no-unused-vars
+   90:14  error    'err' is defined but never used                                                                                    no-unused-vars
+  103:14  error    'err' is defined but never used                                                                                    no-unused-vars
+  111:14  error    'err' is defined but never used                                                                                    no-unused-vars
+  125:14  error    'err' is defined but never used                                                                                    no-unused-vars
+  133:14  error    'err' is defined but never used                                                                                    no-unused-vars
+
+Z:\Nexus_ERP_Project\frontend\src\views\KanbanView.jsx
+  10:10  error  'projects' is defined but never used             no-unused-vars
+  10:20  error  'campaigns' is defined but never used            no-unused-vars
+  11:21  error  'setSelectedFilterId' is defined but never used  no-unused-vars
+
+Z:\Nexus_ERP_Project\frontend\src\views\MToolView.jsx
+  35:6  warning  React Hook useEffect has a missing dependency: 'fetchPosts'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+Z:\Nexus_ERP_Project\frontend\src\views\NewCampaignModal.jsx
+  123:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  121 |   useEffect(() => {
+  122 |     if (initialData && isOpen) {
+> 123 |       setFormData({
+      |       ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  124 |         name: initialData.name || '',
+  125 |         description: initialData.description || '',
+  126 |         startDate: initialData.startDate ? new Date(initialData.startDate).toISOString().split('T')[0] : '',  react-hooks/set-state-in-effect
+
+Z:\Nexus_ERP_Project\frontend\src\views\TaskDetailsDrawer.jsx
+  326:96  error  'a' is not defined  no-undef
+
+✖ 44 problems (39 errors, 5 warnings)
+

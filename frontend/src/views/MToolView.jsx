@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Search, Loader2, Upload, Maximize2, Trash2, Edit3, Save, X, Image as ImageIcon, Briefcase, Plus, Instagram, CalendarDays, LayoutDashboard, Target, CheckCircle2, Megaphone, Calculator, Users, Leaf, PackageSearch } from 'lucide-react';
+import InfluencerCrmView from './InfluencerCrmView';
 
 const POST_TYPES = ['Zdjęcie', 'Rozbudowana Karuzela', 'Rolka (Reels)', 'Insta Story', 'Infografika'];
 const STATUSES = ['Szkic', 'Do Akceptacji', 'Zatwierdzone', 'Opublikowane'];
@@ -34,8 +35,10 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
   const [lightboxUrl, setLightboxUrl] = useState(null);
 
   // FotoAI State
+  const [fotoAiFile, setFotoAiFile] = useState(null);
   const [fotoAiImage, setFotoAiImage] = useState(null);
-  const [fotoAiStyle, setFotoAiStyle] = useState('Minimalistyczne Studio');
+  const [fotoAiPrompt, setFotoAiPrompt] = useState('');
+  const [fotoAiNumResults, setFotoAiNumResults] = useState(4);
   const [isGeneratingFotoAi, setIsGeneratingFotoAi] = useState(false);
   const [fotoAiGenerated, setFotoAiGenerated] = useState([]);
 
@@ -268,10 +271,22 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
               <Leaf className={`w-4 h-4 mr-3 ${activeSubTool==='ECOBOM'?'text-indigo-500':'text-lime-500'}`} /> ECO BOM (ROP/BDO)
             </button>
             <button 
-              onClick={() => setActiveSubTool('FOTOAI')}
-              className={`w-full text-left px-4 py-3 rounded-sm text-[11px] font-black uppercase tracking-widest flex items-center transition-all mt-2 ${activeSubTool === 'FOTOAI' ? 'bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100' : 'text-slate-500 hover:bg-slate-50'}`}
+              onClick={() => setActiveSubTool('BRIA_AI')}
+              className={`w-full text-left px-4 py-3 rounded-sm text-[11px] font-black uppercase tracking-widest flex items-center transition-all mt-2 ${activeSubTool === 'BRIA_AI' ? 'bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100' : 'text-slate-500 hover:bg-slate-50'}`}
             >
-              <ImageIcon className={`w-4 h-4 mr-3 ${activeSubTool==='FOTOAI'?'text-indigo-500':'text-slate-400'}`} /> FotoAI (Generator)
+              <ImageIcon className={`w-4 h-4 mr-3 ${activeSubTool==='BRIA_AI'?'text-indigo-500':'text-slate-400'}`} /> Bria AI (Generator)
+            </button>
+            <button 
+              onClick={() => setActiveSubTool('RESI_STUDIO')}
+              className={`w-full text-left px-4 py-3 rounded-sm text-[11px] font-black uppercase tracking-widest flex items-center transition-all mt-2 ${activeSubTool === 'RESI_STUDIO' ? 'bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              <PackageSearch className={`w-4 h-4 mr-3 ${activeSubTool==='RESI_STUDIO'?'text-indigo-500':'text-slate-400'}`} /> Resi Studio (Lokalnie)
+            </button>
+            <button 
+              onClick={() => setActiveSubTool('INFLUENCERS')}
+              className={`w-full text-left px-4 py-3 rounded-sm text-[11px] font-black uppercase tracking-widest flex items-center transition-all mt-2 ${activeSubTool === 'INFLUENCERS' ? 'bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              <Users className={`w-4 h-4 mr-3 ${activeSubTool==='INFLUENCERS'?'text-indigo-500':'text-slate-400'}`} /> Baza Influencerów
             </button>
             <div className="pt-6 pb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-2 flex items-center"><Loader2 className="w-3 h-3 mr-2 animate-spin"/> Wkrótce</div>
             <button 
@@ -279,12 +294,6 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
               className={`w-full text-left px-4 py-3 rounded-sm text-[11px] font-black uppercase tracking-widest flex items-center transition-all ${activeSubTool === 'CALCULATOR' ? 'bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100' : 'text-slate-400 hover:bg-slate-50 opacity-70'}`}
             >
               <Calculator className={`w-4 h-4 mr-3 ${activeSubTool==='CALCULATOR'?'text-indigo-500':'text-slate-300'}`} /> Kalkulator Ofert
-            </button>
-            <button 
-              onClick={() => setActiveSubTool('INFLUENCERS')}
-              className={`w-full text-left px-4 py-3 rounded-sm text-[11px] font-black uppercase tracking-widest flex items-center transition-all ${activeSubTool === 'INFLUENCERS' ? 'bg-indigo-50 text-indigo-600 shadow-sm border border-indigo-100' : 'text-slate-400 hover:bg-slate-50 opacity-70'}`}
-            >
-              <Users className={`w-4 h-4 mr-3 ${activeSubTool==='INFLUENCERS'?'text-indigo-500':'text-slate-300'}`} /> Baza Influencerów
             </button>
          </div>
          <div className="p-4 border-t border-slate-100 bg-slate-50">
@@ -835,19 +844,12 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
          )}
          
          {activeSubTool === 'INFLUENCERS' && (
-            <div className="flex-1 flex flex-col items-center justify-center bg-[#f8fafc] p-10 animate-in fade-in zoom-in-95 duration-500">
-              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-xl border border-slate-100">
-                <Users className="w-10 h-10 text-indigo-400" />
-              </div>
-              <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Baza Influencerów</h2>
-              <p className="text-sm font-bold text-slate-400 max-w-sm text-center mt-3 leading-relaxed">Zaawansowany zbiór profili twórców uwzględniający historyczne wyniki zasięgowe oraz wydane im paczki PR.</p>
-              <div className="mt-8 px-6 py-2 bg-indigo-50 border border-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm">
-                 Wkrótce Dostępne
-              </div>
+            <div className="flex-1 flex overflow-hidden animate-in fade-in zoom-in-95 duration-500 bg-white">
+                <InfluencerCrmView currentUser={currentUser} API_URL={API_URL} token={token} />
             </div>
          )}
          
-         {activeSubTool === 'FOTOAI' && (
+         {activeSubTool === 'BRIA_AI' && (
             <div className="flex-1 flex flex-col bg-[#f8fafc] overflow-y-auto custom-scrollbar animate-in fade-in duration-300">
               <div className="bg-white border-b border-slate-200 shrink-0 z-20">
                 <div className="h-20 flex items-center justify-between px-8">
@@ -857,9 +859,9 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
                       </div>
                       <div>
                         <h1 className="text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center">
-                          MTool <span className="mx-3 text-slate-300">/</span> <span className="text-indigo-600">FotoAI Studio</span>
+                          MTool <span className="mx-3 text-slate-300">/</span> <span className="text-indigo-600">Bria AI Engine</span>
                         </h1>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Sztuczna Inteligencja Scenerii Produktowych</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Natywna Sztuczna Inteligencja w Chmurze - LLM API</p>
                       </div>
                     </div>
                 </div>
@@ -886,6 +888,7 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
                              input.accept = 'image/*';
                              input.onchange = (e) => {
                                if (e.target.files[0]) {
+                                 setFotoAiFile(e.target.files[0]);
                                  setFotoAiImage(URL.createObjectURL(e.target.files[0]));
                                  setFotoAiGenerated([]);
                                }
@@ -902,40 +905,55 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
                       )}
                    </div>
 
-                   <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-[0_15px_50px_rgba(0,0,0,0.03)]">
-                      <h3 className="text-[10px] font-black text-fuchsia-600 bg-fuchsia-50 uppercase tracking-[0.2em] mb-6 p-3 rounded-lg flex items-center"><Target className="w-4 h-4 mr-2"/> Krok 2: Kod Promptu / Środowisko</h3>
-                      <div className="grid grid-cols-2 gap-3">
-                         {[
-                           { name: 'Pure White (Sklep)', icon: '🤍' },
-                           { name: 'Marmurowe Spa', icon: '✨' },
-                           { name: 'Natura & Rośliny', icon: '🌿' },
-                           { name: 'Słoneczna Plaża', icon: '🏖️' },
-                           { name: 'Neon Cyberpunk', icon: '🟣' },
-                           { name: 'Cień i Światło', icon: '🌗' }
-                         ].map(style => (
-                           <div 
-                             key={style.name}
-                             onClick={() => setFotoAiStyle(style.name)}
-                             className={`p-4 rounded-[1.25rem] border-2 cursor-pointer transition-all flex flex-col items-center justify-center text-center h-24 shadow-sm group hover:scale-[1.02] active:scale-[0.98] ${fotoAiStyle === style.name ? 'border-fuchsia-500 bg-fuchsia-50/50 relative overflow-hidden' : 'border-slate-100 hover:border-fuchsia-200 bg-white'}`}
-                           >
-                             {fotoAiStyle === style.name && <div className="absolute top-0 right-0 w-8 h-8 bg-fuchsia-500 flex items-center justify-center rounded-bl-xl shadow-md"><CheckCircle2 className="w-4 h-4 text-white" /></div>}
-                             <span className="text-2xl mb-2 drop-shadow-sm group-hover:scale-110 transition-transform">{style.icon}</span>
-                             <span className={`text-[9px] font-black uppercase tracking-widest leading-tight ${fotoAiStyle === style.name ? 'text-fuchsia-700' : 'text-slate-500'}`}>{style.name}</span>
-                           </div>
-                         ))}
-                      </div>
-                   </div>
+                    <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-[0_15px_50px_rgba(0,0,0,0.03)] focus-within:ring-4 focus-within:ring-fuchsia-500/10 transition-all">
+                      <h3 className="text-[10px] font-black text-fuchsia-600 bg-fuchsia-50 uppercase tracking-[0.2em] mb-6 p-3 rounded-lg flex items-center"><Target className="w-4 h-4 mr-2"/> Krok 2: Twój Prompt Scenerii Bria AI</h3>
+                         
+                         <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Opis Sceny, Tła i Stylu (Język Angielski)</label>
+                         <textarea 
+                           className="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:bg-white focus:border-fuchsia-300 resize-none transition-all placeholder:text-slate-300"
+                           placeholder="np. Hyper-realistic commercial product photography, placed on a marble table in a luxury spa, cinematic lighting, 8k..."
+                           value={fotoAiPrompt}
+                           onChange={(e) => setFotoAiPrompt(e.target.value)}
+                         ></textarea>
+
+                         <div className="mt-4 flex flex-col">
+                            <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Liczba Zwróconych Wariantów (num_results)</label>
+                            <select 
+                               className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:border-fuchsia-300 transition-all cursor-pointer"
+                               value={fotoAiNumResults}
+                               onChange={(e) => setFotoAiNumResults(parseInt(e.target.value))}
+                            >
+                               <option value={1}>1 wariant (Najniższy koszt tokenów Bria)</option>
+                               <option value={2}>2 warianty</option>
+                               <option value={3}>3 warianty</option>
+                               <option value={4}>4 warianty (Siatka 2x2, standardowe zużycie)</option>
+                            </select>
+                         </div>
+                    </div>
 
                    <button 
-                     disabled={!fotoAiImage || !fotoAiStyle || isGeneratingFotoAi}
-                     onClick={() => {
+                     disabled={!fotoAiFile || isGeneratingFotoAi}
+                     onClick={async () => {
                        setIsGeneratingFotoAi(true);
                        setFotoAiGenerated([]);
-                       setTimeout(() => {
-                         const mocks = Array.from({length: 10}).map((_, i) => `https://picsum.photos/seed/${Math.random()}/800/800`);
-                         setFotoAiGenerated(mocks);
-                         setIsGeneratingFotoAi(false);
-                       }, 4500);
+                       try {
+                          const formData = new FormData();
+                          formData.append('image', fotoAiFile);
+                          formData.append('type', 'BRIA_AI');
+                          formData.append('prompt', fotoAiPrompt);
+                          formData.append('numResults', fotoAiNumResults.toString());
+                          
+                          const res = await axios.post(`${API_URL}/api/photoai/generate`, formData, {
+                              headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
+                          });
+
+                          setFotoAiGenerated(res.data.urls.map(url => `${API_URL}${url}`));
+                       } catch (err) {
+                          console.error("Błąd AI:", err);
+                          alert(err.response?.data?.error || "Błąd generacji silnika wektorowego.");
+                       } finally {
+                          setIsGeneratingFotoAi(false);
+                       }
                      }}
                      className="w-full py-6 bg-slate-900 text-white rounded-[2rem] text-[11px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 hover:scale-[1.02] shadow-[0_20px_40px_rgba(0,0,0,0.15)] transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:hover:bg-slate-900 disabled:shadow-none flex items-center justify-center active:scale-95 group border-2 border-transparent focus:border-indigo-400 outline-none"
                    >
@@ -981,7 +999,7 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
                                    <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-all flex flex-col justify-end p-4 backdrop-blur-[2px]">
                                       <div className="space-y-2 translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                                         <button onClick={() => setLightboxUrl(url)} className="w-full py-2.5 bg-white text-slate-900 rounded-lg text-[9px] font-black uppercase tracking-[0.1em] hover:bg-indigo-500 hover:text-white transition-colors shadow-lg active:scale-95 flex items-center justify-center"><Maximize2 className="w-3 h-3 mr-2"/> Zbliżenie</button>
-                                        <button className="w-full py-2.5 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase tracking-[0.1em] hover:bg-emerald-500 transition-colors shadow-lg active:scale-95 flex items-center justify-center"><Instagram className="w-3 h-3 mr-2"/> Do MTool Hub</button>
+                                        <button onClick={() => alert('Wysłano grafikę do głównego Huba MTool!')} className="w-full py-2.5 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase tracking-[0.1em] hover:bg-emerald-500 transition-colors shadow-lg active:scale-95 flex items-center justify-center"><Instagram className="w-3 h-3 mr-2"/> Do MTool Hub</button>
                                       </div>
                                    </div>
                                    <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md text-slate-900 w-8 h-8 flex items-center justify-center rounded-lg text-[10px] font-black shadow-md border border-slate-200/50">V{i+1}</div>
@@ -1000,6 +1018,23 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
                 </div>
               </div>
             </div>
+          )}
+
+          {activeSubTool === 'RESI_STUDIO' && (
+             <div className="flex-1 flex flex-col w-full h-full bg-[#f8fafc] animate-in fade-in duration-300 relative">
+               <div className="absolute inset-0 z-10 w-full h-full flex items-center justify-center bg-white pointer-events-none">
+                 <div className="text-center">
+                    <Loader2 className="w-10 h-10 animate-spin text-slate-300 mx-auto mb-4" />
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Wczytywanie Studio Python (127.0.0.1:5000)...</p>
+                    <p className="text-[9px] font-bold text-slate-400 mt-2">Upewnij się, że w tle uruchomiony jest plik Uruchom_Studio.bat</p>
+                 </div>
+               </div>
+               <iframe 
+                  src="http://127.0.0.1:5000" 
+                  className="w-full h-full border-0 relative z-20 bg-transparent"
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+               ></iframe>
+             </div>
           )}
       </div>
     </div>
