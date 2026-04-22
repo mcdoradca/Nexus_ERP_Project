@@ -1,0 +1,1488 @@
+BAZA WIEDZY INCI I TRENDY KOSMETYCZNE 2026:
+
+--- DOKUMENT: Kosmetyczne Składy_ Ocena i Trendy 2026.pdf ---
+
+
+Kompendium Wiedzy o Składach 
+Kosmetycznych 2026: Perspektywa 
+Chemiczna, Medyczna i Rynkowa dla 
+Systemów Oceny 
+Wprowadzenie i Strategiczne Ramy Systemu Oceny 
+INCI 
+Globalny rynek kosmetyczny, którego wartość w 2026 roku szacuje się na 677 miliardów 
+dolarów, przeszedł w ostatnich latach bezprecedensową transformację.
+1
+ Zmiany te są 
+wynikiem ewolucji świadomości konsumenckiej, rygorystycznych interwencji legislacyjnych ze 
+strony organów regulacyjnych Unii Europejskiej oraz przełomowych odkryć w dziedzinie 
+biotechnologii i inżynierii tkankowej.
+2
+ Współczesny odbiorca, określany mianem "skintellectual", 
+odrzuca koncepcje wieloetapowego, chaotycznego maksymalizmu kosmetycznego na rzecz 
+celowanej, zoptymalizowanej biologicznie pielęgnacji.
+4
+ Zjawisko to, definiowane jako fuzja 
+skinimalizmu z biohackingiem, stawia w centrum uwagi integralność bariery hydrolipidowej, 
+komunikację międzykomórkową oraz długowieczność komórkową (longevity).
+4 
+W odpowiedzi na te dynamiczne zmiany, projektowanie aplikacji mobilnej zdolnej do optycznej 
+rozdzielczości znaków (OCR) z etykiet kosmetyków i bezbłędnej oceny składów w systemie 
+INCI (International Nomenclature of Cosmetic Ingredients) wymaga stworzenia 
+wielowymiarowego algorytmu. Aplikacja ta nie może opierać się wyłącznie na uproszczonych 
+bazach danych klasyfikujących składniki na "dobre" i "złe". Musi ona integrować najnowszą 
+wiedzę z zakresu toksykologii regulacyjnej, farmakokinetyki naskórkowej, chemii formulacyjnej 
+oraz zaawansowanej analityki rynkowej.
+7
+ Cel nadrzędny tego kompendium polega na 
+dostarczeniu wyczerpującej bazy wiedzy, która posłuży do wykalibrowania takiego algorytmu. 
+Założenie jest proste, lecz niezwykle wymagające analitycznie: produkt, który w procesie 
+algorytmicznej ewaluacji uzyskuje najwyższą ocenę, musi być jednocześnie produktem o 
+najwyższym zidentyfikowanym potencjale sprzedażowym w realiach 2026 roku. 
+Oznacza to, że idealna formuła musi być absolutnie bezkompromisowa pod względem 
+bezpieczeństwa (zgodność z najnowszymi restrykcjami dla substancji kancerogennych, 
+mutagennych i reprotoksycznych oraz brakiem mikroplastików) 
+10
+, wysoce skuteczna dzięki 
+zastosowaniu odpowiednich promotorów przenikania i molekularnej synergii 
+12
+, a także 
+pożądana rynkowo poprzez wykorzystanie wiodących innowacji biotechnologicznych, takich 
+jak egzosomy, polideoksyrybonukleotydy (PDRN) czy spikule pochodzące z gąbek morskich.
+6
+ 
+Poniższy raport szczegółowo analizuje każdy z tych aspektów, tworząc fundament pod 
+
+architekturę innowacyjnego oprogramowania oceniającego. 
+Architektura Bezpieczeństwa: Rygorystyczne 
+Otoczenie Regulacyjne w 2026 Roku 
+Fundamentem każdej oceny kosmetyku jest jego bezpieczeństwo chemiczne i zgodność z 
+prawem. Unia Europejska, poprzez rozporządzenie (WE) nr 1223/2009, narzuca najbardziej 
+rygorystyczne standardy na świecie.
+2
+ System oceny składów musi w czasie rzeczywistym 
+identyfikować i eliminować produkty zawierające substancje, które na mocy najnowszych 
+poprawek (tzw. Omnibus Acts) zostały uznane za niebezpieczne. Niezastosowanie się do tych 
+wytycznych dyskwalifikuje produkt z rynku, co w aplikacji musi skutkować natychmiastowym 
+przyznaniem oceny krytycznej. 
+Substancje Kancerogenne, Mutagenne i Reprotoksyczne (CMR) 
+Kluczowym dokumentem kształtującym rynek w 2026 roku jest Rozporządzenie Komisji (UE) 
+2024/2564 (Omnibus VIII), które stanowi 22. dostosowanie do postępu technicznego (ATP) 
+rozporządzenia CLP.
+10
+ Implementacja tego prawa oznacza bezwzględny zakaz stosowania 
+szeregu substancji chemicznych w kosmetykach. Graniczna data całkowitego wycofania 
+produktów niespełniających wymogów z półek sklepowych została wyznaczona na 1 maja 
+2026 roku.
+10 
+Algorytm aplikacji musi zawierać twarde reguły odrzucające dla następujących komponentów: 
+Kwas nadborowy i jego sole (w INCI m.in. Perboric acid, sodium salt) zostały w całości 
+przeniesione na listę substancji zakazanych (Załącznik II). Są to związki uwalniające nadtlenek 
+wodoru, sklasyfikowane jako substancje CMR kategorii 1B, ze względu na ich podobne 
+właściwości chemiczne i aktywność biologiczną zagrażającą rozrodczości.
+16
+ Kolejną krytyczną 
+substancją jest TPO (Trimethylbenzoyl Diphenylphosphine Oxide), powszechnie stosowany w 
+żelach do paznokci jako fotoinicjator utwardzany promieniami UV. Został on jednoznacznie 
+sklasyfikowany jako związek działający szkodliwie na rozrodczość (1B), a jego obecność w 
+produkcie po wyznaczonych terminach przejściowych stanowi poważne naruszenie prawa.
+10
+ 
+Wraz z nim zakazano stosowania Dimetylotoluidyny (N,N-dimethyl-p-toluidine), uznanej za 
+substancję o potencjale rakotwórczym.
+15
+ System powinien również natychmiastowo oflagować 
+substancje takie jak Tetrabromobisfenol-A oraz pochodne cyny (np. Dibutyltin oxide), które ze 
+względu na swoją ogólną toksyczność zostały całkowicie wyeliminowane z zastosowań 
+kosmetycznych.
+15 
+Zaburzacze Endokrynne i Restrykcje Stężeniowe 
+Nie wszystkie kontrowersyjne substancje zostały całkowicie zakazane; wiele z nich podlega w 
+2026 roku rygorystycznym limitom stężeń, co stanowi wyzwanie dla algorytmów analizujących 
+same nazwy INCI bez podanych wartości procentowych. W takich przypadkach 
+oprogramowanie powinno wyświetlać odpowiednie ostrzeżenia i obniżać wskaźnik zaufania dla 
+
+produktów marek, które nie deklarują precyzyjnych stężeń.
+4 
+Szczególną uwagę należy zwrócić na filtry UV i substancje czynne ingerujące w układ 
+hormonalny (endocrine disruptors). Zastosowanie 4-Methylbenzylidene Camphor (4-MBC) 
+zostało całkowicie zakazane ze względu na potwierdzone działanie zaburzające gospodarkę 
+hormonalną, a produkty go zawierające nie mogą być sprzedawane po 1 maja 2026 r..
+10
+ Komitet 
+Naukowy ds. Bezpieczeństwa Konsumentów (SCCS) wydał również negatywne opinie 
+dotyczące Benzophenone-2 (BP-2) oraz Benzophenone-5 (BP-5). Zgromadzone dane nie 
+pozwoliły na wykluczenie potencjału genotoksycznego tych substancji, a dodatkowe dowody 
+potwierdziły ich aktywność endokrynną, co sprawia, że ich użycie w kosmetykach stanowi 
+potencjalne ryzyko dla konsumentów.
+17
+ Nawet dozwolone filtry, takie jak DHHB (Diethylamino 
+Hydroxybenzoyl Hexyl Benzoate), są pod ścisłą kontrolą. Chociaż DHHB jest dopuszczony do 
+stężenia 10%, SCCS zwraca uwagę na zanieczyszczenia w postaci DnHexP, rekomendując 
+producentom docelowe utrzymanie tego zanieczyszczenia na poziomie maksymalnie 1 ppm.
+17 
+Pochodne witaminy A, choć niezwykle pożądane pod kątem skuteczności przeciwstarzeniowej, 
+podlegają od końca 2025 i w pełni w 2026 roku ścisłym restrykcjom uregulowanym w 
+Rozporządzeniu (UE) 2024/996.
+10
+ Ze względu na ryzyko hiperwitaminozy i ogólnoustrojowej 
+ekspozycji na retinoidy z różnych źródeł, wprowadzono twarde limity: maksymalnie 0,05% 
+ekwiwalentu retinolu dla balsamów do ciała oraz maksymalnie 0,3% dla pozostałych 
+produktów kosmetycznych, takich jak kremy do twarzy.
+18
+ Nowe ramy prawne objęły również 
+popularne składniki depigmentacyjne, takie jak Kwas Kojowy (Kojic Acid) i Alfa-Arbutyna 
+(Alpha-Arbutin), zmuszając producentów do rewizji swoich formulacji pod kątem 
+bezpieczeństwa.
+10 
+Alergeny Zapachowe i Nanomateriały 
+Rok 2026 to również czas pełnego egzekwowania rozszerzonej listy alergenów zapachowych. 
+Zgodnie z Rozporządzeniem (UE) 2023/1545, lista substancji podlegających obowiązkowej 
+deklaracji na etykiecie INCI urosła z 26 do aż 80 pozycji.
+10
+ Produkty muszą być zgodne z tym 
+wymogiem do 31 lipca 2026 r..
+10
+ Oznacza to, że aplikacja musi skanować etykiety w 
+poszukiwaniu szerokiego spektrum substancji, w tym powszechnie stosowanych 
+komponentów olejków eterycznych, i odpowiednio obniżać ocenę produktów deklarowanych 
+jako "hipoalergiczne" lub przeznaczonych do skóry atopowej, jeśli w ich składzie figurują liczne 
+alergeny z nowej listy.
+19 
+Nanomateriały, w szczególności nanokrystaliczny dwutlenek tytanu (Titanium Dioxide - nano) 
+oraz formy nano krzemionki (Hydrated Silica nano, Silica Silylate nano), znajdują się pod 
+intensywnym nadzorem SCCS. Wyrażono poważne obawy dotyczące możliwości absorpcji 
+tych cząstek przez błonę śluzową jamy ustnej oraz ich potencjalnej genotoksyczności, co 
+prowadzi do rewizji ich statusu w produktach doustnych i higienicznych w perspektywie 2025 i 
+2026 roku.
+21
+ Ponadto, Rozporządzenie (UE) 2026/78 wprowadziło istotne poprawki 
+ograniczające wykorzystanie srebra w formie mikro i nano, ze względu na ryzyko kumulacji i 
+
+toksyczności.
+24 
+Eliminacja Mikroplastików 
+Ekologiczny aspekt bezpieczeństwa został ostatecznie sformalizowany przez Rozporządzenie 
+Komisji (UE) 2023/2055, które zakazuje celowego dodawania mikroplastików do produktów 
+kosmetycznych.
+11
+ Analiza przeprowadzona przez ECHA (Europejską Agencję Chemikaliów) 
+zidentyfikowała ponad 500 wariantów mikroplastików stosowanych dotychczas w 
+kosmetykach i produktach higieny osobistej.
+26
+ Aplikacja powinna bezwzględnie penalizować 
+produkty zawierające syntetyczne polimery ulegające powolnej degradacji, takie jak 
+Polyethylene, Polypropylene, Polymethyl Methacrylate (PMMA) czy Nylon-12, a także 
+syntetyczny brokat na bazie PET, których okresy przejściowe wygasają w wyznaczonych 
+terminach.
+11
+ Marki, które nie zaadaptują się do tej zmiany i nie przejdą na biopolimery lub 
+biodegradowalne alternatywy, poniosą ogromne straty wizerunkowe i finansowe.
+27 
+Fundamenty Formuły: Ewolucja Emulgatorów, 
+Konserwantów i Promotorów Przenikania 
+Integralność i skuteczność każdego produktu kosmetycznego nie zależy wyłącznie od 
+substancji aktywnie czynnych, ale w równej mierze od struktury bazy, w jakiej są one 
+zawieszone. W 2026 roku konsumenci wykazują głębokie zrozumienie dla fizjologii skóry, co 
+wymusza odwrót od tanich, petrochemicznych baz na rzecz zaawansowanych systemów 
+biomimetycznych.
+5
+ Aplikacja oceniająca składy musi precyzyjnie rozróżniać przestarzałe 
+technologie od nowoczesnych rozwiązań wspierających mikrobiom i barierę naskórkową. 
+Przestarzałe i Ryzykowne Bazy Formulacyjne 
+Wprowadzenie systemu kar (obniżania punktacji) jest niezbędne dla składników, które mimo 
+dopuszczenia do obrotu, stoją w sprzeczności z nowoczesną wiedzą dermatologiczną i 
+standardami zrównoważonego rozwoju.
+28
+ Należą do nich między innymi układy oparte na 
+Trietanoloaminie (Triethanolamine - TEA). Ta amina, używana jako regulator pH i element 
+układów emulgujących, wykazuje wrażliwość na zmiany odczynu i może reagować z azotanami 
+obecnymi w innych surowcach lub zanieczyszczeniach, tworząc kancerogenne nitrozoaminy.
+28
+ 
+Jej obecność w nowoczesnym kosmetyku jest traktowana jako znacząca wada formulacyjna. 
+Kolejną grupą niepożądaną w wysokiej jakości kosmetykach są emulgatory oparte na procesie 
+etoksylacji. Sztandarowym przykładem jest PEG-100 Stearate. Otrzymywany z surowców 
+petrochemicznych, budzi zastrzeżenia środowiskowe ze względu na trudną 
+biodegradowalność, a także ryzyko zanieczyszczenia 1,4-dioksanem – produktem ubocznym 
+procesu etoksylacji o udowodnionym działaniu mutagennym.
+28
+ Analogicznie, algorytm 
+powinien obniżać ocenę za obecność Polysorbate 60 i Polysorbate 80, które choć 
+powszechne, często pozostawiają na skórze niepożądany film i są odrzucane przez standardy 
+
+certyfikacji ekologicznych, do których dąży świadomy rynek.
+28 
+W obszarze konserwacji, tradycyjne substancje takie jak parabeny i fenoksyetanol 
+(Phenoxyethanol) ulegają systematycznej marginalizacji. Choć z chemicznego punktu widzenia 
+są skutecznymi zabezpieczeniami mikrobiologicznymi, silna presja konsumencka i obawy o 
+potencjalne działanie drażniące lub endokrynne sprawiają, że ich obecność obniża potencjał 
+komercyjny produktu.
+30
+ W szczególności fenoksyetanol może wywoływać kontaktowe 
+zapalenie skóry u osób o uszkodzonej barierze hydrolipidowej, co w erze "naprawy bariery" jest 
+zjawiskiem wysoce niepożądanym.
+32 
+Nowoczesne Systemy Biomimetyczne i Hurdle Technology 
+Najwyżej punktowane składy kosmetyczne w 2026 roku opierają się na emulgatorach zdolnych 
+do tworzenia struktur ciekłokrystalicznych. Ciekłe kryształy naśladują przestrzenną organizację 
+lipidów w warstwie rogowej naskórka (stratum corneum), co pozwala na płynną integrację 
+kosmetyku ze skórą, redukcję transepidermalnej utraty wody (TEWL) i spowolnienie uwalniania 
+substancji aktywnych.
+28 
+Do preferowanych emulgatorów, które powinny znacząco podnosić "skuteczność" bazy w 
+algorytmie, należą pochodne oliwy z oliwek, takie jak Cetearyl Olivate połączony z Sorbitan 
+Olivate (znane pod rynkową nazwą Olivem 1000).
+28
+ Alternatywą o równie wysokim profilu 
+bezpieczeństwa są kompleksy glukozydowe, na przykład Cetearyl Alcohol w połączeniu z 
+Cetearyl Glucoside (Montanov 68), które doskonale sprawdzają się w formułach 
+dedykowanych skórom dojrzałym i atopowym.
+28
+ W przypadku formulacji wymagających użycia 
+silikonów (np. w sektorze nowoczesnego makijażu połączonego z pielęgnacją - hybrid 
+cosmetics), innowacyjnym i wysoko punktowanym rozwiązaniem są emulgatory pozbawione 
+PEG, takie jak polimery silikonowe modyfikowane cukrami (np. CHT-BeauSil ECO 903), które 
+zapewniają doskonałą stabilność emulsji W/O bez obciążenia środowiskowego.
+36 
+Zamiast tradycyjnych układów konserwujących, nowoczesna chemia kosmetyczna 
+wykorzystuje tak zwaną technologię płotków (hurdle technology), bazującą na 
+multifunkcjonalnych glikolach. Substancje takie jak Pentylene Glycol, Caprylyl Glycol oraz 
+1,2-Hexanediol pełnią podwójną funkcję: działają jako doskonałe humektanty (nawilżacze) i 
+jednocześnie drastycznie obniżają aktywność wody (Aw) w formule, uniemożliwiając rozwój 
+mikroorganizmów.
+30
+ Co istotne z punktu widzenia projektowania algorytmu, badania naukowe 
+z 2025 i 2026 roku wykazały silny synergizm przeciwdrobnoustrojowy pomiędzy 1,2-Hexanediol 
+a Niacynamidem.
+38
+ Wykrycie takiego połączenia przez aplikację powinno być nagradzane, 
+ponieważ dowodzi wysokiego zaawansowania technologicznego formuły, pozwalającego na 
+niemal całkowitą eliminację agresywnych konserwantów syntetycznych.
+38 
+Znaczenie Promotorów Przenikania 
+Zasadniczym problemem kosmetologii jest niska przepuszczalność warstwy rogowej. Wiele 
+
+aktywnych molekuł, zwłaszcza peptydów, ma zbyt dużą masę cząsteczkową, aby samodzielnie 
+przeniknąć w głąb skóry.
+40
+ Dlatego obecność promotorów przenikania (penetration enhancers) 
+jest krytycznym parametrem w ocenie skuteczności kosmetyku. 
+Promotory te działają poprzez tymczasowe i odwracalne zaburzenie uporządkowanej struktury 
+lipidów międzykomórkowych lub poprzez modyfikację rozpuszczalności samej substancji 
+aktywnej w warstwie rogowej.
+13
+ Wysokiej klasy składy wykorzystują łagodne rozpuszczalniki, 
+takie jak Dimethyl Isosorbide (DMI), który optymalizuje dostarczanie zarówno hydrofilowych, 
+jak i lipofilowych składników bez uszkadzania fizjologicznej bariery skóry.
+13
+ Dobre rezultaty 
+przynosi również zastosowanie lipidów biomimetycznych, takich jak kwas oleinowy (Oleic 
+Acid), który zwiększa płynność cementu międzykomórkowego, torując drogę dla peptydów i 
+ekstraktów roślinnych.
+13
+ Tradycyjne promotory, takie jak etanol (Ethanol) czy glikol propylenowy 
+(Propylene Glycol), choć wysoce skuteczne, w wysokich stężeniach mogą prowokować stany 
+zapalne, co zmusza algorytm do analizy ich pozycji w liście INCI; im wyższa pozycja, tym 
+wyższe ryzyko irytacji dla cer wrażliwych.
+42 
+Architektura Skuteczności: Synergie, Antagonizmy i 
+Interakcje Molekularne 
+Samo zestawienie pożądanych składników nie gwarantuje sukcesu preparatu. Rzeczywista 
+skuteczność fizjologiczna zależy od interakcji chemicznych zachodzących między 
+poszczególnymi cząsteczkami po aplikacji na skórę.
+43
+ Innowacyjny algorytm oceny musi 
+potrafić wyciągać wnioski drugiego i trzeciego rzędu, identyfikując zarówno potężne synergie 
+potęgujące działanie kosmetyku, jak i niebezpieczne antagonizmy prowadzące do inaktywacji 
+lub oparzeń chemicznych.
+43 
+ 
+Kategoria 
+Interakcji 
+Kombinacja 
+Składników 
+Mechanizm i 
+Skutki 
+Ocena 
+Algorytmiczna 
+Krytyczny 
+Antagonizm 
+Retinoidy (Retinol, 
+Retinal) + Kwasy 
+AHA/BHA (Glycolic 
+Acid, Salicylic Acid) 
+Obie grupy 
+drastycznie 
+przyspieszają obrót 
+komórkowy. 
+Jednoczesne 
+zastosowanie 
+rozbija barierę 
+lipidową, 
+prowadząc do 
+stanów zapalnych, 
+rumienia i 
+Silnie negatywna 
+(-20 pkt) 
+
+ekstremalnej utraty 
+wody (TEWL).
+43 
+Krytyczny 
+Antagonizm 
+Nadtlenek Benzoilu 
+(Benzoyl Peroxide) 
++ Retinoidy 
+Nadtlenek benzoilu 
+jest silnym 
+utleniaczem. 
+Bezpośredni 
+kontakt z witaminą 
+A powoduje jej 
+błyskawiczną 
+oksydację, 
+całkowicie znosząc 
+efektywność 
+przeciwstarzeniową 
+retinoidów.
+43 
+Silnie negatywna 
+(-20 pkt) 
+Neutralizacja 
+Chemiczna 
+Czysta Witamina C 
+(Ascorbic Acid) + 
+Niacynamid 
+Konflikt pH. 
+Ascorbic Acid 
+wymaga pH < 3.5 
+dla stabilności, 
+podczas gdy 
+Niacynamid 
+preferuje 
+środowisko 
+obojętne. W 
+roztworze wodnym 
+mogą tworzyć 
+drażniący kwas 
+nikotynowy i znosić 
+swoje działanie.
+43 
+Negatywna (-10 
+pkt) 
+Silna Synergia Witamina C + Kwas 
+Azelainowy (Azelaic 
+Acid) 
+Idealne podejście 
+łagodzące. Kwas 
+askorbinowy bywa 
+drażniący; dodatek 
+kwasu 
+azelainowego 
+redukuje rumień, 
+łagodzi przebieg 
+trądziku 
+różowatego i 
+tworzy kompleks 
+Pozytywna (+15 pkt) 
+
+silnie 
+depigmentacyjny 
+bez kompromisów 
+dla bariery.
+46 
+Silna Synergia Peptydy Sygnałowe 
++ Ceramidy 
+Ceramidy 
+odbudowują 
+matrycę lipidową 
+naskórka. Integralna 
+bariera zapobiega 
+ucieczce czynników 
+wzrostu, 
+pozwalając 
+peptydom na 
+niezakłóconą 
+komunikację z 
+fibroblastami w 
+skórze właściwej.
+12 
+Pozytywna (+15 pkt) 
+Biologiczna 
+Synergia 
+Ektoina (Ectoin) + 
+Beta-Glukan 
+Kompleks 
+zwalczający 
+"inflammaging". 
+Beta-glukan 
+ekstremalnie 
+nawilża i stymuluje 
+odporność, 
+podczas gdy 
+ekstremofit Ektoina 
+chroni białka i DNA 
+komórek przed 
+stresem 
+osmotycznym i 
+promieniowaniem.
+4 
+Bardzo Pozytywna 
+(+20 pkt) 
+Identyfikacja powyższych relacji jest kluczowa dla budowania zaufania konsumentów, którzy 
+coraz częściej obawiają się skutków ubocznych samodzielnego eksperymentowania ze 
+stężonymi składnikami aktywnymi.
+44
+ W erze "mniej znaczy lepiej", ale z większą precyzją, 
+preparaty wielozadaniowe bazujące na udokumentowanych synergiach wygrywają na rynku.
+5
+ 
+Zwraca się szczególną uwagę na kompatybilność pH oraz optymalne warunki fizykochemiczne 
+do przetrwania delikatnych wiązań molekularnych. 
+Innowacje Biotechnologiczne: Bohaterowie Rynku w 
+
+2026 Roku 
+Aby wyłonić produkt o najwyższym potencjale sprzedażowym, algorytm musi rozpoznawać 
+składniki będące awangardą inżynierii tkankowej i biotechnologii, które ostatecznie zatarły 
+granicę między kosmetologią a medycyną regeneracyjną.
+4
+ Rozwój nauki przekierował uwagę 
+konsumentów z prostego maskowania objawów starzenia na aktywne biohackowanie 
+komórek, co zaowocowało wzrostem popytu na produkty imitujące procedury medycyny 
+estetycznej (tzw. procedural skin care).
+5 
+Rewolucja K-Beauty i Delivery Systems: Spikule Morskie 
+Największym fenomenem rynkowym 2026 roku są spikule pochodzące z gąbek morskich 
+(Słodkowodnych gatunków Spongilla), obecne w wykazie INCI zazwyczaj jako Hydrolyzed 
+Sponge lub Hydrolyzed Spicule.
+14
+ Spikule te to mikroskopijne, biologiczne mikroigły o długości 
+od 100 do 300 mikrometrów, zbudowane głównie z biokrzemionki i węglanu wapnia.
+50
+ 
+Stanowią one odpowiedź na fundamentalny problem niskiej przenikalności naskórka.
+41 
+Mechanizm ich działania jest rewolucyjny: podczas wmasowywania produktu w skórę, 
+dziesiątki tysięcy tych mikroskopijnych igieł fizycznie przebijają warstwę rogową, tworząc 
+tymczasowe mikrokanaliki w naskórku, po czym ulegają naturalnemu złuszczeniu w procesie 
+odnowy komórkowej.
+14
+ Skutkuje to kontrolowaną mikrostymulacją mechaniczną, która wyzwala 
+kaskadę gojenia ran i produkcję kolagenu bez widocznych uszkodzeń czy długotrwałego stanu 
+zapalnego.
+14
+ Badania laboratoryjne potwierdzają oszałamiające rezultaty: zastosowanie spikul 
+zwiększa penetrację kwasu hialuronowego o 3000%, a w przypadku wielocząsteczkowych 
+egzosomów, spikule są w stanie dostarczyć struktury o masie rzędu 300 000 Daltonów w 
+głębokie warstwy tkanki.
+51
+ Preparaty łączące Hydrolyzed Sponge z pochodnymi wąkroty 
+azjatyckiej (CICA) lub z zaawansowanymi peptydami, zyskują najwyższe noty zarówno pod 
+względem innowacyjności naukowej, jak i viralowego potencjału marketingowego (określane 
+jako "liquid microneedling").
+6 
+Medycyna Regeneracyjna w Domu: PDRN i Egzosomy 
+Polideoksyrybonukleotydy (PDRN), identyfikowane w INCI jako Sodium DNA, to fragmenty 
+kwasów nukleinowych (najczęściej pozyskiwane z nasienia łososia) o masie cząsteczkowej od 
+350 do 500 kDa.
+49
+ Początkowo stosowane wyłącznie w sterylnym środowisku klinik do leczenia 
+trudno gojących się ran i w mezoterapii iniekcyjnej, PDRN zdominowały sektor 
+zaawansowanych kosmetyków regeneracyjnych.
+49
+ Ich unikalność polega na zdolności do 
+bezpośredniej interakcji z receptorami adenozynowymi A2A na powierzchni komórek, co 
+prowadzi do silnej stymulacji metabolizmu fibroblastów, redukcji prozapalnych cytokin i 
+intensywnej syntezy nowego kolagenu oraz elastyny.
+49
+ Jako potężny stymulator odnowy 
+tkankowej, PDRN doskonale sprawdza się w pielęgnacji po inwazyjnych zabiegach laserowych 
+lub mikronakłuwaniu, przyśpieszając gojenie i wzmacniając rezultaty kliniczne.
+6 
+
+Z kolei egzosomy (nanopęcherzyki zewnątrzkomórkowe), pojawiające się w składach 
+najczęściej jako ekstrakty z kultur komórkowych (np. Lycium Barbarum Callus Culture Extract 
+lub Rosa Damascena Callus Vesicles), to kolejny kamień milowy w biostymulacji.
+35
+ Egzosomy to 
+swoiste biologiczne nośniki danych – mikroskopijne pęcherzyki uwalniane przez komórki, 
+zawierające mieszaninę lipidów, białek, czynników wzrostu oraz kwasów nukleinowych (RNA).
+58
+ 
+W przeciwieństwie do agresywnych kuracji chemicznych zmuszających skórę do odnowy 
+poprzez jej uszkadzanie, egzosomy działają na zasadzie precyzyjnej sygnalizacji komórkowej. 
+Komunikują się one z uszkodzonymi lub starzejącymi się komórkami skóry, przekazując im 
+sygnały instruujące do regeneracji, poprawy elastyczności i walki ze stresem oksydacyjnym.
+59
+ 
+Ich synergia z PDRN lub z czynnikami wzrostu stanowi absolutny szczyt piramidy skuteczności 
+w przeciwstarzeniowej medycynie estetycznej, a tym samym w algorytmach oceniających 
+INCI.
+35
+ Ze względów prawnych w Unii Europejskiej, stosowane w kosmetykach egzosomy 
+pochodzą niemal wyłącznie ze standaryzowanych, roślinnych kultur komórkowych lub ulegają 
+precyzyjnej fermentacji.
+57 
+Precyzyjna Fermentacja i Alternatywy Biotechnologiczne 
+Rok 2026 to punkt krytyczny, w którym konsumenci przestali utożsamiać "naturalność" z 
+prymitywnymi ekstraktami roślinnymi, dostrzegając ogromne korzyści w precyzyjnej 
+biotechnologii (trend "Beyond Natural").
+4
+ Popyt na ekologiczną zrównoważoność spotkał się z 
+potrzebą medycznej standaryzacji, co wywindowało składniki takie jak bio-ceramidy, 
+rekombinowany bio-kolagen oraz ekstremofity do rangi wiodących innowacji.
+4 
+Zastosowanie fermentacji precyzyjnej pozwala na stworzenie w warunkach laboratoryjnych 
+cząsteczek idealnie naśladujących strukturę ludzką, bez obciążania środowiska naturalnego 
+wynikającego z dzikich zbiorów czy hodowli zwierząt.
+3
+ W tym nurcie szczególną estymą 
+algorytmu cieszy się Ektoina (Ectoin). Ten aminokwas pochodzący z drobnoustrojów żyjących 
+w skrajnie nieprzyjaznych środowiskach (pustynie, gorące źródła), stał się nowym 
+wyznacznikiem w naprawie bariery hydrolipidowej. Ektoina w niespotykany sposób chroni 
+komórki przed stresem osmotycznym i środowiskowym (UV, smog), konkurując w percepcji 
+konsumentów o pozycję "nowego kwasu hialuronowego".
+4
+ Niezwykle cenne rynkowo są także 
+biotechnologiczne alternatywy dla retinolu, zwłaszcza czysty Bakuchiol. Otrzymywany z rośliny 
+Psoralea corylifolia, oferuje on rezultaty przeciwstarzeniowe porównywalne z witaminą A, 
+jednakże eliminuje skutki uboczne w postaci erytemii, suchości czy fotouczulenia, co czyni go 
+kluczowym składnikiem o potencjale sprzedażowym szacowanym na gigantyczne wzrosty 
+(CAGR 7.2%).
+12 
+Składy zawierające biologicznie inteligentne peptydy, skategoryzowane na podstawie technik 
+rekombinacji 
+65
+, takie jak Tripeptide-1 (stymulujący fibroblasty) oraz Hexapeptide-9 
+(odbudowujący połączenie skórno-naskórkowe), będą w systemie oceniane najwyżej, ze 
+względu na ich udowodnione klinicznie mechanizmy działania, wspierane przez odpowiednie 
+systemy nośnikowe.
+35 
+
+Analiza Rynku i Świadomość Konsumencka (Polska i 
+Świat) 
+Zrozumienie potencjału sprzedażowego wymaga osadzenia wniosków chemicznych w realiach 
+ekonomicznych i socjologicznych. Przewiduje się, że globalny rynek kosmetyczny osiągnie do 
+2026 roku zawrotną wartość 677 miliardów dolarów, co dowodzi ogromnej odporności tej 
+gałęzi gospodarki na kryzysy ekonomiczne.
+1
+ Wzrost sprzedaży napędza nie tylko ilość, ale 
+ewolucja samych potrzeb nabywców, którzy oczekują od preparatów kosmetycznych 
+klinicznych dowodów skuteczności i transparentności.
+1 
+Polski rynek kosmetyczny stanowi fascynujący ekosystem o wartości przekraczającej 35 
+miliardów złotych (ok. 8,5 miliarda USD), z roczną dynamiką wzrostu rzędu 5,6%.
+67
+ Kraj ten 
+wyróżnia się specyficzną filozofią produkcyjną, silnie zakorzenioną w farmacji i ziołolecznictwie, 
+co sprzyja rozwojowi dermokosmetyków.
+67
+ Według raportów, sektor pielęgnacji skóry generuje 
+w Polsce niemal 47% całkowitej sprzedaży kosmetyków, znacząco wyprzedzając średnią 
+europejską.
+68 
+Polski konsument w 2026 roku charakteryzuje się wyjątkowo wysoką edukacją z zakresu chemii 
+kosmetycznej. Wiodące trendy nad Wisłą to m.in. zrównoważony "Skinimalizm", w którym 
+poszukiwane są wielofunkcyjne produkty hiperaktywne, dbałość o mikrobiom oraz koncepcja 
+"Longevity", traktująca opóźnianie starzenia jako proces głębokiej regeneracji na poziomie 
+genetycznym, a nie wyłącznie maskowanie defektów.
+67
+ Aż 77,6% polskich badanych deklaruje 
+stałe zakupy kosmetyków naturalnych, a czynnikiem decydującym o wyborze jest 
+transparentność składu oraz mniejsza ilość agresywnych substancji chemicznych 
+wywołujących alergie.
+70
+ Paradoksalnie, konsumenci są w stanie zaakceptować wyższą cenę za 
+innowacyjne technologie (takie jak egzosomy, PDRN) dostarczone przez sprawdzone marki, 
+jeśli są poparte transparentnymi wynikami badań.
+4 
+Zjawisko znacierania się granic między rynkiem masowym (mass market) a rynkiem 
+prestiżowym (prestige) 
+1
+ sprawia, że klinicznej klasy składniki – takie jak peptydy sygnałowe czy 
+fermentowane bio-ceramidy – stały się standardem oczekiwanym we wszystkich przedziałach 
+cenowych. Pojawił się również nowy profil ambasadora marki: tzw. "Expert-as-Influencer" 
+(dermatolog, chemik kosmetyczny), który edukuje rynek w duchu koncepcji "Beauty Rx", 
+zachęcając do traktowania pielęgnacji niczym precyzyjnie dobranej recepty farmaceutycznej.
+4
+ 
+Producenci eksponujący dokładne stężenia wprost na opakowaniu (np. Niacinamide 10% + Zinc 
+1%) dominują w preferencjach zakupowych, wymuszając rynkową transparentność.
+4
+ Aplikacja, 
+oparta o solidne dane INCI, staje się w tym kontekście naturalnym asystentem zakupowym 
+"skintellectuala". 
+Projekt Algorytmu: Logika Punktacji dla Aplikacji OCR 
+Synteza przedstawionej wiedzy medycznej, chemicznej i behawioralnej pozwala na 
+
+skonstruowanie rygorystycznego algorytmu analitycznego dla oprogramowania OCR. Aby 
+algorytm trafnie wskazywał "Super Produkt" (Hero Product), musi on przeliczać tekst z etykiety 
+na zbalansowaną metrykę oceny końcowej. 
+Zaprojektowany model zakłada indeksowanie w skali od 0 do 100 punktów, bazując na trzech 
+głównych filarach, którym przyporządkowano odpowiednie wagi procentowe: Indeks 
+Bezpieczeństwa (40%), Indeks Skuteczności (35%) oraz Indeks Potencjału Rynkowego (25%). 
+Zapis matematyczny przedstawia się następująco: 
+ 
+Gdzie  to Ocena Produktu,  – Indeks Bezpieczeństwa,  – Indeks Skuteczności, a 
+ – Indeks Potencjału Rynkowego. 
+1. Indeks Bezpieczeństwa () - Waga: 40% 
+Indeks Bezpieczeństwa to mechanizm restrykcyjny, działający w systemie kar. Wartością 
+bazową dla każdego kosmetyku jest 100 punktów. Algorytm iteruje przez bazę danych i 
+odejmuje punkty w przypadku wykrycia niepożądanych komponentów. Jest to jedyny 
+wskaźnik, który może trwale zablokować produkt (tzw. czerwona kartka). 
+ 
+Zasada Redukcji Kategoria 
+Składnika INCI 
+Przykład Liczba 
+odejmowanych 
+punktów 
+Blokada Krytyczna Substancje 
+zakazane (Omnibus 
+VII/VIII), CMR 1A/1B, 
+nielegalne 
+mikroplastiki.
+10 
+Trimethylbenzoyl 
+Diphenylphosphine 
+Oxide, 
+4-Methylbenzyliden
+e Camphor, 
+Perboric acid, 
+Polyethylene, 
+Benzophenone-2.
+10 
+-100 pkt (Wynik = 
+0, Odrzucenie) 
+Duże Ryzyko Przestarzałe 
+systemy bazy 
+oskarżane o 
+uwalnianie form 
+aldehydowych lub 
+Triethanolamine 
+(TEA), PEG-100 
+Stearate, 
+Polysorbate 
+60/80.
+28 
+-30 pkt 
+
+powstawanie 
+nitrozoamin, 
+pochodne 
+petrochemiczne 
+trudne w utylizacji 
+(PEG).
+28 
+Średnie Ryzyko Kontrowersyjne 
+konserwanty 
+ulegające 
+marginalizacji w 
+"Clean Beauty", 
+potencjalnie 
+drażniące przy 
+naruszonej 
+barierze.
+30 
+Phenoxyethanol, 
+Methylparaben, 
+Propylparaben.
+30 
+-20 pkt 
+Ryzyko Alergiczne Substancje 
+zapachowe 
+sklasyfikowane jako 
+alergeny wg 
+dyrektywy UE z 
+2026 r. (80 
+pozycji).
+10 
+Hexyl Salicylate, 
+Citral, Linalool, 
+Acetylated Vetiver 
+Oil.
+10 
+-10 pkt za każdy 
+zidentyfikowany 
+alergen 
+Produkt osiągający wysoki wynik  musi opierać się na nowoczesnej technologii konserwacji 
+(np. połączeniu 1,2-Hexanediol i Pentylene Glycol) oraz bezpiecznych układach lamelarnych.
+28 
+2. Indeks Skuteczności () - Waga: 35% 
+Ten moduł weryfikuje sens farmakologiczny analizowanej formuły, koncentrując się na 
+interakcjach oraz budowie bazy preparatu. Moduł zaczyna od oceny 0 i przyznaje punkty 
+dodatnie za pożądane rozwiązania oraz ujemne za destrukcyjne połączenia. 
+● 
+Fundament Ciekłokrystaliczny (+15 pkt): Obecność emulgatorów pochodzenia 
+roślinnego naśladujących lipidy naskórka (np. INCI: Cetearyl Olivate, Sorbitan Olivate lub 
+Cetearyl Alcohol, Cetearyl Glucoside) nagradzana jest premią, ponieważ optymalizuje 
+wchłanianie i stabilizuje barierę hydrolipidową.
+28 
+● 
+System Promotorów Przenikania (+15 pkt): Obecność nowoczesnych transporterów 
+substancji, takich jak Dimethyl Isosorbide lub biozgodnych kwasów tłuszczowych (Oleic 
+Acid), które udowadniają zdolność przenoszenia dużych molekuł do skóry właściwej bez 
+drażnienia.
+13 
+● 
+Wielka Synergia Biochemiczna (+20 pkt za każdy kompleks): Oprogramowanie 
+
+poszukuje konkretnych, opisanych w medycznej literaturze połączeń, na przykład: 
+○ 
+Witamina C (Ascorbic Acid lub pochodne) + Kwas Azelainowy (Azelaic Acid).
+46 
+○ 
+Ektoina (Ectoin) + Beta-Glukan (Beta-Glucan).
+4 
+○ 
+Peptydy sygnałowe (Tripeptide-1, Hexapeptide-9) + Ceramidy (Ceramide NP).
+12 
+○ 
+Niacinamide + 1,2-Hexanediol (synergia antymikrobowa pozwalająca na redukcję 
+stężenia tradycyjnych konserwantów).
+38 
+● 
+Antagonizmy i Niestabilność Chemiczna (-20 pkt za każdy konflikt): 
+○ 
+Łączenie kwasów uszkadzających spójność bariery (Glycolic Acid, Salicylic Acid) z 
+Retinoidami (Retinol).
+43 
+○ 
+Łączenie utleniaczy (Benzoyl Peroxide) z Retinoidami, co prowadzi do inaktywacji.
+43 
+○ 
+Niestabilne zestawienia pH (np. jednoczesne występowanie wodnych form Ascorbic 
+Acid i Niacinamide).
+43 
+3. Indeks Potencjału Rynkowego () - Waga: 25% 
+Ocena zbieżności składu z najbardziej lukratywnymi i pożądanymi trendami prognozowanymi 
+na 2026 rok, determinującymi potencjalne zyski sprzedażowe. 
+● 
+Innowacje K-Beauty i Delivery Systems (+30 pkt za każdą substancję): Rozpoznanie w 
+INCI przełomowych składników w skali mikro. Są to przede wszystkim spikule morskie 
+(Hydrolyzed Sponge, Hydrolyzed Spicule), określane jako mikronakłuwanie w płynie 
+14
+, a 
+także nośniki informacji genetycznej, takie jak PDRN z DNA łososia (Sodium DNA) 
+wspierające odnowę uszkodzonych komórek.
+49 
+● 
+Egzosomy i Bio-komunikacja (+25 pkt): Obecność egzosomów, na ogół figurujących w 
+INCI pod nazwami ekstraktów z wehikułów komórkowych (np. Lycium Barbarum Callus 
+Culture Extract), jako wyznacznik absolutnej nowości w dziedzinie nieagresywnej naprawy 
+tkankowej (procedural skin care).
+35 
+● 
+Molekuły Długowieczności (Longevity) i Precyzyjnej Fermentacji (+15 pkt za każdą 
+substancję): Ekstremofity takie jak Ektoina (Ectoin), fito-zamienniki o udokumentowanym 
+działaniu klinicznym jak Bakuchiol 
+4
+ oraz cała gama peptydów zrostowych, w 
+szczególności peptydy miedziowe (Copper Tripeptide-1) optymalizujące sieć macierzy 
+zewnątrzkomórkowej.
+35 
+● 
+Punkty Premiowe za Transparencję (+10 pkt): Jeżeli algorytm zidentyfikuje dodatkowe 
+informacje liczbowe podane obok nazwy INCI (np. zadeklarowane na froncie etykiety 
+ustandaryzowane wartości procentowe jak "1% NMN and 0.1% NAD", "15% Matrixyl 
+complex" lub "Niacinamide 10%"), podnosi wynik końcowy produktu, premiując go za 
+zgodność z trendem eksperckiej, farmaceutycznej precyzji "Beauty Rx".
+4 
+Skład perfekcyjny według tak zaprojektowanego algorytmu, który posłuży za wzorzec "Hero 
+Product 2026", łączy w sobie potężną biostymulację wnika jącą na poziom skórny (dzięki 
+mikroskopijnym kanałom tworzonym przez spikule z gąbek morskich i transporterom DMI), 
+regenerację za pomocą systemów PDRN i komunikacji egzosomowej, optymalizację bariery 
+
+hydrolipidowej i naprawę filagryny za sprawą połączonej siły Ektoiny, Beta-Glukanu i 
+ceramidów umieszczonych w bazie lamelarnej (Olivem 1000). Wszystko to odbywa się pod 
+parasolem absolutnego bezpieczeństwa chemicznego, z pominięciem jakichkolwiek polimerów 
+mikroplastikowych, alergenów zapachowych i tradycyjnych konserwantów.
+10
+ 
+Zaimplementowanie opisanej logiki do sieci neuronowej aplikacji mobilnej pozwoli 
+konsumentom w czasie rzeczywistym odróżniać przestarzałe, potencjalnie zagrażające 
+zdrowiu produkty od farmakologicznie zaawansowanych arcydzieł biotechnologicznych 
+współczesnej kosmetologii. 
+Cytowane prace 
+1. 2026 CPG Industry Preview: Beauty Marketing Guide - Skai, otwierano: marca 10, 
+2026, https://skai.io/blog/2026-cpg-industry-preview-beauty-marketing-guide/ 
+2. Legislation - Internal Market, Industry, Entrepreneurship and SMEs - European 
+Union, otwierano: marca 10, 2026, 
+https://single-market-economy.ec.europa.eu/sectors/cosmetics/legislation_en 
+3. Organic Beauty Products Market Dynamics Outlook to 2030: Consumer Trends 
+Driving Transparency and Ingredient Integrity - GlobeNewswire, otwierano: 
+marca 10, 2026, 
+https://www.globenewswire.com/news-release/2026/01/20/3221356/28124/en/Or
+ganic-Beauty-Products-Market-Dynamics-Outlook-to-2030-Consumer-Trends-
+Driving-Transparency-and-Ingredient-Integrity.html 
+4. Cosmetics Brands in 2026: Why Science and Biotechnology are the ..., otwierano: 
+marca 10, 2026, https://www.revuze.it/blog/cosmetic-brands-in-2026/ 
+5. From skin minimalism to biohacking: Where the global consumer is headed in 
+2026, otwierano: marca 10, 2026, 
+https://connect.in-cosmetics.com/trends-en/from-skin-minimalism-to-biohackin
+g-where-the-global-consumer-is-headed-in-2026/ 
+6. Cosmetics Business reveals the top 5 skin care trends of 2026 in new report, 
+otwierano: marca 10, 2026, 
+https://cosmeticsbusiness.com/cosmetics-business-reveals-the-top-5-skin-care
+-2 
+7. How are cosmetic products evaluated? - Yuka - Help, otwierano: marca 10, 2026, 
+https://help.yuka.io/l/en/article/2t20ixn5y5-evualuation-cosmetic-products 
+8. SCCS Notes of Guidance for the testing of cosmetic ingredients and their safety 
+evaluation - 11th revision - Language selection | Public Health, otwierano: marca 
+10, 2026, https://health.ec.europa.eu/system/files/2022-08/sccs_o_250.pdf 
+9. The Global Beauty Edit 2026: Trust, Tech & the New Growth ... - NIQ, otwierano: 
+marca 10, 2026, 
+https://nielseniq.com/global/en/insights/analysis/2025/beauty-global-beauty-edit-
+2026-playbook/ 
+10. EU Cosmetic Regulatory Updates for 2025 & 2026 | Cosmeservice, otwierano: 
+marca 10, 2026, 
+https://cosmeservice.com/news/eu-regulatory-developments-transforming-cos
+metic-compliance-in-2025-and-beyond/ 
+
+11. Commission Regulation (EU) 2023/2055 - Restriction of microplastics intentionally 
+added to products, otwierano: marca 10, 2026, 
+https://single-market-economy.ec.europa.eu/sectors/chemicals/reach/restrictions
+/commission-regulation-eu-20232055-restriction-microplastics-intentionally-add
+ed-products_en 
+12. Trending Skincare Ingredients Your Brand Should Launch in 2026 – Pravada 
+Private Label, otwierano: marca 10, 2026, 
+https://www.pravadaprivatelabel.com/blogs/news/trending-skincare-ingredients-
+your-brand-should-launch-in-2026 
+13. Penetration enhancement - Croda Pharma, otwierano: marca 10, 2026, 
+https://www.crodapharma.com/en-gb/drug-delivery-solutions/explore-by-produc
+t/penetration-enhancement 
+14. Spicules: the K-beauty skin care ingredient primed to break through in 2026, 
+otwierano: marca 10, 2026, 
+https://cosmeticsbusiness.com/spicules-the-k-beauty-skin-care-ingredient-prim
+ed 
+15. Lista zakazanych substancji w kosmetykach- nowe wytyczne i ..., otwierano: 
+marca 10, 2026, 
+https://kancelariadbs.pl/2025/02/26/lista-zakazanych-substancji-w-kosmetykach-
+nowe-wytyczne-i-adaptacja-do-regulacji-ue/ 
+16. EU Updates Cosmetic Regulation: Further Strengthening of CMR Substance 
+Controls, otwierano: marca 10, 2026, 
+http://www.cirs-group.com/en/cosmetics/eu-updates-cosmetic-regulation-furthe
+r-strengthening-of-cmr-substance-controls 
+17. New SCCS Opinions published in June 2025 – COSlaw.eu - Guiding through EU 
+Cosmetics Regulations, otwierano: marca 10, 2026, 
+https://coslaw.eu/new-sccs-opinions-published-in-june-2025/ 
+18. EU cosmetic regulations | Enhesa, otwierano: marca 10, 2026, 
+https://www.enhesa.com/resources/article/eu-impacts-of-cosmetics-regulations-
+key-mid-year-regulatory-updates/ 
+19. SCCS - Opinions - Public Health - European Commission, otwierano: marca 10, 
+2026, 
+https://health.ec.europa.eu/scientific-committees/scientific-committee-consume
+r-safety-sccs/sccs-opinions_en 
+20. EU New Banned Cosmetic Ingredients in 2025 - Cosmeservice, otwierano: marca 
+10, 2026, 
+https://cosmeservice.com/news/eu-cosmetics-update-new-bans-and-restriction
+s-on-fragrance-allergens-hair-dyes-and-preservatives/ 
+21. Towards the ban on titanium dioxide in cosmetics and medicines? - VeilleNanos, 
+otwierano: marca 10, 2026, 
+https://veillenanos.fr/en/dossier/governance/nano-regulations/tio2-ban-extension/ 
+22. SCCS Will Prepare a Scientific Opinion on the Safety of Titanium Dioxide in 
+Cosmetic Products - Bergeson & Campbell, P.C., otwierano: marca 10, 2026, 
+https://www.lawbc.com/sccs-will-prepare-a-scientific-opinion-on-the-safety-of-
+titanium-dioxide-in-cosmetic-products/ 
+
+23. SCCS - Request for a scientific Opinion on the safety of Titanium Dioxide (TiO2) 
+(nano and non nano) in cosmetic products - Language selection | Public Health, 
+otwierano: marca 10, 2026, 
+https://health.ec.europa.eu/latest-updates/sccs-request-scientific-opinion-safety
+-titanium-dioxide-tio2-nano-and-non-nano-cosmetic-products-2025-09-18_en 
+24. Nowe prawo UE dotyczące kosmetyków. Zakaz toksycznych składników od maja 
+- Medonet, otwierano: marca 10, 2026, 
+https://www.medonet.pl/zdrowie/wiadomosci,nowe-prawo-ue-dotyczace-kosme
+tykow--zakaz-toksycznych-skladnikow-od-maja,artykul,01455680.html 
+25. Commission Regulation (EU) 2026/78 of 12 January 2026 amending Regulation 
+(EC) No 1223/2009 of the European Parliament and of, otwierano: marca 10, 2026, 
+https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=OJ:L_202600078 
+26. Beat the Microbead: International Campaign Against Plastic in Cosmetics, 
+otwierano: marca 10, 2026, https://www.beatthemicrobead.org/ 
+27. Cosmetic Regulation Changes in the EU: What Manufacturers Must Know 
+(2026–2028), otwierano: marca 10, 2026, 
+https://aadhunikayurveda.com/Cosmetic-Regulation-Changes-in-the-EU-What-
+Manufacturers-Must-Know-2026%E2%80%932028.html 
+28. Emulsifiers to Never Use Again - and What to Use Instead - CM ..., otwierano: 
+marca 10, 2026, 
+https://cmstudioplus.com/formulation-techniques/emulsifiers-to-never-use-agai
+n-and-what-to-use-instead/ 
+29. Choose the Best Natural Emulsifier - Joan Morais Cosmetics School, otwierano: 
+marca 10, 2026, https://joanmorais.com/choose-the-best-natural-emulsifier/ 
+30. Symrise - Find Search Results for Personal Care & Cosmetics applications, search 
+data sheets, SDS and request samples | Prospector, otwierano: marca 10, 2026, 
+https://www.ulprospector.com/en/na/PersonalCare/Suppliers/3030/Symrise 
+31. Skincare Ingredients Demystified | Full Ingredient Lists - Jo Collection Cosmetics, 
+otwierano: marca 10, 2026, 
+https://jocollectionusa.com/pages/ingredients-and-why-they-matter 
+32. The Frequency Ranking of Occurrence of Individual Ingredients in Hair Care 
+Cosmetics Available on the Polish Market - MDPI, otwierano: marca 10, 2026, 
+https://www.mdpi.com/2079-9284/11/4/125 
+33. The Frequency Ranking of Occurrence of Individual Ingredients in Hair Care 
+Cosmetics Available on the Polish Market - ResearchGate, otwierano: marca 10, 
+2026, 
+https://www.researchgate.net/publication/382477421_The_Frequency_Ranking_of
+_Occurrence_of_Individual_Ingredients_in_Hair_Care_Cosmetics_Available_on_th
+e_Polish_Market 
+34. Emulsifier for Cosmetic - Types, Uses , Benefits & Limitations, otwierano: marca 
+10, 2026, https://www.specialchem.com/cosmetics/guide/emulsifiers 
+35. Somethinc PDRN + Exosome + Peptide ingredients (Explained), otwierano: marca 
+10, 2026, https://incidecoder.com/products/somethinc-pdrn-exosome-peptide 
+36. CHT Innovation at in-cosmetics 25 - PEG-free silicone emulsifier for high-quality 
+formulations, otwierano: marca 10, 2026, 
+
+https://www.cht.com/en/news-media/article/cht-innovation-at-in-cosmetics-25-p
+eg-free-silicone-emulsifier-for-high-quality-formulations 
+37. Beauty Trends for 2026 - ADA Cosmetics, otwierano: marca 10, 2026, 
+https://ada-cosmetics.com/expert-stories/beauty-trends/ 
+38. Synergistic/antagonistic antimicrobial effects of cosmetic ingredients in 
+combination with 1,2-hexanediol - PubMed, otwierano: marca 10, 2026, 
+https://pubmed.ncbi.nlm.nih.gov/39805611/ 
+39. Synergistic/antagonistic antimicrobial effects of cosmetic ingredients in 
+combination with 1,2-hexanediol - ResearchGate, otwierano: marca 10, 2026, 
+https://www.researchgate.net/publication/387908037_Synergisticantagonistic_an
+timicrobial_effects_of_cosmetic_ingredients_in_combination_with_12-hexanediol 
+40. Future Cosmetic Peptides After 2026 - Grand Ingredients, otwierano: marca 10, 
+2026, https://grandingredients.com/future-cosmetic-peptides-after-2026/ 
+41. The Innovative and Evolving Landscape of Topical Exosome and Peptide 
+Therapies: A Systematic Review of the Available Literature - PMC, otwierano: 
+marca 10, 2026, https://pmc.ncbi.nlm.nih.gov/articles/PMC11023079/ 
+42. Penetration enhancers in skin care, and is your skin a sponge? - Fig + Vine Skin 
+Care, otwierano: marca 10, 2026, 
+https://figandvineskincare.com/blogs/news/penetration-enhancers-in-skin-care-
+and-is-your-skin-a-sponge 
+43. Skincare Ingredients That Should Not Be Used Together (and Why), otwierano: 
+marca 10, 2026, 
+https://www.letsmakebeauty.com/blog/post/skincare-ingredients-that-should-no
+t-be-used-together 
+44. Dermatologists Say You Should Never Combine These Skincare Ingredients, 
+otwierano: marca 10, 2026, 
+https://www.womenshealthmag.com/beauty/a69000578/skincare-ingredients-yo
+u-should-never-combine/ 
+45. What skincare products not to mix, according to dermatology experts - Curology, 
+otwierano: marca 10, 2026, 
+https://curology.com/blog/what-skincare-products-not-to-mix-according-to-der
+matology-experts/ 
+46. Why Dermatologist Mark Strom Says Certain Skincare Ingredients Work Better 
+Together, otwierano: marca 10, 2026, 
+https://m.economictimes.com/us/life/why-dermatologist-mark-strom-says-certai
+n-skincare-ingredients-work-better-together/articleshow/126542795.cms 
+47. Your 2026 Skincare Wish List: Ingredients & Products Experts Predict Will Trend, 
+otwierano: marca 10, 2026, 
+https://www.evaraaessential.com/blogs/news/smart-skincare-ingredients-2026 
+48. Top Skincare Trends for 2026 and the Ingredients Driving the Shift, otwierano: 
+marca 10, 2026, 
+https://www.koreanskincarecoach.com/blog/top-skincare-trends-for-2026-and-t
+he-ingredients-driving-the-shift 
+49. Understanding PDRN Salmon DNA Facials: The Science Behind Regenerative - 
+Skin Spa New York, otwierano: marca 10, 2026, 
+
+https://skinspanewyork.com/blogs/news/understanding-pdrn-salmon-dna-facials
+-the-science-behind-regenerative-skincare-in-2026 
+50. Spicules 100 μm | Mild Body Care Cosmetic Spicules - Grand Ingredients, 
+otwierano: marca 10, 2026, 
+https://grandingredients.com/active/spicules-100um-body-care/ 
+51. The Ultimate Guide to Spicules SkinCare：A Revolutionary Approach to Skincare, 
+otwierano: marca 10, 2026, 
+https://spongespicule.com/the-ultimate-guide-to-spicule-skincare/ 
+52. Skin Renewal and Soothing Active: Spicule CICA™ with Centella - Grand 
+Ingredients, otwierano: marca 10, 2026, 
+https://grandingredients.com/active/marine-spicule-skincare-ingredient/ 
+53. PDRN Skincare Benefits and Safety Evaluation | Cosmeservice, otwierano: marca 
+10, 2026, 
+https://cosmeservice.com/news/pdrn-in-cosmetics-function-safety-and-regulato
+ry-considerations/ 
+54. 2026 Anti-Aging Treatments: What Regenerative Skincare Trends, otwierano: 
+marca 10, 2026, 
+https://vipmedispa.com/2026-anti-aging-treatments-what-regenerative-skincare
+-trends-should-you-try/ 
+55. Skin booster trends in 2026 - JY Solution, otwierano: marca 10, 2026, 
+https://www.jy-solution.com/post/skin-booster-trends-in-2026 
+56. Exosomes vs Growth Factors vs PDRN: What They Do and How They Compare, 
+otwierano: marca 10, 2026, 
+https://www.koreanskincarecoach.com/blog/exosomes-vs-growth-factors-vs-pd
+rn-what-they-do-and-how-they-compare 
+57. Exoblanc™ - TruBiologix, otwierano: marca 10, 2026, 
+https://trubiologix.com/products/exoblanc/ 
+58. Medicalized Aesthetic Uses of Exosomes and Cell Culture-Conditioned Media: 
+Opening an Advanced Care Era for Biologically Inspired Cutaneous Prejuvenation 
+and Rejuvenation - MDPI, otwierano: marca 10, 2026, 
+https://www.mdpi.com/2079-9284/11/5/154 
+59. The trending skincare ingredients to have on your radar in 2026 - Luxury London, 
+otwierano: marca 10, 2026, 
+https://luxurylondon.co.uk/wellbeing/the-trending-skincare-ingredients-to-have-
+on-your-radar-in-2026/ 
+60. Regulation of exosomes as biologic medicines: Regulatory challenges faced in 
+exosome development and manufacturing processes - PMC, otwierano: marca 
+10, 2026, https://pmc.ncbi.nlm.nih.gov/articles/PMC11307316/ 
+61. Trending Ingredients 2026 - Les Nouvelles Esthétiques & Spa, otwierano: marca 
+10, 2026, https://lneonline.com/trending-ingredients-2026/ 
+62. PDRN in Skincare: Regulatory Compliance and Global Strategy for OEM Brands - 
+XJ Beauty, otwierano: marca 10, 2026, 
+https://www.xj-beauty.com/blog/pdrn-global-cosmetic-compliance-odm-oem 
+63. Top 10 Skincare Ingredient Trends for 2026 | NAYA Skincare, otwierano: marca 10, 
+2026, https://nayaglow.com/blogs/news/skincare-ingredient-trends-for-2026 
+
+64. 12 Skincare Ingredients Dominating 2026 (And Why They Matter) - FRÈA Beauty, 
+otwierano: marca 10, 2026, 
+https://www.freabeauty.com/blogs/frea-journal/12-skincare-ingredients-dominati
+ng-2026-and-why-they-matter 
+65. INCI Nomenclature - Personal Care Products Council, otwierano: marca 10, 2026, 
+https://www.personalcarecouncil.org/wp-content/uploads/2022/01/Conventions-
+2022_v1.pdf 
+66. Skincare Industry Statistics 2026 – U.S. Market Overview - Tricoci University, 
+otwierano: marca 10, 2026, 
+https://www.tricociuniversity.edu/beauty-blog/skincare-industry-statistics-2025-
+u-s-market-overview/ 
+67. Polish Cosmetics Hit US Mainstream, Here's Your Window Before Saturation - 
+ShelfTrend, otwierano: marca 10, 2026, 
+https://www.shelftrend.com/health-beauty/polish-cosmetics-marketplace-selling
+-guide-2025 
+68. Report-on-the-State-of-the-Cosmetic-Industry-in-Poland.pdf, otwierano: marca 
+10, 2026, 
+https://kosmetyczni.pl/wp-content/uploads/2025/01/Report-on-the-State-of-the-
+Cosmetic-Industry-in-Poland.pdf 
+69. TAK BĘDZIEMY DBAĆ O SKÓRĘ W 2026 – TRENDY, KTÓRE ..., otwierano: marca 10, 
+2026, 
+https://przemyslkosmetyczny.pl/artykul/tak-bedziemy-dbac-o-skore-w-2026-tre
+ndy-ktore-zmienia-nasze-nawyki/ 
+70. The Growing Market for Natural Cosmetics in Poland: Consumer Preferences and 
+Industry Trends - Dove Medical Press, otwierano: marca 10, 2026, 
+https://www.dovepress.com/the-growing-market-for-natural-cosmetics-in-pola
+nd-consumer-preference-peer-reviewed-fulltext-article-CCID 
+71. Beauty's Resilience Comes With New Rules: 2025 Sales & Lessons for 2026 from 
+Circana's Latest Data | Global Cosmetic Industry, otwierano: marca 10, 2026, 
+https://www.gcimagazine.com/brands-products/color-cosmetics/news/22960343
+/beautys-resilience-comes-with-new-rules-2025-sales-lessons-for-2026-from-c
+ircanas-latest-data 
+
+--- DOKUMENT: INCI i ich działanie.pdf ---
+
+
+Antybakteryjne (i ukierunkowane na trądzik) 
+Skuteczność mierzona zdolnością do eradykacji bakterii Cutibacterium acnes oraz brakiem 
+wywoływania lekooporności. 
+1. Benzoyl Peroxide (Nadtlenek benzoilu) – bezwzględny złoty standard w terapiach 
+antybakteryjnych bez recepty. Uwalnia tlen w mieszkach włosowych, niszcząc 
+środowisko beztlenowych bakterii C. acnes. 
+2. Salicylic Acid (Kwas salicylowy) – penetruje przez sebum do wnętrza porów, 
+działając antybakteryjnie i silnie komedolitycznie (przeciwzaskórnikowo). 
+3. Azelaic Acid (Kwas azelainowy) – klinicznie potwierdzone działanie 
+bakteriostatyczne i bakteriobójcze, przy jednoczesnym wyciszaniu stanu zapalnego. 
+4. Melaleuca Alternifolia Leaf Oil (Olejek z drzewa herbacianego) – 
+najskuteczniejsza alternatywa naturalna, której skuteczność (w stężeniu 5%) 
+porównuje się w badaniach do niskich stężeń nadtlenku benzoilu. 
+Antyoksydacyjne (Przeciwutleniające) 
+Skuteczność mierzona potencjałem neutralizacji wolnych rodników tlenowych (ROS) oraz 
+zdolnością do ochrony DNA komórkowego przed fotouszkodzeniami. 
+1. Astaxanthin (Astaksantyna) – najpotężniejszy znany antyoksydant (ok. 6000 razy 
+silniejszy od witaminy C pod kątem gaszenia tlenu singletowego). 
+2. Ascorbic Acid (Kwas L-askorbinowy) – najlepiej udokumentowany antyoksydant, 
+stanowi złoty standard; wymaga jednak niskiego pH do skutecznej penetracji. 
+3. Ferulic Acid (Kwas ferulowy) – wybitnie silny antyoksydant, który dodatkowo 
+potęguje i stabilizuje działanie witamin C i E. 
+4. Tocopherol (Witamina E) – główny antyoksydant lipofilowy, chroniący błony 
+komórkowe przed peroksydacją lipidów. 
+Eksfoliacyjne (Złuszczające i Keratolityczne) 
+Skuteczność mierzona siłą i głębokością rozluźniania wiązań między korneocytami 
+(martwymi komórkami naskórka). 
+1. Glycolic Acid (Kwas glikolowy) – kwas AHA o najmniejszej cząsteczce, penetruje 
+najgłębiej i najszybciej, dając najbardziej spektakularne efekty resurfacingu. 
+2. Lactic Acid (Kwas mlekowy) – większa cząsteczka niż w kwasie glikolowym, działa 
+nieco płycej, ale dodatkowo stymuluje produkcję ceramidów. 
+3. Gluconolactone (Glukonolakton) – kwas PHA; złuszcza równie skutecznie co 
+kwasy AHA, ale bez efektu drażniącego, działając przy tym jako silny humektant. 
+4. Papain / Bromelain (Enzymy - Papaina/Bromelaina) – działają wyłącznie na 
+powierzchni, rozpuszczając martwe białka naskórka (najsłabsze, ale 
+najbezpieczniejsze dla skór reaktywnych). 
+Fotoprotekcyjne (Ochrona UV) 
+
+Skuteczność mierzona szerokością spektrum ochrony (UVA+UVB) oraz fotostabilnością 
+cząsteczki. 
+1. Bis-Ethylhexyloxyphenol Methoxyphenyl Triazine (Tinosorb S) – 
+ultranowoczesny filtr organiczny, oferujący najwyższą fotostabilność i najszersze 
+spektrum ochrony przed całym zakresem UV. 
+2. Diethylamino Hydroxybenzoyl Hexyl Benzoate (Uvinul A Plus) – referencyjny filtr 
+chroniący przed starzeniowym promieniowaniem UVA. 
+3. Zinc Oxide (Tlenek cynku) – najskuteczniejszy z filtrów mineralnych (fizycznych), 
+pokrywający szerokie spektrum UV, polecany dla skór uszkodzonych. 
+4. Titanium Dioxide (Dwutlenek tytanu) – skuteczny filtr mineralny, jednak chroniący 
+głównie przed UVB i krótkim UVA. 
+Kojące i Łagodzące stany zapalne 
+Skuteczność mierzona szybkością hamowania kaskady zapalnej (np. cytokin prozapalnych) i 
+przyspieszaniem ziarninowania tkanek. 
+1. Madecassoside / Asiaticoside (Izolaty z wąkrotki azjatyckiej) – wybitnie silne 
+działanie wyciszające, stosowane klinicznie w leczeniu ran i oparzeń. 
+2. Panthenol (D-Pantenol / Prowitamina B5) – klasyk o niepodważalnej, 
+udokumentowanej skuteczności w łagodzeniu poparzeń słonecznych i świądu. 
+3. Allantoin (Alantoina) – pochodna kwasu moczowego, stymuluje podziały 
+komórkowe i hamuje stan zapalny. 
+4. Bisabolol (Bisabolol) – aktywny izolat z rumianku pospolitego, skutecznie hamuje 
+aktywność mediatorów stanu zapalnego. 
+Matujące (Seboregulujące) 
+Skuteczność podzielona na dwa tory: długofalowe hamowanie pracy gruczołów łojowych 
+oraz fizyczna absorpcja. 
+1. Niacinamide (Niacynamid) – w stężeniach 2-5% trwale i udowodnienie redukuje 
+ilość wydzielanego sebum poprzez wpływ na lipogenezę (działanie przyczynowe). 
+2. Zinc PCA (Sól cynkowa kwasu pirolidonokarboksylowego) – hamuje enzym 
+5-alfa reduktazę, co bezpośrednio zmniejsza produkcję łoju. 
+3. Silica (Krzemionka) – najskuteczniejszy pochłaniacz fizyczny; natychmiastowo 
+absorbuje sebum, dając efekt matu bez leczenia przyczyny. 
+Natłuszczające (Okluzyjne - zapobieganie utracie wody / TEWL) 
+Skuteczność mierzona procentowym stopniem zahamowania Transepidermalnej Utraty 
+Wody (TEWL). 
+1. Petrolatum (Wazelina) – absolutny złoty standard okluzji w dermatologii; tworzy 
+warstwę redukującą TEWL o ponad 98%. 
+2. Mineral Oil (Olej mineralny / Parafina ciekła) – redukuje TEWL o ok. 20-30%, jest 
+całkowicie obojętny chemicznie i nie alergizuje. 
+
+3. Squalane (Skwalan) – wysoce biozgodny emolient, naśladujący naturalne lipidy 
+ludzkiego sebum, doskonały w odbudowie bariery bez efektu "ciężkości". 
+4. Butyrospermum Parkii Butter (Masło Shea) – bogaty emolient roślinny, tworzący 
+mocną powłokę filmotwórczą z dodatkiem kojących fitosteroli. 
+Nawilżające (Humektanty - wiązanie wody w naskórku) 
+Skuteczność mierzona zdolnością cząsteczki do przyciągania i wiązania cząsteczek wody 
+oraz zdolnością penetracji warstwy rogowej. 
+1. Glycerin (Gliceryna) – ze względu na małą masę cząsteczkową wnika głęboko do 
+warstwy rogowej i moduluje akwaporyny (kanały wodne w komórkach). Jest to 
+bezwzględny, najlepiej przebadany standard nawilżania. 
+2. Polyglutamic Acid (Kwas poliglutaminowy) – makrocząsteczka zdolna związać 
+nawet 10-krotnie więcej wody niż kwas hialuronowy na powierzchni skóry. 
+3. Sodium Hyaluronate (Hialuronian sodu) – wiąże do 1000 razy więcej wody niż 
+sam waży, dając natychmiastowy efekt "napompowania" (plumping effect) skóry. 
+4. Urea (Mocznik) – składnik NMF (Naturalnego Czynnika Nawilżającego); w 
+stężeniach do 10% znakomicie wiąże wodę w głębokich warstwach przesuszonego 
+naskórka. 
+Odbudowujące barierę hydrolipidową 
+Skuteczność mierzona zdolnością do fizjologicznego zintegrowania się z cementem 
+międzykomórkowym naskórka. 
+1. Ceramide NP, AP, EOP (Ceramidy) – w połączeniu z cholesterolem i wolnymi 
+kwasami tłuszczowymi (w klinicznie optymalnym stosunku 3:1:1) najszybciej 
+naprawiają uszkodzoną barierę naskórkową. 
+2. Cholesterol – kluczowy sterol warstwy rogowej, którego niedobór drastycznie 
+upośledza funkcje obronne skóry. 
+3. Phytosphingosine (Fitosfingozyna) – prekursor, z którego skóra sama syntetyzuje 
+własne ceramidy. 
+Przeciwstarzeniowe (Odmładzające i stymulujące kolagen) 
+Skuteczność mierzona potwierdzoną biopsjami zdolnością do pobudzania fibroblastów do 
+syntezy kolagenu typu I i III. 
+1. Retinal / Retinaldehyde (Retinaldehyd) – najsilniejszy dostępny bez recepty 
+retinoid. Wymaga tylko jednej konwersji chemicznej w skórze do aktywnego kwasu 
+retinowego. Działa 11 razy szybciej niż retinol. 
+2. Retinol – klasyk przeciwstarzeniowy, wymaga dwóch konwersji do kwasu 
+retinowego. Skuteczność poparta dziesiątkami lat badań. 
+3. Copper Tripeptide-1 (Peptydy miedziowe GHK-Cu) – stymulują produkcję białek 
+podporowych skóry oraz przyspieszają usuwanie starych, zdegradowanych włókien 
+kolagenowych. 
+
+4. Bakuchiol – roślinny analog retinolu; wykazuje bardzo podobne mechanizmy 
+stymulacji genów odpowiedzialnych za produkcję kolagenu, ale bez efektu 
+drażniącego. 
+Rozjaśniające (Depigmentacyjne) 
+Skuteczność mierzona siłą inhibicji tyrozynazy (enzymu odpowiedzialnego za produkcję 
+melaniny) oraz blokowaniem transferu melaniny do naskórka. 
+1. Isobutylamido Thiazolyl Resorcinol (Thiamidol) – opatentowana molekuła, 
+udowodniono, że jest obecnie najpotężniejszym znanym inhibitorem specyficznie 
+ludzkiej tyrozynazy (działa szybciej i silniej niż kwas kojowy czy arbutyna). 
+2. Tranexamic Acid (Kwas traneksamowy) – niezwykle skuteczny w trudnych 
+przebarwieniach hormonalnych (melasma), ponieważ blokuje kaskadę zapalną 
+wyzwalaną przez promieniowanie UV. 
+3. Hexylresorcinol (Heksylorezorcynol) – substancja, której 0,5% stężenie wykazuje 
+w badaniach skuteczność porównywalną do 2% hydrochinonu (leku na receptę). 
+4. Alpha-Arbutin (Alfa-arbutyna) – powoli i równomiernie hamuje tyrozynazę, 
+stanowiąc stabilną i wysoce bezpieczną opcję depigmentacyjną. 
+5. Kojic Acid (Kwas kojowy) – skuteczny w rozjaśnianiu, jednak o niższej stabilności 
+chemicznej i większym potencjale drażniącym niż powyższe. 
+Stymulujące mikrokrążenie (Redukujące zastoje i obrzęki) 
+Skuteczność mierzona stopniem stymulacji drenażu limfatycznego i obkurczania naczyń 
+włosowatych (szczególnie w okolicach oczu). 
+1. Caffeine (Kofeina) – silnie obkurcza naczynia krwionośne, natychmiastowo 
+zmniejszając przepuszczalność naczyń i redukując obrzęki ("worki"). 
+2. Escin (Escyna - ekstrakt z kasztanowca) – uszczelnia śródbłonki naczyń 
+krwionośnych, zapobiegając wysiękom płynów do przestrzeni międzykomórkowych. 
+3. Hesperidin / Glucosyl Hesperidin (Hesperydyna) – flawonoid poprawiający 
+krążenie w kapilarach, doskonale redukujący cienie zastoje pod oczami. 
+ 
+Pełne zestawienie działań i najskuteczniejszych składników INCI (od 
+najsilniejszych) 
+1. Antybakteryjne – zapobiegają namnażaniu się bakterii na powierzchni skóry lub je 
+niszczą. 
+● Benzoyl Peroxide (Nadtlenek benzoilu) – złoty standard OTC, uwalnia tlen, niszcząc 
+środowisko bakterii beztlenowych. 
+● Chlorhexidine Digluconate (Chlorheksydyna) – wybitnie silny środek antyseptyczny 
+o szerokim spektrum. 
+● Salicylic Acid (Kwas salicylowy) – penetruje pory, hamując rozwój bakterii C. acnes. 
+
+● Melaleuca Alternifolia Leaf Oil (Olejek z drzewa herbacianego) – najskuteczniejsza 
+opcja roślinna (odpowiednik niskich stężęń nadtlenku benzoilu). 
+2. Antyoksydacyjne (przeciwutleniające) – neutralizują wolne rodniki, chroniąc struktury 
+komórkowe i opóźniając procesy starzenia. 
+● Astaxanthin (Astaksantyna) – najsilniejszy antyoksydant na świecie (tysiące razy 
+silniejszy od wit. C). 
+● Ascorbic Acid (Kwas L-askorbinowy) – referencyjny, udokumentowany standard 
+antyoksydacji. 
+● Ferulic Acid (Kwas ferulowy) – silny sam w sobie, stabilizuje i potęguje działanie 
+witamin C i E. 
+● Tocopherol (Witamina E) – główny obrońca błon komórkowych przed utlenianiem. 
+3. Antyperspiracyjne – ograniczają wydzielanie potu poprzez czasowe zwężenie ujść 
+gruczołów potowych. 
+● Aluminum Zirconium Tetrachlorohydrex GLY – najskuteczniejszy, najmniej 
+drażniący kompleks antyperspiracyjny nowej generacji. 
+● Aluminum Chloride (Chlorek glinu) – wysoce skuteczny, stosowany w blokerach 
+potu (może drażnić). 
+● Aluminum Chlorohydrate (Chlorowodorek glinu) – standardowy, dobrze 
+przebadany bloker ujść potowych. 
+4. Brązujące – nadają skórze ciemniejszy odcień. 
+● Dihydroxyacetone / DHA (Dihydroksyaceton) – najszybszy i najsilniejszy składnik 
+reagujący z aminokwasami naskórka (reakcja Maillarda). 
+● Erythrulose (Erytruloza) – działa wolniej, ale daje trwalszy, bardziej jednolity odcień 
+bez smug. 
+● Juglans Regia Shell Extract (Ekstrakt z łupin orzecha włoskiego / Juglon) – 
+naturalny barwnik przyciemniający warstwę rogową. 
+5. Chłodzące – wywołują miejscowe uczucie chłodu poprzez stymulację odpowiednich 
+receptorów. 
+● Menthol (Mentol) – natychmiastowo i najsilniej stymuluje receptory TRPM8 
+(receptory zimna). 
+● Menthyl Lactate (Mleczan mentylu) – chłodzi słabiej, ale dłużej i nie powoduje 
+podrażnień. 
+● Menthoxypropanediol (Pochodna mentolu) – syntetyczny czynnik chłodzący o 
+przedłużonym uwalnianiu. 
+6. Dezodorujące – niwelują, neutralizują lub maskują nieprzyjemny zapach ciała. 
+● Triethyl Citrate (Cytrynian trietylu) – blokuje enzymy bakteryjne rozkładające pot na 
+lotne związki zapachowe. 
+● Zinc Ricinoleate (Rycyneolan cynku) – wyłapuje i chemicznie "zamyka" cząsteczki 
+brzydkiego zapachu. 
+
+● Farnesol (Farnezol) – bakteriostatyk, który ogranicza rozwój flory odpowiedzialnej za 
+zapach. 
+7. Eksfoliacyjne (keratolityczne) – pomagają w usuwaniu martwych komórek naskórka. 
+● Glycolic Acid (Kwas glikolowy) – wnika najgłębiej, najsilniej rozluźnia wiązania 
+między komórkami (AHA). 
+● Salicylic Acid (Kwas salicylowy) – wnika w struktury lipidowe, doskonale złuszcza 
+wnętrza porów (BHA). 
+● Lactic Acid (Kwas mlekowy) – działa płycej, ale niezwykle skutecznie (AHA). 
+● Gluconolactone (Glukonolakton) – złuszcza bardzo łagodnie, idealny dla skór 
+wrażliwych (PHA). 
+8. Fotoprotekcyjne – chronią skórę przed szkodliwym działaniem promieniowania 
+słonecznego. 
+● Bis-Ethylhexyloxyphenol Methoxyphenyl Triazine (Tinosorb S) – najwyższa 
+skuteczność i fotostabilność (UVA+UVB). 
+● Diethylamino Hydroxybenzoyl Hexyl Benzoate (Uvinul A Plus) – referencyjny filtr 
+przeciwstarzeniowy (UVA). 
+● Zinc Oxide (Tlenek cynku) – najszerszy filtr mineralny (chroni przed UVA i UVB). 
+● Titanium Dioxide (Dwutlenek tytanu) – skuteczny fizyczny bloker, głównie UVB i 
+krótkiego UVA. 
+9. Kojące – redukują dyskomfort, uczucie pieczenia czy świądu skóry. 
+● Madecassoside (Madekasozyd) – najsilniejsza, przebadana klinicznie cząsteczka 
+znosząca dyskomfort i świąd. 
+● Panthenol (D-Pantenol) – referencyjny składnik łagodzący pieczenie (np. po słońcu). 
+● Bisabolol – natychmiastowo wygasza pieczenie dzięki działaniu na mediatory stanu 
+zapalnego. 
+10. Kondycjonujące – poprawiają ogólny stan, wygląd i teksturę skóry lub włosów. 
+● Behentrimonium Chloride – kationowy środek powierzchniowo czynny; wybitnie 
+wygładza łuski włosa. 
+● Polyquaternium-10 – polimer tworzący doskonały film poprawiający teksturę włosa i 
+skóry. 
+● Hydrolyzed Keratin (Hydrolizowana keratyna) – wbudowuje się w uszkodzenia, 
+poprawiając integralność. 
+11. Liftingujące – dają wizualny i odczuwalny efekt natychmiastowego napięcia. 
+● Dipeptide Diaminobutyroyl Benzylamide Diacetate (SYN-AKE) – neuropeptyd 
+drastycznie i zauważalnie zmniejszający napięcie mięśniowe ("efekt jadu żmii"). 
+● Acetyl Hexapeptide-8 (Argirelina) – klasyczny peptyd zwiotczający mięśnie 
+(botox-like). 
+● Pullulan – polisacharyd, który zasychając, fizycznie i mechanicznie "ściąga" i unosi 
+skórę. 
+
+12. Łagodzące – zmniejszają widoczne objawy podrażnień, zaczerwienień i stanów 
+zapalnych. 
+● Ectoin (Ektoina) – klinicznie znosi rumień i podrażnienia nawet w stanach 
+atopowych. 
+● Asiaticoside (Azjatykozyd) – bezpośrednio redukuje stany zapalne naczyń 
+krwionośnych i skóry. 
+● Allantoin (Alantoina) – znany i sprawdzony środek przyspieszający gojenie 
+mikrourazów. 
+13. Matujące – absorbują nadmiar sebum lub ograniczają jego wydzielanie, zapobiegając 
+błyszczeniu. 
+● Niacinamide (Niacynamid) – w stężeniach 2-5% długofalowo redukuje realną 
+produkcję sebum. 
+● Silica (Krzemionka) – mikrosfery natychmiastowo pochłaniające pot i łój z 
+powierzchni. 
+● Polymethyl Methacrylate / PMMA – syntetyczny polimer matujący, dający efekt 
+"blur" bez wysuszania. 
+14. Myjące – emulgują i usuwają zanieczyszczenia dzięki zawartości surfaktantów. 
+● Sodium Laureth Sulfate / SLES – najsilniejszy (choć bywa drażniący) środek 
+usuwający lipidy i brud. 
+● Sodium Cocoyl Isethionate / SCI – łagodny, ale wysoce skuteczny surfaktant 
+anionowy (najlepszy do mycia twarzy). 
+● Coco-Glucoside – ultradelikatny glukozyd, emulguje brud nie naruszając bariery 
+skóry. 
+15. Napinające – poprawiają napięcie warstwy naskórka, czyniąc twarz lub ciało bardziej 
+zwartym. 
+● Macrocystis Pyrifera Extract (Ekstrakt z wielkich alg) – tworzy elastyczną siatkę na 
+skórze, dając natychmiastowe uczucie zwartości. 
+● Dimethylaminoethanol Tartrate / DMAE – napina komórki poprzez zwiększenie ich 
+turgoru i wpływa na uwalnianie acetylocholiny. 
+16. Natłuszczające – odbudowują barierę lipidową skóry, tworząc okluzję (TEWL). 
+● Petrolatum (Wazelina) – klinicznie nr 1 w redukcji TEWL (powyżej 98%). 
+● Mineral Oil (Olej mineralny) – bezpieczny, niealergizujący, tworzy mocny płaszcz 
+lipidowy. 
+● Lanolin (Lanolina) – najbardziej zbliżona budową do ludzkiego sebum, silnie 
+natłuszcza. 
+● Butyrospermum Parkii Butter (Masło Shea) – naturalna alternatywa okluzyjna. 
+17. Nawilżające – dostarczają substancji higroskopijnych (humektantów). 
+● Polyglutamic Acid / PGA (Kwas poliglutaminowy) – wiąże 10x więcej wody niż 
+kwas hialuronowy. 
+
+● Sodium Hyaluronate (Hialuronian sodu) – referencyjny humektant wiążący wodę w 
+naskórku. 
+● Glycerin (Gliceryna) – najskuteczniejszy ze względu na małą cząsteczkę (wnika 
+głęboko i moduluje kanały wodne). 
+● Urea (Mocznik) – w stężeniu 5-10% drastycznie podnosi poziom wilgoci w naskórku. 
+18. Ochronne – tworzą na powierzchni skóry barierę przed czynnikami zewnętrznymi. 
+● Ceramide NP, AP, EOP – wbudowują się w warstwę rogową, uszczelniając tarczę 
+przed mrozem i wiatrem. 
+● Ectoin (Ektoina) – chroni komórki skóry na poziomie molekularnym przed smogiem i 
+stresem środowiskowym. 
+● Marrubium Vulgare Extract (Ekstrakt z szanty) – udokumentowana ochrona przed 
+wnikaniem pyłów PM 2.5 (smog). 
+19. Oczyszczające – uwalniają pory od nagromadzonych zanieczyszczeń, toksyn i 
+martwego naskórka. 
+● Salicylic Acid (Kwas salicylowy) – jako jedyny kwas wnika do wnętrza porów, 
+wymywając z nich łój. 
+● Bentonite (Glinka bentonitowa) – wykazuje niezwykle silny ładunek elektryczny, 
+wyciągając toksyny z porów jak magnes. 
+● Charcoal Powder (Węgiel aktywny) – mikrogąbka adsorbująca zanieczyszczenia 
+organiczne. 
+20. Odmładzające – globalnie niwelują oznaki starzenia, poprawiając gęstość i architekturę. 
+● Retinal (Retinaldehyd) – najszybciej i najsilniej przebudowuje architekturę skóry (1 
+krok konwersji). 
+● Retinol – złoty standard OTC, globalnie cofa fotostarzenie i zagęszcza skórę. 
+● Copper Tripeptide-1 (Peptydy miedziowe) – usuwają stare białka, tworzą całkowicie 
+nowe zręby komórkowe. 
+21. Odżywcze – dostarczają skórze lub cebulkom niezbędnych witamin, minerałów, lipidów i 
+protein. 
+● Cholesterol – dostarcza absolutnie kluczowego budulca cementu 
+międzykomórkowego. 
+● Linoleic Acid / Linolenic Acid (Kwasy Omega 3/6) – "dokarmiają" skórę, 
+naprawiając zaburzenia rogowacenia. 
+● Persea Gratissima Oil (Olej z awokado) – bomba witaminowa (A, D, E) bogata w 
+lipidy odżywcze. 
+22. Przeciwłupieżowe – zwalczają grzyby odpowiedzialne za łupież i regulują łuszczenie. 
+● Ketoconazole (Ketokonazol) – najsilniejszy lek/składnik o bezpośrednim i 
+sprawdzonym działaniu na grzyba Malassezia. 
+● Selenium Sulfide (Siarczek selenu) – potężny składnik przeciwgrzybiczy i 
+cytostatyczny. 
+
+● Piroctone Olamine (Pirokton olaminy) – łagodniejszy i bezpieczny grzybobójczy 
+standard kosmetyczny. 
+23. Przeciwstarzeniowe (anti-aging) – spowalniają procesy starzenia komórkowego i 
+degradację kolagenu. 
+● Ascorbic Acid (Witamina C) – bezwzględnie blokuje degradację włókien poprzez 
+powstrzymywanie metaloproteinaz. 
+● Ergothioneine (Ergotioneina) – wchodzi do jąder komórkowych, chroniąc DNA 
+przed mutacjami starzeniowymi. 
+● Carnocine (Karnozyna) – peptyd biomimetyczny; blokuje proces glikacji (sztywnienia 
+i degradacji) kolagenu. 
+24. Przeciwtrądzikowe – regulują pracę gruczołów łojowych, działają komedolitycznie i 
+antybakteryjnie. 
+● Benzoyl Peroxide (Nadtlenek benzoilu) – nr 1 w uderzeniu w bakterie trądzikowe 
+bez antybiotykooporności. 
+● Azelaic Acid (Kwas azelainowy) – nr 1 w uderzeniu w stan zapalny i zastoje łoju 
+jednocześnie. 
+● Salicylic Acid (Kwas salicylowy) – nr 1 w rozpuszczaniu już powstałych zaskórników 
+(komedolityk). 
+25. Przeciwzapalne – wyciszają i hamują rozwój reakcji zapalnych na poziomie 
+komórkowym. 
+● Glycyrrhetinic Acid (Kwas lukrecjowy) – silnie hamuje enzymy wywołujące stan 
+zapalny (działa podobnie do hydrokortyzonu, bez jego skutków ubocznych). 
+● Tranexamic Acid (Kwas traneksamowy) – wyłącza ścieżki zapalne prowokowane 
+przez promieniowanie UV. 
+● Madecassoside (Madekasozyd) – najczystsza izolacja z wąkrotki wygaszająca 
+kaskady zapalne. 
+26. Przeciwzmarszczkowe – spłycają istniejące zmarszczki i zapobiegają powstawaniu 
+nowych. 
+● Palmitoyl Pentapeptide-4 (Matrixyl) – wysoce udokumentowany peptyd stymulujący 
+produkcję kolagenu typu I, III i kwasu hialuronowego prosto w zmarszczce. 
+● Retinal / Retinol – wygładzają zmarszczki poprzez pogrubienie żywych warstw 
+naskórka i skóry właściwej. 
+● Adenosine (Adenozyna) – hamuje mikroskurcze mięśni, redukując mimiczne 
+powstawanie zmarszczek. 
+27. Regenerujące – przyspieszają naturalne procesy naprawcze, odnowę komórkową i 
+odbudowę. 
+● Copper Tripeptide-1 (GHK-Cu) – najsilniejszy motor regeneracyjny; zrasta 
+uszkodzone tkanki i zmniejsza blizny. 
+
+● Snail Secretion Filtrate (Śluz ślimaka) – bogactwo czynników wzrostu drastycznie 
+podnoszących szybkość naprawy. 
+● Centella Asiatica Extract (Ekstrakt z wąkrotki) – wspomaga syntezę włókien w 
+miejscu urazów/zmian. 
+28. Rewitalizujące – przywracają blask, witalność, energię i zdrowy koloryt. 
+● Ascorbic Acid (Kwas L-askorbinowy) – natychmiastowo rozjaśnia i nadaje 
+fizjologiczny blask. 
+● Panax Ginseng Root Extract (Ekstrakt z żeń-szenia) – zwiększa dotlenienie i 
+metabolizm komórkowy. 
+● Ubiquinone (Koenzym Q10) – dostarcza komórkom mitochondialnej energii ATP do 
+"pracy". 
+29. Rozjaśniające (depigmentacyjne) – redukują przebarwienia i hamują syntezę 
+melaniny. 
+● Isobutylamido Thiazolyl Resorcinol (Thiamidol) – absolutnie najsilniejszy inhibitor 
+ludzkiej tyrozynazy na rynku. 
+● Hexylresorcinol (Heksylorezorcynol) – kliniczny standard porównywalny 
+skutecznością z lekiem hydrochinonem. 
+● Tranexamic Acid (Kwas traneksamowy) – najskuteczniejszy w przypadku 
+melasmy/przebarwień hormonalnych. 
+● Alpha-Arbutin (Alfa-arbutyna) – bezpieczny, długofalowy środek obniżający 
+produkcję barwnika. 
+30. Stymulujące – pobudzają mikrokrążenie krwi lub stymulują fibroblasty. 
+● Caffeine (Kofeina) – najsilniejszy stymulator mikrokrążenia i drenażu w kosmetyce. 
+● sh-Oligopeptide-1 (EGF - Epidermalny czynnik wzrostu) – silnie stymuluje podziały 
+komórkowe. 
+● Niacinamide (Niacynamid) – w badaniach potwierdzono jego wpływ na stymulację 
+ceramidów i mikrokrążenia. 
+31. Ściągające – powodują denaturację białek na powierzchni, zwężając pory i zmniejszając 
+przekrwienie. 
+● Hamamelis Virginiana Water (Woda z oczaru) – niezwykle bogata w garbniki 
+ściągające tkanki. 
+● Tannic Acid (Kwas taninowy) – bezpośredni koagulant białek, ekstremalnie silnie 
+obkurcza. 
+● Zinc Sulfate (Siarczan cynku) – wykazuje intensywne działanie obkurczające ujścia 
+gruczołów. 
+32. Tonizujące – przywracają skórze naturalne, fizjologiczne pH. 
+● Lactic Acid / Citric Acid (Kwas mlekowy / Kwas cytrynowy) – w stężeniach poniżej 
+1% to najszybsze regulatory odczynu chemicznego, błyskawicznie korygujące pH do 
+poziomu 4.5 - 5.5. 
+
+33. Uelastyczniające – poprawiają zdolność skóry do rozciągania i powrotu do kształtu. 
+● Soluble Collagen (Kolagen rozpuszczalny) – nie wnika głęboko, ale z zewnątrz 
+tworzy natychmiastową sprężystą siatkę na naskórku. 
+● Squalane (Skwalan) – wnikając w spoiwo, uelastycznia suchą, pergaminową 
+warstwę rogową. 
+34. Ujędrniające – wzmacniają głębokie struktury skóry, czyniąc ją gęstą. 
+● Retinol – pogrubia skórę właściwą, co jest podstawą prawdziwego ujędrnienia. 
+● Palmitoyl Tetrapeptide-7 – peptyd, który redukuje interleukinę-6 (niszczącą 
+kolagen), co pozwala tkankom odzyskać zbitą formę. 
+● Asiatic Acid (Kwas azjatykowy) – potwierdzona badaniami zdolność naprawy 
+rusztowania włókien. 
+35. Wygładzające – wyrównują mikrorzeźbę naskórka, nadając miękkość. 
+● Dimethicone (Dimetikon - silikon) – nr 1 w natychmiastowym, mechanicznym 
+"wypełnianiu" ubytków tekstury skóry i włosa. 
+● Glycolic Acid (Kwas glikolowy) – długofalowo wyrównuje szorstkości poprzez 
+chemiczną eksfoliację. 
+● Urea (Mocznik) – w stężeniach 2-5% wygładza naskórek chemicznie modyfikując 
+keratynę. 
+36. Złuszczające – fizycznie lub chemicznie usuwają zrogowaciałą warstwę. 
+● Glycolic Acid / Lactic Acid / Salicylic Acid – (jak w pkt 7 - to są certyfikowane 
+"peelingi chemiczne"). 
+● Microcrystalline Cellulose (Celuloza mikrokrystaliczna) – idealnie gładkie kuleczki 
+zapewniające bezpieczne, równe złuszczanie fizyczne bez mikrouszkodzeń (w 
+przeciwieństwie do ostrych łupin). 
+37. Zmiękczające (emolientowe) – uelastyczniają warstwę rogową, czyniąc skórę gładką i 
+likwidując szorstkość. 
+● Caprylic/Capric Triglyceride (Trójglicerydy) – wybitny, "suchy" emolient dający 
+uczucie aksamitności bez lepkości. 
+● Isopropyl Myristate (Mirystynian izopropylu) – najskuteczniejszy środek 
+zmniejszający napięcie powierzchniowe i czyniący szorstką skórę jedwabiście 
+miękką. 
+● Cetearyl Alcohol (Alkohol cetearylowy) – alkohol tłuszczowy, który nadaje 
+produktom idealny, miękki poślizg. 
+ 
+
