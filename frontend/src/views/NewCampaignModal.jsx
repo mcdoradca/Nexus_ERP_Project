@@ -120,6 +120,7 @@ const NewCampaignModal = ({
 
   useEffect(() => {
     if (initialData && isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         name: initialData.name || '',
         description: initialData.description || '',
@@ -139,6 +140,7 @@ const NewCampaignModal = ({
         assignedGroups: initialData.assignedGroups || []
       });
     } else if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         name: '', description: '', startDate: '', endDate: '', budget: '', budgetMedia: '', budgetPOSM: '', budgetAgency: '', brandIds: [], contractorIds: [], productId: '', plannedCount: '', instructions: '', color: 'bg-blue-500', assignees: [], assignedGroups: []
       });

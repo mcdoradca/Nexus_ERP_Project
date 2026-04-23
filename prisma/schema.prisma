@@ -39,6 +39,7 @@ model User {
   ownedTasks             Task[]             @relation("TaskOwner")
   activeTask             Task?              @relation("ActiveWorker", fields: [activeTaskId], references: [id])
   assignedTasks          Task[]             @relation("TaskAssignees")
+  briaEvents             BriaEventLog[]
 }
 
 model Project {
@@ -496,4 +497,24 @@ model ActionLog {
   timestamp   DateTime @default(now())
   
   deal        DealIRM  @relation("GenerujeLogi", fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+model BriaEventLog {
+  id              String   @id @default(uuid())
+  type            String   // "EDIT_REMOVE_BG", "EDIT_GEN_FILL", "EDIT_ERASE", "ADS_GENERATE"
+  status          String   @default("PENDING") // PENDING, COMPLETED, FAILED
+  requestId       String?
+  requestPayload  Json     @default("{}")
+  responsePayload Json?
+  resultUrl       String?
+  editorIframeUrl String?
+  templateId      String?
+  brandId         String?
+  userId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
 }

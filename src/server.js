@@ -1,4 +1,12 @@
 require('dotenv').config();
+
+// Globalna Tarcza Ochronna Procesu Node.js (Zasada Nieśmiertelnego Serwera)
+process.on('uncaughtException', (err) => {
+    console.error('KRYTYCZNY BŁĄD PROCESU (Uncaught Exception):', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('NIEWYŁAPANA OBIETNICA (Unhandled Rejection) at:', promise, 'reason:', reason);
+});
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
@@ -40,6 +48,7 @@ const tasksRoutes = require('./modules/tasks/tasks.routes');
 const announcementsRoutes = require('./modules/announcements/announcements.routes');
 const crmRoutes = require('./modules/crm/crm.routes');
 const influencersRoutes = require('./modules/influencers/influencers.routes');
+const offerOptimizerRoutes = require('./modules/offer-optimizer/offer-optimizer.routes');
 const { registerCommunicationListeners } = require('./modules/communication/communication.listeners');
 const { registerCampaignListeners } = require('./modules/campaigns/campaigns.listeners');
 const { registerTasksListeners } = require('./modules/tasks/tasks.listeners');
@@ -94,8 +103,10 @@ app.use('/api/tasks', tasksRoutes);
 app.use('/api/announcements', announcementsRoutes);
 app.use('/api/crm', crmRoutes);
 app.use('/api/influencers', influencersRoutes);
-const photoAiRoutes = require('./modules/photoai/photoai.routes');
-app.use('/api/photoai', photoAiRoutes);
+
+// KRYTYCZNE: Silnik AI SEO optymalizacji wpięty pod strażnikiem tokenowym
+app.use('/api/offer-optimizer', authenticateToken, offerOptimizerRoutes);
+
 
 // ASORTYMENT (PIM)
 app.get('/api/brands', authenticateToken, async (req, res) => {
@@ -412,6 +423,11 @@ app.delete('/api/products/:productId/bom/:bomId', authenticateToken, async (req,
 });
 
 app.get('/api/health', async (req, res) => { res.status(200).json({ status: '🟢 ONLINE' }); });
+
+// Globalny Łapacz Błędów (Tarcza Anty-Crashowa)
+const errorHandler = require('./middleware/error.middleware');
+app.use(errorHandler);
+
 server.listen(PORT, () => console.log(`[BOOT] System podniesiony na porcie ${PORT}...`));
 
 // --- TŁO: CRON JOB BASELINKER SYNC (FAZA 33) ---

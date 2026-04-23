@@ -47,7 +47,9 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
                     const errData = await response.json();
                     srvErr = errData.error || errData.message;
                     srvStack = errData.stack;
-                } catch(err) {}
+                } catch {
+                    // ignore
+                }
                 
                 throw new Error(srvErr ? `${srvErr} | STACK: ${srvStack || 'brak'}` : `Błąd serwera (HTTP ${response.status})`);
             }

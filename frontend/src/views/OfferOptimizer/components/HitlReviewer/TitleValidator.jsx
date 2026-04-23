@@ -17,7 +17,6 @@ export const TitleValidator = ({ initialTitle = "", onValidate }) => {
     const length = title.length;
     const isTooShort = length < 12;
     const isPerfect = length >= 12 && length <= 75;
-    const isMaxReached = length >= 75; // Realnie event keyDown powinien blokować wpisywanie na poziomie 75
 
     let colorClass = "text-slate-700 bg-slate-50 border-slate-200";
     let alertText = "";

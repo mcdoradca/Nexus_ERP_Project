@@ -23,7 +23,7 @@ import {
 
 import { getInitials, getDepartmentColor } from './utils';
 
-const API_URL = 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 function App() {
   const [activeTab, setActiveTab] = useState('kanban');
@@ -1062,7 +1062,7 @@ function App() {
         <div className="flex items-center space-x-5">
           <div className="relative group hidden xl:block">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 transition-colors group-focus-within:text-indigo-600" />
-            <input type="text" placeholder="Globalne wyszukiwanie..." className="pl-12 pr-6 py-2.5 bg-slate-50 border border-slate-100 rounded-[1rem] text-[11px] font-bold focus:ring-4 focus:ring-indigo-600/10 focus:border-indigo-300 w-56 transition-all outline-none" />
+            <input id="globalSearch" name="globalSearch" type="text" placeholder="Globalne wyszukiwanie..." className="pl-12 pr-6 py-2.5 bg-slate-50 border border-slate-100 rounded-[1rem] text-[11px] font-bold focus:ring-4 focus:ring-indigo-600/10 focus:border-indigo-300 w-56 transition-all outline-none" />
           </div>
 
           <button onClick={() => { setShowNotifications(!showNotifications); if(!showNotifications) fetchData(); }} className="relative p-3 bg-slate-50 border border-slate-100 rounded-[1rem] text-slate-500 hover:text-indigo-600 hover:bg-white transition-all">
