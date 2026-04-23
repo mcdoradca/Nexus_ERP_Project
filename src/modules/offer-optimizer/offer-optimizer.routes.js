@@ -16,5 +16,7 @@ const upload = multer({
 router.post('/start', controller.startOptimization);
 router.post('/analyze-single', express.json(), controller.analyzeSingle);
 router.get('/status/:jobId', controller.checkStatus);
+router.post('/regenerate-title', express.json(), controller.regenerateTitle);
+router.get('/proxy-image', controller.proxyImage);
 
 module.exports = router;

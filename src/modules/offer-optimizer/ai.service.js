@@ -97,13 +97,15 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
             }
         }
         
-        // Fail-Safe: Hardcore Regex HTML Sanitize w pamięci
-        if (parsed.htmlContent) {
-             // Podmiana nielegalnego strong na legalne b
-             let c = parsed.htmlContent.replace(/<strong[^>]*>/g, '<b>').replace(/<\/strong>/g, '</b>');
-             // Usuniecie wszystkiego co NIE jest na Liście Dozwolonych h1,h2,p,ul,ol,li,b,br
-             c = c.replace(/<(?!\/?(h1|h2|p|ul|ol|li|b|br)(?=>|\s.*>))\/?.*?>/gi, ''); 
-             parsed.htmlContent = c;
+        // Fail-Safe: Hardcore Regex HTML Sanitize w pamięci (dla obiektu htmlContent)
+        if (parsed.htmlContent && typeof parsed.htmlContent === 'object') {
+            for (let key in parsed.htmlContent) {
+                if (typeof parsed.htmlContent[key] === 'string') {
+                     let c = parsed.htmlContent[key].replace(/<strong[^>]*>/g, '<b>').replace(/<\/strong>/g, '</b>');
+                     c = c.replace(/<(?!\/?(h1|h2|p|ul|ol|li|b|br)(?=>|\s.*>))\/?.*?>/gi, ''); 
+                     parsed.htmlContent[key] = c;
+                }
+            }
         }
         
         return parsed;
@@ -202,8 +204,45 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
     }
 }
 
+async function generateTitleOnly(textContent, currentTitle) {
+    const model = genAI.getGenerativeModel({
+        model: "gemini-3.1-pro-preview",
+        generationConfig: {
+            temperature: 0.8, // Trochę większa kreatywność dla wariacji tytułów
+            responseMimeType: "application/json",
+        }
+    });
+
+    const promptText = `Jesteś ekspertem SEO ds. e-commerce (Allegro).
+Wygeneruj CAŁKOWICIE NOWY, inny niż obecny, mocno zoptymalizowany pod kątem konwersji i słów kluczowych tytuł dla poniższego produktu.
+Obecny tytuł, który nam nie pasuje: "${currentTitle}"
+
+Zasady:
+1. Używaj języka potocznego kupujących i najczęstszych wyszukiwań (np. jeśli składnik w nazwie to "Tranex", a polska nazwa to "Kwas Traneksamowy", w tytule używaj polskiej nazwy która lepiej pozycjonuje).
+2. Tytuł MUSI mieć min 12, max 75 znaków.
+3. Bądź kreatywny, przetasuj kolejność słów kluczowych lub wyciągnij ukryte benefity (np. pojemność, główne zastosowanie).
+4. Bez słów typu 'hit', 'nowość'.
+
+DANE PRODUKTU:
+${textContent}
+
+Odpowiedz wyłącznie czystym obiektem JSON:
+{ "title": "Nowy wygenerowany tytuł" }
+`;
+
+    try {
+        const result = await model.generateContent(promptText);
+        let payloadString = result.response.text();
+        payloadString = payloadString.replace(/```json/gi, '').replace(/```/g, '').trim();
+        return JSON.parse(payloadString);
+    } catch (error) {
+        throw new Error("Generative API Title Failed: " + error.message);
+    }
+}
+
 module.exports = {
+    generateNativeAnalysis,
     generateOfferJSON,
     auditOfferImages,
-    generateNativeAnalysis
+    generateTitleOnly
 };

@@ -38,24 +38,28 @@ export const TileSimulator = ({ customSections = mockStandardizedDescription.sec
             <div className="p-8 bg-slate-100 flex flex-col items-center max-h-[700px] overflow-y-auto">
                 <div className="w-full max-w-lg bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-8">
                     
-                    {customSections.map((section, idx) => {
-                        if (section.type === 'IMAGE') {
-                            return (
-                                <div key={idx} className="w-full rounded-xl overflow-hidden shadow-sm border border-slate-100">
-                                    <img src={section.content} alt={`Block ${idx}`} className="w-full h-auto object-cover" />
-                                </div>
-                            );
-                        }
-                        
-                        if (section.type === 'TEXT') {
-                            return (
-                                <div key={idx} className="prose prose-slate prose-h2:text-orange-500 prose-h2:mb-4 prose-h2:pb-2 prose-h2:border-b prose-h2:border-slate-100 prose-p:leading-relaxed prose-p:text-sm prose-ul:font-medium prose-ul:text-slate-700 w-full"
-                                     dangerouslySetInnerHTML={{ __html: section.content }} 
-                                />
-                            );
-                        }
-                        return null;
-                    })}
+                    {customSections.map((section, sectionIdx) => (
+                        <div key={sectionIdx} className="flex flex-col gap-6 w-full">
+                            {section.items.map((item, itemIdx) => {
+                                if (item.type === 'IMAGE') {
+                                    return (
+                                        <div key={itemIdx} className="flex-1 rounded-xl overflow-hidden shadow-sm border border-slate-100 flex items-center justify-center bg-white min-h-[200px]">
+                                            <img src={item.content} alt={`Block ${sectionIdx}-${itemIdx}`} className="max-w-full max-h-[400px] object-contain" />
+                                        </div>
+                                    );
+                                }
+                                
+                                if (item.type === 'TEXT') {
+                                    return (
+                                        <div key={itemIdx} className="flex-1 prose prose-slate prose-h2:text-orange-500 prose-h2:mb-4 prose-h2:pb-2 prose-h2:border-b prose-h2:border-slate-100 prose-p:leading-relaxed prose-p:text-sm prose-ul:font-medium prose-ul:text-slate-700 p-4 border border-slate-100 rounded-xl bg-white"
+                                             dangerouslySetInnerHTML={{ __html: item.content }} 
+                                        />
+                                    );
+                                }
+                                return null;
+                            })}
+                        </div>
+                    ))}
                     
                 </div>
             </div>

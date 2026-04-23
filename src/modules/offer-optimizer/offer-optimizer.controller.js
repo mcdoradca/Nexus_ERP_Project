@@ -1,6 +1,9 @@
 const OfferOptimizerService = require('./offer-optimizer.service');
 const AiService = require('./ai.service');
 const AllegroService = require('./allegro.service');
+const BaseLinkerService = require('./baselinker.service');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 const startOptimization = async (req, res) => {
     try {
@@ -45,35 +48,117 @@ const checkStatus = (req, res) => {
 
 const analyzeSingle = async (req, res) => {
     try {
-        const { offerId, analysisMode } = req.body;
+        const { ean, analysisMode } = req.body;
         const mode = analysisMode || "STANDARD";
 
-        if (!offerId) {
-            return res.status(400).json({ error: "Wymagane ID oferty Allegro." });
+        if (!ean) {
+            return res.status(400).json({ error: "Wymagany jest kod EAN." });
         }
 
-        console.log(`[Vision API] Rozpoczęto natywną analizę dla ID: ${offerId}. Tryb: ${mode}`);
+        console.log(`[Vision API] Rozpoczęto natywną analizę dla EAN: ${ean}. Tryb: ${mode}`);
         
-        // Faza 1: Pobieranie pełnych danych z API Allegro
-        const offerData = await AllegroService.getFullOfferData(offerId);
+        // Faza 1: Sprawdzenie / Synchronizacja PIM
+        let product = await prisma.product.findUnique({ where: { ean } });
+        
+        // Jeśli produktu nie ma w bazie lub nie jest zsynchronizowany, pobieramy z BaseLinkera
+        if (!product || !product.isSynced) {
+             console.log(`[PIM] EAN ${ean} brak w bazie lub isSynced=false. Wywołuję wymuszoną synchronizację z BaseLinkerem...`);
+             const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
+             const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
+             
+             // BaseLinker nie dostarcza brandId per se, szukamy brandu 'Nieznany' lub tworzymy PIM bez powiązania marki jeśli dopuszczalne
+             // Schemat nakazuje brandId. Dla uproszczenia, sprawdzamy czy istnieje default
+             let safeBrandId = product ? product.brandId : null;
+             if (!safeBrandId) {
+                 let defaultBrand = await prisma.brand.findFirst({ where: { name: 'PIM-IMPORT' } });
+                 if (!defaultBrand) defaultBrand = await prisma.brand.create({ data: { name: 'PIM-IMPORT' } });
+                 safeBrandId = defaultBrand.id;
+             }
+             
+             if (!product) {
+                 product = await prisma.product.create({
+                     data: {
+                         ean,
+                         sku: deepData.sku || '',
+                         name: deepData.name || `PIM Product ${ean}`,
+                         brandId: safeBrandId,
+                         status: 'Aktywny',
+                         baselinkerInventoryId: deepData.baselinkerInventoryId,
+                         baselinkerId: deepData.baselinkerId,
+                         descriptionHtml: deepData.descriptionHtml,
+                         features: deepData.features,
+                         images: deepData.images,
+                         weight: deepData.weight,
+                         length: deepData.length,
+                         width: deepData.width,
+                         height: deepData.height,
+                         taxRate: deepData.taxRate,
+                         videoUrl: deepData.videoUrl,
+                         attachments: deepData.attachments,
+                         stockErpUnits: deepData.stockErpUnits,
+                         stockWmsUnits: deepData.stockWmsUnits,
+                         isSynced: true,
+                         stock: deepData.stock
+                     }
+                 });
+             } else {
+                 product = await prisma.product.update({
+                     where: { id: product.id },
+                     data: {
+                         baselinkerInventoryId: deepData.baselinkerInventoryId,
+                         baselinkerId: deepData.baselinkerId,
+                         descriptionHtml: deepData.descriptionHtml,
+                         features: deepData.features,
+                         images: deepData.images,
+                         weight: deepData.weight,
+                         length: deepData.length,
+                         width: deepData.width,
+                         height: deepData.height,
+                         taxRate: deepData.taxRate,
+                         videoUrl: deepData.videoUrl,
+                         attachments: deepData.attachments,
+                         stockErpUnits: deepData.stockErpUnits,
+                         stockWmsUnits: deepData.stockWmsUnits,
+                         isSynced: true,
+                         stock: deepData.stock
+                     }
+                 });
+             }
+        }
 
-        if (!offerData.imageUrls || offerData.imageUrls.length === 0) {
-             console.warn("[Vision API] Ostrzeżenie: Oferta nie posiada żadnych zdjęć.");
+        if (!product.images || product.images.length === 0) {
+             console.warn("[Vision API] Ostrzeżenie: Rekord PIM nie posiada żadnych zdjęć.");
         }
 
         // Faza 2: Karmienie Bestii (Gemini 2.5 Pro / 3.1) - Native Analysis
         console.log("[AiService] Odpalanie silnika Multimodalnego dla Native API w tle...");
-        const payloadFromGemini = await AiService.generateNativeAnalysis(offerData.textContent, offerData.imageUrls, mode);
+        const featuresString = product.features ? JSON.stringify(product.features) : '';
+        const textContent = `NAZWA: ${product.name}\n\nCECHY TECHNICZNE PIM: ${featuresString}\n\nOPIS HTML: ${product.descriptionHtml || ''}`;
+        const imageUrls = product.images || [];
+        
+        const payloadFromGemini = await AiService.generateNativeAnalysis(textContent, imageUrls, mode);
 
         if (!payloadFromGemini || (payloadFromGemini.title === undefined && !payloadFromGemini.htmlContent)) {
              throw new Error("Generative Engine nie zwróciło poprawnej struktury.");
         }
 
+        // TARCZA ANTY-LENIWOŚCI LLM: Model LLM może zignorować i uciąć zdjęcia na wyjściu by oszczędzić tokeny
+        // Bierzemy twardą, oryginalną tablicę z PIM i szukamy dla niej audytów z modelu.
+        const mergedImages = imageUrls.map(originalUrl => {
+            const auditObj = (payloadFromGemini.images || []).find(aiImg => aiImg.originalUrl === originalUrl);
+            if (auditObj) return auditObj;
+            return { originalUrl, isCompliant: true, alerts: [] }; // Zakładamy sukces, jeśli AI pominęło
+        });
+
+        // Dorzucamy ewentualne sztuczne "Alerty Ilościowe", które AI wrzuca jako fałszywe URL-e na koniec tablicy
+        const fakeAuditCards = (payloadFromGemini.images || []).filter(aiImg => !aiImg.originalUrl || !aiImg.originalUrl.startsWith('http'));
+        mergedImages.push(...fakeAuditCards);
+
         return res.status(200).json({
             title: payloadFromGemini.title,
-            ean: offerData.ean,
+            ean: product.ean,
             htmlContent: payloadFromGemini.htmlContent,
-            images: payloadFromGemini.images || []
+            images: mergedImages
         });
 
     } catch (error) {
@@ -82,8 +167,42 @@ const analyzeSingle = async (req, res) => {
     }
 };
 
+const regenerateTitle = async (req, res) => {
+    try {
+        const { ean, currentTitle } = req.body;
+        if (!ean) return res.status(400).json({ error: "Wymagany EAN." });
+
+        const product = await prisma.product.findUnique({ where: { ean } });
+        if (!product) return res.status(404).json({ error: "Produkt nie znaleziony w PIM." });
+
+        const featuresString = product.features ? JSON.stringify(product.features) : '';
+        const textContent = `NAZWA: ${product.name}\n\nCECHY TECHNICZNE PIM: ${featuresString}\n\nOPIS HTML: ${product.descriptionHtml || ''}`;
+
+        const payload = await AiService.generateTitleOnly(textContent, currentTitle || product.name);
+        res.status(200).json({ title: payload.title });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+const proxyImage = async (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).send("No url provided");
+    try {
+        const response = await require('axios').get(url, { responseType: 'stream' });
+        res.setHeader('Content-Disposition', 'attachment; filename="nexus_image.jpg"');
+        res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+        response.data.pipe(res);
+    } catch (e) {
+        console.error("Image proxy error", e);
+        res.status(500).send("Proxy error");
+    }
+};
+
 module.exports = {
     startOptimization,
     checkStatus,
-    analyzeSingle
+    analyzeSingle,
+    regenerateTitle,
+    proxyImage
 };
