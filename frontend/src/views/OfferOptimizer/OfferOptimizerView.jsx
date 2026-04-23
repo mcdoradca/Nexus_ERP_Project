@@ -4,7 +4,7 @@ import { StrictWysiwyg } from './components/HitlReviewer/StrictWysiwyg';
 import { TileSimulator } from './components/HitlReviewer/TileSimulator';
 import { ImageUploadBox } from './components/SingleAuctionFetcher/ImageUploadBox';
 import { PhotographicAuditorCard } from './components/VisionFeedback/PhotographicAuditorCard';
-import { Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw } from 'lucide-react';
+import { Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send } from 'lucide-react';
 
 const ImageModal = ({ url, onClose }) => {
     if (!url) return null;
@@ -68,6 +68,8 @@ export const OfferOptimizerView = () => {
     const [visionTickets, setVisionTickets] = useState([]);
     const [viewingImageUrl, setViewingImageUrl] = useState(null);
     const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+    const [isSavingDraft, setIsSavingDraft] = useState(false);
 
     // Przemapowanie contentu edytora z powrotem do Symulatora Kafelkowego w czasie rzeczywistym
     const safeImages = visionTickets.map(t => t.replacedUrl || t.originalUrl);
@@ -113,6 +115,10 @@ export const OfferOptimizerView = () => {
             }));
             setVisionTickets(mappedImages);
         }
+
+        if (res.isDraftRestored) {
+            alert("Wczytano zapisaną kopię roboczą! Możesz kontynuować pracę.");
+        }
     };
 
     const handleImageChange = (index, url) => {
@@ -142,6 +148,64 @@ export const OfferOptimizerView = () => {
             alert("Błąd komunikacji z serwerem regeneracji.");
         }
         setIsRegeneratingTitle(false);
+    };
+
+    const compileDraftData = () => {
+        return {
+            title: liveTitle,
+            opis1: editorHtml.opis1,
+            opis2: editorHtml.opis2,
+            opis3: editorHtml.opis3,
+            opis4: editorHtml.opis4,
+            opis5: editorHtml.opis5,
+            images: safeImages.map(url => ({ url }))
+        };
+    };
+
+    const handleSaveDraft = async () => {
+        if (!liveEan) return;
+        setIsSavingDraft(true);
+        try {
+            const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+            const res = await fetch(`${API_URL}/api/offer-optimizer/save-draft`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ ean: liveEan, draftData: compileDraftData() })
+            });
+            if (res.ok) {
+                alert("Kopia robocza została bezpiecznie zapisana w bazie!");
+            } else {
+                const data = await res.json();
+                alert("Błąd zapisu: " + data.error);
+            }
+        } catch (e) {
+            alert("Błąd komunikacji z serwerem: " + e.message);
+        }
+        setIsSavingDraft(false);
+    };
+
+    const handleExportToBaselinker = async () => {
+        if (!liveEan) return;
+        setIsExporting(true);
+        try {
+            const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+            const res = await fetch(`${API_URL}/api/offer-optimizer/export-baselinker`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ ean: liveEan, draftData: compileDraftData() })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert("Sukces! " + data.message);
+            } else {
+                alert("Błąd eksportu: " + data.error);
+            }
+        } catch (e) {
+            alert("Błąd połączenia z serwerem: " + e.message);
+        }
+        setIsExporting(false);
     };
 
     return (
@@ -291,6 +355,33 @@ export const OfferOptimizerView = () => {
                      <TileSimulator customSections={allegroSections} />
                 </div>
             </div>
+
+            {/* Panel Akcji (Draft i Eksport) umieszczony na dole jako "Sticky" pasek lub zwykły kontener */}
+            {visionTickets.length > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-slate-200 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.02)] flex justify-end space-x-4 px-8 z-50">
+                    <button 
+                        onClick={handleSaveDraft}
+                        disabled={isSavingDraft}
+                        className="flex items-center px-6 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-xs rounded-xl transition-all shadow-sm"
+                    >
+                        <Save className={`w-4 h-4 mr-2 ${isSavingDraft ? 'animate-pulse text-indigo-500' : 'text-slate-400'}`} />
+                        {isSavingDraft ? "Zapisywanie..." : "Zapisz Kopię Roboczą"}
+                    </button>
+                    
+                    <button 
+                        onClick={handleExportToBaselinker}
+                        disabled={isExporting}
+                        className="flex items-center px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs rounded-xl shadow-lg shadow-indigo-600/20 transition-all hover:-translate-y-0.5"
+                    >
+                        {isExporting ? (
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                            <Send className="w-4 h-4 mr-2" />
+                        )}
+                        {isExporting ? "Eksport w toku..." : "Eksportuj do BaseLinker"}
+                    </button>
+                </div>
+            )}
 
             {/* Modal Powiększenia Zdjęcia */}
             <ImageModal url={viewingImageUrl} onClose={() => setViewingImageUrl(null)} />

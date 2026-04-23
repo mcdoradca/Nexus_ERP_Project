@@ -274,6 +274,20 @@ model Product {
   imageUrl              String?           @db.Text
   isSynced              Boolean           @default(false)
   brandId               String
+  descriptionHtml       String?           @db.Text
+  features              Json?
+  images                String[]          @default([])
+  weight                Float?
+  length                Float?
+  width                 Float?
+  height                Float?
+  taxRate               Float?
+  videoUrl              String?
+  attachments           Json?
+  stockErpUnits         Int?
+  stockWmsUnits         Int?
+  baselinkerInventoryId Int?
+  offerDraft            Json?             @default("{}")
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
   campaignsAsMain       Campaign[]        @relation("CampaignPromotedProduct")

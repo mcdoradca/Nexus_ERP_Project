@@ -1,0 +1,652 @@
+
+
+Architektura Informacji i Optymalizacja 
+UX Kart Produktowych w Ekosystemie 
+Allegro: Raport Strategiczny (2025/2026) 
+Streszczenie Zarządcze 
+Niniejszy raport stanowi wyczerpującą, wielowymiarową analizę optymalizacji kart ofertowych 
+(tzw. "kart kontentowych") na platformie Allegro, ze szczególnym uwzględnieniem 
+paradygmatu Mobile First. Opracowanie to powstało w odpowiedzi na rosnącą złożoność 
+algorytmów indeksujących (w tym wdrożenie systemu „SmartRank” w 2025 roku) oraz 
+ewolucję zachowań konsumenckich, gdzie urządzenia mobilne stały się dominującym kanałem 
+transakcyjnym. 
+Celem raportu jest zdefiniowanie "Złotego Standardu" prezentacji oferty, który gwarantuje 
+maksymalną czytelność, intuicyjną nawigację oraz najwyższy współczynnik konwersji (CR) 
+zarówno w środowisku przeglądarkowym, jak i w natywnej aplikacji mobilnej. Analiza dowodzi, 
+że w latach 2025–2026 czytelność na urządzeniach mobilnych przestała być jedynie 
+elementem "dobrej praktyki", stając się fundamentalnym czynnikiem determinującym 
+widoczność w wynikach wyszukiwania (SEO) oraz efektywność sprzedażową. 
+Kluczowe wnioski wskazują na konieczność porzucenia tradycyjnej "estetyki desktopowej" na 
+rzecz "funkcjonalności linearnej". Raport dekonstruuje mechanizmy Edytora Wizualnego 
+Allegro, obnażając techniczne pułapki stosowania układów szachownicowych i wskazując na 
+przewagę struktur modułowych, które zachowują logiczną ciągłość narracji niezależnie od 
+szerokości ekranu. Wskazano również na krytyczną rolę typografii, hierarchii nagłówków oraz 
+optymalizacji wizualnej w kontekście nowych limitów znaków (75 znaków w tytule) i wymagań 
+technicznych dla grafik (2560 px, profil sRGB). 
+1. Wstęp: Ewolucja Standardów Prezentacji i Kontekst 
+Rynkowy (2018–2026) 
+1.1. Od HTML do Edytora Wizualnego: Geneza Standaryzacji 
+Zrozumienie obecnych wymogów dotyczących układu treści na Allegro wymaga cofnięcia się 
+do momentu przełomowego, jakim było wycofanie możliwości stosowania własnego kodu 
+HTML w opisach aukcji. Decyzja ta, wdrożona w pełni w 2018 roku, była podyktowana 
+koniecznością ujednolicenia doświadczeń zakupowych (User Experience - UX) w obliczu 
+
+dynamicznie rosnącego udziału urządzeń mobilnych w ruchu e-commerce.
+1 
+Wcześniejsza swoboda w kształtowaniu szablonów HTML prowadziła do powstawania ofert 
+nieczytelnych na małych ekranach, przeładowanych grafiką i niespójnych wizualnie. 
+Wprowadzenie Edytora Wizualnego, opartego na sztywnych ramach wierszowych (row-based 
+layout), wymusiło na sprzedawcach adaptację do nowego standardu. W roku 2026 operujemy 
+w środowisku dojrzałym, gdzie Edytor Wizualny jest jedynym dostępnym narzędziem. Nie jest 
+to już jednak prosty interfejs do wprowadzania tekstu, lecz zaawansowany system 
+strukturalny, którego poprawna obsługa bezpośrednio wpływa na to, jak algorytmy sztucznej 
+inteligencji (AI) Allegro indeksują i oceniają jakość oferty. 
+1.2. Dominacja Mobile First: Nowy Paradygmat 2026 
+Analiza danych rynkowych oraz komunikatów platformy jednoznacznie wskazuje, że w latach 
+2025–2026 większość ścieżek zakupowych (Customer Journeys) rozpoczyna się, a często 
+również kończy, na urządzeniu mobilnym.
+2
+ Aplikacja mobilna Allegro stała się de facto 
+głównym kanałem sprzedaży dla wielu kategorii produktowych, co wymusza fundamentalną 
+zmianę w filozofii projektowania ofert. 
+Tradycyjne podejście, polegające na stworzeniu atrakcyjnego wizualnie opisu na monitorze 
+komputera, a następnie weryfikowaniu jego poprawności na telefonie, jest obecnie błędem 
+metodologicznym. Podejście nowoczesne, wymagane w 2026 roku, odwraca ten proces: 
+projektujemy ofertę pod ekran smartfona – z uwzględnieniem wertykalnego scrollowania, 
+ograniczonej powierzchni wyświetlania i interfejsu dotykowego – a wersja desktopowa jest 
+traktowana jako skalowalna adaptacja tego projektu.
+4 
+1.3. Algorytm „SmartRank” i Rola AI w Ocenie Treści 
+W 2025 roku Allegro wdrożyło zaktualizowaną wersję algorytmu trafności o nazwie 
+„SmartRank”.
+6
+ Nowy system wykorzystuje zaawansowane modele językowe (LLM) oraz analizę 
+wizualną do oceny jakości ofert. W przeciwieństwie do starszych algorytmów, które bazowały 
+głównie na prostym dopasowaniu słów kluczowych i parametrach sprzedaży (cena, 
+popularność), SmartRank analizuje strukturę semantyczną i wizualną opisu. 
+Systemy AI oceniają ofertę pod kątem: 
+● 
+Spójności semantycznej: Czy opis tekstowy koreluje logicznie ze zdjęciami i 
+zadeklarowanymi parametrami?.
+7 
+● 
+Czytelności strukturalnej: Czy tekst jest podzielony na logiczne sekcje przy użyciu 
+nagłówków i list wypunktowanych, czy stanowi zniechęcającą „ścianę tekstu”?.
+8 
+● 
+Zaangażowania użytkownika (Engagement Metrics): Czy układ treści zatrzymuje 
+użytkownika na stronie (Time on Site), czy też chaos informacyjny powoduje 
+natychmiastowe wyjście (Bounce Rate)? 
+Chaotyczna struktura oferty jest zatem karana podwójnie: bezpośrednio przez użytkownika, 
+
+który rezygnuje z zakupu z powodu braku czytelności, oraz pośrednio przez algorytm, który 
+obniża pozycję oferty w wynikach wyszukiwania, uznając ją za niskiej jakości.
+10 
+2. Anatomia Techniczna Edytora Allegro a 
+Responsywność 
+Aby zaprojektować optymalny układ, należy dogłębnie zrozumieć techniczną „fizykę” Edytora 
+Wizualnego Allegro. Narzędzie to nie jest elastycznym kreatorem stron typu „drag & drop” 
+znanym z systemów CMS, lecz opiera się na sztywnej strukturze wierszowej, która w 
+deterministyczny sposób zarządza układem treści na różnych urządzeniach. 
+2.1. Modułowość i Typologia Wierszy 
+Edytor udostępnia cztery podstawowe typy modułów (wierszy), z których sprzedawca buduje 
+ofertę. Każdy z tych modułów ma specyficzne zachowanie w kontekście responsywności 
+11
+: 
+1. 
+Wiersz tekstowy (Pełna szerokość): 
+○ 
+Desktop: Tekst zajmuje całą szerokość kolumny opisu. 
+○ 
+Mobile: Tekst jest naturalnie zwijany, zachowując czytelność, ale wydłużając 
+wertykalnie stronę. 
+2. 
+Wiersz zdjęciowy (Pełna szerokość): 
+○ 
+Desktop: Duże zdjęcie, idealne do prezentacji detali lub zdjęć typu „Hero”. 
+○ 
+Mobile: Zdjęcie zajmuje pełną szerokość ekranu telefonu, zapewniając maksymalną 
+widoczność detali. 
+3. 
+Wiersz dzielony: Tekst (lewo) + Zdjęcie (prawo): 
+○ 
+Desktop: Podział 50/50. Tekst i zdjęcie sąsiadują ze sobą. 
+○ 
+Mobile: Następuje linearyzacja – tekst trafia nad zdjęcie. 
+4. 
+Wiersz dzielony: Zdjęcie (lewo) + Tekst (prawo): 
+○ 
+Desktop: Podział 50/50. 
+○ 
+Mobile: Linearyzacja – zdjęcie trafia nad tekst. 
+2.2. Mechanika Linearyzacji (Stacking Logic) 
+Największym wyzwaniem w projektowaniu responsywnym na Allegro jest automatyczna, 
+nienegocjowalna kolejność układania elementów na urządzeniach mobilnych (stacking order). 
+W przeciwieństwie do zaawansowanych kreatorów stron (np. Elementor w WordPress), gdzie 
+twórca może wymusić odwrócenie kolejności kolumn na mobile (Reverse Columns), Allegro 
+stosuje prostą logikę linearną: „od lewej do prawej, z góry na dół”.
+12 
+Oznacza to, że elementy są pobierane z wiersza w kolejności ich występowania w kodzie 
+źródłowym (DOM) i układane jeden pod drugim na wąskim ekranie. 
+● 
+Układ Desktop: [Element A] | 
+
+● 
+Transformacja Mobile: 
+1. 
+[Element A] 
+Zrozumienie tej zasady jest kluczem do uniknięcia najczęstszego błędu projektowego na 
+Allegro, czyli tzw. „pułapki szachownicy”. 
+2.3. Krytyczny Błąd UX: Pułapka „Szachownicy” 
+Wielu sprzedawców, dążąc do estetycznego zróżnicowania oferty na komputerach, stosuje 
+układ naprzemienny: 
+● 
+Wiersz 1: Tekst (opis cechy 1) | Zdjęcie (ilustracja cechy 1) 
+● 
+Wiersz 2: Zdjęcie (ilustracja cechy 2) | Tekst (opis cechy 2) 
+Efekt na Desktopie: 
+Układ wygląda dynamicznie, przypomina profesjonalny layout magazynowy. Wzrok 
+użytkownika podąża ścieżką „Z” (Z-Pattern), co jest pożądane na dużych ekranach. 
+Efekt na Mobile (Rzeczywistość): 
+Ze względu na mechanikę linearyzacji, układ ten renderuje się w następującej kolejności: 
+1. 
+Tekst (cecha 1) 
+2. 
+Zdjęcie (cecha 1) 
+3. 
+Zdjęcie (cecha 2) 
+4. 
+Tekst (cecha 2) 
+Konsekwencje: W punkcie 2 i 3 dochodzi do styku dwóch obrazów (tzw. image clash). 
+Użytkownik mobilny, scrollując w dół, widzi tekst pierwszej cechy, następnie jej zdjęcie, po 
+czym natychmiast widzi kolejne zdjęcie (drugiej cechy) bez żadnego wprowadzenia 
+tekstowego. Tekst opisujący to drugie zdjęcie pojawia się dopiero poniżej. Taka sekwencja 
+[Zdjęcie] -> [Zdjęcie] -> rozrywa kontekst poznawczy. Użytkownik widzi zdjęcie nr 2, nie 
+wiedząc, co ono przedstawia, ponieważ opis znajduje się pod spodem (a na mobile często 
+poza pierwszym widokiem ekranu). Jest to błąd krytyczny, który drastycznie obniża czytelność 
+i zrozumienie oferty.
+8 
+3. Strategia „Mobile Clarity”: Architektura Idealnej 
+Karty Ofertowej 
+Biorąc pod uwagę ograniczenia techniczne edytora oraz psychologię percepcji użytkownika 
+mobilnego, niniejszy raport rekomenduje stosowanie układu hybrydowego, zwanego 
+„Strukturą Modułową Zorientowaną na Kontekst”. 
+
+3.1. Zasada Jedności Semantycznej 
+Każdy wiersz w edytorze powinien być traktowany jako autonomiczna jednostka informacyjna. 
+Nie należy dzielić opisu jednej funkcjonalności na dwa oddzielne wiersze techniczne (np. 
+nagłówek w jednym wierszu, a tekst właściwy w drugim), ponieważ na urządzeniach mobilnych 
+może to prowadzić do nienaturalnych odstępów (whitespace) i utraty płynności czytania. 
+3.2. Rekomendowany Schemat Układu (Blueprint) 
+Poniższa tabela przedstawia optymalną architekturę karty produktowej, zaprojektowaną z 
+myślą o maksymalnej konwersji i czytelności na wszystkich urządzeniach. 
+ 
+Sekcja 
+Strukturalna 
+Typ Wiersza 
+(Desktop) 
+Cel 
+Funkcjonalny 
+(UX/CRO) 
+Zachowanie 
+Mobile 
+(Wynikowe) 
+Uzasadnienie 
+Strategiczne 
+1. Nagłówek i 
+USP (Intro) 
+Tekst (Pełna 
+szerokość) 
+Pozycjonowani
+e, 
+identyfikacja, 
+utrzymanie 
+uwagi. 
+Tekst na samej 
+górze (Above 
+the Fold). 
+Tutaj musi 
+znaleźć się 
+nazwa 
+produktu 
+(H1/H2) i 
+kluczowa 
+korzyść 
+(Unique Selling 
+Proposition). 
+Unikamy 
+ściany tekstu – 
+max 3-4 
+zdania. 
+7 
+2. 
+Wizualizacja 
+Główna (Hero 
+Shot) 
+Zdjęcie (Pełna 
+szerokość) 
+Budowanie 
+pożądania, 
+atrakcyjność 
+wizualna. 
+Pełna 
+szerokość 
+ekranu, wysoki 
+detal. 
+Najlepsze, 
+najbardziej 
+emocjonalne 
+zdjęcie 
+produktu. 
+Może to być 
+aranżacja 
+(lifestyle), a nie 
+sterylny 
+packshot. 
+14 
+3. Kluczowe Tekst (Pełna Szybkie Lista Użytkownicy 
+
+Cechy (Bullet 
+Points) 
+szerokość) lub 
+Tekst + Foto 
+(miniatura) 
+skanowanie 
+(Skimmability). 
+wypunktowana
+. 
+mobilni nie 
+czytają, oni 
+skanują. 
+Wypunktowani
+e 
+najważniejszyc
+h cech 
+pozwala na 
+błyskawiczne 
+zrozumienie 
+wartości 
+produktu. 
+7 
+4. Moduł 
+Edukacyjny A 
+Tekst (Lewo) + 
+Zdjęcie 
+(Prawo) 
+Opis 
+funkcjonalnośc
+i + dowód 
+wizualny. 
+Tekst -> 
+Zdjęcie. 
+Naturalna 
+kolejność 
+poznawcza: 
+najpierw 
+dowiaduję się 
+„co to jest” 
+(Tekst), potem 
+widzę „jak to 
+wygląda” 
+(Zdjęcie). 
+5. Moduł 
+Edukacyjny B 
+Tekst (Lewo) + 
+Zdjęcie 
+(Prawo) 
+UWAGA: 
+Powtórzenie 
+układu, NIE 
+odwrócenie. 
+Tekst -> 
+Zdjęcie. 
+Unikamy 
+szachownicy. 
+Utrzymujemy 
+rytm: Teza -> 
+Dowód -> Teza 
+-> Dowód. 
+Zapobiega to 
+zderzeniu się 
+zdjęć na 
+mobile. 
+6. Detal / 
+Zbliżenie 
+(Close-up) 
+Zdjęcie (Pełna 
+szerokość) 
+Dowód jakości 
+(tekstura, 
+wykończenie). 
+Imponujące 
+zbliżenie, 
+możliwość 
+zoomu. 
+Przerwa od 
+czytania. 
+Czysta 
+wizualna 
+perswazja, 
+szczególnie 
+
+ważna w 
+modzie i 
+elektronice. 
+7. Sekcja 
+Techniczna / 
+Zaufanie 
+Tekst (Pełna 
+szerokość) 
+Rozwianie 
+obiekcji, 
+specyfikacja, 
+FAQ. 
+Tekst z 
+nagłówkami. 
+Informacje o 
+zawartości 
+zestawu, 
+sposobie 
+pakowania 
+(bezpieczeńst
+wo), ale bez 
+danych 
+kontaktowych! 
+7 
+3.3. Dlaczego unikać układu „Zdjęcie (lewo) + Tekst (prawo)”? 
+W kulturze zachodniej czytamy od lewej do prawej i z góry na dół. 
+● 
+Na Desktopie: Układ zmusza oko użytkownika do „przeskoczenia” obrazu, aby zacząć 
+czytać nagłówek tekstu. Jest to mniej naturalne niż układ, gdzie nagłówek jest pierwszym 
+elementem, na który trafia wzrok w wierszu (zgodnie z badaniami eye-trackingowymi typu 
+F-Pattern). 
+● 
+Na Mobile: Układ ten renderuje się jako [Zdjęcie] ->. Choć jest to akceptowalne w izolacji, 
+w sekwencji wielu cech układ -> [Zdjęcie] (przeczytaj o funkcji -> zobacz dowód wizualny 
+tej funkcji) jest bardziej logiczny poznawczo i edukacyjnie. 
+Rekomendacja Ekspercka: Dla zachowania maksymalnej spójności i czytelności na obu 
+typach urządzeń, w wierszach dzielonych 50/50 zawsze umieszczaj tekst po lewej stronie. 
+Gwarantuje to, że na mobile użytkownik najpierw otrzyma kontekst słowny (nagłówek), a 
+następnie jego ilustrację. Jest to najbezpieczniejsza strategia dla standardu „Mobile First”. 
+4. Typografia i Architektura Treści (Copywriting UX) 
+Nawet najbardziej przemyślany układ techniczny zawiedzie, jeśli sama treść tekstowa nie 
+będzie sformatowana zgodnie z zasadami Web Writing i dostosowana do percepcji cyfrowej. 
+4.1. Hierarchia Nagłówków (H1, H2, H3) a SEO i Czytelność 
+Allegro umożliwia formatowanie tekstu, co ma kluczowe znaczenie zarówno dla 
+pozycjonowania (SEO), jak i dla ludzkiej percepcji.
+15 
+● 
+H1 (Tytuł oferty): Jest generowany automatycznie przez system na samej górze strony 
+
+produktu. Wewnątrz opisu (w edytorze) nie należy dublować H1. 
+● 
+H2 (Główne sekcje): Powinny być używane do rozdzielania głównych bloków 
+tematycznych. Przykłady: „Dlaczego warto wybrać ten model?”, „Specyfikacja 
+techniczna”, „Zawartość zestawu”. H2 pełni rolę „stopera” podczas skanowania tekstu 
+wzrokiem. 
+● 
+H3 (Podpunkty): Idealne do nazywania konkretnych cech wewnątrz akapitów lub 
+mniejszych sekcji. Przykłady: „Wodoodporność IP67”, „Bateria wystarczająca na 24h”. 
+Zasada Mobilna: Na małym ekranie nagłówek działa jak kotwica uwagi. Użytkownik scrolluje 
+szybko, zatrzymując wzrok niemal wyłącznie na elementach wyróżnionych (nagłówki, zdjęcia). 
+Jeśli nagłówek go zainteresuje, dopiero wtedy decyduje się na przeczytanie akapitu poniżej.
+15 
+4.2. Mikrotypografia i Formatowanie Bloku Tekstu 
+Długie bloki tekstu są zabójcze dla konwersji mobilnej. Należy stosować rygorystyczne zasady 
+formatowania: 
+● 
+Długość akapitu: Maksymalnie 3–4 linijki tekstu w widoku desktopowym. Na mobile taki 
+akapit zamieni się w blok o wysokości 6–8 linii, co stanowi górną granicę tolerancji 
+poznawczej. Dłuższe bloki są postrzegane jako „ściana tekstu” i instynktownie pomijane.
+8 
+● 
+Pogrubienia (Bold): Należy pogrubiać wyłącznie kluczowe frazy (słowa kluczowe, 
+korzyści), a nie całe zdania. Pozwala to użytkownikowi na „skanowanie” tekstu i 
+wyłapanie sensu bez czytania całości. 
+● 
+Listy wypunktowane: Są absolutną koniecznością przy wymienianiu cech technicznych, 
+składu czy zawartości zestawu. Listy są przetwarzane przez mózg znacznie szybciej niż 
+tekst ciągły i zajmują mniej zasobów poznawczych.
+7 
+4.3. Język Korzyści (Model C-Z-K) 
+Opis na Allegro musi być zwięzły i konkretny. Algorytmy Allegro oraz użytkownicy mobilni nie 
+tolerują „lania wody”. Rekomenduje się stosowanie modelu Cecha – Zaleta – Korzyść: 
+● 
+Cecha (Fact): „Odkurzacz posiada silnik o mocy 2000W.” 
+● 
+Zaleta (Implication): „Zapewnia to bardzo dużą siłę ssania.” 
+● 
+Korzyść (Benefit – To co piszemy w ofercie): „Dzięki mocy 2000W usuniesz sierść z 
+dywanu w 3 minuty, oszczędzając swój czas i energię.”.
+9 
+Taki sposób narracji jest najbardziej perswazyjny i najlepiej konwertuje, ponieważ odnosi się 
+bezpośrednio do potrzeb użytkownika. 
+4.4. Nowe Limity Znaków (2025/2026) 
+W 2023 roku Allegro zwiększyło limit znaków w tytule do 75 znaków (wcześniej 50).
+13
+ Zmiana 
+ta, w pełni ugruntowana w 2026 roku, daje większe możliwości SEO. 
+● 
+Strategia Tytułu: Najważniejsze słowa kluczowe (np. marka, model, typ produktu) muszą 
+
+znaleźć się na samym początku tytułu (pierwsze 30–40 znaków), ponieważ w widokach 
+mobilnych (listingi) koniec tytułu może zostać ucięty (wielokropek). 
+● 
+Opis: Limit znaków w opisie jest teoretycznie duży, ale praktycznie ograniczony uwagą 
+użytkownika. Należy skupić się na jakości, a nie ilości (Quality over Quantity). 
+5. Strategia Wizualna: Zdjęcia w Epoce 4K, Retina i 
+Visual Search 
+W ekosystemie mobile image is king. Ekran smartfona to w 90% obraz. Zdjęcia pełnią nie tylko 
+funkcję estetyczną, ale są głównym nośnikiem informacji i narzędziem budowania zaufania. 
+5.1. Parametry Techniczne a UX (Jakość i Rozdzielczość) 
+● 
+Rozdzielczość: Allegro akceptuje zdjęcia o maksymalnych wymiarach 2560 x 2560 
+pikseli (i rozdzielczości do 26 Mpx).
+20 
+○ 
+Rekomendacja Ekspercka: Należy wgrywać zdjęcia o boku minimum 1200–1500 
+pikseli. Jest to niezbędne, aby funkcja „lupy” (zoom) w aplikacji mobilnej działała 
+poprawnie i pozwalała użytkownikowi na obejrzenie detali. Zdjęcia o minimalnym 
+wymaganym rozmiarze (500 px) wyglądają na nowoczesnych ekranach o wysokiej 
+gęstości pikseli (Retina, OLED, AMOLED) na nieostre, rozmyte i „tanie”, co 
+bezpośrednio obniża postrzeganą wartość produktu. 
+● 
+Proporcje: Edytor Allegro jest elastyczny, ale na mobile proporcje mają znaczenie 
+strategiczne. 
+○ 
+Rekomendacja Mobile: Zdjęcia kwadratowe (1:1) lub wertykalne (4:5) są preferowane, 
+ponieważ zajmują większą fizyczną powierzchnię ekranu telefonu niż zdjęcia 
+panoramiczne (16:9). Większa powierzchnia ekranu = większe zaangażowanie i 
+skupienie uwagi. Warto stosować zdjęcia kwadratowe wewnątrz opisu, aby 
+zmaksymalizować widoczność produktu. 
+5.2. Kontekst vs. Packshot (Rola Zdjęć w Opisie) 
+● 
+Galeria (Miniaturka): Pierwsze zdjęcie (miniaturka) musi być bezwzględnie na idealnie 
+białym tle (RGB 255,255,255), bez żadnych dodatków. Jest to wymóg regulaminowy 
+Allegro.
+14 
+● 
+Opis: Tutaj panuje znacznie większa swoboda. Zdjęcia w opisie NIE powinny dublować 
+sterylnych packshotów z galerii. Powinny to być zdjęcia kontekstowe (tzw. lifestyle 
+photography). 
+○ 
+Przykład: Zamiast pokazywać zegarek na białym tle (co klient widzi już w miniaturce), 
+w opisie pokaż ten sam zegarek na nadgarstku modela w trakcie biegania lub 
+spotkania biznesowego. 
+○ 
+Zdjęcie kontekstowe w opisie pełni funkcję dowodu społecznego (Social Proof) oraz 
+
+edukacyjną (pokazuje skalę przedmiotu, jego rzeczywisty wygląd w użytkowaniu). 
+5.3. Visual Search i Wymogi AI 
+W 2025 roku Allegro zintensyfikowało wykorzystanie funkcji Visual Search w aplikacji 
+mobilnej.
+21
+ Użytkownicy mogą wyszukiwać produkty, robiąc im zdjęcie lub wgrywając grafikę. 
+● 
+Aby oferta była dobrze indeksowana przez Visual Search, zdjęcia w opisie muszą być 
+wyraźne, dobrze oświetlone i przedstawiać produkt w sposób umożliwiający jego łatwą 
+identyfikację przez algorytmy wizyjne. Zdjęcia artystyczne, mocno stylizowane lub 
+zniekształcone mogą być gorzej rozpoznawane przez AI. 
+5.4. Zakaz Tekstu na Zdjęciach (Zasada Czystości) 
+Allegro rygorystycznie zabrania nanoszenia napisów, logotypów sklepu, znaków wodnych, 
+ramek czy informacji o wysyłce („Wysyłka 24h”) na zdjęcia.
+20 
+● 
+Dozwolone Wyjątki: Tekst znajdujący się fizycznie na produkcie lub jego oryginalnym 
+opakowaniu. Dopuszczalne są również liczby i jednostki miary służące do pokazania 
+wymiarów (wymiarowanie techniczne).
+20 
+● 
+Hack UX: Jeśli musisz przedstawić skomplikowane wymiary, zamiast pisać o nich w 
+tekście, przygotuj estetyczny, profesjonalny rysunek techniczny lub zdjęcie z 
+naniesionymi liniami wymiarowymi i umieść je jako jeden z wierszy zdjęciowych w opisie. 
+Jest to bardzo pożądane przez użytkowników mobilnych, którzy często mają trudność z 
+wyobrażeniem sobie wielkości przedmiotu na podstawie samego opisu tekstowego. 
+6. Wskazówki Techniczne i Ograniczenia 
+Regulaminowe (Compliance 2026) 
+Optymalizacja wizualna musi iść w parze z pełną zgodnością z regulaminem Allegro. 
+Naruszenie zasad może skutkować nie tylko usunięciem oferty, ale trwałym obniżeniem jakości 
+konta sprzedawcy. 
+6.1. Spójność Danych (Consistency Check) 
+Opis, tytuł, parametry i zdjęcia muszą tworzyć spójną całość. Rozbieżności są surowo karane 
+przez algorytm SmartRank. 
+● 
+Błąd: Tytuł mówi „Zestaw XXL”, parametry wskazują „Liczba elementów: 2”, a opis milczy 
+na ten temat. 
+● 
+Skutek: Spadek trafności, ryzyko dyskusji z kupującym (SNAD - Significantly Not As 
+Described) i negatywnych opinii.
+22 
+● 
+Zasada: Opis ma dotyczyć TYLKO przedmiotu sprzedawanego w tej ofercie. Nie wolno 
+pisać: „Dostępne również kolory czerwony i niebieski” – od tego jest funkcja 
+
+wielowariantowości.
+7
+ Mieszanie opisów wariantów w jednej ofercie wprowadza chaos na 
+mobile i jest niezgodne z regulaminem. 
+6.2. Czego Bezwzględnie Unikać (Błędy Blokujące) 
+● 
+Linki zewnętrzne: Całkowity zakaz linkowania do zewnętrznych stron, sklepów 
+internetowych, filmów na YouTube (chyba że w dedykowanym polu formularza, jeśli 
+kategoria na to pozwala), czy stron producenta.
+7 
+● 
+Dane kontaktowe: W treści opisu nie wolno podawać numerów telefonów, adresów 
+e-mail ani numerów kont bankowych. Cała komunikacja musi odbywać się przez system 
+„Pytanie do sprzedającego” lub Czat Allegro. 
+● 
+Słowa zakazane: Używanie słów takich jak „Gwarancja” (jest od tego osobna zakładka 
+systemowa), „Promocja”, „Wyprzedaż” (chyba że w ramach oficjalnych kampanii Allegro), 
+„Gratis”. Algorytm Allegro wyłapuje te frazy w czasie rzeczywistym (Real-time 
+Highlighting) i blokuje możliwość zapisania oferty do momentu ich usunięcia.
+7 
+7. Podsumowanie i Strategiczne Rekomendacje 
+Analiza architektury informacji na Allegro w latach 2025–2026 prowadzi do jednego 
+kluczowego wniosku: Czytelność mobilna jest synonimem skuteczności sprzedażowej. 
+Sprzedawcy, którzy ignorują specyfikę wyświetlania ofert na małych ekranach, skazują się na 
+marginalizację w wynikach wyszukiwania i niższe konwersje. 
+Strategiczna Checklista Wdrożeniowa 
+W celu stworzenia idealnej karty produktowej na Allegro, rekomenduje się wdrożenie 
+następujących działań: 
+1. 
+Przyjmij filozofię „Linear Design”: Projektuj ofertę z założeniem, że będzie ona 
+konsumowana w jednej, wertykalnej kolumnie. Wersja desktopowa jest jedynie jej szerszą 
+adaptacją. 
+2. 
+Eliminuj „Szachownicę”: W wierszach dzielonych (tekst/foto) stosuj zawsze układ: 
+Tekst po lewej, Zdjęcie po prawej. Gwarantuje to logiczną sekwencję (Teza -> Dowód) 
+na urządzeniach mobilnych i zapobiega stykaniu się zdjęć. 
+3. 
+Maksymalizuj jakość wizualną: Używaj zdjęć o wysokiej rozdzielczości (min. 1200 px), 
+preferuj formaty kwadratowe w opisie, aby dominować powierzchnię ekranu smartfona. 
+Wykorzystuj zdjęcia kontekstowe (lifestyle) w opisie, a sterylne packshoty w galerii. 
+4. 
+Strukturyzuj tekst: Bezwzględnie stosuj nagłówki (H2, H3) oraz listy wypunktowane. 
+Unikaj akapitów dłuższych niż 3–4 linijki (w widoku desktop). 
+5. 
+Testuj natywnie: Weryfikuj wygląd oferty bezpośrednio w Aplikacji Mobilnej Allegro, a 
+nie tylko poprzez zwężanie okna przeglądarki na komputerze. 
+6. 
+Optymalizuj pod SmartRank: Umieszczaj słowa kluczowe w pierwszych zdaniach opisu i 
+nagłówkach, dbając o spójność semantyczną z tytułem i parametrami. 
+
+Implementacja powyższych zaleceń pozwoli na stworzenie ofert, które są nie tylko estetyczne i 
+nowoczesne, ale przede wszystkim wysoce funkcjonalne i skuteczne w dominującym 
+środowisku Mobile First platformy Allegro. 
+Cytowane prace 
+1. Konta firmowe na Allegro z nowymi opisami ofert, 15 procent obowiązkowe w 
+kwietniu, otwierano: lutego 9, 2026, 
+https://www.wirtualnemedia.pl/allegro-oferty-nowe-opisy-html,717148407763110
+5a 
+2. Why a mobile-first shopping experience matters more than ever in 2025? - 
+Allegro, otwierano: lutego 9, 2026, 
+https://allegro.pl/articles/international-sellers/why-a-mobile-first-shopping-experi
+ence-matters-more-than-ever-in-2025-q0kGYymXou4 
+3. Mobile First Design: How to Create the Best UX Strategy in 2026 - WPBrigade, 
+otwierano: lutego 9, 2026, https://wpbrigade.com/mobile-first-design-strategy/ 
+4. Mobile-First App and Web Design in 2025 - triare, otwierano: lutego 9, 2026, 
+https://triare.net/insights/mobile-first-design-2025/ 
+5. Mobile-First UX Design: Best Practices in 2026 - Trinergy Digital, otwierano: lutego 
+9, 2026, 
+https://www.trinergydigital.com/news/mobile-first-ux-design-best-practices-in-2
+026 
+6. Generator opisów dla Allegro - Twój asystent AI w 2025 - Contello Blog, 
+otwierano: lutego 9, 2026, 
+https://www.contello.pl/blog/generator-opisow-dla-allegro-twoj-asystent-ai-w-2
+025 
+7. Zasady dla tytułu i opisu – Pomoc dla sprzedających – Allegro, otwierano: lutego 
+9, 2026, https://help.allegro.com/pl/sell/c/zasady-dla-tytulu-i-opisu 
+8. Nie testujesz mobile? Najczęstsze błędy UX w sklepach internetowych - 
+e-commerce, otwierano: lutego 9, 2026, 
+https://24hshop.pl/bledy-ux-mobile-sklepy 
+9. Jak napisać skuteczny opis oferty na Allegro? - Pryzmat Media Agencja 
+Reklamowa, otwierano: lutego 9, 2026, 
+https://pryzmat.media/jak-napisac-skuteczny-opis-oferty-na-allegro/ 
+10. Najczęstsze błędy sprzedawców Allegro przy skalowaniu - Semtop, otwierano: 
+lutego 9, 2026, 
+https://semtop.pl/najczestsze-bledy-sprzedawcow-llegro-przy-skalowaniu/ 
+11. Jak dodać i skonfigurować szablon opisu oferty Allegro? - Esprzedaz.com, 
+otwierano: lutego 9, 2026, 
+https://esprzedaz.com/pomoc/jak-dodac-i-skonfigurowac-szablon-opisu-oferty-
+allegro 
+12. How to Switch Image and Text Column Order on Mobile in Elementor | EASY - 
+YouTube, otwierano: lutego 9, 2026, 
+https://www.youtube.com/watch?v=ZDgzLZqNwY4 
+13. Zmienimy minimalną liczbę znaków i słów w tytule oferty - Allegro Developer 
+
+Portal, otwierano: lutego 9, 2026, 
+https://developer.allegro.pl/news/zmienimy-minimalna-liczbe-znakow-i-slow-w-t
+ytule-oferty-rjbbekBPohA 
+14. Jak poprawić atrakcyjność ofert produktów wystawianych na Allegro?, otwierano: 
+lutego 9, 2026, 
+https://akademiacyfryzacji.gs1.pl/baza_wiedzy/jak-poprawic-atrakcyjnosc-ofert-p
+roduktow-wystawianych-na-allegro/ 
+15. Nagłówki H1, H2, H3... – jak ważne są dla pozycjonowania? - Kompan.pl, 
+otwierano: lutego 9, 2026, 
+https://kompan.pl/blog/naglowki-h1-h2-h3-jak-wazne-sa-dla-pozycjonowania/ 
+16. Nagłówki h1,h2,h3 w SEO - czym są oraz jak pisać je dobrze - Webixa, otwierano: 
+lutego 9, 2026, 
+https://webixa.pl/blog/naglowki-h1h2h3-w-seo-czym-sa-oraz-jak-pisac-je-dobrz
+e/ 
+17. Nagłówki H1, H2 i H3 dla SEO. Poprawna optymalizacja w pigułce | Smartbuzz, 
+otwierano: lutego 9, 2026, https://smartbuzz.pl/blog/naglowki-h1-h2-i-h3 
+18. Zwiększymy maksymalny limit znaków w tytule oferty - Allegro Developer Portal, 
+otwierano: lutego 9, 2026, 
+https://developer.allegro.pl/news/zwiekszymy-maksymalny-limit-znakow-w-tytule
+-oferty-wwVmjaAv2Sz 
+19. Allegro zwiększa limit znaków w tytule - Jak mądrze to wykorzystać - 
+BsMarket.pl, otwierano: lutego 9, 2026, 
+https://bsmarket.pl/allegro-zwieksza-limit-znakow-w-tytule-jak-madrze-to-wyko
+rzystac/ 
+20. Zasady dla zdjęć w galerii i w opisie – Zasady dla zdjęć – Pomoc dla ..., otwierano: 
+lutego 9, 2026, 
+https://help.allegro.com/pl/sell/a/zasady-dla-zdjec-w-galerii-i-w-opisie-8dvWz3eo
+4T5 
+21. Jak działa Allegro 2025 – przewodnik w 10 krokach - SpeedyWeb, otwierano: 
+lutego 9, 2026, 
+https://www.speedyweb.pl/jak-dziala-allegro-kompletny-przewodnik-2025/ 
+22. Negatyw za błąd w opisie produktu Allegro - Społeczność Allegro - 259557, 
+otwierano: lutego 9, 2026, 
+https://spolecznosc.allegro.pl/t5/zaawansowani-sprzedawcy/negatyw-za-b%C5%
+82%C4%85d-w-opisie-produktu-allegro/td-p/259557 

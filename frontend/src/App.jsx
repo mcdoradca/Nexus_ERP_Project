@@ -18,7 +18,8 @@ import {
   Bell, X, Search, ChevronRight, Clock, ShieldAlert, AlertOctagon, 
   PlayCircle, StopCircle, Cloud, CloudLightning, Target, Zap, 
   Loader2, Paperclip, Send, Users, User, DollarSign, ArrowRight, CheckCircle2,
-  Trash2, Mail, Lock, Shield, Eye, EyeOff, Check, Filter, Calendar, Briefcase, TrendingUp
+  Trash2, Mail, Lock, Shield, Eye, EyeOff, Check, Filter, Calendar, Briefcase, TrendingUp,
+  Package, Database, Image, FileText
 } from 'lucide-react';
 
 import { getInitials, getDepartmentColor } from './utils';
@@ -193,7 +194,7 @@ function App() {
     setAutofillEanLoading(true);
     try {
       const res = await axios.get(`${API_URL}/api/products/autofill/${newProductForm.ean}`, { headers: { Authorization: `Bearer ${token}` } });
-      const { name, brand, sku, price, stock, baselinkerId, imageUrl } = res.data;
+      const { name, brand, sku, price, stock, baselinkerId, imageUrl, weight, length, width, height, taxRate, images, descriptionHtml, features, videoUrl, stockErpUnits, stockWmsUnits } = res.data;
       
       let matchedBrandId = newProductForm.brandId;
       if (brand && typeof brand === 'string') {
@@ -220,7 +221,18 @@ function App() {
         stock: stock !== undefined ? stock : prev.stock,
         baselinkerId: baselinkerId || prev.baselinkerId,
         brandId: matchedBrandId || prev.brandId,
-        imageUrl: imageUrl || prev.imageUrl
+        imageUrl: imageUrl || prev.imageUrl,
+        weight: weight !== undefined ? weight : prev.weight,
+        length: length !== undefined ? length : prev.length,
+        width: width !== undefined ? width : prev.width,
+        height: height !== undefined ? height : prev.height,
+        taxRate: taxRate !== undefined ? taxRate : prev.taxRate,
+        images: images || prev.images,
+        descriptionHtml: descriptionHtml || prev.descriptionHtml,
+        features: features || prev.features,
+        videoUrl: videoUrl || prev.videoUrl,
+        stockErpUnits: stockErpUnits !== undefined ? stockErpUnits : prev.stockErpUnits,
+        stockWmsUnits: stockWmsUnits !== undefined ? stockWmsUnits : prev.stockWmsUnits
       }));
     } catch (err) {
       const debugInfo = err.response?.data?.debug;
@@ -241,11 +253,19 @@ function App() {
       }
       setIsNewProductModalOpen(false);
       setEditingProduct(null);
-      setNewProductForm({ ean: '', sku: '', name: '', brandId: '', stock: 0, salePrice: 0, basePrice: 0, inboundTransportCost: 0, packagingCost: 0, bdoEprCost: 0, outboundTransportCost: 0, status: 'Aktywny', subiektId: '', baselinkerId: '' });
+      setNewProductForm({ 
+          ean: '', sku: '', name: '', brandId: '', stock: 0, salePrice: 0, basePrice: 0, 
+          inboundTransportCost: 0, packagingCost: 0, bdoEprCost: 0, outboundTransportCost: 0, 
+          status: 'Aktywny', subiektId: '', baselinkerId: '',
+          weight: 0, length: 0, width: 0, height: 0, taxRate: 23,
+          images: [], videoUrl: '', descriptionHtml: '', features: {}, 
+          stockErpUnits: 0, stockWmsUnits: 0
+      });
       fetchData();
     } catch (err) {
-      console.error(err);
-      alert("Błąd. Upewnij się czy SKU i EAN są unikalne, jeśli to nowy kod.");
+      console.error('Błąd zapisu produktu:', err);
+      const backendMsg = err.response?.data?.error || err.response?.data?.details || err.message;
+      alert("Błąd zapisu produktu: " + backendMsg + "\nUpewnij się czy SKU i EAN są unikalne oraz czy uzupełniłeś wymagane pola.");
     }
   };
 
@@ -948,10 +968,105 @@ function App() {
                       {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label className={labelClass}>Stan Magazynowy Początkowy</label>
-                    <input type="number" placeholder="0" className={inputClass} value={newProductForm.stock} onChange={e => setNewProductForm({...newProductForm, stock: e.target.value})} />
-                  </div>
+                </div>
+
+                {/* Nowa Sekcja: Logistyka i Gabaryty */}
+                <div className="pt-10 border-t border-slate-100">
+                   <h4 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em] mb-8 flex items-center">
+                     <Package className="w-5 h-5 mr-3 text-indigo-500" /> Logistyka i Gabaryty (PIM)
+                   </h4>
+                   <div className="grid grid-cols-5 gap-6">
+                     <div><label className={labelClass}>Waga (kg)</label><input type="number" step="0.01" className={inputClass} value={newProductForm.weight || 0} onChange={e => setNewProductForm({...newProductForm, weight: e.target.value})} /></div>
+                     <div><label className={labelClass}>Długość (cm)</label><input type="number" step="0.1" className={inputClass} value={newProductForm.length || 0} onChange={e => setNewProductForm({...newProductForm, length: e.target.value})} /></div>
+                     <div><label className={labelClass}>Szerokość (cm)</label><input type="number" step="0.1" className={inputClass} value={newProductForm.width || 0} onChange={e => setNewProductForm({...newProductForm, width: e.target.value})} /></div>
+                     <div><label className={labelClass}>Wysokość (cm)</label><input type="number" step="0.1" className={inputClass} value={newProductForm.height || 0} onChange={e => setNewProductForm({...newProductForm, height: e.target.value})} /></div>
+                     <div><label className={labelClass}>Stawka VAT (%)</label><input type="number" className={inputClass} value={newProductForm.taxRate || 23} onChange={e => setNewProductForm({...newProductForm, taxRate: e.target.value})} /></div>
+                   </div>
+                </div>
+
+                {/* Nowa Sekcja: Stany Magazynowe Rozszerzone */}
+                <div className="pt-10 border-t border-slate-100">
+                   <h4 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em] mb-8 flex items-center">
+                     <Database className="w-5 h-5 mr-3 text-indigo-500" /> Architektura Zapasów
+                   </h4>
+                   <div className="flex space-x-6">
+                     <div className="flex-1 bg-slate-50 p-6 rounded-xl border border-slate-100">
+                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Zapas Zintegrowany (Suma)</div>
+                        <div className="flex items-center">
+                           <input type="number" className="w-24 bg-white border border-slate-200 rounded-lg px-3 py-1 font-black text-xl mr-2 outline-none focus:border-indigo-500" value={newProductForm.stock || 0} onChange={e => setNewProductForm({...newProductForm, stock: e.target.value})} />
+                           <span className="text-sm text-slate-400 font-bold">szt.</span>
+                        </div>
+                     </div>
+                     <div className="flex-1 bg-indigo-50 p-6 rounded-xl border border-indigo-100 opacity-80 cursor-not-allowed">
+                        <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Własny ERP (Nexus)</div>
+                        <div className="text-2xl font-black text-indigo-900">{newProductForm.stockErpUnits || 0} <span className="text-sm text-indigo-400">szt.</span></div>
+                     </div>
+                     <div className="flex-1 bg-emerald-50 p-6 rounded-xl border border-emerald-100 opacity-80 cursor-not-allowed">
+                        <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Zewnętrzny WMS (Fulfillment)</div>
+                        <div className="text-2xl font-black text-emerald-900">{newProductForm.stockWmsUnits || 0} <span className="text-sm text-emerald-400">szt.</span></div>
+                     </div>
+                   </div>
+                </div>
+
+                {/* Nowa Sekcja: Multimedia i Opis (Read Only) */}
+                <div className="pt-10 border-t border-slate-100">
+                   <h4 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em] mb-8 flex items-center">
+                     <Image className="w-5 h-5 mr-3 text-indigo-500" /> Multimedia i Dane Techniczne
+                   </h4>
+                   <div className="grid grid-cols-2 gap-10">
+                      <div>
+                         <label className={labelClass}>Galeria BaseLinker ({newProductForm.images?.length || 0})</label>
+                         {newProductForm.images && newProductForm.images.length > 0 ? (
+                            <div className="grid grid-cols-4 gap-2 mt-4">
+                               {newProductForm.images.map((img, idx) => (
+                                   <div key={idx} className="aspect-square bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                                      <img src={img} alt="PIM" className="w-full h-full object-cover" />
+                                   </div>
+                               ))}
+                            </div>
+                         ) : (
+                            <div className="p-6 bg-slate-50 border border-slate-100 rounded-xl text-center text-slate-400 text-xs font-bold mt-4">
+                               Brak zsynchronizowanych multimediów.
+                            </div>
+                         )}
+                         {newProductForm.videoUrl && (
+                             <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-xl text-blue-600 text-[10px] font-black uppercase tracking-widest flex items-center">
+                                 <PlayCircle className="w-4 h-4 mr-2" /> Wideo produktowe dostępne
+                             </div>
+                         )}
+                      </div>
+                      <div>
+                         <label className={labelClass}>Opis HTML i Parametry</label>
+                         <div className="space-y-4 mt-4">
+                            <div className={`p-4 rounded-xl border flex flex-col justify-between ${newProductForm.descriptionHtml ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-slate-50 border-slate-100 text-slate-400'}`}>
+                               <div className="flex items-center text-xs font-black uppercase tracking-widest justify-between w-full">
+                                  <div className="flex items-center">
+                                     <FileText className="w-4 h-4 mr-2" />
+                                     {newProductForm.descriptionHtml ? 'Zapisano bogaty opis HTML' : 'Brak Opisu HTML'}
+                                  </div>
+                                  {newProductForm.descriptionHtml && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                               </div>
+                               {newProductForm.descriptionHtml && (
+                                   <div className="mt-3 max-h-32 overflow-y-auto custom-scrollbar p-2 bg-white rounded border border-emerald-100 text-[10px] text-slate-600 font-mono">
+                                       {newProductForm.descriptionHtml}
+                                   </div>
+                               )}
+                            </div>
+                            
+                            <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                               <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Atrybuty Techniczne ({Object.keys(newProductForm.features || {}).length})</div>
+                               <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar">
+                                   {Object.entries(newProductForm.features || {}).map(([k, v]) => (
+                                       <span key={k} className="px-2 py-1 bg-white border border-slate-200 text-slate-600 rounded-md text-[9px] font-bold">
+                                          <strong className="text-slate-800">{k}:</strong> {v}
+                                       </span>
+                                   ))}
+                                   {Object.keys(newProductForm.features || {}).length === 0 && <span className="text-[10px] text-slate-400 italic">Brak cech w strukturze bazy.</span>}
+                               </div>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
                 </div>
 
                 <div className="pt-12 border-t border-slate-100">
@@ -1118,7 +1233,14 @@ function App() {
           setIsNewBrandModalOpen={setIsNewBrandModalOpen} 
           setIsNewProductModalOpen={() => {
              setEditingProduct(null);
-             setNewProductForm({ ean: '', sku: '', name: '', brandId: '', stock: 0, salePrice: 0, basePrice: 0, inboundTransportCost: 0, packagingCost: 0, bdoEprCost: 0, outboundTransportCost: 0, status: 'Aktywny', subiektId: '', baselinkerId: '' });
+             setNewProductForm({ 
+                 ean: '', sku: '', name: '', brandId: '', stock: 0, salePrice: 0, basePrice: 0, 
+                 inboundTransportCost: 0, packagingCost: 0, bdoEprCost: 0, outboundTransportCost: 0, 
+                 status: 'Aktywny', subiektId: '', baselinkerId: '',
+                 weight: 0, length: 0, width: 0, height: 0, taxRate: 23,
+                 images: [], videoUrl: '', descriptionHtml: '', features: {}, 
+                 stockErpUnits: 0, stockWmsUnits: 0
+             });
              setIsNewProductModalOpen(true);
           }}
           onEditProduct={(p) => {

@@ -33,7 +33,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 const path = require('path');
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, '../frontend/public/uploads')));
 
 // --- NOWA ARCHITEKTURA DOMENOWA (IMPORTY) ---
@@ -55,6 +55,7 @@ const { registerTasksListeners } = require('./modules/tasks/tasks.listeners');
 const { registerSocketHandlers } = require('./modules/communication/socket.handlers');
 const notificationsService = require('./modules/communication/notifications.service');
 const EventBus = require('./core/EventBus');
+const BaseLinkerService = require('./modules/offer-optimizer/baselinker.service');
 
 io.on('connection', (socket) => {
     socketService.setOnlineUser(socket.id, socket.user.id);
@@ -165,97 +166,38 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
         const { ean } = req.params;
         
         // 0. BaseLinker Integration (PRIORYTET)
-        let blDebug = null;
         try {
-            const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN' } });
-            if (tokenRecord && tokenRecord.value && tokenRecord.value.length > 5) {
-                // Najpierw pobierz ID pierwszego domyślnego magazynu z konta
-                const invFormData = new URLSearchParams();
-                invFormData.append('method', 'getInventories');
-                invFormData.append('parameters', JSON.stringify({}));
-                
-                const invRes = await fetch('https://api.baselinker.com/connector.php', {
-                    method: 'POST',
-                    headers: { 'X-BLToken': tokenRecord.value },
-                    body: invFormData
-                });
-                const invData = await invRes.json();
-                
-                let targetInventoryId = null;
-                if (invData.status === 'SUCCESS' && invData.inventories && invData.inventories.length > 0) {
-                    targetInventoryId = invData.inventories[0].inventory_id;
-                }
-
-                blDebug = { inventories: invData };
-
-                if (targetInventoryId !== null) {
-                    const formData = new URLSearchParams();
-                    formData.append('method', 'getInventoryProductsList');
-                    formData.append('parameters', JSON.stringify({ "inventory_id": targetInventoryId, "filter_ean": ean }));
-                    
-                    const blRes = await fetch('https://api.baselinker.com/connector.php', {
-                        method: 'POST',
-                        headers: { 'X-BLToken': tokenRecord.value },
-                        body: formData
-                    });
-                    
-                    const blData = await blRes.json();
-                    blDebug.productsFetch = blData;
-                    
-                    if (blData.status === 'SUCCESS' && blData.products && Object.keys(blData.products).length > 0) {
-                        const firstId = Object.keys(blData.products)[0];
-                        
-                        // Krok 2: Pobierz szczegóły produktu (Cena, Marka/Cechy)
-                        const dataFormData = new URLSearchParams();
-                        dataFormData.append('method', 'getInventoryProductsData');
-                        dataFormData.append('parameters', JSON.stringify({ "inventory_id": targetInventoryId, "products": [firstId] }));
-                        
-                        const blDataRes = await fetch('https://api.baselinker.com/connector.php', {
-                            method: 'POST',
-                            headers: { 'X-BLToken': tokenRecord.value },
-                            body: dataFormData
-                        });
-                        const dataFull = await blDataRes.json();
-                        
-                        if (dataFull.status === 'SUCCESS' && dataFull.products && dataFull.products[firstId]) {
-                            const fullProd = dataFull.products[firstId];
-                            let brandName = fullProd.brand || ''; // Podstawa
-                            if (!brandName && fullProd.features) {
-                                // Fallback w atrybutach produktowych
-                                brandName = fullProd.features['Marka'] || fullProd.features['Producent'] || fullProd.features['Brand'] || '';
-                            }
-                            
-                            let price = 0;
-                            if (fullProd.prices && Object.keys(fullProd.prices).length > 0) {
-                                price = fullProd.prices[Object.keys(fullProd.prices)[0]]; // Złap sztywno pierwszą grupę cenową
-                            }
-
-                            let stockQty = 0;
-                            if (fullProd.stock && typeof fullProd.stock === 'object') {
-                                stockQty = Object.values(fullProd.stock).reduce((z, b) => z + Number(b), 0);
-                            }
-
-                            let imageUrl = '';
-                            if (fullProd.images && Object.keys(fullProd.images).length > 0) {
-                                imageUrl = fullProd.images[Object.keys(fullProd.images)[0]];
-                            }
-                            
-                            return res.status(200).json({ 
-                                name: fullProd.name || fullProd.text_fields?.name || '', 
-                                brand: brandName, 
-                                sku: fullProd.sku || '',
-                                price: parseFloat(price) || 0,
-                                stock: stockQty,
-                                baselinkerId: firstId,
-                                imageUrl: imageUrl
-                            });
-                        }
-                    }
-                }
+            const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
+            const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
+            
+            // Spróbujmy wyciągnąć brand
+            let brandName = '';
+            if (deepData.features) {
+                brandName = deepData.features['Marka'] || deepData.features['Producent'] || deepData.features['Brand'] || '';
             }
+
+            return res.status(200).json({ 
+                name: deepData.name || '', 
+                brand: brandName, 
+                sku: deepData.sku || '',
+                price: deepData.price || 0, 
+                stock: deepData.stock || 0,
+                baselinkerId: deepData.baselinkerId,
+                imageUrl: deepData.images && deepData.images.length > 0 ? deepData.images[0] : '',
+                weight: deepData.weight,
+                length: deepData.length,
+                width: deepData.width,
+                height: deepData.height,
+                taxRate: deepData.taxRate,
+                images: deepData.images,
+                descriptionHtml: deepData.descriptionHtml,
+                features: deepData.features,
+                videoUrl: deepData.videoUrl,
+                stockErpUnits: deepData.stockErpUnits,
+                stockWmsUnits: deepData.stockWmsUnits
+            });
         } catch (blError) {
             console.log('BaseLinker Fallback Error:', blError);
-            blDebug = { error: blError.message };
         }
 
         // Helper dla darmowych baz uodporniający Nexusa na pady serwerów zewnętrznych.
@@ -319,7 +261,18 @@ app.post('/api/products', authenticateToken, async (req, res) => {
                 bdoEprCost: parseFloat(bdoEprCost) || 0.0,
                 outboundTransportCost: parseFloat(outboundTransportCost) || 0.0,
                 subiektId: safeSubiektId, baselinkerId: safeBaselinkerId,
-                imageUrl: imageUrl || null
+                imageUrl: imageUrl || null,
+                weight: parseFloat(req.body.weight) || 0.0,
+                length: parseFloat(req.body.length) || 0.0,
+                width: parseFloat(req.body.width) || 0.0,
+                height: parseFloat(req.body.height) || 0.0,
+                taxRate: parseFloat(req.body.taxRate) || 23.0,
+                stockErpUnits: parseInt(req.body.stockErpUnits) || 0,
+                stockWmsUnits: parseInt(req.body.stockWmsUnits) || 0,
+                images: req.body.images || [],
+                descriptionHtml: req.body.descriptionHtml || null,
+                features: req.body.features || {},
+                videoUrl: req.body.videoUrl || null
             }
         });
         res.status(201).json(newProduct);
@@ -336,6 +289,9 @@ app.patch('/api/products/:id', authenticateToken, async (req, res) => {
         delete payload.updatedAt;
         delete payload.bomElements; // BOM jest zagnieżdżony, nie aktualizujemy go tutaj
         delete payload.brand;
+        delete payload.campaignsAsMain;
+        delete payload.campaignProducts;
+        delete payload.dealsIRM;
         
         const updatedProduct = await prisma.product.update({
             where: { id: req.params.id },
@@ -348,12 +304,65 @@ app.patch('/api/products/:id', authenticateToken, async (req, res) => {
                 packagingCost: parseFloat(payload.packagingCost) || 0.0,
                 bdoEprCost: parseFloat(payload.bdoEprCost) || 0.0,
                 outboundTransportCost: parseFloat(payload.outboundTransportCost) || 0.0,
+                weight: parseFloat(payload.weight) || 0.0,
+                length: parseFloat(payload.length) || 0.0,
+                width: parseFloat(payload.width) || 0.0,
+                height: parseFloat(payload.height) || 0.0,
+                taxRate: parseFloat(payload.taxRate) || 23.0,
+                stockErpUnits: parseInt(payload.stockErpUnits) || 0,
+                stockWmsUnits: parseInt(payload.stockWmsUnits) || 0
             }
         });
         res.status(200).json(updatedProduct);
     } catch (error) { 
         console.error("PATCH error:", error);
         res.status(500).json({ error: 'Blad edycji produktu' }); 
+    }
+});
+
+// --- PIM: GŁĘBOKA SYNCHRONIZACJA Z BASELINKER ---
+app.post('/api/products/baselinker-sync/:ean', authenticateToken, async (req, res) => {
+    try {
+        const { ean } = req.params;
+        
+        const product = await prisma.product.findUnique({ where: { ean } });
+        if (!product) {
+            return res.status(404).json({ error: `Produkt z EAN ${ean} nie istnieje w lokalnej bazie Nexusa.` });
+        }
+
+        // KROK 1: Wydobycie cyfrowego klucza architektury systemu z PIM (Wymuszenie 2-step dance)
+        const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
+
+        // KROK 2: Dekompozycja potężnych danych
+        const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
+
+        // KROK 3: Aktualizacja bazy Nexusa
+        const updated = await prisma.product.update({
+            where: { id: product.id },
+            data: {
+                baselinkerInventoryId: deepData.baselinkerInventoryId,
+                baselinkerId: deepData.baselinkerId,
+                descriptionHtml: deepData.descriptionHtml,
+                features: deepData.features,
+                images: deepData.images,
+                weight: deepData.weight,
+                length: deepData.length,
+                width: deepData.width,
+                height: deepData.height,
+                taxRate: deepData.taxRate,
+                videoUrl: deepData.videoUrl,
+                attachments: deepData.attachments,
+                stockErpUnits: deepData.stockErpUnits,
+                stockWmsUnits: deepData.stockWmsUnits,
+                isSynced: true,
+                stock: deepData.stock // Aktualizacja globalnego stocku w tle
+            }
+        });
+
+        res.status(200).json(updated);
+    } catch (error) {
+        console.error("[PIM Sync] Error:", error.message);
+        res.status(500).json({ error: error.message });
     }
 });
 

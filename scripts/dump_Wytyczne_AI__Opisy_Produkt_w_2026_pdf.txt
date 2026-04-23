@@ -1,0 +1,1683 @@
+
+
+Rygorystyczne wytyczne 
+prawno-marketingowe 2026: 
+Architektura opisów produktów 
+regulowanych dla systemów SEO i GEO 
+Wprowadzenie do architektury cyfrowego ekosystemu 
+informacyjnego w 2026 roku 
+Krajobraz cyfrowego marketingu, dystrybucji treści oraz pozycjonowania przeszedł w 2026 roku 
+bezprecedensową, wielowymiarową transformację. Zmiany te zostały wymuszone przez 
+konwergencję drastycznie zaostrzonych regulacji prawnych na szczeblu Unii Europejskiej i 
+krajowym (polskim) oraz fundamentalną ewolucję algorytmów wyszukiwania. Klasyczne metody 
+optymalizacji pod kątem wyszukiwarek internetowych (SEO), opierające się niegdyś na 
+nasyceniu tekstu słowami kluczowymi i budowaniu sieci odnośników, zostały zepchnięte do roli 
+bazowego fundamentu technicznego. Nad nim nadbudowano zaawansowane mechanizmy 
+Generative Engine Optimization (GEO), które faworyzują wyłącznie autorytatywne, poparte 
+twardymi dowodami i rygorystycznie ustrukturyzowane źródła informacji, zdolne do zasilania 
+odpowiedzi udzielanych bezpośrednio przez modele językowe sztucznej inteligencji.
+1 
+W dobie powszechnej implementacji systemów takich jak AI Overviews, odpowiedzi typu 
+zero-click oraz zintegrowanych asystentów AI, użytkownik końcowy coraz rzadziej klika w 
+tradycyjne linki.
+1
+ Zamiast tego otrzymuje gotową, wygenerowaną syntezę wiedzy. Równolegle, 
+organy nadzorcze zintensyfikowały działania legislacyjne i kontrolne. Wdrożenie kluczowych 
+aktów prawnych, do których zaliczają się między innymi unijna dyrektywa EmpCo (Empowering 
+Consumers for the Green Transition), dyrektywa Green Claims 
+4
+, Rozporządzenie MDR 
+(Medical Device Regulation) dotyczące wyrobów medycznych 
+6
+, przepisy Omnibus VIII dla 
+branży kosmetycznej 
+7
+, a także zaktualizowane i rygorystycznie egzekwowane wytyczne Urzędu 
+Ochrony Konkurencji i Konsumentów (UOKiK) oraz Komisji Nadzoru Finansowego (KNF) 
+5
+, 
+całkowicie zredefiniowały granice dozwolonej prawem komunikacji marketingowej. 
+Niniejszy raport stanowi wyczerpujące, eksperckie opracowanie analityczne, którego celem jest 
+dogłębne skatalogowanie produktów oraz kategorii produktowych wymagających w 2026 roku 
+specjalistycznego, uwarunkowanego prawnie podejścia do tworzenia opisów w e-commerce 
+oraz treści content marketingowych. Zgromadzona wiedza została ustrukturyzowana w formie 
+ścisłych, algorytmicznych wytycznych. Są one dedykowane dla zaawansowanych agentów 
+sztucznej inteligencji, którzy odpowiadają za zautomatyzowane generowanie tekstów. Celem 
+nadrzędnym jest umożliwienie tworzenia opisów charakteryzujących się bezwzględną, 
+rygorystyczną zgodnością z prawem, a jednocześnie wykorzystujących dopuszczalną 
+
+lingwistyczną elastyczność w celu osiągnięcia absolutnej dominacji w wynikach wyszukiwania 
+opartych na modelach językowych (GEO) i tradycyjnych indeksach (SEO). 
+Transformacja z paradygmatu SEO do GEO w 
+obszarze branż regulowanych (YMYL) 
+Sektory gospodarki podlegające najwyższym rygorom prawnym, obejmujące medycynę, 
+farmację, dietetykę, innowacyjną kosmetykę oraz zaawansowane finanse, klasyfikowane są 
+przez algorytmy wyszukiwarek jako domeny YMYL (Your Money or Your Life). Oznacza to, że 
+informacje w nich zawarte mają bezpośredni, krytyczny wpływ na zdrowie, bezpieczeństwo 
+fizyczne, stabilność emocjonalną lub sytuację finansową konsumenta. W 2026 roku widoczność 
+w tych wrażliwych obszarach nie opiera się już na prostej korelacji słów kluczowych. Silniki 
+generatywne poszukują głębokiej spójności semantycznej, rygorystycznej strukturyzacji danych 
+(takiej jak Schema.org) oraz weryfikowalnych dowodów zewnętrznych.
+2 
+Strategia GEO dla branż podlegających regulacjom opiera się na pięciu fundamentalnych 
+zasadach budowy treści, które agent AI musi bezwzględnie zaimplementować w swoim 
+procesie decyzyjnym. 
+ 
+Zasada Optymalizacji Generatywnej 
+(GEO) 
+Mechanizm Działania i Wymogi dla 
+Agenta AI 
+Zasada E-E-A-T (Doświadczenie, 
+Ekspertyza, Autorytet, Wiarygodność) 
+Stanowi absolutny fundament walidacyjny 
+algorytmów. Treść musi wskazywać na 
+udokumentowane kompetencje twórcy. 
+Agent AI nie może generować 
+anonimowych opisów produktów 
+medycznych czy finansowych. Każdy tekst 
+edukacyjny lub opis zaawansowanego 
+produktu musi posiadać przypisanego 
+autora (np. lekarza, analityka) z wdrożonym 
+systemem Schema Person, biografią i 
+linkami do profili zawodowych (np. LinkedIn, 
+PubMed).
+2 
+Architektura Cytowalności (Citability) Modele AI skanują teksty w poszukiwaniu 
+jednoznacznych, ustrukturyzowanych 
+twierdzeń nadających się do 
+bezpośredniego zacytowania w 
+odpowiedziach generatywnych. Agent AI 
+musi używać języka definitywnego, lecz 
+
+ograniczonego prawnie. Zamiast 
+potocznego "Powszechnie wiadomo, że ten 
+lek działa", należy generować frazy oparte 
+na dowodach: "Zgodnie z badaniami 
+klinicznymi, składnik X wykazuje 
+skuteczność w...".
+11 
+Hierarchia Informacji (Information 
+Hierarchy) 
+Wymagane jest stosowanie czytelnych, 
+opisowych nagłówków (H2, H3), krótkich 
+akapitów (maksymalnie od 2 do 4 zdań) 
+oraz list lub tabel. Struktura musi w sposób 
+wyczerpujący odpowiadać na 
+fundamentalne pytania (WHO, WHAT, 
+WHEN, WHERE, WHY, HOW) w 
+odniesieniu do analizowanego produktu.
+11 
+Kompletność Semantyczna (Semantic 
+Completeness) 
+Algorytmy nagradzają źródła, które w 
+obrębie jednego dokumentu całkowicie 
+wyczerpują intencję zapytania użytkownika. 
+Dla wyrobu medycznego oznacza to 
+konieczność zintegrowania definicji, 
+wskazania objawów, przeciwwskazań, 
+skutków ubocznych oraz parametrów 
+technicznych w jednym klastrze 
+informacyjnym, bez konieczności odsyłania 
+użytkownika do zewnętrznych podstron.
+11 
+Rozpoznawanie Bytów (Entity 
+Recognition) 
+Zastosowanie zaawansowanych 
+mikrodanych (np. format JSON-LD dla 
+atrybutów MedicalEntity, FinancialProduct, 
+Product) pozwala modelom językowym na 
+bezbłędne, natychmiastowe 
+przyporządkowanie kategorii prawnej do 
+danego tekstu. Jest to krytyczne dla 
+zapewnienia wyszukiwarkom, że 
+analizowany tekst spełnia wymogi 
+techniczne i formalne.
+12 
+ 
+
+ 
+
+ 
+Zrozumienie tej ewolucji technologicznej stanowi niezbędny fundament dla poprawnego 
+wdrożenia szczegółowych regulacji prawnych omawianych w kolejnych sekcjach raportu. 
+Wyroby medyczne i produkty powiązane z medycyną 
+estetyczną 
+Reklama, promocja oraz tworzenie opisów informacyjnych wyrobów medycznych podlegają w 
+2026 roku wyjątkowo restrykcyjnym, wielopoziomowym wymogom. Krajobraz prawny w tym 
+zakresie ukształtował się w oparciu o trzy kluczowe filary: krajową Ustawę z dnia 7 kwietnia 
+2022 r. o wyrobach medycznych (której przepisy reklamowe w pełni obowiązują od 2023 r.), 
+doprecyzowujące Rozporządzenie Ministra Zdrowia z dnia 21 kwietnia 2023 r. w sprawie 
+reklamy wyrobów medycznych, oraz nadrzędne unijne Rozporządzenie MDR (Medical Device 
+Regulation) 2017/745.
+6
+ Dodatkowo, praktyka nadzorcza uległa znacznemu zaostrzeniu po 
+wydaniu jesienią 2025 roku krytycznych komunikatów przez Prezesa Urzędu Rejestracji 
+Produktów Leczniczych, Wyrobów Medycznych i Produktów Biobójczych (URPL), które nałożyły 
+szczególną odpowiedzialność na podmioty promujące wypełniacze i zaawansowane procedury 
+estetyczne.
+6 
+Zasięg regulacji i klasyfikacja produktów 
+Agent AI odpowiedzialny za generowanie opisów w e-commerce musi dysponować 
+wbudowaną, aktualizowaną w czasie rzeczywistym logiką kategoryzacji sprzętów podlegających 
+pod restrykcje reklamowe. Błędem jest zakładanie, że wyrób medyczny to wyłącznie wysoce 
+specjalistyczny sprzęt kliniczny. Ustawa obejmuje również szereg produktów codziennego 
+użytku oraz szerokie spektrum asortymentu z pogranicza medycyny i kosmetologii.
+15 
+Zalicza się do nich między innymi tradycyjny sprzęt ortopedyczny, taki jak ortezy, 
+zaawansowane protezy, kule czy wózki inwalidzkie, a także specjalistyczne produkty 
+higieniczne, w tym cewniki, sprzęt stomijny oraz pieluchomajtki. Przepisy obejmują również 
+wyroby przeznaczone do kontroli poczęć, profesjonalny sprzęt stomatologiczny i wysoce 
+wyspecjalizowaną aparaturę diagnostyczną, jak ultrasonografy czy tomografy.
+15
+ Szczególną 
+uwagę agent AI musi zwrócić na asortyment medycyny estetycznej. Znajdują się w nim 
+wypełniacze tkankowe (np. kwas hialuronowy w ampułkach przeznaczonych do iniekcji), 
+inwazyjne nici liftingujące oraz certyfikowane urządzenia do lipolizy i modelowania sylwetki.
+6
+ 
+Niezwykle ważną podkategorią z punktu widzenia copywritingu są produkty bez przewidzianego 
+zastosowania medycznego, objęte specjalnymi załącznikami do MDR. Dotyczy to popularnych 
+w e-commerce soczewek kontaktowych typu "zerówki", domowych depilatorów laserowych w 
+technologii IPL czy urządzeń do mikrodermabrazji, które w świetle prawa traktowane są niemal 
+na równi z wyrobami medycznymi.
+16 
+Rygory techniczne i obowiązkowe ostrzeżenia prawne (Disclaimers) 
+Każdy wygenerowany materiał informacyjny lub stricte marketingowy promujący wyroby 
+
+medyczne musi zostać opatrzony obligatoryjnym, sformalizowanym ostrzeżeniem, zwanym w 
+branży disclaimerem. Ustawodawca wyklucza jakąkolwiek elastyczność słowną w tym zakresie; 
+treść musi być precyzyjna i dopasowana do statusu rejestracyjnego produktu.
+15 
+Dla pełnoprawnych wyrobów medycznych, tekst obowiązkowy brzmi: "To jest wyrób medyczny. 
+Używaj go zgodnie z instrukcją używania lub etykietą." Z kolei dla produktów z załącznika MDR, 
+niemających przewidzianego zastosowania medycznego, wymagana jest formuła: "Dla 
+bezpieczeństwa używaj zgodnie z instrukcją używania lub etykietą." Oprócz treści, 
+fundamentalne znaczenie dla algorytmów renderujących strony oraz dla czynników 
+rankingowych Core Web Vitals (oceniających układ przestrzenny interfejsu) mają rygorystyczne 
+parametry techniczne prezentacji tych ostrzeżeń.
+16 
+ 
+Forma Komunikatu 
+Reklamowego 
+Wymogi Powierzchniowe i 
+Lokalizacyjne 
+Wymogi Typograficzne i 
+Czasowe 
+Wizualna (grafiki, posty w 
+social mediach, bannery w 
+e-commerce) 
+Ostrzeżenie musi 
+znajdować się w dolnej 
+części reklamy, zajmując 
+nie mniej niż 10% 
+powierzchni całej 
+płaszczyzny.
+16 
+Tekst musi być nieruchomy, 
+poziomy i kontrastować z 
+tłem. Odległość liter od 
+dolnej i górnej krawędzi tła 
+płaszczyzny nie może być 
+większa niż 1/2 wysokości 
+liter, a odstępy między 
+wierszami nie mogą 
+przekraczać wysokości 
+liter.
+16 
+Dźwiękowa (audio, 
+podcasty) 
+Nie dotyczy powierzchni 
+fizycznej. 
+Treść musi zostać 
+odczytana wyraźnie, w 
+języku polskim, a czas 
+trwania odczytu nie może 
+być krótszy niż 4 
+sekundy.
+16 
+Audiowizualna (filmy na 
+stronach produktowych, 
+spoty wideo, rolki na 
+TikToku) 
+Konieczne jest spełnienie 
+łącznych wymogów dla 
+formy wizualnej i 
+dźwiękowej. Płaszczyzna z 
+napisem musi stanowić co 
+najmniej 15% powierzchni 
+reklamy.
+16 
+Tekst musi być czytelny i 
+zajmować odpowiednią 
+przestrzeń, podczas gdy 
+lektor odczytuje komunikat 
+w czasie nie krótszym niż 4 
+sekundy.
+16 
+ 
+
+ 
+
+ 
+Każda reklama musi ponadto zawierać określenie podmiotu ją prowadzącego (pełna nazwa 
+firmy), nazwę lub nazwę handlową wyrobu zgodną z dokumentacją, jego przewidziane 
+zastosowanie oraz nazwę producenta lub jego upoważnionego przedstawiciela na terytorium 
+UE.
+16 
+Zakazane praktyki i strategiczne pozycjonowanie w sektorze 
+medycznym 
+Prawny zakaz wprowadzania konsumenta w błąd w medycynie jest egzekwowany ze 
+szczególną surowością. Obejmuje on zakaz obiecywania nierealnych rezultatów czy 
+przypisywania wyrobom funkcji, które nie mają jednoznacznego pokrycia w badaniach 
+klinicznych zawartych w dokumentacji oceny zgodności. W procesie generowania opisów, agent 
+AI musi bezwzględnie weryfikować instrukcję używania (IFU). Co niezmiernie istotne, na mocy 
+Ustawy o działalności leczniczej, obowiązuje również całkowity zakaz reklamy usług 
+medycznych.
+6
+ W związku z tym, opisy zaawansowanych procedur oferowanych w klinikach (np. 
+terapii wykorzystujących konkretne wyroby) muszą koncertować się wyłącznie na rzetelnej, 
+pozbawionej perswazji warstwie informacyjnej, rezygnując z typowych dla e-commerce 
+mechanizmów call-to-action (wezwań do działania). Niewłaściwe jest używanie fraz takich jak 
+"najlepsza klinika" czy "gwarantowany efekt", podczas gdy sformułowania typu "klinika z 
+udokumentowanym doświadczeniem w procedurach" są prawnie bezpieczniejsze.
+2 
+Wymogi te bezpośrednio determinują strukturę działań SEO i GEO w branży zdrowotnej. 
+Niezwykle ważnym parametrem rankingowym w 2026 roku jest rygorystyczne oddzielenie 
+kompetencji zawodowych. Algorytmy sztucznej inteligencji, analizując zapytania użytkowników, 
+precyzyjnie rozróżniają zabiegi stricte kosmetologiczne od procedur medycznych (lekarskich). 
+Mieszanie tych odrębnych pojęć semantycznych i przypisywanie autorstwa tekstów medycznych 
+osobom bez uprawnień lekarskich drastycznie obniża wskaźniki wiarygodności domeny i 
+prowadzi do wykluczenia z wyników GEO.
+2
+ Zdjęcia kliniczne typu "przed i po" stanowią w tym 
+środowisku obszar podwyższonego ryzyka prawnego (tzw. pole minowe). Ich publikacja 
+wymaga precyzyjnego oznakowania i kontekstualizacji, aby nie zostały zinterpretowane przez 
+organy nadzorcze jako bezprawna obietnica sukcesu terapeutycznego. Muszą one 
+odzwierciedlać reprezentatywny, udokumentowany klinicznie przypadek, z zachowaniem 
+anonimowości i z poszanowaniem danych wrażliwych pacjenta.
+6 
+Optymalizacja w sektorze zdrowotnym wymusza zastosowanie strategii dwutorowej, 
+uwzględniającej podwójną naturę odbiorców (pacjent kontra profesjonalista). Zapytania 
+generowane przez pacjentów są zorientowane na szybką diagnozę i ulgę w objawach, 
+wykorzystują potoczny, nieskomplikowany język (np. "uporczywy kaszel leczenie", 
+"fizjoterapeuta ból pleców centrum") i wykazują intencję natychmiastowego znalezienia 
+rozwiązania.
+11
+ Z kolei zapytania od pracowników ochrony zdrowia (HCP) charakteryzują się 
+wysokim stopniem złożoności i naukowego rygoru (np. "prywatny protokół skierowania na USG 
+Doppler", "kardiolog z doświadczeniem w kardiomiopatii przerostowej").
+17
+ Agent AI tworzący 
+treści dla podmiotów leczniczych musi umiejętnie balansować na tej granicy, generując 
+
+architekturę informacji, która jest konwersacyjna i zrozumiała dla pacjenta, a jednocześnie 
+technicznie bezbłędna, aby zdobyć zaufanie wyszukiwarek.
+11 
+Sektor farmaceutyczny: Cyfryzacja, deregulacja i leki 
+OTC/Rx 
+Sektor produktów leczniczych (farmaceutyków) to kolejny obszar, w którym rok 2026 przyniósł 
+głębokie przeobrażenia systemowe, wymuszając całkowitą zmianę paradygmatu w dystrybucji 
+informacji produktowej. Kluczowym wydarzeniem była kompleksowa cyfryzacja i wdrożenie 
+modelu hybrydowego w reklamie, będące rezultatem prac Rządowego Zespołu do spraw 
+Deregulacji. Realizacja postulatu MZ-39-458, usankcjonowana nowym rozporządzeniem 
+Ministra Zdrowia zmieniającym zasady reklamy produktów leczniczych, zakończyła erę 
+papierowej biurokracji.
+14 
+Dotychczasowy, anachroniczny wymóg fizycznego powielania i dostarczania obszernych, 
+wielostronicowych Charakterystyk Produktów Leczniczych (SmPC) do setek tysięcy odbiorców 
+w branży medycznej generował gigantyczne koszty ekonomiczne i prowadził do marnotrawienia 
+zasobów naturalnych. Nowy model legislacyjny uznał te praktyki za nieefektywne i 
+niedostosowane do współczesnych realiów technologicznych. Zmiana ta ma nie tylko 
+uzasadnienie ekologiczne, ale przede wszystkim silne podłoże finansowe, dążąc do 
+maksymalizacji „ekonomiki procesów reklamowych”.
+14 
+Dla agenta AI odpowiedzialnego za generowanie stron docelowych (Landing Pages) produktów 
+leczniczych, nowelizacja oznacza diametralną rekonfigurację architektury informacji. Zniesienie 
+obowiązku fizycznego dołączania pełnych dokumentów narzuca obowiązek bezbłędnej 
+cyfryzacji danych i ich integracji na platformach cyfrowych należących do podmiotów 
+odpowiedzialnych. Agent AI musi obligatoryjnie wkodować w strukturę cyfrową opisu leku 
+wyczerpujący katalog zcyfryzowanych informacji, w skład którego wchodzą: precyzyjne 
+wskazania terapeutyczne, szczegółowe instrukcje dawkowania, lista przeciwwskazań, specjalne 
+ostrzeżenia, drobiazgowy opis potencjalnych działań niepożądanych oraz unikalny numer 
+pozwolenia na dopuszczenie do obrotu.
+14
+ Jedynym odstępstwem od tej postępującej cyfryzacji 
+jest klauzula wynikająca wprost z art. 54 Prawa farmaceutycznego. Narzuca ona bezwzględny 
+obowiązek utrzymania tradycyjnej, wyraźnej wizualnie formy informowania konsumenta o 
+kategorii dostępności leku (np. wyraźne oznaczenia Rx dla leków wydawanych z przepisu 
+lekarza oraz OTC dla preparatów ogólnodostępnych). Informacja ta musi być trwale i 
+nierozerwalnie złączona z każdym przekazem reklamowym.
+14 
+Równie istotne uwarunkowania prawne dotyczą promocji samych placówek dystrybuujących 
+farmaceutyki. W 2026 roku obowiązuje przełomowa opinia Rady Legislacyjnej (z 30 stycznia 
+2026 r.) odnosząca się do rządowego projektu nowelizacji Prawa farmaceutycznego. Projekt ten 
+historycznie znosi całkowity, generalny zakaz reklamy aptek i punktów aptecznych, zastępując 
+go dedykowanymi rygorami prawnymi.
+18
+ Wymaga to od systemów sztucznej inteligencji 
+ogromnej precyzji w formułowaniu komunikatów dotyczących asortymentu aptecznego. Systemy 
+
+muszą być wyposażone w zmienne blokujące, które uniemożliwią przekształcenie dozwolonej, 
+neutralnej informacji o dostępności towaru w bezprawną promocję samej placówki, opartą na 
+kryteriach cenowych lub jakościowych (np. kategoryczny zakaz używania przez AI sformułowań 
+typu "oferujemy najtańsze leki w mieście" czy "najlepsza apteka w regionie"). 
+Suplementy diety oraz żywność specjalnego 
+przeznaczenia medycznego (FSMP) 
+Rynek suplementów diety jest z prawnego punktu widzenia traktowany jako segment rynku 
+żywnościowego, podlegający regulacjom Ustawy z dnia 25 sierpnia 2006 r. o bezpieczeństwie 
+żywności i żywienia.
+19
+ Pomimo faktu, że w 2026 roku nie wprowadzono odrębnej, zapowiadanej 
+wcześniej dedykowanej ustawy o suplementach diety 
+20
+, sektor ten znajduje się pod 
+bezprecedensowym, niemal drakońskim nadzorem Głównego Inspektoratu Sanitarnego (GIS) 
+oraz UOKiK. Wynika to z historii nagminnych nadużyć rynkowych polegających na bezprawnym 
+przypisywaniu suplementom właściwości terapeutycznych zarezerwowanych wyłącznie dla 
+produktów leczniczych. Ewentualne naruszenia przepisów dotyczących prezentacji i reklamy, 
+niezgodne z zaostrzonymi wymogami na rok 2026 (takimi jak konieczność potwierdzenia jakości 
+i zgodności składu), zagrożone są dotkliwymi karami administracyjnymi. Kary te, wyliczane 
+proporcjonalnie do skali przewinienia, mogą oscylować w widełkach od 10 000 złotych do nawet 
+1 000 000 złotych, co czyni błąd agenta AI niezwykle kosztownym dla przedsiębiorstwa.
+21 
+Ponadto, w branży funkcjonuje Kodeks Dobrych Praktyk Reklamy Suplementów Diety. Jest to 
+zbiór samoregulacyjnych wytycznych, który porządkuje sposób komunikacji, promocji i reklamy, 
+mając na celu zapewnienie konsumentom rzetelnej, jasnej i pozbawionej manipulacji informacji 
+o tej kategorii produktów spożywczych. Agenci AI odpowiedzialni za obsługę marek będących 
+sygnatariuszami tego kodeksu muszą zostać zaimplementowani z dodatkową nakładką 
+weryfikującą zgodność treści z jego zasadami.
+22 
+Oświadczenia żywieniowe kontra oświadczenia zdrowotne (Reżim 
+EFSA) 
+Komunikacja i opisy w sektorze suplementacyjnym muszą bazować wyłącznie na 
+skodyfikowanych, rygorystycznie kontrolowanych unijnych rejestrach prowadzonych przez 
+Europejski Urząd ds. Bezpieczeństwa Żywności (EFSA).
+23
+ Agent AI generujący opis 
+suplementu nie posiada w tym zakresie prawa do abstrakcyjnej inwencji twórczej ani swobody 
+interpretacyjnej. Jego nadrzędnym zadaniem jest korelacja poszczególnych, faktycznie 
+występujących w produkcie składników aktywnych z oficjalną, zatwierdzoną europejską bazą 
+oświadczeń, a następnie wygenerowanie tekstu na tej podstawie. 
+Należy dokonać bezwzględnego rozróżnienia na dwa rodzaje deklaracji: 
+1. Oświadczenia żywieniowe: Dotyczą one bezpośrednio składu i właściwości fizycznych 
+samego produktu. Koncentrują się na wartości odżywczej i odnoszą do substancji w nim 
+zawartych (np. "Niska zawartość tłuszczu", "Wysoka zawartość błonnika", "Bez dodatku 
+
+cukru").
+24 
+2. Oświadczenia zdrowotne: To wszelkie deklaracje, które sugerują, stwierdzają lub 
+chociażby implikują istnienie relacji pomiędzy konkretną kategorią żywności, samą 
+żywnością lub jednym z jej składników, a zdrowiem człowieka (np. "Przyczynia się do 
+utrzymania prawidłowego funkcjonowania mięśni", "Wspomaga naturalną odporność"). 
+Oświadczenia te podlegają rygorystycznej ocenie naukowej EFSA. Z danych 
+historycznych wynika, że zaledwie około 30% z ponad 2300 złożonych aplikacji uzyskało 
+pozytywną opinię Komisji Europejskiej, podczas gdy przeważające 70% zostało 
+odrzuconych z powodu braku wystarczających i bezspornych dowodów naukowych.
+25 
+Ograniczenia lingwistyczne: Filtry słów zakazanych i bezpieczne 
+alternatywy GEO 
+Kategorycznym, niepodlegającym negocjacjom zakazem, wywodzącym się z art. 1 
+Rozporządzenia (WE) nr 1924/2006 oraz ustaleń nadzorczych GIS 
+19
+, objęte jest stosowanie w 
+kontekście suplementów diety jakichkolwiek sformułowań mogących sugerować właściwości 
+zapobiegania, leczenia, lub diagnozowania chorób ludzkich. 
+Agent AI odpowiedzialny za optymalizację w tym sektorze musi na wczesnym etapie 
+przetwarzania danych zaimplementować bezwzględny filtr lingwistyczny (Negative Keywords / 
+Stop words) oraz bazę słów zastępczych. Poniższa tabela strukturyzuje te wytyczne. 
+ 
+Słowa i Frazy 
+Bezwzględnie Zakazane 
+(Wysokie Ryzyko Kar) 
+Dopuszczalne, 
+Bezpieczne Alternatywy 
+(SEO i GEO Friendly) 
+Zjawiska i Trendy 
+Wyszukiwania w 2026 r. 
+(GEO) 
+leczy, zapobiega, wyleczy 
+28 
+wspomaga, wspiera 
+organizm 
+28 
+Snomedycyna (kategoria 
+produktów poprawiających 
+sen, unikająca definicji 
+leczenia bezsenności) 
+30 
+likwiduje (w kontekście 
+konkretnych objawów 
+chorobowych), uśmierza ból 
+przyczynia się do 
+utrzymania (prawidłowego 
+poziomu...), pomaga w 
+prawidłowym 
+funkcjonowaniu (np. układu 
+nerwowego) 
+Biohaking (działania 
+ukierunkowane na 
+optymalizację organizmu, 
+wymykające się rygorom 
+medycznym) 
+30 
+diagnozuje, regeneruje 
+tkanki po urazach 
+chorobowych, służy jako 
+bierze udział w naturalnych 
+procesach, wspiera 
+naturalne mechanizmy 
+Longevity 
+(długowieczność, jako 
+szeroki trend wellnessowy) 
+
+lekarstwo 
+30 
+chroni przed (np. rakiem), 
+zatrzymuje (np. rozwój 
+groźnego wirusa) 
+23 
+Mikrobiom (produkty 
+wspierające florę jelitową, 
+bez odnoszenia do 
+konkretnych schorzeń 
+układu pokarmowego) 
+30 
+Należy zwrócić szczególną uwagę na zjawisko przeniesienia oświadczenia. Zgodnie z 
+zasadami, w reklamie suplementu diety wolno stosować oświadczenia zdrowotne wyłącznie w 
+odniesieniu do precyzyjnie określonych składników, a nie całego gotowego produktu.
+28
+ Agent AI 
+może wygenerować zdanie: "Produkt X zawiera witaminę D, która przyczynia się do 
+prawidłowego funkcjonowania układu odpornościowego". Błędem i naruszeniem prawa jest 
+natomiast wygenerowanie frazy: "Produkt X wspomaga układ odpornościowy", ponieważ 
+przypisuje to oświadczenie niesprawdzonej pod kątem klinicznym mieszance komercyjnej. 
+Oświadczenia z rejestru można w niewielkim, nienaruszającym ich pierwotnego i naukowego 
+sensu stopniu parafrazować 
+26
+, aby dopasować je do płynnego języka marketingowego, 
+jednakże rdzeń komunikatu musi pozostać nienaruszony. 
+Odrębną, lecz pokrewną kategorią jest Żywność Specjalnego Przeznaczenia Medycznego 
+(FSMP), regulowana na mocy Rozporządzenia (UE) 609/2013.
+18
+ Mimo obecności słowa 
+"medycznego" w nazwie kategorii, zasady etykietowania, prezentacji i reklamy tej żywności są 
+bardzo zbliżone do rygorów suplementacyjnych. Skład FSMP jest komponowany tak, by 
+zaspokajać specyficzne wymogi żywieniowe pacjentów zmagających się z określonymi 
+schorzeniami, u których naturalne żywienie jest niemożliwe lub niewystarczające. Niemniej 
+jednak, opisy tych produktów nie mogą w żadnym wypadku wprowadzać w błąd ani 
+przypisywać żywności właściwości zapobiegania chorobom lub leczenia chorób ludzkich. 
+Komunikacja wygenerowana przez AI musi jednoznacznie wskazywać na dietetyczne 
+przeznaczenie produktu i stanowczo podkreślać niezbędny wymóg jego stosowania wyłącznie 
+pod nadzorem wykwalifikowanego lekarza.
+19 
+Sektor kosmetyczny: Bezpieczeństwo chemiczne i 
+oświadczenia o skuteczności 
+W roku 2026 branża kosmetyczna i dedykowane jej platformy e-commerce zmagają się z 
+koniecznością nawigowania w gąszczu nakładających się na siebie warstw regulacyjnych. 
+Nadrzędną rolę odgrywa tu unijne Rozporządzenie Kosmetyczne 1223/2009, określające ścisłe 
+zasady dotyczące składania deklaracji marketingowych i oświadczeń o skuteczności 
+produktów.
+31
+ Nowym, niezwykle istotnym czynnikiem determinującym rynkowy porządek są 
+zmiany określane mianem dyrektywy „Omnibus VIII”, które wprowadzają drastyczne 
+ograniczenia stężeń dla popularnych składników oraz nakładają nowe obowiązki informacyjne, 
+radykalnie przekształcając procesy e-commerce.
+7 
+
+Rygory informacyjne wynikające z „Omnibus VIII” 
+Nowe przepisy uderzają w same podstawy procesów e-commerce, nakazując całkowite i 
+natychmiastowe wyeliminowanie z rynku – w tym z przestrzeni wirtualnych platform 
+sprzedażowych – produktów, które nie spełniają nowo wyznaczonych, niezwykle 
+rygorystycznych limitów stężeń dla określonych komponentów chemicznych.
+33
+ Oznacza to, że z 
+dniem 1 maja 2026 r. sprzedaż i dystrybucja niespełniających norm kosmetyków staje się 
+nielegalna.
+33
+ Proces ten wymusza na zaawansowanych systemach informatycznych 
+konieczność nieustannego, bieżącego skanowania i weryfikowania parametrów w bazach PIM 
+(Product Information Management). 
+Zadaniem Agenta AI, zanim przystąpi on do generowania jakiegokolwiek opisu produktu, jest 
+walidacja krytycznych danych o składzie kosmetyku 
+7
+: 
+1. Dla kompozycji zapachowych na bazie wodno-alkoholowej: Agent musi zweryfikować, 
+czy stężenie regulowanych substancji nie przekracza dopuszczalnego maksymalnego 
+progu wynoszącego 2%. Przepis ten zawiera jednak wyłączenia, np. dla perfum i wód 
+toaletowych przeznaczonych dla dzieci poniżej 3 roku życia, dla których obowiązują 
+odrębne, jeszcze bardziej surowe restrykcje, których AI musi być świadome. 
+2. Dla wszystkich produktów spłukiwanych (rinse-off products): Wymagane jest 
+potwierdzenie, że stężenie wybranych składników nie przekracza 0,5%. Podobnie jak w 
+poprzednim przypadku, wprowadzono tu złożony system wyjątków (np. obejmujący żele 
+pod prysznic, produkty do kąpieli, preparaty do mycia rąk czy specyficzne szampony, 
+szczególnie te dedykowane najmłodszym), które wymagają od algorytmów precyzyjnego 
+mapowania kategorii produktu względem bazy reguł prawnych. 
+Jakakolwiek pomyłka zautomatyzowanego systemu, skutkująca wyeksponowaniem na 
+platformie sprzedażowej składu niezgodnego z nowymi normami (lub co gorsza, zatajeniem 
+tych informacji), naraża przedsiębiorcę na poważne sankcje administracyjne, a w skrajnych 
+przypadkach – nawet na odpowiedzialność cywilną i karną oraz czasowe zamknięcie 
+działalności.
+7
+ Przygotowanie do tych zmian oznacza w praktyce konieczność dokładnego 
+audytu magazynów i selekcji asortymentu przed ich wejściem w życie, a AI jest niezbędne do 
+masowej analizy tysięcy indeksów produktowych.
+33
+ Ponadto, każdy produkt kosmetyczny przed 
+wprowadzeniem do obrotu musi posiadać pełną ocenę bezpieczeństwa oraz być poprawnie 
+zarejestrowany w europejskim systemie CPNP (Cosmetic Products Notification Portal).
+34 
+Transparentność i oświadczenia o skuteczności (Cosmetic Claims) 
+Zgodnie z unijnym rozporządzeniem 1223/2009, każdy opis kosmetyku generowany przez 
+twórców i algorytmy musi bezwzględnie spełniać sześć fundamentalnych kryteriów: musi być 
+rzetelny, poparty dowodami (naukowymi lub badaniami konsumenckimi), prawdziwy, jasny, 
+sprawiedliwy względem konkurencji oraz uczciwy wobec nabywcy.
+31 
+W 2026 roku e-commerce beauty funkcjonuje w realiach skrajnej transparentności, gdzie 
+konsumenci odrzucają narrację opartą wyłącznie na niepotwierdzonych obietnicach, żądając 
+
+twardych, mierzalnych dowodów w postaci badań klinicznych, dokumentacji skuteczności i 
+przejrzystych procesów produkcyjnych.
+32
+ W związku z tym, agent AI przy tworzeniu strategii i 
+treści musi stosować następujące zasady: 
+● Zakaz eksponowania oczywistości prawnych: Wysoce niepożądane i noszące 
+znamiona wprowadzania w błąd jest uwypuklanie jako wyjątkowej zalety produktu faktu, iż 
+nie zawiera on substancji, których stosowanie w przemyśle kosmetycznym jest z mocy 
+prawa od dawna zakazane na terenie Unii Europejskiej (np. dumnie brzmiące hasło 
+"Formuła wolna od freonów"). Takie praktyki uznawane są za formę ukrytego 
+greenwashingu.
+4 
+● Weryfikacja certyfikatów: Jeżeli strategia marketingowa wymaga użycia sformułowań 
+takich jak "w 100% bio", "cruelty-free" (nie testowane na zwierzętach) czy "wegański", 
+agent AI musi odwołać się do dokumentacji potwierdzającej te właściwości odpowiednim, 
+niezależnym certyfikatem (np. COSMOS Organic dla kosmetyków naturalnych).
+4
+ 
+Informacja o posiadanym certyfikacie powinna być eksponowana w bezpośrednim 
+sąsiedztwie oświadczenia marketingowego, budując autentyczność przekazu w oczach 
+świadomych konsumentów i rygorystycznych algorytmów GEO.
+4
+ Autentyczne 
+rekomendacje influencerów w social mediach pokazujące codzienne zużycie mogą 
+wzmocnić przekaz, jednak muszą dotrzymywać tych samych rygorów uczciwości.
+34
+ Z 
+perspektywy estetyki w e-commerce w 2026 roku dominuje minimalizm, stosowanie 
+naturalnych kolorów i autentyczność obrazów wspierających te dowiedzione deklaracje.
+34 
+Sektor usług i produktów finansowych (YMYL: 
+Finanse) 
+Branża finansowa to obszar, w którym wymogi przejrzystości, skodyfikowane przez organy 
+nadzorcze takie jak KNF (Komisja Nadzoru Finansowego) czy UOKiK, nakładają niezwykle 
+wąskie ramy na dopuszczalną kreatywność w copywritingu. W okresie między 2023 a 2026 
+rokiem zaimplementowano krytyczne z punktu widzenia ochrony konsumenta dyrektywy – na 
+szczególną uwagę zasługuje tu Dyrektywa (UE) 2023/2225, która sukcesywnie zastąpiła 
+poprzednie ramy prawne ujęte w dyrektywie 2008/48/WE w dziedzinie kredytów 
+konsumenckich, dążąc do ułatwienia transgranicznego udzielania kredytów oraz ograniczenia 
+negatywnych skutków rynkowych dla konsumentów.
+35 
+Konstrukcja i algorytmizacja Przykładu Reprezentatywnego 
+Najważniejszą i najpilniej strzeżoną przez organy nadzorcze zmienną strukturalną w opisach 
+wszelkich produktów ratalnych, kredytów gotówkowych, hipotecznych czy pożyczek 
+konsolidacyjnych jest ujednolicony Przykład reprezentatywny. Zgodnie z wytycznymi UOKiK i 
+transponowanym prawem unijnym, dane finansowe nie mogą być prezentowane przez 
+algorytmy w sposób chaotyczny, wybiórczy czy arbitralny.
+35
+ Zawsze muszą one znajdować się w 
+obrębie jednego, spójnego bloku informacyjnego i rzetelnie odzwierciedlać reprezentatywne 
+ujęcie kosztów, jakie poniósłby typowy konsument decydujący się na zaciągnięcie danego 
+
+zobowiązania. Ponadto wymagane jest, aby kredytodawca, przed zawarciem umowy 
+wykorzystującej wskaźnik referencyjny, podał wyraźną informację o jego nazwie i ewentualnych 
+konsekwencjach jego wahań.
+35 
+Agent AI tworzący podstronę dedykowaną usłudze kredytowej (lub projektujący tekst do 
+kampanii reklamowej, z włączeniem w to kampanie e-mail marketingowe i social media) jest 
+zobowiązany do bezbłędnego zintegrowania pełnego zestawu zaktualizowanych danych.
+36 
+Poniższa tabela szczegółowo rozpisuje składowe elementy wymagane do wygenerowania 
+poprawnego pod względem prawnym przykładu reprezentatywnego: 
+ 
+Składowa Przykładu 
+Reprezentatywnego 
+Opis i Wymagania dla 
+Algorytmu 
+Przykładowa Prezentacja 
+(zgodna z przepisami na 
+2026) 
+Całkowita Kwota Kredytu Kwota kapitału 
+udostępnionego klientowi, 
+wyłączając jakiekolwiek 
+koszty, prowizje i opłaty na 
+etapie uruchomienia.
+38 
+"Całkowita kwota kredytu 
+(bez kredytowanych 
+kosztów): 10 000 zł" 
+Rzeczywista Roczna 
+Stopa Oprocentowania 
+(RRSO) 
+Najważniejszy wskaźnik 
+referencyjny. Wymaga 
+wyraźnego 
+wyeksponowania, często 
+wyróżnienia wielkością 
+fontu lub stylem. Pozwala 
+na realne porównanie ofert 
+w skali roku.
+37 
+"RRSO: 11,5%" 
+Rodzaj i Stopa 
+Oprocentowania 
+Jasne zadeklarowanie, czy 
+w danym przykładzie 
+oprocentowanie jest stałe, 
+czy też zmienne, ze 
+wskazaniem aktualnej stopy 
+nominalnej w stosunku 
+rocznym.
+36 
+"Oprocentowanie stałe: 
+13,56% rocznie" 
+Okres Kredytowania i 
+Harmonogram Spłat 
+Podanie liczby miesięcy 
+oraz precyzyjne wskazanie 
+struktury i wysokości rat 
+(np. informacja o 
+"Okres kredytowania: 60 
+miesięcy. 59 rat równych po 
+458,48 zł i ostatnia rata 
+wyrównująca 458,40 zł" 
+
+ewentualnych ratach 
+wyrównujących, jeśli 
+występują ułamki).
+36 
+Całkowity Koszt Kredytu 
+(z rozbiciem) 
+Zsumowana wartość 
+wszystkich obciążeń ponad 
+pożyczony kapitał. Wymaga 
+detalicznego podziału na 
+sumę odsetek, sumę 
+prowizji oraz wszelkie 
+dodatkowe opłaty 
+narzucone przez bank (np. 
+koszt obsługi karty 
+kredytowej).
+36 
+"Całkowity koszt kredytu: 11 
+003,52 zł (w tym: prowizja: 
+1 500 zł, odsetki: 9 503,52 
+zł)" 
+Całkowita Kwota do 
+Zapłaty 
+Ostateczna, zsumowana 
+kwota, którą konsument 
+musi zwrócić do instytucji 
+finansowej na przestrzeni 
+całego trwania umowy 
+(Suma Całkowitej Kwoty 
+Kredytu i Całkowitego 
+Kosztu).
+37 
+"Całkowita kwota do zapłaty 
+przez konsumenta: 21 
+003,52 zł" 
+Data Obowiązywania 
+Kalkulacji 
+Prawny wymóg określający 
+na jaki dzień wyliczono 
+reprezentatywność 
+symulacji opartych na 
+zmiennych stopach lub 
+aktualnych tabelach opłat i 
+prowizji.
+37 
+"Kalkulacja sporządzona na 
+dzień 20.04.2026 r." 
+ 
+
+ 
+
+ 
+Zgodnie z przepisami dotyczącymi umów o kredyt konsumencki z 2008 r. i znowelizowanymi 
+prawem do zrezygnowania 
+35
+, AI powinno również dbać o widoczność informacji o prawie do 
+odstąpienia od umowy bez podania przyczyny w terminie 14 dni, oraz prawie do wcześniejszej, 
+darmowej spłaty, o ile instytucja nie spełnia warunków do naliczenia rekompensaty.
+35
+ System 
+musi brać pod uwagę ostrzeżenia przed rejestrami prowadzonymi przez KNF i dbać o 
+zamieszczenie w komunikatach informacji, iż agent sprzedający produkt wpisany jest jako 
+pośrednik do rejestru KNF pod właściwym numerem (np. RPK).
+38 
+Ryzyko w komunikacji inwestycyjnej: Ograniczenia i budowa 
+autorytetu w erze GEO 
+Polityka informacyjna i kreacje reklamowe towarzystw funduszy inwestycyjnych (TFI) czy 
+platform tradingowych poddawane są bezkompromisowej ocenie KNF. Urząd ten w przeszłości 
+stanowczo i dotkliwie karał instytucje finansowe, które eksponowały historyczne bądź 
+prognozowane spektakularne stopy zwrotu, pomijając lub bagatelizując konieczne z punktu 
+widzenia etyki ostrzeżenia o ryzyku utraty kapitału inwestycyjnego. Obiecywanie w tekstach 
+reklamowych zysków na poziomie rzędu "170 czy 300 proc.", w ocenie KNF, wytwarza u mniej 
+doświadczonych, nieprofesjonalnych konsumentów mylne i groźne przeświadczenie, jakoby 
+wysokiego ryzyka fundusz stanowił absolutnie bezpieczny, a o wiele bardziej rentowny substytut 
+lokaty bankowej lub obligacji skarbowych.
+41
+ W przygotowywaniu materiałów warto czerpać z 
+kodeksów dobrych praktyk opracowywanych na przykład przez Związek Banków Polskich, które 
+ustanawiają dodatkowe bariery dla wprowadzającego w błąd przekazu.
+42 
+Zasady warunkujące działanie algorytmów tekstowych (LLM) w obszarze tworzenia opisów 
+produktów inwestycyjnych przedstawiają się następująco: 
+● Zasada proporcjonalności i równorzędności ryzyka: Za każdym razem, gdy 
+wygenerowany tekst wymienia jakąkolwiek potencjalną stopę zwrotu z inwestycji (np. 
+"szacowana roczna stopa wynosi do 12%"), system musi automatycznie wkomponować w 
+ten sam blok semantyczny równie czytelne, pozbawione manipulacji ukrywaniem 
+ostrzeżenie, traktujące o realnym ryzyku całkowitej lub częściowej utraty 
+zainwestowanego kapitału. Nie można chować tej informacji w przypisach ani 
+pomniejszać wielkości czcionki.
+41 
+● Rola Prospektu Emisyjnego: Określenie, że "KNF zatwierdził prospekt", odnosi się 
+wyłącznie do faktu sprawdzenia przez organy państwowe kompletności, spójności i 
+zrozumiałości przedłożonej dokumentacji technicznej i finansowej.
+43
+ Instytucja ta nie 
+udziela w ten sposób żadnej gwarancji czy certyfikatu rentowności przedstawianego w 
+nim modelu biznesowego przedsiębiorstwa. Agent AI generujący komunikaty inwestycyjne 
+posiada w swoich logikach filtrujących absolutny zakaz formowania twierdzeń 
+sugerujących, że: „Inwestycja gwarantowana przez organ państwowy KNF”.
+43 
+W kontekście działań zorientowanych na zdobywanie widoczności (GEO) w bardzo 
+konkurencyjnym sektorze usług finansowych B2B i innowacji technologicznych (FinTech) w 
+
+2026 roku, strategia opiera się nie na klasycznym powielaniu fraz kluczowych, ale na 
+precyzyjnym celowaniu w wysoko wolumenowe zapytania specjalistyczne (tzw. long-tail 
+keywords), takie jak: "rozwiązania z zakresu cyberbezpieczeństwa", "migracja chmurowa", 
+"systemy ERP", czy "implementacja API płatności B2B".
+13
+ Firmy budują zaufanie algorytmów AI 
+(np. agentów autonomicznych weryfikujących dostawców 
+45
+) publikując unikalne, zgromadzone 
+wewnętrznie dane (Proprietary Data), udostępniając szczegółowe raporty behawioralne oparte 
+na nawykach oszczędnościowych lub najnowsze trendy rynkowe (BPNL), które stają się 
+powszechnie i automatycznie cytowanym przez sztuczną inteligencję ostatecznym źródłem 
+weryfikowalnej prawdy o rynku.
+13
+ Edukacyjne wpisy blogowe poprawiają wiarygodność według 
+algorytmów E-E-A-T, ale jedynie pod warunkiem polegania na udokumentowanych statystykach 
+z certyfikowanych baz branżowych, dostosowanych do zapytań o charakterze wysoce 
+intencyjnym.
+46
+ Istotną rolę odgrywa też Local SEO – potencjalni klienci preferują współpracę z 
+lokalnymi podmiotami finansowymi.
+46 
+Ekologia, Zrównoważony Rozwój i Systematyczna 
+Eliminacja Greenwashingu 
+Rok 2026 stanowi punkt zwrotny i ostateczną cezurę dla komunikacji bazującej na zjawisku 
+nadużywania pojęć zrównoważonego rozwoju, znanego jako greenwashing. Do 27 marca 2026 
+r. upłynął narzucony przez struktury europejskie termin na całkowite wdrożenie rygorystycznych 
+przepisów unijnej dyrektywy EmpCo (Empowering Consumers for the Green Transition) do 
+prawodawstwa wszystkich państw członkowskich. Od 27 września tego samego roku owe 
+wymogi wkraczają w fazę bezwzględnego, operacyjnego obowiązywania.
+4
+ Przepisy EmpCo, 
+funkcjonujące w ścisłej korelacji z postanowieniami i wymogami założeń dyrektywy Green 
+Claims (która mimo chwilowych zawirowań legislacyjnych wstrzymujących jej implementację 
+wyznaczyła nieodwracalny kurs na rynkową transparentność), nakładają bezprecedensowe 
+obostrzenia prawno-lingwistyczne nie tylko na wielkie agencje kreatywne, ale bezpośrednio 
+determinują budowę algorytmów sztucznej inteligencji służących do e-commerce.
+4 
+Czarna lista dyrektywy EmpCo i delegalizacja ogólników 
+Agent AI programujący opisy produktów e-commerce musi z dniem wdrożenia dyrektyw 
+całkowicie zaprzestać generowania pojemnych, generycznych przymiotników o zabarwieniu 
+ekologicznym, które przez lata stanowiły bezkosztowy fundament "zielonego" marketingu. 
+Ustawodawca wprowadza absolutny zakaz stosowania jakichkolwiek ogólnych twierdzeń 
+środowiskowych, o ile nie są one w sposób natychmiastowy i precyzyjny szczegółowo 
+wyjaśnione, poparte udokumentowanymi danymi i uwiarygodnione poprzez niezależne, 
+certyfikowane instytucje zewnętrzne o udowodnionej reputacji.
+4
+ W Niemczech procedury 
+weryfikacyjne dla green marketingu na mocy obu dyrektyw są na końcowym etapie 
+legislacyjnym mającym ugruntowanie rynkowe w 2026 roku.
+47 
+Słownik Stop-words (Frazy zakazane do użytku komercyjnego przez algorytmy) na mocy 
+
+EmpCo: 
+● Słowa bazowe: „Eko”, „Ekologiczny”, „Zielony produkt”, „Przyjazny dla środowiska”, 
+„Przyjazny dla planety”, „Zrównoważony”.
+4 
+● Deklaracje klimatyczne: Określenie „Neutralny klimatycznie” zostało uznane za wysoce 
+manipulacyjne, w szczególności, gdy jest ono używane bez podania wyraźnego kontekstu 
+różnicującego rzeczywistą twardą redukcję emisji operacyjnych od zjawiska zwanego 
+offsetowaniem (czyli wykupywaniem certyfikatów węglowych na rynku zewnętrznym, które 
+tylko matematycznie równoważą emisję zanieczyszczeń).
+4
+ Wymagane jest korzystanie z 
+wiarygodnych oznaczeń ułatwiających odpowiedzialną konsumpcję, np. „The EU 
+Ecolabel”.
+5 
+Od strony sankcyjnej ryzyko jest dla przedsiębiorców kolosalne. UOKiK w samej Polsce w roku 
+2026 przeprowadza zmasowane kontrole obejmujące szerokie spektrum podmiotów – 
+poczynając od branży odzieżowej, przez sektor spożywczy, logistykę kurierską, aż po gigantów 
+rynku kosmetycznego. Używanie mętnych i nieweryfikowalnych sformułowań (takich jak 
+klasyczne "dbałość o środowisko mamy w naszym korporacyjnym DNA" czy "nasze procesy 
+stają się coraz bardziej ekologiczne") spotyka się z błyskawiczną reakcją w postaci nakładania 
+sankcji finansowych.
+10
+ Mogą one osiągać drastyczny pułap do 10% rocznego obrotu na terenie 
+jurysdykcji polskiej, podczas gdy regulacje unijne w ramach projektów Green Claims definiują 
+próg sankcji na minimalnym poziomie 4%.
+4
+ Kary dla kadr zarządczych jednostek rynku 
+finansowego naruszających prawo zrównoważonego rozwoju mogą z kolei osiągać poziom do 5 
+milionów PLN.
+48
+ Dodatkowo firmy muszą przygotować działy audytu i compliance do dyrektywy 
+o przejrzystości wynagrodzeń wewnątrz firmy, aby działania odpowiedzialne społecznie (ESG) i 
+walka z greenwashingiem były kompleksowe.
+4
+ W wielu krajach UE nakładano już grzywny 
+rzędu 5 mln EUR za fałszywe deklaracje ekologiczne, a giganci technologiczni oskarżeni byli o 
+fabrykowanie danych o CO2.
+4 
+Ramy Dozwolonych "Zielonych" Opisów (Green Claims Framework) i 
+Analiza Cyklu Życia 
+Strategia adaptacyjna zakłada przejście z epoki marketingu obietnic do ery inżynieryjnego 
+udowadniania zrównoważenia za pomocą faktów. Każde opublikowane na stronie internetowej 
+lub podanej przez model językowy oświadczenie ekologiczne musi stanowić tzw. twarde 
+twierdzenie konkretne. Naczelnym narzędziem obiektywizującym, z którego certyfikowane 
+raporty muszą być zaczytywane przez agentów językowych, by wygenerować treść, staje się 
+rygorystyczna analiza całego cyklu życia produktu – Metodologia LCA (Life Cycle Assessment), 
+analizująca proces powstawania od pozyskania naturalnych surowców, poprzez 
+wysokoenergetyczną produkcję, aż po docelową, finalną i opłacalną utylizację odpadów.
+4 
+Ścisłe, analityczne wytyczne implementacyjne dla systemów i algorytmów AI 
+4
+: 
+● Techniczne Konkrety Zamiast Abstrakcji: Sformułowanie "Opakowanie i produkt są 
+bardzo przyjazne dla otaczającego nas środowiska" zostaje bezwzględnie zablokowane i 
+
+oznaczone jako błąd logiczny. W jego miejsce algorytm posiłkujący się bazą danych PIM 
+implementuje precyzyjny odpowiednik: "Nasze opakowanie zewnętrzne jest w 30% 
+wykonane z plastiku, który wprost pochodzi ze źródeł certyfikowanego recyklingu" lub 
+"Emisje CO2 powiązane ściśle z dystrybucją tego wyrobu zostały zredukowane o połowę 
+w stosunku do parametrów mierzonych w 2020 roku" (są to przykłady uznane na 
+podstawie wytycznych Komisji UE).
+4
+ Inne dozwolone sformułowanie brzmiałoby: "Ślad 
+środowiskowy firmy obniżono o 20% od roku 2015".
+5
+ Natomiast fałszywe oznakowania 
+cyrkularne i wymuszanie powtarzającego, zaprogramowanego celowego postarzania 
+maszyn i urządzeń, skutkujące wymuszaniem sztucznej wymiany sprzętu, są absolutnie 
+zakazane.
+4 
+● Architektura Oświadczeń dotyczących Przyszłości: Modele generatywne nie mogą 
+samoistnie formułować luźnych, wizerunkowych, wizjonerskich obietnic typu: "Grupa 
+kapitałowa planuje stać się całkowicie neutralna klimatycznie dla planety do odległego 
+2035 roku". Dyrektywa EmpCo zezwala na publikację tego typu deklaracji wyłącznie pod 
+warunkiem, że są one uwarunkowane zatwierdzonym i publicznie udostępnionym 
+mierzalnym oraz opartym o wskaźniki (KPIs) szczegółowym biznesplanem redukcji misji 
+gazów cieplarnianych.
+4
+ Z perspektywy technologii SEO/GEO agent AI generujący ten opis 
+wprost na landing page korporacji musi osadzić natywny hiperlink lub bezpośrednio 
+zacytować najnowszą rewizję z zewnętrznego, audytowanego raportu (tzw. niezależnego 
+monitoringu zrównoważonego postępu), tak, by inteligentne algorytmy pająków 
+skanujących miały pewność posiadania ciągłości merytorycznej dowodów o postępie 
+względem wytycznych UE. 
+● Delegalizacja zjawiska Greenwashingu w Ukryciu: Zjawisko eksponowania prawnych 
+wymogów i restrykcji tak, jakby stanowiły one o przewadze danego przedsiębiorstwa, 
+stało się surowo zakazane. Jeżeli nadrzędne przepisy z góry nakazują, że aerozole nie 
+mogą zawierać freonów lub ustawa precyzyjnie limituje dodawanie szkodliwych 
+mikroplastików, agent piszący teksty dla szamponów w sklepie nie ma prawa wyciągnąć 
+cechy "Wyrób bezpieczny – w pełni wolny od mikrodrobin plastiku" i umieścić jej na 
+sztandarach haseł reklamowych. Tego typu zabieg stanowi oczywiste nadużycie zaufania 
+względem faktu powszechnego obowiązku prawnego i uchodzi w prawnym słowniku jako 
+działanie jawnie oszukujące i wprowadzające konsumenta w niechciany błąd 
+intelektualny.
+4
+ Etykiety i oznaczenia ekologiczne stworzone wewnętrznie, wydawane 
+"samodzielnie przez korporacje" na ich własne certyfikowane produkty również padły 
+ofiarą nowych czarnych list.
+4
+ W 2026 wymagane było wstępne zbadanie certyfikacji 
+oświadczeń naukowych przez w pełni zewnętrznych, uznanych przez środowisko 
+uniwersyteckie ekspertów jeszcze z dala od wprowadzenia na rynek.
+4
+ Dla sektora 
+odzieżowego nie do zaakceptowania pozostają też zwroty o "certyfikacie na w 100% 
+użyciu materiałów Bio", gdy test i gwarancja obejmuje tyko jakiś jeden półprodukt i 
+cząstkowy skład.
+4 
+Komunikacja Prawna w Social Mediach: Obowiązki 
+
+Oznaczeń przez Sieci Influencerów 
+Cykl dystrybucji treści produktowych i kampanii brandingowych, po zaawansowanym etapie 
+rygorystycznego modelowania zautomatyzowanego oraz ich formalnej certyfikacji, z reguły 
+wieńczy się procesami dyspersji (rozproszenia) polegającymi na zaangażowaniu 
+wyspecjalizowanych programów ambasadorskich na platformach takich jak TikTok, Instagram 
+czy LinkedIn, zarządzanych przez sieci makro- i nano-influencerów.
+34
+ Według precyzyjnych i 
+wyjątkowo konsekwentnie kontrolowanych rekomendacji UOKiK, nowelizowanych 
+merytorycznie na docelowy stan z roku 2026 
+9
+, i zaopatrzonych o celowe zalecenia branżowe 
+dla środowisk np. KNF (dedykowane rynkom Finfluencerów 
+8
+), jakikolwiek materiał 
+audiowizualny, rolka typu wideo czy artykuł będący choćby odległym refleksem obiektywnego 
+zaangażowania finansowego, bądź najdrobniejszej, namacalnej rekompensaty i korzyści 
+materialnej, obliguje twórców do zadeklarowania prawnego przed rynkiem tej 
+transparentności.
+49
+ Na polskim rynku to zaufanie stało się priorytetowym powodem sięgania po 
+mniejsze zasięgi o wysokim stopniu lojalności odczuć konsumenta w ramach działań "nano-" i 
+"mikroinfluencerów".
+42 
+Rola projektanta sztucznej inteligencji czy wspierającego te sieci agencji agenta AI leży po 
+części w konieczności tworzenia dedykowanych scenariuszy (tak zwanych "social hooks", 
+zajawek) wyposażających influencera i platformę sprzedażową we wstępne moduły zawierające 
+nieodłączne bloki z wymuszonym oznaczaniem prawno-hashtagowym wpisanym bezpośrednio 
+w opis. Algorytmicznie oznacza to następujące wymogi dla treści 
+9
+: 
+● Pełna współpraca w ramach mechanizmów komercyjnych: Nakaz używania 
+rzucających się w oczy, wbudowanych już funkcjonalności poszczególnych ekosystemów 
+(np. naklejki czy oznaczenia „Płatne partnerstwo” oferowanego w narzędziach tworzenia), 
+lub konieczność dokonania jawnego oznaczania za pomocą tagów definiujących wprost 
+pojęcie i sens współpracy. Standardowymi tagami są tu #reklama lub bliskoznaczne 
+#materiałreklamowy. Mechanizm ten urzeczywistnia się prawnie w każdym 
+udowodnionym momencie uzyskania przez wpływowego twórcę, tak zwanej, 
+ustrukturyzowanej prowizji z lejka sprzedażowego, pobrania przez twórcę 
+udokumentowanego wynagrodzenia pieniężnego czy po prostu odniesienia konkretnej 
+formy majątkowej polegającej chociażby na przyznaniu w prezencie drogich voucherów 
+promocyjnych, dedykowanych dużych zniżek abonamentowych czy choćby zwrotach 
+poniesionych ogromnych kosztów biletowych na wejścia ekskluzywnych gal i imprez 
+premierowych.
+9
+ Kwestia dotyczy także generowania obrotów i zysków z wdrożonej polityki 
+udostępniania kodów rabatowych czy afiliacji od udzielanych dla widzów kanału praw 
+własności intelektualnej i specjalnie wykreowanych zniżek na dystrybucję usług lub 
+biletów wstępu.
+49
+ Brak tego typu zintegrowanego oznaczenia dla zysków o statusie 
+rekompensaty dla kanałów o wielomilionowych zasięgach oznacza kary, o których 
+rozstrzyga się nie na drodze postępowania ugodowego z partnerem i agencją PR, a 
+poprzez nadzór rządowego prezesa UOKiK.
+9
+ W 2026 r. narzędzia cyfrowe automatycznie 
+nakładają takie oznaczenia np. w postaci nałożonego opisu bądź wklejonego napisu 
+
+umiejscowionego precyzyjnie bezpośrednio na filmach (dla mediów strumieniowych i rolek 
+społecznościowych).
+9 
+● Obowiązki wobec promowania wykreowanych inicjatyw typu Autopromocja: Przy 
+usilnym propagowaniu i wprowadzaniu do dystrybucyjnego e-commerce przez 
+zasięgowego influencera w pełni posiadanej księgi autorskiej (powieści, nowel), prywatnej, 
+własnoręcznie wyprodukowanej i spieniężanej autorskiej metody czy wiedzy ze 
+zrealizowanego e-booka czy abonamentu, prawna przejrzystość na portalu wymaga 
+zastosowania oznaczenia #autopromocja.
+9 
+● Paczki powitalne PR oraz drobne prezenty niepieniężne: Niejasności w sprawach 
+logistycznych dotyczących przyjmowanych w geście docenienia materiałów i gadżetów od 
+domów produkcyjnych i PR podmiotów produkcyjnych nie wyłączają ich z reguł 
+kontrolnych UOKiK. Masowe wysyłanie potężnych setów asortymentu kosmetycznego do 
+losowych twórców kanałów technologicznych o małych formatach lub urodowych w 
+ramach strategii masowego kreowania widzialności w celu pobudzenia zainteresowania 
+rynku produktem (z nastawieniem do zaprezentowania radosnego testowania na kanale 
+live) nakazuje wyraźnie oznakować post ze zgodą na umieszczenie notatek takich jak 
+"Prezent / Paczka promocyjna typu PR", celem wyeliminowania elementu manipulowania i 
+wprowadzania dezinformacji opinii w kwestii zacierania intencji stojących w zaufaniu 
+obiektywnego kanału.
+9 
+W wymagającym, ustrukturyzowanym sektorze finansowym osoby definiowane szeroko jako 
+„Finfluencerzy” objęci są specjalnymi, niefortunnymi reżimami od nadzoru, jako że ich zasięg 
+odziaływania narzuca wysokie implikacje dla budżetów domowych swoich słuchaczy. 
+Wynikająca z oficjalnych kampanii uświadamiających KNF doktryna postępowania głosi 
+kategoryczne zalecenia unikania przez owych cyfrowych doradców prowadzenia jakichkolwiek 
+ustrukturyzowanych działań, które swoim profesjonalnym kształtem wskazywałyby i 
+przypominały usługi w ujęciu spersonalizowanym skierowanym z bezpośrednią diagnozą 
+inwestycyjną do zindywidualizowanych, precyzyjnie wybranych i zdefiniowanych osób z profilu 
+kanału, chyba, że posiadają prawne licencje i są uznawanymi w Polsce agentami 
+certyfikowanych renomą firm i podmiotów prawnych.
+8
+ Wskazane i przekazywane u nich z 
+ogromną pewnością i wielką wiarą we wzrost publiczne materiały promocyjne o nawiązywaniu 
+sojuszniczych działań z taką giełdą handlową czy domami maklerskimi zobowiązane są na czas 
+kampanii dostarczać precyzyjne, w pełni i starannie opracowane, wolne od stronniczych 
+przekształceń treści, które nie dokonują niedopuszczalnego odseparowywania uwarunkowań 
+związanych ze zmienną rynkową strat ryzyka w handlowych strukturach giełd kryptograficznych 
+z jednoczesnym uwypuklaniem zysku instrumentu finansowego u potencjalnego dostawcy 
+usługi obrotu środkami oszczędnościowymi.
+8
+ Finfluencer, który przyjmuje zapytanie, 
+zobowiązany na bieżąco sprawdzać co de facto popiera jego osoba na swoim kanale, ma 
+wiedzę o znajomości uwarunkowań dyrektyw a we wdrażanych współpracach zawsze 
+powiadamiać otwarcie rynek.
+8 
+Modelowanie Matrycy Decyzyjnej Agenta AI: Algorytm 
+
+Budowania Prawnych Treści 
+Mając na uwadze przedstawioną, wysoce zdywersyfikowaną, obwarowaną skomplikowanymi 
+uwarunkowaniami prawnymi w zakresie poszczególnych dziedzin oraz dynamikę postępujących 
+przemian algorytmów na styku wyszukiwania i mechanizmów sztucznej wiedzy generatywnej w 
+technologiach opartych o intencje w wyszukiwarkach (GEO) w ujęciu 2026 roku, idealnie 
+zaprogramowany zorientowany w architekturze tekstu sieciowego sztuczny agent musi działać 
+na bazie wyjątkowo surowego podziału na kroki. Owy agent funkcjonuje niczym procesor 
+odpowiadający za copy na witrynie i tworzenie kampanii wedle rygorystycznego w budowie 
+algorytmu i ustrukturyzowanego tzw. "drzewa decyzji". Poniżej znajdująca się zsyntetyzowana 
+ustrukturyzowana tabela krokowa pełni merytoryczną oraz wytyczną implementacyjną formę 
+działań proceduralnych w programowaniu logiki w tym sektorze. Zapewnia ona bezbłędny 
+system zabezpieczeń algorytmów zautomatyzowanych agentów wspierających podmioty 
+medyczne, e-commerce oraz zaawansowanych instytucji rynku ubezpieczeń kapitałowych. 
+Wytyczne pod kątem spójności dla systemu programowania SEO i generowania GEO 
+budowane są za daną bazą danych: 
+ 
+Krok Implementacji Logiki 
+AI 
+Akcja / Zależności / 
+Decyzja Algorytmu 
+Specyficzne Parametry 
+Narzuconych Modeli 
+Branżowych 
+Krok 1: Kategoryzacja 
+Klasyfikacji Prawnej 
+(Entity Verification & PIM 
+Check) 
+Skanowanie surowej bazy i 
+specyfikacji, indeksowanie 
+dokumentacji 
+ustrukturyzowanej pod 
+względem bazy produktów 
+z bazy zarządzania tak 
+zwanej systemu PIM 
+(Product Information 
+Management). AI dokonuje 
+precyzyjnego przypisania i 
+ustrukturyzowania zmiennej 
+narzucającej prawo 
+regulowane względem 
+statusu wyrobu i produktu: 
+Wyrób Medyczny / Żywność 
+Zwykła i Suplementy Diety z 
+FSMP / Certyfikowany 
+Kosmetyk ujęty prawem UE 
+/ Konsumencki Kredyt 
+Inwestycyjny i Rynek 
+Zbudowanie logicznej i 
+semantycznej bazy z 
+podziałem dla silnika. Jeśli 
+"Laser IPL lub Pielucha" to 
+przypisz pod reżim 
+"Ostrożnie - MDR - Wyrób 
+medyczny - nakaz 
+dystrybucji z disclaimerem". 
+Jeśli "Krem SPF", to 
+"Sprawdzaj prawo limitów 
+Omnibus dla branży". 
+
+Finansowy. 
+Krok 2: Uruchomienie 
+Zabezpieczeń 
+Lingwistycznych i 
+Semantycznych (Negative 
+& Positive Stop words) 
+Odcięcie, z zastosowaniem 
+wyselekcjonowanej bazy 
+wykluczeń ze słownika dla 
+określonych produktów, 
+zakazanych określeń 
+uchybiającym na zdrowiu 
+lub w etyce środowiskowej, 
+by ominąć oskarżenia przez 
+kontrolę GIS oraz UOKiK za 
+wprowadzanie w błędne 
+pojęcia. Odblokowywanie 
+dla danego składnika 
+dostępu do twardej i 
+uznanej bazy danych (jak 
+na przykład unijnego 
+rejestru EFSA na zapytania 
+przez systemy z zewnątrz i 
+wprowadzanie 
+ograniczonego korzystania). 
+Dla modułów żywieniowych 
+i ustrukturyzowanych jako 
+suplement diety: Skreślenie 
+przez blok i zastąpienie na 
+wprost nielegalnych w tym 
+zjawisku czasowników 
+„wyleczy” albo „eliminuje 
+proces postępu wirusa” i 
+ujęcie słownikowe oparte 
+tylko na dozwolonych 
+parafrazach o pożądanej 
+naturalnej skuteczności 
+„pomaga naturalnie”, 
+„wspomaga”, „wspiera 
+system” po podaniu 
+związku bezpośrednio ze 
+wskazanym przez GIS 
+składnikiem np. "Żelazem". 
+Dla kosmetyków z chemią 
+narzucenie ograniczeń 
+ukształtowanych ustawą 
+uodparniająca sięgającą po 
+sprawdzanie stężeń 
+Omnibus VIII na zawartych 
+komponentach (limitowanie 
+kompozycji bazujących w 
+produktach z wód 
+perfumowanych na bazie 
+np. 2% progu objętości 
+alkoholowej z 
+zablokowaniem wydania 
+produktu w sieci z 
+stężeniami 
+przewyższającym to prawo 
+bez względu na kampanie).
+7 
+Krok 3: Wygenerowanie 
+rdzeniowej tkanki 
+merytorycznej o 
+optymalizacji (GEO & 
+Systematyczna budowa 
+precyzyjnie podzielonych, 
+opisowych i krótkich, 
+gęstych objętościowo 
+Zadbanie przez algorytm, o 
+wdrożenie wszystkich 
+wymogów i informacji 
+technicznych w 
+
+E-E-A-T Framework 
+Optimization) 
+akapitów tekstu skupionych 
+pod naturalną intencję 
+odczytywanego 
+użytkownika (conversational 
+flow) dla lepszego trawienia 
+wyników na modelach z 
+ChatGPT i pokrewnych. 
+Bezwzględne zintegrowanie 
+ustrukturyzowanych i 
+sformalizowanych powiązań 
+referencyjnych dla 
+wyszukiwarki do 
+specjalistycznych twórców 
+poprzez wykorzystanie 
+nakładki w znacznikach 
+technicznych z JSON (np. w 
+kodach osadzony ukryty 
+element Schema Person, 
+uwiarygadniający 
+dyplomowanego twórcę 
+bądź inżyniera stojącego za 
+daną analizą czy procedurą 
+z certyfikowanego 
+laboratorium oceniającego 
+dany ślad węglowy jako 
+bazę dla wiarygodnego 
+certyfikatu dla algorytmu). 
+Gwarancja dla 
+ustrukturyzowanej formy 
+cytowalności "Citability" 
+przez formułowanie 
+jednoznacznych, spójnych 
+tez naukowych (np. 
+"Według 
+udokumentowanych 
+statystyk badawczych 
+składnik ma zastosowanie 
+w odnowie organizmu... 
+[bezpośrednie 
+umieszczenie 
+udokumentowanego 
+źródła]") by umożliwić 
+wygenerowanej treści dla 
+danego produktu 
+(zawierających niezbędne 
+opisy, wymogi zastosowania 
+medycznego wyrobu czy 
+przeciwwskazania z 
+ewentualnym powikłaniem 
+dla zachowania medycznej 
+kompletności strony 
+produktowej pod restrykcje 
+dla aptek, lekarzy czy 
+dostawców usług 
+finansowych), chroniących 
+markę poprzez 
+dostarczenie 
+kompleksowości od A do Z, 
+poszukującego pacjenta lub 
+odbiorcy pod okiem 
+bezdusznego algorytmu 
+wyłapującego ubóstwo 
+treści i "płytkich" 
+oświadczeń na Landing 
+Pages. Brak uwzględnienia 
+w opisach zjawiska 
+zielonego certyfikatu i 
+niezgodność bazy zakazują 
+generowania bez pokrycia 
+obietnic "eko" za to 
+opierając się na weryfikacji 
+metadanych LCA.
+4 
+
+uwiarygodnienie bazy by 
+modele generatywne 
+wskazywały system w 
+indeksie po analizie wiedzy 
+jako źródło wyroczni i 
+prawdy do linku na 
+zapytanie medyczne i z 
+inżynierii B2B w sektorach 
+YMYL. Zastosowanie w 
+nowej nomenklaturze słów 
+ustrukturyzowanych o 
+mniejszym ryzyku 
+naruszeń, generujące duży 
+ruch po stronie 
+użytkowników dążących do 
+innowacyjnych zabiegów 
+np. "teletriage 
+diagnostyczny i 
+ubezpieczeniowy" albo 
+poszukujących 
+snomedycyny czy modnego 
+cyfrowego dążenia o 
+nazwach wokół longevity 
+dla witamin, aby odciążyć 
+opis opierający do tej pory 
+narrację od ryzykownej 
+rygorystycznej retoryki 
+typowo leczniczej w 
+kontekście klinicznym na 
+bardziej wellnessowe tory 
+profilaktyki. 
+Krok 4: Systemowe 
+zaimplementowanie 
+nakazanych 
+strukturalnych modułów 
+prawnych (Integration 
+Disclaimers Engine 
+Framework) 
+Automatyczne wymuszenie 
+osadzenia w treści 
+ustrukturyzowanej ram 
+prawnych zależnych i 
+powiązanych w bloki, z 
+uprzednio zadeklarowanym 
+profilem i oprogramowanym 
+układem i odpowiednim 
+odczytem wymiarowym 
+interfejsu (np. w systemach 
+Jeżeli przypisanie dotyczy 
+Wyrobów Medycznych 
+nakazane jest wklejenie i 
+dopięcie na najdalszym 
+odcinku ekranu (dole 
+przestrzeni formatu 
+wizualnego) i z 
+narzuceniem warstwy 
+wizualnej odpowiadającej 
+wymiarom objętości 
+
+kompozycyjnych HTML / 
+CSS jako warunek na 
+serwerze web). 
+mierzalnym pod zadaną 
+wielkość od ekranów 10 
+procent, obowiązkowego 
+dla zaleceń i 
+zablokowanego z ustaw, 
+sformalizowanego prawnym 
+i nie podlegającego 
+wariacjom twórczym języka 
+tekstu ostrzeżenia "To jest 
+wyrób medyczny. Używaj..." 
+i ewentualnego dołączenia 
+audialnej nakładki do pliku o 
+trwaniu wideo w social 
+mediach o głośności lektora 
+równego wielkości min. 4 
+sek. i wytyczoną strefę 
+wielkości 15% na nośniku 
+do napisów.
+16
+ Jeżeli profil 
+identyfikowany jest 
+kredytem po stronie 
+konsumenta w banku czy 
+innej ofercie to należy 
+wprowadzić, wyodrębnić w 
+kodzie i zbudować 
+ustandaryzowaną macierz 
+bloku na stronie docelowej 
+dla zapisu w ramach 
+obostrzeń "Zestawienie dla 
+ujęcia w przykładzie 
+reprezentatywnym", wraz ze 
+skonkretyzowanym 
+wylistowaniem do równego 
+rachunku prowizji 
+operacyjnych za procedury, 
+wskazania dokładnych 
+terminów rocznych 
+stopowań inwestycyjnych i 
+ujęciu powiększoną formą, 
+jednoznaczną stawką i 
+skalkulowanym wymiarem 
+opłat dla RRSO pod 
+warunek dyrektyw i 
+
+zalecenia UOKiK o 
+jednoznaczności, wraz z 
+ostrzeżeniami i prawami na 
+rezygnację. Jeżeli cel 
+kierowany jest pod kątem 
+formatowania na pozycje 
+social commerce poprzez 
+post twórczy – należy 
+zmusić system programowo 
+za pomocą agenta by 
+wpisywać wyraźnie 
+sformułowane przed 
+akapitem głównym etykiety 
+nakładające prawne 
+zadeklarowanie we 
+wsparciu hasztagiem jak 
+np. "#reklama", 
+"#materiałzgodnyzaagencją
+" by usankcjonować 
+przekaz od postaw zgodnie 
+z ramami UOKiK a u 
+rynków kapitałowych wpisać 
+bloki informujące i 
+uświadamiających klienta 
+że instrument to powiązane 
+czynniki nieodwracalnego i 
+potencjalnego spadku 
+ryzyka oraz 
+zapobiegających gwarancji 
+po stronie samego urzędu 
+KNF.
+8 
+Zakończenie 
+Analiza prawnych i marketingowych uwarunkowań rynku weryfikuje bez żadnych wątpliwości na 
+progu roku 2026 w Europie radykalne przejście i ewolucję systemów technologicznych 
+wspierających Generative Engine Optimization (GEO) oraz opartej o mechanikę AI klasycznej 
+wyszukiwarki dla twórców komercyjnych opisów z ukierunkowanej taktycznie na kreatywne 
+obietnice sztuki na niezwykle obostrzoną strukturą bazującą o naukowy obiektywizm i 
+matematyczną praworządność z systemami zgodności (Compliance) we fragmentach 
+opisowych dotyczących domen e-commerce.
+2 
+Bieżące obostrzenia wdrażane przez zjednoczone struktury na szczeblach w Unii Europejskiej, 
+
+takie chociażby jak najsilniejsze filary dla transparentności proekologicznej wdrażanej 
+przepisami i normami o zwalczaniu oszustw marketingowych pod rygorami nakazów dyrektywy 
+znanej na rynku jako EmpCo (Empowering Consumers for the Green Transition) 
+4
+ wraz 
+powiązanym dla medycznych struktur wprost z nowel i załączników Rozporządzeń dla aparatów 
+w obostrzeniach rygoru europejskiego MDR (Medical Device Regulation) 
+6
+, dobitnie 
+uniemożliwiają oraz de facto z miejsca delegalizują jakąkolwiek chęć na niesprawdzalne 
+obietnice rzucane w eter kampanii marketingowych przez zespoły pozbawione 
+udokumentowanego zabezpieczenia klinicznego ze strony audytowanej infrastruktury 
+badawczej i technicznych testów, poświadczających każdy najdrobniejszy, mierzalny fakt 
+składany o wyrobie jako obietnica konsumentowi w e-przestrzeni. 
+Oznacza to na poziomie infrastrukturalnym, ze dla agentów tworzonych by zarządzać siecią 
+komunikacji opartej sztucznej inteligencji, przed którymi postawiono za cel poprawne formalnie 
+oraz absolutnie legalnie i wydajnie osiąganie pierwszorzędnych parametrów oceny jakości i 
+pozycji domeny sklepu wedle parametrów oceny wyników (najlepszego rankingu widoczności 
+algorytmów GEO/SEO pod zjawisko nowej technologii odpowiadającej na pytania typu bot czat 
+lub na przeglądarkach ustrukturyzowanych przez AI na rok i modele 2026), nadrzędnym 
+absolutnym imperatywem jest zbudowanie nienaruszalnej i skomplikowanej wewnętrznej 
+matrycy i struktury referencyjnej odniesień. Algorytmicznie taki układ i system musi cechować 
+nie tylko umiejętność i biegłość programowania atrakcyjnego ze względów intencji zapytania na 
+stronie języka bazowego i słownika do SEO (jak na przykład błyskawiczna identyfikacja dla 
+modnego zjawiska profilaktyki zdrowotnej pojętej pod zjawisko "biohakingu", jako optymalnego z 
+natury bezpieczniejszego, elastycznego odpowiednika terminologii w zastępstwie dla 
+niedozwolonego i objętego wysokim nadzorem w strefie ukaranych restrykcją terminów 
+medycznych w procesach dla słowa prewencyjne lub zapobiegawcze od leczenia i terapii dla 
+rzeszy podmiotów dystrybuujących zdrowe pożywienie odżywcze w badaniach osób w 
+profilaktyce 
+30
+), ale w równym i silniejszym stopniu opartym na imperatywie konieczności 
+ciągłego, zautomatyzowanego filtrowania go pod nadzorem każdej stworzonej obietnicy przez 
+systemy udowodnionych twardych baz z niezależnymi repozytoriami z logiką danych. Mówiąc 
+technicznie, opisy marketingowe z obietnicą generowane przez inteligentną technologię we 
+współczesnym środowisku komercyjnego e-commerce muszą powoływać na się na 
+rygorystyczne testowanie poprawności przed finalną akceptacją we wgranych i pobieranych 
+modułach w oparciu certyfikat oświadczeń zdrowotnych powołany poprzez urzędy nadzorujące 
+typu panelów dla żywności EFSA (The European Food Safety Authority) uniemożliwiające 
+nienaukową kreację opisu poza autoryzowaną treścią naukową dotyczącą poszczególnych 
+komponentów 
+23
+, z wykorzystaniem udostępnionych dla organów i instytutów certyfikowanych 
+twardych badań cyklów powstawania i śladu z metodologią LCA udowadniających w istocie 
+ekologię operacyjną zakładu w zgodności polityki unijnych komisji przed rygorystycznymi 
+ocenami organu UOKiK uziemiającym obrót i wielomilionowymi stratami i wytycznych, dla 
+finansistów od narzucającego transparentność nadzoru KNF walczącymi przed fałszem ze 
+wspaniałą perspektywą o stopach dla zysku oraz obwarowaniach medycznych kontroli z 
+inspektoriatów z GIS-u na rynkach obrotu wyrobów i obrotu OTC i leków bez oszustw i pomyłek 
+
+w stężeniach. 
+Optymalizacja, wyceny oraz zarządzanie budowania struktur w pozycjonowaniu widoczności 
+cyfrowej firm u rynków obwarowanych mianem ryzyka w kategorii zdrowia oraz statusu 
+majątkowego dla portfela, czyli pod szyldem branż ze sfery kategorii YMYL przeszło w czasie 
+drastyczną, konieczną drogę o gigantycznym wyzwaniu: z metody na zjawisko prostego w 
+swym pojęciu maskowania czy technicznego zjawiska z ukrywaniem zakazanego nierzadko 
+prawnie słów oraz na manipulacji nasycaniem tekstów bezkrytycznie przy zastosowaniu 
+zręcznych mechanizmów optymalizacji do nienaturalnego upchania treści pojęciami kluczowymi 
+do współczesnej drogi konieczności obiektywnego zaprezentowania, naukowo i rzetelnie 
+przygotowanej definicji o pełnej skali i złożoności o obiektywnej i certyfikowanej przez państwo 
+prawdzie oraz udokumentowanej strukturze prawnej opisującej autentyczną zawartość 
+technologiczną danego wprowadzanego rynkowo i masowo asortymentu handlowego dla 
+e-produktu sprzedawanego dla wymagającego oraz nie w pełni poinformowanego konsumenta 
+w ramach czytelnej, uporządkowanej formy budowania autorytatywnego środowiska pod kątem 
+odczytu przez cyfrowe filtry, wspieranej przy wymogu precyzyjnie technicznej i niezawodnie 
+zaprogramowanej konstrukcji znaczników o poświadczaniu tożsamości na formatach 
+metadanych zawartych z technologii opisów semantyki takich jak standard branżowy używający 
+biblioteki kodów znaczników i powiązań we wzorcach, na zaufanej architekturze opisu we 
+formacie typu kodowych standardów do kategoryzacji klas logicznych opartych do identyfikacji o 
+schemat od Schema.org (z wdrożeniami opisów od autorów i właściwości fizycznych na 
+jednostki), w celu zabezpieczania procesowania i tworzenia ułatwionego weryfikowania przed 
+robotami języka AI z pomijaniem ludzkiej ingerencji w wyszukiwarkach powiązanych w wielkim 
+stopniu i precyzji działania, która uwiarygodnia bezsprzecznie proces działania całych silników i 
+wyklucza zjawisko generowania błędów algorytmów u generowania bazy oświadczeń na 
+platformy.
+12 
+Dopiero poprzez tego typu wyrafinowany podział z technologią informatyczną budowane 
+spójne, zgodne formalno-prawne zasady procesów technologicznych optymalizacji opisu u 
+zautomatyzowanych agentów systemu wsparcia dla e-commerce gwarantują osiągniecie 
+niezachwianego niczym, trwałego zaufania od najmądrzejszych sieci kognitywnych modeli 
+językowych współczesnych wyszukiwarek, zapewniają taktyczną wygraną widoczność dla 
+rynków opartych z dominacją interfejsów czatów konsumenckich przy budowaniu zjawiska 
+absolutnej przewagi bez żadnej luki prawnej na platformach w nowym, opierającym się na AI 
+formacie wyników inteligentnego i skomplikowanego architektonicznie świata środowiska GEO 
+oraz w najskuteczniejszy z możliwych na rok 2026 sposób operacyjnie dla firmy skutecznie 
+izolują przed groźnym oraz chwiejnym załamaniem się o straty kapitału narażenia na dotkliwe w 
+ujęciu korporacyjnym ogromne nieprzewidywalne finansowe straty kar od błędów 
+interpretacyjnych bezwzględnych agend inspekcyjnych regulujących współczesne państwowe 
+środowisko konsumenckiego prawodawstwa nadzoru na rynku wolnego e-handlu na obszarach 
+całej Europy u rygorów państwa i państw członkowskich. 
+Cytowane prace 
+
+1. SEO 2026 + GEO – kompletny przewodnik widoczności (Google i AI) - WebAnia, 
+otwierano: kwietnia 22, 2026, 
+https://www.webania.pl/kompletny-przewodnik-widocznosci/ 
+2. SEO dla branż regulowanych — medycyna, finanse, edukacja, otwierano: kwietnia 
+22, 2026, https://www.marketingmatch.pl/blog/seo-dla-branz-regulowanych/ 
+3. The new consumer health search landscape: From SEO to GEO - IQVIA, 
+otwierano: kwietnia 22, 2026, 
+https://www.iqvia.com/blogs/2025/06/the-new-consumer-health-search-landscape-
+from-seo-to-geo 
+4. Greenwashing pod lupą UE – co czeka przedsiębiorców w 2026 ..., otwierano: 
+kwietnia 22, 2026, 
+https://doradcy365.pl/greenwashing-pod-lupa-ue-co-czeka-przedsiebiorcow-w-202
+6-roku/ 
+5. Green claims - Environment - European Commission, otwierano: kwietnia 22, 
+2026, 
+https://environment.ec.europa.eu/topics/circular-economy-topics/green-claims_en 
+6. Reklama wyrobów medycznych i medycyny estetycznej [2026] | - Radca Prawny 
+Gdańsk, otwierano: kwietnia 22, 2026, 
+https://www.ktzr.pl/reklama-wyrobow-medycznych-medycyna-estetyczna/ 
+7. Omnibus VIII- nowe zmiany istotne dla branży kosmetycznej - Kancelaria DBS, 
+otwierano: kwietnia 22, 2026, 
+https://kancelariadbs.pl/2026/04/17/omnibus-viii-nowe-zmiany-istotne-dla-branzy-k
+osmetycznej/ 
+8. Dobre praktyki dla finfluencerów - Komisja Nadzoru Finansowego, otwierano: 
+kwietnia 22, 2026, 
+https://www.knf.gov.pl/dla_konsumenta/kampanie_informacyjne/Finfluencer_dobre
+_praktyki_i_ryzyka/dobre_praktyki_fininfluencerzy 
+9. Influencer w 2026 roku – jak oznaczać współprace i uniknąć kar UOKiK?, 
+otwierano: kwietnia 22, 2026, 
+https://legalnybiznesonline.pl/influencer-w-2026-roku-jak-oznaczac-wspolprace-i-u
+niknac-kar-uokik/ 
+10. Analiza w zakresie greenwashingu - KPMG International, otwierano: kwietnia 22, 
+2026, 
+https://kpmg.com/pl/pl/uslugi/esg-environmental-social-and-governance/analiza-w-
+zakresie-greenwashingu.html 
+11. Healthcare SEO Guide 2026: Medical SEO Strategy for Hospitals & Clinics, 
+otwierano: kwietnia 22, 2026, 
+https://www.pravaahconsulting.com/post/healthcare-seo 
+12. Structured data: SEO and GEO optimization for AI in 2026 - Digidop, otwierano: 
+kwietnia 22, 2026, 
+https://www.digidop.com/blog/structured-data-secret-weapon-seo 
+13. 5 Winning Fintech SEO Strategies for 2026 - Vested, otwierano: kwietnia 22, 
+2026, https://fullyvested.com/insights/5-winning-fintech-seo-strategies-for-2026/ 
+14. Rewolucja w reklamie leków. Koniec z "papierologią" dla lekarzy i farmaceutów. - 
+Gazeta Prawna, otwierano: kwietnia 22, 2026, 
+
+https://www.gazetaprawna.pl/praca/artykuly/11235746,koniec-z-papierowa-biurokr
+acja-w-reklamie-lekow.html 
+15. Reklama wyrobów medycznych 2026 w internecie - przepisy, wytyczne, zakazy i 
+regulacje, otwierano: kwietnia 22, 2026, 
+https://green-fields.pl/blog/reklama-wyrobow-medycznych/ 
+16. Reklama wyrobów medycznych: przepisy, zasady i praktyka 2026, otwierano: 
+kwietnia 22, 2026, https://creativa.legal/reklama-wyrobow-medycznych/ 
+17. The Guide on Healthcare SEO Keywords in 2026 - Medesk, otwierano: kwietnia 
+22, 2026, https://www.medesk.net/en/blog/healthcare-seo-keywords/ 
+18. Opinia z 30 stycznia 2026 r. o rządowym projekcie ustawy o zmianie ..., otwierano: 
+kwietnia 22, 2026, 
+https://www.gov.pl/web/radalegislacyjna/opinia-z-30-stycznia-2026-r-o-rzadowym-
+projekcie-ustawy-o-zmianie-ustawy--prawo-farmaceutyczne 
+19. 0115-KDST1-2.440.41.2026.2.JCB, WIS TOWAR – dietetyczny środek spożywczy 
+specjalnego przeznaczenia medycznego. - Pismo wydane... - ustawy, otwierano: 
+kwietnia 22, 2026, 
+https://sip.lex.pl/orzeczenia-i-pisma-urzedowe/pisma-urzedowe/0115-kdst1-2-440-
+41-2026-2-jcb-wis-towar-dietetyczny-185317969 
+20. Lepszej kontroli jakości suplementów nie będzie - Prawo.pl, otwierano: kwietnia 
+22, 2026, 
+https://www.prawo.pl/zdrowie/nie-bedzie-ustawy-o-suplementach-diety,534277.ht
+ml 
+21. Reklama suplementów diety – co się stało z projektem nowelizacji?, otwierano: 
+kwietnia 22, 2026, 
+https://klinikawgprawnika.ostrowski.legal/reklama-suplementow-diety-co-sie-stalo-
+z-projektem-nowelizacji/ 
+22. Kodeks Dobrych Praktyk - KRSiO - Krajowa Rada Suplementów i Odżywek, 
+otwierano: kwietnia 22, 2026, 
+https://www.krsio.org.pl/pl/o-nas/kodeks-dobrych-praktyk/ 
+23. Health claim application procedure | EFSA - European Union, otwierano: kwietnia 
+22, 2026, https://www.efsa.europa.eu/en/applications/health-claim 
+24. Health claims | EFSA - European Union, otwierano: kwietnia 22, 2026, 
+https://www.efsa.europa.eu/en/topics/topic/health-claims 
+25. Health claims | EFSA - European Union, otwierano: kwietnia 22, 2026, 
+https://www.efsa.europa.eu/en/safe2eat/health-claims 
+26. What are health claims? - FoodChain ID, otwierano: kwietnia 22, 2026, 
+https://www.foodchainid.com/resources/what-are-health-claims/ 
+27. Nutrition and health claims on labels and in food advertising - Ploum, otwierano: 
+kwietnia 22, 2026, 
+https://ploum.nl/en/news/nutrition-and-health-claims-on-labels-and-in-food-advertis
+ing 
+28. FAQ: Reklama suplementów diety w Internecie – wszystko, co musisz wiedzieć 
+przed kampanią - Agencja Interaktywna | Veneo, otwierano: kwietnia 22, 2026, 
+https://veneo.pl/blog/faq-reklama-suplementow-diety-w-internecie-wszystko-co-mu
+sisz-wiedziec-przed-kampania/ 
+
+29. Pozycjonowanie Suplementów Diety – Skuteczne SEO dla Sklepu - Bartłomiej 
+Lewicki, otwierano: kwietnia 22, 2026, 
+https://levicki.pl/pozycjonowanie-suplementow-diety/ 
+30. Od „ozempic face”, “SORodówkę” po „teletriage”. Znamy pierwsze typy na 
+Medyczne Słowo Roku 2026 - aboutmarketing.pl, otwierano: kwietnia 22, 2026, 
+https://aboutmarketing.pl/od-ozempic-face-sorodowke-po-teletriage-znamy-pierws
+ze-typy-na-medyczne-slowo-roku-2026/ 
+31. Przewodnik po zgodności oświadczeń dotyczących produktów kosmetycznych w 
+UE, otwierano: kwietnia 22, 2026, 
+https://www.freyrsolutions.com/pl/blog/a-guide-to-cosmetic-claims-in-the-eu 
+32. Dokąd zmierza e-commerce beauty w 2026? Między skalą sprzedaży a relacją z 
+klientem | Wirtualne Kosmetyki, otwierano: kwietnia 22, 2026, 
+https://wirtualnekosmetyki.pl/-raporty-tematyczne/dokad-zmierza-e-commerce-bea
+uty-w-2026-miedzy-skala-sprzedazy-a-relacja-z-klientem?page=11 
+33. Nowy zakaz w UE. Od 1 maja zmiany dla branży kosmetycznej i klientów, 
+otwierano: kwietnia 22, 2026, 
+https://polskiobserwator.de/nowe-przepisy-ue-dotyczace-kosmetykow-od-1-maja-2
+026-roku/ 
+34. Jak reklamować kosmetyki? Skuteczne strategie na 2026 rok - Nano Influ, 
+otwierano: kwietnia 22, 2026, 
+https://www.nanoinflu.com/blog/marketing-kosmetykow-w-2026-roku 
+35. Umowy o kredyt konsumencki (do 2026 roku) - EUR-Lex, otwierano: kwietnia 22, 
+2026, 
+https://eur-lex.europa.eu/PL/legal-content/summary/consumer-credit-agreements-
+until-2026.html 
+36. Przykład reprezentatywny - jak go czytać?, otwierano: kwietnia 22, 2026, 
+https://www.totalmoney.pl/artykuly/przyklad-reprezentatywny 
+37. Oprocentowanie - Kredyty, Karty kredytowe, Pożyczki - ING Bank Śląski, 
+otwierano: kwietnia 22, 2026, 
+https://www.ing.pl/indywidualni/tabele-i-regulaminy/oprocentowanie/kredyty-karty-k
+redytowe-pozyczki 
+38. Poniżej znajdują się przykłady reprezentatywne dotyczące poszczególnych 
+wariantów produktu Raty PayU, otwierano: kwietnia 22, 2026, 
+https://poland.payu.com/wp-content/uploads/sites/14/2026/03/Przyklady-reprezent
+atywne_ver.18.pdf 
+39. Przykład reprezentatywny pożyczki lub kredytu — jak go czytać? - Vivigo.pl, 
+otwierano: kwietnia 22, 2026, 
+https://www.vivigo.pl/moje-finanse/przyklad-reprezentatywny-pozyczki-lub-kredytu-
+jak-go-czytac 
+40. KREDYT KONSUMENCKI GOTÓWKOWY Rzeczywista roczna stopa 
+oprocentowania (RRSO) wynosi 7,75 % przy założeniach, otwierano: kwietnia 22, 
+2026, 
+https://zulawskibs.pl/wp-content/uploads/2026/03/Przyklad-reprezentatywny-kons.
+-gotowkowy-749.pdf 
+41. KNF przyjmie standardy reklamy funduszy inwestycyjnych - Expander, otwierano: 
+
+kwietnia 22, 2026, 
+https://expander.pl/knf-przyjmie-standardy-reklamy-funduszy-inwestycyjnych/ 
+42. Branże regulowane w social media: Branża finansowa - IAB Polska, otwierano: 
+kwietnia 22, 2026, 
+https://www.iab.org.pl/aktualnosci/branze-regulowane-w-social-media-branza-fina
+nsow/ 
+43. Zatwierdzenie prospektu Scanway SA - Komisja Nadzoru Finansowego, 
+otwierano: kwietnia 22, 2026, https://www.knf.gov.pl/?articleId=97460&p_id=18 
+44. The Most Searched Keywords in 2026 And What They Tell Us About Market 
+Demand, otwierano: kwietnia 22, 2026, 
+https://www.umbrellaus.com/the-most-searched-keywords-in-2026-and-what-they-
+tell-us-about-market-demand/ 
+45. 3 Data Trends Shaping the Race to AI Across Industries in 2026 - Snowflake, 
+otwierano: kwietnia 22, 2026, 
+https://www.snowflake.com/en/blog/trends-shaping-AI-across-industries-2026/ 
+46. SEO for Financial Services: Full Guide for 2026 | SmartClick, otwierano: kwietnia 
+22, 2026, https://smartclick.agency/blog/seo-for-finance-services/ 
+47. Warto wiedzieć: Nowe przepisy UE dotyczące "zielonych" oświadczeń 
+marketingowych | Miasto federalne Bonn, otwierano: kwietnia 22, 2026, 
+https://www.bonn.de/themen-entdecken/wirtschaft-wissenschaft/nachhaltigkeits-hu
+b-region-bonn/neue-eu-regeln-fuer-gruene-marketing-aussagen.php?loc=pl 
+48. Marketing w 2026 r. – nowe zasady „eko” w reklamie i sprzedaży - PwC Polska, 
+otwierano: kwietnia 22, 2026, 
+https://www.pwc.pl/pl/artykuly/marketing-w-2026-r-nowe-zasady-eko-w-reklamie-i-
+sprzedazy.html 
+49. Jak influencerzy powinni oznaczać współprace reklamowe? Zobacz najnowsze 
+wytyczne UOKIK - Kohai Content, otwierano: kwietnia 22, 2026, 
+https://kohai.pl/blog/jak-influencerzy-powinni-oznaczac-wspolprace-reklamowe-zo
+bacz-najnowsze-wytyczne-uokik/ 

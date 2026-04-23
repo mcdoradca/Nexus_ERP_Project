@@ -48,7 +48,7 @@ const checkStatus = (req, res) => {
 
 const analyzeSingle = async (req, res) => {
     try {
-        const { ean, analysisMode } = req.body;
+        const { ean, analysisMode, forceRegenerate } = req.body;
         const mode = analysisMode || "STANDARD";
 
         if (!ean) {
@@ -130,6 +130,24 @@ const analyzeSingle = async (req, res) => {
              console.warn("[Vision API] Ostrzeżenie: Rekord PIM nie posiada żadnych zdjęć.");
         }
 
+        // Faza 1.5: Sprawdzenie Kopii Roboczej
+        if (product.offerDraft && Object.keys(product.offerDraft).length > 0 && !forceRegenerate) {
+            console.log("[PIM] Zwracam zapisaną kopię roboczą z bazy!");
+            return res.status(200).json({
+                title: product.offerDraft.title || product.name,
+                ean: product.ean,
+                htmlContent: {
+                    opis1: product.offerDraft.opis1 || '',
+                    opis2: product.offerDraft.opis2 || '',
+                    opis3: product.offerDraft.opis3 || '',
+                    opis4: product.offerDraft.opis4 || '',
+                    opis5: product.offerDraft.opis5 || ''
+                },
+                images: (product.offerDraft.images || []).map(img => ({ originalUrl: img.url, isCompliant: true, alerts: [] })),
+                isDraftRestored: true
+            });
+        }
+
         // Faza 2: Karmienie Bestii (Gemini 2.5 Pro / 3.1) - Native Analysis
         console.log("[AiService] Odpalanie silnika Multimodalnego dla Native API w tle...");
         const featuresString = product.features ? JSON.stringify(product.features) : '';
@@ -199,10 +217,51 @@ const proxyImage = async (req, res) => {
     }
 };
 
+const saveDraft = async (req, res) => {
+    try {
+        const { ean, draftData } = req.body;
+        if (!ean || !draftData) return res.status(400).json({ error: "Brak EAN lub danych draftu" });
+
+        const product = await prisma.product.update({
+            where: { ean },
+            data: { offerDraft: draftData }
+        });
+        res.status(200).json({ message: "Zapisano kopię roboczą" });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+const exportToBaselinker = async (req, res) => {
+    try {
+        const { ean, draftData } = req.body;
+        if (!ean || !draftData) return res.status(400).json({ error: "Brak danych" });
+
+        // Najpierw bezpieczny zapis draftu do bazy (kopia "in-production")
+        const product = await prisma.product.update({
+            where: { ean },
+            data: { offerDraft: draftData }
+        });
+
+        if (!product.baselinkerInventoryId || !product.baselinkerId) {
+             return res.status(400).json({ error: "Brak przypisania do BaseLinker w bazie (inventoryId/productId)." });
+        }
+
+        // Eksport danych wygenerowanych w drafcie do zewnętrznego BaseLinkera
+        await BaseLinkerService.exportOfferToBaselinker(product.baselinkerInventoryId, product.baselinkerId, draftData);
+
+        res.status(200).json({ message: "Eksport zakończony sukcesem!" });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
 module.exports = {
     startOptimization,
     checkStatus,
     analyzeSingle,
     regenerateTitle,
-    proxyImage
+    proxyImage,
+    saveDraft,
+    exportToBaselinker
 };

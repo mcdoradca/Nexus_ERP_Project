@@ -1,0 +1,86 @@
+﻿node : Z:\Nexus_ERP_Pr
+oject\node_modules\pat
+h-to-regexp\dist\index
+.js:153
+At line:1 char:1
++ node -e "require('./
+src/modules/communicat
+ion/chat.routes.js')" 
+> err ...
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (Z:\Nexus_E   
+ RP_Pr...st\index.    
+js:153:String) []    ,
+ RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+            throw new 
+PathError(`Unexpected 
+${token.type} at index
+ ${token.index}, expec
+ted ${endType}`, str);
+            ^
+
+TypeError: Unexpected 
+? at index 10, expecte
+d end: /:mode/:id?; vi
+sit https://git.new/pa
+thToRegexpError for in
+fo
+    at consumeUntil (Z
+:\Nexus_ERP_Project\no
+de_modules\path-to-reg
+exp\dist\index.js:153:
+19)
+    at parse (Z:\Nexus
+_ERP_Project\node_modu
+les\path-to-regexp\dis
+t\index.js:157:26)
+    at pathToRegexp (Z
+:\Nexus_ERP_Project\no
+de_modules\path-to-reg
+exp\dist\index.js:267:
+58)
+    at Object.match (Z
+:\Nexus_ERP_Project\no
+de_modules\path-to-reg
+exp\dist\index.js:237:
+30)
+    at matcher (Z:\Nex
+us_ERP_Project\node_mo
+dules\router\lib\layer
+.js:86:23)
+    at new Layer (Z:\N
+exus_ERP_Project\node_
+modules\router\lib\lay
+er.js:93:62)
+    at Function.route 
+(Z:\Nexus_ERP_Project\
+node_modules\router\in
+dex.js:428:17)
+    at Router.<compute
+d> [as get] (Z:\Nexus_
+ERP_Project\node_modul
+es\router\index.js:447
+:24)
+    at Object.<anonymo
+us> (Z:\Nexus_ERP_Proj
+ect\src\modules\commun
+ication\chat.routes.js
+:9:8)
+    at Module._compile
+ (node:internal/module
+s/cjs/loader:1706:14) 
+{
+  originalPath: '/:mod
+e/:id?'
+}
+
+Node.js v22.19.0

@@ -14,9 +14,11 @@ const upload = multer({
 // Zatem definiujemy tylko same ścieżki i podpinamy metody:
 
 router.post('/start', controller.startOptimization);
-router.post('/analyze-single', express.json(), controller.analyzeSingle);
+router.post('/analyze-single', express.json({ limit: '50mb' }), controller.analyzeSingle);
 router.get('/status/:jobId', controller.checkStatus);
-router.post('/regenerate-title', express.json(), controller.regenerateTitle);
+router.post('/regenerate-title', express.json({ limit: '5mb' }), controller.regenerateTitle);
 router.get('/proxy-image', controller.proxyImage);
+router.post('/save-draft', express.json({ limit: '50mb' }), controller.saveDraft);
+router.post('/export-baselinker', express.json({ limit: '50mb' }), controller.exportToBaselinker);
 
 module.exports = router;

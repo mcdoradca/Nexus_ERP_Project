@@ -2,25 +2,19 @@ import React, { useState } from 'react';
 import { Loader2, Sparkles, CheckCircle2, Link as LinkIcon, DatabaseZap } from 'lucide-react';
 
 export const ImageUploadBox = ({ onAnalysisComplete }) => {
-    const [offerId, setOfferId] = useState('');
+    const [ean, setEan] = useState('');
     const [status, setStatus] = useState('IDLE'); // IDLE | THINKING | SUCCESS
     const [lastError, setLastError] = useState(null);
     const [analysisMode, setAnalysisMode] = useState('STANDARD');
+    const [forceRegenerate, setForceRegenerate] = useState(false);
 
     const handleAnalyze = async (e) => {
         e.preventDefault();
         
-        let extractedId = offerId.trim();
-        if (extractedId.includes('http')) {
-             const match = extractedId.match(/\d{9,12}/);
-             if (match) {
-                 extractedId = match[0];
-                 setOfferId(extractedId);
-             }
-        }
+        let extractedId = ean.trim();
 
-        if (!extractedId || !/^\d+$/.test(extractedId)) {
-             setLastError("Podaj poprawny, sam ciąg cyfr reprezentujący ID Oferty (np. 1234567890)");
+        if (!extractedId || !/^\d{8,14}$/.test(extractedId)) {
+             setLastError("Podaj poprawny kod EAN (8-14 cyfr).");
              return;
         }
         
@@ -37,7 +31,7 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ offerId: extractedId, analysisMode })
+                body: JSON.stringify({ ean: extractedId, analysisMode, forceRegenerate })
             });
 
             if (!response.ok) {
@@ -79,9 +73,9 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
                     <DatabaseZap className="w-8 h-8 text-indigo-500" />
                 </div>
                 
-                <h2 className="text-2xl font-black text-slate-800 tracking-tighter mb-2">Pobierz Ofertę z API</h2>
+                <h2 className="text-2xl font-black text-slate-800 tracking-tighter mb-2">Pobierz Ofertę PIM z BaseLinkera</h2>
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-8 text-center max-w-lg">
-                   Backend automatycznie nawiąże połączenie z oficjalnym REST API Allegro, pociągnie pełny HTML, parametry, EAN oraz zrzuci oryginalne grafiki.
+                   Backend automatycznie wyszuka kod EAN w katalogu PIM. Jeśli zajdzie potrzeba, pobierze bogaty HTML i media prosto z API BaseLinker, chroniąc przed blokadami Allegro.
                 </p>
 
                 <div className="flex w-full justify-center mb-8">
@@ -98,6 +92,16 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
                                <option value="STANDARD">⭐ Standard E-commerce (SEO/GEO 2026)</option>
                                <option value="COSMETIC_LEGAL_AUDIT">🛡️ Audytor Rozporządzenia Kosmetycznego (UE 1223/2009)</option>
                           </select>
+                           
+                           <label className="flex items-center space-x-2 text-xs font-bold text-slate-500 cursor-pointer">
+                               <input 
+                                   type="checkbox" 
+                                   checked={forceRegenerate}
+                                   onChange={(e) => setForceRegenerate(e.target.checked)}
+                                   className="rounded text-indigo-600 focus:ring-indigo-500 bg-slate-100 border-slate-300"
+                               />
+                               <span>Zignoruj zapis i wymuś nową generację AI</span>
+                           </label>
                      </div>
                 </div>
 
@@ -109,9 +113,9 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
                         </div>
                         <input
                             type="text"
-                            placeholder="Wpisz ID Oferty Allegro (np. 1234567890)"
-                            value={offerId}
-                            onChange={(e) => setOfferId(e.target.value)}
+                            placeholder="Wpisz KOD EAN Produktu (np. 8809822540631)"
+                            value={ean}
+                            onChange={(e) => setEan(e.target.value)}
                             disabled={status === 'THINKING'}
                             required
                             className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-700 outline-none w-full disabled:opacity-50 py-3"
@@ -120,7 +124,7 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
                         <div className="flex items-center space-x-2 pl-2 border-l border-slate-200 ml-2">
                             <button
                                 type="submit"
-                                disabled={status === 'THINKING' || !offerId}
+                                disabled={status === 'THINKING' || !ean}
                                 className={`px-8 py-4 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center 
                                    ${status === 'SUCCESS' ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20' 
                                       : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'} 
