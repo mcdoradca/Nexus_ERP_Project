@@ -10,6 +10,8 @@ process.on('unhandledRejection', (reason, promise) => {
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
@@ -36,8 +38,47 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 const path = require('path');
 
-app.use(cors());
-app.use(express.json({ limit: '2mb', extended: true })); // Obniżony z 50mb jako tarcza anty-DoS
+// Tarcza nagłówków HTTP (Helmet)
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" } // Pozwala na ładowanie obrazków z zewnętrznych API (Bria/Claid)
+}));
+
+// Konfiguracja CORS (Zabezpieczenie przed nieautoryzowanym dostępem)
+const allowedOrigins = process.env.CORS_ORIGINS 
+    ? process.env.CORS_ORIGINS.split(',') 
+    : ['http://localhost:5173', 'http://localhost:3000'];
+
+app.use(cors({
+    origin: function(origin, callback) {
+        if (!origin || allowedOrigins.some(o => origin.startsWith(o))) {
+            callback(null, true);
+        } else {
+            callback(new Error('Polisa CORS zablokowala dostep dla: ' + origin));
+        }
+    },
+    credentials: true
+}));
+
+// Ochrona przed atakami DDoS i Brute-Force (Rate Limiting)
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minut
+    max: 1000, // Limit 1000 zapytan z jednego IP na 15 minut
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Przekroczono limit zapytan API. Sprobuj ponownie pozniej.' }
+});
+
+const aiLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minuta
+    max: 30, // Limit 30 generacji AI z jednego IP na minute (ochrona portfela API)
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Zbyt duzo zadan do agentow AI. Zwolnij tempo.' }
+});
+
+app.use(express.json({ limit: '2mb', extended: true }));
+app.use('/api/', apiLimiter); // Ochrona calego API
+app.use('/api/ai/', aiLimiter); // Restrykcyjna ochrona dla generacji AI
 app.use('/uploads', express.static(path.join(__dirname, '../frontend/public/uploads')));
 
 // --- NOWA ARCHITEKTURA DOMENOWA (IMPORTY) ---

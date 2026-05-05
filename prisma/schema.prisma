@@ -40,6 +40,7 @@ model User {
   activeTask             Task?              @relation("ActiveWorker", fields: [activeTaskId], references: [id])
   assignedTasks          Task[]             @relation("TaskAssignees")
   uploadedInvoices       InvoiceDocument[]  @relation("UserInvoices")
+  briaEventLogs          BriaEventLog[]
 }
 
 model Project {
@@ -64,39 +65,39 @@ model Project {
 }
 
 model Task {
-  id             String       @id @default(uuid())
-  taskId         String       @unique @default(dbgenerated("generate_task_id()"))
-  title          String
-  description    String?
-  status         TaskStatus   @default(TODO)
-  priority       TaskPriority @default(MEDIUM)
-  dueDate        DateTime?
-  projectId      String?
-  creatorId      String
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  startDate      DateTime?
-  blockReason    String?
-  campaignId     String?
-  isBlocked      Boolean      @default(false)
-  blockerId      String?
-  estimatedHours Float        @default(0.0)
-  loggedHours    Float        @default(0.0)
-  ownerId        String?
-  parentTaskId   String?
-  assignedGroups String[]     @default([])
-  isArchived     Boolean      @default(false)
-  aiBottleneckRisk Float?     @default(0.0)
-  comments       Comment[]
-  blocker        User?        @relation("TaskBlocker", fields: [blockerId], references: [id])
-  campaign       Campaign?    @relation(fields: [campaignId], references: [id])
-  creator        User         @relation("TaskCreator", fields: [creatorId], references: [id])
-  owner          User?        @relation("TaskOwner", fields: [ownerId], references: [id])
-  parentTask     Task?        @relation("SubTasks", fields: [parentTaskId], references: [id])
-  subTasks       Task[]       @relation("SubTasks")
-  project        Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  activeWorkers  User[]       @relation("ActiveWorker")
-  assignees      User[]       @relation("TaskAssignees")
+  id               String       @id @default(uuid())
+  taskId           String       @unique @default(dbgenerated("generate_task_id()"))
+  title            String
+  description      String?
+  status           TaskStatus   @default(TODO)
+  priority         TaskPriority @default(MEDIUM)
+  dueDate          DateTime?
+  projectId        String?
+  creatorId        String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  startDate        DateTime?
+  blockReason      String?
+  campaignId       String?
+  isBlocked        Boolean      @default(false)
+  blockerId        String?
+  estimatedHours   Float        @default(0.0)
+  loggedHours      Float        @default(0.0)
+  ownerId          String?
+  parentTaskId     String?
+  assignedGroups   String[]     @default([])
+  isArchived       Boolean      @default(false)
+  aiBottleneckRisk Float?       @default(0.0)
+  comments         Comment[]
+  blocker          User?        @relation("TaskBlocker", fields: [blockerId], references: [id])
+  campaign         Campaign?    @relation(fields: [campaignId], references: [id])
+  creator          User         @relation("TaskCreator", fields: [creatorId], references: [id])
+  owner            User?        @relation("TaskOwner", fields: [ownerId], references: [id])
+  parentTask       Task?        @relation("SubTasks", fields: [parentTaskId], references: [id])
+  subTasks         Task[]       @relation("SubTasks")
+  project          Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  activeWorkers    User[]       @relation("ActiveWorker")
+  assignees        User[]       @relation("TaskAssignees")
 
   @@index([status])
   @@index([projectId])
@@ -258,13 +259,13 @@ model CampaignAsset {
 }
 
 model InvoiceDocument {
-  id          String   @id @default(uuid())
-  fileName    String
-  fileUrl     String
-  uploaderId  String
-  uploadedAt  DateTime @default(now())
-  status      String   @default("PROCESSED")
-  uploader    User     @relation("UserInvoices", fields: [uploaderId], references: [id])
+  id         String   @id @default(uuid())
+  fileName   String
+  fileUrl    String
+  uploaderId String
+  uploadedAt DateTime @default(now())
+  status     String   @default("PROCESSED")
+  uploader   User     @relation("UserInvoices", fields: [uploaderId], references: [id])
 
   @@index([uploaderId])
 }
@@ -313,9 +314,9 @@ model Product {
   bomElements           ProductBom[]      @relation("ProductBomElements")
   brand                 Brand             @relation(fields: [brandId], references: [id], onDelete: Cascade)
   dealsIRM              DealIRM[]         @relation("LokowanyProdukt")
-  
-  allegroCategory       MarketplaceCategory? @relation(fields: [allegroCategoryId], references: [id])
-  allegroCategoryId     String?
+
+  allegroCategory   MarketplaceCategory? @relation(fields: [allegroCategoryId], references: [id])
+  allegroCategoryId String?
 
   @@index([brandId])
   @@index([sku])
@@ -323,24 +324,24 @@ model Product {
 }
 
 model EcoMaterial {
-  id        String       @id @default(uuid())
-  name      String       @unique
-  ratePerKg Float        @default(0.0)
-  carbonFootprintKg Float? @default(0.0)
-  origin    String?
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  boms      ProductBom[]
+  id                String       @id @default(uuid())
+  name              String       @unique
+  ratePerKg         Float        @default(0.0)
+  carbonFootprintKg Float?       @default(0.0)
+  origin            String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  boms              ProductBom[]
 }
 
 model ProductBom {
-  id           String      @id @default(uuid())
-  productId    String
-  materialId   String
-  weightGrams  Float
-  product      Product     @relation("ProductBomElements", fields: [productId], references: [id], onDelete: Cascade)
-  material     EcoMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
-  
+  id          String      @id @default(uuid())
+  productId   String
+  materialId  String
+  weightGrams Float
+  product     Product     @relation("ProductBomElements", fields: [productId], references: [id], onDelete: Cascade)
+  material    EcoMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
   @@unique([productId, materialId])
 }
 
@@ -377,63 +378,63 @@ enum TaskPriority {
 }
 
 model SmiPost {
-  id              String   @id @default(uuid())
-  campaignId      String
-  brandLine       String?
-  publishDate     DateTime
-  postType        String?  
-  content         String?  @db.Text
-  hashtags        String?  @db.Text
-  hasGraphics     Boolean  @default(false)
-  notes           String?  @db.Text
-  redirectUrl     String?  
-  adBudgetInfo    String?  
-  status          String   @default("Szkic") 
-  mediaUrls       String[] @default([])
-  mediaTypes      String[] @default([])
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  id           String   @id @default(uuid())
+  campaignId   String
+  brandLine    String?
+  publishDate  DateTime
+  postType     String?
+  content      String?  @db.Text
+  hashtags     String?  @db.Text
+  hasGraphics  Boolean  @default(false)
+  notes        String?  @db.Text
+  redirectUrl  String?
+  adBudgetInfo String?
+  status       String   @default("Szkic")
+  mediaUrls    String[] @default([])
+  mediaTypes   String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@index([campaignId])
 }
 
 model MarketplaceCategory {
-  id          String    @id
-  name        String
-  parameters  Json
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  products    Product[]
+  id         String    @id
+  name       String
+  parameters Json
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  products   Product[]
 }
 
 model Company {
-  id          String   @id @default(uuid())
-  taxId       String?  @unique // NIP
-  regon       String?
-  krs         String?
-  name        String
-  legalForm   String?  // np. "Sp. z o.o."
-  industry    String?  
-  website     String?
-  mainPhone   String?
-  mainEmail   String?
-  status      String   @default("Aktywny") // Aktywny, Zablokowany, Prospekt
-  rating      Int?     @default(0)         // 1-5 gwiazdek
-  notes       String?  @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  taxId     String?  @unique // NIP
+  regon     String?
+  krs       String?
+  name      String
+  legalForm String? // np. "Sp. z o.o."
+  industry  String?
+  website   String?
+  mainPhone String?
+  mainEmail String?
+  status    String   @default("Aktywny") // Aktywny, Zablokowany, Prospekt
+  rating    Int?     @default(0) // 1-5 gwiazdek
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  branches    CompanyBranch[]
-  contacts    ContactPerson[]
-  campaigns   Campaign[]
+  branches  CompanyBranch[]
+  contacts  ContactPerson[]
+  campaigns Campaign[]
 }
 
 model CompanyBranch {
   id             String   @id @default(uuid())
   companyId      String
-  name           String   // np. "Magazyn Główny", "Siedziba"
+  name           String // np. "Magazyn Główny", "Siedziba"
   type           String   @default("Oddział") // Siedziba, Magazyn, Sklep, Biuro
   street         String?
   building       String?
@@ -444,35 +445,35 @@ model CompanyBranch {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contacts       ContactPerson[]
-  
+  company  Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contacts ContactPerson[]
+
   @@index([companyId])
 }
 
 model ContactPerson {
-  id          String   @id @default(uuid())
-  companyId   String
-  branchId    String?
-  firstName   String
-  lastName    String
-  role        String?  // Dyrektor, Księgowość, Handlowiec
-  phone       String?
-  email       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  companyId String
+  branchId  String?
+  firstName String
+  lastName  String
+  role      String? // Dyrektor, Księgowość, Handlowiec
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branch      CompanyBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  company Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch  CompanyBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   @@index([companyId])
   @@index([branchId])
 }
 
 model SystemSetting {
-  id        String   @id @default(uuid())
-  key       String   @unique
-  value     String
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -483,57 +484,57 @@ model SystemSetting {
 // ==========================================
 
 model InfluencerProfile {
-  id               String   @id @default(uuid())
-  name             String
-  handle           String   @unique
-  platform         String   @default("INSTAGRAM")
-  email            String?
-  followers        Int      @default(0)
-  engagementRate   Float    @default(0.0)
-  authenticityScore Float   @default(1.0)
-  predictiveEngagement Float? @default(0.0)
-  vectorData       String[] @default([])
-  demographicData  Json     @default("{}")
-  gdprConsent      Boolean  @default(false)
-  createdAt        DateTime @default(now())
+  id                   String   @id @default(uuid())
+  name                 String
+  handle               String   @unique
+  platform             String   @default("INSTAGRAM")
+  email                String?
+  followers            Int      @default(0)
+  engagementRate       Float    @default(0.0)
+  authenticityScore    Float    @default(1.0)
+  predictiveEngagement Float?   @default(0.0)
+  vectorData           String[] @default([])
+  demographicData      Json     @default("{}")
+  gdprConsent          Boolean  @default(false)
+  createdAt            DateTime @default(now())
 
   // --- POLA KOMERCYJNE (NANOOINFLU) ---
-  preferredCollab  String   @default("BARTER") // "BARTER", "PAID", "MIXED"
-  minRate          Int      @default(0)
-  maxRate          Int      @default(0)
-  avatarUrl        String?
-  socialUrl        String?
-  deals            DealIRM[] @relation("RealizujeDeal")
-  notes            InfluencerNote[] @relation("PosiadaNotatki")
+  preferredCollab String           @default("BARTER") // "BARTER", "PAID", "MIXED"
+  minRate         Int              @default(0)
+  maxRate         Int              @default(0)
+  avatarUrl       String?
+  socialUrl       String?
+  deals           DealIRM[]        @relation("RealizujeDeal")
+  notes           InfluencerNote[] @relation("PosiadaNotatki")
 }
 
 model InfluencerNote {
-  id              String            @id @default(uuid())
-  influencerId    String
-  content         String            @db.Text
-  createdAt       DateTime          @default(now())
-  
-  influencer      InfluencerProfile @relation("PosiadaNotatki", fields: [influencerId], references: [id], onDelete: Cascade)
+  id           String   @id @default(uuid())
+  influencerId String
+  content      String   @db.Text
+  createdAt    DateTime @default(now())
+
+  influencer InfluencerProfile @relation("PosiadaNotatki", fields: [influencerId], references: [id], onDelete: Cascade)
 }
 
 model DealIRM {
-  id                String            @id @default(uuid())
-  influencerId      String
-  campaignId        String
-  productId         String
-  status            String            @default("NAWIAZANIE")
-  proposedFee       Float             @default(0.0)
-  isUokikCompliant  Boolean           @default(false)
-  uokikScanLog      String?           @db.Text
-  calculatedEMV     Float             @default(0.0)
-  outreachDraft     String?           @db.Text
-  createdAt         DateTime          @default(now())
-  
-  influencer        InfluencerProfile @relation("RealizujeDeal", fields: [influencerId], references: [id], onDelete: Cascade)
-  campaign          Campaign          @relation("ZawieraDeal", fields: [campaignId], references: [id], onDelete: Cascade)
-  product           Product           @relation("LokowanyProdukt", fields: [productId], references: [id], onDelete: Cascade)
-  
-  logs              ActionLog[]       @relation("GenerujeLogi")
+  id               String   @id @default(uuid())
+  influencerId     String
+  campaignId       String
+  productId        String
+  status           String   @default("NAWIAZANIE")
+  proposedFee      Float    @default(0.0)
+  isUokikCompliant Boolean  @default(false)
+  uokikScanLog     String?  @db.Text
+  calculatedEMV    Float    @default(0.0)
+  outreachDraft    String?  @db.Text
+  createdAt        DateTime @default(now())
+
+  influencer InfluencerProfile @relation("RealizujeDeal", fields: [influencerId], references: [id], onDelete: Cascade)
+  campaign   Campaign          @relation("ZawieraDeal", fields: [campaignId], references: [id], onDelete: Cascade)
+  product    Product           @relation("LokowanyProdukt", fields: [productId], references: [id], onDelete: Cascade)
+
+  logs ActionLog[] @relation("GenerujeLogi")
 
   @@unique([influencerId, campaignId, productId])
 }
@@ -544,13 +545,13 @@ model ActionLog {
   actionType  String   @default("VIEW")
   description String?
   timestamp   DateTime @default(now())
-  
-  deal        DealIRM  @relation("GenerujeLogi", fields: [dealId], references: [id], onDelete: Cascade)
+
+  deal DealIRM @relation("GenerujeLogi", fields: [dealId], references: [id], onDelete: Cascade)
 }
 
 model BriaEventLog {
   id              String   @id @default(uuid())
-  type            String   // "EDIT_REMOVE_BG", "EDIT_GEN_FILL", "EDIT_ERASE", "ADS_GENERATE"
+  type            String // "EDIT_REMOVE_BG", "EDIT_GEN_FILL", "EDIT_ERASE", "ADS_GENERATE"
   status          String   @default("PENDING") // PENDING, COMPLETED, FAILED
   requestId       String?
   requestPayload  Json     @default("{}")
