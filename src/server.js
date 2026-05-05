@@ -1,11 +1,13 @@
 require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const logger = require('./utils/logger');
+
 // Globalna Tarcza Ochronna Procesu Node.js (Zasada Nieśmiertelnego Serwera)
 process.on('uncaughtException', (err) => {
-    console.error('KRYTYCZNY BŁĄD PROCESU (Uncaught Exception):', err);
+    logger.error('KRYTYCZNY BŁĄD PROCESU (Uncaught Exception):', err);
 });
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('NIEWYŁAPANA OBIETNICA (Unhandled Rejection) at:', promise, 'reason:', reason);
+    logger.error('NIEWYŁAPANA OBIETNICA (Unhandled Rejection) at:', { promise, reason });
 });
 const express = require('express');
 const http = require('http');
@@ -164,6 +166,14 @@ app.use('/api/analytics', authenticateToken, analyticsRoutes);
 app.use('/api/portfolio', authenticateToken, portfolioRoutes);
 // Faza 15: Integracja Optymalizatora Ofert
 app.use('/api/offer-optimizer', authenticateToken, offerOptimizerRoutes);
+
+// ENDPOINT DO TESTOWANIA SYSTEMU LOGOWANIA (FAZA 5)
+app.get('/api/test-error', (req, res, next) => {
+    logger.info('Użytkownik wywołał testowy błąd za pomocą /api/test-error');
+    const error = new Error('TO JEST SYMULOWANY BŁĄD SYSTEMU MONITORINGU (WINSTON)');
+    error.status = 500;
+    next(error);
+});
 
 
 // ASORTYMENT (PIM)

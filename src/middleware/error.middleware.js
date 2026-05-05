@@ -1,14 +1,16 @@
+const logger = require('../utils/logger');
+
 /**
  * Centralny Globalny Handler Błędów
  * Przechwytuje wyjątki z procesu, asynchronicznych endpointów i logiki biznesowej, formatując je w ustrukturyzowany, ujednolicony JSON.
  */
 function errorHandler(err, req, res, next) {
-    console.error("🔥 [CRITICAL EXCEPTION CAUGHT]:", err.message);
-    
-    // Stack trace tylko dla celów deweloperskich/logowania w pamięci chmurowej
-    if (process.env.NODE_ENV !== 'production') {
-        console.error(err.stack);
-    }
+    logger.error(`🔥 [CRITICAL EXCEPTION CAUGHT]: ${err.message}`, {
+        stack: err.stack,
+        url: req.originalUrl,
+        method: req.method,
+        body: req.body
+    });
 
     const statusCode = err.status || 500;
     const responsePayload = {
