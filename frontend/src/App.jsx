@@ -1370,8 +1370,11 @@ function App() {
     );
   };
 
+  if (!token) return renderLogin();
+
+
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden relative">
+      <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden relative">
       {/* GLOBAL SIDEBAR */}
       <aside className="w-16 bg-slate-900 border-r border-slate-800 flex flex-col items-center py-4 z-50 shrink-0 shadow-2xl hidden md:flex">
         <DevBadge id="H-1" />
@@ -1567,3 +1570,4 @@ function App() {
 }
 
 export default App;
+
