@@ -51,6 +51,28 @@ app.use(helmet({
     }
 }));
 
+// KRYTYCZNY LOGGER DO DIAGNOSTYKI
+const fs = require('fs');
+app.use((req, res, next) => {
+    const start = Date.now();
+    const oldJson = res.json;
+    res.json = function(body) {
+        res.locals.body = body;
+        return oldJson.apply(res, arguments);
+    };
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        const logLine = `[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - ${res.statusCode} - ${duration}ms\n`;
+        // Jesli wystapil blad, logujemy cialo odpowiedzi
+        if (res.statusCode >= 400) {
+            fs.appendFileSync(path.join(__dirname, '../logs/debug-requests.log'), logLine + `  Response: ${JSON.stringify(res.locals.body)}\n`);
+        } else {
+            fs.appendFileSync(path.join(__dirname, '../logs/debug-requests.log'), logLine);
+        }
+    });
+    next();
+});
+
 // Konfiguracja CORS (Zabezpieczenie przed nieautoryzowanym dostępem)
 const allowedOrigins = process.env.CORS_ORIGINS 
     ? process.env.CORS_ORIGINS.split(',') 
@@ -206,14 +228,28 @@ app.get('/api/health', async (req, res) => {
 // ENDPOINT DIAGNOSTYCZNY LOGÓW (DEBUGOWANIE)
 app.get('/api/logs', async (req, res) => {
     try {
-        const fs = require('fs');
         const path = require('path');
         const logDir = path.join(__dirname, '../logs');
-        if (!fs.existsSync(logDir)) return res.json({ error: "Brak folderu logs" });
-        const files = fs.readdirSync(logDir).filter(f => f.includes('error'));
-        if (files.length === 0) return res.json({ error: "Brak plików error log" });
-        const latestFile = files.sort().reverse()[0];
-        const content = fs.readFileSync(path.join(logDir, latestFile), 'utf-8');
+        let content = "=== WINSTON ERROR LOG ===\n";
+        
+        if (fs.existsSync(logDir)) {
+            const files = fs.readdirSync(logDir).filter(f => f.includes('error'));
+            if (files.length > 0) {
+                const latestFile = files.sort().reverse()[0];
+                content += fs.readFileSync(path.join(logDir, latestFile), 'utf-8');
+            } else {
+                content += "Brak plikow error log.\n";
+            }
+        }
+        
+        content += "\n\n=== REQUEST LOG ===\n";
+        const reqLogPath = path.join(__dirname, '../logs/debug-requests.log');
+        if (fs.existsSync(reqLogPath)) {
+            content += fs.readFileSync(reqLogPath, 'utf-8');
+        } else {
+            content += "Brak logow zadan.\n";
+        }
+        
         res.type('text/plain').send(content);
     } catch (err) {
         res.status(500).send("Błąd odczytu logów: " + err.message);
