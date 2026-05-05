@@ -1,0 +1,195 @@
+Type,OrderDate,PaymentAmount,PaymentCurrency,TotalToPayAmount,TotalToPayCurrency,TotalPaidAmount,TotalPaidCurrency
+order,2025-07-15T23:00:35.985Z,72.26,PLN,72.26,PLN,72.26,PLN
+order,2025-07-15T20:54:30.845Z,121.06,PLN,121.06,PLN,121.06,PLN
+order,2025-07-15T20:02:29.485Z,45.00,PLN,45.00,PLN,45.00,PLN
+order,2025-07-15T17:54:48.601Z,49.07,PLN,49.07,PLN,49.07,PLN
+order,2025-07-15T11:46:47.146Z,56.00,PLN,56.00,PLN,56.00,PLN
+order,2025-07-15T10:55:35.386Z,56.00,PLN,56.00,PLN,56.00,PLN
+order,2025-07-15T09:54:57.551Z,84.00,PLN,84.00,PLN,0.00,PLN
+order,2025-07-15T09:36:19.981Z,61.59,PLN,61.59,PLN,61.59,PLN
+order,2025-07-15T08:32:52.679Z,56.00,PLN,56.00,PLN,56.00,PLN
+order,2025-07-15T08:12:34.239Z,76.77,PLN,76.77,PLN,76.77,PLN
+order,2025-07-15T08:05:34.598Z,50.54,PLN,50.54,PLN,50.54,PLN
+order,2025-07-15T06:23:50.494Z,49.07,PLN,49.07,PLN,49.07,PLN
+order,2025-07-15T05:29:19.611Z,23.83,PLN,23.83,PLN,23.83,PLN
+order,2025-07-14T20:40:44.175Z,57.78,PLN,57.78,PLN,57.78,PLN
+order,2025-07-14T19:46:37.486Z,50.98,PLN,50.98,PLN,50.98,PLN
+order,2025-07-14T19:01:52.317Z,54.38,PLN,54.38,PLN,54.38,PLN
+order,2025-07-14T18:32:11.715Z,95.49,PLN,95.49,PLN,95.49,PLN
+order,2025-07-14T17:38:27.245Z,59.98,PLN,59.98,PLN,0.00,PLN
+order,2025-07-14T16:23:10.481Z,55.49,PLN,55.49,PLN,55.49,PLN
+order,2025-07-14T15:38:06.254Z,123.68,PLN,123.68,PLN,123.68,PLN
+order,2025-07-14T12:51:44.907Z,46.97,PLN,46.97,PLN,46.97,PLN
+order,2025-07-14T12:38:15.387Z,47.38,PLN,47.38,PLN,47.38,PLN
+order,2025-07-14T08:49:45.297Z,56.00,PLN,56.00,PLN,56.00,PLN
+order,2025-07-14T08:20:59.010Z,50.93,PLN,50.93,PLN,50.93,PLN
+order,2025-07-14T08:19:09.815Z,54.96,PLN,54.96,PLN,54.96,PLN
+order,2025-07-14T08:15:05.257Z,77.07,PLN,77.07,PLN,77.07,PLN
+order,2025-07-14T08:08:45.563Z,39.49,PLN,39.49,PLN,39.49,PLN
+order,2025-07-14T07:38:44.217Z,56.68,PLN,56.68,PLN,56.68,PLN
+order,2025-07-14T06:28:16.682Z,49.67,PLN,49.67,PLN,49.67,PLN
+order,2025-07-14T06:17:09.012Z,61.04,PLN,61.04,PLN,61.04,PLN
+order,2025-07-14T06:02:27.474Z,84.00,PLN,84.00,PLN,84.00,PLN
+order,2025-07-14T05:38:22.616Z,49.78,PLN,49.78,PLN,49.78,PLN
+order,2025-07-13T20:50:03.556Z,53.68,PLN,53.68,PLN,53.68,PLN
+order,2025-07-13T19:24:55.987Z,45.71,PLN,45.71,PLN,45.71,PLN
+order,2025-07-13T17:34:15.950Z,62.02,PLN,62.02,PLN,62.02,PLN
+order,2025-07-13T16:46:48.528Z,45.08,PLN,45.08,PLN,45.08,PLN
+order,2025-07-13T11:23:09.618Z,55.42,PLN,55.42,PLN,55.42,PLN
+order,2025-07-13T11:06:13.888Z,24.33,PLN,24.33,PLN,24.33,PLN
+order,2025-07-13T10:34:06.976Z,53.65,PLN,53.65,PLN,53.65,PLN
+order,2025-07-13T07:01:12.228Z,61.26,PLN,61.26,PLN,61.26,PLN
+order,2025-07-12T21:22:06.231Z,56.07,PLN,56.07,PLN,56.07,PLN
+order,2025-07-12T21:10:28.495Z,50.92,PLN,50.92,PLN,50.92,PLN
+order,2025-07-12T17:21:25.402Z,76.38,PLN,76.38,PLN,76.38,PLN
+order,2025-07-12T15:53:11.865Z,30.67,PLN,30.67,PLN,30.67,PLN
+order,2025-07-12T13:27:15.076Z,23.83,PLN,23.83,PLN,23.83,PLN
+order,2025-07-12T08:58:54.753Z,53.79,PLN,53.79,PLN,53.79,PLN
+order,2025-07-12T08:40:26.333Z,58.55,PLN,58.55,PLN,58.55,PLN
+order,2025-07-12T06:09:24.570Z,72.48,PLN,72.48,PLN,72.48,PLN
+order,2025-07-11T18:29:35.666Z,51.40,PLN,51.40,PLN,51.40,PLN
+order,2025-07-11T14:13:27.178Z,28.57,PLN,28.57,PLN,28.57,PLN
+order,2025-07-11T11:33:45.305Z,93.97,PLN,93.97,PLN,93.97,PLN
+order,2025-07-11T10:52:34.849Z,62.22,PLN,62.22,PLN,62.22,PLN
+order,2025-07-11T08:25:53.343Z,51.03,PLN,51.03,PLN,51.03,PLN
+order,2025-07-11T06:58:42.817Z,45.89,PLN,45.89,PLN,45.89,PLN
+order,2025-07-10T20:59:57.879Z,62.19,PLN,62.19,PLN,62.19,PLN
+order,2025-07-10T20:18:17.979Z,114.71,PLN,114.71,PLN,114.71,PLN
+order,2025-07-10T20:00:02.833Z,54.04,PLN,54.04,PLN,54.04,PLN
+order,2025-07-10T19:02:27.981Z,59.64,PLN,59.64,PLN,59.64,PLN
+order,2025-07-10T18:21:44.496Z,49.79,PLN,49.79,PLN,49.79,PLN
+order,2025-07-10T17:49:03.328Z,48.02,PLN,48.02,PLN,48.02,PLN
+
+Type,LineItemId,OfferId,Name,Quantity,Price,Currency,Deposit,DepositCurrency
+lineItem,3eb1a740-61cf-11f0-ac88-534165ba7a16,15574823809,"Naprawczy szampon RESTRUKTURYZUJĄCY 300 ml Equilibra",1,20.99,PLN,,
+lineItem,3eb1a742-61cf-11f0-ac88-534165ba7a16,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",2,12.84,PLN,,
+lineItem,3eb1a741-61cf-11f0-ac88-534165ba7a16,15574823784,"Wzmacniający szampon przeciw wypadaniu włosów 300 ml Equilibra",1,25.59,PLN,,
+lineItem,bd4786e4-61bd-11f0-beae-ab2b84759fcb,15574362921,"Nawilżająca odżywka ALOES I KWAS HIALURONOWY 200 ml",1,23.39,PLN,,
+lineItem,bd4786e3-61bd-11f0-beae-ab2b84759fcb,15574362775,"Oczyszczający szampon ZIELONA HERBATA i kwas hialuronowy 265 ml Equilibra",1,17.49,PLN,,
+lineItem,bd4786e2-61bd-11f0-beae-ab2b84759fcb,15574362775,"Oczyszczający szampon ZIELONA HERBATA i kwas hialuronowy 265 ml Equilibra",1,14.85,PLN,,
+lineItem,bd4786e1-61bd-11f0-beae-ab2b84759fcb,16968904906,"Equilibra szampon oczyszczający z AKTYWNYM WĘGLEM 265ml",1,17.35,PLN,,
+lineItem,bd4786e0-61bd-11f0-beae-ab2b84759fcb,17215229512,"Odżywka do włosów RESTRUKTURYZUJĄCA Equilibra Tricologica 200 ml",2,23.99,PLN,,
+lineItem,94be3181-61b6-11f0-962a-017bda182b6c,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",2,14.00,PLN,,
+lineItem,94be3180-61b6-11f0-962a-017bda182b6c,15693635463,"Aloesowy krem do twarzy przeciwstarzeniowy Equilibra 50 ml",1,17.00,PLN,,
+lineItem,ad6fc702-61a4-11f0-8106-413c14eece1b,15574362921,"Nawilżająca odżywka ALOES I KWAS HIALURONOWY 200 ml",1,23.39,PLN,,
+lineItem,ad6fc700-61a4-11f0-8106-413c14eece1b,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",2,12.84,PLN,,
+lineItem,385022e0-6171-11f0-aea9-0bc975d4f8c5,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",4,14.00,PLN,,
+lineItem,30b71d60-616a-11f0-90b8-abb6e061c4ba,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",4,14.00,PLN,,
+lineItem,9174fa90-6161-11f0-962a-017bda182b6c,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",6,14.00,PLN,,
+lineItem,eb997c10-615e-11f0-9131-9b9d0df0661b,16855109965,"Zestaw różany do twarzy z kwasem hialuronowym przeciwstarzeniowy Equilibra",1,61.59,PLN,,
+lineItem,40a62f40-6156-11f0-bd07-770881638437,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",4,14.00,PLN,,
+lineItem,573227d0-6153-11f0-9756-cd9fae62140b,15574823784,"Wzmacniający szampon przeciw wypadaniu włosów 300 ml Equilibra",3,25.59,PLN,,
+lineItem,75ca2540-6152-11f0-a966-736fc1f5c6c5,15574362473,"Arganowy żel do kąpieli 400 ml",1,19.71,PLN,,
+lineItem,75ca2541-6152-11f0-a966-736fc1f5c6c5,17389102044,"Equilibra Odżywczy Krem do rąk z masłem Shea",1,17.99,PLN,,
+lineItem,75ca2542-6152-11f0-a966-736fc1f5c6c5,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,
+lineItem,399a4f91-6144-11f0-8106-413c14eece1b,15574362921,"Nawilżająca odżywka ALOES I KWAS HIALURONOWY 200 ml",1,23.39,PLN,,
+lineItem,399a4f90-6144-11f0-8106-413c14eece1b,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",2,12.84,PLN,,
+lineItem,a5b303f1-613c-11f0-9131-9b9d0df0661b,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,
+lineItem,49614931-60f2-11f0-b0b3-35d426a14a29,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",2,14.00,PLN,,
+lineItem,49614932-60f2-11f0-b0b3-35d426a14a29,15693635463,"Aloesowy krem do twarzy przeciwstarzeniowy Equilibra 50 ml",1,17.00,PLN,,
+lineItem,49614930-60f2-11f0-b0b3-35d426a14a29,15574824015,"Pasta Sensitive do wrażliwych zębów i dziąseł - żel aloesowy 75 ml",1,12.78,PLN,,
+lineItem,21631cd0-60eb-11f0-a8b4-93c8769affc0,16968904906,"Equilibra szampon oczyszczający z AKTYWNYM WĘGLEM 265ml",1,17.35,PLN,,
+lineItem,21631cd2-60eb-11f0-a8b4-93c8769affc0,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,
+lineItem,21631cd1-60eb-11f0-a8b4-93c8769affc0,15574823922,"Odżywczy szampon ARGAN i Kwas Hialuronowy 265 ml Equilibra",1,20.79,PLN,,
+lineItem,fb265a11-60e4-11f0-9bd9-c94960fb9a40,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",2,12.84,PLN,,
+lineItem,fb265a10-60e4-11f0-9bd9-c94960fb9a40,17388925570,"Szampon przeciwłupieżowy 300ml Equilibra",1,28.70,PLN,,
+lineItem,93c298b1-60e0-11f0-9938-dd8d35af19ee,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",6,14.00,PLN,,
+lineItem,3b2fe650-60d9-11f0-a3d2-db1ae4f6f37d,17532673280,"Equilibra Kolagen Plus Suplement diety 10 saszetek, do picia",2,29.99,PLN,,
+lineItem,bb2c56a0-60ce-11f0-89e4-0140dfd5a8a2,17391096073,"Aloesowy balsam do ust w sztyfcie 5,5 ml",1,13.49,PLN,,
+lineItem,bb2c56a1-60ce-11f0-89e4-0140dfd5a8a2,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",3,14.00,PLN,,
+lineItem,6d89f9d6-60c8-11f0-8106-413c14eece1b,15574362921,"Nawilżająca odżywka ALOES I KWAS HIALURONOWY 200 ml",1,23.39,PLN,,
+lineItem,6d89f9d5-60c8-11f0-8106-413c14eece1b,15574362921,"Nawilżająca odżywka ALOES I KWAS HIALURONOWY 200 ml",1,19.87,PLN,,
+lineItem,6d89f9d0-60c8-11f0-8106-413c14eece1b,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,
+lineItem,6d89f9d1-60c8-11f0-8106-413c14eece1b,15574823922,"Odżywczy szampon ARGAN i Kwas Hialuronowy 265 ml Equilibra",1,20.79,PLN,,
+lineItem,6d89f9d4-60c8-11f0-8106-413c14eece1b,15574362620,"Tonizująco - energetyzujący peeling solny 600 g",1,46.79,PLN,,
+lineItem,36c20c10-60b1-11f0-b745-c5ba5ec75693,15574823809,"Naprawczy szampon RESTRUKTURYZUJĄCY 300 ml Equilibra",2,20.99,PLN,,
+lineItem,55a8bb31-60af-11f0-91b2-456d23c06b5e,15574362921,"Nawilżająca odżywka ALOES I KWAS HIALURONOWY 200 ml",1,23.39,PLN,,
+lineItem,55a8bb30-60af-11f0-91b2-456d23c06b5e,17215229512,"Odżywka do włosów RESTRUKTURYZUJĄCA Equilibra Tricologica 200 ml",1,23.99,PLN,,
+lineItem,708687e1-608f-11f0-8600-3dd81200130a,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",4,14.00,PLN,,
+lineItem,49bd9fd6-608b-11f0-ae74-1b3e4984a388,16101531648,"EQUILIBRA Różane płatki pod oczy, 2szt.",1,12.59,PLN,,
+lineItem,49bd9fd0-608b-11f0-ae74-1b3e4984a388,15574824015,"Pasta Sensitive do wrażliwych zębów i dziąseł - żel aloesowy 75 ml",3,12.78,PLN,,
+lineItem,2a6491c1-608b-11f0-a07c-cbdd9f0dba4b,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",2,12.84,PLN,,
+lineItem,2a6491c0-608b-11f0-a07c-cbdd9f0dba4b,15574824015,"Pasta Sensitive do wrażliwych zębów i dziąseł - żel aloesowy 75 ml",1,12.78,PLN,,
+lineItem,2a6491c2-608b-11f0-a07c-cbdd9f0dba4b,15574362818,"Równoważący szampon RÓŻA i kwas hialuronowy 265 ml Equilibra",1,16.50,PLN,,
+lineItem,9bfbf724-608a-11f0-9b9c-33aa95959fdb,15574362818,"Równoważący szampon RÓŻA i kwas hialuronowy 265 ml Equilibra",1,16.50,PLN,,
+lineItem,9bfbf723-608a-11f0-9b9c-33aa95959fdb,15574362818,"Równoważący szampon RÓŻA i kwas hialuronowy 265 ml Equilibra",1,14.02,PLN,,
+lineItem,9bfbf721-608a-11f0-9b9c-33aa95959fdb,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",1,14.00,PLN,,
+lineItem,9bfbf722-608a-11f0-9b9c-33aa95959fdb,15574362473,"Arganowy żel do kąpieli 400 ml",1,19.71,PLN,,
+lineItem,9bfbf720-608a-11f0-9b9c-33aa95959fdb,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,
+lineItem,93b87212-6089-11f0-b745-c5ba5ec75693,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",2,14.00,PLN,,
+lineItem,562caa54-6085-11f0-9700-bf2339b282db,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",1,14.00,PLN,,
+lineItem,562caa55-6085-11f0-9700-bf2339b282db,15693635463,"Aloesowy krem do twarzy przeciwstarzeniowy Equilibra 50 ml",1,17.00,PLN,,
+lineItem,562caa56-6085-11f0-9700-bf2339b282db,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",2,12.84,PLN,,
+lineItem,b602dc10-607b-11f0-8600-3dd81200130a,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",2,12.84,PLN,,
+lineItem,b602dc11-607b-11f0-8600-3dd81200130a,17215229512,"Odżywka do włosów RESTRUKTURYZUJĄCA Equilibra Tricologica 200 ml",1,23.99,PLN,,
+lineItem,d4191bd9-6079-11f0-b63f-bf98db7ddd7d,15574362818,"Równoważący szampon RÓŻA i kwas hialuronowy 265 ml Equilibra",2,16.50,PLN,,
+lineItem,d4191bd8-6079-11f0-b63f-bf98db7ddd7d,15574362818,"Równoważący szampon RÓŻA i kwas hialuronowy 265 ml Equilibra",2,14.02,PLN,,
+lineItem,e66af7b0-6077-11f0-82fd-f957882fbd7c,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",6,14.00,PLN,,
+lineItem,be958c31-6074-11f0-82fd-f957882fbd7c,15693635463,"Aloesowy krem do twarzy przeciwstarzeniowy Equilibra 50 ml",1,17.00,PLN,,
+lineItem,be958c32-6074-11f0-82fd-f957882fbd7c,16083109785,"Arganowy peeling do twarzy złuszczający Equilibra 75 ml",1,15.99,PLN,,
+lineItem,be958c30-6074-11f0-82fd-f957882fbd7c,16804957357,"Rozświetlająca woda micelarna 400ml Equilibra VITAMINICA",1,16.79,PLN,,
+lineItem,d0ef6c10-602a-11f0-904c-5b92bb68c857,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",2,14.00,PLN,,
+lineItem,d0ef6c11-602a-11f0-904c-5b92bb68c857,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",2,12.84,PLN,,
+lineItem,0b7009f0-601f-11f0-b610-094dd6c173bf,16101067082,"Equilibra Ochronny olejek do włosów 100 ml spray",1,12.99,PLN,,
+lineItem,0b7009f1-601f-11f0-b610-094dd6c173bf,15574362921,"Nawilżająca odżywka ALOES I KWAS HIALURONOWY 200 ml",1,19.88,PLN,,
+lineItem,0b7009f2-601f-11f0-b610-094dd6c173bf,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,
+lineItem,fd92f280-600e-11f0-9398-eb47e018c40f,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",1,14.00,PLN,,
+lineItem,fd92f282-600e-11f0-9398-eb47e018c40f,17388976805,"Equilibra Aloe Maska z kwasem hialuronowym 450ml",1,35.18,PLN,,
+lineItem,fd92f281-600e-11f0-9398-eb47e018c40f,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,
+lineItem,b3ecc997-6008-11f0-b4c0-afe8cd195e75,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",2,14.00,PLN,,
+lineItem,b3ecc996-6008-11f0-b4c0-afe8cd195e75,15574362775,"Oczyszczający szampon ZIELONA HERBATA i kwas hialuronowy 265 ml Equilibra",1,17.08,PLN,,
+lineItem,b675dee1-5fdb-11f0-82fd-f957882fbd7c,15574362775,"Oczyszczający szampon ZIELONA HERBATA i kwas hialuronowy 265 ml Equilibra",1,17.08,PLN,,
+lineItem,b675dee0-5fdb-11f0-82fd-f957882fbd7c,15574824015,"Pasta Sensitive do wrażliwych zębów i dziąseł - żel aloesowy 75 ml",3,12.78,PLN,,
+lineItem,5625b8a0-5fd9-11f0-9398-eb47e018c40f,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,
+lineItem,e3928060-5fd4-11f0-b98b-b1c8f95a71f4,15574362870,"Aloesowy dezodorant w kulce z kwasem hialuronowym 50 ml Equilibra",2,15.63,PLN,,
+lineItem,e3928061-5fd4-11f0-b98b-b1c8f95a71f4,15574362230,"Aloesowy oczyszczający żel micelarny ALOE 3+ 200 ml Equilibra",1,22.39,PLN,,
+lineItem,112bea72-5fb7-11f0-acff-e525aaa537f3,16968904906,"Equilibra szampon oczyszczający z AKTYWNYM WĘGLEM 265ml",1,19.88,PLN,,
+lineItem,112bea71-5fb7-11f0-acff-e525aaa537f3,15574823809,"Naprawczy szampon RESTRUKTURYZUJĄCY 300 ml Equilibra",1,20.99,PLN,,
+lineItem,112bea70-5fb7-11f0-acff-e525aaa537f3,17215229512,"Odżywka do włosów RESTRUKTURYZUJĄCA Equilibra Tricologica 200 ml",1,20.39,PLN,,
+lineItem,e7c41b90-5f65-11f0-9219-831b74132491,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",1,14.00,PLN,,
+lineItem,e7c41b93-5f65-11f0-9219-831b74132491,15693453408,"Aloesowy tonik do twarzy Equilibra Aloe 200 ml",1,12.73,PLN,,
+lineItem,e7c41b92-5f65-11f0-9219-831b74132491,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,
+lineItem,e7c41b91-5f65-11f0-9219-831b74132491,15574362818,"Równoważący szampon RÓŻA i kwas hialuronowy 265 ml Equilibra",1,16.50,PLN,,
+lineItem,9afe22c0-5f64-11f0-9219-831b74132491,15693453408,"Aloesowy tonik do twarzy Equilibra Aloe 200 ml",4,12.73,PLN,,
+lineItem,6f772720-5f44-11f0-8961-5791d5f1ff75,15693453408,"Aloesowy tonik do twarzy Equilibra Aloe 200 ml",6,12.73,PLN,,
+lineItem,453565a0-5f38-11f0-875b-572cc510c843,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",2,12.84,PLN,,
+lineItem,cb9d67b0-5f23-11f0-8961-5791d5f1ff75,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,
+lineItem,657e1032-5efe-11f0-8271-9199a8372d72,17213901552,"Equilibra oczyszczający żel do mycia twarzy z aktywnym węglem 200ml",1,24.29,PLN,,
+lineItem,657e1031-5efe-11f0-8271-9199a8372d72,15574925393,"Odświeżająca czysta woda różana 200ml",1,13.00,PLN,,
+lineItem,657e1030-5efe-11f0-8271-9199a8372d72,15574362818,"Równoważący szampon RÓŻA i kwas hialuronowy 265 ml Equilibra",1,16.50,PLN,,
+lineItem,c82e38c2-5efb-11f0-82fd-f957882fbd7c,15693635463,"Aloesowy krem do twarzy przeciwstarzeniowy Equilibra 50 ml",1,12.99,PLN,,
+lineItem,c82e38c1-5efb-11f0-82fd-f957882fbd7c,15574362921,"Nawilżająca odżywka ALOES I KWAS HIALURONOWY 200 ml",1,19.88,PLN,,
+lineItem,c82e38c0-5efb-11f0-82fd-f957882fbd7c,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",2,12.84,PLN,,
+lineItem,b9149bf2-5ee6-11f0-acff-e525aaa537f3,15574362921,"Nawilżająca odżywka ALOES I KWAS HIALURONOWY 200 ml",3,19.88,PLN,,
+lineItem,b9149bf1-5ee6-11f0-acff-e525aaa537f3,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,
+lineItem,f36a9d70-5e84-11f0-8600-3dd81200130a,15693635463,"Aloesowy krem do twarzy przeciwstarzeniowy Equilibra 50 ml",1,12.99,PLN,,
+lineItem,f36a9d71-5e84-11f0-8600-3dd81200130a,15693453408,"Aloesowy tonik do twarzy Equilibra Aloe 200 ml",1,12.73,PLN,,
+lineItem,f36a9d72-5e84-11f0-8600-3dd81200130a,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",2,12.84,PLN,,
+lineItem,084e6740-5e61-11f0-b1ea-19a4a01d5d14,15574362775,"Oczyszczający szampon ZIELONA HERBATA i kwas hialuronowy 265 ml Equilibra",1,17.08,PLN,,
+lineItem,da4e49c5-5e4a-11f0-8600-3dd81200130a,15574362500,"Arganowy nawilżający krem do twarzy 75 ml Equilibra",1,18.99,PLN,,
+lineItem,da4e49c4-5e4a-11f0-8600-3dd81200130a,16081821273,"Krem przeciwzmarszczkowy przeciwsłoneczny do twarzy 50 SPF 75 ml Equilibra",1,18.48,PLN,,
+lineItem,da4e49c1-5e4a-11f0-8600-3dd81200130a,15574925122,"Mydło aloesowe 100 g Equilibra 100% roślinne.",1,11.69,PLN,,
+lineItem,da4e49c0-5e4a-11f0-8600-3dd81200130a,15574925173,"Mydło nagietkowe 100g Equilibra",1,11.04,PLN,,
+lineItem,da4e49c3-5e4a-11f0-8600-3dd81200130a,15574823809,"Naprawczy szampon RESTRUKTURYZUJĄCY 300 ml Equilibra",1,20.99,PLN,,
+lineItem,da4e49c2-5e4a-11f0-8600-3dd81200130a,15574824015,"Pasta Sensitive do wrażliwych zębów i dziąseł - żel aloesowy 75 ml",1,12.78,PLN,,
+lineItem,1f2729a2-5e45-11f0-aa70-2d41189c8017,15574924982,"Aloesowy dezodorant w sztyfcie z kwasem hialuronowym Equilibra 50 ml",1,14.00,PLN,,
+lineItem,1f2729a1-5e45-11f0-aa70-2d41189c8017,17431593926,"Equilibra SUN Zestaw krem p/z do twarzy SPF 50 i Olejek ochronny do włosów",1,29.74,PLN,,
+lineItem,1f2729a0-5e45-11f0-aa70-2d41189c8017,16081821273,"Krem przeciwzmarszczkowy przeciwsłoneczny do twarzy 50 SPF 75 ml Equilibra",1,18.48,PLN,,
+lineItem,a5d9a231-5e30-11f0-8207-470e9a4f8d9d,15693453408,"Aloesowy tonik do twarzy Equilibra Aloe 200 ml",3,12.73,PLN,,
+lineItem,a5d9a230-5e30-11f0-8207-470e9a4f8d9d,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,
+lineItem,4c0b54dd-5e24-11f0-b7eb-7de23d32111d,16855680409,"EQUILIBRA Zestaw Tricologica Naprawczy szampon + Naprawcza odżywka",1,45.89,PLN,,
+lineItem,b36951d2-5dd0-11f0-b63f-bf98db7ddd7d,17434586372,"Equilibra Aloe krem przeciwsłoneczny SPF50 75 ml",1,23.79,PLN,,
+lineItem,b36951d0-5dd0-11f0-b63f-bf98db7ddd7d,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,
+lineItem,b36951d1-5dd0-11f0-b63f-bf98db7ddd7d,15574824015,"Pasta Sensitive do wrażliwych zębów i dziąseł - żel aloesowy 75 ml",2,12.78,PLN,,
+lineItem,f44c1853-5dca-11f0-875b-572cc510c843,17213901552,"Equilibra oczyszczający żel do mycia twarzy z aktywnym węglem 200ml",1,24.29,PLN,,
+lineItem,f44c1852-5dca-11f0-875b-572cc510c843,15574362921,"Nawilżająca odżywka ALOES I KWAS HIALURONOWY 200 ml",2,19.88,PLN,,
+lineItem,f44c1850-5dca-11f0-875b-572cc510c843,15574362775,"Oczyszczający szampon ZIELONA HERBATA i kwas hialuronowy 265 ml Equilibra",2,17.08,PLN,,
+lineItem,f44c1851-5dca-11f0-875b-572cc510c843,15574362818,"Równoważący szampon RÓŻA i kwas hialuronowy 265 ml Equilibra",1,16.50,PLN,,
+lineItem,6b3fa1a0-5dc8-11f0-9219-831b74132491,15574362870,"Aloesowy dezodorant w kulce z kwasem hialuronowym 50 ml Equilibra",1,15.63,PLN,,
+lineItem,6b3fa1a2-5dc8-11f0-9219-831b74132491,15693453408,"Aloesowy tonik do twarzy Equilibra Aloe 200 ml",1,12.73,PLN,,
+lineItem,6b3fa1a1-5dc8-11f0-9219-831b74132491,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",2,12.84,PLN,,
+lineItem,5e6bea40-5dc0-11f0-b63f-bf98db7ddd7d,16968904906,"Equilibra szampon oczyszczający z AKTYWNYM WĘGLEM 265ml",3,19.88,PLN,,
+lineItem,7fe1f3a0-5dba-11f0-b96b-8fce383bd220,15574362870,"Aloesowy dezodorant w kulce z kwasem hialuronowym 50 ml Equilibra",1,15.63,PLN,,
+lineItem,7fe1f3a1-5dba-11f0-b96b-8fce383bd220,15574362775,"Oczyszczający szampon ZIELONA HERBATA i kwas hialuronowy 265 ml Equilibra",2,17.08,PLN,,
+lineItem,14809ed2-5db6-11f0-b98b-b1c8f95a71f4,17388976805,"Equilibra Aloe Maska z kwasem hialuronowym 450ml",1,35.18,PLN,,
+lineItem,14809ed1-5db6-11f0-b98b-b1c8f95a71f4,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,12.84,PLN,,

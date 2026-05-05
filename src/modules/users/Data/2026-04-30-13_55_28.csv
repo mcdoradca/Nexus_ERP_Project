@@ -1,0 +1,13 @@
+Type,OrderDate,PaymentAmount,PaymentCurrency,TotalToPayAmount,TotalToPayCurrency,TotalPaidAmount,TotalPaidCurrency
+order,2025-05-01T18:03:01.777Z,48.63,PLN,48.63,PLN,48.63,PLN
+order,2025-05-01T06:00:42.389Z,51.60,PLN,51.60,PLN,51.60,PLN
+order,2025-04-30T15:59:47.160Z,67.96,PLN,67.96,PLN,67.96,PLN
+
+Type,LineItemId,OfferId,Name,Quantity,Price,Currency,Deposit,DepositCurrency
+lineItem,535f4022-26b6-11f0-9d3b-0d5480ea9eab,15574362775,"Oczyszczający szampon ZIELONA HERBATA i kwas hialuronowy 265 ml Equilibra",1,17.49,PLN,,
+lineItem,535f4021-26b6-11f0-9d3b-0d5480ea9eab,15574362818,"Równoważący szampon RÓŻA i kwas hialuronowy 265 ml Equilibra",1,14.02,PLN,,
+lineItem,535f4020-26b6-11f0-9d3b-0d5480ea9eab,15574823809,"Naprawczy szampon RESTRUKTURYZUJĄCY 300 ml Equilibra",1,17.12,PLN,,
+lineItem,8994eb52-2651-11f0-b548-4352238d6680,15574362818,"Równoważący szampon RÓŻA i kwas hialuronowy 265 ml Equilibra",1,16.50,PLN,,
+lineItem,8994eb51-2651-11f0-b548-4352238d6680,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",1,13.00,PLN,,
+lineItem,8994eb50-2651-11f0-b548-4352238d6680,15613556647,"Nawilżający szampon ALOES i kwas hialuronowy 265 ml Equilibra",2,11.05,PLN,,
+lineItem,196c5bd0-25dc-11f0-ae9c-1b1a5a7cb95d,16083252847,"EQUILIBRA BABY Delikatne chusteczki oczyszczające nawilżane 1 x 72 szt.",4,16.99,PLN,,

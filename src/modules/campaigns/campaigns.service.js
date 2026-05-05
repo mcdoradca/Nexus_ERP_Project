@@ -174,6 +174,28 @@ async function createSmiPost(campaignId, data) {
 }
 
 async function updateSmiPost(id, data) {
+    const currentPost = await prisma.smiPost.findUnique({ where: { id } });
+    
+    // Walidacja Human-in-the-loop (HITL)
+    const finalStatus = data.status || currentPost.status;
+    const finalType = data.postType || currentPost.postType;
+    const finalMediaUrls = data.mediaUrls || currentPost.mediaUrls || [];
+    const finalMediaTypes = data.mediaTypes || currentPost.mediaTypes || [];
+
+    if (finalStatus === 'Do publikacji' || finalStatus === 'Opublikowano') {
+        const typeUpper = finalType?.toUpperCase() || '';
+        
+        if (['TIKTOK', 'REEL'].includes(typeUpper)) {
+            if (!finalMediaTypes.includes('VIDEO')) {
+                throw new Error(`Odmowa: Format ${finalType} bezwzględnie wymaga wgranego materiału WIDEO przed zatwierdzeniem do publikacji.`);
+            }
+        } else if (['STORY', 'POST'].includes(typeUpper)) {
+            if (finalMediaUrls.length === 0) {
+                throw new Error(`Odmowa: Format ${finalType} wymaga załączenia pliku graficznego lub wideo przed zatwierdzeniem.`);
+            }
+        }
+    }
+
     const { publishDate, ...rest } = data;
     const updateData = { ...rest };
     if (publishDate) updateData.publishDate = new Date(publishDate);

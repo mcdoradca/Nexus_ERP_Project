@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../../core/prisma');
 const EventBus = require('../../core/EventBus');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-tajny-klucz-aps-ie-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 async function loginUser(email, password) {
     const user = await prisma.user.findUnique({ where: { email } });

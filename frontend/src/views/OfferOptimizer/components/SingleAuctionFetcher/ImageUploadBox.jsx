@@ -63,31 +63,31 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
     };
 
     return (
-        <div className="w-full bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden relative">
+        <div className="w-full bg-white rounded-sm shadow-sm border border-slate-400 overflow-hidden relative">
             {status === 'THINKING' && (
                 <div className="absolute inset-0 bg-gradient-to-r from-indigo-50/50 via-purple-50/50 to-indigo-50/50 transition-opacity duration-1000 animate-pulse z-0"></div>
             )}
             
             <div className="relative z-10 p-8 xl:p-12 flex flex-col justify-center items-center h-full">
-                <div className="bg-indigo-50 w-16 h-16 rounded-[1.5rem] flex items-center justify-center mb-6 border border-indigo-100 shadow-sm shadow-indigo-900/5">
+                <div className="bg-indigo-50 w-16 h-16 rounded-sm flex items-center justify-center mb-6 border border-indigo-100 shadow-sm shadow-indigo-900/5">
                     <DatabaseZap className="w-8 h-8 text-indigo-500" />
                 </div>
                 
                 <h2 className="text-2xl font-black text-slate-800 tracking-tighter mb-2">Pobierz Ofertę PIM z BaseLinkera</h2>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-8 text-center max-w-lg">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-8 text-center max-w-lg">
                    Backend automatycznie wyszuka kod EAN w katalogu PIM. Jeśli zajdzie potrzeba, pobierze bogaty HTML i media prosto z API BaseLinker, chroniąc przed blokadami Allegro.
                 </p>
 
                 <div className="flex w-full justify-center mb-8">
                      <div className="flex flex-col w-full max-w-sm">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 text-center">Wybierz Tryb Pracy Wymuszany na AI:</label>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 text-center">Wybierz Tryb Pracy Wymuszany na AI:</label>
                           <select 
                                id="analysisMode"
                                name="analysisMode"
                                value={analysisMode} 
                                onChange={(e) => setAnalysisMode(e.target.value)}
                                disabled={status === 'THINKING'}
-                               className="bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block w-full p-3 cursor-pointer shadow-sm outline-none mb-4"
+                               className="bg-slate-50 border border-slate-400 text-slate-700 text-sm font-bold rounded-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full p-3 cursor-pointer shadow-sm outline-none mb-4"
                           >
                                <option value="STANDARD">⭐ Standard E-commerce (SEO/GEO 2026)</option>
                                <option value="COSMETIC_LEGAL_AUDIT">🛡️ Audytor Rozporządzenia Kosmetycznego (UE 1223/2009)</option>
@@ -107,8 +107,8 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
 
                 <form onSubmit={handleAnalyze} className="w-full max-w-2xl relative flex flex-col items-center">
                     
-                    <div className="w-full bg-slate-50 shadow-inner rounded-2xl border border-slate-200 p-3 flex items-center transition-all focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/10 mb-2">
-                        <div className="px-4 text-slate-400">
+                    <div className="w-full bg-slate-50 shadow-inner rounded-sm border border-slate-400 p-3 flex items-center transition-all focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/10 mb-2">
+                        <div className="px-4 text-slate-600">
                             <LinkIcon className="w-5 h-5" />
                         </div>
                         <input
@@ -121,11 +121,11 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
                             className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-700 outline-none w-full disabled:opacity-50 py-3"
                         />
                         
-                        <div className="flex items-center space-x-2 pl-2 border-l border-slate-200 ml-2">
+                        <div className="flex items-center space-x-2 pl-2 border-l border-slate-400 ml-2">
                             <button
                                 type="submit"
                                 disabled={status === 'THINKING' || !ean}
-                                className={`px-8 py-4 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center 
+                                className={`px-8 py-4 rounded-sm text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center 
                                    ${status === 'SUCCESS' ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20' 
                                       : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'} 
                                    disabled:opacity-40 disabled:cursor-not-allowed min-w-[180px]`}
@@ -144,7 +144,7 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
                     )}
 
                     {lastError && (
-                        <div className="absolute -bottom-14 w-full text-center animate-in fade-in slide-in-from-top-2 border border-rose-200 bg-rose-50 p-3 rounded-xl shadow-sm z-20">
+                        <div className="absolute -bottom-14 w-full text-center animate-in fade-in slide-in-from-top-2 border border-rose-200 bg-rose-50 p-3 rounded-sm shadow-sm z-20">
                            <span className="text-xs font-bold text-rose-600 block mb-1">KRYTYCZNY BŁĄD BACKENDU:</span>
                            <span className="text-[11px] font-medium text-rose-500 break-words">{lastError}</span>
                         </div>

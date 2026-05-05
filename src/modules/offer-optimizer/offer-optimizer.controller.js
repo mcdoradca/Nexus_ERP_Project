@@ -4,6 +4,7 @@ const AllegroService = require('./allegro.service');
 const BaseLinkerService = require('./baselinker.service');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const EventBus = require('../../core/EventBus');
 
 const startOptimization = async (req, res) => {
     try {
@@ -101,28 +102,43 @@ const analyzeSingle = async (req, res) => {
                          stock: deepData.stock
                      }
                  });
+                 EventBus.publish('PRODUCT_DATA_UPDATED', { product, source: 'BASELINKER_SYNC_CREATE' });
              } else {
+                 // STRAŻNIK DANYCH (MDM Data Gatekeeper)
+                 // Sprawdzamy czy produkt ma opisy chronione lepszym znacznikiem "Źródła Prawdy"
+                 const isProtectedContent = product.lastContentSource === 'OFFER_OPTIMIZER_AI' || product.lastContentSource === 'PIM_UI_MANUAL';
+                 
+                 let updateData = {
+                     baselinkerInventoryId: deepData.baselinkerInventoryId,
+                     baselinkerId: deepData.baselinkerId,
+                     images: deepData.images, // Zwykle przyjmujemy że zdjęcia się synchronizują
+                     weight: deepData.weight,
+                     length: deepData.length,
+                     width: deepData.width,
+                     height: deepData.height,
+                     taxRate: deepData.taxRate,
+                     videoUrl: deepData.videoUrl,
+                     attachments: deepData.attachments,
+                     stockErpUnits: deepData.stockErpUnits,
+                     stockWmsUnits: deepData.stockWmsUnits,
+                     isSynced: true,
+                     stock: deepData.stock
+                 };
+                 
+                 // Jeśli nie jest chroniony - pozwalamy BaseLinkerowi nadpisać opisy tekstowe
+                 if (!isProtectedContent) {
+                     updateData.descriptionHtml = deepData.descriptionHtml;
+                     updateData.features = deepData.features;
+                     // ewentualnie updateData.name = deepData.name; (w zależności od wymagań)
+                 } else {
+                     console.log(`[MDM] Zablokowano nadpisanie opisów dla EAN: ${ean} z BaseLinkera. Posiada on wyższy Trust Score: ${product.lastContentSource}.`);
+                 }
+
                  product = await prisma.product.update({
                      where: { id: product.id },
-                     data: {
-                         baselinkerInventoryId: deepData.baselinkerInventoryId,
-                         baselinkerId: deepData.baselinkerId,
-                         descriptionHtml: deepData.descriptionHtml,
-                         features: deepData.features,
-                         images: deepData.images,
-                         weight: deepData.weight,
-                         length: deepData.length,
-                         width: deepData.width,
-                         height: deepData.height,
-                         taxRate: deepData.taxRate,
-                         videoUrl: deepData.videoUrl,
-                         attachments: deepData.attachments,
-                         stockErpUnits: deepData.stockErpUnits,
-                         stockWmsUnits: deepData.stockWmsUnits,
-                         isSynced: true,
-                         stock: deepData.stock
-                     }
+                     data: updateData
                  });
+                 EventBus.publish('PRODUCT_DATA_UPDATED', { product, source: 'BASELINKER_SYNC_UPDATE' });
              }
         }
 
@@ -148,10 +164,28 @@ const analyzeSingle = async (req, res) => {
             });
         }
 
-        // Faza 2: Karmienie Bestii (Gemini 2.5 Pro / 3.1) - Native Analysis
+        // Faza 1.8: Agent Badawczy (Research Agent) - Pobieranie twardych specyfikacji i INCI
+        console.log("[PIM] Uruchamianie Agenta Badawczego (Google Search) dla EAN...");
+        let intelligenceData = "Brak dodatkowych danych (Tryb offline lub błąd Agenta).";
+        try {
+            intelligenceData = await AiService.gatherProductIntelligence(product.ean, product.name);
+        } catch (researchErr) {
+            console.error("[PIM] Błąd Agenta Badawczego:", researchErr.message);
+        }
+
+        // Faza 1.9: Agent Audytor Prawny (Compliance Agent)
+        console.log("[PIM] Uruchamianie Agenta Prawnego (Compliance Agent) analizującego regulaminy PDF...");
+        let complianceReport = "Brak raportu prawnego.";
+        try {
+            complianceReport = await AiService.generateComplianceReport(product.name, product.aeoContent, product.descriptionHtml);
+        } catch (compErr) {
+            console.error("[PIM] Błąd Agenta Prawnego:", compErr.message);
+        }
+
+        // Faza 2: Karmienie Bestii (Gemini 2.5 Pro / 3.1) - Native Analysis jako Copywriter / GEO Optimizer
         console.log("[AiService] Odpalanie silnika Multimodalnego dla Native API w tle...");
         const featuresString = product.features ? JSON.stringify(product.features) : '';
-        const textContent = `NAZWA: ${product.name}\n\nCECHY TECHNICZNE PIM: ${featuresString}\n\nOPIS HTML: ${product.descriptionHtml || ''}`;
+        const textContent = `NAZWA: ${product.name}\n\nCECHY TECHNICZNE PIM: ${featuresString}\n\nTREŚĆ AEO (Answer Engine Optimization): ${product.aeoContent || ''}\n\nOPIS HTML: ${product.descriptionHtml || ''}\n\n--- DANE Z INTERNETU (AGENT BADAWCZY: INCI & SPEC) ---\n${intelligenceData}\n\n--- RAPORT ZGODNOŚCI PRAWNEJ (COMPLIANCE AGENT) ---\n${complianceReport}`;
         const imageUrls = product.images || [];
         
         const payloadFromGemini = await AiService.generateNativeAnalysis(textContent, imageUrls, mode);
@@ -207,6 +241,19 @@ const proxyImage = async (req, res) => {
     const { url } = req.query;
     if (!url) return res.status(400).send("No url provided");
     try {
+        if (url.startsWith('data:image/')) {
+            const matches = url.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+                const mimeType = matches[1];
+                const base64Data = matches[2];
+                const buffer = Buffer.from(base64Data, 'base64');
+                
+                res.setHeader('Content-Disposition', 'attachment; filename="nexus_lifestyle.jpg"');
+                res.setHeader('Content-Type', mimeType);
+                return res.status(200).send(buffer);
+            }
+        }
+
         const response = await require('axios').get(url, { responseType: 'stream' });
         res.setHeader('Content-Disposition', 'attachment; filename="nexus_image.jpg"');
         res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
@@ -237,22 +284,62 @@ const exportToBaselinker = async (req, res) => {
         const { ean, draftData } = req.body;
         if (!ean || !draftData) return res.status(400).json({ error: "Brak danych" });
 
-        // Najpierw bezpieczny zapis draftu do bazy (kopia "in-production")
+        // Faza 3 MDM: AI wygenerowało wybitny opis. Nadpisujemy nim TRZON produktu w PIM
+        // i oznaczamy twardo, że Źródłem Prawdy jest Sztuczna Inteligencja
+        let newTitle = draftData.title;
+        let newDescHtml = Object.values(draftData.htmlContent).join('');
+
         const product = await prisma.product.update({
             where: { ean },
-            data: { offerDraft: draftData }
+            data: { 
+                offerDraft: draftData,
+                name: newTitle, // Nadpisujemy trzon!
+                descriptionHtml: newDescHtml, // Nadpisujemy trzon!
+                lastContentSource: 'OFFER_OPTIMIZER_AI' // Ustawiamy pieczątkę wysokiego zaufania
+            }
         });
 
         if (!product.baselinkerInventoryId || !product.baselinkerId) {
              return res.status(400).json({ error: "Brak przypisania do BaseLinker w bazie (inventoryId/productId)." });
         }
 
-        // Eksport danych wygenerowanych w drafcie do zewnętrznego BaseLinkera
-        await BaseLinkerService.exportOfferToBaselinker(product.baselinkerInventoryId, product.baselinkerId, draftData);
+        // Publikujemy zdarzenie. Moduł MDM wyłapie je i samodzielnie skomunikuje się z BaseLinkerem.
+        EventBus.publish('PRODUCT_CONTENT_OPTIMIZED', { ean, product });
 
-        res.status(200).json({ message: "Eksport zakończony sukcesem!" });
+        res.status(200).json({ message: "Zapisano AI w PIM. MDM aktualizuje BaseLinker w tle!" });
     } catch (e) {
         res.status(500).json({ error: e.message });
+    }
+};
+
+const generateLifestyle = async (req, res) => {
+    try {
+        const { ean, imageIndex, sourceImageUrl } = req.body;
+        let { imageBase64 } = req.body;
+        
+        if (!imageBase64 && !sourceImageUrl) {
+             return res.status(400).json({ error: "Brak zdjęcia wejściowego (wymagany imageBase64 lub sourceImageUrl)." });
+        }
+
+        const aiResult = await AiService.generateClaidLifestyle(imageBase64, sourceImageUrl, ean, imageIndex);
+        const newImageBase64 = aiResult.base64;
+        const visualTrendReport = aiResult.visualTrendReport;
+        
+        if (ean) {
+            try {
+                await prisma.product.update({
+                    where: { ean },
+                    data: { aiImageCost: { increment: 5.0 } }
+                });
+            } catch (err) {
+                console.error("[Billing] Nie udalo sie zaktualizowac licznika kosztow AI dla ean:", ean, err);
+            }
+        }
+        
+        res.json({ newImageBase64, visualTrendReport });
+    } catch (e) {
+        console.error("Błąd generowania lifestyle (Claid API):", e.message);
+        res.status(500).json({ error: e.message || "Wewnętrzny błąd serwera przy obróbce Claid AI." });
     }
 };
 
@@ -263,5 +350,6 @@ module.exports = {
     regenerateTitle,
     proxyImage,
     saveDraft,
-    exportToBaselinker
+    exportToBaselinker,
+    generateLifestyle
 };

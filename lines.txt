@@ -1,0 +1,2 @@
+{ "style_reference_image": "storage://storage-name/path/reference.jpg", "prompt": "an oil painting",
+/reference.jpeg", "prompt": null | "<string>", "style_strength": null | 0.75, "denoising_strength": 

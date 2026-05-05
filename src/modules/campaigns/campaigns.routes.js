@@ -18,6 +18,7 @@ router.patch('/:id/assets/:assetId/approve', authenticateToken, campaignsControl
 // ROUTY MODUŁU ŚRODOWISKA SMI (Social Media Integration)
 router.get('/smi/all', authenticateToken, campaignsController.getGlobalSmi);
 router.get('/:id/smi', authenticateToken, campaignsController.getSmiPosts);
+router.post('/:id/smi/auto', authenticateToken, campaignsController.generateAutoSmi);
 router.post('/:id/smi', authenticateToken, campaignsController.createSmiPost);
 router.patch('/:id/smi/:smiId', authenticateToken, campaignsController.updateSmiPost);
 router.delete('/:id/smi/:smiId', authenticateToken, campaignsController.deleteSmiPost);

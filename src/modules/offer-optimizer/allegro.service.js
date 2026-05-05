@@ -173,8 +173,113 @@ ${descriptionHtml}
     }
 }
 
+/**
+ * Pobiera słownik parametrów dla podanej kategorii (Lazy Schema Caching) i zapisuje do bazy Nexus.
+ */
+async function fetchCategoryParameters(categoryId) {
+    if (!categoryId) throw new Error("Brak categoryId do pobrania parametrów.");
+
+    try {
+        const token = await getAllegroToken();
+        
+        console.log(`[AllegroService] Pobieram parametry dla kategorii ID: ${categoryId}`);
+        const response = await axios.get(`https://api.allegro.pl/sale/categories/${categoryId}/parameters`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.allegro.public.v1+json'
+            }
+        });
+
+        const parameters = response.data.parameters;
+        
+        // Pobieranie nazwy kategorii do ładnego wyświetlania w PIM
+        const catResponse = await axios.get(`https://api.allegro.pl/sale/categories/${categoryId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.allegro.public.v1+json'
+            }
+        });
+        const categoryName = catResponse.data.name || `Kategoria ${categoryId}`;
+
+        // Zapis Cache'u w bazie (Lazy Caching)
+        const { PrismaClient } = require('@prisma/client');
+        const prisma = new PrismaClient();
+        
+        const marketplaceCategory = await prisma.marketplaceCategory.upsert({
+            where: { id: categoryId },
+            update: {
+                name: categoryName,
+                parameters: parameters
+            },
+            create: {
+                id: categoryId,
+                name: categoryName,
+                parameters: parameters
+            }
+        });
+        
+        return marketplaceCategory;
+
+    } catch (error) {
+        console.error(`[AllegroService] Błąd pobierania schematu dla kategorii ${categoryId}:`, error.response ? error.response.data : error.message);
+        throw new Error(`Błąd integracji słownika parametrów: ${error.message}`);
+    }
+}
+
+/**
+ * Szuka w globalnym Katalogu Produktów Allegro kategorii przypisanej do danego EAN.
+ */
+async function findCategoryByEan(ean) {
+    if (!ean) return null;
+    try {
+        const token = await getAllegroToken();
+        const response = await axios.get(`https://api.allegro.pl/sale/products?ean=${ean}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.allegro.public.v1+json'
+            }
+        });
+        
+        if (response.data.products && response.data.products.length > 0) {
+            return response.data.products[0].category.id;
+        }
+        return null;
+    } catch (error) {
+        console.error(`[AllegroService] Błąd wyszukiwania kategorii po EAN ${ean}:`, error.message);
+        return null;
+    }
+}
+
+/**
+ * Szuka rekomendowanej kategorii Allegro na podstawie nazwy produktu (Smart Fallback).
+ */
+async function findMatchingCategoryByName(name) {
+    if (!name) return null;
+    try {
+        const token = await getAllegroToken();
+        const response = await axios.get(`https://api.allegro.pl/sale/matching-categories?name=${encodeURIComponent(name)}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.allegro.public.v1+json'
+            }
+        });
+        
+        if (response.data.matchingCategories && response.data.matchingCategories.length > 0) {
+            // Zwracamy pierwszą (najbardziej trafną) kategorię
+            return response.data.matchingCategories[0].id;
+        }
+        return null;
+    } catch (error) {
+        console.error(`[AllegroService] Błąd wyszukiwania dopasowania kategorii dla nazwy "${name}":`, error.message);
+        return null;
+    }
+}
+
 module.exports = {
     getAllegroToken,
     getOfferImages,
-    getFullOfferData
+    getFullOfferData,
+    fetchCategoryParameters,
+    findCategoryByEan,
+    findMatchingCategoryByName
 };

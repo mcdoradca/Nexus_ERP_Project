@@ -1,0 +1,6 @@
+{
+  "error_code": "12017",
+  "error_type": "billing",
+  "error_message": "Not enough API credits.",
+  "error_details": {}
+}

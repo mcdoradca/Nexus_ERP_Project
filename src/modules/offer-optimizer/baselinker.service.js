@@ -59,6 +59,11 @@ async function callBaseLinkerApi(method, parameters = {}, retries = 3, backoff =
  */
 class BaseLinkerService {
     
+    // Metoda wystawiona dla innych serwisów (np. Portfolio Managera) do bezpośrednich zapytań z ochroną limitów 429
+    static async rawCall(method, parameters = {}) {
+        return await callBaseLinkerApi(method, parameters);
+    }
+
     // Pobiera wyselekcjonowane oferty z magazynu źródłowego do zasilenia silnika Optymalizatora AI
     static async getInventoryProducts(inventoryId, productIds = []) {
         const payload = {
@@ -161,6 +166,59 @@ class BaseLinkerService {
         throw new Error("BaseLinker: Brak skonfigurowanych magazynów (Inventories).");
     }
 
+    static async getAllInventoriesData() {
+        return await callBaseLinkerApi('getInventories');
+    }
+
+    // --- ETAP 4: Analityka i Sprzedaż Historyczna ---
+    static async getRecentSalesForEan(ean, days = 30) {
+        if (!ean) return 0;
+        
+        try {
+            const dateFrom = Math.floor(Date.now() / 1000) - (days * 24 * 60 * 60);
+            
+            let totalSold = 0;
+            let idFrom = 0;
+            let pages = 0;
+            const maxPages = 50; // Ograniczenie do max 5000 zamówień dla bezpieczeństwa
+            
+            while (pages < maxPages) {
+                const payload = {
+                    date_from: dateFrom,
+                    get_unconfirmed_orders: true
+                };
+                if (idFrom > 0) {
+                    payload.id_from = idFrom;
+                }
+                
+                const res = await callBaseLinkerApi('getOrders', payload);
+                
+                if (!res.orders || res.orders.length === 0) {
+                    break;
+                }
+                
+                res.orders.forEach(order => {
+                    if (order.products && Array.isArray(order.products)) {
+                        order.products.forEach(prod => {
+                            if (prod.ean === ean) {
+                                totalSold += parseInt(prod.quantity) || 0;
+                            }
+                        });
+                    }
+                });
+                
+                idFrom = res.orders[res.orders.length - 1].order_id;
+                pages++;
+            }
+            
+            return totalSold;
+            
+        } catch (error) {
+            console.error(`[BaseLinkerService] Błąd przy pobieraniu historii sprzedaży dla EAN ${ean}:`, error.message);
+            return 0;
+        }
+    }
+
     static async fetchProductIdByEan(ean, inventoryId = null) {
         if (!inventoryId) inventoryId = await this.getInventories();
 
@@ -208,12 +266,13 @@ class BaseLinkerService {
             descriptionHtml: null,
             name: null,
             videoUrl: null,
-            videoUrl: null,
             attachments: [],
             stock: 0,
             stockErpUnits: 0,
             stockWmsUnits: 0,
-            price: 0
+            price: 0,
+            manufacturer: prod.manufacturer || null,
+            categoryId: prod.category_id || null
         };
 
         // 1. STANY MAGAZYNOWE (stock, stock_erp_units, stock_wms_units)

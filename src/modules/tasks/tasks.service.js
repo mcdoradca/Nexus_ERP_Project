@@ -33,6 +33,13 @@ async function getTasksForUser(user) {
     });
 }
 
+async function getTaskById(taskId) {
+    return prisma.task.findUnique({
+        where: { id: taskId },
+        include: { assignees: true, owner: true, creator: true }
+    });
+}
+
 async function createTask(data, creatorId) {
     const { title, description, priority, projectId, campaignId, assigneeIds, assignedGroups, ownerId, parentTaskId, startDate, dueDate, estimatedHours } = data;
     const newTask = await prisma.task.create({
@@ -205,6 +212,7 @@ async function deleteHardTask(id) {
 
 module.exports = { 
     getTasksForUser, 
+    getTaskById,
     createTask, 
     updateTaskDetails,
     updateTaskStatus,

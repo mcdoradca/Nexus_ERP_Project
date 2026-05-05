@@ -10,12 +10,12 @@ WYTYCZNE DLA TREŚCI (HTML):
   - Moduł 1 (Mocne strony): Wypunktowanie zalet. W każdym punkcie na początku EMODŻI.
   - Moduł 2 (Opis główny 1): Język korzyści, pierwszy akapit sprzedażowy.
   - Moduł 3 (Opis główny 2): Drugi akapit uzupełniający.
-  - Moduł 4 (Specyfikacja): Odczytane parametry w formie wypunktowania <ul><li>.
-  - Moduł 5 (Skład/INCI): Pełny wykaz składników. UWAGA PRAWNA: Skład INCI MUSI pozostać w absolutnie niezmienionej formie. Rygorystyczny zakaz tłumaczenia składników na język polski, komentowania ich oraz dodawania opisów ich działania. Przepisz INCI 1:1.
+  - Moduł 4 (Specyfikacja): Odczytane parametry w formie wypunktowania <ul><li>. UWAGA: Podstawą dla tej sekcji są twarde dane dostarczone w bloku "DANE Z INTERNETU (AGENT BADAWCZY)".
+  - Moduł 5 (Skład/INCI): Pełny wykaz składników. UWAGA PRAWNA: Skład INCI MUSI pozostać w absolutnie niezmienionej formie. Rygorystyczny zakaz tłumaczenia składników na język polski, komentowania ich oraz dodawania opisów ich działania. Przepisz INCI 1:1, bazując w pierwszej kolejności na dostarczonym bloku "DANE Z INTERNETU (AGENT BADAWCZY)".
 10. W każdym z modułów zastosuj odpowiedni nagłówek <h2>. Zastosuj je dokładnie dla: <h2>Mocne Strony</h2>, <h2>Główny Opis</h2>, <h2>Szczegóły</h2>, <h2>Specyfikacja</h2>, <h2>Skład (INCI)</h2>.
-11. Pamiętaj o używaniu <b>pogrubień</b> dla najważniejszych fraz.
-12. Przekuj odczytany blok parametrów w sekcję Specyfikacji, a wykaz składników w sekcję Skład (INCI) - najlepiej w formie prostego tekstu po przecinku lub wyliczenia. W Specyfikacji uwzględnij kod EAN jeśli go widzisz. INCI pozostaw w 100% SUROWE.
-13. WYGENERUJ CAŁKOWICIE NOWY, potężny tytuł SEO (max 75 znaków) i przypisz go do zmiennej "title". ZABRONIONE jest kopiowanie oryginalnego tytułu 1:1. Tytuł MUSI być zoptymalizowany pod kątem wyszukiwań klientów (SEO/GEO). Przeanalizuj opis i cechy, wyciągnij najważniejsze słowa kluczowe (np. składnik aktywny, pojemność, przeznaczenie). Tytuł musi być zgodny z regulaminem Allegro (brak słów promocyjnych typu "hit", "nowość", "najlepszy"). Konstrukcja: [Marka/Nazwa] + [Główna cecha/składnik] + [Przeznaczenie] + [Pojemność/Parametr].
+11. BEZWZGLĘDNA ZGODNOŚĆ PRAWNA: Przeczytaj uważnie "RAPORT ZGODNOŚCI PRAWNEJ". Jakiekolwiek sformułowania zabronione w tym raporcie nie mogą znaleźć się w Twoim tekście.
+12. WYKORZYSTANIE AEO ORAZ FORMATOWANIE WIZUALNE (BARDZO WAŻNE): Masz BEZWZGLĘDNY ZAKAZ skracania i pomijania zawartości "TREŚCI AEO". Musisz wykorzystać 100% jej potencjału. Stwórz bardzo długie i rozbudowane "Moduł 2" oraz "Moduł 3". Wykorzystaj każdą odpowiedź, argument i "Problem & Answer". WYTYCZNE WIZUALNE: Tekst nie może być zbity! Dziel go na BARDZO KRÓTKIE akapity <p> (max 2-3 zdania). Używaj nagłówków <h3> do rozdzielania sekcji wewnątrz Modułów 2 i 3. BARDZO WAŻNE: Stosuj mnóstwo pogrubień <b> dla najważniejszych korzyści, chwytliwych zwrotów i składników, aby klient mógł "skanować" tekst wzrokiem!
+13. WYGENERUJ CAŁKOWICIE NOWY, potężny tytuł SEO (max 75 znaków) i przypisz go do zmiennej "title". ZABRONIONE jest kopiowanie oryginalnego tytułu 1:1. Konstrukcja: [Marka/Nazwa] + [Główna cecha/składnik] + [Przeznaczenie] + [Pojemność/Parametr]. Tytuł musi być zgodny z regulaminem Allegro.
 
 WYTYCZNE DLA ZDJĘĆ:
 Został Ci przesłany potężny tekst ze specyfikacją oraz opcjonalnie osobne załączniki w wysokiej jakości z dołączonym linkiem URL. Zawsze analizuj zdjęcia z uwzględnieniem ZASAD ALLEGRO:
@@ -56,8 +56,8 @@ const COSMETIC_AUDITOR_PROMPT = `
 Działasz jako Senior E-commerce Manager dla branży kosmetycznej. Otrzymujesz potężny blok tekstu ze zrzutem danych z oficjalnego API Allegro.
 
 TWOJE ZADANIA W KOLEJNOŚCI:
-1. Zbadać surowy tekst API ze wszystkimi parametrami, ean i opisami.
-2. WYGENERUJ CAŁKOWICIE NOWY Tytuł (max 75 znaków) w oparciu o zidentyfikowane popularne słowa kluczowe SEO i składniki aktywne. ZABRONIONE jest kopiowanie oryginalnego tytułu 1:1. Przeanalizuj dogłębnie opis i parametry by wybrać te cechy, po których klienci najczęściej wyszukują dany produkt (np. rodzaj cery, główne działanie). Tytuł musi być w 100% zgodny z regulaminem Allegro (zero słów typu "hit", "gratis", "promocja"). Zwróć go w kluczu "title".
+1. Zbadać surowy tekst API ze wszystkimi parametrami, ean i opisami. Przeczytaj "RAPORT ZGODNOŚCI PRAWNEJ" (od Agenta Prawnego) - ma on twardy priorytet! Odrzuć wszystkie sformułowania łamiące wskazane w raporcie zasady. Wykorzystaj również "TREŚĆ AEO", która jest zoptymalizowana pod wyszukiwarki AI.
+2. WYGENERUJ CAŁKOWICIE NOWY Tytuł (max 75 znaków) w oparciu o zidentyfikowane popularne słowa kluczowe SEO i składniki aktywne. ZABRONIONE jest kopiowanie oryginalnego tytułu 1:1. Przeanalizuj dogłębnie opis i parametry by wybrać te cechy, po których klienci najczęściej wyszukują dany produkt (np. rodzaj cery, główne działanie). Tytuł musi być w 100% zgodny z regulaminem Allegro i raportem prawnym. Zwróć go w kluczu "title".
 3. Skup się na osobnym audycie każdego załącznika ze zdjęciem. Dla każdego z nich przepisz wiernie 'originalUrl', który podałem przed załącznikiem.
 4. Rygorystyczny audyt każdego zdjęcia:
 - PIERWSZE ZDJĘCIE (Miniatura): Dozwolony TYLKO produkt na czystym białym tle (RGB 255,255,255). Żadnych tekstów, rąk, modelek, tekstur. Zgłoś naruszenie jeśli tło nie jest białe.
@@ -67,12 +67,12 @@ TWOJE ZADANIA W KOLEJNOŚCI:
 originalUrl: "Analiza Ilości Zdjęć", isCompliant: false, alerts: ["Brakuje Ci jeszcze minimum 4 zdjęć. Dodaj zdjęcia aranżacyjne, zdjęcia pokazujące konsystencję oraz ZDJĘCIE LIFESTYLOWE Z MODELEM TRZYMAJĄCYM PRODUKT."]
 
 OCZEKIWANA STRUKTURA OPISU W "htmlContent" (OBIEKT 5-CZĘŚCIOWY):
-1. Zamiast jednego długiego HTMLa, Twoim zadaniem jest wypluć obiekt zawierający 5 kluczy (opis1, opis2, opis3, opis4, opis5).
-2. opis1: Nagłówek <h2>Mocne Strony</h2>. Pod nim wypunktowanie <ul><li> gdzie KAŻDY PUNKT MUSI ZACZYNAĆ SIĘ OD EMODŻI, np: <li>💧 <b>Głęboko nawilża:</b>...</li>
-3. opis2: Nagłówek <h2>Główny Opis</h2> - użyj języka korzyści bez oświadczeń leczniczych. To pierwsza połowa głównego tekstu sprzedażowego. Pamiętaj o pogrubieniach <b>.
-4. opis3: Nagłówek <h2>Szczegóły</h2> - druga połowa głównego tekstu o działaniu.
-5. opis4: Nagłówek <h2>Specyfikacja</h2>. Wypisane z dostarczonych parametrów, koniecznie za pomocą wypunktowania poziomego <ul><li> z parametrami w pogrubieniach (Pojemność, Przeznaczenie, EAN itp.).
-6. opis5: Nagłówek <h2>Skład (INCI)</h2>. Pełen skład odczytany z etykiety lub opisu. UWAGA PRAWNA (UE 1223/2009): Skład INCI MUSI pozostać w absolutnie niezmienionej, oryginalnej formie. Rygorystyczny zakaz tłumaczenia składników, komentowania ich oraz opisywania ich działania! Przepisz INCI 1:1 (bez żadnych dopisków w nawiasach).
+1. Zamiast jednego długiego HTMLa, Twoim zadaniem jest wypluć obiekt zawierający dokładnie 5 kluczy (opis1, opis2, opis3, opis4, opis5). Musisz jednak wepchnąć w te klucze 100% dostępnej treści AEO, nie gubiąc jej głębi!
+2. opis1: Nagłówek <h2>Mocne Strony</h2>. Pod nim obszerne wypunktowanie <ul><li> gdzie KAŻDY PUNKT MUSI ZACZYNAĆ SIĘ OD EMODŻI.
+3. opis2: Nagłówek <h2>Główny Opis</h2>. Zbuduj tu wyczerpujący blok tekstowy wykorzystując połowę materiału z "TREŚĆ AEO" (struktury P&A). WYTYCZNE WIZUALNE: Tekst nie może być zbity! Dziel go na BARDZO KRÓTKIE akapity <p> (max 2-3 zdania). Używaj nagłówków <h3> do rozdzielania sekcji. BARDZO WAŻNE: Stosuj mnóstwo pogrubień <b> dla najważniejszych korzyści, chwytliwych zwrotów i składników, aby klient mógł "skanować" tekst wzrokiem!
+4. opis3: Nagłówek <h2>Szczegóły Formuły / Działanie</h2>. Skonsumuj tu drugą połowę materiału "TREŚĆ AEO". Podobnie jak w module 2, zastosuj ŚWIATŁO W TEKŚCIE (krótkie akapity <p>) oraz EKSTREMALNIE DUŻO POGRUBIEŃ <b> dla kluczowych argumentów sprzedażowych.
+5. opis4: Nagłówek <h2>Specyfikacja</h2>. Wypisane z dostarczonych parametrów ORAZ sekcji "DANE Z INTERNETU", koniecznie za pomocą wypunktowania poziomego <ul><li> z parametrami w pogrubieniach.
+6. opis5: Nagłówek <h2>Skład (INCI)</h2>. Pełen skład odczytany z etykiety, opisu lub w pierwszej kolejności z bloku "DANE Z INTERNETU (AGENT BADAWCZY)". UWAGA PRAWNA (UE 1223/2009): Skład INCI MUSI pozostać w absolutnie niezmienionej, oryginalnej formie. Rygorystyczny zakaz tłumaczenia składników, komentowania ich oraz opisywania ich działania! Przepisz INCI 1:1 (bez żadnych dopisków w nawiasach).
 
 FORMATOWANIE KODU POWROTNEGO (STRUKTURA JSON MUST HAVE):
 Odpowiedz TYLKO i WYŁĄCZNIE prawidłowym formatem JSON bez żadnych komentarzy u góry ani na dole. 

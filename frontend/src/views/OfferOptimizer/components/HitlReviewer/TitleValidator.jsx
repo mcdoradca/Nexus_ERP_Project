@@ -18,7 +18,7 @@ export const TitleValidator = ({ initialTitle = "", onValidate }) => {
     const isTooShort = length < 12;
     const isPerfect = length >= 12 && length <= 75;
 
-    let colorClass = "text-slate-700 bg-slate-50 border-slate-200";
+    let colorClass = "text-slate-700 bg-slate-50 border-slate-400";
     let alertText = "";
     
     if (isTooShort) {
@@ -62,7 +62,7 @@ export const TitleValidator = ({ initialTitle = "", onValidate }) => {
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                     Walidacja Tytułu API (GEO)
                 </label>
-                <div className={`text-[10px] uppercase font-black tracking-widest px-2 py-1 rounded-sm ${title.length >= 75 ? 'bg-rose-500 text-white' : 'text-slate-400'}`}>
+                <div className={`text-[10px] uppercase font-black tracking-widest px-2 py-1 rounded-sm ${title.length >= 75 ? 'bg-rose-500 text-white' : 'text-slate-600'}`}>
                     {length} / 75 STR
                 </div>
             </div>
@@ -75,14 +75,14 @@ export const TitleValidator = ({ initialTitle = "", onValidate }) => {
                 id="geoTitle"
                 name="geoTitle"
                 placeholder="Wpisz rygorystyczny tytuł zgodnie z konwencją GEO..."
-                className={`w-full p-4 rounded-xl text-lg font-black outline-none border-2 transition-all shadow-sm ${colorClass}`}
+                className={`w-full p-4 rounded-sm text-lg font-black outline-none border-2 transition-all shadow-sm ${colorClass}`}
             />
             
             <div className="flex justify-between text-xs tracking-wider">
                <span className={`font-bold ${isTooShort ? 'text-rose-500' : (length >= 75 ? 'text-rose-600' : 'text-emerald-600')}`}>
                    {alertText || (length >= 75 && "Zablokowano. Osiągnięto twardy limit Allegro!")}
                </span>
-               <span className="text-slate-400 font-bold">Wymagane minimum słów: 3</span>
+               <span className="text-slate-600 font-bold">Wymagane minimum słów: 3</span>
             </div>
         </div>
     );

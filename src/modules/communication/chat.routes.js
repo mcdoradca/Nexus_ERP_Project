@@ -8,6 +8,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 router.get('/unread', authenticateToken, chatController.getUnreadDMs);
 router.get('/:mode', authenticateToken, chatController.getMessages);
 router.get('/:mode/:id', authenticateToken, chatController.getMessages);
+router.post('/tts', authenticateToken, chatController.generateTTS);
 router.post('/:mode/files', authenticateToken, upload.single('file'), chatController.uploadMessageFile);
 router.post('/:mode/:id/files', authenticateToken, upload.single('file'), chatController.uploadMessageFile);
 module.exports = router;

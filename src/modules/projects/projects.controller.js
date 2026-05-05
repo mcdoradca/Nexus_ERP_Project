@@ -29,6 +29,16 @@ async function create(req, res) {
 
 async function update(req, res) {
     try {
+        const project = await projectsService.getProjectById(req.params.id);
+        if (!project) return res.status(404).json({ error: 'Projekt nie istnieje' });
+        
+        const isSuperUser = req.user.role === 'ADMIN' || req.user.department === 'PREZES';
+        const isOwnerOrPm = project.owner?.id === req.user.id || project.pm?.id === req.user.id;
+        
+        if (!isSuperUser && !isOwnerOrPm) {
+             return res.status(403).json({ error: 'Brak uprawnień. Tylko Zarząd, Sponsor Projektu (Owner) lub PM mogą edytować projekt.' });
+        }
+
         const updated = await projectsService.updateProject(req.params.id, req.body, req.user.id);
         res.status(200).json(updated);
     } catch (error) {

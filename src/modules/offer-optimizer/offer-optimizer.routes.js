@@ -20,5 +20,6 @@ router.post('/regenerate-title', express.json({ limit: '5mb' }), controller.rege
 router.get('/proxy-image', controller.proxyImage);
 router.post('/save-draft', express.json({ limit: '50mb' }), controller.saveDraft);
 router.post('/export-baselinker', express.json({ limit: '50mb' }), controller.exportToBaselinker);
+router.post('/generate-lifestyle', express.json({ limit: '50mb' }), controller.generateLifestyle);
 
 module.exports = router;

@@ -24,7 +24,7 @@ const MultiSelectDropdown = ({ options, selectedIds, onToggle, selectionLabel, s
       <button 
         type="button" 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-sm text-[11px] font-black text-slate-800 flex justify-between items-center transition-all hover:border-indigo-300"
+        className="w-full px-4 py-3 bg-white border border-slate-400 rounded-sm text-[11px] font-black text-slate-800 flex justify-between items-center transition-all hover:border-indigo-300"
       >
         <span className="truncate pr-4">
           {selectedIds.length === 0 
@@ -33,24 +33,24 @@ const MultiSelectDropdown = ({ options, selectedIds, onToggle, selectionLabel, s
           }
         </span>
         <div className="shrink-0">
-          <svg className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+          <svg className={`w-4 h-4 text-slate-600 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
         </div>
       </button>
 
       {isOpen && (
-        <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-200 rounded-sm shadow-2xl flex flex-col max-h-72 overflow-hidden">
-          <div className="p-2 border-b border-slate-100 shrink-0 bg-slate-50">
+        <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-400 rounded-sm shadow-2xl flex flex-col max-h-72 overflow-hidden">
+          <div className="p-2 border-b border-slate-300 shrink-0 bg-slate-50">
              <input 
                type="text" 
                placeholder={searchPlaceholder}
-               className="w-full px-3 py-2 bg-white border border-slate-200 rounded-sm text-[10px] font-black outline-none focus:border-indigo-300"
+               className="w-full px-3 py-2 bg-white border border-slate-400 rounded-sm text-[10px] font-black outline-none focus:border-indigo-300"
                value={search}
                onChange={(e) => setSearch(e.target.value)}
              />
           </div>
           <div className="overflow-y-auto custom-scrollbar p-1">
             {filteredOptions.length === 0 ? (
-               <div className="p-4 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Brak wyników wyszukiwania</div>
+               <div className="p-4 text-center text-[10px] font-bold text-slate-600 uppercase tracking-widest">Brak wyników wyszukiwania</div>
             ) : (
                filteredOptions.map(option => {
                  const isSelected = selectedIds.includes(option.id);
@@ -210,15 +210,15 @@ const NewCampaignModal = ({
 
   if (!isOpen) return null;
 
-  const inputClass = "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-sm text-[11px] font-black text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none";
-  const labelClass = "text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block flex items-center";
+  const inputClass = "w-full px-4 py-3 bg-slate-50 border border-slate-400 rounded-sm text-[11px] font-black text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none";
+  const labelClass = "text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] mb-2 block flex items-center";
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6 animate-in fade-in duration-300">
-      <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[85vh] min-h-0">
+      <div className="bg-white rounded-sm shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[85vh] min-h-0">
         
         {/* Header */}
-        <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-[#f8fafc] shrink-0">
+        <div className="p-10 border-b border-slate-300 flex justify-between items-center bg-gradient-to-b from-[#f8fafc] to-[#e2e8f0] shrink-0">
            <div className="flex items-center">
               <div className={`w-12 h-12 ${formData.color.replace('bg-', 'bg-').split(' ')[0]} rounded-sm flex items-center justify-center mr-6 shadow-xl transition-colors`}>
                  <Megaphone className="w-6 h-6 text-white" />
@@ -227,10 +227,10 @@ const NewCampaignModal = ({
                 <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">
                   {initialData ? 'Edycja Osi Kampanii' : 'Inicjacja Osi Kampanii'}
                 </h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Zdefiniuj Ramy Czasowe i Budżet Projektu</p>
+                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1">Zdefiniuj Ramy Czasowe i Budżet Projektu</p>
               </div>
            </div>
-           <button type="button" onClick={onClose} className="p-4 hover:bg-white rounded-sm transition-all text-slate-400"><X className="w-6 h-6" /></button>
+           <button type="button" onClick={onClose} className="p-4 hover:bg-white rounded-sm transition-all text-slate-600"><X className="w-6 h-6" /></button>
         </div>
 
         {/* Body */}
@@ -263,7 +263,7 @@ const NewCampaignModal = ({
 
             {/* PIM Selection */}
             <div className="space-y-6">
-              <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] border-b border-slate-100 pb-2 mb-4"><Target className="w-3 h-3 inline mr-2"/>Asortyment PIM</h4>
+              <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] border-b border-slate-300 pb-2 mb-4"><Target className="w-3 h-3 inline mr-2"/>Asortyment PIM</h4>
               <div>
                 <label className={labelClass}>Wybór Marek Kosmetycznych (Multi-Select)</label>
                 <MultiSelectDropdown 
@@ -301,7 +301,7 @@ const NewCampaignModal = ({
 
             {/* Dates & Budgets */}
             <div className="space-y-6">
-              <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] border-b border-slate-100 pb-2 mb-4"><Calendar className="w-3 h-3 inline mr-2"/>Czas & Kapitał</h4>
+              <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] border-b border-slate-300 pb-2 mb-4"><Calendar className="w-3 h-3 inline mr-2"/>Czas & Kapitał</h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={labelClass}>Data Startu</label>
@@ -315,26 +315,26 @@ const NewCampaignModal = ({
               <div>
                 <label className={labelClass}>Budżet Całkowity (PLN)</label>
                 <div className="relative">
-                  <DollarSign className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <DollarSign className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" />
                   <input required type="number" step="0.01" placeholder="0.00" className={`${inputClass} pl-10`} value={formData.budget} onChange={e => setFormData({...formData, budget: e.target.value})} />
                 </div>
               </div>
-              <div className="bg-slate-50 border border-slate-100 p-4 rounded-sm mt-4">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center">
+              <div className="bg-slate-50 border border-slate-300 p-4 rounded-sm mt-4">
+                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-4 flex items-center">
                   Opcjonalny podział budżetu wg. kosztorysów (Wypelnia Zarząd):
                 </p>
                 <div className="grid grid-cols-3 gap-4">
                    <div>
                      <label className="text-[8px] font-black text-indigo-500 uppercase tracking-widest mb-1 flex items-center"><Target className="w-3 h-3 mr-1" /> Reklama Cyfrowa (Media)</label>
-                     <input type="number" placeholder="0" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-sm text-[10px] font-black focus:border-indigo-400 outline-none reflection-input transition-all" value={formData.budgetMedia} onChange={e => setFormData({...formData, budgetMedia: e.target.value})} />
+                     <input type="number" placeholder="0" className="w-full px-3 py-2 bg-white border border-slate-400 rounded-sm text-[10px] font-black focus:border-indigo-400 outline-none reflection-input transition-all" value={formData.budgetMedia} onChange={e => setFormData({...formData, budgetMedia: e.target.value})} />
                    </div>
                    <div>
                      <label className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1 flex items-center"><Folder className="w-3 h-3 mr-1" /> Wydruki / Ekspozytory (POSM)</label>
-                     <input type="number" placeholder="0" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-sm text-[10px] font-black focus:border-emerald-400 outline-none reflection-input transition-all" value={formData.budgetPOSM} onChange={e => setFormData({...formData, budgetPOSM: e.target.value})} />
+                     <input type="number" placeholder="0" className="w-full px-3 py-2 bg-white border border-slate-400 rounded-sm text-[10px] font-black focus:border-emerald-400 outline-none reflection-input transition-all" value={formData.budgetPOSM} onChange={e => setFormData({...formData, budgetPOSM: e.target.value})} />
                    </div>
                    <div>
                      <label className="text-[8px] font-black text-pink-500 uppercase tracking-widest mb-1 flex items-center"><Users className="w-3 h-3 mr-1" /> Prowizja i Koszty (Agencja)</label>
-                     <input type="number" placeholder="0" className="w-full px-3 py-2 bg-white border border-slate-200 rounded-sm text-[10px] font-black focus:border-pink-400 outline-none reflection-input transition-all" value={formData.budgetAgency} onChange={e => setFormData({...formData, budgetAgency: e.target.value})} />
+                     <input type="number" placeholder="0" className="w-full px-3 py-2 bg-white border border-slate-400 rounded-sm text-[10px] font-black focus:border-pink-400 outline-none reflection-input transition-all" value={formData.budgetAgency} onChange={e => setFormData({...formData, budgetAgency: e.target.value})} />
                    </div>
                 </div>
               </div>
@@ -342,12 +342,12 @@ const NewCampaignModal = ({
 
             {/* Asygnacje (Nowość Fazy 17) */}
             <div className="col-span-2 space-y-6">
-               <h4 className="text-[10px] font-black text-purple-600 uppercase tracking-[0.2em] border-b border-slate-100 pb-2 mb-4"><Users className="w-3 h-3 inline mr-2"/> Przydziały (Kto realizuje)</h4>
+               <h4 className="text-[10px] font-black text-purple-600 uppercase tracking-[0.2em] border-b border-slate-300 pb-2 mb-4"><Users className="w-3 h-3 inline mr-2"/> Przydziały (Kto realizuje)</h4>
                
                <div className="grid grid-cols-2 gap-8">
                   <div>
                     <label className={labelClass}>Departamenty i Grupy</label>
-                    <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar p-2 bg-slate-50 border border-slate-200 rounded-sm">
+                    <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar p-2 bg-slate-50 border border-slate-400 rounded-sm">
                       {DEPARTMENTS.map(dept => (
                         <label key={dept} className={`flex items-center px-3 py-2 rounded-sm text-[10px] font-black cursor-pointer transition-colors ${formData.assignedGroups.includes(dept) ? 'bg-purple-100 text-purple-700' : 'bg-white text-slate-500 hover:bg-slate-100'}`}>
                           <input type="checkbox" className="hidden" checked={formData.assignedGroups.includes(dept)} onChange={() => handleGroupToggle(dept)} />
@@ -360,14 +360,14 @@ const NewCampaignModal = ({
 
                   <div>
                     <label className={labelClass}>Wykonawcy (Osoby)</label>
-                    <div className="flex flex-col gap-1 max-h-32 overflow-y-auto custom-scrollbar p-2 bg-slate-50 border border-slate-200 rounded-sm">
+                    <div className="flex flex-col gap-1 max-h-32 overflow-y-auto custom-scrollbar p-2 bg-slate-50 border border-slate-400 rounded-sm">
                       {users.map(u => (
                         <label key={u.id} className={`flex items-center p-2 rounded-sm text-[10px] font-black cursor-pointer transition-colors ${formData.assignees.includes(u.id) ? 'bg-indigo-100 text-indigo-700' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>
                           <input type="checkbox" className="hidden" checked={formData.assignees.includes(u.id)} onChange={() => handleAssigneeToggle(u.id)} />
                           <div className={`w-4 h-4 rounded-sm mr-2 flex items-center justify-center ${formData.assignees.includes(u.id) ? 'bg-indigo-500 text-white' : 'bg-slate-200'}`}>
                             {formData.assignees.includes(u.id) && <Check className="w-3 h-3" />}
                           </div>
-                          {u.name} <span className="text-slate-400 ml-1 font-normal">({u.department})</span>
+                          {u.name} <span className="text-slate-600 ml-1 font-normal">({u.department})</span>
                         </label>
                       ))}
                     </div>

@@ -4,11 +4,18 @@ const EventBus = require('../../core/EventBus');
 async function getProjectsForUser(user) {
     // Prezes i Admin widzą Portfolio View (Wszystkie projekty, wskaźniki zdrowia)
     if (user.role === 'ADMIN' || user.department === 'PREZES') {
-        return prisma.project.findMany({ orderBy: { createdAt: 'desc' }, include: { owner: true, pm: true } });
+        return prisma.project.findMany({ 
+            where: { isArchived: false },
+            orderBy: { createdAt: 'desc' }, 
+            include: { owner: true, pm: true } 
+        });
     }
     // Reszta widzi projekty, w których uczestniczy
     return prisma.project.findMany({
-        where: { tasks: { some: { OR: [{ assignees: { some: { id: user.id } } }, { creatorId: user.id }] } } },
+        where: { 
+            isArchived: false,
+            tasks: { some: { OR: [{ assignees: { some: { id: user.id } } }, { creatorId: user.id }] } } 
+        },
         orderBy: { createdAt: 'desc' },
         include: { owner: true, pm: true }
     });
@@ -36,8 +43,8 @@ async function createProject(data, creatorId) {
 }
 
 async function updateProject(id, data, editorId) {
-    const { name, category, description, startDate, endDate, status, color, ownerId, pmId, department } = data;
-    const safeData = { name, category, description, startDate, endDate, status, color, ownerId, pmId, department };
+    const { name, category, description, startDate, endDate, status, color, ownerId, pmId, department, isArchived } = data;
+    const safeData = { name, category, description, startDate, endDate, status, color, ownerId, pmId, department, isArchived };
     
     // Zabezpieczenie na wzór kampanii: odcięcie nadmiarowych/rozłącznych Propsów
     Object.keys(safeData).forEach(key => safeData[key] === undefined && delete safeData[key]);

@@ -39,7 +39,7 @@ model User {
   ownedTasks             Task[]             @relation("TaskOwner")
   activeTask             Task?              @relation("ActiveWorker", fields: [activeTaskId], references: [id])
   assignedTasks          Task[]             @relation("TaskAssignees")
-  briaEvents             BriaEventLog[]
+  uploadedInvoices       InvoiceDocument[]  @relation("UserInvoices")
 }
 
 model Project {
@@ -86,6 +86,7 @@ model Task {
   parentTaskId   String?
   assignedGroups String[]     @default([])
   isArchived     Boolean      @default(false)
+  aiBottleneckRisk Float?     @default(0.0)
   comments       Comment[]
   blocker        User?        @relation("TaskBlocker", fields: [blockerId], references: [id])
   campaign       Campaign?    @relation(fields: [campaignId], references: [id])
@@ -256,6 +257,18 @@ model CampaignAsset {
   uploader   User     @relation(fields: [uploaderId], references: [id])
 }
 
+model InvoiceDocument {
+  id          String   @id @default(uuid())
+  fileName    String
+  fileUrl     String
+  uploaderId  String
+  uploadedAt  DateTime @default(now())
+  status      String   @default("PROCESSED")
+  uploader    User     @relation("UserInvoices", fields: [uploaderId], references: [id])
+
+  @@index([uploaderId])
+}
+
 model Product {
   id                    String            @id @default(uuid())
   ean                   String            @unique
@@ -268,6 +281,9 @@ model Product {
   packagingCost         Float             @default(0.0)
   bdoEprCost            Float             @default(0.0)
   outboundTransportCost Float             @default(0.0)
+  aiImageCost           Float             @default(0.0)
+  targetMargin          Float             @default(0.20)
+  proposedSalePrice     Float?
   status                String            @default("Aktywny")
   subiektId             String?           @unique
   baselinkerId          String?           @unique
@@ -288,6 +304,8 @@ model Product {
   stockWmsUnits         Int?
   baselinkerInventoryId Int?
   offerDraft            Json?             @default("{}")
+  aeoContent            String?           @db.Text
+  lastContentSource     String            @default("SYSTEM")
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
   campaignsAsMain       Campaign[]        @relation("CampaignPromotedProduct")
@@ -295,6 +313,9 @@ model Product {
   bomElements           ProductBom[]      @relation("ProductBomElements")
   brand                 Brand             @relation(fields: [brandId], references: [id], onDelete: Cascade)
   dealsIRM              DealIRM[]         @relation("LokowanyProdukt")
+  
+  allegroCategory       MarketplaceCategory? @relation(fields: [allegroCategoryId], references: [id])
+  allegroCategoryId     String?
 
   @@index([brandId])
   @@index([sku])
@@ -305,6 +326,8 @@ model EcoMaterial {
   id        String       @id @default(uuid())
   name      String       @unique
   ratePerKg Float        @default(0.0)
+  carbonFootprintKg Float? @default(0.0)
+  origin    String?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
   boms      ProductBom[]
@@ -374,6 +397,15 @@ model SmiPost {
   campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@index([campaignId])
+}
+
+model MarketplaceCategory {
+  id          String    @id
+  name        String
+  parameters  Json
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
 }
 
 model Company {
@@ -459,6 +491,7 @@ model InfluencerProfile {
   followers        Int      @default(0)
   engagementRate   Float    @default(0.0)
   authenticityScore Float   @default(1.0)
+  predictiveEngagement Float? @default(0.0)
   vectorData       String[] @default([])
   demographicData  Json     @default("{}")
   gdprConsent      Boolean  @default(false)
@@ -491,7 +524,9 @@ model DealIRM {
   status            String            @default("NAWIAZANIE")
   proposedFee       Float             @default(0.0)
   isUokikCompliant  Boolean           @default(false)
+  uokikScanLog      String?           @db.Text
   calculatedEMV     Float             @default(0.0)
+  outreachDraft     String?           @db.Text
   createdAt         DateTime          @default(now())
   
   influencer        InfluencerProfile @relation("RealizujeDeal", fields: [influencerId], references: [id], onDelete: Cascade)

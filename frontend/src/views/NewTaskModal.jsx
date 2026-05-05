@@ -67,18 +67,18 @@ const NewTaskModal = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6 animate-in fade-in duration-300">
-      <div className="bg-white rounded-[3rem] shadow-[0_50px_100px_rgba(0,0,0,0.3)] w-full max-w-4xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[85vh] min-h-0">
-        <div className="p-10 bg-[#f8fafc] border-b border-slate-100 flex justify-between items-center shrink-0">
+      <div className="bg-white rounded-sm shadow-[0_50px_100px_rgba(0,0,0,0.3)] w-full max-w-4xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[85vh] min-h-0">
+        <div className="p-10 bg-gradient-to-b from-[#f8fafc] to-[#e2e8f0] border-b border-slate-300 flex justify-between items-center shrink-0">
           <div className="flex items-center">
             <div className="w-12 h-12 bg-indigo-600 rounded-sm flex items-center justify-center mr-6 shadow-xl shadow-indigo-600/30">
               <Zap className="w-6 h-6 text-white" />
             </div>
             <div>
               <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Inicjacja Zadania (Full Setup)</h3>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Stwórz i natychmiastowo rozdysponuj etaty w zespole.</p>
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1">Stwórz i natychmiastowo rozdysponuj etaty w zespole.</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-4 hover:bg-white rounded-sm transition-all text-slate-400 border border-transparent hover:border-slate-100"><X className="w-6 h-6" /></button>
+          <button onClick={onClose} className="p-4 hover:bg-white rounded-sm transition-all text-slate-600 border border-transparent hover:border-slate-300"><X className="w-6 h-6" /></button>
         </div>
 
         <form onSubmit={handleCreate} className="p-10 overflow-y-auto custom-scrollbar flex-1 flex flex-col space-y-10 min-h-0">
@@ -86,36 +86,36 @@ const NewTaskModal = ({
           <div className="space-y-8">
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-800 ml-4 block mb-2">Tytuł Operacyjny *</label>
-              <input required placeholder="Np. Uruchomienie przedsprzedaży..." className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold text-slate-700" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+              <input required placeholder="Np. Uruchomienie przedsprzedaży..." className="w-full px-6 py-4 bg-slate-50 border border-slate-400 rounded-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold text-slate-700" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
             </div>
             
             <div>
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-800 ml-4 block mb-2">Opis / Dyspozycja dla załogi</label>
-              <textarea placeholder="Szczegóły operacyjne..." className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold text-slate-700 h-32 resize-none" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+              <textarea placeholder="Szczegóły operacyjne..." className="w-full px-6 py-4 bg-slate-50 border border-slate-400 rounded-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all font-bold text-slate-700 h-32 resize-none" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-300">
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-3 flex items-center"><Folder className="w-3 h-3 mr-2" /> Przypisz do Projektu</label>
-              <select className="w-full p-4 bg-white border border-slate-200 rounded-sm outline-none font-bold text-sm text-slate-600 appearance-none" value={formData.projectId} onChange={e => setFormData({...formData, projectId: e.target.value, campaignId: ''})}>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 block mb-3 flex items-center"><Folder className="w-3 h-3 mr-2" /> Przypisz do Projektu</label>
+              <select className="w-full p-4 bg-white border border-slate-400 rounded-sm outline-none font-bold text-sm text-slate-600 appearance-none" value={formData.projectId} onChange={e => setFormData({...formData, projectId: e.target.value, campaignId: ''})}>
                 <option value="">Brak (Zadanie Generalne)</option>
                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-3 flex items-center"><Megaphone className="w-3 h-3 mr-2" /> Przypisz do Kampanii (Marketing)</label>
-              <select className="w-full p-4 bg-white border border-slate-200 rounded-sm outline-none font-bold text-sm text-slate-600 appearance-none" value={formData.campaignId} onChange={e => setFormData({...formData, campaignId: e.target.value, projectId: ''})}>
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 block mb-3 flex items-center"><Megaphone className="w-3 h-3 mr-2" /> Przypisz do Kampanii (Marketing)</label>
+              <select className="w-full p-4 bg-white border border-slate-400 rounded-sm outline-none font-bold text-sm text-slate-600 appearance-none" value={formData.campaignId} onChange={e => setFormData({...formData, campaignId: e.target.value, projectId: ''})}>
                 <option value="">Brak</option>
                 {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-8 border-t border-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-8 border-t border-slate-300">
              <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-3 flex items-center"><Zap className="w-3 h-3 mr-2 text-rose-500" /> Priorytet Wykonawczy</label>
-                <select className="w-full p-4 bg-white border border-slate-200 rounded-sm outline-none font-black text-xs uppercase tracking-widest appearance-none" value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value})}>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 block mb-3 flex items-center"><Zap className="w-3 h-3 mr-2 text-rose-500" /> Priorytet Wykonawczy</label>
+                <select className="w-full p-4 bg-white border border-slate-400 rounded-sm outline-none font-black text-xs uppercase tracking-widest appearance-none" value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value})}>
                   <option value="LOW">LOW - Poboczne</option>
                   <option value="MEDIUM">MEDIUM - Standard</option>
                   <option value="HIGH" className="text-rose-600">HIGH - Wysoki</option>
@@ -123,18 +123,18 @@ const NewTaskModal = ({
                 </select>
              </div>
              <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-3 flex items-center"><Calendar className="w-3 h-3 mr-2" /> Data Startu</label>
-                <input type="date" className="w-full p-4 bg-white border border-slate-200 rounded-sm outline-none font-bold text-sm text-slate-600" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} />
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 block mb-3 flex items-center"><Calendar className="w-3 h-3 mr-2" /> Data Startu</label>
+                <input type="date" className="w-full p-4 bg-white border border-slate-400 rounded-sm outline-none font-bold text-sm text-slate-600" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} />
              </div>
              <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-3 flex items-center"><Calendar className="w-3 h-3 mr-2" /> Termin Realizacji (Deadline)</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 block mb-3 flex items-center"><Calendar className="w-3 h-3 mr-2" /> Termin Realizacji (Deadline)</label>
                 <input type="date" className="w-full p-4 bg-rose-50 border border-rose-200 rounded-sm outline-none font-bold text-sm text-rose-600" value={formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} />
              </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-300">
              <div>
-               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-3 flex items-center"><Building className="w-3 h-3 mr-2" /> Przydzielone Departamenty</label>
+               <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 block mb-3 flex items-center"><Building className="w-3 h-3 mr-2" /> Przydzielone Departamenty</label>
                <div className="flex flex-wrap gap-2">
                  {DEPARTMENTS.map(d => (
                     <div 
@@ -149,8 +149,8 @@ const NewTaskModal = ({
              </div>
              
              <div>
-               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-3 flex items-center"><Users className="w-3 h-3 mr-2" /> Celowane Kadry (Operatorzy)</label>
-               <div className="max-h-48 overflow-y-auto custom-scrollbar bg-slate-50 rounded-sm p-4 border border-slate-100 space-y-2">
+               <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 block mb-3 flex items-center"><Users className="w-3 h-3 mr-2" /> Celowane Kadry (Operatorzy)</label>
+               <div className="max-h-48 overflow-y-auto custom-scrollbar bg-slate-50 rounded-sm p-4 border border-slate-300 space-y-2">
                  {users.map(u => (
                     <div 
                       key={u.id} 
@@ -162,10 +162,10 @@ const NewTaskModal = ({
                       </div>
                       <div className="flex flex-col flex-1">
                          <span className={`text-[11px] font-black uppercase tracking-tight ${formData.assigneeIds.includes(u.id) ? 'text-indigo-900' : 'text-slate-700'}`}>{u.name}</span>
-                         <span className="text-[9px] font-bold text-slate-400">{u.department}</span>
+                         <span className="text-[9px] font-bold text-slate-600">{u.department}</span>
                       </div>
-                      <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${formData.assigneeIds.includes(u.id) ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
-                         {formData.assigneeIds.includes(u.id) && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
+                      <div className={`w-4 h-4 rounded-sm border-2 flex-shrink-0 flex items-center justify-center ${formData.assigneeIds.includes(u.id) ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
+                         {formData.assigneeIds.includes(u.id) && <div className="w-1.5 h-1.5 bg-white rounded-sm"></div>}
                       </div>
                     </div>
                  ))}

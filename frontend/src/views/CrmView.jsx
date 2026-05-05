@@ -133,26 +133,26 @@ const CrmView = ({ token, API_URL, currentUser, fetchAppGlobalData }) => {
     } catch (err) { alert('Błąd usuwania kontaktu'); }
   };
 
-  const inputClass = "w-full pl-4 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-sm text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-600/10 focus:border-indigo-400 transition-all placeholder:text-slate-400";
-  const labelClass = "text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2";
+  const inputClass = "w-full pl-4 pr-4 py-3 bg-slate-50 border border-slate-400 rounded-sm text-xs font-bold outline-none focus:ring-4 focus:ring-indigo-600/10 focus:border-indigo-400 transition-all placeholder:text-slate-600";
+  const labelClass = "text-[9px] font-black text-slate-600 uppercase tracking-widest block mb-2";
 
   return (
-    <div className="flex-1 flex overflow-hidden bg-[#f8fafc] text-slate-900 font-sans">
+    <div className="flex-1 flex overflow-hidden bg-gradient-to-b from-[#f8fafc] to-[#e2e8f0] text-slate-900 font-sans">
       
       {/* LEWY PANEL - LISTA KONTRAHENTÓW */}
-      <div className="w-80 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20 shadow-[5px_0_30px_rgba(0,0,0,0.02)]">
-        <div className="p-6 border-b border-slate-100 shrink-0">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-black text-slate-800 uppercase tracking-tighter flex items-center">
-              <Building2 className="w-5 h-5 mr-3 text-indigo-600" /> Baza Kontrahentów
+      <div className="w-80 bg-white border-r border-slate-400 flex flex-col shrink-0 z-20 shadow-[5px_0_30px_rgba(0,0,0,0.02)]">
+        <div className="p-4 border-b border-slate-200 shrink-0 bg-slate-50">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-slate-800 flex items-center">
+              <Building2 className="w-4 h-4 mr-2 text-indigo-600" /> Baza Kontrahentów
             </h2>
-            <button onClick={() => { setCompanyForm({ id: '', taxId: '', regon: '', krs: '', name: '', legalForm: '', industry: '', website: '', mainPhone: '', mainEmail: '', status: 'Aktywny', notes: '' }); setIsCompanyModalOpen(true); }} className="p-2 bg-indigo-50 text-indigo-600 rounded-sm hover:bg-indigo-600 hover:text-white transition-colors tooltip" title="Zarejestruj nową">
-              <Plus className="w-4 h-4" />
+            <button onClick={() => { setCompanyForm({ id: '', taxId: '', regon: '', krs: '', name: '', legalForm: '', industry: '', website: '', mainPhone: '', mainEmail: '', status: 'Aktywny', notes: '' }); setIsCompanyModalOpen(true); }} className="p-1.5 bg-indigo-50 text-indigo-600 rounded-md hover:bg-indigo-600 hover:text-white transition-colors tooltip" title="Zarejestruj nową">
+              <Plus className="w-3.5 h-3.5" />
             </button>
           </div>
           <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
-            <input type="text" placeholder="Szukaj po nazwie lub NIP..." className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-[2rem] text-xs font-bold outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-600/10" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 group-focus-within:text-indigo-600 transition-colors" />
+            <input type="text" placeholder="Szukaj po nazwie lub NIP..." className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-400 rounded-sm text-xs font-bold outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-600/10" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
           </div>
         </div>
 
@@ -161,9 +161,9 @@ const CrmView = ({ token, API_URL, currentUser, fetchAppGlobalData }) => {
              <div className="flex justify-center p-10"><Loader2 className="w-6 h-6 animate-spin text-indigo-400" /></div>
           ) : (
             companies.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || (c.taxId && c.taxId.includes(searchQuery))).map(c => (
-              <div key={c.id} onClick={() => setSelectedCompany(c)} className={`p-4 rounded-sm border cursor-pointer transition-all ${selectedCompany?.id === c.id ? 'bg-slate-900 border-slate-800 text-white shadow-xl' : 'bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md'}`}>
+              <div key={c.id} onClick={() => setSelectedCompany(c)} className={`p-4 rounded-sm border cursor-pointer transition-all ${selectedCompany?.id === c.id ? 'bg-slate-900 border-slate-800 text-white shadow-xl' : 'bg-white border-slate-400 hover:border-indigo-300 hover:shadow-md'}`}>
                 <div className="text-xs font-black uppercase tracking-tight mb-1 truncate">{c.name}</div>
-                <div className={`text-[9px] font-bold flex items-center ${selectedCompany?.id === c.id ? 'text-slate-400' : 'text-slate-500'}`}>
+                <div className={`text-[9px] font-bold flex items-center ${selectedCompany?.id === c.id ? 'text-slate-600' : 'text-slate-500'}`}>
                   NIP: {c.taxId || 'Brak'} <span className="mx-2">•</span> {c.industry || 'Wielobranżowa'}
                 </div>
               </div>
@@ -173,41 +173,41 @@ const CrmView = ({ token, API_URL, currentUser, fetchAppGlobalData }) => {
       </div>
 
       {/* PRAWY PANEL - SZCZEGÓŁY KONTRAHENTA */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] overflow-y-auto relative custom-scrollbar">
+      <div className="flex-1 flex flex-col min-w-0 bg-gradient-to-b from-[#f8fafc] to-[#e2e8f0] overflow-y-auto relative custom-scrollbar">
         {!selectedCompany ? (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-300">
             <Building2 className="w-24 h-24 mb-6 opacity-20" />
-            <h3 className="text-xl font-black uppercase tracking-widest text-slate-400 mb-2">Wybierz lub dodaj kontrahenta</h3>
+            <h3 className="text-xl font-black uppercase tracking-widest text-slate-600 mb-2">Wybierz lub dodaj kontrahenta</h3>
             <p className="text-xs font-bold uppercase tracking-widest max-w-sm text-center opacity-60">Zarządzaj ujednoliconą bazą B2B, dodawaj jej oddziały (Siedziby, Magazyny) oraz koordynuj z osobami kontaktowymi.</p>
           </div>
         ) : (
           <div className="p-10 max-w-6xl mx-auto w-full animate-in slide-in-from-bottom-8 duration-500">
             
             {/* HEADER KONTRAHENTA */}
-            <div className="bg-white rounded-sm shadow-sm border border-slate-200 p-8 mb-8 relative overflow-hidden group">
-               <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
-                 <button onClick={() => { setCompanyForm(selectedCompany); setIsCompanyModalOpen(true); }} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-sm text-[9px] font-black uppercase tracking-widest flex items-center"><Edit3 className="w-3 h-3 mr-2"/> Edytuj</button>
-                 {currentUser?.role === 'ADMIN' && <button onClick={() => handleDeleteCompany(selectedCompany.id)} className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-sm text-[9px] font-black uppercase tracking-widest flex items-center"><Trash2 className="w-3 h-3 mr-2"/> Usuń Systemowo</button>}
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 lg:p-6 mb-6 relative overflow-hidden group">
+               <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
+                 <button onClick={() => { setCompanyForm(selectedCompany); setIsCompanyModalOpen(true); }} className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-md text-[10px] font-bold flex items-center border border-slate-200"><Edit3 className="w-3 h-3 mr-1.5"/> Edytuj</button>
+                 {currentUser?.role === 'ADMIN' && <button onClick={() => handleDeleteCompany(selectedCompany.id)} className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-md text-[10px] font-bold flex items-center border border-rose-100"><Trash2 className="w-3 h-3 mr-1.5"/> Usuń</button>}
                </div>
 
                <div className="flex items-start">
-                  <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-fuchsia-100 border border-indigo-200 rounded-sm flex items-center justify-center text-3xl font-black text-indigo-700 mr-8 shadow-inner shrink-0">
+                  <div className="w-14 h-14 bg-gradient-to-br from-indigo-50 to-fuchsia-50 border border-indigo-100 rounded-md flex items-center justify-center text-xl font-bold text-indigo-600 mr-5 shrink-0">
                     {selectedCompany.name.substring(0, 1)}
                   </div>
-                  <div>
-                    <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-2">{selectedCompany.name}</h1>
-                    <div className="flex items-center text-[10px] font-black uppercase tracking-widest space-x-4 mb-5">
-                      <span className={`px-2.5 py-1 rounded-sm text-white ${selectedCompany.status === 'Aktywny' ? 'bg-emerald-500' : selectedCompany.status === 'Prospekt' ? 'bg-amber-500' : 'bg-rose-500'}`}>{selectedCompany.status}</span>
-                      <span className="text-slate-500 flex items-center"><Hash className="w-3 h-3 mr-1"/> NIP: {selectedCompany.taxId || '-'}</span>
-                      <span className="text-slate-500 border-l border-slate-300 pl-4">KRS: {selectedCompany.krs || '-'}</span>
-                      <span className="text-indigo-600 border-l border-slate-300 pl-4">{selectedCompany.industry || 'Branża Niezdefiniowana'}</span>
+                  <div className="flex-1">
+                    <h1 className="text-xl font-bold text-slate-800 leading-tight mb-2 pr-40">{selectedCompany.name}</h1>
+                    <div className="flex flex-wrap items-center text-[11px] font-medium text-slate-500 gap-x-4 gap-y-2 mb-4">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white ${selectedCompany.status === 'Aktywny' ? 'bg-emerald-500' : selectedCompany.status === 'Prospekt' ? 'bg-amber-500' : 'bg-rose-500'}`}>{selectedCompany.status}</span>
+                      <span className="flex items-center"><Hash className="w-3 h-3 mr-1"/> NIP: {selectedCompany.taxId || '-'}</span>
+                      <span className="border-l border-slate-200 pl-4">KRS: {selectedCompany.krs || '-'}</span>
+                      <span className="text-indigo-600 border-l border-slate-200 pl-4">{selectedCompany.industry || 'Wielobranżowa'}</span>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-xs text-slate-600 font-bold">
-                       {selectedCompany.mainEmail && <div className="flex items-center"><Mail className="w-4 h-4 mr-2 text-slate-400"/> {selectedCompany.mainEmail}</div>}
-                       {selectedCompany.mainPhone && <div className="flex items-center"><Phone className="w-4 h-4 mr-2 text-slate-400"/> {selectedCompany.mainPhone}</div>}
-                       {selectedCompany.website && <div className="flex items-center"><Globe className="w-4 h-4 mr-2 text-slate-400"/> {selectedCompany.website}</div>}
+                    <div className="flex flex-wrap gap-4 text-xs text-slate-600 font-medium">
+                       {selectedCompany.mainEmail && <div className="flex items-center bg-slate-50 px-2 py-1 rounded border border-slate-100"><Mail className="w-3.5 h-3.5 mr-1.5 text-slate-400"/> {selectedCompany.mainEmail}</div>}
+                       {selectedCompany.mainPhone && <div className="flex items-center bg-slate-50 px-2 py-1 rounded border border-slate-100"><Phone className="w-3.5 h-3.5 mr-1.5 text-slate-400"/> {selectedCompany.mainPhone}</div>}
+                       {selectedCompany.website && <div className="flex items-center bg-slate-50 px-2 py-1 rounded border border-slate-100"><Globe className="w-3.5 h-3.5 mr-1.5 text-slate-400"/> {selectedCompany.website}</div>}
                     </div>
-                    {selectedCompany.notes && <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-sm text-xs font-bold text-yellow-800 break-words"><span className="uppercase tracking-widest text-[9px] mb-1 block opacity-60">Notatka Organizacyjna o Kontrahencie:</span>{selectedCompany.notes}</div>}
+                    {selectedCompany.notes && <div className="mt-4 p-3 bg-amber-50/50 border border-amber-100/50 rounded text-[11px] text-amber-800"><span className="font-bold mb-1 block">Notatka o Kontrahencie:</span>{selectedCompany.notes}</div>}
                   </div>
                </div>
             </div>
@@ -215,17 +215,17 @@ const CrmView = ({ token, API_URL, currentUser, fetchAppGlobalData }) => {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                {/* KOLUMNA ODDZIAŁÓW */}
                <div>
-                  <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
+                  <div className="flex items-center justify-between mb-4 border-b border-slate-400 pb-3">
                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center"><MapPin className="w-4 h-4 mr-2 text-indigo-600"/> Receptory / Oddziały</h3>
                     <button onClick={() => { setBranchForm({ id: '', name: '', type: 'Oddział', street: '', building: '', city: '', postalCode: '', country: 'Polska', isHeadquarters: false }); setIsBranchModalOpen(true); }} className="text-[10px] font-black text-indigo-600 uppercase tracking-widest hover:underline flex items-center"><Plus className="w-3 h-3 mr-1"/> Dodaj Punkt</button>
                   </div>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Adresy i Oddziały Kontrahenta</h4>
+                  <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4">Adresy i Oddziały Kontrahenta</h4>
                   <div className="space-y-4">
-                     {selectedCompany.branches?.length === 0 ? <p className="text-xs text-slate-400 font-bold italic">Kontrahent nie posiada jeszcze zdefiniowanych oddziałów adresowych. Dodaj Główną Siedzibę dla celów logistycznych.</p> : selectedCompany.branches?.map(b => (
-                       <div key={b.id} className="bg-white border border-slate-200 rounded-sm p-5 shadow-sm hover:border-indigo-300 transition-all group relative">
+                     {selectedCompany.branches?.length === 0 ? <p className="text-xs text-slate-600 font-bold italic">Kontrahent nie posiada jeszcze zdefiniowanych oddziałów adresowych. Dodaj Główną Siedzibę dla celów logistycznych.</p> : selectedCompany.branches?.map(b => (
+                       <div key={b.id} className="bg-white border border-slate-400 rounded-sm p-5 shadow-sm hover:border-indigo-300 transition-all group relative">
                           <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-2">
-                             <button onClick={() => { setBranchForm(b); setIsBranchModalOpen(true); }} className="text-slate-400 hover:text-indigo-600"><Edit3 className="w-3 h-3"/></button>
-                             <button onClick={() => handleDeleteBranch(b.id)} className="text-slate-400 hover:text-rose-600"><Trash2 className="w-3 h-3"/></button>
+                             <button onClick={() => { setBranchForm(b); setIsBranchModalOpen(true); }} className="text-slate-600 hover:text-indigo-600"><Edit3 className="w-3 h-3"/></button>
+                             <button onClick={() => handleDeleteBranch(b.id)} className="text-slate-600 hover:text-rose-600"><Trash2 className="w-3 h-3"/></button>
                           </div>
                           <div className="flex justify-between items-start mb-2">
                              <div>
@@ -245,14 +245,14 @@ const CrmView = ({ token, API_URL, currentUser, fetchAppGlobalData }) => {
 
                {/* KOLUMNA KONTAKTÓW */}
                <div>
-                  <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-3">
+                  <div className="flex items-center justify-between mb-4 border-b border-slate-400 pb-3">
                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center"><Users className="w-4 h-4 mr-2 text-pink-600"/> Wizytownik</h3>
                     <button onClick={() => { setContactForm({ id: '', firstName: '', lastName: '', role: '', phone: '', email: '', branchId: '' }); setIsContactModalOpen(true); }} className="text-[10px] font-black text-pink-600 uppercase tracking-widest hover:underline flex items-center"><Plus className="w-3 h-3 mr-1"/> Dodaj Kontakt</button>
                   </div>
                   <div className="space-y-4">
-                     {selectedCompany.contacts?.length === 0 ? <p className="text-xs text-slate-400 font-bold italic">Książka telefoniczna pusta. Dodaj osobę, aby handlowcy mieli z kim rozmawiać.</p> : selectedCompany.contacts?.map(c => (
-                       <div key={c.id} className="bg-white border text-left border-slate-200 rounded-sm p-4 shadow-sm hover:border-pink-300 transition-all flex items-center group">
-                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-xs font-black text-slate-600 mr-4 shrink-0 shadow-inner">
+                     {selectedCompany.contacts?.length === 0 ? <p className="text-xs text-slate-600 font-bold italic">Książka telefoniczna pusta. Dodaj osobę, aby handlowcy mieli z kim rozmawiać.</p> : selectedCompany.contacts?.map(c => (
+                       <div key={c.id} className="bg-white border text-left border-slate-400 rounded-sm p-4 shadow-sm hover:border-pink-300 transition-all flex items-center group">
+                          <div className="w-10 h-10 rounded-sm bg-slate-100 flex items-center justify-center text-xs font-black text-slate-600 mr-4 shrink-0 shadow-inner">
                             {c.firstName[0]}{c.lastName[0]}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -263,7 +263,7 @@ const CrmView = ({ token, API_URL, currentUser, fetchAppGlobalData }) => {
                                {c.email && <span className="flex items-center"><Mail className="w-3 h-3 mr-1 opacity-50"/> {c.email}</span>}
                              </div>
                              {c.branchId && (
-                               <div className="mt-2 text-[8px] font-black text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full inline-block border border-slate-200">
+                               <div className="mt-2 text-[8px] font-black text-slate-600 bg-slate-50 px-2 py-0.5 rounded-sm inline-block border border-slate-400">
                                   {selectedCompany.branches?.find(b => b.id === c.branchId)?.name || 'Nieznany Oddział'}
                                </div>
                              )}
@@ -286,12 +286,12 @@ const CrmView = ({ token, API_URL, currentUser, fetchAppGlobalData }) => {
       {isCompanyModalOpen && (
          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-6 animate-in fade-in">
             <div className="bg-white rounded-sm shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] min-h-0 animate-in zoom-in-95">
-               <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+               <div className="p-6 border-b border-slate-300 flex justify-between items-center bg-slate-50 shrink-0">
                  <div>
                    <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">{companyForm.id ? 'Edycja Kontrahenta' : 'Rejestracja Kontrahenta B2B'}</h3>
-                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Główny Rekord Systemowy CRM</p>
+                   <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1">Główny Rekord Systemowy CRM</p>
                  </div>
-                 <button onClick={() => setIsCompanyModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-sm transition-all"><X className="w-5 h-5 text-slate-400" /></button>
+                 <button onClick={() => setIsCompanyModalOpen(false)} className="p-2 hover:bg-slate-200 rounded-sm transition-all"><X className="w-5 h-5 text-slate-600" /></button>
                </div>
                <form onSubmit={handleSaveCompany} className="p-8 space-y-6 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                  
@@ -308,7 +308,7 @@ const CrmView = ({ token, API_URL, currentUser, fetchAppGlobalData }) => {
 
                  <div className="grid grid-cols-2 gap-6">
                    <div className="col-span-2">
-                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Pełna Nazwa Kontrahenta</label>
+                     <label className="text-[10px] font-black text-slate-600 uppercase tracking-widest block mb-2">Pełna Nazwa Kontrahenta</label>
                      <input required placeholder="Kontrahent XYZ..." type="text" className={inputClass} value={companyForm.name} onChange={e => setCompanyForm({...companyForm, name: e.target.value})} />
                    </div>
                    <div>
@@ -367,9 +367,9 @@ const CrmView = ({ token, API_URL, currentUser, fetchAppGlobalData }) => {
       {isBranchModalOpen && (
          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-6 animate-in fade-in">
             <div className="bg-white rounded-sm shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] min-h-0 animate-in zoom-in-95 border-t-4 border-indigo-500">
-               <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+               <div className="p-6 border-b border-slate-300 flex justify-between items-center bg-slate-50 shrink-0">
                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{branchForm.id ? 'Edycja Oddziału' : 'Nowy Punku Dla Dostaw'}</h3>
-                 <button onClick={() => setIsBranchModalOpen(false)} className="p-1 hover:bg-slate-200 rounded-sm transition-all"><X className="w-5 h-5 text-slate-400" /></button>
+                 <button onClick={() => setIsBranchModalOpen(false)} className="p-1 hover:bg-slate-200 rounded-sm transition-all"><X className="w-5 h-5 text-slate-600" /></button>
                </div>
                <form onSubmit={handleSaveBranch} className="p-8 space-y-6 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                    <div className="grid grid-cols-2 gap-4">
@@ -390,7 +390,7 @@ const CrmView = ({ token, API_URL, currentUser, fetchAppGlobalData }) => {
                          <input type="checkbox" id="hq" className="w-4 h-4 text-indigo-600 rounded bg-slate-100 border-slate-300" checked={branchForm.isHeadquarters} onChange={e => setBranchForm({...branchForm, isHeadquarters: e.target.checked})} />
                          <label htmlFor="hq" className="ml-2 text-[10px] font-black uppercase text-slate-600 tracking-widest">Jest Główną Siedzibą</label>
                       </div>
-                      <div className="col-span-2"><hr className="border-slate-100 my-2" /></div>
+                      <div className="col-span-2"><hr className="border-slate-300 my-2" /></div>
                       <div>
                          <label className={labelClass}>Ulica</label>
                          <input required placeholder="Długa" className={inputClass} value={branchForm.street} onChange={e => setBranchForm({...branchForm, street: e.target.value})} />
@@ -418,9 +418,9 @@ const CrmView = ({ token, API_URL, currentUser, fetchAppGlobalData }) => {
       {isContactModalOpen && (
          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-6 animate-in fade-in">
             <div className="bg-white rounded-sm shadow-2xl w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh] min-h-0 animate-in zoom-in-95 border-t-4 border-pink-500">
-               <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+               <div className="p-6 border-b border-slate-300 flex justify-between items-center bg-slate-50 shrink-0">
                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{contactForm.id ? 'Edycja Persony' : 'Nowa Osoba Kontaktowa (Wizytówka)'}</h3>
-                 <button onClick={() => setIsContactModalOpen(false)} className="p-1 hover:bg-slate-200 rounded-sm transition-all"><X className="w-5 h-5 text-slate-400" /></button>
+                 <button onClick={() => setIsContactModalOpen(false)} className="p-1 hover:bg-slate-200 rounded-sm transition-all"><X className="w-5 h-5 text-slate-600" /></button>
                </div>
                <form onSubmit={handleSaveContact} className="p-8 space-y-6 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                    <div className="grid grid-cols-2 gap-4">

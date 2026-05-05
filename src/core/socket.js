@@ -11,7 +11,7 @@ const socketService = {
         io.use((socket, next) => {
             const token = socket.handshake.auth.token;
             if (!token) return next(new Error("Brak autoryzacji socketu"));
-            jwt.verify(token, process.env.JWT_SECRET || 'super-tajny-klucz-aps-ie-2026', (err, decoded) => {
+            jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
                 if (err) return next(new Error("Nieprawidlowy token socketu"));
                 socket.user = decoded; 
                 next();

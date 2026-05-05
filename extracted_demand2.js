@@ -1,0 +1,2 @@
+"const { PrismaClient } = require('@prisma/client');\nconst prisma = new PrismaClient();\nconst { GoogleGenerativeAI, SchemaType } = require(\"@google/generative-ai\");\n\nconst genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);\n\nasync function 
+<truncated 3833 bytes>

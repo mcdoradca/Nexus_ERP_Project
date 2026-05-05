@@ -6,22 +6,22 @@ import { Bold, Heading1, Heading2, List, ListOrdered } from 'lucide-react';
 const MenuBar = ({ editor }) => {
     if (!editor) return null;
     return (
-        <div className="flex items-center space-x-1 border-b border-slate-200 bg-slate-50 p-2 rounded-t-2xl">
-            <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className={`p-2 rounded-lg transition-colors ${editor.isActive('heading', { level: 1 }) ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-200'}`}>
+        <div className="flex items-center space-x-1 border-b border-slate-400 bg-slate-50 p-2 rounded-t-2xl">
+            <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className={`p-2 rounded-sm transition-colors ${editor.isActive('heading', { level: 1 }) ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-200'}`}>
                 <Heading1 className="w-4 h-4" />
             </button>
-            <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={`p-2 rounded-lg transition-colors ${editor.isActive('heading', { level: 2 }) ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-200'}`}>
+            <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={`p-2 rounded-sm transition-colors ${editor.isActive('heading', { level: 2 }) ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-200'}`}>
                 <Heading2 className="w-4 h-4" />
             </button>
             <div className="w-px h-6 bg-slate-300 mx-2"></div>
-            <button onClick={() => editor.chain().focus().toggleBold().run()} className={`p-2 rounded-lg transition-colors ${editor.isActive('bold') ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-200'}`}>
+            <button onClick={() => editor.chain().focus().toggleBold().run()} className={`p-2 rounded-sm transition-colors ${editor.isActive('bold') ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-200'}`}>
                 <Bold className="w-4 h-4" />
             </button>
             <div className="w-px h-6 bg-slate-300 mx-2"></div>
-            <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={`p-2 rounded-lg transition-colors ${editor.isActive('bulletList') ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-200'}`}>
+            <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={`p-2 rounded-sm transition-colors ${editor.isActive('bulletList') ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-200'}`}>
                 <List className="w-4 h-4" />
             </button>
-            <button onClick={() => editor.chain().focus().toggleOrderedList().run()} className={`p-2 rounded-lg transition-colors ${editor.isActive('orderedList') ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-200'}`}>
+            <button onClick={() => editor.chain().focus().toggleOrderedList().run()} className={`p-2 rounded-sm transition-colors ${editor.isActive('orderedList') ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-200'}`}>
                 <ListOrdered className="w-4 h-4" />
             </button>
             <div className="flex-1"></div>
@@ -100,7 +100,7 @@ export const StrictWysiwyg = ({ initialContent = "", onChange }) => {
 
     if (!editor) return null;
     return (
-        <div className="w-full bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden flex flex-col">
+        <div className="w-full bg-white border border-slate-400 shadow-sm rounded-sm overflow-hidden flex flex-col">
             <MenuBar editor={editor} />
             <div className="flex-1 bg-white overflow-y-auto max-h-[500px]">
                 <EditorContent editor={editor} />

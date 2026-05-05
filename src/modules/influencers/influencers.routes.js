@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 const vectorMappingService = require('./vectorMappingService');
 const socialIntegrationService = require('./socialIntegrationService');
 const { authenticateToken } = require('../../middlewares/auth.middleware');
+const EventBus = require('../../core/EventBus');
 
 // Endpoint: GET /api/influencers/all
 // Pobiera ustrukturyzowany zrzut Repozytorium wszystkich fizycznie zapisanych twórców
@@ -213,10 +214,38 @@ router.post('/deals', authenticateToken, async (req, res) => {
             },
             include: { influencer: true }
         });
+        EventBus.publish('DEAL_MARKETING_COST_UPDATED', { deal: newDeal, source: 'CRM_INFLUENCERS_CREATE' });
         res.status(201).json(newDeal);
     } catch (err) {
         console.error("DealIRM Create Error:", err);
         res.status(500).json({ error: "Nie udało się przypiąć twórcy do Lejka", details: err.message });
+    }
+});
+
+// ==========================================
+// 5.5 [POST] /deals/:id/outreach - AI Outreach Draft Generator
+// ==========================================
+const aiService = require('../../core/ai.service');
+
+router.post('/deals/:id/outreach', authenticateToken, async (req, res) => {
+    try {
+        const deal = await prisma.dealIRM.findUnique({
+            where: { id: req.params.id },
+            include: { influencer: true, product: true }
+        });
+        if (!deal) return res.status(404).json({ error: "Deal nie istnieje" });
+
+        const draft = await aiService.generateOutreach(deal.influencer, deal.product);
+        
+        const updated = await prisma.dealIRM.update({
+            where: { id: deal.id },
+            data: { outreachDraft: draft }
+        });
+
+        res.status(200).json(updated);
+    } catch (err) {
+        console.error("Outreach Generation Error:", err);
+        res.status(500).json({ error: "Błąd generowania wiadomości AI", details: err.message });
     }
 });
 
@@ -231,6 +260,7 @@ router.put('/deals/:id/status', authenticateToken, async (req, res) => {
             data: { status },
             include: { influencer: true }
         });
+        EventBus.publish('DEAL_MARKETING_COST_UPDATED', { deal: updated, source: 'CRM_INFLUENCERS_STATUS_UPDATE' });
         res.json(updated);
     } catch (err) {
         res.status(500).json({ error: "Błąd zmiany statusu", details: err.message });

@@ -55,31 +55,31 @@ export const VirtualizedGrid = ({ onJobSelect }) => {
     });
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="flex flex-col h-full bg-white rounded-sm shadow-sm border border-slate-400 overflow-hidden">
             {/* Header Panelu Grid */}
-            <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10 shrink-0">
+            <div className="bg-slate-50 border-b border-slate-400 px-6 py-4 flex items-center justify-between z-10 shrink-0">
                <div>
                    <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-800 flex items-center">
                        <Database className="w-4 h-4 mr-2 text-indigo-500" />
                        Queue Monitor (The Grid)
                    </h3>
-                   <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-wider">
+                   <p className="text-[9px] font-bold text-slate-600 mt-1 uppercase tracking-wider">
                        Renderowanie <span className="text-indigo-500">{filteredJobs.length}</span> węzłów poprzez TanStack Virtual
                    </p>
                </div>
                
                <div className="flex space-x-3 items-center">
                    <div className="relative">
-                       <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                       <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-600" />
                        <input 
                           type="text" 
                           placeholder="Szukaj ID/SKU..."
-                          className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-indigo-500 transition-colors"
+                          className="pl-9 pr-4 py-2 bg-white border border-slate-400 rounded-sm text-xs font-bold outline-none focus:border-indigo-500 transition-colors"
                           value={search}
                           onChange={(e) => setSearch(e.target.value)}
                        />
                    </div>
-                   <button className="px-5 py-2 bg-slate-900 text-white rounded-lg flex items-center text-[10px] uppercase font-black tracking-widest hover:bg-indigo-600 transition-colors shadow-sm">
+                   <button className="px-5 py-2 bg-slate-900 text-white rounded-sm flex items-center text-[10px] uppercase font-black tracking-widest hover:bg-indigo-600 transition-colors shadow-sm">
                        <PlayCircle className="w-4 h-4 mr-2" />
                        Wywołaj Ingestię
                    </button>
@@ -87,7 +87,7 @@ export const VirtualizedGrid = ({ onJobSelect }) => {
             </div>
 
             {/* Sztywny Tytuł Kolumn */}
-            <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-slate-200 bg-slate-100 text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">
+            <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-slate-400 bg-slate-100 text-[9px] font-black text-slate-600 uppercase tracking-widest shrink-0">
                 <div className="col-span-1 flex items-center justify-center"><CheckSquare className="w-4 h-4"/></div>
                 <div className="col-span-2 text-left">SKU / ID Ofertowe</div>
                 <div className="col-span-4 text-left">Tytuł Bazowy</div>
@@ -112,7 +112,7 @@ export const VirtualizedGrid = ({ onJobSelect }) => {
                                     height: `${virtualItem.size}px`,
                                     transform: `translateY(${virtualItem.start}px)`,
                                 }}
-                                className={`grid grid-cols-12 gap-4 px-6 items-center border-b border-slate-100 transition-colors hover:bg-indigo-50/50 cursor-pointer ${virtualItem.index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}
+                                className={`grid grid-cols-12 gap-4 px-6 items-center border-b border-slate-300 transition-colors hover:bg-indigo-50/50 cursor-pointer ${virtualItem.index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}
                                 onClick={() => { if(onJobSelect) onJobSelect(job); }}
                             >
                                 <div className="col-span-1 flex items-center justify-center">
@@ -124,7 +124,7 @@ export const VirtualizedGrid = ({ onJobSelect }) => {
                                 <div className="col-span-4 text-left text-xs font-bold text-slate-700 truncate pr-4">
                                      {job.name}
                                 </div>
-                                <div className="col-span-2 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                <div className="col-span-2 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest">
                                      {job.brand}
                                 </div>
                                 <div className="col-span-2 flex justify-center">
@@ -132,7 +132,7 @@ export const VirtualizedGrid = ({ onJobSelect }) => {
                                 </div>
                                 <div className="col-span-1 flex justify-center">
                                      <button 
-                                        className="text-[9px] bg-white border border-slate-200 shadow-sm px-3 py-1.5 rounded-md font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-600 hover:text-white transition-colors"
+                                        className="text-[9px] bg-white border border-slate-400 shadow-sm px-3 py-1.5 rounded-sm font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-600 hover:text-white transition-colors"
                                         onClick={(e) => { e.stopPropagation(); if(onJobSelect) onJobSelect(job); }}
                                      >
                                          Edytuj

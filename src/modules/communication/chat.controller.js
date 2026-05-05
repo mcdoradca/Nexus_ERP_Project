@@ -1,6 +1,9 @@
 const chatService = require('./chat.service');
 const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
+const axios = require('axios');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 async function getMessages(req, res) {
     try {
@@ -64,4 +67,38 @@ async function getUnreadDMs(req, res) {
     } catch (error) { res.status(500).json({ error: 'Błąd pobierania' }); }
 }
 
-module.exports = { getMessages, uploadMessageFile, getUnreadDMs };
+async function generateTTS(req, res) {
+    try {
+        const { text } = req.body;
+        if (!text) return res.status(400).json({ error: 'Brak tekstu' });
+
+        let apiKey = process.env.ELEVENLABS_API_KEY;
+        if (!apiKey) {
+            const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'ELEVENLABS_API_KEY' } });
+            if (tokenRecord) apiKey = tokenRecord.value;
+        }
+
+        if (!apiKey) return res.status(400).json({ error: 'Brak klucza API ElevenLabs' });
+
+        const VOICE_ID = 'o2xdfKUpc1Bwq7RchZuW'; // Polski głos
+        const response = await axios.post(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+            text: text,
+            model_id: 'eleven_multilingual_v2',
+            output_format: 'mp3_44100_128'
+        }, {
+            headers: {
+                'xi-api-key': apiKey,
+                'Content-Type': 'application/json'
+            },
+            responseType: 'stream'
+        });
+
+        res.setHeader('Content-Type', 'audio/mpeg');
+        response.data.pipe(res);
+    } catch (error) {
+        console.error("Błąd ElevenLabs:", error.response?.data || error.message);
+        res.status(500).json({ error: 'Błąd generowania TTS' });
+    }
+}
+
+module.exports = { getMessages, uploadMessageFile, getUnreadDMs, generateTTS };

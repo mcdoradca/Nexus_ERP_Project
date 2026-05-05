@@ -9,16 +9,26 @@ import { Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send } fr
 const ImageModal = ({ url, onClose }) => {
     if (!url) return null;
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-8" onClick={onClose}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4" onClick={onClose}>
             <div className="relative max-w-5xl w-full h-full flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-colors">
+                <button onClick={onClose} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-sm p-2 transition-colors">
                     <X className="w-6 h-6" />
                 </button>
-                <img src={url} alt="Powiększenie" className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-xl" />
+                <img src={url} alt="Powiększenie" className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-sm" />
                 <div className="mt-8 flex space-x-4">
                     <button 
                         onClick={async () => {
                             try {
+                                if (url.startsWith('data:image/')) {
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = 'nexus_lifestyle.jpg';
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    return;
+                                }
+
                                 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
                                 const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
                                 const res = await fetch(`${API_URL}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(url)}`, {
@@ -40,7 +50,7 @@ const ImageModal = ({ url, onClose }) => {
                                 alert("Błąd pobierania zdjęcia: " + e.message);
                             }
                         }}
-                        className="flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs rounded-xl shadow-lg transition-colors"
+                        className="flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs rounded-sm shadow-lg transition-colors"
                     >
                         <Download className="w-4 h-4 mr-2" /> Pobierz na dysk
                     </button>
@@ -72,8 +82,11 @@ export const OfferOptimizerView = () => {
     const [isSavingDraft, setIsSavingDraft] = useState(false);
 
     // Przemapowanie contentu edytora z powrotem do Symulatora Kafelkowego w czasie rzeczywistym
-    const safeImages = visionTickets.map(t => t.replacedUrl || t.originalUrl);
-    const getImage = (index) => safeImages[index] || `https://via.placeholder.com/800x600/f8fafc/94a3b8?text=Zdjecie+nr+${index+1}`;
+    const safeImages = visionTickets.map(t => {
+        const url = t.replacedUrl || t.originalUrl;
+        return (url && (url.startsWith('http') || url.startsWith('data:image'))) ? url : null;
+    });
+    const getImage = (index) => safeImages[index] || `data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22800%22%20height%3D%22600%22%20viewBox%3D%220%200%20800%20600%22%3E%3Crect%20width%3D%22800%22%20height%3D%22600%22%20fill%3D%22%23f8fafc%22%2F%3E%3Ctext%20x%3D%22400%22%20y%3D%22300%22%20font-family%3D%22Arial%22%20font-size%3D%2224%22%20font-weight%3D%22bold%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EZdj%C4%99cie%20nr%20${index+1}%3C%2Ftext%3E%3C%2Fsvg%3E`;
 
     const allegroSections = [
          { items: [ { type: 'TEXT', content: editorHtml.opis1 || '' }, { type: 'IMAGE', content: getImage(1) } ] },
@@ -113,6 +126,16 @@ export const OfferOptimizerView = () => {
                 ...img,
                 sourcePreviewUrl: res.sourcePreviewUrl
             }));
+
+            // Zapewnienie minimum 7 slotów (1 miniatura + 6 lifestyle)
+            while (mappedImages.length < 7) {
+                mappedImages.push({
+                    originalUrl: `Wymagane nowe zdjęcie (Lifestylowe nr ${mappedImages.length})`,
+                    alerts: ["Pusty slot - wygeneruj Lifestyle AI"],
+                    isCompliant: false
+                });
+            }
+
             setVisionTickets(mappedImages);
         }
 
@@ -209,19 +232,19 @@ export const OfferOptimizerView = () => {
     };
 
     return (
-        <div className="w-full h-full min-h-screen bg-slate-50 p-8 space-y-8 pb-32">
+        <div className="w-full h-full min-h-screen bg-slate-50 p-4 space-y-8 pb-32">
             
             {/* Nagłówek Modułu */}
-            <div className="flex flex-col xl:flex-row xl:items-end justify-between bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200">
+            <div className="flex flex-col xl:flex-row xl:items-end justify-between bg-white p-4 rounded-sm shadow-sm border border-slate-400">
                 <div>
-                   <div className="bg-indigo-100 w-16 h-16 rounded-[1.5rem] flex items-center justify-center mb-6 shadow-sm border border-indigo-200"><Cpu className="w-8 h-8 text-indigo-600" /></div>
+                   <div className="bg-indigo-100 w-16 h-16 rounded-sm flex items-center justify-center mb-6 shadow-sm border border-indigo-200"><Cpu className="w-8 h-8 text-indigo-600" /></div>
                    <h1 className="text-4xl font-black text-slate-800 tracking-tighter mb-2">Command Center GEO 2026</h1>
                    <p className="text-slate-500 font-bold uppercase tracking-widest text-xs flex items-center">
-                       <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span> Single Auction Pivot: Aktywny &nbsp;|&nbsp; Pure API Mode
+                       <span className="w-2 h-2 bg-emerald-500 rounded-sm mr-2"></span> Single Auction Pivot: Aktywny &nbsp;|&nbsp; Pure API Mode
                    </p>
                 </div>
                 <div className="mt-8 xl:mt-0 flex space-x-4">
-                     <button disabled={!titleValid} className="px-8 py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-600 transition-colors shadow-lg shadow-indigo-900/20 flex items-center">
+                     <button disabled={!titleValid} className="px-8 py-4 bg-slate-900 text-white rounded-sm font-black uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-600 transition-colors shadow-lg shadow-indigo-900/20 flex items-center">
                          <Rocket className="w-4 h-4 mr-2"/> {titleValid ? 'Zapisz i Wyślij payload (BL)' : 'Zablokowano - Błąd Walidacji'}
                      </button>
                 </div>
@@ -232,20 +255,20 @@ export const OfferOptimizerView = () => {
             </div>
 
             {/* Split Screen -> HitlReviewer vs TileSimulator */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
                 
                 {/* Panel Lewy: Hitl Reviewer + Edytor TipTap */}
                 <div className="xl:col-span-7 space-y-6">
-                     <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200">
-                          <div className="flex items-center justify-between mb-8 border-b border-slate-100 pb-4">
-                              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
+                     <div className="bg-white p-4 rounded-sm shadow-sm border border-slate-400">
+                          <div className="flex items-center justify-between mb-8 border-b border-slate-300 pb-4">
+                              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-600">
                                   Weryfikacja "HitL" Rekordu (Human-In-The-Loop)
                               </h2>
                               {liveTitle && (
                                   <button 
                                       onClick={handleRegenerateTitle}
                                       disabled={isRegeneratingTitle}
-                                      className="flex items-center text-[10px] uppercase font-black tracking-widest text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors"
+                                      className="flex items-center text-[10px] uppercase font-black tracking-widest text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-sm transition-colors"
                                   >
                                       <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isRegeneratingTitle ? 'animate-spin' : ''}`} />
                                       {isRegeneratingTitle ? 'Generowanie...' : 'Odśwież Tytuł'}
@@ -254,7 +277,7 @@ export const OfferOptimizerView = () => {
                           </div>
                           
                           {/* Header Sekcji Prawego Panelu (Tytuł + EAN) */}
-                          <div className="flex items-center space-x-3 mb-6 bg-indigo-50 border border-indigo-100 p-4 rounded-[1.5rem]">
+                          <div className="flex items-center space-x-3 mb-6 bg-indigo-50 border border-indigo-100 p-4 rounded-sm">
                               <Type className="w-6 h-6 text-indigo-500" />
                               <div className="flex-1 w-full space-y-3">
                                   <input 
@@ -262,16 +285,16 @@ export const OfferOptimizerView = () => {
                                      value={liveTitle}
                                      onChange={(e) => setLiveTitle(e.target.value)}
                                      placeholder="Zoptymalizowany Tytuł Aukcji pojawi się tutaj..." 
-                                     className="w-full bg-white border border-slate-200 text-slate-800 font-black text-xl px-4 py-2.5 rounded-xl outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 transition-all placeholder:text-slate-300 placeholder:font-bold" 
+                                     className="w-full bg-white border border-slate-400 text-slate-800 font-black text-xl px-4 py-2.5 rounded-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 transition-all placeholder:text-slate-300 placeholder:font-bold" 
                                   />
                                   <div className="flex items-center space-x-2">
-                                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-100/50 px-2 py-1 rounded-md">Kod EAN (GTIN)</span>
+                                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-100/50 px-2 py-1 rounded-sm">Kod EAN (GTIN)</span>
                                       <input 
                                          type="text" 
                                          value={liveEan}
                                          onChange={(e) => setLiveEan(e.target.value)}
                                          placeholder="EAN / GTIN" 
-                                         className="flex-1 bg-white border border-slate-200 text-slate-700 font-bold text-sm px-3 py-1.5 rounded-lg outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 transition-all placeholder:text-slate-300" 
+                                         className="flex-1 bg-white border border-slate-400 text-slate-700 font-bold text-sm px-3 py-1.5 rounded-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 transition-all placeholder:text-slate-300" 
                                       />
                                   </div>
                               </div>
@@ -285,7 +308,7 @@ export const OfferOptimizerView = () => {
                           
                           {/* Ostry Edytor Headless UI (Tiptap) z SanitizeOnPaste */}
                           <div className="mt-8">
-                               <div className="text-xs text-slate-400 font-medium mb-8 leading-relaxed bg-slate-50 p-4 border border-slate-100 rounded-lg">
+                               <div className="text-xs text-slate-600 font-medium mb-8 leading-relaxed bg-slate-50 p-4 border border-slate-300 rounded-sm">
                                   Wklej bogaty kod skopiowany ze strony (ze <span className="font-bold text-rose-400">spanami</span>, <span className="font-bold text-rose-400">kolorami</span> czy <span className="font-bold text-rose-400">tabelami</span>). Kod zostanie autosanitaryzowany w Ułamku Sekundy do restrykcyjnych 7 tagów GEO.
                                </div>
                                
@@ -311,8 +334,8 @@ export const OfferOptimizerView = () => {
                      
                      {/* BAZA ZDJĘĆ - NOWY MODUŁ VISION */}
                      {visionTickets.length > 0 && (
-                         <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-200">
-                              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-6 border-b border-slate-100 pb-4 flex items-center justify-between">
+                         <div className="bg-white p-4 rounded-sm shadow-sm border border-slate-400">
+                              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-600 mb-6 border-b border-slate-300 pb-4 flex items-center justify-between">
                                   Audyt Multimodalny (Vision AI)
                                   <span className="bg-indigo-50 text-indigo-500 px-3 py-1 rounded-sm border border-indigo-100 flex items-center">
                                       {visionTickets.filter(v => v.isCompliant || v.replacedUrl).length} / {visionTickets.length} Poprawne
@@ -323,7 +346,9 @@ export const OfferOptimizerView = () => {
                                       <PhotographicAuditorCard 
                                           key={i} 
                                           index={i} 
+                                          ean={liveEan}
                                           imageObj={ticket} 
+                                          primaryImageObj={visionTickets[0]}
                                           onImageReplace={(newUrl) => {
                                               const updated = [...visionTickets];
                                               updated[i].replacedUrl = newUrl;
@@ -331,7 +356,12 @@ export const OfferOptimizerView = () => {
                                           }} 
                                           onImageDelete={() => {
                                               const updated = [...visionTickets];
-                                              updated.splice(i, 1);
+                                              updated[i] = {
+                                                  originalUrl: `Wymagane nowe zdjęcie (Lifestylowe nr ${i + 1})`,
+                                                  alerts: ["Pusty slot - wygeneruj Lifestyle AI lub wgraj własne"],
+                                                  isCompliant: false,
+                                                  replacedUrl: null
+                                              };
                                               setVisionTickets(updated);
                                           }}
                                           onView={(url) => setViewingImageUrl(url)}
@@ -342,7 +372,7 @@ export const OfferOptimizerView = () => {
                                   onClick={() => {
                                       setVisionTickets([...visionTickets, { originalUrl: '', isCompliant: false, alerts: ["Pusty slot - upuść tu nowe zdjęcie"] }]);
                                   }}
-                                  className="mt-6 w-full py-4 border-2 border-dashed border-slate-300 rounded-2xl flex items-center justify-center text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all uppercase tracking-widest text-xs"
+                                  className="mt-6 w-full py-4 border-2 border-dashed border-slate-300 rounded-sm flex items-center justify-center text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all uppercase tracking-widest text-xs"
                               >
                                   + Dodaj Nowy Slot Zdjęcia
                               </button>
@@ -358,20 +388,20 @@ export const OfferOptimizerView = () => {
 
             {/* Panel Akcji (Draft i Eksport) umieszczony na dole jako "Sticky" pasek lub zwykły kontener */}
             {visionTickets.length > 0 && (
-                <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-slate-200 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.02)] flex justify-end space-x-4 px-8 z-50">
+                <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-slate-400 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.02)] flex justify-end space-x-4 px-8 z-50">
                     <button 
                         onClick={handleSaveDraft}
                         disabled={isSavingDraft}
-                        className="flex items-center px-6 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-xs rounded-xl transition-all shadow-sm"
+                        className="flex items-center px-6 py-3 bg-white border border-slate-400 hover:bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-xs rounded-sm transition-all shadow-sm"
                     >
-                        <Save className={`w-4 h-4 mr-2 ${isSavingDraft ? 'animate-pulse text-indigo-500' : 'text-slate-400'}`} />
+                        <Save className={`w-4 h-4 mr-2 ${isSavingDraft ? 'animate-pulse text-indigo-500' : 'text-slate-600'}`} />
                         {isSavingDraft ? "Zapisywanie..." : "Zapisz Kopię Roboczą"}
                     </button>
                     
                     <button 
                         onClick={handleExportToBaselinker}
                         disabled={isExporting}
-                        className="flex items-center px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs rounded-xl shadow-lg shadow-indigo-600/20 transition-all hover:-translate-y-0.5"
+                        className="flex items-center px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs rounded-sm shadow-lg shadow-indigo-600/20 transition-all hover:-translate-y-0.5"
                     >
                         {isExporting ? (
                             <RefreshCw className="w-4 h-4 mr-2 animate-spin" />

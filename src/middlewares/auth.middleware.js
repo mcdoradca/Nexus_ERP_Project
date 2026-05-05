@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const prisma = require('../core/prisma');
-const JWT_SECRET = process.env.JWT_SECRET || 'super-tajny-klucz-aps-ie-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 async function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];

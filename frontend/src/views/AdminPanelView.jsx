@@ -44,36 +44,36 @@ const AdminPanelView = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col p-10 bg-[#f8fafc] min-h-0 overflow-hidden relative">
-      <div className="flex items-center justify-between mb-8 shrink-0 relative z-10">
+    <div className="flex-1 flex flex-col p-10 bg-gradient-to-b from-[#f8fafc] to-[#e2e8f0] min-h-0 overflow-hidden relative">
+      <div className="bg-white border-b border-slate-200 shrink-0 flex flex-col md:flex-row items-start md:items-center justify-between p-2 px-4 md:py-2.5 gap-3 mb-6 rounded-lg shadow-sm relative z-10">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Panel Administracyjny</h2>
-          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Nadzór nad uprawnieniami Nexus ERP</p>
+          <h2 className="text-sm font-bold text-slate-800 leading-tight">Panel Administracyjny</h2>
+          <p className="text-[10px] font-medium text-slate-500">Nadzór nad uprawnieniami Nexus ERP</p>
         </div>
         <div className="flex space-x-4">
-          <button onClick={() => setIsNewUserModalOpen(true)} className="px-8 py-3 bg-indigo-600 text-white rounded-[1.25rem] text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 shadow-xl shadow-indigo-200 transition-all flex items-center">
-             <Plus className="w-4 h-4 mr-2" /> Nowy Operator
+          <button onClick={() => setIsNewUserModalOpen(true)} className="px-4 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-medium hover:bg-indigo-500 shadow-sm transition-all flex items-center">
+             <Plus className="w-3.5 h-3.5 mr-1.5" /> Nowy Operator
           </button>
         </div>
       </div>
       
-      <div className="flex space-x-4 mb-6 shrink-0 relative z-10">
-         <button onClick={() => setActiveTab('USERS')} className={`px-6 py-3 rounded-sm text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center shadow-sm ${activeTab === 'USERS' ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`}>
-            <Users className="w-4 h-4 mr-2" /> Baza Osobowościowa
+      <div className="flex space-x-2 mb-4 shrink-0 relative z-10">
+         <button onClick={() => setActiveTab('USERS')} className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center shadow-sm ${activeTab === 'USERS' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+            <Users className="w-3.5 h-3.5 mr-1.5" /> Baza Osobowościowa
          </button>
-         <button onClick={() => setActiveTab('ARCHIVE')} className={`px-6 py-3 rounded-sm text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center shadow-sm ${activeTab === 'ARCHIVE' ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`}>
-            <Archive className="w-4 h-4 mr-2" /> Archiwum Zadań
+         <button onClick={() => setActiveTab('ARCHIVE')} className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center shadow-sm ${activeTab === 'ARCHIVE' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+            <Archive className="w-3.5 h-3.5 mr-1.5" /> Archiwum Zadań
          </button>
-         <button onClick={() => setActiveTab('INTEGRATIONS')} className={`px-6 py-3 rounded-sm text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center shadow-sm ${activeTab === 'INTEGRATIONS' ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800'}`}>
-            <CloudLightning className="w-4 h-4 mr-2" /> Integracje API
+         <button onClick={() => setActiveTab('INTEGRATIONS')} className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center shadow-sm ${activeTab === 'INTEGRATIONS' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+            <CloudLightning className="w-3.5 h-3.5 mr-1.5" /> Integracje API
          </button>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-[0_15px_40px_rgba(0,0,0,0.04)] overflow-hidden flex flex-col min-h-[30rem] w-full">
+        <div className="bg-white rounded-sm border border-slate-300 shadow-[0_15px_40px_rgba(0,0,0,0.04)] overflow-hidden flex flex-col min-h-[30rem] w-full">
           <div className="p-8 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center sticky top-0 z-10 backdrop-blur-md">
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-slate-900 rounded-[1.25rem] flex items-center justify-center mr-5 shadow-xl shadow-slate-900/20">
+              <div className="w-12 h-12 bg-slate-900 rounded-sm flex items-center justify-center mr-5 shadow-xl shadow-slate-900/20">
                 {activeTab === 'USERS' && <Users className="w-5 h-5 text-white"/>}
                 {activeTab === 'ARCHIVE' && <Archive className="w-5 h-5 text-emerald-400" />}
                 {activeTab === 'INTEGRATIONS' && <CloudLightning className="w-5 h-5 text-fuchsia-400" />}
@@ -89,7 +89,7 @@ const AdminPanelView = ({
           <div className="flex-1 overflow-x-auto">
              {activeTab === 'USERS' ? (
                 <table className="w-full text-left whitespace-nowrap">
-              <thead className="bg-slate-50/80 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
+              <thead className="bg-slate-50/80 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] border-b border-slate-300">
                 <tr>
                   <th className="px-8 py-5">Operator</th>
                   <th className="px-8 py-5 text-center">Rola</th>
@@ -109,7 +109,7 @@ const AdminPanelView = ({
                         </div>
                         <div>
                           <div className="text-xs font-black text-slate-900 uppercase tracking-tight leading-none mb-1 group-hover:text-indigo-600 transition-colors">{u.name}</div>
-                          <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{u.email}</div>
+                          <div className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{u.email}</div>
                         </div>
                       </div>
                     </td>
@@ -122,7 +122,7 @@ const AdminPanelView = ({
                       <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{u.group || 'STANDARD'}</span>
                     </td>
                     <td className="px-8 py-6 text-center">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{u.department || 'BRAK'}</span>
+                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{u.department || 'BRAK'}</span>
                     </td>
                     <td className="px-8 py-6">
                       <div className="flex flex-wrap gap-1.5 max-w-sm">
@@ -134,7 +134,7 @@ const AdminPanelView = ({
                     </td>
                     <td className="px-8 py-6 text-right">
                       <div className="flex justify-end">
-                        <button onClick={() => { setEditingUser({...u, accessibleModules: u.accessibleModules || []}); setIsUserEditModalOpen(true); }} className="p-3 bg-white border border-slate-200 text-slate-400 rounded-sm hover:bg-slate-900 hover:text-white transition-all shadow-sm active:scale-95 group-hover:border-indigo-200">
+                        <button onClick={() => { setEditingUser({...u, accessibleModules: u.accessibleModules || []}); setIsUserEditModalOpen(true); }} className="p-3 bg-white border border-slate-400 text-slate-600 rounded-sm hover:bg-slate-900 hover:text-white transition-all shadow-sm active:scale-95 group-hover:border-indigo-200">
                           <Settings className="w-4 h-4"/>
                         </button>
                       </div>
@@ -145,7 +145,7 @@ const AdminPanelView = ({
             </table>
             ) : activeTab === 'ARCHIVE' ? (
                 <table className="w-full text-left whitespace-nowrap">
-                  <thead className="bg-slate-50/80 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
+                  <thead className="bg-slate-50/80 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] border-b border-slate-300">
                     <tr>
                       <th className="px-8 py-5">Tytuł Zlecenia / Ticket</th>
                       <th className="px-8 py-5 text-center">Data Założenia</th>
@@ -159,7 +159,7 @@ const AdminPanelView = ({
                       <tr key={t.id} className="hover:bg-slate-50/80 transition-all group">
                          <td className="px-8 py-6">
                             <div className="text-xs font-black text-slate-900 uppercase tracking-tight leading-none mb-1">{t.title}</div>
-                            <div className="text-[9px] font-black text-slate-400 font-mono tracking-widest">{t.taskId}</div>
+                            <div className="text-[9px] font-black text-slate-600 font-mono tracking-widest">{t.taskId}</div>
                          </td>
                          <td className="px-8 py-6 text-center text-[10px] font-bold text-slate-500">
                             {new Date(t.createdAt).toLocaleDateString()}
@@ -184,20 +184,20 @@ const AdminPanelView = ({
                       </tr>
                     ))}
                     {archivedTasks.length === 0 && (
-                      <tr><td colSpan="5" className="px-8 py-10 text-center"><div className="flex flex-col items-center"><Archive className="w-10 h-10 text-slate-200 mb-4" /><span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Brak zamkniętych zgłoszeń. System jest czysty.</span></div></td></tr>
+                      <tr><td colSpan="5" className="px-8 py-10 text-center"><div className="flex flex-col items-center"><Archive className="w-10 h-10 text-slate-200 mb-4" /><span className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Brak zamkniętych zgłoszeń. System jest czysty.</span></div></td></tr>
                     )}
                   </tbody>
                 </table>
             ) : activeTab === 'INTEGRATIONS' ? (
                 <div className="p-12">
-                   <div className="max-w-3xl bg-white border border-slate-100 rounded-[2rem] p-10 shadow-[0_15px_40px_rgba(0,0,0,0.03)] focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all">
+                   <div className="max-w-3xl bg-white border border-slate-300 rounded-sm p-10 shadow-[0_15px_40px_rgba(0,0,0,0.03)] focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all">
                       <div className="flex items-center mb-8">
-                         <div className="w-16 h-16 bg-blue-50 rounded-[1.5rem] flex items-center justify-center mr-6 border border-blue-100">
+                         <div className="w-16 h-16 bg-blue-50 rounded-sm flex items-center justify-center mr-6 border border-blue-100">
                             <CloudLightning className="w-8 h-8 text-blue-600 drop-shadow-sm" />
                          </div>
                          <div>
                             <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Połączenie BaseLinker</h4>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Główny Token Personalny / X-BLToken</p>
+                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1">Główny Token Personalny / X-BLToken</p>
                          </div>
                       </div>
                       
@@ -208,13 +208,13 @@ const AdminPanelView = ({
                             <input 
                                type="password" 
                                placeholder="1000000-xxxx-xxxx-xxxx-xxxxxxxxxxxx" 
-                               className="flex-1 px-6 py-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono text-slate-900 focus:border-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-300"
+                               className="flex-1 px-6 py-4 bg-slate-50 border border-slate-400 rounded-sm text-sm font-mono text-slate-900 focus:border-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-300"
                                value={baseLinkerToken}
                                onChange={(e) => setBaseLinkerToken(e.target.value)}
                             />
                             <button 
                                onClick={handleSaveToken} 
-                               className="px-8 py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 shadow-xl shadow-slate-900/10 transition-all active:scale-95 flex items-center hover:shadow-indigo-500/20"
+                               className="px-8 py-4 bg-slate-900 text-white rounded-sm text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 shadow-xl shadow-slate-900/10 transition-all active:scale-95 flex items-center hover:shadow-indigo-500/20"
                             >
                                {tokenSaved ? <><CheckCircle2 className="w-4 h-4 mr-2 text-emerald-400"/> Zapisano</> : <><Save className="w-4 h-4 mr-2"/> Zapisz Klucz</>}
                             </button>

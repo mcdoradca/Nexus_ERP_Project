@@ -18,6 +18,17 @@ async function create(req, res) {
 
 async function updateStatus(req, res) {
     try {
+        const task = await tasksService.getTaskById(req.params.id);
+        if (!task) return res.status(404).json({ error: 'Zadanie nie istnieje' });
+        
+        const isSuperUser = req.user.role === 'ADMIN' || req.user.department === 'PREZES';
+        const isOwner = task.ownerId === req.user.id || task.creatorId === req.user.id;
+        const isAssignee = task.assignees.some(a => a.id === req.user.id);
+        
+        if (!isSuperUser && !isOwner && !isAssignee) {
+             return res.status(403).json({ error: 'Brak uprawnień. Nie jesteś właścicielem ani wykonawcą tego zadania.' });
+        }
+
         const { status } = req.body;
         // Zwykła aktualizacja statusu (Przesuwanie kolumny Kanban)
         res.status(200).json(await tasksService.updateTaskStatus(req.params.id, status, req.user.id));
@@ -26,6 +37,17 @@ async function updateStatus(req, res) {
 
 async function updateDetails(req, res) {
     try {
+        const task = await tasksService.getTaskById(req.params.id);
+        if (!task) return res.status(404).json({ error: 'Zadanie nie istnieje' });
+        
+        const isSuperUser = req.user.role === 'ADMIN' || req.user.department === 'PREZES';
+        const isOwner = task.ownerId === req.user.id || task.creatorId === req.user.id;
+        const isAssignee = task.assignees.some(a => a.id === req.user.id);
+        
+        if (!isSuperUser && !isOwner && !isAssignee) {
+             return res.status(403).json({ error: 'Brak uprawnień do edycji cudzego zadania.' });
+        }
+        
         res.status(200).json(await tasksService.updateTaskDetails(req.params.id, req.body, req.user.id));
     } catch (error) { res.status(500).json({ error: 'Błąd aktualizacji detali' }); }
 }
@@ -77,7 +99,18 @@ async function getArchived(req, res) {
 }
 
 async function archiveTask(req, res) {
-    try { res.status(200).json(await tasksService.archiveTask(req.params.taskId)); }
+    try { 
+        const task = await tasksService.getTaskById(req.params.taskId);
+        if (!task) return res.status(404).json({ error: 'Zadanie nie istnieje' });
+        
+        const isSuperUser = req.user.role === 'ADMIN' || req.user.department === 'PREZES';
+        const isOwner = task.ownerId === req.user.id || task.creatorId === req.user.id;
+        
+        if (!isSuperUser && !isOwner) {
+            return res.status(403).json({ error: 'Tylko Zarząd lub Właściciel może archiwizować zadanie.' });
+        }
+        res.status(200).json(await tasksService.archiveTask(req.params.taskId)); 
+    }
     catch (error) { res.status(500).json({ error: 'Błąd archiwizacji' }); }
 }
 

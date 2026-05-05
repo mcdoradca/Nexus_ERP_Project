@@ -1,5 +1,5 @@
 require('dotenv').config();
-
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 // Globalna Tarcza Ochronna Procesu Node.js (Zasada Nieśmiertelnego Serwera)
 process.on('uncaughtException', (err) => {
     console.error('KRYTYCZNY BŁĄD PROCESU (Uncaught Exception):', err);
@@ -24,7 +24,11 @@ const server = http.createServer(app);
 const socketService = require('./core/socket');
 const io = socketService.init(server);
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'super-tajny-klucz-aps-ie-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error("FATAL ERROR: Zmienna JWT_SECRET nie została ustawiona w środowisku (.env). Uruchomienie zablokowane ze względów bezpieczeństwa.");
+    process.exit(1);
+}
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SECRET_KEY;
@@ -33,7 +37,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 const path = require('path');
 
 app.use(cors());
-app.use(express.json({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '2mb', extended: true })); // Obniżony z 50mb jako tarcza anty-DoS
 app.use('/uploads', express.static(path.join(__dirname, '../frontend/public/uploads')));
 
 // --- NOWA ARCHITEKTURA DOMENOWA (IMPORTY) ---
@@ -49,13 +53,21 @@ const announcementsRoutes = require('./modules/announcements/announcements.route
 const crmRoutes = require('./modules/crm/crm.routes');
 const influencersRoutes = require('./modules/influencers/influencers.routes');
 const offerOptimizerRoutes = require('./modules/offer-optimizer/offer-optimizer.routes');
+const idpRoutes = require('./modules/idp/idp.routes');
+const pricingRoutes = require('./modules/pricing/pricing.routes');
+const analyticsRoutes = require('./modules/analytics/analytics.routes');
+const portfolioRoutes = require('./modules/portfolio-manager/portfolio.routes');
 const { registerCommunicationListeners } = require('./modules/communication/communication.listeners');
 const { registerCampaignListeners } = require('./modules/campaigns/campaigns.listeners');
 const { registerTasksListeners } = require('./modules/tasks/tasks.listeners');
+const { registerMdmListeners } = require('./modules/mdm/mdm.listeners');
 const { registerSocketHandlers } = require('./modules/communication/socket.handlers');
 const notificationsService = require('./modules/communication/notifications.service');
 const EventBus = require('./core/EventBus');
 const BaseLinkerService = require('./modules/offer-optimizer/baselinker.service');
+const { mdmDataBus } = require('./modules/mdm/mdm.service');
+const allegroSentinelService = require('./modules/allegro-ads/allegro.sentinel.service');
+const runSandboxE2ETest = require('./modules/allegro-ads/backtesting/backtest.runner');
 
 io.on('connection', (socket) => {
     socketService.setOnlineUser(socket.id, socket.user.id);
@@ -69,6 +81,7 @@ io.on('connection', (socket) => {
 registerCommunicationListeners();
 registerCampaignListeners();
 registerTasksListeners();
+registerMdmListeners();
 
 // Automatyzacje Cron
 cron.schedule('0 8 * * *', async () => {
@@ -104,12 +117,35 @@ app.use('/api/tasks', tasksRoutes);
 app.use('/api/announcements', announcementsRoutes);
 app.use('/api/crm', crmRoutes);
 app.use('/api/influencers', influencersRoutes);
-
-// KRYTYCZNE: Silnik AI SEO optymalizacji wpięty pod strażnikiem tokenowym
+app.use('/api/idp', idpRoutes);
+app.use('/api/pricing', pricingRoutes);
+app.use('/api/analytics', authenticateToken, analyticsRoutes);
+app.use('/api/portfolio', authenticateToken, portfolioRoutes);
+// Faza 15: Integracja Optymalizatora Ofert
 app.use('/api/offer-optimizer', authenticateToken, offerOptimizerRoutes);
 
 
 // ASORTYMENT (PIM)
+app.post('/api/allegro-sentinel/trigger', authenticateToken, async (req, res) => {
+    try {
+        const result = await allegroSentinelService.runSentinelAudit();
+        res.json({ success: true, analysis: result });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Endpoint do uruchamiania Sandbox E2E Tests (Allegro Ads Monitor)
+app.get('/api/allegro-ads/backtest', authenticateToken, async (req, res) => {
+    try {
+        const ean = req.query.ean || null;
+        const trace = await runSandboxE2ETest(ean);
+        res.json({ success: true, trace });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 app.get('/api/brands', authenticateToken, async (req, res) => {
     try {
         const brands = await prisma.brand.findMany({ orderBy: { name: 'asc' } });
@@ -131,12 +167,22 @@ app.get('/api/products', authenticateToken, async (req, res) => {
         const products = await prisma.product.findMany({ 
             include: { 
                brand: true,
-               bomElements: { include: { material: true } }
+               bomElements: { include: { material: true } },
+               allegroCategory: true
             }, 
             orderBy: { name: 'asc' } 
         });
-        res.status(200).json(products);
-    } catch (error) { res.status(500).json({ error: 'Blad' }); }
+        
+        const mdmService = require('./modules/mdm/mdm.service');
+        const enrichedProducts = await Promise.all(products.map(async p => {
+            const dqs = await mdmService.calculateProductDQS(p);
+            return { ...p, dqs };
+        }));
+
+        res.status(200).json(enrichedProducts);
+    } catch (error) { 
+        res.status(500).json({ error: 'Blad serwera', details: error.message }); 
+    }
 });
 // --- System Settings API ---
 app.get('/api/settings/:key', authenticateToken, async (req, res) => {
@@ -161,6 +207,126 @@ app.post('/api/settings', authenticateToken, async (req, res) => {
 });
 
 // --- PIM API ---
+const aiService = require('./core/ai.service');
+
+app.post('/api/products/:id/aeo', authenticateToken, async (req, res) => {
+    try {
+        const product = await prisma.product.findUnique({ where: { id: req.params.id }, include: { brand: true } });
+        if (!product) return res.status(404).json({ error: 'Produkt nie istnieje' });
+        
+        const aeoContent = await aiService.generateAEO({
+            name: product.name,
+            brand: product.brand?.name,
+            description: product.descriptionHtml,
+            features: product.features
+        });
+        
+        const updated = await prisma.product.update({
+            where: { id: product.id },
+            data: { aeoContent }
+        });
+        
+        EventBus.publish('PRODUCT_DATA_UPDATED', { product: updated, source: 'PIM_AI_AEO' });
+        res.status(200).json(updated);
+    } catch (error) {
+        res.status(500).json({ error: 'Błąd generowania AEO', details: error.message });
+    }
+});
+
+app.get('/api/products/:id/sync-category-bl', authenticateToken, async (req, res) => {
+    try {
+        const product = await prisma.product.findUnique({ where: { id: req.params.id } });
+        if (!product || !product.ean) {
+            return res.status(400).json({ error: 'Produkt nie posiada kodu EAN. Odnalezienie docelowej kategorii Allegro jest niemożliwe.' });
+        }
+        
+        // Zamiast polegać na wewnętrznym ID magazynowym BaseLinkera, 
+        // uderzamy do Globalnego Katalogu Allegro po precyzyjne przypisanie na bazie EAN.
+        const allegroService = require('./modules/offer-optimizer/allegro.service');
+        let allegroCatId = null;
+        
+        if (product.ean) {
+             allegroCatId = await allegroService.findCategoryByEan(product.ean);
+        }
+        
+        // Plan B: Wyszukiwanie heurystyczne po nazwie produktu (AI Matching Allegro)
+        if (!allegroCatId && product.name) {
+             console.log(`[SyncCategory] EAN nie zadziałał, próba dopasowania po nazwie: ${product.name}`);
+             allegroCatId = await allegroService.findMatchingCategoryByName(product.name);
+        }
+        
+        if (!allegroCatId) {
+            return res.status(404).json({ error: `Silnik Allegro nie odnalazł kategorii ani po EAN, ani po nazwie produktu. Wpisz ID Kategorii ręcznie.` });
+        }
+        
+        // Automatycznie zaciągamy słownik z Allegro (Filar 2)
+        await allegroService.fetchCategoryParameters(allegroCatId);
+        
+        // Aktualizujemy produkt w Nexusa
+        const updated = await prisma.product.update({
+            where: { id: product.id },
+            data: { allegroCategoryId: allegroCatId }
+        });
+        
+        res.status(200).json(updated);
+    } catch (error) {
+        res.status(500).json({ error: 'Błąd synchronizacji kategorii (API)', details: error.message });
+    }
+});
+
+app.get('/api/categories/:id', authenticateToken, async (req, res) => {
+    try {
+        const category = await prisma.marketplaceCategory.findUnique({ where: { id: req.params.id } });
+        if (!category) return res.status(404).json({ error: 'Kategoria nie została zbuforowana' });
+        res.status(200).json(category);
+    } catch (error) {
+        res.status(500).json({ error: 'Błąd pobierania kategorii z cache', details: error.message });
+    }
+});
+
+// Endpoint: Hybrydowe uzupełnianie parametrów z BaseLinkera oraz przez Web Research Agenta (PXM Auto-Fill)
+app.post('/api/products/:id/autofill-params', authenticateToken, async (req, res) => {
+    try {
+        const product = await prisma.product.findUnique({ where: { id: req.params.id } });
+        if (!product || !product.ean || !product.baselinkerId) {
+            return res.status(400).json({ error: 'Produkt musi posiadać zsynchronizowany BaseLinker ID oraz wpisany EAN do uruchomienia Agenta PXM.' });
+        }
+        
+        let currentFeatures = product.features && typeof product.features === 'object' ? { ...product.features } : {};
+        
+        // 1. Zassanie dostępnych parametrów z BaseLinkera
+        const BaseLinkerService = require('./modules/offer-optimizer/baselinker.service');
+        const aiService = require('./modules/offer-optimizer/ai.service');
+        
+        const blData = await BaseLinkerService.fetchDeepProductData(product.baselinkerInventoryId || await BaseLinkerService.getInventories(), product.baselinkerId);
+        if (blData.features && Object.keys(blData.features).length > 0) {
+            currentFeatures = { ...currentFeatures, ...blData.features };
+        }
+        
+        // 2. Pobranie schematu wymogów Allegro
+        let requiredSchema = [];
+        if (product.allegroCategoryId) {
+            const category = await prisma.marketplaceCategory.findUnique({ where: { id: product.allegroCategoryId } });
+            if (category && category.parameters) {
+                requiredSchema = category.parameters;
+            }
+        }
+        
+        // 3. Odpalenie Agenta AI do dogrzebywania brakujących parametrów z sieci (Tylko jeśli mamy schemat i braki)
+        const updatedFeatures = await aiService.autofillMissingParameters(product.ean, product.name, currentFeatures, requiredSchema);
+        
+        // Zapis w bazie
+        const updatedProduct = await prisma.product.update({
+            where: { id: product.id },
+            data: { features: updatedFeatures }
+        });
+        
+        res.status(200).json(updatedProduct);
+    } catch (error) {
+        res.status(500).json({ error: 'Błąd Auto-Fill', details: error.message });
+    }
+});
+
 app.get('/api/products/autofill/:ean', async (req, res) => {
     try {
         const { ean } = req.params;
@@ -171,8 +337,8 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
             const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
             
             // Spróbujmy wyciągnąć brand
-            let brandName = '';
-            if (deepData.features) {
+            let brandName = deepData.manufacturer || '';
+            if (!brandName && deepData.features) {
                 brandName = deepData.features['Marka'] || deepData.features['Producent'] || deepData.features['Brand'] || '';
             }
 
@@ -234,9 +400,12 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
             return res.status(200).json({ name: data.items[0].title || '', brand: data.items[0].brand || '' });
         }
 
-        res.status(404).json({ error: 'Kod niezarejestrowany w żadnej 4 z darmowych baz OpenSource ani w asortymencie BaseLinkerze.', debug: blDebug });
+        res.status(404).json({ error: 'Kod niezarejestrowany w żadnej 4 z darmowych baz OpenSource ani w asortymencie BaseLinkerze.' });
     } catch (error) {
-        require('fs').appendFileSync('z:\\Nexus_ERP_Project\\error_500.txt', error.stack + '\n');
+        const path = require('path');
+        const fs = require('fs');
+        const logPath = path.join(__dirname, '..', 'error_500.txt');
+        try { fs.appendFileSync(logPath, error.stack + '\n'); } catch(e) {}
         res.status(500).json({ error: 'Błąd serwera agregatora EAN.', details: error.message });
     }
 });
@@ -275,6 +444,9 @@ app.post('/api/products', authenticateToken, async (req, res) => {
                 videoUrl: req.body.videoUrl || null
             }
         });
+        
+        EventBus.publish('PRODUCT_DATA_UPDATED', { product: newProduct, source: 'PIM_UI_CREATE' });
+        
         res.status(201).json(newProduct);
     } catch (error) { res.status(500).json({ error: 'Blad', details: error.message }); }
 });
@@ -292,31 +464,87 @@ app.patch('/api/products/:id', authenticateToken, async (req, res) => {
         delete payload.campaignsAsMain;
         delete payload.campaignProducts;
         delete payload.dealsIRM;
+        delete payload.dqs;
+        delete payload.allegroCategory;
+        delete payload._newFeatureKey;
+        delete payload._newFeatureValue;
         
+        const dataToUpdate = { ...payload };
+        if (payload.stock !== undefined) dataToUpdate.stock = parseFloat(payload.stock) || 0;
+        if (payload.salePrice !== undefined) dataToUpdate.salePrice = parseFloat(payload.salePrice) || 0.0;
+        if (payload.basePrice !== undefined) dataToUpdate.basePrice = parseFloat(payload.basePrice) || 0.0;
+        if (payload.inboundTransportCost !== undefined) dataToUpdate.inboundTransportCost = parseFloat(payload.inboundTransportCost) || 0.0;
+        if (payload.packagingCost !== undefined) dataToUpdate.packagingCost = parseFloat(payload.packagingCost) || 0.0;
+        if (payload.bdoEprCost !== undefined) dataToUpdate.bdoEprCost = parseFloat(payload.bdoEprCost) || 0.0;
+        if (payload.outboundTransportCost !== undefined) dataToUpdate.outboundTransportCost = parseFloat(payload.outboundTransportCost) || 0.0;
+        if (payload.weight !== undefined) dataToUpdate.weight = parseFloat(payload.weight) || 0.0;
+        if (payload.length !== undefined) dataToUpdate.length = parseFloat(payload.length) || 0.0;
+        if (payload.width !== undefined) dataToUpdate.width = parseFloat(payload.width) || 0.0;
+        if (payload.height !== undefined) dataToUpdate.height = parseFloat(payload.height) || 0.0;
+        if (payload.taxRate !== undefined) dataToUpdate.taxRate = parseFloat(payload.taxRate) || 23.0;
+        if (payload.stockErpUnits !== undefined) dataToUpdate.stockErpUnits = parseInt(payload.stockErpUnits) || 0;
+        if (payload.stockWmsUnits !== undefined) dataToUpdate.stockWmsUnits = parseInt(payload.stockWmsUnits) || 0;
+        
+        dataToUpdate.lastContentSource = 'PIM_UI_MANUAL';
+
         const updatedProduct = await prisma.product.update({
             where: { id: req.params.id },
-            data: {
-                ...payload,
-                stock: parseFloat(payload.stock) || 0,
-                salePrice: parseFloat(payload.salePrice) || 0.0,
-                basePrice: parseFloat(payload.basePrice) || 0.0,
-                inboundTransportCost: parseFloat(payload.inboundTransportCost) || 0.0,
-                packagingCost: parseFloat(payload.packagingCost) || 0.0,
-                bdoEprCost: parseFloat(payload.bdoEprCost) || 0.0,
-                outboundTransportCost: parseFloat(payload.outboundTransportCost) || 0.0,
-                weight: parseFloat(payload.weight) || 0.0,
-                length: parseFloat(payload.length) || 0.0,
-                width: parseFloat(payload.width) || 0.0,
-                height: parseFloat(payload.height) || 0.0,
-                taxRate: parseFloat(payload.taxRate) || 23.0,
-                stockErpUnits: parseInt(payload.stockErpUnits) || 0,
-                stockWmsUnits: parseInt(payload.stockWmsUnits) || 0
-            }
+            data: dataToUpdate
         });
+        
+        EventBus.publish('PRODUCT_DATA_UPDATED', { product: updatedProduct, source: 'PIM_UI_UPDATE' });
+        
         res.status(200).json(updatedProduct);
     } catch (error) { 
         console.error("PATCH error:", error);
         res.status(500).json({ error: 'Blad edycji produktu' }); 
+    }
+});
+
+app.delete('/api/products/:id', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN' && req.user.department !== 'PREZES') return res.status(403).json({ error: 'Brak uprawnień do usuwania produktów' });
+    try {
+        await prisma.product.delete({ where: { id: req.params.id } });
+        EventBus.publish('PRODUCT_DATA_UPDATED', { product: { id: req.params.id, deleted: true }, source: 'PIM_UI_DELETE' });
+        res.status(200).json({ status: 'Deleted' });
+    } catch (error) {
+        console.error("DELETE product error:", error);
+        res.status(500).json({ error: 'Błąd usuwania produktu', details: error.message });
+    }
+});
+
+// --- PIM AI SEARCH ---
+app.post('/api/products/ai-search', authenticateToken, async (req, res) => {
+    try {
+        const { query, products } = req.body;
+        if (!query) return res.status(400).json({ error: 'Brak zapytania AI' });
+        if (!products || !Array.isArray(products)) return res.status(400).json({ error: 'Brak listy produktów z frontendu' });
+        
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" }); 
+        
+        const prompt = `Jesteś asystentem w systemie ERP Nexus.
+Otrzymujesz polecenie wyszukania/filtrowania produktów: "${query}"
+
+Oto lista produktów w formacie JSON (pole dqsTotal oznacza Data Quality):
+${JSON.stringify(products)}
+
+Zwróć TYLKO I WYŁĄCZNIE tablicę ID produktów (jako poprawny JSON, np. ["id1", "id2"]), które pasują do zapytania. Nie dodawaj żadnego tekstu przed ani po tablicy, bez znaczników markdowna.`;
+
+        const result = await model.generateContent(prompt);
+        let text = result.response.text();
+        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        let ids = [];
+        try {
+            ids = JSON.parse(text);
+        } catch (e) {
+            console.error("Błąd parsowania AI:", text);
+        }
+        res.status(200).json({ ids });
+    } catch (error) {
+        console.error("AI Search Error:", error);
+        res.status(500).json({ error: 'Błąd podczas wyszukiwania AI' });
     }
 });
 
@@ -439,6 +667,20 @@ app.use(errorHandler);
 
 server.listen(PORT, () => console.log(`[BOOT] System podniesiony na porcie ${PORT}...`));
 
+// --- RĘCZNY WYZWALACZ SENTINELA ---
+app.post('/api/allegro-sentinel/trigger', authenticateToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'ADMIN' && req.user.department !== 'PREZES') {
+            return res.status(403).json({ error: 'Brak uprawnień do wyzwalania Sentinela.' });
+        }
+        // Uruchamiamy w tle, żeby nie blokować odpowiedzi
+        allegroSentinelService.runSentinelAudit().catch(err => console.error("Ręczny audyt Sentinela nie powiódł się:", err));
+        res.status(200).json({ message: 'Sentinel otrzymał rozkaz Deep Researchu i rozpoczął skanowanie sieci Allegro.' });
+    } catch (err) {
+        res.status(500).json({ error: 'Błąd wyzwalania Sentinela' });
+    }
+});
+
 // --- TŁO: CRON JOB BASELINKER SYNC (FAZA 33) ---
 cron.schedule('0 * * * *', async () => {
     console.log('[CRON Worker] Uruchamiam cykliczną interpolację i synchronizację z BaseLinkerem...');
@@ -489,11 +731,46 @@ cron.schedule('0 * * * *', async () => {
                     }
                 }
             }
+            
+            // Ochrona przed Rate Limitem (API limit = max 100 req / minute dla niektórych endpoints)
+            await new Promise(r => setTimeout(r, 1500));
         }
         console.log('[CRON Worker] Synchronizacja BaseLinkera Zakończona Sukcesem ✅');
     } catch (eee) {
-        console.error('[CRON Worker] Skok Napiecia Cron:', eee);
+        console.error('[CRON Worker] Zakończono nieznane zadanie lub wystąpił błąd synchronizacji BaseLinker:', eee.message);
     }
 });
+
+// --- TŁO: CRON JOB AI SENTINEL (WYDAWCA) ---
+// Uruchamia się codziennie o 6:00 rano, by optymalizować nowo wrzucone posty SMI pod kalendarz i akcje promocyjne.
+cron.schedule('0 6 * * *', async () => {
+    await sentinelService.runSentinelOptimization();
+});
+
+// --- TŁO: CRON JOB ALLEGRO SENTINEL (DEEP RESEARCH) ---
+allegroSentinelService.initSentinel();
+
 // Nodemon Auto-Wakeup trigger
 // Nodemon Auto-Wakeup trigger
+
+// Graceful Shutdown - Naprawa zombiaków EADDRINUSE na Windowsie
+process.once('SIGUSR2', () => {
+    console.log('[SHUTDOWN] Zatrzymywanie serwera dla Nodemon...');
+    server.close(() => {
+        process.kill(process.pid, 'SIGUSR2');
+    });
+});
+
+process.on('SIGINT', () => {
+    console.log('[SHUTDOWN] Zamykanie z SIGINT');
+    server.close(() => {
+        process.exit(0);
+    });
+});
+
+process.on('SIGTERM', () => {
+    console.log('[SHUTDOWN] Zamykanie z SIGTERM');
+    server.close(() => {
+        process.exit(0);
+    });
+});

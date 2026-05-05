@@ -82,6 +82,93 @@ async function getSmiPosts(req, res) {
     } catch (error) { res.status(500).json({ error: 'Błąd pobierania SMI' }); }
 }
 
+async function generateAutoSmi(req, res) {
+    if (!hasMarketingRights(req.user)) return res.status(403).json({ error: 'Brak uprawnień. Tylko Marketing/Zarząd.' });
+    try {
+        const campaign = await campaignsService.getCampaignById(req.params.id);
+        if (!campaign) return res.status(404).json({ error: 'Kampania nie znaleziona' });
+
+        const { prompt } = req.body;
+        if (!prompt) return res.status(400).json({ error: 'Brak promptu do generacji.' });
+
+        let enrichedContext = '';
+        const eanMatch = prompt.match(/\b\d{8,14}\b/);
+        if (eanMatch) {
+            const ean = eanMatch[0];
+            try {
+                console.log(`[Deep Research] Rozpoczynam mapowanie po EAN: ${ean}`);
+                const BaseLinkerService = require('../offer-optimizer/baselinker.service');
+                const { PrismaClient } = require('@prisma/client');
+                const prisma = new PrismaClient();
+                
+                let productData = await prisma.product.findFirst({ where: { ean }, include: { brand: true } });
+                
+                if (!productData) {
+                    const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
+                    const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
+                    productData = deepData;
+                } else if (productData.baselinkerId && productData.baselinkerInventoryId) {
+                    try {
+                        const deepData = await BaseLinkerService.fetchDeepProductData(productData.baselinkerInventoryId, productData.baselinkerId);
+                        productData.features = deepData.features;
+                        productData.descriptionHtml = deepData.descriptionHtml;
+                    } catch(err) {
+                        console.warn("[Deep Research] Błąd dociągania danych BL", err.message);
+                    }
+                }
+                
+                enrichedContext = `\n\n[WYNIKI DEEP RESEARCH - BAZA PIM / BASELINKER]\n` +
+                `EAN: ${ean}\n` +
+                `Dostawca/Importer w bazie: ${productData.brand?.name || productData.manufacturer || 'Brak danych'}\n` +
+                `Pełna Nazwa: ${productData.name || 'Brak'}\n` +
+                `Parametry / Cechy: ${JSON.stringify(productData.features || {})}\n` +
+                `Krótki opis / Copy z bazy: ${productData.descriptionHtml ? productData.descriptionHtml.replace(/<[^>]*>?/gm, '').substring(0, 800) : 'Brak'}\n\n` +
+                `ZASADY TWORZENIA TREŚCI:\n` +
+                `1. Odróżnij rzeczywistą markę kosmetyku (np. wynikającą z pełnej nazwy, np. Trimay) od nazwy dostawcy/importera (np. PIM-IMPORT). Zawsze używaj rzeczywistej marki kosmetyku w hashtagach i copy (np. #Trimay, a nie #PIMIMPORT).\n` +
+                `2. Używaj rzeczywistych parametrów i korzyści wymienionych powyżej.\n` +
+                `3. Nie halucynuj nieprawdziwych cech produktu, oprzyj się ściśle na powyższym opisie i własnej wiedzy o tym konkretnym produkcie.`;
+                
+            } catch (error) {
+                console.error("Deep Research EAN Error:", error);
+                enrichedContext = `\n\n[UWAGA DEEP RESEARCH] Nie udało się odnaleźć EAN ${eanMatch[0]} w bazie BaseLinker. Nie wymyślaj szczegółów i cech jeśli ich nie znasz.`;
+            }
+        }
+
+        const aiService = require('../../core/ai.service');
+        
+        // 1. Zlecenie do Agenta Dyspozytora
+        const taskDistribution = await aiService.dispatchSmiTask(prompt);
+        console.log("[Swarm] Dyspozytor rozdzielił zadania:", taskDistribution);
+
+        // 2. Równoległe wywołanie Agentów Specjalistycznych
+        const [fbPosts, instaPosts, ttPosts] = await Promise.all([
+            aiService.generateFacebookSmi(taskDistribution.facebookCount, taskDistribution.topicGuidance, campaign, enrichedContext),
+            aiService.generateInstagramSmi(taskDistribution.instagramCount, taskDistribution.topicGuidance, campaign, enrichedContext),
+            aiService.generateTikTokSmi(taskDistribution.tiktokCount, taskDistribution.topicGuidance, campaign, enrichedContext)
+        ]);
+
+        const generatedPosts = [...fbPosts, ...instaPosts, ...ttPosts];
+
+        const createdPosts = [];
+        for (const p of generatedPosts) {
+            const post = await campaignsService.createSmiPost(campaign.id, {
+                publishDate: p.publishDate,
+                postType: p.postType,
+                content: p.content,
+                hashtags: p.hashtags,
+                notes: p.notes,
+                status: 'Szkic'
+            });
+            createdPosts.push(post);
+        }
+
+        res.status(201).json(createdPosts);
+    } catch (error) {
+        console.error("Auto SMI Error:", error);
+        res.status(500).json({ error: 'Błąd automatycznej generacji harmonogramu SMI' });
+    }
+}
+
 async function createSmiPost(req, res) {
     if (!hasMarketingRights(req.user)) return res.status(403).json({ error: 'Brak uprawnień. Tylko Marketing/Zarząd.' });
     try {
@@ -95,7 +182,9 @@ async function updateSmiPost(req, res) {
     try {
         const post = await campaignsService.updateSmiPost(req.params.smiId, req.body);
         res.status(200).json(post);
-    } catch (error) { res.status(500).json({ error: 'Błąd aktualizacji SMI' }); }
+    } catch (error) { 
+        res.status(400).json({ error: error.message || 'Błąd aktualizacji SMI' }); 
+    }
 }
 
 async function deleteSmiPost(req, res) {
@@ -139,4 +228,4 @@ async function uploadSmiMedia(req, res) {
     } catch (error) { res.status(500).json({ error: 'Błąd wgrywania pliku medialnego SMI' }); }
 }
 
-module.exports = { getAll, getOne, create, update, addProduct, uploadAsset, approveAsset, getSmiPosts, createSmiPost, updateSmiPost, deleteSmiPost, getGlobalSmi, uploadSmiMedia };
+module.exports = { getAll, getOne, create, update, addProduct, uploadAsset, approveAsset, getSmiPosts, createSmiPost, generateAutoSmi, updateSmiPost, deleteSmiPost, getGlobalSmi, uploadSmiMedia };

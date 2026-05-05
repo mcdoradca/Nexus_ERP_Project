@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const sharp = require('sharp');
+sharp.cache(false); // Wyłączenie wbudowanego cache'u dla stabilności RAM przy batchingu
 const FormData = require('form-data');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
@@ -83,6 +84,87 @@ const apiKey = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
 
 /**
+ * Agent Badawczy (Research Agent)
+ * Wyszukuje pełen skład INCI oraz specyfikację techniczną produktu w Internecie.
+ */
+async function gatherProductIntelligence(ean, productName) {
+    console.log(`[AiService] Odpalanie Agenta Badawczego (Research Agent) dla EAN: ${ean}...`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            tools: [{ googleSearch: {} }],
+            generationConfig: { temperature: 0.2 } // Niska temperatura dla faktuografii
+        });
+        
+        const prompt = `Jesteś ekspertem ds. baz danych kosmetycznych i badaczem e-commerce.
+Twoim zadaniem jest znalezienie oficjalnej specyfikacji technicznej oraz pełnego składu INCI dla produktu.
+Produkt: ${productName}
+EAN: ${ean}
+
+Użyj wyszukiwarki Google (masz do niej dostęp), aby przeszukać oficjalne strony producentów, apteki internetowe lub renomowane e-drogerie.
+Zwróć ZWARTY, tekstowy raport zawierający WYŁĄCZNIE:
+1. Pełną specyfikację techniczną. Postaraj się wyciągnąć ze stron jak najwięcej z poniższych parametrów:
+(Działanie, Kod producenta, Kraj pochodzenia, Linia, Nie zawiera, Opakowanie, Osoba odpowiedzialna, PAO, Płeć, Produkt nie zawiera, Rodzaj, Składnik wiodący, Stan opakowania, Typ skóry, Typ włosów, Wielkość, Zapach, Wysokość, Szerokość, Długość, Waga z opakowaniem).
+2. Pełny, dokładny i kompletny skład INCI (wszystkie składniki po przecinku).
+Jeśli nie znajdziesz pewnych danych, napisz wyraźnie "Brak danych". Nie zmyślaj.
+Format wyjściowy: Zwykły tekst.`;
+        
+        const result = await model.generateContent(prompt);
+        console.log(`[AiService] Agent Badawczy zakończył pracę. Znaleziono dane.`);
+        return result.response.text();
+    } catch (err) {
+        console.error("[AiService] Agent Badawczy napotkał błąd:", err.message);
+        return "Brak dodatkowych danych (Błąd Agenta Badawczego).";
+    }
+}
+
+/**
+ * Agent Audytor Prawny (Compliance Agent)
+ * Analizuje treści marketingowe i wytyczne na bazie oficjalnych regulaminów PDF.
+ */
+async function generateComplianceReport(productName, aeoContent, originalDescription) {
+    console.log(`[AiService] Odpalanie Agenta Prawnego (Compliance Agent) dla: ${productName}...`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            generationConfig: { temperature: 0.0 } // 0.0 rygorystycznie - brak miejsca na halucynacje prawne
+        });
+        
+        const parts = [
+            `Jesteś rygorystycznym Audytorem Prawnym E-commerce i Specjalistą ds. Zgodności Kosmetycznej.
+Twoim zadaniem jest przeanalizowanie załączonych dokumentów prawnych (Regulamin Allegro, Rozporządzenie WE nr 1223/2009, Rozporządzenie Komisji UE nr 655/2013) oraz materiałów źródłowych dla produktu.
+
+Zwróć ZWARTY, RZECZOWY Raport Zgodności (max 1000 znaków), w którym:
+1. Wypiszesz niedozwolone oświadczenia (tzw. claims) i słowa, których bezwzględnie copywriter MUSI unikać w tym konkretnym produkcie (np. oświadczenia medyczne/lecznicze, niesprawdzone "green claims").
+2. Podasz twarde zasady z Regulaminu Allegro, które muszą być zachowane przy opisie i tytule tego produktu.
+3. Przeanalizujesz dostarczoną treść (AEO i oryginalny opis) i wskażesz ryzykowne słowa, które trzeba usunąć, aby były w 100% zgodne z w/w przepisami.
+
+Materiały źródłowe produktu:
+NAZWA PRODUKTU: ${productName}
+TREŚĆ AEO: ${aeoContent || 'Brak'}
+OPIS ORYGINALNY: ${originalDescription || 'Brak'}
+`
+        ];
+
+        // Załadowanie wyciągu SOT (Single Source of Truth) z wygenerowanej bazy wiedzy prawniczej
+        const sotPath = path.join(__dirname, 'SOT_Baza_Wiedzy_Agenta.md');
+        if (fs.existsSync(sotPath)) {
+            const sotData = fs.readFileSync(sotPath, 'utf-8');
+            parts.push(`\n\n--- BAZA WIEDZY (SINGLE SOURCE OF TRUTH) ---\n${sotData}`);
+        } else {
+            console.warn("[AiService] Brak pliku SOT_Baza_Wiedzy_Agenta.md. Agent Prawny zadziała na gołym modelu.");
+        }
+
+        const result = await model.generateContent(parts);
+        console.log(`[AiService] Agent Prawny zakończył pracę pomyślnie.`);
+        return result.response.text();
+    } catch (err) {
+        console.error("[AiService] Agent Prawny napotkał błąd:", err.message);
+        return "Brak szczegółowego raportu prawnego z powodu błędu modelu. Stosuj ogólne zasady unikając greenwashingu i obietnic medycznych.";
+    }
+}
+
+/**
  * Serwis komunikujący się z modelami Google Gemini (Modele z 2026 r.)
  */
 async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analysisMode = "STANDARD") {
@@ -153,11 +235,11 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
                     parsed = JSON.parse(repairedString);
                     console.log("[AiService] Sukces! Uratowano urwany JSON i zachowano główne dane (Title, HTML).");
                 } catch (e) {
-                    require('fs').writeFileSync('z:\\Nexus_ERP_Project\\debug_payload_error.txt', payloadString);
+                    require('fs').writeFileSync(path.join(__dirname, '..', '..', '..', 'error_500.txt'), payloadString);
                     throw new Error("Generative API Failed: " + parseError.message);
                 }
             } else {
-                require('fs').writeFileSync('z:\\Nexus_ERP_Project\\debug_payload_error.txt', payloadString);
+                require('fs').writeFileSync(path.join(__dirname, '..', '..', '..', 'error_500.txt'), payloadString);
                 throw new Error("Generative API Failed: " + parseError.message);
             }
         }
@@ -166,8 +248,10 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
         if (parsed.htmlContent && typeof parsed.htmlContent === 'object') {
             for (let key in parsed.htmlContent) {
                 if (typeof parsed.htmlContent[key] === 'string') {
-                     let c = parsed.htmlContent[key].replace(/<strong[^>]*>/g, '<b>').replace(/<\/strong>/g, '</b>');
-                     c = c.replace(/<(?!\/?(h1|h2|p|ul|ol|li|b|br)(?=>|\s.*>))\/?.*?>/gi, ''); 
+                     // Quill używa <strong> zamiast <b>, konwertujemy w locie
+                     let c = parsed.htmlContent[key].replace(/<b[^>]*>/g, '<strong>').replace(/<\/b>/g, '</strong>');
+                     // Dopuszczamy h3, h4 i strong
+                     c = c.replace(/<(?!\/?(h1|h2|h3|h4|p|ul|ol|li|strong|br)(?=>|\s.*>))\/?.*?>/gi, ''); 
                      parsed.htmlContent[key] = c;
                 }
             }
@@ -311,27 +395,29 @@ async function generateClaidLiquidVariables(productDetails) {
     const model = genAI.getGenerativeModel({
         model: "gemini-3.1-pro-preview",
         tools: [{ googleSearch: {} }],
-        generationConfig: { temperature: 0.8, responseMimeType: "application/json" },
-        systemInstruction: `Jesteś ekspertskim dyrektorem artystycznym AI oraz inżynierem ds. e-commerce. Twój cel to tworzenie dynamicznych parametrów dla API Claid.ai w celu generowania hiper-realistycznych zdjęć produktowych dla serwisu Allegro.
-KROK 0 (KRYTYCZNY): Przeanalizuj podane dane produktu PIM. Użyj narzędzia googleSearch, aby zweryfikować prawdziwą pojemność i kluczowe składniki aktywne, jeśli są niejasne.
+        generationConfig: { temperature: 0.8 },
+        systemInstruction: `Jesteś ekspertskim dyrektorem artystycznym AI oraz analitykiem trendów e-commerce. Twój cel to tworzenie dynamicznych parametrów dla API Claid.ai (w formacie JSON) w celu generowania hiper-realistycznych zdjęć produktowych.
+KROK 0 (KRYTYCZNY - ZWIAD WIZUALNY): Przeanalizuj podane dane produktu PIM. Użyj narzędzia googleSearch, aby przeprowadzić Visual Competitor Analysis dla tego rodzaju kosmetyku na polskim i zagranicznym rynku w 2026 roku. Sprawdź jakie kolory, tekstury i tła (np. surowy beton, woda, tropiki, sterylne laboratorium) najlepiej konwertują u liderów rynku.
 KROK 1: Analiza Obrazu i Ekstrakcja Danych
 Zdefiniuj "Płynne Zmienne" (Liquid Variables):
-- DYNAMIC_SCALE: Skala od 0.30 do 0.55 zależnie od fizycznej wielkości obiektu.
-- TARGET_AUDIENCE: np. "elegant young European woman", "fit modern man".
+- DYNAMIC_SCALE: Skala od 0.30 do 0.55 zależnie od wielkości obiektu.
+- TARGET_AUDIENCE: np. "elegant young European woman".
 - ACTIVE_INGREDIENT: Prawdziwy, główny składnik aktywny produktu.
-- SLOT3_BACKGROUND_PROMPT: (NOWOŚĆ) Jesteś wirtuozem scenografii e-commerce. Przeanalizuj INCI oraz ton emocjonalny opisu produktu. Następnie wymyśl zapierającą dech w piersiach, niepowtarzalną scenerię premium (2-3 zdania po angielsku). Sceneria MUSI budzić silne pozytywne emocje i wizualizować główne składniki aktywne w naturalnym środowisku (np. poranna rosa na alpejskiej łące o wschodzie słońca, gładka czarna skała wulkaniczna oblana wodą, jedwabisty kremowy wir, egzotyczna plaża z białym piaskiem i tropikalną roślinnością). Bądź ultra-kreatywny – za każdym razem wymyśl coś unikalnego! Produkt musi stać na naturalnym podłożu twardo zintegrowanym z otoczeniem. BARDZO WAŻNE: Całkowity ZAKAZ używania odciętych desek, plastrów drewna, półek ani żadnych sztucznych podstawek (no wood slices, no wooden boards, no pedestals, no shelves). Scena musi być czysta i pozbawiona ludzi/dłoni.
+- SLOT3_BACKGROUND_PROMPT: (NOWOŚĆ) W oparciu o trendy z KROKU 0 wymyśl niepowtarzalną, premium scenerię (2-3 zdania po angielsku). Sceneria MUSI wykorzystywać zbadane przed chwilą tekstury/kolory najlepiej konwertujące w tej branży. Całkowity ZAKAZ używania odciętych desek, plastrów drewna, półek, dłoni i ludzi (no wood slices, no wooden boards, no pedestals, no humans).
 KROK 2: Wymuszanie Unikalności
-Wylosuj kontekst dla zdjęcia:
-- GEO_LOCATION: np. "luxury Mediterranean beach in Amalfi", "sterile Swiss cosmetic laboratory".
-- TIME_OF_DAY: np. "warm golden hour sunset", "crisp morning sunlight".
-KROK 3: Wynik w formacie JSON:
+Wylosuj kontekst:
+- GEO_LOCATION: np. "luxury Mediterranean beach in Amalfi".
+- TIME_OF_DAY: np. "warm golden hour sunset".
+- VISUAL_TREND_REPORT: Krótkie uzasadnienie po polsku (1 zdanie), dlaczego wybrano taki styl wizualny na podstawie zwiadu z KROKU 0.
+KROK 3: Wynik DOKŁADNIE w formacie JSON (bez bloków markdown \`\`\`json):
 {
   "DYNAMIC_SCALE": 0.45,
   "TARGET_AUDIENCE": "...",
   "ACTIVE_INGREDIENT": "...",
   "SLOT3_BACKGROUND_PROMPT": "...",
   "GEO_LOCATION": "...",
-  "TIME_OF_DAY": "..."
+  "TIME_OF_DAY": "...",
+  "VISUAL_TREND_REPORT": "..."
 }`
     });
 
@@ -341,7 +427,7 @@ KROK 3: Wynik w formacie JSON:
         const result = await model.generateContent(prompt);
         let jsonStr = result.response.text().replace(/```json/gi, '').replace(/```/g, '').trim();
         const data = JSON.parse(jsonStr);
-        console.log("[Gemini Agent] Zidentyfikowano Liquid Variables:", data);
+        console.log("[Gemini Agent] Zidentyfikowano Liquid Variables (z uwzględnieniem Visual Trends):", data.VISUAL_TREND_REPORT);
         return data;
     } catch(err) {
         console.error("[Gemini Agent] Błąd generacji Liquid Variables, używam fallbacku:", err.message);
@@ -351,7 +437,8 @@ KROK 3: Wynik w formacie JSON:
             ACTIVE_INGREDIENT: "pure natural active ingredients",
             SLOT3_BACKGROUND_PROMPT: "The product is elegantly placed on a luxurious, natural stone spa surface surrounded by lush green monstera leaves and delicate water droplets.",
             GEO_LOCATION: "luxury Mediterranean beach",
-            TIME_OF_DAY: "golden hour sunlight"
+            TIME_OF_DAY: "golden hour sunlight",
+            VISUAL_TREND_REPORT: "Błąd zwiadu. Fallback na klasyczne ujęcie."
         };
     }
 }
@@ -648,18 +735,74 @@ async function generateClaidLifestyle(imageBase64, sourceImageUrl, ean, imageInd
     try {
         const downloadRes = await axios.get(sceneTmpUrl, { responseType: 'arraybuffer' });
         const finalBase64 = "data:image/jpeg;base64," + Buffer.from(downloadRes.data, 'binary').toString('base64');
-        return finalBase64;
+        return { 
+            base64: finalBase64, 
+            visualTrendReport: liquidVars.VISUAL_TREND_REPORT 
+        };
     } catch (err) {
         console.error("[AiService] Błąd pobierania wynikowego obrazka:", err.message);
         throw new Error("Nie udało się pobrać wygenerowanego obrazu z infrastruktury Claid.");
     }
 }
 
+/**
+ * Agent uzupełniania parametrów (PXM Auto-Fill Agent).
+ * Przeszukuje sieć poza Allegro w poszukiwaniu specyfikacji technicznej i mapuje ją do słownika.
+ */
+async function autofillMissingParameters(ean, productName, currentFeatures, requiredSchema) {
+    const model = genAI.getGenerativeModel({
+        model: "gemini-3.1-pro-preview",
+        tools: [{ googleSearch: {} }],
+        generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+    });
+    
+    // Zabezpieczenie przed przepalaniem tokenów: mapujemy tylko brakujące/wymagane parametry
+    const missingSchema = (requiredSchema || []).filter(p => !currentFeatures || !currentFeatures[p.name]);
+    
+    if (missingSchema.length === 0) return currentFeatures;
+
+    const prompt = `Jesteś inżynierem PIM (Product Information Management) i ekspertem OSINT.
+Zadanie: Uzupełnij brakujące parametry techniczne dla produktu e-commerce. Użyj wyszukiwarki Google, przeszukując oficjalne strony producentów, sklepy, czy katalogi z wyłączeniem Allegro.
+
+Produkt: ${productName}
+EAN: ${ean}
+
+Oto lista parametrów do uzupełnienia wraz z ich dopuszczalnymi wartościami (jeśli słownik jest wymagany, MUSISZ użyć dokładnej wartości ze słownika):
+${JSON.stringify(missingSchema.map(p => ({ nazwa: p.name, wymagane: p.required, typ: p.type, dopuszczalne_wartosci: p.dictionary ? p.dictionary.map(d => d.value) : "Dowolny tekst" })), null, 2)}
+
+Obecnie zapisane parametry (nie nadpisuj ich): ${JSON.stringify(currentFeatures)}
+
+Zwróć JSON z wyciągniętymi/odgadniętymi wartościami. Format wyjściowy:
+{
+  "features": {
+    "NazwaParametru": "Wartość",
+    ...
+  }
+}
+Jeśli nie odnajdziesz wiarygodnej informacji dla danego parametru w sieci, pomiń go. Pamiętaj: dla parametrów ze słownikiem (dopuszczalne_wartosci), zwrócona wartość musi być kropka w kropkę identyczna z jednym z wariantów. Zwróć tylko czysty JSON.
+`;
+
+    try {
+        console.log(`[AiService] Auto-Fill Agent szuka parametrów dla ${ean}...`);
+        const result = await model.generateContent(prompt);
+        let text = result.response.text();
+        text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(text);
+        return { ...currentFeatures, ...(parsed.features || {}) };
+    } catch(err) {
+        console.error("[AiService] Błąd Agenta Auto-Fill:", err.message);
+        return currentFeatures;
+    }
+}
+
 module.exports = {
+    gatherProductIntelligence,
     generateNativeAnalysis,
     generateOfferJSON,
     auditOfferImages,
     generateTitleOnly,
     generateClaidLiquidVariables,
-    generateClaidLifestyle
+    generateClaidLifestyle,
+    autofillMissingParameters,
+    generateComplianceReport
 };
