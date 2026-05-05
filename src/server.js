@@ -195,6 +195,23 @@ app.get('/api/health', async (req, res) => {
     }
 });
 
+// ENDPOINT DIAGNOSTYCZNY LOGÓW (DEBUGOWANIE)
+app.get('/api/logs', async (req, res) => {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const logDir = path.join(__dirname, '../logs');
+        if (!fs.existsSync(logDir)) return res.json({ error: "Brak folderu logs" });
+        const files = fs.readdirSync(logDir).filter(f => f.includes('error'));
+        if (files.length === 0) return res.json({ error: "Brak plików error log" });
+        const latestFile = files.sort().reverse()[0];
+        const content = fs.readFileSync(path.join(logDir, latestFile), 'utf-8');
+        res.type('text/plain').send(content);
+    } catch (err) {
+        res.status(500).send("Błąd odczytu logów: " + err.message);
+    }
+});
+
 
 // ASORTYMENT (PIM)
 app.post('/api/allegro-sentinel/trigger', authenticateToken, async (req, res) => {
