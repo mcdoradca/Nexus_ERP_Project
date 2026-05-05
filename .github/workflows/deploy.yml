@@ -1,0 +1,44 @@
+name: NeS CI/CD Pipeline - Google Cloud Deploy
+
+on:
+  push:
+    branches:
+      - main # Skrypt uruchomi się tylko wtedy, gdy kod zostanie wypchnięty do gałęzi main
+  workflow_dispatch: # Pozwala również na ręczne wyzwolenie z panelu GitHub
+
+jobs:
+  deploy:
+    name: Wdrażanie na serwer GCP
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🚀 Wdrażanie przez SSH na Google Compute Engine
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCP_HOST }}
+          username: ${{ secrets.GCP_USERNAME }}
+          key: ${{ secrets.GCP_SSH_KEY }}
+          port: 22
+          # Jeśli maszyna GCP ma ścisłe sprawdzanie kluczy
+          script_stop: true
+          script: |
+            echo "Połączono z Google Cloud Platform. Rozpoczynam aktualizację Nexusa..."
+            
+            # Przejście do folderu z projektem (zakładamy, że projekt leży w katalogu domowym /home/username/Nexus_ERP_Project)
+            cd ~/Nexus_ERP_Project || (echo "Katalog nie istnieje! Sklonuj najpierw repozytorium ręcznie na serwer!" && exit 1)
+            
+            echo "Pobieranie najnowszego kodu z GitHub..."
+            # Zapewnia, że kod zostanie siłowo wyrównany do GitHuba, jeśli pojawiłyby się konflikty w logach serwera
+            git fetch --all
+            git reset --hard origin/main
+            git pull origin main
+            
+            echo "Kompilacja nowych obrazów AI i przełączanie kontenerów..."
+            # Komenda --build wymusi zbudowanie nowego Nginxa (frontend) oraz Node.js (backend)
+            # Przełączenie następuje w sposób ciągły (nie wyłącza systemu do momentu aż nowy kontener będzie gotowy)
+            sudo docker compose up -d --build
+            
+            echo "Oczyszczanie ze starych, nieużywanych śmieci w pamięci GCP..."
+            sudo docker image prune -f
+            
+            echo "✅ NeS zaktualizowany i gotowy do pracy operacyjnej."
