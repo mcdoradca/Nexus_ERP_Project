@@ -175,6 +175,26 @@ app.get('/api/test-error', (req, res, next) => {
     next(error);
 });
 
+// ENDPOINT DIAGNOSTYCZNY BAZY DANYCH I ŚRODOWISKA
+app.get('/api/health', async (req, res) => {
+    try {
+        const dbStatus = await prisma.$queryRaw`SELECT 1`;
+        const hasDbUrl = !!process.env.DATABASE_URL;
+        res.json({ 
+            status: "ok", 
+            dbConnected: true, 
+            dbUrlPresent: hasDbUrl,
+            dbUrlStart: hasDbUrl ? process.env.DATABASE_URL.substring(0, 15) : null
+        });
+    } catch (err) {
+        res.status(500).json({ 
+            status: "error", 
+            message: err.message,
+            dbUrlPresent: !!process.env.DATABASE_URL
+        });
+    }
+});
+
 
 // ASORTYMENT (PIM)
 app.post('/api/allegro-sentinel/trigger', authenticateToken, async (req, res) => {
