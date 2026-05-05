@@ -27,7 +27,7 @@ import {
 
 import { getInitials, getDepartmentColor } from './utils';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
 function App() {
   const [activeTab, setActiveTab] = useState('kanban');

@@ -28,7 +28,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
         setIsGeneratingAi(true);
         try {
             const token = localStorage.getItem('aps_token') || '';
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+            const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
             
             const bodyData = { ean, imageIndex: index };
             if (primaryImageObj) {

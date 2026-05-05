@@ -23,7 +23,7 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
         
         try {
             const token = localStorage.getItem('aps_token') || '';
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+            const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
             const response = await fetch(`${API_URL}/api/offer-optimizer/analyze-single`, {
                 method: 'POST',

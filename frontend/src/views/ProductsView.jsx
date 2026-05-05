@@ -26,7 +26,7 @@ const ProductsView = ({
   const [aiFilteredIds, setAiFilteredIds] = useState(null);
   const [isAiSearching, setIsAiSearching] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
   const handleAiSearch = async () => {
     if (!aiQuery.trim()) {
@@ -365,7 +365,7 @@ const ProductsView = ({
                                   btn.disabled = true;
                                   try {
                                       const token = localStorage.getItem('aps_token');
-                                      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/products/${p.id}/aeo`, {}, { headers: { Authorization: `Bearer ${token}` }});
+                                      await axios.post(`${import.meta.env.PROD ? '' : 'http://localhost:3001'}/api/products/${p.id}/aeo`, {}, { headers: { Authorization: `Bearer ${token}` }});
                                       if (fetchAppGlobalData) await fetchAppGlobalData();
                                       alert('Sukces! Treść AEO (pod wyszukiwarki AI) została wygenerowana. Wejdź w Edycję Kartoteki, aby ją zobaczyć.');
                                   } catch (err) {

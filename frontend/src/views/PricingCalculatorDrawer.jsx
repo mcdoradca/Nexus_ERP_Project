@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Calculator, ArrowRight, Save, Zap, AlertTriangle, Search } from 'lucide-react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
 const PricingCalculatorDrawer = ({ isOpen, onClose, product, token, onProductUpdated }) => {
   const [targetMargin, setTargetMargin] = useState(product?.targetMargin || 0.20);

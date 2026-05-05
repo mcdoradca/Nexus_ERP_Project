@@ -29,7 +29,7 @@ const ImageModal = ({ url, onClose }) => {
                                     return;
                                 }
 
-                                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+                                const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
                                 const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
                                 const res = await fetch(`${API_URL}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(url)}`, {
                                     headers: { 'Authorization': `Bearer ${token}` }
@@ -155,7 +155,7 @@ export const OfferOptimizerView = () => {
         setIsRegeneratingTitle(true);
         try {
             const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+            const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
             const res = await fetch(`${API_URL}/api/offer-optimizer/regenerate-title`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -190,7 +190,7 @@ export const OfferOptimizerView = () => {
         setIsSavingDraft(true);
         try {
             const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+            const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
             const res = await fetch(`${API_URL}/api/offer-optimizer/save-draft`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -213,7 +213,7 @@ export const OfferOptimizerView = () => {
         setIsExporting(true);
         try {
             const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+            const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
             const res = await fetch(`${API_URL}/api/offer-optimizer/export-baselinker`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
