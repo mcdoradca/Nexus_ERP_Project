@@ -1,29 +1,14 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: nexus_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-nexusadmin123}
-      POSTGRES_DB: ${DB_NAME:-nexusdb}
-    volumes:
-      - nexus_pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-
   backend:
     build: 
       context: .
       dockerfile: Dockerfile
     container_name: nexus_backend
     restart: unless-stopped
-    depends_on:
-      - db
     environment:
-      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-nexusadmin123}@db:5432/${DB_NAME:-nexusdb}?schema=public
+      - DATABASE_URL=${DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
       - PORT=3001
       - VITE_API_URL=${VITE_API_URL:-http://localhost:3001}
@@ -49,5 +34,4 @@ services:
       - "80:80"
 
 volumes:
-  nexus_pgdata:
   nexus_uploads:
