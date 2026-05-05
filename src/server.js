@@ -42,7 +42,12 @@ const path = require('path');
 
 // Tarcza nagłówków HTTP (Helmet)
 app.use(helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" } // Pozwala na ładowanie obrazków z zewnętrznych API (Bria/Claid)
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Pozwala na ładowanie obrazków z zewnętrznych API (Bria/Claid)
+    contentSecurityPolicy: {
+        directives: {
+            upgradeInsecureRequests: null // WYŁĄCZENIE wymuszania HTTPS, dopóki nie ma certyfikatu SSL
+        }
+    }
 }));
 
 // Konfiguracja CORS (Zabezpieczenie przed nieautoryzowanym dostępem)
