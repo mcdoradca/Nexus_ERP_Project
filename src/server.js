@@ -114,7 +114,7 @@ app.use('/api/ai/', aiLimiter); // Restrykcyjna ochrona dla generacji AI
 app.use('/uploads', express.static(path.join(__dirname, '../frontend/public/uploads')));
 
 // --- NOWA ARCHITEKTURA DOMENOWA (IMPORTY) ---
-const { authenticateToken } = require('./middlewares/auth.middleware');
+const { authenticateToken, requireSuperUser } = require('./middlewares/auth.middleware');
 const authRoutes = require('./modules/auth/auth.routes');
 const usersRoutes = require('./modules/users/users.routes');
 const chatRoutes = require('./modules/communication/chat.routes');
@@ -226,7 +226,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ENDPOINT DIAGNOSTYCZNY LOGÓW (DEBUGOWANIE)
-app.get('/api/logs', async (req, res) => {
+app.get('/api/logs', authenticateToken, requireSuperUser, async (req, res) => {
     try {
         const path = require('path');
         const logDir = path.join(__dirname, '../logs');

@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function main() { console.log(await prisma.task.findMany({ include: { assignees: true, owner: true, blocker: true, project: true, campaign: true, creator: true, parentTask: true, activeWorkers: true } })); } main().catch(console.error).finally(()=>prisma.$disconnect());
