@@ -1,5 +1,5 @@
 # Etap Budowania
-FROM node:18-alpine as build-stage
+FROM node:22-alpine AS build-stage
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ COPY . .
 RUN npm run build
 
 # Etap Produkcyjny (Serwowanie)
-FROM nginx:alpine as production-stage
+FROM nginx:alpine AS production-stage
 
 # Kopiowanie zbudowanych statycznych plików do Nginx
 COPY --from=build-stage /app/dist /usr/share/nginx/html
