@@ -36,9 +36,9 @@ jobs:
             echo "Kompilacja nowych obrazów AI i przełączanie kontenerów..."
             # Komenda --build wymusi zbudowanie nowego Nginxa (frontend) oraz Node.js (backend)
             # Przełączenie następuje w sposób ciągły (nie wyłącza systemu do momentu aż nowy kontener będzie gotowy)
-            sudo docker compose up -d --build
+            docker compose up -d --build
             
             echo "Oczyszczanie ze starych, nieużywanych śmieci w pamięci GCP..."
-            sudo docker image prune -f
+            docker image prune -f
             
             echo "✅ NeS zaktualizowany i gotowy do pracy operacyjnej."
