@@ -243,11 +243,6 @@ export const OfferOptimizerView = () => {
                        <span className="w-2 h-2 bg-emerald-500 rounded-sm mr-2"></span> Single Auction Pivot: Aktywny &nbsp;|&nbsp; Pure API Mode
                    </p>
                 </div>
-                <div className="mt-8 xl:mt-0 flex space-x-4">
-                     <button disabled={!titleValid} className="px-8 py-4 bg-slate-900 text-white rounded-sm font-black uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-600 transition-colors shadow-lg shadow-indigo-900/20 flex items-center">
-                         <Rocket className="w-4 h-4 mr-2"/> {titleValid ? 'Zapisz i Wyślij payload (BL)' : 'Zablokowano - Błąd Walidacji'}
-                     </button>
-                </div>
             </div>
 
             <div className="w-full mb-8 z-10 relative">
