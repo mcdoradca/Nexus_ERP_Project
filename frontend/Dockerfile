@@ -17,9 +17,17 @@ FROM nginx:alpine AS production-stage
 # Kopiowanie zbudowanych statycznych plików do Nginx
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 
-# Kopiowanie konfiguracji routingu (aby zapobiec 404 przy odświeżaniu w React Router)
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Instalacja Certbota do odnawiania i generowania certyfikatów
+RUN apk add --no-cache certbot certbot-nginx openssl
 
-EXPOSE 80
+# Kopiowanie skryptu startowego i szablonów konfiguracji
+COPY entrypoint.sh /app/entrypoint.sh
+COPY nginx-http.conf /etc/nginx/conf.d/nginx-http.conf
+COPY nginx-https.conf /etc/nginx/conf.d/nginx-https.conf
 
-CMD ["nginx", "-g", "daemon off;"]
+# Uprawnienia do wykonania skryptu
+RUN chmod +x /app/entrypoint.sh
+
+EXPOSE 80 443
+
+CMD ["/app/entrypoint.sh"]

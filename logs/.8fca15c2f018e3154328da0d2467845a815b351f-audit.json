@@ -1,0 +1,20 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "Z:\\Nexus_ERP_Project\\logs\\.8fca15c2f018e3154328da0d2467845a815b351f-audit.json",
+    "files": [
+        {
+            "date": 1778008718807,
+            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-error-2026-05-05.log",
+            "hash": "c0e21ee450457fd7bb05f2a392c4e3fffd2141aa3c9335d37d7dabb07928c9c4"
+        },
+        {
+            "date": 1778047557791,
+            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-error-2026-05-06.log",
+            "hash": "bbe9b4b7eb8d90bd5f544fce671e3d117684ac40c04c724af253671570243caf"
+        }
+    ],
+    "hashType": "sha256"
+}
