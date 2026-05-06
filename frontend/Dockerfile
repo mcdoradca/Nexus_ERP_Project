@@ -18,15 +18,15 @@ FROM nginx:alpine AS production-stage
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 
 # Instalacja Certbota do odnawiania i generowania certyfikatów
-RUN apk add --no-cache certbot certbot-nginx openssl
+RUN apk add --no-cache certbot certbot-nginx openssl dos2unix
 
 # Kopiowanie skryptu startowego i szablonów konfiguracji
 COPY entrypoint.sh /app/entrypoint.sh
 COPY nginx-http.conf /etc/nginx/conf.d/nginx-http.conf
 COPY nginx-https.conf /etc/nginx/conf.d/nginx-https.conf
 
-# Uprawnienia do wykonania skryptu
-RUN chmod +x /app/entrypoint.sh
+# Uprawnienia do wykonania skryptu (i naprawa końcówek linii Windows -> Linux)
+RUN dos2unix /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 EXPOSE 80 443
 
