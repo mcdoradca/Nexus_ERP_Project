@@ -22,8 +22,8 @@ RUN apk add --no-cache certbot certbot-nginx openssl dos2unix
 
 # Kopiowanie skryptu startowego i szablonów konfiguracji
 COPY entrypoint.sh /app/entrypoint.sh
-COPY nginx-http.conf /etc/nginx/conf.d/nginx-http.conf
-COPY nginx-https.conf /etc/nginx/conf.d/nginx-https.conf
+COPY nginx-http.tpl /app/nginx-http.tpl
+COPY nginx-https.tpl /app/nginx-https.tpl
 
 # Uprawnienia do wykonania skryptu (i naprawa końcówek linii Windows -> Linux)
 RUN dos2unix /app/entrypoint.sh && chmod +x /app/entrypoint.sh

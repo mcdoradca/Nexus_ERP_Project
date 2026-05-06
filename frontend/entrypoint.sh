@@ -6,7 +6,7 @@ EMAIL="admin@n-e-s.it"
 echo "[Nexus] Uruchamianie Entrypoint Nginx..."
 
 # Kopiuj podstawowy HTTP, jeśli HTTPS jeszcze nie istnieje, żeby certbot zadziałał dla challenge'u HTTP-01
-cp /etc/nginx/conf.d/nginx-http.conf /etc/nginx/conf.d/default.conf
+cp /app/nginx-http.tpl /etc/nginx/conf.d/default.conf
 
 # Sprawdź czy certyfikat już istnieje
 if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
@@ -39,7 +39,7 @@ fi
 # Załadowanie docelowej konfiguracji HTTPS
 if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
     echo "[Nexus] Przełączanie Nginx na profil HTTPS..."
-    cp /etc/nginx/conf.d/nginx-https.conf /etc/nginx/conf.d/default.conf
+    cp /app/nginx-https.tpl /etc/nginx/conf.d/default.conf
 fi
 
 # Uruchom demona crond dla autoodnawiania certyfikatów
