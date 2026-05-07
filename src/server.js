@@ -106,7 +106,7 @@ const aiLimiter = rateLimit({
     message: { error: 'Zbyt duzo zadan do agentow AI. Zwolnij tempo.' }
 });
 
-app.use(express.json({ limit: '2mb', extended: true }));
+app.use(express.json({ limit: '50mb', extended: true }));
 app.use('/api/', apiLimiter); // Ochrona calego API
 app.use('/api/ai/', aiLimiter); // Restrykcyjna ochrona dla generacji AI
 app.use('/uploads', express.static(path.join(__dirname, '../frontend/public/uploads')));
