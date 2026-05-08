@@ -1365,7 +1365,7 @@ function App() {
         )}
         {renderProjectDetails()}
         {selectedTask && <TaskDetailsDrawer task={selectedTask} onClose={() => setSelectedTask(null)} currentUser={currentUser} users={users} tasks={tasks} socket={socket} fetchData={fetchData} token={token} API_URL={API_URL} onSelectTask={(t) => setSelectedTask(t)} />}
-        {selectedCampaign && <CampaignDetailsModal campaign={campaigns.find(c => c.id === selectedCampaign.id) || selectedCampaign} onClose={() => setSelectedCampaign(null)} fetchAppGlobalData={fetchData} token={token} API_URL={API_URL} currentUser={currentUser} />}
+        {selectedCampaign && <CampaignDetailsModal campaign={campaigns.find(c => c.id === selectedCampaign.id) || selectedCampaign} onClose={() => setSelectedCampaign(null)} onEdit={(camp) => { setSelectedCampaign(null); setCampaignForEdit(camp); setIsNewCampaignModalOpen(true); }} fetchData={fetchData} tasks={tasks} socket={socket} token={token} API_URL={API_URL} currentUser={currentUser} />}
       </>
     );
   };
