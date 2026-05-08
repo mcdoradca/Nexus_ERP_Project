@@ -18,8 +18,8 @@ const crmService = {
   },
 
   async createCompany(data) {
-    if (data.taxId === '') data.taxId = null;
-    if (data.id === '') delete data.id;
+    if (!data.taxId) data.taxId = null;
+    if (!data.id) delete data.id; // Zabezpieczenie przed pustym stringiem lub null, wymusza default(uuid())
     
     // Zabezpieczenie przed przesyłaniem niechcianych pustych parametrów w relacjach
     delete data.branches;
