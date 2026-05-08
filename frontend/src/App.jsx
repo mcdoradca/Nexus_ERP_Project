@@ -594,35 +594,36 @@ function App() {
                 {projectTasks.length === 0 && <div className="py-20 text-center text-slate-300 font-black text-[10px] uppercase tracking-widest border-2 border-dashed border-slate-50 rounded-sm">Projekt nie ma jescze zadań</div>}
               </div>
             </div>
-          </div>
-          {/* Footer Drawer */}
-          <div className="p-5 bg-slate-50 border-t border-slate-300 shrink-0">
-             <div className="flex items-center justify-between mt-8">
-                <div className="flex flex-col">
-                   <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Utworzono</span>
-                   <span className="text-xs font-black text-slate-800 uppercase">{new Date(selectedProject.createdAt).toLocaleDateString()}</span>
-                </div>
-                <button onClick={async () => {
-                   if(!window.confirm('Czy na pewno chcesz zakończyć ten projekt?')) return;
-                   try {
-                      await fetch(`${API_URL}/api/projects/${selectedProject.id}`, {
-                         method: 'PATCH',
-                         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                         body: JSON.stringify({ status: 'ZAKOŃCZONY', isArchived: true })
-                      });
-                      setSelectedProject(null);
-                      fetchData();
-                   } catch (err) {
-                      console.error(err);
-                      alert('Błąd podczas kończenia projektu');
-                   }
-                }} className="px-10 py-5 bg-slate-900 text-white rounded-sm text-[11px] font-black uppercase tracking-widest hover:bg-slate-800 hover:scale-105 active:scale-95 transition-all shadow-2xl">Zakończ Projekt</button>
-             </div>
-             
-             {/* Sekcja Komunikatora - Projekt */}
-             <div className="mt-12 h-[500px] border border-slate-400 rounded-sm overflow-hidden shadow-sm">
-                <UniversalChat mode="project" targetId={selectedProject.id} currentUser={currentUser} socket={socket} token={token} title={`Wątek #P-${(selectedProject.id || '').split('-').pop()}`} subtitle="Tablica Główna Projektu" />
-             </div>
+            
+            {/* Footer przeniesiony w strefę scrollowalną */}
+            <div className="pt-8 mt-12 border-t border-slate-300">
+               <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                     <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Utworzono</span>
+                     <span className="text-xs font-black text-slate-800 uppercase">{new Date(selectedProject.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <button onClick={async () => {
+                     if(!window.confirm('Czy na pewno chcesz zakończyć ten projekt?')) return;
+                     try {
+                        await fetch(`${API_URL}/api/projects/${selectedProject.id}`, {
+                           method: 'PATCH',
+                           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                           body: JSON.stringify({ status: 'ZAKOŃCZONY', isArchived: true })
+                        });
+                        setSelectedProject(null);
+                        fetchData();
+                     } catch (err) {
+                        console.error(err);
+                        alert('Błąd podczas kończenia projektu');
+                     }
+                  }} className="px-10 py-5 bg-slate-900 text-white rounded-sm text-[11px] font-black uppercase tracking-widest hover:bg-slate-800 hover:scale-105 active:scale-95 transition-all shadow-2xl">Zakończ Projekt</button>
+               </div>
+               
+               {/* Sekcja Komunikatora - Projekt */}
+               <div className="mt-12 h-[500px] border border-slate-400 rounded-sm overflow-hidden shadow-sm">
+                  <UniversalChat mode="project" targetId={selectedProject.id} currentUser={currentUser} socket={socket} token={token} title={`Wątek #P-${(selectedProject.id || '').split('-').pop()}`} subtitle="Tablica Główna Projektu" />
+               </div>
+            </div>
           </div>
         </div>
       </div>
