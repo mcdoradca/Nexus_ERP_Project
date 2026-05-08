@@ -1,0 +1,25 @@
+SCENARIUSZ WIDEO: "NARODZINY SYSTEMU NES"
+
+[00:00 - 00:05] SCENA 1: INICJACJA
+[WIZUALIZACJA - HeyGen Avatar]: Awatar patrzy prosto w kamerę. Wyraz twarzy spokojny, pewny siebie. Minimalistyczne ruchy głową.
+[VOICEOVER] Nazywam się NeS. Nexus Sentinel. Zostałem zaprojektowany, aby stać się centralnym układem nerwowym Twojej firmy.
+
+[00:06 - 00:15] SCENA 2: DEFINICJA ROLI I PROBLEMU
+[WIZUALIZACJA - HeyGen Avatar]: Awatar używa subtelnych gestów rąk. W tle szybko przewijający się kod lub wykresy zniżkujące (symbolizujące stratę czasu w e-commerce).
+[VOICEOVER] Podczas gdy Ty skupiasz się na strategii, mój rój agentów analizuje, optymalizuje i chroni Twoje procesy. Zarządzanie wielokanałowym e-commerce na platformach takich jak Allegro czy Baselinker bez odpowiedniej automatyzacji, prowadzi do błędów, opóźnień i przepalania marży. Mój twórca zrozumiał te ograniczenia.
+
+[00:16 - 00:26] SCENA 3: PREZENTACJA TWÓRCY I TECHNOLOGII
+[WIZUALIZACJA - HeyGen Avatar]: Tło zmienia się na strukturę sieci neuronowej / połączonych węzłów (symbol API i Agentów). Awatar mówi tonem doceniającym innowację.
+[VOICEOVER] Nie skupiał się na teoretycznym pisaniu kodu. Zastosował analityczne myślenie architektoniczne, łącząc zaawansowane modele sztucznej inteligencji i integrując kluczowe API, aby powołać mnie do życia. System, który rozwiązuje problemy u ich źródła.
+
+[00:27 - 00:42] SCENA 4: PROOF OF VALUE - PROCES EAN (KULMINACJA)
+[WIZUALIZACJA - HeyGen Avatar + Screen Record]: Awatar przesunięty do rogu ekranu (efekt PIP). Pokazane jest wpisanie kodu EAN, a następnie w przyspieszonym tempie: automatyczne uzupełnianie parametrów, generowanie opisu i dodawanie zdjęć.
+[VOICEOVER] Spójrz na to. Standardowy proces wprowadzenia i optymalizacji produktu to kilkadziesiąt minut pracy ludzkiej. Ja potrzebuję wyłącznie jednego kodu EAN i ułamka sekundy. Pobieram dane, generuję opis zoptymalizowany pod SEO, weryfikuję regulaminy platformy i uzupełniam zdjęcia.
+
+[00:43 - 00:55] SCENA 5: AUTONOMICZNY AUDYT I ANALITYKA
+[WIZUALIZACJA - HeyGen Avatar + Screen Record]: Na ekranie pojawiają się przebitki z modułu analitycznego (God-Mode Analytics, kalkulator ofert B2B pokazujący "Wodospad Kosztów" i True Net Margin). Widać zielone wskaźniki "ZGODNOŚĆ OK".
+[VOICEOVER] Co najważniejsze, nie pracuję na ślepo. Mój rój składa się z niezależnych agentów, którzy wzajemnie audytują swoją pracę. Wykrywam niedozwolone oświadczenia, zabezpieczam łańcuch dostaw przewidując popyt i, co kluczowe, w czasie rzeczywistym dekonstruuję "wodospad kosztów", aby chronić Twoją marżę netto.
+
+[00:56 - 01:05] SCENA 6: ZAKOŃCZENIE I WEZWANIE DO DZIAŁANIA
+[WIZUALIZACJA - HeyGen Avatar]: Powrót do pełnego ekranu awatara. Wyraz twarzy poważny, zachęcający do kontaktu. Na ekranie pojawia się adres: https://n-e-s.it/ oraz pełne logo "Powered by AI & API Integration".
+[VOICEOVER] Ten film, mój głos, ten scenariusz i ta analiza... zostały wygenerowane i skoordynowane przeze mnie, w ramach Rurociągu Autorefleksji. Udowadniam, że innowacja to nie teoria, to sprawczość. Gotowy na optymalizację?

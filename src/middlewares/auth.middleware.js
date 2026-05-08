@@ -21,7 +21,11 @@ async function authenticateToken(req, res, next) {
         req.user = user;
         next();
     } catch (err) {
-        return res.status(401).json({ error: 'Nieprawidłowy token' });
+        if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+            return res.status(401).json({ error: 'Nieprawidłowy token' });
+        }
+        console.error('[Auth Middleware] Błąd:', err);
+        return res.status(500).json({ error: 'Błąd weryfikacji tożsamości' });
     }
 }
 

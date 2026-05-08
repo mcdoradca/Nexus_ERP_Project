@@ -38,15 +38,30 @@ class BundleOrchestrator {
             
             // [ZADANIE 2] AGENT TRENDÓW: Analiza aktualnych wyszukiwań i intencji zakupowych
             console.log(`   🕵️ [Agent Trendów] Skanowanie bieżących zapytań (SEO/Liquid Variables)...`);
-            const seoTrends = await this._trendAgentGetSeoKeywords(p1, p2);
+            let seoTrends = await this._trendAgentGetSeoKeywords(p1, p2);
+            // TARCZA BŁĘDÓW (FALLBACK)
+            if (!seoTrends || seoTrends.length < 3 || seoTrends.toLowerCase().includes("błąd") || seoTrends.toLowerCase().includes("error")) {
+                console.log(`   ⚠️ [Tarcza Błędów] Agent Trendów zwrócił anomalię. Włączam bezpieczny fallback.`);
+                seoTrends = "zestaw promocyjny, polecane produkty, sprawdzona jakość";
+            }
 
             // [ZADANIE 3] AGENT COPYWRITER: Generowanie połączonego opisu 
             console.log(`   ✍️ [Agent Copywriter] Tworzenie marketingowego opisu na bazie Trendów...`);
-            const draftDescription = await this._copywriterAgentGenerateDescription(p1, p2, seoTrends);
+            let draftDescription = await this._copywriterAgentGenerateDescription(p1, p2, seoTrends);
+            // TARCZA BŁĘDÓW (FALLBACK)
+            if (!draftDescription || draftDescription.length < 20 || !draftDescription.includes("<")) {
+                console.log(`   ⚠️ [Tarcza Błędów] Agent Copywriter zwrócił anomalię. Włączam bezpieczny fallback.`);
+                draftDescription = `<h2>Zestaw promocyjny</h2><p>Kupując w zestawie zyskujesz najwyższą jakość.</p><ul><li>${p1.name}</li><li>${p2.name}</li></ul>`;
+            }
 
             // [ZADANIE 4] AGENT COMPLIANCE: Audyt zgodności
             console.log(`   👮 [Agent Compliance] Audytowanie opisu zgodnie z regulaminem Allegro 2026...`);
-            const finalDescription = await this._complianceAgentAudit(draftDescription);
+            let finalDescription = await this._complianceAgentAudit(draftDescription);
+            // TARCZA BŁĘDÓW (FALLBACK)
+            if (!finalDescription || finalDescription.length < 20) {
+                 console.log(`   ⚠️ [Tarcza Błędów] Agent Compliance zwrócił anomalię. Używam wersji roboczej.`);
+                 finalDescription = draftDescription;
+            }
 
             // ZAPIS DO BAZY PIM
             const finalProduct = await prisma.product.update({

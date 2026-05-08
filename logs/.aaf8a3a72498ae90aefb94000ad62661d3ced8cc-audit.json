@@ -14,6 +14,16 @@
             "date": 1778047557794,
             "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-06.log",
             "hash": "f0bc7449d05278a31254c9c16081170557d94c1b51293d3dafb50bd8e2d83af8"
+        },
+        {
+            "date": 1778156099382,
+            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-07.log",
+            "hash": "557625294a6c5de9e25348956a06e6c02f5f31d6d49c0f4a5c4ce80d9c4a1915"
+        },
+        {
+            "date": 1778222730061,
+            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-08.log",
+            "hash": "6b78b453a979f8117fcc75446ee8651416ddfd986854e1f030e2ece7284091ad"
         }
     ],
     "hashType": "sha256"

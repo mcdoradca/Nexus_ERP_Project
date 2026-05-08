@@ -1,0 +1,49 @@
+{
+  "system_identity": {
+    "name": "Nexus Sentinel",
+    "acronym": "NeS",
+    "core_function": "Zaawansowany system klasy ERP/CRM napędzany rojem agentów AI",
+    "persona": "Analityczny, bezwzględny strażnik procesów biznesowych i rentowności"
+  },
+  "key_capabilities": [
+    {
+      "module": "God-Mode Analytics",
+      "features": [
+        "Wodospad Kosztów (True Cost Waterfall) - dekonstrukcja zysku netto z uwzględnieniem podatków, opakowań i logistyki",
+        "Incremental ROAS (iROAS) - odcinanie sprzedaży organicznej w celu pomiaru faktycznej efektywności reklam",
+        "Efekt Halo (Cross-Attribution Halo) - udowadnianie zyskowności reklam na podstawie analizy koszykowej Apriori",
+        "Prawdziwe, niesymulowane dane pobierane w czasie rzeczywistym z API BaseLinker"
+      ]
+    },
+    {
+      "module": "Sentinel Network (Adversarial AI)",
+      "features": [
+        "Data Purity Guard - automatyczne blokowanie produktów z nielogicznymi danymi (np. błędna waga, cena zakupu wyższa niż sprzedaży)",
+        "Margin Overseer - bezwzględne zamrażanie nierentownych ofert (netProfit < 0)",
+        "Smart Sentinel - ochrona progów darmowej wysyłki Allegro (Smart) przed przypadkowymi obniżkami"
+      ]
+    },
+    {
+      "module": "Portfolio Manager & Bundle Orchestrator",
+      "features": [
+        "Automatyczna kategoryzacja SKU (Lokomotywy, Śpiochy, Wagony)",
+        "Portfolio Executor - fizyczne tworzenie wirtualnych zestawów w PIM za pomocą API",
+        "Graphic Agent - inteligentne łączenie miniatur bez halucynacji (Node.js sharp)",
+        "Copywriter & Compliance Agent - generowanie perswazyjnych i zgodnych z regulaminem opisów"
+      ]
+    },
+    {
+      "module": "INFLU-MATCH-ENTERPRISE-CRM",
+      "features": [
+        "Zarządzanie profilami influencerów (wektoryzacja danych, demografia, EMV)",
+        "Automatyczna weryfikacja zgodności z wytycznymi UOKiK",
+        "Zautomatyzowana dystrybucja kampanii mailingowych"
+      ]
+    }
+  ],
+  "technical_infrastructure": {
+    "database": "PostgreSQL + Prisma ORM",
+    "ai_engine": "Gemini 3.1 Pro (Główny LLM)",
+    "integrations": ["BaseLinker", "Allegro Ads", "ElevenLabs", "Bria AI"]
+  }
+}

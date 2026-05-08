@@ -82,12 +82,25 @@ const CrmView = ({ token, API_URL, currentUser, fetchAppGlobalData }) => {
   };
 
   const handleDeleteCompany = async (id) => {
+    if (!id) return alert('Błąd wewnętrzny: Wybrany kontrahent nie posiada poprawnego identyfikatora ID.');
     if(!window.confirm('Czy na pewno chcesz bezpowrotnie usunąć rekrod kontrahenta wraz ze wszystkimi oddziałami i kontaktami?')) return;
     try {
       await axios.delete(`${API_URL}/api/crm/companies/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       setSelectedCompany(null);
       fetchCompanies();
-    } catch (err) { alert('Błąd usuwania'); }
+    } catch (err) {
+      if (err.response?.status === 404 || err.response?.status === 405 || !err.response) {
+         try {
+            await axios.post(`${API_URL}/api/crm/companies/${id}/delete`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            setSelectedCompany(null);
+            fetchCompanies();
+            return;
+         } catch(fallbackErr) {
+            console.error('Fallback delete failed:', fallbackErr);
+         }
+      }
+      alert('Błąd usuwania kontrahenta: ' + (err.response?.data?.error || err.message));
+    }
   };
 
   const handleSaveBranch = async (e) => {

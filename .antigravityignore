@@ -1,0 +1,13 @@
+# Zablokowanie skompilowanego szumu i bibliotek zewnętrznych
+node_modules/
+dist/
+build/
+.next/
+
+# Zablokowanie starych logów (by AI nie uczyło się na błędach z przeszłości!)
+logs/
+*.log
+
+# Pliki multimedialne (Grafiki wektorowe potrafią "zapchać" pamięć Agenta)
+*.svg
+*.png

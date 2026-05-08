@@ -395,9 +395,9 @@ async function processBotMention(messageContent, authorName, mode, targetId, soc
         
         // Fallback w przypadku, gdy gemini-3.1-pro-preview nie jest dostępne
         if (err.message && err.message.includes("404")) {
-            console.log("[NeS] Fallback do gemini-2.5-pro...");
+            console.log("[NeS] Fallback do gemini-3.1-pro-preview (bez tool config)...");
             const fallbackModel = genAI.getGenerativeModel({
-                model: 'gemini-2.5-pro',
+                model: 'gemini-3.1-pro-preview',
                 tools: tools,
                 systemInstruction: { parts: [{ text: systemInstruction }] }
             });
