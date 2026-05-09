@@ -24,6 +24,11 @@
             "date": 1778222730061,
             "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-08.log",
             "hash": "6b78b453a979f8117fcc75446ee8651416ddfd986854e1f030e2ece7284091ad"
+        },
+        {
+            "date": 1778349395373,
+            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-09.log",
+            "hash": "41e04f5a3cb32f348216bd50ee69c0ea66aca595834fd055373105177a6e5d81"
         }
     ],
     "hashType": "sha256"

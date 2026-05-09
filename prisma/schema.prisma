@@ -318,9 +318,15 @@ model Product {
   allegroCategory   MarketplaceCategory? @relation(fields: [allegroCategoryId], references: [id])
   allegroCategoryId String?
 
+  leadTimeDays Int?
+  riskScore    Float     @default(0.0)
+  supplierId   String?
+  supplier     Supplier? @relation("ProductSupplier", fields: [supplierId], references: [id])
+
   @@index([brandId])
   @@index([sku])
   @@index([ean])
+  @@index([supplierId])
 }
 
 model EcoMaterial {
@@ -567,4 +573,54 @@ model BriaEventLog {
 
   @@index([userId])
   @@index([status])
+}
+
+// ==========================================
+// ZERO-BLEED PIPELINE MODELS
+// ==========================================
+
+model Supplier {
+  id           String    @id @default(uuid())
+  name         String
+  contactEmail String?
+  contactPhone String?
+  isActive     Boolean   @default(true)
+  products     Product[] @relation("ProductSupplier")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model CustomerRiskProfile {
+  id             String    @id @default(uuid())
+  allegroLogin   String    @unique
+  maskedEmail    String?
+  totalReturns   Int       @default(0)
+  fraudScore     Float     @default(0.0)
+  isBlacklisted  Boolean   @default(false)
+  lastReturnDate DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  returnRecords ReturnRecord[]
+}
+
+model ReturnRecord {
+  id            String   @id @default(uuid())
+  baselinkerId  String   @unique
+  orderId       String
+  productId     String?
+  productEan    String?
+  customerLogin String
+  customerEmail String?
+  reason        String?  @db.Text
+  tags          String[] @default([])
+  status        String   @default("NEW")
+  refundAmount  Float    @default(0.0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  customerProfile CustomerRiskProfile? @relation(fields: [customerLogin], references: [allegroLogin])
+
+  @@index([customerLogin])
+  @@index([productId])
 }

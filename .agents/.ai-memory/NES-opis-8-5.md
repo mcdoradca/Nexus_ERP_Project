@@ -1028,7 +1028,21 @@ W tle systemu, w oderwaniu od interfejsu graficznego (UI), działają ukryte ser
 3. **Zasada Jednej Odpowiedzialności (SRP):** Konsekwentnie utrzymujemy odseparowanie i "wąską specjalizację" każdego Agenta. Nie zawracamy im głowy korektą błędów innych modeli.  
 4. **Middleware "Tarcze Błędów":** W newralgicznym węźle, jakim jest **Bundle Orchestrator** (proces tworzący kompletne, zarabiające wirtualne półki), wbudowano logikę na poziomie Node.js. Jeśli jakikolwiek Agent wygeneruje pusty plik lub zwariuje, infrastruktura serwera podmienia tę jedną zmienną na bezpieczną treść (Fallback). Pozwala to kolejnemu Agentowi w łańcuchu otrzymać czytelne dane i ukończyć ofertę, chroniąc system przed całkowitym zacięciem.
 
+---
 
+### Nazwa operacji/zadania: Zero-Bleed Pipeline (Wdrożenie Operacyjne Agentów i Frontend)
+**Po co to jest? (Cel biznesowy):** Implementacja asynchronicznych Agentów i potoków zabezpieczających szczelność finansową ERP wraz z centralnym hubem wizualnym do nadzoru.
+**Gdzie to znaleźć? (Lokalizacja w kodzie):** 
+- Backend: `src/modules/idp/idp.service.js`, `src/modules/rma/rma.service.js`, `src/modules/logistics/logistics.service.js`, `src/core/cron.js`
+- API Routy: `src/modules/rma/rma.routes.js`, `src/modules/logistics/logistics.routes.js`
+- Frontend UI: `frontend/src/views/ZeroBleedHubView.jsx`, zintegrowane w `frontend/src/App.jsx`
+**Wymagania wstępne (Wiedza z kodu):**
+1. **Agent IDP (Multimodal Vision):** Usunięto tradycyjny OCR (`pdf-parse`). Agent pobiera faktury jako Base64 PDF, analizuje natywnie w `gemini-3.1-pro-preview` poszukując kosztów. Zbudowano **Tarczę Błędów (Human-in-the-loop)**: Jeśli model zwróci `confidenceScore < 0.98` w JSON, modyfikacja w PIM jest zablokowana, a na panelu (i Kanbanie) trafia jako czerwony alarm do ręcznej weryfikacji. 
+2. **Agent RMA Fraud Prevention:** Działa w CRON co 5 minut. Uderza do `getReturnJournalList` chroniąc limity (pobiera tylko delta od `lastLogId`). Konstruuje bazę kupujących z wyłudzeniami. Po 3 zwrotach (3 Strikes Rule) Agent automatycznie wykonuje żądanie API HTTP `/sale/blacklisted-users` i blokuje kupującego na koncie firmy na Allegro. Zabezpieczony dedykowanym widokiem w "Czarna Lista (RMA)".
+3. **Agent Wirtualny Logistyk (Zaopatrzeniowiec):** Działa w CRON o 5:00 rano. Oblicza moment wyczerpania zapasu używając `leadTimeDays`. Uruchamia **Agenta Negocjatora**, który redaguje merytorycznego e-maila B2B do fabryki w celu odnowienia towaru (z prośbą o utrzymanie cen/rabatu). **Tarcza Błędów:** Mail nie wychodzi bezpośrednio – generuje gotowego Drafta jako zadanie `TODO` (Kanban), wymagając 1 kliknięcia od operatora. Widok stanu zaopatrzenia zmapowany w "Dostawcy B2B".
+4. **Zero-Bleed Hub (UI):** Dedykowany, chowany widok w aplikacji (w lewym panelu minimalistycznym pod ikoną "Tarczy"), prezentujący zakładki dla RMA i Logistyki. Pozwala na audytowanie bazy "CustomerRiskProfile" i dziennika "ReturnRecord" w czasie rzeczywistym.
+
+---
 
 ### Nazwa operacji/zadania: Rurociąg Autorefleksji (Automatyczne Wideo-CV)
 **Po co to jest? (Cel biznesowy):** Mechanizm wizytówki rekrutacyjnej "Living CV". System Nexus autonomicznie opowiada o swoich funkcjach (procesy EAN, analityka Sentinel), korzystając z głosów AI oraz realistycznych, animowanych awatarów, a następnie sam składa wideo w całość, tworząc dowód integracji. Zabezpiecza przed halucynacjami UI.
@@ -1051,3 +1065,14 @@ Potok składa się z 4 etapów:
 3. **Odciążenie OLTP:** Uruchomiono 
 ode-cron odpalający się o 04:00 rano dla obliczeń True Net Margin (odciążenie bazy produkcyjnej w trakcie sesji).
 4. **Semantyczny OSINT (Cheerio):** Agent badawczy używa teraz wielopoziomowego parsowania API/Semantycznego dla ekstrakcji danych z otwartych baz, z notyfikacją na EventBus w razie błędu struktury HTML. Dodano Exponential Backoff do API Gemini zapobiegając przerwaniom łańcucha przez Rate Limiting.
+
+---
+
+### Nazwa operacji/zadania: Architektura Zero-Bleed Pipeline (Fundament Bazodanowy)
+**Po co to jest? (Cel biznesowy):** Wprowadzenie zintegrowanego ekosystemu do likwidacji wycieków finansowych w firmie. Moduł tworzy twarde struktury bazy danych Prisma dla Agentów operacyjnych: RMA (ochrona przed zwrotami/wyłudzeniami), IDP (automatyzacja odczytu kosztów faktur z modeli Vision LLM) oraz Virtual Logistics (zaopatrzenie B2B).
+**Gdzie to znaleźć? (Lokalizacja w kodzie):** 
+- Rozbudowa `prisma/schema.prisma` o nowe relacje.
+**Wymagania wstępne (Wiedza z kodu):**
+1. **Model `CustomerRiskProfile` (Fraud Prevention):** Tarcza anty-wyłudzeniowa. Zbiera dane kupujących z BaseLinkera. Posiada mechanikę "3 Strikes Rule" – na podstawie licznika `totalReturns` algorytm automatycznie wpycha klientów na czarną listę Allegro API (`isBlacklisted`).
+2. **Model `ReturnRecord`:** Przechowuje "dziennik zdarzeń" (getJournal z API BaseLinker). Zapisuje powody zwrotów (`reason`) poddając je sentyment-analizie w celu natychmiastowego blokowania budżetów reklamowych (Ads) na wadliwe partie towarów.
+3. **Modele `Supplier` i rozszerzenie `Product`:** Dodano `leadTimeDays` (wyliczenie czasu dostawy od producenta B2B) i zmapowano towary po `supplierId`. Fundament pod działanie Agenta Zaopatrzeniowca/Negocjatora, który zamawia dostawy tuż przed wyczerpaniem stocku z zapasem buforowym (Predictive Re-order Point).

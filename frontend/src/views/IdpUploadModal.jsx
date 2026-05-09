@@ -129,27 +129,42 @@ const IdpUploadModal = ({ isOpen, onClose, token }) => {
             </button>
 
             {result && (
-              <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-sm">
-                <div className="flex items-center text-emerald-700 mb-4">
+              <div className={`p-6 border rounded-sm ${result.requiresHumanValidation ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                <div className={`flex items-center mb-4 ${result.requiresHumanValidation ? 'text-amber-700' : 'text-emerald-700'}`}>
                   <CheckCircle2 className="w-5 h-5 mr-2" />
-                  <span className="font-black uppercase tracking-widest text-sm">Sukces Ekstrakcji</span>
+                  <span className="font-black uppercase tracking-widest text-sm">
+                    {result.requiresHumanValidation ? 'Ekstrakcja Zakończona (Alerty na Kanbanie)' : 'Sukces Ekstrakcji'}
+                  </span>
                 </div>
                 <div className="space-y-2 text-sm font-bold text-slate-700">
-                  <div className="flex justify-between border-b border-emerald-100 pb-2">
-                    <span>Odczytane pozycje:</span>
-                    <span className="font-black text-emerald-700">{result.processedItems}</span>
+                  <div className={`flex justify-between border-b pb-2 ${result.requiresHumanValidation ? 'border-amber-100' : 'border-emerald-100'}`}>
+                    <span>Odczytane wiersze z faktury:</span>
+                    <span className={`font-black ${result.requiresHumanValidation ? 'text-amber-700' : 'text-emerald-700'}`}>{result.processedItems}</span>
                   </div>
-                  <div className="flex justify-between border-b border-emerald-100 pb-2">
-                    <span>Zaktualizowane w Bazie:</span>
-                    <span className="font-black text-emerald-700">{result.updatedProductsCount}</span>
+                  <div className={`flex justify-between border-b pb-2 ${result.requiresHumanValidation ? 'border-amber-100' : 'border-emerald-100'}`}>
+                    <span>Status PIM (Zaakceptowane lub Odrzucone):</span>
+                    <span className={`font-black ${result.requiresHumanValidation ? 'text-amber-700' : 'text-emerald-700'}`}>{result.details?.length || 0}</span>
                   </div>
                 </div>
-                {result.items && result.items.length > 0 && (
+                
+                {result.requiresHumanValidation && (
+                  <div className="mt-4 p-3 bg-white border border-amber-200 text-amber-800 text-xs font-bold rounded-sm">
+                    <span className="text-[10px] font-black uppercase tracking-widest block mb-1">⚠️ Human-in-the-loop:</span>
+                    Agent Wizyjny zablokował zapisanie niektórych kosztów z powodu niskiej czytelności. Udaj się na tablicę Kanban, aby ręcznie zweryfikować zablokowane EAN-y.
+                  </div>
+                )}
+
+                {result.details && result.details.length > 0 && (
                   <div className="mt-4">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 block mb-2">Rozpoznane EAN-y:</span>
-                    <div className="flex flex-wrap gap-2">
-                      {result.items.map((i, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-white border border-emerald-200 text-emerald-700 text-[10px] font-black rounded-sm">{i.ean}</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 block mb-2">Raport wierszy:</span>
+                    <div className="flex flex-col gap-1 max-h-32 overflow-y-auto custom-scrollbar">
+                      {result.details.map((i, idx) => (
+                        <div key={idx} className="flex justify-between items-center px-2 py-1 bg-white border border-slate-200 rounded-sm">
+                          <span className="text-[10px] font-black text-slate-700">{i.ean}</span>
+                          <span className={`text-[9px] font-bold uppercase ${i.status === 'UPDATED' ? 'text-emerald-600' : i.status === 'BLOCKED_LOW_CONFIDENCE' ? 'text-amber-600' : 'text-slate-400'}`}>
+                            {i.status}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   </div>

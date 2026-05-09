@@ -36,8 +36,8 @@ async function processInvoice(req, res) {
             });
         }
         
-        // Logika przetwarzania faktury
-        const result = await idpService.processInvoiceAndApplyCosts(req.file.buffer);
+        // Logika przetwarzania faktury (Vision AI)
+        const result = await idpService.processInvoiceAndApplyCosts(req.file.buffer, uploaderId, req.file.originalname);
         res.status(200).json({ success: true, data: result, documentUrl: fileUrl });
     } catch (err) {
         console.error("IDP Controller Error:", err.message);
