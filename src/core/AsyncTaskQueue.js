@@ -1,6 +1,6 @@
 const socketService = require('./socket');
 const EventBus = require('./EventBus');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 /**
  * Prosty system kolejkowania zadań w tle (Message Broker in-memory).
@@ -24,7 +24,7 @@ class AsyncTaskQueue {
     enqueue(taskName, userId, taskFn) {
         // Fallback dla userId (jesli system)
         const uid = userId || 'system';
-        const taskId = uid + '_' + Date.now();
+        const taskId = uid + '_' + crypto.randomUUID();
         
         this.queue.push({
             id: taskId,
