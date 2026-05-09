@@ -93,6 +93,26 @@ class AllegroEconomicsService {
      * nie przekracza dopuszczalnego Max CPA obliczonego przez Unit Economics.
      */
     async validateAdProfitability(productId, currentCpaNet, options = {}) {
+        // [Tarcza Błędów / Bezpiecznik BaseLinker] Weryfikacja świeżości danych
+        const productData = await prisma.product.findUnique({ where: { id: productId }, select: { updatedAt: true } });
+        if (!productData) throw new Error("Nie znaleziono produktu w PIM.");
+        
+        const lastSync = productData.updatedAt ? new Date(productData.updatedAt).getTime() : 0;
+        const minutesSinceSync = (Date.now() - lastSync) / (1000 * 60);
+        
+        if (minutesSinceSync > 15) {
+            console.warn(`[Defensive AI] 🛡️ Blokada odcięcia CPC. Dane produktu ${productId} pochodzą sprzed ${Math.round(minutesSinceSync)} min. Zablokowano algorytm cięcia stawek ze względu na możliwy lag API BaseLinkera.`);
+            return {
+                economics: null,
+                currentCpaNet,
+                isBleeding: false, // Fallback zapadni - NIGDY NIE ODCIĄGAJ KAMPANII W RAZIE WĄTPLIWOŚCI
+                actualNetProfit: 0,
+                actualRoiPct: 0,
+                safeLocked: true,
+                message: "Odcięcie CPC zablokowane - dane PIM nie są wystarczająco świeże (< 15 min)."
+            };
+        }
+
         const economics = await this.calculateUnitEconomics(productId, options);
         
         // Jeśli nasz rzeczywisty koszt kliknięć prowadzących do zakupu (CPA) 

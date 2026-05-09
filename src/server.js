@@ -155,6 +155,9 @@ registerTasksListeners();
 registerMdmListeners();
 
 // Automatyzacje Cron
+const { initCronJobs } = require('./core/cron');
+initCronJobs();
+
 cron.schedule('0 8 * * *', async () => {
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
     const tasks = await prisma.task.findMany({ where: { status: { not: 'DONE' }, dueDate: { lte: tomorrow, not: null } }, include: { assignees: true } });

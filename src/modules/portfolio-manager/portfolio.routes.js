@@ -9,6 +9,7 @@ const DataPurityGuard = require('./data.purity.guard');
 const MarginOverseer = require('./margin.overseer');
 const EbookGeneratorService = require('./ebook.generator.service');
 const SmartSentinelService = require('./smart.sentinel.service');
+const AsyncTaskQueue = require('../../core/AsyncTaskQueue');
 
 // POST /api/portfolio/analyze
 router.post('/analyze', async (req, res) => {
@@ -89,16 +90,29 @@ router.post('/ebook/generate', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Brak productName lub targetAudience.' });
         }
         
-        console.log(`[API] Żądanie z frontendu: generowanie E-Booka Zero-Cost Value dla ${productName}...`);
-        const pdfPath = await EbookGeneratorService.generateZeroCostValueEbook(productName, targetAudience);
+        console.log(`[API] Zlecono asynchroniczne generowanie E-Booka Zero-Cost Value dla ${productName}...`);
         
-        // Zwracamy po prostu relatywną ścieżkę do pobrania, express może to wystawić lub możemy
-        // odesłać plik jako strumień. Odsyłamy link.
-        const fileName = path.basename(pdfPath);
-        res.json({ success: true, data: { url: `/uploads/ebooks/${fileName}` } });
+        // Pobieramy ID uzytkownika z req.user (middleware JWT) jesli istnieje, lub z body
+        const userId = req.user ? req.user.id : (req.body.userId || 'system');
+        
+        const taskId = AsyncTaskQueue.enqueue(
+            'EBOOK_GENERATION', 
+            userId, 
+            async () => {
+                const pdfPath = await EbookGeneratorService.generateZeroCostValueEbook(productName, targetAudience);
+                const fileName = path.basename(pdfPath);
+                return { url: `/uploads/ebooks/${fileName}` };
+            }
+        );
+        
+        res.status(202).json({ 
+            success: true, 
+            message: 'Zadanie dodane do kolejki w tle.',
+            taskId: taskId
+        });
         
     } catch (error) {
-        console.error('[API] Błąd EbookGeneratorService:', error);
+        console.error('[API] Błąd kolejkowania EbookGeneratorService:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });

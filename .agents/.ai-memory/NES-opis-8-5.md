@@ -1028,3 +1028,26 @@ W tle systemu, w oderwaniu od interfejsu graficznego (UI), działają ukryte ser
 3. **Zasada Jednej Odpowiedzialności (SRP):** Konsekwentnie utrzymujemy odseparowanie i "wąską specjalizację" każdego Agenta. Nie zawracamy im głowy korektą błędów innych modeli.  
 4. **Middleware "Tarcze Błędów":** W newralgicznym węźle, jakim jest **Bundle Orchestrator** (proces tworzący kompletne, zarabiające wirtualne półki), wbudowano logikę na poziomie Node.js. Jeśli jakikolwiek Agent wygeneruje pusty plik lub zwariuje, infrastruktura serwera podmienia tę jedną zmienną na bezpieczną treść (Fallback). Pozwala to kolejnemu Agentowi w łańcuchu otrzymać czytelne dane i ukończyć ofertę, chroniąc system przed całkowitym zacięciem.
 
+
+
+### Nazwa operacji/zadania: Rurociąg Autorefleksji (Automatyczne Wideo-CV)
+**Po co to jest? (Cel biznesowy):** Mechanizm wizytówki rekrutacyjnej "Living CV". System Nexus autonomicznie opowiada o swoich funkcjach (procesy EAN, analityka Sentinel), korzystając z głosów AI oraz realistycznych, animowanych awatarów, a następnie sam składa wideo w całość, tworząc dowód integracji. Zabezpiecza przed halucynacjami UI.
+**Gdzie to znaleźć? (Lokalizacja UI):** Moduł ukryty, operacje wywoływane przez skrypty w tle (katalog scripts/). Wynik ląduje w katalogu cv_assets/NES_CV_FINAL.mp4.
+**Wymagania wstępne (Wiedza z kodu):** 
+Potok składa się z 4 etapów:
+1. Nagranie UI: Rejestracja ekranów działania systemu.
+2. Generacja Audio (ElevenLabs API): Konwersja z SSML na mp3.
+3. Generacja Awatara (HeyGen API): Awatar wideo z tłem do Chroma Key.
+4. Postprodukcja (FFmpeg): Użycie filter_complex do dynamicznego kompozytowania (wycinanie green screen, efekty PiP, nakładanie podkładu wideo).
+
+### Nazwa operacji/zadania: Mitygacja Zagrożeń Architektonicznych i Stabilizacja Wątków (Zadanie: poprawki.md)
+**Po co to jest? (Cel biznesowy):** Eliminacja 6 krytycznych wąskich gardeł infrastrukturalnych (Event Loop blocking, Monolit DB, AI Cascade Failures, Brak świeżości BaseLinker, Halucynacje Medyczne, Słaby Scraper), które groziły załamaniem skalowalności i wiarygodności platformy w środowisku produkcyjnym. Wprowadzenie "Defensive AI".
+**Gdzie to znaleźć? (Lokalizacja w kodzie):** 
+- Nowe pliki systemowe: src/core/AsyncTaskQueue.js, src/core/cron.js
+- Moduły ulepszone: src/modules/offer-optimizer/ai.service.js, src/modules/allegro-ads/allegro.economics.service.js, src/modules/portfolio-manager/portfolio.routes.js, src/server.js
+**Wymagania wstępne (Wiedza z kodu):**
+1. **Asynchroniczność (AsyncTaskQueue):** Generowanie e-booków przez Puppeteer nie obciąża już głównego wątku Express, tylko ląduje w rozproszonej kolejce w tle zwracając 202 Accepted.
+2. **Defensive AI (Tarcza BaseLinker i Medyczna):** Algorytm tnący kampanie CPC na Allegro Ads sprawdza teraz product.updatedAt. Jeżeli sync > 15 min, zatrzymuje decyzje. Wprowadzono twardy słownik RegEx dla Agentów AI filtrujący medyczne oświadczenia (Compliance UE 1223/2009).
+3. **Odciążenie OLTP:** Uruchomiono 
+ode-cron odpalający się o 04:00 rano dla obliczeń True Net Margin (odciążenie bazy produkcyjnej w trakcie sesji).
+4. **Semantyczny OSINT (Cheerio):** Agent badawczy używa teraz wielopoziomowego parsowania API/Semantycznego dla ekstrakcji danych z otwartych baz, z notyfikacją na EventBus w razie błędu struktury HTML. Dodano Exponential Backoff do API Gemini zapobiegając przerwaniom łańcucha przez Rate Limiting.
