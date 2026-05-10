@@ -1044,6 +1044,19 @@ W tle systemu, w oderwaniu od interfejsu graficznego (UI), działają ukryte ser
 
 ---
 
+### Nazwa operacji/zadania: Moduł Kalendarza (Nexus Booking / Calendly-Clone)
+**Po co to jest? (Cel biznesowy):** Implementacja profesjonalnego narzędzia do automatyzacji umawiania spotkań dla rekruterów i head hunterów z branży IT, podnoszącego prestiż oraz eliminującego wymianę e-maili ("back-and-forth").
+**Gdzie to znaleźć? (Lokalizacja w kodzie):** 
+- Modele BD: `MeetingAvailability`, `MeetingBooking` (w `prisma/schema.prisma`)
+- Backend API: `src/modules/meetings/meetings.routes.js`, `src/modules/meetings/meetings.controller.js`
+- Frontend UI: `frontend/src/views/PublicBookingView.jsx` (link publiczny `/book`), `frontend/src/views/MeetingDashboardView.jsx` (zarządzanie dla Admina).
+**Wymagania wstępne (Wiedza z kodu):**
+1. **Publiczny interfejs (/book):** Omija barierę logowania w `App.jsx`. Dynamicznie odpytuje endpoint `/api/meetings/public/availability`, który oblicza wolne sloty na podstawie grafiku pracy, odrzucając już zarezerwowane terminy (ochrona przed Double Booking).
+2. **Integracja z Kanbanem:** Skuteczna rezerwacja spotkania przez rekrutera wywołuje systemowy event na `EventBus` (`CREATE_SYSTEM_TASK`), co automatycznie generuje na tablicy Kanban kartę zadania (PRIORITY: HIGH) z kompletem danych i opisem (JD).
+3. **Zarządzanie:** Wewnętrzny panel ERP ("Meeting Dashboard") pozwala administratorowi definiować "Sloty" czasowe na poszczególne dni tygodnia oraz ręcznie odrzucać/zatwierdzać zapytania, które trafiły z publicznego linku.
+
+---
+
 ### Nazwa operacji/zadania: Rurociąg Autorefleksji (Automatyczne Wideo-CV)
 **Po co to jest? (Cel biznesowy):** Mechanizm wizytówki rekrutacyjnej "Living CV". System Nexus autonomicznie opowiada o swoich funkcjach (procesy EAN, analityka Sentinel), korzystając z głosów AI oraz realistycznych, animowanych awatarów, a następnie sam składa wideo w całość, tworząc dowód integracji. Zabezpiecza przed halucynacjami UI.
 **Gdzie to znaleźć? (Lokalizacja UI):** Moduł ukryty, operacje wywoływane przez skrypty w tle (katalog scripts/). Wynik ląduje w katalogu cv_assets/NES_CV_FINAL.mp4.

@@ -130,6 +130,7 @@ const analyticsRoutes = require('./modules/analytics/analytics.routes');
 const portfolioRoutes = require('./modules/portfolio-manager/portfolio.routes');
 const rmaRoutes = require('./modules/rma/rma.routes');
 const logisticsRoutes = require('./modules/logistics/logistics.routes');
+const meetingsRoutes = require('./modules/meetings/meetings.routes');
 const { registerCommunicationListeners } = require('./modules/communication/communication.listeners');
 const { registerCampaignListeners } = require('./modules/campaigns/campaigns.listeners');
 const { registerTasksListeners } = require('./modules/tasks/tasks.listeners');
@@ -199,6 +200,7 @@ app.use('/api/analytics', authenticateToken, analyticsRoutes);
 app.use('/api/portfolio', authenticateToken, portfolioRoutes);
 app.use('/api/rma', rmaRoutes);
 app.use('/api/logistics', logisticsRoutes);
+app.use('/api/meetings', meetingsRoutes); // Zawiera cześć chronioną i publiczną
 // Faza 15: Integracja Optymalizatora Ofert
 app.use('/api/offer-optimizer', authenticateToken, offerOptimizerRoutes);
 

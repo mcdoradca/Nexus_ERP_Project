@@ -15,6 +15,8 @@ import AllegroAdsMonitor from './views/AllegroAdsMonitor';
 import PortfolioManagerView from './views/PortfolioManagerView';
 import GodModeAnalyticsView from './views/GodModeAnalyticsView';
 import ZeroBleedHubView from './views/ZeroBleedHubView';
+import PublicBookingView from './views/PublicBookingView';
+import MeetingDashboardView from './views/MeetingDashboardView';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { 
@@ -1372,8 +1374,12 @@ function App() {
     );
   };
 
-  if (!token) return renderLogin();
+  // --- KRYTYCZNE: BRAMKA PUBLICZNA DLA KALENDARZA REKRUTERÓW ---
+  if (window.location.pathname === '/book') {
+      return <PublicBookingView API_URL={API_URL} />;
+  }
 
+  if (!token) return renderLogin();
 
   return (
       <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden relative">
@@ -1410,6 +1416,9 @@ function App() {
               </button>
               <button onClick={() => setActiveTab('zero-bleed')} title="Zero-Bleed Hub" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all mt-4 ${activeTab === 'zero-bleed' ? 'bg-slate-100 text-slate-900 shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
                 <AlertOctagon className="w-5 h-5" />
+              </button>
+              <button onClick={() => setActiveTab('meetings')} title="Kalendarz / Calendly" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all mt-4 ${activeTab === 'meetings' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+                <Calendar className="w-5 h-5" />
               </button>
             </>
           )}
@@ -1533,6 +1542,7 @@ function App() {
             {activeTab === 'portfolio' && <PortfolioManagerView token={token} API_URL={API_URL} />}
             {activeTab === 'sentinel' && <GodModeAnalyticsView token={token} API_URL={API_URL} />}
             {activeTab === 'zero-bleed' && <ZeroBleedHubView token={token} API_URL={API_URL} />}
+            {activeTab === 'meetings' && <MeetingDashboardView token={token} API_URL={API_URL} />}
             {activeTab === 'mtool' && <MToolView token={token} API_URL={API_URL} currentUser={currentUser} campaigns={campaigns} />}
             {activeTab === 'projects' && <ProjectsView projects={projects} tasks={tasks} currentUser={currentUser} setIsNewProjectModalOpen={setIsNewProjectModalOpen} setSelectedProject={setSelectedProject} devMode={devMode} />}
             {activeTab === 'crm' && <CrmView token={token} API_URL={API_URL} currentUser={currentUser} fetchAppGlobalData={fetchData} />}

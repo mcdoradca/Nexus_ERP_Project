@@ -624,3 +624,35 @@ model ReturnRecord {
   @@index([customerLogin])
   @@index([productId])
 }
+
+// ==========================================
+// MEETINGS & CALENDAR MODELS
+// ==========================================
+
+model MeetingAvailability {
+  id           String   @id @default(uuid())
+  dayOfWeek    Int      // 0 = Niedziela, 1 = Poniedziałek, ...
+  startTime    String   // "09:00"
+  endTime      String   // "17:00"
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model MeetingBooking {
+  id              String   @id @default(uuid())
+  recruiterName   String
+  recruiterEmail  String
+  companyName     String?
+  jobDescription  String?  @db.Text
+  meetingDate     DateTime
+  startTime       String   // "14:30"
+  durationMinutes Int      @default(30)
+  status          String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED
+  timezone        String   @default("Europe/Warsaw")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([meetingDate])
+  @@index([status])
+}
