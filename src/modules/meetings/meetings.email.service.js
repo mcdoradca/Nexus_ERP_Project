@@ -1,25 +1,59 @@
 const nodemailer = require('nodemailer');
+const cryptoService = require('../../core/crypto.service');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 class MeetingsEmailService {
-    constructor() {
-        // Konfiguracja do środowisk developerskich lub produkcyjnych
-        // Można podmienić pod SMTP Gmail, Amazon SES itp.
-        this.transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-            port: process.env.SMTP_PORT || 587,
-            secure: process.env.SMTP_SECURE === 'true',
+    async createDynamicTransporter(userId) {
+        if (!userId) return null;
+        
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user || !user.smtpHost || !user.smtpUser || !user.smtpPassword) {
+            return null; // Brak skonfigurowanej skrzynki dla pracownika
+        }
+
+        const decryptedPassword = cryptoService.decrypt(user.smtpPassword);
+        if (!decryptedPassword) return null;
+
+        return nodemailer.createTransport({
+            host: user.smtpHost,
+            port: user.smtpPort || 465,
+            secure: (user.smtpPort === 465),
             auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS
+                user: user.smtpUser,
+                pass: decryptedPassword
             }
         });
     }
 
-    async sendConfirmation(booking, meetLink) {
-        if (!process.env.SMTP_HOST && !process.env.SMTP_USER) {
-            console.log('[MeetingsEmailService] ⚠️ Brak konfiguracji SMTP (.env). E-mail zostałby wysłany do:', booking.recruiterEmail);
-            console.log('[MeetingsEmailService] DRAFT:', meetLink);
-            return;
+    async sendConfirmation(booking, meetLink, activeUser = null) {
+        let transporter = null;
+        let senderEmail = process.env.SMTP_USER || 'no-reply@nexus.local';
+
+        // 1. Próbujemy stworzyć transporter ze skrzynki pracownika zatwierdzającego
+        if (activeUser && activeUser.id) {
+            transporter = await this.createDynamicTransporter(activeUser.id);
+            if (transporter) {
+                const user = await prisma.user.findUnique({ where: { id: activeUser.id } });
+                senderEmail = user.smtpUser;
+            }
+        }
+
+        // 2. Fallback: Jeśli pracownik nie ma skrzynki, używamy globalnej z pliku .env
+        if (!transporter) {
+            if (!process.env.SMTP_HOST && !process.env.SMTP_USER) {
+                console.log('[MeetingsEmailService] ⚠️ Brak konfiguracji SMTP pracownika i brak .env. E-mail zostałby wysłany do:', booking.recruiterEmail);
+                return;
+            }
+            transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST,
+                port: process.env.SMTP_PORT || 587,
+                secure: process.env.SMTP_SECURE === 'true',
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS
+                }
+            });
         }
 
         const dateStr = new Date(booking.meetingDate).toLocaleDateString('pl-PL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -56,13 +90,13 @@ class MeetingsEmailService {
         `;
 
         try {
-            await this.transporter.sendMail({
-                from: `"Nexus ERP" <${process.env.SMTP_USER || 'no-reply@nexus.local'}>`,
+            await transporter.sendMail({
+                from: `"Nexus ERP" <${senderEmail}>`,
                 to: booking.recruiterEmail,
                 subject: `Potwierdzenie spotkania: ${dateStr} o ${booking.startTime}`,
                 html: htmlTemplate
             });
-            console.log(`[MeetingsEmailService] ✅ E-mail wysłany pomyślnie do ${booking.recruiterEmail}`);
+            console.log(`[MeetingsEmailService] ✅ E-mail wysłany pomyślnie do ${booking.recruiterEmail} przez ${senderEmail}`);
         } catch (error) {
             console.error('[MeetingsEmailService] ❌ Błąd wysyłki e-mail:', error.message);
         }

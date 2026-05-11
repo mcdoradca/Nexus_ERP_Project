@@ -361,6 +361,23 @@ function App() {
     }
   };
 
+  const handleUpdateSmtpConfig = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.patch(`${API_URL}/api/users/${editingUser.id}/smtp`, {
+        smtpHost: editingUser.smtpHost,
+        smtpPort: editingUser.smtpPort,
+        smtpUser: editingUser.smtpUser,
+        smtpPassword: editingUser.smtpPassword
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      
+      alert('Zapisano konfigurację SMTP!');
+    } catch (err) {
+      console.error('Błąd konfiguracji SMTP:', err);
+      alert('Nie udało się zapisać konfiguracji SMTP. ' + (err.response?.data?.error || ''));
+    }
+  };
+
   const handleUpdateTaskStatus = async (taskId, status) => {
     try {
       await axios.patch(`${API_URL}/api/tasks/${taskId}/status`, { status }, { headers: { Authorization: `Bearer ${token}` } });
@@ -871,6 +888,32 @@ function App() {
                   <div>
                     <label className={labelClass}>Nowe Hasło (Pole Zabezpieczone)</label>
                     <input type="password" placeholder="...zostaw rygorystycznie puste wyłączając procedurę ratunkową zmiany hasła" className={`${inputClass} !bg-white focus:!border-rose-300 focus:!ring-rose-500/20`} value={editingUser.password || ''} onChange={e => setEditingUser({...editingUser, password: e.target.value})} />
+                  </div>
+                </div>
+
+                <div className="p-6 bg-slate-50/50 border border-slate-300 rounded-sm space-y-4 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-slate-200/50 blur-3xl rounded-full pointer-events-none"></div>
+                  <h4 className="text-[10px] font-black text-slate-800 uppercase tracking-[0.2em] mb-2 flex justify-between items-center">
+                    <span>Konfiguracja SMTP (Poczta Wychodząca)</span>
+                    <button type="button" onClick={handleUpdateSmtpConfig} className="px-3 py-1 bg-slate-800 text-white hover:bg-slate-700 rounded-sm text-[8px] transition-all">Zapisz tylko SMTP</button>
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClass}>Serwer SMTP (Host)</label>
+                      <input type="text" placeholder="np. ssl0.ovh.net" className={inputClass} value={editingUser.smtpHost || ''} onChange={e => setEditingUser({...editingUser, smtpHost: e.target.value})} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Port SMTP</label>
+                      <input type="number" placeholder="465" className={inputClass} value={editingUser.smtpPort || ''} onChange={e => setEditingUser({...editingUser, smtpPort: e.target.value})} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Użytkownik (Adres E-mail Skrzynki)</label>
+                    <input type="email" placeholder="np. kontakt@n-e-s.it" className={inputClass} value={editingUser.smtpUser || ''} onChange={e => setEditingUser({...editingUser, smtpUser: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Hasło SMTP</label>
+                    <input type="password" placeholder="...podaj hasło do skrzynki (zostanie zaszyfrowane w bazie)" className={`${inputClass} !bg-white focus:!border-rose-300 focus:!ring-rose-500/20`} value={editingUser.smtpPassword || ''} onChange={e => setEditingUser({...editingUser, smtpPassword: e.target.value})} />
                   </div>
                 </div>
 

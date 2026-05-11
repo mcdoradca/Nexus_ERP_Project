@@ -23,6 +23,13 @@ model User {
   passwordHash           String
   activeTaskId           String?
   accessibleModules      String[]           @default(["kanban", "campaigns", "projects", "products", "chat"])
+  
+  // Konfiguracja Skrzynki Pocztowej (Multitenancy Email)
+  smtpHost               String?
+  smtpPort               Int?
+  smtpUser               String?
+  smtpPassword           String? // Zaszyfrowane hasło
+
   authoredAnnouncements  Announcement[]
   readAnnouncements      AnnouncementRead[]
   uploadedAssets         CampaignAsset[]

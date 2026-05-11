@@ -1089,3 +1089,14 @@ ode-cron odpalający się o 04:00 rano dla obliczeń True Net Margin (odciążen
 1. **Model `CustomerRiskProfile` (Fraud Prevention):** Tarcza anty-wyłudzeniowa. Zbiera dane kupujących z BaseLinkera. Posiada mechanikę "3 Strikes Rule" – na podstawie licznika `totalReturns` algorytm automatycznie wpycha klientów na czarną listę Allegro API (`isBlacklisted`).
 2. **Model `ReturnRecord`:** Przechowuje "dziennik zdarzeń" (getJournal z API BaseLinker). Zapisuje powody zwrotów (`reason`) poddając je sentyment-analizie w celu natychmiastowego blokowania budżetów reklamowych (Ads) na wadliwe partie towarów.
 3. **Modele `Supplier` i rozszerzenie `Product`:** Dodano `leadTimeDays` (wyliczenie czasu dostawy od producenta B2B) i zmapowano towary po `supplierId`. Fundament pod działanie Agenta Zaopatrzeniowca/Negocjatora, który zamawia dostawy tuż przed wyczerpaniem stocku z zapasem buforowym (Predictive Re-order Point).
+
+---
+
+### Nazwa operacji/zadania: Multitenancy SMTP (Spersonalizowane Skrzynki Pocztowe Pracowników)
+**Po co to jest? (Cel biznesowy):** Moduł odchodzi od archaicznego używania pojedynczego systemowego maila z pliku `.env`. Pozwala na wysyłanie przez system Nexus wiadomości (np. potwierdzeń Google Meet z kalendarza) w imieniu konkretnego rekrutera/handlowca z jego własnego adresu i serwera SMTP (np. w OVH, Hostinger). Daje absolutną izolację i kontrolę bezpieczeństwa administratorowi nad pracownikami.
+**Gdzie to znaleźć? (Lokalizacja UI):** 
+Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dostęp do edycji SMTP zablokowany wyłącznie dla ról `SUPER_ADMIN` i `ADMIN`).
+**Wymagania wstępne (Wiedza z kodu):**
+1. **Model `User` w Prisma:** Rozbudowany o kolumny `smtpHost`, `smtpPort`, `smtpUser`, `smtpPassword`. Hasła pracowników nie są przechowywane jawnym tekstem! Przechodzą obustronne szyfrowanie kryptograficzne w AES-256 używając klucza głównego serwera.
+2. **Kryptografia (Defensive Tech):** Rdzeń `src/core/crypto.service.js` odpowiada za wstrzykiwanie unikalnego Inicjalizatora (IV) w hasło poczty. Zapobiega to całkowitemu wyciekowi skrzynek w przypadku naruszenia tabeli bazy danych.
+3. **Dynamiczny Agent Pocztowy:** Usługa `meetings.email.service.js` przed próbą wysłania maila uderza asynchronicznie do bazy z zapytaniem o id aktywnego operatora generującego akcję. Deszyfruje jego poświadczenia w locie, w pamięci RAM, ładuje w transporter Nodemailer i niszczy wskaźnik do hasła. Posiada mechanizm Fallback do `.env` na wypadek pustej konfiguracji w profilu.

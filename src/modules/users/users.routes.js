@@ -9,5 +9,6 @@ router.get('/', authenticateToken, usersController.getUsers);
 // POST i PATCH - Tylko Admin i Prezes
 router.post('/', authenticateToken, requireSuperUser, usersController.createUser);
 router.patch('/:id', authenticateToken, requireSuperUser, usersController.updateUser);
+router.patch('/:id/smtp', authenticateToken, requireSuperUser, usersController.updateSmtpConfig);
 
 module.exports = router;

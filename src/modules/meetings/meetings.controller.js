@@ -182,7 +182,7 @@ async function updateBookingStatus(req, res) {
         if (status === 'CONFIRMED' && bookingData.status !== 'CONFIRMED') {
             // Generujemy wirtualny link Google Meet - można go zamienić na API Google w przyszłości
             const meetLink = `https://meet.google.com/nex-us${booking.id.substring(0,4)}-erp`;
-            await emailService.sendConfirmation(booking, meetLink);
+            await emailService.sendConfirmation(booking, meetLink, req.user); // Przekazanie aktywnego usera
         }
 
         res.status(200).json(booking);

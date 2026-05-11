@@ -5,7 +5,7 @@ const EventBus = require('../../core/EventBus');
 async function getAllUsers() {
     return prisma.user.findMany({ 
         orderBy: { name: 'asc' }, 
-        select: { id: true, name: true, group: true, department: true, color: true, activeTaskId: true, email: true, role: true, isActive: true, accessibleModules: true } 
+        select: { id: true, name: true, group: true, department: true, color: true, activeTaskId: true, email: true, role: true, isActive: true, accessibleModules: true, smtpUser: true, smtpHost: true, smtpPort: true } 
     });
 }
 
@@ -42,4 +42,19 @@ async function updateUser(id, data, editorId) {
     return updatedUser;
 }
 
-module.exports = { getAllUsers, createUser, updateUser };
+async function updateUserSmtpConfig(id, data, editorId) {
+    const { smtpHost, smtpPort, smtpUser, smtpPassword } = data;
+    const cryptoService = require('../../core/crypto.service');
+    
+    const updateData = { smtpHost, smtpPort: parseInt(smtpPort, 10), smtpUser };
+    
+    if (smtpPassword && smtpPassword.trim() !== '') {
+        updateData.smtpPassword = cryptoService.encrypt(smtpPassword);
+    }
+    
+    const updatedUser = await prisma.user.update({ where: { id }, data: updateData });
+    EventBus.publish('UserSmtpConfigured', { userId: id, editorId, timestamp: new Date() });
+    return updatedUser;
+}
+
+module.exports = { getAllUsers, createUser, updateUser, updateUserSmtpConfig };
