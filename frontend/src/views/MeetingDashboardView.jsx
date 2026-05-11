@@ -210,7 +210,7 @@ const MeetingDashboardView = ({ token, API_URL }) => {
                                         <div className="bg-emerald-50 text-emerald-700 text-[10px] font-black flex items-center px-3 py-1.5 rounded-lg border border-emerald-200 w-full">
                                             <Video className="w-3 h-3 mr-2" /> 
                                             <a href={`https://meet.google.com/nex-us${b.id.substring(0,4)}-erp`} target="_blank" rel="noopener noreferrer" className="hover:underline truncate">
-                                                meet.google.com/nex-us${b.id.substring(0,4)}-erp
+                                                {`meet.google.com/nex-us${b.id.substring(0,4)}-erp`}
                                             </a>
                                         </div>
                                     </div>
@@ -222,6 +222,7 @@ const MeetingDashboardView = ({ token, API_URL }) => {
                                     </div>
                                 )}
                                 
+                                {b.status === 'PENDING' && (
                                     <div className="flex space-x-2 pt-3 border-t border-slate-100">
                                         <button onClick={() => updateBookingStatus(b.id, 'CONFIRMED')} className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-400 text-white text-[10px] font-black uppercase tracking-widest rounded-lg flex items-center justify-center transition-colors">
                                             <CheckCircle className="w-3 h-3 mr-1" /> Potwierdź
