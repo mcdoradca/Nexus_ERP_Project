@@ -30,7 +30,8 @@ async function checkEmailsForUser(user) {
             host: host,
             port: 993,
             tls: true,
-            authTimeout: 5000,
+            connTimeout: 15000,
+            authTimeout: 15000,
             tlsOptions: { rejectUnauthorized: false }
         }
     };
@@ -40,12 +41,23 @@ async function checkEmailsForUser(user) {
         connection = await imaps.connect(config);
         await connection.openBox('INBOX');
 
-        const lastUid = lastSeenUidMap.get(user.id) || 1;
-        const searchCriteria = [['UID', `${lastUid}:*`]];
+        // Pobierzemy tylko NIEPRZECZYTANE wiadomości
+        const searchCriteria = [['UNSEEN']];
         const fetchOptions = { bodies: ['HEADER'], struct: true, markSeen: false };
 
         const messages = await connection.search(searchCriteria, fetchOptions);
         
+        // Jeśli to pierwsze uruchomienie serwera dla tego usera, zapamiętajmy max UID i nie wysyłajmy spamu z historii.
+        if (!lastSeenUidMap.has(user.id)) {
+            let maxUid = 0;
+            for (const item of messages) {
+                if (item.attributes.uid > maxUid) maxUid = item.attributes.uid;
+            }
+            lastSeenUidMap.set(user.id, maxUid);
+            return; // Kończymy pierwsze zaciągnięcie
+        }
+
+        const lastUid = lastSeenUidMap.get(user.id);
         let newMaxUid = lastUid;
         
         for (const item of messages) {
@@ -56,7 +68,6 @@ async function checkEmailsForUser(user) {
                      const from = parsedHeader.from?.text || 'Nieznany nadawca';
                      const subject = parsedHeader.subject || 'Brak tematu';
                      
-                     // Zapisz powiadomienie do bazy by nie zniknęło
                      const notif = await prisma.notification.create({
                          data: {
                              userId: user.id,
@@ -65,13 +76,11 @@ async function checkEmailsForUser(user) {
                              type: 'email'
                          }
                      });
-                     
-                     // Wyślij live przez Socket
                      socketService.sendToUser(user.id, 'new_notification', notif);
                 }
-            }
-            if (item.attributes.uid > newMaxUid) {
-                newMaxUid = item.attributes.uid;
+                if (item.attributes.uid > newMaxUid) {
+                    newMaxUid = item.attributes.uid;
+                }
             }
         }
 
@@ -80,7 +89,6 @@ async function checkEmailsForUser(user) {
         console.error(`[IMAP] Błąd odczytu dla ${user.email}:`, err.message);
     } finally {
         if (connection) connection.end();
-        // Czyść pamięć, bezpieczeństwo przed wyciekami hasła
         plainPassword = null; 
     }
 }

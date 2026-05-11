@@ -35,7 +35,11 @@ const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
 function App() {
   const [currentUser, setCurrentUser] = useState(JSON.parse(localStorage.getItem('aps_user')));
-  const [activeTab, setActiveTab] = useState(currentUser?.role === 'ADMIN' ? 'kanban' : 'dashboard');
+  const [activeTab, setActiveTab] = useState(localStorage.getItem('aps_last_tab') || (currentUser?.role === 'ADMIN' ? 'kanban' : 'dashboard'));
+  
+  useEffect(() => {
+      localStorage.setItem('aps_last_tab', activeTab);
+  }, [activeTab]);
   const [token, setToken] = useState(localStorage.getItem('aps_token'));
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   
