@@ -6,12 +6,19 @@ class GoogleMeetService {
         try {
             // Inicjalizacja Autoryzacji.
             // Aplikacja oczekuje poprawnego pliku w GOOGLE_APPLICATION_CREDENTIALS.
-            // Wymaga utworzonego Service Account z prawami Domain-Wide Delegation
-            // (w celu podszywania się pod autoryzowanego użytkownika z domeny Google Workspace),
-            // LUB musi zostać wywołana z podaniem poprawnego OAuth Bearer token z UI.
-            const auth = new GoogleAuth({
+            // Wymaga utworzonego Service Account z prawami Domain-Wide Delegation.
+            const authOptions = {
                 scopes: ['https://www.googleapis.com/auth/meetings.space.created']
-            });
+            };
+            
+            // Jeśli administrator wgra w .env e-mail do impersonacji (np. główny admin), użyjemy go w żądaniu
+            if (process.env.GOOGLE_IMPERSONATE_USER) {
+                authOptions.clientOptions = {
+                    subject: process.env.GOOGLE_IMPERSONATE_USER
+                };
+            }
+
+            const auth = new GoogleAuth(authOptions);
             this.meetClient = new SpacesServiceClient({ auth });
             this.isConfigured = true;
             console.log('[Google Meet Service] Załadowano biblioteki autoryzacji.');
