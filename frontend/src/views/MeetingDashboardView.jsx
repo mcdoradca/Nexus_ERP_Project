@@ -205,12 +205,12 @@ const MeetingDashboardView = ({ token, API_URL }) => {
                                 </div>
                                 
                                 {/* Link do Google Meet po akceptacji */}
-                                {b.status === 'CONFIRMED' && (
+                                {b.status === 'CONFIRMED' && b.meetLink && (
                                     <div className="flex items-center mb-4 mt-2">
                                         <div className="bg-emerald-50 text-emerald-700 text-[10px] font-black flex items-center px-3 py-1.5 rounded-lg border border-emerald-200 w-full">
-                                            <Video className="w-3 h-3 mr-2" /> 
-                                            <a href={`https://meet.google.com/nex-us${b.id.substring(0,4)}-erp`} target="_blank" rel="noopener noreferrer" className="hover:underline truncate">
-                                                {`meet.google.com/nex-us${b.id.substring(0,4)}-erp`}
+                                            <Video className="w-3 h-3 mr-2 shrink-0" /> 
+                                            <a href={b.meetLink} target="_blank" rel="noopener noreferrer" className="hover:underline truncate w-full">
+                                                {b.meetLink.replace('https://', '')}
                                             </a>
                                         </div>
                                     </div>

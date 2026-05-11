@@ -657,6 +657,7 @@ model MeetingBooking {
   durationMinutes Int      @default(30)
   status          String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED
   timezone        String   @default("Europe/Warsaw")
+  meetLink        String?  // Trwale zapisany, dynamiczny link do pokoju Google Meet API
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
