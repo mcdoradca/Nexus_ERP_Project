@@ -42,28 +42,20 @@ async function checkEmailsForUser(user) {
         await connection.openBox('INBOX');
 
         // Pobierzemy tylko NIEPRZECZYTANE wiadomości
-        const searchCriteria = [['UNSEEN']];
+        const searchCriteria = ['UNSEEN'];
         const fetchOptions = { bodies: ['HEADER'], struct: true, markSeen: false };
 
         const messages = await connection.search(searchCriteria, fetchOptions);
         
-        // Jeśli to pierwsze uruchomienie serwera dla tego usera, zapamiętajmy max UID i nie wysyłajmy spamu z historii.
-        if (!lastSeenUidMap.has(user.id)) {
-            let maxUid = 0;
-            for (const item of messages) {
-                if (item.attributes.uid > maxUid) maxUid = item.attributes.uid;
-            }
-            lastSeenUidMap.set(user.id, maxUid);
-            return; // Kończymy pierwsze zaciągnięcie
-        }
-
-        const lastUid = lastSeenUidMap.get(user.id);
+        const lastUid = lastSeenUidMap.get(user.id) || 0;
         let newMaxUid = lastUid;
         
+        let notificationsCount = 0;
+
         for (const item of messages) {
             if (item.attributes.uid > lastUid) {
                 const headerPart = item.parts.find(part => part.which === 'HEADER');
-                if (headerPart && headerPart.body) {
+                if (headerPart && headerPart.body && notificationsCount < 10) {
                      const parsedHeader = await simpleParser(headerPart.body);
                      const from = parsedHeader.from?.text || 'Nieznany nadawca';
                      const subject = parsedHeader.subject || 'Brak tematu';
@@ -77,6 +69,7 @@ async function checkEmailsForUser(user) {
                          }
                      });
                      socketService.sendToUser(user.id, 'new_notification', notif);
+                     notificationsCount++;
                 }
                 if (item.attributes.uid > newMaxUid) {
                     newMaxUid = item.attributes.uid;
