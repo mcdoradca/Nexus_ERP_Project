@@ -13,7 +13,11 @@ router.get('/god-mode', async (req, res) => {
         const report = await AnalyticsService.generateGodModeReport(null);
         res.json({ success: true, data: report });
     } catch (error) {
-        console.error('[API] Błąd God-Mode Analytics:', error);
+        console.error('[API] Błąd God-Mode Analytics:', error.message);
+        // Tarcza Błędów: Jeśli to brak danych z PIM, nie rzucajmy 500 (Server Error) bo psuje logi.
+        if (error.message.includes('PIM_')) {
+            return res.status(200).json({ success: false, error: error.message });
+        }
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -26,7 +30,10 @@ router.get('/god-mode/:sku', async (req, res) => {
         const report = await AnalyticsService.generateGodModeReport(sku);
         res.json({ success: true, data: report });
     } catch (error) {
-        console.error('[API] Błąd God-Mode Analytics:', error);
+        console.error('[API] Błąd God-Mode Analytics:', error.message);
+        if (error.message.includes('PIM_')) {
+            return res.status(200).json({ success: false, error: error.message });
+        }
         res.status(500).json({ success: false, error: error.message });
     }
 });
