@@ -6,6 +6,7 @@ const EventBus = require('../../core/EventBus');
 
 const activeConnections = new Map();
 const lastSeenUidMap = new Map();
+const notifiedUidsMap = new Map(); // Zamek pamięci zapobiegający Race Condition (wielokrotne powiadomienia o 1 mailu)
 
 async function setupImapConnectionForUser(user) {
     if (!user.smtpHost || !user.smtpUser || !user.smtpPassword) return;
@@ -21,6 +22,9 @@ async function setupImapConnectionForUser(user) {
         console.error(`[IMAP] Błąd deszyfracji dla uzytkownika ${user.email}`);
         return;
     }
+
+    if (!notifiedUidsMap.has(user.id)) notifiedUidsMap.set(user.id, new Set());
+    const notifiedUids = notifiedUidsMap.get(user.id);
 
     let connection;
 
@@ -47,7 +51,9 @@ async function setupImapConnectionForUser(user) {
                 let notificationsCount = 0;
 
                 for (const item of messages) {
-                    if (item.attributes.uid > lastUid) {
+                    if (item.attributes.uid > lastUid && !notifiedUids.has(item.attributes.uid)) {
+                        notifiedUids.add(item.attributes.uid); // Zablokowanie przed równoległymi pętlami Event Loop
+                        
                         const headerPart = item.parts.find(part => part.which === 'HEADER');
                         if (headerPart && headerPart.body && notificationsCount < 10) {
                              // BŁĄD HALUCYNACJI NAPRAWIONY: imap-simple ZWRACA OBIEKT, NIE RAW STRING. 

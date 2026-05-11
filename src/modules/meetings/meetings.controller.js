@@ -180,8 +180,14 @@ async function updateBookingStatus(req, res) {
 
         // Wysłanie eleganckiego e-maila po potwierdzeniu przez administratora!
         if (status === 'CONFIRMED' && bookingData.status !== 'CONFIRMED') {
-            // Generujemy wirtualny link Google Meet - można go zamienić na API Google w przyszłości
-            const meetLink = `https://meet.google.com/nex-us${booking.id.substring(0,4)}-erp`;
+            // Tarcza Formatowania: Generujemy wirtualny link Google Meet z rygorystycznym formatem 'xxx-yyyy-zzz' i brakiem cyfr
+            const letterMap = ['x','a','b','c','d','e','f','g','h','y'];
+            const meetCodeRaw = booking.id.replace(/-/g, '').split('').map(c => {
+                if (c >= '0' && c <= '9') return letterMap[parseInt(c)];
+                return c;
+            }).join('').substring(0, 10);
+            const meetLink = `https://meet.google.com/${meetCodeRaw.substring(0,3)}-${meetCodeRaw.substring(3,7)}-${meetCodeRaw.substring(7,10)}`;
+            
             await emailService.sendConfirmation(booking, meetLink, req.user); // Przekazanie aktywnego usera
         }
 
