@@ -1103,14 +1103,14 @@ Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dost
 
 ---
 
-### Nazwa operacji/zadania: Nasłuch IMAP w tle i WebSockets
+### Nazwa operacji/zadania: Nasłuch IMAP w tle (Real-Time IDLE Push)
 **Po co to jest? (Cel biznesowy):** Alternatywa dla wbudowanego, ociężałego klienta e-mail w ERP. Chroni pracownika przed ciągłym sprawdzaniem poczty (Zimbra/Hostinger) poprzez automatyczne wysyłanie notyfikacji na żywo na ekran, gdy w jego indywidualnej skrzynce wyląduje nowa wiadomość.
 **Gdzie to znaleźć? (Lokalizacja w kodzie):** 
-- Skrypt w tle: `src/modules/email/imap.listener.js` wywoływany przez Crona w `server.js`
+- Nasłuch w tle: `src/modules/email/imap.listener.js` inicjowany przez `server.js` w momencie startu serwera oraz reagujący na zdarzenia EventBus.
 **Wymagania wstępne (Wiedza z kodu):**
-1. **Lekki Klient:** Biblioteki `imap-simple` i `mailparser` w cichym workerze logują się na skrzynkę użytkownika pobierając jego hasło SMTP i deszyfrując je w locie.
-2. **Pamięć Stanu (Stateful):** Mechanizm `lastSeenUidMap` zapamiętuje ostatni odczytany e-mail (UID), by nie spamować użytkownika starymi mailami po każdym restarcie kontenera `node.js`.
-3. **Real-time Push:** Wykryta wiadomość zostaje przeparsowana i jako natywne zdarzenie ląduje u pracownika z wykorzystaniem Socket.IO.
+1. **Prawdziwy Real-Time (IDLE):** Skrypt zrezygnował z interwałowego sprawdzania poprzez Cron. Zamiast tego utrzymuje stałe połączenie TCP i nasłuchuje natywnego zdarzenia IMAP (`connection.on('mail')`). Moduł korzysta wyłącznie z `imap-simple`, który w locie parsuje nagłówki do natywnych obiektów JSON (nie ma potrzeby, ani możliwości parsowania ich przez zewnętrzny `mailparser`).
+2. **Pamięć Stanu (Stateful):** Mechanizm `lastSeenUidMap` zapamiętuje ostatni odczytany e-mail (UID), by nie spamować użytkownika starymi mailami po każdym restarcie kontenera `node.js`. Przy pierwszym podłączeniu skrypt "uczy się" najwyższego UID bez wysyłania powiadomień.
+3. **EventBus (Auto-Wznawianie):** Serwis jest całkowicie bezobsługowy. Subskrybuje szynę zdarzeń `UserSmtpConfigured` – gdy pracownik wpisze nowe hasło do skrzynki w ustawieniach, stare połączenie gniazda jest natychmiastowo niszczone, a w jego miejsce w locie zostaje zestawione nowe połączenie. Wykryta, nowa wiadomość zostaje natychmiast wypchnięta jako `new_notification` przez `Socket.IO`.
 
 ---
 
