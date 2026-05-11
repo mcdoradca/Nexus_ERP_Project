@@ -188,7 +188,7 @@ const MeetingDashboardView = ({ token, API_URL }) => {
                     <div className="p-5 overflow-y-auto custom-scrollbar space-y-4">
                         {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" /> : bookings.length === 0 ? <p className="text-center text-xs font-bold text-slate-400 py-10">Brak zarezerwowanych spotkań</p> : null}
                         
-                        {bookings.map(b => (
+                        {bookings.filter(b => b.status !== 'CANCELLED').map(b => (
                             <div key={b.id} className="p-5 border border-slate-200 rounded-xl hover:border-indigo-200 transition-colors bg-white shadow-sm">
                                 <div className="flex justify-between items-start mb-3">
                                     <div>
@@ -236,8 +236,11 @@ const MeetingDashboardView = ({ token, API_URL }) => {
                                     </div>
                                 )}
                                 {b.status !== 'PENDING' && (
-                                    <div className="flex justify-end pt-2 mt-2 border-t border-slate-100">
-                                        <button onClick={() => openEditModal(b)} className="text-[9px] font-black uppercase text-indigo-500 hover:underline flex items-center">
+                                    <div className="flex justify-end space-x-3 pt-2 mt-2 border-t border-slate-100">
+                                        <button onClick={() => updateBookingStatus(b.id, 'CANCELLED')} className="text-[9px] font-black uppercase text-rose-500 hover:text-rose-700 hover:underline flex items-center">
+                                            <XCircle className="w-3 h-3 mr-1" /> Odwołaj
+                                        </button>
+                                        <button onClick={() => openEditModal(b)} className="text-[9px] font-black uppercase text-indigo-500 hover:text-indigo-700 hover:underline flex items-center">
                                             <Edit className="w-3 h-3 mr-1" /> Edytuj
                                         </button>
                                     </div>
