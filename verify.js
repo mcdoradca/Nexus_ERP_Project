@@ -6,11 +6,8 @@ const prisma = require('./src/core/prisma');
 
 async function test() {
     const user = await prisma.user.findFirst({ where: { smtpHost: { not: null } } });
-    if (!user) return console.log('Brak usera');
-    
     let host = user.smtpHost;
     if (host.startsWith('smtp.')) host = host.replace('smtp.', 'imap.');
-
     const config = {
         imap: {
             user: user.smtpUser,
@@ -21,19 +18,21 @@ async function test() {
             connTimeout: 15000,
             authTimeout: 15000,
             tlsOptions: { rejectUnauthorized: false }
-        },
-        onmail: function (numNewMail) {
-            console.log('Nowy mail przyszedł! Ilość nowych maili:', numNewMail);
         }
     };
     try {
         const connection = await imaps.connect(config);
-        console.log('Zalogowano poprawnie do IMAP! Czekam na nowe maile...');
         await connection.openBox('INBOX');
-        
-        // Zostawiamy działające w tle, to zablokuje wyjście ze skryptu
+        const messages = await connection.search(['UNSEEN'], { bodies: ['HEADER'], struct: true, markSeen: false });
+        for (const item of messages) {
+            const headerPart = item.parts.find(part => part.which === 'HEADER');
+            console.log('TYPE OF HEADER BODY:', typeof headerPart.body);
+            const parsed = await simpleParser(headerPart.body);
+            console.log('PARSED:', parsed.subject);
+        }
+        connection.end();
     } catch(err) {
-        console.error('Blad IMAP:', err.message);
+        console.error(err);
     }
 }
 test();

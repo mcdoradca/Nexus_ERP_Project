@@ -1,16 +1,15 @@
 const imaps = require('imap-simple');
-const { simpleParser } = require('mailparser');
 const prisma = require('../../core/prisma');
 const cryptoService = require('../../core/crypto.service');
 const socketService = require('../../core/socket');
+const EventBus = require('../../core/EventBus');
 
-// Przechowywanie stanów połączeń na żywo (IDLE) dla każdego użytkownika oraz ich lastUid
 const activeConnections = new Map();
 const lastSeenUidMap = new Map();
 
 async function setupImapConnectionForUser(user) {
     if (!user.smtpHost || !user.smtpUser || !user.smtpPassword) return;
-    if (activeConnections.has(user.id)) return; // Już nasłuchuje
+    if (activeConnections.has(user.id)) return;
 
     let host = user.smtpHost;
     if (host.startsWith('smtp.')) host = host.replace('smtp.', 'imap.');
@@ -36,7 +35,7 @@ async function setupImapConnectionForUser(user) {
             authTimeout: 15000,
             tlsOptions: { rejectUnauthorized: false }
         },
-        onmail: async function (numNewMail) {
+        onmail: async function () {
             if (!connection) return;
             try {
                 const searchCriteria = ['UNSEEN'];
@@ -51,15 +50,23 @@ async function setupImapConnectionForUser(user) {
                     if (item.attributes.uid > lastUid) {
                         const headerPart = item.parts.find(part => part.which === 'HEADER');
                         if (headerPart && headerPart.body && notificationsCount < 10) {
-                             const parsedHeader = await simpleParser(headerPart.body);
-                             const from = parsedHeader.from?.text || 'Nieznany nadawca';
-                             const subject = parsedHeader.subject || 'Brak tematu';
+                             // BŁĄD HALUCYNACJI NAPRAWIONY: imap-simple ZWRACA OBIEKT, NIE RAW STRING. 
+                             // Nie trzeba (i nie wolno) używać mailparser do nagłówków z imap-simple
+                             const fromRaw = headerPart.body.from ? headerPart.body.from[0] : 'Nieznany nadawca';
+                             const subjectRaw = headerPart.body.subject ? headerPart.body.subject[0] : 'Brak tematu';
                              
+                             // Oczyść format From ("Jan Kowalski <jan@example.com>" -> "Jan Kowalski")
+                             let fromStr = fromRaw;
+                             if (fromStr.includes('<')) {
+                                 fromStr = fromStr.split('<')[0].trim();
+                                 if (!fromStr) fromStr = fromRaw; 
+                             }
+
                              const notif = await prisma.notification.create({
                                  data: {
                                      userId: user.id,
                                      title: 'Nowa Wiadomość E-mail',
-                                     message: `Od: ${from} | Temat: ${subject}`,
+                                     message: `Od: ${fromStr} | Temat: ${subjectRaw}`,
                                      type: 'email'
                                  }
                              });
@@ -83,7 +90,7 @@ async function setupImapConnectionForUser(user) {
         await connection.openBox('INBOX');
         activeConnections.set(user.id, connection);
         
-        // Wykonajmy jedno ciche pobranie stanu, by zsynchronizować lastUid na start bez wysyłania 10 powiadomień
+        // Zsynchronizuj startowy UID żeby nie floodować starymi mailami po resecie usługi
         const messages = await connection.search(['UNSEEN'], { bodies: ['HEADER'], struct: true, markSeen: false });
         let maxUid = 0;
         for (const item of messages) {
@@ -91,11 +98,9 @@ async function setupImapConnectionForUser(user) {
         }
         lastSeenUidMap.set(user.id, maxUid);
 
-        // Zaprogramowanie auto-wznowienia w przypadku zerwania połączenia
         connection.on('error', (err) => {
             console.log(`[IMAP] Połączenie IDLE zerwane dla ${user.email}`);
             activeConnections.delete(user.id);
-            // Próba wznowienia za 30 sekund
             setTimeout(() => setupImapConnectionForUser(user), 30000);
         });
 
@@ -125,13 +130,9 @@ async function startEmailListener() {
     }
 }
 
-// Subskrypcja na szynę zdarzeń (EventBus) aby natychmiast załadować nowego pracownika jak wpisze hasło w Profilu
-const EventBus = require('../../core/eventBus');
 EventBus.subscribe('UserSmtpConfigured', async (data) => {
     const user = await prisma.user.findUnique({ where: { id: data.userId } });
     if (user) {
-        console.log(`[IMAP Listener] Wykryto nową konfigurację SMTP dla ${user.email}, podpinam IDLE...`);
-        // Oczyść stare połączenie jeśli istnieje
         if (activeConnections.has(user.id)) {
             activeConnections.get(user.id).end();
             activeConnections.delete(user.id);

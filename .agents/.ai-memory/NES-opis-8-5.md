@@ -1103,14 +1103,14 @@ Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dost
 
 ---
 
-### Nazwa operacji/zadania: Nasłuch IMAP w tle (Real-Time IDLE Push)
-**Po co to jest? (Cel biznesowy):** Alternatywa dla wbudowanego, ociężałego klienta e-mail w ERP. Chroni pracownika przed ciągłym sprawdzaniem poczty (Zimbra/Hostinger) poprzez automatyczne wysyłanie notyfikacji na żywo na ekran, gdy w jego indywidualnej skrzynce wyląduje nowa wiadomość. Prawdziwe "Real-Time" bez opóźnień.
+### Nazwa operacji/zadania: Nasłuch IMAP w tle i WebSockets
+**Po co to jest? (Cel biznesowy):** Alternatywa dla wbudowanego, ociężałego klienta e-mail w ERP. Chroni pracownika przed ciągłym sprawdzaniem poczty (Zimbra/Hostinger) poprzez automatyczne wysyłanie notyfikacji na żywo na ekran, gdy w jego indywidualnej skrzynce wyląduje nowa wiadomość.
 **Gdzie to znaleźć? (Lokalizacja w kodzie):** 
-- Skrypt w tle: `src/modules/email/imap.listener.js` inicjowany z `server.js`
+- Skrypt w tle: `src/modules/email/imap.listener.js` wywoływany przez Crona w `server.js`
 **Wymagania wstępne (Wiedza z kodu):**
-1. **Lekki Klient i IDLE:** Zamiast niewydajnego mechanizmu "Crona" co 2 minuty, używany jest protokół natywny serwerów IMAP oznaczony jako IDLE (`onmail` zdarzenie). Serwer utrzymuje persystentne połączenie socketowe w tle dla każdego użytkownika. Gdy w skrzynce pojawi się mail, OVH natychmiast uderza do aplikacji ułamkiem sekundy.
-2. **Pamięć Stanu (Stateful):** Mechanizm `lastSeenUidMap` zapamiętuje ostatni odczytany e-mail (UID), by nie spamować użytkownika starymi mailami. W pierwszej fali łączy pobiera tylko do 10 wiadomości (ochrona anty-flood).
-3. **Event Bus (Szyna Zdarzeń):** Nasłuch subskrybuje na `UserSmtpConfigured`. Gdy administrator lub pracownik zapisze konfigurację, serwer w czasie rzeczywistym ubija stare połączenie IDLE i tworzy nowe bez potrzeby restartu backendu.
+1. **Lekki Klient:** Biblioteki `imap-simple` i `mailparser` w cichym workerze logują się na skrzynkę użytkownika pobierając jego hasło SMTP i deszyfrując je w locie.
+2. **Pamięć Stanu (Stateful):** Mechanizm `lastSeenUidMap` zapamiętuje ostatni odczytany e-mail (UID), by nie spamować użytkownika starymi mailami po każdym restarcie kontenera `node.js`.
+3. **Real-time Push:** Wykryta wiadomość zostaje przeparsowana i jako natywne zdarzenie ląduje u pracownika z wykorzystaniem Socket.IO.
 
 ---
 
