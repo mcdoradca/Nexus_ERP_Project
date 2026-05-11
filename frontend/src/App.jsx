@@ -26,7 +26,7 @@ import {
   PlayCircle, StopCircle, Cloud, CloudLightning, Target, Zap, 
   Loader2, Paperclip, Send, Users, User, DollarSign, ArrowRight, CheckCircle2,
   Trash2, Mail, Lock, Shield, Eye, EyeOff, Check, Filter, Calendar, Briefcase, TrendingUp,
-  Package, Database, Image, FileText, Bot, BarChart3, LogOut
+  Package, Database, Image, FileText, Bot, BarChart3, LogOut, CheckSquare, CheckCircle
 } from 'lucide-react';
 
 import { getInitials, getDepartmentColor } from './utils';
