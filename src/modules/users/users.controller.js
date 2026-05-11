@@ -30,7 +30,7 @@ async function updateUser(req, res) {
 }
 async function updateSmtpConfig(req, res) {
     try {
-        if (req.user.role !== 'SUPER_ADMIN') {
+        if (req.user.role !== 'ADMIN' && req.user.role !== 'PREZES') {
             return res.status(403).json({ error: 'Brak uprawnień. Tylko administrator może modyfikować skrzynki pocztowe.' });
         }
         
