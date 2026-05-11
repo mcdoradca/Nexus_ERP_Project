@@ -1099,7 +1099,7 @@ Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dost
 **Wymagania wstępne (Wiedza z kodu):**
 1. **Model `User` w Prisma:** Rozbudowany o kolumny `smtpHost`, `smtpPort`, `smtpUser`, `smtpPassword`. Hasła pracowników nie są przechowywane jawnym tekstem! Przechodzą obustronne szyfrowanie kryptograficzne w AES-256 używając klucza głównego serwera.
 2. **Kryptografia (Defensive Tech):** Rdzeń `src/core/crypto.service.js` odpowiada za wstrzykiwanie unikalnego Inicjalizatora (IV) w hasło poczty. Zapobiega to całkowitemu wyciekowi skrzynek w przypadku naruszenia tabeli bazy danych.
-3. **Dynamiczny Agent Pocztowy:** Usługa `meetings.email.service.js` przed próbą wysłania maila uderza asynchronicznie do bazy z zapytaniem o id aktywnego operatora generującego akcję. Deszyfruje jego poświadczenia w locie, w pamięci RAM, ładuje w transporter Nodemailer i niszczy wskaźnik do hasła. Posiada mechanizm Fallback do `.env` na wypadek pustej konfiguracji w profilu.
+3. **Dynamiczny Agent Pocztowy:** Usługa `meetings.email.service.js` przed próbą wysłania maila uderza asynchronicznie do bazy z zapytaniem o id aktywnego operatora generującego akcję. Deszyfruje jego poświadczenia w locie, w pamięci RAM, ładuje w transporter Nodemailer i niszczy wskaźnik do hasła. Posiada mechanizm Fallback do `.env` na wypadek pustej konfiguracji w profilu. Wdrożono twardą "Tarczę Błędów" (Defensive AI): automatyczną sanitizację portów (np. 463 -> 465) zabezpieczającą TLS (`secure`) oraz agresywny `connectionTimeout: 10000`, eliminujący zawieszanie pętli zdarzeń Node.js i odrzucenia 502/504 Bad Gateway na warstwie NGINX.
 
 ---
 

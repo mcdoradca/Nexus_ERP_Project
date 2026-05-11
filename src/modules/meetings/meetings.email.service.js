@@ -15,10 +15,14 @@ class MeetingsEmailService {
         const decryptedPassword = cryptoService.decrypt(user.smtpPassword);
         if (!decryptedPassword) return null;
 
+        let port = Number(user.smtpPort) || 465;
+        if (port === 463) port = 465; // Sanitizacja typówki
+
         return nodemailer.createTransport({
             host: user.smtpHost,
-            port: user.smtpPort || 465,
-            secure: (user.smtpPort === 465),
+            port: port,
+            secure: (port === 465),
+            connectionTimeout: 10000,
             auth: {
                 user: user.smtpUser,
                 pass: decryptedPassword
@@ -45,10 +49,14 @@ class MeetingsEmailService {
                 console.log('[MeetingsEmailService] ⚠️ Brak konfiguracji SMTP pracownika i brak .env. E-mail zostałby wysłany do:', booking.recruiterEmail);
                 return;
             }
+            let envPort = Number(process.env.SMTP_PORT) || 587;
+            if (envPort === 463) envPort = 465;
+
             transporter = nodemailer.createTransport({
                 host: process.env.SMTP_HOST,
-                port: process.env.SMTP_PORT || 587,
-                secure: process.env.SMTP_SECURE === 'true',
+                port: envPort,
+                secure: process.env.SMTP_SECURE === 'true' || envPort === 465,
+                connectionTimeout: 10000,
                 auth: {
                     user: process.env.SMTP_USER,
                     pass: process.env.SMTP_PASS
