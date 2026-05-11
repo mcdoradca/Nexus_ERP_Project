@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const EventBus = require('../../core/EventBus'); // Użycie EventBusa dla komunikacji z Kanbanem
+const emailService = require('./meetings.email.service'); // Serwis mailowy
 
 // ==========================================
 // PUBLICZNE ENDPOINTY (Dla Rekruterów)
@@ -46,7 +47,8 @@ async function getAvailableSlots(req, res) {
         let current = startHour * 60 + startMin;
         const end = endHour * 60 + endMin;
         const duration = 30; // 30 min sloty
-        
+        const buffer = 30; // KRYTYCZNE: 30 min buforu przestrzeni
+
         let availableSlots = [];
         
         while (current + duration <= end) {
@@ -54,14 +56,17 @@ async function getAvailableSlots(req, res) {
             const m = (current % 60).toString().padStart(2, '0');
             const slotStr = `${h}:${m}`;
 
-            // Sprawdz czy slot nie koliduje z istniejacym (zalozenie sztywnych blokow)
+            // Matematyczna weryfikacja kolizji przedziałów czasowych (wliczając bufor)
             const isBooked = bookings.some(b => {
                 const [bh, bm] = b.startTime.split(':').map(Number);
                 const bStart = bh * 60 + bm;
-                const bEnd = bStart + b.durationMinutes;
+                const bEnd = bStart + (b.durationMinutes || 30) + buffer; // Zarezerwowany czas + bufor
                 
-                // Kolizja jesli nowy slot zaczyna sie w srodku istniejacego, lub konczy sie w srodku
-                return (current >= bStart && current < bEnd) || (current + duration > bStart && current + duration <= bEnd);
+                const newSlotStart = current;
+                const newSlotEnd = current + duration + buffer; // Nowy slot też chronimy buforem
+                
+                // Prawda jeśli przedziały [bStart, bEnd] oraz [newSlotStart, newSlotEnd] się przecinają
+                return Math.max(bStart, newSlotStart) < Math.min(bEnd, newSlotEnd);
             });
 
             if (!isBooked) {
@@ -127,6 +132,19 @@ async function bookMeeting(req, res) {
             category: 'REKRUTACJA'
         });
 
+        // Natychmiastowa notyfikacja w UI (Socket.IO) jeśli aplikacja działa
+        try {
+            const { getIO } = require('../../server');
+            const io = getIO();
+            io.emit('nexus-notification', { 
+                type: 'MEETING_BOOKED', 
+                message: `Nowe spotkanie od: ${recruiterName} (${startTime})`, 
+                priority: 'HIGH' 
+            });
+        } catch (socketErr) {
+            console.error('[Meetings] Brak aktywnego Socket.IO, pomijam Toast.');
+        }
+
         res.status(201).json({ success: true, bookingId: booking.id });
     } catch (err) {
         console.error(err);
@@ -151,12 +169,47 @@ async function updateBookingStatus(req, res) {
     try {
         const { id } = req.params;
         const { status } = req.body;
+        
+        const bookingData = await prisma.meetingBooking.findUnique({ where: { id } });
+        if (!bookingData) return res.status(404).json({ error: 'Nie znaleziono' });
+
         const booking = await prisma.meetingBooking.update({
             where: { id },
             data: { status }
         });
+
+        // Wysłanie eleganckiego e-maila po potwierdzeniu przez administratora!
+        if (status === 'CONFIRMED' && bookingData.status !== 'CONFIRMED') {
+            // Generujemy wirtualny link Google Meet - można go zamienić na API Google w przyszłości
+            const meetLink = `https://meet.google.com/nex-us${booking.id.substring(0,4)}-erp`;
+            await emailService.sendConfirmation(booking, meetLink);
+        }
+
         res.status(200).json(booking);
     } catch (err) { res.status(500).json({ error: err.message }); }
+}
+
+async function editBooking(req, res) {
+    try {
+        const { id } = req.params;
+        const { meetingDate, startTime, recruiterName, recruiterEmail } = req.body;
+        
+        const dateObj = new Date(meetingDate);
+
+        const booking = await prisma.meetingBooking.update({
+            where: { id },
+            data: { 
+                meetingDate: dateObj,
+                startTime,
+                recruiterName,
+                recruiterEmail
+            }
+        });
+        res.status(200).json({ success: true, booking });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Błąd podczas edycji spotkania.' });
+    }
 }
 
 async function getAvailabilities(req, res) {
@@ -177,5 +230,5 @@ async function setAvailability(req, res) {
 }
 
 module.exports = {
-    getAvailableSlots, bookMeeting, getAdminBookings, updateBookingStatus, getAvailabilities, setAvailability
+    getAvailableSlots, bookMeeting, getAdminBookings, updateBookingStatus, getAvailabilities, setAvailability, editBooking
 };

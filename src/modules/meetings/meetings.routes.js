@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAvailableSlots, bookMeeting, getAdminBookings, updateBookingStatus, getAvailabilities, setAvailability } = require('./meetings.controller');
+const { getAvailableSlots, bookMeeting, getAdminBookings, updateBookingStatus, getAvailabilities, setAvailability, editBooking } = require('./meetings.controller');
 const { authenticateToken, requireSuperUser } = require('../../middlewares/auth.middleware');
 
 // Publiczne - bez tokena (dla rekruterów z zewnątrz z linku)
@@ -10,6 +10,7 @@ router.post('/public/book', bookMeeting);
 // Administracyjne wewnątrz Nexus ERP
 router.get('/admin/bookings', authenticateToken, getAdminBookings);
 router.patch('/admin/bookings/:id', authenticateToken, updateBookingStatus);
+router.put('/admin/bookings/:id', authenticateToken, editBooking); // Edycja danych spotkania
 router.get('/admin/availability', authenticateToken, getAvailabilities);
 router.post('/admin/availability', authenticateToken, requireSuperUser, setAvailability);
 
