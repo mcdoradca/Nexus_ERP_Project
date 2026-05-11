@@ -802,9 +802,17 @@ app.get('/api/health', async (req, res) => { res.status(200).json({ status: '�
 
 // Globalny Łapacz Błędów (Tarcza Anty-Crashowa)
 const errorHandler = require('./middleware/error.middleware');
+const { startEmailListener } = require('./modules/email/imap.listener');
 app.use(errorHandler);
 
-server.listen(PORT, () => console.log(`[BOOT] System podniesiony na porcie ${PORT}...`));
+// --- URUCHOMIENIE SERWERA ---
+// Podmiana z app.listen na server.listen (obsługa WebSockets)
+server.listen(PORT, () => {
+    console.log(`[🚀] NeS Backend & WebSocket (Socket.IO) operuje na porcie: ${PORT}`);
+    
+    // Inicjalizacja nasłuchu IMAP w tle dla skrzynek pracowniczych
+    startEmailListener();
+});
 
 // --- RĘCZNY WYZWALACZ SENTINELA ---
 app.post('/api/allegro-sentinel/trigger', authenticateToken, async (req, res) => {

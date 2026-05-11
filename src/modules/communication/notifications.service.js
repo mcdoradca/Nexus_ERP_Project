@@ -21,4 +21,17 @@ async function createAndSendNotification(userId, title, message, type = 'info', 
     socketService.sendToUser(userId, 'new_notification', notif);
 }
 
-module.exports = { getUserNotifications, markAsRead, createAndSendNotification };
+async function deleteNotification(id, userId) {
+    return prisma.notification.deleteMany({
+        where: { id, userId }
+    });
+}
+
+async function toggleReadStatus(id, userId, isRead) {
+    return prisma.notification.updateMany({
+        where: { id, userId },
+        data: { isRead }
+    });
+}
+
+module.exports = { getUserNotifications, markAsRead, createAndSendNotification, deleteNotification, toggleReadStatus };

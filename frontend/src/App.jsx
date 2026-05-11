@@ -17,6 +17,7 @@ import GodModeAnalyticsView from './views/GodModeAnalyticsView';
 import ZeroBleedHubView from './views/ZeroBleedHubView';
 import PublicBookingView from './views/PublicBookingView';
 import MeetingDashboardView from './views/MeetingDashboardView';
+import EmployeeDashboardView from './views/EmployeeDashboardView';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { 
@@ -33,9 +34,9 @@ import { getInitials, getDepartmentColor } from './utils';
 const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('kanban');
-  const [token, setToken] = useState(localStorage.getItem('aps_token'));
   const [currentUser, setCurrentUser] = useState(JSON.parse(localStorage.getItem('aps_user')));
+  const [activeTab, setActiveTab] = useState(currentUser?.role === 'ADMIN' ? 'kanban' : 'dashboard');
+  const [token, setToken] = useState(localStorage.getItem('aps_token'));
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   
   // Data States
@@ -386,11 +387,29 @@ function App() {
   };
 
   const handleNotificationClick = (n) => {
+    if (!n.isRead) {
+      handleToggleNotificationRead(n.id, true);
+    }
     if (n.relatedTaskId) {
       const task = tasks.find(t => t.id === n.relatedTaskId);
       if (task) setSelectedTask(task);
     }
     setShowNotifications(false);
+  };
+
+  const handleToggleNotificationRead = async (id, isRead) => {
+    try {
+      await axios.patch(`${API_URL}/api/notifications/${id}/status`, { isRead }, { headers: { Authorization: `Bearer ${token}` } });
+      fetchData();
+    } catch (err) { console.error('Błąd aktualizacji powiadomienia', err); }
+  };
+
+  const handleDeleteNotification = async (e, id) => {
+    e.stopPropagation(); // zapobiega kliknięciu w powiadomienie
+    try {
+      await axios.delete(`${API_URL}/api/notifications/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      fetchData();
+    } catch (err) { console.error('Błąd usuwania powiadomienia', err); }
   };
 
 
@@ -1434,9 +1453,13 @@ function App() {
         </div>
         
         <nav className="flex flex-col gap-3 w-full px-2 mt-2 overflow-y-auto custom-scrollbar flex-1 items-center">
+          <button onClick={() => setActiveTab('dashboard')} title="Moja Tablica" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'dashboard' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+             <Layout className="w-5 h-5" />
+          </button>
+
           {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('kanban')) && (
-            <button onClick={() => setActiveTab('kanban')} title="Tablica" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'kanban' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
-              <Layout className="w-5 h-5" />
+            <button onClick={() => setActiveTab('kanban')} title="Kanban" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'kanban' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+              <CheckSquare className="w-5 h-5" />
             </button>
           )}
 
@@ -1565,12 +1588,22 @@ function App() {
             </div>
             <div className="max-h-[25rem] overflow-y-auto custom-scrollbar">
               {notifications.length === 0 ? <div className="p-6 text-center text-slate-500 font-medium text-sm">Brak notyfikacji</div> : notifications.map(n => (
-                <div key={n.id} onClick={() => handleNotificationClick(n)} className={`p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors ${n.isRead ? 'opacity-60' : ''}`}>
-                  <div className="flex items-center mb-1">
+                <div key={n.id} onClick={() => handleNotificationClick(n)} className={`p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors group relative ${n.isRead ? 'opacity-60' : ''}`}>
+                  <div className="flex items-center mb-1 pr-12">
                     <span className={`w-2 h-2 rounded-full mr-2 ${n.isRead ? 'bg-slate-200' : 'bg-indigo-500 animate-pulse'}`}></span>
                     <span className="text-xs font-semibold text-slate-800">{n.title}</span>
                   </div>
-                  <p className="text-xs text-slate-500 leading-relaxed ml-4">{n.message}</p>
+                  <p className="text-xs text-slate-500 leading-relaxed ml-4 pr-12">{n.message}</p>
+                  
+                  {/* Actions wrapper */}
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); handleToggleNotificationRead(n.id, !n.isRead); }} className="p-1.5 text-slate-400 hover:text-indigo-600 bg-white shadow-sm border border-slate-200 rounded-md transition-colors" title={n.isRead ? "Oznacz jako nieprzeczytane" : "Oznacz jako przeczytane"}>
+                        <CheckCircle className="w-3 h-3" />
+                    </button>
+                    <button onClick={(e) => handleDeleteNotification(e, n.id)} className="p-1.5 text-slate-400 hover:text-rose-600 bg-white shadow-sm border border-slate-200 rounded-md transition-colors" title="Usuń trwale">
+                        <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1579,6 +1612,7 @@ function App() {
 
         {/* MAIN VIEW AREA */}
         <main className="flex-1 min-h-0 bg-slate-50 flex flex-col relative w-full overflow-hidden">
+            {activeTab === 'dashboard' && <EmployeeDashboardView currentUser={currentUser} tasks={tasks} notifications={notifications} campaigns={campaigns} API_URL={API_URL} onSelectTask={setSelectedTask} />}
             {activeTab === 'kanban' && <KanbanView tasks={tasks} projects={projects} campaigns={campaigns} selectedFilterId={selectedFilterId} setSelectedFilterId={setSelectedFilterId} setIsNewTaskModalOpen={setIsNewTaskModalOpen} setSelectedTask={setSelectedTask} devMode={devMode} />}
             {activeTab === 'campaigns' && <CampaignsView campaigns={campaigns} brands={brands} companies={companies} timelineRange={timelineRange} setTimelineRange={setTimelineRange} setSelectedCampaign={setSelectedCampaign} setIsNewCampaignModalOpen={setIsNewCampaignModalOpen} devMode={devMode} />}
             {activeTab === 'allegro-ads' && <AllegroAdsMonitor token={token} API_URL={API_URL} />}

@@ -1100,3 +1100,25 @@ Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dost
 1. **Model `User` w Prisma:** Rozbudowany o kolumny `smtpHost`, `smtpPort`, `smtpUser`, `smtpPassword`. Hasła pracowników nie są przechowywane jawnym tekstem! Przechodzą obustronne szyfrowanie kryptograficzne w AES-256 używając klucza głównego serwera.
 2. **Kryptografia (Defensive Tech):** Rdzeń `src/core/crypto.service.js` odpowiada za wstrzykiwanie unikalnego Inicjalizatora (IV) w hasło poczty. Zapobiega to całkowitemu wyciekowi skrzynek w przypadku naruszenia tabeli bazy danych.
 3. **Dynamiczny Agent Pocztowy:** Usługa `meetings.email.service.js` przed próbą wysłania maila uderza asynchronicznie do bazy z zapytaniem o id aktywnego operatora generującego akcję. Deszyfruje jego poświadczenia w locie, w pamięci RAM, ładuje w transporter Nodemailer i niszczy wskaźnik do hasła. Posiada mechanizm Fallback do `.env` na wypadek pustej konfiguracji w profilu.
+
+---
+
+### Nazwa operacji/zadania: Nasłuch IMAP w tle i WebSockets
+**Po co to jest? (Cel biznesowy):** Alternatywa dla wbudowanego, ociężałego klienta e-mail w ERP. Chroni pracownika przed ciągłym sprawdzaniem poczty (Zimbra/Hostinger) poprzez automatyczne wysyłanie notyfikacji na żywo na ekran, gdy w jego indywidualnej skrzynce wyląduje nowa wiadomość.
+**Gdzie to znaleźć? (Lokalizacja w kodzie):** 
+- Skrypt w tle: `src/modules/email/imap.listener.js` wywoływany przez Crona w `server.js`
+**Wymagania wstępne (Wiedza z kodu):**
+1. **Lekki Klient:** Biblioteki `imap-simple` i `mailparser` w cichym workerze logują się na skrzynkę użytkownika pobierając jego hasło SMTP i deszyfrując je w locie.
+2. **Pamięć Stanu (Stateful):** Mechanizm `lastSeenUidMap` zapamiętuje ostatni odczytany e-mail (UID), by nie spamować użytkownika starymi mailami po każdym restarcie kontenera `node.js`.
+3. **Real-time Push:** Wykryta wiadomość zostaje przeparsowana i jako natywne zdarzenie ląduje u pracownika z wykorzystaniem Socket.IO.
+
+---
+
+### Nazwa operacji/zadania: Zarządzanie Notyfikacjami i Centrum Dowodzenia ("Moja Tablica")
+**Po co to jest? (Cel biznesowy):** Optymalizacja powrotu po urlopie (zapobiega rozpraszaniu i szukaniu swoich zadań po dziesiątkach modułów). Oferuje spersonalizowany widok początkowy oraz funkcjonalność "Inbox Zero" dla systemowych powiadomień.
+**Gdzie to znaleźć? (Lokalizacja UI):** 
+- Pasek Navbar: Rozwijany Dzwonek z akcjami Usuwania i Oznaczania (App.jsx).
+- Nowy Moduł: `frontend/src/views/EmployeeDashboardView.jsx` ("Moja Tablica").
+**Wymagania wstępne (Wiedza z kodu):**
+1. **Zarządzanie stanami:** Nowe endpointy `PATCH /api/notifications/:id/status` i `DELETE /api/notifications/:id` w `notifications.controller.js` pozwalające na bez-przeładowaniową interakcję ze dzwoneczkiem z wykorzystaniem propagacji zdarzeń (`e.stopPropagation()`).
+2. **Tablica Pracownika:** Moduł React agresywnie filtruje listę zadań globalnych (`tasks.filter(t => t.assignees.some(...))`), powiadomień i projektów, zamykając pracownika w "szklanej bańce" jego obowiązków. Górny pasek nawigacyjny wyświetla ikonę Tablicy jako domyślną zakładkę po zalogowaniu dla kont innych niż `ADMIN`.

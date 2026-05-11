@@ -14,4 +14,19 @@ async function markAsRead(req, res) {
     } catch (error) { res.status(500).json({ error: 'Błąd aktualizacji' }); }
 }
 
-module.exports = { getNotifications, markAsRead };
+async function deleteNotification(req, res) {
+    try {
+        await notificationsService.deleteNotification(req.params.id, req.user.id);
+        res.status(200).json({ success: true });
+    } catch (error) { res.status(500).json({ error: 'Błąd usuwania powiadomienia' }); }
+}
+
+async function toggleReadStatus(req, res) {
+    try {
+        const { isRead } = req.body;
+        await notificationsService.toggleReadStatus(req.params.id, req.user.id, isRead);
+        res.status(200).json({ success: true });
+    } catch (error) { res.status(500).json({ error: 'Błąd aktualizacji powiadomienia' }); }
+}
+
+module.exports = { getNotifications, markAsRead, deleteNotification, toggleReadStatus };
