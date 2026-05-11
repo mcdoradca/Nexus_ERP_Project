@@ -1053,7 +1053,7 @@ W tle systemu, w oderwaniu od interfejsu graficznego (UI), działają ukryte ser
 **Wymagania wstępne (Wiedza z kodu):**
 1. **Publiczny interfejs (/book):** Omija barierę logowania w `App.jsx`. Dynamicznie odpytuje endpoint `/api/meetings/public/availability`, który oblicza wolne sloty na podstawie grafiku pracy, odrzucając już zarezerwowane terminy (ochrona przed Double Booking).
 2. **Integracja z Kanbanem:** Skuteczna rezerwacja spotkania przez rekrutera wywołuje systemowy event na `EventBus` (`CREATE_SYSTEM_TASK`), co automatycznie generuje na tablicy Kanban kartę zadania (PRIORITY: HIGH) z kompletem danych i opisem (JD).
-3. **Zarządzanie:** Wewnętrzny panel ERP ("Meeting Dashboard") pozwala administratorowi definiować "Sloty" czasowe na poszczególne dni tygodnia oraz ręcznie odrzucać/zatwierdzać zapytania, które trafiły z publicznego linku.
+3. **Zarządzanie (Meeting Dashboard):** Wewnętrzny panel ERP pozwala administratorowi definiować "Sloty" czasowe na poszczególne dni tygodnia oraz ręcznie odrzucać/zatwierdzać zapytania. Wprowadzono logikę auto-oczyszczania: zatwierdzone spotkania zyskują opcję "Odwołaj", a wszelkie zdarzenia o statusie `CANCELLED` są natychmiast filtrowane i permanentnie wyciszane z widoku tablicy, aby optymalizować przestrzeń analityczną ekranu.
 
 ---
 
