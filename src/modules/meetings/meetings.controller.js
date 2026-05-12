@@ -181,8 +181,8 @@ async function updateBookingStatus(req, res) {
 
         // Wysłanie eleganckiego e-maila po potwierdzeniu przez administratora!
         if (status === 'CONFIRMED' && bookingData.status !== 'CONFIRMED') {
-            // Tarcza Formatowania została zastąpiona wywołaniem autentycznego API Google Meet
-            const meetLink = await googleMeetService.createSpace();
+            // Generowanie oficjalnego linku w Google Calendar API (przekazujemy dane spotkania)
+            const meetLink = await googleMeetService.createSpace(booking);
             
             // Zapisujemy wygenerowany na zewnątrz z API Meet URL trwale do bazy, aby Frontend go odczytał
             await prisma.meetingBooking.update({
