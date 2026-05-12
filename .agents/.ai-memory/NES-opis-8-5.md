@@ -1129,4 +1129,5 @@ Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dost
 11. **Moduł Rezerwacji Spotkań (Google Meet Integration)**
     * Usunięto nieprofesjonalną logikę z darmowymi linkami Jitsi.
     * Zaimplementowano rygorystyczne łączenie z API Google Calendar v3 z wymuszoną flagą `conferenceDataVersion=1` oraz użyciem bloku `conferenceData` o typie `hangoutsMeet`.
-    * Aplikacja tworzy oficjalne pokoje w Google Meet, zabezpieczając się przez dublowaniem (`requestId: booking.id`), wyciąga parametr `hangoutLink` i osadza we wiadomości E-mail.
+    * Aplikacja tworzy oficjalne pokoje w Google Meet, zabezpieczając się przez dublowaniem (`requestId: booking.id`), wyciąga parametr `hangoutLink` i osadza we wiadomości E-mail. Dodatkowo zwraca nowo wygenerowany link z powrotem do UI Administratora natychmiast po wywołaniu.
+    * Obsługa odwoływania spotkań: Zmiana statusu na `CANCELLED` automatycznie wysyła spersonalizowanego maila do Kandydata z powiadomieniem o anulowaniu.

@@ -191,6 +191,14 @@ async function updateBookingStatus(req, res) {
             });
 
             await emailService.sendConfirmation(booking, meetLink, req.user); // Przekazanie aktywnego usera
+            
+            // Wymuszamy zwrócenie nowego linku w obiekcie, by React wyświetlił go bez odświeżania strony (F5)
+            booking.meetLink = meetLink;
+        }
+
+        // 2. Jeśli spotkanie jest odwoływane, wysyłamy e-mail anulujący
+        if (status === 'CANCELLED' && bookingData.status !== 'CANCELLED') {
+            await emailService.sendCancellation(booking, req.user);
         }
 
         res.status(200).json(booking);

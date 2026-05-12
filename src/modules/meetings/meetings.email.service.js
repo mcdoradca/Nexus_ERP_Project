@@ -109,6 +109,82 @@ class MeetingsEmailService {
             console.error('[MeetingsEmailService] ❌ Błąd wysyłki e-mail:', error.message);
         }
     }
+
+    async sendCancellation(booking, activeUser = null) {
+        let transporter = null;
+        let senderEmail = process.env.SMTP_USER || 'no-reply@nexus.local';
+
+        // 1. Próbujemy stworzyć transporter ze skrzynki pracownika anulującego
+        if (activeUser && activeUser.id) {
+            transporter = await this.createDynamicTransporter(activeUser.id);
+            if (transporter) {
+                const user = await prisma.user.findUnique({ where: { id: activeUser.id } });
+                senderEmail = user.smtpUser;
+            }
+        }
+
+        // 2. Fallback: Jeśli pracownik nie ma skrzynki, używamy globalnej z pliku .env
+        if (!transporter) {
+            if (!process.env.SMTP_HOST && !process.env.SMTP_USER) {
+                console.log('[MeetingsEmailService] ⚠️ Brak konfiguracji SMTP. E-mail anulujący zostałby wysłany do:', booking.recruiterEmail);
+                return;
+            }
+            let envPort = Number(process.env.SMTP_PORT) || 587;
+            if (envPort === 463) envPort = 465;
+
+            transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST,
+                port: envPort,
+                secure: process.env.SMTP_SECURE === 'true' || envPort === 465,
+                connectionTimeout: 10000,
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS
+                }
+            });
+        }
+
+        const dateStr = new Date(booking.meetingDate).toLocaleDateString('pl-PL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        
+        const htmlTemplate = `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #f8fafc; padding: 20px; border-radius: 16px;">
+            <div style="background: #ef4444; padding: 20px; border-radius: 10px; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 24px;">Spotkanie Odwołane</h1>
+                <p style="color: #fecaca; margin-top: 5px; font-size: 14px;">Nexus Booking System</p>
+            </div>
+            
+            <div style="background: white; padding: 30px; border-radius: 10px; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+                <h2 style="color: #0f172a; font-size: 18px; margin-top: 0;">Witaj, ${booking.recruiterName}!</h2>
+                <p style="color: #475569; line-height: 1.6;">Z przykrością informujemy, że Twoja rezerwacja terminu rozmowy została <strong>odwołana</strong> przez organizatora.</p>
+                
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin: 25px 0;">
+                    <p style="margin: 5px 0; color: #94a3b8; text-decoration: line-through;"><strong>📅 Data:</strong> ${dateStr}</p>
+                    <p style="margin: 5px 0; color: #94a3b8; text-decoration: line-through;"><strong>⏰ Czas:</strong> ${booking.startTime} (${booking.timezone})</p>
+                </div>
+
+                <p style="color: #64748b; font-size: 14px; text-align: left; margin-bottom: 25px;">
+                    Przepraszamy za niedogodności. Jeśli chcesz zapytać o powód anulowania lub umówić nowy termin, odpowiedz na tę wiadomość.
+                </p>
+
+                <p style="color: #64748b; font-size: 12px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+                    Wiadomość wygenerowana automatycznie przez system Nexus ERP.
+                </p>
+            </div>
+        </div>
+        `;
+
+        try {
+            await transporter.sendMail({
+                from: `"Nexus ERP" <${senderEmail}>`,
+                to: booking.recruiterEmail,
+                subject: `Odwołanie rezerwacji: ${dateStr} o ${booking.startTime}`,
+                html: htmlTemplate
+            });
+            console.log(`[MeetingsEmailService] ✅ E-mail anulujący wysłany pomyślnie do ${booking.recruiterEmail} przez ${senderEmail}`);
+        } catch (error) {
+            console.error('[MeetingsEmailService] ❌ Błąd wysyłki e-mail anulującego:', error.message);
+        }
+    }
 }
 
 module.exports = new MeetingsEmailService();
