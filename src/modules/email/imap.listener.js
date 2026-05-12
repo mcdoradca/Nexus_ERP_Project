@@ -46,45 +46,54 @@ async function setupImapConnectionForUser(user) {
                 const fetchOptions = { bodies: ['HEADER'], struct: true, markSeen: false };
                 const messages = await connection.search(searchCriteria, fetchOptions);
                 
-                const lastUid = lastSeenUidMap.get(user.id) || 0;
-                let newMaxUid = lastUid;
+                if (messages.length === 0) return;
+
+                // 1. Zabezpieczenie na poziomie Bazy Danych (odporne na restarty Node.js)
+                const unseenUids = messages.map(m => `email-${m.attributes.uid}`);
+                const existingNotifs = await prisma.notification.findMany({
+                    where: { userId: user.id, type: 'email', relatedTaskId: { in: unseenUids } },
+                    select: { relatedTaskId: true }
+                });
+                const existingSet = new Set(existingNotifs.map(n => n.relatedTaskId));
+
                 let notificationsCount = 0;
 
                 for (const item of messages) {
-                    if (item.attributes.uid > lastUid && !notifiedUids.has(item.attributes.uid)) {
-                        notifiedUids.add(item.attributes.uid); // Zablokowanie przed równoległymi pętlami Event Loop
+                    const emailId = `email-${item.attributes.uid}`;
+
+                    // Jeśli mail nie ma jeszcze powiadomienia w bazie i nie został oflagowany w RAM
+                    if (!existingSet.has(emailId) && !notifiedUids.has(item.attributes.uid)) {
+                        notifiedUids.add(item.attributes.uid); // Zamek RAM przed równoległymi pętlami
                         
                         const headerPart = item.parts.find(part => part.which === 'HEADER');
                         if (headerPart && headerPart.body && notificationsCount < 10) {
-                             // BŁĄD HALUCYNACJI NAPRAWIONY: imap-simple ZWRACA OBIEKT, NIE RAW STRING. 
-                             // Nie trzeba (i nie wolno) używać mailparser do nagłówków z imap-simple
                              const fromRaw = headerPart.body.from ? headerPart.body.from[0] : 'Nieznany nadawca';
                              const subjectRaw = headerPart.body.subject ? headerPart.body.subject[0] : 'Brak tematu';
                              
-                             // Oczyść format From ("Jan Kowalski <jan@example.com>" -> "Jan Kowalski")
                              let fromStr = fromRaw;
                              if (fromStr.includes('<')) {
                                  fromStr = fromStr.split('<')[0].trim();
                                  if (!fromStr) fromStr = fromRaw; 
                              }
 
+                             // Zapisujemy w bazie Z UNIKALNYM ID MAILA (relatedTaskId)
                              const notif = await prisma.notification.create({
                                  data: {
                                      userId: user.id,
                                      title: 'Nowa Wiadomość E-mail',
                                      message: `Od: ${fromStr} | Temat: ${subjectRaw}`,
-                                     type: 'email'
+                                     type: 'email',
+                                     relatedTaskId: emailId
                                  }
                              });
                              socketService.sendToUser(user.id, 'new_notification', notif);
                              notificationsCount++;
                         }
-                        if (item.attributes.uid > newMaxUid) {
-                            newMaxUid = item.attributes.uid;
-                        }
+                    } else {
+                        // Jeśli istnieje w bazie, aktualizujemy zamek RAM by odciążyć kolejne sprawdzania
+                        notifiedUids.add(item.attributes.uid);
                     }
                 }
-                lastSeenUidMap.set(user.id, newMaxUid);
             } catch(e) {
                 console.error(`[IMAP] Błąd podczas onmail dla ${user.email}:`, e.message);
             }
