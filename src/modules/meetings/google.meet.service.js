@@ -34,7 +34,7 @@ class GoogleMeetService {
      */
     async createSpace(booking) {
         if (!this.isConfigured) {
-            return this.generateFallbackLink();
+            throw new Error('Google Meet API nie jest skonfigurowane (brak kluczy w .env).');
         }
 
         try {
@@ -82,14 +82,11 @@ class GoogleMeetService {
             
         } catch (error) {
             console.error('[Google Meet Service] API Google Calendar odrzuciło żądanie. Szczegóły:', error.message);
-            return this.generateFallbackLink();
+            throw new Error('Nie udało się wygenerować pokoju Google Meet: ' + error.message);
         }
     }
 
-    generateFallbackLink() {
-        const fallbackCode = Math.random().toString(36).substring(2, 10);
-        return `https://meet.jit.si/Nexus-ERP-Fallback-${fallbackCode}`;
-    }
+
 }
 
 module.exports = new GoogleMeetService();

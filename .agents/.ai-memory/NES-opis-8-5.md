@@ -1123,3 +1123,10 @@ Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dost
 **Wymagania wstępne (Wiedza z kodu):**
 1. **Zarządzanie stanami:** Nowe endpointy `PATCH /api/notifications/:id/status` i `DELETE /api/notifications/:id` w `notifications.controller.js` pozwalające na bez-przeładowaniową interakcję ze dzwoneczkiem z wykorzystaniem propagacji zdarzeń (`e.stopPropagation()`).
 2. **Tablica Pracownika:** Moduł React agresywnie filtruje listę zadań globalnych (`tasks.filter(t => t.assignees.some(...))`), powiadomień i projektów, zamykając pracownika w "szklanej bańce" jego obowiązków. Górny pasek nawigacyjny wyświetla ikonę Tablicy jako domyślną zakładkę po zalogowaniu dla kont innych niż `ADMIN`.
+
+---
+
+11. **Moduł Rezerwacji Spotkań (Google Meet Integration)**
+    * Usunięto nieprofesjonalną logikę z darmowymi linkami Jitsi.
+    * Zaimplementowano rygorystyczne łączenie z API Google Calendar v3 z wymuszoną flagą `conferenceDataVersion=1` oraz użyciem bloku `conferenceData` o typie `hangoutsMeet`.
+    * Aplikacja tworzy oficjalne pokoje w Google Meet, zabezpieczając się przez dublowaniem (`requestId: booking.id`), wyciąga parametr `hangoutLink` i osadza we wiadomości E-mail.
