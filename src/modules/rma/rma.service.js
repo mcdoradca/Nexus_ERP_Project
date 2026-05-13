@@ -57,11 +57,12 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
 
     try {
         const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN' } });
-        const blToken = tokenRecord ? tokenRecord.value : null;
+        const blToken = process.env.BASELINKER_TOKEN || (tokenRecord ? tokenRecord.value : null);
         if (!blToken) {
-            console.log("[RMA] Brak tokena BASELINKER_TOKEN w bazie danych.");
+            console.log("[RMA TELEMETRY] BŁĄD: Brak tokena BASELINKER_TOKEN ani w process.env, ani w bazie danych.");
             return false;
         }
+        console.log(`[RMA TELEMETRY] Token odczytany pomyślnie. Zaczyna się na: ${blToken.substring(0,8)}...`);
 
         const lastLogSetting = await prisma.systemSetting.findUnique({ where: { key: 'rma_last_return_date' } });
         // Domyślnie cofamy się o 30 dni jeśli brak historii
@@ -70,6 +71,7 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
         let currentDateFrom = lastDate;
         let hasMore = true;
         let maxDateProcessed = currentDateFrom;
+        console.log(`[RMA TELEMETRY] START PĘTLI. lastDate/forceDateFrom: ${lastDate} (${new Date(lastDate * 1000).toISOString()})`);
 
         while (hasMore) {
             const apiParams = { date_from: currentDateFrom };
@@ -78,22 +80,29 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
                 parameters: JSON.stringify(apiParams)
             });
 
+            console.log(`[RMA TELEMETRY] WYWOŁANIE API: getOrderReturns z date_from: ${currentDateFrom} (${new Date(currentDateFrom * 1000).toISOString()})`);
+
             const response = await axios.post('https://api.baselinker.com/connector.php', fetchParams.toString(), {
                 headers: { 'X-BLToken': blToken, 'Content-Type': 'application/x-www-form-urlencoded' }
             });
+
+            console.log(`[RMA TELEMETRY] ODPOWIEDŹ HTTP: Status ${response.status}, payload.status: ${response.data.status}`);
 
             if (response.data.status !== 'SUCCESS') {
                 throw new Error(response.data.error_message);
             }
 
             const returns = response.data.returns || [];
+            console.log(`[RMA TELEMETRY] Pobrano zwrotów w tej paczce: ${returns.length}`);
             
             // Limit BaseLinkera (zazwyczaj 100), jeśli mniej, nie ma więcej stron
             if (returns.length < 100) {
+                console.log(`[RMA TELEMETRY] Paczka < 100 elementów. Oznaczam koniec (hasMore = false).`);
                 hasMore = false;
             }
 
             if (returns.length === 0) {
+                console.log(`[RMA TELEMETRY] Paczka pustych danych (0 zwrotów). Wyrywam się z pętli (break).`);
                 break;
             }
 
@@ -109,6 +118,7 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
 
             // Izolowanie zwrotów wyłącznie z Allegro
             const allegroReturns = returns.filter(r => r.order_return_source === 'allegro');
+            console.log(`[RMA TELEMETRY] Wyizolowano zwrotów z Allegro w tej paczce: ${allegroReturns.length}`);
 
             for (const rmaData of allegroReturns) {
                 const login = rmaData.customer_login || rmaData.customer_email;
@@ -184,6 +194,7 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
             }
 
             // Zabezpieczenie przed zapętleniem - inkrementacja timestampu o 1 sekundę by zablokować stare rekordy
+            console.log(`[RMA TELEMETRY] Koniec pętli for. Obliczanie nowego offsetu: maxDateProcessed = ${maxDateProcessed}`);
             currentDateFrom = maxDateProcessed + 1; 
 
             // Tarcza Ochronna API (Rate Limit Preserver) - Max 30 zapytań na minutę
@@ -192,6 +203,7 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
             }
         }
 
+        console.log(`[RMA TELEMETRY] Zapis stanu na koniec procesu. maxDateProcessed: ${maxDateProcessed}, lastDate: ${lastDate}`);
         // Zapis ostatecznego wskaźnika
         if (maxDateProcessed > lastDate) {
             await prisma.systemSetting.upsert({
@@ -202,9 +214,10 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
         }
 
     } catch (err) {
-        console.error('[RMA Fraud Agent] Błąd pobierania logów zwrotów z BL:', err.message);
+        console.error('[RMA Fraud Agent] TWARDY BŁĄD pobierania logów z BL:', err.stack || err.message);
     } finally {
         isRmaSyncRunning = false;
+        console.log(`[RMA TELEMETRY] Flaga isRmaSyncRunning ustawiona na FALSE. Wyjście z demona.`);
     }
 }
 
