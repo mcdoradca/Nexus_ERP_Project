@@ -124,7 +124,7 @@ const announcementsRoutes = require('./modules/announcements/announcements.route
 const crmRoutes = require('./modules/crm/crm.routes');
 const influencersRoutes = require('./modules/influencers/influencers.routes');
 const offerOptimizerRoutes = require('./modules/offer-optimizer/offer-optimizer.routes');
-const idpRoutes = require('./modules/idp/idp.routes');
+
 const pricingRoutes = require('./modules/pricing/pricing.routes');
 const analyticsRoutes = require('./modules/analytics/analytics.routes');
 const portfolioRoutes = require('./modules/portfolio-manager/portfolio.routes');
@@ -194,7 +194,7 @@ app.use('/api/tasks', tasksRoutes);
 app.use('/api/announcements', announcementsRoutes);
 app.use('/api/crm', crmRoutes);
 app.use('/api/influencers', influencersRoutes);
-app.use('/api/idp', idpRoutes);
+
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/analytics', authenticateToken, analyticsRoutes);
 app.use('/api/portfolio', authenticateToken, portfolioRoutes);

@@ -664,7 +664,7 @@ W module zidentyfikowałem cztery zintegrowane potężne silniki decyzyjne, prac
    \* Katalog SKU i Indeks DQS (Data Quality Score)  
    \* Karty Produktów (Ekonomia, Logistyka ERP/WMS, Cechy)  
    \* Narzędzia AI "Interpoluj EAN" (Auto-generacja meta-danych)  
-\* IDP  
+\* IDP (USUNIĘTY Z SYSTEMU NA STAŁE)
 \* Algopricing  
 \* Prognoza AI  
 \* Genreuj AEO
@@ -688,16 +688,9 @@ Poniższa dokumentacja stanowi kompletną syntezę Kroku 1 (Analiza logiki i mod
 
 ---
 
-### Nazwa operacji/zadania: Ekstrakcja Kosztów z Faktur (IDP Skaner Kosztów)
+### Nazwa operacji/zadania: Ekstrakcja Kosztów z Faktur (IDP Skaner Kosztów) [ZDEPRECIONOWANE/USUNIĘTE]
 
-**Po co to jest? (Cel biznesowy):** Narzędzie rozwiązuje problem ręcznego wklepywania cen zakupu. Wgrywasz fakturę zakupową z hurtowni, a Gemini na bieżąco analizuje PDF, wyciąga numery EAN i nadpisuje wartość basePrice ułatwiając kalkulację prawdziwej marży. **Gdzie to znaleźć? (Lokalizacja UI):** W prawym górnym rogu modułu Katalogu SKU \-\> Przycisk z napisem *"IDP"*. **Wymagania wstępne (Wiedza z kodu):** Plik PDF nie może być uszkodzony. Próba załadowania pustego/technicznego pliku test\_faktura.pdf (waga: 181 bajtów) wywołała błąd z biblioteki PDF-Parse. Należy wgrać prawidłowy skan, np. Faktura\_PL6613255.pdf. **Role i Zabezpieczenia Agentów AI (Krok 1):**
-
-* **Model:** Najnowszy gemini-3.1-pro-preview (plik idp.service.js).  
-* **Rola:** Ekstrakcja danych kosztowych z surowego tekstu, rozbicie ich na EAN, basePrice oraz jednostkowy koszt transportu.  
-* **Ochrona przed halucynacjami:** Narzucony ścisły schemat JSON dla wyjścia. Zastosowano parsery wyrażeń regularnych czyszczące odpowiedź z bloków kodowych Markdown (\`\`\`json). Pętla walidacyjna pomija każdą pozycję bez zidentyfikowanego kodu EAN. **Jak to użyć? (Instrukcja Krok po Kroku):**  
-1. Kliknij przycisk "IDP".  
-2. Zostanie otwarte okno Modala. Kliknij kropkowany obszar "Przeglądaj" i wgraj plik PDF z dysku komputera.  
-3. Kliknij czarny przycisk na samym dole *"Rozpocznij Ekstrakcję Kosztów"*. **Wynik operacji (Output):** Agent po przetworzeniu przez gemini-3.1-pro-preview zmienia stan na "Sukces Ekstrakcji". Wyświetla się podsumowanie w zielonym panelu: w naszym teście odczytano **5 pozycji** produktów.
+**Po co to jest? (Cel biznesowy):** Moduł został usunięty z systemu z powodu braku użyteczności. Zlikwidowano integrację, endpointy `/api/idp` oraz model bazy danych `InvoiceDocument`. System ERP nie prowadzi już bezpośredniego wgrywania faktur przez UI i agenta Gemini AI.
 
 ---
 

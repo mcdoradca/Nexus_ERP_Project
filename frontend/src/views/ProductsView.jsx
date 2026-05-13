@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { Target, Plus, Cloud, CloudLightning, ArrowRight, Search, Filter, Scan, Calculator, TrendingUp } from 'lucide-react';
-import IdpUploadModal from './IdpUploadModal';
+
 import PricingCalculatorDrawer from './PricingCalculatorDrawer';
 import AnalyticsForecastModal from './AnalyticsForecastModal';
 
@@ -18,7 +18,7 @@ const ProductsView = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('ALL');
   
-  const [isIdpModalOpen, setIsIdpModalOpen] = useState(false);
+
   const [pricingProduct, setPricingProduct] = useState(null);
   const [forecastProduct, setForecastProduct] = useState(null);
 
@@ -163,9 +163,7 @@ const ProductsView = ({
         <div className="flex space-x-2 shrink-0">
           {isAdmin && (
             <>
-              <button onClick={() => setIsIdpModalOpen(true)} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-md text-xs font-medium hover:bg-slate-50 hover:text-slate-900 shadow-sm flex items-center transition-all">
-                <Scan className="w-3.5 h-3.5 mr-1.5" /> IDP
-              </button>
+
               <button onClick={() => setIsNewBrandModalOpen(true)} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-md text-xs font-medium hover:bg-slate-50 hover:text-slate-900 shadow-sm flex items-center transition-all">
                 <Target className="w-3.5 h-3.5 mr-1.5 text-indigo-500" /> Marka
               </button>
@@ -401,7 +399,7 @@ const ProductsView = ({
       </div>
       
       {/* Modals & Drawers */}
-      <IdpUploadModal isOpen={isIdpModalOpen} onClose={() => setIsIdpModalOpen(false)} token={localStorage.getItem('aps_token')} />
+
       <PricingCalculatorDrawer isOpen={!!pricingProduct} onClose={() => setPricingProduct(null)} product={pricingProduct} token={localStorage.getItem('aps_token')} onProductUpdated={handleProductUpdated} />
       <AnalyticsForecastModal isOpen={!!forecastProduct} onClose={() => setForecastProduct(null)} product={forecastProduct} token={localStorage.getItem('aps_token')} />
     </div>

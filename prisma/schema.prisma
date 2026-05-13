@@ -46,7 +46,7 @@ model User {
   ownedTasks             Task[]             @relation("TaskOwner")
   activeTask             Task?              @relation("ActiveWorker", fields: [activeTaskId], references: [id])
   assignedTasks          Task[]             @relation("TaskAssignees")
-  uploadedInvoices       InvoiceDocument[]  @relation("UserInvoices")
+
   briaEventLogs          BriaEventLog[]
 }
 
@@ -265,17 +265,7 @@ model CampaignAsset {
   uploader   User     @relation(fields: [uploaderId], references: [id])
 }
 
-model InvoiceDocument {
-  id         String   @id @default(uuid())
-  fileName   String
-  fileUrl    String
-  uploaderId String
-  uploadedAt DateTime @default(now())
-  status     String   @default("PROCESSED")
-  uploader   User     @relation("UserInvoices", fields: [uploaderId], references: [id])
 
-  @@index([uploaderId])
-}
 
 model Product {
   id                    String            @id @default(uuid())
