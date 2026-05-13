@@ -56,9 +56,10 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
     syncProgress.currentDate = null;
 
     try {
-        const blToken = process.env.BASELINKER_TOKEN;
+        const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN' } });
+        const blToken = tokenRecord ? tokenRecord.value : null;
         if (!blToken) {
-            console.log("[RMA] Brak tokena BASELINKER_TOKEN.");
+            console.log("[RMA] Brak tokena BASELINKER_TOKEN w bazie danych.");
             return false;
         }
 
@@ -71,7 +72,7 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
         let maxDateProcessed = currentDateFrom;
 
         while (hasMore) {
-            const apiParams = { date_from: currentDateFrom };
+            const apiParams = { date_add_from: currentDateFrom };
             const fetchParams = new URLSearchParams({
                 method: 'getOrderReturns',
                 parameters: JSON.stringify(apiParams)
@@ -113,25 +114,54 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
                 const login = rmaData.customer_login || rmaData.customer_email;
                 if (!login) continue;
 
-                // Aktualizacja profilu Ryzyka (CustomerRiskProfile)
-                const profile = await prisma.customerRiskProfile.upsert({
-                    where: { allegroLogin: login },
-                    update: {
-                        totalReturns: { increment: 1 },
-                        lastReturnDate: new Date(rmaData.date_add * 1000)
-                    },
-                    create: {
-                        allegroLogin: login,
-                        maskedEmail: rmaData.customer_email || 'brak@danych.pl',
-                        totalReturns: 1,
-                        lastReturnDate: new Date(rmaData.date_add * 1000)
-                    }
+                // Sprawdzenie, czy ten konkretny zwrot już kiedykolwiek był pobrany
+                const existingReturn = await prisma.returnRecord.findUnique({
+                    where: { baselinkerId: rmaData.return_id.toString() }
                 });
 
+                let profile = null;
                 const product = rmaData.products && rmaData.products.length > 0 ? rmaData.products[0] : null;
                 const reasonComment = product?.return_reason_comment || rmaData.reason || 'Brak podanego powodu';
 
-                // Rejestracja Rekordu Zwrotu (będzie to Upsert by aktualizować kwoty ze starego zwrotu)
+                // Aktualizacja analityki TYLKO jeśli to jest nowo wykryty zwrot
+                if (!existingReturn) {
+                    // Aktualizacja profilu Ryzyka (CustomerRiskProfile)
+                    profile = await prisma.customerRiskProfile.upsert({
+                        where: { allegroLogin: login },
+                        update: {
+                            totalReturns: { increment: 1 },
+                            lastReturnDate: new Date(rmaData.date_add * 1000)
+                        },
+                        create: {
+                            allegroLogin: login,
+                            maskedEmail: rmaData.customer_email || 'brak@danych.pl',
+                            totalReturns: 1,
+                            lastReturnDate: new Date(rmaData.date_add * 1000)
+                        }
+                    });
+
+                    // Zasilanie analityki PIM (Zliczanie zwrotów na SKU)
+                    if (product?.ean || product?.sku) {
+                        try {
+                            const condition = product.ean ? { ean: product.ean } : { sku: product.sku };
+                            await prisma.product.updateMany({
+                                where: condition,
+                                data: {
+                                    returnCount: { increment: 1 }
+                                }
+                            });
+                        } catch (err) {
+                            console.error(`[RMA] Błąd zasilania PIM dla produktu EAN: ${product?.ean}`, err.message);
+                        }
+                    }
+
+                    // Zapadnia Obronna - Uruchomienie alertu przy >= 2 zwrotach (Oczekuje na Człowieka)
+                    if (profile.totalReturns >= 2 && !profile.isBlacklisted && profile.reviewStatus === 'SAFE') {
+                        await executeFraudBlacklistProtocol(profile);
+                    }
+                }
+
+                // Rejestracja/Aktualizacja Rekordu Zwrotu (nadpisuje status lub kwotę jeśli zwrot powrócił w syncu)
                 await prisma.returnRecord.upsert({
                     where: { baselinkerId: rmaData.return_id.toString() },
                     update: {
@@ -151,26 +181,6 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
                         refundAmount: parseFloat(rmaData.refund_done) || 0.0
                     }
                 });
-
-                // Zasilanie analityki PIM (Zliczanie zwrotów na SKU)
-                if (product?.ean || product?.sku) {
-                    try {
-                        const condition = product.ean ? { ean: product.ean } : { sku: product.sku };
-                        await prisma.product.updateMany({
-                            where: condition,
-                            data: {
-                                returnCount: { increment: 1 }
-                            }
-                        });
-                    } catch (err) {
-                        console.error(`[RMA] Błąd zasilania PIM dla produktu EAN: ${product?.ean}`, err.message);
-                    }
-                }
-
-                // Zapadnia Obronna - Uruchomienie alertu przy >= 2 zwrotach (Oczekuje na Człowieka)
-                if (profile.totalReturns >= 2 && !profile.isBlacklisted && profile.reviewStatus === 'SAFE') {
-                    await executeFraudBlacklistProtocol(profile);
-                }
             }
 
             // Zabezpieczenie przed zapętleniem - inkrementacja timestampu o 1 sekundę by zablokować stare rekordy
