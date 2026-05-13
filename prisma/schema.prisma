@@ -281,6 +281,7 @@ model Product {
   outboundTransportCost Float             @default(0.0)
   aiImageCost           Float             @default(0.0)
   targetMargin          Float             @default(0.20)
+  returnCount           Int               @default(0)
   proposedSalePrice     Float?
   status                String            @default("Aktywny")
   subiektId             String?           @unique
@@ -594,6 +595,7 @@ model CustomerRiskProfile {
   totalReturns   Int       @default(0)
   fraudScore     Float     @default(0.0)
   isBlacklisted  Boolean   @default(false)
+  reviewStatus   String    @default("SAFE")
   lastReturnDate DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt

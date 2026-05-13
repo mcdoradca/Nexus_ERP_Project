@@ -34,6 +34,20 @@ const ZeroBleedHubView = ({ token, API_URL }) => {
         }
     };
 
+    const handleBan = async (id) => {
+        try {
+            await axios.post(`${API_URL}/api/rma/blacklist/${id}/ban`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            fetchData();
+        } catch (error) { console.error("Błąd blokowania", error); }
+    };
+
+    const handleDismiss = async (id) => {
+        try {
+            await axios.post(`${API_URL}/api/rma/blacklist/${id}/dismiss`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            fetchData();
+        } catch (error) { console.error("Błąd odrzucania", error); }
+    };
+
     return (
         <div className="flex flex-col h-full bg-slate-50">
             {/* HUB HEADER */}
@@ -94,14 +108,22 @@ const ZeroBleedHubView = ({ token, API_URL }) => {
                                                     <span className="text-xs font-black text-slate-900">{b.allegroLogin}</span>
                                                     {b.isBlacklisted ? (
                                                         <span className="text-[9px] font-black uppercase bg-rose-500 text-white px-2 py-0.5 rounded-sm shadow-sm">Zbanowany</span>
+                                                    ) : b.reviewStatus === 'WARNING' ? (
+                                                        <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-700 px-2 py-0.5 rounded-sm">Decyzja</span>
                                                     ) : (
-                                                        <span className="text-[9px] font-black uppercase bg-amber-100 text-amber-700 px-2 py-0.5 rounded-sm">Ostrzeżenie</span>
+                                                        <span className="text-[9px] font-black uppercase bg-slate-100 text-slate-700 px-2 py-0.5 rounded-sm">Bezpieczny</span>
                                                     )}
                                                 </div>
                                                 <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-200/50">
                                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Zwrotów: <b className="text-slate-800">{b.totalReturns}</b></span>
                                                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fraud: <b className="text-slate-800">{b.fraudScore}%</b></span>
                                                 </div>
+                                                {b.reviewStatus === 'WARNING' && !b.isBlacklisted && (
+                                                    <div className="flex space-x-2 mt-3 pt-3 border-t border-slate-200/50">
+                                                        <button onClick={() => handleBan(b.id)} className="flex-1 text-[9px] font-black bg-rose-500 text-white py-1 rounded-sm hover:bg-rose-600 uppercase transition-colors shadow-sm">Zablokuj</button>
+                                                        <button onClick={() => handleDismiss(b.id)} className="flex-1 text-[9px] font-black bg-slate-100 text-slate-600 py-1 rounded-sm hover:bg-slate-200 uppercase transition-colors">Odrzuć</button>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>

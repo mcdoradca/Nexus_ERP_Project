@@ -1128,3 +1128,10 @@ Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dost
 12. **Moduł Powiadomień IMAP (Zimbra / OVH)**
     * Wdrożono stałą bazodanową Tarcze Błędów w pliku `imap.listener.js` rozwiązującą problem spamu (powielających się notyfikacji w dzwoneczku).
     * Nasłuch IMAP (`onmail`) przy każdym zerwaniu sesji IDLE i restarcie serwera sprawdza tabelę `Notification` po unikalnym kluczu `relatedTaskId: email-{uid}`, aby upewnić się, że nie powiadomił już wcześniej użytkownika o danej wiadomości, zamiast polegać na ulotnej pamięci RAM.
+
+---
+
+13. **Moduł RMA (Zero-Bleed Hub / Tarcza Anty-Wyłudzeniowa)**
+    * Całkowicie przebudowano synchronizację z BaseLinkerem (Batch Fetching). Zamiast odpytywania dziennika co 5 minut za pomocą `getReturnJournalList` wprowadzono bezpieczny dla limitów interwał 12-godzinny oparty o metodę `getOrderReturns`.
+    * Wdrożono asynchroniczne zasilanie wskaźnika zwrotów (`returnCount`) w tabeli `Product` na bazie twardego payloadu BaseLinkera (wzbogacając metryki PIM o twarde dane historyczne zwrotów).
+    * Zmieniono architekturę decyzji o banicji na Allegro. Zablokowano ciche połączenia z twardym tokenem. Obecnie moduł w przypadku podejrzenia `fraudScore >= 100` oznacza klienta jako `WARNING` i wystawia sprawę do autoryzacji ręcznej poprzez przyciski **Zablokuj/Odrzuć** w dedykowanym komponencie `ZeroBleedHubView.jsx`. Zapewnia to 100% ludzkiej weryfikacji False Positives przed trwałym zbanowaniem kupującego.

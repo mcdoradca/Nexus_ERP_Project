@@ -22,12 +22,12 @@ function initCronJobs() {
     });
 
     // Sub-Moduł: NEXUS FRAUD PREVENTION (Tarcza Anty-Wyłudzeniowa)
-    // Nasłuchuje Dziennik Zdarzeń (getReturnJournalList) BaseLinkera, chroniąc przed Rate Limit Exhaustion.
-    // Uruchamiany co 5 minut w celu detekcji "darmowych wypożyczalni".
-    cron.schedule('*/5 * * * *', async () => {
-        console.log('[CRON] Fraud Agent: Pobieranie logów zwrotów (RMA)...');
+    // Synchronizacja Dziennika Zwrotów BaseLinker metodą getOrderReturns.
+    // Uruchamiany 2 razy dziennie w celu ochrony limitów API.
+    cron.schedule('0 6,18 * * *', async () => {
+        console.log('[CRON] RMA Agent: Odpytywanie dziennika zwrotów BaseLinkera...');
         try {
-            await RmaService.checkReturnsFromBaselinker();
+            await RmaService.syncReturnsFromBaselinker();
         } catch (error) {
             console.error('[CRON] Błąd w module RMA:', error.message);
         }
