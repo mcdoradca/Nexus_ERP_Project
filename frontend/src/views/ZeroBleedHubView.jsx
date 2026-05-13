@@ -8,6 +8,7 @@ const ZeroBleedHubView = ({ token, API_URL }) => {
     const [returns, setReturns] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isSyncingHistory, setIsSyncingHistory] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -48,6 +49,17 @@ const ZeroBleedHubView = ({ token, API_URL }) => {
         } catch (error) { console.error("Błąd odrzucania", error); }
     };
 
+    const handleSyncHistory = async () => {
+        setIsSyncingHistory(true);
+        try {
+            await axios.post(`${API_URL}/api/rma/sync-history`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            alert("Inicjalizacja RMA: Pełna synchronizacja (365 dni) rozpoczęła się w tle. Pobieranie danych potrwa od kilkunastu sekund do paru minut. Proszę kontynuować pracę.");
+        } catch (error) {
+            console.error("Błąd synchronizacji historycznej", error);
+            setIsSyncingHistory(false);
+        }
+    };
+
     return (
         <div className="flex flex-col h-full bg-slate-50">
             {/* HUB HEADER */}
@@ -79,6 +91,14 @@ const ZeroBleedHubView = ({ token, API_URL }) => {
                         Wirtualny Zaopatrzeniowiec
                     </button>
                 </div>
+                
+                {activeTab === 'rma' && (
+                    <div className="mt-4 flex">
+                        <button onClick={handleSyncHistory} disabled={isSyncingHistory} className={`px-4 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center ${isSyncingHistory ? 'bg-slate-200 text-slate-400' : 'bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-200'}`}>
+                            {isSyncingHistory ? 'Synchronizacja trwa w tle...' : 'Wymuś Audyt Historyczny (365 dni)'}
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* TAB CONTENT */}

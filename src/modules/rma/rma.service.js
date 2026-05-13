@@ -33,10 +33,10 @@ async function executeFraudBlacklistProtocol(profile) {
 // Flaga zapobiegająca Race Condition
 let isRmaSyncRunning = false;
 
-async function syncReturnsFromBaselinker() {
+async function syncReturnsFromBaselinker(forceDateFrom = null) {
     if (isRmaSyncRunning) {
-        console.log('[RMA] Proces synchronizacji już trwa. Pomijam uruchomienie crona.');
-        return;
+        console.log('[RMA] Proces synchronizacji już trwa. Pomijam uruchomienie...');
+        return false;
     }
     isRmaSyncRunning = true;
 
@@ -44,12 +44,12 @@ async function syncReturnsFromBaselinker() {
         const blToken = process.env.BASELINKER_TOKEN;
         if (!blToken) {
             console.log("[RMA] Brak tokena BASELINKER_TOKEN.");
-            return;
+            return false;
         }
 
         const lastLogSetting = await prisma.systemSetting.findUnique({ where: { key: 'rma_last_return_date' } });
         // Domyślnie cofamy się o 30 dni jeśli brak historii
-        const lastDate = lastLogSetting ? parseInt(lastLogSetting.value) : Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60);
+        const lastDate = forceDateFrom || (lastLogSetting ? parseInt(lastLogSetting.value) : Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60));
 
         let currentDateFrom = lastDate;
         let hasMore = true;
@@ -155,6 +155,11 @@ async function syncReturnsFromBaselinker() {
 
             // Zabezpieczenie przed zapętleniem - inkrementacja timestampu o 1 sekundę by zablokować stare rekordy
             currentDateFrom = maxDateProcessed + 1; 
+
+            // Tarcza Ochronna API (Rate Limit Preserver) - Max 30 zapytań na minutę
+            if (hasMore) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
         }
 
         // Zapis ostatecznego wskaźnika

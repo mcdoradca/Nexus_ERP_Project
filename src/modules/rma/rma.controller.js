@@ -42,4 +42,21 @@ async function dismissUser(req, res) {
     } catch (err) { res.status(500).json({ error: err.message }); }
 }
 
-module.exports = { getBlacklist, getReturns, banUser, dismissUser };
+async function syncHistory(req, res) {
+    try {
+        // Wymuszamy 365 dni (1 rok) w stecz
+        const daysBack = 365;
+        const forceDateFrom = Math.floor(Date.now() / 1000) - (daysBack * 24 * 60 * 60);
+        
+        // Zwracamy status ZANIM skończy się pobieranie
+        res.status(202).json({ message: 'Synchronizacja historyczna rozpoczęta w tle.' });
+        
+        // Odpalenie w tle (Fire & Forget)
+        const RmaService = require('./rma.service');
+        RmaService.syncReturnsFromBaselinker(forceDateFrom).catch(err => {
+            console.error('[RMA Historical Sync] Błąd:', err);
+        });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+}
+
+module.exports = { getBlacklist, getReturns, banUser, dismissUser, syncHistory };
