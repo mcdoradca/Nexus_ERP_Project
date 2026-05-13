@@ -7,3 +7,6 @@ node_modules
 logs/
 .DS_Store
 cv_assets/*.mp4
+
+# Zabezpieczenie kluczy API
+google-credentials.json
