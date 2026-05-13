@@ -72,7 +72,7 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
         let maxDateProcessed = currentDateFrom;
 
         while (hasMore) {
-            const apiParams = { date_add_from: currentDateFrom };
+            const apiParams = { date_from: currentDateFrom };
             const fetchParams = new URLSearchParams({
                 method: 'getOrderReturns',
                 parameters: JSON.stringify(apiParams)
