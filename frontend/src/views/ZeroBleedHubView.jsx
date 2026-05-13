@@ -8,10 +8,21 @@ const ZeroBleedHubView = ({ token, API_URL }) => {
     const [returns, setReturns] = useState([]);
     const [suppliers, setSuppliers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [isSyncingHistory, setIsSyncingHistory] = useState(false);
+    const [syncState, setSyncState] = useState({ isRunning: false, processedTotal: 0, currentDate: null });
 
     useEffect(() => {
         fetchData();
+        
+        // Polling do postępu prac historycznych
+        const interval = setInterval(async () => {
+            if (activeTab === 'rma') {
+                try {
+                    const res = await axios.get(`${API_URL}/api/rma/sync-status`, { headers: { Authorization: `Bearer ${token}` } });
+                    setSyncState(res.data);
+                } catch (err) {}
+            }
+        }, 3000);
+        return () => clearInterval(interval);
     }, [activeTab]);
 
     const fetchData = async () => {
@@ -50,13 +61,11 @@ const ZeroBleedHubView = ({ token, API_URL }) => {
     };
 
     const handleSyncHistory = async () => {
-        setIsSyncingHistory(true);
         try {
             await axios.post(`${API_URL}/api/rma/sync-history`, {}, { headers: { Authorization: `Bearer ${token}` } });
-            alert("Inicjalizacja RMA: Pełna synchronizacja (365 dni) rozpoczęła się w tle. Pobieranie danych potrwa od kilkunastu sekund do paru minut. Proszę kontynuować pracę.");
+            fetchData();
         } catch (error) {
             console.error("Błąd synchronizacji historycznej", error);
-            setIsSyncingHistory(false);
         }
     };
 
@@ -93,10 +102,22 @@ const ZeroBleedHubView = ({ token, API_URL }) => {
                 </div>
                 
                 {activeTab === 'rma' && (
-                    <div className="mt-4 flex">
-                        <button onClick={handleSyncHistory} disabled={isSyncingHistory} className={`px-4 py-2 rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center ${isSyncingHistory ? 'bg-slate-200 text-slate-400' : 'bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-200'}`}>
-                            {isSyncingHistory ? 'Synchronizacja trwa w tle...' : 'Wymuś Audyt Historyczny (365 dni)'}
-                        </button>
+                    <div className="mt-4 flex flex-col space-y-3">
+                        {syncState.isRunning ? (
+                            <div className="flex items-center space-x-4 bg-emerald-50 border border-emerald-200 p-3 rounded-sm">
+                                <div className="animate-spin w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full"></div>
+                                <div>
+                                    <h4 className="text-[11px] font-black text-emerald-800 uppercase tracking-widest">Trwa audyt historyczny w tle...</h4>
+                                    <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-[0.2em] mt-0.5">
+                                        Przeanalizowano logów zwrotów: {syncState.processedTotal} | Data z bazy: {syncState.currentDate ? new Date(syncState.currentDate).toLocaleDateString() : 'Inicjalizacja...'}
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <button onClick={handleSyncHistory} className="px-4 py-2 w-max rounded-sm text-[10px] font-black uppercase tracking-widest transition-all flex items-center bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-200 shadow-sm">
+                                Wymuś Audyt Historyczny (365 dni)
+                            </button>
+                        )}
                     </div>
                 )}
             </div>

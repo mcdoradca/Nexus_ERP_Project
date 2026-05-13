@@ -30,15 +30,30 @@ async function executeFraudBlacklistProtocol(profile) {
     }
 }
 
-// Flaga zapobiegająca Race Condition
+// Flaga i stan zapobiegająca Race Condition
 let isRmaSyncRunning = false;
+let syncProgress = {
+    processedTotal: 0,
+    currentDate: null
+};
+
+const getSyncStatus = () => {
+    return {
+        isRunning: isRmaSyncRunning,
+        processedTotal: syncProgress.processedTotal,
+        currentDate: syncProgress.currentDate
+    };
+};
 
 async function syncReturnsFromBaselinker(forceDateFrom = null) {
     if (isRmaSyncRunning) {
         console.log('[RMA] Proces synchronizacji już trwa. Pomijam uruchomienie...');
         return false;
     }
+    
     isRmaSyncRunning = true;
+    syncProgress.processedTotal = 0;
+    syncProgress.currentDate = null;
 
     try {
         const blToken = process.env.BASELINKER_TOKEN;
@@ -81,15 +96,20 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
                 break;
             }
 
+            // KRYTYCZNA POPRAWKA: Pobranie najstarszej daty (do paginacji) na podstawie WSZYSTKICH zwrotów w paczce
+            for (const r of returns) {
+                if (r.date_add > maxDateProcessed) {
+                    maxDateProcessed = r.date_add;
+                }
+            }
+
+            syncProgress.processedTotal += returns.length;
+            syncProgress.currentDate = new Date(maxDateProcessed * 1000).toISOString();
+
             // Izolowanie zwrotów wyłącznie z Allegro
             const allegroReturns = returns.filter(r => r.order_return_source === 'allegro');
 
             for (const rmaData of allegroReturns) {
-                // Tracking daty do paginacji (aby zapobiec duplikatom)
-                if (rmaData.date_add > maxDateProcessed) {
-                    maxDateProcessed = rmaData.date_add;
-                }
-
                 const login = rmaData.customer_login || rmaData.customer_email;
                 if (!login) continue;
 
@@ -180,5 +200,6 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
 
 module.exports = {
     syncReturnsFromBaselinker,
-    executeFraudBlacklistProtocol
+    executeFraudBlacklistProtocol,
+    getSyncStatus
 };

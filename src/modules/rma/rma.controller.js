@@ -59,4 +59,10 @@ async function syncHistory(req, res) {
     } catch (err) { res.status(500).json({ error: err.message }); }
 }
 
-module.exports = { getBlacklist, getReturns, banUser, dismissUser, syncHistory };
+async function getSyncStatus(req, res) {
+    const RmaService = require('./rma.service');
+    const status = RmaService.getSyncStatus();
+    res.status(200).json(status);
+}
+
+module.exports = { getBlacklist, getReturns, banUser, dismissUser, syncHistory, getSyncStatus };
