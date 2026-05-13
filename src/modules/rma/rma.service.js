@@ -108,8 +108,9 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
 
             // KRYTYCZNA POPRAWKA: Pobranie najstarszej daty (do paginacji) na podstawie WSZYSTKICH zwrotów w paczce
             for (const r of returns) {
-                if (r.date_add > maxDateProcessed) {
-                    maxDateProcessed = r.date_add;
+                const dateAddInt = parseInt(r.date_add, 10);
+                if (dateAddInt > maxDateProcessed) {
+                    maxDateProcessed = dateAddInt;
                 }
             }
 
