@@ -15,7 +15,12 @@ const ImageModal = ({ url, onClose }) => {
                 <button onClick={onClose} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-xl p-2 transition-colors">
                     <X className="w-6 h-6" />
                 </button>
-                <img src={url} alt="Powiększenie" className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-xl" />
+                <img 
+                    src={url} 
+                    alt="Powiększenie" 
+                    className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-xl" 
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                />
                 <div className="mt-8 flex space-x-4">
                     <button 
                         onClick={async () => {

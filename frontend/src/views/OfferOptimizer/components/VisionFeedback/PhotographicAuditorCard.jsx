@@ -152,7 +152,12 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                      <div className="relative w-full h-full flex flex-col items-center justify-center z-0">
                          {/* Jeżeli mamy istniejące zdjęcie (np. Foto 2) i to nie jest czysty symulowany błąd - wyświetlamy je blado w tle */}
                          {!isMissingPhotosAlert && imageObj.originalUrl && (
-                             <img src={imageObj.originalUrl} alt="Obecne" className="absolute inset-0 w-full h-full object-contain opacity-30" />
+                             <img 
+                                 src={imageObj.originalUrl} 
+                                 alt="Obecne" 
+                                 className="absolute inset-0 w-full h-full object-contain opacity-30" 
+                                 onError={(e) => { e.target.style.display = 'none'; }}
+                             />
                          )}
                          <div className="relative z-10 flex flex-col items-center text-center p-4">
                              {isMissingPhotosAlert && (
@@ -190,18 +195,6 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                      <img src={imageObj.replacedUrl} alt="Poprawione zdjęcie" className="w-full h-full absolute inset-0 object-contain bg-slate-100 transition-transform group-hover:scale-105 z-0" />
                  )}
                  
-                 {/* Alerty Nawierzchniowe */}
-                 {!imageObj.isCompliant && !isFixed && imageObj.alerts && imageObj.alerts.length > 0 && (
-                      <div className="absolute top-2 right-2 bg-rose-500/95 text-white p-3 rounded-sm shadow-xl flex items-start max-w-[90%] backdrop-blur-md border border-rose-400 z-20">
-                          <AlertTriangle className="w-5 h-5 mr-2 shrink-0 mt-0.5 text-rose-200" />
-                          <div className="flex flex-col space-y-1">
-                             {imageObj.alerts.map((alert, idx) => (
-                                 <span key={idx} className="text-[10px] font-bold leading-tight">{alert}</span>
-                             ))}
-                          </div>
-                      </div>
-                 )}
-
                  {/* Nakładka Dropzone Aktywna na Hover lub Drug (Zawsze aktywna w kodzie by łapać styl po dragu na rodzicu) */}
                  <div 
                      className={`absolute inset-0 z-10 transition-all flex flex-col items-center justify-center backdrop-blur-sm pointer-events-none
@@ -221,6 +214,20 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                          )}
                  </div>
             </div>
+            
+            {/* Przeniesione Alerty (by nie zasłaniały zdjęcia) */}
+            {!imageObj.isCompliant && !isFixed && imageObj.alerts && imageObj.alerts.length > 0 && (
+                 <div className="bg-rose-50 border-t border-rose-200 p-3 shadow-inner">
+                     <div className="flex items-start">
+                         <AlertTriangle className="w-4 h-4 mr-2 shrink-0 mt-0.5 text-rose-500" />
+                         <div className="flex flex-col space-y-1">
+                            {imageObj.alerts.map((alert, idx) => (
+                                <span key={idx} className="text-[10px] font-bold leading-tight text-rose-700">{alert}</span>
+                            ))}
+                         </div>
+                     </div>
+                 </div>
+            )}
 
             {/* Nowy Toolbar (Zawsze widoczny na dole) */}
             <div className="flex bg-slate-100 border-t border-slate-400 divide-x divide-slate-200">
