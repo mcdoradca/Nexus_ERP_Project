@@ -24,7 +24,7 @@ class GoogleMeetService {
             this.calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
             console.log('[Google Meet Service] Załadowano biblioteki autoryzacji Calendar API (OAuth 2.0).');
         } else {
-            console.warn('[Google Meet Service] Brak kluczy OAuth w .env. Użyje Tarczy Fallback.');
+            console.warn('[Google Meet Service] Brak kluczy OAuth w .env. Moduł nie jest skonfigurowowany.');
         }
     }
 

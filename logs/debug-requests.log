@@ -1048,3 +1048,14 @@
 [2026-05-08T05:00:38.687Z] GET /api/chat/unread - 304 - 594ms
 [2026-05-08T05:00:39.380Z] GET /api/chat/unread - 304 - 587ms
 [2026-05-08T05:00:39.937Z] GET /api/chat/unread - 304 - 552ms
+[2026-05-13T10:16:04.660Z] GET /api/health - 200 - 819ms
+[2026-05-13T10:17:33.214Z] GET /api/health - 200 - 894ms
+[2026-05-13T10:17:55.390Z] GET /api/health - 200 - 424ms
+[2026-05-13T10:19:49.388Z] GET /api/health - 200 - 331ms
+[2026-05-13T10:20:01.484Z] GET /api/rma/blacklist - 401 - 1ms
+  Response: undefined
+[2026-05-13T10:20:46.185Z] GET /api/rma/returns - 401 - 1ms
+  Response: undefined
+[2026-05-13T10:20:54.232Z] GET /api/rma/returns - 401 - 415ms
+  Response: {"error":"Użytkownik nie znaleziony"}
+[2026-05-13T10:21:19.250Z] GET /api/rma/returns - 200 - 1234ms

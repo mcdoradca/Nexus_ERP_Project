@@ -29,6 +29,21 @@
             "date": 1778349395373,
             "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-09.log",
             "hash": "41e04f5a3cb32f348216bd50ee69c0ea66aca595834fd055373105177a6e5d81"
+        },
+        {
+            "date": 1778573131701,
+            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-12.log",
+            "hash": "770fac9df55abe340f126b5f2ac0077b77f8ee527023311f64319c12e1859254"
+        },
+        {
+            "date": 1778652309953,
+            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-13.log",
+            "hash": "373ba3422f6c39976d028cb74e66e04ecae0838aa3fd5da13e44ad43ef01ad0c"
+        },
+        {
+            "date": 1778745407605,
+            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-14.log",
+            "hash": "f5b9d5dbd7632316140bdaaad231a50380dd27f1296c46170b5483942c42162c"
         }
     ],
     "hashType": "sha256"

@@ -78,6 +78,7 @@ function App() {
   
   // Form States
   const [newTaskForm, setNewTaskForm] = useState({ title: '', description: '', priority: 'MEDIUM', projectId: '', campaignId: '', assigneeIds: [], dueDate: '' });
+  const [newProjectForm, setNewProjectForm] = useState({ name: '', description: '', color: 'bg-emerald-500', budget: 0, category: 'PROJEKT ERP' });
   const [newBrandName, setNewBrandName] = useState('');
   const [newProductForm, setNewProductForm] = useState({ ean: '', sku: '', name: '', brandId: '', stock: 0, salePrice: 0, basePrice: 0, inboundTransportCost: 0, packagingCost: 0, bdoEprCost: 0, outboundTransportCost: 0, status: 'Aktywny', subiektId: '', baselinkerId: '' });
   
@@ -231,6 +232,16 @@ function App() {
       setIsNewTaskModalOpen(false);
       fetchData();
     } catch (err) { alert('Błąd tworzenia zadania'); }
+  };
+
+  const handleCreateProject = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post(`${API_URL}/api/projects`, newProjectForm, { headers: { Authorization: `Bearer ${token}` } });
+      setIsNewProjectModalOpen(false);
+      setNewProjectForm({ name: '', description: '', color: 'bg-emerald-500', budget: 0, category: 'PROJEKT ERP' });
+      fetchData();
+    } catch (err) { alert('Błąd tworzenia projektu'); }
   };
 
   const handleCreateBrand = async (e) => {
@@ -1024,6 +1035,58 @@ function App() {
           API_URL={API_URL} 
           initialData={campaignForEdit}
         />
+
+        {/* Nowy Projekt */}
+        {isNewProjectModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-6 animate-in fade-in duration-300">
+            <div className="bg-white rounded-sm shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-[85vh] min-h-0">
+              <div className="p-5 border-b border-slate-300 flex justify-between items-center bg-gradient-to-b from-[#f8fafc] to-[#e2e8f0]">
+                 <div className="flex items-center">
+                    <div className="w-12 h-12 bg-emerald-500 rounded-sm flex items-center justify-center mr-6 shadow-xl shadow-emerald-200">
+                       <Folder className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Nowy Projekt</h3>
+                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1">Zdefiniuj ramy jednostki operacyjnej.</p>
+                    </div>
+                 </div>
+                 <button onClick={() => setIsNewProjectModalOpen(false)} className="p-4 hover:bg-white rounded-sm transition-all text-slate-600"><X className="w-6 h-6" /></button>
+              </div>
+              <form onSubmit={handleCreateProject} className="p-5 space-y-6 overflow-y-auto custom-scrollbar flex-1 min-h-0">
+                <div>
+                  <label className={labelClass}>Nazwa Projektu</label>
+                  <input required placeholder="Nazwa projektu..." type="text" className={inputClass} value={newProjectForm.name} onChange={e => setNewProjectForm({...newProjectForm, name: e.target.value})} />
+                </div>
+                <div>
+                  <label className={labelClass}>Kategoria</label>
+                  <input placeholder="Np. KAMPANIA, PRODUKCJA..." type="text" className={inputClass} value={newProjectForm.category} onChange={e => setNewProjectForm({...newProjectForm, category: e.target.value})} />
+                </div>
+                <div>
+                  <label className={labelClass}>Budżet (PLN)</label>
+                  <input type="number" className={inputClass} value={newProjectForm.budget} onChange={e => setNewProjectForm({...newProjectForm, budget: parseFloat(e.target.value)})} />
+                </div>
+                <div>
+                  <label className={labelClass}>Opis / Założenia</label>
+                  <textarea className={`${inputClass} min-h-[100px]`} value={newProjectForm.description} onChange={e => setNewProjectForm({...newProjectForm, description: e.target.value})} />
+                </div>
+                <div>
+                  <label className={labelClass}>Kolor Zespołu</label>
+                  <select className={inputClass} value={newProjectForm.color} onChange={e => setNewProjectForm({...newProjectForm, color: e.target.value})}>
+                    <option value="bg-emerald-500">Szmaragdowy</option>
+                    <option value="bg-indigo-500">Indygo</option>
+                    <option value="bg-rose-500">Różowy</option>
+                    <option value="bg-amber-500">Bursztynowy</option>
+                  </select>
+                </div>
+                <div className="pt-4">
+                  <button type="submit" className="w-full py-6 bg-emerald-500 hover:bg-emerald-600 text-white font-black rounded-sm shadow-2xl shadow-emerald-600/20 transition-all uppercase tracking-[0.2em] text-sm active:scale-95 flex items-center justify-center">
+                    Utwórz Projekt
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Nowa Marka (PIM) */}
         {isNewBrandModalOpen && (

@@ -664,8 +664,7 @@ W module zidentyfikowałem cztery zintegrowane potężne silniki decyzyjne, prac
    \* Katalog SKU i Indeks DQS (Data Quality Score)  
    \* Karty Produktów (Ekonomia, Logistyka ERP/WMS, Cechy)  
    \* Narzędzia AI "Interpoluj EAN" (Auto-generacja meta-danych)  
-\* IDP (USUNIĘTY Z SYSTEMU NA STAŁE)
-\* Algopricing  
+\\* Algopricing  
 \* Prognoza AI  
 \* Genreuj AEO
 
@@ -687,10 +686,6 @@ Poniższa dokumentacja stanowi kompletną syntezę Kroku 1 (Analiza logiki i mod
 4. UWAGA: Model ma zablokowaną możliwość formatowania Markdown, zwraca czystą tablicę ID do przefiltrowania tabeli. **Wynik operacji (Output):** Tabela natychmiast zawęża się – w teście zredukowała wyniki z 15 do 1 precyzyjnego rekordu (produkt: *Perły Serum do twarzy z Witaminą C*). Pojawia się mały przycisk "X" służący do resetowania filtra.
 
 ---
-
-### Nazwa operacji/zadania: Ekstrakcja Kosztów z Faktur (IDP Skaner Kosztów) [ZDEPRECIONOWANE/USUNIĘTE]
-
-**Po co to jest? (Cel biznesowy):** Moduł został usunięty z systemu z powodu braku użyteczności. Zlikwidowano integrację, endpointy `/api/idp` oraz model bazy danych `InvoiceDocument`. System ERP nie prowadzi już bezpośredniego wgrywania faktur przez UI i agenta Gemini AI.
 
 ---
 
@@ -825,17 +820,11 @@ Niniejsza dokumentacja jest wynikiem rygorystycznej inżynierii wstecznej i anal
 2. Gdy zalogowany pracownik odbierze broadcast WebSockets, otrzyma powiadomienie.  
 3. Użytkownik musi kliknąć przycisk typu Oznacz jako przeczytane (lub zamknąć dedykowany modal wymuszający akcję). **Wynik operacji (Output):** Akcja wywołuje metodę markAsRead(announcementId, userId), która dodaje twardy wpis do bazy danych (AnnouncementRead). Dzięki temu zapytanie serwerowe getUnreadMandatory(userId) przestaje zwracać dany monit, pozwalając pracownikowi kontynuować normalną pracę w ERP. Powiadomienie trafia do historii z logiem akceptacji.
 
-11\. \*\*Admin (Panel Zarządzania i IdP)\*\*  
+11\. \*\*Admin (Panel Zarządzania)\*\*  
     \* Bezpieczeństwo i Baza Osobowościowa (Role)  
     \* Panel Zarządzania Kluczami API (AI, BaseLinker, Subiekt)  
     \* Action Logs (Audyt Operacji)  
-    \* System IDP (Intelligent Document Processing \- OCR Faktur)  
-Oto kompletny i rygorystyczny raport z eksploracji oraz inżynierii wstecznej modułu **Admin (Panel Zarządzania i IdP)**, zrealizowany zgodnie z Twoimi wytycznymi. Przeszedłem przez analizę kodu (Krok 1\) oraz fizyczne testy w przeglądarce w środowisku Nexus ERP (Krok 2).  
-Zidentyfikowałem kluczowego Agenta AI pracującego w module IDP:
-
-* **Model:** gemini-3.1-pro-preview  
-* **Rola:** Ekstrakcja kluczowych danych finansowych (EAN, cena hurtowa netto, koszt transportu przychodzącego) z surowego tekstu, który został odczytany z faktury PDF przy użyciu biblioteki pdf-parse.  
-* **Zabezpieczenia przed halucynowaniem:** W backendzie (idp.service.js) wdrożono twarde ramy – Agent ma nakaz odpowiadać TYLKO czystym JSON-em (bez formatowania Markdown). Następnie wynik podlega "sanityzacji" (usuwanie błędnych tagów), sprawdzane jest, czy obiekt to faktycznie tablica (Array). Co najważniejsze: system i tak bezwzględnie weryfikuje w lokalnej bazie bazy PIM (prisma.product.findUnique), czy dany produkt o odczytanym kodzie EAN fizycznie istnieje, zanim dokona jakiejkolwiek zmiany kosztów, niwelując tym samym wymyślone kody. Zmiany wysyłane są później cicho przez szynę EventBus.
+Oto kompletny i rygorystyczny raport z eksploracji oraz inżynierii wstecznej modułu **Admin (Panel Zarządzania)**, zrealizowany zgodnie z Twoimi wytycznymi. Przeszedłem przez analizę kodu (Krok 1\) oraz fizyczne testy w przeglądarce w środowisku Nexus ERP (Krok 2).
 
 Oto dokumentacja docelowa z Kroku 3 dla każdej z operacji:  
 ---
@@ -900,22 +889,6 @@ Oto dokumentacja docelowa z Kroku 3 dla każdej z operacji:
 
 **Wynik operacji (Output):** Przycisk interaktywny "Zapisz Klucz" natychmiast zmienia swój wygląd i treść na "**Zapisano**" i wyświetla ikonę zielonego ptaszka (sukces). Informacja o nowym tokenie została podpięta pod infrastrukturę, otwierając modułom automatyzacji drogę do pobierania asortymentu PIM.  
 ---
-
-### Nazwa operacji/zadania: Ekstrakcja Kosztów IDP (OCR Faktury)
-
-**Po co to jest? (Cel biznesowy):** Mechanizm skanowania nowo przybyłych dokumentów dostawy lub faktur, który oszczędza setki godzin ręcznego wklepywania faktur z "kartki" do PIM. Automatyzuje wyliczanie narzutów (takich jak basePrice i inboundTransportCost).  
-**Gdzie to znaleźć? (Lokalizacja UI):** Pasek boczny nawigacji (Ikona Pudełka \- PIM) \-\> Widok "Katalog SKU (PIM)" \-\> Górny pasek zadań PIM \-\> Przycisk w kształcie ikony Chmury ze Strzałką w górę (Upload Skanera IDP).  
-**Wymagania wstępne (Wiedza z kodu):** Dokument w formacie wyłącznie .pdf o maksymalnej wielkości do 20 MB (walidacja frontendowa po rozmiarze file.size oraz typie application/pdf). Musisz posiadać upewnienie, że pozycje na fakturze posiadają znaki szczególne (EAN lub SKU zgodne z naszą bazą Nexus), aby AI potrafiła je sparować z obiektem Prisma.  
-**Jak to użyć? (Instrukcja Krok po Kroku):**
-
-1. Przejdź do Katalogu SKU i kliknij przycisk ikony **Uploadu / Skanera IDP** na samym szczycie.  
-2. Na pulpicie "IDP: Skaner Kosztów" możesz kliknąć prostokątny, przerywany obrys pola "Przeciągnij fakturę PDF" na środku ekranu, aby wywołać okno dialogowe wyboru plików.  
-3. Wybierz przygotowany plik PDF, np. fakturę (na Twoim komputerze leży testowy, przykładowy dokument test\_faktura.pdf).  
-4. Upewnij się, że nazwa pliku pojawiła się na środku obrysu, a pod spodem wyświetlany jest mały, czerwony napis "Usuń plik".  
-5. Poniżej naciśnij szeroki, ciemny przycisk: **"Rozpocznij Ekstrakcję Kosztów"**.  
-6. Czekaj (proces może potrwać do minuty), nie zamykając i nie klikając okna w trakcie gdy na przycisku kręci się wskaźnik ("AI Przetwarza...").
-
-**Wynik operacji (Output):** Gdy proces dobiegnie końca, w lewej części modalu poniżej przycisku pojawia się zielone obramowanie ("Sukces Ekstrakcji"). Wyświetlają się statystyki: liczba odczytanych pozycji z PDF oraz cyfra mówiąca, ile obiektów faktycznie odnaleziono w bazie i zaktualizowano. Pojawiają się także wypisane odczytane numery "EAN". Jednocześnie sam plik wędruje trwale po prawej stronie do sekcji panelowej: **Archiwum IDP**, skąd można go w każdym momencie odczytać klikając w nazwę linku. Od tego momentu pozycje uległy re-kalkulacji założeń marżowych w systemie po ukrytym kanale PRODUCT\_COST\_UPDATED.
 
 \---
 
@@ -1026,13 +999,12 @@ W tle systemu, w oderwaniu od interfejsu graficznego (UI), działają ukryte ser
 ### Nazwa operacji/zadania: Zero-Bleed Pipeline (Wdrożenie Operacyjne Agentów i Frontend)
 **Po co to jest? (Cel biznesowy):** Implementacja asynchronicznych Agentów i potoków zabezpieczających szczelność finansową ERP wraz z centralnym hubem wizualnym do nadzoru.
 **Gdzie to znaleźć? (Lokalizacja w kodzie):** 
-- Backend: `src/modules/idp/idp.service.js`, `src/modules/rma/rma.service.js`, `src/modules/logistics/logistics.service.js`, `src/core/cron.js`
+- Backend: `src/modules/rma/rma.service.js`, `src/modules/logistics/logistics.service.js`, `src/core/cron.js`
 - API Routy: `src/modules/rma/rma.routes.js`, `src/modules/logistics/logistics.routes.js`
 - Frontend UI: `frontend/src/views/ZeroBleedHubView.jsx`, zintegrowane w `frontend/src/App.jsx`
 **Wymagania wstępne (Wiedza z kodu):**
-1. **Agent IDP (Multimodal Vision):** Usunięto tradycyjny OCR (`pdf-parse`). Agent pobiera faktury jako Base64 PDF, analizuje natywnie w `gemini-3.1-pro-preview` poszukując kosztów. Zbudowano **Tarczę Błędów (Human-in-the-loop)**: Jeśli model zwróci `confidenceScore < 0.98` w JSON, modyfikacja w PIM jest zablokowana, a na panelu (i Kanbanie) trafia jako czerwony alarm do ręcznej weryfikacji. 
-2. **Agent RMA Fraud Prevention:** Działa w CRON co 5 minut. Uderza do `getReturnJournalList` chroniąc limity (pobiera tylko delta od `lastLogId`). Konstruuje bazę kupujących z wyłudzeniami. Po 3 zwrotach (3 Strikes Rule) Agent automatycznie wykonuje żądanie API HTTP `/sale/blacklisted-users` i blokuje kupującego na koncie firmy na Allegro. Zabezpieczony dedykowanym widokiem w "Czarna Lista (RMA)".
-3. **Agent Wirtualny Logistyk (Zaopatrzeniowiec):** Działa w CRON o 5:00 rano. Oblicza moment wyczerpania zapasu używając `leadTimeDays`. Uruchamia **Agenta Negocjatora**, który redaguje merytorycznego e-maila B2B do fabryki w celu odnowienia towaru (z prośbą o utrzymanie cen/rabatu). **Tarcza Błędów:** Mail nie wychodzi bezpośrednio – generuje gotowego Drafta jako zadanie `TODO` (Kanban), wymagając 1 kliknięcia od operatora. Widok stanu zaopatrzenia zmapowany w "Dostawcy B2B".
+1. **Agent RMA Fraud Prevention:** Działa w CRON co 5 minut. Uderza do `getReturnJournalList` chroniąc limity (pobiera tylko delta od `lastLogId`). Konstruuje bazę kupujących z wyłudzeniami. Po 3 zwrotach (3 Strikes Rule) Agent automatycznie wykonuje żądanie API HTTP `/sale/blacklisted-users` i blokuje kupującego na koncie firmy na Allegro. Zabezpieczony dedykowanym widokiem w "Czarna Lista (RMA)".
+2. **Agent Wirtualny Logistyk (Zaopatrzeniowiec):** Działa w CRON o 5:00 rano. Oblicza moment wyczerpania zapasu używając `leadTimeDays`. Uruchamia **Agenta Negocjatora**, który redaguje merytorycznego e-maila B2B do fabryki w celu odnowienia towaru (z prośbą o utrzymanie cen/rabatu). **Tarcza Błędów:** Mail nie wychodzi bezpośrednio – generuje gotowego Drafta jako zadanie `TODO` (Kanban), wymagając 1 kliknięcia od operatora. Widok stanu zaopatrzenia zmapowany w "Dostawcy B2B".
 4. **Zero-Bleed Hub (UI):** Dedykowany, chowany widok w aplikacji (w lewym panelu minimalistycznym pod ikoną "Tarczy"), prezentujący zakładki dla RMA i Logistyki. Pozwala na audytowanie bazy "CustomerRiskProfile" i dziennika "ReturnRecord" w czasie rzeczywistym.
 
 ---
@@ -1047,7 +1019,7 @@ W tle systemu, w oderwaniu od interfejsu graficznego (UI), działają ukryte ser
 1. **Publiczny interfejs (/book):** Omija barierę logowania w `App.jsx`. Dynamicznie odpytuje endpoint `/api/meetings/public/availability`, który oblicza wolne sloty na podstawie grafiku pracy, odrzucając już zarezerwowane terminy (ochrona przed Double Booking).
 2. **Integracja z Kanbanem:** Skuteczna rezerwacja spotkania przez rekrutera wywołuje systemowy event na `EventBus` (`CREATE_SYSTEM_TASK`), co automatycznie generuje na tablicy Kanban kartę zadania (PRIORITY: HIGH) z kompletem danych i opisem (JD).
 3. **Zarządzanie (Meeting Dashboard):** Wewnętrzny panel ERP pozwala administratorowi definiować "Sloty" czasowe na poszczególne dni tygodnia oraz ręcznie odrzucać/zatwierdzać zapytania. Wprowadzono logikę auto-oczyszczania: zatwierdzone spotkania zyskują opcję "Odwołaj", a wszelkie zdarzenia o statusie `CANCELLED` są natychmiast filtrowane i permanentnie wyciszane z widoku tablicy, aby optymalizować przestrzeń analityczną ekranu.
-4. **Integracja z Google Calendar API (Google Meet):** Wdrożono autentyczne generowanie linków w ekosystemie Google bez wymogu płatnej usługi Google Workspace. Serwer Node.js (przez moduł `google.meet.service.js` i pakiet `googleapis`) autoryzuje się na darmowym koncie (np. Gmail) za pomocą protokołu OAuth 2.0 (używając odświeżanego w tle `Refresh Token`). W momencie potwierdzenia rezerwacji, CRM wysyła bezobsługowo żądanie `POST` z parametrem `?conferenceDataVersion=1`. Serwery Google w odpowiedzi tworzą w kalendarzu wydarzenie i natychmiast zwracają wygenerowany `hangoutLink`. Uzyskany adres jest trwale zapisywany w bazie Prisma (kolumna `meetLink`) i od tej pory służy jako docelowy pokój telekonferencji. Funkcjonuje to całkowicie bez udziału administratora i bez limitów (dla spotkań 1:1 do 24 godzin). W przypadku braku konfiguracji kluczy (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` w pliku `.env`) uruchamiana jest bezpieczna Tarcza Fallback na otwarty protokół Jitsi Meet.
+4. **Integracja z Google Calendar API (Google Meet):** Wdrożono autentyczne generowanie linków w ekosystemie Google bez wymogu płatnej usługi Google Workspace. Serwer Node.js (przez moduł `google.meet.service.js` i pakiet `googleapis`) autoryzuje się na darmowym koncie (np. Gmail) za pomocą protokołu OAuth 2.0 (używając odświeżanego w tle `Refresh Token`). W momencie potwierdzenia rezerwacji, CRM wysyła bezobsługowo żądanie `POST` z parametrem `?conferenceDataVersion=1`. Serwery Google w odpowiedzi tworzą w kalendarzu wydarzenie i natychmiast zwracają wygenerowany `hangoutLink`. Uzyskany adres jest trwale zapisywany w bazie Prisma (kolumna `meetLink`) i od tej pory służy jako docelowy pokój telekonferencji. Funkcjonuje to całkowicie bez udziału administratora i bez limitów (dla spotkań 1:1 do 24 godzin). Zgodnie z bezwzględną polityką bezpieczeństwa i braku mocków/darmowych zamienników (No Free Alternatives), w przypadku braku konfiguracji kluczy (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` w pliku `.env`), system nie uruchamia fałszywego zastępstwa Jitsi, lecz przerywa proces bezpiecznym wyjątkiem `throw new Error`, blokując halucynację procesu.
 
 ---
 
@@ -1076,7 +1048,7 @@ ode-cron odpalający się o 04:00 rano dla obliczeń True Net Margin (odciążen
 ---
 
 ### Nazwa operacji/zadania: Architektura Zero-Bleed Pipeline (Fundament Bazodanowy)
-**Po co to jest? (Cel biznesowy):** Wprowadzenie zintegrowanego ekosystemu do likwidacji wycieków finansowych w firmie. Moduł tworzy twarde struktury bazy danych Prisma dla Agentów operacyjnych: RMA (ochrona przed zwrotami/wyłudzeniami), IDP (automatyzacja odczytu kosztów faktur z modeli Vision LLM) oraz Virtual Logistics (zaopatrzenie B2B).
+**Po co to jest? (Cel biznesowy):** Wprowadzenie zintegrowanego ekosystemu do likwidacji wycieków finansowych w firmie. Moduł tworzy twarde struktury bazy danych Prisma dla Agentów operacyjnych: RMA (ochrona przed zwrotami/wyłudzeniami) oraz Virtual Logistics (zaopatrzenie B2B).
 **Gdzie to znaleźć? (Lokalizacja w kodzie):** 
 - Rozbudowa `prisma/schema.prisma` o nowe relacje.
 **Wymagania wstępne (Wiedza z kodu):**
@@ -1120,7 +1092,7 @@ Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dost
 ---
 
 11. **Moduł Rezerwacji Spotkań (Google Meet Integration)**
-    * Usunięto nieprofesjonalną logikę z darmowymi linkami Jitsi.
+    * Usunięto przestarzałe logi (Tarcza Fallback) dotyczące mechanizmów awaryjnych Jitsi, ujednolicając system wokół Google Meet zgodnie z rygorem braku darmowych zamienników.
     * Zaimplementowano rygorystyczne łączenie z API Google Calendar v3 z wymuszoną flagą `conferenceDataVersion=1` oraz użyciem bloku `conferenceData` o typie `hangoutsMeet`.
     * Aplikacja tworzy oficjalne pokoje w Google Meet, zabezpieczając się przez dublowaniem (`requestId: booking.id`), wyciąga parametr `hangoutLink` i osadza we wiadomości E-mail. Dodatkowo zwraca nowo wygenerowany link z powrotem do UI Administratora natychmiast po wywołaniu.
     * Obsługa odwoływania spotkań: Zmiana statusu na `CANCELLED` automatycznie wysyła spersonalizowanego maila do Kandydata z powiadomieniem o anulowaniu.
@@ -1141,3 +1113,14 @@ Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dost
     * **[Poprawka Architektoniczna] Priorytetyzacja Tokena i Ochrona Pętli:** Przywrócono nadrzędność wstrzykiwanego przez środowisko serwerowe (PM2) `process.env.BASELINKER_TOKEN` nad testowym kluczem w bazie `SystemSetting`, co odblokowało pobieranie realnych danych z głównego konta. Wdrożono rygorystyczny mechanizm paginacji `getOrderReturns` przy użyciu wbudowanego w API parametru `date_from`, wymuszając przeskakiwanie do przodu (z inkrementacją o 1 sekundę) by uniknąć infinite loop. Zlikwidowano usterkę, przez którą stary kod ignorował czas i doprowadzał do pętli nieskończonej przepełniającej Node.js RAM.
     * **[Telemetria i Deep-Logging]:** Wdrożono agresywne logowanie całego przebiegu pętli w funkcji `syncReturnsFromBaselinker`. Proces komunikacji z API BaseLinkera jest teraz w pełni monitorowany w terminalu z prefixem `[RMA TELEMETRY]`, na bieżąco obnażając długość każdej paczki i datę przesunięcia paginacji, zapewniając transparentny raport działania mechanizmu (obrona przed "cichym zatrzymaniem").
     * **[Krytyczna Łata Paginacji]:** Dodano rzutowanie `parseInt(r.date_add, 10)` przed operacją arytmetyczną w `rma.service.js`. BaseLinker API zwraca czas jako String, co w połączeniu z `maxDateProcessed + 1` powodowało niejawną konkatenację (np. rok 2511) i zablokowanie paginacji po pierwszej paczce. Łata gwarantuje prawidłowe iteracje chronologiczne przy dużej ilości logów.
+
+---
+
+14. **Poprawki UI / UX i Stabilności Głównego Widoku (App.jsx)**
+    * Wdrożono natywną obsługę Modala "Nowy Projekt" bezpośrednio w komponencie głównym `App.jsx`, mapując hook `isNewProjectModalOpen` oraz payload formularza do centralnego API (`/api/projects`).
+    * Zlikwidowano tzw. "Ghost Button" w module `ProjectsView.jsx`, łącząc logikę wywołującą modal z przepływem widoku nadrzędnego. Wprowadzono pełen cykl odświeżania (`fetchData()`) po udanej insercji do bazy.
+
+---
+
+15. **Moduł MDM (Oczyszczanie Długu Technologicznego)**
+    * Wyczyszczono archiwalne adnotacje dotyczące mechanizmu oceniania "Trust Score" dla faktur z wyłączonego systemu IDP (Intelligent Document Processing). Infrastruktura została w pełni odciążona z przestarzałych kontrolerów faktur.

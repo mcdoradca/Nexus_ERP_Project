@@ -14,8 +14,6 @@ async function handleProductCostUpdated(payload) {
     console.log(`[MDM SERVICE] Odebrano aktualizację kosztów z ${source} dla EAN: ${product.ean}`);
 
     try {
-        // W przyszłości tutaj MDM będzie oceniał "Trust Score" dla źródła.
-        // Jeśli IDP (źródło z faktury) to Trust Score = 100%.
 
         // Aktualizujemy AlgoPricing
         console.log(`[MDM SERVICE] Zlecam przeliczenie AlgoPricing dla produktu ID: ${product.id}`);
