@@ -226,7 +226,7 @@ Po dogłębnej analizie plików źródłowych, logów wdrożeniowych oraz archit
 2. Po otwarciu systemowego okna eksploratora (Windows/Mac) wskaż plik JPG, PNG lub MP4.  
 3. Gdy zdjęcie się pojawi w tabelce na miniaturowym kaflu, najedź na nie myszką. Wyłoni się czarna powłoka (overlay) z dwiema małymi białymi ikonkami:  
    * Kliknij "Maximize" (ikona lupy), by powiększyć.  
-   * Kliknij "Kosz", aby usunąć powiązany plik z chmury. **Wynik operacji (Output):** Przekazanie pliku uruchamia ukryty input. Tabela zastępuje przycisk kręcącym się niebieskim kółkiem loadera. W tym czasie plik kompresowany do 50MB (limit kontrolera) leci do zewnętrznego *Supabase Storage*, a w interfejsie po chwili renderuje się fizyczna miniatura lub odtwarzacz wideo \<video src="..."\> pobrany bezpośrednio z chmury Nexus-Files.
+   * Kliknij "Kosz", aby usunąć powiązany plik z chmury. **Wynik operacji (Output):** Przekazanie pliku uruchamia ukryty input. Tabela zastępuje przycisk kręcącym się niebieskim kółkiem loadera. W tym czasie plik kompresowany do 50MB (limit kontrolera) leci do zewnętrznego *Supabase Storage*, a w interfejsie po chwili renderuje się fizyczna miniatura lub odtwarzacz wideo <video src="..."> pobrany bezpośrednio z chmury Nexus-Files.
 
 ---
 
@@ -247,9 +247,9 @@ Po dogłębnej analizie plików źródłowych, logów wdrożeniowych oraz archit
 2. Gdy pojawi się mały kwadrat z czerwonym koszem – kliknij go lewym przyciskiem.  
 3. System wymusi twarde potwierdzenie (Zabezpieczenie przed fat-finger mistake). **Wynik operacji (Output):** Jeśli masz uprawnienia MARKETING lub ADMIN/PREZES, wiersz bezpowrotnie znika z harmonogramu, wysyłając w tle HTTP DELETE i czyszcząc kafelki (również powiązane zdjęcia w chmurze poprzez trigger backendowy). Jeśli nie masz, przycisk zostawi okno błędu w przeglądarce i odrzuci wniosek o destrukcję materiału firmowego.
 
-   \* Ofertowanie GEO (AI)
+---
 
-### ARCHITEKTURA KOGNITYWNA I POTOK WARTOSCI (THE ULTIMATE EAN PIPELINE)
+### ARCHITEKTURA KOGNITYWNA I POTOK WARTOŚCI (THE ULTIMATE EAN PIPELINE)
 
 Zgodnie z wdrożeniem master-agenta (`ean.pipeline.service.js`), proces operuje w zamkniętej kaskadzie:
 
@@ -265,7 +265,13 @@ Zgodnie z wdrożeniem master-agenta (`ean.pipeline.service.js`), proces operuje 
 
 ### Nazwa operacji/zadania: Pobieranie z API (Inicjalizacja Inteligentna)
 
-**Po co to jest? (Cel biznesowy):** Mechanizm zabezpieczający handlowca przed robieniem pustej, bezwartościowej pracy copywriterskiej. Funkcja łączy bazę PIM z systemem BaseLinkera, pobiera surowe dane, odsyła je do chmury Agentów AI i przygotowuje w ułamek minuty pięć gotowych sekcji tekstowych. **Gdzie to znaleźć? (Lokalizacja UI):** Środkowy ekran na górze. Główny formularz wejściowy z sekcją "Wybierz Tryb Pracy Wymuszany na AI". **Wymagania wstępne (Wiedza z kodu):** Użytkownik musi posiadać na biurku rzeczywisty, poprawny 13-cyfrowy kod EAN (np. 8809822540631). EAN pełni w kodzie backendu funkcję potężnego klucza (Regex ^\\d{8,14}$), bez którego proces w ogóle nie ruszy. **Jak to użyć? (Instrukcja Krok po Kroku):**
+**Po co to jest? (Cel biznesowy):** Mechanizm zabezpieczający handlowca przed robieniem pustej, bezwartościowej pracy copywriterskiej. Zrekonstruowany na pełnoprawny **"Unified Product View" (Kokpit PIM)**. Moduł po otrzymaniu sygnału wykonuje serię uderzeń do BaseLinkera, pobiera surowe dane (wraz z zapasami, cenami, i logistyką), odsyła je do chmury Agentów AI i w pełni renderuje potężny ciemny interfejs analityczny. **Gdzie to znaleźć? (Lokalizacja UI):** Początkowo jest to w 100% ciemny ekran z inputem tekstowym "ImageUploadBox". Następnie po prawidłowej operacji przekształca się w "UltimateProductDashboard" podzielony na trzy merytoryczne kolumny danych. **Wymagania wstępne (Wiedza z kodu):** Użytkownik musi posiadać 13-cyfrowy kod EAN (np. 8809822540631). **Jak to użyć? (Instrukcja Krok po Kroku):**
+
+1. Wbij w główne, centralne pole na ciemnym tle kod EAN: 8809822540631.
+2. Kliknij przycisk "Start Potoku".
+3. *UWAGA:* Rozpocznie się sekwencja animacji i postępu, uderzająca do 6 modeli AI równolegle. Czas trwania to od 5 do 20 sekund zależnie od obciążenia. **Wynik operacji (Output):** Środowisko się przeładowuje z widoku "Inicjatora" w "Centrum Dowodzenia". Z lewej strony ładuje się potężny panel danych PIM (Stany WMS/ERP, VAT, Cechy), na środku Walidator Tytułu i Audytor Wizyjny AI, a po prawej stronie wszystkie 5-sekcji wygenerowanego kodu dla rynku z Tile-Simulatorem na samym dole. Cały interfejs jest ujednolicony kolorystycznie i prezentuje profesjonalny ciemny motyw.
+
+ pobiera surowe dane, odsyła je do chmury Agentów AI i przygotowuje w ułamek minuty pięć gotowych sekcji tekstowych. **Gdzie to znaleźć? (Lokalizacja UI):** Środkowy ekran na górze. Główny formularz wejściowy z sekcją "Wybierz Tryb Pracy Wymuszany na AI". **Wymagania wstępne (Wiedza z kodu):** Użytkownik musi posiadać na biurku rzeczywisty, poprawny 13-cyfrowy kod EAN (np. 8809822540631). EAN pełni w kodzie backendu funkcję potężnego klucza (Regex ^\\d{8,14}$), bez którego proces w ogóle nie ruszy. **Jak to użyć? (Instrukcja Krok po Kroku):**
 
 1. Z listy rozwijanej "Tryb Pracy" wybierz pożądaną architekturę bezpieczeństwa. Na kosmetyki wybierz "Audytor Rozporządzenia Kosmetycznego (UE 1223/2009)".  
 2. Wbij w główne pole testowy kod: 8809822540631.  
