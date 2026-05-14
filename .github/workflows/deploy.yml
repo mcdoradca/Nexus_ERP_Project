@@ -36,9 +36,13 @@ jobs:
             echo "Zatrzymywanie starych kontenerów i czyszczenie sierot (orphans)..."
             docker compose down --remove-orphans
             
+            echo "Oczyszczanie uszkodzonego cache Buildkit..."
+            docker builder prune -a -f
+
             echo "Kompilacja nowych obrazów AI i przełączanie kontenerów..."
             # Komenda --build wymusi zbudowanie nowego Nginxa (frontend) oraz Node.js (backend)
-            docker compose up -d --build
+            docker compose build --no-cache
+            docker compose up -d
             
             echo "Oczyszczanie ze starych, nieużywanych śmieci w pamięci GCP..."
             docker image prune -f
