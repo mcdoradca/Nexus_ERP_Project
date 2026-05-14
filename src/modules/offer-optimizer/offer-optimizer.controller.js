@@ -353,7 +353,7 @@ const triggerUltimatePipeline = async (req, res) => {
         const finalDraft = await EanPipelineService.execute(ean);
 
         console.log(`[Controller] Potok EAN Pipeline sfinalizowany. Zwracam pomyślny wynik HitL.`);
-        return res.status(200).json(finalDraft);
+        return res.status(200).json({ ...finalDraft, ean });
     } catch (e) {
         console.error(`[Controller] Zablokowano błąd EAN Pipeline dla: ${req.body?.ean}`, e.message);
         return res.status(500).json({ error: e.message || "Błąd wewnętrzny serwera podczas procesowania EAN Pipeline." });

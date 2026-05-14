@@ -24,43 +24,73 @@ class EanPipelineService {
                     brandId = defaultBrand.id;
                 }
                 
+                const deepPayload = {
+                    baselinkerInventoryId: deepData.baselinkerInventoryId,
+                    baselinkerId: deepData.baselinkerId,
+                    descriptionHtml: deepData.descriptionHtml,
+                    features: deepData.features,
+                    images: deepData.images,
+                    weight: deepData.weight,
+                    length: deepData.length,
+                    width: deepData.width,
+                    height: deepData.height,
+                    taxRate: deepData.taxRate,
+                    videoUrl: deepData.videoUrl,
+                    attachments: deepData.attachments,
+                    stockErpUnits: deepData.stockErpUnits,
+                    stockWmsUnits: deepData.stockWmsUnits,
+                    isSynced: true,
+                    stock: deepData.stock
+                };
+
                 product = await prisma.product.upsert({
                     where: { ean },
-                    create: { ean, name: deepData.name, brandId, baselinkerInventoryId: deepData.baselinkerInventoryId, baselinkerId: deepData.baselinkerId, descriptionHtml: deepData.descriptionHtml, images: deepData.images, isSynced: true },
-                    update: { baselinkerInventoryId: deepData.baselinkerInventoryId, baselinkerId: deepData.baselinkerId, images: deepData.images, descriptionHtml: deepData.descriptionHtml, isSynced: true }
+                    create: { ean, name: deepData.name, brandId, ...deepPayload },
+                    update: deepPayload
                 });
             }
 
-            // 2. Agent Badawczy (INCI Intelligence)
-            console.log(`[EAN Pipeline] 2. Agent Badawczy (INCI Intelligence) - Temperatura 0.2`);
+            // 2. Agent Badawczy (INCI) & Audyt Wizualny (Równolegle)
+            console.log(`[EAN Pipeline] 2. Agent Badawczy (INCI) & Audyt Wizualny - Równolegle`);
+            
+            const visionPromise = (async () => {
+                let vAudit = { images: (product.images || []).map(url => ({ originalUrl: url, isCompliant: true, alerts: [] })) };
+                try {
+                    if (product.images && product.images.length > 0) {
+                        vAudit = await AiService.auditOfferImages(product.images[0], product.images.slice(1));
+                    }
+                } catch (err) { console.error("[EAN Pipeline] Ostrzeżenie Vision AI:", err.message); }
+                return vAudit;
+            })();
+
             const intelligenceData = await AiService.gatherProductIntelligence(ean, product.name);
 
-            // FAZA 2: TRANSFORMACJA WIZUALNO-SPRZEDAŻOWA (AEO & Claid)
-            // 3. Agent Audytor Wizualny (Vision AI)
-            console.log(`[EAN Pipeline] 3. Agent Audytor Wizualny (Vision AI) - Regulamin Allegro`);
-            let visualAudit = { images: (product.images || []).map(url => ({ originalUrl: url, isCompliant: true, alerts: [] })) };
-            try {
-                if (product.images && product.images.length > 0) {
-                    visualAudit = await AiService.auditOfferImages(product.images[0], product.images.slice(1));
+            // 2.5 Auto-Fill PIM Parameters (Asynchronicznie, nie blokuje AEO)
+            console.log(`[EAN Pipeline] 2.5 Agent Auto-Fill (PIM Parameters)`);
+            const autofillPromise = AiService.autofillMissingParameters(ean, product.name, product.features || {}, []).then(filledFeatures => {
+                if (filledFeatures && Object.keys(filledFeatures).length > 0) {
+                     return prisma.product.update({ where: { ean }, data: { features: filledFeatures } });
                 }
-            } catch (err) { console.error("[EAN Pipeline] Ostrzeżenie Vision AI:", err.message); }
+            }).catch(err => console.error("[EAN Pipeline] Błąd Auto-Fill:", err.message));
 
-            // 4. Generowanie AEO (Allegro Enrichment Optimizer)
+            // 4. Agent AEO (wymaga intelligenceData)
             console.log(`[EAN Pipeline] 4. Agent AEO - Struktura Perplexity/SGE - Temperatura 0.4`);
             const aeoContent = await AiService.generateAEOContent(product.name, product.descriptionHtml, intelligenceData);
 
-            // 5. Agent GEO Text (Sprzedażowy Copywriter)
-            console.log(`[EAN Pipeline] 5. Agent GEO Text - Restrykcja 7 tagów HTML - Temperatura 0.6`);
-            const geoResult = await AiService.generateGEOTextContent(product.name, aeoContent, intelligenceData);
+            // 5. GEO Text & Optymalizacja Tytułu (Równolegle, wymagają AEO)
+            console.log(`[EAN Pipeline] 5. Agent GEO Text & Agent Tytułu - Równolegle`);
+            const titlePromise = AiService.generateTitleOnly(aeoContent, product.name);
+            const geoPromise = AiService.generateGEOTextContent(product.name, aeoContent, intelligenceData);
+
+            const [titleResult, geoResult] = await Promise.all([titlePromise, geoPromise]);
 
             // 6. Agent Audytor Prawny (Compliance)
             console.log(`[EAN Pipeline] 6. Agent Audytor Prawny (WE 1223/2009) - Temperatura 0.0`);
             const fullHtml = Object.values(geoResult.htmlContent || {}).join("");
             const complianceReport = await AiService.generateComplianceReport(product.name, aeoContent, fullHtml);
 
-            // 7. Optymalizacja Tytułu Aukcji (generateTitleOnly)
-            console.log(`[EAN Pipeline] 7. Optymalizacja Tytułu (Google Trends, brak "HIT") - Temperatura 0.8`);
-            const titleResult = await AiService.generateTitleOnly(aeoContent, product.name);
+            // Oczekiwanie na poboczne procesy (Vision AI i Auto-Fill) przed finalizacją
+            const [visualAudit] = await Promise.all([visionPromise, autofillPromise]);
 
             // ZAKOŃCZENIE FAZY 2 - Tarcza Błędu: Weryfikacja Człowieka (HitL)
             console.log(`[EAN Pipeline] Zapisywanie rezultatu do Kopii Roboczej PIM (HitL)...`);
