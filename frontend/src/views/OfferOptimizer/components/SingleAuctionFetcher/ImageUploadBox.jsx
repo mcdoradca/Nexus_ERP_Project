@@ -5,8 +5,6 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
     const [ean, setEan] = useState('');
     const [status, setStatus] = useState('IDLE'); // IDLE | THINKING | SUCCESS
     const [lastError, setLastError] = useState(null);
-    const [analysisMode, setAnalysisMode] = useState('STANDARD');
-    const [forceRegenerate, setForceRegenerate] = useState(false);
 
     const handleAnalyze = async (e) => {
         e.preventDefault();
@@ -25,13 +23,13 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
             const token = localStorage.getItem('aps_token') || '';
             const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
 
-            const response = await fetch(`${API_URL}/api/offer-optimizer/analyze-single`, {
+            const response = await fetch(`${API_URL}/api/offer-optimizer/pipeline/trigger`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ ean: extractedId, analysisMode, forceRegenerate })
+                body: JSON.stringify({ ean: extractedId })
             });
 
             if (!response.ok) {
@@ -77,33 +75,6 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-8 text-center max-w-lg">
                    Backend automatycznie wyszuka kod EAN w katalogu PIM. Jeśli zajdzie potrzeba, pobierze bogaty HTML i media prosto z API BaseLinker, chroniąc przed blokadami Allegro.
                 </p>
-
-                <div className="flex w-full justify-center mb-8">
-                     <div className="flex flex-col w-full max-w-sm">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2 text-center">Wybierz Tryb Pracy Wymuszany na AI:</label>
-                          <select 
-                               id="analysisMode"
-                               name="analysisMode"
-                               value={analysisMode} 
-                               onChange={(e) => setAnalysisMode(e.target.value)}
-                               disabled={status === 'THINKING'}
-                               className="bg-slate-50 border border-slate-400 text-slate-700 text-sm font-bold rounded-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full p-3 cursor-pointer shadow-sm outline-none mb-4"
-                          >
-                               <option value="STANDARD">⭐ Standard E-commerce (SEO/GEO 2026)</option>
-                               <option value="COSMETIC_LEGAL_AUDIT">🛡️ Audytor Rozporządzenia Kosmetycznego (UE 1223/2009)</option>
-                          </select>
-                           
-                           <label className="flex items-center space-x-2 text-xs font-bold text-slate-500 cursor-pointer">
-                               <input 
-                                   type="checkbox" 
-                                   checked={forceRegenerate}
-                                   onChange={(e) => setForceRegenerate(e.target.checked)}
-                                   className="rounded text-indigo-600 focus:ring-indigo-500 bg-slate-100 border-slate-300"
-                               />
-                               <span>Zignoruj zapis i wymuś nową generację AI</span>
-                           </label>
-                     </div>
-                </div>
 
                 <form onSubmit={handleAnalyze} className="w-full max-w-2xl relative flex flex-col items-center">
                     

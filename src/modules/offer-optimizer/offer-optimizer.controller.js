@@ -349,15 +349,14 @@ const triggerUltimatePipeline = async (req, res) => {
         const { ean } = req.body;
         if (!ean) return res.status(400).json({ error: "Wymagany kod EAN do inicjalizacji potoku." });
 
-        // Uruchamiamy The Ultimate EAN Pipeline.
-        // Oczekujemy na synchroniczne wykonanie potoku lub puszczamy go asynchronicznie (tutaj asynchronicznie i zwracamy status 202).
-        EanPipelineService.execute(ean)
-            .then(() => console.log(`[Controller] Potok EAN Pipeline sfinalizowany dla EAN: ${ean}`))
-            .catch(err => console.error(`[Controller] Potok EAN Pipeline napotkał błąd dla EAN: ${ean}`, err));
+        console.log(`[Controller] Rozpoczynam Synchroniczne Wykonanie Master Agenta EAN Pipeline: ${ean}`);
+        const finalDraft = await EanPipelineService.execute(ean);
 
-        res.status(202).json({ message: "The Ultimate EAN Pipeline zainicjowany. Wyniki wylądują w kopii roboczej do ręcznej weryfikacji HitL." });
+        console.log(`[Controller] Potok EAN Pipeline sfinalizowany. Zwracam pomyślny wynik HitL.`);
+        return res.status(200).json(finalDraft);
     } catch (e) {
-        res.status(500).json({ error: e.message || "Błąd wewnętrzny serwera." });
+        console.error(`[Controller] Zablokowano błąd EAN Pipeline dla: ${req.body?.ean}`, e.message);
+        return res.status(500).json({ error: e.message || "Błąd wewnętrzny serwera podczas procesowania EAN Pipeline." });
     }
 };
 
