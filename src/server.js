@@ -89,10 +89,12 @@ app.use(cors({
     credentials: true
 }));
 
+app.set('trust proxy', 1);
+
 // Ochrona przed atakami DDoS i Brute-Force (Rate Limiting)
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minut
-    max: 1000, // Limit 1000 zapytan z jednego IP na 15 minut
+    max: 5000, // Zwiększono limit do 5000 z uwagi na polling interfejsu (np. RMA sync co 3s)
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Przekroczono limit zapytan API. Sprobuj ponownie pozniej.' }

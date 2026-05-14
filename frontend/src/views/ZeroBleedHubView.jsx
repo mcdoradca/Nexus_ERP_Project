@@ -10,20 +10,37 @@ const ZeroBleedHubView = ({ token, API_URL }) => {
     const [loading, setLoading] = useState(true);
     const [syncState, setSyncState] = useState({ isRunning: false, processedTotal: 0, currentDate: null });
 
+    const fetchSyncStatus = async () => {
+        if (activeTab !== 'rma') return false;
+        try {
+            const res = await axios.get(`${API_URL}/api/rma/sync-status`, { headers: { Authorization: `Bearer ${token}` } });
+            setSyncState(res.data);
+            return res.data.isRunning;
+        } catch (err) {
+            return false;
+        }
+    };
+
     useEffect(() => {
         fetchData();
-        
-        // Polling do postępu prac historycznych
-        const interval = setInterval(async () => {
-            if (activeTab === 'rma') {
-                try {
-                    const res = await axios.get(`${API_URL}/api/rma/sync-status`, { headers: { Authorization: `Bearer ${token}` } });
-                    setSyncState(res.data);
-                } catch (err) {}
-            }
-        }, 3000);
-        return () => clearInterval(interval);
+        fetchSyncStatus();
     }, [activeTab]);
+
+    useEffect(() => {
+        let interval;
+        if (syncState.isRunning && activeTab === 'rma') {
+            interval = setInterval(async () => {
+                const isRunningNow = await fetchSyncStatus();
+                if (!isRunningNow) {
+                    clearInterval(interval);
+                    fetchData(); // Odśwież dane po zakończeniu audytu
+                }
+            }, 3000);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [syncState.isRunning, activeTab]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -62,10 +79,13 @@ const ZeroBleedHubView = ({ token, API_URL }) => {
 
     const handleSyncHistory = async () => {
         try {
+            setSyncState(prev => ({ ...prev, isRunning: true }));
             await axios.post(`${API_URL}/api/rma/sync-history`, {}, { headers: { Authorization: `Bearer ${token}` } });
-            fetchData();
+            // Odśwież status, by UI natychmiast załapało stan
+            fetchSyncStatus();
         } catch (error) {
             console.error("Błąd synchronizacji historycznej", error);
+            setSyncState(prev => ({ ...prev, isRunning: false }));
         }
     };
 

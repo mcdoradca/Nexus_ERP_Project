@@ -1112,3 +1112,15 @@ Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dost
 
 15. **Moduł MDM (Oczyszczanie Długu Technologicznego)**
     * Wyczyszczono archiwalne adnotacje dotyczące mechanizmu oceniania "Trust Score" dla faktur z wyłączonego systemu IDP (Intelligent Document Processing). Infrastruktura została w pełni odciążona z przestarzałych kontrolerów faktur.
+
+---
+
+16. **Awaryjne odblokowywanie logowania i czyszczenie portów środowiskowych**
+    * Usunięto problem zawieszania się serwera podczas uruchamiania (błąd `EADDRINUSE` dla `npm run dev`) poprzez wymuszoną terminację procesów zombie: node na porcie 3001 i waitress na porcie 5000 z poziomu terminala, co chroni aplikację przed problemami z bindowaniem przy twardych restartach środowiska (kill portów).
+    * Zdiagnozowano powód błędu "401 Unauthorized" zgłaszanego przez moduł autoryzacji axios dla frontendu. Wywołany był on trwałą desynchronizacją danych bazy Prisma (możliwe historyczne działanie niechcianych skryptów, takich jak `reset-admin.js`, ustawiających hasło "admin123"). Wykonano chirurgiczny zrzut poprawnego hasha, odzwierciedlającego zmienną `.env` dla konta Głównego Administratora, co przywróciło pełen dostęp i kod HTTP 200 przy logowaniu do UI Nexusa.
+
+---
+
+17. **Ochrona Limitów API i Optymalizacja Zero-Bleed Hub (Fix 429)**
+    * Skorygowano mechanikę `express-rate-limit` w `server.js` dodając dyrektywę `app.set('trust proxy', 1);`. Zapobiega to współdzieleniu limitów IP przez środowiska Proxy (Nginx) oraz zablokowaniu całej instancji dla pojedynczego pulsu (błąd 429 Too Many Requests). Ochrona limitu podstawowego wzrosła z 1000 do 5000, absorbując zapytania stanu z Dashboardu.
+    * Odciążono Event Loop w module `ZeroBleedHubView.jsx`. Naprawiono nieskończoną pętlę pollingu interwału (wcześniej odpytywała sztywno co 3 sekundy endpoint stanu RMA, drenując limit zapytań). Obecnie mechanizm `useEffect` uwarunkowano na sztywno zmienną `syncState.isRunning`, co oznacza, że ping do serwera odbywa się wyłącznie "na życzenie", gdy zainicjowano wymuszony audyt. Standardowy cykl Crona 2x na dzień działa bez obciążania i blokowania stacji roboczej klienta.
