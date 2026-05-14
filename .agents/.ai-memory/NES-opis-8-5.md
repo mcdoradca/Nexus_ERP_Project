@@ -242,7 +242,7 @@ Po dogłębnej analizie plików źródłowych, logów wdrożeniowych oraz archit
 ### Nazwa operacji/zadania: Eksterminacja Rzutu i Wymóg Autoryzacyjny
 
 **Po co to jest? (Cel biznesowy):** Usuwanie trwale błędnych zapisków lub postów "zdjętych z anteny". Posiada jednak twardą śluzę kontrolną. **Gdzie to znaleźć? (Lokalizacja UI):** Ikonka śmietnika w kolumnie "Akcja" z prawej strony (pojawia się jedynie po najechaniu myszą – hover na konkretny wiersz). **Wymagania wstępne (Wiedza z kodu):** Kontroler backendu posiad2. **Agent Badawczy (INCI Intelligence):** (Temp 0.2) Wyszukuje twardych danych INCI wpierw w BaseLinker, a przy brakach ratując się OSINTem internetowym.
-3. **Agent Audytor Wizualny:** Moduł operujący na Vision AI nakierowany wyłącznie na sprawdzanie zgodności zdjęć pod kątem wymogów białego tła (RGB 255) i Regulaminu Allegro.
+3. **Agent Audytor Wizualny:** Moduł operujący na Vision AI nakierowany na surową ewaluację zdjęć pod kątem wymogów Allegro. Agent korzysta z rygorystycznego `VISION_AUDIT_PROMPT`, który wymusza czyste, białe tło (RGB 255) dla miniatury głównej (Slot 1) oraz bada interakcje modelek z produktem i zakazane logotypy tekstowe w pozostałej galerii.
 4. **Agent Auto-Fill (Faza 2.5) & Category Sync:** Automatycznie wyszukuje kategorię Allegro (po EAN lub nazwie), pobiera słownik `Schema` i używa go w tandemie z BaseLinkerem oraz Agentem AI do wypełnienia luk w cechach produktu (PIM OSINT). Zapisuje komplet do Prisma bez interakcji człowieka.
 5. **Agent AEO (Analityk Strukturalny):** (Temp 0.4) Konstruuje modułową strukturę P&A dopasowaną pod SGE / LLM'y na bazie starych opisów archiwalnych.
 6. **Agent GEO Text (Copywriter):** (Temp 0.6) Używa wyselekcjonowanego INCI oraz surowego AEO do wygenerowania optymalnego kodu HTML Allegro ograniczonego zaledwie do 7 autoryzowanych tagów, zwracając JSON poddany na koniec rygorowi Auto-Repair.
@@ -280,11 +280,11 @@ Po dogłębnej analizie plików źródłowych, logów wdrożeniowych oraz archit
 
 ### Nazwa operacji/zadania: Wywołanie Audytu Wizualnego / Wypalanie Zdjęć (Claid Lifestyle)
 
-**Po co to jest? (Cel biznesowy):** System generowania unikalnych teł na potrzeby ominięcia de-duplikacji obrazu przez marketplace'y. Mechanizm wykonuje tzw. "Shadow Baking" – wycina słoik kremu, dorabia własny SVG wektorowy cień, zrzuca do przestrzeni Claid, i stawia w scenie 3D dopasowanej przez Dyrektora Artystycznego AI. **Gdzie to znaleźć? (Lokalizacja UI):** Druga połowa ekranu roboczego na dole. Okno "Audyt Multimodalny (Vision AI)". **Wymagania wstępne (Wiedza z kodu):** Rzut produktu wczytany z API PIM. Puste sloty wymagają kliknięcia generacji. Opcja płatna (wymaga środków na koncie API Claid.ai w .env). **Jak to użyć? (Instrukcja Krok po Kroku):**
+**Po co to jest? (Cel biznesowy):** Moduł analityczno-operacyjny do zarządzania zasobami graficznymi (Audyt Multimodalny Vision AI) i tworzenia bezpiecznych zdjęć lifestylowych przez Claid (omijanie de-duplikacji Allegro). Zabezpiecza przed odrzuceniem oferty wymuszając poprawne tło i blokując "brudne" miniatury. **Gdzie to znaleźć? (Lokalizacja UI):** Druga połowa ekranu roboczego na dole. Okno z siatką komponentów `PhotographicAuditorCard`. Karty zawierają przeniesione w dół czerwone alerty błędów wizyjnych oraz ukrywają popękane ikony zewnętrznych API dzięki mechanizmowi `onError`. **Wymagania wstępne (Wiedza z kodu):** Rzut produktu wczytany z API PIM. Użytkownik ma środki API w chmurze. **Jak to użyć? (Instrukcja Krok po Kroku):**
 
-1. Zlokalizuj ramkę karty "PhotographicAuditorCard".  
-2. Kliknij jasny przycisk "+ Dodaj Nowy Slot Zdjęcia".  
-3. Na pustym kaflu wciśnij akcję "Wygeneruj Lifestyle AI". **Wynik operacji (Output):** System wysyła potężny pakiet komend do Claid (Model V2). Ustawia kąt nachylenia 350 stopni, narzuca scale (DYNAMIC\_SCALE wyliczony z wywiadu) oraz włącza "Padające światło na zdefiniowane tekstury". Po pobraniu wrzuca odpicowaną fotografię na slot "ReplacedUrl" dla handlowca jako base64.
+1. Zlokalizuj ramkę karty dla danego zdjęcia.  
+2. Zwróć uwagę na Slot 1 (Miniatura) – z uwagi na bezwzględny regulamin (Białe Tło RGB 255), AI blokuje na tym slocie przyciski "Wygeneruj Lifestyle AI".  
+3. Na pustych lub zepsutych kafelkach galerii (Sloty 2+) wciśnij akcję "Wygeneruj Lifestyle AI". **Wynik operacji (Output):** System wyśle komendę do Claid i odbije odpicowaną fotografię na slot "ReplacedUrl" dla handlowca jako base64. Wizualne ostrzeżenia z Agenta (np. błąd obecności modelki bez produktu) są elegancko wyświetlane pod zdjęciami, zachowując 100% widoczności samego towaru.
 
 ---
 
