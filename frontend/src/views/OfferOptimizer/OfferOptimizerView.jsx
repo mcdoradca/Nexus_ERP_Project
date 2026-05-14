@@ -4,17 +4,17 @@ import { StrictWysiwyg } from './components/HitlReviewer/StrictWysiwyg';
 import { TileSimulator } from './components/HitlReviewer/TileSimulator';
 import { ImageUploadBox } from './components/SingleAuctionFetcher/ImageUploadBox';
 import { PhotographicAuditorCard } from './components/VisionFeedback/PhotographicAuditorCard';
-import { Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send } from 'lucide-react';
+import { Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp } from 'lucide-react';
 
 const ImageModal = ({ url, onClose }) => {
     if (!url) return null;
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4" onClick={onClose}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4" onClick={onClose}>
             <div className="relative max-w-5xl w-full h-full flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-sm p-2 transition-colors">
+                <button onClick={onClose} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-xl p-2 transition-colors">
                     <X className="w-6 h-6" />
                 </button>
-                <img src={url} alt="Powiększenie" className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-sm" />
+                <img src={url} alt="Powiększenie" className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-xl" />
                 <div className="mt-8 flex space-x-4">
                     <button 
                         onClick={async () => {
@@ -50,7 +50,7 @@ const ImageModal = ({ url, onClose }) => {
                                 alert("Błąd pobierania zdjęcia: " + e.message);
                             }
                         }}
-                        className="flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs rounded-sm shadow-lg transition-colors"
+                        className="flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs rounded-lg shadow-lg transition-colors"
                     >
                         <Download className="w-4 h-4 mr-2" /> Pobierz na dysk
                     </button>
@@ -61,32 +61,39 @@ const ImageModal = ({ url, onClose }) => {
 };
 
 export const OfferOptimizerView = () => {
-    // Stany dla Ofert (Usunięty Mock)
+    // Mode State
+    const [isDashboardActive, setIsDashboardActive] = useState(false);
+    const [productData, setProductData] = useState(null); // Pełny obiekt z backendu (PIM)
+
+    // Stany dla Ofert
     const [titleValid, setTitleValid] = useState(false);
     const [liveTitle, setLiveTitle] = useState("");
     const [liveEan, setLiveEan] = useState("");
     
-    // Sztywny content dla edytora początkowego
+    // Sztywny content dla edytora
     const [editorHtml, setEditorHtml] = useState({
-        opis1: "<h2>Czekam na analizę...</h2><p>Moduł 1 (Mocne Strony)</p>",
-        opis2: "<p>Moduł 2 (Opis główny cz.1)</p>",
-        opis3: "<p>Moduł 3 (Opis główny cz.2)</p>",
-        opis4: "<p>Moduł 4 (Specyfikacja)</p>",
-        opis5: "<p>Moduł 5 (Skład INCI)</p>"
+        opis1: "", opis2: "", opis3: "", opis4: "", opis5: ""
     });
-    const [editorKey, setEditorKey] = useState(0); // Klucz wymuszający twardy re-render Tiptapa przy nowych danych
+    const [editorKey, setEditorKey] = useState(0); 
     const [visionTickets, setVisionTickets] = useState([]);
     const [viewingImageUrl, setViewingImageUrl] = useState(null);
+    
+    // Stany operacyjne
     const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isSavingDraft, setIsSavingDraft] = useState(false);
 
-    // Przemapowanie contentu edytora z powrotem do Symulatora Kafelkowego w czasie rzeczywistym
+    // Stany dla dynamicznych cech (PIM Data)
+    const [pimData, setPimData] = useState({
+        weight: 0, length: 0, width: 0, height: 0, taxRate: 0, stock: 0, stockErpUnits: 0, stockWmsUnits: 0,
+        features: {}
+    });
+
     const safeImages = visionTickets.map(t => {
         const url = t.replacedUrl || t.originalUrl;
         return (url && (url.startsWith('http') || url.startsWith('data:image'))) ? url : null;
     });
-    const getImage = (index) => safeImages[index] || `data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22800%22%20height%3D%22600%22%20viewBox%3D%220%200%20800%20600%22%3E%3Crect%20width%3D%22800%22%20height%3D%22600%22%20fill%3D%22%23f8fafc%22%2F%3E%3Ctext%20x%3D%22400%22%20y%3D%22300%22%20font-family%3D%22Arial%22%20font-size%3D%2224%22%20font-weight%3D%22bold%22%20fill%3D%22%2394a3b8%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EZdj%C4%99cie%20nr%20${index+1}%3C%2Ftext%3E%3C%2Fsvg%3E`;
+    const getImage = (index) => safeImages[index] || `data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22800%22%20height%3D%22600%22%20viewBox%3D%220%200%20800%20600%22%3E%3Crect%20width%3D%22800%22%20height%3D%22600%22%20fill%3D%22%231e293b%22%2F%3E%3Ctext%20x%3D%22400%22%20y%3D%22300%22%20font-family%3D%22Arial%22%20font-size%3D%2224%22%20font-weight%3D%22bold%22%20fill%3D%22%2364748b%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EZdj%C4%99cie%20nr%20${index+1}%3C%2Ftext%3E%3C%2Fsvg%3E`;
 
     const allegroSections = [
          { items: [ { type: 'TEXT', content: editorHtml.opis1 || '' }, { type: 'IMAGE', content: getImage(1) } ] },
@@ -108,26 +115,40 @@ export const OfferOptimizerView = () => {
     }
 
     const handleAnalysisComplete = (res) => {
-        if(res.title) setLiveTitle(res.title);
+        setProductData(res);
+        setIsDashboardActive(true);
+
+        const draft = res.finalDraft || {};
+
+        if(draft.title) setLiveTitle(draft.title);
         if(res.ean) setLiveEan(res.ean);
-        if(res.htmlContent) {
-            // Bezpieczne ładowanie, jeśli res.htmlContent jest stringiem to fallback (np. stary rekord), w przeciwnym razie obiekt
-            if (typeof res.htmlContent === 'string') {
-                 setEditorHtml({ opis1: res.htmlContent, opis2: '', opis3: '', opis4: '', opis5: '' });
+        
+        setPimData({
+            weight: res.weight || 0,
+            length: res.length || 0,
+            width: res.width || 0,
+            height: res.height || 0,
+            taxRate: res.taxRate || 0,
+            stock: res.stock || 0,
+            stockErpUnits: res.stockErpUnits || 0,
+            stockWmsUnits: res.stockWmsUnits || 0,
+            features: res.features || {}
+        });
+
+        if(draft.htmlContent) {
+            if (typeof draft.htmlContent === 'string') {
+                 setEditorHtml({ opis1: draft.htmlContent, opis2: '', opis3: '', opis4: '', opis5: '' });
             } else {
-                 setEditorHtml(res.htmlContent);
+                 setEditorHtml(draft.htmlContent);
             }
-            setEditorKey(prev => prev + 1); // Rerenderuje Wysiwyg by wczytał nowy text
+            setEditorKey(prev => prev + 1);
         }
         
-        // Renderujemy bilety do obróbki (Gemini Vision output)
-        if (res.images) {
-            const mappedImages = res.images.map(img => ({
+        if (draft.images) {
+            const mappedImages = draft.images.map(img => ({
                 ...img,
                 sourcePreviewUrl: res.sourcePreviewUrl
             }));
-
-            // Zapewnienie minimum 7 slotów (1 miniatura + 6 lifestyle)
             while (mappedImages.length < 7) {
                 mappedImages.push({
                     originalUrl: `Wymagane nowe zdjęcie (Lifestylowe nr ${mappedImages.length})`,
@@ -135,22 +156,22 @@ export const OfferOptimizerView = () => {
                     isCompliant: false
                 });
             }
-
             setVisionTickets(mappedImages);
         }
-
-        if (res.isDraftRestored) {
-            alert("Wczytano zapisaną kopię roboczą! Możesz kontynuować pracę.");
-        }
     };
 
-    const handleImageChange = (index, url) => {
-        const up = [...visionTickets];
-        up[index].originalUrl = url;
-        setVisionTickets(up);
+    const handlePimChange = (field, value) => {
+        setPimData(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleRegenerateTitle = async () => {
+    const handleFeatureChange = (key, value) => {
+        setPimData(prev => ({
+            ...prev,
+            features: { ...prev.features, [key]: value }
+        }));
+    };
+
+    const handleRegenerateTitle = async () => { /* ... (zostawiamy stary kod API) ... */
         if (!liveEan || isRegeneratingTitle) return;
         setIsRegeneratingTitle(true);
         try {
@@ -181,11 +202,17 @@ export const OfferOptimizerView = () => {
             opis3: editorHtml.opis3,
             opis4: editorHtml.opis4,
             opis5: editorHtml.opis5,
-            images: safeImages.map(url => ({ url }))
+            images: safeImages.map(url => ({ url })),
+            // Dodajemy zedytowane dane PIM
+            weight: parseFloat(pimData.weight),
+            length: parseFloat(pimData.length),
+            width: parseFloat(pimData.width),
+            height: parseFloat(pimData.height),
+            features: pimData.features
         };
     };
 
-    const handleSaveDraft = async () => {
+    const handleSaveDraft = async () => { /* ... (zostawiamy stary kod API) ... */
         if (!liveEan) return;
         setIsSavingDraft(true);
         try {
@@ -208,7 +235,7 @@ export const OfferOptimizerView = () => {
         setIsSavingDraft(false);
     };
 
-    const handleExportToBaselinker = async () => {
+    const handleExportToBaselinker = async () => { /* ... (zostawiamy stary kod API) ... */
         if (!liveEan) return;
         setIsExporting(true);
         try {
@@ -231,184 +258,223 @@ export const OfferOptimizerView = () => {
         setIsExporting(false);
     };
 
+    if (!isDashboardActive) {
+        return (
+            <div className="w-full min-h-screen bg-slate-950 flex items-center justify-center p-4">
+                <div className="w-full max-w-4xl">
+                    <ImageUploadBox onAnalysisComplete={handleAnalysisComplete} />
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="w-full h-full min-h-screen bg-slate-50 p-4 space-y-8 pb-32">
+        <div className="w-full h-full min-h-screen bg-slate-950 text-slate-300 p-4 xl:p-8 space-y-6 pb-32">
             
-            {/* Nagłówek Modułu */}
-            <div className="flex flex-col xl:flex-row xl:items-end justify-between bg-white p-4 rounded-sm shadow-sm border border-slate-400">
-                <div>
-                   <div className="bg-indigo-100 w-16 h-16 rounded-sm flex items-center justify-center mb-6 shadow-sm border border-indigo-200"><Cpu className="w-8 h-8 text-indigo-600" /></div>
-                   <h1 className="text-4xl font-black text-slate-800 tracking-tighter mb-2">Command Center GEO 2026</h1>
-                   <p className="text-slate-500 font-bold uppercase tracking-widest text-xs flex items-center">
-                       <span className="w-2 h-2 bg-emerald-500 rounded-sm mr-2"></span> Single Auction Pivot: Aktywny &nbsp;|&nbsp; Pure API Mode
-                   </p>
+            {/* Header / Top Bar */}
+            <div className="flex flex-col lg:flex-row items-center justify-between bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl">
+                <div className="flex items-center space-x-6">
+                    <div className="bg-indigo-500/20 w-16 h-16 rounded-xl flex items-center justify-center border border-indigo-500/30 shadow-inner shadow-indigo-500/20">
+                        <Cpu className="w-8 h-8 text-indigo-400" />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-black text-white tracking-tight">{productData?.name || "Karta Produktu PIM"}</h1>
+                        <div className="flex items-center space-x-4 mt-2">
+                            <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-md text-xs font-bold uppercase tracking-widest flex items-center">
+                                <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span> Gotowy
+                            </span>
+                            <span className="text-slate-500 font-mono text-sm border-l border-slate-700 pl-4">{liveEan}</span>
+                            <span className="text-slate-500 font-mono text-sm border-l border-slate-700 pl-4">ID: {productData?.baselinkerId || 'BRAK'}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div className="w-full mb-8 z-10 relative">
-                <ImageUploadBox onAnalysisComplete={handleAnalysisComplete} />
-            </div>
-
-            {/* Split Screen -> HitlReviewer vs TileSimulator */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+            {/* Trójkolumnowy Układ Unified Product View */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
                 
-                {/* Panel Lewy: Hitl Reviewer + Edytor TipTap */}
-                <div className="xl:col-span-7 space-y-6">
-                     <div className="bg-white p-4 rounded-sm shadow-sm border border-slate-400">
-                          <div className="flex items-center justify-between mb-8 border-b border-slate-300 pb-4">
-                              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-600">
-                                  Weryfikacja "HitL" Rekordu (Human-In-The-Loop)
-                              </h2>
-                              {liveTitle && (
-                                  <button 
-                                      onClick={handleRegenerateTitle}
-                                      disabled={isRegeneratingTitle}
-                                      className="flex items-center text-[10px] uppercase font-black tracking-widest text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-sm transition-colors"
-                                  >
-                                      <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isRegeneratingTitle ? 'animate-spin' : ''}`} />
-                                      {isRegeneratingTitle ? 'Generowanie...' : 'Odśwież Tytuł'}
-                                  </button>
-                              )}
-                          </div>
-                          
-                          {/* Header Sekcji Prawego Panelu (Tytuł + EAN) */}
-                          <div className="flex items-center space-x-3 mb-6 bg-indigo-50 border border-indigo-100 p-4 rounded-sm">
-                              <Type className="w-6 h-6 text-indigo-500" />
-                              <div className="flex-1 w-full space-y-3">
-                                  <input 
-                                     type="text" 
-                                     value={liveTitle}
-                                     onChange={(e) => setLiveTitle(e.target.value)}
-                                     placeholder="Zoptymalizowany Tytuł Aukcji pojawi się tutaj..." 
-                                     className="w-full bg-white border border-slate-400 text-slate-800 font-black text-xl px-4 py-2.5 rounded-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 transition-all placeholder:text-slate-300 placeholder:font-bold" 
-                                  />
-                                  <div className="flex items-center space-x-2">
-                                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-100/50 px-2 py-1 rounded-sm">Kod EAN (GTIN)</span>
-                                      <input 
-                                         type="text" 
-                                         value={liveEan}
-                                         onChange={(e) => setLiveEan(e.target.value)}
-                                         placeholder="EAN / GTIN" 
-                                         className="flex-1 bg-white border border-slate-400 text-slate-700 font-bold text-sm px-3 py-1.5 rounded-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/10 transition-all placeholder:text-slate-300" 
-                                      />
-                                  </div>
-                              </div>
-                          </div> 
-                          
-                          {/* Walidator Titla 12-75 */}
-                          <TitleValidator 
-                               initialTitle={liveTitle} 
-                               onValidate={(valid, text) => { setTitleValid(valid); setLiveTitle(text); }} 
-                          />
-                          
-                          {/* Ostry Edytor Headless UI (Tiptap) z SanitizeOnPaste */}
-                          <div className="mt-8">
-                               <div className="text-xs text-slate-600 font-medium mb-8 leading-relaxed bg-slate-50 p-4 border border-slate-300 rounded-sm">
-                                  Wklej bogaty kod skopiowany ze strony (ze <span className="font-bold text-rose-400">spanami</span>, <span className="font-bold text-rose-400">kolorami</span> czy <span className="font-bold text-rose-400">tabelami</span>). Kod zostanie autosanitaryzowany w Ułamku Sekundy do restrykcyjnych 7 tagów GEO.
-                               </div>
-                               
-                               {[
-                                   { key: 'opis1', label: 'Moduł 1: Mocne Strony' },
-                                   { key: 'opis2', label: 'Moduł 2: Główny Opis (Cz. 1)' },
-                                   { key: 'opis3', label: 'Moduł 3: Główny Opis (Cz. 2)' },
-                                   { key: 'opis4', label: 'Moduł 4: Specyfikacja' },
-                                   { key: 'opis5', label: 'Moduł 5: Skład (INCI)' }
-                               ].map((sec) => (
-                                   <div className="mb-6" key={`${editorKey}-${sec.key}`}>
-                                       <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 block">
-                                           {sec.label} (Węzeł TEXT)
-                                       </label>
-                                       <StrictWysiwyg 
-                                           initialContent={editorHtml[sec.key] || ""} 
-                                           onChange={html => setEditorHtml(prev => ({ ...prev, [sec.key]: html }))} 
-                                       />
-                                   </div>
-                               ))}
-                          </div>
-                     </div>
-                     
-                     {/* BAZA ZDJĘĆ - NOWY MODUŁ VISION */}
-                     {visionTickets.length > 0 && (
-                         <div className="bg-white p-4 rounded-sm shadow-sm border border-slate-400">
-                              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-600 mb-6 border-b border-slate-300 pb-4 flex items-center justify-between">
-                                  Audyt Multimodalny (Vision AI)
-                                  <span className="bg-indigo-50 text-indigo-500 px-3 py-1 rounded-sm border border-indigo-100 flex items-center">
-                                      {visionTickets.filter(v => v.isCompliant || v.replacedUrl).length} / {visionTickets.length} Poprawne
-                                  </span>
-                              </h2>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                  {visionTickets.map((ticket, i) => (
-                                      <PhotographicAuditorCard 
-                                          key={i} 
-                                          index={i} 
-                                          ean={liveEan}
-                                          imageObj={ticket} 
-                                          primaryImageObj={visionTickets[0]}
-                                          onImageReplace={(newUrl) => {
-                                              const updated = [...visionTickets];
-                                              updated[i].replacedUrl = newUrl;
-                                              setVisionTickets(updated);
-                                          }} 
-                                          onImageDelete={() => {
-                                              const updated = [...visionTickets];
-                                              updated[i] = {
-                                                  originalUrl: `Wymagane nowe zdjęcie (Lifestylowe nr ${i + 1})`,
-                                                  alerts: ["Pusty slot - wygeneruj Lifestyle AI lub wgraj własne"],
-                                                  isCompliant: false,
-                                                  replacedUrl: null
-                                              };
-                                              setVisionTickets(updated);
-                                          }}
-                                          onView={(url) => setViewingImageUrl(url)}
-                                      />
-                                  ))}
-                              </div>
-                              <button 
-                                  onClick={() => {
-                                      setVisionTickets([...visionTickets, { originalUrl: '', isCompliant: false, alerts: ["Pusty slot - upuść tu nowe zdjęcie"] }]);
-                                  }}
-                                  className="mt-6 w-full py-4 border-2 border-dashed border-slate-300 rounded-sm flex items-center justify-center text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all uppercase tracking-widest text-xs"
-                              >
-                                  + Dodaj Nowy Slot Zdjęcia
-                              </button>
-                         </div>
-                     )}
+                {/* KOLUMNA 1: Dane Twarde (PIM) - 3/12 */}
+                <div className="xl:col-span-3 space-y-6">
+                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
+                            <Box className="w-4 h-4 mr-2 text-indigo-400" /> Logistyka i Gabaryty
+                        </h2>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Waga (kg)</label>
+                                <input type="number" step="0.01" value={pimData.weight} onChange={e => handlePimChange('weight', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">VAT (%)</label>
+                                <input type="number" value={pimData.taxRate} onChange={e => handlePimChange('taxRate', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Długość (cm)</label>
+                                <input type="number" value={pimData.length} onChange={e => handlePimChange('length', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Szerokość (cm)</label>
+                                <input type="number" value={pimData.width} onChange={e => handlePimChange('width', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
+                            <Layers className="w-4 h-4 mr-2 text-indigo-400" /> Architektura Zapasów
+                        </h2>
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800">
+                                <span className="text-xs font-bold text-slate-400">Magazyn Główny (ERP)</span>
+                                <span className="text-sm font-mono text-emerald-400">{pimData.stockErpUnits} szt.</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800">
+                                <span className="text-xs font-bold text-slate-400">Magazyn WMS</span>
+                                <span className="text-sm font-mono text-blue-400">{pimData.stockWmsUnits} szt.</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800">
+                                <span className="text-xs font-bold text-slate-400">Zapas BaseLinker</span>
+                                <span className="text-sm font-mono text-white">{pimData.stock} szt.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
+                            <Tag className="w-4 h-4 mr-2 text-indigo-400" /> Parametry Cech (OSINT)
+                        </h2>
+                        <div className="space-y-3">
+                            {Object.entries(pimData.features || {}).map(([key, val]) => (
+                                <div key={key}>
+                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">{key}</label>
+                                    <input 
+                                        type="text" 
+                                        value={val} 
+                                        onChange={e => handleFeatureChange(key, e.target.value)} 
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none transition-colors" 
+                                    />
+                                </div>
+                            ))}
+                            {Object.keys(pimData.features || {}).length === 0 && (
+                                <div className="text-xs text-slate-500 text-center py-4 italic">Brak wygenerowanych cech.</div>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
-                {/* Panel Prawy: Tile Simulator */}
-                <div className="xl:col-span-5">
-                     <TileSimulator customSections={allegroSections} />
+                {/* KOLUMNA 2: Tytuł i Audyt Wizualny - 5/12 */}
+                <div className="xl:col-span-5 space-y-6">
+                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center">
+                                <Type className="w-4 h-4 mr-2 text-indigo-400" /> Weryfikacja Tytułu
+                            </h2>
+                            <button onClick={handleRegenerateTitle} disabled={isRegeneratingTitle} className="text-[10px] uppercase font-bold text-indigo-400 hover:text-indigo-300 flex items-center transition-colors">
+                                <RefreshCw className={`w-3 h-3 mr-1 ${isRegeneratingTitle ? 'animate-spin' : ''}`} /> Odśwież
+                            </button>
+                        </div>
+                        <input 
+                            type="text" 
+                            value={liveTitle}
+                            onChange={(e) => setLiveTitle(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-700 text-white font-bold text-xl px-4 py-4 rounded-xl outline-none focus:border-indigo-500 transition-all mb-4" 
+                        />
+                        <TitleValidator initialTitle={liveTitle} onValidate={(valid, text) => { setTitleValid(valid); setLiveTitle(text); }} />
+                    </div>
+
+                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center justify-between">
+                            <span className="flex items-center"><Search className="w-4 h-4 mr-2 text-indigo-400" /> Audyt Multimodalny (Vision AI)</span>
+                            <span className="bg-indigo-500/10 text-indigo-400 px-2 py-1 rounded-md text-[10px]">
+                                {visionTickets.filter(v => v.isCompliant || v.replacedUrl).length} / {visionTickets.length} Poprawne
+                            </span>
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {visionTickets.map((ticket, i) => (
+                                <PhotographicAuditorCard 
+                                    key={i} index={i} ean={liveEan} imageObj={ticket} primaryImageObj={visionTickets[0]}
+                                    onImageReplace={(newUrl) => {
+                                        const updated = [...visionTickets]; updated[i].replacedUrl = newUrl; setVisionTickets(updated);
+                                    }} 
+                                    onImageDelete={() => {
+                                        const updated = [...visionTickets];
+                                        updated[i] = { originalUrl: `Wymagane nowe zdjęcie (nr ${i + 1})`, alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null };
+                                        setVisionTickets(updated);
+                                    }}
+                                    onView={(url) => setViewingImageUrl(url)}
+                                />
+                            ))}
+                        </div>
+                        <button 
+                            onClick={() => setVisionTickets([...visionTickets, { originalUrl: '', isCompliant: false, alerts: ["Upuść zdjęcie"] }])}
+                            className="mt-6 w-full py-4 border border-dashed border-slate-700 rounded-xl flex items-center justify-center text-slate-500 font-bold hover:border-indigo-500 hover:text-indigo-400 transition-all text-xs uppercase tracking-widest"
+                        >
+                            + Dodaj Slot Zdjęcia
+                        </button>
+                    </div>
+                </div>
+
+                {/* KOLUMNA 3: Generowanie Tekstu i Kafle - 4/12 */}
+                <div className="xl:col-span-4 space-y-6">
+                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
+                            <Database className="w-4 h-4 mr-2 text-indigo-400" /> Moduły Sprzedażowe (GEO/AEO)
+                        </h2>
+                        <div className="space-y-6 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
+                            {[
+                                { key: 'opis1', label: 'Moduł 1: Mocne Strony' },
+                                { key: 'opis2', label: 'Moduł 2: Główny Opis' },
+                                { key: 'opis3', label: 'Moduł 3: Detale' },
+                                { key: 'opis4', label: 'Moduł 4: Specyfikacja' },
+                                { key: 'opis5', label: 'Moduł 5: INCI / Bezpieczeństwo' }
+                            ].map((sec) => (
+                                <div key={`${editorKey}-${sec.key}`}>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">{sec.label}</label>
+                                    {/* Obudowa StrictWysiwyg w ciemny motyw - sam edytor Tiptap musi mieć wsparcie ciemnego tła lub nakładamy filtry */}
+                                    <div className="bg-slate-50 rounded-lg overflow-hidden border border-slate-700">
+                                        <StrictWysiwyg 
+                                            initialContent={editorHtml[sec.key] || ""} 
+                                            onChange={html => setEditorHtml(prev => ({ ...prev, [sec.key]: html }))} 
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    
+                    {/* Wbudowany Simulator (opcjonalny, bo może zajmować za dużo miejsca - ale zostawiamy) */}
+                    <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-xl overflow-hidden h-96 relative">
+                        <div className="absolute inset-0 scale-[0.7] origin-top-left w-[142%]">
+                            <TileSimulator customSections={allegroSections} />
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Panel Akcji (Draft i Eksport) umieszczony na dole jako "Sticky" pasek lub zwykły kontener */}
-            {visionTickets.length > 0 && (
-                <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-slate-400 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.02)] flex justify-end space-x-4 px-8 z-50">
-                    <button 
-                        onClick={handleSaveDraft}
-                        disabled={isSavingDraft}
-                        className="flex items-center px-6 py-3 bg-white border border-slate-400 hover:bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-xs rounded-sm transition-all shadow-sm"
-                    >
-                        <Save className={`w-4 h-4 mr-2 ${isSavingDraft ? 'animate-pulse text-indigo-500' : 'text-slate-600'}`} />
-                        {isSavingDraft ? "Zapisywanie..." : "Zapisz Kopię Roboczą"}
-                    </button>
-                    
-                    <button 
-                        onClick={handleExportToBaselinker}
-                        disabled={isExporting}
-                        className="flex items-center px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs rounded-sm shadow-lg shadow-indigo-600/20 transition-all hover:-translate-y-0.5"
-                    >
-                        {isExporting ? (
-                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                            <Send className="w-4 h-4 mr-2" />
-                        )}
-                        {isExporting ? "Eksport w toku..." : "Eksportuj do BaseLinker"}
-                    </button>
-                </div>
-            )}
+            {/* Pływający pasek akcji */}
+            <div className="fixed bottom-0 left-0 right-0 bg-slate-950/80 backdrop-blur-xl border-t border-slate-800 p-4 shadow-2xl flex justify-end space-x-4 px-8 z-50">
+                <button 
+                    onClick={() => setIsDashboardActive(false)}
+                    className="flex items-center px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold uppercase tracking-wider text-xs rounded-lg transition-all"
+                >
+                    <X className="w-4 h-4 mr-2" /> Anuluj / Wróć
+                </button>
+                <button 
+                    onClick={handleSaveDraft} disabled={isSavingDraft}
+                    className="flex items-center px-6 py-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white font-bold uppercase tracking-wider text-xs rounded-lg transition-all"
+                >
+                    <Save className={`w-4 h-4 mr-2 ${isSavingDraft ? 'animate-pulse text-indigo-400' : 'text-slate-400'}`} />
+                    {isSavingDraft ? "Zapisywanie..." : "Zapisz do PIM"}
+                </button>
+                <button 
+                    onClick={handleExportToBaselinker} disabled={isExporting}
+                    className="flex items-center px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs rounded-lg shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5"
+                >
+                    {isExporting ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                    {isExporting ? "Eksport w toku..." : "Eksportuj z BaseLinker"}
+                </button>
+            </div>
 
-            {/* Modal Powiększenia Zdjęcia */}
             <ImageModal url={viewingImageUrl} onClose={() => setViewingImageUrl(null)} />
         </div>
     );

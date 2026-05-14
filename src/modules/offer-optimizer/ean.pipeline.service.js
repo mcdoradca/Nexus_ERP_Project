@@ -101,13 +101,13 @@ class EanPipelineService {
                 images: visualAudit.images || []
             };
 
-            await prisma.product.update({
+            const updatedProduct = await prisma.product.update({
                 where: { ean },
                 data: { offerDraft: finalDraft }
             });
 
             console.log(`[Ultimate EAN Pipeline] ZAKOŃCZONO POMYŚLNIE. Produkt oczekuje na zatwierdzenie w bazie PIM.`);
-            return finalDraft;
+            return { ...updatedProduct, finalDraft };
 
         } catch (error) {
             console.error(`[Ultimate EAN Pipeline] KRYTYCZNY BŁĄD PRZEPŁYWU:`, error.message);

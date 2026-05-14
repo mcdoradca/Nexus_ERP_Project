@@ -1,14 +1,34 @@
-import React, { useState } from 'react';
-import { Loader2, Sparkles, CheckCircle2, Link as LinkIcon, DatabaseZap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Loader2, Sparkles, CheckCircle2, Search, DatabaseZap, ShieldCheck, Cpu, Database, Fingerprint } from 'lucide-react';
 
 export const ImageUploadBox = ({ onAnalysisComplete }) => {
     const [ean, setEan] = useState('');
     const [status, setStatus] = useState('IDLE'); // IDLE | THINKING | SUCCESS
     const [lastError, setLastError] = useState(null);
+    const [progress, setProgress] = useState(0);
+
+    // Animacja fałszywego postępu (do wizualizacji potoku)
+    useEffect(() => {
+        let interval;
+        if (status === 'THINKING') {
+            setProgress(0);
+            interval = setInterval(() => {
+                setProgress(p => {
+                    if (p >= 95) return p;
+                    // Skok postępu malejący z czasem
+                    const increment = Math.max(1, (95 - p) / 10); 
+                    return p + increment;
+                });
+            }, 1000);
+        } else if (status === 'SUCCESS') {
+            setProgress(100);
+            if (interval) clearInterval(interval);
+        }
+        return () => { if (interval) clearInterval(interval); };
+    }, [status]);
 
     const handleAnalyze = async (e) => {
         e.preventDefault();
-        
         let extractedId = ean.trim();
 
         if (!extractedId || !/^\d{8,14}$/.test(extractedId)) {
@@ -39,20 +59,18 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
                     const errData = await response.json();
                     srvErr = errData.error || errData.message;
                     srvStack = errData.stack;
-                } catch {
-                    // ignore
-                }
-                
-                throw new Error(srvErr ? `${srvErr} | STACK: ${srvStack || 'brak'}` : `Błąd serwera (HTTP ${response.status})`);
+                } catch { }
+                throw new Error(srvErr ? `${srvErr}` : `Błąd serwera (HTTP ${response.status})`);
             }
 
             const data = await response.json();
             
             setStatus('SUCCESS');
             setLastError(null);
-            if (onAnalysisComplete) {
-                 onAnalysisComplete(data);
-            }
+            setTimeout(() => {
+                 if (onAnalysisComplete) onAnalysisComplete(data);
+            }, 800);
+            
         } catch (error) {
             console.error(error);
             setStatus('IDLE');
@@ -61,67 +79,106 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
     };
 
     return (
-        <div className="w-full bg-white rounded-sm shadow-sm border border-slate-400 overflow-hidden relative">
-            {status === 'THINKING' && (
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-50/50 via-purple-50/50 to-indigo-50/50 transition-opacity duration-1000 animate-pulse z-0"></div>
-            )}
-            
-            <div className="relative z-10 p-8 xl:p-12 flex flex-col justify-center items-center h-full">
-                <div className="bg-indigo-50 w-16 h-16 rounded-sm flex items-center justify-center mb-6 border border-indigo-100 shadow-sm shadow-indigo-900/5">
-                    <DatabaseZap className="w-8 h-8 text-indigo-500" />
+        <div className="w-full min-h-[500px] bg-slate-950 rounded-xl shadow-2xl border border-slate-800 overflow-hidden relative flex flex-col items-center justify-center p-8">
+            {/* Animowane tło */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-500/10 rounded-full blur-[120px]"></div>
+                {status === 'THINKING' && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-indigo-600/20 rounded-full blur-[80px] animate-pulse"></div>
+                )}
+            </div>
+
+            <div className="relative z-10 w-full max-w-2xl flex flex-col items-center">
+                <div className="bg-slate-900 w-20 h-20 rounded-2xl flex items-center justify-center mb-8 border border-slate-700 shadow-xl shadow-black/50">
+                    <DatabaseZap className="w-10 h-10 text-indigo-400" />
                 </div>
                 
-                <h2 className="text-2xl font-black text-slate-800 tracking-tighter mb-2">Pobierz Ofertę PIM z BaseLinkera</h2>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-8 text-center max-w-lg">
-                   Backend automatycznie wyszuka kod EAN w katalogu PIM. Jeśli zajdzie potrzeba, pobierze bogaty HTML i media prosto z API BaseLinker, chroniąc przed blokadami Allegro.
+                <h1 className="text-4xl font-black text-white tracking-tight mb-4 text-center">
+                    Nexus Ultimate <span className="text-indigo-400">EAN Pipeline</span>
+                </h1>
+                <p className="text-sm font-medium text-slate-400 mb-12 text-center max-w-md leading-relaxed">
+                    Uruchom potok neuro-lingwistyczny i pobierz strukturyzowane dane produktowe z BaseLinkera. Zasil PIM nową wiedzą.
                 </p>
 
-                <form onSubmit={handleAnalyze} className="w-full max-w-2xl relative flex flex-col items-center">
-                    
-                    <div className="w-full bg-slate-50 shadow-inner rounded-sm border border-slate-400 p-3 flex items-center transition-all focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/10 mb-2">
-                        <div className="px-4 text-slate-600">
-                            <LinkIcon className="w-5 h-5" />
+                <form onSubmit={handleAnalyze} className="w-full relative">
+                    <div className={`relative flex items-center transition-all duration-500 ${status === 'THINKING' ? 'opacity-50 blur-sm pointer-events-none' : 'opacity-100'}`}>
+                        <div className="absolute left-6 text-slate-500">
+                            <Fingerprint className="w-6 h-6" />
                         </div>
                         <input
                             type="text"
-                            placeholder="Wpisz KOD EAN Produktu (np. 8809822540631)"
+                            placeholder="Wprowadź kod EAN (np. 8809822540631)"
                             value={ean}
                             onChange={(e) => setEan(e.target.value)}
-                            disabled={status === 'THINKING'}
-                            required
-                            className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-700 outline-none w-full disabled:opacity-50 py-3"
+                            disabled={status !== 'IDLE'}
+                            className="w-full bg-slate-900/80 border border-slate-700 text-white font-mono text-lg px-16 py-6 rounded-xl outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all placeholder:text-slate-600 shadow-inner"
                         />
-                        
-                        <div className="flex items-center space-x-2 pl-2 border-l border-slate-400 ml-2">
-                            <button
-                                type="submit"
-                                disabled={status === 'THINKING' || !ean}
-                                className={`px-8 py-4 rounded-sm text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center 
-                                   ${status === 'SUCCESS' ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20' 
-                                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'} 
-                                   disabled:opacity-40 disabled:cursor-not-allowed min-w-[180px]`}
-                            >
-                                {status === 'IDLE' && <><Sparkles className="w-4 h-4 mr-2" /> Pobierz z API</>}
-                                {status === 'THINKING' && <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Transfer...</>}
-                                {status === 'SUCCESS' && <><CheckCircle2 className="w-4 h-4 mr-2" /> Gotowe</>}
-                            </button>
-                        </div>
+                        <button
+                            type="submit"
+                            disabled={status !== 'IDLE' || !ean}
+                            className="absolute right-3 top-3 bottom-3 px-8 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs rounded-lg shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                        >
+                            <Sparkles className="w-4 h-4 mr-2" /> Start Potoku
+                        </button>
                     </div>
 
-                    {status === 'SUCCESS' && !lastError && (
-                        <div className="absolute -bottom-8 w-full text-center animate-in fade-in slide-in-from-top-2">
-                           <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-3 py-1 rounded-sm">Połączono dane z API z modelem LLM</span>
-                        </div>
-                    )}
-
                     {lastError && (
-                        <div className="absolute -bottom-14 w-full text-center animate-in fade-in slide-in-from-top-2 border border-rose-200 bg-rose-50 p-3 rounded-sm shadow-sm z-20">
-                           <span className="text-xs font-bold text-rose-600 block mb-1">KRYTYCZNY BŁĄD BACKENDU:</span>
-                           <span className="text-[11px] font-medium text-rose-500 break-words">{lastError}</span>
+                        <div className="absolute top-full left-0 right-0 mt-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 p-4 rounded-lg flex items-start space-x-3 backdrop-blur-sm">
+                            <ShieldCheck className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <span className="block font-bold text-sm mb-1">Odrzucono zapytanie</span>
+                                <span className="text-xs opacity-80">{lastError}</span>
+                            </div>
                         </div>
                     )}
                 </form>
+
+                {status !== 'IDLE' && (
+                    <div className="w-full mt-12 animate-in fade-in slide-in-from-bottom-4">
+                        <div className="flex justify-between items-center mb-3">
+                            <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center">
+                                {status === 'SUCCESS' ? <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-400"/> : <Cpu className="w-4 h-4 mr-2 animate-pulse"/>}
+                                {status === 'SUCCESS' ? 'Potok Zakończony' : 'Rozprowadzanie Modeli AI...'}
+                            </span>
+                            <span className="text-xs font-bold text-slate-500 font-mono">{Math.floor(progress)}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div 
+                                className={`h-full transition-all duration-1000 ease-out ${status === 'SUCCESS' ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                                style={{ width: `${progress}%` }}
+                            >
+                                {status === 'THINKING' && (
+                                    <div className="w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        {status === 'THINKING' && (
+                            <div className="mt-6 grid grid-cols-3 gap-4 text-center opacity-60">
+                                <div className="flex flex-col items-center">
+                                    <Database className="w-5 h-5 text-slate-400 mb-2" />
+                                    <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">1. Weryfikacja PIM</span>
+                                </div>
+                                <div className="flex flex-col items-center">
+                                    <Sparkles className="w-5 h-5 text-indigo-400 mb-2" />
+                                    <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">2. Ekstrakcja AEO</span>
+                                </div>
+                                <div className="flex flex-col items-center">
+                                    <ShieldCheck className="w-5 h-5 text-slate-400 mb-2" />
+                                    <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">3. Compliance</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
+            
+            {/* Definicja animacji shimmer w inline style */}
+            <style jsx="true">{`
+                @keyframes shimmer {
+                    100% { transform: translateX(100%); }
+                }
+            `}</style>
         </div>
     );
 };
