@@ -241,35 +241,23 @@ Po dogłębnej analizie plików źródłowych, logów wdrożeniowych oraz archit
 
 ### Nazwa operacji/zadania: Eksterminacja Rzutu i Wymóg Autoryzacyjny
 
-**Po co to jest? (Cel biznesowy):** Usuwanie trwale błędnych zapisków lub postów "zdjętych z anteny". Posiada jednak twardą śluzę kontrolną. **Gdzie to znaleźć? (Lokalizacja UI):** Ikonka śmietnika w kolumnie "Akcja" z prawej strony (pojawia się jedynie po najechaniu myszą – hover na konkretny wiersz). **Wymagania wstępne (Wiedza z kodu):** Kontroler backendu posiada funkcję twardą hasMarketingRights(req.user). Jeżeli zalogowany jest zwykły sprzedawca ('HANDLOWCY'), uderzenie w API skończy się twardym HTTP 403 Forbidden. **Jak to użyć? (Instrukcja Krok po Kroku):**
-
-1. Najedź kursorem na pustą krawędź po prawej stronie wiersza w tabeli.  
-2. Gdy pojawi się mały kwadrat z czerwonym koszem – kliknij go lewym przyciskiem.  
-3. System wymusi twarde potwierdzenie (Zabezpieczenie przed fat-finger mistake). **Wynik operacji (Output):** Jeśli masz uprawnienia MARKETING lub ADMIN/PREZES, wiersz bezpowrotnie znika z harmonogramu, wysyłając w tle HTTP DELETE i czyszcząc kafelki (również powiązane zdjęcia w chmurze poprzez trigger backendowy). Jeśli nie masz, przycisk zostawi okno błędu w przeglądarce i odrzuci wniosek o destrukcję materiału firmowego.
-
----
-
-### ARCHITEKTURA KOGNITYWNA I POTOK WARTOŚCI (THE ULTIMATE EAN PIPELINE)
-
-Zgodnie z wdrożeniem master-agenta (`ean.pipeline.service.js`), proces operuje w zamkniętej kaskadzie:
-
-1. **Master Agent (Orchestrator):** Działa jako bezwzględny zarządca logiki. Pociąga za spust wszystkich agentów składowych przez `try-catch`, chroniąc system przed upadkiem, po czym rzuca połączony "Szkic" (Draft) do weryfikacji przez HitL.
-2. **Agent Badawczy (INCI Intelligence):** (Temp 0.2) Wyszukuje twardych danych INCI wpierw w BaseLinker, a przy brakach ratując się OSINTem internetowym.
+**Po co to jest? (Cel biznesowy):** Usuwanie trwale błędnych zapisków lub postów "zdjętych z anteny". Posiada jednak twardą śluzę kontrolną. **Gdzie to znaleźć? (Lokalizacja UI):** Ikonka śmietnika w kolumnie "Akcja" z prawej strony (pojawia się jedynie po najechaniu myszą – hover na konkretny wiersz). **Wymagania wstępne (Wiedza z kodu):** Kontroler backendu posiad2. **Agent Badawczy (INCI Intelligence):** (Temp 0.2) Wyszukuje twardych danych INCI wpierw w BaseLinker, a przy brakach ratując się OSINTem internetowym.
 3. **Agent Audytor Wizualny:** Moduł operujący na Vision AI nakierowany wyłącznie na sprawdzanie zgodności zdjęć pod kątem wymogów białego tła (RGB 255) i Regulaminu Allegro.
-4. **Agent AEO (Analityk Strukturalny):** (Temp 0.4) Konstruuje modułową strukturę P&A dopasowaną pod SGE / LLM'y na bazie starych opisów archiwalnych.
-5. **Agent GEO Text (Copywriter):** (Temp 0.6) Używa wyselekcjonowanego INCI oraz surowego AEO do wygenerowania optymalnego kodu HTML Allegro ograniczonego zaledwie do 7 autoryzowanych tagów, zwracając JSON poddany na koniec rygorowi Auto-Repair.
-6. **Agent Audytor Prawny (Compliance):** (Temp 0.0) Strażnik unijnych dyrektyw WE 1223/2009. Zmiękcza zjawisko greenwashingu i blokuje oświadczenia medyczne w wygenerowanym wcześniej HTML'u.
-7. **Agent Tytułów (Google Trends):** (Temp 0.8) Niezależny moduł rygorystycznie optymalizujący i generujący hasła główne w limicie 75 znaków.
+4. **Agent Auto-Fill (Faza 2.5) & Category Sync:** Automatycznie wyszukuje kategorię Allegro (po EAN lub nazwie), pobiera słownik `Schema` i używa go w tandemie z BaseLinkerem oraz Agentem AI do wypełnienia luk w cechach produktu (PIM OSINT). Zapisuje komplet do Prisma bez interakcji człowieka.
+5. **Agent AEO (Analityk Strukturalny):** (Temp 0.4) Konstruuje modułową strukturę P&A dopasowaną pod SGE / LLM'y na bazie starych opisów archiwalnych.
+6. **Agent GEO Text (Copywriter):** (Temp 0.6) Używa wyselekcjonowanego INCI oraz surowego AEO do wygenerowania optymalnego kodu HTML Allegro ograniczonego zaledwie do 7 autoryzowanych tagów, zwracając JSON poddany na koniec rygorowi Auto-Repair.
+7. **Agent Audytor Prawny (Compliance):** (Temp 0.0) Strażnik unijnych dyrektyw WE 1223/2009. Zmiękcza zjawisko greenwashingu i blokuje oświadczenia medyczne w wygenerowanym wcześniej HTML'u.
+8. **Agent Tytułów (Google Trends):** (Temp 0.8) Niezależny moduł rygorystycznie optymalizujący i generujący hasła główne w limicie 75 znaków.
 
 ---
 
-### Nazwa operacji/zadania: Pobieranie z API (Inicjalizacja Inteligentna)
+### Nazwa operacji/zadania: Inicjalizacja EAN (Single-Action Pipeline)
 
-**Po co to jest? (Cel biznesowy):** Mechanizm zabezpieczający handlowca przed robieniem pustej, bezwartościowej pracy copywriterskiej. Zrekonstruowany na pełnoprawny **"Unified Product View" (Kokpit PIM)**. Moduł po otrzymaniu sygnału wykonuje serię uderzeń do BaseLinkera, pobiera surowe dane (wraz z zapasami, cenami, i logistyką), odsyła je do chmury Agentów AI i w pełni renderuje potężny ciemny interfejs analityczny. **Gdzie to znaleźć? (Lokalizacja UI):** Początkowo jest to w 100% ciemny ekran z inputem tekstowym "ImageUploadBox". Następnie po prawidłowej operacji przekształca się w "UltimateProductDashboard" podzielony na trzy merytoryczne kolumny danych. **Wymagania wstępne (Wiedza z kodu):** Użytkownik musi posiadać 13-cyfrowy kod EAN (np. 8809822540631). **Jak to użyć? (Instrukcja Krok po Kroku):**
+**Po co to jest? (Cel biznesowy):** Mechanizm realizujący paradygmat "Zero Kliknięć". Zrekonstruowany na pełnoprawny **"Unified Product View" (Kokpit PIM)**. Moduł po otrzymaniu pojedynczego sygnału (EAN) asynchronicznie odpala potok na backendzie. Silnik sam synchronizuje kategorie Allegro, odpytuje OSINT/BaseLinker o parametry (Auto-Fill PIM), pobiera dane logistyczne i uruchamia równolegle agentów AI (Vision, Copy, Compliance). **Gdzie to znaleźć? (Lokalizacja UI):** Początkowo jest to w 100% ciemny ekran z inputem tekstowym "ImageUploadBox". Następnie przekształca się w podzielony na trzy kolumny "UltimateProductDashboard". **Wymagania wstępne (Wiedza z kodu):** Użytkownik musi posiadać 13-cyfrowy kod EAN (np. 8809822540631). EAN to twardy klucz całego potoku. **Jak to użyć? (Instrukcja Krok po Kroku):**
 
 1. Wbij w główne, centralne pole na ciemnym tle kod EAN: 8809822540631.
-2. Kliknij przycisk "Start Potoku".
-3. *UWAGA:* Rozpocznie się sekwencja animacji i postępu, uderzająca do 6 modeli AI równolegle. Czas trwania to od 5 do 20 sekund zależnie od obciążenia. **Wynik operacji (Output):** Środowisko się przeładowuje z widoku "Inicjatora" w "Centrum Dowodzenia". Z lewej strony ładuje się potężny panel danych PIM (Stany WMS/ERP, VAT, Cechy), na środku Walidator Tytułu i Audytor Wizyjny AI, a po prawej stronie wszystkie 5-sekcji wygenerowanego kodu dla rynku z Tile-Simulatorem na samym dole. Cały interfejs jest ujednolicony kolorystycznie i prezentuje profesjonalny ciemny motyw.
+2. Naciśnij Enter lub kliknij przycisk "Start".
+3. *UWAGA:* Rozpocznie się asynchroniczna sekwencja backendowa (ok 5-20 sekund). **Wynik operacji (Output):** Środowisko się przeładowuje z widoku "Inicjatora" w "Centrum Dowodzenia". Z lewej strony ładuje się potężny panel danych PIM (Stany, VAT). W sekcji **Parametry Cech (OSINT)** automatycznie pojawia się uzupełniony słownik z Allegro (Auto-Fill zadziałał w tle, eliminując przyciski). Na środku ładuje się Walidator Tytułu i Audytor Wizyjny AI, a po prawej stronie wygenerowane 5-sekcji kodu. Interfejs jest w 100% ciemny i "gotowy" natychmiast po załadowaniu.uje profesjonalny ciemny motyw.
 
  pobiera surowe dane, odsyła je do chmury Agentów AI i przygotowuje w ułamek minuty pięć gotowych sekcji tekstowych. **Gdzie to znaleźć? (Lokalizacja UI):** Środkowy ekran na górze. Główny formularz wejściowy z sekcją "Wybierz Tryb Pracy Wymuszany na AI". **Wymagania wstępne (Wiedza z kodu):** Użytkownik musi posiadać na biurku rzeczywisty, poprawny 13-cyfrowy kod EAN (np. 8809822540631). EAN pełni w kodzie backendu funkcję potężnego klucza (Regex ^\\d{8,14}$), bez którego proces w ogóle nie ruszy. **Jak to użyć? (Instrukcja Krok po Kroku):**
 
