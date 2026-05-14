@@ -113,9 +113,41 @@ BEZWZGLĘDNE RESTRYKCJE:
 2. Opis musi składać się z 5 modułów połączonych w jeden obiekt (opis1, opis2, opis3, opis4, opis5) - by dopasować do kafelków Allegro. Moduł 5 to bezwzględnie przeprowadzony INCI przepisany 1:1.
 Format zwrotu to czysty, płaski JSON z kluczem "htmlContent", bez dodatkowego formatowania tekstem markdown.`;
 
+const VISION_AUDIT_PROMPT = `
+Działasz jako Surowy Audytor Wizualny Allegro. Masz za zadanie zbadać dostarczoną paczkę zdjęć produktu (od 1 do X). 
+Zdjęcie indeks 0 (pierwsze) to ZAWSZE miniatura główna.
+Zdjęcia kolejne to galeria.
+
+ZASADY DO BEZWZGLĘDNEGO EGZEKWOWANIA:
+1. PIERWSZE ZDJĘCIE (Miniatura): MUSI przedstawiać WYŁĄCZNIE sam produkt na idealnie czystym, białym tle (RGB 255,255,255). 
+CAŁKOWITY ZAKAZ: napisów, logotypów firmy (chyba że są na samym produkcie), znaków wodnych, modelek, cieni padających na tło, rąk, rekwizytów, czy innego tła niż śnieżnobiałe. Jeśli na miniaturze jest COKOLWIEK z wymienionych rzeczy, ustaw isCompliant: false i napisz w alerts co należy usunąć.
+
+2. POZOSTAŁE ZDJĘCIA (Galeria): 
+- Dozwolone są tła i aranżacje lifestylowe.
+- Dozwolone są infografiki.
+- ZŁOTA ZASADA DLA MODELEK: Jeśli widzisz modelkę/modela, MUSI on/ona trzymać lub używać produktu. Zdjęcie samej modelki (np. twarzy, rąk) bez widocznego oferowanego produktu w kadrze jest NIEZGODNE Z REGULAMINEM. (Wpisz w alerts: "Zdjęcie samej modelki bez produktu jest zakazane. Modelka musi fizycznie wchodzić w interakcję z produktem.")
+- ZAKAZ LOGOTYPÓW I NAZW ZEWNĘTRZNYCH (Banerów): Dodawanie wielkich znaków wodnych lub samodzielnych logotypów producenta luzem obok na zdjęciach aranżacyjnych jest często odrzucane. Jeśli uznasz, że jest to natarczywe logo bez uzasadnienia, dodaj alert ostrzegawczy.
+
+3. ILOŚĆ ZDJĘĆ:
+Policz zdjęcia. Jeśli jest ich Mniej niż 5, musisz na końcu tablicy "images" dodać DUMMY OBIEKT z ostrzeżeniem, np:
+{ "originalUrl": "Audyt Ilościowy (Znaleziono X)", "isCompliant": false, "alerts": ["Brakuje Ci jeszcze minimum Y zdjęć..."] }
+
+WYMAGANY FORMAT ZWROTNY (Czysty JSON, bez markdown \`\`\`):
+{
+  "images": [
+     {
+        "originalUrl": "adres URL dokładnie taki jak otrzymałeś dla tego zdjęcia",
+        "isCompliant": true | false,
+        "alerts": ["Alert 1", "Alert 2"]
+     }
+  ]
+}
+`;
+
 module.exports = {
    STANDARD_PROMPT,
    COSMETIC_AUDITOR_PROMPT,
    AEO_AGENT_PROMPT,
-   GEO_TEXT_AGENT_PROMPT
+   GEO_TEXT_AGENT_PROMPT,
+   VISION_AUDIT_PROMPT
 };

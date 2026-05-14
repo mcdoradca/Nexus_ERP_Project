@@ -8,7 +8,7 @@ sharp.cache(false); // Wyłączenie wbudowanego cache'u dla stabilności RAM prz
 const FormData = require('form-data');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const { STANDARD_PROMPT, COSMETIC_AUDITOR_PROMPT } = require('./ai.prompts');
+const { STANDARD_PROMPT, COSMETIC_AUDITOR_PROMPT, VISION_AUDIT_PROMPT } = require('./ai.prompts');
 const cheerio = require('cheerio');
 const EventBus = require('../../core/EventBus');
 dotenv.config();

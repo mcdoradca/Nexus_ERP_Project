@@ -160,19 +160,23 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                                      {imageObj.originalUrl || "Wymagane nowe zdjęcie"}
                                  </span>
                              )}
-                             <button 
-                                 onClick={handleGenerateLifestyle}
-                                 disabled={isGeneratingAi}
-                                 className="flex items-center bg-indigo-600 text-white font-bold px-4 py-3 rounded-sm text-xs hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 transition-all uppercase tracking-widest mb-3"
-                             >
-                                 {isGeneratingAi ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-                                 {isGeneratingAi ? "Generowanie AI..." : "✨ Wygeneruj Lifestyle AI"}
-                             </button>
-                             <div className="flex items-center space-x-2 text-[10px] text-slate-600 font-bold uppercase tracking-widest mb-3">
-                                 <div className="h-px bg-slate-300 w-8"></div>
-                                 <span>ALBO</span>
-                                 <div className="h-px bg-slate-300 w-8"></div>
-                             </div>
+                             {index !== 0 && (
+                                 <>
+                                     <button 
+                                         onClick={handleGenerateLifestyle}
+                                         disabled={isGeneratingAi}
+                                         className="flex items-center bg-indigo-600 text-white font-bold px-4 py-3 rounded-sm text-xs hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 transition-all uppercase tracking-widest mb-3"
+                                     >
+                                         {isGeneratingAi ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                                         {isGeneratingAi ? "Generowanie AI..." : "✨ Wygeneruj Lifestyle AI"}
+                                     </button>
+                                     <div className="flex items-center space-x-2 text-[10px] text-slate-600 font-bold uppercase tracking-widest mb-3">
+                                         <div className="h-px bg-slate-300 w-8"></div>
+                                         <span>ALBO</span>
+                                         <div className="h-px bg-slate-300 w-8"></div>
+                                     </div>
+                                 </>
+                             )}
                              <button 
                                  onClick={() => fileInputRef.current && fileInputRef.current.click()}
                                  className="flex items-center text-slate-500 hover:text-indigo-600 text-xs font-bold uppercase tracking-widest transition-colors bg-white/60 px-4 py-2 rounded-sm"
@@ -227,14 +231,16 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                     <Maximize2 className="w-3.5 h-3.5 mr-1" />
                     Powiększ
                 </button>
-                <button 
-                    onClick={handleGenerateLifestyle}
-                    disabled={isGeneratingAi}
-                    className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 hover:text-indigo-600 transition-colors flex justify-center items-center"
-                >
-                    {isGeneratingAi ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
-                    Generuj AI
-                </button>
+                {index !== 0 && (
+                    <button 
+                        onClick={handleGenerateLifestyle}
+                        disabled={isGeneratingAi}
+                        className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 hover:text-indigo-600 transition-colors flex justify-center items-center"
+                    >
+                        {isGeneratingAi ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
+                        Generuj AI
+                    </button>
+                )}
                 <button 
                     onClick={() => fileInputRef.current && fileInputRef.current.click()}
                     className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 hover:text-emerald-600 transition-colors flex justify-center items-center"
