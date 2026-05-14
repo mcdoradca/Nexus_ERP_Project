@@ -45,7 +45,7 @@ class EanPipelineService {
 
                 product = await prisma.product.upsert({
                     where: { ean },
-                    create: { ean, name: deepData.name, brandId, ...deepPayload },
+                    create: { ean, sku: deepData.sku || ean, name: deepData.name, brandId, ...deepPayload },
                     update: deepPayload
                 });
             }
