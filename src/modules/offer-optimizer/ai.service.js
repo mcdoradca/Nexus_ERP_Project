@@ -861,8 +861,45 @@ Jeśli nie odnajdziesz wiarygodnej informacji dla danego parametru w sieci, pomi
     }
 }
 
+async function generateAEOContent(productName, originalDescription, intelligenceData) {
+    console.log(`[AiService] Odpalanie Agenta AEO (Analityk Strukturalny) dla: ${productName}...`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            systemInstruction: require('./ai.prompts').AEO_AGENT_PROMPT,
+            generationConfig: { temperature: 0.4 } 
+        });
+        const prompt = `Produkt: ${productName}\nOpis źródłowy: ${originalDescription || 'Brak'}\nDane z wywiadu (INCI/Parametry): ${intelligenceData || 'Brak'}\nStwórz zwartą strukturę AEO.`;
+        const result = await generateWithRetry(model, prompt);
+        return result.response.text();
+    } catch(err) {
+        console.error("[AiService] Błąd Agenta AEO:", err.message);
+        return "Brak danych AEO - Błąd generacji.";
+    }
+}
+
+async function generateGEOTextContent(productName, aeoContent, intelligenceData) {
+    console.log(`[AiService] Odpalanie Agenta GEO Text (Copywriter HTML) dla: ${productName}...`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            systemInstruction: require('./ai.prompts').GEO_TEXT_AGENT_PROMPT,
+            generationConfig: { temperature: 0.6, responseMimeType: "application/json" } 
+        });
+        const prompt = `Produkt: ${productName}\nBaza AEO: ${aeoContent}\nDane INCI/OSINT: ${intelligenceData}\nZwróć wynik jako JSON z kluczem "htmlContent", zachowując restrykcję 7 tagów HTML.`;
+        const result = await generateWithRetry(model, prompt);
+        let text = result.response.text().replace(/```json/gi, '').replace(/```/g, '').trim();
+        return JSON.parse(text);
+    } catch(err) {
+        console.error("[AiService] Błąd Agenta GEO Text:", err.message);
+        return { htmlContent: { opis1: "<p>Błąd systemu GEO</p>" } };
+    }
+}
+
 module.exports = {
     gatherProductIntelligence,
+    generateAEOContent,
+    generateGEOTextContent,
     generateNativeAnalysis,
     generateOfferJSON,
     auditOfferImages,

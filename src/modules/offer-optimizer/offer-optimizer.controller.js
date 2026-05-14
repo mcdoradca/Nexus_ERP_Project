@@ -2,6 +2,7 @@ const OfferOptimizerService = require('./offer-optimizer.service');
 const AiService = require('./ai.service');
 const AllegroService = require('./allegro.service');
 const BaseLinkerService = require('./baselinker.service');
+const EanPipelineService = require('./ean.pipeline.service');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const EventBus = require('../../core/EventBus');
@@ -343,6 +344,23 @@ const generateLifestyle = async (req, res) => {
     }
 };
 
+const triggerUltimatePipeline = async (req, res) => {
+    try {
+        const { ean } = req.body;
+        if (!ean) return res.status(400).json({ error: "Wymagany kod EAN do inicjalizacji potoku." });
+
+        // Uruchamiamy The Ultimate EAN Pipeline.
+        // Oczekujemy na synchroniczne wykonanie potoku lub puszczamy go asynchronicznie (tutaj asynchronicznie i zwracamy status 202).
+        EanPipelineService.execute(ean)
+            .then(() => console.log(`[Controller] Potok EAN Pipeline sfinalizowany dla EAN: ${ean}`))
+            .catch(err => console.error(`[Controller] Potok EAN Pipeline napotkał błąd dla EAN: ${ean}`, err));
+
+        res.status(202).json({ message: "The Ultimate EAN Pipeline zainicjowany. Wyniki wylądują w kopii roboczej do ręcznej weryfikacji HitL." });
+    } catch (e) {
+        res.status(500).json({ error: e.message || "Błąd wewnętrzny serwera." });
+    }
+};
+
 module.exports = {
     startOptimization,
     checkStatus,
@@ -351,5 +369,6 @@ module.exports = {
     proxyImage,
     saveDraft,
     exportToBaselinker,
-    generateLifestyle
+    generateLifestyle,
+    triggerUltimatePipeline
 };

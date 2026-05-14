@@ -249,29 +249,17 @@ Po dogłębnej analizie plików źródłowych, logów wdrożeniowych oraz archit
 
    \* Ofertowanie GEO (AI)
 
-### ARCHITEKTURA KOGNITYWNA (Identyfikacja Agentów AI)
+### ARCHITEKTURA KOGNITYWNA I POTOK WARTOSCI (THE ULTIMATE EAN PIPELINE)
 
-Zgodnie z poleceniem dekompilacji serwisu ai.service.js, oto agenci wpięci w proces Ofertowania GEO:
+Zgodnie z wdrożeniem master-agenta (`ean.pipeline.service.js`), proces operuje w zamkniętej kaskadzie:
 
-1. **Agent Badawczy (Research Agent):**  
-   * *Zadanie:* Wychodzi poza ekosystem Allegro/PIM. Za pomocą wbudowanego dostępu do wyszukiwarki Google OSINT, przeczesuje strony aptek internetowych i oficjalne witryny producentów, aby ściągnąć surową dokumentację techniczną produktu.  
-   * *Charakter:* Niska temperatura generacji (faktuografia, 0.2). Nie zmyśla.  
-   * *Zabezpieczenie:* Hardkodowany zakaz halucynacji w prompcie. Skupienie na pobraniu pełnego, prawdziwego składu INCI.  
-2. **Agent Prawny (Compliance Agent / Cosmetic Auditor):**  
-   * *Zadanie:* Gdy w interfejsie wybrany jest tryb "Audytor Rozporządzenia Kosmetycznego", ładuje do pamięci przepisy UE 1223/2009. Wychwytuje niedozwolone oświadczenia medyczne w surowych opisach, zjawisko "Greenwashingu" oraz łamanie regulaminów Allegro.  
-   * *Charakter:* Bezwzględny, temperatura 0.0 (zerowa kreatywność).  
-   * *Zabezpieczenie:* Działa w oparciu o sztywny system RAG z pliku SOT\_Baza\_Wiedzy\_Agenta.md.  
-3. **Agent Uzupełniania Parametrów (PXM Auto-Fill Agent):**  
-   * *Zadanie:* Skanuje braki w "Cechach i Parametrach" (np. brakujący kod producenta, typ skóry) i na podstawie Google Auto-Search wypełnia luki.  
-   * *Zabezpieczenie:* Algorytm wymuszający zwrócenie wyciągniętych danych wyłącznie pod rygorem zgodności ze słownikiem Allegro (dopasowanie 1:1, inaczej odrzuca parametr).  
-4. **Agent Zwiadowca SEO/Dyrektor Artystyczny (Liquid Variables AI):**  
-   * *Zadanie:* Analizuje trendy wizualne konkurentów e-commerce na 2026 rok dla danego towaru i tworzy zmienne środowiskowe, instruując w tle generatory 3D Claid AI (gdzie położyć padające światło, jakich tekstur tła użyć).  
-   * *Zabezpieczenie:* Zakaz tworzenia zmyślonych składników. Prompty typu "Całkowity zakaz używania odciętych desek czy plastrów drewna (no wood slices)".  
-5. **Agent Audytor Wizualny (Vision AI):**  
-   * *Zadanie:* Ocenia czy miniatura na pewno jest na czystym RGB (255,255,255) i przyznaje status "GEO Compliant".  
-6. **Agent Generatywny (GEO Text Agent):**  
-   * *Zadanie:* Pisze treść SEO sprzedażową dla handlowców na podstawie raportu od Agenta Badawczego.  
-   * *Zabezpieczenie:* Restrykcyjna blokada formatowania – system wymusza usunięcie Markdownu i użycie wyłącznie 7 dozwolonych przez protokół API Allegro tagów HTML. Aplikowany jest mechanizm *Auto-Repair* (Naprawy urwanego JSON-a).
+1. **Master Agent (Orchestrator):** Działa jako bezwzględny zarządca logiki. Pociąga za spust wszystkich agentów składowych przez `try-catch`, chroniąc system przed upadkiem, po czym rzuca połączony "Szkic" (Draft) do weryfikacji przez HitL.
+2. **Agent Badawczy (INCI Intelligence):** (Temp 0.2) Wyszukuje twardych danych INCI wpierw w BaseLinker, a przy brakach ratując się OSINTem internetowym.
+3. **Agent Audytor Wizualny:** Moduł operujący na Vision AI nakierowany wyłącznie na sprawdzanie zgodności zdjęć pod kątem wymogów białego tła (RGB 255) i Regulaminu Allegro.
+4. **Agent AEO (Analityk Strukturalny):** (Temp 0.4) Konstruuje modułową strukturę P&A dopasowaną pod SGE / LLM'y na bazie starych opisów archiwalnych.
+5. **Agent GEO Text (Copywriter):** (Temp 0.6) Używa wyselekcjonowanego INCI oraz surowego AEO do wygenerowania optymalnego kodu HTML Allegro ograniczonego zaledwie do 7 autoryzowanych tagów, zwracając JSON poddany na koniec rygorowi Auto-Repair.
+6. **Agent Audytor Prawny (Compliance):** (Temp 0.0) Strażnik unijnych dyrektyw WE 1223/2009. Zmiękcza zjawisko greenwashingu i blokuje oświadczenia medyczne w wygenerowanym wcześniej HTML'u.
+7. **Agent Tytułów (Google Trends):** (Temp 0.8) Niezależny moduł rygorystycznie optymalizujący i generujący hasła główne w limicie 75 znaków.
 
 ---
 

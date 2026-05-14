@@ -21,5 +21,6 @@ router.get('/proxy-image', controller.proxyImage);
 router.post('/save-draft', express.json({ limit: '50mb' }), controller.saveDraft);
 router.post('/export-baselinker', express.json({ limit: '50mb' }), controller.exportToBaselinker);
 router.post('/generate-lifestyle', express.json({ limit: '50mb' }), controller.generateLifestyle);
+router.post('/pipeline/trigger', express.json(), controller.triggerUltimatePipeline);
 
 module.exports = router;
