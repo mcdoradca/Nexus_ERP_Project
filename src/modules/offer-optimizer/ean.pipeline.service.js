@@ -66,12 +66,38 @@ class EanPipelineService {
             const intelligenceData = await AiService.gatherProductIntelligence(ean, product.name);
 
             // 2.5 Auto-Fill PIM Parameters (Asynchronicznie, nie blokuje AEO)
-            console.log(`[EAN Pipeline] 2.5 Agent Auto-Fill (PIM Parameters)`);
-            const autofillPromise = AiService.autofillMissingParameters(ean, product.name, product.features || {}, []).then(filledFeatures => {
-                if (filledFeatures && Object.keys(filledFeatures).length > 0) {
-                     return prisma.product.update({ where: { ean }, data: { features: filledFeatures } });
+            console.log(`[EAN Pipeline] 2.5 Agent Auto-Fill (PIM Parameters) & Category Sync`);
+            const allegroService = require('./allegro.service');
+            const autofillPromise = (async () => {
+                try {
+                    let catId = product.allegroCategoryId;
+                    
+                    if (!catId) {
+                         catId = await allegroService.findCategoryByEan(ean);
+                         if (!catId && product.name) catId = await allegroService.findMatchingCategoryByName(product.name);
+                         if (catId) {
+                              await allegroService.fetchCategoryParameters(catId);
+                              await prisma.product.update({ where: { ean }, data: { allegroCategoryId: catId } });
+                              product.allegroCategoryId = catId;
+                         }
+                    }
+                    
+                    let requiredSchema = [];
+                    if (catId) {
+                         const category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
+                         if (category && category.parameters) requiredSchema = category.parameters;
+                    }
+                    
+                    const currentFeatures = product.features && typeof product.features === 'object' ? { ...product.features } : {};
+                    const filledFeatures = await AiService.autofillMissingParameters(ean, product.name, currentFeatures, requiredSchema);
+                    
+                    if (filledFeatures && Object.keys(filledFeatures).length > 0) {
+                        return await prisma.product.update({ where: { ean }, data: { features: filledFeatures } });
+                    }
+                } catch (err) {
+                    console.error("[EAN Pipeline] Błąd Auto-Fill:", err.message);
                 }
-            }).catch(err => console.error("[EAN Pipeline] Błąd Auto-Fill:", err.message));
+            })();
 
             // 4. Agent AEO (wymaga intelligenceData)
             console.log(`[EAN Pipeline] 4. Agent AEO - Struktura Perplexity/SGE - Temperatura 0.4`);

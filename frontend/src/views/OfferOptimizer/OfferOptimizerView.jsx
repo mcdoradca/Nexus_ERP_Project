@@ -92,8 +92,6 @@ export const OfferOptimizerView = () => {
 
     // OSINT / Allegro Parametry
     const [categorySchema, setCategorySchema] = useState(null);
-    const [isFetchingSchema, setIsFetchingSchema] = useState(false);
-    const [isAutofilling, setIsAutofilling] = useState(false);
 
     useEffect(() => {
         const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
@@ -107,36 +105,6 @@ export const OfferOptimizerView = () => {
             setCategorySchema(null);
         }
     }, [pimData.allegroCategoryId]);
-
-    const handleSyncCategory = async () => {
-        if (!liveEan) return;
-        setIsFetchingSchema(true);
-        try {
-            const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
-            const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
-            const res = await axios.get(`${API_URL}/api/products/${liveEan}/sync-category-bl`, { headers: { Authorization: `Bearer ${token}` } });
-            setPimData(prev => ({...prev, allegroCategoryId: res.data.allegroCategoryId}));
-            alert("Pomyślnie dopasowano kategorię Allegro na podstawie kodu EAN oraz zsynchronizowano słownik.");
-        } catch (err) {
-            alert("Błąd: " + (err.response?.data?.error || err.message));
-        }
-        setIsFetchingSchema(false);
-    };
-
-    const handleAutofillParams = async () => {
-        if (!liveEan) return;
-        setIsAutofilling(true);
-        try {
-            const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
-            const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
-            const res = await axios.post(`${API_URL}/api/products/${liveEan}/autofill-params`, {}, { headers: { Authorization: `Bearer ${token}` } });
-            setPimData(prev => ({...prev, features: res.data.features}));
-            alert("Zakończono PXM Auto-Fill. Zaimportowano dane z BaseLinkera, a luki uzupełnił Agent AI.");
-        } catch (err) {
-            alert("Błąd: " + (err.response?.data?.error || err.message));
-        }
-        setIsAutofilling(false);
-    };
 
     const safeImages = visionTickets.map(t => {
         const url = t.replacedUrl || t.originalUrl;
@@ -397,18 +365,7 @@ export const OfferOptimizerView = () => {
 
                         <div className="mb-4 space-y-2">
                             <label className="text-[10px] uppercase font-bold text-slate-600 block">ID Kategorii Allegro (Data Quality)</label>
-                            <div className="flex space-x-2">
-                                <input type="text" placeholder="Np. 257745" value={pimData.allegroCategoryId || ''} onChange={e => handlePimChange('allegroCategoryId', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none" />
-                                <button type="button" onClick={handleSyncCategory} disabled={isFetchingSchema} className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-indigo-400 rounded-lg text-[10px] font-bold uppercase whitespace-nowrap transition-colors">
-                                    Szukaj po EAN
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="mb-4">
-                            <button type="button" onClick={handleAutofillParams} disabled={isAutofilling} className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold uppercase transition-colors shadow-sm flex items-center justify-center">
-                                {isAutofilling ? 'Pobieram (BL + AI)...' : 'Pobierz dane (Auto-Fill)'}
-                            </button>
+                            <input type="text" placeholder="Np. 257745" value={pimData.allegroCategoryId || ''} onChange={e => handlePimChange('allegroCategoryId', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none" />
                         </div>
 
                         <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar pr-2">
