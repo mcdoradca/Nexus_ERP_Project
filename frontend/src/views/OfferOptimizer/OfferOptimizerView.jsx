@@ -4,7 +4,7 @@ import { StrictWysiwyg } from './components/HitlReviewer/StrictWysiwyg';
 import { TileSimulator } from './components/HitlReviewer/TileSimulator';
 import { ImageUploadBox } from './components/SingleAuctionFetcher/ImageUploadBox';
 import { PhotographicAuditorCard } from './components/VisionFeedback/PhotographicAuditorCard';
-import { Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp } from 'lucide-react';
+import { Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp, Search } from 'lucide-react';
 
 const ImageModal = ({ url, onClose }) => {
     if (!url) return null;
