@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { TitleValidator } from './components/HitlReviewer/TitleValidator';
 import { StrictWysiwyg } from './components/HitlReviewer/StrictWysiwyg';
 import { TileSimulator } from './components/HitlReviewer/TileSimulator';
@@ -86,8 +87,56 @@ export const OfferOptimizerView = () => {
     // Stany dla dynamicznych cech (PIM Data)
     const [pimData, setPimData] = useState({
         weight: 0, length: 0, width: 0, height: 0, taxRate: 0, stock: 0, stockErpUnits: 0, stockWmsUnits: 0,
-        features: {}
+        features: {}, allegroCategoryId: ''
     });
+
+    // OSINT / Allegro Parametry
+    const [categorySchema, setCategorySchema] = useState(null);
+    const [isFetchingSchema, setIsFetchingSchema] = useState(false);
+    const [isAutofilling, setIsAutofilling] = useState(false);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
+        const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
+        
+        if (pimData.allegroCategoryId && token) {
+            axios.get(`${API_URL}/api/categories/${pimData.allegroCategoryId}`, { headers: { Authorization: `Bearer ${token}` } })
+                .then(res => setCategorySchema(res.data))
+                .catch(err => setCategorySchema(null));
+        } else {
+            setCategorySchema(null);
+        }
+    }, [pimData.allegroCategoryId]);
+
+    const handleSyncCategory = async () => {
+        if (!liveEan) return;
+        setIsFetchingSchema(true);
+        try {
+            const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
+            const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
+            const res = await axios.get(`${API_URL}/api/products/${liveEan}/sync-category-bl`, { headers: { Authorization: `Bearer ${token}` } });
+            setPimData(prev => ({...prev, allegroCategoryId: res.data.allegroCategoryId}));
+            alert("Pomyślnie dopasowano kategorię Allegro na podstawie kodu EAN oraz zsynchronizowano słownik.");
+        } catch (err) {
+            alert("Błąd: " + (err.response?.data?.error || err.message));
+        }
+        setIsFetchingSchema(false);
+    };
+
+    const handleAutofillParams = async () => {
+        if (!liveEan) return;
+        setIsAutofilling(true);
+        try {
+            const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
+            const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
+            const res = await axios.post(`${API_URL}/api/products/${liveEan}/autofill-params`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            setPimData(prev => ({...prev, features: res.data.features}));
+            alert("Zakończono PXM Auto-Fill. Zaimportowano dane z BaseLinkera, a luki uzupełnił Agent AI.");
+        } catch (err) {
+            alert("Błąd: " + (err.response?.data?.error || err.message));
+        }
+        setIsAutofilling(false);
+    };
 
     const safeImages = visionTickets.map(t => {
         const url = t.replacedUrl || t.originalUrl;
@@ -132,7 +181,8 @@ export const OfferOptimizerView = () => {
             stock: res.stock || 0,
             stockErpUnits: res.stockErpUnits || 0,
             stockWmsUnits: res.stockWmsUnits || 0,
-            features: res.features || {}
+            features: res.features || {},
+            allegroCategoryId: res.allegroCategoryId || ''
         });
 
         if(draft.htmlContent) {
@@ -340,22 +390,53 @@ export const OfferOptimizerView = () => {
                     </div>
 
                     <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
-                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
-                            <Tag className="w-4 h-4 mr-2 text-indigo-400" /> Parametry Cech (OSINT)
+                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center justify-between">
+                            <span className="flex items-center"><Tag className="w-4 h-4 mr-2 text-indigo-400" /> Parametry Cech (OSINT)</span>
+                            {categorySchema && <span className="bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded text-[9px]">Schema: {categorySchema.name}</span>}
                         </h2>
-                        <div className="space-y-3">
-                            {Object.entries(pimData.features || {}).map(([key, val]) => (
+
+                        <div className="mb-4 space-y-2">
+                            <label className="text-[10px] uppercase font-bold text-slate-600 block">ID Kategorii Allegro (Data Quality)</label>
+                            <div className="flex space-x-2">
+                                <input type="text" placeholder="Np. 257745" value={pimData.allegroCategoryId || ''} onChange={e => handlePimChange('allegroCategoryId', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none" />
+                                <button type="button" onClick={handleSyncCategory} disabled={isFetchingSchema} className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-indigo-400 rounded-lg text-[10px] font-bold uppercase whitespace-nowrap transition-colors">
+                                    Szukaj po EAN
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="mb-4">
+                            <button type="button" onClick={handleAutofillParams} disabled={isAutofilling} className="w-full px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold uppercase transition-colors shadow-sm flex items-center justify-center">
+                                {isAutofilling ? 'Pobieram (BL + AI)...' : 'Pobierz dane (Auto-Fill)'}
+                            </button>
+                        </div>
+
+                        <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar pr-2">
+                            {categorySchema?.parameters ? categorySchema.parameters.map(param => {
+                                const isRequired = param.required;
+                                const val = (pimData.features || {})[param.name] || '';
+                                return (
+                                <div key={param.id} className="border border-slate-800 p-2 rounded-lg bg-slate-950">
+                                    <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1 flex justify-between">
+                                        <span>{param.name}</span> {isRequired && <span className="text-[8px] text-rose-500">Wymagane</span>}
+                                    </label>
+                                    {param.dictionary && param.dictionary.length > 0 ? (
+                                        <select className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white outline-none" value={val} onChange={e => handleFeatureChange(param.name, e.target.value)}>
+                                            <option value="">Wybierz...</option>
+                                            {param.dictionary.map(d => <option key={d.id} value={d.value}>{d.value}</option>)}
+                                        </select>
+                                    ) : (
+                                        <input type="text" value={val} onChange={e => handleFeatureChange(param.name, e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white outline-none" />
+                                    )}
+                                </div>
+                                );
+                            }) : Object.entries(pimData.features || {}).map(([key, val]) => (
                                 <div key={key}>
                                     <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">{key}</label>
-                                    <input 
-                                        type="text" 
-                                        value={val} 
-                                        onChange={e => handleFeatureChange(key, e.target.value)} 
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none transition-colors" 
-                                    />
+                                    <input type="text" value={val} onChange={e => handleFeatureChange(key, e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none transition-colors" />
                                 </div>
                             ))}
-                            {Object.keys(pimData.features || {}).length === 0 && (
+                            {!categorySchema?.parameters && Object.keys(pimData.features || {}).length === 0 && (
                                 <div className="text-xs text-slate-500 text-center py-4 italic">Brak wygenerowanych cech.</div>
                             )}
                         </div>
