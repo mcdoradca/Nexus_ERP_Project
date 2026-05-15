@@ -362,201 +362,39 @@ export const OfferOptimizerView = () => {
                 </div>
             </div>
 
-            {/* Trójkolumnowy Układ Unified Product View */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            {/* Nowy Układ Unified Product View - Architektura kaskadowa z podziałem sekcji 2 */}
+            <div className="space-y-6">
                 
-                {/* KOLUMNA 1: Dane Twarde (PIM) - 3/12 */}
-                <div className="xl:col-span-3 space-y-6">
-                    {/* Sekcja: Identyfikacja */}
-                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
-                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
-                            <Tag className="w-4 h-4 mr-2 text-indigo-400" /> Identyfikacja PIM
+                {/* 1. Tytuł */}
+                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center">
+                            <Type className="w-4 h-4 mr-2 text-indigo-400" /> Weryfikacja Tytułu
                         </h2>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">SKU</label>
-                                <input type="text" value={pimData.sku || ''} onChange={e => handlePimChange('sku', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none font-mono" />
-                            </div>
-                            <div>
-                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Marka</label>
-                                <select value={pimData.brandId || ''} onChange={e => handlePimChange('brandId', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none">
-                                    <option value="">Wybierz markę...</option>
-                                    {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                </select>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">ID Subiekt</label>
-                                    <input type="text" value={pimData.subiektId || ''} onChange={e => handlePimChange('subiektId', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Status</label>
-                                    <select value={pimData.status || 'Aktywny'} onChange={e => handlePimChange('status', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none">
-                                        <option value="Aktywny">Aktywny</option>
-                                        <option value="Szkic">Szkic</option>
-                                        <option value="Archiwalny">Archiwalny</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
+                        <button onClick={handleRegenerateTitle} disabled={isRegeneratingTitle} className="text-[10px] uppercase font-bold text-indigo-400 hover:text-indigo-300 flex items-center transition-colors">
+                            <RefreshCw className={`w-3 h-3 mr-1 ${isRegeneratingTitle ? 'animate-spin' : ''}`} /> Odśwież
+                        </button>
                     </div>
-
-                    {/* Sekcja: Finanse (Unit Economics) */}
-                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
-                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
-                            <TrendingUp className="w-4 h-4 mr-2 text-indigo-400" /> Unit Economics
-                        </h2>
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Zakup Netto</label>
-                                    <input type="number" step="0.01" value={pimData.basePrice || 0} onChange={e => handlePimChange('basePrice', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Dostawa Inbound</label>
-                                    <input type="number" step="0.01" value={pimData.inboundTransportCost || 0} onChange={e => handlePimChange('inboundTransportCost', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Opakowania</label>
-                                    <input type="number" step="0.01" value={pimData.packagingCost || 0} onChange={e => handlePimChange('packagingCost', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Podatek BDO</label>
-                                    <input type="number" step="0.01" value={pimData.bdoEprCost || 0} onChange={e => handlePimChange('bdoEprCost', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
-                                </div>
-                            </div>
-                            <div className="border-t border-slate-800 pt-4 mt-2">
-                                <label className="text-[10px] uppercase font-black text-indigo-400 block mb-1">Cena Sprzedaży Detal.</label>
-                                <input type="number" step="0.01" value={pimData.salePrice || 0} onChange={e => handlePimChange('salePrice', e.target.value)} className="w-full bg-indigo-950 border border-indigo-800 rounded-lg px-3 py-2 text-lg font-black text-white focus:border-indigo-500 outline-none" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
-                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
-                            <Box className="w-4 h-4 mr-2 text-indigo-400" /> Logistyka i Gabaryty
-                        </h2>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Waga (kg)</label>
-                                <input type="number" step="0.01" value={pimData.weight} onChange={e => handlePimChange('weight', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
-                            </div>
-                            <div>
-                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">VAT (%)</label>
-                                <input type="number" value={pimData.taxRate} onChange={e => handlePimChange('taxRate', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
-                            </div>
-                            <div>
-                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Długość (cm)</label>
-                                <input type="number" value={pimData.length} onChange={e => handlePimChange('length', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
-                            </div>
-                            <div>
-                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Szerokość (cm)</label>
-                                <input type="number" value={pimData.width} onChange={e => handlePimChange('width', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
-                            </div>
-                            <div>
-                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Wysokość (cm)</label>
-                                <input type="number" value={pimData.height} onChange={e => handlePimChange('height', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
-                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
-                            <Layers className="w-4 h-4 mr-2 text-indigo-400" /> Architektura Zapasów
-                        </h2>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800">
-                                <span className="text-xs font-bold text-slate-400">Główny Zapas (PIM)</span>
-                                <input type="number" value={pimData.stock || 0} onChange={e => handlePimChange('stock', e.target.value)} className="w-20 bg-slate-900 border border-slate-800 rounded-md px-2 py-1 text-sm font-mono text-white text-right outline-none focus:border-indigo-500" />
-                            </div>
-                            <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800 opacity-70">
-                                <span className="text-xs font-bold text-slate-400">Magazyn ERP</span>
-                                <span className="text-sm font-mono text-indigo-400">{pimData.stockErpUnits} szt.</span>
-                            </div>
-                            <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800 opacity-70">
-                                <span className="text-xs font-bold text-slate-400">Magazyn WMS</span>
-                                <span className="text-sm font-mono text-emerald-400">{pimData.stockWmsUnits} szt.</span>
-                            </div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-slate-800">
-                            <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Wideo URL (Opcjonalnie)</label>
-                            <input type="text" placeholder="https://youtube.com/..." value={pimData.videoUrl || ''} onChange={e => handlePimChange('videoUrl', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none" />
-                        </div>
-                    </div>
-
-                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
-                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center justify-between">
-                            <span className="flex items-center"><Tag className="w-4 h-4 mr-2 text-indigo-400" /> Parametry Cech (OSINT)</span>
-                            {categorySchema && <span className="bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded text-[9px]">Schema: {categorySchema.name}</span>}
-                        </h2>
-
-                        <div className="mb-4 space-y-2">
-                            <label className="text-[10px] uppercase font-bold text-slate-600 block">ID Kategorii Allegro (Data Quality)</label>
-                            <input type="text" placeholder="Np. 257745" value={pimData.allegroCategoryId || ''} onChange={e => handlePimChange('allegroCategoryId', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none" />
-                        </div>
-
-                        <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar pr-2">
-                            {categorySchema?.parameters ? categorySchema.parameters.map(param => {
-                                const isRequired = param.required;
-                                const val = (pimData.features || {})[param.name] || '';
-                                return (
-                                <div key={param.id} className="border border-slate-800 p-2 rounded-lg bg-slate-950">
-                                    <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1 flex justify-between">
-                                        <span>{param.name}</span> {isRequired && <span className="text-[8px] text-rose-500">Wymagane</span>}
-                                    </label>
-                                    {param.dictionary && param.dictionary.length > 0 ? (
-                                        <select className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white outline-none" value={val} onChange={e => handleFeatureChange(param.name, e.target.value)}>
-                                            <option value="">Wybierz...</option>
-                                            {param.dictionary.map(d => <option key={d.id} value={d.value}>{d.value}</option>)}
-                                        </select>
-                                    ) : (
-                                        <input type="text" value={val} onChange={e => handleFeatureChange(param.name, e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white outline-none" />
-                                    )}
-                                </div>
-                                );
-                            }) : Object.entries(pimData.features || {}).map(([key, val]) => (
-                                <div key={key}>
-                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">{key}</label>
-                                    <input type="text" value={val} onChange={e => handleFeatureChange(key, e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none transition-colors" />
-                                </div>
-                            ))}
-                            {!categorySchema?.parameters && Object.keys(pimData.features || {}).length === 0 && (
-                                <div className="text-xs text-slate-500 text-center py-4 italic">Brak wygenerowanych cech.</div>
-                            )}
-                        </div>
-                    </div>
+                    <input 
+                        type="text" 
+                        value={liveTitle}
+                        onChange={(e) => setLiveTitle(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-700 text-white font-bold text-xl px-4 py-4 rounded-xl outline-none focus:border-indigo-500 transition-all mb-4" 
+                    />
+                    <TitleValidator initialTitle={liveTitle} onValidate={(valid, text) => { setTitleValid(valid); setLiveTitle(text); }} />
                 </div>
 
-                {/* KOLUMNA 2: Tytuł i Audyt Wizualny - 5/12 */}
-                <div className="xl:col-span-5 space-y-6">
-                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center">
-                                <Type className="w-4 h-4 mr-2 text-indigo-400" /> Weryfikacja Tytułu
-                            </h2>
-                            <button onClick={handleRegenerateTitle} disabled={isRegeneratingTitle} className="text-[10px] uppercase font-bold text-indigo-400 hover:text-indigo-300 flex items-center transition-colors">
-                                <RefreshCw className={`w-3 h-3 mr-1 ${isRegeneratingTitle ? 'animate-spin' : ''}`} /> Odśwież
-                            </button>
-                        </div>
-                        <input 
-                            type="text" 
-                            value={liveTitle}
-                            onChange={(e) => setLiveTitle(e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-700 text-white font-bold text-xl px-4 py-4 rounded-xl outline-none focus:border-indigo-500 transition-all mb-4" 
-                        />
-                        <TitleValidator initialTitle={liveTitle} onValidate={(valid, text) => { setTitleValid(valid); setLiveTitle(text); }} />
-                    </div>
-
-                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                {/* 2. Vision AI i Geo/AEO + Symulator */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {/* Lewa kolumna: Vision AI */}
+                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl flex flex-col h-full">
                         <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center justify-between">
                             <span className="flex items-center"><Search className="w-4 h-4 mr-2 text-indigo-400" /> Audyt Multimodalny (Vision AI)</span>
                             <span className="bg-indigo-500/10 text-indigo-400 px-2 py-1 rounded-md text-[10px]">
                                 {visionTickets.filter(v => v.isCompliant || v.replacedUrl).length} / {visionTickets.length} Poprawne
                             </span>
                         </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow content-start">
                             {visionTickets.map((ticket, i) => (
                                 <PhotographicAuditorCard 
                                     key={i} index={i} ean={liveEan} imageObj={ticket} primaryImageObj={visionTickets[0]}
@@ -574,48 +412,207 @@ export const OfferOptimizerView = () => {
                         </div>
                         <button 
                             onClick={() => setVisionTickets([...visionTickets, { originalUrl: '', isCompliant: false, alerts: ["Upuść zdjęcie"] }])}
-                            className="mt-6 w-full py-4 border border-dashed border-slate-700 rounded-xl flex items-center justify-center text-slate-500 font-bold hover:border-indigo-500 hover:text-indigo-400 transition-all text-xs uppercase tracking-widest"
+                            className="mt-6 w-full py-4 border border-dashed border-slate-700 rounded-xl flex items-center justify-center text-slate-500 font-bold hover:border-indigo-500 hover:text-indigo-400 transition-all text-xs uppercase tracking-widest flex-shrink-0"
                         >
                             + Dodaj Slot Zdjęcia
                         </button>
                     </div>
+
+                    {/* Prawa kolumna: GEO/AEO i Symulator */}
+                    <div className="flex flex-col space-y-6 h-full">
+                        <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl flex flex-col flex-grow">
+                            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center flex-shrink-0">
+                                <Database className="w-4 h-4 mr-2 text-indigo-400" /> Moduły Sprzedażowe (GEO/AEO)
+                            </h2>
+                            <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar flex-grow" style={{ minHeight: '400px' }}>
+                                {[
+                                    { key: 'opis1', label: 'Moduł 1: Mocne Strony' },
+                                    { key: 'opis2', label: 'Moduł 2: Główny Opis' },
+                                    { key: 'opis3', label: 'Moduł 3: Detale' },
+                                    { key: 'opis4', label: 'Moduł 4: Specyfikacja' },
+                                    { key: 'opis5', label: 'Moduł 5: INCI / Bezpieczeństwo' }
+                                ].map((sec) => (
+                                    <div key={`${editorKey}-${sec.key}`}>
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">{sec.label}</label>
+                                        <div className="bg-slate-50 rounded-lg overflow-hidden border border-slate-700">
+                                            <StrictWysiwyg 
+                                                initialContent={editorHtml[sec.key] || ""} 
+                                                onChange={html => setEditorHtml(prev => ({ ...prev, [sec.key]: html }))} 
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-xl overflow-hidden h-96 relative flex-shrink-0">
+                            <div className="absolute inset-0 scale-[0.7] origin-top-left w-[142%]">
+                                <TileSimulator customSections={allegroSections} />
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                {/* KOLUMNA 3: Generowanie Tekstu i Kafle - 4/12 */}
-                <div className="xl:col-span-4 space-y-6">
-                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
-                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
-                            <Database className="w-4 h-4 mr-2 text-indigo-400" /> Moduły Sprzedażowe (GEO/AEO)
-                        </h2>
-                        <div className="space-y-6 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar">
-                            {[
-                                { key: 'opis1', label: 'Moduł 1: Mocne Strony' },
-                                { key: 'opis2', label: 'Moduł 2: Główny Opis' },
-                                { key: 'opis3', label: 'Moduł 3: Detale' },
-                                { key: 'opis4', label: 'Moduł 4: Specyfikacja' },
-                                { key: 'opis5', label: 'Moduł 5: INCI / Bezpieczeństwo' }
-                            ].map((sec) => (
-                                <div key={`${editorKey}-${sec.key}`}>
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">{sec.label}</label>
-                                    {/* Obudowa StrictWysiwyg w ciemny motyw - sam edytor Tiptap musi mieć wsparcie ciemnego tła lub nakładamy filtry */}
-                                    <div className="bg-slate-50 rounded-lg overflow-hidden border border-slate-700">
-                                        <StrictWysiwyg 
-                                            initialContent={editorHtml[sec.key] || ""} 
-                                            onChange={html => setEditorHtml(prev => ({ ...prev, [sec.key]: html }))} 
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                {/* 3. OSINT */}
+                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                    <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center justify-between">
+                        <span className="flex items-center"><Tag className="w-4 h-4 mr-2 text-indigo-400" /> Parametry Cech (OSINT)</span>
+                        {categorySchema && <span className="bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded text-[9px]">Schema: {categorySchema.name}</span>}
+                    </h2>
+
+                    <div className="mb-4 space-y-2">
+                        <label className="text-[10px] uppercase font-bold text-slate-600 block">ID Kategorii Allegro (Data Quality)</label>
+                        <input type="text" placeholder="Np. 257745" value={pimData.allegroCategoryId || ''} onChange={e => handlePimChange('allegroCategoryId', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none" />
                     </div>
-                    
-                    {/* Wbudowany Simulator (opcjonalny, bo może zajmować za dużo miejsca - ale zostawiamy) */}
-                    <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-xl overflow-hidden h-96 relative">
-                        <div className="absolute inset-0 scale-[0.7] origin-top-left w-[142%]">
-                            <TileSimulator customSections={allegroSections} />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-64 overflow-y-auto custom-scrollbar pr-2">
+                        {categorySchema?.parameters ? categorySchema.parameters.map(param => {
+                            const isRequired = param.required;
+                            const val = (pimData.features || {})[param.name] || '';
+                            return (
+                            <div key={param.id} className="border border-slate-800 p-2 rounded-lg bg-slate-950">
+                                <label className="text-[10px] uppercase font-bold text-slate-500 block mb-1 flex justify-between">
+                                    <span>{param.name}</span> {isRequired && <span className="text-[8px] text-rose-500">Wymagane</span>}
+                                </label>
+                                {param.dictionary && param.dictionary.length > 0 ? (
+                                    <select className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white outline-none" value={val} onChange={e => handleFeatureChange(param.name, e.target.value)}>
+                                        <option value="">Wybierz...</option>
+                                        {param.dictionary.map(d => <option key={d.id} value={d.value}>{d.value}</option>)}
+                                    </select>
+                                ) : (
+                                    <input type="text" value={val} onChange={e => handleFeatureChange(param.name, e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white outline-none" />
+                                )}
+                            </div>
+                            );
+                        }) : Object.entries(pimData.features || {}).map(([key, val]) => (
+                            <div key={key}>
+                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">{key}</label>
+                                <input type="text" value={val} onChange={e => handleFeatureChange(key, e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none transition-colors" />
+                            </div>
+                        ))}
+                        {!categorySchema?.parameters && Object.keys(pimData.features || {}).length === 0 && (
+                            <div className="text-xs text-slate-500 text-center py-4 italic xl:col-span-3">Brak wygenerowanych cech.</div>
+                        )}
+                    </div>
+                </div>
+
+                {/* 4. Identyfikacja PIM */}
+                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                    <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
+                        <Tag className="w-4 h-4 mr-2 text-indigo-400" /> Identyfikacja PIM
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">SKU</label>
+                            <input type="text" value={pimData.sku || ''} onChange={e => handlePimChange('sku', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none font-mono" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Marka</label>
+                            <select value={pimData.brandId || ''} onChange={e => handlePimChange('brandId', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none">
+                                <option value="">Wybierz markę...</option>
+                                {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">ID Subiekt</label>
+                            <input type="text" value={pimData.subiektId || ''} onChange={e => handlePimChange('subiektId', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Status</label>
+                            <select value={pimData.status || 'Aktywny'} onChange={e => handlePimChange('status', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none">
+                                <option value="Aktywny">Aktywny</option>
+                                <option value="Szkic">Szkic</option>
+                                <option value="Archiwalny">Archiwalny</option>
+                            </select>
                         </div>
                     </div>
                 </div>
+
+                {/* 5. Logistyka i Gabaryty */}
+                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                    <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
+                        <Box className="w-4 h-4 mr-2 text-indigo-400" /> Logistyka i Gabaryty
+                    </h2>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Waga (kg)</label>
+                            <input type="number" step="0.01" value={pimData.weight} onChange={e => handlePimChange('weight', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">VAT (%)</label>
+                            <input type="number" value={pimData.taxRate} onChange={e => handlePimChange('taxRate', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Długość (cm)</label>
+                            <input type="number" value={pimData.length} onChange={e => handlePimChange('length', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Szerokość (cm)</label>
+                            <input type="number" value={pimData.width} onChange={e => handlePimChange('width', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Wysokość (cm)</label>
+                            <input type="number" value={pimData.height} onChange={e => handlePimChange('height', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* 6. Unit Economics */}
+                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                    <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
+                        <TrendingUp className="w-4 h-4 mr-2 text-indigo-400" /> Unit Economics
+                    </h2>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Zakup Netto</label>
+                                <input type="number" step="0.01" value={pimData.basePrice || 0} onChange={e => handlePimChange('basePrice', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Dostawa Inbound</label>
+                                <input type="number" step="0.01" value={pimData.inboundTransportCost || 0} onChange={e => handlePimChange('inboundTransportCost', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Opakowania</label>
+                                <input type="number" step="0.01" value={pimData.packagingCost || 0} onChange={e => handlePimChange('packagingCost', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Podatek BDO</label>
+                                <input type="number" step="0.01" value={pimData.bdoEprCost || 0} onChange={e => handlePimChange('bdoEprCost', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                            </div>
+                        </div>
+                        <div className="border-t border-slate-800 pt-4 mt-2">
+                            <label className="text-[10px] uppercase font-black text-indigo-400 block mb-1">Cena Sprzedaży Detal.</label>
+                            <input type="number" step="0.01" value={pimData.salePrice || 0} onChange={e => handlePimChange('salePrice', e.target.value)} className="w-full bg-indigo-950 border border-indigo-800 rounded-lg px-3 py-2 text-lg font-black text-white focus:border-indigo-500 outline-none" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* 7. Architektura Zapasów */}
+                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                    <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
+                        <Layers className="w-4 h-4 mr-2 text-indigo-400" /> Architektura Zapasów
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800">
+                            <span className="text-xs font-bold text-slate-400">Główny Zapas (PIM)</span>
+                            <input type="number" value={pimData.stock || 0} onChange={e => handlePimChange('stock', e.target.value)} className="w-20 bg-slate-900 border border-slate-800 rounded-md px-2 py-1 text-sm font-mono text-white text-right outline-none focus:border-indigo-500" />
+                        </div>
+                        <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800 opacity-70">
+                            <span className="text-xs font-bold text-slate-400">Magazyn ERP</span>
+                            <span className="text-sm font-mono text-indigo-400">{pimData.stockErpUnits} szt.</span>
+                        </div>
+                        <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800 opacity-70">
+                            <span className="text-xs font-bold text-slate-400">Magazyn WMS</span>
+                            <span className="text-sm font-mono text-emerald-400">{pimData.stockWmsUnits} szt.</span>
+                        </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-800">
+                        <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Wideo URL (Opcjonalnie)</label>
+                        <input type="text" placeholder="https://youtube.com/..." value={pimData.videoUrl || ''} onChange={e => handlePimChange('videoUrl', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none" />
+                    </div>
+                </div>
+
             </div>
 
             {/* Pływający pasek akcji */}
