@@ -341,7 +341,7 @@ export const OfferOptimizerView = () => {
     }
 
     return (
-        <div className="w-full h-full min-h-screen bg-slate-950 text-slate-300 p-4 xl:p-8 space-y-6 pb-32">
+        <div className="w-full min-h-screen bg-slate-100 text-slate-900 p-4 xl:p-8 space-y-6 pb-32">
             
             {/* Header / Top Bar */}
             <div className="flex flex-col lg:flex-row items-center justify-between bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl">
@@ -384,47 +384,62 @@ export const OfferOptimizerView = () => {
                     <TitleValidator initialTitle={liveTitle} onValidate={(valid, text) => { setTitleValid(valid); setLiveTitle(text); }} />
                 </div>
 
-                {/* 2. Vision AI i Geo/AEO + Symulator */}
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    {/* Lewa kolumna: Vision AI */}
-                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl flex flex-col h-full">
-                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center justify-between">
-                            <span className="flex items-center"><Search className="w-4 h-4 mr-2 text-indigo-400" /> Audyt Multimodalny (Vision AI)</span>
-                            <span className="bg-indigo-500/10 text-indigo-400 px-2 py-1 rounded-md text-[10px]">
-                                {visionTickets.filter(v => v.isCompliant || v.replacedUrl).length} / {visionTickets.length} Poprawne
-                            </span>
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow content-start">
-                            {visionTickets.map((ticket, i) => (
-                                <PhotographicAuditorCard 
-                                    key={i} index={i} ean={liveEan} imageObj={ticket} primaryImageObj={visionTickets[0]}
-                                    onImageReplace={(newUrl) => {
-                                        const updated = [...visionTickets]; updated[i].replacedUrl = newUrl; setVisionTickets(updated);
-                                    }} 
-                                    onImageDelete={() => {
-                                        const updated = [...visionTickets];
-                                        updated[i] = { originalUrl: `Wymagane nowe zdjęcie (nr ${i + 1})`, alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null };
-                                        setVisionTickets(updated);
-                                    }}
-                                    onView={(url) => setViewingImageUrl(url)}
-                                />
-                            ))}
+                {/* 2. Vision AI i Symulator + Geo/AEO */}
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                    {/* Lewa kolumna: Vision AI i Symulator */}
+                    <div className="xl:col-span-5 flex flex-col space-y-6 h-full">
+                        {/* Vision AI */}
+                        <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl flex flex-col">
+                            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center justify-between">
+                                <span className="flex items-center"><Search className="w-4 h-4 mr-2 text-indigo-400" /> Audyt Multimodalny (Vision AI)</span>
+                                <span className="bg-indigo-500/10 text-indigo-400 px-2 py-1 rounded-md text-[10px]">
+                                    {visionTickets.filter(v => v.isCompliant || v.replacedUrl).length} / {visionTickets.length} Poprawne
+                                </span>
+                            </h2>
+                            <div className="grid grid-cols-1 gap-6 flex-grow content-start">
+                                {visionTickets.map((ticket, i) => (
+                                    <PhotographicAuditorCard 
+                                        key={i} index={i} ean={liveEan} imageObj={ticket} primaryImageObj={visionTickets[0]}
+                                        onImageReplace={(newUrl) => {
+                                            const updated = [...visionTickets]; updated[i].replacedUrl = newUrl; setVisionTickets(updated);
+                                        }} 
+                                        onImageDelete={() => {
+                                            const updated = [...visionTickets];
+                                            updated[i] = { originalUrl: `Wymagane nowe zdjęcie (nr ${i + 1})`, alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null };
+                                            setVisionTickets(updated);
+                                        }}
+                                        onView={(url) => setViewingImageUrl(url)}
+                                    />
+                                ))}
+                            </div>
+                            <button 
+                                onClick={() => setVisionTickets([...visionTickets, { originalUrl: '', isCompliant: false, alerts: ["Upuść zdjęcie"] }])}
+                                className="mt-6 w-full py-4 border border-dashed border-slate-700 rounded-xl flex items-center justify-center text-slate-500 font-bold hover:border-indigo-500 hover:text-indigo-400 transition-all text-xs uppercase tracking-widest flex-shrink-0"
+                            >
+                                + Dodaj Slot Zdjęcia
+                            </button>
                         </div>
-                        <button 
-                            onClick={() => setVisionTickets([...visionTickets, { originalUrl: '', isCompliant: false, alerts: ["Upuść zdjęcie"] }])}
-                            className="mt-6 w-full py-4 border border-dashed border-slate-700 rounded-xl flex items-center justify-center text-slate-500 font-bold hover:border-indigo-500 hover:text-indigo-400 transition-all text-xs uppercase tracking-widest flex-shrink-0"
-                        >
-                            + Dodaj Slot Zdjęcia
-                        </button>
+
+                        {/* Symulator przeniesiony na lewo i powiększony o 50% */}
+                        <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl overflow-hidden h-[600px] relative flex-shrink-0 flex flex-col">
+                            <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-4 flex items-center flex-shrink-0">
+                                <Box className="w-4 h-4 mr-2 text-indigo-400" /> Symulator Układu Kafelków
+                            </h2>
+                            <div className="relative flex-grow w-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-slate-50 rounded-lg border border-slate-700 p-2">
+                                <div className="origin-top-left scale-[1.05] w-[95%] mx-auto">
+                                    <TileSimulator customSections={allegroSections} />
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Prawa kolumna: GEO/AEO i Symulator */}
-                    <div className="flex flex-col space-y-6 h-full">
+                    {/* Prawa kolumna: GEO/AEO */}
+                    <div className="xl:col-span-7 flex flex-col h-full">
                         <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl flex flex-col flex-grow">
                             <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center flex-shrink-0">
                                 <Database className="w-4 h-4 mr-2 text-indigo-400" /> Moduły Sprzedażowe (GEO/AEO)
                             </h2>
-                            <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar flex-grow" style={{ minHeight: '400px' }}>
+                            <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar flex-grow" style={{ minHeight: '600px' }}>
                                 {[
                                     { key: 'opis1', label: 'Moduł 1: Mocne Strony' },
                                     { key: 'opis2', label: 'Moduł 2: Główny Opis' },
@@ -442,12 +457,6 @@ export const OfferOptimizerView = () => {
                                         </div>
                                     </div>
                                 ))}
-                            </div>
-                        </div>
-                        
-                        <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-xl overflow-hidden h-96 relative flex-shrink-0">
-                            <div className="absolute inset-0 scale-[0.7] origin-top-left w-[142%]">
-                                <TileSimulator customSections={allegroSections} />
                             </div>
                         </div>
                     </div>
