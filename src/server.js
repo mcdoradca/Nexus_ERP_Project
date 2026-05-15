@@ -905,21 +905,18 @@ allegroSentinelService.initSentinel();
 // Graceful Shutdown - Naprawa zombiaków EADDRINUSE na Windowsie
 process.once('SIGUSR2', () => {
     console.log('[SHUTDOWN] Zatrzymywanie serwera dla Nodemon...');
-    server.close(() => {
-        process.kill(process.pid, 'SIGUSR2');
-    });
+    server.close();
+    setTimeout(() => process.kill(process.pid, 'SIGUSR2'), 100);
 });
 
 process.on('SIGINT', () => {
     console.log('[SHUTDOWN] Zamykanie z SIGINT');
-    server.close(() => {
-        process.exit(0);
-    });
+    server.close();
+    setTimeout(() => process.exit(0), 100);
 });
 
 process.on('SIGTERM', () => {
     console.log('[SHUTDOWN] Zamykanie z SIGTERM');
-    server.close(() => {
-        process.exit(0);
-    });
+    server.close();
+    setTimeout(() => process.exit(0), 100);
 });
