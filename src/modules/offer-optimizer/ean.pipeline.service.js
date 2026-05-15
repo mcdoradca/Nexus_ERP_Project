@@ -9,16 +9,18 @@ class EanPipelineService {
         
         try {
             // FAZA 1: DATA ENRICHMENT & COMPLIANCE
-            let product = await prisma.product.findUnique({ where: { ean } });
+            let product = await prisma.product.findUnique({ where: { ean }, include: { brand: true } });
             
             // 1. Auto-Weryfikacja GUS/BaseLinker
             console.log(`[EAN Pipeline] 1. Auto-Weryfikacja BaseLinker`);
-            if (!product || !product.isSynced) {
+            const needsSync = !product || !product.isSynced || (product.brand && product.brand.name === 'PIM-IMPORT');
+            if (needsSync) {
                 const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
                 const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
                 
                 let brandId = product ? product.brandId : null;
-                if (!brandId) {
+                const isPimImportId = product && product.brand && product.brand.name === 'PIM-IMPORT';
+                if (!brandId || isPimImportId) {
                     if (deepData.manufacturer && deepData.manufacturer.trim() !== '') {
                         const brandName = deepData.manufacturer.trim();
                         let matchedBrand = await prisma.brand.findUnique({ where: { name: brandName } });
@@ -26,7 +28,7 @@ class EanPipelineService {
                             matchedBrand = await prisma.brand.create({ data: { name: brandName } });
                         }
                         brandId = matchedBrand.id;
-                    } else {
+                    } else if (!brandId) {
                         let defaultBrand = await prisma.brand.findUnique({ where: { name: 'PIM-IMPORT' } });
                         if (!defaultBrand) defaultBrand = await prisma.brand.create({ data: { name: 'PIM-IMPORT' } });
                         brandId = defaultBrand.id;
@@ -101,7 +103,17 @@ class EanPipelineService {
                     const filledFeatures = await AiService.autofillMissingParameters(ean, product.name, currentFeatures, requiredSchema);
                     
                     if (filledFeatures && Object.keys(filledFeatures).length > 0) {
-                        return await prisma.product.update({ where: { ean }, data: { features: filledFeatures } });
+                        let dataToUpdate = { features: filledFeatures };
+                        if (filledFeatures["Marka"]) {
+                            const detectedBrandName = filledFeatures["Marka"].trim();
+                            const currentBrand = await prisma.brand.findUnique({ where: { id: product.brandId } });
+                            if (!currentBrand || currentBrand.name === 'PIM-IMPORT') {
+                                let b = await prisma.brand.findUnique({ where: { name: detectedBrandName } });
+                                if (!b) b = await prisma.brand.create({ data: { name: detectedBrandName } });
+                                dataToUpdate.brandId = b.id;
+                            }
+                        }
+                        return await prisma.product.update({ where: { ean }, data: dataToUpdate });
                     }
                 } catch (err) {
                     console.error("[EAN Pipeline] Błąd Auto-Fill:", err.message);
