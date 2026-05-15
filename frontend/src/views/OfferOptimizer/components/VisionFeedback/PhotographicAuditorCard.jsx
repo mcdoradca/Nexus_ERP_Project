@@ -30,7 +30,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
         setIsGeneratingAi(true);
         try {
             const token = localStorage.getItem('aps_token') || '';
-            const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
+            const API_URL = import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`;
             
             const bodyData = { ean, imageIndex: index };
             if (primaryImageObj) {
@@ -160,7 +160,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                          {/* Pełna widoczność istniejącego zdjęcia */}
                          {!isMissingPhotosAlert && imageObj.originalUrl && !imgError && (
                              <img 
-                                 src={imageObj.originalUrl.startsWith('http') ? `${import.meta.env.PROD ? '' : 'http://localhost:3001'}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(imageObj.originalUrl)}` : imageObj.originalUrl} 
+                                 src={imageObj.originalUrl.startsWith('http') ? `${import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(imageObj.originalUrl)}` : imageObj.originalUrl} 
                                  alt="Obecne" 
                                  className="absolute inset-0 w-full h-full object-contain opacity-100" 
                                  onError={(e) => setImgError(true)}
