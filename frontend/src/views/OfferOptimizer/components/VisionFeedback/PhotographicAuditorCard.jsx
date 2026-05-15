@@ -11,6 +11,8 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
     const [isGeneratingAi, setIsGeneratingAi] = useState(false);
     const [trendReport, setTrendReport] = useState(null);
     
+    const [imgError, setImgError] = useState(false);
+
     const isFixed = !!imageObj.replacedUrl;
     
     // Ustalanie czy to błąd brakujących slotów (gdzie AI zwraca customowy tekst zaczynający się od Audyt lub Analiza)
@@ -121,6 +123,11 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
         setIsDragging(false);
     };
 
+    // Reset error state if URL changes
+    React.useEffect(() => {
+        setImgError(false);
+    }, [imageObj.originalUrl]);
+
     return (
         <div className={`flex flex-col bg-slate-50 border rounded-sm overflow-hidden shadow-sm transition-all relative ${isFixed ? 'border-emerald-300' : 'border-slate-400'}`}>
             
@@ -150,45 +157,56 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                  
                  {!isFixed ? (
                      <div className="relative w-full h-full flex flex-col items-center justify-center z-0">
-                         {/* Jeżeli mamy istniejące zdjęcie (np. Foto 2) i to nie jest czysty symulowany błąd - wyświetlamy je blado w tle */}
-                         {!isMissingPhotosAlert && imageObj.originalUrl && (
+                         {/* Pełna widoczność istniejącego zdjęcia */}
+                         {!isMissingPhotosAlert && imageObj.originalUrl && !imgError && (
                              <img 
                                  src={imageObj.originalUrl} 
                                  alt="Obecne" 
-                                 className="absolute inset-0 w-full h-full object-contain opacity-30" 
-                                 onError={(e) => { e.target.style.display = 'none'; }}
+                                 className="absolute inset-0 w-full h-full object-contain opacity-100" 
+                                 onError={(e) => setImgError(true)}
                              />
+                         )}
+                         {/* Komunikat błędu zewnętrznego (CORS / 404 z BaseLinkera) */}
+                         {!isMissingPhotosAlert && imgError && (
+                             <div className="flex flex-col items-center text-center opacity-50 p-4">
+                                 <AlertTriangle className="w-8 h-8 mb-2" />
+                                 <span className="text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                                     Plik wygasł lub<br/>zablokowany przez zewnętrzny serwer.
+                                 </span>
+                             </div>
                          )}
                          <div className="relative z-10 flex flex-col items-center text-center p-4">
                              {isMissingPhotosAlert && (
-                                 <span className="text-[10px] font-bold text-slate-500 leading-relaxed max-w-[90%] mb-4">
-                                     {imageObj.originalUrl || "Wymagane nowe zdjęcie"}
-                                 </span>
-                             )}
-                             {index !== 0 && (
                                  <>
+                                     <span className="text-[10px] font-bold text-slate-500 leading-relaxed max-w-[90%] mb-4">
+                                         {imageObj.originalUrl || "Wymagane nowe zdjęcie"}
+                                     </span>
+                                     {index !== 0 && (
+                                         <>
+                                             <button 
+                                                 onClick={handleGenerateLifestyle}
+                                                 disabled={isGeneratingAi}
+                                                 className="flex items-center bg-indigo-600 text-white font-bold px-4 py-3 rounded-sm text-xs hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 transition-all uppercase tracking-widest mb-3"
+                                             >
+                                                 {isGeneratingAi ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                                                 {isGeneratingAi ? "Generowanie AI..." : "✨ Wygeneruj Lifestyle AI"}
+                                             </button>
+                                             <div className="flex items-center space-x-2 text-[10px] text-slate-600 font-bold uppercase tracking-widest mb-3">
+                                                 <div className="h-px bg-slate-300 w-8"></div>
+                                                 <span>ALBO</span>
+                                                 <div className="h-px bg-slate-300 w-8"></div>
+                                             </div>
+                                         </>
+                                     )}
                                      <button 
-                                         onClick={handleGenerateLifestyle}
-                                         disabled={isGeneratingAi}
-                                         className="flex items-center bg-indigo-600 text-white font-bold px-4 py-3 rounded-sm text-xs hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 transition-all uppercase tracking-widest mb-3"
+                                         onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                                         className="flex items-center text-slate-500 hover:text-indigo-600 text-xs font-bold uppercase tracking-widest transition-colors bg-white/60 px-4 py-2 rounded-sm"
                                      >
-                                         {isGeneratingAi ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-                                         {isGeneratingAi ? "Generowanie AI..." : "✨ Wygeneruj Lifestyle AI"}
+                                         <UploadCloud className="w-4 h-4 mr-2" />
+                                         Dodaj własne zdjęcie
                                      </button>
-                                     <div className="flex items-center space-x-2 text-[10px] text-slate-600 font-bold uppercase tracking-widest mb-3">
-                                         <div className="h-px bg-slate-300 w-8"></div>
-                                         <span>ALBO</span>
-                                         <div className="h-px bg-slate-300 w-8"></div>
-                                     </div>
                                  </>
                              )}
-                             <button 
-                                 onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                                 className="flex items-center text-slate-500 hover:text-indigo-600 text-xs font-bold uppercase tracking-widest transition-colors bg-white/60 px-4 py-2 rounded-sm"
-                             >
-                                 <UploadCloud className="w-4 h-4 mr-2" />
-                                 Dodaj własne zdjęcie
-                             </button>
                          </div>
                      </div>
                  ) : (

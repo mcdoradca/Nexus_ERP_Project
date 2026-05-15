@@ -8,6 +8,8 @@ import { PhotographicAuditorCard } from './components/VisionFeedback/Photographi
 import { Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp, Search } from 'lucide-react';
 
 const ImageModal = ({ url, onClose }) => {
+    const [imgError, setImgError] = useState(false);
+
     if (!url) return null;
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4" onClick={onClose}>
@@ -15,12 +17,21 @@ const ImageModal = ({ url, onClose }) => {
                 <button onClick={onClose} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-xl p-2 transition-colors">
                     <X className="w-6 h-6" />
                 </button>
-                <img 
-                    src={url} 
-                    alt="Powiększenie" 
-                    className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-xl" 
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                />
+                {!imgError ? (
+                    <img 
+                        src={url} 
+                        alt="Powiększenie" 
+                        className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-xl" 
+                        onError={(e) => setImgError(true)}
+                    />
+                ) : (
+                    <div className="flex flex-col items-center text-center text-slate-400 p-8 border border-slate-700 rounded-xl bg-slate-900/50">
+                        <ShieldAlert className="w-16 h-16 mb-4 text-rose-500/50" />
+                        <span className="text-sm font-bold uppercase tracking-widest leading-relaxed">
+                            Podgląd niedostępny<br/>(Link źródłowy wygasł lub został zablokowany przez serwer CORS)
+                        </span>
+                    </div>
+                )}
                 <div className="mt-8 flex space-x-4">
                     <button 
                         onClick={async () => {
