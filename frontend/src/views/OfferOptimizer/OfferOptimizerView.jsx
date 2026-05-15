@@ -455,6 +455,10 @@ export const OfferOptimizerView = () => {
                                 <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Szerokość (cm)</label>
                                 <input type="number" value={pimData.width} onChange={e => handlePimChange('width', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
                             </div>
+                            <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Wysokość (cm)</label>
+                                <input type="number" value={pimData.height} onChange={e => handlePimChange('height', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none transition-colors" />
+                            </div>
                         </div>
                     </div>
 

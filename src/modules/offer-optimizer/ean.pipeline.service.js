@@ -19,9 +19,18 @@ class EanPipelineService {
                 
                 let brandId = product ? product.brandId : null;
                 if (!brandId) {
-                    let defaultBrand = await prisma.brand.findFirst({ where: { name: 'PIM-IMPORT' } });
-                    if (!defaultBrand) defaultBrand = await prisma.brand.create({ data: { name: 'PIM-IMPORT' } });
-                    brandId = defaultBrand.id;
+                    if (deepData.manufacturer && deepData.manufacturer.trim() !== '') {
+                        const brandName = deepData.manufacturer.trim();
+                        let matchedBrand = await prisma.brand.findUnique({ where: { name: brandName } });
+                        if (!matchedBrand) {
+                            matchedBrand = await prisma.brand.create({ data: { name: brandName } });
+                        }
+                        brandId = matchedBrand.id;
+                    } else {
+                        let defaultBrand = await prisma.brand.findUnique({ where: { name: 'PIM-IMPORT' } });
+                        if (!defaultBrand) defaultBrand = await prisma.brand.create({ data: { name: 'PIM-IMPORT' } });
+                        brandId = defaultBrand.id;
+                    }
                 }
                 
                 const deepPayload = {
