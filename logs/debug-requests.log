@@ -1059,3 +1059,11 @@
 [2026-05-13T10:20:54.232Z] GET /api/rma/returns - 401 - 415ms
   Response: {"error":"Użytkownik nie znaleziony"}
 [2026-05-13T10:21:19.250Z] GET /api/rma/returns - 200 - 1234ms
+[2026-05-14T12:50:21.530Z] GET / - 404 - 23ms
+  Response: undefined
+[2026-05-14T12:50:48.835Z] GET / - 404 - 2ms
+  Response: undefined
+[2026-05-14T12:50:52.396Z] GET /login - 404 - 1ms
+  Response: undefined
+[2026-05-14T12:52:26.206Z] GET / - 404 - 1ms
+  Response: undefined

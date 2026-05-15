@@ -290,10 +290,15 @@ Po dogłębnej analizie plików źródłowych, logów wdrożeniowych oraz archit
 
 ### Nazwa operacji/zadania: Zapis Kopii Roboczej (Draft) i Eksport Produkcyjny (BaseLinker Push)
 
-**Po co to jest? (Cel biznesowy):** Narzędzie pozwala porzucić pracę w połowie dnia, zapisując całą logikę wygenerowanych zdjęć i 7-tagowych opisów (Ochrona pracy AI). Drugi guzik omija interfejs Allegro – po odpaleniu pcha skompresowane paczki od razu na serwery BaseLinkera podpinając gotowy szkielet sprzedażowy do połączonych w nim kont rynkowych. **Gdzie to znaleźć? (Lokalizacja UI):** Zabezpieczony "Sticky Bar" pływający bezwzględnie przyczepiony do spodu krawędzi ekranu. **Wymagania wstępne (Wiedza z kodu):** Rozpoczęta i przeliczona sesja produktu (wczytany EAN). **Jak to użyć? (Instrukcja Krok po Kroku):**
+**Po co to jest? (Cel biznesowy):** Narzędzie pozwala porzucić pracę w połowie dnia, zapisując całą logikę wygenerowanych zdjęć i 7-tagowych opisów (Ochrona pracy AI). Drugi guzik omija interfejs Allegro – po odpaleniu pcha skompresowane paczki od razu na serwery BaseLinkera podpinając gotowy szkielet sprzedażowy do połączonych w nim kont rynkowych. 
+**NOWOŚĆ (Single Source of Truth):** Zapis kopii roboczej od teraz wymusza także twardy zapis zmienionych atrybutów "Unit Economics" i ID PIM (Koszty bazowe, transport, BDO, podatek, stany magazynowe WMS/ERP, SKU, przypisanie marki). Moduł Ofertowania działa jako de facto edytor kartoteki PIM, zabezpieczając wyciek marży.
+**Gdzie to znaleźć? (Lokalizacja UI):** Zabezpieczony "Sticky Bar" pływający bezwzględnie przyczepiony do spodu krawędzi ekranu. W Kolumnie 1 znajdują się zintegrowane kontrolki "Identyfikacja PIM" oraz "Unit Economics".
+**Wymagania wstępne (Wiedza z kodu):** Rozpoczęta i przeliczona sesja produktu (wczytany EAN).
+**Jak to użyć? (Instrukcja Krok po Kroku):**
 
-1. Kliknij lewy przycisk na dole paska: **"Zapisz Kopię Roboczą"**.  
-2. Opcjonalnie, gdy handlowiec uznaje, że jest gotowy do publikacji handlowej uderza w fioletowy przycisk: **"Eksportuj do BaseLinker"**. **Wynik operacji (Output):** Przycisk z dyskietką pakuje stany pamięci masowej Reacta do paczki compileDraftData() i pcha patchem do rekordu PIM. Eksport do BaseLinkera uruchamia handleExportToBaselinker, który przerzuca skompilowane, zoptymalizowane HTML'e, przetworzone po Shadow-Bakingu adresy wygenerowanych obrazków z Claid'a wprost do inwentarza zew. systemu, informując window.alertem o "Sukcesie Operacyjnym".
+1. Zmodyfikuj dowolne wartości kosztowe w sekcji "Unit Economics" (np. Koszty pakowania lub BDO).
+2. Kliknij lewy przycisk na dole paska: **"Zapisz Kopię Roboczą"**.  
+3. Opcjonalnie, gdy handlowiec uznaje, że jest gotowy do publikacji handlowej uderza w fioletowy przycisk: **"Eksportuj do BaseLinker"**. **Wynik operacji (Output):** Przycisk z dyskietką pakuje stany pamięci masowej Reacta do paczki compileDraftData() (wraz z pełnym zestawem pól finansowych i logistycznych) i pcha patchem do rekordu PIM jako główna referencja SSoT. Eksport do BaseLinkera uruchamia handleExportToBaselinker, który przerzuca skompilowane, zoptymalizowane HTML'e wprost do inwentarza zew. systemu.
 
    \* Resi Studio  AI Engine (Kompozycja i generowanie obrazów AI)  
    \* Baza Influencerów NLP (Pipeline "Od kontaktu do zapłaty")

@@ -108,6 +108,17 @@ export const OfferOptimizerView = () => {
 
     // OSINT / Allegro Parametry
     const [categorySchema, setCategorySchema] = useState(null);
+    const [brands, setBrands] = useState([]);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
+        const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
+        if (token) {
+            axios.get(`${API_URL}/api/brands`, { headers: { Authorization: `Bearer ${token}` } })
+                .then(res => setBrands(res.data))
+                .catch(err => console.error("Blad pobierania marek", err));
+        }
+    }, []);
 
     useEffect(() => {
         const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
@@ -166,7 +177,18 @@ export const OfferOptimizerView = () => {
             stockErpUnits: res.stockErpUnits || 0,
             stockWmsUnits: res.stockWmsUnits || 0,
             features: res.features || {},
-            allegroCategoryId: res.allegroCategoryId || ''
+            allegroCategoryId: res.allegroCategoryId || '',
+            sku: res.sku || '',
+            brandId: res.brandId || '',
+            subiektId: res.subiektId || '',
+            status: res.status || 'Aktywny',
+            videoUrl: res.videoUrl || '',
+            basePrice: res.basePrice || 0,
+            salePrice: res.salePrice || 0,
+            inboundTransportCost: res.inboundTransportCost || 0,
+            packagingCost: res.packagingCost || 0,
+            bdoEprCost: res.bdoEprCost || 0,
+            outboundTransportCost: res.outboundTransportCost || 0
         });
 
         if(draft.htmlContent) {
@@ -238,11 +260,27 @@ export const OfferOptimizerView = () => {
             opis5: editorHtml.opis5,
             images: safeImages.map(url => ({ url })),
             // Dodajemy zedytowane dane PIM
-            weight: parseFloat(pimData.weight),
-            length: parseFloat(pimData.length),
-            width: parseFloat(pimData.width),
-            height: parseFloat(pimData.height),
-            features: pimData.features
+            weight: parseFloat(pimData.weight) || 0,
+            length: parseFloat(pimData.length) || 0,
+            width: parseFloat(pimData.width) || 0,
+            height: parseFloat(pimData.height) || 0,
+            taxRate: parseFloat(pimData.taxRate) || 0,
+            stock: parseInt(pimData.stock) || 0,
+            stockErpUnits: parseInt(pimData.stockErpUnits) || 0,
+            stockWmsUnits: parseInt(pimData.stockWmsUnits) || 0,
+            allegroCategoryId: pimData.allegroCategoryId,
+            features: pimData.features,
+            sku: pimData.sku,
+            brandId: pimData.brandId,
+            subiektId: pimData.subiektId,
+            status: pimData.status,
+            videoUrl: pimData.videoUrl,
+            basePrice: parseFloat(pimData.basePrice) || 0,
+            salePrice: parseFloat(pimData.salePrice) || 0,
+            inboundTransportCost: parseFloat(pimData.inboundTransportCost) || 0,
+            packagingCost: parseFloat(pimData.packagingCost) || 0,
+            bdoEprCost: parseFloat(pimData.bdoEprCost) || 0,
+            outboundTransportCost: parseFloat(pimData.outboundTransportCost) || 0
         };
     };
 
@@ -329,6 +367,73 @@ export const OfferOptimizerView = () => {
                 
                 {/* KOLUMNA 1: Dane Twarde (PIM) - 3/12 */}
                 <div className="xl:col-span-3 space-y-6">
+                    {/* Sekcja: Identyfikacja */}
+                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
+                            <Tag className="w-4 h-4 mr-2 text-indigo-400" /> Identyfikacja PIM
+                        </h2>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">SKU</label>
+                                <input type="text" value={pimData.sku || ''} onChange={e => handlePimChange('sku', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none font-mono" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Marka</label>
+                                <select value={pimData.brandId || ''} onChange={e => handlePimChange('brandId', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none">
+                                    <option value="">Wybierz markę...</option>
+                                    {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">ID Subiekt</label>
+                                    <input type="text" value={pimData.subiektId || ''} onChange={e => handlePimChange('subiektId', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Status</label>
+                                    <select value={pimData.status || 'Aktywny'} onChange={e => handlePimChange('status', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none">
+                                        <option value="Aktywny">Aktywny</option>
+                                        <option value="Szkic">Szkic</option>
+                                        <option value="Archiwalny">Archiwalny</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sekcja: Finanse (Unit Economics) */}
+                    <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
+                            <TrendingUp className="w-4 h-4 mr-2 text-indigo-400" /> Unit Economics
+                        </h2>
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Zakup Netto</label>
+                                    <input type="number" step="0.01" value={pimData.basePrice || 0} onChange={e => handlePimChange('basePrice', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Dostawa Inbound</label>
+                                    <input type="number" step="0.01" value={pimData.inboundTransportCost || 0} onChange={e => handlePimChange('inboundTransportCost', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Opakowania</label>
+                                    <input type="number" step="0.01" value={pimData.packagingCost || 0} onChange={e => handlePimChange('packagingCost', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Podatek BDO</label>
+                                    <input type="number" step="0.01" value={pimData.bdoEprCost || 0} onChange={e => handlePimChange('bdoEprCost', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 outline-none" />
+                                </div>
+                            </div>
+                            <div className="border-t border-slate-800 pt-4 mt-2">
+                                <label className="text-[10px] uppercase font-black text-indigo-400 block mb-1">Cena Sprzedaży Detal.</label>
+                                <input type="number" step="0.01" value={pimData.salePrice || 0} onChange={e => handlePimChange('salePrice', e.target.value)} className="w-full bg-indigo-950 border border-indigo-800 rounded-lg px-3 py-2 text-lg font-black text-white focus:border-indigo-500 outline-none" />
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
                         <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center">
                             <Box className="w-4 h-4 mr-2 text-indigo-400" /> Logistyka i Gabaryty
@@ -359,17 +464,21 @@ export const OfferOptimizerView = () => {
                         </h2>
                         <div className="space-y-4">
                             <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800">
-                                <span className="text-xs font-bold text-slate-400">Magazyn Główny (ERP)</span>
-                                <span className="text-sm font-mono text-emerald-400">{pimData.stockErpUnits} szt.</span>
+                                <span className="text-xs font-bold text-slate-400">Główny Zapas (PIM)</span>
+                                <input type="number" value={pimData.stock || 0} onChange={e => handlePimChange('stock', e.target.value)} className="w-20 bg-slate-900 border border-slate-800 rounded-md px-2 py-1 text-sm font-mono text-white text-right outline-none focus:border-indigo-500" />
                             </div>
-                            <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800">
+                            <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800 opacity-70">
+                                <span className="text-xs font-bold text-slate-400">Magazyn ERP</span>
+                                <span className="text-sm font-mono text-indigo-400">{pimData.stockErpUnits} szt.</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800 opacity-70">
                                 <span className="text-xs font-bold text-slate-400">Magazyn WMS</span>
-                                <span className="text-sm font-mono text-blue-400">{pimData.stockWmsUnits} szt.</span>
+                                <span className="text-sm font-mono text-emerald-400">{pimData.stockWmsUnits} szt.</span>
                             </div>
-                            <div className="flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800">
-                                <span className="text-xs font-bold text-slate-400">Zapas BaseLinker</span>
-                                <span className="text-sm font-mono text-white">{pimData.stock} szt.</span>
-                            </div>
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-slate-800">
+                            <label className="text-[10px] uppercase font-bold text-slate-600 block mb-1">Wideo URL (Opcjonalnie)</label>
+                            <input type="text" placeholder="https://youtube.com/..." value={pimData.videoUrl || ''} onChange={e => handlePimChange('videoUrl', e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none" />
                         </div>
                     </div>
 

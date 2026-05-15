@@ -270,11 +270,42 @@ const saveDraft = async (req, res) => {
         const { ean, draftData } = req.body;
         if (!ean || !draftData) return res.status(400).json({ error: "Brak EAN lub danych draftu" });
 
+        const updatePayload = {
+            offerDraft: draftData,
+        };
+
+        if (draftData.sku !== undefined) updatePayload.sku = draftData.sku;
+        if (draftData.brandId !== undefined) updatePayload.brandId = draftData.brandId;
+        if (draftData.subiektId !== undefined) updatePayload.subiektId = draftData.subiektId;
+        if (draftData.status !== undefined) updatePayload.status = draftData.status;
+        if (draftData.videoUrl !== undefined) updatePayload.videoUrl = draftData.videoUrl;
+        
+        if (draftData.weight !== undefined) updatePayload.weight = draftData.weight;
+        if (draftData.length !== undefined) updatePayload.length = draftData.length;
+        if (draftData.width !== undefined) updatePayload.width = draftData.width;
+        if (draftData.height !== undefined) updatePayload.height = draftData.height;
+        if (draftData.taxRate !== undefined) updatePayload.taxRate = draftData.taxRate;
+        if (draftData.stock !== undefined) updatePayload.stock = draftData.stock;
+        if (draftData.stockErpUnits !== undefined) updatePayload.stockErpUnits = draftData.stockErpUnits;
+        if (draftData.stockWmsUnits !== undefined) updatePayload.stockWmsUnits = draftData.stockWmsUnits;
+        if (draftData.allegroCategoryId !== undefined) updatePayload.allegroCategoryId = draftData.allegroCategoryId;
+        if (draftData.features !== undefined) updatePayload.features = draftData.features;
+
+        if (draftData.basePrice !== undefined) updatePayload.basePrice = draftData.basePrice;
+        if (draftData.salePrice !== undefined) updatePayload.salePrice = draftData.salePrice;
+        if (draftData.inboundTransportCost !== undefined) updatePayload.inboundTransportCost = draftData.inboundTransportCost;
+        if (draftData.packagingCost !== undefined) updatePayload.packagingCost = draftData.packagingCost;
+        if (draftData.bdoEprCost !== undefined) updatePayload.bdoEprCost = draftData.bdoEprCost;
+        if (draftData.outboundTransportCost !== undefined) updatePayload.outboundTransportCost = draftData.outboundTransportCost;
+
         const product = await prisma.product.update({
             where: { ean },
-            data: { offerDraft: draftData }
+            data: updatePayload
         });
-        res.status(200).json({ message: "Zapisano kopię roboczą" });
+        
+        EventBus.publish('PRODUCT_DATA_UPDATED', { product, source: 'OFFER_OPTIMIZER_SAVE' });
+        
+        res.status(200).json({ message: "Zapisano kopię roboczą oraz zaktualizowano twarde dane PIM" });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
