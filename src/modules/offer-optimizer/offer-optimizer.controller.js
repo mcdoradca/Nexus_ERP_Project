@@ -265,14 +265,14 @@ const proxyImage = async (req, res) => {
                 const base64Data = matches[2];
                 const buffer = Buffer.from(base64Data, 'base64');
                 
-                res.setHeader('Content-Disposition', 'attachment; filename="nexus_lifestyle.jpg"');
+                res.setHeader('Content-Disposition', 'inline; filename="nexus_lifestyle.jpg"');
                 res.setHeader('Content-Type', mimeType);
                 return res.status(200).send(buffer);
             }
         }
 
         const response = await require('axios').get(url, { responseType: 'stream' });
-        res.setHeader('Content-Disposition', 'attachment; filename="nexus_image.jpg"');
+        res.setHeader('Content-Disposition', 'inline; filename="nexus_image.jpg"');
         res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
         response.data.pipe(res);
     } catch (e) {

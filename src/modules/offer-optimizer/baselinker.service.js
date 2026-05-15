@@ -334,13 +334,16 @@ class BaseLinkerService {
             parsed.features = prod.features;
         }
 
-        // 4. GALERIA (images od 1 do 16)
+        // 4. GALERIA (Wydobycie wszystkich unikalnych linków zdjęć bez względu na klucze)
         if (prod.images) {
-            for (let i = 1; i <= 16; i++) {
-                if (prod.images[i]) {
-                    parsed.images.push(prod.images[i]);
+            const uniqueUrls = new Set();
+            for (const key in prod.images) {
+                const url = prod.images[key];
+                if (typeof url === 'string' && url.trim().length > 0) {
+                    uniqueUrls.add(url.trim());
                 }
             }
+            parsed.images = Array.from(uniqueUrls);
         }
 
         return parsed;
