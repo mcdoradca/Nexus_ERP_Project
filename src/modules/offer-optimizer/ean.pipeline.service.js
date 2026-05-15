@@ -21,8 +21,17 @@ class EanPipelineService {
                 let brandId = product ? product.brandId : null;
                 const isPimImportId = product && product.brand && product.brand.name === 'PIM-IMPORT';
                 if (!brandId || isPimImportId) {
-                    if (deepData.manufacturer && deepData.manufacturer.trim() !== '') {
-                        const brandName = deepData.manufacturer.trim();
+                    let brandNameRaw = deepData.manufacturer;
+                    if (!brandNameRaw || brandNameRaw.trim() === '') {
+                        if (deepData.features && deepData.features['Marka']) {
+                            brandNameRaw = deepData.features['Marka'];
+                        } else if (deepData.features && deepData.features['Producent']) {
+                            brandNameRaw = deepData.features['Producent'];
+                        }
+                    }
+
+                    if (brandNameRaw && brandNameRaw.trim() !== '') {
+                        const brandName = brandNameRaw.trim();
                         let matchedBrand = await prisma.brand.findUnique({ where: { name: brandName } });
                         if (!matchedBrand) {
                             matchedBrand = await prisma.brand.create({ data: { name: brandName } });
