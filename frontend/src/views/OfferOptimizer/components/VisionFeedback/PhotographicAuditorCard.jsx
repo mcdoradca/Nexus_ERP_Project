@@ -5,6 +5,8 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
     const fileInputRef = useRef(null);
     // imageObj { originalUrl: string, alerts: string[], isCompliant: boolean, replacedUrl: string|null }
     
+    const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
+
     // Status lokalny Dropzone'a
     const [isDragging, setIsDragging] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -160,7 +162,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                          {/* Pełna widoczność istniejącego zdjęcia */}
                          {!isMissingPhotosAlert && imageObj.originalUrl && !imgError && (
                              <img 
-                                 src={imageObj.originalUrl.startsWith('http') ? `${import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(imageObj.originalUrl)}` : imageObj.originalUrl} 
+                                 src={imageObj.originalUrl.startsWith('http') ? `${import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(imageObj.originalUrl)}&token=${token}` : imageObj.originalUrl} 
                                  alt="Obecne" 
                                  className="absolute inset-0 w-full h-full object-contain opacity-100" 
                                  onError={(e) => setImgError(true)}

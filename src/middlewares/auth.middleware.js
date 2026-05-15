@@ -4,9 +4,14 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 async function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    let token = authHeader && authHeader.split(' ')[1];
 
-    if (token == null) {
+    // Obejście dla tagów <img> omijających nagłówki (przesyłane z proxy-image)
+    if (!token && req.query && req.query.token) {
+        token = req.query.token;
+    }
+
+    if (!token) {
         return res.sendStatus(401); // Brak tokenu
     }
 

@@ -23,6 +23,21 @@ Viewed server.js:870-890
 
 Po dogłębnej analizie plików źródłowych, logów wdrożeniowych oraz architektury serwera zidentyfikowałem szkielet potężnego, w pełni zintegrowanego ekosystemu \*\*Nexus Sentinel\*\*. Poniżej znajduje się Spis Treści, Mapa Myśli oraz Audyt Działań w Tle, przygotowujące nas do prac analityczno-dokumentacyjnych.
 
+### 🛡️ Architektura Bezpieczeństwa Procesu (Tarcza Anty-Zombie)
+**Nazwa operacji/zadania:** Graceful Shutdown & Uncaught Exception Handler
+**Po co to jest? (Cel biznesowy):** Mechanizm zabezpieczający przed tzw. procesami "zombie" (zawieszonymi instancjami Node.js), które blokują porty serwera (błąd `EADDRINUSE`) w systemach Windows. Zapobiega to paraliżowi środowiska programistycznego i produkcyjnego podczas restartów.
+**Zabezpieczenia Architektury:**
+- **Twarde Ubicie Procesu (EADDRINUSE):** W przypadku wykrycia, że port jest zablokowany, globalny łapacz błędów `uncaughtException` wyłamuje się z zasady "nieśmiertelnego serwera" i bezwzględnie wymusza zamknięcie (`process.exit(1)`).
+- **Asynchroniczny Graceful Shutdown:** Nasłuchuje na sygnały `SIGTERM`, `SIGINT` oraz `SIGUSR2`. Przy restarcie Node.js (np. via Nodemon) serwer najpierw asynchronicznie rozłącza instancje bazy danych (`prisma.$disconnect()`), a następnie zamyka nasłuch HTTP. Posiada wbudowany 3-sekundowy "Kill-Switch" jako zabezpieczenie przed wiszącymi połączeniami Keep-Alive.
+
+### 🛡️ Zabezpieczenia CORS i Wizualne (Tunel Proxy dla Obrazów)
+**Nazwa operacji/zadania:** Auth Proxy Bypass dla obrazów zewnętrznych
+**Po co to jest? (Cel biznesowy):** Moduły takie jak **Optymalizator Ofert (Vision AI)** pobierają zdjęcia bezpośrednio z BaseLinkera. Zewnętrzne serwery blokują dostęp z przeglądarki (błędy CORS lub 403 Forbidden). Przeglądarka z kolei przy renderowaniu obrazów za pomocą tagów `<img src="...">` nie potrafi przesyłać nagłówków autoryzacyjnych (`Authorization: Bearer`). Aby wyświetlać te zdjęcia i miniatury na frontendzie hostowanym w Google Cloud, cały ruch wizualny przepuszczany jest przez serwer Nexusa z wstrzykniętym tokenem.
+**Zabezpieczenia Architektury:**
+- **Iniekcja Tokenu z LocalStorage:** System frontendu dynamicznie wstrzykuje zaszyfrowany token JWT z `localStorage` do adresu URL (np. `?url=...&token=...`) generowanego dla źródła zdjęcia.
+- **Parametryzowany Middleware (`auth.middleware.js`):** Silnik autoryzujący serwera Nexusa posiada logikę rezerwową (Fallback) szukającą tokenu w obiekcie zapytania `req.query.token`, kiedy nagłówek uwierzytelniający jest pusty. Zabezpiecza to przed wyciekiem obrazów na zewnątrz bez autoryzacji.
+- **Unifikacja Modali:** Zarówno miniatury kart pracy AI (`PhotographicAuditorCard`) jak i Modal z podglądem pełnoekranowym (`ImageModal`) korzystają ściśle z autoryzowanego Proxy URL API (`/api/offer-optimizer/proxy-image`).
+
 \#\#\# 📑 Główny Spis Treści (Drzewo Modułów)
 
 1\. \*\*Tablica (Widok Operacyjny \- Kanban)\*\*  

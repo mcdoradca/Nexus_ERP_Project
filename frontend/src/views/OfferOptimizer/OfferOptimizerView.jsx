@@ -9,8 +9,12 @@ import { Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Dat
 
 const ImageModal = ({ url, onClose }) => {
     const [imgError, setImgError] = useState(false);
-
+    
     if (!url) return null;
+
+    const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
+    const proxyUrl = url.startsWith('http') ? `${import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(url)}&token=${token}` : url;
+
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4" onClick={onClose}>
             <div className="relative max-w-5xl w-full h-full flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
@@ -19,7 +23,7 @@ const ImageModal = ({ url, onClose }) => {
                 </button>
                 {!imgError ? (
                     <img 
-                        src={url} 
+                        src={proxyUrl} 
                         alt="Powiększenie" 
                         className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-xl" 
                         onError={(e) => setImgError(true)}
@@ -139,8 +143,9 @@ export const OfferOptimizerView = () => {
     });
     const getImage = (index) => {
         const url = safeImages[index];
+        const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
         if (url) {
-            return url.startsWith('http') ? `${import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(url)}` : url;
+            return url.startsWith('http') ? `${import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(url)}&token=${token}` : url;
         }
         return `data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22800%22%20height%3D%22600%22%20viewBox%3D%220%200%20800%20600%22%3E%3Crect%20width%3D%22800%22%20height%3D%22600%22%20fill%3D%22%231e293b%22%2F%3E%3Ctext%20x%3D%22400%22%20y%3D%22300%22%20font-family%3D%22Arial%22%20font-size%3D%2224%22%20font-weight%3D%22bold%22%20fill%3D%22%2364748b%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EZdj%C4%99cie%20nr%20${index+1}%3C%2Ftext%3E%3C%2Fsvg%3E`;
     };

@@ -5,6 +5,10 @@ const logger = require('./utils/logger');
 // Globalna Tarcza Ochronna Procesu Node.js (Zasada Nieśmiertelnego Serwera)
 process.on('uncaughtException', (err) => {
     logger.error('KRYTYCZNY BŁĄD PROCESU (Uncaught Exception):', err);
+    if (err.code === 'EADDRINUSE') {
+        console.error('[KRYTYCZNE] Port jest zablokowany (EADDRINUSE). Wymuszam twarde zamknięcie procesu, aby zapobiec powstawaniu zombie procesów w tle na Windowsie.');
+        process.exit(1);
+    }
 });
 process.on('unhandledRejection', (reason, promise) => {
     logger.error('NIEWYŁAPANA OBIETNICA (Unhandled Rejection) at:', { promise, reason });
@@ -903,20 +907,28 @@ allegroSentinelService.initSentinel();
 // Nodemon Auto-Wakeup trigger
 
 // Graceful Shutdown - Naprawa zombiaków EADDRINUSE na Windowsie
-process.once('SIGUSR2', () => {
-    console.log('[SHUTDOWN] Zatrzymywanie serwera dla Nodemon...');
-    server.close();
-    setTimeout(() => process.kill(process.pid, 'SIGUSR2'), 100);
-});
+const gracefulShutdown = async (signal) => {
+    console.log(`[SHUTDOWN] Otrzymano sygnał ${signal}. Zatrzymywanie serwera...`);
+    
+    try {
+        await prisma.$disconnect();
+        console.log('[SHUTDOWN] Bezpiecznie rozłączono Prisma ORM.');
+    } catch (e) {
+        console.error('[SHUTDOWN] Błąd podczas odłączania Prisma:', e);
+    }
 
-process.on('SIGINT', () => {
-    console.log('[SHUTDOWN] Zamykanie z SIGINT');
-    server.close();
-    setTimeout(() => process.exit(0), 100);
-});
+    server.close(() => {
+        console.log('[SHUTDOWN] Zamknięto aktywne połączenia HTTP.');
+        process.exit(0);
+    });
 
-process.on('SIGTERM', () => {
-    console.log('[SHUTDOWN] Zamykanie z SIGTERM');
-    server.close();
-    setTimeout(() => process.exit(0), 100);
-});
+    // Zabezpieczenie przed wiszącymi połączeniami (Keep-Alive), które blokują server.close()
+    setTimeout(() => {
+        console.error('[SHUTDOWN] Wymuszanie zamknięcia procesu (timeout 3000ms z powodu wiszących połączeń).');
+        process.exit(0);
+    }, 3000);
+};
+
+process.once('SIGUSR2', () => gracefulShutdown('SIGUSR2'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
