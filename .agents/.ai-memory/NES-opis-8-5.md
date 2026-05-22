@@ -36,8 +36,8 @@ Po dogłębnej analizie plików źródłowych, logów wdrożeniowych oraz archit
 **Zabezpieczenia Architektury:**
 - **Iniekcja Tokenu z LocalStorage:** System frontendu dynamicznie wstrzykuje zaszyfrowany token JWT z `localStorage` do adresu URL (np. `?url=...&token=...`) generowanego dla źródła zdjęcia.
 - **Parametryzowany Middleware (`auth.middleware.js`):** Silnik autoryzujący serwera Nexusa posiada logikę rezerwową (Fallback) szukającą tokenu w obiekcie zapytania `req.query.token`, kiedy nagłówek uwierzytelniający jest pusty. Zabezpiecza to przed wyciekiem obrazów na zewnątrz bez autoryzacji.
+- **Omijanie WAF i Fallback (Defensive AI):** Endpoint proxy wysyła zapytania `axios` ubrane w pełne nagłówki maskujące (User-Agent, Accept) by ominąć systemy anty-DDoS zewnętrznych serwerów. W przypadku błędu proxy (np. zablokowany dostęp), system serwera zwraca Redirect bezpośredni, a komponenty React (ImageModal i PhotographicAuditorCard) przełączają stan na `useDirectUrl`, ratując wyświetlenie obrazu bezpośrednio z zewnątrz.
 - **Unifikacja Modali:** Zarówno miniatury kart pracy AI (`PhotographicAuditorCard`) jak i Modal z podglądem pełnoekranowym (`ImageModal`) korzystają ściśle z autoryzowanego Proxy URL API (`/api/offer-optimizer/proxy-image`).
-
 \#\#\# 📑 Główny Spis Treści (Drzewo Modułów)
 
 1\. \*\*Tablica (Widok Operacyjny \- Kanban)\*\*  

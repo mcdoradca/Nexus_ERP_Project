@@ -9,6 +9,12 @@ import { Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Dat
 
 const ImageModal = ({ url, onClose }) => {
     const [imgError, setImgError] = useState(false);
+    const [useDirectUrl, setUseDirectUrl] = useState(false);
+    
+    useEffect(() => {
+        setImgError(false);
+        setUseDirectUrl(false);
+    }, [url]);
     
     if (!url) return null;
 
@@ -23,10 +29,16 @@ const ImageModal = ({ url, onClose }) => {
                 </button>
                 {!imgError ? (
                     <img 
-                        src={proxyUrl} 
+                        src={useDirectUrl ? url : proxyUrl} 
                         alt="Powiększenie" 
                         className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-xl" 
-                        onError={(e) => setImgError(true)}
+                        onError={(e) => {
+                            if (!useDirectUrl && url.startsWith('http')) {
+                                setUseDirectUrl(true);
+                            } else {
+                                setImgError(true);
+                            }
+                        }}
                     />
                 ) : (
                     <div className="flex flex-col items-center text-center text-slate-400 p-8 border border-slate-700 rounded-xl bg-slate-900/50">

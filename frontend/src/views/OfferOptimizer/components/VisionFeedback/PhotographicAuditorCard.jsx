@@ -14,6 +14,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
     const [trendReport, setTrendReport] = useState(null);
     
     const [imgError, setImgError] = useState(false);
+    const [useDirectUrl, setUseDirectUrl] = useState(false);
 
     const isFixed = !!imageObj.replacedUrl;
     
@@ -128,6 +129,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
     // Reset error state if URL changes
     React.useEffect(() => {
         setImgError(false);
+        setUseDirectUrl(false);
     }, [imageObj.originalUrl]);
 
     return (
@@ -162,10 +164,16 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                          {/* Pełna widoczność istniejącego zdjęcia */}
                          {!isMissingPhotosAlert && imageObj.originalUrl && !imgError && (
                              <img 
-                                 src={imageObj.originalUrl.startsWith('http') ? `${import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(imageObj.originalUrl)}&token=${token}` : imageObj.originalUrl} 
+                                 src={useDirectUrl || !imageObj.originalUrl.startsWith('http') ? imageObj.originalUrl : `${import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(imageObj.originalUrl)}&token=${token}`} 
                                  alt="Obecne" 
                                  className="absolute inset-0 w-full h-full object-contain opacity-100" 
-                                 onError={(e) => setImgError(true)}
+                                 onError={(e) => {
+                                     if (!useDirectUrl && imageObj.originalUrl.startsWith('http')) {
+                                         setUseDirectUrl(true);
+                                     } else {
+                                         setImgError(true);
+                                     }
+                                 }}
                              />
                          )}
                          {/* Komunikat błędu zewnętrznego (CORS / 404 z BaseLinkera) */}
