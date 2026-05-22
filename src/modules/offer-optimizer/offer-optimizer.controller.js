@@ -272,13 +272,16 @@ const proxyImage = async (req, res) => {
         }
 
         const https = require('https');
-        const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+        const httpsAgent = new https.Agent({ 
+            rejectUnauthorized: false,
+            family: 4 // WYMUSZENIE IPv4 dla WAF i ominięcia problemów DNS
+        });
         const axios = require('axios');
         
         const response = await axios.get(url, { 
             responseType: 'stream',
             httpsAgent,
-            timeout: 10000,
+            timeout: 15000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',

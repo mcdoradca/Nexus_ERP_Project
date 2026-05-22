@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const https = require('https');
 const sharp = require('sharp');
 sharp.cache(false); // Wyłączenie wbudowanego cache'u dla stabilności RAM przy batchingu
 const FormData = require('form-data');
@@ -12,6 +13,24 @@ const { STANDARD_PROMPT, COSMETIC_AUDITOR_PROMPT, VISION_AUDIT_PROMPT } = requir
 const cheerio = require('cheerio');
 const EventBus = require('../../core/EventBus');
 dotenv.config();
+
+// Zabezpieczony Agent WAF do zdjęć
+const imageHttpsAgent = new https.Agent({ 
+    rejectUnauthorized: false,
+    family: 4 // Wymuszenie IPv4 - tarcza na AWS CloudFront BaseLinkera
+});
+
+async function fetchImageSecure(url, timeoutMs = 10000) {
+    return axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: timeoutMs,
+        httpsAgent: imageHttpsAgent,
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+        }
+    });
+}
 
 // Ładowanie bazy wiedzy do pamięci serwera raz podczas uruchomienia
 let INCI_KNOWLEDGE_BASE = "";
@@ -63,7 +82,7 @@ function strictRegexMedicalFilter(text) {
 async function applyLocalShadow(imageUrl, claidKey) {
     try {
         console.log("[LocalShadow] Pobieranie przezroczystego produktu...");
-        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+        const response = await fetchImageSecure(imageUrl);
         const inputBuffer = Buffer.from(response.data);
 
         const metadata = await sharp(inputBuffer).metadata();
@@ -259,7 +278,7 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
         console.log(`[AiService] Wzbogacanie promptu API o ${nativeImagesUrls.length} natywnych zdjęć CDN...`);
         for (let i = 0; i < nativeImagesUrls.length; i++) {
             try {
-                const response = await axios.get(nativeImagesUrls[i], { responseType: 'arraybuffer', timeout: 5000 });
+                const response = await fetchImageSecure(nativeImagesUrls[i], 10000);
                 parts.push(`Zdjęcie ${i + 1}. URL: ${nativeImagesUrls[i]}`);
                 parts.push({
                     inlineData: {
@@ -387,7 +406,7 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
 
         // Fetch Main Image
         if (primaryImageUrl) {
-            const response = await axios.get(primaryImageUrl, { responseType: 'arraybuffer', timeout: 5000 });
+            const response = await fetchImageSecure(primaryImageUrl, 10000);
             imageParts.push({
                 inlineData: {
                     data: Buffer.from(response.data, 'binary').toString('base64'),
@@ -399,7 +418,7 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
         // Z uwagi na koszty, limitujemy do pierwszych 2 zdjęć z galerii by uciąć rachunek dla klienta.
         const limitedGallery = galleryUrls.slice(0, 2);
         for (const gUrl of limitedGallery) {
-             const response = await axios.get(gUrl, { responseType: 'arraybuffer', timeout: 5000 });
+             const response = await fetchImageSecure(gUrl, 10000);
              imageParts.push({
                 inlineData: {
                     data: Buffer.from(response.data, 'binary').toString('base64'),
