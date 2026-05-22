@@ -930,7 +930,27 @@ async function generateGEOTextContent(productName, aeoContent, intelligenceData)
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
             systemInstruction: require('./ai.prompts').GEO_TEXT_AGENT_PROMPT,
-            generationConfig: { temperature: 0.6, responseMimeType: "application/json" } 
+            generationConfig: { 
+                temperature: 0.6, 
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "OBJECT",
+                    properties: {
+                        htmlContent: {
+                            type: "OBJECT",
+                            properties: {
+                                opis1: { type: "STRING" },
+                                opis2: { type: "STRING" },
+                                opis3: { type: "STRING" },
+                                opis4: { type: "STRING" },
+                                opis5: { type: "STRING" }
+                            },
+                            required: ["opis1", "opis2", "opis3", "opis4", "opis5"]
+                        }
+                    },
+                    required: ["htmlContent"]
+                }
+            } 
         });
         const prompt = `Produkt: ${productName}\nBaza AEO: ${aeoContent}\nDane INCI/OSINT: ${intelligenceData}\nZwróć wynik jako JSON z kluczem "htmlContent", zachowując restrykcję 7 tagów HTML.`;
         const result = await generateWithRetry(model, prompt);
@@ -938,7 +958,7 @@ async function generateGEOTextContent(productName, aeoContent, intelligenceData)
         return JSON.parse(text);
     } catch(err) {
         console.error("[AiService] Błąd Agenta GEO Text:", err.message);
-        return { htmlContent: { opis1: "<p>Błąd systemu GEO</p>" } };
+        return { htmlContent: { opis1: "<p>Błąd systemu GEO</p>", opis2: "", opis3: "", opis4: "", opis5: "" } };
     }
 }
 

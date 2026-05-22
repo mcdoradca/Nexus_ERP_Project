@@ -166,16 +166,31 @@ const analyzeSingle = async (req, res) => {
         // Faza 1.5: Sprawdzenie Kopii Roboczej
         if (product.offerDraft && Object.keys(product.offerDraft).length > 0 && !forceRegenerate) {
             console.log("[PIM] Zwracam zapisaną kopię roboczą z bazy!");
+            
+            let opis1 = '', opis2 = '', opis3 = '', opis4 = '', opis5 = '';
+            const draft = product.offerDraft;
+            if (draft.htmlContent) {
+                if (typeof draft.htmlContent === 'string') {
+                    opis1 = draft.htmlContent;
+                } else if (typeof draft.htmlContent === 'object') {
+                    opis1 = draft.htmlContent.opis1 || '';
+                    opis2 = draft.htmlContent.opis2 || '';
+                    opis3 = draft.htmlContent.opis3 || '';
+                    opis4 = draft.htmlContent.opis4 || '';
+                    opis5 = draft.htmlContent.opis5 || '';
+                }
+            } else {
+                opis1 = draft.opis1 || '';
+                opis2 = draft.opis2 || '';
+                opis3 = draft.opis3 || '';
+                opis4 = draft.opis4 || '';
+                opis5 = draft.opis5 || '';
+            }
+
             return res.status(200).json({
                 title: product.offerDraft.title || product.name,
                 ean: product.ean,
-                htmlContent: {
-                    opis1: product.offerDraft.opis1 || '',
-                    opis2: product.offerDraft.opis2 || '',
-                    opis3: product.offerDraft.opis3 || '',
-                    opis4: product.offerDraft.opis4 || '',
-                    opis5: product.offerDraft.opis5 || ''
-                },
+                htmlContent: { opis1, opis2, opis3, opis4, opis5 },
                 images: (product.offerDraft.images || []).map(img => {
                     if (typeof img === 'string') return { originalUrl: img, isCompliant: true, alerts: [] };
                     return {
@@ -350,7 +365,24 @@ const exportToBaselinker = async (req, res) => {
         // Faza 3 MDM: AI wygenerowało wybitny opis. Nadpisujemy nim TRZON produktu w PIM
         // i oznaczamy twardo, że Źródłem Prawdy jest Sztuczna Inteligencja
         let newTitle = draftData.title;
-        let newDescHtml = Object.values(draftData.htmlContent).join('');
+        
+        let newDescHtml = '';
+        if (draftData.htmlContent) {
+            if (typeof draftData.htmlContent === 'string') {
+                newDescHtml = draftData.htmlContent;
+            } else if (typeof draftData.htmlContent === 'object') {
+                newDescHtml = Object.values(draftData.htmlContent).join('');
+            }
+        } else {
+            // fallback if flat
+            newDescHtml = [
+                draftData.opis1 || '',
+                draftData.opis2 || '',
+                draftData.opis3 || '',
+                draftData.opis4 || '',
+                draftData.opis5 || ''
+            ].join('');
+        }
 
         const product = await prisma.product.update({
             where: { ean },

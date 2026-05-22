@@ -32,7 +32,7 @@ const ImageModal = ({ url, onClose }) => {
                         src={useDirectUrl ? url : proxyUrl} 
                         alt="Powiększenie" 
                         className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-xl" 
-                        onError={(e) => {
+                        onError={() => {
                             if (!useDirectUrl && url.startsWith('http')) {
                                 setUseDirectUrl(true);
                             } else {
@@ -99,7 +99,6 @@ export const OfferOptimizerView = () => {
     const [productData, setProductData] = useState(null); // Pełny obiekt z backendu (PIM)
 
     // Stany dla Ofert
-    const [titleValid, setTitleValid] = useState(false);
     const [liveTitle, setLiveTitle] = useState("");
     const [liveEan, setLiveEan] = useState("");
     
@@ -143,8 +142,9 @@ export const OfferOptimizerView = () => {
         if (pimData.allegroCategoryId && token) {
             axios.get(`${API_URL}/api/categories/${pimData.allegroCategoryId}`, { headers: { Authorization: `Bearer ${token}` } })
                 .then(res => setCategorySchema(res.data))
-                .catch(err => setCategorySchema(null));
+                .catch(() => setCategorySchema(null));
         } else {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCategorySchema(null);
         }
     }, [pimData.allegroCategoryId]);
@@ -214,14 +214,30 @@ export const OfferOptimizerView = () => {
             outboundTransportCost: res.outboundTransportCost || 0
         });
 
-        if(draft.htmlContent) {
+        let htmlData = { opis1: '', opis2: '', opis3: '', opis4: '', opis5: '' };
+        if (draft.htmlContent) {
             if (typeof draft.htmlContent === 'string') {
-                 setEditorHtml({ opis1: draft.htmlContent, opis2: '', opis3: '', opis4: '', opis5: '' });
-            } else {
-                 setEditorHtml(draft.htmlContent);
+                htmlData.opis1 = draft.htmlContent;
+            } else if (typeof draft.htmlContent === 'object') {
+                htmlData = {
+                    opis1: draft.htmlContent.opis1 || '',
+                    opis2: draft.htmlContent.opis2 || '',
+                    opis3: draft.htmlContent.opis3 || '',
+                    opis4: draft.htmlContent.opis4 || '',
+                    opis5: draft.htmlContent.opis5 || ''
+                };
             }
-            setEditorKey(prev => prev + 1);
+        } else if (draft.opis1 !== undefined) {
+            htmlData = {
+                opis1: draft.opis1 || '',
+                opis2: draft.opis2 || '',
+                opis3: draft.opis3 || '',
+                opis4: draft.opis4 || '',
+                opis5: draft.opis5 || ''
+            };
         }
+        setEditorHtml(htmlData);
+        setEditorKey(prev => prev + 1);
         
         if (draft.images) {
             const mappedImages = draft.images.map(img => ({
@@ -267,7 +283,7 @@ export const OfferOptimizerView = () => {
             } else {
                 alert("Błąd: " + (data.error || "Nie udało się odświeżyć tytułu."));
             }
-        } catch (e) {
+        } catch {
             alert("Błąd komunikacji z serwerem regeneracji.");
         }
         setIsRegeneratingTitle(false);
@@ -276,11 +292,13 @@ export const OfferOptimizerView = () => {
     const compileDraftData = () => {
         return {
             title: liveTitle,
-            opis1: editorHtml.opis1,
-            opis2: editorHtml.opis2,
-            opis3: editorHtml.opis3,
-            opis4: editorHtml.opis4,
-            opis5: editorHtml.opis5,
+            htmlContent: {
+                opis1: editorHtml.opis1 || '',
+                opis2: editorHtml.opis2 || '',
+                opis3: editorHtml.opis3 || '',
+                opis4: editorHtml.opis4 || '',
+                opis5: editorHtml.opis5 || ''
+            },
             images: visionTickets
                 .filter(t => {
                     const url = t.replacedUrl || t.originalUrl;
@@ -415,7 +433,7 @@ export const OfferOptimizerView = () => {
                         onChange={(e) => setLiveTitle(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700 text-white font-bold text-xl px-4 py-4 rounded-xl outline-none focus:border-indigo-500 transition-all mb-4" 
                     />
-                    <TitleValidator initialTitle={liveTitle} onValidate={(valid, text) => { setTitleValid(valid); setLiveTitle(text); }} />
+                    <TitleValidator initialTitle={liveTitle} onValidate={(_, text) => { setLiveTitle(text); }} />
                 </div>
 
                 {/* 2. Vision AI i Symulator + Geo/AEO */}
