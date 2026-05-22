@@ -430,7 +430,34 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
         const promptText = "Oto paczka obrazów z oferty. Zdjęcie pierwsze to miniatura (bezwzględne środowisko RGB white). Reszta to detale.";
         
         const result = await model.generateContent([promptText, ...imageParts]);
-        return JSON.parse(result.response.text());
+        let parsed = JSON.parse(result.response.text());
+
+        // Autokorekta adresów URL po audycie Gemini Vision AI
+        if (parsed && Array.isArray(parsed.images)) {
+            const inputUrls = [];
+            if (primaryImageUrl) inputUrls.push(primaryImageUrl);
+            for (const gUrl of limitedGallery) {
+                inputUrls.push(gUrl);
+            }
+
+            parsed.images = parsed.images.map((img, idx) => {
+                if (typeof img !== 'object' || img === null) return img;
+                
+                const isDummy = img.originalUrl && (
+                    img.originalUrl.includes('Audyt') || 
+                    img.originalUrl.includes('Analiza') || 
+                    img.originalUrl.includes('Ilość') || 
+                    img.originalUrl.includes('Ilościowy') ||
+                    idx >= inputUrls.length
+                );
+                
+                return {
+                    ...img,
+                    originalUrl: isDummy ? img.originalUrl : (inputUrls[idx] || img.originalUrl)
+                };
+            });
+        }
+        return parsed;
 
     } catch (error) {
         console.error("[AiService] Błąd Audytu Vision: ", error);
