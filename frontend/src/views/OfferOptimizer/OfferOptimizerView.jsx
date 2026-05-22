@@ -281,7 +281,18 @@ export const OfferOptimizerView = () => {
             opis3: editorHtml.opis3,
             opis4: editorHtml.opis4,
             opis5: editorHtml.opis5,
-            images: safeImages.map(url => ({ url })),
+            images: visionTickets
+                .filter(t => {
+                    const url = t.replacedUrl || t.originalUrl;
+                    return url && (url.startsWith('http') || url.startsWith('data:image'));
+                })
+                .map(t => ({
+                    url: t.replacedUrl || t.originalUrl,
+                    originalUrl: t.originalUrl,
+                    replacedUrl: t.replacedUrl || null,
+                    isCompliant: t.isCompliant !== undefined ? t.isCompliant : true,
+                    alerts: t.alerts || []
+                })),
             // Dodajemy zedytowane dane PIM
             weight: parseFloat(pimData.weight) || 0,
             length: parseFloat(pimData.length) || 0,

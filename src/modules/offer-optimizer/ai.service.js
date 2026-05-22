@@ -415,8 +415,8 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
             });
         }
         
-        // Z uwagi na koszty, limitujemy do pierwszych 2 zdjęć z galerii by uciąć rachunek dla klienta.
-        const limitedGallery = galleryUrls.slice(0, 2);
+        // Zwiększony limit z 2 do 15 by obsłużyć pełne zestawy zdjęć (np. 7) z BaseLinkera
+        const limitedGallery = galleryUrls.slice(0, 15);
         for (const gUrl of limitedGallery) {
              const response = await fetchImageSecure(gUrl, 10000);
              imageParts.push({
@@ -916,6 +916,7 @@ async function generateGEOTextContent(productName, aeoContent, intelligenceData)
 }
 
 module.exports = {
+    fetchImageSecure,
     gatherProductIntelligence,
     generateAEOContent,
     generateGEOTextContent,

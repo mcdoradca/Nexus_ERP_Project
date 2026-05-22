@@ -176,7 +176,15 @@ const analyzeSingle = async (req, res) => {
                     opis4: product.offerDraft.opis4 || '',
                     opis5: product.offerDraft.opis5 || ''
                 },
-                images: (product.offerDraft.images || []).map(img => ({ originalUrl: img.url, isCompliant: true, alerts: [] })),
+                images: (product.offerDraft.images || []).map(img => {
+                    if (typeof img === 'string') return { originalUrl: img, isCompliant: true, alerts: [] };
+                    return {
+                        originalUrl: img.originalUrl || img.url || '',
+                        replacedUrl: img.replacedUrl || null,
+                        isCompliant: img.isCompliant !== undefined ? img.isCompliant : true,
+                        alerts: img.alerts || []
+                    };
+                }),
                 isDraftRestored: true
             });
         }
@@ -271,23 +279,8 @@ const proxyImage = async (req, res) => {
             }
         }
 
-        const https = require('https');
-        const httpsAgent = new https.Agent({ 
-            rejectUnauthorized: false,
-            family: 4 // WYMUSZENIE IPv4 dla WAF i ominięcia problemów DNS
-        });
-        const axios = require('axios');
-        
-        const response = await axios.get(url, { 
-            responseType: 'stream',
-            httpsAgent,
-            timeout: 15000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-                'Accept-Encoding': 'gzip, deflate, br'
-            }
-        });
+        // Zabezpieczony pobieracz z ai.service omijający WAF za pomocą IPv4 i odpowiednich nagłówków
+        const response = await AiService.fetchImageSecure(url, 15000);
         
         res.setHeader('Content-Disposition', 'inline; filename="nexus_image.jpg"');
         res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
@@ -295,7 +288,7 @@ const proxyImage = async (req, res) => {
             res.setHeader('Cache-Control', response.headers['cache-control']);
         }
         
-        response.data.pipe(res);
+        return res.status(200).send(Buffer.from(response.data));
     } catch (e) {
         console.error("[ProxyImage] Błąd proxy dla URL:", url, e.message);
         // TARCZA BŁĘDÓW (Defensive AI) - Fallback

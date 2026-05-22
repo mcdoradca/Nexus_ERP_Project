@@ -6,26 +6,6 @@
     "auditLog": "Z:\\Nexus_ERP_Project\\logs\\.8fca15c2f018e3154328da0d2467845a815b351f-audit.json",
     "files": [
         {
-            "date": 1778008718807,
-            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-error-2026-05-05.log",
-            "hash": "c0e21ee450457fd7bb05f2a392c4e3fffd2141aa3c9335d37d7dabb07928c9c4"
-        },
-        {
-            "date": 1778047557791,
-            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-error-2026-05-06.log",
-            "hash": "bbe9b4b7eb8d90bd5f544fce671e3d117684ac40c04c724af253671570243caf"
-        },
-        {
-            "date": 1778156099376,
-            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-error-2026-05-07.log",
-            "hash": "e3aa294303647dab1b4b8eeaeacb70841031473509b223442dee4ddcbfb2faf5"
-        },
-        {
-            "date": 1778222730058,
-            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-error-2026-05-08.log",
-            "hash": "f0f3f14aa0b1edcf8937a143455e20667327266403a58e4564d566d65ffe96e9"
-        },
-        {
             "date": 1778349395368,
             "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-error-2026-05-09.log",
             "hash": "6fec8e6e66824d68aa20ffa84f918fd1e331c928da94323ac67dd66c365878d4"
@@ -49,6 +29,11 @@
             "date": 1778825539199,
             "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-error-2026-05-15.log",
             "hash": "85b7100191a8696e758627d3923b350314f54cb990a692aca996834326b4de86"
+        },
+        {
+            "date": 1779462214272,
+            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-error-2026-05-22.log",
+            "hash": "4a532e84d960bf58a9915dc79d81b0828d6bf24307b7277c27fdd521c597cc7f"
         }
     ],
     "hashType": "sha256"
