@@ -328,6 +328,18 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
                 throw new Error("Generative API Failed: " + parseError.message);
             }
         }
+
+        // Uruchomienie Agenta Segmentowego dla ustrukturyzowania i poprawienia tonu
+        if (parsed.htmlContent && typeof parsed.htmlContent === 'object') {
+            try {
+                const adapted = await adaptToSegmentAndTone(parsed.title || textContent, parsed.htmlContent, textContent, null);
+                if (adapted && adapted.htmlContent) {
+                    parsed.htmlContent = adapted.htmlContent;
+                }
+            } catch(adaptErr) {
+                console.error("[AiService] Błąd w adaptacji segmentowej dla Native Analysis:", adaptErr.message);
+            }
+        }
         
         // Fail-Safe: Hardcore Regex HTML Sanitize w pamięci (dla obiektu htmlContent)
         if (parsed.htmlContent && typeof parsed.htmlContent === 'object') {
@@ -955,10 +967,74 @@ async function generateGEOTextContent(productName, aeoContent, intelligenceData)
         const prompt = `Produkt: ${productName}\nBaza AEO: ${aeoContent}\nDane INCI/OSINT: ${intelligenceData}\nZwróć wynik jako JSON z kluczem "htmlContent", zachowując restrykcję 7 tagów HTML.`;
         const result = await generateWithRetry(model, prompt);
         let text = result.response.text().replace(/```json/gi, '').replace(/```/g, '').trim();
-        return JSON.parse(text);
+        const parsed = JSON.parse(text);
+        
+        try {
+            const adapted = await adaptToSegmentAndTone(productName, parsed.htmlContent, intelligenceData, null);
+            if (adapted && adapted.htmlContent) {
+                parsed.htmlContent = adapted.htmlContent;
+            }
+        } catch(adaptErr) {
+            console.error("[AiService] Błąd w adaptacji segmentowej dla GEO Text:", adaptErr.message);
+        }
+        
+        return parsed;
     } catch(err) {
         console.error("[AiService] Błąd Agenta GEO Text:", err.message);
         return { htmlContent: { opis1: "<p>Błąd systemu GEO</p>", opis2: "", opis3: "", opis4: "", opis5: "" } };
+    }
+}
+
+async function adaptToSegmentAndTone(productName, htmlContent, features, categoryId) {
+    console.log(`[AiService] Odpalanie Agenta Segmentowego (Segment & Tone Adapter) dla: ${productName}...`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            systemInstruction: require('./ai.prompts').SEGMENT_TONE_AGENT_PROMPT,
+            generationConfig: { 
+                temperature: 0.5, 
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "OBJECT",
+                    properties: {
+                        htmlContent: {
+                            type: "OBJECT",
+                            properties: {
+                                opis1: { type: "STRING" },
+                                opis2: { type: "STRING" },
+                                opis3: { type: "STRING" },
+                                opis4: { type: "STRING" },
+                                opis5: { type: "STRING" }
+                            },
+                            required: ["opis1", "opis2", "opis3", "opis4", "opis5"]
+                        }
+                    },
+                    required: ["htmlContent"]
+                }
+            } 
+        });
+
+        const prompt = `Produkt: ${productName}
+Cechy/Parametry: ${typeof features === 'object' ? JSON.stringify(features) : (features || 'Brak')}
+Kategoria ID: ${categoryId || 'Brak'}
+
+Oto wygenerowany wstępny opis produktu składający się z 5 bloków. Twoim celem jest dokonanie adaptacji psychologicznej i tonu wypowiedzi do zidentyfikowanego segmentu rynkowego.
+Zwróć uwagę na formatowanie i usunięcie zbitego tekstu (maksymalnie 3-4 linijki na akapit, 2-3 pogrubienia <strong> na akapit).
+Skład INCI (jeśli znajduje się w opis5) pozostaw w 100% niezmieniony.
+
+Wstępny Opis:
+Blok 1 (opis1): ${htmlContent.opis1 || ''}
+Blok 2 (opis2): ${htmlContent.opis2 || ''}
+Blok 3 (opis3): ${htmlContent.opis3 || ''}
+Blok 4 (opis4): ${htmlContent.opis4 || ''}
+Blok 5 (opis5): ${htmlContent.opis5 || ''}`;
+
+        const result = await generateWithRetry(model, prompt);
+        let text = result.response.text().replace(/```json/gi, '').replace(/```/g, '').trim();
+        return JSON.parse(text);
+    } catch(err) {
+        console.error("[AiService] Błąd Agenta Dopasowania Segmentowego:", err.message);
+        return { htmlContent };
     }
 }
 
@@ -968,6 +1044,7 @@ module.exports = {
     generateAEOContent,
     generateGEOTextContent,
     generateNativeAnalysis,
+    adaptToSegmentAndTone,
     generateOfferJSON,
     auditOfferImages,
     generateTitleOnly,

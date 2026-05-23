@@ -163,14 +163,25 @@ export const OfferOptimizerView = () => {
     };
 
     const allegroSections = [
-         { items: [ { type: 'TEXT', content: editorHtml.opis1 || '' }, { type: 'IMAGE', content: getImage(1) } ] },
-         { items: [ { type: 'TEXT', content: editorHtml.opis2 || '' }, { type: 'IMAGE', content: getImage(2) } ] },
-         { items: [ { type: 'TEXT', content: editorHtml.opis3 || '' }, { type: 'IMAGE', content: getImage(3) } ] },
-         { items: [ { type: 'TEXT', content: editorHtml.opis4 || '' }, { type: 'IMAGE', content: getImage(4) } ] },
-         { items: [ { type: 'TEXT', content: editorHtml.opis5 || '' }, { type: 'IMAGE', content: getImage(5) } ] }
+         // Blok 1: Tekst (100% szerokości) - Obietnica główna + Hook
+         { items: [ { type: 'TEXT', content: editorHtml.opis1 || '' } ] },
+         // Blok 2: Zdjęcie + Tekst (50/50) - Korzyści (FAB)
+         { items: [ { type: 'IMAGE', content: getImage(1) }, { type: 'TEXT', content: editorHtml.opis2 || '' } ] },
+         // Blok 3: Tekst (100% szerokości) - Specyfikacja techniczna i parametry
+         { items: [ { type: 'TEXT', content: editorHtml.opis3 || '' } ] },
+         // Blok 4: Dwa zdjęcia obok siebie (50/50) - Zbliżenia / detale
+         { items: [ { type: 'IMAGE', content: getImage(2) }, { type: 'IMAGE', content: getImage(3) } ] },
+         // Blok 5: Tekst (100% szerokości) - Skład zestawu / CTA / Cross-sell
+         { items: [ { type: 'TEXT', content: editorHtml.opis4 || '' } ] }
     ];
 
-    let nextImageIndex = 6;
+    // Blok 6 (Opcjonalny): Tekst (100% szerokości) - Skład INCI (dla kosmetyków)
+    if (editorHtml.opis5 && editorHtml.opis5.trim() !== '') {
+         allegroSections.push({ items: [ { type: 'TEXT', content: editorHtml.opis5 } ] });
+    }
+
+    // Pozostałe zdjęcia z galerii dystrybuowane od indeksu 4
+    let nextImageIndex = 4;
     while(nextImageIndex < safeImages.length) {
          if (nextImageIndex + 1 < safeImages.length) {
               allegroSections.push({ items: [ { type: 'IMAGE', content: getImage(nextImageIndex) }, { type: 'IMAGE', content: getImage(nextImageIndex+1) } ] });
