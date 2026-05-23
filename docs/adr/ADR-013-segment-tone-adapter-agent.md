@@ -13,7 +13,7 @@ Opisy ofert generowane przez model LLM (GEO Text) bywały generyczne i nie wykor
    - **Dziecko**: Opiekuńczy i empatyczny ton, triggery: atesty PZH, bezpieczeństwo materiałów, rozwój.
 3. **Chirurgiczna Poprawa Czytelności**: Agent dba o skimming path poprzez ograniczanie akapitów do 3-4 linii oraz selektywne pogrubianie tylko 2-3 kluczowych korzyści/parametrów na akapit za pomocą tagów `<strong>`.
 4. **Zintegrowany Potok (Pipeline Injection)**: Wstrzyknięto funkcję `adaptToSegmentAndTone` bezpośrednio do metod `generateNativeAnalysis` (tryb ręczny) oraz `generateGEOTextContent` (tryb automatyczny EAN) na backendzie.
-5. **Przebudowa Wizualna Symulatora**: Dostosowano frontendowy komponent `OfferOptimizerView.jsx`, przebudowując mapowanie sekcji Allegro (`allegroSections`) do nowoczesnego, naprzemiennego układu kaskadowego zygzaka opartego o grid (Obietnica 100%, Korzyści FAB/Zdjęcie 50/50, Specyfikacja 100%, Zdjęcie/Zdjęcie 50/50, CTA/Zestaw 100%, INCI 100%).
+5. **Przebudowa Wizualna Symulatora**: Dostosowano frontendowy komponent `OfferOptimizerView.jsx`, przebudowując mapowanie sekcji Allegro (`allegroSections`) do dynamicznego układu par 50/50 (Tekst + Zdjęcie) dla każdego z wczytanych modułów opisu (opis1-opis5), co na komputerach daje przejrzysty układ kolumnowy, a na telefonach gwarantuje idealnie przeplataną, naprzemienną ścieżkę (Tekst -> Zdjęcie -> Tekst -> Zdjęcie) bez zlewania się elementów.
 
 ## Konsekwencje
 - **Pozytywne**: Znaczny wzrost konwersji dzięki dopasowaniu psychologicznemu ofert do grup docelowych. Pełna zgodność z rygorem czytelności (mobile friendly).

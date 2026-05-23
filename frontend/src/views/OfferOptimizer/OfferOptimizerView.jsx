@@ -162,26 +162,27 @@ export const OfferOptimizerView = () => {
         return `data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22800%22%20height%3D%22600%22%20viewBox%3D%220%200%20800%20600%22%3E%3Crect%20width%3D%22800%22%20height%3D%22600%22%20fill%3D%22%231e293b%22%2F%3E%3Ctext%20x%3D%22400%22%20y%3D%22300%22%20font-family%3D%22Arial%22%20font-size%3D%2224%22%20font-weight%3D%22bold%22%20fill%3D%22%2364748b%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EZdj%C4%99cie%20nr%20${index+1}%3C%2Ftext%3E%3C%2Fsvg%3E`;
     };
 
-    const allegroSections = [
-         // Blok 1: Tekst (100% szerokości) - Obietnica główna + Hook
-         { items: [ { type: 'TEXT', content: editorHtml.opis1 || '' } ] },
-         // Blok 2: Zdjęcie + Tekst (50/50) - Korzyści (FAB)
-         { items: [ { type: 'IMAGE', content: getImage(1) }, { type: 'TEXT', content: editorHtml.opis2 || '' } ] },
-         // Blok 3: Tekst (100% szerokości) - Specyfikacja techniczna i parametry
-         { items: [ { type: 'TEXT', content: editorHtml.opis3 || '' } ] },
-         // Blok 4: Dwa zdjęcia obok siebie (50/50) - Zbliżenia / detale
-         { items: [ { type: 'IMAGE', content: getImage(2) }, { type: 'IMAGE', content: getImage(3) } ] },
-         // Blok 5: Tekst (100% szerokości) - Skład zestawu / CTA / Cross-sell
-         { items: [ { type: 'TEXT', content: editorHtml.opis4 || '' } ] }
-    ];
+    const allegroSections = [];
+    let imageCounter = 1;
 
-    // Blok 6 (Opcjonalny): Tekst (100% szerokości) - Skład INCI (dla kosmetyków)
+    if (editorHtml.opis1 && editorHtml.opis1.trim() !== '') {
+         allegroSections.push({ items: [ { type: 'TEXT', content: editorHtml.opis1 }, { type: 'IMAGE', content: getImage(imageCounter++) } ] });
+    }
+    if (editorHtml.opis2 && editorHtml.opis2.trim() !== '') {
+         allegroSections.push({ items: [ { type: 'TEXT', content: editorHtml.opis2 }, { type: 'IMAGE', content: getImage(imageCounter++) } ] });
+    }
+    if (editorHtml.opis3 && editorHtml.opis3.trim() !== '') {
+         allegroSections.push({ items: [ { type: 'TEXT', content: editorHtml.opis3 }, { type: 'IMAGE', content: getImage(imageCounter++) } ] });
+    }
+    if (editorHtml.opis4 && editorHtml.opis4.trim() !== '') {
+         allegroSections.push({ items: [ { type: 'TEXT', content: editorHtml.opis4 }, { type: 'IMAGE', content: getImage(imageCounter++) } ] });
+    }
     if (editorHtml.opis5 && editorHtml.opis5.trim() !== '') {
-         allegroSections.push({ items: [ { type: 'TEXT', content: editorHtml.opis5 } ] });
+         allegroSections.push({ items: [ { type: 'TEXT', content: editorHtml.opis5 }, { type: 'IMAGE', content: getImage(imageCounter++) } ] });
     }
 
-    // Pozostałe zdjęcia z galerii dystrybuowane od indeksu 4
-    let nextImageIndex = 4;
+    // Pozostałe zdjęcia z galerii dystrybuowane od pierwszego nieskonsumowanego indeksu
+    let nextImageIndex = imageCounter;
     while(nextImageIndex < safeImages.length) {
          if (nextImageIndex + 1 < safeImages.length) {
               allegroSections.push({ items: [ { type: 'IMAGE', content: getImage(nextImageIndex) }, { type: 'IMAGE', content: getImage(nextImageIndex+1) } ] });
