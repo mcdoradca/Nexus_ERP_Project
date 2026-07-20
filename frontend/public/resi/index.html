@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inżynier Packshotów | AI Core 2026</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darker: '#0f172a',
+                        dark: '#1e293b',
+                        primary: '#3b82f6',
+                        accent: '#06b6d4'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['Fira Code', 'Consolas', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* Neon Glow Effect */
+        .neon-glow:hover {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.5);
+            border-color: #06b6d4;
+        }
+
+        /* Radio Card Selection */
+        .radio-card:checked + div {
+            border-color: #06b6d4;
+            background-color: rgba(6, 182, 212, 0.1);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+        }
+        .radio-card:checked + div .icon-container {
+            color: #06b6d4;
+        }
+
+        /* Terminal blinking cursor */
+        .cursor-blink {
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Radar scan effect for loader */
+        .radar-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(59, 130, 246, 0.2);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-darker min-h-screen text-slate-300 antialiased selection:bg-accent selection:text-white">
+
+    <!-- Efekt siatki technologicznej w tle (Grid) -->
+    <div class="fixed inset-0 z-0 opacity-[0.03]" style="background-image: linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px); background-size: 30px 30px;"></div>
+
+    <div class="relative z-10 max-w-5xl mx-auto pt-10 pb-12 px-4">
+        
+        <!-- Główny kontener aplikacji -->
+        <div class="bg-dark rounded-2xl shadow-2xl overflow-hidden border border-slate-700/50 backdrop-blur-sm">
+            
+            <!-- Header -->
+            <div class="bg-slate-900 px-8 py-10 relative overflow-hidden border-b border-slate-700/50">
+                <!-- Glowing orbs -->
+                <div class="absolute top-0 left-1/4 w-64 h-64 bg-primary/20 rounded-full mix-blend-screen filter blur-[64px]"></div>
+                <div class="absolute bottom-0 right-1/4 w-64 h-64 bg-accent/20 rounded-full mix-blend-screen filter blur-[64px]"></div>
+                
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="p-3 bg-slate-800 rounded-2xl border border-slate-700 shadow-lg mb-5">
+                        <i data-lucide="cpu" class="h-10 w-10 text-accent"></i>
+                    </div>
+                    <h1 class="text-4xl md:text-5xl font-black text-white mb-3 tracking-tight text-center">
+                        Studio E-commerce <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">2026</span>
+                    </h1>
+                    <p class="text-slate-400 font-medium max-w-2xl mx-auto text-center text-lg">
+                        Algorytmiczna standaryzacja wizualna oparta na sieci neuronowej IS-Net.
+                    </p>
+                    <div class="mt-4 flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full text-xs font-bold border border-emerald-500/20">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>Silnik Lokalny (127.0.0.1) • Architektura Podwójna Aktywna</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel Logotypów (Platformy) -->
+            <div class="bg-slate-800/50 py-6 px-8 border-b border-slate-700/50">
+                <p class="text-[10px] uppercase tracking-[0.2em] text-center text-slate-500 font-bold mb-5">Zintegrowane protokoły wyjściowe</p>
+                <div class="flex flex-wrap justify-center items-center gap-10 md:gap-16">
+                    <img src="https://www.vectorlogo.zone/logos/allegro_pl/allegro_pl-ar21.svg" alt="Allegro" class="h-8 opacity-50 hover:opacity-100 transition-opacity filter drop-shadow-md" onerror="this.outerHTML='<span class=\'text-orange-500 font-bold text-xl opacity-80 hover:opacity-100\'>allegro</span>'">
+                    <img src="https://www.vectorlogo.zone/logos/amazon/amazon-ar21.svg" alt="Amazon" class="h-8 opacity-50 hover:opacity-100 transition-opacity filter drop-shadow-md" onerror="this.outerHTML='<span class=\'text-white font-bold text-xl opacity-80 hover:opacity-100\'>amazon</span>'">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/EMAG_logo.svg/512px-EMAG_logo.svg.png" alt="eMAG" class="h-6 opacity-50 hover:opacity-100 transition-opacity filter drop-shadow-md brightness-0 invert" onerror="this.outerHTML='<span class=\'text-blue-500 font-bold text-xl opacity-80 hover:opacity-100\'>eMAG</span>'">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Kaufland_Logo.svg/512px-Kaufland_Logo.svg.png" alt="Kaufland" class="h-8 opacity-50 hover:opacity-100 transition-opacity filter drop-shadow-md" onerror="this.outerHTML='<span class=\'text-red-500 font-bold text-xl opacity-80 hover:opacity-100\'>Kaufland</span>'">
+                </div>
+            </div>
+
+            <div class="p-8 md:p-10">
+                <!-- Komunikaty systemowe -->
+                <div id="errorBox" class="bg-red-900/30 border-l-4 border-red-500 text-red-200 p-4 rounded-r-md mb-8 hidden flex items-start">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 mr-3 flex-shrink-0 mt-0.5 text-red-500"></i>
+                    <p id="errorMessage" class="text-sm font-mono"></p>
+                </div>
+                
+                <div id="successBox" class="bg-emerald-900/30 border-l-4 border-emerald-500 text-emerald-200 p-4 rounded-r-md mb-8 hidden flex items-start">
+                    <i data-lucide="check-circle" class="w-5 h-5 mr-3 flex-shrink-0 mt-0.5 text-emerald-500"></i>
+                    <div>
+                        <p class="text-sm font-bold tracking-wide">OPERACJA ZAKOŃCZONA SUKCESEM</p>
+                        <p class="text-sm mt-1 opacity-80 font-mono">Archiwum ZIP zostało wygenerowane i zapisane na dysku.</p>
+                    </div>
+                </div>
+
+                <form id="uploadForm">
+                    
+                    <!-- NOWE: Wybór Trybu Pracy -->
+                    <div class="mb-10">
+                        <div class="flex items-center mb-4">
+                            <i data-lucide="settings-2" class="w-5 h-5 text-accent mr-2"></i>
+                            <span class="block text-sm font-bold text-slate-200 tracking-wide uppercase">Architektura Procesu</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Opcja 1: Pełen proces AI -->
+                            <label class="relative cursor-pointer group">
+                                <input type="radio" name="mode" value="full" class="peer sr-only radio-card" checked>
+                                <div class="h-full rounded-xl border-2 border-slate-700 bg-slate-800/50 p-5 transition-all duration-300 hover:border-slate-500">
+                                    <div class="flex items-center mb-3">
+                                        <div class="icon-container text-slate-400 transition-colors mr-3">
+                                            <i data-lucide="scissors" class="w-6 h-6"></i>
+                                        </div>
+                                        <h3 class="font-bold text-white text-lg">Matryca AI (Pełny Proces)</h3>
+                                    </div>
+                                    <ul class="text-xs text-slate-400 font-mono space-y-1 ml-9">
+                                        <li>• Usuwanie tła przez IS-Net</li>
+                                        <li>• Osobny folder z czystymi plikami <span class="text-accent">.PNG</span></li>
+                                        <li>• Autokadrowanie przedmiotu</li>
+                                        <li>• Formatowanie Allegro, Amazon, Kaufland, eMag</li>
+                                    </ul>
+                                </div>
+                            </label>
+
+                            <!-- Opcja 2: Tylko Formatowanie -->
+                            <label class="relative cursor-pointer group">
+                                <input type="radio" name="mode" value="format_only" class="peer sr-only radio-card">
+                                <div class="h-full rounded-xl border-2 border-slate-700 bg-slate-800/50 p-5 transition-all duration-300 hover:border-slate-500">
+                                    <div class="flex items-center mb-3">
+                                        <div class="icon-container text-slate-400 transition-colors mr-3">
+                                            <i data-lucide="image" class="w-6 h-6"></i>
+                                        </div>
+                                        <h3 class="font-bold text-white text-lg">Tylko Formatowanie</h3>
+                                    </div>
+                                    <ul class="text-xs text-slate-400 font-mono space-y-1 ml-9">
+                                        <li>• <span class="text-red-400">Pomija silnik AI</span> (Zostawia obecne tło)</li>
+                                        <li>• Idealne dla ujęć lifestylowych i infografik</li>
+                                        <li>• Brak autokadrowania</li>
+                                        <li>• Formatowanie Allegro, Amazon, Kaufland, eMag</li>
+                                    </ul>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Strefa Zrzutu (Dropzone) -->
+                    <div class="mb-8">
+                        <div class="flex items-center mb-3">
+                            <i data-lucide="hard-drive" class="w-5 h-5 text-accent mr-2"></i>
+                            <span class="block text-sm font-bold text-slate-200 tracking-wide uppercase">Źródło Danych (Raw)</span>
+                        </div>
+                        
+                        <div class="relative group">
+                            <!-- Aktywny label jako gigantyczny, technologiczny przycisk -->
+                            <label class="block border-2 border-dashed border-slate-600 bg-slate-800/50 rounded-xl p-12 text-center cursor-pointer transition-all duration-300 neon-glow group-hover:bg-slate-800">
+                                <div class="bg-slate-700/50 w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                                    <i data-lucide="folder-search" class="h-10 w-10 text-accent"></i>
+                                </div>
+                                <span class="block text-lg font-bold text-white mb-1">
+                                    Wskaż folder macierzysty do analizy
+                                </span>
+                                <span class="block text-sm text-slate-400 font-mono">
+                                    Formaty wejściowe: JPG, PNG, WEBP, TIFF
+                                </span>
+                                <input type="file" name="files" id="files" multiple webkitdirectory directory class="hidden" required>
+                            </label>
+                            
+                            <!-- Status plików -->
+                            <div id="fileIndicator" class="hidden mt-4 bg-slate-800 text-slate-300 text-sm px-5 py-3 rounded-lg border border-slate-700 flex justify-between items-center shadow-inner">
+                                <span class="flex items-center font-mono text-accent">
+                                    <i data-lucide="database" class="w-4 h-4 mr-2"></i> Pakiet zablokowany w pamięci RAM
+                                </span>
+                                <span id="fileCountText" class="bg-primary/20 text-primary border border-primary/30 px-3 py-1 rounded-md text-xs font-bold font-mono"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SEO Input -->
+                    <div class="mb-10 bg-slate-800/50 p-6 rounded-xl border border-slate-700">
+                        <div class="flex items-center mb-3">
+                            <i data-lucide="scan-barcode" class="w-5 h-5 text-accent mr-2"></i>
+                            <label class="block text-sm font-bold text-slate-200 tracking-wide uppercase">Parametry Nomenklatury (Amazon SEO)</label>
+                        </div>
+                        <input type="text" name="asin" placeholder="Wprowadź ASIN lub rdzeń frazy kluczowej..." 
+                               class="w-full bg-slate-900 text-white font-mono px-4 py-4 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition placeholder-slate-600">
+                        <p class="text-xs text-slate-400 mt-3 flex items-center font-mono">
+                            <i data-lucide="terminal-square" class="w-4 h-4 mr-1.5 opacity-70"></i>
+                            Output wzorcowy: <span class="text-accent ml-1 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">[Twój_Prefiks]_[Nazwa_Pliku].MAIN.jpg</span>
+                        </p>
+                    </div>
+
+                    <!-- Główny Przycisk Akcji -->
+                    <button type="submit" id="submitBtn" 
+                            class="w-full bg-gradient-to-r from-primary to-accent hover:from-blue-500 hover:to-cyan-400 text-white font-black text-lg py-5 px-6 rounded-xl transition duration-300 shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transform hover:-translate-y-0.5 flex items-center justify-center tracking-wide uppercase border border-white/10">
+                        <i data-lucide="power" class="w-6 h-6 mr-3"></i>
+                        Zainicjuj Przetwarzanie Macierzy
+                    </button>
+                    
+                    <!-- Terminal Sztucznej Inteligencji (Wizualizacja postępu) -->
+                    <div id="loadingSection" class="hidden mt-8">
+                        <div class="bg-black/80 rounded-xl border border-slate-700 overflow-hidden shadow-2xl">
+                            <!-- Pasek tytułowy terminala -->
+                            <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex items-center">
+                                <div class="flex space-x-2 mr-4">
+                                    <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                                    <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                    <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                                </div>
+                                <span class="text-xs text-slate-400 font-mono tracking-widest">IS-NET_CORE_EXECUTION_v3.0</span>
+                            </div>
+                            
+                            <!-- Wnętrze terminala -->
+                            <div class="p-6">
+                                <div class="flex items-center mb-6">
+                                    <div class="radar-spinner mr-4"></div>
+                                    <div>
+                                        <h3 id="terminalTitle" class="text-lg font-bold text-accent uppercase tracking-widest">Przetwarzanie Aktywne</h3>
+                                        <p id="terminalSubtitle" class="text-slate-400 text-xs font-mono">Procesor analizuje wybrane parametry wyjściowe...</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Linie logów dodawane dynamicznie z JS -->
+                                <div id="terminalLogs" class="font-mono text-sm space-y-2 text-emerald-400 h-32 overflow-hidden flex flex-col justify-end">
+                                    <div class="opacity-50">> Inicjalizacja strumienia wejściowego...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+            
+            <!-- Stopka -->
+            <div class="bg-slate-900/80 px-8 py-5 border-t border-slate-700/50 flex justify-between items-center text-xs font-mono text-slate-500">
+                <p class="flex items-center"><i data-lucide="lock" class="w-3.5 h-3.5 mr-1.5 text-emerald-500"></i> Localhost Sec / No Cloud Upload</p>
+                <p>Engine: <span class="text-accent">IS-Net (U-Net Arch) & PIL Native</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // Podwójne logi symulatora dla większego realizmu w zależności od wybranego trybu
+        const logsFullMode = [
+            "> Alokacja bezpiecznego bloku pamięci RAM...",
+            "> Inicjalizacja modelu neuronowego IS-Net General Use...",
+            "> Otwieranie obrazów źródłowych...",
+            "> Obliczanie map głębi (Depth Map Extraction)...",
+            "> Szparowanie & Zapis natywnego pliku Czyste_PNG...",
+            "> Skalowanie wektorowe do matrycy docelowej...",
+            "> Wklejanie wyciętego produktu na białe tło przestrzenne...",
+            "> Nakładanie uniwersalnej palety barw (Profil sRGB)...",
+            "> Generowanie formatów wyjściowych (Amazon, Allegro, Kaufland, eMag)...",
+            "> Pętla optymalizacji kompresji (Limit wagi)...",
+            "> Zapisywanie archiwum ZIP na dysku lokalnym..."
+        ];
+
+        const logsFormatMode = [
+            "> Alokacja bezpiecznego bloku pamięci RAM...",
+            "> OMIJANIE SIECI NEURONOWEJ: Tryb Formatowania...",
+            "> Otwieranie obrazów źródłowych (Zabezpieczenie RGBA)...",
+            "> Pobieranie fizycznych wymiarów i proporcji...",
+            "> Obliczanie paddingu matematycznego do wymiarów platformy...",
+            "> Skalowanie z użyciem algorytmu LANCZOS downsampling...",
+            "> Centrowanie grafiki na bezpiecznych matrycach białych...",
+            "> Wdrażanie uniwersalnej palety barw (Profil sRGB)...",
+            "> Generowanie natywnych plików (Amazon, Allegro, Kaufland, eMag)...",
+            "> Kompresowanie plików zgodnie z limitami wagi...",
+            "> Pakowanie gotowej struktury do pliku ZIP..."
+        ];
+
+        let terminalInterval;
+
+        function startTerminalLogs(selectedMode) {
+            const logsContainer = document.getElementById('terminalLogs');
+            const terminalTitle = document.getElementById('terminalTitle');
+            const terminalSubtitle = document.getElementById('terminalSubtitle');
+            
+            logsContainer.innerHTML = ''; 
+            let index = 0;
+            
+            // Dynamiczny wybór tekstów na podstawie wybranego wariantu
+            const currentLogs = selectedMode === 'full' ? logsFullMode : logsFormatMode;
+            
+            if(selectedMode === 'full') {
+                terminalTitle.textContent = 'Szparowanie Aktywne';
+                terminalSubtitle.textContent = 'Procesor IS-Net wykonuje obliczenia maskowania alfa...';
+            } else {
+                terminalTitle.textContent = 'Formatowanie Aktywne';
+                terminalSubtitle.textContent = 'Przeliczanie wektorów i wag plików z ominięciem sztucznej inteligencji...';
+            }
+
+            terminalInterval = setInterval(() => {
+                if (index < currentLogs.length) {
+                    const prevLines = logsContainer.querySelectorAll('.cursor-blink');
+                    prevLines.forEach(el => el.classList.remove('cursor-blink'));
+
+                    const div = document.createElement('div');
+                    div.innerHTML = `${currentLogs[index]}<span class="cursor-blink ml-1">_</span>`;
+                    logsContainer.appendChild(div);
+                    index++;
+                } else {
+                    clearInterval(terminalInterval);
+                    setTimeout(() => startTerminalLogs(selectedMode), 2000); 
+                }
+            }, 1200); 
+        }
+
+        function stopTerminalLogs() {
+            clearInterval(terminalInterval);
+        }
+
+        const fileInput = document.getElementById('files');
+        const fileIndicator = document.getElementById('fileIndicator');
+        const fileCountText = document.getElementById('fileCountText');
+
+        fileInput.addEventListener('change', function(e) {
+            const files = e.target.files;
+            if(files.length > 0) {
+                fileCountText.textContent = `[ ${files.length} OBJ ]`;
+                fileIndicator.classList.remove('hidden');
+            } else {
+                fileIndicator.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const btn = document.getElementById('submitBtn');
+            const loadingSection = document.getElementById('loadingSection');
+            const errorBox = document.getElementById('errorBox');
+            const successBox = document.getElementById('successBox');
+
+            errorBox.classList.add('hidden');
+            successBox.classList.add('hidden');
+            btn.style.display = 'none';
+            loadingSection.classList.remove('hidden');
+            
+            // Pobieranie wartości radio buttona
+            const selectedMode = document.querySelector('input[name="mode"]:checked').value;
+            startTerminalLogs(selectedMode);
+
+            const formData = new FormData(this);
+
+            try {
+                // Pobierz token z URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get('token') || '';
+                const apiUrl = urlParams.get('apiUrl') || 'http://localhost:3001';
+
+                const response = await fetch(`${apiUrl}/api/resi/process`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'BŁĄD ZASOBÓW KRYTYCZNYCH: Operacja przerwana.');
+                }
+
+                const disposition = response.headers.get('Content-Disposition');
+                let filename = 'Packshoty_AI_Master.zip'; 
+
+                if (disposition && disposition.includes('attachment')) {
+                    const filenameRegex = /filename\*\=UTF-8\'\'([^;]+)/;
+                    const matches = filenameRegex.exec(disposition);
+                    if (matches != null && matches[1]) {
+                        filename = decodeURIComponent(matches[1]);
+                    }
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                successBox.classList.remove('hidden');
+
+            } catch (error) {
+                document.getElementById('errorMessage').textContent = error.message;
+                errorBox.classList.remove('hidden');
+            } finally {
+                stopTerminalLogs();
+                btn.style.display = 'flex';
+                loadingSection.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

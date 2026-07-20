@@ -1142,3 +1142,28 @@ Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dost
 17. **Ochrona Limitów API i Optymalizacja Zero-Bleed Hub (Fix 429)**
     * Skorygowano mechanikę `express-rate-limit` w `server.js` dodając dyrektywę `app.set('trust proxy', 1);`. Zapobiega to współdzieleniu limitów IP przez środowiska Proxy (Nginx) oraz zablokowaniu całej instancji dla pojedynczego pulsu (błąd 429 Too Many Requests). Ochrona limitu podstawowego wzrosła z 1000 do 5000, absorbując zapytania stanu z Dashboardu.
     * Odciążono Event Loop w module `ZeroBleedHubView.jsx`. Naprawiono nieskończoną pętlę pollingu interwału (wcześniej odpytywała sztywno co 3 sekundy endpoint stanu RMA, drenując limit zapytań). Obecnie mechanizm `useEffect` uwarunkowano na sztywno zmienną `syncState.isRunning`, co oznacza, że ping do serwera odbywa się wyłącznie "na życzenie", gdy zainicjowano wymuszony audyt. Standardowy cykl Crona 2x na dzień działa bez obciążania i blokowania stacji roboczej klienta.
+
+---
+
+18. **Analiza architektury SaaS i studium wykonalności (SaaS Feasibility Study)**
+    * Przeprowadzono szczegółowy audyt architektury bazy danych `schema.prisma` oraz warstwy integracji w celu zbadania możliwości transformacji systemu Nexus Sentinel ERP w wielodostępną aplikację SaaS (Multi-Tenant).
+    * Przygotowano kompleksowy raport architektoniczny `saas_feasibility_study.md` opisujący m.in. zmianę modeli bazodanowych, implementację dynamicznego kontekstu tenanta za pomocą `AsyncLocalStorage` oraz automatyczne filtrowanie zapytań przez Prisma Client Extensions.
+
+---
+
+19. **Wyliczenia finansowe i kalkulator TCO SaaS (Swarm AI Cost Analysis)**
+    * Opracowano szczegółowy kosztorys wdrożeniowy (stworzenia platformy) oraz stałe koszty centralnej infrastruktury dla konta administratora.
+    * Przeprowadzono precyzyjne wyliczenia kosztów zużycia tokenów modeli Google Gemini oraz kredytów graficznych Claid.ai w oparciu o cenniki z czerwca 2026 roku.
+    * Przygotowano raport `saas_cost_estimation.md` zawierający model kosztowy dla tenantów o różnej intensywności (Low, Mid, High), wskazując na kluczową zależność kosztów od API graficznego Claid.ai.
+
+---
+
+20. **Rozliczenie kosztowe modułu Nexus Ultimate EAN Pipeline**
+    * Przeprowadzono dekonstrukcję potoku EAN (`ean.pipeline.service.js`) i zidentyfikowano pełną sekwencję 8 zapytań do API Google Gemini 3.1 Pro (w tym wywołania Vision AI z przesyłem obrazów oraz OSINT z Google Search).
+    * Przygotowano szczegółowy kosztorys jednostkowy `saas_ean_pipeline_cost.md` wykazujący, że koszt jednostkowy optymalizacji tekstowo-prawnej wynosi **0.1892 USD / EAN**, a koszt wygenerowania 5 zdjęć lifestyle przez Claid.ai to **2.842 USD / EAN** (łącznie **3.03 USD / EAN Complete**).
+    * Zaprojektowano strukturę tabeli limitów subskrypcyjnych (`Quota`) w bazie Prisma w celu bezpiecznego ograniczenia i rozliczania zapytań tenantów w modelu SaaS.
+
+ 
+ # #   A K T U A L I Z A C J A   A R C H I T E K T U R Y   -   M O D U A  R E S I   ( 2 0 . 0 7 . 2 0 2 6 ) 
+ Z g o d n i e   z   d e c y z j a m i   p r o j e k t o w y m i ,   w d r o |o n o   W a r i a n t   A   m o d u Bu   R e s i ,   c a Bk o w i c i e   e l i m i n u j c   p o p r z e d n i   i m p l e m e n t a c j   P y t h o n / W a i t r e s s / r e m b g .   P r o c e s   w y c i n a n i a   t Ba   z   o b r a z � w   p r z e n i e s i o n o   d o   A P I   C l a i d ,   a   s y s t e m   z a r z d z a n i a   o b r a z a m i   ( M T o o l )   w y k o r z y s t u j e   t e r a z   b e z p o [r e d n i e   e n d p o i n t y   N o d e . j s   ( / a p i / r e s i / p r o c e s s )   i   b i b l i o t e k   S h a r p   ( p a d d i n g / c r o p / c a n v a s   a d j u s t m e n t )   p r z y   z a c h o w a n i u   [c i s Be g o   o g r a n i c z e n i a   w s p � Bb i e |n o [c i .   T o   r o z w i z a n i e   p o z w o l i Bo   z l i k w i d o w a   b Bd y   O O M ,   o d c i |y   m a s z y n y   d o c e l o w e   ( O V H )   o r a z   u n i f i k o w a   b a c k e n d .  
+ 

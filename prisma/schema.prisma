@@ -23,17 +23,14 @@ model User {
   passwordHash           String
   activeTaskId           String?
   accessibleModules      String[]           @default(["kanban", "campaigns", "projects", "products", "chat"])
-  
-  // Konfiguracja Skrzynki Pocztowej (Multitenancy Email)
   smtpHost               String?
+  smtpPassword           String?
   smtpPort               Int?
   smtpUser               String?
-  smtpPassword           String? // Zaszyfrowane hasło
-
   authoredAnnouncements  Announcement[]
   readAnnouncements      AnnouncementRead[]
+  briaEventLogs          BriaEventLog[]
   uploadedAssets         CampaignAsset[]
-  assignedCampaigns      Campaign[]         @relation("CampaignAssignees")
   comments               Comment[]
   receivedDirectMessages DirectMessage[]    @relation("ReceivedDirectMessages")
   sentDirectMessages     DirectMessage[]    @relation("SentDirectMessages")
@@ -45,9 +42,8 @@ model User {
   createdTasks           Task[]             @relation("TaskCreator")
   ownedTasks             Task[]             @relation("TaskOwner")
   activeTask             Task?              @relation("ActiveWorker", fields: [activeTaskId], references: [id])
+  assignedCampaigns      Campaign[]         @relation("CampaignAssignees")
   assignedTasks          Task[]             @relation("TaskAssignees")
-
-  briaEventLogs          BriaEventLog[]
 }
 
 model Project {
@@ -205,40 +201,40 @@ model Campaign {
   id               String            @id @default(uuid())
   name             String
   description      String?
-  instructions     String?           @default("")
   budget           Float             @default(0.0)
   networks         String?
   startDate        DateTime
   endDate          DateTime
   status           String            @default("Planowana")
   color            String            @default("bg-blue-500")
-  assignees        User[]            @relation("CampaignAssignees")
-  assignedGroups   String[]          @default([])
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   budgetAgency     Float             @default(0.0)
   budgetMedia      Float             @default(0.0)
   budgetPOSM       Float             @default(0.0)
   productId        String?
-  plannedCount     Int               @default(0)
   soldCount        Int               @default(0)
-  brands           Brand[]
-  contractors      Company[]
+  assignedGroups   String[]          @default([])
+  instructions     String?           @default("")
+  plannedCount     Int               @default(0)
   product          Product?          @relation("CampaignPromotedProduct", fields: [productId], references: [id])
   assets           CampaignAsset[]
   campaignProducts CampaignProduct[]
   comments         Comment[]
-  tasks            Task[]
-  smiPosts         SmiPost[]
   dealsIRM         DealIRM[]         @relation("ZawieraDeal")
+  smiPosts         SmiPost[]
+  tasks            Task[]
+  brands           Brand[]           @relation("BrandToCampaign")
+  assignees        User[]            @relation("CampaignAssignees")
+  contractors      Company[]         @relation("CampaignToCompany")
 }
 
 model Brand {
   id        String     @id @default(uuid())
   name      String     @unique
   createdAt DateTime   @default(now())
-  campaigns Campaign[]
   products  Product[]
+  campaigns Campaign[] @relation("BrandToCampaign")
 }
 
 model CampaignProduct {
@@ -265,61 +261,57 @@ model CampaignAsset {
   uploader   User     @relation(fields: [uploaderId], references: [id])
 }
 
-
-
 model Product {
-  id                    String            @id @default(uuid())
-  ean                   String            @unique
-  sku                   String            @unique
+  id                    String               @id @default(uuid())
+  ean                   String               @unique
+  sku                   String               @unique
   name                  String
-  stock                 Int               @default(0)
-  salePrice             Float             @default(0.0)
-  basePrice             Float             @default(0.0)
-  inboundTransportCost  Float             @default(0.0)
-  packagingCost         Float             @default(0.0)
-  bdoEprCost            Float             @default(0.0)
-  outboundTransportCost Float             @default(0.0)
-  aiImageCost           Float             @default(0.0)
-  targetMargin          Float             @default(0.20)
-  returnCount           Int               @default(0)
-  proposedSalePrice     Float?
-  status                String            @default("Aktywny")
-  subiektId             String?           @unique
-  baselinkerId          String?           @unique
-  imageUrl              String?           @db.Text
-  isSynced              Boolean           @default(false)
+  stock                 Int                  @default(0)
+  salePrice             Float                @default(0.0)
+  basePrice             Float                @default(0.0)
+  inboundTransportCost  Float                @default(0.0)
+  packagingCost         Float                @default(0.0)
+  bdoEprCost            Float                @default(0.0)
+  outboundTransportCost Float                @default(0.0)
+  status                String               @default("Aktywny")
+  subiektId             String?              @unique
+  baselinkerId          String?              @unique
+  isSynced              Boolean              @default(false)
   brandId               String
-  descriptionHtml       String?           @db.Text
-  features              Json?
-  images                String[]          @default([])
-  weight                Float?
-  length                Float?
-  width                 Float?
-  height                Float?
-  taxRate               Float?
-  videoUrl              String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  imageUrl              String?
   attachments           Json?
+  baselinkerInventoryId Int?
+  descriptionHtml       String?
+  features              Json?
+  height                Float?
+  images                String[]             @default([])
+  length                Float?
   stockErpUnits         Int?
   stockWmsUnits         Int?
-  baselinkerInventoryId Int?
-  offerDraft            Json?             @default("{}")
-  aeoContent            String?           @db.Text
-  lastContentSource     String            @default("SYSTEM")
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
-  campaignsAsMain       Campaign[]        @relation("CampaignPromotedProduct")
+  taxRate               Float?
+  videoUrl              String?
+  weight                Float?
+  width                 Float?
+  offerDraft            Json?                @default("{}")
+  aiImageCost           Float                @default(0.0)
+  proposedSalePrice     Float?
+  targetMargin          Float                @default(0.20)
+  lastContentSource     String               @default("SYSTEM")
+  aeoContent            String?
+  allegroCategoryId     String?
+  leadTimeDays          Int?
+  riskScore             Float                @default(0.0)
+  supplierId            String?
+  returnCount           Int                  @default(0)
+  campaignsAsMain       Campaign[]           @relation("CampaignPromotedProduct")
   campaignProducts      CampaignProduct[]
-  bomElements           ProductBom[]      @relation("ProductBomElements")
-  brand                 Brand             @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  dealsIRM              DealIRM[]         @relation("LokowanyProdukt")
-
-  allegroCategory   MarketplaceCategory? @relation(fields: [allegroCategoryId], references: [id])
-  allegroCategoryId String?
-
-  leadTimeDays Int?
-  riskScore    Float     @default(0.0)
-  supplierId   String?
-  supplier     Supplier? @relation("ProductSupplier", fields: [supplierId], references: [id])
+  dealsIRM              DealIRM[]            @relation("LokowanyProdukt")
+  allegroCategory       MarketplaceCategory? @relation(fields: [allegroCategoryId], references: [id])
+  brand                 Brand                @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  supplier              Supplier?            @relation("ProductSupplier", fields: [supplierId], references: [id])
+  bomElements           ProductBom[]         @relation("ProductBomElements")
 
   @@index([brandId])
   @@index([sku])
@@ -331,10 +323,10 @@ model EcoMaterial {
   id                String       @id @default(uuid())
   name              String       @unique
   ratePerKg         Float        @default(0.0)
-  carbonFootprintKg Float?       @default(0.0)
-  origin            String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
+  carbonFootprintKg Float?       @default(0.0)
+  origin            String?
   boms              ProductBom[]
 }
 
@@ -343,10 +335,261 @@ model ProductBom {
   productId   String
   materialId  String
   weightGrams Float
-  product     Product     @relation("ProductBomElements", fields: [productId], references: [id], onDelete: Cascade)
   material    EcoMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  product     Product     @relation("ProductBomElements", fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, materialId])
+}
+
+model SmiPost {
+  id           String   @id @default(uuid())
+  campaignId   String
+  brandLine    String?
+  publishDate  DateTime
+  postType     String?
+  content      String?
+  hashtags     String?
+  hasGraphics  Boolean  @default(false)
+  notes        String?
+  redirectUrl  String?
+  adBudgetInfo String?
+  status       String   @default("Szkic")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  mediaTypes   String[] @default([])
+  mediaUrls    String[] @default([])
+  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+}
+
+model MarketplaceCategory {
+  id         String    @id
+  name       String
+  parameters Json
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  products   Product[]
+}
+
+model Company {
+  id        String          @id @default(uuid())
+  taxId     String?         @unique
+  regon     String?
+  krs       String?
+  name      String
+  legalForm String?
+  industry  String?
+  website   String?
+  mainPhone String?
+  mainEmail String?
+  status    String          @default("Aktywny")
+  rating    Int?            @default(0)
+  notes     String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  branches  CompanyBranch[]
+  contacts  ContactPerson[]
+  campaigns Campaign[]      @relation("CampaignToCompany")
+}
+
+model CompanyBranch {
+  id             String          @id @default(uuid())
+  companyId      String
+  name           String
+  type           String          @default("Oddział")
+  street         String?
+  building       String?
+  city           String?
+  postalCode     String?
+  country        String          @default("Polska")
+  isHeadquarters Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contacts       ContactPerson[]
+
+  @@index([companyId])
+}
+
+model ContactPerson {
+  id        String         @id @default(uuid())
+  companyId String
+  branchId  String?
+  firstName String
+  lastName  String
+  role      String?
+  phone     String?
+  email     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  branch    CompanyBranch? @relation(fields: [branchId], references: [id])
+  company   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([branchId])
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model InfluencerProfile {
+  id                   String           @id @default(uuid())
+  name                 String
+  handle               String           @unique
+  platform             String           @default("INSTAGRAM")
+  email                String?
+  followers            Int              @default(0)
+  engagementRate       Float            @default(0.0)
+  authenticityScore    Float            @default(1.0)
+  vectorData           String[]         @default([])
+  demographicData      Json             @default("{}")
+  gdprConsent          Boolean          @default(false)
+  createdAt            DateTime         @default(now())
+  avatarUrl            String?
+  maxRate              Int              @default(0)
+  minRate              Int              @default(0)
+  preferredCollab      String           @default("BARTER")
+  socialUrl            String?
+  predictiveEngagement Float?           @default(0.0)
+  deals                DealIRM[]        @relation("RealizujeDeal")
+  notes                InfluencerNote[] @relation("PosiadaNotatki")
+}
+
+model InfluencerNote {
+  id           String            @id @default(uuid())
+  influencerId String
+  content      String
+  createdAt    DateTime          @default(now())
+  influencer   InfluencerProfile @relation("PosiadaNotatki", fields: [influencerId], references: [id], onDelete: Cascade)
+}
+
+model DealIRM {
+  id               String            @id @default(uuid())
+  influencerId     String
+  campaignId       String
+  productId        String
+  status           String            @default("NAWIAZANIE")
+  proposedFee      Float             @default(0.0)
+  isUokikCompliant Boolean           @default(false)
+  calculatedEMV    Float             @default(0.0)
+  createdAt        DateTime          @default(now())
+  outreachDraft    String?
+  uokikScanLog     String?
+  logs             ActionLog[]       @relation("GenerujeLogi")
+  campaign         Campaign          @relation("ZawieraDeal", fields: [campaignId], references: [id], onDelete: Cascade)
+  influencer       InfluencerProfile @relation("RealizujeDeal", fields: [influencerId], references: [id], onDelete: Cascade)
+  product          Product           @relation("LokowanyProdukt", fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([influencerId, campaignId, productId])
+}
+
+model ActionLog {
+  id          String   @id @default(uuid())
+  dealId      String
+  actionType  String   @default("VIEW")
+  description String?
+  timestamp   DateTime @default(now())
+  deal        DealIRM  @relation("GenerujeLogi", fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+model BriaEventLog {
+  id              String   @id @default(uuid())
+  type            String
+  status          String   @default("PENDING")
+  requestId       String?
+  requestPayload  Json     @default("{}")
+  responsePayload Json?
+  resultUrl       String?
+  editorIframeUrl String?
+  templateId      String?
+  brandId         String?
+  userId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Supplier {
+  id           String    @id @default(uuid())
+  name         String
+  contactEmail String?
+  contactPhone String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  products     Product[] @relation("ProductSupplier")
+}
+
+model CustomerRiskProfile {
+  id             String         @id @default(uuid())
+  allegroLogin   String         @unique
+  maskedEmail    String?
+  totalReturns   Int            @default(0)
+  fraudScore     Float          @default(0.0)
+  isBlacklisted  Boolean        @default(false)
+  lastReturnDate DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  reviewStatus   String         @default("SAFE")
+  returnRecords  ReturnRecord[]
+}
+
+model ReturnRecord {
+  id              String              @id @default(uuid())
+  baselinkerId    String              @unique
+  orderId         String
+  productId       String?
+  productEan      String?
+  customerLogin   String
+  customerEmail   String?
+  reason          String?
+  tags            String[]            @default([])
+  status          String              @default("NEW")
+  refundAmount    Float               @default(0.0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  customerProfile CustomerRiskProfile @relation(fields: [customerLogin], references: [allegroLogin])
+
+  @@index([customerLogin])
+  @@index([productId])
+}
+
+model MeetingAvailability {
+  id        String   @id @default(uuid())
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MeetingBooking {
+  id              String   @id @default(uuid())
+  recruiterName   String
+  recruiterEmail  String
+  companyName     String?
+  jobDescription  String?
+  meetingDate     DateTime
+  startTime       String
+  durationMinutes Int      @default(30)
+  status          String   @default("PENDING")
+  timezone        String   @default("Europe/Warsaw")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  meetLink        String?
+
+  @@index([meetingDate])
+  @@index([status])
 }
 
 enum UserGroup {
@@ -379,280 +622,4 @@ enum TaskPriority {
   MEDIUM
   HIGH
   URGENT
-}
-
-model SmiPost {
-  id           String   @id @default(uuid())
-  campaignId   String
-  brandLine    String?
-  publishDate  DateTime
-  postType     String?
-  content      String?  @db.Text
-  hashtags     String?  @db.Text
-  hasGraphics  Boolean  @default(false)
-  notes        String?  @db.Text
-  redirectUrl  String?
-  adBudgetInfo String?
-  status       String   @default("Szkic")
-  mediaUrls    String[] @default([])
-  mediaTypes   String[] @default([])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-
-  @@index([campaignId])
-}
-
-model MarketplaceCategory {
-  id         String    @id
-  name       String
-  parameters Json
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  products   Product[]
-}
-
-model Company {
-  id        String   @id @default(uuid())
-  taxId     String?  @unique // NIP
-  regon     String?
-  krs       String?
-  name      String
-  legalForm String? // np. "Sp. z o.o."
-  industry  String?
-  website   String?
-  mainPhone String?
-  mainEmail String?
-  status    String   @default("Aktywny") // Aktywny, Zablokowany, Prospekt
-  rating    Int?     @default(0) // 1-5 gwiazdek
-  notes     String?  @db.Text
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  branches  CompanyBranch[]
-  contacts  ContactPerson[]
-  campaigns Campaign[]
-}
-
-model CompanyBranch {
-  id             String   @id @default(uuid())
-  companyId      String
-  name           String // np. "Magazyn Główny", "Siedziba"
-  type           String   @default("Oddział") // Siedziba, Magazyn, Sklep, Biuro
-  street         String?
-  building       String?
-  city           String?
-  postalCode     String?
-  country        String   @default("Polska")
-  isHeadquarters Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  company  Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  contacts ContactPerson[]
-
-  @@index([companyId])
-}
-
-model ContactPerson {
-  id        String   @id @default(uuid())
-  companyId String
-  branchId  String?
-  firstName String
-  lastName  String
-  role      String? // Dyrektor, Księgowość, Handlowiec
-  phone     String?
-  email     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  company Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branch  CompanyBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
-
-  @@index([companyId])
-  @@index([branchId])
-}
-
-model SystemSetting {
-  id    String @id @default(uuid())
-  key   String @unique
-  value String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ==========================================
-// INFLU-MATCH-ENTERPRISE-CRM MODELS
-// ==========================================
-
-model InfluencerProfile {
-  id                   String   @id @default(uuid())
-  name                 String
-  handle               String   @unique
-  platform             String   @default("INSTAGRAM")
-  email                String?
-  followers            Int      @default(0)
-  engagementRate       Float    @default(0.0)
-  authenticityScore    Float    @default(1.0)
-  predictiveEngagement Float?   @default(0.0)
-  vectorData           String[] @default([])
-  demographicData      Json     @default("{}")
-  gdprConsent          Boolean  @default(false)
-  createdAt            DateTime @default(now())
-
-  // --- POLA KOMERCYJNE (NANOOINFLU) ---
-  preferredCollab String           @default("BARTER") // "BARTER", "PAID", "MIXED"
-  minRate         Int              @default(0)
-  maxRate         Int              @default(0)
-  avatarUrl       String?
-  socialUrl       String?
-  deals           DealIRM[]        @relation("RealizujeDeal")
-  notes           InfluencerNote[] @relation("PosiadaNotatki")
-}
-
-model InfluencerNote {
-  id           String   @id @default(uuid())
-  influencerId String
-  content      String   @db.Text
-  createdAt    DateTime @default(now())
-
-  influencer InfluencerProfile @relation("PosiadaNotatki", fields: [influencerId], references: [id], onDelete: Cascade)
-}
-
-model DealIRM {
-  id               String   @id @default(uuid())
-  influencerId     String
-  campaignId       String
-  productId        String
-  status           String   @default("NAWIAZANIE")
-  proposedFee      Float    @default(0.0)
-  isUokikCompliant Boolean  @default(false)
-  uokikScanLog     String?  @db.Text
-  calculatedEMV    Float    @default(0.0)
-  outreachDraft    String?  @db.Text
-  createdAt        DateTime @default(now())
-
-  influencer InfluencerProfile @relation("RealizujeDeal", fields: [influencerId], references: [id], onDelete: Cascade)
-  campaign   Campaign          @relation("ZawieraDeal", fields: [campaignId], references: [id], onDelete: Cascade)
-  product    Product           @relation("LokowanyProdukt", fields: [productId], references: [id], onDelete: Cascade)
-
-  logs ActionLog[] @relation("GenerujeLogi")
-
-  @@unique([influencerId, campaignId, productId])
-}
-
-model ActionLog {
-  id          String   @id @default(uuid())
-  dealId      String
-  actionType  String   @default("VIEW")
-  description String?
-  timestamp   DateTime @default(now())
-
-  deal DealIRM @relation("GenerujeLogi", fields: [dealId], references: [id], onDelete: Cascade)
-}
-
-model BriaEventLog {
-  id              String   @id @default(uuid())
-  type            String // "EDIT_REMOVE_BG", "EDIT_GEN_FILL", "EDIT_ERASE", "ADS_GENERATE"
-  status          String   @default("PENDING") // PENDING, COMPLETED, FAILED
-  requestId       String?
-  requestPayload  Json     @default("{}")
-  responsePayload Json?
-  resultUrl       String?
-  editorIframeUrl String?
-  templateId      String?
-  brandId         String?
-  userId          String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([status])
-}
-
-// ==========================================
-// ZERO-BLEED PIPELINE MODELS
-// ==========================================
-
-model Supplier {
-  id           String    @id @default(uuid())
-  name         String
-  contactEmail String?
-  contactPhone String?
-  isActive     Boolean   @default(true)
-  products     Product[] @relation("ProductSupplier")
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-}
-
-model CustomerRiskProfile {
-  id             String    @id @default(uuid())
-  allegroLogin   String    @unique
-  maskedEmail    String?
-  totalReturns   Int       @default(0)
-  fraudScore     Float     @default(0.0)
-  isBlacklisted  Boolean   @default(false)
-  reviewStatus   String    @default("SAFE")
-  lastReturnDate DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  returnRecords ReturnRecord[]
-}
-
-model ReturnRecord {
-  id            String   @id @default(uuid())
-  baselinkerId  String   @unique
-  orderId       String
-  productId     String?
-  productEan    String?
-  customerLogin String
-  customerEmail String?
-  reason        String?  @db.Text
-  tags          String[] @default([])
-  status        String   @default("NEW")
-  refundAmount  Float    @default(0.0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  customerProfile CustomerRiskProfile? @relation(fields: [customerLogin], references: [allegroLogin])
-
-  @@index([customerLogin])
-  @@index([productId])
-}
-
-// ==========================================
-// MEETINGS & CALENDAR MODELS
-// ==========================================
-
-model MeetingAvailability {
-  id           String   @id @default(uuid())
-  dayOfWeek    Int      // 0 = Niedziela, 1 = Poniedziałek, ...
-  startTime    String   // "09:00"
-  endTime      String   // "17:00"
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
-model MeetingBooking {
-  id              String   @id @default(uuid())
-  recruiterName   String
-  recruiterEmail  String
-  companyName     String?
-  jobDescription  String?  @db.Text
-  meetingDate     DateTime
-  startTime       String   // "14:30"
-  durationMinutes Int      @default(30)
-  status          String   @default("PENDING") // PENDING, CONFIRMED, CANCELLED
-  timezone        String   @default("Europe/Warsaw")
-  meetLink        String?  // Trwale zapisany, dynamiczny link do pokoju Google Meet API
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  @@index([meetingDate])
-  @@index([status])
 }

@@ -130,6 +130,7 @@ const announcementsRoutes = require('./modules/announcements/announcements.route
 const crmRoutes = require('./modules/crm/crm.routes');
 const influencersRoutes = require('./modules/influencers/influencers.routes');
 const offerOptimizerRoutes = require('./modules/offer-optimizer/offer-optimizer.routes');
+const resiRoutes = require('./modules/resi/resi.routes');
 
 const pricingRoutes = require('./modules/pricing/pricing.routes');
 const analyticsRoutes = require('./modules/analytics/analytics.routes');
@@ -209,6 +210,9 @@ app.use('/api/logistics', logisticsRoutes);
 app.use('/api/meetings', meetingsRoutes); // Zawiera cześć chronioną i publiczną
 // Faza 15: Integracja Optymalizatora Ofert
 app.use('/api/offer-optimizer', authenticateToken, offerOptimizerRoutes);
+
+// Resi Studio (Przetwarzanie obrazów AI)
+app.use('/api/resi', authenticateToken, resiRoutes);
 
 // ENDPOINT DO TESTOWANIA SYSTEMU LOGOWANIA (FAZA 5)
 app.get('/api/test-error', (req, res, next) => {

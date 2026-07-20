@@ -6,39 +6,9 @@
     "auditLog": "Z:\\Nexus_ERP_Project\\logs\\.aaf8a3a72498ae90aefb94000ad62661d3ced8cc-audit.json",
     "files": [
         {
-            "date": 1778349395373,
-            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-09.log",
-            "hash": "41e04f5a3cb32f348216bd50ee69c0ea66aca595834fd055373105177a6e5d81"
-        },
-        {
-            "date": 1778573131701,
-            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-12.log",
-            "hash": "770fac9df55abe340f126b5f2ac0077b77f8ee527023311f64319c12e1859254"
-        },
-        {
-            "date": 1778652309953,
-            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-13.log",
-            "hash": "373ba3422f6c39976d028cb74e66e04ecae0838aa3fd5da13e44ad43ef01ad0c"
-        },
-        {
-            "date": 1778745407605,
-            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-14.log",
-            "hash": "f5b9d5dbd7632316140bdaaad231a50380dd27f1296c46170b5483942c42162c"
-        },
-        {
-            "date": 1778825539207,
-            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-15.log",
-            "hash": "3501bff85755a940819b02a698977a502b363dcef4d09ae53f206db338ce4637"
-        },
-        {
-            "date": 1779462214287,
-            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-22.log",
-            "hash": "4011c530dc832affd6ea3ea1c349821a6617a4085d976dba870b4f99a6f63c1f"
-        },
-        {
-            "date": 1779488688841,
-            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-05-23.log",
-            "hash": "ef1f9b1bee28b5589c558817031dded6caaa6c42ae2989dbb55b068b8a0f2c34"
+            "date": 1784558404909,
+            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-combined-2026-07-20.log",
+            "hash": "7f18c8bb69ffa99b43350c94a7ff93654eac3b15f40f73c2354d44b776a22c71"
         }
     ],
     "hashType": "sha256"

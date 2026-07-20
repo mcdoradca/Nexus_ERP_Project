@@ -1231,12 +1231,11 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
                <div className="absolute inset-0 z-10 w-full h-full flex items-center justify-center bg-white pointer-events-none">
                  <div className="text-center">
                     <Loader2 className="w-10 h-10 animate-spin text-slate-300 mx-auto mb-4" />
-                    <p className="text-[11px] font-black text-slate-600 uppercase tracking-widest">Wczytywanie Studio Python...</p>
-                    <p className="text-[9px] font-bold text-slate-600 mt-2">Serwer uruchamia się w tle wraz z platformą</p>
+                    <p className="text-[11px] font-black text-slate-600 uppercase tracking-widest">Wczytywanie Studio AI...</p>
                  </div>
                </div>
                <iframe 
-                  src="http://127.0.0.1:5000" 
+                  src={`/resi/index.html?token=${token}&apiUrl=${API_URL}`} 
                   className="w-full h-full border-0 relative z-20 bg-transparent"
                   sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads"
                ></iframe>
