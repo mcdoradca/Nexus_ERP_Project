@@ -143,7 +143,10 @@ function App() {
 
   useEffect(() => {
     if (token) {
-      const newSocket = io(API_URL, { auth: { token } });
+      const newSocket = io(API_URL, { 
+        path: '/api/socket.io',
+        auth: { token } 
+      });
       setSocket(newSocket);
       fetchData();
 

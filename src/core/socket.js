@@ -6,7 +6,10 @@ const onlineUsers = new Map();
 
 const socketService = {
     init: (server) => {
-        io = new Server(server, { cors: { origin: '*', methods: ["GET", "POST", "PATCH", "PUT", "DELETE"] } });
+        io = new Server(server, { 
+            path: '/api/socket.io',
+            cors: { origin: '*', methods: ["GET", "POST", "PATCH", "PUT", "DELETE"] } 
+        });
         
         io.use((socket, next) => {
             const token = socket.handshake.auth.token;
