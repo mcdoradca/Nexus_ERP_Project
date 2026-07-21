@@ -78,7 +78,7 @@ app.use((req, res, next) => {
 // Konfiguracja CORS (Zabezpieczenie przed nieautoryzowanym dostępem)
 const allowedOrigins = process.env.CORS_ORIGINS 
     ? process.env.CORS_ORIGINS.split(',') 
-    : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://34.59.28.145', 'https://34.59.28.145'];
+    : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'https://n-e-s.it', 'http://n-e-s.it', 'https://www.n-e-s.it'];
 
 app.use(cors({
     origin: function (origin, callback) {
@@ -86,8 +86,8 @@ app.use(cors({
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            // Tymczasowe odblokowanie wszystkiego w ramach debuggowania w produkcji:
-            callback(null, true); // <--- KRYTYCZNA POPRAWKA: Przepuszczamy, aby wyeliminować błąd pustego ekranu!
+            console.warn(`[CORS] Odrzucono origin: ${origin}`);
+            callback(new Error('Niedozwolone origin'));
         }
     },
     credentials: true
@@ -166,6 +166,7 @@ const BaseLinkerService = require('./modules/offer-optimizer/baselinker.service'
 const { mdmDataBus } = require('./modules/mdm/mdm.service');
 const allegroSentinelService = require('./modules/allegro-ads/allegro.sentinel.service');
 const runSandboxE2ETest = require('./modules/allegro-ads/backtesting/backtest.runner');
+const sentinelService = require('./modules/campaigns/sentinel.service');
 
 io.on('connection', (socket) => {
     socketService.setOnlineUser(socket.id, socket.user.id);
@@ -291,15 +292,6 @@ app.get('/api/logs', authenticateToken, requireSuperUser, async (req, res) => {
 });
 
 
-// ASORTYMENT (PIM)
-app.post('/api/allegro-sentinel/trigger', authenticateToken, async (req, res) => {
-    try {
-        const result = await allegroSentinelService.runSentinelAudit();
-        res.json({ success: true, analysis: result });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
-});
 
 // Endpoint do uruchamiania Sandbox E2E Tests (Allegro Ads Monitor)
 app.get('/api/allegro-ads/backtest', authenticateToken, async (req, res) => {
@@ -825,7 +817,6 @@ app.delete('/api/products/:productId/bom/:bomId', authenticateToken, async (req,
     } catch (error) { res.status(500).json({ error: 'Blad usuwania z BOM' }); }
 });
 
-app.get('/api/health', async (req, res) => { res.status(200).json({ status: '🟢 ONLINE' }); });
 
 // Globalny Łapacz Błędów (Tarcza Anty-Crashowa)
 const errorHandler = require('./middleware/error.middleware');
@@ -919,7 +910,11 @@ cron.schedule('0 * * * *', async () => {
 // --- TŁO: CRON JOB AI SENTINEL (WYDAWCA) ---
 // Uruchamia się codziennie o 6:00 rano, by optymalizować nowo wrzucone posty SMI pod kalendarz i akcje promocyjne.
 cron.schedule('0 6 * * *', async () => {
-    await sentinelService.runSentinelOptimization();
+    try {
+        await sentinelService.runSentinelOptimization();
+    } catch (err) {
+        console.error('[CRON] Błąd w module Campaign Sentinel:', err.message);
+    }
 });
 
 // --- TŁO: CRON JOB ALLEGRO SENTINEL (DEEP RESEARCH) ---
