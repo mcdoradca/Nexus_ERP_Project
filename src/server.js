@@ -95,6 +95,23 @@ app.use(cors({
 
 app.set('trust proxy', 1);
 
+app.get('/api/system/logs', (req, res) => {
+    const { exec } = require('child_process');
+    // Używamy "nexus" zgodnie z pm2 restart nexus w deploy.yml
+    exec('pm2 logs nexus --lines 300 --nostream', (err, stdout, stderr) => {
+        if (err) {
+            exec('pm2 logs all --lines 300 --nostream', (err2, stdout2, stderr2) => {
+                if (err2) return res.status(500).send(err2.message + '\n' + stderr2);
+                res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+                res.send(stdout2);
+            });
+            return;
+        }
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.send(stdout);
+    });
+});
+
 // Ochrona przed atakami DDoS i Brute-Force (Rate Limiting)
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minut
