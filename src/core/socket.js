@@ -7,11 +7,12 @@ const onlineUsers = new Map();
 const socketService = {
     init: (server) => {
         io = new Server(server, { 
+            path: '/api/socket.io',
             cors: { origin: '*', methods: ["GET", "POST", "PATCH", "PUT", "DELETE"] } 
         });
         
         io.use((socket, next) => {
-            const token = socket.handshake.auth.token;
+            const token = socket.handshake.auth?.token || socket.handshake.query?.token;
             if (!token) return next(new Error("Brak autoryzacji socketu"));
             jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
                 if (err) return next(new Error("Nieprawidlowy token socketu"));
