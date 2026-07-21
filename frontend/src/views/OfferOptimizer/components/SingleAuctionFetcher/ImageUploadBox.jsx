@@ -10,6 +10,8 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
     // Animacja fałszywego postępu (do wizualizacji potoku)
     useEffect(() => {
         let interval;
+        let pollInterval;
+        
         if (status === 'THINKING') {
             setProgress(0);
             interval = setInterval(() => {
@@ -20,12 +22,40 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
                     return p + increment;
                 });
             }, 1000);
+
+            // Tarcza błędu: Polling HTTP jako Fallback dla WebSockets (jeśli Nginx ubije połączenie)
+            pollInterval = setInterval(async () => {
+                try {
+                    const token = localStorage.getItem('aps_token') || localStorage.getItem('token') || '';
+                    const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
+                    const res = await fetch(`${API_URL}/api/offer-optimizer/pipeline/status/${ean.trim()}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.status === 'COMPLETE' && data.result) {
+                            console.log("[FALLBACK] Odebrano odpowiedź przez HTTP Polling zamiast WebSockets!");
+                            setStatus('SUCCESS');
+                            setLastError(null);
+                            setTimeout(() => {
+                                if (onAnalysisComplete) onAnalysisComplete(data.result);
+                            }, 800);
+                        }
+                    }
+                } catch (err) {
+                    console.log("[FALLBACK] Polling error:", err.message);
+                }
+            }, 10000); // Co 10 sekund sprawdzamy status
         } else if (status === 'SUCCESS') {
             setProgress(100);
             if (interval) clearInterval(interval);
+            if (pollInterval) clearInterval(pollInterval);
         }
-        return () => { if (interval) clearInterval(interval); };
-    }, [status]);
+        return () => { 
+            if (interval) clearInterval(interval); 
+            if (pollInterval) clearInterval(pollInterval);
+        };
+    }, [status, ean, onAnalysisComplete]);
 
     // Odbieranie asynchronicznych powiadomień z backendu po zakończeniu potoku EAN Pipeline
     useEffect(() => {

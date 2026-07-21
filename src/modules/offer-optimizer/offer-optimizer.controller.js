@@ -476,6 +476,23 @@ const triggerUltimatePipeline = async (req, res) => {
     }
 };
 
+const checkPipelineStatus = async (req, res) => {
+    try {
+        const { ean } = req.params;
+        const product = await prisma.product.findUnique({ where: { ean } });
+        if (!product) return res.status(404).json({ error: "Nie znaleziono produktu" });
+        
+        // Jeśli produkt ma offerDraft, to pipeline się zakończył (lub mamy ostatni znany stan).
+        // W idealnym świecie użylibyśmy flagi isProcessing, ale na ten moment zwracamy offerDraft
+        if (product.offerDraft && Object.keys(product.offerDraft).length > 0) {
+            return res.status(200).json({ status: 'COMPLETE', result: { ...product.offerDraft, ean } });
+        }
+        return res.status(200).json({ status: 'PROCESSING' });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+};
+
 module.exports = {
     startOptimization,
     checkStatus,
@@ -485,5 +502,6 @@ module.exports = {
     saveDraft,
     exportToBaselinker,
     generateLifestyle,
-    triggerUltimatePipeline
+    triggerUltimatePipeline,
+    checkPipelineStatus
 };
