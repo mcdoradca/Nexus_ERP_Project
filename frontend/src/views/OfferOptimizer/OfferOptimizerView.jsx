@@ -93,7 +93,7 @@ const ImageModal = ({ url, onClose }) => {
     );
 };
 
-export const OfferOptimizerView = () => {
+export const OfferOptimizerView = ({ socket }) => {
     // Mode State
     const [isDashboardActive, setIsDashboardActive] = useState(false);
     const [productData, setProductData] = useState(null); // Pełny obiekt z backendu (PIM)
@@ -398,7 +398,7 @@ export const OfferOptimizerView = () => {
         return (
             <div className="w-full min-h-screen bg-slate-950 flex items-center justify-center p-4">
                 <div className="w-full max-w-4xl">
-                    <ImageUploadBox onAnalysisComplete={handleAnalysisComplete} />
+                    <ImageUploadBox onAnalysisComplete={handleAnalysisComplete} socket={socket} />
                 </div>
             </div>
         );

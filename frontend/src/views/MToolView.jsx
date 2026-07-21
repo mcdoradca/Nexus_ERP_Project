@@ -7,7 +7,7 @@ import { OfferOptimizerView } from './OfferOptimizer/OfferOptimizerView';
 const POST_TYPES = ['Zdjęcie', 'Rozbudowana Karuzela', 'Rolka (Reels)', 'Insta Story', 'Infografika'];
 const STATUSES = ['Szkic', 'Do Akceptacji', 'Zatwierdzone', 'Opublikowane'];
 
-const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
+const MToolView = ({ token, API_URL, currentUser, campaigns, socket }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -1243,7 +1243,7 @@ const MToolView = ({ token, API_URL, currentUser, campaigns }) => {
           )}
           {activeSubTool === 'OFFER_OPTIMIZER' && (
              <div className="flex-1 flex overflow-y-auto animate-in fade-in zoom-in-95 duration-500 bg-gradient-to-b from-[#f8fafc] to-[#e2e8f0]">
-                 <OfferOptimizerView />
+                 <OfferOptimizerView socket={socket} />
              </div>
           )}
       </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Sparkles, CheckCircle2, Search, DatabaseZap, ShieldCheck, Cpu, Database, Fingerprint } from 'lucide-react';
 
-export const ImageUploadBox = ({ onAnalysisComplete }) => {
+export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
     const [ean, setEan] = useState('');
     const [status, setStatus] = useState('IDLE'); // IDLE | THINKING | SUCCESS
     const [lastError, setLastError] = useState(null);
@@ -26,6 +26,26 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
         }
         return () => { if (interval) clearInterval(interval); };
     }, [status]);
+
+    // Odbieranie asynchronicznych powiadomień z backendu po zakończeniu potoku EAN Pipeline
+    useEffect(() => {
+        if (!socket) return;
+        const handler = (data) => {
+            // Upewniamy się, że event dotyczy naszego aktualnego EAN-u (i zignoruj wielkość liter)
+            if (data.type === 'PIPELINE_COMPLETE' && String(data.ean) === String(ean).trim()) {
+                setStatus('SUCCESS');
+                setLastError(null);
+                setTimeout(() => {
+                    if (onAnalysisComplete) onAnalysisComplete(data.result);
+                }, 800);
+            } else if (data.type === 'PIPELINE_ERROR' && String(data.ean) === String(ean).trim()) {
+                setStatus('IDLE');
+                setLastError(data.error || 'Wystąpił nieoczekiwany błąd podczas pracy potoku.');
+            }
+        };
+        socket.on('nexus-notification', handler);
+        return () => socket.off('nexus-notification', handler);
+    }, [socket, ean, onAnalysisComplete]);
 
     const handleAnalyze = async (e) => {
         e.preventDefault();
@@ -52,7 +72,7 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
                 body: JSON.stringify({ ean: extractedId })
             });
 
-            if (!response.ok) {
+            if (!response.ok && response.status !== 202) {
                 let srvErr = "";
                 let srvStack = "";
                 try {
@@ -61,6 +81,12 @@ export const ImageUploadBox = ({ onAnalysisComplete }) => {
                     srvStack = errData.stack;
                 } catch { }
                 throw new Error(srvErr ? `${srvErr}` : `Błąd serwera (HTTP ${response.status})`);
+            }
+
+            // Oczekujemy na WebSocket, chyba że endpoint zadziałał synchronicznie
+            if (response.status === 202) {
+                // Potok przetwarza dane w tle, nie parsujemy JSON'a, zostajemy w trybie THINKING
+                return;
             }
 
             const data = await response.json();

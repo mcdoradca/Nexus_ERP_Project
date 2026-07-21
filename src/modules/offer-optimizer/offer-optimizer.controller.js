@@ -3,6 +3,7 @@ const AiService = require('./ai.service');
 const AllegroService = require('./allegro.service');
 const BaseLinkerService = require('./baselinker.service');
 const EanPipelineService = require('./ean.pipeline.service');
+const socketService = require('../../core/socket');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const EventBus = require('../../core/EventBus');
@@ -443,14 +444,35 @@ const triggerUltimatePipeline = async (req, res) => {
         const { ean } = req.body;
         if (!ean) return res.status(400).json({ error: "Wymagany kod EAN do inicjalizacji potoku." });
 
-        console.log(`[Controller] Rozpoczynam Synchroniczne Wykonanie Master Agenta EAN Pipeline: ${ean}`);
-        const finalDraft = await EanPipelineService.execute(ean);
+        console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta EAN Pipeline: ${ean}`);
+        
+        // Zwracamy HTTP 202 natychmiast
+        res.status(202).json({ status: "processing", ean, message: "Pipeline uruchomiony w tle." });
 
-        console.log(`[Controller] Potok EAN Pipeline sfinalizowany. Zwracam pomyślny wynik HitL.`);
-        return res.status(200).json({ ...finalDraft, ean });
+        // Procesujemy w tle
+        EanPipelineService.execute(ean)
+            .then(finalDraft => {
+                console.log(`[Controller] Potok EAN Pipeline sfinalizowany. Wysyłam zdarzenie WebSockets.`);
+                socketService.broadcast('nexus-notification', {
+                    type: 'PIPELINE_COMPLETE',
+                    ean,
+                    result: { ...finalDraft, ean }
+                });
+            })
+            .catch(err => {
+                console.error(`[Controller] Zablokowano błąd EAN Pipeline dla: ${ean}`, err.message);
+                socketService.broadcast('nexus-notification', {
+                    type: 'PIPELINE_ERROR',
+                    ean,
+                    error: err.message || "Błąd wewnętrzny serwera podczas procesowania EAN Pipeline."
+                });
+            });
+
     } catch (e) {
-        console.error(`[Controller] Zablokowano błąd EAN Pipeline dla: ${req.body?.ean}`, e.message);
-        return res.status(500).json({ error: e.message || "Błąd wewnętrzny serwera podczas procesowania EAN Pipeline." });
+        console.error(`[Controller] Błąd inicjalizacji EAN Pipeline dla: ${req.body?.ean}`, e.message);
+        if (!res.headersSent) {
+            return res.status(500).json({ error: e.message || "Błąd wewnętrzny serwera." });
+        }
     }
 };
 

@@ -1681,7 +1681,7 @@ function App() {
             {activeTab === 'sentinel' && <GodModeAnalyticsView token={token} API_URL={API_URL} />}
             {activeTab === 'zero-bleed' && <ZeroBleedHubView token={token} API_URL={API_URL} />}
             {activeTab === 'meetings' && <MeetingDashboardView token={token} API_URL={API_URL} />}
-            {activeTab === 'mtool' && <MToolView token={token} API_URL={API_URL} currentUser={currentUser} campaigns={campaigns} />}
+            {activeTab === 'mtool' && <MToolView token={token} API_URL={API_URL} currentUser={currentUser} campaigns={campaigns} socket={socket} />}
             {activeTab === 'projects' && <ProjectsView projects={projects} tasks={tasks} currentUser={currentUser} setIsNewProjectModalOpen={setIsNewProjectModalOpen} setSelectedProject={setSelectedProject} devMode={devMode} />}
             {activeTab === 'crm' && <CrmView token={token} API_URL={API_URL} currentUser={currentUser} fetchAppGlobalData={fetchData} />}
             {activeTab === 'products' && <ProductsView 
