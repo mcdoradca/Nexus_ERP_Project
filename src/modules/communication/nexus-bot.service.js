@@ -395,20 +395,38 @@ async function processBotMention(messageContent, authorName, mode, targetId, soc
         
         // Fallback w przypadku błędów
         if (err.message) {
-            console.log("[NeS] Fallback do gemini-3.5-flash (bez tool config)...");
+            console.log("[NeS] Fallback do gemini-3.5-flash...");
             const fallbackModel = genAI.getGenerativeModel({
                 model: 'gemini-3.5-flash',
+                tools: tools,
+                toolConfig: { functionCallingConfig: { mode: "AUTO" } },
                 systemInstruction: { parts: [{ text: systemInstruction }] }
             });
             const fallbackChat = fallbackModel.startChat();
             try {
-                const fallbackResult = await fallbackChat.sendMessage(`Wiadomość od użytkownika ${authorName}: ${messageContent}`);
+                let fallbackResult = await fallbackChat.sendMessage(`Wiadomość od użytkownika ${authorName}: ${messageContent}`);
+                let fallbackResponseText = "";
+                
+                while (fallbackResult.response && typeof fallbackResult.response.functionCalls === 'function' && fallbackResult.response.functionCalls() && fallbackResult.response.functionCalls().length > 0) {
+                    const calls = fallbackResult.response.functionCalls();
+                    const functionResponses = [];
+                    for (const call of calls) {
+                        const toolResult = await executeToolCall(call.name, call.args, socket);
+                        functionResponses.push({
+                            functionResponse: { name: call.name, response: { result: toolResult } }
+                        });
+                    }
+                    fallbackResult = await fallbackChat.sendMessage(functionResponses);
+                }
+                
+                fallbackResponseText = fallbackResult.response.text();
+
                 if (mode === 'global') {
-                    await chatService.saveGlobalMessage(botId, fallbackResult.response.text());
+                    await chatService.saveGlobalMessage(botId, fallbackResponseText);
                 } else if (mode === 'direct') {
-                    await chatService.saveDirectMessage(botId, 'NeS', targetId, fallbackResult.response.text());
+                    await chatService.saveDirectMessage(botId, 'NeS', targetId, fallbackResponseText);
                 } else {
-                    await chatService.saveEntityComment(mode, targetId, botId, fallbackResult.response.text());
+                    await chatService.saveEntityComment(mode, targetId, botId, fallbackResponseText);
                 }
             } catch (fallbackErr) {
                 await chatService.saveGlobalMessage(botId, `❌ Wystąpił błąd podczas przetwarzania zapytania w fallbacku: ${fallbackErr.message}`);
