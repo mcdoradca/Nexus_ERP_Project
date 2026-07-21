@@ -45,7 +45,8 @@ jobs:
             # 1. Przejdź do folderu aplikacji
             cd /var/www/nexus
             
-            # Zabezpieczenie przed 'dubious ownership' na serwerach linuksowych
+            # Zabezpieczenie przed 'dubious ownership' i 'Permission denied' na serwerach linuksowych
+            sudo chown -R $(whoami):$(whoami) /var/www/nexus
             git config --global --add safe.directory /var/www/nexus
             
             # 2. Pobierz najnowsze zmiany z GitHuba

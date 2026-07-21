@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "concurrently \"nodemon src/server.js\" \"cd Resi && python -m waitress --listen=127.0.0.1:5000 app:app\"",
+    "dev": "nodemon src/server.js",
     "db:backup": "node scripts/backup-db.js",
     "db:push-safe": "npm run db:backup && npx prisma db push",
     "test": "jest --passWithNoTests --forceExit"

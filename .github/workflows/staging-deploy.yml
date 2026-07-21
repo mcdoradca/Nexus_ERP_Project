@@ -45,7 +45,8 @@ jobs:
             # 1. Przejdź do folderu instancji Staging
             cd /var/www/nexus-staging
             
-            # Zabezpieczenie przed 'dubious ownership' na serwerach linuksowych
+            # Zabezpieczenie przed 'dubious ownership' i 'Permission denied' na serwerach linuksowych
+            sudo chown -R $(whoami):$(whoami) /var/www/nexus-staging
             git config --global --add safe.directory /var/www/nexus-staging
             
             # 2. Pobierz najnowsze zmiany z gałęzi dev
