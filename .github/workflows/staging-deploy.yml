@@ -45,6 +45,9 @@ jobs:
             # 1. Przejdź do folderu instancji Staging
             cd /var/www/nexus-staging
             
+            # Zabezpieczenie przed 'dubious ownership' na serwerach linuksowych
+            git config --global --add safe.directory /var/www/nexus-staging
+            
             # 2. Pobierz najnowsze zmiany z gałęzi dev
             git fetch origin
             git reset --hard origin/dev

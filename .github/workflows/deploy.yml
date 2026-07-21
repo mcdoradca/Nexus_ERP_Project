@@ -45,6 +45,9 @@ jobs:
             # 1. Przejdź do folderu aplikacji
             cd /var/www/nexus
             
+            # Zabezpieczenie przed 'dubious ownership' na serwerach linuksowych
+            git config --global --add safe.directory /var/www/nexus
+            
             # 2. Pobierz najnowsze zmiany z GitHuba
             git fetch origin
             git reset --hard origin/main
