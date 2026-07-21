@@ -31,6 +31,10 @@ export default function UniversalChat({ mode, targetId, currentUser, socket, tit
         const audio = new Audio(url);
         audio.play();
       } catch (err) {
+        if (err.response?.status === 400) {
+           console.warn('TTS wyłączone: Brak klucza ElevenLabs (Zgodnie z ustawieniami).');
+           return;
+        }
         console.error('Błąd odtwarzania TTS:', err);
       }
     };
