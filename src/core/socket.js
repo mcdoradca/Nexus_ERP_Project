@@ -7,6 +7,7 @@ const onlineUsers = new Map();
 const socketService = {
     init: (server) => {
         io = new Server(server, { 
+            path: '/api/socket.io',
             cors: { origin: '*', methods: ["GET", "POST", "PATCH", "PUT", "DELETE"] } 
         });
         

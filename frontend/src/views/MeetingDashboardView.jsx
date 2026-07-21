@@ -22,7 +22,7 @@ const MeetingDashboardView = ({ token, API_URL }) => {
         fetchData();
         
         // Socket.IO dla notyfikacji o nowych spotkaniach
-        const socket = io(API_URL, { query: { token } });
+        const socket = io(API_URL, { path: '/api/socket.io', query: { token } });
         socket.on('nexus-notification', (data) => {
             if (data.type === 'MEETING_BOOKED') {
                 setNotification(data.message);
