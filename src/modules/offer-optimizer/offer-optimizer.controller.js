@@ -446,21 +446,33 @@ const triggerUltimatePipeline = async (req, res) => {
 
         console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta EAN Pipeline: ${ean}`);
         
+        // Oznaczamy produkt w bazie jako PROCESSING, aby uniemożliwić zwrócenie przestarzałego draftu przez polling
+        await prisma.product.upsert({
+            where: { ean },
+            create: { ean, name: `PIM Product ${ean}`, offerDraft: { status: 'PROCESSING', startedAt: Date.now() } },
+            update: { offerDraft: { status: 'PROCESSING', startedAt: Date.now() } }
+        });
+
         // Zwracamy HTTP 202 natychmiast
         res.status(202).json({ status: "processing", ean, message: "Pipeline uruchomiony w tle." });
 
         // Procesujemy w tle
         EanPipelineService.execute(ean)
-            .then(finalDraft => {
+            .then(fullResult => {
                 console.log(`[Controller] Potok EAN Pipeline sfinalizowany. Wysyłam zdarzenie WebSockets.`);
                 socketService.broadcast('nexus-notification', {
                     type: 'PIPELINE_COMPLETE',
                     ean,
-                    result: { ...finalDraft, ean }
+                    result: fullResult
                 });
             })
-            .catch(err => {
+            .catch(async (err) => {
                 console.error(`[Controller] Zablokowano błąd EAN Pipeline dla: ${ean}`, err.message);
+                await prisma.product.update({
+                    where: { ean },
+                    data: { offerDraft: { status: 'ERROR', error: err.message } }
+                }).catch(() => {});
+                
                 socketService.broadcast('nexus-notification', {
                     type: 'PIPELINE_ERROR',
                     ean,
@@ -479,13 +491,29 @@ const triggerUltimatePipeline = async (req, res) => {
 const checkPipelineStatus = async (req, res) => {
     try {
         const { ean } = req.params;
-        const product = await prisma.product.findUnique({ where: { ean } });
+        const product = await prisma.product.findUnique({ 
+            where: { ean },
+            include: { brand: true, allegroCategory: true }
+        });
         if (!product) return res.status(404).json({ error: "Nie znaleziono produktu" });
         
-        // Jeśli produkt ma offerDraft, to pipeline się zakończył (lub mamy ostatni znany stan).
-        // W idealnym świecie użylibyśmy flagi isProcessing, ale na ten moment zwracamy offerDraft
-        if (product.offerDraft && Object.keys(product.offerDraft).length > 0) {
-            return res.status(200).json({ status: 'COMPLETE', result: { ...product.offerDraft, ean } });
+        // Jeśli produkt jest w trakcie analizy
+        if (product.offerDraft && product.offerDraft.status === 'PROCESSING') {
+            return res.status(200).json({ status: 'PROCESSING' });
+        }
+
+        // Jeśli wystąpił błąd podczas wykonywania w tle
+        if (product.offerDraft && product.offerDraft.status === 'ERROR') {
+            return res.status(200).json({ status: 'ERROR', error: product.offerDraft.error || 'Błąd potoku AI' });
+        }
+
+        // Jeśli produkt ma ukończony offerDraft (z tytułem lub opisem)
+        if (product.offerDraft && (product.offerDraft.title || product.offerDraft.htmlContent)) {
+            const result = {
+                ...product,
+                finalDraft: product.offerDraft
+            };
+            return res.status(200).json({ status: 'COMPLETE', result });
         }
         return res.status(200).json({ status: 'PROCESSING' });
     } catch (err) {
