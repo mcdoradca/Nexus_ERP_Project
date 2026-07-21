@@ -415,7 +415,9 @@ Wygeneruj zwrot w formacie JSON zawierający wyizolowaną strukturę. Pamiętaj 
     try {
         const result = await model.generateContent(payload);
         const responseText = result.response.text();
-        return JSON.parse(responseText);
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("Brak prawidłowej struktury JSON w odpowiedzi dla GEO Text.");
+        return JSON.parse(jsonMatch[0]);
     } catch (error) {
         console.error("[AiService] Błąd generacji GEO Text: ", error);
         throw new Error("Generative Text API (GEO Output) Failed: " + error.message);
@@ -468,7 +470,10 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
         const promptText = "Oto paczka obrazów z oferty. Zdjęcie pierwsze to miniatura (bezwzględne środowisko RGB white). Reszta to detale.";
         
         const result = await model.generateContent([promptText, ...imageParts]);
-        let parsed = JSON.parse(result.response.text());
+        let rawText = result.response.text();
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("Brak prawidłowej struktury JSON w odpowiedzi wizyjnej.");
+        let parsed = JSON.parse(jsonMatch[0]);
 
         // Autokorekta adresów URL po audycie Gemini Vision AI
         if (parsed && Array.isArray(parsed.images)) {
@@ -532,8 +537,9 @@ Odpowiedz wyłącznie czystym obiektem JSON:
     try {
         const result = await model.generateContent(promptText);
         let payloadString = result.response.text();
-        payloadString = payloadString.replace(/```json/gi, '').replace(/```/g, '').trim();
-        return JSON.parse(payloadString);
+        const jsonMatch = payloadString.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("Brak prawidłowej struktury JSON w odpowiedzi dla tytułu.");
+        return JSON.parse(jsonMatch[0]);
     } catch (error) {
         throw new Error("Generative API Title Failed: " + error.message);
     }
@@ -575,8 +581,10 @@ KROK 3: Wynik DOKŁADNIE w formacie JSON (bez bloków markdown \`\`\`json):
 
     try {
         const result = await model.generateContent(prompt);
-        let jsonStr = result.response.text().replace(/```json/gi, '').replace(/```/g, '').trim();
-        const data = JSON.parse(jsonStr);
+        let jsonStr = result.response.text();
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("Brak struktury JSON w zmiennych Liquid.");
+        const data = JSON.parse(jsonMatch[0]);
         console.log("[Gemini Agent] Zidentyfikowano Liquid Variables (z uwzględnieniem Visual Trends):", data.VISUAL_TREND_REPORT);
         return data;
     } catch(err) {
