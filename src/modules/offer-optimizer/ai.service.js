@@ -40,6 +40,18 @@ try {
     console.error("[AiService] Brak pliku inci_knowledge.txt - system będzie działał bez rozszerzonej bazy wiedzy.");
 }
 
+const withTimeout = (promise, ms) => {
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+            reject(new Error(`timeout ${ms}ms exceeded`));
+        }, ms);
+    });
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+        clearTimeout(timeoutId);
+    });
+};
+
 /**
  * Exponential Backoff Retry Policy
  */
@@ -47,7 +59,8 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3) {
     let attempt = 0;
     while (attempt < maxRetries) {
         try {
-            return await model.generateContent(promptOrParts);
+            // Twardy timeout 90 sekund (90000ms) dla każdego zapytania do modelu
+            return await withTimeout(model.generateContent(promptOrParts), 90000);
         } catch (error) {
             attempt++;
             const isRateLimit = error.status === 429 || error.message.includes('429') || error.message.includes('503');

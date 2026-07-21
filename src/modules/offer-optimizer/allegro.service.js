@@ -61,7 +61,8 @@ async function getOfferImages(offerId) {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
-            }
+            },
+            timeout: 15000
         });
 
         const data = response.data;
@@ -97,7 +98,8 @@ async function getFullOfferData(offerId) {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
-            }
+            },
+            timeout: 15000
         });
 
         const data = response.data;
@@ -187,7 +189,8 @@ async function fetchCategoryParameters(categoryId) {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
-            }
+            },
+            timeout: 15000
         });
 
         const parameters = response.data.parameters;
@@ -237,7 +240,8 @@ async function findCategoryByEan(ean) {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
-            }
+            },
+            timeout: 15000
         });
         
         if (response.data.products && response.data.products.length > 0) {
@@ -261,7 +265,8 @@ async function findMatchingCategoryByName(name) {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
-            }
+            },
+            timeout: 15000
         });
         
         if (response.data.matchingCategories && response.data.matchingCategories.length > 0) {
