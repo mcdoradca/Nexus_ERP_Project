@@ -6,10 +6,33 @@ on:
       - dev
 
 jobs:
-  deploy-staging:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to Staging via SSH
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      - name: Copy frontend dist via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "frontend/dist"
+          target: "/var/www/nexus-staging"
+
+      - name: Deploy Backend and Restart via SSH
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -31,15 +54,9 @@ jobs:
             npm install
             npm test
             
-            # 4. Budowa frontendu
-            cd frontend
-            npm install
-            npm run build
-            cd ..
-            
-            # 5. Aktualizacja bazy danych (z wbudowanym backupem)
+            # 4. Aktualizacja bazy danych (z wbudowanym backupem)
             npx prisma generate
             npm run db:push-safe
             
-            # 6. Zrestartuj testowy proces Node.js
+            # 5. Zrestartuj testowy proces Node.js
             pm2 restart nexus-staging
