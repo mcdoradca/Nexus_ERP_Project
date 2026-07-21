@@ -446,12 +446,14 @@ const triggerUltimatePipeline = async (req, res) => {
 
         console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta EAN Pipeline: ${ean}`);
         
-        // Oznaczamy produkt w bazie jako PROCESSING, aby uniemożliwić zwrócenie przestarzałego draftu przez polling
-        await prisma.product.upsert({
-            where: { ean },
-            create: { ean, name: `PIM Product ${ean}`, offerDraft: { status: 'PROCESSING', startedAt: Date.now() } },
-            update: { offerDraft: { status: 'PROCESSING', startedAt: Date.now() } }
-        });
+        // Oznaczamy istniejący produkt w bazie jako PROCESSING, aby zapobiec zwracaniu przestarzałych wyników przez polling
+        const existingProduct = await prisma.product.findUnique({ where: { ean } });
+        if (existingProduct) {
+            await prisma.product.update({
+                where: { ean },
+                data: { offerDraft: { status: 'PROCESSING', startedAt: Date.now() } }
+            });
+        }
 
         // Zwracamy HTTP 202 natychmiast
         res.status(202).json({ status: "processing", ean, message: "Pipeline uruchomiony w tle." });
@@ -495,7 +497,9 @@ const checkPipelineStatus = async (req, res) => {
             where: { ean },
             include: { brand: true, allegroCategory: true }
         });
-        if (!product) return res.status(404).json({ error: "Nie znaleziono produktu" });
+        
+        // Jeśli produkt nie został jeszcze utworzony w bazie przez potok EAN Pipeline
+        if (!product) return res.status(200).json({ status: 'PROCESSING' });
         
         // Jeśli produkt jest w trakcie analizy
         if (product.offerDraft && product.offerDraft.status === 'PROCESSING') {
