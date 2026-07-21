@@ -97,9 +97,12 @@ class EanPipelineService {
                 return vAudit;
             })();
 
-            console.log(`[EAN Pipeline] Pobieranie IntelligenceData (gatherProductIntelligence)...`);
-            const intelligenceData = await AiService.gatherProductIntelligence(ean, product.name);
-            console.log(`[EAN Pipeline] IntelligenceData ZAKOŃCZONE.`);
+            console.log(`[EAN Pipeline] Pobieranie IntelligenceData (gatherProductIntelligence) & SentimentData (gatherCustomerSentiment)...`);
+            const [intelligenceData, sentimentData] = await Promise.all([
+                AiService.gatherProductIntelligence(ean, product.name),
+                AiService.gatherCustomerSentiment(ean, product.name)
+            ]);
+            console.log(`[EAN Pipeline] Intelligence & Sentiment Data ZAKOŃCZONE.`);
 
             // 2.5 Auto-Fill PIM Parameters (Asynchronicznie, nie blokuje AEO)
             console.log(`[EAN Pipeline] 2.5 Rozpoczynanie Agenta Auto-Fill (PIM Parameters)...`);
@@ -159,8 +162,8 @@ class EanPipelineService {
             const aeoContent = await AiService.generateAEOContent(product.name, product.descriptionHtml, intelligenceData);
             console.log(`[EAN Pipeline] 4. Agent AEO - ZAKOŃCZONE.`);
 
-            // 5. GEO Text & Optymalizacja Tytułu (Równolegle, wymagają AEO)
-            console.log(`[EAN Pipeline] 5. Agent GEO Text & Agent Tytułu - Start równoległy...`);
+            // 5. GEO Text & Optymalizacja Tytułu (Równolegle, wymagają AEO & Sentiment)
+            console.log(`[EAN Pipeline] 5. Agent GEO Text & Agent Tytułu - Start równoległy z analizą opinii...`);
             const titlePromise = (async () => {
                 console.log(`[EAN Pipeline] -> Uruchamianie titlePromise...`);
                 const res = await AiService.generateTitleOnly(aeoContent, product.name);
@@ -168,8 +171,8 @@ class EanPipelineService {
                 return res;
             })();
             const geoPromise = (async () => {
-                console.log(`[EAN Pipeline] -> Uruchamianie geoPromise...`);
-                const res = await AiService.generateGEOTextContent(product.name, aeoContent, intelligenceData);
+                console.log(`[EAN Pipeline] -> Uruchamianie geoPromise z kontekstem Sentimentu...`);
+                const res = await AiService.generateGEOTextContent(product.name, aeoContent, intelligenceData, sentimentData);
                 console.log(`[EAN Pipeline] -> geoPromise ZAKOŃCZONY.`);
                 return res;
             })();
@@ -188,13 +191,20 @@ class EanPipelineService {
             const [visualAudit] = await Promise.all([visionPromise, autofillPromise]);
             console.log(`[EAN Pipeline] Równoległe procesy (Vision/Autofill) odebrane.`);
 
-            // ZAKOŃCZENIE FAZY 2 - Tarcza Błędu: Weryfikacja Człowieka (HitL)
-            console.log(`[EAN Pipeline] Zapisywanie rezultatu do Kopii Roboczej PIM (HitL)...`);
+            // ZAKOŃCZENIE FAZY 2 - Tarcza Błędu: Weryfikacja Człowieka (HitL - EU AI Act Art. 14)
+            console.log(`[EAN Pipeline] Zapisywanie rezultatu do Kopii Roboczej PIM z metadanymi EU AI Act (Art. 50 & 14)...`);
             const finalDraft = {
                 title: titleResult.title,
                 htmlContent: geoResult.htmlContent,
                 complianceReport,
-                images: visualAudit.images || []
+                images: visualAudit.images || [],
+                customerSentiment: sentimentData,
+                aiMetadata: {
+                    isAiGenerated: true,
+                    aiModel: "gemini-3.1-pro-preview",
+                    generatedAt: new Date().toISOString(),
+                    complianceNotice: "EU AI Act Transparency Compliant (Art. 50)"
+                }
             };
 
             const updatedProduct = await prisma.product.update({
