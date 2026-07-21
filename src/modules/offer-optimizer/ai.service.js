@@ -40,11 +40,12 @@ try {
     console.error("[AiService] Brak pliku inci_knowledge.txt - system będzie działał bez rozszerzonej bazy wiedzy.");
 }
 
-const withTimeout = (promise, ms) => {
+const withTimeout = (promise, ms, contextName = 'Unknown Model') => {
     let timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
         timeoutId = setTimeout(() => {
-            reject(new Error(`timeout ${ms}ms exceeded`));
+            console.error(`[AiService Timeout] Zablokowano zawieszone połączenie dla modelu ${contextName} po ${ms}ms.`);
+            reject(new Error(`timeout ${ms}ms exceeded for ${contextName}`));
         }, ms);
     });
     return Promise.race([promise, timeoutPromise]).finally(() => {
@@ -57,18 +58,30 @@ const withTimeout = (promise, ms) => {
  */
 async function generateWithRetry(model, promptOrParts, maxRetries = 3) {
     let attempt = 0;
+    const modelName = model.model || "gemini-model";
+    const startTime = Date.now();
+    console.log(`[AiService] -> Start generateWithRetry dla ${modelName}, max próby: ${maxRetries}`);
+    
     while (attempt < maxRetries) {
         try {
+            const attemptStart = Date.now();
+            console.log(`[AiService] -> ${modelName} Próba ${attempt + 1}/${maxRetries} rozpoczęta...`);
             // Twardy timeout 90 sekund (90000ms) dla każdego zapytania do modelu
-            return await withTimeout(model.generateContent(promptOrParts), 90000);
+            const result = await withTimeout(model.generateContent(promptOrParts), 90000, modelName);
+            console.log(`[AiService] -> ${modelName} Próba ${attempt + 1} ZAKOŃCZONA SUKCESEM po ${Date.now() - attemptStart}ms`);
+            return result;
         } catch (error) {
             attempt++;
-            const isRateLimit = error.status === 429 || error.message.includes('429') || error.message.includes('503');
-            if (attempt >= maxRetries || (!isRateLimit && !error.message.includes('timeout'))) {
+            const isRateLimit = error.status === 429 || (error.message && (error.message.includes('429') || error.message.includes('503')));
+            console.error(`[AiService] -> BŁĄD w generateWithRetry (${modelName}) [Próba ${attempt}]:`, error.message);
+            console.error(error.stack);
+            
+            if (attempt >= maxRetries || (!isRateLimit && !(error.message && error.message.includes('timeout')))) {
+                console.error(`[AiService] -> Krytyczny błąd API, brak dalszych ponowień. Rzucam błąd wyżej.`);
                 throw error; // Fail fast for non-transient errors
             }
             const backoffMs = Math.pow(2, attempt) * 1500 + Math.random() * 1000;
-            console.log(`[AiService] ⚠️ Błąd API (próba ${attempt}/${maxRetries}). Wznawiam (Exponential Backoff) za ${Math.round(backoffMs)}ms...`);
+            console.log(`[AiService] ⚠️ ${modelName} - Wznawiam (Exponential Backoff) za ${Math.round(backoffMs)}ms...`);
             await new Promise(res => setTimeout(res, backoffMs));
         }
     }
