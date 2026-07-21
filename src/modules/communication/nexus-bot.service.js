@@ -393,19 +393,26 @@ async function processBotMention(messageContent, authorName, mode, targetId, soc
         console.error("Błąd podczas przetwarzania bota NeS:", err);
         if (socket) socket.nsp.emit('bot_typing_stop', {});
         
-        // Fallback w przypadku, gdy gemini-3.1-pro-preview nie jest dostępne
-        if (err.message && err.message.includes("404")) {
-            console.log("[NeS] Fallback do gemini-3.1-pro-preview (bez tool config)...");
+        // Fallback w przypadku, gdy gemini-3.1-pro-preview nie jest dostępne (np. 429 lub 404)
+        if (err.message && (err.message.includes("404") || err.message.includes("429") || err.message.includes("Too Many Requests"))) {
+            console.log("[NeS] Fallback do gemini-3.5-flash (bez tool config)...");
             const fallbackModel = genAI.getGenerativeModel({
-                model: 'gemini-3.1-pro-preview',
-                tools: tools,
+                model: 'gemini-3.5-flash',
                 systemInstruction: { parts: [{ text: systemInstruction }] }
             });
             const fallbackChat = fallbackModel.startChat();
-            const fallbackResult = await fallbackChat.sendMessage(`Wiadomość od użytkownika ${authorName}: ${messageContent}`);
-            
-            // Proste przesłanie bez obsługi tools w fallbacku dla oszczędności kodu
-            await chatService.saveGlobalMessage(botId, fallbackResult.response.text());
+            try {
+                const fallbackResult = await fallbackChat.sendMessage(`Wiadomość od użytkownika ${authorName}: ${messageContent}`);
+                if (mode === 'global') {
+                    await chatService.saveGlobalMessage(botId, fallbackResult.response.text());
+                } else if (mode === 'direct') {
+                    await chatService.saveDirectMessage(botId, 'NeS', targetId, fallbackResult.response.text());
+                } else {
+                    await chatService.saveEntityComment(mode, targetId, botId, fallbackResult.response.text());
+                }
+            } catch (fallbackErr) {
+                await chatService.saveGlobalMessage(botId, `❌ Wystąpił błąd podczas przetwarzania zapytania w fallbacku: ${fallbackErr.message}`);
+            }
         } else {
             await chatService.saveGlobalMessage(botId, `❌ Wystąpił błąd podczas przetwarzania zapytania: ${err.message}`);
         }

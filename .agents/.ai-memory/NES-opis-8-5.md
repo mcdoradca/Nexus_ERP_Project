@@ -1197,3 +1197,9 @@ W celu weryfikacji zdrowia systemu, wprowadzono zestaw wbudowanych skryptów dia
 2. `test-ai-agents.js` - Testuje logikę agentów AI w środowisku izolowanym (m.in. Offer Optimizer, Sentinel) weryfikując poprawność zwracanych formatów JSON (SOT).
 3. `test-modules-e2e.js` - Testuje zabezpieczenia JWT (kody 401/403) dla kontrolerów w modułach CRM, MDM, Analytics za pomocą symulacji zapytań HTTP.
 Testy te należy okresowo uruchamiać lokalnie podczas drastycznych zmian architektury, w celu potwierdzenia że system AI Swarm oraz bramki API są stabilne.
+
+ # #   A k t u a l i z a c j a   -   2 0 2 6 - 0 7 - 2 1 
+ -   * * M o d u B  C z a t u * * :   U s u n i t o   b Bd   p o w o d u j c y   c i g Be   p r z e r y w a n i e   p o Bc z e n i a   W e b S o c k e t   p r z y   k a |d e j   z m i a n i e   k o n t e k s t u   c z a t u   ( n p .   p r z e Bc z a n i u   m i d z y   s t r u m i e n i e m   g B� w n y m   a   w i a d o m o [c i a m i   b e z p o [r e d n i m i ) .   G w a r a n t u j e   t o   s t a b i l n e ,   b e z s t r a t n e   o d b i e r a n i e   g l o b a l n y c h   b r o a d c a s t � w   ( r o z w i z a n o   p r o b l e m :   ' w i a d o m o [c i   n i e   s   w y s y Ba n e   d o   i n n y c h ' ) . 
+ -   * * M o d u B  N e S   B o t * * :   N a p r a w i o n o   l o g i k   f a l l b a c k u   w   p r z y p a d k u   w y s t p i e n i a   l i m i t u   ' 4 2 9   T o o   M a n y   R e q u e s t s '   n a   m o d e l u   g B� w n y m .   S y s t e m   p r a w i d Bo w o   p r z e c h w y t u j e   t e r a z   k o d y   b Bd u ,   p r z e Bc z a j c   n a   m o d e l   z a p a s o w y   ' g e m i n i - 3 . 5 - f l a s h ' ,   z a m i a s t   p o n o w n i e   |d a   z a b l o k o w a n e g o   m o d e l u   ( r o z w i z a n o   p r o b l e m :   ' b o t   n i e   o d p o w i a d a   w   p r z y p a d k u   p r z e k r o c z e n i a   l i m i t u ' ) . 
+  
+ 
