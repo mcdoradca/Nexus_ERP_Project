@@ -158,7 +158,11 @@ export default function UniversalChat({ mode, targetId, currentUser, socket, tit
 
   const handleSendMessage = async (e) => {
     e?.preventDefault();
-    if (!newMessage.trim() || !socket) return;
+    if (!newMessage.trim()) return;
+    if (!socket || !socket.connected) {
+      alert("Błąd: Serwer czatu (Socket) jest rozłączony lub nie zainicjalizowany!");
+      return;
+    }
 
     const payload = { content: newMessage };
     let eventName = '';

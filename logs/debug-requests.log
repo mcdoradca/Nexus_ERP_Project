@@ -1079,3 +1079,13 @@
   Response: undefined
 [2026-07-21T07:43:50.161Z] GET /api/analytics/dashboard - 401 - 2ms
   Response: undefined
+[2026-07-21T10:40:01.805Z] GET /api/health - 200 - 937ms
+[2026-07-21T10:40:01.828Z] GET /api/auth/me - 404 - 6ms
+  Response: undefined
+[2026-07-21T10:40:01.839Z] GET /api/mdm/products?limit=1 - 404 - 2ms
+  Response: undefined
+[2026-07-21T10:40:01.850Z] GET /api/crm/orders?limit=1 - 401 - 2ms
+  Response: undefined
+[2026-07-21T10:40:01.857Z] GET /api/analytics/dashboard - 401 - 1ms
+  Response: undefined
+[2026-07-21T11:04:42.730Z] GET /api/health - 200 - 930ms
