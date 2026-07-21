@@ -25,6 +25,7 @@ jobs:
             # 2. Pobierz najnowsze zmiany z gałęzi dev
             git fetch origin
             git reset --hard origin/dev
+            git clean -fd
             
             # 3. Zainstaluj zależności backendu i uruchom TESTY (CI)
             npm install
