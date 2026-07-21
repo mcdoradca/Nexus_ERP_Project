@@ -1,15 +1,15 @@
-name: Deploy Nexus ERP to OVH
+name: Deploy Nexus ERP to Staging (OVH)
 
 on:
   push:
     branches:
-      - main
+      - dev
 
 jobs:
-  deploy:
+  deploy-staging:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
+      - name: Deploy to Staging via SSH
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -19,12 +19,12 @@ jobs:
             # Przerwij skrypt w przypadku jakiegokolwiek bledu
             set -e
             
-            # 1. Przejdź do folderu aplikacji
-            cd /var/www/nexus
+            # 1. Przejdź do folderu instancji Staging
+            cd /var/www/nexus-staging
             
-            # 2. Pobierz najnowsze zmiany z GitHuba
+            # 2. Pobierz najnowsze zmiany z gałęzi dev
             git fetch origin
-            git reset --hard origin/main
+            git reset --hard origin/dev
             
             # 3. Zainstaluj zależności backendu i uruchom TESTY (CI)
             npm install
@@ -36,9 +36,9 @@ jobs:
             npm run build
             cd ..
             
-            # 5. Aktualizacja bazy danych (z wbudowanym backupem uzywajac db:push-safe)
+            # 5. Aktualizacja bazy danych (z wbudowanym backupem)
             npx prisma generate
             npm run db:push-safe
             
-            # 6. Zrestartuj proces Node.js za pomocą PM2
-            pm2 restart nexus
+            # 6. Zrestartuj testowy proces Node.js
+            pm2 restart nexus-staging

@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "concurrently \"nodemon src/server.js\" \"cd Resi && python -m waitress --listen=127.0.0.1:5000 app:app\""
+    "dev": "concurrently \"nodemon src/server.js\" \"cd Resi && python -m waitress --listen=127.0.0.1:5000 app:app\"",
+    "db:backup": "node scripts/backup-db.js",
+    "db:push-safe": "npm run db:backup && npx prisma db push",
+    "test": "jest --passWithNoTests --forceExit"
   },
   "keywords": [],
   "author": "",
@@ -45,6 +48,8 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
-    "nodemon": "^3.1.14"
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
   }
 }

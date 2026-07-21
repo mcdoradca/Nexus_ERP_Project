@@ -817,13 +817,14 @@ app.use(errorHandler);
 
 // --- URUCHOMIENIE SERWERA ---
 // Podmiana z app.listen na server.listen (obsługa WebSockets)
-server.listen(PORT, () => {
-    console.log(`[🚀] NeS Backend & WebSocket (Socket.IO) operuje na porcie: ${PORT}`);
-    
-    // Inicjalizacja nasłuchu IMAP w tle dla skrzynek pracowniczych
-    startEmailListener();
-});
-
+if (require.main === module) {
+    server.listen(PORT, () => {
+        console.log(`[🚀] NeS Backend & WebSocket (Socket.IO) operuje na porcie: ${PORT}`);
+        
+        // Inicjalizacja nasłuchu IMAP w tle dla skrzynek pracowniczych
+        startEmailListener();
+    });
+}
 // --- RĘCZNY WYZWALACZ SENTINELA ---
 app.post('/api/allegro-sentinel/trigger', authenticateToken, async (req, res) => {
     try {
@@ -936,3 +937,5 @@ const gracefulShutdown = async (signal) => {
 process.once('SIGUSR2', () => gracefulShutdown('SIGUSR2'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+module.exports = { app, server };

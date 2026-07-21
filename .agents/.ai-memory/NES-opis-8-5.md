@@ -1176,3 +1176,16 @@ exus), z ustawionym mechanizmem autostartu po restarcie maszyny (pm2 startup).
 - **Zabezpieczenia**: System działa z aktywnym firewallem ufw otwartym wyłącznie na portach 22 (SSH), 80 (HTTP dla certbota) i 443 (HTTPS). Aplikacja operuje w izolowanym katalogu użytkownika (non-root).
 
 Wdrażanie ewentualnych zmian na ten moment odbywa się mechanicznie poprzez pull i restart procesu, przygotowywane jest przejście na automatyzację CI/CD poprzez Github Actions.
+
+## Reguły CI/CD, Staging i Automatyzacji
+W projekcie obowiązują zaawansowane procedury wdrażania (ADR-016), zdefiniowane dla bezpiecznego zarządzania aplikacją ERP na produkcji:
+1. **NIGDY nie programujemy na branchu main**. Gałąź main to odzwierciedlenie serwera produkcyjnego. 
+2. Cały kod testowany i rozwijany jest na gałęzi **dev** lub branchach pobocznych (feature branches). Zawsze generujemy Pull Requesty.
+3. Repozytorium jest sprzężone z dwiema instancjami na OVH:
+   - **main** -> Produkcja pod 
+-e-s.it (PM2 proces: 
+exus, Port: 3001).
+   - **dev** -> Staging pod staging.n-e-s.it (PM2 proces: 
+exus-staging, Port: 3002, uruchamiany z folderu /var/www/nexus-staging).
+4. **Zabezpieczenie przed uszkodzeniem bazy danych:** Każda integracja (push) uruchamia GitHub Action, który wykonuje weryfikację. Jeśli na horyzoncie jest zmiana bazy Prisma, pipeline automatycznie generuje snapshot / zrzut bezpieczeństwa.
+5. **JEST (Automatyczne testy)**: Każdy nowy Agent edytujący moduł lub tworzący nowy musi upewnić się, że testy zautomatyzowane zostaną napisane i zaktualizowane, by Pipeline mógł je zweryfikować przed wypuszczeniem na Staging/Produkcję. Złamanie testów automatycznie odrzuca build i zatrzymuje proces.
