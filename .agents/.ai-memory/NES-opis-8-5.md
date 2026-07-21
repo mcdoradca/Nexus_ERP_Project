@@ -1189,3 +1189,11 @@ exus, Port: 3001).
 exus-staging, Port: 3002, uruchamiany z folderu /var/www/nexus-staging).
 4. **Zabezpieczenie przed uszkodzeniem bazy danych:** Każda integracja (push) uruchamia GitHub Action, który wykonuje weryfikację. Jeśli na horyzoncie jest zmiana bazy Prisma, pipeline automatycznie generuje snapshot / zrzut bezpieczeństwa.
 5. **JEST (Automatyczne testy)**: Każdy nowy Agent edytujący moduł lub tworzący nowy musi upewnić się, że testy zautomatyzowane zostaną napisane i zaktualizowane, by Pipeline mógł je zweryfikować przed wypuszczeniem na Staging/Produkcję. Złamanie testów automatycznie odrzuca build i zatrzymuje proces.
+
+
+## Rutyny i Skrypty Testowe (21.07.2026)
+W celu weryfikacji zdrowia systemu, wprowadzono zestaw wbudowanych skryptów diagnostycznych w folderze `scripts/`:
+1. `test-api-keys.js` - Weryfikuje łączność ze wszystkimi zewnętrznymi integracjami (Prisma, Supabase, Gemini, Allegro, Claid, Google Meet, SMTP).
+2. `test-ai-agents.js` - Testuje logikę agentów AI w środowisku izolowanym (m.in. Offer Optimizer, Sentinel) weryfikując poprawność zwracanych formatów JSON (SOT).
+3. `test-modules-e2e.js` - Testuje zabezpieczenia JWT (kody 401/403) dla kontrolerów w modułach CRM, MDM, Analytics za pomocą symulacji zapytań HTTP.
+Testy te należy okresowo uruchamiać lokalnie podczas drastycznych zmian architektury, w celu potwierdzenia że system AI Swarm oraz bramki API są stabilne.
