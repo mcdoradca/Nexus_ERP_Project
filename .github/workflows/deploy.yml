@@ -1,51 +1,39 @@
-name: NeS CI/CD Pipeline - Google Cloud Deploy
+name: Deploy Nexus ERP to OVH
 
 on:
   push:
     branches:
-      - main # Skrypt uruchomi się tylko wtedy, gdy kod zostanie wypchnięty do gałęzi main
-  workflow_dispatch: # Pozwala również na ręczne wyzwolenie z panelu GitHub
+      - main
 
 jobs:
   deploy:
-    name: Wdrażanie na serwer GCP
     runs-on: ubuntu-latest
-
     steps:
-      - name: 🚀 Wdrażanie przez SSH na Google Compute Engine
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.GCP_HOST }}
-          username: ${{ secrets.GCP_USERNAME }}
-          key: ${{ secrets.GCP_SSH_KEY }}
-          port: 22
-          command_timeout: 30m
-          # Jeśli maszyna GCP ma ścisłe sprawdzanie kluczy
-          script_stop: true
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "Połączono z Google Cloud Platform. Rozpoczynam aktualizację Nexusa..."
+            # 1. Przejdź do folderu aplikacji
+            cd /var/www/nexus
             
-            # Przejście do folderu z projektem (zakładamy, że projekt leży w katalogu domowym /home/username/Nexus_ERP_Project)
-            cd ~/Nexus_ERP_Project || (echo "Katalog nie istnieje! Sklonuj najpierw repozytorium ręcznie na serwer!" && exit 1)
-            
-            echo "Pobieranie najnowszego kodu z GitHub..."
-            # Zapewnia, że kod zostanie siłowo wyrównany do GitHuba, jeśli pojawiłyby się konflikty w logach serwera
-            git fetch --all
+            # 2. Pobierz najnowsze zmiany z GitHuba
+            git fetch origin
             git reset --hard origin/main
-            git pull origin main
             
-            echo "Zatrzymywanie starych kontenerów i czyszczenie sierot (orphans)..."
-            docker compose down --remove-orphans
+            # 3. Zainstaluj zależności i zbuduj backend i frontend
+            npm install
             
-            echo "Oczyszczanie uszkodzonego cache Buildkit..."
-            docker builder prune -a -f
-
-            echo "Kompilacja nowych obrazów AI i przełączanie kontenerów..."
-            # Komenda --build wymusi zbudowanie nowego Nginxa (frontend) oraz Node.js (backend)
-            docker compose build --no-cache
-            docker compose up -d
+            # Budowa frontendu
+            cd frontend
+            npm install
+            npm run build
+            cd ..
             
-            echo "Oczyszczanie ze starych, nieużywanych śmieci w pamięci GCP..."
-            docker image prune -f
+            # 4. Aktualizacja bazy danych (Prisma)
+            npx prisma generate
             
-            echo "✅ NeS zaktualizowany i gotowy do pracy operacyjnej."
+            # 5. Zrestartuj proces Node.js za pomocą PM2
+            pm2 restart nexus

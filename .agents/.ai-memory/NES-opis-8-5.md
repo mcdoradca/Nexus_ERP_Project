@@ -1167,3 +1167,12 @@ Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dost
  # #   A K T U A L I Z A C J A   A R C H I T E K T U R Y   -   M O D U A  R E S I   ( 2 0 . 0 7 . 2 0 2 6 ) 
  Z g o d n i e   z   d e c y z j a m i   p r o j e k t o w y m i ,   w d r o |o n o   W a r i a n t   A   m o d u Bu   R e s i ,   c a Bk o w i c i e   e l i m i n u j c   p o p r z e d n i   i m p l e m e n t a c j   P y t h o n / W a i t r e s s / r e m b g .   P r o c e s   w y c i n a n i a   t Ba   z   o b r a z � w   p r z e n i e s i o n o   d o   A P I   C l a i d ,   a   s y s t e m   z a r z d z a n i a   o b r a z a m i   ( M T o o l )   w y k o r z y s t u j e   t e r a z   b e z p o [r e d n i e   e n d p o i n t y   N o d e . j s   ( / a p i / r e s i / p r o c e s s )   i   b i b l i o t e k   S h a r p   ( p a d d i n g / c r o p / c a n v a s   a d j u s t m e n t )   p r z y   z a c h o w a n i u   [c i s Be g o   o g r a n i c z e n i a   w s p � Bb i e |n o [c i .   T o   r o z w i z a n i e   p o z w o l i Bo   z l i k w i d o w a   b Bd y   O O M ,   o d c i |y   m a s z y n y   d o c e l o w e   ( O V H )   o r a z   u n i f i k o w a   b a c k e n d .  
  
+## Architektura Produkcyjna (OVH VPS)
+System uruchomiony jest na dedykowanym VPS-ie w OVH (Ubuntu 26.04) o IP 145.239.73.39 pod domeną n-e-s.it.
+- **Frontend**: Zbudowany przez Vite (Node.js) jako statyczne pliki, serwowany bezpośrednio przez Nginx z katalogu /var/www/nexus/frontend/dist.
+- **Backend**: Serwer monolityczny (Express + Prisma ORM) uruchomiony przez Node.js na porcie 3001 pod ścieżką /api/. Utrzymywany przez daemon PM2 (proces o nazwie 
+exus), z ustawionym mechanizmem autostartu po restarcie maszyny (pm2 startup).
+- **Nginx & SSL**: Nginx pełni rolę serwera webowego oraz reverse proxy dla backendu. Certyfikaty SSL zarządzane są automatycznie poprzez Let's Encrypt (certbot --nginx), wymuszając szyfrowany ruch HTTPs.
+- **Zabezpieczenia**: System działa z aktywnym firewallem ufw otwartym wyłącznie na portach 22 (SSH), 80 (HTTP dla certbota) i 443 (HTTPS). Aplikacja operuje w izolowanym katalogu użytkownika (non-root).
+
+Wdrażanie ewentualnych zmian na ten moment odbywa się mechanicznie poprzez pull i restart procesu, przygotowywane jest przejście na automatyzację CI/CD poprzez Github Actions.
