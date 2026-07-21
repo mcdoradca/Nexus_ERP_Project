@@ -8,7 +8,7 @@ export default function useNexusEngine(API_URL, token, currentUser, activeChat, 
   useEffect(() => {
     if (!token) return;
 
-    const newSocket = io(API_URL, { path: '/api/socket.io', auth: { token } });
+    const newSocket = io(API_URL, { auth: { token } });
     setSocket(newSocket);
     fetchData(); // Inicjalne pobranie danych po autoryzacji
     
