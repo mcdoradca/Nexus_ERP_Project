@@ -832,6 +832,11 @@ if (require.main === module) {
         // Inicjalizacja nasłuchu IMAP w tle dla skrzynek pracowniczych
         startEmailListener();
     });
+    
+    // Ochrona przed Gateway Timeout dla długich operacji Generatywnego AI (Claid.ai, Lifestyle, EAN Pipeline)
+    server.setTimeout(600000); // 10 minut
+    server.keepAliveTimeout = 65000;
+    server.headersTimeout = 66000;
 }
 // --- RĘCZNY WYZWALACZ SENTINELA ---
 app.post('/api/allegro-sentinel/trigger', authenticateToken, async (req, res) => {
