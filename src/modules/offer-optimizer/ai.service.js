@@ -285,7 +285,7 @@ async function generateComplianceReport(productName, aeoContent, originalDescrip
     console.log(`[AiService] Odpalanie Agenta Prawnego (Compliance Agent) dla: ${productName}...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "antigravity-preview-05-2026",
+            model: "gemini-3.1-pro-preview",
             generationConfig: { temperature: 0.0 } // 0.0 rygorystycznie - brak miejsca na halucynacje prawne
         });
         
@@ -341,6 +341,44 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
         temperature: isCosmeticAudit ? 0.0 : 0.6,
         responseMimeType: "application/json",
         maxOutputTokens: 8192,
+        responseSchema: {
+            type: "OBJECT",
+            properties: {
+                title: { type: "STRING" },
+                htmlContent: {
+                    type: "OBJECT",
+                    properties: {
+                        opis1: { type: "STRING" },
+                        opis2: { type: "STRING" },
+                        opis3: { type: "STRING" },
+                        opis4: { type: "STRING" },
+                        opis5: { type: "STRING" }
+                    },
+                    required: ["opis1", "opis2", "opis3", "opis4", "opis5"]
+                },
+                features: {
+                    type: "ARRAY",
+                    items: { type: "STRING" }
+                },
+                images: {
+                    type: "ARRAY",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            originalUrl: { type: "STRING" },
+                            replacedUrl: { type: "STRING" },
+                            isCompliant: { type: "BOOLEAN" },
+                            alerts: {
+                                type: "ARRAY",
+                                items: { type: "STRING" }
+                            }
+                        },
+                        required: ["originalUrl", "isCompliant", "alerts"]
+                    }
+                }
+            },
+            required: ["title", "htmlContent", "features"]
+        }
     };
 
     const model = genAI.getGenerativeModel({
@@ -387,24 +425,8 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
         try {
             parsed = JSON.parse(payloadString);
         } catch (parseError) {
-            console.warn("[AiService] Błąd JSON.parse. Próba Auto-Naprawy (Auto-Repair) urwanego stringa...");
-            
-            // Auto-Repair: Szukamy ostatniego poprawnie zamkniętego obiektu w tablicy images.
-            // Ucinamy uszkodzony na końcu element i na siłę domykamy strukturę JSON.
-            const lastCompleteObject = payloadString.lastIndexOf('},');
-            if (lastCompleteObject !== -1) {
-                const repairedString = payloadString.substring(0, lastCompleteObject + 1) + "]}";
-                try {
-                    parsed = JSON.parse(repairedString);
-                    console.log("[AiService] Sukces! Uratowano urwany JSON i zachowano główne dane (Title, HTML).");
-                } catch (e) {
-                    require('fs').writeFileSync(path.join(__dirname, '..', '..', '..', 'error_500.txt'), payloadString);
-                    throw new Error("Generative API Failed: " + parseError.message);
-                }
-            } else {
-                require('fs').writeFileSync(path.join(__dirname, '..', '..', '..', 'error_500.txt'), payloadString);
-                throw new Error("Generative API Failed: " + parseError.message);
-            }
+            require('fs').writeFileSync(path.join(__dirname, '..', '..', '..', 'error_500.txt'), payloadString);
+            throw new Error("Generative API Failed: " + parseError.message);
         }
 
         // Uruchomienie Agenta Segmentowego dla ustrukturyzowania i poprawienia tonu

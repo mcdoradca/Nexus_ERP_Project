@@ -68,12 +68,18 @@ class EanPipelineService {
                     stock: deepData.stock
                 };
 
-                console.log(`[EAN Pipeline] Upsertowanie produktu w bazie danych...`);
-                product = await prisma.product.upsert({
-                    where: { ean },
-                    create: { ean, sku: deepData.sku || ean, name: deepData.name, brandId, ...deepPayload },
-                    update: deepPayload
-                });
+                console.log(`[EAN Pipeline] Aktualizacja produktu w bazie danych...`);
+                let existingProduct = await prisma.product.findUnique({ where: { ean } });
+                if (!existingProduct) {
+                    product = await prisma.product.create({
+                        data: { ean, sku: deepData.sku || ean, name: deepData.name, brandId, ...deepPayload }
+                    });
+                } else {
+                    product = await prisma.product.update({
+                        where: { ean },
+                        data: deepPayload
+                    });
+                }
                 console.log(`[EAN Pipeline] Baza danych zaktualizowana.`);
             }
 
