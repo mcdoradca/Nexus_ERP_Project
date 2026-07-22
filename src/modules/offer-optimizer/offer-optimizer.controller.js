@@ -560,14 +560,12 @@ const triggerUltimatePipeline = async (req, res) => {
 
         console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta EAN Pipeline: ${ean}`);
         
-        // Oznaczamy istniejący produkt w bazie jako PROCESSING, aby zapobiec zwracaniu przestarzałych wyników przez polling
-        const existingProduct = await prisma.product.findUnique({ where: { ean } });
-        if (existingProduct) {
-            await prisma.product.update({
-                where: { ean },
-                data: { offerDraft: { status: 'PROCESSING', startedAt: Date.now() } }
-            });
-        }
+        // Zawsze zapisujemy status PROCESSING w bazie danych przed zwrotem 202
+        await prisma.product.upsert({
+            where: { ean },
+            create: { ean, sku: ean, name: ean, offerDraft: { status: 'PROCESSING', startedAt: Date.now() } },
+            update: { offerDraft: { status: 'PROCESSING', startedAt: Date.now() } }
+        });
 
         // Zwracamy HTTP 202 natychmiast
         res.status(202).json({ status: "processing", ean, message: "Pipeline uruchomiony w tle." });
@@ -612,21 +610,18 @@ const checkPipelineStatus = async (req, res) => {
             include: { brand: true, allegroCategory: true }
         });
         
-        // Jeśli produkt nie został jeszcze utworzony w bazie przez potok EAN Pipeline
-        if (!product) return res.status(200).json({ status: 'PROCESSING' });
-        
-        // Jeśli produkt jest w trakcie analizy
-        if (product.offerDraft && product.offerDraft.status === 'PROCESSING') {
+        // Jeśli produkt nie został jeszcze utworzony w bazie lub jest przetwarzany
+        if (!product || !product.offerDraft || product.offerDraft.status === 'PROCESSING') {
             return res.status(200).json({ status: 'PROCESSING' });
         }
 
         // Jeśli wystąpił błąd podczas wykonywania w tle
-        if (product.offerDraft && product.offerDraft.status === 'ERROR') {
+        if (product.offerDraft.status === 'ERROR') {
             return res.status(200).json({ status: 'ERROR', error: product.offerDraft.error || 'Błąd potoku AI' });
         }
 
         // Wykrycie uszkodzonego/błędnego szkicu (np. stary "Błąd systemu GEO")
-        const hasGeoError = product.offerDraft && product.offerDraft.htmlContent && 
+        const hasGeoError = product.offerDraft.htmlContent && 
             typeof product.offerDraft.htmlContent === 'object' && 
             product.offerDraft.htmlContent.opis1 && 
             product.offerDraft.htmlContent.opis1.includes('Błąd systemu GEO');
@@ -635,14 +630,21 @@ const checkPipelineStatus = async (req, res) => {
             return res.status(200).json({ status: 'ERROR', error: 'Poprzednia generacja zawierała błąd GEO. Uruchom ponowną generację dla tego EAN.' });
         }
 
-        // Jeśli produkt ma ukończony offerDraft (z tytułem lub opisem)
-        if (product.offerDraft && (product.offerDraft.title || product.offerDraft.htmlContent)) {
+        // Weryfikacja czy opisy HTML (opis1-opis5) zostały rzeczywiście wygenerowane przez Agentów AI
+        const hasValidHtml = product.offerDraft.htmlContent && 
+            typeof product.offerDraft.htmlContent === 'object' && 
+            product.offerDraft.htmlContent.opis1 && 
+            product.offerDraft.htmlContent.opis1.trim() !== '';
+
+        if (product.offerDraft.title && hasValidHtml) {
             const result = {
                 ...product,
                 finalDraft: product.offerDraft
             };
             return res.status(200).json({ status: 'COMPLETE', result });
         }
+
+        // Dopóki opisy nie są gotowe, informujemy frontend o trwającym procesie
         return res.status(200).json({ status: 'PROCESSING' });
     } catch (err) {
         return res.status(500).json({ error: err.message });
