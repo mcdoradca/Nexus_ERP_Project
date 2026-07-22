@@ -756,9 +756,9 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     
     const FormData = require('form-data');
     const form = new FormData();
-    form.append('image_file', inputBuffer, { filename: 'product.jpg', contentType: 'image/jpeg' });
+    form.append('imageFile', inputBuffer, { filename: 'product.jpg', contentType: 'image/jpeg' });
     form.append('background.prompt', scenePrompt);
-    form.append('shadow.mode', 'ai.soft');
+    form.append('shadow.mode', 'ai.preset-soft');
     form.append('export.format', 'jpeg');
 
     const startTime = Date.now();
@@ -766,6 +766,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         const response = await axios.post('https://image-api.photoroom.com/v2/edit', form, {
             headers: {
                 'x-api-key': photoroomKey,
+                'pr-ai-shadows-model-version': '2026-04-15',
                 ...form.getHeaders()
             },
             responseType: 'arraybuffer',
