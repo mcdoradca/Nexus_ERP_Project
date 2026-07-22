@@ -10,7 +10,17 @@ async function login(req, res) {
             return res.status(401).json({ error: error.message });
         }
         console.error('[Auth Controller] Login Error:', error);
-        require('fs').appendFileSync('logs/login_errors.log', error.stack + '\n');
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const logsDir = path.join(process.cwd(), 'logs');
+            if (!fs.existsSync(logsDir)) {
+                fs.mkdirSync(logsDir, { recursive: true });
+            }
+            fs.appendFileSync(path.join(logsDir, 'login_errors.log'), error.stack + '\n');
+        } catch (fsError) {
+            console.error('[Auth Controller] Could not write to login_errors.log:', fsError);
+        }
         res.status(500).json({ error: 'Błąd serwera podczas logowania: ' + (error.message || 'Wewnętrzny błąd') });
     }
 }
