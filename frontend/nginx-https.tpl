@@ -28,7 +28,7 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
 
-    root /usr/share/nginx/html;
+    root /var/www/nexus/frontend/dist;
     index index.html;
 
     # Proxy dla zapytań API do backendu

@@ -65,7 +65,9 @@ jobs:
             # 5. Aktualizacja i przeładowanie konfiguracji Nginx dla proxy i 600s timeoutu
             if [ -f "frontend/nginx-https.tpl" ]; then
                 sudo cp frontend/nginx-https.tpl /etc/nginx/sites-available/nexus 2>/dev/null || true
-                sudo nginx -s reload 2>/dev/null || true
+                sudo ln -sf /etc/nginx/sites-available/nexus /etc/nginx/sites-enabled/nexus 2>/dev/null || true
+                sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+                sudo systemctl reload nginx 2>/dev/null || sudo nginx -s reload 2>/dev/null || true
             fi
 
             # 6. Zrestartuj proces Node.js za pomocą PM2
