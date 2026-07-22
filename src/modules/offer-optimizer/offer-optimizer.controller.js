@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const OfferOptimizerService = require('./offer-optimizer.service');
 const AiService = require('./ai.service');
 const AllegroService = require('./allegro.service');
@@ -7,6 +8,18 @@ const socketService = require('../../core/socket');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const EventBus = require('../../core/EventBus');
+
+// Magazyn pamięci dla asynchronicznych zadań Lifestyle AI z automatycznym czyszczeniem (TTL 15 min)
+const lifestyleJobs = new Map();
+
+setInterval(() => {
+    const now = Date.now();
+    for (const [jobId, job] of lifestyleJobs.entries()) {
+        if (now - job.createdAt > 15 * 60 * 1000) {
+            lifestyleJobs.delete(jobId);
+        }
+    }
+}, 5 * 60 * 1000);
 
 const startOptimization = async (req, res) => {
     try {
@@ -448,25 +461,95 @@ const generateLifestyle = async (req, res) => {
              return res.status(400).json({ error: "Brak zdjęcia wejściowego (wymagany imageBase64 lub sourceImageUrl)." });
         }
 
-        const aiResult = await AiService.generateClaidLifestyle(imageBase64, sourceImageUrl, ean, imageIndex);
-        const newImageBase64 = aiResult.base64;
-        const visualTrendReport = aiResult.visualTrendReport;
+        const jobId = `lifestyle_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
         
-        if (ean) {
+        lifestyleJobs.set(jobId, {
+            status: 'PROCESSING',
+            createdAt: Date.now(),
+            ean,
+            imageIndex
+        });
+
+        // Zwracamy HTTP 202 natychmiast z jobId
+        res.status(202).json({
+            status: 'PROCESSING',
+            jobId,
+            message: "Zlecenie generowania zdjęcia AI rozpoczęte w tle."
+        });
+
+        // Przetwarzanie w tle
+        (async () => {
             try {
-                await prisma.product.update({
-                    where: { ean },
-                    data: { aiImageCost: { increment: 5.0 } }
+                console.log(`[Lifestyle AI Async] Rozpoczęto przetwarzanie zadania ${jobId} dla EAN: ${ean}, Slot: ${imageIndex}`);
+                const aiResult = await AiService.generateClaidLifestyle(imageBase64, sourceImageUrl, ean, imageIndex);
+                const newImageBase64 = aiResult.base64;
+                const visualTrendReport = aiResult.visualTrendReport;
+                
+                if (ean) {
+                    try {
+                        await prisma.product.update({
+                            where: { ean },
+                            data: { aiImageCost: { increment: 5.0 } }
+                        });
+                    } catch (err) {
+                        console.error("[Billing] Nie udalo sie zaktualizowac licznika kosztow AI dla ean:", ean, err);
+                    }
+                }
+
+                lifestyleJobs.set(jobId, {
+                    status: 'COMPLETED',
+                    createdAt: Date.now(),
+                    result: { newImageBase64, visualTrendReport }
                 });
-            } catch (err) {
-                console.error("[Billing] Nie udalo sie zaktualizowac licznika kosztow AI dla ean:", ean, err);
+                console.log(`[Lifestyle AI Async] Zadanie ${jobId} zakończone sukcesem.`);
+            } catch (e) {
+                console.error(`[Lifestyle AI Async] Błąd przetwarzania zadania ${jobId}:`, e.message);
+                lifestyleJobs.set(jobId, {
+                    status: 'ERROR',
+                    createdAt: Date.now(),
+                    error: e.message || "Wewnętrzny błąd serwera przy obróbce Claid AI."
+                });
             }
-        }
-        
-        res.json({ newImageBase64, visualTrendReport });
+        })();
+
     } catch (e) {
-        console.error("Błąd generowania lifestyle (Claid API):", e.message);
-        res.status(500).json({ error: e.message || "Wewnętrzny błąd serwera przy obróbce Claid AI." });
+        console.error("Błąd inicjalizacji generowania lifestyle (Claid API):", e.message);
+        if (!res.headersSent) {
+            res.status(500).json({ error: e.message || "Wewnętrzny błąd serwera przy obróbce Claid AI." });
+        }
+    }
+};
+
+const checkLifestyleStatus = (req, res) => {
+    try {
+        const jobId = req.params.jobId;
+        const job = lifestyleJobs.get(jobId);
+
+        if (!job) {
+            return res.status(404).json({ error: "Nie znaleziono zlecenia generowania zdjęcia o podanym ID." });
+        }
+
+        if (job.status === 'PROCESSING') {
+            return res.status(200).json({ status: 'PROCESSING' });
+        }
+
+        if (job.status === 'ERROR') {
+            return res.status(200).json({ status: 'ERROR', error: job.error });
+        }
+
+        if (job.status === 'COMPLETED') {
+            const responseData = {
+                status: 'COMPLETED',
+                newImageBase64: job.result.newImageBase64,
+                visualTrendReport: job.result.visualTrendReport
+            };
+            return res.status(200).json(responseData);
+        }
+
+        res.status(200).json({ status: 'PROCESSING' });
+    } catch (error) {
+        console.error("[OfferOptimizerController] Błąd sprawdzania statusu lifestyle:", error);
+        res.status(500).json({ error: "Błąd odczytu stanu zadania generowania zdjęcia." });
     }
 };
 
@@ -565,6 +648,7 @@ module.exports = {
     saveDraft,
     exportToBaselinker,
     generateLifestyle,
+    checkLifestyleStatus,
     triggerUltimatePipeline,
     checkPipelineStatus
 };

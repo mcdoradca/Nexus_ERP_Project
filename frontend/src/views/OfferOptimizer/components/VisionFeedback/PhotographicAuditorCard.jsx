@@ -32,7 +32,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
         }
         setIsGeneratingAi(true);
         try {
-            const token = localStorage.getItem('aps_token') || '';
+            const token = localStorage.getItem('aps_token') || localStorage.getItem('token') || '';
             const API_URL = import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`;
             
             const bodyData = { ean, imageIndex: index };
@@ -58,11 +58,50 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                 throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
             }
             
-            const data = await res.json();
-            if (data && data.newImageBase64) {
-                if (onImageReplace) onImageReplace(data.newImageBase64);
-                if (data.visualTrendReport) {
-                    setTrendReport(data.visualTrendReport);
+            const initData = await res.json();
+            
+            if (initData && initData.jobId) {
+                const jobId = initData.jobId;
+                let attempts = 0;
+                const maxAttempts = 60; // Max 60 prób x 3s = 180s
+                
+                while (attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    attempts++;
+                    
+                    try {
+                        const statusRes = await fetch(`${API_URL}/api/offer-optimizer/generate-lifestyle/status/${jobId}`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        
+                        if (!statusRes.ok) continue;
+                        
+                        const statusData = await statusRes.json();
+                        
+                        if (statusData.status === 'COMPLETED') {
+                            if (statusData.newImageBase64) {
+                                if (onImageReplace) onImageReplace(statusData.newImageBase64);
+                                if (statusData.visualTrendReport) {
+                                    setTrendReport(statusData.visualTrendReport);
+                                }
+                            }
+                            return;
+                        }
+                        
+                        if (statusData.status === 'ERROR') {
+                            throw new Error(statusData.error || "Wystąpił błąd podczas przetwarzania obrazu przez AI.");
+                        }
+                    } catch (pollErr) {
+                        if (pollErr.message && !pollErr.message.includes('fetch')) {
+                            throw pollErr;
+                        }
+                    }
+                }
+                throw new Error("Przekroczono czas oczekiwania na odpowiedź serwera Claid AI (180s). Próba przerwana.");
+            } else if (initData && initData.newImageBase64) {
+                if (onImageReplace) onImageReplace(initData.newImageBase64);
+                if (initData.visualTrendReport) {
+                    setTrendReport(initData.visualTrendReport);
                 }
             }
         } catch (error) {
