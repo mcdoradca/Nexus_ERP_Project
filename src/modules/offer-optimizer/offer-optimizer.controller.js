@@ -321,9 +321,20 @@ const saveDraft = async (req, res) => {
             offerDraft: draftData,
         };
 
-        if (draftData.sku !== undefined) updatePayload.sku = draftData.sku;
+        if (draftData.sku !== undefined && draftData.sku !== null && String(draftData.sku).trim() !== '') {
+            updatePayload.sku = String(draftData.sku).trim();
+        }
         if (draftData.brandId !== undefined) updatePayload.brandId = draftData.brandId;
-        if (draftData.subiektId !== undefined) updatePayload.subiektId = draftData.subiektId;
+        if (draftData.subiektId !== undefined) {
+            updatePayload.subiektId = (draftData.subiektId && typeof draftData.subiektId === 'string' && draftData.subiektId.trim() !== '')
+                ? draftData.subiektId.trim()
+                : null;
+        }
+        if (draftData.baselinkerId !== undefined) {
+            updatePayload.baselinkerId = (draftData.baselinkerId && typeof draftData.baselinkerId === 'string' && draftData.baselinkerId.trim() !== '')
+                ? draftData.baselinkerId.trim()
+                : null;
+        }
         if (draftData.status !== undefined) updatePayload.status = draftData.status;
         if (draftData.videoUrl !== undefined) updatePayload.videoUrl = draftData.videoUrl;
         
