@@ -9,7 +9,9 @@ async function login(req, res) {
         if (error.message === 'Nieprawidłowe dane logowania') {
             return res.status(401).json({ error: error.message });
         }
-        res.status(500).json({ error: 'Błąd serwera podczas logowania' });
+        console.error('[Auth Controller] Login Error:', error);
+        require('fs').appendFileSync('logs/login_errors.log', error.stack + '\n');
+        res.status(500).json({ error: 'Błąd serwera podczas logowania: ' + (error.message || 'Wewnętrzny błąd') });
     }
 }
 

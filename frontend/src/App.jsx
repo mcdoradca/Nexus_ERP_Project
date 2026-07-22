@@ -207,8 +207,9 @@ function App() {
       setToken(res.data.token);
       setCurrentUser(res.data.user);
     } catch (err) { 
-      console.error('Błąd logowania', err); 
-      alert('Błąd logowania'); 
+      const serverError = err.response?.data?.error || err.message;
+      console.error('Błąd logowania', serverError, err); 
+      alert('Błąd logowania: ' + serverError); 
     }
   };
 

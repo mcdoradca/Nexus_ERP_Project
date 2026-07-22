@@ -1122,3 +1122,14 @@
   Response: undefined
 [2026-07-22T16:19:04.515Z] POST /api/offer-optimizer/pipeline/trigger - 500 - 548ms
   Response: {"error":"Błąd weryfikacji tożsamości"}
+[2026-07-22T17:57:28.606Z] POST /api/auth/login - 401 - 1009ms
+  Response: {"error":"Nieprawidłowe dane logowania"}
+[2026-07-22T17:58:19.478Z] POST /api/auth/login - 401 - 510ms
+  Response: {"error":"Nieprawidłowe dane logowania"}
+[2026-07-22T18:00:00.560Z] GET /api/health - 200 - 798ms
+[2026-07-22T18:02:16.815Z] POST /api/auth/login - 200 - 571ms
+[2026-07-22T18:02:25.378Z] POST /api/auth/login - 500 - 8ms
+  Response: {"error":"Błąd serwera podczas logowania"}
+[2026-07-22T18:02:32.476Z] POST /api/auth/login - 401 - 830ms
+  Response: {"error":"Nieprawidłowe dane logowania"}
+[2026-07-22T18:05:19.605Z] OPTIONS /api/auth/login - 204 - 2ms
