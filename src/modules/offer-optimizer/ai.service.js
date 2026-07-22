@@ -40,6 +40,22 @@ try {
     console.error("[AiService] Brak pliku inci_knowledge.txt - system będzie działał bez rozszerzonej bazy wiedzy.");
 }
 
+// Dedykowany moduł ustrukturyzowanego logowania zdarzeń Lifestyle AI
+const lifestyleLogPath = path.join(__dirname, '..', '..', '..', 'logs', 'lifestyle-ai.log');
+function logLifestyleEvent(level, message, details = {}) {
+    const timestamp = new Date().toISOString();
+    const logLine = JSON.stringify({ timestamp, level, message, details }) + '\n';
+    try {
+        const logDir = path.dirname(lifestyleLogPath);
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+        fs.appendFileSync(lifestyleLogPath, logLine, 'utf-8');
+    } catch (err) {
+        console.error("[LifestyleLogger Error] Nie udało się zapisać loga do pliku:", err.message);
+    }
+}
+
 const withTimeout = (promise, ms, contextName = 'Unknown Model') => {
     let timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
@@ -674,9 +690,11 @@ KROK 3: Wynik DOKŁADNIE w formacie JSON (bez bloków markdown \`\`\`json):
 async function generateImagenBackground(promptText) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
+        logLifestyleEvent('ERROR', 'Brak GEMINI_API_KEY w środowisku env');
         throw new Error("Brak klucza GEMINI_API_KEY w .env.");
     }
 
+    logLifestyleEvent('INFO', 'Wywoływanie Google Imagen 3 API', { prompt: promptText.substring(0, 150) });
     console.log("[Imagen 3 API] Wywoływanie Google Imagen 3 z promptem scenerii...");
     const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
     
@@ -695,27 +713,35 @@ async function generateImagenBackground(promptText) {
         }
     };
 
+    const startTime = Date.now();
     try {
         const response = await axios.post(url, payload, {
             headers: { 'Content-Type': 'application/json' },
             timeout: 30000
         });
 
+        const durationMs = Date.now() - startTime;
         if (response.data && response.data.predictions && response.data.predictions[0]) {
             const pred = response.data.predictions[0];
             const base64Image = pred.bytesBase64Encoded || pred.image?.bytesBase64Encoded;
             if (base64Image) {
+                logLifestyleEvent('INFO', 'Google Imagen 3 wygenerował tło pomyślnie', { durationMs, bytesLength: base64Image.length });
                 return Buffer.from(base64Image, 'base64');
             }
         }
+        logLifestyleEvent('ERROR', 'Brak obrazu w odpowiedzi Google Imagen 3', { responseData: response.data });
         throw new Error("Brak obrazu w odpowiedzi Google Imagen 3 API.");
     } catch (err) {
+        const durationMs = Date.now() - startTime;
+        const errMsg = err.response?.data?.error?.message || err.message;
+        logLifestyleEvent('ERROR', 'Błąd podczas wywołania Google Imagen 3 API', { durationMs, error: errMsg, responseData: err.response?.data });
         console.error("[Imagen 3 API] Błąd generowania tła:", err.response?.data || err.message);
-        throw new Error("Nie udało się wygenerować scenerii przez Google Imagen 3 API: " + (err.response?.data?.error?.message || err.message));
+        throw new Error("Nie udało się wygenerować scenerii przez Google Imagen 3 API: " + errMsg);
     }
 }
 
 async function generateImagenLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
+    logLifestyleEvent('INFO', 'Rozpoczęto generowanie zdjęcia Lifestyle AI', { ean, imageIndex });
     console.log(`[Google Imagen 3 Lifestyle] Rozpoczęto generowanie zdjęcia (Slot ${imageIndex + 1}) dla EAN: ${ean}`);
 
     // 1. Weryfikacja i pobranie oryginalnego bufora zdjęcia produktu
@@ -728,6 +754,7 @@ async function generateImagenLifestyle(imageBase64, sourceImageUrl, ean, imageIn
         const imgRes = await fetchImageSecure(sourceImageUrl);
         inputBuffer = Buffer.from(imgRes.data);
     } else {
+        logLifestyleEvent('ERROR', 'Brak wejściowego obrazu w zapytaniu');
         throw new Error("Brak wejściowego obrazu (wymagany imageBase64 lub sourceImageUrl).");
     }
 
@@ -777,6 +804,7 @@ async function generateImagenLifestyle(imageBase64, sourceImageUrl, ean, imageIn
     const backgroundBuffer = await generateImagenBackground(scenePrompt);
 
     // 5. PIXEL-PERFECT COMPOSITING (Sharp Node.js) - 100% ochrona etykiet i napisów produktu!
+    logLifestyleEvent('INFO', 'Rozpoczęto kompozytowanie warstwowe Sharp', { ean, imageIndex });
     console.log("[Imagen 3 Lifestyle] Kompozytowanie warstwowe Sharp (100% autentyczność etykiety produktu)...");
     
     const bgMeta = await sharp(backgroundBuffer).metadata();
@@ -828,6 +856,8 @@ async function generateImagenLifestyle(imageBase64, sourceImageUrl, ean, imageIn
         .toBuffer();
 
     const base64Output = `data:image/jpeg;base64,${finalCompositedBuffer.toString('base64')}`;
+
+    logLifestyleEvent('INFO', 'Zakończono pomyślnie generowanie zdjęcia Lifestyle AI', { ean, imageIndex, outputLength: base64Output.length });
 
     return { 
         base64: base64Output, 
