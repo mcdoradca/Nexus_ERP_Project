@@ -687,78 +687,31 @@ KROK 3: Wynik DOKŁADNIE w formacie JSON (bez bloków markdown \`\`\`json):
     }
 }
 
-async function generateImagenBackground(promptText) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        logLifestyleEvent('ERROR', 'Brak GEMINI_API_KEY w środowisku env');
-        throw new Error("Brak klucza GEMINI_API_KEY w .env.");
+async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
+    const photoroomKey = process.env.PHOTOROOM_API_KEY;
+    if (!photoroomKey || photoroomKey === "TBD") {
+        logLifestyleEvent('ERROR', 'Brak klucza PHOTOROOM_API_KEY w pliku .env');
+        throw new Error("Brak prawidłowego klucza PHOTOROOM_API_KEY w .env. Skontaktuj się z administratorem lub uzupełnij plik .env.");
     }
 
-    logLifestyleEvent('INFO', 'Wywoływanie Google Imagen 3 API', { prompt: promptText.substring(0, 150) });
-    console.log("[Imagen 3 API] Wywoływanie Google Imagen 3 z promptem scenerii...");
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
-    
-    const payload = {
-        instances: [
-            {
-                prompt: `Commercial product photography background scene, high resolution, 8k, detailed texture, studio lighting, empty surface: ${promptText}`
-            }
-        ],
-        parameters: {
-            sampleCount: 1,
-            aspectRatio: "1:1",
-            outputOptions: {
-                mimeType: "image/jpeg"
-            }
-        }
-    };
+    logLifestyleEvent('INFO', 'Rozpoczęto generowanie zdjęcia przez Photoroom API', { ean, imageIndex });
+    console.log(`[Photoroom Lifestyle] Rozpoczęto generowanie zdjęcia (Slot ${imageIndex + 1}) dla EAN: ${ean}`);
 
-    const startTime = Date.now();
-    try {
-        const response = await axios.post(url, payload, {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 30000
-        });
-
-        const durationMs = Date.now() - startTime;
-        if (response.data && response.data.predictions && response.data.predictions[0]) {
-            const pred = response.data.predictions[0];
-            const base64Image = pred.bytesBase64Encoded || pred.image?.bytesBase64Encoded;
-            if (base64Image) {
-                logLifestyleEvent('INFO', 'Google Imagen 3 wygenerował tło pomyślnie', { durationMs, bytesLength: base64Image.length });
-                return Buffer.from(base64Image, 'base64');
-            }
-        }
-        logLifestyleEvent('ERROR', 'Brak obrazu w odpowiedzi Google Imagen 3', { responseData: response.data });
-        throw new Error("Brak obrazu w odpowiedzi Google Imagen 3 API.");
-    } catch (err) {
-        const durationMs = Date.now() - startTime;
-        const errMsg = err.response?.data?.error?.message || err.message;
-        logLifestyleEvent('ERROR', 'Błąd podczas wywołania Google Imagen 3 API', { durationMs, error: errMsg, responseData: err.response?.data });
-        console.error("[Imagen 3 API] Błąd generowania tła:", err.response?.data || err.message);
-        throw new Error("Nie udało się wygenerować scenerii przez Google Imagen 3 API: " + errMsg);
-    }
-}
-
-async function generateImagenLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
-    logLifestyleEvent('INFO', 'Rozpoczęto generowanie zdjęcia Lifestyle AI', { ean, imageIndex });
-    console.log(`[Google Imagen 3 Lifestyle] Rozpoczęto generowanie zdjęcia (Slot ${imageIndex + 1}) dla EAN: ${ean}`);
-
-    // 1. Weryfikacja i pobranie oryginalnego bufora zdjęcia produktu
+    // 1. Weryfikacja i przygotowanie bufora oryginalnego pliku obrazu
     let inputBuffer;
     if (imageBase64 && imageBase64.startsWith('data:image')) {
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
         inputBuffer = Buffer.from(base64Data, 'base64');
     } else if (sourceImageUrl) {
-        console.log("[Imagen 3 Lifestyle] Pobieranie oryginalnego zdjęcia z URL:", sourceImageUrl);
+        console.log("[Photoroom Lifestyle] Pobieranie oryginalnego zdjęcia z URL:", sourceImageUrl);
         const imgRes = await fetchImageSecure(sourceImageUrl);
         inputBuffer = Buffer.from(imgRes.data);
     } else {
-        logLifestyleEvent('ERROR', 'Brak wejściowego obrazu w zapytaniu');
+        logLifestyleEvent('ERROR', 'Brak wejściowego obrazu w zapytaniu Photoroom');
         throw new Error("Brak wejściowego obrazu (wymagany imageBase64 lub sourceImageUrl).");
     }
 
-    // 2. Gemini Agent PIM Prompter
+    // 2. Gemini Agent PIM Prompter - Budowanie kontekstu scenerii
     let productDetailsText = `Product EAN: ${ean}`;
     try {
         if (ean) {
@@ -770,102 +723,92 @@ async function generateImagenLifestyle(imageBase64, sourceImageUrl, ean, imageIn
         }
     } catch(e) { console.error("Błąd odczytu PIM dla Agenta Promptera:", e.message); }
 
-    let liquidVars = { VISUAL_TREND_REPORT: "High-end commercial aesthetic" };
+    let liquidVars = { VISUAL_TREND_REPORT: "Commercial Photoroom AI Aesthetic" };
     try {
         liquidVars = await generateClaidLiquidVariables(productDetailsText);
     } catch (e) {
-        console.error("[Imagen 3 Lifestyle] Ostrzeżenie promptera:", e.message);
+        console.error("[Photoroom Lifestyle] Ostrzeżenie promptera:", e.message);
     }
 
-    // 3. Budowanie spersonalizowanych scenerii tła Google Imagen 3 dla Slotów
+    // 3. Budowanie spersonalizowanych scenerii tła dla Photoroom API
     let scenePrompt = "";
     switch(imageIndex) {
         case 1:
-            scenePrompt = `Dark textured slate stone surface with subtle crystal clear water droplets, vibrant seascape blur in background, directional dramatic sunlight, sparkling highlights, 8k commercial beauty photoshoot. Empty surface for product placement.`;
+            scenePrompt = `Dark textured slate stone surface with subtle crystal clear water droplets, vibrant seascape blur in background, directional dramatic sunlight, sparkling highlights, 8k commercial beauty photoshoot`;
             break;
         case 2:
-            scenePrompt = `Luxury SPA natural white marble surface with soft tropical botanical leaf shadows, warm natural morning sunlight, clean minimal aesthetic, 8k. Empty countertop surface.`;
+            scenePrompt = `Luxury SPA natural white marble surface with soft tropical botanical leaf shadows, warm natural morning sunlight, clean minimal aesthetic, 8k commercial photoshoot`;
             break;
         case 3:
-            scenePrompt = `Modern high-tech cosmetic laboratory workspace, clean clinical white surface, soft subtle blue ambient backlighting, sharp focus. Empty surface.`;
+            scenePrompt = `Modern high-tech cosmetic laboratory workspace, clean clinical white surface, soft subtle blue ambient backlighting, sharp focus, professional cosmetic photoshoot`;
             break;
         case 4:
-            scenePrompt = `Top-down flatlay commercial beauty photography background, luxurious natural linen fabric, delicate flower petals nearby, soft golden hour sunlight, 8k. Empty surface.`;
+            scenePrompt = `Top-down flatlay commercial beauty photography background, luxurious natural linen fabric, delicate flower petals nearby, soft golden hour sunlight, 8k`;
             break;
         case 5:
-            scenePrompt = `Stark white studio seamless background with a sharp geometric diagonal grey shadow cast across wall, modern minimal aesthetic. Empty white floor.`;
+            scenePrompt = `Stark white studio seamless background with a sharp geometric diagonal grey shadow cast across wall, modern minimal aesthetic`;
             break;
         default:
-            scenePrompt = `Minimalist elegant wooden pedestal surface, soft neutral beige background, soft studio lighting, deep depth of field. Empty surface.`;
+            scenePrompt = `Minimalist elegant wooden pedestal surface, soft neutral beige background, soft studio lighting, deep depth of field`;
             break;
     }
 
-    // 4. Generowanie tła przez Google Imagen 3 (3-5 sekund)
-    const backgroundBuffer = await generateImagenBackground(scenePrompt);
-
-    // 5. PIXEL-PERFECT COMPOSITING (Sharp Node.js) - 100% ochrona etykiet i napisów produktu!
-    logLifestyleEvent('INFO', 'Rozpoczęto kompozytowanie warstwowe Sharp', { ean, imageIndex });
-    console.log("[Imagen 3 Lifestyle] Kompozytowanie warstwowe Sharp (100% autentyczność etykiety produktu)...");
+    // 4. Wysłanie żądania do Photoroom Image Editing API (/v2/edit)
+    logLifestyleEvent('INFO', 'Wysyłanie zapytania do Photoroom API v2/edit', { prompt: scenePrompt });
     
-    const bgMeta = await sharp(backgroundBuffer).metadata();
-    const bgWidth = bgMeta.width || 1024;
-    const bgHeight = bgMeta.height || 1024;
+    const FormData = require('form-data');
+    const form = new FormData();
+    form.append('image_file', inputBuffer, { filename: 'product.jpg', contentType: 'image/jpeg' });
+    form.append('background.prompt', scenePrompt);
+    form.append('shadow.mode', 'ai.auto');
+    form.append('export.format', 'jpeg');
 
-    const productMeta = await sharp(inputBuffer).metadata();
-    const targetProductHeight = Math.round(bgHeight * 0.65);
-    const targetProductWidth = Math.round((productMeta.width / productMeta.height) * targetProductHeight);
+    const startTime = Date.now();
+    try {
+        const response = await axios.post('https://image-api.photoroom.com/v2/edit', form, {
+            headers: {
+                'x-api-key': photoroomKey,
+                ...form.getHeaders()
+            },
+            responseType: 'arraybuffer',
+            timeout: 45000
+        });
 
-    const resizedProductBuffer = await sharp(inputBuffer)
-        .resize(targetProductWidth, targetProductHeight, { fit: 'inside' })
-        .toBuffer();
+        const durationMs = Date.now() - startTime;
+        const resultBuffer = Buffer.from(response.data);
+        const base64Output = `data:image/jpeg;base64,${resultBuffer.toString('base64')}`;
 
-    // Wektorowy cień kontaktowy pod podstawą produktu
-    const shadowWidth = Math.round(targetProductWidth * 0.88);
-    const shadowHeight = Math.max(12, Math.round(targetProductHeight * 0.08));
-    const blurRadius = Math.max(8, Math.round(shadowWidth * 0.05));
+        logLifestyleEvent('INFO', 'Photoroom API zrealizował edycję pomyślnie (100% zachowanie etykiety)', {
+            durationMs,
+            outputBytes: resultBuffer.length
+        });
 
-    const svgShadow = `
-        <svg width="${bgWidth}" height="${bgHeight}" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <filter id="shadowBlur">
-                    <feGaussianBlur stdDeviation="${blurRadius}" />
-                </filter>
-            </defs>
-            <ellipse 
-                cx="${bgWidth / 2}" 
-                cy="${Math.round(bgHeight * 0.76)}" 
-                rx="${shadowWidth / 2}" 
-                ry="${shadowHeight / 2}" 
-                fill="rgba(0, 0, 0, 0.42)" 
-                filter="url(#shadowBlur)" 
-            />
-        </svg>
-    `;
+        return {
+            base64: base64Output,
+            visualTrendReport: liquidVars.VISUAL_TREND_REPORT || "Photoroom AI Commercial Photography (100% Label Preserved)"
+        };
 
-    const leftOffset = Math.round((bgWidth - targetProductWidth) / 2);
-    const topOffset = Math.round((bgHeight * 0.76) - targetProductHeight + (shadowHeight / 3));
-
-    // Kompozytowanie warstw: Tło Imagen 3 -> Cień SVG -> 100% Oryginalny Produkt
-    const finalCompositedBuffer = await sharp(backgroundBuffer)
-        .resize(bgWidth, bgHeight)
-        .composite([
-            { input: Buffer.from(svgShadow), top: 0, left: 0 },
-            { input: resizedProductBuffer, top: Math.max(0, topOffset), left: Math.max(0, leftOffset) }
-        ])
-        .jpeg({ quality: 92 })
-        .toBuffer();
-
-    const base64Output = `data:image/jpeg;base64,${finalCompositedBuffer.toString('base64')}`;
-
-    logLifestyleEvent('INFO', 'Zakończono pomyślnie generowanie zdjęcia Lifestyle AI', { ean, imageIndex, outputLength: base64Output.length });
-
-    return { 
-        base64: base64Output, 
-        visualTrendReport: liquidVars.VISUAL_TREND_REPORT || "Google Imagen 3 Commercial Photography"
-    };
+    } catch (err) {
+        const durationMs = Date.now() - startTime;
+        let errorDetails = err.message;
+        if (err.response && err.response.data) {
+            try {
+                const errStr = Buffer.from(err.response.data).toString('utf-8');
+                errorDetails = errStr;
+            } catch(e) {}
+        }
+        logLifestyleEvent('ERROR', 'Błąd podczas wywołania Photoroom API', {
+            durationMs,
+            status: err.response?.status,
+            error: errorDetails
+        });
+        console.error("[Photoroom API Error]", errorDetails);
+        throw new Error(`Błąd Photoroom API (status ${err.response?.status || '500'}): ${errorDetails}`);
+    }
 }
 
-const generateClaidLifestyle = generateImagenLifestyle;
+const generateClaidLifestyle = generatePhotoroomLifestyle;
+const generateImagenLifestyle = generatePhotoroomLifestyle;
 
 /**
  * Agent uzupełniania parametrów (PXM Auto-Fill Agent).
