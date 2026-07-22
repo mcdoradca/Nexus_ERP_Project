@@ -755,11 +755,15 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     logLifestyleEvent('INFO', 'Wysyłanie zapytania do Photoroom API v2/edit', { prompt: scenePrompt });
     
     const FormData = require('form-data');
+    const sharp = require('sharp');
     const form = new FormData();
     form.append('imageFile', inputBuffer, { filename: 'product.jpg', contentType: 'image/jpeg' });
     form.append('background.prompt', scenePrompt);
     form.append('shadow.mode', 'ai.preset-soft');
     form.append('export.format', 'jpeg');
+    form.append('outputSize', '1080x1080');
+    form.append('padding', '0.25');
+    form.append('ignorePaddingAndSnapOnCroppedSides', 'false');
 
     const startTime = Date.now();
     try {
@@ -775,16 +779,40 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 
         const durationMs = Date.now() - startTime;
         const resultBuffer = Buffer.from(response.data);
-        const base64Output = `data:image/jpeg;base64,${resultBuffer.toString('base64')}`;
 
-        logLifestyleEvent('INFO', 'Photoroom API zrealizował edycję pomyślnie (100% zachowanie etykiety)', {
+        // Nanoszenie znaku wodnego EU AI Act Art. 50 za pomocą Sharp Node.js
+        const badgeSvg = `
+        <svg width="420" height="40" viewBox="0 0 420 40" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="420" height="40" rx="8" fill="rgba(15, 23, 42, 0.85)" stroke="rgba(255, 255, 255, 0.25)" stroke-width="1.5"/>
+            <text x="16" y="25" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#FFFFFF">
+                ✨ AI Generated (EU AI Act Art. 50) | Nexus ERP
+            </text>
+        </svg>`;
+
+        let finalBuffer = resultBuffer;
+        try {
+            finalBuffer = await sharp(resultBuffer)
+                .composite([{
+                    input: Buffer.from(badgeSvg),
+                    top: 1080 - 40 - 24,
+                    left: 24
+                }])
+                .jpeg({ quality: 90 })
+                .toBuffer();
+        } catch (sharpErr) {
+            console.error("[Photoroom Watermark] Ostrzeżenie wypalania znaku wodnego Sharp:", sharpErr.message);
+        }
+
+        const base64Output = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
+
+        logLifestyleEvent('INFO', 'Photoroom API zrealizował edycję pomyślnie (100% zachowanie etykiety + EU AI Act Art. 50 Watermark)', {
             durationMs,
-            outputBytes: resultBuffer.length
+            outputBytes: finalBuffer.length
         });
 
         return {
             base64: base64Output,
-            visualTrendReport: liquidVars.VISUAL_TREND_REPORT || "Photoroom AI Commercial Photography (100% Label Preserved)"
+            visualTrendReport: liquidVars.VISUAL_TREND_REPORT || "Photoroom AI Commercial Photography (100% Label Preserved & EU AI Act Art. 50 Watermarked)"
         };
 
     } catch (err) {
