@@ -550,6 +550,13 @@ async function generateTitleOnly(textContent, currentTitle) {
         generationConfig: {
             temperature: 0.8, // Trochę większa kreatywność dla wariacji tytułów
             responseMimeType: "application/json",
+            responseSchema: {
+                type: "OBJECT",
+                properties: {
+                    title: { type: "STRING" }
+                },
+                required: ["title"]
+            }
         }
     });
 
@@ -572,17 +579,38 @@ Odpowiedz wyłącznie czystym obiektem JSON:
 
     try {
         const result = await model.generateContent(promptText);
-        let payloadString = result.response.text();
-        const jsonMatch = payloadString.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            // Fallback: jeśli Gemini zignorował prośbę o JSON i zwrócił po prostu tekst tytułu
-            if (payloadString.length > 5 && payloadString.length < 150) {
-                return { title: payloadString.replace(/["']/g, '').trim() };
-            }
-            throw new Error(`Brak prawidłowej struktury JSON w odpowiedzi dla tytułu. Otrzymano: ${payloadString}`);
+        let payloadString = result.response.text().trim();
+        // Oczyszczanie z ewentualnych bloki markdown
+        payloadString = payloadString.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim();
+
+        // 1. Próba bezpośredniego parsowania
+        try {
+            const parsed = JSON.parse(payloadString);
+            if (parsed && parsed.title) return parsed;
+        } catch (e) { }
+
+        // 2. Niezachłanne dopasowanie pierwszego prawidłowego obiektu JSON
+        const jsonMatch = payloadString.match(/\{[\s\S]*?\}/);
+        if (jsonMatch) {
+            try {
+                const parsed = JSON.parse(jsonMatch[0]);
+                if (parsed && parsed.title) return parsed;
+            } catch (e) { }
         }
-        return JSON.parse(jsonMatch[0]);
+
+        // 3. Fallback: jeśli Gemini zwrócił po prostu tekst tytułu bez struktur klamrowych
+        const cleanText = payloadString.replace(/["'\{\}]/g, '').replace(/title\s*:\s*/i, '').trim();
+        if (cleanText.length >= 5 && cleanText.length <= 150) {
+            return { title: cleanText };
+        }
+
+        throw new Error(`Brak prawidłowej struktury JSON w odpowiedzi dla tytułu. Otrzymano: ${payloadString}`);
     } catch (error) {
+        console.error("[AiService] Generative Title Error:", error.message);
+        // Ostatnia deska ratunku - zwracamy tytuł oryginalny ze wskazaniem audytu
+        if (currentTitle) {
+            return { title: currentTitle };
+        }
         throw new Error("Generative API Title Failed: " + error.message);
     }
 }
