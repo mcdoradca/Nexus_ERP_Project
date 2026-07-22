@@ -758,7 +758,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     const form = new FormData();
     form.append('image_file', inputBuffer, { filename: 'product.jpg', contentType: 'image/jpeg' });
     form.append('background.prompt', scenePrompt);
-    form.append('shadow.mode', 'ai.auto');
+    form.append('shadow.mode', 'ai.soft');
     form.append('export.format', 'jpeg');
 
     const startTime = Date.now();
