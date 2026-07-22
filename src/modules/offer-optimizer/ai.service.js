@@ -207,7 +207,7 @@ async function gatherProductIntelligence(ean, productName) {
         }
 
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.1-pro-preview-customtools",
             tools: [{ googleSearch: {} }],
             generationConfig: { temperature: 0.1 } // Niska temperatura dla faktuografii
         });
@@ -249,7 +249,7 @@ async function gatherCustomerSentiment(ean, productName) {
     console.log(`[AiService] Odpalanie Agenta Sentimentu Opinii Klientów dla: ${productName} (EAN: ${ean})...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.1-pro-preview-customtools",
             tools: [{ googleSearch: {} }],
             generationConfig: { temperature: 0.2 }
         });
@@ -285,7 +285,7 @@ async function generateComplianceReport(productName, aeoContent, originalDescrip
     console.log(`[AiService] Odpalanie Agenta Prawnego (Compliance Agent) dla: ${productName}...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "antigravity-preview-05-2026",
             generationConfig: { temperature: 0.0 } // 0.0 rygorystycznie - brak miejsca na halucynacje prawne
         });
         
@@ -562,7 +562,7 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
 
 async function generateTitleOnly(textContent, currentTitle) {
     const model = genAI.getGenerativeModel({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.1-pro-preview",
         generationConfig: {
             temperature: 0.8, // Trochę większa kreatywność dla wariacji tytułów
             responseMimeType: "application/json",
@@ -696,7 +696,7 @@ async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.1-pro-preview",
             generationConfig: {
                 temperature: 0.7,
                 responseMimeType: "application/json",
@@ -912,7 +912,7 @@ const generateImagenLifestyle = generatePhotoroomLifestyle;
  */
 async function autofillMissingParameters(ean, productName, currentFeatures, requiredSchema) {
     const model = genAI.getGenerativeModel({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.1-pro-preview",
         tools: [{ googleSearch: {} }],
         generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
     });
@@ -960,7 +960,7 @@ async function generateAEOContent(productName, originalDescription, intelligence
     console.log(`[AiService] Odpalanie Agenta AEO (Analityk Strukturalny) dla: ${productName}...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.1-pro-preview",
             systemInstruction: require('./ai.prompts').AEO_AGENT_PROMPT,
             generationConfig: { temperature: 0.4 } 
         });
@@ -977,7 +977,7 @@ async function generateGEOTextContent(productName, aeoContent, intelligenceData,
     console.log(`[AiService] Odpalanie Agenta GEO Text (Copywriter HTML) dla: ${productName}...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.1-pro-preview",
             systemInstruction: require('./ai.prompts').GEO_TEXT_AGENT_PROMPT,
             generationConfig: { 
                 temperature: 0.6, 
@@ -1034,7 +1034,7 @@ async function adaptToSegmentAndTone(productName, htmlContent, features, categor
     console.log(`[AiService] Odpalanie Agenta Segmentowego (Segment & Tone Adapter) dla: ${productName}...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.1-pro-preview",
             systemInstruction: require('./ai.prompts').SEGMENT_TONE_AGENT_PROMPT,
             generationConfig: { 
                 temperature: 0.5, 

@@ -11,7 +11,7 @@ async function runSentinelAudit() {
         
         // Zgodnie z architekturą, Sentinel używa Google Search Grounding by zdobyć najświeższe fakty.
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-3.5-flash",
+            model: "gemini-3.1-pro-preview",
             tools: [{ googleSearch: {} }] // Włączenie dostępu do świeżych wyników wyszukiwania Google
         });
 

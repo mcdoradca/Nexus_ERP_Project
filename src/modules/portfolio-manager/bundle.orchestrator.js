@@ -182,7 +182,7 @@ Zwróć wynik jako połączone przecinkami frazy, bez zbędnych słów. TYLKO FR
 `;
         try {
             const aiResponse = await axios.post(
-                'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
+                'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent',
                 { contents: [{ parts: [{ text: prompt }] }] },
                 { params: { key: process.env.GEMINI_API_KEY }, headers: { 'Content-Type': 'application/json' } }
             );
@@ -225,7 +225,7 @@ Zwróć TYLKO kod HTML, bez tagów <html> czy <body>, bez formatowania \`\`\`htm
         try {
             // Wykorzystujemy potężnego Gemini 3.1 Pro Preview
             const aiResponse = await axios.post(
-                'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
+                'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent',
                 { contents: [{ parts: [{ text: prompt }] }] },
                 { params: { key: process.env.GEMINI_API_KEY }, headers: { 'Content-Type': 'application/json' } }
             );
@@ -260,7 +260,7 @@ ${draftHtml}
 
         try {
             const aiResponse = await axios.post(
-                'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
+                'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent',
                 { contents: [{ parts: [{ text: prompt }] }] },
                 { params: { key: process.env.GEMINI_API_KEY }, headers: { 'Content-Type': 'application/json' } }
             );

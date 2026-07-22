@@ -337,7 +337,7 @@ async function processBotMention(messageContent, authorName, mode, targetId, soc
         if (socket) socket.nsp.emit('bot_typing', { message: 'NeS (Nexus Sentinel) analizuje zapytanie...' });
         
         const model = genAI.getGenerativeModel({
-            model: 'gemini-3.5-flash',
+            model: 'gemini-3.1-pro-preview',
             tools: tools,
             toolConfig: { functionCallingConfig: { mode: "AUTO" }, includeServerSideToolInvocations: true },
             systemInstruction: { parts: [{ text: systemInstruction }] },
@@ -395,9 +395,9 @@ async function processBotMention(messageContent, authorName, mode, targetId, soc
         
         // Fallback w przypadku błędów
         if (err.message) {
-            console.log("[NeS] Fallback do gemini-3.5-flash...");
+            console.log("[NeS] Fallback do gemini-3.1-pro-preview...");
             const fallbackModel = genAI.getGenerativeModel({
-                model: 'gemini-3.5-flash',
+                model: 'gemini-3.1-pro-preview',
                 tools: tools,
                 toolConfig: { functionCallingConfig: { mode: "AUTO" } },
                 systemInstruction: { parts: [{ text: systemInstruction }] }
