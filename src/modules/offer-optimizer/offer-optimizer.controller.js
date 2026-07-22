@@ -560,12 +560,14 @@ const triggerUltimatePipeline = async (req, res) => {
 
         console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta EAN Pipeline: ${ean}`);
         
-        // Zawsze zapisujemy status PROCESSING w bazie danych przed zwrotem 202
-        await prisma.product.upsert({
-            where: { ean },
-            create: { ean, sku: ean, name: ean, offerDraft: { status: 'PROCESSING', startedAt: Date.now() } },
-            update: { offerDraft: { status: 'PROCESSING', startedAt: Date.now() } }
-        });
+        // Oznaczamy istniejący produkt w bazie jako PROCESSING, aby zapobiec zwracaniu przestarzałych wyników przez polling
+        const existingProduct = await prisma.product.findUnique({ where: { ean } });
+        if (existingProduct) {
+            await prisma.product.update({
+                where: { ean },
+                data: { offerDraft: { status: 'PROCESSING', startedAt: Date.now() } }
+            });
+        }
 
         // Zwracamy HTTP 202 natychmiast
         res.status(202).json({ status: "processing", ean, message: "Pipeline uruchomiony w tle." });
