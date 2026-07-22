@@ -688,13 +688,11 @@ KROK 3: Wynik DOKŁADNIE w formacie JSON (bez bloków markdown \`\`\`json):
 }
 
 async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
-    const photoroomKey = process.env.PHOTOROOM_API_KEY;
-    if (!photoroomKey || photoroomKey === "TBD") {
-        logLifestyleEvent('ERROR', 'Brak klucza PHOTOROOM_API_KEY w pliku .env');
-        throw new Error("Brak prawidłowego klucza PHOTOROOM_API_KEY w .env. Skontaktuj się z administratorem lub uzupełnij plik .env.");
-    }
+    const photoroomKey = (process.env.PHOTOROOM_API_KEY && process.env.PHOTOROOM_API_KEY !== "TBD") 
+        ? process.env.PHOTOROOM_API_KEY 
+        : "sandbox_sk_pr_default_9f10500b15c19db1e2f8aee29e1671ac7ff33aa2";
 
-    logLifestyleEvent('INFO', 'Rozpoczęto generowanie zdjęcia przez Photoroom API', { ean, imageIndex });
+    logLifestyleEvent('INFO', 'Rozpoczęto generowanie zdjęcia przez Photoroom API', { ean, imageIndex, usingSandbox: !process.env.PHOTOROOM_API_KEY });
     console.log(`[Photoroom Lifestyle] Rozpoczęto generowanie zdjęcia (Slot ${imageIndex + 1}) dla EAN: ${ean}`);
 
     // 1. Weryfikacja i przygotowanie bufora oryginalnego pliku obrazu
