@@ -625,6 +625,16 @@ const checkPipelineStatus = async (req, res) => {
             return res.status(200).json({ status: 'ERROR', error: product.offerDraft.error || 'Błąd potoku AI' });
         }
 
+        // Wykrycie uszkodzonego/błędnego szkicu (np. stary "Błąd systemu GEO")
+        const hasGeoError = product.offerDraft && product.offerDraft.htmlContent && 
+            typeof product.offerDraft.htmlContent === 'object' && 
+            product.offerDraft.htmlContent.opis1 && 
+            product.offerDraft.htmlContent.opis1.includes('Błąd systemu GEO');
+
+        if (hasGeoError) {
+            return res.status(200).json({ status: 'ERROR', error: 'Poprzednia generacja zawierała błąd GEO. Uruchom ponowną generację dla tego EAN.' });
+        }
+
         // Jeśli produkt ma ukończony offerDraft (z tytułem lub opisem)
         if (product.offerDraft && (product.offerDraft.title || product.offerDraft.htmlContent)) {
             const result = {
