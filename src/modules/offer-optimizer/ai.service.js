@@ -671,50 +671,67 @@ KROK 3: Wynik DOKŁADNIE w formacie JSON (bez bloków markdown \`\`\`json):
     }
 }
 
-async function generateClaidLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
-    const claidKey = process.env.CLAID_API_KEY;
-    if (!claidKey || claidKey === "TBD") {
-        throw new Error("Brak prawidłowego klucza CLAID_API_KEY w .env. Skontaktuj się z administratorem.");
+async function generateImagenBackground(promptText) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error("Brak klucza GEMINI_API_KEY w .env.");
     }
 
-    let inputForAiEdit = sourceImageUrl || imageBase64;
-
-    // 1. Upload Base64 do Claid Upload API (jeśli wymagane)
-    if (inputForAiEdit && inputForAiEdit.startsWith('data:image')) {
-        console.log("[AiService] Otrzymano Base64. Upload do Claid Upload API...");
-        const base64Data = inputForAiEdit.replace(/^data:image\/\w+;base64,/, "");
-        const buffer = Buffer.from(base64Data, 'base64');
-        
-        const FormData = require('form-data');
-        const form = new FormData();
-        form.append('file', buffer, { filename: 'upload.jpg', contentType: 'image/jpeg' });
-        form.append('data', JSON.stringify({})); 
-
-        try {
-            const uploadRes = await axios.post('https://api.claid.ai/v1/image/edit/upload', form, {
-                headers: {
-                    'Authorization': `Bearer ${claidKey}`,
-                    ...form.getHeaders()
-                }
-            });
-
-            if (uploadRes.data?.data?.output?.tmp_url) {
-                inputForAiEdit = uploadRes.data.data.output.tmp_url;
-                console.log("[AiService] Sukces uploadu, tmp_url:", inputForAiEdit);
-            } else {
-                throw new Error("Nieprawidłowa odpowiedź z endpointu uploadu Claid.");
+    console.log("[Imagen 3 API] Wywoływanie Google Imagen 3 z promptem scenerii...");
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+    
+    const payload = {
+        instances: [
+            {
+                prompt: `Commercial product photography background scene, high resolution, 8k, detailed texture, studio lighting, empty surface: ${promptText}`
             }
-        } catch (err) {
-            console.error("[AiService] Błąd uploadu Base64 do Claid:", err.response?.data || err.message);
-            throw new Error("Błąd podczas wgrywania pliku bazowego do serwerów Claid.");
+        ],
+        parameters: {
+            sampleCount: 1,
+            aspectRatio: "1:1",
+            outputOptions: {
+                mimeType: "image/jpeg"
+            }
         }
+    };
+
+    try {
+        const response = await axios.post(url, payload, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 30000
+        });
+
+        if (response.data && response.data.predictions && response.data.predictions[0]) {
+            const pred = response.data.predictions[0];
+            const base64Image = pred.bytesBase64Encoded || pred.image?.bytesBase64Encoded;
+            if (base64Image) {
+                return Buffer.from(base64Image, 'base64');
+            }
+        }
+        throw new Error("Brak obrazu w odpowiedzi Google Imagen 3 API.");
+    } catch (err) {
+        console.error("[Imagen 3 API] Błąd generowania tła:", err.response?.data || err.message);
+        throw new Error("Nie udało się wygenerować scenerii przez Google Imagen 3 API: " + (err.response?.data?.error?.message || err.message));
+    }
+}
+
+async function generateImagenLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
+    console.log(`[Google Imagen 3 Lifestyle] Rozpoczęto generowanie zdjęcia (Slot ${imageIndex + 1}) dla EAN: ${ean}`);
+
+    // 1. Weryfikacja i pobranie oryginalnego bufora zdjęcia produktu
+    let inputBuffer;
+    if (imageBase64 && imageBase64.startsWith('data:image')) {
+        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+        inputBuffer = Buffer.from(base64Data, 'base64');
+    } else if (sourceImageUrl) {
+        console.log("[Imagen 3 Lifestyle] Pobieranie oryginalnego zdjęcia z URL:", sourceImageUrl);
+        const imgRes = await fetchImageSecure(sourceImageUrl);
+        inputBuffer = Buffer.from(imgRes.data);
+    } else {
+        throw new Error("Brak wejściowego obrazu (wymagany imageBase64 lub sourceImageUrl).");
     }
 
-    if (!inputForAiEdit) {
-        throw new Error("Brak wejściowego obrazu (imageBase64 ani sourceImageUrl).");
-    }
-
-    // Agent Gemini ekstrakcja zmiennych "Liquid Variables" bazując na PIM
+    // 2. Gemini Agent PIM Prompter
     let productDetailsText = `Product EAN: ${ean}`;
     try {
         if (ean) {
@@ -724,254 +741,101 @@ async function generateClaidLifestyle(imageBase64, sourceImageUrl, ean, imageInd
                 productDetailsText = `NAME: ${product.name}\nFEATURES: ${featuresString}\nDESC: ${product.descriptionHtml || ''}`;
             }
         }
-    } catch(e) { console.error("Błąd odczytu PIM dla Agenta:", e.message); }
+    } catch(e) { console.error("Błąd odczytu PIM dla Agenta Promptera:", e.message); }
 
-    const liquidVars = await generateClaidLiquidVariables(productDetailsText);
-    const getRandomScale = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(2));
-    const getRandomAngle = (min, max) => {
-        let angle = Math.floor(Math.random() * (max - min + 1) + min);
-        return angle < 0 ? 360 + angle : angle;
-    };
-
-    // ==========================================
-    // ETAP 1 API: PRE-PROCESSING (IZOLACJA)
-    // ==========================================
-    console.log("[AiService] ETAP 1 API: Pre-processing (Izolacja, Upscale, Polish)...");
-    let transparentImageUrl;
+    let liquidVars = { VISUAL_TREND_REPORT: "High-end commercial aesthetic" };
     try {
-        const bgRemovePayload = {
-            input: inputForAiEdit,
-            operations: {
-                restorations: {
-                    upscale: "smart_resize",
-                    polish: true
-                },
-                background: {
-                    remove: {
-                        category: "products",
-                        clipping: true
-                    },
-                    color: "transparent"
-                }
-            },
-            output: {
-                format: { type: "png", compression: "optimal" }
-            }
-        };
-
-        const bgRemoveRes = await axios.post('https://api.claid.ai/v1/image/edit', bgRemovePayload, {
-            headers: {
-                'Authorization': `Bearer ${claidKey}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        transparentImageUrl = bgRemoveRes.data?.data?.output?.tmp_url;
-    } catch (err) {
-        console.error("[AiService] Błąd pre-processingu:", err.response?.data || err.message);
-        const errData = err.response?.data;
-        if (errData?.error_type === 'billing') {
-            throw new Error("Brak środków na koncie Claid API (Not enough API credits). Doładuj konto Claid.");
-        }
-        throw new Error("Etap 1 (Izolacja tła) zakończył się niepowodzeniem. Powód: " + (errData?.error_message || err.message));
+        liquidVars = await generateClaidLiquidVariables(productDetailsText);
+    } catch (e) {
+        console.error("[Imagen 3 Lifestyle] Ostrzeżenie promptera:", e.message);
     }
 
-    if (!transparentImageUrl) throw new Error("Brak URL obrazka z usuniętym tłem od Claid API.");
-
-    // ==========================================
-    // ETAP 1.5 LOCAL: SHADOW BAKING (Autorski silnik)
-    // ==========================================
-    let finalProductUrl = transparentImageUrl;
-    if ([1, 2, 3].includes(imageIndex)) {
-        console.log(`[AiService] ETAP 1.5 LOCAL: Wypalanie cienia dla Slotu ${imageIndex + 1}...`);
-        finalProductUrl = await applyLocalShadow(transparentImageUrl, claidKey);
-    }
-
-
-    let sceneTmpUrl;
-    
-    // ==========================================
-    // ETAP 2 API: GENEROWANIE SCENY 3D DLA SLOTÓW
-    // ==========================================
-    console.log(`[AiService] ETAP 2 API: Generowanie Sceny (AI Photoshoot v1/scene/create) dla Slotu ${imageIndex + 1}...`);
-    
-    let aiScenePayload = {};
-
+    // 3. Budowanie spersonalizowanych scenerii tła Google Imagen 3 dla Slotów
+    let scenePrompt = "";
     switch(imageIndex) {
-        case 1: // Slot 2: Dynamika, Żywioł i Orzeźwienie
-            aiScenePayload = {
-                object: {
-                    image_url: finalProductUrl,
-                    placement_type: "absolute",
-                    rotation_degree: getRandomAngle(-4, 4),
-                    scale: liquidVars.DYNAMIC_SCALE,
-                    position: { x: getRandomScale(0.4, 0.6), y: 0.6 }
-                },
-                scene: {
-                    model: "v2",
-                    prompt: `The product on a dark textured slate stone surface. Freezing water droplets and a dynamic, crystal clear water splash placed around it. Stunning ${liquidVars.GEO_LOCATION} seascape blur. ${liquidVars.TIME_OF_DAY} lighting creating sparkling highlights. Strong directional sunlight, realistic deep contact shadow under the product base, physical interaction with the wet surface. Clean and premium, bold and graphic.`,
-                    negative_prompt: "still water, flat lighting, indoor, messy splash, artificial water, CGI, low quality, pixelated, text, watermark, floating product, soft shadow",
-                    aspect_ratio: "1:1",
-                    preference: "best"
-                },
-                output: {
-                    number_of_images: 1,
-                    format: { type: "jpeg", quality: 95, progressive: true }
-                }
-            };
+        case 1:
+            scenePrompt = `Dark textured slate stone surface with subtle crystal clear water droplets, vibrant seascape blur in background, directional dramatic sunlight, sparkling highlights, 8k commercial beauty photoshoot. Empty surface for product placement.`;
             break;
-
-        case 2: // Slot 3: Natura / Ingredients
-            const slot3Scale = liquidVars.DYNAMIC_SCALE * 0.85;
-            aiScenePayload = {
-                object: {
-                    image_url: finalProductUrl,
-                    placement_type: "absolute",
-                    rotation_degree: getRandomAngle(350, 355),
-                    scale: Number(slot3Scale.toFixed(2)),
-                    position: { x: getRandomScale(0.25, 0.40), y: getRandomScale(0.55, 0.70) }
-                },
-                scene: {
-                    model: "v2",
-                    prompt: `A premium commercial beauty photography. ${liquidVars.SLOT3_BACKGROUND_PROMPT} Strong directional sunlight, sharp dramatic shadows crossing the product and background, realistic deep contact shadow directly under the product base, physical interaction with the surface, 8k resolution, photorealistic.`,
-                    negative_prompt: "floating, flat lighting, poorly blended, soft shadows, studio lighting, fake, mismatched light, hands, person, human, plain background, bad composition, wood slice, wooden board, pedestal",
-                    aspect_ratio: "1:1",
-                    preference: "best"
-                },
-                output: {
-                    number_of_images: 1,
-                    format: { type: "jpeg", quality: 95, progressive: true }
-                }
-            };
+        case 2:
+            scenePrompt = `Luxury SPA natural white marble surface with soft tropical botanical leaf shadows, warm natural morning sunlight, clean minimal aesthetic, 8k. Empty countertop surface.`;
             break;
-            
-        case 3: // Slot 4: Laboratorium, Bezpieczeństwo i Autorytet
-            aiScenePayload = {
-                object: {
-                    image_url: finalProductUrl,
-                    placement_type: "absolute",
-                    rotation_degree: 0.0,
-                    scale: liquidVars.DYNAMIC_SCALE,
-                    position: { x: getRandomScale(0.6, 0.7), y: 0.55 }
-                },
-                scene: {
-                    model: "v2",
-                    prompt: `The product on a brushed stainless steel laboratory counter. A few glass beakers and a microscope placed around it. Bright modern cosmetic research laboratory blur. Strong directional laboratory spotlight, sharp shadows, realistic deep contact shadow under the product base connecting it firmly to the steel counter. Clean and premium, clinical, professional.`,
-                    negative_prompt: "floating product, dirty, messy, warm lighting, cozy, residential, text, watermark, low quality, noise, artificial, unprofessional, cartoon, soft shadows, poorly blended",
-                    aspect_ratio: "1:1",
-                    preference: "best"
-                },
-                output: {
-                    number_of_images: 1,
-                    format: { type: "jpeg", quality: 95, progressive: true }
-                }
-            };
+        case 3:
+            scenePrompt = `Modern high-tech cosmetic laboratory workspace, clean clinical white surface, soft subtle blue ambient backlighting, sharp focus. Empty surface.`;
             break;
-            
-        case 4: // Slot 5: Natura, SPA i Składniki (Flatlay)
-            aiScenePayload = {
-                object: {
-                    image_url: transparentImageUrl,
-                    placement_type: "absolute",
-                    rotation_degree: 350,
-                    scale: liquidVars.DYNAMIC_SCALE,
-                    position: { x: 0.35, y: 0.5 }
-                },
-                scene: {
-                    model: "v2",
-                    prompt: `A premium top-down flatlay commercial beauty photography. The product is elegantly placed on a luxurious, natural spa surface. Vivid ${liquidVars.ACTIVE_INGREDIENT} and an elegant spa accessory placed nearby. Distinct, artistic dappled sunlight is passing through tropical plant leaves, casting beautiful, realistic leaf shadows across the entire scene and falling directly OVER the product itself, ensuring deep and seamless lighting harmonization. Clean uncluttered composition, quiet luxury, 8k.`,
-                    negative_prompt: "dropper, pipette, rubber bulb, extra cap, modified product, floating product, hands, person, standing up, flat lighting, plain background, messy, artificial ingredients, text, watermark",
-                    aspect_ratio: "1:1",
-                    preference: "best"
-                },
-                output: {
-                    number_of_images: 1,
-                    format: { type: "jpeg", quality: 95, progressive: true }
-                }
-            };
+        case 4:
+            scenePrompt = `Top-down flatlay commercial beauty photography background, luxurious natural linen fabric, delicate flower petals nearby, soft golden hour sunlight, 8k. Empty surface.`;
             break;
-            
-        case 5: // Slot 6: Sześcian / Floating Minimalist
-            aiScenePayload = {
-                object: {
-                    image_url: transparentImageUrl,
-                    placement_type: "absolute",
-                    rotation_degree: 335,
-                    scale: 0.50,
-                    position: { x: 0.5, y: 0.45 }
-                },
-                scene: {
-                    model: "v2",
-                    prompt: `The product is floating in mid-air. A soft distinct drop shadow is cast on the pure white floor directly beneath the product. Stark white studio seamless background with a sharp, geometric diagonal grey shadow cast across the wall from the top left. Hard sunlight, clinical precision. Clean and premium, modern minimal, purely white aesthetic.`,
-                    negative_prompt: "pedestal, podium, platform, resting on surface, touching the ground, contact shadow, messy, dirty, textures, busy background, colored light, artificial looking, bad lighting, text, watermark",
-                    aspect_ratio: "1:1",
-                    preference: "best"
-                },
-                output: {
-                    number_of_images: 1,
-                    format: { type: "jpeg", quality: 95, progressive: true }
-                }
-            };
+        case 5:
+            scenePrompt = `Stark white studio seamless background with a sharp geometric diagonal grey shadow cast across wall, modern minimal aesthetic. Empty white floor.`;
             break;
-            
-        case 6: // Slot 7
-        case 0: // Slot 1
         default:
-            aiScenePayload = {
-                object: {
-                    image_url: transparentImageUrl,
-                    placement_type: "absolute",
-                    rotation_degree: getRandomAngle(15, 30),
-                    scale: 0.60,
-                    position: { x: 0.5, y: 0.5 }
-                },
-                scene: {
-                    model: "v2",
-                    effect: "shadows",
-                    color: "#ffffff",
-                    aspect_ratio: "1:1"
-                },
-                output: {
-                    number_of_images: 1,
-                    format: { type: "jpeg", quality: 95, progressive: true }
-                }
-            };
+            scenePrompt = `Minimalist elegant wooden pedestal surface, soft neutral beige background, soft studio lighting, deep depth of field. Empty surface.`;
             break;
     }
 
-    try {
-        const aiSceneRes = await axios.post('https://api.claid.ai/v1/scene/create', aiScenePayload, {
-            headers: {
-                'Authorization': `Bearer ${claidKey}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        sceneTmpUrl = aiSceneRes.data?.data?.output?.[0]?.tmp_url;
-    } catch (err) {
-        console.error("[AiService] Błąd inicjalizacji zlecenia Claid Scene Create:", err.response?.data || err.message);
-        const errData = err.response?.data;
-        if (errData?.error_type === 'billing') {
-            throw new Error("Brak środków na koncie Claid API (Not enough API credits). Doładuj konto Claid.");
-        }
-        throw new Error("Etap 2 (AI Photoshoot) zakończył się niepowodzeniem. Powód: " + (errData?.error_message || err.message));
-    }
+    // 4. Generowanie tła przez Google Imagen 3 (3-5 sekund)
+    const backgroundBuffer = await generateImagenBackground(scenePrompt);
 
-    if (!sceneTmpUrl) throw new Error("Brak URL wygenerowanej sceny od Claid API.");
+    // 5. PIXEL-PERFECT COMPOSITING (Sharp Node.js) - 100% ochrona etykiet i napisów produktu!
+    console.log("[Imagen 3 Lifestyle] Kompozytowanie warstwowe Sharp (100% autentyczność etykiety produktu)...");
+    
+    const bgMeta = await sharp(backgroundBuffer).metadata();
+    const bgWidth = bgMeta.width || 1024;
+    const bgHeight = bgMeta.height || 1024;
 
-    // Pobranie końcowego obrazu i konwersja na Base64
-    console.log("[AiService] Obraz gotowy. Pobieranie z Claid tmp_url i konwersja...");
-    try {
-        const downloadRes = await axios.get(sceneTmpUrl, { responseType: 'arraybuffer' });
-        const finalBase64 = "data:image/jpeg;base64," + Buffer.from(downloadRes.data, 'binary').toString('base64');
-        return { 
-            base64: finalBase64, 
-            visualTrendReport: liquidVars.VISUAL_TREND_REPORT 
-        };
-    } catch (err) {
-        console.error("[AiService] Błąd pobierania wynikowego obrazka:", err.message);
-        throw new Error("Nie udało się pobrać wygenerowanego obrazu z infrastruktury Claid.");
-    }
+    const productMeta = await sharp(inputBuffer).metadata();
+    const targetProductHeight = Math.round(bgHeight * 0.65);
+    const targetProductWidth = Math.round((productMeta.width / productMeta.height) * targetProductHeight);
+
+    const resizedProductBuffer = await sharp(inputBuffer)
+        .resize(targetProductWidth, targetProductHeight, { fit: 'inside' })
+        .toBuffer();
+
+    // Wektorowy cień kontaktowy pod podstawą produktu
+    const shadowWidth = Math.round(targetProductWidth * 0.88);
+    const shadowHeight = Math.max(12, Math.round(targetProductHeight * 0.08));
+    const blurRadius = Math.max(8, Math.round(shadowWidth * 0.05));
+
+    const svgShadow = `
+        <svg width="${bgWidth}" height="${bgHeight}" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <filter id="shadowBlur">
+                    <feGaussianBlur stdDeviation="${blurRadius}" />
+                </filter>
+            </defs>
+            <ellipse 
+                cx="${bgWidth / 2}" 
+                cy="${Math.round(bgHeight * 0.76)}" 
+                rx="${shadowWidth / 2}" 
+                ry="${shadowHeight / 2}" 
+                fill="rgba(0, 0, 0, 0.42)" 
+                filter="url(#shadowBlur)" 
+            />
+        </svg>
+    `;
+
+    const leftOffset = Math.round((bgWidth - targetProductWidth) / 2);
+    const topOffset = Math.round((bgHeight * 0.76) - targetProductHeight + (shadowHeight / 3));
+
+    // Kompozytowanie warstw: Tło Imagen 3 -> Cień SVG -> 100% Oryginalny Produkt
+    const finalCompositedBuffer = await sharp(backgroundBuffer)
+        .resize(bgWidth, bgHeight)
+        .composite([
+            { input: Buffer.from(svgShadow), top: 0, left: 0 },
+            { input: resizedProductBuffer, top: Math.max(0, topOffset), left: Math.max(0, leftOffset) }
+        ])
+        .jpeg({ quality: 92 })
+        .toBuffer();
+
+    const base64Output = `data:image/jpeg;base64,${finalCompositedBuffer.toString('base64')}`;
+
+    return { 
+        base64: base64Output, 
+        visualTrendReport: liquidVars.VISUAL_TREND_REPORT || "Google Imagen 3 Commercial Photography"
+    };
 }
+
+const generateClaidLifestyle = generateImagenLifestyle;
 
 /**
  * Agent uzupełniania parametrów (PXM Auto-Fill Agent).
