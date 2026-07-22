@@ -4,7 +4,7 @@ import { Paperclip, Send, Loader2, Smile, FileText, Image as ImageIcon, Bot, Mic
 import EmojiPicker from 'emoji-picker-react';
 import ReactMarkdown from 'react-markdown';
 
-const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
 
 // mode: 'global' | 'direct' | 'task' | 'campaign' | 'project'
 export default function UniversalChat({ mode, targetId, currentUser, socket, title, subtitle, token }) {

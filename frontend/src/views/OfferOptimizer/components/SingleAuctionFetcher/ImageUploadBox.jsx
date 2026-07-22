@@ -27,7 +27,7 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
             pollInterval = setInterval(async () => {
                 try {
                     const token = localStorage.getItem('aps_token') || localStorage.getItem('token') || '';
-                    const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
+                    const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
                     const res = await fetch(`${API_URL}/api/offer-optimizer/pipeline/status/${ean.trim()}`, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
@@ -91,7 +91,7 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
         
         try {
             const token = localStorage.getItem('aps_token') || '';
-            const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
+            const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
 
             const response = await fetch(`${API_URL}/api/offer-optimizer/pipeline/trigger`, {
                 method: 'POST',

@@ -3,7 +3,7 @@
 ## 1. Pełny Cykl Zarządzania Produkcją (End-to-End Delivery Protocol: A do Z)
 Jako Agent AI odpowiadasz za kompletne, bezobsługowe dostarczenie rozwiązań produkcyjnych:
 - **Analiza i Diagnoza:** Szczegółowa weryfikacja kodu, logów i przyczyn źródłowych.
-- **Planowanie i QA:** Tworzenie 3-punktowego planu działania, uzyskanie zgody i przeprowadzenie wewnętrznego audytu QA.
+- **Planowanie i QA:** Tworzenie  planu działania, uzyskanie zgody i przeprowadzenie wewnętrznego audytu QA.
 - **Modyfikacja Kodu:** Pisanie kodu produkcyjnego bez placeholderów i zniekształceń logiki.
 - **Testy Przed i Po (Pre & Post Verification):** 
   - Obowiązkowe wykonanie weryfikacji składniowej i kompilacji przed zatwierdzeniem (`node --check`, `npm run build` we frontendzie oraz testów jednostkowych/integracyjnych).

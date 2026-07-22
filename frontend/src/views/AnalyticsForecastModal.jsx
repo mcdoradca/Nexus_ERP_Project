@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, TrendingUp, AlertTriangle, Loader2, BarChart2, DollarSign, Package } from 'lucide-react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.PROD ? '' : 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
 
 const AnalyticsForecastModal = ({ isOpen, onClose, product, token }) => {
   const [forecast, setForecast] = useState(null);

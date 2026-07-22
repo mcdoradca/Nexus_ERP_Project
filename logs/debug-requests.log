@@ -1092,3 +1092,33 @@
 [2026-07-21T11:11:37.903Z] GET /api/health - 200 - 937ms
 [2026-07-21T11:12:31.759Z] GET /api/health - 200 - 870ms
 [2026-07-21T13:28:44.565Z] GET /api/health - 200 - 906ms
+[2026-07-21T18:53:28.901Z] GET /api/health - 200 - 923ms
+[2026-07-21T19:13:23.121Z] GET /api/health - 200 - 973ms
+[2026-07-21T19:25:57.103Z] GET /api/health - 200 - 903ms
+[2026-07-21T19:32:41.190Z] GET /api/health - 200 - 1382ms
+[2026-07-21T20:12:00.003Z] GET /api/health - 200 - 962ms
+[2026-07-22T04:59:41.467Z] GET /api/health - 200 - 900ms
+[2026-07-22T05:09:04.481Z] GET /api/health - 200 - 930ms
+[2026-07-22T05:36:09.324Z] GET /api/health - 200 - 883ms
+[2026-07-22T05:47:09.872Z] GET /api/health - 200 - 791ms
+[2026-07-22T06:12:42.386Z] GET /api/health - 200 - 912ms
+[2026-07-22T12:17:39.768Z] GET /api/health - 200 - 953ms
+[2026-07-22T12:19:09.197Z] GET /api/health - 200 - 949ms
+[2026-07-22T12:34:07.759Z] GET /api/health - 200 - 979ms
+[2026-07-22T13:36:19.578Z] GET /api/health - 200 - 897ms
+[2026-07-22T14:23:59.932Z] GET /api/health - 200 - 918ms
+[2026-07-22T14:48:44.848Z] GET /api/health - 200 - 936ms
+[2026-07-22T14:59:10.214Z] GET /api/health - 200 - 896ms
+[2026-07-22T15:07:52.269Z] GET /api/health - 200 - 959ms
+[2026-07-22T15:21:54.697Z] GET /api/health - 200 - 828ms
+[2026-07-22T15:25:44.558Z] GET /api/health - 200 - 958ms
+[2026-07-22T15:32:59.186Z] GET /api/health - 200 - 948ms
+[2026-07-22T15:46:31.264Z] GET /api/health - 200 - 991ms
+[2026-07-22T16:16:00.106Z] POST /api/offer-optimizer/pipeline/trigger - 401 - 54ms
+  Response: undefined
+[2026-07-22T16:16:57.114Z] POST /api/offer-optimizer/pipeline/trigger - 401 - 2ms
+  Response: undefined
+[2026-07-22T16:17:26.425Z] POST /api/offer-optimizer/pipeline/trigger - 401 - 1ms
+  Response: undefined
+[2026-07-22T16:19:04.515Z] POST /api/offer-optimizer/pipeline/trigger - 500 - 548ms
+  Response: {"error":"Błąd weryfikacji tożsamości"}
