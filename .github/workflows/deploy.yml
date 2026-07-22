@@ -62,5 +62,11 @@ jobs:
             npx prisma generate
             npm run db:push-safe
             
-            # 5. Zrestartuj proces Node.js za pomocą PM2
+            # 5. Aktualizacja i przeładowanie konfiguracji Nginx dla proxy i 600s timeoutu
+            if [ -f "frontend/nginx-https.tpl" ]; then
+                sudo cp frontend/nginx-https.tpl /etc/nginx/sites-available/nexus 2>/dev/null || true
+                sudo nginx -s reload 2>/dev/null || true
+            fi
+
+            # 6. Zrestartuj proces Node.js za pomocą PM2
             pm2 restart nexus

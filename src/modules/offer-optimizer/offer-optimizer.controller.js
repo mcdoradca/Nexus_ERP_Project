@@ -321,6 +321,26 @@ const saveDraft = async (req, res) => {
             offerDraft: draftData,
         };
 
+        // Synchronizacja głównych pól PIM (Tytuł, Opis HTML, Zdjęcia)
+        if (draftData.title) {
+            updatePayload.name = draftData.title;
+        }
+        if (draftData.htmlContent) {
+            const fullHtml = typeof draftData.htmlContent === 'object'
+                ? Object.values(draftData.htmlContent).join("")
+                : String(draftData.htmlContent);
+            updatePayload.descriptionHtml = fullHtml;
+        }
+        if (Array.isArray(draftData.images) && draftData.images.length > 0) {
+            const imageUrls = draftData.images
+                .map(img => typeof img === 'string' ? img : (img.url || img.replacedUrl || img.originalUrl))
+                .filter(Boolean);
+            if (imageUrls.length > 0) {
+                updatePayload.images = imageUrls;
+                updatePayload.imageUrl = imageUrls[0];
+            }
+        }
+
         if (draftData.sku !== undefined && draftData.sku !== null && String(draftData.sku).trim() !== '') {
             updatePayload.sku = String(draftData.sku).trim();
         }
