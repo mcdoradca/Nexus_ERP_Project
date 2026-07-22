@@ -78,7 +78,7 @@ app.use((req, res, next) => {
 // Konfiguracja CORS (Zabezpieczenie przed nieautoryzowanym dostępem)
 const allowedOrigins = process.env.CORS_ORIGINS 
     ? process.env.CORS_ORIGINS.split(',') 
-    : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'https://n-e-s.it', 'http://n-e-s.it', 'https://www.n-e-s.it'];
+    : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'https://n-e-s.it', 'http://n-e-s.it', 'https://www.n-e-s.it', 'https://staging.n-e-s.it'];
 
 app.use(cors({
     origin: function (origin, callback) {
