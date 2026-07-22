@@ -37,8 +37,8 @@ class EbookGeneratorService {
     }
 
     async _generateContentFromAI(productName, targetAudience) {
-        console.log(`[EbookGenerator] Odpytuję Gemini 3.1 Pro o merytoryczną treść HTML...`);
-        const model = genAI.getGenerativeModel({ model: 'gemini-3.1-pro-preview' });
+        console.log(`[EbookGenerator] Odpytuję Gemini 3.5 Flash o merytoryczną treść HTML...`);
+        const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
         
         const prompt = `
 Jesteś wybitnym ekspertem branżowym i copywriterem (Masterclass).

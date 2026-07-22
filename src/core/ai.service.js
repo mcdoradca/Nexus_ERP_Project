@@ -3,7 +3,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 // Initialize the Gemini API client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 // Use the precise model specified for operations
-const MODEL_NAME = 'gemini-3.1-pro-preview';
+const MODEL_NAME = 'gemini-3.5-flash';
 
 /**
  * Generates an Answer Engine Optimization (AEO) description for a product.

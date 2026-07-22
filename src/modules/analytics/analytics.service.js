@@ -206,7 +206,7 @@ class AnalyticsService {
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
         const model = genAI.getGenerativeModel({ 
-            model: 'gemini-3.1-pro-preview',
+            model: 'gemini-3.5-flash',
             tools: [{ googleSearch: {} }]
         });
 

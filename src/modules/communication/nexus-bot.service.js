@@ -337,7 +337,7 @@ async function processBotMention(messageContent, authorName, mode, targetId, soc
         if (socket) socket.nsp.emit('bot_typing', { message: 'NeS (Nexus Sentinel) analizuje zapytanie...' });
         
         const model = genAI.getGenerativeModel({
-            model: 'gemini-3.1-pro-preview',
+            model: 'gemini-3.5-flash',
             tools: tools,
             toolConfig: { functionCallingConfig: { mode: "AUTO" }, includeServerSideToolInvocations: true },
             systemInstruction: { parts: [{ text: systemInstruction }] },
