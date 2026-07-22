@@ -136,12 +136,16 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
         <div className={`flex flex-col bg-slate-50 border rounded-sm overflow-hidden shadow-sm transition-all relative ${isFixed ? 'border-emerald-300' : 'border-slate-400'}`}>
             
             {/* Nagłówek Biletu */}
-            <div className={`px-4 py-2 border-b text-[10px] uppercase font-black tracking-widest flex items-center justify-between ${isFixed ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : (imageObj.isCompliant ? 'bg-slate-100 text-slate-500 border-slate-400' : 'bg-rose-50 text-rose-600 border-rose-200')}`}>
+            <div className={`px-4 py-2 border-b text-[10px] uppercase font-black tracking-widest flex items-center justify-between ${isFixed ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : (imageObj.isCompliant ? 'bg-slate-100 text-slate-500 border-slate-400' : 'bg-rose-50 text-rose-600 border-rose-200')}`}>
                 <span className="flex items-center">
                     <Camera className="w-3 h-3 mr-2" />
                     Slot Zdjęcia #{index + 1}
                 </span>
-                {isFixed ? <span>Zatwierdzone Po Korekcji</span> : (imageObj.isCompliant ? <span>GEO Compliant</span> : <span>Wymaga Interwencji</span>)}
+                {isFixed ? (
+                    <span className="flex items-center font-bold text-indigo-600">
+                        <Sparkles className="w-3 h-3 mr-1 text-indigo-500" /> AI Generated (EU AI Act Art. 50)
+                    </span>
+                ) : (imageObj.isCompliant ? <span>GEO Compliant</span> : <span>Wymaga Interwencji</span>)}
             </div>
 
             {/* Obszar Główny - Zdjęcie / Dropzone / Tekst */}
