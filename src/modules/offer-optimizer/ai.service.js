@@ -687,6 +687,100 @@ KROK 3: Wynik DOKŁADNIE w formacie JSON (bez bloków markdown \`\`\`json):
     }
 }
 
+async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        return getFallbackPhotoroomSetup(imageIndex);
+    }
+
+    try {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+            generationConfig: {
+                temperature: 0.7,
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "OBJECT",
+                    properties: {
+                        prompt: { type: "STRING" },
+                        visualTrendReport: { type: "STRING" }
+                    },
+                    required: ["prompt", "visualTrendReport"]
+                }
+            }
+        });
+
+        const promptInstruction = `Jesteś ekspertskim dyrektorem artystycznym AI oraz analitykiem trendów e-commerce w 2026 roku.
+Twój cel to stworzenie spersonalizowanego opisu tła dla Photoroom Image Editing API dla konkretnego produktu z bazy PIM.
+
+DANE PRODUKTU Z PIM:
+${productDetailsText}
+
+WYTYCZNE DLA KADRU SLOTU #${imageIndex + 1}:
+- Dokonaj analizy składników aktywnych i przeznaczenia kosmetyku (np. witamina C, kwas hialuronowy, ceramidy, róża, retinol, aloes, kosmetyk dla dzieci itp.).
+- Zaprojektuj spójną wizualnie scenerię tła, podłoża i oświetlenia:
+  * Slot #1 (Główny Lifestyle): Luksusowe podłoże (marmur, kamień łupek, jasne drewno) dopasowane do składników, naturalne światło poranka.
+  * Slot #2 (Koncepcja SPA & Natura): Tropikalna/botaniczna sceneria SPA z cieniem świeżych liści i kroplami czystej wody.
+  * Slot #3 (Laboratorium i Skuteczność): Nowoczesne, czyste środowisko laboratoryjne z kliniczną estetyką i błękitnym/białym podświetleniem.
+  * Slot #4 (Flatlay & Tekstury): Ujęcie z góry na aksamitnej tkaninie, lnie lub jedwabiu z delikatnymi płatkami lub elementami natury.
+  * Sloty #5+: Ekskluzywna aranżacja na minimalistycznym podestcie w ciepłym oświetleniu studyjnym.
+
+ZASADY DLA "prompt" (DLA PHOTOROOM API):
+- Pisz WYŁĄCZNIE po angielsku (max 30 słów).
+- Opisz TYLKO tło, podłoże, światło, rekwizyty i głębię ostrości (np. "Luxurious white marble surface, fresh orange citrus slices and water droplets, soft morning sunlight, blurred botanical garden background").
+- ABSOLUTNY ZAKAZ wspominania o produkcie, opakowaniu, słoiczku, butelce, etykiecie czy ludziach/dłoniach (no product package, no bottles, no humans, no hands). Photoroom dodaje obiekt samemu.
+
+ZASADY DLA "visualTrendReport" (DLA INTERFEJSU UŻYTKOWNIKA):
+- Pisz po POLSKU (1-2 zdania).
+- Przekaż czytelny raport opierający się na trendach 2026 roku, dokładnie wyjaśniający dlaczego zbadane tło, kolory i rekwizyty idealnie konwertują dla TEGO KONKRETNEGO PRODUKTU.
+- Raport MUSI W 100% ZGADZAĆ SIĘ Z WYGENEROWANĄ SCENERIĄ TŁA (np. jeśli tło ma plasterki pomarańczy i wodę, raport musi opisywać cytrusową świeżość i krople wody).`;
+
+        const result = await generateWithRetry(model, promptInstruction, 2);
+        const jsonText = result.response.text();
+        const data = JSON.parse(jsonText);
+        if (data.prompt && data.visualTrendReport) {
+            console.log(`[Photoroom Dynamic Agent] Wygenerowano dynamiczny prompt dla slotu #${imageIndex + 1}:`, data.prompt);
+            console.log(`[Photoroom Dynamic Agent] Visual Trend Report:`, data.visualTrendReport);
+            return data;
+        }
+    } catch (err) {
+        console.error("[Photoroom Dynamic Agent] Ostrzeżenie: Gemini LLM nie zwrócił poprawnego JSON, używam inteligentnego fallbacku:", err.message);
+    }
+
+    return getFallbackPhotoroomSetup(imageIndex);
+}
+
+function getFallbackPhotoroomSetup(imageIndex) {
+    let prompt = "Minimalist elegant wooden pedestal surface, soft neutral beige background, soft studio lighting, deep depth of field";
+    let visualTrendReport = "Zgodnie z trendami e-commerce, wykorzystano czyste, stonowane tło studyjne z miękkim oświetleniem budujące czytelność produktu.";
+
+    switch(imageIndex) {
+        case 1:
+            prompt = "Dark textured slate stone surface with subtle crystal clear water droplets, vibrant seascape blur in background, directional dramatic sunlight, 8k commercial photoshoot";
+            visualTrendReport = "Zgodnie z trendami na 2026 rok, najwyższą konwersję generują ujęcia na ciemnym łupku kamiennym z kroplami wody akcentującymi nawilżenie i świeżość.";
+            break;
+        case 2:
+            prompt = "Luxury SPA natural white marble surface with soft tropical botanical leaf shadows, warm natural morning sunlight, clean minimal aesthetic";
+            visualTrendReport = "Zgodnie z raportami trendów, połączenie naturalnego białego marmuru SPA z miękkimi cieniami liści botanicznych buduje wizerunek naturalności premium.";
+            break;
+        case 3:
+            prompt = "Modern high-tech cosmetic laboratory workspace, clean clinical white surface, soft subtle blue ambient backlighting, sharp focus, 8k photoshoot";
+            visualTrendReport = "Zgodnie z trendami branżowymi, czysta sceneria laboratoryjna z miękkim błękitnym podświetleniem akcentuje kliniczną skuteczność receptury.";
+            break;
+        case 4:
+            prompt = "Top-down flatlay commercial beauty photography background, luxurious natural linen fabric, delicate flower petals nearby, soft golden hour sunlight";
+            visualTrendReport = "Zgodnie z trendami rynkowymi, ujęcie flatlay z góry na naturalnym lnie i płatkach kwiatów buduje zaufanie do delikatności kosmetyku.";
+            break;
+        case 5:
+            prompt = "Stark white studio seamless background with a sharp geometric diagonal grey shadow cast across wall, modern minimal aesthetic";
+            visualTrendReport = "Zgodnie z trendami e-commerce, minimalistyczne białe tło z czystym geometrycznym cieniem świetnie wyodrębnia opakowanie.";
+            break;
+    }
+
+    return { prompt, visualTrendReport };
+}
+
 async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
     const photoroomKey = (process.env.PHOTOROOM_API_KEY && process.env.PHOTOROOM_API_KEY !== "TBD") 
         ? process.env.PHOTOROOM_API_KEY 
@@ -709,7 +803,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         throw new Error("Brak wejściowego obrazu (wymagany imageBase64 lub sourceImageUrl).");
     }
 
-    // 2. Gemini Agent PIM Prompter - Budowanie kontekstu scenerii
+    // 2. Gemini Agent PIM Prompter - Budowanie kontekstu scenerii z PIM
     let productDetailsText = `Product EAN: ${ean}`;
     try {
         if (ean) {
@@ -721,35 +815,10 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         }
     } catch(e) { console.error("Błąd odczytu PIM dla Agenta Promptera:", e.message); }
 
-    let liquidVars = { VISUAL_TREND_REPORT: "Commercial Photoroom AI Aesthetic" };
-    try {
-        liquidVars = await generateClaidLiquidVariables(productDetailsText);
-    } catch (e) {
-        console.error("[Photoroom Lifestyle] Ostrzeżenie promptera:", e.message);
-    }
-
-    // 3. Budowanie spersonalizowanych scenerii tła dla Photoroom API
-    let scenePrompt = "";
-    switch(imageIndex) {
-        case 1:
-            scenePrompt = `Dark textured slate stone surface with subtle crystal clear water droplets, vibrant seascape blur in background, directional dramatic sunlight, sparkling highlights, 8k commercial beauty photoshoot`;
-            break;
-        case 2:
-            scenePrompt = `Luxury SPA natural white marble surface with soft tropical botanical leaf shadows, warm natural morning sunlight, clean minimal aesthetic, 8k commercial photoshoot`;
-            break;
-        case 3:
-            scenePrompt = `Modern high-tech cosmetic laboratory workspace, clean clinical white surface, soft subtle blue ambient backlighting, sharp focus, professional cosmetic photoshoot`;
-            break;
-        case 4:
-            scenePrompt = `Top-down flatlay commercial beauty photography background, luxurious natural linen fabric, delicate flower petals nearby, soft golden hour sunlight, 8k`;
-            break;
-        case 5:
-            scenePrompt = `Stark white studio seamless background with a sharp geometric diagonal grey shadow cast across wall, modern minimal aesthetic`;
-            break;
-        default:
-            scenePrompt = `Minimalist elegant wooden pedestal surface, soft neutral beige background, soft studio lighting, deep depth of field`;
-            break;
-    }
+    // 3. Dynamiczne wygenerowanie spersonalizowanego promptu i Raportu Trendów przez Gemini LLM
+    const dynamicSetup = await generateDynamicPhotoroomPrompt(productDetailsText, imageIndex);
+    const scenePrompt = dynamicSetup.prompt;
+    const visualTrendReport = dynamicSetup.visualTrendReport;
 
     // 4. Wysłanie żądania do Photoroom Image Editing API (/v2/edit)
     logLifestyleEvent('INFO', 'Wysyłanie zapytania do Photoroom API v2/edit', { prompt: scenePrompt });
@@ -812,7 +881,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 
         return {
             base64: base64Output,
-            visualTrendReport: liquidVars.VISUAL_TREND_REPORT || "Photoroom AI Commercial Photography (100% Label Preserved & EU AI Act Art. 50 Watermarked)"
+            visualTrendReport: visualTrendReport
         };
 
     } catch (err) {
