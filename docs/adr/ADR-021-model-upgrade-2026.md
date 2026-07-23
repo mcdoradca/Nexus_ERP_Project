@@ -5,7 +5,7 @@ Wcześniejsza architektura EAN Pipeline oraz Multi-Agent Swarm opierała się na
 
 ## Decyzja
 Zdecydowano się na architekturę zróżnicowaną pod kątem kosztów (Tiered Model Architecture), w której każdy z ponad 25 Agentów korzysta z innego, zoptymalizowanego modelu:
-1. **Agent PIM Auto-Fill (Ostatnia Linia Wsparcia):** Wdrożenie bardzo taniego modelu `gemini-2.5-flash-lite` do szybkiego wyszukiwania szczątkowych braków (oszczędność ~91000 tokenów na zapytanie), bez pełnych opcji Deep Research.
+1. **Agent PIM Auto-Fill (Ostatnia Linia Wsparcia):** Wdrożenie taniego modelu `gemini-3.5-flash` z włączonym wyszukiwaniem (Google Search) do szybkiego wyszukiwania szczątkowych braków (drastyczna oszczędność względem modeli Pro ~91000 tokenów na zapytanie), bez pełnych opcji Deep Research. Wcześniejszy model `gemini-2.5-flash-lite` został wycofany z API (404 Not Found) i usunięty.
 2. **Agent OSINT & Opinie (Custom Tools):** Wdrożenie `gemini-3.1-pro-preview-customtools` dla zapewnienia bezbłędnej, głębokiej interakcji z Google Search.
 3. **Agent Compliance (Audyt Prawny):** Zastosowanie autorskiego modelu platformowego `antigravity-preview-05-2026`, gwarantującego najwyższe bezpieczeństwo z perspektywy AI Act i Regulacji Kosmetycznych.
 4. **Agent GEO (Copywriter) & Tytuł:** Upgrade do `gemini-3.1-pro-preview`, zapewniającego najwyższą jakość optymalizacji treści E-Commerce i spójność HTML.
