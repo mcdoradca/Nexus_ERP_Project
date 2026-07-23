@@ -179,7 +179,7 @@ async function applyLocalShadow(imageUrl, claidKey) {
 }
 
 const fallbackKey = Buffer.from('QVEuQWI4Uk42S2kwX1VhQzBYSmpRRmNwWTAtUGRRMktKdlM3ZUp1N3pWaElWYWxJSHdITUE=', 'base64').toString('ascii');
-const apiKey = process.env.GEMINI_API_KEY || fallbackKey;
+const apiKey = fallbackKey; // Tymczasowe wymuszenie poprawnego klucza (omijamy nieważny klucz z .env)
 const genAI = new GoogleGenerativeAI(apiKey);
 
 /**
