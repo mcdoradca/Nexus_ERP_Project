@@ -105,7 +105,17 @@ class EanPipelineService {
             const currentFeatures = product.features && typeof product.features === 'object' ? { ...product.features } : {};
             const filledFeatures = await AiService.autofillMissingParameters(ean, product.name, currentFeatures, requiredSchema);
             if (filledFeatures && Object.keys(filledFeatures).length > 0) {
-                product = await prisma.product.update({ where: { ean }, data: { features: filledFeatures } });
+                let dataToUpdate = { features: filledFeatures };
+                if (filledFeatures["Marka"]) {
+                    const detectedBrandName = filledFeatures["Marka"].trim();
+                    const currentBrand = await prisma.brand.findUnique({ where: { id: product.brandId } });
+                    if (!currentBrand || currentBrand.name === 'PIM-IMPORT') {
+                        let b = await prisma.brand.findUnique({ where: { name: detectedBrandName } });
+                        if (!b) b = await prisma.brand.create({ data: { name: detectedBrandName } });
+                        dataToUpdate.brandId = b.id;
+                    }
+                }
+                product = await prisma.product.update({ where: { ean }, data: dataToUpdate });
             }
 
             // FAZA 3: USTRUKTURYZOWANY OSINT I SENTYMENT (Czekamy w kolejności, brak Promise.all)

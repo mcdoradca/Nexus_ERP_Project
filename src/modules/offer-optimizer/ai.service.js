@@ -921,8 +921,8 @@ Tylko z tych źródeł pobieraj zaufane parametry, a następnie wykonaj mapowani
 Produkt: ${productName}
 EAN: ${ean}
 
-Oto lista parametrów do uzupełnienia wraz z ich dopuszczalnymi wartościami:
-${JSON.stringify(missingSchema.map(p => ({ nazwa: p.name, dopuszczalne_wartosci: p.dictionary ? p.dictionary.map(d => d.value) : "Dowolny tekst" })), null, 2)}
+Oto lista parametrów do uzupełnienia wraz z ich dopuszczalnymi wartościami (jeśli słownik jest wymagany, MUSISZ użyć dokładnej wartości ze słownika):
+${JSON.stringify(missingSchema.map(p => ({ nazwa: p.name, wymagane: p.required, typ: p.type, dopuszczalne_wartosci: p.dictionary ? p.dictionary.map(d => d.value) : "Dowolny tekst" })), null, 2)}
 
 Obecnie zapisane parametry (nie nadpisuj ich): ${JSON.stringify(currentFeatures)}
 
