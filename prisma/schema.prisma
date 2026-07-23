@@ -623,3 +623,16 @@ enum TaskPriority {
   HIGH
   URGENT
 }
+
+model AgentMetric {
+  id               String   @id @default(uuid())
+  agentId          String   // np. 'Agent_1_INCI', 'Agent_11_Autofill'
+  modelName        String   // np. 'gemini-3.1-pro-preview'
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  @@index([agentId])
+  @@index([createdAt])
+}

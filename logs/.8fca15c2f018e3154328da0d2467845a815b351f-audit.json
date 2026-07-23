@@ -19,6 +19,11 @@
             "date": 1784696368897,
             "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-error-2026-07-22.log",
             "hash": "1358d5d9b79f66dc305783f5f71675fbfbac2e3aa90df8175e3791e7e517fa68"
+        },
+        {
+            "date": 1784781806155,
+            "name": "Z:\\Nexus_ERP_Project\\logs\\nexus-error-2026-07-23.log",
+            "hash": "ec83fd3c164bda505a9086c447dc1ee427a18b61c6f8ffe58d3f105368c2e752"
         }
     ],
     "hashType": "sha256"

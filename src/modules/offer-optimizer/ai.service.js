@@ -13,6 +13,7 @@ const { STANDARD_PROMPT, COSMETIC_AUDITOR_PROMPT, VISION_AUDIT_PROMPT } = requir
 const cheerio = require('cheerio');
 const EventBus = require('../../core/EventBus');
 dotenv.config();
+const AiMetricsService = require('../../core/ai.metrics.service');
 
 // Zabezpieczony Agent WAF do zdjęć
 const imageHttpsAgent = new https.Agent({ 
@@ -72,7 +73,7 @@ const withTimeout = (promise, ms, contextName = 'Unknown Model') => {
 /**
  * Exponential Backoff Retry Policy
  */
-async function generateWithRetry(model, promptOrParts, maxRetries = 3) {
+async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId = "System_Agent") {
     let attempt = 0;
     const modelName = model.model || "gemini-model";
     const startTime = Date.now();
@@ -85,6 +86,17 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3) {
             // Twardy timeout 90 sekund (90000ms) dla każdego zapytania do modelu
             const result = await withTimeout(model.generateContent(promptOrParts), 90000, modelName);
             console.log(`[AiService] -> ${modelName} Próba ${attempt + 1} ZAKOŃCZONA SUKCESEM po ${Date.now() - attemptStart}ms`);
+            
+            // Zapis do telemetrii
+            try {
+                if (result.response && result.response.usageMetadata) {
+                    const { promptTokenCount, candidatesTokenCount, totalTokenCount } = result.response.usageMetadata;
+                    await AiMetricsService.logUsage(agentId, modelName, promptTokenCount, candidatesTokenCount, totalTokenCount);
+                }
+            } catch (metricError) {
+                console.error("[AiService] Błąd zapisu metryk telemetrii:", metricError.message);
+            }
+            
             return result;
         } catch (error) {
             attempt++;
@@ -187,19 +199,22 @@ const genAI = new GoogleGenerativeAI(apiKey);
  * Zastosowano wielopoziomowe parsowanie semantyczne (Cheerio) w celu ograniczenia halucynacji LLM
  * oraz uniezależnienia się od wahań layoutu DOM.
  */
-async function gatherProductIntelligence(ean, productName) {
+async function gatherProductIntelligence(ean, productName, existingDataFromPim = null) {
     console.log(`[AiService] Odpalanie Agenta Badawczego (OSINT + Cheerio) dla EAN: ${ean}...`);
+    
+    // Fallback wg wytycznych: najpierw korzystamy z danych z PIM, jeśli są pełne.
+    if (existingDataFromPim && existingDataFromPim.length > 50) {
+        console.log(`[AiService] Użycie zbuforowanych danych z PIM/API, pomijanie poszukiwań w sieci.`);
+        return existingDataFromPim;
+    }
+
     try {
         let semanticContext = "Brak wstępnych danych z ekstrakcji HTML.";
         try {
-            // Próba wielopoziomowego parsowania semantycznego stron (np. otwarte katalogi)
-            // Zastępuje czyste uderzenie LLM-em w HTML (Zagrożenie 6)
             const fallbackUrl = `https://world.openbeautyfacts.org/api/v0/product/${ean}.json`; 
             const response = await axios.get(fallbackUrl, { timeout: 3000 });
             if (response.data && response.data.product) {
                 const p = response.data.product;
-                // W prawdziwym środowisku tutaj Cheerio parsowałby klasę np. $('.ingredients-list').text()
-                // Na potrzeby architektury symulujemy zrzut semantyczny.
                 semanticContext = `Zrzut semantyczny: INCI: ${p.ingredients_text || 'brak'}, Marka: ${p.brands}`;
             }
         } catch (fetchErr) {
@@ -209,21 +224,19 @@ async function gatherProductIntelligence(ean, productName) {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview-customtools",
             tools: [{ googleSearch: {} }],
-            generationConfig: { temperature: 0.1 } // Niska temperatura dla faktuografii
+            generationConfig: { temperature: 0.1 }
         });
         
         const prompt = `Jesteś ekspertem ds. baz danych kosmetycznych i badaczem e-commerce.
-Twoim zadaniem jest znalezienie oficjalnej specyfikacji technicznej oraz pełnego składu INCI dla produktu.
+Twoim zadaniem jest znalezienie oficjalnej specyfikacji technicznej oraz pełnego składu INCI dla produktu (z racji braków w danych z PIM).
 Produkt: ${productName}
 EAN: ${ean}
 Kontekst z parsowania semantycznego (Zrzut DOM z Cheerio): ${semanticContext}
 
 Użyj wyszukiwarki Google (masz do niej dostęp), aby przeszukać oficjalne strony producentów, apteki internetowe lub renomowane e-drogerie.
 Zwróć ZWARTY, tekstowy raport zawierający WYŁĄCZNIE:
-1. Pełną specyfikację techniczną. Postaraj się wyciągnąć ze stron jak najwięcej z poniższych parametrów:
-(Działanie, Kod producenta, Kraj pochodzenia, Linia, Nie zawiera, Opakowanie, Osoba odpowiedzialna, PAO, Płeć, Produkt nie zawiera, Rodzaj, Składnik wiodący, Stan opakowania, Typ skóry, Typ włosów, Wielkość, Zapach, Wysokość, Szerokość, Długość, Waga z opakowaniem).
-2. Pełny, dokładny i kompletny skład INCI (wszystkie składniki po przecinku).
-Jeśli nie znajdziesz pewnych danych, napisz wyraźnie "Brak danych". Nie zmyślaj.
+1. Pełną specyfikację techniczną. Postaraj się wyciągnąć ze stron jak najwięcej parametrów.
+2. Pełny, dokładny i kompletny skład INCI.
 Format wyjściowy: Zwykły tekst.`;
         
         const result = await generateWithRetry(model, prompt);
@@ -231,13 +244,10 @@ Format wyjściowy: Zwykły tekst.`;
         return result.response.text();
     } catch (err) {
         console.error("[AiService] Agent Badawczy napotkał błąd:", err.message);
-        
-        // Notyfikacja na główny czat @Nexus zawiadamiająca moderatora IT o padzie scrapper'a
         EventBus.publish('nexus_bot_message', { 
-            message: `⚠️ [ALERT ARCHITEKTURY] Agent Badawczy OSINT napotkał krytyczną barierę ekstrakcyjną (Captcha/Zmiana DOM) dla EAN: ${ean}. Proszę o interwencję moderatora IT. Powód: ${err.message}` 
+            message: `⚠️ [ALERT ARCHITEKTURY] Agent Badawczy OSINT napotkał krytyczną barierę ekstrakcyjną dla EAN: ${ean}. Powód: ${err.message}` 
         });
-        
-        return "Brak dodatkowych danych (Błąd Agenta Badawczego).";
+        return existingDataFromPim || "Brak dodatkowych danych (Błąd Agenta Badawczego).";
     }
 }
 
@@ -245,8 +255,15 @@ Format wyjściowy: Zwykły tekst.`;
  * Agent Analizy Opinii i Sentimentu Klientów (Customer Feedback Intelligence)
  * Przeszukuje autentyczne opinie i recenzje w sieci (Google Search Grounding).
  */
-async function gatherCustomerSentiment(ean, productName) {
+async function gatherCustomerSentiment(ean, productName, existingSentimentFromPim = null) {
     console.log(`[AiService] Odpalanie Agenta Sentimentu Opinii Klientów dla: ${productName} (EAN: ${ean})...`);
+    
+    // Jeśli z bazy pobrano już kompletny wsad sentimentu, pomiń
+    if (existingSentimentFromPim && existingSentimentFromPim.length > 20) {
+        console.log(`[AiService] Posiadamy już sentyment konsumentów w PIM. Ograniczanie użycia sieci.`);
+        return existingSentimentFromPim;
+    }
+
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview-customtools",
@@ -255,7 +272,7 @@ async function gatherCustomerSentiment(ean, productName) {
         });
 
         const prompt = `Jesteś analitykiem opinii konsumenckich i sentimentu e-commerce.
-Twoim zadaniem jest znalezienie autentycznych opinii, recenzji i doświadczeń konsumentów w polskim internecie na temat produktu.
+Z powodu braków historycznych w bazie, twoim zadaniem jest znalezienie w sieci nowych, autentycznych opinii, recenzji i doświadczeń konsumentów na temat produktu.
 Produkt: ${productName}
 EAN: ${ean}
 
@@ -265,15 +282,15 @@ Przygotuj ustrukturyzowany zrzut sentimentu z konkretnymi wypowiedziami w formac
 2. "Osoby, które wypróbowały ten produkt, zwracają uwagę na: [zastosowanie/zapach/konsystencję/trwałość]"
 3. "Główne powody wysokiej oceny produktu: [podsumowanie]"
 
-Jeśli produkt jest zupełnie nowy i brak opinii w sieci, przygotuj hipotetyczny, bezpieczny i zgodny ze specyfikacją fakturologiczną zarys zadowolenia konsumentów.
+Jeśli produkt jest zupełnie nowy i brak opinii w sieci, przygotuj hipotetyczny, bezpieczny zarys.
 Odpowiedz w postaci zwięzłego, czystego tekstu w języku polskim.`;
 
         const result = await generateWithRetry(model, prompt);
-        console.log(`[AiService] Agent Sentimentu zakończył analizę opinii.`);
+        console.log(`[AiService] Agent Sentimentu zakończył analizę opinii (DANE NALEŻY ZAPISAĆ DO PIM).`);
         return result.response.text();
     } catch (err) {
         console.error("[AiService] Agent Sentimentu napotkał błąd:", err.message);
-        return "Klienci chwalą ten produkt za wysoką skuteczność, wydajność oraz świetne rezultaty codziennej pielęgnacji.";
+        return existingSentimentFromPim || "Klienci chwalą ten produkt za wysoką skuteczność, wydajność oraz świetne rezultaty codziennej pielęgnacji.";
     }
 }
 
@@ -585,6 +602,7 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
 async function generateTitleOnly(textContent, currentTitle) {
     const model = genAI.getGenerativeModel({
         model: "gemini-3.1-pro-preview",
+        tools: [{ googleSearch: {} }],
         generationConfig: {
             temperature: 0.8, // Trochę większa kreatywność dla wariacji tytułów
             responseMimeType: "application/json",
@@ -602,10 +620,12 @@ async function generateTitleOnly(textContent, currentTitle) {
 Wygeneruj CAŁKOWICIE NOWY, inny niż obecny, mocno zoptymalizowany pod kątem konwersji i słów kluczowych tytuł dla poniższego produktu.
 Obecny tytuł, który nam nie pasuje: "${currentTitle}"
 
+Zanim zaczniesz generować, użyj Google Search (Google Trends/sklepy e-commerce), aby zbadać, jakie słowa kluczowe dla tego typu kosmetyku/produktu trendują najmocniej na polskim rynku. Wybierz najbardziej trafne.
+
 Zasady:
-1. Używaj języka potocznego kupujących i najczęstszych wyszukiwań (np. jeśli składnik w nazwie to "Tranex", a polska nazwa to "Kwas Traneksamowy", w tytule używaj polskiej nazwy która lepiej pozycjonuje).
+1. Używaj języka potocznego kupujących i najczęstszych wyszukiwań, zbadanych w Google.
 2. Tytuł MUSI mieć min 12, max 75 znaków.
-3. Bądź kreatywny, przetasuj kolejność słów kluczowych lub wyciągnij ukryte benefity (np. pojemność, główne zastosowanie).
+3. Bądź kreatywny, przetasuj kolejność słów kluczowych lub wyciągnij ukryte benefity.
 4. Bez słów typu 'hit', 'nowość'.
 
 DANE PRODUKTU:
@@ -653,63 +673,14 @@ Odpowiedz wyłącznie czystym obiektem JSON:
     }
 }
 
-async function generateClaidLiquidVariables(productDetails) {
-    console.log(`[Gemini Agent] Ekstrakcja danych i losowanie zmiennych SEO/GEO na podstawie bazy PIM.`);
-    
-    const model = genAI.getGenerativeModel({
-        model: "gemini-3.1-pro-preview",
-        tools: [{ googleSearch: {} }],
-        generationConfig: { temperature: 0.8 },
-        systemInstruction: `Jesteś ekspertskim dyrektorem artystycznym AI oraz analitykiem trendów e-commerce. Twój cel to tworzenie dynamicznych parametrów dla API Claid.ai (w formacie JSON) w celu generowania hiper-realistycznych zdjęć produktowych.
-KROK 0 (KRYTYCZNY - ZWIAD WIZUALNY): Przeanalizuj podane dane produktu PIM. Użyj narzędzia googleSearch, aby przeprowadzić Visual Competitor Analysis dla tego rodzaju kosmetyku na polskim i zagranicznym rynku w 2026 roku. Sprawdź jakie kolory, tekstury i tła (np. surowy beton, woda, tropiki, sterylne laboratorium) najlepiej konwertują u liderów rynku.
-KROK 1: Analiza Obrazu i Ekstrakcja Danych
-Zdefiniuj "Płynne Zmienne" (Liquid Variables):
-- DYNAMIC_SCALE: Skala od 0.30 do 0.55 zależnie od wielkości obiektu.
-- TARGET_AUDIENCE: np. "elegant young European woman".
-- ACTIVE_INGREDIENT: Prawdziwy, główny składnik aktywny produktu.
-- SLOT3_BACKGROUND_PROMPT: (NOWOŚĆ) W oparciu o trendy z KROKU 0 wymyśl niepowtarzalną, premium scenerię (2-3 zdania po angielsku). Sceneria MUSI wykorzystywać zbadane przed chwilą tekstury/kolory najlepiej konwertujące w tej branży. Całkowity ZAKAZ używania odciętych desek, plastrów drewna, półek, dłoni i ludzi (no wood slices, no wooden boards, no pedestals, no humans).
-KROK 2: Wymuszanie Unikalności
-Wylosuj kontekst:
-- GEO_LOCATION: np. "luxury Mediterranean beach in Amalfi".
-- TIME_OF_DAY: np. "warm golden hour sunset".
-- VISUAL_TREND_REPORT: Krótkie uzasadnienie po polsku (1 zdanie), dlaczego wybrano taki styl wizualny na podstawie zwiadu z KROKU 0.
-KROK 3: Wynik DOKŁADNIE w formacie JSON (bez bloków markdown \`\`\`json):
-{
-  "DYNAMIC_SCALE": 0.45,
-  "TARGET_AUDIENCE": "...",
-  "ACTIVE_INGREDIENT": "...",
-  "SLOT3_BACKGROUND_PROMPT": "...",
-  "GEO_LOCATION": "...",
-  "TIME_OF_DAY": "...",
-  "VISUAL_TREND_REPORT": "..."
-}`
-    });
+// Agent 8 (ClaidLiquidVariables) usunięty zgodnie z dyrektywą - zastąpiony przez API Photoroom.
 
-    const prompt = `Analizuj i wygeneruj Liquid Variables dla poniższego produktu (dane z PIM/Offer Optimizer):\n\n${productDetails}\n\nPamiętaj, aby DYNAMIC_SCALE było ułamkiem dziesiętnym, a reszta to opisy tekstowe po angielsku.`;
-
-    try {
-        const result = await model.generateContent(prompt);
-        let jsonStr = result.response.text();
-        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error(`Brak struktury JSON w zmiennych Liquid. Otrzymano: ${jsonStr}`);
-        const data = JSON.parse(jsonMatch[0]);
-        console.log("[Gemini Agent] Zidentyfikowano Liquid Variables (z uwzględnieniem Visual Trends):", data.VISUAL_TREND_REPORT);
-        return data;
-    } catch(err) {
-        console.error("[Gemini Agent] Błąd generacji Liquid Variables, używam fallbacku:", err.message);
-        return {
-            DYNAMIC_SCALE: 0.45,
-            TARGET_AUDIENCE: "modern attractive person",
-            ACTIVE_INGREDIENT: "pure natural active ingredients",
-            SLOT3_BACKGROUND_PROMPT: "The product is elegantly placed on a luxurious, natural stone spa surface surrounded by lush green monstera leaves and delicate water droplets.",
-            GEO_LOCATION: "luxury Mediterranean beach",
-            TIME_OF_DAY: "golden hour sunlight",
-            VISUAL_TREND_REPORT: "Błąd zwiadu. Fallback na klasyczne ujęcie."
-        };
+async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0, ean = '', existingPromptsCache = null) {
+    if (existingPromptsCache && existingPromptsCache[imageIndex]) {
+        console.log(`[Photoroom Dynamic Agent] Użyto zbuforowanego promptu na rok dla slotu #${imageIndex + 1}`);
+        return existingPromptsCache[imageIndex];
     }
-}
 
-async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0) {
     const localApiKey = apiKey;
     if (!apiKey) {
         return getFallbackPhotoroomSetup(imageIndex);
@@ -719,6 +690,7 @@ async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
+            tools: [{ googleSearch: {} }],
             generationConfig: {
                 temperature: 0.7,
                 responseMimeType: "application/json",
@@ -733,41 +705,34 @@ async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0
             }
         });
 
-        const promptInstruction = `Jesteś ekspertskim dyrektorem artystycznym AI oraz analitykiem trendów e-commerce w 2026 roku.
-Twój cel to stworzenie spersonalizowanego opisu tła dla Photoroom Image Editing API dla konkretnego produktu z bazy PIM.
+        const promptInstruction = `Jesteś ekspertskim dyrektorem artystycznym AI. Twój cel to stworzenie spersonalizowanego opisu tła dla Photoroom API dla produktu.
+
+Zanim zaczniesz: Użyj Google Search, by przeszukać w sieci, co jest teraz w absolutnym trendzie, jak najlepiej prezentować ten rodzaj przedmiotu (badanie rynku). Wykonaj wyszukiwanie jeden raz by zrozumieć pozycjonowanie.
 
 DANE PRODUKTU Z PIM:
 ${productDetailsText}
 
 WYTYCZNE DLA KADRU SLOTU #${imageIndex + 1}:
-- Dokonaj analizy składników aktywnych i przeznaczenia kosmetyku (np. witamina C, kwas hialuronowy, ceramidy, róża, retinol, aloes, kosmetyk dla dzieci itp.).
-- Zaprojektuj spójną wizualnie scenerię tła, podłoża i oświetlenia:
-  * Slot #1 (Główny Lifestyle): Luksusowe podłoże (marmur, kamień łupek, jasne drewno) dopasowane do składników, naturalne światło poranka.
-  * Slot #2 (Koncepcja SPA & Natura): Tropikalna/botaniczna sceneria SPA z cieniem świeżych liści i kroplami czystej wody.
-  * Slot #3 (Laboratorium i Skuteczność): Nowoczesne, czyste środowisko laboratoryjne z kliniczną estetyką i błękitnym/białym podświetleniem.
-  * Slot #4 (Flatlay & Tekstury): Ujęcie z góry na aksamitnej tkaninie, lnie lub jedwabiu z delikatnymi płatkami lub elementami natury.
-  * Sloty #5+: Ekskluzywna aranżacja na minimalistycznym podestcie w ciepłym oświetleniu studyjnym.
+- Dokonaj analizy składników.
+- Zaprojektuj spójną wizualnie scenerię tła, która wyjdzie z analizy trendów:
+  * Slot #1 (Główny Lifestyle): Podłoże dopasowane do składników.
+  * Slot #2 (Koncepcja): Sceneria uwypuklająca zapach/ekstrakt.
+  * Slot #3 (Laboratorium i Skuteczność): Nowoczesne, czyste środowisko.
+  * Slot #4 (Flatlay & Tekstury): Ujęcie z góry na aksamitnej tkaninie.
+  * Sloty #5+: Ekskluzywna aranżacja na minimalistycznym podestcie.
 
-ZASADY DLA "prompt" (DLA PHOTOROOM API):
-- Pisz WYŁĄCZNIE po angielsku (max 30 słów).
-- Opisz TYLKO tło, podłoże, światło, rekwizyty i głębię ostrości (np. "Luxurious white marble surface, fresh orange citrus slices and water droplets, soft morning sunlight, blurred botanical garden background").
-- ABSOLUTNY ZAKAZ wspominania o produkcie, opakowaniu, słoiczku, butelce, etykiecie czy ludziach/dłoniach (no product package, no bottles, no humans, no hands). Photoroom dodaje obiekt samemu.
-
-ZASADY DLA "visualTrendReport" (DLA INTERFEJSU UŻYTKOWNIKA):
-- Pisz po POLSKU (1-2 zdania).
-- Przekaż czytelny raport opierający się na trendach 2026 roku, dokładnie wyjaśniający dlaczego zbadane tło, kolory i rekwizyty idealnie konwertują dla TEGO KONKRETNEGO PRODUKTU.
-- Raport MUSI W 100% ZGADZAĆ SIĘ Z WYGENEROWANĄ SCENERIĄ TŁA (np. jeśli tło ma plasterki pomarańczy i wodę, raport musi opisywać cytrusową świeżość i krople wody).`;
+ZASADY DLA "prompt": Pisz po angielsku (max 30 słów), określ tło i oświetlenie. ZAKAZ ludzi, rąk, etykiet, opakowań produktu.
+ZASADY DLA "visualTrendReport": Po polsku, opisz uzasadnienie biznesowe dla tej wybranej sceny.`;
 
         const result = await generateWithRetry(model, promptInstruction, 2);
         const jsonText = result.response.text();
         const data = JSON.parse(jsonText);
         if (data.prompt && data.visualTrendReport) {
-            console.log(`[Photoroom Dynamic Agent] Wygenerowano dynamiczny prompt dla slotu #${imageIndex + 1}:`, data.prompt);
-            console.log(`[Photoroom Dynamic Agent] Visual Trend Report:`, data.visualTrendReport);
+            console.log(`[Photoroom Dynamic Agent] Wygenerowano nowy prompt dla slotu #${imageIndex + 1}:`, data.prompt);
             return data;
         }
     } catch (err) {
-        console.error("[Photoroom Dynamic Agent] Ostrzeżenie: Gemini LLM nie zwrócił poprawnego JSON, używam inteligentnego fallbacku:", err.message);
+        console.error("[Photoroom Dynamic Agent] Ostrzeżenie: Gemini LLM nie zwrócił poprawnego JSON, używam fallbacku:", err.message);
     }
 
     return getFallbackPhotoroomSetup(imageIndex);
@@ -945,29 +910,35 @@ async function autofillMissingParameters(ean, productName, currentFeatures, requ
     if (missingSchema.length === 0) return currentFeatures;
 
     const prompt = `Jesteś inżynierem PIM (Product Information Management) i ekspertem OSINT.
-Zadanie: Uzupełnij brakujące parametry techniczne dla produktu e-commerce. Użyj wyszukiwarki Google, przeszukując oficjalne strony producentów, sklepy, czy katalogi z wyłączeniem Allegro.
+Zadanie: Uzupełnij brakujące parametry techniczne dla produktu.
+KRYTYCZNE ZALECENIE BADAWCZE: Poszukiwania danych musisz przeprowadzić w wbudowanej wyszukiwarce googleSearch.
+MUSISZ zachować rygorystyczną kolejność źródeł poszukiwań:
+1. Zbadaj dane na oficjalnej, globalnej stronie producenta (korzystaj z głównej domeny, np. .com, .fr, .de w zależności od pochodzenia marki, użyj po prostu operatora wyszukiwania dla nazwy marki).
+2. Jeśli nie znajdziesz, zbadaj oficjalną stronę krajowego dystrybutora dla tej marki.
+3. Jeśli tam nie ma, zbadaj największe rynkowe marketplace'y (np. Notino, Hebe, Super-Pharm, e-Zebra).
+Tylko z tych źródeł pobieraj zaufane parametry, a następnie wykonaj mapowanie do PIM.
 
 Produkt: ${productName}
 EAN: ${ean}
 
-Oto lista parametrów do uzupełnienia wraz z ich dopuszczalnymi wartościami (jeśli słownik jest wymagany, MUSISZ użyć dokładnej wartości ze słownika):
-${JSON.stringify(missingSchema.map(p => ({ nazwa: p.name, wymagane: p.required, typ: p.type, dopuszczalne_wartosci: p.dictionary ? p.dictionary.map(d => d.value) : "Dowolny tekst" })), null, 2)}
+Oto lista parametrów do uzupełnienia wraz z ich dopuszczalnymi wartościami:
+${JSON.stringify(missingSchema.map(p => ({ nazwa: p.name, dopuszczalne_wartosci: p.dictionary ? p.dictionary.map(d => d.value) : "Dowolny tekst" })), null, 2)}
 
 Obecnie zapisane parametry (nie nadpisuj ich): ${JSON.stringify(currentFeatures)}
 
-Zwróć JSON z wyciągniętymi/odgadniętymi wartościami. Format wyjściowy:
+Zwróć wygenerowany czysty JSON:
 {
   "features": {
     "NazwaParametru": "Wartość",
     ...
   }
 }
-Jeśli nie odnajdziesz wiarygodnej informacji dla danego parametru w sieci, pomiń go. Pamiętaj: dla parametrów ze słownikiem (dopuszczalne_wartosci), zwrócona wartość musi być kropka w kropkę identyczna z jednym z wariantów. Zwróć tylko czysty JSON.
+Jeśli w wiarygodnych źródłach producenta/dystrybutora nie było danego parametru, absolutnie go pomiń (nie zgaduj). Dla parametrów słownikowych, wartość musi być dopasowana do wariantów. Zwróć tylko czysty JSON.
 `;
 
     try {
-        console.log(`[AiService] Auto-Fill Agent szuka parametrów dla ${ean}...`);
-        const result = await model.generateContent(prompt);
+        console.log(`[AiService] Auto-Fill Agent szuka parametrów dla ${ean} z uwzględnieniem nowej hierarchii...`);
+        const result = await generateWithRetry(model, prompt, 3, "Agent_11_Autofill");
         let text = result.response.text();
         text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
         const parsed = JSON.parse(text);

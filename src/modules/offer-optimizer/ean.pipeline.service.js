@@ -3,44 +3,45 @@ const prisma = new PrismaClient();
 const BaseLinkerService = require('./baselinker.service');
 const AiService = require('./ai.service');
 
+const activePipelines = new Set(); // Local Mutex zapobiegający wyścigom wywołań (Race Conditions)
+
 class EanPipelineService {
     static async execute(ean) {
+        if (activePipelines.has(ean)) {
+            console.log(`[EAN Pipeline Mutex] Zablokowano wejście. EAN ${ean} jest aktualnie procesowany.`);
+            throw new Error(`Zadanie odrzucone (Mutex Lock): Proces dla EAN ${ean} już trwa.`);
+        }
+        
+        activePipelines.add(ean);
         const startTime = Date.now();
-        console.log(`[Ultimate EAN Pipeline] === ROZPOCZĘCIE PROCESU DLA: ${ean} ===`);
+        console.log(`[Ultimate EAN Pipeline] === ROZPOCZĘCIE PROCESU SEKWENCYJNEGO DLA: ${ean} ===`);
         
         try {
-            // FAZA 1: DATA ENRICHMENT & COMPLIANCE
+            // FAZA 1: DATA ENRICHMENT Z PIM I BASELINKER
             console.log(`[EAN Pipeline] Pobieranie produktu z bazy danych...`);
             let product = await prisma.product.findUnique({ where: { ean }, include: { brand: true } });
             
-            // 1. Auto-Weryfikacja GUS/BaseLinker
-            console.log(`[EAN Pipeline] 1. Auto-Weryfikacja BaseLinker (Faza 1)`);
+            // 1. Auto-Weryfikacja BaseLinker
+            console.log(`[EAN Pipeline] 1. Auto-Weryfikacja BaseLinker (API-First)`);
             const needsSync = !product || !product.isSynced || (product.brand && product.brand.name === 'PIM-IMPORT');
             if (needsSync) {
-                console.log(`[EAN Pipeline] Wymagana synchronizacja z BaseLinker...`);
+                console.log(`[EAN Pipeline] Pobieranie specyfikacji w BaseLinker...`);
                 const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
-                console.log(`[EAN Pipeline] Znaleziono w BL: invId=${inventoryId}, prodId=${productId}`);
                 const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
-                console.log(`[EAN Pipeline] Pobrano deepData z BL. Nazwa: ${deepData.name}`);
                 
                 let brandId = product ? product.brandId : null;
                 const isPimImportId = product && product.brand && product.brand.name === 'PIM-IMPORT';
                 if (!brandId || isPimImportId) {
                     let brandNameRaw = deepData.manufacturer;
                     if (!brandNameRaw || brandNameRaw.trim() === '') {
-                        if (deepData.features && deepData.features['Marka']) {
-                            brandNameRaw = deepData.features['Marka'];
-                        } else if (deepData.features && deepData.features['Producent']) {
-                            brandNameRaw = deepData.features['Producent'];
-                        }
+                        if (deepData.features && deepData.features['Marka']) brandNameRaw = deepData.features['Marka'];
+                        else if (deepData.features && deepData.features['Producent']) brandNameRaw = deepData.features['Producent'];
                     }
 
                     if (brandNameRaw && brandNameRaw.trim() !== '') {
                         const brandName = brandNameRaw.trim();
                         let matchedBrand = await prisma.brand.findUnique({ where: { name: brandName } });
-                        if (!matchedBrand) {
-                            matchedBrand = await prisma.brand.create({ data: { name: brandName } });
-                        }
+                        if (!matchedBrand) matchedBrand = await prisma.brand.create({ data: { name: brandName } });
                         brandId = matchedBrand.id;
                     } else if (!brandId) {
                         let defaultBrand = await prisma.brand.findUnique({ where: { name: 'PIM-IMPORT' } });
@@ -69,8 +70,7 @@ class EanPipelineService {
                 };
 
                 console.log(`[EAN Pipeline] Aktualizacja produktu w bazie danych...`);
-                let existingProduct = await prisma.product.findUnique({ where: { ean } });
-                if (!existingProduct) {
+                if (!product) {
                     product = await prisma.product.create({
                         data: { ean, sku: deepData.sku || ean, name: deepData.name, brandId, ...deepPayload }
                     });
@@ -80,131 +80,75 @@ class EanPipelineService {
                         data: deepPayload
                     });
                 }
-                console.log(`[EAN Pipeline] Baza danych zaktualizowana.`);
             }
 
-            // 2. Agent Badawczy (INCI) & Audyt Wizualny (Równolegle)
-            console.log(`[EAN Pipeline] 2. Rozpoczynanie Agenta Badawczego (INCI) & Audytu Wizualnego...`);
-            
-            const visionPromise = (async () => {
-                console.log(`[EAN Pipeline] -> Uruchamianie visionPromise...`);
-                let vAudit = { images: (product.images || []).map(url => ({ originalUrl: url, isCompliant: true, alerts: [] })) };
-                try {
-                    if (product.images && product.images.length > 0) {
-                        vAudit = await AiService.auditOfferImages(product.images[0], product.images.slice(1));
-                        console.log(`[EAN Pipeline] -> visionPromise ZAKOŃCZONY SUKCESEM.`);
-                    } else {
-                        console.log(`[EAN Pipeline] -> visionPromise POMINIĘTY (brak obrazów).`);
-                    }
-                } catch (err) {
-                    console.error("[EAN Pipeline] -> visionPromise OSTRZEŻENIE:", err.message);
-                    console.error(err.stack);
-                }
-                return vAudit;
-            })();
-
-            console.log(`[EAN Pipeline] Pobieranie IntelligenceData (gatherProductIntelligence) & SentimentData (gatherCustomerSentiment)...`);
-            const [intelligenceData, sentimentData] = await Promise.all([
-                AiService.gatherProductIntelligence(ean, product.name),
-                AiService.gatherCustomerSentiment(ean, product.name)
-            ]);
-            console.log(`[EAN Pipeline] Intelligence & Sentiment Data ZAKOŃCZONE.`);
-
-            // 2.5 Auto-Fill PIM Parameters (Asynchronicznie, nie blokuje AEO)
-            console.log(`[EAN Pipeline] 2.5 Rozpoczynanie Agenta Auto-Fill (PIM Parameters)...`);
+            // FAZA 2: AUTOFILL PIM PARAMETERS Z FALLBACKIEM
+            console.log(`[EAN Pipeline] 2. Agent Auto-Fill (Uzupełnianie PIM)...`);
             const allegroService = require('./allegro.service');
-            const autofillPromise = (async () => {
-                console.log(`[EAN Pipeline] -> Uruchamianie autofillPromise...`);
-                try {
-                    let catId = product.allegroCategoryId;
-                    
-                    if (!catId) {
-                         console.log(`[EAN Pipeline] -> Szukanie kategorii w Allegro...`);
-                         catId = await allegroService.findCategoryByEan(ean);
-                         if (!catId && product.name) catId = await allegroService.findMatchingCategoryByName(product.name);
-                         if (catId) {
-                              console.log(`[EAN Pipeline] -> Znaleziono kategorię Allegro: ${catId}`);
-                              await allegroService.fetchCategoryParameters(catId);
-                              await prisma.product.update({ where: { ean }, data: { allegroCategoryId: catId } });
-                              product.allegroCategoryId = catId;
-                         }
-                    }
-                    
-                    let requiredSchema = [];
-                    if (catId) {
-                         const category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
-                         if (category && category.parameters) requiredSchema = category.parameters;
-                    }
-                    
-                    const currentFeatures = product.features && typeof product.features === 'object' ? { ...product.features } : {};
-                    console.log(`[EAN Pipeline] -> Uruchamianie autofillMissingParameters...`);
-                    const filledFeatures = await AiService.autofillMissingParameters(ean, product.name, currentFeatures, requiredSchema);
-                    console.log(`[EAN Pipeline] -> autofillMissingParameters ZAKOŃCZONE.`);
-                    
-                    if (filledFeatures && Object.keys(filledFeatures).length > 0) {
-                        let dataToUpdate = { features: filledFeatures };
-                        if (filledFeatures["Marka"]) {
-                            const detectedBrandName = filledFeatures["Marka"].trim();
-                            const currentBrand = await prisma.brand.findUnique({ where: { id: product.brandId } });
-                            if (!currentBrand || currentBrand.name === 'PIM-IMPORT') {
-                                let b = await prisma.brand.findUnique({ where: { name: detectedBrandName } });
-                                if (!b) b = await prisma.brand.create({ data: { name: detectedBrandName } });
-                                dataToUpdate.brandId = b.id;
-                            }
-                        }
-                        const r = await prisma.product.update({ where: { ean }, data: dataToUpdate });
-                        console.log(`[EAN Pipeline] -> autofillPromise ZAKOŃCZONY SUKCESEM.`);
-                        return r;
-                    }
-                    console.log(`[EAN Pipeline] -> autofillPromise ZAKOŃCZONY BEZ ZMIAN.`);
-                } catch (err) {
-                    console.error("[EAN Pipeline] -> Błąd autofillPromise:", err.message);
-                    console.error(err.stack);
-                }
-            })();
+            let catId = product.allegroCategoryId;
+            if (!catId) {
+                 catId = await allegroService.findCategoryByEan(ean);
+                 if (!catId && product.name) catId = await allegroService.findMatchingCategoryByName(product.name);
+                 if (catId) {
+                      await allegroService.fetchCategoryParameters(catId);
+                      await prisma.product.update({ where: { ean }, data: { allegroCategoryId: catId } });
+                      product.allegroCategoryId = catId;
+                 }
+            }
+            
+            let requiredSchema = [];
+            if (catId) {
+                 const category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
+                 if (category && category.parameters) requiredSchema = category.parameters;
+            }
+            
+            const currentFeatures = product.features && typeof product.features === 'object' ? { ...product.features } : {};
+            const filledFeatures = await AiService.autofillMissingParameters(ean, product.name, currentFeatures, requiredSchema);
+            if (filledFeatures && Object.keys(filledFeatures).length > 0) {
+                product = await prisma.product.update({ where: { ean }, data: { features: filledFeatures } });
+            }
 
-            // 4. Agent AEO (wymaga intelligenceData)
-            console.log(`[EAN Pipeline] 4. Agent AEO - Start...`);
+            // FAZA 3: USTRUKTURYZOWANY OSINT I SENTYMENT (Czekamy w kolejności, brak Promise.all)
+            console.log(`[EAN Pipeline] 3. Agent Sentimentu Klientów...`);
+            let existingSentiment = null;
+            if (product.offerDraft && typeof product.offerDraft === 'object' && product.offerDraft.customerSentiment) {
+                existingSentiment = product.offerDraft.customerSentiment; // Bufor
+            }
+            const sentimentData = await AiService.gatherCustomerSentiment(ean, product.name, existingSentiment);
+
+            console.log(`[EAN Pipeline] 4. Agent Badawczy OSINT...`);
+            const existingPimString = product.features ? JSON.stringify(product.features) : null;
+            const intelligenceData = await AiService.gatherProductIntelligence(ean, product.name, existingPimString);
+
+            // FAZA 4: GENERACJA LOKALNA (AEO -> GEO -> Title -> Compliance) - W PEŁNI SEKWENCYJNA
+            console.log(`[EAN Pipeline] 5. Audyt Wizualny (Oczekujemy)...`);
+            let visualAudit = { images: (product.images || []).map(url => ({ originalUrl: url, isCompliant: true, alerts: [] })) };
+            if (product.images && product.images.length > 0) {
+                visualAudit = await AiService.auditOfferImages(product.images[0], product.images.slice(1));
+            }
+
+            console.log(`[EAN Pipeline] 6. Agent AEO...`);
             const aeoContent = await AiService.generateAEOContent(product.name, product.descriptionHtml, intelligenceData);
-            console.log(`[EAN Pipeline] 4. Agent AEO - ZAKOŃCZONE.`);
 
-            // 5. GEO Text & Optymalizacja Tytułu (Równolegle, wymagają AEO & Sentiment)
-            console.log(`[EAN Pipeline] 5. Agent GEO Text & Agent Tytułu - Start równoległy z analizą opinii...`);
-            const titlePromise = (async () => {
-                console.log(`[EAN Pipeline] -> Uruchamianie titlePromise...`);
-                const res = await AiService.generateTitleOnly(aeoContent, product.name);
-                console.log(`[EAN Pipeline] -> titlePromise ZAKOŃCZONY.`);
-                return res;
-            })();
-            const geoPromise = (async () => {
-                console.log(`[EAN Pipeline] -> Uruchamianie geoPromise z kontekstem Sentimentu...`);
-                const res = await AiService.generateGEOTextContent(product.name, aeoContent, intelligenceData, sentimentData);
-                console.log(`[EAN Pipeline] -> geoPromise ZAKOŃCZONY.`);
-                return res;
-            })();
+            console.log(`[EAN Pipeline] 7. Agent Tytułu (SEO)...`);
+            const titleResult = await AiService.generateTitleOnly(aeoContent, product.name);
 
-            const [titleResult, geoResult] = await Promise.all([titlePromise, geoPromise]);
-            console.log(`[EAN Pipeline] 5. Agenci GEO i Title ZAKOŃCZENI SUKCESEM.`);
+            console.log(`[EAN Pipeline] 8. Agent GEO Text...`);
+            const geoResult = await AiService.generateGEOTextContent(product.name, aeoContent, intelligenceData, sentimentData);
 
-            // 6. Agent Audytor Prawny (Compliance)
-            console.log(`[EAN Pipeline] 6. Agent Audytor Prawny (WE 1223/2009) - Start...`);
+            console.log(`[EAN Pipeline] 9. Agent Audytor Prawny...`);
             const fullHtml = Object.values(geoResult.htmlContent || {}).join("");
             const complianceReport = await AiService.generateComplianceReport(product.name, aeoContent, fullHtml);
-            console.log(`[EAN Pipeline] 6. Agent Audytor Prawny ZAKOŃCZONY SUKCESEM.`);
 
-            // Oczekiwanie na poboczne procesy (Vision AI i Auto-Fill) przed finalizacją
-            console.log(`[EAN Pipeline] Oczekiwanie na zakończenie visionPromise i autofillPromise...`);
-            const [visualAudit] = await Promise.all([visionPromise, autofillPromise]);
-            console.log(`[EAN Pipeline] Równoległe procesy (Vision/Autofill) odebrane.`);
-
-            // ZAKOŃCZENIE FAZY 2 - Tarcza Błędu: Weryfikacja Człowieka (HitL - EU AI Act Art. 14)
-            console.log(`[EAN Pipeline] Zapisywanie rezultatu do Kopii Roboczej PIM z metadanymi EU AI Act (Art. 50 & 14)...`);
+            // FAZA 5: ZAPIS KOŃCOWY
+            console.log(`[EAN Pipeline] Zapisywanie rezultatu do Kopii Roboczej PIM...`);
             const finalDraft = {
                 title: titleResult.title,
                 htmlContent: geoResult.htmlContent,
                 complianceReport,
                 images: visualAudit.images || [],
-                customerSentiment: sentimentData,
+                customerSentiment: sentimentData, // Cache na zawsze
+                intelligenceData: intelligenceData, // Cache na zawsze
                 aiMetadata: {
                     isAiGenerated: true,
                     aiModel: "gemini-3.1-pro-preview",
@@ -225,6 +169,8 @@ class EanPipelineService {
             console.error(`[Ultimate EAN Pipeline] ❌ KRYTYCZNY BŁĄD PRZEPŁYWU:`, error.message);
             console.error(error.stack);
             throw new Error(`Pipeline upadł z powodu: ${error.message}`);
+        } finally {
+            activePipelines.delete(ean); // Zwalnianie locka mutex!
         }
     }
 }
