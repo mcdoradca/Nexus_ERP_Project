@@ -133,17 +133,22 @@ Odpowiadaj TYLKO obiektem JSON. Odnieś się do zadania. Jeśli zadanie to "AEO_
 
     let planResponse;
     try {
-      const response = await aiMetricsService.logUsage(
-        async () => {
-          const res = await this.model.generateContent(prompt);
-          return res.response.text();
-        },
+      const res = await this.model.generateContent(prompt);
+      const responseText = res.response.text();
+      
+      const promptTokens = res.response.usageMetadata?.promptTokenCount || Math.ceil(prompt.length / 4);
+      const completionTokens = res.response.usageMetadata?.candidatesTokenCount || Math.ceil(responseText.length / 4);
+      const totalTokens = res.response.usageMetadata?.totalTokenCount || (promptTokens + completionTokens);
+      
+      await aiMetricsService.logUsage(
         'Agent_Supervisor_Router',
         ORCHESTRATOR_MODEL,
-        Math.ceil(prompt.length / 4)
+        promptTokens,
+        completionTokens,
+        totalTokens
       );
       
-      planResponse = JSON.parse(response.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, ''));
+      planResponse = JSON.parse(responseText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, ''));
     } catch (e) {
       console.log("[Supervisor] LLM failed to route, falling back to sequential default", e);
       planResponse = { plan: task.taskType === 'AEO_GENERATION' ? ["AEO"] : ["AUTOFILL", "SENTIMENT", "AEO", "GEO", "COMPLIANCE"] };

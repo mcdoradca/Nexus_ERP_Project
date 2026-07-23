@@ -26,13 +26,13 @@ class KnowledgeRagService {
       
       // Przybliżone zużycie tokenów (w modelu embedding 1 token to ~4 znaki)
       const approxTokens = Math.ceil(text.length / 4);
-      await aiMetricsService.logUsage({
-        agentId: agentId,
-        modelName: EMBEDDING_MODEL_NAME,
-        promptTokens: approxTokens,
-        completionTokens: 0,
-        totalTokens: approxTokens
-      });
+      await aiMetricsService.logUsage(
+        agentId,
+        EMBEDDING_MODEL_NAME,
+        approxTokens,
+        0,
+        approxTokens
+      );
 
       return embedding.values;
     } catch (error) {
