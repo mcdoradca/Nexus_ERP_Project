@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { generateWithRetry } = require('./ai.service');
 require('dotenv').config({ path: path.join(__dirname, '../../../.env') });
 
 const apiKey = process.env.GEMINI_API_KEY;
@@ -43,7 +44,7 @@ Format zwrotny: Zwięzła lista wypunktowana (Markdown). Max 4000 znaków.
             }
         ];
 
-        const result = await model.generateContent(parts);
+        const result = await generateWithRetry(model, parts, 3, "Agent_SOT_Compiler");
         return result.response.text();
     } catch (err) {
         console.error(`Błąd przy pliku ${fileName}:`, err.message);
