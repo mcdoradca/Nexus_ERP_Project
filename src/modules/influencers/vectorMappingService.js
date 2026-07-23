@@ -2,6 +2,8 @@
 // Obsługuje model NLP od Google Gemini rozkładający tekst na osie Euklidesowe (Embeddings)
 // w celu inteligentnego, kognitywnego łączenia bazy z kampaniami
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const AiMetricsService = require('../../core/ai.metrics.service');
+const { generateWithRetry } = require('../offer-optimizer/ai.service');
 
 class VectorMappingService {
   constructor() {
@@ -9,7 +11,7 @@ class VectorMappingService {
     // Skonfiguruj klienta, uwzględniając, że klucz MOŻE być niezdefiniowany jeśli dev go nie wpisze
     if (process.env.GEMINI_API_KEY) {
         this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        this.embedModel = this.genAI.getGenerativeModel({ model: "gemini-embedding-001" });
+        this.embedModel = this.genAI.getGenerativeModel({ model: "text-embedding-004" });
         this.textModel = this.genAI.getGenerativeModel({ 
             model: "gemini-3.1-pro-preview",
             generationConfig: { responseMimeType: "application/json" },
@@ -27,6 +29,8 @@ class VectorMappingService {
        try {
            const result = await this.embedModel.embedContent(text);
            if (result && result.embedding && result.embedding.values) {
+              const approxTokens = Math.ceil(text.length / 4);
+              await AiMetricsService.logUsage("Agent_Vector_Embedding", "text-embedding-004", approxTokens, 0, approxTokens);
               return result.embedding.values;
            }
        } catch (err) {
@@ -120,7 +124,7 @@ class VectorMappingService {
 
     console.log(`🧠 [Agent Hunter] Przesyłam zapotrzebowanie do chmury Gemini (Model: gemini-3.1-pro-preview)...`);
     try {
-        const response = await this.textModel.generateContent(systemInstruction);
+        const response = await generateWithRetry(this.textModel, systemInstruction, 3, "Agent_Hunter");
         let textResponse = response.response.text();
         
         // Czyszczenie kodu z ewentualnych znaczników markdown od API (np. ```json ... ```)
