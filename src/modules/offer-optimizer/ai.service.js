@@ -1048,7 +1048,8 @@ async function generateGEOTextContent(productName, aeoContent, intelligenceData,
         return parsed;
     } catch(err) {
         console.error("[AiService] Błąd Agenta GEO Text:", err.message);
-        return { htmlContent: { opis1: "<p>Błąd systemu GEO</p>", opis2: "", opis3: "", opis4: "", opis5: "" } };
+        console.error(err.stack);
+        throw new Error(`Agent GEO Text nie wygenerował opisu dla "${productName}": ${err.message}`);
     }
 }
 

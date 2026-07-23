@@ -40,6 +40,10 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
                             setTimeout(() => {
                                 if (onAnalysisComplete) onAnalysisComplete(data.result);
                             }, 800);
+                        } else if (data.status === 'ERROR') {
+                            console.warn("[FALLBACK] Pipeline zwrócił błąd:", data.error);
+                            setStatus('IDLE');
+                            setLastError(data.error || 'Wystąpił błąd podczas generowania opisu. Spróbuj ponownie.');
                         }
                     }
                 } catch (err) {
