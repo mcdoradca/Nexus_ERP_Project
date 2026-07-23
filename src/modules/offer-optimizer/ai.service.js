@@ -266,7 +266,7 @@ async function gatherCustomerSentiment(ean, productName, existingSentimentFromPi
 
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.1-pro-preview-customtools",
+            model: "gemini-3.1-pro-preview",
             tools: [{ googleSearch: {} }],
             generationConfig: { temperature: 0.2 }
         });
@@ -285,7 +285,7 @@ Przygotuj ustrukturyzowany zrzut sentimentu z konkretnymi wypowiedziami w formac
 Jeśli produkt jest zupełnie nowy i brak opinii w sieci, przygotuj hipotetyczny, bezpieczny zarys.
 Odpowiedz w postaci zwięzłego, czystego tekstu w języku polskim.`;
 
-        const result = await generateWithRetry(model, prompt);
+        const result = await generateWithRetry(model, prompt, 3, "Agent_2_Sentiment");
         console.log(`[AiService] Agent Sentimentu zakończył analizę opinii (DANE NALEŻY ZAPISAĆ DO PIM).`);
         return result.response.text();
     } catch (err) {
