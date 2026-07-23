@@ -601,7 +601,7 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
 
 async function generateTitleOnly(textContent, currentTitle) {
     const model = genAI.getGenerativeModel({
-        model: "gemini-3.1-pro-preview",
+        model: "gemini-3.5-flash",
         tools: [{ googleSearch: {} }],
         generationConfig: {
             temperature: 0.8, // Trochę większa kreatywność dla wariacji tytułów
@@ -636,7 +636,7 @@ Odpowiedz wyłącznie czystym obiektem JSON:
 `;
 
     try {
-        const result = await model.generateContent(promptText);
+        const result = await generateWithRetry(model, promptText, 3, "Agent_Title");
         let payloadString = result.response.text().trim();
         // Oczyszczanie z ewentualnych bloki markdown
         payloadString = payloadString.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim();
