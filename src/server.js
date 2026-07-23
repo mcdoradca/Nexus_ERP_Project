@@ -455,10 +455,17 @@ app.post('/api/products/:id/autofill-params', authenticateToken, async (req, res
         // 1. Zassanie dostępnych parametrów z BaseLinkera
         const BaseLinkerService = require('./modules/offer-optimizer/baselinker.service');
         const aiService = require('./modules/offer-optimizer/ai.service');
+        const allegroService = require('./modules/offer-optimizer/allegro.service');
         
         const blData = await BaseLinkerService.fetchDeepProductData(product.baselinkerInventoryId || await BaseLinkerService.getInventories(), product.baselinkerId);
         if (blData.features && Object.keys(blData.features).length > 0) {
             currentFeatures = { ...currentFeatures, ...blData.features };
+        }
+        
+        // 1.5 Pobranie twardych, słownikowych parametrów z Katalogu Allegro API
+        const hardCatalogFeatures = await allegroService.getProductParametersByEan(product.ean);
+        if (hardCatalogFeatures && Object.keys(hardCatalogFeatures).length > 0) {
+            currentFeatures = { ...currentFeatures, ...hardCatalogFeatures };
         }
         
         // 2. Pobranie schematu wymogów Allegro

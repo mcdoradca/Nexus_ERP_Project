@@ -991,7 +991,7 @@ Wygeneruj CZYSTY JSON:
     "NazwaParametru": "Wartość"
   }
 }
-W przypadku braku pewności pomiń parametr. Dla wartości słownikowych zachowaj dokładne mapowanie.`;
+Jeśli parametr jest oznaczony jako 'wymagane', ZAWSZE postaraj się wywnioskować z oszczędnych wyników googleSearch najbardziej logiczną i pasującą wartość. Dla wartości słownikowych (dopuszczalne_wartosci) wstaw ściśle tę wartość. Jeśli w ogóle nie widzisz sensownej wartości, pomiń.`;
 
     try {
         console.log(`[AiService] Lite Auto-Fill Agent (gemini-2.5-flash-lite) startuje dla ${ean}...`);
