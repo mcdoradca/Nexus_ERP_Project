@@ -4,6 +4,7 @@ const cron = require('node-cron');
 const EventBus = require('../../core/EventBus');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const { generateWithRetry } = require('../offer-optimizer/ai.service');
 
 async function runSentinelAudit() {
     try {
@@ -11,7 +12,7 @@ async function runSentinelAudit() {
         
         // Zgodnie z architekturą, Sentinel używa Google Search Grounding by zdobyć najświeższe fakty.
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-3.1-pro-preview",
+            model: "gemini-3.5-flash",
             tools: [{ googleSearch: {} }] // Włączenie dostępu do świeżych wyników wyszukiwania Google
         });
 
@@ -27,7 +28,7 @@ Wypisz to w punktach, określając co się zmieniło i jakie ma to konsekwencje 
 Podaj daty zmian, jeśli są dostępne.
 Jeżeli w sieci nie ma absolutnie żadnych nowych informacji o opłatach lub regulaminach (od końca 2024), odpowiedz dokładnie słowami: "BRAK KRYTYCZNYCH ZMIAN".`;
 
-        const result = await model.generateContent(prompt);
+        const result = await generateWithRetry(model, prompt, 3, "Agent_Ads_Sentinel");
         const responseText = result.response.text();
         
         if (responseText && !responseText.includes("BRAK KRYTYCZNYCH ZMIAN")) {
