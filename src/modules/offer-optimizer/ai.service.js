@@ -520,7 +520,7 @@ Wygeneruj zwrot w formacie JSON zawierający wyizolowaną strukturę. Pamiętaj 
  */
 async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
     const model = genAI.getGenerativeModel({
-         model: "gemini-3.1-pro-preview",
+         model: "gemini-3.5-flash",
          tools: [{ googleSearch: {} }],
          systemInstruction: VISION_AUDIT_PROMPT,
          generationConfig: {
@@ -560,7 +560,7 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
 
         const promptText = "Oto paczka obrazów z oferty. Zdjęcie pierwsze to miniatura (bezwzględne środowisko RGB white). Reszta to detale.";
         
-        const result = await model.generateContent([promptText, ...imageParts]);
+        const result = await generateWithRetry(model, [promptText, ...imageParts], 3, "Agent_Image_Audit");
         let rawText = result.response.text();
         const jsonMatch = rawText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error(`Brak prawidłowej struktury JSON w odpowiedzi wizyjnej. Otrzymano: ${rawText}`);
