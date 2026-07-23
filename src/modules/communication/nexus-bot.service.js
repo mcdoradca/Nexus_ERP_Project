@@ -1,4 +1,5 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const AiMetricsService = require('../../core/ai.metrics.service');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const chatService = require('./chat.service');
@@ -376,6 +377,15 @@ async function processBotMention(messageContent, authorName, mode, targetId, soc
         }
         
         responseText = result.response.text();
+
+        try {
+            if (result.response && result.response.usageMetadata) {
+                const { promptTokenCount, candidatesTokenCount, totalTokenCount } = result.response.usageMetadata;
+                await AiMetricsService.logUsage("Agent_Nexus_Bot", "gemini-3.1-pro-preview", promptTokenCount, candidatesTokenCount, totalTokenCount);
+            }
+        } catch (metricError) {
+            console.error("[NeS] Błąd zapisu metryk telemetrii:", metricError.message);
+        }
 
         // Usuń wskaźnik pisania
         if (socket) socket.nsp.emit('bot_typing_stop', {});
