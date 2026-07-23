@@ -4,6 +4,7 @@
 const crypto = require('crypto');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const { generateWithRetry } = require('../offer-optimizer/ai.service');
 
 class SocialIntegrationService {
     constructor() {
@@ -59,7 +60,7 @@ class SocialIntegrationService {
             i MOCNO WYSZUKAJ w internecie (np. na wiki lub artykułach) stabilny URL do jakiegos prawdziwego zdjecia tej osoby (avatarUrl). Zabronione generatory twarzy i prawatary!
             Oczekuję tylko surowego obiektu JSON: {"name": "", "handle": "", "followers": 0, "engagementRate": 0.0, "email": "", "niche": "", "avatarUrl": ""}`;
 
-            const res = await model.generateContent(prompt);
+            const res = await generateWithRetry(model, prompt, 3, "Agent_Social_Integration");
             const aiData = JSON.parse(res.response.text());
             
             name = aiData.name || name;
