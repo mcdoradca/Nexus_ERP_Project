@@ -6,24 +6,14 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
     const [status, setStatus] = useState('IDLE'); // IDLE | THINKING | SUCCESS
     const [lastError, setLastError] = useState(null);
     const [progress, setProgress] = useState(0);
+    const [currentStep, setCurrentStep] = useState(null);
+    const [completedSteps, setCompletedSteps] = useState([]);
 
-    // Animacja fałszywego postępu (do wizualizacji potoku)
+    // Tarcza błędu: Polling HTTP jako Fallback dla WebSockets (jeśli Nginx ubije połączenie)
     useEffect(() => {
-        let interval;
         let pollInterval;
         
         if (status === 'THINKING') {
-            setProgress(0);
-            interval = setInterval(() => {
-                setProgress(p => {
-                    if (p >= 95) return p;
-                    // Skok postępu malejący z czasem
-                    const increment = Math.max(1, (95 - p) / 10); 
-                    return p + increment;
-                });
-            }, 1000);
-
-            // Tarcza błędu: Polling HTTP jako Fallback dla WebSockets (jeśli Nginx ubije połączenie)
             pollInterval = setInterval(async () => {
                 try {
                     const token = localStorage.getItem('aps_token') || localStorage.getItem('token') || '';
@@ -36,6 +26,7 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
                         if (data.status === 'COMPLETE' && data.result) {
                             console.log("[FALLBACK] Odebrano odpowiedź przez HTTP Polling zamiast WebSockets!");
                             setStatus('SUCCESS');
+                            setProgress(100);
                             setLastError(null);
                             setTimeout(() => {
                                 if (onAnalysisComplete) onAnalysisComplete(data.result);
@@ -52,11 +43,9 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
             }, 10000); // Co 10 sekund sprawdzamy status
         } else if (status === 'SUCCESS') {
             setProgress(100);
-            if (interval) clearInterval(interval);
             if (pollInterval) clearInterval(pollInterval);
         }
         return () => { 
-            if (interval) clearInterval(interval); 
             if (pollInterval) clearInterval(pollInterval);
         };
     }, [status, ean, onAnalysisComplete]);
@@ -65,16 +54,26 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
     useEffect(() => {
         if (!socket) return;
         const handler = (data) => {
-            // Upewniamy się, że event dotyczy naszego aktualnego EAN-u (i zignoruj wielkość liter)
-            if (data.type === 'PIPELINE_COMPLETE' && String(data.ean) === String(ean).trim()) {
+            if (String(data.ean) !== String(ean).trim()) return;
+
+            if (data.type === 'PIPELINE_COMPLETE') {
                 setStatus('SUCCESS');
+                setProgress(100);
                 setLastError(null);
                 setTimeout(() => {
                     if (onAnalysisComplete) onAnalysisComplete(data.result);
                 }, 800);
-            } else if (data.type === 'PIPELINE_ERROR' && String(data.ean) === String(ean).trim()) {
+            } else if (data.type === 'PIPELINE_ERROR') {
                 setStatus('IDLE');
                 setLastError(data.error || 'Wystąpił nieoczekiwany błąd podczas pracy potoku.');
+            } else if (data.type === 'PIPELINE_PROGRESS') {
+                setCurrentStep(data.step);
+                setCompletedSteps(prev => {
+                    const next = new Set([...prev, data.step]);
+                    // Zakładamy max 5 głównych kroków dla pełnego planu
+                    setProgress((next.size / 5) * 100);
+                    return Array.from(next);
+                });
             }
         };
         socket.on('nexus-notification', handler);
@@ -91,6 +90,9 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
         }
         
         setStatus('THINKING');
+        setProgress(5); // Początkowy stan przed otrzymaniem eventów
+        setCurrentStep('INICJALIZACJA');
+        setCompletedSteps([]);
         setLastError(null);
         
         try {
@@ -117,15 +119,14 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
                 throw new Error(srvErr ? `${srvErr}` : `Błąd serwera (HTTP ${response.status})`);
             }
 
-            // Oczekujemy na WebSocket, chyba że endpoint zadziałał synchronicznie
             if (response.status === 202) {
-                // Potok przetwarza dane w tle, nie parsujemy JSON'a, zostajemy w trybie THINKING
+                // Potok przetwarza dane w tle
                 return;
             }
 
             const data = await response.json();
-            
             setStatus('SUCCESS');
+            setProgress(100);
             setLastError(null);
             setTimeout(() => {
                  if (onAnalysisComplete) onAnalysisComplete(data);
@@ -140,7 +141,6 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
 
     return (
         <div className="w-full min-h-[500px] bg-slate-950 rounded-xl shadow-2xl border border-slate-800 overflow-hidden relative flex flex-col items-center justify-center p-8">
-            {/* Animowane tło */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-500/10 rounded-full blur-[120px]"></div>
                 {status === 'THINKING' && (
@@ -198,14 +198,14 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
                         <div className="flex justify-between items-center mb-3">
                             <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center">
                                 {status === 'SUCCESS' ? <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-400"/> : <Cpu className="w-4 h-4 mr-2 animate-pulse"/>}
-                                {status === 'SUCCESS' ? 'Potok Zakończony' : 'Rozprowadzanie Modeli AI...'}
+                                {status === 'SUCCESS' ? 'Potok Zakończony' : (currentStep ? `Trwa etap: ${currentStep}` : 'Rozprowadzanie Modeli AI...')}
                             </span>
-                            <span className="text-xs font-bold text-slate-500 font-mono">{Math.floor(progress)}%</span>
+                            <span className="text-xs font-bold text-slate-500 font-mono">{Math.min(100, Math.floor(progress))}%</span>
                         </div>
                         <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
                             <div 
                                 className={`h-full transition-all duration-1000 ease-out ${status === 'SUCCESS' ? 'bg-emerald-500' : 'bg-indigo-500'}`}
-                                style={{ width: `${progress}%` }}
+                                style={{ width: `${Math.min(100, Math.max(5, progress))}%` }}
                             >
                                 {status === 'THINKING' && (
                                     <div className="w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
@@ -214,26 +214,27 @@ export const ImageUploadBox = ({ onAnalysisComplete, socket }) => {
                         </div>
                         
                         {status === 'THINKING' && (
-                            <div className="mt-6 grid grid-cols-3 gap-4 text-center opacity-60">
-                                <div className="flex flex-col items-center">
-                                    <Database className="w-5 h-5 text-slate-400 mb-2" />
-                                    <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">1. Weryfikacja PIM</span>
-                                </div>
-                                <div className="flex flex-col items-center">
-                                    <Sparkles className="w-5 h-5 text-indigo-400 mb-2" />
-                                    <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">2. Ekstrakcja AEO</span>
-                                </div>
-                                <div className="flex flex-col items-center">
-                                    <ShieldCheck className="w-5 h-5 text-slate-400 mb-2" />
-                                    <span className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">3. Compliance</span>
-                                </div>
+                            <div className="mt-6 flex flex-wrap justify-center gap-4 text-center">
+                                {['AUTOFILL', 'SENTIMENT', 'AEO', 'GEO', 'COMPLIANCE'].map((stepName, i) => {
+                                    const isDone = completedSteps.includes(stepName);
+                                    const isActive = currentStep === stepName;
+                                    const isPending = !isDone && !isActive;
+                                    
+                                    return (
+                                        <div key={stepName} className={`flex flex-col items-center px-3 py-2 rounded-lg border ${isActive ? 'bg-indigo-900/30 border-indigo-500/50 opacity-100' : (isDone ? 'bg-emerald-900/20 border-emerald-500/30 opacity-80' : 'border-transparent opacity-40')} transition-all`}>
+                                            {isDone ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mb-1" /> : (isActive ? <Loader2 className="w-4 h-4 text-indigo-400 mb-1 animate-spin" /> : <Database className="w-4 h-4 text-slate-500 mb-1" />)}
+                                            <span className={`text-[9px] uppercase tracking-widest font-bold ${isActive ? 'text-indigo-300' : (isDone ? 'text-emerald-300' : 'text-slate-500')}`}>
+                                                {i + 1}. {stepName}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
                 )}
             </div>
             
-            {/* Definicja animacji shimmer w inline style */}
             <style jsx="true">{`
                 @keyframes shimmer {
                     100% { transform: translateX(100%); }

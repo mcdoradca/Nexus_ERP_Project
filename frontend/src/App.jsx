@@ -18,6 +18,7 @@ import ZeroBleedHubView from './views/ZeroBleedHubView';
 import PublicBookingView from './views/PublicBookingView';
 import MeetingDashboardView from './views/MeetingDashboardView';
 import EmployeeDashboardView from './views/EmployeeDashboardView';
+import KnowledgeBasePanel from './components/KnowledgeBasePanel';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { 
@@ -26,7 +27,7 @@ import {
   PlayCircle, StopCircle, Cloud, CloudLightning, Target, Zap, 
   Loader2, Paperclip, Send, Users, User, DollarSign, ArrowRight, CheckCircle2,
   Trash2, Mail, Lock, Shield, Eye, EyeOff, Check, Filter, Calendar, Briefcase, TrendingUp,
-  Package, Database, Image, FileText, Bot, BarChart3, LogOut, CheckSquare, CheckCircle
+  Package, Database, Image, FileText, Bot, BarChart3, LogOut, CheckSquare, CheckCircle, BookOpen
 } from 'lucide-react';
 
 import { getInitials, getDepartmentColor } from './utils';
@@ -822,6 +823,7 @@ function App() {
       { id: 'projects', label: 'Projekty' },
       { id: 'products', label: 'Katalog SKU (PIM)' },
       { id: 'chat', label: 'Komunikator' },
+      { id: 'knowledge', label: 'Baza Wiedzy RAG (LLM)' },
       { id: 'admin', label: 'Ustawienia Master (Opcjonalne)' }
     ];
 
@@ -1596,6 +1598,12 @@ function App() {
               {unreadDMs.total > 0 && <span className="absolute top-0 right-0 bg-rose-500 border-2 border-slate-900 text-white text-[8px] font-bold w-3 h-3 rounded-full flex items-center justify-center"></span>}
             </button>
           )}
+
+          {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('knowledge')) && (
+            <button onClick={() => setActiveTab('knowledge')} title="Baza Wiedzy RAG" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'knowledge' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+              <BookOpen className="w-5 h-5" />
+            </button>
+          )}
         </nav>
         
         <div className="mt-auto pt-4 flex flex-col items-center gap-3 w-full">
@@ -1730,6 +1738,7 @@ function App() {
             }}
           />}
             {activeTab === 'chat' && renderChatInterface()}
+            {activeTab === 'knowledge' && <KnowledgeBasePanel token={token} API_URL={API_URL} />}
             {activeTab === 'admin' && <AdminPanelView users={users} setIsNewUserModalOpen={setIsNewUserModalOpen} setEditingUser={setEditingUser} setIsUserEditModalOpen={setIsUserEditModalOpen} token={token} API_URL={API_URL} />}
         </main>
       </div>

@@ -572,28 +572,11 @@ const triggerUltimatePipeline = async (req, res) => {
         // Zwracamy HTTP 202 natychmiast
         res.status(202).json({ status: "processing", ean, message: "Pipeline uruchomiony w tle." });
 
-        // Procesujemy w tle
+        // Procesujemy w tle (jedynie odkłada zadanie do kolejki Supervisora)
         EanPipelineService.execute(ean)
-            .then(fullResult => {
-                console.log(`[Controller] Potok EAN Pipeline sfinalizowany. Wysyłam zdarzenie WebSockets.`);
-                socketService.broadcast('nexus-notification', {
-                    type: 'PIPELINE_COMPLETE',
-                    ean,
-                    result: fullResult
-                });
-            })
             .catch(async (err) => {
-                console.error(`[Controller] Zablokowano błąd EAN Pipeline dla: ${ean}`, err.message);
-                await prisma.product.update({
-                    where: { ean },
-                    data: { offerDraft: { status: 'ERROR', error: err.message } }
-                }).catch(() => {});
-                
-                socketService.broadcast('nexus-notification', {
-                    type: 'PIPELINE_ERROR',
-                    ean,
-                    error: err.message || "Błąd wewnętrzny serwera podczas procesowania EAN Pipeline."
-                });
+                console.error(`[Controller] Błąd odłożenia zadania EAN Pipeline do kolejki dla: ${ean}`, err.message);
+                // Nie wysyłamy websocketów, Supervisor przejmuje pełną kontrolę.
             });
 
     } catch (e) {

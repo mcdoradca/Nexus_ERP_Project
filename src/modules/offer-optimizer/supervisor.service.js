@@ -5,6 +5,7 @@ const aiMetricsService = require('../../core/ai.metrics.service');
 
 const BaseLinkerService = require('./baselinker.service');
 const AiService = require('./ai.service');
+const socketService = require('../../core/socket.service');
 
 // Gemini Setup for Orchestrator
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -63,9 +64,31 @@ class SupervisorService {
 
       await prisma.agentQueue.update({ where: { id: task.id }, data: { status: 'COMPLETED' } });
       console.log(`[Supervisor] Zadanie ID: ${task.id} zakończone pomyślnie.`);
+      
+      if (task.taskType === 'EAN_PIPELINE') {
+          const finalProduct = await prisma.product.findUnique({ where: { ean: task.ean } });
+          socketService.broadcast('nexus-notification', {
+              type: 'PIPELINE_COMPLETE',
+              ean: task.ean,
+              result: finalProduct
+          });
+      }
     } catch (error) {
-      console.error(`[Supervisor] Błąd orkiestracji dla zadania ${task.id}:`, error);
-      await prisma.agentQueue.update({ where: { id: task.id }, data: { status: 'ERROR', payload: { error: error.message } } });
+      console.error(`[Supervisor] Błąd orkiestracji dla zadania ${task.id}:`, error.message, '\nStack:', error.stack);
+      await prisma.agentQueue.update({ where: { id: task.id }, data: { status: 'ERROR', payload: { error: error.message, stack: error.stack } } });
+      
+      if (task.taskType === 'EAN_PIPELINE') {
+          await prisma.product.update({
+              where: { ean: task.ean },
+              data: { offerDraft: { status: 'ERROR', error: error.message } }
+          }).catch(() => {});
+          
+          socketService.broadcast('nexus-notification', {
+              type: 'PIPELINE_ERROR',
+              ean: task.ean,
+              error: error.message || "Błąd wewnętrzny serwera podczas procesowania EAN Pipeline."
+          });
+      }
     }
   }
 
@@ -159,6 +182,13 @@ Odpowiadaj TYLKO obiektem JSON. Odnieś się do zadania. Jeśli zadanie to "AEO_
     // Wykonywanie zaplanowanych agentów po kolei z uwzględnieniem pamięci Cache
     for (const step of planResponse.plan) {
       console.log(`[Supervisor] Uruchamianie kroku: ${step}`);
+      
+      socketService.broadcast('nexus-notification', {
+        type: 'PIPELINE_PROGRESS',
+        ean,
+        step: step,
+        status: 'IN_PROGRESS'
+      });
       
       switch (step) {
         case 'AUTOFILL':
