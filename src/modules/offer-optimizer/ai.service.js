@@ -957,7 +957,6 @@ Jeśli w wiarygodnych źródłach producenta/dystrybutora nie było danego param
 async function autofillMissingParameters(ean, productName, currentFeatures, requiredSchema) {
     const model = genAI.getGenerativeModel({
         model: "gemini-2.5-flash-lite", // Bardzo tani i szybki model zapasowy
-        tools: [{ googleSearch: {} }],
         generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
     });
     
