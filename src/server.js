@@ -97,8 +97,8 @@ app.set('trust proxy', 1);
 
 app.get('/api/system/logs', (req, res) => {
     const { exec } = require('child_process');
-    // Używamy "nexus" zgodnie z pm2 restart nexus w deploy.yml
-    exec('pm2 logs nexus --lines 300 --nostream', (err, stdout, stderr) => {
+    const pm2App = process.env.PM2_APP_NAME || (process.env.NODE_ENV === 'staging' ? 'nexus-staging' : 'nexus');
+    exec(`pm2 logs ${pm2App} --lines 300 --nostream`, (err, stdout, stderr) => {
         if (err) {
             exec('pm2 logs all --lines 300 --nostream', (err2, stdout2, stderr2) => {
                 if (err2) return res.status(500).send(err2.message + '\n' + stderr2);
