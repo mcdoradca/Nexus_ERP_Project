@@ -689,7 +689,7 @@ async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.1-pro-preview",
+            model: "gemini-3.5-flash",
             tools: [{ googleSearch: {} }],
             generationConfig: {
                 temperature: 0.7,
@@ -724,7 +724,7 @@ WYTYCZNE DLA KADRU SLOTU #${imageIndex + 1}:
 ZASADY DLA "prompt": Pisz po angielsku (max 30 słów), określ tło i oświetlenie. ZAKAZ ludzi, rąk, etykiet, opakowań produktu.
 ZASADY DLA "visualTrendReport": Po polsku, opisz uzasadnienie biznesowe dla tej wybranej sceny.`;
 
-        const result = await generateWithRetry(model, promptInstruction, 2);
+        const result = await generateWithRetry(model, promptInstruction, 3, "Agent_Photoroom_Prompt");
         const jsonText = result.response.text();
         const data = JSON.parse(jsonText);
         if (data.prompt && data.visualTrendReport) {
