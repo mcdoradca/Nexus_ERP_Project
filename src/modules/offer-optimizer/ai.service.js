@@ -995,7 +995,7 @@ Jeśli parametr jest oznaczony jako 'wymagane', ZAWSZE postaraj się wywnioskowa
 
     try {
         console.log(`[AiService] Lite Auto-Fill Agent (gemini-2.5-flash-lite) startuje dla ${ean}...`);
-        const result = await generateWithRetry(model, prompt, 2, "Agent_11_Autofill_Lite");
+        const result = await generateWithRetry(model, prompt, 2, "Agent_11_Autofill");
         let text = result.response.text();
         text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
         const parsed = JSON.parse(text);
