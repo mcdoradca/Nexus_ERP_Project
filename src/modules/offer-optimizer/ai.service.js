@@ -239,7 +239,7 @@ Zwróć ZWARTY, tekstowy raport zawierający WYŁĄCZNIE:
 2. Pełny, dokładny i kompletny skład INCI.
 Format wyjściowy: Zwykły tekst.`;
         
-        const result = await generateWithRetry(model, prompt);
+        const result = await generateWithRetry(model, prompt, 3, "Agent_1_OSINT");
         console.log(`[AiService] Agent Badawczy zakończył pracę. Znaleziono dane.`);
         return result.response.text();
     } catch (err) {
