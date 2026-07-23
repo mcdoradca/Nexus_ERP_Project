@@ -155,7 +155,7 @@ const generateTikTokSmi = async (count, topic, campaign, productContext) => {
  */
 const optimizeSmiSchedule = async (posts, campaignData) => {
   const model = genAI.getGenerativeModel({ 
-    model: MODEL_NAME,
+    model: "gemini-3.1-pro-preview",
     generationConfig: {
       responseMimeType: "application/json",
     },
@@ -193,7 +193,7 @@ Wymagany format:
   `;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await generateWithRetry(model, prompt, 3, "Agent_Sentinel_Scheduler");
     return JSON.parse(result.response.text());
   } catch (error) {
     console.error('[AI Service] Error optimizing SMI Schedule:', error);
