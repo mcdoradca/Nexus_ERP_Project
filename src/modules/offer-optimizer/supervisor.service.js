@@ -5,7 +5,7 @@ const aiMetricsService = require('../../core/ai.metrics.service');
 
 const BaseLinkerService = require('./baselinker.service');
 const AiService = require('./ai.service');
-const socketService = require('../../core/socket.service');
+const socketService = require('../../core/socket');
 
 // Gemini Setup for Orchestrator
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
