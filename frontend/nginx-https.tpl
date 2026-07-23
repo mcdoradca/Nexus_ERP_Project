@@ -21,6 +21,8 @@ server {
     ssl_certificate /etc/letsencrypt/live/n-e-s.it/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/n-e-s.it/privkey.pem;
 
+    client_max_body_size 50M;
+
     # Optymalizacja SSL i bezpieczeństwo
     ssl_session_cache shared:le_nginx_SSL:10m;
     ssl_session_timeout 1440m;

@@ -2,6 +2,8 @@ server {
     listen 80;
     server_name n-e-s.it www.n-e-s.it localhost _;
 
+    client_max_body_size 50M;
+
     root /usr/share/nginx/html;
     index index.html;
 
