@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const BaseLinkerService = require('../offer-optimizer/baselinker.service');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { generateWithRetry } = require('../offer-optimizer/ai.service');
 
 /**
  * 🛡️ Nexus Sentinel: God-Mode Analytics Service
@@ -206,7 +207,7 @@ class AnalyticsService {
 
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
         const model = genAI.getGenerativeModel({ 
-            model: 'gemini-3.1-pro-preview',
+            model: 'gemini-3.5-flash',
             tools: [{ googleSearch: {} }]
         });
 
@@ -240,7 +241,7 @@ Wymagany format JSON:
 }`;
 
         try {
-            const result = await model.generateContent(prompt);
+            const result = await generateWithRetry(model, prompt, 3, "Agent_Data_Analyst");
             let responseText = result.response.text().trim();
             // Solidny parser oczyszczający ewentualne formatowanie markdown
             responseText = responseText.replace(/^\`\`\`json\n?/, '').replace(/\n?\`\`\`$/, '');
