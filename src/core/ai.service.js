@@ -120,12 +120,12 @@ Zwróć JSON jako tablicę obiektów:
 
 const generateFacebookSmi = async (count, topic, campaign, productContext) => {
   if (count <= 0) return [];
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME, generationConfig: { responseMimeType: "application/json" } });
+  const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash", generationConfig: { responseMimeType: "application/json" } });
   const rules = `- Dłuższe formy tekstowe.
 - Możesz używać pogrubień tekstowych i emotikon.
 - Target to osoby 30+, pisz dojrzalszym językiem.
 - Sugeruj linki bezpośrednie w treści.`;
-  const res = await model.generateContent(_baseSpecialistPrompt('FACEBOOK', rules, count, topic, campaign, productContext));
+  const res = await generateWithRetry(model, _baseSpecialistPrompt('FACEBOOK', rules, count, topic, campaign, productContext), 3, "Agent_Facebook_SMI");
   return JSON.parse(res.response.text());
 };
 
