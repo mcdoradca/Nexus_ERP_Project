@@ -5,7 +5,7 @@ const aiMetricsService = require('../../core/ai.metrics.service');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // Rekomendowany model do wektoryzacji
-const EMBEDDING_MODEL_NAME = "text-embedding-004";
+const EMBEDDING_MODEL_NAME = "gemini-embedding-2";
 const embeddingModel = genAI.getGenerativeModel({ model: EMBEDDING_MODEL_NAME });
 
 /**
