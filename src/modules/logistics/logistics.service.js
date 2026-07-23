@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const { generateWithRetry } = require('../offer-optimizer/ai.service');
 
 /**
  * Przewiduje wyczerpanie stanów magazynowych na podstawie danych historycznych (Burn Rate)
@@ -62,7 +63,7 @@ async function procureFromSupplier(product, currentStock, daysLeft) {
         if (existingTask) return; // Już procesujemy zamówienie dla tego SKU
 
         // 2. Uruchamiamy Agenta Negocjatora
-        const model = genAI.getGenerativeModel({ model: 'gemini-3.1-pro-preview' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
         const prompt = `
 Jesteś elitarnym Agentem Zaopatrzenia B2B w systemie Nexus ERP.
 Nasz produkt (EAN: ${product.ean}, Nazwa: "${product.name}") wyczerpuje się na magazynie. 
@@ -76,7 +77,7 @@ Wpleć grzecznie prośbę o specjalny rabat wolumenowy lub utrzymanie starych ce
 Zwróć TYLKO treść maila (jako czysty tekst). Nie dodawaj od siebie żadnych komentarzy czy wstępów w stylu "Oto Twój email:". 
 Zostaw [MIEJSCE NA PODPIS] dla operatora, który go wyśle.
 `;
-        const response = await model.generateContent(prompt);
+        const response = await generateWithRetry(model, prompt, 3, "Agent_Logistics_Optimizer");
         const emailDraft = response.response.text().trim();
 
         // 3. TARCZA BŁĘDÓW (Human-in-the-loop)
