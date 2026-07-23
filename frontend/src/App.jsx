@@ -213,12 +213,26 @@ function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = React.useCallback(() => {
     localStorage.removeItem('aps_token');
     localStorage.removeItem('aps_user');
     setToken(null);
     setCurrentUser(null);
-  };
+  }, []);
+
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401 && error.config && !error.config.url.includes('/api/auth/login')) {
+          console.warn('[Axios Interceptor] Wykryto wygasłą sesję (401). Automatyczne wylogowanie.');
+          handleLogout();
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => axios.interceptors.response.eject(interceptor);
+  }, [handleLogout]);
 
   // --- HANDLERS ---
   const handleCreateTask = async (e) => {
