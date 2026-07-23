@@ -399,7 +399,7 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
     };
 
     const model = genAI.getGenerativeModel({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3.5-flash',
         tools: [{ googleSearch: {} }],
         generationConfig
     });
@@ -427,7 +427,7 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
 
     try {
         console.log(`[AiService] Wywołano Gemini w trybie Native API (bez OCR). Tryb: ${analysisMode}`);
-        const result = await generateWithRetry(model, parts);
+        const result = await generateWithRetry(model, parts, 3, "Agent_Vision_Native");
         let responseText = result.response.text();
         
         // Zastosowanie bezwzględnej Tarczy Anty-Medycznej na wyjście (AEO/Opisy)
