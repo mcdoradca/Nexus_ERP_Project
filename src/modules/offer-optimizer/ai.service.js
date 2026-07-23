@@ -1085,7 +1085,7 @@ async function adaptToSegmentAndTone(productName, htmlContent, features, categor
     console.log(`[AiService] Odpalanie Agenta Segmentowego (Segment & Tone Adapter) dla: ${productName}...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.1-pro-preview",
+            model: "gemini-3.5-flash",
             systemInstruction: require('./ai.prompts').SEGMENT_TONE_AGENT_PROMPT,
             generationConfig: { 
                 temperature: 0.5, 
@@ -1125,7 +1125,7 @@ Blok 3 (opis3): ${htmlContent.opis3 || ''}
 Blok 4 (opis4): ${htmlContent.opis4 || ''}
 Blok 5 (opis5): ${htmlContent.opis5 || ''}`;
 
-        const result = await generateWithRetry(model, prompt);
+        const result = await generateWithRetry(model, prompt, 3, "Agent_Segment_Tone");
         let text = result.response.text().replace(/```json/gi, '').replace(/```/g, '').trim();
         return JSON.parse(text);
     } catch(err) {
