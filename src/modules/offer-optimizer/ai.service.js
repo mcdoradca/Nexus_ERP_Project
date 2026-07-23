@@ -331,7 +331,7 @@ OPIS ORYGINALNY: ${originalDescription || 'Brak'}
             console.warn("[AiService] Brak pliku SOT_Baza_Wiedzy_Agenta.md. Agent Prawny zadziała na gołym modelu.");
         }
 
-        const result = await generateWithRetry(model, parts);
+        const result = await generateWithRetry(model, parts, 3, "Agent_3_Compliance");
         console.log(`[AiService] Agent Prawny zakończył pracę pomyślnie.`);
         return strictRegexMedicalFilter(result.response.text());
     } catch (err) {
