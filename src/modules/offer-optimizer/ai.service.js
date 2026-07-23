@@ -1088,7 +1088,6 @@ module.exports = {
     generateOfferJSON,
     auditOfferImages,
     generateTitleOnly,
-    generateClaidLiquidVariables,
     generateClaidLifestyle,
     autofillMissingParameters,
     generateComplianceReport
