@@ -1015,7 +1015,7 @@ async function generateAEOContent(productName, originalDescription, intelligence
             generationConfig: { temperature: 0.4 } 
         });
         const prompt = `Produkt: ${productName}\nOpis źródłowy: ${originalDescription || 'Brak'}\nDane z wywiadu (INCI/Parametry): ${intelligenceData || 'Brak'}\nStwórz zwartą strukturę AEO.`;
-        const result = await generateWithRetry(model, prompt);
+        const result = await generateWithRetry(model, prompt, 3, "Agent_AEO");
         return result.response.text();
     } catch(err) {
         console.error("[AiService] Błąd Agenta AEO:", err.message);

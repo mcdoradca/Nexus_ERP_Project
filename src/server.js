@@ -365,19 +365,18 @@ app.post('/api/settings', authenticateToken, async (req, res) => {
 });
 
 // --- PIM API ---
-const aiService = require('./core/ai.service');
+const pimAiService = require('./modules/offer-optimizer/ai.service');
 
 app.post('/api/products/:id/aeo', authenticateToken, async (req, res) => {
     try {
         const product = await prisma.product.findUnique({ where: { id: req.params.id }, include: { brand: true } });
         if (!product) return res.status(404).json({ error: 'Produkt nie istnieje' });
         
-        const aeoContent = await aiService.generateAEO({
-            name: product.name,
-            brand: product.brand?.name,
-            description: product.descriptionHtml,
-            features: product.features
-        });
+        const aeoContent = await pimAiService.generateAEOContent(
+            product.name, 
+            product.descriptionHtml, 
+            typeof product.features === 'object' ? JSON.stringify(product.features) : (product.features || '')
+        );
         
         const updated = await prisma.product.update({
             where: { id: product.id },
