@@ -1,5 +1,5 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-
+const { generateWithRetry } = require('../modules/offer-optimizer/ai.service');
 // Initialize the Gemini API client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 // Use the precise model specified for operations
@@ -37,7 +37,7 @@ Nie owijaj w tagi typu \`\`\`html.
  * Generates a highly personalized outreach draft for an influencer.
  */
 const generateOutreach = async (influencerData, productData) => {
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+  const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
   const prompt = `
 Jesteś ekspertem PR i Influencer Marketingu. Przygotuj szkic wiadomości e-mail / DM (Outreach) do influencera w sprawie współpracy.
@@ -59,7 +59,7 @@ Zwróć tylko treść wiadomości.
   `;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await generateWithRetry(model, prompt, 3, "Agent_PR_Outreach");
     return result.response.text().trim();
   } catch (error) {
     console.error('[AI Service] Error generating Outreach:', error);

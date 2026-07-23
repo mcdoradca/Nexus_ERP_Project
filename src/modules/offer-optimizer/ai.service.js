@@ -1147,5 +1147,6 @@ module.exports = {
     generateTitleOnly,
     generateClaidLifestyle,
     autofillMissingParameters,
-    generateComplianceReport
+    generateComplianceReport,
+    generateWithRetry
 };
