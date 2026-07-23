@@ -653,6 +653,34 @@ const checkPipelineStatus = async (req, res) => {
     }
 };
 
+const ingestKnowledgeDocument = async (req, res) => {
+    try {
+        const { text, title } = req.body;
+        if (!text || !title) {
+            return res.status(400).json({ error: 'Brakuje tekstu lub tytułu dokumentu.' });
+        }
+        const ragService = require('./knowledge.rag.service');
+        const result = await ragService.ingestDocument(text, title);
+        return res.status(200).json(result);
+    } catch (error) {
+        console.error('[Knowledge RAG] Błąd wchłaniania dokumentu:', error);
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+const listKnowledgeDocuments = async (req, res) => {
+    try {
+        const docs = await prisma.$queryRaw`
+            SELECT id, title, left(content, 100) as preview, "createdAt" 
+            FROM "KnowledgeDocument"
+            ORDER BY "createdAt" DESC
+        `;
+        return res.status(200).json({ documents: docs });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
 module.exports = {
     startOptimization,
     checkStatus,
@@ -664,5 +692,7 @@ module.exports = {
     generateLifestyle,
     checkLifestyleStatus,
     triggerUltimatePipeline,
-    checkPipelineStatus
+    checkPipelineStatus,
+    ingestKnowledgeDocument,
+    listKnowledgeDocuments
 };

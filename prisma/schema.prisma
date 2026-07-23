@@ -1,11 +1,13 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
 }
 
 model User {
@@ -635,4 +637,37 @@ model AgentMetric {
 
   @@index([agentId])
   @@index([createdAt])
+}
+
+model KnowledgeDocument {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  embedding Unsupported("vector(768)")?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AgentQueue {
+  id        String   @id @default(uuid())
+  taskType  String   // np. 'EAN_PIPELINE', 'AEO_GENERATION'
+  ean       String?
+  payload   Json?
+  status    String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, ERROR
+  priority  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+model AgentCache {
+  id        String   @id @default(uuid())
+  cacheKey  String   @unique
+  value     Json
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cacheKey])
 }

@@ -25,4 +25,8 @@ router.get('/generate-lifestyle/status/:jobId', controller.checkLifestyleStatus)
 router.post('/pipeline/trigger', express.json(), controller.triggerUltimatePipeline);
 router.get('/pipeline/status/:ean', controller.checkPipelineStatus);
 
+// RAG / Supervisor Endpoints
+router.post('/knowledge/ingest', express.json({ limit: '10mb' }), controller.ingestKnowledgeDocument);
+router.get('/knowledge/list', controller.listKnowledgeDocuments);
+
 module.exports = router;
