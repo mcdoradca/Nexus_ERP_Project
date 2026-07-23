@@ -893,10 +893,10 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 const generateClaidLifestyle = generatePhotoroomLifestyle;
 const generateImagenLifestyle = generatePhotoroomLifestyle;
 
-/**
- * Agent uzupełniania parametrów (PXM Auto-Fill Agent).
- * Przeszukuje sieć poza Allegro w poszukiwaniu specyfikacji technicznej i mapuje ją do słownika.
- */
+/*
+ * [DEPRECATED / BACKUP] Stary, drogi Agent uzupełniania parametrów (PXM Auto-Fill Agent).
+ * Zostawiony jako kopia bezpieczeństwa zgodnie z prośbą.
+ *
 async function autofillMissingParameters(ean, productName, currentFeatures, requiredSchema) {
     const model = genAI.getGenerativeModel({
         model: "gemini-3.1-pro-preview",
@@ -945,6 +945,63 @@ Jeśli w wiarygodnych źródłach producenta/dystrybutora nie było danego param
         return { ...currentFeatures, ...(parsed.features || {}) };
     } catch(err) {
         console.error("[AiService] Błąd Agenta Auto-Fill:", err.message);
+        return currentFeatures;
+    }
+}
+*/
+
+/**
+ * LITE: Agent uzupełniania parametrów (PXM Auto-Fill Agent - Ostatnia linia wsparcia).
+ * Używa taniego modelu, działa na zredukowanym prompcie z limitami.
+ */
+async function autofillMissingParameters(ean, productName, currentFeatures, requiredSchema) {
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash-lite", // Bardzo tani i szybki model zapasowy
+        tools: [{ googleSearch: {} }],
+        generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+    });
+    
+    // Zabezpieczenie przed przepalaniem tokenów: mapujemy tylko brakujące/wymagane parametry
+    const missingSchema = (requiredSchema || []).filter(p => !currentFeatures || !currentFeatures[p.name]);
+    if (missingSchema.length === 0) return currentFeatures;
+
+    // Redukcja tokenów ze słowników (>40 -> wycięcie payloadu)
+    const optimizedSchemaMap = missingSchema.map(p => ({ 
+        nazwa: p.name, 
+        wymagane: p.required, 
+        typ: p.type, 
+        dopuszczalne_wartosci: (p.dictionary && p.dictionary.length <= 40) ? p.dictionary.map(d => d.value) : "Bardzo szeroki słownik - podaj precyzyjną, logiczną markę/wartość." 
+    }));
+
+    const prompt = `Jesteś inżynierem PIM.
+Zadanie: Błyskawicznie uzupełnij brakujące parametry techniczne dla produktu. Użyj googleSearch by sprawdzić stronę producenta, dystrybutora lub duży marketplace. Omiń procedury deep researchu, wystarczą podstawowe wyniki dla tego produktu.
+
+Produkt: ${productName}
+EAN: ${ean}
+
+Lista brakujących parametrów do uzupełnienia:
+${JSON.stringify(optimizedSchemaMap, null, 2)}
+
+Aktualne parametry (nie zwracaj ich z powrotem, tylko nowe):
+${JSON.stringify(currentFeatures)}
+
+Wygeneruj CZYSTY JSON:
+{
+  "features": {
+    "NazwaParametru": "Wartość"
+  }
+}
+W przypadku braku pewności pomiń parametr. Dla wartości słownikowych zachowaj dokładne mapowanie.`;
+
+    try {
+        console.log(`[AiService] Lite Auto-Fill Agent (gemini-2.5-flash-lite) startuje dla ${ean}...`);
+        const result = await generateWithRetry(model, prompt, 2, "Agent_11_Autofill_Lite");
+        let text = result.response.text();
+        text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(text);
+        return { ...currentFeatures, ...(parsed.features || {}) };
+    } catch(err) {
+        console.error("[AiService] Błąd Agenta Lite Auto-Fill:", err.message);
         return currentFeatures;
     }
 }

@@ -255,6 +255,41 @@ async function findCategoryByEan(ean) {
 }
 
 /**
+ * Szuka w globalnym Katalogu Produktów Allegro parametrów twardych przypisanych do danego EAN.
+ */
+async function getProductParametersByEan(ean) {
+    if (!ean) return {};
+    try {
+        const token = await getAllegroToken();
+        const response = await axios.get(`https://api.allegro.pl/sale/products?ean=${ean}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.allegro.public.v1+json'
+            },
+            timeout: 15000
+        });
+        
+        let hardFeatures = {};
+        if (response.data.products && response.data.products.length > 0) {
+            const product = response.data.products[0];
+            if (product.parameters) {
+                product.parameters.forEach(p => {
+                    if (p.name && p.values && p.values.length > 0) {
+                        hardFeatures[p.name] = p.values[0];
+                    } else if (p.name && p.valuesIds && p.valuesIds.length > 0) {
+                        hardFeatures[p.name] = p.valuesIds[0];
+                    }
+                });
+            }
+        }
+        return hardFeatures;
+    } catch (error) {
+        console.error(`[AllegroService] Błąd pobierania parametrów z katalogu dla EAN ${ean}:`, error.message);
+        return {};
+    }
+}
+
+/**
  * Szuka rekomendowanej kategorii Allegro na podstawie nazwy produktu (Smart Fallback).
  */
 async function findMatchingCategoryByName(name) {
@@ -286,5 +321,6 @@ module.exports = {
     getFullOfferData,
     fetchCategoryParameters,
     findCategoryByEan,
-    findMatchingCategoryByName
+    findMatchingCategoryByName,
+    getProductParametersByEan
 };

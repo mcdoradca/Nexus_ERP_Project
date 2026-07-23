@@ -102,7 +102,18 @@ class EanPipelineService {
                  if (category && category.parameters) requiredSchema = category.parameters;
             }
             
-            const currentFeatures = product.features && typeof product.features === 'object' ? { ...product.features } : {};
+            let currentFeatures = product.features && typeof product.features === 'object' ? { ...product.features } : {};
+            
+            // ETAP 1. Pobieranie sztywnych parametrów z Allegro Catalog API (Zamiast zgadywania przez AI)
+            console.log(`[EAN Pipeline] -> Pobieranie twardych parametrów z Allegro Catalog API dla EAN: ${ean}`);
+            const hardCatalogFeatures = await allegroService.getProductParametersByEan(ean);
+            if (hardCatalogFeatures && Object.keys(hardCatalogFeatures).length > 0) {
+                currentFeatures = { ...currentFeatures, ...hardCatalogFeatures };
+                console.log(`[EAN Pipeline] -> Zaimportowano ${Object.keys(hardCatalogFeatures).length} gotowych parametrów z API Allegro.`);
+            }
+
+            // ETAP 2. Ostatnia Linia Wsparcia: Agent AI Lite (Tylko dla wciąż brakujących danych)
+            console.log(`[EAN Pipeline] -> Uruchomienie Agenta Lite dla braków słownikowych...`);
             const filledFeatures = await AiService.autofillMissingParameters(ean, product.name, currentFeatures, requiredSchema);
             if (filledFeatures && Object.keys(filledFeatures).length > 0) {
                 let dataToUpdate = { features: filledFeatures };
