@@ -956,7 +956,7 @@ Jeśli w wiarygodnych źródłach producenta/dystrybutora nie było danego param
  */
 async function autofillMissingParameters(ean, productName, currentFeatures, requiredSchema) {
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash-lite", // Bardzo tani i szybki model zapasowy
+        model: "gemini-3.1-pro-preview-customtools", // Wymagane dla obsługi narzędzia googleSearch
         tools: [{ googleSearch: {} }],
         generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
     });
@@ -994,7 +994,7 @@ Wygeneruj CZYSTY JSON:
 Jeśli parametr jest oznaczony jako 'wymagane', ZAWSZE postaraj się wywnioskować z oszczędnych wyników googleSearch najbardziej logiczną i pasującą wartość. Dla wartości słownikowych (dopuszczalne_wartosci) wstaw ściśle tę wartość. Jeśli w ogóle nie widzisz sensownej wartości, pomiń.`;
 
     try {
-        console.log(`[AiService] Lite Auto-Fill Agent (gemini-2.5-flash-lite) startuje dla ${ean}...`);
+        console.log(`[AiService] Lite Auto-Fill Agent startuje dla ${ean}...`);
         const result = await generateWithRetry(model, prompt, 2, "Agent_11_Autofill");
         let text = result.response.text();
         text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -1002,7 +1002,7 @@ Jeśli parametr jest oznaczony jako 'wymagane', ZAWSZE postaraj się wywnioskowa
         return { ...currentFeatures, ...(parsed.features || {}) };
     } catch(err) {
         console.error("[AiService] Błąd Agenta Lite Auto-Fill:", err.message);
-        return currentFeatures;
+        throw new Error("Agent AI (Auto-Fill) nie mógł połączyć się z wyszukiwarką lub modelem: " + err.message);
     }
 }
 

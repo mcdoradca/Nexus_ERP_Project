@@ -468,10 +468,31 @@ app.post('/api/products/:id/autofill-params', authenticateToken, async (req, res
             currentFeatures = { ...currentFeatures, ...hardCatalogFeatures };
         }
         
-        // 2. Pobranie schematu wymogów Allegro
+        // 2. Pobranie schematu wymogów Allegro (Lazy Fetch)
         let requiredSchema = [];
-        if (product.allegroCategoryId) {
-            const category = await prisma.marketplaceCategory.findUnique({ where: { id: product.allegroCategoryId } });
+        let catId = product.allegroCategoryId;
+        
+        // Zabezpieczenie 1: Jeśli produkt nie miał w ogóle kategorii, znajdź ją w locie
+        if (!catId) {
+            catId = await allegroService.findCategoryByEan(product.ean);
+            if (!catId && product.name) catId = await allegroService.findMatchingCategoryByName(product.name);
+            if (catId) {
+                await prisma.product.update({ where: { id: product.id }, data: { allegroCategoryId: catId } });
+                product.allegroCategoryId = catId;
+            }
+        }
+        
+        // Zabezpieczenie 2: Pobierz schemat z DB lub z API, jeśli brakuje
+        if (catId) {
+            let category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
+            
+            // Jeśli kategorii nie ma w DB lub ma pustą strukturę parametrów -> fetch z API Allegro
+            if (!category || !category.parameters || (Array.isArray(category.parameters) && category.parameters.length === 0)) {
+                console.log(`[PXM Auto-Fill] Brak parametrów dla kategorii ${catId}, doczytuję na żywo z Allegro API...`);
+                await allegroService.fetchCategoryParameters(catId);
+                category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
+            }
+            
             if (category && category.parameters) {
                 requiredSchema = category.parameters;
             }

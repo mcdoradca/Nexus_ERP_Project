@@ -98,7 +98,12 @@ class EanPipelineService {
             
             let requiredSchema = [];
             if (catId) {
-                 const category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
+                 let category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
+                 if (!category || !category.parameters || (Array.isArray(category.parameters) && category.parameters.length === 0)) {
+                      console.log(`[EAN Pipeline] Brak cache parametrów dla kategorii ${catId}, doczytuję na żywo z API...`);
+                      await allegroService.fetchCategoryParameters(catId);
+                      category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
+                 }
                  if (category && category.parameters) requiredSchema = category.parameters;
             }
             
