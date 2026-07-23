@@ -131,22 +131,22 @@ const generateFacebookSmi = async (count, topic, campaign, productContext) => {
 
 const generateInstagramSmi = async (count, topic, campaign, productContext) => {
   if (count <= 0) return [];
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME, generationConfig: { responseMimeType: "application/json" } });
+  const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash", generationConfig: { responseMimeType: "application/json" } });
   const rules = `- Skupienie na wizualiach (Reels, Karuzele).
 - Copy estetyczne, podzielone na krótkie akapity, zgrabny hook na początku.
 - Zestaw 10-15 bardzo dopasowanych hashtagów (w tym tag marki).
 - Podawaj dokładne wytyczne co ma być na obrazku lub wideo (Reel).`;
-  const res = await model.generateContent(_baseSpecialistPrompt('INSTAGRAM', rules, count, topic, campaign, productContext));
+  const res = await generateWithRetry(model, _baseSpecialistPrompt('INSTAGRAM', rules, count, topic, campaign, productContext), 3, "Agent_Instagram_SMI");
   return JSON.parse(res.response.text());
 };
 
 const generateTikTokSmi = async (count, topic, campaign, productContext) => {
   if (count <= 0) return [];
-  const model = genAI.getGenerativeModel({ model: MODEL_NAME, generationConfig: { responseMimeType: "application/json" } });
+  const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash", generationConfig: { responseMimeType: "application/json" } });
   const rules = `- Pisz copy bardzo krótkie. 90% sukcesu to wideo.
 - GŁÓWNE ZADANIE: Opisz szczegółowo SCENARIUSZ WIDEO w polu 'notes' (jaki Hook, jaka muzyka w tle - trending audio, co robi postać).
 - Język dynamiczny, młodzieżowy, bezpośredni. Max 3-5 hashtagów.`;
-  const res = await model.generateContent(_baseSpecialistPrompt('TIKTOK', rules, count, topic, campaign, productContext));
+  const res = await generateWithRetry(model, _baseSpecialistPrompt('TIKTOK', rules, count, topic, campaign, productContext), 3, "Agent_TikTok_SMI");
   return JSON.parse(res.response.text());
 };
 
