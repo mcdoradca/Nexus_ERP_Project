@@ -26,6 +26,11 @@ W celu ustabilizowania działania systemu i zmniejszenia obciążenia operacyjne
 3. **Mechanizm `AgentCache`**:
    - Centralna rejestracja wyników długotrwałych agentów badawczych po to, aby zapytania o takie same lub bardzo podobne produkty w krótkim czasie korzystały z już wygenerowanych odpowiedzi.
 
+4. **Komunikacja Asynchroniczna i Real-Time Telemetry (UI)**:
+   - Wdrożono szczegółowe logowanie błędów w `SupervisorService` zapisywane bezpośrednio do bazy PostgreSQL oraz emitowane po WebSocket (`PIPELINE_ERROR`).
+   - Całkowite odseparowanie pętli HTTP (`202 Accepted` w kontrolerze) od powiadamiania o sukcesie i przebiegu prac.
+   - Wprowadzenie zdarzenia `PIPELINE_PROGRESS` nadawanego przez Orkiestrator, na które reaguje nowy dynamiczny komponent frontendowy (`ImageUploadBox.jsx`), obrazujący na żywo przebieg prac (bez użycia przestarzałego pollingu czy sztucznych animacji "loading").
+
 ## Konsekwencje
 
 ### Pozytywne:
@@ -36,4 +41,4 @@ W celu ustabilizowania działania systemu i zmniejszenia obciążenia operacyjne
 
 ### Negatywne / Ryzyka:
 - Zwiększenie złożoności bazy danych (potrzeba zarządzania dodatkową migracją bazy dla `pgvector` i surowym wyszukiwaniem SQL `prisma.$queryRaw`).
-- Brak graficznego raportowania przebiegu kolejki zadań Supervisora (w przyszłości konieczne będzie przygotowanie monitoringu AgentQueue).
+- Wrażliwość na niestabilność połączenia WebSocket (konieczność utrzymania prostego HTTP Polling w `ImageUploadBox.jsx` jako warstwy rezerwowej/fallback).
