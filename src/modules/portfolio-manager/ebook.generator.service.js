@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const { generateWithRetry } = require('../offer-optimizer/ai.service');
 
 /**
  * Serwis Generujący Zero-Cost Value (E-Booki i Poradniki)
@@ -37,7 +38,7 @@ class EbookGeneratorService {
     }
 
     async _generateContentFromAI(productName, targetAudience) {
-        console.log(`[EbookGenerator] Odpytuję Gemini 3.5 Flash o merytoryczną treść HTML...`);
+        console.log(`[EbookGenerator] Odpytuję Gemini PRO o merytoryczną treść HTML...`);
         const model = genAI.getGenerativeModel({ model: 'gemini-3.1-pro-preview' });
         
         const prompt = `
@@ -59,7 +60,7 @@ Nie używaj zewnętrznych zdjęć (żeby nie zepsuć renderowania bez dostępu d
 Wymuś podział na strony używając "page-break-after: always;" w CSS po stronie tytułowej.
 `;
 
-        const response = await model.generateContent(prompt);
+        const response = await generateWithRetry(model, prompt, 3, "Agent_Ebook_Generator");
         let rawHtml = response.response.text();
         
         // Czyszczenie ze znaczników markdown
