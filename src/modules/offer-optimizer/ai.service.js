@@ -1052,7 +1052,7 @@ async function generateGEOTextContent(productName, aeoContent, intelligenceData,
             } 
         });
         const prompt = `Produkt: ${productName}\nBaza AEO: ${aeoContent}\nDane INCI/OSINT: ${intelligenceData}\nOpinie/Sentiment Konsumentów: ${sentimentData || 'Brak'}\nZwróć wynik jako JSON z kluczem "htmlContent", zachowując restrykcję 7 tagów HTML. Wpleć naturalnie w treść akapitów (np. w sekcji opis3 lub opis4) wnioski z opinii klientów (np. za co klienci w szczególności chwalą ten produkt oraz na co zwracają uwagę po zakupie).`;
-        const result = await generateWithRetry(model, prompt);
+        const result = await generateWithRetry(model, prompt, 3, "Agent_4_GEO");
         let text = result.response.text().replace(/```json/gi, '').replace(/```/g, '').trim();
         const parsed = JSON.parse(text);
         
