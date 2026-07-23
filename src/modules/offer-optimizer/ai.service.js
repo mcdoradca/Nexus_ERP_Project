@@ -481,7 +481,7 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
 
 async function generateOfferJSON(baseTitle, attributesArray) {
     const model = genAI.getGenerativeModel({
-        model: "gemini-3.1-pro-preview",
+        model: "gemini-3.5-flash",
         tools: [{ googleSearch: {} }],
         systemInstruction: GEO_SYSTEM_PROMPT,
         // Wymuszenie formatu JSON z gwarancją niezgadywania markdowna
@@ -504,7 +504,7 @@ Wygeneruj zwrot w formacie JSON zawierający wyizolowaną strukturę. Pamiętaj 
 `;
 
     try {
-        const result = await model.generateContent(payload);
+        const result = await generateWithRetry(model, payload, 3, "Agent_Offer_JSON");
         const responseText = result.response.text();
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error(`Brak prawidłowej struktury JSON w odpowiedzi dla GEO Text. Otrzymano: ${responseText}`);
