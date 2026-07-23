@@ -72,7 +72,7 @@ Zwróć tylko treść wiadomości.
  */
 const dispatchSmiTask = async (userPrompt) => {
   const model = genAI.getGenerativeModel({ 
-    model: MODEL_NAME,
+    model: "gemini-3.5-flash",
     generationConfig: { responseMimeType: "application/json" }
   });
 
@@ -89,7 +89,7 @@ Zwróć WYŁĄCZNIE JSON:
   "topicGuidance": "Krótkie podsumowanie tematyki/wymagań z prompta dla agentów"
 }
   `;
-  const res = await model.generateContent(prompt);
+  const res = await generateWithRetry(model, prompt, 3, "Agent_Router_SMI");
   return JSON.parse(res.response.text());
 };
 
