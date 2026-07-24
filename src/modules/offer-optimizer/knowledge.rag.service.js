@@ -123,12 +123,18 @@ class KnowledgeRagService {
     }
   }
   /**
-   * Usuwa wszystkie wektory powiązane z danym tytułem dokumentu.
+   * Usuwa wszystkie wektory powiązane z danym tytułem dokumentu (również jego chunki: Część X).
    */
   async deleteDocumentByTitle(title) {
     try {
+      // Prisma usunie wpisy, które zaczynają się od "Tytuł (Część "
+      // W ten sposób usuwamy wszystkie chunki danego dokumentu.
       const result = await prisma.knowledgeDocument.deleteMany({
-        where: { title }
+        where: { 
+          title: {
+            startsWith: title
+          }
+        }
       });
       console.log(`[RAG] Usunięto dokument "${title}", liczba fragmentów: ${result.count}`);
       return result.count;
@@ -144,9 +150,9 @@ class KnowledgeRagService {
   async getGroupedDocuments() {
       try {
           const docs = await prisma.$queryRaw`
-              SELECT title, COUNT(id) as "chunkCount", MAX("createdAt") as "createdAt"
+              SELECT REGEXP_REPLACE(title, ' \(Część \d+\)$', '') as title, COUNT(id) as "chunkCount", MAX("createdAt") as "createdAt"
               FROM "KnowledgeDocument"
-              GROUP BY title
+              GROUP BY REGEXP_REPLACE(title, ' \(Część \d+\)$', '')
               ORDER BY "createdAt" DESC
           `;
           // Konwersja BigInt z Postgresa

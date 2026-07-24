@@ -86,7 +86,7 @@ export default function KnowledgeBasePanel() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto p-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-7xl mx-auto p-6">
       {notification && (
         <div className={`fixed top-4 right-4 p-4 rounded-lg shadow-lg text-white z-50 ${notification.isError ? 'bg-rose-500' : 'bg-emerald-500'}`}>
           <h4 className="font-bold text-sm">{notification.title}</h4>

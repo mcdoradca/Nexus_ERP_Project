@@ -1,0 +1,1 @@
+const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); async function run() { try { const docs = await prisma.$queryRaw`SELECT title, COUNT(id) as "chunkCount", MAX("createdAt") as "createdAt" FROM "KnowledgeDocument" GROUP BY title ORDER BY "createdAt" DESC`; console.log(docs); } catch(e) { console.error(e); } } run();
