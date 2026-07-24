@@ -1,0 +1,758 @@
+import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
+import { TitleValidator } from './components/HitlReviewer/TitleValidator';
+import { StrictWysiwyg } from './components/HitlReviewer/StrictWysiwyg';
+import { TileSimulator } from './components/HitlReviewer/TileSimulator';
+import { ImageUploadBox } from './components/SingleAuctionFetcher/ImageUploadBox';
+import { PhotographicAuditorCard } from './components/VisionFeedback/PhotographicAuditorCard';
+import { 
+  Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp, Search,
+  Hash, CloudLightning, Loader2, Package, Image, PlayCircle, FileText, CheckCircle2, Zap
+} from 'lucide-react';
+
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
+
+// Wklejenie komponentu ImageModal (ze starego OfferOptimizerView)
+const ImageModal = ({ url, onClose }) => {
+    const [imgError, setImgError] = useState(false);
+    const [useDirectUrl, setUseDirectUrl] = useState(false);
+    
+    useEffect(() => {
+        setImgError(false);
+        setUseDirectUrl(false);
+    }, [url]);
+    
+    if (!url) return null;
+
+    const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
+    const proxyUrl = url.startsWith('http') ? `${import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(url)}&token=${token}` : url;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4" onClick={onClose}>
+            <div className="relative max-w-5xl w-full h-full flex flex-col items-center justify-center" onClick={e => e.stopPropagation()}>
+                <button onClick={onClose} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-xl p-2 transition-colors">
+                    <X className="w-6 h-6" />
+                </button>
+                {!imgError ? (
+                    <img 
+                        src={useDirectUrl ? url : proxyUrl} 
+                        alt="Powiększenie" 
+                        className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-xl" 
+                        onError={() => {
+                            if (!useDirectUrl && url.startsWith('http')) {
+                                setUseDirectUrl(true);
+                            } else {
+                                setImgError(true);
+                            }
+                        }}
+                    />
+                ) : (
+                    <div className="flex flex-col items-center text-center text-slate-400 p-8 border border-slate-700 rounded-xl bg-slate-900/50">
+                        <ShieldAlert className="w-16 h-16 mb-4 text-rose-500/50" />
+                        <span className="text-sm font-bold uppercase tracking-widest leading-relaxed">
+                            Podgląd niedostępny<br/>(Link źródłowy wygasł lub został zablokowany przez serwer CORS)
+                        </span>
+                    </div>
+                )}
+                <div className="mt-8 flex space-x-4">
+                    <button 
+                        onClick={async () => {
+                            try {
+                                if (url.startsWith('data:image/')) {
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = 'nexus_lifestyle.jpg';
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    return;
+                                }
+
+                                const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
+                                const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
+                                const res = await fetch(`${API_URL}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(url)}`, {
+                                    headers: { 'Authorization': `Bearer ${token}` }
+                                });
+                                
+                                if (!res.ok) throw new Error("Proxy fetch failed");
+
+                                const blob = await res.blob();
+                                const blobUrl = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = blobUrl;
+                                a.download = 'nexus_image.jpg';
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                window.URL.revokeObjectURL(blobUrl);
+                            } catch (e) {
+                                alert("Błąd pobierania zdjęcia: " + e.message);
+                            }
+                        }}
+                        className="flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-widest text-xs rounded-lg shadow-lg transition-colors"
+                    >
+                        <Download className="w-4 h-4 mr-2" /> Pobierz na dysk
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+
+export const UnifiedProductPipelineView = ({ 
+  socket, 
+  currentUser,
+  token,
+  editingProduct, 
+  setEditingProduct,
+  onClose,
+  fetchAppGlobalData
+}) => {
+    // === STANY PIM ===
+    const [newProductForm, setNewProductForm] = useState({
+        ean: '', sku: '', name: '', brandId: '', stock: 0, salePrice: 0, basePrice: 0, 
+        inboundTransportCost: 0, packagingCost: 0, bdoEprCost: 0, outboundTransportCost: 0, 
+        status: 'Aktywny', subiektId: '', baselinkerId: '',
+        weight: 0, length: 0, width: 0, height: 0, taxRate: 23,
+        images: [], videoUrl: '', descriptionHtml: '', features: {}, 
+        stockErpUnits: 0, stockWmsUnits: 0
+    });
+    const [autofillEanLoading, setAutofillEanLoading] = useState(false);
+    const [brandSearchTerm, setBrandSearchTerm] = useState('');
+    const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
+    const [categorySchema, setCategorySchema] = useState(null);
+    const [brands, setBrands] = useState([]);
+    
+    // === STANY PIPELINE (OFFER OPTIMIZER) ===
+    const [isDashboardActive, setIsDashboardActive] = useState(false);
+    const [productData, setProductData] = useState(null); 
+
+    const [liveTitle, setLiveTitle] = useState("");
+    const [liveEan, setLiveEan] = useState("");
+    const [editorHtml, setEditorHtml] = useState({ opis1: "", opis2: "", opis3: "", opis4: "", opis5: "" });
+    const [editorKey, setEditorKey] = useState(0); 
+    const [visionTickets, setVisionTickets] = useState([]);
+    const [viewingImageUrl, setViewingImageUrl] = useState(null);
+    
+    const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+    const [isSavingDraft, setIsSavingDraft] = useState(false);
+
+    const brandDropdownRef = useRef(null);
+
+    // Ładowanie marek
+    useEffect(() => {
+        axios.get(`${API_URL}/api/brands`, { headers: { Authorization: `Bearer ${token}` } })
+            .then(res => setBrands(res.data))
+            .catch(err => console.error("Błąd ładowania marek", err));
+    }, [token]);
+
+    // Inicjalizacja PIM (Edycja)
+    useEffect(() => {
+        if (editingProduct) {
+            axios.get(`${API_URL}/api/products/${editingProduct}`, { headers: { Authorization: `Bearer ${token}` } })
+                .then(res => {
+                    const p = res.data;
+                    let calcBdo = parseFloat(p.bdoEprCost) || 0;
+                    if (p.bomElements && p.bomElements.length > 0) {
+                        calcBdo = 0;
+                        p.bomElements.forEach(b => { calcBdo += (parseFloat(b.weightGrams) / 1000) * parseFloat(b.material.ratePerKg); });
+                    }
+                    setNewProductForm({ ...p, bdoEprCost: parseFloat(calcBdo.toFixed(4)) });
+                    setBrandSearchTerm(p.brand ? p.brand.name : '');
+                })
+                .catch(err => alert("Błąd wczytywania produktu"));
+        }
+    }, [editingProduct, token]);
+
+    useEffect(() => {
+        if (newProductForm?.allegroCategoryId && token) {
+            axios.get(`${API_URL}/api/categories/${newProductForm.allegroCategoryId}`, { headers: { Authorization: `Bearer ${token}` } })
+                .then(res => setCategorySchema(res.data))
+                .catch(err => setCategorySchema(null));
+        } else {
+            setCategorySchema(null);
+        }
+    }, [newProductForm?.allegroCategoryId, token]);
+
+    // Handle Create Product
+    const handleCreateProduct = async (e) => {
+        if(e) e.preventDefault();
+        try {
+            let savedProduct;
+            if (editingProduct) {
+                const res = await axios.put(`${API_URL}/api/products/${editingProduct}`, newProductForm, { headers: { Authorization: `Bearer ${token}` } });
+                savedProduct = res.data;
+                alert('Zaktualizowano kartotekę PIM.');
+            } else {
+                const res = await axios.post(`${API_URL}/api/products`, newProductForm, { headers: { Authorization: `Bearer ${token}` } });
+                savedProduct = res.data;
+                setEditingProduct(savedProduct.id);
+                alert('Utworzono nową kartotekę PIM.');
+            }
+            if (fetchAppGlobalData) fetchAppGlobalData();
+            return savedProduct;
+        } catch (error) {
+            console.error("Błąd zapisu produktu", error);
+            alert("Błąd zapisu produktu: " + (error.response?.data?.error || error.message));
+            throw error;
+        }
+    };
+
+    // Trigger Supervisor Pipeline
+    const handleTriggerPipeline = async () => {
+        try {
+            // Najpierw zapisujemy formularz PIM
+            const savedProd = await handleCreateProduct();
+            if (!savedProd || !savedProd.ean) {
+                alert("Produkt musi posiadać kod EAN, aby uruchomić EAN Pipeline.");
+                return;
+            }
+            
+            // Startujemy Pipeline
+            const response = await fetch(`${API_URL}/api/offer-optimizer/pipeline/trigger`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ ean: savedProd.ean })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || "Nie udało się uruchomić AI Agenta");
+            }
+
+            const data = await response.json();
+            alert("Agent Supervisor rozpoczął pracę! Obserwuj postępy w prawej kolumnie.");
+            
+            // Przejście do widoku aktywnego pipeline
+            setLiveEan(savedProd.ean);
+            setIsDashboardActive(true);
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+        }
+    };
+
+    // === TUTAJ PRZENIESIONO PRZYCISK GENERUJ AEO ===
+    const handleGenerateAEO = async () => {
+        if (!editingProduct) {
+            alert("Zapisz najpierw produkt, aby wygenerować AEO.");
+            return;
+        }
+        try {
+            const btn = document.getElementById('btn_generate_aeo_hub');
+            const prevHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="animate-spin mr-2">⏳</span> Generuję...';
+            btn.disabled = true;
+            
+            await axios.post(`${API_URL}/api/products/${editingProduct}/aeo`, {}, { headers: { Authorization: `Bearer ${token}` }});
+            if (fetchAppGlobalData) await fetchAppGlobalData();
+            alert('Sukces! Treść AEO (pod wyszukiwarki AI) została wygenerowana.');
+            
+            // Odśwież widok
+            const res = await axios.get(`${API_URL}/api/products/${editingProduct}`, { headers: { Authorization: `Bearer ${token}` } });
+            setNewProductForm(prev => ({ ...prev, aeoContent: res.data.aeoContent }));
+            
+            btn.innerHTML = prevHtml;
+            btn.disabled = false;
+        } catch (err) {
+            alert('Błąd generowania AEO: ' + err.message);
+            const btn = document.getElementById('btn_generate_aeo_hub');
+            if(btn) { btn.innerHTML = '<CloudLightning className="w-4 h-4 mr-2" /> Generuj AEO'; btn.disabled = false; }
+        }
+    };
+
+    const handleAutofillEAN = async () => {
+        if (!newProductForm.ean) return alert('Zeskanuj lub wpisz kod EAN do wyszukania.');
+        setAutofillEanLoading(true);
+        try {
+            const res = await axios.get(`${API_URL}/api/products/autofill/${newProductForm.ean}`, { headers: { Authorization: `Bearer ${token}` } });
+            const { name, brand, sku, price, stock, baselinkerId, imageUrl, weight, length, width, height, taxRate, images, descriptionHtml, features, videoUrl, stockErpUnits, stockWmsUnits } = res.data;
+            
+            let matchedBrandId = newProductForm.brandId;
+            if (brand && typeof brand === 'string') {
+                const cleanBrand = brand.toLowerCase().trim();
+                const matchedBrand = brands.find(b => b.name.toLowerCase().trim() === cleanBrand);
+                
+                if (matchedBrand) {
+                    matchedBrandId = matchedBrand.id;
+                } else {
+                    try {
+                        const brandRes = await axios.post(`${API_URL}/api/brands`, { name: brand.trim() }, { headers: { Authorization: `Bearer ${token}` } });
+                        matchedBrandId = brandRes.data.id;
+                        setBrands(prev => [...prev, brandRes.data]); 
+                        if (fetchAppGlobalData) fetchAppGlobalData(); 
+                    } catch (be) { console.error('Błąd auto-tworzenia marki', be); }
+                }
+            }
+            
+            if(matchedBrandId) {
+                const b = brands.find(x => x.id === matchedBrandId) || {name: brand};
+                setBrandSearchTerm(b.name);
+            } else {
+                setBrandSearchTerm('');
+            }
+            
+            setNewProductForm(prev => ({
+                ...prev,
+                name: name || prev.name,
+                sku: sku || prev.sku,
+                salePrice: price || prev.salePrice,
+                stock: stock !== undefined ? stock : prev.stock,
+                baselinkerId: baselinkerId || prev.baselinkerId,
+                brandId: matchedBrandId || prev.brandId,
+                imageUrl: imageUrl || prev.imageUrl,
+                weight: weight !== undefined ? weight : prev.weight,
+                length: length !== undefined ? length : prev.length,
+                width: width !== undefined ? width : prev.width,
+                height: height !== undefined ? height : prev.height,
+                taxRate: taxRate !== undefined ? taxRate : prev.taxRate,
+                images: images || prev.images,
+                descriptionHtml: descriptionHtml || prev.descriptionHtml,
+                features: features || prev.features,
+                videoUrl: videoUrl || prev.videoUrl,
+                stockErpUnits: stockErpUnits !== undefined ? stockErpUnits : prev.stockErpUnits,
+                stockWmsUnits: stockWmsUnits !== undefined ? stockWmsUnits : prev.stockWmsUnits
+            }));
+        } catch (err) {
+            const debugInfo = err.response?.data?.debug;
+            console.log('--- BASELINKER DEBUG INFO ---', debugInfo);
+            alert(`Brak EAN w bazach lub BaseLinker odmówił dostępu.\nSprawdź konsolę (F12) by zobaczyć co odpowiedział serwer bazy!`);
+        } finally {
+            setAutofillEanLoading(false);
+        }
+    };
+
+    const labelClass = "text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block";
+    const inputClass = "w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm font-bold rounded-sm px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner";
+
+    return (
+        <div className="flex-1 flex flex-col p-4 bg-slate-900 h-full w-full relative min-h-0 overflow-hidden">
+            <div className="bg-slate-800 rounded-lg shadow-xl mb-4 shrink-0 flex items-center justify-between p-4 border border-slate-700">
+                <div className="flex items-center">
+                    <div className="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center mr-4 border border-indigo-500/30">
+                        <Rocket className="w-5 h-5 text-indigo-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-black text-white uppercase tracking-tighter">Unified Product Pipeline</h2>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Karta PIM & Supervisor Agent Hub</p>
+                    </div>
+                </div>
+                <div className="flex space-x-3">
+                    <button onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-md text-xs font-bold uppercase transition-colors">
+                        Wróć do Katalogu
+                    </button>
+                    <button onClick={handleTriggerPipeline} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-xs font-bold uppercase transition-colors flex items-center shadow-[0_0_15px_rgba(79,70,229,0.4)]">
+                        <Cpu className="w-4 h-4 mr-2" /> Zapisz PIM i Uruchom Agenta
+                    </button>
+                </div>
+            </div>
+
+            <div className="flex-1 flex space-x-4 min-h-0">
+                {/* LEWA KOLUMNA: PIM */}
+                <div className="w-1/2 bg-white rounded-lg shadow-xl flex flex-col overflow-hidden border border-slate-200 relative">
+                    <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center shrink-0">
+                        <h3 className="font-black text-slate-800 uppercase tracking-wider flex items-center"><Hash className="w-4 h-4 mr-2 text-indigo-500"/> Dane Kartoteki PIM</h3>
+                        {editingProduct && (
+                            <button id="btn_generate_aeo_hub" type="button" onClick={handleGenerateAEO} className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-sm text-[10px] font-black uppercase transition-colors flex items-center border border-amber-300">
+                                <Zap className="w-3 h-3 mr-1" /> Generuj AEO
+                            </button>
+                        )}
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                        <div className="p-6 space-y-12 overflow-y-auto custom-scrollbar flex-1 min-h-0">
+                                        
+                                        <div className="flex flex-col md:flex-row gap-6 mb-6">
+                                           {/* Stabilna Główna Miniaturka */}
+                                           {newProductForm.imageUrl && (
+                                              <div className="w-40 shrink-0 bg-white border border-slate-200 rounded-sm p-3 shadow-sm flex flex-col items-center justify-center">
+                                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block w-full text-center border-b border-slate-100 pb-2">Główna Miniatura</span>
+                                                 <img src={newProductForm.imageUrl} alt="PIM Thumbnail" className="w-full h-auto object-contain rounded-sm" />
+                                              </div>
+                                           )}
+                                           
+                                           {/* Moduł API EAN */}
+                                           <div className="flex-1 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-sm flex flex-col justify-center">
+                                              <label className="text-[10px] font-black text-indigo-800 uppercase tracking-widest mb-3 flex items-center"><CloudLightning className="w-4 h-4 mr-2"/> Automatyka Globalnej Sieci (EAN)</label>
+                                              <div className="flex space-x-4 items-end">
+                                                <input type="text" placeholder="Zeskanuj kod kreskowy tu..." className="flex-1 px-4 py-3 bg-white border border-blue-200 rounded-sm text-sm font-bold text-slate-800 focus:border-indigo-500 outline-none font-mono tracking-widest shadow-inner" value={newProductForm.ean} onChange={e => setNewProductForm({...newProductForm, ean: e.target.value})} />
+                                                <button type="button" onClick={handleAutofillEAN} disabled={autofillEanLoading} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest rounded-sm shadow-md transition-all flex items-center shrink-0">
+                                                  {autofillEanLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Search className="w-4 h-4 mr-2"/> } {autofillEanLoading ? 'Szukam...' : 'Interpoluj EAN'}
+                                                </button>
+                                              </div>
+                                           </div>
+                                        </div>
+                        
+                                        <div className="grid grid-cols-2 gap-5">
+                                          <div className="col-span-2">
+                                            <label className={labelClass}>Oficjalna Nazwa Handlowa *</label>
+                                            <input required placeholder="Np. Nexus Core Ultra S1..." type="text" className={inputClass} value={newProductForm.name} onChange={e => setNewProductForm({...newProductForm, name: e.target.value})} />
+                                          </div>
+                                          <div>
+                                            <label className={labelClass}>SKU (Identyfikator Wewnętrzny) *</label>
+                                            <input required placeholder="NEX-XXX-001..." type="text" className={`${inputClass} font-mono`} value={newProductForm.sku} onChange={e => setNewProductForm({...newProductForm, sku: e.target.value})} />
+                                          </div>
+                                          <div ref={brandDropdownRef} className="relative z-30">
+                                            <label className={labelClass}>Marka (Wybierz lub dodaj nową) *</label>
+                                            <div className="relative">
+                                               <input 
+                                                 type="text" 
+                                                 required
+                                                 className={`${inputClass} pr-10`}
+                                                 placeholder="Wpisz nazwę marki..."
+                                                 value={brandSearchTerm}
+                                                 onChange={(e) => {
+                                                    setBrandSearchTerm(e.target.value);
+                                                    setNewProductForm(prev => ({...prev, brandId: ''}));
+                                                    setIsBrandDropdownOpen(true);
+                                                 }}
+                                                 onFocus={() => setIsBrandDropdownOpen(true)}
+                                               />
+                                               <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            </div>
+                                            {isBrandDropdownOpen && (
+                                               <div className="absolute z-50 w-full mt-1 bg-white border border-slate-300 rounded-sm shadow-[0_10px_40px_rgba(0,0,0,0.1)] max-h-48 overflow-y-auto custom-scrollbar">
+                                                  {filteredBrands.length > 0 ? (
+                                                     filteredBrands.map(b => (
+                                                        <div 
+                                                           key={b.id} 
+                                                           className={`p-3 cursor-pointer hover:bg-indigo-50 transition-colors border-b border-slate-100 last:border-b-0 ${newProductForm.brandId === b.id ? 'bg-indigo-50' : ''}`}
+                                                           onMouseDown={(e) => {
+                                                              e.preventDefault(); 
+                                                              setNewProductForm(prev => ({...prev, brandId: b.id}));
+                                                              setBrandSearchTerm(b.name);
+                                                              setIsBrandDropdownOpen(false);
+                                                           }}
+                                                        >
+                                                           <div className="text-xs font-bold text-slate-800">{b.name}</div>
+                                                        </div>
+                                                     ))
+                                                  ) : (
+                                                     <div className="p-3 text-center">
+                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Brak marki w bazie</span>
+                                                        <button type="button" onMouseDown={(e) => { e.preventDefault(); handleCreateBrandInline(brandSearchTerm); }} className="w-full py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded-sm text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center">
+                                                          <Plus className="w-3 h-3 mr-2" /> Dodaj: "{brandSearchTerm}"
+                                                        </button>
+                                                     </div>
+                                                  )}
+                                               </div>
+                                            )}
+                                          </div>
+                                          
+                                          <div className="col-span-2 mt-4 p-5 bg-indigo-50/50 border border-indigo-100 rounded-sm">
+                                             <label className="text-[10px] font-black text-indigo-700 uppercase tracking-widest mb-3 flex items-center">
+                                                <Target className="w-4 h-4 mr-2" /> ID Kategorii Allegro (Data Quality Score)
+                                             </label>
+                                             <div className="flex space-x-4">
+                                                <input type="text" placeholder="Np. 257745" className={`${inputClass} flex-1`} value={newProductForm.allegroCategoryId || ''} onChange={e => setNewProductForm({...newProductForm, allegroCategoryId: e.target.value})} />
+                                                {editingProduct && (
+                                                   <button type="button" onClick={async () => {
+                                                      try {
+                                                         const res = await axios.get(`${API_URL}/api/products/${editingProduct}/sync-category-bl`, { headers: { Authorization: `Bearer ${token}` } });
+                                                         setNewProductForm(prev => ({...prev, allegroCategoryId: res.data.allegroCategoryId}));
+                                                         alert("Pomyślnie dopasowano kategorię Allegro na podstawie kodu EAN oraz zsynchronizowano słownik.");
+                                                      } catch (err) {
+                                                         alert("Błąd: " + (err.response?.data?.error || err.message));
+                                                      }
+                                                   }} className="px-6 py-3 bg-white text-indigo-600 font-black text-[10px] uppercase tracking-widest rounded-sm border border-indigo-200 hover:bg-indigo-600 hover:text-white transition-all whitespace-nowrap shadow-sm">
+                                                      Szukaj po EAN
+                                                   </button>
+                                                )}
+                                             </div>
+                                             <p className="text-[9px] text-indigo-500 mt-2 font-bold uppercase tracking-widest">
+                                                Przypisanie ID pozwoli na dynamiczną ewaluację brakujących parametrów wymaganych do skutecznej syndykacji na Marketplace Allegro.
+                                             </p>
+                                          </div>
+                                        </div>
+                        
+                                        {/* Nowa Sekcja: Logistyka i Gabaryty */}
+                                        <div className="pt-10 border-t border-slate-300">
+                                           <h4 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em] mb-8 flex items-center">
+                                             <Package className="w-5 h-5 mr-3 text-indigo-500" /> Logistyka i Gabaryty (PIM)
+                                           </h4>
+                                           <div className="grid grid-cols-5 gap-6">
+                                             <div><label className={labelClass}>Waga (kg)</label><input type="number" step="0.01" className={inputClass} value={newProductForm.weight || 0} onChange={e => setNewProductForm({...newProductForm, weight: e.target.value})} /></div>
+                                             <div><label className={labelClass}>Długość (cm)</label><input type="number" step="0.1" className={inputClass} value={newProductForm.length || 0} onChange={e => setNewProductForm({...newProductForm, length: e.target.value})} /></div>
+                                             <div><label className={labelClass}>Szerokość (cm)</label><input type="number" step="0.1" className={inputClass} value={newProductForm.width || 0} onChange={e => setNewProductForm({...newProductForm, width: e.target.value})} /></div>
+                                             <div><label className={labelClass}>Wysokość (cm)</label><input type="number" step="0.1" className={inputClass} value={newProductForm.height || 0} onChange={e => setNewProductForm({...newProductForm, height: e.target.value})} /></div>
+                                             <div><label className={labelClass}>Stawka VAT (%)</label><input type="number" className={inputClass} value={newProductForm.taxRate || 23} onChange={e => setNewProductForm({...newProductForm, taxRate: e.target.value})} /></div>
+                                           </div>
+                                        </div>
+                        
+                                        {/* Nowa Sekcja: Stany Magazynowe Rozszerzone */}
+                                        <div className="pt-10 border-t border-slate-300">
+                                           <h4 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em] mb-8 flex items-center">
+                                             <Database className="w-5 h-5 mr-3 text-indigo-500" /> Architektura Zapasów
+                                           </h4>
+                                           <div className="flex space-x-6">
+                                             <div className="flex-1 bg-slate-50 p-6 rounded-sm border border-slate-300">
+                                                <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2">Zapas Zintegrowany (Suma)</div>
+                                                <div className="flex items-center">
+                                                   <input type="number" className="w-24 bg-white border border-slate-400 rounded-sm px-3 py-1 font-black text-xl mr-2 outline-none focus:border-indigo-500" value={newProductForm.stock || 0} onChange={e => setNewProductForm({...newProductForm, stock: e.target.value})} />
+                                                   <span className="text-sm text-slate-600 font-bold">szt.</span>
+                                                </div>
+                                             </div>
+                                             <div className="flex-1 bg-indigo-50 p-6 rounded-sm border border-indigo-100 opacity-80 cursor-not-allowed">
+                                                <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Własny ERP (NeS)</div>
+                                                <div className="text-2xl font-black text-indigo-900">{newProductForm.stockErpUnits || 0} <span className="text-sm text-indigo-400">szt.</span></div>
+                                             </div>
+                                             <div className="flex-1 bg-emerald-50 p-6 rounded-sm border border-emerald-100 opacity-80 cursor-not-allowed">
+                                                <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Zewnętrzny WMS (Fulfillment)</div>
+                                                <div className="text-2xl font-black text-emerald-900">{newProductForm.stockWmsUnits || 0} <span className="text-sm text-emerald-400">szt.</span></div>
+                                             </div>
+                                           </div>
+                                        </div>
+                        
+                                        {/* Nowa Sekcja: Multimedia i Opis (Read Only) */}
+                                        <div className="pt-10 border-t border-slate-300">
+                                           <h4 className="text-sm font-black text-slate-800 uppercase tracking-[0.3em] mb-8 flex items-center">
+                                             <Image className="w-5 h-5 mr-3 text-indigo-500" /> Multimedia i Dane Techniczne
+                                           </h4>
+                                           <div className="grid grid-cols-2 gap-5">
+                                              <div>
+                                                 <label className={labelClass}>Galeria BaseLinker ({newProductForm.images?.length || 0})</label>
+                                                 {newProductForm.images && newProductForm.images.length > 0 ? (
+                                                    <div className="grid grid-cols-4 gap-2 mt-4">
+                                                       {newProductForm.images.map((img, idx) => (
+                                                           <div key={idx} className="aspect-square bg-white border border-slate-400 rounded-sm overflow-hidden shadow-sm">
+                                                              <img src={img} alt="PIM" className="w-full h-full object-cover" />
+                                                           </div>
+                                                       ))}
+                                                    </div>
+                                                 ) : (
+                                                    <div className="p-6 bg-slate-50 border border-slate-300 rounded-sm text-center text-slate-600 text-xs font-bold mt-4">
+                                                       Brak zsynchronizowanych multimediów.
+                                                    </div>
+                                                 )}
+                                                 {newProductForm.videoUrl && (
+                                                     <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-sm text-blue-600 text-[10px] font-black uppercase tracking-widest flex items-center">
+                                                         <PlayCircle className="w-4 h-4 mr-2" /> Wideo produktowe dostępne
+                                                     </div>
+                                                 )}
+                                              </div>
+                                              <div>
+                                                 <label className={labelClass}>Opis HTML i Parametry</label>
+                                                 <div className="space-y-4 mt-4">
+                                                    <div className={`p-4 rounded-sm border flex flex-col justify-between ${newProductForm.descriptionHtml ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-slate-50 border-slate-300 text-slate-600'}`}>
+                                                       <div className="flex items-center text-xs font-black uppercase tracking-widest justify-between w-full">
+                                                          <div className="flex items-center">
+                                                             <FileText className="w-4 h-4 mr-2" />
+                                                             {newProductForm.descriptionHtml ? 'Zapisano bogaty opis HTML' : 'Brak Opisu HTML'}
+                                                          </div>
+                                                          {newProductForm.descriptionHtml && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                                                       </div>
+                                                       {newProductForm.descriptionHtml && (
+                                                           <div className="mt-3 max-h-32 overflow-y-auto custom-scrollbar p-2 bg-white rounded border border-emerald-100 text-[10px] text-slate-600 font-mono">
+                                                               {newProductForm.descriptionHtml}
+                                                           </div>
+                                                       )}
+                                                    </div>
+                        
+                                                    {newProductForm.aeoContent && (
+                                                       <div className="p-4 rounded-sm border bg-amber-50 border-amber-200 text-amber-800">
+                                                           <div className="flex items-center justify-between text-xs font-black uppercase tracking-widest mb-2">
+                                                               <div className="flex items-center">
+                                                                   <Zap className="w-4 h-4 mr-2 text-amber-500" />
+                                                                   Treść AEO (Answer Engine Optimization)
+                                                               </div>
+                                                               <span className="bg-amber-200 text-amber-900 px-2 py-0.5 rounded text-[9px]">SGE / Perplexity Ready</span>
+                                                           </div>
+                                                           <div className="max-h-48 overflow-y-auto custom-scrollbar p-3 bg-white rounded border border-amber-200 text-[11px] text-slate-700 font-serif leading-relaxed">
+                                                               <div dangerouslySetInnerHTML={{ __html: newProductForm.aeoContent }} />
+                                                           </div>
+                                                       </div>
+                                                    )}
+                                                    
+                                                    <div className="p-4 bg-slate-50 border border-slate-300 rounded-sm">
+                                                       <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 flex items-center justify-between">
+                                                          <div className="flex items-center space-x-3">
+                                                              <span>Atrybuty Techniczne i Parametry Allegro ({Object.keys(newProductForm.features || {}).length})</span>
+                                                              {categorySchema && <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-[9px] flex items-center"><Zap className="w-3 h-3 mr-1"/> Schema: {categorySchema.name}</span>}
+                                                          </div>
+                                                          <button type="button" onClick={async () => {
+                                                              if (!editingProduct) return;
+                                                              try {
+                                                                  const btn = document.getElementById('btn_autofill_pxm');
+                                                                  const prevText = btn.innerHTML;
+                                                                  btn.innerHTML = 'Pobieram (BL + AI)...';
+                                                                  btn.disabled = true;
+                                                                  
+                                                                  const res = await axios.post(`${API_URL}/api/products/${editingProduct}/autofill-params`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                                                                  setNewProductForm(prev => ({...prev, features: res.data.features}));
+                                                                  
+                                                                  btn.innerHTML = prevText;
+                                                                  btn.disabled = false;
+                                                                  alert("Zakończono PXM Auto-Fill. Zaimportowano dane z BaseLinkera, a luki uzupełnił Agent AI.");
+                                                              } catch (err) {
+                                                                  alert("Błąd: " + (err.response?.data?.error || err.message));
+                                                                  const btn = document.getElementById('btn_autofill_pxm');
+                                                                  if (btn) { btn.innerHTML = 'Pobierz dane (Auto-Fill)'; btn.disabled = false; }
+                                                              }
+                                                          }} id="btn_autofill_pxm" className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-sm text-[9px] font-bold uppercase transition-colors shadow-sm flex items-center">
+                                                              <Zap className="w-3 h-3 mr-1" /> Pobierz dane (Auto-Fill)
+                                                          </button>
+                                                       </div>
+                                                       
+                                                       <div className="flex flex-col space-y-2">
+                                                           {categorySchema?.parameters && categorySchema.parameters.map(param => {
+                                                              const isRequired = param.required;
+                                                              const val = (newProductForm.features || {})[param.name] || '';
+                                                              const hasVal = val !== '';
+                                                              return (
+                                                               <div key={param.id} className={`flex items-center space-x-2 p-2 rounded-sm border ${hasVal ? 'bg-indigo-50/30 border-indigo-100' : 'bg-white border-slate-200'}`}>
+                                                                   <div className="w-1/3 text-[10px] font-bold text-slate-700 uppercase tracking-widest flex flex-col">
+                                                                       <span>{param.name}</span>
+                                                                       {isRequired && <span className="text-[8px] text-rose-500 uppercase mt-0.5">Wymagane</span>}
+                                                                   </div>
+                                                                   {param.dictionary && param.dictionary.length > 0 ? (
+                                                                       <select className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" value={val} onChange={e => {
+                                                                           const updated = {...(newProductForm.features || {}), [param.name]: e.target.value};
+                                                                           if (!e.target.value) delete updated[param.name];
+                                                                           setNewProductForm({...newProductForm, features: updated});
+                                                                       }}>
+                                                                           <option value="">-- Wybierz ze słownika --</option>
+                                                                           {param.dictionary.map(d => <option key={d.id} value={d.value}>{d.value}</option>)}
+                                                                       </select>
+                                                                   ) : (
+                                                                       <input type="text" className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" placeholder={`Wpisz wartość (${param.type})`} value={val} onChange={e => {
+                                                                           const updated = {...(newProductForm.features || {}), [param.name]: e.target.value};
+                                                                           if (!e.target.value) delete updated[param.name];
+                                                                           setNewProductForm({...newProductForm, features: updated});
+                                                                       }} />
+                                                                   )}
+                                                               </div>
+                                                              );
+                                                           })}
+                        
+                                                           {!categorySchema?.parameters && Object.entries(newProductForm.features || {}).map(([k, v]) => (
+                                                               <div key={k} className="flex items-center space-x-2 group">
+                                                                   <input type="text" value={k} readOnly className="w-1/3 bg-slate-100 border border-slate-300 rounded-sm px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest" />
+                                                                   <input type="text" value={v} onChange={e => {
+                                                                       const updated = {...newProductForm.features, [k]: e.target.value};
+                                                                       setNewProductForm({...newProductForm, features: updated});
+                                                                   }} className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" />
+                                                                   <button type="button" onClick={() => {
+                                                                       const updated = {...newProductForm.features};
+                                                                       delete updated[k];
+                                                                       setNewProductForm({...newProductForm, features: updated});
+                                                                   }} className="p-2 text-slate-400 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"><X className="w-4 h-4" /></button>
+                                                               </div>
+                                                           ))}
+                                                           
+                                                           {!categorySchema?.parameters && (
+                                                           <div className="flex items-center space-x-2 mt-2 pt-3 border-t border-slate-200">
+                                                               <input type="text" id="new_feat_key" placeholder="Nazwa (np. Stan, Rodzaj)" className="w-1/3 bg-white border border-indigo-200 rounded-sm px-3 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:border-indigo-500 placeholder:normal-case placeholder:tracking-normal" />
+                                                               <input type="text" id="new_feat_val" placeholder="Wartość (np. Nowy)" className="flex-1 bg-white border border-indigo-200 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" onKeyDown={e => {
+                                                                   if (e.key === 'Enter') {
+                                                                       e.preventDefault();
+                                                                       const keyInput = document.getElementById('new_feat_key');
+                                                                       const key = keyInput.value.trim();
+                                                                       const val = e.target.value.trim();
+                                                                       if (key && val) {
+                                                                           setNewProductForm(prev => ({...prev, features: {...(prev.features || {}), [key]: val}}));
+                                                                           keyInput.value = '';
+                                                                           e.target.value = '';
+                                                                           keyInput.focus();
+                                                                       }
+                                                                   }
+                                                               }} />
+                                                               <button type="button" onClick={() => {
+                                                                   const keyInput = document.getElementById('new_feat_key');
+                                                                   const valInput = document.getElementById('new_feat_val');
+                                                                   const key = keyInput.value.trim();
+                                                                   const val = valInput.value.trim();
+                                                                   if (key && val) {
+                                                                       setNewProductForm(prev => ({...prev, features: {...(prev.features || {}), [key]: val}}));
+                                                                       keyInput.value = '';
+                                                                       valInput.value = '';
+                                                                       keyInput.focus();
+                                                                   }
+                                                               }} className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-sm transition-colors shadow-md"><Plus className="w-4 h-4" /></button>
+                                                           </div>
+                                                           )}
+                                                           <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest mt-2 flex items-center">
+                                                              <Zap className="w-3 h-3 mr-1" /> {categorySchema ? 'Wypełnij wymagane wartości z oficjalnego słownika Allegro.' : 'Pobierz kategorię Allegro, aby załadować interaktywny formularz parametrów.'}
+                                                           </p>
+                                                       </div>
+                                                    </div>
+                                                 </div>
+                                              </div>
+                                           </div>
+                                        </div>
+                        
+                                        <div className="pt-12 border-t border-slate-300">
+                                          <h4 className="text-sm font-black text-indigo-600 uppercase tracking-[0.3em] mb-5 flex items-center">
+                                            <DollarSign className="w-6 h-6 mr-4" /> Struktura Analityczna Unit Economics
+                                          </h4>
+                                          <div className="grid grid-cols-3 gap-4">
+                                            <div><label className={labelClass}>Cena Zakupu netto</label><input type="number" step="0.01" className={inputClass} value={newProductForm.basePrice} onChange={e => setNewProductForm({...newProductForm, basePrice: e.target.value})} /></div>
+                                            <div><label className={labelClass}>Transport In (cła)</label><input type="number" step="0.01" className={inputClass} value={newProductForm.inboundTransportCost} onChange={e => setNewProductForm({...newProductForm, inboundTransportCost: e.target.value})} /></div>
+                                            <div><label className={labelClass}>Koszty pakowania</label><input type="number" step="0.01" className={inputClass} value={newProductForm.packagingCost} onChange={e => setNewProductForm({...newProductForm, packagingCost: e.target.value})} /></div>
+                                            <div><label className={labelClass}>BDO / Śmieci</label><input type="number" step="0.01" className={inputClass} value={newProductForm.bdoEprCost} onChange={e => setNewProductForm({...newProductForm, bdoEprCost: e.target.value})} /></div>
+                                            <div><label className={labelClass}>Logistyka Out</label><input type="number" step="0.01" className={inputClass} value={newProductForm.outboundTransportCost} onChange={e => setNewProductForm({...newProductForm, outboundTransportCost: e.target.value})} /></div>
+                                            <div>
+                                              <label className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em] mb-3 block ml-2">Cena Sprzedaży Detalicznej *</label>
+                                              <input required type="number" step="0.01" className="w-full px-6 py-4 bg-indigo-50 border-2 border-indigo-200 rounded-sm outline-none font-black text-indigo-700 text-lg shadow-inner focus:ring-8 focus:ring-indigo-600/5 transition-all" value={newProductForm.salePrice} onChange={e => setNewProductForm({...newProductForm, salePrice: e.target.value})} />
+                                            </div>
+                                          </div>
+                                        </div>
+                        
+                                        <div className="flex space-x-4 mt-6 mb-5">
+                                           {newProductForm.id && (
+                                             <button type="button" onClick={async () => {
+                                                 if(!window.confirm('Czy na pewno chcesz bezpowrotnie usunąć ten produkt z bazy PIM?')) return;
+                                                 try {
+                                                    const res = await fetch(`${API_URL}/api/products/${newProductForm.id}`, {
+                                                       method: 'DELETE',
+                                                       headers: { 'Authorization': `Bearer ${token}` }
+                                                    });
+                                                    if(!res.ok) throw new Error('Błąd usuwania API');
+                                                    setIsNewProductModalOpen(false);
+                                                    fetchData();
+                                                 } catch (err) {
+                                                    alert('Błąd podczas usuwania: ' + err.message);
+                                                 }
+                                             }} className="w-1/3 py-7 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 font-black rounded-sm shadow-sm transition-all uppercase tracking-widest text-[11px] group flex items-center justify-center">
+                                                <Trash2 className="w-5 h-5 mr-3" /> Usuń
+                                             </button>
+                                           )}
+                                           <button type="submit" className="flex-1 py-7 bg-slate-900 hover:bg-indigo-600 text-white font-black rounded-sm shadow-[0_25px_60px_rgba(0,0,0,0.2)] hover:shadow-indigo-600/30 transition-all uppercase tracking-[0.3em] text-sm group flex items-center justify-center">
+                                              <Cloud className="w-6 h-6 mr-4 group-hover:animate-bounce" /> Zapisz Kartotekę PIM
+                                           </button>
+                                        </div>
+                                      </div>
+                    </div>
+                </div>
+
+                {/* PRAWA KOLUMNA: PIPELINE / SUPERVISOR */}
+                <div className="w-1/2 bg-slate-800 rounded-lg shadow-xl flex flex-col overflow-hidden border border-slate-700 relative">
+                    <div className="p-4 bg-slate-900 border-b border-slate-700 flex justify-between items-center shrink-0">
+                        <h3 className="font-black text-white uppercase tracking-wider flex items-center"><Cpu className="w-4 h-4 mr-2 text-indigo-400"/> Supervisor Agent (EAN Pipeline)</h3>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-white">
+                        {!isDashboardActive ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
+                                <Box className="w-16 h-16 mb-4 text-slate-600" />
+                                <h4 className="text-lg font-bold text-white mb-2">Agent Oczekuje w Gotowości</h4>
+                                <p className="text-sm max-w-md">Po zapisaniu danych PIM i kliknięciu "Zapisz PIM i Uruchom Agenta", Supervisor przejmie stery: wygeneruje tytuł, opis HTML (StrictWysiwyg), zdjęcia Lifestyle oraz przygotuje draft do BaseLinkera.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-8">
+                                {/* Tutaj wstawiamy komponenty EAN Pipeline z OfferOptimizerView */}
+                                <TitleValidator liveTitle={liveTitle} setLiveTitle={setLiveTitle} isRegeneratingTitle={isRegeneratingTitle} handleRegenerateTitle={() => {}} />
+                                <StrictWysiwyg editorHtml={editorHtml} setEditorHtml={setEditorHtml} editorKey={editorKey} />
+                                <PhotographicAuditorCard visionTickets={visionTickets} setViewingImageUrl={setViewingImageUrl} />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+            
+            {viewingImageUrl && <ImageModal url={viewingImageUrl} onClose={() => setViewingImageUrl(null)} />}
+        </div>
+    );
+}

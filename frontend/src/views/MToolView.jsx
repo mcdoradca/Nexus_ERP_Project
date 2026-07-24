@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Search, Loader2, Upload, Maximize2, Trash2, Edit3, Save, X, Image as ImageIcon, Briefcase, Plus, Instagram, CalendarDays, LayoutDashboard, Target, CheckCircle2, Megaphone, Calculator, Users, Leaf, PackageSearch, Filter, Menu, ChevronLeft } from 'lucide-react';
 import InfluencerCrmView from './InfluencerCrmView';
-import { OfferOptimizerView } from './OfferOptimizer/OfferOptimizerView';
+
 
 const POST_TYPES = ['Zdjęcie', 'Rozbudowana Karuzela', 'Rolka (Reels)', 'Insta Story', 'Infografika'];
 const STATUSES = ['Szkic', 'Do Akceptacji', 'Zatwierdzone', 'Opublikowane'];
@@ -464,12 +464,7 @@ const MToolView = ({ token, API_URL, currentUser, campaigns, socket }) => {
             >
               <Calculator className={`w-4 h-4 mr-3 shrink-0 ${activeSubTool==='CALCULATOR'?'text-indigo-600':'text-slate-400'}`} /> Kalkulator Ofert
             </button>
-            <button 
-              onClick={() => handleToolSelect('OFFER_OPTIMIZER')}
-              className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium flex items-center transition-all whitespace-nowrap ${activeSubTool === 'OFFER_OPTIMIZER' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
-            >
-              <Target className={`w-4 h-4 mr-3 shrink-0 ${activeSubTool==='OFFER_OPTIMIZER'?'text-indigo-600':'text-slate-400'}`} /> Ofertowanie GEO (AI)
-            </button>
+
             <div className="pt-6 pb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-3 flex items-center"><Loader2 className="w-3 h-3 mr-2 animate-spin"/> Wkrótce</div>
          </div>
          <div className="p-4 border-t border-slate-200 bg-white">
@@ -1241,11 +1236,7 @@ const MToolView = ({ token, API_URL, currentUser, campaigns, socket }) => {
                ></iframe>
              </div>
           )}
-          {activeSubTool === 'OFFER_OPTIMIZER' && (
-             <div className="flex-1 flex overflow-y-auto animate-in fade-in zoom-in-95 duration-500 bg-gradient-to-b from-[#f8fafc] to-[#e2e8f0]">
-                 <OfferOptimizerView socket={socket} />
-             </div>
-          )}
+
       </div>
     </div>
   );

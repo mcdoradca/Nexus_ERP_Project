@@ -9,8 +9,8 @@ const ProductsView = ({
   products,
   currentUser,
   setIsNewBrandModalOpen,
-  setIsNewProductModalOpen,
-  onEditProduct,
+  onOpenUnifiedPipeline,
+  
   fetchAppGlobalData
 }) => {
   const isAdmin = currentUser?.role === 'ADMIN';
@@ -167,7 +167,7 @@ const ProductsView = ({
               <button onClick={() => setIsNewBrandModalOpen(true)} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-md text-xs font-medium hover:bg-slate-50 hover:text-slate-900 shadow-sm flex items-center transition-all">
                 <Target className="w-3.5 h-3.5 mr-1.5 text-indigo-500" /> Marka
               </button>
-              <button onClick={() => setIsNewProductModalOpen(true)} className="px-4 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-medium hover:bg-indigo-700 shadow-sm flex items-center transition-all">
+              <button onClick={() => onOpenUnifiedPipeline(null)} className="px-4 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-medium hover:bg-indigo-700 shadow-sm flex items-center transition-all">
                 <Plus className="w-3.5 h-3.5 mr-1.5" /> Nowe SKU
               </button>
             </>
@@ -212,7 +212,7 @@ const ProductsView = ({
                 const marginPercent = salePriceNetto > 0 ? (profitNetto / salePriceNetto) * 100 : 0;
 
                 return (
-                  <tr key={p.id} onClick={() => isAdmin && onEditProduct && onEditProduct(p)} className={`hover:bg-slate-50/50 transition-all group ${isAdmin ? 'cursor-pointer' : ''}`}>
+                  <tr key={p.id} onClick={() => isAdmin && onOpenUnifiedPipeline && onOpenUnifiedPipeline(p.id)} className={`hover:bg-slate-50/50 transition-all group ${isAdmin ? 'cursor-pointer' : ''}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center space-x-6">
                         {p.imageUrl ? (
@@ -353,30 +353,7 @@ const ProductsView = ({
                               >
                                 <TrendingUp className="w-3 h-3 mr-1 text-indigo-400"/> Prognoza AI
                               </button>
-                              <button 
-                                id={`aeo-btn-${p.id}`}
-                                onClick={async (e) => { 
-                                  e.stopPropagation(); 
-                                  const btn = document.getElementById(`aeo-btn-${p.id}`);
-                                  const prevHtml = btn.innerHTML;
-                                  btn.innerHTML = '<span class="animate-spin mr-1 text-[12px]">⟳</span> Generuję...';
-                                  btn.disabled = true;
-                                  try {
-                                      const token = localStorage.getItem('aps_token');
-                                      await axios.post(`${import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001')}/api/products/${p.id}/aeo`, {}, { headers: { Authorization: `Bearer ${token}` }});
-                                      if (fetchAppGlobalData) await fetchAppGlobalData();
-                                      alert('Sukces! Treść AEO (pod wyszukiwarki AI) została wygenerowana. Wejdź w Edycję Kartoteki, aby ją zobaczyć.');
-                                  } catch (err) {
-                                      alert('Błąd generowania AEO: ' + err.message);
-                                  } finally {
-                                      btn.innerHTML = prevHtml;
-                                      btn.disabled = false;
-                                  }
-                                }} 
-                                className="mt-1 px-3 py-1 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 border border-indigo-200 rounded-sm text-[9px] font-black uppercase flex items-center transition-colors w-full justify-center shadow-sm disabled:opacity-50"
-                              >
-                                <CloudLightning className="w-3 h-3 mr-1" /> Generuj AEO
-                              </button>
+                              
                           </div>
                         </td>
                       </>
