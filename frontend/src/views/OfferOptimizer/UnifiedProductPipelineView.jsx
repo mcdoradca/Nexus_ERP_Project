@@ -183,6 +183,9 @@ export const UnifiedProductPipelineView = ({
     const handleCreateProduct = async (e) => {
         if(e) e.preventDefault();
         try {
+            if (!newProductForm.name || !newProductForm.sku || !newProductForm.brandId) {
+                throw new Error("Wypełnij wymagane pola: Nazwa, SKU i Marka przed zapisaniem.");
+            }
             let savedProduct;
             if (editingProduct) {
                 const res = await axios.patch(`${API_URL}/api/products/${editingProduct}`, newProductForm, { headers: { Authorization: `Bearer ${token}` } });
@@ -726,7 +729,7 @@ export const UnifiedProductPipelineView = ({
                                                 <Trash2 className="w-5 h-5 mr-3" /> Usuń
                                              </button>
                                            )}
-                                           <button type="submit" className="flex-1 py-7 bg-slate-900 hover:bg-indigo-600 text-white font-black rounded-sm shadow-[0_25px_60px_rgba(0,0,0,0.2)] hover:shadow-indigo-600/30 transition-all uppercase tracking-[0.3em] text-sm group flex items-center justify-center">
+                                           <button type="button" onClick={handleCreateProduct} className="flex-1 py-7 bg-slate-900 hover:bg-indigo-600 text-white font-black rounded-sm shadow-[0_25px_60px_rgba(0,0,0,0.2)] hover:shadow-indigo-600/30 transition-all uppercase tracking-[0.3em] text-sm group flex items-center justify-center">
                                               <Cloud className="w-6 h-6 mr-4 group-hover:animate-bounce" /> Zapisz Kartotekę PIM
                                            </button>
                                         </div>
