@@ -8,7 +8,7 @@ import { PhotographicAuditorCard } from './components/VisionFeedback/Photographi
 import { 
   Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp, Search,
   Hash, CloudLightning, Loader2, Package, Image, PlayCircle, FileText, CheckCircle2, Zap,
-  Target, DollarSign, Plus, Trash2, Cloud
+  Target, DollarSign, Plus, Trash2, Cloud, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
@@ -140,6 +140,7 @@ export const UnifiedProductPipelineView = ({
     const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isSavingDraft, setIsSavingDraft] = useState(false);
+    const [isPimCollapsed, setIsPimCollapsed] = useState(false);
 
     const brandDropdownRef = useRef(null);
 
@@ -184,7 +185,7 @@ export const UnifiedProductPipelineView = ({
         try {
             let savedProduct;
             if (editingProduct) {
-                const res = await axios.put(`${API_URL}/api/products/${editingProduct}`, newProductForm, { headers: { Authorization: `Bearer ${token}` } });
+                const res = await axios.patch(`${API_URL}/api/products/${editingProduct}`, newProductForm, { headers: { Authorization: `Bearer ${token}` } });
                 savedProduct = res.data;
                 alert('Zaktualizowano kartotekę PIM.');
             } else {
@@ -353,14 +354,19 @@ export const UnifiedProductPipelineView = ({
 
             <div className="flex-1 flex space-x-4 min-h-0">
                 {/* LEWA KOLUMNA: PIM */}
-                <div className="w-1/2 bg-white rounded-lg shadow-xl flex flex-col overflow-hidden border border-slate-200 relative">
+                <div className={`${isPimCollapsed ? 'hidden' : 'w-1/2'} bg-white rounded-lg shadow-xl flex flex-col overflow-hidden border border-slate-200 relative transition-all duration-300`}>
                     <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center shrink-0">
                         <h3 className="font-black text-slate-800 uppercase tracking-wider flex items-center"><Hash className="w-4 h-4 mr-2 text-indigo-500"/> Dane Kartoteki PIM</h3>
-                        {editingProduct && (
-                            <button id="btn_generate_aeo_hub" type="button" onClick={handleGenerateAEO} className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-sm text-[10px] font-black uppercase transition-colors flex items-center border border-amber-300">
-                                <Zap className="w-3 h-3 mr-1" /> Generuj AEO
+                        <div className="flex space-x-2">
+                            {editingProduct && (
+                                <button id="btn_generate_aeo_hub" type="button" onClick={handleGenerateAEO} className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-sm text-[10px] font-black uppercase transition-colors flex items-center border border-amber-300">
+                                    <Zap className="w-3 h-3 mr-1" /> Generuj AEO
+                                </button>
+                            )}
+                            <button onClick={() => setIsPimCollapsed(true)} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-sm text-[10px] font-black uppercase transition-colors flex items-center border border-slate-300">
+                                <ChevronLeft className="w-3 h-3 mr-1" /> Zwiń PIM
                             </button>
-                        )}
+                        </div>
                     </div>
                     
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
@@ -729,9 +735,14 @@ export const UnifiedProductPipelineView = ({
                 </div>
 
                 {/* PRAWA KOLUMNA: PIPELINE / SUPERVISOR */}
-                <div className="w-1/2 bg-slate-800 rounded-lg shadow-xl flex flex-col overflow-hidden border border-slate-700 relative">
+                <div className={`${isPimCollapsed ? 'w-full flex-1' : 'w-1/2'} bg-slate-800 rounded-lg shadow-xl flex flex-col overflow-hidden border border-slate-700 relative transition-all duration-300`}>
                     <div className="p-4 bg-slate-900 border-b border-slate-700 flex justify-between items-center shrink-0">
                         <h3 className="font-black text-white uppercase tracking-wider flex items-center"><Cpu className="w-4 h-4 mr-2 text-indigo-400"/> Supervisor Agent (EAN Pipeline)</h3>
+                        {isPimCollapsed && (
+                            <button onClick={() => setIsPimCollapsed(false)} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-sm text-[10px] font-black uppercase transition-colors flex items-center border border-slate-600">
+                                <ChevronRight className="w-3 h-3 mr-1" /> Rozwiń PIM
+                            </button>
+                        )}
                     </div>
                     
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-white">
