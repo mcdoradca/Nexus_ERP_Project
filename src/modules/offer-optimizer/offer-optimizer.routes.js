@@ -28,5 +28,6 @@ router.get('/pipeline/status/:ean', controller.checkPipelineStatus);
 // RAG / Supervisor Endpoints
 router.post('/knowledge/ingest', express.json({ limit: '10mb' }), controller.ingestKnowledgeDocument);
 router.get('/knowledge/list', controller.listKnowledgeDocuments);
+router.delete('/knowledge/:title', controller.deleteKnowledgeDocument);
 
 module.exports = router;

@@ -122,6 +122,43 @@ class KnowledgeRagService {
       return [];
     }
   }
+  /**
+   * Usuwa wszystkie wektory powiązane z danym tytułem dokumentu.
+   */
+  async deleteDocumentByTitle(title) {
+    try {
+      const result = await prisma.knowledgeDocument.deleteMany({
+        where: { title }
+      });
+      console.log(`[RAG] Usunięto dokument "${title}", liczba fragmentów: ${result.count}`);
+      return result.count;
+    } catch (error) {
+      console.error(`[deleteDocumentByTitle] Błąd podczas usuwania dokumentu:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Zwraca statystyki pogrupowane dla bazy wiedzy.
+   */
+  async getGroupedDocuments() {
+      try {
+          const docs = await prisma.$queryRaw`
+              SELECT title, COUNT(id) as "chunkCount", MAX("createdAt") as "createdAt"
+              FROM "KnowledgeDocument"
+              GROUP BY title
+              ORDER BY "createdAt" DESC
+          `;
+          // Konwersja BigInt z Postgresa
+          return docs.map(d => ({
+              ...d,
+              chunkCount: Number(d.chunkCount)
+          }));
+      } catch (error) {
+          console.error(`[getGroupedDocuments] Błąd pobierania bazy wiedzy:`, error.message);
+          throw error;
+      }
+  }
 }
 
 module.exports = new KnowledgeRagService();

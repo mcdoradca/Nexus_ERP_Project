@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Loader2, Database, Upload, FileText } from 'lucide-react';
+import { Loader2, Database, Upload, FileText, Trash2 } from 'lucide-react';
 
 export default function KnowledgeBasePanel() {
   const [title, setTitle] = useState('');
@@ -27,6 +27,23 @@ export default function KnowledgeBasePanel() {
       setDocuments(res.data.documents || []);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDelete = async (docTitle) => {
+    if (!window.confirm(`Czy na pewno chcesz trwale usunąć dokument "${docTitle}" i wszystkie jego fragmenty wektorowe?`)) {
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('aps_token') || '';
+      await axios.delete(`/api/offer-optimizer/knowledge/${encodeURIComponent(docTitle)}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+      });
+      showToast('Sukces', `Dokument "${docTitle}" został poprawnie usunięty.`);
+      fetchDocuments();
+    } catch (err) {
+      showToast('Błąd', err.response?.data?.error || err.message, true);
     }
   };
 
@@ -130,11 +147,21 @@ export default function KnowledgeBasePanel() {
           {documents.length === 0 ? (
             <p className="text-slate-500 text-sm">Brak dokumentów w bazie. Agenci nie mają dostępu do wiedzy zewnętrznej.</p>
           ) : (
-            <div className="space-y-3">
-              {documents.map(doc => (
-                <div key={doc.id} className="p-4 bg-slate-50 border border-slate-100 rounded-md">
-                  <h4 className="font-semibold text-sm text-slate-800">{doc.title}</h4>
-                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">{doc.preview}...</p>
+            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+              {documents.map((doc, idx) => (
+                <div key={idx} className="p-4 bg-slate-50 border border-slate-100 rounded-md flex justify-between items-center group">
+                  <div>
+                    <h4 className="font-semibold text-sm text-slate-800">{doc.title}</h4>
+                    <p className="text-xs text-slate-500 mt-1">Zwektoryzowanych fragmentów (chunks): {doc.chunkCount}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Dodano: {new Date(doc.createdAt).toLocaleString('pl-PL')}</p>
+                  </div>
+                  <button 
+                    onClick={() => handleDelete(doc.title)}
+                    className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-md opacity-0 group-hover:opacity-100 transition-all focus:opacity-100"
+                    title="Usuń dokument"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
               ))}
             </div>

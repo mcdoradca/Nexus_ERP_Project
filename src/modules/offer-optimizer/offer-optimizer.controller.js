@@ -653,12 +653,26 @@ const ingestKnowledgeDocument = async (req, res) => {
 
 const listKnowledgeDocuments = async (req, res) => {
     try {
-        const docs = await prisma.$queryRaw`
-            SELECT id, title, left(content, 100) as preview, "createdAt" 
-            FROM "KnowledgeDocument"
-            ORDER BY "createdAt" DESC
-        `;
+        const docs = await knowledgeRagService.getGroupedDocuments();
         return res.status(200).json({ documents: docs });
+    } catch (error) {
+        return res.status(500).json({ error: error.message });
+    }
+};
+
+const deleteKnowledgeDocument = async (req, res) => {
+    try {
+        const { title } = req.params;
+        if (!title) {
+            return res.status(400).json({ error: "Missing document title" });
+        }
+        
+        const count = await knowledgeRagService.deleteDocumentByTitle(title);
+        if (count === 0) {
+            return res.status(404).json({ error: "Document not found" });
+        }
+        
+        return res.status(200).json({ message: `Successfully deleted document: ${title}`, chunksDeleted: count });
     } catch (error) {
         return res.status(500).json({ error: error.message });
     }
@@ -677,5 +691,6 @@ module.exports = {
     triggerUltimatePipeline,
     checkPipelineStatus,
     ingestKnowledgeDocument,
-    listKnowledgeDocuments
+    listKnowledgeDocuments,
+    deleteKnowledgeDocument
 };
