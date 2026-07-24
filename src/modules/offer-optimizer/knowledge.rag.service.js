@@ -21,7 +21,11 @@ class KnowledgeRagService {
    */
   async _getEmbeddings(text, agentId = 'Agent_Vector_Embedding') {
     try {
-      const result = await embeddingModel.embedContent(text);
+      const request = {
+          content: { role: 'user', parts: [{ text }] },
+          outputDimensionality: 768
+      };
+      const result = await embeddingModel.embedContent(request);
       const embedding = result.embedding;
       
       // Przybliżone zużycie tokenów (w modelu embedding 1 token to ~4 znaki)
