@@ -136,6 +136,8 @@ export const UnifiedProductPipelineView = ({
     const [editorKey, setEditorKey] = useState(0); 
     const [visionTickets, setVisionTickets] = useState([]);
     const [viewingImageUrl, setViewingImageUrl] = useState(null);
+    const [pipelineStatus, setPipelineStatus] = useState('IDLE');
+    const [pipelineStep, setPipelineStep] = useState('');
     
     const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
@@ -178,6 +180,31 @@ export const UnifiedProductPipelineView = ({
             setCategorySchema(null);
         }
     }, [newProductForm?.allegroCategoryId, token]);
+
+    // WebSocket listener for EAN Pipeline progress
+    useEffect(() => {
+        if (!socket) return;
+        const handler = (data) => {
+            if (String(data.ean) !== String(liveEan).trim()) return;
+
+            if (data.type === 'PIPELINE_COMPLETE') {
+                setPipelineStatus('SUCCESS');
+                if (data.result) {
+                    setEditorHtml(data.result.editorHtml || { opis1: "", opis2: "", opis3: "", opis4: "", opis5: "" });
+                    setLiveTitle(data.result.title || "");
+                    setVisionTickets(data.result.visionTickets || []);
+                    setEditorKey(prev => prev + 1);
+                }
+            } else if (data.type === 'PIPELINE_ERROR') {
+                setPipelineStatus('ERROR');
+                alert('Błąd potoku EAN: ' + (data.error || 'Wystąpił nieoczekiwany błąd.'));
+            } else if (data.type === 'PIPELINE_PROGRESS') {
+                setPipelineStep(data.step);
+            }
+        };
+        socket.on('nexus-notification', handler);
+        return () => socket.off('nexus-notification', handler);
+    }, [socket, liveEan]);
 
     // Handle Create Product
     const handleCreateProduct = async (e) => {
@@ -234,6 +261,7 @@ export const UnifiedProductPipelineView = ({
             // Przejście do widoku aktywnego pipeline
             setLiveEan(savedProd.ean);
             setIsDashboardActive(true);
+            setPipelineStatus('THINKING');
         } catch (error) {
             console.error(error);
             alert(error.message);
@@ -755,12 +783,39 @@ export const UnifiedProductPipelineView = ({
                                 <h4 className="text-lg font-bold text-white mb-2">Agent Oczekuje w Gotowości</h4>
                                 <p className="text-sm max-w-md">Po zapisaniu danych PIM i kliknięciu "Zapisz PIM i Uruchom Agenta", Supervisor przejmie stery: wygeneruje tytuł, opis HTML (StrictWysiwyg), zdjęcia Lifestyle oraz przygotuje draft do BaseLinkera.</p>
                             </div>
+                        ) : pipelineStatus === 'THINKING' ? (
+                            <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
+                                <div className="w-16 h-16 mb-4 text-indigo-400 animate-spin rounded-full border-4 border-indigo-400 border-t-transparent"></div>
+                                <h4 className="text-lg font-bold text-white mb-2 animate-pulse">Agent Pracuje...</h4>
+                                <p className="text-sm max-w-md text-indigo-300 font-mono">{pipelineStep || 'Inicjalizacja'}</p>
+                            </div>
                         ) : (
                             <div className="space-y-8">
                                 {/* Tutaj wstawiamy komponenty EAN Pipeline z OfferOptimizerView */}
                                 <TitleValidator liveTitle={liveTitle} setLiveTitle={setLiveTitle} isRegeneratingTitle={isRegeneratingTitle} handleRegenerateTitle={() => {}} />
                                 <StrictWysiwyg editorHtml={editorHtml} setEditorHtml={setEditorHtml} editorKey={editorKey} />
-                                <PhotographicAuditorCard visionTickets={visionTickets} setViewingImageUrl={setViewingImageUrl} />
+                                <div className="grid grid-cols-1 gap-6">
+                                    {visionTickets && visionTickets.length > 0 && visionTickets.map((ticket, idx) => (
+                                        <PhotographicAuditorCard 
+                                            key={idx} 
+                                            imageObj={ticket} 
+                                            index={idx} 
+                                            ean={liveEan} 
+                                            primaryImageObj={visionTickets[0]} 
+                                            onView={setViewingImageUrl}
+                                            onImageReplace={(newBase64) => {
+                                                const newTickets = [...visionTickets];
+                                                newTickets[idx].replacedUrl = newBase64;
+                                                setVisionTickets(newTickets);
+                                            }}
+                                            onImageDelete={() => {
+                                                const newTickets = [...visionTickets];
+                                                newTickets.splice(idx, 1);
+                                                setVisionTickets(newTickets);
+                                            }}
+                                        />
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
