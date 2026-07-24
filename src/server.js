@@ -342,6 +342,31 @@ app.get('/api/products', authenticateToken, async (req, res) => {
         res.status(500).json({ error: 'Blad serwera', details: error.message }); 
     }
 });
+
+app.get('/api/products/:id', authenticateToken, async (req, res) => {
+    try {
+        const product = await prisma.product.findUnique({
+            where: { id: req.params.id },
+            include: { 
+               brand: true,
+               bomElements: { include: { material: true } },
+               allegroCategory: true
+            }
+        });
+        
+        if (!product) {
+            return res.status(404).json({ error: 'Produkt nie znaleziony' });
+        }
+        
+        // Add DQS evaluation here too if it's expected
+        const mdmService = require('./modules/mdm/mdm.service');
+        const dqs = await mdmService.calculateProductDQS(product);
+        
+        res.status(200).json({ ...product, dqs });
+    } catch (error) { 
+        res.status(500).json({ error: 'Blad serwera', details: error.message }); 
+    }
+});
 // --- System Settings API ---
 app.get('/api/settings/:key', authenticateToken, async (req, res) => {
     if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
