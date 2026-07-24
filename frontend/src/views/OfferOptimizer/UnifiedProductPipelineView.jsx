@@ -7,7 +7,8 @@ import { ImageUploadBox } from './components/SingleAuctionFetcher/ImageUploadBox
 import { PhotographicAuditorCard } from './components/VisionFeedback/PhotographicAuditorCard';
 import { 
   Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp, Search,
-  Hash, CloudLightning, Loader2, Package, Image, PlayCircle, FileText, CheckCircle2, Zap
+  Hash, CloudLightning, Loader2, Package, Image, PlayCircle, FileText, CheckCircle2, Zap,
+  Target, DollarSign, Plus, Trash2, Cloud
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
