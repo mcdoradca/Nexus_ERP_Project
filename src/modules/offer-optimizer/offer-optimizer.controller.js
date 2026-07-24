@@ -4,6 +4,7 @@ const AiService = require('./ai.service');
 const AllegroService = require('./allegro.service');
 const BaseLinkerService = require('./baselinker.service');
 const EanPipelineService = require('./ean.pipeline.service');
+const knowledgeRagService = require('./knowledge.rag.service');
 const socketService = require('../../core/socket');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
@@ -642,8 +643,7 @@ const ingestKnowledgeDocument = async (req, res) => {
         if (!text || !title) {
             return res.status(400).json({ error: 'Brakuje tekstu lub tytułu dokumentu.' });
         }
-        const ragService = require('./knowledge.rag.service');
-        const result = await ragService.ingestDocument(text, title);
+        const result = await knowledgeRagService.ingestDocument(text, title);
         return res.status(200).json(result);
     } catch (error) {
         console.error('[Knowledge RAG] Błąd wchłaniania dokumentu:', error);
