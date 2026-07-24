@@ -150,9 +150,9 @@ class KnowledgeRagService {
   async getGroupedDocuments() {
       try {
           const docs = await prisma.$queryRaw`
-              SELECT REGEXP_REPLACE(title, ' \(Część \d+\)$', '') as title, COUNT(id) as "chunkCount", MAX("createdAt") as "createdAt"
+              SELECT REGEXP_REPLACE(title, ' \\(Część \\d+\\)$', '') as title, COUNT(id) as "chunkCount", MAX("createdAt") as "createdAt"
               FROM "KnowledgeDocument"
-              GROUP BY REGEXP_REPLACE(title, ' \(Część \d+\)$', '')
+              GROUP BY REGEXP_REPLACE(title, ' \\(Część \\d+\\)$', '')
               ORDER BY "createdAt" DESC
           `;
           // Konwersja BigInt z Postgresa
