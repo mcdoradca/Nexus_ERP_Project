@@ -14,6 +14,7 @@ const cheerio = require('cheerio');
 const EventBus = require('../../core/EventBus');
 dotenv.config();
 const AiMetricsService = require('../../core/ai.metrics.service');
+const socketService = require('../../core/socket');
 
 // Zabezpieczony Agent WAF do zdjęć
 const imageHttpsAgent = new https.Agent({ 
@@ -77,15 +78,23 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
     let attempt = 0;
     const modelName = model.model || "gemini-model";
     const startTime = Date.now();
-    console.log(`[AiService] -> Start generateWithRetry dla ${modelName}, max próby: ${maxRetries}`);
+    
+    const broadcastLog = (msg) => {
+        console.log(`[AiService] ${msg}`);
+        try {
+            socketService.broadcast('nexus-notification', { type: 'PIPELINE_LOG', agentId, message: msg });
+        } catch(e) {}
+    };
+
+    broadcastLog(`Start generateWithRetry dla ${modelName}, max próby: ${maxRetries}`);
     
     while (attempt < maxRetries) {
         try {
             const attemptStart = Date.now();
-            console.log(`[AiService] -> ${modelName} Próba ${attempt + 1}/${maxRetries} rozpoczęta...`);
+            broadcastLog(`Próba ${attempt + 1}/${maxRetries} rozpoczęta...`);
             // Twardy timeout 90 sekund (90000ms) dla każdego zapytania do modelu
             const result = await withTimeout(model.generateContent(promptOrParts), 90000, modelName);
-            console.log(`[AiService] -> ${modelName} Próba ${attempt + 1} ZAKOŃCZONA SUKCESEM po ${Date.now() - attemptStart}ms`);
+            broadcastLog(`Próba ${attempt + 1} ZAKOŃCZONA SUKCESEM po ${Date.now() - attemptStart}ms`);
             
             // Zapis do telemetrii
             try {
@@ -110,8 +119,7 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
                 try {
                     return JSON.parse(cleanText);
                 } catch (parseError) {
-                    console.error(`[AiService] -> Błąd JSON.parse: ${parseError.message}`);
-                    console.error(`[AiService] -> Zwrócony payload: ${text}`);
+                    broadcastLog(`Błąd parsowania JSON: ${parseError.message}`);
                     throw new Error(`JSON_PARSE_ERROR: ${parseError.message}`);
                 }
             }
@@ -121,16 +129,16 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
             attempt++;
             const isRateLimit = error.status === 429 || (error.message && (error.message.includes('429') || error.message.includes('503')));
             const isJsonError = error.message && error.message.includes('JSON_PARSE_ERROR');
+            const isTimeout = error.message && error.message.includes('timeout');
             
-            console.error(`[AiService] -> BŁĄD w generateWithRetry (${modelName}) [Próba ${attempt}]:`, error.message);
-            console.error(error.stack);
+            broadcastLog(`BŁĄD w generateWithRetry [Próba ${attempt}]: ${error.message}`);
             
-            if (attempt >= maxRetries || (!isRateLimit && !isJsonError && !(error.message && error.message.includes('timeout')))) {
-                console.error(`[AiService] -> Krytyczny błąd API, brak dalszych ponowień. Rzucam błąd wyżej.`);
+            if (attempt >= maxRetries || (!isRateLimit && !isJsonError && !isTimeout)) {
+                broadcastLog(`Krytyczny błąd API, brak dalszych ponowień. Przerwano.`);
                 throw error; // Fail fast for non-transient errors
             }
             const backoffMs = Math.pow(2, attempt) * 1500 + Math.random() * 1000;
-            console.log(`[AiService] ⚠️ ${modelName} - Wznawiam (Exponential Backoff / JSON Fix) za ${Math.round(backoffMs)}ms...`);
+            broadcastLog(`⚠️ Wznawiam (Exponential Backoff / Naprawa Błędu) za ${Math.round(backoffMs)}ms...`);
             await new Promise(res => setTimeout(res, backoffMs));
         }
     }

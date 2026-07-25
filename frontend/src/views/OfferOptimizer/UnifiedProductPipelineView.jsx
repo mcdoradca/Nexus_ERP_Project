@@ -139,6 +139,12 @@ export const UnifiedProductPipelineView = ({
     const [pipelineStatus, setPipelineStatus] = useState('IDLE');
     const [pipelineStep, setPipelineStep] = useState('');
     
+    // NOWE STANY WIZUALIZACJI AGENTA
+    const [pipelinePhase, setPipelinePhase] = useState('');
+    const [activeNodes, setActiveNodes] = useState([]);
+    const [nodeStatuses, setNodeStatuses] = useState({});
+    const [pipelineLogs, setPipelineLogs] = useState([]);
+    
     const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -198,8 +204,17 @@ export const UnifiedProductPipelineView = ({
             } else if (data.type === 'PIPELINE_ERROR') {
                 setPipelineStatus('ERROR');
                 alert('Błąd potoku EAN: ' + (data.error || 'Wystąpił nieoczekiwany błąd.'));
-            } else if (data.type === 'PIPELINE_PROGRESS') {
-                setPipelineStep(data.step);
+            } else if (data.type === 'PIPELINE_STATUS') {
+                if (data.payload) {
+                    setPipelinePhase(data.payload.current_phase || '');
+                    setActiveNodes(data.payload.active_nodes || []);
+                    setNodeStatuses(data.payload.node_status || {});
+                }
+            } else if (data.type === 'PIPELINE_LOG') {
+                setPipelineLogs(prev => {
+                    const newLogs = [...prev, { time: new Date().toLocaleTimeString(), agentId: data.agentId || 'System', msg: data.message }];
+                    return newLogs.slice(-100);
+                });
             }
         };
         socket.on('nexus-notification', handler);
@@ -262,6 +277,10 @@ export const UnifiedProductPipelineView = ({
             setLiveEan(savedProd.ean);
             setIsDashboardActive(true);
             setPipelineStatus('THINKING');
+            setPipelineLogs([]);
+            setPipelinePhase('INICJALIZACJA SYSTEMU');
+            setActiveNodes([]);
+            setNodeStatuses({});
         } catch (error) {
             console.error(error);
             alert(error.message);
@@ -784,10 +803,44 @@ export const UnifiedProductPipelineView = ({
                                 <p className="text-sm max-w-md">Po zapisaniu danych PIM i kliknięciu "Zapisz PIM i Uruchom Agenta", Supervisor przejmie stery: wygeneruje tytuł, opis HTML (StrictWysiwyg), zdjęcia Lifestyle oraz przygotuje draft do BaseLinkera.</p>
                             </div>
                         ) : pipelineStatus === 'THINKING' ? (
-                            <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
-                                <div className="w-16 h-16 mb-4 text-indigo-400 animate-spin rounded-full border-4 border-indigo-400 border-t-transparent"></div>
-                                <h4 className="text-lg font-bold text-white mb-2 animate-pulse">Agent Pracuje...</h4>
-                                <p className="text-sm max-w-md text-indigo-300 font-mono">{pipelineStep || 'Inicjalizacja'}</p>
+                            <div className="flex flex-col h-full space-y-6">
+                                <div className="bg-slate-900 border border-slate-700 rounded-lg p-6">
+                                    <h4 className="text-sm font-bold text-indigo-400 mb-2 uppercase tracking-widest flex items-center">
+                                        <Loader2 className="w-5 h-5 mr-3 animate-spin" /> {pipelinePhase || 'Inicjalizacja Systemu...'}
+                                    </h4>
+                                    <div className="flex flex-wrap gap-3 mt-4">
+                                        {activeNodes.map(node => (
+                                            <div key={node} className="px-3 py-1.5 bg-indigo-500/20 border border-indigo-500/50 text-indigo-300 text-xs font-bold rounded-md animate-pulse">
+                                                {node.replace(/_/g, ' ')}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="mt-4 text-xs text-slate-500 font-mono flex flex-wrap gap-4">
+                                        {Object.entries(nodeStatuses).map(([node, status]) => (
+                                            <div key={node} className={`flex items-center space-x-1 ${status === 'COMPLETED' ? 'text-emerald-400' : status === 'IN_PROGRESS' ? 'text-indigo-400' : 'text-slate-500'}`}>
+                                                {status === 'COMPLETED' && <CheckCircle2 className="w-3 h-3" />}
+                                                {status === 'IN_PROGRESS' && <Loader2 className="w-3 h-3 animate-spin" />}
+                                                <span>{node.split('_').pop()}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex-1 bg-[#0a0a0a] rounded-lg border border-slate-700 p-4 font-mono text-[11px] overflow-y-auto flex flex-col custom-scrollbar shadow-inner">
+                                    <div className="text-slate-500 mb-3 uppercase tracking-widest text-[9px] border-b border-slate-800 pb-2 flex justify-between">
+                                        <span>Terminal Agenta (Live Logs)</span>
+                                        <span>{pipelineLogs.length} Zdarzeń</span>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto flex flex-col space-y-1 pb-4">
+                                        {pipelineLogs.map((log, i) => (
+                                            <div key={i} className="flex space-x-3 hover:bg-slate-800/30 px-1 py-0.5 rounded transition-colors">
+                                                <span className="text-slate-600 shrink-0">[{log.time}]</span>
+                                                <span className="text-indigo-400 shrink-0 font-bold">[{log.agentId}]</span>
+                                                <span className="text-emerald-400 break-words">{log.msg}</span>
+                                            </div>
+                                        ))}
+                                        {pipelineLogs.length === 0 && <div className="text-slate-600 italic mt-2">Oczekiwanie na strumień zdarzeń z węzłów Swarm...</div>}
+                                    </div>
+                                </div>
                             </div>
                         ) : (
                             <div className="space-y-8">
