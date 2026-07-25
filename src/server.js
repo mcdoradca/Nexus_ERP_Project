@@ -541,10 +541,8 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
     try {
         const { ean } = req.params;
         
-        const AllegroService = require('./modules/offer-optimizer/allegro.service');
-        const allegroCategoryId = await AllegroService.findCategoryByEan(ean).catch(() => null) || null;
-        
         // 0. BaseLinker Integration (PRIORYTET)
+        const AllegroService = require('./modules/offer-optimizer/allegro.service');
         try {
             const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
             const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
@@ -574,10 +572,10 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
                 videoUrl: deepData.videoUrl,
                 stockErpUnits: deepData.stockErpUnits,
                 stockWmsUnits: deepData.stockWmsUnits,
-                allegroCategoryId: allegroCategoryId
+                allegroCategoryId: await AllegroService.findCategoryByEan(ean) || null
             });
         } catch (blError) {
-            console.log('BaseLinker Fallback Error:', blError.message || blError);
+            console.log('BaseLinker Fallback Error:', blError);
         }
 
         // Helper dla darmowych baz uodporniający Nexusa na pady serwerów zewnętrznych.
@@ -593,30 +591,25 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
         // 1. Open Beauty Facts (Kosmetyki)
         let data = await safeFetch(`https://world.openbeautyfacts.org/api/v0/product/${ean}.json`);
         if (data && data.status === 1 && data.product) {
-            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '', allegroCategoryId });
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '' });
         }
 
         // 2. Open Food Facts (FMCG)
         data = await safeFetch(`https://world.openfoodfacts.org/api/v0/product/${ean}.json`);
         if (data && data.status === 1 && data.product) {
-            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '', allegroCategoryId });
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '' });
         }
         
         // 3. Open Product Facts (Inne)
         data = await safeFetch(`https://world.openproductfacts.org/api/v0/product/${ean}.json`);
         if (data && data.status === 1 && data.product) {
-            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '', allegroCategoryId });
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '' });
         }
 
         // 4. UPC Item DB (Globalny Mix)
         data = await safeFetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${ean}`);
         if (data && data.code === 'OK' && data.items && data.items.length > 0) {
-            return res.status(200).json({ name: data.items[0].title || '', brand: data.items[0].brand || '', allegroCategoryId });
-        }
-
-        if (allegroCategoryId) {
-            // Jeśli mamy chociaż kategorię, zwracamy 200 by nie przerywać flow i pozwolić Agentowi działać
-            return res.status(200).json({ name: '', brand: '', allegroCategoryId });
+            return res.status(200).json({ name: data.items[0].title || '', brand: data.items[0].brand || '' });
         }
 
         res.status(404).json({ error: 'Kod niezarejestrowany w żadnej 4 z darmowych baz OpenSource ani w asortymencie BaseLinkerze.' });
