@@ -113,114 +113,140 @@ class SupervisorService {
   }
 
   /**
-   * Logika Orkiestratora dla procesu EAN Pipeline przy użyciu gemini-3.1-pro-preview.
-   * Model sprawdza aktualny stan katalogu PIM i decyduje, jakie kroki należy podjąć, w jakiej kolejności.
+   * Logika Orkiestratora dla procesu EAN Pipeline - ARCHITEKTURA SWARM V3
+   * Wykonuje deterministyczną maszynę stanową 4 faz z użyciem Węzłów 1-10.
    */
   async _orchestrateEanPipeline(task) {
     const ean = task.ean;
     let product = await prisma.product.findUnique({ where: { ean }, include: { brand: true } });
 
-    // 1. Zapewnienie bazowych danych z zewnętrznych systemów
-    const needsSync = !product || !product.isSynced;
-    if (needsSync) {
-        console.log(`[Supervisor] Produkt ${ean} nie jest w pełni zsynchronizowany. Wywołuję BaseLinker...`);
-        // Dla uproszczenia delegujemy sync do BaseLinkera od razu
-        // W pełnej architekturze LLM by zdecydował, że brakuje mu danych i zażądał funkcji `syncBaseLinker`
+    // Zapewnienie bazowych danych z zewnętrznych systemów
+    if (!product || !product.isSynced) {
+        console.log(`[Supervisor] Produkt ${ean} nie jest zsynchronizowany. Pobieranie z PIM/BaseLinker...`);
         product = await this._syncProduct(ean, product);
     }
 
-    // 2. Pobranie parametrów Allegro Catalog API (Twarde dane - brak zgadywania)
-    const allegroService = require('./allegro.service');
-    const hardCatalogFeatures = await allegroService.getProductParametersByEan(ean);
-    let currentFeatures = product.features && typeof product.features === 'object' ? { ...product.features } : {};
-    
-    if (hardCatalogFeatures && Object.keys(hardCatalogFeatures).length > 0) {
-      currentFeatures = { ...currentFeatures, ...hardCatalogFeatures };
-      product = await prisma.product.update({ where: { ean }, data: { features: currentFeatures } });
-    }
+    const broadcastStatus = (phase, nodesActive, nodeStatuses, nextAction = null, hitl = null) => {
+        const payload = {
+            pipeline_id: task.id,
+            current_phase: phase,
+            active_nodes: nodesActive,
+            node_status: nodeStatuses,
+            next_action: nextAction,
+            hitl_alert: hitl
+        };
+        console.log(`[Supervisor Node 0] Status:`, JSON.stringify(payload));
+        socketService.broadcast('nexus-notification', { type: 'PIPELINE_STATUS', ean, payload });
+    };
 
-    // Pytamy AI Orkiestratora o plan działania
-    const prompt = `Jesteś "Agentem Supervisorem" w dziale e-commerce. Otrzymujesz zgłoszenie wygenerowania opisów/AEO dla produktu o EAN: ${ean} (${product.name}).
-Dane w PIM: ${JSON.stringify(currentFeatures)}.
-Masz do dyspozycji agentów: 
-- "Agent_11_Autofill": uzupełnia brakujące parametry katalogowe.
-- "Agent_AEO": generuje teksty FAQ/AEO (Answer Engine Optimization).
-- "Agent_2_Sentiment": wyszukuje opinie o produkcie.
-- "Agent_4_GEO": pisze bloki tekstowe do oferty na bazie zgromadzonych danych (wymaga parametrów i sentymentu!).
-- "Agent_3_Compliance": sprawdza regulaminy (wymaga gotowego opisu z GEO).
-
-Zasada: NIE MOŻESZ generować opisów GEO dopóki katalog (Autofill) i Sentyment nie jest zrobiony. 
-Określ w formacie JSON dokładną kolejność wywołań modułów.
-Struktura JSON: { "plan": ["AUTOFILL", "SENTIMENT", "AEO", "GEO", "COMPLIANCE"] }
-Odpowiadaj TYLKO obiektem JSON. Odnieś się do zadania. Jeśli zadanie to "AEO_GENERATION", daj tylko "AEO".`;
-
-    let planResponse;
     try {
-      const res = await this.model.generateContent(prompt);
-      const responseText = res.response.text();
-      
-      const promptTokens = res.response.usageMetadata?.promptTokenCount || Math.ceil(prompt.length / 4);
-      const completionTokens = res.response.usageMetadata?.candidatesTokenCount || Math.ceil(responseText.length / 4);
-      const totalTokens = res.response.usageMetadata?.totalTokenCount || (promptTokens + completionTokens);
-      
-      await aiMetricsService.logUsage(
-        'Agent_Supervisor_Router',
-        ORCHESTRATOR_MODEL,
-        promptTokens,
-        completionTokens,
-        totalTokens
-      );
-      
-      planResponse = JSON.parse(responseText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, ''));
-    } catch (e) {
-      console.log("[Supervisor] LLM failed to route, falling back to sequential default", e);
-      planResponse = { plan: task.taskType === 'AEO_GENERATION' ? ["AEO"] : ["AUTOFILL", "SENTIMENT", "AEO", "GEO", "COMPLIANCE"] };
-    }
+        // ==========================================
+        // FAZA 1: GROUNDING (Badania)
+        // ==========================================
+        broadcastStatus("FAZA_1_GROUNDING", ["Agent_1_Autofill", "Agent_2_Sentiment", "Agent_3_SEOTitle"], { Agent_1_Autofill: "IN_PROGRESS" });
+        
+        const autofillData = await AiService.runNode1_Autofill(ean, product.name);
+        if (autofillData.missing_critical_data) {
+            broadcastStatus("FAZA_1_GROUNDING", [], {}, "HALTED", "Brak kluczowych danych EAN/SDS - przerwano potok.");
+            throw new Error("HITL_ALERT: Agent 1 zgłosił brak krytycznych danych technicznych.");
+        }
+        
+        broadcastStatus("FAZA_1_GROUNDING", ["Agent_2_Sentiment", "Agent_3_SEOTitle"], { Agent_1_Autofill: "COMPLETED", Agent_2_Sentiment: "IN_PROGRESS" });
+        const sentimentData = await AiService.runNode2_Sentiment(ean, product.name);
+        
+        broadcastStatus("FAZA_1_GROUNDING", ["Agent_3_SEOTitle"], { Agent_2_Sentiment: "COMPLETED", Agent_3_SEOTitle: "IN_PROGRESS" });
+        const seoData = await AiService.runNode3_SEOTitle(ean, product.name, product.category || 'Brak');
+        
+        // ==========================================
+        // FAZA 2: LEGAL SHIELD (Chemia i Prawo)
+        // ==========================================
+        broadcastStatus("FAZA_2_LEGAL_SHIELD", ["Agent_4_INCIParser", "Agent_5_LegalSanitizer"], { Agent_3_SEOTitle: "COMPLETED", Agent_4_INCIParser: "IN_PROGRESS" });
+        
+        const ragService = require('./knowledge.rag.service');
+        const inciDocs = await ragService.searchKnowledge("Słownik INCI Kosmetyki Chemia", 2);
+        const inciKnowledge = inciDocs.map(d => d.content).join("\n");
+        
+        // Ekstrakcja INCI z parametrów
+        const inciString = autofillData.inci_ingredients || "Brak podanego INCI w danych PIM.";
+        const inciAEOData = await AiService.runNode4_INCIParser(inciString, inciKnowledge);
+        
+        if (inciAEOData.status === "INGREDIENT_NOT_COSMETIC") {
+            broadcastStatus("FAZA_2_LEGAL_SHIELD", [], {}, "HALTED", "Wykryto substancję leczniczą/zakazaną.");
+            throw new Error("HITL_ALERT: Agent 4 zablokował produkt (nie-kosmetyk).");
+        }
+        
+        broadcastStatus("FAZA_2_LEGAL_SHIELD", ["Agent_5_LegalSanitizer"], { Agent_4_INCIParser: "COMPLETED", Agent_5_LegalSanitizer: "IN_PROGRESS" });
+        const legalDocs = await ragService.searchKnowledge("Oświadczenia medyczne claims prawo EU", 2);
+        const legalKnowledge = legalDocs.map(d => d.content).join("\n");
+        const legalData = await AiService.runNode5_LegalSanitizer(product.name, inciAEOData, sentimentData, legalKnowledge);
 
-    console.log(`[Supervisor] Wygenerowany plan działania dla ${ean}:`, planResponse.plan);
+        // ==========================================
+        // FAZA 3: CREATION (Copy & Psycho)
+        // ==========================================
+        broadcastStatus("FAZA_3_CREATION", ["Agent_6_Copywriter", "Agent_7_Psychology", "Agent_8_Scenographer"], { Agent_5_LegalSanitizer: "COMPLETED", Agent_6_Copywriter: "IN_PROGRESS" });
+        const copywriterData = await AiService.runNode6_Copywriter(product.name, inciAEOData, { tone: "Ekspercki i bezpieczny" });
+        
+        broadcastStatus("FAZA_3_CREATION", ["Agent_7_Psychology", "Agent_8_Scenographer"], { Agent_6_Copywriter: "COMPLETED", Agent_7_Psychology: "IN_PROGRESS" });
+        const psychologyData = await AiService.runNode7_Psychology(product.name, copywriterData, legalData);
+        
+        broadcastStatus("FAZA_3_CREATION", ["Agent_8_Scenographer"], { Agent_7_Psychology: "COMPLETED", Agent_8_Scenographer: "IN_PROGRESS" });
+        const scenographerData = await AiService.runNode8_Scenographer(product.name, { target: "Świadomy konsument" });
 
-    // Wykonywanie zaplanowanych agentów po kolei z uwzględnieniem pamięci Cache
-    for (const step of planResponse.plan) {
-      console.log(`[Supervisor] Uruchamianie kroku: ${step}`);
-      
-      socketService.broadcast('nexus-notification', {
-        type: 'PIPELINE_PROGRESS',
-        ean,
-        step: step,
-        status: 'IN_PROGRESS'
-      });
-      
-      switch (step) {
-        case 'AUTOFILL':
-          await this._runAutofill(ean, product);
-          break;
-        case 'SENTIMENT':
-          await this._runSentiment(ean, product);
-          break;
-        case 'AEO':
-          await this._runAEO(ean, product);
-          break;
-        case 'GEO':
-          await this._runGEO(ean, product);
-          break;
-        case 'COMPLIANCE':
-          await this._runCompliance(ean, product);
-          break;
-      }
-      
-      // Odświeżenie danych produktu po kroku
-      product = await prisma.product.findUnique({ where: { ean } });
+        // ==========================================
+        // FAZA 4: AUDIT (Vision & Sentinel)
+        // ==========================================
+        broadcastStatus("FAZA_4_AUDIT", ["Agent_9_VisionAuditor", "Agent_10_Sentinel"], { Agent_8_Scenographer: "COMPLETED", Agent_9_VisionAuditor: "IN_PROGRESS" });
+        // Pobieramy obrazy z produktu (mock jeśli brak)
+        const images = product.images || [];
+        const visionData = images.length > 0 ? await AiService.runNode9_VisionAuditor(images) : { status: "NO_IMAGES", passed: true };
+        
+        if (visionData.passed === false) {
+             broadcastStatus("FAZA_4_AUDIT", [], {}, "HALTED", "Błąd tła lub brak etykiety AI (Vision Auditor).");
+             throw new Error("HITL_ALERT: Agent 9 zablokował ofertę z powodu grafik.");
+        }
+
+        broadcastStatus("FAZA_4_AUDIT", ["Agent_10_Sentinel"], { Agent_9_VisionAuditor: "COMPLETED", Agent_10_Sentinel: "IN_PROGRESS" });
+        
+        // Złożenie ostatecznego payloadu
+        const finalPayload = {
+            title: seoData.seo_title || product.name,
+            attributes: autofillData,
+            htmlContent: psychologyData.htmlContent || copywriterData,
+            scenography: scenographerData
+        };
+
+        const sentinelData = await AiService.runNode10_Sentinel(finalPayload, autofillData);
+        
+        if (sentinelData.status === "BLOCKED_DUE_TO_NON_COMPLIANCE") {
+            broadcastStatus("FAZA_4_AUDIT", [], {}, "HALTED", "Sentinel zablokował ostateczną ofertę. Wymagana interwencja człowieka.");
+            throw new Error(`HITL_ALERT: Agent 10 odrzucił generację. Powód: ${sentinelData.reason}`);
+        }
+
+        // Zapis do bazy
+        await prisma.product.update({ 
+            where: { ean }, 
+            data: { 
+                features: autofillData,
+                aeoContent: JSON.stringify(psychologyData),
+                offerDraft: finalPayload
+            } 
+        });
+
+        broadcastStatus("COMPLETED", [], { Agent_10_Sentinel: "COMPLETED" }, "ALL_NODES_FINISHED");
+
+    } catch (error) {
+        console.error(`[Supervisor] Przerwano potok EAN ${ean}:`, error.message);
+        throw error;
     }
   }
 
-  // --- Implementacje delegatów ---
+  // --- Implementacje delegatów (Zachowane do kompatybilności wewnętrznej) ---
 
   async _syncProduct(ean, product) {
     const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
     const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
     let brandId = product ? product.brandId : null;
     
-    // Logika brandId...
     let defaultBrand = await prisma.brand.findUnique({ where: { name: 'PIM-IMPORT' } });
     if (!defaultBrand) defaultBrand = await prisma.brand.create({ data: { name: 'PIM-IMPORT' } });
     brandId = brandId || defaultBrand.id;
@@ -235,65 +261,6 @@ Odpowiadaj TYLKO obiektem JSON. Odnieś się do zadania. Jeśli zadanie to "AEO_
         return prisma.product.create({ data: { ean, sku: ean, name: deepData.name, brandId, ...deepPayload } });
     }
     return prisma.product.update({ where: { ean }, data: deepPayload });
-  }
-
-  async _runAutofill(ean, product) {
-    const cacheKey = `autofill_${ean}`;
-    if (await this._getCachedContext(cacheKey)) return;
-
-    console.log(`[Supervisor->Agent_11_Autofill] Uzupełnianie parametrów...`);
-    const filledFeatures = await AiService.autofillMissingParameters(ean, product.name, product.features || {}, []);
-    if (filledFeatures && Object.keys(filledFeatures).length > 0) {
-      await prisma.product.update({ where: { ean }, data: { features: filledFeatures } });
-    }
-    await this._setCachedContext(cacheKey, { done: true });
-  }
-
-  async _runSentiment(ean, product) {
-    const cacheKey = `sentiment_${ean}`;
-    let sentiment = await this._getCachedContext(cacheKey);
-    
-    if (!sentiment) {
-      console.log(`[Supervisor->Agent_2_Sentiment] Szukanie opinii...`);
-      sentiment = await AiService.gatherCustomerSentiment(ean, product.name, null);
-      await this._setCachedContext(cacheKey, { sentiment });
-    } else {
-      sentiment = sentiment.sentiment;
-    }
-    
-    const offerDraft = (product.offerDraft || {});
-    offerDraft.customerSentiment = sentiment;
-    await prisma.product.update({ where: { ean }, data: { offerDraft } });
-  }
-
-  async _runAEO(ean, product) {
-    const cacheKey = `aeo_${ean}`;
-    if (await this._getCachedContext(cacheKey)) return;
-    
-    console.log(`[Supervisor->Agent_AEO] Generowanie Answer Engine Optimization (FAQ)...`);
-    const aeoText = await AiService.generateAeoContent(ean, product.name, product.features);
-    await prisma.product.update({ where: { ean }, data: { aeoContent: aeoText } });
-    
-    await this._setCachedContext(cacheKey, { aeoContent: aeoText });
-  }
-
-  async _runGEO(ean, product) {
-    console.log(`[Supervisor->Agent_4_GEO] Generowanie Opisu...`);
-    // Mock wykonania GEO -> Trafia do draftu
-  }
-
-  async _runCompliance(ean, product) {
-    const cacheKey = `compliance_${ean}`;
-    if (await this._getCachedContext(cacheKey)) return;
-
-    console.log(`[Supervisor->Agent_3_Compliance] Weryfikacja RAG...`);
-    const ragService = require('./knowledge.rag.service');
-    const legalDocs = await ragService.searchKnowledge("dyrektywa omnibus i kosmetyki", 2);
-    
-    console.log(`[Supervisor->Agent_3_Compliance] Znaleziono ${legalDocs.length} dokumentów prawnych w RAG Supabase.`);
-    // Logika weryfikacji GEO...
-    
-    await this._setCachedContext(cacheKey, { done: true });
   }
 }
 

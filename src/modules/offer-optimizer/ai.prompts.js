@@ -200,11 +200,36 @@ WYMAGANY FORMAT ZWROTNY (Czysty JSON, bez markdown \`\`\`):
 }
 `;
 
+const fs = require('fs');
+const path = require('path');
+
+const PROMPTS_DIR = path.resolve(__dirname, '../../../docs/swarm_v3_upgrade/prompts_master');
+
+/**
+ * Ładuje oryginalne dokumenty Master Prompts dla nowej architektury V3.
+ */
+function getMasterPrompt(nodeIndex) {
+    try {
+        const filePath = path.join(PROMPTS_DIR, `Agent_${nodeIndex}_prompt.md`);
+        if (fs.existsSync(filePath)) {
+            return fs.readFileSync(filePath, 'utf8');
+        }
+        console.warn(`[AiPrompts] Brak pliku promptu dla Węzła ${nodeIndex}: ${filePath}`);
+        return null;
+    } catch (err) {
+        console.error(`[AiPrompts] Błąd ładowania promptu dla Węzła ${nodeIndex}:`, err.message);
+        return null;
+    }
+}
+
+// Eksportujemy stare zmienne (do czasu zakończenia refaktoryzacji) 
+// oraz nową metodę dla Architektury V3
 module.exports = {
    STANDARD_PROMPT,
    COSMETIC_AUDITOR_PROMPT,
    AEO_AGENT_PROMPT,
    GEO_TEXT_AGENT_PROMPT,
    VISION_AUDIT_PROMPT,
-   SEGMENT_TONE_AGENT_PROMPT
+   SEGMENT_TONE_AGENT_PROMPT,
+   getMasterPrompt
 };

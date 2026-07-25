@@ -9,7 +9,7 @@ sharp.cache(false); // Wyłączenie wbudowanego cache'u dla stabilności RAM prz
 const FormData = require('form-data');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const { STANDARD_PROMPT, COSMETIC_AUDITOR_PROMPT, VISION_AUDIT_PROMPT } = require('./ai.prompts');
+const { STANDARD_PROMPT, COSMETIC_AUDITOR_PROMPT, VISION_AUDIT_PROMPT, getMasterPrompt } = require('./ai.prompts');
 const cheerio = require('cheerio');
 const EventBus = require('../../core/EventBus');
 dotenv.config();
@@ -1134,6 +1134,209 @@ Blok 5 (opis5): ${htmlContent.opis5 || ''}`;
     }
 }
 
+// ============================================================================
+// ARCHITEKTURA SWARM V3 - WĘZŁY 1-5 (BADANIA I BEZPIECZEŃSTWO PRAWNE)
+// ============================================================================
+
+async function runNode1_Autofill(ean, productName) {
+    console.log(`[Swarm Node 1] PIM Autofill start: EAN ${ean}`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            tools: [{ googleSearch: {} }],
+            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
+        });
+        const systemPrompt = getMasterPrompt(1);
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}`;
+        const result = await generateWithRetry(model, prompt, 3, "Agent_1_Autofill");
+        return JSON.parse(result.response.text());
+    } catch (err) {
+        console.error("[Swarm Node 1] Błąd krytyczny:", err.message);
+        throw err;
+    }
+}
+
+async function runNode2_Sentiment(ean, productName) {
+    console.log(`[Swarm Node 2] Sentiment Scraper start: EAN ${ean}`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            tools: [{ googleSearch: {} }],
+            generationConfig: { temperature: 0.1, topP: 0.2, responseMimeType: "application/json" }
+        });
+        const systemPrompt = getMasterPrompt(2);
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}`;
+        const result = await generateWithRetry(model, prompt, 3, "Agent_2_Sentiment");
+        return JSON.parse(result.response.text());
+    } catch (err) {
+        console.error("[Swarm Node 2] Błąd krytyczny:", err.message);
+        throw err;
+    }
+}
+
+async function runNode3_SEOTitle(ean, productName, category = null) {
+    console.log(`[Swarm Node 3] SEO Title start: EAN ${ean}`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            tools: [{ googleSearch: {} }],
+            generationConfig: { temperature: 0.2, topP: 0.3, responseMimeType: "application/json" }
+        });
+        const systemPrompt = getMasterPrompt(3);
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}\nKATEGORIA: ${category || 'Brak'}`;
+        const result = await generateWithRetry(model, prompt, 3, "Agent_3_SEOTitle");
+        return JSON.parse(result.response.text());
+    } catch (err) {
+        console.error("[Swarm Node 3] Błąd krytyczny:", err.message);
+        throw err;
+    }
+}
+
+async function runNode4_INCIParser(inciString, ragKnowledge) {
+    console.log(`[Swarm Node 4] INCI Parser start...`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
+        });
+        const systemPrompt = getMasterPrompt(4);
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nINCI: ${inciString}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
+        const result = await generateWithRetry(model, prompt, 3, "Agent_4_INCIParser");
+        return JSON.parse(result.response.text());
+    } catch (err) {
+        console.error("[Swarm Node 4] Błąd krytyczny:", err.message);
+        throw err;
+    }
+}
+
+async function runNode5_LegalSanitizer(productName, generatedContent, rawSentiment, ragKnowledge) {
+    console.log(`[Swarm Node 5] Legal Sanitizer start...`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
+        });
+        const systemPrompt = getMasterPrompt(5);
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nKONTENT DO ANALIZY: ${JSON.stringify(generatedContent)}\nSUROWY SENTIMENT: ${JSON.stringify(rawSentiment)}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
+        const result = await generateWithRetry(model, prompt, 3, "Agent_5_LegalSanitizer");
+        
+        let responseText = result.response.text();
+        responseText = strictRegexMedicalFilter(responseText); // Tarcza Anty-Medyczna zawsze aktywna
+        return JSON.parse(responseText);
+    } catch (err) {
+        console.error("[Swarm Node 5] Błąd krytyczny:", err.message);
+        throw err;
+    }
+}
+
+// ============================================================================
+// ARCHITEKTURA SWARM V3 - WĘZŁY 6-10 (KREACJA I AUDYT WYSOKIEJ PEWNOŚCI)
+// ============================================================================
+
+async function runNode6_Copywriter(productName, aeoFeatures, toneGuidelines) {
+    console.log(`[Swarm Node 6] Copywriter start...`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json" }
+        });
+        const systemPrompt = getMasterPrompt(6);
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nCECHY AEO: ${JSON.stringify(aeoFeatures)}\nWYTYCZNE TONU: ${JSON.stringify(toneGuidelines)}`;
+        const result = await generateWithRetry(model, prompt, 3, "Agent_6_Copywriter");
+        
+        let responseText = result.response.text();
+        responseText = strictRegexMedicalFilter(responseText); 
+        return JSON.parse(responseText);
+    } catch (err) {
+        console.error("[Swarm Node 6] Błąd krytyczny:", err.message);
+        throw err;
+    }
+}
+
+async function runNode7_Psychology(productName, htmlDraft, sentimentData) {
+    console.log(`[Swarm Node 7] Psychology start...`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json" }
+        });
+        const systemPrompt = getMasterPrompt(7);
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nSZKIC HTML: ${JSON.stringify(htmlDraft)}\nSENTIMENT: ${JSON.stringify(sentimentData)}`;
+        const result = await generateWithRetry(model, prompt, 3, "Agent_7_Psychology");
+        return JSON.parse(result.response.text());
+    } catch (err) {
+        console.error("[Swarm Node 7] Błąd krytyczny:", err.message);
+        throw err;
+    }
+}
+
+async function runNode8_Scenographer(productName, targetAudience) {
+    console.log(`[Swarm Node 8] Scenographer start...`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            generationConfig: { temperature: 0.4, topP: 0.5, responseMimeType: "application/json" }
+        });
+        const systemPrompt = getMasterPrompt(8);
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nGRUPA DOCELOWA: ${JSON.stringify(targetAudience)}`;
+        const result = await generateWithRetry(model, prompt, 3, "Agent_8_Scenographer");
+        return JSON.parse(result.response.text());
+    } catch (err) {
+        console.error("[Swarm Node 8] Błąd krytyczny:", err.message);
+        throw err;
+    }
+}
+
+async function runNode9_VisionAuditor(imageUrls) {
+    console.log(`[Swarm Node 9] Vision Auditor start dla ${imageUrls.length} obrazów...`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview", // Oczekiwany model Vision
+            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
+        });
+        const systemPrompt = getMasterPrompt(9);
+        
+        const parts = [systemPrompt, "\n\n--- OBRAZY DO ANALIZY ---"];
+        for (let i = 0; i < imageUrls.length; i++) {
+            try {
+                const response = await fetchImageSecure(imageUrls[i], 10000);
+                parts.push(`Zdjęcie ${i + 1}. URL: ${imageUrls[i]}`);
+                parts.push({
+                    inlineData: {
+                        data: Buffer.from(response.data, 'binary').toString("base64"),
+                        mimeType: response.headers['content-type'] || 'image/jpeg'
+                    }
+                });
+            } catch (imgErr) {
+                console.warn(`[Swarm Node 9] Błąd pobierania obrazu ${imageUrls[i]}: ${imgErr.message}`);
+            }
+        }
+
+        const result = await generateWithRetry(model, parts, 3, "Agent_9_VisionAuditor");
+        return JSON.parse(result.response.text());
+    } catch (err) {
+        console.error("[Swarm Node 9] Błąd krytyczny:", err.message);
+        throw err;
+    }
+}
+
+async function runNode10_Sentinel(finalPayload, originalPimData) {
+    console.log(`[Swarm Node 10] Sentinel HITL start...`);
+    try {
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.1-pro-preview",
+            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
+        });
+        const systemPrompt = getMasterPrompt(10);
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nGOTOWA OFERTA: ${JSON.stringify(finalPayload)}\nSUROWE DANE PIM: ${JSON.stringify(originalPimData)}`;
+        const result = await generateWithRetry(model, prompt, 3, "Agent_10_Sentinel");
+        return JSON.parse(result.response.text());
+    } catch (err) {
+        console.error("[Swarm Node 10] Błąd krytyczny:", err.message);
+        throw err;
+    }
+}
+
 module.exports = {
     fetchImageSecure,
     gatherProductIntelligence,
@@ -1148,5 +1351,15 @@ module.exports = {
     generateClaidLifestyle,
     autofillMissingParameters,
     generateComplianceReport,
-    generateWithRetry
+    generateWithRetry,
+    runNode1_Autofill,
+    runNode2_Sentiment,
+    runNode3_SEOTitle,
+    runNode4_INCIParser,
+    runNode5_LegalSanitizer,
+    runNode6_Copywriter,
+    runNode7_Psychology,
+    runNode8_Scenographer,
+    runNode9_VisionAuditor,
+    runNode10_Sentinel
 };
