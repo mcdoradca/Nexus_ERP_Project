@@ -321,7 +321,11 @@ export const UnifiedProductPipelineView = ({
         setAutofillEanLoading(true);
         try {
             const res = await axios.get(`${API_URL}/api/products/autofill/${newProductForm.ean}`, { headers: { Authorization: `Bearer ${token}` } });
-            const { name, brand, sku, price, stock, baselinkerId, imageUrl, weight, length, width, height, taxRate, images, descriptionHtml, features, videoUrl, stockErpUnits, stockWmsUnits, allegroCategoryId } = res.data;
+            const { name, brand, sku, price, stock, baselinkerId, imageUrl, weight, length, width, height, taxRate, images, descriptionHtml, features, videoUrl, stockErpUnits, stockWmsUnits, allegroCategoryId, existingProductId } = res.data;
+            
+            if (existingProductId) {
+                setEditingProduct(existingProductId);
+            }
             
             let matchedBrandId = newProductForm.brandId;
             if (brand && typeof brand === 'string') {
