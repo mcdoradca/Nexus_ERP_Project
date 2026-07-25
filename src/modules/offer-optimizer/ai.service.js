@@ -1173,8 +1173,7 @@ async function runNode1_Autofill(ean, productName) {
         });
         const systemPrompt = getMasterPrompt(1);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}`;
-        const result = await generateWithRetry(model, prompt, 3, "Agent_1_Autofill");
-        return JSON.parse(result.response.text());
+        return await generateWithRetry(model, prompt, 3, "Agent_1_Autofill", true);
     } catch (err) {
         console.error("[Swarm Node 1] Błąd krytyczny:", err.message);
         throw err;
@@ -1191,8 +1190,7 @@ async function runNode2_Sentiment(ean, productName) {
         });
         const systemPrompt = getMasterPrompt(2);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}`;
-        const result = await generateWithRetry(model, prompt, 3, "Agent_2_Sentiment");
-        return JSON.parse(result.response.text());
+        return await generateWithRetry(model, prompt, 3, "Agent_2_Sentiment", true);
     } catch (err) {
         console.error("[Swarm Node 2] Błąd krytyczny:", err.message);
         throw err;
@@ -1209,8 +1207,7 @@ async function runNode3_SEOTitle(ean, productName, category = null) {
         });
         const systemPrompt = getMasterPrompt(3);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}\nKATEGORIA: ${category || 'Brak'}`;
-        const result = await generateWithRetry(model, prompt, 3, "Agent_3_SEOTitle");
-        return JSON.parse(result.response.text());
+        return await generateWithRetry(model, prompt, 3, "Agent_3_SEOTitle", true);
     } catch (err) {
         console.error("[Swarm Node 3] Błąd krytyczny:", err.message);
         throw err;
@@ -1226,8 +1223,7 @@ async function runNode4_INCIParser(inciString, ragKnowledge) {
         });
         const systemPrompt = getMasterPrompt(4);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nINCI: ${inciString}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
-        const result = await generateWithRetry(model, prompt, 3, "Agent_4_INCIParser");
-        return JSON.parse(result.response.text());
+        return await generateWithRetry(model, prompt, 3, "Agent_4_INCIParser", true);
     } catch (err) {
         console.error("[Swarm Node 4] Błąd krytyczny:", err.message);
         throw err;
@@ -1243,11 +1239,7 @@ async function runNode5_LegalSanitizer(productName, generatedContent, rawSentime
         });
         const systemPrompt = getMasterPrompt(5);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nKONTENT DO ANALIZY: ${JSON.stringify(generatedContent)}\nSUROWY SENTIMENT: ${JSON.stringify(rawSentiment)}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
-        const result = await generateWithRetry(model, prompt, 3, "Agent_5_LegalSanitizer");
-        
-        let responseText = result.response.text();
-        responseText = strictRegexMedicalFilter(responseText); // Tarcza Anty-Medyczna zawsze aktywna
-        return JSON.parse(responseText);
+        return await generateWithRetry(model, prompt, 3, "Agent_5_LegalSanitizer", true, strictRegexMedicalFilter);
     } catch (err) {
         console.error("[Swarm Node 5] Błąd krytyczny:", err.message);
         throw err;
@@ -1267,11 +1259,7 @@ async function runNode6_Copywriter(productName, aeoFeatures, toneGuidelines) {
         });
         const systemPrompt = getMasterPrompt(6);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nCECHY AEO: ${JSON.stringify(aeoFeatures)}\nWYTYCZNE TONU: ${JSON.stringify(toneGuidelines)}`;
-        const result = await generateWithRetry(model, prompt, 3, "Agent_6_Copywriter");
-        
-        let responseText = result.response.text();
-        responseText = strictRegexMedicalFilter(responseText); 
-        return JSON.parse(responseText);
+        return await generateWithRetry(model, prompt, 3, "Agent_6_Copywriter", true, strictRegexMedicalFilter);
     } catch (err) {
         console.error("[Swarm Node 6] Błąd krytyczny:", err.message);
         throw err;
@@ -1287,8 +1275,7 @@ async function runNode7_Psychology(productName, htmlDraft, sentimentData) {
         });
         const systemPrompt = getMasterPrompt(7);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nSZKIC HTML: ${JSON.stringify(htmlDraft)}\nSENTIMENT: ${JSON.stringify(sentimentData)}`;
-        const result = await generateWithRetry(model, prompt, 3, "Agent_7_Psychology");
-        return JSON.parse(result.response.text());
+        return await generateWithRetry(model, prompt, 3, "Agent_7_Psychology", true);
     } catch (err) {
         console.error("[Swarm Node 7] Błąd krytyczny:", err.message);
         throw err;
@@ -1304,8 +1291,7 @@ async function runNode8_Scenographer(productName, targetAudience) {
         });
         const systemPrompt = getMasterPrompt(8);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nGRUPA DOCELOWA: ${JSON.stringify(targetAudience)}`;
-        const result = await generateWithRetry(model, prompt, 3, "Agent_8_Scenographer");
-        return JSON.parse(result.response.text());
+        return await generateWithRetry(model, prompt, 3, "Agent_8_Scenographer", true);
     } catch (err) {
         console.error("[Swarm Node 8] Błąd krytyczny:", err.message);
         throw err;
@@ -1337,8 +1323,7 @@ async function runNode9_VisionAuditor(imageUrls) {
             }
         }
 
-        const result = await generateWithRetry(model, parts, 3, "Agent_9_VisionAuditor");
-        return JSON.parse(result.response.text());
+        return await generateWithRetry(model, parts, 3, "Agent_9_VisionAuditor", true);
     } catch (err) {
         console.error("[Swarm Node 9] Błąd krytyczny:", err.message);
         throw err;
@@ -1354,8 +1339,7 @@ async function runNode10_Sentinel(finalPayload, originalPimData) {
         });
         const systemPrompt = getMasterPrompt(10);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nGOTOWA OFERTA: ${JSON.stringify(finalPayload)}\nSUROWE DANE PIM: ${JSON.stringify(originalPimData)}`;
-        const result = await generateWithRetry(model, prompt, 3, "Agent_10_Sentinel");
-        return JSON.parse(result.response.text());
+        return await generateWithRetry(model, prompt, 3, "Agent_10_Sentinel", true);
     } catch (err) {
         console.error("[Swarm Node 10] Błąd krytyczny:", err.message);
         throw err;
