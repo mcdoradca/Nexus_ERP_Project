@@ -73,7 +73,7 @@ const withTimeout = (promise, ms, contextName = 'Unknown Model') => {
 /**
  * Exponential Backoff Retry Policy
  */
-async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId = "System_Agent") {
+async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId = "System_Agent", parseJson = false, filterFn = null) {
     let attempt = 0;
     const modelName = model.model || "gemini-model";
     const startTime = Date.now();
@@ -97,19 +97,40 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
                 console.error("[AiService] Błąd zapisu metryk telemetrii:", metricError.message);
             }
             
+            if (parseJson) {
+                let text = result.response.text();
+                
+                // Tarcza Anty-Medyczna lub inne filtry
+                if (typeof filterFn === 'function') {
+                    text = filterFn(text);
+                }
+                
+                // Oczyszczanie markdown przed parsowaniem JSON
+                let cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                try {
+                    return JSON.parse(cleanText);
+                } catch (parseError) {
+                    console.error(`[AiService] -> Błąd JSON.parse: ${parseError.message}`);
+                    console.error(`[AiService] -> Zwrócony payload: ${text}`);
+                    throw new Error(`JSON_PARSE_ERROR: ${parseError.message}`);
+                }
+            }
+            
             return result;
         } catch (error) {
             attempt++;
             const isRateLimit = error.status === 429 || (error.message && (error.message.includes('429') || error.message.includes('503')));
+            const isJsonError = error.message && error.message.includes('JSON_PARSE_ERROR');
+            
             console.error(`[AiService] -> BŁĄD w generateWithRetry (${modelName}) [Próba ${attempt}]:`, error.message);
             console.error(error.stack);
             
-            if (attempt >= maxRetries || (!isRateLimit && !(error.message && error.message.includes('timeout')))) {
+            if (attempt >= maxRetries || (!isRateLimit && !isJsonError && !(error.message && error.message.includes('timeout')))) {
                 console.error(`[AiService] -> Krytyczny błąd API, brak dalszych ponowień. Rzucam błąd wyżej.`);
                 throw error; // Fail fast for non-transient errors
             }
             const backoffMs = Math.pow(2, attempt) * 1500 + Math.random() * 1000;
-            console.log(`[AiService] ⚠️ ${modelName} - Wznawiam (Exponential Backoff) za ${Math.round(backoffMs)}ms...`);
+            console.log(`[AiService] ⚠️ ${modelName} - Wznawiam (Exponential Backoff / JSON Fix) za ${Math.round(backoffMs)}ms...`);
             await new Promise(res => setTimeout(res, backoffMs));
         }
     }
