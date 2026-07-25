@@ -541,11 +541,27 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
     try {
         const { ean } = req.params;
         
-        // 0. BaseLinker Integration (PRIORYTET)
+        // Inteligentne ustalanie kategorii Allegro ZANIM uderzymy w cokolwiek (bo to filar)
         const AllegroService = require('./modules/offer-optimizer/allegro.service');
+        let globalAllegroCatId = null;
+        
+        const existingProduct = await prisma.product.findUnique({ where: { ean } });
+        if (existingProduct && existingProduct.allegroCategoryId) {
+            globalAllegroCatId = existingProduct.allegroCategoryId;
+        }
+        if (!globalAllegroCatId) {
+            globalAllegroCatId = await AllegroService.findCategoryByEan(ean).catch(() => null) || null;
+        }
+
+        // 0. BaseLinker Integration (PRIORYTET)
         try {
             const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
             const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
+            
+            // Jeśli po EAN nie ma w Allegro, próbujemy jeszcze po nazwie z BaseLinkera
+            if (!globalAllegroCatId && deepData.name) {
+                globalAllegroCatId = await AllegroService.findMatchingCategoryByName(deepData.name).catch(() => null) || null;
+            }
             
             // Spróbujmy wyciągnąć brand
             let brandName = deepData.manufacturer || '';
@@ -572,10 +588,10 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
                 videoUrl: deepData.videoUrl,
                 stockErpUnits: deepData.stockErpUnits,
                 stockWmsUnits: deepData.stockWmsUnits,
-                allegroCategoryId: await AllegroService.findCategoryByEan(ean) || null
+                allegroCategoryId: globalAllegroCatId
             });
         } catch (blError) {
-            console.log('BaseLinker Fallback Error:', blError);
+            console.log('BaseLinker Fallback Error:', blError.message || blError);
         }
 
         // Helper dla darmowych baz uodporniający Nexusa na pady serwerów zewnętrznych.
@@ -591,25 +607,29 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
         // 1. Open Beauty Facts (Kosmetyki)
         let data = await safeFetch(`https://world.openbeautyfacts.org/api/v0/product/${ean}.json`);
         if (data && data.status === 1 && data.product) {
-            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '' });
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '', allegroCategoryId: globalAllegroCatId });
         }
 
         // 2. Open Food Facts (FMCG)
         data = await safeFetch(`https://world.openfoodfacts.org/api/v0/product/${ean}.json`);
         if (data && data.status === 1 && data.product) {
-            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '' });
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '', allegroCategoryId: globalAllegroCatId });
         }
         
         // 3. Open Product Facts (Inne)
         data = await safeFetch(`https://world.openproductfacts.org/api/v0/product/${ean}.json`);
         if (data && data.status === 1 && data.product) {
-            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '' });
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '', allegroCategoryId: globalAllegroCatId });
         }
 
         // 4. UPC Item DB (Globalny Mix)
         data = await safeFetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${ean}`);
         if (data && data.code === 'OK' && data.items && data.items.length > 0) {
-            return res.status(200).json({ name: data.items[0].title || '', brand: data.items[0].brand || '' });
+            return res.status(200).json({ name: data.items[0].title || '', brand: data.items[0].brand || '', allegroCategoryId: globalAllegroCatId });
+        }
+
+        if (globalAllegroCatId) {
+            return res.status(200).json({ name: '', brand: '', allegroCategoryId: globalAllegroCatId });
         }
 
         res.status(404).json({ error: 'Kod niezarejestrowany w żadnej 4 z darmowych baz OpenSource ani w asortymencie BaseLinkerze.' });
