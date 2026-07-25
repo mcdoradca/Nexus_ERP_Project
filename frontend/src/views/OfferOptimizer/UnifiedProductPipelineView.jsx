@@ -132,7 +132,7 @@ export const UnifiedProductPipelineView = ({
 
     const [liveTitle, setLiveTitle] = useState("");
     const [liveEan, setLiveEan] = useState("");
-    const [editorHtml, setEditorHtml] = useState({ opis1: "", opis2: "", opis3: "", opis4: "", opis5: "" });
+    const [editorHtml, setEditorHtml] = useState({ sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "" });
     const [editorKey, setEditorKey] = useState(0); 
     const [visionTickets, setVisionTickets] = useState([]);
     const [viewingImageUrl, setViewingImageUrl] = useState(null);
@@ -190,7 +190,7 @@ export const UnifiedProductPipelineView = ({
             if (data.type === 'PIPELINE_COMPLETE') {
                 setPipelineStatus('SUCCESS');
                 if (data.result) {
-                    setEditorHtml(data.result.editorHtml || { opis1: "", opis2: "", opis3: "", opis4: "", opis5: "" });
+                    setEditorHtml(data.result.editorHtml || { sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "" });
                     setLiveTitle(data.result.title || "");
                     setVisionTickets(data.result.visionTickets || []);
                     setEditorKey(prev => prev + 1);
@@ -793,7 +793,24 @@ export const UnifiedProductPipelineView = ({
                             <div className="space-y-8">
                                 {/* Tutaj wstawiamy komponenty EAN Pipeline z OfferOptimizerView */}
                                 <TitleValidator liveTitle={liveTitle} setLiveTitle={setLiveTitle} isRegeneratingTitle={isRegeneratingTitle} handleRegenerateTitle={() => {}} />
-                                <StrictWysiwyg editorHtml={editorHtml} setEditorHtml={setEditorHtml} editorKey={editorKey} />
+                                <div className="grid grid-cols-1 gap-6">
+                                    <div className="space-y-6">
+                                        {[1, 2, 3, 4, 5, 6].map((num) => (
+                                            <div key={num} className="bg-slate-50 border border-slate-200 p-4 rounded-md">
+                                                <h3 className="text-sm font-bold text-slate-500 mb-2 uppercase tracking-wider">
+                                                    Sekcja {num}
+                                                </h3>
+                                                <StrictWysiwyg 
+                                                    key={`${editorKey}-${num}`}
+                                                    initialContent={editorHtml[`sekcja${num}`]} 
+                                                    onChange={(newHtml) => {
+                                                        setEditorHtml(prev => ({ ...prev, [`sekcja${num}`]: newHtml }));
+                                                    }} 
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                                 <div className="grid grid-cols-1 gap-6">
                                     {visionTickets && visionTickets.length > 0 && visionTickets.map((ticket, idx) => (
                                         <PhotographicAuditorCard 

@@ -182,30 +182,32 @@ const analyzeSingle = async (req, res) => {
         if (product.offerDraft && Object.keys(product.offerDraft).length > 0 && !forceRegenerate) {
             console.log("[PIM] Zwracam zapisaną kopię roboczą z bazy!");
             
-            let opis1 = '', opis2 = '', opis3 = '', opis4 = '', opis5 = '';
+            let sekcja1 = '', sekcja2 = '', sekcja3 = '', sekcja4 = '', sekcja5 = '', sekcja6 = '';
             const draft = product.offerDraft;
             if (draft.htmlContent) {
                 if (typeof draft.htmlContent === 'string') {
-                    opis1 = draft.htmlContent;
+                    sekcja1 = draft.htmlContent;
                 } else if (typeof draft.htmlContent === 'object') {
-                    opis1 = draft.htmlContent.opis1 || '';
-                    opis2 = draft.htmlContent.opis2 || '';
-                    opis3 = draft.htmlContent.opis3 || '';
-                    opis4 = draft.htmlContent.opis4 || '';
-                    opis5 = draft.htmlContent.opis5 || '';
+                    sekcja1 = draft.htmlContent.sekcja1 || '';
+                    sekcja2 = draft.htmlContent.sekcja2 || '';
+                    sekcja3 = draft.htmlContent.sekcja3 || '';
+                    sekcja4 = draft.htmlContent.sekcja4 || '';
+                    sekcja5 = draft.htmlContent.sekcja5 || '';
+                    sekcja6 = draft.htmlContent.sekcja6 || '';
                 }
             } else {
-                opis1 = draft.opis1 || '';
-                opis2 = draft.opis2 || '';
-                opis3 = draft.opis3 || '';
-                opis4 = draft.opis4 || '';
-                opis5 = draft.opis5 || '';
+                sekcja1 = draft.sekcja1 || '';
+                sekcja2 = draft.sekcja2 || '';
+                sekcja3 = draft.sekcja3 || '';
+                sekcja4 = draft.sekcja4 || '';
+                sekcja5 = draft.sekcja5 || '';
+                sekcja6 = draft.sekcja6 || '';
             }
 
             return res.status(200).json({
                 title: product.offerDraft.title || product.name,
                 ean: product.ean,
-                htmlContent: { opis1, opis2, opis3, opis4, opis5 },
+                htmlContent: { sekcja1, sekcja2, sekcja3, sekcja4, sekcja5, sekcja6 },
                 images: (product.offerDraft.images || []).map(img => {
                     if (typeof img === 'string') return { originalUrl: img, isCompliant: true, alerts: [] };
                     return {
@@ -417,17 +419,25 @@ const exportToBaselinker = async (req, res) => {
             if (typeof draftData.htmlContent === 'string') {
                 newDescHtml = draftData.htmlContent;
             } else if (typeof draftData.htmlContent === 'object') {
-                newDescHtml = Object.values(draftData.htmlContent).join('');
+                newDescHtml = [
+                    draftData.htmlContent.sekcja1 || '',
+                    draftData.htmlContent.sekcja2 || '',
+                    draftData.htmlContent.sekcja3 || '',
+                    draftData.htmlContent.sekcja4 || '',
+                    draftData.htmlContent.sekcja5 || '',
+                    draftData.htmlContent.sekcja6 || ''
+                ].filter(Boolean).join('\n\n');
             }
         } else {
             // fallback if flat
             newDescHtml = [
-                draftData.opis1 || '',
-                draftData.opis2 || '',
-                draftData.opis3 || '',
-                draftData.opis4 || '',
-                draftData.opis5 || ''
-            ].join('');
+                draftData.sekcja1 || '',
+                draftData.sekcja2 || '',
+                draftData.sekcja3 || '',
+                draftData.sekcja4 || '',
+                draftData.sekcja5 || '',
+                draftData.sekcja6 || ''
+            ].filter(Boolean).join('\n\n');
         }
 
         const product = await prisma.product.update({
@@ -609,18 +619,18 @@ const checkPipelineStatus = async (req, res) => {
         // Wykrycie uszkodzonego/błędnego szkicu (np. stary "Błąd systemu GEO")
         const hasGeoError = product.offerDraft.htmlContent && 
             typeof product.offerDraft.htmlContent === 'object' && 
-            product.offerDraft.htmlContent.opis1 && 
-            product.offerDraft.htmlContent.opis1.includes('Błąd systemu GEO');
+            product.offerDraft.htmlContent.sekcja1 && 
+            product.offerDraft.htmlContent.sekcja1.includes('Błąd systemu GEO');
 
         if (hasGeoError) {
             return res.status(200).json({ status: 'ERROR', error: 'Poprzednia generacja zawierała błąd GEO. Uruchom ponowną generację dla tego EAN.' });
         }
 
-        // Weryfikacja czy opisy HTML (opis1-opis5) zostały rzeczywiście wygenerowane przez Agentów AI
+        // Weryfikacja czy opisy HTML zostały rzeczywiście wygenerowane przez Agentów AI
         const hasValidHtml = product.offerDraft.htmlContent && 
             typeof product.offerDraft.htmlContent === 'object' && 
-            product.offerDraft.htmlContent.opis1 && 
-            product.offerDraft.htmlContent.opis1.trim() !== '';
+            product.offerDraft.htmlContent.sekcja1 && 
+            product.offerDraft.htmlContent.sekcja1.trim() !== '';
 
         if (product.offerDraft.title && hasValidHtml) {
             const result = {

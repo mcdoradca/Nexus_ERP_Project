@@ -145,11 +145,11 @@ class BaseLinkerService {
             product_id: productId, // MUSI BYĆ, żeby aktualizować, a nie tworzyć duplikat!
             text_fields: {
                 "name": BaseLinkerService.encodeEmojis(draftData.title || "", false),
-                "description": BaseLinkerService.encodeEmojis(draftData.opis1 || "", true),
-                "description_extra1": BaseLinkerService.encodeEmojis(draftData.opis2 || "", true),
-                "description_extra2": BaseLinkerService.encodeEmojis(draftData.opis3 || "", true),
-                "description_extra3": BaseLinkerService.encodeEmojis(draftData.opis4 || "", true),
-                "description_extra4": BaseLinkerService.encodeEmojis(draftData.opis5 || "", true)
+                "description": BaseLinkerService.encodeEmojis(draftData.sekcja1 || "", true),
+                "description_extra1": BaseLinkerService.encodeEmojis(draftData.sekcja2 || "", true),
+                "description_extra2": BaseLinkerService.encodeEmojis(draftData.sekcja3 || "", true),
+                "description_extra3": BaseLinkerService.encodeEmojis(draftData.sekcja4 || "", true),
+                "description_extra4": BaseLinkerService.encodeEmojis((draftData.sekcja5 || "") + "\n\n" + (draftData.sekcja6 || ""), true)
             },
             images: imagesMap
         };

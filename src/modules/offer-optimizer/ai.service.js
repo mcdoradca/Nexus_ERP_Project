@@ -386,13 +386,14 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
                 htmlContent: {
                     type: "OBJECT",
                     properties: {
-                        opis1: { type: "STRING" },
-                        opis2: { type: "STRING" },
-                        opis3: { type: "STRING" },
-                        opis4: { type: "STRING" },
-                        opis5: { type: "STRING" }
+                        sekcja1: { type: "STRING" },
+                        sekcja2: { type: "STRING" },
+                        sekcja3: { type: "STRING" },
+                        sekcja4: { type: "STRING" },
+                        sekcja5: { type: "STRING" },
+                        sekcja6: { type: "STRING" }
                     },
-                    required: ["opis1", "opis2", "opis3", "opis4", "opis5"]
+                    required: ["sekcja1", "sekcja2", "sekcja3", "sekcja4", "sekcja5", "sekcja6"]
                 },
                 features: {
                     type: "ARRAY",
@@ -1059,13 +1060,14 @@ async function generateGEOTextContent(productName, aeoContent, intelligenceData,
                         htmlContent: {
                             type: "OBJECT",
                             properties: {
-                                opis1: { type: "STRING" },
-                                opis2: { type: "STRING" },
-                                opis3: { type: "STRING" },
-                                opis4: { type: "STRING" },
-                                opis5: { type: "STRING" }
+                                sekcja1: { type: "STRING" },
+                                sekcja2: { type: "STRING" },
+                                sekcja3: { type: "STRING" },
+                                sekcja4: { type: "STRING" },
+                                sekcja5: { type: "STRING" },
+                                sekcja6: { type: "STRING" }
                             },
-                            required: ["opis1", "opis2", "opis3", "opis4", "opis5"]
+                            required: ["sekcja1", "sekcja2", "sekcja3", "sekcja4", "sekcja5", "sekcja6"]
                         }
                     },
                     required: ["htmlContent"]
@@ -1117,13 +1119,14 @@ async function adaptToSegmentAndTone(productName, htmlContent, features, categor
                         htmlContent: {
                             type: "OBJECT",
                             properties: {
-                                opis1: { type: "STRING" },
-                                opis2: { type: "STRING" },
-                                opis3: { type: "STRING" },
-                                opis4: { type: "STRING" },
-                                opis5: { type: "STRING" }
+                                sekcja1: { type: "STRING" },
+                                sekcja2: { type: "STRING" },
+                                sekcja3: { type: "STRING" },
+                                sekcja4: { type: "STRING" },
+                                sekcja5: { type: "STRING" },
+                                sekcja6: { type: "STRING" }
                             },
-                            required: ["opis1", "opis2", "opis3", "opis4", "opis5"]
+                            required: ["sekcja1", "sekcja2", "sekcja3", "sekcja4", "sekcja5", "sekcja6"]
                         }
                     },
                     required: ["htmlContent"]
@@ -1140,11 +1143,12 @@ Zwróć uwagę na formatowanie i usunięcie zbitego tekstu (maksymalnie 3-4 lini
 Skład INCI (jeśli znajduje się w opis5) pozostaw w 100% niezmieniony.
 
 Wstępny Opis:
-Blok 1 (opis1): ${htmlContent.opis1 || ''}
-Blok 2 (opis2): ${htmlContent.opis2 || ''}
-Blok 3 (opis3): ${htmlContent.opis3 || ''}
-Blok 4 (opis4): ${htmlContent.opis4 || ''}
-Blok 5 (opis5): ${htmlContent.opis5 || ''}`;
+Blok 1 (sekcja1): ${htmlContent.sekcja1 || ''}
+Blok 2 (sekcja2): ${htmlContent.sekcja2 || ''}
+Blok 3 (sekcja3): ${htmlContent.sekcja3 || ''}
+Blok 4 (sekcja4): ${htmlContent.sekcja4 || ''}
+Blok 5 (sekcja5): ${htmlContent.sekcja5 || ''}
+Blok 6 (sekcja6): ${htmlContent.sekcja6 || ''}`;
 
         const result = await generateWithRetry(model, prompt, 3, "Agent_Segment_Tone");
         let text = result.response.text().replace(/```json/gi, '').replace(/```/g, '').trim();
