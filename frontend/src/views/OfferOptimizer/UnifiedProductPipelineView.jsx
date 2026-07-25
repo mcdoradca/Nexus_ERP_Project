@@ -842,7 +842,9 @@ export const UnifiedProductPipelineView = ({
                                             <div key={i} className="flex space-x-3 hover:bg-slate-800/30 px-1 py-0.5 rounded transition-colors">
                                                 <span className="text-slate-600 shrink-0">[{log.time}]</span>
                                                 <span className="text-indigo-400 shrink-0 font-bold">[{log.agentId}]</span>
-                                                <span className="text-emerald-400 break-words">{log.msg}</span>
+                                                <span className="text-emerald-400 break-words">
+                                                    {typeof log.msg === 'object' ? JSON.stringify(log.msg) : log.msg}
+                                                </span>
                                             </div>
                                         ))}
                                         {pipelineLogs.length === 0 && <div className="text-slate-600 italic mt-2">Oczekiwanie na strumień zdarzeń z węzłów Swarm...</div>}
