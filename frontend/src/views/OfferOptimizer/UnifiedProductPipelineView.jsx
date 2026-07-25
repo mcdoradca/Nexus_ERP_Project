@@ -381,6 +381,8 @@ export const UnifiedProductPipelineView = ({
     const labelClass = "text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block";
     const inputClass = "w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm font-bold rounded-sm px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner";
 
+    const filteredBrands = brands.filter(b => b.name && b.name.toLowerCase().includes((brandSearchTerm || '').toLowerCase()));
+
     return (
         <div className="flex-1 flex flex-col p-4 bg-slate-900 h-full w-full relative min-h-0 overflow-hidden">
             <div className="bg-slate-800 rounded-lg shadow-xl mb-4 shrink-0 flex items-center justify-between p-4 border border-slate-700">

@@ -566,7 +566,11 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
             // Spróbujmy wyciągnąć brand
             let brandName = deepData.manufacturer || '';
             if (!brandName && deepData.features) {
-                brandName = deepData.features['Marka'] || deepData.features['Producent'] || deepData.features['Brand'] || '';
+                const fKeys = Object.keys(deepData.features);
+                const markaKey = fKeys.find(k => k.toLowerCase().includes('marka') || k.toLowerCase().includes('producent') || k.toLowerCase().includes('brand'));
+                if (markaKey) {
+                    brandName = deepData.features[markaKey];
+                }
             }
 
             return res.status(200).json({ 
