@@ -573,13 +573,23 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
                 }
             }
 
+            let existingProductIdToReturn = existingProduct ? existingProduct.id : null;
+            if (!existingProductIdToReturn && deepData.baselinkerId) {
+                const byBl = await prisma.product.findUnique({ where: { baselinkerId: String(deepData.baselinkerId) } });
+                if (byBl) existingProductIdToReturn = byBl.id;
+            }
+            if (!existingProductIdToReturn && deepData.sku) {
+                const bySku = await prisma.product.findUnique({ where: { sku: deepData.sku } });
+                if (bySku) existingProductIdToReturn = bySku.id;
+            }
+
             return res.status(200).json({ 
                 name: deepData.name || '', 
                 brand: brandName, 
                 sku: deepData.sku || '',
                 price: deepData.price || 0, 
                 stock: deepData.stock || 0,
-                baselinkerId: productId,
+                baselinkerId: String(deepData.baselinkerId),
                 imageUrl: deepData.images && deepData.images.length > 0 ? deepData.images[0] : null,
                 images: deepData.images || [],
                 weight: deepData.weight,
@@ -587,13 +597,13 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
                 width: deepData.width,
                 height: deepData.height,
                 taxRate: deepData.taxRate,
-                descriptionHtml: deepData.description,
-                features: deepData.features,
+                descriptionHtml: deepData.description || '',
+                features: deepData.features || {},
                 videoUrl: deepData.videoUrl,
                 stockErpUnits: deepData.stockErpUnits,
                 stockWmsUnits: deepData.stockWmsUnits,
                 allegroCategoryId: globalAllegroCatId,
-                existingProductId: existingProduct ? existingProduct.id : null
+                existingProductId: existingProductIdToReturn
             });
         } catch (blError) {
             console.log('BaseLinker Fallback Error:', blError.message || blError);
@@ -678,14 +688,15 @@ app.post('/api/products', authenticateToken, async (req, res) => {
                 images: req.body.images || [],
                 descriptionHtml: req.body.descriptionHtml || null,
                 features: req.body.features || {},
-                videoUrl: req.body.videoUrl || null
+                videoUrl: req.body.videoUrl || null,
+                allegroCategoryId: req.body.allegroCategoryId || null
             }
         });
         
         EventBus.publish('PRODUCT_DATA_UPDATED', { product: newProduct, source: 'PIM_UI_CREATE' });
         
         res.status(201).json(newProduct);
-    } catch (error) { res.status(500).json({ error: 'Blad', details: error.message }); }
+    } catch (error) { res.status(500).json({ error: 'Blad zapisu w bazie danych (Prisma): ' + error.message, details: error.message }); }
 });
 
 app.patch('/api/products/:id', authenticateToken, async (req, res) => {
@@ -734,7 +745,7 @@ app.patch('/api/products/:id', authenticateToken, async (req, res) => {
         res.status(200).json(updatedProduct);
     } catch (error) { 
         console.error("PATCH error:", error);
-        res.status(500).json({ error: 'Blad edycji produktu' }); 
+        res.status(500).json({ error: 'Blad edycji produktu: ' + error.message, details: error.message }); 
     }
 });
 
