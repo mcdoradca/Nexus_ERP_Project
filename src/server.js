@@ -542,6 +542,7 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
         const { ean } = req.params;
         
         // 0. BaseLinker Integration (PRIORYTET)
+        const AllegroService = require('./modules/offer-optimizer/allegro.service');
         try {
             const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
             const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
@@ -558,19 +559,20 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
                 sku: deepData.sku || '',
                 price: deepData.price || 0, 
                 stock: deepData.stock || 0,
-                baselinkerId: deepData.baselinkerId,
-                imageUrl: deepData.images && deepData.images.length > 0 ? deepData.images[0] : '',
+                baselinkerId: productId,
+                imageUrl: deepData.images && deepData.images.length > 0 ? deepData.images[0] : null,
+                images: deepData.images || [],
                 weight: deepData.weight,
                 length: deepData.length,
                 width: deepData.width,
                 height: deepData.height,
                 taxRate: deepData.taxRate,
-                images: deepData.images,
-                descriptionHtml: deepData.descriptionHtml,
+                descriptionHtml: deepData.description,
                 features: deepData.features,
                 videoUrl: deepData.videoUrl,
                 stockErpUnits: deepData.stockErpUnits,
-                stockWmsUnits: deepData.stockWmsUnits
+                stockWmsUnits: deepData.stockWmsUnits,
+                allegroCategoryId: await AllegroService.findCategoryByEan(ean) || null
             });
         } catch (blError) {
             console.log('BaseLinker Fallback Error:', blError);

@@ -6,6 +6,8 @@ const aiMetricsService = require('../../core/ai.metrics.service');
 const BaseLinkerService = require('./baselinker.service');
 const AiService = require('./ai.service');
 const socketService = require('../../core/socket');
+const AllegroService = require('./allegro.service');
+const OsintScraperService = require('./osint.scraper.service');
 
 // Gemini Setup for Orchestrator
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -156,7 +158,11 @@ class SupervisorService {
         // ==========================================
         broadcastStatus("FAZA_1_GROUNDING", ["Agent_1_Autofill", "Agent_2_Sentiment", "Agent_3_SEOTitle"], { Agent_1_Autofill: "IN_PROGRESS" });
         
-        const autofillData = await AiService.runNode1_Autofill(ean, product.name);
+        console.log(`[Supervisor] Pobieranie danych kaskadowych dla Agenta 1 (EAN: ${ean})`);
+        const allegroData = await AllegroService.getProductParametersByEan(ean);
+        const scrapedText = await OsintScraperService.searchAndExtract(ean, product.name);
+        
+        const autofillData = await AiService.runNode1_Autofill(ean, product.name, product.features, allegroData, scrapedText);
         if (autofillData.missing_critical_data) {
             broadcastStatus("FAZA_1_GROUNDING", [], {}, "HALTED", "Brak kluczowych danych EAN/SDS - przerwano potok.");
             throw new Error("HITL_ALERT: Agent 1 zgłosił brak krytycznych danych technicznych.");

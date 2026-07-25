@@ -321,7 +321,7 @@ export const UnifiedProductPipelineView = ({
         setAutofillEanLoading(true);
         try {
             const res = await axios.get(`${API_URL}/api/products/autofill/${newProductForm.ean}`, { headers: { Authorization: `Bearer ${token}` } });
-            const { name, brand, sku, price, stock, baselinkerId, imageUrl, weight, length, width, height, taxRate, images, descriptionHtml, features, videoUrl, stockErpUnits, stockWmsUnits } = res.data;
+            const { name, brand, sku, price, stock, baselinkerId, imageUrl, weight, length, width, height, taxRate, images, descriptionHtml, features, videoUrl, stockErpUnits, stockWmsUnits, allegroCategoryId } = res.data;
             
             let matchedBrandId = newProductForm.brandId;
             if (brand && typeof brand === 'string') {
@@ -366,7 +366,8 @@ export const UnifiedProductPipelineView = ({
                 features: features || prev.features,
                 videoUrl: videoUrl || prev.videoUrl,
                 stockErpUnits: stockErpUnits !== undefined ? stockErpUnits : prev.stockErpUnits,
-                stockWmsUnits: stockWmsUnits !== undefined ? stockWmsUnits : prev.stockWmsUnits
+                stockWmsUnits: stockWmsUnits !== undefined ? stockWmsUnits : prev.stockWmsUnits,
+                allegroCategoryId: allegroCategoryId || prev.allegroCategoryId
             }));
         } catch (err) {
             const debugInfo = err.response?.data?.debug;

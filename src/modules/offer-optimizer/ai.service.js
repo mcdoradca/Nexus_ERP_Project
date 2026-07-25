@@ -1182,16 +1182,15 @@ Blok 6 (sekcja6): ${htmlContent.sekcja6 || ''}`;
 // ARCHITEKTURA SWARM V3 - WĘZŁY 1-5 (BADANIA I BEZPIECZEŃSTWO PRAWNE)
 // ============================================================================
 
-async function runNode1_Autofill(ean, productName) {
+async function runNode1_Autofill(ean, productName, productFeatures = {}, allegroData = {}, scrapedText = "") {
     console.log(`[Swarm Node 1] PIM Autofill start: EAN ${ean}`);
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
-            tools: [{ googleSearch: {} }],
             generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(1);
-        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}`;
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}\n\n--- DANE Z BASELINKERA ---\n${JSON.stringify(productFeatures, null, 2)}\n\n--- DANE Z ALLEGRO ---\n${JSON.stringify(allegroData, null, 2)}\n\n--- ZNALEZIONY TEKST (OSINT) ---\n${scrapedText}`;
         return await generateWithRetry(model, prompt, 3, "Agent_1_Autofill", true);
     } catch (err) {
         console.error("[Swarm Node 1] Błąd krytyczny:", err.message);
