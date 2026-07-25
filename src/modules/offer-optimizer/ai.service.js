@@ -120,7 +120,8 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
                     return JSON.parse(cleanText);
                 } catch (parseError) {
                     broadcastLog(`Błąd parsowania JSON: ${parseError.message}`);
-                    throw new Error(`JSON_PARSE_ERROR: ${parseError.message}`);
+                    console.error(`[AiService] SUROWY PAYLOAD: ${cleanText}`); // dla debugowania w konsoli Node
+                    throw new Error(`JSON_PARSE_ERROR: ${parseError.message} | Payload snippet: ${cleanText.substring(0, 100)}`);
                 }
             }
             
@@ -137,6 +138,16 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
                 broadcastLog(`Krytyczny błąd API, brak dalszych ponowień. Przerwano.`);
                 throw error; // Fail fast for non-transient errors
             }
+            
+            if (isJsonError) {
+                const repairPrompt = "\n\nCRITICAL INSTRUCTION: Poprzednia próba wygenerowała uszkodzony JSON (JSON_PARSE_ERROR). Upewnij się, że zwracasz w 100% poprawny obiekt JSON. Użyj ucieczki (escape) dla cudzysłowów wewnątrz stringów (\\\") i unikaj znaków nowej linii bezpośrednio w wartościach tekstowych!";
+                if (typeof promptOrParts === 'string') {
+                    promptOrParts += repairPrompt;
+                } else if (Array.isArray(promptOrParts)) {
+                    promptOrParts.push(repairPrompt);
+                }
+            }
+            
             const backoffMs = Math.pow(2, attempt) * 1500 + Math.random() * 1000;
             broadcastLog(`⚠️ Wznawiam (Exponential Backoff / Naprawa Błędu) za ${Math.round(backoffMs)}ms...`);
             await new Promise(res => setTimeout(res, backoffMs));
