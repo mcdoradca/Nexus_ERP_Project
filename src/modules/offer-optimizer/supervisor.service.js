@@ -170,7 +170,7 @@ class SupervisorService {
         const inciString = autofillData.inci_ingredients || "Brak podanego INCI w danych PIM.";
         const inciAEOData = await AiService.runNode4_INCIParser(inciString, inciKnowledge);
         
-        if (inciAEOData.status === "INGREDIENT_NOT_COSMETIC") {
+        if (inciAEOData.ingredient_gate_status === "INGREDIENT_NOT_COSMETIC") {
             broadcastStatus("FAZA_2_LEGAL_SHIELD", [], {}, "HALTED", "Wykryto substancję leczniczą/zakazaną.");
             throw new Error("HITL_ALERT: Agent 4 zablokował produkt (nie-kosmetyk).");
         }
@@ -200,7 +200,7 @@ class SupervisorService {
         const images = product.images || [];
         const visionData = images.length > 0 ? await AiService.runNode9_VisionAuditor(images) : { status: "NO_IMAGES", passed: true };
         
-        if (visionData.passed === false) {
+        if (visionData.vision_audit_status !== "PASSED") {
              broadcastStatus("FAZA_4_AUDIT", [], {}, "HALTED", "Błąd tła lub brak etykiety AI (Vision Auditor).");
              throw new Error("HITL_ALERT: Agent 9 zablokował ofertę z powodu grafik.");
         }
@@ -211,13 +211,13 @@ class SupervisorService {
         const finalPayload = {
             title: seoData.seo_title || product.name,
             attributes: autofillData,
-            htmlContent: psychologyData.htmlContent || copywriterData,
+            htmlContent: psychologyData,
             scenography: scenographerData
         };
 
         const sentinelData = await AiService.runNode10_Sentinel(finalPayload, autofillData);
         
-        if (sentinelData.status === "BLOCKED_DUE_TO_NON_COMPLIANCE") {
+        if (sentinelData.final_verdict === "BLOCKED_DUE_TO_NON_COMPLIANCE") {
             broadcastStatus("FAZA_4_AUDIT", [], {}, "HALTED", "Sentinel zablokował ostateczną ofertę. Wymagana interwencja człowieka.");
             throw new Error(`HITL_ALERT: Agent 10 odrzucił generację. Powód: ${sentinelData.reason}`);
         }
