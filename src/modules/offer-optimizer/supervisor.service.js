@@ -67,10 +67,21 @@ class SupervisorService {
       
       if (task.taskType === 'EAN_PIPELINE') {
           const finalProduct = await prisma.product.findUnique({ where: { ean: task.ean } });
+          
+          let resultPayload = {};
+          if (finalProduct && finalProduct.offerDraft) {
+               const draft = typeof finalProduct.offerDraft === 'string' ? JSON.parse(finalProduct.offerDraft) : finalProduct.offerDraft;
+               resultPayload = {
+                   editorHtml: draft.htmlContent,
+                   title: draft.title,
+                   visionTickets: draft.visionTickets || []
+               };
+          }
+          
           socketService.broadcast('nexus-notification', {
               type: 'PIPELINE_COMPLETE',
               ean: task.ean,
-              result: finalProduct
+              result: resultPayload
           });
       }
     } catch (error) {
@@ -200,9 +211,30 @@ class SupervisorService {
         const images = product.images || [];
         const visionData = images.length > 0 ? await AiService.runNode9_VisionAuditor(images) : { status: "NO_IMAGES", passed: true };
         
+        let visionTickets = [];
         if (visionData.vision_audit_status !== "PASSED") {
-             broadcastStatus("FAZA_4_AUDIT", [], {}, "HALTED", "Błąd tła lub brak etykiety AI (Vision Auditor).");
-             throw new Error("HITL_ALERT: Agent 9 zablokował ofertę z powodu grafik.");
+             broadcastStatus("FAZA_4_AUDIT", ["Agent_9_VisionAuditor"], { Agent_9_VisionAuditor: "WARNING" }, "WARNING", "Błąd tła lub brak etykiety AI (Vision Auditor).");
+             
+             let reasons = [];
+             if (visionData.rejection_reasons && Array.isArray(visionData.rejection_reasons) && visionData.rejection_reasons.length > 0) {
+                 reasons = visionData.rejection_reasons;
+             } else if (visionData.action_required) {
+                 reasons = [visionData.action_required];
+             } else {
+                 reasons = ["Wymagana manualna interwencja operatora (Audyt Graficzny)"];
+             }
+             
+             // Generowanie ticketów na podstawie obrazów lub jako ogólny alert
+             if (images.length > 0) {
+                 visionTickets = images.map((url, i) => ({
+                     originalUrl: url,
+                     alerts: reasons,
+                     isCompliant: false,
+                     replacedUrl: null
+                 }));
+             } else {
+                 visionTickets = [{ originalUrl: "Audyt Graficzny", alerts: reasons, isCompliant: false, replacedUrl: null }];
+             }
         }
 
         broadcastStatus("FAZA_4_AUDIT", ["Agent_10_Sentinel"], { Agent_9_VisionAuditor: "COMPLETED", Agent_10_Sentinel: "IN_PROGRESS" });
@@ -212,14 +244,33 @@ class SupervisorService {
             title: seoData.seo_title || product.name,
             attributes: autofillData,
             htmlContent: psychologyData,
-            scenography: scenographerData
+            scenography: scenographerData,
+            visionTickets: visionTickets
         };
 
         const sentinelData = await AiService.runNode10_Sentinel(finalPayload, autofillData);
         
         if (sentinelData.final_verdict === "BLOCKED_DUE_TO_NON_COMPLIANCE") {
-            broadcastStatus("FAZA_4_AUDIT", [], {}, "HALTED", "Sentinel zablokował ostateczną ofertę. Wymagana interwencja człowieka.");
-            throw new Error(`HITL_ALERT: Agent 10 odrzucił generację. Powód: ${sentinelData.reason}`);
+            broadcastStatus("FAZA_4_AUDIT", [], {}, "WARNING", "Sentinel zablokował ostateczną ofertę. Wymagana interwencja człowieka.");
+            
+            let sentinelReasons = [];
+            if (sentinelData.blocking_errors && Array.isArray(sentinelData.blocking_errors) && sentinelData.blocking_errors.length > 0) {
+                sentinelReasons = sentinelData.blocking_errors;
+            } else if (sentinelData.reason) {
+                sentinelReasons = [sentinelData.reason];
+            } else {
+                sentinelReasons = ["Wykryto halucynacje lub niezgodność z prawem."];
+            }
+            
+            visionTickets.push({
+                originalUrl: "Audyt Sentinel - Wykryto błędy w tekście",
+                alerts: sentinelReasons,
+                isCompliant: false,
+                replacedUrl: null
+            });
+            
+            // Zaktualizuj payload o nowe błędy
+            finalPayload.visionTickets = visionTickets;
         }
 
         // Zapis do bazy
