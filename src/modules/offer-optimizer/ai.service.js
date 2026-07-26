@@ -771,9 +771,9 @@ function getPaddingForSlot(index) {
     }
     const layouts = [
         { paddingTop: "0.15", paddingRight: "0.45", paddingBottom: "0.25", paddingLeft: "0.15" },
-        { paddingTop: "0.20", paddingRight: "0.15", paddingBottom: "0.35", paddingLeft: "0.50" },
-        { paddingTop: "0.40", paddingRight: "0.55", paddingBottom: "0.00", paddingLeft: "0.05" },
-        { paddingTop: "0.05", paddingRight: "0.10", paddingBottom: "0.40", paddingLeft: "0.55" }
+        { paddingTop: "0.20", paddingRight: "0.15", paddingBottom: "0.35", paddingLeft: "0.49" },
+        { paddingTop: "0.40", paddingRight: "0.49", paddingBottom: "0.00", paddingLeft: "0.05" },
+        { paddingTop: "0.05", paddingRight: "0.10", paddingBottom: "0.40", paddingLeft: "0.49" }
     ];
     return layouts[(index - 1) % layouts.length];
 }

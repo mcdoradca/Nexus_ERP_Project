@@ -311,16 +311,14 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                     <Maximize2 className="w-3.5 h-3.5 mr-1" />
                     Powiększ
                 </button>
-                {index !== 0 && (
-                    <button 
-                        onClick={handleGenerateLifestyle}
-                        disabled={isGeneratingAi}
-                        className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 hover:text-indigo-600 transition-colors flex justify-center items-center"
-                    >
-                        {isGeneratingAi ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
-                        Generuj AI
-                    </button>
-                )}
+                <button 
+                    onClick={handleGenerateLifestyle}
+                    disabled={isGeneratingAi}
+                    className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 hover:text-indigo-600 transition-colors flex justify-center items-center"
+                >
+                    {isGeneratingAi ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
+                    Generuj AI
+                </button>
                 <button 
                     onClick={() => fileInputRef.current && fileInputRef.current.click()}
                     className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 hover:text-emerald-600 transition-colors flex justify-center items-center"
