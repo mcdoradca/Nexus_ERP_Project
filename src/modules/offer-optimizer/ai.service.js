@@ -746,7 +746,7 @@ DANE PRODUKTU Z PIM:
 ${productDetailsText}
 
 WYTYCZNE DLA SLOTU #1 (MINIATURA): 
-Zwróć wyłącznie "pure solid white background, rgb 255 255 255, completely flat white, no shadows" i umieść na nim od 1 do max 3 głównych składników z opisu (np. "pure solid white background, rgb 255 255 255, no shadows, fresh aloe leaves, charcoal pieces"). Żadnego innego tła!
+Zwróć wyłącznie "isolated on absolute pure white background, #FFFFFF, high key studio lighting, brilliant white surface, no shadows" i umieść na nim od 1 do max 3 głównych składników z opisu (np. "isolated on absolute pure white background, #FFFFFF, high key studio lighting, brilliant white surface, no shadows, scattered fresh aloe leaves, small charcoal pieces"). Żadnego innego tła! Tło musi pozostać w 100% białe.
 Zwróć tylko listę tagów po przecinku.`;
         } else {
             promptInstruction = `Jesteś awangardowym 'Location Scoutem' (wyszukiwaczem plenerów) do lifestylowych sesji zdjęciowych. Twoim zadaniem jest wygenerować JEDEN ultrakrótki prompt (max 20 słów) po angielsku dla API generatora obrazów.
@@ -877,7 +877,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     
     let negativePrompt = '';
     if (imageIndex === 0) {
-        negativePrompt = 'flatlay, text, duplicate products, weird shapes, people, hands, shadows, drop shadows, grey background, gradients, dark spots, colored background, blurry background, bokeh';
+        negativePrompt = 'flatlay, text, duplicate products, weird shapes, people, hands, shadows, drop shadows, grey background, dark background, gradients, dark spots, colored background, blurry background, bokeh, dark lighting, room, wall, floor';
     } else {
         negativePrompt = 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay';
     }
