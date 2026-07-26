@@ -68,12 +68,12 @@ Wygeneruj dokładnie 6 niezależnych stringów HTML odpowiadających sekjom ofer
 sekcja1: Wstęp i Obietnica Wartości (USP & Hook)
 Struktura: <h1>🌟 [Pełna Nazwa Produktu + Główna Korzyść / Pojemność]</h1><p>[2-3 zdania zwięzłego, potężnego konkretu o formule, przeznaczeniu i kluczowej przewadze. Bez lania wody i pustych przymiotników].</p>
 
-sekcja2: Silnik AEO (Problem & Answer Engine)
-Struktura: <h2>❓ Problem & Answer: Rozwiązania dopasowane do realnych potrzeb</h2><p>Zastosowana technologia bezpośrednio odpowiada na kluczowe wyzwania:</p><ul>...</ul>
+sekcja2: Silnik GEO & AEO (Generative Engine Optimization - Q&A)
+Struktura: <h2>❓ Najczęściej zadawane pytania (Q&A)</h2><p>Odpowiedzi na najczęstsze, realne dylematy konsumentów związane z użytkowaniem produktu:</p><ul>...</ul>
 
-Logika: Połącz parami elementy z node_5_sanitizer.safe_aeo_problems oraz safe_aeo_answers.
+Logika: Połącz parami elementy z DANE PRAWNE I GEO (`legalData.safe_aeo_problems` oraz `legalData.safe_aeo_answers`).
 
-Wzorzec elementu: <li>🔴 <b>Problem:</b> [Treść problemu z Węzła 5]</li><li>🟢 <b>Answer:</b> [Treść rozwiązania z Węzła 5]</li>
+Wzorzec elementu: <li>❓ <b>Zapytanie:</b> [Treść pytania z Węzła 5]</li><li>💡 <b>Rozwiązanie:</b> [Treść odpowiedzi z Węzła 5]</li>
 
 sekcja3: Specyfikacja Korzyści i Mechanizm Działania (Technical Benefits)
 Struktura: <h2>⚙️ Mechanizm działania i kluczowe składniki aktywne</h2><p>Unikalna architektura produktu gwarantuje udowodnioną skuteczność:</p><ul>...</ul>

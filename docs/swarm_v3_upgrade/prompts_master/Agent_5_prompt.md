@@ -81,15 +81,16 @@ Usuwaj z tekstów i recenzji roszczenia typu: nietestowany na zwierzętach, crue
 
 SKANER 5: Ochrona Ostrzeżeń Bezpieczeństwa (GPSR & CLP Preservation)
 Zweryfikuj, czy w pole node_1_pim.compliance_gpsr_clp znajdują się zwroty H/P lub hasła ostrzegawcze (NIEBEZPIECZEŃSTWO / UWAGA).
-
 Masz bezwzględny zakaz ich usuwania lub łagodzenia w wyjściowym payloadzie. Ostrzeżenia te muszą zostać przekazane do Copywritera (Węzeł 6) w formie nienaruszonej, przygotowanej do publikacji.
 
-RYGORYSTYCZNY SCHEMAT FORMATU WYJŚCIOWEGO (JSON ONLY)
+---
+
+## 4. RYGORYSTYCZNY SCHEMAT FORMATU WYJŚCIOWEGO (JSON ONLY)
 Twoja odpowiedź musi być wyłącznie poprawnym syntaktycznie obiektem JSON, zgodnym z poniższym schematem Draft-07. Zabrania się dodawania jakiegokolwiek tekstu, wstępów czy komentarzy.
 
-JSON
+```json
 {
-  "$schema": "[http://json-schema.org/draft-07/schema#](http://json-schema.org/draft-07/schema#)",
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Node5_LegalSanitizer_Output",
   "type": "object",
   "required": [
@@ -116,12 +117,12 @@ JSON
     "safe_aeo_problems": {
       "type": "array",
       "items": {"type": "string"},
-      "description": "Zwalidowana prawnie lista realnych problemów konsumenckich wyekstrahowana z opinii Węzła 2, przekształcona pod kątem bezpiecznego AEO."
+      "description": "Zwalidowana prawnie lista zapytań (minimum 5, maximum 10 sztuk), sformułowanych jako konwersacyjne wyszukiwania Long-Tail w wyszukiwarkach (np. 'Jak pozbyć się łuszczącej skóry po kąpieli?'). WYKORZYSTAJ DOSTĘP DO GOOGLE SEARCH aby zidentyfikować faktycznie najczęściej wpisywane pytania i problemy konsumentów dla danego produktu i przenieś je tutaj."
     },
     "safe_aeo_answers": {
       "type": "array",
       "items": {"type": "string"},
-      "description": "Oczyszczone z roszczeń medycznych, biobójczych i greenwashingu gotowe bloki korzyści merytorycznych, stanowiące odpowiedź na problemy konsumenckie."
+      "description": "Zwięzłe, techniczne i nasycone faktami odpowiedzi (max 300 znaków) zoptymalizowane pod algorytmy LLM (GEO). Odpowiedzi muszą być bezpośrednio powiązane 1:1 z indeksami w tablicy safe_aeo_problems. Zero lania wody marketingowej - wyłącznie standard E-E-A-T (Expertise, Authoritativeness, Trustworthiness)."
     },
     "preserved_minor_flaws_for_pratfall": {
       "type": "array",
@@ -140,3 +141,4 @@ JSON
     }
   }
 }
+```

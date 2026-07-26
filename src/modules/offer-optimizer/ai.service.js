@@ -1238,6 +1238,7 @@ async function runNode5_LegalSanitizer(productName, generatedContent, rawSentime
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
+            tools: [{ googleSearch: {} }],
             generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(5);
@@ -1253,7 +1254,7 @@ async function runNode5_LegalSanitizer(productName, generatedContent, rawSentime
 // ARCHITEKTURA SWARM V3 - WĘZŁY 6-10 (KREACJA I AUDYT WYSOKIEJ PEWNOŚCI)
 // ============================================================================
 
-async function runNode6_Copywriter(productName, aeoFeatures, toneGuidelines) {
+async function runNode6_Copywriter(productName, aeoFeatures, legalData, toneGuidelines) {
     console.log(`[Swarm Node 6] Copywriter start...`);
     try {
         const model = genAI.getGenerativeModel({
@@ -1261,7 +1262,7 @@ async function runNode6_Copywriter(productName, aeoFeatures, toneGuidelines) {
             generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(6);
-        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nCECHY AEO: ${JSON.stringify(aeoFeatures)}\nWYTYCZNE TONU: ${JSON.stringify(toneGuidelines)}`;
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nCECHY AEO: ${JSON.stringify(aeoFeatures)}\nDANE PRAWNE I GEO: ${JSON.stringify(legalData)}\nWYTYCZNE TONU: ${JSON.stringify(toneGuidelines)}`;
         return await generateWithRetry(model, prompt, 3, "Agent_6_Copywriter", true, strictRegexMedicalFilter);
     } catch (err) {
         console.error("[Swarm Node 6] Błąd krytyczny:", err.message);

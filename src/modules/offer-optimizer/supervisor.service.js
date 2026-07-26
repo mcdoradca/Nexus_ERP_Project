@@ -203,7 +203,9 @@ class SupervisorService {
         // FAZA 3: CREATION (Copy & Psycho)
         // ==========================================
         broadcastStatus("FAZA_3_CREATION", ["Agent_6_Copywriter", "Agent_7_Psychology", "Agent_8_Scenographer"], { Agent_5_LegalSanitizer: "COMPLETED", Agent_6_Copywriter: "IN_PROGRESS" });
-        const copywriterData = await AiService.runNode6_Copywriter(product.name, inciAEOData, { tone: "Ekspercki i bezpieczny" });
+        console.log(`[Supervisor] Uruchamiam Agenta 6 (Copywriter). Przekazuję inciAEOData oraz legalData...`);
+        const copywriterData = await AiService.runNode6_Copywriter(product.name, inciAEOData, legalData, { tone: "Ekspercki i bezpieczny" });
+        console.log(`[Supervisor] Agent 6 (Copywriter) zakończył pracę pomyślnie.`);
         
         broadcastStatus("FAZA_3_CREATION", ["Agent_7_Psychology", "Agent_8_Scenographer"], { Agent_6_Copywriter: "COMPLETED", Agent_7_Psychology: "IN_PROGRESS" });
         const psychologyData = await AiService.runNode7_Psychology(product.name, copywriterData, legalData);
