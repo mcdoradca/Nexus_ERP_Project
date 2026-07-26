@@ -267,6 +267,28 @@ export const UnifiedProductPipelineView = ({
     };
 
     // Trigger Supervisor Pipeline
+    const handleRegenerateTitle = async () => {
+        if (!liveEan || isRegeneratingTitle) return;
+        setIsRegeneratingTitle(true);
+        try {
+            const res = await fetch(`${API_URL}/api/offer-optimizer/regenerate-title`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ ean: liveEan, currentTitle: liveTitle })
+            });
+            const data = await res.json();
+            if (res.ok && data.title) {
+                setLiveTitle(data.title);
+            } else {
+                alert("Błąd: " + (data.error || "Nie udało się odświeżyć tytułu."));
+            }
+        } catch {
+            alert("Błąd komunikacji z serwerem regeneracji.");
+        } finally {
+            setIsRegeneratingTitle(false);
+        }
+    };
+
     const handleTriggerPipeline = async () => {
         try {
             // Najpierw zapisujemy formularz PIM
