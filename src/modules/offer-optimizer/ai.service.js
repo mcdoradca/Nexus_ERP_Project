@@ -154,7 +154,7 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
                     promptOrParts.push(repairPrompt);
                 }
             } else if (isRecitation) {
-                const repairPrompt = "\n\nCRITICAL INSTRUCTION: Poprzednia próba została zablokowana przez filtr RECITATION. Musisz BEZWZGLĘDNIE PARAFRAZOWAĆ cały tekst. Nie używaj ani jednego zdania, które brzmi identycznie jak tekst źródłowy (OSINT) lub jakiekolwiek dane wejściowe. Opisz wszystko całkowicie własnymi słowami!";
+                const repairPrompt = "\n\nCRITICAL INSTRUCTION: Poprzednia próba została zablokowana przez filtr RECITATION. UWAGA: Parametry techniczne (np. rodzaj, waga), nazwy własne oraz skład INCI MUSISZ zachować w oryginalnym brzmieniu! Zablokowanie nastąpiło przez zbyt dosłowne kopiowanie długich bloków tekstu opisowego. Zamiast kopiować opisy ze źródła, użyj własnych słów TYLKO dla długich form tekstowych (SEO, marketing), a twarde dane techniczne kopiuj 1:1.";
                 if (typeof promptOrParts === 'string') {
                     promptOrParts += repairPrompt;
                 } else if (Array.isArray(promptOrParts)) {
@@ -1184,7 +1184,7 @@ async function runNode1_Autofill(ean, productName, productFeatures = {}, allegro
         const systemPrompt = getMasterPrompt(1);
         const prompt = `${systemPrompt}
 
-CRITICAL INSTRUCTION: Do NOT copy verbatim any text from the OSINT scraped text. ALWAYS PARAPHRASE and summarize information in your own words to avoid copyright filters (RECITATION error).
+CRITICAL INSTRUCTION: Do NOT copy long descriptive texts verbatim from OSINT. Paraphrase descriptions. HOWEVER, for technical parameters, dimensions, weight, INCI, and specific dictionary values, you MUST extract and use them exactly as they are without modification.
 
 --- DANE WEJŚCIOWE ---
 PRODUKT: ${productName}
