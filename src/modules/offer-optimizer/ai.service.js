@@ -731,31 +731,30 @@ async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0
                     type: "OBJECT",
                     properties: {
                         prompt: { type: "STRING" },
-                        visualTrendReport: { type: "STRING" }
+                        visualTrendReport: { type: "STRING" },
+                        paddingTop: { type: "STRING" },
+                        paddingRight: { type: "STRING" },
+                        paddingBottom: { type: "STRING" },
+                        paddingLeft: { type: "STRING" }
                     },
-                    required: ["prompt", "visualTrendReport"]
+                    required: ["prompt", "visualTrendReport", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft"]
                 }
             }
         });
 
-        const promptInstruction = `Jesteś ekspertskim dyrektorem artystycznym AI. Twój cel to stworzenie spersonalizowanego opisu tła dla Photoroom API dla produktu.
+        const promptInstruction = `Jesteś ekspertskim dyrektorem artystycznym AI. Twój cel to stworzenie spersonalizowanego opisu tła dla Photoroom API. Pamiętaj, że produkt jest nakładany WARSTWOWO na wygenerowane tło, nie opisuj więc produktu, a otoczenie, powierzchnię i światło pod i za nim. Zwróć uwagę na perspektywę na podstawie właściwości produktu (np. "flatlay" vs "front view").
 
-Zanim zaczniesz: Użyj Google Search, by przeszukać w sieci, co jest teraz w absolutnym trendzie, jak najlepiej prezentować ten rodzaj przedmiotu (badanie rynku). Wykonaj wyszukiwanie jeden raz by zrozumieć pozycjonowanie.
+Zanim zaczniesz: Przeszukaj w sieci dominujące trendy wizualne (Google Search) dla prezentowania tego przedmiotu (badanie rynku).
 
 DANE PRODUKTU Z PIM:
 ${productDetailsText}
 
 WYTYCZNE DLA KADRU SLOTU #${imageIndex + 1}:
-- Dokonaj analizy składników.
-- Zaprojektuj spójną wizualnie scenerię tła, która wyjdzie z analizy trendów:
-  * Slot #1 (Główny Lifestyle): Podłoże dopasowane do składników.
-  * Slot #2 (Koncepcja): Sceneria uwypuklająca zapach/ekstrakt.
-  * Slot #3 (Laboratorium i Skuteczność): Nowoczesne, czyste środowisko.
-  * Slot #4 (Flatlay & Tekstury): Ujęcie z góry na aksamitnej tkaninie.
-  * Sloty #5+: Ekskluzywna aranżacja na minimalistycznym podestcie.
+- Analizuj składniki z PIM do budowy tła. Unikaj powtarzalnych podestów (no marble pedestals).
+- Slot #1 (Miniatura): MUSI być krystalicznie białe tło ("pure white background rgb 255 255 255"). Możesz ułożyć na tle subtelne elementy symboliczne (kawałki owoców, splash, zioła), ale tło musi pozostać w 100% białe. Padding: MUST BE 0.15 na każdej osi (centruje produkt).
+- Sloty #2+ (Galeria): Nowoczesny styl lifestylowy, włoski design, w użyciu, biuro, kuchnia (zależnie od kat.). PADDING (sterowanie pozycją w kadrze): Wymuś mocno asymetryczny kadr (np. top: "0.4", left: "0.4", bottom: "0.05", right: "0.05" zepchnie obiekt w róg by zostawić miejsce na ewentualny tekst na zdjęciu).
 
-ZASADY DLA "prompt": Pisz po angielsku (max 30 słów), określ tło i oświetlenie. ZAKAZ ludzi, rąk, etykiet, opakowań produktu.
-ZASADY DLA "visualTrendReport": Po polsku, opisz uzasadnienie biznesowe dla tej wybranej sceny.`;
+ZASADY: Pisz prompt po angielsku (max 35 słów). "visualTrendReport" po polsku z uzasadnieniem CTR. Zwróć padding (np. "0.1", "0.35") dla 4 osi.`;
 
         const result = await generateWithRetry(model, promptInstruction, 3, "Agent_Photoroom_Prompt");
         const jsonText = result.response.text();
@@ -772,33 +771,39 @@ ZASADY DLA "visualTrendReport": Po polsku, opisz uzasadnienie biznesowe dla tej 
 }
 
 function getFallbackPhotoroomSetup(imageIndex) {
-    let prompt = "Minimalist elegant wooden pedestal surface, soft neutral beige background, soft studio lighting, deep depth of field";
-    let visualTrendReport = "Zgodnie z trendami e-commerce, wykorzystano czyste, stonowane tło studyjne z miękkim oświetleniem budujące czytelność produktu.";
+    let prompt = "Modern minimal lifestyle interior, natural soft morning sunlight, slightly blurred background, photorealistic";
+    let visualTrendReport = "Zgodnie z trendami e-commerce, wykorzystano czyste, stonowane otoczenie z miękkim oświetleniem budujące czytelność produktu.";
+    let paddings = { t: "0.15", r: "0.15", b: "0.15", l: "0.15" }; // domyślnie na środku
 
     switch(imageIndex) {
         case 1:
-            prompt = "Dark textured slate stone surface with subtle crystal clear water droplets, vibrant seascape blur in background, directional dramatic sunlight, 8k commercial photoshoot";
-            visualTrendReport = "Zgodnie z trendami na 2026 rok, najwyższą konwersję generują ujęcia na ciemnym łupku kamiennym z kroplami wody akcentującymi nawilżenie i świeżość.";
+            prompt = "Pure white background rgb 255 255 255, a few subtle water droplets and fresh mint leaves resting on the white floor";
+            visualTrendReport = "Miniatura Allegro. Wymagane czyste, białe tło z delikatnymi elementami symbolicznymi budującymi pozycjonowanie.";
+            paddings = { t: "0.15", r: "0.15", b: "0.15", l: "0.15" }; // Zawsze centrowane
             break;
         case 2:
-            prompt = "Luxury SPA natural white marble surface with soft tropical botanical leaf shadows, warm natural morning sunlight, clean minimal aesthetic";
-            visualTrendReport = "Zgodnie z raportami trendów, połączenie naturalnego białego marmuru SPA z miękkimi cieniami liści botanicznych buduje wizerunek naturalności premium.";
+            prompt = "Resting on a clean modern kitchen island, blurry sunny kitchen interior in the background, warm natural lighting, lifestyle photography";
+            visualTrendReport = "Zgodnie z raportami trendów, asymetryczne ujęcie w naturalnym środowisku buduje zaufanie do skuteczności (spychamy produkt w dół).";
+            paddings = { t: "0.35", r: "0.05", b: "0.05", l: "0.35" }; // Prawy dolny róg
             break;
         case 3:
-            prompt = "Modern high-tech cosmetic laboratory workspace, clean clinical white surface, soft subtle blue ambient backlighting, sharp focus, 8k photoshoot";
-            visualTrendReport = "Zgodnie z trendami branżowymi, czysta sceneria laboratoryjna z miękkim błękitnym podświetleniem akcentuje kliniczną skuteczność receptury.";
+            prompt = "Flatlay, top-down view, resting on a rustic wooden dining table, soft overhead studio lighting, photorealistic";
+            visualTrendReport = "Zgodnie z trendami rynkowymi, ujęcie flatlay z góry buduje poczucie rzemieślniczej autentyczności (spychanie na lewo).";
+            paddings = { t: "0.1", r: "0.4", b: "0.1", l: "0.05" }; // Lewa strona
             break;
         case 4:
-            prompt = "Top-down flatlay commercial beauty photography background, luxurious natural linen fabric, delicate flower petals nearby, soft golden hour sunlight";
-            visualTrendReport = "Zgodnie z trendami rynkowymi, ujęcie flatlay z góry na naturalnym lnie i płatkach kwiatów buduje zaufanie do delikatności kosmetyku.";
+            prompt = "Placed on a luxurious modern vanity desk, blurred bedroom background, golden hour soft sunlight, high end commercial photography";
+            visualTrendReport = "Luksusowe otoczenie domowe i naturalne poranne światło. Umieszczenie w prawym rogu daje przestrzeń na parametry.";
+            paddings = { t: "0.2", r: "0.05", b: "0.2", l: "0.3" }; // Prawa strona
             break;
         case 5:
-            prompt = "Stark white studio seamless background with a sharp geometric diagonal grey shadow cast across wall, modern minimal aesthetic";
-            visualTrendReport = "Zgodnie z trendami e-commerce, minimalistyczne białe tło z czystym geometrycznym cieniem świetnie wyodrębnia opakowanie.";
+            prompt = "Modern minimal office desk, soft blue ambient light, stark minimal geometric background";
+            visualTrendReport = "Zgodnie z trendami, środowisko pracy biurowej sprawdza się dla gadżetów użytkowych (spychanie na dół).";
+            paddings = { t: "0.3", r: "0.1", b: "0.05", l: "0.1" }; // Dół środek
             break;
     }
 
-    return { prompt, visualTrendReport };
+    return { prompt, visualTrendReport, paddingTop: paddings.t, paddingRight: paddings.r, paddingBottom: paddings.b, paddingLeft: paddings.l };
 }
 
 async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
@@ -847,11 +852,15 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     const sharp = require('sharp');
     const form = new FormData();
     form.append('imageFile', inputBuffer, { filename: 'product.jpg', contentType: 'image/jpeg' });
+    form.append('removeBackground', 'true');
     form.append('background.prompt', scenePrompt);
-    form.append('shadow.mode', 'ai.preset-soft');
+    form.append('background.negativePrompt', 'text, typography, letters, watermarks, logos, extra products, duplicate objects, people, hands, faces, distorted shapes');
     form.append('export.format', 'jpeg');
     form.append('outputSize', '1080x1080');
-    form.append('padding', '0.25');
+    form.append('paddingTop', dynamicSetup.paddingTop || '0.15');
+    form.append('paddingRight', dynamicSetup.paddingRight || '0.15');
+    form.append('paddingBottom', dynamicSetup.paddingBottom || '0.15');
+    form.append('paddingLeft', dynamicSetup.paddingLeft || '0.15');
     form.append('ignorePaddingAndSnapOnCroppedSides', 'false');
 
     const startTime = Date.now();
