@@ -725,7 +725,7 @@ async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0
             model: "gemini-3.5-flash",
             tools: [{ googleSearch: {} }],
             generationConfig: {
-                temperature: 0.7,
+                temperature: imageIndex === 0 ? 0.7 : 0.9,
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: "OBJECT",
@@ -737,19 +737,41 @@ async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0
             }
         });
 
-        const promptInstruction = `Jesteś scenografem. Twoim zadaniem jest generowanie BARDZO KRÓTKICH (max 25 słów) promptów po angielsku, opisujących lifestylowe tło dla kosmetyku.
-
-ZASADY KRYTYCZNE:
-Zawsze zakładaj perspektywę poziomego blatu na wprost. Zaczynaj prompt od powierzchni (np. 'placed on a white wooden shelf'). Kategoryczny zakaz pojęć: flatlay, top-down view.
-Zwróć tylko listę promptów w formie tagów po przecinku.
+        let promptInstruction = "";
+        
+        if (imageIndex === 0) {
+            promptInstruction = `Jesteś scenografem. Twoim zadaniem jest wygenerowanie BARDZO KRÓTKIEGO (max 25 słów) promptu po angielsku dla miniatury produktu.
 
 DANE PRODUKTU Z PIM:
 ${productDetailsText}
 
-WYTYCZNE DLA SLOTU #${imageIndex + 1}:
-${imageIndex === 0 
-    ? '- TO JEST MINIATURA: Zwróć wyłącznie "pure solid white background, rgb 255 255 255, completely flat white, no shadows" i umieść na nim od 1 do max 3 głównych składników z opisu (np. "pure solid white background, rgb 255 255 255, no shadows, fresh aloe leaves, charcoal pieces"). Żadnego innego tła!' 
-    : '- TO JEST GALERIA: Zaprojektuj krótkie lifestylowe otoczenie (np. łazienka, kuchnia, natura).'}`;
+WYTYCZNE DLA SLOTU #1 (MINIATURA): 
+Zwróć wyłącznie "pure solid white background, rgb 255 255 255, completely flat white, no shadows" i umieść na nim od 1 do max 3 głównych składników z opisu (np. "pure solid white background, rgb 255 255 255, no shadows, fresh aloe leaves, charcoal pieces"). Żadnego innego tła!
+Zwróć tylko listę tagów po przecinku.`;
+        } else {
+            promptInstruction = `Jesteś awangardowym 'Location Scoutem' (wyszukiwaczem plenerów) do lifestylowych sesji zdjęciowych. Twoim zadaniem jest wygenerować JEDEN ultrakrótki prompt (max 20 słów) po angielsku dla API generatora obrazów.
+
+DANE PRODUKTU Z PIM (Traktuj jedynie poglądowo - nie używaj kosmetyki, aloesu, węgla w tle. Ogranicz się do samej lokacji!):
+${productDetailsText}
+
+KRYTYCZNE ZASADY:
+Traktuj przedmiot jak uniwersalną bryłę. ABSOLUTNY ZAKAZ używania słów: bathroom, spa, towels, marble, plants, water, mirror, charcoal, ingredients, cosmetic, cream.
+
+Ruletka Lokacji: Za każdym razem WYLOSUJ jedną z 8 kategorii i stwórz dla niej unikalne, niepowtarzalne tło:
+1. Miasto: np. betonowy murek na chodniku w Nowym Jorku, kawiarniany stolik w Paryżu, ławka w parku.
+2. Podróż/Natura: np. gorący piasek na plaży w Miami, drewniany leżak na jachcie, omszony kamień w lesie.
+3. Lifestyle: np. skórzana deska rozdzielcza auta, maska sportowego samochodu, rozłożona mapa.
+4. Moda: np. otwarta skórzana kosmetyczka podróżna, jedwabny materiał, stół krawiecki.
+5. Ekstremalne/Sport: np. gumowa mata na siłowni, kort tenisowy, kamień na ośnieżonym szczycie.
+6. Luksus: np. poduszka z czarnego aksamitu, rzeźbiony marmur (ale nie łazienkowy!), skórzana kanapa, welur.
+7. Technologia: np. podkładka pod mysz RGB, stalowa obudowa serwera, stół mikserski DJa.
+8. Dom (bez łazienki!): np. rustykalny drewniany stół w jadalni, puszysty dywan w salonie, szafka z grami planszowymi.
+
+Zasada Powierzchni i Grawitacji: Zaczynaj prompt od: 'placed on [powierzchnia]'. Przedmiot musi stać na twardym podłożu, nie może lewitować. Zakaz 'flatlay' i 'top-down view'.
+Zasada Skali (Bokeh): Tło za przedmiotem musi być mocno rozmyte. Zawsze używaj zwrotów: 'blurred background', 'macro shot', 'shallow depth of field'.
+
+Zwróć TYLKO tekst promptu po angielsku w formie tagów oddzielonych przecinkami. Żadnego wstępu, podsumowań i cudzysłowów.`;
+        }
 
         const result = await generateWithRetry(model, promptInstruction, 3, "Agent_Photoroom_Prompt");
         const jsonText = result.response.text();
@@ -853,10 +875,12 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     form.append('removeBackground', 'true');
     form.append('background.prompt', scenePrompt);
     
-    const baseNegativePrompt = 'charcoal, coal, black stones, aloe leaves, giant ingredients, floating objects, water splashes, flatlay, text, duplicate products, weird shapes, people, hands';
-    const negativePrompt = imageIndex === 0 
-        ? `${baseNegativePrompt}, shadows, drop shadows, grey background, gradients, dark spots, colored background`
-        : baseNegativePrompt;
+    let negativePrompt = '';
+    if (imageIndex === 0) {
+        negativePrompt = 'charcoal, coal, black stones, aloe leaves, giant ingredients, floating objects, water splashes, flatlay, text, duplicate products, weird shapes, people, hands, shadows, drop shadows, grey background, gradients, dark spots, colored background';
+    } else {
+        negativePrompt = 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay';
+    }
         
     form.append('background.negativePrompt', negativePrompt);
     form.append('export.format', 'jpeg');
