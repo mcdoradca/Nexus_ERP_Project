@@ -782,7 +782,7 @@ Zwróć TYLKO tekst promptu po angielsku w formie tagów oddzielonych przecinkam
 
 function getPaddingForSlot(index) {
     if (index === 0) {
-        return { paddingTop: "0.075", paddingRight: "0.075", paddingBottom: "0.075", paddingLeft: "0.075" };
+        return { paddingTop: "0.07", paddingRight: "0.07", paddingBottom: "0.07", paddingLeft: "0.07" };
     }
     const layouts = [
         { paddingTop: "0.15", paddingRight: "0.45", paddingBottom: "0.25", paddingLeft: "0.15" },
@@ -870,7 +870,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     let negativePrompt = '';
     form.append('background.prompt', scenePrompt); // Wymagane, by wygenerować składniki
     if (imageIndex === 0) {
-        negativePrompt = 'flatlay, text, duplicate products, weird shapes, people, hands, shadows, drop shadows, grey background, gradients, dark spots, colored background, blurry background, bokeh';
+        negativePrompt = 'shadows, contact shadow, drop shadow, floor, ground, table, surface, grey background, gradients, dark corners, wall, room, 3d space';
         form.append('background.color', '#FFFFFF'); // Bezwzględne wymuszenie czystego RGB 255,255,255 pod spodem
     } else {
         negativePrompt = 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay';
@@ -1425,23 +1425,22 @@ async function runNode11_Slot1Scenographer(productDetailsText) {
             }
         });
 
-        // Ten prompt to Placeholder. Zostanie zaktualizowany przez Inżyniera AI na podstawie Master_Prompt_Agent_11_Slot_1.md
-        const promptInstruction = `Jesteś scenografem. Twoim zadaniem jest wygenerowanie BARDZO KRÓTKIEGO (max 25 słów) promptu po angielsku dla miniatury produktu.
+        const promptInstruction = `Jesteś asystentem e-commerce. Na podstawie nazwy lub opisu produktu zidentyfikuj 2 (maksymalnie 3) główne składniki naturalne (np. węgiel, aloes, kokos) i przetłumacz je na język angielski.
+Zwróć wynik TYLKO w poniższym formacie, bez żadnego wstępu i znaków specjalnych:
+floating [składnik 1] and floating [składnik 2]
 
 DANE PRODUKTU Z PIM:
-${productDetailsText}
-
-WYTYCZNE DLA SLOTU #1 (MINIATURA): 
-Zwróć wyłącznie "pure solid white background, rgb 255 255 255, completely flat white, no shadows" i umieść na nim od 1 do max 3 głównych składników z opisu (np. "pure solid white background, rgb 255 255 255, no shadows, fresh aloe leaves, charcoal pieces"). Żadnego innego tła!
-Zwróć tylko listę tagów po przecinku.`;
+${productDetailsText}`;
 
         const result = await generateWithRetry(model, promptInstruction, 3, "Agent_11_Slot1_Scenographer");
         const jsonText = result.response.text();
         const data = JSON.parse(jsonText);
         
         if (data.prompt) {
-            console.log(`[Agent 11 - Slot 1] Wygenerowano nowy prompt:`, data.prompt);
-            return data;
+            // Sklejenie odpowiedzi LLM (składniki) z matematycznym szablonem tła
+            const finalPrompt = data.prompt.trim() + ", pure solid white background, completely isolated on white, flat graphic design composition, high-key studio lighting, 2D layout";
+            console.log(`[Agent 11 - Slot 1] Wygenerowano nowy prompt:`, finalPrompt);
+            return { prompt: finalPrompt };
         }
     } catch (err) {
         console.error("[Agent 11 - Slot 1] Ostrzeżenie: Agent 11 zgłosił błąd, używam fallbacku:", err.message);
