@@ -7,15 +7,17 @@ Dodatkowo przycisk "Generuj AEO" został umieszczony w głównej tabeli produkt�
 ## 2. Rozważane Alternatywy
 1. **Dalsze rozbudowywanie Modala (odrzucono):** Powiększanie Modala o kolejne karty doprowadziłoby do drastycznego spadku wydajności (Fixed Layout) i zablokowania nawigacji na ekranach 13-14 cali. Brak przestrzeni dla panelu pracującego Agenta AI.
 2. **Całkowita Separacja Narzędzi (odrzucono):** Trzymanie PIM i EAN Pipeline na różnych, niepołączonych zakładkach wymuszało zbyt wiele kliknięć.
-3. **Stworzenie ujednoliconego kokpitu "Unified Product Pipeline View" (wybrano):** Dedykowany, nowo zaaranżowany widok wykorzystujący układ Grid (lewa i prawa kolumna), pozwalający na jednoczesną edycję strukturalnych właściwości PIM oraz obserwację zintegrowanego Agenta EAN.
+3. **Stworzenie ujednoliconego kokpitu "Unified Product Pipeline View" z podziałem Grid (odrzucono przez użytkownika):** Podział na lewą kolumnę PIM i prawą Agentową ukrywał zbyt wiele danych i zakłócał ciągły przepływ pracy w dół strony.
+4. **Wertykalny, jednolity widok Pipeline & PIM (wybrano):** Dedykowany, nowo zaaranżowany widok w postaci pojedynczej, przewijanej kolumny, pozwalający na liniową, kaskadową edycję - od panelu Agenta (na górze) po parametry strukturalne i logistyczne PIM (na dole).
 
 ## 3. Decyzja
 Postanowiono o całkowitym usunięciu komponentu Modala `isNewProductModalOpen` z warstwy nadrzędnej `App.jsx`. W jego miejsce wprowadzono nowy widok – `UnifiedProductPipelineView.jsx`. 
 Decyzje architektoniczne:
 * **Separacja logiki widoków:** Widok PIM (Katalog SKU) nie wywołuje już ukrytych stanów modalnych wewnątrz `App.jsx`, a zamiast tego zmienia stan górnego stopnia na `activeTab = 'unifiedHub'`.
-* **Podział ekranu (Grid):**
-    * **Lewa strona:** Surowy interfejs Kartoteki PIM (Atrybuty, Ceny, Cło, Gabaryty). Dodano tu bezpośrednio przycisk "Generuj AEO", usunięty uprzednio z widoku tabelarycznego. 
-    * **Prawa strona:** Środowisko pracy Supervisor Agenta (EAN Pipeline). Zawiera moduły audytora wizyjnego, walidatora tytułu oraz edytora StrictWysiwyg dla generowanego kodu HTML.
+* **Podział ekranu (Wertykalny Przepływ):**
+    * Zrezygnowano z układu Grid (dwie kolumny) na rzecz jednego przewijanego ekranu.
+    * **Góra:** Środowisko pracy Supervisor Agenta (EAN Pipeline). Zawiera moduły audytora wizyjnego, walidatora tytułu oraz edytora StrictWysiwyg dla generowanego kodu HTML.
+    * **Dół:** Surowy interfejs Kartoteki PIM (Atrybuty, Ceny, Cło, Gabaryty). Dodano tu bezpośrednio przycisk "Generuj AEO", usunięty uprzednio z widoku tabelarycznego.
 * **Sekwencyjność akcji:** Wprowadzono jeden połączony Trigger ("Zapisz PIM i Uruchom Agenta"). Eliminuje to ryzyko, że Agent EAN zacznie pracę zanim zaktualizowany PIM spłynie do relacyjnej bazy PostgreSQL (wymagane bezpieczne przekazanie parametru EAN).
 
 ## 4. Konsekwencje i Skutki

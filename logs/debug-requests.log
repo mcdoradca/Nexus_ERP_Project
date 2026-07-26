@@ -1141,3 +1141,5 @@
 [2026-07-24T06:52:42.647Z] GET /api/health - 200 - 959ms
 [2026-07-24T07:08:12.217Z] GET /api/health - 200 - 838ms
 [2026-07-24T07:13:07.708Z] GET /api/health - 200 - 876ms
+[2026-07-25T20:48:34.067Z] POST /api/products - 401 - 48ms
+  Response: {"error":"Nieprawidłowy token"}

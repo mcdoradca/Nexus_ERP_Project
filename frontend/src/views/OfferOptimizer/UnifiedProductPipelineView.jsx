@@ -497,25 +497,174 @@ export const UnifiedProductPipelineView = ({
                 </div>
             </div>
 
-            <div className="flex-1 flex space-x-4 min-h-0">
-                {/* LEWA KOLUMNA: PIM */}
-                <div className={`${isPimCollapsed ? 'hidden' : 'w-1/2'} bg-white rounded-lg shadow-xl flex flex-col overflow-hidden border border-slate-200 relative transition-all duration-300`}>
-                    <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center shrink-0">
-                        <h3 className="font-black text-slate-800 uppercase tracking-wider flex items-center"><Hash className="w-4 h-4 mr-2 text-indigo-500"/> Dane Kartoteki PIM</h3>
-                        <div className="flex space-x-2">
-                            {editingProduct && (
-                                <button id="btn_generate_aeo_hub" type="button" onClick={handleGenerateAEO} className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-sm text-[10px] font-black uppercase transition-colors flex items-center border border-amber-300">
-                                    <Zap className="w-3 h-3 mr-1" /> Generuj AEO
+            
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-10 pb-32">
+                
+                {/* === SUPERVISOR AGENT PIPELINE === */}
+                {pipelineStatus === 'THINKING' ? (
+                    
+                            <div className="flex flex-col h-full space-y-6">
+                                <div className="bg-slate-900 border border-slate-700 rounded-lg p-6">
+                                    <h4 className="text-sm font-bold text-indigo-400 mb-2 uppercase tracking-widest flex items-center">
+                                        <Loader2 className="w-5 h-5 mr-3 animate-spin" /> {pipelinePhase || 'Inicjalizacja Systemu...'}
+                                    </h4>
+                                    <div className="flex flex-wrap gap-3 mt-4">
+                                        {activeNodes.map(node => (
+                                            <div key={node} className="px-3 py-1.5 bg-indigo-500/20 border border-indigo-500/50 text-indigo-300 text-xs font-bold rounded-md animate-pulse">
+                                                {node.replace(/_/g, ' ')}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="mt-4 text-xs text-slate-500 font-mono flex flex-wrap gap-4">
+                                        {Object.entries(nodeStatuses).map(([node, status]) => (
+                                            <div key={node} className={`flex items-center space-x-1 ${status === 'COMPLETED' ? 'text-emerald-400' : status === 'IN_PROGRESS' ? 'text-indigo-400' : 'text-slate-500'}`}>
+                                                {status === 'COMPLETED' && <CheckCircle2 className="w-3 h-3" />}
+                                                {status === 'IN_PROGRESS' && <Loader2 className="w-3 h-3 animate-spin" />}
+                                                <span>{node.split('_').pop()}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex-1 bg-[#0a0a0a] rounded-lg border border-slate-700 p-4 font-mono text-[11px] overflow-y-auto flex flex-col custom-scrollbar shadow-inner">
+                                    <div className="text-slate-500 mb-3 uppercase tracking-widest text-[9px] border-b border-slate-800 pb-2 flex justify-between">
+                                        <span>Terminal Agenta (Live Logs)</span>
+                                        <span>{pipelineLogs.length} Zdarzeń</span>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto flex flex-col space-y-1 pb-4">
+                                        {pipelineLogs.map((log, i) => (
+                                            <div key={i} className="flex space-x-3 hover:bg-slate-800/30 px-1 py-0.5 rounded transition-colors">
+                                                <span className="text-slate-600 shrink-0">[{log.time}]</span>
+                                                <span className="text-indigo-400 shrink-0 font-bold">[{log.agentId}]</span>
+                                                <span className="text-emerald-400 break-words">
+                                                    {typeof log.msg === 'object' ? JSON.stringify(log.msg) : log.msg}
+                                                </span>
+                                            </div>
+                                        ))}
+                                        {pipelineLogs.length === 0 && <div className="text-slate-600 italic mt-2">Oczekiwanie na strumień zdarzeń z węzłów Swarm...</div>}
+                                    </div>
+                                </div>
+                            </div>
+                        
+                ) : (
+                    <div className="space-y-8">
+                        {/* 1. Tytuł */}
+                        <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center">
+                                    <Type className="w-4 h-4 mr-2 text-indigo-400" /> Weryfikacja Tytułu
+                                </h2>
+                                <button onClick={handleRegenerateTitle} disabled={isRegeneratingTitle} className="text-[10px] uppercase font-bold text-indigo-400 hover:text-indigo-300 flex items-center transition-colors">
+                                    <RefreshCw className={`w-3 h-3 mr-1 ${isRegeneratingTitle ? 'animate-spin' : ''}`} /> Odśwież
                                 </button>
-                            )}
-                            <button onClick={() => setIsPimCollapsed(true)} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-sm text-[10px] font-black uppercase transition-colors flex items-center border border-slate-300">
-                                <ChevronLeft className="w-3 h-3 mr-1" /> Zwiń PIM
-                            </button>
+                            </div>
+                            <input 
+                                type="text" 
+                                value={liveTitle}
+                                onChange={(e) => setLiveTitle(e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-700 text-white font-bold text-xl px-4 py-4 rounded-xl outline-none focus:border-indigo-500 transition-all mb-4" 
+                            />
+                            <TitleValidator liveTitle={liveTitle} setLiveTitle={setLiveTitle} isRegeneratingTitle={isRegeneratingTitle} handleRegenerateTitle={handleRegenerateTitle} />
+                        </div>
+
+                        {/* 2. Vision AI i Symulator + Geo/AEO */}
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                            {/* Lewa kolumna: Vision AI i Symulator */}
+                            <div className="xl:col-span-5 flex flex-col space-y-6 h-full">
+                                {/* Vision AI */}
+                                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl flex flex-col">
+                                    <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center justify-between">
+                                        <span className="flex items-center"><Search className="w-4 h-4 mr-2 text-indigo-400" /> Audyt Multimodalny (Vision AI)</span>
+                                        <span className="bg-indigo-500/10 text-indigo-400 px-2 py-1 rounded-md text-[10px]">
+                                            {visionTickets && visionTickets.length > 0 ? `${visionTickets.filter(v => v.isCompliant || v.replacedUrl).length} / ${visionTickets.length} Poprawne` : '0 / 0'}
+                                        </span>
+                                    </h2>
+                                    <div className="grid grid-cols-1 gap-6 flex-grow content-start">
+                                        {visionTickets && visionTickets.length > 0 ? visionTickets.map((ticket, i) => (
+                                            <PhotographicAuditorCard 
+                                                key={i} index={i} ean={liveEan} imageObj={ticket} primaryImageObj={visionTickets[0]}
+                                                onImageReplace={(newUrl) => {
+                                                    const updated = [...visionTickets]; updated[i].replacedUrl = newUrl; setVisionTickets(updated);
+                                                }} 
+                                                onImageDelete={() => {
+                                                    const updated = [...visionTickets];
+                                                    updated[i] = { originalUrl: `Wymagane nowe zdjęcie (nr ${i + 1})`, alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null };
+                                                    setVisionTickets(updated);
+                                                }}
+                                                onView={(url) => setViewingImageUrl(url)}
+                                            />
+                                        )) : (
+                                            <div className="text-center text-slate-500 text-sm py-4">Brak zdjęć do audytu.</div>
+                                        )}
+                                    </div>
+                                    <button 
+                                        onClick={() => setVisionTickets([...(visionTickets || []), { originalUrl: '', isCompliant: false, alerts: ["Upuść zdjęcie"] }])}
+                                        className="mt-6 w-full py-4 border border-dashed border-slate-700 rounded-xl flex items-center justify-center text-slate-500 font-bold hover:border-indigo-500 hover:text-indigo-400 transition-all text-xs uppercase tracking-widest flex-shrink-0"
+                                    >
+                                        + Dodaj Slot Zdjęcia
+                                    </button>
+                                </div>
+
+                                {/* Symulator przeniesiony na lewo i powiększony */}
+                                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl overflow-hidden h-[600px] relative flex-shrink-0 flex flex-col">
+                                    <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-4 flex items-center flex-shrink-0">
+                                        <Box className="w-4 h-4 mr-2 text-indigo-400" /> Symulator Układu Kafelków
+                                    </h2>
+                                    <div className="relative flex-grow w-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-slate-50 rounded-lg border border-slate-700 p-2">
+                                        <div className="origin-top-left scale-[1.05] w-[95%] mx-auto">
+                                            <TileSimulator customSections={[
+                                                { html: editorHtml.sekcja1, image: (visionTickets && visionTickets[0]) ? (visionTickets[0].replacedUrl || visionTickets[0].originalUrl) : '' },
+                                                { html: editorHtml.sekcja2, image: (visionTickets && visionTickets[1]) ? (visionTickets[1].replacedUrl || visionTickets[1].originalUrl) : '' },
+                                                { html: editorHtml.sekcja3, image: (visionTickets && visionTickets[2]) ? (visionTickets[2].replacedUrl || visionTickets[2].originalUrl) : '' },
+                                                { html: editorHtml.sekcja4, image: (visionTickets && visionTickets[3]) ? (visionTickets[3].replacedUrl || visionTickets[3].originalUrl) : '' },
+                                                { html: editorHtml.sekcja5, image: (visionTickets && visionTickets[4]) ? (visionTickets[4].replacedUrl || visionTickets[4].originalUrl) : '' },
+                                                { html: editorHtml.sekcja6, image: (visionTickets && visionTickets[5]) ? (visionTickets[5].replacedUrl || visionTickets[5].originalUrl) : '' }
+                                            ]} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Prawa kolumna: GEO/AEO (StrictWysiwyg) */}
+                            <div className="xl:col-span-7 flex flex-col h-full">
+                                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl flex flex-col flex-grow">
+                                    <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center flex-shrink-0">
+                                        <Database className="w-4 h-4 mr-2 text-indigo-400" /> Moduły Sprzedażowe (GEO/AEO)
+                                    </h2>
+                                    <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar flex-grow" style={{ minHeight: '600px' }}>
+                                        {[
+                                            { key: 'sekcja1', label: 'Moduł 1: Mocne Strony' },
+                                            { key: 'sekcja2', label: 'Moduł 2: Główny Opis' },
+                                            { key: 'sekcja3', label: 'Moduł 3: Detale' },
+                                            { key: 'sekcja4', label: 'Moduł 4: Specyfikacja' },
+                                            { key: 'sekcja5', label: 'Moduł 5: INCI / Bezpieczeństwo' },
+                                            { key: 'sekcja6', label: 'Moduł 6: FAQ / Dodatkowe' }
+                                        ].map((sec) => (
+                                            <div key={`${editorKey}-${sec.key}`}>
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">{sec.label}</label>
+                                                <div className="bg-slate-50 rounded-lg overflow-hidden border border-slate-700">
+                                                    <StrictWysiwyg 
+                                                        initialContent={editorHtml[sec.key] || ""} 
+                                                        onChange={html => setEditorHtml(prev => ({ ...prev, [sec.key]: html }))} 
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    
-                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                        <div className="p-6 space-y-12 overflow-y-auto custom-scrollbar flex-1 min-h-0">
+                )}
+
+                {/* === PIM DATA (ALL PREVIOUS LEFT-COLUMN SECTIONS) === */}
+                <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 mt-12 overflow-hidden">
+                    <div className="bg-slate-100 px-6 py-4 border-b border-slate-200">
+                        <h3 className="text-lg font-black text-slate-800 uppercase tracking-widest flex items-center">
+                            <Database className="w-5 h-5 mr-3 text-indigo-500" /> Dane Kartoteki PIM i Parametry
+                        </h3>
+                    </div>
+                    <div className="p-8 space-y-12">
+                        
                                         
                                         <div className="flex flex-col md:flex-row gap-6 mb-6">
                                            {/* Stabilna Główna Miniaturka */}
@@ -876,134 +1025,10 @@ export const UnifiedProductPipelineView = ({
                                            </button>
                                         </div>
                                       </div>
-                    </div>
-                </div>
-
-                {/* PRAWA KOLUMNA: PIPELINE / SUPERVISOR */}
-                <div className={`${isPimCollapsed ? 'w-full flex-1' : 'w-1/2'} bg-slate-800 rounded-lg shadow-xl flex flex-col overflow-hidden border border-slate-700 relative transition-all duration-300`}>
-                    <div className="p-4 bg-slate-900 border-b border-slate-700 flex justify-between items-center shrink-0">
-                        <h3 className="font-black text-white uppercase tracking-wider flex items-center"><Cpu className="w-4 h-4 mr-2 text-indigo-400"/> Supervisor Agent (EAN Pipeline)</h3>
-                        {isPimCollapsed && (
-                            <button onClick={() => setIsPimCollapsed(false)} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-sm text-[10px] font-black uppercase transition-colors flex items-center border border-slate-600">
-                                <ChevronRight className="w-3 h-3 mr-1" /> Rozwiń PIM
-                            </button>
-                        )}
-                    </div>
                     
-                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-white">
-                        {pipelineStatus === 'THINKING' ? (
-                            <div className="flex flex-col h-full space-y-6">
-                                <div className="bg-slate-900 border border-slate-700 rounded-lg p-6">
-                                    <h4 className="text-sm font-bold text-indigo-400 mb-2 uppercase tracking-widest flex items-center">
-                                        <Loader2 className="w-5 h-5 mr-3 animate-spin" /> {pipelinePhase || 'Inicjalizacja Systemu...'}
-                                    </h4>
-                                    <div className="flex flex-wrap gap-3 mt-4">
-                                        {activeNodes.map(node => (
-                                            <div key={node} className="px-3 py-1.5 bg-indigo-500/20 border border-indigo-500/50 text-indigo-300 text-xs font-bold rounded-md animate-pulse">
-                                                {node.replace(/_/g, ' ')}
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="mt-4 text-xs text-slate-500 font-mono flex flex-wrap gap-4">
-                                        {Object.entries(nodeStatuses).map(([node, status]) => (
-                                            <div key={node} className={`flex items-center space-x-1 ${status === 'COMPLETED' ? 'text-emerald-400' : status === 'IN_PROGRESS' ? 'text-indigo-400' : 'text-slate-500'}`}>
-                                                {status === 'COMPLETED' && <CheckCircle2 className="w-3 h-3" />}
-                                                {status === 'IN_PROGRESS' && <Loader2 className="w-3 h-3 animate-spin" />}
-                                                <span>{node.split('_').pop()}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="flex-1 bg-[#0a0a0a] rounded-lg border border-slate-700 p-4 font-mono text-[11px] overflow-y-auto flex flex-col custom-scrollbar shadow-inner">
-                                    <div className="text-slate-500 mb-3 uppercase tracking-widest text-[9px] border-b border-slate-800 pb-2 flex justify-between">
-                                        <span>Terminal Agenta (Live Logs)</span>
-                                        <span>{pipelineLogs.length} Zdarzeń</span>
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto flex flex-col space-y-1 pb-4">
-                                        {pipelineLogs.map((log, i) => (
-                                            <div key={i} className="flex space-x-3 hover:bg-slate-800/30 px-1 py-0.5 rounded transition-colors">
-                                                <span className="text-slate-600 shrink-0">[{log.time}]</span>
-                                                <span className="text-indigo-400 shrink-0 font-bold">[{log.agentId}]</span>
-                                                <span className="text-emerald-400 break-words">
-                                                    {typeof log.msg === 'object' ? JSON.stringify(log.msg) : log.msg}
-                                                </span>
-                                            </div>
-                                        ))}
-                                        {pipelineLogs.length === 0 && <div className="text-slate-600 italic mt-2">Oczekiwanie na strumień zdarzeń z węzłów Swarm...</div>}
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-8">
-                                {/* Tutaj wstawiamy komponenty EAN Pipeline z OfferOptimizerView */}
-                                <TitleValidator liveTitle={liveTitle} setLiveTitle={setLiveTitle} isRegeneratingTitle={isRegeneratingTitle} handleRegenerateTitle={() => {}} />
-                                <div className="grid grid-cols-1 gap-6">
-                                    <div className="space-y-6">
-                                        {[1, 2, 3, 4, 5, 6].map((num) => (
-                                            <div key={num} className="bg-slate-50 border border-slate-200 p-4 rounded-md">
-                                                <h3 className="text-sm font-bold text-slate-500 mb-2 uppercase tracking-wider">
-                                                    Sekcja {num}
-                                                </h3>
-                                                <StrictWysiwyg 
-                                                    key={`${editorKey}-${num}`}
-                                                    initialContent={editorHtml[`sekcja${num}`]} 
-                                                    onChange={(newHtml) => {
-                                                        setEditorHtml(prev => ({ ...prev, [`sekcja${num}`]: newHtml }));
-                                                    }} 
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-1 gap-6">
-                                    {visionTickets && visionTickets.length > 0 && visionTickets.map((ticket, idx) => (
-                                        <PhotographicAuditorCard 
-                                            key={idx} 
-                                            imageObj={ticket} 
-                                            index={idx} 
-                                            ean={liveEan} 
-                                            primaryImageObj={visionTickets[0]} 
-                                            onView={setViewingImageUrl}
-                                            onImageReplace={(newBase64) => {
-                                                const newTickets = [...visionTickets];
-                                                newTickets[idx].replacedUrl = newBase64;
-                                                setVisionTickets(newTickets);
-                                            }}
-                                            onImageDelete={() => {
-                                                const newTickets = [...visionTickets];
-                                                newTickets.splice(idx, 1);
-                                                setVisionTickets(newTickets);
-                                            }}
-                                        />
-                                    ))}
-                                </div>
-                                <div className="mt-8 flex justify-end space-x-4 pb-8 border-t border-slate-800 pt-6">
-                                    <button 
-                                        onClick={handleSaveDraft}
-                                        disabled={isSavingDraft || isExporting}
-                                        className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold uppercase tracking-widest text-xs rounded-lg transition-colors flex items-center shadow-lg disabled:opacity-50"
-                                    >
-                                        {isSavingDraft ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                                        Zapisz Kopię Roboczą
-                                    </button>
-                                    <button 
-                                        onClick={() => setShowExportConfirm(true)}
-                                        disabled={isSavingDraft || isExporting}
-                                        className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs rounded-lg transition-colors flex items-center shadow-[0_0_15px_rgba(16,185,129,0.4)] disabled:opacity-50"
-                                    >
-                                        <Send className="w-4 h-4 mr-2" />
-                                        Przygotuj do Eksportu
-                                    </button>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
-            </div>
-            
-            {viewingImageUrl && <ImageModal url={viewingImageUrl} onClose={() => setViewingImageUrl(null)} />}
-
-            {showExportConfirm && (
+{showExportConfirm && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col">
                         <div className="p-6 border-b border-slate-100 flex items-center space-x-4 bg-rose-50 text-rose-600">
