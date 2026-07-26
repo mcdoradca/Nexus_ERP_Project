@@ -877,7 +877,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     
     let negativePrompt = '';
     if (imageIndex === 0) {
-        negativePrompt = 'charcoal, coal, black stones, aloe leaves, giant ingredients, floating objects, water splashes, flatlay, text, duplicate products, weird shapes, people, hands, shadows, drop shadows, grey background, gradients, dark spots, colored background';
+        negativePrompt = 'flatlay, text, duplicate products, weird shapes, people, hands, shadows, drop shadows, grey background, gradients, dark spots, colored background, blurry background, bokeh';
     } else {
         negativePrompt = 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay';
     }
