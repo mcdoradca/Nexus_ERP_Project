@@ -116,6 +116,12 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
                 
                 // Oczyszczanie markdown przed parsowaniem JSON
                 let cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                const firstBrace = cleanText.indexOf('{');
+                const lastBrace = cleanText.lastIndexOf('}');
+                if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                    cleanText = cleanText.substring(firstBrace, lastBrace + 1);
+                }
+                
                 try {
                     return JSON.parse(cleanText);
                 } catch (parseError) {
@@ -677,33 +683,11 @@ Odpowiedz wyłącznie czystym obiektem JSON:
 `;
 
     try {
-        const result = await generateWithRetry(model, promptText, 3, "Agent_Title");
-        let payloadString = result.response.text().trim();
-        // Oczyszczanie z ewentualnych bloki markdown
-        payloadString = payloadString.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '').trim();
-
-        // 1. Próba bezpośredniego parsowania
-        try {
-            const parsed = JSON.parse(payloadString);
-            if (parsed && parsed.title) return parsed;
-        } catch (e) { }
-
-        // 2. Niezachłanne dopasowanie pierwszego prawidłowego obiektu JSON
-        const jsonMatch = payloadString.match(/\{[\s\S]*?\}/);
-        if (jsonMatch) {
-            try {
-                const parsed = JSON.parse(jsonMatch[0]);
-                if (parsed && parsed.title) return parsed;
-            } catch (e) { }
+        const parsed = await generateWithRetry(model, promptText, 3, "Agent_Title", true);
+        if (parsed && parsed.title) {
+            return parsed;
         }
-
-        // 3. Fallback: jeśli Gemini zwrócił po prostu tekst tytułu bez struktur klamrowych
-        const cleanText = payloadString.replace(/["'\{\}]/g, '').replace(/title\s*:\s*/i, '').trim();
-        if (cleanText.length >= 5 && cleanText.length <= 150) {
-            return { title: cleanText };
-        }
-
-        throw new Error(`Brak prawidłowej struktury JSON w odpowiedzi dla tytułu. Otrzymano: ${payloadString}`);
+        throw new Error(`Brak prawidłowej struktury JSON w odpowiedzi dla tytułu. Otrzymano: ${JSON.stringify(parsed)}`);
     } catch (error) {
         console.error("[AiService] Generative Title Error:", error.message);
         // Ostatnia deska ratunku - zwracamy tytuł oryginalny ze wskazaniem audytu
