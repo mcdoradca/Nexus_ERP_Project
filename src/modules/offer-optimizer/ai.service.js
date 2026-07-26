@@ -714,6 +714,10 @@ async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0
         return existingPromptsCache[imageIndex];
     }
 
+    if (imageIndex === 0) {
+        return await runNode11_Slot1Scenographer(productDetailsText);
+    }
+
     const localApiKey = apiKey;
     if (!apiKey) {
         return getFallbackPhotoroomSetup(imageIndex);
@@ -739,17 +743,7 @@ async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0
 
         let promptInstruction = "";
         
-        if (imageIndex === 0) {
-            promptInstruction = `Jesteś scenografem. Twoim zadaniem jest wygenerowanie BARDZO KRÓTKIEGO (max 25 słów) promptu po angielsku dla miniatury produktu.
-
-DANE PRODUKTU Z PIM:
-${productDetailsText}
-
-WYTYCZNE DLA SLOTU #1 (MINIATURA): 
-Zwróć wyłącznie "pure solid white background, rgb 255 255 255, completely flat white, no shadows" i umieść na nim od 1 do max 3 głównych składników z opisu (np. "pure solid white background, rgb 255 255 255, no shadows, fresh aloe leaves, charcoal pieces"). Żadnego innego tła!
-Zwróć tylko listę tagów po przecinku.`;
-        } else {
-            promptInstruction = `Jesteś awangardowym 'Location Scoutem' (wyszukiwaczem plenerów) do lifestylowych sesji zdjęciowych. Twoim zadaniem jest wygenerować JEDEN ultrakrótki prompt (max 20 słów) po angielsku dla API generatora obrazów.
+        promptInstruction = `Jesteś awangardowym 'Location Scoutem' (wyszukiwaczem plenerów) do lifestylowych sesji zdjęciowych. Twoim zadaniem jest wygenerować JEDEN ultrakrótki prompt (max 20 słów) po angielsku dla API generatora obrazów.
 
 DANE PRODUKTU Z PIM (Traktuj jedynie poglądowo - nie używaj kosmetyki, aloesu, węgla w tle. Ogranicz się do samej lokacji!):
 ${productDetailsText}
@@ -771,7 +765,6 @@ Zasada Powierzchni i Grawitacji: Zaczynaj prompt od: 'placed on [powierzchnia]'.
 Zasada Skali (Bokeh): Tło za przedmiotem musi być mocno rozmyte. Zawsze używaj zwrotów: 'blurred background', 'macro shot', 'shallow depth of field'.
 
 Zwróć TYLKO tekst promptu po angielsku w formie tagów oddzielonych przecinkami. Żadnego wstępu, podsumowań i cudzysłowów.`;
-        }
 
         const result = await generateWithRetry(model, promptInstruction, 3, "Agent_Photoroom_Prompt");
         const jsonText = result.response.text();
@@ -1406,6 +1399,57 @@ async function runNode10_Sentinel(finalPayload, originalPimData) {
     }
 }
 
+/**
+ * WĘZEŁ 11: AGENT 11 - SLOT 1 SCENOGRAPHER (Miniatura)
+ * Cel: Tworzenie dedykowanej scenografii/promptu dla Photoroom wyłącznie dla Slotu 1.
+ */
+async function runNode11_Slot1Scenographer(productDetailsText) {
+    if (!apiKey) {
+        return getFallbackPhotoroomSetup(0);
+    }
+    
+    try {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({
+            model: "gemini-3.5-flash",
+            generationConfig: {
+                temperature: 0.7,
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "OBJECT",
+                    properties: {
+                        prompt: { type: "STRING" }
+                    },
+                    required: ["prompt"]
+                }
+            }
+        });
+
+        // Ten prompt to Placeholder. Zostanie zaktualizowany przez Inżyniera AI na podstawie Master_Prompt_Agent_11_Slot_1.md
+        const promptInstruction = `Jesteś scenografem. Twoim zadaniem jest wygenerowanie BARDZO KRÓTKIEGO (max 25 słów) promptu po angielsku dla miniatury produktu.
+
+DANE PRODUKTU Z PIM:
+${productDetailsText}
+
+WYTYCZNE DLA SLOTU #1 (MINIATURA): 
+Zwróć wyłącznie "pure solid white background, rgb 255 255 255, completely flat white, no shadows" i umieść na nim od 1 do max 3 głównych składników z opisu (np. "pure solid white background, rgb 255 255 255, no shadows, fresh aloe leaves, charcoal pieces"). Żadnego innego tła!
+Zwróć tylko listę tagów po przecinku.`;
+
+        const result = await generateWithRetry(model, promptInstruction, 3, "Agent_11_Slot1_Scenographer");
+        const jsonText = result.response.text();
+        const data = JSON.parse(jsonText);
+        
+        if (data.prompt) {
+            console.log(`[Agent 11 - Slot 1] Wygenerowano nowy prompt:`, data.prompt);
+            return data;
+        }
+    } catch (err) {
+        console.error("[Agent 11 - Slot 1] Ostrzeżenie: Agent 11 zgłosił błąd, używam fallbacku:", err.message);
+    }
+    
+    return getFallbackPhotoroomSetup(0);
+}
+
 module.exports = {
     fetchImageSecure,
     gatherProductIntelligence,
@@ -1430,5 +1474,6 @@ module.exports = {
     runNode7_Psychology,
     runNode8_Scenographer,
     runNode9_VisionAuditor,
-    runNode10_Sentinel
+    runNode10_Sentinel,
+    runNode11_Slot1Scenographer
 };
