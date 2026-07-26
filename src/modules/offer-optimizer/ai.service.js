@@ -748,7 +748,7 @@ ${productDetailsText}
 
 WYTYCZNE DLA SLOTU #${imageIndex + 1}:
 ${imageIndex === 0 
-    ? '- TO JEST MINIATURA: Zwróć wyłącznie "pure white background" i umieść na nim od 1 do max 3 głównych składników z opisu (np. "pure white background, fresh aloe leaves, charcoal pieces"). Żadnego innego tła!' 
+    ? '- TO JEST MINIATURA: Zwróć wyłącznie "pure solid white background, rgb 255 255 255, completely flat white, no shadows" i umieść na nim od 1 do max 3 głównych składników z opisu (np. "pure solid white background, rgb 255 255 255, no shadows, fresh aloe leaves, charcoal pieces"). Żadnego innego tła!' 
     : '- TO JEST GALERIA: Zaprojektuj krótkie lifestylowe otoczenie (np. łazienka, kuchnia, natura).'}`;
 
         const result = await generateWithRetry(model, promptInstruction, 3, "Agent_Photoroom_Prompt");
@@ -852,7 +852,13 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     form.append('imageFile', inputBuffer, { filename: 'product.jpg', contentType: 'image/jpeg' });
     form.append('removeBackground', 'true');
     form.append('background.prompt', scenePrompt);
-    form.append('background.negativePrompt', 'charcoal, coal, black stones, aloe leaves, giant ingredients, floating objects, water splashes, flatlay, text, duplicate products, weird shapes, people, hands');
+    
+    const baseNegativePrompt = 'charcoal, coal, black stones, aloe leaves, giant ingredients, floating objects, water splashes, flatlay, text, duplicate products, weird shapes, people, hands';
+    const negativePrompt = imageIndex === 0 
+        ? `${baseNegativePrompt}, shadows, drop shadows, grey background, gradients, dark spots, colored background`
+        : baseNegativePrompt;
+        
+    form.append('background.negativePrompt', negativePrompt);
     form.append('export.format', 'jpeg');
     form.append('outputSize', '1080x1080');
     form.append('paddingTop', padding.paddingTop);
