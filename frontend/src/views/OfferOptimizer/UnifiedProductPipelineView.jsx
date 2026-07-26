@@ -185,7 +185,7 @@ export const UnifiedProductPipelineView = ({
                             setEditorHtml({ sekcja1: p.descriptionHtml, sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "" });
                         }
                         if (p.images && p.images.length > 0) {
-                            setVisionTickets(p.images.map(img => ({ originalUrl: img })));
+                            setVisionTickets((p.images || []).map(img => ({ originalUrl: img })));
                         }
                     }
                     setLiveEan(p.ean || "");
@@ -839,7 +839,7 @@ export const UnifiedProductPipelineView = ({
                                                  <label className={labelClass}>Galeria BaseLinker ({newProductForm.images?.length || 0})</label>
                                                  {newProductForm.images && newProductForm.images.length > 0 ? (
                                                     <div className="grid grid-cols-4 gap-2 mt-4">
-                                                       {newProductForm.images.map((img, idx) => (
+                                                       {(newProductForm.images || []).map((img, idx) => (
                                                            <div key={idx} className="aspect-square bg-white border border-slate-400 rounded-sm overflow-hidden shadow-sm">
                                                               <img src={img} alt="PIM" className="w-full h-full object-cover" />
                                                            </div>
@@ -937,7 +937,7 @@ export const UnifiedProductPipelineView = ({
                                                                            setNewProductForm({...newProductForm, features: updated});
                                                                        }}>
                                                                            <option value="">-- Wybierz ze słownika --</option>
-                                                                           {param.dictionary.map(d => <option key={d.id} value={d.value}>{d.value}</option>)}
+                                                                           {param.dictionary && param.dictionary.map(d => <option key={d.id} value={d.value}>{d.value}</option>)}
                                                                        </select>
                                                                    ) : (
                                                                        <input type="text" className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" placeholder={`Wpisz wartość (${param.type})`} value={val} onChange={e => {
