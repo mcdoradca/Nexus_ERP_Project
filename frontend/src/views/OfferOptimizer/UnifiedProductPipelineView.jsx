@@ -178,7 +178,7 @@ export const UnifiedProductPipelineView = ({
                     if (p.offerDraft) {
                         setLiveTitle(p.offerDraft.title || p.name || "");
                         setEditorHtml(p.offerDraft.htmlContent || { sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "" });
-                        setVisionTickets(p.offerDraft.images || []);
+                        setVisionTickets(p.offerDraft.visionTickets || p.offerDraft.images || []);
                     } else {
                         setLiveTitle(p.name || "");
                         if (p.descriptionHtml) {

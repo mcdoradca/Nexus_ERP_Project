@@ -208,7 +208,7 @@ const analyzeSingle = async (req, res) => {
                 title: product.offerDraft.title || product.name,
                 ean: product.ean,
                 htmlContent: { sekcja1, sekcja2, sekcja3, sekcja4, sekcja5, sekcja6 },
-                images: (product.offerDraft.images || []).map(img => {
+                images: (product.offerDraft.visionTickets || product.offerDraft.images || []).map(img => {
                     if (typeof img === 'string') return { originalUrl: img, isCompliant: true, alerts: [] };
                     return {
                         originalUrl: img.originalUrl || img.url || '',
