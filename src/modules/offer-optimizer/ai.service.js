@@ -873,13 +873,13 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     const form = new FormData();
     form.append('imageFile', inputBuffer, { filename: 'product.jpg', contentType: 'image/jpeg' });
     form.append('removeBackground', 'true');
-    form.append('background.prompt', scenePrompt);
     
     let negativePrompt = '';
     if (imageIndex === 0) {
         negativePrompt = 'flatlay, text, duplicate products, weird shapes, people, hands, shadows, drop shadows, grey background, gradients, dark spots, colored background, blurry background, bokeh';
         form.append('background.color', '#FFFFFF'); // Bezwzględne wymuszenie czystego RGB 255,255,255
     } else {
+        form.append('background.prompt', scenePrompt);
         negativePrompt = 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay';
     }
         
@@ -907,20 +907,36 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         const durationMs = Date.now() - startTime;
         const resultBuffer = Buffer.from(response.data);
 
-        // Nanoszenie znaku wodnego EU AI Act Art. 50 za pomocą Sharp Node.js
-        const badgeSvg = `
-        <svg width="420" height="40" viewBox="0 0 420 40" xmlns="http://www.w3.org/2000/svg">
-            <rect x="0" y="0" width="420" height="40" rx="8" fill="rgba(15, 23, 42, 0.85)" stroke="rgba(255, 255, 255, 0.25)" stroke-width="1.5"/>
-            <text x="16" y="26" font-family="sans-serif" font-size="14" font-weight="bold" fill="#FFFFFF">
-                AI Generated (EU AI Act Art. 50) | Nexus ERP
-            </text>
-        </svg>`;
-
         let finalBuffer = resultBuffer;
         try {
+            // Nanoszenie znaku wodnego EU AI Act Art. 50 za pomocą Sharp Node.js (natywne Text API)
+            const badgeBgBuffer = await sharp({
+                create: {
+                    width: 420,
+                    height: 40,
+                    channels: 4,
+                    background: { r: 15, g: 23, b: 42, alpha: 0.85 }
+                }
+            }).png().toBuffer();
+
+            const badgeTextBuffer = await sharp({
+                text: {
+                    text: '<span foreground="white">AI Generated (EU AI Act Art. 50) | Nexus ERP</span>',
+                    font: 'Arial',
+                    width: 400,
+                    height: 40,
+                    rgba: true
+                }
+            }).png().toBuffer();
+
+            const finalBadgeBuffer = await sharp(badgeBgBuffer)
+                .composite([{ input: badgeTextBuffer, gravity: 'center' }])
+                .png()
+                .toBuffer();
+
             finalBuffer = await sharp(resultBuffer)
                 .composite([{
-                    input: Buffer.from(badgeSvg),
+                    input: finalBadgeBuffer,
                     top: 1080 - 40 - 24,
                     left: 24
                 }])
