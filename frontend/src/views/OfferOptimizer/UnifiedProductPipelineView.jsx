@@ -217,13 +217,16 @@ export const UnifiedProductPipelineView = ({
                     setEditorHtml(data.result.editorHtml || { sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "" });
                     setLiveTitle(data.result.title || "");
                     setVisionTickets(data.result.visionTickets || []);
-                    if (data.result.features || data.result.aeoContent) {
-                        setNewProductForm(prev => ({
-                            ...prev,
-                            features: data.result.features || prev.features || {},
-                            aeoContent: data.result.aeoContent || prev.aeoContent || ''
-                        }));
-                    }
+                    setNewProductForm(prev => ({
+                        ...prev,
+                        features: data.result.features || prev.features || {},
+                        aeoContent: data.result.aeoContent || prev.aeoContent || '',
+                        offerDraft: {
+                            title: data.result.title || "",
+                            htmlContent: data.result.editorHtml || { sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "" },
+                            images: data.result.visionTickets || []
+                        }
+                    }));
                     setEditorKey(prev => prev + 1);
                 }
             } else if (data.type === 'PIPELINE_ERROR') {
@@ -578,20 +581,6 @@ export const UnifiedProductPipelineView = ({
                     <div className="space-y-8">
                         {/* 1. Tytuł */}
                         <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center">
-                                    <Type className="w-4 h-4 mr-2 text-indigo-400" /> Weryfikacja Tytułu
-                                </h2>
-                                <button onClick={handleRegenerateTitle} disabled={isRegeneratingTitle} className="text-[10px] uppercase font-bold text-indigo-400 hover:text-indigo-300 flex items-center transition-colors">
-                                    <RefreshCw className={`w-3 h-3 mr-1 ${isRegeneratingTitle ? 'animate-spin' : ''}`} /> Odśwież
-                                </button>
-                            </div>
-                            <input 
-                                type="text" 
-                                value={liveTitle}
-                                onChange={(e) => setLiveTitle(e.target.value)}
-                                className="w-full bg-slate-950 border border-slate-700 text-white font-bold text-xl px-4 py-4 rounded-xl outline-none focus:border-indigo-500 transition-all mb-4" 
-                            />
                             <TitleValidator liveTitle={liveTitle} setLiveTitle={setLiveTitle} isRegeneratingTitle={isRegeneratingTitle} handleRegenerateTitle={handleRegenerateTitle} />
                         </div>
 
@@ -656,9 +645,27 @@ export const UnifiedProductPipelineView = ({
                             {/* Prawa kolumna: GEO/AEO (StrictWysiwyg) */}
                             <div className="xl:col-span-7 flex flex-col h-full">
                                 <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl flex flex-col flex-grow">
-                                    <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center flex-shrink-0">
-                                        <Database className="w-4 h-4 mr-2 text-indigo-400" /> Moduły Sprzedażowe (GEO/AEO)
-                                    </h2>
+                                    <div className="flex items-center justify-between mb-6 flex-shrink-0">
+                                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center">
+                                            <Database className="w-4 h-4 mr-2 text-indigo-400" /> Moduły Sprzedażowe (GEO/AEO)
+                                        </h2>
+                                        <div className="flex items-center space-x-3">
+                                            <button 
+                                                onClick={handleSaveDraft} 
+                                                disabled={isSavingDraft} 
+                                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] uppercase font-black tracking-widest rounded-md transition-all shadow-md flex items-center disabled:opacity-50"
+                                            >
+                                                {isSavingDraft ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                                                Zapisz Szkic AI
+                                            </button>
+                                            <button 
+                                                onClick={() => setShowExportConfirm(true)}
+                                                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-[10px] uppercase font-black tracking-widest rounded-md transition-all shadow-md flex items-center disabled:opacity-50"
+                                            >
+                                                <Send className="w-4 h-4 mr-2" /> Eksport Baselinker
+                                            </button>
+                                        </div>
+                                    </div>
                                     <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar flex-grow" style={{ minHeight: '600px' }}>
                                         {[
                                             { key: 'sekcja1', label: 'Moduł 1: Mocne Strony' },

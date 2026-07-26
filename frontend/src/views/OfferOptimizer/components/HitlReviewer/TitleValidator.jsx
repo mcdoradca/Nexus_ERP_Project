@@ -1,20 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { RefreshCw } from 'lucide-react';
 
 /**
  * @typedef {Object} TitleValidatorProps
- * @property {string} initialTitle
- * @property {(valid: boolean, text: string) => void} onValidate
+ * @property {string} liveTitle
+ * @property {(text: string) => void} setLiveTitle
+ * @property {boolean} isRegeneratingTitle
+ * @property {() => void} handleRegenerateTitle
  */
 
-export const TitleValidator = ({ initialTitle = "", onValidate }) => {
-    const [title, setTitle] = useState(initialTitle);
-    
-    useEffect(() => {
-        setTitle(initialTitle);
-    }, [initialTitle]);
+export const TitleValidator = ({ liveTitle = "", setLiveTitle, isRegeneratingTitle, handleRegenerateTitle }) => {
     
     // Statusy
-    const length = title.length;
+    const length = (liveTitle || "").length;
     const isTooShort = length < 12;
     const isPerfect = length >= 12 && length <= 75;
 
@@ -22,14 +20,14 @@ export const TitleValidator = ({ initialTitle = "", onValidate }) => {
     let alertText = "";
     
     if (isTooShort) {
-        colorClass = "text-rose-600 bg-rose-50 border-rose-300";
+        colorClass = "text-rose-600 bg-rose-50 border-rose-300 focus:border-rose-500 focus:ring-rose-500/20";
         alertText = `Za krótki. Brakuje ${12 - length} znaków.`;
     } else if (isPerfect) {
          if (length > 70) {
-             colorClass = "text-amber-600 bg-amber-50 border-amber-300";
+             colorClass = "text-amber-600 bg-amber-50 border-amber-300 focus:border-amber-500 focus:ring-amber-500/20";
              alertText = `Blisko granicy limitu! Zostało ${75 - length} znaków.`;
          } else {
-             colorClass = "text-emerald-700 bg-emerald-50 border-emerald-300";
+             colorClass = "text-emerald-700 bg-emerald-50 border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500/20";
              alertText = "Idealna długość.";
          }
     }
@@ -41,8 +39,7 @@ export const TitleValidator = ({ initialTitle = "", onValidate }) => {
             newTitle = newTitle.slice(0, 75);
         }
         
-        setTitle(newTitle);
-        if (onValidate) onValidate(newTitle.length >= 12 && newTitle.length <= 75, newTitle);
+        if (setLiveTitle) setLiveTitle(newTitle);
     };
 
     const handleKeyDown = (e) => {
@@ -51,38 +48,48 @@ export const TitleValidator = ({ initialTitle = "", onValidate }) => {
         // Allow select all (Ctrl+A) and paste (Ctrl+V)
         if (e.ctrlKey || e.metaKey) return;
 
-        if (title.length >= 75 && !allowedKeys.includes(e.key)) {
+        if (length >= 75 && !allowedKeys.includes(e.key)) {
             e.preventDefault(); // ZABLOKOWANE 
         }
     };
 
     return (
-        <div className="flex flex-col space-y-2 mb-6">
+        <div className="flex flex-col space-y-3 mb-6 relative group">
             <div className="flex justify-between items-end">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center">
                     Walidacja Tytułu API (GEO)
                 </label>
-                <div className={`text-[10px] uppercase font-black tracking-widest px-2 py-1 rounded-sm ${title.length >= 75 ? 'bg-rose-500 text-white' : 'text-slate-600'}`}>
-                    {length} / 75 STR
+                <div className="flex items-center gap-3">
+                    <button 
+                        onClick={handleRegenerateTitle} 
+                        disabled={isRegeneratingTitle} 
+                        className="text-[10px] uppercase font-bold text-indigo-500 hover:text-indigo-400 flex items-center transition-colors"
+                        title="Ponownie wygeneruj tytuł przez AI"
+                    >
+                        <RefreshCw className={`w-3 h-3 mr-1 ${isRegeneratingTitle ? 'animate-spin' : ''}`} /> Odśwież
+                    </button>
+                    <div className={`text-[10px] uppercase font-black tracking-widest px-2 py-1 rounded-sm ${length >= 75 ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/30' : 'bg-slate-100 text-slate-600'}`}>
+                        {length} / 75 STR
+                    </div>
                 </div>
             </div>
             
             <input 
                 type="text" 
-                value={title}
+                value={liveTitle}
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 id="geoTitle"
                 name="geoTitle"
                 placeholder="Wpisz rygorystyczny tytuł zgodnie z konwencją GEO..."
-                className={`w-full p-4 rounded-sm text-lg font-black outline-none border-2 transition-all shadow-sm ${colorClass}`}
+                className={`w-full p-4 rounded-xl text-lg font-black outline-none border-2 transition-all shadow-sm focus:ring-4 ${colorClass}`}
             />
             
-            <div className="flex justify-between text-xs tracking-wider">
+            <div className="flex justify-between text-xs tracking-wider px-1">
                <span className={`font-bold ${isTooShort ? 'text-rose-500' : (length >= 75 ? 'text-rose-600' : 'text-emerald-600')}`}>
                    {alertText || (length >= 75 && "Zablokowano. Osiągnięto twardy limit Allegro!")}
                </span>
-               <span className="text-slate-600 font-bold">Wymagane minimum słów: 3</span>
+               <span className="text-slate-500 font-bold">Wymagane minimum słów: 3</span>
             </div>
         </div>
     );

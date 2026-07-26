@@ -717,6 +717,10 @@ app.patch('/api/products/:id', authenticateToken, async (req, res) => {
         delete payload._newFeatureKey;
         delete payload._newFeatureValue;
         
+        // Zabezpieczenie przed "ślepym zapisem" formularza PIM - Agent ma pełną władzę nad szkicem
+        delete payload.offerDraft; 
+        delete payload.aeoContent;
+        
         const dataToUpdate = { ...payload };
         if (payload.stock !== undefined) dataToUpdate.stock = parseFloat(payload.stock) || 0;
         if (payload.salePrice !== undefined) dataToUpdate.salePrice = parseFloat(payload.salePrice) || 0.0;
