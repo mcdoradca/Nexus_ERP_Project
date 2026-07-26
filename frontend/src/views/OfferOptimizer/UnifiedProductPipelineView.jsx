@@ -173,6 +173,23 @@ export const UnifiedProductPipelineView = ({
                     }
                     setNewProductForm({ ...p, bdoEprCost: parseFloat(calcBdo.toFixed(4)) });
                     setBrandSearchTerm(p.brand ? p.brand.name : '');
+                    
+                    // Odzyskanie danych prawego panelu
+                    if (p.offerDraft) {
+                        setLiveTitle(p.offerDraft.title || p.name || "");
+                        setEditorHtml(p.offerDraft.htmlContent || { sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "" });
+                        setVisionTickets(p.offerDraft.images || []);
+                    } else {
+                        setLiveTitle(p.name || "");
+                        if (p.descriptionHtml) {
+                            setEditorHtml({ sekcja1: p.descriptionHtml, sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "" });
+                        }
+                        if (p.images && p.images.length > 0) {
+                            setVisionTickets(p.images.map(img => ({ originalUrl: img })));
+                        }
+                    }
+                    setLiveEan(p.ean || "");
+                    setEditorKey(prev => prev + 1);
                 })
                 .catch(err => alert("Błąd wczytywania produktu"));
         }
@@ -874,13 +891,7 @@ export const UnifiedProductPipelineView = ({
                     </div>
                     
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-white">
-                        {!isDashboardActive ? (
-                            <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
-                                <Box className="w-16 h-16 mb-4 text-slate-600" />
-                                <h4 className="text-lg font-bold text-white mb-2">Agent Oczekuje w Gotowości</h4>
-                                <p className="text-sm max-w-md">Po zapisaniu danych PIM i kliknięciu "Zapisz PIM i Uruchom Agenta", Supervisor przejmie stery: wygeneruje tytuł, opis HTML (StrictWysiwyg), zdjęcia Lifestyle oraz przygotuje draft do BaseLinkera.</p>
-                            </div>
-                        ) : pipelineStatus === 'THINKING' ? (
+                        {pipelineStatus === 'THINKING' ? (
                             <div className="flex flex-col h-full space-y-6">
                                 <div className="bg-slate-900 border border-slate-700 rounded-lg p-6">
                                     <h4 className="text-sm font-bold text-indigo-400 mb-2 uppercase tracking-widest flex items-center">
