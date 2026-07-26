@@ -232,7 +232,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                              {isMissingPhotosAlert && (
                                  <>
                                      <span className="text-[10px] font-bold text-slate-500 leading-relaxed max-w-[90%] mb-4">
-                                         {imageObj.originalUrl || "Wymagane nowe zdjęcie"}
+                                         {typeof imageObj.originalUrl === 'object' ? (imageObj.originalUrl.human_readable_description || JSON.stringify(imageObj.originalUrl)) : (imageObj.originalUrl || "Wymagane nowe zdjęcie")}
                                      </span>
                                      {index !== 0 && (
                                          <>
@@ -292,8 +292,10 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                      <div className="flex items-start">
                          <AlertTriangle className="w-4 h-4 mr-2 shrink-0 mt-0.5 text-rose-500" />
                          <div className="flex flex-col space-y-1">
-                            {imageObj.alerts.map((alert, idx) => (
-                                <span key={idx} className="text-[10px] font-bold leading-tight text-rose-700">{alert}</span>
+                             {imageObj.alerts.map((alert, idx) => (
+                                <span key={idx} className="text-[10px] font-bold leading-tight text-rose-700">
+                                    {typeof alert === 'object' ? (alert.human_readable_description || JSON.stringify(alert)) : alert}
+                                </span>
                             ))}
                          </div>
                      </div>
@@ -343,7 +345,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                         Raport Trendów (Visual Agent)
                     </h4>
                     <p className="text-xs text-indigo-900 leading-relaxed italic">
-                        "{trendReport}"
+                        "{typeof trendReport === 'object' ? JSON.stringify(trendReport) : trendReport}"
                     </p>
                 </div>
             )}
