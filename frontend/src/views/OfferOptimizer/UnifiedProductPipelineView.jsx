@@ -634,12 +634,12 @@ export const UnifiedProductPipelineView = ({
                                     <div className="relative flex-grow w-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-slate-50 rounded-lg border border-slate-700 p-2">
                                         <div className="origin-top-left scale-[1.05] w-[95%] mx-auto">
                                             <TileSimulator customSections={[
-                                                { html: editorHtml.sekcja1, image: (visionTickets && visionTickets[0]) ? (visionTickets[0].replacedUrl || visionTickets[0].originalUrl) : '' },
-                                                { html: editorHtml.sekcja2, image: (visionTickets && visionTickets[1]) ? (visionTickets[1].replacedUrl || visionTickets[1].originalUrl) : '' },
-                                                { html: editorHtml.sekcja3, image: (visionTickets && visionTickets[2]) ? (visionTickets[2].replacedUrl || visionTickets[2].originalUrl) : '' },
-                                                { html: editorHtml.sekcja4, image: (visionTickets && visionTickets[3]) ? (visionTickets[3].replacedUrl || visionTickets[3].originalUrl) : '' },
-                                                { html: editorHtml.sekcja5, image: (visionTickets && visionTickets[4]) ? (visionTickets[4].replacedUrl || visionTickets[4].originalUrl) : '' },
-                                                { html: editorHtml.sekcja6, image: (visionTickets && visionTickets[5]) ? (visionTickets[5].replacedUrl || visionTickets[5].originalUrl) : '' }
+                                                { items: [ { type: 'TEXT', content: editorHtml.sekcja1 }, { type: 'IMAGE', content: (visionTickets && visionTickets[0]) ? (visionTickets[0].replacedUrl || visionTickets[0].originalUrl) : '' } ] },
+                                                { items: [ { type: 'TEXT', content: editorHtml.sekcja2 }, { type: 'IMAGE', content: (visionTickets && visionTickets[1]) ? (visionTickets[1].replacedUrl || visionTickets[1].originalUrl) : '' } ] },
+                                                { items: [ { type: 'TEXT', content: editorHtml.sekcja3 }, { type: 'IMAGE', content: (visionTickets && visionTickets[2]) ? (visionTickets[2].replacedUrl || visionTickets[2].originalUrl) : '' } ] },
+                                                { items: [ { type: 'TEXT', content: editorHtml.sekcja4 }, { type: 'IMAGE', content: (visionTickets && visionTickets[3]) ? (visionTickets[3].replacedUrl || visionTickets[3].originalUrl) : '' } ] },
+                                                { items: [ { type: 'TEXT', content: editorHtml.sekcja5 }, { type: 'IMAGE', content: (visionTickets && visionTickets[4]) ? (visionTickets[4].replacedUrl || visionTickets[4].originalUrl) : '' } ] },
+                                                { items: [ { type: 'TEXT', content: editorHtml.sekcja6 }, { type: 'IMAGE', content: (visionTickets && visionTickets[5]) ? (visionTickets[5].replacedUrl || visionTickets[5].originalUrl) : '' } ] }
                                             ]} />
                                         </div>
                                     </div>
