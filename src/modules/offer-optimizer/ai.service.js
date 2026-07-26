@@ -1186,7 +1186,8 @@ async function runNode1_Autofill(ean, productName, productFeatures = {}, allegro
     console.log(`[Swarm Node 1] PIM Autofill start: EAN ${ean}`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.1-pro-preview",
+            model: "gemini-3.5-flash",
+            tools: [{ googleSearch: {} }],
             generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(1);
@@ -1219,7 +1220,7 @@ async function runNode3_SEOTitle(ean, productName, category = null) {
     console.log(`[Swarm Node 3] SEO Title start: EAN ${ean}`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.1-pro-preview",
+            model: "gemini-3.5-flash",
             tools: [{ googleSearch: {} }],
             generationConfig: { temperature: 0.2, topP: 0.3, responseMimeType: "application/json" }
         });
@@ -1236,7 +1237,7 @@ async function runNode4_INCIParser(inciString, ragKnowledge) {
     console.log(`[Swarm Node 4] INCI Parser start...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.1-pro-preview",
+            model: "gemini-3.5-flash",
             generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(4);
@@ -1288,7 +1289,7 @@ async function runNode7_Psychology(productName, htmlDraft, sentimentData) {
     console.log(`[Swarm Node 7] Psychology start...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.1-pro-preview",
+            model: "gemini-3.5-flash",
             generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(7);
@@ -1304,7 +1305,8 @@ async function runNode8_Scenographer(productName, targetAudience) {
     console.log(`[Swarm Node 8] Scenographer start...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.1-pro-preview",
+            model: "gemini-3.5-flash",
+            tools: [{ googleSearch: {} }],
             generationConfig: { temperature: 0.4, topP: 0.5, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(8);
