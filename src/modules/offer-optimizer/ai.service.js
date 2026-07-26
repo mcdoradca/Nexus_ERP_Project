@@ -730,36 +730,31 @@ async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0
                 responseSchema: {
                     type: "OBJECT",
                     properties: {
-                        prompt: { type: "STRING" },
-                        visualTrendReport: { type: "STRING" },
-                        paddingTop: { type: "STRING" },
-                        paddingRight: { type: "STRING" },
-                        paddingBottom: { type: "STRING" },
-                        paddingLeft: { type: "STRING" }
+                        prompt: { type: "STRING" }
                     },
-                    required: ["prompt", "visualTrendReport", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft"]
+                    required: ["prompt"]
                 }
             }
         });
 
-        const promptInstruction = `Jesteś ekspertskim dyrektorem artystycznym AI. Twój cel to stworzenie spersonalizowanego opisu tła dla Photoroom API. Pamiętaj, że produkt jest nakładany WARSTWOWO na wygenerowane tło, nie opisuj więc produktu, a otoczenie, powierzchnię i światło pod i za nim. Zwróć uwagę na perspektywę na podstawie właściwości produktu (np. "flatlay" vs "front view").
+        const promptInstruction = `Jesteś scenografem. Twoim zadaniem jest generowanie BARDZO KRÓTKICH (max 25 słów) promptów po angielsku, opisujących lifestylowe tło dla kosmetyku.
 
-Zanim zaczniesz: Przeszukaj w sieci dominujące trendy wizualne (Google Search) dla prezentowania tego przedmiotu (badanie rynku).
+ZASADY KRYTYCZNE:
+Zawsze zakładaj perspektywę poziomego blatu na wprost. Zaczynaj prompt od powierzchni (np. 'placed on a white wooden shelf'). Kategoryczny zakaz pojęć: flatlay, top-down view.
+Zwróć tylko listę promptów w formie tagów po przecinku.
 
 DANE PRODUKTU Z PIM:
 ${productDetailsText}
 
-WYTYCZNE DLA KADRU SLOTU #${imageIndex + 1}:
-- Analizuj składniki z PIM do budowy tła. Unikaj powtarzalnych podestów (no marble pedestals).
-- Slot #1 (Miniatura): MUSI być krystalicznie białe tło ("pure white background rgb 255 255 255"). Możesz ułożyć na tle subtelne elementy symboliczne (kawałki owoców, splash, zioła), ale tło musi pozostać w 100% białe. Padding: MUST BE 0.15 na każdej osi (centruje produkt).
-- Sloty #2+ (Galeria): Nowoczesny styl lifestylowy, włoski design, w użyciu, biuro, kuchnia (zależnie od kat.). PADDING (sterowanie pozycją w kadrze): Wymuś mocno asymetryczny kadr (np. top: "0.4", left: "0.4", bottom: "0.05", right: "0.05" zepchnie obiekt w róg by zostawić miejsce na ewentualny tekst na zdjęciu).
-
-ZASADY: Pisz prompt po angielsku (max 35 słów). "visualTrendReport" po polsku z uzasadnieniem CTR. Zwróć padding (np. "0.1", "0.35") dla 4 osi.`;
+WYTYCZNE DLA SLOTU #${imageIndex + 1}:
+${imageIndex === 0 
+    ? '- TO JEST MINIATURA: Zwróć wyłącznie "pure white background" i umieść na nim od 1 do max 3 głównych składników z opisu (np. "pure white background, fresh aloe leaves, charcoal pieces"). Żadnego innego tła!' 
+    : '- TO JEST GALERIA: Zaprojektuj krótkie lifestylowe otoczenie (np. łazienka, kuchnia, natura).'}`;
 
         const result = await generateWithRetry(model, promptInstruction, 3, "Agent_Photoroom_Prompt");
         const jsonText = result.response.text();
         const data = JSON.parse(jsonText);
-        if (data.prompt && data.visualTrendReport) {
+        if (data.prompt) {
             console.log(`[Photoroom Dynamic Agent] Wygenerowano nowy prompt dla slotu #${imageIndex + 1}:`, data.prompt);
             return data;
         }
@@ -770,40 +765,41 @@ ZASADY: Pisz prompt po angielsku (max 35 słów). "visualTrendReport" po polsku 
     return getFallbackPhotoroomSetup(imageIndex);
 }
 
+function getPaddingForSlot(index) {
+    if (index === 0) {
+        return { paddingTop: "0.075", paddingRight: "0.075", paddingBottom: "0.075", paddingLeft: "0.075" };
+    }
+    const layouts = [
+        { paddingTop: "0.15", paddingRight: "0.45", paddingBottom: "0.25", paddingLeft: "0.15" },
+        { paddingTop: "0.20", paddingRight: "0.15", paddingBottom: "0.35", paddingLeft: "0.50" },
+        { paddingTop: "0.40", paddingRight: "0.55", paddingBottom: "0.00", paddingLeft: "0.05" },
+        { paddingTop: "0.05", paddingRight: "0.10", paddingBottom: "0.40", paddingLeft: "0.55" }
+    ];
+    return layouts[(index - 1) % layouts.length];
+}
+
 function getFallbackPhotoroomSetup(imageIndex) {
-    let prompt = "Modern minimal lifestyle interior, natural soft morning sunlight, slightly blurred background, photorealistic";
-    let visualTrendReport = "Zgodnie z trendami e-commerce, wykorzystano czyste, stonowane otoczenie z miękkim oświetleniem budujące czytelność produktu.";
-    let paddings = { t: "0.15", r: "0.15", b: "0.15", l: "0.15" }; // domyślnie na środku
+    let prompt = "placed on a clean modern kitchen island, blurry sunny kitchen interior in the background, warm natural lighting, lifestyle photography";
 
     switch(imageIndex) {
         case 1:
-            prompt = "Pure white background rgb 255 255 255, a few subtle water droplets and fresh mint leaves resting on the white floor";
-            visualTrendReport = "Miniatura Allegro. Wymagane czyste, białe tło z delikatnymi elementami symbolicznymi budującymi pozycjonowanie.";
-            paddings = { t: "0.15", r: "0.15", b: "0.15", l: "0.15" }; // Zawsze centrowane
+            prompt = "pure white background, a few subtle water droplets and fresh mint leaves resting on the white floor";
             break;
         case 2:
-            prompt = "Resting on a clean modern kitchen island, blurry sunny kitchen interior in the background, warm natural lighting, lifestyle photography";
-            visualTrendReport = "Zgodnie z raportami trendów, asymetryczne ujęcie w naturalnym środowisku buduje zaufanie do skuteczności (spychamy produkt w dół).";
-            paddings = { t: "0.35", r: "0.05", b: "0.05", l: "0.35" }; // Prawy dolny róg
+            prompt = "placed on a bright ceramic bathroom sink, blurred modern white bathroom background, soft morning sunlight, photorealistic";
             break;
         case 3:
-            prompt = "Flatlay, top-down view, resting on a rustic wooden dining table, soft overhead studio lighting, photorealistic";
-            visualTrendReport = "Zgodnie z trendami rynkowymi, ujęcie flatlay z góry buduje poczucie rzemieślniczej autentyczności (spychanie na lewo).";
-            paddings = { t: "0.1", r: "0.4", b: "0.1", l: "0.05" }; // Lewa strona
+            prompt = "placed on a rustic wooden dining table, soft overhead studio lighting, photorealistic";
             break;
         case 4:
-            prompt = "Placed on a luxurious modern vanity desk, blurred bedroom background, golden hour soft sunlight, high end commercial photography";
-            visualTrendReport = "Luksusowe otoczenie domowe i naturalne poranne światło. Umieszczenie w prawym rogu daje przestrzeń na parametry.";
-            paddings = { t: "0.2", r: "0.05", b: "0.2", l: "0.3" }; // Prawa strona
+            prompt = "placed on a luxurious modern vanity desk, blurred bedroom background, golden hour soft sunlight, high end commercial photography";
             break;
         case 5:
-            prompt = "Modern minimal office desk, soft blue ambient light, stark minimal geometric background";
-            visualTrendReport = "Zgodnie z trendami, środowisko pracy biurowej sprawdza się dla gadżetów użytkowych (spychanie na dół).";
-            paddings = { t: "0.3", r: "0.1", b: "0.05", l: "0.1" }; // Dół środek
+            prompt = "placed on a modern minimal office desk, soft blue ambient light, stark minimal geometric background";
             break;
     }
 
-    return { prompt, visualTrendReport, paddingTop: paddings.t, paddingRight: paddings.r, paddingBottom: paddings.b, paddingLeft: paddings.l };
+    return { prompt };
 }
 
 async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
@@ -840,12 +836,14 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         }
     } catch(e) { console.error("Błąd odczytu PIM dla Agenta Promptera:", e.message); }
 
-    // 3. Dynamiczne wygenerowanie spersonalizowanego promptu i Raportu Trendów przez Gemini LLM
+    // 3. Dynamiczne wygenerowanie spersonalizowanego promptu przez Gemini LLM
     const dynamicSetup = await generateDynamicPhotoroomPrompt(productDetailsText, imageIndex);
     const scenePrompt = dynamicSetup.prompt;
-    const visualTrendReport = dynamicSetup.visualTrendReport;
 
-    // 4. Wysłanie żądania do Photoroom Image Editing API (/v2/edit)
+    // 4. Pobranie rotacyjnego ułożenia kadru (padding) dla danego indeksu
+    const padding = getPaddingForSlot(imageIndex);
+
+    // 5. Wysłanie żądania do Photoroom Image Editing API (/v2/edit)
     logLifestyleEvent('INFO', 'Wysyłanie zapytania do Photoroom API v2/edit', { prompt: scenePrompt });
     
     const FormData = require('form-data');
@@ -854,13 +852,13 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     form.append('imageFile', inputBuffer, { filename: 'product.jpg', contentType: 'image/jpeg' });
     form.append('removeBackground', 'true');
     form.append('background.prompt', scenePrompt);
-    form.append('background.negativePrompt', 'text, typography, letters, watermarks, logos, extra products, duplicate objects, people, hands, faces, distorted shapes');
+    form.append('background.negativePrompt', 'charcoal, coal, black stones, aloe leaves, giant ingredients, floating objects, water splashes, flatlay, text, duplicate products, weird shapes, people, hands');
     form.append('export.format', 'jpeg');
     form.append('outputSize', '1080x1080');
-    form.append('paddingTop', dynamicSetup.paddingTop || '0.15');
-    form.append('paddingRight', dynamicSetup.paddingRight || '0.15');
-    form.append('paddingBottom', dynamicSetup.paddingBottom || '0.15');
-    form.append('paddingLeft', dynamicSetup.paddingLeft || '0.15');
+    form.append('paddingTop', padding.paddingTop);
+    form.append('paddingRight', padding.paddingRight);
+    form.append('paddingBottom', padding.paddingBottom);
+    form.append('paddingLeft', padding.paddingLeft);
     form.append('ignorePaddingAndSnapOnCroppedSides', 'false');
 
     const startTime = Date.now();
@@ -910,7 +908,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 
         return {
             base64: base64Output,
-            visualTrendReport: visualTrendReport
+            visualTrendReport: "Wygenerowano na podstawie optymalizacji tagów."
         };
 
     } catch (err) {
