@@ -274,10 +274,14 @@ async function getProductParametersByEan(ean) {
             const product = response.data.products[0];
             if (product.parameters) {
                 product.parameters.forEach(p => {
-                    if (p.name && p.values && p.values.length > 0) {
-                        hardFeatures[p.name] = p.values[0];
-                    } else if (p.name && p.valuesIds && p.valuesIds.length > 0) {
-                        hardFeatures[p.name] = p.valuesIds[0];
+                    if (p.type === 'dictionary') {
+                        if (p.valuesLabels && p.valuesLabels.length > 0) {
+                            hardFeatures[p.name] = p.valuesLabels[0];
+                        }
+                    } else {
+                        if (p.values && p.values.length > 0) {
+                            hardFeatures[p.name] = p.values[0];
+                        }
                     }
                 });
             }

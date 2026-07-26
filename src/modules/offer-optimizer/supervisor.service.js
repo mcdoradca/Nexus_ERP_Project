@@ -160,15 +160,54 @@ class SupervisorService {
         // ==========================================
         broadcastStatus("FAZA_1_GROUNDING", ["Agent_1_Autofill", "Agent_2_Sentiment", "Agent_3_SEOTitle"], { Agent_1_Autofill: "IN_PROGRESS" });
         
-        console.log(`[Supervisor] Pobieranie danych kaskadowych dla Agenta 1 (EAN: ${ean})`);
+        console.log(`[Supervisor] Rozpoczynam kaskadowe zasilanie PXM dla Agenta 1 (EAN: ${ean})`);
+        
+        // --- 1. Ustalenie Kategori Allegro & Zbudowanie Schematu ---
+        let catId = product.allegroCategoryId;
+        let requiredSchema = [];
+        
+        if (!catId) {
+            catId = await AllegroService.findCategoryByEan(ean);
+            if (!catId && product.name) catId = await AllegroService.findMatchingCategoryByName(product.name);
+            if (catId) {
+                await prisma.product.update({ where: { id: product.id }, data: { allegroCategoryId: catId } });
+                product.allegroCategoryId = catId;
+            }
+        }
+        
+        if (catId) {
+            let category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
+            if (!category || !category.parameters || (Array.isArray(category.parameters) && category.parameters.length === 0)) {
+                await AllegroService.fetchCategoryParameters(catId);
+                category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
+            }
+            if (category && category.parameters) requiredSchema = category.parameters;
+        }
+
+        // --- 2. Pobranie Twardych Danych z Allegro (Katalog) ---
         const allegroData = await AllegroService.getProductParametersByEan(ean);
+        
+        // --- 3. Wypełnianie Braków (Lite Agent PXM) ---
+        let currentFeatures = typeof product.features === 'object' && product.features !== null ? { ...product.features } : {};
+        if (allegroData && Object.keys(allegroData).length > 0) {
+            currentFeatures = { ...currentFeatures, ...allegroData };
+        }
+        
+        console.log(`[Supervisor] Odpalam PXM Auto-Fill (Lite Agent) dla EAN: ${ean}`);
+        const allegroFilledFeatures = await AiService.autofillMissingParameters(ean, product.name, currentFeatures, requiredSchema);
+
+        // --- 4. Równoległy Generator Metadanych (Agent 1) ---
         const scrapedText = await OsintScraperService.searchAndExtract(ean, product.name);
         
-        const autofillData = await AiService.runNode1_Autofill(ean, product.name, product.features, allegroData, scrapedText);
-        if (autofillData.missing_critical_data) {
+        const metaAutofillData = await AiService.runNode1_Autofill(ean, product.name, allegroFilledFeatures, allegroData, scrapedText);
+        
+        if (metaAutofillData.missing_critical_data) {
             broadcastStatus("FAZA_1_GROUNDING", [], {}, "HALTED", "Brak kluczowych danych EAN/SDS - przerwano potok.");
             throw new Error("HITL_ALERT: Agent 1 zgłosił brak krytycznych danych technicznych.");
         }
+        
+        // --- 5. Bezpieczny Merge & Zapis ---
+        const autofillData = { ...allegroFilledFeatures, ...metaAutofillData };
         
         broadcastStatus("FAZA_1_GROUNDING", ["Agent_2_Sentiment", "Agent_3_SEOTitle"], { Agent_1_Autofill: "COMPLETED", Agent_2_Sentiment: "IN_PROGRESS" });
         const sentimentData = await AiService.runNode2_Sentiment(ean, product.name);
