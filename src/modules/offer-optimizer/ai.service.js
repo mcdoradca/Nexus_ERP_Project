@@ -879,7 +879,6 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     if (imageIndex === 0) {
         negativePrompt = 'flatlay, text, duplicate products, weird shapes, people, hands, shadows, drop shadows, grey background, gradients, dark spots, colored background, blurry background, bokeh';
         form.append('background.color', '#FFFFFF'); // Bezwzględne wymuszenie czystego RGB 255,255,255
-        form.append('shadow.mode', 'none'); // Bezwzględny zakaz cieni dla miniatury #1
     } else {
         negativePrompt = 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay';
     }
