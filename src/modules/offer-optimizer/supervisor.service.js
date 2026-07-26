@@ -247,7 +247,7 @@ class SupervisorService {
         
         // Złożenie ostatecznego payloadu
         const finalPayload = {
-            title: seoData.seo_title || product.name,
+            title: seoData.generated_title || seoData.seo_title || product.name,
             attributes: autofillData,
             htmlContent: psychologyData,
             scenography: scenographerData,
