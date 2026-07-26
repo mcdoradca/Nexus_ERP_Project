@@ -879,6 +879,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     if (imageIndex === 0) {
         negativePrompt = 'flatlay, text, duplicate products, weird shapes, people, hands, shadows, drop shadows, grey background, gradients, dark spots, colored background, blurry background, bokeh';
         form.append('background.color', '#FFFFFF'); // Bezwzględne wymuszenie czystego RGB 255,255,255
+        form.append('shadow.mode', 'none'); // Bezwzględny zakaz cieni dla miniatury #1
     } else {
         negativePrompt = 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay';
     }
@@ -911,8 +912,8 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         const badgeSvg = `
         <svg width="420" height="40" viewBox="0 0 420 40" xmlns="http://www.w3.org/2000/svg">
             <rect x="0" y="0" width="420" height="40" rx="8" fill="rgba(15, 23, 42, 0.85)" stroke="rgba(255, 255, 255, 0.25)" stroke-width="1.5"/>
-            <text x="16" y="25" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#FFFFFF">
-                ✨ AI Generated (EU AI Act Art. 50) | Nexus ERP
+            <text x="16" y="26" font-family="sans-serif" font-size="14" font-weight="bold" fill="#FFFFFF">
+                AI Generated (EU AI Act Art. 50) | Nexus ERP
             </text>
         </svg>`;
 
