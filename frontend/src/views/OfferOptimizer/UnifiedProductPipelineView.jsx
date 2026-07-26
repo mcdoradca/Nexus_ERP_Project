@@ -217,6 +217,13 @@ export const UnifiedProductPipelineView = ({
                     setEditorHtml(data.result.editorHtml || { sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "" });
                     setLiveTitle(data.result.title || "");
                     setVisionTickets(data.result.visionTickets || []);
+                    if (data.result.features || data.result.aeoContent) {
+                        setNewProductForm(prev => ({
+                            ...prev,
+                            features: data.result.features || prev.features || {},
+                            aeoContent: data.result.aeoContent || prev.aeoContent || ''
+                        }));
+                    }
                     setEditorKey(prev => prev + 1);
                 }
             } else if (data.type === 'PIPELINE_ERROR') {
@@ -949,53 +956,56 @@ export const UnifiedProductPipelineView = ({
                                                                </div>
                                                               );
                                                            })}
-                        
-                                                           {!categorySchema?.parameters && Object.entries(newProductForm.features || {}).map(([k, v]) => (
-                                                               <div key={k} className="flex items-center space-x-2 group">
-                                                                   <input type="text" value={k} readOnly className="w-1/3 bg-slate-100 border border-slate-300 rounded-sm px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest" />
-                                                                   <input type="text" value={v} onChange={e => {
-                                                                       const updated = {...newProductForm.features, [k]: e.target.value};
-                                                                       setNewProductForm({...newProductForm, features: updated});
-                                                                   }} className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" />
-                                                                   <button type="button" onClick={() => {
-                                                                       const updated = {...newProductForm.features};
-                                                                       delete updated[k];
-                                                                       setNewProductForm({...newProductForm, features: updated});
-                                                                   }} className="p-2 text-slate-400 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"><X className="w-4 h-4" /></button>
-                                                               </div>
-                                                           ))}
-                                                           
-                                                           {!categorySchema?.parameters && (
-                                                           <div className="flex items-center space-x-2 mt-2 pt-3 border-t border-slate-200">
-                                                               <input type="text" id="new_feat_key" placeholder="Nazwa (np. Stan, Rodzaj)" className="w-1/3 bg-white border border-indigo-200 rounded-sm px-3 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:border-indigo-500 placeholder:normal-case placeholder:tracking-normal" />
-                                                               <input type="text" id="new_feat_val" placeholder="Wartość (np. Nowy)" className="flex-1 bg-white border border-indigo-200 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" onKeyDown={e => {
-                                                                   if (e.key === 'Enter') {
-                                                                       e.preventDefault();
-                                                                       const keyInput = document.getElementById('new_feat_key');
-                                                                       const key = keyInput.value.trim();
-                                                                       const val = e.target.value.trim();
-                                                                       if (key && val) {
-                                                                           setNewProductForm(prev => ({...prev, features: {...(prev.features || {}), [key]: val}}));
-                                                                           keyInput.value = '';
-                                                                           e.target.value = '';
-                                                                           keyInput.focus();
-                                                                       }
-                                                                   }
-                                                               }} />
-                                                               <button type="button" onClick={() => {
-                                                                   const keyInput = document.getElementById('new_feat_key');
-                                                                   const valInput = document.getElementById('new_feat_val');
-                                                                   const key = keyInput.value.trim();
-                                                                   const val = valInput.value.trim();
-                                                                   if (key && val) {
-                                                                       setNewProductForm(prev => ({...prev, features: {...(prev.features || {}), [key]: val}}));
-                                                                       keyInput.value = '';
-                                                                       valInput.value = '';
-                                                                       keyInput.focus();
-                                                                   }
-                                                               }} className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-sm transition-colors shadow-md"><Plus className="w-4 h-4" /></button>
-                                                           </div>
-                                                           )}
+                                                            {Object.entries(newProductForm.features || {})
+                                                                .filter(([k]) => !categorySchema?.parameters?.some(p => p.name === k))
+                                                                .map(([k, v]) => {
+                                                                    const displayVal = typeof v === 'object' ? JSON.stringify(v) : v;
+                                                                    return (
+                                                                        <div key={k} className="flex items-center space-x-2 group">
+                                                                            <input type="text" value={k} readOnly className="w-1/3 bg-slate-100 border border-slate-300 rounded-sm px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest" />
+                                                                            <input type="text" value={displayVal} onChange={e => {
+                                                                                const updated = {...newProductForm.features, [k]: e.target.value};
+                                                                                setNewProductForm({...newProductForm, features: updated});
+                                                                            }} className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" />
+                                                                            <button type="button" onClick={() => {
+                                                                                const updated = {...newProductForm.features};
+                                                                                delete updated[k];
+                                                                                setNewProductForm({...newProductForm, features: updated});
+                                                                            }} className="p-2 text-slate-400 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"><X className="w-4 h-4" /></button>
+                                                                        </div>
+                                                                    );
+                                                                })
+                                                            }
+                                                            
+                                                            <div className="flex items-center space-x-2 mt-2 pt-3 border-t border-slate-200">
+                                                                <input type="text" id="new_feat_key" placeholder="Nazwa (np. Stan, Rodzaj)" className="w-1/3 bg-white border border-indigo-200 rounded-sm px-3 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:border-indigo-500 placeholder:normal-case placeholder:tracking-normal" />
+                                                                <input type="text" id="new_feat_val" placeholder="Wartość (np. Nowy)" className="flex-1 bg-white border border-indigo-200 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" onKeyDown={e => {
+                                                                    if (e.key === 'Enter') {
+                                                                        e.preventDefault();
+                                                                        const keyInput = document.getElementById('new_feat_key');
+                                                                        const key = keyInput.value.trim();
+                                                                        const val = e.target.value.trim();
+                                                                        if (key && val) {
+                                                                            setNewProductForm(prev => ({...prev, features: {...(prev.features || {}), [key]: val}}));
+                                                                            keyInput.value = '';
+                                                                            e.target.value = '';
+                                                                            keyInput.focus();
+                                                                        }
+                                                                    }
+                                                                }} />
+                                                                <button type="button" onClick={() => {
+                                                                    const keyInput = document.getElementById('new_feat_key');
+                                                                    const valInput = document.getElementById('new_feat_val');
+                                                                    const key = keyInput.value.trim();
+                                                                    const val = valInput.value.trim();
+                                                                    if (key && val) {
+                                                                        setNewProductForm(prev => ({...prev, features: {...(prev.features || {}), [key]: val}}));
+                                                                        keyInput.value = '';
+                                                                        valInput.value = '';
+                                                                        keyInput.focus();
+                                                                    }
+                                                                }} className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-sm transition-colors shadow-md"><Plus className="w-4 h-4" /></button>
+                                                            </div>
                                                            <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest mt-2 flex items-center">
                                                               <Zap className="w-3 h-3 mr-1" /> {categorySchema ? 'Wypełnij wymagane wartości z oficjalnego słownika Allegro.' : 'Pobierz kategorię Allegro, aby załadować interaktywny formularz parametrów.'}
                                                            </p>

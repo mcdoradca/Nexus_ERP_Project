@@ -76,7 +76,9 @@ class SupervisorService {
                resultPayload = {
                    editorHtml: draft.htmlContent,
                    title: draft.title,
-                   visionTickets: draft.visionTickets || []
+                   visionTickets: draft.visionTickets || [],
+                   features: finalProduct.features || {},
+                   aeoContent: finalProduct.aeoContent || ''
                };
           }
           
