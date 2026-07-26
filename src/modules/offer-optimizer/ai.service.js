@@ -137,16 +137,24 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
             const isRateLimit = error.status === 429 || (error.message && (error.message.includes('429') || error.message.includes('503')));
             const isJsonError = error.message && error.message.includes('JSON_PARSE_ERROR');
             const isTimeout = error.message && error.message.includes('timeout');
+            const isRecitation = error.message && error.message.includes('RECITATION');
             
             broadcastLog(`BŁĄD w generateWithRetry [Próba ${attempt}]: ${error.message}`);
             
-            if (attempt >= maxRetries || (!isRateLimit && !isJsonError && !isTimeout)) {
+            if (attempt >= maxRetries || (!isRateLimit && !isJsonError && !isTimeout && !isRecitation)) {
                 broadcastLog(`Krytyczny błąd API, brak dalszych ponowień. Przerwano.`);
                 throw error; // Fail fast for non-transient errors
             }
             
             if (isJsonError) {
                 const repairPrompt = "\n\nCRITICAL INSTRUCTION: Poprzednia próba wygenerowała uszkodzony JSON (JSON_PARSE_ERROR). Upewnij się, że zwracasz w 100% poprawny obiekt JSON. Użyj ucieczki (escape) dla cudzysłowów wewnątrz stringów (\\\") i unikaj znaków nowej linii bezpośrednio w wartościach tekstowych!";
+                if (typeof promptOrParts === 'string') {
+                    promptOrParts += repairPrompt;
+                } else if (Array.isArray(promptOrParts)) {
+                    promptOrParts.push(repairPrompt);
+                }
+            } else if (isRecitation) {
+                const repairPrompt = "\n\nCRITICAL INSTRUCTION: Poprzednia próba została zablokowana przez filtr RECITATION. Musisz BEZWZGLĘDNIE PARAFRAZOWAĆ cały tekst. Nie używaj ani jednego zdania, które brzmi identycznie jak tekst źródłowy (OSINT) lub jakiekolwiek dane wejściowe. Opisz wszystko całkowicie własnymi słowami!";
                 if (typeof promptOrParts === 'string') {
                     promptOrParts += repairPrompt;
                 } else if (Array.isArray(promptOrParts)) {
@@ -1171,11 +1179,25 @@ async function runNode1_Autofill(ean, productName, productFeatures = {}, allegro
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.5-flash",
-            tools: [{ googleSearch: {} }],
             generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(1);
-        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}\n\n--- DANE Z BASELINKERA ---\n${JSON.stringify(productFeatures, null, 2)}\n\n--- DANE Z ALLEGRO ---\n${JSON.stringify(allegroData, null, 2)}\n\n--- ZNALEZIONY TEKST (OSINT) ---\n${scrapedText}`;
+        const prompt = `${systemPrompt}
+
+CRITICAL INSTRUCTION: Do NOT copy verbatim any text from the OSINT scraped text. ALWAYS PARAPHRASE and summarize information in your own words to avoid copyright filters (RECITATION error).
+
+--- DANE WEJŚCIOWE ---
+PRODUKT: ${productName}
+EAN: ${ean}
+
+--- DANE Z BASELINKERA ---
+${JSON.stringify(productFeatures, null, 2)}
+
+--- DANE Z ALLEGRO ---
+${JSON.stringify(allegroData, null, 2)}
+
+--- ZNALEZIONY TEKST (OSINT) ---
+${scrapedText}`;
         return await generateWithRetry(model, prompt, 3, "Agent_1_Autofill", true);
     } catch (err) {
         console.error("[Swarm Node 1] Błąd krytyczny:", err.message);

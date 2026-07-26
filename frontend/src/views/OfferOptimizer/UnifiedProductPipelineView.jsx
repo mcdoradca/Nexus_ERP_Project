@@ -153,6 +153,16 @@ export const UnifiedProductPipelineView = ({
 
     const brandDropdownRef = useRef(null);
 
+    const handleCreateBrandInline = async (name) => {
+        if(!name) return;
+        try {
+            const brandRes = await axios.post(`${API_URL}/api/brands`, { name: name.trim() }, { headers: { Authorization: `Bearer ${token}` } });
+            setBrands(prev => [...prev, brandRes.data]); 
+            setNewProductForm(prev => ({ ...prev, brandId: brandRes.data.id }));
+            setBrandSearchTerm(brandRes.data.name);
+            setIsBrandDropdownOpen(false);
+        } catch(err) { alert('Błąd tworzenia marki'); }
+    };
     // Ładowanie marek
     useEffect(() => {
         axios.get(`${API_URL}/api/brands`, { headers: { Authorization: `Bearer ${token}` } })
