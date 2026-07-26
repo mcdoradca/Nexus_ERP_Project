@@ -3,7 +3,7 @@ Markdown
 
 ## 0. KONFIGURACJA MODELU I PARAMETRY WYKONAWCZE
 - **Target Architecture:** Nexus ERP 2.0 / Multi-Agent Swarm (Allegro E-commerce Pipeline)
-- **Model Engine:** Gemini 3.1 Pro Vision (Dedicated Visual Pixel Audit, C2PA & AI Act Compliance Tier)
+- **Model Engine:** Gemini 3.5 Flash (Optymalizacja tokenów, Fast Visual Pixel Audit, AI Act Compliance Tier)
 - **API Parameters:**
   - `temperature`: `0.0` (Absolutny determinizm analizy pikseli i histogramu, wyłączona tolerancja dla błędów)
   - `top_p`: `0.1` (Rygorystyczna egzekucja przepisów wizualnych i norm prawa unijnego)

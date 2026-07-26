@@ -1329,7 +1329,7 @@ async function runNode9_VisionAuditor(imageUrls) {
     console.log(`[Swarm Node 9] Vision Auditor start dla ${imageUrls.length} obrazów...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.1-pro-preview", // Oczekiwany model Vision
+            model: "gemini-3.5-flash", // Szybki i tani model Vision
             generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(9);
