@@ -875,11 +875,11 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     form.append('removeBackground', 'true');
     
     let negativePrompt = '';
+    form.append('background.prompt', scenePrompt); // Wymagane, by wygenerować składniki
     if (imageIndex === 0) {
         negativePrompt = 'flatlay, text, duplicate products, weird shapes, people, hands, shadows, drop shadows, grey background, gradients, dark spots, colored background, blurry background, bokeh';
-        form.append('background.color', '#FFFFFF'); // Bezwzględne wymuszenie czystego RGB 255,255,255
+        form.append('background.color', '#FFFFFF'); // Bezwzględne wymuszenie czystego RGB 255,255,255 pod spodem
     } else {
-        form.append('background.prompt', scenePrompt);
         negativePrompt = 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay';
     }
         
@@ -909,34 +909,13 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 
         let finalBuffer = resultBuffer;
         try {
-            // Nanoszenie znaku wodnego EU AI Act Art. 50 za pomocą Sharp Node.js (natywne Text API)
-            const badgeBgBuffer = await sharp({
-                create: {
-                    width: 420,
-                    height: 40,
-                    channels: 4,
-                    background: { r: 15, g: 23, b: 42, alpha: 0.85 }
-                }
-            }).png().toBuffer();
-
-            const badgeTextBuffer = await sharp({
-                text: {
-                    text: '<span foreground="white">AI Generated (EU AI Act Art. 50) | Nexus ERP</span>',
-                    font: 'Arial',
-                    width: 400,
-                    height: 40,
-                    rgba: true
-                }
-            }).png().toBuffer();
-
-            const finalBadgeBuffer = await sharp(badgeBgBuffer)
-                .composite([{ input: badgeTextBuffer, gravity: 'center' }])
-                .png()
-                .toBuffer();
+            // Nanoszenie znaku wodnego EU AI Act Art. 50 za pomocą pre-renderowanego Base64
+            // Omija problemy z brakiem czcionek systemowych na produkcyjnym serwerze Linux
+            const badgeBase64 = "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";
 
             finalBuffer = await sharp(resultBuffer)
                 .composite([{
-                    input: finalBadgeBuffer,
+                    input: Buffer.from(badgeBase64, 'base64'),
                     top: 1080 - 40 - 24,
                     left: 24
                 }])
