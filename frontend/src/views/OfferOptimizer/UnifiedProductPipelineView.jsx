@@ -148,6 +148,7 @@ export const UnifiedProductPipelineView = ({
     const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
     const [isSavingDraft, setIsSavingDraft] = useState(false);
+    const [showExportConfirm, setShowExportConfirm] = useState(false);
     const [isPimCollapsed, setIsPimCollapsed] = useState(false);
 
     const brandDropdownRef = useRef(null);
@@ -284,6 +285,76 @@ export const UnifiedProductPipelineView = ({
         } catch (error) {
             console.error(error);
             alert(error.message);
+        }
+    };
+
+    const handleSaveDraft = async () => {
+        setIsSavingDraft(true);
+        try {
+            const draftData = {
+                title: liveTitle,
+                htmlContent: editorHtml,
+                images: visionTickets,
+                sku: newProductForm.sku,
+                brandId: newProductForm.brandId,
+                subiektId: newProductForm.subiektId,
+                baselinkerId: newProductForm.baselinkerId,
+                status: newProductForm.status,
+                videoUrl: newProductForm.videoUrl,
+                weight: newProductForm.weight,
+                length: newProductForm.length,
+                width: newProductForm.width,
+                height: newProductForm.height,
+                taxRate: newProductForm.taxRate,
+                stock: newProductForm.stock,
+                stockErpUnits: newProductForm.stockErpUnits,
+                stockWmsUnits: newProductForm.stockWmsUnits,
+                allegroCategoryId: newProductForm.allegroCategoryId,
+                features: newProductForm.features,
+                basePrice: newProductForm.basePrice,
+                salePrice: newProductForm.salePrice,
+                inboundTransportCost: newProductForm.inboundTransportCost,
+                packagingCost: newProductForm.packagingCost,
+                bdoEprCost: newProductForm.bdoEprCost,
+                outboundTransportCost: newProductForm.outboundTransportCost
+            };
+            
+            await axios.post(`${API_URL}/api/offer-optimizer/save-draft`, {
+                ean: liveEan,
+                draftData
+            }, { headers: { Authorization: `Bearer ${token}` } });
+            
+            alert('Sukces! Szkic i dane PIM zostały zapisane w systemie.');
+            if (fetchAppGlobalData) fetchAppGlobalData();
+        } catch (err) {
+            console.error(err);
+            alert('Błąd zapisu: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsSavingDraft(false);
+        }
+    };
+
+    const handleConfirmExport = async () => {
+        setIsExporting(true);
+        try {
+            const draftData = {
+                title: liveTitle,
+                htmlContent: editorHtml,
+                images: visionTickets
+            };
+            await axios.post(`${API_URL}/api/offer-optimizer/export-baselinker`, {
+                ean: liveEan,
+                draftData
+            }, { headers: { Authorization: `Bearer ${token}` } });
+            
+            alert('Zlecono eksport i akceptację MDM! PIM -> BaseLinker.');
+            setShowExportConfirm(false);
+            if (fetchAppGlobalData) fetchAppGlobalData();
+        } catch (err) {
+            console.error(err);
+            alert('Błąd eksportu: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -895,6 +966,24 @@ export const UnifiedProductPipelineView = ({
                                         />
                                     ))}
                                 </div>
+                                <div className="mt-8 flex justify-end space-x-4 pb-8 border-t border-slate-800 pt-6">
+                                    <button 
+                                        onClick={handleSaveDraft}
+                                        disabled={isSavingDraft || isExporting}
+                                        className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold uppercase tracking-widest text-xs rounded-lg transition-colors flex items-center shadow-lg disabled:opacity-50"
+                                    >
+                                        {isSavingDraft ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                                        Zapisz Kopię Roboczą
+                                    </button>
+                                    <button 
+                                        onClick={() => setShowExportConfirm(true)}
+                                        disabled={isSavingDraft || isExporting}
+                                        className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase tracking-widest text-xs rounded-lg transition-colors flex items-center shadow-[0_0_15px_rgba(16,185,129,0.4)] disabled:opacity-50"
+                                    >
+                                        <Send className="w-4 h-4 mr-2" />
+                                        Przygotuj do Eksportu
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -902,6 +991,45 @@ export const UnifiedProductPipelineView = ({
             </div>
             
             {viewingImageUrl && <ImageModal url={viewingImageUrl} onClose={() => setViewingImageUrl(null)} />}
+
+            {showExportConfirm && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col">
+                        <div className="p-6 border-b border-slate-100 flex items-center space-x-4 bg-rose-50 text-rose-600">
+                            <ShieldAlert className="w-8 h-8" />
+                            <div>
+                                <h3 className="font-black text-lg uppercase tracking-tight">Ostrzeżenie o nadpisaniu</h3>
+                                <p className="text-xs font-bold opacity-80 uppercase tracking-widest">Eksport do zewnętrznych systemów</p>
+                            </div>
+                        </div>
+                        <div className="p-6 text-slate-600 text-sm leading-relaxed">
+                            <p className="mb-4">
+                                Potwierdzając eksport, zgadzasz się na permanentne <strong>nadpisanie twardych danych PIM</strong> oraz wysłanie wygenerowanego opisu i zoptymalizowanych multimediów do systemu BaseLinker, a następnie do Allegro.
+                            </p>
+                            <p className="font-bold text-slate-800">
+                                Ta operacja jest odwracalna jedynie ręcznie!
+                            </p>
+                        </div>
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end space-x-3">
+                            <button 
+                                onClick={() => setShowExportConfirm(false)}
+                                disabled={isExporting}
+                                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
+                            >
+                                Anuluj
+                            </button>
+                            <button 
+                                onClick={handleConfirmExport}
+                                disabled={isExporting}
+                                className="px-6 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-md font-black text-xs uppercase tracking-widest transition-colors flex items-center shadow-lg disabled:opacity-50"
+                            >
+                                {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                                Zatwierdź Eksport
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
