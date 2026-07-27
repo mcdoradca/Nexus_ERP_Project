@@ -710,13 +710,13 @@ Odpowiedz wyłącznie czystym obiektem JSON:
 
 async function getPlaybookPromptForSlot(index, productDetailsText) {
     if (index === 0) return "Odczytaj ze zdjęcia główny składnik produktu i umieść go za produktem. Produkt musi być umieszczony centralnie na białym tle RGB 255,255,255 i zajmować minimum 85% kadru. Produkt nie może być w żaden sposób zmieniony i musi pozostać w 100% taki sam zwłaszcza etykieta i napisy. Możesz za to powiększyć lub zmniejszyć produkt żeby dopasować do ekranu";
-    if (index === 1) return "Make it a high-end luxury lifestyle commercial photoshoot with infinite depth of field. The object rests firmly on a highly textured, razor-sharp dark concrete table. In the background, a crystal-clear, hyper-detailed modern city street at golden hour, capturing an energetic and luxurious urban vibe. Brilliant, cinematic directional sunlight casting a crisp contact shadow. Every background detail is in absolute sharp focus (f/22). CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO bokeh, NO out of focus areas, NO people, NO texts, NO artificial pedestals.";
-    if (index === 2) return "Make it a breathtaking nature lifestyle commercial photoshoot with infinite depth of field. The object rests firmly on a large, flat, dark river stone surrounded by hyper-detailed, vibrant green moss. The background is a crystal-clear, majestic pine forest at sunrise, evoking a deep sense of purity and organic power. Crisp morning sunlight casting a realistic sharp shadow. Every leaf, stone, and background element must be tack-sharp (f/22). CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO soft focus, NO bokeh, NO floating objects, NO podiums, NO hands.";
-    if (index === 3) return "Make it a premium fashion editorial commercial photoshoot, tack-sharp from front to back. Place the object on a highly polished black glass surface reflecting pure luxury. The background is a crisp, sophisticated dark monochromatic studio setting with hyper-detailed textures. A single dramatic spotlight illuminates the product and surface, creating striking, high-contrast geometry and a sharp, elegant shadow. Exuding bold minimalism and exclusivity. CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO soft focus, NO bokeh, NO props, NO people, NO texts.";
-    if (index === 4) return "Make it a hyper-realistic luxury resort commercial photoshoot with infinite depth of field. Place the object on clean, sun-warmed pristine white sand. The background is a crystal-clear, sparkling infinity pool and a breathtaking ocean horizon reflecting the intense summer sun. Evokes absolute refreshment, vitality, and premium vacation vibes. Brilliant high-key lighting, razor-sharp details in every water ripple and grain of sand (f/22). CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO bokeh, NO out of focus areas, NO people, NO towels, NO bathrooms.";
-    if (index === 5) return "Make it a cutting-edge minimalist design commercial photoshoot, completely in sharp focus edge-to-edge. Place the object on a perfectly smooth, hyper-detailed surface. The entire background and floor should be a seamless, vibrant terracotta pastel color block, separated by a crisp architectural lighting line. Aesthetically pleasing, bold, and modern. Razor-sharp textures, striking directional light casting a geometric shadow. CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO bokeh, NO soft focus, NO pedestals, zero clutter, NO hands.";
-    if (index === 6) return "Make it an inviting, premium interior commercial photoshoot with infinite depth of field. The object is placed on a hyper-detailed, rustic brushed oak wood table. The background is a crystal-clear, luxurious modern minimalist living room bathed in radiant natural window light. A neutral palette of off-white and sand evoking ultimate comfort, trust, and premium lifestyle. Every furniture texture and wood grain in the background must be razor-sharp and lifelike (f/22). CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO bokeh, NO soft focus, NO bathrooms, NO mirrors, NO people.";
-    if (index === 7) return "Make it an avant-garde artistic commercial photoshoot, shot with f/22 aperture for maximum sharpness everywhere. Place the object on a pristine, hyper-detailed white plaster surface. The background is a crisp white architectural wall. Use striking 'gobo' lighting: dramatic, razor-sharp geometric shadows (like sharp window blinds or tropical leaves) cast perfectly across the background and surface. Evokes absolute sophistication and high intelligence. CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO bokeh, NO soft focus, NO floating elements, NO text, NO people.";
+    if (index === 1) return "An empty, hyper-detailed modern city street scene at golden hour. The resting surface is a flat, dark textured concrete table. Infinite depth of field, f/22 aperture, tack-sharp focus on every background detail. Cinematic warm sunlight casting a crisp contact shadow. Empty scene, absolutely no blur, no soft focus, no bokeh, no people, no pedestals.";
+    if (index === 2) return "An empty, majestic pine forest at sunrise. The resting surface is a flat, dark river stone surrounded by hyper-detailed green moss. Infinite depth of field, f/22 aperture, tack-sharp focus on every leaf and stone texture. Crisp morning sunlight. Empty scene, absolutely no blur, no soft focus, no bokeh, no floating objects.";
+    if (index === 3) return "An empty, sophisticated dark monochromatic studio setting. The resting surface is a flat, highly polished black glass. Infinite depth of field, f/22 aperture, razor-sharp from front to back. A single dramatic spotlight creating sharp geometric shadows. Minimalist empty scene, absolutely no blur, no soft focus, no props.";
+    if (index === 4) return "An empty, luxury resort scene. The resting surface is pristine white sand. The background is a sparkling infinity pool and ocean horizon reflecting intense summer sun. Infinite depth of field, f/22 aperture, every water ripple and grain of sand is razor-sharp. Brilliant high-key lighting. Empty scene, absolutely no blur, no bokeh, no out of focus areas, no people.";
+    if (index === 5) return "An empty, minimalist design studio. The resting surface is perfectly smooth. The background is a seamless, vibrant terracotta pastel wall separated by a crisp architectural lighting line. Infinite depth of field, f/22 aperture, sharp geometric shadow. Empty scene, absolutely no blur, no bokeh, no soft focus, no pedestals.";
+    if (index === 6) return "An empty, luxurious modern minimalist living room bathed in radiant natural window light. The resting surface is a rustic brushed oak wood table. A neutral palette of off-white and sand. Infinite depth of field, f/22 aperture, every furniture texture and wood grain is razor-sharp and lifelike. Empty scene, absolutely no blur, no soft focus, no bokeh, no people.";
+    if (index === 7) return "An empty, avant-garde artistic studio. The resting surface is flat, pristine white plaster. The background is a crisp white architectural wall. Dramatic 'gobo' lighting: sharp geometric shadows of window blinds cast across the wall. Infinite depth of field, f/22 aperture, maximum sharpness everywhere. Empty scene, absolutely no blur, no bokeh.";
     
     if (index === 8) {
         let ingredients = "natural elements";
@@ -732,30 +732,34 @@ async function getPlaybookPromptForSlot(index, productDetailsText) {
                 console.error("[Photoroom Slot 9] Błąd pobierania składników (fallback):", e.message);
             }
         }
-        return `Make it a premium commercial e-commerce photoshoot with infinite depth of field. Place the object on a hyper-detailed, clean slate countertop. Integrate natural elements crisply into the scene, specifically: ${ingredients}. These elements must rest naturally on the surface with razor-sharp textures, showcasing their raw authenticity and premium quality. Crystal-clear bright studio background, brilliant realistic lighting. Everything is tack-sharp (f/22). CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO bokeh, NO soft focus, NO human hands, NO text.`;
+        return `An empty, bright commercial photography studio. The resting surface is a clean slate countertop. Resting completely flat on the surface are: ${ingredients}. Brilliant realistic lighting. Infinite depth of field, f/22 aperture, hyper-detailed, everything in tack-sharp focus. Empty scene, absolutely no blur, no bokeh, no soft focus, no flying objects, no hands.`;
     }
     
     return "Photoroom_Native_AI";
 }
 
 function getPaddingForSlot(index) {
-    if (index === 0 || index === 2 || index === 4 || index === 6 || index === 8) {
-        // Slot 1, 3, 5, 7, 9 - Hero Image
+    if (index === 0) {
+        // Slot 1 - Legacy
         return { paddingTop: "0.15", paddingRight: "0.15", paddingBottom: "0.15", paddingLeft: "0.15" };
+    }
+    if (index === 2 || index === 4 || index === 6 || index === 8) {
+        // Slot 3, 5, 7, 9 - Hero Image
+        return { paddingTop: "0.20", paddingRight: "0.20", paddingBottom: "0.20", paddingLeft: "0.20" };
     }
     if (index === 1 || index === 7) {
         // Slot 2, 8 - Asymetria Lewa
-        return { paddingTop: "0.15", paddingRight: "0.45", paddingBottom: "0.15", paddingLeft: "0.05" };
+        return { paddingTop: "0.20", paddingRight: "0.45", paddingBottom: "0.10", paddingLeft: "0.05" };
     }
     if (index === 5) {
         // Slot 6 - Asymetria Prawa
-        return { paddingTop: "0.15", paddingRight: "0.05", paddingBottom: "0.15", paddingLeft: "0.45" };
+        return { paddingTop: "0.20", paddingRight: "0.05", paddingBottom: "0.10", paddingLeft: "0.45" };
     }
     if (index === 3) {
         // Slot 4 - Makro
         return { paddingTop: "0.05", paddingRight: "0.05", paddingBottom: "0.05", paddingLeft: "0.05" };
     }
-    return { paddingTop: "0.15", paddingRight: "0.15", paddingBottom: "0.15", paddingLeft: "0.15" };
+    return { paddingTop: "0.20", paddingRight: "0.20", paddingBottom: "0.20", paddingLeft: "0.20" };
 }
 
 async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
@@ -806,9 +810,19 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     const form = new FormData();
     form.append('imageFile', inputBuffer, { filename: 'product.jpg', contentType: 'image/jpeg' });
     form.append('removeBackground', 'true');
-    form.append('editWithAI.mode', 'ai.auto');
-    form.append('editWithAI.prompt', scenePrompt);
-    form.append('background.color', '#FFFFFF'); // Zabezpieczenie przed błędem przezroczystości JPG
+    
+    if (imageIndex === 0) {
+        // Slot 1 - Nienaruszony, tryb natywny (komenda polska)
+        form.append('editWithAI.mode', 'ai.auto');
+        form.append('editWithAI.prompt', scenePrompt);
+        form.append('background.color', '#FFFFFF'); // Wymóg przezroczystości dla Slotu 1
+    } else {
+        // Sloty 2-9: SSOT 4.0 - Generowanie Tła (Brak editWithAI)
+        form.append('background.prompt', scenePrompt);
+        form.append('background.expandPrompt', 'never');
+        form.append('quality', 'advanced');
+    }
+
     form.append('export.format', 'jpeg');
     form.append('outputSize', '1080x1080');
     form.append('paddingTop', padding.paddingTop);
@@ -817,14 +831,21 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     form.append('paddingLeft', padding.paddingLeft);
     form.append('ignorePaddingAndSnapOnCroppedSides', 'false');
 
+    let headers = {
+        'x-api-key': photoroomKey,
+        ...form.getHeaders()
+    };
+    
+    if (imageIndex !== 0) {
+        headers['pr-ai-background-model-version'] = 'background-studio-beta-2025-03-17';
+    } else {
+        headers['pr-ai-shadows-model-version'] = '2026-04-15';
+    }
+
     const startTime = Date.now();
     try {
         const response = await axios.post('https://image-api.photoroom.com/v2/edit', form, {
-            headers: {
-                'x-api-key': photoroomKey,
-                'pr-ai-shadows-model-version': '2026-04-15',
-                ...form.getHeaders()
-            },
+            headers: headers,
             responseType: 'arraybuffer',
             timeout: 45000
         });
