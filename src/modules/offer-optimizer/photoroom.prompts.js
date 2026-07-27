@@ -2,13 +2,15 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 function hashSKU(sku) {
     if (!sku) return 12345;
+    const str = String(sku);
     let hash = 0;
-    for (let i = 0; i < sku.length; i++) {
-        const char = sku.charCodeAt(i);
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
         hash = ((hash << 5) - hash) + char;
         hash = hash & hash;
     }
-    return Math.abs(hash);
+    // Dodanie prostego mnożnika, aby uniknąć małych klastrów dla podobnych EANów
+    return Math.abs(hash * 31);
 }
 
 // Mapowanie tekstów PIM na tagi
