@@ -870,7 +870,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     let negativePrompt = '';
     form.append('background.prompt', scenePrompt); // Wymagane, by wygenerować składniki
     if (imageIndex === 0) {
-        negativePrompt = 'gray background, dark background, colored background, blurry background, bokeh, people, hands';
+        negativePrompt = 'gray background, dark gradients, colored walls, room interior, floating objects in air, messy, text, extra products, bad anatomy';
         form.append('background.color', '#FFFFFF'); // Bezwzględne wymuszenie czystego RGB 255,255,255 pod spodem
     } else {
         negativePrompt = 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay';
@@ -1425,9 +1425,8 @@ async function runNode11_Slot1Scenographer(productDetailsText) {
             }
         });
 
-        const promptInstruction = `Jesteś asystentem e-commerce. Na podstawie nazwy lub opisu produktu zidentyfikuj 1 (maksymalnie 2) główne składniki naturalne (np. węgiel, aloes).
-Zwróć wynik TYLKO w poniższym formacie (gotowy polski prompt), bez żadnego wstępu i znaków specjalnych:
-Umieść [składnik 1] i [składnik 2] za produktem. Produkt musi być umieszczony centralnie na białym tle RGB 255,255,255 i zajmować minimum 85% kadru. Produkt nie może być w żaden sposób zmieniony i musi pozostać w 100% taki sam zwłaszcza etykieta i napisy. Możesz za to powiększyć lub zmniejszyć produkt żeby dopasować do ekranu.
+        const promptInstruction = `Zidentyfikuj 2 (maksymalnie 3) główne składniki produktu na podstawie opisu. Przetłumacz je na język angielski. Zwróć wynik TYLKO w poniższym formacie, bez wstępu i znaków specjalnych:
+[składnik 1] and [składnik 2]
 
 DANE PRODUKTU Z PIM:
 ${productDetailsText}`;
@@ -1437,8 +1436,8 @@ ${productDetailsText}`;
         const data = JSON.parse(jsonText);
         
         if (data.prompt) {
-            const finalPrompt = data.prompt.trim();
-            console.log(`[Agent 11 - Slot 1] Wygenerowano nowy prompt (V3 - Polish Instruction):`, finalPrompt);
+            const finalPrompt = data.prompt.trim() + " arranged beautifully around the product, resting on a pure white surface, seamless pure solid white background, bright high-key studio lighting, realistic soft contact shadows, professional e-commerce photography";
+            console.log(`[Agent 11 - Slot 1] Wygenerowano nowy prompt (Studio E-commerce):`, finalPrompt);
             return { prompt: finalPrompt };
         }
     } catch (err) {
