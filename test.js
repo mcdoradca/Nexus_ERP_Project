@@ -1,0 +1,1 @@
+const sharp = require('sharp'); sharp({ text: { text: 'AI Generated (EU AI Act Art. 50) | Nexus ERP', font: 'Arial', rgba: true } }).png().toBuffer().then(b => console.log(b.toString('base64'))).catch(e => console.error(e));

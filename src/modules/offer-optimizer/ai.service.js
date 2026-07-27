@@ -708,114 +708,54 @@ Odpowiedz wyłącznie czystym obiektem JSON:
 
 // Agent 8 (ClaidLiquidVariables) usunięty zgodnie z dyrektywą - zastąpiony przez API Photoroom.
 
-async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0, ean = '', existingPromptsCache = null) {
-    if (existingPromptsCache && existingPromptsCache[imageIndex]) {
-        console.log(`[Photoroom Dynamic Agent] Użyto zbuforowanego promptu na rok dla slotu #${imageIndex + 1}`);
-        return existingPromptsCache[imageIndex];
-    }
-
-    if (imageIndex === 0) {
-        // Zgodnie z ADR: Zastąpiono zewnętrznym silnikiem editWithAI z Photoroom V2
-        return { prompt: "Photoroom_Native_AI" };
-    }
-
-    const localApiKey = apiKey;
-    if (!apiKey) {
-        return getFallbackPhotoroomSetup(imageIndex);
-    }
-
-    try {
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
-            tools: [{ googleSearch: {} }],
-            generationConfig: {
-                temperature: imageIndex === 0 ? 0.7 : 0.9,
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: "OBJECT",
-                    properties: {
-                        prompt: { type: "STRING" }
-                    },
-                    required: ["prompt"]
-                }
+async function getPlaybookPromptForSlot(index, productDetailsText) {
+    if (index === 0) return "Odczytaj ze zdjęcia główny składnik produktu i umieść go za produktem. Produkt musi być umieszczony centralnie na białym tle RGB 255,255,255 i zajmować minimum 85% kadru. Produkt nie może być w żaden sposób zmieniony i musi pozostać w 100% taki sam zwłaszcza etykieta i napisy. Możesz za to powiększyć lub zmniejszyć produkt żeby dopasować do ekranu";
+    if (index === 1) return "Make it a high-end luxury lifestyle commercial photoshoot with infinite depth of field. The object rests firmly on a highly textured, razor-sharp dark concrete table. In the background, a crystal-clear, hyper-detailed modern city street at golden hour, capturing an energetic and luxurious urban vibe. Brilliant, cinematic directional sunlight casting a crisp contact shadow. Every background detail is in absolute sharp focus (f/22). CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO bokeh, NO out of focus areas, NO people, NO texts, NO artificial pedestals.";
+    if (index === 2) return "Make it a breathtaking nature lifestyle commercial photoshoot with infinite depth of field. The object rests firmly on a large, flat, dark river stone surrounded by hyper-detailed, vibrant green moss. The background is a crystal-clear, majestic pine forest at sunrise, evoking a deep sense of purity and organic power. Crisp morning sunlight casting a realistic sharp shadow. Every leaf, stone, and background element must be tack-sharp (f/22). CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO soft focus, NO bokeh, NO floating objects, NO podiums, NO hands.";
+    if (index === 3) return "Make it a premium fashion editorial commercial photoshoot, tack-sharp from front to back. Place the object on a highly polished black glass surface reflecting pure luxury. The background is a crisp, sophisticated dark monochromatic studio setting with hyper-detailed textures. A single dramatic spotlight illuminates the product and surface, creating striking, high-contrast geometry and a sharp, elegant shadow. Exuding bold minimalism and exclusivity. CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO soft focus, NO bokeh, NO props, NO people, NO texts.";
+    if (index === 4) return "Make it a hyper-realistic luxury resort commercial photoshoot with infinite depth of field. Place the object on clean, sun-warmed pristine white sand. The background is a crystal-clear, sparkling infinity pool and a breathtaking ocean horizon reflecting the intense summer sun. Evokes absolute refreshment, vitality, and premium vacation vibes. Brilliant high-key lighting, razor-sharp details in every water ripple and grain of sand (f/22). CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO bokeh, NO out of focus areas, NO people, NO towels, NO bathrooms.";
+    if (index === 5) return "Make it a cutting-edge minimalist design commercial photoshoot, completely in sharp focus edge-to-edge. Place the object on a perfectly smooth, hyper-detailed surface. The entire background and floor should be a seamless, vibrant terracotta pastel color block, separated by a crisp architectural lighting line. Aesthetically pleasing, bold, and modern. Razor-sharp textures, striking directional light casting a geometric shadow. CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO bokeh, NO soft focus, NO pedestals, zero clutter, NO hands.";
+    if (index === 6) return "Make it an inviting, premium interior commercial photoshoot with infinite depth of field. The object is placed on a hyper-detailed, rustic brushed oak wood table. The background is a crystal-clear, luxurious modern minimalist living room bathed in radiant natural window light. A neutral palette of off-white and sand evoking ultimate comfort, trust, and premium lifestyle. Every furniture texture and wood grain in the background must be razor-sharp and lifelike (f/22). CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO bokeh, NO soft focus, NO bathrooms, NO mirrors, NO people.";
+    if (index === 7) return "Make it an avant-garde artistic commercial photoshoot, shot with f/22 aperture for maximum sharpness everywhere. Place the object on a pristine, hyper-detailed white plaster surface. The background is a crisp white architectural wall. Use striking 'gobo' lighting: dramatic, razor-sharp geometric shadows (like sharp window blinds or tropical leaves) cast perfectly across the background and surface. Evokes absolute sophistication and high intelligence. CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO bokeh, NO soft focus, NO floating elements, NO text, NO people.";
+    
+    if (index === 8) {
+        let ingredients = "natural elements";
+        if (apiKey) {
+            try {
+                const genAI = new GoogleGenerativeAI(apiKey);
+                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", generationConfig: { temperature: 0.1 }});
+                const promptInstruction = `Extract the main 2-3 natural active ingredients from this product data and translate them to English as a comma separated list. If none found, reply with "natural elements". Data: ${productDetailsText}`;
+                const result = await generateWithRetry(model, promptInstruction, 2, "Agent_Slot9_Ingredients");
+                ingredients = result.response.text().replace(/\n/g, '').trim();
+                console.log("[Photoroom Slot 9] Wyekstrahowano składniki:", ingredients);
+            } catch (e) {
+                console.error("[Photoroom Slot 9] Błąd pobierania składników (fallback):", e.message);
             }
-        });
-
-        let promptInstruction = "";
-        
-        promptInstruction = `Jesteś awangardowym 'Location Scoutem' (wyszukiwaczem plenerów) do lifestylowych sesji zdjęciowych. Twoim zadaniem jest wygenerować JEDEN ultrakrótki prompt (max 20 słów) po angielsku dla API generatora obrazów.
-
-DANE PRODUKTU Z PIM (Traktuj jedynie poglądowo - nie używaj kosmetyki, aloesu, węgla w tle. Ogranicz się do samej lokacji!):
-${productDetailsText}
-
-KRYTYCZNE ZASADY:
-Traktuj przedmiot jak uniwersalną bryłę. ABSOLUTNY ZAKAZ używania słów: bathroom, spa, towels, marble, plants, water, mirror, charcoal, ingredients, cosmetic, cream.
-
-Ruletka Lokacji: Za każdym razem WYLOSUJ jedną z 8 kategorii i stwórz dla niej unikalne, niepowtarzalne tło:
-1. Miasto: np. betonowy murek na chodniku w Nowym Jorku, kawiarniany stolik w Paryżu, ławka w parku.
-2. Podróż/Natura: np. gorący piasek na plaży w Miami, drewniany leżak na jachcie, omszony kamień w lesie.
-3. Lifestyle: np. skórzana deska rozdzielcza auta, maska sportowego samochodu, rozłożona mapa.
-4. Moda: np. otwarta skórzana kosmetyczka podróżna, jedwabny materiał, stół krawiecki.
-5. Ekstremalne/Sport: np. gumowa mata na siłowni, kort tenisowy, kamień na ośnieżonym szczycie.
-6. Luksus: np. poduszka z czarnego aksamitu, rzeźbiony marmur (ale nie łazienkowy!), skórzana kanapa, welur.
-7. Technologia: np. podkładka pod mysz RGB, stalowa obudowa serwera, stół mikserski DJa.
-8. Dom (bez łazienki!): np. rustykalny drewniany stół w jadalni, puszysty dywan w salonie, szafka z grami planszowymi.
-
-Zasada Powierzchni i Grawitacji: Zaczynaj prompt od: 'placed on [powierzchnia]'. Przedmiot musi stać na twardym podłożu, nie może lewitować. Zakaz 'flatlay' i 'top-down view'.
-Zasada Skali (Bokeh): Tło za przedmiotem musi być mocno rozmyte. Zawsze używaj zwrotów: 'blurred background', 'macro shot', 'shallow depth of field'.
-
-Zwróć TYLKO tekst promptu po angielsku w formie tagów oddzielonych przecinkami. Żadnego wstępu, podsumowań i cudzysłowów.`;
-
-        const result = await generateWithRetry(model, promptInstruction, 3, "Agent_Photoroom_Prompt");
-        const jsonText = result.response.text();
-        const data = JSON.parse(jsonText);
-        if (data.prompt) {
-            console.log(`[Photoroom Dynamic Agent] Wygenerowano nowy prompt dla slotu #${imageIndex + 1}:`, data.prompt);
-            return data;
         }
-    } catch (err) {
-        console.error("[Photoroom Dynamic Agent] Ostrzeżenie: Gemini LLM nie zwrócił poprawnego JSON, używam fallbacku:", err.message);
+        return `Make it a premium commercial e-commerce photoshoot with infinite depth of field. Place the object on a hyper-detailed, clean slate countertop. Integrate natural elements crisply into the scene, specifically: ${ingredients}. These elements must rest naturally on the surface with razor-sharp textures, showcasing their raw authenticity and premium quality. Crystal-clear bright studio background, brilliant realistic lighting. Everything is tack-sharp (f/22). CRITICAL RULES: The original product must remain 100% unchanged. NO blur, NO bokeh, NO soft focus, NO human hands, NO text.`;
     }
-
-    return getFallbackPhotoroomSetup(imageIndex);
+    
+    return "Photoroom_Native_AI";
 }
 
 function getPaddingForSlot(index) {
-    if (index === 0) {
+    if (index === 0 || index === 2 || index === 4 || index === 6 || index === 8) {
+        // Slot 1, 3, 5, 7, 9 - Hero Image
         return { paddingTop: "0.15", paddingRight: "0.15", paddingBottom: "0.15", paddingLeft: "0.15" };
     }
-    const layouts = [
-        { paddingTop: "0.15", paddingRight: "0.45", paddingBottom: "0.25", paddingLeft: "0.15" },
-        { paddingTop: "0.20", paddingRight: "0.15", paddingBottom: "0.35", paddingLeft: "0.49" },
-        { paddingTop: "0.40", paddingRight: "0.49", paddingBottom: "0.00", paddingLeft: "0.05" },
-        { paddingTop: "0.05", paddingRight: "0.10", paddingBottom: "0.40", paddingLeft: "0.49" }
-    ];
-    return layouts[(index - 1) % layouts.length];
-}
-
-function getFallbackPhotoroomSetup(imageIndex) {
-    let prompt = "placed on a clean modern kitchen island, blurry sunny kitchen interior in the background, warm natural lighting, lifestyle photography";
-
-    switch(imageIndex) {
-        case 1:
-            prompt = "pure white background, a few subtle water droplets and fresh mint leaves resting on the white floor";
-            break;
-        case 2:
-            prompt = "placed on a bright ceramic bathroom sink, blurred modern white bathroom background, soft morning sunlight, photorealistic";
-            break;
-        case 3:
-            prompt = "placed on a rustic wooden dining table, soft overhead studio lighting, photorealistic";
-            break;
-        case 4:
-            prompt = "placed on a luxurious modern vanity desk, blurred bedroom background, golden hour soft sunlight, high end commercial photography";
-            break;
-        case 5:
-            prompt = "placed on a modern minimal office desk, soft blue ambient light, stark minimal geometric background";
-            break;
+    if (index === 1 || index === 7) {
+        // Slot 2, 8 - Asymetria Lewa
+        return { paddingTop: "0.15", paddingRight: "0.45", paddingBottom: "0.15", paddingLeft: "0.05" };
     }
-
-    return { prompt };
+    if (index === 5) {
+        // Slot 6 - Asymetria Prawa
+        return { paddingTop: "0.15", paddingRight: "0.05", paddingBottom: "0.15", paddingLeft: "0.45" };
+    }
+    if (index === 3) {
+        // Slot 4 - Makro
+        return { paddingTop: "0.05", paddingRight: "0.05", paddingBottom: "0.05", paddingLeft: "0.05" };
+    }
+    return { paddingTop: "0.15", paddingRight: "0.15", paddingBottom: "0.15", paddingLeft: "0.15" };
 }
 
 async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
@@ -852,31 +792,23 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         }
     } catch(e) { console.error("Błąd odczytu PIM dla Agenta Promptera:", e.message); }
 
-    // 3. Dynamiczne wygenerowanie spersonalizowanego promptu przez Gemini LLM
-    const dynamicSetup = await generateDynamicPhotoroomPrompt(productDetailsText, imageIndex);
-    const scenePrompt = dynamicSetup.prompt;
+    // 3. Pobranie stałego promptu z Playbooka SSOT 3.0
+    const scenePrompt = await getPlaybookPromptForSlot(imageIndex, productDetailsText);
 
-    // 4. Pobranie rotacyjnego ułożenia kadru (padding) dla danego indeksu
+    // 4. Pobranie stałego kadru (padding) dla danego indeksu
     const padding = getPaddingForSlot(imageIndex);
 
     // 5. Wysłanie żądania do Photoroom Image Editing API (/v2/edit)
-    logLifestyleEvent('INFO', 'Wysyłanie zapytania do Photoroom API v2/edit', { prompt: scenePrompt });
+    logLifestyleEvent('INFO', 'Wysyłanie zapytania do Photoroom API v2/edit (SSOT 3.0)', { prompt: scenePrompt });
     
     const FormData = require('form-data');
     const sharp = require('sharp');
     const form = new FormData();
     form.append('imageFile', inputBuffer, { filename: 'product.jpg', contentType: 'image/jpeg' });
     form.append('removeBackground', 'true');
-    
-    if (imageIndex === 0) {
-        form.append('editWithAI.mode', 'ai.auto');
-        form.append('editWithAI.prompt', 'Odczytaj ze zdjęcia główny składnik produktu i umieść go za produktem. Produkt musi być umieszczony centralnie na białym tle RGB 255,255,255 i zajmować minimum 85% kadru. Produkt nie może być w żaden sposób zmieniony i musi pozostać w 100% taki sam zwłaszcza etykieta i napisy. Możesz za to powiększyć lub zmniejszyć produkt żeby dopasować do ekranu');
-        form.append('background.color', '#FFFFFF');
-    } else {
-        form.append('background.prompt', scenePrompt);
-        form.append('background.negativePrompt', 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay');
-    }
-        
+    form.append('editWithAI.mode', 'ai.auto');
+    form.append('editWithAI.prompt', scenePrompt);
+    form.append('background.color', '#FFFFFF'); // Zabezpieczenie przed błędem przezroczystości JPG
     form.append('export.format', 'jpeg');
     form.append('outputSize', '1080x1080');
     form.append('paddingTop', padding.paddingTop);
@@ -900,27 +832,9 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         const durationMs = Date.now() - startTime;
         const resultBuffer = Buffer.from(response.data);
 
-        let finalBuffer = resultBuffer;
-        try {
-            // Nanoszenie znaku wodnego EU AI Act Art. 50 za pomocą pre-renderowanego Base64
-            // Omija problemy z brakiem czcionek systemowych na produkcyjnym serwerze Linux
-            const badgeBase64 = "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";
+        const base64Output = `data:image/jpeg;base64,${resultBuffer.toString('base64')}`;
 
-            finalBuffer = await sharp(resultBuffer)
-                .composite([{
-                    input: Buffer.from(badgeBase64, 'base64'),
-                    top: 1080 - 40 - 24,
-                    left: 24
-                }])
-                .jpeg({ quality: 90 })
-                .toBuffer();
-        } catch (sharpErr) {
-            console.error("[Photoroom Watermark] Ostrzeżenie wypalania znaku wodnego Sharp:", sharpErr.message);
-        }
-
-        const base64Output = `data:image/jpeg;base64,${finalBuffer.toString('base64')}`;
-
-        logLifestyleEvent('INFO', 'Photoroom API zrealizował edycję pomyślnie (100% zachowanie etykiety + EU AI Act Art. 50 Watermark)', {
+        logLifestyleEvent('INFO', 'Photoroom API zrealizował edycję pomyślnie (SSOT 3.0)', {
             durationMs,
             outputBytes: finalBuffer.length
         });
