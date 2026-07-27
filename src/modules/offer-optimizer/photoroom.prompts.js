@@ -7,10 +7,11 @@ function hashSKU(sku) {
     for (let i = 0; i < str.length; i++) {
         const char = str.charCodeAt(i);
         hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
+        hash = hash & hash; // Convert to 32bit int
     }
-    // Dodanie prostego mnożnika, aby uniknąć małych klastrów dla podobnych EANów
-    return Math.abs(hash * 31);
+    // Zabezpieczenie przed przekroczeniem MAX_INT32 dla API Photoroom
+    // Mnożnik * 31 mógł produkować duże floaty, które Photoroom traktował jako stały max int.
+    return Math.abs(hash) % 2147483647;
 }
 
 // Mapowanie tekstów PIM na tagi
