@@ -710,13 +710,13 @@ Odpowiedz wyłącznie czystym obiektem JSON:
 
 async function getPlaybookPromptForSlot(index, productDetailsText) {
     if (index === 0) return "Odczytaj ze zdjęcia główny składnik produktu i umieść go centralnie za produktem na czystym, nieskazitelnie białym tle. Oryginalny produkt musi pozostać w 100% nienaruszony - absolutny zakaz modyfikacji jego kształtu, etykiety czy proporcji.";
-    if (index === 1) return "An empty, hyper-detailed modern city street scene at golden hour. The resting surface is a flat, dark textured concrete table. Infinite depth of field, f/22 aperture, tack-sharp focus on every background detail. Cinematic warm sunlight casting a crisp contact shadow. Empty scene, absolutely no blur, no soft focus, no bokeh, no people, no pedestals.";
-    if (index === 2) return "An empty, majestic pine forest at sunrise. The resting surface is a flat, dark river stone surrounded by hyper-detailed green moss. Infinite depth of field, f/22 aperture, tack-sharp focus on every leaf and stone texture. Crisp morning sunlight. Empty scene, absolutely no blur, no soft focus, no bokeh, no floating objects.";
-    if (index === 3) return "An empty, sophisticated dark monochromatic studio setting. The resting surface is a flat, highly polished black glass. Infinite depth of field, f/22 aperture, razor-sharp from front to back. A single dramatic spotlight creating sharp geometric shadows. Minimalist empty scene, absolutely no blur, no soft focus, no props.";
-    if (index === 4) return "An empty, luxury resort scene. The resting surface is pristine white sand. The background is a sparkling infinity pool and ocean horizon reflecting intense summer sun. Infinite depth of field, f/22 aperture, every water ripple and grain of sand is razor-sharp. Brilliant high-key lighting. Empty scene, absolutely no blur, no bokeh, no out of focus areas, no people.";
-    if (index === 5) return "An empty, minimalist design studio. The resting surface is perfectly smooth. The background is a seamless, vibrant terracotta pastel wall separated by a crisp architectural lighting line. Infinite depth of field, f/22 aperture, sharp geometric shadow. Empty scene, absolutely no blur, no bokeh, no soft focus, no pedestals.";
-    if (index === 6) return "An empty, luxurious modern minimalist living room bathed in radiant natural window light. The resting surface is a rustic brushed oak wood table. A neutral palette of off-white and sand. Infinite depth of field, f/22 aperture, every furniture texture and wood grain is razor-sharp and lifelike. Empty scene, absolutely no blur, no soft focus, no bokeh, no people.";
-    if (index === 7) return "An empty, avant-garde artistic studio. The resting surface is flat, pristine white plaster. The background is a crisp white architectural wall. Dramatic 'gobo' lighting: sharp geometric shadows of window blinds cast across the wall. Infinite depth of field, f/22 aperture, maximum sharpness everywhere. Empty scene, absolutely no blur, no bokeh.";
+    if (index === 1) return "An empty, hyper-detailed modern city street scene at golden hour. The resting surface is a flat, dark textured concrete table featuring fine mineral dust particles scattered naturally. Visible faint dust motes drifting softly in a crisp diagonal sunbeam. Infinite depth of field, f/22 aperture, tack-sharp focus on every background brick and texture. Cinematic warm sunlight casting a sharp contact shadow. Empty scene, absolutely no blur, no soft focus, no bokeh, no people, no pedestals.";
+    if (index === 2) return "An empty, majestic pine forest at sunrise. The resting surface is a flat, dark river stone surrounded by hyper-detailed green moss and tiny authentic dew droplets. Subtle atmospheric haze catching the morning rays. Infinite depth of field, f/22 aperture, tack-sharp focus on every leaf and stone texture. Crisp morning sunlight casting a realistic sharp shadow. Empty scene, absolutely no blur, no soft focus, no bokeh, no floating objects.";
+    if (index === 3) return "An empty, sophisticated dark monochromatic studio setting. The resting surface is a flat, highly polished black glass reflecting subtle ambient reflections. Infinite depth of field, f/22 aperture, razor-sharp from front to back. A single dramatic spotlight creating sharp geometric shadows with fine light diffusion on the floor. Minimalist empty scene, absolutely no blur, no soft focus, no props.";
+    if (index === 4) return "An empty, luxury resort scene. The resting surface is pristine white sand with subtle micro-ripples from the wind. The background is a sparkling infinity pool and ocean horizon reflecting intense summer sun, with fine light refractions dancing on the ground. Infinite depth of field, f/22 aperture, every water ripple and grain of sand is razor-sharp. Brilliant high-key lighting. Empty scene, absolutely no blur, no bokeh, no out of focus areas, no people.";
+    if (index === 5) return "An empty, minimalist design studio. The resting surface is perfectly smooth with a matte finish. The background is a seamless, vibrant terracotta pastel wall separated by a crisp architectural lighting line and a subtle surface gradient. Infinite depth of field, f/22 aperture, sharp geometric shadow. Empty scene, absolutely no blur, no bokeh, no soft focus, no pedestals.";
+    if (index === 6) return "An empty, luxurious modern minimalist living room bathed in radiant natural window light. The resting surface is a rustic brushed oak wood table showing authentic wood grain and micro-textures. Warm ambient light particles floating in the air stream. Infinite depth of field, f/22 aperture, every furniture texture and wood grain is razor-sharp and lifelike. Empty scene, absolutely no blur, no soft focus, no bokeh, no people.";
+    if (index === 7) return "An empty, avant-garde artistic studio. The resting surface is flat, pristine white plaster with fine tactile grain. The background is a crisp white architectural wall. Dramatic 'gobo' lighting: sharp geometric shadows of window blinds cast across the wall with high-contrast edges. Infinite depth of field, f/22 aperture, maximum sharpness everywhere. Empty scene, absolutely no blur, no bokeh.";
     
     if (index === 8) {
         let ingredients = "natural elements";
@@ -732,7 +732,7 @@ async function getPlaybookPromptForSlot(index, productDetailsText) {
                 console.error("[Photoroom Slot 9] Błąd pobierania składników (fallback):", e.message);
             }
         }
-        return `An empty, bright commercial photography studio. The resting surface is a clean slate countertop. Resting completely flat on the surface are: ${ingredients}. Brilliant realistic lighting. Infinite depth of field, f/22 aperture, hyper-detailed, everything in tack-sharp focus. Empty scene, absolutely no blur, no bokeh, no soft focus, no flying objects, no hands.`;
+        return `An empty, bright commercial photography studio. The resting surface is a clean slate countertop featuring subtle natural chipping and stone dust. Resting completely flat on the surface are: ${ingredients}, showing raw, hyper-detailed organic textures. Brilliant realistic lighting with soft ambient bounce. Infinite depth of field, f/22 aperture, hyper-detailed, everything in tack-sharp focus. Empty scene, absolutely no blur, no bokeh, no soft focus, no flying objects, no hands.`;
     }
     
     return "Photoroom_Native_AI";
@@ -743,23 +743,15 @@ function getPaddingForSlot(index) {
         // Slot 1 - Wymuszenie 90% pokrycia kadru (0.05 marginesu)
         return { paddingTop: "0.05", paddingRight: "0.05", paddingBottom: "0.05", paddingLeft: "0.05" };
     }
-    if (index === 2 || index === 4 || index === 6 || index === 8) {
-        // Slot 3, 5, 7, 9 - Hero Image
-        return { paddingTop: "0.20", paddingRight: "0.20", paddingBottom: "0.20", paddingLeft: "0.20" };
-    }
-    if (index === 1 || index === 7) {
-        // Slot 2, 8 - Asymetria Lewa
-        return { paddingTop: "0.20", paddingRight: "0.45", paddingBottom: "0.10", paddingLeft: "0.05" };
-    }
-    if (index === 5) {
-        // Slot 6 - Asymetria Prawa
-        return { paddingTop: "0.20", paddingRight: "0.05", paddingBottom: "0.10", paddingLeft: "0.45" };
-    }
-    if (index === 3) {
-        // Slot 4 - Makro
-        return { paddingTop: "0.05", paddingRight: "0.05", paddingBottom: "0.05", paddingLeft: "0.05" };
-    }
-    return { paddingTop: "0.20", paddingRight: "0.20", paddingBottom: "0.20", paddingLeft: "0.20" };
+    
+    const variants = [
+        { paddingTop: "0.08", paddingBottom: "0.08", paddingLeft: "0.08", paddingRight: "0.45" }, // Wariant A
+        { paddingTop: "0.32", paddingBottom: "0.20", paddingLeft: "0.32", paddingRight: "0.32" }, // Wariant B
+        { paddingTop: "0.18", paddingBottom: "0.12", paddingLeft: "0.48", paddingRight: "0.08" }, // Wariant C
+        { paddingTop: "0.18", paddingBottom: "0.18", paddingLeft: "0.22", paddingRight: "0.22" }  // Wariant D
+    ];
+    
+    return variants[(index - 1) % variants.length];
 }
 
 async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
