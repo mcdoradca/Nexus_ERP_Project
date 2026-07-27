@@ -870,7 +870,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     let negativePrompt = '';
     form.append('background.prompt', scenePrompt); // Wymagane, by wygenerować składniki
     if (imageIndex === 0) {
-        negativePrompt = 'shadows, drop shadow, contact shadow, 3d space, realistic lighting, gray gradient, off-white, floor, table, room, wall, dark corners, depth, horizon line';
+        negativePrompt = 'gray background, dark background, colored background, blurry background, bokeh, people, hands';
         form.append('background.color', '#FFFFFF'); // Bezwzględne wymuszenie czystego RGB 255,255,255 pod spodem
     } else {
         negativePrompt = 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay';
@@ -1425,9 +1425,9 @@ async function runNode11_Slot1Scenographer(productDetailsText) {
             }
         });
 
-        const promptInstruction = `Jesteś asystentem e-commerce. Na podstawie nazwy lub opisu produktu zidentyfikuj 2 (maksymalnie 3) główne składniki naturalne (np. węgiel, aloes, kokos) i przetłumacz je na język angielski.
-Zwróć wynik TYLKO w poniższym formacie, bez żadnego wstępu i znaków specjalnych:
-tiny floating [składnik 1] and tiny floating [składnik 2] falling around the product
+        const promptInstruction = `Jesteś asystentem e-commerce. Na podstawie nazwy lub opisu produktu zidentyfikuj 1 (maksymalnie 2) główne składniki naturalne (np. węgiel, aloes).
+Zwróć wynik TYLKO w poniższym formacie (gotowy polski prompt), bez żadnego wstępu i znaków specjalnych:
+Umieść [składnik 1] i [składnik 2] za produktem. Produkt musi być umieszczony centralnie na białym tle RGB 255,255,255 i zajmować minimum 85% kadru. Produkt nie może być w żaden sposób zmieniony i musi pozostać w 100% taki sam zwłaszcza etykieta i napisy. Możesz za to powiększyć lub zmniejszyć produkt żeby dopasować do ekranu.
 
 DANE PRODUKTU Z PIM:
 ${productDetailsText}`;
@@ -1437,9 +1437,8 @@ ${productDetailsText}`;
         const data = JSON.parse(jsonText);
         
         if (data.prompt) {
-            // Sklejenie odpowiedzi LLM (składniki) z matematycznym szablonem tła
-            const finalPrompt = data.prompt.trim() + ", pure solid #FFFFFF white background, completely flat 2D graphic layout, absolute white canvas, zero depth, zero shadows, flat vector style";
-            console.log(`[Agent 11 - Slot 1] Wygenerowano nowy prompt:`, finalPrompt);
+            const finalPrompt = data.prompt.trim();
+            console.log(`[Agent 11 - Slot 1] Wygenerowano nowy prompt (V3 - Polish Instruction):`, finalPrompt);
             return { prompt: finalPrompt };
         }
     } catch (err) {
