@@ -148,6 +148,7 @@ const crmRoutes = require('./modules/crm/crm.routes');
 const influencersRoutes = require('./modules/influencers/influencers.routes');
 const offerOptimizerRoutes = require('./modules/offer-optimizer/offer-optimizer.routes');
 const resiRoutes = require('./modules/resi/resi.routes');
+const aiTelemetryRoutes = require('./routes/ai-telemetry.routes');
 
 const pricingRoutes = require('./modules/pricing/pricing.routes');
 const analyticsRoutes = require('./modules/analytics/analytics.routes');
@@ -231,6 +232,9 @@ app.use('/api/offer-optimizer', authenticateToken, offerOptimizerRoutes);
 
 // Resi Studio (Przetwarzanie obrazów AI)
 app.use('/api/resi', authenticateToken, resiRoutes);
+
+// AI Telemetria i koszty tokenów
+app.use('/api/system/ai-telemetry', authenticateToken, aiTelemetryRoutes);
 
 // ENDPOINT DO TESTOWANIA SYSTEMU LOGOWANIA (FAZA 5)
 app.get('/api/test-error', (req, res, next) => {
@@ -665,6 +669,20 @@ app.post('/api/products', authenticateToken, async (req, res) => {
         let safeBrandId = (brandId === '' || brandId === undefined) ? null : brandId;
         let safeSubiektId = (subiektId === '' || subiektId === undefined) ? null : subiektId;
         let safeBaselinkerId = (baselinkerId === '' || baselinkerId === undefined) ? null : baselinkerId;
+        let safeAllegroCatId = (req.body.allegroCategoryId === '' || req.body.allegroCategoryId === undefined) ? null : req.body.allegroCategoryId;
+
+        if (safeAllegroCatId) {
+            const existingCat = await prisma.marketplaceCategory.findUnique({ where: { id: safeAllegroCatId } });
+            if (!existingCat) {
+                try {
+                    const AllegroService = require('./modules/offer-optimizer/allegro.service');
+                    await AllegroService.fetchCategoryParameters(safeAllegroCatId);
+                } catch (catErr) {
+                    console.warn(`[API] Nie udalo sie pobrac kategorii Allegro ${safeAllegroCatId}, usuwam powiazanie:`, catErr.message);
+                    safeAllegroCatId = null;
+                }
+            }
+        }
 
         const newProduct = await prisma.product.create({
             data: {
@@ -689,7 +707,7 @@ app.post('/api/products', authenticateToken, async (req, res) => {
                 descriptionHtml: req.body.descriptionHtml || null,
                 features: req.body.features || {},
                 videoUrl: req.body.videoUrl || null,
-                allegroCategoryId: req.body.allegroCategoryId || null
+                allegroCategoryId: safeAllegroCatId
             }
         });
         
@@ -739,6 +757,20 @@ app.patch('/api/products/:id', authenticateToken, async (req, res) => {
         
         dataToUpdate.lastContentSource = 'PIM_UI_MANUAL';
 
+        if (dataToUpdate.allegroCategoryId === '') dataToUpdate.allegroCategoryId = null;
+        if (dataToUpdate.allegroCategoryId) {
+            const existingCat = await prisma.marketplaceCategory.findUnique({ where: { id: dataToUpdate.allegroCategoryId } });
+            if (!existingCat) {
+                try {
+                    const AllegroService = require('./modules/offer-optimizer/allegro.service');
+                    await AllegroService.fetchCategoryParameters(dataToUpdate.allegroCategoryId);
+                } catch (catErr) {
+                    console.warn(`[API] Nie udalo sie pobrac kategorii Allegro ${dataToUpdate.allegroCategoryId}, usuwam powiazanie:`, catErr.message);
+                    dataToUpdate.allegroCategoryId = null;
+                }
+            }
+        }
+
         const updatedProduct = await prisma.product.update({
             where: { id: req.params.id },
             data: dataToUpdate
@@ -784,6 +816,10 @@ ${JSON.stringify(products)}
 Zwróć TYLKO I WYŁĄCZNIE tablicę ID produktów (jako poprawny JSON, np. ["id1", "id2"]), które pasują do zapytania. Nie dodawaj żadnego tekstu przed ani po tablicy, bez znaczników markdowna.`;
 
         const result = await model.generateContent(prompt);
+        if (result.response && result.response.usageMetadata) {
+            const AiMetricsService = require('./core/ai.metrics.service');
+            await AiMetricsService.logUsage("Agent_AI_Search", "gemini-3.1-pro-preview", result.response.usageMetadata, true, 1);
+        }
         let text = result.response.text();
         text = text.replace(/```json/g, '').replace(/```/g, '').trim();
         

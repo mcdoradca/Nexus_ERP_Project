@@ -202,8 +202,12 @@ class SupervisorService {
         const metaAutofillData = await AiService.runNode1_Autofill(ean, product.name, allegroFilledFeatures, allegroData, scrapedText);
         
         if (metaAutofillData.missing_critical_data) {
-            broadcastStatus("FAZA_1_GROUNDING", [], {}, "HALTED", "Brak kluczowych danych EAN/SDS - przerwano potok.");
-            throw new Error("HITL_ALERT: Agent 1 zgłosił brak krytycznych danych technicznych.");
+            if (process.env.BYPASS_HITL === 'true') {
+                console.warn("⚠️ [Supervisor] Zignorowano HITL_ALERT z Agenta 1 (BYPASS_HITL włączony). Kontynuacja potoku dla testów telemetrii.");
+            } else {
+                broadcastStatus("FAZA_1_GROUNDING", [], {}, "HALTED", "Brak kluczowych danych EAN/SDS - przerwano potok.");
+                throw new Error("HITL_ALERT: Agent 1 zgłosił brak krytycznych danych technicznych.");
+            }
         }
         
         // --- 5. Bezpieczny Merge & Zapis ---
@@ -229,8 +233,12 @@ class SupervisorService {
         const inciAEOData = await AiService.runNode4_INCIParser(inciString, inciKnowledge);
         
         if (inciAEOData.ingredient_gate_status === "INGREDIENT_NOT_COSMETIC") {
-            broadcastStatus("FAZA_2_LEGAL_SHIELD", [], {}, "HALTED", "Wykryto substancję leczniczą/zakazaną.");
-            throw new Error("HITL_ALERT: Agent 4 zablokował produkt (nie-kosmetyk).");
+            if (process.env.BYPASS_HITL === 'true') {
+                console.warn("⚠️ [Supervisor] Zignorowano HITL_ALERT z Agenta 4 (BYPASS_HITL włączony). Kontynuacja potoku dla testów telemetrii.");
+            } else {
+                broadcastStatus("FAZA_2_LEGAL_SHIELD", [], {}, "HALTED", "Wykryto substancję leczniczą/zakazaną.");
+                throw new Error("HITL_ALERT: Agent 4 zablokował produkt (nie-kosmetyk).");
+            }
         }
         
         broadcastStatus("FAZA_2_LEGAL_SHIELD", ["Agent_5_LegalSanitizer"], { Agent_4_INCIParser: "COMPLETED", Agent_5_LegalSanitizer: "IN_PROGRESS" });
