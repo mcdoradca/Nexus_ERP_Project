@@ -871,6 +871,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     if (imageIndex === 0) {
         form.append('editWithAI.mode', 'ai.auto');
         form.append('editWithAI.prompt', 'Odczytaj ze zdjęcia główny składnik produktu i umieść go za produktem. Produkt musi być umieszczony centralnie na białym tle RGB 255,255,255 i zajmować minimum 85% kadru. Produkt nie może być w żaden sposób zmieniony i musi pozostać w 100% taki sam zwłaszcza etykieta i napisy. Możesz za to powiększyć lub zmniejszyć produkt żeby dopasować do ekranu');
+        form.append('background.color', '#FFFFFF');
     } else {
         form.append('background.prompt', scenePrompt);
         form.append('background.negativePrompt', 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay');
