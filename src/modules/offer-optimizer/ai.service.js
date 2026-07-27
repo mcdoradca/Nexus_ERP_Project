@@ -836,7 +836,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 
         logLifestyleEvent('INFO', 'Photoroom API zrealizował edycję pomyślnie (SSOT 3.0)', {
             durationMs,
-            outputBytes: finalBuffer.length
+            outputBytes: resultBuffer.length
         });
 
         return {
