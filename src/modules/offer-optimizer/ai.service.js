@@ -1423,6 +1423,5 @@ module.exports = {
     runNode7_Psychology,
     runNode8_Scenographer,
     runNode9_VisionAuditor,
-    runNode10_Sentinel,
-    runNode11_Slot1Scenographer
+    runNode10_Sentinel
 };
