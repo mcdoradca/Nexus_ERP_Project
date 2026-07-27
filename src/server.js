@@ -671,19 +671,6 @@ app.post('/api/products', authenticateToken, async (req, res) => {
         let safeBaselinkerId = (baselinkerId === '' || baselinkerId === undefined) ? null : baselinkerId;
         let safeAllegroCatId = (req.body.allegroCategoryId === '' || req.body.allegroCategoryId === undefined) ? null : req.body.allegroCategoryId;
 
-        if (safeAllegroCatId) {
-            const existingCat = await prisma.marketplaceCategory.findUnique({ where: { id: safeAllegroCatId } });
-            if (!existingCat) {
-                try {
-                    const AllegroService = require('./modules/offer-optimizer/allegro.service');
-                    await AllegroService.fetchCategoryParameters(safeAllegroCatId);
-                } catch (catErr) {
-                    console.warn(`[API] Nie udalo sie pobrac kategorii Allegro ${safeAllegroCatId}, usuwam powiazanie:`, catErr.message);
-                    safeAllegroCatId = null;
-                }
-            }
-        }
-
         const newProduct = await prisma.product.create({
             data: {
                 ean, sku, name, brandId: safeBrandId, status: status || 'Aktywny',
@@ -758,18 +745,6 @@ app.patch('/api/products/:id', authenticateToken, async (req, res) => {
         dataToUpdate.lastContentSource = 'PIM_UI_MANUAL';
 
         if (dataToUpdate.allegroCategoryId === '') dataToUpdate.allegroCategoryId = null;
-        if (dataToUpdate.allegroCategoryId) {
-            const existingCat = await prisma.marketplaceCategory.findUnique({ where: { id: dataToUpdate.allegroCategoryId } });
-            if (!existingCat) {
-                try {
-                    const AllegroService = require('./modules/offer-optimizer/allegro.service');
-                    await AllegroService.fetchCategoryParameters(dataToUpdate.allegroCategoryId);
-                } catch (catErr) {
-                    console.warn(`[API] Nie udalo sie pobrac kategorii Allegro ${dataToUpdate.allegroCategoryId}, usuwam powiazanie:`, catErr.message);
-                    dataToUpdate.allegroCategoryId = null;
-                }
-            }
-        }
 
         const updatedProduct = await prisma.product.update({
             where: { id: req.params.id },

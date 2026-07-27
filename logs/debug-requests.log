@@ -1145,3 +1145,4 @@
   Response: {"error":"Nieprawidłowy token"}
 [2026-07-26T10:41:09.188Z] GET /api/system/logs - 404 - 15ms
   Response: undefined
+[2026-07-27T17:26:25.896Z] GET /api/health - 200 - 623ms
