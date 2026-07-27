@@ -709,7 +709,7 @@ Odpowiedz wyłącznie czystym obiektem JSON:
 // Agent 8 (ClaidLiquidVariables) usunięty zgodnie z dyrektywą - zastąpiony przez API Photoroom.
 
 async function getPlaybookPromptForSlot(index, productDetailsText) {
-    if (index === 0) return "Odczytaj ze zdjęcia główny składnik produktu i umieść go za produktem. Produkt musi być umieszczony centralnie na białym tle RGB 255,255,255 i zajmować minimum 85% kadru. Produkt nie może być w żaden sposób zmieniony i musi pozostać w 100% taki sam zwłaszcza etykieta i napisy. Możesz za to powiększyć lub zmniejszyć produkt żeby dopasować do ekranu";
+    if (index === 0) return "Odczytaj ze zdjęcia główny składnik produktu i umieść go centralnie za produktem na czystym, nieskazitelnie białym tle. Oryginalny produkt musi pozostać w 100% nienaruszony - absolutny zakaz modyfikacji jego kształtu, etykiety czy proporcji.";
     if (index === 1) return "An empty, hyper-detailed modern city street scene at golden hour. The resting surface is a flat, dark textured concrete table. Infinite depth of field, f/22 aperture, tack-sharp focus on every background detail. Cinematic warm sunlight casting a crisp contact shadow. Empty scene, absolutely no blur, no soft focus, no bokeh, no people, no pedestals.";
     if (index === 2) return "An empty, majestic pine forest at sunrise. The resting surface is a flat, dark river stone surrounded by hyper-detailed green moss. Infinite depth of field, f/22 aperture, tack-sharp focus on every leaf and stone texture. Crisp morning sunlight. Empty scene, absolutely no blur, no soft focus, no bokeh, no floating objects.";
     if (index === 3) return "An empty, sophisticated dark monochromatic studio setting. The resting surface is a flat, highly polished black glass. Infinite depth of field, f/22 aperture, razor-sharp from front to back. A single dramatic spotlight creating sharp geometric shadows. Minimalist empty scene, absolutely no blur, no soft focus, no props.";
@@ -740,8 +740,8 @@ async function getPlaybookPromptForSlot(index, productDetailsText) {
 
 function getPaddingForSlot(index) {
     if (index === 0) {
-        // Slot 1 - Legacy
-        return { paddingTop: "0.15", paddingRight: "0.15", paddingBottom: "0.15", paddingLeft: "0.15" };
+        // Slot 1 - Wymuszenie 90% pokrycia kadru (0.05 marginesu)
+        return { paddingTop: "0.05", paddingRight: "0.05", paddingBottom: "0.05", paddingLeft: "0.05" };
     }
     if (index === 2 || index === 4 || index === 6 || index === 8) {
         // Slot 3, 5, 7, 9 - Hero Image
