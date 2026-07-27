@@ -715,7 +715,8 @@ async function generateDynamicPhotoroomPrompt(productDetailsText, imageIndex = 0
     }
 
     if (imageIndex === 0) {
-        return await runNode11_Slot1Scenographer(productDetailsText);
+        // Zgodnie z ADR: Zastąpiono zewnętrznym silnikiem editWithAI z Photoroom V2
+        return { prompt: "Photoroom_Native_AI" };
     }
 
     const localApiKey = apiKey;
@@ -867,16 +868,14 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     form.append('imageFile', inputBuffer, { filename: 'product.jpg', contentType: 'image/jpeg' });
     form.append('removeBackground', 'true');
     
-    let negativePrompt = '';
-    form.append('background.prompt', scenePrompt); // Wymagane, by wygenerować składniki
     if (imageIndex === 0) {
-        negativePrompt = 'gray background, dark gradients, colored walls, room interior, floating objects in air, messy, text, extra products, bad anatomy';
-        form.append('background.color', '#FFFFFF'); // Bezwzględne wymuszenie czystego RGB 255,255,255 pod spodem
+        form.append('editWithAI.mode', 'ai.auto');
+        form.append('editWithAI.prompt', 'Odczytaj ze zdjęcia główny składnik produktu i umieść go za produktem. Produkt musi być umieszczony centralnie na białym tle RGB 255,255,255 i zajmować minimum 85% kadru. Produkt nie może być w żaden sposób zmieniony i musi pozostać w 100% taki sam zwłaszcza etykieta i napisy. Możesz za to powiększyć lub zmniejszyć produkt żeby dopasować do ekranu');
     } else {
-        negativePrompt = 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay';
+        form.append('background.prompt', scenePrompt);
+        form.append('background.negativePrompt', 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay');
     }
         
-    form.append('background.negativePrompt', negativePrompt);
     form.append('export.format', 'jpeg');
     form.append('outputSize', '1080x1080');
     form.append('paddingTop', padding.paddingTop);
@@ -1399,53 +1398,6 @@ async function runNode10_Sentinel(finalPayload, originalPimData) {
     }
 }
 
-/**
- * WĘZEŁ 11: AGENT 11 - SLOT 1 SCENOGRAPHER (Miniatura)
- * Cel: Tworzenie dedykowanej scenografii/promptu dla Photoroom wyłącznie dla Slotu 1.
- */
-async function runNode11_Slot1Scenographer(productDetailsText) {
-    if (!apiKey) {
-        return getFallbackPhotoroomSetup(0);
-    }
-    
-    try {
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
-            generationConfig: {
-                temperature: 0.7,
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: "OBJECT",
-                    properties: {
-                        prompt: { type: "STRING" }
-                    },
-                    required: ["prompt"]
-                }
-            }
-        });
-
-        const promptInstruction = `Zidentyfikuj 2 (maksymalnie 3) główne składniki produktu na podstawie opisu. Przetłumacz je na język angielski. Zwróć wynik TYLKO w poniższym formacie, bez wstępu i znaków specjalnych:
-[składnik 1] and [składnik 2]
-
-DANE PRODUKTU Z PIM:
-${productDetailsText}`;
-
-        const result = await generateWithRetry(model, promptInstruction, 3, "Agent_11_Slot1_Scenographer");
-        const jsonText = result.response.text();
-        const data = JSON.parse(jsonText);
-        
-        if (data.prompt) {
-            const finalPrompt = data.prompt.trim() + " arranged beautifully around the product, resting on a pure white surface, seamless pure solid white background, bright high-key studio lighting, realistic soft contact shadows, professional e-commerce photography";
-            console.log(`[Agent 11 - Slot 1] Wygenerowano nowy prompt (Studio E-commerce):`, finalPrompt);
-            return { prompt: finalPrompt };
-        }
-    } catch (err) {
-        console.error("[Agent 11 - Slot 1] Ostrzeżenie: Agent 11 zgłosił błąd, używam fallbacku:", err.message);
-    }
-    
-    return getFallbackPhotoroomSetup(0);
-}
 
 module.exports = {
     fetchImageSecure,
