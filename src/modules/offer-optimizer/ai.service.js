@@ -10,6 +10,7 @@ const FormData = require('form-data');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { STANDARD_PROMPT, COSMETIC_AUDITOR_PROMPT, VISION_AUDIT_PROMPT, getMasterPrompt } = require('./ai.prompts');
+const { getDeterministicPromptForSlot, getPaddingForSlot, hashSKU } = require('./photoroom.prompts');
 const cheerio = require('cheerio');
 const EventBus = require('../../core/EventBus');
 dotenv.config();
@@ -708,51 +709,7 @@ Odpowiedz wyłącznie czystym obiektem JSON:
 
 // Agent 8 (ClaidLiquidVariables) usunięty zgodnie z dyrektywą - zastąpiony przez API Photoroom.
 
-async function getPlaybookPromptForSlot(index, productDetailsText) {
-    if (index === 0) return "Odczytaj ze zdjęcia główny składnik produktu i umieść go centralnie za produktem na czystym, nieskazitelnie białym tle. Oryginalny produkt musi pozostać w 100% nienaruszony - absolutny zakaz modyfikacji jego kształtu, etykiety czy proporcji.";
-    if (index === 1) return "An empty, hyper-detailed modern city street scene at golden hour. The resting surface is a flat, dark textured concrete table featuring fine mineral dust particles scattered naturally. Visible faint dust motes drifting softly in a crisp diagonal sunbeam. Infinite depth of field, f/22 aperture, tack-sharp focus on every background brick and texture. Cinematic warm sunlight casting a sharp contact shadow. Empty scene, absolutely no blur, no soft focus, no bokeh, no people, no pedestals.";
-    if (index === 2) return "An empty, majestic pine forest at sunrise. The resting surface is a flat, dark river stone surrounded by hyper-detailed green moss and tiny authentic dew droplets. Subtle atmospheric haze catching the morning rays. Infinite depth of field, f/22 aperture, tack-sharp focus on every leaf and stone texture. Crisp morning sunlight casting a realistic sharp shadow. Empty scene, absolutely no blur, no soft focus, no bokeh, no floating objects.";
-    if (index === 3) return "An empty, sophisticated dark monochromatic studio setting. The resting surface is a flat, highly polished black glass reflecting subtle ambient reflections. Infinite depth of field, f/22 aperture, razor-sharp from front to back. A single dramatic spotlight creating sharp geometric shadows with fine light diffusion on the floor. Minimalist empty scene, absolutely no blur, no soft focus, no props.";
-    if (index === 4) return "An empty, luxury resort scene. The resting surface is pristine white sand with subtle micro-ripples from the wind. The background is a sparkling infinity pool and ocean horizon reflecting intense summer sun, with fine light refractions dancing on the ground. Infinite depth of field, f/22 aperture, every water ripple and grain of sand is razor-sharp. Brilliant high-key lighting. Empty scene, absolutely no blur, no bokeh, no out of focus areas, no people.";
-    if (index === 5) return "An empty, minimalist design studio. The resting surface is perfectly smooth with a matte finish. The background is a seamless, vibrant terracotta pastel wall separated by a crisp architectural lighting line and a subtle surface gradient. Infinite depth of field, f/22 aperture, sharp geometric shadow. Empty scene, absolutely no blur, no bokeh, no soft focus, no pedestals.";
-    if (index === 6) return "An empty, luxurious modern minimalist living room bathed in radiant natural window light. The resting surface is a rustic brushed oak wood table showing authentic wood grain and micro-textures. Warm ambient light particles floating in the air stream. Infinite depth of field, f/22 aperture, every furniture texture and wood grain is razor-sharp and lifelike. Empty scene, absolutely no blur, no soft focus, no bokeh, no people.";
-    if (index === 7) return "An empty, avant-garde artistic studio. The resting surface is flat, pristine white plaster with fine tactile grain. The background is a crisp white architectural wall. Dramatic 'gobo' lighting: sharp geometric shadows of window blinds cast across the wall with high-contrast edges. Infinite depth of field, f/22 aperture, maximum sharpness everywhere. Empty scene, absolutely no blur, no bokeh.";
-    
-    if (index === 8) {
-        let ingredients = "natural elements";
-        if (apiKey) {
-            try {
-                const genAI = new GoogleGenerativeAI(apiKey);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", generationConfig: { temperature: 0.1 }});
-                const promptInstruction = `Extract the main 2-3 natural active ingredients from this product data and translate them to English as a comma separated list. If none found, reply with "natural elements". Data: ${productDetailsText}`;
-                const result = await generateWithRetry(model, promptInstruction, 2, "Agent_Slot9_Ingredients");
-                ingredients = result.response.text().replace(/\n/g, '').trim();
-                console.log("[Photoroom Slot 9] Wyekstrahowano składniki:", ingredients);
-            } catch (e) {
-                console.error("[Photoroom Slot 9] Błąd pobierania składników (fallback):", e.message);
-            }
-        }
-        return `An empty, bright commercial photography studio. The resting surface is a clean slate countertop featuring subtle natural chipping and stone dust. Resting completely flat on the surface are: ${ingredients}, showing raw, hyper-detailed organic textures. Brilliant realistic lighting with soft ambient bounce. Infinite depth of field, f/22 aperture, hyper-detailed, everything in tack-sharp focus. Empty scene, absolutely no blur, no bokeh, no soft focus, no flying objects, no hands.`;
-    }
-    
-    return "Photoroom_Native_AI";
-}
-
-function getPaddingForSlot(index) {
-    if (index === 0) {
-        // Slot 1 - Wymuszenie 90% pokrycia kadru (0.05 marginesu)
-        return { paddingTop: "0.05", paddingRight: "0.05", paddingBottom: "0.05", paddingLeft: "0.05" };
-    }
-    
-    const variants = [
-        { paddingTop: "0.08", paddingBottom: "0.08", paddingLeft: "0.08", paddingRight: "0.45" }, // Wariant A
-        { paddingTop: "0.32", paddingBottom: "0.20", paddingLeft: "0.32", paddingRight: "0.32" }, // Wariant B
-        { paddingTop: "0.18", paddingBottom: "0.12", paddingLeft: "0.48", paddingRight: "0.08" }, // Wariant C
-        { paddingTop: "0.18", paddingBottom: "0.18", paddingLeft: "0.22", paddingRight: "0.22" }  // Wariant D
-    ];
-    
-    return variants[(index - 1) % variants.length];
-}
+// Usunięto stare getPlaybookPromptForSlot i getPaddingForSlot na rzecz modułu photoroom.prompts.js
 
 async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
     const photoroomKey = (process.env.PHOTOROOM_API_KEY && process.env.PHOTOROOM_API_KEY !== "TBD") 
@@ -788,12 +745,12 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         }
     } catch(e) { console.error("Błąd odczytu PIM dla Agenta Promptera:", e.message); }
 
-    // 3. Pobranie stałego promptu z Playbooka SSOT 3.0
-    const scenePrompt = await getPlaybookPromptForSlot(imageIndex, productDetailsText);
+    // 3. Pobranie deterministycznego promptu z generatora LEGO (SSOT 5.0)
+    const scenePrompt = await getDeterministicPromptForSlot(imageIndex, ean, productDetailsText, apiKey, generateWithRetry);
 
-    // 4. Pobranie stałego kadru (padding) dla danego indeksu
-    const padding = getPaddingForSlot(imageIndex);
-
+    // 4. Pobranie dynamicznego kadru (padding) opartego o seed (hash EAN/SKU)
+    const seed = hashSKU(ean);
+    const padding = getPaddingForSlot(imageIndex, seed);
     // 5. Wysłanie żądania do Photoroom Image Editing API (/v2/edit)
     logLifestyleEvent('INFO', 'Wysyłanie zapytania do Photoroom API v2/edit (SSOT 3.0)', { prompt: scenePrompt });
     
@@ -804,14 +761,15 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     form.append('removeBackground', 'true');
     
     if (imageIndex === 0) {
-        // Slot 1 - Nienaruszony, tryb natywny (komenda polska)
+        // Slot 1: SSOT 4.0 - Ekstrakcja Składnika
         form.append('editWithAI.mode', 'ai.auto');
         form.append('editWithAI.prompt', scenePrompt);
         form.append('background.color', '#FFFFFF'); // Wymóg przezroczystości dla Slotu 1
     } else {
-        // Sloty 2-9: SSOT 4.0 - Generowanie Tła (Brak editWithAI)
+        // Sloty 2-9: SSOT 5.0 - Deterministyczne generowanie tła (Klocki LEGO)
         form.append('background.prompt', scenePrompt);
         form.append('background.expandPrompt', 'never');
+        form.append('background.seed', seed.toString()); // Wstrzyknięcie unikalnego seeda do API
         form.append('quality', 'advanced');
     }
 
