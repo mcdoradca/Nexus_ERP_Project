@@ -186,6 +186,12 @@ Zwróć wynik jako połączone przecinkami frazy, bez zbędnych słów. TYLKO FR
                 { contents: [{ parts: [{ text: prompt }] }] },
                 { params: { key: process.env.GEMINI_API_KEY }, headers: { 'Content-Type': 'application/json' } }
             );
+            
+            if (aiResponse.data && aiResponse.data.usageMetadata) {
+                const AiMetricsService = require('../../core/ai.metrics.service');
+                await AiMetricsService.logUsage("Agent_SEO_Trends", "gemini-3.1-pro-preview", aiResponse.data.usageMetadata, true, 1);
+            }
+            
             let seoKeywords = aiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
             console.log(`      [Zwiadowca donosi]: ${seoKeywords.trim()}`);
             return seoKeywords.trim();
@@ -230,6 +236,11 @@ Zwróć TYLKO kod HTML, bez tagów <html> czy <body>, bez formatowania \`\`\`htm
                 { params: { key: process.env.GEMINI_API_KEY }, headers: { 'Content-Type': 'application/json' } }
             );
 
+            if (aiResponse.data && aiResponse.data.usageMetadata) {
+                const AiMetricsService = require('../../core/ai.metrics.service');
+                await AiMetricsService.logUsage("Agent_Bundle_Copywriter", "gemini-3.1-pro-preview", aiResponse.data.usageMetadata, true, 1);
+            }
+
             let html = aiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
             html = html.replace(/\`\`\`html/g, '').replace(/\`\`\`/g, '').trim();
             return html;
@@ -264,6 +275,11 @@ ${draftHtml}
                 { contents: [{ parts: [{ text: prompt }] }] },
                 { params: { key: process.env.GEMINI_API_KEY }, headers: { 'Content-Type': 'application/json' } }
             );
+
+            if (aiResponse.data && aiResponse.data.usageMetadata) {
+                const AiMetricsService = require('../../core/ai.metrics.service');
+                await AiMetricsService.logUsage("Agent_Bundle_Compliance", "gemini-3.1-pro-preview", aiResponse.data.usageMetadata, true, 1);
+            }
 
             let cleanHtml = aiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text || draftHtml;
             cleanHtml = cleanHtml.replace(/\`\`\`html/g, '').replace(/\`\`\`/g, '').trim();

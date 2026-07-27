@@ -25,7 +25,7 @@ Nie owijaj w tagi typu \`\`\`html.
   `;
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await generateWithRetry(model, prompt, 3, "Agent_AEO_Core", false);
     return result.response.text().trim();
   } catch (error) {
     console.error('[AI Service] Error generating AEO:', error);

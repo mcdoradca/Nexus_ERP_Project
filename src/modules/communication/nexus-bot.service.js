@@ -353,6 +353,10 @@ async function processBotMention(messageContent, authorName, mode, targetId, soc
         
         const userPrompt = `Wiadomość od użytkownika ${authorName}: ${messageContent}`;
         let result = await chat.sendMessage(userPrompt);
+        let turn = 1;
+        if (result.response && result.response.usageMetadata) {
+            await AiMetricsService.logUsage("Agent_Nexus_Bot", "gemini-3.1-pro-preview", result.response.usageMetadata, true, turn);
+        }
         let responseText = "";
 
         // Obsługa wywołań narzędzi (pętla while dla łańcuchowych wywołań)
@@ -373,19 +377,14 @@ async function processBotMention(messageContent, authorName, mode, targetId, soc
             }
             
             // Zwracamy wyniki wszystkich narzędzi z tej iteracji do modelu
+            turn++;
             result = await chat.sendMessage(functionResponses);
+            if (result.response && result.response.usageMetadata) {
+                await AiMetricsService.logUsage("Agent_Nexus_Bot", "gemini-3.1-pro-preview", result.response.usageMetadata, true, turn);
+            }
         }
         
         responseText = result.response.text();
-
-        try {
-            if (result.response && result.response.usageMetadata) {
-                const { promptTokenCount, candidatesTokenCount, totalTokenCount } = result.response.usageMetadata;
-                await AiMetricsService.logUsage("Agent_Nexus_Bot", "gemini-3.1-pro-preview", promptTokenCount, candidatesTokenCount, totalTokenCount);
-            }
-        } catch (metricError) {
-            console.error("[NeS] Błąd zapisu metryk telemetrii:", metricError.message);
-        }
 
         // Usuń wskaźnik pisania
         if (socket) socket.nsp.emit('bot_typing_stop', {});
@@ -414,7 +413,11 @@ async function processBotMention(messageContent, authorName, mode, targetId, soc
             });
             const fallbackChat = fallbackModel.startChat();
             try {
+                let fallbackTurn = 1;
                 let fallbackResult = await fallbackChat.sendMessage(`Wiadomość od użytkownika ${authorName}: ${messageContent}`);
+                if (fallbackResult.response && fallbackResult.response.usageMetadata) {
+                    await AiMetricsService.logUsage("Agent_Nexus_Bot_Fallback", "gemini-3.1-pro-preview", fallbackResult.response.usageMetadata, true, fallbackTurn);
+                }
                 let fallbackResponseText = "";
                 
                 while (fallbackResult.response && typeof fallbackResult.response.functionCalls === 'function' && fallbackResult.response.functionCalls() && fallbackResult.response.functionCalls().length > 0) {
@@ -426,7 +429,11 @@ async function processBotMention(messageContent, authorName, mode, targetId, soc
                             functionResponse: { name: call.name, response: { result: toolResult } }
                         });
                     }
+                    fallbackTurn++;
                     fallbackResult = await fallbackChat.sendMessage(functionResponses);
+                    if (fallbackResult.response && fallbackResult.response.usageMetadata) {
+                        await AiMetricsService.logUsage("Agent_Nexus_Bot_Fallback", "gemini-3.1-pro-preview", fallbackResult.response.usageMetadata, true, fallbackTurn);
+                    }
                 }
                 
                 fallbackResponseText = fallbackResult.response.text();

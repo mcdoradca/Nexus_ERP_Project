@@ -28,15 +28,24 @@ class KnowledgeRagService {
       const result = await embeddingModel.embedContent(request);
       const embedding = result.embedding;
       
-      // Przybliżone zużycie tokenów (w modelu embedding 1 token to ~4 znaki)
-      const approxTokens = Math.ceil(text.length / 4);
-      await aiMetricsService.logUsage(
-        agentId,
-        EMBEDDING_MODEL_NAME,
-        approxTokens,
-        0,
-        approxTokens
-      );
+      // Pobieranie telemetrii bezpośrednio z usageMetadata zgodnie z poleceniem
+      if (result && result.usageMetadata) {
+          await aiMetricsService.logUsage(
+            agentId,
+            EMBEDDING_MODEL_NAME,
+            result.usageMetadata,
+            true,
+            1
+          );
+      } else if (result && result.response && result.response.usageMetadata) {
+          await aiMetricsService.logUsage(
+            agentId,
+            EMBEDDING_MODEL_NAME,
+            result.response.usageMetadata,
+            true,
+            1
+          );
+      }
 
       return embedding.values;
     } catch (error) {

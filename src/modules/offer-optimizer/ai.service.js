@@ -90,18 +90,18 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
     broadcastLog(`Start generateWithRetry dla ${modelName}, max próby: ${maxRetries}`);
     
     while (attempt < maxRetries) {
+        let result;
         try {
             const attemptStart = Date.now();
             broadcastLog(`Próba ${attempt + 1}/${maxRetries} rozpoczęta...`);
             // Twardy timeout 90 sekund (90000ms) dla każdego zapytania do modelu
-            const result = await withTimeout(model.generateContent(promptOrParts), 90000, modelName);
+            result = await withTimeout(model.generateContent(promptOrParts), 90000, modelName);
             broadcastLog(`Próba ${attempt + 1} ZAKOŃCZONA SUKCESEM po ${Date.now() - attemptStart}ms`);
             
             // Zapis do telemetrii
             try {
                 if (result.response && result.response.usageMetadata) {
-                    const { promptTokenCount, candidatesTokenCount, totalTokenCount } = result.response.usageMetadata;
-                    await AiMetricsService.logUsage(agentId, modelName, promptTokenCount, candidatesTokenCount, totalTokenCount);
+                    await AiMetricsService.logUsage(agentId, modelName, result.response.usageMetadata, true, attempt + 1);
                 }
             } catch (metricError) {
                 console.error("[AiService] Błąd zapisu metryk telemetrii:", metricError.message);
@@ -134,6 +134,21 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
             
             return result;
         } catch (error) {
+            // Zapis do telemetrii PORAŻKI (jeśli model zwrócił metadane przed błędem, np. 503 lub JSON_PARSE_ERROR)
+            try {
+                // Gdy JSON_PARSE_ERROR to `result` istnieje, bo error poleciał z naszej funkcji.
+                // Jeśli błąd poleciał z API, error może mieć `usageMetadata` gdzieś w obiekcie, ale sprawdzamy `result`.
+                const errorUsage = (result && result.response && result.response.usageMetadata) || (error.response && error.response.usageMetadata);
+                if (errorUsage) {
+                    await AiMetricsService.logUsage(agentId, modelName, errorUsage, false, attempt + 1);
+                } else if (!result) {
+                    // Czysty błąd bez metadanych, ale chcemy odnotować fail dla AgentId
+                    await AiMetricsService.logUsage(agentId, modelName, null, false, attempt + 1);
+                }
+            } catch (metricError) {
+                console.error("[AiService] Błąd zapisu porażki do telemetrii:", metricError.message);
+            }
+            
             attempt++;
             const isRateLimit = error.status === 429 || (error.message && (error.message.includes('429') || error.message.includes('503')));
             const isJsonError = error.message && error.message.includes('JSON_PARSE_ERROR');

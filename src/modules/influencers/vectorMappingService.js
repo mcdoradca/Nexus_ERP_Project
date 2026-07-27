@@ -29,8 +29,11 @@ class VectorMappingService {
        try {
            const result = await this.embedModel.embedContent(text);
            if (result && result.embedding && result.embedding.values) {
-              const approxTokens = Math.ceil(text.length / 4);
-              await AiMetricsService.logUsage("Agent_Vector_Embedding", "text-embedding-004", approxTokens, 0, approxTokens);
+              if (result.usageMetadata) {
+                  await AiMetricsService.logUsage("Agent_Vector_Embedding", "text-embedding-004", result.usageMetadata, true, 1);
+              } else if (result.response && result.response.usageMetadata) {
+                  await AiMetricsService.logUsage("Agent_Vector_Embedding", "text-embedding-004", result.response.usageMetadata, true, 1);
+              }
               return result.embedding.values;
            }
        } catch (err) {
