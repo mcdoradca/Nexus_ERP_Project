@@ -782,7 +782,7 @@ Zwróć TYLKO tekst promptu po angielsku w formie tagów oddzielonych przecinkam
 
 function getPaddingForSlot(index) {
     if (index === 0) {
-        return { paddingTop: "0.07", paddingRight: "0.07", paddingBottom: "0.07", paddingLeft: "0.07" };
+        return { paddingTop: "0.15", paddingRight: "0.15", paddingBottom: "0.15", paddingLeft: "0.15" };
     }
     const layouts = [
         { paddingTop: "0.15", paddingRight: "0.45", paddingBottom: "0.25", paddingLeft: "0.15" },
@@ -870,7 +870,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     let negativePrompt = '';
     form.append('background.prompt', scenePrompt); // Wymagane, by wygenerować składniki
     if (imageIndex === 0) {
-        negativePrompt = 'shadows, contact shadow, drop shadow, floor, ground, table, surface, grey background, gradients, dark corners, wall, room, 3d space';
+        negativePrompt = 'shadows, drop shadow, contact shadow, 3d space, realistic lighting, gray gradient, off-white, floor, table, room, wall, dark corners, depth, horizon line';
         form.append('background.color', '#FFFFFF'); // Bezwzględne wymuszenie czystego RGB 255,255,255 pod spodem
     } else {
         negativePrompt = 'floating objects, flying debris, levitating elements, black rocks, charcoal chunks, aloe vera, towels, bathroom, spa, plants, mirror, text, logos, duplicated products, morphed shapes, out of proportion, flatlay';
@@ -1427,7 +1427,7 @@ async function runNode11_Slot1Scenographer(productDetailsText) {
 
         const promptInstruction = `Jesteś asystentem e-commerce. Na podstawie nazwy lub opisu produktu zidentyfikuj 2 (maksymalnie 3) główne składniki naturalne (np. węgiel, aloes, kokos) i przetłumacz je na język angielski.
 Zwróć wynik TYLKO w poniższym formacie, bez żadnego wstępu i znaków specjalnych:
-floating [składnik 1] and floating [składnik 2]
+tiny floating [składnik 1] and tiny floating [składnik 2] falling around the product
 
 DANE PRODUKTU Z PIM:
 ${productDetailsText}`;
@@ -1438,7 +1438,7 @@ ${productDetailsText}`;
         
         if (data.prompt) {
             // Sklejenie odpowiedzi LLM (składniki) z matematycznym szablonem tła
-            const finalPrompt = data.prompt.trim() + ", pure solid white background, completely isolated on white, flat graphic design composition, high-key studio lighting, 2D layout";
+            const finalPrompt = data.prompt.trim() + ", pure solid #FFFFFF white background, completely flat 2D graphic layout, absolute white canvas, zero depth, zero shadows, flat vector style";
             console.log(`[Agent 11 - Slot 1] Wygenerowano nowy prompt:`, finalPrompt);
             return { prompt: finalPrompt };
         }
