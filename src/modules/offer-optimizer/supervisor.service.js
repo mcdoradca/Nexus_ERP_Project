@@ -6,6 +6,7 @@ const aiMetricsService = require('../../core/ai.metrics.service');
 const BaseLinkerService = require('./baselinker.service');
 const AiService = require('./ai.service');
 const socketService = require('../../core/socket');
+const AllegroService = require('./allegro.service');
 const OsintScraperService = require('./osint.scraper.service');
 const agent1Logger = require('../../utils/agent1_logger');
 const { mapAllegroParameters } = require('../../utils/allegro_mapper');
