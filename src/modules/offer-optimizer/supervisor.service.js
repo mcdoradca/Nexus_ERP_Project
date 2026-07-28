@@ -216,16 +216,19 @@ class SupervisorService {
         
         broadcastStatus("FAZA_1_GROUNDING", ["Agent_2_Sentiment", "Agent_3_SEOTitle"], { Agent_1_Autofill: "COMPLETED", Agent_2_Sentiment: "IN_PROGRESS" });
         const sentimentData = await AiService.runNode2_Sentiment(ean, product.name);
+        // ==========================================
+        const ragService = require('./knowledge.rag.service');
+        const allegroDocs = await ragService.searchKnowledge("Trendy Allegro SEO E-commerce", 1);
+        const allegroKnowledge = allegroDocs.map(d => d.content).join("\n");
         
         broadcastStatus("FAZA_1_GROUNDING", ["Agent_3_SEOTitle"], { Agent_2_Sentiment: "COMPLETED", Agent_3_SEOTitle: "IN_PROGRESS" });
-        const seoData = await AiService.runNode3_SEOTitle(ean, product.name, product.category || 'Brak');
+        const seoData = await AiService.runNode3_SEOTitle(ean, product.name, product.category || 'Brak', allegroKnowledge);
         
         // ==========================================
         // FAZA 2: LEGAL SHIELD (Chemia i Prawo)
         // ==========================================
         broadcastStatus("FAZA_2_LEGAL_SHIELD", ["Agent_4_INCIParser", "Agent_5_LegalSanitizer"], { Agent_3_SEOTitle: "COMPLETED", Agent_4_INCIParser: "IN_PROGRESS" });
         
-        const ragService = require('./knowledge.rag.service');
         const inciDocs = await ragService.searchKnowledge("Słownik INCI Kosmetyki Chemia", 2);
         const inciKnowledge = inciDocs.map(d => d.content).join("\n");
         
@@ -252,7 +255,9 @@ class SupervisorService {
         // ==========================================
         broadcastStatus("FAZA_3_CREATION", ["Agent_6_Copywriter", "Agent_7_Psychology", "Agent_8_Scenographer"], { Agent_5_LegalSanitizer: "COMPLETED", Agent_6_Copywriter: "IN_PROGRESS" });
         console.log(`[Supervisor] Uruchamiam Agenta 6 (Copywriter). Przekazuję inciAEOData oraz legalData...`);
-        const copywriterData = await AiService.runNode6_Copywriter(product.name, inciAEOData, legalData, { tone: "Ekspercki i bezpieczny" });
+        const copywriterDocs = await ragService.searchKnowledge("SOT Kosmetyki Chemia Copywriting", 2);
+        const copywriterKnowledge = copywriterDocs.map(d => d.content).join("\n");
+        const copywriterData = await AiService.runNode6_Copywriter(product.name, inciAEOData, legalData, { tone: "Ekspercki i bezpieczny" }, copywriterKnowledge);
         console.log(`[Supervisor] Agent 6 (Copywriter) zakończył pracę pomyślnie.`);
         
         broadcastStatus("FAZA_3_CREATION", ["Agent_7_Psychology", "Agent_8_Scenographer"], { Agent_6_Copywriter: "COMPLETED", Agent_7_Psychology: "IN_PROGRESS" });
@@ -277,7 +282,9 @@ class SupervisorService {
             visionTickets: visionTickets
         };
 
-        const sentinelData = await AiService.runNode10_Sentinel(finalPayload, autofillData);
+        const sentinelDocs = await ragService.searchKnowledge("SOT Allegro Regulamin i Zakazane", 2);
+        const sentinelKnowledge = sentinelDocs.map(d => d.content).join("\n");
+        const sentinelData = await AiService.runNode10_Sentinel(finalPayload, autofillData, sentinelKnowledge);
         
         if (sentinelData.final_verdict === "BLOCKED_DUE_TO_NON_COMPLIANCE") {
             broadcastStatus("FAZA_4_AUDIT", [], {}, "WARNING", "Sentinel zablokował ostateczną ofertę. Wymagana interwencja człowieka.");

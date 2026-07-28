@@ -1111,17 +1111,17 @@ ${JSON.stringify(allegroData, null, 2)}
 --- ZNALEZIONY TEKST (OSINT) ---
 ${scrapedText}`;
         
-        agent1Logger.info(`[Swarm Node 1] WysĹ‚ano zapytanie do Gemini-3.5-flash (DĹ‚ugoĹ›Ä‡ promptu: ${prompt.length} znakĂłw). DĹ‚ugoĹ›Ä‡ tekstu OSINT: ${scrapedText.length}`);
+        agent1Logger.info(`[Swarm Node 1] Wysłano zapytanie do Gemini-3.5-flash (Długość promptu: ${prompt.length} znaków). Długość tekstu OSINT: ${scrapedText.length}`);
         
         const startTime = Date.now();
         const result = await generateWithRetry(model, prompt, 2, "Agent_1_Autofill", true);
         const duration = Date.now() - startTime;
         
-        agent1Logger.info(`[Swarm Node 1] OdpowiedĹş z Gemini uzyskana w ${duration}ms.`, { result });
+        agent1Logger.info(`[Swarm Node 1] Odpowiedź z Gemini uzyskana w ${duration}ms.`, { result });
         
         return result;
     } catch (err) {
-        agent1Logger.error(`[Swarm Node 1] BĹ‚Ä…d krytyczny: ${err.message}`, { stack: err.stack });
+        agent1Logger.error(`[Swarm Node 1] Błąd krytyczny: ${err.message}`, { stack: err.stack });
         throw err;
     }
 }
@@ -1143,19 +1143,120 @@ async function runNode2_Sentiment(ean, productName) {
     }
 }
 
-async function runNode3_SEOTitle(ean, productName, category = null) {
+async function runNode3_SEOTitle(ean, productName, category = null, ragKnowledge = "") {
     console.log(`[Swarm Node 3] SEO Title start: EAN ${ean}`);
     try {
+        const tools = [{
+            functionDeclarations: [
+                {
+                    name: "allegro_match_category",
+                    description: "Zwraca kategorie Allegro dopasowane do nazwy produktu.",
+                    parameters: { type: "object", properties: { name: { type: "string", description: "Nazwa lub fraza produktowa" } }, required: ["name"] }
+                },
+                {
+                    name: "allegro_category_parameters",
+                    description: "Zwraca parametry kategorii wraz ze słownikami dopuszczalnych wartości.",
+                    parameters: { type: "object", properties: { categoryId: { type: "string" } }, required: ["categoryId"] }
+                },
+                {
+                    name: "allegro_search_products",
+                    description: "Przeszukuje Katalog Produktów Allegro. Zwraca kanoniczną nazwę produktu wg Allegro.",
+                    parameters: { type: "object", properties: { phrase: { type: "string" }, mode: { type: "string", enum: ["NAME", "GTIN"] } }, required: ["phrase"] }
+                },
+                {
+                    name: "allegro_listing_competitors",
+                    description: "Zwraca tytuły ofert konkurencji dla frazy w kategorii oraz rozkład filtrów.",
+                    parameters: { type: "object", properties: { phrase: { type: "string" }, categoryId: { type: "string" }, limit: { type: "integer" } }, required: ["phrase"] }
+                },
+                {
+                    name: "google_suggest",
+                    description: "Zwraca podpowiedzi wyszukiwarki Google dla frazy.",
+                    parameters: { type: "object", properties: { phrase: { type: "string" } }, required: ["phrase"] }
+                },
+                {
+                    name: "google_trends_compare",
+                    description: "Porównuje 2-5 synonimów pod względem zainteresowania w Google.",
+                    parameters: { type: "object", properties: { terms: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 5 } }, required: ["terms"] }
+                },
+                {
+                    name: "validate_allegro_title",
+                    description: "Waliduje kandydata na tytuł wobec twardych zasad Allegro. Wywołuj OBOWIĄZKOWO dla każdego wariantu przed zwróceniem wyniku JSON.",
+                    parameters: { type: "object", properties: { title: { type: "string" }, brand: { type: "string" } }, required: ["title"] }
+                }
+            ]
+        }];
+
         const model = genAI.getGenerativeModel({
             model: "gemini-3.5-flash",
-            tools: [{ googleSearch: {} }],
-            generationConfig: { temperature: 0.2, topP: 0.3, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } }
+            tools: tools,
+            generationConfig: { temperature: 0.2, topP: 0.3 }
         });
+        
         const systemPrompt = getMasterPrompt(3);
-        const prompt = `${systemPrompt}\n\n--- DANE WEJĹšCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}\nKATEGORIA: ${category || 'Brak'}`;
-        return await generateWithRetry(model, prompt, 2, "Agent_3_SEOTitle", true);
+        const chat = model.startChat({
+            history: [{ role: "user", parts: [{ text: systemPrompt }] }],
+            generationConfig: { temperature: 0.2, topP: 0.3 }
+        });
+
+        let prompt = `PRODUKT (Nazwa ERP): ${productName}\nEAN: ${ean}\nKATEGORIA: ${category || 'Brak'}\n\nUżyj dostępnych narzędzi, aby zebrać dane (Katalog, Parametry, Konkurencja, Google) i wygeneruj najlepszy tytuł (pamiętaj o walidacji każdego wariantu). Zwróć obiekt JSON z wynikami.`;
+        
+        console.log(`[Swarm Node 3] Rozpoczynam pętlę narzędziową dla: ${productName}`);
+        let result = await chat.sendMessage(prompt);
+        let maxIterations = 15;
+        let iteration = 0;
+        
+        while (iteration < maxIterations) {
+            iteration++;
+            const response = result.response;
+            const functionCalls = response.functionCalls();
+            
+            if (functionCalls && functionCalls.length > 0) {
+                const call = functionCalls[0];
+                const args = call.args;
+                let apiResponse = {};
+                
+                console.log(`[Swarm Node 3] Wywołanie narzędzia: ${call.name}`);
+                
+                try {
+                    const AllegroService = require('./allegro.service');
+                    const GoogleService = require('./google.service');
+                    const ValidateService = require('./title-validate');
+                    
+                    if (call.name === 'allegro_match_category') {
+                        apiResponse = { categoryId: await AllegroService.findMatchingCategoryByName(args.name) };
+                    } else if (call.name === 'allegro_category_parameters') {
+                        apiResponse = await AllegroService.fetchCategoryParameters(args.categoryId);
+                    } else if (call.name === 'allegro_search_products') {
+                        apiResponse = await AllegroService.searchProducts(args.phrase, args.mode || "NAME");
+                    } else if (call.name === 'allegro_listing_competitors') {
+                        apiResponse = await AllegroService.getListingCompetitors(args.phrase, args.categoryId, args.limit || 60);
+                    } else if (call.name === 'google_suggest') {
+                        apiResponse = { suggestions: await GoogleService.googleSuggest(args.phrase) };
+                    } else if (call.name === 'google_trends_compare') {
+                        apiResponse = await GoogleService.googleTrendsCompare(args.terms);
+                    } else if (call.name === 'validate_allegro_title') {
+                        apiResponse = ValidateService.validateAllegroTitle(args.title, { brand: args.brand });
+                    }
+                } catch (e) {
+                    apiResponse = { error: e.message };
+                }
+                
+                result = await chat.sendMessage([{
+                    functionResponse: {
+                        name: call.name,
+                        response: apiResponse
+                    }
+                }]);
+            } else {
+                let text = response.text();
+                text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                console.log(`[Swarm Node 3] Pętla zakończona po ${iteration} iteracjach.`);
+                return JSON.parse(text);
+            }
+        }
+        throw new Error("Agent 3 exceeded max tool call iterations (pętla się zapętliła).");
     } catch (err) {
-        console.error("[Swarm Node 3] BĹ‚Ä…d krytyczny:", err.message);
+        console.error("[Swarm Node 3] Błąd krytyczny:", err.message);
         throw err;
     }
 }
@@ -1181,7 +1282,6 @@ async function runNode5_LegalSanitizer(productName, generatedContent, rawSentime
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
-            tools: [{ googleSearch: {} }],
             generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(5);
@@ -1197,7 +1297,7 @@ async function runNode5_LegalSanitizer(productName, generatedContent, rawSentime
 // ARCHITEKTURA SWARM V3 - WÄZĹY 6-10 (KREACJA I AUDYT WYSOKIEJ PEWNOĹšCI)
 // ============================================================================
 
-async function runNode6_Copywriter(productName, aeoFeatures, legalData, toneGuidelines) {
+async function runNode6_Copywriter(productName, aeoFeatures, legalData, toneGuidelines, ragKnowledge = "") {
     console.log(`[Swarm Node 6] Copywriter start...`);
     try {
         const model = genAI.getGenerativeModel({
@@ -1205,7 +1305,7 @@ async function runNode6_Copywriter(productName, aeoFeatures, legalData, toneGuid
             generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(6);
-        const prompt = `${systemPrompt}\n\n--- DANE WEJĹšCIOWE ---\nPRODUKT: ${productName}\nCECHY AEO: ${JSON.stringify(aeoFeatures)}\nDANE PRAWNE I GEO: ${JSON.stringify(legalData)}\nWYTYCZNE TONU: ${JSON.stringify(toneGuidelines)}`;
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nCECHY AEO: ${JSON.stringify(aeoFeatures)}\nDANE PRAWNE I GEO: ${JSON.stringify(legalData)}\nWYTYCZNE TONU: ${JSON.stringify(toneGuidelines)}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
         return await generateWithRetry(model, prompt, 2, "Agent_6_Copywriter", true, strictRegexMedicalFilter);
     } catch (err) {
         console.error("[Swarm Node 6] BĹ‚Ä…d krytyczny:", err.message);
@@ -1278,7 +1378,7 @@ async function runNode9_VisionAuditor(imageUrls) {
     }
 }
 
-async function runNode10_Sentinel(finalPayload, originalPimData) {
+async function runNode10_Sentinel(finalPayload, originalPimData, ragKnowledge = "") {
     console.log(`[Swarm Node 10] Sentinel HITL start...`);
     try {
         const model = genAI.getGenerativeModel({
@@ -1286,7 +1386,7 @@ async function runNode10_Sentinel(finalPayload, originalPimData) {
             generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(10);
-        const prompt = `${systemPrompt}\n\n--- DANE WEJĹšCIOWE ---\nGOTOWA OFERTA: ${JSON.stringify(finalPayload)}\nSUROWE DANE PIM: ${JSON.stringify(originalPimData)}`;
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nGOTOWA OFERTA: ${JSON.stringify(finalPayload)}\nSUROWE DANE PIM: ${JSON.stringify(originalPimData)}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
         return await generateWithRetry(model, prompt, 2, "Agent_10_Sentinel", true);
     } catch (err) {
         console.error("[Swarm Node 10] BĹ‚Ä…d krytyczny:", err.message);

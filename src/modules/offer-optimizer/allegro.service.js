@@ -405,6 +405,79 @@ async function findMatchingCategoryByName(name) {
         return null;
     }
 }
+/**
+ * Przeszukuje Katalog Produktów Allegro (endpoint dla agenta)
+ */
+async function searchProducts(phrase, mode = "NAME") {
+    if (!phrase) return { error: "Brak frazy do wyszukania w katalogu." };
+    try {
+        const token = await getAllegroToken();
+        let queryParam = mode === "GTIN" ? `ean=${encodeURIComponent(phrase)}` : `phrase=${encodeURIComponent(phrase)}`;
+        
+        const response = await axios.get(`https://api.allegro.pl/sale/products?${queryParam}`, {
+            headers: {
+                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.allegro.public.v1+json'
+            },
+            timeout: 15000
+        });
+        
+        if (response.data.products && response.data.products.length > 0) {
+            // Zwracamy uproszczone dane dla agenta (nazwa, marka, kategoria, parametry)
+            return response.data.products.slice(0, 3).map(p => ({
+                id: p.id,
+                name: p.name,
+                category: p.category,
+                parameters: (p.parameters || []).map(param => ({
+                    name: param.name,
+                    values: param.valuesLabels || param.values || []
+                }))
+            }));
+        }
+        return { message: "Nie znaleziono produktów w katalogu Allegro." };
+    } catch (error) {
+        console.warn(`[AllegroService] Błąd w searchProducts dla frazy "${phrase}":`, error.message);
+        return { error: error.message };
+    }
+}
+
+/**
+ * Zwraca listing ofert konkurencji (endpoint zastrzeżony, best-effort)
+ */
+async function getListingCompetitors(phrase, categoryId, limit = 60) {
+    if (!phrase) return { error: "Brak frazy" };
+    try {
+        const token = await getAllegroToken();
+        let url = `https://api.allegro.pl/offers/listing?phrase=${encodeURIComponent(phrase)}&sort=-popularity&limit=${limit}`;
+        if (categoryId) url += `&category.id=${categoryId}`;
+
+        const response = await axios.get(url, {
+            headers: {
+                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.allegro.public.v1+json'
+            },
+            timeout: 15000
+        });
+
+        // Agregacja tytułów i parametrów z ofert sponsorowanych i zwykłych
+        const promoted = (response.data.items.promoted || []).map(i => i.name);
+        const regular = (response.data.items.regular || []).map(i => i.name);
+        const titles = [...promoted, ...regular];
+        
+        return {
+            titles,
+            filters: response.data.filters || []
+        };
+    } catch (error) {
+        if (error.response && error.response.status === 403) {
+            return { error: "ALLEGRO_FORBIDDEN", hint: "Aplikacja wymaga weryfikacji przez Allegro do użycia tego endpointu." };
+        }
+        console.warn(`[AllegroService] Błąd w getListingCompetitors:`, error.message);
+        return { error: error.message };
+    }
+}
 
 module.exports = {
     getAllegroToken,
@@ -415,5 +488,7 @@ module.exports = {
     findMatchingCategoryByName,
     getProductParametersByEan,
     startDeviceFlow,
-    pollForToken
+    pollForToken,
+    searchProducts,
+    getListingCompetitors
 };

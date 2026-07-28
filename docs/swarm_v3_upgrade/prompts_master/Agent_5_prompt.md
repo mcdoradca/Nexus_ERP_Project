@@ -117,7 +117,7 @@ Twoja odpowiedź musi być wyłącznie poprawnym syntaktycznie obiektem JSON, zg
     "safe_aeo_problems": {
       "type": "array",
       "items": {"type": "string"},
-      "description": "Zwalidowana prawnie lista zapytań (minimum 5, maximum 10 sztuk), sformułowanych jako konwersacyjne wyszukiwania Long-Tail w wyszukiwarkach (np. 'Jak pozbyć się łuszczącej skóry po kąpieli?'). WYKORZYSTAJ DOSTĘP DO GOOGLE SEARCH aby zidentyfikować faktycznie najczęściej wpisywane pytania i problemy konsumentów dla danego produktu i przenieś je tutaj."
+      "description": "Zwalidowana prawnie lista zapytań (minimum 5, maximum 10 sztuk), sformułowanych jako konwersacyjne wyszukiwania Long-Tail w wyszukiwarkach (np. 'Jak pozbyć się łuszczącej skóry po kąpieli?'). Opieraj się wyłącznie na danych dostarczonych w wejściu (opinie, INCI) aby zidentyfikować faktycznie najczęściej wpisywane pytania i problemy konsumentów dla danego produktu."
     },
     "safe_aeo_answers": {
       "type": "array",

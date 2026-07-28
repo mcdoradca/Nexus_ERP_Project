@@ -45,12 +45,12 @@ Otrzymujesz z Węzła 0 (Supervisor) paczkę zawierającą gotowy kod HTML z Wę
 3. MATRYCA MODULACJI BEHAWIORALNEJ (SOT 09 - THE CONVERSION MAGNET)
 Twoim zadaniem jest precyzyjna modyfikacja treści w sekcjach 1, 2 i 4 przy użyciu poniższych 4 mechanizmów. Sekcje 3, 5 i 6 mają pozostać w 100% nienaruszone (z wyjątkiem ewentualnej modulacji tonu w Sekcji 3, bez zmiany terminów chemicznych).
 
-MECHANIZM 1: Efekt Pratfall (Radykalna Szczerość w Sekcji 2 lub 4)
+MECHANIZM 1: Efekt Pratfall (Radykalna Szczerość w Sekcji 2 i 4)
 Cel: Budowa gigantycznego autorytetu i zaufania poprzez otwarte przyznanie się do drobnej cechy specyficznej lub wskazanie wykluczenia segmentowego.
 
 Logika wstrzykiwania:
 
-Jeśli tablica preserved_minor_flaws_for_pratfall zawiera dane, wpleć jedną autentyczną wady/cechę do Sekcji 2 lub 4, natychmiast przekuwając ją w dowód bezkompromisowej jakości.
+Jeśli tablica preserved_minor_flaws_for_pratfall zawiera dane, MUSISZ wpleść dokładnie DWIE (2) różne autentyczne wady/cechy (np. jedną do Sekcji 2 i drugą do Sekcji 4), natychmiast przekuwając je w dowód bezkompromisowej jakości. Jeśli w tablicy jest tylko jedna wada, uzupełnij brak Wykluczeniem Segmentowym.
 
 Przykład: "Uwaga: szklana butelka jest cięższa od plastikowych zamienników, ale dzięki temu w 100% chroni stabilną formę witaminy C przed degradacją świetlną."
 
@@ -69,10 +69,10 @@ Zamiast: "Serum ma lekką konsystencję emulsji i szybko się wchłania."
 
 Wstrzyknij: "Gdy nałożysz pipetą 5 kropli, poczujesz pod palcami jedwabistą, ultralekką emulsję, która wmasowana w naskórek wtapia się do całkowitego matu w zaledwie 15 sekund, nie zostawiając lepkiego filmu."
 
-MECHANIZM 3: Kotwice Rutyny i Retencji (Replenishment Hook w Sekcji 4)
+MECHANIZM 3: Kotwice Rutyny i Retencji (Replenishment Hook w Sekcji 1 i 4)
 Cel: Uzmysłowienie wysokiej wydajności produktu i osadzenie go w codziennych nawykach (przygotowanie pod ponowne zakupy - retention cycle).
 
-Logika wstrzykiwania: W Sekcji 4 (Sposób użycia), przy kroku dotyczącym dozowania, dopisz matematyczne przeliczenie pojemności na czas trwania rutyny:
+Logika wstrzykiwania: MUSISZ wdrożyć dokładnie DWIE (2) Kotwice Rutyny. Pierwszą przemyć subtelnie w Sekcji 1 jako obietnicę długotrwałości. Drugą w Sekcji 4 (Sposób użycia), przy kroku dotyczącym dozowania, gdzie dopiszesz precyzyjne matematyczne przeliczenie pojemności na czas trwania rutyny:
 
 Kosmetyki: "...co sprawia, że opakowanie 30 ml przy codziennej aplikacji rano wystarcza na dokładnie 45 dni ciągłej, intensywnej kuracji odnawiającej."
 
