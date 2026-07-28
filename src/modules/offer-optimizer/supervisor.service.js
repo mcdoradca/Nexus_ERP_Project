@@ -205,9 +205,16 @@ class SupervisorService {
                 console.warn("⚠️ [Supervisor] Zignorowano HITL_ALERT z Agenta 1 (BYPASS_HITL włączony). Kontynuacja potoku dla testów telemetrii.");
                 agent1Logger.warn(`[Supervisor] HITL zignorowany (BYPASS_HITL)`);
             } else {
-                broadcastStatus("FAZA_1_GROUNDING", [], {}, "HALTED", "Brak kluczowych danych EAN/SDS - przerwano potok.");
-                agent1Logger.error(`[Supervisor] Przerwano potok - HITL ALERT`);
-                throw new Error("HITL_ALERT: Agent 1 zgłosił brak krytycznych danych technicznych.");
+                agent1Logger.warn(`[Supervisor] HITL_ALERT z Agenta 1 - wysyłam powiadomienie na czat i kontynuuję potok.`);
+                try {
+                    const chatService = require('../communication/chat.service');
+                    const bot = await prisma.user.findUnique({ where: { email: 'nexus.ai@system.local' } });
+                    if (bot) {
+                        await chatService.saveGlobalMessage(bot.id, `🚨 **Błąd potoku EAN**: HITL_ALERT: Agent 1 zgłosił brak krytycznych danych technicznych dla EAN: ${ean}. Potok nie został przerwany.`);
+                    }
+                } catch (chatErr) {
+                    console.error("[Supervisor] Nie udało się wysłać powiadomienia na czat:", chatErr);
+                }
             }
         }
         
