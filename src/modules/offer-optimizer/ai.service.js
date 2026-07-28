@@ -1248,10 +1248,37 @@ async function runNode3_SEOTitle(ean, productName, category = null, ragKnowledge
                     }
                 }]);
             } else {
-                let text = response.text();
-                text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                let text = "";
+                try {
+                    text = response.text();
+                } catch (e) {
+                    console.warn("[Swarm Node 3] Nie można pobrać tekstu z odpowiedzi:", e.message);
+                }
+                console.log(`[Swarm Node 3] Otrzymano tekst odpowiedzi od modelu (iteracja ${iteration}):`, text);
+                
+                text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                
+                if (!text) {
+                     // Jeżeli z jakiegoś powodu tekst jest pusty, wymuszamy zakończenie lub błąd
+                     throw new Error("Agent 3 zwrócił pusty ciąg znaków, brak zwalidowanego tytułu w formacie JSON.");
+                }
+
                 console.log(`[Swarm Node 3] Pętla zakończona po ${iteration} iteracjach.`);
-                return JSON.parse(text);
+                
+                try {
+                    return JSON.parse(text);
+                } catch (parseError) {
+                    console.error("[Swarm Node 3] Błąd parsowania JSON. Surowy tekst:", text);
+                    
+                    // Próba naprawienia (Auto-healing) - wyślij błąd do modelu
+                    if (iteration < maxIterations - 1) {
+                         console.log("[Swarm Node 3] Próba auto-naprawy (Auto-healing) dla niedozwolonego formatu JSON...");
+                         result = await chat.sendMessage(`BŁĄD: Zwrócona przez Ciebie odpowiedź nie jest prawidłowym formatem JSON (Błąd: ${parseError.message}). Popraw to i zwróć WYŁĄCZNIE czysty, zwalidowany obiekt JSON (bez znaczników markdown). Zwróć uwagę, abyś zawsze używał narzędzia validate_allegro_title przed wynikiem!`);
+                         continue; // Kontynuujemy pętlę
+                    }
+                    
+                    throw new Error(`Unexpected end of JSON input lub niepoprawny JSON: ${parseError.message}`);
+                }
             }
         }
         throw new Error("Agent 3 exceeded max tool call iterations (pętla się zapętliła).");
