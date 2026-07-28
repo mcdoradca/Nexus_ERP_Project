@@ -112,10 +112,28 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 2, agentId =
                 
                 // Oczyszczanie markdown przed parsowaniem JSON
                 let cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                
                 const firstBrace = cleanText.indexOf('{');
                 const lastBrace = cleanText.lastIndexOf('}');
-                if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-                    cleanText = cleanText.substring(firstBrace, lastBrace + 1);
+                const firstBracket = cleanText.indexOf('[');
+                const lastBracket = cleanText.lastIndexOf(']');
+                
+                let start = -1;
+                let end = -1;
+                
+                if (firstBrace !== -1 && firstBracket !== -1) {
+                    start = Math.min(firstBrace, firstBracket);
+                    end = start === firstBrace ? lastBrace : lastBracket;
+                } else if (firstBrace !== -1) {
+                    start = firstBrace;
+                    end = lastBrace;
+                } else if (firstBracket !== -1) {
+                    start = firstBracket;
+                    end = lastBracket;
+                }
+                
+                if (start !== -1 && end !== -1 && end > start) {
+                    cleanText = cleanText.substring(start, end + 1);
                 }
                 
                 
