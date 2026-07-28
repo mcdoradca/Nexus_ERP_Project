@@ -84,7 +84,7 @@ Blokada krytyczna: Jeśli Copywriter lub Psycholog zokrąglił liczby, zmienił 
 FILAR 2: Regulamin Allegro Marketplace (SOT 01)
 Tytuł: Czy node_3_title.character_count_with_spaces zawiera się rygorystycznie w przedziale od 12 do 75 znaków?
 
-Stop-Words: Czy w połączonym tekście HTML występuje choćby jedno słowo zakazane: gratis, promocja, hit, tanio, okazja, najtaniej, wyprzedaż, super, mega?
+Stop-Words: Czy w połączonym tekście HTML występuje choćby jedno słowo zakazane: gratis, tanio, promocja, hit, prezent, okazja, najtaniej, wyprzedaż, mega, super?
 
 Czystość HTML: Czy w tekście nie ma niedozwolonych znaczników (np. <table>, <div>, <span>, <style>), linków zewnętrznych ani danych kontaktowych?
 
@@ -92,6 +92,8 @@ Struktura: Czy oferta składa się z dokładnie 6 sekcji z emotikonami na począ
 
 FILAR 3: Zgodność Prawno-Regulaminowa (SOT 02 / 03 / 04 / 06 / 07)
 Roszczenia medyczne: Upewnij się, że w tekście nie przetrwało żadne słowo kliniczne: leczy, wyleczy, terapia, diagnozuje, antybiotyk, lek, łuszczyca, egzema.
+
+Fałszywe obietnice i ryzyko UOKiK: Upewnij się, że w tekście nie ma zwrotów marketingowych bez pokrycia (overpromising): gwarancja, gwarantuje, udowodniona skuteczność, cudowny, magiczny, w 100% udowodnione, pewność działania.
 
 Chemia domowa (CLP / BPR): Jeśli produkt posiada zwroty ostrzegawcze w PIM (clp_h_phrases), zweryfikuj czy znajdują się one w nienaruszonej formie w sekcja6. W przypadku biocydów sprawdź brak słów: nietoksyczny, nieszkodliwy, całkowicie bezpieczny.
 

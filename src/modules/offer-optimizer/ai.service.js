@@ -71,12 +71,7 @@ const withTimeout = (promise, ms, contextName = 'Unknown Model') => {
     return Promise.race([promise, timeoutPromise]).finally(() => {
         clearTimeout(timeoutId);
     });
-};
-
-/**
- * Exponential Backoff Retry Policy
- */
-async function generateWithRetry(model, promptOrParts, maxRetries = 2, agentId = "System_Agent", parseJson = false, filterFn = null) {
+};async function generateWithRetry(model, promptOrParts, maxRetries = 2, agentId = "System_Agent", parseJson = false, filterFn = null) {
     let attempt = 0;
     const modelName = model.model || "gemini-model";
     const startTime = Date.now();
@@ -90,30 +85,52 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 2, agentId =
 
     broadcastLog(`Start generateWithRetry dla ${modelName}, max prĂłby: ${maxRetries}`);
     
+    // Zabezpieczenie (Pre-flight check) 50,000 tokenów
+    let estimatedTokens = 0;
+    if (typeof promptOrParts === 'string') {
+        estimatedTokens += promptOrParts.length / 4;
+    } else if (Array.isArray(promptOrParts)) {
+        for (const part of promptOrParts) {
+            if (part.text) {
+                estimatedTokens += part.text.length / 4;
+            } else if (part.inlineData) {
+                estimatedTokens += 258; // Ryczałt za obraz
+            }
+        }
+    }
+    
+    if (estimatedTokens > 50000) {
+        const errorMsg = `Pre-flight check failed: Oszacowano ${Math.round(estimatedTokens)} tokenów, co przekracza bezpieczny limit 50,000. Odrzucono request.`;
+        console.error(`[AiService] 🚨 ${errorMsg}`);
+        await AiMetricsService.logUsage(agentId, modelName, null, false, 1, 'PAYLOAD_TOO_LARGE');
+        throw new Error(errorMsg);
+    }
+    
+    // Twardy limit iteracji każdej pętli retry/function-calling: max 5
+    if (maxRetries > 5) {
+        maxRetries = 5;
+    }
+    
     while (attempt < maxRetries) {
-        let result;
+        let result = null;
         let usageLogged = false;
+        let isSuccess = false;
+        let failureReason = null;
+        let errorObj = null;
+
         try {
             const attemptStart = Date.now();
             broadcastLog(`PrĂłba ${attempt + 1}/${maxRetries} rozpoczÄ™ta...`);
-            // Twardy timeout 90 sekund (90000ms) dla kaĹĽdego zapytania do modelu
-            result = await withTimeout(model.generateContent(promptOrParts), 90000, modelName);
-            broadcastLog(`PrĂłba ${attempt + 1} ZAKOĹCZONA SUKCESEM po ${Date.now() - attemptStart}ms`);
             
-            // Logika przeniesiona na dĂłĹ‚ (po wykonaniu parseJson)
+            result = await withTimeout(model.generateContent(promptOrParts), 90000, modelName);
+            broadcastLog(`PrĂłba ${attempt + 1} ZAKOĹƒCZONA SUKCESEM po ${Date.now() - attemptStart}ms`);
             
             if (parseJson) {
                 let text = result.response.text();
+                if (typeof filterFn === 'function') text = filterFn(text);
                 
-                // Tarcza Anty-Medyczna lub inne filtry
-                if (typeof filterFn === 'function') {
-                    text = filterFn(text);
-                }
-                
-                // Oczyszczanie markdown przed parsowaniem JSON
                 let cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
                 
-                // Solidny ekstraktor JSON zliczający zagnieżdżenia
                 function extractFirstValidJson(str) {
                     const firstBrace = str.indexOf('{');
                     const firstBracket = str.indexOf('[');
@@ -155,110 +172,83 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 2, agentId =
                             }
                         }
                     }
-                    return str; // Fallback do całego ciągu jeśli nawiasy się nie zbilansują
+                    return str;
                 }
 
                 cleanText = extractFirstValidJson(cleanText);
                 
                 try {
                     const parsedData = JSON.parse(cleanText);
-                    
-                    // Zapis sukcesu jeĹ›li parseJson siÄ™ powiodĹ‚o bez rzucania wyjÄ…tku
-                    try {
-                        if (!usageLogged && result.response && result.response.usageMetadata) {
-                            await AiMetricsService.logUsage(agentId, modelName, result.response.usageMetadata, true, attempt + 1, null);
-                            usageLogged = true;
-                        }
-                    } catch (metricError) {
-                        console.error("[AiService] BĹ‚Ä…d zapisu metryk telemetrii:", metricError.message);
-                    }
-                    
+                    isSuccess = true;
                     return parsedData;
                 } catch (parseError) {
-            broadcastLog(`BĹ‚Ä…d parsowania JSON: ${parseError.message}`);
-            console.error(`[AiService] SUROWY PAYLOAD: ${cleanText}`); // dla debugowania w konsoli Node
-            throw new Error(`JSON_PARSE_ERROR: ${parseError.message} | Payload snippet: ${cleanText.substring(0, 100)}`);
-        }
-    }
-    
-    // Zapis sukcesu dla wywoĹ‚aĹ„ bez parseJson
-    try {
-        if (!usageLogged && result.response && result.response.usageMetadata) {
-            await AiMetricsService.logUsage(agentId, modelName, result.response.usageMetadata, true, attempt + 1, null);
-            usageLogged = true;
-        }
-    } catch (metricError) {
-        console.error("[AiService] BĹ‚Ä…d zapisu metryk telemetrii:", metricError.message);
-    }
-    
-    return result;
-} catch (error) {
-    const isRateLimit = error.status === 429 || (error.message && (error.message.includes('429') || error.message.includes('503')));
-    const isJsonError = error.message && error.message.includes('JSON_PARSE_ERROR');
-    const isTimeout = error.message && error.message.includes('timeout');
-    const isRecitation = error.message && error.message.includes('RECITATION');
-    const isMaxTokens = error.message && error.message.includes('MAX_TOKENS');
-    const isThinkingConfigError = error.message && (error.message.includes('thinkingBudget') || error.message.includes('thinking_config'));
-    
-    let failureReason = 'API_ERROR';
-    if (isJsonError) failureReason = 'PARSE_ERROR';
-    else if (isTimeout) failureReason = 'TIMEOUT';
-    else if (isRecitation) failureReason = 'RECITATION';
-    else if (isMaxTokens) failureReason = 'MAX_TOKENS';
-    else if (isRateLimit) failureReason = 'RATE_LIMIT';
-    else if (isThinkingConfigError) failureReason = 'CONFIG_ERROR';
-
-    if (isThinkingConfigError) {
-        broadcastLog(`UWAGA: Model odrzuciĹ‚ parametr thinkingBudget: 0. Fallback (usuniÄ™cie parametru).`);
-        console.warn(`[AiService] Model odrzuciĹ‚ thinkingConfig:`, error.message);
-        if (model.generationConfig && model.generationConfig.thinkingConfig) {
-            delete model.generationConfig.thinkingConfig;
-        }
-    }
-
-    // Zapis do telemetrii PORAĹ»KI
-    try {
-        if (!usageLogged) {
-            const errorUsage = (result && result.response && result.response.usageMetadata) || (error.response && error.response.usageMetadata);
-            if (errorUsage) {
-                await AiMetricsService.logUsage(agentId, modelName, errorUsage, false, attempt + 1, failureReason);
-                usageLogged = true;
-            } else if (!result) {
-                // Czysty bĹ‚Ä…d bez metadanych, ale chcemy odnotowaÄ‡ fail dla AgentId
-                await AiMetricsService.logUsage(agentId, modelName, null, false, attempt + 1, failureReason);
-                usageLogged = true;
+                    broadcastLog(`BĹ‚Ä…d parsowania JSON: ${parseError.message}`);
+                    throw new Error(`JSON_PARSE_ERROR: ${parseError.message} | Payload snippet: ${cleanText.substring(0, 100)}`);
+                }
             }
-        }
-    } catch (metricError) {
-        console.error("[AiService] BĹ‚Ä…d zapisu poraĹĽki do telemetrii:", metricError.message);
-    }
             
-            attempt++;
+            isSuccess = true;
+            return result;
 
+        } catch (error) {
+            errorObj = error;
+            const isRateLimit = error.status === 429 || (error.message && (error.message.includes('429') || error.message.includes('503')));
+            const isJsonError = error.message && error.message.includes('JSON_PARSE_ERROR');
+            const isTimeout = error.message && error.message.includes('timeout');
+            const isRecitation = error.message && error.message.includes('RECITATION');
+            const isMaxTokens = error.message && error.message.includes('MAX_TOKENS');
+            const isThinkingConfigError = error.message && (error.message.includes('thinkingBudget') || error.message.includes('thinking_config'));
             
-            broadcastLog(`BĹÄ„D w generateWithRetry [PrĂłba ${attempt}]: ${error.message}`);
-            
-            if (attempt >= maxRetries || (!isRateLimit && !isJsonError && !isTimeout && !isRecitation && !isThinkingConfigError)) {
-                broadcastLog(`Krytyczny bĹ‚Ä…d API, brak dalszych ponowieĹ„. Przerwano.`);
-                throw error; // Fail fast for non-transient errors
+            failureReason = 'API_ERROR';
+            if (isJsonError) failureReason = 'PARSE_ERROR';
+            else if (isTimeout) failureReason = 'TIMEOUT';
+            else if (isRecitation) failureReason = 'RECITATION';
+            else if (isMaxTokens) failureReason = 'MAX_TOKENS';
+            else if (isRateLimit) failureReason = 'RATE_LIMIT';
+            else if (isThinkingConfigError) failureReason = 'CONFIG_ERROR';
+
+            if (isThinkingConfigError) {
+                broadcastLog(`UWAGA: Model odrzuciĹ‚ parametr thinkingBudget: 0. Fallback (usuniÄ™cie parametru).`);
+                if (model.generationConfig && model.generationConfig.thinkingConfig) {
+                    delete model.generationConfig.thinkingConfig;
+                }
             }
             
             if (isJsonError) {
                 const repairPrompt = "\n\nCRITICAL INSTRUCTION: Poprzednia prĂłba wygenerowaĹ‚a uszkodzony JSON (JSON_PARSE_ERROR). Upewnij siÄ™, ĹĽe zwracasz w 100% poprawny obiekt JSON. UĹĽyj ucieczki (escape) dla cudzysĹ‚owĂłw wewnÄ…trz stringĂłw (\\\") i unikaj znakĂłw nowej linii bezpoĹ›rednio w wartoĹ›ciach tekstowych!";
-                if (typeof promptOrParts === 'string') {
-                    promptOrParts += repairPrompt;
-                } else if (Array.isArray(promptOrParts)) {
-                    promptOrParts.push(repairPrompt);
-                }
+                if (typeof promptOrParts === 'string') promptOrParts += repairPrompt;
+                else if (Array.isArray(promptOrParts)) promptOrParts.push(repairPrompt);
             } else if (isRecitation) {
                 const repairPrompt = "\n\nCRITICAL INSTRUCTION: Poprzednia prĂłba zostaĹ‚a zablokowana przez filtr RECITATION. UWAGA: Parametry techniczne (np. rodzaj, waga), nazwy wĹ‚asne oraz skĹ‚ad INCI MUSISZ zachowaÄ‡ w oryginalnym brzmieniu! Zablokowanie nastÄ…piĹ‚o przez zbyt dosĹ‚owne kopiowanie dĹ‚ugich blokĂłw tekstu opisowego. Zamiast kopiowaÄ‡ opisy ze ĹşrĂłdĹ‚a, uĹĽyj wĹ‚asnych sĹ‚Ăłw TYLKO dla dĹ‚ugich form tekstowych (SEO, marketing), a twarde dane techniczne kopiuj 1:1.";
-                if (typeof promptOrParts === 'string') {
-                    promptOrParts += repairPrompt;
-                } else if (Array.isArray(promptOrParts)) {
-                    promptOrParts.push(repairPrompt);
-                }
+                if (typeof promptOrParts === 'string') promptOrParts += repairPrompt;
+                else if (Array.isArray(promptOrParts)) promptOrParts.push(repairPrompt);
             }
-            
+
+        } finally {
+            try {
+                if (!usageLogged) {
+                    const usageMeta = (result && result.response && result.response.usageMetadata) || (errorObj && errorObj.response && errorObj.response.usageMetadata);
+                    await AiMetricsService.logUsage(agentId, modelName, usageMeta || null, isSuccess, attempt + 1, failureReason);
+                    usageLogged = true;
+                }
+            } catch (metricError) {
+                console.error("[AiService] BĹ‚Ä…d zapisu metryk do telemetrii:", metricError.message);
+            }
+        }
+        
+        attempt++;
+        if (errorObj) {
+            broadcastLog(`BĹ Ä„D w generateWithRetry [PrĂłba ${attempt}]: ${errorObj.message}`);
+            const isRateLimit = errorObj.message && (errorObj.message.includes('429') || errorObj.message.includes('503') || errorObj.status === 429);
+            const isJsonError = errorObj.message && errorObj.message.includes('JSON_PARSE_ERROR');
+            const isTimeout = errorObj.message && errorObj.message.includes('timeout');
+            const isRecitation = errorObj.message && errorObj.message.includes('RECITATION');
+            const isThinkingConfigError = errorObj.message && errorObj.message.includes('thinkingBudget');
+
+            if (attempt >= maxRetries || (!isRateLimit && !isJsonError && !isTimeout && !isRecitation && !isThinkingConfigError)) {
+                broadcastLog(`Krytyczny bĹ‚Ä…d API, brak dalszych ponowieĹ„. Przerwano.`);
+                throw errorObj; 
+            }
             const backoffMs = Math.pow(2, attempt) * 1500 + Math.random() * 1000;
             broadcastLog(`âš ď¸Ź Wznawiam (Exponential Backoff / Naprawa BĹ‚Ä™du) za ${Math.round(backoffMs)}ms...`);
             await new Promise(res => setTimeout(res, backoffMs));
@@ -1201,7 +1191,22 @@ async function runNode4_INCIParser(inciString, ragKnowledge) {
                 topP: 0.1, 
                 maxOutputTokens: 8192,
                 thinkingConfig: { thinkingBudget: 0 },
-                responseMimeType: "application/json" 
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "object",
+                    properties: {
+                        pipeline_id: { type: "string" },
+                        is_chemical_product: { type: "boolean" },
+                        category_type: { 
+                            type: "string", 
+                            enum: ["COSMETICS_BEAUTY", "HOUSEHOLD_CHEMISTRY", "BIOCIDAL_SPECIALIZED", "NON_CHEMICAL_GENERAL"] 
+                        },
+                        technical_benefits_aeo: { type: "array", items: { type: "string" } },
+                        detected_synergies: { type: "array", items: { type: "string" } },
+                        mandatory_clp_warnings: { type: "array", items: { type: "string" } }
+                    },
+                    required: ["pipeline_id", "is_chemical_product", "category_type", "technical_benefits_aeo", "detected_synergies"]
+                }
             }
         });
         const systemPrompt = getMasterPrompt(4);

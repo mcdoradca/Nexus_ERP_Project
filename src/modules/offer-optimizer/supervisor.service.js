@@ -27,6 +27,22 @@ class SupervisorService {
    * Wyzwalacz dodający zadanie do kolejki. Zastępuje bezpośrednie wywołanie EAN Pipeline.
    */
   async enqueueTask(taskType, ean, payload = {}) {
+    // Tarcza Błędów: Sprawdzenie limitu dziennego (MAX 3)
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const failuresToday = await prisma.agentQueue.count({
+        where: {
+            ean: ean,
+            status: 'ERROR',
+            createdAt: { gte: today }
+        }
+    });
+
+    if (failuresToday >= 3) {
+        console.error(`[Supervisor] 🛑 Tarcza Błędów: EAN ${ean} przekroczył limit 3 błędów dzisiaj! Zablokowano ponowne dodanie do kolejki.`);
+        return null;
+    }
+
     console.log(`[Supervisor] Otrzymano zlecenie dla: ${taskType} | EAN: ${ean}`);
     const queueItem = await prisma.agentQueue.create({
       data: {
@@ -46,12 +62,23 @@ class SupervisorService {
    * Opróżnia i procesuje kolejkę używając LLM jako decydenta.
    */
   async processQueue() {
+    const fs = require('fs');
+    const path = require('path');
+    const CIRCUIT_BREAKER_FILE = path.join(process.cwd(), 'logs', '.circuit_breaker');
+    
+    if (fs.existsSync(CIRCUIT_BREAKER_FILE)) {
+        console.warn(`[Supervisor] 🚨 Kolejka zablokowana przez CIRCUIT BREAKER. Usuń plik .circuit_breaker aby odblokować AI.`);
+        return;
+    }
+
     const pendingTasks = await prisma.agentQueue.findMany({
       where: { status: 'PENDING' },
       orderBy: { priority: 'desc' }
     });
 
     for (const task of pendingTasks) {
+      // Ponowne sprawdzenie Circuit Breakera (w razie aktywacji w trakcie pętli)
+      if (fs.existsSync(CIRCUIT_BREAKER_FILE)) break;
       await this._handleTask(task);
     }
   }
