@@ -1,36 +1,14 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const fs = require('fs');
+const path = require('path');
 
-function hashSKU(sku) {
-    if (!sku) return 12345;
-    const str = String(sku);
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit int
-    }
-    // Zabezpieczenie przed przekroczeniem MAX_INT32 dla API Photoroom
-    // Mno偶nik * 31 m贸g艂 produkowa膰 du偶e floaty, kt贸re Photoroom traktowa艂 jako sta艂y max int.
-    return Math.abs(hash) % 2147483647;
-}
+const file = path.join(__dirname, 'src/modules/offer-optimizer/photoroom.prompts.js');
+let content = fs.readFileSync(file, 'utf8');
 
-// Mapowanie tekst贸w PIM na tagi
-function extractProductTags(productDetailsText) {
-    if (!productDetailsText) return [];
-    const textLower = productDetailsText.toLowerCase();
-    const tags = [];
-    
-    if (textLower.includes('w臋giel') || textLower.includes('detox')) tags.push('detox');
-    if (textLower.includes('woda') || textLower.includes('nawil偶')) tags.push('water');
-    if (textLower.includes('natura') || textLower.includes('ro艣lin')) tags.push('nature');
-    return tags;
-}
-
-const buildPattern = (e, s, l) => `An empty, hyper-detailed scene. Background: ${e} The resting surface is ${s} Infinite depth of field, f/22 aperture, tack-sharp focus on every detail. ${l} Empty scene, absolutely no blur, no soft focus, no bokeh, no people, no floating objects.`;
-const buildPatternIngredients = (e, s, l, ingredients) => `An empty, hyper-detailed scene. Background: ${e} The resting surface is ${s}. Resting completely flat on the surface are: ${ingredients}. Infinite depth of field, f/22 aperture, tack-sharp focus on every detail. ${l} Empty scene, absolutely no blur, no soft focus, no bokeh, no people, no floating objects.`;
+const newDicts = `
+const buildPattern = (e, s, l) => \`An empty, hyper-detailed scene. Background: ${e} The resting surface is ${s} Infinite depth of field, f/22 aperture, tack-sharp focus on every detail. ${l} Empty scene, absolutely no blur, no soft focus, no bokeh, no people, no floating objects.\`;
+const buildPatternIngredients = (e, s, l, ingredients) => \`An empty, hyper-detailed scene. Background: ${e} The resting surface is ${s}. Resting completely flat on the surface are: ${ingredients}. Infinite depth of field, f/22 aperture, tack-sharp focus on every detail. ${l} Empty scene, absolutely no blur, no soft focus, no bokeh, no people, no floating objects.\`;
 
 const SLOTS_DICTIONARIES = {
-    // Slot 2: Geometryczne 艢wiat艂o / Art (Index 1)
     1: {
         environments: [
             "a crisp, pristine white architectural wall.", "a hyper-detailed, raw grey industrial concrete wall.", "a stark, perfectly smooth pitch-black architectural space.", "a hyper-detailed ribbed acoustic panel wall.", "a crisp, folded origami paper architectural structure.", "a sharp, vertically slatted wooden architectural screen.", "a pristine, fluted glass architectural background.", "a hyper-detailed, perforated metal industrial screen.", "a perfectly aligned, crisp staggered white brick wall.", "an infinite, pure white geometric art gallery space."
@@ -43,7 +21,6 @@ const SLOTS_DICTIONARIES = {
         ],
         build: buildPattern
     },
-    // Slot 3: Raw Nature / Zen (Index 2)
     2: {
         environments: [
             "a majestic, ancient pine forest with towering vertical trunks.", "a tranquil Japanese zen garden with immaculately raked sand lines.", "a dense, vibrant tropical rainforest with massive green fern leaves.", "a dramatic, misty Nordic fjord edge with dark jagged mountains.", "a serene, misty bamboo grove bathed in morning dew.", "a sun-drenched alpine meadow filled with subtle, crisp wild grass.", "a stark, breathtaking Icelandic black sand beach with volcanic rock formations.", "a lush, deep green mossy gorge beside a hidden waterfall.", "a crisp, endless lavender field reaching the horizon.", "a raw, arid desert landscape with perfect sand dunes."
@@ -56,7 +33,6 @@ const SLOTS_DICTIONARIES = {
         ],
         build: buildPattern
     },
-    // Slot 4: Fashion Editorial (Index 3)
     3: {
         environments: [
             "a sophisticated, pitch-dark monochromatic fashion studio setting.", "a stark, hyper-white infinite cyclorama background.", "a brutalist, hyper-detailed raw concrete bunker interior.", "a high-end set with crisp, meticulously draped heavy velvet fabric.", "a futuristic, abstract geometric studio with intersecting sharp panels.", "a premium mirrored room reflecting infinite sharp angles.", "a bold, deep crimson red monochromatic studio room.", "a minimalist gallery space with pristine white architectural pillars.", "an industrial set with sharp, corrugated metal walls.", "a pitch-black void with a single razor-sharp architectural beam."
@@ -69,7 +45,6 @@ const SLOTS_DICTIONARIES = {
         ],
         build: buildPattern
     },
-    // Slot 5: Woda / Orze藕wienie (Index 4)
     4: {
         environments: [
             "a sparkling, hyper-detailed infinity pool merging with the ocean horizon.", "a breathtaking, crystal-clear Maldives tropical beach scene.", "a pristine, icy glacial lake surrounded by sharp snow-capped peaks.", "a luxurious, bright Santorini coastal terrace overlooking the Aegean Sea.", "a hyper-detailed, frozen-in-time splashing waterfall cascading over sharp rocks.", "a minimalist, shallow reflective water pool in a bright spa atrium.", "a clear, fast-flowing pristine mountain stream with sharp riverbed stones.", "a deep, vibrant turquoise ocean surface with crisp, sharp wave crests.", "a pristine, white-washed luxury resort patio beside crystal blue water.", "a hyper-realistic underwater view looking up at the sharp, sparkling surface."
@@ -82,7 +57,6 @@ const SLOTS_DICTIONARIES = {
         ],
         build: buildPattern
     },
-    // Slot 6: Color Blocking (Index 5)
     5: {
         environments: [
             "a seamless, hyper-detailed vibrant terracotta pastel studio wall.", "a pristine, bright mustard yellow monochromatic room.", "a stark, bold cobalt blue architectural set.", "a flawless, soft millennial pink minimalist background.", "a clean, crisp sage green contemporary interior.", "a striking, bold crimson red seamless studio cyclorama.", "a perfectly smooth lavender pastel room.", "a sharp, dual-color split background with precise geometric division.", "a vibrant, energetic bright orange minimalist corner.", "a cool, pristine teal blue modern architectural wall."
@@ -95,7 +69,6 @@ const SLOTS_DICTIONARIES = {
         ],
         build: buildPattern
     },
-    // Slot 7: Cozy Interior / Dom (Index 6)
     6: {
         environments: [
             "a luxurious, modern minimalist living room with hyper-detailed furnishings.", "a crisp, rustic farmhouse kitchen with sharp architectural details.", "a bright, serene Scandinavian bedroom interior bathed in light.", "a pristine, high-end spa-like luxury bathroom interior.", "a cozy, sun-drenched reading nook with sharp, textured fabrics.", "a vibrant, bright glass conservatory filled with sharp, detailed indoor plants.", "a serene, minimalist Japanese-style interior with sharp wooden shoji screens.", "a sophisticated bohemian lounge with intricate, hyper-detailed rugs.", "a sleek, dark modern kitchen with razor-sharp cabinetry lines.", "a bright, airy home office with crisp, modern architectural lines."
@@ -108,7 +81,6 @@ const SLOTS_DICTIONARIES = {
         ],
         build: buildPattern
     },
-    // Slot 8: Urban Modern (Index 7)
     7: {
         environments: [
             "a crystal-clear, modern financial district skyline at golden hour.", "a hyper-detailed, brutalist concrete architecture facade.", "a luxurious modern art museum interior with high ceilings.", "a bustling, high-end shopping street with glass boutiques.", "a stark, minimalist glass and steel skyscraper balcony.", "an industrial-chic luxury loft with exposed brick and steel beams.", "a pristine rooftop terrace overlooking a sprawling metropolis.", "a high-tech, futuristic subway station with clean metallic lines.", "a sophisticated luxury hotel lobby with geometric design.", "a sharp, dramatic view of a steel suspension bridge."
@@ -121,7 +93,6 @@ const SLOTS_DICTIONARIES = {
         ],
         build: buildPattern
     },
-    // Slot 9: Kontekst z PIM (Index 8)
     8: {
         environments: [
             "a hyper-detailed, bright commercial photography studio.", "a dark, moody, hyper-realistic premium apothecary setting.", "a crisp, pristine organic farm background bathed in sunlight.", "a stark, hyper-clean minimal laboratory setting.", "a rustic, hyper-detailed ancient wooden apothecary background.", "a brilliant, bright white marble luxury kitchen interior.", "a dark, hyper-textured slate and stone environment.", "a vibrant, sun-drenched modern botanical greenhouse.", "a pristine, high-key clinical white studio setting.", "a hyper-detailed, raw industrial cosmetic workshop background."
@@ -135,38 +106,49 @@ const SLOTS_DICTIONARIES = {
         build: buildPatternIngredients
     }
 };
+`;
 
-const paddingVariants = [
-    { paddingTop: "0.08", paddingBottom: "0.08", paddingLeft: "0.08", paddingRight: "0.45" }, // A: Asymetria Lewa
-    { paddingTop: "0.32", paddingBottom: "0.20", paddingLeft: "0.32", paddingRight: "0.32" }, // B: Daleki Hero
-    { paddingTop: "0.18", paddingBottom: "0.12", paddingLeft: "0.48", paddingRight: "0.08" }, // C: Asymetria Prawa
-    { paddingTop: "0.18", paddingBottom: "0.18", paddingLeft: "0.22", paddingRight: "0.22" }  // D: Klasyczny Hero
-];
+const replaceDictRegex = /const SLOTS_DICTIONARIES = \{[\s\S]*?\n\};\n/g;
+let contentDictReplaced = content.replace(replaceDictRegex, newDicts);
 
-function getPaddingForSlot(index, seed) {
-    if (index === 0) {
-        // Slot 1 - Wymuszenie 90% pokrycia kadru (0.05 marginesu)
-        return { paddingTop: "0.05", paddingRight: "0.05", paddingBottom: "0.05", paddingLeft: "0.05" };
+const oldPromptLogic = `    let surface = dict.surfaces[seed % dict.surfaces.length];
+    let detail = dict.microDetails[seed % dict.microDetails.length];
+    const light = dict.lightingAndAtmosphere[seed % dict.lightingAndAtmosphere.length];
+    
+    // Nadpisywanie PIM (przyk砤d nadpisywania dla Slotu 9 lub 8)
+    if (tags.includes('detox') && dict.surfaces.some(s => s.includes('black') || s.includes('dark'))) {
+        // Przymus ciemnych powierzchni dla Detox/W阦iel (Slot 8 to Urban Modern, gdzie mamy "dark textured concrete table")
+        const darkSurfaces = dict.surfaces.filter(s => s.includes('dark') || s.includes('black') || s.includes('charcoal'));
+        if (darkSurfaces.length > 0) surface = darkSurfaces[seed % darkSurfaces.length];
     }
-    
-    // Zap臋tlone przypisywanie padding贸w do slot贸w w oparciu o index, urozmaicone seedem
-    return paddingVariants[(index + seed) % paddingVariants.length];
-}
+    if (tags.includes('water') && dict.microDetails.some(d => d.includes('water') || d.includes('drop'))) {
+        const waterDetails = dict.microDetails.filter(d => d.includes('water') || d.includes('drop') || d.includes('dew'));
+        if (waterDetails.length > 0) detail = waterDetails[seed % waterDetails.length];
+    }
 
-async function getDeterministicPromptForSlot(index, ean, productDetailsText, apiKey, generateWithRetry) {
-    if (index === 0) return "Odczytaj ze zdj臋cia g艂贸wny sk艂adnik produktu i umie艣膰 go centralnie za produktem na czystym, nieskazitelnie bia艂ym tle. Oryginalny produkt musi pozosta膰 w 100% nienaruszony - absolutny zakaz modyfikacji jego kszta艂tu, etykiety czy proporcji.";
-    
-    const seed = hashSKU(ean);
-    const tags = extractProductTags(productDetailsText);
-    const dict = SLOTS_DICTIONARIES[index];
-    
-    if (!dict) return "Photoroom_Native_AI";
-    
-    let environment = dict.environments[seed % dict.environments.length];
+    if (index === 8) { // Slot 9 - PIM Ingredients
+        let ingredients = "natural elements";
+        if (apiKey) {
+            try {
+                const genAI = new GoogleGenerativeAI(apiKey);
+                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", generationConfig: { temperature: 0.1 }});
+                const promptInstruction = \`Extract the main 2-3 natural active ingredients from this product data and translate them to English as a comma separated list. If none found, reply with "natural elements". Data: \${productDetailsText}\`;
+                const result = await generateWithRetry(model, promptInstruction, 2, "Agent_Slot9_Ingredients");
+                ingredients = result.response.text().replace(/\n/g, '').trim();
+                console.log("[Photoroom Slot 9] Wyekstrahowano sk砤dniki:", ingredients);
+            } catch (e) {
+                console.error("[Photoroom Slot 9] B彻d pobierania sk砤dnik體 (fallback):", e.message);
+            }
+        }
+        return dict.build(surface, detail, ingredients);
+    }
+
+    return dict.build(surface, detail, light);`;
+
+const newPromptLogic = `    let environment = dict.environments[seed % dict.environments.length];
     let surface = dict.surfaces[seed % dict.surfaces.length];
     let lighting = dict.lighting[seed % dict.lighting.length];
     
-    // Nadpisywanie dla Detox/W臋giel
     if (tags.includes('detox') && dict.surfaces.some(s => s.includes('black') || s.includes('dark') || s.includes('slate') || s.includes('concrete'))) {
         const darkSurfaces = dict.surfaces.filter(s => s.includes('dark') || s.includes('black') || s.includes('charcoal') || s.includes('obsidian') || s.includes('slate') || s.includes('concrete'));
         if (darkSurfaces.length > 0) surface = darkSurfaces[seed % darkSurfaces.length];
@@ -177,23 +159,20 @@ async function getDeterministicPromptForSlot(index, ean, productDetailsText, api
         if (apiKey) {
             try {
                 const genAI = new GoogleGenerativeAI(apiKey);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", generationConfig: { temperature: 0.1, thinkingConfig: { thinkingBudget: 0 } }});
-                const promptInstruction = `Extract the main 2-3 natural active ingredients from this product data and translate them to English as a comma separated list. If none found, reply with "natural elements". Data: ${productDetailsText}`;
+                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", generationConfig: { temperature: 0.1 }});
+                const promptInstruction = \`Extract the main 2-3 natural active ingredients from this product data and translate them to English as a comma separated list. If none found, reply with "natural elements". Data: \${productDetailsText}\`;
                 const result = await generateWithRetry(model, promptInstruction, 2, "Agent_Slot9_Ingredients");
-                ingredients = result.response.text().replace(/\n/g, '').trim();
-                console.log("[Photoroom Slot 9] Wyekstrahowano sk艂adniki:", ingredients);
+                ingredients = result.response.text().replace(/\\n/g, '').trim();
+                console.log("[Photoroom Slot 9] Wyekstrahowano sk砤dniki:", ingredients);
             } catch (e) {
-                console.error("[Photoroom Slot 9] B艂膮d pobierania sk艂adnik贸w (fallback):", e.message);
+                console.error("[Photoroom Slot 9] B彻d pobierania sk砤dnik體 (fallback):", e.message);
             }
         }
         return dict.build(environment, surface, lighting, ingredients);
     }
 
-    return dict.build(environment, surface, lighting);
-}
+    return dict.build(environment, surface, lighting);`;
 
-module.exports = {
-    getDeterministicPromptForSlot,
-    getPaddingForSlot,
-    hashSKU
-};
+let finalContent = contentDictReplaced.replace(oldPromptLogic, newPromptLogic);
+
+fs.writeFileSync(file, finalContent, 'utf8');

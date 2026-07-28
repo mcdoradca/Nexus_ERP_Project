@@ -6,7 +6,7 @@ class AiMetricsService {
      * Zapisuje użycie tokenów agenta AI w bazie Prisma.
      * Metoda w bloku try/catch aby zapobiec wysypaniu się głównego wątku w przypadku chwilowej awarii bazy.
      */
-    static async logUsage(agentId, modelName, usageMetadata, isSuccess = true, attemptNumber = 1) {
+    static async logUsage(agentId, modelName, usageMetadata, isSuccess = true, attemptNumber = 1, failureReason = null) {
         try {
             const promptTokens = usageMetadata?.promptTokenCount || 0;
             const completionTokens = usageMetadata?.candidatesTokenCount || 0;
@@ -24,7 +24,8 @@ class AiMetricsService {
                     thoughtsTokenCount,
                     cachedContentTokenCount,
                     isSuccess,
-                    attemptNumber
+                    attemptNumber,
+                    failureReason
                 }
             });
             console.log(`[Telemetria] Zarejestrowano koszt dla ${agentId} (${modelName}): ${totalTokens} tk. Sukces: ${isSuccess}, Próba: ${attemptNumber}`);

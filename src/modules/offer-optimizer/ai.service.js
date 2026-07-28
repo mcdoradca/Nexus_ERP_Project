@@ -1,4 +1,5 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
+const agent1Logger = require('../../utils/agent1_logger');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
@@ -91,6 +92,7 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
     
     while (attempt < maxRetries) {
         let result;
+        let usageLogged = false;
         try {
             const attemptStart = Date.now();
             broadcastLog(`Próba ${attempt + 1}/${maxRetries} rozpoczęta...`);
@@ -98,14 +100,7 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
             result = await withTimeout(model.generateContent(promptOrParts), 90000, modelName);
             broadcastLog(`Próba ${attempt + 1} ZAKOŃCZONA SUKCESEM po ${Date.now() - attemptStart}ms`);
             
-            // Zapis do telemetrii
-            try {
-                if (result.response && result.response.usageMetadata) {
-                    await AiMetricsService.logUsage(agentId, modelName, result.response.usageMetadata, true, attempt + 1);
-                }
-            } catch (metricError) {
-                console.error("[AiService] Błąd zapisu metryk telemetrii:", metricError.message);
-            }
+            // Logika przeniesiona na dół (po wykonaniu parseJson)
             
             if (parseJson) {
                 let text = result.response.text();
@@ -124,40 +119,82 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 3, agentId =
                 }
                 
                 try {
-                    return JSON.parse(cleanText);
-                } catch (parseError) {
-                    broadcastLog(`Błąd parsowania JSON: ${parseError.message}`);
-                    console.error(`[AiService] SUROWY PAYLOAD: ${cleanText}`); // dla debugowania w konsoli Node
-                    throw new Error(`JSON_PARSE_ERROR: ${parseError.message} | Payload snippet: ${cleanText.substring(0, 100)}`);
-                }
-            }
-            
-            return result;
-        } catch (error) {
-            // Zapis do telemetrii PORAŻKI (jeśli model zwrócił metadane przed błędem, np. 503 lub JSON_PARSE_ERROR)
+            // Zapis sukcesu jeśli parseJson się powiodło
             try {
-                // Gdy JSON_PARSE_ERROR to `result` istnieje, bo error poleciał z naszej funkcji.
-                // Jeśli błąd poleciał z API, error może mieć `usageMetadata` gdzieś w obiekcie, ale sprawdzamy `result`.
-                const errorUsage = (result && result.response && result.response.usageMetadata) || (error.response && error.response.usageMetadata);
-                if (errorUsage) {
-                    await AiMetricsService.logUsage(agentId, modelName, errorUsage, false, attempt + 1);
-                } else if (!result) {
-                    // Czysty błąd bez metadanych, ale chcemy odnotować fail dla AgentId
-                    await AiMetricsService.logUsage(agentId, modelName, null, false, attempt + 1);
+                if (!usageLogged && result.response && result.response.usageMetadata) {
+                    await AiMetricsService.logUsage(agentId, modelName, result.response.usageMetadata, true, attempt + 1, null);
+                    usageLogged = true;
                 }
             } catch (metricError) {
-                console.error("[AiService] Błąd zapisu porażki do telemetrii:", metricError.message);
+                console.error("[AiService] Błąd zapisu metryk telemetrii:", metricError.message);
             }
             
+            return JSON.parse(cleanText);
+        } catch (parseError) {
+            broadcastLog(`Błąd parsowania JSON: ${parseError.message}`);
+            console.error(`[AiService] SUROWY PAYLOAD: ${cleanText}`); // dla debugowania w konsoli Node
+            throw new Error(`JSON_PARSE_ERROR: ${parseError.message} | Payload snippet: ${cleanText.substring(0, 100)}`);
+        }
+    }
+    
+    // Zapis sukcesu dla wywołań bez parseJson
+    try {
+        if (!usageLogged && result.response && result.response.usageMetadata) {
+            await AiMetricsService.logUsage(agentId, modelName, result.response.usageMetadata, true, attempt + 1, null);
+            usageLogged = true;
+        }
+    } catch (metricError) {
+        console.error("[AiService] Błąd zapisu metryk telemetrii:", metricError.message);
+    }
+    
+    return result;
+} catch (error) {
+    const isRateLimit = error.status === 429 || (error.message && (error.message.includes('429') || error.message.includes('503')));
+    const isJsonError = error.message && error.message.includes('JSON_PARSE_ERROR');
+    const isTimeout = error.message && error.message.includes('timeout');
+    const isRecitation = error.message && error.message.includes('RECITATION');
+    const isMaxTokens = error.message && error.message.includes('MAX_TOKENS');
+    const isThinkingConfigError = error.message && (error.message.includes('thinkingBudget') || error.message.includes('thinking_config'));
+    
+    let failureReason = 'API_ERROR';
+    if (isJsonError) failureReason = 'PARSE_ERROR';
+    else if (isTimeout) failureReason = 'TIMEOUT';
+    else if (isRecitation) failureReason = 'RECITATION';
+    else if (isMaxTokens) failureReason = 'MAX_TOKENS';
+    else if (isRateLimit) failureReason = 'RATE_LIMIT';
+    else if (isThinkingConfigError) failureReason = 'CONFIG_ERROR';
+
+    if (isThinkingConfigError) {
+        broadcastLog(`UWAGA: Model odrzucił parametr thinkingBudget: 0. Fallback (usunięcie parametru).`);
+        console.warn(`[AiService] Model odrzucił thinkingConfig:`, error.message);
+        if (model.generationConfig && model.generationConfig.thinkingConfig) {
+            delete model.generationConfig.thinkingConfig;
+        }
+    }
+
+    // Zapis do telemetrii PORAŻKI
+    try {
+        if (!usageLogged) {
+            const errorUsage = (result && result.response && result.response.usageMetadata) || (error.response && error.response.usageMetadata);
+            if (errorUsage) {
+                await AiMetricsService.logUsage(agentId, modelName, errorUsage, false, attempt + 1, failureReason);
+                usageLogged = true;
+            } else if (!result) {
+                // Czysty błąd bez metadanych, ale chcemy odnotować fail dla AgentId
+                await AiMetricsService.logUsage(agentId, modelName, null, false, attempt + 1, failureReason);
+                usageLogged = true;
+            }
+        }
+    } catch (metricError) {
+        console.error("[AiService] Błąd zapisu porażki do telemetrii:", metricError.message);
+    }
+            
             attempt++;
-            const isRateLimit = error.status === 429 || (error.message && (error.message.includes('429') || error.message.includes('503')));
-            const isJsonError = error.message && error.message.includes('JSON_PARSE_ERROR');
-            const isTimeout = error.message && error.message.includes('timeout');
-            const isRecitation = error.message && error.message.includes('RECITATION');
+
             
             broadcastLog(`BŁĄD w generateWithRetry [Próba ${attempt}]: ${error.message}`);
             
-            if (attempt >= maxRetries || (!isRateLimit && !isJsonError && !isTimeout && !isRecitation)) {
+            if (attempt >= maxRetries || (!isRateLimit && !isJsonError && !isTimeout && !isRecitation && !isThinkingConfigError)) {
                 broadcastLog(`Krytyczny błąd API, brak dalszych ponowień. Przerwano.`);
                 throw error; // Fail fast for non-transient errors
             }
@@ -909,61 +946,7 @@ Jeśli w wiarygodnych źródłach producenta/dystrybutora nie było danego param
 }
 */
 
-/**
- * LITE: Agent uzupełniania parametrów (PXM Auto-Fill Agent - Ostatnia linia wsparcia).
- * Używa taniego modelu, działa na zredukowanym prompcie z limitami.
- */
-async function autofillMissingParameters(ean, productName, currentFeatures, requiredSchema) {
-    const model = genAI.getGenerativeModel({
-        model: "gemini-3.5-flash", // Szybki i tani model zamiast wycofanego 2.5-flash-lite
-        tools: [{ googleSearch: {} }],
-        generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
-    });
-    
-    // Zabezpieczenie przed przepalaniem tokenów: mapujemy tylko brakujące/wymagane parametry
-    const missingSchema = (requiredSchema || []).filter(p => !currentFeatures || !currentFeatures[p.name]);
-    if (missingSchema.length === 0) return currentFeatures;
 
-    // Redukcja tokenów ze słowników (>40 -> wycięcie payloadu)
-    const optimizedSchemaMap = missingSchema.map(p => ({ 
-        nazwa: p.name, 
-        wymagane: p.required, 
-        typ: p.type, 
-        dopuszczalne_wartosci: (p.dictionary && p.dictionary.length <= 40) ? p.dictionary.map(d => d.value) : "Bardzo szeroki słownik - podaj precyzyjną, logiczną markę/wartość." 
-    }));
-
-    const prompt = `Jesteś inżynierem PIM.
-Zadanie: Błyskawicznie uzupełnij brakujące parametry techniczne dla produktu. Użyj googleSearch by sprawdzić stronę producenta, dystrybutora lub duży marketplace. Omiń procedury deep researchu, wystarczą podstawowe wyniki dla tego produktu.
-
-Produkt: ${productName}
-EAN: ${ean}
-
-Lista brakujących parametrów do uzupełnienia:
-${JSON.stringify(optimizedSchemaMap, null, 2)}
-
-Aktualne parametry (nie zwracaj ich z powrotem, tylko nowe):
-${JSON.stringify(currentFeatures)}
-
-Wygeneruj CZYSTY JSON:
-{
-  "features": {
-    "NazwaParametru": "Wartość"
-  }
-}
-Jeśli parametr jest oznaczony jako 'wymagane', ZAWSZE postaraj się wywnioskować z oszczędnych wyników googleSearch najbardziej logiczną i pasującą wartość. Dla wartości słownikowych (dopuszczalne_wartosci) wstaw ściśle tę wartość. Jeśli w ogóle nie widzisz sensownej wartości, pomiń.`;
-
-    try {
-        console.log(`[AiService] Lite Auto-Fill Agent startuje dla ${ean}...`);
-        const result = await generateWithRetry(model, prompt, 2, "Agent_11_Autofill");
-        let text = result.response.text();
-        text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const parsed = JSON.parse(text);
-        return { ...currentFeatures, ...(parsed.features || {}) };
-    } catch(err) {
-        console.error("[AiService] Błąd Agenta Lite Auto-Fill:", err.message);
-        throw new Error("Agent AI (Auto-Fill) nie mógł połączyć się z wyszukiwarką lub modelem: " + err.message);
-    }
-}
 
 async function generateAEOContent(productName, originalDescription, intelligenceData) {
     console.log(`[AiService] Odpalanie Agenta AEO (Analityk Strukturalny) dla: ${productName}...`);
@@ -1101,7 +1084,7 @@ Blok 6 (sekcja6): ${htmlContent.sekcja6 || ''}`;
 // ============================================================================
 
 async function runNode1_Autofill(ean, productName, productFeatures = {}, allegroData = {}, scrapedText = "") {
-    console.log(`[Swarm Node 1] PIM Autofill start: EAN ${ean}`);
+    agent1Logger.info(`[Swarm Node 1] PIM Autofill start: EAN ${ean}, Produkt: ${productName}`);
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.5-flash",
@@ -1124,9 +1107,18 @@ ${JSON.stringify(allegroData, null, 2)}
 
 --- ZNALEZIONY TEKST (OSINT) ---
 ${scrapedText}`;
-        return await generateWithRetry(model, prompt, 3, "Agent_1_Autofill", true);
+        
+        agent1Logger.info(`[Swarm Node 1] Wysłano zapytanie do Gemini-3.5-flash (Długość promptu: ${prompt.length} znaków). Długość tekstu OSINT: ${scrapedText.length}`);
+        
+        const startTime = Date.now();
+        const result = await generateWithRetry(model, prompt, 3, "Agent_1_Autofill", true);
+        const duration = Date.now() - startTime;
+        
+        agent1Logger.info(`[Swarm Node 1] Odpowiedź z Gemini uzyskana w ${duration}ms.`, { result });
+        
+        return result;
     } catch (err) {
-        console.error("[Swarm Node 1] Błąd krytyczny:", err.message);
+        agent1Logger.error(`[Swarm Node 1] Błąd krytyczny: ${err.message}`, { stack: err.stack });
         throw err;
     }
 }
@@ -1154,7 +1146,7 @@ async function runNode3_SEOTitle(ean, productName, category = null) {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.5-flash",
             tools: [{ googleSearch: {} }],
-            generationConfig: { temperature: 0.2, topP: 0.3, responseMimeType: "application/json" }
+            generationConfig: { temperature: 0.2, topP: 0.3, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } }
         });
         const systemPrompt = getMasterPrompt(3);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}\nKATEGORIA: ${category || 'Brak'}`;
@@ -1312,7 +1304,6 @@ module.exports = {
     auditOfferImages,
     generateTitleOnly,
     generateClaidLifestyle,
-    autofillMissingParameters,
     generateComplianceReport,
     generateWithRetry,
     runNode1_Autofill,

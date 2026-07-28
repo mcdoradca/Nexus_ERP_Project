@@ -6,8 +6,9 @@ const aiMetricsService = require('../../core/ai.metrics.service');
 const BaseLinkerService = require('./baselinker.service');
 const AiService = require('./ai.service');
 const socketService = require('../../core/socket');
-const AllegroService = require('./allegro.service');
 const OsintScraperService = require('./osint.scraper.service');
+const agent1Logger = require('../../utils/agent1_logger');
+const { mapAllegroParameters } = require('../../utils/allegro_mapper');
 
 // Gemini Setup for Orchestrator
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -187,25 +188,24 @@ class SupervisorService {
         // --- 2. Pobranie Twardych Danych z Allegro (Katalog) ---
         const allegroData = await AllegroService.getProductParametersByEan(ean);
         
-        // --- 3. Wypełnianie Braków (Lite Agent PXM) ---
-        let currentFeatures = typeof product.features === 'object' && product.features !== null ? { ...product.features } : {};
-        if (allegroData && Object.keys(allegroData).length > 0) {
-            currentFeatures = { ...currentFeatures, ...allegroData };
-        }
-        
-        console.log(`[Supervisor] Odpalam PXM Auto-Fill (Lite Agent) dla EAN: ${ean}`);
-        const allegroFilledFeatures = await AiService.autofillMissingParameters(ean, product.name, currentFeatures, requiredSchema);
+        // --- 3. Sztywne Mapowanie Allegro -> Allegro (Skryptowe) ---
+        console.log(`[Supervisor] Wykonuję skryptowe mapowanie parametrów z Katalogu Allegro dla EAN: ${ean}`);
+        const allegroFilledFeatures = mapAllegroParameters(allegroData, requiredSchema);
 
-        // --- 4. Równoległy Generator Metadanych (Agent 1) ---
         const scrapedText = await OsintScraperService.searchAndExtract(ean, product.name);
         
+        agent1Logger.info(`[Supervisor] Wywołanie Agenta 1 dla EAN: ${ean}. Dane BaseLinker+Allegro gotowe.`);
         const metaAutofillData = await AiService.runNode1_Autofill(ean, product.name, allegroFilledFeatures, allegroData, scrapedText);
+        agent1Logger.info(`[Supervisor] Zakończono pracę Agenta 1 dla EAN: ${ean}. Wynik:`, { metaAutofillData });
         
         if (metaAutofillData.missing_critical_data) {
+            agent1Logger.warn(`[Supervisor] Agent 1 zgłosił missing_critical_data = true dla EAN: ${ean}`);
             if (process.env.BYPASS_HITL === 'true') {
                 console.warn("⚠️ [Supervisor] Zignorowano HITL_ALERT z Agenta 1 (BYPASS_HITL włączony). Kontynuacja potoku dla testów telemetrii.");
+                agent1Logger.warn(`[Supervisor] HITL zignorowany (BYPASS_HITL)`);
             } else {
                 broadcastStatus("FAZA_1_GROUNDING", [], {}, "HALTED", "Brak kluczowych danych EAN/SDS - przerwano potok.");
+                agent1Logger.error(`[Supervisor] Przerwano potok - HITL ALERT`);
                 throw new Error("HITL_ALERT: Agent 1 zgłosił brak krytycznych danych technicznych.");
             }
         }

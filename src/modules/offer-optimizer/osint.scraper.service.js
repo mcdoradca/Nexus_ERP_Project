@@ -1,6 +1,6 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const winston = require('winston');
+const agent1Logger = require('../../utils/agent1_logger');
 
 class OsintScraperService {
     constructor() {
@@ -23,11 +23,12 @@ class OsintScraperService {
 
     async searchAndExtract(ean, productName) {
         try {
-            console.log(`[OSINT Scraper] Rozpoczynam poszukiwania dla EAN: ${ean}, Produkt: ${productName}`);
+            agent1Logger.info(`[OSINT] Rozpoczęto poszukiwania. EAN: ${ean}, Produkt: ${productName}`);
             
             // Wyszukiwanie przez DuckDuckGo HTML (nie wymaga JS)
             const searchQuery = `"${ean}" OR "${productName}"`;
             const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`;
+            agent1Logger.info(`[OSINT] Wywołano wyszukiwarkę DuckDuckGo: ${searchUrl}`);
             
             const searchResponse = await axios.get(searchUrl, { headers: this.headers, timeout: 10000 });
             const $ = cheerio.load(searchResponse.data);
@@ -45,9 +46,10 @@ class OsintScraperService {
             });
 
             if (links.length === 0) {
-                console.log(`[OSINT Scraper] Brak wyników wyszukiwania.`);
+                agent1Logger.warn(`[OSINT] Brak wyników wyszukiwania dla EAN: ${ean}`);
                 return "";
             }
+            agent1Logger.info(`[OSINT] Znaleziono linki (${links.length}):`, { links });
 
             // Sortowanie linków według priorytetów (najpierw znane drogerie i potencjalni producenci)
             links.sort((a, b) => {
@@ -63,9 +65,10 @@ class OsintScraperService {
             let combinedText = '';
 
             for (const link of topLinks) {
-                console.log(`[OSINT Scraper] Pobieranie zawartości z: ${link}`);
+                agent1Logger.info(`[OSINT] Scrapowanie URL: ${link}`);
                 try {
                     const pageRes = await axios.get(link, { headers: this.headers, timeout: 8000 });
+                    agent1Logger.info(`[OSINT] Odpowiedź HTTP: ${pageRes.status} z URL: ${link}`);
                     const page$ = cheerio.load(pageRes.data);
                     
                     // Usuwamy niepotrzebne tagi (skrypty, style, nawigację, stopki)
@@ -77,15 +80,16 @@ class OsintScraperService {
                     // Limitujemy tekst do max 5000 znaków na stronę by nie przepełnić tokenów
                     if (text.length > 5000) text = text.substring(0, 5000) + '...';
                     
-                    combinedText += `\\n\\n--- Źródło: ${link} ---\\n${text}`;
+                    agent1Logger.info(`[OSINT] Pomyślnie wyekstrahowano tekst: ${text.length} znaków z ${link}`);
+                    combinedText += `\n\n--- Źródło: ${link} ---\n${text}`;
                 } catch (pageErr) {
-                    console.log(`[OSINT Scraper] Błąd pobierania strony ${link}: ${pageErr.message}`);
+                    agent1Logger.error(`[OSINT] Błąd scrapowania strony ${link}: ${pageErr.message}`);
                 }
             }
 
             return combinedText.trim();
         } catch (error) {
-            console.error(`[OSINT Scraper] Błąd ogólny scrapera:`, error.message);
+            agent1Logger.error(`[OSINT] Błąd ogólny scrapera: ${error.message}`, { stack: error.stack });
             return "";
         }
     }

@@ -48,6 +48,8 @@ router.get('/stats', async (req, res) => {
                     totalCachedTokens: 0,
                     totalTokens: 0,
                     estimatedCostUsd: 0,
+                    callsWithRetry: 0,
+                    failedTokensBurned: {},
                     modelsUsed: new Set()
                 };
             }
@@ -62,6 +64,17 @@ router.get('/stats', async (req, res) => {
             stat.totalThoughtsTokens += m.thoughtsTokenCount;
             stat.totalCachedTokens += m.cachedContentTokenCount;
             stat.totalTokens += m.totalTokens;
+            
+            if (m.attemptNumber > 1) {
+                stat.callsWithRetry += 1;
+            }
+            
+            if (!m.isSuccess) {
+                const reason = m.failureReason || 'UNKNOWN_ERROR';
+                if (!stat.failedTokensBurned[reason]) stat.failedTokensBurned[reason] = 0;
+                stat.failedTokensBurned[reason] += m.totalTokens;
+            }
+            
             stat.modelsUsed.add(m.modelName);
 
             const callCost = calculateCost(
@@ -79,6 +92,7 @@ router.get('/stats', async (req, res) => {
 
         const reportArray = Object.values(agentStats).map(s => ({
             ...s,
+            retryRate: s.calls > 0 ? Number(((s.callsWithRetry / s.calls) * 100).toFixed(2)) : 0,
             modelsUsed: Array.from(s.modelsUsed),
             avgTokensPerCall: Math.round(s.totalTokens / s.calls),
             estimatedCostUsd: Number(s.estimatedCostUsd.toFixed(4))
