@@ -548,6 +548,19 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
         // Inteligentne ustalanie kategorii Allegro ZANIM uderzymy w cokolwiek (bo to filar)
         const AllegroService = require('./modules/offer-optimizer/allegro.service');
         let globalAllegroCatId = null;
+        let isAllegroSynced = false;
+        const ensureAllegroSynced = async () => {
+            if (globalAllegroCatId && !isAllegroSynced) {
+                try {
+                    await AllegroService.fetchCategoryParameters(globalAllegroCatId);
+                    console.log(`[AutoFill] Zsynchronizowano kategorię Allegro: ${globalAllegroCatId}`);
+                    isAllegroSynced = true;
+                } catch (err) {
+                    console.error(`[AutoFill] Błąd synchronizacji kategorii ${globalAllegroCatId}:`, err.message);
+                    globalAllegroCatId = null;
+                }
+            }
+        };
         
         const existingProduct = await prisma.product.findUnique({ where: { ean } });
         if (existingProduct && existingProduct.allegroCategoryId) {
@@ -587,6 +600,8 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
                 if (bySku) existingProductIdToReturn = bySku.id;
             }
 
+            await ensureAllegroSynced();
+
             return res.status(200).json({ 
                 name: deepData.name || '', 
                 brand: brandName, 
@@ -614,6 +629,8 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
         }
 
         // Helper dla darmowych baz uodporniający Nexusa na pady serwerów zewnętrznych.
+        await ensureAllegroSynced();
+
         const safeFetch = async (url) => {
             try {
                 const r = await fetch(url, { timeout: 4000 });
