@@ -1205,6 +1205,9 @@ async function runNode3_SEOTitle(ean, productName, category = null, ragKnowledge
         let maxIterations = 15;
         let iteration = 0;
         
+        let jsonRetryCount = 0;
+        const MAX_JSON_RETRIES = 3;
+        
         while (iteration < maxIterations) {
             iteration++;
             const response = result.response;
@@ -1259,8 +1262,13 @@ async function runNode3_SEOTitle(ean, productName, category = null, ragKnowledge
                 text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
                 
                 if (!text) {
-                     // Jeżeli z jakiegoś powodu tekst jest pusty, wymuszamy zakończenie lub błąd
-                     throw new Error("Agent 3 zwrócił pusty ciąg znaków, brak zwalidowanego tytułu w formacie JSON.");
+                     if (jsonRetryCount < MAX_JSON_RETRIES) {
+                         jsonRetryCount++;
+                         console.log(`[Swarm Node 3] Próba auto-naprawy (${jsonRetryCount}/${MAX_JSON_RETRIES}) dla pustej odpowiedzi...`);
+                         result = await chat.sendMessage(`BŁĄD KRYTYCZNY: Zwróciłeś pusty ciąg znaków! Twój ostateczny wynik musi być formatem czystego JSON i zawierać tytuł zwalidowany narzędziem validate_allegro_title. Nie zwracaj samych narzędzi, jeśli nie masz nic więcej do zbadania. ZWRÓĆ TYLKO I WYŁĄCZNIE JSON.`);
+                         continue;
+                     }
+                     throw new Error("Agent 3 zwrócił pusty ciąg znaków. Limit prób (Auto-healing) został wyczerpany w celu ochrony tokenów.");
                 }
 
                 console.log(`[Swarm Node 3] Pętla zakończona po ${iteration} iteracjach.`);
@@ -1270,18 +1278,18 @@ async function runNode3_SEOTitle(ean, productName, category = null, ragKnowledge
                 } catch (parseError) {
                     console.error("[Swarm Node 3] Błąd parsowania JSON. Surowy tekst:", text);
                     
-                    // Próba naprawienia (Auto-healing) - wyślij błąd do modelu
-                    if (iteration < maxIterations - 1) {
-                         console.log("[Swarm Node 3] Próba auto-naprawy (Auto-healing) dla niedozwolonego formatu JSON...");
+                    if (jsonRetryCount < MAX_JSON_RETRIES) {
+                         jsonRetryCount++;
+                         console.log(`[Swarm Node 3] Próba auto-naprawy (${jsonRetryCount}/${MAX_JSON_RETRIES}) dla niedozwolonego formatu JSON...`);
                          result = await chat.sendMessage(`BŁĄD: Zwrócona przez Ciebie odpowiedź nie jest prawidłowym formatem JSON (Błąd: ${parseError.message}). Popraw to i zwróć WYŁĄCZNIE czysty, zwalidowany obiekt JSON (bez znaczników markdown). Zwróć uwagę, abyś zawsze używał narzędzia validate_allegro_title przed wynikiem!`);
-                         continue; // Kontynuujemy pętlę
+                         continue;
                     }
                     
-                    throw new Error(`Unexpected end of JSON input lub niepoprawny JSON: ${parseError.message}`);
+                    throw new Error(`Agent 3 wyczerpał limit ${MAX_JSON_RETRIES} prób poprawy formatu. Niepoprawny JSON: ${parseError.message}`);
                 }
             }
         }
-        throw new Error("Agent 3 exceeded max tool call iterations (pętla się zapętliła).");
+        throw new Error("Agent 3 exceeded max tool call iterations (pętla się zapętliła po 15 wywołaniach narzędzi).");
     } catch (err) {
         console.error("[Swarm Node 3] Błąd krytyczny:", err.message);
         throw err;
