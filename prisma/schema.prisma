@@ -279,7 +279,7 @@ model Product {
   subiektId             String?              @unique
   baselinkerId          String?              @unique
   isSynced              Boolean              @default(false)
-  brandId               String
+  brandId               String?
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
   imageUrl              String?
@@ -311,7 +311,7 @@ model Product {
   campaignProducts      CampaignProduct[]
   dealsIRM              DealIRM[]            @relation("LokowanyProdukt")
   allegroCategory       MarketplaceCategory? @relation(fields: [allegroCategoryId], references: [id])
-  brand                 Brand                @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brand                 Brand?               @relation(fields: [brandId], references: [id], onDelete: Cascade)
   supplier              Supplier?            @relation("ProductSupplier", fields: [supplierId], references: [id])
   bomElements           ProductBom[]         @relation("ProductBomElements")
 
@@ -637,6 +637,7 @@ model AgentMetric {
   cachedContentTokenCount Int      @default(0)
   isSuccess               Boolean  @default(true)
   attemptNumber           Int      @default(1)
+  failureReason           String?
   createdAt               DateTime @default(now())
 
   @@index([agentId])
