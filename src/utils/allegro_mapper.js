@@ -4,11 +4,17 @@
  * do struktury drzewa kategorii (requiredSchema), omijając sztuczną inteligencję.
  */
 function mapAllegroParameters(hardFeatures, requiredSchema) {
-    if (!hardFeatures || Object.keys(hardFeatures).length === 0) return {};
-    if (!requiredSchema || !Array.isArray(requiredSchema)) return hardFeatures; // Fallback
+    if (!requiredSchema || !Array.isArray(requiredSchema)) return hardFeatures || {}; // Fallback
 
     const mappedFeatures = {};
 
+    // Fallback: Jeśli brak hardFeatures, to przynajmniej zwracamy pusty słownik, żeby Agent 1 wiedział co ma wypełnić.
+    if (!hardFeatures || Object.keys(hardFeatures).length === 0) {
+        requiredSchema.forEach(param => {
+            mappedFeatures[param.name] = "";
+        });
+        return mappedFeatures;
+    }
     // Normalizuje string do porównań (małe litery, bez spacji brzegowych)
     const normalize = (str) => {
         if (typeof str !== 'string') return String(str).toLowerCase().trim();
@@ -46,6 +52,9 @@ function mapAllegroParameters(hardFeatures, requiredSchema) {
                 // Dla parametrów niesłownikowych (np. string, integer, float) bierzemy wartość wprost
                 mappedFeatures[param.name] = catalogValue;
             }
+        } else {
+            // Jeśli parametru nie było w Allegro, zostawiamy puste, by Agent 1 mógł to uzupełnić
+            mappedFeatures[param.name] = "";
         }
     });
 
