@@ -1091,7 +1091,13 @@ async function runNode1_Autofill(ean, productName, productFeatures = {}, allegro
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.5-flash",
-            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
+            generationConfig: { 
+                temperature: 0.0, 
+                topP: 0.1, 
+                maxOutputTokens: 8192,
+                thinkingConfig: { thinkingBudget: 0 },
+                responseMimeType: "application/json" 
+            }
         });
         const systemPrompt = getMasterPrompt(1);
         const prompt = `${systemPrompt}
@@ -1149,7 +1155,13 @@ async function runNode4_INCIParser(inciString, ragKnowledge) {
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.5-flash",
-            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
+            generationConfig: { 
+                temperature: 0.0, 
+                topP: 0.1, 
+                maxOutputTokens: 8192,
+                thinkingConfig: { thinkingBudget: 0 },
+                responseMimeType: "application/json" 
+            }
         });
         const systemPrompt = getMasterPrompt(4);
         const prompt = `${systemPrompt}\n\n--- DANE WEJĹšCIOWE ---\nINCI: ${inciString}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
