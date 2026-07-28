@@ -328,7 +328,38 @@ class SupervisorService {
         broadcastStatus("COMPLETED", [], { Agent_10_Sentinel: "COMPLETED" }, "ALL_NODES_FINISHED");
 
     } catch (error) {
-        console.error(`[Supervisor] Przerwano potok EAN ${ean}:`, error.message);
+        const errorDetails = error.stack || error.message;
+        console.error(`[Supervisor] Przerwano potok EAN ${ean}:`, errorDetails);
+        
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const logsDir = path.join(process.cwd(), 'logs');
+            if (!fs.existsSync(logsDir)) {
+                fs.mkdirSync(logsDir, { recursive: true });
+            }
+            const logPath = path.join(logsDir, 'ean_pipeline_errors.log');
+            const logContent = `\n[${new Date().toISOString()}] KRYTYCZNY BŁĄD POTOKU DLA EAN: ${ean}\n${errorDetails}\n------------------------------------------------\n`;
+            fs.appendFileSync(logPath, logContent);
+        } catch (fsErr) {
+            console.error("[Supervisor] Nie udało się zapisać logu błędu do pliku:", fsErr.message);
+        }
+
+        try {
+            const chatService = require('../communication/chat.service');
+            const bot = await prisma.user.findUnique({ where: { email: 'nexus.ai@system.local' } });
+            if (bot) {
+                await chatService.saveGlobalMessage(bot.id, `🚨 **AWARIA POTOKU EAN**: Przerwano przetwarzanie produktu o kodzie **${ean}**.\n\nWygenerowano szczegółowy raport (Stack Trace), abyś mógł go łatwo skopiować. Znajdziesz go w pliku:\n\`logs/ean_pipeline_errors.log\`\n\n**Fragment błędu:**\n\`\`\`text\n${error.message}\n\`\`\``);
+            }
+        } catch (chatErr) {
+            console.error("[Supervisor] Nie udało się wysłać powiadomienia o awarii potoku na czat:", chatErr.message);
+        }
+
+        // Poinformowanie frontendu, że potok uległ awarii (żeby nie wisiał UI w nieskończoność)
+        try {
+            broadcastStatus("FAILED", [], {}, "HALTED", "Potok przerwany z powodu błędu: " + error.message.substring(0, 50));
+        } catch (bcErr) {}
+
         throw error;
     }
   }
