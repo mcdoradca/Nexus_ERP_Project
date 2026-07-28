@@ -96,59 +96,18 @@ Struktura: <h2>⚠️ Bezpieczeństwo stosowania i informacje prawne (GPSR)</h2>
 Logika: Wpisz standardowe zasady przechowywania i przeznaczenia. Obowiązkowo: Jeśli node_5_sanitizer.mandatory_safety_warnings nie jest null, wklej każdy zwrot ostrzegawczy jako osobny punkt <li>🛡️ <b>Ostrzeżenie CLP/GPSR:</b> [Treść ostrzeżenia]</li>. Wskaż podmiot odpowiedzialny w UE.
 
 4. RYGORYSTYCZNY SCHEMAT FORMATU WYJŚCIOWEGO (JSON ONLY)
-Twoja odpowiedź musi być wyłącznie poprawnym syntaktycznie obiektem JSON, zgodnym z poniższym schematem Draft-07. Zabrania się dodawania jakiegokolwiek tekstu, wstępów czy komentarzy.
+Twoja odpowiedź musi być wyłącznie poprawnym syntaktycznie obiektem JSON, zgodnym z poniższym formatem. Zabrania się dodawania jakiegokolwiek tekstu, wstępów czy komentarzy. Nie zwracaj definicji schematu (JSON Schema), a konkretny wynik Twojej pracy.
 
-JSON
+```json
 {
-  "$schema": "[http://json-schema.org/draft-07/schema#](http://json-schema.org/draft-07/schema#)",
-  "title": "Node6_Copywriter_Output",
-  "type": "object",
-  "required": [
-    "pipeline_id",
-    "sekcja1",
-    "sekcja2",
-    "sekcja3",
-    "sekcja4",
-    "sekcja5",
-    "sekcja6",
-    "html_validation_passed",
-    "stop_words_detected"
-  ],
-  "properties": {
-    "pipeline_id": {
-      "type": "string"
-    },
-    "sekcja1": {
-      "type": "string",
-      "description": "Czysty kod HTML Sekcji 1 (Wstęp i USP)."
-    },
-    "sekcja2": {
-      "type": "string",
-      "description": "Czysty kod HTML Sekcji 2 (Problem & Answer AEO)."
-    },
-    "sekcja3": {
-      "type": "string",
-      "description": "Czysty kod HTML Sekcji 3 (Technical Benefits & Synergies)."
-    },
-    "sekcja4": {
-      "type": "string",
-      "description": "Czysty kod HTML Sekcji 4 (Sposób użycia i Rutyna)."
-    },
-    "sekcja5": {
-      "type": "string",
-      "description": "Czysty kod HTML Sekcji 5 (Parametry Techniczne bez wartości null)."
-    },
-    "sekcja6": {
-      "type": "string",
-      "description": "Czysty kod HTML Sekcji 6 (Bezpieczeństwo GPSR i CLP)."
-    },
-    "html_validation_passed": {
-      "type": "boolean",
-      "description": "True, jeśli użyto wyłącznie dozwolonych tagów HTML i każdy element ma emotikon."
-    },
-    "stop_words_detected": {
-      "type": "boolean",
-      "description": "False, potwierdzające absolutny brak zakazanych słów promocyjnych."
-    }
-  }
+  "pipeline_id": "otrzymany identyfikator UUID",
+  "sekcja1": "Czysty kod HTML Sekcji 1 (Wstęp i USP).",
+  "sekcja2": "Czysty kod HTML Sekcji 2 (Problem & Answer AEO).",
+  "sekcja3": "Czysty kod HTML Sekcji 3 (Technical Benefits & Synergies).",
+  "sekcja4": "Czysty kod HTML Sekcji 4 (Sposób użycia i Rutyna).",
+  "sekcja5": "Czysty kod HTML Sekcji 5 (Parametry Techniczne bez wartości null).",
+  "sekcja6": "Czysty kod HTML Sekcji 6 (Bezpieczeństwo GPSR i CLP).",
+  "html_validation_passed": true,
+  "stop_words_detected": false
 }
+```
