@@ -113,29 +113,52 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 2, agentId =
                 // Oczyszczanie markdown przed parsowaniem JSON
                 let cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
                 
-                const firstBrace = cleanText.indexOf('{');
-                const lastBrace = cleanText.lastIndexOf('}');
-                const firstBracket = cleanText.indexOf('[');
-                const lastBracket = cleanText.lastIndexOf(']');
-                
-                let start = -1;
-                let end = -1;
-                
-                if (firstBrace !== -1 && firstBracket !== -1) {
-                    start = Math.min(firstBrace, firstBracket);
-                    end = start === firstBrace ? lastBrace : lastBracket;
-                } else if (firstBrace !== -1) {
-                    start = firstBrace;
-                    end = lastBrace;
-                } else if (firstBracket !== -1) {
-                    start = firstBracket;
-                    end = lastBracket;
+                // Solidny ekstraktor JSON zliczający zagnieżdżenia
+                function extractFirstValidJson(str) {
+                    const firstBrace = str.indexOf('{');
+                    const firstBracket = str.indexOf('[');
+                    let startIdx = -1;
+                    let isArray = false;
+                    
+                    if (firstBrace !== -1 && firstBracket !== -1) {
+                        if (firstBrace < firstBracket) { startIdx = firstBrace; isArray = false; }
+                        else { startIdx = firstBracket; isArray = true; }
+                    } else if (firstBrace !== -1) {
+                        startIdx = firstBrace; isArray = false;
+                    } else if (firstBracket !== -1) {
+                        startIdx = firstBracket; isArray = true;
+                    } else {
+                        return str; 
+                    }
+
+                    let depth = 0;
+                    let inString = false;
+                    let escape = false;
+                    
+                    for (let i = startIdx; i < str.length; i++) {
+                        const char = str[i];
+                        if (inString) {
+                            if (escape) { escape = false; }
+                            else if (char === '\\') { escape = true; }
+                            else if (char === '"') { inString = false; }
+                        } else {
+                            if (char === '"') { inString = true; }
+                            else if (char === '{' && !isArray) { depth++; }
+                            else if (char === '}' && !isArray) { 
+                                depth--; 
+                                if (depth === 0) return str.substring(startIdx, i + 1);
+                            }
+                            else if (char === '[' && isArray) { depth++; }
+                            else if (char === ']' && isArray) { 
+                                depth--; 
+                                if (depth === 0) return str.substring(startIdx, i + 1);
+                            }
+                        }
+                    }
+                    return str; // Fallback do całego ciągu jeśli nawiasy się nie zbilansują
                 }
-                
-                if (start !== -1 && end !== -1 && end > start) {
-                    cleanText = cleanText.substring(start, end + 1);
-                }
-                
+
+                cleanText = extractFirstValidJson(cleanText);
                 
                 try {
                     const parsedData = JSON.parse(cleanText);
