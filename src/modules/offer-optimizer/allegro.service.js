@@ -305,7 +305,18 @@ async function fetchCategoryParameters(categoryId) {
             }
         });
         
-        return marketplaceCategory;
+        // Minifikacja dla Agenta (ochrona tokenów)
+        return {
+            id: marketplaceCategory.id,
+            name: marketplaceCategory.name,
+            parameters: (marketplaceCategory.parameters || []).map(p => ({
+                id: p.id,
+                name: p.name,
+                type: p.type,
+                required: p.required,
+                options: p.dictionary ? p.dictionary.slice(0, 10).map(d => d.value) : []
+            }))
+        };
 
     } catch (error) {
         console.error(`[AllegroService] Błąd pobierania schematu dla kategorii ${categoryId}:`, error.response ? error.response.data : error.message);
@@ -424,14 +435,14 @@ async function searchProducts(phrase, mode = "NAME") {
         });
         
         if (response.data.products && response.data.products.length > 0) {
-            // Zwracamy uproszczone dane dla agenta (nazwa, marka, kategoria, parametry)
+            // Zwracamy uproszczone dane dla agenta (nazwa, marka, kategoria, parametry ograniczające budżet tokenów)
             return response.data.products.slice(0, 3).map(p => ({
                 id: p.id,
                 name: p.name,
-                category: p.category,
-                parameters: (p.parameters || []).map(param => ({
+                category: p.category ? { id: p.category.id } : null,
+                parameters: (p.parameters || []).slice(0, 8).map(param => ({
                     name: param.name,
-                    values: param.valuesLabels || param.values || []
+                    values: param.valuesLabels ? param.valuesLabels.slice(0, 2) : (param.values ? param.values.slice(0, 2) : [])
                 }))
             }));
         }
@@ -461,14 +472,14 @@ async function getListingCompetitors(phrase, categoryId, limit = 60) {
             timeout: 15000
         });
 
-        // Agregacja tytułów i parametrów z ofert sponsorowanych i zwykłych
+        // Agregacja tytułów z ofert sponsorowanych i zwykłych
         const promoted = (response.data.items.promoted || []).map(i => i.name);
         const regular = (response.data.items.regular || []).map(i => i.name);
         const titles = [...promoted, ...regular];
         
+        // Zwracamy same tytuły, filtry są usuwane ze względu na gigantyczny rozmiar JSON (zabezpieczenie 429 Quota Exceeded)
         return {
-            titles,
-            filters: response.data.filters || []
+            titles
         };
     } catch (error) {
         if (error.response && error.response.status === 403) {
