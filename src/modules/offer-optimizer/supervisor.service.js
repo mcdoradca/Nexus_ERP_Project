@@ -160,7 +160,7 @@ class SupervisorService {
         // ==========================================
         // FAZA 1: GROUNDING (Badania)
         // ==========================================
-        broadcastStatus("FAZA_1_GROUNDING", ["Agent_1_Autofill", "Agent_2_Sentiment", "Agent_3_SEOTitle"], { Agent_1_Autofill: "IN_PROGRESS" });
+        broadcastStatus("FAZA_1_GROUNDING", ["Agent_1_Autofill", "Agent_2_Sentiment"], { Agent_1_Autofill: "IN_PROGRESS" });
         
         console.log(`[Supervisor] Rozpoczynam kaskadowe zasilanie PXM dla Agenta 1 (EAN: ${ean})`);
         
@@ -214,20 +214,18 @@ class SupervisorService {
         // --- 5. Bezpieczny Merge & Zapis ---
         const autofillData = { ...allegroFilledFeatures, ...metaAutofillData };
         
-        broadcastStatus("FAZA_1_GROUNDING", ["Agent_2_Sentiment", "Agent_3_SEOTitle"], { Agent_1_Autofill: "COMPLETED", Agent_2_Sentiment: "IN_PROGRESS" });
+        broadcastStatus("FAZA_1_GROUNDING", ["Agent_2_Sentiment"], { Agent_1_Autofill: "COMPLETED", Agent_2_Sentiment: "IN_PROGRESS" });
         const sentimentData = await AiService.runNode2_Sentiment(ean, product.name);
-        // ==========================================
-        const ragService = require('./knowledge.rag.service');
-        const allegroDocs = await ragService.searchKnowledge("Trendy Allegro SEO E-commerce", 1);
-        const allegroKnowledge = allegroDocs.map(d => d.content).join("\n");
         
-        broadcastStatus("FAZA_1_GROUNDING", ["Agent_3_SEOTitle"], { Agent_2_Sentiment: "COMPLETED", Agent_3_SEOTitle: "IN_PROGRESS" });
-        const seoData = await AiService.runNode3_SEOTitle(ean, product.name, product.category || 'Brak', allegroKnowledge);
+        // Agent 3 (SEOTitle) usunięty na życzenie z powodu limitów API. 
+        // Fallback do product.name podczas składania finalPayload.
         
         // ==========================================
         // FAZA 2: LEGAL SHIELD (Chemia i Prawo)
         // ==========================================
-        broadcastStatus("FAZA_2_LEGAL_SHIELD", ["Agent_4_INCIParser", "Agent_5_LegalSanitizer"], { Agent_3_SEOTitle: "COMPLETED", Agent_4_INCIParser: "IN_PROGRESS" });
+        broadcastStatus("FAZA_2_LEGAL_SHIELD", ["Agent_4_INCIParser", "Agent_5_LegalSanitizer"], { Agent_2_Sentiment: "COMPLETED", Agent_4_INCIParser: "IN_PROGRESS" });
+        
+        const ragService = require('./knowledge.rag.service');
         
         const inciDocs = await ragService.searchKnowledge("Słownik INCI Kosmetyki Chemia", 2);
         const inciKnowledge = inciDocs.map(d => d.content).join("\n");
@@ -275,7 +273,8 @@ class SupervisorService {
 
         // Złożenie ostatecznego payloadu
         const finalPayload = {
-            title: seoData.generated_title || seoData.seo_title || product.name,
+            title: product.name, // Fallback po usunięciu Agenta 3
+
             attributes: autofillData,
             htmlContent: psychologyData,
             scenography: scenographerData,

@@ -7,7 +7,7 @@
 | `Agent_2_Sentiment` | gemini-3.1-pro-preview-customtools | Analiza opinii i potrzeb użytkowników na podstawie recenzji. |
 | `Agent_3_Compliance` | antigravity-preview-05-2026 | Weryfikacja pod kątem zgodności z prawem (dyrektywa OMNIBUS, EU AI Act, claims kosmetyczne). |
 | `Agent_4_GEO` | gemini-3.1-pro-preview | Generowanie zoptymalizowanych bloków tekstowych pod Allegro/Shopify. |
-| `Agent_Title` | gemini-3.1-pro-preview | Konstruowanie precyzyjnych i wysoce konwertujących tytułów ofert. |
+| `Agent_Title (Node 3)` | ~~USUNIĘTY~~ | **[USUNIĘTY 2026-07-28]** Konstruowanie tytułów przeniesione do fallbacku z powodu 429 Quota Exceeded. |
 | `Agent_AEO` | gemini-3.1-pro-preview | Generowanie nagłówków i odpowiedzi dla Answer Engine Optimization (np. do Google SGE). |
 | `Agent_11_Autofill` | gemini-3.5-flash | Automatyczne wypełnianie parametrów Allegro/PIM. |
 | `Agent_Segment_Tone` | gemini-3.1-pro-preview | Adaptacja stylu i tonu opisów do docelowej grupy odbiorczej (Persona). |
