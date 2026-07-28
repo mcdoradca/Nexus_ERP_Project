@@ -826,7 +826,8 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
             const product = await prisma.product.findUnique({ where: { ean } });
             if (product) {
                 const featuresString = product.features ? JSON.stringify(product.features) : '';
-                productDetailsText = `NAME: ${product.name}\nFEATURES: ${featuresString}\nDESC: ${product.descriptionHtml || ''}`;
+                const draftString = product.offerDraft ? JSON.stringify(product.offerDraft) : '';
+                productDetailsText = `NAME: ${product.name}\nFEATURES: ${featuresString}\nDESC: ${product.descriptionHtml || ''}\nOFFER_DRAFT: ${draftString}`;
             }
         }
     } catch(e) { console.error("BĹ‚Ä…d odczytu PIM dla Agenta Promptera:", e.message); }

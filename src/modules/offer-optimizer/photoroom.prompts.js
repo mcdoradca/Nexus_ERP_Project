@@ -149,14 +149,20 @@ function getPaddingForSlot(index, seed) {
         return { paddingTop: "0.05", paddingRight: "0.05", paddingBottom: "0.05", paddingLeft: "0.05" };
     }
     
-    // Zapętlone przypisywanie paddingów do slotów w oparciu o index, urozmaicone seedem
-    return paddingVariants[(index + seed) % paddingVariants.length];
+    // Sloty 2-9: Czysta losowość (Math.random) w celu zapobiegania monokulturze (SSOT 6.0)
+    return {
+        paddingTop: (Math.random() * (0.40 - 0.05) + 0.05).toFixed(2),
+        paddingRight: (Math.random() * (0.35 - 0.05) + 0.05).toFixed(2),
+        paddingBottom: (Math.random() * (0.25 - 0.05) + 0.05).toFixed(2),
+        paddingLeft: (Math.random() * (0.35 - 0.05) + 0.05).toFixed(2)
+    };
 }
 
 async function getDeterministicPromptForSlot(index, ean, productDetailsText, apiKey, generateWithRetry) {
     if (index === 0) return "Odczytaj ze zdjęcia główny składnik produktu i umieść go centralnie za produktem na czystym, nieskazitelnie białym tle. Oryginalny produkt musi pozostać w 100% nienaruszony - absolutny zakaz modyfikacji jego kształtu, etykiety czy proporcji.";
     
-    const seed = hashSKU(ean);
+    // Sloty 2-9: Czysta losowość, nadpisanie ADR-027 na rzecz unikalności każdego zdjęcia (SSOT 6.0)
+    const seed = Math.floor(Math.random() * 2147483647);
     const tags = extractProductTags(productDetailsText);
     const dict = SLOTS_DICTIONARIES[index];
     
@@ -177,8 +183,8 @@ async function getDeterministicPromptForSlot(index, ean, productDetailsText, api
         if (apiKey) {
             try {
                 const genAI = new GoogleGenerativeAI(apiKey);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", generationConfig: { temperature: 0.1, thinkingConfig: { thinkingBudget: 0 } }});
-                const promptInstruction = `Extract the main 2-3 natural active ingredients from this product data and translate them to English as a comma separated list. If none found, reply with "natural elements". Data: ${productDetailsText}`;
+                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { temperature: 0.1, thinkingConfig: { thinkingBudget: 0 } }});
+                const promptInstruction = `Extract the main 2-3 natural active INCI ingredients and their actions from this product data (specifically from 'Moduł 3' if present). Translate them to English physical props as a comma separated list (e.g. 'sprigs of lavender, fresh aloe vera leaves'). If none found, reply with "natural elements". Data: ${productDetailsText}`;
                 const result = await generateWithRetry(model, promptInstruction, 2, "Agent_Slot9_Ingredients");
                 ingredients = result.response.text().replace(/\n/g, '').trim();
                 console.log("[Photoroom Slot 9] Wyekstrahowano składniki:", ingredients);

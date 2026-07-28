@@ -78,7 +78,7 @@ Wzorzec elementu: <li>❓ <b>Zapytanie:</b> [Treść pytania z Węzła 5]</li><l
 sekcja3: Specyfikacja Korzyści i Mechanizm Działania (Technical Benefits)
 Struktura: <h2>⚙️ Mechanizm działania i kluczowe składniki aktywne</h2><ul>...</ul>
 
-Logika: Wklej zwalidowane bloki z node_4_aeo.technical_benefits_aeo. Jeśli istnieją detected_synergies, dodaj je jako osobne punkty z emotikonem ⚡.
+Logika: Wykorzystaj dostarczoną wiedzę z SOT RAG, aby wyciągnąć kluczowe składniki INCI i opisać ich dokładne działanie w danym produkcie. Utwórz z nich wyraźną listę (używając pogrubienia dla nazw składników). Następnie wklej zwalidowane bloki z node_4_aeo.technical_benefits_aeo. Jeśli istnieją detected_synergies, dodaj je jako osobne punkty z emotikonem ⚡.
 
 sekcja4: Codzienna Rutyna i Sposób Użycia (Routine & Application)
 Struktura: <h2>📝 Sposób użycia i aplikacja w codziennej rutynie</h2><p>Aby uzyskać optymalne rezultaty i w pełni wykorzystać potencjał formuły:</p><ol>...</ol>
