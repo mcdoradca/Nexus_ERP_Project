@@ -149,6 +149,7 @@ const influencersRoutes = require('./modules/influencers/influencers.routes');
 const offerOptimizerRoutes = require('./modules/offer-optimizer/offer-optimizer.routes');
 const resiRoutes = require('./modules/resi/resi.routes');
 const aiTelemetryRoutes = require('./routes/ai-telemetry.routes');
+const allegroAuthRoutes = require('./routes/allegro-auth.routes');
 
 const pricingRoutes = require('./modules/pricing/pricing.routes');
 const analyticsRoutes = require('./modules/analytics/analytics.routes');
@@ -235,6 +236,9 @@ app.use('/api/resi', authenticateToken, resiRoutes);
 
 // AI Telemetria i koszty tokenów
 app.use('/api/system/ai-telemetry', authenticateToken, aiTelemetryRoutes);
+
+// Autoryzacja Allegro Device Flow
+app.use('/api/allegro/auth', authenticateToken, allegroAuthRoutes);
 
 // ENDPOINT DO TESTOWANIA SYSTEMU LOGOWANIA (FAZA 5)
 app.get('/api/test-error', (req, res, next) => {
