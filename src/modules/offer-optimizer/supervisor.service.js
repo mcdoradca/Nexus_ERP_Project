@@ -264,39 +264,10 @@ class SupervisorService {
         // ==========================================
         // FAZA 4: AUDIT (Vision & Sentinel)
         // ==========================================
-        broadcastStatus("FAZA_4_AUDIT", ["Agent_9_VisionAuditor", "Agent_10_Sentinel"], { Agent_8_Scenographer: "COMPLETED", Agent_9_VisionAuditor: "IN_PROGRESS" });
-        // Pobieramy obrazy z produktu (mock jeśli brak)
-        const images = product.images || [];
-        const visionData = images.length > 0 ? await AiService.runNode9_VisionAuditor(images) : { status: "NO_IMAGES", passed: true };
+        broadcastStatus("FAZA_4_AUDIT", ["Agent_10_Sentinel"], { Agent_8_Scenographer: "COMPLETED", Agent_9_VisionAuditor: "SKIPPED", Agent_10_Sentinel: "IN_PROGRESS" });
         
-        let visionTickets = [];
-        if (visionData.vision_audit_status !== "PASSED") {
-             broadcastStatus("FAZA_4_AUDIT", ["Agent_9_VisionAuditor"], { Agent_9_VisionAuditor: "WARNING" }, "WARNING", "Błąd tła lub brak etykiety AI (Vision Auditor).");
-             
-             let reasons = [];
-             if (visionData.rejection_reasons && Array.isArray(visionData.rejection_reasons) && visionData.rejection_reasons.length > 0) {
-                 reasons = visionData.rejection_reasons;
-             } else if (visionData.action_required) {
-                 reasons = [visionData.action_required];
-             } else {
-                 reasons = ["Wymagana manualna interwencja operatora (Audyt Graficzny)"];
-             }
-             
-             // Generowanie ticketów na podstawie obrazów lub jako ogólny alert
-             if (images.length > 0) {
-                 visionTickets = images.map((url, i) => ({
-                     originalUrl: url,
-                     alerts: reasons,
-                     isCompliant: false,
-                     replacedUrl: null
-                 }));
-             } else {
-                 visionTickets = [{ originalUrl: "Audyt Graficzny", alerts: reasons, isCompliant: false, replacedUrl: null }];
-             }
-        }
+        const visionTickets = []; // HITL: Człowiek weryfikuje wizualia ręcznie, brak automatycznych ticketów z Agenta 9
 
-        broadcastStatus("FAZA_4_AUDIT", ["Agent_10_Sentinel"], { Agent_9_VisionAuditor: "COMPLETED", Agent_10_Sentinel: "IN_PROGRESS" });
-        
         // Złożenie ostatecznego payloadu
         const finalPayload = {
             title: seoData.generated_title || seoData.seo_title || product.name,
