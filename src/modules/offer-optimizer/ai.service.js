@@ -1,4 +1,4 @@
-﻿const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
 const agent1Logger = require('../../utils/agent1_logger');
 const dotenv = require('dotenv');
 const fs = require('fs');
