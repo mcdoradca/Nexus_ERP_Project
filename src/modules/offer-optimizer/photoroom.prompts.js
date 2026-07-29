@@ -1,205 +1,679 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+/**
+ * ============================================================================
+ *  photoroom.prompts.js  —  SSOT 6.0 "LEGO 2.0 + PROPS ENGINE"
+ * ============================================================================
+ *  Nexus ERP 2.0 / Allegro Pipeline — produkcja galerii 1080x1080 (sloty 1-9)
+ *
+ *  ZMIANY vs SSOT 5.0:
+ *   1. REALIZM: lighting.mode=ai.auto (AI Relight) + shadow.mode=ai.soft
+ *      we wszystkich slotach lifestyle. Wycinanka jest prześwietlana pod
+ *      wygenerowane tło — koniec efektu "naklejki".
+ *   2. GŁĘBIA OSTROŚCI: prompt wymusza "softly blurred background, shallow
+ *      depth of field" (usunięto samobójczy zakaz no-blur/no-bokeh).
+ *   3. SKALA SCENY: wszystkie środowiska w słownikach opisują scenę w
+ *      promieniu 30-80 cm od produktu (blat/półka/parapet). Zakaz krajobrazów.
+ *   4. SEED PER-SLOT: hash(EAN + ":" + slot) — galeria jednego SKU jest
+ *      wewnętrznie różnorodna, ale nadal w 100% deterministyczna.
+ *   5. PROPS ENGINE: składniki z PIM (Węzeł 1) mapowane na rekwizyty
+ *      w 5 z 8 slotów lifestyle. Koniec "muzealnej pustki".
+ *   6. KOMPOZYCJE: 10 presetów paddingTop/Bottom/Left/Right + alignments.
+ *      Produkt wypełnia od ~50% do ~93% wysokości kadru i wędruje po nim.
+ *   7. MAKRO-SLOT: slot 3 tnie plik źródłowy (górne 62% butelki) przed
+ *      wysyłką — autentyczne ujęcie detalu etykiety bez drugiego zdjęcia.
+ *
+ *  ZALEŻNOŚCI: node >= 18 (natywne FormData/Blob), opcjonalnie sharp (crop).
+ * ============================================================================
+ */
 
-function hashSKU(sku) {
-    if (!sku) return 12345;
-    const str = String(sku);
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit int
-    }
-    // Zabezpieczenie przed przekroczeniem MAX_INT32 dla API Photoroom
-    // Mnożnik * 31 mógł produkować duże floaty, które Photoroom traktował jako stały max int.
-    return Math.abs(hash) % 2147483647;
+'use strict';
+
+// ============================================================================
+// [1] DETERMINIZM — hash i PRNG
+// ============================================================================
+
+/** FNV-1a 32-bit — stabilny hash stringa (EAN, EAN:slot, itp.) */
+function hashSKU(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0; // uint32
 }
 
-// Mapowanie tekstów PIM na tagi
-function extractProductTags(productDetailsText) {
-    if (!productDetailsText) return [];
-    const textLower = productDetailsText.toLowerCase();
-    const tags = [];
-    
-    if (textLower.includes('węgiel') || textLower.includes('detox')) tags.push('detox');
-    if (textLower.includes('woda') || textLower.includes('nawilż')) tags.push('water');
-    if (textLower.includes('natura') || textLower.includes('roślin')) tags.push('nature');
-    return tags;
+/** Seed per-slot: ten sam EAN => ta sama galeria, ale sloty różne między sobą */
+function seedForSlot(ean, slot) {
+  return hashSKU(`${ean}:${slot}`);
 }
 
-const buildPattern = (e, s, l) => `An empty, hyper-detailed scene. Background: ${e} The resting surface is ${s} Infinite depth of field, f/22 aperture, tack-sharp focus on every detail. ${l} Empty scene, absolutely no blur, no soft focus, no bokeh, no people, no floating objects.`;
-const buildPatternIngredients = (e, s, l, ingredients) => `An empty, hyper-detailed scene. Background: ${e} The resting surface is ${s}. Resting completely flat on the surface are: ${ingredients}. Infinite depth of field, f/22 aperture, tack-sharp focus on every detail. ${l} Empty scene, absolutely no blur, no soft focus, no bokeh, no people, no floating objects.`;
+/**
+ * mulberry32 — tani, deterministyczny PRNG.
+ * Używamy go zamiast serii modulo, żeby wybory surface/env/light/props
+ * NIE były ze sobą skorelowane (seed % 10 dawał zawsze tę samą "kolumnę"
+ * we wszystkich słownikach naraz).
+ */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
-const SLOTS_DICTIONARIES = {
-    // Slot 2: Geometryczne Światło / Art (Index 1)
-    1: {
-        environments: [
-            "a crisp, pristine white architectural wall.", "a hyper-detailed, raw grey industrial concrete wall.", "a stark, perfectly smooth pitch-black architectural space.", "a hyper-detailed ribbed acoustic panel wall.", "a crisp, folded origami paper architectural structure.", "a sharp, vertically slatted wooden architectural screen.", "a pristine, fluted glass architectural background.", "a hyper-detailed, perforated metal industrial screen.", "a perfectly aligned, crisp staggered white brick wall.", "an infinite, pure white geometric art gallery space."
-        ],
-        surfaces: [
-            "a flat, pristine white plaster surface with fine tactile grain.", "a heavy, razor-sharp grey concrete slab.", "a flawless, deep black acrylic board.", "a piece of pristine brushed aluminum with microscopic directional scratches.", "a flat slab of sharp, frosted architectural glass.", "a flawless piece of pure white marble.", "a seamless, matte black resin block.", "a massive piece of raw, industrial dark steel.", "a flat, white porcelain tile with razor-sharp edges.", "a pristine, corrugated metal plate."
-        ],
-        lighting: [
-            "Dramatic 'gobo' lighting: sharp geometric shadows of window blinds cast across the scene.", "A razor-sharp shadow of a tropical palm frond intersecting the surface.", "A single, intense diagonal light beam splitting the background with absolute precision.", "A crisp circular spotlight mask framing the center perfectly.", "A hyper-sharp grid shadow pattern cast directly downwards.", "A dramatic, razor-sharp triangular light beam hitting the surface.", "Crisp, high-contrast abstract slatted shadows creating a hypnotic rhythm.", "Intense, hard-edged directional light creating a perfect pitch-black drop shadow.", "A razor-sharp architectural window frame shadow projected onto the wall.", "Harsh, direct studio strobe light emphasizing absolute geometric perfection."
-        ],
-        build: buildPattern
-    },
-    // Slot 3: Raw Nature / Zen (Index 2)
-    2: {
-        environments: [
-            "a majestic, ancient pine forest with towering vertical trunks.", "a tranquil Japanese zen garden with immaculately raked sand lines.", "a dense, vibrant tropical rainforest with massive green fern leaves.", "a dramatic, misty Nordic fjord edge with dark jagged mountains.", "a serene, misty bamboo grove bathed in morning dew.", "a sun-drenched alpine meadow filled with subtle, crisp wild grass.", "a stark, breathtaking Icelandic black sand beach with volcanic rock formations.", "a lush, deep green mossy gorge beside a hidden waterfall.", "a crisp, endless lavender field reaching the horizon.", "a raw, arid desert landscape with perfect sand dunes."
-        ],
-        surfaces: [
-            "a massive, dark, flat river stone surrounded by hyper-detailed green moss.", "a weathered, light-grey driftwood log showing deep wood grain.", "a raw, fractured slate slab resting naturally on the earth.", "a smooth, heavy block of black volcanic obsidian.", "a flat, ancient piece of textured tree bark.", "a slab of unpolished, raw green Verde Guatemala marble.", "a flat, porous piece of white pumice stone.", "a bed of tightly packed, pristine white river pebbles.", "a cross-section of a massive, aged oak stump with sharp tree rings.", "a block of raw, unrefined pink Himalayan salt crystal."
-        ],
-        lighting: [
-            "Crisp morning sunlight piercing through the trees.", "Dappled, high-contrast sunlight filtering through a dense canopy.", "Moody, bright overcast daylight enhancing natural color saturation.", "Sharp, golden sunrise rays hitting the surface at a low angle.", "Crisp, cool alpine light creating stark, clear micro-shadows.", "Intense tropical midday sun creating hard, sharp shadows.", "Soft but directional atmospheric light catching microscopic dew drops.", "Piercing sunbeams illuminating fine dust particles in the natural air.", "High-contrast, dramatic side light revealing the deep texture of the stone.", "Clear, unpolluted natural zenith light illuminating the whole scene evenly."
-        ],
-        build: buildPattern
-    },
-    // Slot 4: Fashion Editorial (Index 3)
-    3: {
-        environments: [
-            "a sophisticated, pitch-dark monochromatic fashion studio setting.", "a stark, hyper-white infinite cyclorama background.", "a brutalist, hyper-detailed raw concrete bunker interior.", "a high-end set with crisp, meticulously draped heavy velvet fabric.", "a futuristic, abstract geometric studio with intersecting sharp panels.", "a premium mirrored room reflecting infinite sharp angles.", "a bold, deep crimson red monochromatic studio room.", "a minimalist gallery space with pristine white architectural pillars.", "an industrial set with sharp, corrugated metal walls.", "a pitch-black void with a single razor-sharp architectural beam."
-        ],
-        surfaces: [
-            "a highly polished, reflective black glass pane.", "a seamless slab of bright white acrylic.", "a heavy, raw steel plate with fine industrial scratches.", "a flat piece of matte black rubberized texture.", "a block of brushed gold metallic alloy.", "a smooth, mirror-polished chrome slab.", "a pristine piece of Calacatta white marble.", "a flat, transparent acrylic block casting sharp caustics.", "a seamless piece of dark, smoked glass.", "a rigid, matte-painted geometric plinth surface."
-        ],
-        lighting: [
-            "A single, dramatic high-powered spotlight creating an ultra-sharp shadow.", "Cinematic chiaroscuro lighting with deep, absolute black contrast.", "Harsh, direct strobe lighting typical of high-end editorial photography.", "A razor-sharp laser-like beam of light slicing across the darkness.", "Intense rim-lighting outlining the edges of the surface in pure white.", "A narrow slit of bright light focused precisely on the center.", "High-contrast split lighting: half the scene in brilliant white, half in pitch black.", "Crisp, overhead 'beauty dish' lighting casting a sharp shadow directly downwards.", "Dramatic diagonal lighting creating a sharp, cutting geometric shadow.", "Intense, bare-bulb directional light maximizing the reflection on the surface."
-        ],
-        build: buildPattern
-    },
-    // Slot 5: Woda / Orzeźwienie (Index 4)
-    4: {
-        environments: [
-            "a sparkling, hyper-detailed infinity pool merging with the ocean horizon.", "a breathtaking, crystal-clear Maldives tropical beach scene.", "a pristine, icy glacial lake surrounded by sharp snow-capped peaks.", "a luxurious, bright Santorini coastal terrace overlooking the Aegean Sea.", "a hyper-detailed, frozen-in-time splashing waterfall cascading over sharp rocks.", "a minimalist, shallow reflective water pool in a bright spa atrium.", "a clear, fast-flowing pristine mountain stream with sharp riverbed stones.", "a deep, vibrant turquoise ocean surface with crisp, sharp wave crests.", "a pristine, white-washed luxury resort patio beside crystal blue water.", "a hyper-realistic underwater view looking up at the sharp, sparkling surface."
-        ],
-        surfaces: [
-            "clean, sun-warmed pristine white beach sand with distinct grains.", "a slab of wet, dark slate with sharp, realistic water condensation.", "a flat grid of hyper-detailed, bright turquoise mosaic pool tiles.", "a bed of smooth, wet sea glass pieces.", "a pristine, wet teak wood deck.", "a massive, flat block of crystal-clear, sharp arctic ice.", "a slab of wet, white porous coral rock.", "a flat, dark basalt stone partially submerged in crystal water.", "a piece of pristine, wet white limestone.", "a smooth, polished blue lapis lazuli stone slab."
-        ],
-        lighting: [
-            "Brilliant, high-key midday summer sun maximizing brightness.", "Intense light creating razor-sharp, dancing caustic reflections on the surface.", "Crisp, sparkling sunrise light creating sharp highlights on water drops.", "Cold, piercing arctic light enhancing the absolute clarity of the scene.", "Harsh, direct overhead sunlight casting deep, sharp shadows under the object.", "Golden hour light reflecting blindingly off the water ripples.", "Sharp, intense directional light revealing every micro-texture of the wet sand.", "Bright, diffused but directional tropical light creating a fresh, vibrant mood.", "Crisp side-light catching the sharp edges of the water droplets.", "Intense, pure white studio light mimicking a flawless summer day."
-        ],
-        build: buildPattern
-    },
-    // Slot 6: Color Blocking (Index 5)
-    5: {
-        environments: [
-            "a seamless, hyper-detailed vibrant terracotta pastel studio wall.", "a pristine, bright mustard yellow monochromatic room.", "a stark, bold cobalt blue architectural set.", "a flawless, soft millennial pink minimalist background.", "a clean, crisp sage green contemporary interior.", "a striking, bold crimson red seamless studio cyclorama.", "a perfectly smooth lavender pastel room.", "a sharp, dual-color split background with precise geometric division.", "a vibrant, energetic bright orange minimalist corner.", "a cool, pristine teal blue modern architectural wall."
-        ],
-        surfaces: [
-            "a perfectly smooth, color-matched matte resin surface.", "a flat, flawlessly painted wooden board.", "a seamless, hyper-detailed colored concrete slab.", "a pristine, glossy color-matched acrylic panel.", "a flat section of sharp, colored frosted glass.", "a seamless piece of vibrant, colored matte vinyl.", "a smooth, colored ceramic tile with razor-sharp edges.", "a flat, heavy block of colored industrial rubber.", "a pristine, color-matched anodized aluminum plate.", "a flawless, colored melamine board with microscopic texture."
-        ],
-        lighting: [
-            "A crisp architectural lighting line creating a perfect geometric shadow.", "Even, flat high-key light with a single razor-sharp drop shadow.", "A hard, diagonal light beam slicing perfectly across the colored wall.", "A sharp, intense circular spotlight highlighting the exact center.", "Crisp side-lighting creating a long, dramatic, sharp shadow.", "Bright, punchy pop-art style lighting with maximum color saturation.", "A sharp 'snoot' light creating a precise, hard-edged circle of illumination.", "High-contrast top light casting a sharp, heavy shadow straight down.", "Intense directional light highlighting microscopic imperfections in the matte paint.", "A razor-sharp dual shadow effect using two hard light sources."
-        ],
-        build: buildPattern
-    },
-    // Slot 7: Cozy Interior / Dom (Index 6)
-    6: {
-        environments: [
-            "a luxurious, modern minimalist living room with hyper-detailed furnishings.", "a crisp, rustic farmhouse kitchen with sharp architectural details.", "a bright, serene Scandinavian bedroom interior bathed in light.", "a pristine, high-end spa-like luxury bathroom interior.", "a cozy, sun-drenched reading nook with sharp, textured fabrics.", "a vibrant, bright glass conservatory filled with sharp, detailed indoor plants.", "a serene, minimalist Japanese-style interior with sharp wooden shoji screens.", "a sophisticated bohemian lounge with intricate, hyper-detailed rugs.", "a sleek, dark modern kitchen with razor-sharp cabinetry lines.", "a bright, airy home office with crisp, modern architectural lines."
-        ],
-        surfaces: [
-            "a rustic brushed oak wood table showing authentic, razor-sharp wood grain.", "a massive, pristine piece of dark walnut kitchen counter.", "a perfectly flat, tightly woven hyper-detailed linen cloth.", "a seamless, crisp white Carrara marble bathroom counter.", "a heavy, authentic slab of warm sandstone.", "a beautifully speckled, hyper-detailed modern terrazzo counter.", "a raw, aged pine board with sharp, distinct knots and cracks.", "a flat, tightly woven natural rattan mat with crisp textures.", "a polished, hyper-detailed concrete kitchen island surface.", "a pristine, smooth ceramic bathroom tile."
-        ],
-        lighting: [
-            "Radiant natural window light creating a crisp, long morning shadow.", "Warm, golden afternoon sun flooding the room with sharp, bright highlights.", "Crisp, bright ambient daylight revealing every microscopic texture of the wood.", "Sharp, directional light from an unseen window casting a precise frame shadow.", "Warm, inviting, yet intense natural light illuminating floating dust particles.", "Crisp, high-contrast morning light piercing through sheer curtains.", "Bright, indirect bounce light ensuring absolute clarity and sharpness.", "Intense, directional golden hour rays hitting the surface at a dramatic angle.", "Crisp, cool morning light offering perfect color accuracy and sharp edges.", "A sharp, intense sunbeam cutting straight across the table surface."
-        ],
-        build: buildPattern
-    },
-    // Slot 8: Urban Modern (Index 7)
-    7: {
-        environments: [
-            "a crystal-clear, modern financial district skyline at golden hour.", "a hyper-detailed, brutalist concrete architecture facade.", "a luxurious modern art museum interior with high ceilings.", "a bustling, high-end shopping street with glass boutiques.", "a stark, minimalist glass and steel skyscraper balcony.", "an industrial-chic luxury loft with exposed brick and steel beams.", "a pristine rooftop terrace overlooking a sprawling metropolis.", "a high-tech, futuristic subway station with clean metallic lines.", "a sophisticated luxury hotel lobby with geometric design.", "a sharp, dramatic view of a steel suspension bridge."
-        ],
-        surfaces: [
-            "a flat, dark textured asphalt slab with micro-gravel.", "a sleek, brushed stainless steel table.", "a block of raw, porous industrial dark concrete.", "a highly polished black Nero Marquina marble slab.", "a pristine panel of tinted architectural glass.", "a flat section of matte carbon fiber.", "a heavy, dark granite paving stone.", "a seamless slab of dark modern terrazzo.", "a piece of oxidized, dark architectural corten steel.", "a smooth, dark industrial micro-cement counter."
-        ],
-        lighting: [
-            "Cinematic warm sunlight casting a sharp, elongated contact shadow.", "Crisp, cold dawn light creating a high-contrast urban mood.", "Harsh midday geometric sunlight slicing through the scene.", "Dramatic side-lighting accentuating every micro-texture on the ground.", "Bright, reflective high-key light bouncing off surrounding glass facades.", "Intense golden hour rays piercing horizontally across the surface.", "Sharp architectural shadows intersecting across the foreground.", "Crisp studio-like strobe light mimicking high-end urban fashion photography.", "Subtle, directional ambient light with sharp micro-shadows.", "Contrasting dual-light setup: warm primary sun and cool blue ambient shadows."
-        ],
-        build: buildPattern
-    },
-    // Slot 9: Kontekst z PIM (Index 8)
-    8: {
-        environments: [
-            "a hyper-detailed, bright commercial photography studio.", "a dark, moody, hyper-realistic premium apothecary setting.", "a crisp, pristine organic farm background bathed in sunlight.", "a stark, hyper-clean minimal laboratory setting.", "a rustic, hyper-detailed ancient wooden apothecary background.", "a brilliant, bright white marble luxury kitchen interior.", "a dark, hyper-textured slate and stone environment.", "a vibrant, sun-drenched modern botanical greenhouse.", "a pristine, high-key clinical white studio setting.", "a hyper-detailed, raw industrial cosmetic workshop background."
-        ],
-        surfaces: [
-            "a clean, flat slate countertop featuring subtle natural chipping.", "a pristine slab of hyper-detailed white marble.", "a heavy, rustic oak chopping board with razor-sharp knife marks.", "a sleek, brushed surgical steel preparation table.", "a massive block of dark, unpolished black granite.", "a pristine, flawless white ceramic laboratory tile.", "a raw, porous concrete working surface.", "a piece of pristine frosted glass illuminated from below.", "a flat, heavy slice of dark basalt stone.", "a smooth, natural bamboo rolling mat."
-        ],
-        lighting: [
-            "Brilliant realistic lighting with a soft ambient bounce and sharp primary shadow.", "Surgical, intense bright light revealing absolute microscopic details.", "Moody, highly directional side-light enhancing the organic texture of the ingredients.", "Warm, crisp morning sun rays highlighting the natural freshness of the scene.", "Crisp, neutral daylight providing absolute 100% color accuracy.", "High-contrast overhead spotlighting creating dramatic, sharp shadows under the ingredients.", "Intense macro-photography lighting setup maximizing the sharpness of every grain.", "Crisp backlighting making transparent ingredients glow with sharp internal refractions.", "Sharp, direct sunlight mimicking a flawless outdoor harvest day.", "Intense, crisp 'beauty' lighting designed to make every organic detail pop."
-        ],
-        build: buildPatternIngredients
-    }
+/** Deterministyczny wybór elementu tablicy */
+function pick(rng, arr) {
+  return arr[Math.floor(rng() * arr.length)];
+}
+
+/** Deterministyczny wybór N różnych elementów */
+function pickN(rng, arr, n) {
+  const pool = [...arr];
+  const out = [];
+  while (out.length < n && pool.length) {
+    out.push(pool.splice(Math.floor(rng() * pool.length), 1)[0]);
+  }
+  return out;
+}
+
+// ============================================================================
+// [2] SŁOWNIKI SCEN — SKALA BLATU, ZERO MARMURU, ZERO POSTUMENTÓW
+// ============================================================================
+// Reguła żelazna: environment to zawsze ROZMYTE tło w skali pomieszczenia
+// widzianego zza blatu. Surface to zawsze powierzchnia, na której produkt
+// fizycznie stoi. Lighting zawsze podaje KIERUNEK światła (spójność z Relight).
+// ============================================================================
+
+const STYLE_DICTIONARIES = {
+  // --------------------------------------------------------------------------
+  COSMETICS_BEAUTY: {
+    surfaces: [
+      'a whitewashed oak wooden countertop',
+      'a matte cream ceramic tabletop',
+      'a natural linen cloth draped over a low table',
+      'a wet dark slate slab with water sheen',
+      'a warm beige sandstone counter',
+      'a round cork tray on a pale wooden shelf',
+      'a folded white terry towel on a bath ledge',
+      'a light brushed-concrete vanity top',
+      'a bamboo bath shelf with visible grain',
+      'a frosted glass shelf with soft reflections',
+    ],
+    environments: [
+      'a sunlit bathroom window with sheer curtain',
+      'lush out-of-focus green foliage',
+      'a soft warm neutral wall in morning light',
+      'a steamy shower glass panel',
+      'a pale linen curtain backdrop',
+      'a blurred spa interior with warm wood tones',
+      'a windowsill scene with soft daylight glow',
+      'a muted sage-green painted wall',
+      'a blurred shelf with ceramic vessels',
+      'a hazy bright bathroom interior',
+    ],
+    lighting: [
+      'soft golden-hour sunlight from the left',
+      'diffused morning window light from the right',
+      'gentle overhead softbox glow',
+      'warm side light casting long soft shadows to the right',
+      'bright airy high-key daylight',
+      'dappled sunlight filtering through leaves from above left',
+      'cool soft daylight from a window behind left',
+      'warm candle-like ambient glow from the right',
+      'crisp neutral studio daylight from the front left',
+      'low warm evening light from the left side',
+    ],
+  },
+  // --------------------------------------------------------------------------
+  HOUSEHOLD_CHEMISTRY: {
+    surfaces: [
+      'a polished light-grey concrete countertop',
+      'a brushed stainless steel worktop',
+      'a glossy white quartz kitchen counter',
+      'a pale grey ceramic tile surface',
+      'a clean matte white laminate countertop',
+      'a wet light-grey stone surface with fresh water droplets',
+      'a smooth tempered glass counter',
+      'a light oak kitchen worktop, freshly wiped',
+      'a white enamel surface with subtle sheen',
+      'a graphite composite sink edge',
+    ],
+    environments: [
+      'a bright modern kitchen, softly out of focus',
+      'a clean white tiled wall with soft reflections',
+      'a blurred laundry room with white cabinets',
+      'a sunlit kitchen window with green plant silhouettes',
+      'a minimal grey architectural wall',
+      'a blurred stack of fresh folded towels',
+      'a bright utility room with daylight',
+      'a soft-focus modern bathroom in white and chrome',
+      'a blurred kitchen scene with steel appliances',
+      'a clean pale-blue wall with morning light',
+    ],
+    lighting: [
+      'crisp high-key studio light from above',
+      'cool bright daylight from the left window',
+      'clean neutral light with sparkling water reflections',
+      'bright clinical light from the front right',
+      'soft cool daylight with gentle chrome reflections',
+      'fresh morning light from the right',
+      'even bright light with subtle blue undertone',
+      'strong window light from behind left, airy atmosphere',
+      'neutral daylight with crisp micro-shadows',
+      'cool skylight illumination from above',
+    ],
+  },
+  // --------------------------------------------------------------------------
+  BIOCIDAL_SPECIALIZED: {
+    surfaces: [
+      'a brushed stainless steel laboratory bench',
+      'a matte grey epoxy worktop',
+      'a light polished concrete surface',
+      'a clean white solid-surface counter',
+      'a graphite composite worktop with subtle texture',
+      'a wet dark grey stone slab, freshly disinfected',
+      'a pale industrial tile floor section',
+      'a smooth anthracite countertop',
+      'a clean galvanized metal shelf',
+      'a white ceramic lab bench with soft sheen',
+    ],
+    environments: [
+      'a bright blurred professional kitchen',
+      'a clean industrial wall in cool grey',
+      'a soft-focus greenhouse with green blur',
+      'a blurred garage workshop in daylight',
+      'a minimal concrete wall with cool light',
+      'a blurred stable interior with warm wood',
+      'a modern utility space, softly defocused',
+      'a bright warehouse window backdrop',
+      'a blurred garden shed with tools out of focus',
+      'a cool-toned professional facility interior',
+    ],
+    lighting: [
+      'strong clean overhead industrial light',
+      'cool daylight from a large window on the left',
+      'crisp neutral light with sharp foreground detail',
+      'bright even illumination with cool undertone',
+      'directional light from the right, technical mood',
+      'clean skylight from above with soft falloff',
+      'cold morning light from behind left',
+      'neutral high-key light, spotless atmosphere',
+      'focused beam light from the upper left',
+      'bright diffuse light with steel reflections',
+    ],
+  },
+  // --------------------------------------------------------------------------
+  NON_CHEMICAL_GENERAL: {
+    surfaces: [
+      'a light microcement tabletop',
+      'a natural oak wooden desk surface',
+      'a matte pastel-grey painted board',
+      'a warm beige textile runner on a table',
+      'a smooth birch plywood surface',
+      'a soft grey felt mat on a desk',
+      'a clean white matte tabletop',
+      'a terracotta ceramic tray on a shelf',
+      'a ribbed glass surface with soft reflections',
+      'a kraft paper covered work surface',
+    ],
+    environments: [
+      'a bright minimal interior wall, softly blurred',
+      'a blurred home office with warm daylight',
+      'a soft geometric wall with gentle shadow play',
+      'a blurred living room with neutral furniture',
+      'a pale wooden slat wall out of focus',
+      'a sunlit windowsill with a defocused plant',
+      'a muted two-tone painted wall',
+      'a blurred workshop shelf with tidy tools',
+      'a soft-focus hallway in scandinavian style',
+      'a warm grey studio backdrop with vignette',
+    ],
+    lighting: [
+      'balanced soft daylight from the left',
+      'warm afternoon light from the right window',
+      'even studio light with soft geometric shadows',
+      'gentle top light with smooth falloff',
+      'morning light casting a soft diagonal shadow',
+      'neutral bright light, editorial mood',
+      'soft rim light from behind right',
+      'diffuse skylight with airy feel',
+      'directional window light from the front left',
+      'calm even light with subtle warm tint',
+    ],
+  },
 };
 
-const paddingVariants = [
-    { paddingTop: "0.08", paddingBottom: "0.08", paddingLeft: "0.08", paddingRight: "0.45" }, // A: Asymetria Lewa
-    { paddingTop: "0.32", paddingBottom: "0.20", paddingLeft: "0.32", paddingRight: "0.32" }, // B: Daleki Hero
-    { paddingTop: "0.18", paddingBottom: "0.12", paddingLeft: "0.48", paddingRight: "0.08" }, // C: Asymetria Prawa
-    { paddingTop: "0.18", paddingBottom: "0.18", paddingLeft: "0.22", paddingRight: "0.22" }  // D: Klasyczny Hero
+// ============================================================================
+// [3] PROPS ENGINE — składniki z PIM => rekwizyty na zdjęciu
+// ============================================================================
+// Klucze: lowercase, dopasowanie substring w opisie/składzie z Węzła 1.
+// Wartości: gotowe frazy EN opisujące rekwizyt LEŻĄCY na powierzchni
+// (nigdy lewitujący, nigdy zasłaniający front produktu).
+// ============================================================================
+
+const INGREDIENT_PROPS = {
+  // botanika / zioła
+  'rozmaryn':        'fresh rosemary sprigs',
+  'rosmarino':       'fresh rosemary sprigs',
+  'rosemary':        'fresh rosemary sprigs',
+  'lawend':          'dried lavender stems',
+  'lavend':          'dried lavender stems',
+  'szałwi':          'fresh sage leaves',
+  'sage':            'fresh sage leaves',
+  'eukaliptus':      'a eucalyptus branch',
+  'eucalyptus':      'a eucalyptus branch',
+  'rumianek':        'chamomile flowers',
+  'chamomile':       'chamomile flowers',
+  'mięt':            'fresh mint leaves',
+  'mint':            'fresh mint leaves',
+  'aloes':           'a cut aloe vera leaf with gel drops',
+  'aloe':            'a cut aloe vera leaf with gel drops',
+  'pokrzyw':         'fresh nettle leaves',
+  'zielona herbata': 'loose green tea leaves',
+  'tè verde':        'loose green tea leaves',
+  'green tea':       'loose green tea leaves',
+  'herbat':          'loose green tea leaves',
+  // owoce / kuchnia
+  'cytryn':          'fresh lemon slices',
+  'lemon':           'fresh lemon slices',
+  'pomarańcz':       'fresh orange slices',
+  'orange':          'fresh orange slices',
+  'granat':          'pomegranate seeds scattered nearby',
+  'malin':           'a few fresh raspberries',
+  'kokos':           'a cracked coconut half',
+  'coconut':         'a cracked coconut half',
+  'migdał':          'raw almonds',
+  'almond':          'raw almonds',
+  'owies':           'scattered oat flakes',
+  'oat':             'scattered oat flakes',
+  'miód':            'a honey dipper with golden honey drips',
+  'honey':           'a honey dipper with golden honey drips',
+  'wanili':          'vanilla pods',
+  // aktywne / techniczne => wizualne metafory
+  'hialuron':        'clear water droplets glistening on the surface',
+  'ialuronico':      'clear water droplets glistening on the surface',
+  'hyaluronic':      'clear water droplets glistening on the surface',
+  'kolagen':         'a small dish of clear serum drops',
+  'collagen':        'a small dish of clear serum drops',
+  'keratyn':         'a silky strand of light fabric',
+  'keratin':         'a silky strand of light fabric',
+  'witamina c':      'fresh orange slices',
+  'vitamin c':       'fresh orange slices',
+  'węgiel':          'pieces of activated charcoal',
+  'charcoal':        'pieces of activated charcoal',
+  'glinka':          'a small bowl of powdered clay',
+  'clay':            'a small bowl of powdered clay',
+  'sól morska':      'coarse sea salt crystals',
+  'sea salt':        'coarse sea salt crystals',
+  'argan':           'argan nuts and a small oil dish',
+  'shea':            'a chunk of raw shea butter',
+  'jojoba':          'golden oil drops in a glass dish',
+  'oliw':            'olive branch with green olives',
+  'olive':           'olive branch with green olives',
+  'ocean':           'smooth sea pebbles',
+  'alga':            'dried seaweed strands',
+  'detox':           'cucumber slices and mint leaves',
+};
+
+/**
+ * Rekwizyty neutralne — używane gdy PIM nie da dopasowań,
+ * żeby produkt NIGDY nie stał sam na pustej scenie.
+ */
+const NEUTRAL_PROPS = {
+  COSMETICS_BEAUTY: [
+    'a folded cream cotton towel',
+    'a small ceramic dish',
+    'smooth river stones',
+    'a sprig of dried grass in soft focus',
+    'clear water droplets on the surface',
+    'a natural loofah sponge',
+  ],
+  HOUSEHOLD_CHEMISTRY: [
+    'a folded fresh white towel',
+    'sparkling clean glassware in the background',
+    'a natural cellulose sponge',
+    'fresh water droplets on the surface',
+    'a neatly folded grey microfiber cloth',
+  ],
+  BIOCIDAL_SPECIALIZED: [
+    'clean protective gloves folded neatly',
+    'a fresh microfiber cloth',
+    'water droplets on the clean surface',
+    'a small steel tray',
+  ],
+  NON_CHEMICAL_GENERAL: [
+    'a folded linen cloth',
+    'a small ceramic tray',
+    'a smooth wooden block',
+    'a coil of natural twine',
+  ],
+};
+
+/**
+ * Ekstrakcja rekwizytów z twardego tekstu PIM (nazwa + linia + opis + skład).
+ * Zwraca max `limit` deterministycznie wybranych fraz.
+ */
+const fs = require('fs');
+const path = require('path');
+let learnedProps = {};
+try {
+  const p = path.join(__dirname, 'learned_props.json');
+  if (fs.existsSync(p)) {
+    learnedProps = JSON.parse(fs.readFileSync(p, 'utf8'));
+  }
+} catch (e) {
+  console.warn('[photoroom.prompts] Brak lub błąd pliku learned_props.json', e.message);
+}
+
+function getKnownIngredientKeys() {
+  return Object.keys({ ...INGREDIENT_PROPS, ...learnedProps });
+}
+
+/**
+ * Ekstrakcja rekwizytów z twardego tekstu PIM (nazwa + linia + opis + skład).
+ * Zwraca max `limit` deterministycznie wybranych fraz.
+ */
+function extractIngredientProps(pimText, rng, limit = 2, patchAsObject = {}) {
+  const text = (pimText || '').toLowerCase();
+  const matched = [];
+  const activeDictionary = { ...INGREDIENT_PROPS, ...learnedProps, ...patchAsObject };
+  
+  for (const [needle, phrase] of Object.entries(activeDictionary)) {
+    if (text.includes(needle.toLowerCase()) && !matched.includes(phrase)) matched.push(phrase);
+  }
+  if (matched.length <= limit) return matched;
+  return pickN(rng, matched, limit);
+}
+
+// ============================================================================
+// [4] PRESETY KOMPOZYCJI — produkt wędruje po kadrze i zmienia rozmiar
+// ============================================================================
+// Wysokość produktu w kadrze = 1 - (pT + pB). Zakres: 0.50 … 0.93.
+// verticalAlignment=bottom prawie zawsze — produkt musi STAĆ na powierzchni,
+// a dolny padding definiuje ile "blatu" widać na pierwszym planie.
+// UWAGA API: suma paddingów przeciwległych krawędzi musi być < 1.0.
+// ============================================================================
+
+const COMPOSITIONS = [
+  // 0: Duży hero, mocno w lewo — dużo "powietrza" po prawej na klimat sceny
+  { pT: 0.06, pB: 0.04, pL: 0.08, pR: 0.42, hA: 'left',   vA: 'bottom', label: 'BIG_LEFT' },
+  // 1: Duży hero, mocno w prawo
+  { pT: 0.06, pB: 0.04, pL: 0.42, pR: 0.08, hA: 'right',  vA: 'bottom', label: 'BIG_RIGHT' },
+  // 2: Średni, lekka asymetria lewa, więcej blatu na dole
+  { pT: 0.14, pB: 0.10, pL: 0.14, pR: 0.30, hA: 'left',   vA: 'bottom', label: 'MID_LEFT' },
+  // 3: Średni, lekka asymetria prawa
+  { pT: 0.14, pB: 0.10, pL: 0.30, pR: 0.14, hA: 'right',  vA: 'bottom', label: 'MID_RIGHT' },
+  // 4: Daleki hero — mały produkt, scena gra pierwsze skrzypce
+  { pT: 0.32, pB: 0.16, pL: 0.28, pR: 0.28, hA: 'center', vA: 'bottom', label: 'FAR_HERO' },
+  // 5: Daleki, zepchnięty w prawo dolne — mocno edytorialny kadr
+  { pT: 0.30, pB: 0.12, pL: 0.44, pR: 0.12, hA: 'right',  vA: 'bottom', label: 'FAR_RIGHT_LOW' },
+  // 6: Klasyczny hero centralny, oddychający
+  { pT: 0.12, pB: 0.08, pL: 0.20, pR: 0.20, hA: 'center', vA: 'bottom', label: 'CLASSIC_HERO' },
+  // 7: Ciasny kadr — produkt dominuje, prawie dotyka krawędzi
+  { pT: 0.03, pB: 0.02, pL: 0.12, pR: 0.12, hA: 'center', vA: 'bottom', label: 'TIGHT' },
+  // 8: Niski horyzont — produkt wysoko, widoczna duża tafla blatu
+  { pT: 0.08, pB: 0.22, pL: 0.16, pR: 0.28, hA: 'left',   vA: 'bottom', label: 'DEEP_TABLE' },
+  // 9: Makro-detal (używany ze slotem CROP — patrz [6])
+  { pT: 0.00, pB: 0.00, pL: 0.06, pR: 0.06, hA: 'center', vA: 'center', label: 'MACRO_CROP' },
 ];
 
-function getPaddingForSlot(index, seed) {
-    if (index === 0) {
-        // Slot 1 - Wymuszenie 90% pokrycia kadru (0.05 marginesu)
-        return { paddingTop: "0.05", paddingRight: "0.05", paddingBottom: "0.05", paddingLeft: "0.05" };
-    }
-    
-    // Sloty 2-9: Czysta losowość (Math.random) w celu zapobiegania monokulturze (SSOT 6.0)
+// ============================================================================
+// [5] PLAN SLOTÓW — co się dzieje w każdym slocie galerii
+// ============================================================================
+// role:
+//  'thumbnail'  => białe tło (SSOT 4.0, bez zmian merytorycznych)
+//  'hero'       => czysty lifestyle, 1 neutralny rekwizyt
+//  'macro'      => crop źródła + tło tekstury (detal etykiety)
+//  'ingredients'=> scena bogata w składniki z PIM (2 frazy)
+//  'mood'       => daleki hero, scena klimatyczna, 1 rekwizyt
+// ============================================================================
+
+const SLOT_PLAN = {
+  1: { role: 'thumbnail' },
+  2: { role: 'hero',        propCount: 1, compPool: [0, 1, 6] },
+  3: { role: 'macro',       propCount: 1, compPool: [9] },
+  4: { role: 'ingredients', propCount: 2, compPool: [2, 3, 8] },
+  5: { role: 'hero',        propCount: 1, compPool: [2, 3] },
+  6: { role: 'mood',        propCount: 1, compPool: [4, 5] },
+  7: { role: 'ingredients', propCount: 2, compPool: [0, 1, 8] },
+  8: { role: 'hero',        propCount: 1, compPool: [7, 6] },
+  9: { role: 'ingredients', propCount: 2, compPool: [2, 3, 4] },
+};
+
+// ============================================================================
+// [6] BUDOWA PROMPTU — szablon z głębią ostrości i kotwiczeniem rekwizytów
+// ============================================================================
+
+function buildBackgroundPrompt({ role, surface, environment, lighting, props }) {
+  const propsClause = props.length
+    ? `Resting flat on the surface nearby: ${props.join(' and ')}. `
+    : '';
+
+  if (role === 'macro') {
+    // Detal etykiety: tło to czysta, rozmyta tekstura — zero konkurencji
+    return (
+      `Extreme close-up product photography. ${surface} in sharp focus, ` +
+      `${propsClause}` +
+      `background is ${environment}, heavily blurred, very shallow depth of field. ` +
+      `${lighting}. Photorealistic, macro lens look, no people, no text, no logos.`
+    );
+  }
+
+  return (
+    `Close-up commercial product photography scene. ${surface} in the foreground, ` +
+    `${propsClause}` +
+    `background: ${environment}, softly blurred, shallow depth of field. ` +
+    `${lighting}. Photorealistic, natural perspective at counter height, ` +
+    `no people, no text, no logos.`
+  );
+}
+
+// ============================================================================
+// [7] GŁÓWNY GENERATOR ŻĄDANIA
+// ============================================================================
+
+const PHOTOROOM_ENDPOINT = 'https://image-api.photoroom.com/v2/edit';
+
+const MODEL_HEADERS = {
+  SHADOWS:    { 'pr-ai-shadows-model-version': '2026-04-15' },
+  BACKGROUND: { 'pr-ai-background-model-version': 'background-studio-beta-2025-03-17' },
+};
+
+/**
+ * Buduje kompletny opis żądania dla jednego slotu.
+ *
+ * @param {Object} cfg
+ * @param {string} cfg.ean              GTIN/EAN produktu
+ * @param {number} cfg.slot             1..9
+ * @param {string} cfg.category         Klucz z STYLE_DICTIONARIES (Węzeł 7)
+ * @param {string} cfg.pimText          Konkatenacja: product_name + line + opis + skład (Węzeł 1)
+ * @param {Blob|Buffer} cfg.imageBlob   Zdjęcie źródłowe (dla slotu 'macro' — już przycięte!)
+ * @param {Object} cfg.patchAsObject    Łatki ze słownika od Agenta 8
+ * @param {Object} cfg.styleHints       Filtry z Agenta 8
+ * @returns {{ endpoint, headers, formData, meta }}
+ */
+function buildPhotoroomRequest({ ean, slot, category, pimText, imageBlob, patchAsObject = {}, styleHints = null }) {
+  const plan = SLOT_PLAN[slot];
+  if (!plan) throw new Error(`Nieznany slot: ${slot}`);
+
+  const fd = new FormData();
+  fd.append('imageFile', imageBlob, `${ean}_src.jpg`);
+  fd.append('removeBackground', 'true');
+  fd.append('outputSize', '1080x1080');
+  fd.append('export.format', 'jpeg');
+
+  // --------------------------------------------------------------------------
+  // SLOT 1 — miniaturka Allegro (RGB 255,255,255) — logika bez zmian
+  // --------------------------------------------------------------------------
+  if (plan.role === 'thumbnail') {
+    fd.append('background.color', '#FFFFFF');
+    fd.append('padding', '0.05');
+    fd.append('shadow.mode', 'ai.soft');
     return {
-        paddingTop: (Math.random() * (0.40 - 0.05) + 0.05).toFixed(2),
-        paddingRight: (Math.random() * (0.35 - 0.05) + 0.05).toFixed(2),
-        paddingBottom: (Math.random() * (0.25 - 0.05) + 0.05).toFixed(2),
-        paddingLeft: (Math.random() * (0.35 - 0.05) + 0.05).toFixed(2)
+      endpoint: PHOTOROOM_ENDPOINT,
+      headers: { ...MODEL_HEADERS.SHADOWS },
+      formData: fd,
+      meta: { slot, role: 'thumbnail', ean },
     };
+  }
+
+  // --------------------------------------------------------------------------
+  // SLOTY 2-9 — lifestyle
+  // --------------------------------------------------------------------------
+  const seed = seedForSlot(ean, slot);
+  const rng = mulberry32(seed);
+
+  const dict = STYLE_DICTIONARIES[category] || STYLE_DICTIONARIES.NON_CHEMICAL_GENERAL;
+  
+  let validSurfaces = dict.surfaces;
+  let validEnvironments = dict.environments;
+  
+  if (styleHints) {
+    if (styleHints.avoid_surface_keywords && styleHints.avoid_surface_keywords.length > 0) {
+      const filtered = validSurfaces.filter(s => !styleHints.avoid_surface_keywords.some(k => s.toLowerCase().includes(k.toLowerCase())));
+      if (filtered.length > 0) validSurfaces = filtered;
+    }
+    if (styleHints.avoid_environment_keywords && styleHints.avoid_environment_keywords.length > 0) {
+      const filtered = validEnvironments.filter(e => !styleHints.avoid_environment_keywords.some(k => e.toLowerCase().includes(k.toLowerCase())));
+      if (filtered.length > 0) validEnvironments = filtered;
+    }
+  }
+
+  const surface     = pick(rng, validSurfaces);
+  const environment = pick(rng, validEnvironments);
+  const lighting    = pick(rng, dict.lighting);
+
+  // Rekwizyty: najpierw PIM, fallback na neutralne (produkt NIGDY sam)
+  let props = [];
+  if (plan.role === 'ingredients' || plan.role === 'hero' || plan.role === 'mood' || plan.role === 'macro') {
+    props = extractIngredientProps(pimText, rng, plan.propCount, patchAsObject);
+    while (props.length < plan.propCount) {
+      const neutral = pick(rng, NEUTRAL_PROPS[category] || NEUTRAL_PROPS.NON_CHEMICAL_GENERAL);
+      if (!props.includes(neutral)) props.push(neutral);
+      else break; // zabezpieczenie przed pętlą przy 1-elementowej puli
+    }
+  }
+
+  const prompt = buildBackgroundPrompt({ role: plan.role, surface, environment, lighting, props });
+
+  fd.append('background.prompt', prompt);
+  fd.append('background.expandPrompt', 'never'); // nowsze API: background.expandPrompt.mode=ai.never
+  fd.append('background.seed', String(seed));
+  fd.append('quality', 'advanced');
+
+  // >>> KLUCZ DO REALIZMU <<<
+  fd.append('lighting.mode', 'ai.auto');  // AI Relight: produkt prześwietlony pod scenę
+  fd.append('shadow.mode', 'ai.soft');    // miękki cień spójny z kierunkiem światła
+
+  // Kompozycja — deterministyczny wybór z puli przypisanej do slotu
+  const comp = COMPOSITIONS[pick(rng, plan.compPool)];
+  fd.append('paddingTop', String(comp.pT));
+  fd.append('paddingBottom', String(comp.pB));
+  fd.append('paddingLeft', String(comp.pL));
+  fd.append('paddingRight', String(comp.pR));
+  fd.append('horizontalAlignment', comp.hA);
+  fd.append('verticalAlignment', comp.vA);
+
+  if (plan.role === 'macro') {
+    // Przycięta krawędź źródła ma się kleić do krawędzi kadru
+    fd.append('ignorePaddingAndSnapOnCroppedSides', 'true');
+  }
+
+  return {
+    endpoint: PHOTOROOM_ENDPOINT,
+    headers: { ...MODEL_HEADERS.BACKGROUND },
+    formData: fd,
+    meta: { slot, role: plan.role, ean, seed, surface, environment, lighting, props, composition: comp.label, prompt },
+  };
 }
 
-async function getDeterministicPromptForSlot(index, ean, productDetailsText, apiKey, generateWithRetry) {
-    if (index === 0) return "Odczytaj ze zdjęcia główny składnik produktu i umieść go centralnie za produktem na czystym, nieskazitelnie białym tle. Oryginalny produkt musi pozostać w 100% nienaruszony - absolutny zakaz modyfikacji jego kształtu, etykiety czy proporcji.";
-    
-    // Sloty 2-9: Czysta losowość, nadpisanie ADR-027 na rzecz unikalności każdego zdjęcia (SSOT 6.0)
-    const seed = Math.floor(Math.random() * 2147483647);
-    const tags = extractProductTags(productDetailsText);
-    const dict = SLOTS_DICTIONARIES[index];
-    
-    if (!dict) return "Photoroom_Native_AI";
-    
-    let environment = dict.environments[seed % dict.environments.length];
-    let surface = dict.surfaces[seed % dict.surfaces.length];
-    let lighting = dict.lighting[seed % dict.lighting.length];
-    
-    // Nadpisywanie dla Detox/Węgiel
-    if (tags.includes('detox') && dict.surfaces.some(s => s.includes('black') || s.includes('dark') || s.includes('slate') || s.includes('concrete'))) {
-        const darkSurfaces = dict.surfaces.filter(s => s.includes('dark') || s.includes('black') || s.includes('charcoal') || s.includes('obsidian') || s.includes('slate') || s.includes('concrete'));
-        if (darkSurfaces.length > 0) surface = darkSurfaces[seed % darkSurfaces.length];
-    }
+// ============================================================================
+// [8] PRE-PROCESSING DLA SLOTU MAKRO (slot 3)
+// ============================================================================
+// Crop źródła PRZED wysyłką => autentyczne "drugie ujęcie" z jednego zdjęcia.
+// Wymaga: npm i sharp
+// ============================================================================
 
-    if (index === 8) { // Slot 9 - PIM Ingredients
-        let ingredients = "natural elements";
-        if (apiKey) {
-            try {
-                const genAI = new GoogleGenerativeAI(apiKey);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { temperature: 0.1, thinkingConfig: { thinkingBudget: 0 } }});
-                const promptInstruction = `Extract the main 2-3 natural active INCI ingredients and their actions from this product data (specifically from 'Moduł 3' if present). Translate them to English physical props as a comma separated list (e.g. 'sprigs of lavender, fresh aloe vera leaves'). If none found, reply with "natural elements". Data: ${productDetailsText}`;
-                const result = await generateWithRetry(model, promptInstruction, 2, "Agent_Slot9_Ingredients");
-                ingredients = result.response.text().replace(/\n/g, '').trim();
-                console.log("[Photoroom Slot 9] Wyekstrahowano składniki:", ingredients);
-            } catch (e) {
-                console.error("[Photoroom Slot 9] Błąd pobierania składników (fallback):", e.message);
-            }
-        }
-        return dict.build(environment, surface, lighting, ingredients);
-    }
-
-    return dict.build(environment, surface, lighting);
+async function cropForMacroSlot(sourceBuffer, topFraction = 0.62) {
+  const sharp = require('sharp');
+  const img = sharp(sourceBuffer);
+  const { width, height } = await img.metadata();
+  return img
+    .extract({ left: 0, top: 0, width, height: Math.round(height * topFraction) })
+    .jpeg({ quality: 95, chromaSubsampling: '4:4:4' }) // wysoka jakość, metadane patrz [9]
+    .toBuffer();
 }
+
+// ============================================================================
+// [9] AI ACT / COMPLIANCE — higiena metadanych (art. 50, od 02.08.2026)
+// ============================================================================
+// 1. Warstwa produktu = prawdziwe zdjęcie. NIE używamy beautify.mode ani
+//    żadnej edycji dotykającej opakowania. AI generuje WYŁĄCZNIE tło i cień.
+// 2. Postprocessing nie może zdzierać metadanych C2PA/IPTC z odpowiedzi
+//    Photoroomu. Jeśli rekompresujesz (sharp), przenieś metadane jawnie
+//    i dopisz oznaczenie kompozytu:
+//
+//    const exifr = piexif / exiftool-vendored — rekomendowane exiftool:
+//    XMP-iptcExt:DigitalSourceType =
+//      "http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia"
+//
+// 3. W opisie oferty Allegro trzymamy stałą klauzulę:
+//    "Zdjęcia nr 2-9 przedstawiają aranżacje — tła wygenerowane cyfrowo.
+//     Wygląd produktu i opakowania jest autentyczny."
+// ============================================================================
+
+const AI_ACT_DISCLOSURE_PL =
+  'Zdjęcia aranżacyjne (2-9): tła wygenerowane cyfrowo. ' +
+  'Wygląd produktu i opakowania jest autentyczny.';
+
+// ============================================================================
+// [10] PRZYKŁAD UŻYCIA (orchestrator / Węzeł 0)
+// ============================================================================
+//
+// const fs = require('fs');
+// const src = fs.readFileSync('./uploads/8033874953366.jpg');
+//
+// for (let slot = 1; slot <= 9; slot++) {
+//   const blob = new Blob(
+//     [ SLOT_PLAN[slot].role === 'macro' ? await cropForMacroSlot(src) : src ],
+//     { type: 'image/jpeg' }
+//   );
+//   const req = buildPhotoroomRequest({
+//     ean: '8033874953366',
+//     slot,
+//     category: 'COSMETICS_BEAUTY',
+//     pimText: 'Equilibra Rosmarino Ialuronico Dermo Shampoo Rinforzante ' +
+//              'acido ialuronico tè verde rozmaryn zielona herbata',
+//     imageBlob: blob,
+//   });
+//   const res = await fetch(req.endpoint, {
+//     method: 'POST',
+//     headers: { 'x-api-key': process.env.PHOTOROOM_KEY, ...req.headers },
+//     body: req.formData,
+//   });
+//   fs.writeFileSync(`./out/${req.meta.ean}_slot${slot}.jpg`,
+//                    Buffer.from(await res.arrayBuffer()));
+//   console.log(`[slot ${slot}] ${req.meta.role} | ${req.meta.composition ?? ''} | seed=${req.meta.seed ?? '-'}`);
+// }
+//
+// ============================================================================
 
 module.exports = {
-    getDeterministicPromptForSlot,
-    getPaddingForSlot,
-    hashSKU
+  hashSKU,
+  seedForSlot,
+  mulberry32,
+  STYLE_DICTIONARIES,
+  INGREDIENT_PROPS,
+  NEUTRAL_PROPS,
+  COMPOSITIONS,
+  SLOT_PLAN,
+  extractIngredientProps,
+  buildBackgroundPrompt,
+  buildPhotoroomRequest,
+  getKnownIngredientKeys,
+  cropForMacroSlot,
+  AI_ACT_DISCLOSURE_PL,
+  PHOTOROOM_ENDPOINT,
+  MODEL_HEADERS,
 };

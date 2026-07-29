@@ -323,7 +323,9 @@ ${fullSot09}
         const psychologyData = await AiService.runNode7_Psychology(product.name, copywriterData, legalData, orchestratorMapping);
         
         broadcastStatus("FAZA_3_CREATION", ["Agent_8_Scenographer"], { Agent_7_Psychology: "COMPLETED", Agent_8_Scenographer: "IN_PROGRESS" });
-        const scenographerData = await AiService.runNode8_Scenographer(product.name, { target: "Świadomy konsument" });
+        const { getKnownIngredientKeys } = require('./photoroom.prompts');
+        const knownKeys = getKnownIngredientKeys();
+        const scenographerData = await AiService.runNode8_Scenographer(product.name, autofillData, "COSMETICS_BEAUTY", knownKeys, false);
 
         // ==========================================
         // FAZA 4: AUDIT (Vision & Sentinel)

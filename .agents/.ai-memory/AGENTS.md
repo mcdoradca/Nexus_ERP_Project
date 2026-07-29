@@ -29,5 +29,4 @@ Jako Agent AI odpowiadasz za kompletne, bezobsługowe dostarczenie rozwiązań p
 ## KATEGORYCZNY NAKAZ GITHUB
 - **ZASADA ABSOLUTNA:** Zawsze czekaj na wyraźną akceptację użytkownika przed uruchomieniem komendy `git push`. Kategoryczny nakaz czekania na wszystkie Akceptacje zmienianych plików przed wypchnięciem zmian na GitHub.
 
-## HISTORIA ARCHITEKTURY
-- **2026-07-28**: Agent 3 (SEO Title) zostal usuniety z systemu z powodu chronicznego przekraczania limitu tokenow 429 API (Quota Exceeded) generowanego przez potezne dane bazowe. Funkcje tytulu pelni fallback (product.name).
+

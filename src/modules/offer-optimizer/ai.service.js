@@ -798,7 +798,7 @@ Odpowiedz wyĹ‚Ä…cznie czystym obiektem JSON:
 
 // UsuniÄ™to stare getPlaybookPromptForSlot i getPaddingForSlot na rzecz moduĹ‚u photoroom.prompts.js
 
-async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
+async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0, scenography = null) {
     const photoroomKey = (process.env.PHOTOROOM_API_KEY && process.env.PHOTOROOM_API_KEY !== "TBD") 
         ? process.env.PHOTOROOM_API_KEY 
         : "sandbox_sk_pr_default_9f10500b15c19db1e2f8aee29e1671ac7ff33aa2";
@@ -851,10 +851,24 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         }
     }
 
-    // 4. Pobranie żądania Photoroom API z modułu LEGO 2.0 (SSOT 6.0)
+    let patchAsObject = {};
+    let styleHints = null;
+
+    if (scenography) {
+        if (scenography.pim_props_text) productDetailsText = scenography.pim_props_text;
+        if (scenography.props_dictionary_patch && Array.isArray(scenography.props_dictionary_patch)) {
+            scenography.props_dictionary_patch.forEach(p => {
+                if (p.match_key && p.prop_phrase_en) {
+                    patchAsObject[p.match_key.toLowerCase()] = p.prop_phrase_en;
+                }
+            });
+        }
+        if (scenography.style_hints) styleHints = scenography.style_hints;
+    }
+
     let req;
     try {
-        req = buildPhotoroomRequest({ ean, slot, category: categoryType, pimText: productDetailsText, imageBlob });
+        req = buildPhotoroomRequest({ ean, slot, category: categoryType, pimText: productDetailsText, imageBlob, patchAsObject, styleHints });
     } catch (e) {
         logLifestyleEvent('ERROR', 'Błąd podczas budowania żądania Photoroom (SSOT 6.0)', { error: e.message });
         throw e;
@@ -1261,19 +1275,72 @@ async function runNode7_Psychology(productName, htmlDraft, sentimentData, ragKno
     }
 }
 
-async function runNode8_Scenographer(productName, targetAudience) {
-    console.log(`[Swarm Node 8] Scenographer start...`);
+async function runNode8_Scenographer(productName, autofillData, category, knownKeys, curationMode = false) {
+    console.log(`[Swarm Node 8] Ingredient Mapper start...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.1-pro-preview",
             tools: [{ googleSearch: {} }],
-            generationConfig: { temperature: 0.4, topP: 0.5, responseMimeType: "application/json" }
+            generationConfig: { temperature: 0.2, topP: 0.5, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(8);
-        const prompt = `${systemPrompt}\n\n--- DANE WEJĹšCIOWE ---\nPRODUKT: ${productName}\nGRUPA DOCELOWA: ${JSON.stringify(targetAudience)}`;
-        return await generateWithRetry(model, prompt, 2, "Agent_8_Scenographer", true);
+        
+        const payload = {
+            pipeline_id: "LIFESTYLE-" + Date.now(),
+            curation_mode: curationMode,
+            node_1_pim: {
+                gtin_ean: autofillData.ean || "UNKNOWN",
+                brand: autofillData.producent || "Brak",
+                line: autofillData.linia || "Brak",
+                product_name: productName,
+                description_full: autofillData.opis_pelny || "Brak",
+                inci_or_composition: autofillData.sklad || "Brak",
+                packaging_dominant_colors: null,
+                verified_certificates: []
+            },
+            node_7_psychology: {
+                product_category: category || "NON_CHEMICAL_GENERAL"
+            },
+            props_engine_known_keys: knownKeys || []
+        };
+        
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE (INPUT PAYLOAD) ---\n${JSON.stringify(payload)}`;
+        
+        // Zgodnie z wytycznymi z Agent_8_prompt_v4 używamy Gemini 3.1 Pro (wymaga go grounding w starszej wersji albo do analizy skomplikowanych PIM)
+        // A wait, w prompt_v4.md jest "Gemini 3.1 Pro".
+        const responseJson = await generateWithRetry(model, prompt, 2, "Agent_8_Scenographer", true);
+        
+        // Jeśli łatki wygenerowane, spróbujmy zapisać je do pliku (uczenie słownika)
+        if (responseJson && responseJson.props_dictionary_patch && responseJson.props_dictionary_patch.length > 0) {
+            const fs = require('fs');
+            const path = require('path');
+            const p = path.join(__dirname, 'learned_props.json');
+            try {
+                let learned = {};
+                if (fs.existsSync(p)) {
+                    learned = JSON.parse(fs.readFileSync(p, 'utf8'));
+                }
+                let changed = false;
+                for (const patch of responseJson.props_dictionary_patch) {
+                    if (patch.match_key && patch.prop_phrase_en) {
+                        if (!learned[patch.match_key]) {
+                            learned[patch.match_key] = patch.prop_phrase_en;
+                            changed = true;
+                        }
+                    }
+                }
+                if (changed) {
+                    fs.writeFileSync(p, JSON.stringify(learned, null, 2), 'utf8');
+                    console.log(`[Swarm Node 8] Nauczono słownik nowych rekwizytów!`);
+                }
+            } catch (e) {
+                console.error("[Swarm Node 8] Błąd zapisu do learned_props.json:", e.message);
+            }
+        }
+        
+        return responseJson;
     } catch (err) {
-        console.error("[Swarm Node 8] BĹ‚Ä…d krytyczny:", err.message);
+        console.error("[Swarm Node 8] Błąd krytyczny:", err.message);
         throw err;
     }
 }

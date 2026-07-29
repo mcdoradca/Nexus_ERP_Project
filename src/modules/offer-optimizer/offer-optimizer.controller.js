@@ -497,7 +497,16 @@ const generateLifestyle = async (req, res) => {
         (async () => {
             try {
                 console.log(`[Lifestyle AI Async] Rozpoczęto przetwarzanie zadania ${jobId} dla EAN: ${ean}, Slot: ${imageIndex}`);
-                const aiResult = await AiService.generateClaidLifestyle(imageBase64, sourceImageUrl, ean, imageIndex);
+                
+                let scenography = null;
+                if (ean) {
+                    const product = await prisma.product.findUnique({ where: { ean } });
+                    if (product && product.offerDraft && product.offerDraft.scenography) {
+                        scenography = product.offerDraft.scenography;
+                    }
+                }
+                
+                const aiResult = await AiService.generateClaidLifestyle(imageBase64, sourceImageUrl, ean, imageIndex, scenography);
                 const newImageBase64 = aiResult.base64;
                 const visualTrendReport = aiResult.visualTrendReport;
                 
