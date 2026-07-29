@@ -183,8 +183,10 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 2, agentId =
                     isSuccess = true;
                     return parsedData;
                 } catch (parseError) {
-                    broadcastLog(`BĹ‚Ä…d parsowania JSON: ${parseError.message}`);
-                    throw new Error(`JSON_PARSE_ERROR: ${parseError.message} | Payload snippet: ${cleanText.substring(0, 100)}`);
+                    const snippet = cleanText ? cleanText.substring(0, 150) : "PUSTY_PAYLOAD";
+                    broadcastLog(`[${agentId}] Błąd parsowania JSON: ${parseError.message}`);
+                    console.error(`[${agentId}] JSON_PARSE_ERROR. Pełny zepsuty tekst (dł: ${cleanText.length}):\n`, cleanText);
+                    throw new Error(`JSON_PARSE_ERROR: [Agent: ${agentId}] ${parseError.message} | Payload snippet: ${snippet}`);
                 }
             }
             
