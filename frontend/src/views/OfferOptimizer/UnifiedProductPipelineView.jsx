@@ -1072,8 +1072,8 @@ export const UnifiedProductPipelineView = ({
                                                        headers: { 'Authorization': `Bearer ${token}` }
                                                     });
                                                     if(!res.ok) throw new Error('Błąd usuwania API');
-                                                    setIsNewProductModalOpen(false);
-                                                    fetchData();
+                                                    if (onClose) onClose();
+                                                    if (fetchAppGlobalData) fetchAppGlobalData();
                                                  } catch (err) {
                                                     alert('Błąd podczas usuwania: ' + err.message);
                                                  }
