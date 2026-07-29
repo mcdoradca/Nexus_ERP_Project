@@ -71,7 +71,8 @@ const withTimeout = (promise, ms, contextName = 'Unknown Model') => {
     return Promise.race([promise, timeoutPromise]).finally(() => {
         clearTimeout(timeoutId);
     });
-};async function generateWithRetry(model, promptOrParts, maxRetries = 2, agentId = "System_Agent", parseJson = false, filterFn = null) {
+};
+async function generateWithRetry(model, promptOrParts, maxRetries = 2, agentId = "System_Agent", parseJson = false, filterFn = null) {
     let attempt = 0;
     const modelName = model.model || "gemini-model";
     const startTime = Date.now();
@@ -1244,7 +1245,7 @@ async function runNode6_Copywriter(productName, aeoFeatures, legalData, toneGuid
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
-            generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json", maxOutputTokens: 8192, thinkingConfig: { thinkingBudget: 0 } }
+            generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json", maxOutputTokens: 8192 }
         });
         const systemPrompt = getMasterPrompt(6);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nCECHY AEO: ${JSON.stringify(aeoFeatures)}\nDANE PRAWNE I GEO: ${JSON.stringify(legalData)}\nWYTYCZNE TONU: ${JSON.stringify(toneGuidelines)}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
