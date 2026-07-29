@@ -1173,7 +1173,7 @@ async function runNode2_Sentiment(ean, productName) {
     console.log(`[Swarm Node 2] Sentiment Scraper start: EAN ${ean}`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.6-flash",
+            model: "gemini-3.5-flash",
             tools: [{ googleSearch: {} }],
             generationConfig: { temperature: 0.1, topP: 0.2, responseMimeType: "application/json" }
         });
@@ -1191,7 +1191,7 @@ async function runNode4_INCIParser(inciString, ragKnowledge, pimPayload) {
     console.log(`[Swarm Node 4] INCI Parser start...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.6-flash",
+            model: "gemini-3.5-flash",
             generationConfig: { 
                 temperature: 0.0, 
                 topP: 0.1, 
@@ -1247,7 +1247,7 @@ async function runNode6_Copywriter(productName, aeoFeatures, legalData, toneGuid
     console.log(`[Swarm Node 6] Copywriter start...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.6-flash",
+            model: "gemini-3.5-flash",
             generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json", maxOutputTokens: 8192 }
         });
         const systemPrompt = getMasterPrompt(6);
