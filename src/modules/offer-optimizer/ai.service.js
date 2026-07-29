@@ -11,7 +11,7 @@ const FormData = require('form-data');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { STANDARD_PROMPT, COSMETIC_AUDITOR_PROMPT, VISION_AUDIT_PROMPT, getMasterPrompt } = require('./ai.prompts');
-const { getDeterministicPromptForSlot, getPaddingForSlot, hashSKU } = require('./photoroom.prompts');
+const { buildPhotoroomRequest, cropForMacroSlot } = require('./photoroom.prompts');
 const cheerio = require('cheerio');
 const EventBus = require('../../core/EventBus');
 dotenv.config();
@@ -803,8 +803,9 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         ? process.env.PHOTOROOM_API_KEY 
         : "sandbox_sk_pr_default_9f10500b15c19db1e2f8aee29e1671ac7ff33aa2";
 
-    logLifestyleEvent('INFO', 'RozpoczÄ™to generowanie zdjÄ™cia przez Photoroom API', { ean, imageIndex, usingSandbox: !process.env.PHOTOROOM_API_KEY });
-    console.log(`[Photoroom Lifestyle] RozpoczÄ™to generowanie zdjÄ™cia (Slot ${imageIndex + 1}) dla EAN: ${ean}`);
+    logLifestyleEvent('INFO', 'Rozpoczęto generowanie zdjęcia przez Photoroom API (SSOT 6.0)', { ean, imageIndex, usingSandbox: !process.env.PHOTOROOM_API_KEY });
+    const slot = imageIndex + 1;
+    console.log(`[Photoroom Lifestyle] Rozpoczęto generowanie zdjęcia (Slot ${slot}) dla EAN: ${ean}`);
 
     // 1. Weryfikacja i przygotowanie bufora oryginalnego pliku obrazu
     let inputBuffer;
@@ -812,16 +813,17 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
         inputBuffer = Buffer.from(base64Data, 'base64');
     } else if (sourceImageUrl) {
-        console.log("[Photoroom Lifestyle] Pobieranie oryginalnego zdjÄ™cia z URL:", sourceImageUrl);
+        console.log("[Photoroom Lifestyle] Pobieranie oryginalnego zdjęcia z URL:", sourceImageUrl);
         const imgRes = await fetchImageSecure(sourceImageUrl);
         inputBuffer = Buffer.from(imgRes.data);
     } else {
-        logLifestyleEvent('ERROR', 'Brak wejĹ›ciowego obrazu w zapytaniu Photoroom');
-        throw new Error("Brak wejĹ›ciowego obrazu (wymagany imageBase64 lub sourceImageUrl).");
+        logLifestyleEvent('ERROR', 'Brak wejściowego obrazu w zapytaniu Photoroom');
+        throw new Error("Brak wejściowego obrazu (wymagany imageBase64 lub sourceImageUrl).");
     }
 
     // 2. Gemini Agent PIM Prompter - Budowanie kontekstu scenerii z PIM
     let productDetailsText = `Product EAN: ${ean}`;
+    let categoryType = 'COSMETICS_BEAUTY';
     try {
         if (ean) {
             const product = await prisma.product.findUnique({ where: { ean } });
@@ -830,59 +832,45 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
                 const draftString = product.offerDraft ? JSON.stringify(product.offerDraft) : '';
                 productDetailsText = `NAME: ${product.name}\nFEATURES: ${featuresString}\nDESC: ${product.descriptionHtml || ''}\nOFFER_DRAFT: ${draftString}`;
             }
+            // Zobaczmy, czy z cache możemy wyciągnąć kategorię produktu (domyślnie COSMETICS_BEAUTY)
+            const cache = await prisma.agentCache.findFirst({ where: { ean, step: 'NODE_4_INCI' }, orderBy: { createdAt: 'desc' } });
+            if (cache && cache.payload && cache.payload.category_type) {
+                categoryType = cache.payload.category_type;
+            }
         }
-    } catch(e) { console.error("BĹ‚Ä…d odczytu PIM dla Agenta Promptera:", e.message); }
+    } catch(e) { console.error("Błąd odczytu PIM/Cache dla Agenta Promptera:", e.message); }
 
-    // 3. Pobranie deterministycznego promptu z generatora LEGO (SSOT 5.0)
-    const scenePrompt = await getDeterministicPromptForSlot(imageIndex, ean, productDetailsText, apiKey, generateWithRetry);
-
-    // 4. Pobranie dynamicznego kadru (padding) opartego o seed (hash EAN/SKU)
-    const seed = hashSKU(ean);
-    const padding = getPaddingForSlot(imageIndex, seed);
-    // 5. WysĹ‚anie ĹĽÄ…dania do Photoroom Image Editing API (/v2/edit)
-    logLifestyleEvent('INFO', 'WysyĹ‚anie zapytania do Photoroom API v2/edit (SSOT 3.0)', { prompt: scenePrompt });
-    
-    const FormData = require('form-data');
-    const sharp = require('sharp');
-    const form = new FormData();
-    form.append('imageFile', inputBuffer, { filename: 'product.jpg', contentType: 'image/jpeg' });
-    form.append('removeBackground', 'true');
-    
-    if (imageIndex === 0) {
-        // Slot 1: SSOT 4.0 - Ekstrakcja SkĹ‚adnika
-        form.append('editWithAI.mode', 'ai.auto');
-        form.append('editWithAI.prompt', scenePrompt);
-        form.append('background.color', '#FFFFFF'); // WymĂłg przezroczystoĹ›ci dla Slotu 1
-    } else {
-        // Sloty 2-9: SSOT 5.0 - Deterministyczne generowanie tĹ‚a (Klocki LEGO)
-        form.append('background.prompt', scenePrompt);
-        form.append('background.expandPrompt', 'never');
-        form.append('background.seed', seed.toString()); // WstrzykniÄ™cie unikalnego seeda do API
-        form.append('quality', 'advanced');
+    // 3. Pre-processing dla Slotu Makro (SSOT 6.0)
+    let imageBlob = inputBuffer;
+    if (slot === 3) {
+        console.log(`[Photoroom Lifestyle] Slot 3 (Macro): Przycinanie górnych 62% obrazu dla ${ean}`);
+        try {
+            imageBlob = await cropForMacroSlot(inputBuffer);
+        } catch(e) {
+            console.error("[Photoroom Lifestyle] Błąd przycinania slotu makro, fallback do oryginału:", e.message);
+        }
     }
 
-    form.append('export.format', 'jpeg');
-    form.append('outputSize', '1080x1080');
-    form.append('paddingTop', padding.paddingTop);
-    form.append('paddingRight', padding.paddingRight);
-    form.append('paddingBottom', padding.paddingBottom);
-    form.append('paddingLeft', padding.paddingLeft);
-    form.append('ignorePaddingAndSnapOnCroppedSides', 'false');
+    // 4. Pobranie żądania Photoroom API z modułu LEGO 2.0 (SSOT 6.0)
+    let req;
+    try {
+        req = buildPhotoroomRequest({ ean, slot, category: categoryType, pimText: productDetailsText, imageBlob });
+    } catch (e) {
+        logLifestyleEvent('ERROR', 'Błąd podczas budowania żądania Photoroom (SSOT 6.0)', { error: e.message });
+        throw e;
+    }
+
+    logLifestyleEvent('INFO', 'Wysyłanie zapytania do Photoroom API (SSOT 6.0)', { prompt: req.meta.prompt || 'Brak promptu (thumbnail)' });
 
     let headers = {
         'x-api-key': photoroomKey,
-        ...form.getHeaders()
+        ...req.headers,
+        ...req.formData.getHeaders()
     };
-    
-    if (imageIndex !== 0) {
-        headers['pr-ai-background-model-version'] = 'background-studio-beta-2025-03-17';
-    } else {
-        headers['pr-ai-shadows-model-version'] = '2026-04-15';
-    }
 
     const startTime = Date.now();
     try {
-        const response = await axios.post('https://image-api.photoroom.com/v2/edit', form, {
+        const response = await axios.post(req.endpoint, req.formData, {
             headers: headers,
             responseType: 'arraybuffer',
             timeout: 45000
@@ -893,14 +881,15 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 
         const base64Output = `data:image/jpeg;base64,${resultBuffer.toString('base64')}`;
 
-        logLifestyleEvent('INFO', 'Photoroom API zrealizowaĹ‚ edycjÄ™ pomyĹ›lnie (SSOT 3.0)', {
+        logLifestyleEvent('INFO', 'Photoroom API zrealizował edycję pomyślnie (SSOT 6.0)', {
             durationMs,
-            outputBytes: resultBuffer.length
+            outputBytes: resultBuffer.length,
+            composition: req.meta.composition
         });
 
         return {
             base64: base64Output,
-            visualTrendReport: "Wygenerowano na podstawie optymalizacji tagĂłw."
+            visualTrendReport: `Wygenerowano deterministycznie (SSOT 6.0). Kompozycja: ${req.meta.composition || 'N/A'}`
         };
 
     } catch (err) {

@@ -440,6 +440,11 @@ const exportToBaselinker = async (req, res) => {
             ].filter(Boolean).join('\n\n');
         }
 
+        const aiActDisclosure = `<p>Zdjęcia aranżacyjne: tła wygenerowane cyfrowo. Wygląd produktu i opakowania jest autentyczny.</p>`;
+        if (newDescHtml && !newDescHtml.includes('tła wygenerowane cyfrowo')) {
+            newDescHtml += `\n\n${aiActDisclosure}`;
+        }
+
         const product = await prisma.product.update({
             where: { ean },
             data: { 
