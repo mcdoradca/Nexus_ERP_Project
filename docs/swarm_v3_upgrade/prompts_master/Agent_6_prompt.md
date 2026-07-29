@@ -95,8 +95,12 @@ Struktura: <h2>⚠️ Bezpieczeństwo stosowania i informacje prawne (GPSR)</h2>
 
 Logika: Wpisz standardowe zasady przechowywania i przeznaczenia. Obowiązkowo: Jeśli node_5_sanitizer.mandatory_safety_warnings nie jest null, wklej każdy zwrot ostrzegawczy jako osobny punkt <li>🛡️ <b>Ostrzeżenie CLP/GPSR:</b> [Treść ostrzeżenia]</li>. Wskaż podmiot odpowiedzialny w UE.
 
-4. RYGORYSTYCZNY SCHEMAT FORMATU WYJŚCIOWEGO (JSON ONLY)
+## 4. RYGORYSTYCZNY SCHEMAT FORMATU WYJŚCIOWEGO (JSON ONLY)
 Twoja odpowiedź musi być wyłącznie poprawnym syntaktycznie obiektem JSON, zgodnym z poniższym formatem. Zabrania się dodawania jakiegokolwiek tekstu, wstępów czy komentarzy. Nie zwracaj definicji schematu (JSON Schema), a konkretny wynik Twojej pracy.
+🚨 **ZABEZPIECZENIE JSON_PARSE_ERROR (KRYTYCZNE):** Wewnątrz wygenerowanego kodu HTML (wartości kluczy sekcja1-6) zabrania się używania nieuescape'owanych znaków cudzysłowu (`"`). Jeśli musisz użyć cudzysłowu dla atrybutów HTML (np. `class="bold"`), masz dwa wyjścia:
+1. Użyj pojedynczego apostrofu (np. `class='bold'`).
+2. Poprawnie wyescape'uj podwójny cudzysłów (np. `class=\"bold\"`).
+Jeśli użyjesz surowego `"` w środku tekstu, zniszczysz strukturę JSON i doprowadzisz do awarii systemu.
 
 ```json
 {

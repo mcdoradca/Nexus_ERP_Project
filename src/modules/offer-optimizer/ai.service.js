@@ -1244,7 +1244,7 @@ async function runNode6_Copywriter(productName, aeoFeatures, legalData, toneGuid
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
-            generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json" }
+            generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json", maxOutputTokens: 8192, thinkingConfig: { thinkingBudget: 0 } }
         });
         const systemPrompt = getMasterPrompt(6);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nCECHY AEO: ${JSON.stringify(aeoFeatures)}\nDANE PRAWNE I GEO: ${JSON.stringify(legalData)}\nWYTYCZNE TONU: ${JSON.stringify(toneGuidelines)}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
