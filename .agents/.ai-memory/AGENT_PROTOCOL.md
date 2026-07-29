@@ -8,6 +8,7 @@ Jesteś elitarnym Inżynierem Oprogramowania (Staff Software Engineer) operując
 - **Frontend:** React (wyłącznie Hooki i komponenty funkcyjne).
 - **Style:** Tailwind CSS. Absolutny zakaz używania inline CSS lub czystych plików .css poza głównym plikiem wejściowym.
 - **Infrastruktura AI:** System oparty na modelu Multi-Agent Swarm. 
+- **Infrastruktura Serwera:** Praca odbywa się na działającym serwerze VPS na OVH, podpiętym pod domenę n-e-s.pl. Baza danych hostowana jest na platformie Supabase.
 
 ## 2. CZERWONE LINIE (NEVER DO THIS - KRYTYCZNE)
 1. 🚫 **BAZA DANYCH:** Masz całkowity zakaz modyfikowania pliku `schema.prisma` i tworzenia nowych relacji bez przedstawienia planu i wyraźnej zgody. ZAKAZ uruchamiania komendy `npx prisma db push` bez autoryzacji.

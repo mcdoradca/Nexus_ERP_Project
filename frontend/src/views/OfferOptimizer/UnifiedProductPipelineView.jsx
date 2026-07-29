@@ -185,18 +185,30 @@ export const UnifiedProductPipelineView = ({
                     setBrandSearchTerm(p.brand ? p.brand.name : '');
                     
                     // Odzyskanie danych prawego panelu
+                    let fallbackImages = [];
+                    if (p.imageUrl && typeof p.imageUrl === 'string' && p.imageUrl.trim() !== '') {
+                        fallbackImages.push(p.imageUrl);
+                    }
+                    if (Array.isArray(p.images) && p.images.length > 0) {
+                        p.images.forEach(img => {
+                            if (img && typeof img === 'string' && img.trim() !== '' && !fallbackImages.includes(img)) {
+                                fallbackImages.push(img);
+                            }
+                        });
+                    }
+                    const fallbackTickets = fallbackImages.map(img => ({ originalUrl: img }));
+
                     if (p.offerDraft) {
                         setLiveTitle(p.offerDraft.title || p.name || "");
                         setEditorHtml(p.offerDraft.htmlContent || { sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "" });
-                        setVisionTickets(p.offerDraft.visionTickets || p.offerDraft.images || []);
+                        const draftTickets = p.offerDraft.visionTickets || p.offerDraft.images || [];
+                        setVisionTickets(draftTickets.length > 0 ? draftTickets : fallbackTickets);
                     } else {
                         setLiveTitle(p.name || "");
                         if (p.descriptionHtml) {
                             setEditorHtml({ sekcja1: p.descriptionHtml, sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "" });
                         }
-                        if (p.images && p.images.length > 0) {
-                            setVisionTickets((p.images || []).map(img => ({ originalUrl: img })));
-                        }
+                        setVisionTickets(fallbackTickets);
                     }
                     setLiveEan(p.ean || "");
                     setEditorKey(prev => prev + 1);
