@@ -511,7 +511,7 @@ function buildPhotoroomRequest({ ean, slot, category, pimText, imageBlob, patchA
   if (plan.role === 'thumbnail') {
     fd.append('background.color', '#FFFFFF');
     fd.append('padding', '0.05');
-    fd.append('shadow.mode', 'ai.soft');
+    fd.append('shadow.mode', 'ai.preset-soft');
     return {
       endpoint: PHOTOROOM_ENDPOINT,
       headers: { ...MODEL_HEADERS.SHADOWS },
@@ -566,7 +566,7 @@ function buildPhotoroomRequest({ ean, slot, category, pimText, imageBlob, patchA
 
   // >>> KLUCZ DO REALIZMU <<<
   fd.append('lighting.mode', 'ai.auto');  // AI Relight: produkt prześwietlony pod scenę
-  fd.append('shadow.mode', 'ai.soft');    // miękki cień spójny z kierunkiem światła
+  fd.append('shadow.mode', 'ai.preset-soft');    // miękki cień spójny z kierunkiem światła
 
   // Kompozycja — deterministyczny wybór z puli przypisanej do slotu
   const comp = COMPOSITIONS[pick(rng, plan.compPool)];
