@@ -198,7 +198,7 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 2, agentId =
             const isTimeout = error.message && error.message.includes('timeout');
             const isRecitation = error.message && error.message.includes('RECITATION');
             const isMaxTokens = error.message && error.message.includes('MAX_TOKENS');
-            const isThinkingConfigError = error.message && (error.message.includes('thinkingBudget') || error.message.includes('thinking_config'));
+            const isThinkingConfigError = error.message && (error.message.includes('thinkingBudget') || error.message.includes('thinking_config') || error.message.includes('invalid argument'));
             
             failureReason = 'API_ERROR';
             if (isJsonError) failureReason = 'PARSE_ERROR';
@@ -244,7 +244,7 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 2, agentId =
             const isJsonError = errorObj.message && errorObj.message.includes('JSON_PARSE_ERROR');
             const isTimeout = errorObj.message && errorObj.message.includes('timeout');
             const isRecitation = errorObj.message && errorObj.message.includes('RECITATION');
-            const isThinkingConfigError = errorObj.message && errorObj.message.includes('thinkingBudget');
+            const isThinkingConfigError = errorObj.message && (errorObj.message.includes('thinkingBudget') || errorObj.message.includes('thinking_config') || errorObj.message.includes('invalid argument'));
 
             if (attempt >= maxRetries || (!isRateLimit && !isJsonError && !isTimeout && !isRecitation && !isThinkingConfigError)) {
                 broadcastLog(`Krytyczny bĹ‚Ä…d API, brak dalszych ponowieĹ„. Przerwano.`);
@@ -1131,7 +1131,6 @@ async function runNode1_Autofill(ean, productName, productFeatures = {}, allegro
                 temperature: 0.0, 
                 topP: 0.1, 
                 maxOutputTokens: 8192,
-                thinkingConfig: { thinkingBudget: 0 },
                 responseMimeType: "application/json" 
             }
         });
@@ -1195,7 +1194,6 @@ async function runNode4_INCIParser(inciString, ragKnowledge, pimPayload) {
                 temperature: 0.0, 
                 topP: 0.1, 
                 maxOutputTokens: 8192,
-                thinkingConfig: { thinkingBudget: 0 },
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: "object",
