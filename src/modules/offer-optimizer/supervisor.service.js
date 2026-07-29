@@ -1,5 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const fs = require('fs');
+const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const aiMetricsService = require('../../core/ai.metrics.service');
 
@@ -293,7 +295,29 @@ class SupervisorService {
         console.log(`[Supervisor] Agent 6 (Copywriter) zakończył pracę pomyślnie.`);
         
         broadcastStatus("FAZA_3_CREATION", ["Agent_7_Psychology", "Agent_8_Scenographer"], { Agent_6_Copywriter: "COMPLETED", Agent_7_Psychology: "IN_PROGRESS" });
-        const psychologyData = await AiService.runNode7_Psychology(product.name, copywriterData, legalData);
+        
+        // Ładowanie pełnego SOT_09 (Psychologia) dla Agenta 7
+        const sot09Path = path.resolve(__dirname, '../../../docs/swarm_v3_upgrade/rag_sot/RAG_SOT_09_Psychologia_i_Retencja.md');
+        let fullSot09 = "";
+        try {
+            fullSot09 = fs.readFileSync(sot09Path, 'utf8');
+        } catch (err) {
+            console.error(`[Supervisor] Błąd ładowania SOT_09: ${err.message}`);
+        }
+
+        const orchestratorMapping = `
+MAPOWANIE MODUŁÓW (BEZWZGLĘDNY NAKAZ ORKIESTRATORA):
+- opis1: Użyj "Haczyk Psychologiczny (Hook)" oraz "Sensory Priming".
+- opis2: Użyj "Ścieżka Skanowania (AIDA / FAB)" do sformatowania korzyści.
+- opis3: Zastosuj "Płynność Kognitywna (System 1 Kahnemana)" do czytelności parametrów.
+- opis4: Użyj "Efekt Pratfall (Radykalna Szczerość)" lub "Homofilia Socjologiczna" (jeśli pasuje dowód społeczny).
+- opis5: Zastosuj "Kotwica Zużycia (Replenishment Hook)" oraz dodaj INCI/Certyfikaty 1:1.
+Wymuszam na Tobie zachowanie powyższego mapowania. Zintegruj je sprytnie w HTML, nie uszkadzając struktury.
+
+TREŚĆ BAZY WIEDZY SOT_09:
+${fullSot09}
+`;
+        const psychologyData = await AiService.runNode7_Psychology(product.name, copywriterData, legalData, orchestratorMapping);
         
         broadcastStatus("FAZA_3_CREATION", ["Agent_8_Scenographer"], { Agent_7_Psychology: "COMPLETED", Agent_8_Scenographer: "IN_PROGRESS" });
         const scenographerData = await AiService.runNode8_Scenographer(product.name, { target: "Świadomy konsument" });

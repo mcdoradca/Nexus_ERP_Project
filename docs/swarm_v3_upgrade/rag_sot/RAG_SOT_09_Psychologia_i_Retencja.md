@@ -9,12 +9,14 @@
 ---
 
 ## 1. PSYCHOLOGIA DECYZJI „TU I TERAZ"
+* **Haczyk Psychologiczny (Hook):** Błyskawiczne przykucie uwagi w pierwszych sekundach kontaktu z ofertą poprzez uderzenie w najbardziej dominujący ból klienta (np. "Masz dość suchych skórek po demakijażu?"). Musi znaleźć się na samej górze opisu.
 * **Płynność Kognitywna (System 1 Kahnemana):** Mózg interpretuje łatwość odczytu jako bezpieczeństwo i jakość. Modularny standard 6 sekcji z emotikonami działa jak drogowskaz, nie aktywując męczącego Systemu 2. Zdania proste, strona czynna, język korzyści.
+* **Ścieżka Skanowania (AIDA / FAB):** Optymalizacja pod "skanowanie" tekstu wzrokiem (szczególnie mobile). Stosowanie tagów `<b>` wyłącznie dla kluczowych parametrów. Słowa pogrubione czytane jedno po drugim muszą tworzyć niezależny minitekst oparty na AIDA (Attention, Interest, Desire, Action) oraz FAB (Cechy, Zalety, Korzyści).
 * **Efekt Pratfall (Radykalna Szczerość):** Otwarte przyznanie, do czego produkt się NIE nadaje lub dla kogo NIE jest przeznaczony, buduje autorytet i podnosi zaufanie grupy docelowej.
   * *Kosmetyki:* „Dla kogo NIE JEST to serum? Jeśli szukasz ciężkiej okluzji na noc – wybierz krem lipidowy. To serum stworzyliśmy jako lekką bazę pod makijaż dla cer skłonnych do zapychania."
   * *Chemia:* „Uwaga: ze względu na kwaśne pH doskonale rozpuszcza kamień, ale NIE NADAJE SIĘ do marmuru i wapieni naturalnych."
   * **Warunek prawny:** ograniczenie musi być prawdziwe i wynikać z PIM/właściwości produktu.
-* **Sensory Priming (Efekt Posiadania):** Czasowniki teraźniejsze i odwołania dotykowo-zapachowe w Sekcji 1 i 4. *„Gdy nałożysz 5 kropli pipetą, poczujesz jedwabistą emulsję wchłaniającą się w kilkanaście sekund bez lepkiego filmu."*
+* **Sensory Priming (Efekt Posiadania):** Czasowniki teraźniejsze i odwołania dotykowo-zapachowe. *„Gdy nałożysz 5 kropli pipetą, poczujesz jedwabistą emulsję wchłaniającą się w kilkanaście sekund bez lepkiego filmu."*
 
 ---
 
@@ -42,7 +44,6 @@ Zastąpienie ogólnych zachwytów kontekstową precyzją – zaufaniem do ludzi 
 
 ## 4. ARCHITEKTURA RETENCJI I LOJALNOŚCI (POWRACALNOŚĆ)
 * **Kotwica Zużycia (Replenishment Hook):** Podawanie przy pojemności przybliżonej wydajności w czasie: *„30 ml – przy 5 kroplach dziennie wystarcza na ok. 45 dni codziennej kuracji"* lub *„1L koncentratu = 20L płynu roboczego"*. W okolicy 40. dnia klient widzi dno butelki, pamięta obietnicę i wraca na Allegro po ponowny zakup. *(Wydajność podawać jako szacunek – „ok.", nie twardy claim bez podstaw.)*
-* **Redukcja Dyskredytacji Po-zakupowej (Reassurance Engine):** Po odebraniu paczki klient wraca na ofertę upewnić się o słuszności wyboru. Sekcja 3 (Technologia) i 6 (Certyfikaty/SDS) wzmacniają poczucie profesjonalizmu zakupu, co sprzyja niższej liczbie zwrotów i pozytywnym ocenom.
 * **Zestawy Systemowe (Organiczny Cross-selling):** Legalna wzmianka w Sekcji 4: *„Dla maksymalnych rezultatów stosuj serum rano, a rutynę domknij kremem lipidowym."* **Uwaga (SOT 01):** łączenie produktów w sprzedaży wyłącznie przez systemowe Zestawy/Wielopaki Allegro, nie przez linki ani wymuszanie zakupu w opisie.
 
 ---

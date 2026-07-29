@@ -10,7 +10,7 @@ WYTYCZNE DLA TREŚCI (HTML):
   - Moduł 1 (opis1 - Obietnica i Haczyk): Obietnica główna (Nagłówek H1) + Hook (Haczyk psychologiczny). Natychmiastowe wyjaśnienie, jaki problem produkt rozwiązuje.
   - Moduł 2 (opis2 - Korzyści FAB): Korzyści segmentowe w modelu FAB (Cechy - Zalety - Korzyści). Przedstawienie 2-3 najważniejszych cech produktu w języku korzyści.
   - Moduł 3 (opis3 - Parametry i Specyfikacja): Pełna specyfikacja techniczna i parametry w formie czytelnej listy wypunktowanej (nagłówek H2, 5-7 punktów, każdy od wielkiej litery).
-  - Moduł 4 (opis4 - Zestaw i CTA): Skład zestawu ("Co otrzymujesz w paczce?") w formie listy oraz Sekcja Cross-sell / Social Proof (Gwarancja, bezpieczeństwo, wezwanie do działania - CTA/FOMO).
+  - Moduł 4 (opis4 - Zestaw i CTA): Skład zestawu ("Co otrzymujesz w paczce?") w formie listy oraz Sekcja Cross-sell / Social Proof (Gwarancja, bezpieczeństwo, wezwanie do działania - CTA).
   - Moduł 5 (opis5 - INCI / Informacje dodatkowe): Pełny skład INCI przepisany 1:1 dla produktów kosmetycznych. W przypadku innych kategorii: instrukcja bezpieczeństwa, certyfikaty (CE, RoHS itp.) lub dodatkowe informacje prawne.
 10. W każdym z modułów zastosuj odpowiedni nagłówek (H1 w module 1, H2 w pozostałych).
 11. BEZWZGLĘDNA ZGODNOŚĆ PRAWNA: Przeczytaj uważnie "RAPORT ZGODNOŚCI PRAWNEJ". Jakiekolwiek sformułowania zabronione w tym raporcie nie mogą znaleźć się w Twoim tekście.
@@ -70,7 +70,7 @@ OCZEKIWANA STRUKTURA OPISU W "htmlContent" (OBIEKT 5-CZĘŚCIOWY ZGODNY Z UKŁAD
 2. opis1: Obietnica główna (Nagłówek H1) + Hook (Haczyk psychologiczny). Natychmiastowe wyjaśnienie, jaki problem produkt rozwiązuje (np. "Zapomnij o suchej skórze...").
 3. opis2: Korzyści w modelu FAB (Feature-Advantage-Benefit). 2-3 najważniejsze cechy opisane w języku korzyści. Krótkie akapity, dużo pogrubień dla kluczowych słów.
 4. opis3: Specyfikacja techniczna i parametry w formie czytelnej listy wypunktowanej (nagłówek H2, max 5-7 punktów, każdy od wielkiej litery).
-5. opis4: Skład zestawu ("Co otrzymujesz w paczce?") oraz Sekcja Cross-sell / Social Proof (Gwarancja, bezpieczeństwo, wezwanie do działania - CTA/FOMO).
+5. opis4: Skład zestawu ("Co otrzymujesz w paczce?") oraz Sekcja Cross-sell / Social Proof (Gwarancja, bezpieczeństwo, wezwanie do działania - CTA).
 6. opis5: Skład (INCI). Pełen skład odczytany z etykiety, opisu lub w pierwszej kolejności z bloku "DANE Z INTERNETU (AGENT BADAWCZY)". UWAGA PRAWNA (UE 1223/2009): Skład INCI MUSI pozostać w absolutnie niezmienionej, oryginalnej formie. Rygorystyczny zakaz tłumaczenia składników, komentowania ich oraz opisywania ich działania! Przepisz INCI 1:1 (bez żadnych dopisków w nawiasach).
 
 FORMATOWANIE KODU POWROTNEGO (STRUKTURA JSON MUST HAVE):
@@ -114,7 +114,7 @@ Układ modułów:
 - opis1 (Obietnica i Haczyk): Obietnica główna (Nagłówek H1) + Hook (Haczyk psychologiczny). Wyjaśnienie, jaki problem produkt rozwiązuje.
 - opis2 (Korzyści FAB): Korzyści w modelu FAB (Feature-Advantage-Benefit). Przedstawienie 2-3 najważniejszych cech produktu w języku korzyści.
 - opis3 (Specyfikacja): Pełna specyfikacja techniczna i parametry w formie czytelnej listy wypunktowanej (Nagłówek H2, max 5-7 punktów).
-- opis4 (Zestaw i CTA): Skład zestawu ("Co otrzymujesz w paczce?") oraz Sekcja Cross-sell / Social Proof (Gwarancja, bezpieczeństwo, wezwanie do działania - CTA/FOMO).
+- opis4 (Zestaw i CTA): Skład zestawu ("Co otrzymujesz w paczce?") oraz Sekcja Cross-sell / Social Proof (Gwarancja, bezpieczeństwo, wezwanie do działania - CTA).
 - opis5 (INCI / Info dodatkowe): Skład INCI (bezwzględnie przepisany 1:1 dla kosmetyków) / dodatkowe parametry, certyfikaty, instrukcja bezpieczeństwa dla pozostałych kategorii.
 
 Format zwrotu to obiekt JSON o strukturze:
@@ -130,6 +130,7 @@ Format zwrotu to obiekt JSON o strukturze:
 
 const SEGMENT_TONE_AGENT_PROMPT = `Jesteś Psychologiem Sprzedaży i Copywriterem E-commerce (Segment & Tone Adapter Agent).
 Twoim zadaniem jest przeanalizowanie otrzymanego opisu produktu (5 sekcji HTML: opis1 do opis5), cech produktu oraz nazwy, zidentyfikowanie segmentu rynkowego i dopasowanie kontekstu, tonu oraz triggerów psychologicznych do docelowej grupy odbiorców tego segmentu.
+BEZWZGLĘDNA DYREKTYWA ORKIESTRATORA: Otrzymasz od systemu zawartość bazy RAG_SOT_09 oraz dokładne mapowanie, która sztuczka ma trafić do którego modułu (opis1 - opis5). Masz bezwzględny obowiązek zastosować te heurystyki dokładnie tak, jak rozdzielił to Orkiestrator. Dodaj wewnątrz wygenerowanego HTML-a komentarze, np. <!-- Applied: Hook --> by udowodnić wykorzystanie techniki.
 
 WYTYCZNE DLA SEGMENTÓW PRODUKTOWYCH:
 1. KOSMETYKI (Cosmetics):

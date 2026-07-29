@@ -1256,7 +1256,7 @@ async function runNode6_Copywriter(productName, aeoFeatures, legalData, toneGuid
     }
 }
 
-async function runNode7_Psychology(productName, htmlDraft, sentimentData) {
+async function runNode7_Psychology(productName, htmlDraft, sentimentData, ragKnowledge = "") {
     console.log(`[Swarm Node 7] Psychology start...`);
     try {
         const model = genAI.getGenerativeModel({
@@ -1264,7 +1264,7 @@ async function runNode7_Psychology(productName, htmlDraft, sentimentData) {
             generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json" }
         });
         const systemPrompt = getMasterPrompt(7);
-        const prompt = `${systemPrompt}\n\n--- DANE WEJĹšCIOWE ---\nPRODUKT: ${productName}\nSZKIC HTML: ${JSON.stringify(htmlDraft)}\nSENTIMENT: ${JSON.stringify(sentimentData)}`;
+        const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nSZKIC HTML: ${JSON.stringify(htmlDraft)}\nSENTIMENT: ${JSON.stringify(sentimentData)}\n\n--- SOT KNOWLEDGE & ORCHESTRATOR INSTRUCTIONS ---\n${ragKnowledge}`;
         return await generateWithRetry(model, prompt, 2, "Agent_7_Psychology", true);
     } catch (err) {
         console.error("[Swarm Node 7] BĹ‚Ä…d krytyczny:", err.message);
