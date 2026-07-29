@@ -1,7 +1,7 @@
 # ADR 027: Deterministyczna Losowość Promptów (SSOT 5.0)
 
 ## Status
-Zatwierdzony i wdrożony.
+Zastąpiony przez **ADR 033** (Węzeł 8 jako Ingredient Mapper i Architektura SSOT 6.0). Pierwotnie wdrożony dla SSOT 5.0.
 
 ## Kontekst
 Przy masowym generowaniu zdjęć (np. 2000 SKU), sztywne prompty przypisane do slotów tworzyły "monokulturę" wizualną – każdy produkt w Slocie 2 miał identyczne tło i identyczny kadr. Dodatkowo brakowało mikro-detali organicznych (kurz, światło, krople wody), przez co tła wydawały się sterylne.
