@@ -35,8 +35,9 @@ Rozpraszanie niewypowiedzianych obaw przed kliknięciem „Kup Teraz":
 
 ---
 
-## 3. SOCJOLOGIA SOCIAL PROOF: HOMOFILIA SOCJOLOGICZNA
-Zastąpienie ogólnych zachwytów kontekstową precyzją – zaufaniem do ludzi *z tym samym problemem* (dane po sanityzacji Agenta 5):
+## 3. SOCJOLOGIA SOCIAL PROOF: HOMOFILIA SOCJOLOGICZNA I DOWÓD SPOŁECZNY
+* **Dowód Społeczny (Social Proof Shield):** Wykorzystanie zanonimizowanych, syntetycznych zbitków prawdziwych opinii jako "tarczy" odpierającej zarzuty. Podnosi uwiarygodnienie i znacząco zwiększa współczynnik konwersji (CR). Zamiast pustych obietnic marketingowych, wplatamy kontekst: "Polecany przez 9/10 instalatorów", bazując na legalnych opiniach lub specyfikacji.
+* **Homofilia Socjologiczna:** Zastąpienie ogólnych zachwytów kontekstową precyzją – zaufaniem do ludzi *z tym samym problemem* (dane po sanityzacji Agenta 5):
 * *Homofilia zabiegana:* „🔴 Problem: Poranny pośpiech i brak czasu na wchłanianie pielęgnacji przed makijażem. 🟢 Answer: Lekka baza wchłania się do matu w ok. 30 sekund, stanowiąc bazę pod podkład, która nie roluje się w ciągu dnia."
 * *Homofilia pasjonata:* „🔴 Problem: Zastygły tłuszcz na ruszcie po grillu. 🟢 Answer: Aktywne alkalia rozpuszczają zwęglone resztki – wystarczy przetrzeć wilgotną gąbką bez rysowania rusztu."
 
@@ -45,6 +46,16 @@ Zastąpienie ogólnych zachwytów kontekstową precyzją – zaufaniem do ludzi 
 ## 4. ARCHITEKTURA RETENCJI I LOJALNOŚCI (POWRACALNOŚĆ)
 * **Kotwica Zużycia (Replenishment Hook):** Podawanie przy pojemności przybliżonej wydajności w czasie: *„30 ml – przy 5 kroplach dziennie wystarcza na ok. 45 dni codziennej kuracji"* lub *„1L koncentratu = 20L płynu roboczego"*. W okolicy 40. dnia klient widzi dno butelki, pamięta obietnicę i wraca na Allegro po ponowny zakup. *(Wydajność podawać jako szacunek – „ok.", nie twardy claim bez podstaw.)*
 * **Zestawy Systemowe (Organiczny Cross-selling):** Legalna wzmianka w Sekcji 4: *„Dla maksymalnych rezultatów stosuj serum rano, a rutynę domknij kremem lipidowym."* **Uwaga (SOT 01):** łączenie produktów w sprzedaży wyłącznie przez systemowe Zestawy/Wielopaki Allegro, nie przez linki ani wymuszanie zakupu w opisie.
+
+---
+
+## 5. DOPASOWANIE TONU I TRIGGERY BRANŻOWE (SEGMENT TONE ADAPTER)
+Technika modulacji tonu i wyzwalaczy w zależności od grupy docelowej, maksymalizująca rezonans psychologiczny:
+* **Kosmetyki:** Triggery – bezpieczeństwo (WE 1223/2009), naturalność, natychmiastowe samopoczucie/glow. Ton: troskliwy, ekspercki, pielęgnacyjny.
+* **Elektronika / AGD:** Triggery – niezawodność, oszczędność czasu, precyzja, gwarancja i certyfikaty (CE, RoHS). Ton: rzeczowy, techniczny, budujący pewność.
+* **Dom i Ogród:** Triggery – wygoda, trwałość, harmonia, ciepło rodzinne. Ton: przyjazny, praktyczny, inspirujący.
+* **Odzież i Moda:** Triggery – styl, pewność siebie, idealne dopasowanie (eliminacja lęku przed zwrotem). Ton: energetyczny, nowoczesny, bezpośredni.
+* **Dziecko:** Triggery – absolutne bezpieczeństwo materiałów (atesty PZH), rozwój, spokój rodzica. Ton: empatyczny, opiekuńczy, odpowiedzialny.
 
 ---
 *Nota o liczbach: wartości procentowe efektów behawioralnych („+35-40%", „-20% zwrotów") to dane kierunkowe z literatury e-commerce, służące priorytetyzacji technik – NIE są claimami o produkcie i nie trafiają do opisu oferty.*
