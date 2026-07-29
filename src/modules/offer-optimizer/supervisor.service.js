@@ -185,10 +185,26 @@ class SupervisorService {
         socketService.broadcast('nexus-notification', { type: 'PIPELINE_STATUS', ean, payload });
     };
 
+    const traceLog = (stage, detailData) => {
+        try {
+            const logsDir = path.join(process.cwd(), 'logs');
+            if (!fs.existsSync(logsDir)) {
+                fs.mkdirSync(logsDir, { recursive: true });
+            }
+            const logPath = path.join(logsDir, 'ean_pipeline_trace.log');
+            const traceContent = `\n[${new Date().toISOString()}] EAN: ${ean} | STAGE: ${stage}\nDATA:\n${JSON.stringify(detailData, null, 2)}\n------------------------------------------------\n`;
+            fs.appendFileSync(logPath, traceContent);
+        } catch (fsErr) {
+            console.error("[Supervisor] Błąd zapisu trace logu:", fsErr.message);
+        }
+    };
+
+
     try {
         // ==========================================
         // FAZA 1: GROUNDING (Badania)
         // ==========================================
+        traceLog("PIPELINE_START", { task_id: task.id, product_name: product.name });
         broadcastStatus("FAZA_1_GROUNDING", ["Agent_1_Autofill", "Agent_2_Sentiment"], { Agent_1_Autofill: "IN_PROGRESS" });
         
         console.log(`[Supervisor] Rozpoczynam kaskadowe zasilanie PXM dla Agenta 1 (EAN: ${ean})`);
@@ -351,6 +367,13 @@ ${fullSot09}
         if (sentinelData.final_verdict === "PASSED_WITH_AUTO_REPAIR" && sentinelData.repaired_html_payload) {
             console.warn(`[Supervisor] Sentinel zgłosił błąd, ale użył Auto-Korekty. Oszczędzono tokeny dla EAN: ${ean}`);
             broadcastStatus("FAZA_4_AUDIT", [], {}, "INFO", "Sentinel wykonał auto-korektę tekstu (usunięto halucynację).");
+            
+            traceLog("SENTINEL_AUTO_REPAIR", { 
+                original_psychologyData: psychologyData, 
+                repaired_html_payload: sentinelData.repaired_html_payload,
+                sentinel_reasoning: sentinelData
+            });
+
             psychologyData = sentinelData.repaired_html_payload;
             finalPayload.htmlContent = psychologyData;
         } else if (sentinelData.final_verdict.startsWith("BLOCKED") || sentinelData.final_verdict === "BLOCKED_DUE_TO_NON_COMPLIANCE") {
@@ -387,6 +410,7 @@ ${fullSot09}
         });
 
         broadcastStatus("COMPLETED", [], { Agent_10_Sentinel: "COMPLETED" }, "ALL_NODES_FINISHED");
+        traceLog("PIPELINE_COMPLETED", { verdict: sentinelData.final_verdict, final_payload: finalPayload });
 
     } catch (error) {
         const errorDetails = error.stack || error.message;

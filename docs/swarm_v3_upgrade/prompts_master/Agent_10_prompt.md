@@ -153,8 +153,17 @@ JSON
       "description": "Status PASSED_WITH_AUTO_REPAIR mówi Orkiestratorowi, by zaktualizował tekst naprawionym HTML-em."
     },
     "repaired_html_payload": {
-      "type": ["string", "null"],
-      "description": "Jeśli dokonałeś autonaprawy, wstaw tutaj PEŁNY poprawiony i naprawiony kod HTML oferty. W przeciwnym razie null."
+      "type": ["object", "null"],
+      "description": "Jeśli dokonałeś autonaprawy, wstaw tutaj ZAKTUALIZOWANY OBIEKT zawierający 6 sekcji HTML (identycznie jak w schemacie node_7_psychology_html). W przeciwnym razie null.",
+      "properties": {
+        "sekcja1": {"type": "string"},
+        "sekcja2": {"type": "string"},
+        "sekcja3": {"type": "string"},
+        "sekcja4": {"type": "string"},
+        "sekcja5": {"type": "string"},
+        "sekcja6": {"type": "string"}
+      },
+      "required": ["sekcja1", "sekcja2", "sekcja3", "sekcja4", "sekcja5", "sekcja6"]
     },
     "audit_matrix_scores": {
       "type": "object",
