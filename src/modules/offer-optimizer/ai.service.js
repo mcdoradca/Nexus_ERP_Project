@@ -1183,7 +1183,7 @@ async function runNode2_Sentiment(ean, productName) {
 }
 
 
-async function runNode4_INCIParser(inciString, ragKnowledge) {
+async function runNode4_INCIParser(inciString, ragKnowledge, pimPayload) {
     console.log(`[Swarm Node 4] INCI Parser start...`);
     try {
         const model = genAI.getGenerativeModel({
@@ -1212,7 +1212,7 @@ async function runNode4_INCIParser(inciString, ragKnowledge) {
             }
         });
         const systemPrompt = getMasterPrompt(4);
-        const prompt = `${systemPrompt}\n\n--- DANE WEJĹšCIOWE ---\nINCI: ${inciString}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
+        const prompt = `${systemPrompt}\n\n--- PAYLOAD WEJŚCIOWY PIM ---\n${JSON.stringify(pimPayload || {})}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
         return await generateWithRetry(model, prompt, 2, "Agent_4_INCIParser", true);
     } catch (err) {
         console.error("[Swarm Node 4] BĹ‚Ä…d krytyczny:", err.message);

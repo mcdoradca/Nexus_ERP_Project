@@ -271,7 +271,7 @@ class SupervisorService {
         const inciDocs = await ragService.searchKnowledge(inciString, 5);
         const inciKnowledge = inciDocs.map(d => d.content).join("\n");
         
-        const inciAEOData = await AiService.runNode4_INCIParser(inciString, inciKnowledge);
+        const inciAEOData = await AiService.runNode4_INCIParser(inciString, inciKnowledge, autofillData);
         
         if (inciAEOData.ingredient_gate_status === "INGREDIENT_NOT_COSMETIC") {
             if (process.env.BYPASS_HITL === 'true') {
