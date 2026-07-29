@@ -343,7 +343,12 @@ ${fullSot09}
         const sentinelKnowledge = sentinelDocs.map(d => d.content).join("\n");
         const sentinelData = await AiService.runNode10_Sentinel(finalPayload, autofillData, sentinelKnowledge);
         
-        if (sentinelData.final_verdict === "BLOCKED_DUE_TO_NON_COMPLIANCE") {
+        if (sentinelData.final_verdict === "PASSED_WITH_AUTO_REPAIR" && sentinelData.repaired_html_payload) {
+            console.warn(`[Supervisor] Sentinel zgłosił błąd, ale użył Auto-Korekty. Oszczędzono tokeny dla EAN: ${ean}`);
+            broadcastStatus("FAZA_4_AUDIT", [], {}, "INFO", "Sentinel wykonał auto-korektę tekstu (usunięto halucynację).");
+            psychologyData = sentinelData.repaired_html_payload;
+            finalPayload.htmlContent = psychologyData;
+        } else if (sentinelData.final_verdict.startsWith("BLOCKED") || sentinelData.final_verdict === "BLOCKED_DUE_TO_NON_COMPLIANCE") {
             broadcastStatus("FAZA_4_AUDIT", [], {}, "WARNING", "Sentinel zablokował ostateczną ofertę. Wymagana interwencja człowieka.");
             
             let sentinelReasons = [];
