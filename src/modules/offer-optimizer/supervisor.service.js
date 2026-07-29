@@ -320,7 +320,7 @@ Wymuszam na Tobie zachowanie powyższego mapowania. Zintegruj je sprytnie w HTML
 TREŚĆ BAZY WIEDZY SOT_09:
 ${fullSot09}
 `;
-        const psychologyData = await AiService.runNode7_Psychology(product.name, copywriterData, legalData, orchestratorMapping);
+        let psychologyData = await AiService.runNode7_Psychology(product.name, copywriterData, legalData, orchestratorMapping);
         
         broadcastStatus("FAZA_3_CREATION", ["Agent_8_Scenographer"], { Agent_7_Psychology: "COMPLETED", Agent_8_Scenographer: "IN_PROGRESS" });
         const { getKnownIngredientKeys } = require('./photoroom.prompts');
