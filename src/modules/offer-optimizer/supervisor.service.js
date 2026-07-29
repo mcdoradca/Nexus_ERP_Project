@@ -263,11 +263,14 @@ class SupervisorService {
         
         const ragService = require('./knowledge.rag.service');
         
-        const inciDocs = await ragService.searchKnowledge("Słownik INCI Kosmetyki Chemia", 2);
+        // Ekstrakcja INCI z parametrów (Węzeł 1 -> Węzeł 0)
+        const inciString = autofillData.inci_ingredients || "Brak podanego INCI w danych PIM.";
+        
+        // Dynamiczne wyszukiwanie wiedzy w oparciu o RZECZYWISTY SKŁAD (oszczędność tokenów)
+        // Obejmuje przeszukiwanie nowej wiedzy z RAG_SOT_10_Składniki Chemii Domowej i Przemysłowej.md oraz INCI_i_ich_dzialanie.md
+        const inciDocs = await ragService.searchKnowledge(inciString, 5);
         const inciKnowledge = inciDocs.map(d => d.content).join("\n");
         
-        // Ekstrakcja INCI z parametrów
-        const inciString = autofillData.inci_ingredients || "Brak podanego INCI w danych PIM.";
         const inciAEOData = await AiService.runNode4_INCIParser(inciString, inciKnowledge);
         
         if (inciAEOData.ingredient_gate_status === "INGREDIENT_NOT_COSMETIC") {
