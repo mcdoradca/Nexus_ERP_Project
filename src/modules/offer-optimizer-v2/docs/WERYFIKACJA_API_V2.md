@@ -3,8 +3,8 @@
 Zgodnie z weryfikacją aktualnej dokumentacji sieciowej Google AI for Developers, w szczególności dla Node.js SDK:
 
 ## 1. Wersja SDK (Node.js)
-- **Źródło:** [Google GenAI SDK GitHub](https://github.com/google/gemini-ai-node) / [Google AI for Developers](https://ai.google.dev/gemini-api/docs)
-- **Pakiet:** Obecna wspierana biblioteka to `@google/genai`. Wersja `@google/generative-ai` jest oznaczona jako "legacy".
+- **Źródło:** [Google GenAI SDK GitHub](https://github.com/googleapis/js-genai) / [NPM](https://www.npmjs.com/package/@google/genai)
+- **Pakiet:** Obecna wspierana biblioteka to `@google/genai`. Aktualna, sprawdzona wersja pakietu to **`2.14.0`**. Wersja `@google/generative-ai` jest oznaczona jako "legacy" i nie może być używana.
 - **Składnia:**
 ```javascript
 const { GoogleGenAI, Type, ThinkingLevel } = require("@google/genai");
@@ -13,10 +13,9 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 ## 2. Dostępne stringi modeli
 - **Źródło:** [Modele Gemini API](https://ai.google.dev/gemini-api/docs/models/gemini)
-- Wykorzystywane nazewnictwo:
-  - `gemini-3.5-flash` - szybki model ze zmniejszonym czasem myślenia (podstawowy dla potoku 2026).
-  - `gemini-3.5-pro` - model ciężki (dla Legal/Chemistry Guard A5).
-  - (Uwaga: Dokumentacja wskazuje również nowsze np. `gemini-3.6-flash`, jednak 3.5 jest referencyjnym, na co wskazywały logi repozytorium oraz wytyczne).
+- Wykorzystywane nazewnictwo w architekturze V2:
+  - `gemini-3.5-flash` - szybki model ze zmniejszonym czasem myślenia (dla większości Agenta).
+  - `gemini-3.1-pro` - model klasy Pro, o wysokiej zdolności głębokiego wnioskowania (wymagany dla Legal/Chemistry Guard A5 zgodnie z pakietem v4.1, a nie 3.5-pro, które wynikło ze złego mapowania w starych logach).
 
 ## 3. Składnia `thinkingConfig` i `thinkingLevel`
 - **Źródło:** [Thinking Config API](https://ai.google.dev/gemini-api/docs/reasoning)
