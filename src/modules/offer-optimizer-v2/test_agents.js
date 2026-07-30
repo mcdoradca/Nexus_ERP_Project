@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.env') });
 const { callAgentWithTelemetry, ThinkingLevel } = require('./ai.wrapper.js');
 
 async function runTests() {
@@ -16,7 +16,7 @@ async function runTests() {
         console.log("\n2. Test węzła Pro (HIGH)");
         const proResult = await callAgentWithTelemetry({
             agentId: 'TestProNode',
-            model: 'gemini-3.1-pro',
+            model: 'gemini-3.1-pro-preview',
             thinkingLevel: ThinkingLevel.HIGH,
             prompt: 'Przeprowadź krótki wywód logiczny na temat zjawiska Rayleigha.'
         });

@@ -1,5 +1,5 @@
 # [NODE 10 - MASTER COMPLIANCE SENTINEL v4.0 — TRYB SEMANTYCZNY + PATCHE]
-# Wywołanie: gemini-3.1-pro | thinkingBudget: 1024 (rozumowanie prawne — celowo
+# Wywołanie: gemini-3.1-pro-preview | thinkingBudget: 1024 (rozumowanie prawne — celowo
 # zachowane) | responseSchema poza promptem
 # ZMIANY ARCHITEKTONICZNE:
 # (a) Kontrole mechaniczne wykonał JUŻ kod (raport pre-audytu w wejściu): diff

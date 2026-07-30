@@ -12,10 +12,10 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 ```
 
 ## 2. Dostępne stringi modeli
-- **Źródło:** [Modele Gemini API](https://ai.google.dev/gemini-api/docs/models/gemini)
+- **Źródło:** Wyniki empiryczne z `ai.models.list()` (zobacz [LISTMODELS_SNAPSHOT.md](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/docs/LISTMODELS_SNAPSHOT.md))
 - Wykorzystywane nazewnictwo w architekturze V2:
   - `gemini-3.5-flash` - szybki model ze zmniejszonym czasem myślenia (dla większości Agenta).
-  - `gemini-3.1-pro` - model klasy Pro, o wysokiej zdolności głębokiego wnioskowania (wymagany dla Legal/Chemistry Guard A5 zgodnie z pakietem v4.1, a nie 3.5-pro, które wynikło ze złego mapowania w starych logach).
+  - `gemini-3.1-pro-preview` - model klasy Pro, o wysokiej zdolności głębokiego wnioskowania (najnowsza dostępna dla naszego API wersja wspierająca `generateContent` i `thinkingLevel: HIGH`). Model `gemini-3.1-pro` nie istnieje w środowisku.
 
 ## 3. Składnia `thinkingConfig` i `thinkingLevel`
 - **Źródło:** [Thinking Config API](https://ai.google.dev/gemini-api/docs/reasoning)
@@ -55,7 +55,7 @@ config: {
 ```
 
 ## 5. Odczyt `usageMetadata` (Telemetria)
-- **Źródło:** [Tokens Usage Metadata](https://ai.google.dev/gemini-api/docs/tokens) / [GitHub GenAI Node](https://github.com/google/gemini-ai-node)
+- **Źródło:** [Tokens Usage Metadata](https://ai.google.dev/gemini-api/docs/tokens) / [GitHub GenAI Node](https://github.com/googleapis/js-genai)
 - Zużycie tokenów znajduje się w obiekcie `response.usageMetadata` (lub w JavaScript SDK z uwzględnieniem camelCase). Zgodnie z oficjalną dokumentacją:
 - **Pełna lista kluczowych pól `usageMetadata`:**
   - `promptTokenCount`: Liczba tokenów żądania wejściowego (prompt).

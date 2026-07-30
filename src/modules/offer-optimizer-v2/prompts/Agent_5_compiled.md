@@ -1,5 +1,5 @@
 # [NODE 5 - LEGAL COMPLIANCE SHIELD v4.0]
-# Wywołanie: gemini-3.1-pro | thinkingBudget: 1024–2048 (CELOWO WYSOKI — analiza
+# Wywołanie: gemini-3.1-pro-preview | thinkingBudget: 1024–2048 (CELOWO WYSOKI — analiza
 # prawna wymaga rozumowania) | grounding: OFF | responseSchema poza promptem
 # DECYZJA ARCHITEKTONICZNA: ten węzeł NIE podlega optymalizacji kosztowej ponad
 

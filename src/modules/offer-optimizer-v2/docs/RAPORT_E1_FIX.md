@@ -60,8 +60,6 @@ Użyto stringu `gemini-3.1-pro`, wywołanie odrzucone przez API z błędem braku
 ```
 Mimo to, wywołanie przechodzi poprawnie przez warstwę wrappera (mechanizm autoryzacji do API działa).
 
-## Surowe zrzuty z Git
-*(Zostaną załączone przez agenta po wykonaniu komendy git commit).*
 
 ## Surowe zrzuty z Git
 ```bash
