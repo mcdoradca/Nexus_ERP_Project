@@ -142,24 +142,12 @@ test('V10 freeze_sections', async (t) => {
     assert.deepStrictEqual(v.verify_frozen(null, null, null, { s3: 'x', s5: 'y', s6: 'z' }).valid, false);
 });
 
-test('V11 validate_eu_responsible_person', async (t) => {
-    // Valid
+test('V11 validate_eu_responsible_person', () => {
     assert.deepStrictEqual(v.validate_eu_responsible_person({
-        name: 'Firma Testowa',
-        address_eu: 'ul. Testowa 1, 00-000 Test',
+        name: 'Firma Testowa S.r.l.',
+        address_eu: 'ul. Testowa 1, 00-000 Warszawa',
         contact: 'test@example.com'
     }).valid, true);
-
-    // Empty object
-    assert.deepStrictEqual(v.validate_eu_responsible_person(null).valid, false);
-    assert.deepStrictEqual(v.validate_eu_responsible_person({}).valid, false);
-
-    // Too long string block
-    assert.deepStrictEqual(v.validate_eu_responsible_person({
-        name: 'A'.repeat(250),
-        address_eu: 'B'.repeat(300),
-        contact: 'C'.repeat(300)
-    }).valid, false);
 
     // Cross checks and regex
     assert.deepStrictEqual(v.validate_eu_responsible_person({
@@ -179,4 +167,17 @@ test('V11 validate_eu_responsible_person', async (t) => {
         address_eu: 'Brak ulicy',
         contact: 'test@example.com'
     }).valid, false); // adres brak cyfry
+});
+
+test('V11 validate_eu_responsible_person - puste obiekty', () => {
+    assert.deepStrictEqual(v.validate_eu_responsible_person(null).valid, false);
+    assert.deepStrictEqual(v.validate_eu_responsible_person({}).valid, false);
+});
+
+test('V11 validate_eu_responsible_person - zbyt dlugie pole', () => {
+    assert.deepStrictEqual(v.validate_eu_responsible_person({
+        name: 'A'.repeat(250),
+        address_eu: 'B'.repeat(300),
+        contact: 'C'.repeat(300)
+    }).valid, false);
 });
