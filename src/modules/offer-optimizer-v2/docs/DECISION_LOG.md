@@ -77,3 +77,7 @@ D14. SPRZĄTANIE REPOZYTORIUM
 2026-07-30 | decyzja operatora: luźne pliki robocze w katalogu głównym zostają na dysku; sprzątanie ostrożne, z listą do akceptacji, dopiero w E7 |
 zasada natychmiastowa: ZAKAZ uruchamiania clear_db.js i jakiegokolwiek skryptu z katalogu głównego bez jawnego polecenia |
 uzasadnienie: repozytorium ewoluowało od lutego 2026 przez wiele iteracji, przynależność plików nie jest ustalona, kasowanie na tym etapie to ryzyko bez zysku.
+
+[2026-07-30] | dokumentacja: D15 | repo wymaga: offer-optimizer-v2 | decyzja: Filtrowanie payloadu PIM przed wezwaniem Agenta 1. Jawna reguła: usunięcie (delete) atrybutów `images` oraz `offerDraft` ze skopiowanego obiektu danych (PIM). Powód: Redukcja gigantycznego narzutu wejścia i przekraczania limitu tokenów (zawierają ogromne dane base64). Pola ZAKAZANE do usuwania: dane GPSR/CLP, skład INCI (raw_ingredients_inci itp.). | ryzyko: Nieznane nowe pola z base64 mogą nadal zawyżyć tokeny, ale najważniejsze wyeliminowane.
+
+[2026-07-30] | dokumentacja: D16 | repo wymaga: offer-optimizer-v2 (ai.wrapper.js) | decyzja: Rzutowanie `agentId` na `String` przy wysyłce logów do telemetry. | ryzyko: Jest to obejście (workaround) problemu błędu typu Int/String w Prismie/bazie. Obejściem tym usuwamy objaw błędu, ale nie modyfikujemy samej bazy, co może doprowadzić do ukrytych niezgodności modeli (Prisma Drift) podczas migracji innych pól. Będzie musiało być rozwiązane przy migracji na stałe.
