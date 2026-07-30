@@ -26,3 +26,13 @@ mod_pkg.js
 logs/
 *-audit.json
 db_backup_*.sql
+
+check_*.js
+run_*.js
+read_headers.js
+sample_extract.js
+clear_db.js
+fix_encoding.js
+update_env.js
+diag.js
+diag.sh
