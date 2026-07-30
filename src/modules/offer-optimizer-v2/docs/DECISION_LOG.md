@@ -30,3 +30,5 @@
 ## INCYDENT (2026-07-30)
 - **Rozjazd Raport - Rzeczywistoœæ / Wyciek Sekretu**: Zlogowano jawnym tekstem has³o do Supabase w RAPORT_E3.md i w promptach. Zosta³o to poddane natychmiastowej redakcji.
 - **Audyt po incydencie**: Ustalono ponad wszelk¹ w¹tpliwoœæ, ¿e sekret NIGDY nie trafi³ do ¿adnego commita ani na serwer origin (ga³¹Ÿ pozostawa³a 9 commitów przed remote, plik RAPORT_E3.md pozostawa³ w Untracked). Zrzuty bazy zosta³y umieszczone w .gitignore.
+
+[2026-07-30] | dokumentacja: nag³ówki promptów v4 zawieraj¹ model i thinkingBudget | rzeczywistoœæ: kompilat jest artefaktem generowanym, rêczna edycja ginie przy rekompilacji; thinkingBudget = legacy (obowi¹zuje thinkingLevel wg §3A) | decyzja Architekta: parametry wywo³ania wy³¹cznie w konfiguracji kodu, kompilator wycina je z nag³ówków, prompts/ = katalog generowany (zakaz edycji rêcznej) | ryzyko: brak — test z pkt f pilnuje.

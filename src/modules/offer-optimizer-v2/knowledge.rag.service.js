@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient, Prisma } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { GoogleGenAI } = require('@google/genai');
 const aiMetricsService = require('../../core/ai.metrics.service');
@@ -35,7 +35,7 @@ const EMBEDDING_MODEL_NAME = 'gemini-embedding-2';
 
 const CHUNK_MIN = 400;   // znaków — mniejsze fragmenty doklejane do poprzednika
 const CHUNK_MAX = 3500;  // znaków — twardy sufit pojedynczego chunku
-const DEFAULT_MIN_SIMILARITY = 0.72;
+const DEFAULT_MIN_SIMILARITY = 0.45;
 
 class KnowledgeRagService {
 
@@ -172,16 +172,14 @@ class KnowledgeRagService {
       const vec = await this._getEmbeddings(query, `${agentId}/embedding`);
       const vectorString = `[${vec.join(',')}]`;
       const moduleFilter = sotModules && sotModules.length
-        ? prisma.$queryRaw`AND "sotModule" = ANY(${sotModules})` : undefined;
+        ? Prisma.sql`AND "sotModule" = ANY(${sotModules})` : Prisma.empty;
 
       const results = await prisma.$queryRaw`
         SELECT id, title, content, "sotModule", "chunkType",
                1 - (embedding <=> ${vectorString}::vector) AS similarity
         FROM "KnowledgeDocument"
         WHERE embedding IS NOT NULL
-          ${sotModules && sotModules.length
-            ? prisma.$queryRaw`AND "sotModule" = ANY(${sotModules})`
-            : prisma.$queryRaw``}
+          ${moduleFilter}
         ORDER BY embedding <=> ${vectorString}::vector
         LIMIT ${limit}
       `;
