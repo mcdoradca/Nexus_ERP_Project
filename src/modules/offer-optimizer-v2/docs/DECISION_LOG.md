@@ -15,3 +15,9 @@
 4. **Przeniesienie pakietu files/ do docs/**:
    2026-07-30 | pakiet files/: hash historyczny b6b68bc | docs/: 4a15895 | decyzja Architekta: wersja docs/ kanoniczna (legalna edycja §9 przez operatora + escapowanie markdown bez zmian treści, dowód: pełny diff w RAPORT_E2_FIX) | ryzyko: przenoszenie plików przez edytory może mutować treść — przyszłe przenosiny wyłącznie kopiowaniem binarnym.
    ZASADA STAŁA: pakiet jest read-only dla agenta (edycja wyłącznie §9 MASTER_HANDOFF na polecenie operatora). Zmiany lokalizacji plików wykonuje wyłącznie operator z zapowiedzią przed sesją.
+
+## [2026-07-30] Etap E3
+5. **Adaptacja SDK dla serwisu RAG**:
+   2026-07-30 | dokumentacja: EOL @google/generative-ai | repo wymaga: v2 z @google/genai | decyzja: migracja wywołania _getEmbeddings do ai.models.embedContent (model: gemini-embedding-2, config: outputDimensionality: 768) | ryzyko: poprawne mapowanie usageMetadata na nowym SDK.
+6. **Blokada migracji bazy przez Prisma Drift**:
+   2026-07-30 | dokumentacja: Wykonanie `npx prisma migrate dev --name rag_v2_metadata (NIE db push)` | repo wymaga: zsynchronizowanej bazy z historią migracji | decyzja: STOP procesu i eskalacja HITL | ryzyko: reset bazy przy użyciu `migrate dev` skasowałby dane, komenda `db push` zignorowałaby historię, wymagana decyzja operatora.

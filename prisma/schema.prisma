@@ -649,8 +649,13 @@ model KnowledgeDocument {
   title     String
   content   String
   embedding Unsupported("vector(768)")?
+  sotModule String?
+  targetAgents String[] @default([])
+  chunkType String? @default("DICTIONARY_ENTRY")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([sotModule], map: "idx_kd_module")
 }
 
 model AgentQueue {
