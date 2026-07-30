@@ -12,6 +12,14 @@ function normalizeIngredientName(name) {
         .trim();
 }
 
+const gate1 = [
+    'perboric acid, sodium salt', 'trimethylbenzoyl diphenylphosphine oxide', 'tpo', 'n,n-dimethyl-p-toluidine', 'tetrabromobisphenol-a', 'dibutyltin oxide', '4-methylbenzylidene camphor', '4-mbc', 'benzophenone-2', 'bp-2', 'benzophenone-5', 'bp-5', 'titanium dioxide (nano)', 'hydrated silica (nano)', 'silica silylate (nano)', 'silver (nano)'
+];
+const gate2 = [
+    'ketoconazole', 'climbazole', 'clotrimazole', 'miconazole', 'hydroquinone', 'tretinoin', 'adapalene', 'isotretinoin', 'egf', 'fgf', 'erythromycin', 'clindamycin', 'neomycin', 'corticosteroids', 'hydrocortisone'
+];
+const bannedGates = new Set([...gate1, ...gate2].map(normalizeIngredientName));
+
 /**
  * Wyciąga listę nazw z danego chunku markdown.
  * 
@@ -30,10 +38,9 @@ function extractIngredientsFromChunk(chunk, sotModule) {
             aliases.push(match[1]);
         }
     } else if (sotModule === 'INCI_DICT') {
-        // INCI_DICT: Np. "1. **Benzoyl Peroxide (Nadtlenek benzoilu)**"
-        const firstLine = chunk.split('\n')[0];
-        const match = firstLine.match(/\*\*(.+?)\*\*/);
-        if (match) {
+        const regex = /\*\*(.+?)\*\*/g;
+        let match;
+        while ((match = regex.exec(chunk)) !== null) {
             const content = match[1];
             // Oddzielenie części w nawiasach jeśli występuje
             const parenMatch = content.match(/^(.*?)\s*\((.*?)\)$/);
@@ -45,26 +52,61 @@ function extractIngredientsFromChunk(chunk, sotModule) {
             }
         }
     } else if (sotModule === 'SOT_10' || sotModule === 'SOT_07' || sotModule === 'SOT_05') {
-        // SOT_10 / 07 / 05: Pierwsza linia to często nazwy oddzielone "/"
-        const firstLine = chunk.split('\n')[0];
-        // Wyciągamy wszystko z pierwszego zdania przed ew. nawiasem lub traktujemy nawias jako alias
-        const parts = firstLine.split('/');
-        for (let p of parts) {
-            const trimmed = p.trim();
-            const parenMatch = trimmed.match(/^(.*?)\s*\((.*?)\)$/);
-            if (parenMatch) {
-                aliases.push(parenMatch[1]);
-                aliases.push(parenMatch[2]);
-            } else {
-                aliases.push(trimmed);
+        // SOT_10 / 07 / 05: Linie z ukośnikami często zawierają nazwy, ale pomijamy nagłówki []
+        const lines = chunk.split('\n');
+        for (let line of lines) {
+            if (line.startsWith('[')) continue;
+            // jeśli linia ma listę (np 1. lub *)
+            line = line.replace(/^[\d\.\*\-\s]+/, '');
+            if (line.trim().length === 0) continue;
+            
+            // Szukamy części przed myślnikiem jako potencjalnych nazw (częsty format "Nazwa / Nazwa - opis")
+            const mainPart = line.split('-')[0].split('–')[0];
+            const parts = mainPart.split('/');
+            for (let p of parts) {
+                const trimmed = p.trim();
+                const parenMatch = trimmed.match(/^(.*?)\s*\((.*?)\)$/);
+                if (parenMatch) {
+                    aliases.push(parenMatch[1]);
+                    aliases.push(parenMatch[2]);
+                } else {
+                    aliases.push(trimmed);
+                }
             }
         }
     }
 
     // Normalizacja i deduplikacja
-    const normalized = aliases
+    let normalized = aliases
+        .map(n => {
+            // Strip qualifiers like "jako substancja lecznicza"
+            return n.replace(/ jako .*/i, '').trim();
+        })
+        .filter(n => {
+            if (n.includes(':')) return false;
+            if (n.endsWith('.')) return false;
+            
+            const lower = n.toLowerCase();
+            if (lower.includes('funkcja')) return false;
+            if (lower.includes('kategoria')) return false;
+            if (lower.includes('mechanizm')) return false;
+            if (lower.includes('kryterium')) return false;
+            if (lower.includes('związki polimerowe')) return false;
+            
+            // Odrzucenie statusów typu uppercase
+            if (/^[A-Z0-9_]{3,}$/.test(n)) return false;
+            // Odrzucenie procentów i limitów
+            if (/\d+[,.]?\d*\s*%/.test(n)) return false;
+            return true;
+        })
         .map(normalizeIngredientName)
-        .filter(n => n.length > 0);
+        .filter(n => {
+            if (n.length < 3) return false;
+            if (n.split(/\s+/).length > 6) return false;
+            // Twardy bezpiecznik przeciw wyciekom GATE-1 i GATE-2
+            if (bannedGates.has(n)) return false;
+            return true;
+        });
     return [...new Set(normalized)];
 }
 

@@ -119,7 +119,7 @@ class KnowledgeRagService {
       let finalChunk = chunks[i];
       let entryNameVal = null;
 
-      if (isIngredientModule) {
+      if (isIngredientModule && chunkType === 'DICTIONARY_ENTRY') {
         const ingredients = extractIngredientsFromChunk(finalChunk, sotModule);
         if (ingredients.length > 0) {
            entryNameVal = `|${ingredients.join('|')}|`;
@@ -196,7 +196,7 @@ class KnowledgeRagService {
         SELECT id, title, content, "sotModule", "chunkType", "entryName",
                1 - (embedding <=> ${vectorString}::vector) AS similarity
         FROM "KnowledgeDocument"
-        WHERE "entryName" LIKE ${'%|' + normalizedIng + '|%'}
+        WHERE ${normalizedIng} = ANY(string_to_array("entryName", '|'))
           AND "sotModule" IS NOT NULL
         ORDER BY embedding <=> ${vectorString}::vector
       `;
