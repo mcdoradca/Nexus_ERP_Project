@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const aiWrapper = require('./ai.wrapper');
-const { ean_checksum, route_chemical } = require('./validators');
+const { ean_checksum, route_chemical, validate_eu_responsible_person } = require('./validators');
+const { FORBIDDEN_SOURCES } = require('./config/nodes.config');
 
 const PHASE_1_GROUNDING = 'PHASE_1_GROUNDING';
 const PHASE_2_LEGAL = 'PHASE_2_LEGAL';
@@ -154,6 +155,26 @@ class Orchestrator {
                 warnings.push('mpn_equals_ean');
             }
 
+            if (result.research_sources_used && Array.isArray(result.research_sources_used)) {
+                const originalSources = [...result.research_sources_used];
+                result.research_sources_used = result.research_sources_used.filter(src => {
+                    const domain = src.toLowerCase();
+                    return !FORBIDDEN_SOURCES.some(f => new RegExp(f, 'i').test(domain));
+                });
+                const removed = originalSources.filter(s => !result.research_sources_used.includes(s));
+                if (removed.length > 0) {
+                    warnings.push('removed_forbidden_sources: ' + removed.join(', '));
+                }
+                
+                const brand = (result.brand || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (brand && result.research_sources_used.length > 0) {
+                    const hasP1 = result.research_sources_used.some(src => src.toLowerCase().replace(/[^a-z0-9]/g, '').includes(brand));
+                    if (!hasP1) {
+                        warnings.push('NO_P1_SOURCE');
+                    }
+                }
+            }
+
             if (result.pipeline_id !== this.state.pipeline_id) {
                 result.pipeline_id = this.state.pipeline_id;
                 warnings.push('pipeline_id_overwritten');
@@ -169,7 +190,13 @@ class Orchestrator {
             const gpsr = result.compliance_gpsr_clp || {};
             const eu = gpsr.eu_responsible_person || {};
             
-            if (!eu.name || !eu.address_eu || !eu.contact) {
+            const euSanity = validate_eu_responsible_person(eu);
+            
+            if (!euSanity.valid) {
+                this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
+                this.state.hitl_alert = 'MALFORMED_EU_RESPONSIBLE_PERSON';
+                this.state.next_action = 'HALT';
+            } else if (!eu.name || !eu.address_eu || !eu.contact) {
                 this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
                 this.state.hitl_alert = 'MISSING_EU_RESPONSIBLE_PERSON';
                 this.state.next_action = 'HALT';

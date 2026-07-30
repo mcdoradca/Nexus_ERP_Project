@@ -30,7 +30,7 @@ test('Orchestrator - HARD FAIL na pustym eu_responsible_person', async (t) => {
     await orch.runPhase1({ name: "mock pim" });
 
     assert.strictEqual(orch.state.node_status['A1'], 'HALTED_HITL_REQUIRED');
-    assert.strictEqual(orch.state.hitl_alert, 'MISSING_EU_RESPONSIBLE_PERSON');
+    assert.strictEqual(orch.state.hitl_alert, 'MALFORMED_EU_RESPONSIBLE_PERSON');
     
     // Restore
     aiWrapper.callAgentWithTelemetry = originalCall;

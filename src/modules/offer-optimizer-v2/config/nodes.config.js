@@ -19,7 +19,13 @@ function getNodeConfig(agentId) {
     return nodesConfig[agentId];
 }
 
+const FORBIDDEN_SOURCES = [
+    'allegro\\.pl', 'allegrolokalnie\\.pl', 'olx\\.pl', 'empik\\.com',
+    'ebay\\..*', 'amazon\\..*', 'aliexpress\\..*', 'ceneo\\.pl'
+];
+
 module.exports = {
     nodesConfig,
-    getNodeConfig
+    getNodeConfig,
+    FORBIDDEN_SOURCES
 };

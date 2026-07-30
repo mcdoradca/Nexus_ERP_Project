@@ -236,6 +236,38 @@ function verify_frozen(s3, s5, s6, hashes) {
     if (mismatch.length > 0) return { valid: false, error: 'BLOCKED_CRITICAL', mismatch };
     return { valid: true };
 }
+// V11
+function validate_eu_responsible_person(eu) {
+    if (!eu) return { valid: false, error: 'MALFORMED_EU_RESPONSIBLE_PERSON', errors: ['Missing object'] };
+    const errors = [];
+    
+    // Name validation
+    if (!eu.name || typeof eu.name !== 'string' || eu.name.trim() === '' || eu.name.length > 200) errors.push('Name empty or exceeds 200 chars');
+    if (eu.name) {
+        if (eu.name.includes('\n')) errors.push('Name contains newline');
+        if (eu.name.includes('@')) errors.push('Name contains @');
+        if (eu.name.includes('http')) errors.push('Name contains http');
+        if (/\b\d{2}-\d{3}\b/.test(eu.name) || /\b\d{5}\b/.test(eu.name)) errors.push('Name contains postal code');
+    }
+    
+    // Address validation
+    if (!eu.address_eu || typeof eu.address_eu !== 'string' || eu.address_eu.trim() === '' || eu.address_eu.length > 250) errors.push('Address empty or exceeds 250 chars');
+    if (eu.address_eu) {
+        if (eu.address_eu.includes('\n')) errors.push('Address contains newline');
+        if (eu.address_eu.includes('@')) errors.push('Address contains @');
+        if (eu.address_eu.includes('http')) errors.push('Address contains http');
+        if (!/\d/.test(eu.address_eu)) errors.push('Address must contain at least one digit');
+    }
+    
+    // Contact validation
+    if (!eu.contact || typeof eu.contact !== 'string' || eu.contact.trim() === '' || eu.contact.length > 250) errors.push('Contact empty or exceeds 250 chars');
+    if (eu.contact) {
+        const contactLower = eu.contact.toLowerCase();
+        if (!contactLower.includes('@') && !contactLower.includes('http') && !contactLower.includes('www.')) errors.push('Contact must contain @, http or www');
+    }
+    
+    return { valid: errors.length === 0, errors };
+}
 
 module.exports = {
     ean_checksum,
@@ -248,5 +280,6 @@ module.exports = {
     gate_ingredients,
     c2pa_check,
     freeze_sections,
-    verify_frozen
+    verify_frozen,
+    validate_eu_responsible_person
 };

@@ -141,3 +141,42 @@ test('V10 freeze_sections', async (t) => {
     assert.deepStrictEqual(v.verify_frozen(s3 + ' ', s5, s6, frozen).valid, false);
     assert.deepStrictEqual(v.verify_frozen(null, null, null, { s3: 'x', s5: 'y', s6: 'z' }).valid, false);
 });
+
+test('V11 validate_eu_responsible_person', async (t) => {
+    // Valid
+    assert.deepStrictEqual(v.validate_eu_responsible_person({
+        name: 'Firma Testowa',
+        address_eu: 'ul. Testowa 1, 00-000 Test',
+        contact: 'test@example.com'
+    }).valid, true);
+
+    // Empty object
+    assert.deepStrictEqual(v.validate_eu_responsible_person(null).valid, false);
+    assert.deepStrictEqual(v.validate_eu_responsible_person({}).valid, false);
+
+    // Too long string block
+    assert.deepStrictEqual(v.validate_eu_responsible_person({
+        name: 'A'.repeat(250),
+        address_eu: 'B'.repeat(300),
+        contact: 'C'.repeat(300)
+    }).valid, false);
+
+    // Cross checks and regex
+    assert.deepStrictEqual(v.validate_eu_responsible_person({
+        name: 'Firma Testowa, test@example.com',
+        address_eu: 'ul. Testowa 1',
+        contact: 'test@example.com'
+    }).valid, false); // name ma '@'
+    
+    assert.deepStrictEqual(v.validate_eu_responsible_person({
+        name: 'Firma Testowa 00-000',
+        address_eu: 'ul. Testowa 1',
+        contact: 'test@example.com'
+    }).valid, false); // name ma kod pocztowy
+
+    assert.deepStrictEqual(v.validate_eu_responsible_person({
+        name: 'Firma Testowa',
+        address_eu: 'Brak ulicy',
+        contact: 'test@example.com'
+    }).valid, false); // adres brak cyfry
+});
