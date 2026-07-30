@@ -10,3 +10,8 @@
    2026-07-30 | dokumentacja: PowerShell UTF-16 | repo wymaga: UTF-8 bez BOM | decyzja: skrypt konwersji | ryzyko: ZASADA STAŁA: wszystkie pliki projektu = UTF-8 bez BOM.
 
 *(Dodatkowe logi decyzyjne będą dodawane w kolejnych etapach potoku).*
+
+## [2026-07-30] Etap E2 Fix
+4. **Przeniesienie pakietu files/ do docs/**:
+   2026-07-30 | pakiet files/: hash historyczny b6b68bc | docs/: 4a15895 | decyzja Architekta: wersja docs/ kanoniczna (legalna edycja §9 przez operatora + escapowanie markdown bez zmian treści, dowód: pełny diff w RAPORT_E2_FIX) | ryzyko: przenoszenie plików przez edytory może mutować treść — przyszłe przenosiny wyłącznie kopiowaniem binarnym.
+   ZASADA STAŁA: pakiet jest read-only dla agenta (edycja wyłącznie §9 MASTER_HANDOFF na polecenie operatora). Zmiany lokalizacji plików wykonuje wyłącznie operator z zapowiedzią przed sesją.

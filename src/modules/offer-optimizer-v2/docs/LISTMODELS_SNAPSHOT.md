@@ -1,4 +1,4 @@
-﻿[dotenv@17.3.1] injecting env (23) from ..\..\..\.env -- tip: ­čŤá´ŞĆ  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.3.1] injecting env (23) from ..\..\..\.env -- tip: ­čŤá´ŞĆ  run anywhere with `dotenvx run -- yourcommand`
 [
   {
     "name": "models/gemini-2.5-flash",

@@ -66,15 +66,24 @@ test('V8 gate_ingredients', async (t) => {
     const gate1 = [ 'perboric acid', 'tpo', 'n,n-dimethyl-p-toluidine', '4-mbc', 'bp-2', 'bp-5' ];
     const gate2 = [ 'ketoconazole', 'clotrimazole', 'miconazole', 'hydroquinone', 'tretinoin', 'adapalene', 'isotretinoin', 'egf', 'fgf', 'erythromycin', 'clindamycin', 'neomycin' ];
     
-    assert.deepStrictEqual(v.gate_ingredients(['aqua', 'glycerin']), { status: 'OK' });
+    await t.test('Safe ingredients', (t) => {
+        assert.deepStrictEqual(v.gate_ingredients(['aqua', 'glycerin']), { status: 'OK' });
+        assert.deepStrictEqual(v.gate_ingredients(null).status, 'OK');
+        assert.deepStrictEqual(v.gate_ingredients([]).status, 'OK');
+        assert.deepStrictEqual(v.gate_ingredients({}).status, 'OK');
+    });
     
-    for (const g of gate1) {
-        assert.deepStrictEqual(v.gate_ingredients(['aqua', g]).status, 'BANNED_SUBSTANCE_DETECTED');
-    }
-    for (const g of gate2) {
-        assert.deepStrictEqual(v.gate_ingredients(['aqua', g]).status, 'INGREDIENT_NOT_COSMETIC');
-    }
-    assert.deepStrictEqual(v.gate_ingredients(null).status, 'OK');
+    await t.test(`GATE-1 check (${gate1.length} substances)`, (t) => {
+        for (const g of gate1) {
+            assert.deepStrictEqual(v.gate_ingredients(['aqua', g]).status, 'BANNED_SUBSTANCE_DETECTED');
+        }
+    });
+    
+    await t.test(`GATE-2 check (${gate2.length} substances)`, (t) => {
+        for (const g of gate2) {
+            assert.deepStrictEqual(v.gate_ingredients(['aqua', g]).status, 'INGREDIENT_NOT_COSMETIC');
+        }
+    });
 });
 
 test('V9 c2pa_check', async (t) => {
