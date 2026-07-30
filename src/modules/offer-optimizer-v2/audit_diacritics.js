@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const filesDir = path.join(__dirname, '../offer-optimizer/files');
+const filesDir = path.join(__dirname, 'docs');
 const outDir = path.join(__dirname, 'prompts');
 
 function countDiacritics(text) {
