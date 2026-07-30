@@ -45,7 +45,7 @@ async function ingestAll() {
             console.log(`[SUKCES] ${title} -> ${res.chunksInserted} chunków (Moduł: ${config.module})`);
             
             // To get ingested chars, we can re-chunk it here just for stats
-            const chunks = ragService._chunkMarkdown(content);
+            const chunks = ragService._chunkMarkdown(content, config.module);
             const ingestedChars = chunks.reduce((sum, c) => sum + c.length, 0);
             
             stats.push({

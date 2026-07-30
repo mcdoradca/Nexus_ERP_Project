@@ -652,6 +652,7 @@ model KnowledgeDocument {
   sotModule String?
   targetAgents String[] @default([])
   chunkType String? @default("DICTIONARY_ENTRY")
+  entryName String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
