@@ -1,13 +1,26 @@
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-const crypto = require('crypto');
 
-async function fix() {
-  const companies = await prisma.company.findMany({ where: { id: '' } });
-  for (const c of companies) {
-     const newId = crypto.randomUUID();
-     console.log('Fixing company', c.name, 'with new ID', newId);
-     await prisma.$executeRaw`UPDATE "Company" SET id = ${newId} WHERE id = ''`;
-  }
+async function fixGateTypes() {
+    const prisma = new PrismaClient();
+    try {
+        const update1 = await prisma.$queryRawUnsafe(`
+            UPDATE "KnowledgeDocument"
+            SET "chunkType" = 'GATE'
+            WHERE "content" LIKE '%2. BRAMKA: SKŁADNIKI NIE-KOSMETYCZNE%'
+            OR "content" LIKE '%1. SUBSTANCJE ZAKAZANE I KRYTYCZNE RYZYKA FORMULACYJNE%'
+        `);
+        console.log('Update chunkType to GATE: ', update1);
+        
+        const update2 = await prisma.$queryRawUnsafe(`
+            UPDATE "KnowledgeDocument"
+            SET "entryName" = NULL
+            WHERE "chunkType" != 'DICTIONARY_ENTRY'
+        `);
+        console.log('Update entryName to NULL: ', update2);
+    } catch(e) {
+        console.error(e);
+    }
+    await prisma.$disconnect();
 }
-fix().then(()=>process.exit(0)).catch(e => console.error(e));
+
+fixGateTypes();

@@ -118,8 +118,25 @@ class KnowledgeRagService {
     for (let i = 0; i < chunks.length; i++) {
       let finalChunk = chunks[i];
       let entryNameVal = null;
+      let currentChunkType = chunkType;
 
-      if (isIngredientModule && chunkType === 'DICTIONARY_ENTRY') {
+      // Zaimplementuj przypisanie chunkType wg RAG_ORCHESTRATION §0
+      const firstLine = finalChunk.split('\n')[0].trim();
+      if (sotModule === 'SOT_04' && firstLine.includes('[1.')) currentChunkType = 'GATE';
+      else if (sotModule === 'SOT_06' && firstLine.includes('[2.')) currentChunkType = 'GATE';
+      else if (sotModule === 'SOT_02' && firstLine.includes('[3.')) currentChunkType = 'GATE';
+      else if (sotModule === 'SOT_01' && (firstLine.includes('[3.') || firstLine.includes('[4.'))) currentChunkType = 'RULE';
+      else if (sotModule === 'SOT_02' && firstLine.includes('[C.')) currentChunkType = 'RULE';
+      else if (sotModule === 'SOT_03' && (firstLine.includes('[1.') || firstLine.includes('[2.'))) currentChunkType = 'RULE';
+      else if (sotModule === 'SOT_08' && (firstLine.includes('[0.') || firstLine.includes('[Wstęp') || firstLine.includes('[3.'))) currentChunkType = 'RULE';
+      else if (sotModule === 'SOT_09' && (firstLine.includes('[1.') || firstLine.includes('[2.'))) currentChunkType = 'RULE';
+      // Dodatkowe zabezpieczenie: jakby nagłówek SOT_08 §0 nie miał numerka
+      else if (sotModule === 'SOT_08' && !firstLine.startsWith('[')) currentChunkType = 'RULE'; 
+      
+      if (sotModule === 'SOT_08' && finalChunk.includes('[3.')) currentChunkType = 'RULE';
+
+      // Zabezpieczenie (UZUPEŁNIENIE 4b): każdy chunk o chunkType GATE lub RULE ma entryName IS NULL
+      if (isIngredientModule && currentChunkType === 'DICTIONARY_ENTRY') {
         const ingredients = extractIngredientsFromChunk(finalChunk, sotModule);
         if (ingredients.length > 0) {
            entryNameVal = `|${ingredients.join('|')}|`;
@@ -136,7 +153,7 @@ class KnowledgeRagService {
           ("id","title","content","embedding","sotModule","targetAgents","chunkType","entryName","createdAt","updatedAt")
         VALUES (gen_random_uuid(), ${`${versionedTitle} (Część ${i + 1})`}, ${finalChunk},
                 ${vectorString}::vector, ${sotModule}, ${agents},
-                ${chunkType}, ${entryNameVal}, now(), now())
+                ${currentChunkType}, ${entryNameVal}, now(), now())
       `;
     }
     
@@ -176,7 +193,7 @@ class KnowledgeRagService {
 
   async getKnowledgeForIngredients(ingredients, {
     agentId, sotModules, perIngredientLimit = 2,
-    minSimilarity = DEFAULT_MIN_SIMILARITY, charBudget = 10000,
+    charBudget = 10000,
   } = {}) {
     if (!sotModules || !Array.isArray(sotModules) || sotModules.length === 0) {
       throw new Error("getKnowledgeForIngredients wymaga podania listy sotModules (zapytania globalne są zakazane).");
@@ -188,17 +205,14 @@ class KnowledgeRagService {
 
     for (const ing of ingredients) {
       const normalizedIng = normalizeIngredientName(ing);
-      const vec = await this._getEmbeddings(ing, `${agentId}/embedding`, 'RETRIEVAL_QUERY');
-      const vectorString = `[${vec.join(',')}]`;
 
-      // 1. GATE-3 Deterministic check
+      // 1. GATE-3 Deterministic check - wyłącznie exact match
       const exactHits = await prisma.$queryRaw`
-        SELECT id, title, content, "sotModule", "chunkType", "entryName",
-               1 - (embedding <=> ${vectorString}::vector) AS similarity
+        SELECT id, title, content, "sotModule", "chunkType", "entryName"
         FROM "KnowledgeDocument"
         WHERE ${normalizedIng} = ANY(string_to_array("entryName", '|'))
           AND "sotModule" IS NOT NULL
-        ORDER BY embedding <=> ${vectorString}::vector
+        LIMIT ${perIngredientLimit}
       `;
 
       if (!exactHits || exactHits.length === 0) {
@@ -207,28 +221,12 @@ class KnowledgeRagService {
         continue;
       }
 
-      // 2. Similarity search dla zapytań opisowych (synergie itp.) z modułów kontekstowych
-      const similarityHits = await this.searchKnowledge(ing, {
-        limit: perIngredientLimit, agentId, sotModules, minSimilarity
-      });
-
-      // 3. Łączymy trafienia (Exact ma absolutny priorytet dopuszczenia, similarity dopełnia)
-      const combined = [...exactHits];
-      for (const sh of similarityHits) {
-         if (!combined.find(x => x.id === sh.id)) combined.push(sh);
-      }
-
-      // Sortowanie ostateczne wg similarity
-      combined.sort((a,b) => b.similarity - a.similarity);
-      const topHits = combined.slice(0, perIngredientLimit);
-
-      for (const h of topHits) {
+      for (const h of exactHits) {
         if (seen.has(h.id)) continue;
         if (used + h.content.length > charBudget) break;
         seen.add(h.id);
         used += h.content.length;
-        block.push({ ingredient: ing, module: h.sotModule, content: h.content,
-                     similarity: Number(h.similarity?.toFixed?.(3) ?? h.similarity) });
+        block.push({ ingredient: ing, module: h.sotModule, content: h.content, similarity: 1.0 }); // Zwracamy statyczne 1.0, bo to exact match
       }
     }
     return { ragBlock: block, unknownIngredients: unknown, charsUsed: used };

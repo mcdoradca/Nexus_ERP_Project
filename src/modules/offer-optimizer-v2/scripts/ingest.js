@@ -1,9 +1,9 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.env') });
 const fs = require('fs');
 const path = require('path');
-const ragService = require('./knowledge.rag.service');
+const ragService = require('../knowledge.rag.service');
 
-const docsDir = path.join(__dirname, 'docs');
+const docsDir = path.join(__dirname, '..', 'docs');
 
 const sotMap = {
     'RAG_SOT_01_Allegro_Marketplace_2026.md': { module: 'SOT_01', agents: [], chunkType: 'GATE' },

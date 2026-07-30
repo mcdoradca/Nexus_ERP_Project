@@ -15,8 +15,11 @@
 - `docs\DECISION_LOG.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: TAK (PODEJRZANY)
 - `docs\DECYZJA_E3_FIX3_plan.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\DECYZJA_E3_FIX4_plan.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
+- `docs\DECYZJA_E3_KONS_plan.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\DECYZJA_E3_model_string.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\E3_EVIDENCE.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
+- `docs\implementation_plan_E3.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
+- `docs\implementation_plan_E3_FIX4.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\INCI_i_ich_dzialanie.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\INSTRUKCJA_E1.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\INSTRUKCJA_E1_FIX.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
@@ -30,6 +33,7 @@
 - `docs\INSTRUKCJA_E3_FIX3.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: TAK (PODEJRZANY)
 - `docs\INSTRUKCJA_E3_FIX4.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: TAK (PODEJRZANY)
 - `docs\INSTRUKCJA_E3_FIX5.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
+- `docs\INSTRUKCJA_E3_KONSOLIDACJA.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\INSTRUKCJA_E3_WZNOWIENIE_v2.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\KONTRAKTY_V2.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\LISTMODELS_SNAPSHOT.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
@@ -54,9 +58,10 @@
 - `docs\RAPORT_E2_FIX.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\RAPORT_E3.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\RAPORT_E3_FIX.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
-- `docs\RAPORT_E3_FIX2.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: TAK (PODEJRZANY)
-- `docs\RAPORT_E3_FIX3.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: TAK (PODEJRZANY)
+- `docs\RAPORT_E3_FIX2.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
+- `docs\RAPORT_E3_FIX3.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\RAPORT_E3_FIX4.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
+- `docs\RAPORT_E3_FIX5.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\SHARED_RULES_v4.1.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\SHARED_RULES_v4.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
 - `docs\WERYFIKACJA_API_V2.md` → Kodowanie: UTF-8 → BOM: Brak → U+FFFD: 0 (OK)
@@ -69,37 +74,42 @@ GATE-2 (validators): 15 pozycji
 
 ## 3. Rozkład Moduł × ChunkType
 - INCI_DICT | DICTIONARY_ENTRY: 50 chunków
-- SOT_01 | GATE: 7 chunków
-- SOT_02 | CONTEXT: 7 chunków
+- SOT_01 | RULE: 2 chunków
+- SOT_01 | GATE: 5 chunków
+- SOT_02 | CONTEXT: 5 chunków
+- SOT_02 | GATE: 1 chunków
+- SOT_02 | RULE: 1 chunków
 - SOT_03 | RULE: 5 chunków
-- SOT_04 | DICTIONARY_ENTRY: 6 chunków
+- SOT_04 | DICTIONARY_ENTRY: 5 chunków
+- SOT_04 | GATE: 1 chunków
 - SOT_05 | DICTIONARY_ENTRY: 4 chunków
-- SOT_06 | DICTIONARY_ENTRY: 5 chunków
+- SOT_06 | DICTIONARY_ENTRY: 4 chunków
+- SOT_06 | GATE: 1 chunków
 - SOT_07 | DICTIONARY_ENTRY: 4 chunków
-- SOT_08 | GATE: 6 chunków
+- SOT_08 | GATE: 4 chunków
+- SOT_08 | RULE: 2 chunków
 - SOT_09 | RULE: 5 chunków
 - SOT_10 | DICTIONARY_ENTRY: 4 chunków
-- null | DICTIONARY_ENTRY: 95 chunków
-- null | GATE: 2 chunków
+- null | null: 97 chunków
 
 ## 4. Wyciek GATE-1 i GATE-2 do entryName
 Liczba wycieków znalezionych w DB (entryName LIKE %substancja%): **0**
 
 ## 5. Pokrycie Indeksu per Plik Składnikowy
-- SOT_10: Unikalnych znormalizowanych nazw: 59
+- SOT_10: Unikalnych znormalizowanych nazw: 56
 - INCI_DICT: Unikalnych znormalizowanych nazw: 202
-- SOT_06: Unikalnych znormalizowanych nazw: 91
+- SOT_06: Unikalnych znormalizowanych nazw: 89
 
 ## 6. Próbki Nazw (po 20 per moduł)
 
 **Moduł SOT_06**:
-gemini embedding 2, climbazole jako substancja lecznicza, antybiotyki, benzoyl peroxide, salicylic acid, azelaic acid, melaleuca alternifolia leaf oil, astaxanthin, ascorbic acid, ferulic acid, tocopherol, ergothioneine, glycolic acid, lactic acid, gluconolactone, papain, bromelain, tinosorb s, uvinul a plus, zinc oxide
+gemini embedding 2, benzoyl peroxide, salicylic acid, azelaic acid, melaleuca alternifolia leaf oil, astaxanthin, ascorbic acid, ferulic acid, tocopherol, ergothioneine, glycolic acid, lactic acid, gluconolactone, papain, bromelain, tinosorb s, uvinul a plus, zinc oxide, titanium dioxide, madecassoside
 
 **Moduł SOT_10**:
-środki powierzchniowo czynne, surfaktanty, sodium laureth sulfate, sodium lauryl sulfate, dodecylbenzene sulfonic acid często, decyl glucoside, lauryl glucoside, coco, cocamidopropyl betaine, benzalkonium chloride, didecyldimonium chloride, związki kompleksujące i zmiękczające wodę chelatory, builders, tetrasodium edta, kwas wersenowy i jego sole, tetrasodium glutamate diacetate, sodium citrate, solvents, isopropyl alcohol izopropanol, ipa
+środki powierzchniowo czynne, surfaktanty, sodium laureth sulfate, sodium lauryl sulfate, decyl glucoside, lauryl glucoside, cocamidopropyl betaine, benzalkonium chloride, didecyldimonium chloride, związki kompleksujące i zmiękczające wodę chelatory, builders, tetrasodium edta, kwas wersenowy i jego sole, tetrasodium glutamate diacetate, sodium citrate, solvents, isopropyl alcohol izopropanol, propylene glycol, dipropylene glycol monomethyl ether dpm, glikole
 
 **Moduł INCI_DICT**:
-madecassoside, madekasozyd, panthenol, d pantenol, bisabolol, behentrimonium chloride, polyquaternium 10, hydrolyzed keratin, hydrolizowana keratyna, dipeptide diaminobutyroyl benzylamide diacetate, syn ake, acetyl hexapeptide 8, argirelina, pullulan
+benzoyl peroxide, nadtlenek benzoilu, salicylic acid, kwas salicylowy, azelaic acid, kwas azelainowy, melaleuca alternifolia leaf oil, olejek z drzewa herbacianego, astaxanthin, astaksantyna, ascorbic acid, kwas l askorbinowy, ferulic acid, kwas ferulowy, tocopherol, witamina e, glycolic acid, kwas glikolowy, lactic acid, kwas mlekowy
 
 ## 7. Pomiar Similarity (10 Hits, 5 Misses)
 | Zapytanie | Typ | ZNALEZIONY/BRAK | Moduł | Similarity |
@@ -133,52 +143,43 @@ TAP version 13
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 9.4516
+# duration_ms 8.0761
 
 ```
 
 ## 9. Git Log & Diff
 ```text
+d5537a7 feat(offer-optimizer-v2): RAPORT E3 FIX5 - gotowosc do E4
+aed5f42 test(offer-optimizer-v2): E3_EVIDENCE.md - automatyczny pobor dowodow
+bd24e02 fix(offer-optimizer-v2): uszczelnienie normalizacji przed GATE (blacklist)
 a300556 feat(offer-optimizer): E3 FIX3 - Deterministic GATE-3 and idempotency
 78bda29 fix(offer-optimizer-v2): kalibracja progu similarity + testy GATE-3 i budzetu
 e24b2ef fix(offer-optimizer-v2): chunkType per sekcja (GATE/RULE)
 791e6d5 fix(offer-optimizer-v2): higiena puli RAG — filtr metadanych, usuniecie duplikatow v2
 d9c1756 fix(offer-optimizer-v2): pelne listy bramkowe GATE-1/GATE-2 wg SOT + testy
-16a60aa fix(offer-optimizer-v2): E3 fix - SOT 10 + mapowanie modulow
-06e8c32 fix(offer-optimizer-v2): E3 fix - prog 0.72, taskType/normalizacja embeddingu, reingest
-a5f2cde feat(offer-optimizer-v2): E3 zakonczenie RAG, testy, raporty
 
- .agents/.ai-memory.md                              |   9 +-
+ .agents/.ai-memory.md                              |  16 +-
  diff.txt                                           | Bin 26380 -> 3172 bytes
  fix_db.js                                          |  33 ++--
  ...15c2f018e3154328da0d2467845a815b351f-audit.json |   5 +
  ...a3a72498ae90aefb94000ad62661d3ced8cc-audit.json |   5 +
- prisma/schema.prisma                               |   1 +
- .../offer-optimizer-v2/docs/DECISION_LOG.md        | Bin 3879 -> 5592 bytes
- .../docs/DECYZJA_E3_FIX3_plan.md                   |  67 ++++++++
- .../offer-optimizer-v2/docs/INSTRUKCJA_E3_FIX.md   | 116 ++++++++++++++
- .../offer-optimizer-v2/docs/INSTRUKCJA_E3_FIX2.md  | 100 ++++++++++++
- .../offer-optimizer-v2/docs/INSTRUKCJA_E3_FIX3.md  | 121 +++++++++++++++
- .../offer-optimizer-v2/docs/RAPORT_E3_FIX.md       | 163 ++++++++++++++++++++
- .../offer-optimizer-v2/docs/RAPORT_E3_FIX2.md      | Bin 0 -> 10522 bytes
- .../offer-optimizer-v2/docs/RAPORT_E3_FIX3.md      | Bin 0 -> 6468 bytes
- .../docs/implementation_plan do E3                 |  76 +++++++++
- .../offer-optimizer-v2/knowledge.rag.service.js    | 170 ++++++++++-----------
- src/modules/offer-optimizer-v2/normalization.js    | 113 ++++++++++++++
- .../{ => scripts}/audit_diacritics.js              |   4 +-
- .../{ => scripts}/convert_utf8.js                  |   0
- .../offer-optimizer-v2/{ => scripts}/ingest.js     |   6 +-
- .../{ => scripts}/list_models.js                   |   0
- .../offer-optimizer-v2/scripts/run_db_migration.js |  14 ++
- .../offer-optimizer-v2/scripts/run_measurement.js  |  82 ++++++++++
- .../offer-optimizer-v2/scripts/run_update.js       |  60 ++++++++
- .../{ => scripts}/test_25_pro.js                   |   0
- .../{ => scripts}/test_agents.js                   |   0
- .../offer-optimizer-v2/scripts/test_retrieval.js   |  48 ++++++
- src/modules/offer-optimizer-v2/test_retrieval.js   |  22 ---
- .../offer-optimizer-v2/tests/normalization.test.js |  38 +++++
- .../offer-optimizer-v2/tests/rag.service.test.js   |  75 +++++++++
- .../offer-optimizer-v2/tests/validators.test.js    | 117 ++------------
- 31 files changed, 1218 insertions(+), 227 deletions(-)
+ logs/debug-requests.log                            |   9 +
+ .../offer-optimizer-v2/docs/DECISION_LOG.md        | Bin 5592 -> 6755 bytes
+ src/modules/offer-optimizer-v2/docs/E3_EVIDENCE.md | 184 +++++++++++++++++++++
+ .../docs/MASTER_HANDOFF_OFFER_OPTIMIZER_V2.md      |  12 +-
+ .../offer-optimizer-v2/docs/RAPORT_E3_FIX2.md      | Bin 10522 -> 8912 bytes
+ .../offer-optimizer-v2/docs/RAPORT_E3_FIX3.md      | Bin 5885 -> 5348 bytes
+ .../offer-optimizer-v2/docs/RAPORT_E3_FIX5.md      |  21 +++
+ ...tation_plan do E3 => implementation_plan_E3.md} |   0
+ .../offer-optimizer-v2/knowledge.rag.service.js    |  54 +++---
+ src/modules/offer-optimizer-v2/normalization.js    |  80 +++++++--
+ .../offer-optimizer-v2/scripts/audit_diacritics.js |   4 +-
+ .../scripts/collect_e3_evidence.js                 | 143 ++++++++++++++++
+ src/modules/offer-optimizer-v2/scripts/ingest.js   |   4 +-
+ src/modules/offer-optimizer-v2/tests/gate.test.js  |  25 +++
+ .../offer-optimizer-v2/tests/normalization.test.js |   5 +-
+ .../offer-optimizer-v2/tests/rag.service.test.js   |  57 +++++++
+ .../offer-optimizer-v2/tests/validators.test.js    |  61 ++++---
+ 22 files changed, 623 insertions(+), 95 deletions(-)
 
 ```

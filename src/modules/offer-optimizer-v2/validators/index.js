@@ -197,11 +197,15 @@ function gate_ingredients(inci_list) {
         'ketoconazole', 'climbazole', 'clotrimazole', 'miconazole', 'hydroquinone', 'tretinoin', 'adapalene', 'isotretinoin', 'egf', 'fgf', 'erythromycin', 'clindamycin', 'neomycin', 'corticosteroids', 'hydrocortisone'
     ];
     
-    const lowerList = inci_list.map(i => String(i).toLowerCase().trim());
+    const { normalizeIngredientName } = require('../normalization.js');
+    const normGate1 = gate1.map(normalizeIngredientName);
+    const normGate2 = gate2.map(normalizeIngredientName);
+    const lowerList = inci_list.map(i => normalizeIngredientName(String(i)));
     
-    for (const item of lowerList) {
-        if (gate1.includes(item)) return { status: 'BANNED_SUBSTANCE_DETECTED', substance: item };
-        if (gate2.includes(item)) return { status: 'INGREDIENT_NOT_COSMETIC', substance: item };
+    for (let i = 0; i < lowerList.length; i++) {
+        const item = lowerList[i];
+        if (normGate1.includes(item)) return { status: 'BANNED_SUBSTANCE_DETECTED', substance: inci_list[i] };
+        if (normGate2.includes(item)) return { status: 'INGREDIENT_NOT_COSMETIC', substance: inci_list[i] };
     }
     
     return { status: 'OK' };

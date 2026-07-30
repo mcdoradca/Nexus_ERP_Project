@@ -1,0 +1,71 @@
+# E3 Konsolidacja: Naprawa i stabilizacja po degradacji kontekstu
+
+Cel: Przywrócenie integralności danych bazy, testów jednostkowych, usunięcie błędów w architekturze ścieżki składnikowej i ostateczne domknięcie etapu E3 (konsolidacja RAG).
+
+## User Review Required
+
+> [!WARNING]
+> Decyzja Architekta (pkt 4 z `INSTRUKCJA_E3_KONSOLIDACJA.md`): Z `getKnowledgeForIngredients` w `knowledge.rag.service.js` wycinam *całkowicie* poleganie na warstwie `similarity` w zapytaniach składnikowych w celu determinizmu GATE-3. Proszę o zatwierdzenie modyfikacji serwisu RAG z pominięciem similarity w logice bramkowej.
+
+## Proposed Changes
+
+### Zgodność z zaleceniami (OP-2, Higiena Repo, Kodowanie)
+
+#### [NEW] `scripts/fix_encoding_e3.js`
+- Skrypt w Node.js, konwertujący pliki `docs/DECISION_LOG.md`, `docs/RAPORT_E3_FIX2.md` itp. z UTF-16 na UTF-8 z użyciem `fs`.
+- Skrypt również odbuduje historię uszkodzonych wpisów jeśli zajdzie potrzeba weryfikując je przez zrzuty z Git.
+
+#### [MODIFY] `.gitignore`
+- Dodane ignorowanie artefaktów `diff.txt`, `*-audit.json`.
+
+#### [DELETE] `diff.txt`, `fix_db.js`, `*-audit.json`, `docs/implementation_plan do E3*`
+- Usunięcie resztek niepotrzebnych skryptów jednorazowych, a część (np. `fix_db.js`) zostanie przesunięta do odpowiednich miejsc ze statusem archiwum jeśli operator uzna za konieczne, a pozostałe usunięte.
+
+---
+
+### Środowisko testowe i Bateria V1-V10
+
+#### [MODIFY] `tests/validators.test.js`
+- Przywrócenie zagubionych 10 zestawów testów (V1-V10, m.in. `gate_ingredients`, `ean_checksum`, `validate_html_whitelist`) z commit'a `d9c1756`.
+- Pozostawienie nowo utworzonego w poprzedniej sesji przypadku testowego sprawdzającego obsługę polskich znaków w skanerach leksykalnych.
+
+---
+
+### Architektura Ingestu oraz Baza (RAG)
+
+#### [MODIFY] `scripts/ingest.js`
+- Zmiana by metadane `chunkType` były przypisywane deterministycznie w locie (na podstawie `heading` z chunku), zgodnie z `RAG_ORCHESTRATION §0`. Oznaczy to m.in. GATE na regułach (SOT 04 §1, SOT 06 §2 itp.).
+
+#### [MODIFY] `scripts/fix_legacy_db_chunks.js` (NEW script)
+- Stary system w sesji poprzedniej zaktualizował `chunkType` dla rekordów starych, gdzie `sotModule IS NULL`. Zgodnie z OP-2, zostanie napisany mały skrypt cofający te 2 wpisy (ustawi ich `chunkType = NULL`, `entryName = NULL`).
+
+#### [MODIFY] `knowledge.rag.service.js`
+- Ścieżka dla składników: usunięcie sekcji wykorzystującej `_getEmbeddings` i `searchKnowledge` do fuzzy matchingu dla samej weryfikacji. Prawdziwe zapytania będą bazować w 100% na `exactHits` (`normalizedIng = ANY(string_to_array("entryName", '|'))`).
+- Similarity posłuży tylko opcjonalnie jako synergie dla innych zapytań nie-bramkowych. Zmodyfikowany kod nie będzie zanieczyszczał indeksu niepoprawnymi identyfikatorami.
+
+---
+
+### Indeks Nazw (Normalizacja i Pomiar)
+
+#### [MODIFY] `normalization.js`
+- Filtry `extractIngredientsFromChunk`: odrzucenie wyrazów z dwukropkami, kropkami na końcu, krótszych niż 4 znaki, oraz zawierających słowa opisowe ("jako", "często", "funkcja"). Pozwala to na czystą weryfikację składników przez GATE-3.
+
+#### [MODIFY] `scripts/run_measurement.js`
+- Pomiar: dwukolumnowa prezentacja, gdzie wyraźnie oddzielony zostanie status ZNALEZIONY w indeksie składników vs wartość wektora Similarity.
+
+---
+
+### Dowody i Zamknięcie (E3_EVIDENCE.md i Raport)
+
+#### [MODIFY] `docs/E3_EVIDENCE.md`, `docs/RAPORT_E3_KONS.md`, `docs/DECISION_LOG.md`
+- Uruchomienie `scripts/collect_e3_evidence.js` na koniec prac (generujący kompletne raporty) i zapis jako UTF-8. 
+- Zapis decyzji i zaleceń Architekta (similarity wycięte z logiki składowej) do Loga.
+- Stworzenie 4 czystych commitów ze zmianami.
+
+## Verification Plan
+
+### Automated Tests
+- `node --test src/modules/offer-optimizer-v2/tests/*.test.js` - ma przejść cała powiększona ponownie bateria testów + rag.service + normalizacja (spodziewam się około 30+ testów w sumie).
+
+### Manual Verification
+- Przejrzenie tabel w pomiarach `run_measurement.js` oraz metryk pokrycia i "śmieciowych" nazw.

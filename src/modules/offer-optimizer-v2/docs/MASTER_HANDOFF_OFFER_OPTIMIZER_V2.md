@@ -237,7 +237,7 @@ odczytu. Zakaz raportowania z pamięci.
 Z-4: Parametry API — decyzja wyłącznie po weryfikacji w bieżącej
 dokumentacji sieciowej (precedens: thinkingBudget vs thinkingLevel).
 Z-5: Zero własnej inwencji; jedyny wyjątek = adaptacja do struktury repo,
-obowiązkowo wpisana do DECISION\_LOG.md w formacie:
+obowiązkowo wpisana do DECISION_LOG.md w formacie:
 \[data] | dokumentacja: X | repo wymaga: Y | decyzja: Z | ryzyko: ...
 Z-6: Brak danych ≠ zgadywanie: TODO z komentarzem //HITL: + wpis w raporcie.
 Z-7: Rozjazd raport↔git wykryty przez operatora lub agenta = natychmiastowy
@@ -284,4 +284,6 @@ jako lokalizacja kanoniczna). Model Pro = gemini-3.1-pro-preview
 Etap bieżący: E3 wg INSTRUKCJA\_E3.md — bramka startowa: komplet plików
 
 RAG\_SOT\_01…10 + INCI\_i\_ich\_dzialanie.md w docs/ (dostarcza operator).
+
+[2026-07-31] E3 w konsolidacji po degradacji sesji: naprawa kodowania DECISION\_LOG, przywrócenie baterii testów, ścieżka składnikowa deterministyczna (decyzja Architekta). Etap bieżący: E3 wg INSTRUKCJA_E3_KONSOLIDACJA.md.
 

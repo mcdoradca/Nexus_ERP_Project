@@ -11,8 +11,18 @@ cv_assets/*.mp4
 # Zabezpieczenie kluczy API
 google-credentials.json
 # E3 Database Backups & Secrets
-db_backup_pre_e3.sql
-*.sql.gz
-*_backup_*.sql
 .env
 .env.*
+
+diff.txt
+fix_db.js
+mod_pkg.js
+logs/
+*-audit.json
+
+diff.txt
+fix_db.js
+mod_pkg.js
+logs/
+*-audit.json
+db_backup_*.sql

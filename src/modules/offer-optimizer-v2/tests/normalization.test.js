@@ -31,5 +31,8 @@ test('extractIngredientsFromChunk - INCI_DICT', (t) => {
 test('extractIngredientsFromChunk - SOT_10', (t) => {
     const chunk = "Sodium Laureth Sulfate (SLES) / Sodium Lauryl Sulfate (SLS)\nOpis dzialania...";
     const res = extractIngredientsFromChunk(chunk, 'SOT_10');
-    assert.deepStrictEqual(res, ['sodium laureth sulfate', 'sles', 'sodium lauryl sulfate', 'sls']);
+    assert.deepStrictEqual(res, [
+        'sodium laureth sulfate',
+        'sodium lauryl sulfate'
+    ]);
 });

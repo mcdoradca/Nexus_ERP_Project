@@ -78,21 +78,23 @@ function extractIngredientsFromChunk(chunk, sotModule) {
 
     // Normalizacja i deduplikacja
     let normalized = aliases
-        .map(n => {
-            // Strip qualifiers like "jako substancja lecznicza"
-            return n.replace(/ jako .*/i, '').trim();
-        })
+        .map(n => n.trim())
         .filter(n => {
             if (n.includes(':')) return false;
             if (n.endsWith('.')) return false;
             
             const lower = n.toLowerCase();
+            if (lower.includes('jako ')) return false;
+            if (lower.includes('często')) return false;
             if (lower.includes('funkcja')) return false;
             if (lower.includes('kategoria')) return false;
             if (lower.includes('mechanizm')) return false;
             if (lower.includes('kryterium')) return false;
             if (lower.includes('związki polimerowe')) return false;
             
+            // Odrzucenie skrótów jako samodzielnych wpisów indeksowych (aliasów)
+            if (['ipa', 'coco', 'apg'].includes(lower)) return false;
+
             // Odrzucenie statusów typu uppercase
             if (/^[A-Z0-9_]{3,}$/.test(n)) return false;
             // Odrzucenie procentów i limitów
@@ -101,7 +103,7 @@ function extractIngredientsFromChunk(chunk, sotModule) {
         })
         .map(normalizeIngredientName)
         .filter(n => {
-            if (n.length < 3) return false;
+            if (n.length < 4) return false;
             if (n.split(/\s+/).length > 6) return false;
             // Twardy bezpiecznik przeciw wyciekom GATE-1 i GATE-2
             if (bannedGates.has(n)) return false;

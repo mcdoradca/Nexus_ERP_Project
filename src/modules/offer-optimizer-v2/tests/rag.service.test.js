@@ -56,6 +56,63 @@ test('GATE-3 Deterministic Match - Weryfikacja similarity (jest zignorowane do g
     assert.strictEqual(result.ragBlock.length, 0, 'Brak wyniku RAG dla fejka');
 });
 
+test('GATE-3 Deterministic Match - Brak wrażliwości na znaki wieloznaczne % i _', async (t) => {
+    // Zapytanie o 'Benzoyl%' nie powinno zadziałać jako wildcard
+    const result = await ragService.getKnowledgeForIngredients(
+        ['Benzoyl%Peroxide', 'Salicylic_Acid'],
+        {
+            agentId: 'Test',
+            sotModules: ['SOT_06', 'SOT_10', 'INCI_DICT']
+        }
+    );
+    
+    assert.strictEqual(result.unknownIngredients.includes('Benzoyl%Peroxide'), true, 'Benzoyl%Peroxide powinno trafić do unknown');
+    assert.strictEqual(result.unknownIngredients.includes('Salicylic_Acid'), true, 'Salicylic_Acid powinno trafić do unknown');
+});
+
+test('Asercje Metadanych - GATE/RULE/entryName', async (t) => {
+    // a) każdy z modułów ... ma >=1 chunk typu GATE lub RULE
+    const requiredModules = ['SOT_01', 'SOT_02', 'SOT_03', 'SOT_04', 'SOT_06', 'SOT_08', 'SOT_09'];
+    for (const mod of requiredModules) {
+        const count = await prisma.knowledgeDocument.count({
+            where: {
+                sotModule: mod,
+                chunkType: { in: ['GATE', 'RULE'] }
+            }
+        });
+        assert.ok(count >= 1, `Moduł ${mod} ma >= 1 chunk typu GATE/RULE (znaleziono: ${count})`);
+    }
+
+    // b) każdy chunk o chunkType GATE lub RULE ma entryName IS NULL
+    const countInvalid = await prisma.knowledgeDocument.count({
+        where: {
+            chunkType: { in: ['GATE', 'RULE'] },
+            entryName: { not: null }
+        }
+    });
+    assert.strictEqual(countInvalid, 0, 'Żaden chunk GATE/RULE nie może mieć entryName');
+
+    // c) żadna substancja z list GATE-1/GATE-2 nie występuje w entryName
+    const { extractIngredientsFromChunk } = require('../normalization.js');
+    // BannedGates are handled in normalization.js, so if we extract from them it returns empty array.
+    // Let's directly check DB.
+    const allNames = await prisma.$queryRaw`
+      SELECT "entryName" FROM "KnowledgeDocument" WHERE "entryName" IS NOT NULL
+    `;
+    const joinedNames = allNames.map(r => r.entryName).join('');
+    
+    const v = require('../validators/index');
+    const gate1 = [
+        'perboric acid, sodium salt', 'trimethylbenzoyl diphenylphosphine oxide', 'tpo', 'n,n-dimethyl-p-toluidine', 'tetrabromobisphenol-a', 'dibutyltin oxide', '4-methylbenzylidene camphor', '4-mbc', 'benzophenone-2', 'bp-2', 'benzophenone-5', 'bp-5', 'titanium dioxide (nano)', 'hydrated silica (nano)', 'silica silylate (nano)', 'silver (nano)'
+    ];
+    const gate2 = [
+        'ketoconazole', 'climbazole', 'clotrimazole', 'miconazole', 'hydroquinone', 'tretinoin', 'adapalene', 'isotretinoin', 'egf', 'fgf', 'erythromycin', 'clindamycin', 'neomycin', 'corticosteroids', 'hydrocortisone'
+    ];
+    for (const sub of [...gate1, ...gate2]) {
+        assert.ok(!joinedNames.includes(`|${sub.toLowerCase()}|`), `W entryName nie może być substancji zabronionej: ${sub}`);
+    }
+});
+
 test('Teardown', async (t) => {
     await prisma.$disconnect();
 });
