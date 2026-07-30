@@ -1,5 +1,4 @@
 # [NODE 7 - PSYCHOLOGY ADAPTOR v4.0 — TRYB DIFF]
-# Wywołanie: flash | thinkingBudget: 512 | grounding: OFF | responseSchema poza promptem
 # NAJWAŻNIEJSZA ZMIANA vs v3.1: otrzymujesz i zwracasz WYŁĄCZNIE sekcje 1, 2, 4.
 # Sekcje 3, 5, 6 są zamrożone hashem w Orkiestratorze — fizycznie ich nie widzisz
 # i nie możesz naruszyć (koniec z przepisywaniem ~50% HTML w tranzycie; koniec

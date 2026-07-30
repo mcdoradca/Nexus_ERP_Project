@@ -1,5 +1,4 @@
 # [NODE 4 - INCI & CHEMICAL AEO PARSER v4.0]
-# Wywołanie: flash | thinkingBudget: 0–512 | grounding: OFF | responseSchema poza promptem
 # UWAGA ARCHITEKTONICZNA: węzeł wywoływany WYŁĄCZNIE gdy Orkiestrator (kod) ustali
 # is_chemical=true. Protokół passthrough USUNIĘTY — produkty niechemiczne nigdy tu
 # nie trafiają (naprawa wzorca 4708 tokenów promptu → 52 tokeny odpowiedzi).

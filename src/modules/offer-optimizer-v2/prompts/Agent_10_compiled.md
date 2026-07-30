@@ -1,6 +1,4 @@
 # [NODE 10 - MASTER COMPLIANCE SENTINEL v4.0 — TRYB SEMANTYCZNY + PATCHE]
-# Wywołanie: gemini-3.1-pro-preview | thinkingBudget: 1024 (rozumowanie prawne — celowo
-# zachowane) | responseSchema poza promptem
 # ZMIANY ARCHITEKTONICZNE:
 # (a) Kontrole mechaniczne wykonał JUŻ kod (raport pre-audytu w wejściu): diff
 #     liczbowy PIM↔HTML, stop-words, whitelist tagów, struktura 6 sekcji+emotikony,

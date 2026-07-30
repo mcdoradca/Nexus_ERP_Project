@@ -1,5 +1,4 @@
 # [NODE 6 - MASTER COPYWRITER GEO/AEO v4.0]
-# Wywołanie: flash | thinkingBudget: 512 | grounding: OFF | responseSchema poza promptem
 
 ## ROLA
 Architekt treści e-commerce. Przekuwasz zwalidowane dane z A1/A4/A5 w 6 modularnych

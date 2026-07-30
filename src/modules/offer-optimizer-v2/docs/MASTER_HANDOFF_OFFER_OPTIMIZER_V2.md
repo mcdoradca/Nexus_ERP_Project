@@ -117,7 +117,7 @@ OP-4: Frontend nietykalny do cutovera; przepięcia endpoint po endpoincie
 za zgodą operatora; usunięcie starego modułu = ostatni etap.
 OP-5: Relikty w innych modułach Nexusa — poza zakresem, nietykalne.
 OP-6: Migracja bazy (RAG v2): wyłącznie addytywna (ADD COLUMN nullable/
-default), backup przed, `npx prisma migrate dev --name rag\_v2\_metadata`
+default), backup przed, `npx prisma migrate dev --name rag\\\_v2\\\_metadata`
 (nie db push), dopiero w etapie E3.
 OP-7: C2PA: bez instalowania bibliotek — stub zwracający
 C2PA\_CHECK\_UNAVAILABLE traktowany jako OSTRZEŻENIE, nigdy jako "metadane OK".
@@ -273,5 +273,15 @@ ingest bez transformacji przez LLM.
 ## 9\. STAN BIEŻĄCY (operator aktualizuje 1-2 zdaniami przed każdą nową sesją)
 
 ═══════════════════════════════════════════════════════════════════
-"E1 zamknięty (commit 4daa23e, model Pro = gemini-3.1-pro-preview za ratyfikacją Architekta). Etap bieżący: E2 wg INSTRUKCJA\_E2.md."
+\[2026-07-31] E2 zamknięty (commity 2b270da, 1ce0632; walidatory V1–V10
+
+\+ testy zielone; pakiet wsadowy zalegalizowany w offer-optimizer-v2/docs/
+
+jako lokalizacja kanoniczna). Model Pro = gemini-3.1-pro-preview
+
+(ratyfikacja Architekta, re-weryfikacja ListModels przed E5 i E6).
+
+Etap bieżący: E3 wg INSTRUKCJA\_E3.md — bramka startowa: komplet plików
+
+RAG\_SOT\_01…10 + INCI\_i\_ich\_dzialanie.md w docs/ (dostarcza operator).
 

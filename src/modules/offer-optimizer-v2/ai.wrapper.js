@@ -1,5 +1,6 @@
 const { GoogleGenAI, Type, ThinkingLevel } = require('@google/genai');
 const aiMetricsService = require('../../core/ai.metrics.service');
+const { getNodeConfig } = require('./config/nodes.config.js');
 
 // Inicjalizacja klienta Google Gen AI (nie używamy starego @google/generative-ai)
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -8,16 +9,16 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
  * Wrapper telemetrii i wykonania dla modelu Gemini.
  * @param {Object} params
  * @param {string} params.agentId - Jawny identyfikator agenta (S-7)
- * @param {string} params.model - String modelu (np. 'gemini-3.5-flash' lub 'gemini-3.1-pro')
- * @param {string} params.thinkingLevel - Poziom myślenia z enum ThinkingLevel
  * @param {string} params.prompt - Złożony prompt
  * @param {Object} [params.schema] - Opcjonalny schemat JSON dla responseSchema
  * @returns {Object} Zwraca sparsowany obiekt JSON.
  */
-async function callAgentWithTelemetry({ agentId, model, thinkingLevel, prompt, schema }) {
+async function callAgentWithTelemetry({ agentId, prompt, schema }) {
     if (!agentId) {
         throw new Error("BŁĄD BLOKUJĄCY (S-7): Wywołanie LLM bez jawnego agentId.");
     }
+    
+    const { model, thinkingLevel } = getNodeConfig(agentId);
     if (!process.env.GEMINI_API_KEY) {
         // HITL: Brak klucza API, nie zgadywanie
         throw new Error("HITL: Brak klucza API (GEMINI_API_KEY) w środowisku.");

@@ -95,8 +95,13 @@ for (const agentId of agentsToCompile) {
     
     compiledPrompt += `\n\n--- DANE SKU ---\n{{SKU_DATA}}`;
     
-    // Remove all lines containing "cache" (case-insensitive)
-    compiledPrompt = compiledPrompt.split('\n').filter(line => !line.toLowerCase().includes('cache')).join('\n');
+    // Usuń z linii komentarzowych (zaczynających się od #) parametry wywołania i cache
+    const filterKeywords = ['cache', 'wywołanie:', 'thinkingbudget', 'thinkinglevel', 'responseschema poza promptem', 'grounding:'];
+    compiledPrompt = compiledPrompt.split('\n').filter(line => {
+        if (!line.trim().startsWith('#')) return true;
+        const lowerLine = line.toLowerCase();
+        return !filterKeywords.some(keyword => lowerLine.includes(keyword));
+    }).join('\n');
 
     const compiledPath = path.join(outDir, `Agent_${agentId}_compiled.md`);
     fs.writeFileSync(compiledPath, compiledPrompt, 'utf8');

@@ -45,6 +45,28 @@ Etap E3 został WSTRZYMANY w kroku 2 z powodu rozbieżności schematu bazy danyc
   - Log Prisma CLI: `Drift detected: Your database schema is not in sync with your migration history.`
   - Wymagana autoryzacja operatora, jak postąpić w obliczu dryftu (np. wykonanie naprawy przez `prisma migrate resolve` lub zezwolenie na `--accept-data-loss` / wygenerowanie SQL-a poza Prisma).
 
+## Stan przed wznowieniem (Tabela Statusu Odtworzenia)
+| Punkt | Instrukcja | Status | Dowód / Wynik |
+|---|---|---|---|
+| 1. | Redakcja connection stringa w RAPORT_E3.md | NIEZROBIONE | Hasło było obecne w pliku w linii 16. |
+| 2. | Grep historii gita po sekrecie | ZROBIONE | Sekretu nie ma w commitach. |
+| 3. | Czyszczenie .agents/.ai-memory.md i plików temp | NIEZROBIONE | .ai-memory.md czysty, ale db_backup_pre_e3.sql posiada wpisy URL. |
+| 4. | git check-ignore -v db_backup_pre_e3.sql | ZROBIONE | Output: False (nie ignorowany). |
+| 5. | Wpis ZASADY STAŁEJ o sekretach do DECISION_LOG | NIEZROBIONE | Brak wpisu. |
+| 6. | Czy plik sql/rag_v2_metadata.sql istnieje? | ZROBIONE | NIE ISTNIEJE. |
+| 7. | Czy prisma db execute został JUŻ wykonany? | ZROBIONE | NIE. Baza jest absolutnie nietknięta. |
+| 8. | Czy npx prisma generate był uruchomiony? | ZROBIONE | NIE. |
+| 9. | §3 ingest SOT | NIEZROBIONE | Zgodnie z przewidywaniami. |
+| 10. | §4 testy retrieval | NIEZROBIONE | Brak wykonania. |
+| 11. | §5 porównanie list bramkowych SOT↔walidatory | NIEZROBIONE | Brak wykonania. |
+| 12. | git status + git log --oneline -3 | ZROBIONE | Odtworzono surowy zrzut z niezacommitowanymi zmianami.
+
+## §2 Porządki Repo (ZATRZYMANO)
+- **Analiza diff kompilatów**: Wykonano komendę `git diff src/modules/offer-optimizer-v2/prompts/Agent_5_compiled.md src/modules/offer-optimizer-v2/prompts/Agent_10_compiled.md`.
+  - **Wynik**: Wykryto zmianę stringa wywołania z `gemini-3.1-pro-preview` NA `gemini-3.1-pro`.
+  - **Wyjaśnienie**: Zmiana ta polega na usunięciu dopisku `-preview` ze skompilowanych plików. Najpewniej operator/skrypt kompilacyjny użył starszych źródeł promptów (bez poprawki) nadpisując ratyfikowaną wersję z E1.
+  - **Akcja [HITL]**: Zgodnie z wytyczną: *"Jeśli zmiana jest zgodna z decyzją E1 (gemini-3.1-pro-preview) — commituj. Jeśli cokolwiek innego — STOP i raport."* - **ZATRZYMUJĘ POTOK**. Zmiana nie jest zgodna z decyzją E1 (przywraca niedostępny w API model Pro).
+
 ## §3, §4, §5
 Prace uzależnione od wykonania prawidłowej migracji (§2). Uruchomienie skryptu ingestyjnego możliwe dopiero po modyfikacji tabeli bazodanowej (inaczej SQL insert zwróci błąd istnienia kolumn `sotModule`, itd.).
 
