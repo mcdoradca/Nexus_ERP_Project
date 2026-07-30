@@ -57,12 +57,7 @@ async function callAgentWithTelemetry({ agentId, model, thinkingLevel, prompt, s
 
         // Obowiązkowa telemetria (S-7)
         if (typeof aiMetricsService.logUsage === 'function') {
-            await aiMetricsService.logUsage({
-                agentId,
-                model,
-                durationMs: duration,
-                usage
-            });
+            await aiMetricsService.logUsage(agentId, model, usage, true, 1, null);
         }
 
         // Zwracanie odpowiedzi
