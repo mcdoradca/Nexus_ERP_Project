@@ -191,10 +191,10 @@ function gate_ingredients(inci_list) {
     if (!inci_list || !Array.isArray(inci_list)) return { status: 'OK' };
     
     const gate1 = [
-        'perboric acid', 'tpo', 'n,n-dimethyl-p-toluidine', '4-mbc', 'bp-2', 'bp-5'
+        'perboric acid, sodium salt', 'trimethylbenzoyl diphenylphosphine oxide', 'tpo', 'n,n-dimethyl-p-toluidine', 'tetrabromobisphenol-a', 'dibutyltin oxide', '4-methylbenzylidene camphor', '4-mbc', 'benzophenone-2', 'bp-2', 'benzophenone-5', 'bp-5', 'titanium dioxide (nano)', 'hydrated silica (nano)', 'silica silylate (nano)', 'silver (nano)'
     ];
     const gate2 = [
-        'ketoconazole', 'clotrimazole', 'miconazole', 'hydroquinone', 'tretinoin', 'adapalene', 'isotretinoin', 'egf', 'fgf', 'erythromycin', 'clindamycin', 'neomycin'
+        'ketoconazole', 'climbazole', 'clotrimazole', 'miconazole', 'hydroquinone', 'tretinoin', 'adapalene', 'isotretinoin', 'egf', 'fgf', 'erythromycin', 'clindamycin', 'neomycin', 'corticosteroids', 'hydrocortisone'
     ];
     
     const lowerList = inci_list.map(i => String(i).toLowerCase().trim());
