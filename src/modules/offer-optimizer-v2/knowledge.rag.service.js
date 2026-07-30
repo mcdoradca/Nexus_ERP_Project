@@ -179,15 +179,13 @@ class KnowledgeRagService {
     try {
       const vec = await this._getEmbeddings(query, `${agentId}/embedding`, 'RETRIEVAL_QUERY');
       const vectorString = `[${vec.join(',')}]`;
-      const moduleFilter = sotModules && sotModules.length
-        ? Prisma.sql`AND "sotModule" = ANY(${sotModules})` : Prisma.empty;
-
       const results = await prisma.$queryRaw`
         SELECT id, title, content, "sotModule", "chunkType",
                1 - (embedding <=> ${vectorString}::vector) AS similarity
         FROM "KnowledgeDocument"
         WHERE embedding IS NOT NULL
-          ${moduleFilter}
+          AND "sotModule" IS NOT NULL
+          ${sotModules && sotModules.length ? Prisma.sql`AND "sotModule" = ANY(${sotModules})` : Prisma.empty}
         ORDER BY embedding <=> ${vectorString}::vector
         LIMIT ${limit}
       `;
@@ -215,6 +213,9 @@ class KnowledgeRagService {
     agentId, sotModules, perIngredientLimit = 2,
     minSimilarity = DEFAULT_MIN_SIMILARITY, charBudget = 10000,
   } = {}) {
+    if (!sotModules || !Array.isArray(sotModules) || sotModules.length === 0) {
+      throw new Error("getKnowledgeForIngredients wymaga podania listy sotModules (zapytania globalne są zakazane).");
+    }
     const seen = new Set();
     const block = [];
     const unknown = [];
