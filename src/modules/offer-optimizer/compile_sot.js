@@ -1,3 +1,4 @@
+const AiMetricsService = require('../../core/ai.metrics.service');
 const fs = require('fs');
 const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -45,6 +46,7 @@ Format zwrotny: Zwięzła lista wypunktowana (Markdown). Max 4000 znaków.
         ];
 
         const result = await generateWithRetry(model, parts, 3, "Agent_SOT_Compiler");
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_SOT_Compiler", "gemini-3.1-pro-preview", result.response.usageMetadata, true, 1); }
         return result.response.text();
     } catch (err) {
         console.error(`Błąd przy pliku ${fileName}:`, err.message);

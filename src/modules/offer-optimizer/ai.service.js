@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
+﻿const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
 const agent1Logger = require('../../utils/agent1_logger');
 const dotenv = require('dotenv');
 const fs = require('fs');
@@ -384,6 +384,7 @@ ZwrĂłÄ‡ ZWARTY, tekstowy raport zawierajÄ…cy WYĹÄ„CZNIE:
 Format wyjĹ›ciowy: ZwykĹ‚y tekst.`;
         
         const result = await generateWithRetry(model, prompt, 2, "Agent_1_OSINT");
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_OSINT", "gemini-3.5-flash", result.response.usageMetadata, true, 1); }
         console.log(`[AiService] Agent Badawczy zakoĹ„czyĹ‚ pracÄ™. Znaleziono dane.`);
         return result.response.text();
     } catch (err) {
@@ -430,6 +431,7 @@ JeĹ›li produkt jest zupeĹ‚nie nowy i brak opinii w sieci, przygotuj hipote
 Odpowiedz w postaci zwiÄ™zĹ‚ego, czystego tekstu w jÄ™zyku polskim.`;
 
         const result = await generateWithRetry(model, prompt, 2, "Agent_2_Sentiment");
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_Sentiment", "gemini-3.5-flash", result.response.usageMetadata, true, 1); }
         console.log(`[AiService] Agent Sentimentu zakoĹ„czyĹ‚ analizÄ™ opinii (DANE NALEĹ»Y ZAPISAÄ† DO PIM).`);
         return result.response.text();
     } catch (err) {
@@ -475,7 +477,10 @@ OPIS ORYGINALNY: ${originalDescription || 'Brak'}
             console.warn("[AiService] Brak pliku SOT_Baza_Wiedzy_Agenta.md. Agent Prawny zadziaĹ‚a na goĹ‚ym modelu.");
         }
 
-        const result = await generateWithRetry(model, parts, 2, "Agent_3_Compliance");
+        const result = await generateWithRetry(model, parts, 2, "Agent_3_Compliance"); // HITL: Referencja Agent_3 zidentyfikowana w starej funkcji. Oznaczono do weryfikacji usunięcia.
+        if (result && result.response && result.response.usageMetadata) {
+            await AiMetricsService.logUsage("Legacy_ComplianceReport", "gemini-3.1-pro-preview", result.response.usageMetadata, true, 1);
+        }
         console.log(`[AiService] Agent Prawny zakoĹ„czyĹ‚ pracÄ™ pomyĹ›lnie.`);
         return strictRegexMedicalFilter(result.response.text());
     } catch (err) {
@@ -573,6 +578,7 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
     try {
         console.log(`[AiService] WywoĹ‚ano Gemini w trybie Native API (bez OCR). Tryb: ${analysisMode}`);
         const result = await generateWithRetry(model, parts, 2, "Agent_Vision_Native");
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_VisionNative", "gemini-3.5-flash", result.response.usageMetadata, true, 1); }
         let responseText = result.response.text();
         
         // Zastosowanie bezwzglÄ™dnej Tarczy Anty-Medycznej na wyjĹ›cie (AEO/Opisy)
@@ -650,6 +656,7 @@ Wygeneruj zwrot w formacie JSON zawierajÄ…cy wyizolowanÄ… strukturÄ™. P
 
     try {
         const result = await generateWithRetry(model, payload, 2, "Agent_Offer_JSON");
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_OfferJSON", "gemini-3.5-flash", result.response.usageMetadata, true, 1); }
         const responseText = result.response.text();
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error(`Brak prawidĹ‚owej struktury JSON w odpowiedzi dla GEO Text. Otrzymano: ${responseText}`);
@@ -706,6 +713,7 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
         const promptText = "Oto paczka obrazĂłw z oferty. ZdjÄ™cie pierwsze to miniatura (bezwzglÄ™dne Ĺ›rodowisko RGB white). Reszta to detale.";
         
         const result = await generateWithRetry(model, [promptText, ...imageParts], 3, "Agent_Image_Audit");
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_ImageAudit", "gemini-3.5-flash", result.response.usageMetadata, true, 1); }
         let rawText = result.response.text();
         const jsonMatch = rawText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error(`Brak prawidĹ‚owej struktury JSON w odpowiedzi wizyjnej. Otrzymano: ${rawText}`);
@@ -976,6 +984,7 @@ JeĹ›li w wiarygodnych ĹşrĂłdĹ‚ach producenta/dystrybutora nie byĹ‚o
     try {
         console.log(`[AiService] Auto-Fill Agent szuka parametrĂłw dla ${ean} z uwzglÄ™dnieniem nowej hierarchii...`);
         const result = await generateWithRetry(model, prompt, 2, "Agent_11_Autofill");
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_11_Autofill", "gemini-3.5-flash", result.response.usageMetadata, true, 1); }
         let text = result.response.text();
         text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
         const parsed = JSON.parse(text);
@@ -1037,6 +1046,7 @@ async function generateGEOTextContent(productName, aeoContent, intelligenceData,
         });
         const prompt = `Produkt: ${productName}\nBaza AEO: ${aeoContent}\nDane INCI/OSINT: ${intelligenceData}\nOpinie/Sentiment KonsumentĂłw: ${sentimentData || 'Brak'}\nZwrĂłÄ‡ wynik jako JSON z kluczem "htmlContent", zachowujÄ…c restrykcjÄ™ 7 tagĂłw HTML. WpleÄ‡ naturalnie w treĹ›Ä‡ akapitĂłw (np. w sekcji opis3 lub opis4) wnioski z opinii klientĂłw (np. za co klienci w szczegĂłlnoĹ›ci chwalÄ… ten produkt oraz na co zwracajÄ… uwagÄ™ po zakupie).`;
         const result = await generateWithRetry(model, prompt, 2, "Agent_4_GEO");
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_GEOText", "gemini-3.1-pro-preview", result.response.usageMetadata, true, 1); }
         let text = result.response.text().replace(/```json/gi, '').replace(/```/g, '').trim();
         const parsed = JSON.parse(text);
         
@@ -1112,6 +1122,7 @@ Blok 5 (sekcja5): ${htmlContent.sekcja5 || ''}
 Blok 6 (sekcja6): ${htmlContent.sekcja6 || ''}`;
 
         const result = await generateWithRetry(model, prompt, 2, "Agent_Segment_Tone");
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_SegmentTone", "gemini-3.1-pro-preview", result.response.usageMetadata, true, 1); }
         let text = result.response.text().replace(/```json/gi, '').replace(/```/g, '').trim();
         return JSON.parse(text);
     } catch(err) {
@@ -1133,7 +1144,8 @@ async function runNode1_Autofill(ean, productName, productFeatures = {}, allegro
                 temperature: 0.0, 
                 topP: 0.1, 
                 maxOutputTokens: 8192,
-                responseMimeType: "application/json" 
+                responseMimeType: "application/json",
+                thinkingConfig: { thinkingLevel: "minimal" } 
             }
         });
         const systemPrompt = getMasterPrompt(1);
@@ -1175,7 +1187,7 @@ async function runNode2_Sentiment(ean, productName) {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.5-flash",
             tools: [{ googleSearch: {} }],
-            generationConfig: { temperature: 0.1, topP: 0.2, responseMimeType: "application/json" }
+            generationConfig: { temperature: 0.1, topP: 0.2, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "minimal" } }
         });
         const systemPrompt = getMasterPrompt(2);
         const prompt = `${systemPrompt}\n\n--- DANE WEJĹšCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}`;
@@ -1197,6 +1209,7 @@ async function runNode4_INCIParser(inciString, ragKnowledge, pimPayload) {
                 topP: 0.1, 
                 maxOutputTokens: 8192,
                 responseMimeType: "application/json",
+                thinkingConfig: { thinkingLevel: "minimal" },
                 responseSchema: {
                     type: "object",
                     properties: {
@@ -1228,7 +1241,7 @@ async function runNode5_LegalSanitizer(productName, generatedContent, rawSentime
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
-            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
+            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "high" } }
         });
         const systemPrompt = getMasterPrompt(5);
         const prompt = `${systemPrompt}\n\n--- DANE WEJĹšCIOWE ---\nPRODUKT: ${productName}\nKONTENT DO ANALIZY: ${JSON.stringify(generatedContent)}\nSUROWY SENTIMENT: ${JSON.stringify(rawSentiment)}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
@@ -1248,7 +1261,7 @@ async function runNode6_Copywriter(productName, aeoFeatures, legalData, toneGuid
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.5-flash",
-            generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json", maxOutputTokens: 8192 }
+            generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json", maxOutputTokens: 8192, thinkingConfig: { thinkingLevel: "low" } }
         });
         const systemPrompt = getMasterPrompt(6);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nCECHY AEO: ${JSON.stringify(aeoFeatures)}\nDANE PRAWNE I GEO: ${JSON.stringify(legalData)}\nWYTYCZNE TONU: ${JSON.stringify(toneGuidelines)}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
@@ -1264,7 +1277,7 @@ async function runNode7_Psychology(productName, htmlDraft, sentimentData, ragKno
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.5-flash",
-            generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json" }
+            generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }
         });
         const systemPrompt = getMasterPrompt(7);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nSZKIC HTML: ${JSON.stringify(htmlDraft)}\nSENTIMENT: ${JSON.stringify(sentimentData)}\n\n--- SOT KNOWLEDGE & ORCHESTRATOR INSTRUCTIONS ---\n${ragKnowledge}`;
@@ -1281,7 +1294,7 @@ async function runNode8_Scenographer(productName, autofillData, category, knownK
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
             tools: [{ googleSearch: {} }],
-            generationConfig: { temperature: 0.2, topP: 0.5, responseMimeType: "application/json" }
+            generationConfig: { temperature: 0.2, topP: 0.5, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }
         });
         const systemPrompt = getMasterPrompt(8);
         
@@ -1350,7 +1363,7 @@ async function runNode9_VisionAuditor(imageUrls) {
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.5-flash", // Szybki i tani model Vision
-            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
+            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "minimal" } }
         });
         const systemPrompt = getMasterPrompt(9);
         
@@ -1382,7 +1395,7 @@ async function runNode10_Sentinel(finalPayload, originalPimData, ragKnowledge = 
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
-            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json" }
+            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }
         });
         const systemPrompt = getMasterPrompt(10);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nGOTOWA OFERTA: ${JSON.stringify(finalPayload)}\nSUROWE DANE PIM: ${JSON.stringify(originalPimData)}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
