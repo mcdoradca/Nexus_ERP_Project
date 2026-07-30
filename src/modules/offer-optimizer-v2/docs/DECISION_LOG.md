@@ -21,3 +21,12 @@
    2026-07-30 | dokumentacja: EOL @google/generative-ai | repo wymaga: v2 z @google/genai | decyzja: migracja wywoÅ‚ania _getEmbeddings do ai.models.embedContent (model: gemini-embedding-2, config: outputDimensionality: 768) | ryzyko: poprawne mapowanie usageMetadata na nowym SDK.
 6. **Blokada migracji bazy przez Prisma Drift**:
    2026-07-30 | dokumentacja: Wykonanie `npx prisma migrate dev --name rag_v2_metadata (NIE db push)` | repo wymaga: zsynchronizowanej bazy z historiÄ… migracji | decyzja: STOP procesu i eskalacja HITL | ryzyko: reset bazy przy uÅ¼yciu `migrate dev` skasowaÅ‚by dane, komenda `db push` zignorowaÅ‚aby historiÄ™, wymagana decyzja operatora.
+
+## ZASADA STA£A: Redakcja Sekretów (Wprowadzona 2026-07-30)
+- W raportach, DECISION_LOG, commit messages, .ai-memory i plikach tymczasowych credentiale musz¹ byæ zapisywane jako postgresql://***:***@host:port/db.
+- Dowód wykonania komendy z sekretem musi zawieraæ ***.
+- ZAKAZ wklejania hase³/tokenów/kluczy jako 'dowodu wykonania'. Sekrety mieszkaj¹ WY£¥CZNIE w .env.
+
+## INCYDENT (2026-07-30)
+- **Rozjazd Raport - Rzeczywistoœæ / Wyciek Sekretu**: Zlogowano jawnym tekstem has³o do Supabase w RAPORT_E3.md i w promptach. Zosta³o to poddane natychmiastowej redakcji.
+- **Audyt po incydencie**: Ustalono ponad wszelk¹ w¹tpliwoœæ, ¿e sekret NIGDY nie trafi³ do ¿adnego commita ani na serwer origin (ga³¹Ÿ pozostawa³a 9 commitów przed remote, plik RAPORT_E3.md pozostawa³ w Untracked). Zrzuty bazy zosta³y umieszczone w .gitignore.
