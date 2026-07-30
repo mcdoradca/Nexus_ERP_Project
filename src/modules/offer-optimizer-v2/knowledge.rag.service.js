@@ -35,22 +35,30 @@ const EMBEDDING_MODEL_NAME = 'gemini-embedding-2';
 
 const CHUNK_MIN = 400;   // znaków — mniejsze fragmenty doklejane do poprzednika
 const CHUNK_MAX = 3500;  // znaków — twardy sufit pojedynczego chunku
-const DEFAULT_MIN_SIMILARITY = 0.45;
+const DEFAULT_MIN_SIMILARITY = 0.72;
 
 class KnowledgeRagService {
 
-  async _getEmbeddings(text, agentId = 'Agent_Vector_Embedding') {
+  async _getEmbeddings(text, agentId = 'Agent_Vector_Embedding', taskType = 'RETRIEVAL_DOCUMENT') {
     try {
       const result = await ai.models.embedContent({
         model: EMBEDDING_MODEL_NAME,
         contents: text,
-        config: { outputDimensionality: 768 }
+        config: { outputDimensionality: 768, taskType }
       });
       const usage = result?.usageMetadata || result?.response?.usageMetadata;
       if (usage) {
         await aiMetricsService.logUsage(agentId, EMBEDDING_MODEL_NAME, usage, true, 1);
       }
-      return result.embeddings[0].values;
+      
+      let vec = result.embeddings[0].values;
+      // Normalizacja L2 (dla outputDimensionality < domyślnej, wektor musi być znormalizowany do metryki cosine)
+      const length = Math.sqrt(vec.reduce((sum, val) => sum + val * val, 0));
+      if (length > 0) {
+        vec = vec.map(val => val / length);
+      }
+      
+      return vec;
     } catch (error) {
       console.error('[_getEmbeddings] Błąd wektoryzacji:', error.message);
       throw error;
@@ -169,7 +177,7 @@ class KnowledgeRagService {
   } = {}) {
     if (!query || !query.trim()) return [];
     try {
-      const vec = await this._getEmbeddings(query, `${agentId}/embedding`);
+      const vec = await this._getEmbeddings(query, `${agentId}/embedding`, 'RETRIEVAL_QUERY');
       const vectorString = `[${vec.join(',')}]`;
       const moduleFilter = sotModules && sotModules.length
         ? Prisma.sql`AND "sotModule" = ANY(${sotModules})` : Prisma.empty;
