@@ -1,0 +1,24 @@
+{
+  "featureSynonyms": {
+    "inci": ["ingredients inci", "skladniki inci", "sklad inci", "inci"],
+    "mpn": ["kod producenta"],
+    "brand": ["marka", "brand"],
+    "capacity": ["pojemnosc", "capacity", "pojemnosc opakowania", "wielkosc"],
+    "usage": ["usage instructions", "sposob uzycia"],
+    "warnings": ["warnings", "uwagi dotyczace bezpieczenstwa"]
+  },
+  "ignoredFeatures": [
+    "kod karty"
+  ],
+  "exportWhiteList": [
+    "name",
+    "description",
+    "description_extra1",
+    "features",
+    "images",
+    "weight",
+    "length",
+    "width",
+    "height"
+  ]
+}

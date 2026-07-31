@@ -1,0 +1,54 @@
+{
+  "is_bundle": false,
+  "ean": "8000137015436",
+  "asin": "",
+  "parent_id": 0,
+  "sku": "CVCA",
+  "tags": [],
+  "tax_rate": 23,
+  "weight": 0,
+  "height": 0,
+  "width": 0,
+  "length": 0,
+  "star": 0,
+  "category_id": 3057825,
+  "manufacturer_id": 1625271,
+  "text_fields": {
+    "name": "Oczyszczający krem-żel do twarzy z aktywnym węglem 75ml",
+    "description_extra1": "<p>Krem-żel do twarzy z aktywnym węglem z linii Carbone to idealny dla zanieczyszczonej skóry krem o miękkiej i jedwabistej konsystencji, który doskonale się wchłania, nie pozostawia tłustej warstwy, skomponowany na bazie wybranych składników roślinnych, wolny od parafiny i olejów mineralnych. Aktywny węgiel naturalnie pochłania zanieczyszczenia, pomagając regulować przetłuszczanie się skóry, nadając jej lekkości i świeżości. Aktywny węgiel uzyskany w wyniku obróbki w wysokiej temperaturze ma zdolność do przyciągania wolnych cząsteczek, z którymi się styka (toksyny, zanieczyszczenia, mikrocząsteczki), do jego powierzchni. Jego charakterystyczna porowatość zapewnia niezwykłą zdolność chwytania.</p>",
+    "features": "{\"Funkcja\":\"Pielęgnacja\",\"Rodzaj produktu\":\"Krem|Żel\",\"ean\":\"8000137015436\",\"pojemnosc\":\"75 ml\",\"zastosowanie\":\"Do pielęgnacji twarzy\",\"sposob uzycia\":\"Nakładaj na idealnie oczyszczoną skórę twarzy rano i/lub wieczorem, masując aż do całkowitego wchłonięcia.\",\"skladniki inci\":\"Aqua (Water), Glyceryl Stereate, Cetyl Alcohol, Ethylhexyl Stereate, Coco-Caprylate/Caprate, Prunus Amygdalus Dulcis (Sweet Almond) Oil, Glycerin, Hydrolyzed Eruca Sativa Leaf, Cetearyl Alcohol, C10-18 Triglyceride, Aloe Barbadensis Leaf Juice, Vaccinium Myrtillus Fruit Extract, Ribes Nigrum Fruit Extract, Charcoal Powder, Sodium Hyaluronate, Xanthan Gum, Helianthus Annuus (Sunflower) Seed Oil, Tocopherol, Phenoxyethanol, Stearic Acid, Parfum (Fragrance), Ethylexyglycerin, Dicaprylyl Ether, Sodium Lauroyl Glutamate, Sodium Benzoate, Beta-Sitosterol, Potassium Sorbate, Squalene, Citric Acid, Sodium Dehydroacetate.\",\"uwagi dotyczace bezpieczenstwa\":\"Tylko do użytku zewnętrznego. Unikać kontaktu z oczami.\",\"rich kontent\":\"nie\",\"Kod producenta\":\"EQ1234\"}",
+    "description": "<p>KLUCZOWE SKŁADNIKI:<br />\n- aloe vera (20%) - nawilża, chroni i przywraca równowagę skórze twarzy<br />\n- węgiel aktywny - oczyszcza i detoksykuje dogłębnie skórę, eliminując toksyny i zanieczyszczenia<br />\n- olej ze słodkich migdałów - zmiękcza<br />\n- ekstrakt z rukoli - detoksykuje i oczyszcza<br />\n- ekstrakt wodny z czarnej jagody - koi<br />\n- ekstrakt wodny z czarnej porzeczki - bogactwo witamin C i E</p>\n<p>98% składników naturalnego pochodzenia.<br />\nTestowany dermatologicznie.<br />\nProdukt odpowiedni dla skóry wrażliwej.<br />\nWyprodukowano we Włoszech.</p>\n<p>WŁAŚCIWOŚCI WĘGLA AKTYWNEGO<br />\nUzyskany w wyniku obróbki w bardzo wysokich temperaturach, aktywny węgiel ma zdolność przylegania do powierzchni wolnych cząsteczek, z którymi wchodzi w kontakt (toksyny, zanieczyszczenia, mikrozanieczyszczenia). Jego charakterystyczna porowatość daje mu niezwykłą zdolność chwytania. Dzięki tej właściwości jest w stanie detoksykować i głęboko oczyścić, pozostawiając przyjemne uczucie czystości i świeżości.</p>\n<p>&nbsp;</p>\n<p>Dane producenta:</p>\n<p>Equilibra srl</p>\n<p>Via Plava, 74 Torino – 10135 Italy</p>\n<p><a href=\"mailto:cosmetica@equilibra.it\">cosmetica@equilibra.it</a></p>"
+  },
+  "stock": {
+    "bl_43836": 23
+  },
+  "reservations": {
+    "bl_43836": 0
+  },
+  "thresholds": {
+    "bl_43836": 0
+  },
+  "incoming": {
+    "bl_43836": 0
+  },
+  "prices": {
+    "21030": 21.5,
+    "22880": 5.44,
+    "25191": 42.99
+  },
+  "locations": {
+    "bl_43836": ""
+  },
+  "links": {
+    "shop_6009832": {
+      "product_id": "171",
+      "variant_id": "0"
+    }
+  },
+  "average_cost": 0,
+  "average_landed_cost": 0,
+  "images": {
+    "1": "https://equilibrasklep.pl/wp-content/uploads/2021/09/8000137015436_oczyszczajacy_krem_zel_do_twarzy_z_aktywnym_weglem_75ml.png"
+  },
+  "videos": {}
+}
