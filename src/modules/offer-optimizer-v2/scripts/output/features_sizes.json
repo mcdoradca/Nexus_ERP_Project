@@ -1,0 +1,4418 @@
+[
+  {
+    "ean": "8011483045510",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 280,
+    "descriptionLength": 1509,
+    "parses": true
+  },
+  {
+    "ean": "8011483044711",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 238,
+    "descriptionLength": 1295,
+    "parses": true
+  },
+  {
+    "ean": "8011483045978",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 280,
+    "descriptionLength": 1337,
+    "parses": true
+  },
+  {
+    "ean": "8011483044919",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 269,
+    "descriptionLength": 1126,
+    "parses": true
+  },
+  {
+    "ean": "8011483050118",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 267,
+    "descriptionLength": 1461,
+    "parses": true
+  },
+  {
+    "ean": "8011483050217",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 231,
+    "descriptionLength": 1343,
+    "parses": true
+  },
+  {
+    "ean": "8011483045114",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 223,
+    "descriptionLength": 1377,
+    "parses": true
+  },
+  {
+    "ean": "8809822541010",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 2027,
+    "descriptionLength": 5508,
+    "parses": true
+  },
+  {
+    "ean": "8809822541003",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1888,
+    "descriptionLength": 5246,
+    "parses": true
+  },
+  {
+    "ean": "8809822540990",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 2045,
+    "descriptionLength": 5605,
+    "parses": true
+  },
+  {
+    "ean": "8000137010790",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 403,
+    "descriptionLength": 2510,
+    "parses": true
+  },
+  {
+    "ean": "8809822540518",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 3144,
+    "descriptionLength": 5834,
+    "parses": true
+  },
+  {
+    "ean": "8809822540631",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 3021,
+    "descriptionLength": 6272,
+    "parses": true
+  },
+  {
+    "ean": "8809822540525",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 2820,
+    "descriptionLength": 4579,
+    "parses": true
+  },
+  {
+    "ean": "8809822541157",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1824,
+    "descriptionLength": 3878,
+    "parses": true
+  },
+  {
+    "ean": "8809822540471",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1914,
+    "descriptionLength": 1557,
+    "parses": true
+  },
+  {
+    "ean": "8809822540334",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1429,
+    "descriptionLength": 4738,
+    "parses": true
+  },
+  {
+    "ean": "8809822540839",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 3188,
+    "descriptionLength": 6004,
+    "parses": true
+  },
+  {
+    "ean": "8809822540938",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1705,
+    "descriptionLength": 4059,
+    "parses": true
+  },
+  {
+    "ean": "8809822540440",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1949,
+    "descriptionLength": 3359,
+    "parses": true
+  },
+  {
+    "ean": "8809822541140",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1522,
+    "descriptionLength": 1727,
+    "parses": true
+  },
+  {
+    "ean": "8809822541096",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1792,
+    "descriptionLength": 4741,
+    "parses": true
+  },
+  {
+    "ean": "8809822540136",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1620,
+    "descriptionLength": 3096,
+    "parses": true
+  },
+  {
+    "ean": "8809822541119",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 2505,
+    "descriptionLength": 6550,
+    "parses": true
+  },
+  {
+    "ean": "8002842176006",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 265,
+    "descriptionLength": 1502,
+    "parses": true
+  },
+  {
+    "ean": "8002842065041",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 382,
+    "descriptionLength": 2590,
+    "parses": true
+  },
+  {
+    "ean": "8002842177119",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 252,
+    "descriptionLength": 3243,
+    "parses": true
+  },
+  {
+    "ean": "8002842177126",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 247,
+    "descriptionLength": 3244,
+    "parses": true
+  },
+  {
+    "ean": "8002842177102",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 254,
+    "descriptionLength": 3226,
+    "parses": true
+  },
+  {
+    "ean": "8002842063016",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 433,
+    "descriptionLength": 2938,
+    "parses": true
+  },
+  {
+    "ean": "8002842470616",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 348,
+    "descriptionLength": 1603,
+    "parses": true
+  },
+  {
+    "ean": "8002842470647",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 249,
+    "descriptionLength": 1366,
+    "parses": true
+  },
+  {
+    "ean": "8002842470548",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 287,
+    "descriptionLength": 1353,
+    "parses": true
+  },
+  {
+    "ean": "8002842470661",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 350,
+    "descriptionLength": 1598,
+    "parses": true
+  },
+  {
+    "ean": "8002842170240",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 293,
+    "descriptionLength": 196,
+    "parses": true
+  },
+  {
+    "ean": "8002842169923",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 251,
+    "descriptionLength": 1835,
+    "parses": true
+  },
+  {
+    "ean": "8002842177423",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 322,
+    "descriptionLength": 2650,
+    "parses": true
+  },
+  {
+    "ean": "8002842177447",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 306,
+    "descriptionLength": 2254,
+    "parses": true
+  },
+  {
+    "ean": "8002842177430",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 279,
+    "descriptionLength": 2384,
+    "parses": true
+  },
+  {
+    "ean": "8002842177409",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 221,
+    "descriptionLength": 3466,
+    "parses": true
+  },
+  {
+    "ean": "8002842177409",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 276,
+    "descriptionLength": 2477,
+    "parses": true
+  },
+  {
+    "ean": "8002842177454",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 342,
+    "descriptionLength": 2750,
+    "parses": true
+  },
+  {
+    "ean": "8002842169701",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 586,
+    "descriptionLength": 3335,
+    "parses": true
+  },
+  {
+    "ean": "8002842074067",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 385,
+    "descriptionLength": 1891,
+    "parses": true
+  },
+  {
+    "ean": "8002842074074",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 314,
+    "descriptionLength": 1660,
+    "parses": true
+  },
+  {
+    "ean": "8002842170950",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 272,
+    "descriptionLength": 2506,
+    "parses": true
+  },
+  {
+    "ean": "8002842168056",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 291,
+    "descriptionLength": 2364,
+    "parses": true
+  },
+  {
+    "ean": "8000137013364",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 628,
+    "descriptionLength": 973,
+    "parses": true
+  },
+  {
+    "ean": "8000137014828",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 409,
+    "descriptionLength": 1928,
+    "parses": true
+  },
+  {
+    "ean": "8000137016747",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 436,
+    "descriptionLength": 884,
+    "parses": true
+  },
+  {
+    "ean": "8000137018017",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 563,
+    "descriptionLength": 1975,
+    "parses": true
+  },
+  {
+    "ean": "8000137015597",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 530,
+    "descriptionLength": 2552,
+    "parses": true
+  },
+  {
+    "ean": "8000137015016",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 519,
+    "descriptionLength": 1225,
+    "parses": true
+  },
+  {
+    "ean": "8000137012893",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 261,
+    "descriptionLength": 1851,
+    "parses": true
+  },
+  {
+    "ean": "8000137010769",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 539,
+    "descriptionLength": 765,
+    "parses": true
+  },
+  {
+    "ean": "8000137010394",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 380,
+    "descriptionLength": 1147,
+    "parses": true
+  },
+  {
+    "ean": "8000137016921",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 512,
+    "descriptionLength": 2709,
+    "parses": true
+  },
+  {
+    "ean": "8000137018499",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 296,
+    "descriptionLength": 3047,
+    "parses": true
+  },
+  {
+    "ean": "8000137017942",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 581,
+    "descriptionLength": 3102,
+    "parses": true
+  },
+  {
+    "ean": "8000137010783",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 398,
+    "descriptionLength": 2221,
+    "parses": true
+  },
+  {
+    "ean": "5012251012645",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 488,
+    "descriptionLength": 1513,
+    "parses": true
+  },
+  {
+    "ean": "8000137015504",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 331,
+    "descriptionLength": 2815,
+    "parses": true
+  },
+  {
+    "ean": "8000137017805",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 296,
+    "descriptionLength": 3883,
+    "parses": true
+  },
+  {
+    "ean": "8000137016723",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 367,
+    "descriptionLength": 979,
+    "parses": true
+  },
+  {
+    "ean": "8000137016716",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 536,
+    "descriptionLength": 1105,
+    "parses": true
+  },
+  {
+    "ean": "8000137018895",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 300,
+    "descriptionLength": 4193,
+    "parses": true
+  },
+  {
+    "ean": "5012251013963",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 287,
+    "descriptionLength": 2922,
+    "parses": true
+  },
+  {
+    "ean": "5012251014014",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 310,
+    "descriptionLength": 3341,
+    "parses": true
+  },
+  {
+    "ean": "5012251014007",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 330,
+    "descriptionLength": 2878,
+    "parses": true
+  },
+  {
+    "ean": "5012251013994",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 334,
+    "descriptionLength": 2578,
+    "parses": true
+  },
+  {
+    "ean": "5012251013987",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 312,
+    "descriptionLength": 3080,
+    "parses": true
+  },
+  {
+    "ean": "5012251008105",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 297,
+    "descriptionLength": 1959,
+    "parses": true
+  },
+  {
+    "ean": "5012251011129",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 510,
+    "descriptionLength": 2422,
+    "parses": true
+  },
+  {
+    "ean": "5012251013437",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 557,
+    "descriptionLength": 2486,
+    "parses": true
+  },
+  {
+    "ean": "5012251008136",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 229,
+    "descriptionLength": 2110,
+    "parses": true
+  },
+  {
+    "ean": "5012251013871",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 368,
+    "descriptionLength": 2506,
+    "parses": true
+  },
+  {
+    "ean": "5012251013789",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 324,
+    "descriptionLength": 2841,
+    "parses": true
+  },
+  {
+    "ean": "5012251002042",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 260,
+    "descriptionLength": 1733,
+    "parses": true
+  },
+  {
+    "ean": "5012251013314",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 455,
+    "descriptionLength": 2925,
+    "parses": true
+  },
+  {
+    "ean": "5012251013772",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 454,
+    "descriptionLength": 2528,
+    "parses": true
+  },
+  {
+    "ean": "5012251013765",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 421,
+    "descriptionLength": 2836,
+    "parses": true
+  },
+  {
+    "ean": "8000137014330",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 328,
+    "descriptionLength": 3469,
+    "parses": true
+  },
+  {
+    "ean": "8000137014323",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 315,
+    "descriptionLength": 3716,
+    "parses": true
+  },
+  {
+    "ean": "8000137014354",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 334,
+    "descriptionLength": 3770,
+    "parses": true
+  },
+  {
+    "ean": "8000137014378",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 298,
+    "descriptionLength": 3793,
+    "parses": true
+  },
+  {
+    "ean": "8000137014385",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 296,
+    "descriptionLength": 3780,
+    "parses": true
+  },
+  {
+    "ean": "8000137014392",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 297,
+    "descriptionLength": 3675,
+    "parses": true
+  },
+  {
+    "ean": "8000137014361",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 319,
+    "descriptionLength": 3677,
+    "parses": true
+  },
+  {
+    "ean": "8000137014286",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 354,
+    "descriptionLength": 4278,
+    "parses": true
+  },
+  {
+    "ean": "8000137014279",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 364,
+    "descriptionLength": 4075,
+    "parses": true
+  },
+  {
+    "ean": "8000137014262",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 384,
+    "descriptionLength": 3954,
+    "parses": true
+  },
+  {
+    "ean": "8000137014255",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 361,
+    "descriptionLength": 4086,
+    "parses": true
+  },
+  {
+    "ean": "8000137014248",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 375,
+    "descriptionLength": 3949,
+    "parses": true
+  },
+  {
+    "ean": "8000137014118",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 360,
+    "descriptionLength": 3675,
+    "parses": true
+  },
+  {
+    "ean": "8000137015573",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 600,
+    "descriptionLength": 882,
+    "parses": true
+  },
+  {
+    "ean": "8000137018888",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 280,
+    "descriptionLength": 2995,
+    "parses": true
+  },
+  {
+    "ean": "8000137018871",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 309,
+    "descriptionLength": 2749,
+    "parses": true
+  },
+  {
+    "ean": "8000137018864",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 312,
+    "descriptionLength": 3085,
+    "parses": true
+  },
+  {
+    "ean": "8000137017485",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 436,
+    "descriptionLength": 3380,
+    "parses": true
+  },
+  {
+    "ean": "5012251013888",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 376,
+    "descriptionLength": 2373,
+    "parses": true
+  },
+  {
+    "ean": "5012251013734",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 96,
+    "descriptionLength": 3510,
+    "parses": true
+  },
+  {
+    "ean": "5012251013802",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 306,
+    "descriptionLength": 2862,
+    "parses": true
+  },
+  {
+    "ean": "5012251013918",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 261,
+    "descriptionLength": 2070,
+    "parses": true
+  },
+  {
+    "ean": "5012251011297",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 548,
+    "descriptionLength": 1615,
+    "parses": true
+  },
+  {
+    "ean": "05012251011969",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 406,
+    "descriptionLength": 1405,
+    "parses": true
+  },
+  {
+    "ean": "05012251012829",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 397,
+    "descriptionLength": 1330,
+    "parses": true
+  },
+  {
+    "ean": "5012251013925",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 308,
+    "descriptionLength": 1845,
+    "parses": true
+  },
+  {
+    "ean": "5012251013369",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 511,
+    "descriptionLength": 2210,
+    "parses": true
+  },
+  {
+    "ean": "5012251013383",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 509,
+    "descriptionLength": 2184,
+    "parses": true
+  },
+  {
+    "ean": "5012251012126",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 421,
+    "descriptionLength": 1530,
+    "parses": true
+  },
+  {
+    "ean": "05012251012621",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 476,
+    "descriptionLength": 1781,
+    "parses": true
+  },
+  {
+    "ean": "5012251009263",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 319,
+    "descriptionLength": 1197,
+    "parses": true
+  },
+  {
+    "ean": "5012251013512",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 434,
+    "descriptionLength": 1899,
+    "parses": true
+  },
+  {
+    "ean": "5012251012294",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 330,
+    "descriptionLength": 1930,
+    "parses": true
+  },
+  {
+    "ean": "5012251011860",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 272,
+    "descriptionLength": 2116,
+    "parses": true
+  },
+  {
+    "ean": "5012251013901",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 261,
+    "descriptionLength": 2796,
+    "parses": true
+  },
+  {
+    "ean": "5012251013727",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 216,
+    "descriptionLength": 2433,
+    "parses": true
+  },
+  {
+    "ean": "5012251013710",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 214,
+    "descriptionLength": 2395,
+    "parses": true
+  },
+  {
+    "ean": "5012251006897",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 348,
+    "descriptionLength": 1257,
+    "parses": true
+  },
+  {
+    "ean": "5012251013932",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 293,
+    "descriptionLength": 2178,
+    "parses": true
+  },
+  {
+    "ean": "5012251006859",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 293,
+    "descriptionLength": 1711,
+    "parses": true
+  },
+  {
+    "ean": "5012251013840",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 250,
+    "descriptionLength": 2402,
+    "parses": true
+  },
+  {
+    "ean": "5012251013857",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 246,
+    "descriptionLength": 2395,
+    "parses": true
+  },
+  {
+    "ean": "5012251013864",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 227,
+    "descriptionLength": 2379,
+    "parses": true
+  },
+  {
+    "ean": "5012251008297",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 329,
+    "descriptionLength": 1327,
+    "parses": true
+  },
+  {
+    "ean": "5012251009867",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 345,
+    "descriptionLength": 1412,
+    "parses": true
+  },
+  {
+    "ean": "8002842168094",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 330,
+    "descriptionLength": 2770,
+    "parses": true
+  },
+  {
+    "ean": "8002842168087",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 361,
+    "descriptionLength": 2512,
+    "parses": true
+  },
+  {
+    "ean": "8002842168063",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 344,
+    "descriptionLength": 2462,
+    "parses": true
+  },
+  {
+    "ean": "8002842168049",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 228,
+    "descriptionLength": 2615,
+    "parses": true
+  },
+  {
+    "ean": "8002842168032",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 188,
+    "descriptionLength": 2558,
+    "parses": true
+  },
+  {
+    "ean": "8002842168025",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 220,
+    "descriptionLength": 2526,
+    "parses": true
+  },
+  {
+    "ean": "8002842176020",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 225,
+    "descriptionLength": 3242,
+    "parses": true
+  },
+  {
+    "ean": "8002842176013",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 258,
+    "descriptionLength": 3297,
+    "parses": true
+  },
+  {
+    "ean": "8002842170974",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 310,
+    "descriptionLength": 2580,
+    "parses": true
+  },
+  {
+    "ean": "8002842170967",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 219,
+    "descriptionLength": 2876,
+    "parses": true
+  },
+  {
+    "ean": "8002842170998",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 236,
+    "descriptionLength": 1407,
+    "parses": true
+  },
+  {
+    "ean": "8002842174163",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 201,
+    "descriptionLength": 2669,
+    "parses": true
+  },
+  {
+    "ean": "8002842074128",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 379,
+    "descriptionLength": 2422,
+    "parses": true
+  },
+  {
+    "ean": "8002842074104",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 180,
+    "descriptionLength": 2195,
+    "parses": true
+  },
+  {
+    "ean": "8002842074098",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 428,
+    "descriptionLength": 3144,
+    "parses": true
+  },
+  {
+    "ean": "8002842074081",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 389,
+    "descriptionLength": 2887,
+    "parses": true
+  },
+  {
+    "ean": "8002842074159",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 401,
+    "descriptionLength": 2392,
+    "parses": true
+  },
+  {
+    "ean": "8002842065034",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 247,
+    "descriptionLength": 2883,
+    "parses": true
+  },
+  {
+    "ean": "8002842065003",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 239,
+    "descriptionLength": 306,
+    "parses": true
+  },
+  {
+    "ean": "8002842063016",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 441,
+    "descriptionLength": 3409,
+    "parses": true
+  },
+  {
+    "ean": "8002842171001",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 295,
+    "descriptionLength": 5021,
+    "parses": true
+  },
+  {
+    "ean": "8011483036112",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 302,
+    "descriptionLength": 2700,
+    "parses": true
+  },
+  {
+    "ean": "8011483036013",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 416,
+    "descriptionLength": 1998,
+    "parses": true
+  },
+  {
+    "ean": "8011483034316",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 556,
+    "descriptionLength": 2444,
+    "parses": true
+  },
+  {
+    "ean": "8011483034118",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 698,
+    "descriptionLength": 2643,
+    "parses": true
+  },
+  {
+    "ean": "8011483034019",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 565,
+    "descriptionLength": 2156,
+    "parses": true
+  },
+  {
+    "ean": "8011483033210",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 582,
+    "descriptionLength": 2536,
+    "parses": true
+  },
+  {
+    "ean": "8011483033111",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 638,
+    "descriptionLength": 2600,
+    "parses": true
+  },
+  {
+    "ean": "5012251013826",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 88,
+    "descriptionLength": 2722,
+    "parses": true
+  },
+  {
+    "ean": "5012251013819",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 88,
+    "descriptionLength": 2500,
+    "parses": true
+  },
+  {
+    "ean": "8011483045312",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 270,
+    "descriptionLength": 741,
+    "parses": true
+  },
+  {
+    "ean": "8000137010868",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 396,
+    "descriptionLength": 3149,
+    "parses": true
+  },
+  {
+    "ean": "5012251011280",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 433,
+    "descriptionLength": 2245,
+    "parses": true
+  },
+  {
+    "ean": "5012251013758",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 79,
+    "descriptionLength": 2607,
+    "parses": true
+  },
+  {
+    "ean": "8000137010400",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 211,
+    "descriptionLength": 949,
+    "parses": true
+  },
+  {
+    "ean": "8000137017959",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 290,
+    "descriptionLength": 2350,
+    "parses": true
+  },
+  {
+    "ean": "8000137017966",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 247,
+    "descriptionLength": 2175,
+    "parses": true
+  },
+  {
+    "ean": "8000137011742",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 364,
+    "descriptionLength": 2774,
+    "parses": true
+  },
+  {
+    "ean": "8000137017881",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 177,
+    "descriptionLength": 1916,
+    "parses": true
+  },
+  {
+    "ean": "8000137017904",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 178,
+    "descriptionLength": 2196,
+    "parses": true
+  },
+  {
+    "ean": "8000137012237",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 214,
+    "descriptionLength": 2103,
+    "parses": true
+  },
+  {
+    "ean": "8000137012213",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 242,
+    "descriptionLength": 2431,
+    "parses": true
+  },
+  {
+    "ean": "8000137016662",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 433,
+    "descriptionLength": 877,
+    "parses": true
+  },
+  {
+    "ean": "5012251013536",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 252,
+    "descriptionLength": 1923,
+    "parses": true
+  },
+  {
+    "ean": "8000137010875",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 347,
+    "descriptionLength": 3228,
+    "parses": true
+  },
+  {
+    "ean": "8000137015009",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 375,
+    "descriptionLength": 3497,
+    "parses": true
+  },
+  {
+    "ean": "8000137017300",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 217,
+    "descriptionLength": 3808,
+    "parses": true
+  },
+  {
+    "ean": "8000137013036",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 375,
+    "descriptionLength": 2614,
+    "parses": true
+  },
+  {
+    "ean": "5012251012638",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 360,
+    "descriptionLength": 2681,
+    "parses": true
+  },
+  {
+    "ean": "5012251012706",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 316,
+    "descriptionLength": 1398,
+    "parses": true
+  },
+  {
+    "ean": "5012251013352",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 463,
+    "descriptionLength": 4009,
+    "parses": true
+  },
+  {
+    "ean": "5012251013376",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 515,
+    "descriptionLength": 2940,
+    "parses": true
+  },
+  {
+    "ean": "5012251012850",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 481,
+    "descriptionLength": 1890,
+    "parses": true
+  },
+  {
+    "ean": "8000137016273",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 317,
+    "descriptionLength": 2160,
+    "parses": true
+  },
+  {
+    "ean": "5012251006729",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 228,
+    "descriptionLength": 5703,
+    "parses": true
+  },
+  {
+    "ean": "5012251012003",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 229,
+    "descriptionLength": 1113,
+    "parses": true
+  },
+  {
+    "ean": "5012251011976",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 295,
+    "descriptionLength": 1015,
+    "parses": true
+  },
+  {
+    "ean": "8000137013005",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 441,
+    "descriptionLength": 2444,
+    "parses": true
+  },
+  {
+    "ean": "5012251011341",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 300,
+    "descriptionLength": 1496,
+    "parses": true
+  },
+  {
+    "ean": "5012251011358",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 373,
+    "descriptionLength": 1681,
+    "parses": true
+  },
+  {
+    "ean": "5012251011303",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 247,
+    "descriptionLength": 1053,
+    "parses": true
+  },
+  {
+    "ean": "5012251010658",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 204,
+    "descriptionLength": 1378,
+    "parses": true
+  },
+  {
+    "ean": "8000137016860",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 401,
+    "descriptionLength": 2557,
+    "parses": true
+  },
+  {
+    "ean": "5012251001991",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 193,
+    "descriptionLength": 917,
+    "parses": true
+  },
+  {
+    "ean": "5012251002035",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 203,
+    "descriptionLength": 941,
+    "parses": true
+  },
+  {
+    "ean": "5012251000642",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 237,
+    "descriptionLength": 733,
+    "parses": true
+  },
+  {
+    "ean": "8000137016853",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 375,
+    "descriptionLength": 2113,
+    "parses": true
+  },
+  {
+    "ean": "8000137015566",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 491,
+    "descriptionLength": 2296,
+    "parses": true
+  },
+  {
+    "ean": "8000137015603",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 320,
+    "descriptionLength": 3658,
+    "parses": true
+  },
+  {
+    "ean": "8000137014309",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 356,
+    "descriptionLength": 2318,
+    "parses": true
+  },
+  {
+    "ean": "8000137014293",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 327,
+    "descriptionLength": 2244,
+    "parses": true
+  },
+  {
+    "ean": "8000137013982",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 406,
+    "descriptionLength": 2445,
+    "parses": true
+  },
+  {
+    "ean": "8000137010332",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 265,
+    "descriptionLength": 2420,
+    "parses": true
+  },
+  {
+    "ean": "8000137019571",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 232,
+    "descriptionLength": 3287,
+    "parses": true
+  },
+  {
+    "ean": "8000137012176",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 397,
+    "descriptionLength": 1955,
+    "parses": true
+  },
+  {
+    "ean": "8000137013487",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 537,
+    "descriptionLength": 2364,
+    "parses": true
+  },
+  {
+    "ean": "8000137320110",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 281,
+    "descriptionLength": 2612,
+    "parses": true
+  },
+  {
+    "ean": "08000137014989",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 455,
+    "descriptionLength": 3307,
+    "parses": true
+  },
+  {
+    "ean": "8000137017515",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 488,
+    "descriptionLength": 3513,
+    "parses": true
+  },
+  {
+    "ean": "8000137018482",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 276,
+    "descriptionLength": 2713,
+    "parses": true
+  },
+  {
+    "ean": "8000137010851",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 403,
+    "descriptionLength": 747,
+    "parses": true
+  },
+  {
+    "ean": "8000137014422",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 417,
+    "descriptionLength": 2722,
+    "parses": true
+  },
+  {
+    "ean": "8000137017898",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 246,
+    "descriptionLength": 854,
+    "parses": true
+  },
+  {
+    "ean": "8000137010325",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 289,
+    "descriptionLength": 1872,
+    "parses": true
+  },
+  {
+    "ean": "08000137015610",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 495,
+    "descriptionLength": 3720,
+    "parses": true
+  },
+  {
+    "ean": "8000137015993",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 529,
+    "descriptionLength": 1997,
+    "parses": true
+  },
+  {
+    "ean": "8000137010929",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 394,
+    "descriptionLength": 2508,
+    "parses": true
+  },
+  {
+    "ean": "8000137013388",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 548,
+    "descriptionLength": 2594,
+    "parses": true
+  },
+  {
+    "ean": "8000137013012",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 480,
+    "descriptionLength": 2677,
+    "parses": true
+  },
+  {
+    "ean": "8000137012749",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 405,
+    "descriptionLength": 2467,
+    "parses": true
+  },
+  {
+    "ean": "8000137018185",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 269,
+    "descriptionLength": 1758,
+    "parses": true
+  },
+  {
+    "ean": "8000137019557",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 10302,
+    "descriptionLength": 940,
+    "parses": true
+  },
+  {
+    "ean": "8000137019564",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 10546,
+    "descriptionLength": 818,
+    "parses": true
+  },
+  {
+    "ean": "8000137010776",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 10070,
+    "descriptionLength": 789,
+    "parses": true
+  },
+  {
+    "ean": "8000137019199",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1054,
+    "descriptionLength": 803,
+    "parses": true
+  },
+  {
+    "ean": "8000137012206",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 526,
+    "descriptionLength": 489,
+    "parses": true
+  },
+  {
+    "ean": "8000137011261",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 690,
+    "descriptionLength": 346,
+    "parses": true
+  },
+  {
+    "ean": "8000137018925",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1323,
+    "descriptionLength": 588,
+    "parses": true
+  },
+  {
+    "ean": "8000137121274",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 15127,
+    "descriptionLength": 2644,
+    "parses": true
+  },
+  {
+    "ean": "8000137121267",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 24062,
+    "descriptionLength": 2134,
+    "parses": true
+  },
+  {
+    "ean": "8000137018857",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 13123,
+    "descriptionLength": 848,
+    "parses": true
+  },
+  {
+    "ean": "8000137018932",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 13152,
+    "descriptionLength": 1041,
+    "parses": true
+  },
+  {
+    "ean": "8000137016174",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 13321,
+    "descriptionLength": 760,
+    "parses": true
+  },
+  {
+    "ean": "8000137016280",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 750,
+    "descriptionLength": 641,
+    "parses": true
+  },
+  {
+    "ean": "8000137010226",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 12949,
+    "descriptionLength": 1132,
+    "parses": true
+  },
+  {
+    "ean": "8000137001354",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 14395,
+    "descriptionLength": 3751,
+    "parses": true
+  },
+  {
+    "ean": "8000137005437",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 13996,
+    "descriptionLength": 2645,
+    "parses": true
+  },
+  {
+    "ean": "800137018475",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 930,
+    "descriptionLength": 984,
+    "parses": true
+  },
+  {
+    "ean": "8000137017522",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 11858,
+    "descriptionLength": 1301,
+    "parses": true
+  },
+  {
+    "ean": "8000137017508",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 11668,
+    "descriptionLength": 1367,
+    "parses": true
+  },
+  {
+    "ean": "8000137017492",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 11669,
+    "descriptionLength": 1283,
+    "parses": true
+  },
+  {
+    "ean": "8000137017478",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 11842,
+    "descriptionLength": 1352,
+    "parses": true
+  },
+  {
+    "ean": "8000137018178",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 958,
+    "descriptionLength": 849,
+    "parses": true
+  },
+  {
+    "ean": "8000137015054",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 23122,
+    "descriptionLength": 786,
+    "parses": true
+  },
+  {
+    "ean": "8000137017850",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 11475,
+    "descriptionLength": 1343,
+    "parses": true
+  },
+  {
+    "ean": "8000137012220",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1000,
+    "descriptionLength": 752,
+    "parses": true
+  },
+  {
+    "ean": "8000137017393",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 888,
+    "descriptionLength": 761,
+    "parses": true
+  },
+  {
+    "ean": "8000137017409",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1108,
+    "descriptionLength": 1199,
+    "parses": true
+  },
+  {
+    "ean": "8000137017188",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 2300,
+    "descriptionLength": 905,
+    "parses": true
+  },
+  {
+    "ean": "8000137016471",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 772,
+    "descriptionLength": 1185,
+    "parses": true
+  },
+  {
+    "ean": "8000137016884",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 8572,
+    "descriptionLength": 1279,
+    "parses": true
+  },
+  {
+    "ean": "8000137016877",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 10531,
+    "descriptionLength": 1469,
+    "parses": true
+  },
+  {
+    "ean": "8000137016846",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 11689,
+    "descriptionLength": 1200,
+    "parses": true
+  },
+  {
+    "ean": "8000137016839",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 18840,
+    "descriptionLength": 1495,
+    "parses": true
+  },
+  {
+    "ean": "8000137012343",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 13295,
+    "descriptionLength": 1018,
+    "parses": true
+  },
+  {
+    "ean": "8000137014101",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1072,
+    "descriptionLength": 787,
+    "parses": true
+  },
+  {
+    "ean": "8000137013883",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1035,
+    "descriptionLength": 560,
+    "parses": true
+  },
+  {
+    "ean": "8000137015153",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1195,
+    "descriptionLength": 720,
+    "parses": true
+  },
+  {
+    "ean": "8000137015559",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 1017,
+    "parses": true
+  },
+  {
+    "ean": "8000137015627",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 14172,
+    "descriptionLength": 1091,
+    "parses": true
+  },
+  {
+    "ean": "8000137010882",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 9991,
+    "descriptionLength": 1074,
+    "parses": true
+  },
+  {
+    "ean": "8000137010950",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 666,
+    "descriptionLength": 199,
+    "parses": true
+  },
+  {
+    "ean": "8000137010707",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 667,
+    "descriptionLength": 408,
+    "parses": true
+  },
+  {
+    "ean": "8000137016501",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1072,
+    "descriptionLength": 681,
+    "parses": true
+  },
+  {
+    "ean": "8000137015801",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 947,
+    "descriptionLength": 675,
+    "parses": true
+  },
+  {
+    "ean": "8000137015436",
+    "product_id": "N/A",
+    "type": "string",
+    "featuresLength": 65535,
+    "descriptionLength": 1257,
+    "parses": false
+  },
+  {
+    "ean": "8000137015023",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 219,
+    "descriptionLength": 3011,
+    "parses": true
+  },
+  {
+    "ean": "8000137020584",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 870,
+    "descriptionLength": 938,
+    "parses": true
+  },
+  {
+    "ean": "8000137013074",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 12661,
+    "descriptionLength": 983,
+    "parses": true
+  },
+  {
+    "ean": "8000137013494",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1202,
+    "descriptionLength": 1112,
+    "parses": true
+  },
+  {
+    "ean": "8000137010295",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 11033,
+    "descriptionLength": 488,
+    "parses": true
+  },
+  {
+    "ean": "8000137011339",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 12950,
+    "descriptionLength": 642,
+    "parses": true
+  },
+  {
+    "ean": "8000137021048",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 15302,
+    "descriptionLength": 2728,
+    "parses": true
+  },
+  {
+    "ean": "8000137016532",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 15207,
+    "descriptionLength": 822,
+    "parses": true
+  },
+  {
+    "ean": "8000137017782",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 12822,
+    "descriptionLength": 1013,
+    "parses": true
+  },
+  {
+    "ean": "8000137014491",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 12506,
+    "descriptionLength": 989,
+    "parses": true
+  },
+  {
+    "ean": "8000137015528",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 10721,
+    "descriptionLength": 1011,
+    "parses": true
+  },
+  {
+    "ean": "8000137015498",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 17596,
+    "descriptionLength": 440,
+    "parses": true
+  },
+  {
+    "ean": "8000137014835",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 683,
+    "descriptionLength": 838,
+    "parses": true
+  },
+  {
+    "ean": "8000137017829",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 11135,
+    "descriptionLength": 1026,
+    "parses": true
+  },
+  {
+    "ean": "8000137011759",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 590,
+    "descriptionLength": 891,
+    "parses": true
+  },
+  {
+    "ean": "8000137011018",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1376,
+    "descriptionLength": 1318,
+    "parses": true
+  },
+  {
+    "ean": "8000137012398",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 582,
+    "descriptionLength": 800,
+    "parses": true
+  },
+  {
+    "ean": "8809822540952",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1685,
+    "descriptionLength": 4929,
+    "parses": true
+  },
+  {
+    "ean": "8809822540358",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1893,
+    "descriptionLength": 4938,
+    "parses": true
+  },
+  {
+    "ean": "8809822540457",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1938,
+    "descriptionLength": 5419,
+    "parses": true
+  },
+  {
+    "ean": "8000137014507",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 320,
+    "descriptionLength": 1121,
+    "parses": true
+  },
+  {
+    "ean": "8011483035016",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 431,
+    "descriptionLength": 2366,
+    "parses": true
+  },
+  {
+    "ean": "8809822540969",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1586,
+    "descriptionLength": 5419,
+    "parses": true
+  },
+  {
+    "ean": "8809822540778",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1757,
+    "descriptionLength": 4278,
+    "parses": true
+  },
+  {
+    "ean": "8809822540754",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1721,
+    "descriptionLength": 4590,
+    "parses": true
+  },
+  {
+    "ean": "8809822540761",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1630,
+    "descriptionLength": 4039,
+    "parses": true
+  },
+  {
+    "ean": "8809822540785",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1841,
+    "descriptionLength": 5085,
+    "parses": true
+  },
+  {
+    "ean": "8011483052211",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 464,
+    "descriptionLength": 1626,
+    "parses": true
+  },
+  {
+    "ean": "8011483052112",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 419,
+    "descriptionLength": 1911,
+    "parses": true
+  },
+  {
+    "ean": "8011483045619",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 237,
+    "descriptionLength": 1413,
+    "parses": true
+  },
+  {
+    "ean": "8011483045817",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 278,
+    "descriptionLength": 752,
+    "parses": true
+  },
+  {
+    "ean": "8011483044810",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 209,
+    "descriptionLength": 1294,
+    "parses": true
+  },
+  {
+    "ean": "8011483044612",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 209,
+    "descriptionLength": 1044,
+    "parses": true
+  },
+  {
+    "ean": "8011483045916",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 270,
+    "descriptionLength": 1186,
+    "parses": true
+  },
+  {
+    "ean": "8011483053218",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 97,
+    "descriptionLength": 1992,
+    "parses": true
+  },
+  {
+    "ean": "8011483033012",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 494,
+    "descriptionLength": 2142,
+    "parses": true
+  },
+  {
+    "ean": "8809822540945",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1727,
+    "descriptionLength": 3095,
+    "parses": true
+  },
+  {
+    "ean": "8809822541201",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1954,
+    "descriptionLength": 4971,
+    "parses": true
+  },
+  {
+    "ean": "8809822541102",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1956,
+    "descriptionLength": 4785,
+    "parses": true
+  },
+  {
+    "ean": "8809822541225",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1974,
+    "descriptionLength": 4794,
+    "parses": true
+  },
+  {
+    "ean": "8809822541218",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1979,
+    "descriptionLength": 5515,
+    "parses": true
+  },
+  {
+    "ean": "8002842470654",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 252,
+    "descriptionLength": 1383,
+    "parses": true
+  },
+  {
+    "ean": "8002842470531",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 299,
+    "descriptionLength": 1293,
+    "parses": true
+  },
+  {
+    "ean": "8000137019731",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 23077,
+    "descriptionLength": 729,
+    "parses": true
+  },
+  {
+    "ean": "8809822540433",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1592,
+    "descriptionLength": 1842,
+    "parses": true
+  },
+  {
+    "ean": "8809822540495",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1388,
+    "descriptionLength": 2767,
+    "parses": true
+  },
+  {
+    "ean": "8809822540587",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 2102,
+    "descriptionLength": 2583,
+    "parses": true
+  },
+  {
+    "ean": "8809822540617",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 2306,
+    "descriptionLength": 5281,
+    "parses": true
+  },
+  {
+    "ean": "8809822540624",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 2001,
+    "descriptionLength": 3126,
+    "parses": true
+  },
+  {
+    "ean": "8809822540686",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1694,
+    "descriptionLength": 3437,
+    "parses": true
+  },
+  {
+    "ean": "8809822540693",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1567,
+    "descriptionLength": 5558,
+    "parses": true
+  },
+  {
+    "ean": "8809822540709",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1245,
+    "descriptionLength": 3931,
+    "parses": true
+  },
+  {
+    "ean": "8809822540747",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 2022,
+    "descriptionLength": 4888,
+    "parses": true
+  },
+  {
+    "ean": "8809822540792",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1442,
+    "descriptionLength": 1473,
+    "parses": true
+  },
+  {
+    "ean": "8809822540716",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1226,
+    "descriptionLength": 3627,
+    "parses": true
+  },
+  {
+    "ean": "8809822541263",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1430,
+    "descriptionLength": 4109,
+    "parses": true
+  },
+  {
+    "ean": "8809822540730",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 2223,
+    "descriptionLength": 4936,
+    "parses": true
+  },
+  {
+    "ean": "8809822540419",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 2058,
+    "descriptionLength": 1667,
+    "parses": true
+  },
+  {
+    "ean": "8809822540426",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1383,
+    "descriptionLength": 1474,
+    "parses": true
+  },
+  {
+    "ean": "8809822540846",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1967,
+    "descriptionLength": 4649,
+    "parses": true
+  },
+  {
+    "ean": "8809822541287",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1612,
+    "descriptionLength": 1420,
+    "parses": true
+  },
+  {
+    "ean": "8809706860299",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1159,
+    "descriptionLength": 3246,
+    "parses": true
+  },
+  {
+    "ean": "8809822540594",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1923,
+    "descriptionLength": 3866,
+    "parses": true
+  },
+  {
+    "ean": "8809822540600",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 2080,
+    "descriptionLength": 3591,
+    "parses": true
+  },
+  {
+    "ean": "8809822541089",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 1956,
+    "descriptionLength": 5280,
+    "parses": true
+  },
+  {
+    "ean": "8809700286316",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8809700280666",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 462,
+    "descriptionLength": 9358,
+    "parses": true
+  },
+  {
+    "ean": "88009700280642",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 146,
+    "parses": true
+  },
+  {
+    "ean": "8809700280673",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 404,
+    "descriptionLength": 9651,
+    "parses": true
+  },
+  {
+    "ean": "8809700280659",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 401,
+    "descriptionLength": 11102,
+    "parses": true
+  },
+  {
+    "ean": "8809700280642",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 500,
+    "descriptionLength": 4810,
+    "parses": true
+  },
+  {
+    "ean": "8809822541300",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8809822541294",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842013172",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842013493",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842155001",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842155018",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842155025",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842155032",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842155049",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842155056",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842170004",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842170073",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842170080",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842170158",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842174187",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842176037",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842177416",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "101200",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8053807673009",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8053807673108",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8053807673207",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483034330",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483035115",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483035214",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483036136",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842470524",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842470630",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483048115",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483048412",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483041116",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483041413",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483041512",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483041611",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483041710",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483042311",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483045213",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483045718",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483047118",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483047217",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251010931",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842063023",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842063047",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842163099",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842065089",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842068004",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842068011",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842168100",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842169626",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842169640",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842169664",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842169916",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842169978",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842170103",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842170646",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842170905",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842170912",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842170929",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842170936",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842174026",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8002842174033",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8011483083017",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251609845",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "878",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251006637",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251009911",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251010405",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251010412",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251010429",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251010443",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251011327",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251011624",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251011990",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251012010",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251012027",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251010436",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251012119",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251012249",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251012256",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "5012251012263",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8032535875916",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 235,
+    "descriptionLength": 3155,
+    "parses": true
+  },
+  {
+    "ean": "8032535875923",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 203,
+    "descriptionLength": 2816,
+    "parses": true
+  },
+  {
+    "ean": "8032535875848",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 380,
+    "descriptionLength": 2950,
+    "parses": true
+  },
+  {
+    "ean": "8032535875831",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 159,
+    "descriptionLength": 2921,
+    "parses": true
+  },
+  {
+    "ean": "8032535875824",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 247,
+    "descriptionLength": 2912,
+    "parses": true
+  },
+  {
+    "ean": "8032535875817",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 154,
+    "descriptionLength": 2527,
+    "parses": true
+  },
+  {
+    "ean": "8032535875800",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 109,
+    "descriptionLength": 2527,
+    "parses": true
+  },
+  {
+    "ean": "8032535875794",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 109,
+    "descriptionLength": 2570,
+    "parses": true
+  },
+  {
+    "ean": "8032535874797",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 156,
+    "descriptionLength": 2717,
+    "parses": true
+  },
+  {
+    "ean": "8032535874780",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 204,
+    "descriptionLength": 2836,
+    "parses": true
+  },
+  {
+    "ean": "8032535874773",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 247,
+    "descriptionLength": 2857,
+    "parses": true
+  },
+  {
+    "ean": "8032535874766",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 235,
+    "descriptionLength": 2608,
+    "parses": true
+  },
+  {
+    "ean": "8032535874759",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 261,
+    "descriptionLength": 2785,
+    "parses": true
+  },
+  {
+    "ean": "8032535874742",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 178,
+    "descriptionLength": 2862,
+    "parses": true
+  },
+  {
+    "ean": "8032535874735",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 204,
+    "descriptionLength": 2989,
+    "parses": true
+  },
+  {
+    "ean": "8032535874728",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 219,
+    "descriptionLength": 3054,
+    "parses": true
+  },
+  {
+    "ean": "8032535874711",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 225,
+    "descriptionLength": 2927,
+    "parses": true
+  },
+  {
+    "ean": "8032535874704",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 221,
+    "descriptionLength": 2866,
+    "parses": true
+  },
+  {
+    "ean": "8809700286316",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 469,
+    "descriptionLength": 4381,
+    "parses": true
+  },
+  {
+    "ean": "8809700285838",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 251,
+    "descriptionLength": 4212,
+    "parses": true
+  },
+  {
+    "ean": "8809700286118",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 224,
+    "descriptionLength": 4343,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "8809822540600",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 481,
+    "descriptionLength": 12126,
+    "parses": true
+  },
+  {
+    "ean": "5012251014144",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 111,
+    "descriptionLength": 1341,
+    "parses": true
+  },
+  {
+    "ean": "5012251014137",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 111,
+    "descriptionLength": 1391,
+    "parses": true
+  },
+  {
+    "ean": "5012251014120",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 111,
+    "descriptionLength": 1125,
+    "parses": true
+  },
+  {
+    "ean": "5012251014113",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 111,
+    "descriptionLength": 1388,
+    "parses": true
+  },
+  {
+    "ean": "5012251014106",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 111,
+    "descriptionLength": 1447,
+    "parses": true
+  },
+  {
+    "ean": "5012251014090",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 111,
+    "descriptionLength": 1225,
+    "parses": true
+  },
+  {
+    "ean": "5012251014083",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 111,
+    "descriptionLength": 1254,
+    "parses": true
+  },
+  {
+    "ean": "8809822541423",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 77,
+    "descriptionLength": 1743,
+    "parses": true
+  },
+  {
+    "ean": "8809822541317",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 77,
+    "descriptionLength": 2606,
+    "parses": true
+  },
+  {
+    "ean": "8809822540396",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 108,
+    "descriptionLength": 2036,
+    "parses": true
+  },
+  {
+    "ean": "8809822540617",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 209,
+    "descriptionLength": 2284,
+    "parses": true
+  },
+  {
+    "ean": "8809822540471",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 295,
+    "descriptionLength": 13189,
+    "parses": true
+  },
+  {
+    "ean": "8809706860299",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 151,
+    "descriptionLength": 2105,
+    "parses": true
+  },
+  {
+    "ean": "8809822540426",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 281,
+    "descriptionLength": 3529,
+    "parses": true
+  },
+  {
+    "ean": "8809822540419",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 133,
+    "descriptionLength": 2996,
+    "parses": true
+  },
+  {
+    "ean": "8809822540686",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 252,
+    "descriptionLength": 3589,
+    "parses": true
+  },
+  {
+    "ean": "8809822540693",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 246,
+    "descriptionLength": 3329,
+    "parses": true
+  },
+  {
+    "ean": "8809822540792",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 76,
+    "descriptionLength": 2770,
+    "parses": true
+  },
+  {
+    "ean": "8053807673207",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 128,
+    "descriptionLength": 2255,
+    "parses": true
+  },
+  {
+    "ean": "8053807673108",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 97,
+    "descriptionLength": 2125,
+    "parses": true
+  },
+  {
+    "ean": "8053807673009",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 199,
+    "descriptionLength": 2224,
+    "parses": true
+  },
+  {
+    "ean": "5012251012249",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 382,
+    "descriptionLength": 2056,
+    "parses": true
+  },
+  {
+    "ean": "5012251006729",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 202,
+    "descriptionLength": 1653,
+    "parses": true
+  },
+  {
+    "ean": "8002842074159",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 225,
+    "descriptionLength": 2044,
+    "parses": true
+  },
+  {
+    "ean": "8002842074111",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 254,
+    "descriptionLength": 2322,
+    "parses": true
+  },
+  {
+    "ean": "8002842074128",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 367,
+    "descriptionLength": 2065,
+    "parses": true
+  },
+  {
+    "ean": "8002842169923",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 221,
+    "descriptionLength": 1388,
+    "parses": true
+  },
+  {
+    "ean": "8002842169916",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 351,
+    "descriptionLength": 1908,
+    "parses": true
+  },
+  {
+    "ean": "8002842074067",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 338,
+    "descriptionLength": 1758,
+    "parses": true
+  },
+  {
+    "ean": "8002842169978",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 179,
+    "descriptionLength": 1998,
+    "parses": true
+  },
+  {
+    "ean": "8002842174033",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 342,
+    "descriptionLength": 1988,
+    "parses": true
+  },
+  {
+    "ean": "8002842063023",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 306,
+    "descriptionLength": 1965,
+    "parses": true
+  },
+  {
+    "ean": "8002842063047",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 424,
+    "descriptionLength": 2067,
+    "parses": true
+  },
+  {
+    "ean": "8002842163099",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 226,
+    "descriptionLength": 1558,
+    "parses": true
+  },
+  {
+    "ean": "8002842068004",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 216,
+    "descriptionLength": 2595,
+    "parses": true
+  },
+  {
+    "ean": "8002842068011",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 179,
+    "descriptionLength": 1889,
+    "parses": true
+  },
+  {
+    "ean": "8002842168100",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 81,
+    "descriptionLength": 1801,
+    "parses": true
+  },
+  {
+    "ean": "8002842170080",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 268,
+    "descriptionLength": 1986,
+    "parses": true
+  },
+  {
+    "ean": "8002842170158",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 196,
+    "descriptionLength": 1900,
+    "parses": true
+  },
+  {
+    "ean": "8002842174187",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 235,
+    "descriptionLength": 1903,
+    "parses": true
+  },
+  {
+    "ean": "8002842169626",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 314,
+    "descriptionLength": 1867,
+    "parses": true
+  },
+  {
+    "ean": "8002842169640",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 315,
+    "descriptionLength": 2048,
+    "parses": true
+  },
+  {
+    "ean": "8002842169664",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 335,
+    "descriptionLength": 2056,
+    "parses": true
+  },
+  {
+    "ean": "8002842174026",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 359,
+    "descriptionLength": 2054,
+    "parses": true
+  },
+  {
+    "ean": "8002842177416",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 138,
+    "descriptionLength": 2261,
+    "parses": true
+  },
+  {
+    "ean": "8002842155001",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 164,
+    "descriptionLength": 1943,
+    "parses": true
+  },
+  {
+    "ean": "8002842155018",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 137,
+    "descriptionLength": 2249,
+    "parses": true
+  },
+  {
+    "ean": "8002842155025",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 136,
+    "descriptionLength": 2081,
+    "parses": true
+  },
+  {
+    "ean": "8002842155032",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 136,
+    "descriptionLength": 1712,
+    "parses": true
+  },
+  {
+    "ean": "8002842155049",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 138,
+    "descriptionLength": 1775,
+    "parses": true
+  },
+  {
+    "ean": "8002842155056",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 140,
+    "descriptionLength": 1558,
+    "parses": true
+  },
+  {
+    "ean": "8002842170905",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 416,
+    "descriptionLength": 2932,
+    "parses": true
+  },
+  {
+    "ean": "8002842170912",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 266,
+    "descriptionLength": 2428,
+    "parses": true
+  },
+  {
+    "ean": "8002842170929",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 267,
+    "descriptionLength": 2962,
+    "parses": true
+  },
+  {
+    "ean": "8002842170936",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 414,
+    "descriptionLength": 1671,
+    "parses": true
+  },
+  {
+    "ean": "8000137019830",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 102,
+    "descriptionLength": 1922,
+    "parses": true
+  },
+  {
+    "ean": "8011483045718",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 261,
+    "descriptionLength": 1206,
+    "parses": true
+  },
+  {
+    "ean": "8011483045213",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 260,
+    "descriptionLength": 1479,
+    "parses": true
+  },
+  {
+    "ean": "8002842470654",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 251,
+    "descriptionLength": 1945,
+    "parses": true
+  },
+  {
+    "ean": "8002842470630",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 254,
+    "descriptionLength": 1789,
+    "parses": true
+  },
+  {
+    "ean": "8002842470531",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 298,
+    "descriptionLength": 1632,
+    "parses": true
+  },
+  {
+    "ean": "8011483036136",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 222,
+    "descriptionLength": 2388,
+    "parses": true
+  },
+  {
+    "ean": "8011483034330",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 234,
+    "descriptionLength": 1773,
+    "parses": true
+  },
+  {
+    "ean": "5012251014243",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 216,
+    "descriptionLength": 10094,
+    "parses": true
+  },
+  {
+    "ean": "5012251011990",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 240,
+    "descriptionLength": 1339,
+    "parses": true
+  },
+  {
+    "ean": "5012251006637",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 360,
+    "descriptionLength": 1456,
+    "parses": true
+  },
+  {
+    "ean": "5012251014311",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 88,
+    "descriptionLength": 2042,
+    "parses": true
+  },
+  {
+    "ean": "5012251014304",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 88,
+    "descriptionLength": 2300,
+    "parses": true
+  },
+  {
+    "ean": "5012251014298",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 88,
+    "descriptionLength": 2307,
+    "parses": true
+  },
+  {
+    "ean": "5012251013796",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 367,
+    "descriptionLength": 2747,
+    "parses": true
+  },
+  {
+    "ean": "5012251014205",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 225,
+    "descriptionLength": 1515,
+    "parses": true
+  },
+  {
+    "ean": "5012251014229",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 271,
+    "descriptionLength": 1829,
+    "parses": true
+  },
+  {
+    "ean": "5012251014212",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 249,
+    "descriptionLength": 2084,
+    "parses": true
+  },
+  {
+    "ean": "5012251011327",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 422,
+    "descriptionLength": 2421,
+    "parses": true
+  },
+  {
+    "ean": "5012251013505",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 231,
+    "descriptionLength": 1492,
+    "parses": true
+  },
+  {
+    "ean": "5012251012263",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 481,
+    "descriptionLength": 1921,
+    "parses": true
+  },
+  {
+    "ean": "5012251013468",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 358,
+    "descriptionLength": 2582,
+    "parses": true
+  },
+  {
+    "ean": "5012251013451",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 300,
+    "descriptionLength": 2415,
+    "parses": true
+  },
+  {
+    "ean": "5012251013741",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 401,
+    "descriptionLength": 2128,
+    "parses": true
+  },
+  {
+    "ean": "5012251014175",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 356,
+    "descriptionLength": 2165,
+    "parses": true
+  },
+  {
+    "ean": "8000137019847",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 369,
+    "descriptionLength": 12676,
+    "parses": true
+  },
+  {
+    "ean": "8000137019823",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 124,
+    "descriptionLength": 2620,
+    "parses": true
+  },
+  {
+    "ean": "8000137019816",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 124,
+    "descriptionLength": 2785,
+    "parses": true
+  },
+  {
+    "ean": "8000137019779",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 175,
+    "descriptionLength": 2914,
+    "parses": true
+  },
+  {
+    "ean": "8000137019786",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 185,
+    "descriptionLength": 2860,
+    "parses": true
+  },
+  {
+    "ean": "8000137019557",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 232,
+    "descriptionLength": 2130,
+    "parses": true
+  },
+  {
+    "ean": "8809822540945",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 223,
+    "descriptionLength": 3238,
+    "parses": true
+  },
+  {
+    "ean": "8809822540846",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 232,
+    "descriptionLength": 1640,
+    "parses": true
+  },
+  {
+    "ean": "8809822540730",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 250,
+    "descriptionLength": 1722,
+    "parses": true
+  },
+  {
+    "ean": "8809822541089",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 286,
+    "descriptionLength": 1934,
+    "parses": true
+  },
+  {
+    "ean": "8809822541225",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 211,
+    "descriptionLength": 125,
+    "parses": true
+  },
+  {
+    "ean": "8809822540495",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 226,
+    "descriptionLength": 2954,
+    "parses": true
+  },
+  {
+    "ean": "8809822540709",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 234,
+    "descriptionLength": 2012,
+    "parses": true
+  },
+  {
+    "ean": "8809822541218",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 303,
+    "descriptionLength": 12955,
+    "parses": true
+  },
+  {
+    "ean": "8809822541102",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 229,
+    "descriptionLength": 125,
+    "parses": true
+  },
+  {
+    "ean": "8809822541201",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 213,
+    "descriptionLength": 125,
+    "parses": true
+  },
+  {
+    "ean": "8809822540594",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 286,
+    "descriptionLength": 2359,
+    "parses": true
+  },
+  {
+    "ean": "8809822541263",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 90,
+    "descriptionLength": 12180,
+    "parses": true
+  },
+  {
+    "ean": "8809822540716",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 189,
+    "descriptionLength": 2532,
+    "parses": true
+  },
+  {
+    "ean": "8809822540624",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 226,
+    "descriptionLength": 2630,
+    "parses": true
+  },
+  {
+    "ean": "8809822540587",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 209,
+    "descriptionLength": 3041,
+    "parses": true
+  },
+  {
+    "ean": "8809822540747",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 248,
+    "descriptionLength": 3614,
+    "parses": true
+  },
+  {
+    "ean": "8000137011261",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 164,
+    "descriptionLength": 1723,
+    "parses": true
+  },
+  {
+    "ean": "5012251014250",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  },
+  {
+    "ean": "BRAK",
+    "product_id": "N/A",
+    "type": "object",
+    "featuresLength": 0,
+    "descriptionLength": 0,
+    "parses": true
+  }
+]
