@@ -1,9 +1,9 @@
 const { ThinkingLevel } = require('@google/genai');
 
 const nodesConfig = {
-    1: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MINIMAL },
-    2: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MINIMAL },
-    4: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MINIMAL },
+    1: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MINIMAL, temperature: 0 },
+    2: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MINIMAL, temperature: 0 },
+    4: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MINIMAL, temperature: 0 },
     5: { model: 'gemini-3.1-pro-preview', thinkingLevel: ThinkingLevel.HIGH },
     6: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.LOW },
     7: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.LOW },
@@ -24,8 +24,11 @@ const FORBIDDEN_SOURCES = [
     'ebay\\..*', 'amazon\\..*', 'aliexpress\\..*', 'ceneo\\.pl'
 ];
 
+const DATA_SOURCE_MODE = 'fixture';
+
 module.exports = {
     nodesConfig,
     getNodeConfig,
-    FORBIDDEN_SOURCES
+    FORBIDDEN_SOURCES,
+    DATA_SOURCE_MODE
 };

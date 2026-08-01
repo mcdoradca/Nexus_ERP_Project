@@ -5,7 +5,8 @@
     "brand": ["marka", "brand"],
     "capacity": ["pojemnosc", "capacity", "pojemnosc opakowania", "wielkosc"],
     "usage": ["usage instructions", "sposob uzycia"],
-    "warnings": ["warnings", "uwagi dotyczace bezpieczenstwa"]
+    "warnings": ["warnings", "uwagi dotyczace bezpieczenstwa"],
+    "line": ["linia", "line", "product line"]
   },
   "ignoredFeatures": [
     "kod karty"

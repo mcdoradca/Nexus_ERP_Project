@@ -84,7 +84,7 @@ function validate_html_whitelist(html) {
     
     const tagRegex = /<\/?([a-z0-9]+)[^>]*>/gi;
     let match;
-    const allowed = ['h1', 'h2', 'p', 'ul', 'ol', 'li', 'b'];
+    const allowed = ['h1', 'h2', 'p', 'ul', 'ol', 'li', 'strong', 'em'];
     while ((match = tagRegex.exec(html)) !== null) {
         const tag = match[1].toLowerCase();
         if (!allowed.includes(tag)) {
@@ -93,9 +93,10 @@ function validate_html_whitelist(html) {
     }
     
     if (/<\s*br\s*\/?>/i.test(html)) errors.push('Contains <br> tag');
-    if (/<\s*strong\s*>/i.test(html)) errors.push('Contains <strong> tag');
-    if (/<\s*h[12][^>]*>[\s\S]*?<\s*b\s*>[\s\S]*?<\s*\/\s*h[12]\s*>/i.test(html)) {
-        errors.push('Contains <b> inside heading');
+    if (/<\s*b\s*>/i.test(html)) errors.push('Contains <b> tag');
+    if (/<\s*i\s*>/i.test(html)) errors.push('Contains <i> tag');
+    if (/<\s*h[12][^>]*>[\s\S]*?<\s*strong\s*>[\s\S]*?<\s*\/\s*h[12]\s*>/i.test(html)) {
+        errors.push('Contains <strong> inside heading');
     }
     if (html.includes('"') || html.includes('„') || html.includes('”')) {
         errors.push('Contains invalid quotes (use apostrophe)');
@@ -197,15 +198,44 @@ function gate_ingredients(inci_list) {
         'ketoconazole', 'climbazole', 'clotrimazole', 'miconazole', 'hydroquinone', 'tretinoin', 'adapalene', 'isotretinoin', 'egf', 'fgf', 'erythromycin', 'clindamycin', 'neomycin', 'corticosteroids', 'hydrocortisone'
     ];
     
-    const { normalizeIngredientName } = require('../normalization.js');
-    const normGate1 = gate1.map(normalizeIngredientName);
-    const normGate2 = gate2.map(normalizeIngredientName);
-    const lowerList = inci_list.map(i => normalizeIngredientName(String(i)));
+    const canon = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
     
-    for (let i = 0; i < lowerList.length; i++) {
-        const item = lowerList[i];
-        if (normGate1.includes(item)) return { status: 'BANNED_SUBSTANCE_DETECTED', substance: inci_list[i] };
-        if (normGate2.includes(item)) return { status: 'INGREDIENT_NOT_COSMETIC', substance: inci_list[i] };
+    // Przebieg A: Po pozycjach
+    for (let i = 0; i < inci_list.length; i++) {
+        const item = String(inci_list[i]);
+        const canonPos = canon(item);
+        
+        for (const gate of gate1) {
+            const canonWpis = canon(gate);
+            if (canonPos === canonWpis || (canonWpis.length >= 8 && canonPos.includes(canonWpis))) {
+                return { status: 'BANNED_SUBSTANCE_DETECTED', substance: item };
+            }
+        }
+        for (const gate of gate2) {
+            const canonWpis = canon(gate);
+            if (canonPos === canonWpis || (canonWpis.length >= 8 && canonPos.includes(canonWpis))) {
+                return { status: 'INGREDIENT_NOT_COSMETIC', substance: item };
+            }
+        }
+    }
+    
+    // Przebieg B: Po całym sklejonym składzie, dla wpisów mających przecinek w nazwie
+    const fullInciCanon = canon(inci_list.join(','));
+    for (const gate of gate1) {
+        if (gate.includes(',')) {
+            const canonWpis = canon(gate);
+            if (fullInciCanon.includes(canonWpis)) {
+                return { status: 'BANNED_SUBSTANCE_DETECTED', substance: gate };
+            }
+        }
+    }
+    for (const gate of gate2) {
+        if (gate.includes(',')) {
+            const canonWpis = canon(gate);
+            if (fullInciCanon.includes(canonWpis)) {
+                return { status: 'INGREDIENT_NOT_COSMETIC', substance: gate };
+            }
+        }
     }
     
     return { status: 'OK' };

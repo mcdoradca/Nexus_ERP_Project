@@ -18,7 +18,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
         throw new Error("BŁĄD BLOKUJĄCY (S-7): Wywołanie LLM bez jawnego agentId.");
     }
     
-    const { model, thinkingLevel, grounding } = getNodeConfig(agentId);
+    const { model, thinkingLevel, grounding, temperature } = getNodeConfig(agentId);
     if (!process.env.GEMINI_API_KEY) {
         // HITL: Brak klucza API, nie zgadywanie
         throw new Error("HITL: Brak klucza API (GEMINI_API_KEY) w środowisku.");
@@ -29,6 +29,9 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
             thinkingLevel: thinkingLevel
         }
     };
+    if (temperature !== undefined) {
+        config.temperature = temperature;
+    }
 
     if (grounding) {
         config.tools = [{ googleSearch: {} }];

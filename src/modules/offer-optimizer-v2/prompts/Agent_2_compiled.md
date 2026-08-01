@@ -32,7 +32,7 @@ Brak wiarygodnych opinii → sentiment_available=false, puste tablice, zakaz
 generowania syntetycznego sentymentu ze specyfikacji.
 
 ## WYJŚCIE
-JSON wg responseSchema: pipeline_id, gtin_ean, sentiment_available,
+JSON wg responseSchema: sentiment_available,
 total_reviews_analyzed, average_rating, social_proof_matrix{4 klastry},
 safety_signals_detected[], scraped_sources[] (max 6 domen).
 

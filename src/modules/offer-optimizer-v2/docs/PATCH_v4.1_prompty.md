@@ -2,14 +2,7 @@
 # Format: co zmienić w plikach Agent_X_prompt_v4.md. Zmiany małe, punktowe —
 # nie regeneruję całych plików (zasada diff, którą sami wdrażamy w potoku).
 
-## Agent_1_prompt_v4.md
-+ Do sekcji ZAKRES POZYSKANIA dodaj pkt 6: "Bramka GATE-1 (SHARED_RULES §I):
-  jeśli w INCI/PIM występuje substancja z listy zakazanych SOT 04 §1, ustaw
-  missing_critical_data=true z powodem BANNED_SUBSTANCE_DETECTED — blokada
-  publikacji, HITL."
-+ Do sekcji GPSR/CLP dopisz: "Dla chemii domowej pozyskuj dane wg potoku
-  SOT 07 §3 (SDS sekcje 3/9/11, Arkusz Danych Składników 648/2004, rejestry
-  Ecolabel, cross-referencing EAN dla wydajności roboczej)."
+
 
 ## Agent_4_prompt_v4.md
 + Nowa sekcja BRAMKI WEJŚCIOWE (przed FORMAT GEO):

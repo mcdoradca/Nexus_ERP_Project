@@ -23,3 +23,28 @@ test('Test wycieku GATE-1 i GATE-2 do indeksu i walidacji', async (t) => {
         assert.notStrictEqual(v8Result.status, 'OK', `V8 przepuścił zakazaną substancję: ${substance}`);
     }
 });
+
+test('Test uszczelnienia bramek na luki interpunkcyjne', (t) => {
+    const testCases = [
+        { name: '(a) kropka na końcu', input: ['Glycerin', 'Hydroquinone.'], expectedNotOk: true },
+        { name: '(b) w nawiasie', input: ['Glycerin', 'Titanium Dioxide (nano)'], expectedNotOk: true },
+        { name: '(c) rozbita spacja', input: ['Glycerin', 'Hydro quinone'], expectedNotOk: true },
+        { name: '(d) ukośnik w sąsiedztwie', input: ['Coco-Caprylate/Caprate', 'Hydroquinone'], expectedNotOk: true },
+        { name: 'Trimay 1', input: ['PEG-60 Hy drogenated Castor Oil'], expectedNotOk: false },
+        { name: 'Trimay 2', input: ['Frag rance'], expectedNotOk: false },
+        { name: 'Trimay 3', input: ['Calcium Lacta te'], expectedNotOk: false },
+        // Podmiana z Kroku 3 - Trimay podmienione na rdzenie zakazane
+        { name: 'Trimay 1 ZAKAZANY (Tretinoin)', input: ['PEG-60 Tre tinoin Castor Oil'], expectedNotOk: true },
+        { name: 'Trimay 2 ZAKAZANY (Erythromycin)', input: ['Erythro mycin'], expectedNotOk: true },
+        { name: 'Trimay 3 ZAKAZANY (Clindamycin)', input: ['Calcium Clindamy cin'], expectedNotOk: true }
+    ];
+    
+    for (const tc of testCases) {
+        const res = gate_ingredients(tc.input);
+        if (tc.expectedNotOk) {
+            assert.notStrictEqual(res.status, 'OK', `Bramka przepuściła zakazany: ${tc.name} -> status to ${res.status}`);
+        } else {
+            assert.strictEqual(res.status, 'OK', `Bramka zablokowała czysty skład: ${tc.name} -> status to ${res.status}`);
+        }
+    }
+});

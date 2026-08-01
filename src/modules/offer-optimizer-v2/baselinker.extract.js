@@ -38,12 +38,13 @@ function parseFeaturesTolerant(raw) {
 
 function extractFromFeatures(product) {
     const result = {
-        inci: { value: null, matched_key: null },
-        mpn: { value: null, matched_key: null },
-        brand: { value: null, matched_key: null },
-        capacity: { value: null, matched_key: null },
-        usage: { value: null, matched_key: null },
-        warnings: { value: null, matched_key: null },
+        inci: { value: null, source: null, matched_key: null },
+        mpn: { value: null, source: null, matched_key: null },
+        brand: { value: null, source: null, matched_key: null },
+        capacity: { value: null, source: null, matched_key: null },
+        usage: { value: null, source: null, matched_key: null },
+        warnings: { value: null, source: null, matched_key: null },
+        line: { value: null, source: null, matched_key: null },
         truncated: false,
         recovered_keys: []
     };
@@ -81,6 +82,7 @@ function extractFromFeatures(product) {
         if (foundKey) {
             result[targetKey] = {
                 value: features[foundKey],
+                source: "baselinker",
                 matched_key: foundKey
             };
         }

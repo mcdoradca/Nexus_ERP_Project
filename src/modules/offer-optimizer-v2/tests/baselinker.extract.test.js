@@ -65,4 +65,18 @@ test('Zadanie 18 - baselinker.extract.js na rzeczywistych danych', async (t) => 
         assert.strictEqual(res.name, null);
     });
 
+    await t.test('8. Test syntetyczny: klucz Linia z bazy omija A1, posiada source i matched_key', () => {
+        const fakeProduct = {
+            text_fields: {
+                features: '{"Linia": "MojaSuperLinia", "Kod producenta": "123"}'
+            }
+        };
+        const res = extract.extractFromFeatures(fakeProduct);
+        assert.strictEqual(res.line.value, 'MojaSuperLinia');
+        assert.strictEqual(res.line.source, 'baselinker');
+        assert.strictEqual(res.line.matched_key, 'Linia');
+        assert.strictEqual(res.mpn.value, '123');
+        assert.strictEqual(res.mpn.source, 'baselinker');
+    });
+
 });

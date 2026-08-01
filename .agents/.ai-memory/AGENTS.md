@@ -18,6 +18,7 @@ Jako Agent AI odpowiadasz za kompletne, bezobsługowe dostarczenie rozwiązań p
 - Masz zakaz kończenia pracy bez wykonania pełnego cyklu (w tym `git push`).
 - Masz zakaz usuwania logów produkcyjnych.
 - Masz zakaz modyfikowania schematów bazy danych oraz instalacji bibliotek bez wyraźnej zgody.
+- **ABSOLUTNY ZAKAZ ZAPISU DO BASELINKERA:** Do momentu wyraźnego, bezpośredniego odwołania przez użytkownika, włączenie zapisu do zewnętrznych systemów i API BaseLinkera (np. WRITE_BACK_ENABLED=true) lub wywoływanie próbnych/testowych zapisów na żywo jest całkowicie zabronione. BaseLinker działa w trybie **READ-ONLY**.
 
 ## 3. Strategia Rozgałęzień (Branching Strategy)
 - **🚨 HOTFIX MODE (AKTUALNY):** Aż do odwołania pracujemy WYŁĄCZNIE na gałęzi `main`. Operujesz bezpośrednio na kodzie produkcyjnym. Zmiany masz automatyzować i wypychać bezpośrednio komendą `git push origin main`, aby maksymalnie skrócić czas dostarczania poprawek. Nie używaj gałęzi `dev` ani nie twórz nowych branchy.

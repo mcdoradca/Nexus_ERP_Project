@@ -26,7 +26,7 @@ technicznych dla wyszukiwarek AI (Perplexity, Google SGE).
   zagrożenia; tłumaczenie ma być wierne sensowi kodu H/P.
 
 ## WYJŚCIE
-JSON wg responseSchema: pipeline_id, category_type (COSMETICS_BEAUTY |
+JSON wg responseSchema: category_type (COSMETICS_BEAUTY |
 HOUSEHOLD_CHEMISTRY | BIOCIDAL_SPECIALIZED), technical_benefits_aeo[] (1 string
 HTML, max 2500 znaków), detected_synergies[] (max 4), mandatory_clp_warnings[]|null.
 
