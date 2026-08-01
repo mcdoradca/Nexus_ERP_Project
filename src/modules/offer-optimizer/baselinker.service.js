@@ -256,12 +256,41 @@ class BaseLinkerService {
         return { inventoryId, productId: parseInt(productIds[0], 10) };
     }
 
+    static extraFieldsCache = null;
+    static extraFieldsCacheTime = 0;
+
+    static async getExtraFieldsDictionary() {
+        const now = Date.now();
+        if (this.extraFieldsCache && (now - this.extraFieldsCacheTime < 3600 * 1000)) {
+            return this.extraFieldsCache;
+        }
+        
+        try {
+            const res = await callBaseLinkerApi('getInventoryExtraFields');
+            const dict = {};
+            if (res.extra_fields) {
+                res.extra_fields.forEach(f => {
+                    dict[`extra_field_${f.extra_field_id}`] = f.name;
+                });
+            }
+            this.extraFieldsCache = dict;
+            this.extraFieldsCacheTime = now;
+            return dict;
+        } catch (error) {
+            console.error(`[BaseLinkerService] Błąd przy pobieraniu słownika extra_fields:`, error.message);
+            return {};
+        }
+    }
+
     // --- ETAP 2 PIM: Głębokie wyciąganie danych (Dekompilacja struktury BL) ---
     static async fetchDeepProductData(inventoryId, productId) {
-        const res = await callBaseLinkerApi('getInventoryProductsData', {
-            inventory_id: inventoryId,
-            products: [productId]
-        });
+        const [res, extraFieldsDict] = await Promise.all([
+            callBaseLinkerApi('getInventoryProductsData', {
+                inventory_id: inventoryId,
+                products: [productId]
+            }),
+            this.getExtraFieldsDictionary()
+        ]);
 
         if (!res.products || !res.products[productId]) {
             throw new Error(`Błąd rzutowania na szczegóły produktu ID: ${productId}`);
@@ -324,12 +353,30 @@ class BaseLinkerService {
             parsed.stockErpUnits = totalErp;
         }
 
-        // 2. TEXT FIELDS (name, description, extra_fields, binarki wideo)
+        // 2. TEXT FIELDS (name, description, extra_fields, binarki wideo, parametry)
         if (prod.text_fields) {
             parsed.name = prod.text_fields.name || null;
-            parsed.descriptionHtml = prod.text_fields.description || null;
             
-            // Szukamy wideo w extra_fields (Binarki / Extra_fields) oraz tekstowych parametrów PIM
+            // 2A. Sklejanie uciętego opisu HTML
+            const descParts = [];
+            if (prod.text_fields.description) descParts.push(prod.text_fields.description.trim());
+            for (let i = 1; i <= 4; i++) {
+                if (prod.text_fields[`description_extra${i}`]) {
+                    descParts.push(prod.text_fields[`description_extra${i}`].trim());
+                }
+            }
+            parsed.descriptionHtml = descParts.length > 0 ? descParts.join('<br><br>') : null;
+            
+            // 2B. Cechy (Features) przechowywane w text_fields.features
+            if (prod.text_fields.features && typeof prod.text_fields.features === 'object') {
+                for (const [fName, fVal] of Object.entries(prod.text_fields.features)) {
+                    if (typeof fVal === 'string' && fVal.trim().length > 0) {
+                        parsed.features[fName.trim()] = fVal.trim();
+                    }
+                }
+            }
+            
+            // 2C. Pola dodatkowe (Extra_fields) i binarki
             for (const key in prod.text_fields) {
                 if (key.startsWith('extra_field_')) {
                     const fieldVal = prod.text_fields[key];
@@ -343,18 +390,28 @@ class BaseLinkerService {
                         }
                     } else if (typeof fieldVal === 'string' && fieldVal.includes('base64')) {
                         parsed.attachments.push({ file: 'base64_blob', data: fieldVal.substring(0, 50) + '...' });
-                    } else if (typeof fieldVal === 'string' && fieldVal.trim().length > 0) {
-                        // Zapisz tekstowe dodatkowe pole (np. "extra_field_1") jako "Dodatkowe pole 1"
-                        const fieldNum = key.replace('extra_field_', '');
-                        parsed.features[`Dodatkowe pole ${fieldNum}`] = fieldVal.trim();
+                    } else if (typeof fieldVal === 'string') {
+                        let cleanVal = fieldVal.trim();
+                        // Ignoruj śmieciowe, puste sekcje HTML w extra_fields (np. gdy INCI jest puste)
+                        const rawContentWithoutTags = cleanVal.replace(/<[^>]*>?/gm, '').trim();
+                        if (rawContentWithoutTags.length > 0) {
+                            const baseKey = key.split('|')[0];
+                            const fieldName = extraFieldsDict[baseKey] || `Dodatkowe pole ${baseKey.replace('extra_field_', '')}`;
+                            const langSuffix = key.includes('|') ? ` (${key.split('|')[1].toUpperCase()})` : '';
+                            parsed.features[`${fieldName}${langSuffix}`] = cleanVal;
+                        }
                     }
                 }
             }
         }
 
-        // 3. FEATURES (Parametry)
-        if (prod.features) {
-            parsed.features = prod.features;
+        // 3. FEATURES (Parametry - fallbacks dla starszych instancji PIM)
+        if (prod.features && typeof prod.features === 'object') {
+            for (const [fName, fVal] of Object.entries(prod.features)) {
+                if (typeof fVal === 'string' && fVal.trim().length > 0) {
+                    parsed.features[fName.trim()] = fVal.trim();
+                }
+            }
         }
 
         // 4. GALERIA (Wydobycie wszystkich unikalnych linków zdjęć bez względu na klucze)
