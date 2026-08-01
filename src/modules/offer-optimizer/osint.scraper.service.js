@@ -26,7 +26,7 @@ class OsintScraperService {
             agent1Logger.info(`[OSINT] Rozpoczęto poszukiwania. EAN: ${ean}, Produkt: ${productName}`);
             
             // Wyszukiwanie przez DuckDuckGo HTML (nie wymaga JS)
-            const searchQuery = `"${ean}" OR "${productName}"`;
+            const searchQuery = `"${ean}" OR "${productName}" (INCI OR skład OR składniki OR ingredients)`;
             const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`;
             agent1Logger.info(`[OSINT] Wywołano wyszukiwarkę DuckDuckGo: ${searchUrl}`);
             

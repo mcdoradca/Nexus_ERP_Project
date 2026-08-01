@@ -238,22 +238,34 @@ class Orchestrator {
         // --- KONIEC TRASY ---
 
         if (!extracted?.inci?.value && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
-            this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
-            this.state.hitl_alert = 'MISSING_INCI';
-            this.state.next_action = 'HALT';
-            this.emitState();
-            return;
+            const osintScraper = require('../offer-optimizer/osint.scraper.service');
+            const productNameForOsint = product?.text_fields?.name || "Nieznany Produkt";
+            console.log(`[Orchestrator] Brak INCI dla ${this.gtin}. Uruchamiam OSINT Scraper...`);
+            const osintText = await osintScraper.searchAndExtract(this.gtin, productNameForOsint);
+            
+            if (osintText) {
+                this.state.osint_data = osintText;
+                console.log(`[Orchestrator] Pomyślnie pobrano dane z OSINT. Przekazywanie do Agenta 1.`);
+            } else {
+                this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
+                this.state.hitl_alert = 'MISSING_INCI_NO_OSINT';
+                this.state.next_action = 'HALT';
+                this.emitState();
+                return;
+            }
         }
 
-        const inciArray = extracted.inci.value.split(',').map(i => normalizeIngredientName(i.trim())).filter(i => i);
-        const gateRes = gate_ingredients(inciArray);
-        if ((gateRes.status === 'BANNED_SUBSTANCE_DETECTED' || gateRes.status === 'INGREDIENT_NOT_COSMETIC') && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
-            this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
-            this.state.hitl_alert = gateRes.status;
-            this.state.hitl_substance = gateRes.substance;
-            this.state.next_action = 'HALT';
-            this.emitState();
-            return;
+        if (extracted?.inci?.value) {
+            const inciArray = extracted.inci.value.split(',').map(i => normalizeIngredientName(i.trim())).filter(i => i);
+            const gateRes = gate_ingredients(inciArray);
+            if ((gateRes.status === 'BANNED_SUBSTANCE_DETECTED' || gateRes.status === 'INGREDIENT_NOT_COSMETIC') && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
+                this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
+                this.state.hitl_alert = gateRes.status;
+                this.state.hitl_substance = gateRes.substance;
+                this.state.next_action = 'HALT';
+                this.emitState();
+                return;
+            }
         }
 
         const inciRefService = require('./inci.reference.service.js');
@@ -345,7 +357,7 @@ class Orchestrator {
         missingFields.push('country_of_origin');
 
         if (this.state.next_action === 'RUN_EXTRACT') {
-            if (missingFields.length === 0) {
+            if (missingFields.length === 0 && !this.state.osint_data) {
                 this.state.next_action = 'RUN_A2';
                 this.state.node_status['A1'] = 'SKIPPED';
                 this.state.token_usage_per_node['A1'] = { tokens_saved: true, reason: 'No missing fields detected after extraction.' };
@@ -363,7 +375,11 @@ class Orchestrator {
                 missingFields: missingFields
             };
             
-            const promptTemplate = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_1_compiled.md'), 'utf8');
+            if (this.state.osint_data) {
+                agentData.osint_data = this.state.osint_data;
+            }
+            
+            const promptTemplate = fs.readFileSync(path.join(__dirname, 'docs', 'Agent_1_prompt_v4.md'), 'utf8');
             const prompt = promptTemplate.replace('{{SKU_DATA}}', JSON.stringify(agentData, null, 2));
             
             try {
@@ -424,7 +440,7 @@ class Orchestrator {
                     warnings.push('pipeline_id_overwritten');
                 }
 
-                const allowedKeys = ['country_of_origin', 'research_sources_used'];
+                const allowedKeys = ['country_of_origin', 'research_sources_used', 'extracted_inci_candidates', 'missing_parameters'];
                 const finalResult = {};
                 for (let k of Object.keys(result)) {
                     if (allowedKeys.includes(k)) finalResult[k] = { value: result[k], source: "a1" };
@@ -436,6 +452,21 @@ class Orchestrator {
                 if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
                 this.state.token_usage_per_node['A1'] = usage;
                 this.state.a1_result = result;
+                
+                // --- WERYFIKACJA INCI ZE SKRYPTU (Zlecona przez A1 OSINT) ---
+                if (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) {
+                    const candidates = result.extracted_inci_candidates.value;
+                    if (candidates.length > 1) {
+                        this.state.hitl_alert = 'OSINT_CONFLICTING_INCI: Znaleziono różne wersje składu w internecie. Sprawdź ręcznie i zatwierdź.';
+                        this.state.next_action = 'HALT';
+                    } else if (candidates.length === 1) {
+                        // Uzupełnienie INCI w głównym stanie i puszczenie dalej
+                        this.state.extracted_data.inci = { value: candidates[0], source: 'osint_a1' };
+                    } else {
+                        this.state.hitl_alert = 'OSINT_NO_INCI_FOUND: Agent nie znalazł składu w internecie. Wprowadź ręcznie.';
+                        this.state.next_action = 'HALT';
+                    }
+                }
                 
                 if (this.state.next_action !== 'HALT') {
                     this.state.node_status['A1'] = 'OK';

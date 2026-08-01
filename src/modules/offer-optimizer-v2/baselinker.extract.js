@@ -82,8 +82,22 @@ function extractFromFeatures(product) {
         if (foundKey) {
             result[targetKey] = {
                 value: features[foundKey],
-                source: "baselinker",
+                source: "baselinker_features",
                 matched_key: foundKey
+            };
+        }
+    }
+
+    // Fallback: Jeżeli nie znaleziono INCI w parametrach, szukamy go w treści opisu HTML
+    if (!result.inci.value && product.text_fields && product.text_fields.description) {
+        const desc = product.text_fields.description;
+        // Szukamy słów INCI, Skład, Składniki, Ingredients, a następnie łapiemy treść po dwukropku
+        const inciMatch = desc.match(/(?:INCI|Składniki|Skład|Ingredients)\s*:\s*([^<]+)(?:<|$)/i);
+        if (inciMatch && inciMatch[1]) {
+            result.inci = {
+                value: inciMatch[1].trim(),
+                source: "baselinker_description_regex",
+                matched_key: "description_regex"
             };
         }
     }
