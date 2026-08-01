@@ -20,9 +20,4 @@ Wynik testów przy użyciu lokalnego polecenia `npm test`:
 ## 3. Stan flagi `WRITE_BACK_ENABLED` na branchu main
 - Na gałęzi `origin/main` flaga `WRITE_BACK_ENABLED` jest zabezpieczona i ustawiona na `false` w pliku `orchestrator.js` (oraz towarzyszących skryptach używających tej samej logiki, co zweryfikowano przez `git grep` lokalnie i na kodzie źródłowym bazy deweloperskiej przed oddaniem commita). Zabezpiecza to przed przypadkowymi nadpisaniami w środowisku BaseLinker.
 
-## 4. Instrukcja dla Operatora (po wejściu na main)
-Aby włączyć bezpieczne przepływy z BaseLinker po złączeniu zmian na główną gałąź, należy wykonać poniższe kroki (po weryfikacji manualnej):
-* Wejść do pliku `src/modules/offer-optimizer-v2/orchestrator.js` i ustawić stałą `WRITE_BACK_ENABLED = true;`.
-* Skasować blokadę w pliku `.github/workflows/deploy.yml` usuwając linię z komendą `grep` (zabezpieczającą deploy przed tą flagą),
-* Wykonać `git commit` ze zmianami.
-* Przekazać na produkcję – integracja A1–A10 i WriteBack zadziałają natychmiast po ukończeniu cyklu testów Node'owych (o ile wszystkie testy, w tym bramkowe testy EAN, nie zablokują zrzutu).
+
