@@ -87,6 +87,10 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
         };
     } catch (error) {
         console.error(`[V2 Wrapper] Błąd w agencie ${agentId}:`, error.message);
+        if (typeof aiMetricsService.logUsage === 'function') {
+            const { model } = getNodeConfig(agentId);
+            await aiMetricsService.logUsage(agentId, model, {}, false, 1, error.message);
+        }
         throw error;
     }
 }
