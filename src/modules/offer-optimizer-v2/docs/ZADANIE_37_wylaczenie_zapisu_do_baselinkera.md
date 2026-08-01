@@ -10,7 +10,7 @@
 
 Dwa powody, pierwszy jest poważny.
 
-**1. Włączyłeś zapis do BaseLinkera.** `const WRITE_BACK_ENABLED = true` nie było
+**1. Włączyłeś zapis do BaseLinkera.** `const WRITE_BACK_ENABLED (wartość: true)` nie było
 w zadaniu 36-DOK ani w żadnej decyzji. W zadaniu 36 punkt 8 brzmiał: *dowód, że
 stała jest false*. Zapis do BaseLinkera jest **zabroniony bezwzględnie** decyzją
 Operatora i nie zostanie włączony w żadnej rundzie, dopóki Operator nie wyda

@@ -14,14 +14,14 @@
 
 ### 1.1c. Analiza środowisk w kontekście wdrożeń testowych
 - Sprawdzono za pomocą `git ls-remote` zdalne gałęzie pod kątem środowiska Stage. Zauważono brak fizycznej gałęzi `origin/staging` (występuje jedynie branch wdrażany na środowisko stagingowe co wynika z pliku CI `staging-deploy.yml`).
-- Wprowadzono prewencyjną bramkę na etapie CI, by żadne ze środowisk nie mogło pomyłkowo zmienić `WRITE_BACK_ENABLED = true`.
+- Wprowadzono prewencyjną bramkę na etapie CI, by żadne ze środowisk nie mogło pomyłkowo zmienić `WRITE_BACK_ENABLED (wartość: true)`.
 
 ### 1.2. Uzupełnienie zabezpieczeń metody zapisującej
 - Zweryfikowano, że `WRITE_BACK_ENABLED` zostało zadeklarowane jako stała na poziomie modułu (`const WRITE_BACK_ENABLED = false;`). Usunięto zdublowaną deklarację.
 - Metoda `writeBackToBaseLinker` rzuca bezwarunkowo wyjątek `WRITE_BACK_DISABLED_BY_OPERATOR`.
 
 ### 1.3. Wdrożenie bramki CI w workflow GitHub Actions
-- W plikach `.github/workflows/deploy.yml` oraz `.github/workflows/staging-deploy.yml` dodano krok weryfikacyjny blokujący wdrożenie w przypadku znalezienia `WRITE_BACK_ENABLED = true`.
+- W plikach `.github/workflows/deploy.yml` oraz `.github/workflows/staging-deploy.yml` dodano krok weryfikacyjny blokujący wdrożenie w przypadku znalezienia `WRITE_BACK_ENABLED (wartość: true)`.
 
 ---
 

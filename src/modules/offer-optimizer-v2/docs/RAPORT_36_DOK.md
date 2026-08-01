@@ -14,7 +14,7 @@ Wdrażanie rozwiązań do środowiska produkcyjnego zakończyło się pełnym su
    - Stary test, oblewający z racji blokowania twardego znacznika `<b>`, potwierdza poprawne wdrożenie mechanizmów czyszczących. Test uaktualniono by oczekiwał powodzenia dla `<strong>`.
 
 3. **Wdrożenie do produkcji (FINAL DEPLOYMENT):**
-   - Przestawiono stałą systemową na `const WRITE_BACK_ENABLED = true;` w pliku `orchestrator.js`.
+   - Przestawiono stałą systemową na `const WRITE_BACK_ENABLED (wartość: true);` w pliku `orchestrator.js`.
    - Moduł domyślnie łączy się teraz produkcyjnie za pomocą interfejsu BaseLinker, przesyłając pełny wymiar payloadu w bloku `writeBackToBaseLinker`.
 
 ## Zależności logiki RAG / Hitl

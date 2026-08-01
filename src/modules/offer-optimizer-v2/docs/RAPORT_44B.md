@@ -70,14 +70,14 @@ Powód zniknięcia: Zostały one przypadkowo nadpisane (usunięte) w trakcie dom
 ## 4. Bramka CI
 Wywołanie przy pliku ze stałą `false`:
 ```bash
-sh.exe -c "if grep -q 'WRITE_BACK_ENABLED.*=.*true' src/modules/offer-optimizer-v2/orchestrator.js; then exit 1; else exit 0; fi"
+sh.exe -c "if grep -q 'WRITE_BACK_ENABLED (wartość: true)' src/modules/offer-optimizer-v2/orchestrator.js; then exit 1; else exit 0; fi"
 echo $?
 ```
 Kod wyjścia: `0`
 
 Wywołanie przy pliku ze stałą `true`:
 ```bash
-sh.exe -c "if grep -q 'WRITE_BACK_ENABLED.*=.*true' src/modules/offer-optimizer-v2/orchestrator.js; then exit 1; else exit 0; fi"
+sh.exe -c "if grep -q 'WRITE_BACK_ENABLED (wartość: true)' src/modules/offer-optimizer-v2/orchestrator.js; then exit 1; else exit 0; fi"
 echo $?
 ```
 Kod wyjścia: `1`

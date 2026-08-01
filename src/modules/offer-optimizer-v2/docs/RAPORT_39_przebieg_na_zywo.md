@@ -16,8 +16,8 @@ Wartość stałej w pliku zabezpieczającym (`orchestrator.js`) na środowisku b
 - **Pełna treść kroku:**
 ```bash
 # BRAMKA: Blokada zapisu do BaseLinkera
-if grep -q "WRITE_BACK_ENABLED.*=.*true" -r src/modules/offer-optimizer-v2/; then
-  echo "BŁĄD: Wykryto WRITE_BACK_ENABLED = true. Deploy zablokowany."
+if grep -q "WRITE_BACK_ENABLED (wartość: true)" -r src/modules/offer-optimizer-v2/; then
+  echo "BŁĄD: Wykryto WRITE_BACK_ENABLED (wartość: true). Deploy zablokowany."
   exit 1
 fi
 ```

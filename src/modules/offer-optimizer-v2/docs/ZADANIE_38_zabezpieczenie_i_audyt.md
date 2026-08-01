@@ -24,7 +24,7 @@ konta BaseLinkera.
 
 ```
 git branch -a -v
-git rev-list --all | xargs -I{} git grep -l "WRITE_BACK_ENABLED = true" {} 2>/dev/null
+git rev-list --all | xargs -I{} git grep -l "WRITE_BACK_ENABLED (wartość: true)" {} 2>/dev/null
 git log --oneline -20 origin/main
 git log --oneline -20 origin/staging
 git show origin/main:<ścieżka>/orchestrator.js | grep -n "WRITE_BACK_ENABLED"
@@ -44,7 +44,7 @@ wierzchołkach** obu gałęzi. Wypisz obie wartości wprost.
 - test: wywołanie funkcji rzuca ten błąd nawet przy stałej ustawionej na `true`
 
 **1.3 Bramka w CI.** Krok w workflow deploy, który kończy się błędem, gdy
-w module v2 istnieje linia z `WRITE_BACK_ENABLED = true`. Ma się wykonywać
+w module v2 istnieje linia z `WRITE_BACK_ENABLED (wartość: true)`. Ma się wykonywać
 **przed** krokiem testów, żeby awaria testów go nie przesłoniła — tak właśnie
 zdarzyło się przy #344. Podaj plik workflow, `plik:linia` i treść kroku.
 

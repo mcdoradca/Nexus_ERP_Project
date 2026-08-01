@@ -45,7 +45,7 @@ Jeśli `true` — **zatrzymujesz się i raportujesz tylko to.** Reszty nie robis
 
 ## KROK 3 — bramka CI ma zadziałać, gdy trzeba
 
-Krok blokujący deploy przy `WRITE_BACK_ENABLED = true` istnieje od Zadania 38,
+Krok blokujący deploy przy `WRITE_BACK_ENABLED (wartość: true)` istnieje od Zadania 38,
 ale nigdy nie został sprawdzony w działaniu.
 
 - na gałęzi roboczej ustaw stałą na `true`, uruchom **sam ten krok workflow

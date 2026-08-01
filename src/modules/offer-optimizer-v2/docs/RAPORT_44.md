@@ -14,8 +14,8 @@ Wynik testów przy użyciu lokalnego polecenia `npm test`:
 - `ℹ fail 0`
 
 ## 2. Status bramki CI i lokalny test
-- Bramka w `.github/workflows/deploy.yml` została przywrócona (przed uruchomieniem testów używany jest `grep -q "WRITE_BACK_ENABLED.*=.*true"`).
-- Testowo sprawdzono, że jeśli plik zawiera `WRITE_BACK_ENABLED = false;`, bramka go bez problemu przepuszcza i przechodzi dalej do testów (co miało miejsce, `fail 0`). W przypadku zdeklarowania `true`, grep wyłapuje to zdarzenie i rzuca wyjście `exit 1`.
+- Bramka w `.github/workflows/deploy.yml` została przywrócona (przed uruchomieniem testów używany jest `grep -q "WRITE_BACK_ENABLED (wartość: true)"`).
+- Testowo sprawdzono, że jeśli plik zawiera `WRITE_BACK_ENABLED (wartość: true)`, grep wyłapuje to zdarzenie i rzuca wyjście `exit 1`.
 
 ## 3. Stan flagi `WRITE_BACK_ENABLED` na branchu main
 - Na gałęzi `origin/main` flaga `WRITE_BACK_ENABLED` jest zabezpieczona i ustawiona na `false` w pliku `orchestrator.js` (oraz towarzyszących skryptach używających tej samej logiki, co zweryfikowano przez `git grep` lokalnie i na kodzie źródłowym bazy deweloperskiej przed oddaniem commita). Zabezpiecza to przed przypadkowymi nadpisaniami w środowisku BaseLinker.
