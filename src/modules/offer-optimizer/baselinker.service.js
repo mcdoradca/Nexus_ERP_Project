@@ -329,7 +329,7 @@ class BaseLinkerService {
             parsed.name = prod.text_fields.name || null;
             parsed.descriptionHtml = prod.text_fields.description || null;
             
-            // Szukamy wideo w extra_fields (Binarki / Extra_fields)
+            // Szukamy wideo w extra_fields (Binarki / Extra_fields) oraz tekstowych parametrów PIM
             for (const key in prod.text_fields) {
                 if (key.startsWith('extra_field_')) {
                     const fieldVal = prod.text_fields[key];
@@ -343,6 +343,10 @@ class BaseLinkerService {
                         }
                     } else if (typeof fieldVal === 'string' && fieldVal.includes('base64')) {
                         parsed.attachments.push({ file: 'base64_blob', data: fieldVal.substring(0, 50) + '...' });
+                    } else if (typeof fieldVal === 'string' && fieldVal.trim().length > 0) {
+                        // Zapisz tekstowe dodatkowe pole (np. "extra_field_1") jako "Dodatkowe pole 1"
+                        const fieldNum = key.replace('extra_field_', '');
+                        parsed.features[`Dodatkowe pole ${fieldNum}`] = fieldVal.trim();
                     }
                 }
             }

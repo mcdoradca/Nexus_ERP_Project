@@ -590,30 +590,35 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
             };
             const extracted = baselinkerExtract.extractFromFeatures(fakeProduct);
             
-            if (!deepData.features) deepData.features = {};
+            // Głębokie łączenie z istniejącymi cechami z bazy (aby nie tracić danych z AI po kliknięciu Interpoluj EAN)
+            const existingFeatures = (existingProduct && typeof existingProduct.features === 'object') ? existingProduct.features : {};
+            let mergedFeatures = { ...existingFeatures, ...(deepData.features || {}) };
             
             // Nadpisz brakujące parametry tymi wyciągniętymi bezpośrednio z HTML/struktury
             if (extracted.inci && extracted.inci.value) {
-                deepData.features['Skład/INCI'] = extracted.inci.value;
+                mergedFeatures['Skład/INCI'] = extracted.inci.value;
             }
             if (extracted.mpn && extracted.mpn.value) {
-                deepData.features['MPN'] = extracted.mpn.value;
+                mergedFeatures['MPN'] = extracted.mpn.value;
             }
             if (extracted.brand && extracted.brand.value && !deepData.manufacturer) {
                 deepData.manufacturer = extracted.brand.value;
             }
             if (extracted.capacity && extracted.capacity.value) {
-                deepData.features['Pojemność'] = extracted.capacity.value;
+                mergedFeatures['Pojemność'] = extracted.capacity.value;
             }
             if (extracted.usage && extracted.usage.value) {
-                deepData.features['Sposób użycia'] = extracted.usage.value;
+                mergedFeatures['Sposób użycia'] = extracted.usage.value;
             }
             if (extracted.warnings && extracted.warnings.value) {
-                deepData.features['Ostrzeżenia'] = extracted.warnings.value;
+                mergedFeatures['Ostrzeżenia'] = extracted.warnings.value;
             }
             if (extracted.line && extracted.line.value) {
-                deepData.features['Linia'] = extracted.line.value;
+                mergedFeatures['Linia'] = extracted.line.value;
             }
+            
+            // Zapisz połączone parametry z powrotem do deepData
+            deepData.features = mergedFeatures;
             // --- KONIEC EKSTRAKCJI ---
 
             // Jeśli po EAN nie ma w Allegro, próbujemy jeszcze po nazwie z BaseLinkera
@@ -890,13 +895,16 @@ app.post('/api/products/baselinker-sync/:ean', authenticateToken, async (req, re
         const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
 
         // KROK 3: Aktualizacja bazy Nexusa
+        const existingFeatures = (product && typeof product.features === 'object') ? product.features : {};
+        const mergedFeatures = { ...existingFeatures, ...(deepData.features || {}) };
+        
         const updated = await prisma.product.update({
             where: { id: product.id },
             data: {
                 baselinkerInventoryId: deepData.baselinkerInventoryId,
                 baselinkerId: deepData.baselinkerId,
                 descriptionHtml: deepData.descriptionHtml,
-                features: deepData.features,
+                features: mergedFeatures,
                 images: deepData.images,
                 weight: deepData.weight,
                 length: deepData.length,
