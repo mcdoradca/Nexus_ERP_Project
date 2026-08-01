@@ -613,14 +613,14 @@ const triggerUltimatePipeline = async (req, res) => {
                          data: { offerDraft: { status: 'ERROR', error: `Wymagana interwencja człowieka (HITL): ${orch.state.hitl_alert}` } }
                      });
                      console.log(`[Controller] Zatrzymano na bramce HITL: ${orch.state.hitl_alert}`);
-                } else if (orch.state.a10_result) {
+                } else if (orch.state.final_offer) {
                      await prisma.product.update({
                          where: { ean },
                          data: { 
                              offerDraft: { 
                                  status: 'COMPLETE', 
-                                 title: orch.state.a2_result?.title || existingProduct?.name || "Nowy Tytuł", 
-                                 htmlContent: orch.state.a10_result 
+                                 title: orch.state.final_offer.title || existingProduct?.name || "Nowy Tytuł", 
+                                 htmlContent: orch.state.final_offer.description_html 
                              } 
                          }
                      });
@@ -630,8 +630,8 @@ const triggerUltimatePipeline = async (req, res) => {
                          type: 'PIPELINE_COMPLETE',
                          ean: ean,
                          result: {
-                             editorHtml: orch.state.a10_result,
-                             title: orch.state.a2_result?.title || existingProduct?.name,
+                             editorHtml: orch.state.final_offer.description_html,
+                             title: orch.state.final_offer.title || existingProduct?.name,
                              features: existingProduct?.features || {},
                              aeoContent: existingProduct?.aeoContent || ''
                          }
