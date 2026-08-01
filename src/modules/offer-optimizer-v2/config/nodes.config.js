@@ -24,7 +24,7 @@ const FORBIDDEN_SOURCES = [
     'ebay\\..*', 'amazon\\..*', 'aliexpress\\..*', 'ceneo\\.pl'
 ];
 
-const DATA_SOURCE_MODE = 'fixture';
+const DATA_SOURCE_MODE = 'api';
 
 module.exports = {
     nodesConfig,

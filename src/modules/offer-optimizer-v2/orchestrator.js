@@ -94,9 +94,18 @@ function generateInciVariants(rawInci) {
     return [...variants, ...extraVariants];
 }
 
-function loadProductData(ean) {
+async function loadProductDataAsync(ean) {
     if (DATA_SOURCE_MODE === 'api') {
-        throw new Error('Pobranie z API wymaga jawnej zgody operatora i przelotu zgodnego z sekcją 2 promptu startowego.');
+        try {
+            console.log(`[Orchestrator V2] Pobieranie danych dla EAN ${ean} z API BaseLinker...`);
+            const BaseLinkerService = require('../offer-optimizer/baselinker.service');
+            const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
+            const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
+            return deepData;
+        } catch(err) {
+            console.error(`[Orchestrator V2] Błąd pobierania EAN ${ean} z BaseLinker: ${err.message}`);
+            throw err;
+        }
     }
     const dir = path.join(__dirname, 'tests', 'fixtures');
     const files = fs.readdirSync(dir);
@@ -180,7 +189,7 @@ class Orchestrator {
     }
 
     async runPhase1(pimData) {
-        const blData = loadProductData(this.gtin);
+        const blData = await loadProductDataAsync(this.gtin);
         let product = null;
         if (blData && blData.products) {
             product = Object.values(blData.products)[0];
