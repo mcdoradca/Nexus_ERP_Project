@@ -355,23 +355,28 @@ class BaseLinkerService {
 
         // 2. TEXT FIELDS (name, description, extra_fields, binarki wideo, parametry)
         if (prod.text_fields) {
-            parsed.name = prod.text_fields.name || null;
+            parsed.name = prod.text_fields['name|pl'] || prod.text_fields.name || null;
             
-            // 2A. Sklejanie uciętego opisu HTML
+            // 2A. Sklejanie uciętego opisu HTML (Priorytet dla języka PL)
             const descParts = [];
-            if (prod.text_fields.description) descParts.push(prod.text_fields.description.trim());
+            const mainDesc = prod.text_fields['description|pl'] || prod.text_fields.description;
+            if (mainDesc) descParts.push(mainDesc.trim());
+            
             for (let i = 1; i <= 4; i++) {
-                if (prod.text_fields[`description_extra${i}`]) {
-                    descParts.push(prod.text_fields[`description_extra${i}`].trim());
+                const extraDesc = prod.text_fields[`description_extra${i}|pl`] || prod.text_fields[`description_extra${i}`];
+                if (extraDesc) {
+                    descParts.push(extraDesc.trim());
                 }
             }
             parsed.descriptionHtml = descParts.length > 0 ? descParts.join('<br><br>') : null;
             
-            // 2B. Cechy (Features) przechowywane w text_fields.features
-            if (prod.text_fields.features && typeof prod.text_fields.features === 'object') {
-                for (const [fName, fVal] of Object.entries(prod.text_fields.features)) {
+            // 2B. Cechy (Features) przechowywane w text_fields.features (Priorytet PL)
+            const featuresObj = prod.text_fields['features|pl'] || prod.text_fields.features;
+            if (featuresObj && typeof featuresObj === 'object') {
+                for (const [fName, fVal] of Object.entries(featuresObj)) {
                     if (typeof fVal === 'string' && fVal.trim().length > 0) {
-                        parsed.features[fName.trim()] = fVal.trim();
+                        // Oczyszczenie "absurdów" formatowania Allegro (zamiana rur na przecinki)
+                        parsed.features[fName.trim()] = fVal.trim().replace(/\|/g, ', ');
                     }
                 }
             }
@@ -379,6 +384,11 @@ class BaseLinkerService {
             // 2C. Pola dodatkowe (Extra_fields) i binarki
             for (const key in prod.text_fields) {
                 if (key.startsWith('extra_field_')) {
+                    // Blokada na obce języki (pobieramy tylko domyślne pole lub |pl)
+                    if (key.includes('|') && !key.endsWith('|pl')) {
+                        continue;
+                    }
+
                     const fieldVal = prod.text_fields[key];
                     if (typeof fieldVal === 'object' && fieldVal !== null) {
                         if (fieldVal.file && fieldVal.url) {
@@ -397,8 +407,8 @@ class BaseLinkerService {
                         if (rawContentWithoutTags.length > 0) {
                             const baseKey = key.split('|')[0];
                             const fieldName = extraFieldsDict[baseKey] || `Dodatkowe pole ${baseKey.replace('extra_field_', '')}`;
-                            const langSuffix = key.includes('|') ? ` (${key.split('|')[1].toUpperCase()})` : '';
-                            parsed.features[`${fieldName}${langSuffix}`] = cleanVal;
+                            // Zamiana ewentualnych list z | na przecinki (jak w features)
+                            parsed.features[fieldName] = cleanVal.replace(/\|/g, ', ');
                         }
                     }
                 }
@@ -406,10 +416,11 @@ class BaseLinkerService {
         }
 
         // 3. FEATURES (Parametry - fallbacks dla starszych instancji PIM)
-        if (prod.features && typeof prod.features === 'object') {
-            for (const [fName, fVal] of Object.entries(prod.features)) {
+        const legacyFeatures = prod['features|pl'] || prod.features;
+        if (legacyFeatures && typeof legacyFeatures === 'object') {
+            for (const [fName, fVal] of Object.entries(legacyFeatures)) {
                 if (typeof fVal === 'string' && fVal.trim().length > 0) {
-                    parsed.features[fName.trim()] = fVal.trim();
+                    parsed.features[fName.trim()] = fVal.trim().replace(/\|/g, ', ');
                 }
             }
         }
