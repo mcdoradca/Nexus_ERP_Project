@@ -53,12 +53,18 @@ test('V4 scan_medical_claims_lexical', async (t) => {
 });
 
 test('V5 validate_html_whitelist', async (t) => {
-    assert.deepStrictEqual(v.validate_html_whitelist('<h1>Tytuł</h1><p>Tekst <b>pogrubiony</b>.</p>'), { valid: true, errors: [] });
+    assert.deepStrictEqual(v.validate_html_whitelist('<h1>Tytuł</h1><p>Tekst <strong>pogrubiony</strong>.</p>'), { valid: true, errors: [] });
     assert.deepStrictEqual(v.validate_html_whitelist('<h1>Tytuł <br></h1>').valid, false);
     assert.deepStrictEqual(v.validate_html_whitelist('<h1><b>Błąd</b></h1>').valid, false);
     assert.deepStrictEqual(v.validate_html_whitelist('<p>Tytuł "cytat"</p>').valid, false);
     assert.deepStrictEqual(v.validate_html_whitelist('<a href="url">link</a>').valid, false);
     assert.deepStrictEqual(v.validate_html_whitelist(null).valid, true);
+});
+
+test('V5b validate_html_whitelist po normalizacji', async (t) => {
+    const { normalizeTags } = require('../orchestrator.js');
+    const normalized = normalizeTags('<h1>Tytuł</h1><p>Tekst <b>pogrubiony</b>.</p>');
+    assert.deepStrictEqual(v.validate_html_whitelist(normalized), { valid: true, errors: [] });
 });
 
 test('V6 diff_numeric', async (t) => {

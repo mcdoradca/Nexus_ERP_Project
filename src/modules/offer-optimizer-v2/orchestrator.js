@@ -1,102 +1,140 @@
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 const aiWrapper = require('./ai.wrapper');
-const { ean_checksum, route_chemical, validate_eu_responsible_person } = require('./validators');
-const { FORBIDDEN_SOURCES } = require('./config/nodes.config');
+const { ean_checksum, route_chemical, validate_eu_responsible_person, gate_ingredients } = require('./validators');
+const { FORBIDDEN_SOURCES, DATA_SOURCE_MODE } = require('./config/nodes.config');
+const baselinkerExtract = require('./baselinker.extract.js');
+const { normalizeIngredientName } = require('./normalization.js');
+const ragService = require('./knowledge.rag.service.js');
+const { validate_html_whitelist, scan_medical_claims_lexical, scan_stopwords } = require('./validators');
 
 const PHASE_1_GROUNDING = 'PHASE_1_GROUNDING';
 const PHASE_2_LEGAL = 'PHASE_2_LEGAL';
 const PHASE_3_CREATION = 'PHASE_3_CREATION';
 const PHASE_4_AUDIT = 'PHASE_4_AUDIT';
 
+const WRITE_BACK_ENABLED = false;
+
+const normalizeTags = (htmlStr) => {
+    if (!htmlStr) return htmlStr;
+    return htmlStr.replace(/<b>/g, '<strong>').replace(/<\/b>/g, '</strong>')
+                  .replace(/<i>/g, '<em>').replace(/<\/i>/g, '</em>');
+};
+
 const a1Schema = {
     type: "object",
     properties: {
-        pipeline_id: { type: "string" },
-        gtin_ean: { type: "string" },
-        brand: { type: "string" },
-        line: { type: "string" },
-        mpn: { type: "string" },
-        product_name: { type: "string" },
         country_of_origin: { type: "string" },
-        logistics: {
-            type: "object",
-            properties: {
-                net_capacity_or_weight: { type: "string" },
-                gross_weight_kg: { type: "number" },
-                dimensions_cm: { type: "string" }
-            }
-        },
-        compliance_gpsr_clp: {
-            type: "object",
-            properties: {
-                eu_responsible_person: {
-                    type: "object",
-                    properties: {
-                        name: { type: "string" },
-                        address_eu: { type: "string" },
-                        contact: { type: "string" }
-                    },
-                    nullable: true
-                },
-                clp_signal_word: { type: "string" },
-                clp_h_phrases: { type: "array", items: { type: "string" } },
-                clp_p_phrases: { type: "array", items: { type: "string" } },
-                ufi_code: { type: "string" },
-                biocidal_or_medical_permit: { type: "string" },
-                ph_value: { type: "string" },
-                sds_required: { type: "boolean" }
-            }
-        },
-        verified_certificates: { type: "array", items: { type: "string" } },
-        raw_ingredients_inci: { type: "string" },
-        missing_critical_data: { type: "boolean" },
-        missing_critical_data_reason: { type: "string" },
         research_sources_used: { type: "array", items: { type: "string" }, maxItems: 8 }
     },
     required: [
-        "pipeline_id",
-        "gtin_ean",
-        "brand",
-        "line",
-        "mpn",
-        "product_name",
         "country_of_origin",
-        "logistics",
-        "compliance_gpsr_clp",
-        "verified_certificates",
-        "raw_ingredients_inci",
-        "missing_critical_data",
-        "missing_critical_data_reason",
         "research_sources_used"
     ]
 };
+
+const a2Schema = {
+    type: "object",
+    properties: {
+        sentiment_available: { type: "boolean" },
+        total_reviews_analyzed: { type: "number" },
+        average_rating: { type: "number" },
+        social_proof_matrix: {
+            type: "object",
+            properties: {
+                raw_customer_delights: { type: "array", items: { type: "string" } },
+                real_life_use_cases: { type: "array", items: { type: "string" } },
+                competitor_pain_points_eliminated: { type: "array", items: { type: "string" } },
+                authentic_minor_flaws: { type: "array", items: { type: "string" } }
+            }
+        },
+        safety_signals_detected: { type: "array", items: { type: "string" } },
+        scraped_sources: { type: "array", items: { type: "string" } }
+    },
+    required: [
+        "sentiment_available",
+        "total_reviews_analyzed",
+        "average_rating",
+        "social_proof_matrix",
+        "safety_signals_detected",
+        "scraped_sources"
+    ]
+};
+
+function generateInciVariants(rawInci) {
+    let cleaned = rawInci.replace(/[.,;]+$/, '').trim();
+    let variants = [];
+    if (cleaned.includes('(') && cleaned.includes(')')) {
+        variants.push(normalizeIngredientName(cleaned));
+        
+        const beforeParen = cleaned.substring(0, cleaned.indexOf('(')).trim();
+        if (beforeParen) variants.push(normalizeIngredientName(beforeParen));
+        
+        const insideParenMatch = cleaned.match(/\(([^)]+)\)/);
+        if (insideParenMatch && insideParenMatch[1]) {
+            variants.push(normalizeIngredientName(insideParenMatch[1].trim()));
+        }
+
+        const withoutParen = cleaned.replace(/\([^)]+\)/g, '').replace(/\s+/g, ' ').trim();
+        if (withoutParen && withoutParen !== beforeParen) {
+            variants.push(normalizeIngredientName(withoutParen));
+        }
+    } else {
+        variants.push(normalizeIngredientName(cleaned));
+    }
+    
+    // Piąty wariant (wariant z dodanym/odjętym 's' na bazie wynikowych wariantów)
+    const extraVariants = [];
+    for (let v of variants) {
+        if (!v.endsWith('s')) extraVariants.push(v + 's');
+        if (v.endsWith('s')) extraVariants.push(v.slice(0, -1));
+    }
+    
+    return [...variants, ...extraVariants];
+}
+
+function loadProductData(ean) {
+    if (DATA_SOURCE_MODE === 'api') {
+        throw new Error('Pobranie z API wymaga jawnej zgody operatora i przelotu zgodnego z sekcją 2 promptu startowego.');
+    }
+    const dir = path.join(__dirname, 'tests', 'fixtures');
+    const files = fs.readdirSync(dir);
+    const eanFiles = files.filter(f => f.includes(ean));
+    if (eanFiles.length === 0) {
+        throw new Error('Brak fixture dla EAN: ' + ean);
+    }
+    const targetFile = eanFiles.find(f => f.endsWith('.raw.json')) || eanFiles[0];
+    const data = fs.readFileSync(path.join(dir, targetFile), 'utf8');
+    return JSON.parse(data);
+}
 
 class Orchestrator {
     constructor(gtin) {
         this.gtin = gtin;
         this.state = {
-            pipeline_id: `PL-${gtin}-${Date.now()}`,
+            pipeline_id: "PL-" + gtin + "-" + Date.now(),
             timestamp_utc: new Date().toISOString(),
             current_phase: PHASE_1_GROUNDING,
             node_status: {},
             revision_loop_count: 0,
-            next_action: 'INIT',
+            next_action: 'RUN_EXTRACT',
             hitl_alert: null,
+            hitl_log: [],
             frozen_hashes: { s3: null, s5: null, s6: null },
-            token_usage_per_node: {}
+            token_usage_per_node: {},
+            chemical_route: false,
+            chemical_route_reasons: []
         };
     }
 
     emitState() {
-        // Logs disabled to avoid cluttering std out. The user wants to see JSON at the end.
         const logDir = path.join(__dirname, 'logs');
         if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
         fs.writeFileSync(path.join(logDir, `state_${this.state.pipeline_id}.json`), JSON.stringify(this.state, null, 2), 'utf8');
     }
 
     async run(pimData) {
-        // Pre-validation
         const chk = ean_checksum(this.gtin);
         if (!chk.valid) {
             this.state.node_status['PRE'] = 'CRITICAL_INPUT_ERROR';
@@ -105,131 +143,950 @@ class Orchestrator {
             return;
         }
 
-        const isChemical = route_chemical(pimData);
         this.state.node_status['PRE'] = 'OK';
-        this.state.chemical_route = isChemical;
 
         if (this.state.current_phase === PHASE_1_GROUNDING) {
             await this.runPhase1(pimData);
         }
-        
-        // E4b, E4c, E4d
     }
 
     async runPhase1(pimData) {
-        this.state.next_action = 'RUN_A1';
-        this.emitState();
-        
-        const safePim = { ...pimData };
-        delete safePim.images;
-        delete safePim.offerDraft; // huge base64 fields
-        
-        const promptTemplate = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_1_compiled.md'), 'utf8');
-        const prompt = promptTemplate.replace('{{SKU_DATA}}', JSON.stringify(safePim, null, 2));
-        
-        try {
-            const { result, usage } = await aiWrapper.callAgentWithTelemetry({
-                agentId: "1",
-                prompt,
-                schema: a1Schema
-            });
+        const blData = loadProductData(this.gtin);
+        let product = null;
+        if (blData && blData.products) {
+            product = Object.values(blData.products)[0];
+        } else {
+            product = blData;
+        }
 
-            const warnings = [];
-            const deepNormalize = (obj, path = "") => {
-                for (let k in obj) {
-                    if (obj[k] !== null && typeof obj[k] === 'object' && !Array.isArray(obj[k])) {
-                        deepNormalize(obj[k], path ? `${path}.${k}` : k);
-                    } else if (typeof obj[k] === 'string') {
-                        const t = obj[k].trim().toLowerCase();
-                        if (t === '' || ['null', 'none', 'n/a', 'brak'].includes(t)) {
-                            obj[k] = null;
-                            warnings.push(path ? `${path}.${k}` : k);
+        const extracted = baselinkerExtract.extractFromFeatures(product);
+        const descResult = baselinkerExtract.extractResponsiblePersonFromDescription(product?.text_fields?.description);
+        
+        this.state.extracted_data = {
+            inci: extracted.inci,
+            mpn: extracted.mpn,
+            brand: extracted.brand,
+            capacity: extracted.capacity,
+            usage: extracted.usage,
+            warnings: extracted.warnings,
+            line: extracted.line,
+            truncated: extracted.truncated,
+            recovered_keys: extracted.recovered_keys,
+            eu_responsible_person: { 
+                source: descResult.raw_fragment ? 'description' : null, 
+                data: descResult 
+            },
+            product_name: {
+                value: product?.text_fields?.name || null,
+                source: product?.text_fields?.name ? 'baselinker' : null,
+                matched_key: null
+            }
+        };
+
+        // --- TRASA (KROK 1) ---
+        const reasons = [];
+        if (this.state.extracted_data.inci?.value) {
+            reasons.push('HAS_INCI');
+        }
+        const catKeys = ['category', 'category_id', 'group'];
+        for (let key of catKeys) {
+            if (product && product[key]) {
+                const valStr = String(product[key]).toLowerCase();
+                if (valStr.includes('chemia') || valStr.includes('chemical') || valStr.includes('biobójcz') || valStr.includes('biocid')) {
+                    reasons.push('CATEGORY_CHEMICAL');
+                    break;
+                }
+            }
+        }
+        reasons.push('SDS_STATUS_UNKNOWN');
+        
+        this.state.chemical_route_reasons = reasons;
+        this.state.chemical_route = reasons.length > 0;
+        // --- KONIEC TRASY ---
+
+        if (!extracted?.inci?.value && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
+            this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
+            this.state.hitl_alert = 'MISSING_INCI';
+            this.state.next_action = 'HALT';
+            this.emitState();
+            return;
+        }
+
+        const inciArray = extracted.inci.value.split(',').map(i => normalizeIngredientName(i.trim())).filter(i => i);
+        const gateRes = gate_ingredients(inciArray);
+        if ((gateRes.status === 'BANNED_SUBSTANCE_DETECTED' || gateRes.status === 'INGREDIENT_NOT_COSMETIC') && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
+            this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
+            this.state.hitl_alert = gateRes.status;
+            this.state.hitl_substance = gateRes.substance;
+            this.state.next_action = 'HALT';
+            this.emitState();
+            return;
+        }
+
+        const inciRefService = require('./inci.reference.service.js');
+        const notInGlossary = [];
+        let rawInciArray = (extracted.inci.value || '').split(',').map(i => i.trim()).filter(i => i);
+        
+        const checkHit = (phrase) => {
+            const variants = generateInciVariants(phrase);
+            for (let v of variants) {
+                if (inciRefService.isOfficialIngredient(v)) return true;
+            }
+            return false;
+        };
+
+        let i = 0;
+        while (i < rawInciArray.length) {
+            let rawI = rawInciArray[i];
+            let found = checkHit(rawI);
+            
+            const checkHitExact = (phrase) => {
+                let cleaned = phrase.replace(/[.,;]+$/, '').trim();
+                let v = normalizeIngredientName(cleaned);
+                let variants = [v];
+                if (!v.endsWith('s')) variants.push(v + 's');
+                if (v.endsWith('s')) variants.push(v.slice(0, -1));
+                for (let variant of variants) {
+                    if (inciRefService.isOfficialIngredient(variant)) return true;
+                }
+                return false;
+            };
+
+            if (!found) {
+                if (i + 1 < rawInciArray.length) {
+                    let gluedNext = rawI + ',' + rawInciArray[i+1];
+                    if (checkHitExact(gluedNext)) {
+                        rawInciArray[i] = gluedNext;
+                        rawInciArray.splice(i+1, 1);
+                        found = true;
+                    }
+                }
+                
+                if (!found && i - 1 >= 0) {
+                    let gluedPrev = rawInciArray[i-1] + ',' + rawI;
+                    if (checkHitExact(gluedPrev)) {
+                        rawInciArray[i-1] = gluedPrev;
+                        rawInciArray.splice(i, 1);
+                        i--;
+                        found = true;
+                    }
+                }
+            }
+            
+            if (!found) {
+                notInGlossary.push(rawI);
+            }
+            i++;
+        }
+        
+        if (notInGlossary.length > 0) {
+            this.state.normalization_warnings = this.state.normalization_warnings || [];
+            this.state.normalization_warnings.push('INGREDIENT_NOT_IN_GLOSSARY: ' + notInGlossary.join(', '));
+            // Omijamy halt (Zgodnie z D25 potok idzie dalej)
+        }
+
+        const eu = descResult;
+        if ((!eu.name || !eu.address_eu || !eu.contact) && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
+            this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
+            this.state.hitl_alert = 'MISSING_EU_RESPONSIBLE_PERSON';
+            this.state.next_action = 'HALT';
+            this.emitState();
+            return;
+        }
+
+        const euSanity = validate_eu_responsible_person(eu);
+        if (!euSanity.valid && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
+            this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
+            this.state.hitl_alert = 'MALFORMED_EU_RESPONSIBLE_PERSON';
+            this.state.next_action = 'HALT';
+            this.emitState();
+            return;
+        }
+
+        this.state.node_status['EXTRACT'] = 'OK';
+
+        const missingFields = [];
+        if (!this.state.extracted_data.brand.source) missingFields.push('brand');
+        if (!this.state.extracted_data.product_name.source) missingFields.push('product_name');
+        if (!this.state.extracted_data.line.source) missingFields.push('line');
+        missingFields.push('country_of_origin');
+
+        if (this.state.next_action === 'RUN_EXTRACT') {
+            if (missingFields.length === 0) {
+                this.state.next_action = 'RUN_A2';
+                this.state.node_status['A1'] = 'SKIPPED';
+                this.state.token_usage_per_node['A1'] = { tokens_saved: true, reason: 'No missing fields detected after extraction.' };
+            } else {
+                this.state.next_action = 'RUN_A1';
+            }
+        }
+        
+        if (this.state.next_action === 'RUN_A1') {
+            const agentData = {
+                gtin_ean: this.gtin,
+                product_name: product?.text_fields?.name || undefined,
+                brand: extracted.brand?.value || undefined,
+                capacity: extracted.capacity?.value || undefined,
+                missingFields: missingFields
+            };
+            
+            const promptTemplate = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_1_compiled.md'), 'utf8');
+            const prompt = promptTemplate.replace('{{SKU_DATA}}', JSON.stringify(agentData, null, 2));
+            
+            try {
+                const { result, usage } = await aiWrapper.callAgentWithTelemetry({
+                    agentId: "1",
+                    prompt,
+                    schema: a1Schema
+                });
+                
+                const warnings = [];
+                const deepNormalize = (obj, path = "") => {
+                    for (let k in obj) {
+                        if (obj[k] !== null && typeof obj[k] === 'object' && !Array.isArray(obj[k])) {
+                            deepNormalize(obj[k], path ? `${path}.${k}` : k);
+                        } else if (typeof obj[k] === 'string') {
+                            const t = obj[k].trim().toLowerCase();
+                            if (t === '' || ['null', 'none', 'n/a', 'brak'].includes(t)) {
+                                obj[k] = null;
+                                warnings.push(path ? `${path}.${k}` : k);
+                            }
+                        }
+                    }
+                };
+                deepNormalize(result);
+
+                if (result.research_sources_used && Array.isArray(result.research_sources_used)) {
+                    const originalSources = [...result.research_sources_used];
+                    result.research_sources_used = result.research_sources_used.filter(src => {
+                        try {
+                            const u = new URL(src.startsWith('http') ? src : 'http://' + src);
+                            if (!u.hostname.includes('.') || u.hostname.includes('..') || u.hostname.startsWith('.')) throw new Error('invalid');
+                            const domain = u.hostname.toLowerCase();
+                            if (FORBIDDEN_SOURCES.some(f => new RegExp(f, 'i').test(domain))) return false;
+                            return true;
+                        } catch {
+                            warnings.push('INVALID_SOURCE_DOMAIN: ' + src);
+                            return false;
+                        }
+                    });
+                    const removed = originalSources.filter(s => !result.research_sources_used.includes(s));
+                    if (removed.length > 0) warnings.push('removed_forbidden_sources: ' + removed.join(', '));
+                    
+                    const checkStr = (extracted.brand?.value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                    if (checkStr && result.research_sources_used.length > 0) {
+                        if (!result.research_sources_used.some(src => src.toLowerCase().replace(/[^a-z0-9]/g, '').includes(checkStr))) {
+                            warnings.push('NO_P1_SOURCE_FOUND_FOR_BRAND: ' + checkStr);
+                            this.state.hitl_alert = 'NO_P1_SOURCE_FOUND_FOR_BRAND';
+                            this.state.next_action = 'HALT';
+                        }
+                    } else if (!checkStr) {
+                        warnings.push('P1_CHECK_IMPOSSIBLE');
+                        result.research_sources_used = [];
+                    }
+                }
+
+                if (result.pipeline_id !== this.state.pipeline_id) {
+                    result.pipeline_id = this.state.pipeline_id;
+                    warnings.push('pipeline_id_overwritten');
+                }
+
+                const allowedKeys = ['country_of_origin', 'research_sources_used'];
+                const finalResult = {};
+                for (let k of Object.keys(result)) {
+                    if (allowedKeys.includes(k)) finalResult[k] = { value: result[k], source: "a1" };
+                    else warnings.push('A1_FIELD_REJECTED: ' + k);
+                }
+                for (let k in result) delete result[k];
+                Object.assign(result, finalResult);
+
+                if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
+                this.state.token_usage_per_node['A1'] = usage;
+                this.state.a1_result = result;
+                
+                if (this.state.next_action !== 'HALT') {
+                    this.state.node_status['A1'] = 'OK';
+                    this.state.next_action = 'RUN_A2';
+                }
+            } catch (e) {
+                this.state.node_status['A1'] = 'ERROR';
+                this.state.hitl_alert = e.message;
+                this.state.next_action = 'HALT';
+                this.emitState();
+                return;
+            }
+        }
+
+        // --- KROK 2: A2 ---
+        if (this.state.next_action === 'RUN_A2') {
+            const agent2Data = {
+                gtin_ean: this.gtin,
+                product_name: product?.text_fields?.name || undefined,
+                brand: extracted.brand?.value || undefined
+            };
+            
+            const prompt2Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_2_compiled.md'), 'utf8');
+            const prompt2 = prompt2Template.replace('{{SKU_DATA}}', JSON.stringify(agent2Data, null, 2));
+
+            try {
+                const { result, usage } = await aiWrapper.callAgentWithTelemetry({
+                    agentId: "2",
+                    prompt: prompt2,
+                    schema: a2Schema
+                });
+                
+                const warnings = [];
+                
+                if (result.pipeline_id) {
+                    warnings.push('A2_FIELD_REJECTED: pipeline_id');
+                    delete result.pipeline_id;
+                }
+                if (result.gtin_ean) {
+                    warnings.push('A2_FIELD_REJECTED: gtin_ean');
+                    delete result.gtin_ean;
+                }
+
+                const allowedKeysA2 = [
+                    'sentiment_available', 'total_reviews_analyzed', 'average_rating',
+                    'social_proof_matrix', 'safety_signals_detected', 'scraped_sources'
+                ];
+                for (let k of Object.keys(result)) {
+                    if (!allowedKeysA2.includes(k)) {
+                        warnings.push('A2_FIELD_REJECTED: ' + k);
+                        delete result[k];
+                    }
+                }
+
+                if (result.social_proof_matrix) {
+                    const spm = result.social_proof_matrix;
+                    if (Array.isArray(spm.raw_customer_delights) && spm.raw_customer_delights.length > 5) {
+                        spm.raw_customer_delights = spm.raw_customer_delights.slice(0, 5);
+                        warnings.push('A2_LIMIT_TRUNCATED: raw_customer_delights');
+                    }
+                    if (Array.isArray(spm.real_life_use_cases) && spm.real_life_use_cases.length > 4) {
+                        spm.real_life_use_cases = spm.real_life_use_cases.slice(0, 4);
+                        warnings.push('A2_LIMIT_TRUNCATED: real_life_use_cases');
+                    }
+                    if (Array.isArray(spm.competitor_pain_points_eliminated) && spm.competitor_pain_points_eliminated.length > 4) {
+                        spm.competitor_pain_points_eliminated = spm.competitor_pain_points_eliminated.slice(0, 4);
+                        warnings.push('A2_LIMIT_TRUNCATED: competitor_pain_points_eliminated');
+                    }
+                    if (Array.isArray(spm.authentic_minor_flaws) && spm.authentic_minor_flaws.length > 2) {
+                        spm.authentic_minor_flaws = spm.authentic_minor_flaws.slice(0, 2);
+                        warnings.push('A2_LIMIT_TRUNCATED: authentic_minor_flaws');
+                    }
+                }
+                if (Array.isArray(result.scraped_sources)) {
+                    result.scraped_sources = result.scraped_sources.filter(src => {
+                        try {
+                            const u = new URL(src.startsWith('http') ? src : 'http://' + src);
+                            if (!u.hostname.includes('.') || u.hostname.includes('..') || u.hostname.startsWith('.')) throw new Error('invalid');
+                            return true;
+                        } catch {
+                            warnings.push('INVALID_SOURCE_DOMAIN: ' + src);
+                            return false;
+                        }
+                    });
+                    if (result.scraped_sources.length > 6) {
+                        result.scraped_sources = result.scraped_sources.slice(0, 6);
+                        warnings.push('A2_LIMIT_TRUNCATED: scraped_sources');
+                    }
+                }
+                if (Array.isArray(result.safety_signals_detected) && result.safety_signals_detected.length > 3) {
+                    result.safety_signals_detected = result.safety_signals_detected.slice(0, 3);
+                    warnings.push('A2_LIMIT_TRUNCATED: safety_signals_detected');
+                }
+
+                if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
+                this.state.token_usage_per_node['A2'] = usage;
+                this.state.a2_result = result;
+                
+                if (result.safety_signals_detected && result.safety_signals_detected.length > 0) {
+                    this.state.node_status['A2'] = 'HALTED_HITL_REQUIRED';
+                    this.state.hitl_alert = 'SAFETY_SIGNAL_IN_REVIEWS';
+                    this.state.next_action = 'HALT';
+                    this.emitState();
+                    return;
+                }
+
+                this.state.node_status['A2'] = 'OK';
+                this.state.next_action = 'RUN_A4';
+            } catch (e) {
+                this.state.node_status['A2'] = 'ERROR';
+                this.state.hitl_alert = e.message;
+                this.state.next_action = 'HALT';
+                this.emitState();
+                return;
+            }
+        }
+        
+        // --- KROK 3: A4 ---
+        if (this.state.next_action === 'RUN_A4') {
+            if (!this.state.chemical_route) {
+                this.state.node_status['A4'] = 'SKIPPED';
+                this.state.next_action = 'RUN_A5';
+            } else {
+                try {
+                    const rawInciArray = (this.state.extracted_data.inci.value || '').split(',').map(i => i.trim()).filter(i => i);
+                    
+                    const inciRefService = require('./inci.reference.service.js');
+                    const warnings = [];
+                    let ragText = '';
+                    
+                    for (let rawI of rawInciArray) {
+                        const variants = generateInciVariants(rawI);
+                        let functionFound = false;
+                        for (let v of variants) {
+                            const data = inciRefService.getInciFunctionData(v);
+                            if (data && data.functions && data.functions.length > 0) {
+                                ragText += `[INCI_DICT] ${data.inci_name || v}: ${data.functions.join(', ')}\n`;
+                                functionFound = true;
+                                break;
+                            }
+                        }
+                        if (!functionFound) {
+                            warnings.push('INGREDIENT_NO_FUNCTION: ' + rawI);
+                        }
+                    }
+                    
+                    const agent4Data = {
+                        gtin_ean: this.gtin,
+                        product_name: product?.text_fields?.name || undefined,
+                        brand: extracted.brand?.value || undefined
+                    };
+                    
+                    const prompt4Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_4_compiled.md'), 'utf8');
+                    let prompt4 = prompt4Template.replace('{{SKU_DATA}}', JSON.stringify(agent4Data, null, 2));
+                    prompt4 = prompt4.replace('--- BLOK RAG + DANE SKU (dynamiczne) ---', `--- BLOK RAG ---\n${ragText}\n\n--- DANE SKU ---\n`);
+
+                    const a4Schema = {
+                        type: "object",
+                        properties: {
+                            category_type: { type: "string" },
+                            technical_benefits_aeo: { type: "array", items: { type: "string" } },
+                            detected_synergies: { type: "array", items: { type: "string" } },
+                            mandatory_clp_warnings: { type: "array", items: { type: "string" }, nullable: true }
+                        },
+                        required: ["category_type", "technical_benefits_aeo", "detected_synergies", "mandatory_clp_warnings"]
+                    };
+
+                    const { result, usage } = await aiWrapper.callAgentWithTelemetry({
+                        agentId: "4",
+                        prompt: prompt4,
+                        schema: a4Schema
+                    });
+
+                    const allowedKeysA4 = ['category_type', 'technical_benefits_aeo', 'detected_synergies', 'mandatory_clp_warnings'];
+                    for (let k of Object.keys(result)) {
+                        if (!allowedKeysA4.includes(k)) {
+                            warnings.push('A4_FIELD_REJECTED: ' + k);
+                            delete result[k];
+                        }
+                    }
+
+                    if (result.technical_benefits_aeo && Array.isArray(result.technical_benefits_aeo)) {
+                        let htmlStr = result.technical_benefits_aeo.join('');
+                        if (htmlStr.length > 2500) {
+                            warnings.push('A4_LIMIT_TRUNCATED: technical_benefits_aeo');
+                        }
+                    }
+                    
+                    if (result.detected_synergies && Array.isArray(result.detected_synergies) && result.detected_synergies.length > 4) {
+                        result.detected_synergies = result.detected_synergies.slice(0, 4);
+                        warnings.push('A4_LIMIT_TRUNCATED: detected_synergies');
+                    }
+                    
+                    if (result.mandatory_clp_warnings !== null) {
+                        warnings.push('A4_CLP_WITHOUT_SOURCE');
+                        result.mandatory_clp_warnings = null;
+                    }
+                    
+                    if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
+                    
+                    this.state.token_usage_per_node['A4'] = usage;
+                    this.state.a4_result = result;
+
+                    // Walidatory A4
+                    if (result.technical_benefits_aeo && Array.isArray(result.technical_benefits_aeo)) {
+                        for (let idx = 0; idx < result.technical_benefits_aeo.length; idx++) {
+                            let htmlStr = result.technical_benefits_aeo[idx];
+                            htmlStr = normalizeTags(htmlStr);
+                            result.technical_benefits_aeo[idx] = htmlStr;
+                            
+                            const v1 = validate_html_whitelist(htmlStr);
+                            if (!v1.valid) {
+                                const msg = 'A4_OUTPUT_REJECTED: validate_html_whitelist (' + v1.errors.join(', ') + ')';
+                                this.state.hitl_alert = msg;
+                                this.state.normalization_warnings.push(msg);
+                                this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
+                                this.state.next_action = 'HALT';
+                                this.emitState();
+                                return;
+                            }
+                            
+                            const v2 = scan_medical_claims_lexical(htmlStr);
+                            if (v2.length > 0) {
+                                const msg = 'A4_OUTPUT_REJECTED: scan_medical_claims_lexical (' + v2.map(h => h.word).join(', ') + ')';
+                                this.state.hitl_alert = msg;
+                                this.state.normalization_warnings.push(msg);
+                                this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
+                                this.state.next_action = 'HALT';
+                                this.emitState();
+                                return;
+                            }
+                            
+                            const v3 = scan_stopwords(htmlStr);
+                            if (v3.length > 0) {
+                                const msg = 'A4_OUTPUT_REJECTED: scan_stopwords (' + v3.map(h => h.word).join(', ') + ')';
+                                this.state.hitl_alert = msg;
+                                this.state.normalization_warnings.push(msg);
+                                this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
+                                this.state.next_action = 'HALT';
+                                this.emitState();
+                                return;
+                            }
+                        }
+                    }
+
+                    this.state.node_status['A4'] = 'OK';
+                    this.state.next_action = 'RUN_A5';
+                } catch (e) {
+                    this.state.node_status['A4'] = 'ERROR';
+                    this.state.hitl_alert = e.message;
+                    this.state.next_action = 'HALT';
+                    this.emitState();
+                    return;
+                }
+            }
+        }
+        
+
+        // --- KROK 5: A5 ---
+        if (this.state.next_action === 'RUN_A5') {
+            const agent5Data = {
+                a1: this.state.a1_result,
+                a2: this.state.a2_result,
+                a4: this.state.a4_result
+            };
+            const prompt5Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_5_compiled.md'), 'utf8');
+            const prompt5 = prompt5Template.replace('{{SKU_DATA}}', JSON.stringify(agent5Data, null, 2));
+
+            const a5Schema = {
+                type: "object",
+                properties: {
+                    sanitization_status: { type: "string" },
+                    mandatory_safety_warnings: { type: "array", items: { type: "string" } },
+                    preserved_minor_flaws_for_pratfall: { type: "array", items: { type: "string" } }
+                },
+                required: ["sanitization_status", "mandatory_safety_warnings", "preserved_minor_flaws_for_pratfall"]
+            };
+
+            try {
+                const { result, usage } = await aiWrapper.callAgentWithTelemetry({
+                    agentId: "5", prompt: prompt5, schema: a5Schema, temperature: 0
+                });
+                
+                const warnings = [];
+                const allowedKeysA5 = ['sanitization_status', 'mandatory_safety_warnings', 'preserved_minor_flaws_for_pratfall'];
+                for (let k of Object.keys(result)) {
+                    if (!allowedKeysA5.includes(k)) {
+                        warnings.push('A5_FIELD_REJECTED: ' + k);
+                        delete result[k];
+                    }
+                }
+                
+                if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
+                this.state.token_usage_per_node['A5'] = usage;
+                this.state.a5_result = result;
+
+                if (result.sanitization_status === 'BLOCKED_CRITICAL_LEGAL_BREACH') {
+                    this.state.node_status['A5'] = 'HALTED_HITL_REQUIRED';
+                    this.state.hitl_alert = 'BLOCKED_CRITICAL_LEGAL_BREACH';
+                    this.state.next_action = 'HALT';
+                    this.emitState();
+                    return;
+                }
+
+                this.state.node_status['A5'] = 'OK';
+                this.state.next_action = 'RUN_A6';
+            } catch (e) {
+                this.state.node_status['A5'] = 'ERROR';
+                this.state.hitl_alert = e.message;
+                this.state.next_action = 'HALT';
+                this.emitState();
+                return;
+            }
+        }
+
+        const runHtmlValidators = (htmlStr, nodeName) => {
+            htmlStr = normalizeTags(htmlStr);
+            const v1 = validate_html_whitelist(htmlStr);
+            if (!v1.valid) return nodeName + '_OUTPUT_REJECTED: validate_html_whitelist (' + v1.errors.join(', ') + ')';
+            const v2 = scan_medical_claims_lexical(htmlStr);
+            if (v2.length > 0) return nodeName + '_OUTPUT_REJECTED: scan_medical_claims_lexical (' + v2.map(h => h.word).join(', ') + ')';
+            const v3 = scan_stopwords(htmlStr);
+            if (v3.length > 0) return nodeName + '_OUTPUT_REJECTED: scan_stopwords (' + v3.map(h => h.word).join(', ') + ')';
+            return null;
+        };
+
+        // --- KROK 6: A6 ---
+        if (this.state.next_action === 'RUN_A6') {
+            const agent6Data = {
+                a1: this.state.a1_result,
+                a2: this.state.a2_result,
+                a4: this.state.a4_result,
+                a5: this.state.a5_result
+            };
+            const prompt6Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_6_compiled.md'), 'utf8');
+            const prompt6 = prompt6Template.replace('{{SKU_DATA}}', JSON.stringify(agent6Data, null, 2));
+
+            const a6Schema = {
+                type: "object",
+                properties: {
+                    section_1_html: { type: "string" },
+                    section_2_html: { type: "string" },
+                    section_3_html: { type: "string" },
+                    section_4_html: { type: "string" },
+                    section_5_html: { type: "string" },
+                    section_6_html: { type: "string" }
+                },
+                required: ["section_1_html", "section_2_html", "section_3_html", "section_4_html", "section_5_html", "section_6_html"]
+            };
+
+            try {
+                const { result, usage } = await aiWrapper.callAgentWithTelemetry({
+                    agentId: "6", prompt: prompt6, schema: a6Schema // temp domyślne dla copywritera
+                });
+                
+                const warnings = [];
+                const allowedKeysA6 = ['section_1_html', 'section_2_html', 'section_3_html', 'section_4_html', 'section_5_html', 'section_6_html'];
+                for (let k of Object.keys(result)) {
+                    if (!allowedKeysA6.includes(k)) {
+                        warnings.push('A6_FIELD_REJECTED: ' + k);
+                        delete result[k];
+                    }
+                }
+                if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
+                this.state.token_usage_per_node['A6'] = usage;
+                this.state.a6_result = result;
+
+                // Hash
+                const hashS3 = crypto.createHash('sha256').update(result.section_3_html || '').digest('hex');
+                const hashS5 = crypto.createHash('sha256').update(result.section_5_html || '').digest('hex');
+                const hashS6 = crypto.createHash('sha256').update(result.section_6_html || '').digest('hex');
+                this.state.frozen_hashes = { s3: hashS3, s5: hashS5, s6: hashS6 };
+
+                // Validate
+                for (let i=1; i<=6; i++) {
+                    let sec = result['section_' + i + '_html'];
+                    if (sec) {
+                        sec = normalizeTags(sec);
+                        result['section_' + i + '_html'] = sec;
+                        const err = runHtmlValidators(sec, 'A6');
+                        if (err) {
+                            this.state.node_status['A6'] = 'HALTED_HITL_REQUIRED';
+                            this.state.hitl_alert = err;
+                            this.state.normalization_warnings.push(err);
+                            this.state.next_action = 'HALT';
+                            this.emitState();
+                            return;
                         }
                     }
                 }
-            };
-            deepNormalize(result);
 
-            if (result.mpn === result.gtin_ean) {
-                result.mpn = null;
-                warnings.push('mpn_equals_ean');
+                this.state.node_status['A6'] = 'OK';
+                this.state.next_action = 'RUN_A7';
+            } catch (e) {
+                this.state.node_status['A6'] = 'ERROR';
+                this.state.hitl_alert = e.message;
+                this.state.next_action = 'HALT';
+                this.emitState();
+                return;
             }
+        }
 
-            if (result.research_sources_used && Array.isArray(result.research_sources_used)) {
-                const originalSources = [...result.research_sources_used];
-                result.research_sources_used = result.research_sources_used.filter(src => {
-                    const domain = src.toLowerCase();
-                    return !FORBIDDEN_SOURCES.some(f => new RegExp(f, 'i').test(domain));
+        // --- KROK 7: A7 ---
+        if (this.state.next_action === 'RUN_A7') {
+            const agent7Data = {
+                section_1_html: this.state.a6_result.section_1_html,
+                section_2_html: this.state.a6_result.section_2_html,
+                section_4_html: this.state.a6_result.section_4_html
+            };
+            const prompt7Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_7_compiled.md'), 'utf8');
+            const prompt7 = prompt7Template.replace('{{SKU_DATA}}', JSON.stringify(agent7Data, null, 2));
+
+            const a7Schema = {
+                type: "object",
+                properties: {
+                    section_1_html: { type: "string" },
+                    section_2_html: { type: "string" },
+                    section_4_html: { type: "string" }
+                },
+                required: ["section_1_html", "section_2_html", "section_4_html"]
+            };
+
+            try {
+                const { result, usage } = await aiWrapper.callAgentWithTelemetry({
+                    agentId: "7", prompt: prompt7, schema: a7Schema
                 });
-                const removed = originalSources.filter(s => !result.research_sources_used.includes(s));
-                if (removed.length > 0) {
-                    warnings.push('removed_forbidden_sources: ' + removed.join(', '));
-                }
                 
-                const brand = (result.brand || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (brand && result.research_sources_used.length > 0) {
-                    const hasP1 = result.research_sources_used.some(src => src.toLowerCase().replace(/[^a-z0-9]/g, '').includes(brand));
-                    if (!hasP1) {
-                        warnings.push('NO_P1_SOURCE');
+                const warnings = [];
+                const allowedKeysA7 = ['section_1_html', 'section_2_html', 'section_4_html'];
+                for (let k of Object.keys(result)) {
+                    if (['section_3_html', 'section_5_html', 'section_6_html'].includes(k)) {
+                        this.state.node_status['A7'] = 'HALTED_HITL_REQUIRED';
+                        this.state.hitl_alert = 'FROZEN_SECTION_VIOLATION';
+                        this.state.next_action = 'HALT';
+                        this.emitState();
+                        return;
+                    }
+                    if (!allowedKeysA7.includes(k)) {
+                        warnings.push('A7_FIELD_REJECTED: ' + k);
+                        delete result[k];
                     }
                 }
-            }
+                if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
+                this.state.token_usage_per_node['A7'] = usage;
+                
+                // Złóż dokument
+                const a7_res_full = {
+                    section_1_html: result.section_1_html,
+                    section_2_html: result.section_2_html,
+                    section_3_html: this.state.a6_result.section_3_html, // frozen
+                    section_4_html: result.section_4_html,
+                    section_5_html: this.state.a6_result.section_5_html, // frozen
+                    section_6_html: this.state.a6_result.section_6_html  // frozen
+                };
+                this.state.a7_result = a7_res_full;
 
-            if (result.pipeline_id !== this.state.pipeline_id) {
-                result.pipeline_id = this.state.pipeline_id;
-                warnings.push('pipeline_id_overwritten');
-            }
+                // Validate A7
+                for (let i of [1,2,4]) {
+                    let sec = a7_res_full['section_' + i + '_html'];
+                    if (sec) {
+                        sec = normalizeTags(sec);
+                        a7_res_full['section_' + i + '_html'] = sec;
+                        const err = runHtmlValidators(sec, 'A7');
+                        if (err) {
+                            this.state.node_status['A7'] = 'HALTED_HITL_REQUIRED';
+                            this.state.hitl_alert = err;
+                            this.state.normalization_warnings.push(err);
+                            this.state.next_action = 'HALT';
+                            this.emitState();
+                            return;
+                        }
+                    }
+                }
 
-            if (warnings.length > 0) {
-                this.state.normalization_warnings = warnings;
+                this.state.node_status['A7'] = 'OK';
+                this.state.next_action = 'RUN_A10';
+            } catch (e) {
+                this.state.node_status['A7'] = 'ERROR';
+                this.state.hitl_alert = e.message;
+                this.state.next_action = 'HALT';
+                this.emitState();
+                return;
             }
+        }
 
-            this.state.token_usage_per_node['A1'] = usage;
-            this.state.a1_result = result;
-            
-            const gpsr = result.compliance_gpsr_clp || {};
-            const eu = gpsr.eu_responsible_person || {};
-            
-            const euSanity = validate_eu_responsible_person(eu);
-            
-            if (!euSanity.valid) {
-                this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
-                this.state.hitl_alert = 'MALFORMED_EU_RESPONSIBLE_PERSON';
+        // --- KROK 10: A10 ---
+        if (this.state.next_action === 'RUN_A10') {
+            const agent10Data = {
+                section_1_html: this.state.a7_result.section_1_html,
+                section_2_html: this.state.a7_result.section_2_html,
+                section_4_html: this.state.a7_result.section_4_html,
+                audit_report: "Automated checks passed."
+            };
+            const prompt10Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_10_compiled.md'), 'utf8');
+            const prompt10 = prompt10Template.replace('{{SKU_DATA}}', JSON.stringify(agent10Data, null, 2));
+
+            const a10Schema = {
+                type: "object",
+                properties: {
+                    patches: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                target_section: { type: "string" },
+                                find_exact: { type: "string" },
+                                replace_with: { type: "string" },
+                                justification: { type: "string" }
+                            },
+                            required: ["target_section", "find_exact", "replace_with", "justification"]
+                        }
+                    }
+                },
+                required: ["patches"]
+            };
+
+            try {
+                const { result, usage } = await aiWrapper.callAgentWithTelemetry({
+                    agentId: "10", prompt: prompt10, schema: a10Schema, temperature: 0
+                });
+                
+                const warnings = [];
+                const allowedKeysA10 = ['patches'];
+                for (let k of Object.keys(result)) {
+                    if (!allowedKeysA10.includes(k)) {
+                        warnings.push('A10_FIELD_REJECTED: ' + k);
+                        delete result[k];
+                    }
+                }
+                this.state.token_usage_per_node['A10'] = usage;
+                
+                let finalDoc = { ...this.state.a7_result };
+                console.log("[DEBUG A10] a7_result na poczatku:", this.state.a7_result);
+                const patches = result.patches || [];
+                
+                for (let p of patches) {
+                    if (['section_3_html', 'section_5_html', 'section_6_html'].includes(p.target_section)) {
+                        warnings.push('A10_PATCH_ON_FROZEN_SECTION: ' + p.target_section);
+                        continue; // Odrzucamy ten patch, bo idzie na zamrożone
+                    }
+                    if (finalDoc[p.target_section]) {
+                        finalDoc[p.target_section] = finalDoc[p.target_section].replace(p.find_exact, p.replace_with);
+                        console.log("[DEBUG A10] finalDoc po patchu na " + p.target_section + ":", finalDoc[p.target_section]);
+                    }
+                }
+                console.log("[DEBUG A10] finalDoc przed walidacja:", finalDoc);
+                
+                this.state.a10_result = finalDoc;
+
+                if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
+
+                for (let i of [1,2,4]) {
+                    let sec = finalDoc['section_' + i + '_html'];
+                    if (sec) {
+                        sec = normalizeTags(sec);
+                        finalDoc['section_' + i + '_html'] = sec;
+                        const err = runHtmlValidators(sec, 'A10');
+                        if (err) {
+                            this.state.node_status['A10'] = 'HALTED_HITL_REQUIRED';
+                            this.state.hitl_alert = err;
+                            this.state.normalization_warnings.push(err);
+                            this.state.next_action = 'HALT';
+                            this.emitState();
+                            return;
+                        }
+                    }
+                }
+
+                this.state.node_status['A10'] = 'OK';
+                this.state.next_action = 'FINISH';
+            } catch (e) {
+                this.state.node_status['A10'] = 'ERROR';
+                this.state.hitl_alert = e.message;
                 this.state.next_action = 'HALT';
-            } else if (!eu.name || !eu.address_eu || !eu.contact) {
-                this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
-                this.state.hitl_alert = 'MISSING_EU_RESPONSIBLE_PERSON';
-                this.state.next_action = 'HALT';
-            } else if (gpsr.sds_required === true && (!gpsr.clp_h_phrases || gpsr.clp_h_phrases.length === 0)) {
-                this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
-                this.state.hitl_alert = 'MISSING_SDS';
-                this.state.next_action = 'HALT';
-            } else if (result.missing_critical_data_reason === 'BANNED_SUBSTANCE_DETECTED') {
-                this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
-                this.state.hitl_alert = 'BANNED_SUBSTANCE_DETECTED';
-                this.state.next_action = 'HALT';
-            } else if (result.missing_critical_data) {
-                this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
-                this.state.hitl_alert = 'Brak danych krytycznych - sprawdź research LLM';
-                this.state.next_action = 'HALT';
-            } else {
-                this.state.node_status['A1'] = 'OK';
-                this.state.next_action = 'RUN_A2';
-                // Zgodnie z 12-E4a: A1 i A2 to ta sama faza. Nie zmieniamy fazy.
+                this.emitState();
+                return;
             }
-            
-        } catch (e) {
-            this.state.node_status['A1'] = 'ERROR';
-            this.state.hitl_alert = e.message;
-            this.state.next_action = 'HALT';
         }
         
+        // --- FINISH: Składanie ---
+        if (this.state.next_action === 'FINISH') {
+            const finalDescParts = [];
+            for(let i=1; i<=6; i++) {
+                finalDescParts.push(this.state.a10_result['section_'+i+'_html'] || '');
+            }
+            
+            const offer = {
+                title: this.state.extracted_data.product_name?.value,
+                description_html: finalDescParts.join('\n'),
+                ingredients_inci: this.state.extracted_data.inci?.value,
+                eu_responsible_person: this.state.extracted_data.eu_responsible_person,
+                safety_warnings: this.state.a5_result?.mandatory_safety_warnings || [],
+                source_map: {
+                    title: { source: 'baselinker', matched_key: null },
+                    description_html: { source: 'pipeline', matched_key: null },
+                    ingredients_inci: { source: 'baselinker', matched_key: null },
+                    eu_responsible_person: { source: this.state.extracted_data.eu_responsible_person.source, matched_key: null },
+                    safety_warnings: { source: 'a5', matched_key: null }
+                }
+            };
+            
+            this.state.final_offer = offer;
+            
+            const outDir = path.join(__dirname, 'out');
+            if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+            fs.writeFileSync(path.join(outDir, `offer_${this.gtin}.json`), JSON.stringify(offer, null, 2));
+            
+            try {
+                this.writeBackToBaseLinker(offer);
+            } catch (err) {
+                console.error('[WRITE_BACK] Odmowa zapisu wymuszona przez operatora:', err.message);
+            }
+        }
+
+
         this.emitState();
     }
     
+    resolveHitl({ node, decision, operator_note, resolved_at }) {
+        if (!this.state.hitl_alert) throw new Error("No active HITL alert to resolve.");
+        if (!operator_note || typeof operator_note !== 'string' || operator_note.trim().length === 0) {
+            throw new Error("operator_note is missing or empty.");
+        }
+        
+        if (!this.state.hitl_log) this.state.hitl_log = [];
+        this.state.hitl_log.push({
+            node,
+            alert: this.state.hitl_alert,
+            decision,
+            note: operator_note.trim(),
+            timestamp: resolved_at || new Date().toISOString()
+        });
+
+        if (decision === 'ACCEPT_AND_CONTINUE') {
+            this.state.hitl_alert = null;
+            this.state.node_status[node] = 'HITL_OVERRIDDEN';
+            
+            const nextNodeMap = {
+                'EXTRACT': 'RUN_A1',
+                'A1': 'RUN_A2',
+                'A2': 'RUN_A4',
+                'A4': 'RUN_A5',
+                'A5': 'RUN_A6',
+                'A6': 'RUN_A7',
+                'A7': 'RUN_A10',
+                'A10': 'FINISH'
+            };
+            this.state.next_action = nextNodeMap[node] || 'HALT';
+        } else if (decision === 'REJECT_AND_HALT') {
+            // HALT zostaje
+        } else {
+            throw new Error("Invalid decision: " + decision);
+        }
+        this.emitState();
+    }
+
     async runPhase2() { throw new Error('NOT_IMPLEMENTED_E4b'); }
     async runPhase3() { throw new Error('NOT_IMPLEMENTED_E4b'); }
     async runPhase4() { throw new Error('NOT_IMPLEMENTED_E4b'); }
+
+    writeBackToBaseLinker(offer) {
+        throw new Error('WRITE_BACK_DISABLED_BY_OPERATOR');
+        if (!WRITE_BACK_ENABLED) {
+            console.log('[WRITE_BACK] Zablokowane stałą WRITE_BACK_ENABLED = false.');
+            return;
+        }
+        
+        const payload = {
+            inventory_id: 1, // Domyślnie
+            product_id: "", 
+            ean: this.gtin,
+            text_fields: {
+                name: offer.title,
+                description: offer.description_html
+            },
+            features: {
+                INCI: offer.ingredients_inci
+            }
+        };
+        
+        // request to https://api.baselinker.com/connector.php with addInventoryProduct
+        return payload;
+    }
+
 }
 
 module.exports = {
@@ -237,5 +1094,6 @@ module.exports = {
     PHASE_1_GROUNDING,
     PHASE_2_LEGAL,
     PHASE_3_CREATION,
-    PHASE_4_AUDIT
+    PHASE_4_AUDIT,
+    normalizeTags
 };
