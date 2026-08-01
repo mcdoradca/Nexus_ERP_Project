@@ -21,12 +21,23 @@ class OsintScraperService {
         ];
     }
 
-    async searchAndExtract(ean, productName) {
+    async searchAndExtract(ean, productName, missingFields = []) {
         try {
-            agent1Logger.info(`[OSINT] Rozpoczęto poszukiwania. EAN: ${ean}, Produkt: ${productName}`);
+            agent1Logger.info(`[OSINT] Rozpoczęto poszukiwania. EAN: ${ean}, Produkt: ${productName}, Braki: ${missingFields.join(',')}`);
             
-            // Wyszukiwanie przez DuckDuckGo HTML (nie wymaga JS)
-            const searchQuery = `"${ean}" OR "${productName}" (INCI OR skład OR składniki OR ingredients)`;
+            // Dynamiczne zapytanie
+            const terms = [];
+            if (missingFields.includes('inci')) terms.push('INCI OR skład OR składniki OR ingredients');
+            if (missingFields.includes('country_of_origin')) terms.push('kraj pochodzenia OR wyprodukowano w');
+            if (missingFields.includes('brand')) terms.push('marka OR producent');
+            if (missingFields.includes('line')) terms.push('linia OR seria');
+            
+            let queryTerms = '';
+            if (terms.length > 0) {
+                queryTerms = ` (${terms.join(' OR ')})`;
+            }
+            
+            const searchQuery = `"${ean}" OR "${productName}"${queryTerms}`;
             const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`;
             agent1Logger.info(`[OSINT] Wywołano wyszukiwarkę DuckDuckGo: ${searchUrl}`);
             

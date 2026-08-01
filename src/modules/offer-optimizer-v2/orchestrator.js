@@ -237,16 +237,23 @@ class Orchestrator {
         this.state.chemical_route = reasons.length > 0;
         // --- KONIEC TRASY ---
 
-        if (!extracted?.inci?.value && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
+        const missingFields = [];
+        if (!this.state.extracted_data.brand.source) missingFields.push('brand');
+        if (!this.state.extracted_data.product_name.source) missingFields.push('product_name');
+        if (!this.state.extracted_data.line.source) missingFields.push('line');
+        missingFields.push('country_of_origin');
+        if (!extracted?.inci?.value) missingFields.push('inci');
+
+        if (missingFields.length > 0 && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
             const osintScraper = require('../offer-optimizer/osint.scraper.service');
             const productNameForOsint = product?.text_fields?.name || "Nieznany Produkt";
-            console.log(`[Orchestrator] Brak INCI dla ${this.gtin}. Uruchamiam OSINT Scraper...`);
-            const osintText = await osintScraper.searchAndExtract(this.gtin, productNameForOsint);
+            console.log(`[Orchestrator] Brakujące parametry: ${missingFields.join(', ')}. Uruchamiam OSINT Scraper...`);
+            const osintText = await osintScraper.searchAndExtract(this.gtin, productNameForOsint, missingFields);
             
             if (osintText) {
                 this.state.osint_data = osintText;
                 console.log(`[Orchestrator] Pomyślnie pobrano dane z OSINT. Przekazywanie do Agenta 1.`);
-            } else {
+            } else if (!extracted?.inci?.value) {
                 this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
                 this.state.hitl_alert = 'MISSING_INCI_NO_OSINT';
                 this.state.next_action = 'HALT';
@@ -350,11 +357,7 @@ class Orchestrator {
 
         this.state.node_status['EXTRACT'] = 'OK';
 
-        const missingFields = [];
-        if (!this.state.extracted_data.brand.source) missingFields.push('brand');
-        if (!this.state.extracted_data.product_name.source) missingFields.push('product_name');
-        if (!this.state.extracted_data.line.source) missingFields.push('line');
-        missingFields.push('country_of_origin');
+        // missingFields is now calculated earlier
 
         if (this.state.next_action === 'RUN_EXTRACT') {
             if (missingFields.length === 0 && !this.state.osint_data) {
