@@ -574,6 +574,7 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
             globalAllegroCatId = await AllegroService.findCategoryByEan(ean).catch(() => null) || null;
         }
 
+        let blFetchError = null;
         // 0. BaseLinker Integration (PRIORYTET)
         try {
             const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
@@ -629,7 +630,8 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
                 existingProductId: existingProductIdToReturn
             });
         } catch (blError) {
-            console.log('BaseLinker Fallback Error:', blError.message || blError);
+            blFetchError = blError.message || blError.toString();
+            console.error('--- BASELINKER FETCH ERROR ---', blError);
         }
 
         // Helper dla darmowych baz uodporniający Nexusa na pady serwerów zewnętrznych.
@@ -672,7 +674,10 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
             return res.status(200).json({ name: '', brand: '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null });
         }
 
-        res.status(404).json({ error: 'Kod niezarejestrowany w żadnej 4 z darmowych baz OpenSource ani w asortymencie BaseLinkerze.' });
+        res.status(404).json({ 
+            error: 'Kod niezarejestrowany w żadnej 4 z darmowych baz OpenSource ani w asortymencie BaseLinkerze.',
+            debug: blFetchError || 'Nieznany błąd podczas wczytywania (prawdopodobnie brak EAN lub timeout)' 
+        });
     } catch (error) {
         const path = require('path');
         const fs = require('fs');
