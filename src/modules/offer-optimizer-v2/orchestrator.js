@@ -109,6 +109,17 @@ function loadProductData(ean) {
     return JSON.parse(data);
 }
 
+// --- Globalny hook logów dla frontendu ---
+const originalLog = console.log;
+console.log = (...args) => {
+    originalLog(...args);
+    try {
+        const socketService = require('../../core/socket');
+        // Przechwytujemy wszystko do konsoli webowej, aby widać było pracę V2
+        socketService.broadcast('nexus-notification', { type: 'PIPELINE_LOG', agentId: 'Orchestrator V2', message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ') });
+    } catch(e) {}
+};
+
 class Orchestrator {
     constructor(gtin) {
         this.gtin = gtin;
@@ -132,6 +143,24 @@ class Orchestrator {
         const logDir = path.join(__dirname, 'logs');
         if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
         fs.writeFileSync(path.join(logDir, `state_${this.state.pipeline_id}.json`), JSON.stringify(this.state, null, 2), 'utf8');
+        
+        try {
+            const socketService = require('../../core/socket');
+            socketService.broadcast('nexus-notification', { 
+                type: 'PIPELINE_STATUS', 
+                ean: this.gtin, 
+                payload: {
+                    pipeline_id: this.state.pipeline_id,
+                    current_phase: this.state.current_phase,
+                    active_nodes: [this.state.next_action],
+                    node_status: this.state.node_status,
+                    next_action: this.state.next_action,
+                    hitl_alert: this.state.hitl_alert
+                } 
+            });
+        } catch(e) {
+            console.error('[Orchestrator] Błąd wysyłania socketu:', e.message);
+        }
     }
 
     async run(pimData) {
