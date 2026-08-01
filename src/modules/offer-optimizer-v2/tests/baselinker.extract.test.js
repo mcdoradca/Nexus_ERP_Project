@@ -73,10 +73,10 @@ test('Zadanie 18 - baselinker.extract.js na rzeczywistych danych', async (t) => 
         };
         const res = extract.extractFromFeatures(fakeProduct);
         assert.strictEqual(res.line.value, 'MojaSuperLinia');
-        assert.strictEqual(res.line.source, 'baselinker');
+        assert.strictEqual(res.line.source, 'baselinker_features');
         assert.strictEqual(res.line.matched_key, 'Linia');
         assert.strictEqual(res.mpn.value, '123');
-        assert.strictEqual(res.mpn.source, 'baselinker');
+        assert.strictEqual(res.mpn.source, 'baselinker_features');
     });
 
 });
