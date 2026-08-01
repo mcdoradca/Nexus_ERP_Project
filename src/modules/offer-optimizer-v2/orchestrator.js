@@ -238,8 +238,21 @@ class Orchestrator {
         // --- KONIEC TRASY ---
 
         if (!extracted?.inci?.value && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
-            console.log(`[Orchestrator] Brak INCI dla ${this.gtin} z lokalnego PIM. Zlecam poszukiwania Agentowi A1 (Google Search).`);
-            // Usunięto powolny OSINT Scraper. Agent 1 zrobi to natywnie.
+            const osintScraper = require('../offer-optimizer/osint.scraper.service');
+            const productNameForOsint = product?.text_fields?.name || "Nieznany Produkt";
+            console.log(`[Orchestrator] Brak INCI dla ${this.gtin}. Uruchamiam OSINT Scraper...`);
+            const osintText = await osintScraper.searchAndExtract(this.gtin, productNameForOsint);
+            
+            if (osintText) {
+                this.state.osint_data = osintText;
+                console.log(`[Orchestrator] Pomyślnie pobrano dane z OSINT. Przekazywanie do Agenta 1.`);
+            } else {
+                this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
+                this.state.hitl_alert = 'MISSING_INCI_NO_OSINT';
+                this.state.next_action = 'HALT';
+                this.emitState();
+                return;
+            }
         }
 
         if (extracted?.inci?.value) {
