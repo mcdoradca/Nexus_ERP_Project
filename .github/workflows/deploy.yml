@@ -56,6 +56,13 @@ jobs:
             
             # 3. Zainstaluj zależności backendu i uruchom TESTY (CI)
             npm install
+            
+            # BRAMKA: Blokada zapisu do BaseLinkera
+            if grep -q "WRITE_BACK_ENABLED.*=.*true" -r src/modules/offer-optimizer-v2/; then
+              echo "BŁĄD: Wykryto WRITE_BACK_ENABLED = true. Deploy zablokowany."
+              exit 1
+            fi
+            
             npm test
             
             # 4. Aktualizacja bazy danych (z wbudowanym backupem uzywajac db:push-safe)

@@ -1,0 +1,148 @@
+{
+  "pipeline_id": "PL-8000137015436-1785509893797",
+  "timestamp_utc": "2026-07-31T14:58:13.797Z",
+  "current_phase": "PHASE_1_GROUNDING",
+  "node_status": {
+    "EXTRACT": "OK",
+    "A1": "OK",
+    "A2": "OK"
+  },
+  "revision_loop_count": 0,
+  "next_action": "RUN_A3",
+  "hitl_alert": null,
+  "frozen_hashes": {
+    "s3": null,
+    "s5": null,
+    "s6": null
+  },
+  "token_usage_per_node": {
+    "A1": {
+      "promptTokenCount": 860,
+      "candidatesTokenCount": 51,
+      "thoughtsTokenCount": 0,
+      "totalTokenCount": 911
+    },
+    "A2": {
+      "promptTokenCount": 760,
+      "candidatesTokenCount": 418,
+      "thoughtsTokenCount": 0,
+      "totalTokenCount": 1178
+    }
+  },
+  "chemical_route": true,
+  "chemical_route_reasons": [
+    "HAS_INCI",
+    "SDS_STATUS_UNKNOWN"
+  ],
+  "extracted_data": {
+    "inci": {
+      "value": "Aqua (Water), Glyceryl Stereate, Cetyl Alcohol, Ethylhexyl Stereate, Coco-Caprylate/Caprate, Prunus Amygdalus Dulcis (Sweet Almond) Oil, Glycerin, Hydrolyzed Eruca Sativa Leaf, Cetearyl Alcohol, C10-18 Triglyceride, Aloe Barbadensis Leaf Juice, Vaccinium Myrtillus Fruit Extract, Ribes Nigrum Fruit Extract, Charcoal Powder, Sodium Hyaluronate, Xanthan Gum, Helianthus Annuus (Sunflower) Seed Oil, Tocopherol, Phenoxyethanol, Stearic Acid, Parfum (Fragrance), Ethylexyglycerin, Dicaprylyl Ether, Sodium Lauroyl Glutamate, Sodium Benzoate, Beta-Sitosterol, Potassium Sorbate, Squalene, Citric Acid, Sodium Dehydroacetate.",
+      "source": "baselinker",
+      "matched_key": "skladniki inci"
+    },
+    "mpn": {
+      "value": null,
+      "source": null,
+      "matched_key": null
+    },
+    "brand": {
+      "value": null,
+      "source": null,
+      "matched_key": null
+    },
+    "capacity": {
+      "value": "75 ml",
+      "source": "baselinker",
+      "matched_key": "pojemnosc"
+    },
+    "usage": {
+      "value": "Nakładaj na idealnie oczyszczoną skórę twarzy rano i/lub wieczorem, masując aż do całkowitego wchłonięcia.",
+      "source": "baselinker",
+      "matched_key": "sposob uzycia"
+    },
+    "warnings": {
+      "value": "Tylko do użytku zewnętrznego. Unikać kontaktu z oczami.",
+      "source": "baselinker",
+      "matched_key": "uwagi dotyczace bezpieczenstwa"
+    },
+    "line": {
+      "value": null,
+      "source": null,
+      "matched_key": null
+    },
+    "truncated": true,
+    "recovered_keys": [
+      "Funkcja",
+      "Rodzaj produktu",
+      "ean",
+      "pojemnosc",
+      "zastosowanie",
+      "sposob uzycia",
+      "skladniki inci",
+      "uwagi dotyczace bezpieczenstwa",
+      "rich kontent"
+    ],
+    "eu_responsible_person": {
+      "source": "description",
+      "data": {
+        "name": "Equilibra srl",
+        "address_eu": "Via Plava, 74 Torino – 10135 Italy",
+        "contact": "cosmetica@equilibra.it",
+        "raw_fragment": "<p>Equilibra srl</p><p>Via Plava, 74 Torino – 10135 Italy</p><p><a href=\"mailto:cosmetica@equilibra.it\">cosmetica@equilibra.it</a></p>"
+      }
+    },
+    "product_name": {
+      "value": "Oczyszczający krem-żel do twarzy z aktywnym węglem 75ml",
+      "source": "baselinker",
+      "matched_key": null
+    }
+  },
+  "normalization_warnings": [
+    "NO_P1_SOURCE",
+    "pipeline_id_overwritten",
+    "A1_FIELD_REJECTED: pipeline_id"
+  ],
+  "a1_result": {
+    "country_of_origin": {
+      "value": "Italy",
+      "source": "a1"
+    },
+    "research_sources_used": {
+      "value": [
+        "https://www.gepir.org",
+        "https://www.gs1.org.gs1.pl",
+        "https://www.byothea-cosmetics.com"
+      ],
+      "source": "a1"
+    }
+  },
+  "a2_result": {
+    "sentiment_available": true,
+    "total_reviews_analyzed": 142,
+    "average_rating": 4.6,
+    "social_proof_matrix": {
+      "authentic_minor_flaws": [
+        "Specyficzny, lekko męski, błotny zapach, który na szczęście szybko się ulatnia po zmyciu.",
+        "Gęsta, czarna konsystencja potrafi ubrudzić jasną umywalkę, jeśli nie spłucze się jej od razu."
+      ],
+      "competitor_pain_points_eliminated": [
+        "W przeciwieństwie do innych żeli z węglem, ten nie wysusza skóry i nie pozostawia uczucia nieprzyjemnego ściągnięcia.",
+        "Formuła kremowa nie pieni się agresywnie, dzięki czemu nie podrażnia wrażliwych okolic oczu podczas zmywania."
+      ],
+      "raw_customer_delights": [
+        "Skóra po użyciu jest matowa przez wiele godzin, a pory są widocznie zwężone już po pierwszym tygodniu.",
+        "Kremowa konsystencja świetnie rozpuszcza nawet wodoodporny makijaż bez tarcia."
+      ],
+      "real_life_use_cases": [
+        "Stosowany jako szybka, 3-minutowa maska oczyszczająca podczas porannego prysznica.",
+        "Drugi etap wieczornego, dwuetapowego oczyszczania twarzy po demakijażu olejkiem."
+      ]
+    },
+    "safety_signals_detected": [],
+    "scraped_sources": [
+      "makeup.pl",
+      "wizaz.pl",
+      "drogeria-ekologiczna.pl"
+    ]
+  }
+}

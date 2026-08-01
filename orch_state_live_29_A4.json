@@ -1,0 +1,190 @@
+{
+  "pipeline_id": "PL-8000137015436-1785510568528",
+  "timestamp_utc": "2026-07-31T15:09:28.528Z",
+  "current_phase": "PHASE_1_GROUNDING",
+  "node_status": {
+    "EXTRACT": "OK",
+    "A1": "OK",
+    "A2": "OK",
+    "A4": "OK"
+  },
+  "revision_loop_count": 0,
+  "next_action": "RUN_A5",
+  "hitl_alert": null,
+  "frozen_hashes": {
+    "s3": null,
+    "s5": null,
+    "s6": null
+  },
+  "token_usage_per_node": {
+    "A1": {
+      "promptTokenCount": 860,
+      "candidatesTokenCount": 45,
+      "thoughtsTokenCount": 0,
+      "totalTokenCount": 905
+    },
+    "A2": {
+      "promptTokenCount": 751,
+      "candidatesTokenCount": 329,
+      "thoughtsTokenCount": 0,
+      "totalTokenCount": 1080
+    },
+    "A4": {
+      "promptTokenCount": 5500,
+      "candidatesTokenCount": 693,
+      "thoughtsTokenCount": 0,
+      "totalTokenCount": 6193
+    }
+  },
+  "chemical_route": true,
+  "chemical_route_reasons": [
+    "HAS_INCI",
+    "SDS_STATUS_UNKNOWN"
+  ],
+  "extracted_data": {
+    "inci": {
+      "value": "Aqua (Water), Glyceryl Stereate, Cetyl Alcohol, Ethylhexyl Stereate, Coco-Caprylate/Caprate, Prunus Amygdalus Dulcis (Sweet Almond) Oil, Glycerin, Hydrolyzed Eruca Sativa Leaf, Cetearyl Alcohol, C10-18 Triglyceride, Aloe Barbadensis Leaf Juice, Vaccinium Myrtillus Fruit Extract, Ribes Nigrum Fruit Extract, Charcoal Powder, Sodium Hyaluronate, Xanthan Gum, Helianthus Annuus (Sunflower) Seed Oil, Tocopherol, Phenoxyethanol, Stearic Acid, Parfum (Fragrance), Ethylexyglycerin, Dicaprylyl Ether, Sodium Lauroyl Glutamate, Sodium Benzoate, Beta-Sitosterol, Potassium Sorbate, Squalene, Citric Acid, Sodium Dehydroacetate.",
+      "source": "baselinker",
+      "matched_key": "skladniki inci"
+    },
+    "mpn": {
+      "value": null,
+      "source": null,
+      "matched_key": null
+    },
+    "brand": {
+      "value": null,
+      "source": null,
+      "matched_key": null
+    },
+    "capacity": {
+      "value": "75 ml",
+      "source": "baselinker",
+      "matched_key": "pojemnosc"
+    },
+    "usage": {
+      "value": "Nakładaj na idealnie oczyszczoną skórę twarzy rano i/lub wieczorem, masując aż do całkowitego wchłonięcia.",
+      "source": "baselinker",
+      "matched_key": "sposob uzycia"
+    },
+    "warnings": {
+      "value": "Tylko do użytku zewnętrznego. Unikać kontaktu z oczami.",
+      "source": "baselinker",
+      "matched_key": "uwagi dotyczace bezpieczenstwa"
+    },
+    "line": {
+      "value": null,
+      "source": null,
+      "matched_key": null
+    },
+    "truncated": true,
+    "recovered_keys": [
+      "Funkcja",
+      "Rodzaj produktu",
+      "ean",
+      "pojemnosc",
+      "zastosowanie",
+      "sposob uzycia",
+      "skladniki inci",
+      "uwagi dotyczace bezpieczenstwa",
+      "rich kontent"
+    ],
+    "eu_responsible_person": {
+      "source": "description",
+      "data": {
+        "name": "Equilibra srl",
+        "address_eu": "Via Plava, 74 Torino – 10135 Italy",
+        "contact": "cosmetica@equilibra.it",
+        "raw_fragment": "<p>Equilibra srl</p><p>Via Plava, 74 Torino – 10135 Italy</p><p><a href=\"mailto:cosmetica@equilibra.it\">cosmetica@equilibra.it</a></p>"
+      }
+    },
+    "product_name": {
+      "value": "Oczyszczający krem-żel do twarzy z aktywnym węglem 75ml",
+      "source": "baselinker",
+      "matched_key": null
+    }
+  },
+  "normalization_warnings": [
+    "P1_CHECK_IMPOSSIBLE",
+    "pipeline_id_overwritten",
+    "A1_FIELD_REJECTED: pipeline_id",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: aqua water",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: glyceryl stereate",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: cetyl alcohol",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: ethylhexyl stereate",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: coco caprylate/caprate",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: prunus amygdalus dulcis sweet almond oil",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: hydrolyzed eruca sativa leaf",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: c10 18 triglyceride",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: aloe barbadensis leaf juice",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: vaccinium myrtillus fruit extract",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: ribes nigrum fruit extract",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: helianthus annuus sunflower seed oil",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: stearic acid",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: parfum fragrance",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: ethylexyglycerin",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: dicaprylyl ether",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: sodium lauroyl glutamate",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: sodium benzoate",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: beta sitosterol",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: potassium sorbate",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: squalene",
+    "UNKNOWN_INGREDIENT_NEEDS_LOOKUP: sodium dehydroacetate."
+  ],
+  "a1_result": {
+    "country_of_origin": {
+      "value": "Italy",
+      "source": "a1"
+    },
+    "research_sources_used": {
+      "value": [
+        "https://www.gepir.it",
+        "https://www.gs1.org",
+        "https://www.limespazzole.it"
+      ],
+      "source": "a1"
+    }
+  },
+  "a2_result": {
+    "sentiment_available": true,
+    "total_reviews_analyzed": 42,
+    "average_rating": 4.5,
+    "social_proof_matrix": {
+      "authentic_minor_flaws": [
+        "Zapach węgla jest dość intensywny i ziołowy, nie każdemu przypadnie do gustu.",
+        "Gęsta konsystencja sprawia, że pod koniec trudno wydobyć produkt z tubki."
+      ],
+      "competitor_pain_points_eliminated": [
+        "W przeciwieństwie do innych żeli z węglem ten nie pozostawia czarnego osadu na fugach i umywalce.",
+        "Nie wysusza skóry ani nie powoduje uczucia ściągnięcia, co jest częste przy produktach węglowych."
+      ],
+      "raw_customer_delights": [
+        "Świetnie domywa resztki makijażu i nadmiar sebum już przy pierwszej aplikacji.",
+        "Skóra po użyciu jest matowa przez wiele godzin, a pory są widocznie zwężone.",
+        "Bardzo wydajny, wystarczy kropla wielkości grochu na całą twarz."
+      ],
+      "real_life_use_cases": [
+        "Stosowany codziennie rano pod prysznicem jako szybki etap oczyszczania przed nałożeniem kremu.",
+        "Używany jako 3-minutowa maseczka oczyszczająca dwa razy w tygodniu na strefę T."
+      ]
+    },
+    "safety_signals_detected": [],
+    "scraped_sources": [
+      "wizaz.pl",
+      "makeup.pl",
+      "drogeriahebeautique.pl"
+    ]
+  },
+  "a4_result": {
+    "category_type": "COSMETICS_BEAUTY",
+    "technical_benefits_aeo": [
+      "<h2>⚙️ Technologia oczyszczania i aktywnej pielęgnacji</h2><p>Formuła kremu-żelu bazuje na wyselekcjonowanych składnikach aktywnych o potwierdzonym działaniu fizycznym i higroskopijnym, które wspierają codzienną higienę oraz kondycjonowanie nienagannej struktury naskórka:</p><ul><li><b>Charcoal Powder</b> – węgiel aktywny działa jak naturalna mikrogąbka, która fizycznie adsorbować potrafi zanieczyszczenia organiczne oraz nadmiar sebum zgromadzony na powierzchni skóry, odblokowując i oczyszczając ujścia gruczołów łojowych.</li><li><b>Glycerin</b> – gliceryna jako małocząsteczkowy humektant o wysokiej zdolności penetracji wnika w głąb warstwy rogowej, gdzie skutecznie wiąże wodę i moduluje naturalne kanały wodne (akwaporyny), zapewniając długotrwałe nawilżenie.</li><li><b>Sodium Hyaluronate</b> – hialuronian sodu stanowi referencyjny humektant, który silnie wiąże wilgoć w naskórku, dając natychmiastowy, zauważalny efekt wygładzenia i poprawy elastyczności skóry.</li><li><b>Cetearyl Alcohol</b> – alkohol cetearylowy jako klasyczny alkohol tłuszczowy pełni funkcję stabilizującego emolientu, który nadaje produktowi doskonały poślizg aplikacyjny i zmiękcza naskórek, likwidując jego szorstkość.</li><li><b>Tocopherol</b> – witamina E stanowi kluczowy, lipofilowy antyoksydant, który chroni struktury lipidowe naskórka przed utlenianiem, neutralizując działanie wolnych rodników i wzmacniając barierę ochronną.</li><li><b>Xanthan Gum</b> – guma ksantanowa modyfikuje reologię emulsji, tworząc stabilną sieć strukturalną, co gwarantuje optymalną lepkość, łatwość rozprowadzania i idealne przyleganie kremu-żelu do oczyszczanej powierzchni skóry.</li></ul>"
+    ],
+    "detected_synergies": [
+      "Kompleks humektantów (Glycerin + Sodium Hyaluronate) zapewnia wielopoziomowe wiązanie wody w głębszych i powierzchniowych warstwach naskórka.",
+      "Połączenie adsorbującego węgla aktywnego (Charcoal Powder) z emolientem (Cetearyl Alcohol) gwarantuje głębokie oczyszczenie bez efektu ściągnięcia i wysuszenia skóry.",
+      "Duet antyoksydacyjny i barierowy (Tocopherol + Cetearyl Alcohol) skutecznie wzmacnia płaszcz hydrolipidowy oraz chroni przed stresem oksydacyjnym."
+    ],
+    "mandatory_clp_warnings": null
+  }
+}

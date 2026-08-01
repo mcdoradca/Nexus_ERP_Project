@@ -1,0 +1,126 @@
+{
+  "pipeline_id": "PL-8000137015436-1785509903412",
+  "timestamp_utc": "2026-07-31T14:58:23.412Z",
+  "current_phase": "PHASE_1_GROUNDING",
+  "node_status": {
+    "EXTRACT": "OK",
+    "A1": "OK",
+    "A2": "HALTED_HITL_REQUIRED"
+  },
+  "revision_loop_count": 0,
+  "next_action": "HALT",
+  "hitl_alert": "SAFETY_SIGNAL_IN_REVIEWS",
+  "frozen_hashes": {
+    "s3": null,
+    "s5": null,
+    "s6": null
+  },
+  "token_usage_per_node": {
+    "A1": {},
+    "A2": {}
+  },
+  "chemical_route": true,
+  "chemical_route_reasons": [
+    "HAS_INCI",
+    "SDS_STATUS_UNKNOWN"
+  ],
+  "extracted_data": {
+    "inci": {
+      "value": "Aqua (Water), Glyceryl Stereate, Cetyl Alcohol, Ethylhexyl Stereate, Coco-Caprylate/Caprate, Prunus Amygdalus Dulcis (Sweet Almond) Oil, Glycerin, Hydrolyzed Eruca Sativa Leaf, Cetearyl Alcohol, C10-18 Triglyceride, Aloe Barbadensis Leaf Juice, Vaccinium Myrtillus Fruit Extract, Ribes Nigrum Fruit Extract, Charcoal Powder, Sodium Hyaluronate, Xanthan Gum, Helianthus Annuus (Sunflower) Seed Oil, Tocopherol, Phenoxyethanol, Stearic Acid, Parfum (Fragrance), Ethylexyglycerin, Dicaprylyl Ether, Sodium Lauroyl Glutamate, Sodium Benzoate, Beta-Sitosterol, Potassium Sorbate, Squalene, Citric Acid, Sodium Dehydroacetate.",
+      "source": "baselinker",
+      "matched_key": "skladniki inci"
+    },
+    "mpn": {
+      "value": null,
+      "source": null,
+      "matched_key": null
+    },
+    "brand": {
+      "value": null,
+      "source": null,
+      "matched_key": null
+    },
+    "capacity": {
+      "value": "75 ml",
+      "source": "baselinker",
+      "matched_key": "pojemnosc"
+    },
+    "usage": {
+      "value": "Nakładaj na idealnie oczyszczoną skórę twarzy rano i/lub wieczorem, masując aż do całkowitego wchłonięcia.",
+      "source": "baselinker",
+      "matched_key": "sposob uzycia"
+    },
+    "warnings": {
+      "value": "Tylko do użytku zewnętrznego. Unikać kontaktu z oczami.",
+      "source": "baselinker",
+      "matched_key": "uwagi dotyczace bezpieczenstwa"
+    },
+    "line": {
+      "value": null,
+      "source": null,
+      "matched_key": null
+    },
+    "truncated": true,
+    "recovered_keys": [
+      "Funkcja",
+      "Rodzaj produktu",
+      "ean",
+      "pojemnosc",
+      "zastosowanie",
+      "sposob uzycia",
+      "skladniki inci",
+      "uwagi dotyczace bezpieczenstwa",
+      "rich kontent"
+    ],
+    "eu_responsible_person": {
+      "source": "description",
+      "data": {
+        "name": "Equilibra srl",
+        "address_eu": "Via Plava, 74 Torino – 10135 Italy",
+        "contact": "cosmetica@equilibra.it",
+        "raw_fragment": "<p>Equilibra srl</p><p>Via Plava, 74 Torino – 10135 Italy</p><p><a href=\"mailto:cosmetica@equilibra.it\">cosmetica@equilibra.it</a></p>"
+      }
+    },
+    "product_name": {
+      "value": "Oczyszczający krem-żel do twarzy z aktywnym węglem 75ml",
+      "source": "baselinker",
+      "matched_key": null
+    }
+  },
+  "normalization_warnings": [
+    "pipeline_id_overwritten",
+    "A1_FIELD_REJECTED: pipeline_id",
+    "A2_FIELD_REJECTED: pipeline_id",
+    "A2_LIMIT_TRUNCATED: scraped_sources",
+    "A2_LIMIT_TRUNCATED: safety_signals_detected"
+  ],
+  "a1_result": {
+    "country_of_origin": {
+      "value": "IT",
+      "source": "a1"
+    },
+    "research_sources_used": {
+      "value": [],
+      "source": "a1"
+    }
+  },
+  "a2_result": {
+    "sentiment_available": true,
+    "total_reviews_analyzed": 10,
+    "average_rating": 4.5,
+    "social_proof_matrix": {},
+    "safety_signals_detected": [
+      "Redness and burning",
+      "Allergy",
+      "Swelling"
+    ],
+    "scraped_sources": [
+      "a",
+      "b",
+      "c",
+      "d",
+      "e",
+      "f"
+    ]
+  }
+}
