@@ -603,9 +603,22 @@ const triggerUltimatePipeline = async (req, res) => {
                 const { Orchestrator } = require('../offer-optimizer-v2/orchestrator');
                 const orch = new Orchestrator(ean);
                 
-                // Orchestrator w v2 operuje głównie na plikach JSON i nie potrzebuje przekazywania pełnego produktu z bazy Prisma. 
-                // Uruchamiamy run(null) bo Orchestrator ma zaszyte w sobie BaseLinker API.
-                await orch.run({ name: existingProduct?.name || "PIM Name", features: existingProduct?.features || {} });
+                // Budujemy obiekt udający odpowiedź z BaseLinkera używając danych z bazy Prisma (PIM)
+                // aby V2 Orchestrator mógł go strawić bez odpytywania zablokowanego API.
+                let featuresObj = {};
+                try {
+                    featuresObj = typeof existingProduct?.features === 'string' ? JSON.parse(existingProduct.features) : (existingProduct?.features || {});
+                } catch(e) {}
+                
+                const localPimData = {
+                    text_fields: {
+                        name: existingProduct?.name || "PIM Name",
+                        description: existingProduct?.descriptionHtml || "",
+                        features: featuresObj
+                    }
+                };
+                
+                await orch.run(localPimData);
 
                 if (orch.state.next_action === 'HALT' && orch.state.hitl_alert) {
                      await prisma.product.update({

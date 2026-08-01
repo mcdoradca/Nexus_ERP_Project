@@ -94,8 +94,12 @@ function generateInciVariants(rawInci) {
     return [...variants, ...extraVariants];
 }
 
-async function loadProductDataAsync(ean) {
+async function loadProductDataAsync(ean, pimData) {
     if (DATA_SOURCE_MODE === 'api') {
+        if (pimData && pimData.text_fields) {
+            console.log(`[Orchestrator V2] Używam danych z bazy PIM (lokalnego cache) dla EAN ${ean}, omijając zapytanie do API BaseLinkera...`);
+            return pimData;
+        }
         try {
             console.log(`[Orchestrator V2] Pobieranie danych dla EAN ${ean} z API BaseLinker...`);
             const BaseLinkerService = require('../offer-optimizer/baselinker.service');
@@ -189,7 +193,7 @@ class Orchestrator {
     }
 
     async runPhase1(pimData) {
-        const blData = await loadProductDataAsync(this.gtin);
+        const blData = await loadProductDataAsync(this.gtin, pimData);
         let product = null;
         if (blData && blData.products) {
             product = Object.values(blData.products)[0];
