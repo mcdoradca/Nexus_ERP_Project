@@ -583,7 +583,7 @@ const triggerUltimatePipeline = async (req, res) => {
         const { ean } = req.body;
         if (!ean) return res.status(400).json({ error: "Wymagany kod EAN do inicjalizacji potoku." });
 
-        console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta EAN Pipeline: ${ean}`);
+        console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta V2 dla EAN: ${ean}`);
         
         // Oznaczamy istniejący produkt w bazie jako PROCESSING, aby zapobiec zwracaniu przestarzałych wyników przez polling
         const existingProduct = await prisma.product.findUnique({ where: { ean } });
@@ -595,17 +595,64 @@ const triggerUltimatePipeline = async (req, res) => {
         }
 
         // Zwracamy HTTP 202 natychmiast
-        res.status(202).json({ status: "processing", ean, message: "Pipeline uruchomiony w tle." });
+        res.status(202).json({ status: "processing", ean, message: "Pipeline V2 uruchomiony w tle." });
 
-        // Procesujemy w tle (jedynie odkłada zadanie do kolejki Supervisora)
-        EanPipelineService.execute(ean)
-            .catch(async (err) => {
-                console.error(`[Controller] Błąd odłożenia zadania EAN Pipeline do kolejki dla: ${ean}`, err.message);
-                // Nie wysyłamy websocketów, Supervisor przejmuje pełną kontrolę.
-            });
+        // Procesujemy w tle (V2 Orchestrator)
+        (async () => {
+            try {
+                const { Orchestrator } = require('../offer-optimizer-v2/orchestrator');
+                const orch = new Orchestrator(ean);
+                
+                // Orchestrator w v2 operuje głównie na plikach JSON i nie potrzebuje przekazywania pełnego produktu z bazy Prisma. 
+                // Uruchamiamy run(null) bo Orchestrator ma zaszyte w sobie BaseLinker API.
+                await orch.run({ name: existingProduct?.name || "PIM Name", features: existingProduct?.features || {} });
+
+                if (orch.state.next_action === 'HALT' && orch.state.hitl_alert) {
+                     await prisma.product.update({
+                         where: { ean },
+                         data: { offerDraft: { status: 'ERROR', error: `Wymagana interwencja człowieka (HITL): ${orch.state.hitl_alert}` } }
+                     });
+                     console.log(`[Controller] Zatrzymano na bramce HITL: ${orch.state.hitl_alert}`);
+                } else if (orch.state.a10_result) {
+                     await prisma.product.update({
+                         where: { ean },
+                         data: { 
+                             offerDraft: { 
+                                 status: 'COMPLETE', 
+                                 title: orch.state.a2_result?.title || existingProduct?.name || "Nowy Tytuł", 
+                                 htmlContent: orch.state.a10_result 
+                             } 
+                         }
+                     });
+                     console.log(`[Controller] Sukces potoku V2 dla EAN: ${ean}`);
+                     // Powiadomienie socketowe dla frontendu (zachowanie kompatybilności wstecz)
+                     socketService.broadcast('nexus-notification', {
+                         type: 'PIPELINE_COMPLETE',
+                         ean: ean,
+                         result: {
+                             editorHtml: orch.state.a10_result,
+                             title: orch.state.a2_result?.title || existingProduct?.name,
+                             features: existingProduct?.features || {},
+                             aeoContent: existingProduct?.aeoContent || ''
+                         }
+                     });
+                } else {
+                     await prisma.product.update({
+                         where: { ean },
+                         data: { offerDraft: { status: 'ERROR', error: 'Orchestrator V2 zakończył pracę, ale nie wygenerował wyniku A10' } }
+                     });
+                }
+            } catch (err) {
+                console.error(`[Controller] Błąd asynchronicznego potoku V2 dla: ${ean}`, err);
+                await prisma.product.update({
+                    where: { ean },
+                    data: { offerDraft: { status: 'ERROR', error: err.message || 'Krytyczny błąd Orchestratora V2' } }
+                });
+            }
+        })();
 
     } catch (e) {
-        console.error(`[Controller] Błąd inicjalizacji EAN Pipeline dla: ${req.body?.ean}`, e.message);
+        console.error(`[Controller] Błąd inicjalizacji EAN Pipeline V2 dla: ${req.body?.ean}`, e.message);
         if (!res.headersSent) {
             return res.status(500).json({ error: e.message || "Błąd wewnętrzny serwera." });
         }
