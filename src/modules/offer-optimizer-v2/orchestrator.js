@@ -100,16 +100,7 @@ async function loadProductDataAsync(ean, pimData) {
             console.log(`[Orchestrator V2] Używam danych z bazy PIM (lokalnego cache) dla EAN ${ean}, omijając zapytanie do API BaseLinkera...`);
             return pimData;
         }
-        try {
-            console.log(`[Orchestrator V2] Pobieranie danych dla EAN ${ean} z API BaseLinker...`);
-            const BaseLinkerService = require('../offer-optimizer/baselinker.service');
-            const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
-            const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
-            return deepData;
-        } catch(err) {
-            console.error(`[Orchestrator V2] Błąd pobierania EAN ${ean} z BaseLinker: ${err.message}`);
-            throw err;
-        }
+        throw new Error(`Brak kompletnych danych PIM dla EAN ${ean}. Automatyczne pobieranie w locie z API BaseLinkera zostało ZABLOKOWANE przez politykę (ochrona przed banem limitów 429).`);
     }
     const dir = path.join(__dirname, 'tests', 'fixtures');
     const files = fs.readdirSync(dir);

@@ -77,101 +77,10 @@ const analyzeSingle = async (req, res) => {
         // Faza 1: Sprawdzenie / Synchronizacja PIM
         let product = await prisma.product.findUnique({ where: { ean } });
         
-        // Jeśli produktu nie ma w bazie lub nie jest zsynchronizowany, pobieramy z BaseLinkera
+        // Jeśli produktu nie ma w bazie lub nie jest zsynchronizowany, odrzucamy żądanie (brak lokalnych danych PIM)
         if (!product || !product.isSynced) {
-             console.log(`[PIM] EAN ${ean} brak w bazie lub isSynced=false. Wywołuję wymuszoną synchronizację z BaseLinkerem...`);
-             const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
-             const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
-             
-             let safeBrandId = product ? product.brandId : null;
-             let brandNameRaw = deepData.manufacturer;
-             if (!brandNameRaw || brandNameRaw.trim() === '') {
-                 if (deepData.features && deepData.features['Marka']) {
-                     brandNameRaw = deepData.features['Marka'];
-                 } else if (deepData.features && deepData.features['Producent']) {
-                     brandNameRaw = deepData.features['Producent'];
-                 }
-             }
-
-             if (!safeBrandId) {
-                 if (brandNameRaw && brandNameRaw.trim() !== '') {
-                     const brandName = brandNameRaw.trim();
-                     let matchedBrand = await prisma.brand.findUnique({ where: { name: brandName } });
-                     if (!matchedBrand) {
-                         matchedBrand = await prisma.brand.create({ data: { name: brandName } });
-                     }
-                     safeBrandId = matchedBrand.id;
-                 } else {
-                     let defaultBrand = await prisma.brand.findFirst({ where: { name: 'PIM-IMPORT' } });
-                     if (!defaultBrand) defaultBrand = await prisma.brand.create({ data: { name: 'PIM-IMPORT' } });
-                     safeBrandId = defaultBrand.id;
-                 }
-             }
-             
-             if (!product) {
-                 product = await prisma.product.create({
-                     data: {
-                         ean,
-                         sku: deepData.sku || '',
-                         name: deepData.name || `PIM Product ${ean}`,
-                         brandId: safeBrandId,
-                         status: 'Aktywny',
-                         baselinkerInventoryId: deepData.baselinkerInventoryId,
-                         baselinkerId: deepData.baselinkerId,
-                         descriptionHtml: deepData.descriptionHtml,
-                         features: deepData.features,
-                         images: deepData.images,
-                         weight: deepData.weight,
-                         length: deepData.length,
-                         width: deepData.width,
-                         height: deepData.height,
-                         taxRate: deepData.taxRate,
-                         videoUrl: deepData.videoUrl,
-                         attachments: deepData.attachments,
-                         stockErpUnits: deepData.stockErpUnits,
-                         stockWmsUnits: deepData.stockWmsUnits,
-                         isSynced: true,
-                         stock: deepData.stock
-                     }
-                 });
-                 EventBus.publish('PRODUCT_DATA_UPDATED', { product, source: 'BASELINKER_SYNC_CREATE' });
-             } else {
-                 // STRAŻNIK DANYCH (MDM Data Gatekeeper)
-                 // Sprawdzamy czy produkt ma opisy chronione lepszym znacznikiem "Źródła Prawdy"
-                 const isProtectedContent = product.lastContentSource === 'OFFER_OPTIMIZER_AI' || product.lastContentSource === 'PIM_UI_MANUAL';
-                 
-                 let updateData = {
-                     baselinkerInventoryId: deepData.baselinkerInventoryId,
-                     baselinkerId: deepData.baselinkerId,
-                     images: deepData.images, // Zwykle przyjmujemy że zdjęcia się synchronizują
-                     weight: deepData.weight,
-                     length: deepData.length,
-                     width: deepData.width,
-                     height: deepData.height,
-                     taxRate: deepData.taxRate,
-                     videoUrl: deepData.videoUrl,
-                     attachments: deepData.attachments,
-                     stockErpUnits: deepData.stockErpUnits,
-                     stockWmsUnits: deepData.stockWmsUnits,
-                     isSynced: true,
-                     stock: deepData.stock
-                 };
-                 
-                 // Jeśli nie jest chroniony - pozwalamy BaseLinkerowi nadpisać opisy tekstowe
-                 if (!isProtectedContent) {
-                     updateData.descriptionHtml = deepData.descriptionHtml;
-                     updateData.features = deepData.features;
-                     // ewentualnie updateData.name = deepData.name; (w zależności od wymagań)
-                 } else {
-                     console.log(`[MDM] Zablokowano nadpisanie opisów dla EAN: ${ean} z BaseLinkera. Posiada on wyższy Trust Score: ${product.lastContentSource}.`);
-                 }
-
-                 product = await prisma.product.update({
-                     where: { id: product.id },
-                     data: updateData
-                 });
-                 EventBus.publish('PRODUCT_DATA_UPDATED', { product, source: 'BASELINKER_SYNC_UPDATE' });
-             }
+             console.error(`[PIM] EAN ${ean} brak w bazie lub isSynced=false. Synchronizacja z BaseLinkerem została ZABLOKOWANA przez politykę.`);
+             return res.status(404).json({ error: `Produkt o EAN ${ean} nie istnieje w lokalnej bazie PIM lub nie jest zsynchronizowany. Pobieranie w locie z BaseLinkera wyłączone.` });
         }
 
         if (!product.images || product.images.length === 0) {
