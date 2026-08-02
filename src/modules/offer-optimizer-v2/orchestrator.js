@@ -26,7 +26,9 @@ const a1Schema = {
     type: "object",
     properties: {
         country_of_origin: { type: "string" },
-        research_sources_used: { type: "array", items: { type: "string" }, maxItems: 8 }
+        research_sources_used: { type: "array", items: { type: "string" }, maxItems: 8 },
+        extracted_inci_candidates: { type: "array", items: { type: "string" } },
+        missing_parameters: { type: "object", additionalProperties: { type: "string" } }
     },
     required: [
         "country_of_origin",
@@ -469,6 +471,15 @@ class Orchestrator {
                 if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
                 this.state.token_usage_per_node['A1'] = usage;
                 this.state.a1_result = result;
+
+                if (result.missing_parameters && typeof result.missing_parameters.value === 'object') {
+                    for (let key of Object.keys(result.missing_parameters.value)) {
+                        this.state.extracted_data[key] = {
+                            value: result.missing_parameters.value[key],
+                            source: 'osint_a1'
+                        };
+                    }
+                }
                 
                 // --- WERYFIKACJA INCI ZE SKRYPTU (Zlecona przez A1 OSINT) ---
                 if (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) {

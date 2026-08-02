@@ -588,13 +588,28 @@ const triggerUltimatePipeline = async (req, res) => {
                          node: haltedNode
                      });
                 } else if (orch.state.final_offer) {
+                     let currentOfferDraft = {};
+                     try {
+                         currentOfferDraft = typeof existingProduct?.offerDraft === 'string' ? JSON.parse(existingProduct.offerDraft) : (existingProduct?.offerDraft || {});
+                     } catch (e) {}
+                     
+                     const editorHtmlObj = {
+                         sekcja1: orch.state.a10_result?.section_1_html || "",
+                         sekcja2: orch.state.a10_result?.section_2_html || "",
+                         sekcja3: orch.state.a10_result?.section_3_html || "",
+                         sekcja4: orch.state.a10_result?.section_4_html || "",
+                         sekcja5: orch.state.a10_result?.section_5_html || "",
+                         sekcja6: orch.state.a10_result?.section_6_html || ""
+                     };
+
                      await prisma.product.update({
                          where: { ean },
                          data: { 
                              offerDraft: { 
+                                 ...currentOfferDraft,
                                  status: 'COMPLETE', 
                                  title: orch.state.final_offer.title || existingProduct?.name || "Nowy Tytuł", 
-                                 htmlContent: orch.state.final_offer.description_html 
+                                 htmlContent: editorHtmlObj
                              } 
                          }
                      });
@@ -604,10 +619,11 @@ const triggerUltimatePipeline = async (req, res) => {
                          type: 'PIPELINE_COMPLETE',
                          ean: ean,
                          result: {
-                             editorHtml: orch.state.final_offer.description_html,
+                             editorHtml: editorHtmlObj,
                              title: orch.state.final_offer.title || existingProduct?.name,
                              features: existingProduct?.features || {},
-                             aeoContent: existingProduct?.aeoContent || ''
+                             aeoContent: existingProduct?.aeoContent || '',
+                             visionTickets: currentOfferDraft.visionTickets || currentOfferDraft.images || []
                          }
                      });
                 } else {
