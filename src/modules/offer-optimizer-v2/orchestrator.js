@@ -879,12 +879,14 @@ class Orchestrator {
                         result['section_' + i + '_html'] = sec;
                         const err = runHtmlValidators(sec, 'A6');
                         if (err) {
-                            this.state.node_status['A6'] = 'HALTED_HITL_REQUIRED';
-                            this.state.hitl_alert = err;
-                            this.state.normalization_warnings.push(err);
-                            this.state.next_action = 'HALT';
-                            this.emitState();
-                            return;
+                            if (this.state.node_status['A6'] !== 'HITL_OVERRIDDEN') {
+                                this.state.node_status['A6'] = 'HALTED_HITL_REQUIRED';
+                                this.state.hitl_alert = err;
+                                this.state.normalization_warnings.push(err);
+                                this.state.next_action = 'HALT';
+                                this.emitState();
+                                return;
+                            }
                         }
                     }
                 }
@@ -929,11 +931,13 @@ class Orchestrator {
                 const allowedKeysA7 = ['section_1_html', 'section_2_html', 'section_4_html'];
                 for (let k of Object.keys(result)) {
                     if (['section_3_html', 'section_5_html', 'section_6_html'].includes(k)) {
-                        this.state.node_status['A7'] = 'HALTED_HITL_REQUIRED';
-                        this.state.hitl_alert = 'FROZEN_SECTION_VIOLATION';
-                        this.state.next_action = 'HALT';
-                        this.emitState();
-                        return;
+                        if (this.state.node_status['A7'] !== 'HITL_OVERRIDDEN') {
+                            this.state.node_status['A7'] = 'HALTED_HITL_REQUIRED';
+                            this.state.hitl_alert = 'FROZEN_SECTION_VIOLATION';
+                            this.state.next_action = 'HALT';
+                            this.emitState();
+                            return;
+                        }
                     }
                     if (!allowedKeysA7.includes(k)) {
                         warnings.push('A7_FIELD_REJECTED: ' + k);
@@ -962,12 +966,14 @@ class Orchestrator {
                         a7_res_full['section_' + i + '_html'] = sec;
                         const err = runHtmlValidators(sec, 'A7');
                         if (err) {
-                            this.state.node_status['A7'] = 'HALTED_HITL_REQUIRED';
-                            this.state.hitl_alert = err;
-                            this.state.normalization_warnings.push(err);
-                            this.state.next_action = 'HALT';
-                            this.emitState();
-                            return;
+                            if (this.state.node_status['A7'] !== 'HITL_OVERRIDDEN') {
+                                this.state.node_status['A7'] = 'HALTED_HITL_REQUIRED';
+                                this.state.hitl_alert = err;
+                                this.state.normalization_warnings.push(err);
+                                this.state.next_action = 'HALT';
+                                this.emitState();
+                                return;
+                            }
                         }
                     }
                 }
@@ -1056,12 +1062,14 @@ class Orchestrator {
                         finalDoc['section_' + i + '_html'] = sec;
                         const err = runHtmlValidators(sec, 'A10');
                         if (err) {
-                            this.state.node_status['A10'] = 'HALTED_HITL_REQUIRED';
-                            this.state.hitl_alert = err;
-                            this.state.normalization_warnings.push(err);
-                            this.state.next_action = 'HALT';
-                            this.emitState();
-                            return;
+                            if (this.state.node_status['A10'] !== 'HITL_OVERRIDDEN') {
+                                this.state.node_status['A10'] = 'HALTED_HITL_REQUIRED';
+                                this.state.hitl_alert = err;
+                                this.state.normalization_warnings.push(err);
+                                this.state.next_action = 'HALT';
+                                this.emitState();
+                                return;
+                            }
                         }
                     }
                 }
