@@ -38,24 +38,27 @@ class OsintScraperService {
                 queryTerms = ` (${terms.join(' OR ')})`;
             }
             
-            const searchQuery = `"${ean}" OR "${productName}"${queryTerms}`;
-            const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(searchQuery)}`;
-            agent1Logger.info(`[OSINT] Wywołano wyszukiwarkę DuckDuckGo: ${searchUrl}`);
+            const searchQuery = `"${ean}" "${productName}"${queryTerms}`;
+            const searchUrl = `https://lite.duckduckgo.com/lite/`;
+            agent1Logger.info(`[OSINT] Wywołano wyszukiwarkę DuckDuckGo Lite z q=${searchQuery}`);
             
-            const searchResponse = await axios.get(searchUrl, { headers: this.headers, timeout: 10000 });
+            const searchHeaders = { ...this.headers, 'Content-Type': 'application/x-www-form-urlencoded' };
+            const searchResponse = await axios.post(searchUrl, `q=${encodeURIComponent(searchQuery)}`, { headers: searchHeaders, timeout: 10000 });
             const $ = cheerio.load(searchResponse.data);
             
             let links = [];
-            $('.result__url').each((i, el) => {
-                const url = $(el).attr('href');
-                if (url && url.startsWith('//')) {
-                    // Czasami DuckDuckGo zwraca proxy linki, wyciągnijmy oryginalny url
-                    const decodedUrl = decodeURIComponent(url.split('uddg=')[1]?.split('&')[0] || '');
-                    if (decodedUrl && decodedUrl.startsWith('http')) {
-                        links.push(decodedUrl);
+            $('.result-url').each((i, el) => links.push($(el).attr('href')));
+            if(links.length === 0) {
+                $('a.result-snippet').each((i, el) => links.push($(el).attr('href')));
+            }
+            if(links.length === 0) {
+                $('a').each((i, el) => {
+                    const url = $(el).attr('href');
+                    if(url && url.startsWith('http') && !url.includes('duckduckgo.com')) {
+                        links.push(url);
                     }
-                }
-            });
+                });
+            }
 
             if (links.length === 0) {
                 agent1Logger.warn(`[OSINT] Brak wyników wyszukiwania dla EAN: ${ean}`);

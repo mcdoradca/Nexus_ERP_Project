@@ -482,28 +482,31 @@ class Orchestrator {
                 }
                 
                 // --- WERYFIKACJA INCI ZE SKRYPTU (Zlecona przez A1 OSINT) ---
-                if (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) {
-                    const candidates = result.extracted_inci_candidates.value;
-                    if (candidates.length > 1) {
-                        if (this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
-                            this.state.hitl_alert = 'OSINT_CONFLICTING_INCI: Znaleziono różne wersje składu w internecie. Sprawdź ręcznie i zatwierdź.';
-                            this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
-                            this.state.next_action = 'HALT';
-                            this.emitState();
-                            return;
-                        }
-                    } else if (candidates.length === 1) {
-                        // Uzupełnienie INCI w głównym stanie i puszczenie dalej
-                        this.state.extracted_data.inci = { value: candidates[0], source: 'osint_a1' };
-                    } else {
-                        if (this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
-                            this.state.hitl_alert = 'OSINT_NO_INCI_FOUND: Agent nie znalazł składu w internecie. Wprowadź ręcznie.';
-                            this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
-                            this.state.next_action = 'HALT';
-                            this.emitState();
-                            return;
-                        }
+                const candidates = (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) ? result.extracted_inci_candidates.value : [];
+                
+                if (candidates.length > 1) {
+                    if (this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
+                        this.state.hitl_alert = 'OSINT_CONFLICTING_INCI: Znaleziono różne wersje składu w internecie. Sprawdź ręcznie i zatwierdź.';
+                        this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
+                        this.state.next_action = 'HALT';
+                        this.emitState();
+                        return;
                     }
+                } else if (candidates.length === 1) {
+                    this.state.extracted_data.inci = { value: candidates[0], source: 'osint_a1' };
+                }
+                
+                // Sprawdzamy czy po OSINCIE nadal brakuje kluczowych pól
+                const stillMissing = [];
+                if (!this.state.extracted_data.inci?.value) stillMissing.push('INCI');
+                if (!this.state.extracted_data.eu_responsible_person?.source) stillMissing.push('Osoba Odpowiedzialna');
+                
+                if (stillMissing.length > 0 && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
+                    this.state.hitl_alert = 'OSINT_MISSING_DATA: Po skanowaniu OSINT nadal brakuje: ' + stillMissing.join(', ') + '. Uzupełnij ręcznie.';
+                    this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
+                    this.state.next_action = 'HALT';
+                    this.emitState();
+                    return;
                 }
                 
                 if (this.state.next_action !== 'HALT') {

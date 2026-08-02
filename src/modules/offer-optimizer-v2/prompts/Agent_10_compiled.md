@@ -96,9 +96,15 @@ przy pokryciu w badaniach aplikacyjnych GOTOWEGO produktu w PIM (SOT 03 kryt. 3�
 Bez dowodu → język jakościowy ("znacząco", "intensywnie"). Zakaz automatycznego
 przenoszenia właściwości składnika na cały produkt.
 
+## §K. WERYFIKACJA INCI (A10)
+Bezwzględnie porównaj składniki (np. aloes, kwas hialuronowy, witamina C) wymienione
+w wygenerowanym opisie (sekcje 1, 2, 4) ze składem (INCI) podanym w DANYCH SKU.
+Jeśli opis chwali się składnikiem, którego NIE MA w INCI — jest to krytyczna halucynacja!
+Napraw to patchem (usuwając wzmiankę o zmyślonym składniku) lub zablokuj.
+
 ## MAPA DYSTRYBUCJI PREFIKSÓW (Orkiestrator składa per węzeł):
 A1: §I | A4: §A §B §C §I §J | A5: §A §D §E §F | A6: §A §B §C §J | A7: §A §B §C §H §J |
-A8: §G | A9: §G | A10: §A §D §E §F §J (warstwa semantyczna)
+A8: §G | A9: §G | A10: §A §D §E §F §J §K (warstwa semantyczna)
 
 --- DANE SKU ---
 {{SKU_DATA}}
