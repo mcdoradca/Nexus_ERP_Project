@@ -512,7 +512,8 @@ class Orchestrator {
                 }
                 
                 // --- WERYFIKACJA INCI ZE SKRYPTU (Zlecona przez A1 OSINT) ---
-                const candidates = (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) ? result.extracted_inci_candidates.value : [];
+                const candidatesRaw = (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) ? result.extracted_inci_candidates.value : [];
+                const candidates = candidatesRaw.map(c => Array.isArray(c) ? c.join(', ') : c);
                 
                 if (candidates.length > 0) {
                     let selectedInci = candidates[0];
