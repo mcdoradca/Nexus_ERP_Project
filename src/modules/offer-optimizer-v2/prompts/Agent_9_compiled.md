@@ -54,6 +54,11 @@ KOD — model ich nie wypełnia.)
   twierdził, że wymóg już obowiązuje.)
 
 --- WSPÓLNE REGUŁY ---
+## §A. STOP-WORDS ALLEGRO + UOKiK
+ZAKAZ UŻYWANIA TYCH SŁÓW W JAKIMKOLWIEK KONTEKŚCIE:
+Marketingowe: gratis, tanio, promocja, hit, prezent, okazja, najtaniej, wyprzedaż, mega, super, gwarancja najniższej ceny.
+Overpromising (UOKiK): gwarancja, gwarantuje, udowodniona skuteczność, cudowny, magiczny, w 100% udowodnione, pewność działania.
+
 ## §G. AI ACT — WIZUALIA, Z KALENDARZEM SOT 08 §0 (A8, A9)
 Miniatura #1: RGB(255,255,255), produkt ≥85%, zero cieni/ramek/napisów/piktogramów
 GHS jako grafik; dozwolone fizyczne elementy symboliczne składu; jedyny dozwolony

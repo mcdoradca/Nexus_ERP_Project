@@ -52,6 +52,11 @@ redakcja").
   deterministycznie, NIE przez retrieval.
 
 --- WSPÓLNE REGUŁY ---
+## §A. STOP-WORDS ALLEGRO + UOKiK
+ZAKAZ UŻYWANIA TYCH SŁÓW W JAKIMKOLWIEK KONTEKŚCIE:
+Marketingowe: gratis, tanio, promocja, hit, prezent, okazja, najtaniej, wyprzedaż, mega, super, gwarancja najniższej ceny.
+Overpromising (UOKiK): gwarancja, gwarantuje, udowodniona skuteczność, cudowny, magiczny, w 100% udowodnione, pewność działania.
+
 ## §D. ROSZCZENIA MEDYCZNE — LEKSYKON TWARDY (kod + A5 + A10-semantyka)
 Blokujące: leczy, wyleczył, uzdrawia, terapia, lekarstwo, diagnozuje, antybiotyk,
 goi rany, zapobiega chorobom, likwiduje łuszczycę/egzemę/trądzik/AZS, regeneruje

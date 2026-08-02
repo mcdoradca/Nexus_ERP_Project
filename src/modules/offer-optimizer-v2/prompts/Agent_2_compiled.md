@@ -41,3 +41,9 @@ safety_signals_detected[], scraped_sources[] (max 6 domen).
 
 --- DANE SKU ---
 {{SKU_DATA}}
+
+## §A. STOP-WORDS ALLEGRO + UOKiK
+ZAKAZ UŻYWANIA TYCH SŁÓW W JAKIMKOLWIEK KONTEKŚCIE:
+Marketingowe: gratis, tanio, promocja, hit, prezent, okazja, najtaniej, wyprzedaż, mega, super, gwarancja najniższej ceny.
+Overpromising (UOKiK): gwarancja, gwarantuje, udowodniona skuteczność, cudowny, magiczny, w 100% udowodnione, pewność działania.
+

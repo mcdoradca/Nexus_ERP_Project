@@ -84,8 +84,8 @@ Bez dowodu → język jakościowy ("znacząco", "intensywnie"). Zakaz automatycz
 przenoszenia właściwości składnika na cały produkt.
 
 ## MAPA DYSTRYBUCJI PREFIKSÓW (Orkiestrator składa per węzeł):
-A1: §I | A4: §B §C §I §J | A5: §D §E §F | A6: §A §B §C §J | A7: §A §B §C §H §J |
-A8: §G | A9: §G | A10: §D §E §F §J (warstwa semantyczna)
+A1: §I | A4: §A §B §C §I §J | A5: §A §D §E §F | A6: §A §B §C §J | A7: §A §B §C §H §J |
+A8: §G | A9: §G | A10: §A §D §E §F §J (warstwa semantyczna)
 
 --- DANE SKU ---
 {{SKU_DATA}}
