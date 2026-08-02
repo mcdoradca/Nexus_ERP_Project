@@ -31,6 +31,7 @@ class OsintScraperService {
             if (missingFields.includes('country_of_origin')) terms.push('kraj pochodzenia OR wyprodukowano w');
             if (missingFields.includes('brand')) terms.push('marka OR producent');
             if (missingFields.includes('line')) terms.push('linia OR seria');
+            if (missingFields.includes('eu_responsible_person')) terms.push('dystrybutor OR osoba odpowiedzialna OR wyprodukowano dla');
             
             let queryTerms = '';
             if (terms.length > 0) {

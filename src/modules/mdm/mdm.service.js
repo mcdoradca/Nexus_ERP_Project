@@ -33,9 +33,8 @@ async function handleProductDataUpdated(payload) {
     if (source === 'ALGO_PRICING_AUTO') return;
 
     try {
-        // Skoro zmieniły się dane (np. w PIM), może to oznaczać zmianę kosztu pakowania itp.
-        // Wymuszamy cichy rekalkulator cen.
-        await pricingService.recalculateSalePrice(product.id);
+        // Usunięto wywołanie AlgoPricing z potoku EAN Pipeline (PIM) zgodnie z żądaniem.
+        // Ceny będą zarządzane wyłącznie z poziomu BaseLinkera.
     } catch (err) {
         console.error(`[MDM SERVICE ERROR] Błąd podczas obsługi PRODUCT_DATA_UPDATED:`, err.message);
     }

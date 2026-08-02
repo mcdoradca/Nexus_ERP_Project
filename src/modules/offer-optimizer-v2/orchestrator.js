@@ -243,6 +243,7 @@ class Orchestrator {
         if (!this.state.extracted_data.line.source) missingFields.push('line');
         missingFields.push('country_of_origin');
         if (!extracted?.inci?.value) missingFields.push('inci');
+        if (!this.state.extracted_data.eu_responsible_person.source) missingFields.push('eu_responsible_person');
 
         if (missingFields.length > 0 && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
             const osintScraper = require('../offer-optimizer/osint.scraper.service');

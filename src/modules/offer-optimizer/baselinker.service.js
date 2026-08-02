@@ -4,8 +4,8 @@ const prisma = new PrismaClient();
 
 const BASELINKER_API_URL = 'https://api.baselinker.com/connector.php';
 
-// Rate Limiter Configuration (30 requests per 120 seconds)
-const REQUESTS_LIMIT = 30;
+// Rate Limiter Configuration (50 requests per 120 seconds)
+const REQUESTS_LIMIT = 50;
 const WINDOW_MS = 120 * 1000;
 let requestTimestamps = [];
 
@@ -13,15 +13,23 @@ let requestTimestamps = [];
  * Globalna funkcja wypychająca payload z odpowiednim nagłówkiem bezpieczeństwa.
  */
 async function callBaseLinkerApi(method, parameters = {}, retries = 3, backoff = 1000) {
-    // Aplikacja Rate Limitera
+    // Rygorystyczna aplikacja Rate Limitera
     const now = Date.now();
     requestTimestamps = requestTimestamps.filter(t => now - t < WINDOW_MS);
+    
     if (requestTimestamps.length >= REQUESTS_LIMIT) {
-        const oldest = requestTimestamps[0];
-        const waitTime = WINDOW_MS - (now - oldest);
-        console.log(`[Rate Limiter BaseLinker] Limit ${REQUESTS_LIMIT} zapytań / 120s osiągnięty. Pauzowanie potoku na ${waitTime}ms...`);
-        await new Promise(r => setTimeout(r, waitTime));
-        // Po odczekaniu dodajemy nowy stempel czasowy
+        // Blokujemy ponawianie do upływu pełnych 120s od ostatniego zapytania!
+        const newest = requestTimestamps[requestTimestamps.length - 1];
+        const waitTime = WINDOW_MS - (now - newest);
+        
+        console.log(`[Rate Limiter BaseLinker] Limit ${REQUESTS_LIMIT} zapytań / 120s osiągnięty. Rygorystyczna pauza API na ${waitTime}ms...`);
+        
+        if (waitTime > 0) {
+            await new Promise(r => setTimeout(r, waitTime));
+        }
+        
+        // Po odczekaniu pełnego cooldownu, resetujemy całą historię dla nowej transzy zapytań
+        requestTimestamps = [];
         requestTimestamps.push(Date.now());
     } else {
         requestTimestamps.push(now);
