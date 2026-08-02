@@ -429,9 +429,16 @@ class Orchestrator {
                     const checkStr = (extracted.brand?.value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
                     if (checkStr && result.research_sources_used.length > 0) {
                         if (!result.research_sources_used.some(src => src.toLowerCase().replace(/[^a-z0-9]/g, '').includes(checkStr))) {
-                            warnings.push('NO_P1_SOURCE_FOUND_FOR_BRAND: ' + checkStr);
-                            this.state.hitl_alert = 'NO_P1_SOURCE_FOUND_FOR_BRAND';
-                            this.state.next_action = 'HALT';
+                            if (this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
+                                warnings.push('NO_P1_SOURCE_FOUND_FOR_BRAND: ' + checkStr);
+                                this.state.hitl_alert = 'NO_P1_SOURCE_FOUND_FOR_BRAND';
+                                this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
+                                this.state.next_action = 'HALT';
+                                this.emitState();
+                                return;
+                            } else {
+                                console.log('[Orchestrator V2] Zignorowano błąd NO_P1_SOURCE_FOUND_FOR_BRAND (HITL_OVERRIDDEN).');
+                            }
                         }
                     } else if (!checkStr) {
                         warnings.push('P1_CHECK_IMPOSSIBLE');
@@ -461,14 +468,24 @@ class Orchestrator {
                 if (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) {
                     const candidates = result.extracted_inci_candidates.value;
                     if (candidates.length > 1) {
-                        this.state.hitl_alert = 'OSINT_CONFLICTING_INCI: Znaleziono różne wersje składu w internecie. Sprawdź ręcznie i zatwierdź.';
-                        this.state.next_action = 'HALT';
+                        if (this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
+                            this.state.hitl_alert = 'OSINT_CONFLICTING_INCI: Znaleziono różne wersje składu w internecie. Sprawdź ręcznie i zatwierdź.';
+                            this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
+                            this.state.next_action = 'HALT';
+                            this.emitState();
+                            return;
+                        }
                     } else if (candidates.length === 1) {
                         // Uzupełnienie INCI w głównym stanie i puszczenie dalej
                         this.state.extracted_data.inci = { value: candidates[0], source: 'osint_a1' };
                     } else {
-                        this.state.hitl_alert = 'OSINT_NO_INCI_FOUND: Agent nie znalazł składu w internecie. Wprowadź ręcznie.';
-                        this.state.next_action = 'HALT';
+                        if (this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
+                            this.state.hitl_alert = 'OSINT_NO_INCI_FOUND: Agent nie znalazł składu w internecie. Wprowadź ręcznie.';
+                            this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
+                            this.state.next_action = 'HALT';
+                            this.emitState();
+                            return;
+                        }
                     }
                 }
                 
@@ -570,11 +587,13 @@ class Orchestrator {
                 this.state.a2_result = result;
                 
                 if (result.safety_signals_detected && result.safety_signals_detected.length > 0) {
-                    this.state.node_status['A2'] = 'HALTED_HITL_REQUIRED';
-                    this.state.hitl_alert = 'SAFETY_SIGNAL_IN_REVIEWS';
-                    this.state.next_action = 'HALT';
-                    this.emitState();
-                    return;
+                    if (this.state.node_status['A2'] !== 'HITL_OVERRIDDEN') {
+                        this.state.node_status['A2'] = 'HALTED_HITL_REQUIRED';
+                        this.state.hitl_alert = 'SAFETY_SIGNAL_IN_REVIEWS';
+                        this.state.next_action = 'HALT';
+                        this.emitState();
+                        return;
+                    }
                 }
 
                 this.state.node_status['A2'] = 'OK';
@@ -683,35 +702,41 @@ class Orchestrator {
                             
                             const v1 = validate_html_whitelist(htmlStr);
                             if (!v1.valid) {
-                                const msg = 'A4_OUTPUT_REJECTED: validate_html_whitelist (' + v1.errors.join(', ') + ')';
-                                this.state.hitl_alert = msg;
-                                this.state.normalization_warnings.push(msg);
-                                this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
-                                this.state.next_action = 'HALT';
-                                this.emitState();
-                                return;
+                                if (this.state.node_status['A4'] !== 'HITL_OVERRIDDEN') {
+                                    const msg = 'A4_OUTPUT_REJECTED: validate_html_whitelist (' + v1.errors.join(', ') + ')';
+                                    this.state.hitl_alert = msg;
+                                    this.state.normalization_warnings.push(msg);
+                                    this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
+                                    this.state.next_action = 'HALT';
+                                    this.emitState();
+                                    return;
+                                }
                             }
                             
                             const v2 = scan_medical_claims_lexical(htmlStr);
                             if (v2.length > 0) {
-                                const msg = 'A4_OUTPUT_REJECTED: scan_medical_claims_lexical (' + v2.map(h => h.word).join(', ') + ')';
-                                this.state.hitl_alert = msg;
-                                this.state.normalization_warnings.push(msg);
-                                this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
-                                this.state.next_action = 'HALT';
-                                this.emitState();
-                                return;
+                                if (this.state.node_status['A4'] !== 'HITL_OVERRIDDEN') {
+                                    const msg = 'A4_OUTPUT_REJECTED: scan_medical_claims_lexical (' + v2.map(h => h.word).join(', ') + ')';
+                                    this.state.hitl_alert = msg;
+                                    this.state.normalization_warnings.push(msg);
+                                    this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
+                                    this.state.next_action = 'HALT';
+                                    this.emitState();
+                                    return;
+                                }
                             }
                             
                             const v3 = scan_stopwords(htmlStr);
                             if (v3.length > 0) {
-                                const msg = 'A4_OUTPUT_REJECTED: scan_stopwords (' + v3.map(h => h.word).join(', ') + ')';
-                                this.state.hitl_alert = msg;
-                                this.state.normalization_warnings.push(msg);
-                                this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
-                                this.state.next_action = 'HALT';
-                                this.emitState();
-                                return;
+                                if (this.state.node_status['A4'] !== 'HITL_OVERRIDDEN') {
+                                    const msg = 'A4_OUTPUT_REJECTED: scan_stopwords (' + v3.map(h => h.word).join(', ') + ')';
+                                    this.state.hitl_alert = msg;
+                                    this.state.normalization_warnings.push(msg);
+                                    this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
+                                    this.state.next_action = 'HALT';
+                                    this.emitState();
+                                    return;
+                                }
                             }
                         }
                     }
@@ -768,11 +793,13 @@ class Orchestrator {
                 this.state.a5_result = result;
 
                 if (result.sanitization_status === 'BLOCKED_CRITICAL_LEGAL_BREACH') {
-                    this.state.node_status['A5'] = 'HALTED_HITL_REQUIRED';
-                    this.state.hitl_alert = 'BLOCKED_CRITICAL_LEGAL_BREACH';
-                    this.state.next_action = 'HALT';
-                    this.emitState();
-                    return;
+                    if (this.state.node_status['A5'] !== 'HITL_OVERRIDDEN') {
+                        this.state.node_status['A5'] = 'HALTED_HITL_REQUIRED';
+                        this.state.hitl_alert = 'BLOCKED_CRITICAL_LEGAL_BREACH';
+                        this.state.next_action = 'HALT';
+                        this.emitState();
+                        return;
+                    }
                 }
 
                 this.state.node_status['A5'] = 'OK';
