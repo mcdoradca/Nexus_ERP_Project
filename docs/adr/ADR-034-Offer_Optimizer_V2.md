@@ -29,3 +29,7 @@ Orkiestracja działa w całości w kodzie (Node 0), obsługując deterministyczn
 
 ## Skutki Architektoniczne
 Zastosowanie ścisłego routingu, twardych walidatorów i rygorystycznego podziału na węzły narracyjne kontra składanie z szablonu całkowicie uszczelnia system. Skraca czas działania oraz zdejmuje ok. 50-70% kosztu tokenów myślenia, przy absolutnej zgodności z prawnymi wymogami rynku UE. Dodatkowo model A8 i A9 (wymogi Vision i AI Act) zostały przesunięte na horyzont po stabilizacji tekstowej (Cutover CZĘŚCIOWY).
+
+## Uzupełnienie (HotFix) - Ochrona przed zjawiskiem Context Bleed
+W trakcie analizy wykazano, że odcięcie agentów twórczych (A5, A6, A7, A10) od pierwotnych, twardych danych identyfikacyjnych produktu (EAN, nazwa, marka, pojemność) prowadzi do zjawiska gubienia kontekstu, w którym to model w oparciu o same parametry analityczne (np. sentyment, chemię) samodzielnie dopowiada i "zmyśla" produkt będący przedmiotem opisu.
+**Decyzja Architektoniczna:** Do każdego węzła, który wchodzi w interakcję z LLM (nawet post-walidatora), bezwzględnie wstrzykiwane są zmienne źródłowe z PIM (BaseLinkera): `gtin_ean`, `product_name`, `brand`, `capacity` i `line`. Zapobiega to całkowicie zjawisku przypisywania analiz do fałszywych produktów.
