@@ -335,7 +335,7 @@ export const UnifiedProductPipelineView = ({
             }
             
             const payload = { ean: savedProd.ean };
-            if (hitlOverrides) payload.hitlOverrides = hitlOverrides;
+            if (Array.isArray(hitlOverrides)) payload.hitlOverrides = hitlOverrides;
 
             // Startujemy Pipeline
             const response = await fetch(`${API_URL}/api/offer-optimizer/pipeline/trigger`, {
