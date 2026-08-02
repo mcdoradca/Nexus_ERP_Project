@@ -16,6 +16,19 @@ const PHASE_4_AUDIT = 'PHASE_4_AUDIT';
 
 const WRITE_BACK_ENABLED = false;
 
+const traceInci = (ean, step, data) => {
+    try {
+        const logDir = path.join(__dirname, 'logs');
+        if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+        const filePath = path.join(logDir, `INCI_TRACE_${ean}.log`);
+        const time = new Date().toISOString();
+        const msg = `[${time}] [${step}]\n${typeof data === 'object' ? JSON.stringify(data, null, 2) : data}\n\n`;
+        fs.appendFileSync(filePath, msg, 'utf8');
+    } catch(e) {
+        console.error("Blad traceInci", e);
+    }
+};
+
 const normalizeTags = (htmlStr) => {
     if (!htmlStr) return htmlStr;
     return htmlStr.replace(/<b>/g, '<strong>').replace(/<\/b>/g, '</strong>')
@@ -512,9 +525,12 @@ class Orchestrator {
                 }
                 
                 // --- WERYFIKACJA INCI ZE SKRYPTU (Zlecona przez A1 OSINT) ---
+                traceInci(this.gtin, 'A1_RAW_OUTPUT_CANDIDATES', result.extracted_inci_candidates);
                 const candidatesRaw = (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) ? result.extracted_inci_candidates.value : [];
                 const candidates = candidatesRaw.map(c => Array.isArray(c) ? c.join(', ') : c);
                 
+                traceInci(this.gtin, 'A1_MAPPED_CANDIDATES', candidates);
+
                 if (candidates.length > 0) {
                     let selectedInci = candidates[0];
                     let foundMatch = false;
@@ -559,6 +575,9 @@ class Orchestrator {
                     }
                     
                     this.state.extracted_data.inci = { value: selectedInci, source: 'osint_a1' };
+                    traceInci(this.gtin, 'INCI_SAVED_TO_STATE', this.state.extracted_data.inci);
+                } else {
+                    traceInci(this.gtin, 'A1_RETURNED_EMPTY_CANDIDATES', 'Brak kandydatów INCI w odp.');
                 }
                 
                 // Sprawdzamy czy po OSINCIE nadal brakuje kluczowych pól
@@ -1096,6 +1115,9 @@ class Orchestrator {
                 section_4_html: this.state.a7_result.section_4_html,
                 audit_report: "Automated checks passed."
             };
+            
+            traceInci(this.gtin, 'AGENT_10_INPUT', agent10Data);
+            
             const prompt10Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_10_compiled.md'), 'utf8');
             const prompt10 = prompt10Template.replace('{{SKU_DATA}}', JSON.stringify(agent10Data, null, 2));
 
@@ -1151,6 +1173,9 @@ class Orchestrator {
                 console.log("[DEBUG A10] finalDoc przed walidacja:", finalDoc);
                 
                 this.state.a10_result = finalDoc;
+                
+                traceInci(this.gtin, 'AGENT_10_OUTPUT_PATCHES', patches);
+                traceInci(this.gtin, 'AGENT_10_FINAL_HTML', this.state.a10_result);
 
                 if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
 
@@ -1207,6 +1232,8 @@ class Orchestrator {
             };
             
             this.state.final_offer = offer;
+            
+            traceInci(this.gtin, 'FINAL_OFFER_OBJECT', offer);
             
             const outDir = path.join(__dirname, 'out');
             if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
