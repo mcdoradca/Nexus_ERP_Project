@@ -543,11 +543,13 @@ const triggerUltimatePipeline = async (req, res) => {
                 // Zastosowanie opcjonalnych nadpisań HITL (z przeglądarki)
                 if (Array.isArray(hitlOverrides) && hitlOverrides.length > 0) {
                     hitlOverrides.forEach(node => {
-                        try {
-                            // Używamy oficjalnej metody by naprawić też `next_action` w maszynie stanu
-                            orch.resolveHitl({ node, decision: 'ACCEPT_AND_CONTINUE', operator_note: 'Overridden via PIM frontend.' });
-                        } catch(e) {
-                            // Jeśli błąd brak alertu HITL, nadpisz na twardo
+                        if (orch.state.node_status[node] === 'HALTED_HITL_REQUIRED') {
+                            try {
+                                orch.resolveHitl({ node, decision: 'ACCEPT_AND_CONTINUE', operator_note: 'Overridden via PIM frontend.' });
+                            } catch(e) {
+                                orch.state.node_status[node] = 'HITL_OVERRIDDEN';
+                            }
+                        } else {
                             orch.state.node_status[node] = 'HITL_OVERRIDDEN';
                         }
                     });
