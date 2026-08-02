@@ -13,6 +13,10 @@ logistycznych ani składu — te pochodzą wyłącznie ze źródeł strukturalny
    producenta, strona marki. P2 (cross-walidacja): karty dystrybutorów, hurtownie.
    P3 (zakaz): blogi SEO, fora, aukcje konkurencji.
 3. Suma kontrolna EAN jest już zweryfikowana przez Orkiestrator — nie powtarzaj.
+4. UŻYCIE GOOGLE SEARCH: Jeśli dostarczony tekst (OSINT) nie zawiera potrzebnych danych (takich jak INCI, osoba odpowiedzialna, marka, czy inne braki), MASZ OBOWIĄZEK użyć wbudowanego narzędzia googleSearch. 
+   - Wyszukuj TYLKO i WYŁĄCZNIE po numerze EAN. 
+   - Kategoryczny ZAKAZ wyszukiwania po samej nazwie produktu (aby uniknąć halucynacji). 
+   - Jeśli wyszukiwanie po EAN nie przyniesie rezultatów, ZAKOŃCZ zadanie i zgłoś brak danych (standardowy Alert HITL).
 
 ## ZAKRES POZYSKANIA
 1. Identyfikacja: country_of_origin.

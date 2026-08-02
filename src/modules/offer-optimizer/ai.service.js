@@ -1,4 +1,4 @@
-﻿const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
 const agent1Logger = require('../../utils/agent1_logger');
 const dotenv = require('dotenv');
 const fs = require('fs');
@@ -1140,6 +1140,7 @@ async function runNode1_Autofill(ean, productName, productFeatures = {}, allegro
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.5-flash",
+            tools: [{ googleSearch: {} }],
             generationConfig: { 
                 temperature: 0.0, 
                 topP: 0.1, 
