@@ -490,21 +490,21 @@ class Orchestrator {
                     }
                 }
                 
-                if (result.eu_responsible_person && typeof result.eu_responsible_person.value === 'object' && result.eu_responsible_person.value.name) {
+                if (result.eu_responsible_person && result.eu_responsible_person.value && typeof result.eu_responsible_person.value === 'object' && result.eu_responsible_person.value.name) {
                     this.state.extracted_data.eu_responsible_person = {
                         data: result.eu_responsible_person.value,
                         source: 'osint_a1'
                     };
                 }
                 
-                if (result.logistics && typeof result.logistics.value === 'object') {
+                if (result.logistics && result.logistics.value && typeof result.logistics.value === 'object') {
                     this.state.extracted_data.logistics = {
                         data: result.logistics.value,
                         source: 'osint_a1'
                     };
                 }
                 
-                if (result.compliance && typeof result.compliance.value === 'object') {
+                if (result.compliance && result.compliance.value && typeof result.compliance.value === 'object') {
                     this.state.extracted_data.compliance = {
                         data: result.compliance.value,
                         source: 'osint_a1'
