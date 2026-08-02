@@ -1213,3 +1213,8 @@ Testy te należy okresowo uruchamiać lokalnie podczas drastycznych zmian archit
 - Przywr�cono pe�ny zakres analizy w prompcie v4.0 z wersji Swarm V3 (GPSR, Logistyka, CLP).
 - Zaktualizowano a1Schema w orchestrator.js o w�z�y logistics i compliance.
 - Wprowadzono logik� auto-rozwi�zywania konflikt�w INCI (pokrycie wska�nikiem Jaccarda). Wybrany sk�ad tafia do extracted_data.inci z omini�ciem HITL w przypadku wysokiego podobie�stwa (>0.5).
+
+### [2026-08-02] Optymalizacja Agenta 1 - KROK 3 (Anti-Recitation)
+- Naprawiono błąd gubienia schematu JSON (responseSchema) podczas działania narzędzia googleSearch w ai.wrapper.js.
+- Dodano rygorystyczną obsługę błędów przy blokadach filtru bezpieczeństwa (RECITATION), co skutkuje teraz wyraźnym przerwaniem potoku (HITL alert) a nie cichym błędem parsowania JSON.
+- Zmodyfikowano Agent_1_prompt_v4.md (wyciąganie składu INCI), dodając dyrektywę antyplagiatową nakazującą rekonstrukcję listy zamiast kopiowania 1:1, by zapobiegać błędom RECITATION.

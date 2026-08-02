@@ -39,9 +39,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
 
     if (schema) {
         config.responseMimeType = "application/json";
-        if (!grounding) {
-            config.responseSchema = schema;
-        }
+        config.responseSchema = schema;
     }
 
     console.log(`[V2 Wrapper] Uruchamianie agenta: ${agentId}, model: ${model}, thinking: ${thinkingLevel}`);
@@ -74,16 +72,34 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
         let parsedResult;
         if (schema) {
             try {
-                let text = response.text.trim();
+                let text = response.text;
+                if (!text) {
+                    const candidate = response.candidates && response.candidates[0];
+                    if (candidate && candidate.finishReason === 'RECITATION') {
+                        throw new Error('BLOKADA RECITATION: Agent skopiował zbyt dużo tekstu z internetu (zablokowane przez filtry bezpieczeństwa).');
+                    }
+                    throw new Error('Brak tekstu w odpowiedzi API (pusta odpowiedź).');
+                }
+                
+                text = text.trim();
                 if (text.startsWith('```json')) text = text.substring(7);
                 else if (text.startsWith('```')) text = text.substring(3);
                 if (text.endsWith('```')) text = text.substring(0, text.length - 3);
                 parsedResult = JSON.parse(text.trim());
             } catch (err) {
                 // Jeśli parsowanie zawiedzie, zwracamy surowy tekst jako fallback lub rzucamy
+                if (err.message.includes('RECITATION') || err.message.includes('pusta odpowiedź')) {
+                    throw err;
+                }
                 parsedResult = { rawText: response.text, error: "JSON Parse failed" };
             }
         } else {
+            if (!response.text) {
+                const candidate = response.candidates && response.candidates[0];
+                if (candidate && candidate.finishReason === 'RECITATION') {
+                    throw new Error('BLOKADA RECITATION: Agent skopiował zbyt dużo tekstu z internetu (zablokowane przez filtry bezpieczeństwa).');
+                }
+            }
             parsedResult = response.text;
         }
 
