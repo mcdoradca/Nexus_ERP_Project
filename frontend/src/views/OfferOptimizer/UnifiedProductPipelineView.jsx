@@ -946,7 +946,7 @@ export const UnifiedProductPipelineView = ({
                                                                 });
 
                                                                 return Object.entries(displayFeatures)
-                                                                    .filter(([k]) => !categorySchema?.parameters?.some(p => p.name === k))
+                                                                    .filter(([k]) => !categorySchema?.parameters?.some(p => p.name.toLowerCase().trim() === k.toLowerCase().trim()))
                                                                     .map(([k, v]) => {
                                                                         const displayVal = typeof v === 'object' ? JSON.stringify(v) : v;
                                                                         return (
@@ -1001,7 +1001,7 @@ export const UnifiedProductPipelineView = ({
                                                       <div className="p-4 bg-slate-50 border border-slate-300 rounded-sm">
                                                          <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 flex items-center justify-between">
                                                             <div className="flex items-center space-x-3">
-                                                                <span>Katalog Parametrów Allegro ({Object.keys(newProductForm.features || {}).filter(k => categorySchema?.parameters?.some(p => p.name === k)).length})</span>
+                                                                <span>Katalog Parametrów Allegro ({Object.keys(newProductForm.features || {}).filter(k => categorySchema?.parameters?.some(p => p.name.toLowerCase().trim() === k.toLowerCase().trim())).length})</span>
                                                                 {categorySchema && <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-[9px] flex items-center"><Zap className="w-3 h-3 mr-1"/> Schema: {categorySchema.name}</span>}
                                                             </div>
                                                             <button type="button" onClick={async () => {
@@ -1031,7 +1031,13 @@ export const UnifiedProductPipelineView = ({
                                                          <div className="flex flex-col space-y-2">
                                                              {categorySchema?.parameters && categorySchema.parameters.map(param => {
                                                                 const isRequired = param.required;
-                                                                const val = (newProductForm.features || {})[param.name] || '';
+                                                                const featKeys = Object.keys(newProductForm.features || {});
+                                                                const matchedKey = featKeys.find(k => k.toLowerCase().trim() === param.name.toLowerCase().trim());
+                                                                let val = matchedKey ? (newProductForm.features || {})[matchedKey] : '';
+                                                                if (val && param.dictionary && param.dictionary.length > 0) {
+                                                                    const dictMatch = param.dictionary.find(d => d.value.toLowerCase().trim() === val.toLowerCase().trim());
+                                                                    if (dictMatch) val = dictMatch.value;
+                                                                }
                                                                 const hasVal = val !== '';
                                                                 return (
                                                                  <div key={param.id} className={`flex items-center space-x-2 p-2 rounded-sm border ${hasVal ? 'bg-indigo-50/30 border-indigo-100' : 'bg-white border-slate-200'}`}>
