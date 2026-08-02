@@ -231,7 +231,7 @@ export const UnifiedProductPipelineView = ({
     useEffect(() => {
         if (!socket) return;
         const handler = (data) => {
-            if (String(data.ean) !== String(liveEan).trim()) return;
+            if (data.ean && String(data.ean) !== String(liveEan).trim()) return;
 
             if (data.type === 'PIPELINE_COMPLETE') {
                 setPipelineStatus('SUCCESS');
