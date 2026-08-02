@@ -1,6 +1,6 @@
 {
   "featureSynonyms": {
-    "inci": ["ingredients inci", "skladniki inci", "sklad inci", "inci"],
+    "inci": ["ingredients inci", "skladniki inci", "sklad inci", "inci", "sklad", "skladniki", "ingredients"],
     "mpn": ["kod producenta"],
     "brand": ["marka", "brand"],
     "capacity": ["pojemnosc", "capacity", "pojemnosc opakowania", "wielkosc"],

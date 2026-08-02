@@ -596,7 +596,8 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
             
             // Nadpisz brakujące parametry tymi wyciągniętymi bezpośrednio z HTML/struktury
             if (extracted.inci && extracted.inci.value) {
-                mergedFeatures['Skład/INCI'] = extracted.inci.value;
+                mergedFeatures['INCI'] = extracted.inci.value;
+                mergedFeatures['Skład'] = extracted.inci.value;
             }
             if (extracted.mpn && extracted.mpn.value) {
                 mergedFeatures['MPN'] = extracted.mpn.value;
