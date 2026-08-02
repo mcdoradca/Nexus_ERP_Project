@@ -1231,3 +1231,8 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 
 ### [2026-08-02] Naprawa przekazywania INCI do BaseLinker PIM
 - Zmieniono logikę w orchestrator.js obsługującą wynik z Agenta 1. Ponieważ Agent 1 został poinstruowany do zwracania poszczególnych składników jako tablicy (aby uniknąć blokady RECITATION), stara logika szukająca podobieństw między listami wyrzucała fałszywy alert HITL i nie przypisywała składu do zmiennej systemowej (UI świeciło pustkami). Zastąpiono tę logikę prostym scaleniem (.join) tablicy składników w jeden łańcuch znaków gotowy do zapisu w PIM.
+
+### [2026-08-02] Przywrócenie krzyżowej walidacji INCI z barierą językową
+- W orchestrator.js przywrócono mechanizm wskaźnika Jaccarda (sim >= 0.5) chroniący przed halucynacjami, zmuszający Agenta 1 do dostarczenia zgodnych list z różnych źródeł.
+- Dodano ścisłą weryfikację RegEx blokującą pospolite polskie tłumaczenia (woda, kwas, ekstrakt, olej itp.). Wykrycie takiego tłumaczenia wyzwala blokadę OSINT_TRANSLATED_INCI_ERROR (HITL).
+- Zaktualizowano Agent_1_prompt_v4.md, precyzując rygorystyczny nakaz utrzymywania INCI w oryginale (angielski/łaciński) i zwracania pełnych ciągów, co pozwala Orkiestratorowi na poprawne przeprowadzenie weryfikacji podobieństwa.
