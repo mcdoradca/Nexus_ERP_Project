@@ -145,6 +145,7 @@ export const UnifiedProductPipelineView = ({
     const [nodeStatuses, setNodeStatuses] = useState({});
     const [pipelineLogs, setPipelineLogs] = useState([]);
     const [hitlAlert, setHitlAlert] = useState(null);
+    const [accumulatedHitlOverrides, setAccumulatedHitlOverrides] = useState([]);
     
     const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
@@ -323,6 +324,11 @@ export const UnifiedProductPipelineView = ({
         } finally {
             setIsRegeneratingTitle(false);
         }
+    };
+
+    const handleTriggerPipelineFromScratch = () => {
+        setAccumulatedHitlOverrides([]);
+        handleTriggerPipeline();
     };
 
     const handleTriggerPipeline = async (hitlOverrides = null) => {
@@ -553,7 +559,7 @@ export const UnifiedProductPipelineView = ({
                     <button onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-md text-xs font-bold uppercase transition-colors">
                         Wróć do Katalogu
                     </button>
-                    <button onClick={handleTriggerPipeline} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-xs font-bold uppercase transition-colors flex items-center shadow-[0_0_15px_rgba(79,70,229,0.4)]">
+                    <button onClick={handleTriggerPipelineFromScratch} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-xs font-bold uppercase transition-colors flex items-center shadow-[0_0_15px_rgba(79,70,229,0.4)]">
                         <Cpu className="w-4 h-4 mr-2" /> Zapisz PIM i Uruchom Agenta
                     </button>
                 </div>
@@ -581,7 +587,11 @@ export const UnifiedProductPipelineView = ({
                                 <button onClick={() => setPipelineStatus('THINKING')} className="px-4 py-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition font-bold border border-slate-600">
                                     Przerwij
                                 </button>
-                                <button onClick={() => handleTriggerPipeline([hitlAlert?.node])} className="px-6 py-2 bg-red-600 text-white font-bold rounded hover:bg-red-500 shadow-lg shadow-red-900/50 transition">
+                                <button onClick={() => {
+                                    const newOverrides = [...new Set([...accumulatedHitlOverrides, hitlAlert?.node])].filter(Boolean);
+                                    setAccumulatedHitlOverrides(newOverrides);
+                                    handleTriggerPipeline(newOverrides);
+                                }} className="px-6 py-2 bg-red-600 text-white font-bold rounded hover:bg-red-500 shadow-lg shadow-red-900/50 transition">
                                     Zatwierdź brak i kontynuuj
                                 </button>
                             </div>
