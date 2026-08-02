@@ -602,11 +602,11 @@ class Orchestrator {
                     this.state.next_action = 'RUN_A2';
                 }
             } catch (e) {
-                this.state.node_status['A1'] = 'ERROR';
-                this.state.hitl_alert = e.message;
-                this.state.next_action = 'HALT';
-                this.emitState();
-                return;
+                console.log('⚠️ BŁĄD PHASE 1 (OSINT): ' + e.message + ' -> Pomijam i idę do A2.');
+                this.state.node_status['A1'] = 'ERROR_IGNORED';
+                this.state.hitl_alert = 'OSINT Pominęty: ' + e.message;
+                this.state.a1_result = {};
+                this.state.next_action = 'RUN_A2';
             }
         }
 
