@@ -20,6 +20,13 @@ logistycznych ani składu — te pochodzą wyłącznie ze źródeł strukturalny
 
 ## ZAKRES POZYSKANIA
 1. Identyfikacja: country_of_origin.
+2. DANE MEDYCZNE (WARUNKOWE): Jeśli w DANYCH Z BASELINKERA parametr "Wyrób medyczny" (lub podobny) ma wartość "nie", MASZ CAŁKOWITY ZAKAZ marnowania czasu (i prób googleSearch) na szukanie poniższych parametrów:
+   - Typ wyrobu medycznego
+   - Producent wyrobu medycznego
+   - Upoważniony przedstawiciel
+   - Klasa wyrobu medycznego
+   - Numer jednostki notyfikowanej
+   Zostaw te pola puste/null.
 
 ## WYJŚCIE
 JSON wg responseSchema. Pola: country_of_origin, research_sources_used[].
