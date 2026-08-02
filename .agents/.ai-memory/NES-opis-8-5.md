@@ -1221,3 +1221,6 @@ Testy te należy okresowo uruchamiać lokalnie podczas drastycznych zmian archit
 
 ### [2026-08-02] Hotfix Agenta 1
 - Dodano brakujący tag {{SKU_DATA}} na końcu pliku Agent_1_prompt_v4.md. Z powodu jego braku, orkiestrator nie był w stanie wstrzyknąć numeru EAN i danych produktu do promptu, co powodowało bezczynność Agenta przy wyszukiwaniu INCI.
+
+### [2026-08-02] Hotfix Agenta 10 (Timeout)
+- Skonfigurowano wydłużony limit czasu (timeout: 600000ms / 10 minut) w wrapperze GoogleGenAI, aby zapobiec błędom \etch failed\ przy wywołaniach ciężkich modeli (np. gemini-3.1-pro-preview) używanych przez Agenta 10.

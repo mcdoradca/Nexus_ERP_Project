@@ -3,7 +3,10 @@ const aiMetricsService = require('../../core/ai.metrics.service');
 const { getNodeConfig } = require('./config/nodes.config.js');
 
 // Inicjalizacja klienta Google Gen AI (nie używamy starego @google/generative-ai)
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ 
+    apiKey: process.env.GEMINI_API_KEY,
+    httpOptions: { timeout: 600000 } // 10 minut timeoutu dla ciężkich modeli jak gemini-3.1-pro-preview
+});
 
 /**
  * Wrapper telemetrii i wykonania dla modelu Gemini.
