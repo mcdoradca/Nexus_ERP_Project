@@ -255,11 +255,10 @@ class Orchestrator {
                 this.state.osint_data = osintText;
                 console.log(`[Orchestrator] Pomyślnie pobrano dane z OSINT. Przekazywanie do Agenta 1.`);
             } else if (!extracted?.inci?.value) {
-                this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
-                this.state.hitl_alert = 'MISSING_INCI_NO_OSINT';
-                this.state.next_action = 'HALT';
-                this.emitState();
-                return;
+                console.log(`[Orchestrator] Brak składu INCI oraz brak wyników w OSINT. Parametr pozostanie pusty.`);
+                this.state.missing_fields_warnings = this.state.missing_fields_warnings || [];
+                this.state.missing_fields_warnings.push('MISSING_INCI_NO_OSINT');
+                // Zgodnie z wytycznymi - nie blokujemy dalszego potoku
             }
         }
 
@@ -340,20 +339,18 @@ class Orchestrator {
 
         const eu = descResult;
         if ((!eu.name || !eu.address_eu || !eu.contact) && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
-            this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
-            this.state.hitl_alert = 'MISSING_EU_RESPONSIBLE_PERSON';
-            this.state.next_action = 'HALT';
-            this.emitState();
-            return;
-        }
-
-        const euSanity = validate_eu_responsible_person(eu);
-        if (!euSanity.valid && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
-            this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
-            this.state.hitl_alert = 'MALFORMED_EU_RESPONSIBLE_PERSON';
-            this.state.next_action = 'HALT';
-            this.emitState();
-            return;
+            console.log(`[Orchestrator] Brak pełnych danych EU Responsible Person. Parametr pozostanie pusty (zostanie oznaczony w PIM na czerwono).`);
+            this.state.missing_fields_warnings = this.state.missing_fields_warnings || [];
+            this.state.missing_fields_warnings.push('MISSING_EU_RESPONSIBLE_PERSON');
+            // Zgodnie z wytycznymi - nie blokujemy dalszego potoku
+        } else {
+            const euSanity = validate_eu_responsible_person(eu);
+            if (!euSanity.valid && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
+                console.log(`[Orchestrator] Błędne dane EU Responsible Person. Parametr pozostanie z błędem do poprawy w PIM.`);
+                this.state.missing_fields_warnings = this.state.missing_fields_warnings || [];
+                this.state.missing_fields_warnings.push('MALFORMED_EU_RESPONSIBLE_PERSON');
+                // Zgodnie z wytycznymi - nie blokujemy dalszego potoku
+            }
         }
 
         this.state.node_status['EXTRACT'] = 'OK';
