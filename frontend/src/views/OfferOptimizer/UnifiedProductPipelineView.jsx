@@ -8,7 +8,7 @@ import { PhotographicAuditorCard } from './components/VisionFeedback/Photographi
 import { 
   Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp, Search,
   Hash, CloudLightning, Loader2, Package, Image, PlayCircle, FileText, CheckCircle2, Zap,
-  Target, DollarSign, Plus, Trash2, Cloud, ChevronLeft, ChevronRight
+  Target, DollarSign, Plus, Trash2, Cloud, ChevronLeft, ChevronRight, AlertTriangle
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
@@ -144,6 +144,7 @@ export const UnifiedProductPipelineView = ({
     const [activeNodes, setActiveNodes] = useState([]);
     const [nodeStatuses, setNodeStatuses] = useState({});
     const [pipelineLogs, setPipelineLogs] = useState([]);
+    const [hitlAlert, setHitlAlert] = useState(null);
     
     const [isRegeneratingTitle, setIsRegeneratingTitle] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
@@ -254,6 +255,9 @@ export const UnifiedProductPipelineView = ({
             } else if (data.type === 'PIPELINE_ERROR') {
                 setPipelineStatus('ERROR');
                 alert('Błąd potoku EAN: ' + (data.error || 'Wystąpił nieoczekiwany błąd.'));
+            } else if (data.type === 'PIPELINE_HITL_ALERT') {
+                setPipelineStatus('HITL_PAUSED');
+                setHitlAlert({ node: data.node, alert: data.alert });
             } else if (data.type === 'PIPELINE_STATUS') {
                 if (data.payload) {
                     setPipelinePhase(data.payload.current_phase || '');
@@ -321,7 +325,7 @@ export const UnifiedProductPipelineView = ({
         }
     };
 
-    const handleTriggerPipeline = async () => {
+    const handleTriggerPipeline = async (hitlOverrides = null) => {
         try {
             // Najpierw zapisujemy formularz PIM
             const savedProd = await handleCreateProduct();
@@ -330,11 +334,14 @@ export const UnifiedProductPipelineView = ({
                 return;
             }
             
+            const payload = { ean: savedProd.ean };
+            if (hitlOverrides) payload.hitlOverrides = hitlOverrides;
+
             // Startujemy Pipeline
             const response = await fetch(`${API_URL}/api/offer-optimizer/pipeline/trigger`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ ean: savedProd.ean })
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
@@ -353,6 +360,7 @@ export const UnifiedProductPipelineView = ({
             setPipelinePhase('INICJALIZACJA SYSTEMU');
             setActiveNodes([]);
             setNodeStatuses({});
+            setHitlAlert(null);
         } catch (error) {
             console.error(error);
             alert(error.message);
@@ -555,7 +563,31 @@ export const UnifiedProductPipelineView = ({
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-10 pb-32">
                 
                 {/* === SUPERVISOR AGENT PIPELINE === */}
-                {pipelineStatus === 'THINKING' ? (
+                {pipelineStatus === 'HITL_PAUSED' ? (
+                    <div className="flex flex-col h-full space-y-6">
+                        <div className="bg-red-950/40 border border-red-700 rounded-lg p-6 flex flex-col items-center justify-center space-y-4 text-center">
+                            <AlertTriangle className="w-12 h-12 text-red-500" />
+                            <h3 className="text-xl font-bold text-red-400">Wymagana interwencja człowieka (HITL)</h3>
+                            <p className="text-red-200">
+                                Węzeł <strong>{hitlAlert?.node || 'UNKNOWN'}</strong> zgłosił brak krytycznych danych/błąd walidacji:
+                            </p>
+                            <div className="font-mono text-white bg-red-900/50 px-4 py-2 rounded max-w-2xl whitespace-pre-wrap break-words border border-red-800">
+                                {hitlAlert?.alert || 'Brak dodatkowych informacji.'}
+                            </div>
+                            <p className="text-red-300 text-sm max-w-md pt-2">
+                                Potok został wstrzymany zgodnie z polityką bezpieczeństwa. Możesz uzupełnić dane w systemie i spróbować ponownie, lub wymusić kontynuację pomimo braków.
+                            </p>
+                            <div className="flex space-x-4 pt-4">
+                                <button onClick={() => setPipelineStatus('THINKING')} className="px-4 py-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition font-bold border border-slate-600">
+                                    Przerwij
+                                </button>
+                                <button onClick={() => handleTriggerPipeline([hitlAlert?.node])} className="px-6 py-2 bg-red-600 text-white font-bold rounded hover:bg-red-500 shadow-lg shadow-red-900/50 transition">
+                                    Zatwierdź brak i kontynuuj
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : pipelineStatus === 'THINKING' ? (
                     
                             <div className="flex flex-col h-full space-y-6">
                                 <div className="bg-slate-900 border border-slate-700 rounded-lg p-6">

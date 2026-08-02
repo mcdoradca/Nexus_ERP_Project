@@ -489,7 +489,7 @@ const checkLifestyleStatus = (req, res) => {
 
 const triggerUltimatePipeline = async (req, res) => {
     try {
-        const { ean } = req.body;
+        const { ean, hitlOverrides } = req.body;
         if (!ean) return res.status(400).json({ error: "Wymagany kod EAN do inicjalizacji potoku." });
 
         console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta V2 dla EAN: ${ean}`);
@@ -511,6 +511,13 @@ const triggerUltimatePipeline = async (req, res) => {
             try {
                 const { Orchestrator } = require('../offer-optimizer-v2/orchestrator');
                 const orch = new Orchestrator(ean);
+
+                // Zastosowanie opcjonalnych nadpisań HITL (z przeglądarki)
+                if (Array.isArray(hitlOverrides) && hitlOverrides.length > 0) {
+                    hitlOverrides.forEach(node => {
+                        orch.state.node_status[node] = 'HITL_OVERRIDDEN';
+                    });
+                }
                 
                 // Budujemy obiekt udający odpowiedź z BaseLinkera używając danych z bazy Prisma (PIM)
                 // aby V2 Orchestrator mógł go strawić bez odpytywania zablokowanego API.
@@ -532,9 +539,18 @@ const triggerUltimatePipeline = async (req, res) => {
                 if (orch.state.next_action === 'HALT' && orch.state.hitl_alert) {
                      await prisma.product.update({
                          where: { ean },
-                         data: { offerDraft: { status: 'ERROR', error: `Wymagana interwencja człowieka (HITL): ${orch.state.hitl_alert}` } }
+                         data: { offerDraft: { status: 'HITL_PAUSED', error: orch.state.hitl_alert } }
                      });
                      console.log(`[Controller] Zatrzymano na bramce HITL: ${orch.state.hitl_alert}`);
+                     
+                     // Zatrzymujemy potok ale informujemy frontend o alertach, by pozwolil overrideowac
+                     const haltedNode = Object.keys(orch.state.node_status).find(k => orch.state.node_status[k] !== 'OK' && orch.state.node_status[k] !== 'SKIPPED' && orch.state.node_status[k] !== 'HITL_OVERRIDDEN') || 'UNKNOWN';
+                     socketService.broadcast('nexus-notification', {
+                         type: 'PIPELINE_HITL_ALERT',
+                         ean: ean,
+                         alert: orch.state.hitl_alert,
+                         node: haltedNode
+                     });
                 } else if (orch.state.final_offer) {
                      await prisma.product.update({
                          where: { ean },
@@ -597,6 +613,10 @@ const checkPipelineStatus = async (req, res) => {
         // Jeśli wystąpił błąd podczas wykonywania w tle
         if (product.offerDraft.status === 'ERROR') {
             return res.status(200).json({ status: 'ERROR', error: product.offerDraft.error || 'Błąd potoku AI' });
+        }
+
+        if (product.offerDraft.status === 'HITL_PAUSED') {
+            return res.status(200).json({ status: 'HITL_PAUSED', error: product.offerDraft.error || 'Oczekiwanie na decyzję (HITL)' });
         }
 
         // Wykrycie uszkodzonego/błędnego szkicu (np. stary "Błąd systemu GEO")
