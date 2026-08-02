@@ -27,7 +27,7 @@ const a1Schema = {
     properties: {
         country_of_origin: { type: "string" },
         research_sources_used: { type: "array", items: { type: "string" }, maxItems: 8 },
-        extracted_inci_candidates: { type: "array", items: { type: "string" } },
+        extracted_inci_candidates: { type: "array", items: { type: "array", items: { type: "string" } } },
         eu_responsible_person: { 
             type: "object", 
             properties: {
