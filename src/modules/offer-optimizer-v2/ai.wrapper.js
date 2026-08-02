@@ -39,7 +39,9 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
 
     if (schema) {
         config.responseMimeType = "application/json";
-        config.responseSchema = schema;
+        if (!grounding) {
+            config.responseSchema = schema;
+        }
     }
 
     console.log(`[V2 Wrapper] Uruchamianie agenta: ${agentId}, model: ${model}, thinking: ${thinkingLevel}`);
@@ -72,7 +74,11 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
         let parsedResult;
         if (schema) {
             try {
-                parsedResult = JSON.parse(response.text);
+                let text = response.text.trim();
+                if (text.startsWith('```json')) text = text.substring(7);
+                else if (text.startsWith('```')) text = text.substring(3);
+                if (text.endsWith('```')) text = text.substring(0, text.length - 3);
+                parsedResult = JSON.parse(text.trim());
             } catch (err) {
                 // Jeśli parsowanie zawiedzie, zwracamy surowy tekst jako fallback lub rzucamy
                 parsedResult = { rawText: response.text, error: "JSON Parse failed" };
