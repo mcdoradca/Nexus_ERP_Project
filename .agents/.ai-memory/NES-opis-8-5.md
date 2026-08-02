@@ -1245,3 +1245,7 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 ### [2026-08-02] Optymalizacja alertu INCI i instrukcji wyszukiwania
 - Zaktualizowano prompt Agenta 1, aby zmuszał go do przeszukiwania wielu źródeł \do skutku\, aż znajdzie minimum dwa składy w dużej mierze się pokrywające, a te skrajnie różne ignorował.
 - Wzbogacono błąd \OSINT_CONFLICTING_INCI\ w \orchestrator.js\ o doklejony podgląd obu różniących się wersji składu (maksymalnie po 150 znaków każda). Pozwala to użytkownikowi natychmiast zobaczyć konflikt w oknie alertu HITL bez konieczności szukania tych danych w logach.
+
+### [2026-08-02] Poprawa definicji JSON Schema dla Agenta 1
+- Zidentyfikowano błąd typu danych w orchestrator.js, gdzie walidacja schemy wymuszała płaską tablicę stringów zamiast dwuwymiarowej tablicy (Array of Arrays). Powodowało to rozbijanie jednego składu INCI na pojedyncze elementy i zgłaszanie konfliktu (Jaccard widział *Wersja 1: AQUA*, *Wersja 2: GLYCERIN*).
+- Poprawiono typ pola extracted_inci_candidates w A1_SCHEMA na rray -> array -> string, co pozwala LLMowi na bezpieczne przepychanie pełnych składów w tablicy tablic bez spłaszczania struktury przez walidator.
