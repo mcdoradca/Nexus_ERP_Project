@@ -28,6 +28,33 @@ const a1Schema = {
         country_of_origin: { type: "string" },
         research_sources_used: { type: "array", items: { type: "string" }, maxItems: 8 },
         extracted_inci_candidates: { type: "array", items: { type: "string" } },
+        eu_responsible_person: { 
+            type: "object", 
+            properties: {
+                name: { type: "string" },
+                address_eu: { type: "string" },
+                contact: { type: "string" }
+            }
+        },
+        logistics: {
+            type: "object",
+            properties: {
+                net_capacity_or_weight: { type: "string" },
+                gross_weight_kg: { type: "number" },
+                dimensions_cm: {
+                    type: "object",
+                    properties: { length_x: { type: "number" }, width_y: { type: "number" }, height_z: { type: "number" } }
+                }
+            }
+        },
+        compliance: {
+            type: "object",
+            properties: {
+                clp_signal_word: { type: "string" },
+                clp_h_phrases: { type: "array", items: { type: "string" } },
+                clp_p_phrases: { type: "array", items: { type: "string" } }
+            }
+        },
         missing_parameters: { type: "object", additionalProperties: { type: "string" } }
     },
     required: [
@@ -441,7 +468,7 @@ class Orchestrator {
                     warnings.push('pipeline_id_overwritten');
                 }
 
-                const allowedKeys = ['country_of_origin', 'research_sources_used', 'extracted_inci_candidates', 'missing_parameters'];
+                const allowedKeys = ['country_of_origin', 'research_sources_used', 'extracted_inci_candidates', 'eu_responsible_person', 'logistics', 'compliance', 'missing_parameters'];
                 const finalResult = {};
                 for (let k of Object.keys(result)) {
                     if (allowedKeys.includes(k)) finalResult[k] = { value: result[k], source: "a1" };
@@ -463,19 +490,63 @@ class Orchestrator {
                     }
                 }
                 
+                if (result.eu_responsible_person && typeof result.eu_responsible_person.value === 'object' && result.eu_responsible_person.value.name) {
+                    this.state.extracted_data.eu_responsible_person = {
+                        data: result.eu_responsible_person.value,
+                        source: 'osint_a1'
+                    };
+                }
+                
+                if (result.logistics && typeof result.logistics.value === 'object') {
+                    this.state.extracted_data.logistics = {
+                        data: result.logistics.value,
+                        source: 'osint_a1'
+                    };
+                }
+                
+                if (result.compliance && typeof result.compliance.value === 'object') {
+                    this.state.extracted_data.compliance = {
+                        data: result.compliance.value,
+                        source: 'osint_a1'
+                    };
+                }
+                
                 // --- WERYFIKACJA INCI ZE SKRYPTU (Zlecona przez A1 OSINT) ---
                 const candidates = (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) ? result.extracted_inci_candidates.value : [];
                 
-                if (candidates.length > 1) {
-                    if (this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
-                        this.state.hitl_alert = 'OSINT_CONFLICTING_INCI: Znaleziono różne wersje składu w internecie. Sprawdź ręcznie i zatwierdź.';
+                if (candidates.length > 0) {
+                    let selectedInci = candidates[0];
+                    let foundMatch = false;
+                    
+                    if (candidates.length > 1) {
+                        const getWords = (str) => new Set(str.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 2));
+                        for (let i = 0; i < candidates.length; i++) {
+                            const wordsI = getWords(candidates[i]);
+                            for (let j = i + 1; j < candidates.length; j++) {
+                                const wordsJ = getWords(candidates[j]);
+                                let intersection = new Set([...wordsI].filter(x => wordsJ.has(x)));
+                                let union = new Set([...wordsI, ...wordsJ]);
+                                let sim = intersection.size / (union.size || 1);
+                                
+                                if (sim >= 0.5) { // Przynajmniej częściowe pokrycie
+                                    selectedInci = candidates[i].length > candidates[j].length ? candidates[i] : candidates[j];
+                                    foundMatch = true;
+                                    break;
+                                }
+                            }
+                            if (foundMatch) break;
+                        }
+                    }
+                    
+                    if (candidates.length > 1 && !foundMatch && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
+                        this.state.hitl_alert = 'OSINT_CONFLICTING_INCI: Znaleziono różne wersje składu w internecie (brak pokrycia). Sprawdź ręcznie i zatwierdź.';
                         this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
                         this.state.next_action = 'HALT';
                         this.emitState();
                         return;
                     }
-                } else if (candidates.length === 1) {
-                    this.state.extracted_data.inci = { value: candidates[0], source: 'osint_a1' };
+                    
+                    this.state.extracted_data.inci = { value: selectedInci, source: 'osint_a1' };
                 }
                 
                 // Sprawdzamy czy po OSINCIE nadal brakuje kluczowych pól

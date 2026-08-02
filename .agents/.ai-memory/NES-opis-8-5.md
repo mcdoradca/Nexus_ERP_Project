@@ -1204,3 +1204,12 @@ Testy te naleÅ¼y okresowo uruchamiaÄ‡ lokalnie podczas drastycznych zmian archit
   
    -   * * K o m p i l a c j a   F r o n t e n d   ( H o t f i x ) * * :   W d r o |o n o   k o m p i l a c j   ( n p m   r u n   b u i l d )   w   [r o d o w i s k u   p o   o s t a t n i c h   p o p r a w k a c h   w   A p p . j s x .   W c z e [n i e j s z e   b r a k i   z r e k o m p i l o w a n i a   k o d u   b y By   p o w o d e m   d l a   k t ó r e g o   n a p r a w i o n y   m o d u B  s o c k e t . i o   n i e   p r z y n o s i B  w i d o c z n y c h   z m i a n   u   u |y t k o w n i k a .   W p r o w a d z o n o   d o   U n i v e r s a l C h a t . j s x   b e z p i e c z n i k   d i a g n o s t y c z n y   -   s y s t e m   r z u c i   a l e r t ,   j e [l i   u |y t k o w n i k   s p r ó b u j e   z a t w i e r d z i   w i a d o m o [  p r z y   u t r a c o n y m   W e b S o c k e t .  
  \n\n## Aktualizacja - Offer Optimizer V2 (02.08.2026)\n- WstrzykniÄ™to twarde zmienne bazowe produktu z BaseLinker (gtin_ean, product_name, brand, capacity, line) do obiegÃ³w danych agentÃ³w AI (agent5Data, agent6Data, agent7Data, agent10Data) w pliku src/modules/offer-optimizer-v2/orchestrator.js. Naprawia to krytyczny bÅ‚Ä…d halucynowania i opisywania niewÅ‚aÅ›ciwych produktÃ³w w module twÃ³rczym (Master Copywriter).\n
+### [2026-08-02] Aktualizacja Agenta 1 (offer-optimizer-v2)
+- Przebudowano prompt Agenta 1 (Agent_1_prompt_v4.md) celem rygorystycznego wymuszenia ekstrakcji INCI i Podmiotu Odpowiedzialnego UE (GPSR).
+- Zaktualizowano schemat a1Schema w orchestrator.js (dodanie eu_responsible_person).
+- Zmieniono allowedKeys i dodano logikê parsowania podmiotu w orchestrator.js.
+
+### [2026-08-02] Optymalizacja Agenta 1 - KROK 2
+- Przywrócono pe³ny zakres analizy w prompcie v4.0 z wersji Swarm V3 (GPSR, Logistyka, CLP).
+- Zaktualizowano a1Schema w orchestrator.js o wêz³y logistics i compliance.
+- Wprowadzono logikê auto-rozwi¹zywania konfliktów INCI (pokrycie wskaŸnikiem Jaccarda). Wybrany sk³ad tafia do extracted_data.inci z ominiêciem HITL w przypadku wysokiego podobieñstwa (>0.5).
