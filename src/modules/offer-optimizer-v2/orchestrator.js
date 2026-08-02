@@ -774,6 +774,9 @@ class Orchestrator {
         // --- KROK 5: A5 ---
         if (this.state.next_action === 'RUN_A5') {
             const agent5Data = {
+                gtin_ean: this.gtin,
+                product_name: product?.text_fields?.name || undefined,
+                brand: extracted.brand?.value || undefined,
                 a1: this.state.a1_result,
                 a2: this.state.a2_result,
                 a4: this.state.a4_result
@@ -844,6 +847,11 @@ class Orchestrator {
         // --- KROK 6: A6 ---
         if (this.state.next_action === 'RUN_A6') {
             const agent6Data = {
+                gtin_ean: this.gtin,
+                product_name: product?.text_fields?.name || undefined,
+                brand: extracted.brand?.value || undefined,
+                capacity: extracted.capacity?.value || undefined,
+                line: extracted.line?.value || undefined,
                 a1: this.state.a1_result,
                 a2: this.state.a2_result,
                 a4: this.state.a4_result,
@@ -922,6 +930,9 @@ class Orchestrator {
         // --- KROK 7: A7 ---
         if (this.state.next_action === 'RUN_A7') {
             const agent7Data = {
+                gtin_ean: this.gtin,
+                product_name: product?.text_fields?.name || undefined,
+                brand: extracted.brand?.value || undefined,
                 section_1_html: this.state.a6_result.section_1_html,
                 section_2_html: this.state.a6_result.section_2_html,
                 section_4_html: this.state.a6_result.section_4_html
@@ -1009,6 +1020,9 @@ class Orchestrator {
         // --- KROK 10: A10 ---
         if (this.state.next_action === 'RUN_A10') {
             const agent10Data = {
+                gtin_ean: this.gtin,
+                product_name: product?.text_fields?.name || undefined,
+                brand: extracted.brand?.value || undefined,
                 section_1_html: this.state.a7_result.section_1_html,
                 section_2_html: this.state.a7_result.section_2_html,
                 section_4_html: this.state.a7_result.section_4_html,
