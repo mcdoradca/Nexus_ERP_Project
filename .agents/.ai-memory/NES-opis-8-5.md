@@ -1224,3 +1224,7 @@ Testy te należy okresowo uruchamiać lokalnie podczas drastycznych zmian archit
 
 ### [2026-08-02] Hotfix Agenta 10 (Timeout)
 - Skonfigurowano wydłużony limit czasu (timeout: 600000ms / 10 minut) w wrapperze GoogleGenAI, aby zapobiec błędom \etch failed\ przy wywołaniach ciężkich modeli (np. gemini-3.1-pro-preview) używanych przez Agenta 10.
+
+### [2026-08-02] Zmiana ThinkingLevel Agenta 10
+- Zmieniono poziom myślenia z \LOW\ na \MEDIUM\ w pliku \
+odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekstów reklamowych tworzonych przez Agenta 10 przy wykorzystaniu modelu gemini-3.1-pro-preview.
