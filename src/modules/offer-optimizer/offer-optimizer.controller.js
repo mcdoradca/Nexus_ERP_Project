@@ -117,7 +117,7 @@ const analyzeSingle = async (req, res) => {
                 title: product.offerDraft.title || product.name,
                 ean: product.ean,
                 htmlContent: { sekcja1, sekcja2, sekcja3, sekcja4, sekcja5, sekcja6 },
-                images: (product.offerDraft.visionTickets || product.offerDraft.images || []).map(img => {
+                images: ((product.offerDraft.visionTickets?.length ? product.offerDraft.visionTickets : null) || (product.offerDraft.images?.length ? product.offerDraft.images : null) || product.images || []).map(img => {
                     if (typeof img === 'string') return { originalUrl: img, isCompliant: true, alerts: [] };
                     return {
                         originalUrl: img.originalUrl || img.url || '',
@@ -623,7 +623,7 @@ const triggerUltimatePipeline = async (req, res) => {
                              title: orch.state.final_offer.title || existingProduct?.name,
                              features: existingProduct?.features || {},
                              aeoContent: existingProduct?.aeoContent || '',
-                             visionTickets: currentOfferDraft.visionTickets || currentOfferDraft.images || []
+                             visionTickets: (currentOfferDraft.visionTickets?.length ? currentOfferDraft.visionTickets : null) || (currentOfferDraft.images?.length ? currentOfferDraft.images : null) || (existingProduct?.images?.map(img => typeof img === 'string' ? { originalUrl: img, isCompliant: true, alerts: [] } : img) || [])
                          }
                      });
                 } else {
