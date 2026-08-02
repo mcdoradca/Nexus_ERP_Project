@@ -22,8 +22,12 @@ const traceInci = (ean, step, data) => {
         if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
         const filePath = path.join(logDir, `INCI_TRACE_${ean}.log`);
         const time = new Date().toISOString();
-        const msg = `[${time}] [${step}]\n${typeof data === 'object' ? JSON.stringify(data, null, 2) : data}\n\n`;
+        const strData = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+        const msg = `[${time}] [${step}]\n${strData}\n\n`;
         fs.appendFileSync(filePath, msg, 'utf8');
+        
+        // WYŚWIETLANIE NA FRONTENDZIE UŻYTKOWNIKA (Złapie to globalny hook console.log i prześle przez WebSockety)
+        console.log(`\n\n=== 🕵️ INCI TRACE [${step}] ===\n${strData}\n==================================\n`);
     } catch(e) {
         console.error("Blad traceInci", e);
     }
