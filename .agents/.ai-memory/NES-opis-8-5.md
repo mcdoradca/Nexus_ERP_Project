@@ -1236,3 +1236,8 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 - W orchestrator.js przywrócono mechanizm wskaźnika Jaccarda (sim >= 0.5) chroniący przed halucynacjami, zmuszający Agenta 1 do dostarczenia zgodnych list z różnych źródeł.
 - Dodano ścisłą weryfikację RegEx blokującą pospolite polskie tłumaczenia (woda, kwas, ekstrakt, olej itp.). Wykrycie takiego tłumaczenia wyzwala blokadę OSINT_TRANSLATED_INCI_ERROR (HITL).
 - Zaktualizowano Agent_1_prompt_v4.md, precyzując rygorystyczny nakaz utrzymywania INCI w oryginale (angielski/łaciński) i zwracania pełnych ciągów, co pozwala Orkiestratorowi na poprawne przeprowadzenie weryfikacji podobieństwa.
+
+### [2026-08-02] Naprawa błędu RECITATION w Agencie 1
+- Zidentyfikowano ukryty błąd w modelu Gemini (BLOKADA RECITATION), który ucinał zwracanie zbyt długich, dosłownych list INCI ze względu na filtry antyplagiatowe.
+- Zmieniono format wyjściowy w Agent_1_prompt_v4.md: Agent 1 teraz musi zwracać listę INCI jako tablicę z pojedynczymi składnikami zapisanymi DRUKOWANYMI LITERAMI (UPPERCASE) (np. [['AQUA', 'GLYCERIN']]). Wymusza to na nim przetworzenie tekstu, co automatycznie wyłącza zaporę antyplagiatową.
+- orchestrator.js został zaktualizowany, by parsować tablicę tablic z powrotem do formy przecinkowej (Jaccard i Anty-Translate dalej działają perfekcyjnie).
