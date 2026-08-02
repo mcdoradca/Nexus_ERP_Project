@@ -124,7 +124,23 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 2, agentId =
             broadcastLog(`PrĂłba ${attempt + 1}/${maxRetries} rozpoczÄ™ta...`);
             
             result = await withTimeout(model.generateContent(promptOrParts), 90000, modelName);
-            broadcastLog(`PrĂłba ${attempt + 1} ZAKOĹƒCZONA SUKCESEM po ${Date.now() - attemptStart}ms`);
+            broadcastLog(`Próba ${attempt + 1} ZAKOŃCZONA SUKCESEM po ${Date.now() - attemptStart}ms`);
+            
+            if (agentId === "Agent_1_Autofill") {
+                try {
+                    const candidate = result?.response?.candidates?.[0];
+                    if (candidate) {
+                        agent1Logger.info(`[DEEP TRACE] Surowy tekst odpowiedzi z Gemini przed parsowaniem: \n${candidate.content?.parts?.[0]?.text || ''}`);
+                        if (candidate.groundingMetadata) {
+                            agent1Logger.info(`[DEEP TRACE] Grounding Metadata (Co Google zrobilo): \n${JSON.stringify(candidate.groundingMetadata, null, 2)}`);
+                        } else {
+                            agent1Logger.info(`[DEEP TRACE] Brak Grounding Metadata (nie uzyto Google Search w tym zapytaniu).`);
+                        }
+                    }
+                } catch (e) {
+                    agent1Logger.error(`[DEEP TRACE] Blad podczas zrzutu logow: ${e.message}`);
+                }
+            }
             
             if (parseJson) {
                 let text = result.response.text();
@@ -1168,6 +1184,7 @@ ${JSON.stringify(allegroData, null, 2)}
 ${scrapedText}`;
         
         agent1Logger.info(`[Swarm Node 1] Wysłano zapytanie do Gemini-3.5-flash (Długość promptu: ${prompt.length} znaków). Długość tekstu OSINT: ${scrapedText.length}`);
+        agent1Logger.info(`[DEEP TRACE] Pelny wyslany prompt do Agenta 1:\n${prompt}`);
         
         const startTime = Date.now();
         const result = await generateWithRetry(model, prompt, 2, "Agent_1_Autofill", true);
