@@ -433,25 +433,7 @@ class Orchestrator {
                     });
                     const removed = originalSources.filter(s => !result.research_sources_used.includes(s));
                     if (removed.length > 0) warnings.push('removed_forbidden_sources: ' + removed.join(', '));
-                    
-                    const checkStr = (extracted.brand?.value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                    if (checkStr && result.research_sources_used.length > 0) {
-                        if (!result.research_sources_used.some(src => src.toLowerCase().replace(/[^a-z0-9]/g, '').includes(checkStr))) {
-                            if (this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
-                                warnings.push('NO_P1_SOURCE_FOUND_FOR_BRAND: ' + checkStr);
-                                this.state.hitl_alert = 'NO_P1_SOURCE_FOUND_FOR_BRAND';
-                                this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
-                                this.state.next_action = 'HALT';
-                                this.emitState();
-                                return;
-                            } else {
-                                console.log('[Orchestrator V2] Zignorowano błąd NO_P1_SOURCE_FOUND_FOR_BRAND (HITL_OVERRIDDEN).');
-                            }
-                        }
-                    } else if (!checkStr) {
-                        warnings.push('P1_CHECK_IMPOSSIBLE');
-                        result.research_sources_used = [];
-                    }
+                    // P1_SOURCE_CHECK usunięty zgodnie z żądaniem (adres URL nie musi zawierać nazwy marki)
                 }
 
                 if (result.pipeline_id !== this.state.pipeline_id) {
