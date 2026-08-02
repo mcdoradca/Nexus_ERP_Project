@@ -1241,3 +1241,7 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 - Zidentyfikowano ukryty błąd w modelu Gemini (BLOKADA RECITATION), który ucinał zwracanie zbyt długich, dosłownych list INCI ze względu na filtry antyplagiatowe.
 - Zmieniono format wyjściowy w Agent_1_prompt_v4.md: Agent 1 teraz musi zwracać listę INCI jako tablicę z pojedynczymi składnikami zapisanymi DRUKOWANYMI LITERAMI (UPPERCASE) (np. [['AQUA', 'GLYCERIN']]). Wymusza to na nim przetworzenie tekstu, co automatycznie wyłącza zaporę antyplagiatową.
 - orchestrator.js został zaktualizowany, by parsować tablicę tablic z powrotem do formy przecinkowej (Jaccard i Anty-Translate dalej działają perfekcyjnie).
+
+### [2026-08-02] Optymalizacja alertu INCI i instrukcji wyszukiwania
+- Zaktualizowano prompt Agenta 1, aby zmuszał go do przeszukiwania wielu źródeł \do skutku\, aż znajdzie minimum dwa składy w dużej mierze się pokrywające, a te skrajnie różne ignorował.
+- Wzbogacono błąd \OSINT_CONFLICTING_INCI\ w \orchestrator.js\ o doklejony podgląd obu różniących się wersji składu (maksymalnie po 150 znaków każda). Pozwala to użytkownikowi natychmiast zobaczyć konflikt w oknie alertu HITL bez konieczności szukania tych danych w logach.
