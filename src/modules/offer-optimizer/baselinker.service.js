@@ -353,6 +353,12 @@ class BaseLinkerService {
             parsed.stockErpUnits = totalErp;
         }
 
+        const parseFeaturesSafe = (raw) => {
+            if (typeof raw === 'string') { try { return JSON.parse(raw); } catch(e) { return {}; } }
+            if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) return raw;
+            return {};
+        };
+
         // 2. TEXT FIELDS (name, description, extra_fields, binarki wideo, parametry)
         if (prod.text_fields) {
             parsed.name = prod.text_fields['name|pl'] || prod.text_fields.name || null;
@@ -371,7 +377,7 @@ class BaseLinkerService {
             parsed.descriptionHtml = descParts.length > 0 ? descParts.join('<br><br>') : null;
             
             // 2B. Cechy (Features) przechowywane w text_fields.features (Priorytet PL ale łączymy żeby nie tracić INCI)
-            const featuresObj = { ...(prod.text_fields.features || {}), ...(prod.text_fields['features|pl'] || {}) };
+            const featuresObj = { ...parseFeaturesSafe(prod.text_fields.features), ...parseFeaturesSafe(prod.text_fields['features|pl']) };
             if (featuresObj && typeof featuresObj === 'object') {
                 for (const [fName, fVal] of Object.entries(featuresObj)) {
                     if (typeof fVal === 'string' && fVal.trim().length > 0) {
@@ -416,7 +422,7 @@ class BaseLinkerService {
         }
 
         // 3. FEATURES (Parametry - fallbacks dla starszych instancji PIM)
-        const legacyFeatures = { ...(prod.features || {}), ...(prod['features|pl'] || {}) };
+        const legacyFeatures = { ...parseFeaturesSafe(prod.features), ...parseFeaturesSafe(prod['features|pl']) };
         if (legacyFeatures && typeof legacyFeatures === 'object') {
             for (const [fName, fVal] of Object.entries(legacyFeatures)) {
                 if (typeof fVal === 'string' && fVal.trim().length > 0) {
