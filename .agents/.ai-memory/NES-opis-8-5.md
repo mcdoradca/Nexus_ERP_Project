@@ -1228,3 +1228,6 @@ Testy te należy okresowo uruchamiać lokalnie podczas drastycznych zmian archit
 ### [2026-08-02] Zmiana ThinkingLevel Agenta 10
 - Zmieniono poziom myślenia z \LOW\ na \MEDIUM\ w pliku \
 odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekstów reklamowych tworzonych przez Agenta 10 przy wykorzystaniu modelu gemini-3.1-pro-preview.
+
+### [2026-08-02] Naprawa przekazywania INCI do BaseLinker PIM
+- Zmieniono logikę w orchestrator.js obsługującą wynik z Agenta 1. Ponieważ Agent 1 został poinstruowany do zwracania poszczególnych składników jako tablicy (aby uniknąć blokady RECITATION), stara logika szukająca podobieństw między listami wyrzucała fałszywy alert HITL i nie przypisywała składu do zmiennej systemowej (UI świeciło pustkami). Zastąpiono tę logikę prostym scaleniem (.join) tablicy składników w jeden łańcuch znaków gotowy do zapisu w PIM.

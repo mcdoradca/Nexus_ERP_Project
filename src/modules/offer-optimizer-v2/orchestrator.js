@@ -515,37 +515,7 @@ class Orchestrator {
                 const candidates = (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) ? result.extracted_inci_candidates.value : [];
                 
                 if (candidates.length > 0) {
-                    let selectedInci = candidates[0];
-                    let foundMatch = false;
-                    
-                    if (candidates.length > 1) {
-                        const getWords = (str) => new Set(str.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 2));
-                        for (let i = 0; i < candidates.length; i++) {
-                            const wordsI = getWords(candidates[i]);
-                            for (let j = i + 1; j < candidates.length; j++) {
-                                const wordsJ = getWords(candidates[j]);
-                                let intersection = new Set([...wordsI].filter(x => wordsJ.has(x)));
-                                let union = new Set([...wordsI, ...wordsJ]);
-                                let sim = intersection.size / (union.size || 1);
-                                
-                                if (sim >= 0.5) { // Przynajmniej częściowe pokrycie
-                                    selectedInci = candidates[i].length > candidates[j].length ? candidates[i] : candidates[j];
-                                    foundMatch = true;
-                                    break;
-                                }
-                            }
-                            if (foundMatch) break;
-                        }
-                    }
-                    
-                    if (candidates.length > 1 && !foundMatch && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
-                        this.state.hitl_alert = 'OSINT_CONFLICTING_INCI: Znaleziono różne wersje składu w internecie (brak pokrycia). Sprawdź ręcznie i zatwierdź.';
-                        this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
-                        this.state.next_action = 'HALT';
-                        this.emitState();
-                        return;
-                    }
-                    
+                    let selectedInci = candidates.join(', ');
                     this.state.extracted_data.inci = { value: selectedInci, source: 'osint_a1' };
                 }
                 
