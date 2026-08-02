@@ -540,7 +540,9 @@ class Orchestrator {
                     }
                     
                     if (candidates.length > 1 && !foundMatch && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
-                        this.state.hitl_alert = 'OSINT_CONFLICTING_INCI: Znaleziono różne wersje składu w internecie (brak pokrycia). Sprawdź ręcznie i zatwierdź.';
+                        const preview1 = candidates[0].substring(0, 150) + (candidates[0].length > 150 ? '...' : '');
+                        const preview2 = candidates[1].substring(0, 150) + (candidates[1].length > 150 ? '...' : '');
+                        this.state.hitl_alert = `OSINT_CONFLICTING_INCI: Znaleziono różne wersje składu w internecie (brak pokrycia). Sprawdź ręcznie i zatwierdź.\n[Wersja 1]: ${preview1}\n[Wersja 2]: ${preview2}`;
                         this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
                         this.state.next_action = 'HALT';
                         this.emitState();
