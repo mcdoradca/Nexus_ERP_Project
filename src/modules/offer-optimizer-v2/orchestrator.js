@@ -183,6 +183,12 @@ class Orchestrator {
         }
     }
 
+    resumeFromState(savedState) {
+        if (!savedState) return;
+        this.state = savedState;
+        console.log(`[Orchestrator V2] Wznowiono stan dla potoku: ${this.state.pipeline_id}`);
+    }
+
     async runPhase1(pimData) {
         const blData = await loadProductDataAsync(this.gtin, pimData);
         let product = null;

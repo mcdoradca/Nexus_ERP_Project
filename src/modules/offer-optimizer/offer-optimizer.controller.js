@@ -512,10 +512,44 @@ const triggerUltimatePipeline = async (req, res) => {
                 const { Orchestrator } = require('../offer-optimizer-v2/orchestrator');
                 const orch = new Orchestrator(ean);
 
+                // Szukamy najświeższego stanu potoku (resume) w logach
+                const fs = require('fs');
+                const path = require('path');
+                const logsDir = path.join(__dirname, '../offer-optimizer-v2/logs');
+                let latestState = null;
+                let latestMtime = 0;
+                
+                if (fs.existsSync(logsDir)) {
+                    const files = fs.readdirSync(logsDir);
+                    const eanFiles = files.filter(f => f.startsWith(`state_PL-${ean}-`) && f.endsWith('.json'));
+                    for (let f of eanFiles) {
+                        const fp = path.join(logsDir, f);
+                        const stats = fs.statSync(fp);
+                        if (stats.mtimeMs > latestMtime) {
+                            latestMtime = stats.mtimeMs;
+                            try {
+                                latestState = JSON.parse(fs.readFileSync(fp, 'utf8'));
+                            } catch (e) {
+                                console.error(`[Controller] Nie udało się odczytać pliku stanu: ${f}`);
+                            }
+                        }
+                    }
+                }
+
+                if (latestState) {
+                    orch.resumeFromState(latestState);
+                }
+
                 // Zastosowanie opcjonalnych nadpisań HITL (z przeglądarki)
                 if (Array.isArray(hitlOverrides) && hitlOverrides.length > 0) {
                     hitlOverrides.forEach(node => {
-                        orch.state.node_status[node] = 'HITL_OVERRIDDEN';
+                        try {
+                            // Używamy oficjalnej metody by naprawić też `next_action` w maszynie stanu
+                            orch.resolveHitl({ node, decision: 'ACCEPT_AND_CONTINUE', operator_note: 'Overridden via PIM frontend.' });
+                        } catch(e) {
+                            // Jeśli błąd brak alertu HITL, nadpisz na twardo
+                            orch.state.node_status[node] = 'HITL_OVERRIDDEN';
+                        }
                     });
                 }
                 
