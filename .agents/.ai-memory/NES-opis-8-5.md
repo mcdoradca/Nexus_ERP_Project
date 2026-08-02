@@ -1218,3 +1218,6 @@ Testy te należy okresowo uruchamiać lokalnie podczas drastycznych zmian archit
 - Naprawiono błąd gubienia schematu JSON (responseSchema) podczas działania narzędzia googleSearch w ai.wrapper.js.
 - Dodano rygorystyczną obsługę błędów przy blokadach filtru bezpieczeństwa (RECITATION), co skutkuje teraz wyraźnym przerwaniem potoku (HITL alert) a nie cichym błędem parsowania JSON.
 - Zmodyfikowano Agent_1_prompt_v4.md (wyciąganie składu INCI), dodając dyrektywę antyplagiatową nakazującą rekonstrukcję listy zamiast kopiowania 1:1, by zapobiegać błędom RECITATION.
+
+### [2026-08-02] Hotfix Agenta 1
+- Dodano brakujący tag {{SKU_DATA}} na końcu pliku Agent_1_prompt_v4.md. Z powodu jego braku, orkiestrator nie był w stanie wstrzyknąć numeru EAN i danych produktu do promptu, co powodowało bezczynność Agenta przy wyszukiwaniu INCI.

@@ -30,3 +30,4 @@ Zaawansowany Analityk OSINT. Odnajdujesz twarde fakty o produkcie w oparciu o do
 - `research_sources_used`: ["domena.pl", "inna.pl"]
 
 --- DANE SKU (blok dynamiczny, doklejany przez Orkiestrator) ---
+{{SKU_DATA}}
