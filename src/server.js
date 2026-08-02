@@ -299,6 +299,35 @@ app.get('/api/logs', authenticateToken, requireSuperUser, async (req, res) => {
     }
 });
 
+// ENDPOINT DO BEZPOŚREDNIEGO ODCZYTU LOGÓW INCI Z PRZEGLĄDARKI
+app.get('/api/logs/inci', async (req, res) => {
+    try {
+        const path = require('path');
+        const fs = require('fs');
+        const logDir = path.join(__dirname, 'modules/offer-optimizer-v2/logs');
+        let content = "=== OSTATNI LOG INCI_TRACE ===\n\n";
+        
+        if (fs.existsSync(logDir)) {
+            const files = fs.readdirSync(logDir).filter(f => f.startsWith('INCI_TRACE_'));
+            if (files.length > 0) {
+                const latestFile = files.map(f => ({ name: f, time: fs.statSync(path.join(logDir, f)).mtime.getTime() }))
+                                        .sort((a, b) => b.time - a.time)[0].name;
+                content += `Plik: ${latestFile}\n`;
+                content += "------------------------------------------\n";
+                content += fs.readFileSync(path.join(logDir, latestFile), 'utf-8');
+            } else {
+                content += "Brak wygenerowanych plikow INCI_TRACE.\n";
+            }
+        } else {
+            content += "Katalog logow nie istnieje.\n";
+        }
+        
+        res.type('text/plain; charset=utf-8').send(content);
+    } catch (err) {
+        res.status(500).send("Błąd odczytu logów INCI: " + err.message);
+    }
+});
+
 
 
 // Endpoint do uruchamiania Sandbox E2E Tests (Allegro Ads Monitor)
