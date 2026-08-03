@@ -232,8 +232,10 @@ function buildPhotoroomRequest(ean, slot, pimText, imageBlob) {
   fd.append('background.expandPrompt', 'never');
   fd.append('quality', 'advanced');
 
-  fd.append('lighting.mode', 'ai.auto');  
-  fd.append('shadow.mode', 'ai.soft');    
+  fd.append('lighting.mode', 'ai.preserve-hue-and-saturation');  
+  fd.append('shadow.mode', 'ai.auto-with-overrides');    
+  fd.append('shadow.softnessOverride', '0.7');
+  fd.append('shadow.intensityOverride', '0.8');
 
   // Losowa kompozycja (zamiast przypisanej z góry)
   const comp = pickRandom(COMPOSITIONS);
@@ -248,7 +250,10 @@ function buildPhotoroomRequest(ean, slot, pimText, imageBlob) {
 
   return {
     endpoint: PHOTOROOM_ENDPOINT,
-    headers: { ...MODEL_HEADERS.BACKGROUND },
+    headers: { 
+      ...MODEL_HEADERS.BACKGROUND,
+      ...MODEL_HEADERS.SHADOWS
+    },
     formData: fd,
     meta: { slot, role: plan.role, ean, surface, environment, lighting, props, composition: comp.label, prompt },
   };
