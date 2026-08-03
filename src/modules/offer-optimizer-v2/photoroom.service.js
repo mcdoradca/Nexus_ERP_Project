@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const sharp = require('sharp');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -335,7 +336,22 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         });
 
         const resultBuffer = Buffer.from(response.data);
-        const base64Output = `data:image/jpeg;base64,${resultBuffer.toString('base64')}`;
+
+        // --- POST-PROCESSING: Włoska ramka i znak wodny AI (Sharp) ---
+        const svgFrame = `
+        <svg width="1080" height="1080">
+          <rect x="7.5" y="7.5" width="1065" height="1065" stroke="#009246" stroke-width="15" fill="none" />
+          <rect x="22.5" y="22.5" width="1035" height="1035" stroke="#FFFFFF" stroke-width="15" fill="none" />
+          <rect x="37.5" y="37.5" width="1005" height="1005" stroke="#CE2B37" stroke-width="15" fill="none" />
+          <text x="1025" y="1015" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="rgba(128,128,128,0.75)" text-anchor="end">AI ✨✨✨</text>
+        </svg>`;
+
+        const compositedBuffer = await sharp(resultBuffer)
+            .composite([{ input: Buffer.from(svgFrame) }])
+            .jpeg({ quality: 95 })
+            .toBuffer();
+
+        const base64Output = `data:image/jpeg;base64,${compositedBuffer.toString('base64')}`;
 
         return {
             base64: base64Output,
