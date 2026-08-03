@@ -16,13 +16,32 @@ const PHASE_4_AUDIT = 'PHASE_4_AUDIT';
 
 const WRITE_BACK_ENABLED = false;
 
+const safeStringify = (obj) => {
+    const seen = new WeakSet();
+    const str = JSON.stringify(obj, (key, value) => {
+        if (typeof value === 'object' && value !== null) {
+            if (seen.has(value)) return "[Circular]";
+            seen.add(value);
+        }
+        return value;
+    }, 2);
+    if (str && str.length > 50000) {
+        return JSON.stringify({
+            _sys: "TRUNCATED_PAYLOAD",
+            message: "Payload exceeded 50000 chars and was truncated to protect Socket.IO limit.",
+            originalSize: str.length
+        }, null, 2);
+    }
+    return str;
+};
+
 const traceInci = (ean, step, data) => {
     try {
         const logDir = path.join(__dirname, 'logs');
         if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
         const filePath = path.join(logDir, `INCI_TRACE_${ean}.log`);
         const time = new Date().toISOString();
-        const strData = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+        const strData = typeof data === 'object' ? safeStringify(data) : data;
         const msg = `[${time}] [${step}]\n${strData}\n\n`;
         fs.appendFileSync(filePath, msg, 'utf8');
         
@@ -166,7 +185,7 @@ console.log = (...args) => {
     try {
         const socketService = require('../../core/socket');
         // Przechwytujemy wszystko do konsoli webowej, aby widać było pracę V2
-        socketService.broadcast('nexus-notification', { type: 'PIPELINE_LOG', agentId: 'Orchestrator V2', message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ') });
+        socketService.broadcast('nexus-notification', { type: 'PIPELINE_LOG', agentId: 'Orchestrator V2', message: args.map(a => typeof a === 'object' ? safeStringify(a) : a).join(' ') });
     } catch(e) {}
 };
 
