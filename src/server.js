@@ -46,7 +46,7 @@ const path = require('path');
 
 // Tarcza nagłówków HTTP (Helmet)
 app.use(helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" }, // Pozwala na ładowanie obrazków z zewnętrznych API (Bria/Claid)
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Pozwala na ładowanie obrazków z zewnętrznych API (Bria/Photoroom/AI)
     contentSecurityPolicy: {
         directives: {
         }
@@ -1038,7 +1038,7 @@ if (require.main === module) {
         startEmailListener();
     });
     
-    // Ochrona przed Gateway Timeout dla długich operacji Generatywnego AI (Claid.ai, Lifestyle, EAN Pipeline)
+    // Ochrona przed Gateway Timeout dla długich operacji Generatywnego AI (Photoroom, Lifestyle, EAN Pipeline)
     server.setTimeout(600000); // 10 minut
     server.keepAliveTimeout = 65000;
     server.headersTimeout = 66000;

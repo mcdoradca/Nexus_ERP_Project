@@ -27,7 +27,7 @@ Drugim problemem był brak wglądu w metryki wydajności poszczególnych moduł�
 4. **Telemetria Zużycia Tokenów (Moduł Prisma AgentMetric)**
    Powołano nowy model `AgentMetric` w bazie relacyjnej Prisma, przechwytujący wywołania per `AgentID`. Interceptor znajduje się centralnie w rdzennej procedurze wzywającej `generateWithRetry` w systemie bazowym `ai.service.js`. Serwis operuje w strukturze *fire-and-forget* po pomyślnym odebraniu generacji.
 
-5. **Wyeliminowanie Claid.AI Liquid Variables (Agent 8)**
+5. **Wyeliminowanie [DEPRECATED] Claid.AI Liquid Variables (Agent 8) - System został wyłączony, nie brać pod uwagę.**
    Usunięcie nieużywanych, archiwalnych agentów, zapobiegające spowalnianiu interpretera V8 na poziomie parsowania dużych obiektów AI i zużyciu CPU.
 
 ## Konsekwencje

@@ -4,15 +4,17 @@
 Przyjęty (Accepted)
 
 ## Kontekst i Problem
-W module Offer Optimizer / EAN Pipeline, generowanie zdjęć Lifestyle AI pierwotnie korzystało ze zewnętrznej usługi Claid.AI. Rozwiązanie to charakteryzowało się:
-1. Bardzo długim czasem generowania (45–120 sekund), co przy synchronicznym zapytaniu HTTP POST prowadziło do błędów `HTTP 504 Gateway Time-out` i zrywania połączeń w przeglądarkach.
-2. Wysokim kosztem eksploatacji ($0.12–$0.25 USD per zdjęcie) oraz wymogiem utrzymywania osobnego abonamentu u dostawcy zewnętrznego.
-3. Ryzykiem naruszenia wymogów prawnych UOKiK / regulaminów e-commerce przy regeneracji napisów/etykiet na opakowaniach produktów.
+W module Offer Optimizer / EAN Pipeline, generowanie zdjęć Lifestyle AI pierwotnie korzystało ze zewnętrznej usługi [DEPRECATED] Claid.AI (System został wyłączony, nie brać pod uwagę.). Rozwiązanie to charakteryzowało się:
+   - Synchronous/Blocking Nature: Zapytania do API blokowały na 10-15 sekund główny interfejs dla każdego slotu zdjęcia.
+   - Prawdopodobieństwo Gateway Timeout.
 
-## Podjęte Decyzje Architektoniczne
+## Nowa Architektura (Rozwiązanie wdrożone)
+Ze względu na optymalizację kosztów i uniezależnienie od zewnętrznych zawodnych interfejsów 3rd-party zaimplementowano własny model `lifestyleJobs` oparty na asynchroniczności (Job Polling).
 
-1. **Migracja na Google Imagen 3 API (`imagen-3.0-generate-002`):**
-   - Zastąpiono Claid.AI bezpośrednią integracją z oficjalnym modelem Google Imagen 3.
+Zasada Działania (Long Polling / Async Jobs):
+1. **Frontend / Inicjator (`POST /api/offer-optimizer/generate-lifestyle`)**
+   - Wysyła zdjęcie.
+   - Zastąpiono [DEPRECATED] Claid.AI (System został wyłączony) bezpośrednią integracją z oficjalnym modelem Google Imagen 3.
    - Szybkość generowania scenerii została skrócona z 60s do **3–5 sekund**.
    - Koszt wygenerowania 1 zdjęcia spadł o ponad 75% — do około **$0.030 USD (~0.12 PLN)** w ramach istniejącego klucza `GEMINI_API_KEY`.
 

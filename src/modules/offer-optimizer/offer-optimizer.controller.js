@@ -415,7 +415,7 @@ const generateLifestyle = async (req, res) => {
                     }
                 }
                 
-                const aiResult = await AiService.generateClaidLifestyle(imageBase64, sourceImageUrl, ean, imageIndex, scenography);
+                const aiResult = await AiService.generateLifestyle(imageBase64, sourceImageUrl, ean, imageIndex, scenography);
                 const newImageBase64 = aiResult.base64;
                 const visualTrendReport = aiResult.visualTrendReport;
                 
@@ -441,15 +441,15 @@ const generateLifestyle = async (req, res) => {
                 lifestyleJobs.set(jobId, {
                     status: 'ERROR',
                     createdAt: Date.now(),
-                    error: e.message || "Wewnętrzny błąd serwera przy obróbce Claid AI."
+                    error: e.message || "Wewnętrzny błąd serwera przy obróbce wizualnej AI."
                 });
             }
         })();
 
     } catch (e) {
-        console.error("Błąd inicjalizacji generowania lifestyle (Claid API):", e.message);
+        console.error("Błąd inicjalizacji generowania lifestyle (Visual API):", e.message);
         if (!res.headersSent) {
-            res.status(500).json({ error: e.message || "Wewnętrzny błąd serwera przy obróbce Claid AI." });
+            res.status(500).json({ error: e.message || "Wewnętrzny błąd serwera przy obróbce wizualnej AI." });
         }
     }
 };

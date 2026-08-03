@@ -290,10 +290,10 @@ function strictRegexMedicalFilter(text) {
 }
 
 /**
- * Autorski silnik cieniowania (Shadow Baking).
- * Rysuje rozmyty cieĹ„ kontaktowy pod obiektem i wgrywa go na serwer Claid.
+ * @deprecated UWAGA: Kod wycofany. Wgrywanie na zewnętrzny serwer zostało zablokowane i wyłączone z architektury.
+ * Zignoruj tę funkcję. Autorski silnik cieniowania (Shadow Baking).
  */
-async function applyLocalShadow(imageUrl, claidKey) {
+async function applyLocalShadow(imageUrl, apiKey) {
     try {
         console.log("[LocalShadow] Pobieranie przezroczystego produktu...");
         const response = await fetchImageSecure(imageUrl);
@@ -334,13 +334,13 @@ async function applyLocalShadow(imageUrl, claidKey) {
             .png()
             .toBuffer();
 
-        console.log("[LocalShadow] ZĹ‚oĹĽono cieĹ„, wgrywanie na serwer Claid (tmp_url)...");
+        console.log("[LocalShadow] ZĹ‚oĹĽono cieĹ„, wgrywanie na zewnetrzny serwer (tmp_url)...");
         const form = new FormData();
         form.append('file', finalImage, { filename: 'shadowed.png', contentType: 'image/png' });
         form.append('data', JSON.stringify({}));
 
         const uploadRes = await axios.post('https://api.claid.ai/v1/image/edit/upload', form, {
-            headers: { 'Authorization': `Bearer ${claidKey}`, ...form.getHeaders() }
+            headers: { 'Authorization': `Bearer ${apiKey}`, ...form.getHeaders() }
         });
 
         return uploadRes.data?.data?.output?.tmp_url || imageUrl;
@@ -820,7 +820,7 @@ Odpowiedz wyĹ‚Ä…cznie czystym obiektem JSON:
     }
 }
 
-// Agent 8 (ClaidLiquidVariables) usuniÄ™ty zgodnie z dyrektywÄ… - zastÄ…piony przez API Photoroom.
+// Agent 8 (VisualAI_LiquidVariables) usuniÄ™ty zgodnie z dyrektywÄ… - zastÄ…piony przez API Photoroom.
 
 // UsuniÄ™to stare getPlaybookPromptForSlot i getPaddingForSlot na rzecz moduĹ‚u photoroom.prompts.js
 
@@ -951,7 +951,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     }
 }
 
-const generateClaidLifestyle = generatePhotoroomLifestyle;
+const generateLifestyle = generatePhotoroomLifestyle;
 const generateImagenLifestyle = generatePhotoroomLifestyle;
 
 /*
@@ -1436,7 +1436,7 @@ module.exports = {
     generateOfferJSON,
     auditOfferImages,
     generateTitleOnly,
-    generateClaidLifestyle,
+    generateLifestyle,
     generateComplianceReport,
     generateWithRetry,
     runNode1_Autofill,

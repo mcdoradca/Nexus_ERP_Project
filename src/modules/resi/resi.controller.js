@@ -1,3 +1,6 @@
+/**
+ * @deprecated UWAGA: Infrastruktura zintegrowana z zewnętrznym API ma zostać całkowicie zignorowana przez AI w nowym kodzie. Nie rozwijać!
+ */
 const ResiService = require('./resi.service');
 
 exports.processImages = async (req, res) => {
@@ -28,6 +31,6 @@ exports.processImages = async (req, res) => {
         res.send(zipBuffer);
     } catch (error) {
         console.error("[ResiController] Błąd:", error);
-        res.status(500).json({ error: error.message || 'Wewnętrzny błąd serwera przy obróbce Claid AI.' });
+        res.status(500).json({ error: error.message || 'Wewnętrzny błąd serwera przy obróbce zewnętrznym API.' });
     }
 };

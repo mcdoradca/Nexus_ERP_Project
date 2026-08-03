@@ -97,7 +97,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                         }
                     }
                 }
-                throw new Error("Przekroczono czas oczekiwania na odpowiedź serwera Claid AI (180s). Próba przerwana.");
+                throw new Error(`Przekroczono czas oczekiwania na odpowiedź serwera Wizualnego AI (180s). Próba przerwana.`);
             } else if (initData && initData.newImageBase64) {
                 if (onImageReplace) onImageReplace(initData.newImageBase64);
                 if (initData.visualTrendReport) {

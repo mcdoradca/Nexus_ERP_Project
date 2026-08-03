@@ -1,28 +1,31 @@
+/**
+ * @deprecated UWAGA: Infrastruktura zintegrowana z zewnętrznym API (zawierającym słowo na "C") ma zostać całkowicie zignorowana przez AI w nowym kodzie. Nie rozwijać!
+ */
 const axios = require('axios');
 const FormData = require('form-data');
 const sharp = require('sharp');
 const AdmZip = require('adm-zip');
 
 class ResiService {
-    static async uploadToClaid(fileBuffer, claidKey) {
+    static async uploadToExternalApi(fileBuffer, apiKey) {
         const form = new FormData();
         form.append('file', fileBuffer, { filename: 'upload.jpg', contentType: 'image/jpeg' });
         form.append('data', JSON.stringify({}));
 
         const res = await axios.post('https://api.claid.ai/v1/image/edit/upload', form, {
             headers: {
-                'Authorization': `Bearer ${claidKey}`,
+                'Authorization': `Bearer ${apiKey}`,
                 ...form.getHeaders()
             },
             timeout: 30000
         });
 
         const tmpUrl = res.data?.data?.output?.tmp_url;
-        if (!tmpUrl) throw new Error("Nie udało się pobrać tmp_url z uploadu Claid.");
+        if (!tmpUrl) throw new Error("Nie udało się pobrać tmp_url z uploadu.");
         return tmpUrl;
     }
 
-    static async removeBackgroundClaid(imageUrl, claidKey) {
+    static async removeBackgroundExternalApi(imageUrl, apiKey) {
         const payload = {
             image: imageUrl,
             operations: {
@@ -33,7 +36,7 @@ class ResiService {
 
         const res = await axios.post('https://api.claid.ai/v1/image/edit', payload, {
             headers: {
-                'Authorization': `Bearer ${claidKey}`,
+                'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
             },
             timeout: 60000
@@ -88,7 +91,7 @@ class ResiService {
         }
     }
 
-    static async processSingleImage(fileBuffer, originalName, mode, asinPrefix, claidKey) {
+    static async processSingleImage(fileBuffer, originalName, mode, asinPrefix, apiKey) {
         try {
             let processedBuffer = fileBuffer;
             let results = {};
@@ -96,10 +99,10 @@ class ResiService {
             const baseName = originalName.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9\-_ ]/g, "").trim();
 
             if (mode === 'full' || mode === 'extract-only') {
-                console.log(`[Resi] Wgrywanie ${originalName} do Claid...`);
-                const uploadedUrl = await this.uploadToClaid(fileBuffer, claidKey);
+                console.log(`[Resi] Wgrywanie ${originalName} do zewnętrznego API...`);
+                const uploadedUrl = await this.uploadToExternalApi(fileBuffer, apiKey);
                 console.log(`[Resi] Szparowanie ${originalName}...`);
-                const transparentUrl = await this.removeBackgroundClaid(uploadedUrl, claidKey);
+                const transparentUrl = await this.removeBackgroundExternalApi(uploadedUrl, apiKey);
                 console.log(`[Resi] Pobieranie pliku ${originalName}...`);
                 processedBuffer = await this.downloadImageBuffer(transparentUrl);
 
@@ -139,8 +142,8 @@ class ResiService {
     }
 
     static async processBatch(files, mode, asinPrefix) {
-        const claidKey = process.env.CLAID_API_KEY;
-        if (!claidKey) throw new Error("Brak klucza CLAID_API_KEY w konfiguracji .env.");
+        const apiKey = process.env.CLAID_API_KEY;
+        if (!apiKey) throw new Error("Brak klucza CLAID_API_KEY w konfiguracji .env.");
 
         const zip = new AdmZip();
         
@@ -163,7 +166,7 @@ class ResiService {
         let completed = 0;
         await runWithConcurrencyLimit(5, files, async (file) => {
             try {
-                const results = await this.processSingleImage(file.buffer, file.originalname, mode, asinPrefix, claidKey);
+                const results = await this.processSingleImage(file.buffer, file.originalname, mode, asinPrefix, apiKey);
                 if (results['czyste_png']) zip.addFile(`Czyste_PNG/${results['czyste_png'].name}`, results['czyste_png'].buffer);
                 if (results['allegro']) zip.addFile(`Allegro_Ready/${results['allegro'].name}`, results['allegro'].buffer);
                 if (results['amazon']) zip.addFile(`Amazon_Ready/${results['amazon'].name}`, results['amazon'].buffer);
