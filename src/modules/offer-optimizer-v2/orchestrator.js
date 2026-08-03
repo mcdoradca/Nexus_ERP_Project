@@ -1,6 +1,7 @@
 const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
+const util = require('util');
 const aiWrapper = require('./ai.wrapper');
 const { ean_checksum, route_chemical, validate_eu_responsible_person, gate_ingredients } = require('./validators');
 const { FORBIDDEN_SOURCES, DATA_SOURCE_MODE } = require('./config/nodes.config');
@@ -22,12 +23,12 @@ const traceInci = (ean, step, data) => {
         if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
         const filePath = path.join(logDir, `INCI_TRACE_${ean}.log`);
         const time = new Date().toISOString();
-        const strData = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+        const strData = typeof data === 'object' ? util.inspect(data, { depth: null, maxArrayLength: null }) : String(data);
         const msg = `[${time}] [${step}]\n${strData}\n\n`;
         fs.appendFileSync(filePath, msg, 'utf8');
         
         // WYŚWIETLANIE NA FRONTENDZIE UŻYTKOWNIKA (Złapie to globalny hook console.log i prześle przez WebSockety)
-        console.log(`\n\n=== 🕵️ INCI TRACE [${step}] ===\n${strData}\n==================================\n`);
+        console.log(`\n\n=== 🕵️ INCI TRACE [${step}] ===\n(Dane zapisano do pliku logu. Przekazano obiekt o długości ok. ${strData.length} znaków)\n==================================\n`);
     } catch(e) {
         console.error("Blad traceInci", e);
     }
@@ -166,7 +167,11 @@ console.log = (...args) => {
     try {
         const socketService = require('../../core/socket');
         // Przechwytujemy wszystko do konsoli webowej, aby widać było pracę V2
-        socketService.broadcast('nexus-notification', { type: 'PIPELINE_LOG', agentId: 'Orchestrator V2', message: args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ') });
+        let msgStr = args.map(a => typeof a === 'object' ? util.inspect(a, { depth: 3 }) : String(a)).join(' ');
+        if (msgStr.length > 1500) {
+            msgStr = msgStr.substring(0, 1500) + '... [TRUNCATED]';
+        }
+        socketService.broadcast('nexus-notification', { type: 'PIPELINE_LOG', agentId: 'Orchestrator V2', message: msgStr });
     } catch(e) {}
 };
 
