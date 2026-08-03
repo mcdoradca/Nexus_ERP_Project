@@ -324,13 +324,10 @@ class Orchestrator {
             
             if (osintText) {
                 this.state.osint_data = osintText;
-                console.log(`[Orchestrator] Pomyślnie pobrano dane z OSINT. Przekazywanie do Agenta 1.`);
-            } else if (!extracted?.inci?.value) {
-                this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
-                this.state.hitl_alert = 'MISSING_INCI_NO_OSINT';
-                this.state.next_action = 'HALT';
-                this.emitState();
-                return;
+                console.log(`[Orchestrator] Pomyślnie pobrano dane z OSINT (skrypt JS). Przekazywanie do Agenta 1.`);
+            } else {
+                console.log(`[Orchestrator] Pre-Scraper (JS) nie znalazł danych (lub wystąpił błąd pobierania). Ustawiam osint_data na pusty, Agent 1 musi użyć narzędzia googleSearch samodzielnie!`);
+                this.state.osint_data = "";
             }
         }
 
