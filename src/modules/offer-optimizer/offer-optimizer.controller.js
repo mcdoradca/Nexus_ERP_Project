@@ -602,9 +602,36 @@ const triggerUltimatePipeline = async (req, res) => {
                          sekcja6: orch.state.a10_result?.section_6_html || ""
                      };
 
+                     let updatedFeatures = {};
+                     try {
+                          updatedFeatures = typeof existingProduct?.features === 'string' ? JSON.parse(existingProduct.features) : (existingProduct?.features || {});
+                     } catch(e) {}
+                     
+                     if (orch.state.extracted_data) {
+                         if (orch.state.extracted_data.inci?.value) {
+                             updatedFeatures['INCI'] = orch.state.extracted_data.inci.value;
+                             updatedFeatures['SKŁAD'] = orch.state.extracted_data.inci.value;
+                         }
+                         if (orch.state.extracted_data.country_of_origin?.value) {
+                             updatedFeatures['Kraj pochodzenia'] = orch.state.extracted_data.country_of_origin.value;
+                         }
+                         if (orch.state.extracted_data.brand?.value) {
+                             updatedFeatures['Marka'] = orch.state.extracted_data.brand.value;
+                         }
+                         if (orch.state.extracted_data.capacity?.value) {
+                             updatedFeatures['Pojemność'] = orch.state.extracted_data.capacity.value;
+                         }
+                         if (orch.state.extracted_data.eu_responsible_person?.data) {
+                             const eu = orch.state.extracted_data.eu_responsible_person.data;
+                             const euText = typeof eu === 'object' ? `${eu.name || ''} ${eu.address_eu || ''} ${eu.contact || ''}`.trim() : eu;
+                             if (euText) updatedFeatures['INFORMACJE O BEZPIECZEŃSTWIE'] = euText;
+                         }
+                     }
+
                      await prisma.product.update({
                          where: { ean },
                          data: { 
+                             features: updatedFeatures,
                              offerDraft: { 
                                  ...currentOfferDraft,
                                  status: 'COMPLETE', 
@@ -621,7 +648,7 @@ const triggerUltimatePipeline = async (req, res) => {
                          result: {
                              editorHtml: editorHtmlObj,
                              title: orch.state.final_offer.title || existingProduct?.name,
-                             features: existingProduct?.features || {},
+                             features: updatedFeatures,
                              aeoContent: existingProduct?.aeoContent || '',
                              visionTickets: (currentOfferDraft.visionTickets?.length ? currentOfferDraft.visionTickets : null) || (currentOfferDraft.images?.length ? currentOfferDraft.images : null) || (existingProduct?.images?.map(img => typeof img === 'string' ? { originalUrl: img, isCompliant: true, alerts: [] } : img) || [])
                          }
