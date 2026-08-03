@@ -341,33 +341,52 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         const brandMatch = productDetailsText.match(/NAME:\s*([^\s]+)/);
         const brand = brandMatch ? brandMatch[1].toUpperCase() : 'MARKA';
 
+        // Ominięcie błędu fontconfig na Windows (krzaczki) - ładujemy bezpieczną czcionkę systemową jako base64
+        let fontBase64 = '';
+        try {
+            const fs = require('fs');
+            fontBase64 = fs.readFileSync('C:\\Windows\\Fonts\\arialbd.ttf').toString('base64');
+        } catch(e) {
+            console.error('[Sharp SVG] Nie udalo sie zaladowac czcionki:', e.message);
+        }
+
         // --- POST-PROCESSING: Włoska ramka i znak wodny AI (Sharp) ---
         const svgFrame = `
         <svg width="1080" height="1080" xmlns="http://www.w3.org/2000/svg">
+          <style>
+            @font-face {
+              font-family: 'ArialBold';
+              src: url(data:font/truetype;base64,${fontBase64}) format('truetype');
+            }
+            .brand-text {
+              font-family: 'ArialBold', sans-serif;
+            }
+          </style>
+
           <!-- Prawa ramka (Czerwona) -->
-          <rect x="1056" y="0" width="24" height="1080" fill="#CE2B37" />
+          <rect x="1062" y="0" width="18" height="1080" fill="#CE2B37" />
           
           <!-- Górna ramka (Zielony, Biały, Czerwony) -->
-          <rect x="0" y="0" width="360" height="24" fill="#009246" />
-          <rect x="360" y="0" width="360" height="24" fill="#FFFFFF" />
-          <rect x="720" y="0" width="360" height="24" fill="#CE2B37" />
+          <rect x="0" y="0" width="360" height="18" fill="#009246" />
+          <rect x="360" y="0" width="360" height="18" fill="#FFFFFF" />
+          <rect x="720" y="0" width="360" height="18" fill="#CE2B37" />
           
           <!-- Dolna ramka (Zielony, Biały, Czerwony) -->
-          <rect x="0" y="1056" width="360" height="24" fill="#009246" />
-          <rect x="360" y="1056" width="360" height="24" fill="#FFFFFF" />
-          <rect x="720" y="1056" width="360" height="24" fill="#CE2B37" />
+          <rect x="0" y="1062" width="360" height="18" fill="#009246" />
+          <rect x="360" y="1062" width="360" height="18" fill="#FFFFFF" />
+          <rect x="720" y="1062" width="360" height="18" fill="#CE2B37" />
 
           <!-- Lewa ramka (Zielona) - Przerwana na środku dla marki -->
-          <rect x="0" y="0" width="24" height="380" fill="#009246" />
-          <rect x="0" y="700" width="24" height="380" fill="#009246" />
+          <rect x="0" y="0" width="18" height="380" fill="#009246" />
+          <rect x="0" y="700" width="18" height="380" fill="#009246" />
           
-          <!-- Tekst Marki w przerwie lewej ramki (bez letter-spacing, by uniknąć problemów w librsvg) -->
-          <text x="-540" y="19" font-family="sans-serif" font-size="24" font-weight="bold" fill="#009246" stroke="#FFFFFF" stroke-width="1.5" text-anchor="middle" transform="rotate(-90)">${brand}</text>
+          <!-- Tekst Marki w przerwie lewej ramki - delikatnie wystaje do środka (y=20) -->
+          <text class="brand-text" x="-540" y="20" font-size="28" font-weight="bold" fill="#009246" stroke="#FFFFFF" stroke-width="1.5" text-anchor="middle" transform="rotate(-90)">${brand}</text>
 
-          <!-- Znacznik AI (Pigułka z tekstem AI i piktogramem) -->
+          <!-- Znacznik AI (Pigułka z tekstem AI i piktogramem gwiazdek) -->
           <g transform="translate(940, 1000)">
             <rect x="0" y="0" width="100" height="40" rx="20" fill="rgba(0,0,0,0.65)" />
-            <text x="15" y="28" font-family="sans-serif" font-size="22" font-weight="bold" fill="white">AI</text>
+            <text class="brand-text" x="15" y="28" font-size="22" fill="white">AI</text>
             <g transform="translate(50, 4) scale(1.33)">
               <path d="M10 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8z" fill="white" />
               <path d="M19 3c0 1.66-1.34 3-3 3 1.66 0 3 1.34 3 3 0-1.66 1.34-3 3-3-1.66 0-3-1.34-3-3z" fill="white" />
