@@ -1252,3 +1252,7 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 
 ### [2026-08-03] Naprawa parametru cieni Photoroom API (SSOT 6.0)
 - Skorygowano bledna konfiguracje shadow.mode w pliku src/modules/offer-optimizer/photoroom.prompts.js. Zmieniono tryb dla miniaturki (slot 1) na none z uwagi na przepisy AI Act zakazujace cieni. Zmieniono tryb dla lifestyle (slot 2-9) na ai.soft, co rozwiazuje blad 400 z Photoroom.
+
+## Aktualizacja: 2026-08-03
+* **Poprawki API Photoroom**: Zmieniono konfigurację cieni w żądaniach (SSOT 6.0). Ustawiono 'shadow.mode = "none"' dla głównego zdjęcia oraz 'shadow.mode = "ai.soft"' dla pozostałych (wcześniej powodowało to błąd API status 400 z powodu użycia 'ai.preset-soft').
+* **Nowe losowe propozycje**: Dodano ominięcie determinizmu ziaren w module Photoroom przy wywołaniach bezpośrednich z interfejsu API (z interfejsu graficznego). Od teraz przekazanie w kontrolerze `revision = Date.now().toString()` pozwala użytkownikowi uzyskać nową propozycję zdjęcia za każdym ponownym kliknięciem "Generuj AI", zachowując jednocześnie stabilność procesu wsadowego.

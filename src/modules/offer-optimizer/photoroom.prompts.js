@@ -44,8 +44,8 @@ function hashSKU(str) {
 }
 
 /** Seed per-slot: ten sam EAN => ta sama galeria, ale sloty różne między sobą */
-function seedForSlot(ean, slot) {
-  return hashSKU(`${ean}:${slot}`);
+function seedForSlot(ean, slot, revision = 0) {
+  return hashSKU(`${ean}:${slot}:${revision}`);
 }
 
 /**
@@ -495,7 +495,7 @@ const MODEL_HEADERS = {
  * @param {Object} cfg.styleHints       Filtry z Agenta 8
  * @returns {{ endpoint, headers, formData, meta }}
  */
-function buildPhotoroomRequest({ ean, slot, category, pimText, imageBlob, patchAsObject = {}, styleHints = null }) {
+function buildPhotoroomRequest({ ean, slot, category, pimText, imageBlob, patchAsObject = {}, styleHints = null, revision = 0 }) {
   const plan = SLOT_PLAN[slot];
   if (!plan) throw new Error(`Nieznany slot: ${slot}`);
 
@@ -523,7 +523,7 @@ function buildPhotoroomRequest({ ean, slot, category, pimText, imageBlob, patchA
   // --------------------------------------------------------------------------
   // SLOTY 2-9 — lifestyle
   // --------------------------------------------------------------------------
-  const seed = seedForSlot(ean, slot);
+  const seed = seedForSlot(ean, slot, revision);
   const rng = mulberry32(seed);
 
   const dict = STYLE_DICTIONARIES[category] || STYLE_DICTIONARIES.NON_CHEMICAL_GENERAL;

@@ -415,7 +415,8 @@ const generateLifestyle = async (req, res) => {
                     }
                 }
                 
-                const aiResult = await AiService.generateLifestyle(imageBase64, sourceImageUrl, ean, imageIndex, scenography);
+                const revision = Date.now().toString();
+                const aiResult = await AiService.generateLifestyle(imageBase64, sourceImageUrl, ean, imageIndex, scenography, revision);
                 const newImageBase64 = aiResult.base64;
                 const visualTrendReport = aiResult.visualTrendReport;
                 

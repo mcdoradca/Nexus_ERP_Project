@@ -824,7 +824,7 @@ Odpowiedz wyĹ‚Ä…cznie czystym obiektem JSON:
 
 // UsuniÄ™to stare getPlaybookPromptForSlot i getPaddingForSlot na rzecz moduĹ‚u photoroom.prompts.js
 
-async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0, scenography = null) {
+async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0, scenography = null, revision = 0) {
     const photoroomKey = (process.env.PHOTOROOM_API_KEY && process.env.PHOTOROOM_API_KEY !== "TBD") 
         ? process.env.PHOTOROOM_API_KEY 
         : "sandbox_sk_pr_default_9f10500b15c19db1e2f8aee29e1671ac7ff33aa2";
@@ -894,7 +894,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 
     let req;
     try {
-        req = buildPhotoroomRequest({ ean, slot, category: categoryType, pimText: productDetailsText, imageBlob, patchAsObject, styleHints });
+        req = buildPhotoroomRequest({ ean, slot, category: categoryType, pimText: productDetailsText, imageBlob, patchAsObject, styleHints, revision });
     } catch (e) {
         logLifestyleEvent('ERROR', 'Błąd podczas budowania żądania Photoroom (SSOT 6.0)', { error: e.message });
         throw e;
