@@ -123,32 +123,32 @@ function extractIngredientProps(pimText, limit = 2) {
 // Presety kompozycji rozszerzone, żeby produkt pojawiał się w najróżniejszych miejscach.
 // Suma paddingów przeciwnych < 1.0. verticalAlignment = bottom dla postawienia na blacie.
 const COMPOSITIONS = [
-  // Duże hero lewo/prawo
-  { pT: 0.05, pB: 0.02, pL: 0.05, pR: 0.50, hA: 'left',   vA: 'bottom', label: 'HUGE_LEFT' },
-  { pT: 0.05, pB: 0.02, pL: 0.50, pR: 0.05, hA: 'right',  vA: 'bottom', label: 'HUGE_RIGHT' },
-  { pT: 0.10, pB: 0.05, pL: 0.10, pR: 0.40, hA: 'left',   vA: 'bottom', label: 'BIG_LEFT' },
-  { pT: 0.10, pB: 0.05, pL: 0.40, pR: 0.10, hA: 'right',  vA: 'bottom', label: 'BIG_RIGHT' },
+  // Duże hero lewo/prawo (zmniejszone paddingi by produkt się zmieścił)
+  { pT: 0.05, pB: 0.05, pL: 0.05, pR: 0.40, hA: 'left',   vA: 'bottom', label: 'HUGE_LEFT' },
+  { pT: 0.05, pB: 0.05, pL: 0.40, pR: 0.05, hA: 'right',  vA: 'bottom', label: 'HUGE_RIGHT' },
+  { pT: 0.10, pB: 0.05, pL: 0.10, pR: 0.35, hA: 'left',   vA: 'bottom', label: 'BIG_LEFT' },
+  { pT: 0.10, pB: 0.05, pL: 0.35, pR: 0.10, hA: 'right',  vA: 'bottom', label: 'BIG_RIGHT' },
   
   // Średnie pozycje
-  { pT: 0.15, pB: 0.10, pL: 0.15, pR: 0.35, hA: 'left',   vA: 'bottom', label: 'MID_LEFT' },
-  { pT: 0.15, pB: 0.10, pL: 0.35, pR: 0.15, hA: 'right',  vA: 'bottom', label: 'MID_RIGHT' },
+  { pT: 0.15, pB: 0.10, pL: 0.15, pR: 0.30, hA: 'left',   vA: 'bottom', label: 'MID_LEFT' },
+  { pT: 0.15, pB: 0.10, pL: 0.30, pR: 0.15, hA: 'right',  vA: 'bottom', label: 'MID_RIGHT' },
   
   // Małe, edytorialowe (dalekie ujęcia)
-  { pT: 0.35, pB: 0.15, pL: 0.25, pR: 0.25, hA: 'center', vA: 'bottom', label: 'FAR_CENTER' },
-  { pT: 0.30, pB: 0.15, pL: 0.15, pR: 0.55, hA: 'left',   vA: 'bottom', label: 'FAR_LEFT' },
-  { pT: 0.30, pB: 0.15, pL: 0.55, pR: 0.15, hA: 'right',  vA: 'bottom', label: 'FAR_RIGHT' },
+  { pT: 0.25, pB: 0.15, pL: 0.25, pR: 0.25, hA: 'center', vA: 'bottom', label: 'FAR_CENTER' },
+  { pT: 0.25, pB: 0.15, pL: 0.15, pR: 0.45, hA: 'left',   vA: 'bottom', label: 'FAR_LEFT' },
+  { pT: 0.25, pB: 0.15, pL: 0.45, pR: 0.15, hA: 'right',  vA: 'bottom', label: 'FAR_RIGHT' },
   
-  // Skrajnie asymetryczne na krawędzi blatu
-  { pT: 0.20, pB: 0.05, pL: 0.65, pR: 0.05, hA: 'right',  vA: 'bottom', label: 'EDGE_RIGHT' },
-  { pT: 0.20, pB: 0.05, pL: 0.05, pR: 0.65, hA: 'left',   vA: 'bottom', label: 'EDGE_LEFT' },
+  // Skrajnie asymetryczne na krawędzi blatu (złagodzone do bezpiecznych 40-45%)
+  { pT: 0.20, pB: 0.05, pL: 0.45, pR: 0.05, hA: 'right',  vA: 'bottom', label: 'EDGE_RIGHT' },
+  { pT: 0.20, pB: 0.05, pL: 0.05, pR: 0.45, hA: 'left',   vA: 'bottom', label: 'EDGE_LEFT' },
 
   // Gładkie centralne (klasyczne)
-  { pT: 0.15, pB: 0.08, pL: 0.25, pR: 0.25, hA: 'center', vA: 'bottom', label: 'CLASSIC_HERO' },
-  { pT: 0.08, pB: 0.05, pL: 0.15, pR: 0.15, hA: 'center', vA: 'bottom', label: 'TIGHT_CENTER' },
+  { pT: 0.15, pB: 0.10, pL: 0.20, pR: 0.20, hA: 'center', vA: 'bottom', label: 'CLASSIC_HERO' },
+  { pT: 0.10, pB: 0.05, pL: 0.15, pR: 0.15, hA: 'center', vA: 'bottom', label: 'TIGHT_CENTER' },
   
   // Bardzo dużo stołu (wysoko zawieszony horyzont)
-  { pT: 0.05, pB: 0.35, pL: 0.20, pR: 0.20, hA: 'center', vA: 'bottom', label: 'HIGH_HORIZON' },
-  { pT: 0.05, pB: 0.30, pL: 0.05, pR: 0.55, hA: 'left',   vA: 'bottom', label: 'HIGH_HORIZON_LEFT' }
+  { pT: 0.05, pB: 0.30, pL: 0.20, pR: 0.20, hA: 'center', vA: 'bottom', label: 'HIGH_HORIZON' },
+  { pT: 0.05, pB: 0.25, pL: 0.05, pR: 0.40, hA: 'left',   vA: 'bottom', label: 'HIGH_HORIZON_LEFT' }
 ];
 
 // Zmieniony SLOT PLAN - zlikwidowane 'macro'
@@ -243,6 +243,8 @@ function buildPhotoroomRequest(ean, slot, pimText, imageBlob) {
   fd.append('paddingRight', String(comp.pR));
   fd.append('horizontalAlignment', comp.hA);
   fd.append('verticalAlignment', comp.vA);
+  // Zabezpieczenie przed wyrzuceniem poza kadr (chroni przed przycinaniem przez padding przy wyrównaniach bocznych)
+  fd.append('ignorePaddingAndSnapOnCroppedSides', 'false');
 
   return {
     endpoint: PHOTOROOM_ENDPOINT,
