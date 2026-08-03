@@ -345,38 +345,32 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         const svgFrame = `
         <svg width="1080" height="1080" xmlns="http://www.w3.org/2000/svg">
           <!-- Prawa ramka (Czerwona) -->
-          <rect x="1035" y="0" width="45" height="1080" fill="#CE2B37" />
+          <rect x="1056" y="0" width="24" height="1080" fill="#CE2B37" />
           
           <!-- Górna ramka (Zielony, Biały, Czerwony) -->
-          <rect x="0" y="0" width="360" height="45" fill="#009246" />
-          <rect x="360" y="0" width="360" height="45" fill="#FFFFFF" />
-          <rect x="720" y="0" width="360" height="45" fill="#CE2B37" />
+          <rect x="0" y="0" width="360" height="24" fill="#009246" />
+          <rect x="360" y="0" width="360" height="24" fill="#FFFFFF" />
+          <rect x="720" y="0" width="360" height="24" fill="#CE2B37" />
           
           <!-- Dolna ramka (Zielony, Biały, Czerwony) -->
-          <rect x="0" y="1035" width="360" height="45" fill="#009246" />
-          <rect x="360" y="1035" width="360" height="45" fill="#FFFFFF" />
-          <rect x="720" y="1035" width="360" height="45" fill="#CE2B37" />
+          <rect x="0" y="1056" width="360" height="24" fill="#009246" />
+          <rect x="360" y="1056" width="360" height="24" fill="#FFFFFF" />
+          <rect x="720" y="1056" width="360" height="24" fill="#CE2B37" />
 
           <!-- Lewa ramka (Zielona) - Przerwana na środku dla marki -->
-          <rect x="0" y="0" width="45" height="320" fill="#009246" />
-          <rect x="0" y="760" width="45" height="320" fill="#009246" />
+          <rect x="0" y="0" width="24" height="380" fill="#009246" />
+          <rect x="0" y="700" width="24" height="380" fill="#009246" />
           
-          <!-- Tekst Marki w przerwie lewej ramki -->
-          <text x="-540" y="33" font-family="Arial, sans-serif" font-size="42" font-weight="900" fill="#009246" stroke="#FFFFFF" stroke-width="2" letter-spacing="6" text-anchor="middle" transform="rotate(-90)">${brand}</text>
+          <!-- Tekst Marki w przerwie lewej ramki (bez letter-spacing, by uniknąć problemów w librsvg) -->
+          <text x="-540" y="19" font-family="sans-serif" font-size="24" font-weight="bold" fill="#009246" stroke="#FFFFFF" stroke-width="1.5" text-anchor="middle" transform="rotate(-90)">${brand}</text>
 
-          <!-- Znacznik AI (W prawym dolnym rogu, pigułka) -->
-          <g transform="translate(860, 975)">
-            <rect x="0" y="0" width="160" height="50" rx="25" fill="rgba(0,0,0,0.65)" />
-            <text x="25" y="35" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="white">AI</text>
-            <!-- 3 Gwiazdki -->
-            <g transform="translate(65, 12) scale(1.1)">
-              <path d="M 12,2 L 15,9 L 22,9 L 16,14 L 18,21 L 12,17 L 6,21 L 8,14 L 2,9 L 9,9 Z" fill="white" />
-            </g>
-            <g transform="translate(95, 12) scale(1.1)">
-              <path d="M 12,2 L 15,9 L 22,9 L 16,14 L 18,21 L 12,17 L 6,21 L 8,14 L 2,9 L 9,9 Z" fill="white" />
-            </g>
-            <g transform="translate(125, 12) scale(1.1)">
-              <path d="M 12,2 L 15,9 L 22,9 L 16,14 L 18,21 L 12,17 L 6,21 L 8,14 L 2,9 L 9,9 Z" fill="white" />
+          <!-- Znacznik AI (Pigułka z piktogramem gwiazdek) -->
+          <g>
+            <rect x="980" y="980" width="56" height="56" rx="28" fill="rgba(0,0,0,0.65)" />
+            <g transform="translate(991, 991) scale(1.4)">
+              <path d="M10 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8z" fill="white" />
+              <path d="M19 3c0 1.66-1.34 3-3 3 1.66 0 3 1.34 3 3 0-1.66 1.34-3 3-3-1.66 0-3-1.34-3-3z" fill="white" />
+              <path d="M17 15c0 1.1-0.9 2-2 2 1.1 0 2 0.9 2 2 0-1.1 0.9-2 2-2-1.1 0-2-0.9-2-2z" fill="white" />
             </g>
           </g>
         </svg>`;
