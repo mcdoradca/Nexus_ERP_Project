@@ -224,7 +224,8 @@ class Orchestrator {
                     active_nodes: [this.state.next_action],
                     node_status: this.state.node_status,
                     next_action: this.state.next_action,
-                    hitl_alert: this.state.hitl_alert
+                    hitl_alert: this.state.hitl_alert,
+                    extracted_data: this.state.extracted_data
                 } 
             });
         } catch(e) {

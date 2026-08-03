@@ -264,6 +264,21 @@ export const UnifiedProductPipelineView = ({
                     setPipelinePhase(data.payload.current_phase || '');
                     setActiveNodes(data.payload.active_nodes || []);
                     setNodeStatuses(data.payload.node_status || {});
+                    
+                    if (data.payload.extracted_data) {
+                        setNewProductForm(prev => {
+                            const updatedFeatures = { ...prev.features };
+                            let hasChanges = false;
+                            
+                            if (data.payload.extracted_data.inci && data.payload.extracted_data.inci.value && updatedFeatures['INCI'] !== data.payload.extracted_data.inci.value) {
+                                updatedFeatures['INCI'] = data.payload.extracted_data.inci.value;
+                                updatedFeatures['Skład'] = data.payload.extracted_data.inci.value;
+                                hasChanges = true;
+                            }
+                            
+                            return hasChanges ? { ...prev, features: updatedFeatures } : prev;
+                        });
+                    }
                 }
             } else if (data.type === 'PIPELINE_LOG') {
                 setPipelineLogs(prev => {
