@@ -5,8 +5,25 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
+const opentype = require('opentype.js');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+
+let FONT = null;
+try {
+    FONT = opentype.loadSync(path.join(__dirname, 'assets', 'Roboto-Bold.ttf'));
+} catch (e) {
+    console.error("[Photoroom V2] Błąd wczytywania czcionki dla wektorów:", e.message);
+}
+
+function textToPathData(text, fontSize) {
+    if (!FONT) return { d: '', width: 0 };
+    const p = FONT.getPath(text, 0, 0, fontSize);
+    return {
+        d: p.toPathData(2),
+        width: FONT.getAdvanceWidth(text, fontSize)
+    };
+}
 
 const { GLOBAL_ENVIRONMENTS, GLOBAL_SURFACES, GLOBAL_LIGHTING } = require('./photoroom.dictionaries');
 
@@ -341,28 +358,18 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         const brandMatch = productDetailsText.match(/NAME:\s*([^\s]+)/);
         const brand = brandMatch ? brandMatch[1].toUpperCase() : 'MARKA';
 
-        // Ominięcie błędu fontconfig na Windows (krzaczki) - ładujemy bezpieczną czcionkę systemową jako base64
-        let fontBase64 = '';
-        try {
-            const fs = require('fs');
-            fontBase64 = fs.readFileSync('C:\\Windows\\Fonts\\arialbd.ttf').toString('base64');
-        } catch(e) {
-            console.error('[Sharp SVG] Nie udalo sie zaladowac czcionki:', e.message);
-        }
+        // --- POST-PROCESSING: Włoska ramka i znak wodny AI (Sharp + opentype.js) ---
+        // Konwersja tekstu na absolutne ścieżki (rozwiązuje problem librsvg z fontconfig)
+        const brandPath = textToPathData(brand, 28);
+        const aiPath = textToPathData('AI', 22);
 
-        // --- POST-PROCESSING: Włoska ramka i znak wodny AI (Sharp) ---
+        // Skupienie układu lewej ramki: Ramka ma 18px szerokości. 
+        // 540 to środek wysokości. Odejmujemy połowę szerokości tekstu by wycentrować go asymetrycznie
+        const H = 1080;
+        const brandY = (H / 2) + (brandPath.width / 2);
+
         const svgFrame = `
         <svg width="1080" height="1080" xmlns="http://www.w3.org/2000/svg">
-          <style>
-            @font-face {
-              font-family: 'ArialBold';
-              src: url(data:font/truetype;base64,${fontBase64}) format('truetype');
-            }
-            .brand-text {
-              font-family: 'ArialBold', sans-serif;
-            }
-          </style>
-
           <!-- Prawa ramka (Czerwona) -->
           <rect x="1062" y="0" width="18" height="1080" fill="#CE2B37" />
           
@@ -380,13 +387,18 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
           <rect x="0" y="0" width="18" height="380" fill="#009246" />
           <rect x="0" y="700" width="18" height="380" fill="#009246" />
           
-          <!-- Tekst Marki w przerwie lewej ramki - delikatnie wystaje do środka (y=20) -->
-          <text class="brand-text" x="-540" y="20" font-size="28" font-weight="bold" fill="#009246" stroke="#FFFFFF" stroke-width="1.5" text-anchor="middle" transform="rotate(-90)">${brand}</text>
+          <!-- Tekst Marki jako Czyste Krzywe SVG -->
+          <!-- translate x=20 by tekst delikatnie wystawał z 18px ramki, y centruje rotowany napis -->
+          <g transform="translate(20, ${brandY}) rotate(-90)">
+            <path d="${brandPath.d}" fill="#009246" stroke="#FFFFFF" stroke-width="1.5" />
+          </g>
 
-          <!-- Znacznik AI (Pigułka z tekstem AI i piktogramem gwiazdek) -->
+          <!-- Znacznik AI (Pigułka z tekstem ze ścieżek i piktogramem gwiazdek) -->
           <g transform="translate(940, 1000)">
             <rect x="0" y="0" width="100" height="40" rx="20" fill="rgba(0,0,0,0.65)" />
-            <text class="brand-text" x="15" y="28" font-size="22" fill="white">AI</text>
+            <g transform="translate(15, 28)">
+                <path d="${aiPath.d}" fill="white" />
+            </g>
             <g transform="translate(50, 4) scale(1.33)">
               <path d="M10 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8z" fill="white" />
               <path d="M19 3c0 1.66-1.34 3-3 3 1.66 0 3 1.34 3 3 0-1.66 1.34-3 3-3-1.66 0-3-1.34-3-3z" fill="white" />
