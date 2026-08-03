@@ -408,15 +408,10 @@ const generateLifestyle = async (req, res) => {
                 console.log(`[Lifestyle AI Async] Rozpoczęto przetwarzanie zadania ${jobId} dla EAN: ${ean}, Slot: ${imageIndex}`);
                 
                 let scenography = null;
-                if (ean) {
-                    const product = await prisma.product.findUnique({ where: { ean } });
-                    if (product && product.offerDraft && product.offerDraft.scenography) {
-                        scenography = product.offerDraft.scenography;
-                    }
-                }
+                // V2 nie korzysta już ze scenography od Agenta 8, używamy totalnego losowania.
                 
-                const revision = Date.now().toString();
-                const aiResult = await AiService.generateLifestyle(imageBase64, sourceImageUrl, ean, imageIndex, scenography, revision);
+                const PhotoroomServiceV2 = require('../offer-optimizer-v2/photoroom.service');
+                const aiResult = await PhotoroomServiceV2.generateLifestyle(imageBase64, sourceImageUrl, ean, imageIndex);
                 const newImageBase64 = aiResult.base64;
                 const visualTrendReport = aiResult.visualTrendReport;
                 
