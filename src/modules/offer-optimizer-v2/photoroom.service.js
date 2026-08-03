@@ -337,13 +337,48 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 
         const resultBuffer = Buffer.from(response.data);
 
+        // Wyciąganie marki z INCI (tekst PIM)
+        const brandMatch = productDetailsText.match(/NAME:\s*([^\s]+)/);
+        const brand = brandMatch ? brandMatch[1].toUpperCase() : 'MARKA';
+
         // --- POST-PROCESSING: Włoska ramka i znak wodny AI (Sharp) ---
         const svgFrame = `
-        <svg width="1080" height="1080">
-          <rect x="7.5" y="7.5" width="1065" height="1065" stroke="#009246" stroke-width="15" fill="none" />
-          <rect x="22.5" y="22.5" width="1035" height="1035" stroke="#FFFFFF" stroke-width="15" fill="none" />
-          <rect x="37.5" y="37.5" width="1005" height="1005" stroke="#CE2B37" stroke-width="15" fill="none" />
-          <text x="1025" y="1015" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="rgba(128,128,128,0.75)" text-anchor="end">AI ✨✨✨</text>
+        <svg width="1080" height="1080" xmlns="http://www.w3.org/2000/svg">
+          <!-- Prawa ramka (Czerwona) -->
+          <rect x="1035" y="0" width="45" height="1080" fill="#CE2B37" />
+          
+          <!-- Górna ramka (Zielony, Biały, Czerwony) -->
+          <rect x="0" y="0" width="360" height="45" fill="#009246" />
+          <rect x="360" y="0" width="360" height="45" fill="#FFFFFF" />
+          <rect x="720" y="0" width="360" height="45" fill="#CE2B37" />
+          
+          <!-- Dolna ramka (Zielony, Biały, Czerwony) -->
+          <rect x="0" y="1035" width="360" height="45" fill="#009246" />
+          <rect x="360" y="1035" width="360" height="45" fill="#FFFFFF" />
+          <rect x="720" y="1035" width="360" height="45" fill="#CE2B37" />
+
+          <!-- Lewa ramka (Zielona) - Przerwana na środku dla marki -->
+          <rect x="0" y="0" width="45" height="320" fill="#009246" />
+          <rect x="0" y="760" width="45" height="320" fill="#009246" />
+          
+          <!-- Tekst Marki w przerwie lewej ramki -->
+          <text x="-540" y="33" font-family="Arial, sans-serif" font-size="42" font-weight="900" fill="#009246" stroke="#FFFFFF" stroke-width="2" letter-spacing="6" text-anchor="middle" transform="rotate(-90)">${brand}</text>
+
+          <!-- Znacznik AI (W prawym dolnym rogu, pigułka) -->
+          <g transform="translate(860, 975)">
+            <rect x="0" y="0" width="160" height="50" rx="25" fill="rgba(0,0,0,0.65)" />
+            <text x="25" y="35" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="white">AI</text>
+            <!-- 3 Gwiazdki -->
+            <g transform="translate(65, 12) scale(1.1)">
+              <path d="M 12,2 L 15,9 L 22,9 L 16,14 L 18,21 L 12,17 L 6,21 L 8,14 L 2,9 L 9,9 Z" fill="white" />
+            </g>
+            <g transform="translate(95, 12) scale(1.1)">
+              <path d="M 12,2 L 15,9 L 22,9 L 16,14 L 18,21 L 12,17 L 6,21 L 8,14 L 2,9 L 9,9 Z" fill="white" />
+            </g>
+            <g transform="translate(125, 12) scale(1.1)">
+              <path d="M 12,2 L 15,9 L 22,9 L 16,14 L 18,21 L 12,17 L 6,21 L 8,14 L 2,9 L 9,9 Z" fill="white" />
+            </g>
+          </g>
         </svg>`;
 
         const compositedBuffer = await sharp(resultBuffer)
