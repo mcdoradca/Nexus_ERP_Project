@@ -364,10 +364,11 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
           <!-- Tekst Marki w przerwie lewej ramki (bez letter-spacing, by uniknąć problemów w librsvg) -->
           <text x="-540" y="19" font-family="sans-serif" font-size="24" font-weight="bold" fill="#009246" stroke="#FFFFFF" stroke-width="1.5" text-anchor="middle" transform="rotate(-90)">${brand}</text>
 
-          <!-- Znacznik AI (Pigułka z piktogramem gwiazdek) -->
-          <g>
-            <rect x="980" y="980" width="56" height="56" rx="28" fill="rgba(0,0,0,0.65)" />
-            <g transform="translate(991, 991) scale(1.4)">
+          <!-- Znacznik AI (Pigułka z tekstem AI i piktogramem) -->
+          <g transform="translate(940, 1000)">
+            <rect x="0" y="0" width="100" height="40" rx="20" fill="rgba(0,0,0,0.65)" />
+            <text x="15" y="28" font-family="sans-serif" font-size="22" font-weight="bold" fill="white">AI</text>
+            <g transform="translate(50, 4) scale(1.33)">
               <path d="M10 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8z" fill="white" />
               <path d="M19 3c0 1.66-1.34 3-3 3 1.66 0 3 1.34 3 3 0-1.66 1.34-3 3-3-1.66 0-3-1.34-3-3z" fill="white" />
               <path d="M17 15c0 1.1-0.9 2-2 2 1.1 0 2 0.9 2 2 0-1.1 0.9-2 2-2-1.1 0-2-0.9-2-2z" fill="white" />
