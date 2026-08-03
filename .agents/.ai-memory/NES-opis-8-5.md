@@ -1249,3 +1249,6 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 ### [2026-08-02] Poprawa definicji JSON Schema dla Agenta 1
 - Zidentyfikowano błąd typu danych w orchestrator.js, gdzie walidacja schemy wymuszała płaską tablicę stringów zamiast dwuwymiarowej tablicy (Array of Arrays). Powodowało to rozbijanie jednego składu INCI na pojedyncze elementy i zgłaszanie konfliktu (Jaccard widział *Wersja 1: AQUA*, *Wersja 2: GLYCERIN*).
 - Poprawiono typ pola extracted_inci_candidates w A1_SCHEMA na rray -> array -> string, co pozwala LLMowi na bezpieczne przepychanie pełnych składów w tablicy tablic bez spłaszczania struktury przez walidator.
+
+### [2026-08-03] Naprawa parametru cieni Photoroom API (SSOT 6.0)
+- Skorygowano bledna konfiguracje shadow.mode w pliku src/modules/offer-optimizer/photoroom.prompts.js. Zmieniono tryb dla miniaturki (slot 1) na none z uwagi na przepisy AI Act zakazujace cieni. Zmieniono tryb dla lifestyle (slot 2-9) na ai.soft, co rozwiazuje blad 400 z Photoroom.
