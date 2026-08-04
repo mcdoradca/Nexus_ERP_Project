@@ -371,14 +371,12 @@ async function getProductParametersByEan(ean) {
             const product = response.data.products[0];
             if (product.parameters) {
                 product.parameters.forEach(p => {
-                    if (p.type === 'dictionary') {
-                        if (p.valuesLabels && p.valuesLabels.length > 0) {
-                            hardFeatures[p.name] = p.valuesLabels[0];
-                        }
-                    } else {
-                        if (p.values && p.values.length > 0) {
-                            hardFeatures[p.name] = p.values[0];
-                        }
+                    // Endpoint /sale/products nie zwraca pola "type", 
+                    // dlatego sprawdzamy po prostu czy są dostępne etykiety (słowniki)
+                    if (p.valuesLabels && p.valuesLabels.length > 0) {
+                        hardFeatures[p.name] = p.valuesLabels[0];
+                    } else if (p.values && p.values.length > 0) {
+                        hardFeatures[p.name] = p.values[0];
                     }
                 });
             }
