@@ -374,10 +374,22 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
             const brandPath = textToPathData(brand, 28);
             const H = 1080;
             const brandY = (H / 2) + (brandPath.width / 2);
+            
+            // Dynamicznie dopasowana wielkość luki na tekst
+            const padding = 60; // Margines wokół tekstu (po 30px na górę i dół luki)
+            const gapHeight = brandPath.width + padding;
+            let topRectHeight = (H / 2) - (gapHeight / 2);
+            let bottomRectY = (H / 2) + (gapHeight / 2);
+            let bottomRectHeight = H - bottomRectY;
+
+            // Zabezpieczenie przed ujemnymi wysokościami w przypadku ekstremalnie długiego tekstu
+            if (topRectHeight < 0) topRectHeight = 0;
+            if (bottomRectHeight < 0) bottomRectHeight = 0;
+
             leftFrameSvg = `
           <!-- Lewa ramka (Zielona) - Przerwana na środku dla marki -->
-          <rect x="0" y="0" width="18" height="380" fill="#009246" />
-          <rect x="0" y="700" width="18" height="380" fill="#009246" />
+          <rect x="0" y="0" width="18" height="${topRectHeight}" fill="#009246" />
+          <rect x="0" y="${bottomRectY}" width="18" height="${bottomRectHeight}" fill="#009246" />
           
           <!-- Tekst Marki jako Czyste Krzywe SVG -->
           <!-- translate x=20 by tekst delikatnie wystawał z 18px ramki, y centruje rotowany napis -->
