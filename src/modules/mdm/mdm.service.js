@@ -59,26 +59,30 @@ async function handleProductContentOptimized(payload) {
     console.log(`[MDM SERVICE] 🌟 Złapano event: PRODUCT_CONTENT_OPTIMIZED dla EAN: ${ean}`);
     
     try {
+        const hasAgentPayload = product.offerDraft && product.offerDraft.agentPayload;
+
         // Wypychamy najlepszą jakość danych na zewnątrz (BaseLinker)
-        if (product.baselinkerInventoryId && product.baselinkerId) {
+        if ((product.baselinkerInventoryId && product.baselinkerId) || hasAgentPayload) {
             console.log(`[MDM SERVICE] Uruchamiam BaseLinkerService aby zaktualizować dane w zewnętrznym systemie...`);
             
             if (product.offerDraft && typeof product.offerDraft === 'object') {
-                // Jeśli mamy bogatego drafta (w tym ustrukturyzowane 6 sekcji htmlContent i features)
+                // Jeśli mamy bogatego drafta (w tym SSOT agentPayload lub 6 sekcji htmlContent i features)
                 // wysyłamy go pełnym obiektem do exportOfferToBaselinker, by zmapowało do extra_fields
                 await baselinkerService.exportOfferToBaselinker(
-                    product.baselinkerInventoryId,
-                    product.baselinkerId,
+                    product.baselinkerInventoryId || (hasAgentPayload ? product.offerDraft.agentPayload.inventory_id : null),
+                    product.baselinkerId || (hasAgentPayload ? product.offerDraft.agentPayload.product_id : ""),
                     product.offerDraft
                 );
             } else {
-                // Fallback do prostego update'u z konkatenacją
-                await baselinkerService.updateProductDescriptionAndTitle(
-                    product.baselinkerInventoryId,
-                    product.baselinkerId,
-                    product.name,
-                    product.descriptionHtml
-                );
+                // Fallback do prostego update'u z konkatenacją (wymaga ID)
+                if (product.baselinkerInventoryId && product.baselinkerId) {
+                    await baselinkerService.updateProductDescriptionAndTitle(
+                        product.baselinkerInventoryId,
+                        product.baselinkerId,
+                        product.name,
+                        product.descriptionHtml
+                    );
+                }
             }
             
             console.log(`[MDM SERVICE] ✅ Zewnętrzny BaseLinker został zaktualizowany! Źródło prawdy zachowane.`);

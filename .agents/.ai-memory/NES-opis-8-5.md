@@ -1298,3 +1298,5 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 - W kontrolerze \offer-optimizer.controller.js\ przekazano mu globalny \config\ (inventory 307) i poprawiono odczyt odpowiedzi.
 - Usunięto błąd 400 dla produktów bez ID z wewnątrz \offer-optimizer.controller.js\, delegując odpowiedzialność za ułożenie payloadu z nowym \is_new: true\ na nową strukturę z SSOT.
 - Serwis \aselinker.service.js\ został zaktualizowany, aby priorytetyzować SSOT payload podany mu jako \gentPayload\ z pominięciem własnego łączenia tekstów, na rzecz wykonania przez SSOT LLM.
+
+- Poprawiono usterkę w \mdm.service.js\, która milcząco blokowała eksport z powody weryfikacji brakującego identyfikatora BaseLinkera mimo udanego wykonania payloadu przez SSOT Agenta.
