@@ -6,24 +6,26 @@ const inciRefService = require('../inci.reference.service.js');
 const { Orchestrator, PHASE_1_GROUNDING } = require('../orchestrator.js');
 const aiWrapper = require('../ai.wrapper.js');
 
-test('Orchestrator - HARD FAIL na pustym eu_responsible_person w EXTRACT', async (t) => {
+test('Orchestrator - ZBIORCZY HITL na pustym eu_responsible_person po A1', async (t) => {
     const originalCall = aiWrapper.callAgentWithTelemetry;
     aiWrapper.callAgentWithTelemetry = async () => ({
         usage: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 },
-        result: { pipeline_id: "test", gtin_ean: "8000137015436" }
+        result: { pipeline_id: "test", gtin_ean: "8000137015436" } // A1 returns nothing
     });
 
     const orch = new Orchestrator("8000137015436");
     orch.emitState = () => {}; 
     const orgExtract = require('../baselinker.extract.js').extractResponsiblePersonFromDescription;
-    require('../baselinker.extract.js').extractResponsiblePersonFromDescription = () => ({ name: 'A', address_eu: 'B', contact: null });
+    require('../baselinker.extract.js').extractResponsiblePersonFromDescription = () => ({ name: '', address_eu: '', contact: null }); // Force missing data
 
     await orch.runPhase1({ name: "mock pim" });
 
-    assert.strictEqual(orch.state.node_status['EXTRACT'], 'HALTED_HITL_REQUIRED');
-    assert.strictEqual(orch.state.hitl_alert, 'MISSING_EU_RESPONSIBLE_PERSON');
+    // Extract passes because it defers missing data to A1
+    assert.strictEqual(orch.state.node_status['EXTRACT'], 'OK');
     
-    // Z uwagi na wstrzyknięcie lambdy w extractor (powyżej), asercja sprawdza twardy stop
+    // A1 halts due to missing data (aggregated hitl)
+    assert.strictEqual(orch.state.node_status['A1'], 'HALTED_HITL_REQUIRED');
+    assert.ok(orch.state.aggregated_hitl_errors.some(e => e.includes('Osoba Odpowiedzialna (Brak/Niepełne)')));
     
     require('../baselinker.extract.js').extractResponsiblePersonFromDescription = orgExtract;
     aiWrapper.callAgentWithTelemetry = originalCall;
