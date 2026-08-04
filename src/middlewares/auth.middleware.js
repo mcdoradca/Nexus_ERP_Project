@@ -29,7 +29,8 @@ async function authenticateToken(req, res, next) {
         if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
             return res.status(401).json({ error: 'Nieprawidłowy token' });
         }
-        console.error('[Auth Middleware] Krytyczny błąd Prisma lub Sesji:', err.message || err);
+        const { logger } = require('../utils/logger');
+        logger.error(`[Auth Middleware] Krytyczny błąd Prisma lub Sesji: ${err.message || err}`, { stack: err.stack });
         return res.status(503).json({ error: 'Utrata połączenia z bazą danych lub błąd weryfikacji' });
     }
 }

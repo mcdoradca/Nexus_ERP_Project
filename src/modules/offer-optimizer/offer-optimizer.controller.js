@@ -409,7 +409,7 @@ const validateBaselinkerExport = async (req, res) => {
 
         return res.status(200).json(mappedResult);
     } catch (e) {
-        console.error('[validateBaselinkerExport] Błąd:', e.message);
+        exportLogger.error(`[PIPELINE START ERROR] Błąd podczas walidacji: ${e.message}`, { stack: e.stack });
         return res.status(500).json({ error: e.message });
     }
 };
