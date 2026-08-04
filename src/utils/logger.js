@@ -56,8 +56,8 @@ const exportLogger = winston.createLogger({
   ]
 });
 
-// Jeśli nie jesteśmy na produkcji, loguj też do konsoli w czytelnym formacie
-if (process.env.NODE_ENV !== 'production') {
+// Włącz console.log zawsze, żeby użytkownik widział logi w terminalu
+if (true) {
   logger.add(new winston.transports.Console({
     format: winston.format.combine(
       winston.format.colorize(),
