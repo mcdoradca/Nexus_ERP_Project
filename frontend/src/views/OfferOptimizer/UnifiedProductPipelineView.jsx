@@ -348,10 +348,10 @@ export const UnifiedProductPipelineView = ({
 
     const handleTriggerPipelineFromScratch = () => {
         setAccumulatedHitlOverrides([]);
-        handleTriggerPipeline();
+        handleTriggerPipeline(null, true);
     };
 
-    const handleTriggerPipeline = async (hitlOverrides = null) => {
+    const handleTriggerPipeline = async (hitlOverrides = null, forceRestart = false) => {
         try {
             // Najpierw zapisujemy formularz PIM
             const savedProd = await handleCreateProduct();
@@ -362,6 +362,7 @@ export const UnifiedProductPipelineView = ({
             
             const payload = { ean: savedProd.ean };
             if (Array.isArray(hitlOverrides)) payload.hitlOverrides = hitlOverrides;
+            if (forceRestart) payload.forceRestart = true;
 
             // Startujemy Pipeline
             const response = await fetch(`${API_URL}/api/offer-optimizer/pipeline/trigger`, {

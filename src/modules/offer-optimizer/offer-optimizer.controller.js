@@ -523,7 +523,7 @@ const checkLifestyleStatus = (req, res) => {
 
 const triggerUltimatePipeline = async (req, res) => {
     try {
-        const { ean, hitlOverrides } = req.body;
+        const { ean, hitlOverrides, forceRestart } = req.body;
         if (!ean) return res.status(400).json({ error: "Wymagany kod EAN do inicjalizacji potoku." });
 
         console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta V2 dla EAN: ${ean}`);
@@ -546,32 +546,36 @@ const triggerUltimatePipeline = async (req, res) => {
                 const { Orchestrator } = require('../offer-optimizer-v2/orchestrator');
                 const orch = new Orchestrator(ean);
 
-                // Szukamy najświeższego stanu potoku (resume) w logach
-                const fs = require('fs');
-                const path = require('path');
-                const logsDir = path.join(__dirname, '../offer-optimizer-v2/logs');
-                let latestState = null;
-                let latestMtime = 0;
-                
-                if (fs.existsSync(logsDir)) {
-                    const files = fs.readdirSync(logsDir);
-                    const eanFiles = files.filter(f => f.startsWith(`state_PL-${ean}-`) && f.endsWith('.json'));
-                    for (let f of eanFiles) {
-                        const fp = path.join(logsDir, f);
-                        const stats = fs.statSync(fp);
-                        if (stats.mtimeMs > latestMtime) {
-                            latestMtime = stats.mtimeMs;
-                            try {
-                                latestState = JSON.parse(fs.readFileSync(fp, 'utf8'));
-                            } catch (e) {
-                                console.error(`[Controller] Nie udało się odczytać pliku stanu: ${f}`);
+                if (forceRestart) {
+                    console.log(`[Controller] Wymuszono restart potoku dla EAN: ${ean}. Ignorowanie poprzedniego stanu.`);
+                } else {
+                    // Szukamy najświeższego stanu potoku (resume) w logach
+                    const fs = require('fs');
+                    const path = require('path');
+                    const logsDir = path.join(__dirname, '../offer-optimizer-v2/logs');
+                    let latestState = null;
+                    let latestMtime = 0;
+                    
+                    if (fs.existsSync(logsDir)) {
+                        const files = fs.readdirSync(logsDir);
+                        const eanFiles = files.filter(f => f.startsWith(`state_PL-${ean}-`) && f.endsWith('.json'));
+                        for (let f of eanFiles) {
+                            const fp = path.join(logsDir, f);
+                            const stats = fs.statSync(fp);
+                            if (stats.mtimeMs > latestMtime) {
+                                latestMtime = stats.mtimeMs;
+                                try {
+                                    latestState = JSON.parse(fs.readFileSync(fp, 'utf8'));
+                                } catch (e) {
+                                    console.error(`[Controller] Nie udało się odczytać pliku stanu: ${f}`);
+                                }
                             }
                         }
                     }
-                }
 
-                if (latestState) {
-                    orch.resumeFromState(latestState);
+                    if (latestState) {
+                        orch.resumeFromState(latestState);
+                    }
                 }
 
                 // Zastosowanie opcjonalnych nadpisań HITL (z przeglądarki)
