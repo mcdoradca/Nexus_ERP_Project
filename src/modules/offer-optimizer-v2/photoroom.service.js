@@ -32,81 +32,136 @@ const { GLOBAL_ENVIRONMENTS, GLOBAL_SURFACES, GLOBAL_LIGHTING } = require('./pho
 
 // Wczytywanie wyuczonych properties (właściwości INCI itp. przeniesione z V1)
 // Z V1 zachowujemy te, które działały super.
+// Rozbudowany słownik składników (wielowariantowy)
 const INGREDIENT_PROPS = {
-  'rozmaryn':        'fresh rosemary sprigs',
-  'rosmarino':       'fresh rosemary sprigs',
-  'rosemary':        'fresh rosemary sprigs',
-  'lawend':          'dried lavender stems',
-  'lavend':          'dried lavender stems',
-  'szałwi':          'fresh sage leaves',
-  'sage':            'fresh sage leaves',
-  'eukaliptus':      'a eucalyptus branch',
-  'eucalyptus':      'a eucalyptus branch',
-  'rumianek':        'chamomile flowers',
-  'chamomile':       'chamomile flowers',
-  'mięt':            'fresh mint leaves',
-  'mint':            'fresh mint leaves',
-  'aloes':           'a cut aloe vera leaf with gel drops',
-  'aloe':            'a cut aloe vera leaf with gel drops',
-  'pokrzyw':         'fresh nettle leaves',
-  'zielona herbata': 'loose green tea leaves',
-  'tè verde':        'loose green tea leaves',
-  'green tea':       'loose green tea leaves',
-  'herbat':          'loose green tea leaves',
-  'cytryn':          'fresh lemon slices',
-  'lemon':           'fresh lemon slices',
-  'pomarańcz':       'fresh orange slices',
-  'orange':          'fresh orange slices',
-  'granat':          'pomegranate seeds scattered nearby',
-  'malin':           'a few fresh raspberries',
-  'kokos':           'a cracked coconut half',
-  'coconut':         'a cracked coconut half',
-  'migdał':          'raw almonds',
-  'almond':          'raw almonds',
-  'owies':           'scattered oat flakes',
-  'oat':             'scattered oat flakes',
-  'miód':            'a honey dipper with golden honey drips',
-  'honey':           'a honey dipper with golden honey drips',
-  'wanili':          'vanilla pods',
-  'hialuron':        'clear water droplets glistening on the surface',
-  'ialuronico':      'clear water droplets glistening on the surface',
-  'hyaluronic':      'clear water droplets glistening on the surface',
-  'kolagen':         'a small dish of clear serum drops',
-  'collagen':        'a small dish of clear serum drops',
-  'keratyn':         'a silky strand of light fabric',
-  'keratin':         'a silky strand of light fabric',
-  'witamina c':      'fresh orange slices',
-  'vitamin c':       'fresh orange slices',
-  'węgiel':          'pieces of activated charcoal',
-  'charcoal':        'pieces of activated charcoal',
-  'glinka':          'a small bowl of powdered clay',
-  'clay':            'a small bowl of powdered clay',
-  'sól morska':      'coarse sea salt crystals',
-  'sea salt':        'coarse sea salt crystals',
-  'argan':           'argan nuts and a small oil dish',
-  'shea':            'a chunk of raw shea butter',
-  'jojoba':          'golden oil drops in a glass dish',
-  'oliw':            'olive branch with green olives',
-  'olive':           'olive branch with green olives',
-  'ocean':           'smooth sea pebbles',
-  'alga':            'dried seaweed strands',
-  'detox':           'cucumber slices and mint leaves',
+  'rozmaryn':        ['fresh rosemary sprigs', 'scattered rosemary leaves on a soft surface', 'a small bundle of dried rosemary tied with twine'],
+  'rosmarino':       ['fresh rosemary sprigs', 'scattered rosemary leaves on a soft surface'],
+  'rosemary':        ['fresh rosemary sprigs', 'scattered rosemary leaves on a soft surface'],
+  'lawend':          ['dried lavender stems', 'a few sprigs of fresh purple lavender', 'scattered lavender buds'],
+  'lavend':          ['dried lavender stems', 'a few sprigs of fresh purple lavender'],
+  'szałwi':          ['fresh sage leaves', 'a bundle of dried white sage'],
+  'sage':            ['fresh sage leaves', 'a bundle of dried white sage'],
+  'eukaliptus':      ['a eucalyptus branch with soft green leaves', 'scattered silver dollar eucalyptus leaves'],
+  'eucalyptus':      ['a eucalyptus branch with soft green leaves', 'scattered silver dollar eucalyptus leaves'],
+  'rumianek':        ['chamomile flowers', 'a few delicate chamomile blossoms resting softly'],
+  'chamomile':       ['chamomile flowers', 'a few delicate chamomile blossoms resting softly'],
+  'mięt':            ['fresh mint leaves', 'a small sprig of bright green peppermint', 'dewy mint leaves'],
+  'mint':            ['fresh mint leaves', 'a small sprig of bright green peppermint'],
+  'aloes':           ['a cut aloe vera leaf with clear gel drops', 'fresh aloe vera slices', 'a small potted aloe vera plant in soft focus'],
+  'aloe':            ['a cut aloe vera leaf with clear gel drops', 'fresh aloe vera slices'],
+  'pokrzyw':         ['fresh nettle leaves with morning dew', 'a bundle of dried nettle'],
+  'zielona herbata': ['loose green tea leaves', 'a delicate matcha powder dusting'],
+  'tè verde':        ['loose green tea leaves', 'a delicate matcha powder dusting'],
+  'green tea':       ['loose green tea leaves', 'a delicate matcha powder dusting'],
+  'herbat':          ['loose black tea leaves', 'a small vintage teaspoon with tea leaves'],
+  'cytryn':          ['fresh lemon slices', 'a halved bright yellow lemon', 'curled lemon peel zest'],
+  'lemon':           ['fresh lemon slices', 'a halved bright yellow lemon'],
+  'pomarańcz':       ['fresh orange slices', 'a halved juicy orange', 'dried orange slices'],
+  'orange':          ['fresh orange slices', 'a halved juicy orange'],
+  'granat':          ['pomegranate seeds scattered beautifully', 'a cracked open pomegranate with ruby red seeds'],
+  'malin':           ['a few fresh red raspberries', 'crushed raspberries leaving a soft pink stain'],
+  'kokos':           ['a cracked coconut half showing white meat', 'scattered coconut flakes', 'a small bowl of coconut oil'],
+  'coconut':         ['a cracked coconut half showing white meat', 'scattered coconut flakes'],
+  'migdał':          ['raw almonds in their skins', 'blanched white almonds', 'a few almond blossoms'],
+  'almond':          ['raw almonds in their skins', 'blanched white almonds'],
+  'owies':           ['scattered golden oat flakes', 'a small wooden scoop filled with oats', 'a few stalks of dried oat grass'],
+  'oat':             ['scattered golden oat flakes', 'a small wooden scoop filled with oats'],
+  'miód':            ['a wooden honey dipper with golden honey drips', 'a small pool of amber honey', 'a piece of natural honeycomb'],
+  'honey':           ['a wooden honey dipper with golden honey drips', 'a piece of natural honeycomb'],
+  'wanili':          ['dark vanilla pods', 'a vanilla bean split open', 'a delicate yellow vanilla orchid'],
+  'hialuron':        ['clear water droplets glistening on the surface', 'a small glass pipette dripping clear serum', 'microscopic water bubbles in soft focus'],
+  'ialuronico':      ['clear water droplets glistening on the surface', 'a small glass pipette dripping clear serum'],
+  'hyaluronic':      ['clear water droplets glistening on the surface', 'a small glass pipette dripping clear serum'],
+  'kolagen':         ['a small dish of clear viscous serum', 'a single glowing drop of essence'],
+  'collagen':        ['a small dish of clear viscous serum', 'a single glowing drop of essence'],
+  'keratyn':         ['a silky strand of light satin fabric', 'a smooth glossy silk ribbon'],
+  'keratin':         ['a silky strand of light satin fabric', 'a smooth glossy silk ribbon'],
+  'witamina c':      ['bright fresh orange slices', 'a glowing drop of yellow serum', 'a halved ruby red grapefruit'],
+  'vitamin c':       ['bright fresh orange slices', 'a glowing drop of yellow serum'],
+  'węgiel':          ['pieces of raw activated charcoal', 'a dusting of fine black charcoal powder', 'smooth black volcanic stones'],
+  'charcoal':        ['pieces of raw activated charcoal', 'a dusting of fine black charcoal powder'],
+  'glinka':          ['a small bowl of powdered green clay', 'a smear of pink clay texture', 'chunks of raw white kaolin clay'],
+  'clay':            ['a small bowl of powdered green clay', 'a smear of pink clay texture'],
+  'sól morska':      ['coarse sea salt crystals', 'a pinch of pink himalayan salt', 'a small wooden bowl of bath salts'],
+  'sea salt':        ['coarse sea salt crystals', 'a pinch of pink himalayan salt'],
+  'argan':           ['argan nuts', 'a small glass dish of golden argan oil', 'a cracked argan kernel'],
+  'shea':            ['a chunk of raw yellow shea butter', 'a smooth dollop of white shea cream'],
+  'jojoba':          ['golden jojoba seeds', 'a few drops of golden oil'],
+  'oliw':            ['an olive branch with green olives', 'a rustic bowl with fresh olives', 'a drop of green olive oil'],
+  'olive':           ['an olive branch with green olives', 'a drop of green olive oil'],
+  'ocean':           ['smooth sea glass pieces', 'a delicate white seashell', 'a starfish resting softly'],
+  'alga':            ['translucent green seaweed strands', 'a piece of dry kelp'],
+  'detox':           ['fresh cucumber slices and mint leaves', 'a glass of infused water with lemon'],
+  'awokado':         ['a halved fresh avocado', 'a small spoonful of green avocado mash', 'avocado leaves'],
+  'masło':           ['a smooth swirl of rich cream', 'a chunk of raw botanical butter'],
+  'truskawk':        ['a fresh ripe strawberry', 'a halved strawberry with green leaves'],
+  'jedwab':          ['a pool of liquid silk', 'a draping of fine white silk cloth'],
+  'róż':             ['soft pink rose petals', 'a single blooming white rose', 'a wild pink rose bud'],
+  'rose':            ['soft pink rose petals', 'a single blooming white rose'],
 };
 
+// Nowe obszerne i nieszablonowe elementy neutralne (bez oklepanych marmurów)
 const NEUTRAL_PROPS = [
-  'a folded cream cotton towel',
-  'a small ceramic dish',
-  'smooth river stones',
-  'a sprig of dried grass in soft focus',
-  'clear water droplets on the surface',
-  'a natural loofah sponge',
-  'sparkling clean glassware in the background',
-  'a natural cellulose sponge',
-  'a neatly folded grey microfiber cloth',
-  'a small steel tray',
-  'a folded linen cloth',
-  'a smooth wooden block',
-  'a coil of natural twine'
+  // Delikatna natura / zwierzątka
+  'a tiny cute ladybug resting on a leaf',
+  'a small adorable garden snail on a twig',
+  'a delicate butterfly perched softly in the background',
+  'a cute little hermit crab shell',
+  'a small friendly bumblebee hovering softly',
+  'a tiny green tree frog in soft focus',
+  'a fluffy white dandelion seed head',
+  'a delicate iridescent dragonfly wing',
+  
+  // Tkaniny i tekstury
+  'a gently folded cream cotton towel',
+  'a flowing strand of sheer organza ribbon',
+  'a crumpled piece of raw linen',
+  'a smooth draped silk scarf',
+  'a piece of delicate white lace',
+  'a soft fluffy wool throw in the background',
+  'a piece of woven rattan texture',
+  
+  // Szkło i woda
+  'clear water droplets scattered on the surface',
+  'a subtle water ripple reflection',
+  'a clear glass sphere refracting light',
+  'a softly frosted glass element',
+  'a tiny glass vial catching the sunlight',
+  'a vintage textured glass bottle in soft focus',
+  'a small puddle of clear water with soft reflections',
+  'condensation drops on a cool surface',
+  
+  // Botanika i flora neutralna
+  'a sprig of fluffy dried pampas grass',
+  'a beautiful green monstera leaf shadow',
+  'a delicate fern frond',
+  'a piece of sun-bleached driftwood',
+  "a cluster of tiny white baby's breath flowers",
+  'a dried lotus pod',
+  'a fresh green ginkgo biloba leaf',
+  'a thin curling vine',
+  'a small piece of natural cork',
+  'a dried pine cone',
+  
+  // Naturalne kamienie (nietypowe, bez marmuru/granitu)
+  'a smooth dark river pebble',
+  'a piece of rough rose quartz crystal',
+  'a translucent piece of sea glass',
+  'a small cluster of amethyst crystals',
+  'a glowing piece of natural amber',
+  'a slice of natural agate with beautiful banding',
+  'a chunk of raw sea salt',
+  'a weathered terracotta shard',
+  
+  // Drewno i inne naturalne surowce
+  'a small wooden block with visible grain',
+  'a piece of curled birch bark',
+  'a few scattered natural pearls',
+  'a piece of raw unpolished clay',
+  'a natural sea sponge',
+  'a small bamboo stalk',
+  'a woven palm leaf',
+  'a piece of raw honeycomb texture'
 ];
 
 let learnedProps = {};
@@ -125,8 +180,11 @@ function extractIngredientProps(pimText, limit = 2) {
   const matched = [];
   const activeDictionary = { ...INGREDIENT_PROPS, ...learnedProps };
   
-  for (const [needle, phrase] of Object.entries(activeDictionary)) {
-    if (text.includes(needle.toLowerCase()) && !matched.includes(phrase)) matched.push(phrase);
+  for (const [needle, phrases] of Object.entries(activeDictionary)) {
+    if (text.includes(needle.toLowerCase())) {
+        const phrase = Array.isArray(phrases) ? pickRandom(phrases) : phrases;
+        if (!matched.includes(phrase)) matched.push(phrase);
+    }
   }
   if (matched.length <= limit) return matched;
   // Losowy wybór, bo Agent 8 wylatuje i chcemy totalny random
@@ -172,17 +230,17 @@ const COMPOSITIONS = [
   { pT: 0.05, pB: 0.25, pL: 0.05, pR: 0.40, hA: 'left',   vA: 'bottom', label: 'HIGH_HORIZON_LEFT' }
 ];
 
-// Zmieniony SLOT PLAN - zlikwidowane 'macro'
+// Zmieniony SLOT PLAN - zlikwidowane 'macro', zmienione na dynamiczne zakresy propsów
 const SLOT_PLAN = {
   1: { role: 'thumbnail' },
-  2: { role: 'hero',        propCount: 1 },
-  3: { role: 'ingredients', propCount: 2 },
-  4: { role: 'mood',        propCount: 1 },
-  5: { role: 'hero',        propCount: 0 },
-  6: { role: 'ingredients', propCount: 3 },
-  7: { role: 'hero',        propCount: 1 },
-  8: { role: 'mood',        propCount: 0 },
-  9: { role: 'ingredients', propCount: 2 },
+  2: { role: 'hero',        minProps: 1, maxProps: 2 },
+  3: { role: 'ingredients', minProps: 2, maxProps: 4 },
+  4: { role: 'mood',        minProps: 1, maxProps: 2 },
+  5: { role: 'hero',        minProps: 1, maxProps: 2 },
+  6: { role: 'ingredients', minProps: 2, maxProps: 4 },
+  7: { role: 'hero',        minProps: 1, maxProps: 2 },
+  8: { role: 'mood',        minProps: 1, maxProps: 2 },
+  9: { role: 'ingredients', minProps: 2, maxProps: 3 },
 };
 
 function buildBackgroundPrompt({ surface, environment, lighting, props }) {
@@ -238,12 +296,22 @@ function buildPhotoroomRequest(ean, slot, pimText, imageBlob) {
   const lighting    = pickRandom(GLOBAL_LIGHTING);
 
   let props = [];
-  if (plan.propCount > 0) {
-    props = extractIngredientProps(pimText, plan.propCount);
-    while (props.length < plan.propCount) {
+  if (plan.role !== 'thumbnail') {
+    // Losujemy ile propsów ze składników chcemy w tym slocie
+    const targetCount = Math.floor(Math.random() * (plan.maxProps - plan.minProps + 1)) + plan.minProps;
+    
+    // Zawsze wyciągamy do targetCount składników powiązanych z produktem
+    props = extractIngredientProps(pimText, targetCount);
+    
+    // Twarda zasada: Zawsze dorzucamy do zdjęcia losowe elementy z NEUTRAL_PROPS (żeby ożywić tło i uniknąć pustki)
+    const neutralCount = Math.floor(Math.random() * 2) + 1; // Zawsze 1 lub 2 neutralne
+    let addedNeutrals = 0;
+    while (addedNeutrals < neutralCount) {
       const neutral = pickRandom(NEUTRAL_PROPS);
-      if (!props.includes(neutral)) props.push(neutral);
-      else break;
+      if (!props.includes(neutral)) {
+        props.push(neutral);
+        addedNeutrals++;
+      }
     }
   }
 
