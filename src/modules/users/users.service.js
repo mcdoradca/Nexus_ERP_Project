@@ -4,6 +4,7 @@ const EventBus = require('../../core/EventBus');
 
 async function getAllUsers() {
     return prisma.user.findMany({ 
+        where: { isActive: true },
         orderBy: { name: 'asc' }, 
         select: { id: true, name: true, group: true, department: true, color: true, activeTaskId: true, email: true, role: true, isActive: true, accessibleModules: true, smtpUser: true, smtpHost: true, smtpPort: true } 
     });
@@ -57,4 +58,13 @@ async function updateUserSmtpConfig(id, data, editorId) {
     return updatedUser;
 }
 
-module.exports = { getAllUsers, createUser, updateUser, updateUserSmtpConfig };
+async function deleteUser(id, editorId) {
+    const deletedUser = await prisma.user.update({
+        where: { id },
+        data: { isActive: false }
+    });
+    EventBus.publish('UserDeleted', { userId: id, editorId, timestamp: new Date() });
+    return deletedUser;
+}
+
+module.exports = { getAllUsers, createUser, updateUser, updateUserSmtpConfig, deleteUser };

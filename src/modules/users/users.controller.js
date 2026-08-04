@@ -41,5 +41,14 @@ async function updateSmtpConfig(req, res) {
         res.status(500).json({ error: 'Błąd serwera przy aktualizacji SMTP', details: error.message });
     }
 }
+async function deleteUser(req, res) {
+    try {
+        const deletedUser = await usersService.deleteUser(req.params.id, req.user.id);
+        res.status(200).json({ success: true, message: 'Użytkownik został pomyślnie zarchiwizowany (soft-delete)' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Błąd serwera przy usuwaniu użytkownika', details: error.message });
+    }
+}
 
-module.exports = { getUsers, createUser, updateUser, updateSmtpConfig };
+module.exports = { getUsers, createUser, updateUser, updateSmtpConfig, deleteUser };

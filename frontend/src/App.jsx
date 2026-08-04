@@ -1347,7 +1347,7 @@ function App() {
 
             {activeTab === 'chat' && renderChatInterface()}
             {activeTab === 'knowledge' && <KnowledgeBasePanel token={token} API_URL={API_URL} />}
-            {activeTab === 'admin' && <AdminPanelView users={users} setIsNewUserModalOpen={setIsNewUserModalOpen} setEditingUser={setEditingUser} setIsUserEditModalOpen={setIsUserEditModalOpen} token={token} API_URL={API_URL} />}
+            {activeTab === 'admin' && <AdminPanelView users={users} setUsers={setUsers} setIsNewUserModalOpen={setIsNewUserModalOpen} setEditingUser={setEditingUser} setIsUserEditModalOpen={setIsUserEditModalOpen} token={token} API_URL={API_URL} />}
         </main>
       </div>
 

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Users, Settings, Archive, RotateCcw, Search, CloudLightning, Save, CheckCircle2 } from 'lucide-react';
+import { Plus, Users, Settings, Archive, RotateCcw, Search, CloudLightning, Save, CheckCircle2, Trash2 } from 'lucide-react';
 import { getInitials, getDepartmentColor } from '../utils';
 
 const AdminPanelView = ({
   users,
+  setUsers,
   setIsNewUserModalOpen,
   setEditingUser,
   setIsUserEditModalOpen,
@@ -41,6 +42,19 @@ const AdminPanelView = ({
         await axios.patch(`${API_URL}/api/tasks/${taskId}/restore`, {}, { headers: { Authorization: `Bearer ${token}` } });
         setArchivedTasks(archivedTasks.filter(t => t.id !== taskId));
      } catch (err) { console.error(err); }
+  };
+
+  const handleDeleteUser = async (userId, userName) => {
+     if (window.confirm(`Czy na pewno chcesz usunąć pracownika: ${userName}?\nZostanie on zarchiwizowany (soft-delete).`)) {
+         try {
+             await axios.delete(`${API_URL}/api/users/${userId}`, { headers: { Authorization: `Bearer ${token}` } });
+             if (setUsers) {
+                 setUsers(users.filter(u => u.id !== userId));
+             }
+         } catch (err) {
+             alert(err.response?.data?.error || 'Błąd podczas usuwania pracownika');
+         }
+     }
   };
 
   return (
@@ -133,9 +147,12 @@ const AdminPanelView = ({
                       </div>
                     </td>
                     <td className="px-8 py-6 text-right">
-                      <div className="flex justify-end">
+                      <div className="flex justify-end space-x-2">
                         <button onClick={() => { setEditingUser({...u, accessibleModules: u.accessibleModules || []}); setIsUserEditModalOpen(true); }} className="p-3 bg-white border border-slate-400 text-slate-600 rounded-sm hover:bg-slate-900 hover:text-white transition-all shadow-sm active:scale-95 group-hover:border-indigo-200">
                           <Settings className="w-4 h-4"/>
+                        </button>
+                        <button onClick={() => handleDeleteUser(u.id, u.name)} className="p-3 bg-white border border-slate-400 text-rose-500 rounded-sm hover:bg-rose-500 hover:text-white transition-all shadow-sm active:scale-95 group-hover:border-rose-200" title="Usuń konto">
+                          <Trash2 className="w-4 h-4"/>
                         </button>
                       </div>
                     </td>
