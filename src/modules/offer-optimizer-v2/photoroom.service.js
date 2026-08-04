@@ -11,7 +11,10 @@ const prisma = new PrismaClient();
 
 let FONT = null;
 try {
-    FONT = opentype.loadSync(path.join(__dirname, 'assets', 'Roboto-Bold.ttf'));
+    const fontPath = path.join(__dirname, 'assets', 'Roboto-Bold.ttf');
+    const fontBuffer = fs.readFileSync(fontPath);
+    const fontArrayBuffer = fontBuffer.buffer.slice(fontBuffer.byteOffset, fontBuffer.byteOffset + fontBuffer.byteLength);
+    FONT = opentype.parse(fontArrayBuffer);
 } catch (e) {
     console.error("[Photoroom V2] Błąd wczytywania czcionki dla wektorów:", e.message);
 }
@@ -322,13 +325,17 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 
     // 2. Pobranie danych z PIM (słowa kluczowe do propsów)
     let productDetailsText = "";
+    let dbProduct = null;
     try {
         if (ean) {
-            const product = await prisma.product.findUnique({ where: { ean } });
-            if (product) {
-                const featuresString = product.features ? JSON.stringify(product.features) : '';
-                const draftString = product.offerDraft ? JSON.stringify(product.offerDraft) : '';
-                productDetailsText = `NAME: ${product.name} FEATURES: ${featuresString} DESC: ${product.descriptionHtml || ''} DRAFT: ${draftString}`;
+            dbProduct = await prisma.product.findUnique({ 
+                where: { ean },
+                include: { brand: true } 
+            });
+            if (dbProduct) {
+                const featuresString = dbProduct.features ? JSON.stringify(dbProduct.features) : '';
+                const draftString = dbProduct.offerDraft ? JSON.stringify(dbProduct.offerDraft) : '';
+                productDetailsText = `NAME: ${dbProduct.name} FEATURES: ${featuresString} DESC: ${dbProduct.descriptionHtml || ''} DRAFT: ${draftString}`;
             }
         }
     } catch(e) { 
@@ -354,19 +361,30 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 
         const resultBuffer = Buffer.from(response.data);
 
-        // Wyciąganie marki z INCI (tekst PIM)
-        const brandMatch = productDetailsText.match(/NAME:\s*([^\s]+)/);
-        const brand = brandMatch ? brandMatch[1].toUpperCase() : 'MARKA';
-
         // --- POST-PROCESSING: Włoska ramka i znak wodny AI (Sharp + opentype.js) ---
-        // Konwersja tekstu na absolutne ścieżki (rozwiązuje problem librsvg z fontconfig)
-        const brandPath = textToPathData(brand, 28);
+        // Wyciąganie marki bez halucynacji regexa
+        const brand = (dbProduct && dbProduct.brand && dbProduct.brand.name) 
+            ? dbProduct.brand.name.toUpperCase() 
+            : null;
+
         const aiPath = textToPathData('AI', 22);
 
-        // Skupienie układu lewej ramki: Ramka ma 18px szerokości. 
-        // 540 to środek wysokości. Odejmujemy połowę szerokości tekstu by wycentrować go asymetrycznie
-        const H = 1080;
-        const brandY = (H / 2) + (brandPath.width / 2);
+        let leftFrameSvg = '';
+        if (brand) {
+            const brandPath = textToPathData(brand, 28);
+            const H = 1080;
+            const brandY = (H / 2) + (brandPath.width / 2);
+            leftFrameSvg = `
+          <!-- Lewa ramka (Zielona) - Przerwana na środku dla marki -->
+          <rect x="0" y="0" width="18" height="380" fill="#009246" />
+          <rect x="0" y="700" width="18" height="380" fill="#009246" />
+          
+          <!-- Tekst Marki jako Czyste Krzywe SVG -->
+          <!-- translate x=20 by tekst delikatnie wystawał z 18px ramki, y centruje rotowany napis -->
+          <g transform="translate(20, ${brandY}) rotate(-90)">
+            <path d="${brandPath.d}" fill="#009246" stroke="#FFFFFF" stroke-width="1.5" />
+          </g>`;
+        }
 
         const svgFrame = `
         <svg width="1080" height="1080" xmlns="http://www.w3.org/2000/svg">
@@ -383,15 +401,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
           <rect x="360" y="1062" width="360" height="18" fill="#FFFFFF" />
           <rect x="720" y="1062" width="360" height="18" fill="#CE2B37" />
 
-          <!-- Lewa ramka (Zielona) - Przerwana na środku dla marki -->
-          <rect x="0" y="0" width="18" height="380" fill="#009246" />
-          <rect x="0" y="700" width="18" height="380" fill="#009246" />
-          
-          <!-- Tekst Marki jako Czyste Krzywe SVG -->
-          <!-- translate x=20 by tekst delikatnie wystawał z 18px ramki, y centruje rotowany napis -->
-          <g transform="translate(20, ${brandY}) rotate(-90)">
-            <path d="${brandPath.d}" fill="#009246" stroke="#FFFFFF" stroke-width="1.5" />
-          </g>
+${leftFrameSvg}
 
           <!-- Znacznik AI (Pigułka z tekstem ze ścieżek i piktogramem gwiazdek) -->
           <g transform="translate(940, 1000)">
