@@ -1256,3 +1256,13 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 ## Aktualizacja: 2026-08-03
 * **Poprawki API Photoroom**: Zmieniono konfigurację cieni w żądaniach (SSOT 6.0). Ustawiono 'shadow.mode = "none"' dla głównego zdjęcia oraz 'shadow.mode = "ai.soft"' dla pozostałych (wcześniej powodowało to błąd API status 400 z powodu użycia 'ai.preset-soft').
 * **Nowe losowe propozycje**: Dodano ominięcie determinizmu ziaren w module Photoroom przy wywołaniach bezpośrednich z interfejsu API (z interfejsu graficznego). Od teraz przekazanie w kontrolerze `revision = Date.now().toString()` pozwala użytkownikowi uzyskać nową propozycję zdjęcia za każdym ponownym kliknięciem "Generuj AI", zachowując jednocześnie stabilność procesu wsadowego.
+
+### Aktualizacja: Zmiana mechanizmu wyswietlania marki i ladowania opentype.js
+- Zastapiono przestarzale opentype.loadSync na opentype.parse.
+- Usunieto logike pobierajaca marke poprzez RegEx, zastosowano 'include: { brand: true }' i fallback pomijajacy rysowanie calej lewej ramki.
+
+### Aktualizacja: Optymalizacja logiki rekwizytow (Props) w Chaos Engine
+- Przebudowano INGREDIENT_PROPS na slownik wielowariantowy wspierajacy tablice dla wyeliminowania powtarzalnosci.
+- Rozbudowano NEUTRAL_PROPS o kilkadziesiat organicznych, kreatywnych dodatkow (usunieto beton/marmur).
+- Zaimplementowano dynamiczne losowanie ilosci propsow bazujace na parametrach minProps/maxProps.
+- Dodano hard-lock gwarantujacy dobieranie min. 1 rekwizytu neutralnego do kazdego ujecia, zapobiegajac 'pustym' kadrom.
