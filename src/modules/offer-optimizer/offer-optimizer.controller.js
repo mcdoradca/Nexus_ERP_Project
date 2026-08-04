@@ -476,6 +476,7 @@ const exportToBaselinker = async (req, res) => {
 
         res.status(200).json({ message: msg });
     } catch (e) {
+        exportLogger.error(`[PIPELINE EXPORT ERROR] Błąd podczas eksportu (kontroler): ${e.message}`, { stack: e.stack });
         res.status(500).json({ error: e.message });
     }
 };
