@@ -41,11 +41,11 @@ ${inputJson}
             console.log('[BaselinkerExportAgent] Wywoływanie walidacji przez LLM...');
             const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
             const response = await ai.models.generateContent({
-                model: 'gemini-3.5-flash',
+                model: 'gemini-1.5-pro-preview',
                 contents: prompt,
                 config: {
                     systemInstruction: this.systemPrompt,
-                    temperature: 0.1
+                    temperature: 0.8
                 }
             });
 

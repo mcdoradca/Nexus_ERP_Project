@@ -148,7 +148,7 @@ Warstwa katalogu Base i warstwy kanałów są niezależne. Blokada kanału nie b
 
 ### 4.3 Pola dodatkowe produktu
 
-Odpowiedź `getInventoryAvailableTextFieldKeys` dla katalogu 307 **nie zawiera żadnych kluczy pól dodatkowych** — katalog nie ma ich obecnie zdefiniowanych, więc Agent nic w tym zakresie nie robi.
+Odpowiedź `getInventoryAvailableTextFieldKeys` dla katalogu 385 **nie zawiera żadnych kluczy pól dodatkowych** — katalog nie ma ich obecnie zdefiniowanych, więc Agent nic w tym zakresie nie robi.
 
 Jeśli w przyszłości zostaną dodane: pola dodatkowe trafiają do `text_fields` pod kluczami zwróconymi przez API, obok `name` i `features`. Warstwa transportowa pobiera ich listę metodą `getInventoryExtraFields`, przekazuje do konfiguracji, a Agent routuje wartości z Nexusa 1:1, na tych samych zasadach co pozostałe treści. **Dokładny format klucza bierzesz z odpowiedzi API — nie konstruujesz go samodzielnie.**
 
@@ -214,7 +214,7 @@ Komunikat błędu wskazuje, **co poprawić w Nexusie** — Agent nie proponuje g
 
 ```json
 {
-  "inventory_id": "307",
+  "inventory_id": "385",
   "product_id": "2685",
   "category_id": 3,
   "text_fields": {

@@ -207,6 +207,10 @@ class BaseLinkerService {
             // Agent zbudował już strukturę SSOT (inventory_id, product_id, category_id, text_fields)
             payload = { ...draftData.agentPayload, images: imagesMap };
             
+            // TARCZA OCHRONNA PRZED HALUCYNACJĄ AGENTA
+            if (inventoryId) payload.inventory_id = inventoryId;
+            if (productId) payload.product_id = productId;
+            
             if (payload.text_fields) {
                 for (const key in payload.text_fields) {
                     if (typeof payload.text_fields[key] === 'string') {
