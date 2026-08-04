@@ -209,7 +209,12 @@ class BaseLinkerService {
             
             // TARCZA OCHRONNA PRZED HALUCYNACJĄ AGENTA
             if (inventoryId) payload.inventory_id = inventoryId;
-            if (productId) payload.product_id = productId;
+            if (productId) {
+                payload.product_id = productId;
+                // Kiedy aktualizujemy produkt, 'category_id' wygenerowane z szablonu (np. 3) 
+                // powoduje błąd API "Invalid category identifier provided".
+                delete payload.category_id;
+            }
             
             if (payload.text_fields) {
                 for (const key in payload.text_fields) {
