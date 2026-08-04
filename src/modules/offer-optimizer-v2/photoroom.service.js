@@ -65,7 +65,8 @@ const INGREDIENT_PROPS = {
   'migdał':          ['raw almonds in their skins', 'blanched white almonds', 'a few almond blossoms'],
   'almond':          ['raw almonds in their skins', 'blanched white almonds'],
   'owies':           ['scattered golden oat flakes', 'a small wooden scoop filled with oats', 'a few stalks of dried oat grass'],
-  'oat':             ['scattered golden oat flakes', 'a small wooden scoop filled with oats'],
+  'oatmeal':         ['scattered golden oat flakes', 'a small wooden scoop filled with oats'],
+  'oat extract':     ['scattered golden oat flakes', 'a small wooden scoop filled with oats'],
   'miód':            ['a wooden honey dipper with golden honey drips', 'a small pool of amber honey', 'a piece of natural honeycomb'],
   'honey':           ['a wooden honey dipper with golden honey drips', 'a piece of natural honeycomb'],
   'wanili':          ['dark vanilla pods', 'a vanilla bean split open', 'a delicate yellow vanilla orchid'],
@@ -321,10 +322,8 @@ function buildPhotoroomRequest(ean, slot, pimText, imageBlob) {
   fd.append('background.expandPrompt', 'never');
   fd.append('quality', 'advanced');
 
-  fd.append('lighting.mode', 'ai.preserve-hue-and-saturation');  
-  fd.append('shadow.mode', 'ai.auto-with-overrides');    
-  fd.append('shadow.softnessOverride', '0.7');
-  fd.append('shadow.intensityOverride', '0.8');
+  fd.append('lighting.mode', 'ai.auto');  
+  fd.append('shadow.mode', 'ai.soft');    
 
   // Losowa kompozycja (zamiast przypisanej z góry)
   const comp = pickRandom(COMPOSITIONS);
