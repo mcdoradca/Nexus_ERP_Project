@@ -153,6 +153,10 @@ export const UnifiedProductPipelineView = ({
     const [isSavingDraft, setIsSavingDraft] = useState(false);
     const [showExportConfirm, setShowExportConfirm] = useState(false);
     const [isPimCollapsed, setIsPimCollapsed] = useState(false);
+    
+    // NOWE STANY EKSPORTU BASELINKER
+    const [isValidatingExport, setIsValidatingExport] = useState(false);
+    const [exportValidationResult, setExportValidationResult] = useState(null);
 
     const brandDropdownRef = useRef(null);
 
@@ -435,13 +439,37 @@ export const UnifiedProductPipelineView = ({
         }
     };
 
-    const handleConfirmExport = async () => {
-        setIsExporting(true);
+    const handleValidateExport = async () => {
+        setIsValidatingExport(true);
         try {
             const draftData = {
                 title: liveTitle,
                 htmlContent: editorHtml,
                 images: visionTickets
+            };
+            const res = await axios.post(`${API_URL}/api/offer-optimizer/validate-baselinker-export`, {
+                ean: liveEan,
+                draftData
+            }, { headers: { Authorization: `Bearer ${token}` } });
+            
+            setExportValidationResult(res.data);
+            setShowExportConfirm(true);
+        } catch (err) {
+            console.error(err);
+            alert('Błąd walidacji eksportu: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsValidatingExport(false);
+        }
+    };
+
+    const handleConfirmExport = async () => {
+        setIsExporting(true);
+        try {
+            const draftData = {
+                title: exportValidationResult ? exportValidationResult.title : liveTitle,
+                htmlContent: exportValidationResult ? exportValidationResult.sections : editorHtml,
+                images: visionTickets,
+                features: exportValidationResult ? exportValidationResult.parameters : {}
             };
             await axios.post(`${API_URL}/api/offer-optimizer/export-baselinker`, {
                 ean: liveEan,
@@ -757,10 +785,12 @@ export const UnifiedProductPipelineView = ({
                                                 Zapisz Szkic AI
                                             </button>
                                             <button 
-                                                onClick={() => setShowExportConfirm(true)}
+                                                onClick={handleValidateExport}
+                                                disabled={isValidatingExport}
                                                 className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-[10px] uppercase font-black tracking-widest rounded-md transition-all shadow-md flex items-center disabled:opacity-50"
                                             >
-                                                <Send className="w-4 h-4 mr-2" /> Eksport Baselinker
+                                                {isValidatingExport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                                                Eksport Baselinker
                                             </button>
                                         </div>
                                     </div>
@@ -1235,38 +1265,104 @@ export const UnifiedProductPipelineView = ({
                 </div>
             {showExportConfirm && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col">
-                        <div className="p-6 border-b border-slate-100 flex items-center space-x-4 bg-rose-50 text-rose-600">
-                            <ShieldAlert className="w-8 h-8" />
-                            <div>
-                                <h3 className="font-black text-lg uppercase tracking-tight">Ostrzeżenie o nadpisaniu</h3>
-                                <p className="text-xs font-bold opacity-80 uppercase tracking-widest">Eksport do zewnętrznych systemów</p>
+                    <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+                        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-rose-50 text-rose-600 shrink-0">
+                            <div className="flex items-center space-x-4">
+                                <ShieldAlert className="w-8 h-8" />
+                                <div>
+                                    <h3 className="font-black text-lg uppercase tracking-tight">Weryfikacja przed Eksportem do BaseLinker</h3>
+                                    <p className="text-xs font-bold opacity-80 uppercase tracking-widest">Agent Walidator zweryfikował dane</p>
+                                </div>
+                            </div>
+                            <div className={`px-4 py-2 rounded-md font-bold text-xs uppercase tracking-widest ${exportValidationResult?.validation?.is_valid ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                {exportValidationResult?.validation?.is_valid ? 'Zatwierdzony do Eksportu' : 'Wykryto Błędy'}
                             </div>
                         </div>
-                        <div className="p-6 text-slate-600 text-sm leading-relaxed">
-                            <p className="mb-4">
-                                Potwierdzając eksport, zgadzasz się na permanentne <strong>nadpisanie twardych danych PIM</strong> oraz wysłanie wygenerowanego opisu i zoptymalizowanych multimediów do systemu BaseLinker, a następnie do Allegro.
-                            </p>
-                            <p className="font-bold text-slate-800">
-                                Ta operacja jest odwracalna jedynie ręcznie!
-                            </p>
+                        
+                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50">
+                            {exportValidationResult && (
+                                <div className="space-y-6">
+                                    {exportValidationResult.validation?.errors?.length > 0 && (
+                                        <div className="p-4 bg-rose-100 border border-rose-200 rounded-md">
+                                            <h4 className="text-xs font-bold text-rose-800 uppercase tracking-widest mb-2">Błędy Walidacji:</h4>
+                                            <ul className="list-disc pl-5 text-sm text-rose-700">
+                                                {exportValidationResult.validation.errors.map((err, i) => <li key={i}>{err}</li>)}
+                                            </ul>
+                                        </div>
+                                    )}
+                                    
+                                    {exportValidationResult.validation?.warnings?.length > 0 && (
+                                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
+                                            <h4 className="text-xs font-bold text-amber-800 uppercase tracking-widest mb-2">Ostrzeżenia:</h4>
+                                            <ul className="list-disc pl-5 text-sm text-amber-700">
+                                                {exportValidationResult.validation.warnings.map((warn, i) => <li key={i}>{warn}</li>)}
+                                            </ul>
+                                        </div>
+                                    )}
+                                    
+                                    <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Tytuł Ofertowy (Allegro)</label>
+                                            <span className={`text-xs font-bold ${exportValidationResult.title?.length > 75 ? 'text-rose-500' : 'text-slate-400'}`}>
+                                                {exportValidationResult.title?.length || 0} / 75 znaków
+                                            </span>
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            value={exportValidationResult.title || ""}
+                                            onChange={(e) => setExportValidationResult(prev => ({ ...prev, title: e.target.value }))}
+                                            className={`w-full p-3 border rounded-sm font-bold outline-none ${exportValidationResult.title?.length > 75 ? 'border-rose-400 focus:border-rose-500 bg-rose-50' : 'border-slate-300 focus:border-indigo-500'}`}
+                                        />
+                                    </div>
+                                    
+                                    <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm">
+                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Podgląd Sekcji (Moduły)</h4>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {Object.entries(exportValidationResult.sections || {}).map(([key, html]) => (
+                                                <div key={key} className="border border-slate-100 p-3 rounded-sm bg-slate-50">
+                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 pb-1 border-b border-slate-200">{key}</div>
+                                                    <div className="text-[11px] text-slate-700 max-h-32 overflow-y-auto custom-scrollbar" dangerouslySetInnerHTML={{ __html: html }} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm">
+                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Parametry do wyeksportowania</h4>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {Object.entries(exportValidationResult.parameters || {}).map(([key, val]) => (
+                                                <div key={key} className="flex justify-between items-center p-2 bg-slate-50 border border-slate-200 rounded-sm">
+                                                    <span className="text-[10px] font-bold text-slate-600 truncate mr-2" title={key}>{key}</span>
+                                                    <span className="text-[11px] font-black text-indigo-700 truncate" title={val}>{val}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end space-x-3">
-                            <button 
-                                onClick={() => setShowExportConfirm(false)}
-                                disabled={isExporting}
-                                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
-                            >
-                                Anuluj
-                            </button>
-                            <button 
-                                onClick={handleConfirmExport}
-                                disabled={isExporting}
-                                className="px-6 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-md font-black text-xs uppercase tracking-widest transition-colors flex items-center shadow-lg disabled:opacity-50"
-                            >
-                                {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                                Zatwierdź Eksport
-                            </button>
+                        
+                        <div className="p-4 bg-white border-t border-slate-200 flex justify-between items-center shrink-0">
+                            <p className="text-xs text-slate-500 font-bold max-w-lg">
+                                Potwierdzając eksport, zgadzasz się na permanentne <strong className="text-rose-600">nadpisanie twardych danych PIM</strong> oraz wysłanie danych do systemu BaseLinker.
+                            </p>
+                            <div className="flex space-x-3">
+                                <button 
+                                    onClick={() => setShowExportConfirm(false)}
+                                    disabled={isExporting}
+                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
+                                >
+                                    Anuluj
+                                </button>
+                                <button 
+                                    onClick={handleConfirmExport}
+                                    disabled={isExporting || (exportValidationResult && exportValidationResult.title?.length > 75)}
+                                    className="px-6 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-md font-black text-xs uppercase tracking-widest transition-colors flex items-center shadow-lg disabled:opacity-50"
+                                >
+                                    {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                                    Zatwierdź Eksport
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

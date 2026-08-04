@@ -9,6 +9,7 @@ const socketService = require('../../core/socket');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const EventBus = require('../../core/EventBus');
+const baselinkerExportAgent = require('../offer-optimizer-v2/baselinker.export.agent');
 
 // Magazyn pamięci dla asynchronicznych zadań Lifestyle AI z automatycznym czyszczeniem (TTL 15 min)
 const lifestyleJobs = new Map();
@@ -313,6 +314,43 @@ const saveDraft = async (req, res) => {
         res.status(500).json({ error: e.message });
     }
 };
+
+const validateBaselinkerExport = async (req, res) => {
+    try {
+        const { ean, draftData } = req.body;
+        if (!ean || !draftData) return res.status(400).json({ error: "Brak danych" });
+
+        const product = await prisma.product.findUnique({ where: { ean } });
+        if (!product) {
+            return res.status(404).json({ error: "Nie znaleziono produktu o podanym EAN." });
+        }
+
+        // Fetch hard features from Allegro to feed the agent
+        let hardFeatures = {};
+        if (product.allegroCategoryId) {
+            try {
+                hardFeatures = await AllegroService.getProductParametersByEan(ean, product.allegroCategoryId);
+            } catch (err) {
+                console.warn("[BaselinkerExport] Błąd pobierania hardFeatures z Allegro:", err.message);
+            }
+        }
+
+        const agentInput = {
+            title: draftData.title,
+            htmlContent: draftData.htmlContent,
+            features: product.features || {},
+            hardFeatures: hardFeatures || {}
+        };
+
+        const result = await baselinkerExportAgent.validateAndFormatExport(agentInput);
+        
+        return res.status(200).json(result);
+    } catch (e) {
+        console.error('[validateBaselinkerExport] Błąd:', e.message);
+        return res.status(500).json({ error: e.message });
+    }
+};
+
 
 const exportToBaselinker = async (req, res) => {
     try {
@@ -798,6 +836,7 @@ module.exports = {
     regenerateTitle,
     proxyImage,
     saveDraft,
+    validateBaselinkerExport,
     exportToBaselinker,
     generateLifestyle,
     checkLifestyleStatus,

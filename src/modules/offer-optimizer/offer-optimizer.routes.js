@@ -19,6 +19,7 @@ router.get('/status/:jobId', controller.checkStatus);
 router.post('/regenerate-title', express.json({ limit: '5mb' }), controller.regenerateTitle);
 router.get('/proxy-image', controller.proxyImage);
 router.post('/save-draft', express.json({ limit: '50mb' }), controller.saveDraft);
+router.post('/validate-baselinker-export', express.json({ limit: '50mb' }), controller.validateBaselinkerExport);
 router.post('/export-baselinker', express.json({ limit: '50mb' }), controller.exportToBaselinker);
 router.post('/generate-lifestyle', express.json({ limit: '50mb' }), controller.generateLifestyle);
 router.get('/generate-lifestyle/status/:jobId', controller.checkLifestyleStatus);

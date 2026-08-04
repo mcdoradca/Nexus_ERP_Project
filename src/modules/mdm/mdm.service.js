@@ -63,13 +63,24 @@ async function handleProductContentOptimized(payload) {
         if (product.baselinkerInventoryId && product.baselinkerId) {
             console.log(`[MDM SERVICE] Uruchamiam BaseLinkerService aby zaktualizować dane w zewnętrznym systemie...`);
             
-            // Wysyłamy nową nazwę i nowy htmlDescription wygenerowany przez AI
-            await baselinkerService.updateProductDescriptionAndTitle(
-                product.baselinkerInventoryId,
-                product.baselinkerId,
-                product.name,
-                product.descriptionHtml
-            );
+            if (product.offerDraft && typeof product.offerDraft === 'object') {
+                // Jeśli mamy bogatego drafta (w tym ustrukturyzowane 6 sekcji htmlContent i features)
+                // wysyłamy go pełnym obiektem do exportOfferToBaselinker, by zmapowało do extra_fields
+                await baselinkerService.exportOfferToBaselinker(
+                    product.baselinkerInventoryId,
+                    product.baselinkerId,
+                    product.offerDraft
+                );
+            } else {
+                // Fallback do prostego update'u z konkatenacją
+                await baselinkerService.updateProductDescriptionAndTitle(
+                    product.baselinkerInventoryId,
+                    product.baselinkerId,
+                    product.name,
+                    product.descriptionHtml
+                );
+            }
+            
             console.log(`[MDM SERVICE] ✅ Zewnętrzny BaseLinker został zaktualizowany! Źródło prawdy zachowane.`);
         }
     } catch (err) {

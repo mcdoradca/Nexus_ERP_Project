@@ -172,13 +172,14 @@ class BaseLinkerService {
             product_id: productId, // MUSI BYĆ, żeby aktualizować, a nie tworzyć duplikat!
             text_fields: {
                 "name": BaseLinkerService.encodeEmojis(draftData.title || "", false),
-                "description": BaseLinkerService.encodeEmojis(draftData.sekcja1 || "", true),
-                "description_extra1": BaseLinkerService.encodeEmojis(draftData.sekcja2 || "", true),
-                "description_extra2": BaseLinkerService.encodeEmojis(draftData.sekcja3 || "", true),
-                "description_extra3": BaseLinkerService.encodeEmojis(draftData.sekcja4 || "", true),
-                "description_extra4": BaseLinkerService.encodeEmojis((draftData.sekcja5 || "") + "\n\n" + (draftData.sekcja6 || ""), true)
+                "description": BaseLinkerService.encodeEmojis(draftData.sekcja1 || draftData.htmlContent?.sekcja1 || "", true),
+                "description_extra1": BaseLinkerService.encodeEmojis(draftData.sekcja2 || draftData.htmlContent?.sekcja2 || "", true),
+                "description_extra2": BaseLinkerService.encodeEmojis(draftData.sekcja3 || draftData.htmlContent?.sekcja3 || "", true),
+                "description_extra3": BaseLinkerService.encodeEmojis(draftData.sekcja4 || draftData.htmlContent?.sekcja4 || "", true),
+                "description_extra4": BaseLinkerService.encodeEmojis((draftData.sekcja5 || draftData.htmlContent?.sekcja5 || "") + "\n\n" + (draftData.sekcja6 || draftData.htmlContent?.sekcja6 || ""), true)
             },
-            images: imagesMap
+            images: imagesMap,
+            features: draftData.features || {}
         };
 
         return await callBaseLinkerApi('addInventoryProduct', payload);
