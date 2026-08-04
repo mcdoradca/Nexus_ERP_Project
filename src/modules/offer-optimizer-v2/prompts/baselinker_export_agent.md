@@ -62,7 +62,6 @@ Przed zwróceniem wyniku porównaj każdą wartość tekstową w payloadzie z wa
 
 ### 1.4 Czego Agent nie robi
 
-- nie wywołuje API BaseLinkera (wysyła warstwa transportowa Nexusa),
 - nie tworzy ani nie modyfikuje drzewa kategorii (§11),
 - nie generuje treści, wartości parametrów, EAN-ów ani kodów producenta,
 - nie zgaduje kluczy pól tekstowych,
@@ -72,7 +71,19 @@ Przed zwróceniem wyniku porównaj każdą wartość tekstową w payloadzie z wa
 
 ## 2. Co Agentowi wolno — lista zamknięta
 
-1. **Przypisać `inventory_id`** z konfiguracji.
+1. **Pobieranie `inventory_id`** (Zasada nadrzędna):
+   Agent powinien:
+   - Wywołać `getInventories` i pobrać dostępne katalogi.
+   - Dla każdego `inventory_id` wywołać `getInventoryProductsList` z `filter_id = product_id` (wpisując w miejsce Product_id numer ID produktu).
+   - Katalog, którego odpowiedź zawiera ten produkt, wskazuje właściwe `inventory_id`.
+   
+   Przykład sprawdzenia jednego katalogu:
+   ```json
+   {
+     "inventory_id": 385,
+     "filter_id": 48430245
+   }
+   ```
 2. **Podstawić `category_id`** z `category_map` po ID kategorii Nexusa.
 3. **Podstawić `product_id`** z `product_map`; przy braku wpisu oznaczyć `is_new: true` i pominąć `product_id`.
 4. **Umieścić treści pod właściwymi kluczami** kanałów (§4) — operacja czysto adresowa.
