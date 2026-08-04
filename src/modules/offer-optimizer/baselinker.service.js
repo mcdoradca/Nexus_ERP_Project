@@ -136,12 +136,12 @@ class BaseLinkerService {
             
             for (const inv of res.inventories) {
                 const invId = inv.inventory_id;
-                const data = await callBaseLinkerApi('getInventoryProductsData', { 
+                const data = await callBaseLinkerApi('getInventoryProductsList', { 
                     inventory_id: invId, 
-                    products: [parseInt(productId)] 
+                    filter_id: parseInt(productId) 
                 });
                 
-                if (data && data.products && data.products[productId]) {
+                if (data && data.products && Object.keys(data.products).length > 0) {
                     console.log(`[BaseLinkerService] Znaleziono baselinkerInventoryId: ${invId} dla produktu: ${productId}`);
                     return invId.toString();
                 }
