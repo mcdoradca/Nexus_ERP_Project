@@ -1279,3 +1279,6 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 
 ### Aktualizacje - Auto-Fill PXM (04.08.2026)
 - Zintegrowano pobieranie twardych parametrów z Katalogu Allegro (API) bezpośrednio do głównego endpointu 'Interpoluj EAN' (/api/products/autofill/:ean). Parametry dodawane są do 'mergedFeatures', dzięki czemu od razu uzupełniają widok 'Katalog Parametrów Allegro'.
+
+### Hotfix PXM (04.08.2026)
+- Naprawiono parser w 'getProductParametersByEan', omijając brak pola 'type' w odpowiedziach API Allegro. Słowniki (np. Marka) są teraz poprawnie ładowane z 'valuesLabels'.
