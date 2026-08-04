@@ -74,7 +74,7 @@ async function handleProductContentOptimized(payload) {
                 // Aktualizujemy PIM, aby zapamiętać odnaleziony katalog
                 await prisma.product.update({
                     where: { id: product.id },
-                    data: { baselinkerInventoryId: inventoryId }
+                    data: { baselinkerInventoryId: parseInt(inventoryId, 10) }
                 });
                 exportLogger.info(`[MDM SERVICE] Uzupełniono baselinkerInventoryId (${inventoryId}) w PIM dla EAN: ${ean}`);
             } else {
