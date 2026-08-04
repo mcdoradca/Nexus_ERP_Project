@@ -1266,3 +1266,7 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 - Rozbudowano NEUTRAL_PROPS o kilkadziesiat organicznych, kreatywnych dodatkow (usunieto beton/marmur).
 - Zaimplementowano dynamiczne losowanie ilosci propsow bazujace na parametrach minProps/maxProps.
 - Dodano hard-lock gwarantujacy dobieranie min. 1 rekwizytu neutralnego do kazdego ujecia, zapobiegajac 'pustym' kadrom.
+
+### Aktualizacja: Poprawki renderowania Photoroom
+- Naprawiono brakujacy cien pod produktem przywracajac \shadow.mode: ai.soft\. Poprzedni Agent przekombinowal z overrides, co blokowalo silnik Photoroom przy dodanym paddingu.
+- Naprawiono halucynacje z owsem. Wyraz \oat\ znajdowal dopasowanie w powszechnym konserwancie kosmetycznym \sodium benzoate\, przez co platki owsiane pojawialy sie na wiekszosci zdjec. Zastapiono \oat\ bardziej specyficznymi slowami (oatmeal, oat extract).
