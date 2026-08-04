@@ -121,6 +121,7 @@ export const UnifiedProductPipelineView = ({
         stockErpUnits: 0, stockWmsUnits: 0
     });
     const [autofillEanLoading, setAutofillEanLoading] = useState(false);
+    const [fetchBaselinkerIdLoading, setFetchBaselinkerIdLoading] = useState(false);
     const [brandSearchTerm, setBrandSearchTerm] = useState('');
     const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
     const [categorySchema, setCategorySchema] = useState(null);
@@ -553,6 +554,24 @@ export const UnifiedProductPipelineView = ({
         }
     };
 
+    const handleFetchBaselinkerId = async () => {
+        if (!newProductForm.ean || !newProductForm.sku) {
+            return alert('Zarówno EAN, jak i SKU muszą być uzupełnione, aby pobrać BaseLinker ID.');
+        }
+        setFetchBaselinkerIdLoading(true);
+        try {
+            const res = await axios.get(`${API_URL}/api/products/baselinker-id?ean=${encodeURIComponent(newProductForm.ean)}&sku=${encodeURIComponent(newProductForm.sku)}`, { headers: { Authorization: `Bearer ${token}` } });
+            if (res.data.productId) {
+                setNewProductForm(prev => ({...prev, baselinkerId: res.data.productId.toString()}));
+            }
+        } catch (err) {
+            console.error('Błąd pobierania BaseLinker ID:', err);
+            alert('Błąd pobierania ID. ' + (err.response?.data?.error || err.message));
+        } finally {
+            setFetchBaselinkerIdLoading(false);
+        }
+    };
+
     const labelClass = "text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block";
     const inputClass = "w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm font-bold rounded-sm px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner";
 
@@ -802,14 +821,23 @@ export const UnifiedProductPipelineView = ({
                                            </div>
                                         </div>
                         
-                                        <div className="grid grid-cols-2 gap-5">
-                                          <div className="col-span-2">
+                                        <div className="grid grid-cols-3 gap-5">
+                                          <div className="col-span-3">
                                             <label className={labelClass}>Oficjalna Nazwa Handlowa *</label>
                                             <input required placeholder="Np. Nexus Core Ultra S1..." type="text" className={inputClass} value={newProductForm.name} onChange={e => setNewProductForm({...newProductForm, name: e.target.value})} />
                                           </div>
                                           <div>
                                             <label className={labelClass}>SKU (Identyfikator Wewnętrzny) *</label>
                                             <input required placeholder="NEX-XXX-001..." type="text" className={`${inputClass} font-mono`} value={newProductForm.sku} onChange={e => setNewProductForm({...newProductForm, sku: e.target.value})} />
+                                          </div>
+                                          <div>
+                                            <label className={labelClass}>BaseLinker Product ID</label>
+                                            <div className="flex space-x-2">
+                                              <input placeholder="Puste = brak linku" type="text" className={`${inputClass} font-mono flex-1`} value={newProductForm.baselinkerId} onChange={e => setNewProductForm({...newProductForm, baselinkerId: e.target.value})} />
+                                              <button type="button" onClick={handleFetchBaselinkerId} disabled={fetchBaselinkerIdLoading} className="px-4 py-3 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 disabled:opacity-50 rounded-sm transition-colors flex items-center justify-center shrink-0 border border-indigo-200 shadow-inner" title="Pobierz ID na podstawie EAN i SKU">
+                                                {fetchBaselinkerIdLoading ? <Loader2 className="w-4 h-4 animate-spin"/> : <Search className="w-4 h-4"/>}
+                                              </button>
+                                            </div>
                                           </div>
                                           <div ref={brandDropdownRef} className="relative z-30">
                                             <label className={labelClass}>Marka (Wybierz lub dodaj nową) *</label>

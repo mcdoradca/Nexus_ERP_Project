@@ -264,6 +264,25 @@ class BaseLinkerService {
         return { inventoryId, productId: parseInt(productIds[0], 10) };
     }
 
+    static async fetchProductIdByEanAndSku(ean, sku, inventoryId = null) {
+        if (!inventoryId) inventoryId = await this.getInventories();
+
+        const payload = {
+            inventory_id: inventoryId,
+            filter_ean: ean,
+            filter_sku: sku
+        };
+        
+        const res = await callBaseLinkerApi('getInventoryProductsList', payload);
+        
+        if (!res.products || Object.keys(res.products).length === 0) {
+            throw new Error(`Produkt z EAN ${ean} oraz SKU ${sku} nie istnieje w PIM BaseLinker.`);
+        }
+        
+        const productIds = Object.keys(res.products);
+        return { inventoryId, productId: parseInt(productIds[0], 10) };
+    }
+
     static extraFieldsCache = null;
     static extraFieldsCacheTime = 0;
 

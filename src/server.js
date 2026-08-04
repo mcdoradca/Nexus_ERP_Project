@@ -574,6 +574,21 @@ app.post('/api/products/:id/autofill-params', authenticateToken, async (req, res
     }
 });
 
+app.get('/api/products/baselinker-id', async (req, res) => {
+    try {
+        const { ean, sku } = req.query;
+        if (!ean || !sku) {
+            return res.status(400).json({ error: 'EAN and SKU are required' });
+        }
+        
+        const { productId } = await BaseLinkerService.fetchProductIdByEanAndSku(ean, sku);
+        res.json({ productId });
+    } catch (error) {
+        console.error('[API] /api/products/baselinker-id error:', error.message);
+        res.status(404).json({ error: error.message });
+    }
+});
+
 app.get('/api/products/autofill/:ean', async (req, res) => {
     try {
         const { ean } = req.params;
