@@ -323,7 +323,7 @@ function buildPhotoroomRequest(ean, slot, pimText, imageBlob) {
   fd.append('quality', 'advanced');
 
   fd.append('lighting.mode', 'ai.auto');  
-  fd.append('shadow.mode', 'ai.soft');    
+  fd.append('shadow.mode', 'ai.preset-soft');    
 
   // Losowa kompozycja (zamiast przypisanej z góry)
   const comp = pickRandom(COMPOSITIONS);
