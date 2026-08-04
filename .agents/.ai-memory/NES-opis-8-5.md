@@ -1286,3 +1286,7 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 
 ## [2026-08-04] Aktualizacja: Offer Optimizer (BaseLinker Export Bypass)
 - Złagodzono walidację w \offer-optimizer.controller.js\. W przypadku braku \aselinkerInventoryId\ lub \aselinkerId\ podczas zapisu zoptymalizowanej oferty AI, API zwraca teraz 200 (ostrzeżenie o pominięciu eksportu) zamiast błędu 400. Zmiana pozwala na poprawne zapisywanie wygenerowanego opisu w systemie lokalnym PIM, gdy BaseLinker działa w trybie READ-ONLY lub gdy produkt nie został do niego dodany.
+
+
+## [2026-08-04] Aktualizacja: Offer Optimizer (UI Export Feedback)
+- W widoku \UnifiedProductPipelineView.jsx\ zmieniono sztywny komunikat potwierdzenia eksportu na dynamiczny, pobierany z odpowiedzi serwera (\es.data.message\). Użytkownik widzi teraz wyraźnie, gdy system pominie eksport do zewnętrznego API z uwagi na protokół READ-ONLY.

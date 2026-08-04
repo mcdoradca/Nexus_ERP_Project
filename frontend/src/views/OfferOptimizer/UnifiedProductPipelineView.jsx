@@ -472,12 +472,12 @@ export const UnifiedProductPipelineView = ({
                 images: visionTickets,
                 features: exportValidationResult ? exportValidationResult.parameters : {}
             };
-            await axios.post(`${API_URL}/api/offer-optimizer/export-baselinker`, {
+            const res = await axios.post(`${API_URL}/api/offer-optimizer/export-baselinker`, {
                 ean: liveEan,
                 draftData
             }, { headers: { Authorization: `Bearer ${token}` } });
             
-            alert('Zlecono eksport i akceptację MDM! PIM -> BaseLinker.');
+            alert(res.data.message || 'Zlecono eksport i akceptację MDM! PIM -> BaseLinker.');
             setShowExportConfirm(false);
             if (fetchAppGlobalData) fetchAppGlobalData();
         } catch (err) {
