@@ -1273,3 +1273,6 @@ odes.config.js\, aby poprawiÄ‡ jakoÅ›Ä‡ i precyzjÄ™ zÅ‚oÅ¼onych generacji tekstÃ
 
 ### Aktualizacja: Ró¿norodnoœæ kompozycji (100 presetów)
 - Zgodnie z decyzj¹ u¿ytkownika zamiast sztywnych wariantów przypisanych do slotów utworzono pulê dok³adnie 100 sztywnych presetów kompozycji (od HUGE po HIGH_HORIZON). Zosta³y one wygenerowane na bazie losowych zakresów i wklejone do kodu (COMPOSITIONS). Zwiêksza to drastycznie ró¿norodnoœæ i redukuje szansê na powtórzenie takiego samego kadru.
+
+### Aktualizacja: Zintegrowany Beautifier API
+- Do zapytañ budowanych przez Chaos Engine w \photoroom.service.js\ dodano sta³y parametr \eautify.mode: ai.auto\. Optymalizuje on produkt wyjœciowy w zakresie naœwietlenia i ostroœci przed wyciêciem t³a i wklejeniem w wygenerowane œrodowisko, bez zwiêkszania kosztów wywo³ania Image Editing API.

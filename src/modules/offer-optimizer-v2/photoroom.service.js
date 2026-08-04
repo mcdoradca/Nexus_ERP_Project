@@ -396,6 +396,7 @@ function buildPhotoroomRequest(ean, slot, pimText, imageBlob) {
   fd.append('background.expandPrompt', 'never');
   fd.append('quality', 'advanced');
 
+  fd.append('beautify.mode', 'ai.auto');
   fd.append('lighting.mode', 'ai.auto');  
   fd.append('shadow.mode', 'ai.preset-soft');    
 
