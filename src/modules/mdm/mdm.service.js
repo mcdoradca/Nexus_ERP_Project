@@ -60,26 +60,25 @@ async function handleProductContentOptimized(payload) {
     
     try {
         const hasAgentPayload = product.offerDraft && product.offerDraft.agentPayload;
-        const isForceExport = product.offerDraft !== null && typeof product.offerDraft === 'object';
+        const inventoryId = product.baselinkerInventoryId || (hasAgentPayload ? product.offerDraft.agentPayload.inventory_id : "307");
 
         // Wypychamy najlepszą jakość danych na zewnątrz (BaseLinker)
-        if ((product.baselinkerInventoryId && product.baselinkerId) || isForceExport) {
+        if ((inventoryId && product.baselinkerId) || hasAgentPayload) {
             console.log(`[MDM SERVICE] Uruchamiam BaseLinkerService aby zaktualizować dane w zewnętrznym systemie...`);
             
-            if (isForceExport) {
-                // Jeśli mamy drafta z edytora (nawet jeśli AI odrzuciło payload lub brakuje product_id)
-                // wysyłamy go do exportOfferToBaselinker. Jeśli jest to nowy produkt i brakuje agentPayload,
-                // fallback ustawi inventoryId na "307" i obsłuży tworzenie nowej oferty w Baselinkerze.
+            if (product.offerDraft && typeof product.offerDraft === 'object') {
+                // Jeśli mamy bogatego drafta (w tym SSOT agentPayload lub 6 sekcji htmlContent i features)
+                // wysyłamy go pełnym obiektem do exportOfferToBaselinker, by zmapowało do extra_fields
                 await baselinkerService.exportOfferToBaselinker(
-                    product.baselinkerInventoryId || (hasAgentPayload && product.offerDraft.agentPayload.inventory_id ? product.offerDraft.agentPayload.inventory_id : "307"),
-                    product.baselinkerId || (hasAgentPayload && product.offerDraft.agentPayload.product_id ? product.offerDraft.agentPayload.product_id : ""),
+                    inventoryId,
+                    product.baselinkerId || (hasAgentPayload ? product.offerDraft.agentPayload.product_id : ""),
                     product.offerDraft
                 );
             } else {
                 // Fallback do prostego update'u z konkatenacją (wymaga ID)
-                if (product.baselinkerInventoryId && product.baselinkerId) {
+                if (inventoryId && product.baselinkerId) {
                     await baselinkerService.updateProductDescriptionAndTitle(
-                        product.baselinkerInventoryId,
+                        inventoryId,
                         product.baselinkerId,
                         product.name,
                         product.descriptionHtml
