@@ -470,7 +470,8 @@ export const UnifiedProductPipelineView = ({
                 title: exportValidationResult ? exportValidationResult.title : liveTitle,
                 htmlContent: exportValidationResult ? exportValidationResult.sections : editorHtml,
                 images: visionTickets,
-                features: exportValidationResult ? exportValidationResult.parameters : {}
+                features: exportValidationResult ? exportValidationResult.parameters : {},
+                agentPayload: exportValidationResult ? exportValidationResult.agentPayload : null
             };
             const res = await axios.post(`${API_URL}/api/offer-optimizer/export-baselinker`, {
                 ean: liveEan,

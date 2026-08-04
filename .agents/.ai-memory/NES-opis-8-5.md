@@ -1290,3 +1290,11 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 
 ## [2026-08-04] Aktualizacja: Offer Optimizer (UI Export Feedback)
 - W widoku \UnifiedProductPipelineView.jsx\ zmieniono sztywny komunikat potwierdzenia eksportu na dynamiczny, pobierany z odpowiedzi serwera (\es.data.message\). Użytkownik widzi teraz wyraźnie, gdy system pominie eksport do zewnętrznego API z uwagi na protokół READ-ONLY.
+
+
+## [2026-08-04] Wdrożenie Pełnego Agenta wg BaseLinker SSOT
+- Nadpisano spłycony prompt w \aselinker_export_agent.md\ dokumentem z SSOT (\SSOT_Agent_Nexus_Preparation_Export_BaseLinker.md\).
+- Zmodyfikowano kod LLM \aselinker.export.agent.js\, aby oczekiwał ustrukturyzowanej odpowiedzi z SSOT i zwracał cały JSON obiektu (razem z wygenerowanym \payload\).
+- W kontrolerze \offer-optimizer.controller.js\ przekazano mu globalny \config\ (inventory 307) i poprawiono odczyt odpowiedzi.
+- Usunięto błąd 400 dla produktów bez ID z wewnątrz \offer-optimizer.controller.js\, delegując odpowiedzialność za ułożenie payloadu z nowym \is_new: true\ na nową strukturę z SSOT.
+- Serwis \aselinker.service.js\ został zaktualizowany, aby priorytetyzować SSOT payload podany mu jako \gentPayload\ z pominięciem własnego łączenia tekstów, na rzecz wykonania przez SSOT LLM.

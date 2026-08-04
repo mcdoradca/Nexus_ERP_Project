@@ -335,16 +335,74 @@ const validateBaselinkerExport = async (req, res) => {
             }
         }
 
+        const config = {
+            inventory_id: "307",
+            limits: { name_max: 200 },
+            channels: [
+                {
+                    alias: "ALLEGRO_WENECJA444",
+                    type: "allegro",
+                    suffix: "|pl|allegro_16402",
+                    active: true,
+                    limits: { name_max: 75 },
+                    on_limit_exceeded: "block"
+                }
+            ],
+            text_field_keys: [
+                "name", "description", "description_extra1", "description_extra2", "description_extra3", "description_extra4", "features",
+                "name|pl|allegro_16402", "description|pl|allegro_16402", "description_extra1|pl|allegro_16402", "description_extra2|pl|allegro_16402", "description_extra3|pl|allegro_16402", "description_extra4|pl|allegro_16402", "features|pl|allegro_16402"
+            ]
+        };
+
+        const product_map = product.baselinkerId ? { [product.id]: product.baselinkerId.toString() } : {};
+        const category_map = { [product.allegroCategoryId || product.categoryId || 'default']: 3 };
+
+        const opisCombined = [
+            draftData.htmlContent?.sekcja1 || draftData.sekcja1 || '',
+            draftData.htmlContent?.sekcja2 || draftData.sekcja2 || '',
+            draftData.htmlContent?.sekcja3 || draftData.sekcja3 || '',
+            draftData.htmlContent?.sekcja4 || draftData.sekcja4 || '',
+            draftData.htmlContent?.sekcja5 || draftData.sekcja5 || '',
+            draftData.htmlContent?.sekcja6 || draftData.sekcja6 || ''
+        ].filter(Boolean).join('\n\n');
+
         const agentInput = {
-            title: draftData.title,
-            htmlContent: draftData.htmlContent,
-            features: product.features || {},
-            hardFeatures: hardFeatures || {}
+            config,
+            product_map,
+            category_map,
+            products: [{
+                id: product.id,
+                kategoria_id_nexus: product.allegroCategoryId || product.categoryId || 'default',
+                tytul: draftData.title,
+                opis: opisCombined,
+                cechy: { ...(product.features || {}), ...(hardFeatures || {}) },
+                kanaly_docelowe: ["ALLEGRO_WENECJA444"],
+                tresci_kanalu: {
+                    "ALLEGRO_WENECJA444": {
+                        tytul: draftData.title,
+                        opis: opisCombined,
+                        parametry: { ...(product.features || {}), ...(hardFeatures || {}) }
+                    }
+                }
+            }]
         };
 
         const result = await baselinkerExportAgent.validateAndFormatExport(agentInput);
         
-        return res.status(200).json(result);
+        // Agent zwraca: { ready: [{ payload: ... }], blocked: [...], warnings: [...] }
+        const mappedResult = {
+            validation: {
+                is_valid: (!result.blocked || result.blocked.length === 0),
+                errors: result.blocked ? result.blocked.map(b => JSON.stringify(b)) : [],
+                warnings: result.warnings ? result.warnings.map(w => JSON.stringify(w)) : []
+            },
+            title: draftData.title || "",
+            sections: draftData.htmlContent || {},
+            parameters: { ...(product.features || {}), ...(hardFeatures || {}) },
+            agentPayload: (result.ready && result.ready.length > 0) ? result.ready[0].payload : null
+        };
+
+        return res.status(200).json(mappedResult);
     } catch (e) {
         console.error('[validateBaselinkerExport] Błąd:', e.message);
         return res.status(500).json({ error: e.message });
@@ -402,9 +460,9 @@ const exportToBaselinker = async (req, res) => {
             }
         });
 
-        let msg = "Zapisano AI w PIM. MDM aktualizuje BaseLinker w tle!";
-        if (!product.baselinkerInventoryId || !product.baselinkerId) {
-             msg = "Zapisano AI w PIM, ale produkt nie jest powiązany z BaseLinkerem (pominięto eksport).";
+        let msg = "Zapisano AI w PIM. MDM zaktualizuje BaseLinker w tle na podstawie struktury Agenta!";
+        if (!product.baselinkerId && (!draftData.agentPayload || !draftData.agentPayload.product_id)) {
+             msg = "Zapisano AI w PIM, ale produkt prawdopodobnie zostanie utworzony jako nowy, gdyż brakuje zmapowanego ID BaseLinkera.";
         }
 
         // Publikujemy zdarzenie. Moduł MDM wyłapie je i samodzielnie skomunikuje się z BaseLinkerem.
