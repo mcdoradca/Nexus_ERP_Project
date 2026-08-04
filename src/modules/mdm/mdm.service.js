@@ -97,11 +97,23 @@ async function handleProductContentOptimized(payload) {
             if (product.offerDraft && typeof product.offerDraft === 'object') {
                 // Jeśli mamy bogatego drafta (w tym SSOT agentPayload lub 6 sekcji htmlContent i features)
                 // wysyłamy go pełnym obiektem do exportOfferToBaselinker, by zmapowało do extra_fields
-                await baselinkerService.exportOfferToBaselinker(
+                const response = await baselinkerService.exportOfferToBaselinker(
                     inventoryId,
                     product.baselinkerId || (hasAgentPayload && product.offerDraft.agentPayload.product_id ? product.offerDraft.agentPayload.product_id : ""),
                     product.offerDraft
                 );
+                
+                // [NEXUS ERP SSOT FIX] Zapis baselinkerId do bazy, aby zapobiec duplikatom
+                if (response && response.product_id) {
+                    const returnedId = response.product_id.toString();
+                    if (returnedId !== product.baselinkerId) {
+                        await prisma.product.update({
+                            where: { id: product.id },
+                            data: { baselinkerId: returnedId }
+                        });
+                        exportLogger.info(`[MDM SERVICE] ✅ Zapisano nowy baselinkerId: ${returnedId} w bazie Nexus dla EAN: ${ean}`);
+                    }
+                }
             } else {
                 // Fallback do prostego update'u z konkatenacją (wymaga ID)
                 if (inventoryId && product.baselinkerId) {

@@ -1300,3 +1300,8 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 - Serwis \aselinker.service.js\ został zaktualizowany, aby priorytetyzować SSOT payload podany mu jako \gentPayload\ z pominięciem własnego łączenia tekstów, na rzecz wykonania przez SSOT LLM.
 
 - Poprawiono usterkę w \mdm.service.js\, która milcząco blokowała eksport z powody weryfikacji brakującego identyfikatora BaseLinkera mimo udanego wykonania payloadu przez SSOT Agenta.
+
+## [2026-08-04] Aktualizacja: MDM SSOT (Zapis product_id) [RESOLVED]
+- W module mdm.service.js dodano weryfikację odpowiedzi z API BaseLinker w celu przechwycenia product_id po wywołaniu addInventoryProduct.
+- Zapisano brakujący baselinkerId bezpośrednio do bazy Nexus, aby zapobiec tworzeniu zduplikowanych ofert przy ponownym eksporcie.
+- Zsynchronizowano plik promptu baselinker_export_agent.md z właściwym plikiem SSOT_Agent_Nexus_Preparation_Export_BaseLinker.md.
