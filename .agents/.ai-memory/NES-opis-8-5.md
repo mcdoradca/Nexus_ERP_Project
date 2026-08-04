@@ -1276,3 +1276,6 @@ odes.config.js\, aby poprawiÄ‡ jakoÅ›Ä‡ i precyzjÄ™ zÅ‚oÅ¼onych generacji tekstÃ
 
 ### Aktualizacja: Zintegrowany Beautifier API
 - Do zapytañ budowanych przez Chaos Engine w \photoroom.service.js\ dodano sta³y parametr \eautify.mode: ai.auto\. Optymalizuje on produkt wyjœciowy w zakresie naœwietlenia i ostroœci przed wyciêciem t³a i wklejeniem w wygenerowane œrodowisko, bez zwiêkszania kosztów wywo³ania Image Editing API.
+
+### Aktualizacje - Auto-Fill PXM (04.08.2026)
+- Zintegrowano pobieranie twardych parametrÃ³w z Katalogu Allegro (API) bezpoÅ›rednio do gÅ‚Ã³wnego endpointu 'Interpoluj EAN' (/api/products/autofill/:ean). Parametry dodawane sÄ… do 'mergedFeatures', dziÄ™ki czemu od razu uzupeÅ‚niajÄ… widok 'Katalog ParametrÃ³w Allegro'.

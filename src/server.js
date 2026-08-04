@@ -662,6 +662,16 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
                 mergedFeatures['Linia'] = extracted.line.value;
             }
             
+            // --- NOWE: POBRANIE TWARDYCH PARAMETRÓW Z ALLEGRO ---
+            try {
+                const allegroFeatures = await AllegroService.getProductParametersByEan(ean);
+                if (allegroFeatures && Object.keys(allegroFeatures).length > 0) {
+                    mergedFeatures = { ...mergedFeatures, ...allegroFeatures };
+                }
+            } catch (err) {
+                console.error('[AutoFill] Błąd pobierania parametrów z Allegro:', err.message);
+            }
+
             // Zapisz połączone parametry z powrotem do deepData
             deepData.features = mergedFeatures;
             // --- KONIEC EKSTRAKCJI ---
