@@ -1270,3 +1270,6 @@ odes.config.js\, aby poprawiÄ‡ jakoÅ›Ä‡ i precyzjÄ™ zÅ‚oÅ¼onych generacji tekstÃ
 ### Aktualizacja: Poprawki renderowania Photoroom
 - Naprawiono brakujacy cien pod produktem przywracajac \shadow.mode: ai.soft\. Poprzedni Agent przekombinowal z overrides, co blokowalo silnik Photoroom przy dodanym paddingu.
 - Naprawiono halucynacje z owsem. Wyraz \oat\ znajdowal dopasowanie w powszechnym konserwancie kosmetycznym \sodium benzoate\, przez co platki owsiane pojawialy sie na wiekszosci zdjec. Zastapiono \oat\ bardziej specyficznymi slowami (oatmeal, oat extract).
+
+### Aktualizacja: Ró¿norodnoœæ kompozycji (100 presetów)
+- Zgodnie z decyzj¹ u¿ytkownika zamiast sztywnych wariantów przypisanych do slotów utworzono pulê dok³adnie 100 sztywnych presetów kompozycji (od HUGE po HIGH_HORIZON). Zosta³y one wygenerowane na bazie losowych zakresów i wklejone do kodu (COMPOSITIONS). Zwiêksza to drastycznie ró¿norodnoœæ i redukuje szansê na powtórzenie takiego samego kadru.
