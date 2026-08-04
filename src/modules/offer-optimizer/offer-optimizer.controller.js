@@ -10,6 +10,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const EventBus = require('../../core/EventBus');
 const baselinkerExportAgent = require('../offer-optimizer-v2/baselinker.export.agent');
+const { exportLogger } = require('../../utils/logger');
 
 // Magazyn pamięci dla asynchronicznych zadań Lifestyle AI z automatycznym czyszczeniem (TTL 15 min)
 const lifestyleJobs = new Map();
@@ -318,6 +319,8 @@ const saveDraft = async (req, res) => {
 const validateBaselinkerExport = async (req, res) => {
     try {
         const { ean, draftData } = req.body;
+        exportLogger.info(`[PIPELINE START] Uruchomiono walidację przed eksportem dla EAN: ${ean}`);
+        
         if (!ean || !draftData) return res.status(400).json({ error: "Brak danych" });
 
         const product = await prisma.product.findUnique({ where: { ean } });
@@ -389,10 +392,12 @@ const validateBaselinkerExport = async (req, res) => {
 
         const result = await baselinkerExportAgent.validateAndFormatExport(agentInput);
         
+        exportLogger.info(`[AGENT EXPORT] Otrzymano odpowiedź dla EAN: ${ean}`, { rawResponse: result });
+
         // Agent zwraca: { ready: [{ payload: ... }], blocked: [...], warnings: [...] }
         const mappedResult = {
             validation: {
-                is_valid: (!result.blocked || result.blocked.length === 0),
+                is_valid: (!result.blocked || result.blocked.length === 0) && (!result.warnings || result.warnings.length === 0),
                 errors: result.blocked ? result.blocked.map(b => JSON.stringify(b)) : [],
                 warnings: result.warnings ? result.warnings.map(w => JSON.stringify(w)) : []
             },
@@ -466,6 +471,7 @@ const exportToBaselinker = async (req, res) => {
         }
 
         // Publikujemy zdarzenie. Moduł MDM wyłapie je i samodzielnie skomunikuje się z BaseLinkerem.
+        exportLogger.info(`[PIPELINE EXPORT] Użytkownik zatwierdził eksport dla EAN: ${ean}. Wysłano do EventBus.`);
         EventBus.publish('PRODUCT_CONTENT_OPTIMIZED', { ean, product });
 
         res.status(200).json({ message: msg });

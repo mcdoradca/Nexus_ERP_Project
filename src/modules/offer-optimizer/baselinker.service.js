@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+const { exportLogger } = require('../../utils/logger');
 
 const BASELINKER_API_URL = 'https://api.baselinker.com/connector.php';
 
@@ -53,6 +54,13 @@ async function callBaseLinkerApi(method, parameters = {}, retries = 3, backoff =
             },
             timeout: 15000 // Zwiększone dla ewentualnych opóźnień
         });
+
+        if (method === 'setInventoryProductFields' || method === 'addInventoryProduct') {
+            exportLogger.info(`[BaseLinkerService] Wywołanie API: ${method}`, {
+                parameters,
+                responseStatus: response.data?.status
+            });
+        }
 
         if (response.data.status === 'ERROR') {
             const errMsg = response.data.error_message || '';

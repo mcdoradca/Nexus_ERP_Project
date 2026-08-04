@@ -40,6 +40,22 @@ const logger = winston.createLogger({
   ]
 });
 
+const exportLogger = winston.createLogger({
+  level: 'info',
+  format: logFormat,
+  defaultMeta: { service: 'export-pipeline' },
+  transports: [
+    new DailyRotateFile({
+      filename: 'export-pipeline-%DATE%.log',
+      dirname: logDir,
+      datePattern: 'YYYY-MM-DD',
+      zippedArchive: true,
+      maxSize: '20m',
+      maxFiles: '14d'
+    })
+  ]
+});
+
 // Jeśli nie jesteśmy na produkcji, loguj też do konsoli w czytelnym formacie
 if (process.env.NODE_ENV !== 'production') {
   logger.add(new winston.transports.Console({
@@ -48,6 +64,12 @@ if (process.env.NODE_ENV !== 'production') {
       winston.format.simple()
     )
   }));
+  exportLogger.add(new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.simple()
+    )
+  }));
 }
 
-module.exports = logger;
+module.exports = { logger, exportLogger };

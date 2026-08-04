@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const pricingService = require('../pricing/pricing.service');
 const baselinkerService = require('../offer-optimizer/baselinker.service');
+const { exportLogger } = require('../../utils/logger');
 
 /**
  * Serwis Master Data Management (MDM).
@@ -56,7 +57,7 @@ async function handleDealMarketingCostUpdated(payload) {
 
 async function handleProductContentOptimized(payload) {
     const { ean, product } = payload;
-    console.log(`[MDM SERVICE] 🌟 Złapano event: PRODUCT_CONTENT_OPTIMIZED dla EAN: ${ean}`);
+    exportLogger.info(`[MDM SERVICE] 🌟 Złapano event: PRODUCT_CONTENT_OPTIMIZED dla EAN: ${ean}`);
     
     try {
         const hasAgentPayload = product.offerDraft && product.offerDraft.agentPayload;
@@ -66,7 +67,7 @@ async function handleProductContentOptimized(payload) {
         // Jeżeli produkt ma baselinkerId a w bazie brakuje mu baselinkerInventoryId
         // pozyskujemy go z BaseLinkera i uzupełniamy w PIM
         if (product.baselinkerId && !inventoryId) {
-            console.log(`[MDM SERVICE] Brak baselinkerInventoryId dla EAN: ${ean}. Rozpoczynam poszukiwania w BaseLinkerze...`);
+            exportLogger.info(`[MDM SERVICE] Brak baselinkerInventoryId dla EAN: ${ean}. Rozpoczynam poszukiwania w BaseLinkerze...`);
             inventoryId = await baselinkerService.resolveInventoryId(product.baselinkerId);
             
             if (inventoryId) {
@@ -75,9 +76,9 @@ async function handleProductContentOptimized(payload) {
                     where: { id: product.id },
                     data: { baselinkerInventoryId: inventoryId }
                 });
-                console.log(`[MDM SERVICE] Uzupełniono baselinkerInventoryId (${inventoryId}) w PIM dla EAN: ${ean}`);
+                exportLogger.info(`[MDM SERVICE] Uzupełniono baselinkerInventoryId (${inventoryId}) w PIM dla EAN: ${ean}`);
             } else {
-                console.warn(`[MDM SERVICE WARNING] Nie udało się odnaleźć produktu ${product.baselinkerId} w żadnym katalogu BaseLinker.`);
+                exportLogger.warn(`[MDM SERVICE WARNING] Nie udało się odnaleźć produktu ${product.baselinkerId} w żadnym katalogu BaseLinker.`);
             }
         }
         
@@ -88,7 +89,10 @@ async function handleProductContentOptimized(payload) {
 
         // Wypychamy najlepszą jakość danych na zewnątrz (BaseLinker)
         if ((inventoryId && product.baselinkerId) || hasAgentPayload) {
-            console.log(`[MDM SERVICE] Uruchamiam BaseLinkerService aby zaktualizować dane w zewnętrznym systemie...`);
+            exportLogger.info(`[MDM SERVICE] Uruchamiam BaseLinkerService aby zaktualizować dane w zewnętrznym systemie...`, {
+                inventoryId,
+                baselinkerId: product.baselinkerId
+            });
             
             if (product.offerDraft && typeof product.offerDraft === 'object') {
                 // Jeśli mamy bogatego drafta (w tym SSOT agentPayload lub 6 sekcji htmlContent i features)
@@ -110,10 +114,10 @@ async function handleProductContentOptimized(payload) {
                 }
             }
             
-            console.log(`[MDM SERVICE] ✅ Zewnętrzny BaseLinker został zaktualizowany! Źródło prawdy zachowane.`);
+            exportLogger.info(`[MDM SERVICE] ✅ Zewnętrzny BaseLinker został zaktualizowany! Źródło prawdy zachowane.`);
         }
     } catch (err) {
-         console.error(`[MDM SERVICE ERROR] Nie udało się wypchnąć nowej prawdy o produkcie do zewnętrznych systemów:`, err.message);
+         exportLogger.error(`[MDM SERVICE ERROR] Nie udało się wypchnąć nowej prawdy o produkcie do zewnętrznych systemów:`, { error: err.message, stack: err.stack });
     }
 }
 
