@@ -402,14 +402,15 @@ const exportToBaselinker = async (req, res) => {
             }
         });
 
+        let msg = "Zapisano AI w PIM. MDM aktualizuje BaseLinker w tle!";
         if (!product.baselinkerInventoryId || !product.baselinkerId) {
-             return res.status(400).json({ error: "Brak przypisania do BaseLinker w bazie (inventoryId/productId)." });
+             msg = "Zapisano AI w PIM, ale produkt nie jest powiązany z BaseLinkerem (pominięto eksport).";
         }
 
         // Publikujemy zdarzenie. Moduł MDM wyłapie je i samodzielnie skomunikuje się z BaseLinkerem.
         EventBus.publish('PRODUCT_CONTENT_OPTIMIZED', { ean, product });
 
-        res.status(200).json({ message: "Zapisano AI w PIM. MDM aktualizuje BaseLinker w tle!" });
+        res.status(200).json({ message: msg });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
