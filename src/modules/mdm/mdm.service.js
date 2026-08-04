@@ -60,17 +60,19 @@ async function handleProductContentOptimized(payload) {
     
     try {
         const hasAgentPayload = product.offerDraft && product.offerDraft.agentPayload;
+        const isForceExport = product.offerDraft !== null && typeof product.offerDraft === 'object';
 
         // Wypychamy najlepszą jakość danych na zewnątrz (BaseLinker)
-        if ((product.baselinkerInventoryId && product.baselinkerId) || hasAgentPayload) {
+        if ((product.baselinkerInventoryId && product.baselinkerId) || isForceExport) {
             console.log(`[MDM SERVICE] Uruchamiam BaseLinkerService aby zaktualizować dane w zewnętrznym systemie...`);
             
-            if (product.offerDraft && typeof product.offerDraft === 'object') {
-                // Jeśli mamy bogatego drafta (w tym SSOT agentPayload lub 6 sekcji htmlContent i features)
-                // wysyłamy go pełnym obiektem do exportOfferToBaselinker, by zmapowało do extra_fields
+            if (isForceExport) {
+                // Jeśli mamy drafta z edytora (nawet jeśli AI odrzuciło payload lub brakuje product_id)
+                // wysyłamy go do exportOfferToBaselinker. Jeśli jest to nowy produkt i brakuje agentPayload,
+                // fallback ustawi inventoryId na "307" i obsłuży tworzenie nowej oferty w Baselinkerze.
                 await baselinkerService.exportOfferToBaselinker(
-                    product.baselinkerInventoryId || (hasAgentPayload ? product.offerDraft.agentPayload.inventory_id : null),
-                    product.baselinkerId || (hasAgentPayload ? product.offerDraft.agentPayload.product_id : ""),
+                    product.baselinkerInventoryId || (hasAgentPayload && product.offerDraft.agentPayload.inventory_id ? product.offerDraft.agentPayload.inventory_id : "307"),
+                    product.baselinkerId || (hasAgentPayload && product.offerDraft.agentPayload.product_id ? product.offerDraft.agentPayload.product_id : ""),
                     product.offerDraft
                 );
             } else {
