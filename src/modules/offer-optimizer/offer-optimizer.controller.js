@@ -552,18 +552,40 @@ const triggerUltimatePipeline = async (req, res) => {
                 }
                 
                 // Budujemy obiekt udający odpowiedź z BaseLinkera używając danych z bazy Prisma (PIM)
-                // aby V2 Orchestrator mógł go strawić bez odpytywania zablokowanego API.
                 let featuresObj = {};
                 try {
                     featuresObj = typeof existingProduct?.features === 'string' ? JSON.parse(existingProduct.features) : (existingProduct?.features || {});
                 } catch(e) {}
+                
+                // Pobranie schematu Allegro dla dynamicznego uzupełniania braków
+                let requiredSchema = [];
+                let catId = existingProduct?.allegroCategoryId;
+                if (!catId) {
+                    catId = await AllegroService.findCategoryByEan(ean);
+                    if (!catId && existingProduct?.name) catId = await AllegroService.findMatchingCategoryByName(existingProduct.name);
+                    if (catId) {
+                        await prisma.product.update({ where: { id: existingProduct.id }, data: { allegroCategoryId: catId } });
+                        existingProduct.allegroCategoryId = catId;
+                    }
+                }
+                if (catId) {
+                    let category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
+                    if (!category || !category.parameters || (Array.isArray(category.parameters) && category.parameters.length === 0)) {
+                        await AllegroService.fetchCategoryParameters(catId);
+                        category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
+                    }
+                    if (category && category.parameters) {
+                        requiredSchema = category.parameters;
+                    }
+                }
                 
                 const localPimData = {
                     text_fields: {
                         name: existingProduct?.name || "PIM Name",
                         description: existingProduct?.descriptionHtml || "",
                         features: featuresObj
-                    }
+                    },
+                    allegro_schema: requiredSchema
                 };
                 
                 await orch.run(localPimData);
@@ -605,8 +627,11 @@ const triggerUltimatePipeline = async (req, res) => {
                      
                      if (orch.state.extracted_data) {
                          if (orch.state.extracted_data.inci?.value) {
-                             updatedFeatures['INCI'] = orch.state.extracted_data.inci.value;
-                             updatedFeatures['SKŁAD'] = orch.state.extracted_data.inci.value;
+                             updatedFeatures['Skład/INCI'] = orch.state.extracted_data.inci.value;
+                             delete updatedFeatures['INCI'];
+                             delete updatedFeatures['Skład'];
+                             delete updatedFeatures['SKŁAD'];
+                             delete updatedFeatures['skład'];
                          }
                          if (orch.state.extracted_data.country_of_origin?.value) {
                              updatedFeatures['Kraj pochodzenia'] = orch.state.extracted_data.country_of_origin.value;

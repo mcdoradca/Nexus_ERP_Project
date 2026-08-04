@@ -317,6 +317,21 @@ class Orchestrator {
         if (!extracted?.inci?.value) missingFields.push('inci');
         if (!this.state.extracted_data.eu_responsible_person.source) missingFields.push('eu_responsible_person');
 
+        // Dynamiczne wykrywanie brakujących parametrów Allegro
+        if (pimData && pimData.allegro_schema) {
+            const featuresObj = pimData.text_fields?.features || {};
+            for (let param of pimData.allegro_schema) {
+                const nameKey = param.name;
+                let found = false;
+                for (let k in featuresObj) {
+                    if (k.toLowerCase() === nameKey.toLowerCase() && featuresObj[k]) found = true;
+                }
+                if (!found && param.required) {
+                    missingFields.push(nameKey);
+                }
+            }
+        }
+
         if (missingFields.length > 0 && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
             const osintScraper = require('../offer-optimizer/osint.scraper.service');
             const productNameForOsint = product?.text_fields?.name || "Nieznany Produkt";
@@ -408,23 +423,8 @@ class Orchestrator {
         }
 
         const eu = descResult;
-        if ((!eu.name || !eu.address_eu || !eu.contact) && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
-            this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
-            this.state.hitl_alert = 'MISSING_EU_RESPONSIBLE_PERSON';
-            this.state.next_action = 'HALT';
-            this.emitState();
-            return;
-        }
-
-        const euSanity = validate_eu_responsible_person(eu);
-        if (!euSanity.valid && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
-            this.state.node_status['EXTRACT'] = 'HALTED_HITL_REQUIRED';
-            this.state.hitl_alert = 'MALFORMED_EU_RESPONSIBLE_PERSON';
-            this.state.next_action = 'HALT';
-            this.emitState();
-            return;
-        }
-
+        // WALIDACJA EU PRZENIESIONA NA KONIEC A1 ABY POZWOLIĆ AGENTOWI ZNALEŹĆ TE DANE
+        
         this.state.node_status['EXTRACT'] = 'OK';
 
         // missingFields is now calculated earlier
@@ -611,13 +611,11 @@ class Orchestrator {
                     // --- WALIDACJA SPÓJNOŚCI COSING PO OSINT (KRYTYCZNE ZABEZPIECZENIE V2) ---
                     const rawInciArrOSINT = selectedInci.split(',').map(i => i.trim()).filter(i => i);
                     const gateResOSINT = gate_ingredients(rawInciArrOSINT.map(normalizeIngredientName));
-                    if ((gateResOSINT.status === 'BANNED_SUBSTANCE_DETECTED' || gateResOSINT.status === 'INGREDIENT_NOT_COSMETIC') && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
-                        this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
-                        this.state.hitl_alert = gateResOSINT.status + ' FOUND IN OSINT INCI (CMR / Banned)';
+                    if ((gateResOSINT.status === 'BANNED_SUBSTANCE_DETECTED' || gateResOSINT.status === 'INGREDIENT_NOT_COSMETIC')) {
+                        // Nie przerywamy od razu, dodamy do zagregowanego błędu poniżej
                         this.state.hitl_substance = gateResOSINT.substance;
-                        this.state.next_action = 'HALT';
-                        this.emitState();
-                        return;
+                        this.state.aggregated_hitl_errors = this.state.aggregated_hitl_errors || [];
+                        this.state.aggregated_hitl_errors.push(gateResOSINT.status + ' FOUND IN OSINT INCI (CMR / Banned)');
                     }
                     
                     const inciRefOSINT = require('./inci.reference.service.js');
@@ -675,13 +673,35 @@ class Orchestrator {
                     traceInci(this.gtin, 'A1_RETURNED_EMPTY_CANDIDATES', 'Brak kandydatów INCI w odp.');
                 }
                 
-                // Sprawdzamy czy po OSINCIE nadal brakuje kluczowych pól
+                // Sprawdzamy czy po OSINCIE nadal brakuje kluczowych pól i agregujemy błędy
                 const stillMissing = [];
                 if (!this.state.extracted_data.inci?.value) stillMissing.push('INCI');
-                if (!this.state.extracted_data.eu_responsible_person?.source) stillMissing.push('Osoba Odpowiedzialna');
                 
-                if (stillMissing.length > 0 && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
-                    this.state.hitl_alert = 'OSINT_MISSING_DATA: Po skanowaniu OSINT nadal brakuje: ' + stillMissing.join(', ') + '. Uzupełnij ręcznie.';
+                // Weryfikacja EU Responsible Person po A1
+                const finalEu = this.state.extracted_data.eu_responsible_person?.data || eu;
+                if (!finalEu.name || !finalEu.address_eu || !finalEu.contact) {
+                    stillMissing.push('Osoba Odpowiedzialna (Brak/Niepełne)');
+                } else {
+                    const euSanity = validate_eu_responsible_person(finalEu);
+                    if (!euSanity.valid) stillMissing.push('Osoba Odpowiedzialna (Zły format)');
+                }
+                
+                // Weryfikacja braków dynamicznych Allegro (jeśli A1 ich nie znalazł, ale miały być z osint_a1)
+                for (let missingOfAllegro of missingFields) {
+                    if (missingOfAllegro !== 'brand' && missingOfAllegro !== 'product_name' && missingOfAllegro !== 'line' && missingOfAllegro !== 'country_of_origin' && missingOfAllegro !== 'inci' && missingOfAllegro !== 'eu_responsible_person') {
+                        if (!this.state.extracted_data[missingOfAllegro]?.value) {
+                            stillMissing.push(missingOfAllegro);
+                        }
+                    }
+                }
+                
+                this.state.aggregated_hitl_errors = this.state.aggregated_hitl_errors || [];
+                if (stillMissing.length > 0) {
+                    this.state.aggregated_hitl_errors.push('Brakuje: ' + stillMissing.join(', '));
+                }
+                
+                if (this.state.aggregated_hitl_errors.length > 0 && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
+                    this.state.hitl_alert = 'Wymagana uwaga operatora. Wykryto problemy: ' + this.state.aggregated_hitl_errors.join(' | ');
                     this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
                     this.state.next_action = 'HALT';
                     this.emitState();

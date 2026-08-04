@@ -1020,7 +1020,7 @@ export const UnifiedProductPipelineView = ({
                                                          
                                                          <div className="flex flex-col space-y-2">
                                                             {(() => {
-                                                                const basePimParams = ['Skład', 'INCI'];
+                                                                const basePimParams = ['Skład/INCI'];
                                                                 const currentFeatures = newProductForm.features || {};
                                                                 const displayFeatures = { ...currentFeatures };
                                                                 
