@@ -118,6 +118,32 @@ class BaseLinkerService {
         const res = await callBaseLinkerApi('setInventoryProductFields', payload);
         return res;
     }
+    // Pozyskuje baselinkerInventoryId przeszukując wszystkie katalogi po baselinkerId
+    static async resolveInventoryId(productId) {
+        if (!productId) return null;
+        
+        try {
+            const res = await callBaseLinkerApi('getInventories', {});
+            if (!res || !res.inventories || res.inventories.length === 0) return null;
+            
+            for (const inv of res.inventories) {
+                const invId = inv.inventory_id;
+                const data = await callBaseLinkerApi('getInventoryProductsData', { 
+                    inventory_id: invId, 
+                    products: [parseInt(productId)] 
+                });
+                
+                if (data && data.products && data.products[productId]) {
+                    console.log(`[BaseLinkerService] Znaleziono baselinkerInventoryId: ${invId} dla produktu: ${productId}`);
+                    return invId.toString();
+                }
+            }
+        } catch (err) {
+            console.error(`[BaseLinkerService] Błąd podczas rozwiązywania inventoryId dla produktu ${productId}:`, err.message);
+        }
+        
+        return null;
+    }
     
     // Do wykorzystania przy ewentualnych flagowaniach w BaseLinkerze ofert wymagających wgrania nowych zdjęc na podstawie audytu
     static async addCustomFieldNote(inventoryId, productId, noteValue) {

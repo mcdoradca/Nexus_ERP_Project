@@ -60,7 +60,31 @@ async function handleProductContentOptimized(payload) {
     
     try {
         const hasAgentPayload = product.offerDraft && product.offerDraft.agentPayload;
-        const inventoryId = product.baselinkerInventoryId || (hasAgentPayload ? product.offerDraft.agentPayload.inventory_id : "307");
+
+        let inventoryId = product.baselinkerInventoryId;
+        
+        // Jeżeli produkt ma baselinkerId a w bazie brakuje mu baselinkerInventoryId
+        // pozyskujemy go z BaseLinkera i uzupełniamy w PIM
+        if (product.baselinkerId && !inventoryId) {
+            console.log(`[MDM SERVICE] Brak baselinkerInventoryId dla EAN: ${ean}. Rozpoczynam poszukiwania w BaseLinkerze...`);
+            inventoryId = await baselinkerService.resolveInventoryId(product.baselinkerId);
+            
+            if (inventoryId) {
+                // Aktualizujemy PIM, aby zapamiętać odnaleziony katalog
+                await prisma.product.update({
+                    where: { id: product.id },
+                    data: { baselinkerInventoryId: inventoryId }
+                });
+                console.log(`[MDM SERVICE] Uzupełniono baselinkerInventoryId (${inventoryId}) w PIM dla EAN: ${ean}`);
+            } else {
+                console.warn(`[MDM SERVICE WARNING] Nie udało się odnaleźć produktu ${product.baselinkerId} w żadnym katalogu BaseLinker.`);
+            }
+        }
+        
+        // Fallback dla nowych produktów utworzonych z poziomu Agenta
+        if (!inventoryId && hasAgentPayload && product.offerDraft.agentPayload.inventory_id) {
+            inventoryId = product.offerDraft.agentPayload.inventory_id;
+        }
 
         // Wypychamy najlepszą jakość danych na zewnątrz (BaseLinker)
         if ((inventoryId && product.baselinkerId) || hasAgentPayload) {
@@ -71,7 +95,7 @@ async function handleProductContentOptimized(payload) {
                 // wysyłamy go pełnym obiektem do exportOfferToBaselinker, by zmapowało do extra_fields
                 await baselinkerService.exportOfferToBaselinker(
                     inventoryId,
-                    product.baselinkerId || (hasAgentPayload ? product.offerDraft.agentPayload.product_id : ""),
+                    product.baselinkerId || (hasAgentPayload && product.offerDraft.agentPayload.product_id ? product.offerDraft.agentPayload.product_id : ""),
                     product.offerDraft
                 );
             } else {
