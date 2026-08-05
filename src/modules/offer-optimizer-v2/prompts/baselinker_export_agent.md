@@ -33,7 +33,7 @@ Architektura Nexusa generuje ściśle określony zestaw kluczy, który musisz pr
 - **Moduł 3 (Detale)** wysyłany jest pod kluczem `description_extra2` (odpowiednik: Opis 3)
 - **Moduł 4 (Specyfikacja)** wysyłany jest pod kluczem `description_extra3` (odpowiednik: Opis 4)
 - **Moduł 5 i 6 (INCI + FAQ)** są połączone i wysyłane pod kluczem `description_extra4` (odpowiednik: Opis 5)
-- **Moduł: Reklama** (uzupełniany ręcznie) wysyłany jest pod kluczem `extra_field_4245` (odpowiednik: Opis 6)
+- **Moduł 7: Reklama** (uzupełniany ręcznie) wysyłany jest pod kluczem `extra_field_4245` (odpowiednik: Opis 6)
 
 Twoim zadaniem jest obsłużyć ten wsad i przyporządkować do struktury `text_fields` żądania API bez zmieniania czegokolwiek, a w szczególności omijając bezwzględnie edycję pola ręcznego `extra_field_4245`.
 

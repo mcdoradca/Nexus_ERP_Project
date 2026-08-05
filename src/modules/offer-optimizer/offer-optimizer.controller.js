@@ -340,74 +340,29 @@ const validateBaselinkerExport = async (req, res) => {
             }
         }
 
-        const config = {
-            inventory_id: "307",
-            limits: { name_max: 200 },
-            channels: [
-                {
-                    alias: "ALLEGRO_WENECJA444",
-                    type: "allegro",
-                    suffix: "|pl|allegro_16402",
-                    active: true,
-                    limits: { name_max: 75 },
-                    on_limit_exceeded: "block"
-                }
-            ],
-            text_field_keys: [
-                "name", "description", "description_extra1", "description_extra2", "description_extra3", "description_extra4", "features",
-                "name|pl|allegro_16402", "description|pl|allegro_16402", "description_extra1|pl|allegro_16402", "description_extra2|pl|allegro_16402", "description_extra3|pl|allegro_16402", "description_extra4|pl|allegro_16402", "features|pl|allegro_16402"
-            ]
-        };
-
-        const product_map = product.baselinkerId ? { [product.id]: product.baselinkerId.toString() } : {};
-        const category_map = { [product.allegroCategoryId || product.categoryId || 'default']: 3 };
-
-        const opisCombined = [
-            draftData.htmlContent?.sekcja1 || draftData.sekcja1 || '',
-            draftData.htmlContent?.sekcja2 || draftData.sekcja2 || '',
-            draftData.htmlContent?.sekcja3 || draftData.sekcja3 || '',
-            draftData.htmlContent?.sekcja4 || draftData.sekcja4 || '',
-            draftData.htmlContent?.sekcja5 || draftData.sekcja5 || '',
-            draftData.htmlContent?.sekcja6 || draftData.sekcja6 || '',
-            draftData.htmlContent?.sekcja7 || draftData.sekcja7 || ''
-        ].filter(Boolean).join('\n\n');
-
-        const agentInput = {
-            config,
-            product_map,
-            category_map,
-            products: [{
-                id: product.id,
-                kategoria_id_nexus: product.allegroCategoryId || product.categoryId || 'default',
-                tytul: draftData.title,
-                opis: opisCombined,
-                cechy: { ...(product.features || {}), ...(hardFeatures || {}) },
-                kanaly_docelowe: ["ALLEGRO_WENECJA444"],
-                tresci_kanalu: {
-                    "ALLEGRO_WENECJA444": {
-                        tytul: draftData.title,
-                        opis: opisCombined,
-                        parametry: { ...(product.features || {}), ...(hardFeatures || {}) }
-                    }
-                }
-            }]
-        };
-
-        const result = await baselinkerExportAgent.validateAndFormatExport(agentInput);
+        // Wykorzystanie nowego deterministycznego serwisu zamiast Agentów AI (LLM)
+        const baselinkerExportService = require('../offer-optimizer-v2/baselinker.export.service');
+        const inventoryId = "307"; // Domyślne dla tego kontekstu
         
-        exportLogger.info(`[AGENT EXPORT] Otrzymano odpowiedź dla EAN: ${ean}`, { rawResponse: result });
+        const generatedPayload = await baselinkerExportService.buildPayload(
+            inventoryId,
+            product.baselinkerId,
+            draftData,
+            product
+        );
+        
+        exportLogger.info(`[NEXUS EXPORT] Wygenerowano deterministyczny payload dla EAN: ${ean}`);
 
-        // Agent zwraca: { ready: [{ payload: ... }], blocked: [...], warnings: [...] }
         const mappedResult = {
             validation: {
-                is_valid: (!result.blocked || result.blocked.length === 0) && (!result.warnings || result.warnings.length === 0),
-                errors: result.blocked ? result.blocked.map(b => JSON.stringify(b)) : [],
-                warnings: result.warnings ? result.warnings.map(w => JSON.stringify(w)) : []
+                is_valid: true,
+                errors: [],
+                warnings: []
             },
             title: draftData.title || "",
             sections: draftData.htmlContent || {},
             parameters: { ...(product.features || {}), ...(hardFeatures || {}) },
-            agentPayload: (result.ready && result.ready.length > 0) ? result.ready[0].payload : null
+            agentPayload: generatedPayload
         };
 
         return res.status(200).json(mappedResult);

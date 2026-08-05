@@ -172,77 +172,24 @@ class BaseLinkerService {
         });
     }
 
-    // Eksport Finalnej Opcji z podziałem na 5 ekstra pół dla symulatora (Wymuszony przez addInventoryProduct)
     static async exportOfferToBaselinker(inventoryId, productId, draftData) {
-        // Budujemy mapę zdjęć { "0": "url:...", "1": "data:..." }
-        const imagesMap = {};
-        if (draftData.images && Array.isArray(draftData.images)) {
-            draftData.images.forEach((imgObj, idx) => {
-                let url = typeof imgObj === 'string' ? imgObj : (imgObj.url || "");
-                const key = idx.toString(); // BaseLinker liczy pozycje od 0
-
-                if (url.includes('upload.cdn.baselinker.com') || url.includes('placeholder.com')) {
-                    // Rygorystyczny zakaz re-uploadu CDN oraz prób wysyłki martwych placeholderów
-                    return; 
-                } else if (url === "") {
-                    // Żądanie usunięcia z tego slota
-                    imagesMap[key] = "";
-                } else if (url.startsWith('data:image')) {
-                    // Base64 musi mieć sam prefiks 'data:' bez 'image/jpeg;base64,'
-                    const base64Data = url.split(',')[1] || "";
-                    imagesMap[key] = "data:" + base64Data;
-                } else if (url.startsWith('http://') || url.startsWith('https://')) {
-                    // Normalny link URL musi posiadać prefix 'url:'
-                    imagesMap[key] = "url:" + url;
-                } else {
-                    // Jeśli to czysty tekst (np. alerty od AI symulujące url), ignorujemy
-                    return;
-                }
-            });
-        }
-
-        let payload;
+        // Przekierowanie do nowego, deterministycznego serwisu eksportującego v2
+        const baselinkerExportService = require('../offer-optimizer-v2/baselinker.export.service');
         
-        if (draftData.agentPayload) {
-            // Agent zbudował już strukturę SSOT (inventory_id, product_id, category_id, text_fields)
-            payload = { ...draftData.agentPayload, images: imagesMap };
-            
-            // TARCZA OCHRONNA PRZED HALUCYNACJĄ AGENTA
-            if (inventoryId) payload.inventory_id = inventoryId;
-            if (productId) {
-                payload.product_id = productId;
-                // Kiedy aktualizujemy produkt, 'category_id' wygenerowane z szablonu (np. 3) 
-                // powoduje błąd API "Invalid category identifier provided".
-                delete payload.category_id;
-            }
-            
-            if (payload.text_fields) {
-                for (const key in payload.text_fields) {
-                    if (typeof payload.text_fields[key] === 'string') {
-                        const isHtml = key.includes('description');
-                        payload.text_fields[key] = BaseLinkerService.encodeEmojis(payload.text_fields[key], isHtml);
-                    }
-                }
-            }
-        } else {
-            // Fallback do starej logiki w przypadku braku payloadu z Agenta
-            payload = {
-                inventory_id: inventoryId,
-                product_id: productId, // MUSI BYĆ, żeby aktualizować, a nie tworzyć duplikat!
-                text_fields: {
-                    "name": BaseLinkerService.encodeEmojis(draftData.title || "", false),
-                    "description": BaseLinkerService.encodeEmojis(draftData.sekcja1 || draftData.htmlContent?.sekcja1 || "", true),
-                    "description_extra1": BaseLinkerService.encodeEmojis(draftData.sekcja2 || draftData.htmlContent?.sekcja2 || "", true),
-                    "description_extra2": BaseLinkerService.encodeEmojis(draftData.sekcja3 || draftData.htmlContent?.sekcja3 || "", true),
-                    "description_extra3": BaseLinkerService.encodeEmojis(draftData.sekcja4 || draftData.htmlContent?.sekcja4 || "", true),
-                    "description_extra4": BaseLinkerService.encodeEmojis((draftData.sekcja5 || draftData.htmlContent?.sekcja5 || "") + "\n\n" + (draftData.sekcja6 || draftData.htmlContent?.sekcja6 || ""), true)
-                },
-                images: imagesMap,
-                features: draftData.features || {}
-            };
+        // MDM przekazuje tylko draftData, ale w draftData może być "product" na którym operowaliśmy, albo pobierzemy go z bazy
+        // W MDM to było rzucane w kontekście gdzie product.offerDraft to draftData.
+        // Jeśli nie mamy pełnego obiektu produktu (np. ean), pobieramy EAN z bazy aby mieć dane dla Allegro.
+        const { PrismaClient } = require('@prisma/client');
+        const prisma = new PrismaClient();
+        
+        let product = {};
+        if (productId) {
+            const dbProd = await prisma.product.findFirst({ where: { baselinkerId: productId.toString() } });
+            if (dbProd) product = dbProd;
         }
 
-        return await callBaseLinkerApi('addInventoryProduct', payload);
+        const result = await baselinkerExportService.exportToBaselinker(inventoryId, productId, draftData, product);
+        return result.apiResponse;
     }
 
     // --- ETAP 1 PIM: Wydobycie ID na podstawie EAN ---
