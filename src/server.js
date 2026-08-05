@@ -618,6 +618,27 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
             globalAllegroCatId = await AllegroService.findCategoryByEan(ean).catch(() => null) || null;
         }
 
+        // --- POBRANIE TWARDYCH PARAMETRÓW Z ALLEGRO PRZED BASELINKEREM ---
+        const existingFeatures = (existingProduct && typeof existingProduct.features === 'object') ? existingProduct.features : {};
+        let globalMergedFeatures = { ...existingFeatures };
+        let allegroBrand = '';
+        
+        try {
+            const allegroFeatures = await AllegroService.getProductParametersByEan(ean);
+            if (allegroFeatures && Object.keys(allegroFeatures).length > 0) {
+                globalMergedFeatures = { ...globalMergedFeatures, ...allegroFeatures };
+                
+                // Szukamy Marki w twardych parametrach Allegro
+                const fKeys = Object.keys(allegroFeatures);
+                const markaKey = fKeys.find(k => k.toLowerCase().includes('marka') || k.toLowerCase().includes('producent') || k.toLowerCase().includes('brand'));
+                if (markaKey) {
+                    allegroBrand = allegroFeatures[markaKey];
+                }
+            }
+        } catch (err) {
+            console.error('[AutoFill] Błąd pobierania parametrów z Allegro:', err.message);
+        }
+
         let blFetchError = null;
         // 0. BaseLinker Integration (PRIORYTET)
         try {
@@ -634,9 +655,8 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
             };
             const extracted = baselinkerExtract.extractFromFeatures(fakeProduct);
             
-            // Głębokie łączenie z istniejącymi cechami z bazy (aby nie tracić danych z AI po kliknięciu Interpoluj EAN)
-            const existingFeatures = (existingProduct && typeof existingProduct.features === 'object') ? existingProduct.features : {};
-            let mergedFeatures = { ...existingFeatures, ...(deepData.features || {}) };
+            // Głębokie łączenie z nową zmienną (baza + allegro parameters + nowości z baselinkera)
+            let mergedFeatures = { ...globalMergedFeatures, ...(deepData.features || {}) };
             
             // Nadpisz brakujące parametry tymi wyciągniętymi bezpośrednio z HTML/struktury
             if (extracted.inci && extracted.inci.value) {
@@ -662,16 +682,6 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
                 mergedFeatures['Linia'] = extracted.line.value;
             }
             
-            // --- NOWE: POBRANIE TWARDYCH PARAMETRÓW Z ALLEGRO ---
-            try {
-                const allegroFeatures = await AllegroService.getProductParametersByEan(ean);
-                if (allegroFeatures && Object.keys(allegroFeatures).length > 0) {
-                    mergedFeatures = { ...mergedFeatures, ...allegroFeatures };
-                }
-            } catch (err) {
-                console.error('[AutoFill] Błąd pobierania parametrów z Allegro:', err.message);
-            }
-
             // Zapisz połączone parametry z powrotem do deepData
             deepData.features = mergedFeatures;
             // --- KONIEC EKSTRAKCJI ---
@@ -745,29 +755,29 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
         // 1. Open Beauty Facts (Kosmetyki)
         let data = await safeFetch(`https://world.openbeautyfacts.org/api/v0/product/${ean}.json`);
         if (data && data.status === 1 && data.product) {
-            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null });
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: allegroBrand || data.product.brands || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures });
         }
 
         // 2. Open Food Facts (FMCG)
         data = await safeFetch(`https://world.openfoodfacts.org/api/v0/product/${ean}.json`);
         if (data && data.status === 1 && data.product) {
-            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null });
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: allegroBrand || data.product.brands || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures });
         }
         
         // 3. Open Product Facts (Inne)
         data = await safeFetch(`https://world.openproductfacts.org/api/v0/product/${ean}.json`);
         if (data && data.status === 1 && data.product) {
-            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: data.product.brands || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null });
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: allegroBrand || data.product.brands || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures });
         }
 
         // 4. UPC Item DB (Globalny Mix)
         data = await safeFetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${ean}`);
         if (data && data.code === 'OK' && data.items && data.items.length > 0) {
-            return res.status(200).json({ name: data.items[0].title || '', brand: data.items[0].brand || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null });
+            return res.status(200).json({ name: data.items[0].title || '', brand: allegroBrand || data.items[0].brand || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures });
         }
 
         if (globalAllegroCatId) {
-            return res.status(200).json({ name: '', brand: '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null });
+            return res.status(200).json({ name: '', brand: allegroBrand, allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures });
         }
 
         res.status(404).json({ 
