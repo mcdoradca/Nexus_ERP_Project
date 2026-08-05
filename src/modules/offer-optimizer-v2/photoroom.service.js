@@ -334,8 +334,8 @@ function buildBackgroundPrompt({ surface, environment, lighting, props }) {
 
 const PHOTOROOM_ENDPOINT = 'https://image-api.photoroom.com/v2/edit';
 const MODEL_HEADERS = {
-  SHADOWS:    { 'pr-ai-shadows-model-version': '2026-04-15' },
-  BACKGROUND: { 'pr-ai-background-model-version': 'background-studio-beta-2025-03-17' },
+  SHADOWS:    { /* 'pr-ai-shadows-model-version': '2026-04-15' */ },
+  BACKGROUND: { /* 'pr-ai-background-model-version': 'background-studio-beta-2025-03-17' */ },
 };
 
 function pickRandom(arr) {
