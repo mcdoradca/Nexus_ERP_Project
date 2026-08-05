@@ -93,7 +93,7 @@ const analyzeSingle = async (req, res) => {
         if (product.offerDraft && Object.keys(product.offerDraft).length > 0 && !forceRegenerate) {
             console.log("[PIM] Zwracam zapisaną kopię roboczą z bazy!");
             
-            let sekcja1 = '', sekcja2 = '', sekcja3 = '', sekcja4 = '', sekcja5 = '', sekcja6 = '';
+            let sekcja1 = '', sekcja2 = '', sekcja3 = '', sekcja4 = '', sekcja5 = '', sekcja6 = '', sekcja7 = '';
             const draft = product.offerDraft;
             if (draft.htmlContent) {
                 if (typeof draft.htmlContent === 'string') {
@@ -105,6 +105,7 @@ const analyzeSingle = async (req, res) => {
                     sekcja4 = draft.htmlContent.sekcja4 || '';
                     sekcja5 = draft.htmlContent.sekcja5 || '';
                     sekcja6 = draft.htmlContent.sekcja6 || '';
+                    sekcja7 = draft.htmlContent.sekcja7 || '';
                 }
             } else {
                 sekcja1 = draft.sekcja1 || '';
@@ -113,12 +114,13 @@ const analyzeSingle = async (req, res) => {
                 sekcja4 = draft.sekcja4 || '';
                 sekcja5 = draft.sekcja5 || '';
                 sekcja6 = draft.sekcja6 || '';
+                sekcja7 = draft.sekcja7 || '';
             }
 
             return res.status(200).json({
                 title: product.offerDraft.title || product.name,
                 ean: product.ean,
-                htmlContent: { sekcja1, sekcja2, sekcja3, sekcja4, sekcja5, sekcja6 },
+                htmlContent: { sekcja1, sekcja2, sekcja3, sekcja4, sekcja5, sekcja6, sekcja7 },
                 images: ((product.offerDraft.visionTickets?.length ? product.offerDraft.visionTickets : null) || (product.offerDraft.images?.length ? product.offerDraft.images : null) || product.images || []).map(img => {
                     if (typeof img === 'string') return { originalUrl: img, isCompliant: true, alerts: [] };
                     return {
@@ -366,7 +368,8 @@ const validateBaselinkerExport = async (req, res) => {
             draftData.htmlContent?.sekcja3 || draftData.sekcja3 || '',
             draftData.htmlContent?.sekcja4 || draftData.sekcja4 || '',
             draftData.htmlContent?.sekcja5 || draftData.sekcja5 || '',
-            draftData.htmlContent?.sekcja6 || draftData.sekcja6 || ''
+            draftData.htmlContent?.sekcja6 || draftData.sekcja6 || '',
+            draftData.htmlContent?.sekcja7 || draftData.sekcja7 || ''
         ].filter(Boolean).join('\n\n');
 
         const agentInput = {
@@ -435,7 +438,8 @@ const exportToBaselinker = async (req, res) => {
                     draftData.htmlContent.sekcja3 || '',
                     draftData.htmlContent.sekcja4 || '',
                     draftData.htmlContent.sekcja5 || '',
-                    draftData.htmlContent.sekcja6 || ''
+                    draftData.htmlContent.sekcja6 || '',
+                    draftData.htmlContent.sekcja7 || ''
                 ].filter(Boolean).join('\n\n');
             }
         } else {
@@ -446,7 +450,8 @@ const exportToBaselinker = async (req, res) => {
                 draftData.sekcja3 || '',
                 draftData.sekcja4 || '',
                 draftData.sekcja5 || '',
-                draftData.sekcja6 || ''
+                draftData.sekcja6 || '',
+                draftData.sekcja7 || ''
             ].filter(Boolean).join('\n\n');
         }
 
@@ -725,7 +730,8 @@ const triggerUltimatePipeline = async (req, res) => {
                          sekcja3: orch.state.a10_result?.section_3_html || "",
                          sekcja4: orch.state.a10_result?.section_4_html || "",
                          sekcja5: orch.state.a10_result?.section_5_html || "",
-                         sekcja6: orch.state.a10_result?.section_6_html || ""
+                         sekcja6: orch.state.a10_result?.section_6_html || "",
+                         sekcja7: orch.state.a10_result?.section_7_html || ""
                      };
 
                      let updatedFeatures = {};

@@ -803,7 +803,8 @@ export const UnifiedProductPipelineView = ({
                                             { key: 'sekcja3', label: 'Moduł 3: Detale' },
                                             { key: 'sekcja4', label: 'Moduł 4: Specyfikacja' },
                                             { key: 'sekcja5', label: 'Moduł 5: INCI / Bezpieczeństwo' },
-                                            { key: 'sekcja6', label: 'Moduł 6: FAQ / Dodatkowe' }
+                                            { key: 'sekcja6', label: 'Moduł 6: FAQ / Dodatkowe' },
+                                            { key: 'sekcja7', label: 'Moduł 7: Reklama' }
                                         ].map((sec) => (
                                             <div key={`${editorKey}-${sec.key}`}>
                                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">{sec.label}</label>
