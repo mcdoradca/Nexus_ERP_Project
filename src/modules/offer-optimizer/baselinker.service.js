@@ -178,7 +178,7 @@ class BaseLinkerService {
         const imagesMap = {};
         if (draftData.images && Array.isArray(draftData.images)) {
             draftData.images.forEach((imgObj, idx) => {
-                let url = imgObj.url || "";
+                let url = typeof imgObj === 'string' ? imgObj : (imgObj.url || "");
                 const key = idx.toString(); // BaseLinker liczy pozycje od 0
 
                 if (url.includes('upload.cdn.baselinker.com') || url.includes('placeholder.com')) {

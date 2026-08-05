@@ -95,6 +95,16 @@ async function handleProductContentOptimized(payload) {
             });
             
             if (product.offerDraft && typeof product.offerDraft === 'object') {
+                // INJECT IMAGES: Pobieramy zdjęcia z PIM, jeśli draft z frontendu ich nie zdefiniował
+                if (!product.offerDraft.images || !Array.isArray(product.offerDraft.images) || product.offerDraft.images.length === 0) {
+                    const exportImages = [];
+                    if (product.imageUrl) exportImages.push(product.imageUrl);
+                    if (product.images && Array.isArray(product.images)) {
+                        exportImages.push(...product.images);
+                    }
+                    product.offerDraft.images = exportImages;
+                }
+
                 // Jeśli mamy bogatego drafta (w tym SSOT agentPayload lub 6 sekcji htmlContent i features)
                 // wysyłamy go pełnym obiektem do exportOfferToBaselinker, by zmapowało do extra_fields
                 const response = await baselinkerService.exportOfferToBaselinker(
