@@ -605,7 +605,6 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
                     isAllegroSynced = true;
                 } catch (err) {
                     console.error(`[AutoFill] Błąd synchronizacji kategorii ${globalAllegroCatId}:`, err.message);
-                    globalAllegroCatId = null;
                 }
             }
         };

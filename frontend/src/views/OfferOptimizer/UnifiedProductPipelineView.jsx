@@ -550,7 +550,7 @@ export const UnifiedProductPipelineView = ({
                 const b = brands.find(x => x.id === matchedBrandId) || {name: brand};
                 setBrandSearchTerm(b.name);
             } else {
-                setBrandSearchTerm('');
+                setBrandSearchTerm(brand || '');
             }
             
             setNewProductForm(prev => ({
