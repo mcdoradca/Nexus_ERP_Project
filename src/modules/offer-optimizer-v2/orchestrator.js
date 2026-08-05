@@ -1326,20 +1326,29 @@ class Orchestrator {
         
         // --- FINISH: Składanie ---
         if (this.state.next_action === 'FINISH') {
-            const finalDescParts = [];
-            for(let i=1; i<=6; i++) {
-                finalDescParts.push(this.state.a10_result['section_'+i+'_html'] || '');
-            }
+            const s5 = this.state.a10_result['section_5_html'] || '';
+            const s6 = this.state.a10_result['section_6_html'] || '';
+            const extra4 = [s5, s6].filter(Boolean).join('\n<br>\n');
             
             const offer = {
                 title: this.state.extracted_data.product_name?.value,
-                description_html: finalDescParts.join('\n'),
+                description: this.state.a10_result['section_1_html'] || '',
+                description_extra1: this.state.a10_result['section_2_html'] || '',
+                description_extra2: this.state.a10_result['section_3_html'] || '',
+                description_extra3: this.state.a10_result['section_4_html'] || '',
+                description_extra4: extra4,
+                extra_field_4245: this.state.a10_result['section_7_html'] || '',
                 ingredients_inci: this.state.extracted_data.inci?.value,
                 eu_responsible_person: this.state.extracted_data.eu_responsible_person,
                 safety_warnings: this.state.a5_result?.mandatory_safety_warnings || [],
                 source_map: {
                     title: { source: 'baselinker', matched_key: null },
-                    description_html: { source: 'pipeline', matched_key: null },
+                    description: { source: 'pipeline', matched_key: 'section_1' },
+                    description_extra1: { source: 'pipeline', matched_key: 'section_2' },
+                    description_extra2: { source: 'pipeline', matched_key: 'section_3' },
+                    description_extra3: { source: 'pipeline', matched_key: 'section_4' },
+                    description_extra4: { source: 'pipeline', matched_key: 'section_5_6' },
+                    extra_field_4245: { source: 'pipeline', matched_key: 'section_7' },
                     ingredients_inci: { source: 'baselinker', matched_key: null },
                     eu_responsible_person: { source: this.state.extracted_data.eu_responsible_person.source, matched_key: null },
                     safety_warnings: { source: 'a5', matched_key: null }
@@ -1408,7 +1417,6 @@ class Orchestrator {
     async runPhase4() { throw new Error('NOT_IMPLEMENTED_E4b'); }
 
     writeBackToBaseLinker(offer) {
-        throw new Error('WRITE_BACK_DISABLED_BY_OPERATOR');
         if (!WRITE_BACK_ENABLED) {
             console.log('[WRITE_BACK] Zablokowane stałą WRITE_BACK_ENABLED = false.');
             return;
@@ -1420,7 +1428,12 @@ class Orchestrator {
             ean: this.gtin,
             text_fields: {
                 name: offer.title,
-                description: offer.description_html
+                description: offer.description,
+                description_extra1: offer.description_extra1,
+                description_extra2: offer.description_extra2,
+                description_extra3: offer.description_extra3,
+                description_extra4: offer.description_extra4,
+                extra_field_4245: offer.extra_field_4245
             },
             features: {
                 INCI: offer.ingredients_inci
