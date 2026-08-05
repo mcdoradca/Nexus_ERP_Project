@@ -49,47 +49,19 @@ function extractFromFeatures(product) {
         recovered_keys: []
     };
 
-    if (!product) {
+    if (!product || !product.text_fields || !product.text_fields.features) {
         return result;
     }
 
-    let features = {};
-    let isTruncated = false;
-    let recKeys = [];
-
-    // 1. Nowy system parametrów PIM (Karta Techniczna i Skład)
-    if (product.features && typeof product.features === 'object') {
-        Object.assign(features, product.features);
-    }
-    if (product['features|pl'] && typeof product['features|pl'] === 'object') {
-        Object.assign(features, product['features|pl']);
+    const parseResult = parseFeaturesTolerant(product.text_fields.features);
+    result.truncated = parseResult.truncated;
+    if (parseResult.recovered_keys) {
+        result.recovered_keys = parseResult.recovered_keys;
     }
 
-    // 2. Legacy - text_fields.features
-    if (product.text_fields) {
-        if (product.text_fields.features) {
-            const parseResult = parseFeaturesTolerant(product.text_fields.features);
-            if (parseResult.truncated) isTruncated = true;
-            if (parseResult.recovered_keys) recKeys.push(...parseResult.recovered_keys);
-            if (parseResult.data && typeof parseResult.data === 'object') {
-                Object.assign(features, parseResult.data);
-            }
-        }
-        if (product.text_fields['features|pl']) {
-            const parseResult = parseFeaturesTolerant(product.text_fields['features|pl']);
-            if (parseResult.truncated) isTruncated = true;
-            if (parseResult.recovered_keys) recKeys.push(...parseResult.recovered_keys);
-            if (parseResult.data && typeof parseResult.data === 'object') {
-                Object.assign(features, parseResult.data);
-            }
-        }
-    }
-
-    result.truncated = isTruncated;
-    result.recovered_keys = recKeys;
-
-    if (Object.keys(features).length === 0) {
-        // Skaczemy wprost do fallbacku na Description, pętla mapy zignoruje puste klucze
+    const features = parseResult.data;
+    if (!features || typeof features !== 'object') {
+        return result;
     }
 
     const featureKeys = Object.keys(features);
