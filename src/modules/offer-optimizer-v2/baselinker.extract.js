@@ -49,20 +49,44 @@ function extractFromFeatures(product) {
         recovered_keys: []
     };
 
-    if (!product || !product.text_fields || !product.text_fields.features) {
+    if (!product) {
         return result;
     }
 
-    const parseResult = parseFeaturesTolerant(product.text_fields.features);
-    result.truncated = parseResult.truncated;
-    if (parseResult.recovered_keys) {
-        result.recovered_keys = parseResult.recovered_keys;
+    let features = {};
+    let isTruncated = false;
+    let recKeys = [];
+
+    // 1. Nowy system parametrów PIM (Karta Techniczna i Skład)
+    if (product.features && typeof product.features === 'object') {
+        Object.assign(features, product.features);
+    }
+    if (product['features|pl'] && typeof product['features|pl'] === 'object') {
+        Object.assign(features, product['features|pl']);
     }
 
-    const features = parseResult.data;
-    if (!features || typeof features !== 'object') {
-        return result;
+    // 2. Legacy - text_fields.features
+    if (product.text_fields) {
+        if (product.text_fields.features) {
+            const parseResult = parseFeaturesTolerant(product.text_fields.features);
+            if (parseResult.truncated) isTruncated = true;
+            if (parseResult.recovered_keys) recKeys.push(...parseResult.recovered_keys);
+            if (parseResult.data && typeof parseResult.data === 'object') {
+                Object.assign(features, parseResult.data);
+            }
+        }
+        if (product.text_fields['features|pl']) {
+            const parseResult = parseFeaturesTolerant(product.text_fields['features|pl']);
+            if (parseResult.truncated) isTruncated = true;
+            if (parseResult.recovered_keys) recKeys.push(...parseResult.recovered_keys);
+            if (parseResult.data && typeof parseResult.data === 'object') {
+                Object.assign(features, parseResult.data);
+            }
+        }
     }
+
+    result.truncated = isTruncated;
+    result.recovered_keys = recKeys;
 
     const featureKeys = Object.keys(features);
     const map = config.featureSynonyms;
@@ -91,14 +115,19 @@ function extractFromFeatures(product) {
     // Fallback: Jeżeli nie znaleziono INCI w parametrach, szukamy go w treści opisu HTML
     if (!result.inci.value && product.text_fields && product.text_fields.description) {
         const desc = product.text_fields.description;
-        // Szukamy słów INCI, Skład, Składniki, Ingredients, a następnie łapiemy treść po dwukropku
-        const inciMatch = desc.match(/(?:INCI|Składniki|Skład|Ingredients)\s*:\s*([^<]+)(?:<|$)/i);
+        // Bezpieczny Regex: max 400 znaków by uniknąć przechwytywania całych stron opisu przy braku znacznika zamykającego
+        const inciMatch = desc.match(/(?:INCI|Składniki|Skład|Ingredients)\s*:\s*([^<]{5,400})(?:<|$|\n)/i);
         if (inciMatch && inciMatch[1]) {
-            result.inci = {
-                value: inciMatch[1].trim(),
-                source: "baselinker_description_regex",
-                matched_key: "description_regex"
-            };
+            const extractedFragment = inciMatch[1].trim();
+            // Tarcza błędów (Defensive AI): Prawdziwe INCI powinno posiadać przecinki. 
+            // Jeżeli złapiemy wypracowanie promocyjne zamiast listy, nie uznajemy tego.
+            if (extractedFragment.includes(',') || extractedFragment.split(' ').length < 15) {
+                result.inci = {
+                    value: extractedFragment,
+                    source: "baselinker_description_regex",
+                    matched_key: "description_regex"
+                };
+            }
         }
     }
 
