@@ -121,16 +121,45 @@ class BaselinkerExportService {
         }
 
         // --- 4. ZDJĘCIA ---
-        if (draftData.images && Array.isArray(draftData.images)) {
-            for (let i = 0; i < draftData.images.length; i++) {
-                let img = draftData.images[i];
+        // Budujemy tablicę docelową: index 0 to miniaturka, reszta to galeria
+        const finalImages = [];
+        
+        // Zabezpieczenie: Pobieramy miniaturkę z bazy (PIM)
+        let mainImageUrl = product.imageUrl || null;
+
+        if (draftData.images && Array.isArray(draftData.images) && draftData.images.length > 0) {
+            // Frontend przesłał własną tablicę (np. posortowaną przez użytkownika)
+            for (let img of draftData.images) {
                 let url = typeof img === 'string' ? img : (img.url || img.originalUrl || img.replacedUrl || "");
-                if (url.includes('upload.cdn.baselinker.com') || url.includes('placeholder.com')) continue;
-                if (!url) continue;
-                
-                const compressedDataUrl = await this.compressImage(url);
-                payload.images[i.toString()] = compressedDataUrl;
+                if (url.includes('upload.cdn.baselinker.com') || url.includes('placeholder.com')) {
+                    finalImages.push(""); // Pusty string u nas oznacza skip w indeksacji
+                } else if (url) {
+                    finalImages.push(url);
+                }
             }
+        } else {
+            // Logika Fallbacku z dawnego MDM: jeśli frontend nie przysłał zdjęć, wstrzykujemy PIM
+            if (mainImageUrl) finalImages.push(mainImageUrl);
+            if (product.images && Array.isArray(product.images)) {
+                product.images.forEach(img => finalImages.push(img));
+            }
+        }
+
+        // Dodatkowa tarcza: Jeśli po wszystkim nie mamy miniaturki na index 0 (jest pusta), 
+        // a w bazie PIM mamy zdjęcie główne (imageUrl) i nie jest to BaseLinker CDN, wymuszamy je na index 0.
+        if (mainImageUrl && (!finalImages[0] || finalImages[0] === "")) {
+             if (!mainImageUrl.includes('upload.cdn.baselinker.com') && !mainImageUrl.includes('placeholder.com')) {
+                 finalImages[0] = mainImageUrl;
+             }
+        }
+
+        // Kompresja i przypisanie do payloadu zgodnie z indeksami (0, 1, 2...)
+        for (let i = 0; i < finalImages.length; i++) {
+            let url = finalImages[i];
+            if (!url) continue; // Skipujemy puste (np. odrzucone linki CDN), dzięki czemu BaseLinker zachowa stare zdjęcie na tej pozycji
+            
+            const compressedDataUrl = await this.compressImage(url);
+            payload.images[i.toString()] = compressedDataUrl;
         }
 
         return payload;
