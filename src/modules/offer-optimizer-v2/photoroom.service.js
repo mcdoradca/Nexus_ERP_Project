@@ -334,8 +334,8 @@ function buildBackgroundPrompt({ surface, environment, lighting, props }) {
 
 const PHOTOROOM_ENDPOINT = 'https://image-api.photoroom.com/v2/edit';
 const MODEL_HEADERS = {
-  SHADOWS:    { /* 'pr-ai-shadows-model-version': '2026-04-15' */ },
-  BACKGROUND: { /* 'pr-ai-background-model-version': 'background-studio-beta-2025-03-17' */ },
+  SHADOWS:    { 'pr-ai-shadows-model-version': '2026-04-15' },
+  BACKGROUND: { 'pr-ai-background-model-version': 'background-studio-beta-2025-03-17' },
 };
 
 function pickRandom(arr) {
@@ -446,9 +446,10 @@ async function fetchImageSecure(url, timeoutMs = 15000) {
 // Główna usługa wywoływana przez kontroler (Zastępuje AiService.generateLifestyle)
 // -------------------------------------------------------------------------
 async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
-    const photoroomKey = (process.env.PHOTOROOM_API_KEY && process.env.PHOTOROOM_API_KEY !== "TBD") 
-        ? process.env.PHOTOROOM_API_KEY 
-        : "sandbox_sk_pr_default_9f10500b15c19db1e2f8aee29e1671ac7ff33aa2";
+    const photoroomKey = process.env.PHOTOROOM_API_KEY;
+    if (!photoroomKey || photoroomKey === "TBD") {
+        throw new Error("Brak klucza PHOTOROOM API V2 w zmiennych środowiskowych (.env). Upewnij się, że przeładowałeś serwer na VPS po dopisaniu klucza.");
+    }
 
     const slot = imageIndex + 1;
     console.log(`[Photoroom V2] Rozpoczęto generowanie zdjęcia (Slot ${slot}) dla EAN: ${ean} (CHAOS ENGINE)`);
