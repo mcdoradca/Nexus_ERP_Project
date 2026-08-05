@@ -14,7 +14,7 @@ Otrzymujesz **komplet gotowych danych** z systemu Nexus. Treści są przygotowan
 
 **Nie wolno Ci zmienić ani jednego znaku** w:
 
-| Dane | Klucz docelowy |
+| Dane | Klucz docelowy |Dla konta Allegro wenecja444
 |---|---|
 | Tytuł katalogu Base | `name` |
 | Opis katalogu Base | `description`, `description_extra1..4` |
@@ -85,19 +85,116 @@ Przed zwróceniem wyniku porównaj każdą wartość tekstową w payloadzie z wa
 
 ## 2. Co Agentowi wolno — lista zamknięta
 
-1. **Pobieranie `inventory_id`** (Zasada nadrzędna):
-   Agent powinien:
-   - Wywołać `getInventories` i pobrać dostępne katalogi.
-   - Dla każdego `inventory_id` wywołać `getInventoryProductsList` z `filter_id = product_id` (wpisując w miejsce Product_id numer ID produktu).
-   - Katalog, którego odpowiedź zawiera ten produkt, wskazuje właściwe `inventory_id`.
-   
-   Przykład sprawdzenia jednego katalogu:
-   ```json
-   {
-     "inventory_id": 385,
-     "filter_id": 48430245
+1. **Procedura Aktualizacji Tytułu Allegro (Wymóg bezwzględny)**:
+Poniższy algorytm powinien być wykonywany w tej kolejności. Agent nie może używać gotowego ani przykładowego inventory_id i nie może zgadywać klucza tytułu Allegro.
+
+1. Pobierz katalogi
+
+Agent powinien:
+- Wywołać `getInventories` i pobrać dostępne katalogi.
+- Dla każdego `inventory_id` wywołać `getInventoryProductsList` z `filter_id = product_id` (wpisując w miejsce Product_id numer ID produktu).
+- Katalog, którego odpowiedź zawiera ten produkt, wskazuje właściwe `inventory_id`.
+
+2. Pobierz dostępne pola tekstowe katalogu
+
+Dla ustalonego katalogu wywołaj:
+
+getInventoryAvailableTextFieldKeys
+{
+  "inventory_id": "ID_POBRANE_W_KROKU_1"
+}
+W text_field_keys Agent ma znaleźć klucz:
+
+zaczynający się od name|,
+odnoszący się do właściwego konta Allegro,
+przeznaczony na nazwę oferty w odpowiednim języku.
+Przykładowy format to name|pl|allegro_..., ale pełnego klucza nie wolno budować ani zgadywać. Należy użyć dokładnego klucza zwróconego przez API. Jeżeli znaleziono kilka kluczy Allegro, Agent ma zgłosić ich nazwy użytkowe i poprosić o wybór konta.
+
+3. Zaktualizuj wyłącznie tytuł Allegro
+
+Dla istniejącego produktu wywołaj:
+
+addInventoryProduct
+Przekaż tylko:
+
+{
+  inventory_id: inventoryId,
+  product_id: productId,
+  text_fields: {
+    [allegroTitleKey]: offer.title
+  }
+}
+Najważniejsza zasada: nie wysyłaj tutaj text_fields.name. Pole name jest główną nazwą produktu w katalogu i mogłoby ją zmienić. Podanie istniejącego product_id oznacza aktualizację produktu, a pominięte pola pozostają bez zmian.
+
+4. Użyj tytułu w szablonie
+
+W szablonie aukcji pozostaw tag:
+
+[nazwa_aukcji]
+Agent nie powinien zapisywać tego tagu jako wartości przez API. Przez API zapisuje rzeczywisty offer.title w polu właściwym dla Allegro, natomiast tag jest używany dopiero w szablonie aukcji.
+
+   **Referencyjny kod implementacji (dla logiki wywołań Agenta):**
+   ```javascript
+   const API_URL = 'https://api.baselinker.com/connector.php';
+   const API_TOKEN = process.env.BASE_API_TOKEN;
+
+   async function callBase(method, parameters = {}) {
+     const body = new URLSearchParams();
+     body.append('method', method);
+     body.append('parameters', JSON.stringify(parameters));
+
+     const response = await fetch(API_URL, {
+       method: 'POST',
+       headers: { 'X-BLToken': API_TOKEN, 'Content-Type': 'application/x-www-form-urlencoded' },
+       body
+     });
+     const result = await response.json();
+     if (result.status !== 'SUCCESS') throw new Error(`${method}: ${result.error_code ?? 'UNKNOWN_ERROR'}`);
+     return result;
+   }
+
+   async function resolveInventoryId(inventoryName) {
+     const result = await callBase('getInventories', {});
+     const inventories = result.inventories ?? [];
+     const matches = inventories.filter(inv => inv.name === inventoryName);
+     if (matches.length !== 1) throw new Error(`Nie udało się jednoznacznie wybrać katalogu „${inventoryName}”.`);
+     return matches[0].inventory_id;
+   }
+
+   async function getAllegroTitleCandidates(inventoryId) {
+     const result = await callBase('getInventoryAvailableTextFieldKeys', { inventory_id: inventoryId });
+     return Object.entries(result.text_field_keys ?? {})
+       .filter(([key]) => key.startsWith('name|') && key.includes('|allegro_'))
+       .map(([key, label]) => ({ key, label }));
+   }
+
+   async function updateAllegroTitle({ inventoryName, productId, offerTitle, expectedAllegroFieldLabel }) {
+     const inventoryId = await resolveInventoryId(inventoryName);
+     const candidates = await getAllegroTitleCandidates(inventoryId);
+     const matches = candidates.filter(field => field.label === expectedAllegroFieldLabel);
+     
+     if (matches.length !== 1) throw new Error('Nie udało się jednoznacznie ustalić pola tytułu Allegro.');
+     const allegroTitleKey = matches[0].key;
+
+     const result = await callBase('addInventoryProduct', {
+       inventory_id: inventoryId,
+       product_id: productId,
+       text_fields: { [allegroTitleKey]: offerTitle }
+     });
+
+     if (result.warnings && Object.keys(result.warnings).length > 0) {
+       console.warn('Ostrzeżenia Base:', result.warnings);
+     }
+     
+     return {
+       inventory_id: inventoryId,
+       product_id: result.product_id ?? productId,
+       allegro_title_field: allegroTitleKey,
+       warnings: result.warnings ?? {}
+     };
    }
    ```
+   Do uruchomienia musisz uzyskać i zweryfikować z użytkownikiem dokładną nazwę katalogu, `product_id` istniejącego produktu, tytuł oraz pełną nazwę użytkową pola Allegro. Jeśli nie jesteś w stanie tego ustalić 1:1, powinieneś ZATRZYMAĆ proces aktualizacji.
 2. **Podstawić `category_id`** z `category_map` po ID kategorii Nexusa.
 3. **Podstawić `product_id`** z `product_map`; przy braku wpisu oznaczyć `is_new: true` i pominąć `product_id`.
 4. **Umieścić treści pod właściwymi kluczami** kanałów (§4) — operacja czysto adresowa.
