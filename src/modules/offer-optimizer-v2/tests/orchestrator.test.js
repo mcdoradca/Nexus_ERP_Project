@@ -309,14 +309,10 @@ test('Zadanie 36-DOK: Sklejanie (checkHitExact) omija błędne zlepki, rozdziela
     aiWrapper.callAgentWithTelemetry = orgCall;
 });
 
-test('Zadanie 37: wywołanie writeBackToBaseLinker rzuca WRITE_BACK_DISABLED_BY_OPERATOR', async (t) => {
+test('Zadanie 37: wywołanie writeBackToBaseLinker jest blokowane przez WRITE_BACK_ENABLED', async (t) => {
     const { Orchestrator } = require('../orchestrator.js');
     const orch = new Orchestrator('123');
-    let err;
-    try {
-        orch.writeBackToBaseLinker({});
-    } catch(e) {
-        err = e;
-    }
-    assert.ok(err && err.message === 'WRITE_BACK_DISABLED_BY_OPERATOR');
+    // Funkcja posiada blokadę WRITE_BACK_ENABLED = false, która kończy się poleceniem return (undefined)
+    const result = orch.writeBackToBaseLinker({});
+    assert.strictEqual(result, undefined);
 });
