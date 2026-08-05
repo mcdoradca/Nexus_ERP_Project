@@ -331,7 +331,7 @@ async function findCategoryByEan(ean) {
     if (!ean) return null;
     try {
         const token = await getAllegroToken();
-        const response = await axios.get(`https://api.allegro.pl/sale/products?ean=${ean}`, {
+        const response = await axios.get(`https://api.allegro.pl/sale/products?phrase=${ean}&mode=GTIN`, {
             headers: {
                 'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Bearer ${token}`,
