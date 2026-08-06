@@ -8,15 +8,15 @@ const AllegroService = require('../offer-optimizer/allegro.service');
 class BaselinkerExportService {
     
     /**
-     * Koduje 4-bajtowe emoji na encje HTML. Jeśli isHtml = false, całkowicie usuwa (aby uciąć na Tytule).
+     * Koduje emoji i piktogramy na encje HTML chroniąc system przed błędami kodowania.
+     * Jeśli isHtml = false (Tytuły), całkowicie usuwa emoji.
      */
     encodeEmojis(str, isHtml = true) {
         if (!str) return "";
-        return str.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(match) {
+        return str.replace(/[\p{Emoji}\uFE0F]/gu, function(match) {
+            const codePoint = match.codePointAt(0);
+            if (codePoint <= 127) return match; // Zostawiamy podstawowe znaki ASCII (np. cyfry, #, *)
             if (!isHtml) return ""; 
-            const high = match.charCodeAt(0);
-            const low = match.charCodeAt(1);
-            const codePoint = ((high - 0xD800) * 0x400) + (low - 0xDC00) + 0x10000;
             return '&#x' + codePoint.toString(16).toUpperCase() + ';';
         });
     }
