@@ -1,6 +1,6 @@
 const { callAgentWithTelemetry } = require('./ai.wrapper.js');
 
-const PROMPT_MASTER_AGENT_ID = 11;
+const PROMPT_MASTER_AGENT_ID = "11";
 const MANDATORY_PREFIX = "Produkt musi być zawsze w 100% taki jak na zdjęciu bazowym. Nie wolno zmieniać kształtu, koloru produktu, nie wolno zmieniać napisów na etykiecie - etykieta ma być zawsze w zachowana. ";
 
 async function generatePrompt(slot, productDetailsText) {
