@@ -253,7 +253,7 @@ const COMPOSITIONS = [
   { pT: 0.15, pB: 0.12, pL: 0.18, pR: 0.40, hA: 'left', vA: 'bottom', label: 'MID_LEFT' },
   { pT: 0.19, pB: 0.10, pL: 0.20, pR: 0.39, hA: 'left', vA: 'bottom', label: 'MID_LEFT' },
   { pT: 0.13, pB: 0.14, pL: 0.18, pR: 0.49, hA: 'left', vA: 'bottom', label: 'MID_LEFT' },
-  { pT: 0.16, pB: 0.14, pL: 0.19, pR: 0.50, hA: 'left', vA: 'bottom', label: 'MID_LEFT' },
+  { pT: 0.16, pB: 0.14, pL: 0.19, pR: 0.49, hA: 'left', vA: 'bottom', label: 'MID_LEFT' },
   { pT: 0.18, pB: 0.12, pL: 0.16, pR: 0.41, hA: 'left', vA: 'bottom', label: 'MID_LEFT' },
   { pT: 0.20, pB: 0.08, pL: 0.13, pR: 0.38, hA: 'left', vA: 'bottom', label: 'MID_LEFT' },
   { pT: 0.18, pB: 0.15, pL: 0.11, pR: 0.48, hA: 'left', vA: 'bottom', label: 'MID_LEFT' },
@@ -270,29 +270,29 @@ const COMPOSITIONS = [
   { pT: 0.29, pB: 0.20, pL: 0.20, pR: 0.21, hA: 'center', vA: 'bottom', label: 'FAR_CENTER' },
   { pT: 0.33, pB: 0.24, pL: 0.22, pR: 0.33, hA: 'center', vA: 'bottom', label: 'FAR_CENTER' },
   { pT: 0.31, pB: 0.25, pL: 0.21, pR: 0.20, hA: 'center', vA: 'bottom', label: 'FAR_CENTER' },
-  { pT: 0.23, pB: 0.21, pL: 0.20, pR: 0.50, hA: 'left', vA: 'bottom', label: 'FAR_LEFT' },
+  { pT: 0.23, pB: 0.21, pL: 0.20, pR: 0.49, hA: 'left', vA: 'bottom', label: 'FAR_LEFT' },
   { pT: 0.30, pB: 0.17, pL: 0.22, pR: 0.46, hA: 'left', vA: 'bottom', label: 'FAR_LEFT' },
   { pT: 0.29, pB: 0.23, pL: 0.20, pR: 0.42, hA: 'left', vA: 'bottom', label: 'FAR_LEFT' },
   { pT: 0.32, pB: 0.17, pL: 0.12, pR: 0.40, hA: 'left', vA: 'bottom', label: 'FAR_LEFT' },
   { pT: 0.28, pB: 0.25, pL: 0.17, pR: 0.45, hA: 'left', vA: 'bottom', label: 'FAR_LEFT' },
-  { pT: 0.30, pB: 0.21, pL: 0.22, pR: 0.54, hA: 'left', vA: 'bottom', label: 'FAR_LEFT' },
+  { pT: 0.30, pB: 0.21, pL: 0.22, pR: 0.49, hA: 'left', vA: 'bottom', label: 'FAR_LEFT' },
   { pT: 0.24, pB: 0.17, pL: 0.24, pR: 0.44, hA: 'left', vA: 'bottom', label: 'FAR_LEFT' },
   { pT: 0.21, pB: 0.25, pL: 0.42, pR: 0.20, hA: 'right', vA: 'bottom', label: 'FAR_RIGHT' },
-  { pT: 0.35, pB: 0.23, pL: 0.51, pR: 0.14, hA: 'right', vA: 'bottom', label: 'FAR_RIGHT' },
-  { pT: 0.26, pB: 0.22, pL: 0.54, pR: 0.17, hA: 'right', vA: 'bottom', label: 'FAR_RIGHT' },
-  { pT: 0.29, pB: 0.23, pL: 0.54, pR: 0.13, hA: 'right', vA: 'bottom', label: 'FAR_RIGHT' },
+  { pT: 0.35, pB: 0.23, pL: 0.49, pR: 0.14, hA: 'right', vA: 'bottom', label: 'FAR_RIGHT' },
+  { pT: 0.26, pB: 0.22, pL: 0.49, pR: 0.17, hA: 'right', vA: 'bottom', label: 'FAR_RIGHT' },
+  { pT: 0.29, pB: 0.23, pL: 0.49, pR: 0.13, hA: 'right', vA: 'bottom', label: 'FAR_RIGHT' },
   { pT: 0.26, pB: 0.16, pL: 0.44, pR: 0.21, hA: 'right', vA: 'bottom', label: 'FAR_RIGHT' },
-  { pT: 0.34, pB: 0.23, pL: 0.51, pR: 0.18, hA: 'right', vA: 'bottom', label: 'FAR_RIGHT' },
-  { pT: 0.13, pB: 0.14, pL: 0.02, pR: 0.55, hA: 'left', vA: 'bottom', label: 'EDGE_LEFT' },
-  { pT: 0.11, pB: 0.08, pL: 0.05, pR: 0.54, hA: 'left', vA: 'bottom', label: 'EDGE_LEFT' },
-  { pT: 0.13, pB: 0.08, pL: 0.03, pR: 0.57, hA: 'left', vA: 'bottom', label: 'EDGE_LEFT' },
-  { pT: 0.21, pB: 0.11, pL: 0.03, pR: 0.57, hA: 'left', vA: 'bottom', label: 'EDGE_LEFT' },
-  { pT: 0.21, pB: 0.14, pL: 0.04, pR: 0.56, hA: 'left', vA: 'bottom', label: 'EDGE_LEFT' },
-  { pT: 0.18, pB: 0.14, pL: 0.59, pR: 0.03, hA: 'right', vA: 'bottom', label: 'EDGE_RIGHT' },
-  { pT: 0.18, pB: 0.12, pL: 0.58, pR: 0.05, hA: 'right', vA: 'bottom', label: 'EDGE_RIGHT' },
-  { pT: 0.16, pB: 0.10, pL: 0.50, pR: 0.02, hA: 'right', vA: 'bottom', label: 'EDGE_RIGHT' },
+  { pT: 0.34, pB: 0.23, pL: 0.49, pR: 0.18, hA: 'right', vA: 'bottom', label: 'FAR_RIGHT' },
+  { pT: 0.13, pB: 0.14, pL: 0.02, pR: 0.49, hA: 'left', vA: 'bottom', label: 'EDGE_LEFT' },
+  { pT: 0.11, pB: 0.08, pL: 0.05, pR: 0.49, hA: 'left', vA: 'bottom', label: 'EDGE_LEFT' },
+  { pT: 0.13, pB: 0.08, pL: 0.03, pR: 0.49, hA: 'left', vA: 'bottom', label: 'EDGE_LEFT' },
+  { pT: 0.21, pB: 0.11, pL: 0.03, pR: 0.49, hA: 'left', vA: 'bottom', label: 'EDGE_LEFT' },
+  { pT: 0.21, pB: 0.14, pL: 0.04, pR: 0.49, hA: 'left', vA: 'bottom', label: 'EDGE_LEFT' },
+  { pT: 0.18, pB: 0.14, pL: 0.49, pR: 0.03, hA: 'right', vA: 'bottom', label: 'EDGE_RIGHT' },
+  { pT: 0.18, pB: 0.12, pL: 0.49, pR: 0.05, hA: 'right', vA: 'bottom', label: 'EDGE_RIGHT' },
+  { pT: 0.16, pB: 0.10, pL: 0.49, pR: 0.02, hA: 'right', vA: 'bottom', label: 'EDGE_RIGHT' },
   { pT: 0.18, pB: 0.06, pL: 0.46, pR: 0.03, hA: 'right', vA: 'bottom', label: 'EDGE_RIGHT' },
-  { pT: 0.24, pB: 0.11, pL: 0.54, pR: 0.06, hA: 'right', vA: 'bottom', label: 'EDGE_RIGHT' },
+  { pT: 0.24, pB: 0.11, pL: 0.49, pR: 0.06, hA: 'right', vA: 'bottom', label: 'EDGE_RIGHT' },
   { pT: 0.04, pB: 0.32, pL: 0.23, pR: 0.26, hA: 'center', vA: 'bottom', label: 'HIGH_HORIZON_CENTER' },
   { pT: 0.05, pB: 0.43, pL: 0.27, pR: 0.25, hA: 'center', vA: 'bottom', label: 'HIGH_HORIZON_CENTER' },
   { pT: 0.08, pB: 0.28, pL: 0.29, pR: 0.25, hA: 'center', vA: 'bottom', label: 'HIGH_HORIZON_CENTER' },
@@ -328,7 +328,7 @@ function buildBackgroundPrompt({ surface, environment, lighting, props }) {
     `${propsClause}` +
     `background: ${environment}, softly blurred, shallow depth of field. ` +
     `${lighting}. Photorealistic, natural perspective at counter height, ` +
-    `no people, no text, no logos.`
+    `no people.`
   );
 }
 
@@ -396,8 +396,8 @@ function buildPhotoroomRequest(ean, slot, pimText, imageBlob) {
   fd.append('background.expandPrompt', 'never');
   fd.append('quality', 'advanced');
 
-  fd.append('beautify.mode', 'ai.auto');
-  fd.append('lighting.mode', 'ai.auto');  
+  fd.append('beautify.mode', 'none');
+  fd.append('lighting.mode', 'none');  
   fd.append('shadow.mode', 'ai.preset-soft');    
 
   // Losowa kompozycja (zamiast przypisanej z góry)
@@ -572,10 +572,20 @@ ${leftFrameSvg}
           </g>
         </svg>`;
 
-        const compositedBuffer = await sharp(resultBuffer)
+        let quality = 95;
+        let compositedBuffer = await sharp(resultBuffer)
             .composite([{ input: Buffer.from(svgFrame) }])
-            .jpeg({ quality: 95 })
+            .jpeg({ quality })
             .toBuffer();
+            
+        const MAX_BYTES = 1.9 * 1024 * 1024;
+        while (compositedBuffer.length > MAX_BYTES && quality > 10) {
+            quality -= 10;
+            compositedBuffer = await sharp(resultBuffer)
+                .composite([{ input: Buffer.from(svgFrame) }])
+                .jpeg({ quality })
+                .toBuffer();
+        }
 
         const base64Output = `data:image/jpeg;base64,${compositedBuffer.toString('base64')}`;
 

@@ -1321,3 +1321,5 @@ odes.config.js\, aby poprawiÄ‡ jakoÅ›Ä‡ i precyzjÄ™ zÅ‚oÅ¼onych generacji tekstÃ
 
 ### Poprawki - 06 Sierpnia 2026
 - [Frontend/Photoroom V2] Naprawiono b³¹d 'Brak zdjêcia wejœciowego', który wystêpowa³ po eksporcie produktu do BaseLinkera, dostosowuj¹c PhotographicAuditorCard.jsx do prawid³owej obs³ugi stringów base64 (data:image) w polu originalUrl, zamiast wymagania wy³¹cznie adresów URL (http).
+
+- [Photoroom V2] Rozwi¹zano problem halucynacji AI zmieniaj¹cych sam produkt podczas generowania œrodowiska w slotach 2-9 (Chaos Engine). Zmieniono parametry beautify.mode oraz lighting.mode na 'none', wyciêto negatywny prompt wymuszaj¹cy brak logo. Wprowadzono te¿ limity dla paddingRight/paddingLeft (do max 0.49), naprawiaj¹c b³¹d API Photoroom v2, oraz zapêtlono kompresjê dla sharp, aby rozmiar pliku wyjœciowego nie przekroczy³ 2MB dla BaseLinkera.
