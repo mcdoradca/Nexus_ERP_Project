@@ -191,21 +191,23 @@ class PortfolioExecutor {
             // Puste ID produktu dla BL oznacza TWORZENIE nowej kartoteki
             const blProductId = product.baselinkerId || ""; 
 
-            const res = await BaseLinkerService.exportOfferToBaselinker(inventoryId, blProductId, draftData);
+            // [BLOCKED BY AGENT_PROTOCOL] - Zablokowano automatyczny eksport z portfolio-managera.
+            // Ostateczny eksport BaseLinker jest obsługiwany wyłącznie przez przycisk i zdarzenie PRODUCT_CONTENT_OPTIMIZED.
+            // const res = await BaseLinkerService.exportOfferToBaselinker(inventoryId, blProductId, draftData);
             
             // Aktualizacja statusu w PIM
             await prisma.product.update({
                 where: { id: product.id },
                 data: {
-                    status: "Zatwierdzony - Wysłany do BL",
+                    status: "Zatwierdzony w PIM (Oczekuje na Eksport BL)",
                     isSynced: true,
-                    // Jeśli BaseLinker zwróci nam nowe ID stworzonego towaru, zapisujemy je
-                    baselinkerId: res.product_id ? res.product_id.toString() : product.baselinkerId
+                    // Zablokowano nadpisywanie baselinkerId przez res (brak wywołania API)
+                    baselinkerId: product.baselinkerId
                 }
             });
 
             const EventBus = require('../../core/EventBus');
-            EventBus.publish('PRODUCT_DATA_UPDATED', { product: { ...product, status: "Zatwierdzony - Wysłany do BL" }, source: 'EXPORT_SUCCESS' });
+            EventBus.publish('PRODUCT_DATA_UPDATED', { product: { ...product, status: "Zatwierdzony w PIM (Oczekuje na Eksport BL)" }, source: 'EXPORT_PENDING_MANUAL_CONFIRMATION' });
 
             return {
                 success: true,

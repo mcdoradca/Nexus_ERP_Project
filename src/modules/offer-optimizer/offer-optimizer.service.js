@@ -69,7 +69,8 @@ class OfferOptimizerService {
         }
 
         // --- 4. Zapis Wyników (Eksport Danych do bazy gniazdowej)
-        await BaseLinkerService.updateProductDescriptionAndTitle(inventoryId, offer.id, safeTitle, finalDescriptionHtml);
+        // [BLOCKED BY AGENT_PROTOCOL] - Wyłączono na sztywno automatyczny eksport. Wymagane ręczne potwierdzenie przyciskiem w GUI.
+        // await BaseLinkerService.updateProductDescriptionAndTitle(inventoryId, offer.id, safeTitle, finalDescriptionHtml);
         
         console.log(`[Optimizer Service] Zakończono dla [${offer.sku}].`);
         

@@ -1,3 +1,9 @@
+## Modul: BaseLinker Export (Blokada Automatyzacji)
+**Data:** 2026-08-06
+**Zmiany:**
+1. **[MANUAL EXPORT ENFORCEMENT]** Wylaczono na sztywno automatyczne eksporty do BaseLinkera z modulow portfolio-manager (portfolio.executor.js) oraz starszego offer-optimizer (offer-optimizer.service.js).
+2. **[STATUS WORKFLOW FIX]** W portfolio.executor.js zablokowano zmiane statusu na "Wyslany do BL" po utworzeniu produktu. Status po udanym przetwarzaniu wewnetrznym ustawiany jest teraz na "Zatwierdzony w PIM (Oczekuje na Eksport BL)".
+3. **[SSOT PUSH]** Ostateczny fizyczny eksport do BaseLinkera (tworzenie i aktualizacja ofert) moze nastapic wylacznie poprzez magistrale zdarzen EventBus (PRODUCT_CONTENT_OPTIMIZED), wyzwalana recznie za pomoca przycisku w oknie interfejsu (Moduly Sprzedazowe).
 Listed directory Nexus\_ERP\_Project  
 Listed directory src  
 Listed directory src  
@@ -1311,3 +1317,4 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 - Odrzucono znaki 4-bajtowe (nowoczesne emoji), aby zapobiec ucinaniu ciągów znaków przez bazy danych MySQL (z kodowaniem utf8).
 - Zebrano ponad 80 sprawdzonych znaków z Basic Multilingual Plane (np. z bloków Dingbats i Miscellaneous Symbols) idealnych dla Allegro.
 - Utworzono artefakt ecommerce_icons_bmp.md pełniący rolę repozytorium bezpiecznych symboli e-commerce.
+
