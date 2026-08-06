@@ -106,15 +106,26 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     } else {
         // Zdjęcia lifestylowe (Prompt Master)
         generatedPrompt = await PromptMasterService.generatePrompt(slot, productDetailsText);
+        const seed = Math.floor(Math.random() * 2147483647).toString();
         
         fd.append('removeBackground', 'false');
         fd.append('editWithAI.mode', 'ai.auto');
         fd.append('editWithAI.prompt', generatedPrompt);
-        // Losowy seed dla dodatkowego zróżnicowania, jeśli zależy nam na różnorodności przy tym samym prompcie (opcjonalne, ale zgodne ze strukturą usera)
-        fd.append('editWithAI.seed', Math.floor(Math.random() * 2147483647).toString());
-    }
+        // Losowy seed dla dodatkowego zróżnicowania
+        fd.append('editWithAI.seed', seed);
 
-    console.log(`[Photoroom V2] Promt przekazany do Photoroom: ${generatedPrompt || 'Miniatura'}`);
+        console.log(`\n=== [Photoroom API] WYSYŁKA ŻĄDANIA DLA SLOTA ${slot} ===`);
+        console.log(`ENDPOINT: POST ${PHOTOROOM_ENDPOINT}`);
+        console.log(`PAYLOAD (Zmontowany obiekt FormData):`);
+        console.log(` - imageFile: <Oryginalny Obraz Base64/Buffer ${inputBuffer.length} bytes>`);
+        console.log(` - outputSize: 1080x1080`);
+        console.log(` - export.format: jpeg`);
+        console.log(` - removeBackground: false`);
+        console.log(` - editWithAI.mode: ai.auto`);
+        console.log(` - editWithAI.seed: ${seed}`);
+        console.log(` - editWithAI.prompt:\n   "${generatedPrompt}"`);
+        console.log(`=========================================================\n`);
+    }
 
     const headers = {
         'x-api-key': photoroomKey,
