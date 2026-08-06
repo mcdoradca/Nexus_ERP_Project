@@ -4,6 +4,7 @@ const validators = require('./validators/index.js');
 function normalizeFeatureKey(key) {
     if (!key) return '';
     let normalized = key.toLowerCase();
+    normalized = normalized.replace(/ł/g, 'l');
     normalized = normalized.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // usuwanie diakrytyk
     normalized = normalized.replace(/[\/_-]/g, ' '); // znaki na spacje
     normalized = normalized.replace(/\s+/g, ' ').trim(); // redukcja spacji
