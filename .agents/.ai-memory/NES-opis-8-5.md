@@ -1318,3 +1318,6 @@ odes.config.js\, aby poprawiÄ‡ jakoÅ›Ä‡ i precyzjÄ™ zÅ‚oÅ¼onych generacji tekstÃ
 - Zebrano ponad 80 sprawdzonych znakÃ³w z Basic Multilingual Plane (np. z blokÃ³w Dingbats i Miscellaneous Symbols) idealnych dla Allegro.
 - Utworzono artefakt ecommerce_icons_bmp.md peÅ‚niÄ…cy rolÄ™ repozytorium bezpiecznych symboli e-commerce.
 
+
+### Poprawki - 06 Sierpnia 2026
+- [Frontend/Photoroom V2] Naprawiono b³¹d 'Brak zdjêcia wejœciowego', który wystêpowa³ po eksporcie produktu do BaseLinkera, dostosowuj¹c PhotographicAuditorCard.jsx do prawid³owej obs³ugi stringów base64 (data:image) w polu originalUrl, zamiast wymagania wy³¹cznie adresów URL (http).

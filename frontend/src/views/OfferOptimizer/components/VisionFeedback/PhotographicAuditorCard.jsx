@@ -39,8 +39,12 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
             if (primaryImageObj) {
                 if (primaryImageObj.replacedUrl) {
                     bodyData.imageBase64 = primaryImageObj.replacedUrl;
-                } else if (primaryImageObj.originalUrl && primaryImageObj.originalUrl.startsWith('http')) {
-                    bodyData.sourceImageUrl = primaryImageObj.originalUrl;
+                } else if (primaryImageObj.originalUrl) {
+                    if (primaryImageObj.originalUrl.startsWith('data:image')) {
+                        bodyData.imageBase64 = primaryImageObj.originalUrl;
+                    } else if (primaryImageObj.originalUrl.startsWith('http')) {
+                        bodyData.sourceImageUrl = primaryImageObj.originalUrl;
+                    }
                 }
             }
             
