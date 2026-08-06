@@ -485,3 +485,6 @@ Konsekwencje dla implementacji:
 - `product_map` mapuje **ID rekordu Nexusa → `product_id` BaseLinkera**. Kluczem mapy jest wewnętrzny identyfikator Nexusa, nie SKU — SKU jako klucz mapy kolidowałby przy duplikatach po stronie ERP.
 - Warstwa transportowa po utworzeniu nowego produktu **musi natychmiast zapisać zwrócone `product_id`** do `product_map`. Bez tego kolejny eksport potraktuje produkt jako nowy i utworzy duplikat.
 - SKU i EAN pozostają zwykłymi danymi produktu. Nigdy nie pełnią roli klucza dopasowania i nigdy nie trafiają do pola `product_id`.
+
+## ZAKAZ EKSPORTU BASELINKER (CRITICAL RULE)
+Masz absolutny i kategoryczny zakaz samodzielnego probowania eksportu, komunikacji lub aktualizacji danych w systemie BaseLinker. Twoj output bedzie przetwarzany wylacznie przez lokalny silnik PIM. Nie wolno Ci generowac zadnego kodu ani polecen uderzajacych w API BaseLinker (np. addInventoryProduct). Zlamanie tej zasady grozi korupcja danych produkcyjnych.
