@@ -40,7 +40,12 @@ ${productDetailsText}
         // Upewniamy się, że to faktycznie czysty tekst
         const finalPrompt = MANDATORY_PREFIX + rawPrompt;
 
-        console.log(`[Prompt Master] Wygenerowano prompt pomyślnie.`);
+        console.log(`\n=== [Prompt Master] PEŁNY PROCES DLA SLOTA ${slot} ===`);
+        console.log(`[1/3] Instrukcja dla Agenta: ${instruction}`);
+        console.log(`[2/3] Odpowiedź Agenta LLM (Czysta kreacja):\n${rawPrompt}`);
+        console.log(`[3/3] Finalny prompt gotowy dla Photoroom (z doklejonym prefiksem):\n${finalPrompt}`);
+        console.log(`=========================================================\n`);
+
         return finalPrompt;
     } catch (error) {
         console.error("[Prompt Master] Błąd generowania promptu:", error.message);
