@@ -16,7 +16,11 @@ class BaselinkerExportService {
         return str.replace(/[\p{Emoji}\uFE0F]/gu, function(match) {
             const codePoint = match.codePointAt(0);
             if (codePoint <= 127) return match; // Zostawiamy podstawowe znaki ASCII (np. cyfry, #, *)
+            
             if (!isHtml) return ""; 
+
+            if (codePoint <= 0xFFFF) return match; 
+
             return '&#x' + codePoint.toString(16).toUpperCase() + ';';
         });
     }
