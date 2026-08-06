@@ -156,7 +156,7 @@ function emoji_structure_check(html) {
     }
     
     const allowedSet = [
-        '🌟','❓','⚙️','📝','📊','⚠️','✅','✔️','🛡️','🏅','🏆','🔬','🌱','🌿','♻️','💧','➡️','🔴','🟢','⚡','💆‍♀️','🏷️'
+        '⭐','❓','⚙️','✍️','⚖️','⚠️','✅','✔️','☑️','❌','➡️','♻️','☘','☂️'
     ];
     
     const tagRegex = /<([hl][12i])>(.*?)<\/\1>/gi;
@@ -177,11 +177,11 @@ function emoji_structure_check(html) {
         }
     }
     
-    if (html.includes('🔴') && !/🔴\s*<b>Problem:<\/b>/.test(html)) {
-        errors.push('Invalid 🔴 Problem pattern');
+    if (html.includes('❌') && !/❌\s*<b>Problem:<\/b>/.test(html)) {
+        errors.push('Invalid ❌ Problem pattern');
     }
-    if (html.includes('🟢') && !/🟢\s*<b>Answer:<\/b>/.test(html)) {
-        errors.push('Invalid 🟢 Answer pattern');
+    if (html.includes('✔️') && !/✔️\s*<b>Answer:<\/b>/.test(html)) {
+        errors.push('Invalid ✔️ Answer pattern');
     }
 
     return { valid: errors.length === 0, errors };

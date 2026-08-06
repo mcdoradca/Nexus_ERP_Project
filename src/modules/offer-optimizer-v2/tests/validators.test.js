@@ -74,11 +74,11 @@ test('V6 diff_numeric', async (t) => {
 });
 
 test('V7 emoji_structure_check', async (t) => {
-    assert.deepStrictEqual(v.emoji_structure_check('<h1>🌟 Nagłówek</h1><li>✅ Punkt</li>'), { valid: true, errors: [] });
-    assert.deepStrictEqual(v.emoji_structure_check('<h1>🌟 Nagłówek 🔥</h1>').valid, false);
+    assert.deepStrictEqual(v.emoji_structure_check('<h1>⭐ Nagłówek</h1><li>✅ Punkt</li>'), { valid: true, errors: [] });
+    assert.deepStrictEqual(v.emoji_structure_check('<h1>⭐ Nagłówek 🔥</h1>').valid, false);
     assert.deepStrictEqual(v.emoji_structure_check('<h1>Brak emoji</h1>').valid, false);
-    assert.deepStrictEqual(v.emoji_structure_check('<li>🔴 <b>Problem:</b> test</li><li>🟢 <b>Answer:</b> test</li>').valid, true);
-    assert.deepStrictEqual(v.emoji_structure_check('<li>🔴 <b>Problem</b> test</li>').valid, false);
+    assert.deepStrictEqual(v.emoji_structure_check('<li>❌ <b>Problem:</b> test</li><li>✔️ <b>Answer:</b> test</li>').valid, true);
+    assert.deepStrictEqual(v.emoji_structure_check('<li>❌ <b>Problem</b> test</li>').valid, false);
     assert.deepStrictEqual(v.emoji_structure_check(null).valid, true);
 });
 

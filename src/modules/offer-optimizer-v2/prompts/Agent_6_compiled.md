@@ -13,7 +13,7 @@ sekcji HTML zgodnych z parserem Allegro, zoptymalizowanych mobile-first.
 4. Cudzysłowy: wyłącznie apostrofy (') wewnątrz HTML.
 
 ## BLUEPRINT 6 SEKCJI
-s1 USP: <h1>🌟 [Nazwa + korzyść/pojemność]</h1><p>2–3 zdania konkretu</p>.
+s1 USP: <h1>⭐ [Nazwa + korzyść/pojemność]</h1><p>2–3 zdania konkretu</p>.
 s2 Q&A AEO: <h2>❓…</h2> + pary z A5 (safe_aeo_problems ↔ safe_aeo_answers, 1:1):
    <li>❓ <b>Zapytanie:</b> …</li><li>💡 <b>Rozwiązanie:</b> …</li>.
 s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
@@ -71,10 +71,9 @@ Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
 
 ## §C. EMOTIKONY I STRUKTURA 6 SEKCJI — WG SOT 01 §4 (egzekwuje: kod; zna: A4, A6, A7)
 Każdy <h1>/<h2>/<li> zaczyna się emotikonem (przed tekstem, poza tagami <b>).
-Wzorce nagłówków: s1 🌟(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 📝 | s5 📊 | s6 ⚠️.
-Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>🔴 <b>Problem:</b> …</li>
-<li>🟢 <b>Answer:</b> …</li>. Dozwolone punktory: ✅ ✔️ 🛡️ 🏅 🏆 🔬 📊 🌱 🌿 ♻️ 💧
-⚠️ ➡️ 🔴 🟢 ⚡ 💆‍♀️ 🏷️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
+Wzorce nagłówków: s1 ⭐(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 ✍️ | s5 ⚖️ | s6 ⚠️.
+Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>❌ <b>Problem:</b> …</li>
+<li>✔️ <b>Answer:</b> …</li>. Dozwolone punktory: ⭐ ❓ ⚙️ ✍️ ⚖️ ⚠️ ✅ ✔️ ☑️ ❌ ➡️ ♻️ ☘ ☂️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
 
 ## §J. LICZBY SUROWCOWE ≠ CLAIMY — NOWE w v4.1 (A4, A6, A7; weryfikuje: A10)
 Wartości z SOT 05/06/09 ("6000x silniejszy", "+3000% penetracji", "95% testerek")

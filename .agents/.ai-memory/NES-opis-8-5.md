@@ -1305,3 +1305,9 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 - W module mdm.service.js dodano weryfikację odpowiedzi z API BaseLinker w celu przechwycenia product_id po wywołaniu addInventoryProduct.
 - Zapisano brakujący baselinkerId bezpośrednio do bazy Nexus, aby zapobiec tworzeniu zduplikowanych ofert przy ponownym eksporcie.
 - Zsynchronizowano plik promptu baselinker_export_agent.md z właściwym plikiem SSOT_Agent_Nexus_Preparation_Export_BaseLinker.md.
+
+## [2026-08-06] Aktualizacja: BaseLinker Offer Optimizer - Biblioteka Piktogramów BMP
+- Powołano agenta Deepresearch w celu zebrania bazy ikon/piktogramów tekstowych.
+- Odrzucono znaki 4-bajtowe (nowoczesne emoji), aby zapobiec ucinaniu ciągów znaków przez bazy danych MySQL (z kodowaniem utf8).
+- Zebrano ponad 80 sprawdzonych znaków z Basic Multilingual Plane (np. z bloków Dingbats i Miscellaneous Symbols) idealnych dla Allegro.
+- Utworzono artefakt ecommerce_icons_bmp.md pełniący rolę repozytorium bezpiecznych symboli e-commerce.
