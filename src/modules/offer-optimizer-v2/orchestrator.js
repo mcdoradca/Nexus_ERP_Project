@@ -481,7 +481,13 @@ class Orchestrator {
                 agentData.revision_warning = `Poprzednie znaleziska INCI się różniły lub były błędne (Próba ${this.state.revision_loop_count+1}/3). MUSISZ poszukać głębiej, przeszukaj przynajmniej 2 INNE źródła, by znaleźć nową (trzecią/czwartą) wersję pozwalającą ustalić bezbłędny konsensus na podstawie powtarzalności.`;
             }
             
-            const promptTemplate = fs.readFileSync(path.join(__dirname, 'docs', 'Agent_1_prompt_v4.md'), 'utf8');
+            let promptTemplate = fs.readFileSync(path.join(__dirname, 'docs', 'Agent_1_prompt_v4.md'), 'utf8');
+            
+            if (extracted?.inci?.value) {
+                promptTemplate = promptTemplate.replace('- Skład INCI (absolutny priorytet).', '');
+                promptTemplate = promptTemplate.replace(/1\. INCI \(Skład\):[\s\S]*?\(będzie to tablica tablic\)\./, '1. INCI (Skład): ZIGNORUJ. Skład INCI został już odnaleziony w PIM. Zwróć pustą tablicę lub null w `extracted_inci_candidates`.');
+            }
+            
             const prompt = promptTemplate.replace('{{SKU_DATA}}', JSON.stringify(agentData, null, 2));
             
             try {
