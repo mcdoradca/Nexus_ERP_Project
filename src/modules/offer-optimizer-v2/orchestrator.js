@@ -319,12 +319,37 @@ class Orchestrator {
 
         // Dynamiczne wykrywanie brakujących parametrów Allegro
         if (pimData && pimData.allegro_schema) {
-            const featuresObj = pimData.text_fields?.features || {};
+            const configExtract = require('./baselinker.extract.config.json');
+            let featuresObj = {};
+            if (pimData.features && typeof pimData.features === 'object') Object.assign(featuresObj, pimData.features);
+            if (pimData['features|pl'] && typeof pimData['features|pl'] === 'object') Object.assign(featuresObj, pimData['features|pl']);
+            if (typeof pimData.text_fields?.features === 'object' && pimData.text_fields?.features !== null) {
+                Object.assign(featuresObj, pimData.text_fields.features);
+            } else if (typeof pimData.text_fields?.features === 'string') {
+                try {
+                    Object.assign(featuresObj, JSON.parse(pimData.text_fields.features));
+                } catch(e) {}
+            }
+
             for (let param of pimData.allegro_schema) {
                 const nameKey = param.name;
+                const normNameKey = baselinkerExtract.normalizeFeatureKey(nameKey);
+                
+                const isInciParam = configExtract.featureSynonyms.inci.includes(normNameKey) || normNameKey.includes('sklad') || normNameKey.includes('inci');
+                if (isInciParam && extracted?.inci?.value) {
+                    continue;
+                }
+
                 let found = false;
                 for (let k in featuresObj) {
-                    if (k.toLowerCase() === nameKey.toLowerCase() && featuresObj[k]) found = true;
+                    if (k.toLowerCase() === nameKey.toLowerCase() && featuresObj[k]) {
+                        found = true;
+                        break;
+                    }
+                    if (baselinkerExtract.normalizeFeatureKey(k) === normNameKey && featuresObj[k]) {
+                        found = true;
+                        break;
+                    }
                 }
                 if (!found && param.required) {
                     missingFields.push(nameKey);
