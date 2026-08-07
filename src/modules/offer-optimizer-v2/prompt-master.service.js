@@ -3,7 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const PROMPT_MASTER_AGENT_ID = "11";
-const MANDATORY_PREFIX = "Produkt musi być zawsze w 100% taki jak na zdjęciu bazowym. Nie wolno zmieniać kształtu, koloru produktu, nie wolno zmieniać napisów na etykiecie - etykieta ma być zawsze zachowana. ";
+const MANDATORY_PREFIX = "The product must always remain exactly as in the original image. Do not change its shape, color, or text on the label - the label must be preserved perfectly. ";
 
 async function generatePrompt(slot, productDetailsText, ean = null) {
     const isEven = slot % 2 === 0;
@@ -31,7 +31,7 @@ async function generatePrompt(slot, productDetailsText, ean = null) {
     const systemPrompt = `
 Jesteś wybitnym kreatorem scen (Prompt Masterem) dla generatora obrazów Photoroom AI.
 Otrzymasz dane produktu z bazy PIM (Product Information Management).
-Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w języku polskim opisujący scenę dla zdjęcia.
+Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w języku ANGIELSKIM opisujący scenę dla zdjęcia. Na końcu promptu zawsze dodaj słowa kluczowe podnoszące jakość (np. 8k, photorealistic, professional photography, cinematic lighting, sharp focus).
 
 TWOJE ZADANIE: ${instruction}
 
