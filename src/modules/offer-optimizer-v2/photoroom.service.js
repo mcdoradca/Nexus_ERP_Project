@@ -86,8 +86,11 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
                 // Tarcza Błędów: Usuwamy potężne ciągi Base64 obrazków z draftu, żeby nie zapychać kontekstu LLM (700k+ tokenów)
                 let safeDraft = {};
                 if (dbProduct.offerDraft) {
-                    safeDraft = { ...dbProduct.offerDraft };
-                    delete safeDraft.images;
+                    safeDraft = { 
+                        title: dbProduct.offerDraft.title, 
+                        features: dbProduct.offerDraft.features,
+                        htmlContent: dbProduct.offerDraft.htmlContent
+                    };
                 }
                 const draftString = JSON.stringify(safeDraft);
                 
