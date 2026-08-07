@@ -114,9 +114,9 @@ ${productDetailsText}
 
         // Tarcza błędów: Wycięcie technicznej linii kontrolnej i powodu z promptu lecącego do Photoroom
         const cleanPrompt = rawPrompt
-            .split('\\n')
+            .split('\n')
             .filter(line => !line.trim().startsWith('[EAN:') && !line.trim().toLowerCase().startsWith('powód:'))
-            .join('\\n')
+            .join('\n')
             .trim();
 
         // Upewniamy się, że to faktycznie czysty tekst
