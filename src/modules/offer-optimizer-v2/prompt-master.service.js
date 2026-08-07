@@ -3,16 +3,16 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const PROMPT_MASTER_AGENT_ID = "11";
-const MANDATORY_PREFIX = "Produkt musi być zawsze w 100% taki jak na zdjęciu bazowym. Nie wolno zmieniać kształtu, koloru produktu, nie wolno zmieniać napisów na etykiecie - etykieta ma być zawsze w zachowana. ";
+const MANDATORY_PREFIX = "Produkt musi być zawsze w 100% taki jak na zdjęciu bazowym. Nie wolno zmieniać kształtu, koloru produktu, nie wolno zmieniać napisów na etykiecie - etykieta ma być zawsze zachowana. ";
 
 async function generatePrompt(slot, productDetailsText, ean = null) {
     const isEven = slot % 2 === 0;
     
     let instruction = "";
     if (isEven) {
-        instruction = "Wykreuj scenę pokazującą ten produkt w użyciu.";
+        instruction = "Wykreuj scenę pokazującą ten produkt w użyciu, wolno Ci użyć na zdjęciu człowieka, produkt może być delikatnie trzymany w dłoni lub dłoń położona/przyłożona do produktu - wolno to zrobić na co 4 wygenerowanym prompcie";
     } else {
-        instruction = "Wykreuj scenę, gdzie produkt jest daleko od oczu, na drugim lub trzecim planie.";
+        instruction = "Wykreuj scenę, gdzie produkt jest daleko od oczu, na drugim lub trzecim planie, za mgłą zblurowany praktycznie niewidoczny.";
     }
 
     let previousPrompts = [];
