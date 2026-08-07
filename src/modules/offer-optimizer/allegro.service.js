@@ -78,6 +78,17 @@ async function getAllegroToken() {
         return cachedToken;
     } catch (error) {
         console.error("[AllegroService] Błąd odświeżania tokenu:", error.response ? error.response.data : error.message);
+        try {
+            const { createAndSendNotification } = require('../communication/notifications.service');
+            await createAndSendNotification(
+                'admin-id', 
+                'Awaria autoryzacji Allegro', 
+                'Token wygasł lub został cofnięty. Wymagane ponowne logowanie przez Device Flow.', 
+                'error'
+            );
+        } catch (notifErr) {
+            console.error("[AllegroService] Nie udało się wysłać powiadomienia o błędzie:", notifErr.message);
+        }
         throw new Error("Nie udało się odświeżyć tokenu. Przeprowadź ponowne logowanie Device Flow.");
     }
 }
