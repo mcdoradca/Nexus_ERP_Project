@@ -1329,3 +1329,7 @@ odes.config.js\, aby poprawiÄ‡ jakoÅ›Ä‡ i precyzjÄ™ zÅ‚oÅ¼onych generacji tekstÃ
 
 ## Aktualizacja z 2026-08-07: Zmiana Prompt Mastera i dodanie historii EAN
 Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano pobieranie historii wygenerowanych promptów dla danego produktu (EAN) z tabeli AgentCache (Prisma), by zapobiec tworzeniu powtarzalnych scenerii przez model LLM. Zoptymalizowano system prompt, usuwaj¹c sztywne odniesienia do kuchni i ³azienek, na rzecz dynamicznego odczytu kontekstu oraz unikania centrowania produktu.
+
+
+### Aktualizacja 2026-08-07: OfferOptimizer - Modu³ 7 (Reklama)
+- Dodano domyœlny tekst (Jesteœmy bezpoœrednim importerem...) ³adowany automatycznie do pola Modu³ 7: Reklama (sekcja7 w editorHtml) w UnifiedProductPipelineView.jsx.
