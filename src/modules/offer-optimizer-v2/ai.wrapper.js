@@ -21,7 +21,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
         throw new Error("BŁĄD BLOKUJĄCY (S-7): Wywołanie LLM bez jawnego agentId.");
     }
     
-    const { model, thinkingLevel, grounding, temperature } = getNodeConfig(agentId);
+    const { model, thinkingLevel, grounding, temperature, maxOutputTokens } = getNodeConfig(agentId);
     if (!process.env.GEMINI_API_KEY) {
         // HITL: Brak klucza API, nie zgadywanie
         throw new Error("HITL: Brak klucza API (GEMINI_API_KEY) w środowisku.");
@@ -34,6 +34,9 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
     };
     if (temperature !== undefined) {
         config.temperature = temperature;
+    }
+    if (maxOutputTokens !== undefined) {
+        config.maxOutputTokens = maxOutputTokens;
     }
 
     if (grounding) {
@@ -66,9 +69,21 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
             totalTokenCount: metadata.totalTokenCount || 0
         };
 
+        const candidate = response.candidates && response.candidates[0];
+        const isMaxTokens = candidate && candidate.finishReason === 'MAX_TOKENS';
+        const isRecitation = candidate && candidate.finishReason === 'RECITATION';
+
         // Obowiązkowa telemetria (S-7)
         if (typeof aiMetricsService.logUsage === 'function') {
-            await aiMetricsService.logUsage(agentId, model, usage, true, 1, null);
+            const errorMsg = isMaxTokens ? "MAX_TOKENS" : (isRecitation ? "RECITATION" : null);
+            await aiMetricsService.logUsage(agentId, model, usage, !isMaxTokens && !isRecitation, 1, errorMsg);
+        }
+
+        if (isMaxTokens) {
+            throw new Error(`[ALERT] Agent ${agentId} przepalił tokeny i został odłączony (limit: ${maxOutputTokens || 'domyślny'}).`);
+        }
+        if (isRecitation) {
+            throw new Error('BLOKADA RECITATION: Agent skopiował zbyt dużo tekstu z internetu (zablokowane przez filtry bezpieczeństwa).');
         }
 
         // Zwracanie odpowiedzi
@@ -76,13 +91,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
         if (schema) {
             try {
                 let text = response.text;
-                if (!text) {
-                    const candidate = response.candidates && response.candidates[0];
-                    if (candidate && candidate.finishReason === 'RECITATION') {
-                        throw new Error('BLOKADA RECITATION: Agent skopiował zbyt dużo tekstu z internetu (zablokowane przez filtry bezpieczeństwa).');
-                    }
-                    throw new Error('Brak tekstu w odpowiedzi API (pusta odpowiedź).');
-                }
+                if (!text) throw new Error('Brak tekstu w odpowiedzi API (pusta odpowiedź).');
                 
                 text = text.trim();
                 if (text.startsWith('```json')) text = text.substring(7);
@@ -90,18 +99,12 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
                 if (text.endsWith('```')) text = text.substring(0, text.length - 3);
                 parsedResult = JSON.parse(text.trim());
             } catch (err) {
-                // Jeśli parsowanie zawiedzie, zwracamy surowy tekst jako fallback lub rzucamy
-                if (err.message.includes('RECITATION') || err.message.includes('pusta odpowiedź')) {
-                    throw err;
-                }
+                if (err.message.includes('pusta odpowiedź')) throw err;
                 parsedResult = { rawText: response.text, error: "JSON Parse failed" };
             }
         } else {
             if (!response.text) {
-                const candidate = response.candidates && response.candidates[0];
-                if (candidate && candidate.finishReason === 'RECITATION') {
-                    throw new Error('BLOKADA RECITATION: Agent skopiował zbyt dużo tekstu z internetu (zablokowane przez filtry bezpieczeństwa).');
-                }
+                throw new Error('Brak tekstu w odpowiedzi API (pusta odpowiedź).');
             }
             parsedResult = response.text;
         }
