@@ -1,9 +1,11 @@
 const { callAgentWithTelemetry } = require('./ai.wrapper.js');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 const PROMPT_MASTER_AGENT_ID = "11";
 const MANDATORY_PREFIX = "Produkt musi być zawsze w 100% taki jak na zdjęciu bazowym. Nie wolno zmieniać kształtu, koloru produktu, nie wolno zmieniać napisów na etykiecie - etykieta ma być zawsze w zachowana. ";
 
-async function generatePrompt(slot, productDetailsText) {
+async function generatePrompt(slot, productDetailsText, ean = null) {
     const isEven = slot % 2 === 0;
     
     let instruction = "";
@@ -12,6 +14,19 @@ async function generatePrompt(slot, productDetailsText) {
     } else {
         instruction = "Wykreuj scenę, gdzie produkt jest daleko od oczu, na drugim lub trzecim planie.";
     }
+
+    let previousPrompts = [];
+    if (ean) {
+        const cacheKey = `prompt_history_${ean}`;
+        const cacheRecord = await prisma.agentCache.findUnique({ where: { cacheKey } });
+        if (cacheRecord && Array.isArray(cacheRecord.value)) {
+            previousPrompts = cacheRecord.value;
+        }
+    }
+
+    const historySection = previousPrompts.length > 0 
+        ? `\nWykaz scenerii, które użyłeś już dla tego EAN (absolutny ZAKAZ powtarzania ich):\n- ${previousPrompts.join('\n- ')}` 
+        : "";
 
     const systemPrompt = `
 Jesteś wybitnym kreatorem scen (Prompt Masterem) dla generatora obrazów Photoroom AI.
@@ -22,9 +37,7 @@ TWOJE ZADANIE: ${instruction}
 
 WYMÓG KREATYWNOŚCI: 
 Przeanalizuj do czego służy produkt i wylosuj JEDNO, konkretne, ale nieszablonowe otoczenie dla niego. 
-Zaskocz mnie różnorodnością! 
-- Jeśli to produkt do łazienki: unikaj ciągłego pisania o kranach i umywalkach. Wykorzystaj kabiny prysznicowe, wanny wolnostojące, eleganckie lustra, designerskie kafelki, zaparowane szyby.
-- Jeśli to produkt do kuchni: nie pisz w kółko o zlewach. Użyj płyt indukcyjnych, marmurowych wysp, stołów z dębu, eleganckich piekarników.
+Zaskocz mnie różnorodnością!${historySection}
 
 ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY TEKST PROMPTU, BEZ ŻADNYCH ZNACZNIKÓW, BEZ WSTĘPÓW I BEZ FORMATOWANIA JSON.
 
@@ -45,6 +58,15 @@ ${productDetailsText}
 
         // Upewniamy się, że to faktycznie czysty tekst
         const finalPrompt = MANDATORY_PREFIX + rawPrompt;
+
+        if (ean) {
+            previousPrompts.push(rawPrompt);
+            await prisma.agentCache.upsert({
+                where: { cacheKey: `prompt_history_${ean}` },
+                update: { value: previousPrompts },
+                create: { cacheKey: `prompt_history_${ean}`, value: previousPrompts }
+            });
+        }
 
         console.log(`\n=== [Prompt Master] PEŁNY PROCES DLA SLOTA ${slot} ===`);
         console.log(`[1/3] Instrukcja dla Agenta: ${instruction}`);
