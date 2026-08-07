@@ -67,8 +67,7 @@ class BaselinkerExportService {
         const payload = {
             inventory_id: inventoryId,
             text_fields: {},
-            images: {},
-            features: {}
+            images: {}
         };
 
         if (productId) {
@@ -116,13 +115,16 @@ class BaselinkerExportService {
             existingFeatures = product.features;
         }
 
-        payload.features = { ...existingFeatures, ...hardFeatures, ...(draftData.features || {}) };
+        let finalFeatures = { ...existingFeatures, ...hardFeatures, ...(draftData.features || {}) };
         
-        for (const [key, val] of Object.entries(payload.features)) {
+        for (const [key, val] of Object.entries(finalFeatures)) {
             if (typeof val === 'string') {
-                payload.features[key] = this.encodeEmojis(val, false);
+                finalFeatures[key] = this.encodeEmojis(val, false);
             }
         }
+        
+        payload.text_fields["features"] = finalFeatures;
+        payload.text_fields["features|pl|allegro_16402"] = finalFeatures;
 
         // --- 4. ZDJĘCIA ---
         // Budujemy tablicę docelową: index 0 to miniaturka, reszta to galeria
