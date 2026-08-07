@@ -20,6 +20,12 @@ Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w j
 
 TWOJE ZADANIE: ${instruction}
 
+WYMÓG KREATYWNOŚCI: 
+Przeanalizuj do czego służy produkt i wylosuj JEDNO, konkretne, ale nieszablonowe otoczenie dla niego. 
+Zaskocz mnie różnorodnością! 
+- Jeśli to produkt do łazienki: unikaj ciągłego pisania o kranach i umywalkach. Wykorzystaj kabiny prysznicowe, wanny wolnostojące, eleganckie lustra, designerskie kafelki, zaparowane szyby.
+- Jeśli to produkt do kuchni: nie pisz w kółko o zlewach. Użyj płyt indukcyjnych, marmurowych wysp, stołów z dębu, eleganckich piekarników.
+
 ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY TEKST PROMPTU, BEZ ŻADNYCH ZNACZNIKÓW, BEZ WSTĘPÓW I BEZ FORMATOWANIA JSON.
 
 Dane produktu PIM:
