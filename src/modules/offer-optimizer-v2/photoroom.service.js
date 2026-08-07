@@ -82,7 +82,15 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
             });
             if (dbProduct) {
                 const featuresString = dbProduct.features ? JSON.stringify(dbProduct.features) : '';
-                const draftString = dbProduct.offerDraft ? JSON.stringify(dbProduct.offerDraft) : '';
+                
+                // Tarcza Błędów: Usuwamy potężne ciągi Base64 obrazków z draftu, żeby nie zapychać kontekstu LLM (700k+ tokenów)
+                let safeDraft = {};
+                if (dbProduct.offerDraft) {
+                    safeDraft = { ...dbProduct.offerDraft };
+                    delete safeDraft.images;
+                }
+                const draftString = JSON.stringify(safeDraft);
+                
                 productDetailsText = `NAME: ${dbProduct.name} FEATURES: ${featuresString} DESC: ${dbProduct.descriptionHtml || ''} DRAFT: ${draftString}`;
             }
         }
