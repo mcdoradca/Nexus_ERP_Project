@@ -39,7 +39,63 @@ WYMÓG KREATYWNOŚCI:
 Odczytaj z opisu funkcję produktu i wykorzystaj ją do kreowania niepowtarzalnych ujęć lifestylowych.
 Zaskocz mnie różnorodnością! Unikaj zbliżeń produktu i ustawiania go w centrum kadru.${historySection}
 
-ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY TEKST PROMPTU, BEZ ŻADNYCH ZNACZNIKÓW, BEZ WSTĘPÓW I BEZ FORMATOWANIA JSON.
+## OBECNOŚĆ CZŁOWIEKA W KADRZE — ZASADY
+
+### 1. Stan domyślny
+Prompt opisuje sam produkt: bez ludzi, bez dłoni, bez części ciała.
+To jest stan bazowy i NIE wymaga uzasadnienia. Brak dłoni nigdy nie jest błędem.
+Dłoń i człowiek to dwie osobne kategorie wyjątków, każda z własnym warunkiem i licznikiem.
+Człowiek nie jest „mocniejszą wersją" dłoni — nie eskaluj: dłoń → dwie dłonie → przedramię → postać.
+
+### 2. Dłoń — warunki dopuszczenia
+Dłoń dodajesz WYŁĄCZNIE, gdy spełniony jest jeden z warunków:
+- SKALA — produkt nie ma czytelnego rozmiaru bez odniesienia
+- UŻYCIE — kadr pokazuje moment działania
+- SPOCZYNEK - kadr pokazje moment chwytania
+
+
+### 3. Człowiek — warunki dopuszczenia
+Człowieka dodajesz WYŁĄCZNIE, gdy spełniony jest jeden z warunków:
+- KONTEKST — produkt nabiera sensu dopiero w scenie użycia 
+- SKALA DUŻA — produkt na tyle duży, że sama dłoń nic nie mówi 
+- RYTUAŁ — liczy się moment i nastrój, nie sam przedmiot 
+
+Żaden warunek z sekcji 2 i 3 nie jest spełniony → prompt bez dłoni i bez człowieka.
+
+### 4. Limity w obrębie jednego EAN
+- maksymalnie 1 prompt z dłonią
+- maksymalnie 1 prompt z człowiekiem
+- nigdy oba w tym samym prompcie
+- nigdy bezpośrednio po sobie
+- pierwszy prompt w zestawie zawsze czysto produktowy
+
+### 5. Zakazy bezwzględne
+Nie dodajesz dłoni ani człowieka, gdy:
+- to packshot / zdjęcie główne na marketplace
+- produkt jest tak mały, że palce zajmą więcej kadru niż on
+
+### 6. Różnicowanie promptów
+Prompty w obrębie jednego EAN różnicujesz przez: tło, powierzchnię, światło,
+kąt kamery, kadrowanie, rekwizyty otoczenia, porę dnia, kolorystykę.
+
+Obecność dłoni lub człowieka NIE JEST osią różnicowania.
+Dwa prompty bez dłoni nie są duplikatami, jeśli różnią się czymkolwiek z listy powyżej.
+Zmiana samego chwytu (z boku / od góry / dwie dłonie) nie liczy się jako nowy wariant.
+Nakaz nieduplikowania nigdy nie jest podstawą do dodania dłoni ani człowieka.
+
+### 7. Kontrola — obowiązkowa przed każdym promptem
+Podaj w jednej linii:
+[EAN: <numer> | prompt <n> z <N> | dłonie: <x> | ludzie: <y>]
+
+Liczniki wypełniasz na podstawie faktycznej historii promptów tego EAN, nie z pamięci.
+Jeśli dłonie ≥ 1 → ten prompt bez dłoni. Jeśli ludzie ≥ 1 → ten prompt bez człowieka.
+Poprzedni prompt zawierał dłoń lub człowieka → ten nie zawiera żadnego z nich.
+
+Gdy mimo to dodajesz, dopisz obok prompta: "powód: <nazwa warunku z sekcji 2 lub 3>".
+Jeśli powód brzmi "ciekawiej", "naturalniej", "dla ożywienia kadru", "dla różnorodności"
+— warunek nie jest spełniony. Usuń.
+
+ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY TEKST PROMPTU ORAZ LINIĘ KONTROLNĄ.
 
 Dane produktu PIM:
 ${productDetailsText}
@@ -56,8 +112,15 @@ ${productDetailsText}
         let rawPrompt = response.result || "";
         rawPrompt = rawPrompt.trim();
 
+        // Tarcza błędów: Wycięcie technicznej linii kontrolnej i powodu z promptu lecącego do Photoroom
+        const cleanPrompt = rawPrompt
+            .split('\\n')
+            .filter(line => !line.trim().startsWith('[EAN:') && !line.trim().toLowerCase().startsWith('powód:'))
+            .join('\\n')
+            .trim();
+
         // Upewniamy się, że to faktycznie czysty tekst
-        const finalPrompt = MANDATORY_PREFIX + rawPrompt;
+        const finalPrompt = MANDATORY_PREFIX + cleanPrompt;
 
         if (ean) {
             previousPrompts.push(rawPrompt);
