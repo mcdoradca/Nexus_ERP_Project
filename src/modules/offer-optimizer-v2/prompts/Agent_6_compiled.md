@@ -28,7 +28,7 @@ s5 Parametry: <h2>📊…</h2><ul> z node_1_pim: Marka, Linia, Nazwa, Pojemnoś�
    Zakaz "Brak danych".
 s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2> zasady przechowywania/przeznaczenia +
    KAŻDE ostrzeżenie z mandatory_safety_warnings jako osobny
-   <li>🛡️ <b>Ostrzeżenie CLP/GPSR:</b> [treść DOSŁOWNA — zakaz parafrazy]</li>
+   <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [treść DOSŁOWNA — zakaz parafrazy]</li>
    + podmiot odpowiedzialny w UE (nazwa).
    [Po Tobie s3/s5/s6 zostaną zamrożone hashem — pisz je od razu finalnie.]
 
