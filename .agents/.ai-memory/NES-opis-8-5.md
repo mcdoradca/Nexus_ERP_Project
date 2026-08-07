@@ -1326,3 +1326,6 @@ odes.config.js\, aby poprawić jakość i precyzję złożonych generacji tekst�
 
 
 - [Photoroom V2 / Prompt Master] Całkowicie przebudowano logikę generowania zdjęć lifestylowych. Usunięto Chaos Engine (losowe paddingi) i sztywne słowniki tła na rzecz asynchronicznego Agenta LLM (Gemini 3.5 Flash). Agent dynamicznie buduje prompty po polsku do Photoroom API v2/edit (tryb inpaintingu z zachowaniem produktu) opierając się o dane z bazy PIM i przypisanie slotów (parzyste = w użyciu, nieparzyste = w oddali/lifestylowe). Wymuszono prefiks chroniący oryginalną etykietę i wygląd przedmiotu.
+
+## Aktualizacja z 2026-08-07: Zmiana Prompt Mastera i dodanie historii EAN
+Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano pobieranie historii wygenerowanych prompt�w dla danego produktu (EAN) z tabeli AgentCache (Prisma), by zapobiec tworzeniu powtarzalnych scenerii przez model LLM. Zoptymalizowano system prompt, usuwaj�c sztywne odniesienia do kuchni i �azienek, na rzecz dynamicznego odczytu kontekstu oraz unikania centrowania produktu.

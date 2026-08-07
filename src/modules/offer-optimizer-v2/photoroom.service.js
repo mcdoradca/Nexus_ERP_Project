@@ -105,7 +105,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         fd.append('shadow.mode', 'none');
     } else {
         // Zdjęcia lifestylowe (Prompt Master)
-        generatedPrompt = await PromptMasterService.generatePrompt(slot, productDetailsText);
+        generatedPrompt = await PromptMasterService.generatePrompt(slot, productDetailsText, ean);
         const seed = Math.floor(Math.random() * 2147483647).toString();
         
         fd.append('removeBackground', 'false');
