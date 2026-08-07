@@ -1337,3 +1337,5 @@ Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano po
 - Poprawka (HOTFIX): Zabezpieczono stan sekcji 7 w UnifiedProductPipelineView przed nadpisywaniem (czyszczeniem) przez event PIPELINE_COMPLETE z WebSocket. Wdro¿ono zachowanie istniej¹cej zawartoœci lub domyœlnej w przypadku braku wartoœci w nowo przychodz¹cym pakiecie HTML z backendu.
 
 - Aktualizacja (AI Prompty): Wêze³ 4 - zamieniono niedozwolon¹ ikonê ?? na ?? w punktach. Wêze³ 6 - zamieniono ikonê tarczy ??? na strza³kê ?? w ostrze¿eniach CLP/GPSR, z uwagi na blokady po stronie Allegro.
+
+- Aktualizacja (AI Prompty): Spolszczenie struktury AEO - zamieniono s³owo 'Answer' na 'OdpowiedŸ' w Wêz³ach 4, 6 i 7. Wêze³ 4 - zamieniono usuniêt¹ kroplê na zielonego ptaszka ?.

@@ -43,7 +43,7 @@ walidatorem kodowym; model nie audytuje sam siebie.)
 --- PATCH v4.1 ---
 + §B/§C v4.1: usuń <br> i <strong> z dozwolonych; zakaz <b> w nagłówkach;
   <b> obowiązkowe dla kluczowych fraz w <p>/<li> (minitekst AIDA z pogrubień).
-+ Sekcja 2: wzorzec par zmień z ❓/💡 na 🔴 <b>Problem:</b> / 🟢 <b>Answer:</b>
++ Sekcja 2: wzorzec par zmień z ❓/💡 na 🔴 <b>Problem:</b> / 🟢 <b>Odpowiedź:</b>
   (zgodność z SOT 01 §4 — dotychczasowa rozbieżność powodowała odrzuty w audycie).
 + Sekcja 1: nagłówek h1 bez <b> w środku; pogrubienia dopiero w <p> pod spodem.
 + Dodaj §J (liczby surowcowe ≠ claimy).
@@ -73,7 +73,7 @@ Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
 Każdy <h1>/<h2>/<li> zaczyna się emotikonem (przed tekstem, poza tagami <b>).
 Wzorce nagłówków: s1 ⭐(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 ✍️ | s5 ⚖️ | s6 ⚠️.
 Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>❌ <b>Problem:</b> …</li>
-<li>✔️ <b>Answer:</b> …</li>. Dozwolone punktory: ⭐ ❓ ⚙️ ✍️ ⚖️ ⚠️ ✅ ✔️ ☑️ ❌ ➡️ ♻️ ☘ ☂️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
+<li>✔️ <b>Odpowiedź:</b> …</li>. Dozwolone punktory: ⭐ ❓ ⚙️ ✍️ ⚖️ ⚠️ ✅ ✔️ ☑️ ❌ ➡️ ♻️ ☘ ☂️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
 
 ## §J. LICZBY SUROWCOWE ≠ CLAIMY — NOWE w v4.1 (A4, A6, A7; weryfikuje: A10)
 Wartości z SOT 05/06/09 ("6000x silniejszy", "+3000% penetracji", "95% testerek")

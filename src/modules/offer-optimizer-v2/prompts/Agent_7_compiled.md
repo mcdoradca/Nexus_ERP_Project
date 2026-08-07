@@ -74,7 +74,7 @@ Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
 Każdy <h1>/<h2>/<li> zaczyna się emotikonem (przed tekstem, poza tagami <b>).
 Wzorce nagłówków: s1 ⭐(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 ✍️ | s5 ⚖️ | s6 ⚠️.
 Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>❌ <b>Problem:</b> …</li>
-<li>✔️ <b>Answer:</b> …</li>. Dozwolone punktory: ⭐ ❓ ⚙️ ✍️ ⚖️ ⚠️ ✅ ✔️ ☑️ ❌ ➡️ ♻️ ☘ ☂️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
+<li>✔️ <b>Odpowiedź:</b> …</li>. Dozwolone punktory: ⭐ ❓ ⚙️ ✍️ ⚖️ ⚠️ ✅ ✔️ ☑️ ❌ ➡️ ♻️ ☘ ☂️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
 
 ## §H. ZERO PROMPT LEAK (A7; weryfikuje: kod)
 Nazwy technik psychologicznych nigdy w widocznym HTML; wyłącznie <!-- Applied: -->.
