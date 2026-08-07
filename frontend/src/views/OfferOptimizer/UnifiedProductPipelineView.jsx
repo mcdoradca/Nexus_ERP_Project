@@ -207,7 +207,10 @@ export const UnifiedProductPipelineView = ({
 
                     if (p.offerDraft) {
                         setLiveTitle(p.offerDraft.title || p.name || "");
-                        setEditorHtml(p.offerDraft.htmlContent || { sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co gwarantuje natychmiastową wysyłkę." });
+                        setEditorHtml({
+                            ...(p.offerDraft.htmlContent || {}),
+                            sekcja7: (p.offerDraft.htmlContent && p.offerDraft.htmlContent.sekcja7 !== undefined) ? p.offerDraft.htmlContent.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co gwarantuje natychmiastową wysyłkę."
+                        });
                         const draftTickets = p.offerDraft.visionTickets || p.offerDraft.images || [];
                         setVisionTickets(draftTickets.length > 0 ? draftTickets : fallbackTickets);
                     } else {
@@ -243,7 +246,10 @@ export const UnifiedProductPipelineView = ({
             if (data.type === 'PIPELINE_COMPLETE') {
                 setPipelineStatus('SUCCESS');
                 if (data.result) {
-                    setEditorHtml(data.result.editorHtml || { sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co gwarantuje natychmiastową wysyłkę." });
+                    setEditorHtml(prev => ({
+                        ...(data.result.editorHtml || {}),
+                        sekcja7: prev.sekcja7 !== undefined ? prev.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co gwarantuje natychmiastową wysyłkę."
+                    }));
                     setLiveTitle(data.result.title || "");
                     setVisionTickets(data.result.visionTickets || []);
                     setNewProductForm(prev => ({
@@ -252,7 +258,10 @@ export const UnifiedProductPipelineView = ({
                         aeoContent: data.result.aeoContent || prev.aeoContent || '',
                         offerDraft: {
                             title: data.result.title || "",
-                            htmlContent: data.result.editorHtml || { sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co gwarantuje natychmiastową wysyłkę." },
+                            htmlContent: {
+                                ...(data.result.editorHtml || {}),
+                                sekcja7: (prev.offerDraft && prev.offerDraft.htmlContent && prev.offerDraft.htmlContent.sekcja7 !== undefined) ? prev.offerDraft.htmlContent.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co gwarantuje natychmiastową wysyłkę."
+                            },
                             images: data.result.visionTickets || []
                         }
                     }));

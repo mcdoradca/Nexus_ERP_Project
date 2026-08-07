@@ -1333,3 +1333,5 @@ Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano po
 
 ### Aktualizacja 2026-08-07: OfferOptimizer - Modu³ 7 (Reklama)
 - Dodano domyœlny tekst (Jesteœmy bezpoœrednim importerem...) ³adowany automatycznie do pola Modu³ 7: Reklama (sekcja7 w editorHtml) w UnifiedProductPipelineView.jsx.
+
+- Poprawka (HOTFIX): Zabezpieczono stan sekcji 7 w UnifiedProductPipelineView przed nadpisywaniem (czyszczeniem) przez event PIPELINE_COMPLETE z WebSocket. Wdro¿ono zachowanie istniej¹cej zawartoœci lub domyœlnej w przypadku braku wartoœci w nowo przychodz¹cym pakiecie HTML z backendu.
