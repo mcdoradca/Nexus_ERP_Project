@@ -10,7 +10,7 @@ async function startDeviceFlow() {
 
     const response = await axios.post('https://allegro.pl/auth/oauth/device', `client_id=${clientId}`, {
         headers: {
-            'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+            'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
             'Authorization': `Basic ${authString}`,
             'Content-Type': 'application/x-www-form-urlencoded'
         }
@@ -27,7 +27,7 @@ async function pollDeviceFlow(deviceCode, authString, interval) {
             const response = await axios.post('https://allegro.pl/auth/oauth/token', 
                 `grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=${deviceCode}`, {
                 headers: {
-                    'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                    'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                     'Authorization': `Basic ${authString}`,
                     'Content-Type': 'application/x-www-form-urlencoded'
                 }

@@ -44,7 +44,7 @@ async function getAllegroToken() {
         console.warn("[AllegroService] Brak Refresh Tokenu! Próba pobrania client_credentials (publicznego).");
         const response = await axios.post('https://allegro.pl/auth/oauth/token?grant_type=client_credentials', null, {
             headers: {
-                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Basic ${authString}`,
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
@@ -58,7 +58,7 @@ async function getAllegroToken() {
         const response = await axios.post('https://allegro.pl/auth/oauth/token', 
             `grant_type=refresh_token&refresh_token=${refreshTokenSetting.value}`, {
             headers: {
-                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Basic ${authString}`,
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
@@ -100,7 +100,7 @@ async function startDeviceFlow() {
 
     const response = await axios.post('https://allegro.pl/auth/oauth/device', `client_id=${clientId}`, {
         headers: {
-            'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+            'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
             'Authorization': `Basic ${authString}`,
             'Content-Type': 'application/x-www-form-urlencoded'
         }
@@ -117,7 +117,7 @@ async function pollForToken(deviceCode) {
     const response = await axios.post('https://allegro.pl/auth/oauth/token', 
         `grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=${deviceCode}`, {
         headers: {
-            'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+            'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
             'Authorization': `Basic ${authString}`,
             'Content-Type': 'application/x-www-form-urlencoded'
         }
@@ -150,7 +150,7 @@ async function getOfferImages(offerId) {
         console.log(`[AllegroService] Odpytywanie /sale/product-offers/${offerId}...`);
         const response = await axios.get(`https://api.allegro.pl/sale/product-offers/${offerId}`, {
             headers: {
-                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
             },
@@ -188,7 +188,7 @@ async function getFullOfferData(offerId) {
         
         const response = await axios.get(`https://api.allegro.pl/sale/product-offers/${offerId}`, {
             headers: {
-                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
             },
@@ -280,7 +280,7 @@ async function fetchCategoryParameters(categoryId) {
         console.log(`[AllegroService] Pobieram parametry dla kategorii ID: ${categoryId}`);
         const response = await axios.get(`https://api.allegro.pl/sale/categories/${categoryId}/parameters`, {
             headers: {
-                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
             },
@@ -292,7 +292,7 @@ async function fetchCategoryParameters(categoryId) {
         // Pobieranie nazwy kategorii do ładnego wyświetlania w PIM
         const catResponse = await axios.get(`https://api.allegro.pl/sale/categories/${categoryId}`, {
             headers: {
-                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
             }
@@ -344,7 +344,7 @@ async function findCategoryByEan(ean) {
         const token = await getAllegroToken();
         const response = await axios.get(`https://api.allegro.pl/sale/products?phrase=${ean}&mode=GTIN`, {
             headers: {
-                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
             },
@@ -370,7 +370,7 @@ async function getProductParametersByEan(ean) {
         const token = await getAllegroToken();
         const response = await axios.get(`https://api.allegro.pl/sale/products?phrase=${ean}&mode=GTIN`, {
             headers: {
-                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
             },
@@ -408,7 +408,7 @@ async function findMatchingCategoryByName(name) {
         const token = await getAllegroToken();
         const response = await axios.get(`https://api.allegro.pl/sale/matching-categories?name=${encodeURIComponent(name)}`, {
             headers: {
-                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
             },
@@ -436,7 +436,7 @@ async function searchProducts(phrase, mode = "NAME") {
         
         const response = await axios.get(`https://api.allegro.pl/sale/products?${queryParam}`, {
             headers: {
-                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
             },
@@ -474,7 +474,7 @@ async function getListingCompetitors(phrase, categoryId, limit = 60) {
 
         const response = await axios.get(url, {
             headers: {
-                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
             },

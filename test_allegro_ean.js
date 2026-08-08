@@ -10,7 +10,7 @@ async function test() {
         console.log(`[1] Test wyszukiwania EAN: ${testEan} przez /sale/products...`);
         const response = await axios.get(`https://api.allegro.pl/sale/products?phrase=${testEan}&mode=GTIN`, {
             headers: {
-                'User-Agent': 'Nexus-Network/2.0 (+http://n-e-s.pl)',
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
             }
