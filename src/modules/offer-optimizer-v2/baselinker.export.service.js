@@ -136,7 +136,8 @@ class BaselinkerExportService {
         if (draftData.images && Array.isArray(draftData.images) && draftData.images.length > 0) {
             // Frontend przesłał własną tablicę (np. posortowaną przez użytkownika)
             for (let img of draftData.images) {
-                let url = typeof img === 'string' ? img : (img.url || img.originalUrl || img.replacedUrl || "");
+                // replacedUrl musi mieć najwyższy priorytet, inaczej originalUrl ("Wymagane nowe zdjęcie") by go nadpisywało
+                let url = typeof img === 'string' ? img : (img.replacedUrl || img.url || img.originalUrl || "");
                 if (typeof url !== 'string') url = String(url);
 
                 const isPlaceholder = url.includes('upload.cdn.baselinker.com') || 
