@@ -13,20 +13,22 @@ let tokenExpiry = null;
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-async function getAllegroToken() {
-    if (cachedToken && tokenExpiry && Date.now() < tokenExpiry) {
+async function getAllegroToken(forceRefresh = false) {
+    if (!forceRefresh && cachedToken && tokenExpiry && Date.now() < tokenExpiry) {
         return cachedToken;
     }
 
-    const accessTokenSetting = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_ACCESS_TOKEN' } });
-    const expirySetting = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' } });
-    
-    if (accessTokenSetting && expirySetting) {
-        const expiry = parseInt(expirySetting.value, 10);
-        if (Date.now() < expiry) {
-            cachedToken = accessTokenSetting.value;
-            tokenExpiry = expiry;
-            return cachedToken;
+    if (!forceRefresh) {
+        const accessTokenSetting = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_ACCESS_TOKEN' } });
+        const expirySetting = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' } });
+        
+        if (accessTokenSetting && expirySetting) {
+            const expiry = parseInt(expirySetting.value, 10);
+            if (Date.now() < expiry) {
+                cachedToken = accessTokenSetting.value;
+                tokenExpiry = expiry;
+                return cachedToken;
+            }
         }
     }
 
