@@ -177,35 +177,48 @@ class BaselinkerExportService {
     async exportToBaselinker(inventoryId, productId, draftData, product) {
         exportLogger.info(`[BaselinkerExportService] Rozpoczynam eksport dla EAN: ${product.ean}`);
         
-        const payload = await this.buildPayload(inventoryId, productId, draftData, product);
+        try {
+            const payload = await this.buildPayload(inventoryId, productId, draftData, product);
 
-        // --- 5. EKSPORT DO BASELINKER API ---
-        const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN' } });
-        if (!tokenRecord || !tokenRecord.value) {
-            throw new Error("Brak tokenu BASELINKER_TOKEN w bazie");
+            // --- 5. EKSPORT DO BASELINKER API ---
+            const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN' } });
+            if (!tokenRecord || !tokenRecord.value) {
+                throw new Error("Brak tokenu BASELINKER_TOKEN w bazie");
+            }
+            const token = tokenRecord.value;
+
+            const params = new URLSearchParams();
+            params.append('method', 'addInventoryProduct');
+            params.append('parameters', JSON.stringify(payload));
+            
+            exportLogger.info(`[BaselinkerExportService] Wysyłanie ładunku do BaseLinker API dla EAN: ${product.ean}...`);
+
+            const response = await axios.post('https://api.baselinker.com/connector.php', params.toString(), {
+                headers: { 'X-BLToken': token, 'Content-Type': 'application/x-www-form-urlencoded' },
+                timeout: 30000 // Obrazy b64 ważą sporo
+            });
+
+            if (response.data.status === 'ERROR') {
+                throw new Error(`BaseLinker API Error: ${response.data.error_message}`);
+            }
+
+            exportLogger.info(`[BaselinkerExportService] Zakończono sukcesem eksport dla EAN: ${product.ean}.`);
+            
+            return {
+                apiResponse: response.data,
+                agentPayload: payload // Zwracamy payload żeby symulować strukturę jaką wcześniej wypluwał AI Agent (na użytek frontendu/logów)
+            };
+        } catch (error) {
+            exportLogger.error(`[BaselinkerExportService] BŁĄD EKSPORTU dla EAN: ${product.ean} | Message: ${error.message}`);
+            console.error(`[BaselinkerExportService] KRYTYCZNY BŁĄD EKSPORTU:`, error);
+            
+            if (error.response) {
+                exportLogger.error(`[BaselinkerExportService] Szczegóły z API: ${JSON.stringify(error.response.data)}`);
+                console.error(`[BaselinkerExportService] Szczegóły z API:`, error.response.data);
+            }
+            
+            throw error; // Rzucamy dalej, by odpowiedź API również mogła zwrócić błąd (500)
         }
-        const token = tokenRecord.value;
-
-        const params = new URLSearchParams();
-        params.append('method', 'addInventoryProduct');
-        params.append('parameters', JSON.stringify(payload));
-        
-        exportLogger.info(`[BaselinkerExportService] Wysyłanie ładunku do BaseLinker API...`);
-
-        const response = await axios.post('https://api.baselinker.com/connector.php', params.toString(), {
-            headers: { 'X-BLToken': token, 'Content-Type': 'application/x-www-form-urlencoded' },
-            timeout: 30000 // Obrazy b64 ważą sporo
-        });
-
-        if (response.data.status === 'ERROR') {
-            throw new Error(`BaseLinker API Error: ${response.data.error_message}`);
-        }
-
-        exportLogger.info(`[BaselinkerExportService] Zakończono sukcesem eksport dla EAN: ${product.ean}. Wynik API:`, { responseData: response.data });
-        return {
-            apiResponse: response.data,
-            agentPayload: payload // Zwracamy payload żeby symulować strukturę jaką wcześniej wypluwał AI Agent (na użytek frontendu/logów)
-        };
     }
 }
 
