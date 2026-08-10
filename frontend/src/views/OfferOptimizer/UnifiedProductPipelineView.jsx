@@ -643,7 +643,7 @@ export const UnifiedProductPipelineView = ({
                 
                 {/* === SUPERVISOR AGENT PIPELINE === */}
                 {pipelineStatus === 'HITL_PAUSED' ? (
-                    <div className="flex flex-col h-full space-y-6">
+                    <div className="flex flex-col space-y-6">
                         <div className="bg-red-950/40 border border-red-700 rounded-lg p-6 flex flex-col items-center justify-center space-y-4 text-center">
                             <AlertTriangle className="w-12 h-12 text-red-500" />
                             <h3 className="text-xl font-bold text-red-400">Wymagana interwencja człowieka (HITL)</h3>
