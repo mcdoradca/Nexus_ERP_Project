@@ -133,7 +133,7 @@ export const UnifiedProductPipelineView = ({
 
     const [liveTitle, setLiveTitle] = useState("");
     const [liveEan, setLiveEan] = useState("");
-    const [editorHtml, setEditorHtml] = useState({ sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co gwarantuje natychmiastową wysyłkę." });
+    const [editorHtml, setEditorHtml] = useState({ sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę." });
     const [editorKey, setEditorKey] = useState(0); 
     const [visionTickets, setVisionTickets] = useState([]);
     const [viewingImageUrl, setViewingImageUrl] = useState(null);
@@ -209,14 +209,14 @@ export const UnifiedProductPipelineView = ({
                         setLiveTitle(p.offerDraft.title || p.name || "");
                         setEditorHtml({
                             ...(p.offerDraft.htmlContent || {}),
-                            sekcja7: (p.offerDraft.htmlContent && p.offerDraft.htmlContent.sekcja7 !== undefined) ? p.offerDraft.htmlContent.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co gwarantuje natychmiastową wysyłkę."
+                            sekcja7: (p.offerDraft.htmlContent && p.offerDraft.htmlContent.sekcja7 !== undefined) ? p.offerDraft.htmlContent.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę."
                         });
                         const draftTickets = p.offerDraft.visionTickets || p.offerDraft.images || [];
                         setVisionTickets(draftTickets.length > 0 ? draftTickets : fallbackTickets);
                     } else {
                         setLiveTitle(p.name || "");
                         if (p.descriptionHtml) {
-                            setEditorHtml({ sekcja1: p.descriptionHtml, sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co gwarantuje natychmiastową wysyłkę." });
+                            setEditorHtml({ sekcja1: p.descriptionHtml, sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę." });
                         }
                         setVisionTickets(fallbackTickets);
                     }
@@ -248,7 +248,7 @@ export const UnifiedProductPipelineView = ({
                 if (data.result) {
                     setEditorHtml(prev => ({
                         ...(data.result.editorHtml || {}),
-                        sekcja7: prev.sekcja7 !== undefined ? prev.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co gwarantuje natychmiastową wysyłkę."
+                        sekcja7: prev.sekcja7 !== undefined ? prev.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę."
                     }));
                     setLiveTitle(data.result.title || "");
                     setVisionTickets(data.result.visionTickets || []);
@@ -260,7 +260,7 @@ export const UnifiedProductPipelineView = ({
                             title: data.result.title || "",
                             htmlContent: {
                                 ...(data.result.editorHtml || {}),
-                                sekcja7: (prev.offerDraft && prev.offerDraft.htmlContent && prev.offerDraft.htmlContent.sekcja7 !== undefined) ? prev.offerDraft.htmlContent.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co gwarantuje natychmiastową wysyłkę."
+                                sekcja7: (prev.offerDraft && prev.offerDraft.htmlContent && prev.offerDraft.htmlContent.sekcja7 !== undefined) ? prev.offerDraft.htmlContent.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę."
                             },
                             images: data.result.visionTickets || []
                         }
