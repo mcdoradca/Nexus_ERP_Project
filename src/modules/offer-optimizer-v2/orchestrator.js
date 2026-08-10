@@ -613,18 +613,18 @@ class Orchestrator {
                         }
                     }
                     
-                    if (candidates.length > 1 && !foundMatch && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
+                    if (!foundMatch && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
                         if (this.state.revision_loop_count < 2) {
                             this.state.revision_loop_count++;
                             this.state.next_action = 'RUN_A1';
                             this.state.node_status['A1'] = 'RETRYING';
-                            console.log(`[Orchestrator] Sprzeczne INCI z OSINT (próba ${this.state.revision_loop_count}). Brak spójnej pary. Ponawiam OSINT...`);
+                            console.log(`[Orchestrator] Sprzeczne/pojedyncze INCI z OSINT (próba ${this.state.revision_loop_count}). Brak spójnej pary. Ponawiam OSINT...`);
                             continue; // Pętla wraca do RUN_A1
                         } else {
                             this.state.hitl_inci_candidates = candidates;
-                            const preview1 = candidates[0].substring(0, 150) + (candidates[0].length > 150 ? '...' : '');
-                            const preview2 = candidates[1].substring(0, 150) + (candidates[1].length > 150 ? '...' : '');
-                            this.state.hitl_alert = `OSINT_CONFLICTING_INCI_MAX_RETRYS: Po ${this.state.revision_loop_count + 1} próbach znaleziono minimum 3 różne wersje składu w internecie (brak spójnej pary). Sprawdź ręcznie i zatwierdź.\n[Wersja 1]: ${preview1}\n[Wersja 2]: ${preview2}`;
+                            const preview1 = candidates[0] ? candidates[0].substring(0, 150) + (candidates[0].length > 150 ? '...' : '') : 'Brak';
+                            const preview2 = candidates.length > 1 ? candidates[1].substring(0, 150) + (candidates[1].length > 150 ? '...' : '') : 'Brak drugiego wariantu';
+                            this.state.hitl_alert = `OSINT_CONFLICTING_INCI_MAX_RETRYS: Po ${this.state.revision_loop_count + 1} próbach nie udało się znaleźć spójnej pary składów (lub znaleziono tylko jedno źródło). Sprawdź ręcznie i zatwierdź.\n[Wersja 1]: ${preview1}\n[Wersja 2]: ${preview2}`;
                             this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
                             this.state.next_action = 'HALT';
                             this.emitState();
