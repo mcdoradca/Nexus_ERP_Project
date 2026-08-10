@@ -1339,3 +1339,7 @@ Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano po
 - Aktualizacja (AI Prompty): Wêze³ 4 - zamieniono niedozwolon¹ ikonê ?? na ?? w punktach. Wêze³ 6 - zamieniono ikonê tarczy ??? na strza³kê ?? w ostrze¿eniach CLP/GPSR, z uwagi na blokady po stronie Allegro.
 
 - Aktualizacja (AI Prompty): Spolszczenie struktury AEO - zamieniono s³owo 'Answer' na 'OdpowiedŸ' w Wêz³ach 4, 6 i 7. Wêze³ 4 - zamieniono usuniêt¹ kroplê na zielonego ptaszka ?.
+
+### [2026-08-10 15:51] Aktualizacja Prompt Master V2 (Agent 11)
+- **Cel:** Zablokowanie halucynacji zwiÄ…zanych z modyfikacjÄ… cech fizycznych produktu.
+- **Zmiany:** W prompt-master.service.js (V2) zaktualizowano systemPrompt. Wprowadzono dyrektywÄ™ "ZAKAZ MODYFIKACJI PRODUKTU" z rygorystycznym zakazem opisywania zmian cech (np. koloru patyczkÃ³w, materiaÅ‚u). UsuniÄ™to nadmiarowe wytyczne o opisywaniu tÅ‚a.
