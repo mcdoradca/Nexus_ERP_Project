@@ -272,7 +272,7 @@ export const UnifiedProductPipelineView = ({
                 alert('Błąd potoku EAN: ' + (data.error || 'Wystąpił nieoczekiwany błąd.'));
             } else if (data.type === 'PIPELINE_HITL_ALERT') {
                 setPipelineStatus('HITL_PAUSED');
-                setHitlAlert({ node: data.node, alert: data.alert });
+                setHitlAlert({ node: data.node, alert: data.alert, candidates: data.candidates });
             } else if (data.type === 'PIPELINE_STATUS') {
                 if (data.payload) {
                     setPipelinePhase(data.payload.current_phase || '');
@@ -653,6 +653,36 @@ export const UnifiedProductPipelineView = ({
                             <div className="font-mono text-white bg-red-900/50 px-4 py-2 rounded max-w-2xl whitespace-pre-wrap break-words border border-red-800">
                                 {hitlAlert?.alert || 'Brak dodatkowych informacji.'}
                             </div>
+                            {hitlAlert?.alert?.includes('OSINT_CONFLICTING_INCI_MAX_RETRYS') && hitlAlert?.candidates && hitlAlert.candidates.length > 0 && (
+                                <div className="mt-4 w-full max-w-2xl bg-slate-900 rounded p-4 border border-slate-700">
+                                    <h4 className="text-white font-bold mb-2 text-left">Wybierz właściwy skład INCI (zostanie skopiowany do formularza PIM poniżej):</h4>
+                                    <div className="flex flex-col space-y-3 text-left">
+                                        {hitlAlert.candidates.map((cand, idx) => (
+                                            <div key={idx} className="flex items-start p-3 border border-slate-600 rounded bg-slate-800">
+                                                <input 
+                                                    type="radio" 
+                                                    id={`cand-${idx}`} 
+                                                    name="inci-candidate" 
+                                                    className="mt-1 mr-3"
+                                                    onChange={() => {
+                                                        setNewProductForm(prev => {
+                                                            const updatedFeatures = { ...prev.features };
+                                                            updatedFeatures['INCI'] = cand;
+                                                            updatedFeatures['Skład'] = cand;
+                                                            return { ...prev, features: updatedFeatures };
+                                                        });
+                                                    }}
+                                                />
+                                                <label htmlFor={`cand-${idx}`} className="text-slate-300 text-sm cursor-pointer whitespace-pre-wrap flex-1">
+                                                    <span className="font-bold text-indigo-400">Wersja {idx + 1}:</span><br/>
+                                                    {cand}
+                                                </label>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-3 text-left">Wybierz jeden z powyższych składów. Następnie kliknij "Zatwierdź brak i kontynuuj".</p>
+                                </div>
+                            )}
                             <p className="text-red-300 text-sm max-w-md pt-2">
                                 Potok został wstrzymany zgodnie z polityką bezpieczeństwa. Możesz uzupełnić dane w systemie i spróbować ponownie, lub wymusić kontynuację pomimo braków.
                             </p>

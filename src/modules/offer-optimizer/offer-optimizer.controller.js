@@ -671,7 +671,8 @@ const triggerUltimatePipeline = async (req, res) => {
                          type: 'PIPELINE_HITL_ALERT',
                          ean: ean,
                          alert: orch.state.hitl_alert,
-                         node: haltedNode
+                         node: haltedNode,
+                         candidates: orch.state.hitl_inci_candidates
                      });
                 } else if (orch.state.final_offer) {
                      let currentOfferDraft = {};
