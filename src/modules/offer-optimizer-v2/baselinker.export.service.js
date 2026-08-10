@@ -137,8 +137,18 @@ class BaselinkerExportService {
             // Frontend przesłał własną tablicę (np. posortowaną przez użytkownika)
             for (let img of draftData.images) {
                 let url = typeof img === 'string' ? img : (img.url || img.originalUrl || img.replacedUrl || "");
-                if (url.includes('upload.cdn.baselinker.com') || url.includes('placeholder.com')) {
-                    finalImages.push(""); // Pusty string u nas oznacza skip w indeksacji
+                if (typeof url !== 'string') url = String(url);
+
+                const isPlaceholder = url.includes('upload.cdn.baselinker.com') || 
+                                      url.includes('placeholder.com') || 
+                                      url.includes('Wymagane nowe zdjęcie') || 
+                                      url.includes('Audyt') || 
+                                      url.includes('Analiza');
+                                      
+                const isValidFormat = url.startsWith('http') || url.startsWith('data:image');
+
+                if (isPlaceholder || !isValidFormat) {
+                    finalImages.push(""); // Pusty string u nas oznacza skip w indeksacji (BaseLinker zignoruje ten slot)
                 } else if (url) {
                     finalImages.push(url);
                 }
