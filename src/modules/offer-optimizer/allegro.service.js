@@ -10,6 +10,7 @@ dotenv.config();
 
 let cachedToken = null;
 let tokenExpiry = null;
+let tokenRefreshPromise = null;
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -18,81 +19,92 @@ async function getAllegroToken(forceRefresh = false) {
         return cachedToken;
     }
 
-    if (!forceRefresh) {
-        const accessTokenSetting = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_ACCESS_TOKEN' } });
-        const expirySetting = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' } });
-        
-        if (accessTokenSetting && expirySetting) {
-            const expiry = parseInt(expirySetting.value, 10);
-            if (Date.now() < expiry) {
-                cachedToken = accessTokenSetting.value;
-                tokenExpiry = expiry;
+    if (tokenRefreshPromise) {
+        console.log("[AllegroService] Oczekiwanie na trwający proces odświeżania tokenu (Singleton Lock)...");
+        return tokenRefreshPromise;
+    }
+
+    tokenRefreshPromise = (async () => {
+        try {
+            if (!forceRefresh) {
+                const accessTokenSetting = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_ACCESS_TOKEN' } });
+                const expirySetting = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' } });
+                
+                if (accessTokenSetting && expirySetting) {
+                    const expiry = parseInt(expirySetting.value, 10);
+                    if (Date.now() < expiry) {
+                        cachedToken = accessTokenSetting.value;
+                        tokenExpiry = expiry;
+                        return cachedToken;
+                    }
+                }
+            }
+
+            const clientId = process.env.ALLEGRO_CLIENT_ID;
+            const clientSecret = process.env.ALLEGRO_CLIENT_SECRET;
+            
+            if (!clientId || !clientSecret) {
+                 throw new Error("Brak autoryzacji do API Allegro. Skonfiguruj klucze deweloperskie w panelu aplikacji.");
+            }
+            const authString = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+            const refreshTokenSetting = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_REFRESH_TOKEN' } });
+
+            if (!refreshTokenSetting) {
+                console.warn("[AllegroService] Brak Refresh Tokenu! Próba pobrania client_credentials (publicznego).");
+                const response = await axios.post('https://allegro.pl/auth/oauth/token?grant_type=client_credentials', null, {
+                    headers: {
+                        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+                        'Authorization': `Basic ${authString}`,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                });
+                cachedToken = response.data.access_token;
+                tokenExpiry = Date.now() + (response.data.expires_in - 300) * 1000;
                 return cachedToken;
             }
-        }
-    }
 
-    const clientId = process.env.ALLEGRO_CLIENT_ID;
-    const clientSecret = process.env.ALLEGRO_CLIENT_SECRET;
-    
-    if (!clientId || !clientSecret) {
-         throw new Error("Brak autoryzacji do API Allegro. Skonfiguruj klucze deweloperskie w panelu aplikacji.");
-    }
-    const authString = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+            const response = await axios.post('https://allegro.pl/auth/oauth/token', 
+                `grant_type=refresh_token&refresh_token=${refreshTokenSetting.value}`, {
+                headers: {
+                    'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+                    'Authorization': `Basic ${authString}`,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            });
 
-    const refreshTokenSetting = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_REFRESH_TOKEN' } });
+            cachedToken = response.data.access_token;
+            tokenExpiry = Date.now() + (response.data.expires_in - 300) * 1000;
 
-    if (!refreshTokenSetting) {
-        console.warn("[AllegroService] Brak Refresh Tokenu! Próba pobrania client_credentials (publicznego).");
-        const response = await axios.post('https://allegro.pl/auth/oauth/token?grant_type=client_credentials', null, {
-            headers: {
-                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
-                'Authorization': `Basic ${authString}`,
-                'Content-Type': 'application/x-www-form-urlencoded'
+            await prisma.systemSetting.upsert({ where: { key: 'ALLEGRO_ACCESS_TOKEN' }, update: { value: cachedToken }, create: { key: 'ALLEGRO_ACCESS_TOKEN', value: cachedToken } });
+            await prisma.systemSetting.upsert({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' }, update: { value: tokenExpiry.toString() }, create: { key: 'ALLEGRO_TOKEN_EXPIRY', value: tokenExpiry.toString() } });
+
+            if (response.data.refresh_token) {
+                await prisma.systemSetting.upsert({ where: { key: 'ALLEGRO_REFRESH_TOKEN' }, update: { value: response.data.refresh_token }, create: { key: 'ALLEGRO_REFRESH_TOKEN', value: response.data.refresh_token } });
             }
-        });
-        cachedToken = response.data.access_token;
-        tokenExpiry = Date.now() + (response.data.expires_in - 300) * 1000;
-        return cachedToken;
-    }
 
-    try {
-        const response = await axios.post('https://allegro.pl/auth/oauth/token', 
-            `grant_type=refresh_token&refresh_token=${refreshTokenSetting.value}`, {
-            headers: {
-                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
-                'Authorization': `Basic ${authString}`,
-                'Content-Type': 'application/x-www-form-urlencoded'
+            console.log("[AllegroService] Odświeżono Token OAuth2 (User Token).");
+            return cachedToken;
+        } catch (error) {
+            console.error("[AllegroService] Błąd odświeżania tokenu:", error.response ? error.response.data : error.message);
+            try {
+                const { createAndSendNotification } = require('../communication/notifications.service');
+                await createAndSendNotification(
+                    'admin-id', 
+                    'Awaria autoryzacji Allegro', 
+                    'Token wygasł lub został cofnięty. Wymagane ponowne logowanie przez Device Flow.', 
+                    'error'
+                );
+            } catch (notifErr) {
+                console.error("[AllegroService] Nie udało się wysłać powiadomienia o błędzie:", notifErr.message);
             }
-        });
-
-        cachedToken = response.data.access_token;
-        tokenExpiry = Date.now() + (response.data.expires_in - 300) * 1000;
-
-        await prisma.systemSetting.upsert({ where: { key: 'ALLEGRO_ACCESS_TOKEN' }, update: { value: cachedToken }, create: { key: 'ALLEGRO_ACCESS_TOKEN', value: cachedToken } });
-        await prisma.systemSetting.upsert({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' }, update: { value: tokenExpiry.toString() }, create: { key: 'ALLEGRO_TOKEN_EXPIRY', value: tokenExpiry.toString() } });
-
-        if (response.data.refresh_token) {
-            await prisma.systemSetting.upsert({ where: { key: 'ALLEGRO_REFRESH_TOKEN' }, update: { value: response.data.refresh_token }, create: { key: 'ALLEGRO_REFRESH_TOKEN', value: response.data.refresh_token } });
+            throw new Error("Nie udało się odświeżyć tokenu. Przeprowadź ponowne logowanie Device Flow.");
+        } finally {
+            tokenRefreshPromise = null;
         }
+    })();
 
-        console.log("[AllegroService] Odświeżono Token OAuth2 (User Token).");
-        return cachedToken;
-    } catch (error) {
-        console.error("[AllegroService] Błąd odświeżania tokenu:", error.response ? error.response.data : error.message);
-        try {
-            const { createAndSendNotification } = require('../communication/notifications.service');
-            await createAndSendNotification(
-                'admin-id', 
-                'Awaria autoryzacji Allegro', 
-                'Token wygasł lub został cofnięty. Wymagane ponowne logowanie przez Device Flow.', 
-                'error'
-            );
-        } catch (notifErr) {
-            console.error("[AllegroService] Nie udało się wysłać powiadomienia o błędzie:", notifErr.message);
-        }
-        throw new Error("Nie udało się odświeżyć tokenu. Przeprowadź ponowne logowanie Device Flow.");
-    }
+    return tokenRefreshPromise;
 }
 
 async function startDeviceFlow() {
