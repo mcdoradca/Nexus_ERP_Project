@@ -210,16 +210,17 @@ class SupervisorService {
         console.log(`[Supervisor] Rozpoczynam kaskadowe zasilanie PXM dla Agenta 1 (EAN: ${ean})`);
         
         // --- 1. Ustalenie Kategori Allegro & Zbudowanie Schematu ---
-        let catId = product.allegroCategoryId;
         let requiredSchema = [];
+        // Zawsze odpytujemy API o aktualną kategorię (katalog Allegro mógł się zmienić)
+        let catId = await AllegroService.findCategoryByEan(ean);
+        if (!catId && product.name) catId = await AllegroService.findMatchingCategoryByName(product.name);
         
-        if (!catId) {
-            catId = await AllegroService.findCategoryByEan(ean);
-            if (!catId && product.name) catId = await AllegroService.findMatchingCategoryByName(product.name);
-            if (catId) {
-                await prisma.product.update({ where: { id: product.id }, data: { allegroCategoryId: catId } });
-                product.allegroCategoryId = catId;
-            }
+        if (catId) {
+            await prisma.product.update({ where: { id: product.id }, data: { allegroCategoryId: catId } });
+            product.allegroCategoryId = catId;
+        } else if (product.allegroCategoryId) {
+            // Fallback do starej bazy
+            catId = product.allegroCategoryId;
         }
         
         if (catId) {

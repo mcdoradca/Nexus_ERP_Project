@@ -626,16 +626,26 @@ const triggerUltimatePipeline = async (req, res) => {
                 } catch(e) {}
                 
                 // Pobranie schematu Allegro dla dynamicznego uzupełniania braków
+                // Podczas ręcznej interpolacji ZAWSZE odpytujemy API Allegro o kategorię (nawet jeśli mamy już przypisaną w bazie), 
+                // ponieważ użytkownik/Allegro mógł ją w międzyczasie zaktualizować dla tego EAN-u.
                 let requiredSchema = [];
-                let catId = existingProduct?.allegroCategoryId;
-                if (!catId) {
-                    catId = await AllegroService.findCategoryByEan(ean);
-                    if (!catId && existingProduct?.name) catId = await AllegroService.findMatchingCategoryByName(existingProduct.name);
-                    if (catId) {
-                        await prisma.product.update({ where: { id: existingProduct.id }, data: { allegroCategoryId: catId } });
-                        existingProduct.allegroCategoryId = catId;
-                    }
+                let catId = await AllegroService.findCategoryByEan(ean);
+                
+                if (!catId && existingProduct?.name) {
+                    catId = await AllegroService.findMatchingCategoryByName(existingProduct.name);
                 }
+
+                if (catId && existingProduct) {
+                    // Zapisujemy nową kategorię w bazie, na wypadek gdyby uległa zmianie
+                    await prisma.product.update({ where: { id: existingProduct.id }, data: { allegroCategoryId: catId } });
+                    existingProduct.allegroCategoryId = catId;
+                }
+
+                if (!catId && existingProduct?.allegroCategoryId) {
+                    // Fallback do starej bazy tylko jeśli API Allegro z jakiegoś powodu nie zwróciło żadnej kategorii
+                    catId = existingProduct.allegroCategoryId;
+                }
+
                 if (catId) {
                     let category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
                     if (!category || !category.parameters || (Array.isArray(category.parameters) && category.parameters.length === 0)) {
