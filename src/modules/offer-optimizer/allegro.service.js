@@ -51,15 +51,63 @@ async function getAllegroToken(forceRefresh = false) {
 
     tokenRefreshPromise = (async () => {
         try {
+            const LOCK_KEY = 'ALLEGRO_REFRESH_LOCK';
+            let acquiredLock = false;
+
+            for (let i = 0; i < 20; i++) {
+                const now = Date.now();
+                const lockRecord = await prisma.systemSetting.findUnique({ where: { key: LOCK_KEY } });
+
+                if (!lockRecord) {
+                    try {
+                        await prisma.systemSetting.create({ data: { key: LOCK_KEY, value: (now + 30000).toString() } });
+                        acquiredLock = true;
+                        break;
+                    } catch (e) {}
+                } else if (parseInt(lockRecord.value, 10) < now) {
+                    const updated = await prisma.systemSetting.updateMany({
+                        where: { key: LOCK_KEY, value: lockRecord.value },
+                        data: { value: (now + 30000).toString() }
+                    });
+                    if (updated.count > 0) {
+                        acquiredLock = true;
+                        break;
+                    }
+                }
+
+                const checkToken = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_ACCESS_TOKEN' } });
+                const checkExpiry = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' } });
+                if (checkToken && checkToken.value !== cachedToken && checkExpiry && parseInt(checkExpiry.value, 10) > now) {
+                    cachedToken = checkToken.value;
+                    tokenExpiry = parseInt(checkExpiry.value, 10);
+                    return cachedToken;
+                }
+
+                console.log('[AllegroService] Inny proces odświeża token. Oczekiwanie (DB Lock)...');
+                await new Promise(r => setTimeout(r, 1000));
+            }
+
+            if (!acquiredLock) {
+                throw new Error('Timeout oczekiwania na blokadę odświeżania tokenu z bazy danych (Allegro).');
+            }
+
+            const checkToken = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_ACCESS_TOKEN' } });
+            const checkExpiry = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' } });
+            if (checkToken && checkToken.value !== cachedToken && checkExpiry && parseInt(checkExpiry.value, 10) > Date.now()) {
+                cachedToken = checkToken.value;
+                tokenExpiry = parseInt(checkExpiry.value, 10);
+                await prisma.systemSetting.update({ where: { key: LOCK_KEY }, data: { value: '0' } });
+                console.log('[AllegroService] Inny proces zdążył odświeżyć token. Pobrano nowy z bazy.');
+                return cachedToken;
+            }
+
             if (!forceRefresh) {
-                const accessTokenSetting = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_ACCESS_TOKEN' } });
-                const expirySetting = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' } });
-                
-                if (accessTokenSetting && expirySetting) {
-                    const expiry = parseInt(expirySetting.value, 10);
+                if (checkToken && checkExpiry) {
+                    const expiry = parseInt(checkExpiry.value, 10);
                     if (Date.now() < expiry) {
-                        cachedToken = accessTokenSetting.value;
+                        cachedToken = checkToken.value;
                         tokenExpiry = expiry;
+                        await prisma.systemSetting.update({ where: { key: LOCK_KEY }, data: { value: '0' } });
                         return cachedToken;
                     }
                 }
@@ -125,6 +173,9 @@ async function getAllegroToken(forceRefresh = false) {
             }
             throw new Error("Nie udaĹ‚o siÄ™ odĹ›wieĹĽyÄ‡ tokenu. PrzeprowadĹş ponowne logowanie Device Flow.");
         } finally {
+            try {
+                await prisma.systemSetting.updateMany({ where: { key: 'ALLEGRO_REFRESH_LOCK' }, data: { value: '0' } });
+            } catch (e) { /* ignore */ }
             tokenRefreshPromise = null;
         }
     })();
@@ -551,4 +602,5 @@ module.exports = {
     searchProducts,
     getListingCompetitors
 };
+
 

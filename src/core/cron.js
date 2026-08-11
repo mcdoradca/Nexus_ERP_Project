@@ -45,18 +45,7 @@ function initCronJobs() {
         }
     });
 
-    // Sub-Moduł: PROAKTYWNE ODŚWIEŻANIE TOKENÓW (Zapobieganie Race Conditions)
-    // Uruchamiany co 8 godzin, zanim wygaśnie 12-godzinny token Allegro API.
-    cron.schedule('0 */8 * * *', async () => {
-        console.log('[CRON] Automatyczne proaktywne odświeżanie tokenu Allegro (co 8h)...');
-        try {
-            const allegroService = require('../modules/offer-optimizer/allegro.service');
-            await allegroService.getAllegroToken(true);
-            console.log('[CRON] Token Allegro odświeżony pomyślnie.');
-        } catch (error) {
-            console.error('[CRON] Błąd proaktywnego odświeżania tokenu Allegro:', error.message);
-        }
-    });
+
 }
 
 module.exports = { initCronJobs };
