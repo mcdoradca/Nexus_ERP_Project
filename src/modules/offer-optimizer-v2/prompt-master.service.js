@@ -3,7 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const PROMPT_MASTER_AGENT_ID = "11";
-const MANDATORY_PREFIX = "The product must always remain exactly as in the original image. Do not change its shape, color, or text on the label - the label must be preserved perfectly. Do NOT place the product in the center of the frame, use an off-center composition. ";
+const MANDATORY_PREFIX = "The product must always remain exactly as in the original image. Do not change its shape, color, or text on the label - the label must be preserved perfectly. The reference product must be visibly present in the scene, even if it is in the distant background, blurred, or partially obscured by steam or fog. Do NOT place the product in the center of the frame, use an off-center composition. ";
 
 async function generatePrompt(slot, productDetailsText, ean = null) {
     const isEven = slot % 2 === 0;
@@ -34,6 +34,8 @@ Otrzymasz dane produktu z bazy PIM (Product Information Management).
 Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w języku ANGIELSKIM opisujący scenę dla zdjęcia. Upewnij się, że w prompcie znajduje się wymóg asymetrycznej kompozycji (off-center) i absolutny zakaz umieszczania produktu na samym środku kadru. Na końcu promptu zawsze dodaj słowa kluczowe podnoszące jakość (np. photorealistic, professional photography, cinematic lighting, sharp focus).
 
 ZAKAZ MODYFIKACJI PRODUKTU: Masz absolutny zakaz opisywania w prompcie cech samego produktu (np. zmiany koloru patyczków zapachowych, materiału, kształtu). Produkt referencyjny jest święty.
+
+BEZWZGLĘDNA OBECNOŚĆ PRODUKTU: Produkt referencyjny MUSI ZAWSZE znajdować się na zdjęciu. Może stać daleko w tle, być za mgłą, parą lub mocno zblurowany (zależnie od polecenia), ale w Twoim prompcie musi fizycznie istnieć w kreowanej scenie jako jej część.
 
 TWOJE ZADANIE: ${instruction}
 
