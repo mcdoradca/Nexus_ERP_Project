@@ -1,4 +1,4 @@
-﻿const axios = require('axios');
+const axios = require('axios');
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -125,7 +125,7 @@ async function getAllegroToken(forceRefresh = false) {
 
             if (!refreshTokenSetting) {
                 console.warn("[AllegroService] Brak Refresh Tokenu! PrĂłba pobrania client_credentials (publicznego).");
-                const response = await axios.post('https://allegro.pl/auth/oauth/token?grant_type=client_credentials', null, {
+                const response = await axios.post('https://allegro.pl/auth/oauth/token', 'grant_type=client_credentials', {
                     headers: {
                         'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                         'Authorization': `Basic ${authString}`,
@@ -600,7 +600,8 @@ module.exports = {
     startDeviceFlow,
     pollForToken,
     searchProducts,
-    getListingCompetitors
+    getListingCompetitors,
+    apiClient
 };
 
 

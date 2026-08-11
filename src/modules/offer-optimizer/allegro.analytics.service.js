@@ -1,5 +1,4 @@
-const axios = require('axios');
-const { getAllegroToken } = require('./allegro.service');
+const { getAllegroToken, apiClient } = require('./allegro.service');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -17,8 +16,9 @@ async function fetchOfferStatistics(offerId) {
         
         console.log(`[AllegroAnalytics] Pobieranie rzeczywistych statystyk dla oferty: ${offerId}`);
         // Endpoint analityczny Allegro dla sprzedawców:
-        const response = await axios.get(`https://api.allegro.pl/sale/offer-events?offerId=${offerId}`, {
+        const response = await apiClient.get(`https://api.allegro.pl/sale/offer-events?offerId=${offerId}`, {
             headers: {
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
             }

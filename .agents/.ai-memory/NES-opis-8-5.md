@@ -1,3 +1,12 @@
+ï»¿## Modul: Allegro API Compliance Audit (Poprawki krytyczne)
+**Data:** 2026-08-11
+**Zmiany:**
+1. **[FIX: client_credentials body]** W `allegro.service.js:128` przeniesiono `grant_type=client_credentials` z query param URL do body POST. Od 23.08.2025 Allegro wymaga wszystkich parametrow tokenowych w body zadania - stary format (query param) jest odrzucany.
+2. **[FIX: User-Agent w analytics]** W `allegro.analytics.service.js` dodano obowiazkowy naglowek `User-Agent: NexusSentinelv2/2.0 (+http://n-e-s.pl)`. Od konca czerwca 2026 Allegro odrzuca requesty bez custom User-Agent.
+3. **[FIX: apiClient zamiast axios]** W `allegro.analytics.service.js` zamieniono surowy `axios` na wspolny `apiClient` (z interceptorem 401) eksportowany z `allegro.service.js`. Gwarantuje automatyczny token refresh przy wygaslym tokenie.
+4. **[EXPORT: apiClient]** Z `allegro.service.js` wyeksportowano instancje `apiClient` (axios.create() z interceptorem 401) - pozwala innym modulom korzystac z auto-retry logiki.
+
+---
 ## Modul: BaseLinker Export (Blokada Automatyzacji)
 **Data:** 2026-08-06
 **Zmiany:**
@@ -1171,7 +1180,7 @@ Panel "Panel Administracyjny -> Kadra Pracownicza", modal Edycji operatora (Dost
 
  
  # #   A K T U A L I Z A C J A   A R C H I T E K T U R Y   -   M O D U A  R E S I   ( 2 0 . 0 7 . 2 0 2 6 ) 
- Z g o d n i e   z   d e c y z j a m i   p r o j e k t o w y m i ,   w d r o |o n o   W a r i a n t   A   m o d u Bu   R e s i ,   c a Bk o w i c i e   e l i m i n u j c   p o p r z e d n i   i m p l e m e n t a c j   P y t h o n / W a i t r e s s / r e m b g .   P r o c e s   w y c i n a n i a   t Ba   z   o b r a z ó w   p r z e n i e s i o n o   d o   A P I   C l a i d ,   a   s y s t e m   z a r z d z a n i a   o b r a z a m i   ( M T o o l )   w y k o r z y s t u j e   t e r a z   b e z p o [r e d n i e   e n d p o i n t y   N o d e . j s   ( / a p i / r e s i / p r o c e s s )   i   b i b l i o t e k   S h a r p   ( p a d d i n g / c r o p / c a n v a s   a d j u s t m e n t )   p r z y   z a c h o w a n i u   [c i s Be g o   o g r a n i c z e n i a   w s p ó Bb i e |n o [c i .   T o   r o z w i z a n i e   p o z w o l i Bo   z l i k w i d o w a   b Bd y   O O M ,   o d c i |y   m a s z y n y   d o c e l o w e   ( O V H )   o r a z   u n i f i k o w a   b a c k e n d .  
+ Z g o d n i e   z   d e c y z j a m i   p r o j e k t o w y m i ,   w d r o |o n o   W a r i a n t   A   m o d u Bu   R e s i ,   c a Bk o w i c i e   e l i m i n u j c   p o p r z e d n i   i m p l e m e n t a c j   P y t h o n / W a i t r e s s / r e m b g .   P r o c e s   w y c i n a n i a   t Ba   z   o b r a z ï¿½ w   p r z e n i e s i o n o   d o   A P I   C l a i d ,   a   s y s t e m   z a r z d z a n i a   o b r a z a m i   ( M T o o l )   w y k o r z y s t u j e   t e r a z   b e z p o [r e d n i e   e n d p o i n t y   N o d e . j s   ( / a p i / r e s i / p r o c e s s )   i   b i b l i o t e k   S h a r p   ( p a d d i n g / c r o p / c a n v a s   a d j u s t m e n t )   p r z y   z a c h o w a n i u   [c i s Be g o   o g r a n i c z e n i a   w s p ï¿½ Bb i e |n o [c i .   T o   r o z w i z a n i e   p o z w o l i Bo   z l i k w i d o w a   b Bd y   O O M ,   o d c i |y   m a s z y n y   d o c e l o w e   ( O V H )   o r a z   u n i f i k o w a   b a c k e n d .  
  
 ## Architektura Produkcyjna (OVH VPS)
 System uruchomiony jest na dedykowanym VPS-ie w OVH (Ubuntu 26.04) o IP 145.239.73.39 pod domenÄ… n-e-s.it.
@@ -1205,20 +1214,20 @@ W celu weryfikacji zdrowia systemu, wprowadzono zestaw wbudowanych skryptÃ³w dia
 Testy te naleÅ¼y okresowo uruchamiaÄ‡ lokalnie podczas drastycznych zmian architektury, w celu potwierdzenia Å¼e system AI Swarm oraz bramki API sÄ… stabilne.
 
  # #   A k t u a l i z a c j a   -   2 0 2 6 - 0 7 - 2 1 
- -   * * M o d u B  C z a t u * * :   U s u n i t o   b Bd   p o w o d u j c y   c i g Be   p r z e r y w a n i e   p o Bc z e n i a   W e b S o c k e t   p r z y   k a |d e j   z m i a n i e   k o n t e k s t u   c z a t u   ( n p .   p r z e Bc z a n i u   m i d z y   s t r u m i e n i e m   g Bó w n y m   a   w i a d o m o [c i a m i   b e z p o [r e d n i m i ) .   G w a r a n t u j e   t o   s t a b i l n e ,   b e z s t r a t n e   o d b i e r a n i e   g l o b a l n y c h   b r o a d c a s t ó w   ( r o z w i z a n o   p r o b l e m :   ' w i a d o m o [c i   n i e   s   w y s y Ba n e   d o   i n n y c h ' ) . 
- -   * * M o d u B  N e S   B o t * * :   N a p r a w i o n o   l o g i k   f a l l b a c k u   w   p r z y p a d k u   w y s t p i e n i a   l i m i t u   ' 4 2 9   T o o   M a n y   R e q u e s t s '   n a   m o d e l u   g Bó w n y m .   S y s t e m   p r a w i d Bo w o   p r z e c h w y t u j e   t e r a z   k o d y   b Bd u ,   p r z e Bc z a j c   n a   m o d e l   z a p a s o w y   ' g e m i n i - 3 . 5 - f l a s h ' ,   z a m i a s t   p o n o w n i e   |d a   z a b l o k o w a n e g o   m o d e l u   ( r o z w i z a n o   p r o b l e m :   ' b o t   n i e   o d p o w i a d a   w   p r z y p a d k u   p r z e k r o c z e n i a   l i m i t u ' ) . 
+ -   * * M o d u B  C z a t u * * :   U s u n i t o   b Bd   p o w o d u j c y   c i g Be   p r z e r y w a n i e   p o Bc z e n i a   W e b S o c k e t   p r z y   k a |d e j   z m i a n i e   k o n t e k s t u   c z a t u   ( n p .   p r z e Bc z a n i u   m i d z y   s t r u m i e n i e m   g Bï¿½ w n y m   a   w i a d o m o [c i a m i   b e z p o [r e d n i m i ) .   G w a r a n t u j e   t o   s t a b i l n e ,   b e z s t r a t n e   o d b i e r a n i e   g l o b a l n y c h   b r o a d c a s t ï¿½ w   ( r o z w i z a n o   p r o b l e m :   ' w i a d o m o [c i   n i e   s   w y s y Ba n e   d o   i n n y c h ' ) . 
+ -   * * M o d u B  N e S   B o t * * :   N a p r a w i o n o   l o g i k   f a l l b a c k u   w   p r z y p a d k u   w y s t p i e n i a   l i m i t u   ' 4 2 9   T o o   M a n y   R e q u e s t s '   n a   m o d e l u   g Bï¿½ w n y m .   S y s t e m   p r a w i d Bo w o   p r z e c h w y t u j e   t e r a z   k o d y   b Bd u ,   p r z e Bc z a j c   n a   m o d e l   z a p a s o w y   ' g e m i n i - 3 . 5 - f l a s h ' ,   z a m i a s t   p o n o w n i e   |d a   z a b l o k o w a n e g o   m o d e l u   ( r o z w i z a n o   p r o b l e m :   ' b o t   n i e   o d p o w i a d a   w   p r z y p a d k u   p r z e k r o c z e n i a   l i m i t u ' ) . 
   
-   -   * * K o m p i l a c j a   F r o n t e n d   ( H o t f i x ) * * :   W d r o |o n o   k o m p i l a c j   ( n p m   r u n   b u i l d )   w   [r o d o w i s k u   p o   o s t a t n i c h   p o p r a w k a c h   w   A p p . j s x .   W c z e [n i e j s z e   b r a k i   z r e k o m p i l o w a n i a   k o d u   b y By   p o w o d e m   d l a   k t ó r e g o   n a p r a w i o n y   m o d u B  s o c k e t . i o   n i e   p r z y n o s i B  w i d o c z n y c h   z m i a n   u   u |y t k o w n i k a .   W p r o w a d z o n o   d o   U n i v e r s a l C h a t . j s x   b e z p i e c z n i k   d i a g n o s t y c z n y   -   s y s t e m   r z u c i   a l e r t ,   j e [l i   u |y t k o w n i k   s p r ó b u j e   z a t w i e r d z i   w i a d o m o [  p r z y   u t r a c o n y m   W e b S o c k e t .  
+   -   * * K o m p i l a c j a   F r o n t e n d   ( H o t f i x ) * * :   W d r o |o n o   k o m p i l a c j   ( n p m   r u n   b u i l d )   w   [r o d o w i s k u   p o   o s t a t n i c h   p o p r a w k a c h   w   A p p . j s x .   W c z e [n i e j s z e   b r a k i   z r e k o m p i l o w a n i a   k o d u   b y By   p o w o d e m   d l a   k t ï¿½ r e g o   n a p r a w i o n y   m o d u B  s o c k e t . i o   n i e   p r z y n o s i B  w i d o c z n y c h   z m i a n   u   u |y t k o w n i k a .   W p r o w a d z o n o   d o   U n i v e r s a l C h a t . j s x   b e z p i e c z n i k   d i a g n o s t y c z n y   -   s y s t e m   r z u c i   a l e r t ,   j e [l i   u |y t k o w n i k   s p r ï¿½ b u j e   z a t w i e r d z i   w i a d o m o [  p r z y   u t r a c o n y m   W e b S o c k e t .  
  \n\n## Aktualizacja - Offer Optimizer V2 (02.08.2026)\n- WstrzykniÄ™to twarde zmienne bazowe produktu z BaseLinker (gtin_ean, product_name, brand, capacity, line) do obiegÃ³w danych agentÃ³w AI (agent5Data, agent6Data, agent7Data, agent10Data) w pliku src/modules/offer-optimizer-v2/orchestrator.js. Naprawia to krytyczny bÅ‚Ä…d halucynowania i opisywania niewÅ‚aÅ›ciwych produktÃ³w w module twÃ³rczym (Master Copywriter).\n
 ### [2026-08-02] Aktualizacja Agenta 1 (offer-optimizer-v2)
 - Przebudowano prompt Agenta 1 (Agent_1_prompt_v4.md) celem rygorystycznego wymuszenia ekstrakcji INCI i Podmiotu Odpowiedzialnego UE (GPSR).
 - Zaktualizowano schemat a1Schema w orchestrator.js (dodanie eu_responsible_person).
-- Zmieniono allowedKeys i dodano logikê parsowania podmiotu w orchestrator.js.
+- Zmieniono allowedKeys i dodano logikï¿½ parsowania podmiotu w orchestrator.js.
 
 ### [2026-08-02] Optymalizacja Agenta 1 - KROK 2
-- Przywrócono pe³ny zakres analizy w prompcie v4.0 z wersji Swarm V3 (GPSR, Logistyka, CLP).
-- Zaktualizowano a1Schema w orchestrator.js o wêz³y logistics i compliance.
-- Wprowadzono logikê auto-rozwi¹zywania konfliktów INCI (pokrycie wskaŸnikiem Jaccarda). Wybrany sk³ad tafia do extracted_data.inci z ominiêciem HITL w przypadku wysokiego podobieñstwa (>0.5).
+- Przywrï¿½cono peï¿½ny zakres analizy w prompcie v4.0 z wersji Swarm V3 (GPSR, Logistyka, CLP).
+- Zaktualizowano a1Schema w orchestrator.js o wï¿½zï¿½y logistics i compliance.
+- Wprowadzono logikï¿½ auto-rozwiï¿½zywania konfliktï¿½w INCI (pokrycie wskaï¿½nikiem Jaccarda). Wybrany skï¿½ad tafia do extracted_data.inci z ominiï¿½ciem HITL w przypadku wysokiego podobieï¿½stwa (>0.5).
 
 ### [2026-08-02] Optymalizacja Agenta 1 - KROK 3 (Anti-Recitation)
 - Naprawiono bÅ‚Ä…d gubienia schematu JSON (responseSchema) podczas dziaÅ‚ania narzÄ™dzia googleSearch w ai.wrapper.js.
@@ -1277,11 +1286,11 @@ odes.config.js\, aby poprawiÄ‡ jakoÅ›Ä‡ i precyzjÄ™ zÅ‚oÅ¼onych generacji tekstÃ
 - Naprawiono brakujacy cien pod produktem przywracajac \shadow.mode: ai.soft\. Poprzedni Agent przekombinowal z overrides, co blokowalo silnik Photoroom przy dodanym paddingu.
 - Naprawiono halucynacje z owsem. Wyraz \oat\ znajdowal dopasowanie w powszechnym konserwancie kosmetycznym \sodium benzoate\, przez co platki owsiane pojawialy sie na wiekszosci zdjec. Zastapiono \oat\ bardziej specyficznymi slowami (oatmeal, oat extract).
 
-### Aktualizacja: Ró¿norodnoœæ kompozycji (100 presetów)
-- Zgodnie z decyzj¹ u¿ytkownika zamiast sztywnych wariantów przypisanych do slotów utworzono pulê dok³adnie 100 sztywnych presetów kompozycji (od HUGE po HIGH_HORIZON). Zosta³y one wygenerowane na bazie losowych zakresów i wklejone do kodu (COMPOSITIONS). Zwiêksza to drastycznie ró¿norodnoœæ i redukuje szansê na powtórzenie takiego samego kadru.
+### Aktualizacja: Rï¿½norodnoï¿½ï¿½ kompozycji (100 presetï¿½w)
+- Zgodnie z decyzjï¿½ uï¿½ytkownika zamiast sztywnych wariantï¿½w przypisanych do slotï¿½w utworzono pulï¿½ dokï¿½adnie 100 sztywnych presetï¿½w kompozycji (od HUGE po HIGH_HORIZON). Zostaï¿½y one wygenerowane na bazie losowych zakresï¿½w i wklejone do kodu (COMPOSITIONS). Zwiï¿½ksza to drastycznie rï¿½norodnoï¿½ï¿½ i redukuje szansï¿½ na powtï¿½rzenie takiego samego kadru.
 
 ### Aktualizacja: Zintegrowany Beautifier API
-- Do zapytañ budowanych przez Chaos Engine w \photoroom.service.js\ dodano sta³y parametr \eautify.mode: ai.auto\. Optymalizuje on produkt wyjœciowy w zakresie naœwietlenia i ostroœci przed wyciêciem t³a i wklejeniem w wygenerowane œrodowisko, bez zwiêkszania kosztów wywo³ania Image Editing API.
+- Do zapytaï¿½ budowanych przez Chaos Engine w \photoroom.service.js\ dodano staï¿½y parametr \eautify.mode: ai.auto\. Optymalizuje on produkt wyjï¿½ciowy w zakresie naï¿½wietlenia i ostroï¿½ci przed wyciï¿½ciem tï¿½a i wklejeniem w wygenerowane ï¿½rodowisko, bez zwiï¿½kszania kosztï¿½w wywoï¿½ania Image Editing API.
 
 ### Aktualizacje - Auto-Fill PXM (04.08.2026)
 - Zintegrowano pobieranie twardych parametrÃ³w z Katalogu Allegro (API) bezpoÅ›rednio do gÅ‚Ã³wnego endpointu 'Interpoluj EAN' (/api/products/autofill/:ean). Parametry dodawane sÄ… do 'mergedFeatures', dziÄ™ki czemu od razu uzupeÅ‚niajÄ… widok 'Katalog ParametrÃ³w Allegro'.
@@ -1320,25 +1329,25 @@ odes.config.js\, aby poprawiÄ‡ jakoÅ›Ä‡ i precyzjÄ™ zÅ‚oÅ¼onych generacji tekstÃ
 
 
 ### Poprawki - 06 Sierpnia 2026
-- [Frontend/Photoroom V2] Naprawiono b³¹d 'Brak zdjêcia wejœciowego', który wystêpowa³ po eksporcie produktu do BaseLinkera, dostosowuj¹c PhotographicAuditorCard.jsx do prawid³owej obs³ugi stringów base64 (data:image) w polu originalUrl, zamiast wymagania wy³¹cznie adresów URL (http).
+- [Frontend/Photoroom V2] Naprawiono bï¿½ï¿½d 'Brak zdjï¿½cia wejï¿½ciowego', ktï¿½ry wystï¿½powaï¿½ po eksporcie produktu do BaseLinkera, dostosowujï¿½c PhotographicAuditorCard.jsx do prawidï¿½owej obsï¿½ugi stringï¿½w base64 (data:image) w polu originalUrl, zamiast wymagania wyï¿½ï¿½cznie adresï¿½w URL (http).
 
-- [Photoroom V2] Rozwi¹zano problem halucynacji AI zmieniaj¹cych sam produkt podczas generowania œrodowiska w slotach 2-9 (Chaos Engine). Zmieniono parametry beautify.mode oraz lighting.mode na 'none', wyciêto negatywny prompt wymuszaj¹cy brak logo. Wprowadzono te¿ limity dla paddingRight/paddingLeft (do max 0.49), naprawiaj¹c b³¹d API Photoroom v2, oraz zapêtlono kompresjê dla sharp, aby rozmiar pliku wyjœciowego nie przekroczy³ 2MB dla BaseLinkera.
+- [Photoroom V2] Rozwiï¿½zano problem halucynacji AI zmieniajï¿½cych sam produkt podczas generowania ï¿½rodowiska w slotach 2-9 (Chaos Engine). Zmieniono parametry beautify.mode oraz lighting.mode na 'none', wyciï¿½to negatywny prompt wymuszajï¿½cy brak logo. Wprowadzono teï¿½ limity dla paddingRight/paddingLeft (do max 0.49), naprawiajï¿½c bï¿½ï¿½d API Photoroom v2, oraz zapï¿½tlono kompresjï¿½ dla sharp, aby rozmiar pliku wyjï¿½ciowego nie przekroczyï¿½ 2MB dla BaseLinkera.
 
 
 - [Photoroom V2 / Prompt Master] CaÅ‚kowicie przebudowano logikÄ™ generowania zdjÄ™Ä‡ lifestylowych. UsuniÄ™to Chaos Engine (losowe paddingi) i sztywne sÅ‚owniki tÅ‚a na rzecz asynchronicznego Agenta LLM (Gemini 3.5 Flash). Agent dynamicznie buduje prompty po polsku do Photoroom API v2/edit (tryb inpaintingu z zachowaniem produktu) opierajÄ…c siÄ™ o dane z bazy PIM i przypisanie slotÃ³w (parzyste = w uÅ¼yciu, nieparzyste = w oddali/lifestylowe). Wymuszono prefiks chroniÄ…cy oryginalnÄ… etykietÄ™ i wyglÄ…d przedmiotu.
 
 ## Aktualizacja z 2026-08-07: Zmiana Prompt Mastera i dodanie historii EAN
-Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano pobieranie historii wygenerowanych promptów dla danego produktu (EAN) z tabeli AgentCache (Prisma), by zapobiec tworzeniu powtarzalnych scenerii przez model LLM. Zoptymalizowano system prompt, usuwaj¹c sztywne odniesienia do kuchni i ³azienek, na rzecz dynamicznego odczytu kontekstu oraz unikania centrowania produktu.
+Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano pobieranie historii wygenerowanych promptï¿½w dla danego produktu (EAN) z tabeli AgentCache (Prisma), by zapobiec tworzeniu powtarzalnych scenerii przez model LLM. Zoptymalizowano system prompt, usuwajï¿½c sztywne odniesienia do kuchni i ï¿½azienek, na rzecz dynamicznego odczytu kontekstu oraz unikania centrowania produktu.
 
 
-### Aktualizacja 2026-08-07: OfferOptimizer - Modu³ 7 (Reklama)
-- Dodano domyœlny tekst (Jesteœmy bezpoœrednim importerem...) ³adowany automatycznie do pola Modu³ 7: Reklama (sekcja7 w editorHtml) w UnifiedProductPipelineView.jsx.
+### Aktualizacja 2026-08-07: OfferOptimizer - Moduï¿½ 7 (Reklama)
+- Dodano domyï¿½lny tekst (Jesteï¿½my bezpoï¿½rednim importerem...) ï¿½adowany automatycznie do pola Moduï¿½ 7: Reklama (sekcja7 w editorHtml) w UnifiedProductPipelineView.jsx.
 
-- Poprawka (HOTFIX): Zabezpieczono stan sekcji 7 w UnifiedProductPipelineView przed nadpisywaniem (czyszczeniem) przez event PIPELINE_COMPLETE z WebSocket. Wdro¿ono zachowanie istniej¹cej zawartoœci lub domyœlnej w przypadku braku wartoœci w nowo przychodz¹cym pakiecie HTML z backendu.
+- Poprawka (HOTFIX): Zabezpieczono stan sekcji 7 w UnifiedProductPipelineView przed nadpisywaniem (czyszczeniem) przez event PIPELINE_COMPLETE z WebSocket. Wdroï¿½ono zachowanie istniejï¿½cej zawartoï¿½ci lub domyï¿½lnej w przypadku braku wartoï¿½ci w nowo przychodzï¿½cym pakiecie HTML z backendu.
 
-- Aktualizacja (AI Prompty): Wêze³ 4 - zamieniono niedozwolon¹ ikonê ?? na ?? w punktach. Wêze³ 6 - zamieniono ikonê tarczy ??? na strza³kê ?? w ostrze¿eniach CLP/GPSR, z uwagi na blokady po stronie Allegro.
+- Aktualizacja (AI Prompty): Wï¿½zeï¿½ 4 - zamieniono niedozwolonï¿½ ikonï¿½ ?? na ?? w punktach. Wï¿½zeï¿½ 6 - zamieniono ikonï¿½ tarczy ??? na strzaï¿½kï¿½ ?? w ostrzeï¿½eniach CLP/GPSR, z uwagi na blokady po stronie Allegro.
 
-- Aktualizacja (AI Prompty): Spolszczenie struktury AEO - zamieniono s³owo 'Answer' na 'OdpowiedŸ' w Wêz³ach 4, 6 i 7. Wêze³ 4 - zamieniono usuniêt¹ kroplê na zielonego ptaszka ?.
+- Aktualizacja (AI Prompty): Spolszczenie struktury AEO - zamieniono sï¿½owo 'Answer' na 'Odpowiedï¿½' w Wï¿½zï¿½ach 4, 6 i 7. Wï¿½zeï¿½ 4 - zamieniono usuniï¿½tï¿½ kroplï¿½ na zielonego ptaszka ?.
 
 ### [2026-08-10 15:51] Aktualizacja Prompt Master V2 (Agent 11)
 - **Cel:** Zablokowanie halucynacji zwiÄ…zanych z modyfikacjÄ… cech fizycznych produktu.
