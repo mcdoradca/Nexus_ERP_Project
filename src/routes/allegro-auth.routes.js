@@ -18,8 +18,8 @@ router.post('/start', async (req, res) => {
             message: "Proszę kliknąć w link autoryzacyjny i wkleić kod jeśli będzie wymagany."
         });
     } catch (error) {
-        console.error("[Allegro Auth Route] Błąd przy starcie Device Flow:", error.message);
-        res.status(500).json({ success: false, error: "Nie udało się wystartować autoryzacji Allegro." });
+        console.error("[Allegro Auth Route] Błąd przy starcie Device Flow:", error.message, error.response?.data, error.stack);
+        res.status(500).json({ success: false, error: "Nie udało się wystartować autoryzacji Allegro: " + (error.response?.data?.error_description || error.message) });
     }
 });
 

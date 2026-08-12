@@ -186,6 +186,11 @@ async function getAllegroToken(forceRefresh = false) {
 async function startDeviceFlow() {
     const clientId = process.env.ALLEGRO_CLIENT_ID;
     const clientSecret = process.env.ALLEGRO_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+        throw new Error("Brak kluczy ALLEGRO_CLIENT_ID lub ALLEGRO_CLIENT_SECRET w zmiennych środowiskowych. Zrestartuj serwer (nodemon/pm2) aby przeładować plik .env.");
+    }
+
     const authString = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
     const response = await axios.post('https://allegro.pl/auth/oauth/device', `client_id=${clientId}`, {
