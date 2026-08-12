@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Users, Settings, Archive, RotateCcw, Search, CloudLightning, Save, CheckCircle2, Trash2 } from 'lucide-react';
+import { Plus, Users, Settings, Archive, RotateCcw, Search, CloudLightning, Save, CheckCircle2, Trash2, ShoppingCart, ExternalLink, Loader2 } from 'lucide-react';
 import { getInitials, getDepartmentColor } from '../utils';
 
 const AdminPanelView = ({
@@ -17,6 +17,18 @@ const AdminPanelView = ({
   const [baseLinkerToken, setBaseLinkerToken] = useState('');
   const [tokenSaved, setTokenSaved] = useState(false);
   
+  const [allegroAuthData, setAllegroAuthData] = useState(null);
+  const [isAllegroPolling, setIsAllegroPolling] = useState(false);
+  const [allegroSuccess, setAllegroSuccess] = useState(false);
+  const [allegroError, setAllegroError] = useState('');
+  const pollInterval = React.useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollInterval.current) clearInterval(pollInterval.current);
+    };
+  }, []);
+  
   useEffect(() => {
     if (activeTab === 'ARCHIVE') {
        axios.get(`${API_URL}/api/tasks/archive/list`, { headers: { Authorization: `Bearer ${token}` } })
@@ -28,6 +40,40 @@ const AdminPanelView = ({
          .catch(err => console.error(err));
     }
   }, [activeTab, API_URL, token]);
+
+  const startAllegroAuth = async () => {
+    setAllegroError('');
+    setAllegroSuccess(false);
+    try {
+      const res = await axios.post(`${API_URL}/api/allegro/auth/start`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data.success) {
+        setAllegroAuthData(res.data);
+        setIsAllegroPolling(true);
+        
+        pollInterval.current = setInterval(async () => {
+          try {
+            const pollRes = await axios.post(`${API_URL}/api/allegro/auth/poll`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            if (pollRes.data.success) {
+              clearInterval(pollInterval.current);
+              setIsAllegroPolling(false);
+              setAllegroSuccess(true);
+              setAllegroAuthData(null);
+            }
+          } catch (pollErr) {
+            if (pollErr.response && pollErr.response.status === 202) {
+              // oczekiwanie na użytkownika
+            } else {
+              clearInterval(pollInterval.current);
+              setIsAllegroPolling(false);
+              setAllegroError(pollErr.response?.data?.error || 'Błąd autoryzacji tokena.');
+            }
+          }
+        }, 5000);
+      }
+    } catch (err) {
+      setAllegroError(err.response?.data?.error || 'Nie udało się nawiązać połączenia z API.');
+    }
+  };
 
   const handleSaveToken = async () => {
      try {
@@ -236,6 +282,66 @@ const AdminPanelView = ({
                                {tokenSaved ? <><CheckCircle2 className="w-4 h-4 mr-2 text-emerald-400"/> Zapisano</> : <><Save className="w-4 h-4 mr-2"/> Zapisz Klucz</>}
                             </button>
                          </div>
+                      </div>
+                   </div>
+
+                   <div className="max-w-3xl bg-white border border-slate-300 rounded-sm p-10 shadow-[0_15px_40px_rgba(0,0,0,0.03)] focus-within:ring-4 focus-within:ring-orange-500/10 transition-all mt-8">
+                      <div className="flex items-center mb-8">
+                         <div className="w-16 h-16 bg-orange-50 rounded-sm flex items-center justify-center mr-6 border border-orange-100">
+                            <ShoppingCart className="w-8 h-8 text-orange-500 drop-shadow-sm" />
+                         </div>
+                         <div>
+                            <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Autoryzacja Allegro</h4>
+                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1">OAuth2 Device Flow / Odświeżanie Tokenu</p>
+                         </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                         <p className="text-xs text-slate-500 font-bold mb-6">Użyj tego przycisku, gdy stracisz połączenie z Allegro (Device Flow). Wygenerowany zostanie link autoryzacyjny. Pamiętaj, by logować się na właściwe konto firmowe.</p>
+                         
+                         {!allegroAuthData && !isAllegroPolling && (
+                           <button 
+                              onClick={startAllegroAuth} 
+                              className="px-8 py-4 bg-orange-500 text-white rounded-sm text-[10px] font-black uppercase tracking-[0.2em] hover:bg-orange-600 shadow-xl shadow-orange-500/20 transition-all active:scale-95 flex items-center"
+                           >
+                              <RotateCcw className="w-4 h-4 mr-2" /> Wymuś Odświeżenie Sesji
+                           </button>
+                         )}
+
+                         {allegroError && (
+                           <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-sm mt-4">
+                             {allegroError}
+                           </div>
+                         )}
+
+                         {allegroSuccess && (
+                           <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-sm mt-4 flex items-center">
+                             <CheckCircle2 className="w-4 h-4 mr-2" /> Sukces! Token został zapisany w systemie PIM.
+                           </div>
+                         )}
+
+                         {allegroAuthData && isAllegroPolling && (
+                           <div className="p-6 bg-slate-50 border border-slate-200 rounded-sm mt-4">
+                             <p className="text-sm font-bold text-slate-800 mb-2">Wymagana Akcja Użytkownika</p>
+                             <p className="text-xs text-slate-600 mb-4">{allegroAuthData.message}</p>
+                             
+                             <div className="flex items-center space-x-4 bg-white p-4 border border-slate-300 rounded-sm shadow-sm mb-4">
+                                <a 
+                                  href={allegroAuthData.verification_uri_complete} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="flex-1 text-sm font-mono text-indigo-600 hover:text-indigo-800 truncate"
+                                >
+                                  {allegroAuthData.verification_uri_complete}
+                                </a>
+                                <ExternalLink className="w-5 h-5 text-slate-400 shrink-0" />
+                             </div>
+                             
+                             <div className="flex items-center text-xs font-bold text-indigo-600">
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Oczekuję na potwierdzenie w przeglądarce... (Polling)
+                             </div>
+                           </div>
+                         )}
                       </div>
                    </div>
                 </div>
