@@ -1352,3 +1352,10 @@ Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano po
 ### [2026-08-10 15:51] Aktualizacja Prompt Master V2 (Agent 11)
 - **Cel:** Zablokowanie halucynacji związanych z modyfikacją cech fizycznych produktu.
 - **Zmiany:** W prompt-master.service.js (V2) zaktualizowano systemPrompt. Wprowadzono dyrektywę "ZAKAZ MODYFIKACJI PRODUKTU" z rygorystycznym zakazem opisywania zmian cech (np. koloru patyczków, materiału). Usunięto nadmiarowe wytyczne o opisywaniu tła.
+
+### [2026-08-13] Aktualizacja Prompt Master V2 (Agent 11) - Jezyk polski i etykiety
+- **Cel:** Przejscie na jezyk polski w komunikacji z Photoroom oraz wymuszenie obecnosci produktu i czytelnosci etykiet.
+- **Zmiany:** W prompt-master.service.js (V2):
+  1. Przetlumaczono MANDATORY_PREFIX na jezyk polski z kategorycznym nakazem obecnosci produktu na zdjeciu.
+  2. Nakazano Agentowi 11 generowac prompty wylacznie w jezyku polskim.
+  3. Zmodyfikowano instrukcje isEven z kategorycznym wymogiem zachowania czytelnosci napisow na etykiecie bez znieksztalcen AI.

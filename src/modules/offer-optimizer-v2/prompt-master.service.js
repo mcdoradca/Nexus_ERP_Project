@@ -3,14 +3,14 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const PROMPT_MASTER_AGENT_ID = "11";
-const MANDATORY_PREFIX = "The product must always remain exactly as in the original image. Do not change its shape, color, or text on the label - the label must be preserved perfectly. The reference product must be visibly present in the scene, even if it is in the distant background, blurred, or partially obscured by steam or fog. Do NOT place the product in the center of the frame, use an off-center composition. ";
+const MANDATORY_PREFIX = "Produkt musi pozostać dokładnie taki sam jak na oryginalnym zdjęciu referencyjnym. Pod żadnym pozorem nie zmieniaj jego kształtu, koloru ani tekstu na etykiecie - etykieta musi zostać zachowana w stanie idealnym. Produkt referencyjny musi ZAWSZE być widoczny i fizycznie umieszczony na zdjęciu (nawet jeśli znajduje się w dalekim tle, jest zblurowany lub lekko przysłonięty mgłą/parą) - absolutny zakaz generowania scen bez oryginalnego produktu. NIE umieszczaj produktu w centrum kadru, używaj kompozycji asymetrycznej (off-center). ";
 
 async function generatePrompt(slot, productDetailsText, ean = null) {
     const isEven = slot % 2 === 0;
     
     let instruction = "";
     if (isEven) {
-        instruction = "Wykreuj scenę pokazującą ten produkt w użyciu, wolno Ci użyć na zdjęciu człowieka, produkt może być delikatnie trzymany w dłoni lub dłoń położona/przyłożona do produktu - wolno to zrobić na co 4 wygenerowanym prompcie";
+        instruction = "Wykreuj scenę pokazującą ten produkt w użyciu. Wolno Ci użyć na zdjęciu człowieka (produkt może być delikatnie trzymany w dłoni - maksymalnie na co 4 zdjęciu). BEZWZGLĘDNY WYMÓG: Napisy na etykiecie produktu muszą być perfekcyjnie czytelne, a sama etykieta w 100% oryginalna, bez żadnych zniekształceń AI.";
     } else {
         instruction = "Wykreuj scenę, gdzie produkt jest daleko od oczu, na drugim lub trzecim planie, za mgłą zblurowany praktycznie niewidoczny.";
     }
@@ -31,7 +31,7 @@ async function generatePrompt(slot, productDetailsText, ean = null) {
     const systemPrompt = `
 Jesteś wybitnym kreatorem scen (Prompt Masterem) dla generatora obrazów Photoroom AI.
 Otrzymasz dane produktu z bazy PIM (Product Information Management).
-Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w języku ANGIELSKIM opisujący scenę dla zdjęcia. Upewnij się, że w prompcie znajduje się wymóg asymetrycznej kompozycji (off-center) i absolutny zakaz umieszczania produktu na samym środku kadru. Na końcu promptu zawsze dodaj słowa kluczowe podnoszące jakość (np. photorealistic, professional photography, cinematic lighting, sharp focus).
+Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w języku POLSKIM opisujący scenę dla zdjęcia. Upewnij się, że w prompcie znajduje się wymóg asymetrycznej kompozycji (off-center) i absolutny zakaz umieszczania produktu na samym środku kadru. Na końcu promptu zawsze dodaj słowa kluczowe podnoszące jakość (np. fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość).
 
 ZAKAZ MODYFIKACJI PRODUKTU: Masz absolutny zakaz opisywania w prompcie cech samego produktu (np. zmiany koloru patyczków zapachowych, materiału, kształtu). Produkt referencyjny jest święty.
 
