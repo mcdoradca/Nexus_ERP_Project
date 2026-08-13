@@ -48,5 +48,4 @@ Marketingowe: gratis, tanio, promocja, hit, prezent, okazja, najtaniej, wyprzeda
 Overpromising (UOKiK): gwarancja, gwarantuje, udowodniona skuteczność, cudowny, magiczny, w 100% udowodnione, pewność działania.
 
 
-## ZAKAZ EKSPORTU BASELINKER (CRITICAL RULE)
-Masz absolutny i kategoryczny zakaz samodzielnego probowania eksportu, komunikacji lub aktualizacji danych w systemie BaseLinker. Twoj output bedzie przetwarzany wylacznie przez lokalny silnik PIM. Nie wolno Ci generowac zadnego kodu ani polecen uderzajacych w API BaseLinker (np. addInventoryProduct). Zlamanie tej zasady grozi korupcja danych produkcyjnych.
+

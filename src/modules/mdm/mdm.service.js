@@ -87,59 +87,14 @@ async function handleProductContentOptimized(payload) {
             inventoryId = product.offerDraft.agentPayload.inventory_id;
         }
 
-        // Wypychamy najlepszą jakość danych na zewnątrz (BaseLinker)
-        if ((inventoryId && product.baselinkerId) || hasAgentPayload) {
-            exportLogger.info(`[MDM SERVICE] Uruchamiam BaseLinkerService aby zaktualizować dane w zewnętrznym systemie...`, {
-                inventoryId,
-                baselinkerId: product.baselinkerId
-            });
-            
-            if (product.offerDraft && typeof product.offerDraft === 'object') {
-                // INJECT IMAGES: Pobieramy zdjęcia z PIM, jeśli draft z frontendu ich nie zdefiniował
-                if (!product.offerDraft.images || !Array.isArray(product.offerDraft.images) || product.offerDraft.images.length === 0) {
-                    const exportImages = [];
-                    if (product.imageUrl) exportImages.push(product.imageUrl);
-                    if (product.images && Array.isArray(product.images)) {
-                        exportImages.push(...product.images);
-                    }
-                    product.offerDraft.images = exportImages;
-                }
+        // --- HARD LOCK WDROŻONY ---
+        // Zdarzenie PRODUCT_CONTENT_OPTIMIZED służy teraz wyłącznie jako sygnał o aktualizacji bazy PIM.
+        // Fizyczny eksport do zewnętrznego systemu BaseLinker został w całości przeniesiony
+        // do dedykowanego kontrolera zabezpieczonego kryptograficznym Tokenem Eksportu.
+        exportLogger.info(`[MDM SERVICE] Zaktualizowano dane PIM dla EAN: ${ean}. Eksport zewnętrzny zablokowany - oczekuje na ręczne wyzwolenie z UI.`);
 
-                // Jeśli mamy bogatego drafta (w tym SSOT agentPayload lub 6 sekcji htmlContent i features)
-                // wysyłamy go pełnym obiektem do exportOfferToBaselinker, by zmapowało do extra_fields
-                const response = await baselinkerService.exportOfferToBaselinker(
-                    inventoryId,
-                    product.baselinkerId || (hasAgentPayload && product.offerDraft.agentPayload.product_id ? product.offerDraft.agentPayload.product_id : ""),
-                    product.offerDraft
-                );
-                
-                // [NEXUS ERP SSOT FIX] Zapis baselinkerId do bazy, aby zapobiec duplikatom
-                if (response && response.product_id) {
-                    const returnedId = response.product_id.toString();
-                    if (returnedId !== product.baselinkerId) {
-                        await prisma.product.update({
-                            where: { id: product.id },
-                            data: { baselinkerId: returnedId }
-                        });
-                        exportLogger.info(`[MDM SERVICE] ✅ Zapisano nowy baselinkerId: ${returnedId} w bazie Nexus dla EAN: ${ean}`);
-                    }
-                }
-            } else {
-                // Fallback do prostego update'u z konkatenacją (wymaga ID)
-                if (inventoryId && product.baselinkerId) {
-                    await baselinkerService.updateProductDescriptionAndTitle(
-                        inventoryId,
-                        product.baselinkerId,
-                        product.name,
-                        product.descriptionHtml
-                    );
-                }
-            }
-            
-            exportLogger.info(`[MDM SERVICE] ✅ Zewnętrzny BaseLinker został zaktualizowany! Źródło prawdy zachowane.`);
-        }
     } catch (err) {
-         exportLogger.error(`[MDM SERVICE ERROR] Nie udało się wypchnąć nowej prawdy o produkcie do zewnętrznych systemów:`, { error: err.message, stack: err.stack });
+         exportLogger.error(`[MDM SERVICE ERROR] Wystąpił błąd podczas obsługi zaktualizowanego produktu PIM:`, { error: err.message, stack: err.stack });
     }
 }
 

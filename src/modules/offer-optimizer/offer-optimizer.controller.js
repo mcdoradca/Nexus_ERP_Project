@@ -12,6 +12,10 @@ const EventBus = require('../../core/EventBus');
 const baselinkerExportAgent = require('../offer-optimizer-v2/baselinker.export.agent');
 const { exportLogger } = require('../../utils/logger');
 
+// --- HARD LOCK: Zabezpieczenie Eksportu BaseLinkera ---
+const EXPORT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+// ------------------------------------------------------
+
 // Magazyn pamięci dla asynchronicznych zadań Lifestyle AI z automatycznym czyszczeniem (TTL 15 min)
 const lifestyleJobs = new Map();
 
@@ -353,6 +357,13 @@ const validateBaselinkerExport = async (req, res) => {
         
         exportLogger.info(`[NEXUS EXPORT] Wygenerowano deterministyczny payload dla EAN: ${ean}`);
 
+        // --- HARD LOCK: Generowanie Tokenu Eksportu ---
+        const timestamp = Date.now();
+        const payloadToSign = `${ean}:${timestamp}`;
+        const signature = crypto.createHmac('sha256', EXPORT_SECRET).update(payloadToSign).digest('hex');
+        const exportToken = Buffer.from(JSON.stringify({ ean, timestamp, signature })).toString('base64');
+        exportLogger.info(`[NEXUS EXPORT] Wygenerowano Export Token dla EAN: ${ean}`);
+
         const mappedResult = {
             validation: {
                 is_valid: true,
@@ -362,7 +373,8 @@ const validateBaselinkerExport = async (req, res) => {
             title: draftData.title || "",
             sections: draftData.htmlContent || {},
             parameters: { ...(product.features || {}), ...(hardFeatures || {}) },
-            agentPayload: generatedPayload
+            agentPayload: generatedPayload,
+            exportToken: exportToken // Przekazujemy na frontend
         };
 
         return res.status(200).json(mappedResult);
@@ -375,8 +387,29 @@ const validateBaselinkerExport = async (req, res) => {
 
 const exportToBaselinker = async (req, res) => {
     try {
-        const { ean, draftData } = req.body;
-        if (!ean || !draftData) return res.status(400).json({ error: "Brak danych" });
+        const { ean, draftData, exportToken } = req.body;
+        if (!ean || !draftData || !exportToken) return res.status(400).json({ error: "Brak danych lub brak tokenu eksportu! Wymagana uprzednia walidacja." });
+
+        // --- HARD LOCK: Weryfikacja Tokenu Eksportu ---
+        try {
+            const decodedToken = JSON.parse(Buffer.from(exportToken, 'base64').toString('utf8'));
+            const { ean: tokenEan, timestamp, signature } = decodedToken;
+            
+            if (tokenEan !== ean) {
+                return res.status(403).json({ error: "Niezgodność EAN w tokenie eksportu." });
+            }
+            if (Date.now() - timestamp > 5 * 60 * 1000) {
+                return res.status(403).json({ error: "Token eksportu wygasł. Zwaliduj ofertę ponownie." });
+            }
+            
+            const expectedSignature = crypto.createHmac('sha256', EXPORT_SECRET).update(`${tokenEan}:${timestamp}`).digest('hex');
+            if (signature !== expectedSignature) {
+                return res.status(403).json({ error: "Nieważny podpis tokenu eksportu." });
+            }
+        } catch (err) {
+            return res.status(403).json({ error: "Krytyczny błąd weryfikacji tokenu eksportu." });
+        }
+        // ----------------------------------------------
 
         // Faza 3 MDM: AI wygenerowało wybitny opis. Nadpisujemy nim TRZON produktu w PIM
         // i oznaczamy twardo, że Źródłem Prawdy jest Sztuczna Inteligencja
@@ -425,13 +458,39 @@ const exportToBaselinker = async (req, res) => {
             }
         });
 
-        let msg = "Zapisano AI w PIM. MDM zaktualizuje BaseLinker w tle na podstawie struktury Agenta!";
-        if (!product.baselinkerId && (!draftData.agentPayload || !draftData.agentPayload.product_id)) {
-             msg = "Zapisano AI w PIM, ale produkt prawdopodobnie zostanie utworzony jako nowy, gdyż brakuje zmapowanego ID BaseLinkera.";
+        const hasAgentPayload = product.offerDraft && product.offerDraft.agentPayload;
+        let inventoryId = product.baselinkerInventoryId || "307"; 
+        
+        if (!product.offerDraft.images || !Array.isArray(product.offerDraft.images) || product.offerDraft.images.length === 0) {
+            const exportImages = [];
+            if (product.imageUrl) exportImages.push(product.imageUrl);
+            if (product.images && Array.isArray(product.images)) {
+                exportImages.push(...product.images);
+            }
+            product.offerDraft.images = exportImages;
         }
 
-        // Publikujemy zdarzenie. Moduł MDM wyłapie je i samodzielnie skomunikuje się z BaseLinkerem.
-        exportLogger.info(`[PIPELINE EXPORT] Użytkownik zatwierdził eksport dla EAN: ${ean}. Wysłano do EventBus.`);
+        exportLogger.info(`[PIPELINE EXPORT] Użytkownik pomyślnie przeszedł 2 etapy autoryzacji. Rozpoczynam wysyłkę do BaseLinkera dla EAN: ${ean}.`);
+        
+        const response = await BaseLinkerService.exportOfferToBaselinker(
+            inventoryId,
+            product.baselinkerId || (hasAgentPayload && product.offerDraft.agentPayload.product_id ? product.offerDraft.agentPayload.product_id : ""),
+            product.offerDraft
+        );
+        
+        if (response && response.product_id) {
+            const returnedId = response.product_id.toString();
+            if (returnedId !== product.baselinkerId) {
+                await prisma.product.update({
+                    where: { id: product.id },
+                    data: { baselinkerId: returnedId }
+                });
+            }
+        }
+
+        let msg = "Zapisano AI w PIM i poprawnie wyeksportowano zautoryzowany ładunek do BaseLinkera!";
+
+        // Publikujemy zdarzenie czysto informacyjne. MDM nie będzie już samowolnie uderzał do zewnętrznego API.
         EventBus.publish('PRODUCT_CONTENT_OPTIMIZED', { ean, product });
 
         res.status(200).json({ message: msg });

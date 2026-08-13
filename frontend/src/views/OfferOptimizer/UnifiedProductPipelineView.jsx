@@ -484,7 +484,8 @@ export const UnifiedProductPipelineView = ({
             };
             const res = await axios.post(`${API_URL}/api/offer-optimizer/export-baselinker`, {
                 ean: liveEan,
-                draftData
+                draftData,
+                exportToken: exportValidationResult ? exportValidationResult.exportToken : null
             }, { headers: { Authorization: `Bearer ${token}` } });
             
             alert(res.data.message || 'Zlecono eksport i akceptację MDM! PIM -> BaseLinker.');
