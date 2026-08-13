@@ -1365,3 +1365,7 @@ Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano po
 - **Zmiany:** W prompt-master.service.js (V2):
   1. Zlagodzono instrukcje dla isEven=false (usunieto 'praktycznie niewidoczny' na rzecz 'pozostaje w pelni widoczny i dostrzegalny').
   2. Dodano klauzule ZAKAZANE MOTYWY blokujaca lepienie garnkow, kolo garncarskie oraz mroczny klimat stolarni/warsztatu.
+
+### [2026-08-13 16:55] Optymalizacja budzetow Thinking (Agent 1 & Agent 11)
+- **Cel:** Zwiekszenie glebi rozumowania dla PIM Autofill i Prompt Mastera.
+- **Zmiany:** W nodes.config.js (V2) zmieniono thinkingLevel Agenta 1 z LOW na MEDIUM, a Agenta 11 z MINIMAL na LOW.
