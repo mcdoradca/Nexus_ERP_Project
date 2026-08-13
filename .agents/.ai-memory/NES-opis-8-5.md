@@ -1359,3 +1359,9 @@ Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano po
   1. Przetlumaczono MANDATORY_PREFIX na jezyk polski z kategorycznym nakazem obecnosci produktu na zdjeciu.
   2. Nakazano Agentowi 11 generowac prompty wylacznie w jezyku polskim.
   3. Zmodyfikowano instrukcje isEven z kategorycznym wymogiem zachowania czytelnosci napisow na etykiecie bez znieksztalcen AI.
+
+### [2026-08-13 16:28] Poprawka instrukcji dla slotow nieparzystych i ban na motywy garncarskie
+- **Cel:** Zapobieganie zlosliwemu zakrywaniu produktu w kadrach pobocznych oraz usuniecie halucynacji ze stolarnia i lepieniem garnkow.
+- **Zmiany:** W prompt-master.service.js (V2):
+  1. Zlagodzono instrukcje dla isEven=false (usunieto 'praktycznie niewidoczny' na rzecz 'pozostaje w pelni widoczny i dostrzegalny').
+  2. Dodano klauzule ZAKAZANE MOTYWY blokujaca lepienie garnkow, kolo garncarskie oraz mroczny klimat stolarni/warsztatu.

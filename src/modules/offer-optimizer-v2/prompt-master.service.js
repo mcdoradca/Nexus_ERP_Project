@@ -12,7 +12,7 @@ async function generatePrompt(slot, productDetailsText, ean = null) {
     if (isEven) {
         instruction = "Wykreuj scenę pokazującą ten produkt w użyciu. Wolno Ci użyć na zdjęciu człowieka (produkt może być delikatnie trzymany w dłoni - maksymalnie na co 4 zdjęciu). BEZWZGLĘDNY WYMÓG: Napisy na etykiecie produktu muszą być perfekcyjnie czytelne, a sama etykieta w 100% oryginalna, bez żadnych zniekształceń AI.";
     } else {
-        instruction = "Wykreuj scenę, gdzie produkt jest daleko od oczu, na drugim lub trzecim planie, za mgłą zblurowany praktycznie niewidoczny.";
+        instruction = "Wykreuj scenę, gdzie produkt stoi daleko w tle (na drugim lub trzecim planie), jest zblurowany (poza punktem ostrości), ale pozostaje w pełni widoczny i dostrzegalny jako element otoczenia.";
     }
 
     let previousPrompts = [];
@@ -36,6 +36,8 @@ Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w j
 ZAKAZ MODYFIKACJI PRODUKTU: Masz absolutny zakaz opisywania w prompcie cech samego produktu (np. zmiany koloru patyczków zapachowych, materiału, kształtu). Produkt referencyjny jest święty.
 
 BEZWZGLĘDNA OBECNOŚĆ PRODUKTU: Produkt referencyjny MUSI ZAWSZE znajdować się na zdjęciu. Może stać daleko w tle, być za mgłą, parą lub mocno zblurowany (zależnie od polecenia), ale w Twoim prompcie musi fizycznie istnieć w kreowanej scenie jako jej część.
+
+ZAKAZANE MOTYWY: Masz absolutny zakaz używania w scenerii motywów lepienia garnków, koła garncarskiego oraz mrocznego klimatu stolarni/warsztatu.
 
 TWOJE ZADANIE: ${instruction}
 
