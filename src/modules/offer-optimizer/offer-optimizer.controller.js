@@ -346,7 +346,16 @@ const validateBaselinkerExport = async (req, res) => {
 
         // Wykorzystanie nowego deterministycznego serwisu zamiast Agentów AI (LLM)
         const baselinkerExportService = require('../offer-optimizer-v2/baselinker.export.service');
-        const inventoryId = "307"; // Domyślne dla tego kontekstu
+        const BaseLinkerService = require('./baselinker.service');
+        
+        let inventoryId = product.baselinkerInventoryId;
+        if (!inventoryId && product.baselinkerId) {
+            inventoryId = await BaseLinkerService.resolveInventoryId(product.baselinkerId);
+            if (inventoryId) {
+                await prisma.product.update({ where: { id: product.id }, data: { baselinkerInventoryId: parseInt(inventoryId, 10) } });
+            }
+        }
+        if (!inventoryId) inventoryId = "307";
         
         const generatedPayload = await baselinkerExportService.buildPayload(
             inventoryId,
@@ -459,7 +468,19 @@ const exportToBaselinker = async (req, res) => {
         });
 
         const hasAgentPayload = product.offerDraft && product.offerDraft.agentPayload;
-        let inventoryId = product.baselinkerInventoryId || "307"; 
+        
+        let inventoryId = product.baselinkerInventoryId;
+        if (!inventoryId && product.baselinkerId) {
+            const BaseLinkerService = require('./baselinker.service');
+            inventoryId = await BaseLinkerService.resolveInventoryId(product.baselinkerId);
+            if (inventoryId) {
+                await prisma.product.update({ where: { id: product.id }, data: { baselinkerInventoryId: parseInt(inventoryId, 10) } });
+            }
+        }
+        if (!inventoryId && hasAgentPayload && product.offerDraft.agentPayload.inventory_id) {
+            inventoryId = product.offerDraft.agentPayload.inventory_id;
+        }
+        if (!inventoryId) inventoryId = "307";
         
         if (!product.offerDraft.images || !Array.isArray(product.offerDraft.images) || product.offerDraft.images.length === 0) {
             const exportImages = [];
