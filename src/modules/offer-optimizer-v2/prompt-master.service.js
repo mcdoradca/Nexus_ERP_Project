@@ -8,14 +8,8 @@ const MANDATORY_PREFIX = "Produkt musi pozostać dokładnie taki sam jak na oryg
 const generationLocks = new Map();
 
 async function generatePrompt(slot, productDetailsText, ean = null, onLog = () => {}) {
-    const isEven = slot % 2 === 0;
-    
-    let instruction = "";
-    if (isEven) {
-        instruction = "Wykreuj fotorealistyczną scenę, w której produkt jest jedynie częścią szerszego otoczenia (martwa natura, wnętrze, plener). Produkt MUSI stać asymetrycznie - wyraźnie przesunięty do lewej lub prawej krawędzi kadru. Absolutny zakaz umieszczania produktu na środku (w centrum). Pozostaw dużo pustej przestrzeni (negative space) po przeciwnej stronie. BEZWZGLĘDNY WYMÓG: Napisy na etykiecie muszą być perfekcyjnie czytelne.";
-    } else {
-        instruction = "Wykreuj scenę, gdzie produkt stoi daleko w tle (na drugim lub trzecim planie), jest zblurowany (poza punktem ostrości), ale pozostaje w pełni widoczny i dostrzegalny jako element otoczenia.";
-    }
+    // Aktualnie wszystkie sloty (2, 3, 4, 5, 6) korzystają z tej samej zaufanej instrukcji oddalonego planu
+    const instruction = "Wykreuj scenę, gdzie produkt stoi daleko w tle (na drugim lub trzecim planie), jest zblurowany (poza punktem ostrości), ale pozostaje w pełni widoczny i dostrzegalny jako element otoczenia.";
 
     let releaseLock = null;
     if (ean) {
