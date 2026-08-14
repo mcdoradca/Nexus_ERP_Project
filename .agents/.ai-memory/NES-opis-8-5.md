@@ -1369,3 +1369,12 @@ Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano po
 ### [2026-08-13 16:55] Optymalizacja budzetow Thinking (Agent 1 & Agent 11)
 - **Cel:** Zwiekszenie glebi rozumowania dla PIM Autofill i Prompt Mastera.
 - **Zmiany:** W nodes.config.js (V2) zmieniono thinkingLevel Agenta 1 z LOW na MEDIUM, a Agenta 11 z MINIMAL na LOW.
+
+
+### Nazwa operacji/zadania: Modyfikacja Potoku EAN (offer-optimizer-v2)
+
+**Co zmieniono (Zmiany AI z 2026-08-14):**
+1. **Optymalizacja Agenta 1:** Dodano limity maxOutputTokens: 15000 oraz 	imeoutMs: 120000 w config/nodes.config.js.
+2. **Usunięcie Agenta 8:** Usunięto całkowicie konfigurację węzła 8.
+3. **Hard Halt na INCI:** Dodano w orchestrator.js twardą blokadę przejścia z A1 do A2 w przypadku braku wyekstrahowanego składu inci (odporność na wymuszenie operatorem HITL_OVERRIDDEN). W bloku catch A1 również dodano ten rygorystyczny warunek.
+4. **Propagacja INCI:** W związku z wcześniejszym omijaniem wyszukiwania (oszczędzanie tokenów, gdy PIM ma INCI), wprowadzono jawną propagację 	his.state.extracted_data.inci?.value do payloadów (kontekstów) Agentów A4, A5, A6 i A10, aby zapobiec gubieniu danych składu w dalszych fazach.

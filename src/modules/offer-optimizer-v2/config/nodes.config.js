@@ -1,13 +1,12 @@
 const { ThinkingLevel } = require('@google/genai');
 
 const nodesConfig = {
-    1: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MEDIUM, temperature: 0, grounding: true },
+    1: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MEDIUM, temperature: 0, grounding: true, maxOutputTokens: 15000, timeoutMs: 120000 },
     2: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MINIMAL, temperature: 0 },
     4: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.LOW, temperature: 0 },
     5: { model: 'gemini-3.1-pro-preview', thinkingLevel: ThinkingLevel.HIGH },
     6: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.LOW },
     7: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.LOW },
-    8: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.LOW },
     9: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MINIMAL },
     10: { model: 'gemini-3.1-pro-preview', thinkingLevel: ThinkingLevel.MEDIUM },
     11: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.LOW, temperature: 0.8, maxOutputTokens: 5000 }

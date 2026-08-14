@@ -746,16 +746,34 @@ class Orchestrator {
                     this.state.next_action = 'RUN_A2';
                 }
             } catch (e) {
-                console.log('⚠️ BŁĄD PHASE 1 (OSINT): ' + e.message + ' -> Pomijam i idę do A2.');
-                this.state.node_status['A1'] = 'ERROR_IGNORED';
-                this.state.hitl_alert = 'OSINT Pominęty: ' + e.message;
+                console.log('⚠️ BŁĄD PHASE 1 (OSINT): ' + e.message);
                 this.state.a1_result = {};
-                this.state.next_action = 'RUN_A2';
+                if (!this.state.extracted_data.inci?.value) {
+                    console.log('⚠️ BRAK INCI PO BŁĘDZIE A1 -> ZATRZYMUJĘ POTOK.');
+                    this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
+                    this.state.hitl_alert = 'CRITICAL_MISSING_INCI: Brak składu (INCI) w PIM i błąd OSINT (' + e.message + '). Uzupełnij dane.';
+                    this.state.next_action = 'HALT';
+                    this.emitState();
+                    return;
+                } else {
+                    console.log('⚠️ BŁĄD PHASE 1 (OSINT) -> Pomijam i idę do A2 (INCI JEST).');
+                    this.state.node_status['A1'] = 'ERROR_IGNORED';
+                    this.state.hitl_alert = 'OSINT Pominęty: ' + e.message;
+                    this.state.next_action = 'RUN_A2';
+                }
             }
         }
 
         // --- KROK 2: A2 ---
         if (this.state.next_action === 'RUN_A2') {
+            if (!this.state.extracted_data.inci?.value) {
+                console.log('⚠️ BLOKADA KRYTYCZNA: Próba przejścia do A2 bez INCI.');
+                this.state.node_status['A1'] = 'CRITICAL_MISSING_INCI';
+                this.state.hitl_alert = 'Nie można kontynuować potoku bez składu INCI. Zaktualizuj PIM.';
+                this.state.next_action = 'HALT';
+                this.emitState();
+                return;
+            }
             const agent2Data = {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
@@ -891,7 +909,8 @@ class Orchestrator {
                     const agent4Data = {
                         gtin_ean: this.gtin,
                         product_name: product?.text_fields?.name || undefined,
-                        brand: extracted.brand?.value || undefined
+                        brand: extracted.brand?.value || undefined,
+                        inci: this.state.extracted_data.inci?.value || undefined
                     };
                     
                     const prompt4Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_4_compiled.md'), 'utf8');
@@ -1012,6 +1031,7 @@ class Orchestrator {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
                 brand: extracted.brand?.value || undefined,
+                inci: this.state.extracted_data.inci?.value || undefined,
                 a1: this.state.a1_result,
                 a2: this.state.a2_result,
                 a4: this.state.a4_result
@@ -1087,6 +1107,7 @@ class Orchestrator {
                 brand: extracted.brand?.value || undefined,
                 capacity: extracted.capacity?.value || undefined,
                 line: extracted.line?.value || undefined,
+                inci: this.state.extracted_data.inci?.value || undefined,
                 a1: this.state.a1_result,
                 a2: this.state.a2_result,
                 a4: this.state.a4_result,
@@ -1258,6 +1279,7 @@ class Orchestrator {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
                 brand: extracted.brand?.value || undefined,
+                inci: this.state.extracted_data.inci?.value || undefined,
                 section_1_html: this.state.a7_result.section_1_html,
                 section_2_html: this.state.a7_result.section_2_html,
                 section_4_html: this.state.a7_result.section_4_html,
