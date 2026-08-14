@@ -12,7 +12,7 @@ async function generatePrompt(slot, productDetailsText, ean = null) {
     
     let instruction = "";
     if (isEven) {
-        instruction = "Wykreuj scenę pokazującą ten produkt w użyciu. Wolno Ci użyć na zdjęciu człowieka (produkt może być delikatnie trzymany w dłoni - maksymalnie na co 4 zdjęciu). BEZWZGLĘDNY WYMÓG: Napisy na etykiecie produktu muszą być perfekcyjnie czytelne, a sama etykieta w 100% oryginalna, bez żadnych zniekształceń AI.";
+        instruction = "Wykreuj fotorealistyczną scenę, w której produkt jest jedynie częścią szerszego otoczenia (martwa natura, wnętrze, plener). Produkt MUSI stać asymetrycznie - wyraźnie przesunięty do lewej lub prawej krawędzi kadru. Absolutny zakaz umieszczania produktu na środku (w centrum). Pozostaw dużo pustej przestrzeni (negative space) po przeciwnej stronie. BEZWZGLĘDNY WYMÓG: Napisy na etykiecie muszą być perfekcyjnie czytelne.";
     } else {
         instruction = "Wykreuj scenę, gdzie produkt stoi daleko w tle (na drugim lub trzecim planie), jest zblurowany (poza punktem ostrości), ale pozostaje w pełni widoczny i dostrzegalny jako element otoczenia.";
     }

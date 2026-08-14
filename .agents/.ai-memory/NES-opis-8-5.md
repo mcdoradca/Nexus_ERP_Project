@@ -1386,3 +1386,5 @@ Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano po
 1. **Negative Prompt Photoroom:** Dodano sztywny parametr editWithAI.negativePrompt blokujący hero shot i zoom, aby Photoroom V2 przestał centrować wycięty produkt.
 2. **MANDATORY_PREFIX:** Wzmocniono prompt Agenta 11 wymogiem braku centrowania i zooma.
 3. **Mutex w Prompt Masterze:** Dodano asynchroniczną blokadę generationLocks, gwarantując, że 5 jednoczesnych żądań zostanie ustawionych w kolejkę Node.js, aby Agent widział historię wygenerowanych scen i przestał duplikować zdjęcia dla tego samego slota.
+
+4. **Usunięcie logiki Hero Shot:** Usunięto motyw trzymania produktu w dłoni dla parzystych slotów w Prompt Masterze, wymuszając w to miejsce kompozycję asymetryczną z pustą przestrzenią (negative space).
