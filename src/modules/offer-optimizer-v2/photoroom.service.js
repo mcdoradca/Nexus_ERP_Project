@@ -83,19 +83,16 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
             });
             if (dbProduct) {
                 const featuresString = dbProduct.features ? JSON.stringify(dbProduct.features) : '';
-                
-                // Tarcza Błędów: Usuwamy potężne ciągi Base64 obrazków z draftu, żeby nie zapychać kontekstu LLM (700k+ tokenów)
-                let safeDraft = {};
-                if (dbProduct.offerDraft) {
-                    safeDraft = { 
-                        title: dbProduct.offerDraft.title, 
-                        features: dbProduct.offerDraft.features,
-                        htmlContent: dbProduct.offerDraft.htmlContent
-                    };
+                let textDesc = '';
+                if (dbProduct.offerDraft && dbProduct.offerDraft.htmlContent && dbProduct.offerDraft.htmlContent.sekcja1) {
+                    // Wyciągnięcie Modułu 1 i chirurgiczne usunięcie tagów HTML oraz zbędnych spacji
+                    textDesc = dbProduct.offerDraft.htmlContent.sekcja1
+                        .replace(/<[^>]*>?/gm, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
                 }
-                const draftString = JSON.stringify(safeDraft);
                 
-                productDetailsText = `NAME: ${dbProduct.name} FEATURES: ${featuresString} DESC: ${dbProduct.descriptionHtml || ''} DRAFT: ${draftString}`;
+                productDetailsText = `NAME: ${dbProduct.name} FEATURES: ${featuresString} STRENGTHS: ${textDesc}`;
             }
         }
     } catch(e) { 
