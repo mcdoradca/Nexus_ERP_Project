@@ -555,7 +555,18 @@ const generateLifestyle = async (req, res) => {
                 // V2 nie korzysta już ze scenography od Agenta 8, używamy totalnego losowania.
                 
                 const PhotoroomServiceV2 = require('../offer-optimizer-v2/photoroom.service');
-                const aiResult = await PhotoroomServiceV2.generateLifestyle(imageBase64, sourceImageUrl, ean, imageIndex);
+                const socketService = require('../../core/socket');
+                
+                const onLog = (msg) => {
+                    const logObj = { time: new Date().toLocaleTimeString(), agentId: 'Agent 11 & Photoroom', message: msg, ean };
+                    socketService.broadcast('nexus-notification', {
+                        type: 'LIFESTYLE_LOG',
+                        jobId,
+                        ...logObj
+                    });
+                };
+                
+                const aiResult = await PhotoroomServiceV2.generateLifestyle(imageBase64, sourceImageUrl, ean, imageIndex, onLog);
                 const newImageBase64 = aiResult.base64;
                 const visualTrendReport = aiResult.visualTrendReport;
                 

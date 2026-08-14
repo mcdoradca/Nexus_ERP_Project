@@ -7,7 +7,7 @@ const MANDATORY_PREFIX = "Produkt musi pozostać dokładnie taki sam jak na oryg
 
 const generationLocks = new Map();
 
-async function generatePrompt(slot, productDetailsText, ean = null) {
+async function generatePrompt(slot, productDetailsText, ean = null, onLog = () => {}) {
     const isEven = slot % 2 === 0;
     
     let instruction = "";
@@ -67,6 +67,8 @@ ${productDetailsText}
 
         console.log(`[Prompt Master] Generowanie promptu dla slota ${slot}... (Agent ID: ${PROMPT_MASTER_AGENT_ID})`);
         
+        onLog(`\n[TX - START DO AGENTA 11]\n${systemPrompt}\n[TX - KONIEC]`);
+
         const response = await callAgentWithTelemetry({
             agentId: PROMPT_MASTER_AGENT_ID,
             prompt: systemPrompt
@@ -92,6 +94,9 @@ ${productDetailsText}
         console.log(`[2/3] Odpowiedź Agenta LLM (Czysta kreacja):\n${rawPrompt}`);
         console.log(`[3/3] Finalny prompt gotowy dla Photoroom (z doklejonym prefiksem):\n${finalPrompt}`);
         console.log(`=========================================================\n`);
+
+        onLog(`\n[RX - ODPOWIEDŹ Z AGENTA 11]\n${rawPrompt}\n[RX - KONIEC]`);
+        onLog(`\n[TX-FINAL - GOTOWY PROMPT DLA PHOTOROOM]\n${finalPrompt}\n[TX-FINAL - KONIEC]`);
 
         return finalPrompt;
     } catch (error) {

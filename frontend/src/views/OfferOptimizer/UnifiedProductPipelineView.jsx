@@ -768,6 +768,7 @@ export const UnifiedProductPipelineView = ({
                                         {visionTickets && visionTickets.length > 0 ? visionTickets.map((ticket, i) => (
                                             <PhotographicAuditorCard 
                                                 key={i} index={i} ean={liveEan} imageObj={ticket} primaryImageObj={visionTickets[0]}
+                                                socket={socket}
                                                 onImageReplace={(newUrl) => {
                                                     const updated = [...visionTickets]; updated[i].replacedUrl = newUrl; setVisionTickets(updated);
                                                 }} 

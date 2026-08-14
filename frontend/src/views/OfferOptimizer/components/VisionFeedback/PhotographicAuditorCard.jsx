@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Camera, AlertTriangle, UploadCloud, CheckCircle2, Maximize2, Trash2, RefreshCw, Sparkles } from 'lucide-react';
 
-export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj, onImageReplace, onImageDelete, onView }) => {
+export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj, socket, onImageReplace, onImageDelete, onView }) => {
     const fileInputRef = useRef(null);
     // imageObj { originalUrl: string, alerts: string[], isCompliant: boolean, replacedUrl: string|null }
     
@@ -15,6 +15,24 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
     
     const [imgError, setImgError] = useState(false);
     const [useDirectUrl, setUseDirectUrl] = useState(false);
+    const [aiLogs, setAiLogs] = useState([]);
+    const logsEndRef = useRef(null);
+
+    React.useEffect(() => {
+        if (!socket) return;
+        const handler = (data) => {
+            if (data.type === 'LIFESTYLE_LOG' && String(data.ean) === String(ean)) {
+                setAiLogs(prev => [...prev, data]);
+                setTimeout(() => {
+                    if (logsEndRef.current) {
+                        logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+                    }
+                }, 100);
+            }
+        };
+        socket.on('nexus-notification', handler);
+        return () => socket.off('nexus-notification', handler);
+    }, [socket, ean]);
 
     const isFixed = !!imageObj.replacedUrl;
     
@@ -31,6 +49,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
             return;
         }
         setIsGeneratingAi(true);
+        setAiLogs([]);
         try {
             const token = localStorage.getItem('aps_token') || localStorage.getItem('token') || '';
             const API_URL = import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`;
@@ -305,6 +324,31 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                      </div>
                  </div>
             )}
+
+             {/* Terminal Logów AI - Aktywny podczas generowania */}
+             {(isGeneratingAi || aiLogs.length > 0) && (
+                 <div className="bg-[#0a0a0a] border-t border-slate-700 p-3 h-64 overflow-y-auto font-mono text-[10px] flex flex-col custom-scrollbar shadow-inner">
+                     <div className="text-slate-500 mb-2 uppercase tracking-widest text-[9px] border-b border-slate-800 pb-1 flex justify-between shrink-0">
+                         <span>Agent 11 - Raw Dump</span>
+                         <span>{aiLogs.length} Pakietów</span>
+                     </div>
+                     <div className="flex-1 flex flex-col space-y-2">
+                         {aiLogs.map((log, i) => (
+                             <div key={i} className="flex flex-col border-b border-slate-800 pb-1">
+                                 <div className="flex space-x-2 text-slate-600 mb-0.5">
+                                     <span className="shrink-0">[{log.time}]</span>
+                                     <span className="text-indigo-400 font-bold shrink-0">[{log.agentId}]</span>
+                                 </div>
+                                 <span className="text-emerald-400 whitespace-pre-wrap break-all leading-relaxed">
+                                     {typeof log.message === 'object' ? JSON.stringify(log.message, null, 2) : log.message}
+                                 </span>
+                             </div>
+                         ))}
+                         {aiLogs.length === 0 && <div className="text-slate-600 italic">Oczekiwanie na połączenie z węzłem AI...</div>}
+                         <div ref={logsEndRef} />
+                     </div>
+                 </div>
+             )}
 
             {/* Nowy Toolbar (Zawsze widoczny na dole) */}
             <div className="flex bg-slate-100 border-t border-slate-400 divide-x divide-slate-200">

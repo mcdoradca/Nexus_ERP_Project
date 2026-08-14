@@ -50,7 +50,7 @@ async function fetchImageSecure(url, timeoutMs = 15000) {
 }
 
 // Główna usługa wywoływana przez kontroler
-async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0) {
+async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0, onLog = () => {}) {
     const photoroomKey = process.env.PHOTOROOM_API_KEY;
     if (!photoroomKey || photoroomKey === "TBD") {
         throw new Error("Brak klucza PHOTOROOM API V2 w zmiennych środowiskowych (.env). Upewnij się, że przeładowałeś serwer na VPS po dopisaniu klucza.");
@@ -58,6 +58,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 
     const slot = imageIndex + 1;
     console.log(`[Photoroom V2] Rozpoczęto generowanie zdjęcia (Slot ${slot}) dla EAN: ${ean} (Prompt Master)`);
+    onLog(`[INIT] Rozpoczęto generowanie zdjęcia (Slot ${slot})`);
 
     // 1. Weryfikacja
     let inputBuffer;
@@ -114,9 +115,10 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         fd.append('background.color', '#FFFFFF');
         fd.append('padding', '0.05');
         fd.append('shadow.mode', 'none');
+        onLog(`[PHOTOROOM API] Konfiguracja: Miniatura (removeBackground: true)`);
     } else {
         // Zdjęcia lifestylowe (Prompt Master)
-        generatedPrompt = await PromptMasterService.generatePrompt(slot, productDetailsText, ean);
+        generatedPrompt = await PromptMasterService.generatePrompt(slot, productDetailsText, ean, onLog);
         const seed = Math.floor(Math.random() * 2147483647).toString();
         
         fd.append('removeBackground', 'false');
@@ -137,6 +139,18 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         console.log(` - editWithAI.seed: ${seed}`);
         console.log(` - editWithAI.prompt:\n   "${generatedPrompt}"`);
         console.log(`=========================================================\n`);
+        
+        onLog(`\n[PHOTOROOM API - WYSYŁANY PAYLOAD Z FORMDATA]
+- endpoint: POST ${PHOTOROOM_ENDPOINT}
+- imageFile: <Buffer ${inputBuffer.length} bytes>
+- outputSize: 1080x1080
+- export.format: jpeg
+- removeBackground: false
+- editWithAI.mode: ai.auto
+- editWithAI.seed: ${seed}
+- editWithAI.negativePrompt: centered, hero shot, close up, zoom, symmetrical, large product, product in the middle, filling the frame
+- editWithAI.prompt: ${generatedPrompt}
+[KONIEC PAYLOADU]`);
     }
 
     const headers = {
@@ -152,6 +166,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         });
 
         const resultBuffer = Buffer.from(response.data);
+        onLog(`[API SUCCESS] Odebrano poprawny obraz z Photoroom V2. Rozpoczynam post-processing (Sharp)...`);
 
         // --- POST-PROCESSING: Włoska ramka i znak wodny AI (Sharp + opentype.js) ---
         const brand = (dbProduct && dbProduct.brand && dbProduct.brand.name) 
@@ -233,6 +248,7 @@ ${leftFrameSvg}
         }
 
         const base64Output = `data:image/jpeg;base64,${compositedBuffer.toString('base64')}`;
+        onLog(`[GOTOWE] Zakończono post-processing. Zwracam Base64 zdjęcia.`);
 
         return {
             base64: base64Output,
