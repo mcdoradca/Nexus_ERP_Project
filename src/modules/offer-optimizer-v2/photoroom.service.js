@@ -122,6 +122,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         fd.append('removeBackground', 'false');
         fd.append('editWithAI.mode', 'ai.auto');
         fd.append('editWithAI.prompt', generatedPrompt);
+        fd.append('editWithAI.negativePrompt', 'centered, hero shot, close up, zoom, symmetrical, large product, product in the middle, filling the frame');
         // Losowy seed dla dodatkowego zróżnicowania
         fd.append('editWithAI.seed', seed);
 

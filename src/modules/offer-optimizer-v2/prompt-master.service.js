@@ -3,7 +3,9 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const PROMPT_MASTER_AGENT_ID = "11";
-const MANDATORY_PREFIX = "Produkt musi pozostać dokładnie taki sam jak na oryginalnym zdjęciu referencyjnym. Pod żadnym pozorem nie zmieniaj jego kształtu, koloru ani tekstu na etykiecie - etykieta musi zostać zachowana w stanie idealnym. Produkt referencyjny musi ZAWSZE być widoczny i fizycznie umieszczony na zdjęciu (nawet jeśli znajduje się w dalekim tle, jest zblurowany lub lekko przysłonięty mgłą/parą) - absolutny zakaz generowania scen bez oryginalnego produktu. NIE umieszczaj produktu w centrum kadru, używaj kompozycji asymetrycznej (off-center). ";
+const MANDATORY_PREFIX = "Produkt musi pozostać dokładnie taki sam jak na oryginalnym zdjęciu referencyjnym. Pod żadnym pozorem nie zmieniaj jego kształtu, koloru ani tekstu na etykiecie - etykieta musi zostać zachowana w stanie idealnym. Produkt referencyjny musi ZAWSZE być widoczny i fizycznie umieszczony na zdjęciu (nawet jeśli znajduje się w dalekim tle, jest zblurowany lub lekko przysłonięty mgłą/parą) - absolutny zakaz generowania scen bez oryginalnego produktu. Absolutny ZAKAZ ujęć typu hero shot, zakaz używania zooma (close up) i zakaz centrowania produktu. Obiekt ma stanowić mniejszą część sceny. ";
+
+const generationLocks = new Map();
 
 async function generatePrompt(slot, productDetailsText, ean = null) {
     const isEven = slot % 2 === 0;
@@ -15,23 +17,35 @@ async function generatePrompt(slot, productDetailsText, ean = null) {
         instruction = "Wykreuj scenę, gdzie produkt stoi daleko w tle (na drugim lub trzecim planie), jest zblurowany (poza punktem ostrości), ale pozostaje w pełni widoczny i dostrzegalny jako element otoczenia.";
     }
 
-    let previousPrompts = [];
+    let releaseLock = null;
     if (ean) {
-        const cacheKey = `prompt_history_${ean}`;
-        const cacheRecord = await prisma.agentCache.findUnique({ where: { cacheKey } });
-        if (cacheRecord && Array.isArray(cacheRecord.value)) {
-            previousPrompts = cacheRecord.value;
+        if (!generationLocks.has(ean)) {
+            generationLocks.set(ean, Promise.resolve());
         }
+        const previousLock = generationLocks.get(ean);
+        const nextLock = new Promise(resolve => releaseLock = resolve);
+        generationLocks.set(ean, previousLock.then(() => nextLock));
+        await previousLock;
     }
 
-    const historySection = previousPrompts.length > 0 
-        ? `\nWykaz scenerii, które użyłeś już dla tego EAN (absolutny ZAKAZ powtarzania ich):\n- ${previousPrompts.join('\n- ')}` 
-        : "";
+    try {
+        let previousPrompts = [];
+        if (ean) {
+            const cacheKey = `prompt_history_${ean}`;
+            const cacheRecord = await prisma.agentCache.findUnique({ where: { cacheKey } });
+            if (cacheRecord && Array.isArray(cacheRecord.value)) {
+                previousPrompts = cacheRecord.value;
+            }
+        }
 
-    const systemPrompt = `
+        const historySection = previousPrompts.length > 0 
+            ? `\nWykaz scenerii, które użyłeś już dla tego EAN (absolutny ZAKAZ powtarzania ich):\n- ${previousPrompts.join('\n- ')}` 
+            : "";
+
+        const systemPrompt = `
 Jesteś wybitnym kreatorem scen (Prompt Masterem) dla generatora obrazów Photoroom AI.
 Otrzymasz dane produktu z bazy PIM (Product Information Management).
-Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w języku POLSKIM opisujący scenę dla zdjęcia. Upewnij się, że w prompcie znajduje się wymóg asymetrycznej kompozycji (off-center) i absolutny zakaz umieszczania produktu na samym środku kadru. Na końcu promptu zawsze dodaj słowa kluczowe podnoszące jakość (np. fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość).
+Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w języku POLSKIM opisujący scenę dla zdjęcia. Upewnij się, że w prompcie znajduje się absolutny zakaz umieszczania produktu na samym środku kadru. Na końcu promptu zawsze dodaj słowa kluczowe podnoszące jakość (np. fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość).
 
 ZAKAZ MODYFIKACJI PRODUKTU: Masz absolutny zakaz opisywania w prompcie cech samego produktu (np. zmiany koloru patyczków zapachowych, materiału, kształtu). Produkt referencyjny jest święty.
 
@@ -51,7 +65,6 @@ Dane produktu PIM:
 ${productDetailsText}
 `.trim();
 
-    try {
         console.log(`[Prompt Master] Generowanie promptu dla slota ${slot}... (Agent ID: ${PROMPT_MASTER_AGENT_ID})`);
         
         const response = await callAgentWithTelemetry({
@@ -85,6 +98,10 @@ ${productDetailsText}
         console.error("[Prompt Master] Błąd generowania promptu:", error.message);
         // Fallback w razie błędu - bezpieczny, neutralny prompt z zachowaniem prefiksu
         return MANDATORY_PREFIX + "Produkt umieszczony w neutralnym, estetycznym otoczeniu z doskonałym oświetleniem.";
+    } finally {
+        if (releaseLock) {
+            releaseLock();
+        }
     }
 }
 
