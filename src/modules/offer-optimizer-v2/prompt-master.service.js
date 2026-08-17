@@ -94,6 +94,7 @@ ${productDetailsText}
         return finalPrompt;
     } catch (error) {
         console.error("[Prompt Master] Błąd generowania promptu:", error.message);
+        onLog(`\n[ERROR - AGENT 11] KRYTYCZNY BŁĄD GENEROWANIA PROMPTU\nZłapano wyjątek: ${error?.message || error}\nStack: ${error?.stack || 'Brak stack trace'}\nZwracam domyślny bezpieczny prompt (Fallback).\n[ERROR - KONIEC]`);
         // Fallback w razie błędu - bezpieczny, neutralny prompt z zachowaniem prefiksu
         return MANDATORY_PREFIX + "Produkt umieszczony w neutralnym, estetycznym otoczeniu z doskonałym oświetleniem.";
     } finally {
