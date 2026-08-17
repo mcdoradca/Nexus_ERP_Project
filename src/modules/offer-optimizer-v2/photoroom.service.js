@@ -167,7 +167,12 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         onLog(`[API SUCCESS] Odebrano poprawny obraz z Photoroom V2. Wymiary RAW: ${rawMetadata.width}x${rawMetadata.height}. Rozpoczynam post-processing (Sharp)...`);
         
         try {
-            const rawPath = require('path').join(process.cwd(), 'photoroom_debug_raw.jpg');
+            const debugDir = require('path').join(__dirname, 'debug_images');
+            if (!require('fs').existsSync(debugDir)) {
+                require('fs').mkdirSync(debugDir, { recursive: true });
+            }
+            const safeEan = ean || 'unknown';
+            const rawPath = require('path').join(debugDir, `photoroom_debug_raw_${safeEan}_slot_${slot}.jpg`);
             require('fs').writeFileSync(rawPath, resultBuffer);
             onLog(`[DEBUG] Zapisano surowy obraz przed post-processingiem do: ${rawPath}`);
         } catch (e) {
