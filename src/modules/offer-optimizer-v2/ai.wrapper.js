@@ -51,13 +51,14 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
     console.log(`[V2 Wrapper] Uruchamianie agenta: ${agentId}, model: ${model}, thinking: ${thinkingLevel}`);
     const startTime = Date.now();
 
-    let response;
     try {
-        response = await ai.models.generateContent({
-            model: model,
-            contents: prompt,
-            config: config
-        });
+        let response;
+        try {
+            response = await ai.models.generateContent({
+                model: model,
+                contents: prompt,
+                config: config
+            });
     } catch (apiError) {
         if (apiError.message && apiError.message.includes('User location is not supported') && grounding) {
             console.warn(`[DEFENSIVE AI] Wykryto twardą blokadę geolokalizacji Google Search w Europie na VPS. Uruchamiam proces Fallback dla agenta ${agentId} - usuwam wbudowane narzędzie sieciowe i wznawiam żądanie.`);
