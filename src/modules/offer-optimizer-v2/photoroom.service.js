@@ -119,6 +119,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         const seed = Math.floor(Math.random() * 2147483647).toString();
         
         fd.append('removeBackground', 'true');
+        fd.append('background.color', '#FFFFFF');
         fd.append('editWithAI.mode', 'ai.auto');
         fd.append('editWithAI.prompt', generatedPrompt);
         fd.append('editWithAI.negativePrompt', 'centered, hero shot, close up, zoom, symmetrical, large product, product in the middle, filling the frame');
@@ -132,6 +133,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         console.log(` - outputSize: 1080x1080`);
         console.log(` - export.format: jpeg`);
         console.log(` - removeBackground: true`);
+        console.log(` - background.color: #FFFFFF`);
         console.log(` - editWithAI.mode: ai.auto`);
         console.log(` - editWithAI.seed: ${seed}`);
         console.log(` - editWithAI.prompt:\n   "${generatedPrompt}"`);
@@ -143,6 +145,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 - outputSize: 1080x1080
 - export.format: jpeg
 - removeBackground: true
+- background.color: #FFFFFF
 - editWithAI.mode: ai.auto
 - editWithAI.seed: ${seed}
 - editWithAI.negativePrompt: centered, hero shot, close up, zoom, symmetrical, large product, product in the middle, filling the frame
