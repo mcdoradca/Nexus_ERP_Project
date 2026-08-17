@@ -3,7 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const PROMPT_MASTER_AGENT_ID = "11";
-const MANDATORY_PREFIX = "Produkt musi pozostać dokładnie taki sam jak na oryginalnym zdjęciu referencyjnym. Pod żadnym pozorem nie zmieniaj jego kształtu, koloru ani tekstu na etykiecie - etykieta musi zostać zachowana w stanie idealnym. Produkt referencyjny musi ZAWSZE być widoczny i fizycznie umieszczony na zdjęciu (nawet jeśli znajduje się w dalekim tle, jest zblurowany lub lekko przysłonięty mgłą/parą) - absolutny zakaz generowania scen bez oryginalnego produktu. Absolutny ZAKAZ ujęć typu hero shot, zakaz używania zooma (close up) i zakaz centrowania produktu. Obiekt ma stanowić mniejszą część sceny. ";
+const MANDATORY_PREFIX = "Profesjonalna fotografia lifestyle. Obiekt referencyjny jest autentyczną, integralną częścią wykreowanej sceny, wkomponowany w otoczenie. Produkt znajduje się na dalszym planie (stanowi mniejszą część kompozycji), ustępując miejsca elementom pierwszoplanowym. Pod żadnym pozorem nie zmieniaj kształtu produktu, koloru ani tekstu na etykiecie - etykieta musi zostać zachowana w stanie idealnym - produkt zawsze 100% jak na referencyjnym zdjęciu. ";
 
 const generationLocks = new Map();
 
