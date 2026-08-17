@@ -1,6 +1,6 @@
 require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const logger = require('./utils/logger');
+const { logger } = require('./utils/logger');
 
 // Globalna Tarcza Ochronna Procesu Node.js (Zasada Nieśmiertelnego Serwera)
 process.on('uncaughtException', (err) => {
