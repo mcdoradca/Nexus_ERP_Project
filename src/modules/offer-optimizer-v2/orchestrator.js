@@ -747,6 +747,18 @@ class Orchestrator {
                 }
             } catch (e) {
                 console.log('⚠️ BŁĄD PHASE 1 (OSINT): ' + e.message);
+                
+                try {
+                    const errorLogDir = path.join(__dirname, 'logs', 'agents_errors');
+                    if (!fs.existsSync(errorLogDir)) fs.mkdirSync(errorLogDir, { recursive: true });
+                    const errorLogPath = path.join(errorLogDir, `Agent_1_Error_${this.gtin}.log`);
+                    const timestamp = new Date().toISOString();
+                    const errorPayload = `[${timestamp}] PIPELINE: ${this.state.pipeline_id}\nERROR: ${e.message}\nSTACK: ${e.stack}\n======================================\n`;
+                    fs.appendFileSync(errorLogPath, errorPayload, 'utf8');
+                } catch (fsError) {
+                    console.error('⚠️ KRYTYCZNY BŁĄD SYSTEMU PLIKÓW - Nie udało się zapisać logu błędu Agenta 1:', fsError.message);
+                }
+
                 this.state.a1_result = {};
                 if (!this.state.extracted_data.inci?.value) {
                     console.log('⚠️ BRAK INCI PO BŁĘDZIE A1 -> ZATRZYMUJĘ POTOK.');
