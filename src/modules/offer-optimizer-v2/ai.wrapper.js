@@ -150,6 +150,11 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
                 config.responseSchema = schema;
             }
 
+            const requestPayload = { model: model, contents: prompt, config: config };
+            const payloadDump = JSON.stringify(requestPayload, null, 2);
+            onLog(`\n[AI WRAPPER - RAW REQUEST DUMP (Agent ${agentId})]\n${payloadDump}\n[END RAW REQUEST DUMP]\n`);
+            console.log(`[AI WRAPPER - RAW REQUEST DUMP (Agent ${agentId})] Payload size: ${payloadDump.length} bytes`);
+
             try {
                 response = await ai.models.generateContent({
                     model: model,
@@ -157,6 +162,25 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
                     config: config
                 });
             } catch (apiError) {
+                // DEEP ERROR AUDIT
+                const errorDetails = {
+                    message: apiError.message,
+                    status: apiError.status,
+                    name: apiError.name,
+                    stack: apiError.stack,
+                    details: apiError.details || null,
+                    cause: apiError.cause ? apiError.cause.toString() : null
+                };
+                
+                if (apiError.response) {
+                    errorDetails.responseStatus = apiError.response.status;
+                    errorDetails.responseStatusText = apiError.response.statusText;
+                }
+                
+                const deepErrorDump = JSON.stringify(errorDetails, null, 2);
+                onLog(`\n[AI WRAPPER - RAW ERROR DUMP (Agent ${agentId})]\n${deepErrorDump}\n[END RAW ERROR DUMP]\n`);
+                console.error(`[AI WRAPPER - RAW ERROR DUMP (Agent ${agentId})]\n`, deepErrorDump);
+
                 const errStr = typeof apiError.message === 'string' ? apiError.message : JSON.stringify(apiError);
                 const isGroundingBlocked = grounding && (
                     errStr.includes('User location is not supported') 
