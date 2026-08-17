@@ -4,6 +4,9 @@ const ragService = require('../knowledge.rag.service');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// Tarcza błędów: Mock _getEmbeddings, by uniknąć wywołań w nieobsługiwanym regionie
+ragService._getEmbeddings = async () => new Array(768).fill(0.01);
+
 test('Idempotencja ingestu (dokument nadpisuje samego siebie)', async (t) => {
     const title = 'TEST_DOC_IDEMPOTENCY';
     const text = 'Linia 1\nLinia 2';
