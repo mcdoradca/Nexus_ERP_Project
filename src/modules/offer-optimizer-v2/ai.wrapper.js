@@ -182,19 +182,19 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
                 console.error(`[AI WRAPPER - RAW ERROR DUMP (Agent ${agentId})]\n`, deepErrorDump);
 
                 const errStr = typeof apiError.message === 'string' ? apiError.message : JSON.stringify(apiError);
-                const isGroundingBlocked = grounding && (
-                    errStr.includes('User location is not supported') 
+                const isRegionBlocked = errStr.includes('User location is not supported') 
                     || apiError.status === 412 
                     || errStr.includes('FAILED_PRECONDITION')
-                    || errStr.includes('412')
-                );
+                    || errStr.includes('412');
 
-                if (isGroundingBlocked) {
-                    const warnMsg = `[DEFENSIVE AI] Grounding zablokowany dla agenta ${agentId} (status: ${apiError.status || 'N/A'}). Fallback bez Google Search.`;
+                if (isRegionBlocked) {
+                    const warnMsg = `[DEFENSIVE AI] Zablokowano zaawansowane parametry dla agenta ${agentId} przez restrykcję regionu/API (status: ${apiError.status || 'N/A'}). Uruchamiam cichy Fallback (degradacja do czystego modelu).`;
                     console.warn(warnMsg);
                     onLog(`[AI WRAPPER - OSTRZEŻENIE] ${warnMsg}`);
                     const fallbackConfig = { ...config };
                     delete fallbackConfig.tools;
+                    delete fallbackConfig.thinkingConfig;
+                    
                     response = await ai.models.generateContent({
                         model: model,
                         contents: prompt,
