@@ -109,7 +109,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
             structureConfig.responseMimeType = "application/json";
             structureConfig.responseSchema = schema;
             // Krok 2 nie wymaga głębokiego myślenia — to czysta ekstrakcja danych
-            structureConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.MINIMAL };
+            delete structureConfig.thinkingConfig;
             // Krok 2 wymaga niskiej temperature (determinizm ekstrakcji)
             structureConfig.temperature = 0;
             // Usuwamy maxOutputTokens z Kroku 2 — pozwalamy mu swobodnie generować JSON
