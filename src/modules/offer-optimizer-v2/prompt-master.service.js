@@ -27,8 +27,7 @@ async function generatePrompt(slot, productDetailsText, ean = null, onLog = () =
             const cacheKey = `prompt_history_${ean}`;
             const cacheRecord = await prisma.agentCache.findUnique({ where: { cacheKey } });
             if (cacheRecord && Array.isArray(cacheRecord.value)) {
-                // Ograniczamy pamięć do 10 ostatnich promptów, żeby agent nie zafiksował się na starych błędach
-                previousPrompts = cacheRecord.value.slice(-10);
+                previousPrompts = cacheRecord.value;
             }
         }
 
