@@ -27,11 +27,12 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
     }
 
     // --- BASE CONFIG (wspólna baza dla wszystkich ścieżek) ---
-    const baseConfig = {
-        thinkingConfig: {
+    const baseConfig = {};
+    if (thinkingLevel) {
+        baseConfig.thinkingConfig = {
             thinkingLevel: thinkingLevel
-        }
-    };
+        };
+    }
     if (temperature !== undefined) {
         baseConfig.temperature = temperature;
     }

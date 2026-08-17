@@ -1388,3 +1388,7 @@ Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano po
 3. **Mutex w Prompt Masterze:** Dodano asynchroniczną blokadę generationLocks, gwarantując, że 5 jednoczesnych żądań zostanie ustawionych w kolejkę Node.js, aby Agent widział historię wygenerowanych scen i przestał duplikować zdjęcia dla tego samego slota.
 
 4. **Usunięcie logiki Hero Shot:** Usunięto motyw trzymania produktu w dłoni dla parzystych slotów w Prompt Masterze, wymuszając w to miejsce kompozycję asymetryczną z pustą przestrzenią (negative space).
+
+## Zmiany 17.08.2026 - Hotfix ai.wrapper.js
+- Zastosowano sanityzację generowania obiektu baseConfig.thinkingConfig w ai.wrapper.js, aby nie wysyłać pustych obiektów {} gdy thinkingLevel jest undefined.
+- Agentowi 11 (Prompt Master) dodano jawny parametr thinkingLevel: ThinkingLevel.LOW w nodes.config.js.
