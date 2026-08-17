@@ -36,23 +36,23 @@ async function generatePrompt(slot, productDetailsText, ean = null, onLog = () =
             : "";
 
         const systemPrompt = `
-Jesteś wybitnym kreatorem scen (Prompt Masterem) dla generatora obrazów Photoroom AI.
+Jesteś wybitnym asystentem ds. opisów przestrzennych.
 Otrzymasz dane produktu z bazy PIM (Product Information Management).
-Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w języku POLSKIM opisujący scenę dla zdjęcia. Upewnij się, że w prompcie znajduje się absolutny zakaz umieszczania produktu na samym środku kadru. Na końcu promptu zawsze dodaj słowa kluczowe podnoszące jakość (np. fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość).
+Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY opis wizji otoczenia w języku POLSKIM. Upewnij się, że w opisie znajduje się absolutny zakaz centralnego pozycjonowania produktu. Na końcu opisu zawsze dodaj słowa kluczowe podnoszące jakość (np. ostre detale, profesjonalna aranżacja, perfekcyjne światło).
 
-ZAKAZ MODYFIKACJI PRODUKTU: Masz absolutny zakaz opisywania w prompcie cech samego produktu (np. zmiany koloru patyczków zapachowych, materiału, kształtu). Produkt referencyjny jest święty.
+ZAKAZ MODYFIKACJI PRODUKTU: Masz absolutny zakaz opisywania w wizji cech samego produktu (np. zmiany koloru patyczków zapachowych, materiału, kształtu). Produkt referencyjny jest święty.
 
-BEZWZGLĘDNA OBECNOŚĆ PRODUKTU: Produkt referencyjny MUSI ZAWSZE znajdować się na zdjęciu. Może stać daleko w tle, być za mgłą, parą lub mocno zblurowany (zależnie od polecenia), ale w Twoim prompcie musi fizycznie istnieć w kreowanej scenie jako jej część.
+BEZWZGLĘDNA OBECNOŚĆ PRODUKTU: Produkt referencyjny MUSI ZAWSZE znajdować się w opisywanej przestrzeni. Może stać daleko w tle, być za mgłą, parą lub mocno rozmyty (zależnie od polecenia), ale w Twoim opisie musi fizycznie istnieć w kreowanej wizji jako jej część.
 
-ZAKAZANE MOTYWY: Masz absolutny zakaz używania w scenerii motywów lepienia garnków, koła garncarskiego oraz mrocznego klimatu stolarni/warsztatu.
+ZAKAZANE MOTYWY: Masz absolutny zakaz używania w opisie motywów lepienia garnków, koła garncarskiego oraz mrocznego klimatu stolarni/warsztatu.
 
-TWOJE ZADANIE: ${instruction}
+TWOJE ZADANIE: Wykreuj wizję, gdzie produkt jest ustawiony w całkowicie losowym miejscu w tle, ale bezwzględnie poza centrum. Produkt musi pozostać widoczny.
 
 WYMÓG KREATYWNOŚCI: 
 Przeanalizuj do czego służy produkt i wylosuj JEDNO, konkretne, ale nieszablonowe otoczenie dla niego. 
 Zaskocz mnie różnorodnością!${historySection}
 
-ZWRÓĆ WYNIK ŚCIŚLE W FORMACIE JSON ZGODNIE Z ZADANYM SCHEMATEM (jako wartość klucza "prompt").
+ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY TEKST OPISU, BEZ ŻADNYCH ZNACZNIKÓW, BEZ WSTĘPÓW I BEZ FORMATOWANIA JSON.
 
 Dane produktu PIM:
 ${productDetailsText}
@@ -62,32 +62,13 @@ ${productDetailsText}
         
         onLog(`\n[TX - START DO AGENTA 11]\n${systemPrompt}\n[TX - KONIEC]`);
 
-        const schema = {
-            type: "object",
-            properties: {
-                prompt: { 
-                    type: "string",
-                    description: "Tekst wygenerowanego promptu do Photoroom."
-                }
-            },
-            required: ["prompt"]
-        };
-
         const response = await callAgentWithTelemetry({
             agentId: PROMPT_MASTER_AGENT_ID,
             prompt: systemPrompt,
-            schema,
             onLog
         });
 
-        let rawPrompt = "";
-        try {
-            const parsed = typeof response.result === 'string' ? JSON.parse(response.result) : response.result;
-            rawPrompt = parsed.prompt || "";
-        } catch (e) {
-            console.error("[Prompt Master] Błąd parsowania JSON:", e.message);
-            rawPrompt = typeof response.result === 'string' ? response.result : JSON.stringify(response.result);
-        }
+        let rawPrompt = response.result;
         rawPrompt = rawPrompt.trim();
 
         // Upewniamy się, że to faktycznie czysty tekst
