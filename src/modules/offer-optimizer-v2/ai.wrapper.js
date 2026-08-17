@@ -16,7 +16,7 @@ const ai = new GoogleGenAI({
  * @param {Object} [params.schema] - Opcjonalny schemat JSON dla responseSchema
  * @returns {Object} Zwraca sparsowany obiekt JSON.
  */
-async function callAgentWithTelemetry({ agentId, prompt, schema }) {
+async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {} }) {
     if (!agentId) {
         throw new Error("BŁĄD BLOKUJĄCY (S-7): Wywołanie LLM bez jawnego agentId.");
     }
@@ -42,7 +42,9 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
 
     const needsTwoStep = grounding && schema;
 
-    console.log(`[V2 Wrapper] Uruchamianie agenta: ${agentId}, model: ${model}, thinking: ${thinkingLevel}, grounding: ${!!grounding}, schema: ${!!schema}${needsTwoStep ? ', mode: TWO-STEP' : ''}`);
+    const startMsg = `[V2 Wrapper] Uruchamianie agenta: ${agentId}, model: ${model}, thinking: ${thinkingLevel}, grounding: ${!!grounding}, schema: ${!!schema}${needsTwoStep ? ', mode: TWO-STEP' : ''}`;
+    console.log(startMsg);
+    onLog(`[AI WRAPPER] ${startMsg}`);
     const startTime = Date.now();
 
     try {
@@ -164,7 +166,9 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
                 );
 
                 if (isGroundingBlocked) {
-                    console.warn(`[DEFENSIVE AI] Grounding zablokowany dla agenta ${agentId} (status: ${apiError.status || 'N/A'}). Fallback bez Google Search.`);
+                    const warnMsg = `[DEFENSIVE AI] Grounding zablokowany dla agenta ${agentId} (status: ${apiError.status || 'N/A'}). Fallback bez Google Search.`;
+                    console.warn(warnMsg);
+                    onLog(`[AI WRAPPER - OSTRZEŻENIE] ${warnMsg}`);
                     const fallbackConfig = { ...config };
                     delete fallbackConfig.tools;
                     response = await ai.models.generateContent({
@@ -241,7 +245,9 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
             parsedResult = response.text;
         }
 
-        console.log(`[V2 Wrapper] Agent ${agentId} zakończony w ${duration}ms. Tokeny: prompt=${usage.promptTokenCount}, output=${usage.candidatesTokenCount}, thinking=${usage.thoughtsTokenCount}, total=${usage.totalTokenCount}`);
+        const endMsg = `[V2 Wrapper] Agent ${agentId} zakończony w ${duration}ms. Tokeny: prompt=${usage.promptTokenCount}, output=${usage.candidatesTokenCount}, thinking=${usage.thoughtsTokenCount}, total=${usage.totalTokenCount}`;
+        console.log(endMsg);
+        onLog(`[AI WRAPPER] ${endMsg}`);
 
         return {
             result: parsedResult,
@@ -249,6 +255,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema }) {
         };
     } catch (error) {
         console.error(`[V2 Wrapper] Błąd w agencie ${agentId}:`, error.message);
+        onLog(`\n[AI WRAPPER - KRYTYCZNY BŁĄD]\nAgent ID: ${agentId}\nWyjątek: ${error?.message || error}\nStack: ${error?.stack || 'Brak'}\n[AI WRAPPER - KONIEC BŁĘDU]`);
         if (typeof aiMetricsService.logUsage === 'function') {
             const { model } = getNodeConfig(agentId);
             await aiMetricsService.logUsage(agentId, model, {}, false, 1, error.message);

@@ -64,7 +64,8 @@ ${productDetailsText}
 
         const response = await callAgentWithTelemetry({
             agentId: PROMPT_MASTER_AGENT_ID,
-            prompt: systemPrompt
+            prompt: systemPrompt,
+            onLog
         });
 
         let rawPrompt = response.result || "";
