@@ -3,13 +3,12 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const PROMPT_MASTER_AGENT_ID = "11";
-const MANDATORY_PREFIX = "Produkt referencyjny jest widoczny w kadrze. ";
+const MANDATORY_PREFIX = "Produkt referencyjny jest widoczny w kadrze. Cała sceneria opisana w prompcie musi się zmieścić w obrazie. ";
 
 const generationLocks = new Map();
 
 async function generatePrompt(slot, productDetailsText, ean = null, onLog = () => {}) {
-    // Aktualnie wszystkie sloty (2, 3, 4, 5, 6) korzystają z tej samej zaufanej instrukcji oddalonego planu
-    const instruction = "Wykreuj scenę, gdzie produkt stoi daleko w tle (na drugim lub trzecim planie), jest zblurowany (poza punktem ostrości), ale pozostaje w pełni widoczny i dostrzegalny jako element otoczenia.";
+    const instruction = "Wykreuj scenę, gdzie produkt jest ustawiony w całkowicie losowym miejscu w tle, ale bezwzględnie poza centrum kadru. Produkt musi pozostać widoczny.";
 
     let releaseLock = null;
     if (ean) {
@@ -39,12 +38,7 @@ async function generatePrompt(slot, productDetailsText, ean = null, onLog = () =
         const systemPrompt = `
 Jesteś wybitnym kreatorem scen (Prompt Masterem) dla generatora obrazów Photoroom AI.
 Otrzymasz dane produktu z bazy PIM (Product Information Management).
-Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w języku POLSKIM opisujący scenę dla zdjęcia. Upewnij się, że w prompcie znajduje się absolutny zakaz umieszczania produktu na samym środku kadru. 
-
-WAŻNE ZASADY KOMPOZYCJI:
-1. Zawsze zaczynaj opisywanie sceny od produktu referencyjnego.
-2. Buduj sceny, na których żaden element otoczenia się nie wyróżnia i nie odciąga uwagi.
-3. Na końcu promptu zawsze dodaj słowa kluczowe podnoszące jakość (np. fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość).
+Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w języku POLSKIM opisujący scenę dla zdjęcia. Upewnij się, że w prompcie znajduje się absolutny zakaz umieszczania produktu na samym środku kadru. Na końcu promptu zawsze dodaj słowa kluczowe podnoszące jakość (np. fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość).
 
 ZAKAZ MODYFIKACJI PRODUKTU: Masz absolutny zakaz opisywania w prompcie cech samego produktu (np. zmiany koloru patyczków zapachowych, materiału, kształtu). Produkt referencyjny jest święty.
 
