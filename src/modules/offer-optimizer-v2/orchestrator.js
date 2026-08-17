@@ -61,6 +61,9 @@ const traceNode = (nodeId, gtin, step, data) => {
         const strData = typeof data === 'object' ? safeStringify(data) : data;
         const msg = `[${time}] [${step}]\n${strData}\n\n`;
         fs.appendFileSync(filePath, msg, 'utf8');
+        
+        // WYŚWIETLANIE NA FRONTENDZIE UŻYTKOWNIKA (Przez hook console.log -> WebSocket)
+        console.log(`\n\n=== 🕵️ NODE TRACE [${step}] ===\n${strData}\n==================================\n`);
     } catch(e) {
         console.error("Blad traceNode", e.message);
     }
