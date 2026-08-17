@@ -52,7 +52,7 @@ WYMÓG KREATYWNOŚCI:
 Przeanalizuj do czego służy produkt i wylosuj JEDNO, konkretne, ale nieszablonowe otoczenie dla niego. 
 Zaskocz mnie różnorodnością!${historySection}
 
-ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY TEKST OPISU, BEZ ŻADNYCH ZNACZNIKÓW, BEZ WSTĘPÓW I BEZ FORMATOWANIA JSON.
+ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY OBIEKT JSON ZGODNIE Z ZADANYM SCHEMATEM (jako wartość klucza "prompt").
 
 Dane produktu PIM:
 ${productDetailsText}
@@ -62,13 +62,32 @@ ${productDetailsText}
         
         onLog(`\n[TX - START DO AGENTA 11]\n${systemPrompt}\n[TX - KONIEC]`);
 
+        const cleanSchema = {
+            type: "object",
+            properties: {
+                prompt: { 
+                    type: "string",
+                    description: "Wygenerowany tekst opisu przestrzennego."
+                }
+            },
+            required: ["prompt"]
+        };
+
         const response = await callAgentWithTelemetry({
             agentId: PROMPT_MASTER_AGENT_ID,
             prompt: systemPrompt,
+            schema: cleanSchema,
             onLog
         });
 
-        let rawPrompt = response.result;
+        let rawPrompt = "";
+        try {
+            const parsed = typeof response.result === 'string' ? JSON.parse(response.result) : response.result;
+            rawPrompt = parsed.prompt || "";
+        } catch (e) {
+            console.error("[Prompt Master] Błąd parsowania JSON:", e.message);
+            rawPrompt = typeof response.result === 'string' ? response.result : JSON.stringify(response.result);
+        }
         rawPrompt = rawPrompt.trim();
 
         // Upewniamy się, że to faktycznie czysty tekst
