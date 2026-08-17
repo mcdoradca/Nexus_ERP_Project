@@ -3,7 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const PROMPT_MASTER_AGENT_ID = "11";
-const MANDATORY_PREFIX = "Profesjonalna fotografia lifestyle. Obiekt referencyjny jest autentyczną, integralną częścią wykreowanej sceny, wkomponowany w otoczenie. Produkt znajduje się na dalszym planie, ustępując miejsca elementom pierwszoplanowym. Pod żadnym pozorem nie zmieniaj kształtu produktu, koloru ani tekstu na etykiecie - etykieta musi zostać zachowana w stanie idealnym - produkt zawsze 100% jak na referencyjnym zdjęciu. Cała kompozycja z prompta ma być zawarta na zdjęciu. ";
+const MANDATORY_PREFIX = "";
 
 const generationLocks = new Map();
 
