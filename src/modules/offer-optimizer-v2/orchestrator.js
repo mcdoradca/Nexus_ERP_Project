@@ -52,6 +52,20 @@ const traceInci = (ean, step, data) => {
     }
 };
 
+const traceNode = (nodeId, gtin, step, data) => {
+    try {
+        const logDir = path.join(__dirname, 'logs', 'nodes_trace');
+        if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+        const filePath = path.join(logDir, `Node_${nodeId}_Execution_Trace_${gtin}.log`);
+        const time = new Date().toISOString();
+        const strData = typeof data === 'object' ? safeStringify(data) : data;
+        const msg = `[${time}] [${step}]\n${strData}\n\n`;
+        fs.appendFileSync(filePath, msg, 'utf8');
+    } catch(e) {
+        console.error("Blad traceNode", e.message);
+    }
+};
+
 const normalizeTags = (htmlStr) => {
     if (!htmlStr) return htmlStr;
     return htmlStr.replace(/<b>/g, '<strong>').replace(/<\/b>/g, '</strong>')
@@ -475,6 +489,8 @@ class Orchestrator {
                 revision_loop_count: this.state.revision_loop_count
             };
             
+            traceNode('1', this.gtin, 'A1_START', { missingFields, osint_data: !!this.state.osint_data, loop: this.state.revision_loop_count });
+            
             if (this.state.osint_data) {
                 agentData.osint_data = this.state.osint_data;
             }
@@ -497,6 +513,8 @@ class Orchestrator {
                     prompt,
                     schema: a1Schema
                 });
+                
+                traceNode('1', this.gtin, 'A1_RAW_RESULT', result);
                 
                 const warnings = [];
                 const deepNormalize = (obj, path = "") => {
@@ -548,6 +566,7 @@ class Orchestrator {
                 Object.assign(result, finalResult);
 
                 if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
+                traceNode('1', this.gtin, 'A1_WARNINGS_AND_NORMALIZATION', warnings);
                 this.state.token_usage_per_node['A1'] = usage;
                 this.state.a1_result = result;
 
@@ -618,6 +637,7 @@ class Orchestrator {
                             this.state.revision_loop_count++;
                             this.state.next_action = 'RUN_A1';
                             this.state.node_status['A1'] = 'RETRYING';
+                            traceNode('1', this.gtin, 'A1_INCI_CONFLICT_RETRY', { count: this.state.revision_loop_count });
                             console.log(`[Orchestrator] Sprzeczne/pojedyncze INCI z OSINT (próba ${this.state.revision_loop_count}). Brak spójnej pary. Ponawiam OSINT...`);
                             continue; // Pętla wraca do RUN_A1
                         } else {
@@ -626,6 +646,7 @@ class Orchestrator {
                             const preview2 = candidates.length > 1 ? candidates[1].substring(0, 150) + (candidates[1].length > 150 ? '...' : '') : 'Brak drugiego wariantu';
                             this.state.hitl_alert = `OSINT_CONFLICTING_INCI_MAX_RETRYS: Po ${this.state.revision_loop_count + 1} próbach nie udało się znaleźć spójnej pary składów (lub znaleziono tylko jedno źródło). Sprawdź ręcznie i zatwierdź.\n[Wersja 1]: ${preview1}\n[Wersja 2]: ${preview2}`;
                             this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
+                            traceNode('1', this.gtin, 'A1_HALT_TRIGGERED', 'Brak spójnej pary INCI po max próbach. Wersja 1: ' + preview1 + ', Wersja 2: ' + preview2);
                             this.state.next_action = 'HALT';
                             this.emitState();
                             return;
@@ -636,6 +657,7 @@ class Orchestrator {
                     if (polishPattern.test(selectedInci) && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
                         this.state.hitl_alert = 'OSINT_TRANSLATED_INCI_ERROR: Wykryto polskie tłumaczenie w składzie INCI (niedozwolone). Zaktualizuj na oryginalny skład łaciński/angielski.';
                         this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
+                        traceNode('1', this.gtin, 'A1_HALT_TRIGGERED', 'Wykryto polskie tłumaczenie w składzie INCI: ' + selectedInci);
                         this.state.next_action = 'HALT';
                         this.emitState();
                         return;
@@ -649,6 +671,7 @@ class Orchestrator {
                         this.state.hitl_substance = gateResOSINT.substance;
                         this.state.aggregated_hitl_errors = this.state.aggregated_hitl_errors || [];
                         this.state.aggregated_hitl_errors.push(gateResOSINT.status + ' FOUND IN OSINT INCI (CMR / Banned)');
+                        traceNode('1', this.gtin, 'A1_COSING_GATE_HIT', gateResOSINT);
                     }
                     
                     const inciRefOSINT = require('./inci.reference.service.js');
@@ -694,6 +717,7 @@ class Orchestrator {
                     if (notInGlossaryOSINT.length > 0) {
                         this.state.normalization_warnings = this.state.normalization_warnings || [];
                         this.state.normalization_warnings.push('INGREDIENT_NOT_IN_GLOSSARY_OSINT: ' + notInGlossaryOSINT.join(', '));
+                        traceNode('1', this.gtin, 'A1_GLOSSARY_WARNING', notInGlossaryOSINT);
                     }
                     
                     // Nadpisanie zmiennej przefiltrowanym, spójnym tekstem
@@ -731,17 +755,20 @@ class Orchestrator {
                 this.state.aggregated_hitl_errors = this.state.aggregated_hitl_errors || [];
                 if (stillMissing.length > 0) {
                     this.state.aggregated_hitl_errors.push('Brakuje: ' + stillMissing.join(', '));
+                    traceNode('1', this.gtin, 'A1_STILL_MISSING', stillMissing);
                 }
                 
                 if (this.state.aggregated_hitl_errors.length > 0 && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
                     this.state.hitl_alert = 'Wymagana uwaga operatora. Wykryto problemy: ' + this.state.aggregated_hitl_errors.join(' | ');
                     this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
+                    traceNode('1', this.gtin, 'A1_HALT_TRIGGERED', 'Zagregowane błędy: ' + this.state.aggregated_hitl_errors.join(' | '));
                     this.state.next_action = 'HALT';
                     this.emitState();
                     return;
                 }
                 
                 if (this.state.next_action !== 'HALT') {
+                    traceNode('1', this.gtin, 'A1_COMPLETED_SUCCESSFULLY', 'Przejście do A2');
                     this.state.node_status['A1'] = 'OK';
                     this.state.next_action = 'RUN_A2';
                 }
@@ -763,12 +790,14 @@ class Orchestrator {
                 if (!this.state.extracted_data.inci?.value) {
                     console.log('⚠️ BRAK INCI PO BŁĘDZIE A1 -> ZATRZYMUJĘ POTOK.');
                     this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
+                    traceNode('1', this.gtin, 'A1_HALT_TRIGGERED', 'Błąd OSINT i brak INCI w systemie. Exception: ' + e.message);
                     this.state.hitl_alert = 'CRITICAL_MISSING_INCI: Brak składu (INCI) w PIM i błąd OSINT (' + e.message + '). Uzupełnij dane.';
                     this.state.next_action = 'HALT';
                     this.emitState();
                     return;
                 } else {
                     console.log('⚠️ BŁĄD PHASE 1 (OSINT) -> Pomijam i idę do A2 (INCI JEST).');
+                    traceNode('1', this.gtin, 'A1_ERROR_IGNORED', 'Błąd OSINT zignorowany (INCI było już wcześniej): ' + e.message);
                     this.state.node_status['A1'] = 'ERROR_IGNORED';
                     this.state.hitl_alert = 'OSINT Pominęty: ' + e.message;
                     this.state.next_action = 'RUN_A2';
