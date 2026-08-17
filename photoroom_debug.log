@@ -1,0 +1,94 @@
+
+
+[2026-08-14T14:32:50.310Z] === PROMPT MASTER - SLOT 2 - PROMPT DO AGENTA ===
+Jesteś wybitnym kreatorem scen (Prompt Masterem) dla generatora obrazów Photoroom AI.
+Otrzymasz dane produktu z bazy PIM (Product Information Management).
+Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w języku POLSKIM opisujący scenę dla zdjęcia. Upewnij się, że w prompcie znajduje się absolutny zakaz umieszczania produktu na samym środku kadru. Na końcu promptu zawsze dodaj słowa kluczowe podnoszące jakość (np. fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość).
+
+ZAKAZ MODYFIKACJI PRODUKTU: Masz absolutny zakaz opisywania w prompcie cech samego produktu (np. zmiany koloru patyczków zapachowych, materiału, kształtu). Produkt referencyjny jest święty.
+
+BEZWZGLĘDNA OBECNOŚĆ PRODUKTU: Produkt referencyjny MUSI ZAWSZE znajdować się na zdjęciu. Może stać daleko w tle, być za mgłą, parą lub mocno zblurowany (zależnie od polecenia), ale w Twoim prompcie musi fizycznie istnieć w kreowanej scenie jako jej część.
+
+ZAKAZANE MOTYWY: Masz absolutny zakaz używania w scenerii motywów lepienia garnków, koła garncarskiego oraz mrocznego klimatu stolarni/warsztatu.
+
+TWOJE ZADANIE: Wykreuj fotorealistyczną scenę, w której produkt jest jedynie częścią szerszego otoczenia (martwa natura, wnętrze, plener). Produkt MUSI stać asymetrycznie - wyraźnie przesunięty do lewej lub prawej krawędzi kadru. Absolutny zakaz umieszczania produktu na środku (w centrum). Pozostaw dużo pustej przestrzeni (negative space) po przeciwnej stronie. BEZWZGLĘDNY WYMÓG: Napisy na etykiecie muszą być perfekcyjnie czytelne.
+
+WYMÓG KREATYWNOŚCI: 
+Przeanalizuj do czego służy produkt i wylosuj JEDNO, konkretne, ale nieszablonowe otoczenie dla niego. 
+Zaskocz mnie różnorodnością!
+
+ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY TEKST PROMPTU, BEZ ŻADNYCH ZNACZNIKÓW, BEZ WSTĘPÓW I BEZ FORMATOWANIA JSON.
+
+Dane produktu PIM:
+====================================
+
+
+[2026-08-14T14:32:50.311Z] === PROMPT MASTER - SLOT 2 - SUROWA ODPOWIEDŹ AGENTA ===
+Produkt stoi blisko prawej krawędzi kadru na surowej, jasnej kamiennej płycie, otoczony delikatną rosą. Po lewej stronie znajduje się duża, pusta przestrzeń wypełniona miękkim, porannym słońcem przedzierającym się przez mgłę w minimalistycznym ogrodzie zen. Produkt jest idealnie doświetlony, a napisy na jego etykiecie są perfekcyjnie czytelne i ostre. Fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość.
+====================================
+
+
+[2026-08-14T14:32:50.317Z] === PROMPT MASTER - SLOT 2 - FINALNY PROMPT DO PHOTOROOM ===
+Produkt musi pozostać dokładnie taki sam jak na oryginalnym zdjęciu referencyjnym. Pod żadnym pozorem nie zmieniaj jego kształtu, koloru ani tekstu na etykiecie - etykieta musi zostać zachowana w stanie idealnym. Produkt referencyjny musi ZAWSZE być widoczny i fizycznie umieszczony na zdjęciu (nawet jeśli znajduje się w dalekim tle, jest zblurowany lub lekko przysłonięty mgłą/parą) - absolutny zakaz generowania scen bez oryginalnego produktu. Absolutny ZAKAZ ujęć typu hero shot, zakaz używania zooma (close up) i zakaz centrowania produktu. Obiekt ma stanowić mniejszą część sceny. Produkt stoi blisko prawej krawędzi kadru na surowej, jasnej kamiennej płycie, otoczony delikatną rosą. Po lewej stronie znajduje się duża, pusta przestrzeń wypełniona miękkim, porannym słońcem przedzierającym się przez mgłę w minimalistycznym ogrodzie zen. Produkt jest idealnie doświetlony, a napisy na jego etykiecie są perfekcyjnie czytelne i ostre. Fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość.
+====================================
+
+
+[2026-08-14T14:32:50.321Z] === PHOTOROOM API - SLOT 2 - FINAL PAYLOAD ===
+{
+  "outputSize": "1080x1080",
+  "exportFormat": "jpeg",
+  "removeBackground": "false",
+  "editWithAIMode": "ai.auto",
+  "editWithAIPrompt": "Produkt musi pozostać dokładnie taki sam jak na oryginalnym zdjęciu referencyjnym. Pod żadnym pozorem nie zmieniaj jego kształtu, koloru ani tekstu na etykiecie - etykieta musi zostać zachowana w stanie idealnym. Produkt referencyjny musi ZAWSZE być widoczny i fizycznie umieszczony na zdjęciu (nawet jeśli znajduje się w dalekim tle, jest zblurowany lub lekko przysłonięty mgłą/parą) - absolutny zakaz generowania scen bez oryginalnego produktu. Absolutny ZAKAZ ujęć typu hero shot, zakaz używania zooma (close up) i zakaz centrowania produktu. Obiekt ma stanowić mniejszą część sceny. Produkt stoi blisko prawej krawędzi kadru na surowej, jasnej kamiennej płycie, otoczony delikatną rosą. Po lewej stronie znajduje się duża, pusta przestrzeń wypełniona miękkim, porannym słońcem przedzierającym się przez mgłę w minimalistycznym ogrodzie zen. Produkt jest idealnie doświetlony, a napisy na jego etykiecie są perfekcyjnie czytelne i ostre. Fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość.",
+  "editWithAINegativePrompt": "centered, hero shot, close up, zoom, symmetrical, large product, product in the middle, filling the frame",
+  "editWithAISeed": "870501420"
+}
+====================================
+
+
+[2026-08-14T14:34:28.718Z] === PROMPT MASTER - SLOT 2 - PROMPT DO AGENTA ===
+Jesteś wybitnym kreatorem scen (Prompt Masterem) dla generatora obrazów Photoroom AI.
+Otrzymasz dane produktu z bazy PIM (Product Information Management).
+Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY prompt w języku POLSKIM opisujący scenę dla zdjęcia. Upewnij się, że w prompcie znajduje się absolutny zakaz umieszczania produktu na samym środku kadru. Na końcu promptu zawsze dodaj słowa kluczowe podnoszące jakość (np. fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość).
+
+ZAKAZ MODYFIKACJI PRODUKTU: Masz absolutny zakaz opisywania w prompcie cech samego produktu (np. zmiany koloru patyczków zapachowych, materiału, kształtu). Produkt referencyjny jest święty.
+
+BEZWZGLĘDNA OBECNOŚĆ PRODUKTU: Produkt referencyjny MUSI ZAWSZE znajdować się na zdjęciu. Może stać daleko w tle, być za mgłą, parą lub mocno zblurowany (zależnie od polecenia), ale w Twoim prompcie musi fizycznie istnieć w kreowanej scenie jako jej część.
+
+ZAKAZANE MOTYWY: Masz absolutny zakaz używania w scenerii motywów lepienia garnków, koła garncarskiego oraz mrocznego klimatu stolarni/warsztatu.
+
+TWOJE ZADANIE: Wykreuj fotorealistyczną scenę, w której produkt jest jedynie częścią szerszego otoczenia (martwa natura, wnętrze, plener). Produkt MUSI stać asymetrycznie - wyraźnie przesunięty do lewej lub prawej krawędzi kadru. Absolutny zakaz umieszczania produktu na środku (w centrum). Pozostaw dużo pustej przestrzeni (negative space) po przeciwnej stronie. BEZWZGLĘDNY WYMÓG: Napisy na etykiecie muszą być perfekcyjnie czytelne.
+
+WYMÓG KREATYWNOŚCI: 
+Przeanalizuj do czego służy produkt i wylosuj JEDNO, konkretne, ale nieszablonowe otoczenie dla niego. 
+Zaskocz mnie różnorodnością!
+Wykaz scenerii, które użyłeś już dla tego EAN (absolutny ZAKAZ powtarzania ich):
+- Produkt stoi blisko prawej krawędzi kadru na surowej, jasnej kamiennej płycie, otoczony delikatną rosą. Po lewej stronie znajduje się duża, pusta przestrzeń wypełniona miękkim, porannym słońcem przedzierającym się przez mgłę w minimalistycznym ogrodzie zen. Produkt jest idealnie doświetlony, a napisy na jego etykiecie są perfekcyjnie czytelne i ostre. Fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość.
+
+ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY TEKST PROMPTU, BEZ ŻADNYCH ZNACZNIKÓW, BEZ WSTĘPÓW I BEZ FORMATOWANIA JSON.
+
+Dane produktu PIM:
+====================================
+
+
+[2026-08-14T14:34:28.719Z] === PROMPT MASTER - SLOT 2 - SUROWA ODPOWIEDŹ AGENTA ===
+Produkt stoi przy lewej krawędzi kadru na minimalistycznym, jasnym stoliku z terakoty na nasłonecznionej śródziemnomorskiej werandzie. Po prawej stronie znajduje się duża, pusta przestrzeń zalana ciepłym, złotym światłem popołudniowego słońca, z delikatnym cieniem gałązek oliwnych w tle. Napisy na etykiecie produktu są perfekcyjnie czytelne i ostre. Fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość.
+====================================
+
+
+[2026-08-14T14:34:28.721Z] === PROMPT MASTER - SLOT 2 - FINALNY PROMPT DO PHOTOROOM ===
+Produkt musi pozostać dokładnie taki sam jak na oryginalnym zdjęciu referencyjnym. Pod żadnym pozorem nie zmieniaj jego kształtu, koloru ani tekstu na etykiecie - etykieta musi zostać zachowana w stanie idealnym. Produkt referencyjny musi ZAWSZE być widoczny i fizycznie umieszczony na zdjęciu (nawet jeśli znajduje się w dalekim tle, jest zblurowany lub lekko przysłonięty mgłą/parą) - absolutny zakaz generowania scen bez oryginalnego produktu. Absolutny ZAKAZ ujęć typu hero shot, zakaz używania zooma (close up) i zakaz centrowania produktu. Obiekt ma stanowić mniejszą część sceny. Produkt stoi przy lewej krawędzi kadru na minimalistycznym, jasnym stoliku z terakoty na nasłonecznionej śródziemnomorskiej werandzie. Po prawej stronie znajduje się duża, pusta przestrzeń zalana ciepłym, złotym światłem popołudniowego słońca, z delikatnym cieniem gałązek oliwnych w tle. Napisy na etykiecie produktu są perfekcyjnie czytelne i ostre. Fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość.
+====================================
+
+
+[2026-08-14T14:34:28.724Z] === PHOTOROOM API - SLOT 2 - FINAL PAYLOAD ===
+{
+  "outputSize": "1080x1080",
+  "exportFormat": "jpeg",
+  "removeBackground": "false",
+  "editWithAIMode": "ai.auto",
+  "editWithAIPrompt": "Produkt musi pozostać dokładnie taki sam jak na oryginalnym zdjęciu referencyjnym. Pod żadnym pozorem nie zmieniaj jego kształtu, koloru ani tekstu na etykiecie - etykieta musi zostać zachowana w stanie idealnym. Produkt referencyjny musi ZAWSZE być widoczny i fizycznie umieszczony na zdjęciu (nawet jeśli znajduje się w dalekim tle, jest zblurowany lub lekko przysłonięty mgłą/parą) - absolutny zakaz generowania scen bez oryginalnego produktu. Absolutny ZAKAZ ujęć typu hero shot, zakaz używania zooma (close up) i zakaz centrowania produktu. Obiekt ma stanowić mniejszą część sceny. Produkt stoi przy lewej krawędzi kadru na minimalistycznym, jasnym stoliku z terakoty na nasłonecznionej śródziemnomorskiej werandzie. Po prawej stronie znajduje się duża, pusta przestrzeń zalana ciepłym, złotym światłem popołudniowego słońca, z delikatnym cieniem gałązek oliwnych w tle. Napisy na etykiecie produktu są perfekcyjnie czytelne i ostre. Fotorealistyczne, profesjonalna fotografia, kinowe oświetlenie, ostra ostrość.",
+  "editWithAINegativePrompt": "centered, hero shot, close up, zoom, symmetrical, large product, product in the middle, filling the frame",
+  "editWithAISeed": "1065598772"
+}
+====================================

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Users, Settings, Archive, RotateCcw, Search, CloudLightning, Save, CheckCircle2, Trash2, ShoppingCart, ExternalLink, Loader2 } from 'lucide-react';
+import { Plus, Users, Settings, Archive, RotateCcw, Search, CloudLightning, Save, CheckCircle2, Trash2, ShoppingCart, ExternalLink, Loader2, Image } from 'lucide-react';
 import { getInitials, getDepartmentColor } from '../utils';
 
 const AdminPanelView = ({
@@ -12,8 +12,9 @@ const AdminPanelView = ({
   token,
   API_URL
 }) => {
-  const [activeTab, setActiveTab] = useState('USERS'); // 'USERS' | 'ARCHIVE' | 'INTEGRATIONS'
+  const [activeTab, setActiveTab] = useState('USERS'); // 'USERS' | 'ARCHIVE' | 'INTEGRATIONS' | 'PHOTOROOM_DEBUG'
   const [archivedTasks, setArchivedTasks] = useState([]);
+  const [debugImages, setDebugImages] = useState([]);
   const [baseLinkerToken, setBaseLinkerToken] = useState('');
   const [tokenSaved, setTokenSaved] = useState(false);
   
@@ -37,6 +38,10 @@ const AdminPanelView = ({
     } else if (activeTab === 'INTEGRATIONS') {
        axios.get(`${API_URL}/api/settings/BASELINKER_TOKEN`, { headers: { Authorization: `Bearer ${token}` } })
          .then(res => setBaseLinkerToken(res.data.value || ''))
+         .catch(err => console.error(err));
+    } else if (activeTab === 'PHOTOROOM_DEBUG') {
+       axios.get(`${API_URL}/api/photoroom/debug/list`, { headers: { Authorization: `Bearer ${token}` } })
+         .then(res => setDebugImages(res.data.files || []))
          .catch(err => console.error(err));
     }
   }, [activeTab, API_URL, token]);
@@ -127,6 +132,9 @@ const AdminPanelView = ({
          <button onClick={() => setActiveTab('INTEGRATIONS')} className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center shadow-sm ${activeTab === 'INTEGRATIONS' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
             <CloudLightning className="w-3.5 h-3.5 mr-1.5" /> Integracje API
          </button>
+         <button onClick={() => setActiveTab('PHOTOROOM_DEBUG')} className={`px-4 py-2 rounded-md text-xs font-medium transition-all flex items-center shadow-sm ${activeTab === 'PHOTOROOM_DEBUG' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+            <Image className="w-3.5 h-3.5 mr-1.5" /> Debug Photoroom
+         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
@@ -137,11 +145,13 @@ const AdminPanelView = ({
                 {activeTab === 'USERS' && <Users className="w-5 h-5 text-white"/>}
                 {activeTab === 'ARCHIVE' && <Archive className="w-5 h-5 text-emerald-400" />}
                 {activeTab === 'INTEGRATIONS' && <CloudLightning className="w-5 h-5 text-fuchsia-400" />}
+                {activeTab === 'PHOTOROOM_DEBUG' && <Image className="w-5 h-5 text-indigo-400" />}
               </div>
               <h3 className="text-xs font-black text-slate-800 uppercase tracking-[0.25em]">
                 {activeTab === 'USERS' && 'Kadra Pracownicza i Uprawnienia'}
                 {activeTab === 'ARCHIVE' && 'Globalne Repozytorium Historycznych Zadań'}
                 {activeTab === 'INTEGRATIONS' && 'Skarbiec Kluczy Autoryzacyjnych API'}
+                {activeTab === 'PHOTOROOM_DEBUG' && 'Logi Graficzne z Silnika Photoroom'}
               </h3>
             </div>
           </div>
@@ -344,6 +354,44 @@ const AdminPanelView = ({
                          )}
                       </div>
                    </div>
+                </div>
+            ) : activeTab === 'PHOTOROOM_DEBUG' ? (
+                <div className="p-8">
+                   <div className="flex justify-between items-center mb-6">
+                      <p className="text-xs font-bold text-slate-500">Podgląd na żywo plików zapisanych przez Agenta 11 na dysku w trakcie generowania Photoroom.</p>
+                      <button onClick={() => {
+                         axios.get(`${API_URL}/api/photoroom/debug/list`, { headers: { Authorization: `Bearer ${token}` } })
+                           .then(res => setDebugImages(res.data.files || []))
+                           .catch(err => console.error(err));
+                      }} className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-sm text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all shadow-sm">
+                         Odśwież
+                      </button>
+                   </div>
+                   {debugImages.length === 0 ? (
+                      <div className="py-20 text-center"><div className="flex flex-col items-center"><Image className="w-10 h-10 text-slate-200 mb-4" /><span className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Brak obrazów w folderze debug_images.</span></div></div>
+                   ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+                         {debugImages.map(img => (
+                            <div key={img.name} className="bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
+                               <div className="aspect-square bg-slate-100 overflow-hidden relative">
+                                  <img 
+                                     src={`${API_URL}/api/photoroom/debug-images/static/${img.name}`} 
+                                     alt={img.name} 
+                                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                                  />
+                               </div>
+                               <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+                                  <div className="text-[9px] font-black text-slate-800 break-all leading-tight mb-2 uppercase" title={img.name}>
+                                     {img.name.replace('photoroom_debug_raw_', '')}
+                                  </div>
+                                  <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
+                                     {new Date(img.createdAt).toLocaleString()}
+                                  </div>
+                               </div>
+                            </div>
+                         ))}
+                      </div>
+                   )}
                 </div>
             ) : null}
           </div>

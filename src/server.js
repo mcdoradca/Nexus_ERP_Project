@@ -328,6 +328,27 @@ app.get('/api/logs/inci', async (req, res) => {
     }
 });
 
+// ENDPOINTY DLA PODGLĄDU ZDJĘĆ DEBUG PHOTOROOM (FAZA 17)
+app.use('/api/photoroom/debug-images/static', express.static(path.join(__dirname, 'modules/offer-optimizer-v2/debug_images')));
+
+app.get('/api/photoroom/debug/list', authenticateToken, async (req, res) => {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const debugDir = path.join(__dirname, 'modules/offer-optimizer-v2/debug_images');
+        if (!fs.existsSync(debugDir)) {
+            return res.json({ success: true, files: [] });
+        }
+        const files = fs.readdirSync(debugDir).filter(f => f.endsWith('.jpg')).map(f => {
+            const stats = fs.statSync(path.join(debugDir, f));
+            return { name: f, createdAt: stats.mtime };
+        }).sort((a, b) => b.createdAt - a.createdAt);
+        res.json({ success: true, files });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 
 
 // Endpoint do uruchamiania Sandbox E2E Tests (Allegro Ads Monitor)
