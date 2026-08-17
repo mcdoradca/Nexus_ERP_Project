@@ -1392,3 +1392,8 @@ Zmodyfikowano src\modules\offer-optimizer-v2\prompt-master.service.js. Dodano po
 ## Zmiany 17.08.2026 - Hotfix ai.wrapper.js
 - Zastosowano sanityzację generowania obiektu baseConfig.thinkingConfig w ai.wrapper.js, aby nie wysyłać pustych obiektów {} gdy thinkingLevel jest undefined.
 - Agentowi 11 (Prompt Master) dodano jawny parametr thinkingLevel: ThinkingLevel.LOW w nodes.config.js.
+
+ 
+ # # #   F I X   ( 1 7 . 0 8 . 2 0 2 6 ) :   O b e j [c i e   b Bd u   4 1 2   F A I L E D _ P R E C O N D I T I O N   ( O V H   F r a n c e )   
+ Z d i a g n o z o w a n o ,   |e   s e r w e r y   G o o g l e   w   r e g i o n i e   u |y w a n y m   p r z e z   V P S   ( F r a n c j a )   o d r z u c a j   o k r e [l o n e   k o m b i n a c j e   p a r a m e t r � w .   A g e n t   1   r z u c a B  b Bd   4 1 2   z   p o w o d u   u |y c i a   ' t h i n k i n g L e v e l '   w   p o Bc z e n i u   z   ' g r o u n d i n g ' ,   a   A g e n t   1 1   z   p o w o d u   u |y c i a   ' t h i n k i n g L e v e l '   w   p o Bc z e n i u   z   ' t e m p e r a t u r e   >   0 ' .   Z m o d y f i k o w a n o   ' n o d e s . c o n f i g . j s '   u s u w a j c   ' t h i n k i n g L e v e l '   d l a   A g e n t a   1   o r a z   ' t e m p e r a t u r e '   d l a   A g e n t a   1 1 .  
+ 
