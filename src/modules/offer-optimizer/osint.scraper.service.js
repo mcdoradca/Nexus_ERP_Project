@@ -39,22 +39,19 @@ class OsintScraperService {
             }
             
             const searchQuery = `"${ean}" "${productName}"${queryTerms}`;
-            const searchUrl = `https://lite.duckduckgo.com/lite/`;
-            agent1Logger.info(`[OSINT] Wywołano wyszukiwarkę DuckDuckGo Lite z q=${searchQuery}`);
+            const searchUrl = `https://www.bing.com/search?q=${encodeURIComponent(searchQuery)}`;
+            agent1Logger.info(`[OSINT] Wywołano wyszukiwarkę BING (Obejście OVH) z q=${searchQuery}`);
             
-            const searchHeaders = { ...this.headers, 'Content-Type': 'application/x-www-form-urlencoded' };
-            const searchResponse = await axios.post(searchUrl, `q=${encodeURIComponent(searchQuery)}`, { headers: searchHeaders, timeout: 10000 });
+            const searchHeaders = { ...this.headers, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
+            const searchResponse = await axios.get(searchUrl, { headers: searchHeaders, timeout: 10000 });
             const $ = cheerio.load(searchResponse.data);
             
             let links = [];
-            $('.result-url').each((i, el) => links.push($(el).attr('href')));
+            $('#b_results .b_algo h2 a').each((i, el) => links.push($(el).attr('href')));
             if(links.length === 0) {
-                $('a.result-snippet').each((i, el) => links.push($(el).attr('href')));
-            }
-            if(links.length === 0) {
-                $('a').each((i, el) => {
+                $('#b_results a').each((i, el) => {
                     const url = $(el).attr('href');
-                    if(url && url.startsWith('http') && !url.includes('duckduckgo.com')) {
+                    if(url && url.startsWith('http') && !url.includes('bing.com') && !url.includes('microsoft.com')) {
                         links.push(url);
                     }
                 });
