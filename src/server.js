@@ -112,6 +112,19 @@ app.get('/api/system/logs', (req, res) => {
     });
 });
 
+app.get('/api/system/nodes-trace/:nodeId/:ean', (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const { nodeId, ean } = req.params;
+    const logPath = path.join(__dirname, 'modules', 'offer-optimizer-v2', 'logs', 'nodes_trace', `Node_${nodeId}_Execution_Trace_${ean}.log`);
+    if (fs.existsSync(logPath)) {
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.sendFile(logPath);
+    } else {
+        res.status(404).send(`Log dla wezla Node_${nodeId} i EAN: ${ean} jeszcze nie istnieje w systemie plikow.`);
+    }
+});
+
 // Ochrona przed atakami DDoS i Brute-Force (Rate Limiting)
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minut
