@@ -163,7 +163,16 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         });
 
         const resultBuffer = Buffer.from(response.data);
-        onLog(`[API SUCCESS] Odebrano poprawny obraz z Photoroom V2. Rozpoczynam post-processing (Sharp)...`);
+        const rawMetadata = await sharp(resultBuffer).metadata();
+        onLog(`[API SUCCESS] Odebrano poprawny obraz z Photoroom V2. Wymiary RAW: ${rawMetadata.width}x${rawMetadata.height}. Rozpoczynam post-processing (Sharp)...`);
+        
+        try {
+            const rawPath = require('path').join(process.cwd(), 'photoroom_debug_raw.jpg');
+            require('fs').writeFileSync(rawPath, resultBuffer);
+            onLog(`[DEBUG] Zapisano surowy obraz przed post-processingiem do: ${rawPath}`);
+        } catch (e) {
+            console.error('[DEBUG] Błąd zapisu pliku testowego:', e);
+        }
 
         // --- POST-PROCESSING: Włoska ramka i znak wodny AI (Sharp + opentype.js) ---
         const brand = (dbProduct && dbProduct.brand && dbProduct.brand.name) 
