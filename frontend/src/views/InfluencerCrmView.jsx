@@ -255,7 +255,7 @@ const InfluencerCrmView = ({ currentUser, API_URL, token }) => {
                                      >
                                          <div className="h-24 bg-slate-100 relative w-full flex items-center justify-center overflow-hidden">
                                             {inf.avatarUrl ? (
-                                                <img src={inf.avatarUrl} alt="avatar" className="w-full h-full object-cover opacity-90 group-hover:scale-110 transition-transform duration-500" />
+                                                <img src={inf.avatarUrl || undefined} alt="avatar" className="w-full h-full object-cover opacity-90 group-hover:scale-110 transition-transform duration-500" />
                                             ) : (
                                                 <div className="w-16 h-16 rounded-sm bg-white shadow-sm flex items-center justify-center text-slate-600 font-black text-xl z-10">
                                                     {inf.name.charAt(0).toUpperCase()}
@@ -293,13 +293,13 @@ const InfluencerCrmView = ({ currentUser, API_URL, token }) => {
                      {selectedCreator && (
                          <div className="absolute top-0 right-0 bottom-0 w-[450px] bg-white shadow-[0_0_40px_rgba(0,0,0,0.1)] border-l border-slate-400 z-50 flex flex-col transform transition-transform animate-in slide-in-from-right-8 duration-300">
                              <div className="h-48 bg-slate-900 relative">
-                                 {selectedCreator.avatarUrl && <img src={selectedCreator.avatarUrl} className="w-full h-full object-cover opacity-50" alt="" />}
+                                 {selectedCreator.avatarUrl && <img src={selectedCreator.avatarUrl || undefined} className="w-full h-full object-cover opacity-50" alt="" />}
                                  <button onClick={() => setSelectedCreator(null)} className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/40 text-white rounded-sm transition-all backdrop-blur-md">
                                      <X className="w-5 h-5" />
                                  </button>
                                  <div className="absolute -bottom-10 left-8">
                                      {selectedCreator.avatarUrl ? (
-                                         <img src={selectedCreator.avatarUrl} className="w-24 h-24 rounded-sm border-4 border-white shadow-xl object-cover" alt="" />
+                                         <img src={selectedCreator.avatarUrl || undefined} className="w-24 h-24 rounded-sm border-4 border-white shadow-xl object-cover" alt="" />
                                      ) : (
                                          <div className="w-24 h-24 rounded-sm border-4 border-white shadow-xl bg-indigo-100 flex items-center justify-center text-indigo-500 font-black text-3xl">
                                              {selectedCreator.name.charAt(0)}
@@ -527,7 +527,7 @@ const InfluencerCrmView = ({ currentUser, API_URL, token }) => {
                                 <div key={deal.id} className="bg-white p-5 rounded-sm border border-slate-400 shadow-sm hover:border-indigo-400 transition-all">
                                     <div className="flex items-center space-x-3 mb-4">
                                         {deal.influencer?.avatarUrl ? (
-                                            <img src={deal.influencer.avatarUrl} className="w-10 h-10 rounded-sm bg-slate-100 object-cover" alt="" />
+                                            <img src={deal.influencer.avatarUrl || undefined} className="w-10 h-10 rounded-sm bg-slate-100 object-cover" alt="" />
                                         ) : (
                                             <div className="w-10 h-10 rounded-sm bg-indigo-50 flex items-center justify-center font-bold text-indigo-600 z-10">
                                                 {deal.influencer?.name?.charAt(0) || '?'}

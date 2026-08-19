@@ -3,11 +3,20 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { logger } = require('./utils/logger');
 
 // Globalna Tarcza Ochronna Procesu Node.js (Zasada Nieśmiertelnego Serwera)
+let _serverInstance = null;
 process.on('uncaughtException', (err) => {
     logger.error('KRYTYCZNY BŁĄD PROCESU (Uncaught Exception):', err);
     if (err.code === 'EADDRINUSE') {
         console.error('[KRYTYCZNE] Port jest zablokowany (EADDRINUSE). Wymuszam twarde zamknięcie procesu, aby zapobiec powstawaniu zombie procesów w tle na Windowsie.');
         process.exit(1);
+    } else {
+        console.error('[KRYTYCZNE] Zamykanie serwera po błędzie krytycznym (Graceful Shutdown)...');
+        if (_serverInstance) {
+            _serverInstance.close(() => process.exit(1));
+            setTimeout(() => process.exit(1), 3000); // Twarde wejście jeśli hang-up
+        } else {
+            setTimeout(() => process.exit(1), 500);
+        }
     }
 });
 process.on('unhandledRejection', (reason, promise) => {
@@ -29,6 +38,7 @@ const cron = require('node-cron');
 const prisma = new PrismaClient();
 const app = express();
 const server = http.createServer(app);
+_serverInstance = server;
 const socketService = require('./core/socket');
 const io = socketService.init(server);
 const PORT = process.env.PORT || 3001;
@@ -394,10 +404,12 @@ app.post('/api/brands', authenticateToken, async (req, res) => {
 app.get('/api/products', authenticateToken, async (req, res) => {
     try {
         const products = await prisma.product.findMany({ 
-            include: { 
-               brand: true,
-               bomElements: { include: { material: true } },
-               allegroCategory: true
+            select: { 
+               id: true, ean: true, sku: true, name: true, stock: true, 
+               salePrice: true, status: true, isSynced: true, createdAt: true,
+               imageUrl: true, riskScore: true, targetMargin: true,
+               brand: true, allegroCategory: true,
+               bomElements: { include: { material: true } }
             }, 
             orderBy: { name: 'asc' } 
         });

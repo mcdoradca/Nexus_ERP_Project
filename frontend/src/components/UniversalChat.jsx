@@ -222,7 +222,7 @@ export default function UniversalChat({ mode, targetId, currentUser, socket, tit
       return (
         <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="flex flex-col gap-2 group/file hover:opacity-80 transition-opacity">
           {isImage ? (
-             <img src={msg.fileUrl} alt={msg.fileName} className="max-w-[200px] lg:max-w-[300px] rounded-sm object-cover shadow-sm border border-slate-400" />
+             <img src={msg.fileUrl || undefined} alt={msg.fileName} className="max-w-[200px] lg:max-w-[300px] rounded-sm object-cover shadow-sm border border-slate-400" />
           ) : (
             <div className="flex items-center gap-3 p-3 bg-white/20 rounded-sm border border-white/30 backdrop-blur-sm">
               <FileText className="w-8 h-8 opacity-80" />

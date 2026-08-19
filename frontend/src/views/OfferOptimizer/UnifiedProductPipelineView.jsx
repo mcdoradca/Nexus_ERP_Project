@@ -177,8 +177,27 @@ export const UnifiedProductPipelineView = ({
             .catch(err => console.error("Błąd ładowania marek", err));
     }, [token]);
 
-    // Inicjalizacja PIM (Edycja)
+    // Inicjalizacja PIM (Edycja) oraz Odzyskiwanie Wersji Roboczej
+    const DRAFT_KEY = `nexus_pipeline_draft_${editingProduct || 'new'}`;
+
     useEffect(() => {
+        let hasDraft = false;
+        const draftStr = localStorage.getItem(DRAFT_KEY);
+        if (draftStr) {
+            try {
+                const draft = JSON.parse(draftStr);
+                if (draft && draft.newProductForm && (draft.newProductForm.name || draft.newProductForm.sku || draft.newProductForm.ean)) {
+                    setNewProductForm(draft.newProductForm);
+                    if (draft.editorHtml) setEditorHtml(draft.editorHtml);
+                    if (draft.liveTitle) setLiveTitle(draft.liveTitle);
+                    if (draft.visionTickets) setVisionTickets(draft.visionTickets);
+                    if (draft.brandSearchTerm) setBrandSearchTerm(draft.brandSearchTerm);
+                    hasDraft = true;
+                    console.log("Przywrócono niezapisaną wersję roboczą z LocalStorage!");
+                }
+            } catch(e) { console.error("Błąd odczytu draftu", e); }
+        }
+
         if (editingProduct) {
             axios.get(`${API_URL}/api/products/${editingProduct}`, { headers: { Authorization: `Bearer ${token}` } })
                 .then(res => {
@@ -188,10 +207,8 @@ export const UnifiedProductPipelineView = ({
                         calcBdo = 0;
                         p.bomElements.forEach(b => { calcBdo += (parseFloat(b.weightGrams) / 1000) * parseFloat(b.material.ratePerKg); });
                     }
-                    setNewProductForm({ ...p, bdoEprCost: parseFloat(calcBdo.toFixed(4)) });
-                    setBrandSearchTerm(p.brand ? p.brand.name : '');
                     
-                    // Odzyskanie danych prawego panelu
+                    // Odzyskanie danych prawego panelu z bazy
                     let fallbackImages = [];
                     if (p.imageUrl && typeof p.imageUrl === 'string' && p.imageUrl.trim() !== '') {
                         fallbackImages.push(p.imageUrl);
@@ -205,27 +222,58 @@ export const UnifiedProductPipelineView = ({
                     }
                     const fallbackTickets = fallbackImages.map(img => ({ originalUrl: img }));
 
-                    if (p.offerDraft) {
-                        setLiveTitle(p.offerDraft.title || p.name || "");
-                        setEditorHtml({
-                            ...(p.offerDraft.htmlContent || {}),
-                            sekcja7: (p.offerDraft.htmlContent && p.offerDraft.htmlContent.sekcja7 !== undefined) ? p.offerDraft.htmlContent.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę."
-                        });
-                        const draftTickets = p.offerDraft.visionTickets || p.offerDraft.images || [];
-                        setVisionTickets(draftTickets.length > 0 ? draftTickets : fallbackTickets);
-                    } else {
-                        setLiveTitle(p.name || "");
-                        if (p.descriptionHtml) {
-                            setEditorHtml({ sekcja1: p.descriptionHtml, sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę." });
+                    // TYLKO JEŚLI NIE MA DRAFTU W LOKALNEJ PAMIĘCI - NADPISUJEMY STAN BAZĄ
+                    if (!hasDraft) {
+                        setNewProductForm({ ...p, bdoEprCost: parseFloat(calcBdo.toFixed(4)) });
+                        setBrandSearchTerm(p.brand ? p.brand.name : '');
+                        
+                        if (p.offerDraft) {
+                            setLiveTitle(p.offerDraft.title || p.name || "");
+                            setEditorHtml({
+                                ...(p.offerDraft.htmlContent || {}),
+                                sekcja7: (p.offerDraft.htmlContent && p.offerDraft.htmlContent.sekcja7 !== undefined) ? p.offerDraft.htmlContent.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę."
+                            });
+                            const draftTickets = p.offerDraft.visionTickets || p.offerDraft.images || [];
+                            setVisionTickets(draftTickets.length > 0 ? draftTickets : fallbackTickets);
+                        } else {
+                            setLiveTitle(p.name || "");
+                            if (p.descriptionHtml) {
+                                setEditorHtml({ sekcja1: p.descriptionHtml, sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę." });
+                            }
+                            setVisionTickets(fallbackTickets);
                         }
-                        setVisionTickets(fallbackTickets);
+                        setLiveEan(p.ean || "");
+                        setEditorKey(prev => prev + 1);
+                    } else {
+                        // Zawsze aktualizujemy liveEan, żeby websocket wiedział kogo słuchać
+                        setLiveEan(p.ean || "");
                     }
-                    setLiveEan(p.ean || "");
-                    setEditorKey(prev => prev + 1);
                 })
-                .catch(err => alert("Błąd wczytywania produktu"));
+                .catch(err => alert("Błąd wczytywania produktu z bazy"));
         }
-    }, [editingProduct, token]);
+    }, [editingProduct, token, DRAFT_KEY]);
+
+    // Autosave do LocalStorage
+    useEffect(() => {
+        if (newProductForm.name || newProductForm.sku || newProductForm.ean) {
+             const draft = { newProductForm, editorHtml, liveTitle, visionTickets, brandSearchTerm };
+             try {
+                 localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+             } catch (e) {
+                 if (e.name === 'QuotaExceededError' || e.message.includes('quota') || e.message.includes('Quota')) {
+                     console.warn("Przekroczono limit LocalStorage (prawdopodobnie przez duże zdjęcia). Zapisuję draft bez visionTickets.");
+                     const fallbackDraft = { newProductForm, editorHtml, liveTitle, brandSearchTerm };
+                     try {
+                         localStorage.setItem(DRAFT_KEY, JSON.stringify(fallbackDraft));
+                     } catch (err2) {
+                         console.error("Nawet pomniejszony autosave się nie powiódł:", err2);
+                     }
+                 } else {
+                     console.error("Autosave error:", e);
+                 }
+             }
+        }
+    }, [newProductForm, editorHtml, liveTitle, visionTickets, brandSearchTerm, DRAFT_KEY]);
 
     useEffect(() => {
         if (newProductForm?.allegroCategoryId && token) {
@@ -324,6 +372,13 @@ export const UnifiedProductPipelineView = ({
                 alert('Utworzono nową kartotekę PIM.');
             }
             if (fetchAppGlobalData) fetchAppGlobalData();
+            
+            // Czyszczenie wersji roboczej po udanym zapisie
+            localStorage.removeItem(`nexus_pipeline_draft_${editingProduct || 'new'}`);
+            if (savedProduct && savedProduct.id) {
+                localStorage.removeItem(`nexus_pipeline_draft_${savedProduct.id}`);
+            }
+            
             return savedProduct;
         } catch (error) {
             console.error("Błąd zapisu produktu", error);
@@ -879,7 +934,7 @@ export const UnifiedProductPipelineView = ({
                                            {newProductForm.imageUrl && (
                                               <div className="w-40 shrink-0 bg-white border border-slate-200 rounded-sm p-3 shadow-sm flex flex-col items-center justify-center">
                                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block w-full text-center border-b border-slate-100 pb-2">Główna Miniatura</span>
-                                                 <img src={newProductForm.imageUrl} alt="PIM Thumbnail" className="w-full h-auto object-contain rounded-sm" />
+                                                 <img src={newProductForm.imageUrl || undefined} alt="PIM Thumbnail" className="w-full h-auto object-contain rounded-sm" />
                                               </div>
                                            )}
                                            
@@ -1036,7 +1091,7 @@ export const UnifiedProductPipelineView = ({
                                                     <div className="grid grid-cols-4 gap-2 mt-4">
                                                        {(newProductForm.images || []).map((img, idx) => (
                                                            <div key={idx} className="aspect-square bg-white border border-slate-400 rounded-sm overflow-hidden shadow-sm">
-                                                              <img src={img} alt="PIM" className="w-full h-full object-cover" />
+                                                              <img src={img || undefined} alt="PIM" className="w-full h-full object-cover" />
                                                            </div>
                                                        ))}
                                                     </div>

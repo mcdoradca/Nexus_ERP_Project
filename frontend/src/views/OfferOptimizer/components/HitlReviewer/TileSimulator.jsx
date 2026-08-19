@@ -44,7 +44,7 @@ export const TileSimulator = ({ customSections = mockStandardizedDescription.sec
                                 if (item.type === 'IMAGE') {
                                     return (
                                         <div key={itemIdx} className="flex-1 rounded-sm overflow-hidden shadow-sm border border-slate-300 flex items-center justify-center bg-white min-h-[200px]">
-                                            <img src={item.content} alt={`Block ${sectionIdx}-${itemIdx}`} className="max-w-full max-h-[400px] object-contain" />
+                                            <img src={item.content || undefined} alt={`Block ${sectionIdx}-${itemIdx}`} className="max-w-full max-h-[400px] object-contain" />
                                         </div>
                                     );
                                 }

@@ -286,7 +286,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                          </div>
                      </div>
                  ) : (
-                     <img src={imageObj.replacedUrl} alt="Poprawione zdjęcie" className="w-full h-full absolute inset-0 object-contain bg-slate-100 transition-transform group-hover:scale-105 z-0" />
+                     <img src={imageObj.replacedUrl || undefined} alt="Poprawione zdjęcie" className="w-full h-full absolute inset-0 object-contain bg-slate-100 transition-transform group-hover:scale-105 z-0" />
                  )}
                  
                  {/* Nakładka Dropzone Aktywna na Hover lub Drug (Zawsze aktywna w kodzie by łapać styl po dragu na rodzicu) */}

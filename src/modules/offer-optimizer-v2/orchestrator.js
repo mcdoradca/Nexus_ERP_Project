@@ -1469,6 +1469,30 @@ class Orchestrator {
             }
         }
 
+        try {
+            const socketService = require('../../core/socket');
+            socketService.broadcast('nexus-notification', {
+                type: 'PIPELINE_COMPLETE',
+                ean: this.gtin,
+                result: {
+                    title: this.state.final_offer.title,
+                    editorHtml: {
+                        sekcja1: this.state.final_offer.description,
+                        sekcja2: this.state.final_offer.description_extra1,
+                        sekcja3: this.state.final_offer.description_extra2,
+                        sekcja4: this.state.final_offer.description_extra3,
+                        sekcja5: this.state.final_offer.description_extra4,
+                        sekcja7: this.state.final_offer.extra_field_4245
+                    },
+                    features: { 
+                        INCI: this.state.final_offer.ingredients_inci,
+                        "Skład": this.state.final_offer.ingredients_inci
+                    }
+                }
+            });
+        } catch(e) {
+            console.error('[Orchestrator] Błąd wysyłania PIPELINE_COMPLETE:', e.message);
+        }
 
         this.emitState();
     }

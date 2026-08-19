@@ -217,7 +217,7 @@ const ProductsView = ({
                       <div className="flex items-center space-x-6">
                         {p.imageUrl ? (
                            <div className="w-14 h-14 shrink-0 bg-white border border-slate-300 rounded-sm p-1 shadow-sm overflow-hidden flex items-center justify-center">
-                              <img src={p.imageUrl} alt={p.name} className="w-full h-full object-contain" />
+                              <img src={p.imageUrl || undefined} alt={p.name} className="w-full h-full object-contain" />
                            </div>
                         ) : (
                            <div className="w-14 h-14 shrink-0 bg-slate-50 border border-slate-400 rounded-sm shadow-inner flex items-center justify-center text-slate-300">

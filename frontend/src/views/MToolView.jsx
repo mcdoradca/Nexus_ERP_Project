@@ -480,7 +480,7 @@ const MToolView = ({ token, API_URL, currentUser, campaigns, socket }) => {
 
       {lightboxUrl && (
         <div className="fixed inset-0 bg-slate-900/90 z-[300] flex items-center justify-center p-4 backdrop-blur-md cursor-pointer" onClick={() => setLightboxUrl(null)}>
-           <img src={lightboxUrl} className="max-w-[90vw] max-h-[90vh] object-contain rounded-sm shadow-2xl" />
+           <img src={lightboxUrl || undefined} className="max-w-[90vw] max-h-[90vh] object-contain rounded-sm shadow-2xl" />
         </div>
       )}
 
@@ -683,9 +683,9 @@ const MToolView = ({ token, API_URL, currentUser, campaigns, socket }) => {
                                {(p.mediaUrls || []).map((url, idx) => (
                                  <div key={idx} className="w-16 h-16 bg-slate-100 border border-slate-200 rounded-lg overflow-hidden relative group shrink-0 shadow-sm flex items-center justify-center">
                                     {(p.mediaTypes && p.mediaTypes[idx] === 'VIDEO') ? (
-                                      <video src={url} className="w-full h-full object-cover" />
+                                      <video src={url || undefined} className="w-full h-full object-cover" />
                                     ) : (
-                                      <img src={url} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                                      <img src={url || undefined} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                                     )}
                                     {/* Sub-akcje per-plik */}
                                     <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1">
