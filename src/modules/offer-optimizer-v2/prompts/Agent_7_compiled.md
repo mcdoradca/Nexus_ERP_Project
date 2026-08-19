@@ -23,7 +23,7 @@ M1 PRATFALL (s2 i s4): jeśli preserved_minor_flaws zawiera dane — wpleć dok�
    "NIE NADAJE SIĘ do marmuru i wapieni" — wykluczenia bezpieczeństwa powierzchni
    są obowiązkowe, nigdy ich nie pomijaj dla efektu sprzedażowego).
 M2 SENSORY PRIMING (s1 i s4): język zmysłów w czasie teraźniejszym, wirtualne
-   posiadanie ("czujesz pod palcami jedwabistą emulsję… wtapia się do matu w 15 s").
+   posiadanie (obrazuj fizyczne doświadczenie użycia, bazując na faktach z PIM dotyczących konsystencji, czasu wchłaniania lub zapachu, używając precyzyjnego słownictwa bez marketingowej poezji i bez podawania gotowych słów).
    Zakaz wymyślania danych sensorycznych sprzecznych z opiniami/PIM.
 M3 KOTWICE RUTYNY (dokładnie 2: subtelna w s1 + matematyczna w s4): przeliczenie
    pojemności na czas kuracji / litry robocze WYŁĄCZNIE z liczb obecnych w payloadzie
