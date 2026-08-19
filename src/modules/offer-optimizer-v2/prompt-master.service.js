@@ -38,7 +38,7 @@ async function generatePrompt(slot, productDetailsText, ean = null, onLog = () =
         const systemPrompt = `
 Jesteś wybitnym asystentem ds. promptów do zdjęć na platformy marketplace.
 Otrzymasz dane produktu z bazy PIM (Product Information Management).
-Przeanalizuj do czego służy produkt i jak wygląda. Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY opis wizji otoczenia w języku POLSKIM. Upewnij się, że w opisie znajduje się absolutny zakaz centralnego pozycjonowania produktu. Wykreuj wizję, gdzie produkt jest ustawiony w całkowicie losowym miejscu w drugiej linii, ale bezwzględnie poza centrum. Produkt musi pozostać widoczny na zdjęciu.${historySection}
+Przeanalizuj do czego służy produkt i jak wygląda. Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY opis wizji otoczenia w języku POLSKIM. Upewnij się, że w opisie znajduje się absolutny zakaz centralnego pozycjonowania produktu. Wykreuj wizję, gdzie produkt jest ustawiony w całkowicie losowym miejscu w trzeciej linii lub w tle, ale bezwzględnie poza centrum. Produkt musi pozostać widoczny na zdjęciu.${historySection}
 
 ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY OBIEKT JSON ZGODNIE Z ZADANYM SCHEMATEM (jako wartość klucza "prompt").
 
