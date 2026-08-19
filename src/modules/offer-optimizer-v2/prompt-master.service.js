@@ -3,7 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const PROMPT_MASTER_AGENT_ID = "11";
-const MANDATORY_PREFIX = "Produkt referencyjny jest widoczny w kadrze. Cała sceneria opisana w prompcie musi się zmieścić w obrazie. ";
+const MANDATORY_PREFIX = "Produkt z bazowego zdjęcia musi być zawsze w 100% taki jak na zdjęciu bazowym. Nie wolno zmieniać kształtu, koloru produktu, nie wolno zmieniać napisów na etykiecie - etykieta ma być zawsze zachowana w oryginale. Cała sceneria opisana w prompcie musi się zmieścić w obrazie, a Produkt bazowy musi być na niej fizycznie umieszczony. ";
 
 const generationLocks = new Map();
 
@@ -36,21 +36,9 @@ async function generatePrompt(slot, productDetailsText, ean = null, onLog = () =
             : "";
 
         const systemPrompt = `
-Jesteś wybitnym asystentem ds. opisów przestrzennych.
+Jesteś wybitnym asystentem ds. promptów do zdjęć na platformy marketplace.
 Otrzymasz dane produktu z bazy PIM (Product Information Management).
-Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY opis wizji otoczenia w języku POLSKIM. Upewnij się, że w opisie znajduje się absolutny zakaz centralnego pozycjonowania produktu. Na końcu opisu zawsze dodaj słowa kluczowe podnoszące jakość (np. ostre detale, profesjonalna aranżacja, perfekcyjne światło).
-
-ZAKAZ MODYFIKACJI PRODUKTU: Masz absolutny zakaz opisywania w wizji cech samego produktu (np. zmiany koloru patyczków zapachowych, materiału, kształtu). Produkt referencyjny jest święty.
-
-BEZWZGLĘDNA OBECNOŚĆ PRODUKTU: Produkt referencyjny MUSI ZAWSZE znajdować się w opisywanej przestrzeni. Może stać daleko w tle, być za mgłą, parą lub mocno rozmyty (zależnie od polecenia), ale w Twoim opisie musi fizycznie istnieć w kreowanej wizji jako jej część.
-
-ZAKAZANE MOTYWY: Masz absolutny zakaz używania w opisie motywów lepienia garnków, koła garncarskiego oraz mrocznego klimatu stolarni/warsztatu.
-
-TWOJE ZADANIE: Wykreuj wizję, gdzie produkt jest ustawiony w całkowicie losowym miejscu w tle, ale bezwzględnie poza centrum. Produkt musi pozostać widoczny.
-
-WYMÓG KREATYWNOŚCI: 
-Przeanalizuj do czego służy produkt i wylosuj JEDNO, konkretne, ale nieszablonowe otoczenie dla niego. 
-Zaskocz mnie różnorodnością!${historySection}
+Przeanalizuj do czego służy produkt i jak wygląda. Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY opis wizji otoczenia w języku POLSKIM. Upewnij się, że w opisie znajduje się absolutny zakaz centralnego pozycjonowania produktu. Wykreuj wizję, gdzie produkt jest ustawiony w całkowicie losowym miejscu w drugiej linii, ale bezwzględnie poza centrum. Produkt musi pozostać widoczny na zdjęciu.${historySection}
 
 ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY OBIEKT JSON ZGODNIE Z ZADANYM SCHEMATEM (jako wartość klucza "prompt").
 
