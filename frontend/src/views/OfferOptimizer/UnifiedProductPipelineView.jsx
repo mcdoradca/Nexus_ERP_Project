@@ -253,22 +253,43 @@ export const UnifiedProductPipelineView = ({
         }
     }, [editingProduct, token, DRAFT_KEY]);
 
+    const isQuotaExceededRef = useRef(false);
+
     // Autosave do LocalStorage
     useEffect(() => {
         if (newProductForm.name || newProductForm.sku || newProductForm.ean) {
+             const cleanupOldDrafts = () => {
+                 try {
+                     const keys = Object.keys(localStorage);
+                     const draftKeys = keys.filter(k => k.startsWith('nexus_pipeline_draft_') && k !== DRAFT_KEY);
+                     // Jeśli jest więcej niż 1 inny draft, usuwamy pierwszy z brzegu by zwolnić limit
+                     if (draftKeys.length > 1) {
+                         localStorage.removeItem(draftKeys[0]);
+                     }
+                 } catch(e) {}
+             };
+
              const draft = { newProductForm, editorHtml, liveTitle, visionTickets, brandSearchTerm };
              try {
                  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+                 isQuotaExceededRef.current = false;
              } catch (e) {
                  if (e.name === 'QuotaExceededError' || e.message.includes('quota') || e.message.includes('Quota')) {
-                     console.warn("Przekroczono limit LocalStorage (prawdopodobnie przez duże zdjęcia). Zapisuję draft bez visionTickets.");
+                     cleanupOldDrafts();
+                     if (!isQuotaExceededRef.current) {
+                         console.warn("Przekroczono limit LocalStorage. Zapisuję draft bez zdjęć.");
+                     }
                      const fallbackDraft = { newProductForm, editorHtml, liveTitle, brandSearchTerm };
                      try {
                          localStorage.setItem(DRAFT_KEY, JSON.stringify(fallbackDraft));
+                         isQuotaExceededRef.current = false;
                      } catch (err2) {
-                         console.error("Nawet pomniejszony autosave się nie powiódł:", err2);
+                         if (!isQuotaExceededRef.current) {
+                             console.warn("Brak miejsca w przeglądarce na autosave. Wymagane ręczne wyczyszczenie pamięci.");
+                             isQuotaExceededRef.current = true;
+                         }
                      }
-                 } else {
+                 } else if (!isQuotaExceededRef.current) {
                      console.error("Autosave error:", e);
                  }
              }
