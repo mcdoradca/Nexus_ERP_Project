@@ -256,13 +256,22 @@ export const UnifiedProductPipelineView = ({
     // Autosave do LocalStorage
     useEffect(() => {
         if (newProductForm.name || newProductForm.sku || newProductForm.ean) {
-             const draft = { newProductForm, editorHtml, liveTitle, visionTickets, brandSearchTerm };
+             // Usuwamy rawBase64, by nie dublować ciężaru obrazka w LocalStorage
+             const slimVisionTickets = visionTickets.map(t => {
+                 const { rawBase64, ...rest } = t;
+                 return rest;
+             });
+             const draft = { newProductForm, editorHtml, liveTitle, visionTickets: slimVisionTickets, brandSearchTerm };
              try {
                  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
              } catch (e) {
                  if (e.name === 'QuotaExceededError' || e.message.includes('quota') || e.message.includes('Quota')) {
-                     console.warn("Przekroczono limit LocalStorage (prawdopodobnie przez duże zdjęcia). Zapisuję draft bez visionTickets.");
-                     const fallbackDraft = { newProductForm, editorHtml, liveTitle, brandSearchTerm };
+                     console.warn("Przekroczono limit LocalStorage (prawdopodobnie przez duże zdjęcia). Zapisuję draft ze zredukowanymi Base64.");
+                     const ultraSlimVisionTickets = slimVisionTickets.map(t => {
+                         const { replacedUrl, ...rest } = t; // Usuwamy resztę Base64 w razie drastycznego braku miejsca
+                         return rest;
+                     });
+                     const fallbackDraft = { newProductForm, editorHtml, liveTitle, visionTickets: ultraSlimVisionTickets, brandSearchTerm };
                      try {
                          localStorage.setItem(DRAFT_KEY, JSON.stringify(fallbackDraft));
                      } catch (err2) {
