@@ -128,6 +128,8 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         fd.append('removeBackground', 'false');
         fd.append('editWithAI.mode', 'ai.auto');
         fd.append('editWithAI.prompt', generatedPrompt);
+        // Parametr Photoroom API zapobiegający ucinaniu produktu z brzegów kadru
+        fd.append('ignorePaddingAndSnapOnCroppedSides', 'false');
         // Losowy seed dla dodatkowego zróżnicowania
         fd.append('editWithAI.seed', seed);
 
@@ -139,6 +141,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         console.log(` - editWithAI.mode: ai.auto`);
         console.log(` - editWithAI.prompt:\n   "${generatedPrompt}"`);
         console.log(` - editWithAI.seed: ${seed}`);
+        console.log(` - ignorePaddingAndSnapOnCroppedSides: false`);
         console.log(`=========================================================\n`);
         
         onLog(`\n[PHOTOROOM API - WYSYŁANY PAYLOAD Z FORMDATA]
@@ -148,6 +151,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 - editWithAI.mode: ai.auto
 - editWithAI.prompt: ${generatedPrompt}
 - editWithAI.seed: ${seed}
+- ignorePaddingAndSnapOnCroppedSides: false
 [KONIEC PAYLOADU]`);
     }
 
