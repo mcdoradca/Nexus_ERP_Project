@@ -824,8 +824,11 @@ export const UnifiedProductPipelineView = ({
                                             <PhotographicAuditorCard 
                                                 key={i} index={i} ean={liveEan} imageObj={ticket} primaryImageObj={visionTickets[0]}
                                                 socket={socket}
-                                                onImageReplace={(newUrl) => {
-                                                    const updated = [...visionTickets]; updated[i].replacedUrl = newUrl; setVisionTickets(updated);
+                                                onImageReplace={(newUrl, rawUrl) => {
+                                                    const updated = [...visionTickets]; 
+                                                    updated[i].replacedUrl = newUrl; 
+                                                    if (rawUrl) updated[i].rawBase64 = rawUrl;
+                                                    setVisionTickets(updated);
                                                 }} 
                                                 onImageDelete={() => {
                                                     const updated = [...visionTickets];

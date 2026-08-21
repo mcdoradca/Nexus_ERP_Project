@@ -15,6 +15,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
     
     const [imgError, setImgError] = useState(false);
     const [useDirectUrl, setUseDirectUrl] = useState(false);
+    const [showRaw, setShowRaw] = useState(false);
     const [aiLogs, setAiLogs] = useState([]);
     const logsEndRef = useRef(null);
 
@@ -103,7 +104,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                         
                         if (statusData.status === 'COMPLETED') {
                             if (statusData.newImageBase64) {
-                                if (onImageReplace) onImageReplace(statusData.newImageBase64);
+                                if (onImageReplace) onImageReplace(statusData.newImageBase64, statusData.rawBase64);
                                 if (statusData.visualTrendReport) {
                                     setTrendReport(statusData.visualTrendReport);
                                 }
@@ -122,7 +123,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                 }
                 throw new Error(`Przekroczono czas oczekiwania na odpowiedź serwera Wizualnego AI (180s). Próba przerwana.`);
             } else if (initData && initData.newImageBase64) {
-                if (onImageReplace) onImageReplace(initData.newImageBase64);
+                if (onImageReplace) onImageReplace(initData.newImageBase64, initData.rawBase64);
                 if (initData.visualTrendReport) {
                     setTrendReport(initData.visualTrendReport);
                 }
@@ -286,7 +287,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                          </div>
                      </div>
                  ) : (
-                     <img src={imageObj.replacedUrl || undefined} alt="Poprawione zdjęcie" className="w-full h-full absolute inset-0 object-contain bg-slate-100 transition-transform group-hover:scale-105 z-0" />
+                     <img src={showRaw && imageObj.rawBase64 ? imageObj.rawBase64 : (imageObj.replacedUrl || undefined)} alt="Poprawione zdjęcie" className="w-full h-full absolute inset-0 object-contain bg-slate-100 transition-transform group-hover:scale-105 z-0" />
                  )}
                  
                  {/* Nakładka Dropzone Aktywna na Hover lub Drug (Zawsze aktywna w kodzie by łapać styl po dragu na rodzicu) */}
@@ -352,8 +353,17 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
 
             {/* Nowy Toolbar (Zawsze widoczny na dole) */}
             <div className="flex bg-slate-100 border-t border-slate-400 divide-x divide-slate-200">
+                {imageObj.rawBase64 && (
+                    <button 
+                        onClick={() => setShowRaw(!showRaw)}
+                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest flex justify-center items-center transition-colors ${showRaw ? 'bg-indigo-100 text-indigo-700' : 'text-slate-500 hover:bg-slate-200 hover:text-indigo-600'}`}
+                    >
+                        <Camera className="w-3.5 h-3.5 mr-1" />
+                        {showRaw ? 'FINAL' : 'RAW'}
+                    </button>
+                )}
                 <button 
-                    onClick={() => onView && onView(isFixed ? imageObj.replacedUrl : imageObj.originalUrl)}
+                    onClick={() => onView && onView(isFixed ? (showRaw && imageObj.rawBase64 ? imageObj.rawBase64 : imageObj.replacedUrl) : imageObj.originalUrl)}
                     className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 hover:text-indigo-600 transition-colors flex justify-center items-center"
                 >
                     <Maximize2 className="w-3.5 h-3.5 mr-1" />
