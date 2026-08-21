@@ -3,12 +3,12 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const PROMPT_MASTER_AGENT_ID = "11";
-const MANDATORY_PREFIX = "Produkt z bazowego zdjęcia musi być zawsze w 100% taki jak na zdjęciu bazowym. Nie wolno zmieniać kształtu, koloru produktu, nie wolno zmieniać napisów na etykiecie - etykieta ma być zawsze zachowana w oryginale. Cała sceneria opisana w prompcie musi się zmieścić w obrazie, a Produkt bazowy musi być na niej fizycznie umieszczony. ";
+const MANDATORY_PREFIX = ""; // Zostawione awaryjnie
 
 const generationLocks = new Map();
 
-async function generatePrompt(slot, productDetailsText, ean = null, onLog = () => {}) {
-    const instruction = "Wykreuj scenę, gdzie produkt jest ustawiony w całkowicie losowym miejscu w tle, ale bezwzględnie poza centrum kadru. Produkt musi pozostać widoczny.";
+async function generatePrompt(slot, productDetailsText, ean = null, imageBase64 = null, onLog = () => {}) {
+    const instruction = "Wykonywanie instrukcji dla Photoroom według nowego wzorca z PIM i obrazem referencyjnym.";
 
     let releaseLock = null;
     if (ean) {
@@ -36,11 +36,39 @@ async function generatePrompt(slot, productDetailsText, ean = null, onLog = () =
             : "";
 
         const systemPrompt = `
-Jesteś wybitnym asystentem ds. promptów do zdjęć na platformy marketplace.
-Otrzymasz dane produktu z bazy PIM (Product Information Management).
-Przeanalizuj do czego służy produkt i jak wygląda. Twoim jedynym zadaniem jest wygenerować KRÓTKI, ZWIĘZŁY i WYBITNY opis wizji otoczenia w języku POLSKIM. Upewnij się, że w opisie znajduje się absolutny zakaz centralnego pozycjonowania produktu. Wykreuj wizję, gdzie produkt jest ustawiony w całkowicie losowym miejscu w trzeciej linii lub w tle, ale bezwzględnie poza centrum. Produkt musi pozostać widoczny na zdjęciu.${historySection}
+Jesteś wyspecjalizowanym modułem generującym prompty scenerii dla silnika Photoroom w modelu masowym. Twoim zadaniem jest przetłumaczenie danych produktu z PIM na jednolinijkowy, wybitny opis sceny lifestylowej.
 
-ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY OBIEKT JSON ZGODNIE Z ZADANYM SCHEMATEM (jako wartość klucza "prompt").
+Główny cel techniczny:
+Ukrycie niedoskonałości generowania tekstu na etykiecie poprzez naturalne rozmycie tła (bokeh), oddalenie perspektywiczne lub przesłony atmosferyczne (para wodna, mgiełka, dym, miękkie światło).
+
+Żelazne reguły tworzenia promptu:
+
+Kotwica nazewnictwa: Zawsze używaj dokładnie frazy: produkt ze zdjęcia referencyjnego.
+
+Bezwzględny zakaz wyśrodkowania: Produkt NIE MOŻE stać w centrum kadru, na osi symetrii ani na pierwszym planie (zero hero shot, zero zoomu).
+
+Konstrukcja dwuplanowa (obowiązkowa):
+
+Pierwszy plan (ostry): Zawsze zdefiniuj atrakcyjny, wyraźny obiekt nawiązujący do składu/kraju/klimatu (np. owoce, zioła, naczynia, tkaniny, drewno), który skupia ostrość kamery.
+
+Głębia / Tło (produkt): Umieść produkt ze zdjęcia referencyjnego daleko w tle, asymetrycznie (z boku), w miękkim rozmyciu (bokeh), za lekką mgiełką, parą wodną lub smugą światła.
+
+Format wyjścia: Zwracaj WYŁĄCZNIE gotowy prompt (1-3 zdania, 30–50 słów). Bez wstępów, bez cudzysłowów, bez komentarzy. ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY OBIEKT JSON ZGODNIE Z ZADANYM SCHEMATEM (jako wartość klucza "prompt").
+
+Wzorzec konstrukcyjny promptu wyjściowego:
+
+[Szeroki kadr / styl wnętrza lub pleneru]. Na ostrym pierwszym planie [konkretne rekwizyty / składniki / detale]. Daleko w tle, [z lewej/prawej strony], poza główną głębią ostrości (miękki bokeh / lekka para wodna / mgiełka), jako naturalny element otoczenia stoi produkt ze zdjęcia referencyjnego.
+
+Przykłady wzorcowe (Few-Shot dla Agenta):
+
+Przykład 1 (Mydło/Kosmetyk śródziemnomorski):
+Szeroki kadr toskańskiej kuchni w ciepłym świetle. Na ostrym pierwszym planie po prawej stronie drewniany stół z misą dojrzałych pomidorów, świeżą bazylią i miedzianym dzbanem. W głębi, na kamiennym blacie skrajnie po lewej, spowity delikatną parą znad garnka i miękkim rozmyciem tła (bokeh), stoi produkt ze zdjęcia referencyjnego.
+
+Przykład 2 (Płyn do kąpieli / SPA):
+Szeroki kadr luksusowego, kamiennego salonu kąpielowego. Na pierwszym planie, w pełnej ostrości, brzeg wanny z naturalną gąbką morską, zapaloną świecą i gałązkami eukaliptusa. W tle, na oddalonej marmurowej półce w głębi zamglonego od kąpieli pomieszczenia, stoi zblurowany produkt ze zdjęcia referencyjnego.
+
+Przykład 3 (Kawa / Produkt spożywczy):
+Szeroki kadr klimatycznej kawiarni w stylu vintage. Na pierwszym planie ostry, drewniany stolik z filiżanką espresso z gęstą cremą i rozsypanymi ziarnami kawy. Daleko w tle, na bocznej drewnianej szafce za unoszącą się smugą pary z ekspresu, stoi delikatnie nieostry produkt ze zdjęcia referencyjnego.${historySection}
 
 Dane produktu PIM:
 ${productDetailsText}
@@ -61,9 +89,19 @@ ${productDetailsText}
             required: ["prompt"]
         };
 
+        const promptPayload = [systemPrompt];
+        if (imageBase64) {
+            promptPayload.push({
+                inlineData: {
+                    data: imageBase64,
+                    mimeType: "image/jpeg"
+                }
+            });
+        }
+
         const response = await callAgentWithTelemetry({
             agentId: PROMPT_MASTER_AGENT_ID,
-            prompt: systemPrompt,
+            prompt: promptPayload,
             schema: cleanSchema,
             onLog
         });
@@ -104,7 +142,7 @@ ${productDetailsText}
         console.error("[Prompt Master] Błąd generowania promptu:", error.message);
         onLog(`\n[ERROR - AGENT 11] KRYTYCZNY BŁĄD GENEROWANIA PROMPTU\nZłapano wyjątek: ${error?.message || error}\nStack: ${error?.stack || 'Brak stack trace'}\nZwracam domyślny bezpieczny prompt (Fallback).\n[ERROR - KONIEC]`);
         // Fallback w razie błędu - bezpieczny, neutralny prompt z zachowaniem prefiksu
-        return MANDATORY_PREFIX + "Produkt umieszczony w neutralnym, estetycznym otoczeniu z doskonałym oświetleniem.";
+        return MANDATORY_PREFIX + "Szeroki kadr. Na ostrym pierwszym planie neutralne detale. W tle lekko rozmyty produkt ze zdjęcia referencyjnego.";
     } finally {
         if (releaseLock) {
             releaseLock();

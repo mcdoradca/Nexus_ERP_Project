@@ -84,12 +84,21 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
             if (dbProduct) {
                 const featuresString = dbProduct.features ? JSON.stringify(dbProduct.features) : '';
                 let textDesc = '';
-                if (dbProduct.offerDraft && dbProduct.offerDraft.htmlContent && dbProduct.offerDraft.htmlContent.sekcja1) {
-                    // Wyciągnięcie Modułu 1 i chirurgiczne usunięcie tagów HTML oraz zbędnych spacji
-                    textDesc = dbProduct.offerDraft.htmlContent.sekcja1
-                        .replace(/<[^>]*>?/gm, '')
-                        .replace(/\s+/g, ' ')
-                        .trim();
+                if (dbProduct.offerDraft && dbProduct.offerDraft.htmlContent) {
+                    if (dbProduct.offerDraft.htmlContent.sekcja1) {
+                        // Wyciągnięcie Modułu 1
+                        textDesc += dbProduct.offerDraft.htmlContent.sekcja1
+                            .replace(/<[^>]*>?/gm, '')
+                            .replace(/\s+/g, ' ')
+                            .trim() + ' ';
+                    }
+                    if (dbProduct.offerDraft.htmlContent.sekcja3) {
+                        // Wyciągnięcie Modułu 3: DETALE
+                        textDesc += dbProduct.offerDraft.htmlContent.sekcja3
+                            .replace(/<[^>]*>?/gm, '')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                    }
                 }
                 
                 productDetailsText = `NAME: ${dbProduct.name} FEATURES: ${featuresString} STRENGTHS: ${textDesc}`;
@@ -115,7 +124,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         onLog(`[PHOTOROOM API] Konfiguracja: Miniatura (removeBackground: true)`);
     } else {
         // Zdjęcia lifestylowe (Prompt Master)
-        generatedPrompt = await PromptMasterService.generatePrompt(slot, productDetailsText, ean, onLog);
+        generatedPrompt = await PromptMasterService.generatePrompt(slot, productDetailsText, ean, inputBuffer.toString('base64'), onLog);
         const seed = Math.floor(Math.random() * 2147483647).toString();
         
         fd.append('removeBackground', 'false');
