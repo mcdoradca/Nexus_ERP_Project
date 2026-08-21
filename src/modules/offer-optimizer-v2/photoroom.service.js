@@ -266,12 +266,10 @@ ${leftFrameSvg}
         }
 
         const base64Output = `data:image/jpeg;base64,${compositedBuffer.toString('base64')}`;
-        const rawBase64Output = `data:image/jpeg;base64,${resultBuffer.toString('base64')}`;
         onLog(`[GOTOWE] Zakończono post-processing. Zwracam Base64 zdjęcia.`);
 
         return {
             base64: base64Output,
-            rawBase64: rawBase64Output,
             visualTrendReport: `Wygenerowano za pomocą V2 Prompt Master. Agent ID: 11.`
         };
 

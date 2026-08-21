@@ -568,7 +568,6 @@ const generateLifestyle = async (req, res) => {
                 
                 const aiResult = await PhotoroomServiceV2.generateLifestyle(imageBase64, sourceImageUrl, ean, imageIndex, onLog);
                 const newImageBase64 = aiResult.base64;
-                const rawBase64 = aiResult.rawBase64;
                 const visualTrendReport = aiResult.visualTrendReport;
                 
                 if (ean) {
@@ -585,7 +584,7 @@ const generateLifestyle = async (req, res) => {
                 lifestyleJobs.set(jobId, {
                     status: 'COMPLETED',
                     createdAt: Date.now(),
-                    result: { newImageBase64, rawBase64, visualTrendReport }
+                    result: { newImageBase64, visualTrendReport }
                 });
                 console.log(`[Lifestyle AI Async] Zadanie ${jobId} zakończone sukcesem.`);
             } catch (e) {
