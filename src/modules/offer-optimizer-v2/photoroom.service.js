@@ -185,15 +185,19 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
             ? dbProduct.brand.name.toUpperCase() 
             : null;
 
-        const aiPath = textToPathData('AI', 22);
+        const W = rawMetadata.width;
+        const H = rawMetadata.height;
+        const scale = Math.min(W, H) / 1080;
+        const thickness = Math.max(2, Math.round(18 * scale));
+
+        const aiPath = textToPathData('AI', Math.round(22 * scale));
 
         let leftFrameSvg = '';
         if (brand) {
-            const brandPath = textToPathData(brand, 28);
-            const H = 1080;
+            const brandPath = textToPathData(brand, Math.round(28 * scale));
             const brandY = (H / 2) + (brandPath.width / 2);
             
-            const padding = 60;
+            const padding = Math.round(60 * scale);
             const gapHeight = brandPath.width + padding;
             let topRectHeight = (H / 2) - (gapHeight / 2);
             let bottomRectY = (H / 2) + (gapHeight / 2);
@@ -204,39 +208,41 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 
             leftFrameSvg = `
           <!-- Lewa ramka (Zielona) - Przerwana na środku dla marki -->
-          <rect x="0" y="0" width="18" height="${topRectHeight}" fill="#009246" />
-          <rect x="0" y="${bottomRectY}" width="18" height="${bottomRectHeight}" fill="#009246" />
+          <rect x="0" y="0" width="${thickness}" height="${topRectHeight}" fill="#009246" />
+          <rect x="0" y="${bottomRectY}" width="${thickness}" height="${bottomRectHeight}" fill="#009246" />
           
           <!-- Tekst Marki jako Czyste Krzywe SVG -->
-          <g transform="translate(20, ${brandY}) rotate(-90)">
-            <path d="${brandPath.d}" fill="#009246" stroke="#FFFFFF" stroke-width="1.5" />
+          <g transform="translate(${Math.round(20 * scale)}, ${brandY}) rotate(-90)">
+            <path d="${brandPath.d}" fill="#009246" stroke="#FFFFFF" stroke-width="${1.5 * scale}" />
           </g>`;
         }
 
+        const segmentW = W / 3;
+
         const svgFrame = `
-        <svg width="1080" height="1080" xmlns="http://www.w3.org/2000/svg">
+        <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
           <!-- Prawa ramka (Czerwona) -->
-          <rect x="1062" y="0" width="18" height="1080" fill="#CE2B37" />
+          <rect x="${W - thickness}" y="0" width="${thickness}" height="${H}" fill="#CE2B37" />
           
           <!-- Górna ramka (Zielony, Biały, Czerwony) -->
-          <rect x="0" y="0" width="360" height="18" fill="#009246" />
-          <rect x="360" y="0" width="360" height="18" fill="#FFFFFF" />
-          <rect x="720" y="0" width="360" height="18" fill="#CE2B37" />
+          <rect x="0" y="0" width="${segmentW}" height="${thickness}" fill="#009246" />
+          <rect x="${segmentW}" y="0" width="${segmentW}" height="${thickness}" fill="#FFFFFF" />
+          <rect x="${segmentW * 2}" y="0" width="${W - segmentW * 2}" height="${thickness}" fill="#CE2B37" />
           
           <!-- Dolna ramka (Zielony, Biały, Czerwony) -->
-          <rect x="0" y="1062" width="360" height="18" fill="#009246" />
-          <rect x="360" y="1062" width="360" height="18" fill="#FFFFFF" />
-          <rect x="720" y="1062" width="360" height="18" fill="#CE2B37" />
+          <rect x="0" y="${H - thickness}" width="${segmentW}" height="${thickness}" fill="#009246" />
+          <rect x="${segmentW}" y="${H - thickness}" width="${segmentW}" height="${thickness}" fill="#FFFFFF" />
+          <rect x="${segmentW * 2}" y="${H - thickness}" width="${W - segmentW * 2}" height="${thickness}" fill="#CE2B37" />
 
 ${leftFrameSvg}
 
           <!-- Znacznik AI -->
-          <g transform="translate(940, 1000)">
-            <rect x="0" y="0" width="100" height="40" rx="20" fill="rgba(0,0,0,0.65)" />
-            <g transform="translate(15, 28)">
+          <g transform="translate(${W - Math.round(140 * scale)}, ${H - Math.round(80 * scale)})">
+            <rect x="0" y="0" width="${Math.round(100 * scale)}" height="${Math.round(40 * scale)}" rx="${Math.round(20 * scale)}" fill="rgba(0,0,0,0.65)" />
+            <g transform="translate(${Math.round(15 * scale)}, ${Math.round(28 * scale)})">
                 <path d="${aiPath.d}" fill="white" />
             </g>
-            <g transform="translate(50, 4) scale(1.33)">
+            <g transform="translate(${Math.round(50 * scale)}, ${Math.round(4 * scale)}) scale(${1.33 * scale})">
               <path d="M10 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8z" fill="white" />
               <path d="M19 3c0 1.66-1.34 3-3 3 1.66 0 3 1.34 3 3 0-1.66 1.34-3 3-3-1.66 0-3-1.34-3-3z" fill="white" />
               <path d="M17 15c0 1.1-0.9 2-2 2 1.1 0 2 0.9 2 2 0-1.1 0.9-2 2-2-1.1 0-2-0.9-2-2z" fill="white" />
