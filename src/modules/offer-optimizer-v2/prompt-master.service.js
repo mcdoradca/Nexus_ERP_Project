@@ -47,17 +47,19 @@ Kotwica nazewnictwa: Zawsze używaj dokładnie frazy: produkt ze zdjęcia refere
 
 Bezwzględny zakaz wyśrodkowania: Produkt NIE MOŻE stać w centrum kadru, na osi symetrii ani na pierwszym planie (zero hero shot, zero zoomu).
 
-Konstrukcja dwuplanowa (obowiązkowa):
+Konstrukcja dwuplanowa i opis przestrzeni (obowiązkowe):
+Wymagane jest wygenerowanie pełnego opisu widoku otoczenia (opis szerokiej przestrzeni i głębi).
+Musisz określić konkretne umiejscowienie przedmiotu w scenerii (gdzie konkretnie stoi, na jakiej powierzchni, w jakiej odległości od widza).
 
 Pierwszy plan (ostry): Zawsze zdefiniuj atrakcyjny, wyraźny obiekt nawiązujący do składu/kraju/klimatu (np. owoce, zioła, naczynia, tkaniny, drewno), który skupia ostrość kamery.
 
-Głębia / Tło (produkt): Umieść produkt ze zdjęcia referencyjnego daleko w tle, asymetrycznie (z boku), w miękkim rozmyciu (bokeh), za lekką mgiełką, parą wodną lub smugą światła.
+Głębia / Tło (produkt): Umieść produkt ze zdjęcia referencyjnego daleko w tle, asymetrycznie (z boku), określając konkretną powierzchnię (np. na dębowej półce ściennej 3 metry za pierwszym planem). Produkt ma być w miękkim rozmyciu (bokeh), za lekką mgiełką, parą wodną lub smugą światła.
 
-Format wyjścia: Zwracaj WYŁĄCZNIE gotowy prompt (1-3 zdania, 30–50 słów). Bez wstępów, bez cudzysłowów, bez komentarzy. ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY OBIEKT JSON ZGODNIE Z ZADANYM SCHEMATEM (jako wartość klucza "prompt").
+Format wyjścia: Zwracaj WYŁĄCZNIE gotowy prompt (1-3 zdania, 30–60 słów). Bez wstępów, bez cudzysłowów, bez komentarzy. ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY OBIEKT JSON ZGODNIE Z ZADANYM SCHEMATEM (jako wartość klucza "prompt").
 
 Wzorzec konstrukcyjny promptu wyjściowego:
 
-[Szeroki kadr / styl wnętrza lub pleneru]. Na ostrym pierwszym planie [konkretne rekwizyty / składniki / detale]. Daleko w tle, [z lewej/prawej strony], poza główną głębią ostrości (miękki bokeh / lekka para wodna / mgiełka), jako naturalny element otoczenia stoi produkt ze zdjęcia referencyjnego.
+[Szeroki kadr / rozbudowany styl wnętrza lub pleneru ze wskazaniem obszernej przestrzeni]. Na ostrym pierwszym planie [konkretne rekwizyty / składniki / detale]. Znacznie dalej w głębi sceny, na [dokładny opis mebla/powierzchni na jakiej stoi, np. marmurowym blacie w rogu pokoju], [z lewej/prawej strony], poza główną głębią ostrości (miękki bokeh / lekka para wodna / mgiełka), jako naturalny element otoczenia stoi produkt ze zdjęcia referencyjnego.
 
 Przykłady wzorcowe (Few-Shot dla Agenta):
 
@@ -90,14 +92,8 @@ ${productDetailsText}
         };
 
         const promptPayload = [systemPrompt];
-        if (imageBase64) {
-            promptPayload.push({
-                inlineData: {
-                    data: imageBase64,
-                    mimeType: "image/jpeg"
-                }
-            });
-        }
+        // Zrezygnowano z przesyłania imageBase64 do modelu LLM w celu odciążenia
+        // zasobów (Agent opiera się wyłącznie na systemPrompt i PIM).
 
         const response = await callAgentWithTelemetry({
             agentId: PROMPT_MASTER_AGENT_ID,
