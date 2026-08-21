@@ -51,26 +51,26 @@ Konstrukcja dwuplanowa i opis przestrzeni (obowiązkowe):
 Wymagane jest wygenerowanie pełnego opisu widoku otoczenia (opis szerokiej przestrzeni i głębi).
 Musisz określić konkretne umiejscowienie przedmiotu w scenerii (gdzie konkretnie stoi, na jakiej powierzchni, w jakiej odległości od widza).
 
-Pierwszy plan (ostry): Zawsze zdefiniuj atrakcyjny, wyraźny obiekt nawiązujący do składu/kraju/klimatu (np. owoce, zioła, naczynia, tkaniny, drewno), który skupia ostrość kamery.
+Głębia / Tło (produkt): Generację promptu ZAWSZE ZACZYNAJ od umiejscowienia produktu. Umieść produkt ze zdjęcia referencyjnego daleko w tle, asymetrycznie (z boku), określając konkretną powierzchnię (np. na dębowej półce ściennej 3 metry od widza). Produkt ma być w miękkim rozmyciu (bokeh), za lekką mgiełką, parą wodną lub smugą światła.
 
-Głębia / Tło (produkt): Umieść produkt ze zdjęcia referencyjnego daleko w tle, asymetrycznie (z boku), określając konkretną powierzchnię (np. na dębowej półce ściennej 3 metry za pierwszym planem). Produkt ma być w miękkim rozmyciu (bokeh), za lekką mgiełką, parą wodną lub smugą światła.
+Pierwszy plan (ostry): Następnie opisz otoczenie i ostry pierwszy plan, który ma znajdować się przed produktem, blisko widza. Zdefiniuj tu atrakcyjny, wyraźny obiekt nawiązujący do składu (np. owoce, naczynia, drewno), który skupia ostrość kamery, podczas gdy produkt jest odsunięty w tło.
 
 Format wyjścia: Zwracaj WYŁĄCZNIE gotowy prompt (1-3 zdania, 30–60 słów). Bez wstępów, bez cudzysłowów, bez komentarzy. ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY OBIEKT JSON ZGODNIE Z ZADANYM SCHEMATEM (jako wartość klucza "prompt").
 
 Wzorzec konstrukcyjny promptu wyjściowego:
 
-[Szeroki kadr / rozbudowany styl wnętrza lub pleneru ze wskazaniem obszernej przestrzeni]. Na ostrym pierwszym planie [konkretne rekwizyty / składniki / detale]. Znacznie dalej w głębi sceny, na [dokładny opis mebla/powierzchni na jakiej stoi, np. marmurowym blacie w rogu pokoju], [z lewej/prawej strony], poza główną głębią ostrości (miękki bokeh / lekka para wodna / mgiełka), jako naturalny element otoczenia stoi produkt ze zdjęcia referencyjnego.
+Na [dokładny opis mebla/powierzchni na jakiej stoi, np. starym dębowym regale], [w konkretnej odległości od widza, np. 3 metry w głębi], [z lewej/prawej strony] stoi produkt ze zdjęcia referencyjnego. Produkt jest lekko rozmyty (bokeh / lekka para wodna). Dookoła niego rozpościera się [rozbudowany opis stylu wnętrza lub pleneru ze wskazaniem obszernej przestrzeni]. Dopiero na bardzo bliskim, ostrym pierwszym planie znajdują się [konkretne rekwizyty / składniki / detale].
 
 Przykłady wzorcowe (Few-Shot dla Agenta):
 
 Przykład 1 (Mydło/Kosmetyk śródziemnomorski):
-Szeroki kadr toskańskiej kuchni w ciepłym świetle. Na ostrym pierwszym planie po prawej stronie drewniany stół z misą dojrzałych pomidorów, świeżą bazylią i miedzianym dzbanem. W głębi, na kamiennym blacie skrajnie po lewej, spowity delikatną parą znad garnka i miękkim rozmyciem tła (bokeh), stoi produkt ze zdjęcia referencyjnego.
+Na kamiennym blacie skrajnie po lewej, spowity delikatną parą i miękkim rozmyciem (bokeh), stoi produkt ze zdjęcia referencyjnego. Dookoła rozpościera się szeroki kadr toskańskiej kuchni w ciepłym świetle. Na ostrym pierwszym planie przed widzem znajduje się drewniany stół z misą dojrzałych pomidorów, świeżą bazylią i miedzianym dzbanem.
 
 Przykład 2 (Płyn do kąpieli / SPA):
-Szeroki kadr luksusowego, kamiennego salonu kąpielowego. Na pierwszym planie, w pełnej ostrości, brzeg wanny z naturalną gąbką morską, zapaloną świecą i gałązkami eukaliptusa. W tle, na oddalonej marmurowej półce w głębi zamglonego od kąpieli pomieszczenia, stoi zblurowany produkt ze zdjęcia referencyjnego.
+Na oddalonej marmurowej półce w głębi zamglonego od kąpieli pomieszczenia, stoi zblurowany produkt ze zdjęcia referencyjnego. Tworzy on element luksusowego, kamiennego salonu kąpielowego. Na samym przodzie, w pełnej ostrości pierwszego planu, widać brzeg wanny z naturalną gąbką morską, zapaloną świecą i gałązkami eukaliptusa.
 
 Przykład 3 (Kawa / Produkt spożywczy):
-Szeroki kadr klimatycznej kawiarni w stylu vintage. Na pierwszym planie ostry, drewniany stolik z filiżanką espresso z gęstą cremą i rozsypanymi ziarnami kawy. Daleko w tle, na bocznej drewnianej szafce za unoszącą się smugą pary z ekspresu, stoi delikatnie nieostry produkt ze zdjęcia referencyjnego.${historySection}
+Daleko w tle, na bocznej drewnianej szafce za unoszącą się smugą pary, stoi delikatnie nieostry produkt ze zdjęcia referencyjnego. Osadzony jest w szerokim kadrze klimatycznej kawiarni w stylu vintage. Na bliskim, ostrym pierwszym planie znajduje się drewniany stolik z filiżanką espresso z gęstą cremą i rozsypanymi ziarnami kawy.${historySection}
 
 Dane produktu PIM:
 ${productDetailsText}
@@ -138,7 +138,7 @@ ${productDetailsText}
         console.error("[Prompt Master] Błąd generowania promptu:", error.message);
         onLog(`\n[ERROR - AGENT 11] KRYTYCZNY BŁĄD GENEROWANIA PROMPTU\nZłapano wyjątek: ${error?.message || error}\nStack: ${error?.stack || 'Brak stack trace'}\nZwracam domyślny bezpieczny prompt (Fallback).\n[ERROR - KONIEC]`);
         // Fallback w razie błędu - bezpieczny, neutralny prompt z zachowaniem prefiksu
-        return MANDATORY_PREFIX + "Szeroki kadr. Na ostrym pierwszym planie neutralne detale. W tle lekko rozmyty produkt ze zdjęcia referencyjnego.";
+        return MANDATORY_PREFIX + "W tle stoi lekko rozmyty produkt ze zdjęcia referencyjnego. Znajduje się w szerokiej przestrzeni. Na ostrym pierwszym planie widoczne są neutralne detale.";
     } finally {
         if (releaseLock) {
             releaseLock();
