@@ -72,7 +72,15 @@ function App() {
   const [isNewUserModalOpen, setIsNewUserModalOpen] = useState(false);
   
   const [editingUser, setEditingUser] = useState(null);
-  const [editingProduct, setEditingProduct] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(localStorage.getItem('aps_editing_product') || null);
+
+  useEffect(() => {
+    if (editingProduct) {
+        localStorage.setItem('aps_editing_product', editingProduct);
+    } else {
+        localStorage.removeItem('aps_editing_product');
+    }
+  }, [editingProduct]);
   const [newUserForm, setNewUserForm] = useState({ 
     email: '', name: '', password: '', role: 'USER', group: 'PRACOWNICY', department: 'BRAK', color: 'bg-emerald-500', accessibleModules: ["kanban", "campaigns", "mtool", "projects", "products", "chat"] 
   });
