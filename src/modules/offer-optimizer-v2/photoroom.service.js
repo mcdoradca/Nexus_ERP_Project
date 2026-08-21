@@ -109,14 +109,11 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     }
 
     const fd = new FormData();
-    fd.append('imageFile', inputBuffer, `${ean}_src.jpg`);
-    fd.append('outputSize', '1080x1080');
-    fd.append('export.format', 'jpeg');
-
     let generatedPrompt = "";
 
     if (slot === 1) {
         // Miniatura - klasyczne usunięcie tła
+        fd.append('imageFile', inputBuffer, `${ean}_src.jpg`);
         fd.append('removeBackground', 'true');
         fd.append('background.color', '#FFFFFF');
         fd.append('padding', '0.05');
@@ -127,6 +124,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         generatedPrompt = await PromptMasterService.generatePrompt(slot, productDetailsText, ean, inputBuffer.toString('base64'), onLog);
         const seed = Math.floor(Math.random() * 2147483647).toString();
         
+        fd.append('imageFile', inputBuffer, `${ean}_src.jpg`);
         fd.append('removeBackground', 'false');
         fd.append('editWithAI.mode', 'ai.auto');
         fd.append('editWithAI.prompt', generatedPrompt);
@@ -137,23 +135,19 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         console.log(`ENDPOINT: POST ${PHOTOROOM_ENDPOINT}`);
         console.log(`PAYLOAD (Zmontowany obiekt FormData):`);
         console.log(` - imageFile: <Oryginalny Obraz Base64/Buffer ${inputBuffer.length} bytes>`);
-        console.log(` - outputSize: 1080x1080`);
-        console.log(` - export.format: jpeg`);
         console.log(` - removeBackground: false`);
         console.log(` - editWithAI.mode: ai.auto`);
-        console.log(` - editWithAI.seed: ${seed}`);
         console.log(` - editWithAI.prompt:\n   "${generatedPrompt}"`);
+        console.log(` - editWithAI.seed: ${seed}`);
         console.log(`=========================================================\n`);
         
         onLog(`\n[PHOTOROOM API - WYSYŁANY PAYLOAD Z FORMDATA]
 - endpoint: POST ${PHOTOROOM_ENDPOINT}
 - imageFile: <Buffer ${inputBuffer.length} bytes>
-- outputSize: 1080x1080
-- export.format: jpeg
 - removeBackground: false
 - editWithAI.mode: ai.auto
-- editWithAI.seed: ${seed}
 - editWithAI.prompt: ${generatedPrompt}
+- editWithAI.seed: ${seed}
 [KONIEC PAYLOADU]`);
     }
 
