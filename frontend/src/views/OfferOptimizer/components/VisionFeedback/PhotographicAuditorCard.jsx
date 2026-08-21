@@ -353,6 +353,17 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
             {/* Nowy Toolbar (Zawsze widoczny na dole) */}
             <div className="flex bg-slate-100 border-t border-slate-400 divide-x divide-slate-200">
                 <button 
+                    onClick={() => {
+                        const API_URL = import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`;
+                        window.open(`${API_URL}/api/photoroom/debug-images/static/photoroom_debug_raw_${ean || 'unknown'}_slot_${index + 1}.jpg`, '_blank');
+                    }}
+                    className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 hover:text-orange-600 transition-colors flex justify-center items-center"
+                    title="Zobacz surowy plik z Photoroom V2 z pominięciem filtra SVG"
+                >
+                    <Camera className="w-3.5 h-3.5 mr-1" />
+                    RAW
+                </button>
+                <button 
                     onClick={() => onView && onView(isFixed ? imageObj.replacedUrl : imageObj.originalUrl)}
                     className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 hover:text-indigo-600 transition-colors flex justify-center items-center"
                 >
