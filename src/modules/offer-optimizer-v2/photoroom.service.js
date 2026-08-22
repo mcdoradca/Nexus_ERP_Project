@@ -230,24 +230,24 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         const responseMetadata = await sharp(resultBuffer).metadata();
         onLog(`[POMIAR] Slot ${slot} | wejscie: ${inputMetadata.width}x${inputMetadata.height} | odpowiedz API: ${responseMetadata.width}x${responseMetadata.height}`);
         
-        // --- SKANER I CROPPER MARTWEGO POLA (USUNIĘCIE CZARNEGO PASA Z DOŁU) ---
-        resultBuffer = await removeBottomLetterbox(resultBuffer, onLog);
-        
-        const rawMetadata = await sharp(resultBuffer).metadata();
-        onLog(`[API SUCCESS] Odebrano poprawny obraz z Photoroom V2. Wymiary skorygowane RAW: ${rawMetadata.width}x${rawMetadata.height}. Rozpoczynam post-processing (Sharp)...`);
-        
         try {
             const debugDir = require('path').join(__dirname, 'debug_images');
             if (!require('fs').existsSync(debugDir)) {
                 require('fs').mkdirSync(debugDir, { recursive: true });
             }
             const safeEan = ean || 'unknown';
-            const rawPath = require('path').join(debugDir, `photoroom_debug_raw_${safeEan}_slot_${slot}.jpg`);
-            require('fs').writeFileSync(rawPath, resultBuffer);
-            onLog(`[DEBUG] Zapisano surowy obraz przed post-processingiem do: ${rawPath}`);
+            const rawApiPath = require('path').join(debugDir, `photoroom_debug_raw_api_${safeEan}_slot_${slot}.jpg`);
+            require('fs').writeFileSync(rawApiPath, resultBuffer);
+            onLog(`[DEBUG] Zapisano czysty obraz bezpośrednio z API (przed cropem) do: ${rawApiPath}`);
         } catch (e) {
             console.error('[DEBUG] Błąd zapisu pliku testowego:', e);
         }
+
+        // --- SKANER I CROPPER MARTWEGO POLA (USUNIĘCIE CZARNEGO PASA Z DOŁU) ---
+        resultBuffer = await removeBottomLetterbox(resultBuffer, onLog);
+        
+        const rawMetadata = await sharp(resultBuffer).metadata();
+        onLog(`[API SUCCESS] Odebrano poprawny obraz z Photoroom V2. Wymiary skorygowane RAW: ${rawMetadata.width}x${rawMetadata.height}. Rozpoczynam post-processing (Sharp)...`);
 
         // --- POST-PROCESSING: Włoska ramka i znak wodny AI (Sharp + opentype.js) ---
         const brand = (dbProduct && dbProduct.brand && dbProduct.brand.name) 
