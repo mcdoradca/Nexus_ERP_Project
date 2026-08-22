@@ -169,6 +169,8 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         fd.append('ignorePaddingAndSnapOnCroppedSides', 'false');
         // Losowy seed dla dodatkowego zróżnicowania
         fd.append('editWithAI.seed', seed);
+        fd.append('outputSize', '1200x1200');
+        fd.append('scaling', 'fill');
 
         console.log(`\n=== [Photoroom API] WYSYŁKA ŻĄDANIA DLA SLOTA ${slot} ===`);
         console.log(`ENDPOINT: POST ${PHOTOROOM_ENDPOINT}`);
@@ -179,6 +181,8 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         console.log(` - editWithAI.prompt:\n   "${generatedPrompt}"`);
         console.log(` - editWithAI.seed: ${seed}`);
         console.log(` - ignorePaddingAndSnapOnCroppedSides: false`);
+        console.log(` - outputSize: 1200x1200`);
+        console.log(` - scaling: fill`);
         console.log(`=========================================================\n`);
         
         onLog(`\n[PHOTOROOM API - WYSYŁANY PAYLOAD Z FORMDATA]
@@ -189,6 +193,8 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 - editWithAI.prompt: ${generatedPrompt}
 - editWithAI.seed: ${seed}
 - ignorePaddingAndSnapOnCroppedSides: false
+- outputSize: 1200x1200
+- scaling: fill
 [KONIEC PAYLOADU]`);
     }
 
@@ -205,6 +211,10 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         });
 
         let resultBuffer = Buffer.from(response.data);
+
+        const inputMetadata = await sharp(inputBuffer).metadata();
+        const responseMetadata = await sharp(resultBuffer).metadata();
+        onLog(`[POMIAR] Slot ${slot} | wejscie: ${inputMetadata.width}x${inputMetadata.height} | odpowiedz API: ${responseMetadata.width}x${responseMetadata.height}`);
         
         // --- SKANER I CROPPER MARTWEGO POLA (USUNIĘCIE CZARNEGO PASA Z DOŁU) ---
         resultBuffer = await removeBottomLetterbox(resultBuffer, onLog);
