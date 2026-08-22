@@ -49,6 +49,43 @@ async function fetchImageSecure(url, timeoutMs = 15000) {
     });
 }
 
+async function removeBottomLetterbox(imageBuffer, onLog = () => {}) {
+    try {
+        const img = sharp(imageBuffer);
+        const metadata = await img.metadata();
+        const { width, height } = metadata;
+
+        const { data } = await img.clone().greyscale().raw().toBuffer({ resolveWithObject: true });
+
+        let cropBottom = height;
+        for (let y = height - 1; y >= 0; y--) {
+            let isBoring = true;
+            let firstPixel = data[y * width];
+            for (let x = 0; x < width; x++) {
+                let pixel = data[y * width + x];
+                // Wariancja jasności nie większa niż 8 (skutecznie omija artefakty kompresji na całkowitej czerni/bieli/szarości)
+                if (Math.abs(pixel - firstPixel) > 8) {
+                    isBoring = false;
+                    break;
+                }
+            }
+            if (!isBoring) {
+                cropBottom = y + 1;
+                break;
+            }
+        }
+        
+        // Zabezpieczenie przed obcięciem mikrozabrudzeń (ucinamy tylko jeśli pas jest większy niż 5 pikseli)
+        if (cropBottom < height - 5) {
+            onLog(`[AI CROP] Automatyczne usunięcie technicznego tła. Docięto obraz: z ${height}px na ${cropBottom}px.`);
+            return await sharp(imageBuffer).extract({ left: 0, top: 0, width: width, height: cropBottom }).toBuffer();
+        }
+    } catch (e) {
+        console.error("[CROP ERROR] Nieudane obcinanie pasów technicznych:", e);
+    }
+    return imageBuffer;
+}
+
 // Główna usługa wywoływana przez kontroler
 async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0, onLog = () => {}) {
     const photoroomKey = process.env.PHOTOROOM_API_KEY;
@@ -167,9 +204,13 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
             timeout: 60000
         });
 
-        const resultBuffer = Buffer.from(response.data);
+        let resultBuffer = Buffer.from(response.data);
+        
+        // --- SKANER I CROPPER MARTWEGO POLA (USUNIĘCIE CZARNEGO PASA Z DOŁU) ---
+        resultBuffer = await removeBottomLetterbox(resultBuffer, onLog);
+        
         const rawMetadata = await sharp(resultBuffer).metadata();
-        onLog(`[API SUCCESS] Odebrano poprawny obraz z Photoroom V2. Wymiary RAW: ${rawMetadata.width}x${rawMetadata.height}. Rozpoczynam post-processing (Sharp)...`);
+        onLog(`[API SUCCESS] Odebrano poprawny obraz z Photoroom V2. Wymiary skorygowane RAW: ${rawMetadata.width}x${rawMetadata.height}. Rozpoczynam post-processing (Sharp)...`);
         
         try {
             const debugDir = require('path').join(__dirname, 'debug_images');
