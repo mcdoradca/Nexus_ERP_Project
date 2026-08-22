@@ -86,6 +86,25 @@ async function removeBottomLetterbox(imageBuffer, onLog = () => {}) {
     return imageBuffer;
 }
 
+async function padToSquare(imageBuffer, onLog = () => {}) {
+    const meta = await sharp(imageBuffer).metadata();
+    if (meta.width === meta.height) return imageBuffer;
+
+    const side = Math.max(meta.width, meta.height);
+    const left = Math.round((side - meta.width) / 2);
+    const top  = Math.round((side - meta.height) / 2);
+
+    onLog(`[NORMALIZACJA] Wejscie ${meta.width}x${meta.height} -> ${side}x${side} (biale tlo)`);
+
+    return await sharp(imageBuffer)
+        .flatten({ background: '#FFFFFF' })
+        .extend({ top, bottom: side - meta.height - top,
+                  left, right: side - meta.width - left,
+                  background: '#FFFFFF' })
+        .jpeg({ quality: 95 })
+        .toBuffer();
+}
+
 // Główna usługa wywoływana przez kontroler
 async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0, onLog = () => {}) {
     const photoroomKey = process.env.PHOTOROOM_API_KEY;
@@ -161,6 +180,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         generatedPrompt = await PromptMasterService.generatePrompt(slot, productDetailsText, ean, inputBuffer.toString('base64'), onLog);
         const seed = Math.floor(Math.random() * 2147483647).toString();
         
+        inputBuffer = await padToSquare(inputBuffer, onLog);
         fd.append('imageFile', inputBuffer, `${ean}_src.jpg`);
         fd.append('removeBackground', 'false');
         fd.append('editWithAI.mode', 'ai.auto');
@@ -169,8 +189,6 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         fd.append('ignorePaddingAndSnapOnCroppedSides', 'false');
         // Losowy seed dla dodatkowego zróżnicowania
         fd.append('editWithAI.seed', seed);
-        fd.append('outputSize', '1200x1200');
-        fd.append('scaling', 'fill');
 
         console.log(`\n=== [Photoroom API] WYSYŁKA ŻĄDANIA DLA SLOTA ${slot} ===`);
         console.log(`ENDPOINT: POST ${PHOTOROOM_ENDPOINT}`);
@@ -181,8 +199,6 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         console.log(` - editWithAI.prompt:\n   "${generatedPrompt}"`);
         console.log(` - editWithAI.seed: ${seed}`);
         console.log(` - ignorePaddingAndSnapOnCroppedSides: false`);
-        console.log(` - outputSize: 1200x1200`);
-        console.log(` - scaling: fill`);
         console.log(`=========================================================\n`);
         
         onLog(`\n[PHOTOROOM API - WYSYŁANY PAYLOAD Z FORMDATA]
@@ -193,8 +209,6 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 - editWithAI.prompt: ${generatedPrompt}
 - editWithAI.seed: ${seed}
 - ignorePaddingAndSnapOnCroppedSides: false
-- outputSize: 1200x1200
-- scaling: fill
 [KONIEC PAYLOADU]`);
     }
 
