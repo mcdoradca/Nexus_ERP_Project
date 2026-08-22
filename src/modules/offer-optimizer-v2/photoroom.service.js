@@ -126,8 +126,6 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         
         fd.append('imageFile', inputBuffer, `${ean}_src.jpg`);
         fd.append('removeBackground', 'false');
-        fd.append('outputSize', '1080x1080');
-        fd.append('export.format', 'jpeg');
         fd.append('editWithAI.mode', 'ai.auto');
         fd.append('editWithAI.prompt', generatedPrompt);
         // Parametr Photoroom API zapobiegający ucinaniu produktu z brzegów kadru
@@ -140,8 +138,6 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         console.log(`PAYLOAD (Zmontowany obiekt FormData):`);
         console.log(` - imageFile: <Oryginalny Obraz Base64/Buffer ${inputBuffer.length} bytes>`);
         console.log(` - removeBackground: false`);
-        console.log(` - outputSize: 1080x1080`);
-        console.log(` - export.format: jpeg`);
         console.log(` - editWithAI.mode: ai.auto`);
         console.log(` - editWithAI.prompt:\n   "${generatedPrompt}"`);
         console.log(` - editWithAI.seed: ${seed}`);
@@ -152,8 +148,6 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
 - endpoint: POST ${PHOTOROOM_ENDPOINT}
 - imageFile: <Buffer ${inputBuffer.length} bytes>
 - removeBackground: false
-- outputSize: 1080x1080
-- export.format: jpeg
 - editWithAI.mode: ai.auto
 - editWithAI.prompt: ${generatedPrompt}
 - editWithAI.seed: ${seed}
