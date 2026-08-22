@@ -9,7 +9,7 @@ const nodesConfig = {
     7: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MEDIUM },
     9: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MINIMAL },
     10: { model: 'gemini-3.1-pro-preview', thinkingLevel: ThinkingLevel.MEDIUM },
-    11: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MEDIUM }
+    11: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MEDIUM, temperature: 1.2 }
 };
 
 function getNodeConfig(agentId) {
