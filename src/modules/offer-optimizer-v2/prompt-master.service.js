@@ -36,41 +36,21 @@ async function generatePrompt(slot, productDetailsText, ean = null, imageBase64 
             : "";
 
         const systemPrompt = `
-Jesteś wyspecjalizowanym modułem generującym prompty scenerii dla silnika Photoroom w modelu masowym. Twoim zadaniem jest przetłumaczenie danych produktu z PIM na jednolinijkowy, wybitny opis sceny lifestylowej.
+Jesteś inżynierem promptów dla API generatora obrazów. Twoim zadaniem jest przekształcanie danych wejściowych w surowy, techniczny prompt kompozycyjny.
 
-Główny cel techniczny:
-Ukrycie niedoskonałości generowania tekstu na etykiecie poprzez naturalne rozmycie tła (bokeh), oddalenie perspektywiczne lub przesłony atmosferyczne (para wodna, mgiełka, dym, miękkie światło).
+ZASADY KOMPOZYCJI:
 
-Żelazne reguły tworzenia promptu:
+Ostrość na pierwszy plan: Zaczynaj od opisania detali na skrajnym pierwszym planie (ekstremalne zbliżenie makro). Elementy te MUSZĄ być fizycznie niskie i płaskie (np. rozsypane ziarna, małe kamienie, leżący ręcznik), aby nie zasłaniały głównego produktu.
 
-Kotwica nazewnictwa: Zawsze używaj dokładnie frazy: produkt ze zdjęcia referencyjnego.
+Punkt podparcia w tle: Zawsze umieszczaj główny produkt daleko w tle na konkretnej, fizycznej powierzchni (np. 'produkt stoi daleko w tle na drewnianej półce / kamiennym parapecie').
 
-Bezwzględny zakaz wyśrodkowania: Produkt NIE MOŻE stać w centrum kadru, na osi symetrii ani na pierwszym planie (zero hero shot, zero zoomu).
+Optyka: Zawsze kończ prompt blokiem parametrów: 'idealna ostrość na skrajnym pierwszym planie, tło jest nieostre, silne rozmycie tła (bokeh), płytka głębia ostrości, obiektyw 85mm, naturalne oświetlenie'.
 
-Konstrukcja dwuplanowa i opis przestrzeni (obowiązkowe):
-Wymagane jest wygenerowanie pełnego opisu widoku otoczenia (opis szerokiej przestrzeni i głębi).
-Musisz określić konkretne umiejscowienie przedmiotu w scenerii (gdzie konkretnie stoi, na jakiej powierzchni, w jakiej odległości od widza).
+ZASADY ZWROTU:
 
-Głębia / Tło (produkt): Generację promptu ZAWSZE ZACZYNAJ od umiejscowienia produktu. Umieść produkt ze zdjęcia referencyjnego w tle najlepiej w drugiej lub trzeciej linii, asymetrycznie (z boku) ale nie bezpośrednio przy krawędzi, określając konkretną powierzchnię (np. na dębowej półce ściennej 3 metry od widza). Produkt ma być w miękkim rozmyciu (bokeh).
+Zwracaj TYLKO gotowy prompt w języku polskim.
 
-Pierwszy plan (ostry): Następnie opisz otoczenie i ostry pierwszy plan, który ma znajdować się przed produktem, blisko widza. Zdefiniuj tu atrakcyjny, wyraźny obiekt nawiązujący do składu (np. owoce, naczynia, drewno), który skupia ostrość kamery, podczas gdy produkt jest odsunięty w tło.
-
-Format wyjścia: Zwracaj WYŁĄCZNIE gotowy prompt. Bez wstępów, bez cudzysłowów, bez komentarzy. ZWRÓĆ TYLKO I WYŁĄCZNIE CZYSTY OBIEKT JSON ZGODNIE Z ZADANYM SCHEMATEM (jako wartość klucza "prompt").
-
-Wzorzec konstrukcyjny promptu wyjściowego:
-
-Na [dokładny opis mebla/powierzchni na jakiej stoi, np. starym dębowym regale], [w konkretnej odległości od widza, np. 3 metry w głębi], [z lewej/prawej strony] stoi produkt ze zdjęcia referencyjnego. Produkt jest lekko rozmyty (bokeh / lekka para wodna). Dookoła niego rozpościera się [rozbudowany opis stylu wnętrza lub pleneru ze wskazaniem obszernej przestrzeni]. Dopiero na bardzo bliskim, ostrym pierwszym planie znajdują się [konkretne rekwizyty / składniki / detale].
-
-Przykłady wzorcowe (Few-Shot dla Agenta):
-
-Przykład 1 (Mydło/Kosmetyk śródziemnomorski):
-Na kamiennym blacie skrajnie po lewej, spowity delikatną parą i miękkim rozmyciem (bokeh), stoi produkt ze zdjęcia referencyjnego. Dookoła rozpościera się szeroki kadr toskańskiej kuchni w ciepłym świetle. Na ostrym pierwszym planie przed widzem znajduje się drewniany stół z misą dojrzałych pomidorów, świeżą bazylią i miedzianym dzbanem.
-
-Przykład 2 (Płyn do kąpieli / SPA):
-Na oddalonej marmurowej półce w głębi zamglonego od kąpieli pomieszczenia, stoi zblurowany produkt ze zdjęcia referencyjnego. Tworzy on element luksusowego, kamiennego salonu kąpielowego. Na samym przodzie, w pełnej ostrości pierwszego planu, widać brzeg wanny z naturalną gąbką morską, zapaloną świecą i gałązkami eukaliptusa.
-
-Przykład 3 (Kawa / Produkt spożywczy):
-Daleko w tle, na bocznej drewnianej szafce za unoszącą się smugą pary, stoi delikatnie nieostry produkt ze zdjęcia referencyjnego. Osadzony jest w szerokim kadrze klimatycznej kawiarni w stylu vintage. Na bliskim, ostrym pierwszym planie znajduje się drewniany stolik z filiżanką espresso z gęstą cremą i rozsypanymi ziarnami kawy.${historySection}
+Żadnych wstępów, żadnego formatowania tekstu, żadnych dodatkowych wyjaśnień.${historySection}
 
 Dane produktu PIM:
 ${productDetailsText}
