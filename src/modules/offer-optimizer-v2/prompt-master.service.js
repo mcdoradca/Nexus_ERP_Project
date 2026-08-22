@@ -40,12 +40,16 @@ Jesteś inżynierem promptów dla API generatora obrazów. Twoim zadaniem jest p
 
 ZASADY KOMPOZYCJI:
 
+Kotwica nazewnictwa: Zawsze używaj WYŁĄCZNIE frazy: "produkt ze zdjęcia referencyjnego". Pod żadnym pozorem nie opisuj wyglądu, nazwy ani kształtu produktu z PIM!
+
+Budowa otoczenia (Przestrzeń): Musisz zbudować pełną scenę. Opisz szerokie otoczenie, w którym znajduje się produkt (np. jasna łazienka z ogromnym oknem, luksusowy salon kąpielowy, rustykalna kuchnia). Scena musi mieć zarysowaną przestrzeń (ściany, tło, klimat).
+
+Punkt podparcia w tle: Zawsze umieszczaj główny produkt (jako "produkt ze zdjęcia referencyjnego") daleko w tle na konkretnej, fizycznej powierzchni pasującej do otoczenia (np. na drewnianej półce, na marmurowym blacie).
+
+Ostrość na pierwszy plan: Przedstaw detale na skrajnym pierwszym planie (ekstremalne zbliżenie makro). Elementy te MUSZĄ być fizycznie niskie i płaskie (np. rozsypane ziarna, małe kamienie, leżący ręcznik, rozlane krople), aby nie zasłaniały produktu w tle.
+
 Kreatywność i różnorodność (ABSOLUTNY WYMÓG):
 Wymyślaj ZAWSZE inną, nieoczywistą scenerię. Używaj egzotycznych, nietypowych materiałów (np. postarzany mosiądz, mokry beton architektoniczny, mech, lustro wody, czarny wulkaniczny piasek). Bądź skrajnie kreatywny.
-
-Ostrość na pierwszy plan: Zaczynaj od opisania detali na skrajnym pierwszym planie (ekstremalne zbliżenie makro). Elementy te MUSZĄ być fizycznie niskie i płaskie (np. rozsypane ziarna, małe kamienie, leżący ręcznik), aby nie zasłaniały głównego produktu.
-
-Punkt podparcia w tle: Zawsze umieszczaj główny produkt daleko w tle na konkretnej, fizycznej powierzchni (np. 'produkt stoi daleko w tle na drewnianej półce / kamiennym parapecie').
 
 Optyka: Zawsze kończ prompt blokiem parametrów: 'idealna ostrość na skrajnym pierwszym planie, tło jest nieostre, silne rozmycie tła (bokeh), płytka głębia ostrości, obiektyw 85mm, naturalne oświetlenie'.
 
@@ -56,9 +60,9 @@ Zwracaj TYLKO gotowy prompt w języku polskim.
 Żadnych wstępów, żadnego formatowania tekstu, żadnych dodatkowych wyjaśnień.
 
 UNIKANIE POWTÓRZEŃ:
-Bezwzględnie zapoznaj się z sekcją 'Wykaz scenerii' na dole promptu (jeśli istnieje). Musisz wygenerować CAŁKOWICIE NOWĄ kompozycję, powierzchnię i pierwszy plan, która drastycznie różni się od wszystkich dotychczasowych prób. Zakaz powtarzania tych samych schematów.${historySection}
+Bezwzględnie zapoznaj się z sekcją 'Wykaz scenerii' na dole promptu (jeśli istnieje). Musisz wygenerować CAŁKOWICIE NOWĄ kompozycję, otoczenie i pierwszy plan, która drastycznie różni się od wszystkich dotychczasowych prób. Zakaz powtarzania tych samych schematów.${historySection}
 
-Dane produktu PIM:
+Dane produktu PIM (służą WYŁĄCZNIE jako inspiracja dla klimatu otoczenia, ZABRANIA SIĘ opisywania samego produktu!):
 ${productDetailsText}
 `.trim();
 
