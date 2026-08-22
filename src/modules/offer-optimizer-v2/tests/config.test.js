@@ -16,9 +16,8 @@ test('Zabezpieczenie przed regresją kompilatora: brak parametrów w promptach',
     }
 });
 
-test('Konfiguracja węzłów: A5 na klasie Pro z thinkingLevel HIGH', () => {
+test('Konfiguracja węzłów: A5 zoptymalizowana (Flash/MEDIUM)', () => {
     const configA5 = getNodeConfig(5);
-    // Klasa Pro wg decyzji
-    assert.strictEqual(configA5.model, 'gemini-3.1-pro-preview', 'A5 musi używać modelu klasy Pro (gemini-3.1-pro-preview)');
-    assert.strictEqual(configA5.thinkingLevel, ThinkingLevel.HIGH, 'A5 musi używać thinkingLevel HIGH');
+    assert.strictEqual(configA5.model, 'gemini-3.5-flash', 'A5 zostało zoptymalizowane pod kątem kosztów');
+    assert.strictEqual(configA5.thinkingLevel, ThinkingLevel.MEDIUM, 'A5 musi używać thinkingLevel MEDIUM');
 });
