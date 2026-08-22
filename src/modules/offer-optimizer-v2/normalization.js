@@ -6,6 +6,9 @@ function normalizeIngredientName(name) {
     if (!name || typeof name !== 'string') return '';
     return name
         .toLowerCase()
+        .replace(/ł/g, 'l')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Usuwa znaki diakrytyczne
         .replace(/[\(\)\[\]]/g, '') // Usuwa nawiasy
         .replace(/-/g, ' ')         // Zamienia myślniki na spacje
         .replace(/\s+/g, ' ')       // Redukcja wielokrotnych spacji do jednej

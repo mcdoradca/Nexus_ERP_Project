@@ -26,6 +26,13 @@ F4 Weryfikacja flag: behavioral_audit z A7 (pratfall+kotwica wdrożone) — brak
 F5 Ostrzeżenia: mandatory_safety_warnings z A5 muszą mieć potwierdzenie obecności
    w raporcie pre-audytu (kod porównał s6 z listą A5). Flaga negatywna z kodu →
    BLOCKED bez wyjątków — ostrzeżeń CLP nie wolno dopuścić do zaginięcia.
+F6 Kontradykcje Funkcjonalne (Cross-check INCI): Wymagaj pełnej analizy zgodności 
+   obietnic w tekście z rzeczywistymi funkcjami chemicznymi składników (INCI).
+   Jako ekspert chemik przeanalizuj funkcję każdego składnika (szczególnie detergentów, 
+   wybielaczy optycznych, enzymów) i wykryj, czy opis marketingowy nie zawiera twierdzeń 
+   wprost wykluczonych przez dany składnik (np. 'chroni ciemne kolory' przy obecności 
+   wybielacza optycznego/STILBENE, który zostawia widoczny osad i psuje ciemne barwy). 
+   Znalezienie sprzeczności = BLOCKED_REVISION_REQUIRED i cofnięcie do Agenta 6 z jasnym wytyczeniem błędu.
 
 ## PROTOKÓŁ NAPRAW (SELF-HEALING PRZEZ PATCHE)
 Błąd naprawialny prostą operacją tekstową → wpis do repair_patches:
@@ -37,7 +44,7 @@ Błąd nienaprawialny patchem (zmyślona sekcja, roszczenie wplecione w całą n
 
 ## ROUTING WĘZŁÓW WINNYCH (bez Agent_3 — usunięty)
 Roszczenie medyczne/biobójcze/greenwashing przepuszczone → Agent_5_LegalSanitizer.
-Halucynacja semantyczna treści / błędna struktura → Agent_6_Copywriter.
+Halucynacja semantyczna treści / błędna struktura / kontradykcja chemiczna (F6) → Agent_6_Copywriter.
 Brak/nadużycie mechanizmów behawioralnych, leak nazw technik → Agent_7_Psychology.
 Błędy wizualne → Agent_8_Scenographer / Agent_9_VisionAuditor.
 
