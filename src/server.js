@@ -352,8 +352,23 @@ app.get('/api/logs/inci', async (req, res) => {
 });
 
 // ENDPOINTY DLA PODGLĄDU ZDJĘĆ DEBUG PHOTOROOM (FAZA 17)
-app.use('/api/photoroom/debug-images/static', express.static(path.join(__dirname, 'modules/offer-optimizer-v2/debug_images')));
-
+app.get('/api/photoroom/debug-images/raw/:filename', (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const filename = req.params.filename;
+    
+    // Zabezpieczenie przed atakiem directory traversal
+    if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+        return res.status(403).send('Forbidden directory traversal attempt.');
+    }
+    
+    const target = path.join(__dirname, 'modules/offer-optimizer-v2/debug_images', filename);
+    if (fs.existsSync(target)) {
+        res.sendFile(target);
+    } else {
+        res.status(404).send('Nie odnaleziono podanego pliku na dysku serwera. Wygeneruj slot ponownie by zapisać RAW.');
+    }
+});
 app.get('/api/photoroom/debug/list', authenticateToken, async (req, res) => {
     try {
         const fs = require('fs');
