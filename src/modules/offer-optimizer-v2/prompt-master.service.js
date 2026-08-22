@@ -50,7 +50,10 @@ ZASADY ZWROTU:
 
 Zwracaj TYLKO gotowy prompt w języku polskim.
 
-Żadnych wstępów, żadnego formatowania tekstu, żadnych dodatkowych wyjaśnień.${historySection}
+Żadnych wstępów, żadnego formatowania tekstu, żadnych dodatkowych wyjaśnień.
+
+UNIKANIE POWTÓRZEŃ:
+Bezwzględnie zapoznaj się z sekcją 'Wykaz scenerii' na dole promptu (jeśli istnieje). Musisz wygenerować CAŁKOWICIE NOWĄ kompozycję, powierzchnię i pierwszy plan, która drastycznie różni się od wszystkich dotychczasowych prób. Zakaz powtarzania tych samych schematów.${historySection}
 
 Dane produktu PIM:
 ${productDetailsText}
