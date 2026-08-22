@@ -60,17 +60,6 @@ ${productDetailsText}
         
         onLog(`\n[TX - START DO AGENTA 11]\n${systemPrompt}\n[TX - KONIEC]`);
 
-        const cleanSchema = {
-            type: "object",
-            properties: {
-                prompt: { 
-                    type: "string",
-                    description: "Wygenerowany tekst opisu przestrzennego."
-                }
-            },
-            required: ["prompt"]
-        };
-
         const promptPayload = [systemPrompt];
         // Zrezygnowano z przesyłania imageBase64 do modelu LLM w celu odciążenia
         // zasobów (Agent opiera się wyłącznie na systemPrompt i PIM).
@@ -78,18 +67,10 @@ ${productDetailsText}
         const response = await callAgentWithTelemetry({
             agentId: PROMPT_MASTER_AGENT_ID,
             prompt: promptPayload,
-            schema: cleanSchema,
             onLog
         });
 
-        let rawPrompt = "";
-        try {
-            const parsed = typeof response.result === 'string' ? JSON.parse(response.result) : response.result;
-            rawPrompt = parsed.prompt || "";
-        } catch (e) {
-            console.error("[Prompt Master] Błąd parsowania JSON:", e.message);
-            rawPrompt = typeof response.result === 'string' ? response.result : JSON.stringify(response.result);
-        }
+        let rawPrompt = typeof response.result === 'string' ? response.result : JSON.stringify(response.result);
         rawPrompt = rawPrompt.trim();
 
         // Upewniamy się, że to faktycznie czysty tekst
