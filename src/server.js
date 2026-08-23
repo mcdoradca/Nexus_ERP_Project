@@ -1153,8 +1153,8 @@ app.post('/api/allegro-sentinel/trigger', authenticateToken, async (req, res) =>
 });
 
 // --- TŁO: CRON JOB BASELINKER SYNC (FAZA 33) ---
-cron.schedule('0 * * * *', async () => {
-    console.log('[CRON Worker] Uruchamiam cykliczną interpolację i synchronizację z BaseLinkerem...');
+cron.schedule('0 5 * * *', async () => {
+    console.log('[CRON Worker] Uruchamiam cykliczną interpolację i synchronizację z BaseLinkerem (05:00 AM)...');
     try {
         const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN' } });
         if (!tokenRecord || !tokenRecord.value || tokenRecord.value.length < 5) return;
