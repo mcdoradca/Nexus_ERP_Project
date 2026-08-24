@@ -11,6 +11,7 @@ const prisma = new PrismaClient();
 const EventBus = require('../../core/EventBus');
 const baselinkerExportAgent = require('../offer-optimizer-v2/baselinker.export.agent');
 const { exportLogger } = require('../../utils/logger');
+const sharp = require('sharp');
 
 // --- HARD LOCK: Zabezpieczenie Eksportu BaseLinkera ---
 const EXPORT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
@@ -962,6 +963,60 @@ const deleteKnowledgeDocument = async (req, res) => {
     }
 };
 
+const generateItalianFrame = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: "Brak pliku obrazu." });
+        }
+
+        const borderThickness = parseInt(req.body.borderThickness, 10) || 6;
+        const imageBuffer = req.file.buffer;
+
+        // Odczyt właściwości obrazka
+        const metadata = await sharp(imageBuffer).metadata();
+        const { width, height } = metadata;
+        
+        const thirdW = Math.floor(width / 3);
+
+        // Generujemy SVG reprezentujące ramkę
+        const svgBorder = `
+            <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+                <!-- ZIELONA (Lewa strona i lewa 1/3 góry/dołu) -->
+                <rect x="0" y="0" width="${thirdW}" height="${borderThickness}" fill="rgb(0, 146, 70)" />
+                <rect x="0" y="${height - borderThickness}" width="${thirdW}" height="${borderThickness}" fill="rgb(0, 146, 70)" />
+                <rect x="0" y="0" width="${borderThickness}" height="${height}" fill="rgb(0, 146, 70)" />
+
+                <!-- BIAŁA (Środek - 1/3 góry i dołu) -->
+                <rect x="${thirdW}" y="0" width="${thirdW}" height="${borderThickness}" fill="rgb(255, 255, 255)" />
+                <rect x="${thirdW}" y="${height - borderThickness}" width="${thirdW}" height="${borderThickness}" fill="rgb(255, 255, 255)" />
+
+                <!-- CZERWONA (Prawa strona i prawa 1/3 góry/dołu) -->
+                <rect x="${thirdW * 2}" y="0" width="${width - (thirdW * 2)}" height="${borderThickness}" fill="rgb(206, 43, 55)" />
+                <rect x="${thirdW * 2}" y="${height - borderThickness}" width="${width - (thirdW * 2)}" height="${borderThickness}" fill="rgb(206, 43, 55)" />
+                <rect x="${width - borderThickness}" y="0" width="${borderThickness}" height="${height}" fill="rgb(206, 43, 55)" />
+            </svg>
+        `;
+
+        // Kompozycja
+        const processedBuffer = await sharp(imageBuffer)
+            .composite([{ input: Buffer.from(svgBorder), blend: 'over' }])
+            // Zachowanie oryginalnego formatu
+            .jpeg({ quality: 95, force: false }) 
+            .png({ force: false })
+            .toBuffer();
+
+        res.set('Content-Type', metadata.format === 'png' ? 'image/png' : 'image/jpeg');
+        // Set filename header
+        const originalName = req.file.originalname || 'image.jpg';
+        res.set('Content-Disposition', `attachment; filename="framed_${originalName}"`);
+        res.send(processedBuffer);
+
+    } catch (error) {
+        console.error("[ItalianFrame] Błąd generowania:", error);
+        res.status(500).json({ error: "Błąd serwera podczas nakładania włoskiej ramki.", details: error.message });
+    }
+};
+
 module.exports = {
     startOptimization,
     checkStatus,
@@ -977,5 +1032,6 @@ module.exports = {
     checkPipelineStatus,
     ingestKnowledgeDocument,
     listKnowledgeDocuments,
-    deleteKnowledgeDocument
+    deleteKnowledgeDocument,
+    generateItalianFrame
 };

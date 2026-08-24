@@ -31,4 +31,7 @@ router.post('/knowledge/ingest', express.json({ limit: '10mb' }), controller.ing
 router.get('/knowledge/list', controller.listKnowledgeDocuments);
 router.delete('/knowledge/:title', controller.deleteKnowledgeDocument);
 
+// Narzędzia
+router.post('/italian-frame', upload.single('image'), controller.generateItalianFrame);
+
 module.exports = router;
