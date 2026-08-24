@@ -375,7 +375,7 @@ const AdminPanelView = ({
                             <div key={img.name} className="bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
                                <div className="aspect-square bg-slate-100 overflow-hidden relative">
                                   <img 
-                                     src={`${API_URL}/api/photoroom/debug-images/static/${img.name}`} 
+                                     src={`${API_URL}/api/photoroom/debug-images/raw/${img.name}`} 
                                      alt={img.name} 
                                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
                                   />
