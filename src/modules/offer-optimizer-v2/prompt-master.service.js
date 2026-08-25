@@ -35,6 +35,11 @@ async function generatePrompt(slot, productDetailsText, ean = null, imageBase64 
             ? `\nWykaz scenerii, które użyłeś już dla tego EAN (absolutny ZAKAZ powtarzania ich):\n- ${previousPrompts.join('\n- ')}` 
             : "";
 
+        // Dla 2, 4, 6... generacji nakazujemy element ludzki
+        const humanRule = (previousPrompts.length % 2 !== 0)
+            ? `\n\nObecność człowieka (WYMÓG): W wygenerowanym prompcie MUSI znaleźć się zarys lub fragment sylwetki ludzkiej pasującej do otoczenia (np. rozmyte dłonie w tle, sylwetka człowieka w oddali).`
+            : "";
+
         const systemPrompt = `
 Jesteś inżynierem promptów dla API generatora obrazów. Twoim zadaniem jest przekształcanie danych wejściowych w surowy, techniczny prompt kompozycyjny.
 
@@ -48,7 +53,7 @@ Punkt podparcia w tle: Zawsze umieszczaj główny produkt (jako "produkt któreg
 
 Ostrość na pierwszy plan: Przedstaw elementy na skrajnym pierwszym planie. Elementy te MUSZĄ być fizycznie niskie i płaskie (np. rozsypane ziarna, małe kamienie), aby nie zasłaniały produktu w tle.
 
-Wymogi kadrowania (KRYTYCZNE): Bezwzględnie dodaj do wygenerowanego promptu instrukcję dla Photoroom: "scena zoom nie może zajmować więcej jak 20% kadru, a produkt którego zdjęcie dostałeś musi bezwzględnie znaleźć się w kadrze".
+Wymogi kadrowania (KRYTYCZNE): Bezwzględnie dodaj do wygenerowanego promptu instrukcję dla Photoroom: "scena zoom nie może zajmować więcej jak 20% kadru, a produkt którego zdjęcie dostałeś musi bezwzględnie znaleźć się w kadrze".${humanRule}
 
 Kreatywność i różnorodność (ABSOLUTNY WYMÓG):
 Wymyślaj ZAWSZE inną, nieoczywistą scenerię, pamiętając jednak o mniejszej szczegółowości opisu. Używaj nietypowych materiałów (np. postarzany mosiądz, lustro wody). Bądź kreatywny.
