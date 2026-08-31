@@ -51,6 +51,7 @@ jobs:
             git config --global --add safe.directory /var/www/nexus
             
             # 2. Pobierz najnowsze zmiany z GitHuba
+            git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
             git fetch origin
             git reset --hard origin/main
             git clean -fd

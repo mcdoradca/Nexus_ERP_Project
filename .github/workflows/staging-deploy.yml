@@ -50,6 +50,7 @@ jobs:
             git config --global --add safe.directory /var/www/nexus-staging
             
             # 2. Pobierz najnowsze zmiany z gałęzi dev
+            git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
             git fetch origin
             git reset --hard origin/dev
             git clean -fd
