@@ -31,10 +31,6 @@ async function generatePrompt(slot, productDetailsText, ean = null, imageBase64 
             }
         }
 
-        const historySection = previousPrompts.length > 0 
-            ? `\nWykaz scenerii, które użyłeś już dla tego EAN (absolutny ZAKAZ powtarzania ich):\n- ${previousPrompts.join('\n- ')}` 
-            : "";
-
         // Dla 2, 4, 6... generacji nakazujemy element ludzki
         const humanRule = (previousPrompts.length % 2 !== 0)
             ? `\n\nObecność człowieka (WYMÓG): W wygenerowanym prompcie MUSI znaleźć się zarys lub fragment sylwetki ludzkiej pasującej do otoczenia (np. rozmyte dłonie w tle, sylwetka człowieka w oddali).`
@@ -65,9 +61,6 @@ ZASADY ZWROTU:
 Zwracaj TYLKO gotowy prompt w języku polskim.
 
 Żadnych wstępów, żadnego formatowania tekstu, żadnych dodatkowych wyjaśnień.
-
-UNIKANIE POWTÓRZEŃ:
-Bezwzględnie zapoznaj się z sekcją 'Wykaz scenerii' na dole promptu (jeśli istnieje). Musisz wygenerować CAŁKOWICIE NOWĄ kompozycję, otoczenie i pierwszy plan, która drastycznie różni się od wszystkich dotychczasowych prób. Zakaz powtarzania tych samych schematów.${historySection}
 
 Dane produktu PIM (służą WYŁĄCZNIE jako inspiracja dla klimatu otoczenia, ZABRANIA SIĘ opisywania samego produktu!):
 ${productDetailsText}
