@@ -22,47 +22,10 @@ async function generatePrompt(slot, productDetailsText, ean = null, imageBase64 
     }
 
     try {
-        let previousPrompts = [];
-        if (ean) {
-            const cacheKey = `prompt_history_${ean}`;
-            const cacheRecord = await prisma.agentCache.findUnique({ where: { cacheKey } });
-            if (cacheRecord && Array.isArray(cacheRecord.value)) {
-                previousPrompts = cacheRecord.value;
-            }
-        }
 
-        // Dla 2, 4, 6... generacji nakazujemy element ludzki
-        const humanRule = (previousPrompts.length % 2 !== 0)
-            ? `\n\nObecność człowieka (WYMÓG): W wygenerowanym prompcie MUSI znaleźć się zarys lub fragment sylwetki ludzkiej pasującej do otoczenia (np. rozmyte dłonie w tle, sylwetka człowieka w oddali).`
-            : "";
+        const systemPrompt = `Dostałeś opis produktu.Twoim zadaniem jest stworzenie sceny pokazującej produkt w jego naturalnym środowisku. Opis produktu ma być konkretny, zwięzły i przeznaczony dla Agent w Photoroom. Produkt ma być w 100% oryginalny. Nie wolno Ci umieszczć produktu w centrum kadru i w pierwszej linii.
 
-        const systemPrompt = `
-Jesteś inżynierem promptów dla API generatora obrazów. Twoim zadaniem jest przekształcanie danych wejściowych w surowy, techniczny prompt kompozycyjny.
-
-ZASADY KOMPOZYCJI:
-
-Kotwica nazewnictwa: Zawsze używaj WYŁĄCZNIE frazy: "produkt którego zdjęcie dostałeś". Pod żadnym pozorem nie opisuj wyglądu, nazwy ani kształtu produktu z PIM!
-
-Budowa otoczenia (Przestrzeń i Światło): Twórz prompty skrajnie ogólne i minimalistyczne. Unikaj jakichkolwiek zbędnych detali i zawiłych opisów. Zarysuj jedynie zarys otoczenia, skupiając się WYŁĄCZNIE na jasnych, słonecznych, dobrze i miękko oświetlonych pomieszczeniach (np. bardzo jasna, świetlista łazienka, nasłoneczniony skandynawski salon).
-
-Punkt podparcia w tle: Zawsze umieszczaj główny produkt (jako "produkt którego zdjęcie dostałeś") daleko w tle na konkretnej, fizycznej powierzchni pasującej do otoczenia (np. na jasnej drewnianej półce, na białym marmurowym blacie).
-
-Ostrość na pierwszy plan: Przedstaw elementy na skrajnym pierwszym planie. Elementy te MUSZĄ być fizycznie niskie i płaskie (np. rozsypane ziarna, małe jasne kamienie), aby nie zasłaniały produktu w tle.
-
-Wymogi kadrowania (KRYTYCZNE): Bezwzględnie dodaj do wygenerowanego promptu instrukcję dla Photoroom: "scena zoom nie może zajmować więcej jak 20% kadru, a produkt którego zdjęcie dostałeś musi bezwzględnie znaleźć się w kadrze".${humanRule}
-
-Kreatywność i różnorodność (ABSOLUTNY WYMÓG):
-Wymyślaj ZAWSZE inną scenerię, ale bezwzględnie trzymaj się minimalistycznego, ogólnego stylu opisu. Skup się na różnorodności jasnych przestrzeni. Bądź kreatywny, ale oszczędny w słowach.
-
-Optyka: Zawsze kończ prompt blokiem parametrów: 'idealna ostrość na skrajnym pierwszym planie, tło jest nieostre, silne rozmycie tła (bokeh), płytka głębia ostrości, obiektyw 85mm, naturalne oświetlenie'.
-
-ZASADY ZWROTU:
-
-Zwracaj TYLKO gotowy prompt w języku polskim.
-
-Żadnych wstępów, żadnego formatowania tekstu, żadnych dodatkowych wyjaśnień.
-
-Dane produktu PIM (służą WYŁĄCZNIE jako inspiracja dla klimatu otoczenia, ZABRANIA SIĘ opisywania samego produktu!):
+Opis produktu:
 ${productDetailsText}
 `.trim();
 
@@ -86,14 +49,7 @@ ${productDetailsText}
         // Upewniamy się, że to faktycznie czysty tekst
         const finalPrompt = MANDATORY_PREFIX + rawPrompt;
 
-        if (ean) {
-            previousPrompts.push(rawPrompt);
-            await prisma.agentCache.upsert({
-                where: { cacheKey: `prompt_history_${ean}` },
-                update: { value: previousPrompts },
-                create: { cacheKey: `prompt_history_${ean}`, value: previousPrompts }
-            });
-        }
+        // Zapis do bazy usunięty zgodnie z żądaniem (agent nie otrzymuje już historii)
 
         console.log(`\n=== [Prompt Master] PEŁNY PROCES DLA SLOTA ${slot} ===`);
         console.log(`[1/3] Instrukcja dla Agenta: ${instruction}`);
