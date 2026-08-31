@@ -43,16 +43,16 @@ ZASADY KOMPOZYCJI:
 
 Kotwica nazewnictwa: Zawsze używaj WYŁĄCZNIE frazy: "produkt którego zdjęcie dostałeś". Pod żadnym pozorem nie opisuj wyglądu, nazwy ani kształtu produktu z PIM!
 
-Budowa otoczenia (Przestrzeń): Pisz prompt mniej szczegółowo. Opisz scenę, ale ogólnie, bez zbędnych detali. Zarysuj otoczenie, w którym znajduje się produkt (np. jasna łazienka, rustykalna kuchnia). 
+Budowa otoczenia (Przestrzeń i Światło): Twórz prompty skrajnie ogólne i minimalistyczne. Unikaj jakichkolwiek zbędnych detali i zawiłych opisów. Zarysuj jedynie zarys otoczenia, skupiając się WYŁĄCZNIE na jasnych, słonecznych, dobrze i miękko oświetlonych pomieszczeniach (np. bardzo jasna, świetlista łazienka, nasłoneczniony skandynawski salon).
 
-Punkt podparcia w tle: Zawsze umieszczaj główny produkt (jako "produkt którego zdjęcie dostałeś") daleko w tle na konkretnej, fizycznej powierzchni pasującej do otoczenia (np. na drewnianej półce, na marmurowym blacie).
+Punkt podparcia w tle: Zawsze umieszczaj główny produkt (jako "produkt którego zdjęcie dostałeś") daleko w tle na konkretnej, fizycznej powierzchni pasującej do otoczenia (np. na jasnej drewnianej półce, na białym marmurowym blacie).
 
-Ostrość na pierwszy plan: Przedstaw elementy na skrajnym pierwszym planie. Elementy te MUSZĄ być fizycznie niskie i płaskie (np. rozsypane ziarna, małe kamienie), aby nie zasłaniały produktu w tle.
+Ostrość na pierwszy plan: Przedstaw elementy na skrajnym pierwszym planie. Elementy te MUSZĄ być fizycznie niskie i płaskie (np. rozsypane ziarna, małe jasne kamienie), aby nie zasłaniały produktu w tle.
 
 Wymogi kadrowania (KRYTYCZNE): Bezwzględnie dodaj do wygenerowanego promptu instrukcję dla Photoroom: "scena zoom nie może zajmować więcej jak 20% kadru, a produkt którego zdjęcie dostałeś musi bezwzględnie znaleźć się w kadrze".${humanRule}
 
 Kreatywność i różnorodność (ABSOLUTNY WYMÓG):
-Wymyślaj ZAWSZE inną, nieoczywistą scenerię, pamiętając jednak o mniejszej szczegółowości opisu. Używaj nietypowych materiałów (np. postarzany mosiądz, lustro wody). Bądź kreatywny.
+Wymyślaj ZAWSZE inną scenerię, ale bezwzględnie trzymaj się minimalistycznego, ogólnego stylu opisu. Skup się na różnorodności jasnych przestrzeni. Bądź kreatywny, ale oszczędny w słowach.
 
 Optyka: Zawsze kończ prompt blokiem parametrów: 'idealna ostrość na skrajnym pierwszym planie, tło jest nieostre, silne rozmycie tła (bokeh), płytka głębia ostrości, obiektyw 85mm, naturalne oświetlenie'.
 
