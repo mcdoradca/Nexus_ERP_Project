@@ -24,7 +24,7 @@ async function generatePrompt(slot, productDetailsText, ean = null, imageBase64 
     try {
         console.log(`[Prompt Master] LLM (Agent 11) tymczasowo wyłączony dla slota ${slot}. Wstrzykuję stały prompt.`);
         
-        const hardcodedPrompt = "Wygeneruj zdjęcie z produktem w tle. Produkt nie może stać w centrum kadru. Produkt nie może stać na pierwszym planie. Produkt jest dodatkiem do zdjęcia a nie jego głównym elementem.";
+        const hardcodedPrompt = "Odczytaj funkcje i zastosowanie z etykiety produktu. Wygeneruj zdjęcie z produktem w tle nawiązujące do jego charakteru, cech i funkcji. Bądź oryginalny i nie powtarzaj ujęć. Produkt nie może stać w centrum kadru. Produkt nie może stać na pierwszym planie. Produkt jest dodatkiem do zdjęcia a nie jego głównym elementem.";
         
         const finalPrompt = MANDATORY_PREFIX + hardcodedPrompt;
         
