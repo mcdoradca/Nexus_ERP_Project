@@ -31,13 +31,13 @@ Równolegle, w nieudokumentowanym szerzej momencie, do systemu dodano nierealist
 
 **Obecne w systemie przed Hotfixem (`nodes.config.js`):**
 ```javascript
-1: { model: 'gemini-3.5-flash', ..., maxOutputTokens: 15000, timeoutMs: 120000 },
+1: { model: 'gemini-3.7-flash', ..., maxOutputTokens: 15000, timeoutMs: 120000 },
 ...
-11: { model: 'gemini-3.5-flash', ..., maxOutputTokens: 5000 }
+11: { model: 'gemini-3.7-flash', ..., maxOutputTokens: 5000 }
 ```
 
 **Konsekwencje wdrożenia:**
-Model sprzętowo oznaczony jako `gemini-3.5-flash` odrzucał polecenia posiadające `maxOutputTokens` wykraczające poza hard limit serwera Google (powodowało to blokady i 400 Bad Request w RAG oraz przy generowaniu dużych zrzutów tekstowych). 
+Model sprzętowo oznaczony jako `gemini-3.7-flash` odrzucał polecenia posiadające `maxOutputTokens` wykraczające poza hard limit serwera Google (powodowało to blokady i 400 Bad Request w RAG oraz przy generowaniu dużych zrzutów tekstowych). 
 
 ---
 
@@ -57,11 +57,11 @@ Usunięto wadliwą funkcję `.slice(-10)`. Zezwolono LLM na czytanie CAŁEJ bazy
 ### B. Zrzucenie limitatorów sprzętowych (`nodes.config.js`)
 Wyczyszczono parametry odcinające wyjście LLM, pozwalając modelom na swobodną, zoptymalizowaną alokację tokenów zgodną z ich bazową sygnaturą w API.
 ```diff
-- 1: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MEDIUM, temperature: 0, grounding: true, maxOutputTokens: 15000, timeoutMs: 120000 },
-+ 1: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.MEDIUM, temperature: 0, grounding: true },
+- 1: { model: 'gemini-3.7-flash', thinkingLevel: ThinkingLevel.MEDIUM, temperature: 0, grounding: true, maxOutputTokens: 15000, timeoutMs: 120000 },
++ 1: { model: 'gemini-3.7-flash', thinkingLevel: ThinkingLevel.MEDIUM, temperature: 0, grounding: true },
 
-- 11: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.LOW, temperature: 0.8, maxOutputTokens: 5000 }
-+ 11: { model: 'gemini-3.5-flash', thinkingLevel: ThinkingLevel.LOW, temperature: 0.8 }
+- 11: { model: 'gemini-3.7-flash', thinkingLevel: ThinkingLevel.LOW, temperature: 0.8, maxOutputTokens: 5000 }
++ 11: { model: 'gemini-3.7-flash', thinkingLevel: ThinkingLevel.LOW, temperature: 0.8 }
 ```
 
 ---

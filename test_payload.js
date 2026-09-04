@@ -28,7 +28,7 @@ NAME: MIL MIL PŁYN DO KĄPIELI ARGAN  1000 ML FEATURES: {"Typ":"Płyn Do Kąpie
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3.5-flash',
+            model: 'gemini-3.7-flash',
             contents: systemPrompt,
             config: {
                 thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }

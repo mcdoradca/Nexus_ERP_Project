@@ -400,7 +400,7 @@ ZwrĂłÄ‡ ZWARTY, tekstowy raport zawierajÄ…cy WYĹÄ„CZNIE:
 Format wyjĹ›ciowy: ZwykĹ‚y tekst.`;
         
         const result = await generateWithRetry(model, prompt, 2, "Agent_1_OSINT");
-        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_OSINT", "gemini-3.5-flash", result.response.usageMetadata, true, 1); }
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_OSINT", "gemini-3.7-flash", result.response.usageMetadata, true, 1); }
         console.log(`[AiService] Agent Badawczy zakoĹ„czyĹ‚ pracÄ™. Znaleziono dane.`);
         return result.response.text();
     } catch (err) {
@@ -447,7 +447,7 @@ JeĹ›li produkt jest zupeĹ‚nie nowy i brak opinii w sieci, przygotuj hipote
 Odpowiedz w postaci zwiÄ™zĹ‚ego, czystego tekstu w jÄ™zyku polskim.`;
 
         const result = await generateWithRetry(model, prompt, 2, "Agent_2_Sentiment");
-        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_Sentiment", "gemini-3.5-flash", result.response.usageMetadata, true, 1); }
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_Sentiment", "gemini-3.7-flash", result.response.usageMetadata, true, 1); }
         console.log(`[AiService] Agent Sentimentu zakoĹ„czyĹ‚ analizÄ™ opinii (DANE NALEĹ»Y ZAPISAÄ† DO PIM).`);
         return result.response.text();
     } catch (err) {
@@ -565,7 +565,7 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
     };
 
     const model = genAI.getGenerativeModel({
-        model: 'gemini-3.5-flash',
+        model: 'gemini-3.7-flash',
         tools: [{ googleSearch: {} }],
         generationConfig
     });
@@ -594,7 +594,7 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
     try {
         console.log(`[AiService] WywoĹ‚ano Gemini w trybie Native API (bez OCR). Tryb: ${analysisMode}`);
         const result = await generateWithRetry(model, parts, 2, "Agent_Vision_Native");
-        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_VisionNative", "gemini-3.5-flash", result.response.usageMetadata, true, 1); }
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_VisionNative", "gemini-3.7-flash", result.response.usageMetadata, true, 1); }
         let responseText = result.response.text();
         
         // Zastosowanie bezwzglÄ™dnej Tarczy Anty-Medycznej na wyjĹ›cie (AEO/Opisy)
@@ -648,7 +648,7 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
 
 async function generateOfferJSON(baseTitle, attributesArray) {
     const model = genAI.getGenerativeModel({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.7-flash",
         tools: [{ googleSearch: {} }],
         systemInstruction: GEO_SYSTEM_PROMPT,
         // Wymuszenie formatu JSON z gwarancjÄ… niezgadywania markdowna
@@ -672,7 +672,7 @@ Wygeneruj zwrot w formacie JSON zawierajÄ…cy wyizolowanÄ… strukturÄ™. P
 
     try {
         const result = await generateWithRetry(model, payload, 2, "Agent_Offer_JSON");
-        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_OfferJSON", "gemini-3.5-flash", result.response.usageMetadata, true, 1); }
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_OfferJSON", "gemini-3.7-flash", result.response.usageMetadata, true, 1); }
         const responseText = result.response.text();
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error(`Brak prawidĹ‚owej struktury JSON w odpowiedzi dla GEO Text. Otrzymano: ${responseText}`);
@@ -688,7 +688,7 @@ Wygeneruj zwrot w formacie JSON zawierajÄ…cy wyizolowanÄ… strukturÄ™. P
  */
 async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
     const model = genAI.getGenerativeModel({
-         model: "gemini-3.5-flash",
+         model: "gemini-3.7-flash",
          tools: [{ googleSearch: {} }],
          systemInstruction: VISION_AUDIT_PROMPT,
          generationConfig: {
@@ -729,7 +729,7 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
         const promptText = "Oto paczka obrazĂłw z oferty. ZdjÄ™cie pierwsze to miniatura (bezwzglÄ™dne Ĺ›rodowisko RGB white). Reszta to detale.";
         
         const result = await generateWithRetry(model, [promptText, ...imageParts], 3, "Agent_Image_Audit");
-        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_ImageAudit", "gemini-3.5-flash", result.response.usageMetadata, true, 1); }
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_ImageAudit", "gemini-3.7-flash", result.response.usageMetadata, true, 1); }
         let rawText = result.response.text();
         const jsonMatch = rawText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error(`Brak prawidĹ‚owej struktury JSON w odpowiedzi wizyjnej. Otrzymano: ${rawText}`);
@@ -770,7 +770,7 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
 
 async function generateTitleOnly(textContent, currentTitle) {
     const model = genAI.getGenerativeModel({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.7-flash",
         tools: [{ googleSearch: {} }],
         generationConfig: {
             temperature: 0.8, // TrochÄ™ wiÄ™ksza kreatywnoĹ›Ä‡ dla wariacji tytuĹ‚Ăłw
@@ -1000,7 +1000,7 @@ JeĹ›li w wiarygodnych ĹşrĂłdĹ‚ach producenta/dystrybutora nie byĹ‚o
     try {
         console.log(`[AiService] Auto-Fill Agent szuka parametrĂłw dla ${ean} z uwzglÄ™dnieniem nowej hierarchii...`);
         const result = await generateWithRetry(model, prompt, 2, "Agent_11_Autofill");
-        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_11_Autofill", "gemini-3.5-flash", result.response.usageMetadata, true, 1); }
+        if (result && result.response && result.response.usageMetadata) { await AiMetricsService.logUsage("Legacy_11_Autofill", "gemini-3.7-flash", result.response.usageMetadata, true, 1); }
         let text = result.response.text();
         text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
         const parsed = JSON.parse(text);
@@ -1095,7 +1095,7 @@ async function adaptToSegmentAndTone(productName, htmlContent, features, categor
     console.log(`[AiService] Odpalanie Agenta Segmentowego (Segment & Tone Adapter) dla: ${productName}...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.7-flash",
             systemInstruction: require('./ai.prompts').SEGMENT_TONE_AGENT_PROMPT,
             generationConfig: { 
                 temperature: 0.5, 
@@ -1155,7 +1155,7 @@ async function runNode1_Autofill(ean, productName, productFeatures = {}, allegro
     agent1Logger.info(`[Swarm Node 1] PIM Autofill start: EAN ${ean}, Produkt: ${productName}`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.7-flash",
             tools: [{ googleSearch: {} }],
             generationConfig: { 
                 temperature: 0.0, 
@@ -1203,7 +1203,7 @@ async function runNode2_Sentiment(ean, productName) {
     console.log(`[Swarm Node 2] Sentiment Scraper start: EAN ${ean}`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.7-flash",
             tools: [{ googleSearch: {} }],
             generationConfig: { temperature: 0.1, topP: 0.2, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "minimal" } }
         });
@@ -1221,7 +1221,7 @@ async function runNode4_INCIParser(inciString, ragKnowledge, pimPayload) {
     console.log(`[Swarm Node 4] INCI Parser start...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.7-flash",
             generationConfig: { 
                 temperature: 0.0, 
                 topP: 0.1, 
@@ -1278,7 +1278,7 @@ async function runNode6_Copywriter(productName, aeoFeatures, legalData, toneGuid
     console.log(`[Swarm Node 6] Copywriter start...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.7-flash",
             generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json", maxOutputTokens: 8192, thinkingConfig: { thinkingLevel: "low" } }
         });
         const systemPrompt = getMasterPrompt(6);
@@ -1294,7 +1294,7 @@ async function runNode7_Psychology(productName, htmlDraft, sentimentData, ragKno
     console.log(`[Swarm Node 7] Psychology start...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.7-flash",
             generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }
         });
         const systemPrompt = getMasterPrompt(7);
@@ -1380,7 +1380,7 @@ async function runNode9_VisionAuditor(imageUrls) {
     console.log(`[Swarm Node 9] Vision Auditor start dla ${imageUrls.length} obrazĂłw...`);
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash", // Szybki i tani model Vision
+            model: "gemini-3.7-flash", // Szybki i tani model Vision
             generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "minimal" } }
         });
         const systemPrompt = getMasterPrompt(9);

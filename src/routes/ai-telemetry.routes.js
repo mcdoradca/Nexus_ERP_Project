@@ -8,7 +8,7 @@ const PRICING_PER_1M = {
     'gemini-1.5-pro': { input: 3.50, output: 10.50, cached: 1.75 },
     'gemini-3.1-pro-preview': { input: 5.00, output: 15.00, cached: 2.50 }, // Przykładowe wyższe stawki dla wersji preview
     'gemini-1.5-flash': { input: 0.075, output: 0.30, cached: 0.0375 },
-    'gemini-3.5-flash': { input: 0.10, output: 0.40, cached: 0.05 },
+    'gemini-3.7-flash': { input: 0.10, output: 0.40, cached: 0.05 },
     'text-embedding-004': { input: 0.01, output: 0, cached: 0 },
     'default': { input: 0, output: 0, cached: 0 }
 };

@@ -56,7 +56,7 @@ Znaleziono EAN: 8004120905674
 }
 ```
 
-### Wywołanie Agenta 11 (gemini-3.5-flash)
+### Wywołanie Agenta 11 (gemini-3.7-flash)
 ```json
 {
   "sdkHttpResponse": {
@@ -90,7 +90,7 @@ Znaleziono EAN: 8004120905674
       "index": 0
     }
   ],
-  "modelVersion": "gemini-3.5-flash",
+  "modelVersion": "gemini-3.7-flash",
   "responseId": "BECDatvsBpGTkdUPr4nN-Qs",
   "usageMetadata": {
     "promptTokenCount": 53,
@@ -113,14 +113,14 @@ Znaleziono EAN: 8004120905674
 Konfiguracja z kodu (Agent 11):
 ```json
 {
-  "model": "gemini-3.5-flash",
+  "model": "gemini-3.7-flash",
   "temperature": 0.8
 }
 ```
 Konfiguracja z kodu (Agent 6):
 ```json
 {
-  "model": "gemini-3.5-flash",
+  "model": "gemini-3.7-flash",
   "thinkingLevel": "LOW"
 }
 ```
@@ -130,13 +130,13 @@ Konfiguracja z kodu (Agent 6):
 | Agent | Model | Klucz | Projekt GCP | Billing |
 |---|---|---|---|---|
 | 1 | gemini-3.1-pro-preview | ***wHMA | N/A | Nieznany |
-| 2 | gemini-3.5-flash | ***wHMA | N/A | Nieznany |
-| 4 | gemini-3.5-flash | ***wHMA | N/A | Nieznany |
-| 6 | gemini-3.5-flash | ***wHMA | N/A | Nieznany |
-| 7 | gemini-3.5-flash | ***wHMA | N/A | Nieznany |
-| 9 | gemini-3.5-flash | ***wHMA | N/A | Nieznany |
+| 2 | gemini-3.7-flash | ***wHMA | N/A | Nieznany |
+| 4 | gemini-3.7-flash | ***wHMA | N/A | Nieznany |
+| 6 | gemini-3.7-flash | ***wHMA | N/A | Nieznany |
+| 7 | gemini-3.7-flash | ***wHMA | N/A | Nieznany |
+| 9 | gemini-3.7-flash | ***wHMA | N/A | Nieznany |
 | 10 | gemini-3.1-pro-preview | ***wHMA | N/A | Nieznany |
-| 11 | gemini-3.5-flash | ***wHMA | N/A | Nieznany |
+| 11 | gemini-3.7-flash | ***wHMA | N/A | Nieznany |
 
 ## 4. REPRO PRZEZ CURL
 

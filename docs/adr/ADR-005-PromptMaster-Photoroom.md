@@ -5,7 +5,7 @@ Dotychczasowy mechanizm generowania wariantów zdjęć lifestylowych opierał si
 
 ## Decyzja
 Zdecydowano o całkowitym usunięciu starych słowników oraz Chaos Engine. Do projektu wprowadzono "Prompt Mastera" opisanego w pliku `prompt-master.service.js`.
-1. **Delegacja logiki do LLM:** Zamiast sztywnych szablonów, model LLM (`gemini-3.5-flash`, zarejestrowany jako Agent ID: 11) przejmuje zadanie wykreowania kreatywnego promptu w języku polskim, znając dane z bazy PIM oraz rodzaj slota (parzysty/nieparzysty).
+1. **Delegacja logiki do LLM:** Zamiast sztywnych szablonów, model LLM (`gemini-3.7-flash`, zarejestrowany jako Agent ID: 11) przejmuje zadanie wykreowania kreatywnego promptu w języku polskim, znając dane z bazy PIM oraz rodzaj slota (parzysty/nieparzysty).
 2. **Zmiana parametrów Photoroom:** Zapytanie API przeniesiono z klasycznego wycięcia i tła (`removeBackground=true`, `background.prompt`) na tryb edycji AI (`removeBackground=false`, `editWithAI.prompt`, `editWithAI.mode=ai.auto`), co umożliwia nakładanie elementów na pierwszy plan przed produktem oraz lepszą integrację przestrzenną.
 3. **Twarde zasady dla LLM:** Wymuszono stały prefiks zabraniający zmiany oryginalnego produktu, co chroni przed halucynacjami Photoroom.
 

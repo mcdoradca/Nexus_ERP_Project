@@ -1,5 +1,5 @@
 # [NODE 9 - VISION & AI ACT AUDITOR v4.0]
-# Wywołanie: gemini-3.5-flash (vision) | thinkingBudget: 0 | responseSchema poza promptem
+# Wywołanie: gemini-3.7-flash (vision) | thinkingBudget: 0 | responseSchema poza promptem
 # ZMIANY ARCHITEKTONICZNE:
 # (a) Obrazy WYŁĄCZNIE natywnym kanałem multimodalnym (fileData/inlineData API) —
 #     bezwzględny zakaz base64 jako stringa w tekście promptu (katastrofa tokenowa).

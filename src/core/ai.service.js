@@ -37,7 +37,7 @@ Nie owijaj w tagi typu \`\`\`html.
  * Generates a highly personalized outreach draft for an influencer.
  */
 const generateOutreach = async (influencerData, productData) => {
-  const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-3.7-flash" });
 
   const prompt = `
 Jesteś ekspertem PR i Influencer Marketingu. Przygotuj szkic wiadomości e-mail / DM (Outreach) do influencera w sprawie współpracy.
@@ -72,7 +72,7 @@ Zwróć tylko treść wiadomości.
  */
 const dispatchSmiTask = async (userPrompt) => {
   const model = genAI.getGenerativeModel({ 
-    model: "gemini-3.5-flash",
+    model: "gemini-3.7-flash",
     generationConfig: { responseMimeType: "application/json" }
   });
 
@@ -120,7 +120,7 @@ Zwróć JSON jako tablicę obiektów:
 
 const generateFacebookSmi = async (count, topic, campaign, productContext) => {
   if (count <= 0) return [];
-  const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash", generationConfig: { responseMimeType: "application/json" } });
+  const model = genAI.getGenerativeModel({ model: "gemini-3.7-flash", generationConfig: { responseMimeType: "application/json" } });
   const rules = `- Dłuższe formy tekstowe.
 - Możesz używać pogrubień tekstowych i emotikon.
 - Target to osoby 30+, pisz dojrzalszym językiem.
@@ -131,7 +131,7 @@ const generateFacebookSmi = async (count, topic, campaign, productContext) => {
 
 const generateInstagramSmi = async (count, topic, campaign, productContext) => {
   if (count <= 0) return [];
-  const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash", generationConfig: { responseMimeType: "application/json" } });
+  const model = genAI.getGenerativeModel({ model: "gemini-3.7-flash", generationConfig: { responseMimeType: "application/json" } });
   const rules = `- Skupienie na wizualiach (Reels, Karuzele).
 - Copy estetyczne, podzielone na krótkie akapity, zgrabny hook na początku.
 - Zestaw 10-15 bardzo dopasowanych hashtagów (w tym tag marki).
@@ -142,7 +142,7 @@ const generateInstagramSmi = async (count, topic, campaign, productContext) => {
 
 const generateTikTokSmi = async (count, topic, campaign, productContext) => {
   if (count <= 0) return [];
-  const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash", generationConfig: { responseMimeType: "application/json" } });
+  const model = genAI.getGenerativeModel({ model: "gemini-3.7-flash", generationConfig: { responseMimeType: "application/json" } });
   const rules = `- Pisz copy bardzo krótkie. 90% sukcesu to wideo.
 - GŁÓWNE ZADANIE: Opisz szczegółowo SCENARIUSZ WIDEO w polu 'notes' (jaki Hook, jaka muzyka w tle - trending audio, co robi postać).
 - Język dynamiczny, młodzieżowy, bezpośredni. Max 3-5 hashtagów.`;

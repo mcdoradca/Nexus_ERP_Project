@@ -5,7 +5,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "dummy");
 async function testFlash() {
     try {
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.5-flash",
+            model: "gemini-3.7-flash",
             generationConfig: { thinkingConfig: { thinkingLevel: "minimal" } }
         });
         const result = await model.generateContent("Say hello");

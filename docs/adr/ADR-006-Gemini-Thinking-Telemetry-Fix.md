@@ -8,7 +8,7 @@
 Wykryto, że Agent 11 generuje błąd `HTTP 400: Invalid JSON payload received. Unknown name "": Root element must be a message.` podczas wywołań przez oficjalne SDK `@google/genai`. Analiza wskazała, że problemem jest serializacja generowanego z automatu, pustego obiektu `thinkingConfig: {}` lub/oraz atrybutu `responseMimeType: ""` w konfiguracji modelu.
 
 ## 2. Eksperyment i Diagnostyka
-Wykazano to poprzez uruchomienie lokalnego środowiska opartego na natywnym `fetch` uderzającym bezpośrednio w endpoint API REST: `https://generativelanguage.googleapis.com/v1alpha/models/gemini-3.5-flash:generateContent`.
+Wykazano to poprzez uruchomienie lokalnego środowiska opartego na natywnym `fetch` uderzającym bezpośrednio w endpoint API REST: `https://generativelanguage.googleapis.com/v1alpha/models/gemini-3.7-flash:generateContent`.
 
 Użyto autentycznego, 1126-tokenowego Prompt Mastera dla "MIL MIL Argan". Skrypt `repro.js` przetestował 4 warianty zachowania API. Zobacz plik `diagnostyka-gemini.md` (sekcja 6) by uzyskać pełne logi.
 

@@ -8,7 +8,7 @@ async function runTests() {
     // Test 1: Baza (zwykły model)
     try {
         await ai.models.generateContent({
-            model: 'gemini-3.5-flash',
+            model: 'gemini-3.7-flash',
             contents: 'Hello'
         });
         console.log("✅ TEST 1 (Zwykły model): OK");
@@ -19,7 +19,7 @@ async function runTests() {
     // Test 2: ThinkingLevel
     try {
         await ai.models.generateContent({
-            model: 'gemini-3.5-flash',
+            model: 'gemini-3.7-flash',
             contents: 'Hello',
             config: {
                 thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM }
@@ -33,7 +33,7 @@ async function runTests() {
     // Test 3: Grounding (Google Search)
     try {
         await ai.models.generateContent({
-            model: 'gemini-3.5-flash',
+            model: 'gemini-3.7-flash',
             contents: 'Hello',
             config: {
                 tools: [{ googleSearch: {} }]
@@ -47,7 +47,7 @@ async function runTests() {
     // Test 4: Schema
     try {
         await ai.models.generateContent({
-            model: 'gemini-3.5-flash',
+            model: 'gemini-3.7-flash',
             contents: 'Odpisz 1',
             config: {
                 responseMimeType: "application/json",

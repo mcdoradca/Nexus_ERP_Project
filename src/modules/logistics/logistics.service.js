@@ -63,7 +63,7 @@ async function procureFromSupplier(product, currentStock, daysLeft) {
         if (existingTask) return; // Już procesujemy zamówienie dla tego SKU
 
         // 2. Uruchamiamy Agenta Negocjatora
-        const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-3.7-flash' });
         const prompt = `
 Jesteś elitarnym Agentem Zaopatrzenia B2B w systemie Nexus ERP.
 Nasz produkt (EAN: ${product.ean}, Nazwa: "${product.name}") wyczerpuje się na magazynie. 

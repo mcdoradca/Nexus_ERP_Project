@@ -7,7 +7,7 @@ Zatwierdzony (2026-07-28)
 Agent 3 (SEO Title Architect) działał pasywnie na bazie ogromnego zasobu wstrzykiwanego przez Węzeł 0 (Supervisor), co powodowało halucynacje z powodu złego oszacowania wag przez LLM i braku twardych wytycznych Allegro (Słowniki, Katalog). Dodatkowo modele nie potrafią sprawnie i bezbłędnie liczyć znaków ze spacjami.
 
 ## Decyzja
-1. Przeniesiono Agenta 3 (model `gemini-3.5-flash`) na pętlę narzędziową z wykorzystaniem Function Calling.
+1. Przeniesiono Agenta 3 (model `gemini-3.7-flash`) na pętlę narzędziową z wykorzystaniem Function Calling.
 2. Udostępniono narzędzia:
    - `allegro_search_products` (Katalog Allegro - źródło prawdy nr 1)
    - `allegro_category_parameters` (Twardy Słownik)
