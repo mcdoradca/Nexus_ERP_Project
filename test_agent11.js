@@ -7,10 +7,10 @@ async function runTest() {
     try {
         console.log("Test: Agent 11 Config (ThinkingLevel + Temperature)");
         const response = await ai.models.generateContent({
-            model: 'gemini-3.7-flash',
+            model: 'gemini-3.8-flash',
             contents: 'Test',
             config: {
-                thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+                thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
                 temperature: 0.8
             }
         });

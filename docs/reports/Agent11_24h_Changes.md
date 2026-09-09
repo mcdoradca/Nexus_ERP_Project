@@ -39,7 +39,7 @@ Pod koniec doby skupiono się na infrastrukturze bezpośrednio utrzymującej LLM
 * **[~19:40] Commit `8e29f54`**: Wprowadzono chirurgiczną łatkę (Surgical Edits) po tym, jak system zaczął zwracać dla Agenta 11 krytyczny błąd `HTTP 400 (Invalid JSON payload - Unknown name "")`.
   * **Diagnoza:** SDK `genai` uszkadzało żądania, gdy do konfiguracji przekazano pusty obiekt `thinkingConfig: {}`.
   * **Odkrycie poboczne:** Przeprowadzony audyt REST API wyjawił, że wymuszanie formatu `responseMimeType: "text/plain"` w połączeniu z jawnym włączeniem klucza `thinkingLevel` doprowadza u Google Gemini do hardware'owego błędu i zwrotu `thoughtsTokenCount: 0`.
-  * **Rozwiązanie:** Wprowadzono sanityzację parametrów budujących obiekt konfiguracji we wrapperze, zapobiegając przesyłaniu pustych struktur. Jawnie przypisano `ThinkingLevel.LOW` dla Agenta 11 w pliku `nodes.config.js`.
+  * **Rozwiązanie:** Wprowadzono sanityzację parametrów budujących obiekt konfiguracji we wrapperze, zapobiegając przesyłaniu pustych struktur. Jawnie przypisano `ThinkingLevel.MEDIUM` dla Agenta 11 w pliku `nodes.config.js`.
 
 > [!IMPORTANT]
 > To odkrycie definiuje nowy standard w projekcie. Pod żadnym pozorem nie łącz w `nodes.config.js` jawnym trybem `ThinkingLevel` agentów zwracających natywnie czysty tekst (`text/plain`), gdyż API wycina im tokeny dedykowane na "rozumowanie", osłabiając merytorykę ich wypowiedzi.

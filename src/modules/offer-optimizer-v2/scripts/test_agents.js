@@ -7,8 +7,8 @@ async function runTests() {
         console.log("\n1. Test węzła Flash (MINIMAL)");
         const flashResult = await callAgentWithTelemetry({
             agentId: 'TestFlashNode',
-            model: 'gemini-3.7-flash',
-            thinkingLevel: ThinkingLevel.LOW,
+            model: 'gemini-3.8-flash',
+            thinkingLevel: ThinkingLevel.MEDIUM,
             prompt: 'Opisz w dwóch zdaniach dlaczego niebo jest niebieskie.'
         });
         console.log("Usage Metadata (Flash):", JSON.stringify(flashResult.usage, null, 2));

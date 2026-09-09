@@ -2,14 +2,14 @@ const { ThinkingLevel } = require('@google/genai');
 
 const nodesConfig = {
     1: { model: 'gemini-3.1-pro-preview', thinkingLevel: ThinkingLevel.MEDIUM, temperature: 0, grounding: true },
-    2: { model: 'gemini-3.7-flash', thinkingLevel: ThinkingLevel.LOW, temperature: 0 },
-    4: { model: 'gemini-3.7-flash', thinkingLevel: ThinkingLevel.MEDIUM, temperature: 0 },
-    5: { model: 'gemini-3.7-flash', thinkingLevel: ThinkingLevel.MEDIUM },
-    6: { model: 'gemini-3.7-flash', thinkingLevel: ThinkingLevel.LOW },
-    7: { model: 'gemini-3.7-flash', thinkingLevel: ThinkingLevel.MEDIUM },
-    9: { model: 'gemini-3.7-flash', thinkingLevel: ThinkingLevel.LOW },
+    2: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.MEDIUM, temperature: 0 },
+    4: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.MEDIUM, temperature: 0 },
+    5: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.MEDIUM },
+    6: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.MEDIUM },
+    7: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.MEDIUM },
+    9: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.MEDIUM },
     10: { model: 'gemini-3.1-pro-preview', thinkingLevel: ThinkingLevel.MEDIUM },
-    11: { model: 'gemini-3.7-flash', thinkingLevel: ThinkingLevel.MEDIUM, temperature: 1.2 }
+    11: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.MEDIUM, temperature: 1.2 }
 };
 
 function getNodeConfig(agentId) {
