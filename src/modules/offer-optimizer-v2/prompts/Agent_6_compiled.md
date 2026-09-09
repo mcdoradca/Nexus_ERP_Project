@@ -26,7 +26,7 @@ s4 Sposób użycia: <h2>📝…</h2><p>Przed użyciem zapoznaj się z informacja
 s5 Parametry: <h2>📊…</h2><ul> z node_1_pim: Marka, Linia, Nazwa, Pojemność/Waga,
    Certyfikaty, pH, EAN, Kraj. ZERO NULL: parametr null → pomiń cały <li>.
    Zakaz "Brak danych".
-s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2> zasady przechowywania/przeznaczenia +
+s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2><p>Przechowywać w szczelnie zamkniętym fabrycznym opakowaniu z dala od źródeł ciepła i promieni słonecznych. Chronić przed mrozem. Przechowywać poza zasięgiem dzieci.</p> zasady przechowywania/przeznaczenia +
    KAŻDE ostrzeżenie z mandatory_safety_warnings jako osobny
    <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [treść DOSŁOWNA — zakaz parafrazy]</li>
    + podmiot odpowiedzialny w UE (nazwa).
