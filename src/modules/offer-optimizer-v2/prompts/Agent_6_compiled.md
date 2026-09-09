@@ -21,7 +21,7 @@ s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
    [Naprawa v3.1: usunięto polecenie samodzielnego opisywania INCI "z SOT RAG" —
    A6 nie ma RAG-u; opisy składników tworzy wyłącznie A4. Dla produktów
    niechemicznych (brak node_4_aeo) buduj s3 z cech użytkowych z PIM.]
-s4 Sposób użycia: <h2>📝…</h2><ol> kroki (💧 Krok 1 — Dozowanie…), scenariusze
+s4 Sposób użycia: <h2>📝…</h2><p>Przed użyciem zapoznaj się z informacjami bezpieczeństwa zawartymi na opakowaniu i stosuj się do zaleceń producenta.</p><ol> kroki (💧 Krok 1 — Dozowanie…), scenariusze
    przygotowujące grunt pod Kotwice Rutyny (A7).
 s5 Parametry: <h2>📊…</h2><ul> z node_1_pim: Marka, Linia, Nazwa, Pojemność/Waga,
    Certyfikaty, pH, EAN, Kraj. ZERO NULL: parametr null → pomiń cały <li>.
