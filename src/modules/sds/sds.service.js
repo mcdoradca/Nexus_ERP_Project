@@ -170,11 +170,38 @@ const ALLERGEN_NAMES_PL = {
   "benzyl alcohol": "alkohol benzylowy"
 };
 
+const CAS_TO_PL_MAP = {
+  "32210-23-4": "octan 4-tert-butylocykloheksylu",
+  "104-55-2": "aldehyd cynamonowy",
+  "55965-84-9": "masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu (3:1)",
+  "78-70-6": "linalol",
+  "5989-27-5": "d-limonen",
+  "91-64-5": "kumaryna",
+  "106-24-1": "geraniol",
+  "106-22-9": "cytronellol",
+  "118-58-1": "salicylan benzylu",
+  "101-86-0": "aldehyd heksylocynamonowy",
+  "107-75-5": "hydroksycytronellal",
+  "127-51-5": "alfa-izometylojonon",
+  "2634-33-5": "1,2-benzoizotiazol-3(2H)-on",
+  "2682-20-4": "2-metyloizotiazol-3(2H)-on",
+  "122-40-7": "aldehyd amylocynamonowy",
+  "104-54-1": "alkohol cynamonowy",
+  "5392-40-5": "cytral",
+  "97-53-0": "eugenol",
+  "97-54-1": "izoeugenol",
+  "100-51-6": "alkohol benzylowy",
+  "64-17-5": "etanol",
+  "67-63-0": "propan-2-ol",
+  "57-55-6": "propano-1,2-diol",
+  "56-81-5": "glicerol"
+};
+
 function mapHazardClass(text) {
   if (!text) return text;
   let result = text;
   for (const [key, val] of Object.entries(GHS_HAZARD_CLASSES_MAP)) {
-    const safeKey = key.replace(/\./g, '\\.');
+    const safeKey = key.replace(/\./g, '\\.').replace(/\s+/g, '\\s+');
     const regex = new RegExp(`\\b${safeKey}\\b`, 'gi');
     result = result.replace(regex, val);
   }
@@ -381,6 +408,127 @@ class SDSChemicalExtractor {
       }
     }
     return inferred.sort();
+  }
+
+  static formatConcentration(concStr) {
+    if (!concStr) return "—";
+    return concStr
+      .replace(/(\d+)\.(\d+)/g, '$1,$2')
+      .replace(/([≥≤><=]|>=|<=)\s*/g, '$1 ')
+      .replace(/\s*-\s*/g, ' - ')
+      .replace(/\s*%/g, ' %')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  static parseSection3Components(contentIt, resolvedSubstances = {}) {
+    if (!contentIt) return [];
+
+    // Oczyszczenie z nagłówków i stopki stron PDF
+    let cleanText = contentIt
+      .replace(/Page\s+n\.\s*of\s*\d+/gi, '')
+      .replace(/\d{2}\/\d{2}\/\d{4}\s*Production Name[^\n]+/gi, '')
+      .replace(/Qty\s*Name\s*Ident\.\s*Numb\.\s*Classification\s*Registration\s*Number/gi, '');
+
+    const casMatches = [...cleanText.matchAll(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/gi)];
+    if (casMatches.length === 0) return [];
+
+    const components = [];
+
+    for (let i = 0; i < casMatches.length; i++) {
+      const curCas = casMatches[i][1];
+      const casIdx = casMatches[i].index;
+      
+      const preCasText = cleanText.substring(Math.max(0, casIdx - 200), casIdx);
+      const concMatches = [...preCasText.matchAll(/([≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*(?:-\s*(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?)?\s*%/g)];
+      const lastConc = concMatches.length > 0 ? concMatches[concMatches.length - 1] : null;
+      
+      const rawConc = lastConc ? lastConc[0].trim() : "—";
+      const concentration = this.formatConcentration(rawConc);
+      let rawName = lastConc ? preCasText.substring(lastConc.index + lastConc[0].length).trim() : "";
+      rawName = rawName.replace(/-\s+/g, '-').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+
+      // Wyznaczanie granic wiersza (do startu stężenia następnego CAS lub końca tekstu)
+      let rowEnd = cleanText.length;
+      if (i + 1 < casMatches.length) {
+        const nextCasIdx = casMatches[i + 1].index;
+        const nextPreText = cleanText.substring(Math.max(0, nextCasIdx - 200), nextCasIdx);
+        const nextConcMatches = [...nextPreText.matchAll(/([≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*(?:-\s*(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?)?\s*%/g)];
+        if (nextConcMatches.length > 0) {
+          const nextLastConc = nextConcMatches[nextConcMatches.length - 1];
+          rowEnd = Math.max(0, nextCasIdx - 200) + nextLastConc.index;
+        } else {
+          rowEnd = nextCasIdx;
+        }
+      }
+
+      const body = cleanText.substring(casIdx, rowEnd).trim();
+
+      const ecMatch = body.match(/(?:EC|WE|EINECS)\s*[:\.]?\s*(\d{3}-\d{3}-\d)/i);
+      const ecNumber = ecMatch ? ecMatch[1] : "—";
+
+      const indexMatch = body.match(/(?:Index|Indeks)\s*[:\.]?\s*(\d{3}-\d{3}-\d{2}-\d)/i);
+      const indexNumber = indexMatch ? indexMatch[1] : "—";
+
+      const reachMatch = body.match(/(?:01-\d{10}-\d{2}-[A-Za-z0-9]{4}|01-\d+-\d+-\w+)/);
+      const reachNumber = reachMatch ? reachMatch[0] : "—";
+
+      let classText = body;
+      classText = classText.replace(/CAS\s*[:\.]?\s*\d{2,7}-\d{2}-\d/gi, '');
+      if (ecMatch) classText = classText.replace(ecMatch[0], '');
+      if (indexMatch) classText = classText.replace(indexMatch[0], '');
+      if (reachMatch) classText = classText.replace(reachMatch[0], '');
+
+      classText = classText
+        .replace(/Specific Concentration Limits\s*[:\.]?/gi, 'Specyficzne stężenia graniczne:\n')
+        .replace(/M-Chronic\s*[:\.]?\s*(\d+)/gi, 'M (przewlekły) = $1')
+        .replace(/M-Acute\s*[:\.]?\s*(\d+)/gi, 'M (ostry) = $1')
+        .replace(/\n\s*\n+/g, '\n')
+        .trim();
+
+      classText = mapHazardClass(classText);
+
+      let plName = "";
+      if (resolvedSubstances[curCas] && CAS_TO_PL_MAP[curCas]) {
+        plName = CAS_TO_PL_MAP[curCas];
+      } else if (resolvedSubstances[curCas] && !resolvedSubstances[curCas].startsWith("Substancja CAS")) {
+        plName = resolvedSubstances[curCas];
+      } else if (CAS_TO_PL_MAP[curCas]) {
+        plName = CAS_TO_PL_MAP[curCas];
+      }
+
+      if (!plName || plName === rawName) {
+        const lowerRaw = rawName.toLowerCase();
+        for (const [en, pl] of Object.entries(ALLERGEN_NAMES_PL)) {
+          if (lowerRaw === en.toLowerCase() || lowerRaw.includes(en.toLowerCase())) {
+            plName = pl;
+            break;
+          }
+        }
+      }
+      if (!plName) plName = rawName;
+
+      const idParts = [
+        `Numer CAS: ${curCas}`,
+        `Numer WE: ${ecNumber}`
+      ];
+      if (indexNumber !== "—") idParts.push(`Numer indeksowy: ${indexNumber}`);
+      if (reachNumber !== "—") idParts.push(`Numer rejestracji REACH:\n${reachNumber}`);
+
+      components.push({
+        cas: curCas,
+        name: plName,
+        originalName: rawName,
+        ec: ecNumber,
+        index: indexNumber,
+        reach: reachNumber,
+        identifiers: idParts.join('\n'),
+        classification: classText,
+        concentration: concentration
+      });
+    }
+
+    return components;
   }
 }
 
@@ -704,6 +852,11 @@ class SDSProcessorEngine {
         this.extractedSubstances.push({ casNumber: cas, translatedNamePl: resolvedSubstances[cas], url: "HITL_MANUAL_OVERRIDE" });
         continue;
       }
+      if (CAS_TO_PL_MAP[cas]) {
+        resolvedSubstances[cas] = CAS_TO_PL_MAP[cas];
+        this.extractedSubstances.push({ casNumber: cas, translatedNamePl: resolvedSubstances[cas], url: `https://echa.europa.eu/pl/substance-information/-/substanceinfo/${cas.replace(/-/g, "")}` });
+        continue;
+      }
       try {
         const echaInfo = await ECHAFreeResolver.resolveSubstanceData(cas);
         resolvedSubstances[cas] = echaInfo.name_pl;
@@ -716,16 +869,27 @@ class SDSProcessorEngine {
         }
       }
     }
-    
-    let mappedText = mapHazardClass(contentIt);
 
-    let header = "SEKCJA 3: Skład / informacja o składnikach\n\n[ORYGINALNE STĘŻENIA I KLASYFIKACJE ZACHOWANE ZGODNIE Z REGULĄ EXTRACT_RAW]\n[POLSKIE NAZWY SUBSTANCJI ZMAPOWANE PO CAS]\n\n";
-    for (const [cas, namePl] of Object.entries(resolvedSubstances)) {
-      const re = new RegExp(cas, 'g');
-      mappedText = mappedText.replace(re, `${cas} (${namePl})`);
+    const components = SDSChemicalExtractor.parseSection3Components(contentIt, resolvedSubstances);
+
+    let textContent = "SEKCJA 3: Skład / informacja o składnikach\n\n";
+    textContent += "3.1. Substancje: Nie dotyczy.\n\n";
+    textContent += "3.2. Mieszaniny\nOpis chemiczny: Mieszanina substancji niebezpiecznych wraz z dodatkami nieniebezpiecznymi.\n\n";
+
+    if (components.length > 0) {
+      components.forEach((c, idx) => {
+        textContent += `${idx + 1}. ${c.name}\n`;
+        textContent += `   ${c.identifiers.replace(/\n/g, ' | ')}\n`;
+        textContent += `   Stężenie: ${c.concentration}\n`;
+        textContent += `   Klasyfikacja: ${c.classification.replace(/\n/g, ' ')}\n\n`;
+      });
+    } else {
+      textContent += "Mieszanina nie zawiera składników stwarzających zagrożenie w ilościach przekraczających stężenia graniczne określone w rozporządzeniu CLP.\n\n";
     }
 
-    return { content: header + mappedText, resolvedSubstances };
+    textContent += "Pełne brzmienie zwrotów H i EUH znajduje się w sekcji 16 karty charakterystyki.";
+
+    return { content: textContent, components, resolvedSubstances };
   }
 
   processSection8(contentIt) {
@@ -778,7 +942,7 @@ class SDSProcessorEngine {
     const deterministic = {
       section_1: { type: "QUARANTINE", content: `1.1. Identyfikator produktu: ${productName}\n${PolishLegalTemplates.getSection1_4(ufi)}\n${PolishLegalTemplates.getSection1_3()}` },
       section_2: { type: "CLP_MAPPED", content: s2.content + "\n\n" + PolishLegalTemplates.getSection2_3() },
-      section_3: { type: "EXTRACT_RAW", content: s3.content },
+      section_3: { type: "EXTRACT_RAW", content: s3.content, components: s3.components },
       section_4: { type: "QUARANTINE", content: `SEKCJA 4: Środki pierwszej pomocy\n\n[FLAGA_QUARANTINE_REVIEW] Sekcja zablokowana przez system (Zagrożenie Toksykologiczne).\nWymagana weryfikacja przez Safety Assessora.\n\nORYGINAŁ DO WERYFIKACJI:\n${rawSections["section_4"]}` },
       section_5: { type: "QUARANTINE", content: `SEKCJA 5: Postępowanie w przypadku pożaru\n\n[FLAGA_QUARANTINE_REVIEW] Sekcja zablokowana przez system (Ryzyko Niewłaściwego Środka Gaśniczego).\nWymagana weryfikacja procedur gaśniczych.\n\nORYGINAŁ DO WERYFIKACJI:\n${rawSections["section_5"]}` },
       section_8: { type: "QUARANTINE", content: s8.content81 },
@@ -829,7 +993,7 @@ class SDSProcessorEngine {
 class SDSDocxExporter {
   static async export(sdsData, outPath) {
     if (!docx) throw new Error("Brak biblioteki docx.");
-    const { Document, Packer, Paragraph, TextRun, AlignmentType, ShadingType, Header, Footer, PageNumber, ImageRun, BorderStyle } = docx;
+    const { Document, Packer, Paragraph, TextRun, AlignmentType, ShadingType, Header, Footer, PageNumber, ImageRun, BorderStyle, Table, TableRow, TableCell, WidthType } = docx;
 
     const sectionsBody = [];
     
@@ -869,6 +1033,113 @@ class SDSDocxExporter {
         border: { bottom: { color: "00A651", space: 1, value: BorderStyle.SINGLE, size: 12 } },
         spacing: { before: 300, after: 150 }
       }));
+
+      if (i === 3 && data.components && data.components.length > 0) {
+        sectionsBody.push(new Paragraph({
+          children: [new TextRun({ text: "3.1. Substancje: Nie dotyczy.", bold: true, size: 20, font: "Arial" })],
+          spacing: { before: 180, after: 100 }
+        }));
+        sectionsBody.push(new Paragraph({
+          children: [new TextRun({ text: "3.2. Mieszaniny", bold: true, size: 20, font: "Arial" })],
+          spacing: { before: 180, after: 80 }
+        }));
+        sectionsBody.push(new Paragraph({
+          children: [new TextRun({ text: "Opis chemiczny: Mieszanina substancji niebezpiecznych wraz z dodatkami nieniebezpiecznymi.", size: 20, font: "Arial" })],
+          spacing: { after: 150 }
+        }));
+
+        const tableBorder = {
+          top: { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" },
+          bottom: { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" },
+          left: { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" },
+          right: { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" },
+          insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: "E0E0E0" },
+          insideVertical: { style: BorderStyle.SINGLE, size: 4, color: "E0E0E0" }
+        };
+
+        const headerRow = new TableRow({
+          tableHeader: true,
+          children: [
+            new TableCell({
+              width: { size: 2800, type: WidthType.DXA },
+              shading: { fill: "F2F4F7" },
+              children: [new Paragraph({ children: [new TextRun({ text: "Nazwa substancji", bold: true, size: 18, font: "Arial" })] })]
+            }),
+            new TableCell({
+              width: { size: 2600, type: WidthType.DXA },
+              shading: { fill: "F2F4F7" },
+              children: [new Paragraph({ children: [new TextRun({ text: "Identyfikatory", bold: true, size: 18, font: "Arial" })] })]
+            }),
+            new TableCell({
+              width: { size: 2800, type: WidthType.DXA },
+              shading: { fill: "F2F4F7" },
+              children: [new Paragraph({ children: [new TextRun({ text: "Klasyfikacja CLP", bold: true, size: 18, font: "Arial" })] })]
+            }),
+            new TableCell({
+              width: { size: 1400, type: WidthType.DXA },
+              shading: { fill: "F2F4F7" },
+              children: [new Paragraph({ children: [new TextRun({ text: "Stężenie", bold: true, size: 18, font: "Arial" })] })]
+            })
+          ]
+        });
+
+        const rows = [headerRow];
+        data.components.forEach(c => {
+          const idParagraphs = c.identifiers.split('\n').map(line => new Paragraph({
+            children: [new TextRun({ text: line, size: 17, font: "Arial" })],
+            spacing: { after: 40 }
+          }));
+
+          const classParagraphs = c.classification.split('\n').map(line => new Paragraph({
+            children: [new TextRun({ text: line, size: 17, font: "Arial" })],
+            spacing: { after: 40 }
+          }));
+
+          rows.push(new TableRow({
+            children: [
+              new TableCell({
+                width: { size: 2800, type: WidthType.DXA },
+                children: [
+                  new Paragraph({
+                    children: [new TextRun({ text: c.name, bold: true, size: 18, font: "Arial" })],
+                    spacing: { after: 40 }
+                  }),
+                  ...(c.originalName && c.originalName.toLowerCase() !== c.name.toLowerCase() ? [
+                    new Paragraph({
+                      children: [new TextRun({ text: `(ang. ${c.originalName})`, italics: true, size: 16, color: "666666", font: "Arial" })]
+                    })
+                  ] : [])
+                ]
+              }),
+              new TableCell({
+                width: { size: 2600, type: WidthType.DXA },
+                children: idParagraphs
+              }),
+              new TableCell({
+                width: { size: 2800, type: WidthType.DXA },
+                children: classParagraphs
+              }),
+              new TableCell({
+                width: { size: 1400, type: WidthType.DXA },
+                children: [new Paragraph({ children: [new TextRun({ text: c.concentration, size: 18, font: "Arial" })] })]
+              })
+            ]
+          }));
+        });
+
+        sectionsBody.push(new Table({
+          width: { size: 9600, type: WidthType.DXA },
+          borders: tableBorder,
+          rows: rows
+        }));
+
+        sectionsBody.push(new Paragraph({
+          children: [new TextRun({ text: "Pełne brzmienie zwrotów H i EUH znajduje się w sekcji 16 karty charakterystyki.", italics: true, size: 18, font: "Arial" })],
+          spacing: { before: 180, after: 150 }
+        }));
+
+        continue;
+      }
 
       lines.forEach(line => {
         const tLine = line.trim();
@@ -971,6 +1242,7 @@ module.exports = {
   GHS_HAZARD_CLASSES_MAP,
   SIGNAL_WORDS_MAP,
   ALLERGEN_NAMES_PL,
+  CAS_TO_PL_MAP,
   mapHazardClass
 };
 
