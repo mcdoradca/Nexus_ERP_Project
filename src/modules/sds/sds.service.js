@@ -473,7 +473,7 @@ class GHSPictogramGenerator {
 }
 
 // ============================================================================
-// 8. G�?ÓWNY SILNIK PARSERA I KWARANTANNY
+// 8. G?ÓWNY SILNIK PARSERA I KWARANTANNY
 // ============================================================================
 class SDSProcessorEngine {
   constructor(companyConfig = {}) {
@@ -498,14 +498,22 @@ class SDSProcessorEngine {
     this.detectedGhsPictograms = Array.from(new Set([...directGhs, ...inferredGhs])).sort();
     
     let signalWord = "UWAGA";
-    if (/(PERICOLO|DANGER)/i.test(contentIt)) signalWord = "NIEBEZPIECZE�?STWO";
+    if (/(PERICOLO|DANGER)/i.test(contentIt)) signalWord = "NIEBEZPIECZEŃSTWO";
 
     const mappedH = hCodes.map(c => `${c}: ${OFFICIAL_CLP_H_PHRASES[c]}`);
-    const mappedP = pCodes.map(c => `${c}: ${OFFICIAL_CLP_P_PHRASES[c] || "[B�?ĄD S�?OWNIKA P]"}`);
-    const ghsSummary = this.detectedGhsPictograms.join(", ");
+    const mappedP = pCodes.map(c => `${c}: ${OFFICIAL_CLP_P_PHRASES[c] || "[BŁĄD SŁOWNIKA P]"}`);
+    
+    let classification2_1 = "Zgodnie z rozporządzeniem CLP:\n";
+    if (hCodes.length === 0 && /(Not classified|Nie sklasyfikowano)/i.test(contentIt)) {
+      classification2_1 += "Nie sklasyfikowano wg rozporządzenia CLP.";
+    } else {
+      const match21 = contentIt.match(/(?:^|\n)\s*2\.1[^\n]*(.*?)(?=(?:^|\n)\s*2\.2)/is);
+      let text21 = match21 ? match21[1] : contentIt;
+      classification2_1 += mapHazardClass(text21.trim());
+    }
 
     return {
-      content: `SEKCJA 2: Identyfikacja zagrożeń\n\nHasło ostrzegawcze: ${signalWord}\nPiktogramy: ${ghsSummary}\n\nZwroty (H):\n${mappedH.join('\n')}\n\nZwroty (P):\n${mappedP.join('\n')}`,
+      content: `SEKCJA 2: Identyfikacja zagrożeń\n\n2.1. Klasyfikacja substancji lub mieszaniny\n${classification2_1}\n\n2.2. Elementy oznakowania\nHasło ostrzegawcze: ${signalWord}\n\nZwroty wskazujące rodzaj zagrożenia (H):\n${mappedH.join('\n')}\n\nZwroty wskazujące środki ostrożności (P):\n${mappedP.join('\n')}`,
       ghsPictograms: this.detectedGhsPictograms
     };
   }
