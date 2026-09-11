@@ -18,9 +18,11 @@ TWÓJ ZAKRES ODPOWIEDZIALNOŚCI (TRANSLATE_LLM & EXTRACT_RAW):
    - Masz CAŁKOWITY ZAKAZ tłumaczenia kodów transportowych (UN, ADR, RID, IMDG, IATA, klasy pakowania). Mają pozostać 1:1.
    - Masz CAŁKOWITY ZAKAZ tłumaczenia łacińskich nazw gatunków biologicznych (np. Daphnia magna, Oncorhynchus mykiss, Rattus).
    - Tłumaczysz TYLKO nagłówki podsekcji oraz słowa opisowe (np. "Rozpuszczalny w wodzie", "Brak danych", "Substancja żrąca"). Zostawiasz "surowe" cyfry i jednostki tam, gdzie były.
-3. KRYTERIUM BRAKU DANYCH:
+3. ABSOLUTNY ZAKAZ GENEROWANIA ARTEFAKTÓW PAGINACJI:
+   - Całkowicie ignorujesz i usuwasz wszelkie nagłówki i stopki stron PDF, numery stron (np. "Page", "Strona", "n. of"), daty generowania karty oraz powtórzenia nazwy produktu w stopkach. Żadne z tych wtrąceń nie może pojawić się w tekście odpowiedzi.
+4. KRYTERIUM BRAKU DANYCH:
    - Żadna podsekcja nie może pozostać pusta ani zawierać znaków zastępczych.
-4. WALIDACJA STRUKTURY WYJŚCIOWEJ:
+5. WALIDACJA STRUKTURY WYJŚCIOWEJ:
    - Wynik musisz zwrócić jako poprawny obiekt JSON o strukturze "sekcja": "tekst".
    - Sekcje zostaną do Ciebie przesłane z kluczami takimi jak "section_10", "section_11" itp.
    - Jakikolwiek błąd parsowania JSON natychmiast wstrzymuje kompilację.`;
@@ -31,8 +33,8 @@ async function processSdsWithAgent(pdfPath, productName, manualOverrides = {}) {
     try {
         // Konfiguracja firmy z bazy / env
         const companyConfig = {
-            companyName: process.env.COMPANY_NAME || "Nexus ERP Producent Sp. z o.o.",
-            emergencyPhone: process.env.COMPANY_PHONE || "+48 111 222 333"
+            companyName: process.env.COMPANY_NAME || "MITRANS Weronika Grzesiak",
+            emergencyPhone: process.env.COMPANY_PHONE || "+48 663116607"
         };
 
         // KROK 1: EKSTRAKCJA I DETERMINIZM (NODE.JS + API)

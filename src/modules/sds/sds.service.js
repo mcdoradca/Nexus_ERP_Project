@@ -988,10 +988,9 @@ class SDSProcessorEngine {
     if (!text) return "";
     return text
       .replace(/\r/g, '')
-      .replace(/Page\s+n\.?[^\n]*/gi, '')
-      .replace(/\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}\s*(?:Production Name|Trade Name)?[^\n]*/gi, '')
-      .replace(/Production Name[^\n]*/gi, '')
-      .replace(/\bDate\b/gi, '')
+      .replace(/(?:^|\n)\s*(?:Page|Strona|Pagina)\b[^\n]*/gi, '')
+      .replace(/(?:^|\n)\s*\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}\s*(?:Production Name|Trade Name|Nazwa produktu|Product name|Nome prodotto)?[^\n]*/gi, '')
+      .replace(/(?:^|\n)\s*(?:Production Name|Trade Name|Nazwa produktu|Product name|Nome prodotto)\s*[:\.]?\s*[^\n]*(?:\bDate|\bData)\s*$/gim, '')
       .replace(/\t/g, ' ');
   }
 
@@ -1053,47 +1052,16 @@ class SDSProcessorEngine {
       }
     }
 
-    // 1.3. Dostawca karty (Producent wyciągany DYNAMICZNIE)
-    let s13Text = "";
-    const m13 = clean.match(/(?:^|\n)\s*1\.3\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*1\.4\b|$)/i);
-    if (m13) s13Text = m13[1].trim();
+    // 1.3. Dane dotyczące dostawcy karty charakterystyki
+    let s13 = "1.3. Dane dotyczące dostawcy karty charakterystyki\n";
+    s13 += `Firma: ${this.companyConfig.companyName || "MITRANS Weronika Grzesiak"}\n`;
+    s13 += "Adres: ul. Wesoła 16, 63-600 Kępno, woj. wielkopolskie\n";
+    s13 += "E-mail: kontakt@prostozwloch.com.pl\n";
+    s13 += `Telefon: ${this.companyConfig.emergencyPhone || "+48 663116607"}`;
 
-    let compMatch = s13Text.match(/(?:Company|Società|Fabbricante|Firma|Dostawca)\s*[:\.]?\s*([^\n]+)/i);
-    let producerCompany = compMatch ? compMatch[1].trim() : "";
-    
-    // Wyszukiwanie adresu producenta
-    let addressLines = [];
-    const lines13 = s13Text.split('\n').map(l => l.trim()).filter(Boolean);
-    for (let l of lines13) {
-      if (/^(?:Company|Società|Fabbricante|Firma|Dostawca|Competent|E-mail|Tel|Ph\.|Fax|www|Web)/i.test(l)) continue;
-      if (/(?:Via|Street|Strada|Viale|Piazza|ul\.|Road|Carrer|\d{4,5}|\bItaly\b|\bItalia\b|\bPoland\b|\bPolska\b|\bGermany\b)/i.test(l)) {
-        addressLines.push(l);
-      }
-    }
-    let producerAddress = addressLines.join(', ');
-
-    let phoneMatch = s13Text.match(/(?:Ph\.|Tel\.|Telefono|Phone)\s*[:\.]?\s*([+0-9\s\(\)\-\/]{6,})/i);
-    let producerPhone = phoneMatch ? phoneMatch[1].trim() : "";
-
-    let webMatch = s13Text.match(/(?:www\.[a-z0-9\.\-_]+\.[a-z]{2,4}|https?:\/\/[^\s]+)/i);
-    let producerWeb = webMatch ? webMatch[0].trim() : "";
-
-    let emailMatch = s13Text.match(/(?:email|e-mail|competent person)[^:]*:\s*([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})/i);
-    if (!emailMatch) emailMatch = s13Text.match(/([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})/i);
-    let producerEmail = emailMatch ? emailMatch[1].trim() : "";
-
-    // 1.4. Numer alarmowy
-    let s14Text = "";
-    const m14 = clean.match(/(?:^|\n)\s*1\.4\b[.:\-]?\s*([\s\S]*?)$/i);
-    if (m14) s14Text = m14[1].trim();
-
-    let emergPhoneMatch = s14Text.match(/(?:Ph\.|Tel\.|Telefono|Phone)?[.:\s]*([+0-9\s\(\)\-\/]{8,})([^\n]*)/i);
-    let producerEmergPhone = "";
-    if (emergPhoneMatch && emergPhoneMatch[1] && emergPhoneMatch[1].trim().length >= 8) {
-      producerEmergPhone = `${emergPhoneMatch[1].trim()} ${emergPhoneMatch[2] ? emergPhoneMatch[2].trim() : ""}`.trim();
-    } else if (producerPhone) {
-      producerEmergPhone = `${producerPhone} (w godzinach pracy biura)`;
-    }
+    // 1.4. Numer telefonu alarmowego
+    let s14 = "1.4. Numer telefonu alarmowego\n";
+    s14 += "112 (ogólny telefon alarmowy w Polsce), 998 (straż pożarna), 999 (pogotowie ratunkowe)";
 
     // Asemblacja sekcji 1
     let output = "SEKCJA 1: Identyfikacja substancji/mieszaniny i identyfikacja przedsiębiorstwa\n\n";
@@ -1105,28 +1073,8 @@ class SDSProcessorEngine {
     output += "1.2. Istotne zidentyfikowane zastosowania substancji lub mieszaniny oraz zastosowania odradzane\n";
     output += `Zastosowanie zidentyfikowane: ${identifiedUses}\n`;
     output += `Zastosowania odradzane: ${usesAdvised}\n\n`;
-
-    output += "1.3. Dane dotyczące dostawcy karty charakterystyki\n";
-    output += "Producent / Podmiot wprowadzający do obrotu:\n";
-    output += `${producerCompany || "Zgodnie z informacją na opakowaniu produktu"}\n`;
-    if (producerAddress) output += `${producerAddress}\n`;
-    let prodContact = [];
-    if (producerPhone) prodContact.push(`Tel. ${producerPhone}`);
-    if (producerWeb) prodContact.push(producerWeb);
-    if (prodContact.length > 0) output += `${prodContact.join(' | ')}\n`;
-    if (producerEmail) output += `E-mail osoby odpowiedzialnej za kartę: ${producerEmail}\n`;
-    output += "\n";
-
-    output += "Dystrybutor w Polsce:\n";
-    output += `${this.companyConfig.companyName || "MITRANS Weronika Grzesiak"}\n`;
-    output += "ul. Wesoła 16, 63-600 Kępno, woj. wielkopolskie\n";
-    output += `E-mail: kontakt@prostozwloch.com.pl | Tel. ${this.companyConfig.emergencyPhone || "+48 663116607"}\n\n`;
-
-    output += "1.4. Numer telefonu alarmowego\n";
-    output += "112 (ogólny telefon alarmowy w Polsce), 998 (straż pożarna), 999 (pogotowie ratunkowe)\n";
-    if (producerEmergPhone) {
-      output += `Telefon producenta: ${producerEmergPhone}`;
-    }
+    output += `${s13}\n\n`;
+    output += `${s14}`;
 
     return output.trim();
   }
@@ -1495,7 +1443,9 @@ class SDSProcessorEngine {
     };
 
     const toTranslate = {};
-    [10,11,12,14].forEach(i => { toTranslate[`section_${i}`] = rawSections[`section_${i}`]; });
+    [10,11,12,14].forEach(i => {
+      toTranslate[`section_${i}`] = SDSProcessorEngine.cleanPdfArtifacts(rawSections[`section_${i}`]);
+    });
 
     if (this.anomalies.length > 0) {
       throw new HITLError(this.anomalies);
@@ -1518,7 +1468,7 @@ class SDSProcessorEngine {
       if (agentPayload.deterministicSections[key]) {
         finalSections[key] = agentPayload.deterministicSections[key];
       } else if (agentTranslated[key]) {
-        finalSections[key] = { type: "TRANSLATED", content: agentTranslated[key].trim() };
+        finalSections[key] = { type: "TRANSLATED", content: SDSProcessorEngine.cleanPdfArtifacts(agentTranslated[key]).trim() };
       } else {
         throw new Error(`[CRITICAL HALT] Brak danych dla ${key}.`);
       }
@@ -1686,8 +1636,8 @@ class SDSDocxExporter {
         if (!tLine) return;
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
-        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Producent \/ Podmiot wprowadzający do obrotu:|Dystrybutor w Polsce:|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):)$/i.test(tLine);
-        const isBoldStart = /^(Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Telefon producenta|E-mail osoby odpowiedzialnej za kartę|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria|Stan skupienia|Kolor|Zapach|Temperatura topnienia\/krzepnięcia|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Palność materiałów|Dolna i górna granica wybuchowości|Temperatura zapłonu|Temperatura samozapłonu|Temperatura rozkładu|pH|Lepkość kinematyczna|Rozpuszczalność w wodzie|Rozpuszczalność w innych rozpuszczalnikach|Współczynnik podziału n-oktanol\/woda \(wartość współczynnika log\)|Prężność pary|Gęstość lub gęstość względna|Względna gęstość pary|Charakterystyka cząsteczek|Lotne Związki Organiczne \(LZO \/ VOC\)):/i.test(tLine);
+        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):)$/i.test(tLine);
+        const isBoldStart = /^(Firma|Adres|E-mail|Telefon|Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria|Stan skupienia|Kolor|Zapach|Temperatura topnienia\/krzepnięcia|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Palność materiałów|Dolna i górna granica wybuchowości|Temperatura zapłonu|Temperatura samozapłonu|Temperatura rozkładu|pH|Lepkość kinematyczna|Rozpuszczalność w wodzie|Rozpuszczalność w innych rozpuszczalnikach|Współczynnik podziału n-oktanol\/woda \(wartość współczynnika log\)|Prężność pary|Gęstość lub gęstość względna|Względna gęstość pary|Charakterystyka cząsteczek|Lotne Związki Organiczne \(LZO \/ VOC\)):/i.test(tLine);
 
         if (isSubSection) {
            sectionsBody.push(new Paragraph({
