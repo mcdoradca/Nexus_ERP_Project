@@ -30,8 +30,8 @@ async function processSds(req, res) {
         });
 
     } catch (error) {
-        console.error("Błąd processSds:", error);
-        res.status(500).json({ error: 'Błąd podczas przetwarzania karty SDS.', details: error.message });
+        console.error("Błąd processSds [STACK]:", error.stack);
+        res.status(500).json({ error: 'Błąd podczas przetwarzania karty SDS.', details: error.message, stack: error.stack });
     }
 }
 

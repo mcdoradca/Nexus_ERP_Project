@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { SDSProcessorEngine, SDSDocxExporter, NDSRegistry } = require('./sds.service');
 
@@ -59,7 +60,16 @@ Dane wejściowe do tłumaczenia:
 ${JSON.stringify(agentPayload.descriptiveSectionsToTranslate, null, 2)}`;
 
         const result = await model.generateContent(prompt);
-        const translatedJson = JSON.parse(result.response.text());
+        let responseText = result.response.text();
+        responseText = responseText.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+        let translatedJson;
+        try {
+            translatedJson = JSON.parse(responseText);
+        } catch(parseErr) {
+            console.error('[Agent SDS] Błąd parsowania JSON od LLM:', parseErr);
+            console.error('Otrzymany tekst:', responseText);
+            throw new Error('LLM zwrócił nieprawidłowy format JSON.');
+        }
         
         fs.writeFileSync(path.join(process.cwd(), 'agent_translated_sections.json'), JSON.stringify(translatedJson, null, 2));
 

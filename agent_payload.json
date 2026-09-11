@@ -1,0 +1,57 @@
+{
+  "metadata": {
+    "productName": "TEST_PRODUCT",
+    "ufi": null,
+    "version": "1.0 PL",
+    "companyConfig": {
+      "companyName": "Firma Przykładowa Sp. z o.o.",
+      "emergencyPhone": "+48 111 222 333"
+    }
+  },
+  "deterministicSections": {
+    "section_1": {
+      "type": "QUARANTINE",
+      "content": "1.1. Produkt: TEST_PRODUCT\n[UWAGA: Brak kodu UFI w pliku!]\n1.4. Numer telefonu alarmowego:\n- Numer alarmowy ogĂłlny: 112 (dostÄ™pny caĹ‚odobowo)\n- PaĹ„stwowa StraĹĽ PoĹĽarna: 998 | Pogotowie Ratunkowe: 999\n- OĹ›rodki Informacji Toksykologicznej w Polsce (m.in. Warszawa: 22 619 66 54)\n- Telefon alarmowy (Firma Przykładowa Sp. z o.o.): +48 111 222 333"
+    },
+    "section_2": {
+      "type": "CLP_MAPPED",
+      "content": "SEKCJA 2: Identyfikacja zagroĹĽeĹ„\n\nHasĹ‚o ostrzegawcze: UWAGA\nPiktogramy: \n\nZwroty (H):\n\n\nZwroty (P):\n"
+    },
+    "section_3": {
+      "type": "CLP_MAPPED",
+      "content": "SEKCJA 3: SkĹ‚ad / informacja o skĹ‚adnikach\n\nNiebezpieczne skĹ‚adniki chemiczne:\n"
+    },
+    "section_8": {
+      "type": "QUARANTINE",
+      "content": "8.1. Parametry dotyczÄ…ce kontroli (Dz.U. 2018 poz. 1286):\n\n\n8.1.1. WartoĹ›ci DNEL / PNEC (Ochrona danych REACH):\nDNEL: Brak danych producenta.\nPNEC: Brak danych producenta.\n"
+    },
+    "section_13": {
+      "type": "QUARANTINE",
+      "content": "SEKCJA 13: PostÄ™powanie z odpadami\n\nUsuwaÄ‡ zgodnie z obowiÄ…zujÄ…cymi przepisami krajowymi. Nie wprowadzaÄ‡ do kanalizacji.\n\nPodstawa prawna RP:\n- Ustawa z dnia 14 grudnia 2012 r. o odpadach (Dz.U. z 2023 r. poz. 1587 z pĂłĹşn. zm.).\n- Ustawa o gospodarce opakowaniami (Dz.U. z 2023 r. poz. 1658).\n- RozporzÄ…dzenie Ministra Klimatu w sprawie katalogu odpadĂłw (Dz.U. 2020 poz. 10).\n"
+    },
+    "section_15": {
+      "type": "QUARANTINE",
+      "content": "SEKCJA 15: Informacje dotyczÄ…ce przepisĂłw prawnych\n\nKarta speĹ‚nia wymogi ZaĹ‚Ä…cznika II do RozporzÄ…dzenia REACH (UE) 2020/878.\n\nAkty prawne RP:\n1. RozporzÄ…dzenie (WE) nr 1907/2006 (REACH) i (WE) nr 1272/2008 (CLP).\n2. Ustawa z 25 lutego 2011 r. o substancjach chemicznych (Dz.U. 2022 poz. 1816).\n3. RozporzÄ…dzenie MRPiPS z 12 czerwca 2018 r. w sprawie NDS (Dz.U. 2018 poz. 1286).\n4. Ustawa z 19 sierpnia 2011 r. o przewozie towarĂłw niebezpiecznych (ADR)."
+    }
+  },
+  "descriptiveSectionsToTranslate": {
+    "section_4": "Brak danych dla Sekcji 4 w pliku ĹşrĂłdĹ‚owym.",
+    "section_5": "Brak danych dla Sekcji 5 w pliku ĹşrĂłdĹ‚owym.",
+    "section_6": "Brak danych dla Sekcji 6 w pliku ĹşrĂłdĹ‚owym.",
+    "section_7": "Brak danych dla Sekcji 7 w pliku ĹşrĂłdĹ‚owym.",
+    "section_9": "Brak danych dla Sekcji 9 w pliku ĹşrĂłdĹ‚owym.",
+    "section_10": "Brak danych dla Sekcji 10 w pliku ĹşrĂłdĹ‚owym.",
+    "section_11": "Brak danych dla Sekcji 11 w pliku ĹşrĂłdĹ‚owym.",
+    "section_12": "Brak danych dla Sekcji 12 w pliku ĹşrĂłdĹ‚owym.",
+    "section_14": "Brak danych dla Sekcji 14 w pliku ĹşrĂłdĹ‚owym.",
+    "section_16": "Brak danych dla Sekcji 16 w pliku ĹşrĂłdĹ‚owym."
+  },
+  "quarantineAudit": [
+    {
+      "section": "Sekcja 8",
+      "reason": "ZastÄ…piono obce limity ustawowym NDS RP. Zachowano wartoĹ›ci DNEL/PNEC."
+    }
+  ],
+  "detectedGhsPictograms": [],
+  "ocrDiagnostics": "BĹ‚Ä…d silnika OCR (wymaga Tesseract/Poppler w systemie OS)."
+}
