@@ -919,6 +919,78 @@ class SDSProcessorEngine {
     return output;
   }
 
+  processSection5(contentIt) {
+    if (!contentIt) {
+      return (
+        "SEKCJA 5: Postępowanie w przypadku pożaru\n\n" +
+        "5.1. Środki gaśnicze\n" +
+        "Odpowiednie środki gaśnicze: Piana gaśnicza, proszek gaśniczy, dwutlenek węgla (CO2), rozproszony strumień wody (mgła wodna).\n" +
+        "Niewłaściwe środki gaśnicze: Brak szczególnych ograniczeń. Nie zaleca się stosowania zwartego strumienia wody ze względu na ryzyko rozprzestrzenienia pożaru.\n\n" +
+        "5.2. Szczególne zagrożenia związane z substancją lub mieszaniną\n" +
+        "Unikać wdychania gazów pożarowych i produktów spalania. Podczas pożaru mogą wydzielać się niebezpieczne gazy, tlenki węgla i dymy.\n\n" +
+        "5.3. Informacje dla straży pożarnej\n" +
+        "Środki ochrony strażaków: Stosować standardową odzież ochronną strażacką zgodną z normą europejską EN 469 oraz autonomiczny aparat oddechowy (SCBA) z rękawicami chemoodpornymi. Gromadzić oddzielnie zanieczyszczoną wodę gaśniczą; nie dopuścić do jej przedostania się do kanalizacji i wód powierzchniowych."
+      );
+    }
+
+    const norm = contentIt.replace(/\r/g, '').replace(/\t/g, ' ');
+
+    let suitableMatch = norm.match(/(?:Suitable extinguishing media|Mezzi di estinzione idonei)\s*[:\.]?\s*([\s\S]*?)(?=(?:Extinguishing media which must not be used|Unsuitable extinguishing media|Mezzi di estinzione non idonei|5\.2|Special hazards|Pericoli speciali|$))/i);
+    let unsuitableMatch = norm.match(/(?:Extinguishing media which must not be used[^\n:]*|Unsuitable extinguishing media|Mezzi di estinzione non idonei)\s*[:\.]?\s*([\s\S]*?)(?=(?:5\.2|Special hazards|Pericoli speciali|$))/i);
+    let hazardsMatch = norm.match(/(?:5\.2[^\n]*|Special hazards arising[^\n]*|Pericoli speciali[^\n]*)\s*[:\.]?\s*([\s\S]*?)(?=(?:5\.3|Advice for fire-?fighters|Raccomandazioni per gli addetti|$))/i);
+    let adviceMatch = norm.match(/(?:5\.3[^\n]*|Advice for fire-?fighters[^\n]*|Raccomandazioni per gli addetti[^\n]*)\s*[:\.]?\s*([\s\S]*?)$/i);
+
+    const translateFireText = (txt) => {
+      if (!txt) return "";
+      let t = txt.trim().replace(/\n+/g, ' ');
+
+      if (/^(none in particular|none|nessuno in particolare|nessuno|brak)\.?$/i.test(t)) {
+        return "Brak szczególnych ograniczeń. Nie zaleca się stosowania zwartego strumienia wody ze względu na ryzyko rozprzestrzenienia pożaru.";
+      }
+
+      t = t
+        .replace(/CO2 or Dry chemical fire extinguisher\.?\s*foam;?\s*Water/gi, "Piana gaśnicza, proszek gaśniczy, gaśnica śniegowa (CO2), rozproszony strumień wody (mgła wodna)")
+        .replace(/CO2 or Dry chemical fire extinguisher/gi, "gaśnica śniegowa (CO2) lub gaśnica proszkowa")
+        .replace(/dry chemical fire extinguisher/gi, "gaśnica proszkowa")
+        .replace(/dry chemical/gi, "proszek gaśniczy")
+        .replace(/carbon dioxide/gi, "dwutlenek węgla (CO2)")
+        .replace(/alcohol-resistant foam|schiuma resistente all'alcool/gi, "piana alkoholoodporna")
+        .replace(/\bfoam\b|schiuma/gi, "piana gaśnicza")
+        .replace(/water spray|acqua nebulizzata/gi, "rozproszony strumień wody (mgła wodna)")
+        .replace(/water jet|water stream|getto d'acqua diretto/gi, "zwarty strumień wody")
+        .replace(/Avoid breathing combustion products\.?/gi, "Unikać wdychania produktów spalania. Podczas pożaru mogą wydzielać się toksyczne gazy, dymy i tlenki węgla.")
+        .replace(/Collect contaminated fire extinguishing water separately\.?\s*This must not be discharged into drains\.?/gi, "Gromadzić oddzielnie zanieczyszczoną wodę gaśniczą; nie dopuścić do jej przedostania się do kanalizacji i wód gruntowych.")
+        .replace(/Use fire fighter's clothing conforming to European standard EN469\.?/gi, "Stosować odzież ochronną dla strażaków zgodną z normą europejską EN 469.")
+        .replace(/Use Self-Contained Breathing Apparatus \(SCBA\) with chemical resistant gloves\.?/gi, "Stosować autonomiczny aparat oddechowy (SCBA) z rękawicami chemoodpornymi.")
+        .replace(/Self-Contained Breathing Apparatus/gi, "autonomiczny aparat oddechowy (SCBA)")
+        .replace(/chemical resistant gloves/gi, "rękawice odporne na chemikalia")
+        .replace(/Do not discharge into drains/gi, "Nie odprowadzać do kanalizacji");
+
+      return t.trim();
+    };
+
+    let suitableText = suitableMatch ? translateFireText(suitableMatch[1]) : "Piana gaśnicza, proszek gaśniczy, dwutlenek węgla (CO2), rozproszony strumień wody (mgła wodna).";
+    let unsuitableText = unsuitableMatch ? translateFireText(unsuitableMatch[1]) : "Brak szczególnych ograniczeń. Nie zaleca się stosowania zwartego strumienia wody ze względu na ryzyko rozprzestrzenienia pożaru.";
+    let hazardsText = hazardsMatch ? translateFireText(hazardsMatch[1]) : "Unikać wdychania produktów spalania. Podczas pożaru mogą wydzielać się toksyczne gazy i tlenki węgla.";
+    let adviceText = adviceMatch ? translateFireText(adviceMatch[1]) : "Stosować odzież ochronną dla strażaków zgodną z normą europejską EN 469 oraz autonomiczny aparat oddechowy (SCBA) z rękawicami chemoodpornymi. Gromadzić oddzielnie zanieczyszczoną wodę gaśniczą; nie dopuścić do jej przedostania się do kanalizacji i wód powierzchniowych.";
+
+    if (!suitableText.endsWith('.')) suitableText += '.';
+    if (!unsuitableText.endsWith('.')) unsuitableText += '.';
+    if (!hazardsText.endsWith('.')) hazardsText += '.';
+    if (!adviceText.endsWith('.')) adviceText += '.';
+
+    let output = "SEKCJA 5: Postępowanie w przypadku pożaru\n\n";
+    output += "5.1. Środki gaśnicze\n";
+    output += `Odpowiednie środki gaśnicze: ${suitableText}\n`;
+    output += `Niewłaściwe środki gaśnicze: ${unsuitableText}\n\n`;
+    output += "5.2. Szczególne zagrożenia związane z substancją lub mieszaniną\n";
+    output += `${hazardsText}\n\n`;
+    output += "5.3. Informacje dla straży pożarnej\n";
+    output += `Środki ochrony strażaków: ${adviceText}`;
+
+    return output;
+  }
+
   processSection8(contentIt) {
     const foundCas = this.extractedSubstances.map(s => s.casNumber);
     let tableText = "SEKCJA 8: Kontrola narażenia/środki ochrony indywidualnej\n\n8.1. Parametry dotyczące kontroli\n\n";
@@ -967,13 +1039,14 @@ class SDSProcessorEngine {
     const s8 = this.processSection8(rawSections["section_8"]);
     const hasAllergens = Boolean(s2.content && s2.content.includes("EUH208"));
     const s4Content = this.processSection4(rawSections["section_4"], hasAllergens);
+    const s5Content = this.processSection5(rawSections["section_5"]);
 
     const deterministic = {
       section_1: { type: "QUARANTINE", content: `1.1. Identyfikator produktu: ${productName}\n${PolishLegalTemplates.getSection1_4(ufi)}\n${PolishLegalTemplates.getSection1_3()}` },
       section_2: { type: "CLP_MAPPED", content: s2.content + "\n\n" + PolishLegalTemplates.getSection2_3() },
       section_3: { type: "EXTRACT_RAW", content: s3.content, components: s3.components },
       section_4: { type: "CLP_MAPPED", content: s4Content },
-      section_5: { type: "QUARANTINE", content: `SEKCJA 5: Postępowanie w przypadku pożaru\n\n[FLAGA_QUARANTINE_REVIEW] Sekcja zablokowana przez system (Ryzyko Niewłaściwego Środka Gaśniczego).\nWymagana weryfikacja procedur gaśniczych.\n\nORYGINAŁ DO WERYFIKACJI:\n${rawSections["section_5"]}` },
+      section_5: { type: "CLP_MAPPED", content: s5Content },
       section_8: { type: "QUARANTINE", content: s8.content81 },
       section_13: { type: "QUARANTINE", content: PolishLegalTemplates.getSection13() },
       section_15: { type: "QUARANTINE", content: PolishLegalTemplates.getSection15() },
@@ -1176,7 +1249,7 @@ class SDSDocxExporter {
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
         const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające)$/i.test(tLine);
-        const isBoldStart = /^(Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie):/i.test(tLine);
+        const isBoldStart = /^(Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Środki ochrony strażaków):/i.test(tLine);
 
         if (isSubSection) {
            sectionsBody.push(new Paragraph({
