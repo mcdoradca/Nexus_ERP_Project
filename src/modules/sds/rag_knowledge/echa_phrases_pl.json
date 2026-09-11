@@ -1,0 +1,19 @@
+[
+    { "key": "first_aid_general", "text": "W przypadku utrzymywania się objawów lub w razie wątpliwości zasięgnąć porady lekarza." },
+    { "key": "first_aid_inhalation", "text": "Zapewnić dostęp świeżego powietrza. W przypadku wystąpienia trudności z oddychaniem podać tlen. Jeśli oddychanie ustało, zastosować sztuczne oddychanie." },
+    { "key": "first_aid_skin", "text": "Natychmiast zdjąć zanieczyszczoną odzież. Zmyć skórę dużą ilością wody z mydłem." },
+    { "key": "first_aid_eye", "text": "Natychmiast płukać oczy dużą ilością wody przez co najmniej 15 minut, przy otwartych powiekach. Wyjąć soczewki kontaktowe, jeśli są i można je łatwo usunąć." },
+    { "key": "first_aid_ingestion", "text": "Wypłukać usta wodą. Nie wywoływać wymiotów. Nigdy nie podawać niczego do ust osobie nieprzytomnej." },
+    { "key": "fire_extinguishing_media", "text": "Odpowiednie środki gaśnicze: piana alkoholoodporna, dwutlenek węgla (CO2), proszki gaśnicze, rozproszone prądy wody. Niewłaściwe: zwarte strumienie wody." },
+    { "key": "fire_hazards", "text": "Podczas pożaru mogą powstawać niebezpieczne gazy (np. tlenek węgla, tlenki azotu)." },
+    { "key": "fire_advice", "text": "Nosić niezależny aparat oddechowy i pełną odzież ochronną." },
+    { "key": "handling_safe", "text": "Unikać kontaktu ze skórą i oczami. Unikać wdychania par lub mgły. Zapewnić odpowiednią wentylację w miejscu pracy." },
+    { "key": "storage_safe", "text": "Przechowywać w szczelnie zamkniętym, oryginalnym pojemniku, w chłodnym i dobrze wentylowanym miejscu. Chronić przed bezpośrednim nasłonecznieniem i źródłami zapłonu." },
+    { "key": "ppe_eye", "text": "Ochrona oczu: Nosić okulary ochronne w szczelnej obudowie zgodnie z normą PN-EN 166." },
+    { "key": "ppe_skin", "text": "Ochrona rąk: Nosić rękawice ochronne odporne na chemikalia (np. z gumy nitrylowej lub neoprenu) zgodnie z normą PN-EN ISO 374-1. Ochrona ciała: Odzież robocza zapobiegająca kontaktowi ze skórą." },
+    { "key": "ppe_resp", "text": "Ochrona dróg oddechowych: W przypadku niedostatecznej wentylacji stosować odpowiedni sprzęt ochrony dróg oddechowych (np. maska z pochłaniaczem typu A zgodnie z normą PN-EN 14387)." },
+    { "key": "env_precautions", "text": "Nie dopuścić do przedostania się do kanalizacji, wód powierzchniowych lub gruntowych." },
+    { "key": "spill_containment", "text": "Zebrać za pomocą materiału wiążącego ciecze (np. piasek, ziemia okrzemkowa, uniwersalne spoiwa) i umieścić w odpowiednim pojemniku do utylizacji." },
+    { "key": "disposal_considerations", "text": "Usuwać produkt i jego opakowanie w sposób bezpieczny, przekazując odpady uprawnionej firmie utylizacyjnej, zgodnie z przepisami o odpadach." },
+    { "key": "endocrine_disrupting", "text": "Zgodnie z dostępnymi danymi, produkt nie zawiera substancji o właściwościach zaburzających funkcjonowanie układu hormonalnego w stężeniu 0,1% lub wyższym." }
+]

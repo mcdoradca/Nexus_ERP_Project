@@ -173,6 +173,7 @@ const offerOptimizerRoutes = require('./modules/offer-optimizer/offer-optimizer.
 const resiRoutes = require('./modules/resi/resi.routes');
 const aiTelemetryRoutes = require('./routes/ai-telemetry.routes');
 const allegroAuthRoutes = require('./routes/allegro-auth.routes');
+const sdsRoutes = require('./modules/sds/sds.routes');
 
 const pricingRoutes = require('./modules/pricing/pricing.routes');
 const analyticsRoutes = require('./modules/analytics/analytics.routes');
@@ -256,6 +257,9 @@ app.use('/api/offer-optimizer', authenticateToken, offerOptimizerRoutes);
 
 // Resi Studio (Przetwarzanie obrazów AI)
 app.use('/api/resi', authenticateToken, resiRoutes);
+
+// Karta Charakterystyki (SDS) Generator
+app.use('/api/sds', authenticateToken, sdsRoutes);
 
 // AI Telemetria i koszty tokenów
 app.use('/api/system/ai-telemetry', authenticateToken, aiTelemetryRoutes);

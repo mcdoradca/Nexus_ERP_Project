@@ -1,0 +1,13 @@
+[
+    { "un_number": "1170", "class": "3", "name": "ETANOL (ALKOHOL ETYLOWY) lub ETANOL W ROZTWORZE (ALKOHOL ETYLOWY W ROZTWORZE)", "packing_group": "II/III", "tunnel_code": "(D/E)" },
+    { "un_number": "1090", "class": "3", "name": "ACETON", "packing_group": "II", "tunnel_code": "(D/E)" },
+    { "un_number": "1219", "class": "3", "name": "IZOPROPANOL (ALKOHOL IZOPROPYLOWY)", "packing_group": "II", "tunnel_code": "(D/E)" },
+    { "un_number": "1230", "class": "3", "name": "METANOL", "packing_group": "II", "tunnel_code": "(D/E)" },
+    { "un_number": "1263", "class": "3", "name": "FARBY (w tym farby, lakiery, emalie, bejce, szelak, werniksy, pasty polerskie, płynne wypełniacze i rozcieńczalniki do farb)", "packing_group": "I/II/III", "tunnel_code": "(D/E)" },
+    { "un_number": "1719", "class": "8", "name": "ŻRĄCY MATERIAŁ CIEKŁY ALKALICZNY, I.N.O.", "packing_group": "II/III", "tunnel_code": "(E)" },
+    { "un_number": "1760", "class": "8", "name": "MATERIAŁ ŻRĄCY CIEKŁY, I.N.O.", "packing_group": "I/II/III", "tunnel_code": "(E)" },
+    { "un_number": "1824", "class": "8", "name": "WODOROTLENEK SODU W ROZTWORZE", "packing_group": "II/III", "tunnel_code": "(E)" },
+    { "un_number": "1950", "class": "2", "name": "AEROZOLE", "packing_group": "-", "tunnel_code": "(D)" },
+    { "un_number": "1993", "class": "3", "name": "MATERIAŁ ZAPALNY CIEKŁY, I.N.O.", "packing_group": "I/II/III", "tunnel_code": "(D/E)" },
+    { "un_number": "3082", "class": "9", "name": "MATERIAŁ ZAGRAŻAJĄCY ŚRODOWISKU CIEKŁY, I.N.O.", "packing_group": "III", "tunnel_code": "(-)" }
+]
