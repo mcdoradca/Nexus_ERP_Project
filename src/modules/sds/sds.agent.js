@@ -50,7 +50,7 @@ async function processSdsWithAgent(pdfPath, productName) {
         console.log(`[Agent SDS] KROK 2: Uruchomienie LLM dla sekcji opisowych...`);
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
+            model: "gemini-3.8-medium",
             systemInstruction: SYSTEM_PROMPT,
             generationConfig: { responseMimeType: "application/json" }
         });
