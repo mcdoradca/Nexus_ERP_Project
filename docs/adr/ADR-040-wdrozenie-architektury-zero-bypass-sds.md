@@ -14,8 +14,14 @@ Rozwiązanie opiera się na 3-krokowym systemie (Pipeline):
 3. **KROK 3 (Asemblacja Finalna DOCX):** Deterministyczny silnik Node.js waliduje otrzymany od Agenta obiekt JSON. Następnie łączy osadzone w KROKU 1 sekcje chemiczne, wygenerowane natywnie piktogramy GHS i przetłumaczone przez AI sekcje opisowe w pojedynczy, paginowany i sformatowany dokument DOCX.
 
 **Konsekwencje:**
-- **Pozytywne:** Eliminacja zjawiska halucynacji LLM dla danych krytycznych dla życia i zdrowia. Gwarancja zgodności wygenerowanej karty z Dz.U. 2018 poz. 1286. 100% zautomatyzowana weryfikacja rejestru REACH / IUPAC poprzez PubChem API.
+- **Pozytywne:** Eliminacja zjawiska halucynacji LLM dla danych krytycznych dla życia i zdrowia. Gwarancja zgodności wygenerowanej karty z Dz.U. 2018 poz. 1286. 100% zautomatyzowana weryfikacja rejestru REACH / IUPAC poprzez PubChem API oraz wbudowany system ochrony (HITL).
 - **Negatywne / Ograniczenia:** Skrypt wymaga posiadania na stałe pełnego i zaktualizowanego pliku `nds_database_2018.json`. Moduł jest wrażliwy na limity zapytań (rate-limiting) PubChem (wymusiło to implementację mechanizmu 3-krotnego Exponential Backoff w kodzie). Zwiększona złożoność kodu orkiestrującego (konieczność zachowania rygoru `application/json` z API Gemini).
+
+**Uzupełnienie (Human-In-The-Loop & Agent Śledczy):**
+Z uwagi na zbyt sztywne rzucanie błędów przez architekturę "Zero-Bypass" w przypadku braku CAS w systemach (tzw. `[CRITICAL HALT]`), wdrożono architekturę decyzyjną HITL.
+1. **Zbiór Anomalii:** Zamiast cichego blokowania procesu (Błąd 500), Backend kolekcjonuje błędy i zgłasza wstrzymanie w formacie HTTP 422, renderując czytelny UI w Panelu React.
+2. **Agent Śledczy:** Powołano nowego, dedykowanego Agenta (`sds.investigator.agent.js`). Kiedy wystąpi błąd z CAS, Agent ten, aktywowany przyciskiem przez użytkownika, odpytuje płatne / dedykowane API `studio-amba/echa-scraper` w chmurze Apify, analizuje wyniki za pomocą Google Gemini i podpowiada rozwiązanie człowiekowi.
+3. **Absolutny Determinizm Modeli:** Oba Agenty (Tłumacz i Śledczy) zostały zamrożone (parametr `temperature: 0.0`) w modelu z serii `gemini-3.8-medium`/`gemini-3.8-pro`, aby w 100% ukrócić procesy halucynacyjne.
 
 **Powiązane dokumenty:**
 - `docs/SDS/Instrukcja Wdrożeniowa Agenta Antigravity_ Automatyczna Adaptacja Kart SDS.md`

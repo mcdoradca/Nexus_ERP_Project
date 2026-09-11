@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
-import { Upload, FileText, Loader2, CheckCircle, ShieldAlert, Sparkles, DownloadCloud, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, Loader2, CheckCircle, ShieldAlert, Sparkles, DownloadCloud, AlertTriangle, UserPlus, Eye, Check } from 'lucide-react';
 
 const SdsGeneratorTool = ({ token, API_URL }) => {
     const [file, setFile] = useState(null);
@@ -8,6 +8,11 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
+    
+    // HITL States
+    const [anomalies, setAnomalies] = useState([]);
+    const [isInvestigating, setIsInvestigating] = useState(false);
+    const [investigatorResult, setInvestigatorResult] = useState(null);
     
     const fileInputRef = useRef(null);
 
@@ -31,6 +36,8 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
         setIsProcessing(true);
         setError(null);
         setSuccess(false);
+        setAnomalies([]);
+        setInvestigatorResult(null);
 
         const formData = new FormData();
         formData.append('sdsFile', file);
@@ -62,13 +69,72 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                 const text = await err.response.data.text();
                 try {
                     const json = JSON.parse(text);
-                    setError(json.error || 'Wystąpił błąd podczas generowania karty SDS.');
+                    if (err.response && err.response.status === 422 && json.requiresHITL) {
+                        setAnomalies(json.anomalies || []);
+                        setError('Wykryto anomalie. Wymagana interwencja eksperta (HITL).');
+                    } else {
+                        setError(json.error || 'Wystąpił błąd podczas generowania karty SDS.');
+                    }
                 } catch(e) {
                     setError('Błąd krytyczny serwera.');
                 }
             } else {
                 setError('Nie można połączyć się z serwerem. Sprawdź logi.');
             }
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleInvestigate = async () => {
+        setIsInvestigating(true);
+        try {
+            const response = await axios.post(`${API_URL}/api/sds/investigate-cas`, { anomalies }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            setInvestigatorResult(response.data);
+        } catch (err) {
+            console.error(err);
+            setError('Agent śledczy napotkał problem.');
+        } finally {
+            setIsInvestigating(false);
+        }
+    };
+
+    const handleResume = async () => {
+        if (!file || !investigatorResult) return;
+        setIsProcessing(true);
+        setError(null);
+        setSuccess(false);
+
+        const formData = new FormData();
+        formData.append('sdsFile', file);
+        formData.append('productName', productName);
+        formData.append('manualOverrides', JSON.stringify(investigatorResult.proposedOverrides || {}));
+
+        try {
+            const response = await axios.post(`${API_URL}/api/sds/resume-process`, formData, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data'
+                },
+                responseType: 'blob'
+            });
+
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Karta_Charakterystyki_PL_${productName || 'WZNOWIONA'}.docx`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            setSuccess(true);
+            setAnomalies([]);
+            setInvestigatorResult(null);
+        } catch (err) {
+            console.error(err);
+            setError('Błąd podczas wznowienia procesu.');
         } finally {
             setIsProcessing(false);
         }
@@ -157,6 +223,49 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                                             <h4 className="text-xs font-bold text-red-800 uppercase tracking-widest">Błąd Operacji</h4>
                                             <p className="text-sm font-medium text-red-700 mt-0.5">{error}</p>
                                         </div>
+                                    </div>
+                                )}
+
+                                {anomalies.length > 0 && (
+                                    <div className="p-5 bg-amber-50 border border-amber-300 rounded-xl space-y-4">
+                                        <div className="flex items-start gap-3">
+                                            <AlertTriangle className="w-6 h-6 text-amber-600 shrink-0" />
+                                            <div>
+                                                <h4 className="text-sm font-bold text-amber-900 uppercase tracking-widest">Zatrzymanie Ochronne (HITL)</h4>
+                                                <p className="text-sm text-amber-800 mt-1">Proces został wstrzymany ze względu na błędy parsowania lub brakujące dane w bazach. Wymagana interwencja.</p>
+                                            </div>
+                                        </div>
+                                        <ul className="list-disc pl-10 text-sm font-medium text-amber-900 space-y-1">
+                                            {anomalies.map((a, idx) => (
+                                                <li key={idx}><strong>{a.type}</strong>: {a.message} (CAS: {a.cas || 'Brak'})</li>
+                                            ))}
+                                        </ul>
+                                        
+                                        {!investigatorResult ? (
+                                            <button 
+                                                onClick={handleInvestigate}
+                                                disabled={isInvestigating}
+                                                className="w-full mt-2 py-3 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white rounded-lg text-sm font-bold uppercase tracking-wider flex justify-center items-center transition-colors"
+                                            >
+                                                {isInvestigating ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Odpytywanie Apify / Gemini...</> : <><UserPlus className="w-5 h-5 mr-2" /> Uruchom Agenta Śledczego (ECHA/PubChem)</>}
+                                            </button>
+                                        ) : (
+                                            <div className="bg-white p-4 rounded-lg border border-amber-200 mt-4">
+                                                <h5 className="text-xs font-bold text-slate-800 uppercase mb-2 flex items-center"><Eye className="w-4 h-4 mr-2 text-indigo-600" /> Raport Agenta Śledczego</h5>
+                                                <p className="text-sm text-slate-600 mb-3">{investigatorResult.agentNote}</p>
+                                                <pre className="bg-slate-50 p-3 rounded text-xs overflow-auto max-h-40 border border-slate-100 mb-3">
+                                                    {JSON.stringify(investigatorResult.proposedOverrides, null, 2)}
+                                                </pre>
+                                                <button 
+                                                    onClick={handleResume}
+                                                    disabled={isProcessing}
+                                                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold uppercase tracking-wider flex justify-center items-center transition-colors"
+                                                >
+                                                    {isProcessing ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Check className="w-5 h-5 mr-2" />}
+                                                    Zatwierdzam i Wznów Generowanie
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                                 

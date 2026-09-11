@@ -10,5 +10,7 @@ const upload = multer({
 });
 
 router.post('/process', upload.single('sdsFile'), sdsController.processSds);
+router.post('/resume-process', upload.single('sdsFile'), sdsController.resumeProcess);
+router.post('/investigate-cas', express.json(), sdsController.investigateAnomalies);
 
 module.exports = router;

@@ -23,14 +23,14 @@ TWÓJ ZAKRES ODPOWIEDZIALNOŚCI:
    - Wynik musisz zwrócić jako poprawny obiekt JSON o strukturze "sekcja": "tekst".
    - Jakikolwiek błąd parsowania JSON natychmiast wstrzymuje kompilację.`;
 
-async function processSdsWithAgent(pdfPath, productName) {
+async function processSdsWithAgent(pdfPath, productName, manualOverrides = {}) {
     console.log(`[Agent SDS] Uruchamianie procedury architektonicznej dla: ${productName}`);
     
     try {
-        // Konfiguracja firmy z mocka lub bazy
+        // Konfiguracja firmy z bazy / env
         const companyConfig = {
-            companyName: "Firma Przykładowa Sp. z o.o.",
-            emergencyPhone: "+48 111 222 333"
+            companyName: process.env.COMPANY_NAME || "Nexus ERP Producent Sp. z o.o.",
+            emergencyPhone: process.env.COMPANY_PHONE || "+48 111 222 333"
         };
 
         // KROK 1: EKSTRAKCJA I DETERMINIZM (NODE.JS + API)
@@ -41,7 +41,7 @@ async function processSdsWithAgent(pdfPath, productName) {
         NDSRegistry.loadRegistry(ndsPath);
 
         const engine = new SDSProcessorEngine(companyConfig);
-        const agentPayload = await engine.prepareAgentPayload(pdfPath, productName);
+        const agentPayload = await engine.prepareAgentPayload(pdfPath, productName, manualOverrides);
         
         // Zapis dla celów audytowych / debugu
         fs.writeFileSync(path.join(process.cwd(), 'agent_payload.json'), JSON.stringify(agentPayload, null, 2));
@@ -52,7 +52,10 @@ async function processSdsWithAgent(pdfPath, productName) {
         const model = genAI.getGenerativeModel({ 
             model: "gemini-3.8-medium",
             systemInstruction: SYSTEM_PROMPT,
-            generationConfig: { responseMimeType: "application/json" }
+            generationConfig: { 
+                responseMimeType: "application/json",
+                temperature: 0.0
+            }
         });
 
         const prompt = `Przetłumacz na język polski podane sekcje zachowując ich format. Zwróć obiekt JSON, którego kluczami są identyfikatory sekcji (np. "section_4"), a wartościami przetłumaczone teksty.

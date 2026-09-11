@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Kompletny Silnik Przetwarzania i Asemblacji Kart SDS (UE 2020/878)
  * WERSJA PRODUKCYJNA Node.js - ARCHITEKTURA ZERO-BYPASS
  * 
@@ -16,6 +16,14 @@ const path = require("path");
 const zlib = require("zlib");
 const https = require("https");
 const { execSync } = require("child_process");
+
+// ObsĹ‚uga HITLError (Zbiór Anomalii)
+class HITLError extends Error {
+  constructor(anomalies) {
+    super('HITL_REQUIRED');
+    this.anomalies = anomalies;
+  }
+}
 
 // ObsĹ‚uga bibliotek zewnÄ™trznych
 let docx;
@@ -409,6 +417,7 @@ class SDSProcessorEngine {
     this.quarantineLogs = [];
     this.extractedSubstances = [];
     this.detectedGhsPictograms = [];
+    this.anomalies = [];
   }
 
   processSection2(contentIt) {
@@ -437,14 +446,28 @@ class SDSProcessorEngine {
     };
   }
 
-  async processSection3(contentIt) {
+  async processSection3(contentIt, manualOverrides = {}) {
     const casList = SDSChemicalExtractor.extractCas(contentIt);
     let text = "SEKCJA 3: SkĹ‚ad / informacja o skĹ‚adnikach\n\nNiebezpieczne skĹ‚adniki chemiczne:\n";
 
     for (const cas of casList) {
-      const echaInfo = await ECHAFreeResolver.resolveSubstanceData(cas);
-      this.extractedSubstances.push({ casNumber: cas, translatedNamePl: echaInfo.name_pl, url: echaInfo.echa_infocard_url });
-      text += `- ${echaInfo.name_pl} | CAS: ${cas} | ECHA ID: ${echaInfo.status}\n`;
+      if (manualOverrides[cas]) {
+        const override = manualOverrides[cas];
+        this.extractedSubstances.push({ casNumber: cas, translatedNamePl: override.name_pl || override.iupac, url: "HITL_MANUAL_OVERRIDE" });
+        text += `- ${override.name_pl || override.iupac} | CAS: ${cas} | ECHA ID: HITL_MANUAL_OVERRIDE\n`;
+        continue;
+      }
+      try {
+        const echaInfo = await ECHAFreeResolver.resolveSubstanceData(cas);
+        this.extractedSubstances.push({ casNumber: cas, translatedNamePl: echaInfo.name_pl, url: echaInfo.echa_infocard_url });
+        text += `- ${echaInfo.name_pl} | CAS: ${cas} | ECHA ID: ${echaInfo.status}\n`;
+      } catch (err) {
+        if (err.message.includes("CRITICAL HALT")) {
+          this.anomalies.push({ type: "CAS_NOT_FOUND", cas: cas, message: err.message });
+        } else {
+          this.anomalies.push({ type: "API_ERROR", cas: cas, message: err.message });
+        }
+      }
     }
     return { content: text };
   }
@@ -473,14 +496,14 @@ class SDSProcessorEngine {
     return { content: tableText };
   }
 
-  async prepareAgentPayload(pdfFilePath, productName = "PRODUKT CHEMICZNY") {
+  async prepareAgentPayload(pdfFilePath, productName = "PRODUKT CHEMICZNY", manualOverrides = {}) {
     console.log(`[SYS] Ekstrakcja pliku: ${pdfFilePath}`);
     const fullText = await SDSPDFParser.extractTextFromPdf(pdfFilePath, false);
     const rawSections = SDSPDFParser.segmentInto16Sections(fullText);
     
     const ufi = SDSChemicalExtractor.extractUfi(rawSections["section_1"]);
     const s2 = this.processSection2(rawSections["section_2"]);
-    const s3 = await this.processSection3(rawSections["section_3"]);
+    const s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
     const s8 = this.processSection8(rawSections["section_8"]);
 
     const deterministic = {
@@ -494,6 +517,10 @@ class SDSProcessorEngine {
 
     const toTranslate = {};
     [4,5,6,7,9,10,11,12,14,16].forEach(i => { toTranslate[`section_${i}`] = rawSections[`section_${i}`]; });
+
+    if (this.anomalies.length > 0) {
+      throw new HITLError(this.anomalies);
+    }
 
     return {
       metadata: { productName, ufi, version: "1.0 PL", companyConfig: this.companyConfig },
@@ -604,5 +631,5 @@ class SDSDocxExporter {
 // ============================================================================
 // CLI RUNNER DLA AGENTA ANTIGRAVITY
 // ============================================================================
-module.exports = { SDSProcessorEngine, SDSDocxExporter, SDSPDFParser, ECHAFreeResolver, NDSRegistry, PolishLegalTemplates, SDSChemicalExtractor, PurePngEncoder, GHSPictogramGenerator };
+module.exports = { SDSProcessorEngine, SDSDocxExporter, SDSPDFParser, ECHAFreeResolver, NDSRegistry, PolishLegalTemplates, SDSChemicalExtractor, PurePngEncoder, GHSPictogramGenerator, HITLError };
 
