@@ -892,6 +892,33 @@ class SDSProcessorEngine {
     return { content: textContent, components, resolvedSubstances };
   }
 
+  processSection4(contentIt, hasAllergens = false) {
+    let skinAdvice = "Zdjąć zanieczyszczoną odzież. Narażone partie skóry zmyć dokładnie dużą ilością wody z mydłem. W przypadku wystąpienia podrażnienia skóry lub reakcji alergicznej skonsultować się z lekarzem.";
+    let eyeAdvice = "Płukać obficie wodą przy szeroko otwartych powiekach przez co najmniej 10-15 minut. Chronić niepodrażnione oko, usunąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Natychmiast skonsultować się z lekarzem okulistą.";
+    let ingestionAdvice = "Nie wywoływać wymiotów bez konsultacji lekarskiej. Wypłukać usta wodą. Nigdy nie podawać niczego do ust osobie nieprzytomnej. Natychmiast zasięgnąć porady lekarza, pokazując kartę charakterystyki lub etykietę produktu.";
+    let inhalationAdvice = "Wyprowadzić poszkodowanego na świeże powietrze, zapewnić ciepło i spokój w pozycji półsiedzącej. W przypadku wystąpienia niepokojących objawów lub złego samopoczucia skonsultować się z lekarzem i pokazać opakowanie lub etykietę.";
+
+    let symptomsAdvice = "Brak dostępnych szczegółowych informacji na temat specyficznych objawów i skutków wywoływanych przez produkt.";
+    if (hasAllergens || (contentIt && /allergic|alerg|sensit/i.test(contentIt))) {
+      symptomsAdvice += " W kontakcie ze skórą może wywoływać reakcję alergiczną u osób podatnych (zawiera substancje uczulające wymienione w sekcji 2.2).";
+    }
+
+    let treatmentAdvice = "Leczenie objawowe. Brak dostępnych szczegółowych danych dotyczących specyficznego leczenia lub antidotum. Decyzję o sposobie postępowania ratunkowego podejmuje lekarz po dokładnej ocenie stanu poszkodowanego.";
+
+    let output = "SEKCJA 4: Środki pierwszej pomocy\n\n";
+    output += "4.1. Opis środków pierwszej pomocy\n";
+    output += `W kontakcie ze skórą: ${skinAdvice}\n`;
+    output += `W kontakcie z oczami: ${eyeAdvice}\n`;
+    output += `W przypadku spożycia: ${ingestionAdvice}\n`;
+    output += `Po narażeniu drogą oddechową: ${inhalationAdvice}\n\n`;
+    output += "4.2. Najważniejsze ostre i opóźnione objawy oraz skutki narażenia\n";
+    output += `${symptomsAdvice}\n\n`;
+    output += "4.3. Wskazania dotyczące wszelkiej natychmiastowej pomocy lekarskiej i szczególnego postępowania z poszkodowanym\n";
+    output += `Leczenie: ${treatmentAdvice}`;
+
+    return output;
+  }
+
   processSection8(contentIt) {
     const foundCas = this.extractedSubstances.map(s => s.casNumber);
     let tableText = "SEKCJA 8: Kontrola narażenia/środki ochrony indywidualnej\n\n8.1. Parametry dotyczące kontroli\n\n";
@@ -938,12 +965,14 @@ class SDSProcessorEngine {
     const s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
     const s2 = this.processSection2(rawSections["section_2"], s3.resolvedSubstances);
     const s8 = this.processSection8(rawSections["section_8"]);
+    const hasAllergens = Boolean(s2.content && s2.content.includes("EUH208"));
+    const s4Content = this.processSection4(rawSections["section_4"], hasAllergens);
 
     const deterministic = {
       section_1: { type: "QUARANTINE", content: `1.1. Identyfikator produktu: ${productName}\n${PolishLegalTemplates.getSection1_4(ufi)}\n${PolishLegalTemplates.getSection1_3()}` },
       section_2: { type: "CLP_MAPPED", content: s2.content + "\n\n" + PolishLegalTemplates.getSection2_3() },
       section_3: { type: "EXTRACT_RAW", content: s3.content, components: s3.components },
-      section_4: { type: "QUARANTINE", content: `SEKCJA 4: Środki pierwszej pomocy\n\n[FLAGA_QUARANTINE_REVIEW] Sekcja zablokowana przez system (Zagrożenie Toksykologiczne).\nWymagana weryfikacja przez Safety Assessora.\n\nORYGINAŁ DO WERYFIKACJI:\n${rawSections["section_4"]}` },
+      section_4: { type: "CLP_MAPPED", content: s4Content },
       section_5: { type: "QUARANTINE", content: `SEKCJA 5: Postępowanie w przypadku pożaru\n\n[FLAGA_QUARANTINE_REVIEW] Sekcja zablokowana przez system (Ryzyko Niewłaściwego Środka Gaśniczego).\nWymagana weryfikacja procedur gaśniczych.\n\nORYGINAŁ DO WERYFIKACJI:\n${rawSections["section_5"]}` },
       section_8: { type: "QUARANTINE", content: s8.content81 },
       section_13: { type: "QUARANTINE", content: PolishLegalTemplates.getSection13() },
@@ -1147,7 +1176,7 @@ class SDSDocxExporter {
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
         const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające)$/i.test(tLine);
-        const isBoldStart = /^(Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC):/i.test(tLine);
+        const isBoldStart = /^(Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie):/i.test(tLine);
 
         if (isSubSection) {
            sectionsBody.push(new Paragraph({
