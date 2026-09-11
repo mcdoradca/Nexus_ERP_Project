@@ -206,7 +206,23 @@ class SDSChemicalExtractor {
     const matches = (text || "").match(regex) || [];
     return Array.from(new Set(matches.map(m => m.trim().toUpperCase())));
   }
-  static extractCas(text) { return this.extractUnique(text, /\b\d{2,7}-\d{2}-\d\b/g); }
+
+  static isValidCas(casStr) {
+    const parts = casStr.split('-');
+    if (parts.length !== 3) return false;
+    const checkDigit = parseInt(parts[2], 10);
+    const base = (parts[0] + parts[1]).split('').reverse();
+    let sum = 0;
+    for (let i = 0; i < base.length; i++) {
+      sum += parseInt(base[i], 10) * (i + 1);
+    }
+    return (sum % 10) === checkDigit;
+  }
+
+  static extractCas(text) {
+    const matches = this.extractUnique(text, /\b\d{2,7}-\d{2}-\d\b/g);
+    return matches.filter(cas => this.isValidCas(cas));
+  }
   static extractEc(text) { return this.extractUnique(text, /\b\d{3}-\d{3}-\d\b/g); }
   static extractUfi(text) { return this.extractUnique(text, /\b[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\b/gi)[0] || null; }
   static extractHCodes(text) { return this.extractUnique(text, /\b(?:EUH\d{3}[a-zA-Z]?|H\d{3}[a-zA-Z]?(?:\+H\d{3}[a-zA-Z]?)*)\b/gi); }
