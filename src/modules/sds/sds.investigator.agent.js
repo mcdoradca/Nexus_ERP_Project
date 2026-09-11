@@ -68,7 +68,7 @@ async function investigateAnomaliesAgent(anomalies) {
     // 2. Przekazanie do Gemini w celu ustrukturyzowania
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-3.8-medium", 
+        model: "gemini-3.8-flash", 
         systemInstruction: SYSTEM_PROMPT,
         generationConfig: { 
             responseMimeType: "application/json",
