@@ -686,26 +686,34 @@ class PolishLegalTemplates {
     );
   }
 
-  static getSection15() {
+  static getSection15(svhcInfo = "", restrictionsInfo = "") {
+    const svhcText = svhcInfo || "Mieszanina nie zawiera substancji z listy kandydackiej SVHC podlegających procedurze udzielania zezwoleń (REACH załącznik XIV) w stężeniu ≥ 0,1% wag.";
+    const restrText = restrictionsInfo || "Mieszanina nie podlega ograniczeniom na mocy załącznika XVII do rozporządzenia REACH.";
+
     return (
       "SEKCJA 15: Informacje dotyczące przepisów prawnych\n\n" +
       "15.1. Przepisy prawne dotyczące bezpieczeństwa, zdrowia i ochrony środowiska specyficzne dla substancji lub mieszaniny\n\n" +
       "Prawodawstwo Unii Europejskiej:\n" +
-      "Rozporządzenie (WE) nr 1907/2006 Parlamentu Europejskiego i Rady z dnia 18 grudnia 2006 r. w sprawie rejestracji, oceny, udzielania zezwoleń i stosowanych ograniczeń w zakresie chemikaliów (REACH) z późniejszymi zmianami.\n" +
-      "Rozporządzenie Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniające załącznik II do rozporządzenia (WE) nr 1907/2006 (wymogi dotyczące sporządzania kart charakterystyki).\n" +
-      "Rozporządzenie Parlamentu Europejskiego i Rady (WE) nr 1272/2008 z dnia 16 grudnia 2008 r. w sprawie klasyfikacji, oznakowania i pakowania substancji i mieszanin (CLP) z późniejszymi zmianami (ATP).\n" +
-      "Rozporządzenie (WE) nr 648/2004 Parlamentu Europejskiego i Rady z dnia 31 marca 2004 r. w sprawie detergentów z późniejszymi zmianami (Uwaga dla algorytmu: pozostawić, jeśli produkt jest detergentem/środkiem czystości).\n" +
-      "Kandydacka lista substancji wzbudzających szczególnie duże obawy (SVHC) podlegających procedurze udzielania zezwoleń (REACH załącznik XIV): Mieszanina nie zawiera substancji z listy SVHC w stężeniu >= 0,1%.\n" +
-      "Ograniczenia dotyczące produkcji, wprowadzania do obrotu i stosowania niektórych niebezpiecznych substancji, preparatów i wyrobów (REACH załącznik XVII): Nie dotyczy (chyba że w sekcji 3 zidentyfikowano składniki podlegające restrykcjom).\n" +
-      "Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE (Seveso III): Mieszanina nie podlega.\n\n" +
+      "- Rozporządzenie (WE) nr 1907/2006 Parlamentu Europejskiego i Rady z dnia 18 grudnia 2006 r. w sprawie rejestracji, oceny, udzielania zezwoleń i stosowanych ograniczeń w zakresie chemikaliów (REACH) z późniejszymi zmianami.\n" +
+      "- Rozporządzenie Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniające załącznik II do rozporządzenia (WE) nr 1907/2006 (wymogi dotyczące sporządzania kart charakterystyki).\n" +
+      "- Rozporządzenie Parlamentu Europejskiego i Rady (WE) nr 1272/2008 z dnia 16 grudnia 2008 r. w sprawie klasyfikacji, oznakowania i pakowania substancji i mieszanin (CLP) z późniejszymi zmianami (kolejne ATP).\n" +
+      "- Rozporządzenie (WE) nr 648/2004 Parlamentu Europejskiego i Rady z dnia 31 marca 2004 r. w sprawie detergentów z późniejszymi zmianami.\n" +
+      `- Substancje wzbudzające szczególnie duże obawy (SVHC – REACH załącznik XIV): ${svhcText}\n` +
+      `- Ograniczenia dotyczące produkcji, wprowadzania do obrotu i stosowania niektórych niebezpiecznych substancji (REACH załącznik XVII): ${restrText}\n` +
+      "- Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE z dnia 4 lipca 2012 r. w sprawie kontroli niebezpieczeństwa poważnych awarii związanych z substancjami niebezpiecznymi (Seveso III): Mieszanina nie podlega przepisom dyrektywy – brak substancji w ilościach progowych.\n" +
+      "- Rozporządzenie Parlamentu Europejskiego i Rady (UE) nr 649/2012 z dnia 4 lipca 2012 r. dotyczące wywozu i przywozu niebezpiecznych chemikaliów (PIC): Nie dotyczy.\n\n" +
       "Prawodawstwo Rzeczypospolitej Polskiej:\n" +
-      "Ustawa z dnia 25 lutego 2011 r. o substancjach chemicznych i ich mieszaninach (Dz.U. 2011 nr 63 poz. 322 z późn. zm.).\n" +
-      "Rozporządzenie Ministra Rodziny, Pracy i Polityki Społecznej z dnia 12 czerwca 2018 r. w sprawie najwyższych dopuszczalnych stężeń i natężeń czynników szkodliwych dla zdrowia w środowisku pracy (Dz.U. 2018 poz. 1286 z późn. zm.).\n" +
-      "Ustawa z dnia 14 grudnia 2012 r. o odpadach (Dz.U. 2013 poz. 21 z późn. zm.) oraz przepisy wykonawcze do ustawy.\n" +
-      "Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadach opakowaniowych (Dz.U. 2013 poz. 888 z późn. zm.).\n" +
-      "Rozporządzenie Ministra Zdrowia z dnia 2 lutego 2011 r. w sprawie badań i pomiarów czynników szkodliwych dla zdrowia w środowisku pracy (Dz.U. 2011 nr 33 poz. 166).\n" +
-      "Ustawa z dnia 19 sierpnia 2011 r. o przewozie towarów niebezpiecznych (Dz.U. 2011 nr 227 poz. 1367 z późn. zm.) wraz z oświadczeniami rządowymi w sprawie Umowy europejskiej dotyczącej międzynarodowego przewozu drogowego towarów niebezpiecznych (ADR).\n" +
-      "Rozporządzenie Ministra Zdrowia z dnia 30 grudnia 2004 r. w sprawie bezpieczeństwa i higieny pracy związanej z występowaniem w miejscu pracy czynników chemicznych (Dz.U. 2005 nr 11 poz. 86 z późn. zm.)."
+      "- Ustawa z dnia 25 lutego 2011 r. o substancjach chemicznych i ich mieszaninach (t.j. Dz.U. 2022 poz. 1816 z późn. zm.).\n" +
+      "- Rozporządzenie Ministra Rodziny, Pracy i Polityki Społecznej z dnia 12 czerwca 2018 r. w sprawie najwyższych dopuszczalnych stężeń i natężeń czynników szkodliwych dla zdrowia w środowisku pracy (Dz.U. 2018 poz. 1286 z późn. zm.).\n" +
+      "- Ustawa z dnia 14 grudnia 2012 r. o odpadach (t.j. Dz.U. 2023 poz. 1587 z późn. zm.).\n" +
+      "- Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadami opakowaniowymi (t.j. Dz.U. 2023 poz. 1658 z późn. zm.).\n" +
+      "- Rozporządzenie Ministra Klimatu z dnia 2 stycznia 2020 r. w sprawie katalogu odpadów (Dz.U. 2020 poz. 10).\n" +
+      "- Ustawa z dnia 19 sierpnia 2011 r. o przewozie towarów niebezpiecznych (t.j. Dz.U. 2024 poz. 643 z późn. zm.) wraz z oświadczeniami rządowymi w sprawie Umowy europejskiej dotyczącej międzynarodowego przewozu drogowego towarów niebezpiecznych (ADR).\n" +
+      "- Rozporządzenie Ministra Zdrowia z dnia 30 grudnia 2004 r. w sprawie bezpieczeństwa i higieny pracy związanej z występowaniem w miejscu pracy czynników chemicznych (t.j. Dz.U. 2016 poz. 1488).\n" +
+      "- Rozporządzenie Ministra Zdrowia z dnia 2 lutego 2011 r. w sprawie badań i pomiarów czynników szkodliwych dla zdrowia w środowisku pracy (t.j. Dz.U. 2023 poz. 419).\n" +
+      "- Ustawa z dnia 26 czerwca 1974 r. – Kodeks pracy (t.j. Dz.U. 2023 poz. 1465 z późn. zm.).\n\n" +
+      "15.2. Ocena bezpieczeństwa chemicznego\n" +
+      "Dla mieszaniny nie dokonano oceny bezpieczeństwa chemicznego (dla mieszanin nie jest ona wymagana zgodnie z art. 14 rozporządzenia REACH)."
     );
   }
 }
@@ -1830,6 +1838,180 @@ class SDSProcessorEngine {
     return out;
   }
 
+  processSection15(rawContent = "", components = []) {
+    let clean = SDSProcessorEngine.cleanPdfArtifacts(rawContent);
+
+    let svhcText = "";
+    if (/No substances listed|No SVHC substances present in concentration >= 0\.?1%/i.test(clean)) {
+      svhcText = "Mieszanina nie zawiera substancji z listy kandydackiej SVHC podlegających procedurze udzielania zezwoleń (REACH załącznik XIV) w stężeniu ≥ 0,1% wag.";
+    }
+
+    let restrText = "";
+    const restrMatch = clean.match(/Restrictions related to the substances contained\s*[:\.]?\s*([^\n;]+)/i);
+    if (restrMatch && !/None/i.test(restrMatch[1])) {
+      restrText = `Składniki mieszaniny podlegają ograniczeniom wymienionym w załączniku XVII do rozporządzenia REACH (pozycja: ${restrMatch[1].trim()}). Produkt nie jest przeznaczony do zastosowań objętych ograniczeniami.`;
+    }
+
+    return PolishLegalTemplates.getSection15(svhcText, restrText);
+  }
+
+  processSection16(rawContent = "", components = [], s2Content = "") {
+    let clean = SDSProcessorEngine.cleanPdfArtifacts(rawContent);
+
+    // 1. Zbieranie unikalnych kodów H i EUH
+    const hCodesSet = new Set();
+    const euhCodesSet = new Set();
+
+    // Z sekcji 2
+    const s2HCodes = SDSChemicalExtractor.extractHCodes(s2Content);
+    const s2EuhCodes = SDSChemicalExtractor.extractEuhCodes(s2Content);
+    s2HCodes.forEach(c => hCodesSet.add(c));
+    s2EuhCodes.forEach(c => euhCodesSet.add(c));
+
+    // Ze składników sekcji 3
+    components.forEach(c => {
+      const classStr = c.classification || "";
+      const matchesH = classStr.match(/\bH\d{3}[a-zA-Z]?\b/g);
+      if (matchesH) matchesH.forEach(code => hCodesSet.add(code));
+      const matchesEuh = classStr.match(/\bEUH\d{3}\b/g);
+      if (matchesEuh) matchesEuh.forEach(code => euhCodesSet.add(code));
+    });
+
+    // Z tekstu źródłowego sekcji 16
+    const rawMatchesH = clean.match(/\bH\d{3}[a-zA-Z]?\b/g);
+    if (rawMatchesH) rawMatchesH.forEach(code => hCodesSet.add(code));
+    const rawMatchesEuh = clean.match(/\bEUH\d{3}\b/g);
+    if (rawMatchesEuh) rawMatchesEuh.forEach(code => euhCodesSet.add(code));
+
+    const sortedHCodes = Array.from(hCodesSet).sort();
+    const sortedEuhCodes = Array.from(euhCodesSet).sort();
+
+    let hPhrasesBlock = [];
+    sortedHCodes.forEach(code => {
+      const phrase = OFFICIAL_CLP_H_PHRASES[code] || "Brak oficjalnego tłumaczenia zwrotu.";
+      hPhrasesBlock.push(`${code}: ${phrase}`);
+    });
+    sortedEuhCodes.forEach(code => {
+      const phrase = OFFICIAL_CLP_H_PHRASES[code] || (code === "EUH208" ? "Zawiera substancję uczulającą. Może powodować wystąpienie reakcji alergicznej." : "Informacja uzupełniająca o zagrożeniach.");
+      hPhrasesBlock.push(`${code}: ${phrase}`);
+    });
+
+    // 2. Wykaz klas i kategorii zagrożenia
+    const classMapPl = {
+      "Acute Tox. 1": "Toksyczność ostra, kategoria 1",
+      "Acute Tox. 2": "Toksyczność ostra, kategoria 2",
+      "Acute Tox. 3": "Toksyczność ostra, kategoria 3",
+      "Acute Tox. 4": "Toksyczność ostra, kategoria 4",
+      "Skin Corr. 1A": "Działanie żrące na skórę, kategoria 1A",
+      "Skin Corr. 1B": "Działanie żrące na skórę, kategoria 1B",
+      "Skin Corr. 1C": "Działanie żrące na skórę, kategoria 1C",
+      "Skin Corr. 1": "Działanie żrące na skórę, kategoria 1",
+      "Skin Irrit. 2": "Działanie drażniące na skórę, kategoria 2",
+      "Eye Dam. 1": "Poważne uszkodzenie oczu, kategoria 1",
+      "Eye Irrit. 2": "Działanie drażniące na oczy, kategoria 2",
+      "Skin Sens. 1A": "Działanie uczulające na skórę, kategoria 1A",
+      "Skin Sens. 1B": "Działanie uczulające na skórę, kategoria 1B",
+      "Skin Sens. 1": "Działanie uczulające na skórę, kategoria 1",
+      "Resp. Sens. 1": "Działanie uczulające na drogi oddechowe, kategoria 1",
+      "Flam. Liq. 1": "Substancja ciekła łatwopalna, kategoria 1",
+      "Flam. Liq. 2": "Substancja ciekła łatwopalna, kategoria 2",
+      "Flam. Liq. 3": "Substancja ciekła łatwopalna, kategoria 3",
+      "Flam. Sol. 1": "Substancja stała łatwopalna, kategoria 1",
+      "Flam. Sol. 2": "Substancja stała łatwopalna, kategoria 2",
+      "Aerosol 1": "Wyroby aerozolowe, kategoria 1",
+      "Aerosol 2": "Wyroby aerozolowe, kategoria 2",
+      "Aerosol 3": "Wyroby aerozolowe, kategoria 3",
+      "Asp. Tox. 1": "Zagrożenie spowodowane aspiracją, kategoria 1",
+      "STOT SE 1": "Działanie toksyczne na narządy docelowe – narażenie jednorazowe, kategoria 1",
+      "STOT SE 2": "Działanie toksyczne na narządy docelowe – narażenie jednorazowe, kategoria 2",
+      "STOT SE 3": "Działanie toksyczne na narządy docelowe – narażenie jednorazowe, kategoria 3",
+      "STOT RE 1": "Działanie toksyczne na narządy docelowe – narażenie powtarzane, kategoria 1",
+      "STOT RE 2": "Działanie toksyczne na narządy docelowe – narażenie powtarzane, kategoria 2",
+      "Aquatic Acute 1": "Stwarzające zagrożenie dla środowiska wodnego – zagrożenie ostre, kategoria 1",
+      "Aquatic Chronic 1": "Stwarzające zagrożenie dla środowiska wodnego – zagrożenie przewlekłe, kategoria 1",
+      "Aquatic Chronic 2": "Stwarzające zagrożenie dla środowiska wodnego – zagrożenie przewlekłe, kategoria 2",
+      "Aquatic Chronic 3": "Stwarzające zagrożenie dla środowiska wodnego – zagrożenie przewlekłe, kategoria 3",
+      "Aquatic Chronic 4": "Stwarzające zagrożenie dla środowiska wodnego – zagrożenie przewlekłe, kategoria 4"
+    };
+
+    const detectedClasses = new Set();
+    components.forEach(c => {
+      const cl = c.classification || "";
+      for (const key of Object.keys(classMapPl)) {
+        if (cl.includes(key)) detectedClasses.add(key);
+      }
+    });
+    for (const key of Object.keys(classMapPl)) {
+      if (clean.includes(key)) detectedClasses.add(key);
+    }
+
+    let classesBlock = [];
+    Array.from(detectedClasses).sort().forEach(cls => {
+      classesBlock.push(`${cls}: ${classMapPl[cls]}`);
+    });
+
+    // 3. Objaśnienie skrótów i akronimów
+    const acronyms = [
+      "ADR: Umowa europejska dotycząca międzynarodowego przewozu drogowego towarów niebezpiecznych",
+      "RID: Regulamin międzynarodowego przewozu kolejami towarów niebezpiecznych",
+      "IMDG: Międzynarodowy morski kodeks towarów niebezpiecznych (International Maritime Dangerous Goods Code)",
+      "IATA: Międzynarodowe Zrzeszenie Przewoźników Powietrznych (International Air Transport Association)",
+      "ICAO: Organizacja Międzynarodowego Lotnictwa Cywilnego",
+      "CLP: Rozporządzenie (WE) nr 1272/2008 w sprawie klasyfikacji, oznakowania i pakowania substancji i mieszanin",
+      "REACH: Rozporządzenie (WE) nr 1907/2006 w sprawie rejestracji, oceny, udzielania zezwoleń i stosowanych ograniczeń w zakresie chemikaliów",
+      "GHS: Globalnie Zharmonizowany System Klasyfikacji i Oznakowania Chemikaliów",
+      "CAS: Chemical Abstracts Service (unikalny numeryczny identyfikator substancji chemicznej)",
+      "WE: Numer Wspólnoty Europejskiej (oficjalny numer rejestracyjny substancji w UE: EINECS, ELINCS lub NLP)",
+      "NDS: Najwyższe dopuszczalne stężenie na stanowisku pracy w ciągu 8-godzinnego dnia pracy",
+      "NDSCh: Najwyższe dopuszczalne stężenie chwilowe (czas ekspozycji do 15 minut)",
+      "NDSP: Najwyższe dopuszczalne stężenie pułapowe (wartość, która nie może być przekroczona w żadnym momencie)",
+      "DNEL: Pochodny poziom niepowodujący zmian (Derived No-Effect Level)",
+      "PNEC: Przewidywane stężenie niepowodujące zmian w środowisku (Predicted No-Effect Concentration)",
+      "PBT: Substancja trwała, wykazująca zdolność do bioakumulacji i toksyczna",
+      "vPvB: Substancja bardzo trwała i wykazująca bardzo dużą zdolność do bioakumulacji",
+      "SVHC: Substancje wzbudzające szczególnie duże obawy (Substances of Very High Concern)",
+      "BCF: Współczynnik biokoncentracji (Bioconcentration Factor)",
+      "log Kow: Współczynnik podziału n-oktanol/woda",
+      "LD50: Dawka śmiertelna dla 50% badanej populacji zwierząt laboratoryjnych",
+      "LC50: Stężenie śmiertelne dla 50% badanej populacji organizmów testowych",
+      "EC50: Stężenie wywołujące efekt u 50% badanej populacji testowej",
+      "NOEC: Najwyższe stężenie, przy którym nie obserwuje się statystycznie istotnych skutków (No Observed Effect Concentration)",
+      "SCL: Specyficzne stężenie graniczne (Specific Concentration Limit)",
+      "BDO: Baza danych o produktach i opakowaniach oraz o gospodarce odpadami",
+      "ECHA: Europejska Agencja Chemikaliów"
+    ];
+
+    let out = "SEKCJA 16: Inne informacje\n\n";
+
+    if (hPhrasesBlock.length > 0) {
+      out += "Pełne brzmienie zwrotów H i EUH przytoczonych w sekcjach 2 i 3 karty charakterystyki:\n";
+      out += hPhrasesBlock.join('\n') + "\n\n";
+    }
+
+    if (classesBlock.length > 0) {
+      out += "Wykaz klas i kategorii zagrożenia przytoczonych w karcie charakterystyki:\n";
+      out += classesBlock.join('\n') + "\n\n";
+    }
+
+    out += "Objaśnienie skrótów i akronimów stosowanych w karcie charakterystyki:\n";
+    out += acronyms.join('\n') + "\n\n";
+
+    out += "Główne źródła literatury i danych:\n";
+    out += "- Karty charakterystyki substancji składowych udostępnione przez producentów i dostawców surowców.\n";
+    out += "- Baza danych Europejskiej Agencji Chemikaliów (ECHA): https://echa.europa.eu/\n";
+    out += "- Baza danych PubChem National Library of Medicine: https://pubchem.ncbi.nlm.nih.gov/\n";
+    out += "- Obowiązujące unijne i krajowe akty prawne (REACH, CLP, Dz.U. 2018 poz. 1286, Dz.U. 2023 poz. 1587).\n\n";
+
+    out += "Zalecenia i wskazówki szkoleniowe dla pracowników:\n";
+    out += "Przed przystąpieniem do pracy z produktem należy zapoznać się z treścią niniejszej karty charakterystyki oraz przepisami BHP obowiązującymi na stanowisku pracy. Pracownicy mający kontakt z produktem powinni zostać przeszkoleni w zakresie prawidłowego i bezpiecznego obchodzenia się z chemikaliami oraz postępowania w sytuacjach awaryjnych.\n\n";
+
+    out += "Informacje o zmianach i aktualizacji:\n";
+    out += "Niniejsza karta charakterystyki została opracowana i zaktualizowana zgodnie z wymogami Rozporządzenia Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniającego załącznik II do rozporządzenia (WE) nr 1907/2006 (REACH).\n";
+    out += "Informacje zawarte w niniejszej karcie wynikają z aktualnego stanu wiedzy producenta i dystrybutora i odnoszą się wyłącznie do opisanego produktu. Użytkownik ponosi odpowiedzialność za stworzenie bezpiecznych warunków pracy oraz spełnienie wymagań prawnych związanych z jego zastosowaniem.";
+
+    return out.trim();
+  }
+
   async prepareAgentPayload(pdfFilePath, productName = "PRODUKT CHEMICZNY", manualOverrides = {}) {
     console.log(`[SYS] Ekstrakcja pliku: ${pdfFilePath}`);
     const fullText = await SDSPDFParser.extractTextFromPdf(pdfFilePath, false);
@@ -1848,6 +2030,8 @@ class SDSProcessorEngine {
     const s12Content = this.processSection12(rawSections["section_12"], s3.components);
     const s13Content = this.processSection13(rawSections["section_13"], s3.components, s2.content);
     const s14Content = this.processSection14(rawSections["section_14"]);
+    const s15Content = this.processSection15(rawSections["section_15"], s3.components);
+    const s16Content = this.processSection16(rawSections["section_16"], s3.components, s2.content);
 
     const deterministic = {
       section_1: { type: "CLP_MAPPED", content: s1Content },
@@ -1862,8 +2046,8 @@ class SDSProcessorEngine {
       section_12: { type: "CLP_MAPPED", content: s12Content },
       section_13: { type: "CLP_MAPPED", content: s13Content },
       section_14: { type: "CLP_MAPPED", content: s14Content },
-      section_15: { type: "QUARANTINE", content: PolishLegalTemplates.getSection15() },
-      section_16: { type: "CLP_MAPPED", content: mapHazardClass(rawSections["section_16"]) }
+      section_15: { type: "CLP_MAPPED", content: s15Content },
+      section_16: { type: "CLP_MAPPED", content: s16Content }
     };
 
     const toTranslate = {};
@@ -2060,8 +2244,8 @@ class SDSDocxExporter {
         if (!tLine) return;
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
-        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):|Właściwości ekotoksykologiczne mieszaniny:|Informacje ekotoksykologiczne o składnikach:|Informacje dotyczące składników:|Substancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:|Zalecenia dotyczące produktu i pozostałości:|Zalecenia dotyczące odpadów opakowaniowych:|Zalecenia dotyczące opakowań:|Klasyfikacja i kody odpadów.+?:|Proponowane kody odpadów.+?:|Krajowe i unijne akty prawne dotyczące gospodarki odpadami:|.+?\(CAS:\s*\d{2,7}-\d{2}-\d\):)$/i.test(tLine);
-        const isBoldStart = /^(Firma|Adres|E-mail|Telefon|Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria|Stan skupienia|Kolor|Zapach|Temperatura topnienia\/krzepnięcia|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Palność materiałów|Dolna i górna granica wybuchowości|Temperatura zapłonu|Temperatura samozapłonu|Temperatura rozkładu|pH|Lepkość kinematyczna|Rozpuszczalność w wodzie|Rozpuszczalność w innych rozpuszczalnikach|Współczynnik podziału n-oktanol\/woda \(wartość współczynnika log\)|Prężność pary|Gęstość lub gęstość względna|Względna gęstość pary|Charakterystyka cząsteczek|Lotne Związki Organiczne \(LZO \/ VOC\)|a\)\s*Ostra toksyczność dla środowiska wodnego|b\)\s*Przewlekła toksyczność dla środowiska wodnego|Współczynnik biokoncentracji \(BCF\)|Współczynnik podziału n-oktanol\/woda \(log Kow\)|Kod ograniczeń przewozu przez tunele|Kategoria transportowa|Ilości ograniczone \(LQ\)|Ilości wyłączone \(EQ\)|Nalepka ostrzegawcza|Numer rozpoznawczy zagrożenia|Odpady z produktu.+?|Odpady opakowaniowe|Mieszanina|Uwaga):/i.test(tLine);
+        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):|Właściwości ekotoksykologiczne mieszaniny:|Informacje ekotoksykologiczne o składnikach:|Informacje dotyczące składników:|Substancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:|Zalecenia dotyczące produktu i pozostałości:|Zalecenia dotyczące odpadów opakowaniowych:|Zalecenia dotyczące opakowań:|Klasyfikacja i kody odpadów.+?:|Proponowane kody odpadów.+?:|Krajowe i unijne akty prawne dotyczące gospodarki odpadami:|Prawodawstwo Unii Europejskiej:|Prawodawstwo Rzeczypospolitej Polskiej:|Pełne brzmienie zwrotów H i EUH.+?:|Wykaz klas i kategorii zagrożenia.+?:|Objaśnienie skrótów i akronimów.+?:|Główne źródła literatury i danych:|Zalecenia i wskazówki szkoleniowe.+?:|Informacje o zmianach i aktualizacji:|.+?\(CAS:\s*\d{2,7}-\d{2}-\d\):)$/i.test(tLine);
+        const isBoldStart = /^(Firma|Adres|E-mail|Telefon|Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria|Stan skupienia|Kolor|Zapach|Temperatura topnienia\/krzepnięcia|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Palność materiałów|Dolna i górna granica wybuchowości|Temperatura zapłonu|Temperatura samozapłonu|Temperatura rozkładu|pH|Lepkość kinematyczna|Rozpuszczalność w wodzie|Rozpuszczalność w innych rozpuszczalnikach|Współczynnik podziału n-oktanol\/woda \(wartość współczynnika log\)|Prężność pary|Gęstość lub gęstość względna|Względna gęstość pary|Charakterystyka cząsteczek|Lotne Związki Organiczne \(LZO \/ VOC\)|a\)\s*Ostra toksyczność dla środowiska wodnego|b\)\s*Przewlekła toksyczność dla środowiska wodnego|Współczynnik biokoncentracji \(BCF\)|Współczynnik podziału n-oktanol\/woda \(log Kow\)|Kod ograniczeń przewozu przez tunele|Kategoria transportowa|Ilości ograniczone \(LQ\)|Ilości wyłączone \(EQ\)|Nalepka ostrzegawcza|Numer rozpoznawczy zagrożenia|Odpady z produktu.+?|Odpady opakowaniowe|Substancje wzbudzające szczególnie duże obawy.+?|Ograniczenia dotyczące produkcji.+?|H\d{3}[a-zA-Z]?|EUH\d{3}|Acute Tox\..+?|Skin Corr\..+?|Skin Irrit\..+?|Eye Dam\..+?|Eye Irrit\..+?|Skin Sens\..+?|Resp\. Sens\..+?|Flam\. Liq\..+?|Flam\. Sol\..+?|Aerosol.+?|Asp\. Tox\..+?|STOT SE.+?|STOT RE.+?|Aquatic Acute.+?|Aquatic Chronic.+?|ADR|RID|IMDG|IATA|ICAO|CLP|REACH|GHS|CAS|WE|NDS|NDSCh|NDSP|vPvB|SVHC|log Kow|LD50|LC50|EC50|NOEC|SCL|BDO|ECHA|Mieszanina|Uwaga):/i.test(tLine);
 
         if (isSubSection) {
            sectionsBody.push(new Paragraph({
