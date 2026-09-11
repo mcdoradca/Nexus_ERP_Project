@@ -282,22 +282,22 @@ class SDSPDFParser {
 
   static segmentInto16Sections(fullText) {
     const sectionPatterns = {
-      section_1: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*1\s*[:\.\-]?\s*(?:IDENTIFICAZIONE|IDENTIFICATION)/i,
-      section_2: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*2\s*[:\.\-]?\s*(?:IDENTIFICAZIONE DEI PERICOLI|HAZARDS)/i,
-      section_3: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*3\s*[:\.\-]?\s*(?:COMPOSIZIONE|COMPOSITION)/i,
-      section_4: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*4\s*[:\.\-]?\s*(?:MISURE DI PRIMO SOCCORSO|FIRST AID)/i,
-      section_5: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*5\s*[:\.\-]?\s*(?:MISURE ANTINCENDIO|FIREFIGHTING)/i,
-      section_6: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*6\s*[:\.\-]?\s*(?:MISURE IN CASO DI RILASCIO|ACCIDENTAL RELEASE)/i,
-      section_7: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*7\s*[:\.\-]?\s*(?:MANIPOLAZIONE E IMMAGAZZINAMENTO|HANDLING)/i,
-      section_8: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*8\s*[:\.\-]?\s*(?:CONTROLLI DELL.ESPOSIZIONE|EXPOSURE)/i,
-      section_9: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*9\s*[:\.\-]?\s*(?:PROPRIET[AÀ] FISICHE E CHIMICHE|PHYSICAL)/i,
-      section_10: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*10\s*[:\.\-]?\s*(?:STABILIT[AÀ] E REATTIVIT[AÀ]|STABILITY)/i,
-      section_11: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*11\s*[:\.\-]?\s*(?:INFORMAZIONI TOSSICOLOGICHE|TOXICOLOGICAL)/i,
-      section_12: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*12\s*[:\.\-]?\s*(?:INFORMAZIONI ECOLOGICHE|ECOLOGICAL)/i,
-      section_13: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*13\s*[:\.\-]?\s*(?:CONSIDERAZIONI SULLO SMALTIMENTO|DISPOSAL)/i,
-      section_14: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*14\s*[:\.\-]?\s*(?:INFORMAZIONI SUL TRASPORTO|TRANSPORT)/i,
-      section_15: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*15\s*[:\.\-]?\s*(?:INFORMAZIONI SULLA REGOLAMENTAZIONE|REGULATORY)/i,
-      section_16: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*16\s*[:\.\-]?\s*(?:ALTRE INFORMAZIONI|OTHER INFORMATION)/i
+      section_1: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*1\s*[:\.\-]?\s*(?:IDENTIFICAZIONE|IDENTIFICATION|IDENTYFIKACJA)/i,
+      section_2: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*2\s*[:\.\-]?\s*(?:IDENTIFICAZIONE DEI PERICOLI|HAZARDS|IDENTYFIKACJA ZAGROŻEŃ)/i,
+      section_3: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*3\s*[:\.\-]?\s*(?:COMPOSIZIONE|COMPOSITION|SKŁAD)/i,
+      section_4: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*4\s*[:\.\-]?\s*(?:MISURE DI PRIMO SOCCORSO|FIRST AID|ŚRODKI PIERWSZEJ POMOCY)/i,
+      section_5: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*5\s*[:\.\-]?\s*(?:MISURE ANTINCENDIO|FIREFIGHTING|POSTĘPOWANIE W PRZYPADKU POŻARU)/i,
+      section_6: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*6\s*[:\.\-]?\s*(?:MISURE IN CASO DI RILASCIO|ACCIDENTAL RELEASE|POSTĘPOWANIE W PRZYPADKU NIEZAMIERZONEGO)/i,
+      section_7: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*7\s*[:\.\-]?\s*(?:MANIPOLAZIONE E IMMAGAZZINAMENTO|HANDLING|POSTĘPOWANIE Z SUBSTANCJAMI|MAGAZYNOWANIE)/i,
+      section_8: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*8\s*[:\.\-]?\s*(?:CONTROLLI DELL.ESPOSIZIONE|EXPOSURE|KONTROLA NARAŻENIA)/i,
+      section_9: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*9\s*[:\.\-]?\s*(?:PROPRIET[AÀ] FISICHE E CHIMICHE|PHYSICAL|WŁAŚCIWOŚCI FIZYCZNE)/i,
+      section_10: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*10\s*[:\.\-]?\s*(?:STABILIT[AÀ] E REATTIVIT[AÀ]|STABILITY|STABILNOŚĆ)/i,
+      section_11: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*11\s*[:\.\-]?\s*(?:INFORMAZIONI TOSSICOLOGICHE|TOXICOLOGICAL|INFORMACJE TOKSYKOLOGICZNE)/i,
+      section_12: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*12\s*[:\.\-]?\s*(?:INFORMAZIONI ECOLOGICHE|ECOLOGICAL|INFORMACJE EKOLOGICZNE)/i,
+      section_13: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*13\s*[:\.\-]?\s*(?:CONSIDERAZIONI SULLO SMALTIMENTO|DISPOSAL|POSTĘPOWANIE Z ODPADAMI)/i,
+      section_14: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*14\s*[:\.\-]?\s*(?:INFORMAZIONI SUL TRASPORTO|TRANSPORT|INFORMACJE DOTYCZĄCE TRANSPORTU)/i,
+      section_15: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*15\s*[:\.\-]?\s*(?:INFORMAZIONI SULLA REGOLAMENTAZIONE|REGULATORY|INFORMACJE DOTYCZĄCE PRZEPISÓW)/i,
+      section_16: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*16\s*[:\.\-]?\s*(?:ALTRE INFORMAZIONI|OTHER INFORMATION|INNE INFORMACJE)/i
     };
 
     let positions = [];
@@ -892,51 +892,268 @@ class SDSProcessorEngine {
     return { content: textContent, components, resolvedSubstances };
   }
 
+  // ============================================================================
+  // UNIWERSALNE SŁOWNIKI I MAPOWANIA REGULACYJNE (UE 2020/878)
+  // ============================================================================
+  static PHRASE_DICTIONARY_PL = {
+    // Pierwsza pomoc (Sekcja 4)
+    "after contact with skin, wash immediately with soap and plenty of water": "Po kontakcie ze skórą natychmiast zmyć dużą ilością wody z mydłem.",
+    "wash immediately with soap and plenty of water": "Zmyć natychmiast dużą ilością wody z mydłem.",
+    "dopo il contatto con la pelle lavare immediatamente con acqua ed abbondante sapone": "Po kontakcie ze skórą natychmiast zmyć dużą ilością wody z mydłem.",
+    "lavare immediatamente con abbondante acqua e sapone": "Zmyć natychmiast dużą ilością wody z mydłem.",
+    "after contact with the eyes, rinse with water with the eyelids open for a sufficient length of time, then consult an opthalmologist immediately. remove any contact lenses": "Płukać wodą przy otwartych powiekach przez wystarczająco długi czas, następnie natychmiast skonsultować się z lekarzem okulistą. Usunąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć.",
+    "after contact with the eyes, rinse with water with the eyelids open for a sufficient length of time, then consult an ophthalmologist immediately. remove any contact lenses": "Płukać wodą przy otwartych powiekach przez wystarczająco długi czas, następnie natychmiast skonsultować się z lekarzem okulistą. Usunąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć.",
+    "rinse with water with the eyelids open for a sufficient length of time, then consult an opthalmologist immediately": "Płukać wodą przy otwartych powiekach przez wystarczająco długi czas, następnie natychmiast skonsultować się z lekarzem okulistą.",
+    "rinse with water with the eyelids open for a sufficient length of time, then consult an ophthalmologist immediately": "Płukać wodą przy otwartych powiekach przez wystarczająco długi czas, następnie natychmiast skonsultować się z lekarzem okulistą.",
+    "remove any contact lenses": "Usunąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć.",
+    "in caso di contatto con gli occhi lavare con acqua a palpebre aperte per un tempo sufficiente, poi consultare immediatamente un oftalmologo. togliere le eventuali lenti a contatto": "Płukać wodą przy otwartych powiekach przez wystarczająco długi czas, następnie natychmiast skonsultować się z lekarzem okulistą. Usunąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć.",
+    "do not induce vomiting, get medical attention showing the sds and label hazardous": "Nie wywoływać wymiotów. Niezwłocznie zasięgnąć porady lekarza, pokazując kartę charakterystyki lub etykietę produktu.",
+    "do not induce vomiting": "Nie wywoływać wymiotów.",
+    "non provocare assolutamente il vomito. ricorrere immediatamente all'assistenza medica, mostrando la sds e l'etichetta di pericolo": "Nie wywoływać wymiotów. Niezwłocznie zasięgnąć porady lekarza, pokazując kartę charakterystyki lub etykietę produktu.",
+    "in case of inhalation, consult a doctor immediately and show him packing or label. remove casualty to fresh air and keep warm and at rest": "W przypadku wystąpienia objawów skonsultować się z lekarzem i pokazać opakowanie lub etykietę. Wyprowadzić poszkodowanego na świeże powietrze, zapewnić ciepło i spokój.",
+    "remove casualty to fresh air and keep warm and at rest": "Wyprowadzić poszkodowanego na świeże powietrze, zapewnić ciepło i spokój.",
+    "portare l'infortunato all'aria aperta e tenerlo al caldo e a riposo": "Wyprowadzić poszkodowanego na świeże powietrze, zapewnić ciepło i spokój.",
+    "no specific information is available on the symptoms and effects caused by the product": "Brak dostępnych szczegółowych informacji na temat objawów i skutków wywoływanych przez produkt.",
+    "non sono note informazioni specifiche su sintomi ed effetti provocati dal prodotto": "Brak dostępnych szczegółowych informacji na temat objawów i skutków wywoływanych przez produkt.",
+    "treatment:data not available": "Leczenie: Brak danych.",
+    "treatment: data not available": "Leczenie: Brak danych.",
+    "trattamento:dati non disponibili": "Leczenie: Brak danych.",
+    "trattamento: dati non disponibili": "Leczenie: Brak danych.",
+    "data not available": "Brak danych.",
+    "dati non disponibili": "Brak danych.",
+
+    // Pożarnictwo (Sekcja 5)
+    "co2 or dry chemical fire extinguisher. foam; water": "Gaśnica śniegowa (CO2), gaśnica proszkowa, piana gaśnicza, woda.",
+    "co2 or dry chemical fire extinguisher": "Gaśnica śniegowa (CO2), gaśnica proszkowa.",
+    "estintori ad anidride carbonica (co2), a polvere, a schiuma, acqua": "Gaśnica śniegowa (CO2), gaśnica proszkowa, piana gaśnicza, woda.",
+    "none in particular": "Brak szczególnych.",
+    "nessuno in particolare": "Brak szczególnych.",
+    "avoid breathing combustion products": "Unikać wdychania produktów spalania.",
+    "evitare di respirare i prodotti di combustione": "Unikać wdychania produktów spalania.",
+    "collect contaminated fire extinguishing water separately. this must not be discharged into drains. use fire fighter's clothing conforming to european standard en469. use self-contained breathing apparatus (scba) with chemical resistant gloves": "Gromadzić oddzielnie zanieczyszczoną wodę gaśniczą; nie dopuścić do jej przedostania się do kanalizacji. Stosować odzież ochronną dla strażaków zgodną z normą europejską EN 469 oraz autonomiczny aparat oddechowy (SCBA) z rękawicami odpornymi na chemikalia.",
+    "collect contaminated fire extinguishing water separately. this must not be discharged into drains": "Gromadzić oddzielnie zanieczyszczoną wodę gaśniczą; nie dopuścić do jej przedostania się do kanalizacji.",
+    "raccogliere separatamente l'acqua contaminata utilizzata per estinguere l'incendio. non scaricarla nella rete fognaria": "Gromadzić oddzielnie zanieczyszczoną wodę gaśniczą; nie dopuścić do jej przedostania się do kanalizacji.",
+
+    // Uwolnienie do środowiska (Sekcja 6)
+    "wear personal protection equipment": "Stosować środki ochrony indywidualnej.",
+    "indossare i dispositivi di protezione individuale": "Stosować środki ochrony indywidualnej.",
+    "remove persons to safety": "Ewakuować osoby w bezpieczne miejsce.",
+    "portare le persone in luogo sicuro": "Ewakuować osoby w bezpieczne miejsce.",
+    "see protective measures under point 7 and 8": "Patrz środki ochronne w punkcie 7 i 8.",
+    "consultare le misure protettive esposte al punto 7 e 8": "Patrz środki ochronne w punkcie 7 i 8.",
+    "do not allow to enter into soil/subsoil. do not allow to enter into surface water or drains": "Nie dopuścić do przedostania się do gleby/podglebia. Nie dopuścić do przedostania się do wód powierzchniowych ani kanalizacji.",
+    "impedire la penetrazione nel suolo/sottosuolo. impedire il deflusso nelle acque superficiali o nella rete fognaria": "Nie dopuścić do przedostania się do gleby/podglebia. Nie dopuścić do przedostania się do wód powierzchniowych ani kanalizacji.",
+    "retain contaminated washing water and dispose it": "Zatrzymać zanieczyszczoną wodę z mycia i przekazać do utylizacji.",
+    "trattenere l'acqua di lavaggio contaminata ed eliminarla": "Zatrzymać zanieczyszczoną wodę z mycia i przekazać do utylizacji.",
+    "in case of gas escape or of entry into waterways, soil or drains, inform the responsible authorities": "W przypadku wycieku gazu lub przedostania się do cieków wodnych, gleby lub kanalizacji powiadomić właściwe władze.",
+    "in caso di fuga di gas o penetrazione in corsi d'acqua, suolo o fognature informare le autorità responsabili": "W przypadku wycieku gazu lub przedostania się do cieków wodnych, gleby lub kanalizacji powiadomić właściwe władze.",
+    "suitable material for taking up: absorbing material, organic, sand": "Odpowiedni materiał do zbierania: materiał pochłaniający, organiczny, piasek.",
+    "materiale idoneo alla raccolta: materiale assorbente, organico, sabbia": "Odpowiedni materiał do zbierania: materiał pochłaniający, organiczny, piasek.",
+    "wash with plenty of water": "Zmyć dużą ilością wody.",
+    "lavare con abbondante acqua": "Zmyć dużą ilością wody.",
+    "see also section 8 and 13": "Patrz również sekcja 8 i 13.",
+    "si vedano anche i paragrafi 8 e 13": "Patrz również sekcja 8 i 13.",
+
+    // Magazynowanie (Sekcja 7)
+    "avoid contact with skin and eyes, inhaltion of vapours and mists": "Unikać kontaktu ze skórą i oczami oraz wdychania par i mgieł.",
+    "avoid contact with skin and eyes, inhalation of vapours and mists": "Unikać kontaktu ze skórą i oczami oraz wdychania par i mgieł.",
+    "evitare il contatto con la pelle e gli occhi, l'inalazione di vapori e nebbie": "Unikać kontaktu ze skórą i oczami oraz wdychania par i mgieł.",
+    "see also section 8 for recommended protective equipment": "Patrz również sekcja 8 w celu zapoznania się z zalecanym sprzętem ochrony osobistej.",
+    "si rimanda anche al paragrafo 8 per i dispositivi di protezione raccomandati": "Patrz również sekcja 8 w celu zapoznania się z zalecanym sprzętem ochrony osobistej.",
+    "do not eat or drink while working": "Nie jeść i nie pić podczas pracy.",
+    "non mangiare né bere durante il lavoro": "Nie jeść i nie pić podczas pracy.",
+    "incompatible materials:": "Materiały niezgodne:",
+    "materiały niezgodne:": "Materiały niezgodne:",
+    "adequately ventilated premises": "Pomieszczenia odpowiednio wentylowane.",
+    "locali adeguatamente areati": "Pomieszczenia odpowiednio wentylowane."
+  };
+
+  static translatePhrase(text, defaultFallback = "") {
+    if (!text) return defaultFallback;
+    let clean = text.replace(/\r/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!clean) return defaultFallback;
+    let lower = clean.toLowerCase().replace(/[\.;,]$/, '').trim();
+    if (this.PHRASE_DICTIONARY_PL[lower]) return this.PHRASE_DICTIONARY_PL[lower];
+
+    // Sprawdzenie cząstkowe zdań
+    for (const [enPhrase, plPhrase] of Object.entries(this.PHRASE_DICTIONARY_PL)) {
+      if (lower === enPhrase || lower.startsWith(enPhrase) || lower.includes(enPhrase)) {
+        return plPhrase;
+      }
+    }
+    return clean;
+  }
+
+  static cleanPdfArtifacts(text) {
+    if (!text) return "";
+    return text
+      .replace(/\r/g, '')
+      .replace(/Page\s+n\.?[^\n]*/gi, '')
+      .replace(/\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}\s*(?:Production Name|Trade Name)?[^\n]*/gi, '')
+      .replace(/Production Name[^\n]*/gi, '')
+      .replace(/\bDate\b/gi, '')
+      .replace(/\t/g, ' ');
+  }
+
   processSection1(contentIt, productName = "", ufi = "") {
-    let clean = (contentIt || "").replace(/\r/g, '').replace(/\t/g, ' ');
-    
-    let codeMatch = clean.match(/(?:Trade code|Codice prodotto|Kod produktu)\s*[:\.]?\s*([^\n]+)/i);
+    let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
+
+    // 1.1. Identyfikator produktu
+    let tradeNameMatch = clean.match(/(?:Trade name|Nome commerciale|Nazwa handlowa|Product name)\s*[:\.]?\s*([^\n]+)/i);
+    let resolvedTradeName = productName || (tradeNameMatch ? tradeNameMatch[1].trim() : "Mieszanina chemiczna");
+
+    let codeMatch = clean.match(/(?:Trade code|Codice prodotto|Codice|Kod produktu|Product code)\s*[:\.]?\s*([^\n]+)/i);
     let tradeCode = codeMatch ? codeMatch[1].trim() : "";
+
     let ufiMatch = clean.match(/(?:UFI\s*[:\.]?\s*)([A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4})/i);
     let resolvedUfi = ufi || (ufiMatch ? ufiMatch[1].trim() : "");
 
-    let identifiedUses = "Zastosowanie konsumenckie: perfumy do tkanin i prania.";
+    // 1.2. Zastosowania
+    let usesSection = "";
+    const m12 = clean.match(/(?:^|\n)\s*1\.2\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*1\.3\b|$)/i);
+    if (m12) usesSection = m12[1].trim();
+
+    // Czyszczenie z nagłówka podsekcji 1.2
+    usesSection = usesSection.replace(/^(?:Relevant identified uses[^\n]*|Usi identificati pertinenti[^\n]*|Istotne zidentyfikowane zastosowania[^\n]*)\s*/i, '').trim();
+
+    let recUseMatch = usesSection.match(/(?:Recommended use|Identified uses?|Usi identificati|Uso raccomandato|Zastosowanie zidentyfikowane)\s*[:\.]?\s*([^\n]+)/i);
+    let consumerMatch = /(?:Consumer|Consumatore|konsumenck)/i.test(usesSection);
+    let profMatch = /(?:Professional|Professionale|profesjonaln)/i.test(usesSection);
+    let indMatch = /(?:Industrial|Industriale|przemysłow)/i.test(usesSection);
+
+    let usePrefix = [];
+    if (consumerMatch) usePrefix.push("konsumenckie");
+    if (profMatch) usePrefix.push("profesjonalne");
+    if (indMatch) usePrefix.push("przemysłowe");
+
+    let rawRec = recUseMatch ? recUseMatch[1].trim() : "";
+    let translatedRec = rawRec;
+    if (/laundry perfumer|profuma tessuti/i.test(rawRec)) translatedRec = "perfumy do tkanin i prania";
+    else if (/detergent|detergente/i.test(rawRec)) translatedRec = "środek czyszczący / detergent";
+    else if (/air freshener|deodorante/i.test(rawRec)) translatedRec = "odświeżacz powietrza";
+    else if (/cleaner/i.test(rawRec)) translatedRec = "preparat myjący";
+
+    let identifiedUses = "Brak szczegółowych informacji w karcie źródłowej.";
+    if (usePrefix.length > 0 && translatedRec) {
+      identifiedUses = `Zastosowanie ${usePrefix.join(', ')}: ${translatedRec}.`;
+    } else if (translatedRec) {
+      identifiedUses = `${translatedRec.charAt(0).toUpperCase() + translatedRec.slice(1)}.`;
+    } else if (usePrefix.length > 0) {
+      identifiedUses = `Zastosowanie ${usePrefix.join(', ')}.`;
+    }
+
     let usesAdvised = "Nie stosować do celów innych niż wskazane.";
+    let advMatch = usesSection.match(/(?:Uses advised against|Usi sconsigliati|Zastosowania odradzane)\s*[:\.]?\s*([^\n]+)/i);
+    if (advMatch) {
+      let rawAdv = advMatch[1].trim();
+      if (/different from those indicated|diversi da quelli indicati/i.test(rawAdv)) {
+        usesAdvised = "Nie stosować do celów innych niż wskazane.";
+      } else {
+        usesAdvised = rawAdv;
+      }
+    }
 
-    let s13 = "1.3. Dane dotyczące dostawcy karty charakterystyki\n";
-    s13 += "Producent / Podmiot wprowadzający do obrotu:\n";
-    s13 += "SUAREZ COMPANY S.R.L.\nVia Pergolesi, 1, 20811 Cesano Maderno (MI) - Włochy\nTel. +39 0362659766 | www.suarezcompany.it\nE-mail osoby odpowiedzialnej: info@suarezcompany.it\n\n";
-    s13 += "Dystrybutor w Polsce:\n";
-    s13 += `${this.companyConfig.companyName || "MITRANS Weronika Grzesiak"}\n`;
-    s13 += "ul. Wesoła 16, 63-600 Kępno, woj. wielkopolskie\n";
-    s13 += `E-mail: kontakt@prostozwloch.com.pl | Tel. ${this.companyConfig.emergencyPhone || "+48 663116607"}`;
+    // 1.3. Dostawca karty (Producent wyciągany DYNAMICZNIE)
+    let s13Text = "";
+    const m13 = clean.match(/(?:^|\n)\s*1\.3\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*1\.4\b|$)/i);
+    if (m13) s13Text = m13[1].trim();
 
-    let s14 = "1.4. Numer telefonu alarmowego\n";
-    s14 += "112 (ogólny telefon alarmowy w Polsce), 998 (straż pożarna), 999 (pogotowie ratunkowe)\n";
-    s14 += "Telefon producenta: +39 0362659766 (w godzinach pracy biura, język włoski/angielski)";
+    let compMatch = s13Text.match(/(?:Company|Società|Fabbricante|Firma|Dostawca)\s*[:\.]?\s*([^\n]+)/i);
+    let producerCompany = compMatch ? compMatch[1].trim() : "";
+    
+    // Wyszukiwanie adresu producenta
+    let addressLines = [];
+    const lines13 = s13Text.split('\n').map(l => l.trim()).filter(Boolean);
+    for (let l of lines13) {
+      if (/^(?:Company|Società|Fabbricante|Firma|Dostawca|Competent|E-mail|Tel|Ph\.|Fax|www|Web)/i.test(l)) continue;
+      if (/(?:Via|Street|Strada|Viale|Piazza|ul\.|Road|Carrer|\d{4,5}|\bItaly\b|\bItalia\b|\bPoland\b|\bPolska\b|\bGermany\b)/i.test(l)) {
+        addressLines.push(l);
+      }
+    }
+    let producerAddress = addressLines.join(', ');
 
+    let phoneMatch = s13Text.match(/(?:Ph\.|Tel\.|Telefono|Phone)\s*[:\.]?\s*([+0-9\s\(\)\-\/]{6,})/i);
+    let producerPhone = phoneMatch ? phoneMatch[1].trim() : "";
+
+    let webMatch = s13Text.match(/(?:www\.[a-z0-9\.\-_]+\.[a-z]{2,4}|https?:\/\/[^\s]+)/i);
+    let producerWeb = webMatch ? webMatch[0].trim() : "";
+
+    let emailMatch = s13Text.match(/(?:email|e-mail|competent person)[^:]*:\s*([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})/i);
+    if (!emailMatch) emailMatch = s13Text.match(/([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})/i);
+    let producerEmail = emailMatch ? emailMatch[1].trim() : "";
+
+    // 1.4. Numer alarmowy
+    let s14Text = "";
+    const m14 = clean.match(/(?:^|\n)\s*1\.4\b[.:\-]?\s*([\s\S]*?)$/i);
+    if (m14) s14Text = m14[1].trim();
+
+    let emergPhoneMatch = s14Text.match(/(?:Ph\.|Tel\.|Telefono|Phone)?[.:\s]*([+0-9\s\(\)\-\/]{8,})([^\n]*)/i);
+    let producerEmergPhone = "";
+    if (emergPhoneMatch && emergPhoneMatch[1] && emergPhoneMatch[1].trim().length >= 8) {
+      producerEmergPhone = `${emergPhoneMatch[1].trim()} ${emergPhoneMatch[2] ? emergPhoneMatch[2].trim() : ""}`.trim();
+    } else if (producerPhone) {
+      producerEmergPhone = `${producerPhone} (w godzinach pracy biura)`;
+    }
+
+    // Asemblacja sekcji 1
     let output = "SEKCJA 1: Identyfikacja substancji/mieszaniny i identyfikacja przedsiębiorstwa\n\n";
     output += "1.1. Identyfikator produktu\n";
-    output += `Nazwa handlowa: ${productName || "SWEET HOME LAYALI - PROFUMA TESSUTI E AMBIENTE NAJMA"}\n`;
+    output += `Nazwa handlowa: ${resolvedTradeName}\n`;
     if (tradeCode) output += `Kod produktu: ${tradeCode}\n`;
     output += `UFI: ${resolvedUfi || "[Brak kodu UFI w pliku źródłowym]"}\n\n`;
+
     output += "1.2. Istotne zidentyfikowane zastosowania substancji lub mieszaniny oraz zastosowania odradzane\n";
     output += `Zastosowanie zidentyfikowane: ${identifiedUses}\n`;
     output += `Zastosowania odradzane: ${usesAdvised}\n\n`;
-    output += `${s13}\n\n`;
-    output += `${s14}`;
 
-    return output;
+    output += "1.3. Dane dotyczące dostawcy karty charakterystyki\n";
+    output += "Producent / Podmiot wprowadzający do obrotu:\n";
+    output += `${producerCompany || "Zgodnie z informacją na opakowaniu produktu"}\n`;
+    if (producerAddress) output += `${producerAddress}\n`;
+    let prodContact = [];
+    if (producerPhone) prodContact.push(`Tel. ${producerPhone}`);
+    if (producerWeb) prodContact.push(producerWeb);
+    if (prodContact.length > 0) output += `${prodContact.join(' | ')}\n`;
+    if (producerEmail) output += `E-mail osoby odpowiedzialnej za kartę: ${producerEmail}\n`;
+    output += "\n";
+
+    output += "Dystrybutor w Polsce:\n";
+    output += `${this.companyConfig.companyName || "MITRANS Weronika Grzesiak"}\n`;
+    output += "ul. Wesoła 16, 63-600 Kępno, woj. wielkopolskie\n";
+    output += `E-mail: kontakt@prostozwloch.com.pl | Tel. ${this.companyConfig.emergencyPhone || "+48 663116607"}\n\n`;
+
+    output += "1.4. Numer telefonu alarmowego\n";
+    output += "112 (ogólny telefon alarmowy w Polsce), 998 (straż pożarna), 999 (pogotowie ratunkowe)\n";
+    if (producerEmergPhone) {
+      output += `Telefon producenta: ${producerEmergPhone}`;
+    }
+
+    return output.trim();
   }
 
   processSection4(contentIt) {
-    let skinAdvice = "Zmyć natychmiast dużą ilością wody z mydłem.";
-    let eyeAdvice = "Płukać wodą przy otwartych powiekach przez wystarczająco długi czas, następnie natychmiast skonsultować się z lekarzem okulistą. Usunąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć.";
-    let ingestionAdvice = "Nie wywoływać wymiotów. Niezwłocznie zasięgnąć porady lekarza, pokazując kartę charakterystyki lub etykietę produktu.";
-    let inhalationAdvice = "Wyprowadzić poszkodowanego na świeże powietrze, zapewnić ciepło i spokój. W przypadku wystąpienia objawów skonsultować się z lekarzem i pokazać opakowanie lub etykietę.";
+    let clean = (contentIt || "").replace(/\r/g, '');
 
-    let symptomsAdvice = "Brak dostępnych szczegółowych informacji na temat objawów i skutków wywoływanych przez produkt.";
-    let treatmentAdvice = "Brak danych.";
+    // 4.1. Ekstrakcja dróg narażenia
+    let skinMatch = clean.match(/(?:In case of skin contact|Contatto con la pelle|W kontakcie ze skórą)\s*[:\.]?\s*([\s\S]*?)(?=(?:In case of eyes contact|Contatto con gli occhi|In case of Ingestion|Ingestione|In case of Inhalation|Inalazione|4\.2|$))/i);
+    let eyeMatch = clean.match(/(?:In case of eyes contact|Contatto con gli occhi|W kontakcie z oczami)\s*[:\.]?\s*([\s\S]*?)(?=(?:In case of Ingestion|Ingestione|In case of Inhalation|Inalazione|4\.2|$))/i);
+    let ingMatch = clean.match(/(?:In case of Ingestion|Ingestione|W przypadku spożycia)\s*[:\.]?\s*([\s\S]*?)(?=(?:In case of Inhalation|Inalazione|4\.2|$))/i);
+    let inhMatch = clean.match(/(?:In case of Inhalation|Inalazione|Po narażeniu drogą oddechową)\s*[:\.]?\s*([\s\S]*?)(?=(?:4\.2|4\.3|$))/i);
+
+    let skinAdvice = SDSProcessorEngine.translatePhrase(skinMatch ? skinMatch[1] : "", "Zmyć natychmiast dużą ilością wody z mydłem.");
+    let eyeAdvice = SDSProcessorEngine.translatePhrase(eyeMatch ? eyeMatch[1] : "", "Płukać wodą przy otwartych powiekach przez wystarczająco długi czas, następnie natychmiast skonsultować się z lekarzem okulistą. Usunąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć.");
+    let ingestionAdvice = SDSProcessorEngine.translatePhrase(ingMatch ? ingMatch[1] : "", "Nie wywoływać wymiotów. Niezwłocznie zasięgnąć porady lekarza, pokazując kartę charakterystyki lub etykietę produktu.");
+    let inhalationAdvice = SDSProcessorEngine.translatePhrase(inhMatch ? inhMatch[1] : "", "Wyprowadzić poszkodowanego na świeże powietrze, zapewnić ciepło i spokój. W przypadku wystąpienia objawów skonsultować się z lekarzem i pokazać opakowanie lub etykietę.");
+
+    // 4.2 i 4.3
+    let symptomsMatch = clean.match(/(?:^|\n)\s*4\.2\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*4\.3\b|$)/i);
+    let sympText = symptomsMatch ? symptomsMatch[1].replace(/^(?:Most important symptoms[^\n]*|Principali sintomi[^\n]*|Najważniejsze ostre[^\n]*)\s*/i, '').trim() : "";
+    let symptomsAdvice = SDSProcessorEngine.translatePhrase(sympText, "Brak dostępnych szczegółowych informacji na temat objawów i skutków wywoływanych przez produkt.");
+
+    let treatMatch = clean.match(/(?:^|\n)\s*4\.3\b[.:\-]?\s*([\s\S]*?)$/i);
+    let treatText = treatMatch ? treatMatch[1].replace(/^(?:Indication of any immediate[^\n]*|Indicazione dell'eventuale[^\n]*|Wskazania dotyczące[^\n]*)\s*/i, '').trim() : "";
+    let treatmentAdvice = SDSProcessorEngine.translatePhrase(treatText, "Brak danych.");
+    if (treatmentAdvice.startsWith("Leczenie:")) treatmentAdvice = treatmentAdvice.replace(/^Leczenie:\s*/i, '');
 
     let output = "SEKCJA 4: Środki pierwszej pomocy\n\n";
     output += "4.1. Opis środków pierwszej pomocy\n";
@@ -953,10 +1170,22 @@ class SDSProcessorEngine {
   }
 
   processSection5(contentIt) {
-    let suitableText = "Gaśnica śniegowa (CO2), gaśnica proszkowa, piana gaśnicza, woda.";
-    let unsuitableText = "Brak szczególnych.";
-    let hazardsText = "Unikać wdychania produktów spalania.";
-    let adviceText = "Gromadzić oddzielnie zanieczyszczoną wodę gaśniczą; nie dopuścić do jej przedostania się do kanalizacji. Stosować odzież ochronną dla strażaków zgodną z normą europejską EN 469 oraz autonomiczny aparat oddechowy (SCBA) z rękawicami odpornymi na chemikalia.";
+    let clean = (contentIt || "").replace(/\r/g, '');
+
+    let suitableMatch = clean.match(/(?:Suitable extinguishing media|Mezzi di estinzione idonei|Odpowiednie środki gaśnicze)\s*[:\.]?\s*([^\n]+(?:\n[^\n]+)?)/i);
+    let unsuitableMatch = clean.match(/(?:Extinguishing media which must not be used(?: for safety reasons)?|Mezzi di estinzione non idonei|Niewłaściwe środki gaśnicze)\s*[:\.]?\s*([^\n]+)/i);
+    let hazardsMatch = clean.match(/(?:^|\n)\s*5\.2\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*5\.3\b|$)/i);
+    let adviceMatch = clean.match(/(?:^|\n)\s*5\.3\b[.:\-]?\s*([\s\S]*?)$/i);
+
+    let rawSuitable = suitableMatch ? suitableMatch[1].replace(/Extinguishing media which must not.*/is, '').trim() : "";
+    let suitableText = SDSProcessorEngine.translatePhrase(rawSuitable, "Gaśnica śniegowa (CO2), gaśnica proszkowa, piana gaśnicza, woda.");
+    let unsuitableText = SDSProcessorEngine.translatePhrase(unsuitableMatch ? unsuitableMatch[1] : "", "Brak szczególnych.");
+    
+    let rawHazards = hazardsMatch ? hazardsMatch[1].replace(/^(?:Special hazards[^\n]*|Pericoli speciali[^\n]*|Szczególne zagrożenia[^\n]*)\s*/i, '').trim() : "";
+    let hazardsText = SDSProcessorEngine.translatePhrase(rawHazards, "Unikać wdychania produktów spalania.");
+
+    let rawAdvice = adviceMatch ? adviceMatch[1].replace(/^(?:Advice for firefighters[^\n]*|Raccomandazioni per gli addetti[^\n]*|Informacje dla straży[^\n]*)\s*/i, '').trim() : "";
+    let adviceText = SDSProcessorEngine.translatePhrase(rawAdvice, "Gromadzić oddzielnie zanieczyszczoną wodę gaśniczą; nie dopuścić do jej przedostania się do kanalizacji. Stosować odzież ochronną dla strażaków zgodną z normą europejską EN 469 oraz autonomiczny aparat oddechowy (SCBA) z rękawicami odpornymi na chemikalia.");
 
     let output = "SEKCJA 5: Postępowanie w przypadku pożaru\n\n";
     output += "5.1. Środki gaśnicze\n";
@@ -971,11 +1200,45 @@ class SDSProcessorEngine {
   }
 
   processSection6(contentIt) {
+    let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
+
+    let nonEmergMatch = clean.match(/(?:For non emergency personnel|Per chi non interviene direttamente|Dla osób nienależących do personelu udzielającego pomocy)\s*[:\.]?\s*([\s\S]*?)(?=(?:For emergency responders|Per chi interviene direttamente|Dla osób udzielających pomocy|6\.2|$))/i);
+    let emergMatch = clean.match(/(?:For emergency responders|Per chi interviene direttamente|Dla osób udzielających pomocy)\s*[:\.]?\s*([\s\S]*?)(?=(?:6\.2|$))/i);
+    let envMatch = clean.match(/(?:^|\n)\s*6\.2\b[.:\-]?\s*([\s\S]*?)(?=(?:6\.3|$))/i);
+    let cleanMatch = clean.match(/(?:^|\n)\s*6\.3\b[.:\-]?\s*([\s\S]*?)(?=(?:6\.4|$))/i);
+    let refMatch = clean.match(/(?:^|\n)\s*6\.4\b[.:\-]?\s*([\s\S]*?)$/i);
+
+    let nonEmergRaw = nonEmergMatch ? nonEmergMatch[1].trim() : "";
     let nonEmergAdvice = "Stosować środki ochrony indywidualnej. Ewakuować osoby w bezpieczne miejsce. Patrz środki ochronne w punkcie 7 i 8.";
-    let emergAdvice = "Stosować środki ochrony indywidualnej.";
+    if (nonEmergRaw) {
+      let parts = nonEmergRaw.split('\n').map(p => SDSProcessorEngine.translatePhrase(p)).filter(Boolean);
+      if (parts.length > 0) nonEmergAdvice = parts.join(' ');
+    }
+
+    let emergAdvice = SDSProcessorEngine.translatePhrase(emergMatch ? emergMatch[1] : "", "Stosować środki ochrony indywidualnej.");
+    
+    let envRaw = envMatch ? envMatch[1].replace(/^(?:Environmental precautions[^\n]*|Precauzioni ambientali[^\n]*|Środki ostrożności w zakresie ochrony środowiska[^\n]*)\s*/i, '').trim() : "";
     let envAdvice = "Nie dopuścić do przedostania się do gleby/podglebia. Nie dopuścić do przedostania się do wód powierzchniowych ani kanalizacji. Zatrzymać zanieczyszczoną wodę z mycia i przekazać do utylizacji. W przypadku wycieku gazu lub przedostania się do cieków wodnych, gleby lub kanalizacji powiadomić właściwe władze.";
+    if (envRaw) {
+      let parts = envRaw.split('\n').map(p => SDSProcessorEngine.translatePhrase(p)).filter(Boolean);
+      // Usunięcie powtórzeń zdań powstałych przy paginacji PDF
+      parts = Array.from(new Set(parts));
+      if (parts.length > 0) envAdvice = parts.join(' ');
+    }
+
+    let cleanRaw = cleanMatch ? cleanMatch[1].replace(/^(?:Methods and material for containment[^\n]*|Metodi e materiali per il contenimento[^\n]*|Metody i materiały[^\n]*)\s*/i, '').trim() : "";
     let cleanupAdvice = "Odpowiedni materiał do zbierania: materiał pochłaniający, organiczny, piasek. Zmyć dużą ilością wody.";
+    if (cleanRaw) {
+      let parts = cleanRaw.split('\n').map(p => SDSProcessorEngine.translatePhrase(p)).filter(Boolean);
+      parts = Array.from(new Set(parts));
+      if (parts.length > 0) cleanupAdvice = parts.join(' ');
+    }
+
     let refAdvice = "Patrz również sekcja 8 i 13.";
+    if (refMatch) {
+      let rText = refMatch[1].replace(/^(?:Reference to other sections[^\n]*|Riferimento ad altre sezioni[^\n]*|Odniesienia do innych sekcji[^\n]*)\s*/i, '').trim();
+      refAdvice = SDSProcessorEngine.translatePhrase(rText, "Patrz również sekcja 8 i 13.");
+    }
 
     let output = "SEKCJA 6: Postępowanie w przypadku niezamierzonego uwolnienia do środowiska\n\n";
     output += "6.1. Indywidualne środki ostrożności, wyposażenie ochronne i procedury w sytuacjach awaryjnych\n";
@@ -992,16 +1255,163 @@ class SDSProcessorEngine {
   }
 
   processSection7(contentIt) {
+    let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
+
+    let s71Match = clean.match(/(?:^|\n)\s*7\.1\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*7\.2\b|$)/i);
+    let s72Match = clean.match(/(?:^|\n)\s*7\.2\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*7\.3\b|$)/i);
+    let s73Match = clean.match(/(?:^|\n)\s*7\.3\b[.:\-]?\s*([\s\S]*?)$/i);
+
+    let text71 = s71Match ? s71Match[1] : "";
+    let precautionsMatch = text71.match(/(?:Precautions for safe handling|Precauzioni per la manipolazione sicura|Środki ostrożności)\s*[:\.]?\s*([\s\S]*?)(?=(?:Advice on general|Raccomandazioni generali|Zalecenia dotyczące|$))/i);
+    let hygieneMatch = text71.match(/(?:Advice on general occupational hygiene|Raccomandazioni generali sull'igiene|Zalecenia dotyczące ogólnej higieny pracy)\s*[:\.]?\s*([\s\S]*?)$/i);
+
+    let precautions = "Unikać kontaktu ze skórą i oczami oraz wdychania par i mgieł. Patrz również sekcja 8 w celu zapoznania się z zalecanym sprzętem ochrony osobistej.";
+    if (precautionsMatch) {
+      let parts = precautionsMatch[1].split('\n').map(p => SDSProcessorEngine.translatePhrase(p)).filter(Boolean);
+      if (parts.length > 0) precautions = parts.join(' ');
+    }
+    let hygiene = SDSProcessorEngine.translatePhrase(hygieneMatch ? hygieneMatch[1] : "", "Nie jeść i nie pić podczas pracy.");
+
+    let text72 = s72Match ? s72Match[1] : "";
+    let incompMatch = text72.match(/(?:Incompatible materials|Materiali incompatibili|Materiały niezgodne)\s*[:\.]?\s*([^\n]+)/i);
+    let premisesMatch = text72.match(/(?:Instructions as regards storage premises|Indicazioni per i locali di stoccaggio|Wskazówki dotyczące pomieszczeń magazynowych)\s*[:\.]?\s*([^\n]+)/i);
+
+    let incompText = SDSProcessorEngine.translatePhrase(incompMatch ? incompMatch[1] : "", "Brak szczególnych.");
+    let premisesText = SDSProcessorEngine.translatePhrase(premisesMatch ? premisesMatch[1] : "", "Pomieszczenia odpowiednio wentylowane.");
+
+    let text73 = s73Match ? s73Match[1] : "";
+    let specUseMatch = text73.match(/(?:Specific end use\(s\)|Usi finali particolari|Szczególne zastosowanie\(-a\) końcowe)\s*[:\.]?\s*([^\n]+)/i);
+    let indSolMatch = text73.match(/(?:Industrial sector specific solutions|Settore industriale soluzioni specifiche|Rozwiązania specyficzne dla sektora przemysłowego)\s*[:\.]?\s*([^\n]+)/i);
+
+    let specUseText = SDSProcessorEngine.translatePhrase(specUseMatch ? specUseMatch[1] : "", "Brak szczególnych.");
+    let indSolText = SDSProcessorEngine.translatePhrase(indSolMatch ? indSolMatch[1] : "", "Brak szczególnych.");
+
     let output = "SEKCJA 7: Postępowanie z substancjami i mieszaninami oraz ich magazynowanie\n\n";
     output += "7.1. Środki ostrożności dotyczące bezpiecznego postępowania\n";
-    output += "Środki ostrożności: Unikać kontaktu ze skórą i oczami oraz wdychania par i mgieł. Patrz również sekcja 8 w celu zapoznania się z zalecanym sprzętem ochrony osobistej.\n";
-    output += "Zalecenia dotyczące ogólnej higieny pracy: Nie jeść i nie pić podczas pracy.\n\n";
+    output += `Środki ostrożności: ${precautions}\n`;
+    output += `Zalecenia dotyczące ogólnej higieny pracy: ${hygiene}\n\n`;
     output += "7.2. Warunki bezpiecznego magazynowania, w tym informacje dotyczące wszelkich wzajemnych niezgodności\n";
-    output += "Materiały niezgodne: Brak szczególnych.\n";
-    output += "Wskazówki dotyczące pomieszczeń magazynowych: Pomieszczenia odpowiednio wentylowane.\n\n";
+    output += `Materiały niezgodne: ${incompText}\n`;
+    output += `Wskazówki dotyczące pomieszczeń magazynowych: ${premisesText}\n\n`;
     output += "7.3. Szczególne zastosowanie(-a) końcowe\n";
-    output += "Brak szczególnych.\n";
-    output += "Rozwiązania specyficzne dla sektora przemysłowego: Brak szczególnych.";
+    output += `${specUseText}\n`;
+    output += `Rozwiązania specyficzne dla sektora przemysłowego: ${indSolText}`;
+
+    return output;
+  }
+
+  // ============================================================================
+  // SEKCJA 9: WŁAŚCIWOŚCI FIZYKOCHEMICZNE (UE 2020/878 & WZORZEC EKOS)
+  // ============================================================================
+  static normalizePhysChemValue(val) {
+    if (!val) return "Brak danych";
+    let v = val.replace(/\r/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (/^(?:N\.?A\.?|Not applicable|Non applicabile|Not available|Non disponibile|Brak danych)$/i.test(v) || /(?:N\.A\.|Not applicable)/i.test(v)) {
+      return "Nie dotyczy";
+    }
+
+    // Tłumaczenie opisowych stanów skupienia, kolorów i rozpuszczalności
+    const valueMap = {
+      "liquid": "ciecz",
+      "solid": "ciało stałe",
+      "gas": "gaz",
+      "white": "biały",
+      "colourless": "bezbarwny",
+      "colorless": "bezbarwny",
+      "characteristic": "charakterystyczny",
+      "soluble": "rozpuszczalny",
+      "insoluble": "nierozpuszczalny",
+      "partially soluble": "częściowo rozpuszczalny",
+      "miscible": "mieszalny",
+      "not miscible": "niemieszalny",
+      "immiscible": "niemieszalny"
+    };
+    let lower = v.toLowerCase();
+    if (valueMap[lower]) return valueMap[lower];
+
+    // Zamiana kropek dziesiętnych na przecinki w liczbach (np. 1.00 -> 1,00, 20.5 -> 20,5)
+    v = v.replace(/(\d+)\.(\d+)/g, '$1,$2');
+    
+    // Normalizacja zapisu jednostek
+    v = v.replace(/mm2\/s/gi, 'mm²/s')
+         .replace(/g\/ml/gi, 'g/ml')
+         .replace(/g\/cm3/gi, 'g/cm³')
+         .replace(/(\d+)\s*°\s*C/gi, '$1 °C');
+
+    return v;
+  }
+
+  processSection9(contentIt) {
+    // 1. Usunięcie artefaktów paginacji PDF i powtórzonych nagłówków
+    let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
+
+    // Scalenie połamanych linii nagłówków parametrów w sekcji 9
+    clean = clean
+      .replace(/Boiling point or initial boiling point and\s*\n\s*boiling range/gi, 'Boiling point or initial boiling point and boiling range')
+      .replace(/Punto di ebollizione o punto iniziale di ebollizione e\s*\n\s*intervallo di ebollizione/gi, 'Punto di ebollizione o punto iniziale di ebollizione e intervallo di ebollizione')
+      .replace(/Lower and upper explosion\s*\n\s*limit/gi, 'Lower and upper explosion limit')
+      .replace(/Partition coefficient n-octanol\/water \(log\s*\n\s*value\)/gi, 'Partition coefficient n-octanol/water (log value)')
+      .replace(/Density and\/or relative\s*\n\s*density/gi, 'Density and/or relative density')
+      .replace(/Volatile Organic compounds\s*-\s*VOCs/gi, 'Volatile Organic compounds - VOCs');
+
+    // Definicja 18 urzędowych parametrów fizykochemicznych wg Załącznika II (UE) 2020/878
+    const paramsConfig = [
+      { key: "state", pl: "Stan skupienia", regex: /(?:Physical state|Stato fisico|Stan skupienia)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "color", pl: "Kolor", regex: /(?:Colour|Color|Colore|Kolor)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "odor", pl: "Zapach", regex: /(?:Odour|Odor|Odore|Zapach)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "melting", pl: "Temperatura topnienia/krzepnięcia", regex: /(?:Melting point\/freezing point|Punto di fusione\/punto di congelamento|Temperatura topnienia\/krzepnięcia)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "boiling", pl: "Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia", regex: /(?:Boiling point or initial boiling point and boiling range|Punto di ebollizione o punto iniziale di ebollizione e intervallo di ebollizione|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "flammability", pl: "Palność materiałów", regex: /(?:Flammability|Infiammabilità|Palność materiałów)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "explosion_limits", pl: "Dolna i górna granica wybuchowości", regex: /(?:Lower and upper explosion limit|Limite inferiore e superiore di esplosività|Dolna i górna granica wybuchowości)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "flash_point", pl: "Temperatura zapłonu", regex: /(?:Flash point|Punto di infiammabilità|Temperatura zapłonu)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "auto_ignition", pl: "Temperatura samozapłonu", regex: /(?:Auto-ignition temperature|Temperatura di autoaccensione|Temperatura samozapłonu)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "decomposition", pl: "Temperatura rozkładu", regex: /(?:Decomposition temperature|Temperatura di decomposizione|Temperatura rozkładu)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "ph", pl: "pH", regex: /(?:^|\n)\s*(?<![A-Za-z])pH(?![A-Za-z])\s*[:\.]?\s*([^\n]+)/i },
+      { key: "viscosity", pl: "Lepkość kinematyczna", regex: /(?:Kinematic viscosity|Viscosità cinematica|Lepkość kinematyczna)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "solubility_water", pl: "Rozpuszczalność w wodzie", regex: /(?:Solubility in water|Solubilità in acqua|Rozpuszczalność w wodzie)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "solubility_oil", pl: "Rozpuszczalność w innych rozpuszczalnikach", regex: /(?:Solubility in oil|Solubilità in olio|Solubility in other solvents|Rozpuszczalność w innych rozpuszczalnikach)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "partition_coeff", pl: "Współczynnik podziału n-oktanol/woda (wartość współczynnika log)", regex: /(?:Partition coefficient n-octanol\/water \(log value\)|Coefficiente di ripartizione n-ottanolo\/acqua|Współczynnik podziału n-oktanol\/woda)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "vapour_pressure", pl: "Prężność pary", regex: /(?:Vapour pressure|Tensione di vapore|Prężność pary)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "density", pl: "Gęstość lub gęstość względna", regex: /(?:Density and\/or relative density|Densità e\/o densità relativa|Gęstość lub gęstość względna)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "relative_vapour_density", pl: "Względna gęstość pary", regex: /(?:Relative vapour density|Densità di vapore relativa|Względna gęstość pary)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "particle_characteristics", pl: "Charakterystyka cząsteczek", regex: /(?:Particle size|Particle characteristics|Caratteristiche delle particelle|Charakterystyka cząsteczek)\s*[:\.]?\s*([^\n]+)/i }
+    ];
+
+    let extractedLines = [];
+    for (const p of paramsConfig) {
+      const match = clean.match(p.regex);
+      let rawVal = match ? match[1].trim() : "Nie dotyczy";
+      let normVal = SDSProcessorEngine.normalizePhysChemValue(rawVal);
+      extractedLines.push(`${p.pl}: ${normVal}`);
+    }
+
+    // 9.2. Inne informacje
+    let otherInfo = "Brak innych istotnych informacji.";
+    let m92 = clean.match(/(?:^|\n)\s*9\.2\b[.:\-]?\s*([\s\S]*?)$/i);
+    if (m92) {
+      let raw92 = m92[1].replace(/^(?:Other information|Altre informazioni|Inne informacje)\s*/i, '').trim();
+      let parts92 = raw92.split('\n').map(l => l.trim()).filter(Boolean);
+      let vocMatch = clean.match(/(?:Volatile Organic compounds\s*-\s*VOCs\s*=|VOC\s*[:=])\s*([^\n]+)/i);
+      let lines92 = [];
+      if (vocMatch) {
+        lines92.push(`Lotne Związki Organiczne (LZO / VOC): ${SDSProcessorEngine.normalizePhysChemValue(vocMatch[1])}`);
+      }
+      if (parts92.length > 0) {
+        let firstPart = parts92[0];
+        if (/No other relevant information|Nessun'altra informazione rilevante/i.test(firstPart)) {
+          lines92.push("Brak innych istotnych informacji.");
+        } else if (lines92.length === 0) {
+          lines92.push(SDSProcessorEngine.translatePhrase(firstPart, "Brak innych istotnych informacji."));
+        }
+      }
+      if (lines92.length > 0) otherInfo = lines92.join('\n');
+    }
+
+    let output = "SEKCJA 9: Właściwości fizyczne i chemiczne\n\n";
+    output += "9.1. Informacje na temat podstawowych właściwości fizycznych i chemicznych\n";
+    output += extractedLines.join('\n') + "\n\n";
+    output += "9.2. Inne informacje\n";
+    output += otherInfo;
 
     return output;
   }
@@ -1067,6 +1477,7 @@ class SDSProcessorEngine {
     const s6Content = this.processSection6(rawSections["section_6"]);
     const s7Content = this.processSection7(rawSections["section_7"]);
     const s8Content = this.processSection8(rawSections["section_8"]);
+    const s9Content = this.processSection9(rawSections["section_9"]);
 
     const deterministic = {
       section_1: { type: "CLP_MAPPED", content: s1Content },
@@ -1077,13 +1488,14 @@ class SDSProcessorEngine {
       section_6: { type: "CLP_MAPPED", content: s6Content },
       section_7: { type: "CLP_MAPPED", content: s7Content },
       section_8: { type: "CLP_MAPPED", content: s8Content },
+      section_9: { type: "CLP_MAPPED", content: s9Content },
       section_13: { type: "QUARANTINE", content: PolishLegalTemplates.getSection13() },
       section_15: { type: "QUARANTINE", content: PolishLegalTemplates.getSection15() },
       section_16: { type: "CLP_MAPPED", content: mapHazardClass(rawSections["section_16"]) }
     };
 
     const toTranslate = {};
-    [9,10,11,12,14].forEach(i => { toTranslate[`section_${i}`] = rawSections[`section_${i}`]; });
+    [10,11,12,14].forEach(i => { toTranslate[`section_${i}`] = rawSections[`section_${i}`]; });
 
     if (this.anomalies.length > 0) {
       throw new HITLError(this.anomalies);
@@ -1275,7 +1687,7 @@ class SDSDocxExporter {
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
         const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Producent \/ Podmiot wprowadzający do obrotu:|Dystrybutor w Polsce:|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):)$/i.test(tLine);
-        const isBoldStart = /^(Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Telefon producenta|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria):/i.test(tLine);
+        const isBoldStart = /^(Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Telefon producenta|E-mail osoby odpowiedzialnej za kartę|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria|Stan skupienia|Kolor|Zapach|Temperatura topnienia\/krzepnięcia|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Palność materiałów|Dolna i górna granica wybuchowości|Temperatura zapłonu|Temperatura samozapłonu|Temperatura rozkładu|pH|Lepkość kinematyczna|Rozpuszczalność w wodzie|Rozpuszczalność w innych rozpuszczalnikach|Współczynnik podziału n-oktanol\/woda \(wartość współczynnika log\)|Prężność pary|Gęstość lub gęstość względna|Względna gęstość pary|Charakterystyka cząsteczek|Lotne Związki Organiczne \(LZO \/ VOC\)):/i.test(tLine);
 
         if (isSubSection) {
            sectionsBody.push(new Paragraph({

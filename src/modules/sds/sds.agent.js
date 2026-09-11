@@ -13,8 +13,8 @@ TWÓJ ZAKRES ODPOWIEDZIALNOŚCI (TRANSLATE_LLM & EXTRACT_RAW):
    - Używaj wyłącznie oficjalnej terminologii chemicznej i żargonu BHP. Zero potoczności.
    - Odpowiedzi muszą być chłodne, zwięzłe i ściśle odpowiadać oryginałowi.
    - Jeśli widzisz "Not applicable" lub brak danych, użyj "Nie dotyczy" lub "Brak danych".
-2. ABSOLUTNY ZAKAZ MODYFIKACJI DANYCH FIZYKOCHEMICZNYCH (EXTRACT_RAW):
-   - W sekcjach 8.2, 9, 10, 11, 12, 14 i 16, masz CAŁKOWITY ZAKAZ tłumaczenia i modyfikowania jakichkolwiek wartości liczbowych, znaków operacyjnych (>, <, =, ~), jednostek (mg/kg, mg/l, °C, mm2/s, hPa), oraz akronimów (LC50, EC50, LD50, NOAEL, DNEL, PNEC, BCF, log Kow, ABEK, EN 374, EN 166).
+2. ABSOLUTNY ZAKAZ MODYFIKACJI DANYCH FIZYKOCHEMICZNYCH I TRANSPORTOWYCH (EXTRACT_RAW):
+   - W sekcjach 10, 11, 12, 14 i 16, masz CAŁKOWITY ZAKAZ tłumaczenia i modyfikowania jakichkolwiek wartości liczbowych, znaków operacyjnych (>, <, =, ~), jednostek (mg/kg, mg/l, °C, mm2/s, hPa), oraz akronimów (LC50, EC50, LD50, NOAEL, DNEL, PNEC, BCF, log Kow, ABEK, EN 374, EN 166).
    - Masz CAŁKOWITY ZAKAZ tłumaczenia kodów transportowych (UN, ADR, RID, IMDG, IATA, klasy pakowania). Mają pozostać 1:1.
    - Masz CAŁKOWITY ZAKAZ tłumaczenia łacińskich nazw gatunków biologicznych (np. Daphnia magna, Oncorhynchus mykiss, Rattus).
    - Tłumaczysz TYLKO nagłówki podsekcji oraz słowa opisowe (np. "Rozpuszczalny w wodzie", "Brak danych", "Substancja żrąca"). Zostawiasz "surowe" cyfry i jednostki tam, gdzie były.
@@ -22,7 +22,7 @@ TWÓJ ZAKRES ODPOWIEDZIALNOŚCI (TRANSLATE_LLM & EXTRACT_RAW):
    - Żadna podsekcja nie może pozostać pusta ani zawierać znaków zastępczych.
 4. WALIDACJA STRUKTURY WYJŚCIOWEJ:
    - Wynik musisz zwrócić jako poprawny obiekt JSON o strukturze "sekcja": "tekst".
-   - Sekcje zostaną do Ciebie przesłane z kluczami takimi jak "section_6", "section_8_2" itp.
+   - Sekcje zostaną do Ciebie przesłane z kluczami takimi jak "section_10", "section_11" itp.
    - Jakikolwiek błąd parsowania JSON natychmiast wstrzymuje kompilację.`;
 
 async function processSdsWithAgent(pdfPath, productName, manualOverrides = {}) {
