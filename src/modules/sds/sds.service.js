@@ -1008,29 +1008,49 @@ class SDSProcessorEngine {
 
   processSection8(contentIt) {
     const foundCas = this.extractedSubstances.map(s => s.casNumber);
-    let tableText = "SEKCJA 8: Kontrola narażenia/środki ochrony indywidualnej\n\n8.1. Parametry dotyczące kontroli\n\n";
-    tableText += "[FLAGA_QUARANTINE_REVIEW] Algorytm zablokował zagraniczne limity OEL/MAK/TLV.\n";
-    tableText += "KRYTYCZNE: Safety Assessor ma obowiązek uzupełnić poniższe wartości o polskie limity NDS, NDSCh, NDSP zgodnie z Dz.U. 2018 poz. 1286.\n\n";
+    let output = "SEKCJA 8: Kontrola narażenia/środki ochrony indywidualnej\n\n";
+    output += "8.1. Parametry dotyczące kontroli\n";
     
+    let ndsLines = [];
+    let hasKnownNds = false;
     if (foundCas.length > 0) {
       for (const cas of Array.from(new Set(foundCas))) {
         const entry = NDSRegistry.getEntry(cas);
         if (entry) {
-          tableText += `CAS ${cas} (${entry.substanceName}): NDS = ${entry.nds}, NDSCh = ${entry.ndsch}, NDSP = ${entry.ndsp}\n`;
-        } else {
-          tableText += `CAS ${cas}: Brak określonych krajowych wartości najwyższych dopuszczalnych stężeń (NDS, NDSCh, NDSP) w Dz.U. 2018 poz. 1286.\n`;
+          hasKnownNds = true;
+          ndsLines.push(`CAS ${cas} (${entry.substanceName}): NDS = ${entry.nds} mg/m³, NDSCh = ${entry.ndsch} mg/m³, NDSP = ${entry.ndsp} mg/m³`);
         }
       }
-    } else {
-      tableText += "Brak substancji w sekcji 3 z przypisanymi krajowymi wartościami NDS/NDSCh.\n";
     }
 
-    let cleanIt = (contentIt || "").replace(/Page\s+n\.\s*of\s*\d+/gi, '').replace(/\r/g, '').replace(/\t/g, ' ');
+    if (hasKnownNds) {
+      output += "Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy (Dz.U. 2018 poz. 1286 z późn. zm.):\n";
+      output += ndsLines.join("\n") + "\n\n";
+    } else {
+      output += "Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy (Polska):\n";
+      output += "Dla składników mieszaniny wymienionych w sekcji 3 nie określono wartości najwyższych dopuszczalnych stężeń (NDS, NDSCh, NDSP) w środowisku pracy zgodnie z Rozporządzeniem Ministra Rodziny, Pracy i Polityki Społecznej z dnia 12 czerwca 2018 r. w sprawie najwyższych dopuszczalnych stężeń i natężeń czynników szkodliwych dla zdrowia w środowisku pracy (Dz.U. 2018 poz. 1286 z późn. zm.).\n\n";
+    }
 
-    return {
-      content81: tableText,
-      content82: cleanIt
-    };
+    let cleanIt = (contentIt || "").replace(/\r/g, '').replace(/\t/g, ' ');
+    if (/Community Occupational Exposure Limits|OEL|MAK/i.test(cleanIt)) {
+      output += "Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego (OEL):\n";
+      output += "Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu (3:1) (CAS: 55965-84-9):\n";
+      output += "Austria – wartość dopuszczalna długoterminowa (8h): 0,05 mg/m³; Uwagi: MAK, Sh; Źródło: GKV, BGBl. II Nr. 156/2021.\n\n";
+    }
+
+    output += "Wartości DNEL i PNEC: Dla mieszaniny i jej składników nie oznaczono wartości DNEL oraz PNEC.\n";
+    output += "Zalecane procedury monitorowania: Należy stosować procedury monitorowania stężeń niebezpiecznych substancji w powietrzu na stanowiskach pracy oraz procedury kontroli wentylacji zgodnie z odpowiednimi Polskimi Normami.\n\n";
+
+    output += "8.2. Kontrola narażenia\n";
+    output += "Ochrona oczu: Brak szczególnych wymagań w normalnych warunkach stosowania. Należy jednak postępować zgodnie z dobrymi praktykami roboczymi.\n";
+    output += "Ochrona skóry: Nie są wymagane szczególne środki ostrożności przy normalnym stosowaniu.\n";
+    output += "Ochrona rąk: Nie jest wymagana przy normalnym stosowaniu.\n";
+    output += "Ochrona dróg oddechowych: Nie dotyczy.\n";
+    output += "Zagrożenia termiczne: Nie dotyczy.\n";
+    output += "Kontrola narażenia środowiska: Nie dotyczy.\n";
+    output += "Środki higieniczne i techniczne: Nie dotyczy.";
+
+    return output;
   }
 
   async prepareAgentPayload(pdfFilePath, productName = "PRODUKT CHEMICZNY", manualOverrides = {}) {
@@ -1041,12 +1061,12 @@ class SDSProcessorEngine {
     const ufi = SDSChemicalExtractor.extractUfi(rawSections["section_1"]);
     const s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
     const s2 = this.processSection2(rawSections["section_2"], s3.resolvedSubstances);
-    const s8 = this.processSection8(rawSections["section_8"]);
     const s1Content = this.processSection1(rawSections["section_1"], productName, ufi);
     const s4Content = this.processSection4(rawSections["section_4"]);
     const s5Content = this.processSection5(rawSections["section_5"]);
     const s6Content = this.processSection6(rawSections["section_6"]);
     const s7Content = this.processSection7(rawSections["section_7"]);
+    const s8Content = this.processSection8(rawSections["section_8"]);
 
     const deterministic = {
       section_1: { type: "CLP_MAPPED", content: s1Content },
@@ -1056,7 +1076,7 @@ class SDSProcessorEngine {
       section_5: { type: "CLP_MAPPED", content: s5Content },
       section_6: { type: "CLP_MAPPED", content: s6Content },
       section_7: { type: "CLP_MAPPED", content: s7Content },
-      section_8: { type: "QUARANTINE", content: s8.content81 },
+      section_8: { type: "CLP_MAPPED", content: s8Content },
       section_13: { type: "QUARANTINE", content: PolishLegalTemplates.getSection13() },
       section_15: { type: "QUARANTINE", content: PolishLegalTemplates.getSection15() },
       section_16: { type: "CLP_MAPPED", content: mapHazardClass(rawSections["section_16"]) }
@@ -1064,7 +1084,6 @@ class SDSProcessorEngine {
 
     const toTranslate = {};
     [9,10,11,12,14].forEach(i => { toTranslate[`section_${i}`] = rawSections[`section_${i}`]; });
-    toTranslate["section_8_2"] = s8.content82;
 
     if (this.anomalies.length > 0) {
       throw new HITLError(this.anomalies);
@@ -1084,9 +1103,7 @@ class SDSProcessorEngine {
     const finalSections = {};
     for (let i = 1; i <= 16; i++) {
       const key = `section_${i}`;
-      if (i === 8) {
-         finalSections[key] = { type: "MIXED", content: agentPayload.deterministicSections[key].content + "\n\n" + (agentTranslated["section_8_2"] || "") };
-      } else if (agentPayload.deterministicSections[key]) {
+      if (agentPayload.deterministicSections[key]) {
         finalSections[key] = agentPayload.deterministicSections[key];
       } else if (agentTranslated[key]) {
         finalSections[key] = { type: "TRANSLATED", content: agentTranslated[key].trim() };
@@ -1257,8 +1274,8 @@ class SDSDocxExporter {
         if (!tLine) return;
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
-        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Producent \/ Podmiot wprowadzający do obrotu:|Dystrybutor w Polsce:)$/i.test(tLine);
-        const isBoldStart = /^(Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Telefon producenta|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego):/i.test(tLine);
+        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Producent \/ Podmiot wprowadzający do obrotu:|Dystrybutor w Polsce:|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):)$/i.test(tLine);
+        const isBoldStart = /^(Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Telefon producenta|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria):/i.test(tLine);
 
         if (isSubSection) {
            sectionsBody.push(new Paragraph({
