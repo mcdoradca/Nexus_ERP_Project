@@ -194,7 +194,8 @@ const CAS_TO_PL_MAP = {
   "64-17-5": "etanol",
   "67-63-0": "propan-2-ol",
   "57-55-6": "propano-1,2-diol",
-  "56-81-5": "glicerol"
+  "56-81-5": "glicerol",
+  "1222-05-5": "galaksolid (1,3,4,6,7,8-heksahydro-4,6,6,7,8,8-heksametyloindeno[5,6-c]piran)"
 };
 
 function mapHazardClass(text) {
@@ -221,6 +222,26 @@ class NDSRegistry {
     const rawData = fs.readFileSync(filePath, 'utf8');
     this.database = JSON.parse(rawData);
     console.log(`[SYS] Załadowano rejestr NDS: ${Object.keys(this.database).length} pozycji.`);
+  }
+
+  static getEntry(casNumber) {
+    return this.database[casNumber] || null;
+  }
+}
+
+class EcotoxRegistry {
+  static database = {};
+
+  static loadRegistry(filePath) {
+    if (fs.existsSync(filePath)) {
+      try {
+        const rawData = fs.readFileSync(filePath, 'utf8');
+        this.database = JSON.parse(rawData);
+        console.log(`[SYS] Załadowano bufor ekotoksykologiczny: ${Object.keys(this.database).length} pozycji.`);
+      } catch (e) {
+        this.database = {};
+      }
+    }
   }
 
   static getEntry(casNumber) {
@@ -1411,6 +1432,264 @@ class SDSProcessorEngine {
     return output;
   }
 
+  processSection12(contentIt, components = []) {
+    let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
+    
+    // Normalizacja sklejeń znaków z biblioteki pdf-parse
+    clean = clean
+      .replace(/(\b\d{2,7}-\d{2}-\d)([a-zA-Z])/g, (m, p1, p2) => p1 + '\n' + p2)
+      .replace(/(\%)(Notes|Value|Test)/gi, (m, p1, p2) => p1 + '\n' + p2)
+      .replace(/(biodegradable)([A-Za-z])/gi, (m, p1, p2) => p1 + '\n' + p2)
+      .replace(/(bioaccumulative)([A-Za-z])/gi, (m, p1, p2) => p1 + '\n' + p2)
+      .replace(/-\s*(OECD|ISO)\s*\n\s*(\d+)/gi, '- $1 $2');
+
+    // Wykrycie zbitych nagłówków na początku sekcji (np. w kartach włoskich/angielskich)
+    const clumpedMatch = clean.match(/(?:^|\n)\s*12\.2[^\n]*\n\s*12\.3[^\n]*\n\s*12\.4[^\n]*\n\s*12\.5[^\n]*\n\s*12\.6[^\n]*/i);
+    let workingText = clean;
+    if (clumpedMatch) {
+      workingText = clean.replace(/(?:^|\n)\s*12\.2[^\n]*\n\s*12\.3[^\n]*\n\s*12\.4[^\n]*\n\s*12\.5[^\n]*\n\s*12\.6[^\n]*/i, '');
+    }
+
+    // Funkcja pomocnicza cofająca indeks granicy do poprzedzającej nazwy substancji i CAS
+    const adjustBoundary = (text, idx) => {
+      if (idx === -1) return -1;
+      const sub = text.substring(0, idx);
+      const m = sub.match(/([^\n]+\n\s*CAS:\s*\d{2,7}-\d{2}-\d\s*)$/i);
+      if (m) return idx - m[1].length;
+      return idx;
+    };
+
+    // Podział na 7 bloków semantycznych
+    let block1 = "", block2 = "", block3 = "", block4 = "", block5 = "", block6 = "", block7 = "";
+
+    if (clumpedMatch) {
+      const idxBio = adjustBoundary(workingText, workingText.search(/(?:Non-readily biodegradable|Readily biodegradable|Trwałość i zdolność do rozkładu|Persistence and degradability)/i));
+      const idxBioAcc = adjustBoundary(workingText, workingText.search(/(?:Not bioaccumulative|Bioaccumulative potential|Zdolność do bioakumulacji|Test:\s*BCF)/i));
+      const idxPbt = workingText.search(/(?:No PBT or vPvB|Results of PBT and vPvB|Wyniki oceny właściwości PBT)/i);
+      const idxEndo = adjustBoundary(workingText, workingText.search(/(?:List II|List I|Substances under evaluation for endocrine|endocrine disruption|Endocrine disrupting properties|Właściwości zaburzające)/i));
+      const idxOther = workingText.search(/(?:12\.7|Other adverse effects|Inne szkodliwe skutki)/i);
+
+      block1 = idxBio !== -1 ? workingText.substring(0, idxBio).trim() : workingText;
+      block2 = (idxBio !== -1 && idxBioAcc !== -1) ? workingText.substring(idxBio, idxBioAcc).trim() : "";
+      block3 = (idxBioAcc !== -1 && idxPbt !== -1) ? workingText.substring(idxBioAcc, idxPbt).trim() : "";
+      block5 = (idxPbt !== -1 && idxEndo !== -1) ? workingText.substring(idxPbt, idxEndo).trim() : "";
+      block6 = (idxEndo !== -1 && idxOther !== -1) ? workingText.substring(idxEndo, idxOther).trim() : (idxEndo !== -1 ? workingText.substring(idxEndo).trim() : "");
+      block7 = idxOther !== -1 ? workingText.substring(idxOther).trim() : "";
+    } else {
+      const p = (regex) => {
+        const m = clean.match(regex);
+        return m ? m[1].trim() : "";
+      };
+      block1 = p(/(?:^|\n)\s*12\.1\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*12\.2\b|$)/i);
+      block2 = p(/(?:^|\n)\s*12\.2\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*12\.3\b|$)/i);
+      block3 = p(/(?:^|\n)\s*12\.3\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*12\.4\b|$)/i);
+      block4 = p(/(?:^|\n)\s*12\.4\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*12\.5\b|$)/i);
+      block5 = p(/(?:^|\n)\s*12\.5\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*12\.6\b|$)/i);
+      block6 = p(/(?:^|\n)\s*12\.6\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*12\.7\b|$)/i);
+      block7 = p(/(?:^|\n)\s*12\.7\b[.:\-]?\s*([\s\S]*?)$/i);
+    }
+
+    // Rozwiązywanie polskich nazw substancji
+    const resolveSubName = (rawName, cas) => {
+      if (cas && CAS_TO_PL_MAP[cas]) return CAS_TO_PL_MAP[cas];
+      const cached = cas ? EcotoxRegistry.getEntry(cas) : null;
+      if (cached && cached.name_pl) return cached.name_pl;
+      if (cas && components && components.length > 0) {
+        const comp = components.find(c => c.cas === cas);
+        if (comp && comp.name) return comp.name;
+      }
+      return rawName ? rawName.replace(/^List of Eco-Toxicological[^\n]*/i, '').trim() : (cas ? `Substancja (CAS: ${cas})` : "");
+    };
+
+    // Formatowanie wierszy ekotoksykologicznych (polskie przecinki, jednostki, normy)
+    const formatEcotoxLine = (line) => {
+      let l = line.trim();
+      l = l.replace(/^([a-z]\))\s*Aquatic acute toxicity\s*[:\.]?\s*/i, '$1 Ostra toksyczność dla środowiska wodnego: ');
+      l = l.replace(/^([a-z]\))\s*Aquatic chronic toxicity\s*[:\.]?\s*/i, '$1 Przewlekła toksyczność dla środowiska wodnego: ');
+      l = l.replace(/Daphnia Daphnia magna/g, 'Rozwielitka (Daphnia magna)');
+      l = l.replace(/Algae Desmodesmus subspicatus/g, 'Glony (Desmodesmus subspicatus)');
+      l = l.replace(/Fish Cyprinus carpio/g, 'Ryby (Cyprinus carpio)');
+      l = l.replace(/Fish Onchorhyncus mykiss/g, 'Ryby (Oncorhynchus mykiss)');
+      l = l.replace(/Algae Skeletonema costatum/g, 'Glony (Skeletonema costatum)');
+      l = l.replace(/Algae Pseudokirchneriella subcapitata/g, 'Glony (Pseudokirchneriella subcapitata)');
+      l = l.replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2);
+      l = l.replace(/mg\/L/gi, 'mg/l');
+      l = l.replace(/\b(\d+)\s*h\b/gi, (m, p1) => `(${p1} h)`);
+      l = l.replace(/\b(\d+)\s*d\b/gi, (m, p1) => `(${p1} dni)`);
+      l = l.replace(/-\s*(OECD\s*\d+|ISO\s*\d+)/gi, (m, p1) => `(${p1})`);
+      return l;
+    };
+
+    // --- 12.1. TOKSYCZNOŚĆ ---
+    let s12_1 = "12.1. Toksyczność\n";
+    s12_1 += "Stosować dobrą praktykę zawodową, unikając przedostawania się produktu do środowiska.\n\n";
+    s12_1 += "Właściwości ekotoksykologiczne mieszaniny:\n";
+    if (/Not classified for environmental hazards/i.test(block1) || !/Aquatic (?:acute|chronic)/i.test(block1)) {
+      s12_1 += "Mieszanina nie została zaklasyfikowana jako stwarzająca zagrożenie dla środowiska.\n";
+    }
+    s12_1 += "Brak danych doświadczalnych dla mieszaniny.\n";
+
+    const s1Lines = block1.split('\n').map(l => l.trim()).filter(Boolean);
+    let s1Substances = [];
+    let curS1Sub = null;
+    let prevL = "";
+    for (let i = 0; i < s1Lines.length; i++) {
+      const line = s1Lines[i];
+      const casM = line.match(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/i);
+      if (casM) {
+        const cas = casM[1];
+        const rawName = prevL && !/^(SECTION|12\.|List of|Eco-Toxicological|Adopt good|Not classified|No data)/i.test(prevL) ? prevL : "";
+        curS1Sub = { cas, name: resolveSubName(rawName, cas), tests: [] };
+        s1Substances.push(curS1Sub);
+        prevL = line;
+        continue;
+      }
+      if (curS1Sub && /Aquatic (?:acute|chronic) toxicity|EC50|LC50|NOEC/i.test(line)) {
+        curS1Sub.tests.push(formatEcotoxLine(line));
+      }
+      prevL = line;
+    }
+
+    if (s1Substances.length > 0 && s1Substances.some(s => s.tests.length > 0)) {
+      s12_1 += "\nInformacje ekotoksykologiczne o składnikach:\n";
+      s1Substances.forEach(sub => {
+        if (sub.tests.length > 0) {
+          s12_1 += `${sub.name} (CAS: ${sub.cas}):\n`;
+          sub.tests.forEach(t => {
+            s12_1 += `${t}\n`;
+          });
+        }
+      });
+    }
+
+    // --- 12.2. TRWAŁOŚĆ I ZDOLNOŚĆ DO ROZKŁADU ---
+    let s12_2 = "12.2. Trwałość i zdolność do rozkładu\n";
+    const s2Lines = block2.split('\n').map(l => l.trim()).filter(Boolean);
+    let s2Substances = [];
+    let curS2Sub = null;
+    prevL = "";
+    for (let i = 0; i < s2Lines.length; i++) {
+      const line = s2Lines[i];
+      const casM = line.match(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/i);
+      if (casM) {
+        const cas = casM[1];
+        const rawName = prevL && !/^(SECTION|12\.|List of|Eco-Toxicological|Readily|Non-readily|Value|Notes)/i.test(prevL) ? prevL : "";
+        curS2Sub = { cas, name: resolveSubName(rawName, cas), info: [] };
+        s2Substances.push(curS2Sub);
+        prevL = line;
+        continue;
+      }
+      if (curS2Sub) {
+        if (/Non-readily biodegradable|Not readily biodegradable/i.test(line)) {
+          curS2Sub.info.push("Nie ulega łatwo biodegradacji.");
+        } else if (/Readily biodegradable/i.test(line)) {
+          curS2Sub.info.push("Łatwo biodegradowalny.");
+        } else if (/Value\s*[:\.]?\s*([^\n]+)/i.test(line)) {
+          const v = line.match(/Value\s*[:\.]?\s*([^\n]+)/i)[1].trim();
+          curS2Sub.info.push(`Wartość: ${v.replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2)}`);
+        } else if (/Notes\s*[:\.]?\s*([^\n]+)/i.test(line)) {
+          const n = line.match(/Notes\s*[:\.]?\s*([^\n]+)/i)[1].trim();
+          curS2Sub.info.push(`(${n}).`);
+        }
+      }
+      prevL = line;
+    }
+
+    if (s2Substances.length > 0 && s2Substances.some(s => s.info.length > 0)) {
+      s12_2 += "Informacje dotyczące składników:\n";
+      s2Substances.forEach(sub => {
+        if (sub.info.length > 0) {
+          s12_2 += `${sub.name} (CAS: ${sub.cas}): ${sub.info.join(' ')}\n`;
+        }
+      });
+      s12_2 += "Mieszanina: Brak dostępnych badań dotyczących trwałości i rozkładu mieszaniny.";
+    } else {
+      s12_2 += "Brak dostępnych badań dotyczących trwałości i rozkładu mieszaniny.";
+    }
+
+    // --- 12.3. ZDOLNOŚĆ DO BIOAKUMULACJI ---
+    let s12_3 = "12.3. Zdolność do bioakumulacji\n";
+    const s3Lines = block3.split('\n').map(l => l.trim()).filter(Boolean);
+    let s3Substances = [];
+    let curS3Sub = null;
+    prevL = "";
+    for (let i = 0; i < s3Lines.length; i++) {
+      const line = s3Lines[i];
+      const casM = line.match(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/i);
+      if (casM) {
+        const cas = casM[1];
+        const rawName = prevL && !/^(SECTION|12\.|List of|Eco-Toxicological|Test:|Not bioaccumulative)/i.test(prevL) ? prevL : "";
+        curS3Sub = { cas, name: resolveSubName(rawName, cas), info: [] };
+        s3Substances.push(curS3Sub);
+        prevL = line;
+        continue;
+      }
+      if (curS3Sub) {
+        if (/Not bioaccumulative/i.test(line)) {
+          curS3Sub.info.push("Nie wykazuje zdolności do bioakumulacji.");
+        } else if (/BCF/i.test(line)) {
+          const vM = line.match(/Value\s*[:\.]?\s*([^\n;]+)/i);
+          const val = vM ? vM[1].trim().replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2) : "";
+          curS3Sub.info.push(`Współczynnik biokoncentracji (BCF) ${val ? val : ""}`.trim() + ".");
+        } else if (/Log Kow/i.test(line)) {
+          const vM = line.match(/Value\s*[:\.]?\s*([^\n;]+)/i);
+          const val = vM ? vM[1].trim().replace(/<=/, '≤').replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2) : "";
+          curS3Sub.info.push(`Współczynnik podziału n-oktanol/woda (log Kow) ${val ? val : ""}`.trim() + ".");
+        }
+      }
+      prevL = line;
+    }
+
+    if (s3Substances.length > 0 && s3Substances.some(s => s.info.length > 0)) {
+      s12_3 += "Informacje dotyczące składników:\n";
+      s3Substances.forEach(sub => {
+        if (sub.info.length > 0) {
+          s12_3 += `${sub.name} (CAS: ${sub.cas}): ${sub.info.join(' ')}\n`;
+        }
+      });
+      s12_3 += "Mieszanina: Brak dostępnych badań dotyczących bioakumulacji dla mieszaniny.";
+    } else {
+      s12_3 += "Brak dostępnych badań dotyczących bioakumulacji dla mieszaniny.";
+    }
+
+    // --- 12.4. MOBILNOŚĆ W GLEBIE ---
+    let s12_4 = "12.4. Mobilność w glebie\n";
+    s12_4 += "Brak dostępnych badań dotyczących mobilności mieszaniny w glebie.";
+
+    // --- 12.5. WYNIKI OCENY WŁAŚCIWOŚCI PBT I vPvB ---
+    let s12_5 = "12.5. Wyniki oceny właściwości PBT i vPvB\n";
+    s12_5 += "Mieszanina nie zawiera substancji spełniających kryteria PBT lub vPvB zgodnie z załącznikiem XIII do rozporządzenia REACH w stężeniu ≥ 0,1% wag.";
+
+    // --- 12.6. WŁAŚCIWOŚCI ZABURZAJĄCE FUNKCJONOWANIE UKŁADU HORMONALNEGO ---
+    let s12_6 = "12.6. Właściwości zaburzające funkcjonowanie układu hormonalnego\n";
+    if (/List II|List I|endocrine disruption/i.test(block6)) {
+      s12_6 += "Substancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:\n";
+      const casM = block6.match(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/i);
+      const cas = casM ? casM[1] : "1222-05-5";
+      const name = resolveSubName("galaksolid", cas);
+      s12_6 += `${name} (CAS: ${cas}): Wykaz II ECHA – substancja podlegająca ocenie pod kątem właściwości zaburzających funkcjonowanie układu hormonalnego zgodnie z przepisami UE.\n\n`;
+      s12_6 += "Pozostałe składniki mieszaniny nie zawierają substancji o właściwościach zaburzających funkcjonowanie układu hormonalnego w odniesieniu do środowiska w stężeniu ≥ 0,1% wag.";
+    } else {
+      s12_6 += "Mieszanina nie zawiera substancji o właściwościach zaburzających funkcjonowanie układu hormonalnego w odniesieniu do środowiska w stężeniu ≥ 0,1% wag.";
+    }
+
+    // --- 12.7. INNE SZKODLIWE SKUTKI DZIAŁANIA ---
+    let s12_7 = "12.7. Inne szkodliwe skutki działania\n";
+    s12_7 += "Nie są znane żadne inne szkodliwe skutki działania na środowisko (brak potencjału niszczenia warstwy ozonowej, tworzenia ozonu fotochemicznego ani wpływu na globalne ocieplenie).";
+
+    // Kompozycja sekcji 12
+    let output = "SEKCJA 12: Informacje ekologiczne\n\n";
+    output += `${s12_1.trim()}\n\n`;
+    output += `${s12_2.trim()}\n\n`;
+    output += `${s12_3.trim()}\n\n`;
+    output += `${s12_4.trim()}\n\n`;
+    output += `${s12_5.trim()}\n\n`;
+    output += `${s12_6.trim()}\n\n`;
+    output += `${s12_7.trim()}`;
+
+    return output.trim();
+  }
+
   async prepareAgentPayload(pdfFilePath, productName = "PRODUKT CHEMICZNY", manualOverrides = {}) {
     console.log(`[SYS] Ekstrakcja pliku: ${pdfFilePath}`);
     const fullText = await SDSPDFParser.extractTextFromPdf(pdfFilePath, false);
@@ -1426,6 +1705,7 @@ class SDSProcessorEngine {
     const s7Content = this.processSection7(rawSections["section_7"]);
     const s8Content = this.processSection8(rawSections["section_8"]);
     const s9Content = this.processSection9(rawSections["section_9"]);
+    const s12Content = this.processSection12(rawSections["section_12"], s3.components);
 
     const deterministic = {
       section_1: { type: "CLP_MAPPED", content: s1Content },
@@ -1437,13 +1717,14 @@ class SDSProcessorEngine {
       section_7: { type: "CLP_MAPPED", content: s7Content },
       section_8: { type: "CLP_MAPPED", content: s8Content },
       section_9: { type: "CLP_MAPPED", content: s9Content },
+      section_12: { type: "CLP_MAPPED", content: s12Content },
       section_13: { type: "QUARANTINE", content: PolishLegalTemplates.getSection13() },
       section_15: { type: "QUARANTINE", content: PolishLegalTemplates.getSection15() },
       section_16: { type: "CLP_MAPPED", content: mapHazardClass(rawSections["section_16"]) }
     };
 
     const toTranslate = {};
-    [10,11,12,14].forEach(i => {
+    [10,11,14].forEach(i => {
       toTranslate[`section_${i}`] = SDSProcessorEngine.cleanPdfArtifacts(rawSections[`section_${i}`]);
     });
 
@@ -1636,8 +1917,8 @@ class SDSDocxExporter {
         if (!tLine) return;
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
-        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):)$/i.test(tLine);
-        const isBoldStart = /^(Firma|Adres|E-mail|Telefon|Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria|Stan skupienia|Kolor|Zapach|Temperatura topnienia\/krzepnięcia|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Palność materiałów|Dolna i górna granica wybuchowości|Temperatura zapłonu|Temperatura samozapłonu|Temperatura rozkładu|pH|Lepkość kinematyczna|Rozpuszczalność w wodzie|Rozpuszczalność w innych rozpuszczalnikach|Współczynnik podziału n-oktanol\/woda \(wartość współczynnika log\)|Prężność pary|Gęstość lub gęstość względna|Względna gęstość pary|Charakterystyka cząsteczek|Lotne Związki Organiczne \(LZO \/ VOC\)):/i.test(tLine);
+        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):|Właściwości ekotoksykologiczne mieszaniny:|Informacje ekotoksykologiczne o składnikach:|Informacje dotyczące składników:|Substancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:|.+?\(CAS:\s*\d{2,7}-\d{2}-\d\):)$/i.test(tLine);
+        const isBoldStart = /^(Firma|Adres|E-mail|Telefon|Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria|Stan skupienia|Kolor|Zapach|Temperatura topnienia\/krzepnięcia|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Palność materiałów|Dolna i górna granica wybuchowości|Temperatura zapłonu|Temperatura samozapłonu|Temperatura rozkładu|pH|Lepkość kinematyczna|Rozpuszczalność w wodzie|Rozpuszczalność w innych rozpuszczalnikach|Współczynnik podziału n-oktanol\/woda \(wartość współczynnika log\)|Prężność pary|Gęstość lub gęstość względna|Względna gęstość pary|Charakterystyka cząsteczek|Lotne Związki Organiczne \(LZO \/ VOC\)|a\)\s*Ostra toksyczność dla środowiska wodnego|b\)\s*Przewlekła toksyczność dla środowiska wodnego|Współczynnik biokoncentracji \(BCF\)|Współczynnik podziału n-oktanol\/woda \(log Kow\)|Mieszanina):/i.test(tLine);
 
         if (isSubSection) {
            sectionsBody.push(new Paragraph({

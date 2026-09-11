@@ -1,0 +1,40 @@
+{
+  "32210-23-4": {
+    "name_pl": "octan 4-tert-butylocykloheksylu",
+    "biodegradability": "Nie ulega łatwo biodegradacji.",
+    "bioaccumulation": "Nie wykazuje zdolności do bioakumulacji. Współczynnik biokoncentracji (BCF) = 334,6.",
+    "mobility": "Brak danych.",
+    "pbt": false,
+    "endocrineDisruptor": false
+  },
+  "55965-84-9": {
+    "name_pl": "masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu (3:1)",
+    "biodegradability": "Łatwo biodegradowalny. Wartość: > 60 % (OECD 301 D Closed-Bottle-Test).",
+    "bioaccumulation": "Współczynnik biokoncentracji (BCF) = 3,16. Współczynnik podziału n-oktanol/woda (log Kow) ≤ 0,71.",
+    "mobility": "Brak danych.",
+    "pbt": false,
+    "endocrineDisruptor": false
+  },
+  "1222-05-5": {
+    "name_pl": "galaksolid (1,3,4,6,7,8-heksahydro-4,6,6,7,8,8-heksametyloindeno[5,6-c]piran)",
+    "pbt": false,
+    "endocrineDisruptor": true,
+    "endocrineNote": "Wykaz II ECHA – substancja podlegająca ocenie pod kątem właściwości zaburzających funkcjonowanie układu hormonalnego zgodnie z przepisami UE."
+  },
+  "64-17-5": {
+    "name_pl": "etanol",
+    "biodegradability": "Łatwo biodegradowalny.",
+    "bioaccumulation": "Nie wykazuje potencjału bioakumulacji (log Kow = -0,35).",
+    "mobility": "Wysoka mobilność w glebie.",
+    "pbt": false,
+    "endocrineDisruptor": false
+  },
+  "67-63-0": {
+    "name_pl": "propan-2-ol",
+    "biodegradability": "Łatwo biodegradowalny (95 % po 21 dniach, OECD 301 E).",
+    "bioaccumulation": "Nie wykazuje potencjału bioakumulacji (log Kow = 0,05).",
+    "mobility": "Rozpuszczalny w wodzie, wysoka mobilność w glebie.",
+    "pbt": false,
+    "endocrineDisruptor": false
+  }
+}
