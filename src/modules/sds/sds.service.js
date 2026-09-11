@@ -86,6 +86,32 @@ const GHS_DESCRIPTIONS = {
   GHS07: "Wykrzyknik", GHS08: "Zagrożenie dla zdrowia", GHS09: "Środowisko"
 };
 
+const GHS_HAZARD_CLASSES_MAP = {
+  "Expl.": "Materiał wybuchowy", "Flam. Gas": "Gaz łatwopalny", "Aerosol": "Aerozol", "Ox. Gas": "Gaz utleniający",
+  "Press. Gas": "Gaz pod ciśnieniem", "Flam. Liq.": "Substancja ciekła łatwopalna", "Flam. Sol.": "Substancja stała łatwopalna",
+  "Self-react.": "Substancja samoreaktywna", "Pyr. Liq.": "Substancja ciekła piroforyczna", "Pyr. Sol.": "Substancja stała piroforyczna",
+  "Self-heat.": "Substancja samonagrzewająca się", "Water-react.": "Substancja reagująca z wodą", "Ox. Liq.": "Substancja ciekła utleniająca",
+  "Ox. Sol.": "Substancja stała utleniająca", "Org. Perox.": "Nadtlenek organiczny", "Met. Corr.": "Substancja powodująca korozję metali",
+  "Acute Tox.": "Toksyczność ostra", "Skin Corr.": "Działanie żrące na skórę", "Skin Irrit.": "Działanie drażniące na skórę",
+  "Eye Dam.": "Poważne uszkodzenie oczu", "Eye Irrit.": "Działanie drażniące na oczy", "Resp. Sens.": "Działanie uczulające na drogi oddechowe",
+  "Skin Sens.": "Działanie uczulające na skórę", "Muta.": "Działanie mutagenne na komórki rozrodcze", "Carc.": "Rakotwórczość",
+  "Repr.": "Szkodliwe działanie na rozrodczość", "Lact.": "Wpływ na laktację", "STOT SE": "Działanie toksyczne na narządy docelowe – narażenie jednorazowe",
+  "STOT RE": "Działanie toksyczne na narządy docelowe – narażenie powtarzane", "Asp. Tox.": "Zagrożenie spowodowane aspiracją",
+  "Aquatic Acute": "Stwarzające zagrożenie dla środowiska wodnego - kategoria ostra", "Aquatic Chronic": "Stwarzające zagrożenie dla środowiska wodnego - kategoria przewlekła",
+  "Ozone": "Stwarzające zagrożenie dla warstwy ozonowej", "Not classified": "Nie sklasyfikowano wg rozporządzenia CLP"
+};
+
+function mapHazardClass(text) {
+  if (!text) return text;
+  let result = text;
+  for (const [key, val] of Object.entries(GHS_HAZARD_CLASSES_MAP)) {
+    const safeKey = key.replace(/\./g, '\\.');
+    const regex = new RegExp(`\\b${safeKey}\\b`, 'gi');
+    result = result.replace(regex, val);
+  }
+  return result;
+}
+
 // ============================================================================
 // 2. KONTROLA BAZY NDS (Zero-Bypass Architecture)
 // ============================================================================
@@ -295,41 +321,63 @@ class ECHAFreeResolver {
 // 6. SZABLONY PRAWNE RP
 // ============================================================================
 class PolishLegalTemplates {
-  static getSection1_4(ufiCode, companyConfig = {}) {
-    if (!companyConfig.emergencyPhone || !companyConfig.companyName) {
-       throw new Error("[CRITICAL HALT] Brak danych firmy w konfiguracji.");
-    }
+  static getSection1_3() {
+    return (
+      "1.3. Dane dotyczące dostawcy karty charakterystyki\n" +
+      "Firma: MITRANS Weronika Grzesiak\n" +
+      "Adres: ul. Wesoła 16, 63-600 Kępno, woj. wielkopolskie\n" +
+      "E-mail: kontakt@prostozwloch.com.pl\n" +
+      "Telefon: +48 663116607"
+    );
+  }
+
+  static getSection1_4(ufiCode) {
     const ufiStr = ufiCode ? `UFI: ${ufiCode}\n` : "[UWAGA: Brak kodu UFI w pliku!]\n";
     return (
       `${ufiStr}` +
       "1.4. Numer telefonu alarmowego:\n" +
-      `- Numer alarmowy ogólny: 112 (dostępny całodobowo)\n` +
-      `- Państwowa Straż Pożarna: 998 | Pogotowie Ratunkowe: 999\n` +
-      `- Ośrodki Informacji Toksykologicznej w Polsce (m.in. Warszawa: 22 619 66 54)\n` +
-      `- Telefon alarmowy (${companyConfig.companyName}): ${companyConfig.emergencyPhone}`
+      "112 (ogólny telefon alarmowy w Polsce), 998 (straż pożarna), 999 (pogotowie ratunkowe)"
+    );
+  }
+
+  static getSection2_3() {
+    return (
+      "2.3. Inne zagrożenia\n" +
+      "Produkt nie zawiera składników wpisanych do wykazu ustanowionego zgodnie z art. 59 ust. 1 jako posiadające właściwości zaburzające funkcjonowanie układu hormonalnego ani składników o właściwościach zaburzających funkcjonowanie układu hormonalnego zgodnie z kryteriami określonymi w rozporządzeniu 2017/2100/UE lub rozporządzeniu 2018/605/UE w stężeniu równym lub większym od 0,1 %.\n" +
+      "Komponenty mieszaniny nie spełniają kryteriów PBT lub vPvB zgodnie z załącznikiem XIII rozporządzenia REACH."
     );
   }
 
   static getSection13() {
     return (
       "SEKCJA 13: Postępowanie z odpadami\n\n" +
-      "Usuwać zgodnie z obowiązującymi przepisami krajowymi. Nie wprowadzać do kanalizacji.\n\n" +
-      "Podstawa prawna RP:\n" +
-      "- Ustawa z dnia 14 grudnia 2012 r. o odpadach (Dz.U. z 2023 r. poz. 1587 z późn. zm.).\n" +
-      "- Ustawa o gospodarce opakowaniami (Dz.U. z 2023 r. poz. 1658).\n" +
-      "- Rozporządzenie Ministra Klimatu w sprawie katalogu odpadów (Dz.U. 2020 poz. 10).\n"
+      "13.1. Metody unieszkodliwiania odpadów\n" +
+      "[FLAGA_QUARANTINE_REVIEW] Wymagane nadanie 6-cyfrowego kodu odpadu według katalogu BDO przez Safety Assessora.\n" +
+      "Odpadowy produkt należy poddać odzyskowi lub likwidować w uprawnionych spalarniach lub zakładach utylizacji/unieszkodliwiania odpadów, zgodnie z obowiązującymi przepisami. Nie wprowadzać do kanalizacji.\n" +
+      "Krajowe akty prawne: ustawa o odpadach (t.j. Dz. U. 2023, poz. 1587 wraz z późn. zm.), ustawa o gospodarce opakowaniami i odpadami opakowaniowymi (tj. Dz. U. 2023, poz. 1658 wraz z późn. zm.)."
     );
   }
 
   static getSection15() {
     return (
       "SEKCJA 15: Informacje dotyczące przepisów prawnych\n\n" +
-      "Karta spełnia wymogi Załącznika II do Rozporządzenia REACH (UE) 2020/878.\n\n" +
-      "Akty prawne RP:\n" +
-      "1. Rozporządzenie (WE) nr 1907/2006 (REACH) i (WE) nr 1272/2008 (CLP).\n" +
-      "2. Ustawa z 25 lutego 2011 r. o substancjach chemicznych (Dz.U. 2022 poz. 1816).\n" +
-      "3. Rozporządzenie MRPiPS z 12 czerwca 2018 r. w sprawie NDS (Dz.U. 2018 poz. 1286).\n" +
-      "4. Ustawa z 19 sierpnia 2011 r. o przewozie towarów niebezpiecznych (ADR)."
+      "15.1. Przepisy prawne dotyczące bezpieczeństwa, zdrowia i ochrony środowiska specyficzne dla substancji lub mieszaniny\n\n" +
+      "Prawodawstwo Unii Europejskiej:\n" +
+      "Rozporządzenie (WE) nr 1907/2006 Parlamentu Europejskiego i Rady z dnia 18 grudnia 2006 r. w sprawie rejestracji, oceny, udzielania zezwoleń i stosowanych ograniczeń w zakresie chemikaliów (REACH) z późniejszymi zmianami.\n" +
+      "Rozporządzenie Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniające załącznik II do rozporządzenia (WE) nr 1907/2006 (wymogi dotyczące sporządzania kart charakterystyki).\n" +
+      "Rozporządzenie Parlamentu Europejskiego i Rady (WE) nr 1272/2008 z dnia 16 grudnia 2008 r. w sprawie klasyfikacji, oznakowania i pakowania substancji i mieszanin (CLP) z późniejszymi zmianami (ATP).\n" +
+      "Rozporządzenie (WE) nr 648/2004 Parlamentu Europejskiego i Rady z dnia 31 marca 2004 r. w sprawie detergentów z późniejszymi zmianami (Uwaga dla algorytmu: pozostawić, jeśli produkt jest detergentem/środkiem czystości).\n" +
+      "Kandydacka lista substancji wzbudzających szczególnie duże obawy (SVHC) podlegających procedurze udzielania zezwoleń (REACH załącznik XIV): Mieszanina nie zawiera substancji z listy SVHC w stężeniu >= 0,1%.\n" +
+      "Ograniczenia dotyczące produkcji, wprowadzania do obrotu i stosowania niektórych niebezpiecznych substancji, preparatów i wyrobów (REACH załącznik XVII): Nie dotyczy (chyba że w sekcji 3 zidentyfikowano składniki podlegające restrykcjom).\n" +
+      "Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE (Seveso III): Mieszanina nie podlega.\n\n" +
+      "Prawodawstwo Rzeczypospolitej Polskiej:\n" +
+      "Ustawa z dnia 25 lutego 2011 r. o substancjach chemicznych i ich mieszaninach (Dz.U. 2011 nr 63 poz. 322 z późn. zm.).\n" +
+      "Rozporządzenie Ministra Rodziny, Pracy i Polityki Społecznej z dnia 12 czerwca 2018 r. w sprawie najwyższych dopuszczalnych stężeń i natężeń czynników szkodliwych dla zdrowia w środowisku pracy (Dz.U. 2018 poz. 1286 z późn. zm.).\n" +
+      "Ustawa z dnia 14 grudnia 2012 r. o odpadach (Dz.U. 2013 poz. 21 z późn. zm.) oraz przepisy wykonawcze do ustawy.\n" +
+      "Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadach opakowaniowych (Dz.U. 2013 poz. 888 z późn. zm.).\n" +
+      "Rozporządzenie Ministra Zdrowia z dnia 2 lutego 2011 r. w sprawie badań i pomiarów czynników szkodliwych dla zdrowia w środowisku pracy (Dz.U. 2011 nr 33 poz. 166).\n" +
+      "Ustawa z dnia 19 sierpnia 2011 r. o przewozie towarów niebezpiecznych (Dz.U. 2011 nr 227 poz. 1367 z późn. zm.) wraz z oświadczeniami rządowymi w sprawie Umowy europejskiej dotyczącej międzynarodowego przewozu drogowego towarów niebezpiecznych (ADR).\n" +
+      "Rozporządzenie Ministra Zdrowia z dnia 30 grudnia 2004 r. w sprawie bezpieczeństwa i higieny pracy związanej z występowaniem w miejscu pracy czynników chemicznych (Dz.U. 2005 nr 11 poz. 86 z późn. zm.)."
     );
   }
 }
@@ -464,19 +512,18 @@ class SDSProcessorEngine {
 
   async processSection3(contentIt, manualOverrides = {}) {
     const casList = SDSChemicalExtractor.extractCas(contentIt);
-    let text = "SEKCJA 3: Skład / informacja o składnikach\n\nNiebezpieczne składniki chemiczne:\n";
+    let resolvedSubstances = {};
 
     for (const cas of casList) {
       if (manualOverrides[cas]) {
-        const override = manualOverrides[cas];
-        this.extractedSubstances.push({ casNumber: cas, translatedNamePl: override.name_pl || override.iupac, url: "HITL_MANUAL_OVERRIDE" });
-        text += `- ${override.name_pl || override.iupac} | CAS: ${cas} | ECHA ID: HITL_MANUAL_OVERRIDE\n`;
+        resolvedSubstances[cas] = manualOverrides[cas].name_pl || manualOverrides[cas].iupac;
+        this.extractedSubstances.push({ casNumber: cas, translatedNamePl: resolvedSubstances[cas], url: "HITL_MANUAL_OVERRIDE" });
         continue;
       }
       try {
         const echaInfo = await ECHAFreeResolver.resolveSubstanceData(cas);
+        resolvedSubstances[cas] = echaInfo.name_pl;
         this.extractedSubstances.push({ casNumber: cas, translatedNamePl: echaInfo.name_pl, url: echaInfo.echa_infocard_url });
-        text += `- ${echaInfo.name_pl} | CAS: ${cas} | ECHA ID: ${echaInfo.status}\n`;
       } catch (err) {
         if (err.message.includes("CRITICAL HALT")) {
           this.anomalies.push({ type: "CAS_NOT_FOUND", cas: cas, message: err.message });
@@ -485,31 +532,53 @@ class SDSProcessorEngine {
         }
       }
     }
-    return { content: text };
+    
+    let mappedText = mapHazardClass(contentIt);
+
+    let header = "SEKCJA 3: Skład / informacja o składnikach\n\n[ORYGINALNE STĘŻENIA I KLASYFIKACJE ZACHOWANE ZGODNIE Z REGULĄ EXTRACT_RAW]\n[POLSKIE NAZWY SUBSTANCJI ZMAPOWANE PO CAS]\n\n";
+    for (const [cas, namePl] of Object.entries(resolvedSubstances)) {
+      const re = new RegExp(cas, 'g');
+      mappedText = mappedText.replace(re, `${cas} (${namePl})`);
+    }
+
+    return { content: header + mappedText };
   }
 
   processSection8(contentIt) {
     const foundCas = this.extractedSubstances.map(s => s.casNumber);
-    let tableText = "8.1. Parametry dotyczące kontroli (Dz.U. 2018 poz. 1286):\n\n";
+    let tableText = "SEKCJA 8: Kontrola narażenia/środki ochrony indywidualnej\n\n8.1. Parametry dotyczące kontroli\n\n";
+    tableText += "[FLAGA_QUARANTINE_REVIEW] Algorytm zablokował zagraniczne limity OEL/MAK/TLV.\n";
+    tableText += "KRYTYCZNE: Safety Assessor ma obowiązek uzupełnić poniższe wartości o polskie limity NDS, NDSCh, NDSP zgodnie z Dz.U. 2018 poz. 1286.\n\n";
     
     if (foundCas.length > 0) {
       for (const cas of Array.from(new Set(foundCas))) {
         const entry = NDSRegistry.getEntry(cas);
         if (entry) {
-          tableText += `- ${entry.substance} [CAS: ${cas}]: NDS: ${entry.NDS} | NDSCh: ${entry.NDSCh}\n`;
+          tableText += `- ${entry.substance} [CAS: ${cas}]: Propozycja NDS: ${entry.NDS} | NDSCh: ${entry.NDSCh}\n`;
         } else {
-          tableText += `- Dla substancji CAS ${cas} w Dz.U. 2018 poz. 1286 nie ustalono krajowych wartości NDS.\n`;
+          tableText += `- [CAS: ${cas}]: NDS: ______ | NDSCh: ______\n`;
         }
       }
     }
 
     const dnelPnec = SDSChemicalExtractor.extractDnelPnec(contentIt);
-    tableText += "\n8.1.1. Wartości DNEL / PNEC (Ochrona danych REACH):\n";
-    tableText += "DNEL: " + (dnelPnec.dnel.length > 0 ? dnelPnec.dnel.join(" | ") : "Brak danych producenta.") + "\n";
-    tableText += "PNEC: " + (dnelPnec.pnec.length > 0 ? dnelPnec.pnec.join(" | ") : "Brak danych producenta.") + "\n";
+    if (dnelPnec.dnel.length > 0 || dnelPnec.pnec.length > 0) {
+       tableText += "\n8.1.1. Wartości DNEL / PNEC:\n";
+       tableText += "DNEL: " + (dnelPnec.dnel.length > 0 ? dnelPnec.dnel.join(" | ") : "Brak") + "\n";
+       tableText += "PNEC: " + (dnelPnec.pnec.length > 0 ? dnelPnec.pnec.join(" | ") : "Brak") + "\n";
+    }
 
-    this.quarantineLogs.push({ section: "Sekcja 8", reason: "Zastąpiono obce limity ustawowym NDS RP. Zachowano wartości DNEL/PNEC." });
-    return { content: tableText };
+    let section82Content = "";
+    const match82 = contentIt.match(/(?:^|\n)\s*8\.2[^\n]*(.*)/is);
+    if (match82) {
+       section82Content = "8.2" + match82[0].substring(match82[0].indexOf("8.2") + 3);
+    } else {
+       section82Content = "\n[UWAGA: Nie wykryto sekcji 8.2 w oryginale. Całość trafiła do kwarantanny 8.1 lub poniższy tekst to pozostałość]\n" + contentIt;
+    }
+
+    this.quarantineLogs.push({ section: "Sekcja 8.1", reason: "Zablokowano obce limity. Wymagana weryfikacja polskiego NDS przez Assessora." });
+    
+    return { content81: tableText, content82: section82Content };
   }
 
   async prepareAgentPayload(pdfFilePath, productName = "PRODUKT CHEMICZNY", manualOverrides = {}) {
@@ -523,16 +592,20 @@ class SDSProcessorEngine {
     const s8 = this.processSection8(rawSections["section_8"]);
 
     const deterministic = {
-      section_1: { type: "QUARANTINE", content: `1.1. Produkt: ${productName}\n${PolishLegalTemplates.getSection1_4(ufi, this.companyConfig)}` },
-      section_2: { type: "CLP_MAPPED", content: s2.content },
-      section_3: { type: "CLP_MAPPED", content: s3.content },
-      section_8: { type: "QUARANTINE", content: s8.content },
+      section_1: { type: "QUARANTINE", content: `1.1. Identyfikator produktu: ${productName}\n${PolishLegalTemplates.getSection1_4(ufi)}\n${PolishLegalTemplates.getSection1_3()}` },
+      section_2: { type: "CLP_MAPPED", content: s2.content + "\n\n" + PolishLegalTemplates.getSection2_3() },
+      section_3: { type: "EXTRACT_RAW", content: s3.content },
+      section_4: { type: "QUARANTINE", content: `SEKCJA 4: Środki pierwszej pomocy\n\n[FLAGA_QUARANTINE_REVIEW] Sekcja zablokowana przez system (Zagrożenie Toksykologiczne).\nWymagana weryfikacja przez Safety Assessora.\n\nORYGINAŁ DO WERYFIKACJI:\n${rawSections["section_4"]}` },
+      section_5: { type: "QUARANTINE", content: `SEKCJA 5: Postępowanie w przypadku pożaru\n\n[FLAGA_QUARANTINE_REVIEW] Sekcja zablokowana przez system (Ryzyko Niewłaściwego Środka Gaśniczego).\nWymagana weryfikacja procedur gaśniczych.\n\nORYGINAŁ DO WERYFIKACJI:\n${rawSections["section_5"]}` },
+      section_8: { type: "QUARANTINE", content: s8.content81 },
       section_13: { type: "QUARANTINE", content: PolishLegalTemplates.getSection13() },
-      section_15: { type: "QUARANTINE", content: PolishLegalTemplates.getSection15() }
+      section_15: { type: "QUARANTINE", content: PolishLegalTemplates.getSection15() },
+      section_16: { type: "CLP_MAPPED", content: mapHazardClass(rawSections["section_16"]) }
     };
 
     const toTranslate = {};
-    [4,5,6,7,9,10,11,12,14,16].forEach(i => { toTranslate[`section_${i}`] = rawSections[`section_${i}`]; });
+    [6,7,9,10,11,12,14].forEach(i => { toTranslate[`section_${i}`] = rawSections[`section_${i}`]; });
+    toTranslate["section_8_2"] = s8.content82;
 
     if (this.anomalies.length > 0) {
       throw new HITLError(this.anomalies);
@@ -552,12 +625,14 @@ class SDSProcessorEngine {
     const finalSections = {};
     for (let i = 1; i <= 16; i++) {
       const key = `section_${i}`;
-      if (agentPayload.deterministicSections[key]) {
+      if (i === 8) {
+         finalSections[key] = { type: "MIXED", content: agentPayload.deterministicSections[key].content + "\n\n" + (agentTranslated["section_8_2"] || "") };
+      } else if (agentPayload.deterministicSections[key]) {
         finalSections[key] = agentPayload.deterministicSections[key];
       } else if (agentTranslated[key]) {
         finalSections[key] = { type: "TRANSLATED", content: agentTranslated[key].trim() };
       } else {
-        throw new Error(`[CRITICAL HALT] Agent LLM pominął translację ${key}. Dokument ZABLOKOWANY.`);
+        throw new Error(`[CRITICAL HALT] Brak danych dla ${key}.`);
       }
     }
     return { ...agentPayload.metadata, sections: finalSections, ghsPictograms: agentPayload.detectedGhsPictograms, audit: agentPayload.quarantineAudit };
