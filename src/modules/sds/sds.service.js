@@ -32,44 +32,89 @@ let pdfParse;
 try { pdfParse = require("pdf-parse"); } catch (err) { console.error("[OSTRZEŻENIE] Brak biblioteki 'pdf-parse'. Wykonaj: npm install pdf-parse"); }
 
 // ============================================================================
-// 1. OFICJALNE BAZY S�?OWNIKOWE CLP / ECHA
+// 1. OFICJALNE BAZY S?OWNIKOWE CLP / ECHA
 // ============================================================================
 
 const SIGNAL_WORDS_MAP = {
-  "PERICOLO": "NIEBEZPIECZE�?STWO", "DANGER": "NIEBEZPIECZE�?STWO",
-  "ATTENZIONE": "UWAGA", "WARNING": "UWAGA"
+  "PERICOLO": "Niebezpieczeństwo", "DANGER": "Niebezpieczeństwo", "NIEBEZPIECZEŃSTWO": "Niebezpieczeństwo",
+  "ATTENZIONE": "Uwaga", "WARNING": "Uwaga", "UWAGA": "Uwaga"
 };
 
 const OFFICIAL_CLP_H_PHRASES = {
-  H220: "Skrajnie łatwopalny gaz.", H225: "Wysoce łatwopalna ciecz i pary.", H226: "�?atwopalna ciecz i pary.",
-  H301: "Działa toksycznie po połknięciu.", H302: "Działa szkodliwie po połknięciu.",
+  H220: "Skrajnie łatwopalny gaz.",
+  H224: "Skrajnie łatwopalna ciecz i pary.",
+  H225: "Wysoce łatwopalna ciecz i pary.",
+  H226: "Łatwopalna ciecz i pary.",
+  H228: "Substancja stała łatwopalna.",
+  H301: "Działa toksycznie po połknięciu.",
+  H302: "Działa szkodliwie po połknięciu.",
   H304: "Połknięcie i dostanie się przez drogi oddechowe może grozić śmiercią.",
-  H312: "Działa szkodliwie w kontakcie ze skórą.", H314: "Powoduje poważne oparzenia skóry oraz uszkodzenia oczu.",
-  H315: "Działa drażniąco na skórę.", H317: "Może powodować reakcję alergiczną skóry.",
-  H318: "Powoduje poważne uszkodzenie oczu.", H319: "Działa drażniąco na oczy.",
-  H332: "Działa szkodliwie w następstwie wdychania.", H335: "Może powodować podrażnienie dróg oddechowych.",
+  H310: "Grozi śmiercią w kontakcie ze skórą.",
+  H311: "Działa toksycznie w kontakcie ze skórą.",
+  H312: "Działa szkodliwie w kontakcie ze skórą.",
+  H314: "Powoduje poważne oparzenia skóry oraz uszkodzenia oczu.",
+  H315: "Działa drażniąco na skórę.",
+  H317: "Może powodować reakcję alergiczną skóry.",
+  H318: "Powoduje poważne uszkodzenie oczu.",
+  H319: "Działa drażniąco na oczy.",
+  H330: "Wdychanie grozi śmiercią.",
+  H331: "Działa toksycznie w następstwie wdychania.",
+  H332: "Działa szkodliwie w następstwie wdychania.",
+  H334: "Może powodować objawy alergii lub astmy lub trudności w oddychaniu w następstwie wdychania.",
+  H335: "Może powodować podrażnienie dróg oddechowych.",
   H336: "Może wywoływać uczucie senności lub zawroty głowy.",
+  H351: "Podejrzewa się, że powoduje raka.",
+  H360: "Może działać szkodliwie na płodność lub na dziecko w łonie matki.",
+  H361: "Podejrzewa się, że działa szkodliwie na płodność lub na dziecko w łonie matki.",
+  H372: "Powoduje uszkodzenie narządów poprzez długotrwałe lub narażenie powtarzane.",
+  H373: "Może powodować uszkodzenie narządów poprzez długotrwałe lub narażenie powtarzane.",
   H400: "Działa bardzo toksycznie na organizmy wodne.",
   H410: "Działa bardzo toksycznie na organizmy wodne, powodując długotrwałe skutki.",
   H411: "Działa toksycznie na organizmy wodne, powodując długotrwałe skutki.",
+  H412: "Działa szkodliwie na organizmy wodne, powodując długotrwałe skutki.",
+  H413: "Może powodować długotrwałe szkodliwe skutki dla organizmów wodnych.",
   EUH066: "Powtarzające się narażenie może powodować wysuszanie lub pękanie skóry.",
+  EUH071: "Działa żrąco na drogi oddechowe.",
   EUH208: "Zawiera substancję uczulającą. Może powodować wystąpienie reakcji alergicznej.",
+  EUH210: "Karta charakterystyki dostępna na żądanie.",
   EUH380: "Może powodować zaburzenia funkcjonowania układu hormonalnego u ludzi."
 };
 
 const OFFICIAL_CLP_P_PHRASES = {
   P101: "W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę.",
-  P102: "Chronić przed dziećmi.", P103: "Uważnie przeczytać wszystkie instrukcje i zastosować się do nich.",
+  P102: "Chronić przed dziećmi.",
+  P103: "Uważnie przeczytać wszystkie instrukcje i zastosować się do nich.",
+  P201: "Przed użyciem zapoznać się ze specjalnymi środkami ostrożności.",
   P210: "Przechowywać z dala od źródeł ciepła, gorących powierzchni, źródeł iskrzenia, otwartego ognia i innych źródeł zapłonu. Nie palić.",
-  P260: "Nie wdychać pyłu/dymu/gazu/mgły/par/rozpylonej cieczy.", P264: "Dokładnie umyć ręce po użyciu.",
-  P273: "Unikać uwolnienia do środowiska.", P280: "Stosować rękawice ochronne/odzież ochronną/ochronę oczu/ochronę twarzy.",
-  "P301+P310": "W PRZYPADKU PO�?KNI�?CIA: Natychmiast skontaktować się z OŚRODKIEM ZATRUĆ/lekarzem.",
-  "P301+P330+P331": "W PRZYPADKU PO�?KNI�?CIA: Wypłukać usta. NIE wywoływać wymiotów.",
+  P233: "Przechowywać pojemnik szczelnie zamknięty.",
+  P260: "Nie wdychać pyłu/dymu/gazu/mgły/par/rozpylonej cieczy.",
+  P261: "Unikać wdychania pyłu/dymu/gazu/mgły/par/rozpylonej cieczy.",
+  P264: "Dokładnie umyć ręce po użyciu.",
+  P270: "Nie jeść, nie pić i nie palić podczas używania produktu.",
+  P271: "Stosować wyłącznie na zewnątrz lub w dobrze wentylowanym pomieszczeniu.",
+  P272: "Zanieczyszczonej odzieży ochronnej nie wynosić poza miejsce pracy.",
+  P273: "Unikać uwolnienia do środowiska.",
+  P280: "Stosować rękawice ochronne/odzież ochronną/ochronę oczu/ochronę twarzy.",
+  "P301+P310": "W PRZYPADKU POŁKNIĘCIA: Natychmiast skontaktować się z OŚRODKIEM ZATRUĆ/lekarzem.",
+  "P301+P312": "W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ/lekarzem.",
+  "P301+P330+P331": "W PRZYPADKU POŁKNIĘCIA: Wypłukać usta. NIE wywoływać wymiotów.",
   "P302+P352": "W PRZYPADKU KONTAKTU ZE SKÓRĄ: Umyć dużą ilością wody z mydłem.",
   "P303+P361+P353": "W PRZYPADKU KONTAKTU ZE SKÓRĄ (lub z włosami): Natychmiast zdjąć całą zanieczyszczoną odzież. Spłukać skórę pod strumieniem wody lub prysznicem.",
-  "P305+P351+P338": "W PRZYPADKU DOSTANIA SI�? DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.",
+  "P304+P340": "W PRZYPADKU DOSTANIA SIĘ DO DRÓG ODDECHOWYCH: Wyprowadzić lub wynieść poszkodowanego na świeże powietrze i zapewnić mu warunki do swobodnego oddychania.",
+  "P305+P351+P338": "W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.",
+  "P308+P313": "W przypadku narażenia lub styczności: Zasięgnąć porady/zgłosić się pod opiekę lekarza.",
   P310: "Natychmiast skontaktować się z OŚRODKIEM ZATRUĆ/lekarzem.",
-  P501: "Zawartość/pojemnik usuwać do uprawnionego zakładu utylizacji odpadów zgodnie z prawem krajowym."
+  P312: "W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ/lekarzem.",
+  "P332+P313": "W przypadku wystąpienia podrażnienia skóry: Zasięgnąć porady/zgłosić się pod opiekę lekarza.",
+  "P333+P313": "W przypadku wystąpienia podrażnienia skóry lub wysypki: Zasięgnąć porady/zgłosić się pod opiekę lekarza.",
+  "P337+P313": "W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza.",
+  "P362+P364": "Zanieczyszczoną odzież zdjąć i wyprać przed ponownym użyciem.",
+  "P370+P378": "W przypadku pożaru: Użyć odpowiedniego środka gaśniczego do gaszenia.",
+  P391: "Zebrać wyciek.",
+  "P403+P233": "Przechowywać w dobrze wentylowanym miejscu. Przechowywać pojemnik szczelnie zamknięty.",
+  "P403+P235": "Przechowywać w dobrze wentylowanym miejscu. Przechowywać w chłodnym miejscu.",
+  P405: "Przechowywać pod zamknięciem.",
+  P501: "Zawartość/pojemnik usuwać do odpowiednio oznakowanych pojemników na odpady zgodnie z krajowymi przepisami."
 };
 
 const H_TO_GHS_MAP = {
@@ -81,7 +126,7 @@ const H_TO_GHS_MAP = {
 };
 
 const GHS_DESCRIPTIONS = {
-  GHS01: "Materiały wybuchowe", GHS02: "Płomień (�?atwopalny)", GHS03: "Płomień nad kołem (Utleniający)",
+  GHS01: "Materiały wybuchowe", GHS02: "Płomień (Łatwopalny)", GHS03: "Płomień nad kołem (Utleniający)",
   GHS04: "Butla z gazem", GHS05: "Działanie żrące", GHS06: "Czaszka (Toksyczność)",
   GHS07: "Wykrzyknik", GHS08: "Zagrożenie dla zdrowia", GHS09: "Środowisko"
 };
@@ -99,6 +144,30 @@ const GHS_HAZARD_CLASSES_MAP = {
   "STOT RE": "Działanie toksyczne na narządy docelowe – narażenie powtarzane", "Asp. Tox.": "Zagrożenie spowodowane aspiracją",
   "Aquatic Acute": "Stwarzające zagrożenie dla środowiska wodnego - kategoria ostra", "Aquatic Chronic": "Stwarzające zagrożenie dla środowiska wodnego - kategoria przewlekła",
   "Ozone": "Stwarzające zagrożenie dla warstwy ozonowej", "Not classified": "Nie sklasyfikowano wg rozporządzenia CLP"
+};
+
+const ALLERGEN_NAMES_PL = {
+  "4-tert-butylcyclohexyl acetate": "octan 4-tert-butylocykloheksylu",
+  "reaction mass of 5-chloro-2-methyl-2h-isothiazol-3-one and 2-methyl-2h-isothiazol-3-one (3:1)": "masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu (3:1)",
+  "reaction mass of: 5-chloro-2-methyl-4-isothiazolin-3-one and 2-methyl-2h-isothiazol-3-one (3:1)": "masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu (3:1)",
+  "cinnamaldehyde": "aldehyd cynamonowy",
+  "linalool": "linalol",
+  "limonene": "limonen",
+  "coumarin": "kumaryna",
+  "geraniol": "geraniol",
+  "citronellol": "cytronellol",
+  "benzyl salicylate": "salicylan benzylu",
+  "hexyl cinnamal": "aldehyd heksylocynamonowy",
+  "hydroxycitronellal": "hydroksycytronellal",
+  "alpha-isomethyl ionone": "alfa-izometylojonon",
+  "1,2-benzisothiazol-3(2h)-one": "1,2-benzoizotiazol-3(2H)-on",
+  "2-methylisothiazol-3(2h)-one": "2-metyloizotiazol-3(2H)-on",
+  "amyl cinnamal": "aldehyd amylocynamonowy",
+  "cinnamyl alcohol": "alkohol cynamonowy",
+  "citral": "cytral",
+  "eugenol": "eugenol",
+  "isoeugenol": "izoeugenol",
+  "benzyl alcohol": "alkohol benzylowy"
 };
 
 function mapHazardClass(text) {
@@ -251,14 +320,56 @@ class SDSChemicalExtractor {
   }
   static extractEc(text) { return this.extractUnique(text, /\b\d{3}-\d{3}-\d\b/g); }
   static extractUfi(text) { return this.extractUnique(text, /\b[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\b/gi)[0] || null; }
-  static extractHCodes(text) { return this.extractUnique(text, /\b(?:EUH\d{3}[a-zA-Z]?|H\d{3}[a-zA-Z]?(?:\+H\d{3}[a-zA-Z]?)*)\b/gi); }
-  static extractPCodes(text) { return this.extractUnique(text, /\bP\d{3}(?:\+P\d{3})*\b/gi); }
+  static extractHCodes(text) { 
+    if (!text) return [];
+    const matches = [...text.matchAll(/(?<![A-Za-z0-9])(H\d{3}(?:[A-Za-z]{1,2}(?![a-z]))?(?:\s*\+\s*H\d{3}(?:[A-Za-z]{1,2}(?![a-z]))?)*)/g)].map(m => m[1].replace(/\s+/g, ''));
+    return Array.from(new Set(matches.map(m => m.toUpperCase())));
+  }
+
+  static extractPCodes(text) { 
+    if (!text) return [];
+    const matches = [...text.matchAll(/(?<![A-Za-z0-9])(P\d{3}(?:\s*\+\s*P\d{3})*)/g)].map(m => m[1].replace(/\s+/g, ''));
+    return Array.from(new Set(matches.map(m => m.toUpperCase())));
+  }
+
+  static extractEuhCodes(text) {
+    if (!text) return [];
+    const matches = [...text.matchAll(/(?<![A-Za-z0-9])(EUH\d{3}(?:[A-Z](?![a-z]))?)/g)].map(m => m[1].replace(/\s+/g, ''));
+    return Array.from(new Set(matches.map(m => m.toUpperCase())));
+  }
+
   static extractGhsCodes(text) { return this.extractUnique(text, /\b(?:GHS0[1-9]|GHS[1-9])\b/gi); }
   
   static extractDnelPnec(text) {
     const dnel = (text.match(/(?:DNEL|DMEL)[^\n]+(?:\n[^\n]+){1,3}/gi) || []).map(m=>m.trim());
     const pnec = (text.match(/PNEC[^\n]+(?:\n[^\n]+){1,3}/gi) || []).map(m=>m.trim());
     return { dnel, pnec };
+  }
+
+  static formatEuh208(text, resolvedSubstances = {}) {
+    if (!text) return null;
+    const match = text.match(/EUH208\s*(?:Contains|Contiene|Zawiera|Innehåller)?[:\s]*([^.]+?)(?:\.\s*(?:May produce|Può provocare|Może powodować|Kan ge)|(?:\n\s*\n)|$)/is);
+    if (!match) return null;
+    
+    let rawSubstances = match[1].replace(/-\s+/g, '-').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    let parts = rawSubstances.split(/;\s*|\s*,\s*(?![^(]*\))/).map(s => s.trim()).filter(Boolean);
+    
+    let mappedParts = parts.map(part => {
+      let lower = part.toLowerCase();
+      for (const [enName, plName] of Object.entries(ALLERGEN_NAMES_PL)) {
+        if (lower === enName.toLowerCase() || lower.includes(enName.toLowerCase())) {
+          return plName;
+        }
+      }
+      for (const [cas, plName] of Object.entries(resolvedSubstances)) {
+        if (lower.includes(cas) || (plName && lower.includes(plName.toLowerCase()))) {
+          return plName;
+        }
+      }
+      return part;
+    });
+
+    return `EUH208 Zawiera: ${mappedParts.join(', ')}. Może powodować wystąpienie reakcji alergicznej.`;
   }
 
   static inferGhsFromHCodes(hCodes) {
@@ -484,37 +595,102 @@ class SDSProcessorEngine {
     this.anomalies = [];
   }
 
-  processSection2(contentIt) {
+  processSection2(contentIt, resolvedSubstances = {}) {
     const hCodes = SDSChemicalExtractor.extractHCodes(contentIt);
     const pCodes = SDSChemicalExtractor.extractPCodes(contentIt);
+    const euhCodes = SDSChemicalExtractor.extractEuhCodes(contentIt);
     
     // Walidacja twarda słownika
     hCodes.forEach(code => {
       if (!OFFICIAL_CLP_H_PHRASES[code]) throw new Error(`[CRITICAL HALT] Nieznany kod zagrożenia: ${code}`);
     });
 
-    const directGhs = SDSChemicalExtractor.extractGhsCodes(contentIt);
-    const inferredGhs = SDSChemicalExtractor.inferGhsFromHCodes(hCodes);
-    this.detectedGhsPictograms = Array.from(new Set([...directGhs, ...inferredGhs])).sort();
-    
-    let signalWord = "UWAGA";
-    if (/(PERICOLO|DANGER)/i.test(contentIt)) signalWord = "NIEBEZPIECZEŃSTWO";
+    const isExplicitlyNotHazardous = /(?:not classified|non[ \-]*(?:[eè]|est)?\s*classificat|nie sklasyfikowan|nie jest sklasyfikowan|nie stwarza zagrożenia|not hazardous)/i.test(contentIt);
+    const isHazardous = !isExplicitlyNotHazardous && (hCodes.length > 0 || /(?:Flam\.|Skin\.|Eye\.|Acute Tox|Aquatic|STOT|Asp\.)/i.test(contentIt));
 
-    const mappedH = hCodes.map(c => `${c}: ${OFFICIAL_CLP_H_PHRASES[c]}`);
-    const mappedP = pCodes.map(c => `${c}: ${OFFICIAL_CLP_P_PHRASES[c] || "[BŁĄD SŁOWNIKA P]"}`);
-    
-    let classification2_1 = "Zgodnie z rozporządzeniem CLP:\n";
-    if (hCodes.length === 0 && /(Not classified|Nie sklasyfikowano)/i.test(contentIt)) {
-      classification2_1 += "Nie sklasyfikowano wg rozporządzenia CLP.";
+    // 2.1. Klasyfikacja substancji lub mieszaniny
+    let classification2_1 = "";
+    if (!isHazardous) {
+      classification2_1 = "Mieszanina nie została zaklasyfikowana jako stwarzająca zagrożenie zgodnie z rozporządzeniem (WE) nr 1272/2008 [CLP].";
     } else {
-      const match21 = contentIt.match(/(?:^|\n)\s*2\.1[^\n]*(.*?)(?=(?:^|\n)\s*2\.2)/is);
-      let text21 = match21 ? match21[1] : contentIt;
-      classification2_1 += mapHazardClass(text21.trim());
+      let text21 = "";
+      const match21 = contentIt.match(/(?:^|\n)\s*2\.1\b[.:\-]?\s*(.*?)(?=(?:^|\n)\s*2\.2\b|$)/is);
+      if (match21 && match21[1]) {
+        text21 = match21[1].replace(/^(?:Classification\s*(?:of\s*(?:the\s*)?(?:substance\s*or\s*mixture)?)?|Klasyfikacja\s*(?:substancji\s*lub\s*mieszaniny)?)[.:\-]?\s*/i, '').trim();
+      } else {
+        text21 = contentIt;
+      }
+      if (hCodes.length > 0) {
+        classification2_1 = hCodes.map(c => `${c}\n${OFFICIAL_CLP_H_PHRASES[c] || ""}`).join('\n');
+      } else {
+        classification2_1 = mapHazardClass(text21.trim());
+      }
     }
 
+    // 2.2. Elementy oznakowania
+    const directGhs = SDSChemicalExtractor.extractGhsCodes(contentIt);
+    const inferredGhs = SDSChemicalExtractor.inferGhsFromHCodes(hCodes);
+    this.detectedGhsPictograms = isHazardous ? Array.from(new Set([...directGhs, ...inferredGhs])).sort() : [];
+
+    let signalWord = "Brak.";
+    if (isHazardous) {
+      if (/(PERICOLO|DANGER|NIEBEZPIECZEŃSTWO)/i.test(contentIt)) {
+        signalWord = "Niebezpieczeństwo";
+      } else if (/(ATTENZIONE|WARNING|UWAGA)/i.test(contentIt) || this.detectedGhsPictograms.length > 0) {
+        signalWord = "Uwaga";
+      }
+    }
+
+    let labelSubstances = "Nie ma.";
+    if (isHazardous) {
+      const hazardSubstanceNames = Object.values(resolvedSubstances);
+      if (hazardSubstanceNames.length > 0) labelSubstances = hazardSubstanceNames.join(", ");
+    }
+
+    let mappedH = "Brak.";
+    if (hCodes.length > 0) {
+      mappedH = hCodes.map(c => `${c} ${OFFICIAL_CLP_H_PHRASES[c] || c}`).join('\n');
+    }
+
+    let mappedP = "Brak.";
+    if (pCodes.length > 0) {
+      mappedP = pCodes.map(c => `${c} ${OFFICIAL_CLP_P_PHRASES[c] || c}`).join('\n');
+    }
+
+    let mappedEuh = "Brak.";
+    let euhEntries = [];
+    if (euhCodes.includes("EUH208") || /EUH208/i.test(contentIt)) {
+      const euh208Text = SDSChemicalExtractor.formatEuh208(contentIt, resolvedSubstances);
+      if (euh208Text) euhEntries.push(euh208Text);
+    }
+    euhCodes.forEach(code => {
+      if (code !== "EUH208" && OFFICIAL_CLP_H_PHRASES[code]) {
+        euhEntries.push(`${code} ${OFFICIAL_CLP_H_PHRASES[code]}`);
+      }
+    });
+    if (euhEntries.length > 0) mappedEuh = euhEntries.join('\n');
+
+    const section2_2_body = [
+      "Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze",
+      signalWord,
+      "",
+      "Nazwy niebezpiecznych substancji wymienione na etykiecie",
+      labelSubstances,
+      "",
+      "Zwroty wskazujące rodzaj zagrożenia",
+      mappedH,
+      "",
+      "Zwroty wskazujące środki ostrożności",
+      mappedP,
+      "",
+      "Informacje uzupełniające",
+      mappedEuh
+    ].join('\n');
+
     return {
-      content: `SEKCJA 2: Identyfikacja zagrożeń\n\n2.1. Klasyfikacja substancji lub mieszaniny\n${classification2_1}\n\n2.2. Elementy oznakowania\nHasło ostrzegawcze: ${signalWord}\n\nZwroty wskazujące rodzaj zagrożenia (H):\n${mappedH.join('\n')}\n\nZwroty wskazujące środki ostrożności (P):\n${mappedP.join('\n')}`,
-      ghsPictograms: this.detectedGhsPictograms
+      content: `SEKCJA 2: Identyfikacja zagrożeń\n\n2.1. Klasyfikacja substancji lub mieszaniny\n${classification2_1}\n\n2.2. Elementy oznakowania\n${section2_2_body}`,
+      ghsPictograms: this.detectedGhsPictograms,
+      signalWord: signalWord
     };
   }
 
@@ -549,7 +725,7 @@ class SDSProcessorEngine {
       mappedText = mappedText.replace(re, `${cas} (${namePl})`);
     }
 
-    return { content: header + mappedText };
+    return { content: header + mappedText, resolvedSubstances };
   }
 
   processSection8(contentIt) {
@@ -595,8 +771,8 @@ class SDSProcessorEngine {
     const rawSections = SDSPDFParser.segmentInto16Sections(fullText);
     
     const ufi = SDSChemicalExtractor.extractUfi(rawSections["section_1"]);
-    const s2 = this.processSection2(rawSections["section_2"]);
     const s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
+    const s2 = this.processSection2(rawSections["section_2"], s3.resolvedSubstances);
     const s8 = this.processSection8(rawSections["section_8"]);
 
     const deterministic = {
@@ -694,54 +870,64 @@ class SDSDocxExporter {
         spacing: { before: 300, after: 150 }
       }));
 
-      if (i === 2 && sdsData.ghsPictograms && sdsData.ghsPictograms.length > 0) {
-        const imageRuns = sdsData.ghsPictograms.map(code => {
-           const buffer = GHSPictogramGenerator.generatePictogramBuffer(code, 150);
-           return new ImageRun({ data: buffer, transformation: { width: 75, height: 75 } });
-        });
-        sectionsBody.push(new Paragraph({
-          children: [new TextRun({ text: "Piktogramy określające rodzaj zagrożenia:", bold: true })],
-          spacing: { before: 100, after: 100 }
-        }));
-        sectionsBody.push(new Paragraph({ children: imageRuns, spacing: { after: 200 } }));
-      }
-
       lines.forEach(line => {
         const tLine = line.trim();
         if (!tLine) return;
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
+        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające)$/i.test(tLine);
         const isBoldStart = /^(Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC):/i.test(tLine);
 
         if (isSubSection) {
            sectionsBody.push(new Paragraph({
-             children: [new TextRun({ text: tLine, bold: true, size: 20 })],
+             children: [new TextRun({ text: tLine, bold: true, size: 20, font: "Arial" })],
              spacing: { before: 200, after: 100 }
            }));
+        } else if (isLabelHeader) {
+           sectionsBody.push(new Paragraph({
+             children: [new TextRun({ text: tLine, bold: true, size: 20, font: "Arial" })],
+             spacing: { before: 150, after: 80 }
+           }));
+           if (/Piktogramy określające rodzaj zagrożenia/i.test(tLine) && sdsData.ghsPictograms && sdsData.ghsPictograms.length > 0) {
+             const imageRuns = sdsData.ghsPictograms.map(code => {
+                const buffer = GHSPictogramGenerator.generatePictogramBuffer(code, 150);
+                return new ImageRun({ data: buffer, transformation: { width: 75, height: 75 } });
+             });
+             sectionsBody.push(new Paragraph({ children: imageRuns, spacing: { before: 60, after: 100 } }));
+           }
         } else if (isBoldStart) {
            const idx = tLine.indexOf(':');
            sectionsBody.push(new Paragraph({
              children: [
-               new TextRun({ text: tLine.substring(0, idx + 1), bold: true, size: 20 }),
-               new TextRun({ text: tLine.substring(idx + 1), size: 20 })
+               new TextRun({ text: tLine.substring(0, idx + 1), bold: true, size: 20, font: "Arial" }),
+               new TextRun({ text: tLine.substring(idx + 1), size: 20, font: "Arial" })
              ],
-             spacing: { before: 100, after: 100 }
+             spacing: { before: 80, after: 80 }
            }));
         } else {
            sectionsBody.push(new Paragraph({
-             children: [new TextRun({ text: tLine, size: 20 })],
-             spacing: { after: 100 }
+             children: [new TextRun({ text: tLine, size: 20, font: "Arial" })],
+             spacing: { after: 80 }
            }));
         }
       });
     }
 
     const doc = new Document({
+      styles: {
+        default: {
+          document: {
+            run: {
+              font: "Arial"
+            }
+          }
+        }
+      },
       sections: [{
         properties: { page: { margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } } },
         headers: {
           default: new Header({
-            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(`SDS | ${sdsData.productName}`)] })]
+            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `SDS | ${sdsData.productName}`, font: "Arial" })] })]
           })
         },
         footers: {
@@ -749,10 +935,10 @@ class SDSDocxExporter {
             children: [new Paragraph({
               alignment: AlignmentType.RIGHT,
               children: [
-                new TextRun("Strona "),
-                new TextRun({ children: [PageNumber.CURRENT] }),
-                new TextRun(" z "),
-                new TextRun({ children: [PageNumber.TOTAL_PAGES] })
+                new TextRun({ text: "Strona ", font: "Arial" }),
+                new TextRun({ children: [PageNumber.CURRENT], font: "Arial" }),
+                new TextRun({ text: " z ", font: "Arial" }),
+                new TextRun({ children: [PageNumber.TOTAL_PAGES], font: "Arial" })
               ]
             })]
           })
@@ -769,5 +955,22 @@ class SDSDocxExporter {
 // ============================================================================
 // CLI RUNNER DLA AGENTA ANTIGRAVITY
 // ============================================================================
-module.exports = { SDSProcessorEngine, SDSDocxExporter, SDSPDFParser, ECHAFreeResolver, NDSRegistry, PolishLegalTemplates, SDSChemicalExtractor, PurePngEncoder, GHSPictogramGenerator, HITLError };
+module.exports = { 
+  SDSProcessorEngine, 
+  SDSDocxExporter, 
+  SDSPDFParser, 
+  ECHAFreeResolver, 
+  NDSRegistry, 
+  PolishLegalTemplates, 
+  SDSChemicalExtractor, 
+  PurePngEncoder, 
+  GHSPictogramGenerator, 
+  HITLError,
+  OFFICIAL_CLP_H_PHRASES,
+  OFFICIAL_CLP_P_PHRASES,
+  GHS_HAZARD_CLASSES_MAP,
+  SIGNAL_WORDS_MAP,
+  ALLERGEN_NAMES_PL,
+  mapHazardClass
+};
 
