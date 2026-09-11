@@ -4,11 +4,11 @@
  * 
  * Zawiera zintegrowane:
  * - Parsowanie PDF i automatyczny Fallback do OCR (Tesseract)
- * - Twarde mapowanie zwrotĂłw H/P i haseĹ‚ ostrzegawczych CLP
+ * - Twarde mapowanie zwrotów H/P i haseł ostrzegawczych CLP
  * - REST API (ECHA/PubChem) z mechanizmem Retry
  * - Ekstraktor chemiczny (Regex: UFI, CAS, EC, DNEL, PNEC)
- * - Czysty generator PNG dla piktogramĂłw GHS (Zero Native Deps)
- * - Eksporter do w peĹ‚ni edytowalnego dokumentu Microsoft Word (.docx)
+ * - Czysty generator PNG dla piktogramów GHS (Zero Native Deps)
+ * - Eksporter do w pełni edytowalnego dokumentu Microsoft Word (.docx)
  */
 
 const fs = require("fs");
@@ -17,7 +17,7 @@ const zlib = require("zlib");
 const https = require("https");
 const { execSync } = require("child_process");
 
-// ObsĹ‚uga HITLError (Zbiór Anomalii)
+// Obsługa HITLError (Zbi�r Anomalii)
 class HITLError extends Error {
   constructor(anomalies) {
     super('HITL_REQUIRED');
@@ -25,51 +25,51 @@ class HITLError extends Error {
   }
 }
 
-// ObsĹ‚uga bibliotek zewnÄ™trznych
+// Obsługa bibliotek zewnętrznych
 let docx;
-try { docx = require("docx"); } catch (err) { console.error("[OSTRZEĹ»ENIE] Brak biblioteki 'docx'. Wykonaj: npm install docx"); }
+try { docx = require("docx"); } catch (err) { console.error("[OSTRZEŻENIE] Brak biblioteki 'docx'. Wykonaj: npm install docx"); }
 let pdfParse;
-try { pdfParse = require("pdf-parse"); } catch (err) { console.error("[OSTRZEĹ»ENIE] Brak biblioteki 'pdf-parse'. Wykonaj: npm install pdf-parse"); }
+try { pdfParse = require("pdf-parse"); } catch (err) { console.error("[OSTRZEŻENIE] Brak biblioteki 'pdf-parse'. Wykonaj: npm install pdf-parse"); }
 
 // ============================================================================
-// 1. OFICJALNE BAZY SĹOWNIKOWE CLP / ECHA
+// 1. OFICJALNE BAZY S�?OWNIKOWE CLP / ECHA
 // ============================================================================
 
 const SIGNAL_WORDS_MAP = {
-  "PERICOLO": "NIEBEZPIECZEĹSTWO", "DANGER": "NIEBEZPIECZEĹSTWO",
+  "PERICOLO": "NIEBEZPIECZE�?STWO", "DANGER": "NIEBEZPIECZE�?STWO",
   "ATTENZIONE": "UWAGA", "WARNING": "UWAGA"
 };
 
 const OFFICIAL_CLP_H_PHRASES = {
-  H220: "Skrajnie Ĺ‚atwopalny gaz.", H225: "Wysoce Ĺ‚atwopalna ciecz i pary.", H226: "Ĺatwopalna ciecz i pary.",
-  H301: "DziaĹ‚a toksycznie po poĹ‚kniÄ™ciu.", H302: "DziaĹ‚a szkodliwie po poĹ‚kniÄ™ciu.",
-  H304: "PoĹ‚kniÄ™cie i dostanie siÄ™ przez drogi oddechowe moĹĽe groziÄ‡ Ĺ›mierciÄ….",
-  H312: "DziaĹ‚a szkodliwie w kontakcie ze skĂłrÄ….", H314: "Powoduje powaĹĽne oparzenia skĂłry oraz uszkodzenia oczu.",
-  H315: "DziaĹ‚a draĹĽniÄ…co na skĂłrÄ™.", H317: "MoĹĽe powodowaÄ‡ reakcjÄ™ alergicznÄ… skĂłry.",
-  H318: "Powoduje powaĹĽne uszkodzenie oczu.", H319: "DziaĹ‚a draĹĽniÄ…co na oczy.",
-  H332: "DziaĹ‚a szkodliwie w nastÄ™pstwie wdychania.", H335: "MoĹĽe powodowaÄ‡ podraĹĽnienie drĂłg oddechowych.",
-  H336: "MoĹĽe wywoĹ‚ywaÄ‡ uczucie sennoĹ›ci lub zawroty gĹ‚owy.",
-  H400: "DziaĹ‚a bardzo toksycznie na organizmy wodne.",
-  H410: "DziaĹ‚a bardzo toksycznie na organizmy wodne, powodujÄ…c dĹ‚ugotrwaĹ‚e skutki.",
-  H411: "DziaĹ‚a toksycznie na organizmy wodne, powodujÄ…c dĹ‚ugotrwaĹ‚e skutki.",
-  EUH066: "PowtarzajÄ…ce siÄ™ naraĹĽenie moĹĽe powodowaÄ‡ wysuszanie lub pÄ™kanie skĂłry.",
-  EUH208: "Zawiera substancjÄ™ uczulajÄ…cÄ…. MoĹĽe powodowaÄ‡ wystÄ…pienie reakcji alergicznej.",
-  EUH380: "MoĹĽe powodowaÄ‡ zaburzenia funkcjonowania ukĹ‚adu hormonalnego u ludzi."
+  H220: "Skrajnie łatwopalny gaz.", H225: "Wysoce łatwopalna ciecz i pary.", H226: "�?atwopalna ciecz i pary.",
+  H301: "Działa toksycznie po połknięciu.", H302: "Działa szkodliwie po połknięciu.",
+  H304: "Połknięcie i dostanie się przez drogi oddechowe może grozić śmiercią.",
+  H312: "Działa szkodliwie w kontakcie ze skórą.", H314: "Powoduje poważne oparzenia skóry oraz uszkodzenia oczu.",
+  H315: "Działa drażniąco na skórę.", H317: "Może powodować reakcję alergiczną skóry.",
+  H318: "Powoduje poważne uszkodzenie oczu.", H319: "Działa drażniąco na oczy.",
+  H332: "Działa szkodliwie w następstwie wdychania.", H335: "Może powodować podrażnienie dróg oddechowych.",
+  H336: "Może wywoływać uczucie senności lub zawroty głowy.",
+  H400: "Działa bardzo toksycznie na organizmy wodne.",
+  H410: "Działa bardzo toksycznie na organizmy wodne, powodując długotrwałe skutki.",
+  H411: "Działa toksycznie na organizmy wodne, powodując długotrwałe skutki.",
+  EUH066: "Powtarzające się narażenie może powodować wysuszanie lub pękanie skóry.",
+  EUH208: "Zawiera substancję uczulającą. Może powodować wystąpienie reakcji alergicznej.",
+  EUH380: "Może powodować zaburzenia funkcjonowania układu hormonalnego u ludzi."
 };
 
 const OFFICIAL_CLP_P_PHRASES = {
-  P101: "W razie koniecznoĹ›ci zasiÄ™gniÄ™cia porady lekarza naleĹĽy pokazaÄ‡ pojemnik lub etykietÄ™.",
-  P102: "ChroniÄ‡ przed dzieÄ‡mi.", P103: "UwaĹĽnie przeczytaÄ‡ wszystkie instrukcje i zastosowaÄ‡ siÄ™ do nich.",
-  P210: "PrzechowywaÄ‡ z dala od ĹşrĂłdeĹ‚ ciepĹ‚a, gorÄ…cych powierzchni, ĹşrĂłdeĹ‚ iskrzenia, otwartego ognia i innych ĹşrĂłdeĹ‚ zapĹ‚onu. Nie paliÄ‡.",
-  P260: "Nie wdychaÄ‡ pyĹ‚u/dymu/gazu/mgĹ‚y/par/rozpylonej cieczy.", P264: "DokĹ‚adnie umyÄ‡ rÄ™ce po uĹĽyciu.",
-  P273: "UnikaÄ‡ uwolnienia do Ĺ›rodowiska.", P280: "StosowaÄ‡ rÄ™kawice ochronne/odzieĹĽ ochronnÄ…/ochronÄ™ oczu/ochronÄ™ twarzy.",
-  "P301+P310": "W PRZYPADKU POĹKNIÄCIA: Natychmiast skontaktowaÄ‡ siÄ™ z OĹšRODKIEM ZATRUÄ†/lekarzem.",
-  "P301+P330+P331": "W PRZYPADKU POĹKNIÄCIA: WypĹ‚ukaÄ‡ usta. NIE wywoĹ‚ywaÄ‡ wymiotĂłw.",
-  "P302+P352": "W PRZYPADKU KONTAKTU ZE SKĂ“RÄ„: UmyÄ‡ duĹĽÄ… iloĹ›ciÄ… wody z mydĹ‚em.",
-  "P303+P361+P353": "W PRZYPADKU KONTAKTU ZE SKĂ“RÄ„ (lub z wĹ‚osami): Natychmiast zdjÄ…Ä‡ caĹ‚Ä… zanieczyszczonÄ… odzieĹĽ. SpĹ‚ukaÄ‡ skĂłrÄ™ pod strumieniem wody lub prysznicem.",
-  "P305+P351+P338": "W PRZYPADKU DOSTANIA SIÄ DO OCZU: OstroĹĽnie pĹ‚ukaÄ‡ wodÄ… przez kilka minut. WyjÄ…Ä‡ soczewki kontaktowe, jeĹĽeli sÄ… i moĹĽna je Ĺ‚atwo usunÄ…Ä‡. Nadal pĹ‚ukaÄ‡.",
-  P310: "Natychmiast skontaktowaÄ‡ siÄ™ z OĹšRODKIEM ZATRUÄ†/lekarzem.",
-  P501: "ZawartoĹ›Ä‡/pojemnik usuwaÄ‡ do uprawnionego zakĹ‚adu utylizacji odpadĂłw zgodnie z prawem krajowym."
+  P101: "W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę.",
+  P102: "Chronić przed dziećmi.", P103: "Uważnie przeczytać wszystkie instrukcje i zastosować się do nich.",
+  P210: "Przechowywać z dala od źródeł ciepła, gorących powierzchni, źródeł iskrzenia, otwartego ognia i innych źródeł zapłonu. Nie palić.",
+  P260: "Nie wdychać pyłu/dymu/gazu/mgły/par/rozpylonej cieczy.", P264: "Dokładnie umyć ręce po użyciu.",
+  P273: "Unikać uwolnienia do środowiska.", P280: "Stosować rękawice ochronne/odzież ochronną/ochronę oczu/ochronę twarzy.",
+  "P301+P310": "W PRZYPADKU PO�?KNI�?CIA: Natychmiast skontaktować się z OŚRODKIEM ZATRUĆ/lekarzem.",
+  "P301+P330+P331": "W PRZYPADKU PO�?KNI�?CIA: Wypłukać usta. NIE wywoływać wymiotów.",
+  "P302+P352": "W PRZYPADKU KONTAKTU ZE SKÓRĄ: Umyć dużą ilością wody z mydłem.",
+  "P303+P361+P353": "W PRZYPADKU KONTAKTU ZE SKÓRĄ (lub z włosami): Natychmiast zdjąć całą zanieczyszczoną odzież. Spłukać skórę pod strumieniem wody lub prysznicem.",
+  "P305+P351+P338": "W PRZYPADKU DOSTANIA SI�? DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.",
+  P310: "Natychmiast skontaktować się z OŚRODKIEM ZATRUĆ/lekarzem.",
+  P501: "Zawartość/pojemnik usuwać do uprawnionego zakładu utylizacji odpadów zgodnie z prawem krajowym."
 };
 
 const H_TO_GHS_MAP = {
@@ -81,9 +81,9 @@ const H_TO_GHS_MAP = {
 };
 
 const GHS_DESCRIPTIONS = {
-  GHS01: "MateriaĹ‚y wybuchowe", GHS02: "PĹ‚omieĹ„ (Ĺatwopalny)", GHS03: "PĹ‚omieĹ„ nad koĹ‚em (UtleniajÄ…cy)",
-  GHS04: "Butla z gazem", GHS05: "DziaĹ‚anie ĹĽrÄ…ce", GHS06: "Czaszka (ToksycznoĹ›Ä‡)",
-  GHS07: "Wykrzyknik", GHS08: "ZagroĹĽenie dla zdrowia", GHS09: "Ĺšrodowisko"
+  GHS01: "Materiały wybuchowe", GHS02: "Płomień (�?atwopalny)", GHS03: "Płomień nad kołem (Utleniający)",
+  GHS04: "Butla z gazem", GHS05: "Działanie żrące", GHS06: "Czaszka (Toksyczność)",
+  GHS07: "Wykrzyknik", GHS08: "Zagrożenie dla zdrowia", GHS09: "Środowisko"
 };
 
 // ============================================================================
@@ -94,11 +94,11 @@ class NDSRegistry {
 
   static loadRegistry(filePath) {
     if (!fs.existsSync(filePath)) {
-      throw new Error(`[CRITICAL HALT] Brak pliku bazy NDS: ${filePath}. System wymaga peĹ‚nego rejestru Dz.U. 2018 poz. 1286.`);
+      throw new Error(`[CRITICAL HALT] Brak pliku bazy NDS: ${filePath}. System wymaga pełnego rejestru Dz.U. 2018 poz. 1286.`);
     }
     const rawData = fs.readFileSync(filePath, 'utf8');
     this.database = JSON.parse(rawData);
-    console.log(`[SYS] ZaĹ‚adowano rejestr NDS: ${Object.keys(this.database).length} pozycji.`);
+    console.log(`[SYS] Załadowano rejestr NDS: ${Object.keys(this.database).length} pozycji.`);
   }
 
   static getEntry(casNumber) {
@@ -126,11 +126,11 @@ class SDSPDFParser {
       } catch (err) { text = ""; }
     }
 
-    // Detekcja skanu (jeĹ›li maĹ‚o tekstu)
+    // Detekcja skanu (jeśli mało tekstu)
     if (text.length < 150 || forceOcr) {
       this.lastExtractionUsedOcr = true;
       try {
-        console.log("[SYS] Aktywacja optycznego rozpoznawania znakĂłw (OCR Tesseract)...");
+        console.log("[SYS] Aktywacja optycznego rozpoznawania znaków (OCR Tesseract)...");
         const tempDir = path.join(process.cwd(), "temp_ocr_sds");
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
         
@@ -149,9 +149,9 @@ class SDSPDFParser {
         
         // Czyszczenie temp
         fs.rmSync(tempDir, { recursive: true, force: true });
-        this.ocrDiagnosticMessage = `Zrekonstruowano ${files.length} stron przez OCR. SprawdĹş tabele stÄ™ĹĽeĹ„.`;
+        this.ocrDiagnosticMessage = `Zrekonstruowano ${files.length} stron przez OCR. Sprawdź tabele stężeń.`;
       } catch (ocrErr) {
-        this.ocrDiagnosticMessage = `BĹ‚Ä…d silnika OCR (wymaga Tesseract/Poppler w systemie OS).`;
+        this.ocrDiagnosticMessage = `Błąd silnika OCR (wymaga Tesseract/Poppler w systemie OS).`;
         console.error(this.ocrDiagnosticMessage);
       }
     }
@@ -168,8 +168,8 @@ class SDSPDFParser {
       section_6: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*6\s*[:\.\-]?\s*(?:MISURE IN CASO DI RILASCIO|ACCIDENTAL RELEASE)/i,
       section_7: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*7\s*[:\.\-]?\s*(?:MANIPOLAZIONE E IMMAGAZZINAMENTO|HANDLING)/i,
       section_8: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*8\s*[:\.\-]?\s*(?:CONTROLLI DELL.ESPOSIZIONE|EXPOSURE)/i,
-      section_9: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*9\s*[:\.\-]?\s*(?:PROPRIET[AĂ€] FISICHE E CHIMICHE|PHYSICAL)/i,
-      section_10: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*10\s*[:\.\-]?\s*(?:STABILIT[AĂ€] E REATTIVIT[AĂ€]|STABILITY)/i,
+      section_9: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*9\s*[:\.\-]?\s*(?:PROPRIET[AÀ] FISICHE E CHIMICHE|PHYSICAL)/i,
+      section_10: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*10\s*[:\.\-]?\s*(?:STABILIT[AÀ] E REATTIVIT[AÀ]|STABILITY)/i,
       section_11: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*11\s*[:\.\-]?\s*(?:INFORMAZIONI TOSSICOLOGICHE|TOXICOLOGICAL)/i,
       section_12: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*12\s*[:\.\-]?\s*(?:INFORMAZIONI ECOLOGICHE|ECOLOGICAL)/i,
       section_13: /(?:^|\n)\s*(?:SEZIONE|SECTION)\s*13\s*[:\.\-]?\s*(?:CONSIDERAZIONI SULLO SMALTIMENTO|DISPOSAL)/i,
@@ -192,7 +192,7 @@ class SDSPDFParser {
       sections[positions[i].key] = fullText.substring(start, end).trim();
     }
     for (let i = 1; i <= 16; i++) {
-      if (!sections[`section_${i}`]) sections[`section_${i}`] = `Brak danych dla Sekcji ${i} w pliku ĹşrĂłdĹ‚owym.`;
+      if (!sections[`section_${i}`]) sections[`section_${i}`] = `Brak danych dla Sekcji ${i} w pliku źródłowym.`;
     }
     return sections;
   }
@@ -303,33 +303,33 @@ class PolishLegalTemplates {
     return (
       `${ufiStr}` +
       "1.4. Numer telefonu alarmowego:\n" +
-      `- Numer alarmowy ogĂłlny: 112 (dostÄ™pny caĹ‚odobowo)\n` +
-      `- PaĹ„stwowa StraĹĽ PoĹĽarna: 998 | Pogotowie Ratunkowe: 999\n` +
-      `- OĹ›rodki Informacji Toksykologicznej w Polsce (m.in. Warszawa: 22 619 66 54)\n` +
+      `- Numer alarmowy ogólny: 112 (dostępny całodobowo)\n` +
+      `- Państwowa Straż Pożarna: 998 | Pogotowie Ratunkowe: 999\n` +
+      `- Ośrodki Informacji Toksykologicznej w Polsce (m.in. Warszawa: 22 619 66 54)\n` +
       `- Telefon alarmowy (${companyConfig.companyName}): ${companyConfig.emergencyPhone}`
     );
   }
 
   static getSection13() {
     return (
-      "SEKCJA 13: PostÄ™powanie z odpadami\n\n" +
-      "UsuwaÄ‡ zgodnie z obowiÄ…zujÄ…cymi przepisami krajowymi. Nie wprowadzaÄ‡ do kanalizacji.\n\n" +
+      "SEKCJA 13: Postępowanie z odpadami\n\n" +
+      "Usuwać zgodnie z obowiązującymi przepisami krajowymi. Nie wprowadzać do kanalizacji.\n\n" +
       "Podstawa prawna RP:\n" +
-      "- Ustawa z dnia 14 grudnia 2012 r. o odpadach (Dz.U. z 2023 r. poz. 1587 z pĂłĹşn. zm.).\n" +
+      "- Ustawa z dnia 14 grudnia 2012 r. o odpadach (Dz.U. z 2023 r. poz. 1587 z późn. zm.).\n" +
       "- Ustawa o gospodarce opakowaniami (Dz.U. z 2023 r. poz. 1658).\n" +
-      "- RozporzÄ…dzenie Ministra Klimatu w sprawie katalogu odpadĂłw (Dz.U. 2020 poz. 10).\n"
+      "- Rozporządzenie Ministra Klimatu w sprawie katalogu odpadów (Dz.U. 2020 poz. 10).\n"
     );
   }
 
   static getSection15() {
     return (
-      "SEKCJA 15: Informacje dotyczÄ…ce przepisĂłw prawnych\n\n" +
-      "Karta speĹ‚nia wymogi ZaĹ‚Ä…cznika II do RozporzÄ…dzenia REACH (UE) 2020/878.\n\n" +
+      "SEKCJA 15: Informacje dotyczące przepisów prawnych\n\n" +
+      "Karta spełnia wymogi Załącznika II do Rozporządzenia REACH (UE) 2020/878.\n\n" +
       "Akty prawne RP:\n" +
-      "1. RozporzÄ…dzenie (WE) nr 1907/2006 (REACH) i (WE) nr 1272/2008 (CLP).\n" +
+      "1. Rozporządzenie (WE) nr 1907/2006 (REACH) i (WE) nr 1272/2008 (CLP).\n" +
       "2. Ustawa z 25 lutego 2011 r. o substancjach chemicznych (Dz.U. 2022 poz. 1816).\n" +
-      "3. RozporzÄ…dzenie MRPiPS z 12 czerwca 2018 r. w sprawie NDS (Dz.U. 2018 poz. 1286).\n" +
-      "4. Ustawa z 19 sierpnia 2011 r. o przewozie towarĂłw niebezpiecznych (ADR)."
+      "3. Rozporządzenie MRPiPS z 12 czerwca 2018 r. w sprawie NDS (Dz.U. 2018 poz. 1286).\n" +
+      "4. Ustawa z 19 sierpnia 2011 r. o przewozie towarów niebezpiecznych (ADR)."
     );
   }
 }
@@ -401,7 +401,7 @@ class GHSPictogramGenerator {
         const dist = Math.abs(x - cx) + Math.abs(y - cy);
         if (dist <= maxDist) {
           if (dist >= maxDist - borderWidth) setPixel(x, y, 204, 0, 0, 255); // Czerwony romb (Pantone 185C)
-          else setPixel(x, y, 255, 255, 255, 255); // BiaĹ‚y Ĺ›rodek
+          else setPixel(x, y, 255, 255, 255, 255); // Biały środek
         }
       }
     }
@@ -425,7 +425,7 @@ class GHSPictogramGenerator {
 }
 
 // ============================================================================
-// 8. GĹĂ“WNY SILNIK PARSERA I KWARANTANNY
+// 8. G�?ÓWNY SILNIK PARSERA I KWARANTANNY
 // ============================================================================
 class SDSProcessorEngine {
   constructor(companyConfig = {}) {
@@ -440,9 +440,9 @@ class SDSProcessorEngine {
     const hCodes = SDSChemicalExtractor.extractHCodes(contentIt);
     const pCodes = SDSChemicalExtractor.extractPCodes(contentIt);
     
-    // Walidacja twarda sĹ‚ownika
+    // Walidacja twarda słownika
     hCodes.forEach(code => {
-      if (!OFFICIAL_CLP_H_PHRASES[code]) throw new Error(`[CRITICAL HALT] Nieznany kod zagroĹĽenia: ${code}`);
+      if (!OFFICIAL_CLP_H_PHRASES[code]) throw new Error(`[CRITICAL HALT] Nieznany kod zagrożenia: ${code}`);
     });
 
     const directGhs = SDSChemicalExtractor.extractGhsCodes(contentIt);
@@ -450,21 +450,21 @@ class SDSProcessorEngine {
     this.detectedGhsPictograms = Array.from(new Set([...directGhs, ...inferredGhs])).sort();
     
     let signalWord = "UWAGA";
-    if (/(PERICOLO|DANGER)/i.test(contentIt)) signalWord = "NIEBEZPIECZEĹSTWO";
+    if (/(PERICOLO|DANGER)/i.test(contentIt)) signalWord = "NIEBEZPIECZE�?STWO";
 
     const mappedH = hCodes.map(c => `${c}: ${OFFICIAL_CLP_H_PHRASES[c]}`);
-    const mappedP = pCodes.map(c => `${c}: ${OFFICIAL_CLP_P_PHRASES[c] || "[BĹÄ„D SĹOWNIKA P]"}`);
+    const mappedP = pCodes.map(c => `${c}: ${OFFICIAL_CLP_P_PHRASES[c] || "[B�?ĄD S�?OWNIKA P]"}`);
     const ghsSummary = this.detectedGhsPictograms.join(", ");
 
     return {
-      content: `SEKCJA 2: Identyfikacja zagroĹĽeĹ„\n\nHasĹ‚o ostrzegawcze: ${signalWord}\nPiktogramy: ${ghsSummary}\n\nZwroty (H):\n${mappedH.join('\n')}\n\nZwroty (P):\n${mappedP.join('\n')}`,
+      content: `SEKCJA 2: Identyfikacja zagrożeń\n\nHasło ostrzegawcze: ${signalWord}\nPiktogramy: ${ghsSummary}\n\nZwroty (H):\n${mappedH.join('\n')}\n\nZwroty (P):\n${mappedP.join('\n')}`,
       ghsPictograms: this.detectedGhsPictograms
     };
   }
 
   async processSection3(contentIt, manualOverrides = {}) {
     const casList = SDSChemicalExtractor.extractCas(contentIt);
-    let text = "SEKCJA 3: SkĹ‚ad / informacja o skĹ‚adnikach\n\nNiebezpieczne skĹ‚adniki chemiczne:\n";
+    let text = "SEKCJA 3: Skład / informacja o składnikach\n\nNiebezpieczne składniki chemiczne:\n";
 
     for (const cas of casList) {
       if (manualOverrides[cas]) {
@@ -490,7 +490,7 @@ class SDSProcessorEngine {
 
   processSection8(contentIt) {
     const foundCas = this.extractedSubstances.map(s => s.casNumber);
-    let tableText = "8.1. Parametry dotyczÄ…ce kontroli (Dz.U. 2018 poz. 1286):\n\n";
+    let tableText = "8.1. Parametry dotyczące kontroli (Dz.U. 2018 poz. 1286):\n\n";
     
     if (foundCas.length > 0) {
       for (const cas of Array.from(new Set(foundCas))) {
@@ -498,17 +498,17 @@ class SDSProcessorEngine {
         if (entry) {
           tableText += `- ${entry.substance} [CAS: ${cas}]: NDS: ${entry.NDS} | NDSCh: ${entry.NDSCh}\n`;
         } else {
-          tableText += `- Dla substancji CAS ${cas} w Dz.U. 2018 poz. 1286 nie ustalono krajowych wartoĹ›ci NDS.\n`;
+          tableText += `- Dla substancji CAS ${cas} w Dz.U. 2018 poz. 1286 nie ustalono krajowych wartości NDS.\n`;
         }
       }
     }
 
     const dnelPnec = SDSChemicalExtractor.extractDnelPnec(contentIt);
-    tableText += "\n8.1.1. WartoĹ›ci DNEL / PNEC (Ochrona danych REACH):\n";
+    tableText += "\n8.1.1. Wartości DNEL / PNEC (Ochrona danych REACH):\n";
     tableText += "DNEL: " + (dnelPnec.dnel.length > 0 ? dnelPnec.dnel.join(" | ") : "Brak danych producenta.") + "\n";
     tableText += "PNEC: " + (dnelPnec.pnec.length > 0 ? dnelPnec.pnec.join(" | ") : "Brak danych producenta.") + "\n";
 
-    this.quarantineLogs.push({ section: "Sekcja 8", reason: "ZastÄ…piono obce limity ustawowym NDS RP. Zachowano wartoĹ›ci DNEL/PNEC." });
+    this.quarantineLogs.push({ section: "Sekcja 8", reason: "Zastąpiono obce limity ustawowym NDS RP. Zachowano wartości DNEL/PNEC." });
     return { content: tableText };
   }
 
@@ -557,7 +557,7 @@ class SDSProcessorEngine {
       } else if (agentTranslated[key]) {
         finalSections[key] = { type: "TRANSLATED", content: agentTranslated[key].trim() };
       } else {
-        throw new Error(`[CRITICAL HALT] Agent LLM pominÄ…Ĺ‚ translacjÄ™ ${key}. Dokument ZABLOKOWANY.`);
+        throw new Error(`[CRITICAL HALT] Agent LLM pominął translację ${key}. Dokument ZABLOKOWANY.`);
       }
     }
     return { ...agentPayload.metadata, sections: finalSections, ghsPictograms: agentPayload.detectedGhsPictograms, audit: agentPayload.quarantineAudit };
@@ -565,61 +565,100 @@ class SDSProcessorEngine {
 }
 
 // ============================================================================
-// 9. EKSPORT DOCX (Z peĹ‚nym formatowaniem, paginacjÄ… i piktogramami)
+// 9. EKSPORT DOCX (Z pełnym formatowaniem, paginacją i piktogramami)
 // ============================================================================
 class SDSDocxExporter {
   static async export(sdsData, outPath) {
     if (!docx) throw new Error("Brak biblioteki docx.");
-    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, ShadingType, Header, Footer, PageNumber, ImageRun } = docx;
+    const { Document, Packer, Paragraph, TextRun, AlignmentType, ShadingType, Header, Footer, PageNumber, ImageRun, BorderStyle } = docx;
 
     const sectionsBody = [];
     
-    // TytuĹ‚ i Metadane
     sectionsBody.push(new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: `KARTA CHARAKTERYSTYKI: ${sdsData.productName}`, bold: true, size: 36 })]
+      children: [new TextRun({ text: `Karta Charakterystyki`, bold: true, size: 36 })]
     }));
-    sectionsBody.push(new Paragraph({ text: "", spacing: { after: 200 } }));
+    sectionsBody.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: `[Sporządzona zgodnie z rozporządzeniem WE 1907/2006(REACH) wraz z późn. zm.]`, size: 16 })],
+      spacing: { after: 300 }
+    }));
+    sectionsBody.push(new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      children: [
+        new TextRun({ text: `Data wystawienia: ${new Date().toLocaleDateString('pl-PL')}`, size: 16 }),
+        new TextRun({ text: `\nWersja: ${sdsData.version}`, size: 16 })
+      ],
+      spacing: { after: 400 }
+    }));
 
-    // CiaĹ‚o z 16 sekcjami
     for (let i = 1; i <= 16; i++) {
       const data = sdsData.sections[`section_${i}`];
+      if (!data) continue;
+      
       const isQuarantine = data.type === "QUARANTINE";
+      const lines = data.content.split("\n");
       
-      const cellChildren = [];
-      
-      // JeĹĽeli Sekcja 2 -> Wstaw piktogramy jako ImageRun
+      let sectionTitle = `SEKCJA ${i}`;
+      if (lines.length > 0 && lines[0].toUpperCase().includes(`SEKCJA ${i}`)) {
+         sectionTitle = lines.shift(); 
+      }
+
+      sectionsBody.push(new Paragraph({
+        children: [new TextRun({ text: sectionTitle.trim().toUpperCase(), bold: true, size: 22 })],
+        shading: isQuarantine ? { fill: "FFF9E6", type: ShadingType.CLEAR } : undefined,
+        border: { bottom: { color: "00A651", space: 1, value: BorderStyle.SINGLE, size: 12 } },
+        spacing: { before: 300, after: 150 }
+      }));
+
       if (i === 2 && sdsData.ghsPictograms && sdsData.ghsPictograms.length > 0) {
-        cellChildren.push(new Paragraph({ children: [new TextRun({ text: "Piktogramy GHS:", bold: true })]}));
         const imageRuns = sdsData.ghsPictograms.map(code => {
            const buffer = GHSPictogramGenerator.generatePictogramBuffer(code, 150);
            return new ImageRun({ data: buffer, transformation: { width: 75, height: 75 } });
         });
-        cellChildren.push(new Paragraph({ children: imageRuns }));
+        sectionsBody.push(new Paragraph({
+          children: [new TextRun({ text: "Piktogramy określające rodzaj zagrożenia:", bold: true })],
+          spacing: { before: 100, after: 100 }
+        }));
+        sectionsBody.push(new Paragraph({ children: imageRuns, spacing: { after: 200 } }));
       }
 
-      // Wstawianie tekstu
-      data.content.split("\n").forEach(line => {
-        cellChildren.push(new Paragraph({ children: [new TextRun({ text: line, size: 20 })] }));
-      });
+      lines.forEach(line => {
+        const tLine = line.trim();
+        if (!tLine) return;
 
-      sectionsBody.push(new Table({
-        width: { size: 100, type: "pct" },
-        rows: [new TableRow({ children: [new TableCell({
-          shading: { fill: isQuarantine ? "FFF9E6" : "FFFFFF", type: ShadingType.CLEAR },
-          margins: { top: 100, bottom: 100, left: 100, right: 100 },
-          children: cellChildren
-        })]})]
-      }));
-      sectionsBody.push(new Paragraph({ text: "", spacing: { after: 150 } }));
+        const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
+        const isBoldStart = /^(Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC):/i.test(tLine);
+
+        if (isSubSection) {
+           sectionsBody.push(new Paragraph({
+             children: [new TextRun({ text: tLine, bold: true, size: 20 })],
+             spacing: { before: 200, after: 100 }
+           }));
+        } else if (isBoldStart) {
+           const idx = tLine.indexOf(':');
+           sectionsBody.push(new Paragraph({
+             children: [
+               new TextRun({ text: tLine.substring(0, idx + 1), bold: true, size: 20 }),
+               new TextRun({ text: tLine.substring(idx + 1), size: 20 })
+             ],
+             spacing: { before: 100, after: 100 }
+           }));
+        } else {
+           sectionsBody.push(new Paragraph({
+             children: [new TextRun({ text: tLine, size: 20 })],
+             spacing: { after: 100 }
+           }));
+        }
+      });
     }
 
     const doc = new Document({
       sections: [{
-        properties: {},
+        properties: { page: { margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } } },
         headers: {
           default: new Header({
-            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(`SDS | ${sdsData.productName} | Wersja: ${sdsData.version}`)] })]
+            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(`SDS | ${sdsData.productName}`)] })]
           })
         },
         footers: {
@@ -627,7 +666,7 @@ class SDSDocxExporter {
             children: [new Paragraph({
               alignment: AlignmentType.RIGHT,
               children: [
-                new TextRun("Zgodnie z RozporzÄ…dzeniem (UE) 2020/878 | Strona "),
+                new TextRun("Strona "),
                 new TextRun({ children: [PageNumber.CURRENT] }),
                 new TextRun(" z "),
                 new TextRun({ children: [PageNumber.TOTAL_PAGES] })
