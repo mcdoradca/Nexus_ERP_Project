@@ -991,6 +991,54 @@ class SDSProcessorEngine {
     return output;
   }
 
+  processSection6(contentIt) {
+    if (!contentIt) {
+      return (
+        "SEKCJA 6: Postępowanie w przypadku niezamierzonego uwolnienia do środowiska\n\n" +
+        "6.1. Indywidualne środki ostrożności, wyposażenie ochronne i procedury w sytuacjach awaryjnych\n" +
+        "Dla osób nienależących do personelu udzielającego pomocy: Ewakuować osoby niepowołane z obszaru zagrożenia. Unikać bezpośredniego kontaktu z uwolnionym produktem. Zapewnić odpowiednią wentylację.\n" +
+        "Dla osób udzielających pomocy: Stosować środki ochrony indywidualnej określone w sekcji 8.\n\n" +
+        "6.2. Środki ostrożności w zakresie ochrony środowiska\n" +
+        "Nie dopuścić do przedostania się produktu do gleby, wód gruntowych, wód powierzchniowych ani do kanalizacji. W przypadku skażenia wód lub kanalizacji niezwłocznie powiadomić właściwe władze.\n\n" +
+        "6.3. Metody i materiały zapobiegające rozprzestrzenianiu się skażenia i służące do usuwania skażenia\n" +
+        "Zatamować wyciek, o ile jest to bezpieczne. Zebrać za pomocą niepalnego materiału absorbującego ciecze (piasek, ziemia okrzemkowa, sorbent uniwersalny). Zanieczyszczoną powierzchnię zmyć dużą ilością wody.\n\n" +
+        "6.4. Odniesienia do innych sekcji\n" +
+        "Informacje dotyczące środków ochrony indywidualnej podano w sekcji 8. Informacje dotyczące postępowania z odpadami podano w sekcji 13."
+      );
+    }
+
+    let clean = contentIt
+      .replace(/Page\s+n\.\s*of\s*\d+/gi, '')
+      .replace(/\d{2}\/\d{2}\/\d{4}\s*Production Name[^\n]+/gi, '')
+      .replace(/\r/g, '')
+      .replace(/\t/g, ' ');
+
+    const hasFlammable = /flam|ignition|zapłon|iskr/i.test(clean);
+
+    let nonEmergAdvice = "Ewakuować osoby niepowołane z obszaru zagrożenia. Unikać zanieczyszczenia skóry i oczu. Zapewnić odpowiednią wentylację pomieszczeń.";
+    if (hasFlammable) {
+      nonEmergAdvice += " Usunąć wszystkie źródła zapłonu (otwarty ogień, iskry, zakaz palenia tytoniu).";
+    }
+
+    let emergAdvice = "Stosować kompletne wyposażenie ochronne (patrz sekcja 8). Unikać wdychania oparów/aerozoli.";
+    let envAdvice = "Nie dopuścić do przedostania się produktu do gleby, wód gruntowych, wód powierzchniowych ani do kanalizacji. Zatrzymać zanieczyszczoną wodę z mycia i przekazać do bezpiecznej utylizacji. W przypadku skażenia wód lub przedostania się do kanalizacji niezwłocznie powiadomić właściwe władze i służby ratownicze.";
+    let cleanupAdvice = "Zatamować wyciek, o ile jest to bezpieczne. Ograniczyć rozprzestrzenianie i zebrać za pomocą niepalnego materiału absorbującego ciecze (piasek, ziemia okrzemkowa, uniwersalny środek wiążący, trociny) do oznakowanych pojemników na odpady. Zanieczyszczoną powierzchnię zmyć dużą ilością wody.";
+    let refAdvice = "Informacje dotyczące odpowiedniego sprzętu ochrony indywidualnej podano w sekcji 8. Informacje dotyczące bezpiecznego postępowania z substancją podano w sekcji 7. Informacje dotyczące unieszkodliwiania odpadów podano w sekcji 13.";
+
+    let output = "SEKCJA 6: Postępowanie w przypadku niezamierzonego uwolnienia do środowiska\n\n";
+    output += "6.1. Indywidualne środki ostrożności, wyposażenie ochronne i procedury w sytuacjach awaryjnych\n";
+    output += `Dla osób nienależących do personelu udzielającego pomocy: ${nonEmergAdvice}\n`;
+    output += `Dla osób udzielających pomocy: ${emergAdvice}\n\n`;
+    output += "6.2. Środki ostrożności w zakresie ochrony środowiska\n";
+    output += `${envAdvice}\n\n`;
+    output += "6.3. Metody i materiały zapobiegające rozprzestrzenianiu się skażenia i służące do usuwania skażenia\n";
+    output += `${cleanupAdvice}\n\n`;
+    output += "6.4. Odniesienia do innych sekcji\n";
+    output += `${refAdvice}`;
+
+    return output;
+  }
+
   processSection8(contentIt) {
     const foundCas = this.extractedSubstances.map(s => s.casNumber);
     let tableText = "SEKCJA 8: Kontrola narażenia/środki ochrony indywidualnej\n\n8.1. Parametry dotyczące kontroli\n\n";
@@ -1040,6 +1088,7 @@ class SDSProcessorEngine {
     const hasAllergens = Boolean(s2.content && s2.content.includes("EUH208"));
     const s4Content = this.processSection4(rawSections["section_4"], hasAllergens);
     const s5Content = this.processSection5(rawSections["section_5"]);
+    const s6Content = this.processSection6(rawSections["section_6"]);
 
     const deterministic = {
       section_1: { type: "QUARANTINE", content: `1.1. Identyfikator produktu: ${productName}\n${PolishLegalTemplates.getSection1_4(ufi)}\n${PolishLegalTemplates.getSection1_3()}` },
@@ -1047,6 +1096,7 @@ class SDSProcessorEngine {
       section_3: { type: "EXTRACT_RAW", content: s3.content, components: s3.components },
       section_4: { type: "CLP_MAPPED", content: s4Content },
       section_5: { type: "CLP_MAPPED", content: s5Content },
+      section_6: { type: "CLP_MAPPED", content: s6Content },
       section_8: { type: "QUARANTINE", content: s8.content81 },
       section_13: { type: "QUARANTINE", content: PolishLegalTemplates.getSection13() },
       section_15: { type: "QUARANTINE", content: PolishLegalTemplates.getSection15() },
@@ -1054,7 +1104,7 @@ class SDSProcessorEngine {
     };
 
     const toTranslate = {};
-    [6,7,9,10,11,12,14].forEach(i => { toTranslate[`section_${i}`] = rawSections[`section_${i}`]; });
+    [7,9,10,11,12,14].forEach(i => { toTranslate[`section_${i}`] = rawSections[`section_${i}`]; });
     toTranslate["section_8_2"] = s8.content82;
 
     if (this.anomalies.length > 0) {
@@ -1249,7 +1299,7 @@ class SDSDocxExporter {
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
         const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające)$/i.test(tLine);
-        const isBoldStart = /^(Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Środki ochrony strażaków):/i.test(tLine);
+        const isBoldStart = /^(Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy):/i.test(tLine);
 
         if (isSubSection) {
            sectionsBody.push(new Paragraph({
