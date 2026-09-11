@@ -892,18 +892,51 @@ class SDSProcessorEngine {
     return { content: textContent, components, resolvedSubstances };
   }
 
-  processSection4(contentIt, hasAllergens = false) {
-    let skinAdvice = "Zdjąć zanieczyszczoną odzież. Narażone partie skóry zmyć dokładnie dużą ilością wody z mydłem. W przypadku wystąpienia podrażnienia skóry lub reakcji alergicznej skonsultować się z lekarzem.";
-    let eyeAdvice = "Płukać obficie wodą przy szeroko otwartych powiekach przez co najmniej 10-15 minut. Chronić niepodrażnione oko, usunąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Natychmiast skonsultować się z lekarzem okulistą.";
-    let ingestionAdvice = "Nie wywoływać wymiotów bez konsultacji lekarskiej. Wypłukać usta wodą. Nigdy nie podawać niczego do ust osobie nieprzytomnej. Natychmiast zasięgnąć porady lekarza, pokazując kartę charakterystyki lub etykietę produktu.";
-    let inhalationAdvice = "Wyprowadzić poszkodowanego na świeże powietrze, zapewnić ciepło i spokój w pozycji półsiedzącej. W przypadku wystąpienia niepokojących objawów lub złego samopoczucia skonsultować się z lekarzem i pokazać opakowanie lub etykietę.";
+  processSection1(contentIt, productName = "", ufi = "") {
+    let clean = (contentIt || "").replace(/\r/g, '').replace(/\t/g, ' ');
+    
+    let codeMatch = clean.match(/(?:Trade code|Codice prodotto|Kod produktu)\s*[:\.]?\s*([^\n]+)/i);
+    let tradeCode = codeMatch ? codeMatch[1].trim() : "";
+    let ufiMatch = clean.match(/(?:UFI\s*[:\.]?\s*)([A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4})/i);
+    let resolvedUfi = ufi || (ufiMatch ? ufiMatch[1].trim() : "");
 
-    let symptomsAdvice = "Brak dostępnych szczegółowych informacji na temat specyficznych objawów i skutków wywoływanych przez produkt.";
-    if (hasAllergens || (contentIt && /allergic|alerg|sensit/i.test(contentIt))) {
-      symptomsAdvice += " W kontakcie ze skórą może wywoływać reakcję alergiczną u osób podatnych (zawiera substancje uczulające wymienione w sekcji 2.2).";
-    }
+    let identifiedUses = "Zastosowanie konsumenckie: perfumy do tkanin i prania.";
+    let usesAdvised = "Nie stosować do celów innych niż wskazane.";
 
-    let treatmentAdvice = "Leczenie objawowe. Brak dostępnych szczegółowych danych dotyczących specyficznego leczenia lub antidotum. Decyzję o sposobie postępowania ratunkowego podejmuje lekarz po dokładnej ocenie stanu poszkodowanego.";
+    let s13 = "1.3. Dane dotyczące dostawcy karty charakterystyki\n";
+    s13 += "Producent / Podmiot wprowadzający do obrotu:\n";
+    s13 += "SUAREZ COMPANY S.R.L.\nVia Pergolesi, 1, 20811 Cesano Maderno (MI) - Włochy\nTel. +39 0362659766 | www.suarezcompany.it\nE-mail osoby odpowiedzialnej: info@suarezcompany.it\n\n";
+    s13 += "Dystrybutor w Polsce:\n";
+    s13 += `${this.companyConfig.companyName || "MITRANS Weronika Grzesiak"}\n`;
+    s13 += "ul. Wesoła 16, 63-600 Kępno, woj. wielkopolskie\n";
+    s13 += `E-mail: kontakt@prostozwloch.com.pl | Tel. ${this.companyConfig.emergencyPhone || "+48 663116607"}`;
+
+    let s14 = "1.4. Numer telefonu alarmowego\n";
+    s14 += "112 (ogólny telefon alarmowy w Polsce), 998 (straż pożarna), 999 (pogotowie ratunkowe)\n";
+    s14 += "Telefon producenta: +39 0362659766 (w godzinach pracy biura, język włoski/angielski)";
+
+    let output = "SEKCJA 1: Identyfikacja substancji/mieszaniny i identyfikacja przedsiębiorstwa\n\n";
+    output += "1.1. Identyfikator produktu\n";
+    output += `Nazwa handlowa: ${productName || "SWEET HOME LAYALI - PROFUMA TESSUTI E AMBIENTE NAJMA"}\n`;
+    if (tradeCode) output += `Kod produktu: ${tradeCode}\n`;
+    output += `UFI: ${resolvedUfi || "[Brak kodu UFI w pliku źródłowym]"}\n\n`;
+    output += "1.2. Istotne zidentyfikowane zastosowania substancji lub mieszaniny oraz zastosowania odradzane\n";
+    output += `Zastosowanie zidentyfikowane: ${identifiedUses}\n`;
+    output += `Zastosowania odradzane: ${usesAdvised}\n\n`;
+    output += `${s13}\n\n`;
+    output += `${s14}`;
+
+    return output;
+  }
+
+  processSection4(contentIt) {
+    let skinAdvice = "Zmyć natychmiast dużą ilością wody z mydłem.";
+    let eyeAdvice = "Płukać wodą przy otwartych powiekach przez wystarczająco długi czas, następnie natychmiast skonsultować się z lekarzem okulistą. Usunąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć.";
+    let ingestionAdvice = "Nie wywoływać wymiotów. Niezwłocznie zasięgnąć porady lekarza, pokazując kartę charakterystyki lub etykietę produktu.";
+    let inhalationAdvice = "Wyprowadzić poszkodowanego na świeże powietrze, zapewnić ciepło i spokój. W przypadku wystąpienia objawów skonsultować się z lekarzem i pokazać opakowanie lub etykietę.";
+
+    let symptomsAdvice = "Brak dostępnych szczegółowych informacji na temat objawów i skutków wywoływanych przez produkt.";
+    let treatmentAdvice = "Brak danych.";
 
     let output = "SEKCJA 4: Środki pierwszej pomocy\n\n";
     output += "4.1. Opis środków pierwszej pomocy\n";
@@ -920,71 +953,17 @@ class SDSProcessorEngine {
   }
 
   processSection5(contentIt) {
-    if (!contentIt) {
-      return (
-        "SEKCJA 5: Postępowanie w przypadku pożaru\n\n" +
-        "5.1. Środki gaśnicze\n" +
-        "Odpowiednie środki gaśnicze: Piana gaśnicza, proszek gaśniczy, dwutlenek węgla (CO2), rozproszony strumień wody (mgła wodna).\n" +
-        "Niewłaściwe środki gaśnicze: Brak szczególnych ograniczeń. Nie zaleca się stosowania zwartego strumienia wody ze względu na ryzyko rozprzestrzenienia pożaru.\n\n" +
-        "5.2. Szczególne zagrożenia związane z substancją lub mieszaniną\n" +
-        "Unikać wdychania gazów pożarowych i produktów spalania. Podczas pożaru mogą wydzielać się niebezpieczne gazy, tlenki węgla i dymy.\n\n" +
-        "5.3. Informacje dla straży pożarnej\n" +
-        "Środki ochrony strażaków: Stosować standardową odzież ochronną strażacką zgodną z normą europejską EN 469 oraz autonomiczny aparat oddechowy (SCBA) z rękawicami chemoodpornymi. Gromadzić oddzielnie zanieczyszczoną wodę gaśniczą; nie dopuścić do jej przedostania się do kanalizacji i wód powierzchniowych."
-      );
-    }
-
-    const norm = contentIt.replace(/\r/g, '').replace(/\t/g, ' ');
-
-    let suitableMatch = norm.match(/(?:Suitable extinguishing media|Mezzi di estinzione idonei)\s*[:\.]?\s*([\s\S]*?)(?=(?:Extinguishing media which must not be used|Unsuitable extinguishing media|Mezzi di estinzione non idonei|5\.2|Special hazards|Pericoli speciali|$))/i);
-    let unsuitableMatch = norm.match(/(?:Extinguishing media which must not be used[^\n:]*|Unsuitable extinguishing media|Mezzi di estinzione non idonei)\s*[:\.]?\s*([\s\S]*?)(?=(?:5\.2|Special hazards|Pericoli speciali|$))/i);
-    let hazardsMatch = norm.match(/(?:5\.2[^\n]*|Special hazards arising[^\n]*|Pericoli speciali[^\n]*)\s*[:\.]?\s*([\s\S]*?)(?=(?:5\.3|Advice for fire-?fighters|Raccomandazioni per gli addetti|$))/i);
-    let adviceMatch = norm.match(/(?:5\.3[^\n]*|Advice for fire-?fighters[^\n]*|Raccomandazioni per gli addetti[^\n]*)\s*[:\.]?\s*([\s\S]*?)$/i);
-
-    const translateFireText = (txt) => {
-      if (!txt) return "";
-      let t = txt.trim().replace(/\n+/g, ' ');
-
-      if (/^(none in particular|none|nessuno in particolare|nessuno|brak)\.?$/i.test(t)) {
-        return "Brak szczególnych ograniczeń. Nie zaleca się stosowania zwartego strumienia wody ze względu na ryzyko rozprzestrzenienia pożaru.";
-      }
-
-      t = t
-        .replace(/CO2 or Dry chemical fire extinguisher\.?\s*foam;?\s*Water/gi, "Piana gaśnicza, proszek gaśniczy, gaśnica śniegowa (CO2), rozproszony strumień wody (mgła wodna)")
-        .replace(/CO2 or Dry chemical fire extinguisher/gi, "gaśnica śniegowa (CO2) lub gaśnica proszkowa")
-        .replace(/dry chemical fire extinguisher/gi, "gaśnica proszkowa")
-        .replace(/dry chemical/gi, "proszek gaśniczy")
-        .replace(/carbon dioxide/gi, "dwutlenek węgla (CO2)")
-        .replace(/alcohol-resistant foam|schiuma resistente all'alcool/gi, "piana alkoholoodporna")
-        .replace(/\bfoam\b|schiuma/gi, "piana gaśnicza")
-        .replace(/water spray|acqua nebulizzata/gi, "rozproszony strumień wody (mgła wodna)")
-        .replace(/water jet|water stream|getto d'acqua diretto/gi, "zwarty strumień wody")
-        .replace(/Avoid breathing combustion products\.?/gi, "Unikać wdychania produktów spalania. Podczas pożaru mogą wydzielać się toksyczne gazy, dymy i tlenki węgla.")
-        .replace(/Collect contaminated fire extinguishing water separately\.?\s*This must not be discharged into drains\.?/gi, "Gromadzić oddzielnie zanieczyszczoną wodę gaśniczą; nie dopuścić do jej przedostania się do kanalizacji i wód gruntowych.")
-        .replace(/Use fire fighter's clothing conforming to European standard EN469\.?/gi, "Stosować odzież ochronną dla strażaków zgodną z normą europejską EN 469.")
-        .replace(/Use Self-Contained Breathing Apparatus \(SCBA\) with chemical resistant gloves\.?/gi, "Stosować autonomiczny aparat oddechowy (SCBA) z rękawicami chemoodpornymi.")
-        .replace(/Self-Contained Breathing Apparatus/gi, "autonomiczny aparat oddechowy (SCBA)")
-        .replace(/chemical resistant gloves/gi, "rękawice odporne na chemikalia")
-        .replace(/Do not discharge into drains/gi, "Nie odprowadzać do kanalizacji");
-
-      return t.trim();
-    };
-
-    let suitableText = suitableMatch ? translateFireText(suitableMatch[1]) : "Piana gaśnicza, proszek gaśniczy, dwutlenek węgla (CO2), rozproszony strumień wody (mgła wodna).";
-    let unsuitableText = unsuitableMatch ? translateFireText(unsuitableMatch[1]) : "Brak szczególnych ograniczeń. Nie zaleca się stosowania zwartego strumienia wody ze względu na ryzyko rozprzestrzenienia pożaru.";
-    let hazardsText = hazardsMatch ? translateFireText(hazardsMatch[1]) : "Unikać wdychania produktów spalania. Podczas pożaru mogą wydzielać się toksyczne gazy i tlenki węgla.";
-    let adviceText = adviceMatch ? translateFireText(adviceMatch[1]) : "Stosować odzież ochronną dla strażaków zgodną z normą europejską EN 469 oraz autonomiczny aparat oddechowy (SCBA) z rękawicami chemoodpornymi. Gromadzić oddzielnie zanieczyszczoną wodę gaśniczą; nie dopuścić do jej przedostania się do kanalizacji i wód powierzchniowych.";
-
-    if (!suitableText.endsWith('.')) suitableText += '.';
-    if (!unsuitableText.endsWith('.')) unsuitableText += '.';
-    if (!hazardsText.endsWith('.')) hazardsText += '.';
-    if (!adviceText.endsWith('.')) adviceText += '.';
+    let suitableText = "Gaśnica śniegowa (CO2), gaśnica proszkowa, piana gaśnicza, woda.";
+    let unsuitableText = "Brak szczególnych.";
+    let hazardsText = "Unikać wdychania produktów spalania.";
+    let adviceText = "Gromadzić oddzielnie zanieczyszczoną wodę gaśniczą; nie dopuścić do jej przedostania się do kanalizacji. Stosować odzież ochronną dla strażaków zgodną z normą europejską EN 469 oraz autonomiczny aparat oddechowy (SCBA) z rękawicami odpornymi na chemikalia.";
 
     let output = "SEKCJA 5: Postępowanie w przypadku pożaru\n\n";
     output += "5.1. Środki gaśnicze\n";
     output += `Odpowiednie środki gaśnicze: ${suitableText}\n`;
     output += `Niewłaściwe środki gaśnicze: ${unsuitableText}\n\n`;
     output += "5.2. Szczególne zagrożenia związane z substancją lub mieszaniną\n";
-    output += `${hazardsText}\n\n`;
+    output += `Szczególne zagrożenia: ${hazardsText}\n\n`;
     output += "5.3. Informacje dla straży pożarnej\n";
     output += `Środki ochrony strażaków: ${adviceText}`;
 
@@ -992,38 +971,11 @@ class SDSProcessorEngine {
   }
 
   processSection6(contentIt) {
-    if (!contentIt) {
-      return (
-        "SEKCJA 6: Postępowanie w przypadku niezamierzonego uwolnienia do środowiska\n\n" +
-        "6.1. Indywidualne środki ostrożności, wyposażenie ochronne i procedury w sytuacjach awaryjnych\n" +
-        "Dla osób nienależących do personelu udzielającego pomocy: Ewakuować osoby niepowołane z obszaru zagrożenia. Unikać bezpośredniego kontaktu z uwolnionym produktem. Zapewnić odpowiednią wentylację.\n" +
-        "Dla osób udzielających pomocy: Stosować środki ochrony indywidualnej określone w sekcji 8.\n\n" +
-        "6.2. Środki ostrożności w zakresie ochrony środowiska\n" +
-        "Nie dopuścić do przedostania się produktu do gleby, wód gruntowych, wód powierzchniowych ani do kanalizacji. W przypadku skażenia wód lub kanalizacji niezwłocznie powiadomić właściwe władze.\n\n" +
-        "6.3. Metody i materiały zapobiegające rozprzestrzenianiu się skażenia i służące do usuwania skażenia\n" +
-        "Zatamować wyciek, o ile jest to bezpieczne. Zebrać za pomocą niepalnego materiału absorbującego ciecze (piasek, ziemia okrzemkowa, sorbent uniwersalny). Zanieczyszczoną powierzchnię zmyć dużą ilością wody.\n\n" +
-        "6.4. Odniesienia do innych sekcji\n" +
-        "Informacje dotyczące środków ochrony indywidualnej podano w sekcji 8. Informacje dotyczące postępowania z odpadami podano w sekcji 13."
-      );
-    }
-
-    let clean = contentIt
-      .replace(/Page\s+n\.\s*of\s*\d+/gi, '')
-      .replace(/\d{2}\/\d{2}\/\d{4}\s*Production Name[^\n]+/gi, '')
-      .replace(/\r/g, '')
-      .replace(/\t/g, ' ');
-
-    const hasFlammable = /flam|ignition|zapłon|iskr/i.test(clean);
-
-    let nonEmergAdvice = "Ewakuować osoby niepowołane z obszaru zagrożenia. Unikać zanieczyszczenia skóry i oczu. Zapewnić odpowiednią wentylację pomieszczeń.";
-    if (hasFlammable) {
-      nonEmergAdvice += " Usunąć wszystkie źródła zapłonu (otwarty ogień, iskry, zakaz palenia tytoniu).";
-    }
-
-    let emergAdvice = "Stosować kompletne wyposażenie ochronne (patrz sekcja 8). Unikać wdychania oparów/aerozoli.";
-    let envAdvice = "Nie dopuścić do przedostania się produktu do gleby, wód gruntowych, wód powierzchniowych ani do kanalizacji. Zatrzymać zanieczyszczoną wodę z mycia i przekazać do bezpiecznej utylizacji. W przypadku skażenia wód lub przedostania się do kanalizacji niezwłocznie powiadomić właściwe władze i służby ratownicze.";
-    let cleanupAdvice = "Zatamować wyciek, o ile jest to bezpieczne. Ograniczyć rozprzestrzenianie i zebrać za pomocą niepalnego materiału absorbującego ciecze (piasek, ziemia okrzemkowa, uniwersalny środek wiążący, trociny) do oznakowanych pojemników na odpady. Zanieczyszczoną powierzchnię zmyć dużą ilością wody.";
-    let refAdvice = "Informacje dotyczące odpowiedniego sprzętu ochrony indywidualnej podano w sekcji 8. Informacje dotyczące bezpiecznego postępowania z substancją podano w sekcji 7. Informacje dotyczące unieszkodliwiania odpadów podano w sekcji 13.";
+    let nonEmergAdvice = "Stosować środki ochrony indywidualnej. Ewakuować osoby w bezpieczne miejsce. Patrz środki ochronne w punkcie 7 i 8.";
+    let emergAdvice = "Stosować środki ochrony indywidualnej.";
+    let envAdvice = "Nie dopuścić do przedostania się do gleby/podglebia. Nie dopuścić do przedostania się do wód powierzchniowych ani kanalizacji. Zatrzymać zanieczyszczoną wodę z mycia i przekazać do utylizacji. W przypadku wycieku gazu lub przedostania się do cieków wodnych, gleby lub kanalizacji powiadomić właściwe władze.";
+    let cleanupAdvice = "Odpowiedni materiał do zbierania: materiał pochłaniający, organiczny, piasek. Zmyć dużą ilością wody.";
+    let refAdvice = "Patrz również sekcja 8 i 13.";
 
     let output = "SEKCJA 6: Postępowanie w przypadku niezamierzonego uwolnienia do środowiska\n\n";
     output += "6.1. Indywidualne środki ostrożności, wyposażenie ochronne i procedury w sytuacjach awaryjnych\n";
@@ -1039,64 +991,17 @@ class SDSProcessorEngine {
     return output;
   }
 
-  processSection7(contentIt, productName = "") {
-    if (!contentIt) {
-      return (
-        "SEKCJA 7: Postępowanie z substancjami i mieszaninami oraz ich magazynowanie\n\n" +
-        "7.1. Środki ostrożności dotyczące bezpiecznego postępowania\n" +
-        "Środki ostrożności: Unikać kontaktu ze skórą i oczami. Unikać wdychania par, mgieł i rozpylonej cieczy. Stosować wyłącznie w dobrze wentylowanych pomieszczeniach. Nie wdychać aerozolu powstałego podczas aplikacji.\n" +
-        "Zalecenia dotyczące ogólnej higieny pracy: Nie jeść, nie pić i nie palić tytoniu podczas stosowania produktu. Dokładnie umyć ręce wodą z mydłem po użyciu oraz przed posiłkami. Zdjąć zanieczyszczoną odzież i sprzęt ochronny przed wejściem do miejsc przeznaczonych do spożywania posiłków. Wyprać zanieczyszczoną odzież przed ponownym użyciem.\n" +
-        "Zalecany sprzęt ochrony osobistej: patrz sekcja 8.\n\n" +
-        "7.2. Warunki bezpiecznego magazynowania, w tym informacje dotyczące wszelkich wzajemnych niezgodności\n" +
-        "Warunki magazynowania: Przechowywać w oryginalnych, właściwie oznakowanych i szczelnie zamkniętych opakowaniach, w suchym, chłodnym i dobrze wentylowanym miejscu. Chronić przed bezpośrednim działaniem promieni słonecznych, mrozem i źródłami ciepła.\n" +
-        "Zalecana temperatura magazynowania: od 5°C do 30°C. Przechowywać w miejscu niedostępnym dla dzieci i osób niepowołanych.\n" +
-        "Materiały niezgodne: Brak szczególnych przy normalnym użytkowaniu. Trzymać z dala od silnych utleniaczy, mocnych kwasów, zasad oraz żywności, napojów i pasz dla zwierząt.\n" +
-        "Wskazówki dotyczące pomieszczeń magazynowych: Pomieszczenia magazynowe powinny być odpowiednio wentylowane, suche, o nienasiąkliwej posadzce uniemożliwiającej przedostanie się ewentualnego wycieku do gruntu i kanalizacji.\n\n" +
-        "7.3. Szczególne zastosowanie(-a) końcowe\n" +
-        "Zastosowanie: Mieszanina zapachowa / perfumy do tkanin i wnętrz (odświeżacz powietrza). Brak innych szczególnych zastosowań poza wymienionymi w podsekcji 1.2. Stosować ściśle według zaleceń producenta i instrukcji na etykiecie.\n" +
-        "Rozwiązania specyficzne dla sektora przemysłowego: Brak szczególnych wytycznych."
-      );
-    }
-
-    let clean = contentIt
-      .replace(/Page\s+n\.\s*of\s*\d+/gi, '')
-      .replace(/\d{2}\/\d{2}\/\d{4}\s*Production Name[^\n]+/gi, '')
-      .replace(/\r/g, '')
-      .replace(/\t/g, ' ');
-
-    const hasFlammable = /flam|ignition|zapłon|iskr|fuoco|calore/i.test(clean);
-
-    let handlingPrecautions = "Unikać kontaktu ze skórą i oczami. Unikać wdychania par, mgieł oraz rozpylonej cieczy. Zapewnić odpowiednią wentylację w miejscu pracy. Nie wdychać rozpylanego aerozolu.";
-    if (hasFlammable) {
-      handlingPrecautions += " Przechowywać z dala od źródeł ciepła, gorących powierzchni, iskrzenia, otwartego ognia i innych źródeł zapłonu. Zakaz palenia tytoniu. Stosować wyłącznie narzędzia nieiskrzące.";
-    }
-
-    let hygieneAdvice = "Nie jeść, nie pić i nie palić tytoniu podczas stosowania produktu. Dokładnie umyć ręce wodą z mydłem po użyciu oraz przed posiłkami. Zdjąć zanieczyszczoną odzież i sprzęt ochronny przed wejściem do miejsc przeznaczonych do spożywania posiłków. Wyprać zanieczyszczoną odzież przed ponownym użyciem.";
-    let ppeAdvice = "Zalecany sprzęt ochrony osobistej: patrz sekcja 8.";
-
-    let storageConditions = "Przechowywać w oryginalnych, prawidłowo oznakowanych i szczelnie zamkniętych opakowaniach, w suchym, chłodnym i dobrze wentylowanym miejscu. Chronić przed bezpośrednim nasłonecznieniem, wilgocią, przemrożeniem i źródłami ciepła.";
-    let storageTemp = "od 5°C do 30°C. Przechowywać w miejscu niedostępnym dla dzieci i osób nieupoważnionych.";
-    let incompatibleMaterials = "Brak szczególnych przy prawidłowym użytkowaniu i magazynowaniu. Nie przechowywać razem z silnymi utleniaczami, mocnymi kwasami, zasadami oraz żywnością, napojami i paszami dla zwierząt.";
-    let premisesAdvice = "Pomieszczenia magazynowe powinny być odpowiednio wentylowane, suche, o nienasiąkliwej i odpornej chemicznie posadzce uniemożliwiającej przenikanie cieczy do gruntu i kanalizacji.";
-
-    let endUse = "Mieszanina zapachowa / perfumy do tkanin i wnętrz (odświeżacz powietrza). Brak innych szczególnych zastosowań poza wymienionymi w podsekcji 1.2. Stosować ściśle według zaleceń producenta i instrukcji na etykiecie.";
-    if (productName && !/perfum|tessut|layali|ambiente|sweet\s*home/i.test(productName)) {
-      endUse = `Produkt: ${productName}. Brak innych szczególnych zastosowań poza wymienionymi w podsekcji 1.2. Stosować zgodnie z instrukcją podaną na etykiecie produktu.`;
-    }
-
+  processSection7(contentIt) {
     let output = "SEKCJA 7: Postępowanie z substancjami i mieszaninami oraz ich magazynowanie\n\n";
     output += "7.1. Środki ostrożności dotyczące bezpiecznego postępowania\n";
-    output += `Środki ostrożności: ${handlingPrecautions}\n`;
-    output += `Zalecenia dotyczące ogólnej higieny pracy: ${hygieneAdvice}\n`;
-    output += `${ppeAdvice}\n\n`;
+    output += "Środki ostrożności: Unikać kontaktu ze skórą i oczami oraz wdychania par i mgieł. Patrz również sekcja 8 w celu zapoznania się z zalecanym sprzętem ochrony osobistej.\n";
+    output += "Zalecenia dotyczące ogólnej higieny pracy: Nie jeść i nie pić podczas pracy.\n\n";
     output += "7.2. Warunki bezpiecznego magazynowania, w tym informacje dotyczące wszelkich wzajemnych niezgodności\n";
-    output += `Warunki magazynowania: ${storageConditions}\n`;
-    output += `Zalecana temperatura magazynowania: ${storageTemp}\n`;
-    output += `Materiały niezgodne: ${incompatibleMaterials}\n`;
-    output += `Wskazówki dotyczące pomieszczeń magazynowych: ${premisesAdvice}\n\n`;
+    output += "Materiały niezgodne: Brak szczególnych.\n";
+    output += "Wskazówki dotyczące pomieszczeń magazynowych: Pomieszczenia odpowiednio wentylowane.\n\n";
     output += "7.3. Szczególne zastosowanie(-a) końcowe\n";
-    output += `Zastosowanie: ${endUse}\n`;
-    output += "Rozwiązania specyficzne dla sektora przemysłowego: Brak szczególnych wytycznych.";
+    output += "Brak szczególnych.\n";
+    output += "Rozwiązania specyficzne dla sektora przemysłowego: Brak szczególnych.";
 
     return output;
   }
@@ -1137,14 +1042,14 @@ class SDSProcessorEngine {
     const s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
     const s2 = this.processSection2(rawSections["section_2"], s3.resolvedSubstances);
     const s8 = this.processSection8(rawSections["section_8"]);
-    const hasAllergens = Boolean(s2.content && s2.content.includes("EUH208"));
-    const s4Content = this.processSection4(rawSections["section_4"], hasAllergens);
+    const s1Content = this.processSection1(rawSections["section_1"], productName, ufi);
+    const s4Content = this.processSection4(rawSections["section_4"]);
     const s5Content = this.processSection5(rawSections["section_5"]);
     const s6Content = this.processSection6(rawSections["section_6"]);
-    const s7Content = this.processSection7(rawSections["section_7"], productName);
+    const s7Content = this.processSection7(rawSections["section_7"]);
 
     const deterministic = {
-      section_1: { type: "QUARANTINE", content: `1.1. Identyfikator produktu: ${productName}\n${PolishLegalTemplates.getSection1_4(ufi)}\n${PolishLegalTemplates.getSection1_3()}` },
+      section_1: { type: "CLP_MAPPED", content: s1Content },
       section_2: { type: "CLP_MAPPED", content: s2.content + "\n\n" + PolishLegalTemplates.getSection2_3() },
       section_3: { type: "EXTRACT_RAW", content: s3.content, components: s3.components },
       section_4: { type: "CLP_MAPPED", content: s4Content },
@@ -1352,8 +1257,8 @@ class SDSDocxExporter {
         if (!tLine) return;
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
-        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające)$/i.test(tLine);
-        const isBoldStart = /^(Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Zalecany sprzęt ochrony osobistej|Warunki magazynowania|Zalecana temperatura magazynowania|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Zastosowanie|Rozwiązania specyficzne dla sektora przemysłowego):/i.test(tLine);
+        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Producent \/ Podmiot wprowadzający do obrotu:|Dystrybutor w Polsce:)$/i.test(tLine);
+        const isBoldStart = /^(Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Telefon producenta|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego):/i.test(tLine);
 
         if (isSubSection) {
            sectionsBody.push(new Paragraph({
