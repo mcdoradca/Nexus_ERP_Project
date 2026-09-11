@@ -249,6 +249,36 @@ class EcotoxRegistry {
   }
 }
 
+class ADRRegistry {
+  static database = {};
+
+  static loadRegistry(filePath) {
+    if (fs.existsSync(filePath)) {
+      try {
+        const rawData = fs.readFileSync(filePath, 'utf8');
+        const list = JSON.parse(rawData);
+        if (Array.isArray(list)) {
+          list.forEach(item => {
+            if (item.un_number) {
+              this.database[String(item.un_number).trim()] = item;
+            }
+          });
+        }
+        console.log(`[SYS] Załadowano rejestr ADR: ${Object.keys(this.database).length} pozycji.`);
+      } catch (e) {
+        this.database = {};
+      }
+    }
+  }
+
+  static getEntry(unNumber) {
+    if (!unNumber) return null;
+    const cleanUn = String(unNumber).replace(/^UN\s*/i, '').trim();
+    return this.database[cleanUn] || null;
+  }
+}
+
+
 // ============================================================================
 // 3. PARSER PDF I DETEKTOR OCR
 // ============================================================================
@@ -628,13 +658,31 @@ class PolishLegalTemplates {
     );
   }
 
-  static getSection13() {
+  static getSection13(isHazardous = false) {
+    const productWasteCode = isHazardous 
+      ? "07 06 04* (Inne rozpuszczalniki organiczne, roztwory z przemywania i roztwory macierzyste) lub 16 03 05* (Organiczne odpady zawierające substancje niebezpieczne)"
+      : "07 06 99 (Inne niewymienione odpady) lub 16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05)";
+    const consumerWasteCode = isHazardous 
+      ? "20 01 29* (Detergenty zawierające substancje niebezpieczne)" 
+      : "20 01 30 (Detergenty inne niż wymienione w 20 01 29)";
+
     return (
       "SEKCJA 13: Postępowanie z odpadami\n\n" +
       "13.1. Metody unieszkodliwiania odpadów\n" +
-      "[FLAGA_QUARANTINE_REVIEW] Wymagane nadanie 6-cyfrowego kodu odpadu według katalogu BDO przez Safety Assessora.\n" +
-      "Odpadowy produkt należy poddać odzyskowi lub likwidować w uprawnionych spalarniach lub zakładach utylizacji/unieszkodliwiania odpadów, zgodnie z obowiązującymi przepisami. Nie wprowadzać do kanalizacji.\n" +
-      "Krajowe akty prawne: ustawa o odpadach (t.j. Dz. U. 2023, poz. 1587 wraz z późn. zm.), ustawa o gospodarce opakowaniami i odpadami opakowaniowymi (tj. Dz. U. 2023, poz. 1658 wraz z późn. zm.)."
+      "Zalecenia dotyczące produktu i pozostałości:\n" +
+      "Odzyskać, jeśli to możliwe. Nie wprowadzać do kanalizacji, wód powierzchniowych, gruntowych ani gleby. Pozostałości produktu oraz odpady należy poddać odzyskowi lub unieszkodliwianiu w uprawnionych instalacjach (np. spalarniach termicznych lub wyspecjalizowanych zakładach utylizacji odpadów) posiadających stosowne zezwolenia na prowadzenie gospodarki odpadami zgodnie z obowiązującymi przepisami.\n\n" +
+      "Zalecenia dotyczące odpadów opakowaniowych:\n" +
+      "Całkowicie opróżnione opakowania poddać procesowi odzysku lub recyklingu materiałowego w ramach selektywnej zbiórki odpadów. Opakowania zanieczyszczone pozostałościami produktu traktować zgodnie z ich stopniem skażenia – w przypadku substancji niebezpiecznych likwidować jak sam produkt u uprawnionego odbiorcy odpadów.\n\n" +
+      "Klasyfikacja i kody odpadów (Katalog Odpadów Dz.U. 2020 poz. 10):\n" +
+      `- Odpady z produktu (dla zastosowań profesjonalnych / przemysłowych): ${productWasteCode}.\n` +
+      `- Odpady z produktu (dla konsumentów / odpady komunalne): ${consumerWasteCode}.\n` +
+      "- Odpady opakowaniowe: 15 01 02 (Opakowania z tworzyw sztucznych) [w przypadku opakowań zanieczyszczonych substancjami niebezpiecznymi: 15 01 10*].\n" +
+      "Uwaga: Podane kody odpadów mają charakter zalecany. Szczegółowy i ostateczny kod odpadu musi zostać nadany bezpośrednio przez wytwórcę odpadu, w oparciu o miejsce, branżę i specyfikę jego powstawania (BDO).\n\n" +
+      "Krajowe i unijne akty prawne dotyczące gospodarki odpadami:\n" +
+      "- Ustawa z dnia 14 grudnia 2012 r. o odpadach (t.j. Dz.U. 2023 poz. 1587 z późn. zm.).\n" +
+      "- Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadami opakowaniowymi (t.j. Dz.U. 2023 poz. 1658 z późn. zm.).\n" +
+      "- Rozporządzenie Ministra Klimatu z dnia 2 stycznia 2020 r. w sprawie katalogu odpadów (Dz.U. 2020 poz. 10).\n" +
+      "- Dyrektywa Parlamentu Europejskiego i Rady 2008/98/WE z dnia 19 listopada 2008 r. w sprawie odpadów oraz uchylająca niektóre dyrektywy."
     );
   }
 
@@ -762,6 +810,12 @@ class SDSProcessorEngine {
     this.extractedSubstances = [];
     this.detectedGhsPictograms = [];
     this.anomalies = [];
+
+    // Inicjalizacja baz referencyjnych RAG
+    const ecotoxPath = path.join(__dirname, 'rag_knowledge', 'ecotox_cache.json');
+    EcotoxRegistry.loadRegistry(ecotoxPath);
+    const adrPath = path.join(__dirname, 'rag_knowledge', 'adr_transport_pl.json');
+    ADRRegistry.loadRegistry(adrPath);
   }
 
   processSection2(contentIt, resolvedSubstances = {}) {
@@ -1690,6 +1744,92 @@ class SDSProcessorEngine {
     return output.trim();
   }
 
+  processSection13(rawContent = "", components = [], s2Content = "") {
+    const hasGhsHazard = /GHS0[1235689]|H2\d\d|H30[0-4]|H31[0-4]|H318|H33[0-4]|H34\d|H35\d|H36\d|H37\d|H400|H41[01]/i.test(s2Content);
+    const hasHazardousComponents = components.some(c => /H2\d\d|H30[0-4]|H31[0-4]|H318|H33[0-4]|H34\d|H35\d|H36\d|H37\d|H400|H41[01]/i.test(c.classification || ""));
+    const isHazardous = hasGhsHazard || hasHazardousComponents;
+
+    return PolishLegalTemplates.getSection13(isHazardous);
+  }
+
+  processSection14(rawContent = "") {
+    const clean = SDSProcessorEngine.cleanPdfArtifacts(rawContent);
+
+    // Detekcja czy towar NIE podlega przepisom transportowym
+    const isNotRegulated = /Not classified as dangerous|Non dangerous good|Non pericoloso|Not dangerous|Nie podlega przepisom|Non regolamentato/i.test(clean);
+    
+    // Wyszukiwanie numeru UN (np. UN 1266, UN1266, UN 1993, 1266 itp.)
+    const unMatch = clean.match(/(?:UN\s*|ID\s*|Nr\s*UN\s*[:\.]?\s*)(\d{4})\b/i);
+    const unNumber = unMatch ? unMatch[1] : null;
+
+    if (isNotRegulated || !unNumber || /14\.1[^\n]*?(?:N\/?A|None|Brak|Nie dotyczy)/i.test(clean)) {
+      let out = "SEKCJA 14: Informacje dotyczące transportu\n\n";
+      out += "Produkt nie jest sklasyfikowany jako stwarzający zagrożenie w świetle międzynarodowych i krajowych przepisów transportowych (ADR/RID, IMDG, ICAO/IATA).\n\n";
+      out += "14.1. Numer UN lub numer identyfikacyjny ID\nNie dotyczy.\n\n";
+      out += "14.2. Prawidłowa nazwa przewozowa UN\nNie dotyczy.\n\n";
+      out += "14.3. Klasa(-y) zagrożenia w transporcie\nNie dotyczy.\n\n";
+      out += "14.4. Grupa pakowania\nNie dotyczy.\n\n";
+      out += "14.5. Zagrożenia dla środowiska\nNie dotyczy (produkt nie stanowi zagrożenia dla środowiska w myśl przepisów transportowych).\n\n";
+      out += "14.6. Szczególne środki ostrożności dla użytkowników\nZawsze transportować w szczelnie zamkniętych, oryginalnych opakowaniach handlowych, chroniąc przed uszkodzeniami mechanicznymi, bezpośrednim działaniem promieni słonecznych i przewróceniem. Przestrzegać ogólnych zasad bezpieczeństwa i higieny pracy podczas przeładunku.\n\n";
+      out += "14.7. Transport morski luzem zgodnie z instrumentami IMO\nNie dotyczy.";
+      return out;
+    }
+
+    // Towar niebezpieczny (ADR/RID/IMDG/IATA)
+    const adrEntry = unNumber ? ADRRegistry.getEntry(unNumber) : null;
+    
+    // 14.1
+    const s14_1 = `14.1. Numer UN lub numer identyfikacyjny ID\nUN ${unNumber}`;
+
+    // 14.2 Prawidłowa nazwa przewozowa
+    let shippingName = adrEntry ? adrEntry.name : "";
+    if (!shippingName) {
+      const shipMatch = clean.match(/(?:ADR-Shipping Name|Proper shipping name|Prawidłowa nazwa przewozowa)\s*[:\.]?\s*([^\n;]+)/i);
+      shippingName = shipMatch && !/N\/?A/i.test(shipMatch[1]) ? shipMatch[1].trim() : "Brak danych";
+    }
+    const s14_2 = `14.2. Prawidłowa nazwa przewozowa UN\n${shippingName}`;
+
+    // 14.3 Klasa zagrożenia
+    let hazardClass = adrEntry ? adrEntry.class : "";
+    if (!hazardClass) {
+      const classMatch = clean.match(/(?:ADR-Class|Transport hazard class|Klasa)\s*[:\.]?\s*([^\n;]+)/i);
+      hazardClass = classMatch && !/N\/?A/i.test(classMatch[1]) ? classMatch[1].trim() : "Brak danych";
+    }
+    const s14_3 = `14.3. Klasa(-y) zagrożenia w transporcie\nKlasa ${hazardClass}`;
+
+    // 14.4 Grupa pakowania
+    let packingGroup = adrEntry ? adrEntry.packing_group : "";
+    if (!packingGroup || packingGroup.includes('/')) {
+      const pgMatch = clean.match(/(?:ADR-Packing Group|Packing group|Grupa pakowania)\s*[:\.]?\s*([^\n;]+)/i);
+      if (pgMatch && !/N\/?A/i.test(pgMatch[1])) packingGroup = pgMatch[1].trim();
+    }
+    const s14_4 = `14.4. Grupa pakowania\n${packingGroup ? (packingGroup.startsWith('Grupa') ? packingGroup : `Grupa pakowania ${packingGroup}`) : "Nie dotyczy"}`;
+
+    // 14.5 Zagrożenia dla środowiska
+    const isMarinePollutant = /Marine pollutant\s*[:\.]?\s*(?:Yes|Si|Tak)|Environmental Pollutant\s*[:\.]?\s*(?:Yes|Si|Tak)|Zagrożenie dla środowiska\s*[:\.]?\s*Tak/i.test(clean);
+    const s14_5 = `14.5. Zagrożenia dla środowiska\n${isMarinePollutant ? "Tak (substancja zagrażająca środowisku / Marine Pollutant)." : "Brak (produkt nie jest zaklasyfikowany jako stwarzający zagrożenie dla środowiska w transporcie)."}`;
+
+    // 14.6 Szczególne środki ostrożności
+    let s14_6 = "14.6. Szczególne środki ostrożności dla użytkowników\n";
+    let precDetails = [];
+    const tunnelCode = adrEntry ? adrEntry.tunnel_code : null;
+    const tunnelMatch = clean.match(/(?:Tunnel restriction code|Tunnel|Kod tunelu)\s*[:\.]?\s*([^\n;]+)/i);
+    const finalTunnel = tunnelMatch && !/N\/?A/i.test(tunnelMatch[1]) ? tunnelMatch[1].trim() : tunnelCode;
+    if (finalTunnel) precDetails.push(`Kod ograniczeń przewozu przez tunele: ${finalTunnel}`);
+    
+    precDetails.push("Transportować w szczelnie zamkniętych, certyfikowanych opakowaniach, zabezpieczonych przed przemieszczaniem i uszkodzeniami mechanicznymi.");
+    precDetails.push("Kierowca powinien posiadać stosowne uprawnienia ADR oraz wymagane wyposażenie ochronne pojazdu.");
+    s14_6 += precDetails.join('\n');
+
+    // 14.7 IMO
+    const s14_7 = "14.7. Transport morski luzem zgodnie z instrumentami IMO\nNie dotyczy (produkt nie jest przewożony luzem w chemikaliowcach morskich).";
+
+    let out = "SEKCJA 14: Informacje dotyczące transportu\n\n";
+    out += "Produkt podlega przepisom dotyczącym międzynarodowego przewozu towarów niebezpiecznych (ADR/RID, IMDG, ICAO/IATA).\n\n";
+    out += `${s14_1}\n\n${s14_2}\n\n${s14_3}\n\n${s14_4}\n\n${s14_5}\n\n${s14_6}\n\n${s14_7}`;
+    return out;
+  }
+
   async prepareAgentPayload(pdfFilePath, productName = "PRODUKT CHEMICZNY", manualOverrides = {}) {
     console.log(`[SYS] Ekstrakcja pliku: ${pdfFilePath}`);
     const fullText = await SDSPDFParser.extractTextFromPdf(pdfFilePath, false);
@@ -1706,6 +1846,8 @@ class SDSProcessorEngine {
     const s8Content = this.processSection8(rawSections["section_8"]);
     const s9Content = this.processSection9(rawSections["section_9"]);
     const s12Content = this.processSection12(rawSections["section_12"], s3.components);
+    const s13Content = this.processSection13(rawSections["section_13"], s3.components, s2.content);
+    const s14Content = this.processSection14(rawSections["section_14"]);
 
     const deterministic = {
       section_1: { type: "CLP_MAPPED", content: s1Content },
@@ -1718,13 +1860,14 @@ class SDSProcessorEngine {
       section_8: { type: "CLP_MAPPED", content: s8Content },
       section_9: { type: "CLP_MAPPED", content: s9Content },
       section_12: { type: "CLP_MAPPED", content: s12Content },
-      section_13: { type: "QUARANTINE", content: PolishLegalTemplates.getSection13() },
+      section_13: { type: "CLP_MAPPED", content: s13Content },
+      section_14: { type: "CLP_MAPPED", content: s14Content },
       section_15: { type: "QUARANTINE", content: PolishLegalTemplates.getSection15() },
       section_16: { type: "CLP_MAPPED", content: mapHazardClass(rawSections["section_16"]) }
     };
 
     const toTranslate = {};
-    [10,11,14].forEach(i => {
+    [10,11].forEach(i => {
       toTranslate[`section_${i}`] = SDSProcessorEngine.cleanPdfArtifacts(rawSections[`section_${i}`]);
     });
 
@@ -1917,8 +2060,8 @@ class SDSDocxExporter {
         if (!tLine) return;
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
-        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):|Właściwości ekotoksykologiczne mieszaniny:|Informacje ekotoksykologiczne o składnikach:|Informacje dotyczące składników:|Substancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:|.+?\(CAS:\s*\d{2,7}-\d{2}-\d\):)$/i.test(tLine);
-        const isBoldStart = /^(Firma|Adres|E-mail|Telefon|Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria|Stan skupienia|Kolor|Zapach|Temperatura topnienia\/krzepnięcia|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Palność materiałów|Dolna i górna granica wybuchowości|Temperatura zapłonu|Temperatura samozapłonu|Temperatura rozkładu|pH|Lepkość kinematyczna|Rozpuszczalność w wodzie|Rozpuszczalność w innych rozpuszczalnikach|Współczynnik podziału n-oktanol\/woda \(wartość współczynnika log\)|Prężność pary|Gęstość lub gęstość względna|Względna gęstość pary|Charakterystyka cząsteczek|Lotne Związki Organiczne \(LZO \/ VOC\)|a\)\s*Ostra toksyczność dla środowiska wodnego|b\)\s*Przewlekła toksyczność dla środowiska wodnego|Współczynnik biokoncentracji \(BCF\)|Współczynnik podziału n-oktanol\/woda \(log Kow\)|Mieszanina):/i.test(tLine);
+        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):|Właściwości ekotoksykologiczne mieszaniny:|Informacje ekotoksykologiczne o składnikach:|Informacje dotyczące składników:|Substancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:|Zalecenia dotyczące produktu i pozostałości:|Zalecenia dotyczące odpadów opakowaniowych:|Zalecenia dotyczące opakowań:|Klasyfikacja i kody odpadów.+?:|Proponowane kody odpadów.+?:|Krajowe i unijne akty prawne dotyczące gospodarki odpadami:|.+?\(CAS:\s*\d{2,7}-\d{2}-\d\):)$/i.test(tLine);
+        const isBoldStart = /^(Firma|Adres|E-mail|Telefon|Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria|Stan skupienia|Kolor|Zapach|Temperatura topnienia\/krzepnięcia|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Palność materiałów|Dolna i górna granica wybuchowości|Temperatura zapłonu|Temperatura samozapłonu|Temperatura rozkładu|pH|Lepkość kinematyczna|Rozpuszczalność w wodzie|Rozpuszczalność w innych rozpuszczalnikach|Współczynnik podziału n-oktanol\/woda \(wartość współczynnika log\)|Prężność pary|Gęstość lub gęstość względna|Względna gęstość pary|Charakterystyka cząsteczek|Lotne Związki Organiczne \(LZO \/ VOC\)|a\)\s*Ostra toksyczność dla środowiska wodnego|b\)\s*Przewlekła toksyczność dla środowiska wodnego|Współczynnik biokoncentracji \(BCF\)|Współczynnik podziału n-oktanol\/woda \(log Kow\)|Kod ograniczeń przewozu przez tunele|Kategoria transportowa|Ilości ograniczone \(LQ\)|Ilości wyłączone \(EQ\)|Nalepka ostrzegawcza|Numer rozpoznawczy zagrożenia|Odpady z produktu.+?|Odpady opakowaniowe|Mieszanina|Uwaga):/i.test(tLine);
 
         if (isSubSection) {
            sectionsBody.push(new Paragraph({

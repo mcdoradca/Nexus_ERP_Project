@@ -9,5 +9,7 @@
     { "un_number": "1824", "class": "8", "name": "WODOROTLENEK SODU W ROZTWORZE", "packing_group": "II/III", "tunnel_code": "(E)" },
     { "un_number": "1950", "class": "2", "name": "AEROZOLE", "packing_group": "-", "tunnel_code": "(D)" },
     { "un_number": "1993", "class": "3", "name": "MATERIAŁ ZAPALNY CIEKŁY, I.N.O.", "packing_group": "I/II/III", "tunnel_code": "(D/E)" },
+    { "un_number": "1266", "class": "3", "name": "WYROBY PERFUMERYJNE zawierające palne rozpuszczalniki", "packing_group": "II/III", "tunnel_code": "(D/E)" },
     { "un_number": "3082", "class": "9", "name": "MATERIAŁ ZAGRAŻAJĄCY ŚRODOWISKU CIEKŁY, I.N.O.", "packing_group": "III", "tunnel_code": "(-)" }
 ]
+
