@@ -1181,18 +1181,23 @@ class SDSProcessorEngine {
     return `${brandPart} - ${descPart}`;
   }
 
-  processSection1(contentIt, productName = "", ufi = "") {
+  processSection1(contentIt, productName = "", ufi = "", manualOverrides = {}) {
     let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
 
-    // 1.1. Identyfikator produktu
+    // 1.1. Identyfikator produktu (SSOT: Karta PDF producenta)
     let tradeNameMatch = clean.match(/(?:Trade name|Nome commerciale|Nazwa handlowa|Product name)\s*[:\.]?\s*([^\n]+)/i);
+    const isTechnicalFilename = !productName || /^(?:PRODUKT CHEMICZNY|Mieszanina chemiczna|temp_sds_.*|\d{8,14}(?:_SDS.*)?|_SDS_.*|.*\.pdf)$/i.test(productName.trim());
+
     let rawTrade = "";
-    if (productName && productName !== "PRODUKT CHEMICZNY" && productName !== "Mieszanina chemiczna") {
-      rawTrade = productName;
-    } else if (tradeNameMatch) {
+    if (manualOverrides && manualOverrides.productName && manualOverrides.productName.trim()) {
+      rawTrade = manualOverrides.productName.trim();
+    } else if (tradeNameMatch && tradeNameMatch[1] && tradeNameMatch[1].trim()) {
+      // PDF producenta jest nadrzędnym źródłem prawdy (SSOT)
       rawTrade = tradeNameMatch[1].trim();
+    } else if (!isTechnicalFilename) {
+      rawTrade = productName.trim();
     } else {
-      rawTrade = productName || "Mieszanina chemiczna";
+      rawTrade = "Mieszanina chemiczna";
     }
 
     let resolvedTradeName = SDSProcessorEngine.polonizeTradeName(rawTrade);
@@ -2146,7 +2151,7 @@ class SDSProcessorEngine {
     const ufi = SDSChemicalExtractor.extractUfi(rawSections["section_1"]);
     const s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
     const s2 = this.processSection2(rawSections["section_2"], s3.resolvedSubstances);
-    const s1Content = this.processSection1(rawSections["section_1"], productName, ufi);
+    const s1Content = this.processSection1(rawSections["section_1"], productName, ufi, manualOverrides);
     const s4Content = this.processSection4(rawSections["section_4"]);
     const s5Content = this.processSection5(rawSections["section_5"]);
     const s6Content = this.processSection6(rawSections["section_6"]);
@@ -2185,9 +2190,8 @@ class SDSProcessorEngine {
       throw new HITLError(this.anomalies);
     }
 
-    const finalProductName = (productName && productName !== "PRODUKT CHEMICZNY" && productName !== "Mieszanina chemiczna")
-      ? SDSProcessorEngine.polonizeTradeName(productName)
-      : (this.lastResolvedTradeName || productName);
+    const isTechnicalFilename = !productName || /^(?:PRODUKT CHEMICZNY|Mieszanina chemiczna|temp_sds_.*|\d{8,14}(?:_SDS.*)?|_SDS_.*|.*\.pdf)$/i.test(productName.trim());
+    const finalProductName = this.lastResolvedTradeName || (!isTechnicalFilename ? SDSProcessorEngine.polonizeTradeName(productName) : "Karta Charakterystyki");
 
     return {
       metadata: { productName: finalProductName, ufi, version: "1.0 PL", companyConfig: this.companyConfig },

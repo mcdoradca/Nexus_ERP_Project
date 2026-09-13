@@ -22,9 +22,6 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
             setFile(selected);
             setError(null);
             setSuccess(false);
-            if (!productName) {
-                setProductName(selected.name.replace('.pdf', ''));
-            }
         } else {
             setError('Proszę wybrać prawidłowy plik PDF.');
         }
@@ -178,7 +175,7 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                                     <input 
                                         type="text" 
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                                        placeholder="np. SGRASSANTE EXTRA UNIVERSAL"
+                                        placeholder="Automatycznie z karty PDF (lub wpisz własną nazwę)"
                                         value={productName}
                                         onChange={(e) => setProductName(e.target.value)}
                                         disabled={isProcessing}
