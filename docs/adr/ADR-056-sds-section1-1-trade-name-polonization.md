@@ -27,7 +27,9 @@ W pliku źródłowym PDF sekcja 1.1 jednoznacznie określała identyfikator mies
 ## Podjęte Decyzje Architektoniczne
 1. **Warstwa UI (`frontend/src/components/SdsGeneratorTool.jsx`):**
    - Usunięto automatyczne przypisywanie nazwy pliku do stanu `productName` po wybraniu PDF.
+   - Odblokowano przycisk "Generuj DOCX": usunięto warunek `|| !productName` z atrybutu `disabled` (przycisk zależy wyłącznie od `!file || isProcessing`).
    - Zaktualizowano placeholder na `Automatycznie z karty PDF (lub wpisz własną nazwę)`.
+   - Naprawiono nieużywaną zmienną w bloku `catch` pod kątem reguł ESLint.
 2. **Warstwa Silnika SDS (`src/modules/sds/sds.service.js`):**
    - **Przywrócenie SSOT w `processSection1`:** Jeśli w pliku PDF w sekcji 1.1 występuje `Trade name:` / `Nome commerciale:` / `Nazwa handlowa:` / `Product name:`, system bezwzględnie pobiera ten ciąg jako bazę identyfikatora produktu.
    - **Tarcza anty-plikowa (`isTechnicalFilename`):** Wykrywanie i odrzucanie nazw plików (kody EAN, `_SDS_`, `temp_sds_`, `.pdf`, `PRODUKT CHEMICZNY`).

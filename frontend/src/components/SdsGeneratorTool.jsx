@@ -72,7 +72,7 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                     } else {
                         setError(json.error || 'Wystąpił błąd podczas generowania karty SDS.');
                     }
-                } catch(e) {
+                } catch {
                     setError('Błąd krytyczny serwera.');
                 }
             } else {
@@ -281,7 +281,7 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                         <div className="flex justify-end">
                             <button 
                                 onClick={handleGenerate}
-                                disabled={!file || isProcessing || !productName}
+                                disabled={!file || isProcessing}
                                 className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:text-slate-500 text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all shadow-lg shadow-indigo-200 flex items-center"
                             >
                                 {isProcessing ? (
