@@ -1077,12 +1077,126 @@ class SDSProcessorEngine {
       .replace(/\t/g, ' ');
   }
 
+  static polonizeTradeName(rawName) {
+    if (!rawName) return "Mieszanina chemiczna";
+    let cleanName = rawName
+      .replace(/\r/g, '')
+      .replace(/(?:^|\n)\s*(?:1\.1\b|Product identifier|Mixture identification|Identificatore del prodotto|Identificazione della miscela)[^\n]*/gi, '')
+      .replace(/(?:^|\n)\s*(?:Trade name|Nome commerciale|Nazwa handlowa|Product name)\s*[:\.]?\s*/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleanName) return "Mieszanina chemiczna";
+
+    // Sprawdzenie obecności myślnika dzielącego markę/linię od wariantu / opisu
+    const splitMatch = cleanName.match(/^([^\-–—]+)\s*[\-–—]\s*(.+)$/);
+    if (!splitMatch) {
+      return cleanName;
+    }
+
+    const brandPart = splitMatch[1].trim(); // Człon 1 (marka/linia) - nienaruszony w oryginale
+    let descPart = splitMatch[2].trim();    // Człon 2 (opis i wariant)
+
+    // Słownik mapowań fraz rodzajowych chemii gospodarczej i zapachowej (uporządkowany od najdłuższych/najbardziej specyficznych)
+    const categoryMappings = [
+      {
+        pattern: /\b(?:PROFUMA\s+TESSUTI\s+E\s+AMBIENTE|PROFUMATORE\s+(?:PER\s+)?TESSUTI\s+E\s+AMBIENTI?)\b/i,
+        pl: "PERFUMY DO TKANIN I POMIESZCZEŃ"
+      },
+      {
+        pattern: /\b(?:PROFUMATORE\s+(?:PER\s+)?BUCATO|PROFUMA\s+BUCATO|ESSENZA\s+(?:PER\s+)?BUCATO)\b/i,
+        pl: "PERFUMY DO PRANIA"
+      },
+      {
+        pattern: /\b(?:PROFUMA\s+TESSUTI|PROFUMATORE\s+(?:PER\s+)?TESSUTI)\b/i,
+        pl: "PERFUMY DO TKANIN"
+      },
+      {
+        pattern: /\b(?:DEODORANTE\s+(?:PER\s+)?AMBIENTI?|PROFUMATORE\s+(?:PER\s+)?AMBIENTI?|PROFUMA\s+AMBIENTI?|DIFFUSORE\s+(?:PER\s+)?AMBIENTI?)\b/i,
+        pl: "ODŚWIEŻACZ POWIETRZA"
+      },
+      {
+        pattern: /\b(?:DETERGENTE\s+(?:PER\s+)?SUPERFICI(?:\s+LAVABILI)?)\b/i,
+        pl: "ŚRODEK DO MYCIA POWIERZCHNI"
+      },
+      {
+        pattern: /\b(?:DETERSIVO\s+(?:PER\s+)?LAVATRICE|DETERSIVO\s+(?:PER\s+)?BUCATO|DETERGENTE\s+LAVATRICE)\b/i,
+        pl: "PŁYN DO PRANIA"
+      },
+      {
+        pattern: /\b(?:AMMORBIDENTE\s+CONCENTRATO|AMMORBIDENTE)\b/i,
+        pl: "PŁYN DO PŁUKANIA TKANIN"
+      },
+      {
+        pattern: /\b(?:SGRASSATORE\s+UNIVERSALE|SGRASSATORE)\b/i,
+        pl: "ODTŁUSZCZACZ UNIWERSALNY"
+      },
+      {
+        pattern: /\b(?:LAVAPAVIMENTI)\b/i,
+        pl: "PŁYN DO MYCIA PODŁÓG"
+      },
+      {
+        pattern: /\b(?:DETERGENTE\s+DISINCROSTANTE|DISINCROSTANTE)\b/i,
+        pl: "ŚRODEK ODKAMIENIAJĄCY"
+      },
+      {
+        pattern: /\b(?:DETERGENTE\s+WC|GEL\s+WC|DISINCROSTANTE\s+WC)\b/i,
+        pl: "ŻEL DO WC"
+      },
+      {
+        pattern: /\b(?:SAPONE\s+LIQUIDO)\b/i,
+        pl: "MYDŁO W PŁYNIE"
+      },
+      {
+        pattern: /\b(?:DETERGENTE\s+PIATTI|DETERSIVO\s+PIATTI)\b/i,
+        pl: "PŁYN DO NACZYŃ"
+      },
+      {
+        pattern: /\b(?:DETERGENTE)\b/i,
+        pl: "ŚRODEK CZYSZCZĄCY / DETERGENT"
+      }
+    ];
+
+    let matchedPlCategory = null;
+    let variantPart = descPart;
+
+    for (const cat of categoryMappings) {
+      if (cat.pattern.test(variantPart)) {
+        matchedPlCategory = cat.pl;
+        variantPart = variantPart.replace(cat.pattern, '').replace(/\s+/g, ' ').trim();
+        break;
+      }
+    }
+
+    if (matchedPlCategory) {
+      if (variantPart) {
+        // Polski szyk: WARIANT + POLSKA KATEGORIA (np. LULWA PERFUMY DO TKANIN I POMIESZCZEŃ)
+        return `${brandPart} - ${variantPart} ${matchedPlCategory}`;
+      } else {
+        return `${brandPart} - ${matchedPlCategory}`;
+      }
+    }
+
+    // Bezpieczny fallback: zachowanie członu po myślniku bez strat informacyjnych
+    return `${brandPart} - ${descPart}`;
+  }
+
   processSection1(contentIt, productName = "", ufi = "") {
     let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
 
     // 1.1. Identyfikator produktu
     let tradeNameMatch = clean.match(/(?:Trade name|Nome commerciale|Nazwa handlowa|Product name)\s*[:\.]?\s*([^\n]+)/i);
-    let resolvedTradeName = productName || (tradeNameMatch ? tradeNameMatch[1].trim() : "Mieszanina chemiczna");
+    let rawTrade = "";
+    if (productName && productName !== "PRODUKT CHEMICZNY" && productName !== "Mieszanina chemiczna") {
+      rawTrade = productName;
+    } else if (tradeNameMatch) {
+      rawTrade = tradeNameMatch[1].trim();
+    } else {
+      rawTrade = productName || "Mieszanina chemiczna";
+    }
+
+    let resolvedTradeName = SDSProcessorEngine.polonizeTradeName(rawTrade);
+    this.lastResolvedTradeName = resolvedTradeName;
 
     let codeMatch = clean.match(/(?:Trade code|Codice prodotto|Codice|Kod produktu|Product code)\s*[:\.]?\s*([^\n]+)/i);
     let tradeCode = codeMatch ? codeMatch[1].trim() : "";
@@ -2071,8 +2185,12 @@ class SDSProcessorEngine {
       throw new HITLError(this.anomalies);
     }
 
+    const finalProductName = (productName && productName !== "PRODUKT CHEMICZNY" && productName !== "Mieszanina chemiczna")
+      ? SDSProcessorEngine.polonizeTradeName(productName)
+      : (this.lastResolvedTradeName || productName);
+
     return {
-      metadata: { productName, ufi, version: "1.0 PL", companyConfig: this.companyConfig },
+      metadata: { productName: finalProductName, ufi, version: "1.0 PL", companyConfig: this.companyConfig },
       deterministicSections: deterministic,
       descriptiveSectionsToTranslate: toTranslate,
       quarantineAudit: this.quarantineLogs,
