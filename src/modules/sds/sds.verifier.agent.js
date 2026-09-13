@@ -214,6 +214,24 @@ class SDSVerifierAgent {
       });
     }
 
+    // =========================================================================
+    // REGUŁA 8: AUDYT SPÓJNOŚCI SCL W SEKCJI 3 (ELIMINACJA OSIEROCONYCH KODÓW H)
+    // =========================================================================
+    if (s3Content) {
+      let fixedS3 = s3Content;
+      if (/(?:\bSkin Irrit\. 2|\bEye Irrit\. 2|\bSkin Corr\. 1[A-C]|\bEye Dam\. 1|\bSkin Sens\. 1[A-B]?)\s*\n\s*(H\d{3}[a-zA-Z]?|EUH\d{3})/i.test(fixedS3)) {
+        fixedS3 = fixedS3.replace(/(\b(?:Skin Irrit\. 2|Eye Irrit\. 2|Skin Corr\. 1[A-C]|Eye Dam\. 1|Skin Sens\. 1[A-B]?))\s*\n\s*(H\d{3}[a-zA-Z]?|EUH\d{3})/gi, '$1 $2');
+      }
+      if (fixedS3 !== s3Content) {
+        validatedSections.section_3 = { ...validatedSections.section_3, content: fixedS3 };
+        auditLog.push({
+          rule: "SCL_ORPHAN_H_CODE_REMEDIATION",
+          status: "AUTO_REMEDIATED",
+          message: "Wykryto i scalono osierocone kody H w regułach SCL Sekcji 3."
+        });
+      }
+    }
+
     console.log(`[Verifier Agent] Audyt zakończony. Liczba wpisów w audycie: ${auditLog.length}`);
 
     return {

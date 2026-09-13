@@ -54,6 +54,33 @@ assert(!benzyl.classification.includes("0.00015"), `BŁĄD: Do klasyfikacji sali
 assert(cmi.concentration.includes("0,00015"), `BŁĄD: Dolny próg stężenia C(M)IT/MIT został obcięty: ${cmi.concentration}`);
 console.log(`-> TEST 1 PASSED: Salicylan klasyfikacja='${benzyl.classification}', C(M)IT/MIT stężenie='${cmi.concentration}'.`);
 
+// TEST 1B: Sekcja 3.2 - Prawidłowe parsowanie SCL ze złamanymi liniami kodów H (brak osieroconych H315/H319)
+console.log("\n[TEST 1B] Weryfikacja integralności SCL i scalania osieroconych kodów H...");
+const rawSec3Scl = `
+≥0.00015%-<0.0015%reaction mass of 5-chloro-2-methyl-2H-isothiazol-3-one and 2-methyl-2H-isothiazol-3-one (3:1)
+CAS: 55965-84-9
+Index: 613-167-00-5
+Acute Tox. 2 H330
+Specific Concentration Limits:
+C >= 0.6%: Skin Corr. 1C H314
+0.06% <= C < 0.6%: Skin Irrit. 2
+H315
+C >= 0.6%: Eye Dam. 1 H318
+0.06% <= C < 0.6%: Eye Irrit. 2
+H319
+C >= 0.0015%: Skin Sens. 1A H317
+M-Chronic: 100
+M-Acute: 100
+`;
+const sec3SclComps = SDSChemicalExtractor.parseSection3Components(rawSec3Scl, {});
+const cmiScl = sec3SclComps.find(c => c.cas === '55965-84-9');
+assert(cmiScl, "Nie znaleziono C(M)IT/MIT w teście SCL!");
+assert(cmiScl.classification.includes("0,06% ≤ C < 0,6%") && cmiScl.classification.includes("H315"), `BŁĄD: Wykasowano przedział SCL dla H315: ${cmiScl.classification}`);
+assert(cmiScl.classification.includes("0,06% ≤ C < 0,6%") && cmiScl.classification.includes("H319"), `BŁĄD: Wykasowano przedział SCL dla H319: ${cmiScl.classification}`);
+assert(!/\n\s*H315\s*(?:\n|$)/.test(cmiScl.classification), `BŁĄD: Kod H315 pozostał osierocony na osobnej linii: ${cmiScl.classification}`);
+assert(!/\n\s*H319\s*(?:\n|$)/.test(cmiScl.classification), `BŁĄD: Kod H319 pozostał osierocony na osobnej linii: ${cmiScl.classification}`);
+console.log("-> TEST 1B PASSED: SCL zachowało wszystkie przedziały stężeń i połączyło osierocone kody H.");
+
 // TEST 2: Sekcja 8.1 - Zgodność z nowelizacją Dz.U. 2024 poz. 1017 (CAS 55965-84-9: NDS 0,2 mg/m³, NDSCh 0,4 mg/m³, skóra)
 console.log("\n[TEST 2] Weryfikacja normatywów NDS dla CAS 55965-84-9 (Dz.U. 2024 poz. 1017)...");
 const s8WithCmi = engine.processSection8("", [
@@ -123,8 +150,34 @@ const s12BioResult = engine.processSection12(rawSec12Bio, [
 assert(s12BioResult.content.includes("salicylan benzylu"), "Brak salicylanu benzylu w sekcji 12.3!");
 assert(s12BioResult.content.includes("311"), "Brak wartości BCF 311 dla salicylanu benzylu!");
 assert(s12BioResult.content.includes("3,16"), "Brak BCF 3,16 dla C(M)IT/MIT!");
-assert(s12BioResult.content.includes("0,71"), "Brak log Kow 0,71 dla C(M)IT/MIT!");
 console.log("-> TEST 5 PASSED: Dane o bioakumulacji dla wszystkich składników zostały bezbłędnie wyekstrahowane.");
+
+// TEST 5B: Sekcja 12.3 - Ekstrakcja bioakumulacji przy zbitych nagłówkach i inline CAS (realistyczny PDF)
+console.log("\n[TEST 5B] Weryfikacja ekstrakcji bioakumulacji przy zbitych nagłówkach i inline CAS...");
+const rawSec12Clumped = `
+12.1. Toxicity
+12.2. Persistence and degradability
+12.3. Bioaccumulative potential
+12.4. Mobility in soil
+12.5. Results of PBT and vPvB assessment
+12.6. Endocrine disrupting properties
+List of Eco-Toxicological properties of the components
+benzyl salicylate (CAS: 118-58-1): Bioaccumulative; Test: BCF Bioconcentration factor, Wartość: = 311
+reaction mass of 5-chloro-2-methyl-2H-isothiazol-3-one and 2-methyl-2H-isothiazol-3-one (3:1) (CAS: 55965-84-9)
+Test: BCF - Bioconcentrantion factor; Value: = 3.16
+Test: Log Kow - partition coefficient; Value: <= 0.71
+No PBT or vPvB
+`;
+const s12ClumpedResult = engine.processSection12(rawSec12Clumped, [
+  { cas: "118-58-1", name: "salicylan benzylu", originalName: "benzyl salicylate" },
+  { cas: "55965-84-9", name: "masa poreakcyjna C(M)IT/MIT", originalName: "reaction mass of 5-chloro-2-methyl-2H-isothiazol-3-one and 2-methyl-2H-isothiazol-3-one (3:1)" }
+]);
+assert(s12ClumpedResult.content.includes("salicylan benzylu"), "Brak salicylanu benzylu w sekcji 12.3 przy zbitych nagłówkach!");
+assert(s12ClumpedResult.content.includes("311"), "Brak wartości BCF 311 dla salicylanu benzylu przy zbitych nagłówkach!");
+assert(s12ClumpedResult.content.includes("potencjał bioakumulacji"), "Brak deklaracji potencjału bioakumulacji!");
+assert(s12ClumpedResult.content.includes("3,16"), "Brak BCF 3,16 dla C(M)IT/MIT!");
+assert(s12ClumpedResult.content.includes("0,71"), "Brak log Kow 0,71 dla C(M)IT/MIT!");
+console.log("-> TEST 5B PASSED: Zbite nagłówki i inline CAS w Sekcji 12.3 zostały bezbłędnie rozdzielone i przetworzone.");
 
 // TEST 6: Sekcja 13 - Kody odpadów (brak gwiazdki * dla produktów niesklasyfikowanych)
 console.log("\n[TEST 6] Weryfikacja kodów odpadów dla mieszaniny niesklasyfikowanej...");

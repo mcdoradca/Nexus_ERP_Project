@@ -567,16 +567,57 @@ class SDSChemicalExtractor {
       if (indexMatch) classText = classText.replace(indexMatch[0], '');
       if (reachMatch) classText = classText.replace(reachMatch[0], '');
 
-      // Sanityzacja: usuwanie ewentualnych uciętych fragmentów stężeń z pola klasyfikacji
-      classText = classText.replace(/(?:^|\n)\s*(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%[^\n]*/g, '').trim();
-
+      // Normalizacja nagłówków SCL i współczynników M
       classText = classText
         .replace(/Specific Concentration Limits\s*[:\.]?/gi, 'Specyficzne stężenia graniczne:\n')
         .replace(/M-Chronic\s*[:\.]?\s*(\d+)/gi, 'M (przewlekły) = $1')
-        .replace(/M-Acute\s*[:\.]?\s*(\d+)/gi, 'M (ostry) = $1')
-        .replace(/\n\s*\n+/g, '\n')
-        .trim();
+        .replace(/M-Acute\s*[:\.]?\s*(\d+)/gi, 'M (ostry) = $1');
 
+      // Inteligentna pętla normalizująca linie klasyfikacji i SCL bez niszczenia przedziałów stężeń
+      const rawClassLines = classText.split('\n').map(l => l.trim()).filter(Boolean);
+      const processedClassLines = [];
+      let inSclBlock = false;
+
+      for (let li = 0; li < rawClassLines.length; li++) {
+        let curLine = rawClassLines[li];
+
+        if (/Specyficzne stężenia graniczne/i.test(curLine)) {
+          inSclBlock = true;
+          processedClassLines.push("Specyficzne stężenia graniczne:");
+          continue;
+        }
+
+        const isSclLine = inSclBlock || /(?:(?:^|[,\s])C\s*[≥≤><=]|[≥≤><=]?\s*\d+(?:[.,]\d+)?\s*%\s*[≤<=]\s*C|M\s*\((?:ostry|przewlekły)\)\s*=|ATE\b)/i.test(curLine);
+
+        if (!isSclLine) {
+          // Usuwamy wyłącznie śmieciowe resztki stężeń z sąsiednich wierszy tabeli (np. "≥0.00015%-" lub "<0.0015%"),
+          // pod warunkiem że linia nie zawiera faktycznych klas zagrożenia ani kodów H
+          if (/^(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%?\s*-?\s*$/i.test(curLine) ||
+              (/^(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%/i.test(curLine) && !/(?:Skin|Eye|Acute|Aquatic|Sens|Flam|Resp|STOT|Asp|H\d{3}|EUH)/i.test(curLine))) {
+            continue;
+          }
+        } else {
+          inSclBlock = true;
+          // Normalizacja typografii CLP: <= -> ≤, >= -> ≥, kropki dziesiętne na przecinki w liczbach procentowych
+          curLine = curLine
+            .replace(/<=/g, '≤')
+            .replace(/>=/g, '≥')
+            .replace(/(\d+)\.(\d+)\s*%/g, '$1,$2%');
+
+          // Scalanie połamanych wierszy SCL: jeśli następna linia jest osieroconym kodem H (np. "H315", "H319"), łączymy z bieżącą regułą SCL
+          if (li + 1 < rawClassLines.length) {
+            const nextL = rawClassLines[li + 1].trim();
+            if (/^(?:H\d{3}[a-zA-Z]?|EUH\d{3})(?:\s*,\s*(?:H\d{3}[a-zA-Z]?|EUH\d{3}))*$/i.test(nextL)) {
+              curLine = `${curLine} ${nextL}`;
+              li++; // pochłonięcie osieroconego kodu H
+            }
+          }
+        }
+
+        processedClassLines.push(curLine);
+      }
+
+      classText = processedClassLines.join('\n').trim();
       classText = mapHazardClass(classText);
 
       let plName = "";
@@ -1827,8 +1868,23 @@ class SDSProcessorEngine {
     const adjustBoundary = (text, idx) => {
       if (idx === -1) return -1;
       const sub = text.substring(0, idx);
-      const m = sub.match(/([^\n]+\n\s*CAS:\s*\d{2,7}-\d{2}-\d\s*)$/i);
-      if (m) return idx - m[1].length;
+
+      // Przypadek 1: Prefiks tej samej linii przed dopasowanym słowem kluczowym zawiera CAS lub nazwę składnika
+      const lastNl = sub.lastIndexOf('\n');
+      const curLinePrefix = lastNl !== -1 ? sub.substring(lastNl + 1) : sub;
+      if (/(?:CAS\s*[:\.]?\s*\d{2,7}-\d{2}-\d)/i.test(curLinePrefix) ||
+          (components && components.some(c => (c.originalName && curLinePrefix.toLowerCase().includes(c.originalName.toLowerCase())) ||
+                                              (c.name && curLinePrefix.toLowerCase().includes(c.name.toLowerCase()))))) {
+        return lastNl !== -1 ? lastNl + 1 : 0;
+      }
+
+      // Przypadek 2: Poprzedzające linie (1-2 linie wstecz) zawierają nazwę substancji i/lub CAS
+      const mMulti = sub.match(/((?:[^\n]+\n\s*){1,2}(?:CAS\s*[:\.]?\s*\d{2,7}-\d{2}-\d[^\n]*\n\s*))$/i);
+      if (mMulti) return idx - mMulti[1].length;
+
+      const mLine = sub.match(/([^\n]*(?:CAS\s*[:\.]?\s*\d{2,7}-\d{2}-\d)[^\n]*\n\s*)$/i);
+      if (mLine) return idx - mLine[1].length;
+
       return idx;
     };
 
@@ -1915,7 +1971,6 @@ class SDSProcessorEngine {
         curS1Sub = { cas, name: resolveSubName(rawName, cas), tests: [] };
         s1Substances.push(curS1Sub);
         prevL = line;
-        continue;
       }
       if (curS1Sub && /Aquatic (?:acute|chronic) toxicity|EC50|LC50|NOEC/i.test(line)) {
         curS1Sub.tests.push(formatEcotoxLine(line));
@@ -1950,7 +2005,6 @@ class SDSProcessorEngine {
         curS2Sub = { cas, name: resolveSubName(rawName, cas), info: [] };
         s2Substances.push(curS2Sub);
         prevL = line;
-        continue;
       }
       if (curS2Sub) {
         if (/Non-readily biodegradable|Not readily biodegradable/i.test(line)) {
@@ -1991,20 +2045,15 @@ class SDSProcessorEngine {
       const casM = line.match(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/i);
       if (casM) {
         const cas = casM[1];
-        if (curS3Sub && curS3Sub.cas === cas) {
-          prevL = line;
-          continue;
+        if (!curS3Sub || curS3Sub.cas !== cas) {
+          const comp = components.find(c => c.cas === cas);
+          const rawName = prevL && !/^(SECTION|12\.|List of|Eco-Toxicological|Test:|Not bioaccumulative|Bioaccumulative)/i.test(prevL) ? prevL : "";
+          curS3Sub = { cas, name: comp ? comp.name : resolveSubName(rawName, cas), info: [] };
+          s3Substances.push(curS3Sub);
         }
-        const comp = components.find(c => c.cas === cas);
-        const rawName = prevL && !/^(SECTION|12\.|List of|Eco-Toxicological|Test:|Not bioaccumulative|Bioaccumulative)/i.test(prevL) ? prevL : "";
-        curS3Sub = { cas, name: comp ? comp.name : resolveSubName(rawName, cas), info: [] };
-        s3Substances.push(curS3Sub);
-        prevL = line;
-        continue;
-      }
-
-      // Detekcja substancji po nazwie składnika z Sekcji 3 (np. benzyl salicylate)
-      if (components.length > 0) {
+        // NIE przerywamy pętli continue, ponieważ linia z CAS może zawierać dane testowe (np. "CAS: 118-58-1: Bioaccumulative; Test: BCF...")!
+      } else if (components.length > 0) {
+        // Detekcja substancji po nazwie składnika z Sekcji 3 (np. benzyl salicylate)
         const compMatch = components.find(c => {
           if (!c.originalName && !c.name) return false;
           const orig = (c.originalName || "").toLowerCase();
@@ -2019,38 +2068,64 @@ class SDSProcessorEngine {
       }
 
       if (curS3Sub) {
-        if (/Not bioaccumulative/i.test(line)) {
-          curS3Sub.info.push("Nie wykazuje zdolności do bioakumulacji.");
+        if (/Not bioaccumulative|Nie wykazuje (?:zdolności|potencjału) do bioakumulacji/i.test(line)) {
+          if (!curS3Sub.info.some(x => x.includes("bioakumulac"))) {
+            curS3Sub.info.push("nie wykazuje potencjału bioakumulacji");
+          }
         } else if (/Bioaccumulative/i.test(line) && !/Not bioaccumulative/i.test(line)) {
-          curS3Sub.info.push("Wykazuje zdolność do bioakumulacji.");
-        }
-        
-        if (/BCF/i.test(line)) {
-          const bcfMatch = line.match(/(?:BCF|Bioconcentrantion factor|Bioconcentration factor)\s*(?:[:=~-]|Value\s*[:\.]?\s*[=~]?)\s*([<≤>≥]?\s*\d+(?:[.,]\d+)?)/i)
-            || line.match(/Value\s*[:\.]?\s*([^\n;]+)/i);
-          const val = bcfMatch ? bcfMatch[1].trim().replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2) : "";
-          if (val) {
-            curS3Sub.info.push(`Współczynnik biokoncentracji (BCF): ${val}.`);
+          if (!curS3Sub.info.some(x => x.includes("bioakumulac"))) {
+            curS3Sub.info.push("wykazuje potencjał bioakumulacji");
           }
         }
         
-        if (/Log Kow|Log Pow/i.test(line)) {
-          const logMatch = line.match(/(?:Log Kow|Log Pow|partition coefficient)\s*(?:[:=~-]|Value\s*[:\.]?\s*[=~]?)\s*([<≤>≥]?\s*[\d,.-]+)/i)
-            || line.match(/Value\s*[:\.]?\s*([^\n;]+)/i);
-          const val = logMatch ? logMatch[1].trim().replace(/<=/g, '≤').replace(/>=/g, '≥').replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2) : "";
-          if (val) {
-            curS3Sub.info.push(`Współczynnik podziału n-oktanol/woda (log Kow): ${val}.`);
+        if (/BCF|Bioconcentr/i.test(line)) {
+          const bcfMatch = line.match(/(?:BCF|Bioconcentr(?:at|ant)ion\s+factor).*?(?:[:=~-]|(?:Value|Wartość)\s*[:\.]?\s*)\s*((?:<=|>=|[=~<≤>≥])?\s*\d+(?:[.,]\d+)?)/i)
+            || line.match(/(?:Value|Wartość)\s*[:\.]?\s*((?:<=|>=|[=~<≤>≥])?\s*\d+(?:[.,]\d+)?)/i)
+            || line.match(/\bBCF\s*=\s*((?:<=|>=|[=~<≤>≥])?\s*\d+(?:[.,]\d+)?)/i);
+          if (bcfMatch) {
+            const rawVal = bcfMatch[1].trim().replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2);
+            const val = rawVal.startsWith('=') ? rawVal : (rawVal.match(/^[<≤>≥]/) ? rawVal : `= ${rawVal}`);
+            if (!curS3Sub.info.some(x => x.includes("BCF"))) {
+              curS3Sub.info.push(`współczynnik biokoncentracji (BCF): ${val}`);
+            }
+          }
+        }
+        
+        if (/Log\s*Kow|Log\s*Pow|partition\s+coefficient/i.test(line)) {
+          const logMatch = line.match(/(?:Log\s*Kow|Log\s*Pow|partition\s+coefficient).*?(?:[:=~-]|(?:Value|Wartość)\s*[:\.]?\s*)\s*((?:<=|>=|[=~<≤>≥])?\s*[\d,.-]+)/i)
+            || line.match(/(?:Value|Wartość)\s*[:\.]?\s*((?:<=|>=|[=~<≤>≥])?\s*[\d,.-]+)/i);
+          if (logMatch) {
+            const rawVal = logMatch[1].trim().replace(/<=/g, '≤').replace(/>=/g, '≥').replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2);
+            if (!curS3Sub.info.some(x => x.includes("log Kow"))) {
+              curS3Sub.info.push(`współczynnik podziału n-oktanol/woda (log Kow): ${rawVal}`);
+            }
           }
         }
       }
       prevL = line;
     }
 
+    // Wzbogacenie o bufor EcotoxRegistry dla składników z Sekcji 3, jeśli brak danych z tekstu
+    if (components && components.length > 0) {
+      components.forEach(comp => {
+        if (!comp.cas) return;
+        let existing = s3Substances.find(s => s.cas === comp.cas);
+        const cached = EcotoxRegistry.getEntry(comp.cas);
+        if (!existing && cached && cached.bioaccumulation) {
+          existing = { cas: comp.cas, name: comp.name || cached.name_pl, info: [cached.bioaccumulation] };
+          s3Substances.push(existing);
+        } else if (existing && existing.info.length === 0 && cached && cached.bioaccumulation) {
+          existing.info.push(cached.bioaccumulation);
+        }
+      });
+    }
+
     if (s3Substances.length > 0 && s3Substances.some(s => s.info.length > 0)) {
       s12_3 += "Informacje dotyczące składników:\n";
       s3Substances.forEach(sub => {
         if (sub.info.length > 0) {
-          s12_3 += `${sub.name} (CAS: ${sub.cas}): ${sub.info.join(' ')}\n`;
+          const infoStr = sub.info.join('; ').replace(/\.\s*;/g, ';').replace(/;;\s*/g, '; ') + (sub.info[sub.info.length - 1].endsWith('.') ? '' : '.');
+          s12_3 += `${sub.name} (CAS: ${sub.cas}): ${infoStr}\n`;
         }
       });
       s12_3 += "Mieszanina: Brak dostępnych badań dotyczących bioakumulacji dla mieszaniny.";
