@@ -22,6 +22,9 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
             setFile(selected);
             setError(null);
             setSuccess(false);
+            if (!productName) {
+                setProductName(selected.name.replace(/\.pdf$/i, ''));
+            }
         } else {
             setError('Proszę wybrać prawidłowy plik PDF.');
         }
@@ -53,7 +56,8 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `Karta_Charakterystyki_${productName || 'PL'}.docx`);
+            const fileName = `Karta_Charakterystyki_${productName || (file ? file.name.replace(/\.pdf$/i, '') : 'PL')}.docx`;
+            link.setAttribute('download', fileName);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -121,7 +125,8 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `Karta_Charakterystyki_PL_${productName || 'WZNOWIONA'}.docx`);
+            const fileName = `Karta_Charakterystyki_PL_${productName || (file ? file.name.replace(/\.pdf$/i, '') : 'WZNOWIONA')}.docx`;
+            link.setAttribute('download', fileName);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -175,7 +180,7 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                                     <input 
                                         type="text" 
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                                        placeholder="Automatycznie z karty PDF (lub wpisz własną nazwę)"
+                                        placeholder="np. SGRASSANTE EXTRA UNIVERSAL"
                                         value={productName}
                                         onChange={(e) => setProductName(e.target.value)}
                                         disabled={isProcessing}

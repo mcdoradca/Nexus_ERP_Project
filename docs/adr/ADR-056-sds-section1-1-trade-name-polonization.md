@@ -1,4 +1,4 @@
-# ADR-056: Polonizacja Nazwy Handlowej i Przywrócenie SSOT w Podsekcji 1.1 Karty SDS
+# ADR-056: Polonizacja Nazwy Handlowej, Przywrócenie SSOT w Podsekcji 1.1 oraz Zachowanie Nazewnictwa Plików
 
 ## Status
 Zaakceptowany i wdrożony.
@@ -10,30 +10,23 @@ W pliku źródłowym PDF sekcja 1.1 jednoznacznie określała identyfikator mies
 `Mixture identification:`
 `Trade name: SWEET HOME LAYALI - PROFUMA TESSUTI E AMBIENTE LULWA`
 
-### Przyczyny źródłowe:
-1. **Zanieczyszczenie stanu w UI (`SdsGeneratorTool.jsx`):**
-   Komponent w `handleFileSelect` automatycznie wykonywał `setProductName(selected.name.replace('.pdf', ''))`. W rezultacie pole formularza było wstępnie wypełniane techniczną nazwą pliku (np. `8051944811049_SDS_LULWA`) i bezwiednie przesyłane do backendu.
-2. **Naruszenie zasady Single Source of Truth (SSOT) w backendzie (`sds.service.js`):**
-   Metoda `processSection1` priorytetyzowała parametr `productName` nad autentyczną etykietą `Trade name:` wyekstrahowaną bezpośrednio z karty PDF producenta. W efekcie silnik odrzucał dane z karty i polonizował techniczną nazwę pliku.
-
 ### Wymagania biznesowe i regulacyjne:
-1. Słowa `Trade name:` / `Nome commerciale:` muszą być przetłumaczone na `Nazwa handlowa:`.
-2. Pierwszy człon przed myślnikiem `-` (marka, seria, linia handlowa, np. `SWEET HOME LAYALI`) musi pozostać **w 100% w oryginale** bez tłumaczenia.
-3. Człon po myślniku `-` (kategoria i opis produktu wraz z wariantem zapachowym, np. `PROFUMA TESSUTI E AMBIENTE LULWA`) musi zostać przetłumaczony na język polski z zachowaniem wariantu i poprawnym szykiem (np. `LULWA PERFUMY DO TKANIN I POMIESZCZEŃ`).
-4. Format docelowy:
+1. **Nazewnictwo zapisanego pliku DOCX na dysku:** Pobrany plik musi bezwzględnie zachować swój unikalny identyfikator plikowy bazujący na wgrywanym dokumencie (np. `Karta_Charakterystyki_8051944811049_SDS_LULWA.docx`), aby zachować pełną kompatybilność z systemem ERP i kodami EAN.
+2. **Treść podsekcji 1.1 wewnątrz karty:** Wewnątrz wygenerowanego dokumentu w sekcji 1.1 nazwa handlowa musi być spolonizowana na:
    `Nazwa handlowa: SWEET HOME LAYALI - LULWA PERFUMY DO TKANIN I POMIESZCZEŃ`.
-5. Karta charakterystyki (PDF) producenta jest nadrzędnym źródłem prawdy (SSOT). Żadna techniczna nazwa pliku ani placeholder nie mogą nadpisać danych wyekstrahowanych z sekcji 1.1 karty PDF.
+3. Słowa `Trade name:` / `Nome commerciale:` muszą być przetłumaczone na `Nazwa handlowa:`.
+4. Pierwszy człon przed myślnikiem `-` (marka, linia handlowa, np. `SWEET HOME LAYALI`) musi pozostać **w 100% w oryginale** bez tłumaczenia.
+5. Człon po myślniku `-` (kategoria i opis produktu wraz z wariantem zapachowym, np. `PROFUMA TESSUTI E AMBIENTE LULWA`) musi zostać przetłumaczony na język polski z zachowaniem wariantu i poprawnym szykiem (np. `LULWA PERFUMY DO TKANIN I POMIESZCZEŃ`).
+6. Karta charakterystyki (PDF) producenta jest nadrzędnym źródłem prawdy (SSOT). Żadna techniczna nazwa pliku ani placeholder nie mogą nadpisać danych wyekstrahowanych z sekcji 1.1 karty PDF wewnątrz dokumentu.
 
 ## Podjęte Decyzje Architektoniczne
 1. **Warstwa UI (`frontend/src/components/SdsGeneratorTool.jsx`):**
-   - Usunięto automatyczne przypisywanie nazwy pliku do stanu `productName` po wybraniu PDF.
-   - Odblokowano przycisk "Generuj DOCX": usunięto warunek `|| !productName` z atrybutu `disabled` (przycisk zależy wyłącznie od `!file || isProcessing`).
-   - Zaktualizowano placeholder na `Automatycznie z karty PDF (lub wpisz własną nazwę)`.
-   - Naprawiono nieużywaną zmienną w bloku `catch` pod kątem reguł ESLint.
+   - Zachowano automatyczne przypisywanie nazwy pliku źródłowego do stanu `productName` w `handleFileSelect`, dzięki czemu pobierany plik zachowuje oryginalną nazwę na dysku (`Karta_Charakterystyki_${productName || file.name.replace(/\.pdf$/i, '')}.docx`).
+   - Odblokowano przycisk "Generuj DOCX": atrybut `disabled={!file || isProcessing}` gwarantuje, że przycisk jest aktywny natychmiast po wybraniu pliku.
+   - Usunięto błędy ESLint (nieużywana zmienna w bloku `catch`).
 2. **Warstwa Silnika SDS (`src/modules/sds/sds.service.js`):**
-   - **Przywrócenie SSOT w `processSection1`:** Jeśli w pliku PDF w sekcji 1.1 występuje `Trade name:` / `Nome commerciale:` / `Nazwa handlowa:` / `Product name:`, system bezwzględnie pobiera ten ciąg jako bazę identyfikatora produktu.
-   - **Tarcza anty-plikowa (`isTechnicalFilename`):** Wykrywanie i odrzucanie nazw plików (kody EAN, `_SDS_`, `temp_sds_`, `.pdf`, `PRODUKT CHEMICZNY`).
-   - **Obsługa ręcznego nadpisania (HITL):** `manualOverrides.productName` zachowuje pełną moc w procedurze wznowienia/interwencji człowieka.
+   - **Przywrócenie SSOT w `processSection1`:** Nawet gdy z UI przesyłana jest nazwa pliku (`8051944811049_SDS_LULWA`), silnik priorytetyzuje autentyczną etykietę `Trade name:` wyekstrahowaną bezpośrednio z karty PDF.
+   - **Tarcza anty-plikowa (`isTechnicalFilename`):** Wykrywanie i odrzucanie nazw plików (kody EAN, `_SDS_`, `temp_sds_`, `.pdf`, `PRODUKT CHEMICZNY`) jako nazwy handlowej wewnątrz dokumentu.
    - **Dedykowana metoda `polonizeTradeName(rawName)`:**
      - Sanityzacja: usuwanie nagłówków `1.1. Product identifier`, `Mixture identification:`, `Trade name:`, `Nome commerciale:` itp.
      - Detekcja separatora myślnika (` - `, ` – `, ` — `) dzielącego markę od opisu.
@@ -58,6 +51,7 @@ W pliku źródłowym PDF sekcja 1.1 jednoznacznie określała identyfikator mies
    - Wyznaczona spolonizowana nazwa handlowa trafia do `metadata.productName` i nagłówka stron dokumentu Word.
 
 ## Rezultaty
-- Wyeliminowano podstawianie technicznej nazwy pliku (`8051944811049_SDS_LULWA`) do sekcji 1.1.
-- Podsekcja 1.1 generuje idealnie sformatowaną linię: `Nazwa handlowa: SWEET HOME LAYALI - LULWA PERFUMY DO TKANIN I POMIESZCZEŃ`.
+- Nazwa zapisanego pliku DOCX na dysku pozostaje spójna z nazwą pliku wejściowego (`Karta_Charakterystyki_8051944811049_SDS_LULWA.docx`).
+- Podsekcja 1.1 wewnątrz dokumentu generuje idealnie sformatowaną linię: `Nazwa handlowa: SWEET HOME LAYALI - LULWA PERFUMY DO TKANIN I POMIESZCZEŃ`.
+- Przycisk „Generuj DOCX” działa natychmiast po wybraniu pliku.
 - Pełna zgodność z testami regresyjnymi (122 testy przeszły pomyślnie).
