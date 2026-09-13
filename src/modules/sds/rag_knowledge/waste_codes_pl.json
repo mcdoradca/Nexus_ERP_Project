@@ -1,0 +1,52 @@
+{
+  "categories": {
+    "detergents_and_cleaning": {
+      "keywords": ["detergent", "detergente", "środek czyszczący", "mydło", "sapone", "perfumy do tkanin", "profuma tessuti", "płyn do płukania", "ammorbidente", "odtłuszczacz", "sgrassatore", "lavapavimenti"],
+      "industrial_hazardous": "07 06 04* (Inne rozpuszczalniki organiczne, roztwory z przemywania i roztwory macierzyste) lub 16 03 05* (Organiczne odpady zawierające substancje niebezpieczne)",
+      "industrial_non_hazardous": "07 06 99 (Inne niewymienione odpady) lub 16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05)",
+      "consumer_hazardous": "20 01 29* (Detergenty zawierające substancje niebezpieczne)",
+      "consumer_non_hazardous": "20 01 30 (Detergenty inne niż wymienione w 20 01 29)"
+    },
+    "paints_and_varnishes": {
+      "keywords": ["farba", "lakier", "vernice", "pittura", "paint", "enamel", "emalia", "bejca", "szelak", "grunt"],
+      "industrial_hazardous": "08 01 11* (Odpady farb i lakierów zawierających rozpuszczalniki organiczne lub inne substancje niebezpieczne)",
+      "industrial_non_hazardous": "08 01 12 (Odpady farb i lakierów inne niż wymienione w 08 01 11)",
+      "consumer_hazardous": "20 01 27* (Farby, tusze, farby drukarskie, kleje, lepiszcze i żywice zawierające substancje niebezpieczne)",
+      "consumer_non_hazardous": "20 01 28 (Farby, tusze, farby drukarskie, kleje, lepiszcze i żywice inne niż wymienione w 20 01 27)"
+    },
+    "adhesives_and_sealants": {
+      "keywords": ["klej", "adesivo", "colla", "adhesive", "uszczelniacz", "silikon", "sealant"],
+      "industrial_hazardous": "08 04 09* (Odpady klejów i szczeliw zawierających rozpuszczalniki organiczne lub inne substancje niebezpieczne)",
+      "industrial_non_hazardous": "08 04 10 (Odpady klejów i szczeliw inne niż wymienione w 08 04 09)",
+      "consumer_hazardous": "20 01 27* (Farby, tusze, farby drukarskie, kleje, lepiszcze i żywice zawierające substancje niebezpieczne)",
+      "consumer_non_hazardous": "20 01 28 (Farby, tusze, farby drukarskie, kleje, lepiszcze i żywice inne niż wymienione w 20 01 27)"
+    },
+    "solvents_and_thinners": {
+      "keywords": ["rozpuszczalnik", "rozcieńczalnik", "solvent", "solvente", "diluente", "thinner", "aceton", "benzyna ekstrakcyjna"],
+      "industrial_hazardous": "14 06 03* (Inne rozpuszczalniki i mieszaniny rozpuszczalników)",
+      "industrial_non_hazardous": "16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05)",
+      "consumer_hazardous": "20 01 13* (Rozpuszczalniki)",
+      "consumer_non_hazardous": "20 01 30 (Detergenty inne niż wymienione w 20 01 29)"
+    },
+    "aerosols": {
+      "keywords": ["aerozol", "aerosol", "spray", "gaz nośny", "propelent"],
+      "industrial_hazardous": "16 05 04* (Gazy w pojemnikach ciśnieniowych zawierające substancje niebezpieczne)",
+      "industrial_non_hazardous": "16 05 05 (Gazy w pojemnikach ciśnieniowych inne niż wymienione w 16 05 04)",
+      "consumer_hazardous": "15 01 11* (Opakowania z metali zawierające niebezpieczne porowate elementy wzmocnienia konstrukcyjnego inne niż wymienione w 15 01 10, w tym puste pojemniki ciśnieniowe)",
+      "consumer_non_hazardous": "15 01 04 (Opakowania z metali)"
+    },
+    "general_chemical": {
+      "keywords": [],
+      "industrial_hazardous": "16 03 05* (Organiczne odpady zawierające substancje niebezpieczne) lub 16 05 08* (Zużyte chemikalia zawierające substancje niebezpieczne)",
+      "industrial_non_hazardous": "16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05)",
+      "consumer_hazardous": "20 01 29* (Detergenty zawierające substancje niebezpieczne) lub 20 01 27*",
+      "consumer_non_hazardous": "20 01 30 lub 20 01 28"
+    }
+  },
+  "packaging": {
+    "plastic": "15 01 02 (Opakowania z tworzyw sztucznych)",
+    "metal": "15 01 04 (Opakowania z metali)",
+    "glass": "15 01 07 (Opakowania ze szkła)",
+    "hazardous_contaminated": "15 01 10* (Opakowania zawierające pozostałości substancji niebezpiecznych lub nimi zanieczyszczone)"
+  }
+}

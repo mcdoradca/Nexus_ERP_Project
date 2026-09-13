@@ -278,6 +278,34 @@ class ADRRegistry {
   }
 }
 
+class WasteRegistry {
+  static database = {};
+
+  static loadRegistry(filePath) {
+    if (fs.existsSync(filePath)) {
+      try {
+        const rawData = fs.readFileSync(filePath, 'utf8');
+        this.database = JSON.parse(rawData);
+        console.log(`[SYS] Załadowano katalog odpadów (Dz.U. 2020 poz. 10).`);
+      } catch (e) {
+        this.database = {};
+      }
+    }
+  }
+
+  static getCategoryForProduct(textSample = "") {
+    if (!this.database || !this.database.categories) return null;
+    const lower = (textSample || "").toLowerCase();
+    for (const [catKey, catData] of Object.entries(this.database.categories)) {
+      if (catData.keywords && catData.keywords.some(kw => lower.includes(kw.toLowerCase()))) {
+        return catData;
+      }
+    }
+    return this.database.categories["general_chemical"] || null;
+  }
+}
+
+
 
 // ============================================================================
 // 3. PARSER PDF I DETEKTOR OCR
@@ -631,26 +659,39 @@ class ECHAFreeResolver {
 // 6. SZABLONY PRAWNE RP
 // ============================================================================
 class PolishLegalTemplates {
-  static getSection1_3() {
+  static getSection1_3(companyConfig = {}) {
+    const compName = companyConfig.companyName || "MITRANS Weronika Grzesiak";
+    const compAddress = companyConfig.address || "ul. Wesoła 16";
+    const compCity = companyConfig.city ? `${companyConfig.postalCode ? companyConfig.postalCode + " " : ""}${companyConfig.city}` : "63-600 Kępno, woj. wielkopolskie";
+    const compEmail = companyConfig.email || "kontakt@prostozwloch.com.pl";
+    const compPhone = companyConfig.phone || companyConfig.emergencyPhone || "+48 663116607";
+
     return (
       "1.3. Dane dotyczące dostawcy karty charakterystyki\n" +
-      "Firma: MITRANS Weronika Grzesiak\n" +
-      "Adres: ul. Wesoła 16, 63-600 Kępno, woj. wielkopolskie\n" +
-      "E-mail: kontakt@prostozwloch.com.pl\n" +
-      "Telefon: +48 663116607"
+      `Firma: ${compName}\n` +
+      `Adres: ${compAddress}, ${compCity}\n` +
+      `E-mail: ${compEmail}\n` +
+      `Telefon: ${compPhone}`
     );
   }
 
   static getSection1_4(ufiCode) {
-    const ufiStr = ufiCode ? `UFI: ${ufiCode}\n` : "[UWAGA: Brak kodu UFI w pliku!]\n";
+    const ufiStr = ufiCode ? `UFI: ${ufiCode}\n` : "";
     return (
       `${ufiStr}` +
-      "1.4. Numer telefonu alarmowego:\n" +
+      "1.4. Numer telefonu alarmowego\n" +
       "112 (ogólny telefon alarmowy w Polsce), 998 (straż pożarna), 999 (pogotowie ratunkowe)"
     );
   }
 
-  static getSection2_3() {
+  static getSection2_3(edSubstanceInfo = null) {
+    if (edSubstanceInfo) {
+      return (
+        "2.3. Inne zagrożenia\n" +
+        `Substancje zaburzające funkcjonowanie układu hormonalnego: Produkt zawiera ${edSubstanceInfo} podlegającą ocenie pod kątem właściwości zaburzających funkcjonowanie układu hormonalnego w odniesieniu do środowiska zgodnie z kryteriami określonymi w rozporządzeniu (UE) 2017/2100 lub rozporządzeniu (UE) 2018/605 (szczegółowe dane w sekcji 12.6).\n` +
+        "Komponenty mieszaniny nie spełniają kryteriów PBT lub vPvB zgodnie z załącznikiem XIII rozporządzenia REACH."
+      );
+    }
     return (
       "2.3. Inne zagrożenia\n" +
       "Produkt nie zawiera składników wpisanych do wykazu ustanowionego zgodnie z art. 59 ust. 1 jako posiadające właściwości zaburzające funkcjonowanie układu hormonalnego ani składników o właściwościach zaburzających funkcjonowanie układu hormonalnego zgodnie z kryteriami określonymi w rozporządzeniu 2017/2100/UE lub rozporządzeniu 2018/605/UE w stężeniu równym lub większym od 0,1 %.\n" +
@@ -658,13 +699,16 @@ class PolishLegalTemplates {
     );
   }
 
-  static getSection13(isHazardous = false) {
-    const productWasteCode = isHazardous 
-      ? "07 06 04* (Inne rozpuszczalniki organiczne, roztwory z przemywania i roztwory macierzyste) lub 16 03 05* (Organiczne odpady zawierające substancje niebezpieczne)"
-      : "07 06 99 (Inne niewymienione odpady) lub 16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05)";
-    const consumerWasteCode = isHazardous 
-      ? "20 01 29* (Detergenty zawierające substancje niebezpieczne)" 
-      : "20 01 30 (Detergenty inne niż wymienione w 20 01 29)";
+  static getSection13(isHazardous = false, productText = "") {
+    const category = WasteRegistry.getCategoryForProduct(productText) || {
+      industrial_hazardous: "16 03 05* (Organiczne odpady zawierające substancje niebezpieczne)",
+      industrial_non_hazardous: "16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05)",
+      consumer_hazardous: "20 01 29* (Detergenty zawierające substancje niebezpieczne) lub 20 01 27*",
+      consumer_non_hazardous: "20 01 30 lub 20 01 28"
+    };
+
+    const productWasteCode = isHazardous ? category.industrial_hazardous : category.industrial_non_hazardous;
+    const consumerWasteCode = isHazardous ? category.consumer_hazardous : category.consumer_non_hazardous;
 
     return (
       "SEKCJA 13: Postępowanie z odpadami\n\n" +
@@ -686,9 +730,21 @@ class PolishLegalTemplates {
     );
   }
 
-  static getSection15(svhcInfo = "", restrictionsInfo = "") {
+  static getSection15(svhcInfo = "", restrictionsInfo = "", isDetergent = false, isHighlyFlammable = false, isAquaticToxic = false) {
     const svhcText = svhcInfo || "Mieszanina nie zawiera substancji z listy kandydackiej SVHC podlegających procedurze udzielania zezwoleń (REACH załącznik XIV) w stężeniu ≥ 0,1% wag.";
     const restrText = restrictionsInfo || "Mieszanina nie podlega ograniczeniom na mocy załącznika XVII do rozporządzenia REACH.";
+
+    let detergentLawLine = "";
+    if (isDetergent) {
+      detergentLawLine = "- Rozporządzenie (WE) nr 648/2004 Parlamentu Europejskiego i Rady z dnia 31 marca 2004 r. w sprawie detergentów z późniejszymi zmianami.\n";
+    }
+
+    let sevesoLine = "- Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE z dnia 4 lipca 2012 r. w sprawie kontroli niebezpieczeństwa poważnych awarii związanych z substancjami niebezpiecznymi (Seveso III): Mieszanina nie podlega przepisom dyrektywy – brak substancji w ilościach progowych.\n";
+    if (isHighlyFlammable) {
+      sevesoLine = "- Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE (Seveso III): Z uwagi na właściwości cieczy łatwopalnych produkt może kwalifikować się do przepisów dyrektywy po przekroczeniu ilości progowych [Kategoria P5a/P5b/P5c: 10 t / 50 t lub 5 000 t / 50 000 t w zależności od warunków magazynowania]. Kwalifikacja zakładu (ZZR/ZDR) należy do prowadzącego zakład.\n";
+    } else if (isAquaticToxic) {
+      sevesoLine = "- Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE (Seveso III): Z uwagi na zagrożenia dla środowiska wodnego produkt może kwalifikować się do przepisów dyrektywy po przekroczeniu ilości progowych [Kategoria E1: 100 t / 200 t]. Kwalifikacja zakładu (ZZR/ZDR) należy do prowadzącego zakład.\n";
+    }
 
     return (
       "SEKCJA 15: Informacje dotyczące przepisów prawnych\n\n" +
@@ -697,10 +753,10 @@ class PolishLegalTemplates {
       "- Rozporządzenie (WE) nr 1907/2006 Parlamentu Europejskiego i Rady z dnia 18 grudnia 2006 r. w sprawie rejestracji, oceny, udzielania zezwoleń i stosowanych ograniczeń w zakresie chemikaliów (REACH) z późniejszymi zmianami.\n" +
       "- Rozporządzenie Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniające załącznik II do rozporządzenia (WE) nr 1907/2006 (wymogi dotyczące sporządzania kart charakterystyki).\n" +
       "- Rozporządzenie Parlamentu Europejskiego i Rady (WE) nr 1272/2008 z dnia 16 grudnia 2008 r. w sprawie klasyfikacji, oznakowania i pakowania substancji i mieszanin (CLP) z późniejszymi zmianami (kolejne ATP).\n" +
-      "- Rozporządzenie (WE) nr 648/2004 Parlamentu Europejskiego i Rady z dnia 31 marca 2004 r. w sprawie detergentów z późniejszymi zmianami.\n" +
+      detergentLawLine +
       `- Substancje wzbudzające szczególnie duże obawy (SVHC – REACH załącznik XIV): ${svhcText}\n` +
       `- Ograniczenia dotyczące produkcji, wprowadzania do obrotu i stosowania niektórych niebezpiecznych substancji (REACH załącznik XVII): ${restrText}\n` +
-      "- Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE z dnia 4 lipca 2012 r. w sprawie kontroli niebezpieczeństwa poważnych awarii związanych z substancjami niebezpiecznymi (Seveso III): Mieszanina nie podlega przepisom dyrektywy – brak substancji w ilościach progowych.\n" +
+      sevesoLine +
       "- Rozporządzenie Parlamentu Europejskiego i Rady (UE) nr 649/2012 z dnia 4 lipca 2012 r. dotyczące wywozu i przywozu niebezpiecznych chemikaliów (PIC): Nie dotyczy.\n\n" +
       "Prawodawstwo Rzeczypospolitej Polskiej:\n" +
       "- Ustawa z dnia 25 lutego 2011 r. o substancjach chemicznych i ich mieszaninach (t.j. Dz.U. 2022 poz. 1816 z późn. zm.).\n" +
@@ -717,6 +773,7 @@ class PolishLegalTemplates {
     );
   }
 }
+
 
 // ============================================================================
 // 7. GENERATOR PNG (Zero Native Dependencies)
@@ -824,7 +881,10 @@ class SDSProcessorEngine {
     EcotoxRegistry.loadRegistry(ecotoxPath);
     const adrPath = path.join(__dirname, 'rag_knowledge', 'adr_transport_pl.json');
     ADRRegistry.loadRegistry(adrPath);
+    const wastePath = path.join(__dirname, 'rag_knowledge', 'waste_codes_pl.json');
+    WasteRegistry.loadRegistry(wastePath);
   }
+
 
   processSection2(contentIt, resolvedSubstances = {}) {
     const hCodes = SDSChemicalExtractor.extractHCodes(contentIt);
@@ -955,9 +1015,19 @@ class SDSProcessorEngine {
 
     const components = SDSChemicalExtractor.parseSection3Components(contentIt, resolvedSubstances);
 
+    let chemDesc = "Mieszanina substancji stwarzających zagrożenie wraz z dodatkami niesklasyfikowanymi.";
+    const descMatch = (contentIt || "").match(/(?:Chemical description|Descrizione chimica|Opis chemiczny|Description)\s*[:\.]?\s*([^\n]+)/i);
+    if (descMatch && descMatch[1] && !/not applicable|non applicabile/i.test(descMatch[1])) {
+      chemDesc = descMatch[1].trim()
+        .replace(/aqueous solution/gi, 'wodny roztwór')
+        .replace(/soluzione acquosa/gi, 'wodny roztwór')
+        .replace(/mixture of/gi, 'mieszanina')
+        .replace(/miscela di/gi, 'mieszanina');
+    }
+
     let textContent = "SEKCJA 3: Skład / informacja o składnikach\n\n";
     textContent += "3.1. Substancje: Nie dotyczy.\n\n";
-    textContent += "3.2. Mieszaniny\nOpis chemiczny: Mieszanina substancji niebezpiecznych wraz z dodatkami nieniebezpiecznymi.\n\n";
+    textContent += `3.2. Mieszaniny\nOpis chemiczny: ${chemDesc}\n\n`;
 
     if (components.length > 0) {
       components.forEach((c, idx) => {
@@ -972,8 +1042,9 @@ class SDSProcessorEngine {
 
     textContent += "Pełne brzmienie zwrotów H i EUH znajduje się w sekcji 16 karty charakterystyki.";
 
-    return { content: textContent, components, resolvedSubstances };
+    return { content: textContent, components, resolvedSubstances, chemicalDescription: chemDesc };
   }
+
 
   // ============================================================================
   // UNIWERSALNE SŁOWNIKI I MAPOWANIA REGULACYJNE (UE 2020/878)
@@ -1233,6 +1304,11 @@ class SDSProcessorEngine {
     else if (/detergent|detergente/i.test(rawRec)) translatedRec = "środek czyszczący / detergent";
     else if (/air freshener|deodorante/i.test(rawRec)) translatedRec = "odświeżacz powietrza";
     else if (/cleaner/i.test(rawRec)) translatedRec = "preparat myjący";
+    else if (/paint|vernice|pittura/i.test(rawRec)) translatedRec = "farba / wyrób lakierowy";
+    else if (/adhesive|adesivo|colla/i.test(rawRec)) translatedRec = "klej / preparat uszczelniający";
+    else if (/solvent|solvente|diluente|thinner/i.test(rawRec)) translatedRec = "rozpuszczalnik / rozcieńczalnik";
+    else if (/lubricant|lubrificante/i.test(rawRec)) translatedRec = "środek smarny / ciecz techniczna";
+    else if (/coolant|antifreeze/i.test(rawRec)) translatedRec = "płyn chłodzący / przeciw zamarzaniu";
 
     let identifiedUses = "Brak szczegółowych informacji w karcie źródłowej.";
     if (usePrefix.length > 0 && translatedRec) {
@@ -1255,19 +1331,27 @@ class SDSProcessorEngine {
     }
 
     // 1.3. Dane dotyczące dostawcy karty charakterystyki
+    const compName = this.companyConfig.companyName || "MITRANS Weronika Grzesiak";
+    const compAddress = this.companyConfig.address || "ul. Wesoła 16";
+    const compCity = this.companyConfig.city ? `${this.companyConfig.postalCode ? this.companyConfig.postalCode + " " : ""}${this.companyConfig.city}` : "63-600 Kępno, woj. wielkopolskie";
+    const compEmail = this.companyConfig.email || "kontakt@prostozwloch.com.pl";
+    const compPhone = this.companyConfig.phone || this.companyConfig.emergencyPhone || "+48 663116607";
+    const emergPhone = this.companyConfig.emergencyPhone || compPhone;
+
     let s13 = "1.3. Dane dotyczące dostawcy karty charakterystyki\n";
-    s13 += `Firma: ${this.companyConfig.companyName || "MITRANS Weronika Grzesiak"}\n`;
-    s13 += "Adres: ul. Wesoła 16, 63-600 Kępno, woj. wielkopolskie\n";
-    s13 += "E-mail: kontakt@prostozwloch.com.pl\n";
-    s13 += `Telefon: ${this.companyConfig.emergencyPhone || "+48 663116607"}`;
+    s13 += `Firma: ${compName}\n`;
+    s13 += `Adres: ${compAddress}, ${compCity}\n`;
+    s13 += `E-mail: ${compEmail}\n`;
+    s13 += `Telefon: ${compPhone}`;
 
     // 1.4. Numer telefonu alarmowego (zgodnie z Rozporządzeniem (UE) 2020/878 Załącznik II pkt 1.4 i wytycznymi ECHA)
     let s14 = "1.4. Numer telefonu alarmowego\n";
-    s14 += `Telefon alarmowy przedsiębiorstwa: ${this.companyConfig.emergencyPhone || "+48 663 116 607"} (czynny od poniedziałku do piątku w godzinach 8:00 – 16:00, informacja udzielana w języku polskim)\n`;
+    s14 += `Telefon alarmowy przedsiębiorstwa: ${emergPhone} (czynny od poniedziałku do piątku w godzinach 8:00 – 16:00, informacja udzielana w języku polskim)\n`;
     s14 += "Informacja toksykologiczna w Polsce (organ doradczy):\n";
     s14 += "Krajowe Centrum Informacji Toksykologicznej (Instytut Medycyny Pracy im. prof. J. Nofera w Łodzi): tel. +48 42 631 47 24, +48 42 631 47 25 (czynne w dni robocze w godz. 7:00 – 15:00)\n";
     s14 += "Ośrodek Informacji Toksykologicznej w Warszawie (całodobowa informacja toksykologiczna 24/7): tel. +48 22 619 66 54\n";
     s14 += "Ogólne telefony ratunkowe w nagłych wypadkach: 112 (ogólnoeuropejski numer alarmowy), 998 (straż pożarna), 999 (pogotowie ratunkowe)";
+
 
     // Asemblacja sekcji 1
     let output = "SEKCJA 1: Identyfikacja substancji/mieszaniny i identyfikacja przedsiębiorstwa\n\n";
@@ -1332,8 +1416,9 @@ class SDSProcessorEngine {
     let adviceMatch = clean.match(/(?:^|\n)\s*5\.3\b[.:\-]?\s*([\s\S]*?)$/i);
 
     let rawSuitable = suitableMatch ? suitableMatch[1].replace(/Extinguishing media which must not.*/is, '').trim() : "";
-    let suitableText = SDSProcessorEngine.translatePhrase(rawSuitable, "Gaśnica śniegowa (CO2), gaśnica proszkowa, piana gaśnicza, woda.");
+    let suitableText = SDSProcessorEngine.translatePhrase(rawSuitable, "Piana gaśnicza, proszek gaśniczy, dwutlenek węgla (CO2), rozproszone prądy wody. Środki gaśnicze dobrać odpowiednio do materiałów palnych znajdujących się w otoczeniu pożaru.");
     let unsuitableText = SDSProcessorEngine.translatePhrase(unsuitableMatch ? unsuitableMatch[1] : "", "Brak szczególnych.");
+
     
     let rawHazards = hazardsMatch ? hazardsMatch[1].replace(/^(?:Special hazards[^\n]*|Pericoli speciali[^\n]*|Szczególne zagrożenia[^\n]*)\s*/i, '').trim() : "";
     let hazardsText = SDSProcessorEngine.translatePhrase(rawHazards, "Unikać wdychania produktów spalania.");
@@ -1578,15 +1663,19 @@ class SDSProcessorEngine {
     return output;
   }
 
-  processSection8(contentIt) {
-    const foundCas = this.extractedSubstances.map(s => s.casNumber);
+  processSection8(contentIt, components = [], s2Content = "") {
+    const allCas = Array.from(new Set([
+      ...this.extractedSubstances.map(s => s.casNumber),
+      ...components.map(c => c.cas).filter(Boolean)
+    ]));
+
     let output = "SEKCJA 8: Kontrola narażenia/środki ochrony indywidualnej\n\n";
     output += "8.1. Parametry dotyczące kontroli\n";
     
     let ndsLines = [];
     let hasKnownNds = false;
-    if (foundCas.length > 0) {
-      for (const cas of Array.from(new Set(foundCas))) {
+    if (allCas.length > 0) {
+      for (const cas of allCas) {
         const entry = NDSRegistry.getEntry(cas);
         if (entry) {
           hasKnownNds = true;
@@ -1604,26 +1693,74 @@ class SDSProcessorEngine {
     }
 
     let cleanIt = (contentIt || "").replace(/\r/g, '').replace(/\t/g, ' ');
+
+    // Wartości zagraniczne OEL / MAK – wklejane WYŁĄCZNIE dla substancji faktycznie obecnych w składzie!
     if (/Community Occupational Exposure Limits|OEL|MAK/i.test(cleanIt)) {
-      output += "Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego (OEL):\n";
-      output += "Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu (3:1) (CAS: 55965-84-9):\n";
-      output += "Austria – wartość dopuszczalna długoterminowa (8h): 0,05 mg/m³; Uwagi: MAK, Sh; Źródło: GKV, BGBl. II Nr. 156/2021.\n\n";
+      let oelLines = [];
+      if (allCas.includes("55965-84-9") && /55965-84-9|isothiazol/i.test(cleanIt)) {
+        oelLines.push("Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu (3:1) (CAS: 55965-84-9):\nAustria – wartość dopuszczalna długoterminowa (8h): 0,05 mg/m³; Uwagi: MAK, Sh; Źródło: GKV, BGBl. II Nr. 156/2021.");
+      }
+      if (allCas.includes("64-17-5") && /64-17-5|ethanol/i.test(cleanIt)) {
+        oelLines.push("Etanol (CAS: 64-17-5):\nNiemcy (AGW) / Austria (MAK): 380 mg/m³ (200 ppm) / 960 mg/m³ (500 ppm).");
+      }
+      if (allCas.includes("67-63-0") && /67-63-0|propan-2-ol|isopropanol/i.test(cleanIt)) {
+        oelLines.push("Propan-2-ol (CAS: 67-63-0):\nNiemcy (AGW) / Austria (MAK): 500 mg/m³ (200 ppm).");
+      }
+
+      if (oelLines.length > 0) {
+        output += "Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego (OEL):\n";
+        output += oelLines.join("\n\n") + "\n\n";
+      }
     }
 
-    output += "Wartości DNEL i PNEC: Dla mieszaniny i jej składników nie oznaczono wartości DNEL oraz PNEC.\n";
+    // Wartości DNEL i PNEC
+    const { dnel, pnec } = SDSChemicalExtractor.extractDnelPnec(cleanIt);
+    if (dnel.length > 0 || pnec.length > 0) {
+      output += "Wartości DNEL i PNEC wyznaczone dla składników mieszaniny:\n";
+      if (dnel.length > 0) output += `DNEL:\n${dnel.join('\n')}\n`;
+      if (pnec.length > 0) output += `PNEC:\n${pnec.join('\n')}\n`;
+      output += "\n";
+    } else {
+      output += "Wartości DNEL i PNEC: Dla mieszaniny i jej składników nie oznaczono wartości DNEL oraz PNEC.\n";
+    }
+
     output += "Zalecane procedury monitorowania: Należy stosować procedury monitorowania stężeń niebezpiecznych substancji w powietrzu na stanowiskach pracy oraz procedury kontroli wentylacji zgodnie z odpowiednimi Polskimi Normami.\n\n";
 
+    // 8.2. Kontrola narażenia – ochrona indywidualna wg Dz.U. 2016 poz. 1488 i norm PN-EN
+    const causesEye = /H314|H318|H319|Eye Dam|Eye Irrit|Skin Corr/i.test(s2Content) || components.some(c => /H314|H318|H319|Eye Dam|Eye Irrit/i.test(c.classification || ""));
+    const causesSkin = /H314|H315|H317|H312|H310|Skin Corr|Skin Irrit|Skin Sens|EUH066/i.test(s2Content) || /H224|H225/i.test(s2Content) || components.some(c => /H314|H315|H317|H312|H310|Skin Corr|Skin Irrit|Skin Sens|EUH066/i.test(c.classification || ""));
+    const isVolatile = /H224|H225|H330|H331|H332|H335|H336/i.test(s2Content);
+
+
+
+    let eyeProtection = causesEye 
+      ? "Nosić okulary ochronne w szczelnej obudowie lub gogle ochronne zgodne z normą PN-EN 166."
+      : "Brak szczególnych wymagań w normalnych warunkach stosowania. Należy postępować zgodnie z zasadami dobrej praktyki przemysłowej i higieny pracy.";
+
+    let skinProtection = causesSkin
+      ? "Stosować odpowiednią odzież roboczą chroniącą przed kontaktem z chemikaliami."
+      : "Nie są wymagane szczególne środki ostrożności przy normalnym stosowaniu.";
+
+    let handProtection = causesSkin
+      ? "Stosować rękawice ochronne odporne na działanie chemikaliów (np. z kauczuku nitrylowego lub neoprenu) zgodne z normą PN-EN ISO 374-1. Czas przebicia i grubość materiału należy skonsultować z dostawcą rękawic."
+      : "Nie jest wymagana przy normalnym stosowaniu.";
+
+    let respProtection = isVolatile
+      ? "W normalnych warunkach stosowania przy właściwej wentylacji nie jest wymagana. W przypadku niedostatecznej wentylacji lub przekroczenia dopuszczalnych stężeń NDS stosować odpowiedni sprzęt ochrony dróg oddechowych z pochłaniaczem par typu A (norma PN-EN 14387)."
+      : "Nie dotyczy w warunkach właściwej wentylacji pomieszczeń.";
+
     output += "8.2. Kontrola narażenia\n";
-    output += "Ochrona oczu: Brak szczególnych wymagań w normalnych warunkach stosowania. Należy jednak postępować zgodnie z dobrymi praktykami roboczymi.\n";
-    output += "Ochrona skóry: Nie są wymagane szczególne środki ostrożności przy normalnym stosowaniu.\n";
-    output += "Ochrona rąk: Nie jest wymagana przy normalnym stosowaniu.\n";
-    output += "Ochrona dróg oddechowych: Nie dotyczy.\n";
+    output += `Ochrona oczu: ${eyeProtection}\n`;
+    output += `Ochrona skóry: ${skinProtection}\n`;
+    output += `Ochrona rąk: ${handProtection}\n`;
+    output += `Ochrona dróg oddechowych: ${respProtection}\n`;
     output += "Zagrożenia termiczne: Nie dotyczy.\n";
-    output += "Kontrola narażenia środowiska: Nie dotyczy.\n";
-    output += "Środki higieniczne i techniczne: Nie dotyczy.";
+    output += "Kontrola narażenia środowiska: Nie dopuścić do przedostania się dużych ilości produktu do kanalizacji, wód powierzchniowych ani gruntowych.\n";
+    output += "Środki higieniczne i techniczne: Zapewnić odpowiednią wentylację ogólną i miejscową na stanowiskach pracy. Myć ręce po zakończeniu pracy z produktem. Nie jeść i nie pić podczas stosowania.";
 
     return output;
   }
+
 
   processSection12(contentIt, components = []) {
     let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
@@ -1855,16 +1992,33 @@ class SDSProcessorEngine {
 
     // --- 12.6. WŁAŚCIWOŚCI ZABURZAJĄCE FUNKCJONOWANIE UKŁADU HORMONALNEGO ---
     let s12_6 = "12.6. Właściwości zaburzające funkcjonowanie układu hormonalnego\n";
-    if (/List II|List I|endocrine disruption/i.test(block6)) {
+    const isExplicitlyDeniedEd = /(?:no substances|non contiene|nie zawiera|brak substancji|not listed|no endocrine)/i.test(block6);
+    const casM = block6.match(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/i);
+    const edComp = components.find(c => {
+      const entry = c.cas ? EcotoxRegistry.getEntry(c.cas) : null;
+      return entry && entry.endocrineDisruptor;
+    });
+
+    let detectedEdCas = null;
+    if (!isExplicitlyDeniedEd) {
+      if (casM && (EcotoxRegistry.getEntry(casM[1])?.endocrineDisruptor || /List I|List II/i.test(block6))) {
+        detectedEdCas = casM[1];
+      } else if (edComp) {
+        detectedEdCas = edComp.cas;
+      }
+    }
+
+    let edSubstanceSummary = null;
+    if (detectedEdCas) {
+      const name = resolveSubName(edComp ? edComp.name : "", detectedEdCas);
+      edSubstanceSummary = `${name} (CAS: ${detectedEdCas})`;
       s12_6 += "Substancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:\n";
-      const casM = block6.match(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/i);
-      const cas = casM ? casM[1] : "1222-05-5";
-      const name = resolveSubName("galaksolid", cas);
-      s12_6 += `${name} (CAS: ${cas}): Wykaz II ECHA – substancja podlegająca ocenie pod kątem właściwości zaburzających funkcjonowanie układu hormonalnego zgodnie z przepisami UE.\n\n`;
+      s12_6 += `${name} (CAS: ${detectedEdCas}): Wykaz II ECHA – substancja podlegająca ocenie pod kątem właściwości zaburzających funkcjonowanie układu hormonalnego zgodnie z przepisami UE.\n\n`;
       s12_6 += "Pozostałe składniki mieszaniny nie zawierają substancji o właściwościach zaburzających funkcjonowanie układu hormonalnego w odniesieniu do środowiska w stężeniu ≥ 0,1% wag.";
     } else {
       s12_6 += "Mieszanina nie zawiera substancji o właściwościach zaburzających funkcjonowanie układu hormonalnego w odniesieniu do środowiska w stężeniu ≥ 0,1% wag.";
     }
+
 
     // --- 12.7. INNE SZKODLIWE SKUTKI DZIAŁANIA ---
     let s12_7 = "12.7. Inne szkodliwe skutki działania\n";
@@ -1880,15 +2034,19 @@ class SDSProcessorEngine {
     output += `${s12_6.trim()}\n\n`;
     output += `${s12_7.trim()}`;
 
-    return output.trim();
+    return {
+      content: output.trim(),
+      endocrineDisruptorInfo: edSubstanceSummary
+    };
   }
 
-  processSection13(rawContent = "", components = [], s2Content = "") {
+  processSection13(rawContent = "", components = [], s2Content = "", s1Content = "") {
     const hasGhsHazard = /GHS0[1235689]|H2\d\d|H30[0-4]|H31[0-4]|H318|H33[0-4]|H34\d|H35\d|H36\d|H37\d|H400|H41[01]/i.test(s2Content);
     const hasHazardousComponents = components.some(c => /H2\d\d|H30[0-4]|H31[0-4]|H318|H33[0-4]|H34\d|H35\d|H36\d|H37\d|H400|H41[01]/i.test(c.classification || ""));
     const isHazardous = hasGhsHazard || hasHazardousComponents;
 
-    return PolishLegalTemplates.getSection13(isHazardous);
+    const productText = `${s1Content} ${rawContent} ${components.map(c => c.name || "").join(' ')}`;
+    return PolishLegalTemplates.getSection13(isHazardous, productText);
   }
 
   processSection14(rawContent = "") {
@@ -1969,7 +2127,7 @@ class SDSProcessorEngine {
     return out;
   }
 
-  processSection15(rawContent = "", components = []) {
+  processSection15(rawContent = "", components = [], s1Content = "", s2Content = "") {
     let clean = SDSProcessorEngine.cleanPdfArtifacts(rawContent);
 
     let svhcText = "";
@@ -1983,8 +2141,13 @@ class SDSProcessorEngine {
       restrText = `Składniki mieszaniny podlegają ograniczeniom wymienionym w załączniku XVII do rozporządzenia REACH (pozycja: ${restrMatch[1].trim()}). Produkt nie jest przeznaczony do zastosowań objętych ograniczeniami.`;
     }
 
-    return PolishLegalTemplates.getSection15(svhcText, restrText);
+    const isDetergent = /detergent|czyszcząc|myjąc|mydło|płukania|odtłuszczacz|lavapavimenti|ammorbidente|sgrassatore|profuma tessuti/i.test(s1Content);
+    const isHighlyFlammable = /H224|H225|Flam\. Liq\. 1|Flam\. Liq\. 2/i.test(s2Content);
+    const isAquaticToxic = /H400|H410/i.test(s2Content);
+
+    return PolishLegalTemplates.getSection15(svhcText, restrText, isDetergent, isHighlyFlammable, isAquaticToxic);
   }
+
 
   processSection16(rawContent = "", components = [], s2Content = "") {
     let clean = SDSProcessorEngine.cleanPdfArtifacts(rawContent);
@@ -2156,18 +2319,21 @@ class SDSProcessorEngine {
     const s5Content = this.processSection5(rawSections["section_5"]);
     const s6Content = this.processSection6(rawSections["section_6"]);
     const s7Content = this.processSection7(rawSections["section_7"]);
-    const s8Content = this.processSection8(rawSections["section_8"]);
+    const s8Content = this.processSection8(rawSections["section_8"], s3.components, s2.content);
     const s9Content = this.processSection9(rawSections["section_9"]);
-    const s12Content = this.processSection12(rawSections["section_12"], s3.components);
-    const s13Content = this.processSection13(rawSections["section_13"], s3.components, s2.content);
+    const s12Res = this.processSection12(rawSections["section_12"], s3.components);
+    const s12Content = s12Res.content;
+    const s13Content = this.processSection13(rawSections["section_13"], s3.components, s2.content, s1Content);
     const s14Content = this.processSection14(rawSections["section_14"]);
-    const s15Content = this.processSection15(rawSections["section_15"], s3.components);
+    const s15Content = this.processSection15(rawSections["section_15"], s3.components, s1Content, s2.content);
     const s16Content = this.processSection16(rawSections["section_16"], s3.components, s2.content);
+
+    const s2FinalContent = s2.content + "\n\n" + PolishLegalTemplates.getSection2_3(s12Res.endocrineDisruptorInfo);
 
     const deterministic = {
       section_1: { type: "CLP_MAPPED", content: s1Content },
-      section_2: { type: "CLP_MAPPED", content: s2.content + "\n\n" + PolishLegalTemplates.getSection2_3() },
-      section_3: { type: "EXTRACT_RAW", content: s3.content, components: s3.components },
+      section_2: { type: "CLP_MAPPED", content: s2FinalContent },
+      section_3: { type: "EXTRACT_RAW", content: s3.content, components: s3.components, chemicalDescription: s3.chemicalDescription },
       section_4: { type: "CLP_MAPPED", content: s4Content },
       section_5: { type: "CLP_MAPPED", content: s5Content },
       section_6: { type: "CLP_MAPPED", content: s6Content },
@@ -2180,6 +2346,7 @@ class SDSProcessorEngine {
       section_15: { type: "CLP_MAPPED", content: s15Content },
       section_16: { type: "CLP_MAPPED", content: s16Content }
     };
+
 
     const toTranslate = {};
     [10,11].forEach(i => {
@@ -2276,9 +2443,10 @@ class SDSDocxExporter {
           spacing: { before: 180, after: 80 }
         }));
         sectionsBody.push(new Paragraph({
-          children: [new TextRun({ text: "Opis chemiczny: Mieszanina substancji niebezpiecznych wraz z dodatkami nieniebezpiecznymi.", size: 20, font: "Arial" })],
+          children: [new TextRun({ text: `Opis chemiczny: ${data.chemicalDescription || "Mieszanina substancji stwarzających zagrożenie wraz z dodatkami niesklasyfikowanymi."}`, size: 20, font: "Arial" })],
           spacing: { after: 150 }
         }));
+
 
         const tableBorder = {
           top: { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" },
@@ -2464,7 +2632,12 @@ module.exports = {
   SDSPDFParser, 
   ECHAFreeResolver, 
   NDSRegistry, 
+  EcotoxRegistry,
+  ADRRegistry,
+  WasteRegistry,
   PolishLegalTemplates, 
+
+
   SDSChemicalExtractor, 
   PurePngEncoder, 
   GHSPictogramGenerator, 

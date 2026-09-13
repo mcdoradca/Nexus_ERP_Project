@@ -3,6 +3,7 @@ const path = require('path');
 require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { SDSProcessorEngine, SDSDocxExporter, NDSRegistry } = require('./sds.service');
+const { SDSVerifierAgent } = require('./sds.verifier.agent');
 
 // Zgodnie z ADR-001 i architekturą Zero-Bypass Agent tłumaczy tylko wyselekcjonowane, bezpieczne sekcje.
 const SYSTEM_PROMPT = `JESTEŚ AUDYTOREM CHEMICZNYM I REGULACYJNYM SYSTEMU KART CHARAKTERYSTYKI (SDS) W ŚRODOWISKU ANTIGRAVITY.
@@ -33,7 +34,11 @@ async function processSdsWithAgent(pdfPath, productName, manualOverrides = {}) {
         // Konfiguracja firmy z bazy / env
         const companyConfig = {
             companyName: process.env.COMPANY_NAME || "MITRANS Weronika Grzesiak",
-            emergencyPhone: process.env.COMPANY_PHONE || "+48 663116607"
+            address: process.env.COMPANY_ADDRESS || "ul. Wesoła 16",
+            city: process.env.COMPANY_CITY || "63-600 Kępno, woj. wielkopolskie",
+            email: process.env.COMPANY_EMAIL || "kontakt@prostozwloch.com.pl",
+            phone: process.env.COMPANY_PHONE || "+48 663116607",
+            emergencyPhone: process.env.COMPANY_EMERGENCY_PHONE || process.env.COMPANY_PHONE || "+48 663116607"
         };
 
         // KROK 1: EKSTRAKCJA I DETERMINIZM (NODE.JS + API)
@@ -80,14 +85,31 @@ ${JSON.stringify(agentPayload.descriptiveSectionsToTranslate, null, 2)}`;
         fs.writeFileSync(path.join(process.cwd(), 'agent_translated_sections.json'), JSON.stringify(translatedJson, null, 2));
 
         // KROK 3: ASEMBLACJA
-        console.log(`[Agent SDS] KROK 3: Asemblacja i generowanie DOCX...`);
+        console.log(`[Agent SDS] KROK 3: Asemblacja 16 sekcji...`);
         const finalData = engine.mergeCompletedSds(agentPayload, translatedJson);
+
+        // KROK 4: AUDYT PRAWNO-CHEMICZNY (COMPLIANCE QUALITY GATEKEEPER)
+        console.log(`[Agent SDS] KROK 4: Rygorystyczny audyt prawno-chemiczny (REACH/CLP Gatekeeper)...`);
+        const auditResult = await SDSVerifierAgent.verifyAndAudit(finalData.sections, {
+            productName: finalData.productName,
+            ufi: finalData.ufi,
+            components: agentPayload.deterministicSections.section_3.components,
+            ghsPictograms: finalData.ghsPictograms,
+            signalWord: finalData.signalWord
+        });
+
+        finalData.sections = auditResult.validatedSections;
+        finalData.complianceAudit = auditResult.auditLog;
+        fs.writeFileSync(path.join(process.cwd(), 'sds_compliance_audit.json'), JSON.stringify(auditResult.auditLog, null, 2));
         
+        // KROK 5: GENEROWANIE DOKUMENTU WORD (.DOCX)
+        console.log(`[Agent SDS] KROK 5: Generowanie pliku DOCX...`);
         const outputFilename = path.join(process.cwd(), `Karta_Charakterystyki_${Date.now()}.docx`);
         await SDSDocxExporter.export(finalData, outputFilename);
         
         console.log(`[Agent SDS] Zakończono! Zapisano plik: ${outputFilename}`);
         return outputFilename;
+
 
     } catch (error) {
         console.error('[CRITICAL HALT] Błąd krytyczny w pipeline SDS:', error);
