@@ -1261,10 +1261,18 @@ class SDSProcessorEngine {
       if (parts.length > 0) envAdvice = parts.join(' ');
     }
 
-    let cleanRaw = cleanMatch ? cleanMatch[1].replace(/^(?:Methods and material for containment[^\n]*|Metodi e materiali per il contenimento[^\n]*|Metody i materiały[^\n]*)\s*/i, '').trim() : "";
+    let cleanRaw = cleanMatch ? cleanMatch[1] : "";
+    cleanRaw = cleanRaw
+      .replace(/^\s*(?:6\.3\b[.:\-]?\s*)?(?:Methods and material for containment[^\n]*|Metodi e materiali per il contenimento[^\n]*|Metody i materiały[^\n]*)\s*/i, '')
+      .trim();
+
     let cleanupAdvice = "Odpowiedni materiał do zbierania: materiał pochłaniający, organiczny, piasek. Zmyć dużą ilością wody.";
     if (cleanRaw) {
-      let parts = cleanRaw.split('\n').map(p => SDSProcessorEngine.translatePhrase(p)).filter(Boolean);
+      let parts = cleanRaw.split('\n')
+        .map(p => p.trim())
+        .filter(p => p && !/^(?:6\.3\b[.:\-]?\s*)?(?:Methods and material|Metodi e materiali|Metody i materiały)/i.test(p) && !/^6\.3\b[.:\-]?$/i.test(p))
+        .map(p => SDSProcessorEngine.translatePhrase(p))
+        .filter(Boolean);
       parts = Array.from(new Set(parts));
       if (parts.length > 0) cleanupAdvice = parts.join(' ');
     }
