@@ -495,6 +495,7 @@ class SDSChemicalExtractor {
       .replace(/(\d+)\.(\d+)/g, '$1,$2')
       .replace(/([≥≤><=]|>=|<=)\s*/g, '$1 ')
       .replace(/\s*-\s*/g, ' - ')
+      .replace(/%\s*-\s*/g, ' - ')
       .replace(/\s*%/g, ' %')
       .replace(/\s+/g, ' ')
       .trim();
@@ -509,8 +510,16 @@ class SDSChemicalExtractor {
       .replace(/\d{2}\/\d{2}\/\d{4}\s*Production Name[^\n]+/gi, '')
       .replace(/Qty\s*Name\s*Ident\.\s*Numb\.\s*Classification\s*Registration\s*Number/gi, '');
 
+    // Łączenie stężeń rozbitych na linie przez łamanie wiersza (np. "≥0.00015%-\n<0.0015%" lub "0.1% -\n< 0.25%")
+    cleanText = cleanText
+      .replace(/([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%?)\s*-\s*\n\s*([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%)/g, (m, p1, p2, p3, p4) => (p1 || '') + p2 + ' - ' + (p3 || '') + p4)
+      .replace(/([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%)\s*\n\s*-\s*([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%)/g, (m, p1, p2, p3, p4) => (p1 || '') + p2 + ' - ' + (p3 || '') + p4)
+      .replace(/([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?)\s*-\s*\n\s*([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%)/g, (m, p1, p2, p3, p4) => (p1 || '') + p2 + ' - ' + (p3 || '') + p4);
+
     const casMatches = [...cleanText.matchAll(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/gi)];
     if (casMatches.length === 0) return [];
+
+    const concPattern = /(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%?(?:\s*-\s*(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%)|(?:[≥≤><~=]|>=|<=)\s*\d+(?:[.,]\d+)?\s*%/g;
 
     const components = [];
 
@@ -519,7 +528,7 @@ class SDSChemicalExtractor {
       const casIdx = casMatches[i].index;
       
       const preCasText = cleanText.substring(Math.max(0, casIdx - 200), casIdx);
-      const concMatches = [...preCasText.matchAll(/([≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*(?:-\s*(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?)?\s*%/g)];
+      const concMatches = [...preCasText.matchAll(concPattern)];
       const lastConc = concMatches.length > 0 ? concMatches[concMatches.length - 1] : null;
       
       const rawConc = lastConc ? lastConc[0].trim() : "—";
@@ -532,7 +541,7 @@ class SDSChemicalExtractor {
       if (i + 1 < casMatches.length) {
         const nextCasIdx = casMatches[i + 1].index;
         const nextPreText = cleanText.substring(Math.max(0, nextCasIdx - 200), nextCasIdx);
-        const nextConcMatches = [...nextPreText.matchAll(/([≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*(?:-\s*(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?)?\s*%/g)];
+        const nextConcMatches = [...nextPreText.matchAll(concPattern)];
         if (nextConcMatches.length > 0) {
           const nextLastConc = nextConcMatches[nextConcMatches.length - 1];
           rowEnd = Math.max(0, nextCasIdx - 200) + nextLastConc.index;
@@ -557,6 +566,9 @@ class SDSChemicalExtractor {
       if (ecMatch) classText = classText.replace(ecMatch[0], '');
       if (indexMatch) classText = classText.replace(indexMatch[0], '');
       if (reachMatch) classText = classText.replace(reachMatch[0], '');
+
+      // Sanityzacja: usuwanie ewentualnych uciętych fragmentów stężeń z pola klasyfikacji
+      classText = classText.replace(/(?:^|\n)\s*(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%[^\n]*/g, '').trim();
 
       classText = classText
         .replace(/Specific Concentration Limits\s*[:\.]?/gi, 'Specyficzne stężenia graniczne:\n')
@@ -877,6 +889,8 @@ class SDSProcessorEngine {
     this.anomalies = [];
 
     // Inicjalizacja baz referencyjnych RAG
+    const ndsPath = path.join(__dirname, 'rag_knowledge', 'nds_database_2018.json');
+    NDSRegistry.loadRegistry(ndsPath);
     const ecotoxPath = path.join(__dirname, 'rag_knowledge', 'ecotox_cache.json');
     EcotoxRegistry.loadRegistry(ecotoxPath);
     const adrPath = path.join(__dirname, 'rag_knowledge', 'adr_transport_pl.json');
@@ -1679,17 +1693,33 @@ class SDSProcessorEngine {
         const entry = NDSRegistry.getEntry(cas);
         if (entry) {
           hasKnownNds = true;
-          ndsLines.push(`CAS ${cas} (${entry.substanceName}): NDS = ${entry.nds} mg/m³, NDSCh = ${entry.ndsch} mg/m³, NDSP = ${entry.ndsp} mg/m³`);
+          const subName = entry.substance || entry.substanceName || (CAS_TO_PL_MAP[cas] || cas);
+          const ndsVal = entry.NDS || entry.nds || "-";
+          const ndschVal = entry.NDSCh || entry.ndsch || "-";
+          const ndspVal = entry.NDSP || entry.ndsp || "brak";
+          const remarks = entry.uwagi || entry.remarks || "";
+
+          let line = `${subName} [CAS: ${cas}]:\n- NDS: ${ndsVal.includes('mg/m³') ? ndsVal : ndsVal + ' mg/m³'}`;
+          if (ndschVal && ndschVal !== "brak" && ndschVal !== "-") {
+            line += `\n- NDSCh: ${ndschVal.includes('mg/m³') ? ndschVal : ndschVal + ' mg/m³'}`;
+          }
+          if (ndspVal && ndspVal !== "brak" && ndspVal !== "-") {
+            line += `\n- NDSP: ${ndspVal.includes('mg/m³') ? ndspVal : ndspVal + ' mg/m³'}`;
+          }
+          if (remarks && remarks !== "brak") {
+            line += `\n- Uwagi: oznakowanie substancji notacją „${remarks}”`;
+          }
+          ndsLines.push(line);
         }
       }
     }
 
     if (hasKnownNds) {
-      output += "Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy (Dz.U. 2018 poz. 1286 z późn. zm.):\n";
-      output += ndsLines.join("\n") + "\n\n";
+      output += "Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy (Polska – Dz.U. 2018 poz. 1286 z późn. zm., w tym Dz.U. 2024 poz. 1017):\n";
+      output += ndsLines.join("\n\n") + "\n\n";
     } else {
       output += "Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy (Polska):\n";
-      output += "Dla składników mieszaniny wymienionych w sekcji 3 nie określono wartości najwyższych dopuszczalnych stężeń (NDS, NDSCh, NDSP) w środowisku pracy zgodnie z Rozporządzeniem Ministra Rodziny, Pracy i Polityki Społecznej z dnia 12 czerwca 2018 r. w sprawie najwyższych dopuszczalnych stężeń i natężeń czynników szkodliwych dla zdrowia w środowisku pracy (Dz.U. 2018 poz. 1286 z późn. zm.).\n\n";
+      output += "Dla składników mieszaniny wymienionych w sekcji 3 nie określono wartości najwyższych dopuszczalnych stężeń (NDS, NDSCh, NDSP) w środowisku pracy zgodnie z Rozporządzeniem Ministra Rodziny, Pracy i Polityki Społecznej z dnia 12 czerwca 2018 r. w sprawie najwyższych dopuszczalnych stężeń i natężeń czynników szkodliwych dla zdrowia w środowisku pracy (Dz.U. 2018 poz. 1286 z późn. zm., w tym Dz.U. 2024 poz. 1017).\n\n";
     }
 
     let cleanIt = (contentIt || "").replace(/\r/g, '').replace(/\t/g, ' ');
@@ -1727,27 +1757,40 @@ class SDSProcessorEngine {
     output += "Zalecane procedury monitorowania: Należy stosować procedury monitorowania stężeń niebezpiecznych substancji w powietrzu na stanowiskach pracy oraz procedury kontroli wentylacji zgodnie z odpowiednimi Polskimi Normami.\n\n";
 
     // 8.2. Kontrola narażenia – ochrona indywidualna wg Dz.U. 2016 poz. 1488 i norm PN-EN
-    const causesEye = /H314|H318|H319|Eye Dam|Eye Irrit|Skin Corr/i.test(s2Content) || components.some(c => /H314|H318|H319|Eye Dam|Eye Irrit/i.test(c.classification || ""));
-    const causesSkin = /H314|H315|H317|H312|H310|Skin Corr|Skin Irrit|Skin Sens|EUH066/i.test(s2Content) || /H224|H225/i.test(s2Content) || components.some(c => /H314|H315|H317|H312|H310|Skin Corr|Skin Irrit|Skin Sens|EUH066/i.test(c.classification || ""));
-    const isVolatile = /H224|H225|H330|H331|H332|H335|H336/i.test(s2Content);
+    const isExplicitlyNotHazardous = /(?:not classified|non[ \-]*(?:[eè]|est)?\s*classificat|nie sklasyfikowan|nie jest sklasyfikowan|nie stwarza zagrożenia|not hazardous|Mieszanina nie została zaklasyfikowana jako stwarzająca zagrożenie)/i.test(s2Content);
+    const hasMixtureHazard = !isExplicitlyNotHazardous && /(?:GHS0[1235689]|H2\d\d|H30[0-4]|H31[0-4]|H318|H33[0-4]|H34\d|H35\d|H36\d|H37\d|H400|H41[01])/i.test(s2Content);
 
+    let eyeProtection = "";
+    let skinProtection = "";
+    let handProtection = "";
+    let respProtection = "";
 
+    if (!hasMixtureHazard) {
+      eyeProtection = "W normalnych warunkach stosowania konsumenckiego: środki ochrony oczu nie są wymagane. W warunkach przemysłowych, przeładunku hurtowego lub usuwania awarii zaleca się stosowanie okularów ochronnych zgodnych z normą PN-EN 166.";
+      handProtection = "W normalnych warunkach stosowania konsumenckiego: ochrona rąk nie jest wymagana. W warunkach przemysłowych, przeładunku hurtowego lub usuwania awarii zaleca się stosowanie rękawic ochronnych odpornych na działanie chemikaliów (np. z kauczuku nitrylowego) zgodnych z normą PN-EN ISO 374-1.";
+      skinProtection = "W normalnych warunkach stosowania konsumenckiego: nie są wymagane szczególne środki ochrony. W warunkach przemysłowych stosować standardową odzież roboczą.";
+      respProtection = "W normalnych warunkach stosowania przy właściwej wentylacji pomieszczeń nie jest wymagana.";
+    } else {
+      const causesEye = /H314|H318|H319|Eye Dam|Eye Irrit|Skin Corr/i.test(s2Content);
+      const causesSkin = /H314|H315|H317|H312|H310|Skin Corr|Skin Irrit|Skin Sens|EUH066/i.test(s2Content) || /H224|H225/i.test(s2Content);
+      const isVolatile = /H224|H225|H330|H331|H332|H335|H336/i.test(s2Content);
 
-    let eyeProtection = causesEye 
-      ? "Nosić okulary ochronne w szczelnej obudowie lub gogle ochronne zgodne z normą PN-EN 166."
-      : "Brak szczególnych wymagań w normalnych warunkach stosowania. Należy postępować zgodnie z zasadami dobrej praktyki przemysłowej i higieny pracy.";
+      eyeProtection = causesEye 
+        ? "Nosić okulary ochronne w szczelnej obudowie lub gogle ochronne zgodne z normą PN-EN 166."
+        : "Brak szczególnych wymagań w normalnych warunkach stosowania. W warunkach przemysłowych zaleca się stosowanie okularów ochronnych (PN-EN 166).";
 
-    let skinProtection = causesSkin
-      ? "Stosować odpowiednią odzież roboczą chroniącą przed kontaktem z chemikaliami."
-      : "Nie są wymagane szczególne środki ostrożności przy normalnym stosowaniu.";
+      skinProtection = causesSkin
+        ? "Stosować odpowiednią odzież roboczą chroniącą przed kontaktem z chemikaliami."
+        : "Nie są wymagane szczególne środki ostrożności przy normalnym stosowaniu.";
 
-    let handProtection = causesSkin
-      ? "Stosować rękawice ochronne odporne na działanie chemikaliów (np. z kauczuku nitrylowego lub neoprenu) zgodne z normą PN-EN ISO 374-1. Czas przebicia i grubość materiału należy skonsultować z dostawcą rękawic."
-      : "Nie jest wymagana przy normalnym stosowaniu.";
+      handProtection = causesSkin
+        ? "Stosować rękawice ochronne odporne na działanie chemikaliów (np. z kauczuku nitrylowego lub neoprenu) zgodne z normą PN-EN ISO 374-1. Czas przebicia i grubość materiału należy skonsultować z dostawcą rękawic."
+        : "Nie jest wymagana przy normalnym stosowaniu.";
 
-    let respProtection = isVolatile
-      ? "W normalnych warunkach stosowania przy właściwej wentylacji nie jest wymagana. W przypadku niedostatecznej wentylacji lub przekroczenia dopuszczalnych stężeń NDS stosować odpowiedni sprzęt ochrony dróg oddechowych z pochłaniaczem par typu A (norma PN-EN 14387)."
-      : "Nie dotyczy w warunkach właściwej wentylacji pomieszczeń.";
+      respProtection = isVolatile
+        ? "W normalnych warunkach stosowania przy właściwej wentylacji nie jest wymagana. W przypadku niedostatecznej wentylacji lub przekroczenia dopuszczalnych stężeń NDS stosować odpowiedni sprzęt ochrony dróg oddechowych z pochłaniaczem par typu A (norma PN-EN 14387)."
+        : "Nie dotyczy w warunkach właściwej wentylacji pomieszczeń.";
+    }
 
     output += "8.2. Kontrola narażenia\n";
     output += `Ochrona oczu: ${eyeProtection}\n`;
@@ -1948,23 +1991,56 @@ class SDSProcessorEngine {
       const casM = line.match(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/i);
       if (casM) {
         const cas = casM[1];
-        const rawName = prevL && !/^(SECTION|12\.|List of|Eco-Toxicological|Test:|Not bioaccumulative)/i.test(prevL) ? prevL : "";
-        curS3Sub = { cas, name: resolveSubName(rawName, cas), info: [] };
+        if (curS3Sub && curS3Sub.cas === cas) {
+          prevL = line;
+          continue;
+        }
+        const comp = components.find(c => c.cas === cas);
+        const rawName = prevL && !/^(SECTION|12\.|List of|Eco-Toxicological|Test:|Not bioaccumulative|Bioaccumulative)/i.test(prevL) ? prevL : "";
+        curS3Sub = { cas, name: comp ? comp.name : resolveSubName(rawName, cas), info: [] };
         s3Substances.push(curS3Sub);
         prevL = line;
         continue;
       }
+
+      // Detekcja substancji po nazwie składnika z Sekcji 3 (np. benzyl salicylate)
+      if (components.length > 0) {
+        const compMatch = components.find(c => {
+          if (!c.originalName && !c.name) return false;
+          const orig = (c.originalName || "").toLowerCase();
+          const pl = (c.name || "").toLowerCase();
+          const lLow = line.toLowerCase();
+          return (orig.length > 3 && lLow.includes(orig)) || (pl.length > 3 && lLow.includes(pl));
+        });
+        if (compMatch && (!curS3Sub || curS3Sub.cas !== compMatch.cas)) {
+          curS3Sub = { cas: compMatch.cas, name: compMatch.name, info: [] };
+          s3Substances.push(curS3Sub);
+        }
+      }
+
       if (curS3Sub) {
         if (/Not bioaccumulative/i.test(line)) {
           curS3Sub.info.push("Nie wykazuje zdolności do bioakumulacji.");
-        } else if (/BCF/i.test(line)) {
-          const vM = line.match(/Value\s*[:\.]?\s*([^\n;]+)/i);
-          const val = vM ? vM[1].trim().replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2) : "";
-          curS3Sub.info.push(`Współczynnik biokoncentracji (BCF) ${val ? val : ""}`.trim() + ".");
-        } else if (/Log Kow/i.test(line)) {
-          const vM = line.match(/Value\s*[:\.]?\s*([^\n;]+)/i);
-          const val = vM ? vM[1].trim().replace(/<=/, '≤').replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2) : "";
-          curS3Sub.info.push(`Współczynnik podziału n-oktanol/woda (log Kow) ${val ? val : ""}`.trim() + ".");
+        } else if (/Bioaccumulative/i.test(line) && !/Not bioaccumulative/i.test(line)) {
+          curS3Sub.info.push("Wykazuje zdolność do bioakumulacji.");
+        }
+        
+        if (/BCF/i.test(line)) {
+          const bcfMatch = line.match(/(?:BCF|Bioconcentrantion factor|Bioconcentration factor)\s*(?:[:=~-]|Value\s*[:\.]?\s*[=~]?)\s*([<≤>≥]?\s*\d+(?:[.,]\d+)?)/i)
+            || line.match(/Value\s*[:\.]?\s*([^\n;]+)/i);
+          const val = bcfMatch ? bcfMatch[1].trim().replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2) : "";
+          if (val) {
+            curS3Sub.info.push(`Współczynnik biokoncentracji (BCF): ${val}.`);
+          }
+        }
+        
+        if (/Log Kow|Log Pow/i.test(line)) {
+          const logMatch = line.match(/(?:Log Kow|Log Pow|partition coefficient)\s*(?:[:=~-]|Value\s*[:\.]?\s*[=~]?)\s*([<≤>≥]?\s*[\d,.-]+)/i)
+            || line.match(/Value\s*[:\.]?\s*([^\n;]+)/i);
+          const val = logMatch ? logMatch[1].trim().replace(/<=/g, '≤').replace(/>=/g, '≥').replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2) : "";
+          if (val) {
+            curS3Sub.info.push(`Współczynnik podziału n-oktanol/woda (log Kow): ${val}.`);
+          }
         }
       }
       prevL = line;
@@ -2041,9 +2117,10 @@ class SDSProcessorEngine {
   }
 
   processSection13(rawContent = "", components = [], s2Content = "", s1Content = "") {
-    const hasGhsHazard = /GHS0[1235689]|H2\d\d|H30[0-4]|H31[0-4]|H318|H33[0-4]|H34\d|H35\d|H36\d|H37\d|H400|H41[01]/i.test(s2Content);
-    const hasHazardousComponents = components.some(c => /H2\d\d|H30[0-4]|H31[0-4]|H318|H33[0-4]|H34\d|H35\d|H36\d|H37\d|H400|H41[01]/i.test(c.classification || ""));
-    const isHazardous = hasGhsHazard || hasHazardousComponents;
+    // Odpad niebezpieczny (z gwiazdką *) może zostać przypisany wyłącznie, gdy cała mieszanina w Sekcji 2.1 jest zaklasyfikowana jako stwarzająca zagrożenie
+    const isExplicitlyNotHazardous = /(?:not classified|non[ \-]*(?:[eè]|est)?\s*classificat|nie sklasyfikowan|nie jest sklasyfikowan|nie stwarza zagrożenia|not hazardous|Mieszanina nie została zaklasyfikowana jako stwarzająca zagrożenie)/i.test(s2Content);
+    const hasMixtureHazard = !isExplicitlyNotHazardous && /(?:GHS0[1235689]|H2\d\d|H30[0-4]|H31[0-4]|H318|H33[0-4]|H34\d|H35\d|H36\d|H37\d|H400|H41[01])/i.test(s2Content);
+    const isHazardous = hasMixtureHazard;
 
     const productText = `${s1Content} ${rawContent} ${components.map(c => c.name || "").join(' ')}`;
     return PolishLegalTemplates.getSection13(isHazardous, productText);
@@ -2370,6 +2447,25 @@ class SDSProcessorEngine {
     };
   }
 
+  static sanitizeSection11Hierarchy(content) {
+    if (!content) return "";
+    let text = content;
+    // Sprawdzenie, czy nagłówek 11.2 (Informacje o innych zagrożeniach) pojawił się przed obligatoryjnymi punktami h, i, j z podsekcji 11.1
+    const match11_2 = text.match(/(?:^|\n)\s*(?:11\.2[.:\-]?\s*(?:Informacje o innych zagrożeniach|Information on other hazards)[\s\S]*?)(?=(?:^|\n)\s*(?:[h-j]\)|h\.\s|i\.\s|j\.\s|STOT|działanie toksyczne na narządy docelowe|zagrożenie spowodowane aspiracją|aspiration hazard))/i);
+    if (match11_2) {
+      const misplaced11_2 = match11_2[0];
+      text = text.replace(misplaced11_2, '\n');
+      const pointJMatch = text.match(/(?:^|\n)\s*(?:j\b[.:\)]|zagrożenie spowodowane aspiracją|aspiration hazard)\s*[^\n]+(?:\n[^\n]+)*/i);
+      if (pointJMatch) {
+        const insertIdx = pointJMatch.index + pointJMatch[0].length;
+        text = text.substring(0, insertIdx) + '\n\n' + misplaced11_2.trim() + '\n\n' + text.substring(insertIdx);
+      } else {
+        text = text.trim() + '\n\n' + misplaced11_2.trim();
+      }
+    }
+    return text.replace(/\n{3,}/g, '\n\n').trim();
+  }
+
   mergeCompletedSds(agentPayload, agentTranslated) {
     const finalSections = {};
     for (let i = 1; i <= 16; i++) {
@@ -2377,7 +2473,11 @@ class SDSProcessorEngine {
       if (agentPayload.deterministicSections[key]) {
         finalSections[key] = agentPayload.deterministicSections[key];
       } else if (agentTranslated[key]) {
-        finalSections[key] = { type: "TRANSLATED", content: SDSProcessorEngine.cleanPdfArtifacts(agentTranslated[key]).trim() };
+        let content = SDSProcessorEngine.cleanPdfArtifacts(agentTranslated[key]).trim();
+        if (key === "section_11") {
+          content = SDSProcessorEngine.sanitizeSection11Hierarchy(content);
+        }
+        finalSections[key] = { type: "TRANSLATED", content };
       } else {
         throw new Error(`[CRITICAL HALT] Brak danych dla ${key}.`);
       }

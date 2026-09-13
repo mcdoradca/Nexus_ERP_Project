@@ -25,59 +25,79 @@ class SDSVerifierAgent {
 
     console.log(`[Verifier Agent] Rozpoczynam audyt prawno-chemiczny dla: ${metadata.productName || 'Mieszanina'}`);
 
+    const s1Content = (validatedSections.section_1 && validatedSections.section_1.content) || "";
     const s2Content = (validatedSections.section_2 && validatedSections.section_2.content) || "";
     const s3Content = (validatedSections.section_3 && validatedSections.section_3.content) || "";
     const s8Content = (validatedSections.section_8 && validatedSections.section_8.content) || "";
+    const s11Content = (validatedSections.section_11 && validatedSections.section_11.content) || "";
     const s12Content = (validatedSections.section_12 && validatedSections.section_12.content) || "";
     const s13Content = (validatedSections.section_13 && validatedSections.section_13.content) || "";
     const s15Content = (validatedSections.section_15 && validatedSections.section_15.content) || "";
 
     const components = metadata.components || [];
-    const isHazardous = /GHS0[1235689]|H2\d\d|H3\d\d|H4\d\d|Niebezpieczeństwo|Uwaga/i.test(s2Content);
+    const isExplicitlyNotHazardous = /(?:not classified|non[ \-]*(?:[eè]|est)?\s*classificat|nie sklasyfikowan|nie jest sklasyfikowan|nie stwarza zagrożenia|not hazardous|Mieszanina nie została zaklasyfikowana jako stwarzająca zagrożenie)/i.test(s2Content);
+    const hasMixtureHazard = !isExplicitlyNotHazardous && /(?:GHS0[1235689]|H2\d\d|H30[0-4]|H31[0-4]|H318|H33[0-4]|H34\d|H35\d|H36\d|H37\d|H400|H41[01])/i.test(s2Content);
 
     // =========================================================================
     // REGUŁA 1: AUDYT ŚRODKÓW OCHRONY INDYWIDUALNEJ (SEKCJA 8.2 vs SEKCJA 2/3)
     // Dz.U. 2016 poz. 1488, PN-EN 166, PN-EN ISO 374-1, PN-EN 14387
     // =========================================================================
-    const causesEyeDamage = /H314|H318|H319|Skin Corr|Eye Dam|Eye Irrit/i.test(s2Content) || components.some(c => /H314|H318|H319|Eye Dam|Eye Irrit/i.test(c.classification || ""));
-    const causesSkinDamage = /H314|H315|H317|H312|H310|Skin Corr|Skin Irrit|Skin Sens|EUH066/i.test(s2Content) || /H224|H225/i.test(s2Content) || components.some(c => /H314|H315|H317|H312|H310|Skin Corr|Skin Irrit|Skin Sens|EUH066/i.test(c.classification || ""));
-    const isVolatileOrInhalationHazard = /H224|H225|H330|H331|H332|H334|H335|H336/i.test(s2Content);
-
-
-
     let fixedS8 = s8Content;
 
-    if (isHazardous && (causesEyeDamage || causesSkinDamage)) {
-      if (/Ochrona oczu:\s*Brak szczególnych wymagań/i.test(fixedS8) && causesEyeDamage) {
+    if (!hasMixtureHazard) {
+      // Dla produktu niezaklasyfikowanego nie wolno narzucać bezwzględnego wymogu gogli i rękawic w stosowaniu konsumenckim
+      if (/Nosić okulary ochronne w szczelnej obudowie lub gogle ochronne zgodne z normą PN-EN 166\./i.test(fixedS8) && !/W normalnych warunkach stosowania konsumenckiego/i.test(fixedS8)) {
+        fixedS8 = fixedS8.replace(/Ochrona oczu:[^\n]+/i, 'Ochrona oczu: W normalnych warunkach stosowania konsumenckiego: środki ochrony oczu nie są wymagane. W warunkach przemysłowych, przeładunku hurtowego lub usuwania awarii zaleca się stosowanie okularów ochronnych zgodnych z normą PN-EN 166.');
+        auditLog.push({
+          rule: "PPE_PROPORTIONALITY_COMPLIANCE",
+          status: "AUTO_REMEDIATED",
+          message: "Produkt nie jest zaklasyfikowany jako stwarzający zagrożenie. Rozdzielono wytyczne ŚOI: brak wymogu w stosowaniu konsumenckim, zalecenie w warunkach przemysłowych/awaryjnych."
+        });
+      }
+      if (/Stosować rękawice ochronne odporne na działanie chemikaliów/i.test(fixedS8) && !/W normalnych warunkach stosowania konsumenckiego/i.test(fixedS8)) {
+        fixedS8 = fixedS8.replace(/Ochrona rąk:[^\n]+/i, 'Ochrona rąk: W normalnych warunkach stosowania konsumenckiego: ochrona rąk nie jest wymagana. W warunkach przemysłowych, przeładunku hurtowego lub usuwania awarii zaleca się stosowanie rękawic ochronnych odpornych na działanie chemikaliów (np. z kauczuku nitrylowego) zgodnych z normą PN-EN ISO 374-1.');
+      }
+    } else {
+      const causesEyeDamage = /H314|H318|H319|Skin Corr|Eye Dam|Eye Irrit/i.test(s2Content);
+      const causesSkinDamage = /H314|H315|H317|H312|H310|Skin Corr|Skin Irrit|Skin Sens|EUH066/i.test(s2Content) || /H224|H225/i.test(s2Content);
+      const isVolatileOrInhalationHazard = /H224|H225|H330|H331|H332|H334|H335|H336/i.test(s2Content);
+
+      if (causesEyeDamage && /Ochrona oczu:\s*Brak szczególnych wymagań/i.test(fixedS8)) {
         fixedS8 = fixedS8.replace(/Ochrona oczu:[^\n]+/i, 'Ochrona oczu: Nosić okulary ochronne w szczelnej obudowie lub gogle ochronne zgodne z normą PN-EN 166.');
         auditLog.push({
           rule: "PPE_EYE_COMPLIANCE",
           status: "AUTO_REMEDIATED",
-          message: "Wykryto zagrożenie uszkodzenia oczu (H314/H318). Zastąpiono 'brak wymagań' obowiązkową normą PN-EN 166."
+          message: "Wykryto zagrożenie uszkodzenia oczu (H314/H318/H319). Zastąpiono 'brak wymagań' obowiązkową normą PN-EN 166."
         });
       }
 
-      if (/Ochrona rąk:\s*Nie jest wymagana/i.test(fixedS8) && causesSkinDamage) {
-        fixedS8 = fixedS8.replace(/Ochrona rąk:[^\n]+/i, 'Ochrona rąk: Stosować rękawice ochronne odporne na chemikalia (np. kauczuk nitrylowy lub neopren) zgodne z normą PN-EN ISO 374-1. Czas przebicia rękawic należy uzyskać od producenta.');
+      if (causesSkinDamage && /Ochrona rąk:\s*Nie jest wymagana/i.test(fixedS8)) {
+        fixedS8 = fixedS8.replace(/Ochrona rąk:[^\n]+/i, 'Ochrona rąk: Stosować rękawice ochronne odporne na działanie chemikaliów (np. z kauczuku nitrylowego lub neoprenu) zgodne z normą PN-EN ISO 374-1. Czas przebicia rękawic należy uzyskać od producenta.');
         auditLog.push({
           rule: "PPE_HAND_COMPLIANCE",
           status: "AUTO_REMEDIATED",
-          message: "Wykryto zagrożenie drażniące/żrące dla skóry (H314/H315/H317). Zastąpiono 'brak wymagań' obowiązkową normą PN-EN ISO 374-1."
+          message: "Wykryto zagrożenie drażniące/żrące dla skóry (H314/H315/H317). Zastąpiono 'brak wymagań' normą PN-EN ISO 374-1."
         });
       }
 
-      if (/Ochrona skóry:\s*Nie są wymagane/i.test(fixedS8) && causesEyeDamage) {
-        fixedS8 = fixedS8.replace(/Ochrona skóry:[^\n]+/i, 'Ochrona skóry: Stosować odpowiednią odzież ochronną chroniącą przed chemikaliami.');
+      if (isVolatileOrInhalationHazard && /Ochrona dróg oddechowych:\s*Nie dotyczy/i.test(fixedS8)) {
+        fixedS8 = fixedS8.replace(/Ochrona dróg oddechowych:[^\n]+/i, 'Ochrona dróg oddechowych: W normalnych warunkach stosowania przy właściwej wentylacji nie jest wymagana. W przypadku przekroczenia wartości NDS lub niedostatecznej wentylacji stosować odpowiedni sprzęt ochrony dróg oddechowych z pochłaniaczem par organicznych typu A (PN-EN 14387).');
       }
     }
 
-    if (isVolatileOrInhalationHazard && /Ochrona dróg oddechowych:\s*Nie dotyczy/i.test(fixedS8)) {
-      fixedS8 = fixedS8.replace(/Ochrona dróg oddechowych:[^\n]+/i, 'Ochrona dróg oddechowych: W normalnych warunkach stosowania przy właściwej wentylacji nie jest wymagana. W przypadku przekroczenia wartości NDS lub niedostatecznej wentylacji stosować odpowiedni sprzęt ochrony dróg oddechowych z pochłaniaczem par organicznych typu A (PN-EN 14387).');
-      auditLog.push({
-        rule: "PPE_RESPIRATORY_COMPLIANCE",
-        status: "AUTO_REMEDIATED",
-        message: "Wykryto lotne substancje/pary. Uzupełniono wytyczne ochrony dróg oddechowych o normę PN-EN 14387."
-      });
+    // =========================================================================
+    // REGUŁA 2: AUDYT NDS WG DZ.U. 2024 POZ. 1017 (SEKCJA 8.1)
+    // =========================================================================
+    if (components.some(c => c.cas === "55965-84-9") && !/0,2 mg\/m³/i.test(fixedS8)) {
+      const cmiLine = "5-Chloro-2-metylo-2H-izotiazol-3-on i 2-metylo-2H-izotiazol-3-on (masa poreakcyjna 3:1) [CAS: 55965-84-9]:\n- NDS: 0,2 mg/m³\n- NDSCh: 0,4 mg/m³\n- Uwagi: oznakowanie substancji notacją „skóra”";
+      if (/Dla składników mieszaniny wymienionych w sekcji 3 nie określono wartości najwyższych/i.test(fixedS8)) {
+        fixedS8 = fixedS8.replace(/Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):\s*\nDla składników mieszaniny wymienionych w sekcji 3 nie określono wartości najwyższych dopuszczalnych stężeń[^\n]+\n*/i, `Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy (Polska – Dz.U. 2018 poz. 1286 z późn. zm., w tym Dz.U. 2024 poz. 1017):\n${cmiLine}\n\n`);
+        auditLog.push({
+          rule: "NDS_2024_COMPLIANCE",
+          status: "AUTO_REMEDIATED",
+          message: "Uzupełniono brakujące normatywy NDS/NDSCh dla CAS 55965-84-9 zgodnie z Dz.U. 2024 poz. 1017 (0,2 mg/m³ / 0,4 mg/m³, skóra)."
+        });
+      }
     }
 
     if (fixedS8 !== s8Content) {
@@ -85,8 +105,7 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
-    // REGUŁA 2: AUDYT SPÓJNOŚCI ZABURZACZY HORMONALNYCH (SEKCJA 2.3 vs SEKCJA 12.6)
-    // Rozporządzenie (UE) 2017/2100 i 2018/605, REACH Załącznik II pkt 2.3 i 12.6
+    // REGUŁA 3: AUDYT SPÓJNOŚCI ZABURZACZY HORMONALNYCH (SEKCJA 2.3 vs SEKCJA 12.6)
     // =========================================================================
     const edInS12 = /Wykaz (?:I|II) ECHA|substancja podlegająca ocenie pod kątem właściwości zaburzających/i.test(s12Content);
     const edDeniedInS2 = /Produkt nie zawiera składników wpisanych do wykazu ustanowionego zgodnie z art\. 59/i.test(s2Content);
@@ -112,10 +131,50 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
-    // REGUŁA 3: AUDYT ROZPORZĄDZENIA O DETERGENTACH (SEKCJA 15.1)
-    // Rozporządzenie (WE) nr 648/2004
+    // REGUŁA 4: HIERARCHIA PODSEKCJI W SEKCJI 11 (UE 2020/878)
+    // Nagłówek 11.2 nie może znajdować się przed punktami h), i), j)
     // =========================================================================
-    const s1Content = (validatedSections.section_1 && validatedSections.section_1.content) || "";
+    if (s11Content) {
+      const match11_2Misplaced = s11Content.match(/(?:^|\n)\s*(?:11\.2[.:\-]?\s*(?:Informacje o innych zagrożeniach|Information on other hazards)[\s\S]*?)(?=(?:^|\n)\s*(?:[h-j]\)|h\.\s|i\.\s|j\.\s|STOT|działanie toksyczne na narządy docelowe|zagrożenie spowodowane aspiracją|aspiration hazard))/i);
+      if (match11_2Misplaced) {
+        let fixedS11 = s11Content.replace(match11_2Misplaced[0], '\n');
+        const pointJMatch = fixedS11.match(/(?:^|\n)\s*(?:j\b[.:\)]|zagrożenie spowodowane aspiracją|aspiration hazard)\s*[^\n]+(?:\n[^\n]+)*/i);
+        if (pointJMatch) {
+          const insertIdx = pointJMatch.index + pointJMatch[0].length;
+          fixedS11 = fixedS11.substring(0, insertIdx) + '\n\n' + match11_2Misplaced[0].trim() + '\n\n' + fixedS11.substring(insertIdx);
+        } else {
+          fixedS11 = fixedS11.trim() + '\n\n' + match11_2Misplaced[0].trim();
+        }
+        fixedS11 = fixedS11.replace(/\n{3,}/g, '\n\n').trim();
+        validatedSections.section_11 = { ...validatedSections.section_11, content: fixedS11 };
+        auditLog.push({
+          rule: "SECTION_11_HIERARCHY_FIX",
+          status: "AUTO_REMEDIATED",
+          message: "Przeniesiono nagłówek 11.2 pod obligatoryjne punkty h), i), j) podsekcji 11.1 zgodnie z Załącznikiem II do UE 2020/878."
+        });
+      }
+    }
+
+    // =========================================================================
+    // REGUŁA 5: AUDYT KWALIFIKACJI ODPADÓW (SEKCJA 13 vs SEKCJA 2.1)
+    // Dz.U. 2020 poz. 10, art. 3 ust. 1 pkt 13-14 ustawy o odpadach
+    // =========================================================================
+    if (!hasMixtureHazard && /20 01 29\*|16 03 05\*|07 06 04\*/i.test(s13Content)) {
+      let fixedS13 = s13Content
+        .replace(/20 01 29\*\s*\(Detergenty zawierające substancje niebezpieczne\)/gi, '20 01 30 (Detergenty inne niż wymienione w 20 01 29)')
+        .replace(/16 03 05\*\s*\(Organiczne odpady zawierające substancje niebezpieczne\)/gi, '16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05)')
+        .replace(/07 06 04\*\s*\(Inne rozpuszczalniki organiczne, roztwory z przemywania i ciecze macierzyste\)/gi, '07 06 99 (Inne niewymienione odpady)');
+      validatedSections.section_13 = { ...validatedSections.section_13, content: fixedS13 };
+      auditLog.push({
+        rule: "WASTE_CODE_CLASSIFICATION_FIX",
+        status: "AUTO_REMEDIATED",
+        message: "Produkt nie jest zaklasyfikowany jako stwarzający zagrożenie. Zamieniono nieuprawnione kody odpadów niebezpiecznych z gwiazdką (*) na właściwe kody inne niż niebezpieczne (20 01 30 / 16 03 06)."
+      });
+    }
+
+    // =========================================================================
+    // REGUŁA 6: AUDYT ROZPORZĄDZENIA O DETERGENTACH (SEKCJA 15.1)
+    // =========================================================================
     const isDetergent = /detergent|środek czyszczący|mydło|płyn do naczyń|płyn do mycia|płyn do prania|płyn do płukania|odtłuszczacz|lavapavimenti|ammorbidente|sgrassatore|profuma tessuti/i.test(s1Content);
 
     if (!isDetergent && /Rozporządzenie \(WE\) nr 648\/2004/i.test(s15Content)) {
@@ -132,8 +191,7 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
-    // REGUŁA 4: AUDYT SEVESO III (SEKCJA 15.1)
-    // Dyrektywa 2012/18/UE (Seveso III) Załącznik I
+    // REGUŁA 7: AUDYT SEVESO III (SEKCJA 15.1)
     // =========================================================================
     const isHighlyFlammable = /H224|H225|Flam\. Liq\. 1|Flam\. Liq\. 2/i.test(s2Content);
     const isAquaticToxic = /H400|H410/i.test(s2Content);

@@ -25,7 +25,11 @@ TWÓJ ZAKRES ODPOWIEDZIALNOŚCI (TRANSLATE_LLM & EXTRACT_RAW):
 5. WALIDACJA STRUKTURY WYJŚCIOWEJ:
    - Wynik musisz zwrócić jako poprawny obiekt JSON o strukturze "sekcja": "tekst".
    - Sekcje zostaną do Ciebie przesłane z kluczami takimi jak "section_10", "section_11" itp.
-   - Jakikolwiek błąd parsowania JSON natychmiast wstrzymuje kompilację.`;
+   - Jakikolwiek błąd parsowania JSON natychmiast wstrzymuje kompilację.
+6. OBLIGATORYJNA HIERARCHIA PODSEKCJI W SEKCJI 11 (UE 2020/878):
+   - Podsekcja 11.1 zawiera obligatoryjnie wszystkie klasy od a) do j) (w tym h) STOT jednorazowe, i) STOT powtarzane, j) zagrożenie aspiracją).
+   - Nagłówek "11.2. Informacje o innych zagrożeniach" bezwzględnie NIE MOŻE pojawić się przed punktami h), i), j) (nawet jeśli tak niefortunnie wydrukował go producent przez podział strony w PDF).
+   - Nagłówek 11.2 musi znajdować się wyłącznie poniżej punktu j) podsekcji 11.1.`;
 
 async function processSdsWithAgent(pdfPath, productName, manualOverrides = {}) {
     console.log(`[Agent SDS] Uruchamianie procedury architektonicznej dla: ${productName}`);

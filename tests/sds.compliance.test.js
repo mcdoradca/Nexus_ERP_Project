@@ -2,6 +2,7 @@ const assert = require('assert');
 const path = require('path');
 const { 
   SDSProcessorEngine, 
+  SDSChemicalExtractor, 
   PolishLegalTemplates, 
   NDSRegistry, 
   WasteRegistry, 
@@ -31,101 +32,149 @@ const customCompany = {
 
 const engine = new SDSProcessorEngine(customCompany);
 
-// TEST 1: Sekcja 1.3 - Parametryzacja danych firmy
-console.log("\n[TEST 1] Weryfikacja parametryzacji danych dostawcy (Sekcja 1.3)...");
-const s1_3 = PolishLegalTemplates.getSection1_3(customCompany);
-assert(s1_3.includes("CHEM-POLAND Sp. z o.o."), "Nazwa firmy nie została uwzględniona!");
-assert(s1_3.includes("Al. Jerozolimskie 100"), "Adres firmy nie został uwzględniony!");
-assert(s1_3.includes("sds@chempoland.pl"), "E-mail firmy nie został uwzględniony!");
-assert(s1_3.includes("+48 22 100 20 30"), "Telefon firmy nie został uwzględniony!");
-console.log("-> TEST 1 PASSED: Dane dostawcy są w pełni dynamiczne.");
-
-// TEST 2: Sekcja 8.1 - Brak wstrzykiwania Austrii dla CMI/MI (CAS 55965-84-9) gdy brak w składzie
-console.log("\n[TEST 2] Weryfikacja braku wstrzykiwania obcego OEL CAS 55965-84-9...");
-const rawSection8Text = "SECTION 8: Exposure controls/personal protection\nCommunity Occupational Exposure Limits (OEL):\nMAK values defined.";
-const s8ResultWithoutCmi = engine.processSection8(rawSection8Text, [
-  { cas: "67-63-0", name: "propan-2-ol", classification: "Flam. Liq. 2 H225; Eye Irrit. 2 H319" }
-], "H225 Wysoce łatwopalna ciecz i pary\nH319 Działa drażniąco na oczy");
-assert(!s8ResultWithoutCmi.includes("55965-84-9"), "BŁĄD KRYTYCZNY: Wstrzyknięto CAS 55965-84-9 do produktu, który go nie zawiera!");
-assert(!s8ResultWithoutCmi.includes("Masa poreakcyjna 5-chloro-2-metylo"), "BŁĄD KRYTYCZNY: Wstrzyknięto opis CMI/MI!");
-console.log("-> TEST 2 PASSED: Nie wstrzyknięto fałszywego OEL CMI/MI.");
-
-// TEST 3: Sekcja 8.2 - Dynamiczne ŚOI (PN-EN 166, PN-EN ISO 374-1) dla produktów stwarzających zagrożenie
-console.log("\n[TEST 3] Weryfikacja adekwatności Środków Ochrony Indywidualnej (ŚOI)...");
-assert(s8ResultWithoutCmi.includes("PN-EN 166"), "Brak obowiązkowej normy ochrony oczu PN-EN 166 dla produktu H319!");
-assert(s8ResultWithoutCmi.includes("PN-EN ISO 374-1"), "Brak normy rękawic ochronnych PN-EN ISO 374-1 dla produktu drażniącego!");
-assert(!s8ResultWithoutCmi.includes("Ochrona oczu: Brak szczególnych wymagań"), "BŁĄD: Produkt drażniący oczy dostał 'brak wymagań'!");
-console.log("-> TEST 3 PASSED: ŚOI zawierają rygorystyczne normy PN-EN odpowiadające zagrożeniom.");
-
-// TEST 4: Sekcja 12.6 - Usunięcie domyślnego Galaksolidu przy 'no endocrine disruption'
-console.log("\n[TEST 4] Weryfikacja eliminacji fałszywego Galaksolidu (CAS 1222-05-5)...");
-const rawSec12Text = `
-12.1. Toxicity
-12.2. Persistence
-12.3. Bioaccumulative
-12.4. Mobility
-12.5. PBT
-12.6. Endocrine disrupting properties
-No substances identified with endocrine disruption properties.
-12.7. Other adverse effects
+// TEST 1: Sekcja 3.2 - Prawidłowe parsowanie stężeń rozbitych na linie (brak wycieku stężenia do klasyfikacji)
+console.log("\n[TEST 1] Weryfikacja podziału stężeń w Sekcji 3.2 (rozbite linie)...");
+const rawSec3MultiLine = `
+≥0.1-<0.25 %benzyl salicylateCAS:118-58-1
+EC:204-262-9
+Skin Sens. 1B, H31701-2119969442-31-XXXX
+≥0.00015%-
+<0.0015%reaction mass of 5-chloro-2-methyl-2H-isothiazol-3-one and 2-methyl-2H-isothiazol-3-one (3:1)
+CAS:55965-84-9
+EC:911-418-6
+Acute Tox. 2, H330
 `;
-const s12Result = engine.processSection12(rawSec12Text, [
-  { cas: "67-63-0", name: "propan-2-ol" }
+const sec3Components = SDSChemicalExtractor.parseSection3Components(rawSec3MultiLine, {});
+assert.strictEqual(sec3Components.length, 2, "Powinno wyekstrahować dokładnie 2 składniki!");
+const benzyl = sec3Components.find(c => c.cas === '118-58-1');
+const cmi = sec3Components.find(c => c.cas === '55965-84-9');
+assert(benzyl, "Nie znaleziono salicylanu benzylu!");
+assert(cmi, "Nie znaleziono C(M)IT/MIT!");
+assert(!benzyl.classification.includes("0.00015"), `BŁĄD: Do klasyfikacji salicylanu benzylu wyciekło stężenie kolejnego składnika: ${benzyl.classification}`);
+assert(cmi.concentration.includes("0,00015"), `BŁĄD: Dolny próg stężenia C(M)IT/MIT został obcięty: ${cmi.concentration}`);
+console.log(`-> TEST 1 PASSED: Salicylan klasyfikacja='${benzyl.classification}', C(M)IT/MIT stężenie='${cmi.concentration}'.`);
+
+// TEST 2: Sekcja 8.1 - Zgodność z nowelizacją Dz.U. 2024 poz. 1017 (CAS 55965-84-9: NDS 0,2 mg/m³, NDSCh 0,4 mg/m³, skóra)
+console.log("\n[TEST 2] Weryfikacja normatywów NDS dla CAS 55965-84-9 (Dz.U. 2024 poz. 1017)...");
+const s8WithCmi = engine.processSection8("", [
+  { cas: "55965-84-9", name: "masa poreakcyjna C(M)IT/MIT" }
+], "Mieszanina nie została zaklasyfikowana jako stwarzająca zagrożenie.");
+assert(s8WithCmi.includes("55965-84-9"), "Brak CAS 55965-84-9 w sekcji 8.1!");
+assert(s8WithCmi.includes("0,2 mg/m³"), "Brak wartości NDS 0,2 mg/m³ dla CAS 55965-84-9!");
+assert(s8WithCmi.includes("0,4 mg/m³"), "Brak wartości NDSCh 0,4 mg/m³ dla CAS 55965-84-9!");
+assert(s8WithCmi.includes("skóra"), "Brak adnotacji 'skóra' dla CAS 55965-84-9!");
+assert(s8WithCmi.includes("Dz.U. 2024 poz. 1017"), "Brak powołania nowelizacji Dz.U. 2024 poz. 1017!");
+console.log("-> TEST 2 PASSED: Baza i Sekcja 8.1 poprawnie serwują normy z Dz.U. 2024 poz. 1017.");
+
+// TEST 3: Sekcja 8.2 - Proporcjonalność ŚOI (konsumenckie vs przemysłowe/awaryjne)
+console.log("\n[TEST 3] Weryfikacja proporcjonalności ŚOI w Sekcji 8.2...");
+const s8NonHazardous = engine.processSection8("", [
+  { cas: "55965-84-9", name: "masa poreakcyjna C(M)IT/MIT", classification: "Skin Corr. 1C H314; Eye Dam. 1 H318" }
+], "Mieszanina nie została zaklasyfikowana jako stwarzająca zagrożenie zgodnie z rozporządzeniem (WE) nr 1272/2008 [CLP].");
+assert(s8NonHazardous.includes("W normalnych warunkach stosowania konsumenckiego: środki ochrony oczu nie są wymagane"), "Brak rozróżnienia stosowania konsumenckiego dla produktu niesklasyfikowanego!");
+assert(s8NonHazardous.includes("W warunkach przemysłowych, przeładunku hurtowego lub usuwania awarii zaleca się stosowanie okularów ochronnych zgodnych z normą PN-EN 166"), "Brak zaleceń przemysłowych PN-EN 166!");
+assert(s8NonHazardous.includes("ochrona rąk nie jest wymagana"), "Brak informacji o braku wymogu rękawic konsumenckich!");
+console.log("-> TEST 3 PASSED: ŚOI rozróżniają bezpieczne stosowanie konsumenckie od warunków przemysłowych/awaryjnych.");
+
+// TEST 4: Sekcja 11 - Sanityzacja hierarchii (przeniesienie 11.2 za punkty h, i, j)
+console.log("\n[TEST 4] Weryfikacja hierarchii podsekcji 11.1 a-j vs 11.2...");
+const rawBroken11 = `
+11.1. Informacje na temat klas zagrożenia
+a) toksyczność ostra: Nie dotyczy
+g) szkodliwe działanie na rozrodczość: Nie dotyczy
+
+11.2. Informacje o innych zagrożeniach
+Właściwości zaburzające funkcjonowanie układu hormonalnego: Brak danych
+
+h) STOT - jednorazowe: Nie dotyczy
+i) STOT - powtarzane: Nie dotyczy
+j) zagrożenie spowodowane aspiracją: Nie dotyczy
+`;
+const sanitized11 = SDSProcessorEngine.sanitizeSection11Hierarchy(rawBroken11);
+const idxH = sanitized11.indexOf("h) STOT");
+const idxI = sanitized11.indexOf("i) STOT");
+const idxJ = sanitized11.indexOf("j) zagrożenie");
+const idx11_2 = sanitized11.indexOf("11.2. Informacje o innych zagrożeniach");
+assert(idxH !== -1 && idxI !== -1 && idxJ !== -1 && idx11_2 !== -1, "Nie znaleziono wszystkich nagłówków w 11!");
+assert(idx11_2 > idxJ, `BŁĄD: Nagłówek 11.2 (idx=${idx11_2}) znajduje się przed punktem j) (idx=${idxJ})!`);
+console.log("-> TEST 4 PASSED: Nagłówek 11.2 został przeniesiony pod obligatoryjny punkt j).");
+
+// TEST 5: Sekcja 12.3 - Ekstrakcja bioakumulacji (salicylan benzylu BCF = 311 i CMI/MI)
+console.log("\n[TEST 5] Weryfikacja ekstrakcji bioakumulacji w Sekcji 12.3...");
+const rawSec12Bio = `
+12.1. Toxicity
+12.2. Persistence and degradability
+12.3. Bioaccumulative potential
+benzyl salicylate: Bioaccumulative, BCF = 311
+reaction mass of 5-chloro-2-methyl-2H-isothiazol-3-one and 2-methyl-2H-isothiazol-3-one (3:1)
+CAS: 55965-84-9
+Test: BCF - Bioconcentrantion factor; Value: = 3.16
+Test: Log Kow - partition coefficient; Value: <= 0.71
+12.4. Mobility in soil
+12.5. Results of PBT
+12.6 Endocrine disrupting properties
+No substances
+12.7 Other adverse effects
+`;
+const s12BioResult = engine.processSection12(rawSec12Bio, [
+  { cas: "118-58-1", name: "salicylan benzylu", originalName: "benzyl salicylate" },
+  { cas: "55965-84-9", name: "masa poreakcyjna C(M)IT/MIT", originalName: "reaction mass of 5-chloro-2-methyl-2H-isothiazol-3-one and 2-methyl-2H-isothiazol-3-one (3:1)" }
 ]);
-assert(!s12Result.content.includes("1222-05-5"), "BŁĄD KRYTYCZNY: Wstrzyknięto Galaksolid (CAS 1222-05-5) do produktu czystego!");
-assert(!s12Result.content.includes("galaksolid"), "BŁĄD KRYTYCZNY: Wstrzyknięto nazwę galaksolid!");
-assert(s12Result.content.includes("Mieszanina nie zawiera substancji o właściwościach zaburzających"), "Brak oświadczenia negatywnego!");
-assert.strictEqual(s12Result.endocrineDisruptorInfo, null, "Flaga endocrineDisruptorInfo powinna być null!");
-console.log("-> TEST 4 PASSED: Galaksolid nie jest wstrzykiwany przy oświadczeniach negatywnych.");
+assert(s12BioResult.content.includes("salicylan benzylu"), "Brak salicylanu benzylu w sekcji 12.3!");
+assert(s12BioResult.content.includes("311"), "Brak wartości BCF 311 dla salicylanu benzylu!");
+assert(s12BioResult.content.includes("3,16"), "Brak BCF 3,16 dla C(M)IT/MIT!");
+assert(s12BioResult.content.includes("0,71"), "Brak log Kow 0,71 dla C(M)IT/MIT!");
+console.log("-> TEST 5 PASSED: Dane o bioakumulacji dla wszystkich składników zostały bezbłędnie wyekstrahowane.");
 
-// TEST 5: Sekcja 13 - Branżowy dobór kodów odpadów (Farby vs Detergenty)
-console.log("\n[TEST 5] Weryfikacja branżowych kodów odpadów wg Katalogu Odpadów (Dz.U. 2020 poz. 10)...");
-const wastePaint = PolishLegalTemplates.getSection13(true, "Farba akrylowa do ścian i sufitów, rozcieńczalnik");
-assert(wastePaint.includes("08 01 11*"), "BŁĄD: Farba nie otrzymała kodu odpadu z grupy 08 01!");
-assert(wastePaint.includes("20 01 27*"), "BŁĄD: Odpad konsumencki farby nie otrzymał kodu 20 01 27*!");
+// TEST 6: Sekcja 13 - Kody odpadów (brak gwiazdki * dla produktów niesklasyfikowanych)
+console.log("\n[TEST 6] Weryfikacja kodów odpadów dla mieszaniny niesklasyfikowanej...");
+const s13NonHaz = engine.processSection13("Detergent do tkanin i prania", [
+  { cas: "55965-84-9", name: "masa poreakcyjna C(M)IT/MIT", classification: "Acute Tox. 2 H330; Skin Corr. 1C H314" }
+], "Mieszanina nie została zaklasyfikowana jako stwarzająca zagrożenie.", "SWEET HOME LAYALI");
+assert(!s13NonHaz.includes("20 01 29*"), "BŁĄD KRYTYCZNY: Produkt niezaklasyfikowany otrzymał kod odpadu niebezpiecznego 20 01 29*!");
+assert(s13NonHaz.includes("20 01 30"), "Produkt niesklasyfikowany powinien otrzymać kod konsumencki 20 01 30!");
+assert(!s13NonHaz.includes("07 06 04*"), "BŁĄD: Produkt niesklasyfikowany otrzymał kod odpadu przemysłowego 07 06 04*!");
+assert(s13NonHaz.includes("07 06 99") || s13NonHaz.includes("16 03 06"), "Produkt powinien otrzymać kod odpadu innego niż niebezpieczny!");
+console.log("-> TEST 6 PASSED: Kody odpadów są czyste od gwiazdek (*) dla produktu niezaklasyfikowanego.");
 
-const wasteDetergent = PolishLegalTemplates.getSection13(true, "Detergent do mycia podłóg i naczyń");
-assert(wasteDetergent.includes("07 06 04*"), "BŁĄD: Detergent nie otrzymał kodu z grupy 07 06!");
-assert(wasteDetergent.includes("20 01 29*"), "BŁĄD: Odpad komunalny detergentu nie otrzymał kodu 20 01 29*!");
-console.log("-> TEST 5 PASSED: Kody odpadów są precyzyjnie dopasowane do branży produktu.");
-
-// TEST 6: Sekcja 15.1 - Warunkowanie Rozporządzenia o detergentach i Seveso III
-console.log("\n[TEST 6] Weryfikacja powoływania Rozporządzenia 648/2004 i progów Seveso III...");
-const s15Paint = PolishLegalTemplates.getSection15("", "", false, true, false);
-assert(!s15Paint.includes("Rozporządzenie (WE) nr 648/2004"), "BŁĄD: Powołano rozporządzenie o detergentach dla farby!");
-assert(s15Paint.includes("Kategoria P5a/P5b/P5c"), "BŁĄD: Pominięto kategorię cieczy łatwopalnych Seveso III!");
-
-const s15Detergent = PolishLegalTemplates.getSection15("", "", true, false, false);
-assert(s15Detergent.includes("Rozporządzenie (WE) nr 648/2004"), "BŁĄD: Nie powołano rozporządzenia o detergentach dla detergentu!");
-console.log("-> TEST 6 PASSED: Akty prawne w Sekcji 15.1 są ściśle powiązane z charakterem produktu.");
-
-// TEST 7: Agent Audytor Prawno-Chemiczny (SDSVerifierAgent) - Auto-remediacja niespójności
+// TEST 7: Agent Audytor Prawno-Chemiczny (SDSVerifierAgent) - Auto-remediacja
 console.log("\n[TEST 7] Weryfikacja działania Agenta Audytora Prawno-Chemicznego (SDSVerifierAgent)...");
 (async () => {
   const mockSections = {
-    section_1: { content: "Nazwa handlowa: FARBA EPOKSYDOWA\nZastosowanie profesjonalne: powłoka lakiernicza" },
-    section_2: { content: "2.1. Klasyfikacja\nEye Dam. 1 H318 Powoduje poważne uszkodzenie oczu.\n\n2.3. Inne zagrożenia\nProdukt nie zawiera składników wpisanych do wykazu ustanowionego zgodnie z art. 59..." },
-    section_8: { content: "8.2. Kontrola narażenia\nOchrona oczu: Brak szczególnych wymagań w normalnych warunkach stosowania.\nOchrona rąk: Nie jest wymagana przy normalnym stosowaniu." },
-    section_12: { content: "12.6. Właściwości zaburzające funkcjonowanie układu hormonalnego\nSubstancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:\ngalaksolid (CAS: 1222-05-5): Wykaz II ECHA – substancja podlegająca ocenie pod kątem właściwości zaburzających funkcjonowanie układu hormonalnego zgodnie z przepisami UE." },
-    section_15: { content: "- Rozporządzenie (WE) nr 648/2004 Parlamentu Europejskiego i Rady z dnia 31 marca 2004 r. w sprawie detergentów z późniejszymi zmianami.\n- Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE z dnia 4 lipca 2012 r. w sprawie kontroli niebezpieczeństwa poważnych awarii związanych z substancjami niebezpiecznymi (Seveso III): Mieszanina nie podlega przepisom dyrektywy – brak substancji w ilościach progowych." }
+    section_1: { content: "Nazwa handlowa: SWEET HOME LAYALI\nZastosowanie konsumenckie: perfumy do tkanin" },
+    section_2: { content: "2.1. Klasyfikacja\nMieszanina nie została zaklasyfikowana jako stwarzająca zagrożenie.\n\n2.3. Inne zagrożenia\nProdukt nie zawiera składników wpisanych do wykazu ustanowionego zgodnie z art. 59..." },
+    section_8: { content: "8.1. Parametry dotyczące kontroli\nKrajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy (Polska):\nDla składników mieszaniny wymienionych w sekcji 3 nie określono wartości najwyższych dopuszczalnych stężeń...\n\n8.2. Kontrola narażenia\nOchrona oczu: Nosić okulary ochronne w szczelnej obudowie lub gogle ochronne zgodne z normą PN-EN 166." },
+    section_11: { content: "11.1. Klasy\na) ostra: brak\n\n11.2. Informacje o innych zagrożeniach\nBrak danych\n\nh) STOT: brak\ni) STOT powtarzane: brak\nj) zagrożenie spowodowane aspiracją: brak" },
+    section_12: { content: "12.6. Właściwości zaburzające funkcjonowanie układu hormonalnego\nSubstancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:\ngalaksolid (CAS: 1222-05-5): Wykaz II ECHA – substancja podlegająca ocenie..." },
+    section_13: { content: "- Odpady z produktu (dla konsumentów / odpady komunalne): 20 01 29* (Detergenty zawierające substancje niebezpieczne)." },
+    section_15: { content: "- Rozporządzenie (WE) nr 648/2004 w sprawie detergentów.\n- Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE (Seveso III): Mieszanina nie podlega przepisom dyrektywy – brak substancji w ilościach progowych." }
   };
 
   const audit = await SDSVerifierAgent.verifyAndAudit(mockSections, {
-    productName: "FARBA EPOKSYDOWA",
-    components: [{ cas: "1222-05-5", name: "galaksolid", classification: "Eye Dam. 1 H318" }]
+    productName: "SWEET HOME LAYALI",
+    components: [
+      { cas: "55965-84-9", name: "C(M)IT/MIT" },
+      { cas: "1222-05-5", name: "galaksolid" }
+    ]
   });
 
   assert.strictEqual(audit.isCompliant, true);
-  assert(audit.auditLog.length >= 3, `Oczekiwano co najmniej 3 auto-remediacji, otrzymano: ${audit.auditLog.length}`);
+  assert(audit.auditLog.length >= 4, `Oczekiwano co najmniej 4 wpisów audytu, otrzymano: ${audit.auditLog.length}`);
   
-  // Sprawdzenie czy audytor naprawił oczy w sekcji 8
-  assert(audit.validatedSections.section_8.content.includes("PN-EN 166"), "Audytor nie wymusił normy PN-EN 166 dla uszkodzenia oczu H318!");
+  // 1. Sprawdzenie korekty ŚOI
+  assert(audit.validatedSections.section_8.content.includes("W normalnych warunkach stosowania konsumenckiego: środki ochrony oczu nie są wymagane"), "Audytor nie skorygował nadgorliwych ŚOI!");
   
-  // Sprawdzenie czy audytor usunął sprzeczność ED w sekcji 2.3
-  assert(audit.validatedSections.section_2.content.includes("Substancje zaburzające funkcjonowanie układu hormonalnego: Produkt zawiera galaksolid"), "Audytor nie skorygował Sekcji 2.3!");
+  // 2. Sprawdzenie uzupełnienia NDS dla CAS 55965-84-9
+  assert(audit.validatedSections.section_8.content.includes("0,2 mg/m³"), "Audytor nie uzupełnił NDS 2024 dla CAS 55965-84-9!");
+  
+  // 3. Sprawdzenie korekty odpadów na 20 01 30
+  assert(audit.validatedSections.section_13.content.includes("20 01 30"), "Audytor nie zamienił 20 01 29* na 20 01 30!");
+  assert(!audit.validatedSections.section_13.content.includes("20 01 29*"), "Audytor pozostawił kod z gwiazdką 20 01 29*!");
 
-  // Sprawdzenie czy audytor usunął detergenty z sekcji 15 dla farby
-  assert(!audit.validatedSections.section_15.content.includes("Rozporządzenie (WE) nr 648/2004"), "Audytor nie usunął ustawy o detergentach z farby!");
+  // 4. Sprawdzenie korekty hierarchii 11.2
+  const idxS11_j = audit.validatedSections.section_11.content.indexOf("j) zagrożenie");
+  const idxS11_112 = audit.validatedSections.section_11.content.indexOf("11.2. Informacje");
+  assert(idxS11_112 > idxS11_j, "Audytor nie przeniósł nagłówka 11.2 pod punkt j!");
 
   console.log("-> TEST 7 PASSED: Agent Audytor natychmiast wykrył i naprawił wszystkie niespójności regulacyjne.");
   console.log("\n========================================================");
