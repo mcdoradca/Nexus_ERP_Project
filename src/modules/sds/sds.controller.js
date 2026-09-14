@@ -13,7 +13,7 @@ function cleanupOrphanPdfs() {
         const MAX_AGE_MS = 60 * 60 * 1000; // 1 godzina
 
         files.forEach(file => {
-            if ((file.startsWith('temp_sds_') && file.endsWith('.pdf')) ||
+            if ((file.startsWith('temp_sds_') && (file.endsWith('.pdf') || file.endsWith('.rtf'))) ||
                 (file.startsWith('Karta_Charakterystyki_PL_') && file.endsWith('.docx'))) {
                 const filePath = path.join(cwd, file);
                 const stats = fs.statSync(filePath);
@@ -33,17 +33,20 @@ setInterval(cleanupOrphanPdfs, 60 * 60 * 1000);
 // -------------------------------
 
 async function processSds(req, res) {
-    let tempPdfPath = null;
+    let tempFilePath = null;
     try {
         if (!req.file) {
-            return res.status(400).json({ error: 'Brak pliku PDF.' });
+            return res.status(400).json({ error: 'Brak pliku źródłowego (PDF lub RTF).' });
         }
 
         const productName = req.body.productName || 'PRODUKT CHEMICZNY';
-        tempPdfPath = path.join(process.cwd(), `temp_sds_${Date.now()}.pdf`);
-        fs.writeFileSync(tempPdfPath, req.file.buffer);
+        const isRtf = (req.file.originalname && req.file.originalname.toLowerCase().endsWith('.rtf')) ||
+                      (req.file.buffer && req.file.buffer.slice(0, 10).toString('binary').startsWith('{\\rtf'));
+        const ext = isRtf ? '.rtf' : '.pdf';
+        tempFilePath = path.join(process.cwd(), `temp_sds_${Date.now()}${ext}`);
+        fs.writeFileSync(tempFilePath, req.file.buffer);
 
-        const outputDocxPath = await processSdsWithAgent(tempPdfPath, productName);
+        const outputDocxPath = await processSdsWithAgent(tempFilePath, productName);
 
         if (!outputDocxPath || !fs.existsSync(outputDocxPath)) {
              return res.status(500).json({ error: 'Agent nie wygenerował pliku DOCX.' });
@@ -62,23 +65,26 @@ async function processSds(req, res) {
         console.error("Błąd processSds [STACK]:", error.stack);
         res.status(500).json({ error: 'Błąd podczas przetwarzania karty SDS.', details: error.message, stack: error.stack });
     } finally {
-        if (tempPdfPath && fs.existsSync(tempPdfPath)) {
-            fs.unlinkSync(tempPdfPath);
+        if (tempFilePath && fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
         }
     }
 }
 
 async function resumeProcess(req, res) {
-    let tempPdfPath = null;
+    let tempFilePath = null;
     try {
-        if (!req.file) return res.status(400).json({ error: 'Brak pliku PDF.' });
+        if (!req.file) return res.status(400).json({ error: 'Brak pliku źródłowego (PDF lub RTF).' });
         const productName = req.body.productName || 'PRODUKT CHEMICZNY';
         const manualOverrides = req.body.manualOverrides ? JSON.parse(req.body.manualOverrides) : {};
         
-        tempPdfPath = path.join(process.cwd(), `temp_sds_${Date.now()}.pdf`);
-        fs.writeFileSync(tempPdfPath, req.file.buffer);
+        const isRtf = (req.file.originalname && req.file.originalname.toLowerCase().endsWith('.rtf')) ||
+                      (req.file.buffer && req.file.buffer.slice(0, 10).toString('binary').startsWith('{\\rtf'));
+        const ext = isRtf ? '.rtf' : '.pdf';
+        tempFilePath = path.join(process.cwd(), `temp_sds_${Date.now()}${ext}`);
+        fs.writeFileSync(tempFilePath, req.file.buffer);
 
-        const outputDocxPath = await processSdsWithAgent(tempPdfPath, productName, manualOverrides);
+        const outputDocxPath = await processSdsWithAgent(tempFilePath, productName, manualOverrides);
         
         if (!outputDocxPath || !fs.existsSync(outputDocxPath)) {
              return res.status(500).json({ error: 'Agent nie wygenerował pliku DOCX.' });
@@ -91,8 +97,8 @@ async function resumeProcess(req, res) {
         console.error("Błąd resumeProcess [STACK]:", error.stack);
         res.status(500).json({ error: 'Błąd podczas wznowienia procesu SDS.', details: error.message, stack: error.stack });
     } finally {
-        if (tempPdfPath && fs.existsSync(tempPdfPath)) {
-            fs.unlinkSync(tempPdfPath);
+        if (tempFilePath && fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
         }
     }
 }

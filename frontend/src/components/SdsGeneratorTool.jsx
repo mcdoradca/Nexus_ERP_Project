@@ -18,15 +18,20 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
 
     const handleFileSelect = (e) => {
         const selected = e.target.files[0];
-        if (selected && selected.type === 'application/pdf') {
+        if (!selected) return;
+
+        const isPdf = selected.type === 'application/pdf' || selected.name.toLowerCase().endsWith('.pdf');
+        const isRtf = selected.type === 'application/rtf' || selected.type === 'text/rtf' || selected.type === 'application/x-rtf' || selected.name.toLowerCase().endsWith('.rtf');
+
+        if (isPdf || isRtf) {
             setFile(selected);
             setError(null);
             setSuccess(false);
             if (!productName) {
-                setProductName(selected.name.replace(/\.pdf$/i, ''));
+                setProductName(selected.name.replace(/\.(pdf|rtf)$/i, ''));
             }
         } else {
-            setError('Proszę wybrać prawidłowy plik PDF.');
+            setError('Proszę wybrać prawidłowy plik źródłowy w formacie PDF lub RTF.');
         }
     };
 
@@ -56,7 +61,7 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
-            const fileName = `Karta_Charakterystyki_${productName || (file ? file.name.replace(/\.pdf$/i, '') : 'PL')}.docx`;
+            const fileName = `Karta_Charakterystyki_${productName || (file ? file.name.replace(/\.(pdf|rtf)$/i, '') : 'PL')}.docx`;
             link.setAttribute('download', fileName);
             document.body.appendChild(link);
             link.click();
@@ -125,7 +130,7 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
-            const fileName = `Karta_Charakterystyki_PL_${productName || (file ? file.name.replace(/\.pdf$/i, '') : 'WZNOWIONA')}.docx`;
+            const fileName = `Karta_Charakterystyki_PL_${productName || (file ? file.name.replace(/\.(pdf|rtf)$/i, '') : 'WZNOWIONA')}.docx`;
             link.setAttribute('download', fileName);
             document.body.appendChild(link);
             link.click();
@@ -158,7 +163,7 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                         <h1 className="text-2xl font-black text-slate-800 tracking-tight">Generator Kart SDS (UE 2020/878)</h1>
                         <p className="text-sm font-medium text-slate-500 mt-2 max-w-2xl leading-relaxed">
                             Autonomiczny procesor hybrydowy (Agent AI + Deterministyczny Silnik Node.js). 
-                            Prześlij oryginalną kartę w języku włoskim (PDF), aby wygenerować edytowalną polską wersję DOCX
+                            Prześlij oryginalną kartę w języku obcym (PDF lub RTF), aby wygenerować edytowalną polską wersję DOCX
                             zawierającą kwarantannę prawną oraz wygenerowane lokalnie piktogramy GHS.
                         </p>
                     </div>
@@ -195,7 +200,7 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                                         type="file" 
                                         ref={fileInputRef} 
                                         className="hidden" 
-                                        accept="application/pdf"
+                                        accept=".pdf,.rtf,application/pdf,application/rtf,text/rtf,application/x-rtf"
                                         onChange={handleFileSelect}
                                     />
                                     
@@ -212,8 +217,8 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                                             <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-3 text-slate-400">
                                                 <Upload className="w-6 h-6" />
                                             </div>
-                                            <p className="text-sm font-bold text-slate-700">Kliknij, aby wybrać plik PDF</p>
-                                            <p className="text-xs font-medium text-slate-500 mt-1">Akceptowane tylko oryginalne włoskie formaty PDF</p>
+                                            <p className="text-sm font-bold text-slate-700">Kliknij, aby wybrać plik PDF lub RTF</p>
+                                            <p className="text-xs font-medium text-slate-500 mt-1">Akceptowane formaty: PDF oraz RTF</p>
                                         </>
                                     )}
                                 </div>
