@@ -10,7 +10,19 @@
  * - Weryfikacja kwalifikacji odpadów w Sekcji 13 wg Dz.U. 2020 poz. 10
  */
 
+const fs = require('fs');
+const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+const ecotoxCachePath = path.join(__dirname, 'rag_knowledge', 'ecotox_cache.json');
+let ecotoxCache = {};
+if (fs.existsSync(ecotoxCachePath)) {
+  try {
+    ecotoxCache = JSON.parse(fs.readFileSync(ecotoxCachePath, 'utf8'));
+  } catch (e) {
+    ecotoxCache = {};
+  }
+}
 
 class SDSVerifierAgent {
   /**
@@ -228,6 +240,51 @@ class SDSVerifierAgent {
           rule: "SCL_ORPHAN_H_CODE_REMEDIATION",
           status: "AUTO_REMEDIATED",
           message: "Wykryto i scalono osierocone kody H w regułach SCL Sekcji 3."
+        });
+      }
+    }
+
+    // =========================================================================
+    // REGUŁA 9: AUDYT KOMPLETNOŚCI BIOAKUMULACJI W SEKCJI 12.3 (UE 2020/878)
+    // =========================================================================
+    if (s12Content && components && components.length > 0) {
+      let fixedS12 = s12Content;
+      let addedAny = false;
+
+      components.forEach(comp => {
+        if (!comp.cas) return;
+        const cacheEntry = ecotoxCache[comp.cas];
+        if (cacheEntry && cacheEntry.bioaccumulation) {
+          const hasCasInS12_3 = new RegExp(`12\\.3[\\s\\S]*?${comp.cas.replace(/-/g, '\\-')}`, 'i').test(fixedS12);
+          const hasBcfOrBioacc = new RegExp(`12\\.3[\\s\\S]*?${comp.cas.replace(/-/g, '\\-')}[\\s\\S]*?(?:bioakumulac|BCF)`, 'i').test(fixedS12);
+          
+          if (!hasCasInS12_3 || !hasBcfOrBioacc) {
+            const compName = comp.name || cacheEntry.name_pl || "Substancja";
+            const bioEntry = `${compName} (CAS: ${comp.cas}): ${cacheEntry.bioaccumulation}`;
+            
+            if (/12\.3\.\s*Zdolność do bioakumulacji[\s\S]*?Informacje dotyczące składników:/i.test(fixedS12)) {
+              fixedS12 = fixedS12.replace(
+                /(12\.3\.\s*Zdolność do bioakumulacji[\s\S]*?Informacje dotyczące składników:\n)/i,
+                `$1${bioEntry}\n`
+              );
+              addedAny = true;
+            } else if (/12\.3\.\s*Zdolność do bioakumulacji/i.test(fixedS12)) {
+              fixedS12 = fixedS12.replace(
+                /(12\.3\.\s*Zdolność do bioakumulacji\n)(?:Brak dostępnych badań dotyczących bioakumulacji dla mieszaniny\.\n?)?/i,
+                `$1Informacje dotyczące składników:\n${bioEntry}\nMieszanina: Brak dostępnych badań dotyczących bioakumulacji dla mieszaniny.\n`
+              );
+              addedAny = true;
+            }
+          }
+        }
+      });
+
+      if (addedAny && fixedS12 !== s12Content) {
+        validatedSections.section_12 = { ...validatedSections.section_12, content: fixedS12 };
+        auditLog.push({
+          rule: "SECTION_12_BIOACCUMULATION_COMPLIANCE",
+          status: "AUTO_REMEDIATED",
+          message: "Uzupełniono brakujące dane o bioakumulacji w Sekcji 12.3 z rejestru referencyjnego ECHA."
         });
       }
     }

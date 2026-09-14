@@ -174,7 +174,7 @@ const s12ClumpedResult = engine.processSection12(rawSec12Clumped, [
 ]);
 assert(s12ClumpedResult.content.includes("salicylan benzylu"), "Brak salicylanu benzylu w sekcji 12.3 przy zbitych nagłówkach!");
 assert(s12ClumpedResult.content.includes("311"), "Brak wartości BCF 311 dla salicylanu benzylu przy zbitych nagłówkach!");
-assert(s12ClumpedResult.content.includes("potencjał bioakumulacji"), "Brak deklaracji potencjału bioakumulacji!");
+assert(s12ClumpedResult.content.includes("wykazuje zdolność do bioakumulacji (Bioaccumulative)"), "Brak deklaracji zdolności do bioakumulacji (Bioaccumulative)!");
 assert(s12ClumpedResult.content.includes("3,16"), "Brak BCF 3,16 dla C(M)IT/MIT!");
 assert(s12ClumpedResult.content.includes("0,71"), "Brak log Kow 0,71 dla C(M)IT/MIT!");
 console.log("-> TEST 5B PASSED: Zbite nagłówki i inline CAS w Sekcji 12.3 zostały bezbłędnie rozdzielone i przetworzone.");
@@ -198,7 +198,7 @@ console.log("\n[TEST 7] Weryfikacja działania Agenta Audytora Prawno-Chemiczneg
     section_2: { content: "2.1. Klasyfikacja\nMieszanina nie została zaklasyfikowana jako stwarzająca zagrożenie.\n\n2.3. Inne zagrożenia\nProdukt nie zawiera składników wpisanych do wykazu ustanowionego zgodnie z art. 59..." },
     section_8: { content: "8.1. Parametry dotyczące kontroli\nKrajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy (Polska):\nDla składników mieszaniny wymienionych w sekcji 3 nie określono wartości najwyższych dopuszczalnych stężeń...\n\n8.2. Kontrola narażenia\nOchrona oczu: Nosić okulary ochronne w szczelnej obudowie lub gogle ochronne zgodne z normą PN-EN 166." },
     section_11: { content: "11.1. Klasy\na) ostra: brak\n\n11.2. Informacje o innych zagrożeniach\nBrak danych\n\nh) STOT: brak\ni) STOT powtarzane: brak\nj) zagrożenie spowodowane aspiracją: brak" },
-    section_12: { content: "12.6. Właściwości zaburzające funkcjonowanie układu hormonalnego\nSubstancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:\ngalaksolid (CAS: 1222-05-5): Wykaz II ECHA – substancja podlegająca ocenie..." },
+    section_12: { content: "12.3. Zdolność do bioakumulacji\nBrak dostępnych badań dotyczących bioakumulacji dla mieszaniny.\n\n12.6. Właściwości zaburzające funkcjonowanie układu hormonalnego\nSubstancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:\ngalaksolid (CAS: 1222-05-5): Wykaz II ECHA – substancja podlegająca ocenie..." },
     section_13: { content: "- Odpady z produktu (dla konsumentów / odpady komunalne): 20 01 29* (Detergenty zawierające substancje niebezpieczne)." },
     section_15: { content: "- Rozporządzenie (WE) nr 648/2004 w sprawie detergentów.\n- Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE (Seveso III): Mieszanina nie podlega przepisom dyrektywy – brak substancji w ilościach progowych." }
   };
@@ -207,12 +207,13 @@ console.log("\n[TEST 7] Weryfikacja działania Agenta Audytora Prawno-Chemiczneg
     productName: "SWEET HOME LAYALI",
     components: [
       { cas: "55965-84-9", name: "C(M)IT/MIT" },
-      { cas: "1222-05-5", name: "galaksolid" }
+      { cas: "1222-05-5", name: "galaksolid" },
+      { cas: "118-58-1", name: "salicylan benzylu" }
     ]
   });
 
   assert.strictEqual(audit.isCompliant, true);
-  assert(audit.auditLog.length >= 4, `Oczekiwano co najmniej 4 wpisów audytu, otrzymano: ${audit.auditLog.length}`);
+  assert(audit.auditLog.length >= 5, `Oczekiwano co najmniej 5 wpisów audytu, otrzymano: ${audit.auditLog.length}`);
   
   // 1. Sprawdzenie korekty ŚOI
   assert(audit.validatedSections.section_8.content.includes("W normalnych warunkach stosowania konsumenckiego: środki ochrony oczu nie są wymagane"), "Audytor nie skorygował nadgorliwych ŚOI!");
@@ -229,7 +230,12 @@ console.log("\n[TEST 7] Weryfikacja działania Agenta Audytora Prawno-Chemiczneg
   const idxS11_112 = audit.validatedSections.section_11.content.indexOf("11.2. Informacje");
   assert(idxS11_112 > idxS11_j, "Audytor nie przeniósł nagłówka 11.2 pod punkt j!");
 
-  console.log("-> TEST 7 PASSED: Agent Audytor natychmiast wykrył i naprawił wszystkie niespójności regulacyjne.");
+  // 5. Sprawdzenie auto-remediacji bioakumulacji dla CAS 118-58-1
+  assert(audit.validatedSections.section_12.content.includes("118-58-1"), "Audytor nie uzupełnił CAS 118-58-1 w sekcji 12.3!");
+  assert(audit.validatedSections.section_12.content.includes("wykazuje zdolność do bioakumulacji (Bioaccumulative)"), "Audytor nie wstawił urzędowej frazy bioakumulacji!");
+  assert(audit.validatedSections.section_12.content.includes("BCF = 311"), "Audytor nie wstawił parametru BCF = 311!");
+
+  console.log("-> TEST 7 PASSED: Agent Audytor natychmiast wykrył i naprawił wszystkie niespójności regulacyjne (w tym bioakumulację 12.3).");
   console.log("\n========================================================");
   console.log("WSZYSTKIE 7 TESTÓW ZGODNOŚCI REGULACYJNEJ ZAKOŃCZONE SUKCESEM!");
   console.log("========================================================");

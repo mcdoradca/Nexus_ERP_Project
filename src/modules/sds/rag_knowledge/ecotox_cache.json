@@ -7,6 +7,14 @@
     "pbt": false,
     "endocrineDisruptor": false
   },
+  "118-58-1": {
+    "name_pl": "salicylan benzylu",
+    "biodegradability": "Łatwo biodegradowalny.",
+    "bioaccumulation": "wykazuje zdolność do bioakumulacji (Bioaccumulative), współczynnik biokoncentracji BCF = 311.",
+    "mobility": "Brak danych.",
+    "pbt": false,
+    "endocrineDisruptor": false
+  },
   "55965-84-9": {
     "name_pl": "masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu (3:1)",
     "biodegradability": "Łatwo biodegradowalny. Wartość: > 60 % (OECD 301 D Closed-Bottle-Test).",

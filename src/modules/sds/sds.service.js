@@ -1892,16 +1892,18 @@ class SDSProcessorEngine {
     let block1 = "", block2 = "", block3 = "", block4 = "", block5 = "", block6 = "", block7 = "";
 
     if (clumpedMatch) {
-      const idxBio = adjustBoundary(workingText, workingText.search(/(?:Non-readily biodegradable|Readily biodegradable|Trwałość i zdolność do rozkładu|Persistence and degradability)/i));
-      const idxBioAcc = adjustBoundary(workingText, workingText.search(/(?:Not bioaccumulative|Bioaccumulative potential|Zdolność do bioakumulacji|Test:\s*BCF)/i));
-      const idxPbt = workingText.search(/(?:No PBT or vPvB|Results of PBT and vPvB|Wyniki oceny właściwości PBT)/i);
-      const idxEndo = adjustBoundary(workingText, workingText.search(/(?:List II|List I|Substances under evaluation for endocrine|endocrine disruption|Endocrine disrupting properties|Właściwości zaburzające)/i));
-      const idxOther = workingText.search(/(?:12\.7|Other adverse effects|Inne szkodliwe skutki)/i);
+      const idxBio = adjustBoundary(workingText, workingText.search(/(?:Non-readily biodegradable|Readily biodegradable|Trwałość i zdolność do rozkładu|Persistence and degradability|Biodegradab)/i));
+      const idxBioAcc = adjustBoundary(workingText, workingText.search(/(?:Not bioaccumulative|Non bioaccumulabile|Bioaccumulat|Bioaccumulab|Zdolność do bioakumulacji|Potenziale di bioaccumulo|Bioconcentr|BCF)/i));
+      const idxPbt = workingText.search(/(?:No PBT or vPvB|Results of PBT and vPvB|Wyniki oceny właściwości PBT|Non contiene sostanze PBT|PBT[ \/]?vPvB|Valutazione PBT)/i);
+      const idxEndo = adjustBoundary(workingText, workingText.search(/(?:List II|List I|Substances under evaluation for endocrine|endocrine disruption|Endocrine disrupting properties|Właściwości zaburzające|Proprietà di interferenza con il sistema endocrino)/i));
+      const idxOther = workingText.search(/(?:12\.7|Other adverse effects|Altri effetti avversi|Inne szkodliwe skutki)/i);
+
+      const bioAccEnd = idxPbt !== -1 ? idxPbt : (idxEndo !== -1 ? idxEndo : (idxOther !== -1 ? idxOther : workingText.length));
 
       block1 = idxBio !== -1 ? workingText.substring(0, idxBio).trim() : workingText;
       block2 = (idxBio !== -1 && idxBioAcc !== -1) ? workingText.substring(idxBio, idxBioAcc).trim() : "";
-      block3 = (idxBioAcc !== -1 && idxPbt !== -1) ? workingText.substring(idxBioAcc, idxPbt).trim() : "";
-      block5 = (idxPbt !== -1 && idxEndo !== -1) ? workingText.substring(idxPbt, idxEndo).trim() : "";
+      block3 = idxBioAcc !== -1 ? workingText.substring(idxBioAcc, bioAccEnd).trim() : "";
+      block5 = (idxPbt !== -1 && idxEndo !== -1) ? workingText.substring(idxPbt, idxEndo).trim() : (idxPbt !== -1 ? workingText.substring(idxPbt).trim() : "");
       block6 = (idxEndo !== -1 && idxOther !== -1) ? workingText.substring(idxEndo, idxOther).trim() : (idxEndo !== -1 ? workingText.substring(idxEndo).trim() : "");
       block7 = idxOther !== -1 ? workingText.substring(idxOther).trim() : "";
     } else {
@@ -2068,25 +2070,25 @@ class SDSProcessorEngine {
       }
 
       if (curS3Sub) {
-        if (/Not bioaccumulative|Nie wykazuje (?:zdolności|potencjału) do bioakumulacji/i.test(line)) {
+        if (/Not bioaccumulative|Non bioaccumulabile|Nie wykazuje (?:zdolności|potencjału) do bioakumulacji/i.test(line)) {
           if (!curS3Sub.info.some(x => x.includes("bioakumulac"))) {
-            curS3Sub.info.push("nie wykazuje potencjału bioakumulacji");
+            curS3Sub.info.push("nie wykazuje zdolności do bioakumulacji");
           }
-        } else if (/Bioaccumulative/i.test(line) && !/Not bioaccumulative/i.test(line)) {
+        } else if (/Bioaccumulat|Bioaccumulab/i.test(line) && !/Not|Non/i.test(line)) {
           if (!curS3Sub.info.some(x => x.includes("bioakumulac"))) {
-            curS3Sub.info.push("wykazuje potencjał bioakumulacji");
+            curS3Sub.info.push("wykazuje zdolność do bioakumulacji (Bioaccumulative)");
           }
         }
         
         if (/BCF|Bioconcentr/i.test(line)) {
-          const bcfMatch = line.match(/(?:BCF|Bioconcentr(?:at|ant)ion\s+factor).*?(?:[:=~-]|(?:Value|Wartość)\s*[:\.]?\s*)\s*((?:<=|>=|[=~<≤>≥])?\s*\d+(?:[.,]\d+)?)/i)
+          const bcfMatch = line.match(/(?:BCF|Bioconcentr(?:at|ant)ion\s+factor|Fattore di bioconcentrazione).*?(?:[:=~-]|(?:Value|Wartość)\s*[:\.]?\s*)\s*((?:<=|>=|[=~<≤>≥])?\s*\d+(?:[.,]\d+)?)/i)
             || line.match(/(?:Value|Wartość)\s*[:\.]?\s*((?:<=|>=|[=~<≤>≥])?\s*\d+(?:[.,]\d+)?)/i)
             || line.match(/\bBCF\s*=\s*((?:<=|>=|[=~<≤>≥])?\s*\d+(?:[.,]\d+)?)/i);
           if (bcfMatch) {
             const rawVal = bcfMatch[1].trim().replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2);
-            const val = rawVal.startsWith('=') ? rawVal : (rawVal.match(/^[<≤>≥]/) ? rawVal : `= ${rawVal}`);
+            const cleanVal = rawVal.replace(/^[=~:]\s*/, '');
             if (!curS3Sub.info.some(x => x.includes("BCF"))) {
-              curS3Sub.info.push(`współczynnik biokoncentracji (BCF): ${val}`);
+              curS3Sub.info.push(`współczynnik biokoncentracji BCF = ${cleanVal}`);
             }
           }
         }
@@ -2124,7 +2126,7 @@ class SDSProcessorEngine {
       s12_3 += "Informacje dotyczące składników:\n";
       s3Substances.forEach(sub => {
         if (sub.info.length > 0) {
-          const infoStr = sub.info.join('; ').replace(/\.\s*;/g, ';').replace(/;;\s*/g, '; ') + (sub.info[sub.info.length - 1].endsWith('.') ? '' : '.');
+          const infoStr = sub.info.join(', ').replace(/\.\s*,/g, ',').replace(/,\s*,/g, ', ') + (sub.info[sub.info.length - 1].endsWith('.') ? '' : '.');
           s12_3 += `${sub.name} (CAS: ${sub.cas}): ${infoStr}\n`;
         }
       });
