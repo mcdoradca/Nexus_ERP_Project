@@ -16,6 +16,7 @@ const path = require("path");
 const zlib = require("zlib");
 const https = require("https");
 const { execSync } = require("child_process");
+const { SDSRTFParser } = require("./sds.rtf.parser");
 
 // Obsługa HITLError (Zbi�r Anomalii)
 class HITLError extends Error {
@@ -308,11 +309,57 @@ class WasteRegistry {
 
 
 // ============================================================================
-// 3. PARSER PDF I DETEKTOR OCR
+// 3. PARSER DOKUMENTÓW (PDF / RTF) I DETEKTOR OCR
 // ============================================================================
+class SDSDocumentParser {
+  static lastExtractionUsedOcr = false;
+  static ocrDiagnosticMessage = null;
+
+  static isRtfFile(filePath) {
+    if (!filePath || typeof filePath !== 'string') return false;
+    if (filePath.toLowerCase().endsWith('.rtf')) return true;
+    try {
+      if (fs.existsSync(filePath)) {
+        const fd = fs.openSync(filePath, 'r');
+        const buf = Buffer.alloc(10);
+        fs.readSync(fd, buf, 0, 10, 0);
+        fs.closeSync(fd);
+        return buf.toString('binary').startsWith('{\\rtf');
+      }
+    } catch (e) {
+      return false;
+    }
+    return false;
+  }
+
+  static async extractText(filePath, forceOcr = false) {
+    this.lastExtractionUsedOcr = false;
+    this.ocrDiagnosticMessage = null;
+
+    if (this.isRtfFile(filePath)) {
+      console.log(`[SYS] Rozpoznano format RTF: ${filePath}`);
+      const text = await SDSRTFParser.extractTextFromRtf(filePath);
+      return text;
+    }
+
+    const text = await SDSPDFParser.extractTextFromPdf(filePath, forceOcr);
+    this.lastExtractionUsedOcr = SDSPDFParser.lastExtractionUsedOcr;
+    this.ocrDiagnosticMessage = SDSPDFParser.ocrDiagnosticMessage;
+    return text;
+  }
+
+  static segmentInto16Sections(fullText) {
+    return SDSPDFParser.segmentInto16Sections(fullText);
+  }
+}
+
 class SDSPDFParser {
   static lastExtractionUsedOcr = false;
   static ocrDiagnosticMessage = null;
+
+  static async extractText(filePath, forceOcr = false) {
+    return SDSDocumentParser.extractText(filePath, forceOcr);
+  }
 
   static async extractTextFromPdf(filePath, forceOcr = false) {
     let text = "";
@@ -516,7 +563,22 @@ class SDSChemicalExtractor {
       .replace(/([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%)\s*\n\s*-\s*([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%)/g, (m, p1, p2, p3, p4) => (p1 || '') + p2 + ' - ' + (p3 || '') + p4)
       .replace(/([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?)\s*-\s*\n\s*([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%)/g, (m, p1, p2, p3, p4) => (p1 || '') + p2 + ' - ' + (p3 || '') + p4);
 
-    const casMatches = [...cleanText.matchAll(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/gi)];
+    // Wyszukiwanie numerów CAS: z przedrostkiem CAS lub jako wyizolowany token w wierszu tabeli
+    const rawCasMatches = [...cleanText.matchAll(/(?:CAS\s*[:\.]?\s*)?(\b\d{2,7}-\d{2}-\d\b)/gi)];
+    const casMatches = [];
+    for (const m of rawCasMatches) {
+      const candidateCas = m[1];
+      if (this.isValidCas(candidateCas)) {
+        // Pomijamy numery, które są poprzedzone oznaczeniem EC/WE lub Index
+        const preToken = cleanText.substring(Math.max(0, m.index - 20), m.index);
+        if (/(?:EC|WE|EINECS|Index|Indeks)\s*[:\.]?\s*$/i.test(preToken)) {
+          continue;
+        }
+        if (!casMatches.some(prev => prev[1] === candidateCas && Math.abs(prev.index - m.index) < 10)) {
+          casMatches.push(m);
+        }
+      }
+    }
     if (casMatches.length === 0) return [];
 
     const concPattern = /(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%?(?:\s*-\s*(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%)|(?:[≥≤><~=]|>=|<=)\s*\d+(?:[.,]\d+)?\s*%/g;
@@ -528,15 +590,9 @@ class SDSChemicalExtractor {
       const casIdx = casMatches[i].index;
       
       const preCasText = cleanText.substring(Math.max(0, casIdx - 200), casIdx);
-      const concMatches = [...preCasText.matchAll(concPattern)];
-      const lastConc = concMatches.length > 0 ? concMatches[concMatches.length - 1] : null;
-      
-      const rawConc = lastConc ? lastConc[0].trim() : "—";
-      const concentration = this.formatConcentration(rawConc);
-      let rawName = lastConc ? preCasText.substring(lastConc.index + lastConc[0].length).trim() : "";
-      rawName = rawName.replace(/-\s+/g, '-').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+      const preConcMatches = [...preCasText.matchAll(concPattern)];
 
-      // Wyznaczanie granic wiersza (do startu stężenia następnego CAS lub końca tekstu)
+      // Wyznaczanie granic wiersza (do startu stężenia następnego CAS lub kolejnego wiersza)
       let rowEnd = cleanText.length;
       if (i + 1 < casMatches.length) {
         const nextCasIdx = casMatches[i + 1].index;
@@ -546,11 +602,37 @@ class SDSChemicalExtractor {
           const nextLastConc = nextConcMatches[nextConcMatches.length - 1];
           rowEnd = Math.max(0, nextCasIdx - 200) + nextLastConc.index;
         } else {
-          rowEnd = nextCasIdx;
+          // W formacie tabelarycznym wiersz kończy się przed kolejną linią zawierającą następny CAS
+          const preNextLineIdx = cleanText.lastIndexOf('\n', nextCasIdx);
+          rowEnd = (preNextLineIdx !== -1 && preNextLineIdx > casIdx) ? preNextLineIdx : nextCasIdx;
         }
       }
 
       const body = cleanText.substring(casIdx, rowEnd).trim();
+
+      let rawConc = "—";
+      let rawName = "";
+
+      if (preConcMatches.length > 0) {
+        // Format A (standard PDF): stężenie przed CAS
+        const lastConc = preConcMatches[preConcMatches.length - 1];
+        rawConc = lastConc[0].trim();
+        rawName = preCasText.substring(lastConc.index + lastConc[0].length).trim();
+      } else {
+        // Format B (RTF / Tabela z kolumnami): stężenie po CAS
+        const postConcMatches = [...body.matchAll(concPattern)];
+        if (postConcMatches.length > 0) {
+          rawConc = postConcMatches[0][0].trim();
+        }
+        // Nazwa substancji w bieżącym wierszu tabeli przed CAS
+        const lineStart = preCasText.lastIndexOf('\n');
+        rawName = (lineStart !== -1 ? preCasText.substring(lineStart + 1) : preCasText).replace(/\t/g, ' ').trim();
+        // Oczyszczenie z ewentualnych nagłówków kolumn
+        rawName = rawName.replace(/^(?:Nome(?:\s+Sostanza)?|Substance(?:\s+Name)?|Nazwa(?:\s+substancji)?|Składnik|Component)\s*[:\.]?\s*/i, '');
+      }
+
+      const concentration = this.formatConcentration(rawConc);
+      rawName = rawName.replace(/-\s+/g, '-').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
 
       const ecMatch = body.match(/(?:EC|WE|EINECS)\s*[:\.]?\s*(\d{3}-\d{3}-\d)/i);
       const ecNumber = ecMatch ? ecMatch[1] : "—";
@@ -562,10 +644,12 @@ class SDSChemicalExtractor {
       const reachNumber = reachMatch ? reachMatch[0] : "—";
 
       let classText = body;
-      classText = classText.replace(/CAS\s*[:\.]?\s*\d{2,7}-\d{2}-\d/gi, '');
+      classText = classText.replace(/(?:CAS\s*[:\.]?\s*)?\b\d{2,7}-\d{2}-\d\b/gi, '');
       if (ecMatch) classText = classText.replace(ecMatch[0], '');
       if (indexMatch) classText = classText.replace(indexMatch[0], '');
       if (reachMatch) classText = classText.replace(reachMatch[0], '');
+      if (rawConc !== "—") classText = classText.replace(rawConc, '');
+      classText = classText.replace(/\t/g, ' ');
 
       // Normalizacja nagłówków SCL i współczynników M
       classText = classText
@@ -2460,10 +2544,10 @@ class SDSProcessorEngine {
     return out.trim();
   }
 
-  async prepareAgentPayload(pdfFilePath, productName = "PRODUKT CHEMICZNY", manualOverrides = {}) {
-    console.log(`[SYS] Ekstrakcja pliku: ${pdfFilePath}`);
-    const fullText = await SDSPDFParser.extractTextFromPdf(pdfFilePath, false);
-    const rawSections = SDSPDFParser.segmentInto16Sections(fullText);
+  async prepareAgentPayload(filePath, productName = "PRODUKT CHEMICZNY", manualOverrides = {}) {
+    console.log(`[SYS] Ekstrakcja pliku: ${filePath}`);
+    const fullText = await SDSDocumentParser.extractText(filePath, false);
+    const rawSections = SDSDocumentParser.segmentInto16Sections(fullText);
     
     const ufi = SDSChemicalExtractor.extractUfi(rawSections["section_1"]);
     const s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
@@ -2511,7 +2595,7 @@ class SDSProcessorEngine {
       throw new HITLError(this.anomalies);
     }
 
-    const isTechnicalFilename = !productName || /^(?:PRODUKT CHEMICZNY|Mieszanina chemiczna|temp_sds_.*|\d{8,14}(?:_SDS.*)?|_SDS_.*|.*\.pdf)$/i.test(productName.trim());
+    const isTechnicalFilename = !productName || /^(?:PRODUKT CHEMICZNY|Mieszanina chemiczna|temp_sds_.*|\d{8,14}(?:_SDS.*)?|_SDS_.*|.*\.(?:pdf|rtf))$/i.test(productName.trim());
     const finalProductName = this.lastResolvedTradeName || (!isTechnicalFilename ? SDSProcessorEngine.polonizeTradeName(productName) : "Karta Charakterystyki");
 
     return {
@@ -2520,7 +2604,7 @@ class SDSProcessorEngine {
       descriptiveSectionsToTranslate: toTranslate,
       quarantineAudit: this.quarantineLogs,
       detectedGhsPictograms: this.detectedGhsPictograms,
-      ocrDiagnostics: SDSPDFParser.ocrDiagnosticMessage
+      ocrDiagnostics: SDSDocumentParser.ocrDiagnosticMessage || SDSPDFParser.ocrDiagnosticMessage
     };
   }
 
@@ -2806,7 +2890,9 @@ class SDSDocxExporter {
 module.exports = { 
   SDSProcessorEngine, 
   SDSDocxExporter, 
+  SDSDocumentParser,
   SDSPDFParser, 
+  SDSRTFParser,
   ECHAFreeResolver, 
   NDSRegistry, 
   EcotoxRegistry,
