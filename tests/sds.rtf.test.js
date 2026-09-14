@@ -118,10 +118,12 @@ UFI: 4F20-V0Y8-U00F-XXXX\\par
 2.1 Classificazione della sostanza o della miscela:\\par
 Skin Sens. 1, H317\\par
 Aquatic Chronic 3, H412\\par
+Repr. 2, H361fd\\par
 2.2 Elementi dell'etichetta: Attenzione\\par
-Piktogramma: GHS07\\par
+Piktogramma: GHS07, GHS08\\par
 H317 Pu\\u242? provocare una reazione allergica cutanea.\\par
 H412 Nocivo per gli organismi acquatici con effetti di lunga durata.\\par
+H361fd Sospettato di nuocere alla fertilit\\u224?. Sospettato di nuocere al feto.\\par
 P102 Tenere fuori dalla portata dei bambini.\\par
 P302+P352 IN CASO DI CONTATTO CON LA PELLE: lavare abbondantemente con acqua.\\par
 2.3 Altri pericoli: Non contiene sostanze interferenti con il sistema endocrino.\\par
@@ -195,6 +197,7 @@ Prodotto non pericoloso ai sensi delle normative di trasporto (ADR/RID, IMDG, IA
 \\b SEZIONE 16: ALTRE INFORMAZIONI\\b0\\par
 H317: Pu\\u242? provocare una reazione allergica cutanea.\\par
 H412: Nocivo per gli organismi acquatici.\\par
+H361fd: Sospettato di nuocere alla fertilit\\u224?. Sospettato di nuocere al feto.\\par
 }`;
 
   const fullSdsPath = path.join(tempDir, 'complete_sds_sample.rtf');
@@ -215,6 +218,12 @@ H412: Nocivo per gli organismi acquatici.\\par
       assert(payload, "Payload jest pusty!");
       assert.strictEqual(payload.metadata.ufi, "4F20-V0Y8-U00F-XXXX", "Błąd ekstrakcji UFI z RTF!");
       
+      // Weryfikacja Sekcji 2 (w tym H361fd i GHS08)
+      const s2 = payload.deterministicSections.section_2;
+      assert(s2.content.includes("H361FD") || s2.content.includes("H361fd"), "Brak H361fd w treści Sekcji 2!");
+      assert(payload.detectedGhsPictograms.includes("GHS08"), "Nie wykryto piktogramu GHS08 dla H361fd!");
+      assert(s2.content.includes("Podejrzewa się, że działa szkodliwie"), "Brak oficjalnego tłumaczenia CLP dla H361fd w Sekcji 2!");
+
       // Weryfikacja Sekcji 3
       const s3 = payload.deterministicSections.section_3;
       assert(s3 && s3.components.length >= 2, "Nie wyekstrahowano składników z tabeli RTF!");
@@ -230,7 +239,12 @@ H412: Nocivo per gli organismi acquatici.\\par
       const s12 = payload.deterministicSections.section_12.content;
       assert(s12.includes("118-58-1") && s12.includes("311"), "Brak danych o bioakumulacji BCF=311 w Sekcji 12.3!");
 
-      console.log("-> TEST 4 PASSED: prepareAgentPayload w 100% prawidłowo przetworzył kartę RTF.");
+      // Weryfikacja Sekcji 16 (w tym H361fd)
+      const s16 = payload.deterministicSections.section_16.content;
+      assert(s16.includes("H361FD") || s16.includes("H361fd"), "Brak H361fd w pełnym wykazie Sekcji 16!");
+      assert(s16.includes("Podejrzewa się, że działa szkodliwie"), "Brak oficjalnego tłumaczenia CLP dla H361fd w Sekcji 16!");
+
+      console.log("-> TEST 4 PASSED: prepareAgentPayload w 100% prawidłowo przetworzył kartę RTF (w tym H361fd i GHS08).");
       passedCount++;
 
       // --------------------------------------------------------------------------

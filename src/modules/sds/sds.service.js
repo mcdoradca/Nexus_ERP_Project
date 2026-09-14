@@ -47,6 +47,7 @@ const OFFICIAL_CLP_H_PHRASES = {
   H225: "Wysoce łatwopalna ciecz i pary.",
   H226: "Łatwopalna ciecz i pary.",
   H228: "Substancja stała łatwopalna.",
+  H300: "Połknięcie grozi śmiercią.",
   H301: "Działa toksycznie po połknięciu.",
   H302: "Działa szkodliwie po połknięciu.",
   H304: "Połknięcie i dostanie się przez drogi oddechowe może grozić śmiercią.",
@@ -64,11 +65,46 @@ const OFFICIAL_CLP_H_PHRASES = {
   H334: "Może powodować objawy alergii lub astmy lub trudności w oddychaniu w następstwie wdychania.",
   H335: "Może powodować podrażnienie dróg oddechowych.",
   H336: "Może wywoływać uczucie senności lub zawroty głowy.",
+  H340: "Może powodować wady genetyczne.",
+  H341: "Podejrzewa się, że powoduje wady genetyczne.",
+  H350: "Może powodować raka.",
+  H350I: "Wdychanie może spowodować raka.",
+  H350i: "Wdychanie może spowodować raka.",
   H351: "Podejrzewa się, że powoduje raka.",
   H360: "Może działać szkodliwie na płodność lub na dziecko w łonie matki.",
+  H360F: "Może działać szkodliwie na płodność.",
+  H360f: "Może działać szkodliwie na płodność.",
+  H360D: "Może działać szkodliwie na dziecko w łonie matki.",
+  H360d: "Może działać szkodliwie na dziecko w łonie matki.",
+  H360FD: "Może działać szkodliwie na płodność. Może działać szkodliwie na dziecko w łonie matki.",
+  H360fd: "Może działać szkodliwie na płodność. Może działać szkodliwie na dziecko w łonie matki.",
+  H360Fd: "Może działać szkodliwie na płodność. Podejrzewa się, że działa szkodliwie na dziecko w łonie matki.",
+  H360Df: "Może działać szkodliwie na dziecko w łonie matki. Podejrzewa się, że działa szkodliwie na płodność.",
   H361: "Podejrzewa się, że działa szkodliwie na płodność lub na dziecko w łonie matki.",
+  H361F: "Podejrzewa się, że działa szkodliwie na płodność.",
+  H361f: "Podejrzewa się, że działa szkodliwie na płodność.",
+  H361D: "Podejrzewa się, że działa szkodliwie na dziecko w łonie matki.",
+  H361d: "Podejrzewa się, że działa szkodliwie na dziecko w łonie matki.",
+  H361FD: "Podejrzewa się, że działa szkodliwie na płodność. Podejrzewa się, że działa szkodliwie na dziecko w łonie matki.",
+  H361fd: "Podejrzewa się, że działa szkodliwie na płodność. Podejrzewa się, że działa szkodliwie na dziecko w łonie matki.",
+  H362: "Może działać szkodliwie na dzieci karmione piersią.",
+  H370: "Powoduje uszkodzenie narządów.",
+  H371: "Może powodować uszkodzenie narządów.",
   H372: "Powoduje uszkodzenie narządów poprzez długotrwałe lub narażenie powtarzane.",
   H373: "Może powodować uszkodzenie narządów poprzez długotrwałe lub narażenie powtarzane.",
+  // Kody łączone dróg narażenia (CLP)
+  "H300+H310": "Grozi śmiercią w przypadku połknięcia lub kontaktu ze skórą.",
+  "H300+H330": "Grozi śmiercią w przypadku połknięcia lub dostania się do dróg oddechowych.",
+  "H310+H330": "Grozi śmiercią w kontakcie ze skórą lub w następstwie wdychania.",
+  "H300+H310+H330": "Grozi śmiercią w przypadku połknięcia, kontaktu ze skórą lub w następstwie wdychania.",
+  "H301+H311": "Działa toksycznie w przypadku połknięcia lub kontaktu ze skórą.",
+  "H301+H331": "Działa toksycznie w przypadku połknięcia lub dostania się do dróg oddechowych.",
+  "H311+H331": "Działa toksycznie w kontakcie ze skórą lub w następstwie wdychania.",
+  "H301+H311+H331": "Działa toksycznie w przypadku połknięcia, kontaktu ze skórą lub w następstwie wdychania.",
+  "H302+H312": "Działa szkodliwie w przypadku połknięcia lub kontaktu ze skórą.",
+  "H302+H332": "Działa szkodliwie w przypadku połknięcia lub w następstwie wdychania.",
+  "H312+H332": "Działa szkodliwie w kontakcie ze skórą lub w następstwie wdychania.",
+  "H302+H312+H332": "Działa szkodliwie w przypadku połknięcia, kontaktu ze skórą lub w następstwie wdychania.",
   H400: "Działa bardzo toksycznie na organizmy wodne.",
   H410: "Działa bardzo toksycznie na organizmy wodne, powodując długotrwałe skutki.",
   H411: "Działa toksycznie na organizmy wodne, powodując długotrwałe skutki.",
@@ -122,7 +158,10 @@ const H_TO_GHS_MAP = {
   H220: "GHS02", H224: "GHS02", H225: "GHS02", H226: "GHS02", H270: "GHS03", H280: "GHS04",
   H290: "GHS05", H314: "GHS05", H318: "GHS05", H300: "GHS06", H301: "GHS06", H310: "GHS06", H330: "GHS06",
   H302: "GHS07", H312: "GHS07", H315: "GHS07", H317: "GHS07", H319: "GHS07", H332: "GHS07", H336: "GHS07",
-  H304: "GHS08", H340: "GHS08", H350: "GHS08", H360: "GHS08", H370: "GHS08", H372: "GHS08",
+  H304: "GHS08", H340: "GHS08", H341: "GHS08", H350: "GHS08", H350I: "GHS08", H350i: "GHS08", H351: "GHS08",
+  H360: "GHS08", H360F: "GHS08", H360f: "GHS08", H360D: "GHS08", H360d: "GHS08", H360FD: "GHS08", H360fd: "GHS08", H360Fd: "GHS08", H360Df: "GHS08",
+  H361: "GHS08", H361F: "GHS08", H361f: "GHS08", H361D: "GHS08", H361d: "GHS08", H361FD: "GHS08", H361fd: "GHS08", H362: "GHS08",
+  H370: "GHS08", H371: "GHS08", H372: "GHS08", H373: "GHS08",
   H400: "GHS09", H410: "GHS09", H411: "GHS09"
 };
 
@@ -529,11 +568,45 @@ class SDSChemicalExtractor {
     let inferred = [];
     for (const h of hCodes) {
       const cleanH = h.split(":")[0].trim();
-      if (H_TO_GHS_MAP[cleanH] && !inferred.includes(H_TO_GHS_MAP[cleanH])) {
-        inferred.push(H_TO_GHS_MAP[cleanH]);
+      const subList = cleanH.includes('+') ? cleanH.split('+').map(c => c.trim()) : [cleanH];
+      for (const singleH of subList) {
+        const direct = H_TO_GHS_MAP[singleH] || H_TO_GHS_MAP[singleH.toUpperCase()];
+        if (direct && !inferred.includes(direct)) {
+          inferred.push(direct);
+        } else {
+          const baseH = singleH.substring(0, 4).toUpperCase();
+          if (H_TO_GHS_MAP[baseH] && !inferred.includes(H_TO_GHS_MAP[baseH])) {
+            inferred.push(H_TO_GHS_MAP[baseH]);
+          }
+        }
       }
     }
     return inferred.sort();
+  }
+
+  static resolveHazardPhrase(code) {
+    if (!code) return null;
+    const clean = code.trim();
+    if (OFFICIAL_CLP_H_PHRASES[clean]) return OFFICIAL_CLP_H_PHRASES[clean];
+    const upper = clean.toUpperCase();
+    if (OFFICIAL_CLP_H_PHRASES[upper]) return OFFICIAL_CLP_H_PHRASES[upper];
+
+    // Obsługa kodów łączonych np. H302+H312
+    if (clean.includes('+')) {
+      const subCodes = clean.split('+').map(c => c.trim());
+      const subPhrases = subCodes.map(sc => this.resolveHazardPhrase(sc)).filter(Boolean);
+      if (subPhrases.length === subCodes.length) {
+        return subPhrases.join(' ');
+      }
+    }
+
+    // Obsługa wariantów literowych CLP (np. H361FD, H361f) przez odwołanie do kodu bazowego H\\d{3}
+    const baseMatch = upper.match(/^H\d{3}/i);
+    if (baseMatch && OFFICIAL_CLP_H_PHRASES[baseMatch[0]]) {
+      return OFFICIAL_CLP_H_PHRASES[baseMatch[0]];
+    }
+
+    return null;
   }
 
   static formatConcentration(concStr) {
@@ -1030,9 +1103,11 @@ class SDSProcessorEngine {
     const pCodes = SDSChemicalExtractor.extractPCodes(contentIt);
     const euhCodes = SDSChemicalExtractor.extractEuhCodes(contentIt);
     
-    // Walidacja twarda słownika
+    // Walidacja twarda słownika CLP z automatycznym resolwerem wariantów i kodów łączonych
     hCodes.forEach(code => {
-      if (!OFFICIAL_CLP_H_PHRASES[code]) throw new Error(`[CRITICAL HALT] Nieznany kod zagrożenia: ${code}`);
+      const phrase = SDSChemicalExtractor.resolveHazardPhrase(code);
+      if (!phrase) throw new Error(`[CRITICAL HALT] Nieznany kod zagrożenia: ${code}`);
+      OFFICIAL_CLP_H_PHRASES[code] = phrase;
     });
 
     const isExplicitlyNotHazardous = /(?:not classified|non[ \-]*(?:[eè]|est)?\s*classificat|nie sklasyfikowan|nie jest sklasyfikowan|nie stwarza zagrożenia|not hazardous)/i.test(contentIt);
@@ -2403,16 +2478,16 @@ class SDSProcessorEngine {
     // Ze składników sekcji 3
     components.forEach(c => {
       const classStr = c.classification || "";
-      const matchesH = classStr.match(/\bH\d{3}[a-zA-Z]?\b/g);
+      const matchesH = SDSChemicalExtractor.extractHCodes(classStr);
       if (matchesH) matchesH.forEach(code => hCodesSet.add(code));
-      const matchesEuh = classStr.match(/\bEUH\d{3}\b/g);
+      const matchesEuh = SDSChemicalExtractor.extractEuhCodes(classStr);
       if (matchesEuh) matchesEuh.forEach(code => euhCodesSet.add(code));
     });
 
     // Z tekstu źródłowego sekcji 16
-    const rawMatchesH = clean.match(/\bH\d{3}[a-zA-Z]?\b/g);
+    const rawMatchesH = SDSChemicalExtractor.extractHCodes(clean);
     if (rawMatchesH) rawMatchesH.forEach(code => hCodesSet.add(code));
-    const rawMatchesEuh = clean.match(/\bEUH\d{3}\b/g);
+    const rawMatchesEuh = SDSChemicalExtractor.extractEuhCodes(clean);
     if (rawMatchesEuh) rawMatchesEuh.forEach(code => euhCodesSet.add(code));
 
     const sortedHCodes = Array.from(hCodesSet).sort();
@@ -2420,7 +2495,7 @@ class SDSProcessorEngine {
 
     let hPhrasesBlock = [];
     sortedHCodes.forEach(code => {
-      const phrase = OFFICIAL_CLP_H_PHRASES[code] || "Brak oficjalnego tłumaczenia zwrotu.";
+      const phrase = SDSChemicalExtractor.resolveHazardPhrase(code) || OFFICIAL_CLP_H_PHRASES[code] || "Brak oficjalnego tłumaczenia zwrotu.";
       hPhrasesBlock.push(`${code}: ${phrase}`);
     });
     sortedEuhCodes.forEach(code => {

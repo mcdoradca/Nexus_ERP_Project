@@ -70,22 +70,24 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
             setSuccess(true);
         } catch (err) {
             console.error(err);
-            // Wyłuskiwanie bledu z bloba
+            // Wyłuskiwanie błędu z bloba
             if (err.response && err.response.data && err.response.data instanceof Blob) {
-                const text = await err.response.data.text();
                 try {
+                    const text = await err.response.data.text();
                     const json = JSON.parse(text);
                     if (err.response && err.response.status === 422 && json.requiresHITL) {
                         setAnomalies(json.anomalies || []);
                         setError('Wykryto anomalie. Wymagana interwencja eksperta (HITL).');
                     } else {
-                        setError(json.error || 'Wystąpił błąd podczas generowania karty SDS.');
+                        setError(json.details || json.error || `Błąd serwera (${err.response.status}).`);
                     }
                 } catch {
-                    setError('Błąd krytyczny serwera.');
+                    setError(`Błąd krytyczny serwera (${err.response ? err.response.status : '500'}).`);
                 }
+            } else if (err.response && err.response.data && typeof err.response.data === 'object') {
+                setError(err.response.data.details || err.response.data.error || 'Wystąpił błąd podczas generowania karty SDS.');
             } else {
-                setError('Nie można połączyć się z serwerem. Sprawdź logi.');
+                setError(err.message || 'Nie można połączyć się z serwerem. Sprawdź logi.');
             }
         } finally {
             setIsProcessing(false);
@@ -141,7 +143,19 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
             setInvestigatorResult(null);
         } catch (err) {
             console.error(err);
-            setError('Błąd podczas wznowienia procesu.');
+            if (err.response && err.response.data && err.response.data instanceof Blob) {
+                try {
+                    const text = await err.response.data.text();
+                    const json = JSON.parse(text);
+                    setError(json.details || json.error || `Błąd podczas wznowienia procesu (${err.response.status}).`);
+                } catch {
+                    setError('Błąd krytyczny serwera przy wznawianiu procesu.');
+                }
+            } else if (err.response && err.response.data && typeof err.response.data === 'object') {
+                setError(err.response.data.details || err.response.data.error || 'Błąd podczas wznowienia procesu.');
+            } else {
+                setError(err.message || 'Błąd podczas wznowienia procesu.');
+            }
         } finally {
             setIsProcessing(false);
         }
