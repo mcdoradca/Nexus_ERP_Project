@@ -181,10 +181,58 @@ const GHS_HAZARD_CLASSES_MAP = {
   "Acute Tox.": "Toksyczność ostra", "Skin Corr.": "Działanie żrące na skórę", "Skin Irrit.": "Działanie drażniące na skórę",
   "Eye Dam.": "Poważne uszkodzenie oczu", "Eye Irrit.": "Działanie drażniące na oczy", "Resp. Sens.": "Działanie uczulające na drogi oddechowe",
   "Skin Sens.": "Działanie uczulające na skórę", "Muta.": "Działanie mutagenne na komórki rozrodcze", "Carc.": "Rakotwórczość",
-  "Repr.": "Szkodliwe działanie na rozrodczość", "Lact.": "Wpływ na laktację", "STOT SE": "Działanie toksyczne na narządy docelowe – narażenie jednorazowe",
+  "Repr.": "Działanie szkodliwe na rozrodczość", "Lact.": "Wpływ na laktację lub oddziaływanie na dzieci karmione piersią", "STOT SE": "Działanie toksyczne na narządy docelowe – narażenie jednorazowe",
   "STOT RE": "Działanie toksyczne na narządy docelowe – narażenie powtarzane", "Asp. Tox.": "Zagrożenie spowodowane aspiracją",
   "Aquatic Acute": "Stwarzające zagrożenie dla środowiska wodnego - kategoria ostra", "Aquatic Chronic": "Stwarzające zagrożenie dla środowiska wodnego - kategoria przewlekła",
   "Ozone": "Stwarzające zagrożenie dla warstwy ozonowej", "Not classified": "Nie sklasyfikowano wg rozporządzenia CLP"
+};
+
+const H_TO_CLP_CLASS_MAP = {
+  H220: "Flam. Gas 1 (Gaz skrajnie łatwopalny, kategoria 1)",
+  H224: "Flam. Liq. 1 (Substancja ciekła wysoce łatwopalna, kategoria 1)",
+  H225: "Flam. Liq. 2 (Substancja ciekła łatwopalna, kategoria 2)",
+  H226: "Flam. Liq. 3 (Substancja ciekła łatwopalna, kategoria 3)",
+  H228: "Flam. Sol. 1/2 (Substancja stała łatwopalna)",
+  H300: "Acute Tox. 1/2 (Toksyczność ostra - droga pokarmowa)",
+  H301: "Acute Tox. 3 (Toksyczność ostra - droga pokarmowa, kategoria 3)",
+  H302: "Acute Tox. 4 (Toksyczność ostra - droga pokarmowa, kategoria 4)",
+  H304: "Asp. Tox. 1 (Zagrożenie spowodowane aspiracją, kategoria 1)",
+  H310: "Acute Tox. 1/2 (Toksyczność ostra - po naniesieniu na skórę)",
+  H311: "Acute Tox. 3 (Toksyczność ostra - po naniesieniu na skórę, kategoria 3)",
+  H312: "Acute Tox. 4 (Toksyczność ostra - po naniesieniu na skórę, kategoria 4)",
+  H314: "Skin Corr. 1 (Działanie żrące na skórę, kategoria 1)",
+  H315: "Skin Irrit. 2 (Działanie drażniące na skórę, kategoria 2)",
+  H317: "Skin Sens. 1 (Działanie uczulające na skórę, kategoria 1)",
+  H318: "Eye Dam. 1 (Poważne uszkodzenie oczu, kategoria 1)",
+  H319: "Eye Irrit. 2 (Działanie drażniące na oczy, kategoria 2)",
+  H330: "Acute Tox. 1/2 (Toksyczność ostra - wdychanie)",
+  H331: "Acute Tox. 3 (Toksyczność ostra - wdychanie, kategoria 3)",
+  H332: "Acute Tox. 4 (Toksyczność ostra - wdychanie, kategoria 4)",
+  H334: "Resp. Sens. 1 (Działanie uczulające na drogi oddechowe, kategoria 1)",
+  H335: "STOT SE 3 (Działanie toksyczne na narządy docelowe – narażenie jednorazowe, kategoria 3)",
+  H336: "STOT SE 3 (Działanie toksyczne na narządy docelowe – narażenie jednorazowe, kategoria 3)",
+  H340: "Muta. 1A/1B (Działanie mutagenne na komórki rozrodcze, kategoria 1)",
+  H341: "Muta. 2 (Działanie mutagenne na komórki rozrodcze, kategoria 2)",
+  H350: "Carc. 1A/1B (Rakotwórczość, kategoria 1)",
+  H351: "Carc. 2 (Rakotwórczość, kategoria 2)",
+  H360: "Repr. 1A/1B (Działanie szkodliwe na rozrodczość, kategoria 1)",
+  H360D: "Repr. 1A/1B (Działanie szkodliwe na rozrodczość, kategoria 1D)",
+  H360FD: "Repr. 1A/1B (Działanie szkodliwe na rozrodczość, kategoria 1FD)",
+  H361: "Repr. 2 (Działanie szkodliwe na rozrodczość, kategoria 2)",
+  H361d: "Repr. 2 (Działanie szkodliwe na rozrodczość, kategoria 2)",
+  H361f: "Repr. 2 (Działanie szkodliwe na rozrodczość, kategoria 2)",
+  H361fd: "Repr. 2 (Działanie szkodliwe na rozrodczość, kategoria 2)",
+  H361FD: "Repr. 2 (Działanie szkodliwe na rozrodczość, kategoria 2)",
+  H362: "Lact. (Wpływ na laktację lub oddziaływanie na dzieci karmione piersią)",
+  H370: "STOT SE 1 (Działanie toksyczne na narządy docelowe – narażenie jednorazowe, kategoria 1)",
+  H371: "STOT SE 2 (Działanie toksyczne na narządy docelowe – narażenie jednorazowe, kategoria 2)",
+  H372: "STOT RE 1 (Działanie toksyczne na narządy docelowe – narażenie powtarzane, kategoria 1)",
+  H373: "STOT RE 2 (Działanie toksyczne na narządy docelowe – narażenie powtarzane, kategoria 2)",
+  H400: "Aquatic Acute 1 (Stwarzające zagrożenie dla środowiska wodnego – kategoria ostra 1)",
+  H410: "Aquatic Chronic 1 (Stwarzające zagrożenie dla środowiska wodnego – kategoria przewlekła 1)",
+  H411: "Aquatic Chronic 2 (Stwarzające zagrożenie dla środowiska wodnego – kategoria przewlekła 2)",
+  H412: "Aquatic Chronic 3 (Stwarzające zagrożenie dla środowiska wodnego – kategoria przewlekła 3)",
+  H413: "Aquatic Chronic 4 (Stwarzające zagrożenie dla środowiska wodnego – kategoria przewlekła 4)"
 };
 
 const ALLERGEN_NAMES_PL = {
@@ -523,8 +571,16 @@ class SDSChemicalExtractor {
   static extractUfi(text) { return this.extractUnique(text, /\b[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}\b/gi)[0] || null; }
   static extractHCodes(text) { 
     if (!text) return [];
-    const matches = [...text.matchAll(/(?<![A-Za-z0-9])(H\d{3}(?:[A-Za-z]{1,2}(?![a-z]))?(?:\s*\+\s*H\d{3}(?:[A-Za-z]{1,2}(?![a-z]))?)*)/g)].map(m => m[1].replace(/\s+/g, ''));
-    return Array.from(new Set(matches.map(m => m.toUpperCase())));
+    const matches = [...text.matchAll(/(?<![A-Za-z0-9])(H\d{3}(?:[A-Za-z]{1,2}\b)?(?:\s*\+\s*H\d{3}(?:[A-Za-z]{1,2}\b)?)*)/g)].map(m => m[1].replace(/\s+/g, ''));
+    return Array.from(new Set(matches.map(m => {
+      if (OFFICIAL_CLP_H_PHRASES[m]) return m;
+      const upper = m.toUpperCase();
+      if (OFFICIAL_CLP_H_PHRASES[upper]) return upper;
+      for (const k of Object.keys(OFFICIAL_CLP_H_PHRASES)) {
+        if (k.toLowerCase() === m.toLowerCase()) return k;
+      }
+      return upper;
+    })));
   }
 
   static extractPCodes(text) { 
@@ -541,15 +597,41 @@ class SDSChemicalExtractor {
 
   static extractGhsCodes(text) { return this.extractUnique(text, /\b(?:GHS0[1-9]|GHS[1-9])\b/gi); }
 
-  static formatEuh208(text, resolvedSubstances = {}) {
-    if (!text) return null;
-    const match = text.match(/EUH208\s*(?:Contains|Contiene|Zawiera|Innehåller)?[:\s]*([^.]+?)(?:\.\s*(?:May produce|Può provocare|Może powodować|Kan ge)|(?:\n\s*\n)|$)/is);
-    if (!match) return null;
-    
-    let rawSubstances = match[1].replace(/-\s+/g, '-').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-    let parts = rawSubstances.split(/;\s*|\s*,\s*(?![^(]*\))/).map(s => s.trim()).filter(Boolean);
-    
-    let mappedParts = parts.map(part => {
+  static formatEuh208(text, resolvedSubstances = {}, components = []) {
+    let rawSubstances = [];
+
+    if (text) {
+      const match = text.match(/EUH208\s*(?:Contains|Contiene|Zawiera|Innehåller)?[:\s]*([^.]+?)(?:\.\s*(?:May produce|Può provocare|Może powodować|Kan ge)|(?:\n\s*\n)|$)/is);
+      if (match && match[1]) {
+        let raw = match[1].replace(/-\s+/g, '-').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+        let parts = raw.split(/;\s*|\s*,\s*(?![^(]*\))/).map(s => s.trim()).filter(s => s && !/^(?:Contains|Contiene|Zawiera|May|Può|Może)/i.test(s));
+        rawSubstances.push(...parts);
+      }
+    }
+
+    // Reguła CLP Załącznik II pkt 2.8 dla mieszanin nieklasyfikowanych jako uczulające,
+    // ale zawierających substancję uczulającą >= 0.1% (lub specyficzne SCL)
+    if (components && Array.isArray(components)) {
+      for (const comp of components) {
+        const isSens = /(?:Skin\s*Sens|Resp\s*Sens|H317|H334)/i.test(comp.classification || '');
+        if (isSens) {
+          const concStr = comp.concentration || '';
+          let maxConc = 0;
+          const nums = [...concStr.matchAll(/(\d+(?:[.,]\d+)?)/g)].map(n => parseFloat(n[1].replace(',', '.')));
+          if (nums.length > 0) maxConc = Math.max(...nums);
+          if (maxConc >= 0.1 || /≥\s*0[,.]1/i.test(concStr)) {
+            const displayName = comp.name || comp.originalName;
+            if (displayName && !rawSubstances.some(r => r.toLowerCase().includes(displayName.toLowerCase()) || displayName.toLowerCase().includes(r.toLowerCase()))) {
+              rawSubstances.push(displayName);
+            }
+          }
+        }
+      }
+    }
+
+    if (rawSubstances.length === 0) return null;
+
+    let mappedParts = rawSubstances.map(part => {
       let lower = part.toLowerCase();
       for (const [enName, plName] of Object.entries(ALLERGEN_NAMES_PL)) {
         if (lower === enName.toLowerCase() || lower.includes(enName.toLowerCase())) {
@@ -564,7 +646,8 @@ class SDSChemicalExtractor {
       return part;
     });
 
-    return `EUH208 Zawiera: ${mappedParts.join(', ')}. Może powodować wystąpienie reakcji alergicznej.`;
+    const uniqueParts = Array.from(new Set(mappedParts));
+    return `EUH208 Zawiera: ${uniqueParts.join(', ')}. Może powodować wystąpienie reakcji alergicznej.`;
   }
 
   static inferGhsFromHCodes(hCodes) {
@@ -578,18 +661,14 @@ class SDSChemicalExtractor {
     return inferred.sort();
   }
   
-  static extractDnelPnec(text) {
-    if (!text) return { dnel: [], pnec: [] };
+  static extractDnelPnec(text, components = []) {
+    if (!text) return { dnel: [], pnec: [], bySubstance: {} };
     let clean = SDSProcessorEngine.cleanPdfArtifacts(text)
       .replace(/Suarez Company[\s\S]*?Replaced revision:[^\n]*/gi, '')
       .replace(/DNEL\/PNEC available\s*;\s*NEA[\s\S]*?(?=\n\n|\n[A-Z]|$)/gi, '');
 
-    // Polonizacja terminów PNEC
-    const pnecRaw = [...clean.matchAll(/Predicted no-effect concentration\s*-\s*PNEC([\s\S]*?)(?=Health\s*-\s*Derived|Predicted no-effect|SECTION|8\.2|$)/gi)];
-    let pnecList = [];
-    for (const m of pnecRaw) {
-      let block = m[1].trim();
-      let lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    const parsePnecBlock = (raw) => {
+      let lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
       let plLines = [];
       for (let l of lines) {
         if (/^(?:Suarez|Revision|Dated|Printed|BLK|\d+\/\d+|Page|The full)/i.test(l)) continue;
@@ -607,15 +686,11 @@ class SDSChemicalExtractor {
           plLines.push(trans);
         }
       }
-      if (plLines.length > 0) pnecList.push(plLines.join('\n'));
-    }
+      return plLines;
+    };
 
-    // Polonizacja terminów DNEL
-    const dnelRaw = [...clean.matchAll(/Health\s*-\s*Derived no-effect level\s*-\s*DNEL\s*\/\s*DMEL([\s\S]*?)(?=Predicted no-effect|Health\s*-\s*Derived|SECTION|8\.2|$)/gi)];
-    let dnelList = [];
-    for (const m of dnelRaw) {
-      let block = m[1].trim();
-      let lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    const parseDnelBlock = (raw) => {
+      let lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
       let plLines = [];
       for (let l of lines) {
         if (/^(?:Suarez|Revision|Dated|Printed|BLK|\d+\/\d+|Page|Effects on|Route of exposure|Acute local|Chronic systemic)/i.test(l)) continue;
@@ -629,10 +704,69 @@ class SDSChemicalExtractor {
           plLines.push(trans);
         }
       }
-      if (plLines.length > 0) dnelList.push(plLines.join('\n'));
+      return plLines;
+    };
+
+    let bySubstance = {};
+
+    if (components && components.length > 0) {
+      for (let i = 0; i < components.length; i++) {
+        const comp = components[i];
+        const searchNames = [comp.originalName, comp.name, comp.cas].filter(Boolean);
+        let blockText = null;
+
+        for (const name of searchNames) {
+          if (name.length < 3) continue;
+          const escaped = name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const otherNames = components.filter(c => c !== comp)
+            .flatMap(c => [c.originalName, c.name, c.cas])
+            .filter(n => n && n.length >= 3)
+            .map(n => n.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+          
+          const endPattern = otherNames.length > 0 ? `(?=(?:^|\\n)\\s*(?:${otherNames.join('|')})\\b)|8\\.2|SECTION|$` : `8\\.2|SECTION|$`;
+          const reg = new RegExp(`(?:^|\\n)\\s*${escaped}\\b([\\s\\S]*?)(?:${endPattern})`, 'i');
+          const m = clean.match(reg);
+          if (m && m[1]) {
+            blockText = m[1];
+            break;
+          }
+        }
+
+        if (blockText) {
+          let compDnel = [];
+          let compPnec = [];
+          const pnecMatches = [...blockText.matchAll(/Predicted no-effect concentration\s*-\s*PNEC([\s\S]*?)(?=Health\s*-\s*Derived|Predicted no-effect|8\.2|SECTION|$)/gi)];
+          for (const pm of pnecMatches) {
+            compPnec.push(...parsePnecBlock(pm[1]));
+          }
+          const dnelMatches = [...blockText.matchAll(/Health\s*-\s*Derived no-effect level\s*-\s*DNEL\s*\/\s*DMEL([\s\S]*?)(?=Predicted no-effect|Health\s*-\s*Derived|8\.2|SECTION|$)/gi)];
+          for (const dm of dnelMatches) {
+            compDnel.push(...parseDnelBlock(dm[1]));
+          }
+          if (compDnel.length > 0 || compPnec.length > 0) {
+            const keyName = comp.name || comp.originalName || comp.cas;
+            bySubstance[keyName] = {
+              cas: comp.cas,
+              dnel: compDnel,
+              pnec: compPnec
+            };
+          }
+        }
+      }
     }
 
-    return { dnel: dnelList, pnec: pnecList };
+    const pnecRaw = [...clean.matchAll(/Predicted no-effect concentration\s*-\s*PNEC([\s\S]*?)(?=Health\s*-\s*Derived|Predicted no-effect|SECTION|8\.2|$)/gi)];
+    let pnecList = [];
+    for (const m of pnecRaw) {
+      pnecList.push(...parsePnecBlock(m[1]));
+    }
+    const dnelRaw = [...clean.matchAll(/Health\s*-\s*Derived no-effect level\s*-\s*DNEL\s*\/\s*DMEL([\s\S]*?)(?=Predicted no-effect|Health\s*-\s*Derived|SECTION|8\.2|$)/gi)];
+    let dnelList = [];
+    for (const m of dnelRaw) {
+      dnelList.push(...parseDnelBlock(m[1]));
+    }
+
+    return { dnel: dnelList, pnec: pnecList, bySubstance };
   }
 
   static resolvePlName(cas, rawName, resolvedSubstances = {}) {
@@ -703,14 +837,14 @@ class SDSChemicalExtractor {
       .replace(/Suarez Company[\s\S]*?Replaced revision:[^\n]*/gi, '')
       .replace(/The full wording of hazard[\s\S]*$/gi, '');
 
-    const matches = [...text.matchAll(/(?:^|\n)\s*INDEX\s+([\d\-]+)\s+(\d+(?:[.,]\d+)?\s*[≤<=<]\s*x\s*[≤<=<]\s*\d+(?:[.,]\d+)?)/gi)];
+    const matches = [...text.matchAll(/(?:^|\n)\s*INDEX\s+(\d{3}-\d{3}-\d{2}-\d|-)?\s*(\d+(?:[.,]\d+)?\s*[≤<=<]\s*x\s*[≤<=<]\s*\d+(?:[.,]\d+)?)/gi)];
     if (matches.length === 0) return null;
 
     const components = [];
 
     for (let i = 0; i < matches.length; i++) {
       const m = matches[i];
-      const indexNum = m[1].trim() === '-' ? '—' : m[1].trim();
+      const indexNum = (m[1] && m[1].trim() !== '-') ? m[1].trim() : '—';
       let rawConc = m[2].trim();
       let conc = this.formatConcentration(rawConc);
 
@@ -746,20 +880,28 @@ class SDSChemicalExtractor {
       if (firstClassLine) classLines.push(firstClassLine);
 
       for (let line of remainingLines) {
-        if (/^(?:INDEX|EC|CAS|REACH)\b/i.test(line)) continue;
-        if (line === rawName) continue;
-        if (line.includes(m[2])) continue;
-        if (/(?:Flam|Acute|Eye|Skin|Repr|Aquatic|Asp|STOT|Sens|H\d{3}|ATE|M\s*=|Specific|≥|≤)/i.test(line)) {
-          classLines.push(line);
+        let cleaned = line;
+        cleaned = cleaned.replace(/^EC\s*[:\.]?\s*\d{3}-\d{3}-\d\s*/i, '');
+        cleaned = cleaned.replace(/^INDEX\s*[:\.]?\s*[\d\-]+\s*/i, '');
+        cleaned = cleaned.replace(/^CAS\s*[:\.]?\s*\d{2,7}-\d{2}-\d\s*/i, '');
+        cleaned = cleaned.replace(/^REACH\s*(?:Reg\.?)?\s*[:\.]?\s*[\w\-]+\s*/i, '');
+        cleaned = cleaned.replace(/^[≤<=<,.\d\s]+x[≤<=<,.\d\s]*/i, '');
+        cleaned = cleaned.trim();
+        if (!cleaned || cleaned === rawName) continue;
+        if (cleaned.includes(m[2])) continue;
+        if (/(?:Flam|Acute|Eye|Skin|Repr|Aquatic|Asp|STOT|Sens|H\d{3}|ATE|M\s*=|Specific|≥|≤)/i.test(cleaned)) {
+          if (!classLines.includes(cleaned)) {
+            classLines.push(cleaned);
+          }
         }
       }
 
       let classText = classLines.join('\n');
       classText = classText
         .replace(/Specific Concentration Limits\s*[:\.]?/gi, 'Specyficzne stężenia graniczne:\n')
-        .replace(/ATE Oral\s*[:\.]?\s*(\d+)/gi, 'ATE (droga pokarmowa) = $1')
-        .replace(/ATE Dermal\s*[:\.]?\s*(\d+)/gi, 'ATE (na skórę) = $1')
-        .replace(/ATE Inhalation\s*[:\.]?\s*(\d+)/gi, 'ATE (inhalacyjnie) = $1')
+        .replace(/ATE Oral\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/kg)?)/gi, (m, v) => `ATE (droga pokarmowa) = ${v.includes('mg/kg') ? v : v + ' mg/kg'}`)
+        .replace(/ATE Dermal\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/kg)?)/gi, (m, v) => `ATE (na skórę) = ${v.includes('mg/kg') ? v : v + ' mg/kg'}`)
+        .replace(/ATE Inhalation\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/l)?)/gi, (m, v) => `ATE (inhalacyjnie) = ${v.includes('mg/l') ? v : v + ' mg/l'}`)
         .replace(/M\s*=\s*(\d+)/gi, 'M = $1')
         .replace(/M-Chronic\s*[:\.]?\s*(\d+)/gi, 'M (przewlekły) = $1')
         .replace(/M-Acute\s*[:\.]?\s*(\d+)/gi, 'M (ostry) = $1')
@@ -797,14 +939,12 @@ class SDSChemicalExtractor {
   static parseSection3Components(contentIt, resolvedSubstances = {}) {
     if (!contentIt) return [];
 
-    // Oczyszczenie z nagłówków i stopki stron PDF
     let cleanText = contentIt
       .replace(/Page\s+n\.\s*of\s*\d+/gi, '')
       .replace(/\d{2}\/\d{2}\/\d{4}\s*Production Name[^\n]+/gi, '')
       .replace(/Qty\s*Name\s*Ident\.\s*Numb\.\s*Classification\s*Registration\s*Number/gi, '');
 
-    // Sprawdzenie i obsługa wielowierszowego układu LIMS
-    const isLimsFormat = /x\s*=\s*Conc\.\s*%/i.test(cleanText) || /INDEX\s+[\d\-]+\s+\d+(?:[.,]\d+)?\s*[≤<=<]\s*x/i.test(cleanText);
+    const isLimsFormat = /x\s*=\s*Conc\.\s*%/i.test(cleanText) || /INDEX\s+(?:[\d\-]+)?\s*\d+(?:[.,]\d+)?\s*[≤<=<]\s*x/i.test(cleanText);
     if (isLimsFormat) {
       const limsComponents = this.parseLimsSection3(cleanText, resolvedSubstances);
       if (limsComponents && limsComponents.length > 0) {
@@ -1237,7 +1377,7 @@ class SDSProcessorEngine {
   }
 
 
-  processSection2(contentIt, resolvedSubstances = {}) {
+  processSection2(contentIt, resolvedSubstances = {}, components = []) {
     const hCodes = SDSChemicalExtractor.extractHCodes(contentIt);
     const pCodes = SDSChemicalExtractor.extractPCodes(contentIt);
     const euhCodes = SDSChemicalExtractor.extractEuhCodes(contentIt);
@@ -1250,7 +1390,7 @@ class SDSProcessorEngine {
     const isExplicitlyNotHazardous = /(?:not classified|non[ \-]*(?:[eè]|est)?\s*classificat|nie sklasyfikowan|nie jest sklasyfikowan|nie stwarza zagrożenia|not hazardous)/i.test(contentIt);
     const isHazardous = !isExplicitlyNotHazardous && (hCodes.length > 0 || /(?:Flam\.|Skin\.|Eye\.|Acute Tox|Aquatic|STOT|Asp\.)/i.test(contentIt));
 
-    // 2.1. Klasyfikacja substancji lub mieszaniny
+    // 2.1. Klasyfikacja substancji lub mieszaniny (Załącznik II REACH pkt 2.1: pełne klasy, kategorie i zwroty H)
     let classification2_1 = "";
     if (!isHazardous) {
       classification2_1 = "Mieszanina nie została zaklasyfikowana jako stwarzająca zagrożenie zgodnie z rozporządzeniem (WE) nr 1272/2008 [CLP].";
@@ -1263,7 +1403,11 @@ class SDSProcessorEngine {
         text21 = contentIt;
       }
       if (hCodes.length > 0) {
-        classification2_1 = hCodes.map(c => `${c}\n${OFFICIAL_CLP_H_PHRASES[c] || ""}`).join('\n');
+        classification2_1 = hCodes.map(c => {
+          const clpClass = H_TO_CLP_CLASS_MAP[c] || "Zagrożenie wg rozporządzenia CLP";
+          const phrase = OFFICIAL_CLP_H_PHRASES[c] || "";
+          return `${clpClass}\n${c} ${phrase}`.trim();
+        }).join('\n\n');
       } else {
         classification2_1 = mapHazardClass(text21.trim());
       }
@@ -1283,23 +1427,87 @@ class SDSProcessorEngine {
       }
     }
 
+    // Nazwy substancji na etykiecie wg art. 18 ust. 3 lit. b CLP:
+    // Podaje się wyłącznie nazwy substancji, które zdecydowały o zaklasyfikowaniu mieszaniny do odpowiednich kategorii.
+    // Substancje obecne poniżej progów klasyfikacji mieszaniny (np. Skin Sens < 1%) NIE mogą być umieszczane na etykiecie
+    // jako substancje identyfikujące zagrożenie – wyzwalają one wyłącznie zwrot EUH208!
     let labelSubstances = "Nie dotyczy.";
-    const containsMatch = contentIt.match(/(?:Contains|Contiene|Zawiera)\s*[:\.]?\s*([^\n]+(?:\n[^\n]+)?)/i);
+    const containsMatch = contentIt.match(/(?<!EUH208[\s\S]{0,30})(?:Contains|Contiene|Zawiera)\s*[:\.]?\s*([^\n]+(?:\n[^\n]+)?)/i);
+    let potentialNames = [];
     if (containsMatch) {
       const rawNames = containsMatch[1]
         .replace(/-\s+/g, '-')
         .replace(/\n/g, ' ')
         .split(/[,;]/)
         .map(s => s.trim())
-        .filter(s => s && !/(?:Hazard-determining|Pericoli|Zwroty|Piktogramy|Hasło|Signal|Word)/i.test(s));
+        .filter(s => s && !/(?:Hazard-determining|Pericoli|Zwroty|Piktogramy|Hasło|Signal|Word|EUH)/i.test(s));
       
-      const mappedNames = rawNames.map(rn => {
+      potentialNames = rawNames.map(rn => {
         return SDSChemicalExtractor.resolvePlName(null, rn, resolvedSubstances);
       }).filter(Boolean);
-      
-      if (mappedNames.length > 0) {
-        labelSubstances = mappedNames.join(', ');
+    }
+
+    // Filtrowanie substancji etykiety zgodnie z art. 18 ust. 3 lit. b CLP
+    if (components && components.length > 0 && isHazardous) {
+      const deciders = components.filter(c => {
+        const cl = c.classification || '';
+        const concNums = [...(c.concentration || '').matchAll(/(\d+(?:[.,]\d+)?)/g)].map(n => parseFloat(n[1].replace(',', '.')));
+        const maxC = concNums.length > 0 ? Math.max(...concNums) : 0;
+        
+        // Alergeny (H317/H334), gdy mieszanina NIE jest zaklasyfikowana jako H317/H334:
+        // bezwzględny zakaz umieszczania na etykiecie głównej (trafiają do EUH208 wg art. 25 ust. 6 CLP)
+        const isSens = /(?:Skin\s*Sens|Resp\s*Sens|H317|H334)/i.test(cl);
+        const mixtureHasSens = hCodes.some(h => ['H317', 'H334'].includes(h));
+        if (isSens && !mixtureHasSens) {
+          const hasOtherHazardInMixture = hCodes.some(h => {
+            if (['H317', 'H334'].includes(h)) return false;
+            return cl.includes(h);
+          });
+          if (!hasOtherHazardInMixture) return false;
+        }
+
+        // 1. Toksyczność ostra (H300..H302, H310..H312, H330..H332) - tylko jeśli mieszanina jest zaklasyfikowana jako ostra toksyczność
+        if (/Acute\s*Tox|H30[0-2]|H31[0-2]|H33[0-2]/i.test(cl)) {
+          const mixtureHasAcute = hCodes.some(h => /^H3[013][0-2]$/.test(h));
+          if (!mixtureHasAcute) return false;
+        }
+
+        // 2. Działanie rakotwórcze, mutagenne, toksyczne na rozrodczość (CMR: H340, H350, H360, H361)
+        if (/Repr\.|Carc\.|Muta\.|H34[01]|H35[01]|H36[01]/i.test(cl)) {
+          const mixtureHasCmr = hCodes.some(h => /^H3[456][01]/.test(h));
+          if (!mixtureHasCmr || maxC < 0.1) return false;
+        }
+
+        // 3. STOT (H370, H371, H372, H373, H335, H336) i zagrożenie aspiracją (H304)
+        if (/STOT|Asp\.\s*Tox|H37[0-3]|H304/i.test(cl)) {
+          const mixtureHasStotOrAsp = hCodes.some(h => /^H3(?:7[0-3]|04|3[56])$/.test(h));
+          if (!mixtureHasStotOrAsp || maxC < 1.0) return false;
+        }
+
+        // 4. Działanie żrące / drażniące na oczy (Eye Dam. 1 H318, Eye Irrit. 2 H319)
+        if (/Eye\s*(?:Dam|Irrit)|H31[89]/i.test(cl)) {
+          const mixtureHasEye = hCodes.some(h => ['H318', 'H319'].includes(h));
+          if (mixtureHasEye && (maxC >= 10 || /Eye\s*Irrit[^\n]*≥\s*50%/i.test(cl) || maxC >= 3)) {
+            return true;
+          }
+        }
+
+        // 5. Substancje łatwopalne / rozpuszczalniki bazowe (H224, H225, H226)
+        if (/Flam\.\s*Liq|H22[4-6]/i.test(cl)) {
+          const mixtureHasFlam = hCodes.some(h => /^H22[4-6]$/.test(h));
+          if (mixtureHasFlam && maxC >= 10) return true;
+        }
+
+        // Ogólne kryterium: stężenie znaczące i klasa obecna w hCodes mieszaniny
+        const sharesCodeWithMixture = hCodes.some(h => cl.includes(h));
+        return sharesCodeWithMixture && maxC >= 10;
+      }).map(c => c.name || c.originalName).filter(Boolean);
+
+      if (deciders.length > 0) {
+        labelSubstances = Array.from(new Set(deciders)).join(', ');
       }
+    } else if (potentialNames.length > 0) {
+      labelSubstances = potentialNames.join(', ');
     } else if (isHazardous) {
       const hazardSubstanceNames = Object.values(resolvedSubstances).filter(Boolean);
       if (hazardSubstanceNames.length > 0) labelSubstances = hazardSubstanceNames.join(", ");
@@ -1317,9 +1525,9 @@ class SDSProcessorEngine {
 
     let mappedEuh = "Brak.";
     let euhEntries = [];
-    if (euhCodes.includes("EUH208") || /EUH208/i.test(contentIt)) {
-      const euh208Text = SDSChemicalExtractor.formatEuh208(contentIt, resolvedSubstances);
-      if (euh208Text) euhEntries.push(euh208Text);
+    const euh208Text = SDSChemicalExtractor.formatEuh208(contentIt, resolvedSubstances, components);
+    if (euh208Text) {
+      euhEntries.push(euh208Text);
     }
     euhCodes.forEach(code => {
       if (code !== "EUH208" && OFFICIAL_CLP_H_PHRASES[code]) {
@@ -1975,7 +2183,7 @@ class SDSProcessorEngine {
     return v.trim();
   }
 
-  processSection9(contentIt) {
+  processSection9(contentIt, components = []) {
     // 1. Usunięcie artefaktów paginacji PDF i powtórzonych nagłówków
     let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
 
@@ -1996,15 +2204,40 @@ class SDSProcessorEngine {
       { key: "melting", pl: "Temperatura topnienia/krzepnięcia", regex: /(?:Melting point(?:\s*[\/\-]\s*freezing point)?|Punto di fusione(?:\/punto di congelamento)?|Temperatura topnienia(?:\/krzepnięcia)?)\s*[:\.]?\s*([^\n]+)/i },
       { key: "boiling", pl: "Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia", regex: /(?:Boiling point or initial boiling point and boiling range|Initial boiling point|Boiling point|Punto di ebollizione o punto iniziale di ebollizione e intervallo di ebollizione|Punto di ebollizione|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Temperatura wrzenia)\s*[:\.]?\s*([^\n]+)/i },
       { key: "flammability", pl: "Palność materiałów", regex: /(?:Flammability|Infiammabilità|Palność materiałów)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "explosion_limits", pl: "Dolna i górna granica wybuchowości", regex: /(?:Lower and upper explosion limit|Limite inferiore e superiore di esplosività|Dolna i górna granica wybuchowości)\s*[:\.]?\s*([^\n]+)/i },
+      { 
+        key: "explosion_limits", 
+        pl: "Dolna i górna granica wybuchowości", 
+        customExtract: (text) => {
+          let combined = text.match(/(?:Lower and upper explosion limit|Limite inferiore e superiore di esplosività|Dolna i górna granica wybuchowości)\s*[:\.]?\s*([^\n]+)/i);
+          if (combined && !/not applicable|nie dotyczy|brak/i.test(combined[1])) return combined[1].trim();
+
+          let lowerM = text.match(/(?:Lower explosive limit|Limite inferiore di esplosività|DGW)\s*[:\.]?\s*([^\n]+)/i);
+          let upperM = text.match(/(?:Upper explosive limit|Limite superiore di esplosività|GGW)\s*[:\.]?\s*([^\n]+)/i);
+
+          if (lowerM || upperM) {
+            let lVal = lowerM ? lowerM[1].replace(/Method[^\n]*/i, '').replace(/Remark[^\n]*/i, '').replace(/Substance[^\n]*/i, '').replace(/Temperature[^\n]*/i, '').trim() : "brak danych";
+            let uVal = upperM ? upperM[1].replace(/Method[^\n]*/i, '').replace(/Remark[^\n]*/i, '').replace(/Substance[^\n]*/i, '').replace(/Temperature[^\n]*/i, '').trim() : "brak danych";
+            return `Dolna granica wybuchowości (DGW): ${lVal}; Górna granica wybuchowości (GGW): ${uVal}`;
+          }
+          return "Nie dotyczy";
+        }
+      },
       { key: "flash_point", pl: "Temperatura zapłonu", regex: /(?:Flash point|Punto di infiammabilità|Temperatura zapłonu)\s*[:\.]?\s*([^\n]+)/i },
       { key: "auto_ignition", pl: "Temperatura samozapłonu", regex: /(?:Auto-ignition temperature|Temperatura di autoaccensione|Temperatura samozapłonu)\s*[:\.]?\s*([^\n]+)/i },
       { key: "decomposition", pl: "Temperatura rozkładu", regex: /(?:Decomposition temperature|Temperatura di decomposizione|Temperatura rozkładu)\s*[:\.]?\s*([^\n]+)/i },
       { key: "ph", pl: "pH", regex: /(?:^|\n)\s*(?<![A-Za-z])pH(?![A-Za-z])\s*[:\.]?\s*([^\n]+)/i },
       { key: "viscosity", pl: "Lepkość kinematyczna", regex: /(?:Kinematic viscosity|Viscosità cinematica|Lepkość kinematyczna)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "solubility_water", pl: "Rozpuszczalność w wodzie", regex: /(?:Solubility in water|Solubilità in acqua|Rozpuszczalność w wodzie)\s*[:\.]?\s*([^\n]+)/i },
+      { 
+        key: "solubility_water", 
+        pl: "Rozpuszczalność w wodzie", 
+        regex: /(?:Solubility in water|Solubilità in acqua|Rozpuszczalność w wodzie|(?:^|\n)\s*Solubility\s*(?!in other|in oil|di vapore)[^\n:]*[:\.]?\s*([^\n]+))/i 
+      },
       { key: "solubility_oil", pl: "Rozpuszczalność w innych rozpuszczalnikach", regex: /(?:Solubility in oil|Solubilità in olio|Solubility in other solvents|Rozpuszczalność w innych rozpuszczalnikach)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "partition_coeff", pl: "Współczynnik podziału n-oktanol/woda (wartość współczynnika log)", regex: /(?:Partition coefficient n-octanol\/water \(log value\)|Coefficiente di ripartizione n-ottanolo\/acqua|Współczynnik podziału n-oktanol\/woda)\s*[:\.]?\s*([^\n]+)/i },
+      { 
+        key: "partition_coeff", 
+        pl: "Współczynnik podziału n-oktanol/woda (wartość współczynnika log)", 
+        regex: /(?:Partition coefficient(?:\s*[:\.]?\s*n-octanol\/water)?(?:\s*\(log\s*value\))?|Coefficiente di ripartizione n-ottanolo\/acqua|Współczynnik podziału n-oktanol\/woda)\s*[:\.]?\s*([^\n]+)/i 
+      },
       { key: "vapour_pressure", pl: "Prężność pary", regex: /(?:Vapour pressure|Tensione di vapore|Prężność pary)\s*[:\.]?\s*([^\n]+)/i },
       { key: "density", pl: "Gęstość lub gęstość względna", regex: /(?:Density and\/or relative density|Densità e\/o densità relativa|Gęstość lub gęstość względna)\s*[:\.]?\s*([^\n]+)/i },
       { key: "relative_vapour_density", pl: "Względna gęstość pary", regex: /(?:Relative vapour density|Densità di vapore relativa|Względna gęstość pary)\s*[:\.]?\s*([^\n]+)/i },
@@ -2013,20 +2246,43 @@ class SDSProcessorEngine {
 
     let extractedLines = [];
     for (const p of paramsConfig) {
-      const match = clean.match(p.regex);
-      let rawVal = match ? match[1].trim() : "Nie dotyczy";
+      let rawVal = "Nie dotyczy";
+      if (p.customExtract) {
+        rawVal = p.customExtract(clean);
+      } else if (p.regex) {
+        const match = clean.match(p.regex);
+        rawVal = match ? match[1].trim() : "Nie dotyczy";
+      }
       let normVal = SDSProcessorEngine.normalizePhysChemValue(rawVal);
       extractedLines.push(`${p.pl}: ${normVal}`);
     }
 
     // 9.2. Inne informacje
     let lines92 = [];
-    let vocMatch = clean.match(/(?:Volatile Organic compounds\s*-\s*VOCs\s*=|VOC\s*[:=])\s*([^\n]+)/i);
-    if (vocMatch) {
-      lines92.push(`Lotne Związki Organiczne (LZO / VOC): ${SDSProcessorEngine.normalizePhysChemValue(vocMatch[1])}`);
+    let vocMatch = clean.match(/(?:Volatile Organic compounds\s*-\s*VOCs\s*[:=]?|VOC\s*(?:\([^)]*\))?\s*[:=]?)\s*([^\n]+)/i);
+    let vocText = "";
+    if (vocMatch && !/^\s*0(?:\s*%)?\s*$/i.test(vocMatch[1].trim()) && !/not applicable|brak/i.test(vocMatch[1])) {
+      vocText = SDSProcessorEngine.normalizePhysChemValue(vocMatch[1]);
+    } else {
+      let vocSum = 0;
+      if (components && components.length > 0) {
+        components.forEach(c => {
+          if (/(?:ethanol|etanol|propan|alcohol|alkohol|toluene|toluen|acetate|octan)/i.test(c.name || c.originalName || '')) {
+            const nums = [...(c.concentration || '').matchAll(/(\d+(?:[.,]\d+)?)/g)].map(n => parseFloat(n[1].replace(',', '.')));
+            if (nums.length > 0) vocSum += Math.max(...nums);
+          }
+        });
+      }
+      if (vocSum > 0) {
+        const estGperL = Math.round(vocSum * 8.5);
+        vocText = `ok. ${Math.round(vocSum - 2)}–${Math.round(vocSum)}% (ok. ${estGperL} g/l)`;
+      }
+    }
+    if (vocText) {
+      lines92.push(`Lotne Związki Organiczne (LZO / VOC): ${vocText}`);
     }
     lines92.push("9.2.1. Informacje dotyczące klas zagrożenia fizycznego: Brak dodatkowych danych badawczych.");
-    lines92.push("9.2.2. Inne właściwości bezpieczeństwa: Brak dodatkowych danych badawczych.");
+    lines92.push(`9.2.2. Inne właściwości bezpieczeństwa: ${vocText ? `Zawartość LZO (VOC): ${vocText}.` : 'Brak dodatkowych danych badawczych.'}`);
     const otherInfo = lines92.join('\n');
 
     let output = "SEKCJA 9: Właściwości fizyczne i chemiczne\n\n";
@@ -2104,15 +2360,27 @@ class SDSProcessorEngine {
       }
     }
 
-    // Wartości DNEL i PNEC
-    const { dnel, pnec } = SDSChemicalExtractor.extractDnelPnec(cleanIt);
-    if (dnel.length > 0 || pnec.length > 0) {
-      output += "Wartości DNEL i PNEC wyznaczone dla składników mieszaniny:\n";
-      if (dnel.length > 0) output += `DNEL:\n${dnel.join('\n')}\n`;
-      if (pnec.length > 0) output += `PNEC:\n${pnec.join('\n')}\n`;
+    // Wartości DNEL i PNEC w podziale na poszczególne substancje
+    const { dnel, pnec, bySubstance } = SDSChemicalExtractor.extractDnelPnec(cleanIt, components);
+    if (bySubstance && Object.keys(bySubstance).length > 0) {
+      output += "Pochodne poziomy niepowodujące zmian (DNEL) oraz Przewidywane stężenia niepowodujące zmian w środowisku (PNEC):\n\n";
+      for (const [subName, data] of Object.entries(bySubstance)) {
+        output += `Substancja: ${subName}${data.cas ? ` [CAS: ${data.cas}]` : ''}\n`;
+        if (data.dnel && data.dnel.length > 0) {
+          output += "Pochodne poziomy niepowodujące zmian (DNEL):\n" + data.dnel.map(l => `  ${l}`).join('\n') + "\n";
+        }
+        if (data.pnec && data.pnec.length > 0) {
+          output += "Przewidywane stężenia niepowodujące zmian w środowisku (PNEC):\n" + data.pnec.map(l => `  ${l}`).join('\n') + "\n";
+        }
+        output += "\n";
+      }
+    } else if (dnel.length > 0 || pnec.length > 0) {
+      output += "Pochodne poziomy niepowodujące zmian (DNEL) oraz Przewidywane stężenia niepowodujące zmian w środowisku (PNEC):\n";
+      if (dnel.length > 0) output += `Pochodne poziomy niepowodujące zmian (DNEL):\n${dnel.join('\n')}\n`;
+      if (pnec.length > 0) output += `Przewidywane stężenia niepowodujące zmian w środowisku (PNEC):\n${pnec.join('\n')}\n`;
       output += "\n";
     } else {
-      output += "Wartości DNEL i PNEC: Dla mieszaniny i jej składników nie oznaczono wartości DNEL oraz PNEC.\n";
+      output += "Pochodne poziomy niepowodujące zmian (DNEL) i PNEC: Dla mieszaniny i jej składników nie oznaczono wartości DNEL oraz PNEC.\n\n";
     }
 
     output += "Zalecane procedury monitorowania: Należy stosować procedury monitorowania stężeń niebezpiecznych substancji w powietrzu na stanowiskach pracy oraz procedury kontroli wentylacji zgodnie z odpowiednimi Polskimi Normami.\n\n";
@@ -2271,6 +2539,24 @@ class SDSProcessorEngine {
       return l;
     };
 
+    // Pomocnicza funkcja do ekstrakcji bloku substancji z podsekcji
+    const extractSubstanceBlock = (blockText, comp) => {
+      const searchNames = [comp.originalName, comp.name, comp.cas].filter(Boolean);
+      for (const name of searchNames) {
+        if (name.length < 3) continue;
+        const escaped = name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const otherNames = components.filter(c => c !== comp)
+          .flatMap(c => [c.originalName, c.name, c.cas])
+          .filter(n => n && n.length >= 3)
+          .map(n => n.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+        const nextPat = otherNames.length > 0 ? `(?=(?:^|\\n)\\s*(?:${otherNames.join('|')})\\b)|` : '';
+        const reg = new RegExp(`(?:^|\\n)\\s*${escaped}\\b([\\s\\S]*?)${nextPat}12\\.\\d|SECTION|$`, 'i');
+        const m = blockText.match(reg);
+        if (m && m[1]) return m[1].trim();
+      }
+      return null;
+    };
+
     // --- 12.1. TOKSYCZNOŚĆ ---
     let s12_1 = "12.1. Toksyczność\n";
     s12_1 += "Stosować dobrą praktykę zawodową, unikając przedostawania się produktu do środowiska.\n\n";
@@ -2280,76 +2566,72 @@ class SDSProcessorEngine {
     }
     s12_1 += "Brak danych doświadczalnych dla mieszaniny.\n";
 
-    const s1Lines = block1.split('\n').map(l => l.trim()).filter(Boolean);
     let s1Substances = [];
-    let curS1Sub = null;
-    let prevL = "";
-    for (let i = 0; i < s1Lines.length; i++) {
-      const line = s1Lines[i];
-      const casM = line.match(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/i);
-      if (casM) {
-        const cas = casM[1];
-        const rawName = prevL && !/^(SECTION|12\.|List of|Eco-Toxicological|Adopt good|Not classified|No data)/i.test(prevL) ? prevL : "";
-        curS1Sub = { cas, name: resolveSubName(rawName, cas), tests: [] };
-        s1Substances.push(curS1Sub);
-        prevL = line;
-      }
-      if (curS1Sub && /Aquatic (?:acute|chronic) toxicity|EC50|LC50|NOEC/i.test(line)) {
-        curS1Sub.tests.push(formatEcotoxLine(line));
-      }
-      prevL = line;
+    if (components && components.length > 0) {
+      components.forEach(comp => {
+        const subBlock = extractSubstanceBlock(block1, comp);
+        if (subBlock) {
+          const lines = subBlock.split('\n').map(l => l.trim()).filter(Boolean);
+          const tests = [];
+          for (const line of lines) {
+            if (/^(?:Suarez|Revision|Dated|Printed|BLK|\d+\/\d+|Page)/i.test(line)) continue;
+            if (/(?:LC50|EC50|NOEC|IC50)/i.test(line)) {
+              let plLine = line
+                .replace(/LC50\s*-\s*for Fish/gi, '- LC50 (ryby):')
+                .replace(/EC50\s*-\s*for Crustacea/gi, '- EC50 (skorupiaki):')
+                .replace(/EC50\s*-\s*for Algae\s*\/?\s*Aquatic Plants/gi, '- EC50 (glony / rośliny wodne):')
+                .replace(/Chronic NOEC for Fish/gi, '- NOEC (przewlekła, ryby):')
+                .replace(/Chronic NOEC for Crustacea/gi, '- NOEC (przewlekła, skorupiaki):')
+                .replace(/Chronic NOEC for Algae\s*\/?\s*Aquatic Plants/gi, '- NOEC (przewlekła, glony):')
+                .replace(/(\d+)\.(\d+)/g, '$1,$2');
+              tests.push(formatEcotoxLine(plLine));
+            }
+          }
+          if (tests.length > 0) {
+            s1Substances.push({ name: comp.name || comp.originalName, cas: comp.cas, tests });
+          }
+        }
+      });
     }
 
-    if (s1Substances.length > 0 && s1Substances.some(s => s.tests.length > 0)) {
+    if (s1Substances.length > 0) {
       s12_1 += "\nInformacje ekotoksykologiczne o składnikach:\n";
       s1Substances.forEach(sub => {
-        if (sub.tests.length > 0) {
-          s12_1 += `${sub.name} (CAS: ${sub.cas}):\n`;
-          sub.tests.forEach(t => {
-            s12_1 += `${t}\n`;
-          });
-        }
+        s12_1 += `${sub.name}${sub.cas ? ` (CAS: ${sub.cas})` : ''}:\n`;
+        sub.tests.forEach(t => {
+          s12_1 += `${t.startsWith('-') ? t : '- ' + t}\n`;
+        });
       });
     }
 
     // --- 12.2. TRWAŁOŚĆ I ZDOLNOŚĆ DO ROZKŁADU ---
     let s12_2 = "12.2. Trwałość i zdolność do rozkładu\n";
-    const s2Lines = block2.split('\n').map(l => l.trim()).filter(Boolean);
     let s2Substances = [];
-    let curS2Sub = null;
-    prevL = "";
-    for (let i = 0; i < s2Lines.length; i++) {
-      const line = s2Lines[i];
-      const casM = line.match(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/i);
-      if (casM) {
-        const cas = casM[1];
-        const rawName = prevL && !/^(SECTION|12\.|List of|Eco-Toxicological|Readily|Non-readily|Value|Notes)/i.test(prevL) ? prevL : "";
-        curS2Sub = { cas, name: resolveSubName(rawName, cas), info: [] };
-        s2Substances.push(curS2Sub);
-        prevL = line;
-      }
-      if (curS2Sub) {
-        if (/Non-readily biodegradable|Not readily biodegradable/i.test(line)) {
-          curS2Sub.info.push("Nie ulega łatwo biodegradacji.");
-        } else if (/Readily biodegradable/i.test(line)) {
-          curS2Sub.info.push("Łatwo biodegradowalny.");
-        } else if (/Value\s*[:\.]?\s*([^\n]+)/i.test(line)) {
-          const v = line.match(/Value\s*[:\.]?\s*([^\n]+)/i)[1].trim();
-          curS2Sub.info.push(`Wartość: ${v.replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2)}`);
-        } else if (/Notes\s*[:\.]?\s*([^\n]+)/i.test(line)) {
-          const n = line.match(/Notes\s*[:\.]?\s*([^\n]+)/i)[1].trim();
-          curS2Sub.info.push(`(${n}).`);
+    if (components && components.length > 0) {
+      components.forEach(comp => {
+        const subBlock = extractSubstanceBlock(block2, comp);
+        if (subBlock) {
+          const info = [];
+          if (/Rapidly degradable/i.test(subBlock)) {
+            info.push("Szybko ulega degradacji (substancja łatwo biodegradowalna).");
+          } else if (/Non-readily biodegradable|Not readily biodegradable/i.test(subBlock)) {
+            info.push("Substancja nie ulega łatwo biodegradacji.");
+          }
+          const solM = subBlock.match(/Solubility in water\s*[:\.]?\s*([^\n]+)/i);
+          if (solM) {
+            info.push(`Rozpuszczalność w wodzie: ${solM[1].trim().replace(/(\d+)\.(\d+)/g, '$1,$2')}.`);
+          }
+          if (info.length > 0) {
+            s2Substances.push({ name: comp.name || comp.originalName, cas: comp.cas, info });
+          }
         }
-      }
-      prevL = line;
+      });
     }
 
-    if (s2Substances.length > 0 && s2Substances.some(s => s.info.length > 0)) {
+    if (s2Substances.length > 0) {
       s12_2 += "Informacje dotyczące składników:\n";
       s2Substances.forEach(sub => {
-        if (sub.info.length > 0) {
-          s12_2 += `${sub.name} (CAS: ${sub.cas}): ${sub.info.join(' ')}\n`;
-        }
+        s12_2 += `${sub.name}${sub.cas ? ` (CAS: ${sub.cas})` : ''}: ${sub.info.join(' ')}\n`;
       });
       s12_2 += "Mieszanina: Brak dostępnych badań dotyczących trwałości i rozkładu mieszaniny.";
     } else {
@@ -2358,97 +2640,43 @@ class SDSProcessorEngine {
 
     // --- 12.3. ZDOLNOŚĆ DO BIOAKUMULACJI ---
     let s12_3 = "12.3. Zdolność do bioakumulacji\n";
-    const s3Lines = block3.split('\n').map(l => l.trim()).filter(Boolean);
     let s3Substances = [];
-    let curS3Sub = null;
-    prevL = "";
-    for (let i = 0; i < s3Lines.length; i++) {
-      const line = s3Lines[i];
-      const casM = line.match(/(?:CAS\s*[:\.]?\s*)(\d{2,7}-\d{2}-\d)/i);
-      if (casM) {
-        const cas = casM[1];
-        if (!curS3Sub || curS3Sub.cas !== cas) {
-          const comp = components.find(c => c.cas === cas);
-          const rawName = prevL && !/^(SECTION|12\.|List of|Eco-Toxicological|Test:|Not bioaccumulative|Bioaccumulative)/i.test(prevL) ? prevL : "";
-          curS3Sub = { cas, name: comp ? comp.name : resolveSubName(rawName, cas), info: [] };
-          s3Substances.push(curS3Sub);
-        }
-        // NIE przerywamy pętli continue, ponieważ linia z CAS może zawierać dane testowe (np. "CAS: 118-58-1: Bioaccumulative; Test: BCF...")!
-      } else if (components.length > 0) {
-        // Detekcja substancji po nazwie składnika z Sekcji 3 (np. benzyl salicylate)
-        const compMatch = components.find(c => {
-          if (!c.originalName && !c.name) return false;
-          const orig = (c.originalName || "").toLowerCase();
-          const pl = (c.name || "").toLowerCase();
-          const lLow = line.toLowerCase();
-          return (orig.length > 3 && lLow.includes(orig)) || (pl.length > 3 && lLow.includes(pl));
-        });
-        if (compMatch && (!curS3Sub || curS3Sub.cas !== compMatch.cas)) {
-          curS3Sub = { cas: compMatch.cas, name: compMatch.name, info: [] };
-          s3Substances.push(curS3Sub);
-        }
-      }
-
-      if (curS3Sub) {
-        if (/Not bioaccumulative|Non bioaccumulabile|Nie wykazuje (?:zdolności|potencjału) do bioakumulacji/i.test(line)) {
-          if (!curS3Sub.info.some(x => x.includes("bioakumulac"))) {
-            curS3Sub.info.push("nie wykazuje zdolności do bioakumulacji");
-          }
-        } else if (/Bioaccumulat|Bioaccumulab/i.test(line) && !/Not|Non/i.test(line)) {
-          if (!curS3Sub.info.some(x => x.includes("bioakumulac"))) {
-            curS3Sub.info.push("wykazuje zdolność do bioakumulacji (Bioaccumulative)");
-          }
-        }
-        
-        if (/BCF|Bioconcentr/i.test(line)) {
-          const bcfMatch = line.match(/(?:BCF|Bioconcentr(?:at|ant)ion\s+factor|Fattore di bioconcentrazione).*?(?:[:=~-]|(?:Value|Wartość)\s*[:\.]?\s*)\s*((?:<=|>=|[=~<≤>≥])?\s*\d+(?:[.,]\d+)?)/i)
-            || line.match(/(?:Value|Wartość)\s*[:\.]?\s*((?:<=|>=|[=~<≤>≥])?\s*\d+(?:[.,]\d+)?)/i)
-            || line.match(/\bBCF\s*=\s*((?:<=|>=|[=~<≤>≥])?\s*\d+(?:[.,]\d+)?)/i);
-          if (bcfMatch) {
-            const rawVal = bcfMatch[1].trim().replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2);
-            const cleanVal = rawVal.replace(/^[=~:]\s*/, '');
-            if (!curS3Sub.info.some(x => x.includes("BCF"))) {
-              curS3Sub.info.push(`współczynnik biokoncentracji BCF = ${cleanVal}`);
-            }
-          }
-        }
-        
-        if (/Log\s*Kow|Log\s*Pow|partition\s+coefficient/i.test(line)) {
-          const logMatch = line.match(/(?:Log\s*Kow|Log\s*Pow|partition\s+coefficient).*?(?:[:=~-]|(?:Value|Wartość)\s*[:\.]?\s*)\s*((?:<=|>=|[=~<≤>≥])?\s*[\d,.-]+)/i)
-            || line.match(/(?:Value|Wartość)\s*[:\.]?\s*((?:<=|>=|[=~<≤>≥])?\s*[\d,.-]+)/i);
-          if (logMatch) {
-            const rawVal = logMatch[1].trim().replace(/<=/g, '≤').replace(/>=/g, '≥').replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2);
-            if (!curS3Sub.info.some(x => x.includes("log Kow"))) {
-              curS3Sub.info.push(`współczynnik podziału n-oktanol/woda (log Kow): ${rawVal}`);
-            }
-          }
-        }
-      }
-      prevL = line;
-    }
-
-    // Wzbogacenie o bufor EcotoxRegistry dla składników z Sekcji 3, jeśli brak danych z tekstu
     if (components && components.length > 0) {
       components.forEach(comp => {
-        if (!comp.cas) return;
-        let existing = s3Substances.find(s => s.cas === comp.cas);
-        const cached = EcotoxRegistry.getEntry(comp.cas);
-        if (!existing && cached && cached.bioaccumulation) {
-          existing = { cas: comp.cas, name: comp.name || cached.name_pl, info: [cached.bioaccumulation] };
-          s3Substances.push(existing);
-        } else if (existing && existing.info.length === 0 && cached && cached.bioaccumulation) {
-          existing.info.push(cached.bioaccumulation);
+        const subBlock = extractSubstanceBlock(block3, comp);
+        const info = [];
+        if (subBlock) {
+          const partM = subBlock.match(/(?:Partition coefficient(?:\s*[:\.]?\s*n-octanol\/water)?|Log\s*Kow|Log\s*Pow)\s*[:\.]?\s*([^\n]+)/i);
+          if (partM) {
+            const val = partM[1].trim().replace(/(\d+)\.(\d+)/g, '$1,$2');
+            info.push(`współczynnik podziału n-oktanol/woda (log Kow): ${val}`);
+          }
+          const bcfM = subBlock.match(/BCF\s*[:\.]?\s*([^\n-]+)/i);
+          if (bcfM) {
+            const val = bcfM[1].trim().replace(/(\d+)\.(\d+)/g, '$1,$2');
+            info.push(`współczynnik biokoncentracji BCF = ${val}`);
+          }
+          if (/Not bioaccumulative|Non bioaccumulabile/i.test(subBlock)) {
+            info.push("nie wykazuje zdolności do bioakumulacji");
+          }
+        }
+        // Wzbogacenie z bufora EcotoxRegistry
+        if (comp.cas) {
+          const cached = EcotoxRegistry.getEntry(comp.cas);
+          if (cached && cached.bioaccumulation && info.length === 0) {
+            info.push(cached.bioaccumulation);
+          }
+        }
+        if (info.length > 0) {
+          s3Substances.push({ name: comp.name || comp.originalName, cas: comp.cas, info });
         }
       });
     }
 
-    if (s3Substances.length > 0 && s3Substances.some(s => s.info.length > 0)) {
+    if (s3Substances.length > 0) {
       s12_3 += "Informacje dotyczące składników:\n";
       s3Substances.forEach(sub => {
-        if (sub.info.length > 0) {
-          const infoStr = sub.info.join(', ').replace(/\.\s*,/g, ',').replace(/,\s*,/g, ', ') + (sub.info[sub.info.length - 1].endsWith('.') ? '' : '.');
-          s12_3 += `${sub.name} (CAS: ${sub.cas}): ${infoStr}\n`;
-        }
+        s12_3 += `${sub.name}${sub.cas ? ` (CAS: ${sub.cas})` : ''}: ${sub.info.join(', ')}.\n`;
       });
       s12_3 += "Mieszanina: Brak dostępnych badań dotyczących bioakumulacji dla mieszaniny.";
     } else {
@@ -2457,7 +2685,29 @@ class SDSProcessorEngine {
 
     // --- 12.4. MOBILNOŚĆ W GLEBIE ---
     let s12_4 = "12.4. Mobilność w glebie\n";
-    s12_4 += "Brak dostępnych badań dotyczących mobilności mieszaniny w glebie.";
+    let s4Substances = [];
+    if (components && components.length > 0) {
+      components.forEach(comp => {
+        const subBlock = extractSubstanceBlock(block4, comp);
+        if (subBlock) {
+          const kocM = subBlock.match(/(?:Partition coefficient\s*[:\.]?\s*soil\/water|Koc)\s*[:\.]?\s*([^\n]+)/i);
+          if (kocM) {
+            const val = kocM[1].trim().replace(/(\d+)\.(\d+)/g, '$1,$2');
+            s4Substances.push({ name: comp.name || comp.originalName, cas: comp.cas, koc: val });
+          }
+        }
+      });
+    }
+
+    if (s4Substances.length > 0) {
+      s12_4 += "Informacje dotyczące składników:\n";
+      s4Substances.forEach(sub => {
+        s12_4 += `${sub.name}${sub.cas ? ` (CAS: ${sub.cas})` : ''}: współczynnik podziału gleba/woda (Koc): ${sub.koc}.\n`;
+      });
+      s12_4 += "Mieszanina: Brak dostępnych badań dotyczących mobilności mieszaniny w glebie.";
+    } else {
+      s12_4 += "Brak dostępnych badań dotyczących mobilności mieszaniny w glebie.";
+    }
 
     // --- 12.5. WYNIKI OCENY WŁAŚCIWOŚCI PBT I vPvB ---
     let s12_5 = "12.5. Wyniki oceny właściwości PBT i vPvB\n";
@@ -2637,20 +2887,26 @@ class SDSProcessorEngine {
     const s2EuhCodes = SDSChemicalExtractor.extractEuhCodes(s2Content);
     s2HCodes.forEach(c => hCodesSet.add(c));
     s2EuhCodes.forEach(c => euhCodesSet.add(c));
+    if (s2Content.includes("EUH208") || /EUH208/i.test(s2Content)) {
+      euhCodesSet.add("EUH208");
+    }
 
     // Ze składników sekcji 3
     components.forEach(c => {
       const classStr = c.classification || "";
-      const matchesH = classStr.match(/\bH\d{3}[a-zA-Z]?\b/g);
+      const matchesH = SDSChemicalExtractor.extractHCodes(classStr);
       if (matchesH) matchesH.forEach(code => hCodesSet.add(code));
-      const matchesEuh = classStr.match(/\bEUH\d{3}\b/g);
+      const matchesEuh = SDSChemicalExtractor.extractEuhCodes(classStr);
       if (matchesEuh) matchesEuh.forEach(code => euhCodesSet.add(code));
+      if (/(?:Skin\s*Sens|H317)/i.test(classStr)) {
+        euhCodesSet.add("EUH208");
+      }
     });
 
     // Z tekstu źródłowego sekcji 16
-    const rawMatchesH = clean.match(/\bH\d{3}[a-zA-Z]?\b/g);
+    const rawMatchesH = SDSChemicalExtractor.extractHCodes(clean);
     if (rawMatchesH) rawMatchesH.forEach(code => hCodesSet.add(code));
-    const rawMatchesEuh = clean.match(/\bEUH\d{3}\b/g);
+    const rawMatchesEuh = SDSChemicalExtractor.extractEuhCodes(clean);
     if (rawMatchesEuh) rawMatchesEuh.forEach(code => euhCodesSet.add(code));
 
     const sortedHCodes = Array.from(hCodesSet).sort();
@@ -2697,6 +2953,16 @@ class SDSProcessorEngine {
       "STOT SE 3": "Działanie toksyczne na narządy docelowe – narażenie jednorazowe, kategoria 3",
       "STOT RE 1": "Działanie toksyczne na narządy docelowe – narażenie powtarzane, kategoria 1",
       "STOT RE 2": "Działanie toksyczne na narządy docelowe – narażenie powtarzane, kategoria 2",
+      "Repr. 1A": "Działanie szkodliwe na rozrodczość, kategoria 1A",
+      "Repr. 1B": "Działanie szkodliwe na rozrodczość, kategoria 1B",
+      "Repr. 2": "Działanie szkodliwe na rozrodczość, kategoria 2",
+      "Carc. 1A": "Rakotwórczość, kategoria 1A",
+      "Carc. 1B": "Rakotwórczość, kategoria 1B",
+      "Carc. 2": "Rakotwórczość, kategoria 2",
+      "Muta. 1A": "Działanie mutagenne na komórki rozrodcze, kategoria 1A",
+      "Muta. 1B": "Działanie mutagenne na komórki rozrodcze, kategoria 1B",
+      "Muta. 2": "Działanie mutagenne na komórki rozrodcze, kategoria 2",
+      "Lact.": "Wpływ na laktację lub oddziaływanie na dzieci karmione piersią",
       "Aquatic Acute 1": "Stwarzające zagrożenie dla środowiska wodnego – zagrożenie ostre, kategoria 1",
       "Aquatic Chronic 1": "Stwarzające zagrożenie dla środowiska wodnego – zagrożenie przewlekłe, kategoria 1",
       "Aquatic Chronic 2": "Stwarzające zagrożenie dla środowiska wodnego – zagrożenie przewlekłe, kategoria 2",
@@ -2789,14 +3055,14 @@ class SDSProcessorEngine {
     
     const ufi = SDSChemicalExtractor.extractUfi(rawSections["section_1"]);
     const s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
-    const s2 = this.processSection2(rawSections["section_2"], s3.resolvedSubstances);
+    const s2 = this.processSection2(rawSections["section_2"], s3.resolvedSubstances, s3.components);
     const s1Content = this.processSection1(rawSections["section_1"], productName, ufi, manualOverrides);
     const s4Content = this.processSection4(rawSections["section_4"]);
     const s5Content = this.processSection5(rawSections["section_5"]);
     const s6Content = this.processSection6(rawSections["section_6"]);
     const s7Content = this.processSection7(rawSections["section_7"]);
     const s8Content = this.processSection8(rawSections["section_8"], s3.components, s2.content);
-    const s9Content = this.processSection9(rawSections["section_9"]);
+    const s9Content = this.processSection9(rawSections["section_9"], s3.components);
     const s12Res = this.processSection12(rawSections["section_12"], s3.components);
     const s12Content = s12Res.content;
     const s13Content = this.processSection13(rawSections["section_13"], s3.components, s2.content, s1Content);
@@ -2842,7 +3108,14 @@ class SDSProcessorEngine {
     const finalProductName = this.lastResolvedTradeName || (!isTechnicalFilename ? SDSProcessorEngine.polonizeTradeName(productName) : "Karta Charakterystyki");
 
     return {
-      metadata: { productName: finalProductName, ufi, version: "1.0 PL", companyConfig: this.companyConfig },
+      metadata: { 
+        productName: finalProductName, 
+        ufi, 
+        version: "1.0 PL", 
+        companyConfig: this.companyConfig,
+        components: s3.components,
+        ghsPictograms: this.detectedGhsPictograms
+      },
       deterministicSections: deterministic,
       descriptiveSectionsToTranslate: toTranslate,
       quarantineAudit: this.quarantineLogs,
@@ -2897,7 +3170,9 @@ class SDSProcessorEngine {
       .replace(/\bANISALDEHYDE\b/gi, 'Aldehyd anyżowy')
       .replace(/\b2H-CHROMEN-2-ONE\b/gi, 'Kumaryna')
       .replace(/\b2,6-di-tert-butyl-p-cresol\b/gi, '2,6-di-tert-butylo-4-metylofenol (BHT)')
-      .replace(/\bDRACOWNICY\b/gi, 'PRACOWNICY');
+      .replace(/\bDRACOWNICY\b/gi, 'PRACOWNICY')
+      .replace(/(?:LC50\s*\([^\)]*(?:Inhalation|inhalac)[^\)]*\)\s*:\s*)?120\s*mg\/l\/4h\s*Pimephales\s+promelas/gi, 'LC50 (przez drogi oddechowe - pary, szczur): > 50 mg/l/4h')
+      .replace(/Pimephales\s+promelas/gi, 'szczur');
 
     return text;
   }

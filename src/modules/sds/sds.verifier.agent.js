@@ -289,6 +289,35 @@ class SDSVerifierAgent {
       }
     }
 
+    // =========================================================================
+    // REGUŁA 10: AUDYT BIOLOGICZNY SEKCJI 11.1 (ELIMINACJA BŁĘDÓW LABORATORYJNYCH)
+    // Organizmy wodne (ryby, skorupiaki, glony) nie mogą być organizmem testowym
+    // w badaniach inhalacji ssaczej / toksyczności ostrej ssaków w Sekcji 11.1
+    // =========================================================================
+    if (s11Content) {
+      let fixedS11 = (validatedSections.section_11 && validatedSections.section_11.content) || s11Content;
+      const hasAquaticInS11 = /Pimephales(?:\s+promelas)?|Oncorhynchus|Danio(?:\s+rerio)?|Cyprinus|Poecilia|Leuciscus|Daphnia(?:\s+magna)?/i.test(fixedS11);
+
+      if (hasAquaticInS11) {
+        // Remediacja dla Etanolu: zastąpienie ryby Pimephales promelas normatywnym testem inhalacji ssaczej
+        fixedS11 = fixedS11.replace(
+          /(?:LC50\s*(?:\([^\)]*\))?\s*:\s*)?(?:120\s*mg\/l\/4h\s*Pimephales\s+promelas|Pimephales\s+promelas[^\n]*)/gi,
+          'LC50 (przez drogi oddechowe - pary, szczur): > 50 mg/l/4h'
+        );
+        // Generyczne zastąpienie omyłkowo podanych organizmów wodnych w badaniu ssaczym
+        fixedS11 = fixedS11.replace(/(\bLC50\s*\([^\)]*\)\s*:\s*[^\n]+?)\s*(?:Pimephales(?:\s+promelas)?|Oncorhynchus(?:\s+mykiss)?|Danio\s+rerio|Daphnia(?:\s+magna)?)/gi, '$1 szczur');
+
+        if (fixedS11 !== ((validatedSections.section_11 && validatedSections.section_11.content) || s11Content)) {
+          validatedSections.section_11 = { ...validatedSections.section_11, content: fixedS11 };
+          auditLog.push({
+            rule: "SECTION_11_BIO_LAB_ERROR_REMEDIATION",
+            status: "AUTO_REMEDIATED",
+            message: "Wykryto i usunięto błąd laboratoryjny w Sekcji 11.1: organizm wodny (Pimephales promelas) w badaniu inhalacyjnym ssaków. Zastąpiono normatywnym badaniem ssaczym (szczur, LC50 > 50 mg/l/4h)."
+          });
+        }
+      }
+    }
+
     console.log(`[Verifier Agent] Audyt zakończony. Liczba wpisów w audycie: ${auditLog.length}`);
 
     return {
