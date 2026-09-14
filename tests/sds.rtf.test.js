@@ -267,14 +267,79 @@ H361fd: Sospettato di nuocere alla fertilit\\u224?. Sospettato di nuocere al fet
         console.log("-> TEST 5 PASSED: SDSVerifierAgent potwierdził 100% zgodności prawnej karty z RTF.");
         passedCount++;
 
-        // Sprzątanie plików tymczasowych
-        try {
-          fs.rmSync(tempDir, { recursive: true, force: true });
-        } catch (cleanupErr) {}
+        // --------------------------------------------------------------------------
+        // TEST 6: Weryfikacja rzeczywistej karty RTF Orchidea e Vaniglia (5 składników + Sekcja 9 + DOCX)
+        // --------------------------------------------------------------------------
+        console.log("\n[TEST 6] Weryfikacja produkcyjnej karty RTF Orchidea e Vaniglia...");
+        const realRtfPath = path.resolve(__dirname, '..', 'docs', 'SDS', '8034055535448_SDS_ORCHIDEA_E_VANIGLIA (1).rtf');
+        
+        if (fs.existsSync(realRtfPath)) {
+          return engine.prepareAgentPayload(realRtfPath, "ORCHIDEA E VANIGLIA")
+            .then(async realPayload => {
+              const s3Comps = realPayload.deterministicSections.section_3.components;
+              assert(s3Comps && s3Comps.length === 5, `Oczekiwano 5 składników w Orchidea e Vaniglia, wyekstrahowano: ${s3Comps ? s3Comps.length : 0}`);
+              
+              const casList = s3Comps.map(c => c.cas);
+              assert(casList.includes("64-17-5"), "Brak etanolu (CAS: 64-17-5)!");
+              assert(casList.includes("123-11-5"), "Brak aldehydu anyżowego (CAS: 123-11-5)!");
+              assert(casList.includes("91-64-5"), "Brak kumaryny (CAS: 91-64-5)!");
+              assert(casList.includes("128-37-0"), "Brak BHT (CAS: 128-37-0)!");
+              assert(casList.includes("108-88-3"), "Brak toluenu (CAS: 108-88-3)!");
 
-        console.log("\n========================================================");
-        console.log(`WSZYSTKIE ${passedCount}/${passedCount} TESTÓW DLA FORMATU RTF ZAKOŃCZONE SUKCESEM!`);
-        console.log("========================================================\n");
+              // Weryfikacja stężeń
+              const ethanol = s3Comps.find(c => c.cas === "64-17-5");
+              assert(ethanol.concentration.includes("74") && ethanol.concentration.includes("78"), "Błędne stężenie etanolu (oczekiwano 74-78%)!");
+
+              // Weryfikacja parametrów fizykochemicznych sekcji 9
+              const s9 = realPayload.deterministicSections.section_9.content;
+              assert(s9.includes("Stan skupienia: ciecz"), "Brak 'Stan skupienia: ciecz' w Sekcji 9!");
+              assert(s9.includes("Kolor: różowy"), "Brak 'Kolor: różowy' w Sekcji 9!");
+              assert(s9.includes("18,7 °C"), "Brak temperatury zapłonu 18,7 °C w Sekcji 9!");
+              assert(s9.includes("78,5 °C"), "Brak temperatury wrzenia 78,5 °C w Sekcji 9!");
+
+              // Weryfikacja parametrów kontroli narażenia sekcji 8
+              const s8 = realPayload.deterministicSections.section_8.content;
+              assert(s8.includes("1900 mg/m³") || s8.includes("1900 mg/m3"), "Brak NDS 1900 mg/m³ dla etanolu w Sekcji 8!");
+              assert(s8.includes("100 mg/m³") || s8.includes("100 mg/m3"), "Brak NDS 100 mg/m³ dla toluenu w Sekcji 8!");
+
+              // Symulacja asemblacji i eksportu DOCX
+              const { SDSDocxExporter } = require('../src/modules/sds/sds.service');
+              const realCombined = {
+                ...realPayload.deterministicSections,
+                section_10: { type: "TRANSLATED", content: "SEKCJA 10: STABILNOŚĆ I REAKTYWNOŚĆ\n\n10.1. Reaktywność: W normalnych warunkach brak zagrożenia." },
+                section_11: { type: "TRANSLATED", content: "SEKCJA 11: INFORMACJE TOKSYKOLOGICZNE\n\n11.1. Działa drażniąco na oczy.\n\nj) zagrożenie spowodowane aspiracją: brak\n\n11.2. Informacje o innych zagrożeniach: brak." }
+              };
+
+              const realFinal = engine.mergeCompletedSds(realPayload, {
+                section_10: realCombined.section_10.content,
+                section_11: realCombined.section_11.content
+              });
+
+              const realDocxPath = path.join(tempDir, 'orchidea_test_export.docx');
+              await SDSDocxExporter.export(realFinal, realDocxPath);
+              assert(fs.existsSync(realDocxPath) && fs.statSync(realDocxPath).size > 15000, "Błąd eksportu pliku DOCX z karty Orchidea e Vaniglia!");
+
+              console.log("-> TEST 6 PASSED: Rzeczywista karta RTF Orchidea e Vaniglia przetworzona w 100% poprawnie (5/5 składników, NDS, Sekcja 9, DOCX).");
+              passedCount++;
+
+              // Sprzątanie plików tymczasowych
+              try {
+                fs.rmSync(tempDir, { recursive: true, force: true });
+              } catch (cleanupErr) {}
+
+              console.log("\n========================================================");
+              console.log(`WSZYSTKIE ${passedCount}/${passedCount} TESTÓW DLA FORMATU RTF ZAKOŃCZONE SUKCESEM!`);
+              console.log("========================================================\n");
+            });
+        } else {
+          console.log("-> TEST 6 SKIPPED (Brak pliku Orchidea e Vaniglia RTF w docs/SDS)");
+          try {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+          } catch (cleanupErr) {}
+          console.log("\n========================================================");
+          console.log(`WSZYSTKIE ${passedCount}/${passedCount} TESTÓW DLA FORMATU RTF ZAKOŃCZONE SUKCESEM!`);
+          console.log("========================================================\n");
+        }
       });
     })
     .catch(err => {

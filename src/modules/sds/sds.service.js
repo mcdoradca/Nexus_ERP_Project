@@ -446,29 +446,34 @@ class SDSPDFParser {
   }
 
   static segmentInto16Sections(fullText) {
+    if (!fullText) fullText = "";
     const sectionPatterns = {
-      section_1: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*1\s*[:\.\-]?\s*(?:IDENTIFICAZIONE|IDENTIFICATION|IDENTYFIKACJA)/i,
-      section_2: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*2\s*[:\.\-]?\s*(?:IDENTIFICAZIONE DEI PERICOLI|HAZARDS|IDENTYFIKACJA ZAGROŻEŃ)/i,
-      section_3: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*3\s*[:\.\-]?\s*(?:COMPOSIZIONE|COMPOSITION|SKŁAD)/i,
-      section_4: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*4\s*[:\.\-]?\s*(?:MISURE DI PRIMO SOCCORSO|FIRST AID|ŚRODKI PIERWSZEJ POMOCY)/i,
-      section_5: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*5\s*[:\.\-]?\s*(?:MISURE ANTINCENDIO|FIREFIGHTING|POSTĘPOWANIE W PRZYPADKU POŻARU)/i,
-      section_6: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*6\s*[:\.\-]?\s*(?:MISURE IN CASO DI RILASCIO|ACCIDENTAL RELEASE|POSTĘPOWANIE W PRZYPADKU NIEZAMIERZONEGO)/i,
-      section_7: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*7\s*[:\.\-]?\s*(?:MANIPOLAZIONE E IMMAGAZZINAMENTO|HANDLING|POSTĘPOWANIE Z SUBSTANCJAMI|MAGAZYNOWANIE)/i,
-      section_8: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*8\s*[:\.\-]?\s*(?:CONTROLLI DELL.ESPOSIZIONE|EXPOSURE|KONTROLA NARAŻENIA)/i,
-      section_9: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*9\s*[:\.\-]?\s*(?:PROPRIET[AÀ] FISICHE E CHIMICHE|PHYSICAL|WŁAŚCIWOŚCI FIZYCZNE)/i,
-      section_10: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*10\s*[:\.\-]?\s*(?:STABILIT[AÀ] E REATTIVIT[AÀ]|STABILITY|STABILNOŚĆ)/i,
-      section_11: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*11\s*[:\.\-]?\s*(?:INFORMAZIONI TOSSICOLOGICHE|TOXICOLOGICAL|INFORMACJE TOKSYKOLOGICZNE)/i,
-      section_12: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*12\s*[:\.\-]?\s*(?:INFORMAZIONI ECOLOGICHE|ECOLOGICAL|INFORMACJE EKOLOGICZNE)/i,
-      section_13: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*13\s*[:\.\-]?\s*(?:CONSIDERAZIONI SULLO SMALTIMENTO|DISPOSAL|POSTĘPOWANIE Z ODPADAMI)/i,
-      section_14: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*14\s*[:\.\-]?\s*(?:INFORMAZIONI SUL TRASPORTO|TRANSPORT|INFORMACJE DOTYCZĄCE TRANSPORTU)/i,
-      section_15: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*15\s*[:\.\-]?\s*(?:INFORMAZIONI SULLA REGOLAMENTAZIONE|REGULATORY|INFORMACJE DOTYCZĄCE PRZEPISÓW)/i,
-      section_16: /(?:^|\n)\s*(?:SEZIONE|SECTION|SEKCJA)\s*16\s*[:\.\-]?\s*(?:ALTRE INFORMAZIONI|OTHER INFORMATION|INNE INFORMACJE)/i
+      section_1: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*1\s*[:\.\-]?\s*(?:IDENTIFICAZIONE|IDENTIFICATION|IDENTYFIKACJA)/i,
+      section_2: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*2\s*[:\.\-]?\s*(?:IDENTIFICAZIONE DEI PERICOLI|HAZARDS|IDENTYFIKACJA ZAGROŻEŃ)/i,
+      section_3: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*3\s*[:\.\-]?\s*(?:COMPOSIZIONE|COMPOSITION|SKŁAD)/i,
+      section_4: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*4\s*[:\.\-]?\s*(?:MISURE DI PRIMO SOCCORSO|FIRST AID|ŚRODKI PIERWSZEJ POMOCY)/i,
+      section_5: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*5\s*[:\.\-]?\s*(?:MISURE ANTINCENDIO|FIREFIGHTING|POSTĘPOWANIE W PRZYPADKU POŻARU)/i,
+      section_6: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*6\s*[:\.\-]?\s*(?:MISURE IN CASO DI RILASCIO|ACCIDENTAL RELEASE|POSTĘPOWANIE W PRZYPADKU NIEZAMIERZONEGO)/i,
+      section_7: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*7\s*[:\.\-]?\s*(?:MANIPOLAZIONE E IMMAGAZZINAMENTO|HANDLING|POSTĘPOWANIE Z SUBSTANCJAMI|MAGAZYNOWANIE)/i,
+      section_8: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*8\s*[:\.\-]?\s*(?:CONTROLLI DELL.ESPOSIZIONE|EXPOSURE|KONTROLA NARAŻENIA)/i,
+      section_9: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*9\s*[:\.\-]?\s*(?:PROPRIET[AÀ] FISICHE E CHIMICHE|PHYSICAL|WŁAŚCIWOŚCI FIZYCZNE)/i,
+      section_10: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*10\s*[:\.\-]?\s*(?:STABILIT[AÀ] E REATTIVIT[AÀ]|STABILITY|STABILNOŚĆ)/i,
+      section_11: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*11\s*[:\.\-]?\s*(?:INFORMAZIONI TOSSICOLOGICHE|TOXICOLOGICAL|INFORMACJE TOKSYKOLOGICZNE)/i,
+      section_12: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*12\s*[:\.\-]?\s*(?:INFORMAZIONI ECOLOGICHE|ECOLOGICAL|INFORMACJE EKOLOGICZNE)/i,
+      section_13: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*13\s*[:\.\-]?\s*(?:CONSIDERAZIONI SULLO SMALTIMENTO|DISPOSAL|POSTĘPOWANIE Z ODPADAMI)/i,
+      section_14: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*14\s*[:\.\-]?\s*(?:INFORMAZIONI SUL TRASPORTO|TRANSPORT|INFORMACJE DOTYCZĄCE TRANSPORTU)/i,
+      section_15: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*15\s*[:\.\-]?\s*(?:INFORMAZIONI SULLA REGOLAMENTAZIONE|REGULATORY|INFORMACJE DOTYCZĄCE PRZEPISÓW)/i,
+      section_16: /(?:^|[\n\r\t]|\.\s+)\s*(?:SEZIONE|SECTION|SEKCJA)\s*16\s*[:\.\-]?\s*(?:ALTRE INFORMAZIONI|OTHER INFORMATION|INNE INFORMACJE)/i
     };
 
     let positions = [];
     for (const [key, regex] of Object.entries(sectionPatterns)) {
       const match = regex.exec(fullText);
-      if (match) positions.push({ key, index: match.index });
+      if (match) {
+        const prefixMatch = match[0].match(/^(?:[\n\r\t]|\.\s+)\s*/);
+        const prefixLen = prefixMatch ? prefixMatch[0].length : 0;
+        positions.push({ key, index: match.index + prefixLen });
+      }
     }
     positions.sort((a, b) => a.index - b.index);
 
@@ -507,7 +512,7 @@ class SDSChemicalExtractor {
   }
 
   static extractCas(text) {
-    const matches = this.extractUnique(text, /\b\d{2,7}-\d{2}-\d\b/g);
+    const matches = this.extractUnique(text, /(?<![0-9\-])\b\d{2,7}-\d{2}-\d\b(?![0-9\-])/g);
     return matches.filter(cas => this.isValidCas(cas));
   }
   static extractEc(text) { return this.extractUnique(text, /\b\d{3}-\d{3}-\d\b/g); }
@@ -621,6 +626,111 @@ class SDSChemicalExtractor {
       .trim();
   }
 
+  static parseBlockComponents(cleanText, resolvedSubstances = {}) {
+    const lines = cleanText.split('\n').map(l => l.trim()).filter(Boolean);
+    const blocks = [];
+    let currentBlock = [];
+
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li];
+      if (/^(?:SECTION|SEZIONE|SEKCJA|3\.1|3\.2|Contains|Identification|Substances|Mixtures)\b/i.test(line)) {
+        continue;
+      }
+      if (/^The full wording of hazard/i.test(line)) {
+        break;
+      }
+
+      const isHeader = /^[A-Z0-9\s,\-\(\)\/\.]{2,}$/i.test(line) && 
+                       !/^(?:INDEX|EC|CAS|REACH|ATE|Eye|Skin|Acute|Flam|Repr|Aquatic|STOT|Asp)\b/i.test(line) &&
+                       !/\b(?:H\d{3}|P\d{3}|mg\/kg)\b/i.test(line);
+
+      const nextLine = lines[li + 1] || '';
+      const hasSubsequentId = /^(?:INDEX|EC|CAS)\b/i.test(nextLine);
+
+      if (isHeader && hasSubsequentId && currentBlock.length > 0) {
+        blocks.push(currentBlock);
+        currentBlock = [line];
+      } else {
+        currentBlock.push(line);
+      }
+    }
+    if (currentBlock.length > 0) blocks.push(currentBlock);
+
+    const components = [];
+    for (const blk of blocks) {
+      const blkText = blk.join('\n');
+      let cas = null;
+      const explicitCasMatch = blkText.match(/(?:CAS|Cas)\s*[:\.]?\s*(\b\d{2,7}-\d{2}-\d\b)/i);
+      if (explicitCasMatch && this.isValidCas(explicitCasMatch[1])) {
+        cas = explicitCasMatch[1];
+      } else {
+        const allCas = [...blkText.matchAll(/(?<![0-9\-])\b\d{2,7}-\d{2}-\d\b(?![0-9\-])/g)];
+        for (const m of allCas) {
+          if (this.isValidCas(m[0])) {
+            const pre = blkText.substring(Math.max(0, m.index - 15), m.index);
+            if (!/INDEX|Indeks/i.test(pre)) {
+              cas = m[0];
+              break;
+            }
+          }
+        }
+      }
+      if (!cas) continue;
+
+      let rawName = blk[0].replace(/\t/g, ' ').trim();
+      rawName = rawName.replace(/^(?:Identification|Name|Sostanza)\s*[:\.]?\s*/i, '');
+
+      const ecMatch = blkText.match(/(?:EC|WE|EINECS)\s*[:\.]?\s*(\d{3}-\d{3}-\d)/i);
+      const ecNumber = ecMatch ? ecMatch[1] : "—";
+
+      const indexMatch = blkText.match(/(?:INDEX|Indeks)\s*[:\.]?\s*(\d{3}-\d{3}-\d{2}-\d)/i);
+      const indexNumber = indexMatch ? indexMatch[1] : "—";
+
+      const reachMatch = blkText.match(/01-\d{8,12}-\d{2}-[A-Za-z0-9\-]+/i);
+      const reachNumber = reachMatch ? reachMatch[0].replace(/-+$/, '') : "—";
+
+      let rawConc = "—";
+      let classParts = [];
+
+      for (const line of blk) {
+        const cols = line.split('\t').map(c => c.trim()).filter(Boolean);
+        if (/^(?:INDEX|Indeks)/i.test(cols[0])) {
+          if (cols.length >= 2) rawConc = cols[1];
+          if (cols.length >= 3) classParts.push(cols.slice(2).join(' '));
+        } else if (/^(?:EC|WE|EINECS)/i.test(cols[0])) {
+          if (cols.length >= 2) classParts.push(cols.slice(1).join(' '));
+        } else if (!/^(?:CAS|REACH|Identification|Name|Contains)/i.test(cols[0]) && cols[0] !== rawName) {
+          if (/(?:Flam\.|Eye\.|Repr\.|Acute|Skin|Aquatic|STOT|Asp\.|ATE|H\d{3}|M=\d+)/i.test(line)) {
+            classParts.push(line.replace(/\t+/g, ' ').trim());
+          }
+        }
+      }
+
+      let classText = classParts.join(', ');
+      classText = classText
+        .replace(/Specific Concentration Limits\s*[:\.]?/gi, 'Specyficzne stężenia graniczne:\n')
+        .replace(/M-Chronic\s*[:\.]?\s*(\d+)/gi, 'M (przewlekły) = $1')
+        .replace(/M-Acute\s*[:\.]?\s*(\d+)/gi, 'M (ostry) = $1');
+
+      const concentration = this.formatConcentration(rawConc);
+      const plName = resolvedSubstances[cas] || rawName;
+
+      components.push({
+        cas,
+        name: plName,
+        originalName: rawName,
+        ec: ecNumber,
+        index: indexNumber,
+        reach: reachNumber,
+        identifiers: `Numer CAS: ${cas}\nNumer WE: ${ecNumber}` + (indexNumber !== "—" ? `\nNumer indeksowy: ${indexNumber}` : "") + (reachNumber !== "—" ? `\nNumer rejestracji REACH: ${reachNumber}` : ""),
+        classification: mapHazardClass(classText),
+        concentration
+      });
+    }
+
+    return components;
+  }
+
   static parseSection3Components(contentIt, resolvedSubstances = {}) {
     if (!contentIt) return [];
 
@@ -630,6 +740,14 @@ class SDSChemicalExtractor {
       .replace(/\d{2}\/\d{2}\/\d{4}\s*Production Name[^\n]+/gi, '')
       .replace(/Qty\s*Name\s*Ident\.\s*Numb\.\s*Classification\s*Registration\s*Number/gi, '');
 
+    // Obsługa układu blokowo-tabelarycznego RTF/Word (INDEX, EC, CAS w kolejnych wierszach)
+    if (/(?:INDEX\s+[\d\-]+|EC\s+\d{3}-\d{3}-\d)[\s\S]+?CAS\s+\d{2,7}-\d{2}-\d/i.test(cleanText)) {
+      const blockComps = this.parseBlockComponents(cleanText, resolvedSubstances);
+      if (blockComps && blockComps.length > 0) {
+        return blockComps;
+      }
+    }
+
     // Łączenie stężeń rozbitych na linie przez łamanie wiersza (np. "≥0.00015%-\n<0.0015%" lub "0.1% -\n< 0.25%")
     cleanText = cleanText
       .replace(/([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%?)\s*-\s*\n\s*([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%)/g, (m, p1, p2, p3, p4) => (p1 || '') + p2 + ' - ' + (p3 || '') + p4)
@@ -637,7 +755,7 @@ class SDSChemicalExtractor {
       .replace(/([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?)\s*-\s*\n\s*([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%)/g, (m, p1, p2, p3, p4) => (p1 || '') + p2 + ' - ' + (p3 || '') + p4);
 
     // Wyszukiwanie numerów CAS: z przedrostkiem CAS lub jako wyizolowany token w wierszu tabeli
-    const rawCasMatches = [...cleanText.matchAll(/(?:CAS\s*[:\.]?\s*)?(\b\d{2,7}-\d{2}-\d\b)/gi)];
+    const rawCasMatches = [...cleanText.matchAll(/(?:CAS\s*[:\.]?\s*)?((?<![0-9\-])\b\d{2,7}-\d{2}-\d\b(?![0-9\-]))/gi)];
     const casMatches = [];
     for (const m of rawCasMatches) {
       const candidateCas = m[1];
@@ -1352,14 +1470,17 @@ class SDSProcessorEngine {
     return clean;
   }
 
-  static cleanPdfArtifacts(text) {
+  static cleanPdfArtifacts(text, preserveTabs = false) {
     if (!text) return "";
-    return text
+    let res = text
       .replace(/\r/g, '')
       .replace(/(?:^|\n)\s*(?:Page|Strona|Pagina)\b[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}\s*(?:Production Name|Trade Name|Nazwa produktu|Product name|Nome prodotto)?[^\n]*/gi, '')
-      .replace(/(?:^|\n)\s*(?:Production Name|Trade Name|Nazwa produktu|Product name|Nome prodotto)\s*[:\.]?\s*[^\n]*(?:\bDate|\bData)\s*$/gim, '')
-      .replace(/\t/g, ' ');
+      .replace(/(?:^|\n)\s*(?:Production Name|Trade Name|Nazwa produktu|Product name|Nome prodotto)\s*[:\.]?\s*[^\n]*(?:\bDate|\bData)\s*$/gim, '');
+    if (!preserveTabs) {
+      res = res.replace(/\t/g, ' ');
+    }
+    return res;
   }
 
   static polonizeTradeName(rawName) {
@@ -1767,24 +1888,52 @@ class SDSProcessorEngine {
   static normalizePhysChemValue(val) {
     if (!val) return "Brak danych";
     let v = val.replace(/\r/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
-    if (/^(?:N\.?A\.?|Not applicable|Non applicabile|Not available|Non disponibile|Brak danych)$/i.test(v) || /(?:N\.A\.|Not applicable)/i.test(v)) {
+    if (/^(?:N\.?A\.?|Not applicable|Non applicabile|Not available|Non disponibile|Brak danych|It only applies to solids|Median equivalent diameter)$/i.test(v) || /(?:N\.A\.|Not applicable|It only applies to solids)/i.test(v)) {
       return "Nie dotyczy";
     }
 
     // Tłumaczenie opisowych stanów skupienia, kolorów i rozpuszczalności
     const valueMap = {
       "liquid": "ciecz",
+      "liquido": "ciecz",
       "solid": "ciało stałe",
+      "solido": "ciało stałe",
       "gas": "gaz",
+      "flammable liquid": "ciecz łatwopalna",
+      "liquido infiammabile": "ciecz łatwopalna",
+      "flammable": "łatwopalny",
+      "infiammabile": "łatwopalny",
+      "not flammable": "niepalny",
+      "non infiammabile": "niepalny",
       "white": "biały",
+      "bianco": "biały",
       "colourless": "bezbarwny",
       "colorless": "bezbarwny",
+      "incolore": "bezbarwny",
+      "pink": "różowy",
+      "rosa": "różowy",
+      "red": "czerwony",
+      "rosso": "czerwony",
+      "blue": "niebieski",
+      "blu": "niebieski",
+      "yellow": "żółty",
+      "giallo": "żółty",
+      "green": "zielony",
+      "verde": "zielony",
       "characteristic": "charakterystyczny",
+      "caratteristico": "charakterystyczny",
       "soluble": "rozpuszczalny",
+      "solubile": "rozpuszczalny",
+      "soluble in water": "rozpuszczalny w wodzie",
+      "solubile in acqua": "rozpuszczalny w wodzie",
       "insoluble": "nierozpuszczalny",
+      "insolubile": "nierozpuszczalny",
       "partially soluble": "częściowo rozpuszczalny",
+      "parzialmente solubile": "częściowo rozpuszczalny",
       "miscible": "mieszalny",
+      "miscibile": "mieszalny",
       "not miscible": "niemieszalny",
+      "non miscibile": "niemieszalny",
       "immiscible": "niemieszalny"
     };
     let lower = v.toLowerCase();
@@ -1803,8 +1952,8 @@ class SDSProcessorEngine {
   }
 
   processSection9(contentIt) {
-    // 1. Usunięcie artefaktów paginacji PDF i powtórzonych nagłówków
-    let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
+    // 1. Usunięcie artefaktów paginacji PDF i powtórzonych nagłówków (z zachowaniem tabulatorów \t)
+    let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt, true);
 
     // Scalenie połamanych linii nagłówków parametrów w sekcji 9
     clean = clean
@@ -1817,31 +1966,40 @@ class SDSProcessorEngine {
 
     // Definicja 18 urzędowych parametrów fizykochemicznych wg Załącznika II (UE) 2020/878
     const paramsConfig = [
-      { key: "state", pl: "Stan skupienia", regex: /(?:Physical state|Stato fisico|Stan skupienia)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "color", pl: "Kolor", regex: /(?:Colour|Color|Colore|Kolor)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "odor", pl: "Zapach", regex: /(?:Odour|Odor|Odore|Zapach)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "melting", pl: "Temperatura topnienia/krzepnięcia", regex: /(?:Melting point\/freezing point|Punto di fusione\/punto di congelamento|Temperatura topnienia\/krzepnięcia)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "boiling", pl: "Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia", regex: /(?:Boiling point or initial boiling point and boiling range|Punto di ebollizione o punto iniziale di ebollizione e intervallo di ebollizione|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "flammability", pl: "Palność materiałów", regex: /(?:Flammability|Infiammabilità|Palność materiałów)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "explosion_limits", pl: "Dolna i górna granica wybuchowości", regex: /(?:Lower and upper explosion limit|Limite inferiore e superiore di esplosività|Dolna i górna granica wybuchowości)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "flash_point", pl: "Temperatura zapłonu", regex: /(?:Flash point|Punto di infiammabilità|Temperatura zapłonu)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "auto_ignition", pl: "Temperatura samozapłonu", regex: /(?:Auto-ignition temperature|Temperatura di autoaccensione|Temperatura samozapłonu)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "decomposition", pl: "Temperatura rozkładu", regex: /(?:Decomposition temperature|Temperatura di decomposizione|Temperatura rozkładu)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "ph", pl: "pH", regex: /(?:^|\n)\s*(?<![A-Za-z])pH(?![A-Za-z])\s*[:\.]?\s*([^\n]+)/i },
-      { key: "viscosity", pl: "Lepkość kinematyczna", regex: /(?:Kinematic viscosity|Viscosità cinematica|Lepkość kinematyczna)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "solubility_water", pl: "Rozpuszczalność w wodzie", regex: /(?:Solubility in water|Solubilità in acqua|Rozpuszczalność w wodzie)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "solubility_oil", pl: "Rozpuszczalność w innych rozpuszczalnikach", regex: /(?:Solubility in oil|Solubilità in olio|Solubility in other solvents|Rozpuszczalność w innych rozpuszczalnikach)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "partition_coeff", pl: "Współczynnik podziału n-oktanol/woda (wartość współczynnika log)", regex: /(?:Partition coefficient n-octanol\/water \(log value\)|Coefficiente di ripartizione n-ottanolo\/acqua|Współczynnik podziału n-oktanol\/woda)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "vapour_pressure", pl: "Prężność pary", regex: /(?:Vapour pressure|Tensione di vapore|Prężność pary)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "density", pl: "Gęstość lub gęstość względna", regex: /(?:Density and\/or relative density|Densità e\/o densità relativa|Gęstość lub gęstość względna)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "relative_vapour_density", pl: "Względna gęstość pary", regex: /(?:Relative vapour density|Densità di vapore relativa|Względna gęstość pary)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "particle_characteristics", pl: "Charakterystyka cząsteczek", regex: /(?:Particle size|Particle characteristics|Caratteristiche delle particelle|Charakterystyka cząsteczek)\s*[:\.]?\s*([^\n]+)/i }
+      { key: "state", pl: "Stan skupienia", regex: /(?:Physical state|Stato fisico|Appearance|Aspetto|Stan skupienia)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "color", pl: "Kolor", regex: /(?:Colour|Color|Colore|Kolor)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "odor", pl: "Zapach", regex: /(?:Odour|Odor|Odore|Zapach)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "melting", pl: "Temperatura topnienia/krzepnięcia", regex: /(?:Melting point\s*[\/\-]?\s*freezing point|Punto di fusione\s*[\/\-]?\s*punto di congelamento|Temperatura topnienia[\s\/\-]krzepnięcia)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "boiling", pl: "Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia", regex: /(?:Boiling point or initial boiling point and boiling range|Initial boiling point|Punto di ebollizione o punto iniziale di ebollizione e intervallo di ebollizione|Punto di ebollizione|Temperatura wrzenia)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "flammability", pl: "Palność materiałów", regex: /(?:Flammability|Infiammabilità|Palność materiałów)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "explosion_limits", pl: "Dolna i górna granica wybuchowości", regex: /(?:Lower and upper explosion limit|Limite inferiore e superiore di esplosività|Lower explosive limit|Dolna i górna granica wybuchowości)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "flash_point", pl: "Temperatura zapłonu", regex: /(?:Flash point|Punto di infiammabilità|Temperatura zapłonu)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "auto_ignition", pl: "Temperatura samozapłonu", regex: /(?:Auto-ignition temperature|Temperatura di autoaccensione|Temperatura samozapłonu)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "decomposition", pl: "Temperatura rozkładu", regex: /(?:Decomposition temperature|Temperatura di decomposizione|Temperatura rozkładu)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "ph", pl: "pH", regex: /(?:^|[\n\r\t])\s*(?<![A-Za-z])pH(?![A-Za-z])\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "viscosity", pl: "Lepkość kinematyczna", regex: /(?:Kinematic viscosity|Viscosità cinematica|Lepkość kinematyczna)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "solubility_water", pl: "Rozpuszczalność w wodzie", regex: /(?:Solubility in water|Solubilità in acqua|Solubility|Rozpuszczalność w wodzie)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "solubility_oil", pl: "Rozpuszczalność w innych rozpuszczalnikach", regex: /(?:Solubility in oil|Solubilità in olio|Solubility in other solvents|Rozpuszczalność w innych rozpuszczalnikach)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "partition_coeff", pl: "Współczynnik podziału n-oktanol/woda (wartość współczynnika log)", regex: /(?:Partition coefficient:?\s*n-octanol\/water\s*(?:\(log\s*value\))?|Coefficiente di ripartizione n-ottanolo\/acqua|Współczynnik podziału n-oktanol\/woda)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "vapour_pressure", pl: "Prężność pary", regex: /(?:Vapour pressure|Tensione di vapore|Prężność pary)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "density", pl: "Gęstość lub gęstość względna", regex: /(?:Density and\/or relative density|Relative density|Densità e\/o densità relativa|Gęstość lub gęstość względna)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "relative_vapour_density", pl: "Względna gęstość pary", regex: /(?:Relative vapour density|Densità di vapore relativa|Względna gęstość pary)\s*[:\.\t]?\s*([^\n\t]+)/i },
+      { key: "particle_characteristics", pl: "Charakterystyka cząsteczek", regex: /(?:Particle size|Particle characteristics|Caratteristiche delle particelle|Charakterystyka cząsteczek)\s*[:\.\t]?\s*([^\n\t]+)/i }
     ];
+
+    // Opcjonalne rozbicie granic wybuchowości
+    let lowerExp = clean.match(/(?:Lower explosive limit|Limite inferiore di esplosività)\s*[:\.\t]?\s*([^\n\t]+)/i);
+    let upperExp = clean.match(/(?:Upper explosive limit|Limite superiore di esplosività)\s*[:\.\t]?\s*([^\n\t]+)/i);
 
     let extractedLines = [];
     for (const p of paramsConfig) {
-      const match = clean.match(p.regex);
-      let rawVal = match ? match[1].trim() : "Nie dotyczy";
+      let rawVal = "Nie dotyczy";
+      if (p.key === "explosion_limits" && lowerExp && upperExp) {
+        rawVal = `${lowerExp[1].trim()} - ${upperExp[1].trim()}`;
+      } else {
+        const match = clean.match(p.regex);
+        if (match) rawVal = match[1].trim();
+      }
       let normVal = SDSProcessorEngine.normalizePhysChemValue(rawVal);
       extractedLines.push(`${p.pl}: ${normVal}`);
     }
@@ -1852,7 +2010,7 @@ class SDSProcessorEngine {
     if (m92) {
       let raw92 = m92[1].replace(/^(?:Other information|Altre informazioni|Inne informacje)\s*/i, '').trim();
       let parts92 = raw92.split('\n').map(l => l.trim()).filter(Boolean);
-      let vocMatch = clean.match(/(?:Volatile Organic compounds\s*-\s*VOCs\s*=|VOC\s*[:=])\s*([^\n]+)/i);
+      let vocMatch = clean.match(/(?:Volatile Organic compounds\s*-\s*VOCs\s*=|VOC\s*(?:\([^\)]+\))?\s*[:=\t])\s*([^\n\t]+)/i);
       let lines92 = [];
       if (vocMatch) {
         lines92.push(`Lotne Związki Organiczne (LZO / VOC): ${SDSProcessorEngine.normalizePhysChemValue(vocMatch[1])}`);

@@ -115,8 +115,13 @@ class SDSRTFParser {
     while (i < len) {
       const char = rtfString[i];
 
-      // Obsługa pomijania znaków zastępczych po sekwencji \uN (np. znak '?' po Unicode)
+      // Obsługa pomijania znaków zastępczych po sekwencji \uN (np. znak '?' lub \'xx po Unicode)
       if (skipCharsCount > 0) {
+        if (char === '\\' && rtfString[i + 1] === "'") {
+          i += 4; // Pomija sekwencję \'xx (4 znaki: \, ', x, x)
+          skipCharsCount--;
+          continue;
+        }
         skipCharsCount--;
         i++;
         continue;
@@ -167,7 +172,9 @@ class SDSRTFParser {
             if (!currentGroup.ignorable) {
               const byteVal = parseInt(hex, 16);
               if (!isNaN(byteVal)) {
-                if (byteVal < 128) {
+                if (byteVal === 0x3d) {
+                  result += '=';
+                } else if (byteVal < 128) {
                   result += String.fromCharCode(byteVal);
                 } else {
                   // Wybór strony kodowej (CP1250 vs CP1252)
@@ -283,12 +290,7 @@ class SDSRTFParser {
         // Akapity i łamanie wierszy: \par, \line, \page
         if (lowerWord === 'par' || lowerWord === 'line' || lowerWord === 'page') {
           if (!currentGroup.ignorable) {
-            // Jeśli występuje wewnątrz komórki tabeli bez \cell, traktujemy jako separator wewnątrzwierszowy
-            if (currentGroup.inTable) {
-              result += ' ';
-            } else {
-              result += '\n';
-            }
+            result += '\n';
           }
           continue;
         }
