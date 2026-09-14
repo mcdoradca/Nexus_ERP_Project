@@ -377,17 +377,28 @@ class SDSDocumentParser {
     const isRtf = this.isRtfFile(filePath);
 
     if (isRtf) {
-      console.log(`[DocumentParser] Wykryto plik RTF. Uruchamianie bezstratnego mostka Word COM...`);
-      let convertedPdf = null;
-      try {
-        convertedPdf = await SDSRtfConverter.convertToPdf(filePath);
-        const text = await SDSPDFParser.extractTextFromPdf(convertedPdf, forceOcr);
-        return text;
-      } finally {
-        if (convertedPdf && fs.existsSync(convertedPdf)) {
-          try { fs.unlinkSync(convertedPdf); } catch (e) {}
+      // 1. Sprawdź opcjonalny mostek Word COM (wyłącznie Windows) z pełną osłoną try-catch
+      if (process.platform === 'win32') {
+        let convertedPdf = null;
+        try {
+          console.log(`[DocumentParser] Wykryto plik RTF (Windows). Próba konwersji przez Word COM...`);
+          convertedPdf = await SDSRtfConverter.convertToPdf(filePath);
+          const text = await SDSPDFParser.extractTextFromPdf(convertedPdf, forceOcr);
+          if (text && text.trim().length > 100) {
+            return text;
+          }
+        } catch (comErr) {
+          console.warn(`[DocumentParser] Word COM niedostępny (${comErr.message}). Przełączanie na natywny silnik SDSRTFParser...`);
+        } finally {
+          if (convertedPdf && fs.existsSync(convertedPdf)) {
+            try { fs.unlinkSync(convertedPdf); } catch (e) {}
+          }
         }
       }
+
+      // 2. Niezawodny natywny silnik JavaScript SDSRTFParser (Linux VPS / OVH / Docker / Fallback)
+      console.log(`[DocumentParser] Ekstrakcja RTF za pomocą natywnego silnika SDSRTFParser...`);
+      return await SDSRTFParser.extractTextFromRtf(filePath);
     } else {
       return await SDSPDFParser.extractTextFromPdf(filePath, forceOcr);
     }

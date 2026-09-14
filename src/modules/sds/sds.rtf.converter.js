@@ -14,6 +14,10 @@ class SDSRtfConverter {
    * @returns {Promise<string>} Ścieżka do wygenerowanego pliku PDF
    */
   static async convertToPdf(rtfPath, outputPdfPath) {
+    if (process.platform !== 'win32') {
+      throw new Error(`[RTF Converter] Środowisko '${process.platform}' nie obsługuje Microsoft Word COM (wymagany system Windows).`);
+    }
+
     if (!fs.existsSync(rtfPath)) {
       throw new Error(`[RTF Converter] Plik wejściowy nie istnieje: ${rtfPath}`);
     }
