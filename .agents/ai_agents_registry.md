@@ -39,4 +39,11 @@
 | `Agent_Ebook_Generator` | gemini-3.1-pro-preview | Dynamiczne pisanie merytorycznych rozdziałów z użyciem twardej wiedzy z PIM (np. kosmetyki/ingrediencje). |
 | `Agent_Nexus_Bot` | gemini-3.1-pro-preview | Inteligentny system czatowy (NeS - Nexus Sentinel) wspierający operacje w całej firmie, wbudowany Tool Calling i analizy. |
 
+## Moduł: Safety Data Sheets (SDS / Karta Charakterystyki UE 2020/878)
+| Agent ID | Model | Opis |
+|---|---|---|
+| `SDSInvestigatorAgent` | gemini-3.8-flash (temp 0.0) | Agent Śledczy ds. Bezpieczeństwa Chemicznego (Ekspert REACH). Rozwiązuje anomalie CAS, weryfikuje wzory i nazwy IUPAC w oparciu o Apify ECHA Scraper oraz PubChem API. |
+| `SDSTranslatorAgent` | gemini-3.8-flash (temp 0.0) | Hermetyczny tłumacz deskrypcyjny sekcji 10 i 11 (Translate_LLM & Extract_Raw). Ścisły rygor prawny z art. 31 REACH: zakaz ruszania liczb, jednostek, akronimów i nazw łacińskich oraz artefaktów paginacji PDF. |
+| `SDSVerifierAgent` | deterministyczny + gemini-3.8-flash (temp 0.0) | Quality & Compliance Gatekeeper (Krok 4 pipeline'u). Audytuje 9 reguł spójności krzyżowej (ŚOI w 8.2 vs kody H, NDS 2024 w 8.1, ED w 2.3 vs 12.6, hierarchia w 11.2, kody odpadów w 13, Seveso III i detergenty w 15.1, integralność SCL w 3.2, bioakumulacja w 12.3) z automatyczną auto-remediacją. |
+
 *Uwaga: Wszyscy powyżsi Agenci korzystają teraz z systemowej, scentralizowanej telemetrii i są śledzeni za pomocą funcji `AiMetricsService.logUsage()` (bezpośrednio, lub pod spodem przez `generateWithRetry`).*
