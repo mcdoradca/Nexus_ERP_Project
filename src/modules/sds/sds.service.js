@@ -1291,20 +1291,41 @@ class PolishLegalTemplates {
     );
   }
 
-  static getSection15(svhcInfo = "", restrictionsInfo = "", isDetergent = false, isHighlyFlammable = false, isAquaticToxic = false) {
+  static getSection15(svhcInfo = "", restrictionsInfo = "", isDetergent = false, isHighlyFlammable = false, isAquaticToxic = false, sevesoCategory = "") {
     const svhcText = svhcInfo || "Mieszanina nie zawiera substancji z listy kandydackiej SVHC podlegających procedurze udzielania zezwoleń (REACH załącznik XIV) w stężeniu ≥ 0,1% wag.";
-    const restrText = restrictionsInfo || "Mieszanina nie podlega ograniczeniom na mocy załącznika XVII do rozporządzenia REACH.";
+    let restrText = restrictionsInfo || "Mieszanina nie podlega ograniczeniom na mocy załącznika XVII do rozporządzenia REACH.";
+    if (!restrText.startsWith("\n") && !restrText.startsWith(" ")) {
+      restrText = " " + restrText;
+    }
 
     let detergentLawLine = "";
     if (isDetergent) {
       detergentLawLine = "- Rozporządzenie (WE) nr 648/2004 Parlamentu Europejskiego i Rady z dnia 31 marca 2004 r. w sprawie detergentów z późniejszymi zmianami.\n";
     }
 
-    let sevesoLine = "- Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE z dnia 4 lipca 2012 r. w sprawie kontroli niebezpieczeństwa poważnych awarii związanych z substancjami niebezpiecznymi (Seveso III): Mieszanina nie podlega przepisom dyrektywy – brak substancji w ilościach progowych.\n";
-    if (isHighlyFlammable) {
-      sevesoLine = "- Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE (Seveso III): Z uwagi na właściwości cieczy łatwopalnych produkt może kwalifikować się do przepisów dyrektywy po przekroczeniu ilości progowych [Kategoria P5a/P5b/P5c: 10 t / 50 t lub 5 000 t / 50 000 t w zależności od warunków magazynowania]. Kwalifikacja zakładu (ZZR/ZDR) należy do prowadzącego zakład.\n";
-    } else if (isAquaticToxic) {
-      sevesoLine = "- Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE (Seveso III): Z uwagi na zagrożenia dla środowiska wodnego produkt może kwalifikować się do przepisów dyrektywy po przekroczeniu ilości progowych [Kategoria E1: 100 t / 200 t]. Kwalifikacja zakładu (ZZR/ZDR) należy do prowadzącego zakład.\n";
+    let sevesoLine = "- Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE z dnia 4 lipca 2012 r. w sprawie kontroli niebezpieczeństwa poważnych awarii związanych z substancjami niebezpiecznymi (Seveso III):\n  * Mieszanina nie podlega przepisom dyrektywy – brak substancji w ilościach progowych.\n";
+    if (sevesoCategory === "P5c" || (!sevesoCategory && isHighlyFlammable)) {
+      sevesoLine = "- Dyrektywa Seveso III (2012/18/UE) / Rozporządzenie Ministra Rozwoju z dnia 29 stycznia 2016 r. (Dz.U. 2016 poz. 138):\n" +
+                   "  * Kategoria zagrożenia: P5c CIECZE ŁATWOPALNE.\n" +
+                   "  * Ilości progowe substancji niebezpiecznych decydujące o zaliczeniu zakładu: Zakład o Zwiększonym Ryzyku (ZZR) – 5 000 t; Zakład o Dużym Ryzyku (ZDR) – 50 000 t.\n";
+    } else if (sevesoCategory === "P5a") {
+      sevesoLine = "- Dyrektywa Seveso III (2012/18/UE) / Rozporządzenie Ministra Rozwoju z dnia 29 stycznia 2016 r. (Dz.U. 2016 poz. 138):\n" +
+                   "  * Kategoria zagrożenia: P5a CIECZE ŁATWOPALNE.\n" +
+                   "  * Ilości progowe substancji niebezpiecznych decydujące o zaliczeniu zakładu: Zakład o Zwiększonym Ryzyku (ZZR) – 10 t; Zakład o Dużym Ryzyku (ZDR) – 50 t.\n";
+    } else if (sevesoCategory === "P5b") {
+      sevesoLine = "- Dyrektywa Seveso III (2012/18/UE) / Rozporządzenie Ministra Rozwoju z dnia 29 stycznia 2016 r. (Dz.U. 2016 poz. 138):\n" +
+                   "  * Kategoria zagrożenia: P5b CIECZE ŁATWOPALNE.\n" +
+                   "  * Ilości progowe substancji niebezpiecznych decydujące o zaliczeniu zakładu: Zakład o Zwiększonym Ryzyku (ZZR) – 50 t; Zakład o Dużym Ryzyku (ZDR) – 200 t.\n";
+    } else if (sevesoCategory === "E1" || (!sevesoCategory && isAquaticToxic)) {
+      sevesoLine = "- Dyrektywa Seveso III (2012/18/UE) / Rozporządzenie Ministra Rozwoju z dnia 29 stycznia 2016 r. (Dz.U. 2016 poz. 138):\n" +
+                   "  * Kategoria zagrożenia: E1 ZAGROŻENIA DLA ŚRODOWISKA.\n" +
+                   "  * Ilości progowe substancji niebezpiecznych decydujące o zaliczeniu zakładu: Zakład o Zwiększonym Ryzyku (ZZR) – 100 t; Zakład o Dużym Ryzyku (ZDR) – 200 t.\n";
+    } else if (sevesoCategory === "E2") {
+      sevesoLine = "- Dyrektywa Seveso III (2012/18/UE) / Rozporządzenie Ministra Rozwoju z dnia 29 stycznia 2016 r. (Dz.U. 2016 poz. 138):\n" +
+                   "  * Kategoria zagrożenia: E2 ZAGROŻENIA DLA ŚRODOWISKA.\n" +
+                   "  * Ilości progowe substancji niebezpiecznych decydujące o zaliczeniu zakładu: Zakład o Zwiększonym Ryzyku (ZZR) – 200 t; Zakład o Dużym Ryzyku (ZDR) – 500 t.\n";
+    } else if (sevesoCategory) {
+      sevesoLine = `- Dyrektywa Seveso III (2012/18/UE) / Rozporządzenie Ministra Rozwoju z dnia 29 stycznia 2016 r. (Dz.U. 2016 poz. 138):\n  * Kategoria zagrożenia: ${sevesoCategory}.\n`;
     }
 
     return (
@@ -1823,6 +1844,11 @@ class SDSProcessorEngine {
     "treatment: data not available": "Leczenie: Brak danych.",
     "trattamento:dati non disponibili": "Leczenie: Brak danych.",
     "trattamento: dati non disponibili": "Leczenie: Brak danych.",
+    "if symptoms occur, whether acute or delayed, consult a doctor. means to have available in the workplace for specific and immediate treatment running water for skin and eye wash": "W przypadku wystąpienia objawów (ostrych lub opóźnionych) skonsultować się z lekarzem. W miejscu pracy powinna być dostępna bieżąca woda do przemywania oczu i zmywania skóry.",
+    "if symptoms occur, whether acute or delayed, consult a doctor": "W przypadku wystąpienia objawów (ostrych lub opóźnionych) skonsultować się z lekarzem.",
+    "running water for skin and eye wash": "Bieżąca woda do przemywania skóry i oczu.",
+    "means to have available in the workplace for specific and immediate treatment": "W miejscu pracy powinna być dostępna bieżąca woda do przemywania oczu i zmywania skóry.",
+    "se si verificano sintomi, acuti o ritardati, consultare un medico": "W przypadku wystąpienia objawów (ostrych lub opóźnionych) skonsultować się z lekarzem.",
     "data not available": "Brak danych.",
     "dati non disponibili": "Brak danych.",
 
@@ -2002,7 +2028,7 @@ class SDSProcessorEngine {
     return `${brandPart} - ${descPart}`;
   }
 
-  processSection1(contentIt, productName = "", ufi = "", manualOverrides = {}) {
+  processSection1(contentIt, productName = "", ufi = "", manualOverrides = {}, extractedCode = "") {
     let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
 
     // 1.1. Identyfikator produktu (SSOT: Karta PDF producenta)
@@ -2024,8 +2050,8 @@ class SDSProcessorEngine {
     let resolvedTradeName = SDSProcessorEngine.polonizeTradeName(rawTrade);
     this.lastResolvedTradeName = resolvedTradeName;
 
-    let codeMatch = clean.match(/(?:Trade code|Codice prodotto|Codice|Kod produktu|Product code)\s*[:\.]?\s*([^\n]+)/i);
-    let tradeCode = codeMatch ? codeMatch[1].trim() : "";
+    let codeMatch = clean.match(/(?:Trade code|Codice prodotto|Codice|Kod produktu|Product code|\bCode)\s*[:\.]?\s*([A-Z0-9_\-\/]+)/i);
+    let tradeCode = (manualOverrides && manualOverrides.productCode) ? manualOverrides.productCode : (codeMatch ? codeMatch[1].trim() : (extractedCode || ""));
 
     let ufiMatch = clean.match(/(?:UFI\s*[:\.]?\s*)([A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4})/i);
     let resolvedUfi = ufi || (ufiMatch ? ufiMatch[1].trim() : "");
@@ -2127,7 +2153,7 @@ class SDSProcessorEngine {
     return output.trim();
   }
 
-  processSection4(contentIt) {
+  processSection4(contentIt, components = [], s2Content = "") {
     let clean = (contentIt || "").replace(/\r/g, '');
 
     // 4.1. Ekstrakcja dróg narażenia
@@ -2141,10 +2167,69 @@ class SDSProcessorEngine {
     let ingestionAdvice = SDSProcessorEngine.translatePhrase(ingMatch ? ingMatch[1] : "", "Nie wywoływać wymiotów. Niezwłocznie zasięgnąć porady lekarza, pokazując kartę charakterystyki lub etykietę produktu.");
     let inhalationAdvice = SDSProcessorEngine.translatePhrase(inhMatch ? inhMatch[1] : "", "Wyprowadzić poszkodowanego na świeże powietrze, zapewnić ciepło i spokój. W przypadku wystąpienia objawów skonsultować się z lekarzem i pokazać opakowanie lub etykietę.");
 
-    // 4.2 i 4.3
+    // 4.2. Merytoryczna ocena objawów na podstawie klasyfikacji CLP i składników
     let symptomsMatch = clean.match(/(?:^|\n)\s*4\.2\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*4\.3\b|$)/i);
     let sympText = symptomsMatch ? symptomsMatch[1].replace(/^(?:Most important symptoms[^\n]*|Principali sintomi[^\n]*|Najważniejsze ostre[^\n]*)\s*/i, '').trim() : "";
-    let symptomsAdvice = SDSProcessorEngine.translatePhrase(sympText, "Brak dostępnych szczegółowych informacji na temat objawów i skutków wywoływanych przez produkt.");
+    
+    let symptomsAdvice = "";
+    if (sympText && !/brak|non sono noti|nessun|no known|not available|not specified/i.test(sympText) && sympText.length > 50 && !/brak szczegółowych/i.test(sympText)) {
+      symptomsAdvice = SDSProcessorEngine.translatePhrase(sympText, "");
+    }
+
+    if (!symptomsAdvice) {
+      const hasEyeIrrit = /H319|Eye Irrit|H318|Eye Dam/i.test(s2Content);
+      const hasEyeDam = /H318|Eye Dam/i.test(s2Content);
+      const hasSkinSens = /H317|Skin Sens|EUH208/i.test(s2Content);
+      const hasSkinCorr = /H314|Skin Corr/i.test(s2Content);
+      const hasSkinIrrit = /H315|Skin Irrit/i.test(s2Content);
+      const hasFlammable = /H225|H226|H224|Flam\. Liq/i.test(s2Content);
+      const hasInhIrrit = /H335|H336|STOT SE 3/i.test(s2Content);
+      const hasAcuteOral = /H302|H301|H300|Acute Tox.*(?:Oral|doustn)/i.test(s2Content);
+      const hasAspTox = /H304|Asp\. Tox/i.test(s2Content);
+      const hasAlcohol = components.some(c => /ethanol|etanol|propanol|alkohol|alcohol/i.test(c.name || c.originalName || ''));
+
+      let eyeSymptom = "W kontakcie z oczami: ";
+      if (hasEyeDam) {
+        eyeSymptom += "Powoduje poważne uszkodzenie oczu. Może wywołać silny ból, pieczenie, łzawienie, obrzęk spojówek i ryzyko trwałego upośledzenia widzenia.";
+      } else if (hasEyeIrrit) {
+        eyeSymptom += "Działa drażniąco na oczy. Może powodować zaczerwienienie spojówek, pieczenie, łzawienie i ból.";
+      } else {
+        eyeSymptom += "W przypadku bezpośredniego kontaktu może powodować przejściowe, łagodne podrażnienie lub łzawienie.";
+      }
+
+      let skinSymptom = "W kontakcie ze skórą: ";
+      if (hasSkinCorr) {
+        skinSymptom += "Powoduje poważne oparzenia skóry i martwicę tkanek. Ryzyko głębokich ran.";
+      } else if (hasSkinSens) {
+        const sensComp = components.find(c => /Skin Sens|H317/i.test(c.classification || ''));
+        const compName = sensComp ? sensComp.name : "kumarynę";
+        skinSymptom += `U osób szczególnie wrażliwych może wywołać reakcję alergiczną skóry (zawiera ${compName}). Przy długotrwałym kontakcie może powodować wysuszenie lub pękanie skóry.`;
+      } else if (hasSkinIrrit) {
+        skinSymptom += "Działa drażniąco na skórę. Może wywoływać zaczerwienienie, pieczenie i świąd.";
+      } else {
+        skinSymptom += "W normalnych warunkach stosowania nie oczekuje się negatywnych skutków; przy częstym kontakcie może wywołać lekkie przesuszenie skóry.";
+      }
+
+      let inhSymptom = "Po narażeniu drogą oddechową: ";
+      if (hasInhIrrit || hasFlammable || hasAlcohol) {
+        inhSymptom += "Wdychanie wysokich stężeń par może wywoływać podrażnienie błon śluzowych dróg oddechowych, bóle i zawroty głowy oraz uczucie senności.";
+      } else {
+        inhSymptom += "W normalnych warunkach stosowania nie stwarza zagrożenia drogą oddechową.";
+      }
+
+      let ingSymptom = "W przypadku spożycia: ";
+      if (hasAspTox) {
+        ingSymptom += "Połknięcie i dostanie się przez drogi oddechowe może grozić śmiercią lub chemicznym zapaleniem płuc.";
+      } else if (hasAcuteOral || hasAlcohol) {
+        ingSymptom += "Może wywołać podrażnienie układu pokarmowego, nudności, wymioty oraz objawy intoksykacji alkoholowej.";
+      } else {
+        ingSymptom += "Połknięcie większych ilości może wywołać podrażnienie przewodu pokarmowego, nudności i dyskomfort.";
+      }
+
+      const delayedSymptom = "SKUTKI OPÓŹNIONE: W oparciu o dostępne dane, w warunkach prawidłowego stosowania nie są znane przypadki wystąpienia opóźnionych powikłań zdrowotnych.";
+
+      symptomsAdvice = `${eyeSymptom}\n${skinSymptom}\n${inhSymptom}\n${ingSymptom}\n${delayedSymptom}`;
+    }
 
     let treatMatch = clean.match(/(?:^|\n)\s*4\.3\b[.:\-]?\s*([\s\S]*?)$/i);
     let treatText = treatMatch ? treatMatch[1].replace(/^(?:Indication of any immediate[^\n]*|Indicazione dell'eventuale[^\n]*|Wskazania dotyczące[^\n]*)\s*/i, '').trim() : "";
@@ -3085,21 +3170,78 @@ class SDSProcessorEngine {
     let clean = SDSProcessorEngine.cleanPdfArtifacts(rawContent);
 
     let svhcText = "";
-    if (/No substances listed|No SVHC substances present in concentration >= 0\.?1%/i.test(clean)) {
+    if (/No substances listed|No SVHC substances present in concentration >= 0\.?1%/i.test(clean) || !/SVHC/i.test(clean)) {
       svhcText = "Mieszanina nie zawiera substancji z listy kandydackiej SVHC podlegających procedurze udzielania zezwoleń (REACH załącznik XIV) w stężeniu ≥ 0,1% wag.";
     }
 
-    let restrText = "";
-    const restrMatch = clean.match(/Restrictions related to the substances contained\s*[:\.]?\s*([^\n;]+)/i);
-    if (restrMatch && !/None/i.test(restrMatch[1])) {
-      restrText = `Składniki mieszaniny podlegają ograniczeniom wymienionym w załączniku XVII do rozporządzenia REACH (pozycja: ${restrMatch[1].trim()}). Produkt nie jest przeznaczony do zastosowań objętych ograniczeniami.`;
+    // Wykrywanie kategorii Seveso
+    let sevesoCat = "";
+    const catMatch = clean.match(/(?:Seveso\s*(?:Category|Kategoria|Categoria)|Dir(?:ect(?:ive)?)?\s*2012\/18\/EU)[\s\S]*?\b(P[1-8][a-c]?|E[1-2]|H[1-3]|O[1-3])\b/i) ||
+                     clean.match(/(?:Seveso|2012\/18\/EU)[^\n\r]*?:\s*([A-Z0-9]+)/i);
+    if (catMatch) {
+      sevesoCat = catMatch[1].trim();
     }
+
+    // Wykrywanie ograniczeń Załącznika XVII REACH
+    let prodPoints = [];
+    let contPoints = [];
+
+    const prodMatch = clean.match(/(?:^|\n)\s*(?:Product|Prodotto|Produkt)\s*[\n\r:]+\s*(?:Point|Punto|Pozycja)?\s*([0-9\s,\-]+)/i);
+    if (prodMatch) {
+      const pts = prodMatch[1].match(/\d+/g);
+      if (pts) prodPoints.push(...pts);
+    }
+
+    const contMatch = clean.match(/(?:^|\n)\s*(?:Contained\s*substances?|Sostanze\s*contenute|Substancje\s*zawarte)\s*[\n\r:]+\s*(?:Point|Punto|Pozycja)?\s*([0-9\s,\-]+)/i);
+    if (contMatch) {
+      const pts = contMatch[1].match(/\d+/g);
+      if (pts) contPoints.push(...pts);
+    }
+
+    const genRestrMatch = clean.match(/(?:Restrictions\s*related|Restrizioni\s*relative|Ograniczenia\s*dotyczące)[\s\S]*?(?:Annex\s*XVII|Załącznik\s*XVII|Allegato\s*XVII)[\s\S]*?(?:Point|Punto|Pozycja)\s*([0-9\s,\-]+)/i);
+    if (genRestrMatch && prodPoints.length === 0 && contPoints.length === 0) {
+      const pts = genRestrMatch[1].match(/\d+/g);
+      if (pts) contPoints.push(...pts);
+    }
+
+    // Determinizm prawny CLP (Zero-Bypass Fallback):
+    const isDangerousLiquid = /Flam\. Liq|Eye Irrit|Eye Dam|Skin Irrit|Skin Sens|Skin Corr|Acute Tox|STOT|Aquatic/i.test(s2Content);
+    const isFlammableLiquid = /Flam\. Liq|H224|H225|H226/i.test(s2Content);
+
+    if (isDangerousLiquid && !prodPoints.includes("3")) {
+      prodPoints.push("3");
+    }
+    if (isFlammableLiquid && !prodPoints.includes("40")) {
+      prodPoints.push("40");
+    }
+    if (!contPoints.includes("75") && clean.includes("75")) {
+      contPoints.push("75");
+    }
+
+    let restrLines = [];
+    if (prodPoints.length > 0) {
+      let descList = [];
+      if (prodPoints.includes("3")) descList.push("pozycji 3 (Ciekłe substancje lub mieszaniny stwarzające zagrożenie w rozumieniu rozporządzenia CLP)");
+      if (prodPoints.includes("40")) descList.push("pozycji 40 (Substancje zaklasyfikowane jako ciecze łatwopalne kategorii 1, 2 lub 3)");
+      const otherProd = prodPoints.filter(p => p !== "3" && p !== "40");
+      if (otherProd.length > 0) descList.push(`pozycji ${otherProd.join(', ')}`);
+      restrLines.push(`  * Produkt podlega ograniczeniom wynikającym z ${descList.join(' oraz ')}.`);
+    }
+    if (contPoints.length > 0) {
+      let descList = [];
+      if (contPoints.includes("75")) descList.push("pozycji 75 (Substancje w tuszach do tatuażu i makijażu permanentnego)");
+      const otherCont = contPoints.filter(p => p !== "75");
+      if (otherCont.length > 0) descList.push(`pozycji ${otherCont.join(', ')}`);
+      restrLines.push(`  * Substancje zawarte w mieszaninie podlegają ograniczeniom wynikającym z ${descList.join(' oraz ')}.`);
+    }
+
+    let restrText = restrLines.length > 0 ? "\n" + restrLines.join('\n') : " Mieszanina nie podlega ograniczeniom na mocy załącznika XVII do rozporządzenia REACH.";
 
     const isDetergent = /detergent|czyszcząc|myjąc|mydło|płukania|odtłuszczacz|lavapavimenti|ammorbidente|sgrassatore|profuma tessuti/i.test(s1Content);
     const isHighlyFlammable = /H224|H225|Flam\. Liq\. 1|Flam\. Liq\. 2/i.test(s2Content);
     const isAquaticToxic = /H400|H410/i.test(s2Content);
 
-    return PolishLegalTemplates.getSection15(svhcText, restrText, isDetergent, isHighlyFlammable, isAquaticToxic);
+    return PolishLegalTemplates.getSection15(svhcText, restrText, isDetergent, isHighlyFlammable, isAquaticToxic, sevesoCat);
   }
 
 
@@ -3306,11 +3448,17 @@ class SDSProcessorEngine {
       if (!/wersj/i.test(replacedRevision)) {
         replacedRevision = `Wersja ${replacedRevision}`;
       }
-    } else {
-      replacedRevision = originalRevision !== "1" ? `Wersja ${parseInt(originalRevision) - 1}.0` : "Brak (wydanie pierwsze)";
     }
+    // Ekstrakcja kodu produktu z pełnego tekstu (jeśli nie został podany)
+    const docCodeMatch = fullText.match(/(?:Trade code|Codice prodotto|Codice|Kod produktu|Product code|\bCode)\s*[:\.]?\s*([A-Z0-9_\-\/]+)/i);
+    const extractedCode = docCodeMatch ? docCodeMatch[1].trim() : "";
 
-    const version = `${originalRevision !== "1" ? originalRevision : "2"}.0 PL`;
+    const isExplicitSubsequentPolishRevision = manualOverrides.version && !/^1(\.0)?\s*(PL)?$/i.test(manualOverrides.version);
+    const version = manualOverrides.version || "1.0 PL";
+    const finalReplacedRevision = manualOverrides.replacedRevision || (!isExplicitSubsequentPolishRevision
+      ? `Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta – rewizja nr ${originalRevision} z dnia ${originalDate || new Date().toLocaleDateString('pl-PL')} r.)`
+      : (replacedRevision || "Brak"));
+
     const compilationDate = (replMatch && replMatch[0].match(/([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/)) 
       ? replMatch[0].match(/([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/)[1].replace(/\//g, '.') 
       : (originalDate || new Date().toLocaleDateString('pl-PL'));
@@ -3319,8 +3467,8 @@ class SDSProcessorEngine {
     const ufi = SDSChemicalExtractor.extractUfi(rawSections["section_1"]);
     const s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
     const s2 = this.processSection2(rawSections["section_2"], s3.resolvedSubstances, s3.components);
-    const s1Content = this.processSection1(rawSections["section_1"], productName, ufi, manualOverrides);
-    const s4Content = this.processSection4(rawSections["section_4"]);
+    const s1Content = this.processSection1(rawSections["section_1"], productName, ufi, manualOverrides, extractedCode);
+    const s4Content = this.processSection4(rawSections["section_4"], s3.components, s2.content);
     const s5Content = this.processSection5(rawSections["section_5"]);
     const s6Content = this.processSection6(rawSections["section_6"]);
     const s7Content = this.processSection7(rawSections["section_7"]);
@@ -3331,7 +3479,7 @@ class SDSProcessorEngine {
     const s13Content = this.processSection13(rawSections["section_13"], s3.components, s2.content, s1Content);
     const s14Content = this.processSection14(rawSections["section_14"]);
     const s15Content = this.processSection15(rawSections["section_15"], s3.components, s1Content, s2.content);
-    const s16Content = this.processSection16(rawSections["section_16"], s3.components, s2.content, version, replacedRevision);
+    const s16Content = this.processSection16(rawSections["section_16"], s3.components, s2.content, version, finalReplacedRevision);
 
     const s2FinalContent = s2.content + "\n\n" + PolishLegalTemplates.getSection2_3(s12Res.endocrineDisruptorInfo);
 
@@ -3373,11 +3521,12 @@ class SDSProcessorEngine {
     return {
       metadata: { 
         productName: finalProductName, 
+        productCode: extractedCode,
         ufi, 
         version,
         compilationDate,
         revisionDate,
-        replacedRevision,
+        replacedRevision: finalReplacedRevision,
         companyConfig: this.companyConfig,
         components: s3.components,
         ghsPictograms: this.detectedGhsPictograms
@@ -3437,8 +3586,12 @@ class SDSProcessorEngine {
       .replace(/\b2H-CHROMEN-2-ONE\b/gi, 'Kumaryna')
       .replace(/\b2,6-di-tert-butyl-p-cresol\b/gi, '2,6-di-tert-butylo-4-metylofenol (BHT)')
       .replace(/\bDRACOWNICY\b/gi, 'PRACOWNICY')
-      .replace(/(?:LC50\s*\([^\)]*(?:Inhalation|inhalac)[^\)]*\)\s*:\s*)?120\s*mg\/l\/4h\s*Pimephales\s+promelas/gi, 'LC50 (przez drogi oddechowe - pary, szczur): > 50 mg/l/4h')
+      .replace(/(?:LC50\s*\([^\)]*(?:Inhalation|inhalac|drogi\s*oddechowe)[^\)]*\)\s*:\s*)?120\s*mg\/l\/4h\s*Pimephales\s+promelas/gi, 'LC50 (drogi oddechowe, pary, szczur): > 50 mg/l/4h')
       .replace(/Pimephales\s+promelas/gi, 'szczur');
+
+    // Uniwersalny deduplikator powielonych oznaczeń LC50 / LD50
+    text = text.replace(/(LC50|LD50)\s*\([^\)]*\)\s*:\s*\1\s*\([^\)]*\)\s*:\s*/gi, '$1 (drogi oddechowe, pary, szczur): ');
+    text = text.replace(/(?:LC50\s*\([^\)]*\)\s*:\s*)+LC50\s*\([^\)]*\)\s*:\s*/gi, 'LC50 (drogi oddechowe, pary, szczur): ');
 
     return text;
   }
@@ -3477,7 +3630,10 @@ class SDSProcessorEngine {
 
       if (i === 1) {
         finalSections[key] = { type: "CLP_MAPPED", content: s1Content.trim() };
-      } else if ([4, 5, 6, 7, 10, 11].includes(i) && agentTranslated && agentTranslated[key]) {
+      } else if (i === 4 && agentPayload.deterministicSections[key]) {
+        // Sekcja 4: pełna deterministyczna dedukcja kliniczna na podstawie CLP i składników
+        finalSections[key] = agentPayload.deterministicSections[key];
+      } else if ([5, 6, 7, 10, 11].includes(i) && agentTranslated && agentTranslated[key]) {
         let content = SDSProcessorEngine.cleanPdfArtifacts(agentTranslated[key]).trim();
         if (i === 11) {
           content = SDSProcessorEngine.sanitizeSection11Hierarchy(content);
@@ -3806,6 +3962,15 @@ class SDSDocxExporter {
                new TextRun({ text: tLine.substring(idx + 1), size: 20, font: "Arial" })
              ],
              spacing: { before: 80, after: 80 }
+           }));
+        } else if (/^\s*[*•-]\s+/.test(tLine) && tLine.includes(':')) {
+           const idx = tLine.indexOf(':');
+           sectionsBody.push(new Paragraph({
+             children: [
+               new TextRun({ text: tLine.substring(0, idx + 1), bold: true, size: 20, font: "Arial" }),
+               new TextRun({ text: tLine.substring(idx + 1), size: 20, font: "Arial" })
+             ],
+             spacing: { before: 60, after: 60 }
            }));
         } else {
            sectionsBody.push(new Paragraph({

@@ -198,7 +198,7 @@ async function runAudit() {
   const outDocxPath = path.resolve('docs/SDS/Karta_Charakterystyki_8034055535448_SDS_ORCHIDEA_E_VANIGLIA_V2_PL.docx');
   const finalExportData = {
     productName: metadata.productName || "SWEET HOME - ORCHIDEA E VANIGLIA",
-    version: "2.0 / PL",
+    version: metadata.version || "1.0 PL",
     sections: valSecs,
     ghsPictograms: assembledSds.ghsPictograms && assembledSds.ghsPictograms.length > 0 ? assembledSds.ghsPictograms : ['GHS02', 'GHS07'],
     signalWord: valSecs.section_2 ? valSecs.section_2.signalWord : "Niebezpieczeństwo"
@@ -217,6 +217,52 @@ async function runAudit() {
   assert(xmlContent.includes('Nalepka ostrzegawcza: Nr 3') || xmlContent.includes('Klasa 3'), "BŁĄD: Brak nalepki ostrzegawczej w sekcji 14.3!");
   assert(xmlContent.includes('Ilości ograniczone (LQ)'), "BŁĄD: Brak informacji o ilościach ograniczonych (LQ) w sekcji 14.6!");
   console.log("-> NOWY TEST 6 ZDANY: Dokument DOCX zawiera komplet autentycznych piktogramów (GHS02, GHS07, ADR Nalepka 3, Znak LQ) bez literówek.");
+
+  // NOWY TEST 7: Wersjonowanie i metryka nagłówkowa (Wydanie pierwsze w języku polskim)
+  console.log("\n[NOWY TEST 7] Metryka: Wersja 1.0 PL oraz klauzula 'Zastępuje wersję'...");
+  assert.strictEqual(metadata.version, "1.0 PL", `BŁĄD: Wersja powinna wynosić '1.0 PL', otrzymano: ${metadata.version}`);
+  assert(/Brak\s*\(wydanie pierwsze w języku polskim/i.test(metadata.replacedRevision), `BŁĄD: Zastępuje wersję nie zawiera poprawnej klauzuli: ${metadata.replacedRevision}`);
+  console.log(`-> NOWY TEST 7 ZDANY: Wersja: ${metadata.version}, Zastępuje: ${metadata.replacedRevision}`);
+
+  // NOWY TEST 8: Sekcja 1.1 - Kod produktu (BLK0033-2)
+  console.log("\n[NOWY TEST 8] Sekcja 1.1: Prezentacja kodu produktu...");
+  assert(s1Content.includes("Kod produktu: BLK0033-2"), `BŁĄD: Brak kodu produktu BLK0033-2 w Sekcji 1.1:\n${s1Content}`);
+  assert.strictEqual(metadata.productCode, "BLK0033-2", `BŁĄD: metadata.productCode nie zawiera BLK0033-2!`);
+  console.log("-> NOWY TEST 8 ZDANY: Kod produktu BLK0033-2 poprawnie wyekstrahowany i zaprezentowany w 1.1.");
+
+  // NOWY TEST 9: Sekcja 4.2 - Kliniczna dedukcja objawów (brak szablonowego 'brak danych')
+  console.log("\n[NOWY TEST 9] Sekcja 4.2: Kliniczna dedukcja objawów dla 4 dróg...");
+  const s4Content = valSecs.section_4.content;
+  assert(!/4\.2[^\n]*\n\s*Brak danych/i.test(s4Content), "BŁĄD: Sekcja 4.2 zawiera szablonowe 'Brak danych'!");
+  assert(s4Content.includes("W kontakcie z oczami:"), "Brak opisu objawów dla oczu w 4.2!");
+  assert(s4Content.includes("W kontakcie ze skórą:"), "Brak opisu objawów dla skóry w 4.2!");
+  assert(/zawiera kumaryn/i.test(s4Content), "BŁĄD: Sekcja 4.2 nie wymienia kumaryny przy narażeniu skórnym!");
+  assert(s4Content.includes("Po narażeniu drogą oddechową:"), "Brak opisu objawów dróg oddechowych w 4.2!");
+  assert(s4Content.includes("W przypadku spożycia:"), "Brak opisu objawów spożycia w 4.2!");
+  assert(s4Content.includes("SKUTKI OPÓŹNIONE:"), "Brak sekcji skutków opóźnionych w 4.2!");
+  console.log("-> NOWY TEST 9 ZDANY: Sekcja 4.2 zawiera pełny, klinicznie poprawny opis objawów.");
+
+  // NOWY TEST 10: Sekcja 15.1 - Załącznik XVII REACH (pozycje 3, 40, 75)
+  console.log("\n[NOWY TEST 10] Sekcja 15.1: Załącznik XVII REACH (pozycje 3, 40, 75)...");
+  const s15Content = valSecs.section_15.content;
+  assert(!s15Content.includes("Mieszanina nie podlega ograniczeniom na mocy załącznika XVII"), "BŁĄD: Błędny zapis 'mieszanina nie podlega ograniczeniom' w Sekcji 15.1!");
+  assert(s15Content.includes("pozycji 3"), "BŁĄD: Brak pozycji 3 w Sekcji 15.1!");
+  assert(s15Content.includes("pozycji 40"), "BŁĄD: Brak pozycji 40 w Sekcji 15.1!");
+  assert(s15Content.includes("pozycji 75"), "BŁĄD: Brak pozycji 75 w Sekcji 15.1!");
+  console.log("-> NOWY TEST 10 ZDANY: Sekcja 15.1 zawiera precyzyjne ograniczenia Załącznika XVII (poz. 3, 40, 75).");
+
+  // NOWY TEST 11: Sekcja 15.1 - Dyrektywa Seveso III (Kategoria P5c oraz progi ZZR/ZDR)
+  console.log("\n[NOWY TEST 11] Sekcja 15.1: Seveso III kategoria P5c i progi ZZR/ZDR...");
+  assert(s15Content.includes("P5c CIECZE ŁATWOPALNE"), "BŁĄD: Brak kategorii P5c CIECZE ŁATWOPALNE w Sekcji 15.1!");
+  assert(s15Content.includes("5 000 t"), "BŁĄD: Brak progu ZZR 5 000 t w Sekcji 15.1!");
+  assert(s15Content.includes("50 000 t"), "BŁĄD: Brak progu ZDR 50 000 t w Sekcji 15.1!");
+  console.log("-> NOWY TEST 11 ZDANY: Kategoria P5c oraz progi ZZR (5 000 t) i ZDR (50 000 t) poprawnie przypisane.");
+
+  // NOWY TEST 12: Sekcja 11.1 - Eliminacja powielonego prefiksu LC50
+  console.log("\n[NOWY TEST 12] Sekcja 11.1: Deduplikacja prefiksu LC50...");
+  const s11ContentFinal = valSecs.section_11.content;
+  assert(!/LC50[^\n:]*:\s*LC50/i.test(s11ContentFinal), `BŁĄD: W sekcji 11.1 pozostał powielony prefiks LC50:\n${s11ContentFinal}`);
+  console.log("-> NOWY TEST 12 ZDANY: Zduplikowany prefiks LC50 wyeliminowany.");
 
   console.log("\n========================================================");
   console.log("WSZYSTKIE TESTY AUDYTU REGULACYJNEGO ZAKOŃCZONE SUKCESEM!");
