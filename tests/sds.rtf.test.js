@@ -320,7 +320,16 @@ H361fd: Sospettato di nuocere alla fertilit\\u224?. Sospettato di nuocere al fet
               await SDSDocxExporter.export(realFinal, realDocxPath);
               assert(fs.existsSync(realDocxPath) && fs.statSync(realDocxPath).size > 15000, "Błąd eksportu pliku DOCX z karty Orchidea e Vaniglia!");
 
-              console.log("-> TEST 6 PASSED: Rzeczywista karta RTF Orchidea e Vaniglia przetworzona w 100% poprawnie (5/5 składników, NDS, Sekcja 9, DOCX).");
+              // Weryfikacja metadanych rewizji i dat producenta z RTF
+              assert.strictEqual(realPayload.metadata.replacedRevision, "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 14.02.2025 r.)", `BŁĄD: replacedRevision w RTF nie zawiera daty producenta 14.02.2025: ${realPayload.metadata.replacedRevision}`);
+              const AdmZip = require('adm-zip');
+              const zipRtf = new AdmZip(realDocxPath);
+              const xmlRtf = zipRtf.readAsText('word/document.xml');
+              assert(xmlRtf.includes("opracowane na podstawie SDS producenta z dnia 14.02.2025 r."), "BŁĄD: DOCX wygenerowany z RTF nie zawiera w XML daty producenta 14.02.2025 r.!");
+              const todayPl = new Date().toLocaleDateString('pl-PL');
+              assert(!xmlRtf.includes(`opracowane na podstawie SDS producenta z dnia ${todayPl}`), `BŁĄD KRYTYCZNY: DOCX z RTF zawiera datę dzisiejszą (${todayPl}) jako datę producenta!`);
+
+              console.log("-> TEST 6 PASSED: Rzeczywista karta RTF Orchidea e Vaniglia przetworzona w 100% poprawnie (5/5 składników, NDS, Sekcja 9, DOCX z poprawną datą 14.02.2025 r.).");
               passedCount++;
 
               // Sprzątanie plików tymczasowych

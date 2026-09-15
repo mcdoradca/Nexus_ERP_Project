@@ -3445,7 +3445,9 @@ class SDSProcessorEngine {
 
     out += "Informacje o zmianach i aktualizacji:\n";
     if (/Brak\s*\(wydanie pierwsze/i.test(replacedRevision)) {
-      out += `Niniejsza karta charakterystyki (wersja ${version || "1.0 PL"}) stanowi wydanie pierwsze w języku polskim, opracowane na podstawie karty charakterystyki SDS producenta.\n`;
+      const docDateMatch = replacedRevision.match(/z\s*dnia\s*([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/i);
+      const dateSuffix = docDateMatch ? ` z dnia ${docDateMatch[1]} r.` : "";
+      out += `Niniejsza karta charakterystyki (wersja ${version || "1.0 PL"}) stanowi wydanie pierwsze w języku polskim, opracowane na podstawie karty charakterystyki SDS producenta${dateSuffix ? dateSuffix : "."}\n`;
     } else {
       out += `Niniejsza karta charakterystyki (wersja ${version || "1.0 PL"}) zastępuje wersję ${replacedRevision || "1.0"}.\n`;
     }
@@ -3470,11 +3472,27 @@ class SDSProcessorEngine {
     
     // Ekstrakcja metadanych rewizji i dat źródłowych (wg Pkt 0.2.5 Załącznika II do REACH)
     const revMatch = fullText.match(/(?:Revision\s*(?:nr\.?|no\.?|n\.|:)?\s*|Version\s*(?:nr\.?|no\.?|:)?\s*|Revisione\s*(?:n\.?|nr\.?|:)?\s*)(\d+(?:\.\d+)?)/i);
-    const dateMatch = fullText.match(/(?:Dated|Data\s*compilazione|Date\s*of\s*compilation|Data\s*revisione|Data\s*wydania|Data\s*sporządzenia)[\s:]*([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/i);
+    
+    // Wieloetapowa ekstrakcja daty wydania/rewizji SDS producenta (IT/EN/PL)
+    let originalDate = null;
+    const dateMatch = fullText.match(/(?:Dated|Data\s*compilazione|Date\s*of\s*compilation|Data\s*revisione|Data\s*wydania|Data\s*sporządzenia|Data\s*di\s*emissione|Data\s*di\s*revisione|Revisione\s*del|Emessa\s*il)[\s:\.]*([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/i);
+    if (dateMatch) {
+      originalDate = dateMatch[1].replace(/\//g, '.');
+    } else {
+      const headerRevDateMatch = fullText.match(/(?:Revision|Revisione|Wersja)[^\n\r]{0,80}?([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/i);
+      if (headerRevDateMatch) {
+        originalDate = headerRevDateMatch[1].replace(/\//g, '.');
+      } else {
+        const allDocDates = [...fullText.slice(0, 3000).matchAll(/\b([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})\b/g)];
+        if (allDocDates.length > 0) {
+          originalDate = allDocDates[0][1].replace(/\//g, '.');
+        }
+      }
+    }
+
     const replMatch = fullText.match(/(?:Replaced\s*revision|Sostituisce\s*(?:la\s*)?revisione|Zastępuje\s*wersję)[\s:]*([^\n\r]+)/i);
 
     const originalRevision = revMatch ? revMatch[1] : "1";
-    const originalDate = dateMatch ? dateMatch[1].replace(/\//g, '.') : null;
     let replacedRevision = replMatch ? replMatch[1].trim() : null;
     if (replacedRevision) {
       replacedRevision = replacedRevision
@@ -3491,9 +3509,20 @@ class SDSProcessorEngine {
 
     const isExplicitSubsequentPolishRevision = manualOverrides.version && !/^1(\.0)?\s*(PL)?$/i.test(manualOverrides.version);
     const version = manualOverrides.version || "1.0 PL";
-    const finalReplacedRevision = manualOverrides.replacedRevision || (!isExplicitSubsequentPolishRevision
-      ? `Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia ${originalDate || new Date().toLocaleDateString('pl-PL')} r.)`
-      : (replacedRevision || "Brak"));
+    
+    // BEZWZGLĘDNY ZAKAZ używania new Date() jako daty karty producenta!
+    let finalReplacedRevision = manualOverrides.replacedRevision;
+    if (!finalReplacedRevision) {
+      if (!isExplicitSubsequentPolishRevision) {
+        if (originalDate) {
+          finalReplacedRevision = `Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia ${originalDate} r.)`;
+        } else {
+          finalReplacedRevision = "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta)";
+        }
+      } else {
+        finalReplacedRevision = replacedRevision || "Brak";
+      }
+    }
 
     const compilationDate = (replMatch && replMatch[0].match(/([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/)) 
       ? replMatch[0].match(/([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/)[1].replace(/\//g, '.') 

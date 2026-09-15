@@ -58,10 +58,9 @@ class SDSRTFParser {
    */
   static IGNORABLE_GROUPS = new Set([
     'fonttbl', 'colortbl', 'stylesheet', 'info', 'docprops', 'themedata',
-    'datastore', 'generator', 'header', 'footer', 'headerl', 'headerr',
-    'headerf', 'footerl', 'footerr', 'footerf', 'pict', 'object', 'keywords',
-    'author', 'buptim', 'creatim', 'version', 'edmins', 'nofpages', 'nofwords',
-    'nofchars', 'nofcharsws', 'vern', 'xmlnstbl'
+    'datastore', 'generator', 'footer', 'footerl', 'footerr', 'footerf',
+    'pict', 'object', 'keywords', 'author', 'buptim', 'creatim', 'version',
+    'edmins', 'nofpages', 'nofwords', 'nofchars', 'nofcharsws', 'vern', 'xmlnstbl'
   ]);
 
   /**

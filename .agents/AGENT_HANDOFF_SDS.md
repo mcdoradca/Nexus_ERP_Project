@@ -8,16 +8,21 @@
 
 ---
 
-### ✅ STATUS AUDYTU JAKOŚCIOWEGO I REGULACYJNEGO (ADR-074):
+### ✅ STATUS AUDYTU JAKOŚCIOWEGO I REGULACYJNEGO (ADR-074 & ADR-075):
 Całościowy audyt jakościowy i regulacyjny karty SDS został pomyślnie zrealizowany:
-1. **Sekcja 4 (Środki pierwszej pomocy):**
+1. **Ochrona daty producenta i odblokowanie nagłówków RTF (ADR-075):**
+   - Odblokowano ignorowane dotychczas grupy nagłówkowe w `SDSRTFParser` (`header`, `headerr`, `headerl`, `headerf`), przywracając bezstratny odczyt numeru rewizji i daty wydania z plików RTF.
+   - Całkowicie wyeliminowano niebezpieczny fallback `new Date()` w klauzuli zastępowania wersji. Metryka na str. 1 i Sekcja 16 bezwzględnie wskazują autentyczną datę producenta:  
+     `Zastępuje wersję: Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 14.02.2025 r.)`.
+   - Wdrożono twarde asercje weryfikujące `word/document.xml`, wykluczające możliwość pojawienia się daty systemowej w odniesieniu do daty producenta.
+2. **Sekcja 4 (Środki pierwszej pomocy - ADR-074):**
    - Wyeliminowano zubożenie instrukcji medycznych producenta. Parser obsługuje bloki `EYES:`, `SKIN:`, `INGESTION:`, `INHALATION:`, preambułę oraz ochronę ratowników (*Rescuer protection*).
    - W 4.2 połączono oświadczenia producenta z deterministyczną dedukcją objawów (dla oczu H319, skóry z kumaryną, inhalacji parami alkoholu oraz potwierdzeniem braku skutków opóźnionych).
-2. **Kanonizacja nagłówków w DOCX:**
+3. **Kanonizacja nagłówków w DOCX (ADR-074):**
    - Wprowadzono `CANONICAL_SECTION_TITLES` – wszystkie 16 sekcji posiada jednolity format `SEKCJA X: TYTUŁ`.
-3. **Metryka nagłówkowa i wersjonowanie:**
+4. **Metryka nagłówkowa i wersjonowanie:**
    - Wersja karty: `1.0 PL`, pole `Zastępuje wersję: Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 14.02.2025 r.)`. Stopki oczyszczone z adresu www.
-4. **Zgodność z uwagami audytora zewnętrznego:**
+5. **Zgodność z uwagami audytora zewnętrznego:**
    - Wszystkie 6 zastrzeżeń audytora zewnętrznego zostało w 100% rozwiązanych (Załącznik XVII poz. 3, 40, 75, Seveso III P5c 5 000 t / 50 000 t, kod produktu BLK0033-2 w 1.1, objawy 4.2, deduplikacja LC50 w 11.1).
 
 ---

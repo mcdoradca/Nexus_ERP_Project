@@ -199,12 +199,19 @@ async function runAudit() {
   const finalExportData = {
     productName: metadata.productName || "SWEET HOME - ORCHIDEA E VANIGLIA",
     version: metadata.version || "1.0 PL",
+    replacedRevision: metadata.replacedRevision,
+    compilationDate: metadata.compilationDate,
+    revisionDate: metadata.revisionDate,
     sections: valSecs,
     ghsPictograms: assembledSds.ghsPictograms && assembledSds.ghsPictograms.length > 0 ? assembledSds.ghsPictograms : ['GHS02', 'GHS07'],
     signalWord: valSecs.section_2 ? valSecs.section_2.signalWord : "Niebezpieczeństwo"
   };
   await SDSDocxExporter.export(finalExportData, outDocxPath);
   assert(fs.existsSync(outDocxPath), "Plik DOCX nie został utworzony!");
+
+  // Synchronizacja pliku (9).docx dla pełnej spójności artefaktów
+  const altDocxPath = path.resolve('docs/SDS/Karta_Charakterystyki_8034055535448_SDS_ORCHIDEA_E_VANIGLIA (9).docx');
+  fs.copyFileSync(outDocxPath, altDocxPath);
 
   const AdmZip = require('adm-zip');
   const zip = new AdmZip(outDocxPath);
@@ -228,7 +235,12 @@ async function runAudit() {
   console.log("\n[NOWY TEST 7] Metryka: Wersja 1.0 PL oraz klauzula 'Zastępuje wersję'...");
   assert.strictEqual(metadata.version, "1.0 PL", `BŁĄD: Wersja powinna wynosić '1.0 PL', otrzymano: ${metadata.version}`);
   assert.strictEqual(metadata.replacedRevision, "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 14.02.2025 r.)", `BŁĄD: Zastępuje wersję nie zawiera poprawnej klauzuli: ${metadata.replacedRevision}`);
-  console.log(`-> NOWY TEST 7 ZDANY: Wersja: ${metadata.version}, Zastępuje: ${metadata.replacedRevision}`);
+  
+  // Rygorystyczna weryfikacja XML pod kątem autentycznej daty producenta (14.02.2025 r.)
+  assert(xmlContent.includes("opracowane na podstawie SDS producenta z dnia 14.02.2025 r."), "BŁĄD: W dokumencie DOCX brak poprawnej daty producenta 14.02.2025 r.!");
+  const todayPl = new Date().toLocaleDateString('pl-PL');
+  assert(!xmlContent.includes(`opracowane na podstawie SDS producenta z dnia ${todayPl}`), `BŁĄD KRYTYCZNY: Data producenta została zafałszowana bieżącą datą systemową: ${todayPl}!`);
+  console.log(`-> NOWY TEST 7 ZDANY: Wersja: ${metadata.version}, Zastępuje: ${metadata.replacedRevision} (zweryfikowano w XML DOCX).`);
 
   // NOWY TEST 8: Sekcja 1.1 - Kod produktu (BLK0033-2)
   console.log("\n[NOWY TEST 8] Sekcja 1.1: Prezentacja kodu produktu...");
