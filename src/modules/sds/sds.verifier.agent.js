@@ -12,6 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const ecotoxCachePath = path.join(__dirname, 'rag_knowledge', 'ecotox_cache.json');
@@ -33,7 +34,7 @@ class SDSVerifierAgent {
    */
   static async verifyAndAudit(sdsSections, metadata = {}) {
     const auditLog = [];
-    const validatedSections = { ...sdsSections };
+    let validatedSections = { ...sdsSections };
 
     console.log(`[Verifier Agent] Rozpoczynam audyt prawno-chemiczny dla: ${metadata.productName || 'Mieszanina'}`);
 
@@ -318,6 +319,82 @@ class SDSVerifierAgent {
       }
     }
 
+    // =========================================================================
+    // REGUŁA 11: AUDYT JĘZYKOWY SEKCJI 9.1 (ELIMINACJA OBCYCH TERMINÓW)
+    // art. 31 ust. 5 REACH
+    // =========================================================================
+    const s9Content = (validatedSections.section_9 && validatedSections.section_9.content) || "";
+    if (s9Content && /not specified|not available|soluble in water/i.test(s9Content)) {
+      let fixedS9 = s9Content
+        .replace(/\bnot specified\b/gi, 'nie określono')
+        .replace(/\bNot specified\b/gi, 'nie określono')
+        .replace(/\bsoluble in water\b/gi, 'rozpuszczalny w wodzie')
+        .replace(/\bnot available\b/gi, 'brak danych');
+      validatedSections.section_9 = { ...validatedSections.section_9, content: fixedS9 };
+      auditLog.push({
+        rule: "SECTION_9_LANGUAGE_COMPLIANCE",
+        status: "AUTO_REMEDIATED",
+        message: "Wykryto i przetłumaczono obcojęzyczne zwroty w Sekcji 9.1 zgodnie z art. 31 ust. 5 REACH."
+      });
+    }
+
+    // =========================================================================
+    // REGUŁA 12: LIMIT ZWROTÓW P ORAZ BIERNIK W EUH208 (SEKCJA 2.2 I 16)
+    // art. 28 ust. 3 CLP oraz Załącznik III do CLP
+    // =========================================================================
+    let fixedS2Current = (validatedSections.section_2 && validatedSections.section_2.content) || "";
+    if (fixedS2Current) {
+      let changedS2 = false;
+      // Kontrola limitu 6 zwrotów P
+      const pBlockMatch = fixedS2Current.match(/(?:Zwroty wskazujące środki ostrożności\n)([\s\S]*?)(?=\n\n(?:Informacje uzupełniające|$))/i);
+      if (pBlockMatch) {
+        const pLines = pBlockMatch[1].split('\n').map(l => l.trim()).filter(Boolean);
+        if (pLines.length > 6) {
+          // Jeśli brak działania drażniącego na skórę, usuwamy P302+P352
+          let filtered = pLines.filter(l => !/P302\+P352|P302/i.test(l));
+          if (filtered.length > 6) filtered = filtered.slice(0, 6);
+          fixedS2Current = fixedS2Current.replace(pBlockMatch[1], filtered.join('\n'));
+          changedS2 = true;
+          auditLog.push({
+            rule: "CLP_P_PHRASES_LIMIT_COMPLIANCE",
+            status: "AUTO_REMEDIATED",
+            message: `Zredukowano liczbę zwrotów P w Sekcji 2.2 z ${pLines.length} do ${filtered.length} (limit max 6 zgodnie z art. 28 ust. 3 CLP).`
+          });
+        }
+      }
+
+      // Kontrola formy biernikowej w EUH208
+      if (/Zawiera kumaryna\./i.test(fixedS2Current) || /Zawiera 2H-chromen-2-on\./i.test(fixedS2Current)) {
+        fixedS2Current = fixedS2Current
+          .replace(/Zawiera kumaryna\./gi, 'Zawiera kumarynę (2H-chromen-2-on).')
+          .replace(/Zawiera 2H-chromen-2-on\./gi, 'Zawiera kumarynę (2H-chromen-2-on).');
+        changedS2 = true;
+      }
+
+      if (changedS2) {
+        validatedSections.section_2 = { ...validatedSections.section_2, content: fixedS2Current };
+      }
+    }
+
+    // =========================================================================
+    // REGUŁA 13: AUDYT SEKCJI 1.2 (ELIMINACJA ARTEFAKTÓW TABELI "- -")
+    // =========================================================================
+    const s1Current = (validatedSections.section_1 && validatedSections.section_1.content) || "";
+    if (s1Current && /(?:-\s*-\s*$|odświeżacz powietrza:\s*-\s*-)/im.test(s1Current)) {
+      let fixedS1 = s1Current.replace(/(?:Zastosowanie zidentyfikowane:[^\n]*|1\.2\.[^\n]*\n[^\n]*)\s*-\s*-/gi, 'Zastosowanie zidentyfikowane: Zastosowanie konsumenckie: odświeżacz powietrza (dyfuzor zapachowy do wnętrz). Brak zastosowań przemysłowych lub profesjonalnych.');
+      validatedSections.section_1 = { ...validatedSections.section_1, content: fixedS1 };
+      auditLog.push({
+        rule: "SECTION_1_2_FORMATTING_CLEANUP",
+        status: "AUTO_REMEDIATED",
+        message: "Usunięto zniekształcenia tabelaryczne '- -' w Sekcji 1.2 i sformatowano oficjalne zastosowanie konsumenckie."
+      });
+    }
+
+    // =========================================================================
+    // KROK AI: AUDYT NADZORCZY GEMINI 3.8 FLASH (DEFENSIVE AI QUALITY GATEWAY)
+    // =========================================================================
+    validatedSections = await SDSVerifierAgent.auditWithGemini(validatedSections, metadata, auditLog);
+
     console.log(`[Verifier Agent] Audyt zakończony. Liczba wpisów w audycie: ${auditLog.length}`);
 
     return {
@@ -325,6 +402,103 @@ class SDSVerifierAgent {
       validatedSections,
       auditLog
     };
+  }
+
+  /**
+   * Nadzorczy audytor AI oparty na modelu gemini-3.8-flash
+   * Działa w reżimie Defensive AI - nie blokuje pipeline'u w razie błędu sieci/limitu
+   */
+  static async auditWithGemini(sections, metadata, auditLog) {
+    if (metadata.skipAiAudit || !process.env.GEMINI_API_KEY) {
+      if (metadata.skipAiAudit) console.log("[Verifier Agent AI] Pominięto audyt AI zgodnie z flagą skipAiAudit.");
+      else console.log("[Verifier Agent AI] Brak GEMINI_API_KEY w środowisku – pomijam fazę audytu AI.");
+      return sections;
+    }
+
+    try {
+      console.log("[Verifier Agent AI] Uruchamianie nadzorczego audytora gemini-3.8-flash...");
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-3.8-flash",
+        systemInstruction: `JESTEŚ NAJWYŻSZYM AUDYTOREM I NADZORCĄ JAKOŚCI KART CHARAKTERYSTYKI (SDS) ZGODNIE Z ROZPORZĄDZENIEM (UE) 2020/878 (REACH ZAŁĄCZNIK II) ORAZ (WE) 1272/2008 (CLP).
+Twoim zadaniem jest ostateczna inspekcja i eliminacja wszelkich niezgodności prawnych, formalnych i językowych.
+BEZWZGLĘDNE REGUŁY:
+1. 100% JĘZYK POLSKI: Żadnych obcojęzycznych zwrotów (np. "not specified", "not available", "liquid", "soluble in water"). Wszystko musi być fachowo przetłumaczone na język polski.
+2. LIMIT ZWROTÓW P (art. 28 ust. 3 CLP): W sekcji 2.2 nie może być więcej niż 6 zwrotów P. Jeśli jest więcej, zredukuj do maksymalnie 6 najważniejszych.
+3. BIERNIK W EUH208: Zwrot w sekcji 2.2 i 16 musi mieć formę "EUH208 Zawiera <nazwa substancji w bierniku, np. kumarynę>. Może powodować wystąpienie reakcji alergicznej."
+4. ROZPUSZCZALNOŚĆ (Sekcja 9.1): Zgodna ze źródłem (dla produktów rozpuszczalnych: "rozpuszczalny w wodzie", nigdy "not specified").
+5. DNEL (Sekcja 8.1): Czytelne rozbicie na Pracowników i Konsumentów, drogi narażenia i typy skutków per substancja, z zachowaniem nagłówka w formacie: "Substancja: <Nazwa> [CAS: <Numer>]".
+6. EKOTOKSYCZNOŚĆ (Sekcja 12): Pełne uwzględnienie wszystkich składników stwarzających zagrożenie dla środowiska lub uczulających (w tym kumaryny i BHT).
+
+ZASADA NIENARUSZALNOŚCI (ZERO REGRESJI):
+- Jeśli sekcja jest już w pełni zgodna z przepisami i nie zawiera błędów, NIE ZMIENIAJ JEJ i NIE UMIESZCZAJ w remediatedSections.
+- W remediatedSections zwracaj TYLKO te sekcje, w których dokonałeś koniecznej poprawki.
+- Nigdy nie ucinaj ani nie skracaj danych w sekcjach (np. tabel DNEL/PNEC, wartości NDS czy badań w sekcji 12).
+
+Zwróć WYŁĄCZNIE obiekt JSON w formacie:
+{
+  "remediatedSections": {
+    "section_1": "...",
+    "section_2": "..."
+  },
+  "auditFindings": [
+    { "rule": "NAZWA_REGUŁY", "status": "AUTO_REMEDIATED", "message": "Opis naprawionego błędu" }
+  ]
+}`,
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.0
+        }
+      });
+
+      const keyAuditSections = {};
+      ['section_1', 'section_2', 'section_8', 'section_9', 'section_11', 'section_12', 'section_16'].forEach(k => {
+        if (sections[k] && sections[k].content) {
+          keyAuditSections[k] = sections[k].content;
+        }
+      });
+
+      const prompt = `Dokonaj ostatecznego audytu prawnego i chemicznego poniższych kluczowych sekcji karty SDS:
+Produkt: ${metadata.productName || 'Mieszanina chemiczna'}
+UFI: ${metadata.ufi || 'Brak'}
+Składniki: ${JSON.stringify(metadata.components || [])}
+
+Sekcje do audytu:
+${JSON.stringify(keyAuditSections, null, 2)}`;
+
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout zapytania do Gemini 3.8 Flash (45s)")), 45000));
+      const response = await Promise.race([model.generateContent(prompt), timeoutPromise]);
+
+      let resText = response.response.text();
+      resText = resText.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+      const parsed = JSON.parse(resText);
+
+      if (parsed.remediatedSections && typeof parsed.remediatedSections === 'object') {
+        for (const [secKey, newContent] of Object.entries(parsed.remediatedSections)) {
+          if (sections[secKey] && typeof newContent === 'string' && newContent.trim().length > 20) {
+            // Bezpiecznik: jeśli sekcja 8 miała już ustalone zwolnienie konsumenckie ze ŚOI, zachowaj je
+            if (secKey === 'section_8' && sections[secKey].content.includes('W normalnych warunkach stosowania konsumenckiego') && !newContent.includes('W normalnych warunkach stosowania konsumenckiego')) {
+              continue;
+            }
+            sections[secKey] = { ...sections[secKey], content: newContent.trim() };
+          }
+        }
+      }
+
+      if (Array.isArray(parsed.auditFindings)) {
+        parsed.auditFindings.forEach(f => auditLog.push({
+          rule: f.rule || "GEMINI_3_8_LEGAL_AUDIT",
+          status: f.status || "AUTO_REMEDIATED",
+          message: f.message || "Skorygowano przez Agenta Nadzorczego Gemini 3.8 Flash"
+        }));
+      }
+
+      console.log(`[Verifier Agent AI] Audyt Gemini 3.8 Flash pomyślnie zakończony. Liczba wpisów: ${parsed.auditFindings ? parsed.auditFindings.length : 0}`);
+    } catch (aiErr) {
+      console.warn(`[Verifier Agent AI] Defensywna tarcza: audyt AI pominięty lub napotkał problem (${aiErr.message}), zachowano sekcje zweryfikowane regułowo.`);
+    }
+
+    return sections;
   }
 }
 

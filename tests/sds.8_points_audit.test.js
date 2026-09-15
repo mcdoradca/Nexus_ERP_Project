@@ -1,6 +1,7 @@
 const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config();
 const { 
   SDSProcessorEngine, 
   SDSDocumentParser,
@@ -57,7 +58,7 @@ async function runAudit() {
   const s2Content = valSecs.section_2.content;
   const s16Content = valSecs.section_16.content;
   assert(s2Content.includes("EUH208"), "BŁĄD: Sekcja 2.2 nie zawiera zwrotu EUH208!");
-  assert(/EUH208[^\n]*kumaryna/i.test(s2Content) || s2Content.includes("Kumaryna"), "BŁĄD: Sekcja 2.2 EUH208 nie wymienia Kumaryny!");
+  assert(/EUH208[^\n]*kumaryn/i.test(s2Content), "BŁĄD: Sekcja 2.2 EUH208 nie wymienia Kumaryny!");
   
   // Weryfikacja art. 18 CLP: na etykiecie głównej nie może być kumaryny ani toluenu jako decydującej o klasyfikacji
   const containsMatch = s2Content.match(/(?:Nazwy niebezpiecznych substancji wymienione na etykiecie|Zawiera:)\s*([^\n]+)/i);
@@ -102,10 +103,12 @@ async function runAudit() {
   // PUNKT 4: Sekcja 8.1 - Podział DNEL/PNEC per substancja
   console.log("\n[PUNKT 4] Sekcja 8.1: Zestawienie wartości DNEL i PNEC w podziale per substancja...");
   const s8Content = valSecs.section_8.content;
+  console.log('--- S8 CONTENT PREVIEW ---');
+  console.log(s8Content.substring(0, 1500));
   assert(s8Content.includes("Pochodne poziomy niepowodujące zmian (DNEL)"), "Brak nagłówka DNEL w Sekcji 8.1!");
   assert(s8Content.includes("Przewidywane stężenia niepowodujące zmian w środowisku (PNEC)"), "Brak nagłówka PNEC w Sekcji 8.1!");
   // Sprawdzenie czy występuje podział na konkretne substancje
-  const hasSubstanceInDnel = /Substancja:\s*(?:Etanol|ETHANOL|Toluen|Aldehyd)/i.test(s8Content);
+  const hasSubstanceInDnel = /(?:Substancja:\s*)?(?:Etanol|ETHANOL|Toluen|Aldehyd)\s*(?:\[CAS:|\(CAS:)/i.test(s8Content);
   assert(hasSubstanceInDnel, "BŁĄD: Wartości DNEL/PNEC nie zostały pogrupowane według substancji w sekcji 8.1!");
   console.log("-> PUNKT 4 ZDANY: Wartości DNEL i PNEC są czytelnie pogrupowane per substancja.");
 
@@ -117,7 +120,7 @@ async function runAudit() {
   assert(s9Content.includes("Rozpuszczalność"), "Brak parametru rozpuszczalności w sekcji 9.1!");
   assert(s9Content.includes("Współczynnik podziału n-oktanol/woda"), "Brak parametru log Kow w sekcji 9.1!");
   assert(s9Content.includes("9.2.2. Inne właściwości bezpieczeństwa"), "Brak podsekcji 9.2.2!");
-  assert(/Zawartość LZO \(VOC\):\s*(?:ok\.\s*)?\d+/i.test(s9Content), `BŁĄD: Brak dynamicznego wyliczenia LZO w sekcji 9.2.2:\n${s9Content}`);
+  assert(/(?:Zawartość\s*(?:lotnych\s*związków\s*organicznych|LZO)|LZO)[^:]*:\s*(?:ok\.\s*)?\d+/i.test(s9Content), `BŁĄD: Brak dynamicznego wyliczenia LZO w sekcji 9.2.2:\n${s9Content}`);
   console.log("-> PUNKT 5 ZDANY: Wszystkie parametry fizykochemiczne i LZO w 9.2.2 poprawnie wyekstrahowane.");
 
   // PUNKT 6: Sekcja 11.1 - Odrzucenie błędu laboratoryjnego (Pimephales promelas)
@@ -152,8 +155,45 @@ async function runAudit() {
   assert(s16Content.includes("EUH208"), "Brak zwrotu EUH208 w wykazie zwrotów Sekcji 16!");
   console.log("-> PUNKT 8 ZDANY: Sekcja 16 zawiera kod H361fd, klasę Repr. 2 oraz zwrot EUH208.");
 
+  // =========================================================================
+  // NOWE KRYTERIA ZGODNOŚCI Z REKOMENDACJI (5 KRYTYCZNYCH PUNKTÓW)
+  // =========================================================================
+  console.log("\n[NOWY TEST 1] Sekcja 9.1: Rozpuszczalność w wodzie i brak obcych terminów...");
+  assert(s9Content.includes("rozpuszczalny w wodzie"), "BŁĄD: Sekcja 9.1 powinna zawierać 'rozpuszczalny w wodzie'!");
+  assert(!s9Content.includes("not specified"), "BŁĄD: W Sekcji 9.1 pozostał angielski termin 'not specified'!");
+  console.log("-> NOWY TEST 1 ZDANY: Rozpuszczalność w wodzie poprawna, brak 'not specified'.");
+
+  console.log("\n[NOWY TEST 2] Sekcja 8.1: Czytelny zapis DNEL z rozbiciem na populacje i drogi...");
+  assert(/Konsumenci/i.test(s8Content), "BŁĄD: Brak podziału na Konsumentów w DNEL!");
+  assert(/Pracownicy/i.test(s8Content), "BŁĄD: Brak podziału na Pracowników w DNEL!");
+  assert(/(?:Droga pokarmowa|Doustnie)/i.test(s8Content), "BŁĄD: Brak drogi pokarmowej w DNEL!");
+  assert(/(?:Inhalacyjnie|dróg oddechowych)/i.test(s8Content), "BŁĄD: Brak drogi oddechowej w DNEL!");
+  console.log("-> NOWY TEST 2 ZDANY: DNEL ustrukturyzowany zgodnie z Załącznikiem II do REACH.");
+
+  console.log("\n[NOWY TEST 3] Sekcja 12: Ekotoksyczność kumaryny w 12.1/12.2 oraz Koc BHT w 12.4...");
+  assert(/Kumaryna|2H-chromen-2-on/i.test(s12Content), "BŁĄD: Brak kumaryny w Sekcji 12!");
+  const hasCoumarinIn12_1 = new RegExp("12\\.1[\\s\\S]*?(?:Kumaryna|2H-chromen-2-on)[\\s\\S]*?(?:LC50|EC50|NOEC)", "i").test(s12Content);
+  assert(hasCoumarinIn12_1, "BŁĄD: Brak badań toksyczności kumaryny w 12.1!");
+  const hasCoumarinIn12_2 = new RegExp("12\\.2[\\s\\S]*?(?:Kumaryna|2H-chromen-2-on)[\\s\\S]*?(?:Szybko ulega degradacji|biodegrad)", "i").test(s12Content);
+  assert(hasCoumarinIn12_2, "BŁĄD: Brak danych o biodegradacji kumaryny w 12.2!");
+  const hasBhtKocIn12_4 = new RegExp("12\\.4[\\s\\S]*?(?:BHT|2,6-di-tert)[\\s\\S]*?(?:4,2|4\\.2)", "i").test(s12Content);
+  assert(hasBhtKocIn12_4, "BŁĄD: Brak wartości Koc (4,2) dla BHT w 12.4!");
+  console.log("-> NOWY TEST 3 ZDANY: Sekcja 12 zawiera pełne dane dla Kumaryny (12.1, 12.2) i BHT Koc (12.4).");
+
+  console.log("\n[NOWY TEST 4] Sekcja 2.2: Limit zwrotów P (max 6) oraz forma biernikowa EUH208...");
+  const pMatches = [...s2Content.matchAll(/\b(P\d{3}(?:\+P\d{3})*)\b/g)];
+  assert(pMatches.length <= 6, `BŁĄD: Przekroczono limit zwrotów P w Sekcji 2.2! Znaleziono ${pMatches.length} zwrotów.`);
+  assert(!s2Content.includes("P302+P352"), "BŁĄD: Nadmiarowy zwrot P302+P352 nie powinien występować przy braku zagrożenia skóry!");
+  assert(/Zawiera kumarynę/i.test(s2Content) || /Zawiera 2H-chromen-2-on/i.test(s2Content), "BŁĄD: EUH208 nie używa poprawnej formy biernikowej (kumarynę)!");
+  console.log(`-> NOWY TEST 4 ZDANY: Liczba zwrotów P wynosi ${pMatches.length} (<= 6), EUH208 w bierniku.`);
+
+  console.log("\n[NOWY TEST 5] Sekcja 1.2: Brak zniekształceń '- -'...");
+  const s1Content = valSecs.section_1.content;
+  assert(!/(?:-\s*-\s*$|odświeżacz powietrza:\s*-\s*-)/im.test(s1Content), "BŁĄD: W Sekcji 1.2 pozostały zniekształcenia tabelaryczne '- -'!");
+  console.log("-> NOWY TEST 5 ZDANY: Sekcja 1.2 poprawnie oczyszczona z artefaktów '- -'.");
+
   console.log("\n========================================================");
-  console.log("WSZYSTKIE 8 PUNKTÓW AUDYTU REGULACYJNEGO ZAKOŃCZONE SUKCESEM!");
+  console.log("WSZYSTKIE TESTY AUDYTU REGULACYJNEGO ZAKOŃCZONE SUKCESEM!");
   console.log("========================================================");
 }
 

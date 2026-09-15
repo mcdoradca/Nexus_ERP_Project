@@ -205,6 +205,7 @@ console.log("\n[TEST 7] Weryfikacja działania Agenta Audytora Prawno-Chemiczneg
 
   const audit = await SDSVerifierAgent.verifyAndAudit(mockSections, {
     productName: "SWEET HOME LAYALI",
+    skipAiAudit: true,
     components: [
       { cas: "55965-84-9", name: "C(M)IT/MIT" },
       { cas: "1222-05-5", name: "galaksolid" },

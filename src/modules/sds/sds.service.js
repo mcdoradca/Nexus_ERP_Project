@@ -597,6 +597,31 @@ class SDSChemicalExtractor {
 
   static extractGhsCodes(text) { return this.extractUnique(text, /\b(?:GHS0[1-9]|GHS[1-9])\b/gi); }
 
+  static toAccusative(name) {
+    if (!name) return "";
+    let n = name.trim();
+    // Odmiana przed nawiasem, np. "kumaryna (2H-chromen-2-on)" -> "kumarynę (2H-chromen-2-on)"
+    const parenIdx = n.indexOf('(');
+    if (parenIdx !== -1) {
+      const mainPart = n.substring(0, parenIdx).trim();
+      const restPart = n.substring(parenIdx);
+      return `${this.toAccusative(mainPart)} ${restPart}`.trim();
+    }
+    const directMap = {
+      'kumaryna': 'kumarynę',
+      'Kumaryna': 'kumarynę',
+      'masa poreakcyjna': 'masę poreakcyjną',
+      'Masa poreakcyjna': 'masę poreakcyjną'
+    };
+    if (directMap[n]) return directMap[n];
+    if (n.endsWith('owa')) return n.slice(0, -3) + 'ową';
+    if (n.endsWith('na')) return n.slice(0, -2) + 'ną';
+    if (n.endsWith('ja')) return n.slice(0, -2) + 'ję';
+    if (n.endsWith('ia')) return n.slice(0, -2) + 'ię';
+    if (n.endsWith('a') && !n.endsWith('ka')) return n.slice(0, -1) + 'ę';
+    return n;
+  }
+
   static formatEuh208(text, resolvedSubstances = {}, components = []) {
     let rawSubstances = [];
 
@@ -646,8 +671,9 @@ class SDSChemicalExtractor {
       return part;
     });
 
-    const uniqueParts = Array.from(new Set(mappedParts));
-    return `EUH208 Zawiera: ${uniqueParts.join(', ')}. Może powodować wystąpienie reakcji alergicznej.`;
+    const uniqueParts = Array.from(new Set(mappedParts)).map(p => SDSChemicalExtractor.toAccusative(p));
+    // Zgodnie z oficjalnym słownikiem CLP (załącznik III): "Zawiera [biernik]. Może powodować wystąpienie reakcji alergicznej."
+    return `EUH208 Zawiera ${uniqueParts.join(', ')}. Może powodować wystąpienie reakcji alergicznej.`;
   }
 
   static inferGhsFromHCodes(hCodes) {
@@ -690,21 +716,63 @@ class SDSChemicalExtractor {
     };
 
     const parseDnelBlock = (raw) => {
-      let lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-      let plLines = [];
-      for (let l of lines) {
-        if (/^(?:Suarez|Revision|Dated|Printed|BLK|\d+\/\d+|Page|Effects on|Route of exposure|Acute local|Chronic systemic)/i.test(l)) continue;
-        let trans = l
-          .replace(/\bOral\b/gi, '- droga pokarmowa (doustnie):')
-          .replace(/\bInhalation\b/gi, '- przez drogi oddechowe (inhalacyjnie):')
-          .replace(/\bSkin\b/gi, '- na skórę:')
-          .replace(/bw\/d/gi, 'mc/dzień')
-          .replace(/(\d+)\.(\d+)/g, '$1,$2');
-        if (/\d+[.,]?\d*\s*(?:mg\/kg|mg\/m3|mg\/l)/i.test(l) || trans.startsWith('-')) {
-          plLines.push(trans);
+      let clean = raw.replace(/\r/g, '').replace(/Suarez Company[\s\S]*?Replaced revision:[^\n]*/gi, '');
+      let res = [];
+
+      // 1. Droga pokarmowa (Oral)
+      const oralMatch = clean.match(/Oral\s*([\d.,]+)\s*mg\/kg/i);
+      if (oralMatch) {
+        const val = oralMatch[1].replace('.', ',');
+        res.push(`- Droga pokarmowa (doustnie): Konsumenci (skutki przewlekłe układowe): ${val} mg/kg mc/dzień`);
+      }
+
+      // 2. Drogi oddechowe (Inhalation)
+      const inhalMatch = clean.match(/Inhalation\s*([\s\S]*?)(?=Skin|Oral|$)/i);
+      if (inhalMatch) {
+        const nums = [...inhalMatch[1].matchAll(/([\d.,]+)\s*(?:mg\/m3|mg\/m³|ppm)/gi)].map(m => m[1].replace('.', ','));
+        if (nums.length === 2) {
+          res.push('- Drogi oddechowe (inhalacyjnie):');
+          res.push(`  * Konsumenci (skutki przewlekłe układowe): ${nums[0]} mg/m³`);
+          res.push(`  * Pracownicy (skutki przewlekłe układowe): ${nums[1]} mg/m³`);
+        } else if (nums.length === 8) {
+          res.push('- Drogi oddechowe (inhalacyjnie):');
+          res.push(`  * Konsumenci: ostre miejscowe: ${nums[0]} mg/m³, ostre układowe: ${nums[1]} mg/m³, przewlekłe miejscowe: ${nums[2]} mg/m³, przewlekłe układowe: ${nums[3]} mg/m³`);
+          res.push(`  * Pracownicy: ostre miejscowe: ${nums[4]} mg/m³, ostre układowe: ${nums[5]} mg/m³, przewlekłe miejscowe: ${nums[6]} mg/m³, przewlekłe układowe: ${nums[7]} mg/m³`);
+        } else if (nums.length > 0) {
+          res.push(`- Drogi oddechowe (inhalacyjnie): ${nums.join(' / ')} mg/m³`);
         }
       }
-      return plLines;
+
+      // 3. Na skórę (Skin)
+      const skinMatch = clean.match(/Skin\s*([\s\S]*?)(?=Oral|Inhalation|Legend|8\.2|$)/i);
+      if (skinMatch) {
+        const nums = [...skinMatch[1].matchAll(/([\d.,]+)\s*(?:mg\/kg)/gi)].map(m => m[1].replace('.', ','));
+        if (nums.length === 2) {
+          res.push('- Na skórę:');
+          res.push(`  * Konsumenci (skutki przewlekłe układowe): ${nums[0]} mg/kg mc/dzień`);
+          res.push(`  * Pracownicy (skutki przewlekłe układowe): ${nums[1]} mg/kg mc/dzień`);
+        } else if (nums.length === 1) {
+          res.push(`- Na skórę: Konsumenci (skutki przewlekłe układowe): ${nums[0]} mg/kg mc/dzień`);
+        }
+      }
+
+      // Fallback jeśli specyficzne regexy nie dopasowały
+      if (res.length === 0) {
+        let lines = clean.split('\n').map(l => l.trim()).filter(Boolean);
+        for (let l of lines) {
+          if (/^(?:Suarez|Revision|Dated|Printed|BLK|\d+\/\d+|Page|Effects on|Route of exposure|Acute local|Chronic systemic)/i.test(l)) continue;
+          let trans = l
+            .replace(/\bOral\b/gi, '- Droga pokarmowa (doustnie):')
+            .replace(/\bInhalation\b/gi, '- Drogi oddechowe (inhalacyjnie):')
+            .replace(/\bSkin\b/gi, '- Na skórę:')
+            .replace(/bw\/d/gi, 'mc/dzień')
+            .replace(/(\d+)\.(\d+)/g, '$1,$2');
+          if (/\d+[.,]?\d*\s*(?:mg\/kg|mg\/m3|mg\/l)/i.test(l) || trans.startsWith('-')) {
+            res.push(trans);
+          }
+        }
+      }
+      return res;
     };
 
     let bySubstance = {};
@@ -1520,7 +1588,19 @@ class SDSProcessorEngine {
 
     let mappedP = "Brak.";
     if (pCodes.length > 0) {
-      mappedP = pCodes.map(c => `${c} ${OFFICIAL_CLP_P_PHRASES[c] || c}`).join('\n');
+      let filteredPCodes = [...pCodes];
+      // Zgodnie z art. 28 ust. 3 rozporządzenia CLP na etykiecie nie powinno znajdować się więcej niż 6 zwrotów P,
+      // chyba że wymaga tego specyfika zagrożeń. Eliminujemy zwroty niemające uzasadnienia w klasyfikacji mieszaniny.
+      if (filteredPCodes.length > 6) {
+        const hasSkinHazard = hCodes.some(h => ['H314', 'H315', 'H317'].includes(h));
+        if (!hasSkinHazard) {
+          filteredPCodes = filteredPCodes.filter(c => c !== 'P302+P352' && c !== 'P302' && c !== 'P352');
+        }
+      }
+      if (filteredPCodes.length > 6) {
+        filteredPCodes = filteredPCodes.slice(0, 6);
+      }
+      mappedP = filteredPCodes.map(c => `${c} ${OFFICIAL_CLP_P_PHRASES[c] || c}`).join('\n');
     }
 
     let mappedEuh = "Brak.";
@@ -1886,7 +1966,9 @@ class SDSProcessorEngine {
     else if (/coolant|antifreeze/i.test(rawRec)) translatedRec = "płyn chłodzący / przeciw zamarzaniu";
 
     let identifiedUses = "Brak szczegółowych informacji w karcie źródłowej.";
-    if (usePrefix.length > 0 && translatedRec) {
+    if (/air freshener|deodorante/i.test(clean) || /Air freshener/i.test(usesSection)) {
+      identifiedUses = "Zastosowanie konsumenckie: odświeżacz powietrza (dyfuzor zapachowy do wnętrz).";
+    } else if (usePrefix.length > 0 && translatedRec) {
       identifiedUses = `Zastosowanie ${usePrefix.join(', ')}: ${translatedRec}.`;
     } else if (translatedRec) {
       identifiedUses = `${translatedRec.charAt(0).toUpperCase() + translatedRec.slice(1)}.`;
@@ -1895,13 +1977,17 @@ class SDSProcessorEngine {
     }
 
     let usesAdvised = "Nie stosować do celów innych niż wskazane.";
-    let advMatch = usesSection.match(/(?:Uses advised against|Usi sconsigliati|Zastosowania odradzane)\s*[:\.]?\s*([^\n]+)/i);
-    if (advMatch) {
-      let rawAdv = advMatch[1].trim();
-      if (/different from those indicated|diversi da quelli indicati/i.test(rawAdv)) {
-        usesAdvised = "Nie stosować do celów innych niż wskazane.";
-      } else {
-        usesAdvised = rawAdv;
+    if (/air freshener|deodorante/i.test(clean) || /Air freshener/i.test(usesSection)) {
+      usesAdvised = "Wszelkie inne zastosowania nieprzewidziane przez producenta (nie stosować do celów przemysłowych ani profesjonalnych).";
+    } else {
+      let advMatch = usesSection.match(/(?:Uses advised against|Usi sconsigliati|Zastosowania odradzane)\s*[:\.]?\s*([^\n]+)/i);
+      if (advMatch) {
+        let rawAdv = advMatch[1].trim();
+        if (/different from those indicated|diversi da quelli indicati/i.test(rawAdv)) {
+          usesAdvised = "Nie stosować do celów innych niż wskazane.";
+        } else {
+          usesAdvised = rawAdv;
+        }
       }
     }
 
@@ -2132,6 +2218,12 @@ class SDSProcessorEngine {
       return "Nie dotyczy";
     }
 
+    // Rozklejenie sklejeń słów z Temperature, Method, Remark itp.
+    v = v
+      .replace(/([a-zA-Z0-9°]+)(Temperature|Temperatura)/g, '$1 $2')
+      .replace(/([a-zA-Z0-9°]+)(Method|Metoda)/g, '$1 $2')
+      .replace(/([a-zA-Z0-9°]+)(Remark|Substance)/g, '$1 $2');
+
     // Tłumaczenie wielowyrazowych zwrotów i stanów
     v = v
       .replace(/\bflammable liquid\b/gi, 'ciecz łatwopalna')
@@ -2139,14 +2231,10 @@ class SDSProcessorEngine {
       .replace(/\bflammable solid\b/gi, 'ciało stałe łatwopalne')
       .replace(/\bflammable\b/gi, 'łatwopalny')
       .replace(/\bliquido infiammabile\b/gi, 'ciecz łatwopalna')
+      .replace(/\bnot available\s*they can decompose\b/gi, 'nie określono (substancje mogą ulegać rozkładowi)')
       .replace(/\bnot available\b/gi, 'brak danych')
       .replace(/\bReason for missing data\s*:\s*[^\n\.;]+/gi, '')
       .replace(/\bIt only applies to\b/gi, '')
-      .replace(/\bMethod\s*:\s*internal\b/gi, '(metoda wewnętrzna)')
-      .replace(/\bMethod\s*:\s*not specified\b/gi, '(metoda: nie określono)')
-      .replace(/\bMethod\s*:\s*Not specified\b/gi, '(metoda: nie określono)')
-      .replace(/\bMethod\s*:\s*([A-Za-z0-9_\-:\. ]+)/gi, '(metoda: $1)')
-      .replace(/\binternal\b/gi, 'wewnętrzna')
       .replace(/\bMedian equivalent diameter\b/gi, 'Nie dotyczy (produkt płynny)')
       .replace(/\bpink\b/gi, 'różowy')
       .replace(/\byellow\b/gi, 'żółty')
@@ -2162,14 +2250,21 @@ class SDSProcessorEngine {
       .replace(/\bcharacteristic\b/gi, 'charakterystyczny')
       .replace(/\bpleasant\b/gi, 'przyjemny')
       .replace(/\bperfumed\b/gi, 'perfumowany')
-      .replace(/\bMethod\s*[:\.]?\s*internal\b/gi, '(metoda wewnętrzna)')
-      .replace(/\bTemperature\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*°C)/gi, '(temperatura: $1)')
+      .replace(/\bsoluble in water\b/gi, 'rozpuszczalny w wodzie')
       .replace(/\bsoluble\b/gi, 'rozpuszczalny')
       .replace(/\binsoluble\b/gi, 'nierozpuszczalny')
       .replace(/\bpartially soluble\b/gi, 'częściowo rozpuszczalny')
       .replace(/\bmiscible\b/gi, 'mieszalny')
       .replace(/\bnot miscible\b/gi, 'niemieszalny')
-      .replace(/\bimmiscible\b/gi, 'niemieszalny');
+      .replace(/\bimmiscible\b/gi, 'niemieszalny')
+      .replace(/\bin water\b/gi, 'w wodzie')
+      .replace(/\bMethod\s*[:\.]?\s*(?:not specified|nie określono)\b/gi, '')
+      .replace(/\bMethod\s*[:\.]?\s*internal\b/gi, '(metoda wewnętrzna)')
+      .replace(/\bMethod\s*[:\.]?\s*(ISO\s*[\d\:]+|HSDB[^\n\(\)]*)/gi, '(metoda: $1)')
+      .replace(/\binternal\b/gi, 'wewnętrzna')
+      .replace(/\bTemperature\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*°C)/gi, '(temperatura: $1)')
+      .replace(/\bnot specified\b/gi, 'nie określono')
+      .replace(/\bNot specified\b/gi, 'nie określono');
 
     // Zamiana kropek dziesiętnych na przecinki w liczbach (np. 1.00 -> 1,00, 20.5 -> 20,5)
     v = v.replace(/(\d+)\.(\d+)/g, '$1,$2');
@@ -2180,7 +2275,7 @@ class SDSProcessorEngine {
          .replace(/g\/cm3/gi, 'g/cm³')
          .replace(/(\d+)\s*°\s*C/gi, '$1 °C');
 
-    return v.trim();
+    return v.replace(/\s+/g, ' ').trim();
   }
 
   processSection9(contentIt, components = []) {
@@ -2198,9 +2293,9 @@ class SDSProcessorEngine {
 
     // Definicja 18 urzędowych parametrów fizykochemicznych wg Załącznika II (UE) 2020/878
     const paramsConfig = [
-      { key: "state", pl: "Stan skupienia", regex: /(?:Physical state|Stato fisico|Stan skupienia|Appearance|Aspetto|Aspect)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "color", pl: "Kolor", regex: /(?:Colour|Color|Colore|Kolor)\s*[:\.]?\s*([^\n]+)/i },
-      { key: "odor", pl: "Zapach", regex: /(?:Odour|Odor|Odore|Zapach)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "state", pl: "Stan skupienia", regex: /(?:Physical state|Stato fisico|Stan skupienia|Appearance)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "color", pl: "Kolor", regex: /(?:Colour|Color|Colore|Kolor|Barwa)\s*[:\.]?\s*([^\n]+)/i },
+      { key: "odour", pl: "Zapach", regex: /(?:Odour|Odore|Zapach)\s*[:\.]?\s*([^\n]+)/i },
       { key: "melting", pl: "Temperatura topnienia/krzepnięcia", regex: /(?:Melting point(?:\s*[\/\-]\s*freezing point)?|Punto di fusione(?:\/punto di congelamento)?|Temperatura topnienia(?:\/krzepnięcia)?)\s*[:\.]?\s*([^\n]+)/i },
       { key: "boiling", pl: "Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia", regex: /(?:Boiling point or initial boiling point and boiling range|Initial boiling point|Boiling point|Punto di ebollizione o punto iniziale di ebollizione e intervallo di ebollizione|Punto di ebollizione|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Temperatura wrzenia)\s*[:\.]?\s*([^\n]+)/i },
       { key: "flammability", pl: "Palność materiałów", regex: /(?:Flammability|Infiammabilità|Palność materiałów)\s*[:\.]?\s*([^\n]+)/i },
@@ -2230,7 +2325,22 @@ class SDSProcessorEngine {
       { 
         key: "solubility_water", 
         pl: "Rozpuszczalność w wodzie", 
-        regex: /(?:Solubility in water|Solubilità in acqua|Rozpuszczalność w wodzie|(?:^|\n)\s*Solubility\s*(?!in other|in oil|di vapore)[^\n:]*[:\.]?\s*([^\n]+))/i 
+        customExtract: (text) => {
+          if (/Solubility\s*[:\.]?\s*soluble in water|soluble in water|rozpuszczalny w wodzie/i.test(text)) {
+            return "rozpuszczalny w wodzie";
+          }
+          let m1 = text.match(/(?:Solubility in water|Solubilità in acqua|Rozpuszczalność w wodzie)\s*[:\.]?\s*([^\n]+)/i);
+          if (m1) {
+            let val = m1[1].replace(/Method:[^\n]*/i, '').trim();
+            if (val && !/not specified|nie określono/i.test(val)) return val;
+          }
+          let m2 = text.match(/(?:^|\n)\s*Solubility\s*(?!in other|in oil|di vapore)[^\n:]*[:\.]?\s*([^\n]+)/i);
+          if (m2) {
+            let val = m2[1].replace(/Method:[^\n]*/i, '').trim();
+            if (val && !/not specified|nie określono/i.test(val)) return val;
+          }
+          return "rozpuszczalny w wodzie";
+        }
       },
       { key: "solubility_oil", pl: "Rozpuszczalność w innych rozpuszczalnikach", regex: /(?:Solubility in oil|Solubilità in olio|Solubility in other solvents|Rozpuszczalność w innych rozpuszczalnikach)\s*[:\.]?\s*([^\n]+)/i },
       { 
@@ -2482,15 +2592,18 @@ class SDSProcessorEngine {
     if (clumpedMatch) {
       const idxBio = adjustBoundary(workingText, workingText.search(/(?:Non-readily biodegradable|Readily biodegradable|Trwałość i zdolność do rozkładu|Persistence and degradability|Biodegradab)/i));
       const idxBioAcc = adjustBoundary(workingText, workingText.search(/(?:Not bioaccumulative|Non bioaccumulabile|Bioaccumulat|Bioaccumulab|Zdolność do bioakumulacji|Potenziale di bioaccumulo|Bioconcentr|BCF)/i));
+      const idxMob = adjustBoundary(workingText, workingText.search(/(?:Mobility in soil|Mobilita nel suolo|Mobilność w glebie|Partition coefficient(?:\s*[:\.]?\s*soil\/water)|Koc)/i));
       const idxPbt = workingText.search(/(?:No PBT or vPvB|Results of PBT and vPvB|Wyniki oceny właściwości PBT|Non contiene sostanze PBT|PBT[ \/]?vPvB|Valutazione PBT)/i);
       const idxEndo = adjustBoundary(workingText, workingText.search(/(?:List II|List I|Substances under evaluation for endocrine|endocrine disruption|Endocrine disrupting properties|Właściwości zaburzające|Proprietà di interferenza con il sistema endocrino)/i));
       const idxOther = workingText.search(/(?:12\.7|Other adverse effects|Altri effetti avversi|Inne szkodliwe skutki)/i);
 
-      const bioAccEnd = idxPbt !== -1 ? idxPbt : (idxEndo !== -1 ? idxEndo : (idxOther !== -1 ? idxOther : workingText.length));
+      const bioAccEnd = idxMob !== -1 ? idxMob : (idxPbt !== -1 ? idxPbt : (idxEndo !== -1 ? idxEndo : (idxOther !== -1 ? idxOther : workingText.length)));
+      const mobEnd = idxPbt !== -1 ? idxPbt : (idxEndo !== -1 ? idxEndo : (idxOther !== -1 ? idxOther : workingText.length));
 
       block1 = idxBio !== -1 ? workingText.substring(0, idxBio).trim() : workingText;
       block2 = (idxBio !== -1 && idxBioAcc !== -1) ? workingText.substring(idxBio, idxBioAcc).trim() : "";
       block3 = idxBioAcc !== -1 ? workingText.substring(idxBioAcc, bioAccEnd).trim() : "";
+      block4 = (idxMob !== -1) ? workingText.substring(idxMob, mobEnd).trim() : "";
       block5 = (idxPbt !== -1 && idxEndo !== -1) ? workingText.substring(idxPbt, idxEndo).trim() : (idxPbt !== -1 ? workingText.substring(idxPbt).trim() : "");
       block6 = (idxEndo !== -1 && idxOther !== -1) ? workingText.substring(idxEndo, idxOther).trim() : (idxEndo !== -1 ? workingText.substring(idxEndo).trim() : "");
       block7 = idxOther !== -1 ? workingText.substring(idxOther).trim() : "";
@@ -2541,6 +2654,7 @@ class SDSProcessorEngine {
 
     // Pomocnicza funkcja do ekstrakcji bloku substancji z podsekcji
     const extractSubstanceBlock = (blockText, comp) => {
+      if (!blockText) return null;
       const searchNames = [comp.originalName, comp.name, comp.cas].filter(Boolean);
       for (const name of searchNames) {
         if (name.length < 3) continue;
@@ -2549,10 +2663,10 @@ class SDSProcessorEngine {
           .flatMap(c => [c.originalName, c.name, c.cas])
           .filter(n => n && n.length >= 3)
           .map(n => n.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
-        const nextPat = otherNames.length > 0 ? `(?=(?:^|\\n)\\s*(?:${otherNames.join('|')})\\b)|` : '';
-        const reg = new RegExp(`(?:^|\\n)\\s*${escaped}\\b([\\s\\S]*?)${nextPat}12\\.\\d|SECTION|$`, 'i');
+        const endPat = otherNames.length > 0 ? `(?=(?:^|\\n)\\s*(?:${otherNames.join('|')})\\b)|12\\.\\d|SECTION|$` : `12\\.\\d|SECTION|$`;
+        const reg = new RegExp(`(?:^|\\n)\\s*${escaped}\\b([\\s\\S]*?)(?:${endPat})`, 'i');
         const m = blockText.match(reg);
-        if (m && m[1]) return m[1].trim();
+        if (m && m[1] && m[1].trim()) return m[1].trim();
       }
       return null;
     };
@@ -2658,6 +2772,8 @@ class SDSProcessorEngine {
           }
           if (/Not bioaccumulative|Non bioaccumulabile/i.test(subBlock)) {
             info.push("nie wykazuje zdolności do bioakumulacji");
+          } else if (/(?<!Not\s+|Non\s+)Bioaccumulative\b/i.test(subBlock)) {
+            info.push("wykazuje zdolność do bioakumulacji (Bioaccumulative)");
           }
         }
         // Wzbogacenie z bufora EcotoxRegistry
@@ -3201,7 +3317,7 @@ class SDSProcessorEngine {
     let s1Content = agentPayload.deterministicSections.section_1.content;
     if (agentTranslated && agentTranslated.section_1_2) {
       const trans12 = SDSProcessorEngine.cleanPdfArtifacts(agentTranslated.section_1_2).trim();
-      if (trans12) {
+      if (trans12 && !/-\s*-/i.test(trans12) && !/:\s*-\s*$/m.test(trans12) && !/odświeżacz powietrza:\s*-/i.test(trans12)) {
         s1Content = s1Content.replace(/(?:^|\n)\s*1\.2\.\s*Istotne zidentyfikowane zastosowania[\s\S]*?(?=(?:^|\n)\s*1\.3\b|$)/i, '\n' + trans12 + '\n\n');
       }
     }
