@@ -429,6 +429,8 @@ BEZWZGLĘDNE REGUŁY:
 4. ROZPUSZCZALNOŚĆ (Sekcja 9.1): Zgodna ze źródłem (dla produktów rozpuszczalnych: "rozpuszczalny w wodzie", nigdy "not specified").
 5. DNEL (Sekcja 8.1): Czytelne rozbicie na Pracowników i Konsumentów, drogi narażenia i typy skutków per substancja, z zachowaniem nagłówka w formacie: "Substancja: <Nazwa> [CAS: <Numer>]".
 6. EKOTOKSYCZNOŚĆ (Sekcja 12): Pełne uwzględnienie wszystkich składników stwarzających zagrożenie dla środowiska lub uczulających (w tym kumaryny i BHT).
+7. PIKTOGRAMY GHS (Sekcja 2.2): Prawidłowe kody piktogramów (GHS02 dla substancji łatwopalnych, GHS07 dla działania drażniącego). Całkowity zakaz zniekształceń (np. "GH02").
+8. TRANSPORT I ILOŚCI OGRANICZONE (Sekcja 14): W 14.3 podawać klasę i numer nalepki ADR (Klasa 3, Nalepka nr 3), a w 14.6 uwzględniać dopuszczenie ilości ograniczonych (LQ) zgodnie z działem 3.4 Umowy ADR.
 
 ZASADA NIENARUSZALNOŚCI (ZERO REGRESJI):
 - Jeśli sekcja jest już w pełni zgodna z przepisami i nie zawiera błędów, NIE ZMIENIAJ JEJ i NIE UMIESZCZAJ w remediatedSections.

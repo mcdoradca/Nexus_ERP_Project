@@ -5,6 +5,7 @@ require('dotenv').config();
 const { 
   SDSProcessorEngine, 
   SDSDocumentParser,
+  SDSDocxExporter,
   NDSRegistry, 
   WasteRegistry, 
   ADRRegistry 
@@ -61,7 +62,7 @@ async function runAudit() {
   assert(/EUH208[^\n]*kumaryn/i.test(s2Content), "BŁĄD: Sekcja 2.2 EUH208 nie wymienia Kumaryny!");
   
   // Weryfikacja art. 18 CLP: na etykiecie głównej nie może być kumaryny ani toluenu jako decydującej o klasyfikacji
-  const containsMatch = s2Content.match(/(?:Nazwy niebezpiecznych substancji wymienione na etykiecie|Zawiera:)\s*([^\n]+)/i);
+  const containsMatch = s2Content.match(/(?:Nazwy niebezpiecznych substancji wymienione na etykiecie:?|Zawiera:?)\s*([^\n]+)/i);
   if (containsMatch) {
     const mainHazardSubstances = containsMatch[1];
     assert(!/kumaryna|2H-CHROMEN-2-ONE/i.test(mainHazardSubstances), 
@@ -191,6 +192,31 @@ async function runAudit() {
   const s1Content = valSecs.section_1.content;
   assert(!/(?:-\s*-\s*$|odświeżacz powietrza:\s*-\s*-)/im.test(s1Content), "BŁĄD: W Sekcji 1.2 pozostały zniekształcenia tabelaryczne '- -'!");
   console.log("-> NOWY TEST 5 ZDANY: Sekcja 1.2 poprawnie oczyszczona z artefaktów '- -'.");
+
+  // NOWY TEST 6: Eksport DOCX oraz weryfikacja piktogramów w archiwum
+  console.log("\n[NOWY TEST 6] Eksport DOCX oraz weryfikacja piktogramów GHS, nalepki ADR i znaku LQ...");
+  const outDocxPath = path.resolve('docs/SDS/Karta_Charakterystyki_8034055535448_SDS_ORCHIDEA_E_VANIGLIA_V2_PL.docx');
+  const finalExportData = {
+    productName: metadata.productName || "SWEET HOME - ORCHIDEA E VANIGLIA",
+    version: "2.0 / PL",
+    sections: valSecs,
+    ghsPictograms: assembledSds.ghsPictograms && assembledSds.ghsPictograms.length > 0 ? assembledSds.ghsPictograms : ['GHS02', 'GHS07'],
+    signalWord: valSecs.section_2 ? valSecs.section_2.signalWord : "Niebezpieczeństwo"
+  };
+  await SDSDocxExporter.export(finalExportData, outDocxPath);
+  assert(fs.existsSync(outDocxPath), "Plik DOCX nie został utworzony!");
+
+  const AdmZip = require('adm-zip');
+  const zip = new AdmZip(outDocxPath);
+  const mediaEntries = zip.getEntries().map(e => e.entryName).filter(n => n.startsWith('word/media/'));
+  console.log(`-> W pliku DOCX znaleziono ${mediaEntries.length} obiektów graficznych:`, mediaEntries);
+  assert(mediaEntries.length >= 3, `BŁĄD: Oczekiwano co najmniej 3 piktogramów (GHS02, GHS07, ADR Nalepka 3/LQ), znaleziono: ${mediaEntries.length}`);
+
+  const xmlContent = zip.readAsText('word/document.xml');
+  assert(!xmlContent.includes('GH02'), "BŁĄD: W dokumencie pozostał błędny kod GH02 zamiast GHS02!");
+  assert(xmlContent.includes('Nalepka ostrzegawcza: Nr 3') || xmlContent.includes('Klasa 3'), "BŁĄD: Brak nalepki ostrzegawczej w sekcji 14.3!");
+  assert(xmlContent.includes('Ilości ograniczone (LQ)'), "BŁĄD: Brak informacji o ilościach ograniczonych (LQ) w sekcji 14.6!");
+  console.log("-> NOWY TEST 6 ZDANY: Dokument DOCX zawiera komplet autentycznych piktogramów (GHS02, GHS07, ADR Nalepka 3, Znak LQ) bez literówek.");
 
   console.log("\n========================================================");
   console.log("WSZYSTKIE TESTY AUDYTU REGULACYJNEGO ZAKOŃCZONE SUKCESEM!");

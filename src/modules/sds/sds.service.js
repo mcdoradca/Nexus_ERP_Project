@@ -30,6 +30,8 @@ let docx;
 try { docx = require("docx"); } catch (err) { console.error("[OSTRZEŻENIE] Brak biblioteki 'docx'. Wykonaj: npm install docx"); }
 let pdfParse;
 try { pdfParse = require("pdf-parse"); } catch (err) { console.error("[OSTRZEŻENIE] Brak biblioteki 'pdf-parse'. Wykonaj: npm install pdf-parse"); }
+let sharp;
+try { sharp = require("sharp"); } catch (err) { console.warn("[OSTRZEŻENIE] Brak biblioteki 'sharp'. Używam fallbacku."); }
 
 // ============================================================================
 // 1. OFICJALNE BAZY SŁOWNIKOWE CLP / ECHA
@@ -1380,8 +1382,99 @@ class PurePngEncoder {
 }
 
 class GHSPictogramGenerator {
-  static generatePictogramBuffer(ghsCode, size = 160) {
+  static getGhsDiamondSvg(innerSvg, size = 200) {
+    const s = size;
+    const half = s / 2;
+    const pad = s * 0.06;
+    const strokeW = s * 0.07;
+    return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="${half},${pad} ${s - pad},${half} ${half},${s - pad} ${pad},${half}" fill="white" />
+      <polygon points="${half},${pad} ${s - pad},${half} ${half},${s - pad} ${pad},${half}" fill="none" stroke="#cc0000" stroke-width="${strokeW}" stroke-linejoin="miter" />
+      ${innerSvg}
+    </svg>`;
+  }
+
+  static getGhsSvg(code, size = 200) {
+    const norm = (code || '').toUpperCase().trim();
+    switch (norm) {
+      case 'GHS01': // Wybuch
+        return this.getGhsDiamondSvg(`
+          <circle cx="100" cy="115" r="16" fill="black" />
+          <path d="M100 95 L100 65 M85 100 L65 85 M115 100 L135 85 M75 115 L50 115 M125 115 L150 115 M85 125 L65 140 M115 125 L135 140" stroke="black" stroke-width="4" stroke-linecap="round" />
+        `, size);
+      case 'GHS02': { // Płomień (Flame)
+        const flamePath = 'M100 48 C95 66 87 76 79 86 C71 96 65 108 65 120 C65 141 80 154 100 154 C120 154 135 141 135 120 C135 110 129 98 121 88 C115 80 111 72 109 63 C109 63 103 73 103 83 C98 78 96 70 97 63 Z M100 100 C106 110 112 118 112 126 C112 135 107 143 100 143 C93 143 88 135 88 126 C88 118 94 110 100 100 Z';
+        return this.getGhsDiamondSvg(`<path d="${flamePath}" fill="black" />`, size);
+      }
+      case 'GHS03': // Utleniający (Flame over circle)
+        return this.getGhsDiamondSvg(`
+          <circle cx="100" cy="118" r="22" fill="none" stroke="black" stroke-width="6" />
+          <path d="M100 55 C96 70 90 80 84 90 C92 92 100 85 104 80 C108 90 116 95 120 85 C116 100 108 105 100 105" fill="black" />
+        `, size);
+      case 'GHS04': // Butla z gazem
+        return this.getGhsDiamondSvg(`
+          <rect x="75" y="90" width="50" height="22" rx="10" fill="black" />
+          <rect x="125" y="96" width="10" height="10" fill="black" />
+          <rect x="135" y="98" width="5" height="6" fill="black" />
+        `, size);
+      case 'GHS05': // Żrący (Corrosion)
+        return this.getGhsDiamondSvg(`
+          <line x1="60" y1="90" x2="90" y2="110" stroke="black" stroke-width="6" />
+          <line x1="140" y1="90" x2="110" y2="110" stroke="black" stroke-width="6" />
+          <rect x="65" y="125" width="30" height="10" fill="black" />
+          <rect x="105" y="125" width="30" height="10" fill="black" />
+          <circle cx="80" cy="120" r="3" fill="black" />
+          <circle cx="120" cy="120" r="3" fill="black" />
+        `, size);
+      case 'GHS06': // Czaszka
+        return this.getGhsDiamondSvg(`
+          <circle cx="100" cy="92" r="20" fill="black" />
+          <rect x="92" y="108" width="16" height="12" fill="black" />
+          <circle cx="93" cy="92" r="5" fill="white" />
+          <circle cx="107" cy="92" r="5" fill="white" />
+          <line x1="75" y1="130" x2="125" y2="115" stroke="black" stroke-width="5" stroke-linecap="round" />
+          <line x1="75" y1="115" x2="125" y2="130" stroke="black" stroke-width="5" stroke-linecap="round" />
+        `, size);
+      case 'GHS07': // Wykrzyknik
+        return this.getGhsDiamondSvg(`
+          <rect x="94" y="62" width="12" height="48" rx="6" fill="black" />
+          <circle cx="100" cy="128" r="7" fill="black" />
+        `, size);
+      case 'GHS08': // Zagrożenie zdrowia
+        return this.getGhsDiamondSvg(`
+          <circle cx="100" cy="74" r="13" fill="black" />
+          <path d="M100 90 C85 90 74 100 70 118 L130 118 C126 100 115 90 100 90 Z" fill="black" />
+          <polygon points="100,104 104,114 115,114 106,121 109,131 100,125 91,131 94,121 85,114 96,114" fill="white" />
+        `, size);
+      case 'GHS09': // Środowisko (martwe drzewo i ryba)
+        return this.getGhsDiamondSvg(`
+          <line x1="75" y1="130" x2="75" y2="85" stroke="black" stroke-width="4" stroke-linecap="round" />
+          <line x1="75" y1="100" x2="60" y2="90" stroke="black" stroke-width="3" stroke-linecap="round" />
+          <line x1="75" y1="110" x2="90" y2="100" stroke="black" stroke-width="3" stroke-linecap="round" />
+          <ellipse cx="118" cy="122" rx="16" ry="8" fill="black" />
+          <polygon points="132,122 142,116 142,128" fill="black" />
+          <circle cx="108" cy="120" r="2" fill="white" />
+          <line x1="60" y1="134" x2="140" y2="134" stroke="black" stroke-width="3" stroke-linecap="round" />
+        `, size);
+      default:
+        return this.getGhsDiamondSvg(`
+          <rect x="94" y="62" width="12" height="48" rx="6" fill="black" />
+          <circle cx="100" cy="128" r="7" fill="black" />
+        `, size);
+    }
+  }
+
+  static async generatePictogramBuffer(ghsCode, size = 180) {
     const code = (ghsCode || "").toUpperCase().trim();
+    if (sharp) {
+      try {
+        const svg = this.getGhsSvg(code, size);
+        return await sharp(Buffer.from(svg)).png().toBuffer();
+      } catch (err) {
+        console.warn(`[GHSPictogramGenerator] Błąd sharp dla ${code}: ${err.message}. Przełączam na fallback.`);
+      }
+    }
+    // Fallback PurePngEncoder
     const rgba = Buffer.alloc(size * size * 4, 0);
     const cx = Math.floor(size / 2); const cy = Math.floor(size / 2);
     const margin = Math.floor(size * 0.08); const maxDist = cx - margin;
@@ -1398,8 +1491,8 @@ class GHSPictogramGenerator {
       for (let x = 0; x < size; x++) {
         const dist = Math.abs(x - cx) + Math.abs(y - cy);
         if (dist <= maxDist) {
-          if (dist >= maxDist - borderWidth) setPixel(x, y, 204, 0, 0, 255); // Czerwony romb (Pantone 185C)
-          else setPixel(x, y, 255, 255, 255, 255); // Biały środek
+          if (dist >= maxDist - borderWidth) setPixel(x, y, 204, 0, 0, 255);
+          else setPixel(x, y, 255, 255, 255, 255);
         }
       }
     }
@@ -1411,12 +1504,99 @@ class GHSPictogramGenerator {
       }
     };
     
-    // Proste ikony reprezentacyjne w JS
-    if (code === "GHS07") {
-      fillRect(cx - Math.floor(size*0.04), cy - Math.floor(size*0.22), cx + Math.floor(size*0.04), cy + Math.floor(size*0.08));
-      fillRect(cx - Math.floor(size*0.045), cy + Math.floor(size*0.13), cx + Math.floor(size*0.045), cy + Math.floor(size*0.21));
-    } else {
-      fillRect(cx - Math.floor(size*0.15), cy - Math.floor(size*0.10), cx + Math.floor(size*0.15), cy + Math.floor(size*0.10));
+    fillRect(cx - Math.floor(size*0.04), cy - Math.floor(size*0.22), cx + Math.floor(size*0.04), cy + Math.floor(size*0.08));
+    fillRect(cx - Math.floor(size*0.045), cy + Math.floor(size*0.13), cx + Math.floor(size*0.045), cy + Math.floor(size*0.21));
+    return PurePngEncoder.encodeRGBA(size, size, rgba);
+  }
+}
+
+class ADRPictogramGenerator {
+  static getAdrLabelSvg(classCode, size = 200) {
+    const s = size;
+    const half = s / 2;
+    const pad = s * 0.05;
+    const innerPad = s * 0.09;
+    const norm = String(classCode || '3').trim();
+
+    if (norm === '3' || norm === '2.1') {
+      const flamePath = 'M100 38 C96 52 89 62 83 70 C77 78 73 88 73 98 C73 114 84 124 100 124 C116 124 127 114 127 98 C127 90 123 80 117 72 C112 65 109 58 107 50 C107 50 103 58 103 66 C99 62 97 56 98 50 Z M100 80 C104 88 108 94 108 102 C108 108 104 114 100 114 C96 114 92 108 92 102 C92 94 96 88 100 80 Z';
+      const digit = norm === '2.1' ? '2' : '3';
+      return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="${half},${pad} ${s - pad},${half} ${half},${s - pad} ${pad},${half}" fill="#d32f2f" />
+        <polygon points="${half},${innerPad} ${s - innerPad},${half} ${half},${s - innerPad} ${innerPad},${half}" fill="none" stroke="black" stroke-width="3" />
+        <path d="${flamePath}" fill="black" />
+        <text x="100" y="166" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="bold" text-anchor="middle" fill="black">${digit}</text>
+      </svg>`;
+    }
+
+    return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="${half},${pad} ${s - pad},${half} ${half},${s - pad} ${pad},${half}" fill="#f5f5f5" />
+      <polygon points="${half},${innerPad} ${s - innerPad},${half} ${half},${s - innerPad} ${innerPad},${half}" fill="none" stroke="black" stroke-width="3" />
+      <text x="100" y="115" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="bold" text-anchor="middle" fill="black">ADR ${norm}</text>
+    </svg>`;
+  }
+
+  static getAdrLqSvg(size = 200) {
+    const s = size;
+    const half = s / 2;
+    const innerPad = s * 0.07;
+    const strokeW = s * 0.05;
+    const tY = innerPad + (half - innerPad) * 0.55;
+    const tXLeft = half - (half - innerPad) * 0.55;
+    const tXRight = half + (half - innerPad) * 0.55;
+    const bY = (s - innerPad) - (half - innerPad) * 0.55;
+    const bXLeft = half - (half - innerPad) * 0.55;
+    const bXRight = half + (half - innerPad) * 0.55;
+
+    return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="${half},${innerPad} ${s - innerPad},${half} ${half},${s - innerPad} ${innerPad},${half}" fill="white" stroke="black" stroke-width="${strokeW}" stroke-linejoin="miter" />
+      <polygon points="${half},${innerPad} ${tXRight},${tY} ${tXLeft},${tY}" fill="black" />
+      <polygon points="${half},${s - innerPad} ${bXRight},${bY} ${bXLeft},${bY}" fill="black" />
+    </svg>`;
+  }
+
+  static async generateAdrLabelBuffer(classCode = '3', size = 180) {
+    if (sharp) {
+      try {
+        const svg = this.getAdrLabelSvg(classCode, size);
+        return await sharp(Buffer.from(svg)).png().toBuffer();
+      } catch (err) {
+        console.warn(`[ADRPictogramGenerator] Błąd sharp dla ADR ${classCode}: ${err.message}`);
+      }
+    }
+    const rgba = Buffer.alloc(size * size * 4, 0);
+    const cx = Math.floor(size / 2); const cy = Math.floor(size / 2);
+    const margin = Math.floor(size * 0.08); const maxDist = cx - margin;
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        if (Math.abs(x - cx) + Math.abs(y - cy) <= maxDist) {
+          const idx = (y * size + x) * 4;
+          rgba[idx] = 211; rgba[idx+1] = 47; rgba[idx+2] = 47; rgba[idx+3] = 255;
+        }
+      }
+    }
+    return PurePngEncoder.encodeRGBA(size, size, rgba);
+  }
+
+  static async generateLqMarkBuffer(size = 180) {
+    if (sharp) {
+      try {
+        const svg = this.getAdrLqSvg(size);
+        return await sharp(Buffer.from(svg)).png().toBuffer();
+      } catch (err) {
+        console.warn(`[ADRPictogramGenerator] Błąd sharp dla ADR LQ: ${err.message}`);
+      }
+    }
+    const rgba = Buffer.alloc(size * size * 4, 0);
+    const cx = Math.floor(size / 2); const cy = Math.floor(size / 2);
+    const margin = Math.floor(size * 0.08); const maxDist = cx - margin;
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        if (Math.abs(x - cx) + Math.abs(y - cy) <= maxDist) {
+          const idx = (y * size + x) * 4;
+          rgba[idx] = 255; rgba[idx+1] = 255; rgba[idx+2] = 255; rgba[idx+3] = 255;
+        }
+      }
     }
     return PurePngEncoder.encodeRGBA(size, size, rgba);
   }
@@ -2932,7 +3112,8 @@ class SDSProcessorEngine {
       const classMatch = clean.match(/(?:ADR-Class|Transport hazard class|Klasa)\s*[:\.]?\s*([^\n;]+)/i);
       hazardClass = classMatch && !/N\/?A/i.test(classMatch[1]) ? classMatch[1].trim() : "Brak danych";
     }
-    const s14_3 = `14.3. Klasa(-y) zagrożenia w transporcie\nKlasa ${hazardClass}`;
+    const classDesc = hazardClass === '3' ? " (Materiały ciekłe zapalne)" : "";
+    const s14_3 = `14.3. Klasa(-y) zagrożenia w transporcie\nADR / RID, IMDG, IATA: Klasa ${hazardClass}${classDesc}\nNalepka ostrzegawcza: Nr ${hazardClass}`;
 
     // 14.4 Grupa pakowania
     let packingGroup = adrEntry ? adrEntry.packing_group : "";
@@ -2949,6 +3130,20 @@ class SDSProcessorEngine {
     // 14.6 Szczególne środki ostrożności
     let s14_6 = "14.6. Szczególne środki ostrożności dla użytkowników\n";
     let precDetails = [];
+
+    // Ilości ograniczone (LQ) wg rozdziału 3.4 ADR
+    let lqValue = null;
+    const lqMatch = clean.match(/(?:Limited\s*Quantit(?:ies|y)|Ilości\s*ograniczone|LQ)\s*[:\.]?\s*([0-9]+(?:\s*[a-zA-Z]+|\s*lt|\s*L|\s*kg)?)/i);
+    if (lqMatch) {
+      let rawLq = lqMatch[1].trim();
+      if (/1\s*lt/i.test(rawLq)) rawLq = "1 L";
+      lqValue = rawLq;
+      precDetails.push(`Ilości ograniczone (LQ): ${lqValue}`);
+    } else if (adrEntry && adrEntry.lq) {
+      lqValue = adrEntry.lq;
+      precDetails.push(`Ilości ograniczone (LQ): ${lqValue}`);
+    }
+
     let finalTunnel = adrEntry ? adrEntry.tunnel_code : null;
     const tunnelMatch = clean.match(/(?:Tunnel restriction code|Tunnel|Kod tunelu)\s*[:\.]?\s*(\([A-E](?:\/[A-E])?\)|\b[A-E](?:\/[A-E])?\b)/i);
     if (tunnelMatch) {
@@ -3502,9 +3697,67 @@ class SDSDocxExporter {
         continue;
       }
 
-      lines.forEach(line => {
+      for (const line of lines) {
         const tLine = line.trim();
-        if (!tLine) return;
+        if (!tLine) continue;
+
+        // Sekcja 2.2: Piktogramy określające rodzaj zagrożenia (CLP)
+        if (i === 2 && /Piktogramy określające rodzaj zagrożenia/i.test(tLine)) {
+          sectionsBody.push(new Paragraph({
+            children: [new TextRun({ text: tLine.endsWith(':') ? tLine : tLine + ':', bold: true, size: 20, font: "Arial" })],
+            spacing: { before: 150, after: 80 }
+          }));
+          if (sdsData.ghsPictograms && sdsData.ghsPictograms.length > 0) {
+            const imageRuns = [];
+            for (const code of sdsData.ghsPictograms) {
+              const buffer = await GHSPictogramGenerator.generatePictogramBuffer(code, 180);
+              imageRuns.push(new ImageRun({ data: buffer, transformation: { width: 75, height: 75 } }));
+            }
+            sectionsBody.push(new Paragraph({ children: imageRuns, spacing: { before: 60, after: 100 } }));
+          }
+          continue;
+        }
+
+        // Sekcja 14.3: Klasa(-y) zagrożenia w transporcie & Nalepka ostrzegawcza ADR
+        if (i === 14 && /14\.3\.\s*Klasa/i.test(tLine)) {
+          sectionsBody.push(new Paragraph({
+            children: [new TextRun({ text: tLine, bold: true, size: 20, font: "Arial" })],
+            spacing: { before: 200, after: 80 }
+          }));
+          const adrClassMatch = data.content.match(/Klasa\s*([0-9\.]+)/i);
+          const adrClass = adrClassMatch ? adrClassMatch[1] : '3';
+          const adrBuffer = await ADRPictogramGenerator.generateAdrLabelBuffer(adrClass, 180);
+          sectionsBody.push(new Paragraph({
+            children: [new ImageRun({ data: adrBuffer, transformation: { width: 75, height: 75 } })],
+            spacing: { before: 60, after: 100 }
+          }));
+          continue;
+        }
+
+        // Sekcja 14.6: Ilości ograniczone (LQ) wg 3.4 ADR
+        if (i === 14 && /Ilości ograniczone\s*\(LQ\)/i.test(tLine)) {
+          const idx = tLine.indexOf(':');
+          const headerTxt = idx !== -1 ? tLine.substring(0, idx + 1) : tLine;
+          const valTxt = idx !== -1 ? tLine.substring(idx + 1) : '';
+          sectionsBody.push(new Paragraph({
+            children: [
+              new TextRun({ text: headerTxt, bold: true, size: 20, font: "Arial" }),
+              new TextRun({ text: valTxt, size: 20, font: "Arial" })
+            ],
+            spacing: { before: 80, after: 60 }
+          }));
+          if (!/brak|nie dotyczy|\b0\b/i.test(valTxt)) {
+            const lqBuffer = await ADRPictogramGenerator.generateLqMarkBuffer(180);
+            sectionsBody.push(new Paragraph({
+              children: [
+                new ImageRun({ data: lqBuffer, transformation: { width: 70, height: 70 } }),
+                new TextRun({ text: "  Znak dla towarów pakowanych w ilościach ograniczonych (LQ) zgodnie z działem 3.4 Umowy ADR", italics: true, size: 16, font: "Arial" })
+              ],
+              spacing: { before: 40, after: 80 }
+            }));
+          }
+          continue;
+        }
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
         const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Informacja toksykologiczna w Polsce \(organ doradczy\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):|Właściwości ekotoksykologiczne mieszaniny:|Informacje ekotoksykologiczne o składnikach:|Informacje dotyczące składników:|Substancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:|Zalecenia dotyczące produktu i pozostałości:|Zalecenia dotyczące odpadów opakowaniowych:|Zalecenia dotyczące opakowań:|Klasyfikacja i kody odpadów.+?:|Proponowane kody odpadów.+?:|Krajowe i unijne akty prawne dotyczące gospodarki odpadami:|Prawodawstwo Unii Europejskiej:|Prawodawstwo Rzeczypospolitej Polskiej:|Pełne brzmienie zwrotów H i EUH.+?:|Wykaz klas i kategorii zagrożenia.+?:|Objaśnienie skrótów i akronimów.+?:|Główne źródła literatury i danych:|Zalecenia i wskazówki szkoleniowe.+?:|Informacje o zmianach i aktualizacji:|.+?\(CAS:\s*\d{2,7}-\d{2}-\d\):)$/i.test(tLine);
@@ -3520,13 +3773,6 @@ class SDSDocxExporter {
              children: [new TextRun({ text: tLine, bold: true, size: 20, font: "Arial" })],
              spacing: { before: 150, after: 80 }
            }));
-           if (/Piktogramy określające rodzaj zagrożenia/i.test(tLine) && sdsData.ghsPictograms && sdsData.ghsPictograms.length > 0) {
-             const imageRuns = sdsData.ghsPictograms.map(code => {
-                const buffer = GHSPictogramGenerator.generatePictogramBuffer(code, 150);
-                return new ImageRun({ data: buffer, transformation: { width: 75, height: 75 } });
-             });
-             sectionsBody.push(new Paragraph({ children: imageRuns, spacing: { before: 60, after: 100 } }));
-           }
         } else if (isBoldStart) {
            const idx = tLine.indexOf(':');
            sectionsBody.push(new Paragraph({
@@ -3542,7 +3788,7 @@ class SDSDocxExporter {
              spacing: { after: 80 }
            }));
         }
-      });
+      }
     }
 
     const doc = new Document({
@@ -3604,6 +3850,7 @@ module.exports = {
   SDSChemicalExtractor, 
   PurePngEncoder, 
   GHSPictogramGenerator, 
+  ADRPictogramGenerator,
   HITLError,
   OFFICIAL_CLP_H_PHRASES,
   OFFICIAL_CLP_P_PHRASES,
