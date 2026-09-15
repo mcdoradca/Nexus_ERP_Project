@@ -4,8 +4,9 @@ require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { SDSProcessorEngine, SDSDocxExporter, NDSRegistry } = require('./sds.service');
 const { SDSVerifierAgent } = require('./sds.verifier.agent');
+const { SDSSchemaValidator } = require('./sds.schema.validator');
 
-// Zgodnie z ADR-001 i architekturą Zero-Bypass Agent tłumaczy tylko wyselekcjonowane, bezpieczne sekcje.
+// Zgodnie z ADR-001 i architekturą Zero-Bypass Agent tłumaczy tylko wyselekcjonowane, czysto narracyjne sekcje.
 const SYSTEM_PROMPT = `JESTEŚ ELITARNYM AUDYTOREM CHEMICZNYM I REGULACYJNYM SYSTEMU KART CHARAKTERYSTYKI (SDS) W ŚRODOWISKU ANTIGRAVITY.
 DZIAŁASZ POD RYGOREM ODPOWIEDZIALNOŚCI PRAWNEJ Z ART. 31 ROZPORZĄDZENIA REACH (UE 2020/878).
 
@@ -17,14 +18,10 @@ TWÓJ ZAKRES ODPOWIEDZIALNOŚCI (TRANSLATE_LLM & EXTRACT_RAW):
    - Odpowiedzi muszą być chłodne, precyzyjne i wiernością odpowiadać deklaracjom producenta.
    - Formuły brakujące tłumacz jako "Brak dostępnych danych" lub "Nie dotyczy".
 
-2. INSTRUKCJE DLA POSZCZEGÓLNYCH SEKCJI:
+2. INSTRUKCJE DLA POSZCZEGÓLNYCH SEKCJI NARRACYJNYCH:
    - SEKCJA 1.2 (Zastosowania):
      * "1.2. Istotne zidentyfikowane zastosowania substancji lub mieszaniny oraz zastosowania odradzane"
      * Przetłumacz cel zastosowania (np. odświeżacz powietrza, detergent, płyn do tkanin) oraz zastosowania odradzane.
-   - SEKCJA 4 (Środki pierwszej pomocy):
-     * 4.1. Opis środków pierwszej pomocy: w kontakcie ze skórą, w kontakcie z oczami, w przypadku spożycia (droga pokarmowa), po narażeniu drogą oddechową (inhalacyjnie).
-     * 4.2. Najważniejsze ostre i opóźnione objawy oraz skutki narażenia.
-     * 4.3. Wskazania dotyczące wszelkiej natychmiastowej pomocy lekarskiej i szczególnego postępowania z poszkodowanym.
    - SEKCJA 5 (Postępowanie w przypadku pożaru):
      * 5.1. Środki gaśnicze: odpowiednie środki gaśnicze, niewłaściwe środki gaśnicze.
      * 5.2. Szczególne zagrożenia związane z substancją lub mieszaniną (produkty spalania, rozkład termiczny).
@@ -52,7 +49,7 @@ TWÓJ ZAKRES ODPOWIEDZIALNOŚCI (TRANSLATE_LLM & EXTRACT_RAW):
    - Całkowicie usuń i zignoruj wszelkie nagłówki i stopki stron PDF, numery stron (Page, Strona, n. of), daty oraz powtórzenia nazwy producenta czy produktu w stopkach.
 
 4. FORMAT WYJŚCIOWY:
-   - Zwróć wyłącznie poprawny obiekt JSON, w którym kluczami są identyfikatory sekcji (np. "section_4", "section_5", "section_6", "section_7", "section_10", "section_11", "section_1_2"), a wartościami przetłumaczony, profesjonalnie sformatowany polski tekst.`;
+   - Zwróć wyłącznie poprawny obiekt JSON, w którym kluczami są identyfikatory sekcji: "section_1_2", "section_5", "section_6", "section_7", "section_10", "section_11", a wartościami przetłumaczony, profesjonalnie sformatowany polski tekst.`;
 
 async function processSdsWithAgent(pdfPath, productName, manualOverrides = {}) {
     console.log(`[Agent SDS] Uruchamianie procedury architektonicznej dla: ${productName}`);
@@ -94,7 +91,7 @@ async function processSdsWithAgent(pdfPath, productName, manualOverrides = {}) {
             }
         });
 
-        const prompt = `Przetłumacz na język polski podane sekcje zachowując ich format. Zwróć obiekt JSON, którego kluczami są identyfikatory sekcji (np. "section_4"), a wartościami przetłumaczone teksty.
+        const prompt = `Przetłumacz na język polski podane sekcje narracyjne zachowując ich format. Zwróć obiekt JSON, którego kluczami są identyfikatory sekcji (np. "section_5", "section_6", "section_7", "section_10", "section_11", "section_1_2"), a wartościami przetłumaczone teksty.
 Dane wejściowe do tłumaczenia:
 ${JSON.stringify(agentPayload.descriptiveSectionsToTranslate, null, 2)}`;
 
@@ -109,6 +106,10 @@ ${JSON.stringify(agentPayload.descriptiveSectionsToTranslate, null, 2)}`;
             console.error('Otrzymany tekst:', responseText);
             throw new Error('LLM zwrócił nieprawidłowy format JSON.');
         }
+
+        // BRAMKA JAKOŚCIOWA 1: Rygorystyczna walidacja kontraktu sekcji przetłumaczonych
+        console.log(`[Agent SDS] KROK 2b: Walidacja kontraktu danych sekcji przetłumaczonych (SDSSchemaValidator)...`);
+        SDSSchemaValidator.validateTranslatedSections(translatedJson, agentPayload.descriptiveSectionsToTranslate);
         
         fs.writeFileSync(path.join(process.cwd(), 'agent_translated_sections.json'), JSON.stringify(translatedJson, null, 2));
 
@@ -129,6 +130,10 @@ ${JSON.stringify(agentPayload.descriptiveSectionsToTranslate, null, 2)}`;
         finalData.sections = auditResult.validatedSections;
         finalData.complianceAudit = auditResult.auditLog;
         fs.writeFileSync(path.join(process.cwd(), 'sds_compliance_audit.json'), JSON.stringify(auditResult.auditLog, null, 2));
+
+        // BRAMKA JAKOŚCIOWA 2: Rygorystyczna walidacja kompletnego modelu SDS przed wyrenderowaniem DOCX
+        console.log(`[Agent SDS] KROK 4b: Walidacja kompletnego modelu SDS przed eksportem DOCX (SDSSchemaValidator)...`);
+        SDSSchemaValidator.validateFinalSds(finalData);
         
         // KROK 5: GENEROWANIE DOKUMENTU WORD (.DOCX)
         console.log(`[Agent SDS] KROK 5: Generowanie pliku DOCX...`);

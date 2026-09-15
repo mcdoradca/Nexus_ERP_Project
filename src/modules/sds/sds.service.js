@@ -3594,7 +3594,8 @@ class SDSProcessorEngine {
         toTranslate["section_1_2"] = SDSProcessorEngine.cleanPdfArtifacts(match12[0]);
       }
     }
-    [4, 5, 6, 7, 10, 11].forEach(i => {
+    // Sekcja 4 jest w 100% deterministyczna (dedukcja kliniczna w CLP_MAPPED) - wykluczona z promptu LLM
+    [5, 6, 7, 10, 11].forEach(i => {
       toTranslate[`section_${i}`] = SDSProcessorEngine.cleanPdfArtifacts(rawSections[`section_${i}`]);
     });
 
