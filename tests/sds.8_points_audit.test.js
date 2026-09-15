@@ -209,9 +209,11 @@ async function runAudit() {
   await SDSDocxExporter.export(finalExportData, outDocxPath);
   assert(fs.existsSync(outDocxPath), "Plik DOCX nie został utworzony!");
 
-  // Synchronizacja pliku (9).docx dla pełnej spójności artefaktów
-  const altDocxPath = path.resolve('docs/SDS/Karta_Charakterystyki_8034055535448_SDS_ORCHIDEA_E_VANIGLIA (9).docx');
-  fs.copyFileSync(outDocxPath, altDocxPath);
+  // Synchronizacja plików (9).docx oraz (12).docx dla pełnej spójności artefaktów
+  const altDocxPath9 = path.resolve('docs/SDS/Karta_Charakterystyki_8034055535448_SDS_ORCHIDEA_E_VANIGLIA (9).docx');
+  const altDocxPath12 = path.resolve('docs/SDS/Karta_Charakterystyki_8034055535448_SDS_ORCHIDEA_E_VANIGLIA (12).docx');
+  fs.copyFileSync(outDocxPath, altDocxPath9);
+  fs.copyFileSync(outDocxPath, altDocxPath12);
 
   const AdmZip = require('adm-zip');
   const zip = new AdmZip(outDocxPath);
@@ -232,15 +234,19 @@ async function runAudit() {
   console.log("-> NOWY TEST 6 ZDANY: Dokument DOCX zawiera komplet autentycznych piktogramów bez literówek, a stopka nie zawiera adresu www.");
 
   // NOWY TEST 7: Wersjonowanie i metryka nagłówkowa (Wydanie pierwsze w języku polskim)
-  console.log("\n[NOWY TEST 7] Metryka: Wersja 1.0 PL oraz klauzula 'Zastępuje wersję'...");
+  console.log("\n[NOWY TEST 7] Metryka: Wersja 1.0 PL, Data sporządzenia PL, Aktualizacja: Nie dotyczy...");
+  const todayPl = new Date().toLocaleDateString('pl-PL');
   assert.strictEqual(metadata.version, "1.0 PL", `BŁĄD: Wersja powinna wynosić '1.0 PL', otrzymano: ${metadata.version}`);
+  assert.strictEqual(metadata.compilationDate, todayPl, `BŁĄD: compilationDate powinna wynosić datę bieżącą sporządzenia (${todayPl}), otrzymano: ${metadata.compilationDate}`);
+  assert.strictEqual(metadata.revisionDate, "Nie dotyczy", `BŁĄD: revisionDate dla wydania 1.0 PL powinna wynosić 'Nie dotyczy', otrzymano: ${metadata.revisionDate}`);
   assert.strictEqual(metadata.replacedRevision, "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 14.02.2025 r.)", `BŁĄD: Zastępuje wersję nie zawiera poprawnej klauzuli: ${metadata.replacedRevision}`);
   
-  // Rygorystyczna weryfikacja XML pod kątem autentycznej daty producenta (14.02.2025 r.)
+  // Rygorystyczna weryfikacja XML pod kątem autentycznej daty producenta (14.02.2025 r.) oraz daty polskiej
   assert(xmlContent.includes("opracowane na podstawie SDS producenta z dnia 14.02.2025 r."), "BŁĄD: W dokumencie DOCX brak poprawnej daty producenta 14.02.2025 r.!");
-  const todayPl = new Date().toLocaleDateString('pl-PL');
+  assert(xmlContent.includes("Nie dotyczy"), "BŁĄD: W dokumencie DOCX brak pola 'Aktualizacja: Nie dotyczy'!");
+  assert(xmlContent.includes(todayPl), `BŁĄD: W dokumencie DOCX brak daty sporządzenia polskiej wersji (${todayPl})!`);
   assert(!xmlContent.includes(`opracowane na podstawie SDS producenta z dnia ${todayPl}`), `BŁĄD KRYTYCZNY: Data producenta została zafałszowana bieżącą datą systemową: ${todayPl}!`);
-  console.log(`-> NOWY TEST 7 ZDANY: Wersja: ${metadata.version}, Zastępuje: ${metadata.replacedRevision} (zweryfikowano w XML DOCX).`);
+  console.log(`-> NOWY TEST 7 ZDANY: Wersja: ${metadata.version}, Sporządzenie: ${metadata.compilationDate}, Aktualizacja: ${metadata.revisionDate}, Zastępuje: ${metadata.replacedRevision}`);
 
   // NOWY TEST 8: Sekcja 1.1 - Kod produktu (BLK0033-2)
   console.log("\n[NOWY TEST 8] Sekcja 1.1: Prezentacja kodu produktu...");

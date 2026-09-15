@@ -3524,10 +3524,11 @@ class SDSProcessorEngine {
       }
     }
 
-    const compilationDate = (replMatch && replMatch[0].match(/([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/)) 
-      ? replMatch[0].match(/([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/)[1].replace(/\//g, '.') 
-      : (originalDate || new Date().toLocaleDateString('pl-PL'));
-    const revisionDate = originalDate || new Date().toLocaleDateString('pl-PL');
+    // Metryka formalna karty w języku polskim (Pkt 0.2.5 Załącznika II do REACH - UE 2020/878):
+    // 1. Data sporządzenia: data opracowania polskiej wersji (data bieżąca lub manualOverride)
+    const compilationDate = manualOverrides.compilationDate || new Date().toLocaleDateString('pl-PL');
+    // 2. Aktualizacja: dla wydania 1.0 PL karta nie była jeszcze aktualizowana ("Nie dotyczy"), dla kolejnych wydań data bieżącej aktualizacji
+    const revisionDate = manualOverrides.revisionDate || (!isExplicitSubsequentPolishRevision ? "Nie dotyczy" : new Date().toLocaleDateString('pl-PL'));
 
     const ufi = SDSChemicalExtractor.extractUfi(rawSections["section_1"]);
     const s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
@@ -3731,9 +3732,10 @@ class SDSDocxExporter {
     const sectionsBody = [];
     
     const versionStr = sdsData.version || (sdsData.metadata && sdsData.metadata.version) || "1.0 PL";
+    const isFirstEdition = !sdsData.version || /^1(\.0)?\s*(PL)?$/i.test(versionStr);
     const compilationDate = sdsData.compilationDate || (sdsData.metadata && sdsData.metadata.compilationDate) || new Date().toLocaleDateString('pl-PL');
-    const revisionDate = sdsData.revisionDate || (sdsData.metadata && sdsData.metadata.revisionDate) || new Date().toLocaleDateString('pl-PL');
-    const replacedRevision = sdsData.replacedRevision || (sdsData.metadata && sdsData.metadata.replacedRevision) || "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 14.02.2025 r.)";
+    const revisionDate = sdsData.revisionDate || (sdsData.metadata && sdsData.metadata.revisionDate) || (isFirstEdition ? "Nie dotyczy" : new Date().toLocaleDateString('pl-PL'));
+    const replacedRevision = sdsData.replacedRevision || (sdsData.metadata && sdsData.metadata.replacedRevision) || "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta)";
 
     // 1. Tytuł Główny
     sectionsBody.push(new Paragraph({

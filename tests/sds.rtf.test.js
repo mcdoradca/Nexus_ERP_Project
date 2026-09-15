@@ -322,11 +322,15 @@ H361fd: Sospettato di nuocere alla fertilit\\u224?. Sospettato di nuocere al fet
 
               // Weryfikacja metadanych rewizji i dat producenta z RTF
               assert.strictEqual(realPayload.metadata.replacedRevision, "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 14.02.2025 r.)", `BŁĄD: replacedRevision w RTF nie zawiera daty producenta 14.02.2025: ${realPayload.metadata.replacedRevision}`);
+              const todayPl = new Date().toLocaleDateString('pl-PL');
+              assert.strictEqual(realPayload.metadata.compilationDate, todayPl, "BŁĄD: compilationDate w RTF powinna być datą bieżącą sporządzenia!");
+              assert.strictEqual(realPayload.metadata.revisionDate, "Nie dotyczy", "BŁĄD: revisionDate w RTF dla 1.0 PL powinna wynosić 'Nie dotyczy'!");
               const AdmZip = require('adm-zip');
               const zipRtf = new AdmZip(realDocxPath);
               const xmlRtf = zipRtf.readAsText('word/document.xml');
               assert(xmlRtf.includes("opracowane na podstawie SDS producenta z dnia 14.02.2025 r."), "BŁĄD: DOCX wygenerowany z RTF nie zawiera w XML daty producenta 14.02.2025 r.!");
-              const todayPl = new Date().toLocaleDateString('pl-PL');
+              assert(xmlRtf.includes("Nie dotyczy"), "BŁĄD: DOCX z RTF nie zawiera 'Aktualizacja: Nie dotyczy'!");
+              assert(xmlRtf.includes(todayPl), `BŁĄD: DOCX z RTF nie zawiera daty sporządzenia polskiej karty (${todayPl})!`);
               assert(!xmlRtf.includes(`opracowane na podstawie SDS producenta z dnia ${todayPl}`), `BŁĄD KRYTYCZNY: DOCX z RTF zawiera datę dzisiejszą (${todayPl}) jako datę producenta!`);
 
               console.log("-> TEST 6 PASSED: Rzeczywista karta RTF Orchidea e Vaniglia przetworzona w 100% poprawnie (5/5 składników, NDS, Sekcja 9, DOCX z poprawną datą 14.02.2025 r.).");
