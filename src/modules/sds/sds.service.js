@@ -3103,7 +3103,7 @@ class SDSProcessorEngine {
   }
 
 
-  processSection16(rawContent = "", components = [], s2Content = "") {
+  processSection16(rawContent = "", components = [], s2Content = "", version = "2.0 PL", replacedRevision = "1.0") {
     let clean = SDSProcessorEngine.cleanPdfArtifacts(rawContent);
 
     // 1. Zbieranie unikalnych kodów H i EUH
@@ -3270,7 +3270,16 @@ class SDSProcessorEngine {
     out += "Przed przystąpieniem do pracy z produktem należy zapoznać się z treścią niniejszej karty charakterystyki oraz przepisami BHP obowiązującymi na stanowisku pracy. Pracownicy mający kontakt z produktem powinni zostać przeszkoleni w zakresie prawidłowego i bezpiecznego obchodzenia się z chemikaliami oraz postępowania w sytuacjach awaryjnych.\n\n";
 
     out += "Informacje o zmianach i aktualizacji:\n";
-    out += "Niniejsza karta charakterystyki została opracowana i zaktualizowana zgodnie z wymogami Rozporządzenia Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniającego załącznik II do rozporządzenia (WE) nr 1907/2006 (REACH).\n";
+    out += `Niniejsza karta charakterystyki (wersja ${version || "2.0 PL"}) zastępuje wersję ${replacedRevision || "1.0"}.\n`;
+    out += "Aktualizacja została sporządzona i dostosowana zgodnie z wymogami Rozporządzenia Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniającego załącznik II do rozporządzenia (WE) nr 1907/2006 (REACH) oraz przepisami prawa Rzeczypospolitej Polskiej.\n";
+    out += "Główne zmiany wprowadzone w bieżącej wersji obejmują:\n";
+    out += "- Sekcja 1.3: Aktualizacja danych dostawcy karty w Rzeczypospolitej Polskiej na ITALLUX Sp. z o.o. (ul. Wesoła 16, 63-600 Kępno, www.prostozwloch.pl).\n";
+    out += "- Sekcja 8.1: Weryfikacja i implementacja krajowych norm higienicznych w środowisku pracy (NDS, NDSCh) na podstawie Rozporządzenia MRPiPS (Dz.U. 2018 poz. 1286 z późn. zm.).\n";
+    out += "- Sekcja 11.2 i 12.6: Wdrożenie obligatoryjnych podsekcji dotyczących właściwości zaburzających funkcjonowanie układu hormonalnego.\n";
+    out += "- Sekcja 13: Aktualizacja klasyfikacji i 6-cyfrowych kodów odpadów zgodnie z ustawą o odpadach i Dz.U. 2020 poz. 10.\n";
+    out += "- Sekcja 14: Weryfikacja i zharmonizowanie warunków przewozu zgodnie z Umową ADR.\n\n";
+    out += "Klauzula prawna i ochrona praw autorskich:\n";
+    out += "Niniejsze autorskie opracowanie tłumaczenia, formatowania oraz adaptacji regulacyjnej do prawa polskiego stanowi własność intelektualną firmy ITALLUX Sp. z o.o. Kopiowanie i wykorzystywanie całości lub fragmentów w celach komercyjnych przez podmioty trzecie bez uprzedniej zgody właściciela jest zabronione. Dozwolone jest wykorzystanie dokumentu przez odbiorców w łańcuchu dostaw do celów bezpieczeństwa pracy i ochrony zdrowia.\n\n";
     out += "Informacje zawarte w niniejszej karcie wynikają z aktualnego stanu wiedzy producenta i dystrybutora i odnoszą się wyłącznie do opisanego produktu. Użytkownik ponosi odpowiedzialność za stworzenie bezpiecznych warunków pracy oraz spełnienie wymagań prawnych związanych z jego zastosowaniem.";
 
     return out.trim();
@@ -3281,6 +3290,32 @@ class SDSProcessorEngine {
     const fullText = await SDSDocumentParser.extractText(pdfFilePath, false);
     const rawSections = SDSPDFParser.segmentInto16Sections(fullText);
     
+    // Ekstrakcja metadanych rewizji i dat źródłowych (wg Pkt 0.2.5 Załącznika II do REACH)
+    const revMatch = fullText.match(/(?:Revision\s*(?:nr\.?|no\.?|n\.|:)?\s*|Version\s*(?:nr\.?|no\.?|:)?\s*|Revisione\s*(?:n\.?|nr\.?|:)?\s*)(\d+(?:\.\d+)?)/i);
+    const dateMatch = fullText.match(/(?:Dated|Data\s*compilazione|Date\s*of\s*compilation|Data\s*revisione|Data\s*wydania|Data\s*sporządzenia)[\s:]*([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/i);
+    const replMatch = fullText.match(/(?:Replaced\s*revision|Sostituisce\s*(?:la\s*)?revisione|Zastępuje\s*wersję)[\s:]*([^\n\r]+)/i);
+
+    const originalRevision = revMatch ? revMatch[1] : "1";
+    const originalDate = dateMatch ? dateMatch[1].replace(/\//g, '.') : null;
+    let replacedRevision = replMatch ? replMatch[1].trim() : null;
+    if (replacedRevision) {
+      replacedRevision = replacedRevision
+        .replace(/Dated:/i, 'z dnia')
+        .replace(/Data:/i, 'z dnia')
+        .replace(/\//g, '.');
+      if (!/wersj/i.test(replacedRevision)) {
+        replacedRevision = `Wersja ${replacedRevision}`;
+      }
+    } else {
+      replacedRevision = originalRevision !== "1" ? `Wersja ${parseInt(originalRevision) - 1}.0` : "Brak (wydanie pierwsze)";
+    }
+
+    const version = `${originalRevision !== "1" ? originalRevision : "2"}.0 PL`;
+    const compilationDate = (replMatch && replMatch[0].match(/([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/)) 
+      ? replMatch[0].match(/([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/)[1].replace(/\//g, '.') 
+      : (originalDate || new Date().toLocaleDateString('pl-PL'));
+    const revisionDate = originalDate || new Date().toLocaleDateString('pl-PL');
+
     const ufi = SDSChemicalExtractor.extractUfi(rawSections["section_1"]);
     const s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
     const s2 = this.processSection2(rawSections["section_2"], s3.resolvedSubstances, s3.components);
@@ -3296,7 +3331,7 @@ class SDSProcessorEngine {
     const s13Content = this.processSection13(rawSections["section_13"], s3.components, s2.content, s1Content);
     const s14Content = this.processSection14(rawSections["section_14"]);
     const s15Content = this.processSection15(rawSections["section_15"], s3.components, s1Content, s2.content);
-    const s16Content = this.processSection16(rawSections["section_16"], s3.components, s2.content);
+    const s16Content = this.processSection16(rawSections["section_16"], s3.components, s2.content, version, replacedRevision);
 
     const s2FinalContent = s2.content + "\n\n" + PolishLegalTemplates.getSection2_3(s12Res.endocrineDisruptorInfo);
 
@@ -3339,7 +3374,10 @@ class SDSProcessorEngine {
       metadata: { 
         productName: finalProductName, 
         ufi, 
-        version: "1.0 PL", 
+        version,
+        compilationDate,
+        revisionDate,
+        replacedRevision,
         companyConfig: this.companyConfig,
         components: s3.components,
         ghsPictograms: this.detectedGhsPictograms
@@ -3469,23 +3507,93 @@ class SDSDocxExporter {
 
     const sectionsBody = [];
     
+    const versionStr = sdsData.version || "2.0 PL";
+    const compilationDate = sdsData.compilationDate || (sdsData.metadata && sdsData.metadata.compilationDate) || new Date().toLocaleDateString('pl-PL');
+    const revisionDate = sdsData.revisionDate || (sdsData.metadata && sdsData.metadata.revisionDate) || new Date().toLocaleDateString('pl-PL');
+    const replacedRevision = sdsData.replacedRevision || (sdsData.metadata && sdsData.metadata.replacedRevision) || "1.0";
+
+    // 1. Tytuł Główny
     sectionsBody.push(new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: `Karta Charakterystyki`, bold: true, size: 36 })]
+      children: [new TextRun({ text: `KARTA CHARAKTERYSTYKI`, bold: true, size: 36, font: "Arial" })],
+      spacing: { before: 100, after: 80 }
     }));
+
+    // 2. Podstawa Prawna wg Rozporządzenia (UE) 2020/878
     sectionsBody.push(new Paragraph({
       alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: `[Sporządzona zgodnie z rozporządzeniem WE 1907/2006(REACH) wraz z późn. zm.]`, size: 16 })],
-      spacing: { after: 300 }
+      children: [new TextRun({ 
+        text: `[Sporządzona zgodnie z Rozporządzeniem (WE) nr 1907/2006 (REACH), zmienionym Rozporządzeniem Komisji (UE) 2020/878]`, 
+        size: 16, 
+        italics: true, 
+        color: "444444", 
+        font: "Arial" 
+      })],
+      spacing: { after: 200 }
     }));
-    sectionsBody.push(new Paragraph({
-      alignment: AlignmentType.RIGHT,
-      children: [
-        new TextRun({ text: `Data wystawienia: ${new Date().toLocaleDateString('pl-PL')}`, size: 16 }),
-        new TextRun({ text: `\nWersja: ${sdsData.version}`, size: 16 })
-      ],
-      spacing: { after: 400 }
-    }));
+
+    // 3. Oficjalny Blok Metadanych Dat i Wersji (Zgodnie z Pkt 0.2.5 Załącznika II do REACH)
+    const metaBorder = {
+      top: { style: BorderStyle.SINGLE, size: 6, color: "00A651" },
+      bottom: { style: BorderStyle.SINGLE, size: 6, color: "00A651" },
+      left: { style: BorderStyle.SINGLE, size: 4, color: "D0D5DD" },
+      right: { style: BorderStyle.SINGLE, size: 4, color: "D0D5DD" },
+      insideHorizontal: { style: BorderStyle.NONE },
+      insideVertical: { style: BorderStyle.SINGLE, size: 4, color: "E5E7EB" }
+    };
+
+    const metadataTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: metaBorder,
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              shading: { fill: "F9FAFB" },
+              margins: { top: 100, bottom: 100, left: 150, right: 150 },
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: "Data sporządzenia: ", bold: true, size: 18, font: "Arial" }),
+                    new TextRun({ text: compilationDate, size: 18, font: "Arial" })
+                  ],
+                  spacing: { after: 60 }
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: "Aktualizacja: ", bold: true, size: 18, font: "Arial" }),
+                    new TextRun({ text: revisionDate, size: 18, font: "Arial" })
+                  ]
+                })
+              ]
+            }),
+            new TableCell({
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              shading: { fill: "F9FAFB" },
+              margins: { top: 100, bottom: 100, left: 150, right: 150 },
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: "Wersja: ", bold: true, size: 18, font: "Arial" }),
+                    new TextRun({ text: versionStr, size: 18, font: "Arial" })
+                  ],
+                  spacing: { after: 60 }
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: "Zastępuje wersję: ", bold: true, size: 18, font: "Arial" }),
+                    new TextRun({ text: replacedRevision, size: 18, font: "Arial" })
+                  ]
+                })
+              ]
+            })
+          ]
+        })
+      ]
+    });
+    sectionsBody.push(metadataTable);
+    sectionsBody.push(new Paragraph({ text: "", spacing: { after: 200 } }));
 
     for (let i = 1; i <= 16; i++) {
       const data = sdsData.sections[`section_${i}`];
@@ -3677,7 +3785,7 @@ class SDSDocxExporter {
         }
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
-        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Informacja toksykologiczna w Polsce \(organ doradczy\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):|Właściwości ekotoksykologiczne mieszaniny:|Informacje ekotoksykologiczne o składnikach:|Informacje dotyczące składników:|Substancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:|Zalecenia dotyczące produktu i pozostałości:|Zalecenia dotyczące odpadów opakowaniowych:|Zalecenia dotyczące opakowań:|Klasyfikacja i kody odpadów.+?:|Proponowane kody odpadów.+?:|Krajowe i unijne akty prawne dotyczące gospodarki odpadami:|Prawodawstwo Unii Europejskiej:|Prawodawstwo Rzeczypospolitej Polskiej:|Pełne brzmienie zwrotów H i EUH.+?:|Wykaz klas i kategorii zagrożenia.+?:|Objaśnienie skrótów i akronimów.+?:|Główne źródła literatury i danych:|Zalecenia i wskazówki szkoleniowe.+?:|Informacje o zmianach i aktualizacji:|.+?\(CAS:\s*\d{2,7}-\d{2}-\d\):)$/i.test(tLine);
+        const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Informacja toksykologiczna w Polsce \(organ doradczy\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):|Właściwości ekotoksykologiczne mieszaniny:|Informacje ekotoksykologiczne o składnikach:|Informacje dotyczące składników:|Substancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:|Zalecenia dotyczące produktu i pozostałości:|Zalecenia dotyczące odpadów opakowaniowych:|Zalecenia dotyczące opakowań:|Klasyfikacja i kody odpadów.+?:|Proponowane kody odpadów.+?:|Krajowe i unijne akty prawne dotyczące gospodarki odpadami:|Prawodawstwo Unii Europejskiej:|Prawodawstwo Rzeczypospolitej Polskiej:|Pełne brzmienie zwrotów H i EUH.+?:|Wykaz klas i kategorii zagrożenia.+?:|Objaśnienie skrótów i akronimów.+?:|Główne źródła literatury i danych:|Zalecenia i wskazówki szkoleniowe.+?:|Informacje o zmianach i aktualizacji:|Klauzula prawna i ochrona praw autorskich:|.+?\(CAS:\s*\d{2,7}-\d{2}-\d\):)$/i.test(tLine);
         const isBoldStart = /^(Firma|Adres|Strona www|E-mail|Telefon|Telefon alarmowy przedsiębiorstwa|Krajowe Centrum Informacji Toksykologicznej.+?|Ośrodek Informacji Toksykologicznej.+?|Ogólne telefony ratunkowe.+?|Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria|Stan skupienia|Kolor|Zapach|Temperatura topnienia\/krzepnięcia|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Palność materiałów|Dolna i górna granica wybuchowości|Temperatura zapłonu|Temperatura samozapłonu|Temperatura rozkładu|pH|Lepkość kinematyczna|Rozpuszczalność w wodzie|Rozpuszczalność w innych rozpuszczalnikach|Współczynnik podziału n-oktanol\/woda \(wartość współczynnika log\)|Prężność pary|Gęstość lub gęstość względna|Względna gęstość pary|Charakterystyka cząsteczek|Lotne Związki Organiczne \(LZO \/ VOC\)|a\)\s*Ostra toksyczność dla środowiska wodnego|b\)\s*Przewlekła toksyczność dla środowiska wodnego|Współczynnik biokoncentracji \(BCF\)|Współczynnik podziału n-oktanol\/woda \(log Kow\)|Kod ograniczeń przewozu przez tunele|Kategoria transportowa|Ilości ograniczone \(LQ\)|Ilości wyłączone \(EQ\)|Nalepka ostrzegawcza|Numer rozpoznawczy zagrożenia|Odpady z produktu.+?|Odpady opakowaniowe|Substancje wzbudzające szczególnie duże obawy.+?|Ograniczenia dotyczące produkcji.+?|H\d{3}[a-zA-Z]?|EUH\d{3}|Acute Tox\..+?|Skin Corr\..+?|Skin Irrit\..+?|Eye Dam\..+?|Eye Irrit\..+?|Skin Sens\..+?|Resp\. Sens\..+?|Flam\. Liq\..+?|Flam\. Sol\..+?|Aerosol.+?|Asp\. Tox\..+?|STOT SE.+?|STOT RE.+?|Aquatic Acute.+?|Aquatic Chronic.+?|ADR|RID|IMDG|IATA|ICAO|CLP|REACH|GHS|CAS|WE|NDS|NDSCh|NDSP|vPvB|SVHC|log Kow|LD50|LC50|EC50|NOEC|SCL|BDO|ECHA|Mieszanina|Uwaga):/i.test(tLine);
 
         if (isSubSection) {
@@ -3722,20 +3830,34 @@ class SDSDocxExporter {
         properties: { page: { margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } } },
         headers: {
           default: new Header({
-            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `SDS | ${sdsData.productName}`, font: "Arial" })] })]
+            children: [
+              new Paragraph({ 
+                alignment: AlignmentType.RIGHT, 
+                border: { bottom: { color: "E5E7EB", space: 4, value: BorderStyle.SINGLE, size: 4 } },
+                spacing: { after: 120 },
+                children: [
+                  new TextRun({ text: `KARTA CHARAKTERYSTYKI | ${sdsData.productName} | Wersja: ${versionStr}`, font: "Arial", size: 16, color: "555555" })
+                ] 
+              })
+            ]
           })
         },
         footers: {
           default: new Footer({
-            children: [new Paragraph({
-              alignment: AlignmentType.RIGHT,
-              children: [
-                new TextRun({ text: "Strona ", font: "Arial" }),
-                new TextRun({ children: [PageNumber.CURRENT], font: "Arial" }),
-                new TextRun({ text: " z ", font: "Arial" }),
-                new TextRun({ children: [PageNumber.TOTAL_PAGES], font: "Arial" })
-              ]
-            })]
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                border: { top: { color: "E5E7EB", space: 4, value: BorderStyle.SINGLE, size: 4 } },
+                spacing: { before: 120 },
+                children: [
+                  new TextRun({ text: "Dystrybutor: ITALLUX Sp. z o.o. (www.prostozwloch.pl) | ", font: "Arial", size: 16, color: "555555" }),
+                  new TextRun({ text: "Strona ", font: "Arial", size: 16, color: "555555" }),
+                  new TextRun({ children: [PageNumber.CURRENT], font: "Arial", size: 16, color: "555555" }),
+                  new TextRun({ text: " z ", font: "Arial", size: 16, color: "555555" }),
+                  new TextRun({ children: [PageNumber.TOTAL_PAGES], font: "Arial", size: 16, color: "555555" })
+                ]
+              })
+            ]
           })
         },
         children: sectionsBody
