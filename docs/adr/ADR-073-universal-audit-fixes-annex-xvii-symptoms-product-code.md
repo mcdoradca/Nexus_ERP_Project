@@ -27,7 +27,8 @@ Podczas audytu prawnego wygenerowanych kart charakterystyki SDS zidentyfikowano 
 
 3. **Deterministyczna Metryka Wersjonowania:**
    - W `prepareAgentPayload` domyślną wersją jest `1.0 PL`.
-   - `replacedRevision` przyjmuje formułę: `Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta – rewizja nr ${originalRevision} z dnia ${originalDate} r.)`.
+   - `replacedRevision` przyjmuje ścisłą formułę: `Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia ${originalDate} r.)`.
+   - W Sekcji 16 wygładzono zwrot wprowadzający dla pierwszego wydania w języku polskim.
 
 4. **Dwupoziomowy Ekstraktor Kodu Produktu:**
    - Ekstrakcja z nagłówków/sekcji 1.1 oraz pełnego tekstu dokumentu (`Trade code`, `Codice prodotto`, `Code:`, itp.).
@@ -40,6 +41,9 @@ Podczas audytu prawnego wygenerowanych kart charakterystyki SDS zidentyfikowano 
 
 6. **Uniwersalny Deduplikator w `polonizeToxicologicalSection`:**
    - Usunięcie zduplikowanych etykiet `LC50 / LD50` i normalizacja oznaczeń ssaczych (szczur).
+
+7. **Czystość Wizualna Stopek Dokumentu DOCX:**
+   - Usunięcie adresu URL `(www.prostozwloch.pl)` ze stopek stron dokumentu Word, pozostawiając oficjalne oznaczenie: `Dystrybutor: ITALLUX Sp. z o.o. | Strona X z Y`.
 
 ## Skutki i Weryfikacja
 - Wszystkie 12 punktów audytu w `tests/sds.8_points_audit.test.js` zakończone sukcesem.

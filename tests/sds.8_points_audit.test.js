@@ -216,12 +216,18 @@ async function runAudit() {
   assert(!xmlContent.includes('GH02'), "BŁĄD: W dokumencie pozostał błędny kod GH02 zamiast GHS02!");
   assert(xmlContent.includes('Nalepka ostrzegawcza: Nr 3') || xmlContent.includes('Klasa 3'), "BŁĄD: Brak nalepki ostrzegawczej w sekcji 14.3!");
   assert(xmlContent.includes('Ilości ograniczone (LQ)'), "BŁĄD: Brak informacji o ilościach ograniczonych (LQ) w sekcji 14.6!");
-  console.log("-> NOWY TEST 6 ZDANY: Dokument DOCX zawiera komplet autentycznych piktogramów (GHS02, GHS07, ADR Nalepka 3, Znak LQ) bez literówek.");
+  const footerEntries = zip.getEntries().filter(e => /word\/footer\d*\.xml/i.test(e.entryName));
+  footerEntries.forEach(entry => {
+    const footerXml = zip.readAsText(entry.entryName);
+    assert(!footerXml.includes('www.prostozwloch.pl'), `BŁĄD: W stopce ${entry.entryName} pozostał adres www.prostozwloch.pl!`);
+    assert(footerXml.includes('Dystrybutor: ITALLUX Sp. z o.o.'), `BŁĄD: Brak nazwy dystrybutora w stopce!`);
+  });
+  console.log("-> NOWY TEST 6 ZDANY: Dokument DOCX zawiera komplet autentycznych piktogramów bez literówek, a stopka nie zawiera adresu www.");
 
   // NOWY TEST 7: Wersjonowanie i metryka nagłówkowa (Wydanie pierwsze w języku polskim)
   console.log("\n[NOWY TEST 7] Metryka: Wersja 1.0 PL oraz klauzula 'Zastępuje wersję'...");
   assert.strictEqual(metadata.version, "1.0 PL", `BŁĄD: Wersja powinna wynosić '1.0 PL', otrzymano: ${metadata.version}`);
-  assert(/Brak\s*\(wydanie pierwsze w języku polskim/i.test(metadata.replacedRevision), `BŁĄD: Zastępuje wersję nie zawiera poprawnej klauzuli: ${metadata.replacedRevision}`);
+  assert.strictEqual(metadata.replacedRevision, "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 14.02.2025 r.)", `BŁĄD: Zastępuje wersję nie zawiera poprawnej klauzuli: ${metadata.replacedRevision}`);
   console.log(`-> NOWY TEST 7 ZDANY: Wersja: ${metadata.version}, Zastępuje: ${metadata.replacedRevision}`);
 
   // NOWY TEST 8: Sekcja 1.1 - Kod produktu (BLK0033-2)

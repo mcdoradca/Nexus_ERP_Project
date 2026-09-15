@@ -3412,7 +3412,11 @@ class SDSProcessorEngine {
     out += "Przed przystąpieniem do pracy z produktem należy zapoznać się z treścią niniejszej karty charakterystyki oraz przepisami BHP obowiązującymi na stanowisku pracy. Pracownicy mający kontakt z produktem powinni zostać przeszkoleni w zakresie prawidłowego i bezpiecznego obchodzenia się z chemikaliami oraz postępowania w sytuacjach awaryjnych.\n\n";
 
     out += "Informacje o zmianach i aktualizacji:\n";
-    out += `Niniejsza karta charakterystyki (wersja ${version || "2.0 PL"}) zastępuje wersję ${replacedRevision || "1.0"}.\n`;
+    if (/Brak\s*\(wydanie pierwsze/i.test(replacedRevision)) {
+      out += `Niniejsza karta charakterystyki (wersja ${version || "1.0 PL"}) stanowi wydanie pierwsze w języku polskim, opracowane na podstawie karty charakterystyki SDS producenta.\n`;
+    } else {
+      out += `Niniejsza karta charakterystyki (wersja ${version || "1.0 PL"}) zastępuje wersję ${replacedRevision || "1.0"}.\n`;
+    }
     out += "Aktualizacja została sporządzona i dostosowana zgodnie z wymogami Rozporządzenia Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniającego załącznik II do rozporządzenia (WE) nr 1907/2006 (REACH) oraz przepisami prawa Rzeczypospolitej Polskiej.\n";
     out += "Główne zmiany wprowadzone w bieżącej wersji obejmują:\n";
     out += "- Sekcja 1.3: Aktualizacja danych dostawcy karty w Rzeczypospolitej Polskiej na ITALLUX Sp. z o.o. (ul. Wesoła 16, 63-600 Kępno, www.prostozwloch.pl).\n";
@@ -3456,7 +3460,7 @@ class SDSProcessorEngine {
     const isExplicitSubsequentPolishRevision = manualOverrides.version && !/^1(\.0)?\s*(PL)?$/i.test(manualOverrides.version);
     const version = manualOverrides.version || "1.0 PL";
     const finalReplacedRevision = manualOverrides.replacedRevision || (!isExplicitSubsequentPolishRevision
-      ? `Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta – rewizja nr ${originalRevision} z dnia ${originalDate || new Date().toLocaleDateString('pl-PL')} r.)`
+      ? `Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia ${originalDate || new Date().toLocaleDateString('pl-PL')} r.)`
       : (replacedRevision || "Brak"));
 
     const compilationDate = (replMatch && replMatch[0].match(/([0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4})/)) 
@@ -4015,7 +4019,7 @@ class SDSDocxExporter {
                 border: { top: { color: "E5E7EB", space: 4, value: BorderStyle.SINGLE, size: 4 } },
                 spacing: { before: 120 },
                 children: [
-                  new TextRun({ text: "Dystrybutor: ITALLUX Sp. z o.o. (www.prostozwloch.pl) | ", font: "Arial", size: 16, color: "555555" }),
+                  new TextRun({ text: "Dystrybutor: ITALLUX Sp. z o.o. | ", font: "Arial", size: 16, color: "555555" }),
                   new TextRun({ text: "Strona ", font: "Arial", size: 16, color: "555555" }),
                   new TextRun({ children: [PageNumber.CURRENT], font: "Arial", size: 16, color: "555555" }),
                   new TextRun({ text: " z ", font: "Arial", size: 16, color: "555555" }),
