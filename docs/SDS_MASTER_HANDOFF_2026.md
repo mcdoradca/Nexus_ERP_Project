@@ -55,7 +55,7 @@ flowchart TD
 
 1. **Sekcja 1: Identyfikacja substancji/mieszaniny i przedsiębiorstwa**
    - *1.1 (Nazwa handlowa):* Wyciągana z karty PDF jako SSOT (priorytet przed nazwą pliku, tarcza anty-plikowa). Nazwa podlega polonizacji algorytmem Split-Translate: człon marki zostaje w oryginale (np. `SWEET HOME LAYALI`), a po myślniku tłumaczona jest kategoria i wariant (np. `LULWA PERFUMY DO TKANIN I POMIESZCZEŃ`).
-   - *1.3 (Dostawca):* Zgodnie z art. 31 REACH wyłącznie podmiot wprowadzający do obrotu w RP (domyślnie `MITRANS Weronika Grzesiak`, konfigurowalny przez `companyConfig` / env).
+   - *1.3 (Dostawca):* Zgodnie z art. 31 REACH wyłącznie podmiot wprowadzający do obrotu w RP (domyślnie `ITALLUX Sp. z o.o.`, konfigurowalny przez `companyConfig` / env).
    - *1.4 (Telefon alarmowy):* Architektura 3-członowa: telefon przedsiębiorstwa z godzinami pracy (Pn–Pt 8:00–16:00), urzędowe organy doradcze w Polsce (Krajowe Centrum Informacji Toksykologicznej w Łodzi tel. +48 42 631 47 24 oraz Ośrodek Informacji Toksykologicznej w Warszawie tel. +48 22 619 66 54) oraz telefony ratunkowe (112, 998, 999).
 2. **Sekcja 2: Identyfikacja zagrożeń**
    - Klasyfikacja CLP, piktogramy GHS, hasła ostrzegawcze, zwroty H i P.

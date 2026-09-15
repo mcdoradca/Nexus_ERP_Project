@@ -1219,16 +1219,18 @@ class ECHAFreeResolver {
 // ============================================================================
 class PolishLegalTemplates {
   static getSection1_3(companyConfig = {}) {
-    const compName = companyConfig.companyName || "MITRANS Weronika Grzesiak";
+    const compName = companyConfig.companyName || "ITALLUX Sp. z o.o.";
     const compAddress = companyConfig.address || "ul. Wesoła 16";
-    const compCity = companyConfig.city ? `${companyConfig.postalCode ? companyConfig.postalCode + " " : ""}${companyConfig.city}` : "63-600 Kępno, woj. wielkopolskie";
-    const compEmail = companyConfig.email || "kontakt@prostozwloch.com.pl";
+    const compCity = companyConfig.city ? `${companyConfig.postalCode ? companyConfig.postalCode + " " : ""}${companyConfig.city}` : "63-600 Kępno";
+    const compWebsite = companyConfig.website || "www.prostozwloch.pl";
+    const compEmail = companyConfig.email || "kontakt@prostozwloch.pl";
     const compPhone = companyConfig.phone || companyConfig.emergencyPhone || "+48 663116607";
 
     return (
       "1.3. Dane dotyczące dostawcy karty charakterystyki\n" +
       `Firma: ${compName}\n` +
       `Adres: ${compAddress}, ${compCity}\n` +
+      `Strona www: ${compWebsite}\n` +
       `E-mail: ${compEmail}\n` +
       `Telefon: ${compPhone}`
     );
@@ -2085,16 +2087,18 @@ class SDSProcessorEngine {
     }
 
     // 1.3. Dane dotyczące dostawcy karty charakterystyki
-    const compName = this.companyConfig.companyName || "MITRANS Weronika Grzesiak";
+    const compName = this.companyConfig.companyName || "ITALLUX Sp. z o.o.";
     const compAddress = this.companyConfig.address || "ul. Wesoła 16";
-    const compCity = this.companyConfig.city ? `${this.companyConfig.postalCode ? this.companyConfig.postalCode + " " : ""}${this.companyConfig.city}` : "63-600 Kępno, woj. wielkopolskie";
-    const compEmail = this.companyConfig.email || "kontakt@prostozwloch.com.pl";
+    const compCity = this.companyConfig.city ? `${this.companyConfig.postalCode ? this.companyConfig.postalCode + " " : ""}${this.companyConfig.city}` : "63-600 Kępno";
+    const compWebsite = this.companyConfig.website || "www.prostozwloch.pl";
+    const compEmail = this.companyConfig.email || "kontakt@prostozwloch.pl";
     const compPhone = this.companyConfig.phone || this.companyConfig.emergencyPhone || "+48 663116607";
     const emergPhone = this.companyConfig.emergencyPhone || compPhone;
 
     let s13 = "1.3. Dane dotyczące dostawcy karty charakterystyki\n";
     s13 += `Firma: ${compName}\n`;
     s13 += `Adres: ${compAddress}, ${compCity}\n`;
+    s13 += `Strona www: ${compWebsite}\n`;
     s13 += `E-mail: ${compEmail}\n`;
     s13 += `Telefon: ${compPhone}`;
 
@@ -3674,7 +3678,7 @@ class SDSDocxExporter {
 
         const isSubSection = /^(\d+\.\d+(\.\d+)?\.?)\s+/.test(tLine);
         const isLabelHeader = /^(Piktogramy określające rodzaj zagrożenia i hasło ostrzegawcze|Nazwy niebezpiecznych substancji wymienione na etykiecie|Zwroty wskazujące rodzaj zagrożenia|Zwroty wskazujące środki ostrożności|Informacje uzupełniające|Informacja toksykologiczna w Polsce \(organ doradczy\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Polska\):|Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy \(Dz\.U\. 2018 poz\. 1286 z późn\. zm\.\):|Wspólnotowe i zagraniczne dopuszczalne wartości narażenia zawodowego \(OEL\):|Masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu \(3:1\) \(CAS: 55965-84-9\):|Właściwości ekotoksykologiczne mieszaniny:|Informacje ekotoksykologiczne o składnikach:|Informacje dotyczące składników:|Substancje zaburzające funkcjonowanie układu hormonalnego w odniesieniu do środowiska:|Zalecenia dotyczące produktu i pozostałości:|Zalecenia dotyczące odpadów opakowaniowych:|Zalecenia dotyczące opakowań:|Klasyfikacja i kody odpadów.+?:|Proponowane kody odpadów.+?:|Krajowe i unijne akty prawne dotyczące gospodarki odpadami:|Prawodawstwo Unii Europejskiej:|Prawodawstwo Rzeczypospolitej Polskiej:|Pełne brzmienie zwrotów H i EUH.+?:|Wykaz klas i kategorii zagrożenia.+?:|Objaśnienie skrótów i akronimów.+?:|Główne źródła literatury i danych:|Zalecenia i wskazówki szkoleniowe.+?:|Informacje o zmianach i aktualizacji:|.+?\(CAS:\s*\d{2,7}-\d{2}-\d\):)$/i.test(tLine);
-        const isBoldStart = /^(Firma|Adres|E-mail|Telefon|Telefon alarmowy przedsiębiorstwa|Krajowe Centrum Informacji Toksykologicznej.+?|Ośrodek Informacji Toksykologicznej.+?|Ogólne telefony ratunkowe.+?|Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria|Stan skupienia|Kolor|Zapach|Temperatura topnienia\/krzepnięcia|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Palność materiałów|Dolna i górna granica wybuchowości|Temperatura zapłonu|Temperatura samozapłonu|Temperatura rozkładu|pH|Lepkość kinematyczna|Rozpuszczalność w wodzie|Rozpuszczalność w innych rozpuszczalnikach|Współczynnik podziału n-oktanol\/woda \(wartość współczynnika log\)|Prężność pary|Gęstość lub gęstość względna|Względna gęstość pary|Charakterystyka cząsteczek|Lotne Związki Organiczne \(LZO \/ VOC\)|a\)\s*Ostra toksyczność dla środowiska wodnego|b\)\s*Przewlekła toksyczność dla środowiska wodnego|Współczynnik biokoncentracji \(BCF\)|Współczynnik podziału n-oktanol\/woda \(log Kow\)|Kod ograniczeń przewozu przez tunele|Kategoria transportowa|Ilości ograniczone \(LQ\)|Ilości wyłączone \(EQ\)|Nalepka ostrzegawcza|Numer rozpoznawczy zagrożenia|Odpady z produktu.+?|Odpady opakowaniowe|Substancje wzbudzające szczególnie duże obawy.+?|Ograniczenia dotyczące produkcji.+?|H\d{3}[a-zA-Z]?|EUH\d{3}|Acute Tox\..+?|Skin Corr\..+?|Skin Irrit\..+?|Eye Dam\..+?|Eye Irrit\..+?|Skin Sens\..+?|Resp\. Sens\..+?|Flam\. Liq\..+?|Flam\. Sol\..+?|Aerosol.+?|Asp\. Tox\..+?|STOT SE.+?|STOT RE.+?|Aquatic Acute.+?|Aquatic Chronic.+?|ADR|RID|IMDG|IATA|ICAO|CLP|REACH|GHS|CAS|WE|NDS|NDSCh|NDSP|vPvB|SVHC|log Kow|LD50|LC50|EC50|NOEC|SCL|BDO|ECHA|Mieszanina|Uwaga):/i.test(tLine);
+        const isBoldStart = /^(Firma|Adres|Strona www|E-mail|Telefon|Telefon alarmowy przedsiębiorstwa|Krajowe Centrum Informacji Toksykologicznej.+?|Ośrodek Informacji Toksykologicznej.+?|Ogólne telefony ratunkowe.+?|Nazwa handlowa|Kod produktu|UFI|Zastosowanie zidentyfikowane|Zastosowania odradzane|Hasło ostrzegawcze|Zwroty wskazujące|Piktogramy|DNEL|PNEC|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową|Leczenie|Odpowiednie środki gaśnicze|Niewłaściwe środki gaśnicze|Szczególne zagrożenia|Środki ochrony strażaków|Dla osób nienależących do personelu udzielającego pomocy|Dla osób udzielających pomocy|Odpowiedni materiał do zbierania|Środki ostrożności|Zalecenia dotyczące ogólnej higieny pracy|Materiały niezgodne|Wskazówki dotyczące pomieszczeń magazynowych|Rozwiązania specyficzne dla sektora przemysłowego|Wartości DNEL i PNEC|Zalecane procedury monitorowania|Ochrona oczu|Ochrona skóry|Ochrona rąk|Ochrona dróg oddechowych|Zagrożenia termiczne|Kontrola narażenia środowiska|Środki higieniczne i techniczne|Austria|Stan skupienia|Kolor|Zapach|Temperatura topnienia\/krzepnięcia|Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia|Palność materiałów|Dolna i górna granica wybuchowości|Temperatura zapłonu|Temperatura samozapłonu|Temperatura rozkładu|pH|Lepkość kinematyczna|Rozpuszczalność w wodzie|Rozpuszczalność w innych rozpuszczalnikach|Współczynnik podziału n-oktanol\/woda \(wartość współczynnika log\)|Prężność pary|Gęstość lub gęstość względna|Względna gęstość pary|Charakterystyka cząsteczek|Lotne Związki Organiczne \(LZO \/ VOC\)|a\)\s*Ostra toksyczność dla środowiska wodnego|b\)\s*Przewlekła toksyczność dla środowiska wodnego|Współczynnik biokoncentracji \(BCF\)|Współczynnik podziału n-oktanol\/woda \(log Kow\)|Kod ograniczeń przewozu przez tunele|Kategoria transportowa|Ilości ograniczone \(LQ\)|Ilości wyłączone \(EQ\)|Nalepka ostrzegawcza|Numer rozpoznawczy zagrożenia|Odpady z produktu.+?|Odpady opakowaniowe|Substancje wzbudzające szczególnie duże obawy.+?|Ograniczenia dotyczące produkcji.+?|H\d{3}[a-zA-Z]?|EUH\d{3}|Acute Tox\..+?|Skin Corr\..+?|Skin Irrit\..+?|Eye Dam\..+?|Eye Irrit\..+?|Skin Sens\..+?|Resp\. Sens\..+?|Flam\. Liq\..+?|Flam\. Sol\..+?|Aerosol.+?|Asp\. Tox\..+?|STOT SE.+?|STOT RE.+?|Aquatic Acute.+?|Aquatic Chronic.+?|ADR|RID|IMDG|IATA|ICAO|CLP|REACH|GHS|CAS|WE|NDS|NDSCh|NDSP|vPvB|SVHC|log Kow|LD50|LC50|EC50|NOEC|SCL|BDO|ECHA|Mieszanina|Uwaga):/i.test(tLine);
 
         if (isSubSection) {
            sectionsBody.push(new Paragraph({

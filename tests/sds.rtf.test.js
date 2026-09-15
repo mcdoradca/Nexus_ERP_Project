@@ -204,10 +204,11 @@ H361fd: Sospettato di nuocere alla fertilit\\u224?. Sospettato di nuocere al fet
   fs.writeFileSync(fullSdsPath, fullRtfSds, 'binary');
 
   const engine = new SDSProcessorEngine({
-    companyName: "MITRANS Weronika Grzesiak",
+    companyName: "ITALLUX Sp. z o.o.",
     address: "ul. Wesoła 16",
     city: "63-600 Kępno",
-    email: "kontakt@prostozwloch.com.pl",
+    website: "www.prostozwloch.pl",
+    email: "kontakt@prostozwloch.pl",
     phone: "+48 663116607",
     emergencyPhone: "+48 663116607"
   });

@@ -60,10 +60,11 @@ async function processSdsWithAgent(pdfPath, productName, manualOverrides = {}) {
     try {
         // Konfiguracja firmy z bazy / env
         const companyConfig = {
-            companyName: process.env.COMPANY_NAME || "MITRANS Weronika Grzesiak",
+            companyName: process.env.COMPANY_NAME || "ITALLUX Sp. z o.o.",
             address: process.env.COMPANY_ADDRESS || "ul. Wesoła 16",
-            city: process.env.COMPANY_CITY || "63-600 Kępno, woj. wielkopolskie",
-            email: process.env.COMPANY_EMAIL || "kontakt@prostozwloch.com.pl",
+            city: process.env.COMPANY_CITY || "63-600 Kępno",
+            website: process.env.COMPANY_WEBSITE || "www.prostozwloch.pl",
+            email: process.env.COMPANY_EMAIL || "kontakt@prostozwloch.pl",
             phone: process.env.COMPANY_PHONE || "+48 663116607",
             emergencyPhone: process.env.COMPANY_EMERGENCY_PHONE || process.env.COMPANY_PHONE || "+48 663116607"
         };
