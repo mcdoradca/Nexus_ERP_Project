@@ -1,10 +1,26 @@
 # DOKUMENT PRZEKAZANIA PROJEKTU (AGENT HANDOFF)
 ## Moduł: Bezpieczeństwo Chemiczne i Generator Kart Charakterystyki (SDS / MSDS)
-**Data sporządzenia:** 2026-09-14  
-**Status modułu:** PRODUKCYJNY (PRODUCTION-READY, 100% COMPLIANT)  
-**Kluczowe akty prawne:** Rozporządzenie Komisji (UE) 2020/878 (Załącznik II do REACH), Rozporządzenie (WE) nr 1272/2008 (CLP), Dz.U. 2024 poz. 1017 (NDS), Dz.U. 2020 poz. 10 (Odpady), Umowa ADR 2023–2025.  
-**Stan testów:** 122/122 testów systemowych PASSED (`npm test`), 7/7 testów prawno-chemicznych PASSED (`tests/sds.compliance.test.js`).  
-**Środowisko:** Node.js, Express, Google Generative AI (`gemini-3.8-flash`), DOCX Generator, Apify ECHA Scraper, PubChem API.
+**Data sporządzenia:** 2026-09-15  
+**Status modułu:** WDROŻENIE ADR-073 (WYMAGANY AUDYT REWIZYJNY PO ZMIANACH W NOWEJ SESJI)  
+**Kluczowe akty prawne:** Rozporządzenie Komisji (UE) 2020/878 (Załącznik II do REACH), Rozporządzenie (WE) nr 1272/2008 (CLP), Dz.U. 2024 poz. 1017 (NDS), Dz.U. 2020 poz. 10 (Odpady), Umowa ADR 2023–2025, Dz.U. 2016 poz. 138 (Seveso III).  
+**Stan testów:** 122/122 testów systemowych PASSED (`npm test`), 7/7 testów prawno-chemicznych PASSED (`tests/sds.compliance.test.js`), 12/12 punktów audytu PASSED (`tests/sds.8_points_audit.test.js`), 6/6 testów RTF PASSED (`tests/sds.rtf.test.js`).  
+**Środowisko:** Node.js, Express, Google Generative AI (`gemini-3.8-flash`), DOCX Generator, Sharp, PurePngEncoder.
+
+---
+
+### ⚠️ PILNE ZADANIE DLA NOWEGO AGENTA W NOWEJ SESJI:
+Użytkownik zgłosił: *"Nie wszystkie wprowadzone zmiany zostały wprowadzone w sposób prawidłowy, dodatkowo nastąpiło pogorszenie jakości tłumaczenia i błędy w sekcjach w których już wcześniej było wszystko w porządku."*
+
+**Priorytety audytowe do wykonania w nowej sesji od zaraz:**
+1. **Audyt jakości tłumaczenia w sekcjach narracyjnych:**
+   - Sprawdź wygenerowany dokument `docs/SDS/Karta_Charakterystyki_8034055535448_SDS_ORCHIDEA_E_VANIGLIA_V2_PL.docx` oraz kod w `sds.service.js`.
+   - Zbadaj Sekcję 4: czy deterministyczne szablony objawów 4.2 i porady 4.1 / 4.3 nie zastąpiły lub nie uszkodziły specyficznych informacji z włoskiego oryginału.
+   - Zbadaj Sekcje 5, 6, 7, 10, 11: czy tłumaczenie z `SDSTranslatorAgent` nie utraciło płynności, nie wprowadziło kalk językowych lub artefaktów.
+2. **Weryfikacja metryki nagłówkowej i stopek:**
+   - Upewnij się, że nagłówek zawiera: `Wersja: 1.0 PL`, a pole `Zastępuje wersję` ma postać: `Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia [odczytana data] r.)`.
+   - Upewnij się, że ze stopek usunięto adres `www.prostozwloch.pl` (zostaje `Dystrybutor: ITALLUX Sp. z o.o. | Strona X z Y`).
+3. **Weryfikacja Załącznika XVII i Seveso w Sekcji 15.1:**
+   - Upewnij się, że brzmienie pozycji 3, 40 (i 75) oraz Seveso P5c jest w 100% naturalne, poprawne pod kątem polszczyzny i prawa chemicznego.
 
 ---
 
