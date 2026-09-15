@@ -8,15 +8,16 @@ W dotychczasowym procesie:
 3. Obowiązywała czerwona linia zakazu instalacji nowych zależności zewnętrznych (`npm install zod` zabronione), co uniemożliwiało dodanie gotowych bibliotek walidacji schematów.
 
 ## Decyzja Architektoniczna
-1. **Natywny silnik walidacji kontraktu (`SDSSchemaValidator`):**
+1. **Natywny dwuetapowy silnik walidacji kontraktu (`SDSSchemaValidator`):**
    - Utworzono bezkompromisowy, zero-dependency silnik `src/modules/sds/sds.schema.validator.js` sprawdzający integralność obiektów SDS.
-   - Walidacja wejściowa LLM (`validateTranslatedSections`): weryfikuje obecność sekcji narracyjnych (`section_1_2`, `section_5`, `section_6`, `section_7`, `section_10`, `section_11`), obowiązkową obecność podsekcji `11.1` i `11.2` (substancje zaburzające funkcjonowanie układu hormonalnego), brak zniekształceń tabelarycznych `- -` w sekcji 1.2 oraz bezwzględny brak surowych terminów obcojęzycznych (`Pimephales promelas`, `not specified`, `rat`, `mouse`, `rabbit`, `oral`, `dermal`).
-   - Walidacja ostateczna przed DOCX (`validateFinalSds`): sprawdza kompletność wszystkich 16 sekcji, limit $\le 6$ zwrotów P w Sekcji 2.2 (Art. 28 CLP), integralność składników z CAS/EC w Sekcji 3, obecność norm NDS lub urzędowej formuły negatywnej w Sekcji 8, obecność podsekcji 9.2.2 z LZO w Sekcji 9, podsekcję 12.6 w Sekcji 12, numer UN lub formułę wyłączenia w Sekcji 14, akty REACH/CLP w Sekcji 15 oraz pełne teksty zwrotów H w Sekcji 16.
+   - **KROK 2b: Walidacja strukturalna (`validateTranslatedSections`):** Weryfikuje poprawność kontraktu odpowiedzi LLM (obecność sekcji narracyjnych `section_1_2`, `section_5`, `section_6`, `section_7`, `section_10`, `section_11`, typy string oraz obecność nagłówków podsekcji `11.1` i `11.2`). Na tym etapie silnik celowo nie blokuje błędów laboratoryjnych producenta ani artefaktów tabel, umożliwiając wykonanie automatycznej remediacji.
+   - **KROK 3 i 4: Asemblacja i automatyczna remediacja:** `mergeCompletedSds` odrzuca zniekształcenia tabel `- -`, a `SDSVerifierAgent` (Reguła 10) automatycznie koryguje błąd laboratoryjny (zastępuje organizm wodny `Pimephales promelas` normatywnym badaniem ssaczym: `szczur, LC50 > 50 mg/l/4h`).
+   - **KROK 4b: Rygorystyczna bramka końcowa (`validateFinalSds`):** Sprawdza kompletność wszystkich 16 sekcji, limit $\le 6$ zwrotów P w Sekcji 2.2 (Art. 28 CLP), integralność składników z CAS/EC w Sekcji 3, obecność norm NDS lub urzędowej formuły negatywnej w Sekcji 8, obecność podsekcji 9.2.2 z LZO w Sekcji 9, czystość Sekcji 11 od `Pimephales promelas`, podsekcję 12.6 w Sekcji 12, numer UN lub formułę wyłączenia w Sekcji 14, akty REACH/CLP w Sekcji 15 oraz pełne teksty zwrotów H w Sekcji 16.
 2. **Separacja determinizmu i usunięcie sekcji 4 z promptu LLM:**
    - Sekcja 4 została wycofana z tablicy `toTranslate` w `prepareAgentPayload`.
    - W `SYSTEM_PROMPT` w `sds.agent.js` zaktualizowano zakres odpowiedzialności modelu – model zajmuje się wyłącznie czystą narracją ratowniczo-proceduralną (5, 6, 7, 10, 11 i 1.2).
-3. **Architektura Fail-Fast z asercjami runtime:**
-   - Każde naruszenie schematu natychmiast rzuca `SDSSchemaValidationError` z listą szczegółowych naruszeń, uniemożliwiając wyemitowanie niekompletnego dokumentu Word.
+3. **Architektura Self-Healing + Fail-Fast:**
+   - Znane błędy źródłowe są samoczynnie korygowane przez system w locie, a jeśli po przejściu potoku naprawczego błąd nadal przetrwa, `validateFinalSds` blokuje wyemitowanie nieprawidłowego dokumentu DOCX.
 
 ## Konsekwencje
 - Wyeliminowano źródło losowych regresji i niepowtarzalności tłumaczeń.

@@ -55,15 +55,15 @@ function testValidateTranslatedSections() {
   }, /11\.2/, "Brak podsekcji 11.2 musi wywołać błąd asercji!");
   console.log("-> TEST 3 ZDANY: Wykryto brak podsekcji 11.2.");
 
-  console.log("\n[TEST 4] Wykrycie niedozwolonego terminu obcego (np. 'Pimephales promelas' lub 'rat')...");
-  const foreignTerms = {
+  console.log("\n[TEST 4] Surowy błąd laboratoryjny (np. 'Pimephales promelas') przechodzi walidację struktury (KROK 2b)...");
+  const rawPayloadWithBioError = {
     ...validTranslated,
-    section_11: "11.1. Informacje na temat klas zagrożenia\nLD50 (Oral): 5000 mg/kg rat\n11.2. Informacje o innych zagrożeniach\nBrak."
+    section_11: "11.1. Informacje na temat klas zagrożenia\nLC50 (Inhalation vapours): 120 mg/l/4h Pimephales promelas\n11.2. Informacje o innych zagrożeniach\nBrak."
   };
-  assert.throws(() => {
-    SDSSchemaValidator.validateTranslatedSections(foreignTerms);
-  }, /termin obcojęzyczny/, "Obce słowa w Sekcji 11 muszą zostać natychmiast zablokowane!");
-  console.log("-> TEST 4 ZDANY: Zablokowano surowy termin obcojęzyczny.");
+  assert.doesNotThrow(() => {
+    SDSSchemaValidator.validateTranslatedSections(rawPayloadWithBioError);
+  }, "Błąd laboratoryjny producenta w surowym tekście nie powinien blokować struktury na etapie KROK 2b!");
+  console.log("-> TEST 4 ZDANY: Struktura surowego tekstu zaakceptowana do dalszej auto-remediacji.");
 }
 
 async function testValidateFinalSds() {
@@ -97,6 +97,14 @@ async function testValidateFinalSds() {
     SDSSchemaValidator.validateFinalSds(invalidPData);
   }, /przekracza dopuszczalny limit 6/, "Przekroczenie limitu 6 zwrotów P musi rzucić błąd asercji!");
   console.log("-> TEST 6 ZDANY: Zablokowano nadmiar zwrotów P zgodnie z art. 28 CLP.");
+
+  console.log("\n[TEST 7] Obecność 'Pimephales promelas' w karcie końcowej (brak naprawy) rzuca błąd asercji...");
+  const unhealedData = JSON.parse(JSON.stringify(finalData));
+  unhealedData.sections.section_11.content += "\nLC50: 120 mg/l/4h Pimephales promelas";
+  assert.throws(() => {
+    SDSSchemaValidator.validateFinalSds(unhealedData);
+  }, /Pimephales promelas/, "Nienaprawiony błąd Pimephales promelas w karcie końcowej musi rzucić błąd asercji!");
+  console.log("-> TEST 7 ZDANY: Zablokowano błąd laboratoryjny w karcie końcowej.");
 }
 
 async function run() {

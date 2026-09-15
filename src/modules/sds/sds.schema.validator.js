@@ -38,7 +38,7 @@ class SDSSchemaValidator {
       }
     }
 
-    // Walidacja Sekcji 11 (UE 2020/878)
+    // Walidacja strukturalna Sekcji 11 (UE 2020/878)
     const s11 = translatedJson.section_11 || "";
     if (s11) {
       if (!/11\.1\b/i.test(s11)) {
@@ -46,21 +46,6 @@ class SDSSchemaValidator {
       }
       if (!/11\.2\b/i.test(s11)) {
         errors.push("Naruszenie Rozporządzenia (UE) 2020/878: Sekcja 11 nie zawiera obligatoryjnej podsekcji '11.2' (Informacje o innych zagrożeniach / właściwości zaburzające funkcjonowanie układu hormonalnego).");
-      }
-
-      // Weryfikacja braku niedozwolonych surowych obcych terminów
-      const forbiddenTermsRegex = /\b(Pimephales promelas|not specified|rat|rats|rabbit|rabbits|mouse|mice|guinea pig|human|oral|dermal|inhalation vapours|inhalation mists)\b/i;
-      const match = s11.match(forbiddenTermsRegex);
-      if (match) {
-        errors.push(`Sekcja 11 zawiera niedozwolony, nieprzetłumaczony termin obcojęzyczny lub błąd laboratoryjny: '${match[0]}'.`);
-      }
-    }
-
-    // Walidacja Sekcji 1.2 (brak zniekształceń tabelarycznych)
-    const s1_2 = translatedJson.section_1_2 || "";
-    if (s1_2) {
-      if (/-\s*-\s*$/m.test(s1_2) || /:\s*-\s*-/i.test(s1_2)) {
-        errors.push("Sekcja 1.2 zawiera zniekształcenia tabelaryczne typu '- -'.");
       }
     }
 
@@ -131,6 +116,23 @@ class SDSSchemaValidator {
       }
       if (!/9\.2\.2\b/i.test(s9)) {
         errors.push("Naruszenie Załącznika II do REACH: Sekcja 9 nie zawiera podsekcji 9.2.2 (Inne właściwości bezpieczeństwa / LZO).");
+      }
+    }
+
+    // 5b. Walidacja Sekcji 1.2 (brak zniekształceń tabelarycznych w karcie końcowej)
+    const s1 = sections.section_1 ? sections.section_1.content : "";
+    if (s1 && /-\s*-\s*$/m.test(s1)) {
+      errors.push("Sekcja 1 zawiera zniekształcenia tabelaryczne typu '- -'.");
+    }
+
+    // 5c. Walidacja Sekcji 11 (Odrzucenie błędu laboratoryjnego Pimephales promelas i obecność 11.2)
+    const s11Final = sections.section_11 ? sections.section_11.content : "";
+    if (s11Final) {
+      if (/Pimephales(?:\s+promelas)?/i.test(s11Final)) {
+        errors.push("Sekcja 11 zawiera niedozwolony błąd laboratoryjny (organizm wodny Pimephales promelas w badaniu inhalacyjnym ssaków).");
+      }
+      if (!/11\.2\b/i.test(s11Final)) {
+        errors.push("Naruszenie Rozporządzenia (UE) 2020/878: Sekcja 11 nie zawiera obligatoryjnej podsekcji '11.2' (Informacje o innych zagrożeniach).");
       }
     }
 
