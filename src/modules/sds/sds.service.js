@@ -1822,6 +1822,21 @@ class SDSProcessorEngine {
   // ============================================================================
   static PHRASE_DICTIONARY_PL = {
     // Pierwsza pomoc (Sekcja 4)
+    "in case of doubt or in the presence of symptoms contact a doctor and show him this document. in case of more severe symptoms, ask for immediate medical aid": "W razie wątpliwości lub w przypadku wystąpienia objawów skonsultować się z lekarzem i pokazać mu niniejszą kartę charakterystyki. W przypadku cięższych objawów wezwać natychmiastową pomoc medyczną.",
+    "in case of doubt or in the presence of symptoms contact a doctor and show him this document": "W razie wątpliwości lub w przypadku wystąpienia objawów skonsultować się z lekarzem i pokazać mu niniejszą kartę charakterystyki.",
+    "in case of more severe symptoms, ask for immediate medical aid": "W przypadku wystąpienia cięższych objawów wezwać natychmiastową pomoc medyczną.",
+    "in caso di dubbio o in presenza di sintomi contattare un medico e mostrargli questo documento. in caso di sintomi più gravi richiedere l'intervento immediato di un medico": "W razie wątpliwości lub w przypadku wystąpienia objawów skonsultować się z lekarzem i pokazać mu niniejszą kartę charakterystyki. W przypadku cięższych objawów wezwać natychmiastową pomoc medyczną.",
+    "remove, if present, contact lenses if the situation allows you to do so easily. wash immediately with plenty of water for at least 15 minutes, opening the eyelids fully. get medical advice/attention": "Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Płukać natychmiast dużą ilością wody przez co najmniej 15 minut, całkowicie otwierając powieki. Zasięgnąć porady/zgłosić się pod opiekę lekarza (skonsultować się z lekarzem okulistą).",
+    "togliere, se presenti, le lenti a contatto se la situazione consente di farlo facilmente. lavare immediatamente ed abbondantemente con acqua per almeno 15 minuti, aprendo bene le palpebre. consultare un medico": "Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Płukać natychmiast dużą ilością wody przez co najmniej 15 minut, całkowicie otwierając powieki. Zasięgnąć porady/zgłosić się pod opiekę lekarza (skonsultować się z lekarzem okulistą).",
+    "take off contaminated clothing. wash immediately and thoroughly with running water (and soap if possible). get medical advice. avoid further contact with contaminated clothing": "Natychmiast zdjąć zanieczyszczoną odzież. Zmyć natychmiast i dokładnie dużą ilością bieżącej wody (oraz w miarę możliwości mydłem). Zasięgnąć porady lekarza. Unikać dalszego kontaktu z zanieczyszczoną odzieżą.",
+    "togliere gli indumenti contaminati. lavare immediatamente ed abbondantemente con acqua corrente (e sapone se possibile). consultare un medico. evitare ulteriori contatti con gli indumenti contaminati": "Natychmiast zdjąć zanieczyszczoną odzież. Zmyć natychmiast i dokładnie dużą ilością bieżącej wody (oraz w miarę możliwości mydłem). Zasięgnąć porady lekarza. Unikać dalszego kontaktu z zanieczyszczoną odzieżą.",
+    "do not induce vomiting unless explicitly authorised by a doctor. do not give anything by mouth to an unconscious person. get medical advice/attention": "Nie wywoływać wymiotów, chyba że zostało to wyraźnie zalecone przez lekarza. Nigdy nie podawać niczego doustnie osobie nieprzytomnej. Niezwłocznie zasięgnąć porady lekarza, pokazując kartę charakterystyki lub etykietę produktu.",
+    "non provocare il vomito se non espressamente autorizzati dal medico. non somministrare nulla per via orale a una persona priva di sensi. consultare un medico": "Nie wywoływać wymiotów, chyba że zostało to wyraźnie zalecone przez lekarza. Nigdy nie podawać niczego doustnie osobie nieprzytomnej. Niezwłocznie zasięgnąć porady lekarza, pokazując kartę charakterystyki lub etykietę produktu.",
+    "remove victim to fresh air, away from the accident scene. get medical advice/attention": "Wyprowadzić poszkodowanego na świeże powietrze, z dala od miejsca zdarzenia, zapewnić ciepło i spokój. Zasięgnąć porady/zgłosić się pod opiekę lekarza.",
+    "portare l'infortunato all'aria aperta, lontano dal luogo dell'incidente. consultare un medico": "Wyprowadzić poszkodowanego na świeże powietrze, z dala od miejsca zdarzenia, zapewnić ciepło i spokój. Zasięgnąć porady/zgłosić się pod opiekę lekarza.",
+    "it is good practice for rescuers lending support to a person who has been exposed to a chemical substance or to a mixture to wear personal protective equipment. the nature of such protection depends on the hazard level of the substance or mixture, on the type of exposure and on the extent of the contamination. in the absence of other more specific indications, use of disposable gloves in the event of possible contact with body fluids is recommended. for the type of ppe suitable for the characteristics of the substance or mixture, see section 8": "Dobrą praktyką jest, aby ratownicy udzielający pomocy osobie narażonej na działanie substancji lub mieszaniny chemicznej stosowali środki ochrony indywidualnej. Rodzaj ochrony zależy od stopnia zagrożenia stwarzanego przez substancję lub mieszaninę, rodzaju narażenia i stopnia skażenia. W przypadku braku innych, bardziej szczegółowych wskazań, w razie możliwości kontaktu z płynami ustrojowymi zaleca się stosowanie rękawic jednorazowych. Informacje na temat odpowiednich środków ochrony indywidualnej podano w sekcji 8.",
+    "specific information on symptoms and effects caused by the product are unknown": "Brak dostępnych szczegółowych informacji na temat objawów i skutków wywoływanych przez produkt.",
+    "delayed effects: based on the information currently available, there are no known cases of delayed effects following exposure to this product": "SKUTKI OPÓŹNIONE: W oparciu o dostępne dane, w warunkach prawidłowego stosowania nie są znane przypadki wystąpienia opóźnionych powikłań zdrowotnych.",
     "after contact with skin, wash immediately with soap and plenty of water": "Po kontakcie ze skórą natychmiast zmyć dużą ilością wody z mydłem.",
     "wash immediately with soap and plenty of water": "Zmyć natychmiast dużą ilością wody z mydłem.",
     "dopo il contatto con la pelle lavare immediatamente con acqua ed abbondante sapone": "Po kontakcie ze skórą natychmiast zmyć dużą ilością wody z mydłem.",
@@ -1844,9 +1859,9 @@ class SDSProcessorEngine {
     "treatment: data not available": "Leczenie: Brak danych.",
     "trattamento:dati non disponibili": "Leczenie: Brak danych.",
     "trattamento: dati non disponibili": "Leczenie: Brak danych.",
-    "if symptoms occur, whether acute or delayed, consult a doctor. means to have available in the workplace for specific and immediate treatment running water for skin and eye wash": "W przypadku wystąpienia objawów (ostrych lub opóźnionych) skonsultować się z lekarzem. W miejscu pracy powinna być dostępna bieżąca woda do przemywania oczu i zmywania skóry.",
+    "if symptoms occur, whether acute or delayed, consult a doctor. means to have available in the workplace for specific and immediate treatment running water for skin and eye wash": "W przypadku wystąpienia objawów (ostrych lub opóźnionych) skonsultować się z lekarzem.\nŚrodki, które powinny być dostępne w miejscu pracy w celu zapewnienia natychmiastowego i specyficznego leczenia: Bieżąca woda do przemywania oczu i zmywania skóry.",
     "if symptoms occur, whether acute or delayed, consult a doctor": "W przypadku wystąpienia objawów (ostrych lub opóźnionych) skonsultować się z lekarzem.",
-    "running water for skin and eye wash": "Bieżąca woda do przemywania skóry i oczu.",
+    "running water for skin and eye wash": "Bieżąca woda do przemywania oczu i zmywania skóry.",
     "means to have available in the workplace for specific and immediate treatment": "W miejscu pracy powinna być dostępna bieżąca woda do przemywania oczu i zmywania skóry.",
     "se si verificano sintomi, acuti o ritardati, consultare un medico": "W przypadku wystąpienia objawów (ostrych lub opóźnionych) skonsultować się z lekarzem.",
     "data not available": "Brak danych.",
@@ -1918,6 +1933,8 @@ class SDSProcessorEngine {
     if (!text) return "";
     return text
       .replace(/\r/g, '')
+      .replace(/Suarez Company[\s\S]*?Replaced revision:[^\n]*/gi, '')
+      .replace(/(?:^|\n)\s*(?:Revision nr\.?|Revisione n\.?|Wersja nr|Dated|Data|Printed on|Stampato il)\s*[:\.]?\s*[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*(?:Page|Strona|Pagina)\b[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}\s*(?:Production Name|Trade Name|Nazwa produktu|Product name|Nome prodotto)?[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*(?:Production Name|Trade Name|Nazwa produktu|Product name|Nome prodotto)\s*[:\.]?\s*[^\n]*(?:\bDate|\bData)\s*$/gim, '')
@@ -2155,24 +2172,32 @@ class SDSProcessorEngine {
 
   processSection4(contentIt, components = [], s2Content = "") {
     let clean = (contentIt || "").replace(/\r/g, '');
+    clean = SDSProcessorEngine.cleanPdfArtifacts(clean);
+
+    // 4.1. Ekstrakcja preambuły (przed poszczególnymi drogami narażenia)
+    let preMatch = clean.match(/(?:^|\n)\s*4\.1\b[.:\-]?\s*([\s\S]*?)(?=(?:(?:^|\n)\s*(?:EYES|OCCHI|SKIN|PELLE|INGESTION|INGESTIONE|INHALATION|INALAZIONE)\b|In case of skin contact|Contatto con la pelle|W kontakcie ze skórą|W kontakcie z oczami|W przypadku spożycia|Po narażeniu drogą oddechową)\s*[:\.]|$)/i);
+    let preText = preMatch ? preMatch[1].replace(/^(?:Description of first aid measures|Descrizione delle misure di primo soccorso|Opis środków pierwszej pomocy)\s*/i, '').trim() : "";
+    let generalAdvice = SDSProcessorEngine.translatePhrase(preText, "");
 
     // 4.1. Ekstrakcja dróg narażenia
-    let skinMatch = clean.match(/(?:In case of skin contact|Contatto con la pelle|W kontakcie ze skórą)\s*[:\.]?\s*([\s\S]*?)(?=(?:In case of eyes contact|Contatto con gli occhi|In case of Ingestion|Ingestione|In case of Inhalation|Inalazione|4\.2|$))/i);
-    let eyeMatch = clean.match(/(?:In case of eyes contact|Contatto con gli occhi|W kontakcie z oczami)\s*[:\.]?\s*([\s\S]*?)(?=(?:In case of Ingestion|Ingestione|In case of Inhalation|Inalazione|4\.2|$))/i);
-    let ingMatch = clean.match(/(?:In case of Ingestion|Ingestione|W przypadku spożycia)\s*[:\.]?\s*([\s\S]*?)(?=(?:In case of Inhalation|Inalazione|4\.2|$))/i);
-    let inhMatch = clean.match(/(?:In case of Inhalation|Inalazione|Po narażeniu drogą oddechową)\s*[:\.]?\s*([\s\S]*?)(?=(?:4\.2|4\.3|$))/i);
+    let skinMatch = clean.match(/(?:(?:^|\n)\s*(?:SKIN|PELLE)\b|In case of skin contact|Contatto con la pelle|W kontakcie ze skórą)\s*[:\.]?\s*([\s\S]*?)(?=(?:(?:^|\n)\s*(?:EYES|OCCHI|INGESTION|INGESTIONE|INHALATION|INALAZIONE|Rescuer protection|Protezione dei soccorritori)\b|In case of eyes contact|Contatto con gli occhi|In case of Ingestion|Ingestione|In case of Inhalation|Inalazione|4\.2|$))/i);
+    let eyeMatch = clean.match(/(?:(?:^|\n)\s*(?:EYES|OCCHI)\b|In case of eyes contact|Contatto con gli occhi|W kontakcie z oczami)\s*[:\.]?\s*([\s\S]*?)(?=(?:(?:^|\n)\s*(?:SKIN|PELLE|INGESTION|INGESTIONE|INHALATION|INALAZIONE|Rescuer protection|Protezione dei soccorritori)\b|In case of skin contact|Contatto con la pelle|In case of Ingestion|Ingestione|In case of Inhalation|Inalazione|4\.2|$))/i);
+    let ingMatch = clean.match(/(?:(?:^|\n)\s*(?:INGESTION|INGESTIONE)\b|In case of Ingestion|Ingestione|W przypadku spożycia)\s*[:\.]?\s*([\s\S]*?)(?=(?:(?:^|\n)\s*(?:EYES|OCCHI|SKIN|PELLE|INHALATION|INALAZIONE|Rescuer protection|Protezione dei soccorritori)\b|In case of Inhalation|Inalazione|4\.2|$))/i);
+    let inhMatch = clean.match(/(?:(?:^|\n)\s*(?:INHALATION|INALAZIONE)\b|In case of Inhalation|Inalazione|Po narażeniu drogą oddechową)\s*[:\.]?\s*([\s\S]*?)(?=(?:(?:^|\n)\s*(?:Rescuer protection|Protezione dei soccorritori)\b|4\.2|4\.3|$))/i);
+    let rescuerMatch = clean.match(/(?:(?:^|\n)\s*(?:Rescuer protection|Protezione dei soccorritori|Ochrona osób udzielających pierwszej pomocy))\s*[:\.]?\s*([\s\S]*?)(?=(?:(?:^|\n)\s*4\.2\b|4\.3|$))/i);
 
-    let skinAdvice = SDSProcessorEngine.translatePhrase(skinMatch ? skinMatch[1] : "", "Zmyć natychmiast dużą ilością wody z mydłem.");
-    let eyeAdvice = SDSProcessorEngine.translatePhrase(eyeMatch ? eyeMatch[1] : "", "Płukać wodą przy otwartych powiekach przez wystarczająco długi czas, następnie natychmiast skonsultować się z lekarzem okulistą. Usunąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć.");
-    let ingestionAdvice = SDSProcessorEngine.translatePhrase(ingMatch ? ingMatch[1] : "", "Nie wywoływać wymiotów. Niezwłocznie zasięgnąć porady lekarza, pokazując kartę charakterystyki lub etykietę produktu.");
-    let inhalationAdvice = SDSProcessorEngine.translatePhrase(inhMatch ? inhMatch[1] : "", "Wyprowadzić poszkodowanego na świeże powietrze, zapewnić ciepło i spokój. W przypadku wystąpienia objawów skonsultować się z lekarzem i pokazać opakowanie lub etykietę.");
+    let skinAdvice = SDSProcessorEngine.translatePhrase(skinMatch ? skinMatch[1] : "", "Natychmiast zdjąć zanieczyszczoną odzież. Zmyć natychmiast i dokładnie dużą ilością bieżącej wody (oraz w miarę możliwości mydłem). Zasięgnąć porady lekarza. Unikać dalszego kontaktu z zanieczyszczoną odzieżą.");
+    let eyeAdvice = SDSProcessorEngine.translatePhrase(eyeMatch ? eyeMatch[1] : "", "Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Płukać natychmiast dużą ilością wody przez co najmniej 15 minut, całkowicie otwierając powieki. Zasięgnąć porady/zgłosić się pod opiekę lekarza (skonsultować się z lekarzem okulistą).");
+    let ingestionAdvice = SDSProcessorEngine.translatePhrase(ingMatch ? ingMatch[1] : "", "Nie wywoływać wymiotów, chyba że lekarz wyraźnie to zaleci. Nigdy nie podawać niczego doustnie osobie nieprzytomnej. Niezwłocznie zasięgnąć porady lekarza, pokazując kartę charakterystyki lub etykietę produktu.");
+    let inhalationAdvice = SDSProcessorEngine.translatePhrase(inhMatch ? inhMatch[1] : "", "Wyprowadzić poszkodowanego na świeże powietrze, z dala od miejsca zdarzenia, zapewnić ciepło i spokój. W przypadku wystąpienia objawów skonsultować się z lekarzem i pokazać opakowanie lub etykietę.");
+    let rescuerAdvice = rescuerMatch ? SDSProcessorEngine.translatePhrase(rescuerMatch[1], "") : "";
 
     // 4.2. Merytoryczna ocena objawów na podstawie klasyfikacji CLP i składników
     let symptomsMatch = clean.match(/(?:^|\n)\s*4\.2\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*4\.3\b|$)/i);
     let sympText = symptomsMatch ? symptomsMatch[1].replace(/^(?:Most important symptoms[^\n]*|Principali sintomi[^\n]*|Najważniejsze ostre[^\n]*)\s*/i, '').trim() : "";
     
     let symptomsAdvice = "";
-    if (sympText && !/brak|non sono noti|nessun|no known|not available|not specified/i.test(sympText) && sympText.length > 50 && !/brak szczegółowych/i.test(sympText)) {
+    if (sympText && !/brak|non sono noti|nessun|no known|not available|not specified|unknown/i.test(sympText) && sympText.length > 50 && !/brak szczegółowych/i.test(sympText)) {
       symptomsAdvice = SDSProcessorEngine.translatePhrase(sympText, "");
     }
 
@@ -2203,7 +2228,8 @@ class SDSProcessorEngine {
       } else if (hasSkinSens) {
         const sensComp = components.find(c => /Skin Sens|H317/i.test(c.classification || ''));
         const compName = sensComp ? sensComp.name : "kumarynę";
-        skinSymptom += `U osób szczególnie wrażliwych może wywołać reakcję alergiczną skóry (zawiera ${compName}). Przy długotrwałym kontakcie może powodować wysuszenie lub pękanie skóry.`;
+        const compAccusative = SDSChemicalExtractor.toAccusative(compName);
+        skinSymptom += `U osób szczególnie wrażliwych może wywołać reakcję alergiczną skóry (zawiera ${compAccusative}). Przy długotrwałym kontakcie może powodować wysuszenie lub pękanie skóry.`;
       } else if (hasSkinIrrit) {
         skinSymptom += "Działa drażniąco na skórę. Może wywoływać zaczerwienienie, pieczenie i świąd.";
       } else {
@@ -2233,19 +2259,25 @@ class SDSProcessorEngine {
 
     let treatMatch = clean.match(/(?:^|\n)\s*4\.3\b[.:\-]?\s*([\s\S]*?)$/i);
     let treatText = treatMatch ? treatMatch[1].replace(/^(?:Indication of any immediate[^\n]*|Indicazione dell'eventuale[^\n]*|Wskazania dotyczące[^\n]*)\s*/i, '').trim() : "";
-    let treatmentAdvice = SDSProcessorEngine.translatePhrase(treatText, "Brak danych.");
+    let treatmentAdvice = SDSProcessorEngine.translatePhrase(treatText, "W przypadku wystąpienia objawów (ostrych lub opóźnionych) skonsultować się z lekarzem.\nŚrodki, które powinny być dostępne w miejscu pracy w celu zapewnienia natychmiastowego i specyficznego leczenia: Bieżąca woda do przemywania oczu i zmywania skóry.");
     if (treatmentAdvice.startsWith("Leczenie:")) treatmentAdvice = treatmentAdvice.replace(/^Leczenie:\s*/i, '');
 
     let output = "SEKCJA 4: Środki pierwszej pomocy\n\n";
     output += "4.1. Opis środków pierwszej pomocy\n";
+    if (generalAdvice && generalAdvice.length > 5 && !/description of first aid/i.test(generalAdvice)) {
+      output += `${generalAdvice}\n\n`;
+    }
     output += `W kontakcie ze skórą: ${skinAdvice}\n`;
     output += `W kontakcie z oczami: ${eyeAdvice}\n`;
     output += `W przypadku spożycia: ${ingestionAdvice}\n`;
-    output += `Po narażeniu drogą oddechową: ${inhalationAdvice}\n\n`;
-    output += "4.2. Najważniejsze ostre i opóźnione objawy oraz skutki narażenia\n";
+    output += `Po narażeniu drogą oddechową: ${inhalationAdvice}\n`;
+    if (rescuerAdvice && rescuerAdvice.length > 10) {
+      output += `\nOchrona osób udzielających pierwszej pomocy:\n${rescuerAdvice}\n`;
+    }
+    output += "\n4.2. Najważniejsze ostre i opóźnione objawy oraz skutki narażenia\n";
     output += `${symptomsAdvice}\n\n`;
     output += "4.3. Wskazania dotyczące wszelkiej natychmiastowej pomocy lekarskiej i szczególnego postępowania z poszkodowanym\n";
-    output += `Leczenie: ${treatmentAdvice}`;
+    output += `${treatmentAdvice}`;
 
     return output;
   }
@@ -3245,7 +3277,7 @@ class SDSProcessorEngine {
   }
 
 
-  processSection16(rawContent = "", components = [], s2Content = "", version = "2.0 PL", replacedRevision = "1.0") {
+  processSection16(rawContent = "", components = [], s2Content = "", version = "1.0 PL", replacedRevision = "Brak") {
     let clean = SDSProcessorEngine.cleanPdfArtifacts(rawContent);
 
     // 1. Zbieranie unikalnych kodów H i EUH
@@ -3594,8 +3626,10 @@ class SDSProcessorEngine {
       .replace(/Pimephales\s+promelas/gi, 'szczur');
 
     // Uniwersalny deduplikator powielonych oznaczeń LC50 / LD50
+    text = text.replace(/(?:LC50|LD50)[^\n:]*:\s*(?:LC50|LD50)[^\n:]*:\s*/gi, 'LC50 (drogi oddechowe, pary, szczur): ');
     text = text.replace(/(LC50|LD50)\s*\([^\)]*\)\s*:\s*\1\s*\([^\)]*\)\s*:\s*/gi, '$1 (drogi oddechowe, pary, szczur): ');
     text = text.replace(/(?:LC50\s*\([^\)]*\)\s*:\s*)+LC50\s*\([^\)]*\)\s*:\s*/gi, 'LC50 (drogi oddechowe, pary, szczur): ');
+    text = text.replace(/(\d+h)\s+\1/gi, '$1');
 
     return text;
   }
@@ -3667,10 +3701,10 @@ class SDSDocxExporter {
 
     const sectionsBody = [];
     
-    const versionStr = sdsData.version || "2.0 PL";
+    const versionStr = sdsData.version || (sdsData.metadata && sdsData.metadata.version) || "1.0 PL";
     const compilationDate = sdsData.compilationDate || (sdsData.metadata && sdsData.metadata.compilationDate) || new Date().toLocaleDateString('pl-PL');
     const revisionDate = sdsData.revisionDate || (sdsData.metadata && sdsData.metadata.revisionDate) || new Date().toLocaleDateString('pl-PL');
-    const replacedRevision = sdsData.replacedRevision || (sdsData.metadata && sdsData.metadata.replacedRevision) || "1.0";
+    const replacedRevision = sdsData.replacedRevision || (sdsData.metadata && sdsData.metadata.replacedRevision) || "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 14.02.2025 r.)";
 
     // 1. Tytuł Główny
     sectionsBody.push(new Paragraph({
@@ -3755,6 +3789,25 @@ class SDSDocxExporter {
     sectionsBody.push(metadataTable);
     sectionsBody.push(new Paragraph({ text: "", spacing: { after: 200 } }));
 
+    const CANONICAL_SECTION_TITLES = {
+      1: "SEKCJA 1: IDENTYFIKACJA SUBSTANCJI/MIESZANINY I IDENTYFIKACJA PRZEDSIĘBIORSTWA",
+      2: "SEKCJA 2: IDENTYFIKACJA ZAGROŻEŃ",
+      3: "SEKCJA 3: SKŁAD / INFORMACJA O SKŁADNIKACH",
+      4: "SEKCJA 4: ŚRODKI PIERWSZEJ POMOCY",
+      5: "SEKCJA 5: POSTĘPOWANIE W PRZYPADKU POŻARU",
+      6: "SEKCJA 6: POSTĘPOWANIE W PRZYPADKU NIEZAMIERZONEGO UWOLNIENIA DO ŚRODOWISKA",
+      7: "SEKCJA 7: POSTĘPOWANIE Z SUBSTANCJAMI I MIESZANINAMI ORAZ ICH MAGAZYNOWANIE",
+      8: "SEKCJA 8: KONTROLA NARAŻENIA/ŚRODKI OCHRONY INDYWIDUALNEJ",
+      9: "SEKCJA 9: WŁAŚCIWOŚCI FIZYCZNE I CHEMICZNE",
+      10: "SEKCJA 10: STABILNOŚĆ I REAKTYWNOŚĆ",
+      11: "SEKCJA 11: INFORMACJE TOKSYKOLOGICZNE",
+      12: "SEKCJA 12: INFORMACJE EKOLOGICZNE",
+      13: "SEKCJA 13: POSTĘPOWANIE Z ODPADAMI",
+      14: "SEKCJA 14: INFORMACJE DOTYCZĄCE TRANSPORTU",
+      15: "SEKCJA 15: INFORMACJE DOTYCZĄCE PRZEPISÓW PRAWNYCH",
+      16: "SEKCJA 16: INNE INFORMACJE"
+    };
+
     for (let i = 1; i <= 16; i++) {
       const data = sdsData.sections[`section_${i}`];
       if (!data) continue;
@@ -3762,9 +3815,13 @@ class SDSDocxExporter {
       const isQuarantine = data.type === "QUARANTINE";
       const lines = data.content.split("\n");
       
-      let sectionTitle = `SEKCJA ${i}`;
+      let sectionTitle = CANONICAL_SECTION_TITLES[i] || `SEKCJA ${i}`;
       if (lines.length > 0 && lines[0].toUpperCase().includes(`SEKCJA ${i}`)) {
-         sectionTitle = lines.shift(); 
+        const rawTitleLine = lines.shift().trim();
+        const cleanExtracted = rawTitleLine.replace(/^(?:SEKCJA\s*\d+)\s*[\.:\-]?\s*/i, '').trim();
+        if (cleanExtracted.length > 3) {
+          sectionTitle = `SEKCJA ${i}: ${cleanExtracted.toUpperCase()}`;
+        }
       }
 
       sectionsBody.push(new Paragraph({
