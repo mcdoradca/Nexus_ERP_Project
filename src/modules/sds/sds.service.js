@@ -692,6 +692,7 @@ class SDSChemicalExtractor {
   static extractDnelPnec(text, components = []) {
     if (!text) return { dnel: [], pnec: [], bySubstance: {} };
     let clean = SDSProcessorEngine.cleanPdfArtifacts(text)
+      .replace(/(?:^[^\n]+\n)?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[\s\S]*?Replaced revision:[^\n]*/gi, '')
       .replace(/Suarez Company[\s\S]*?Replaced revision:[^\n]*/gi, '')
       .replace(/DNEL\/PNEC available\s*;\s*NEA[\s\S]*?(?=\n\n|\n[A-Z]|$)/gi, '');
 
@@ -699,7 +700,7 @@ class SDSChemicalExtractor {
       let lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
       let plLines = [];
       for (let l of lines) {
-        if (/^(?:Suarez|Revision|Dated|Printed|BLK|\d+\/\d+|Page|The full)/i.test(l)) continue;
+        if (/^(?:Revision|Revisione|Wersja|Dated|Data|Printed|Stampato|BLK|\d+\/\d+|Page|Pagina|Strona|The full|Suarez)/i.test(l)) continue;
         let trans = l
           .replace(/Normal value in fresh water/gi, '- woda słodka:')
           .replace(/Normal value in marine water/gi, '- woda morska:')
@@ -718,7 +719,9 @@ class SDSChemicalExtractor {
     };
 
     const parseDnelBlock = (raw) => {
-      let clean = raw.replace(/\r/g, '').replace(/Suarez Company[\s\S]*?Replaced revision:[^\n]*/gi, '');
+      let clean = raw.replace(/\r/g, '')
+        .replace(/(?:^[^\n]+\n)?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[\s\S]*?Replaced revision:[^\n]*/gi, '')
+        .replace(/Suarez Company[\s\S]*?Replaced revision:[^\n]*/gi, '');
       let res = [];
 
       // 1. Droga pokarmowa (Oral)
@@ -762,7 +765,7 @@ class SDSChemicalExtractor {
       if (res.length === 0) {
         let lines = clean.split('\n').map(l => l.trim()).filter(Boolean);
         for (let l of lines) {
-          if (/^(?:Suarez|Revision|Dated|Printed|BLK|\d+\/\d+|Page|Effects on|Route of exposure|Acute local|Chronic systemic)/i.test(l)) continue;
+          if (/^(?:Revision|Revisione|Wersja|Dated|Data|Printed|Stampato|BLK|\d+\/\d+|Page|Pagina|Strona|Effects on|Route of exposure|Acute local|Chronic systemic|Suarez)/i.test(l)) continue;
           let trans = l
             .replace(/\bOral\b/gi, '- Droga pokarmowa (doustnie):')
             .replace(/\bInhalation\b/gi, '- Drogi oddechowe (inhalacyjnie):')
@@ -904,6 +907,7 @@ class SDSChemicalExtractor {
     let text = cleanText
       .replace(/Page\s+n\.\s*of\s*\d+/gi, '')
       .replace(/\d{2}\/\d{2}\/\d{4}\s*Production Name[^\n]+/gi, '')
+      .replace(/(?:[^\n]+\n)?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[\s\S]*?Replaced revision:[^\n]*/gi, '')
       .replace(/Suarez Company[\s\S]*?Replaced revision:[^\n]*/gi, '')
       .replace(/The full wording of hazard[\s\S]*$/gi, '');
 
@@ -924,7 +928,7 @@ class SDSChemicalExtractor {
 
       const preLines = preText.split('\n')
         .map(l => l.trim())
-        .filter(l => l && !/^(?:Identification|Contains|3\.\d|Mixtures|Substances|EC\b|CAS\b|REACH\b|Suarez|Revision|Dated|Printed|BLK|\d+\/\d+)/i.test(l));
+        .filter(l => l && !/^(?:Identification|Contains|3\.\d|Mixtures|Substances|EC\b|CAS\b|REACH\b|Revision|Revisione|Wersja|Dated|Data|Printed|Stampato|BLK|\d+\/\d+|Page|Suarez)/i.test(l));
       
       let rawName = preLines.length > 0 ? preLines[preLines.length - 1] : '';
       rawName = rawName.replace(/-\s+/g, '-').replace(/\s+/g, ' ').trim();
@@ -1543,7 +1547,15 @@ class ADRPictogramGenerator {
 // ============================================================================
 class SDSProcessorEngine {
   constructor(companyConfig = {}) {
-    this.companyConfig = companyConfig;
+    this.companyConfig = {
+      companyName: companyConfig.companyName || process.env.COMPANY_NAME || "ITALLUX Sp. z o.o.",
+      address: companyConfig.address || process.env.COMPANY_ADDRESS || "ul. Wesoła 16",
+      city: companyConfig.city || process.env.COMPANY_CITY || "63-600 Kępno",
+      website: companyConfig.website || process.env.COMPANY_WEBSITE || "www.prostozwloch.pl",
+      email: companyConfig.email || process.env.COMPANY_EMAIL || "kontakt@prostozwloch.pl",
+      phone: companyConfig.phone || process.env.COMPANY_PHONE || "+48 663116607",
+      emergencyPhone: companyConfig.emergencyPhone || process.env.COMPANY_EMERGENCY_PHONE || process.env.COMPANY_PHONE || "+48 663116607"
+    };
     this.quarantineLogs = [];
     this.extractedSubstances = [];
     this.detectedGhsPictograms = [];
@@ -1933,6 +1945,7 @@ class SDSProcessorEngine {
     if (!text) return "";
     return text
       .replace(/\r/g, '')
+      .replace(/(?:^[^\n]+\n)?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[\s\S]*?Replaced revision:[^\n]*/gi, '')
       .replace(/Suarez Company[\s\S]*?Replaced revision:[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*(?:Revision nr\.?|Revisione n\.?|Wersja nr|Dated|Data|Printed on|Stampato il)\s*[:\.]?\s*[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*(?:Page|Strona|Pagina)\b[^\n]*/gi, '')
@@ -2104,28 +2117,25 @@ class SDSProcessorEngine {
     else if (/coolant|antifreeze/i.test(rawRec)) translatedRec = "płyn chłodzący / przeciw zamarzaniu";
 
     let identifiedUses = "Brak szczegółowych informacji w karcie źródłowej.";
-    if (/air freshener|deodorante/i.test(clean) || /Air freshener/i.test(usesSection)) {
-      identifiedUses = "Zastosowanie konsumenckie: odświeżacz powietrza (dyfuzor zapachowy do wnętrz).";
-    } else if (usePrefix.length > 0 && translatedRec) {
+    if (usePrefix.length > 0 && translatedRec) {
       identifiedUses = `Zastosowanie ${usePrefix.join(', ')}: ${translatedRec}.`;
     } else if (translatedRec) {
       identifiedUses = `${translatedRec.charAt(0).toUpperCase() + translatedRec.slice(1)}.`;
+    } else if (/air freshener|deodorante/i.test(clean) || /Air freshener/i.test(usesSection)) {
+      const isDiffuser = /diffus|bastoncini|reed/i.test(clean) || /diffus|bastoncini|reed/i.test(usesSection);
+      identifiedUses = isDiffuser ? "Zastosowanie konsumenckie: odświeżacz powietrza (dyfuzor zapachowy do wnętrz)." : "Zastosowanie konsumenckie: odświeżacz powietrza.";
     } else if (usePrefix.length > 0) {
       identifiedUses = `Zastosowanie ${usePrefix.join(', ')}.`;
     }
 
     let usesAdvised = "Nie stosować do celów innych niż wskazane.";
-    if (/air freshener|deodorante/i.test(clean) || /Air freshener/i.test(usesSection)) {
-      usesAdvised = "Wszelkie inne zastosowania nieprzewidziane przez producenta (nie stosować do celów przemysłowych ani profesjonalnych).";
-    } else {
-      let advMatch = usesSection.match(/(?:Uses advised against|Usi sconsigliati|Zastosowania odradzane)\s*[:\.]?\s*([^\n]+)/i);
-      if (advMatch) {
-        let rawAdv = advMatch[1].trim();
-        if (/different from those indicated|diversi da quelli indicati/i.test(rawAdv)) {
-          usesAdvised = "Nie stosować do celów innych niż wskazane.";
-        } else {
-          usesAdvised = rawAdv;
-        }
+    let advMatch = usesSection.match(/(?:Uses advised against|Usi sconsigliati|Zastosowania odradzane)\s*[:\.]?\s*([^\n]+)/i);
+    if (advMatch) {
+      let rawAdv = advMatch[1].trim();
+      if (/different from those indicated|diversi da quelli indicati/i.test(rawAdv)) {
+        usesAdvised = "Nie stosować do celów innych niż wskazane.";
+      } else {
+        usesAdvised = rawAdv;
       }
     }
 
@@ -2227,9 +2237,12 @@ class SDSProcessorEngine {
         skinSymptom += "Powoduje poważne oparzenia skóry i martwicę tkanek. Ryzyko głębokich ran.";
       } else if (hasSkinSens) {
         const sensComp = components.find(c => /Skin Sens|H317/i.test(c.classification || ''));
-        const compName = sensComp ? sensComp.name : "kumarynę";
-        const compAccusative = SDSChemicalExtractor.toAccusative(compName);
-        skinSymptom += `U osób szczególnie wrażliwych może wywołać reakcję alergiczną skóry (zawiera ${compAccusative}). Przy długotrwałym kontakcie może powodować wysuszenie lub pękanie skóry.`;
+        if (sensComp && sensComp.name) {
+          const compAccusative = SDSChemicalExtractor.toAccusative(sensComp.name);
+          skinSymptom += `U osób szczególnie wrażliwych może wywołać reakcję alergiczną skóry (zawiera ${compAccusative}). Przy długotrwałym kontakcie może powodować wysuszenie lub pękanie skóry.`;
+        } else {
+          skinSymptom += "U osób szczególnie wrażliwych może wywołać reakcję alergiczną skóry. Przy długotrwałym kontakcie może powodować wysuszenie lub pękanie skóry.";
+        }
       } else if (hasSkinIrrit) {
         skinSymptom += "Działa drażniąco na skórę. Może wywoływać zaczerwienienie, pieczenie i świąd.";
       } else {
@@ -2902,7 +2915,7 @@ class SDSProcessorEngine {
           const lines = subBlock.split('\n').map(l => l.trim()).filter(Boolean);
           const tests = [];
           for (const line of lines) {
-            if (/^(?:Suarez|Revision|Dated|Printed|BLK|\d+\/\d+|Page)/i.test(line)) continue;
+            if (/^(?:Revision|Revisione|Wersja|Dated|Data|Printed|Stampato|BLK|\d+\/\d+|Page|Pagina|Strona|Suarez)/i.test(line)) continue;
             if (/(?:LC50|EC50|NOEC|IC50)/i.test(line)) {
               let plLine = line
                 .replace(/LC50\s*-\s*for Fish/gi, '- LC50 (ryby):')
@@ -3451,15 +3464,23 @@ class SDSProcessorEngine {
     } else {
       out += `Niniejsza karta charakterystyki (wersja ${version || "1.0 PL"}) zastępuje wersję ${replacedRevision || "1.0"}.\n`;
     }
+    const compName = (this.companyConfig && this.companyConfig.companyName) || process.env.COMPANY_NAME || "ITALLUX Sp. z o.o.";
+    const compAddress = (this.companyConfig && this.companyConfig.address) || process.env.COMPANY_ADDRESS || "ul. Wesoła 16";
+    const compCity = (this.companyConfig && this.companyConfig.city) || process.env.COMPANY_CITY || "63-600 Kępno";
+    const compSite = (this.companyConfig && this.companyConfig.website) || process.env.COMPANY_WEBSITE || "www.prostozwloch.pl";
+    const addrStr = [compAddress, compCity].filter(Boolean).join(', ');
+    const detailsStr = [addrStr, compSite].filter(Boolean).join(', ');
+    const companyInfoSuffix = detailsStr ? ` (${detailsStr})` : "";
+
     out += "Aktualizacja została sporządzona i dostosowana zgodnie z wymogami Rozporządzenia Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniającego załącznik II do rozporządzenia (WE) nr 1907/2006 (REACH) oraz przepisami prawa Rzeczypospolitej Polskiej.\n";
     out += "Główne zmiany wprowadzone w bieżącej wersji obejmują:\n";
-    out += "- Sekcja 1.3: Aktualizacja danych dostawcy karty w Rzeczypospolitej Polskiej na ITALLUX Sp. z o.o. (ul. Wesoła 16, 63-600 Kępno, www.prostozwloch.pl).\n";
+    out += `- Sekcja 1.3: Aktualizacja danych dostawcy karty w Rzeczypospolitej Polskiej na ${compName}${companyInfoSuffix}.\n`;
     out += "- Sekcja 8.1: Weryfikacja i implementacja krajowych norm higienicznych w środowisku pracy (NDS, NDSCh) na podstawie Rozporządzenia MRPiPS (Dz.U. 2018 poz. 1286 z późn. zm.).\n";
     out += "- Sekcja 11.2 i 12.6: Wdrożenie obligatoryjnych podsekcji dotyczących właściwości zaburzających funkcjonowanie układu hormonalnego.\n";
     out += "- Sekcja 13: Aktualizacja klasyfikacji i 6-cyfrowych kodów odpadów zgodnie z ustawą o odpadach i Dz.U. 2020 poz. 10.\n";
     out += "- Sekcja 14: Weryfikacja i zharmonizowanie warunków przewozu zgodnie z Umową ADR.\n\n";
     out += "Klauzula prawna i ochrona praw autorskich:\n";
-    out += "Niniejsze autorskie opracowanie tłumaczenia, formatowania oraz adaptacji regulacyjnej do prawa polskiego stanowi własność intelektualną firmy ITALLUX Sp. z o.o. Kopiowanie i wykorzystywanie całości lub fragmentów w celach komercyjnych przez podmioty trzecie bez uprzedniej zgody właściciela jest zabronione. Dozwolone jest wykorzystanie dokumentu przez odbiorców w łańcuchu dostaw do celów bezpieczeństwa pracy i ochrony zdrowia.\n\n";
+    out += `Niniejsze autorskie opracowanie tłumaczenia, formatowania oraz adaptacji regulacyjnej do prawa polskiego stanowi własność intelektualną firmy ${compName}. Kopiowanie i wykorzystywanie całości lub fragmentów w celach komercyjnych przez podmioty trzecie bez uprzedniej zgody właściciela jest zabronione. Dozwolone jest wykorzystanie dokumentu przez odbiorców w łańcuchu dostaw do celów bezpieczeństwa pracy i ochrony zdrowia.\n\n`;
     out += "Informacje zawarte w niniejszej karcie wynikają z aktualnego stanu wiedzy producenta i dystrybutora i odnoszą się wyłącznie do opisanego produktu. Użytkownik ponosi odpowiedzialność za stworzenie bezpiecznych warunków pracy oraz spełnienie wymagań prawnych związanych z jego zastosowaniem.";
 
     return out.trim();
@@ -3736,6 +3757,9 @@ class SDSDocxExporter {
     const compilationDate = sdsData.compilationDate || (sdsData.metadata && sdsData.metadata.compilationDate) || new Date().toLocaleDateString('pl-PL');
     const revisionDate = sdsData.revisionDate || (sdsData.metadata && sdsData.metadata.revisionDate) || (isFirstEdition ? "Nie dotyczy" : new Date().toLocaleDateString('pl-PL'));
     const replacedRevision = sdsData.replacedRevision || (sdsData.metadata && sdsData.metadata.replacedRevision) || "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta)";
+    const distName = (sdsData.companyConfig && sdsData.companyConfig.companyName) ||
+                     (sdsData.metadata && sdsData.metadata.companyConfig && sdsData.metadata.companyConfig.companyName) ||
+                     process.env.COMPANY_NAME || "ITALLUX Sp. z o.o.";
 
     // 1. Tytuł Główny
     sectionsBody.push(new Paragraph({
@@ -3997,13 +4021,22 @@ class SDSDocxExporter {
             children: [new TextRun({ text: tLine, bold: true, size: 20, font: "Arial" })],
             spacing: { before: 200, after: 80 }
           }));
-          const adrClassMatch = data.content.match(/Klasa\s*([0-9\.]+)/i);
-          const adrClass = adrClassMatch ? adrClassMatch[1] : '3';
-          const adrBuffer = await ADRPictogramGenerator.generateAdrLabelBuffer(adrClass, 180);
-          sectionsBody.push(new Paragraph({
-            children: [new ImageRun({ data: adrBuffer, transformation: { width: 75, height: 75 } })],
-            spacing: { before: 60, after: 100 }
-          }));
+          const isNotRegulatedTransport = /nie podlega przepisom|nie jest sklasyfikowan|nie dotyczy/i.test(data.content);
+          const adrClassMatch = data.content.match(/(?:ADR[^:\n]*:\s*Klasa|Klasa|Nalepka ostrzegawcza:\s*Nr)\s*([0-9\.]+)/i);
+          if (!isNotRegulatedTransport && adrClassMatch && adrClassMatch[1]) {
+            const adrClass = adrClassMatch[1];
+            try {
+              const adrBuffer = await ADRPictogramGenerator.generateAdrLabelBuffer(adrClass, 180);
+              if (adrBuffer) {
+                sectionsBody.push(new Paragraph({
+                  children: [new ImageRun({ data: adrBuffer, transformation: { width: 75, height: 75 } })],
+                  spacing: { before: 60, after: 100 }
+                }));
+              }
+            } catch (adrErr) {
+              console.warn(`[DOCX Exporter] Pominięto generowanie nalepki ADR dla klasy ${adrClass}:`, adrErr.message);
+            }
+          }
           continue;
         }
 
@@ -4107,7 +4140,7 @@ class SDSDocxExporter {
                 border: { top: { color: "E5E7EB", space: 4, value: BorderStyle.SINGLE, size: 4 } },
                 spacing: { before: 120 },
                 children: [
-                  new TextRun({ text: "Dystrybutor: ITALLUX Sp. z o.o. | ", font: "Arial", size: 16, color: "555555" }),
+                  new TextRun({ text: `Dystrybutor: ${distName} | `, font: "Arial", size: 16, color: "555555" }),
                   new TextRun({ text: "Strona ", font: "Arial", size: 16, color: "555555" }),
                   new TextRun({ children: [PageNumber.CURRENT], font: "Arial", size: 16, color: "555555" }),
                   new TextRun({ text: " z ", font: "Arial", size: 16, color: "555555" }),

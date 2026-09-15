@@ -381,7 +381,12 @@ class SDSVerifierAgent {
     // =========================================================================
     const s1Current = (validatedSections.section_1 && validatedSections.section_1.content) || "";
     if (s1Current && /(?:-\s*-\s*$|odświeżacz powietrza:\s*-\s*-)/im.test(s1Current)) {
-      let fixedS1 = s1Current.replace(/(?:Zastosowanie zidentyfikowane:[^\n]*|1\.2\.[^\n]*\n[^\n]*)\s*-\s*-/gi, 'Zastosowanie zidentyfikowane: Zastosowanie konsumenckie: odświeżacz powietrza (dyfuzor zapachowy do wnętrz). Brak zastosowań przemysłowych lub profesjonalnych.');
+      const isAirFreshener = /odświeżacz|air freshener|deodorante/i.test(s1Current);
+      const isDiffuser = /diffus|bastoncini|dyfuzor/i.test(s1Current);
+      const categoryDesc = isAirFreshener
+        ? (isDiffuser ? "odświeżacz powietrza (dyfuzor zapachowy do wnętrz)" : "odświeżacz powietrza")
+        : "zgodne z przeznaczeniem określonym przez producenta";
+      let fixedS1 = s1Current.replace(/(?:Zastosowanie zidentyfikowane:[^\n]*|1\.2\.[^\n]*\n[^\n]*)\s*-\s*-/gi, `Zastosowanie zidentyfikowane: Zastosowanie konsumenckie: ${categoryDesc}. Brak zastosowań przemysłowych lub profesjonalnych.`);
       validatedSections.section_1 = { ...validatedSections.section_1, content: fixedS1 };
       auditLog.push({
         rule: "SECTION_1_2_FORMATTING_CLEANUP",
@@ -428,9 +433,9 @@ BEZWZGLĘDNE REGUŁY:
 3. BIERNIK W EUH208: Zwrot w sekcji 2.2 i 16 musi mieć formę "EUH208 Zawiera <nazwa substancji w bierniku, np. kumarynę>. Może powodować wystąpienie reakcji alergicznej."
 4. ROZPUSZCZALNOŚĆ (Sekcja 9.1): Zgodna ze źródłem (dla produktów rozpuszczalnych: "rozpuszczalny w wodzie", nigdy "not specified").
 5. DNEL (Sekcja 8.1): Czytelne rozbicie na Pracowników i Konsumentów, drogi narażenia i typy skutków per substancja, z zachowaniem nagłówka w formacie: "Substancja: <Nazwa> [CAS: <Numer>]".
-6. EKOTOKSYCZNOŚĆ (Sekcja 12): Pełne uwzględnienie wszystkich składników stwarzających zagrożenie dla środowiska lub uczulających (w tym kumaryny i BHT).
+6. EKOTOKSYCZNOŚĆ (Sekcja 12): Pełne uwzględnienie wszystkich składników stwarzających zagrożenie dla środowiska lub uczulających wymienionych w Sekcji 3.
 7. PIKTOGRAMY GHS (Sekcja 2.2): Prawidłowe kody piktogramów (GHS02 dla substancji łatwopalnych, GHS07 dla działania drażniącego). Całkowity zakaz zniekształceń (np. "GH02").
-8. TRANSPORT I ILOŚCI OGRANICZONE (Sekcja 14): W 14.3 podawać klasę i numer nalepki ADR (Klasa 3, Nalepka nr 3), a w 14.6 uwzględniać dopuszczenie ilości ograniczonych (LQ) zgodnie z działem 3.4 Umowy ADR.
+8. TRANSPORT I ILOŚCI OGRANICZONE (Sekcja 14): W 14.3 podawać klasę i numer nalepki ADR zgodnie z klasyfikacją towaru (lub "Nie dotyczy", jeśli produkt nie podlega ADR), a w 14.6 uwzględniać informacje o ilościach ograniczonych (LQ).
 
 ZASADA NIENARUSZALNOŚCI (ZERO REGRESJI):
 - Jeśli sekcja jest już w pełni zgodna z przepisami i nie zawiera błędów, NIE ZMIENIAJ JEJ i NIE UMIESZCZAJ w remediatedSections.
