@@ -25,6 +25,7 @@ const {
 const { SDSTableParser } = require("./engine/sds.table.parser");
 const { SubstanceAST, SDSDocumentAST } = require("./engine/sds.ast");
 const { SDSLinter } = require("./engine/sds.linter");
+const { SDSDocxParser } = require("./engine/sds.docx.parser");
 
 // Obsługa HITLError (Zbiór Anomalii)
 class HITLError extends Error {
@@ -450,10 +451,21 @@ class SDSDocumentParser {
     }
   }
 
+  static isDocxFile(filePath) {
+    return SDSDocxParser.isDocxFile(filePath);
+  }
+
   static async extractText(filePath, forceOcr = false) {
     if (!filePath || !fs.existsSync(filePath)) {
       throw new Error(`[DocumentParser] Plik nie istnieje: ${filePath}`);
     }
+
+    const isDocx = this.isDocxFile(filePath);
+    if (isDocx) {
+      console.log(`[DocumentParser] Wykryto plik DOCX. Ekstrakcja za pomocą natywnego silnika SDSDocxParser...`);
+      return await SDSDocxParser.extractText(filePath);
+    }
+
     const isRtf = this.isRtfFile(filePath);
 
     if (isRtf) {
@@ -1965,6 +1977,87 @@ class SDSProcessorEngine {
     textContent += "Pełne brzmienie zwrotów H i EUH znajduje się w sekcji 16 karty charakterystyki.";
 
     return { content: textContent, components, resolvedSubstances, chemicalDescription: chemDesc };
+  }
+
+  async processSection3FromDocxTable(tableRows, contentIt, manualOverrides = {}) {
+    // 1. Ekstrakcja wstępna komponentów z wierszy tabeli OpenXML
+    const parsedFromTable = SDSDocxParser.parseSection3Table(tableRows);
+
+    // 2. Zebranie listy CAS z tabeli lub fallback do tekstu
+    let casList = [];
+    if (parsedFromTable && parsedFromTable.length > 0) {
+      casList = Array.from(new Set(parsedFromTable.map(c => c.cas).filter(Boolean)));
+    }
+    if (casList.length === 0 && contentIt) {
+      casList = SDSChemicalExtractor.extractCas(contentIt);
+    }
+
+    // 3. Rozwiązanie nazw CAS (HITL, CAS_TO_PL_MAP, ECHA) z zachowaniem pełnej tarczy błędów
+    let resolvedSubstances = {};
+    for (const cas of casList) {
+      if (manualOverrides[cas]) {
+        resolvedSubstances[cas] = manualOverrides[cas].name_pl || manualOverrides[cas].iupac;
+        this.extractedSubstances.push({ casNumber: cas, translatedNamePl: resolvedSubstances[cas], url: "HITL_MANUAL_OVERRIDE" });
+        continue;
+      }
+      if (CAS_TO_PL_MAP[cas]) {
+        resolvedSubstances[cas] = CAS_TO_PL_MAP[cas];
+        this.extractedSubstances.push({ casNumber: cas, translatedNamePl: resolvedSubstances[cas], url: `https://echa.europa.eu/pl/substance-information/-/substanceinfo/${cas.replace(/-/g, "")}` });
+        continue;
+      }
+      try {
+        const echaInfo = await ECHAFreeResolver.resolveSubstanceData(cas);
+        resolvedSubstances[cas] = echaInfo.name_pl;
+        this.extractedSubstances.push({ casNumber: cas, translatedNamePl: echaInfo.name_pl, url: echaInfo.echa_infocard_url });
+      } catch (err) {
+        if (err.message.includes("CRITICAL HALT")) {
+          this.anomalies.push({ type: "CAS_NOT_FOUND", cas: cas, message: err.message });
+        } else {
+          this.anomalies.push({ type: "API_ERROR", cas: cas, message: err.message });
+        }
+      }
+    }
+
+    // 4. Ponowne sparsowanie tabeli z uwzględnieniem przetłumaczonych nazw
+    let components = SDSDocxParser.parseSection3Table(tableRows, resolvedSubstances);
+    if (!components || components.length === 0) {
+      components = SDSChemicalExtractor.parseSection3Components(contentIt, resolvedSubstances);
+    }
+
+    // 5. Opis chemiczny
+    let chemDesc = "Mieszanina substancji stwarzających zagrożenie wraz z dodatkami niesklasyfikowanymi.";
+    const descMatch = (contentIt || "").match(/(?:Chemical description|Descrizione chimica|Opis chemiczny|Description)\s*[:\.]?\s*([^\n]+)/i);
+    if (descMatch && descMatch[1] && !/not applicable|non applicabile/i.test(descMatch[1])) {
+      chemDesc = descMatch[1].trim()
+        .replace(/aqueous solution/gi, 'wodny roztwór')
+        .replace(/soluzione acquosa/gi, 'wodny roztwór')
+        .replace(/mixture of/gi, 'mieszanina')
+        .replace(/miscela di/gi, 'mieszanina');
+    }
+
+    let textContent = "SEKCJA 3: Skład / informacja o składnikach\n\n";
+    textContent += "3.1. Substancje: Nie dotyczy.\n\n";
+    textContent += `3.2. Mieszaniny\nOpis chemiczny: ${chemDesc}\n\n`;
+
+    if (components.length > 0) {
+      components.forEach((c, idx) => {
+        textContent += `${idx + 1}. ${c.name}\n`;
+        textContent += `   ${c.identifiers.replace(/\n/g, ' | ')}\n`;
+        textContent += `   Stężenie: ${c.concentration}\n`;
+        textContent += `   Klasyfikacja: ${c.classification.replace(/\n/g, ' ')}\n\n`;
+      });
+    } else {
+      textContent += "Mieszanina nie zawiera składników stwarzających zagrożenie w ilościach przekraczających stężenia graniczne określone w rozporządzeniu CLP.\n\n";
+    }
+
+    textContent += "Pełne brzmienie zwrotów H i EUH znajduje się w sekcji 16 karty charakterystyki.";
+
+    return {
+      content: textContent.trim(),
+      components,
+      resolvedSubstances,
+      chemicalDescription: chemDesc
+    };
   }
 
 
@@ -3802,8 +3895,20 @@ class SDSProcessorEngine {
 
   async prepareAgentPayload(pdfFilePath, productName = "PRODUKT CHEMICZNY", manualOverrides = {}) {
     console.log(`[SYS] Ekstrakcja pliku: ${pdfFilePath}`);
-    const fullText = await SDSDocumentParser.extractText(pdfFilePath, false);
-    const rawSections = SDSPDFParser.segmentInto16Sections(fullText);
+    const isDocx = SDSDocumentParser.isDocxFile(pdfFilePath);
+    let fullText = "";
+    let rawSections = {};
+    let docxParsed = null;
+
+    if (isDocx) {
+      console.log(`[SYS] Wykryto format wejściowy DOCX. Uruchamianie zaawansowanej analizy strukturalnej OpenXML...`);
+      docxParsed = SDSDocxParser.extractTextAndSections(pdfFilePath);
+      fullText = docxParsed.fullText;
+      rawSections = docxParsed.sections;
+    } else {
+      fullText = await SDSDocumentParser.extractText(pdfFilePath, false);
+      rawSections = SDSPDFParser.segmentInto16Sections(fullText);
+    }
     
     // Ekstrakcja metadanych rewizji i dat źródłowych (wg Pkt 0.2.5 Załącznika II do REACH)
     const revMatch = fullText.match(/(?:Revision\s*(?:nr\.?|no\.?|n\.|:)?\s*|Version\s*(?:nr\.?|no\.?|:)?\s*|Revisione\s*(?:n\.?|nr\.?|:)?\s*)(\d+(?:\.\d+)?)/i);
@@ -3866,7 +3971,12 @@ class SDSProcessorEngine {
     const revisionDate = manualOverrides.revisionDate || (!isExplicitSubsequentPolishRevision ? "Nie dotyczy" : new Date().toLocaleDateString('pl-PL'));
 
     const ufi = SDSChemicalExtractor.extractUfi(rawSections["section_1"]);
-    const s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
+    let s3;
+    if (isDocx && docxParsed && docxParsed.tablesBySection && docxParsed.tablesBySection['section_3'] && docxParsed.tablesBySection['section_3'].length > 0) {
+      s3 = await this.processSection3FromDocxTable(docxParsed.tablesBySection['section_3'][0], rawSections["section_3"], manualOverrides);
+    } else {
+      s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
+    }
     const s2 = this.processSection2(rawSections["section_2"], s3.resolvedSubstances, s3.components);
     const s1Content = this.processSection1(rawSections["section_1"], productName, ufi, manualOverrides, extractedCode);
     const s4Content = this.processSection4(rawSections["section_4"], s3.components, s2.content);
@@ -4494,6 +4604,7 @@ module.exports = {
   SDSProcessorEngine, 
   SDSDocxExporter, 
   SDSDocumentParser,
+  SDSDocxParser,
   SDSRTFParser,
   SDSPDFParser, 
   ECHAFreeResolver, 

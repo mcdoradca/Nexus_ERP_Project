@@ -13,7 +13,7 @@ function cleanupOrphanPdfs() {
         const MAX_AGE_MS = 60 * 60 * 1000; // 1 godzina
 
         files.forEach(file => {
-            if ((file.startsWith('temp_sds_') && (file.endsWith('.pdf') || file.endsWith('.rtf'))) ||
+            if ((file.startsWith('temp_sds_') && (file.endsWith('.pdf') || file.endsWith('.rtf') || file.endsWith('.docx'))) ||
                 (file.startsWith('Karta_Charakterystyki_PL_') && file.endsWith('.docx'))) {
                 const filePath = path.join(cwd, file);
                 const stats = fs.statSync(filePath);
@@ -36,13 +36,14 @@ async function processSds(req, res) {
     let tempFilePath = null;
     try {
         if (!req.file) {
-            return res.status(400).json({ error: 'Brak pliku źródłowego (PDF lub RTF).' });
+            return res.status(400).json({ error: 'Brak pliku źródłowego (DOCX, PDF lub RTF).' });
         }
 
         const productName = req.body.productName || 'PRODUKT CHEMICZNY';
+        const isDocx = (req.file.originalname && req.file.originalname.toLowerCase().endsWith('.docx'));
         const isRtf = (req.file.originalname && req.file.originalname.toLowerCase().endsWith('.rtf')) ||
                       (req.file.buffer && req.file.buffer.slice(0, 10).toString('binary').startsWith('{\\rtf'));
-        const ext = isRtf ? '.rtf' : '.pdf';
+        const ext = isDocx ? '.docx' : (isRtf ? '.rtf' : '.pdf');
         tempFilePath = path.join(process.cwd(), `temp_sds_${Date.now()}${ext}`);
         fs.writeFileSync(tempFilePath, req.file.buffer);
 
@@ -56,7 +57,7 @@ async function processSds(req, res) {
 
         // Nazwa pliku wyjściowego zachowuje w 100% tożsamość pliku źródłowego (1:1), podmieniając jedynie rozszerzenie na .docx
         const originalBaseName = (req.file.originalname || 'Karta_Charakterystyki')
-            .replace(/\.(pdf|rtf)$/i, '')
+            .replace(/\.(pdf|rtf|docx)$/i, '')
             .replace(/[\r\n\x00]/g, '');
         const downloadFileName = `${originalBaseName}.docx`;
 
@@ -85,13 +86,14 @@ async function processSds(req, res) {
 async function resumeProcess(req, res) {
     let tempFilePath = null;
     try {
-        if (!req.file) return res.status(400).json({ error: 'Brak pliku źródłowego (PDF lub RTF).' });
+        if (!req.file) return res.status(400).json({ error: 'Brak pliku źródłowego (DOCX, PDF lub RTF).' });
         const productName = req.body.productName || 'PRODUKT CHEMICZNY';
         const manualOverrides = req.body.manualOverrides ? JSON.parse(req.body.manualOverrides) : {};
         
+        const isDocx = (req.file.originalname && req.file.originalname.toLowerCase().endsWith('.docx'));
         const isRtf = (req.file.originalname && req.file.originalname.toLowerCase().endsWith('.rtf')) ||
                       (req.file.buffer && req.file.buffer.slice(0, 10).toString('binary').startsWith('{\\rtf'));
-        const ext = isRtf ? '.rtf' : '.pdf';
+        const ext = isDocx ? '.docx' : (isRtf ? '.rtf' : '.pdf');
         tempFilePath = path.join(process.cwd(), `temp_sds_${Date.now()}${ext}`);
         fs.writeFileSync(tempFilePath, req.file.buffer);
 
@@ -105,7 +107,7 @@ async function resumeProcess(req, res) {
 
         // Nazwa pliku wyjściowego zachowuje w 100% tożsamość pliku źródłowego (1:1)
         const originalBaseName = (req.file.originalname || 'Karta_Charakterystyki')
-            .replace(/\.(pdf|rtf)$/i, '')
+            .replace(/\.(pdf|rtf|docx)$/i, '')
             .replace(/[\r\n\x00]/g, '');
         const downloadFileName = `${originalBaseName}.docx`;
 
