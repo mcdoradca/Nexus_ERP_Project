@@ -1,21 +1,21 @@
 /**
- * ARCHITEKTURA SDS NEXUS ERP - NATYWNY PARSER DOKUMENTÓW DOCX (OpenXML)
+ * SDSDocxParser - Wysoko wydajny, deterministyczny parser kart charakterystyki DOCX (Office OpenXML)
  * 
- * Zapewnia 100% deterministyczną ekstrakcję kart charakterystyki dostarczanych w formacie .docx.
- * Eliminuje wady odczytu PDF:
- * 1. Zerowe ryzyko wycieku nagłówków i stopek (w Wordzie znajdują się w word/header*.xml).
- * 2. Bezpośrednia ekstrakcja tabel OpenXML (w:tbl -> w:tr -> w:tc) bez zgadywania granic stringów przez regex.
- * 3. Precyzyjne mapowanie komponentów sekcji 3.2, DNEL/PNEC (sekcja 8.1) oraz testów ekotoksyczności (sekcja 12.1).
+ * Zasady architektoniczne (ADR-085):
+ * 1. Zero New Dependencies - operuje wyłącznie na wbudowanych adm-zip oraz cheerio (xmlMode: true).
+ * 2. Zero Running-Header Leakage - całkowita izolacja nagłówków/stopek stron.
+ * 3. Linear Flow Preservation - sekwencyjna dekompozycja blokowa (w:p oraz w:tbl).
+ * 4. Structural Table Extraction - rozróżnianie tabel layoutowych od tabel danych chemicznych.
+ * 5. REACH Monotonicity Gatekeeper - sekwencyjna progresja sekcji 1 do 16.
  */
 
-const fs = require('fs');
-const path = require('path');
 const AdmZip = require('adm-zip');
 const cheerio = require('cheerio');
+const fs = require('fs');
 
 class SDSDocxParser {
   /**
-   * Sprawdza czy dany plik jest dokumentem DOCX (rozszerzenie lub nagłówek ZIP z word/document.xml)
+   * Sprawdza czy dany plik jest poprawnym archiwum Office OpenXML DOCX
    * @param {string} filePath 
    * @returns {boolean}
    */
@@ -50,11 +50,13 @@ class SDSDocxParser {
   static cleanArtifacts(text) {
     if (!text || typeof text !== 'string') return "";
     return text
-      .replace(/Suarez\s+Company\s+(?:First\s+compilation\s+)?(?:[A-Z0-9_\-]+\s*-\s*[^\n]+?\s+)?\d{1,2}\/\d{1,2}\s*/gi, '')
-      .replace(/Suarez\s+Company\s+S\.?r\.?l\.?[^\n]*/gi, '')
+      .replace(/(?:^|\n)\s*(?:[A-Za-z0-9_\-\.\s]{2,40})?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[\s\S]*?(?:Dated|Data|Printed|Stampato)[\s\S]*?\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/gi, '')
+      .replace(/(?:^|\n)\s*(?:Suarez\s+Company|Company|Distributor|Dystrybutor)[\s\S]*?\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/gi, '')
+      .replace(/(?:^|\n)\s*\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/g, '')
       .replace(/Dated\s+[0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4}[^\n]*/gi, '')
       .replace(/Printed\s+on\s+[^\n]*/gi, '')
-      .replace(/Page\s+n\.?\s*\d+\s*(?:of|\/)\s*\d+[^\n]*/gi, '')
+      .replace(/Stampato\s+il\s+[^\n]*/gi, '')
+      .replace(/Page\s+(?:n\.?)?\s*\d+\s*(?:of|\/)\s*\d+[^\n]*/gi, '')
       .replace(/Strona\s+\d+\s*(?:z|\/)\s*\d+[^\n]*/gi, '')
       .replace(/Pagina\s+\d+\s*(?:di|\/)\s*\d+[^\n]*/gi, '');
   }
@@ -79,7 +81,6 @@ class SDSDocxParser {
 
   /**
    * Bezpiecznie pobiera tekst z węzła akapitu <w:p>
-   * Uwzględnia w:t, w:tab, w:br, w:cr oraz filtr antyartefaktowy
    * @param {object} pElem Węzeł akapitu cheerio
    * @param {object} $ Instancja cheerio
    * @returns {string}
@@ -88,7 +89,6 @@ class SDSDocxParser {
     if (!pElem) return "";
     let paraText = "";
 
-    // Pobieramy wszystkie elementy potomne wewnątrz akapitu
     $(pElem).find('*').each((_, el) => {
       const tagName = (el.tagName || el.name || "").toLowerCase();
       if (tagName === 'w:t' || tagName === 't') {
@@ -150,42 +150,86 @@ class SDSDocxParser {
   }
 
   /**
-   * Identyfikator sekcji na podstawie tekstu nagłówka
+   * Sprawdza czy dany węzeł tabeli zawiera nagłówek sekcji (jest tabelą układu strony)
+   * @param {object} tblElem 
+   * @param {object} $ 
+   * @param {string|null} currentKey 
+   * @returns {string|null}
+   */
+  static tableContainsSectionHeader(tblElem, $, currentKey = null) {
+    let found = null;
+    $(tblElem).find('w\\:p, p').each((_, p) => {
+      const txt = $(p).find('w\\:t, t').map((_, t) => $(t).text()).get().join('').trim();
+      if (txt) {
+        const match = SDSDocxParser.matchSectionHeader(txt, currentKey);
+        if (match) {
+          found = match;
+          return false; // break loop
+        }
+      }
+    });
+    return found;
+  }
+
+  /**
+   * Identyfikator sekcji na podstawie tekstu nagłówka.
+   * Wymusza bezwzględną monotoniczność sekwencji REACH (1 do 16) oraz kotwiczenie do początku bloku.
+   * 
    * @param {string} text 
+   * @param {string|null} currentKey
    * @returns {string|null} np. "section_1", "section_2", ..., "section_16"
    */
   static matchSectionHeader(text, currentKey = null) {
     if (!text || typeof text !== 'string') return null;
     const clean = text.trim();
+    if (clean.length > 250) return null; // Nagłówki sekcji REACH to krótkie tytuły
+
+    let detectedNum = null;
 
     // Wzorzec 1: SEZIONE / SECTION / SEKCJA / SECCIÓN / ABSCHNITT / RUBRIQUE X
-    const p1 = /(?:SEZIONE|SECTION|SEKCJA|SECCI[OÓ]N|ABSCHNITT|RUBRIQUE)\s*(?:N\.?|NR\.?|NO\.?|NUMBER)?\s*[:\.\-]?\s*([1-9]|1[0-6])\b/i.exec(clean);
+    const p1 = /^[\s\*\#\-_]*(?:SEZIONE|SECTION|SEKCJA|SECCI[OÓ]N|ABSCHNITT|RUBRIQUE)\s*(?:N\.?|NR\.?|NO\.?|NUMBER)?\s*[:\.\-]?\s*([1-9]|1[0-6])\b/i.exec(clean);
     if (p1) {
-      return `section_${parseInt(p1[1], 10)}`;
+      detectedNum = parseInt(p1[1], 10);
     }
 
-    // Wzorzec 2: "1. IDENTYFIKACJA...", "1: IDENTYFIKACJA", "1 - IDENTYFIKACJA", "1 IDENTYFIKACJA"
-    const p2 = /^([1-9]|1[0-6])\s*[:\.\-]?\s*(?:IDENT|ZAGRO|SKŁAD|COMPOS|HAZARD|FIRST|ŚRODKI|POSTĘPOWANIE|FIRE|UWOLN|RELEASE|MANIPOL|POSTĘP|MAGAZYN|KONTROLA|EXPOS|WŁAŚCIWOŚCI|PROPR|STABIL|TOKSYK|TOXIC|EKOLOG|ECOLOG|ODPAD|DISPOSAL|TRANSP|PRZEPIS|REGULAT|INNE|OTHER|ABSCHNITT|RUBRIQUE)/i.exec(clean);
-    if (p2) {
-      return `section_${parseInt(p2[1], 10)}`;
-    }
-
-    // Wzorzec 3: Jeśli jesteśmy w preambule i pojawia się podsekcja 1.1 lub 1.2
-    if (!currentKey || currentKey === 'preamble') {
-      const p3 = /^(?:1\.1\b|1\.2\b)\s*[:\.\-]?\s*(?:Identyfikator|Product|Identificatore|Relevant|Usi|Istotne|Zastosowanie)/i.exec(clean);
-      if (p3) {
-        return `section_1`;
+    // Wzorzec 2: "1. IDENTYFIKACJA...", "1: IDENTYFIKACJA", "1 - IDENTYFIKACJA"
+    if (!detectedNum) {
+      const p2 = /^[\s\*\#\-_]*([1-9]|1[0-6])\s*[:\.\-]\s*(?:IDENT|ZAGRO|SKŁAD|COMPOS|HAZARD|FIRST|ŚRODKI|POSTĘPOWANIE|FIRE|UWOLN|RELEASE|MANIPOL|POSTĘP|MAGAZYN|KONTROLA|EXPOS|WŁAŚCIWOŚCI|PROPR|STABIL|TOKSYK|TOXIC|EKOLOG|ECOLOG|ODPAD|DISPOSAL|TRANSP|PRZEPIS|REGULAT|INNE|OTHER|ABSCHNITT|RUBRIQUE)/i.exec(clean);
+      if (p2) {
+        detectedNum = parseInt(p2[1], 10);
       }
     }
 
-    return null;
+    // Wzorzec 3: Preamble recovery (jeśli jesteśmy w preambule i pojawia się podsekcja 1.1 lub 1.2)
+    if (!detectedNum && (!currentKey || currentKey === 'preamble')) {
+      const p3 = /^[\s\*\#\-_]*(?:1\.1\b|1\.2\b)\s*[:\.\-]?\s*(?:Identyfikator|Product|Identificatore|Relevant|Usi|Istotne|Zastosowanie)/i.exec(clean);
+      if (p3) {
+        detectedNum = 1;
+      }
+    }
+
+    if (!detectedNum) return null;
+
+    // REGUŁA MONOTONICZNOŚCI REACH (UE 2020/878):
+    // Sekcje w karcie SDS następują ściśle sekwencyjnie (1 do 16).
+    // Odrzucamy fałszywe dopasowania wstecz (np. wzmiankę o sekcji 2 w sekcji 16).
+    const currentNum = currentKey && currentKey.startsWith('section_')
+      ? parseInt(currentKey.replace('section_', ''), 10)
+      : 0;
+
+    if (detectedNum < currentNum) {
+      return null;
+    }
+
+    return `section_${detectedNum}`;
   }
 
   /**
    * Główna metoda przetwarzająca DOCX:
-   * 1. Ekstrahuje pełny, czysty tekst bez nagłówków/stopek stron
-   * 2. Dzieli dokument na 16 sekcji zgodnie z chronologicznym przepływem węzłów w:body
-   * 3. Pobiera wyodrębnione struktury tabel przypisane do sekcji
+   * 1. Dekomponuje sekwencyjnie strukturę document.xml (w:p oraz w:tbl)
+   * 2. Transparentnie rozwija tabele layoutowe komórka po komórce do strumienia akapitów
+   * 3. Zachowuje tabele danych (składniki, DNEL, właściwości) jako wyodrębnione macierze
+   * 4. Gwarantuje porządek 16 sekcji REACH
    * 
    * @param {string} filePath 
    * @returns {{ fullText: string, sections: object, tablesBySection: object, allTables: Array }}
@@ -207,7 +251,6 @@ class SDSDocxParser {
 
     let currentSectionKey = 'preamble';
 
-    // Przechodzimy sekwencyjnie po bezpośrednich dzieciach w:body
     const bodyChildren = $('w\\:document > w\\:body').children();
 
     bodyChildren.each((_, el) => {
@@ -216,50 +259,52 @@ class SDSDocxParser {
       if (tagName === 'w:p' || tagName === 'p') {
         const text = SDSDocxParser.extractParagraphText(el, $);
         if (!text) return;
+        const cleaned = SDSDocxParser.cleanArtifacts(text);
+        if (!cleaned) return;
 
-        const detectedSec = SDSDocxParser.matchSectionHeader(text, currentSectionKey);
-        if (detectedSec) {
+        const detectedSec = SDSDocxParser.matchSectionHeader(cleaned, currentSectionKey);
+        if (detectedSec && detectedSec !== currentSectionKey) {
           currentSectionKey = detectedSec;
         }
 
-        sections[currentSectionKey].push(text);
+        sections[currentSectionKey].push(cleaned);
       } else if (tagName === 'w:tbl' || tagName === 'tbl') {
-        const tableRows = SDSDocxParser.parseTableNode(el, $);
-        if (tableRows && tableRows.length > 0) {
-          // Sprawdzamy czy pierwsza komórka tabeli zawiera nagłówek nowej sekcji
-          if (tableRows[0] && tableRows[0][0]) {
-            const detectedFromTable = SDSDocxParser.matchSectionHeader(tableRows[0][0], currentSectionKey);
-            if (detectedFromTable) {
-              currentSectionKey = detectedFromTable;
-            }
+        const isLayoutTable = !!SDSDocxParser.tableContainsSectionHeader(el, $, currentSectionKey);
+
+        if (isLayoutTable) {
+          // Tabela układu strony: rozwijamy akapity komórka po komórce z bieżącą detekcją granic sekcji
+          $(el).find('w\\:tr, tr').each((_, tr) => {
+            $(tr).find('w\\:tc, tc').each((_, tc) => {
+              $(tc).find('w\\:p, p').each((_, p) => {
+                const text = SDSDocxParser.extractParagraphText(p, $);
+                if (!text) return;
+                const cleaned = SDSDocxParser.cleanArtifacts(text);
+                if (!cleaned) return;
+
+                const detectedSec = SDSDocxParser.matchSectionHeader(cleaned, currentSectionKey);
+                if (detectedSec && detectedSec !== currentSectionKey) {
+                  currentSectionKey = detectedSec;
+                }
+
+                sections[currentSectionKey].push(cleaned);
+              });
+            });
+          });
+        } else {
+          // Właściwa tabela danych: zachowujemy strukturę wierszy i komórek
+          const tableRows = SDSDocxParser.parseTableNode(el, $);
+          if (tableRows && tableRows.length > 0) {
+            tablesBySection[currentSectionKey].push(tableRows);
+            allTables.push({ section: currentSectionKey, rows: tableRows });
+
+            const tableText = SDSDocxParser.formatTableAsText(tableRows);
+            sections[currentSectionKey].push(tableText);
           }
-
-          tablesBySection[currentSectionKey].push(tableRows);
-          allTables.push({ section: currentSectionKey, rows: tableRows });
-
-          // Równolegle dołączamy tekstową reprezentację tabeli do bufora sekcji
-          const tableText = SDSDocxParser.formatTableAsText(tableRows);
-          sections[currentSectionKey].push(tableText);
         }
       }
     });
 
-    // Jeśli w preambule znalazły się podpunkty sekcji 1 (np. 1.1 lub 1.2 przed formalnym nagłówkiem), przenieś je do section_1
-    const cleanedPreamble = [];
-    let movingToSec1 = false;
-    for (const pText of sections['preamble']) {
-      if (/^(?:1\.1\b|1\.2\b|Usi\s+pertinenti|Relevant\s+identified|Istotne\s+zidentyfikowane)/i.test(pText.trim())) {
-        movingToSec1 = true;
-      }
-      if (movingToSec1) {
-        sections['section_1'].unshift(pText);
-      } else {
-        cleanedPreamble.push(pText);
-      }
-    }
-    sections['preamble'] = cleanedPreamble;
-
-    // Składanie końcowego wyniku sekcji w postaci stringów
+    // Składanie końcowego wyniku sekcji w postaci tekstu
     const formattedSections = {};
     for (let i = 1; i <= 16; i++) {
       const key = `section_${i}`;
@@ -296,111 +341,165 @@ class SDSDocxParser {
   }
 
   /**
-   * Precyzyjny parser tabeli sekcji 3.2 z DOCX.
-   * Mapuje wiersze tabeli OpenXML na pełne obiekty komponentów chemicznych bez ułomności regexów PDF.
+   * Precyzyjny, uniwersalny parser tabel sekcji 3.2 z DOCX.
+   * Obsługuje formaty 1-wierszowe (grid) oraz wielowierszowe (blokowe) występujące w systemach chemicznych.
+   * Łączy podzielone tabele między stronami w spójną listę komponentów.
    * 
-   * @param {Array<Array<string>>} tableRows Wiersze tabeli wyekstrahowane z <w:tbl>
+   * @param {Array<Array<string>>|Array<Array<Array<string>>>} tableOrTables Wiersze lub tablica tabel z <w:tbl>
    * @param {object} resolvedSubstances Słownik przetłumaczonych nazw CAS -> nazwa_pl
    * @returns {Array<object>} Tablica komponentów gotowa do pipeline'u sds.service.js
    */
-  static parseSection3Table(tableRows, resolvedSubstances = {}) {
-    if (!tableRows || tableRows.length === 0) return [];
+  static parseSection3Table(tableOrTables, resolvedSubstances = {}) {
+    if (!tableOrTables) return [];
 
-    const components = [];
-    let headerRowIdx = -1;
-
-    // Szukamy wiersza nagłówkowego (Substancja, CAS, Stężenie, Klasyfikacja)
-    for (let i = 0; i < Math.min(3, tableRows.length); i++) {
-      const rowText = tableRows[i].join(' ').toLowerCase();
-      if (/substanc|sostanz|substance|nazwa|name/i.test(rowText) &&
-          (/identyf|identif|cas|we|ec/i.test(rowText) || /klasyfik|classif/i.test(rowText) || /stężen|conc/i.test(rowText))) {
-        headerRowIdx = i;
-        break;
+    let rawRows = [];
+    if (Array.isArray(tableOrTables) && tableOrTables.length > 0) {
+      // Jeśli przekazano tablicę tabel (3D), spłaszczamy do pojedynczego ciągu wierszy
+      if (Array.isArray(tableOrTables[0]) && tableOrTables[0].length > 0 && Array.isArray(tableOrTables[0][0])) {
+        for (const tbl of tableOrTables) {
+          if (Array.isArray(tbl)) rawRows.push(...tbl);
+        }
+      } else {
+        rawRows = tableOrTables;
       }
     }
 
-    const dataRows = headerRowIdx >= 0 ? tableRows.slice(headerRowIdx + 1) : tableRows;
+    if (rawRows.length === 0) return [];
 
-    for (const row of dataRows) {
-      if (!row || row.length === 0) continue;
+    // Odrzucamy powtarzające się nagłówki tabeli (np. na kolejnych stronach)
+    const cleanRows = rawRows.filter(r => {
+      if (!r || r.length === 0) return false;
+      const txt = r.join(' ').toLowerCase();
+      if ((txt.includes('identification') || txt.includes('identificazione') || txt.includes('identyfikacja')) &&
+          (txt.includes('conc') || txt.includes('stężenie') || txt.includes('classification') || txt.includes('klasyfikacja'))) {
+        return false;
+      }
+      return true;
+    });
 
-      const fullRowText = row.join('\n');
+    const components = [];
+    let currentComp = null;
 
-      // Weryfikacja czy wiersz zawiera numer CAS
-      const casMatches = [...fullRowText.matchAll(/(?<![\d-])([1-9]\d{1,6}-\d{2}-\d)(?![\d-])/g)];
-      if (casMatches.length === 0) continue;
+    for (const row of cleanRows) {
+      const col0 = (row[0] || '').trim();
+      const fullRow = row.join('\n').trim();
 
-      const casNumber = casMatches[0][1];
+      const isIdentifierRow = /^(?:INDEX|EC|CAS|REACH|Numer\s*(?:WE|CAS|indeksowy|rejestracji))\b/i.test(col0);
 
-      // Wyznaczanie komórek semantycznie
-      let nameCell = "";
-      let identCell = "";
-      let concCell = "";
-      let classCell = "";
+      // Nowy komponent w formacie blokowym rozpoczyna się, gdy col0 to nazwa substancji
+      if (col0 && !isIdentifierRow) {
+        if (currentComp && (currentComp.name || currentComp.cas)) {
+          components.push(currentComp);
+        }
+        currentComp = {
+          name: col0.replace(/\n/g, ' '),
+          cas: '',
+          ec: '—',
+          index: '—',
+          reach: '—',
+          concentration: '',
+          classification: '',
+          sclAte: []
+        };
+      } else if (!currentComp) {
+        currentComp = {
+          name: '',
+          cas: '',
+          ec: '—',
+          index: '—',
+          reach: '—',
+          concentration: '',
+          classification: '',
+          sclAte: []
+        };
+      }
 
-      // Jeśli mamy dokładnie 4 kolumny o standardowym układzie:
-      if (row.length === 4) {
-        nameCell = row[0];
-        identCell = row[1];
-        classCell = row[2];
-        concCell = row[3];
-      } else {
-        // Dynamiczne wykrywanie komórek na podstawie zawartości
-        for (const cell of row) {
-          if (cell.includes(casNumber) || /(?:Numer\s*(?:WE|EC|CAS)|REACH|Indeks)/i.test(cell)) {
-            identCell = cell;
-          } else if (/(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%/i.test(cell) || /\b\d+\s*≤\s*x/i.test(cell)) {
-            concCell = cell;
-          } else if (/H\d{3}|Flam|Eye|Skin|Acute|Aquatic|Sens|STOT|Asp|Specyficzne/i.test(cell)) {
-            classCell = cell;
-          } else if (!nameCell && cell.trim().length > 0) {
-            nameCell = cell;
-          }
+      // Ekstrakcja CAS - priorytet dla frazy CAS: X-X-X, aby uniknąć kolizji z końcówką INDEX
+      const casExplicit = fullRow.match(/\b(?:CAS|Numer\s*CAS)\s*[:\.]?\s*([1-9]\d{1,6}-\d{2}-\d)\b/i);
+      if (casExplicit && !currentComp.cas) {
+        currentComp.cas = casExplicit[1];
+      } else if (!currentComp.cas && !fullRow.includes('INDEX') && !fullRow.includes('Indeks')) {
+        const casGeneric = fullRow.match(/(?<![\d-])([1-9]\d{1,6}-\d{2}-\d)(?![\d-])/);
+        if (casGeneric) currentComp.cas = casGeneric[1];
+      }
+
+      // Ekstrakcja WE / EC
+      const ecMatch = fullRow.match(/\b(?:EC|WE|EINECS|Numer\s*WE)\s*[:\.]?\s*(\d{3}-\d{3}-\d)\b/i);
+      if (ecMatch && currentComp.ec === '—') {
+        currentComp.ec = ecMatch[1];
+      }
+
+      // Ekstrakcja Index (wykluczamy "INDEX -")
+      const indexMatch = fullRow.match(/\b(?:INDEX|Indeks|Numer\s*indeksowy)\s*[:\.]?\s*([0-9Xx]{3}-[0-9Xx]{3}-[0-9Xx]{2}-[\dXx])\b/i);
+      if (indexMatch && currentComp.index === '—') {
+        currentComp.index = indexMatch[1];
+      }
+
+      // Ekstrakcja REACH
+      const reachMatch = fullRow.match(/\b(?:REACH\s*Reg\.?|REACH|Numer\s*rejestracji\s*REACH)\s*[:\.]?\s*(01-\d{8,10}-\d{2}(?:-[A-Za-z0-9]{2,4})?)\b/i);
+      if (reachMatch && currentComp.reach === '—') {
+        currentComp.reach = reachMatch[1];
+      }
+
+      // Ekstrakcja stężenia
+      for (const cell of row) {
+        const concM = cell.match(/(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%\s*(?:-\s*(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%)?|\b\d+(?:[.,]\d+)?\s*≤\s*x\s*<\s*\d+(?:[.,]\d+)?|\b\d+(?:[.,]\d+)?\s*<\s*x\s*<\s*\d+(?:[.,]\d+)?/i);
+        if (concM && !currentComp.concentration) {
+          currentComp.concentration = concM[0].trim();
         }
       }
 
-      // Wyciąganie numerów WE / Indeks / REACH
-      const ecMatch = fullRowText.match(/\b(?:Numer\s*WE|WE|EC|EINECS)\s*[:\.]?\s*(\d{3}-\d{3}-\d)\b/i);
-      const ecNumber = ecMatch ? ecMatch[1] : "—";
+      // Ekstrakcja klasyfikacji CLP i uwag SCL / ATE
+      for (let cIdx = 1; cIdx < row.length; cIdx++) {
+        const cell = row[cIdx].trim();
+        if (!cell) continue;
+        if (cell === currentComp.concentration) continue;
 
-      const indexMatch = fullRowText.match(/\b(?:Numer\s*indeksowy|Index|Indeks)\s*[:\.]?\s*(\d{3}-\d{3}-\d{2}-[\dXx])\b/i);
-      const indexNumber = indexMatch ? indexMatch[1] : "—";
-
-      const reachMatch = fullRowText.match(/\b(?:Numer\s*rejestracji\s*REACH|REACH\s*Reg\.?|REACH)?\s*[:\.]?\s*(01-\d{8,10}-\d{2}(?:-[A-Za-z0-9]{2,4})?)\b/i);
-      const reachNumber = reachMatch ? reachMatch[0] : "—";
-
-      // Identyfikatory
-      const idParts = [
-        `Numer CAS: ${casNumber}`,
-        `Numer WE: ${ecNumber}`
-      ];
-      if (indexNumber !== "—") idParts.push(`Numer indeksowy: ${indexNumber}`);
-      if (reachNumber !== "—") idParts.push(`Numer rejestracji REACH:\n${reachNumber}`);
-
-      // Nazwa chemiczna (czyszczenie i tłumaczenie)
-      let rawName = nameCell.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
-      let plName = resolvedSubstances[casNumber] || rawName;
-
-      // Stężenie
-      let concentration = concCell.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim() || "—";
-
-      // Klasyfikacja CLP
-      let classification = classCell.trim();
-
-      components.push({
-        cas: casNumber,
-        name: plName,
-        originalName: rawName,
-        ec: ecNumber,
-        index: indexNumber,
-        reach: reachNumber,
-        identifiers: idParts.join('\n'),
-        classification: classification,
-        concentration: concentration
-      });
+        if (/Flam|Eye|Skin|Acute|Aquatic|Sens|STOT|Asp|Muta|Repr|Skin Corr|H\d{3}|EUH\d{3}|Substance with a community|Classification note/i.test(cell)) {
+          if (!currentComp.classification) {
+            currentComp.classification = cell.replace(/\n/g, ' ');
+          } else {
+            currentComp.classification += `, ${cell.replace(/\n/g, ' ')}`;
+          }
+        } else if (/ATE|LD50|LC50|SCL|M=|M\s*=\s*\d+/i.test(cell)) {
+          currentComp.sclAte.push(cell.replace(/\n/g, ' '));
+        }
+      }
     }
 
-    return components;
+    if (currentComp && (currentComp.name || currentComp.cas)) {
+      components.push(currentComp);
+    }
+
+    // Formatowanie końcowe każdego komponentu
+    return components.map(c => {
+      const rawName = (c.name || '').trim();
+      const plName = (c.cas && resolvedSubstances[c.cas]) ? resolvedSubstances[c.cas] : rawName;
+
+      const idParts = [
+        `Numer CAS: ${c.cas || '—'}`,
+        `Numer WE: ${c.ec || '—'}`
+      ];
+      if (c.index && c.index !== '—') idParts.push(`Numer indeksowy: ${c.index}`);
+      if (c.reach && c.reach !== '—') idParts.push(`Numer rejestracji REACH:\n${c.reach}`);
+
+      let fullClass = c.classification || '';
+      if (c.sclAte && c.sclAte.length > 0) {
+        fullClass += (fullClass ? ', ' : '') + c.sclAte.join(', ');
+      }
+
+      return {
+        cas: c.cas || '',
+        name: plName || rawName,
+        originalName: rawName,
+        ec: c.ec || '—',
+        index: c.index || '—',
+        reach: c.reach || '—',
+        identifiers: idParts.join('\n'),
+        classification: fullClass.trim(),
+        concentration: c.concentration || '—'
+      };
+    });
   }
 }
 

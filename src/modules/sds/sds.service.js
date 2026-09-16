@@ -1765,15 +1765,13 @@ class SDSProcessorEngine {
     // Gdy mieszanina jest zaklasyfikowana jako Skin Sens. (H317), alergeny wyzwalające tę klasyfikację
     // MUSZĄ znaleźć się na etykiecie pod "Zawiera:", a zwrot EUH208 jest prawnie zabroniony.
     let labelSubstances = "Nie dotyczy.";
-    const containsMatch = contentIt.match(/(?<!EUH208[\s\S]{0,30})(?:Contains|Contiene|Zawiera)\s*[:\.]?\s*([\s\S]+?)(?=(?:Hazard-determining|Hazard\s+statements|Precautionary\s+statements|Pericoli|Zwroty|Piktogramy|Hasło|Signal|Word|EUH|Supplemental|$))/i);
+    const containsMatch = contentIt.match(/(?<!EUH208[\s\S]{0,30})(?:Contains|Contiene|Zawiera)\s*[:\.]?\s*([\s\S]+?)(?=(?:2\.3\b|Other\s+hazards|Inne\s+zagrożenia|Altri\s+pericoli|Hazard-determining|Hazard\s+statements|Precautionary\s+statements|Pericoli|Zwroty|Piktogramy|Hasło|Signal|Word|EUH|Supplemental|$))/i);
     let potentialNames = [];
     if (containsMatch) {
-      const rawNames = containsMatch[1]
-        .replace(/-\s+/g, '-')
-        .replace(/\n/g, ' ')
-        .split(/[,;]/)
-        .map(s => s.trim())
-        .filter(s => s && !/(?:Hazard-determining|Pericoli|Zwroty|Piktogramy|Hasło|Signal|Word|EUH)/i.test(s) && s.length >= 3);
+      const rawText = containsMatch[1].replace(/-\s+/g, '-');
+      const rawNames = (rawText.includes('\n') || rawText.includes('|'))
+        ? rawText.split(/[\r\n|;]+/).map(s => s.trim()).filter(s => s && !/(?:Hazard-determining|Pericoli|Zwroty|Piktogramy|Hasło|Signal|Word|EUH)/i.test(s) && s.length >= 3)
+        : rawText.split(/(?:;|(?:,(?!\s*\d|\s*[a-z0-9\*]+\))))/).map(s => s.trim()).filter(s => s && !/(?:Hazard-determining|Pericoli|Zwroty|Piktogramy|Hasło|Signal|Word|EUH)/i.test(s) && s.length >= 3);
       
       potentialNames = rawNames.map(rn => {
         return SDSChemicalExtractor.resolvePlName(null, rn, resolvedSubstances);
@@ -2298,7 +2296,7 @@ class SDSProcessorEngine {
   static isTechnicalFilename(name) {
     if (!name || typeof name !== 'string') return true;
     const trimmed = name.trim();
-    return /^(?:PRODUKT CHEMICZNY|Mieszanina chemiczna|temp_sds_.*|\d{8,14}(?:_SDS.*)?|_SDS_.*|.*\.(?:pdf|rtf))$/i.test(trimmed);
+    return /^(?:PRODUKT CHEMICZNY|Mieszanina chemiczna|temp_sds_.*|\d{8,14}(?:_SDS.*)?|_SDS_.*|.*\.(?:pdf|rtf|docx))$/i.test(trimmed);
   }
 
   processSection1(contentIt, productName = "", ufi = "", manualOverrides = {}, extractedCode = "") {
@@ -3120,7 +3118,7 @@ class SDSProcessorEngine {
   }
 
 
-  processSection12(contentIt, components = []) {
+  processSection12(contentIt, components = [], s2Content = "") {
     let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
     
     // Normalizacja sklejeń znaków z biblioteki pdf-parse
@@ -3184,17 +3182,18 @@ class SDSProcessorEngine {
       block6 = (idxEndo !== -1 && idxOther !== -1) ? workingText.substring(idxEndo, idxOther).trim() : (idxEndo !== -1 ? workingText.substring(idxEndo).trim() : "");
       block7 = idxOther !== -1 ? workingText.substring(idxOther).trim() : "";
     } else {
-      const p = (regex) => {
-        const m = clean.match(regex);
+      const p = (startPat, endPat) => {
+        const reg = new RegExp('(?:^|\\n)\\s*' + startPat + '[.:\\-]?[ \\t]*([\\s\\S]*?)(?=(?:^|\\n)\\s*' + endPat + '|$)', 'i');
+        const m = clean.match(reg);
         return m ? m[1].trim() : "";
       };
-      block1 = p(/(?:^|\n)\s*12\.1\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*12\.2\b|$)/i);
-      block2 = p(/(?:^|\n)\s*12\.2\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*12\.3\b|$)/i);
-      block3 = p(/(?:^|\n)\s*12\.3\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*12\.4\b|$)/i);
-      block4 = p(/(?:^|\n)\s*12\.4\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*12\.5\b|$)/i);
-      block5 = p(/(?:^|\n)\s*12\.5\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*12\.6\b|$)/i);
-      block6 = p(/(?:^|\n)\s*12\.6\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*12\.7\b|$)/i);
-      block7 = p(/(?:^|\n)\s*12\.7\b[.:\-]?\s*([\s\S]*?)$/i);
+      block1 = p('(?:12\\.1\\b|Toxicity|Tossicità|Toksyczność)', '(?:12\\.2\\b|Persistence and degradability|Persistenza e degradabilità|Trwałość)');
+      block2 = p('(?:12\\.2\\b|Persistence and degradability|Persistenza e degradabilità|Trwałość)', '(?:12\\.3\\b|Bioaccumulative potential|Potenziale di bioaccumulo|Zdolność do bioakumulacji)');
+      block3 = p('(?:12\\.3\\b|Bioaccumulative potential|Potenziale di bioaccumulo|Zdolność do bioakumulacji)', '(?:12\\.4\\b|Mobility in soil|Mobilità nel suolo|Mobilność w glebie)');
+      block4 = p('(?:12\\.4\\b|Mobility in soil|Mobilità nel suolo|Mobilność w glebie)', '(?:12\\.5\\b|Results of PBT|Risultati della valutazione PBT|Wyniki oceny właściwości PBT)');
+      block5 = p('(?:12\\.5\\b|Results of PBT|Risultati della valutazione PBT|Wyniki oceny właściwości PBT)', '(?:12\\.6\\b|Endocrine|Proprietà di interferenza|Właściwości zaburzające)');
+      block6 = p('(?:12\\.6\\b|Endocrine|Proprietà di interferenza|Właściwości zaburzające)', '(?:12\\.7\\b|Other adverse effects|Altri effetti avversi|Inne szkodliwe)');
+      block7 = p('(?:12\\.7\\b|Other adverse effects|Altri effetti avversi|Inne szkodliwe)', '$');
     }
 
     // Rozwiązywanie polskich nazw substancji
@@ -3258,10 +3257,23 @@ class SDSProcessorEngine {
     let s12_1 = "12.1. Toksyczność\n";
     s12_1 += "Stosować dobrą praktykę zawodową, unikając przedostawania się produktu do środowiska.\n\n";
     s12_1 += "Właściwości ekotoksykologiczne mieszaniny:\n";
-    if (/Not classified for environmental hazards/i.test(block1) || !/Aquatic (?:acute|chronic)/i.test(block1)) {
-      s12_1 += "Mieszanina nie została zaklasyfikowana jako stwarzająca zagrożenie dla środowiska.\n";
+
+    const hasAquaticInS2 = /(?:H412|Aquatic\s*Chronic\s*3|H411|Aquatic\s*Chronic\s*2|H410|Aquatic\s*Chronic\s*1|H400|Aquatic\s*Acute\s*1)/i.test(s2Content);
+    const hasAquaticInBlock1 = /(?:dangerous for the environment|pericoloso per l'ambiente|szkodliwie na organizmy wodne|Aquatic\s*(?:acute|chronic))/i.test(block1) && !/Not classified for environmental hazards/i.test(block1);
+
+    if (hasAquaticInS2 || hasAquaticInBlock1) {
+      let clpDesc = "kategoria przewlekła 3 (Aquatic Chronic 3, H412: Działa szkodliwie na organizmy wodne, powodując długotrwałe skutki)";
+      if (/H410|Aquatic\s*Chronic\s*1/i.test(s2Content) || /Aquatic Chronic 1/i.test(block1)) {
+        clpDesc = "kategoria przewlekła 1 (Aquatic Chronic 1, H410: Działa bardzo toksycznie na organizmy wodne, powodując długotrwałe skutki)";
+      } else if (/H411|Aquatic\s*Chronic\s*2/i.test(s2Content) || /Aquatic Chronic 2/i.test(block1)) {
+        clpDesc = "kategoria przewlekła 2 (Aquatic Chronic 2, H411: Działa toksycznie na organizmy wodne, powodując długotrwałe skutki)";
+      } else if (/H400|Aquatic\s*Acute\s*1/i.test(s2Content) || /Aquatic Acute 1/i.test(block1)) {
+        clpDesc = "kategoria ostra 1 (Aquatic Acute 1, H400: Działa bardzo toksycznie na organizmy wodne)";
+      }
+      s12_1 += `Mieszanina została zaklasyfikowana jako stwarzająca zagrożenie dla środowiska wodnego – ${clpDesc}.\nBrak danych doświadczalnych z badań ekotoksykologicznych dla samego produktu; klasyfikacji dokonano metodą obliczeniową na podstawie zawartości składników.\n`;
+    } else {
+      s12_1 += "Mieszanina nie została zaklasyfikowana jako stwarzająca zagrożenie dla środowiska.\nBrak danych doświadczalnych dla mieszaniny.\n";
     }
-    s12_1 += "Brak danych doświadczalnych dla mieszaniny.\n";
 
     let s1Substances = [];
     if (components && components.length > 0 && block1) {
@@ -3973,7 +3985,7 @@ class SDSProcessorEngine {
     const ufi = SDSChemicalExtractor.extractUfi(rawSections["section_1"]);
     let s3;
     if (isDocx && docxParsed && docxParsed.tablesBySection && docxParsed.tablesBySection['section_3'] && docxParsed.tablesBySection['section_3'].length > 0) {
-      s3 = await this.processSection3FromDocxTable(docxParsed.tablesBySection['section_3'][0], rawSections["section_3"], manualOverrides);
+      s3 = await this.processSection3FromDocxTable(docxParsed.tablesBySection['section_3'], rawSections["section_3"], manualOverrides);
     } else {
       s3 = await this.processSection3(rawSections["section_3"], manualOverrides);
     }
@@ -3985,7 +3997,7 @@ class SDSProcessorEngine {
     const s7Content = this.processSection7(rawSections["section_7"]);
     const s8Content = this.processSection8(rawSections["section_8"], s3.components, s2.content);
     const s9Content = this.processSection9(rawSections["section_9"], s3.components);
-    const s12Res = this.processSection12(rawSections["section_12"], s3.components);
+    const s12Res = this.processSection12(rawSections["section_12"], s3.components, s2.content);
     const s12Content = s12Res.content;
     const s13Content = this.processSection13(rawSections["section_13"], s3.components, s2.content, s1Content);
     const s14Content = this.processSection14(rawSections["section_14"]);

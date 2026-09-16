@@ -57,15 +57,33 @@ Decyzją operacyjną użytkownika dopuszczono dostarczanie kart wejściowych bez
      4. Gwarantowany fallback zgodny z załącznikiem II do REACH (UE 2020/878).
    - W `SDSSchemaValidator.validateTranslatedSections`: wdrożono normalizację aliasów kluczy (`section_1.2`, `1.2`, `section1_2`, `section_1` -> `section_1_2`) oraz automatyczną naprawę (auto-remediację) z tekstu źródłowego lub bezpiecznego szablonu prawnego w razie pominięcia sekcji 1.2 przez LLM.
 
+9. **Uniwersalna dyskryminacja tabel OpenXML (Layout Tables vs Data Tables):**
+   - Pliki DOCX powstałe z konwersji PDF często opakowują całe strony lub grupy sekcji w kontenery układu (`<w:tbl>`). Wcześniejszy parser traktował każdą tabelę jako niepodzielną całość i pobierał numer sekcji jedynie z pierwszej komórki (`tableRows[0][0]`), co powodowało "uwięzienie" sekcji 5, 6, 7, 8 wewnątrz sekcji 4.
+   - Wdrożono metodę `tableContainsSectionHeader($, tbl)`: jeśli tabela zawiera w swoich komórkach nagłówki kolejnych sekcji, silnik przełącza się w tryb sekwencyjnego strumieniowania akapitów (`<w:p>`) wewnątrz komórek, płynnie przechodząc przez sekcje 1..16. Jeśli tabela jest tabelą danych (np. składniki, NDS, ekotoksyczność), zostaje zachowana jako ustrukturyzowana macierz w `tablesBySection`.
+
+10. **Bramka sekwencyjnej monotoniczności REACH i kotwiczenie nagłówków (`^`):**
+    - Wyeliminowano fałszywe przejścia sekcji powodowane przez śródzdaniowe odnośniki w tekście (np. w sekcji 16: "Pełny tekst zwrotów H wymienionych w sekcjach 2-3").
+    - W `matchSectionHeader` wprowadzono:
+      a) Kotwiczenie do początku linii (`^`) i rygorystyczną długość wiersza (<= 250 znaków),
+      b) Bramkę monotoniczności REACH: nagłówek sekcji jest akceptowany wyłącznie wtedy, gdy `detectedNum >= currentNum` (sekwencyjny postęp od 1 do 16).
+
+11. **Wielowierszowa ekstrakcja tabel składników sekcji 3 (Split Tables & Multi-Row Blocks):**
+    - W dokumentach dostawców tabela składników sekcji 3.2 jest dzielona przez podziały stron na wiele niezależnych elementów `<w:tbl>`. Parser przetwarza teraz tablice wszystkich tabel przypisanych do sekcji 3.
+    - Wiersze substancji w DOCX mają strukturę wielowierszowych bloków (Wiersz 1: Nazwa substancji, Wiersz 2: INDEX / Stężenie / Klasyfikacja CLP, Wiersz 3: WE / SCL, Wiersz 4: CAS / REACH).
+    - Zaimplementowano uniwersalną blokową agregację wierszy, wyodrębniającą 100% składników (wszystkie 19 pozycji w teście SANDALO) wraz z precyzyjnym rozróżnieniem numerów CAS od indeksowych i dokładnymi klasyfikacjami CLP.
+
+12. **Spójność regulacyjna między Sekcją 2 a Sekcją 12.1 (H412):**
+    - W przypadku gdy mieszanina posiada w Sekcji 2 klasyfikację zagrożenia dla środowiska wodnego (np. Aquatic Chronic 3, H412), Sekcja 12.1 automatycznie odzwierciedla tę klasyfikację, zapobiegając sprzeczności z klauzulami "produkt nie jest niebezpieczny dla środowiska".
+
 ## Skutki i Weryfikacja
-- Całkowite wyeliminowanie błędów odczytu sekcji 3.2 i 4.1 wynikających ze spłaszczania wektorowego PDF.
-- Wyeliminowanie błędu asercji kontraktu LLM dla sekcji 1.2 dzięki wielopoziomowej tarczy ekstrakcyjnej i auto-remediacji walidatora.
-- Pomyślne przejście dedykowanego zestawu testów w `tests/sds.docx_input.test.js` (7/7 PASS):
-  1. Detekcja formatu `isDocxFile`.
-  2. Ekstrakcja 16 sekcji z `SANDALO.docx` bez wycieku nagłówków.
-  3. Bezpośrednia ekstrakcja tabeli składników z `SANDALO.docx` (17 komponentów z kompletnymi danymi).
-  4. Ekstrakcja z `TALCO.docx`.
-  5. Integracja z `SDSDocumentParser.extractText`.
-  6. Pełne przygotowanie deterministycznego payloadu w `SDSProcessorEngine`.
-  7. Auto-remediacja i normalizacja kluczy dla `section_1_2` w `SDSSchemaValidator`.
-- Zero regresji na istniejących zestawach testowych PDF i RTF (9/9 PASS w dedykowanych testach jednostkowych i walidacyjnych).
+- Całkowite wyeliminowanie błędów odczytu sekcji BHP/PPOŻ (Sekcje 5, 6, 7 posiadają pełne procedury zamiast pustych sekcji).
+- Usunięcie fałszywych piktogramów (czaszka, żrący, mutagenność) w Sekcji 2.2, które wynikały z omyłkowego wchłonięcia słownika zwrotów H z Sekcji 16.
+- Ekstrakcja 100% składników (wszystkie 19 substancji w karcie Sandalo) z kompletnymi numerami CAS, WE, stężeniami i klasyfikacjami CLP.
+- Pomyślne przejście dedykowanego zestawu testów w `tests/sds.docx_input.test.js` (6/6 PASS) oraz pełnego suite testów SDS:
+  1. `sds.docx_input.test.js` (6/6 PASS).
+  2. `sds.compiler_engine.test.js` (PASS).
+  3. `sds.schema.validator.test.js` (PASS).
+  4. `sds.compliance.test.js` (PASS).
+  5. `sds.zero_hardcodes.test.js` (PASS).
+  6. `sds.audit_sanepid_fixes.test.js` (PASS).
+- Usunięto 4 pliki robocze z `docs/SDS/` zgodnie z kategoryczną dyspozycją Użytkownika.

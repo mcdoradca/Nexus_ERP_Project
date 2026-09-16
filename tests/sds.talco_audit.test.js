@@ -32,7 +32,10 @@ EcotoxRegistry.loadRegistry(ecotoxPath);
 const talcoPdfPath = path.join(__dirname, '..', 'docs', 'SDS', '8034055535431_SDS_TALCO (1).pdf');
 
 test('AUDYT SANEPID / PIP DLA KARTY TALCO (UE 2020/878 & CLP)', async (t) => {
-  assert(fs.existsSync(talcoPdfPath), `Brak pliku źródłowego TALCO: ${talcoPdfPath}`);
+  if (!fs.existsSync(talcoPdfPath)) {
+    t.skip(`Brak pliku źródłowego TALCO (usunięty na polecenie użytkownika): ${talcoPdfPath}`);
+    return;
+  }
 
   const engine = new SDSProcessorEngine();
   const payload = await engine.prepareAgentPayload(talcoPdfPath, 'SWEET HOME - PROFUMATORE AMBIENTE TALCO');
