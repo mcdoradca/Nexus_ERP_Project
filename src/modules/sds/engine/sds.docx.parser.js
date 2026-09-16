@@ -51,7 +51,10 @@ class SDSDocxParser {
     if (!text || typeof text !== 'string') return "";
     return text
       .replace(/(?:^|\n)\s*(?:[A-Za-z0-9_\-\.\s]{2,40})?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[^\n]{0,120}?(?:Dated|Data|Printed|Stampato)[^\n]{0,120}?\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/gi, '')
+      .replace(/(?:^|\n)\s*(?:[A-Za-z0-9_\-\.\s]{2,40})?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[^\n]*/gi, '')
+      .replace(/(?:^|\n)\s*(?:Suarez\s+Company|Company|Distributor|Dystrybutor)\s*\|[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*(?:Suarez\s+Company|Company|Distributor|Dystrybutor)[^\n]{0,120}?\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/gi, '')
+      .replace(/(?:^|\n)\s*(?!(?:LC|EC|IC|LD|NOEC|NOAEL|LOAEL)\d*)(?:BLK\d+(?:-\d+)?|[A-Z]{2,6}\d{3,8}(?:-\d+)?)\s*-\s*[^\n]+/gi, '')
       .replace(/(?:^|\n)\s*\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/g, '')
       .replace(/Dated\s+[0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4}[^\n]*/gi, '')
       .replace(/Printed\s+on\s+[^\n]*/gi, '')

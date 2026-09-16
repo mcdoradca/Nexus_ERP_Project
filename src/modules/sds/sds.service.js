@@ -736,19 +736,21 @@ class SDSChemicalExtractor {
     }
     return inferred.sort();
   }
-  
+
   static extractDnelPnec(text, components = []) {
     if (!text) return { dnel: [], pnec: [], bySubstance: {} };
     let clean = SDSProcessorEngine.cleanPdfArtifacts(text)
-      .replace(/(?:^[^\n]+\n)?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[\s\S]*?Replaced revision:[^\n]*/gi, '')
-      .replace(/Suarez Company[\s\S]*?Replaced revision:[^\n]*/gi, '')
-      .replace(/DNEL\/PNEC available\s*;\s*NEA[\s\S]*?(?=\n\n|\n[A-Z]|$)/gi, '');
+      .replace(/(?:^[^\n]+\n)?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[^\n]*/gi, '')
+      .replace(/(?:^|\n)\s*(?:[^\n\|]*?\|\s*)?(?:Suarez Company|SWEET HOME|BLK\d+)[^\n]*/gi, '')
+      .replace(/DNEL\/PNEC available\s*;\s*NEA[\s\S]*?(?=\n\n|\n[A-Z]|$)/gi, '')
+      .replace(/(\b(?:Skin|Oral|Inhalation)[^\n]*?)\s*(\([±\+]\)\s*trans[-—–])/gi, '$1\n$2');
 
     const parsePnecBlock = (raw) => {
       let lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
       let plLines = [];
       for (let l of lines) {
         if (/^(?:Revision|Revisione|Wersja|Dated|Data|Printed|Stampato|BLK|\d+\/\d+|Page|Pagina|Strona|The full|Suarez)/i.test(l)) continue;
+        if (/(?:bw\/d|mc\/dzień|\bOral\b|\bSkin\b|\bInhalation\b|Effects on)/i.test(l)) continue;
         let trans = l
           .replace(/Normal value in fresh water/gi, '- woda słodka:')
           .replace(/Normal value in marine water/gi, '- woda morska:')
@@ -770,8 +772,8 @@ class SDSChemicalExtractor {
 
     const parseDnelBlock = (raw) => {
       let clean = raw.replace(/\r/g, '')
-        .replace(/(?:^[^\n]+\n)?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[\s\S]*?Replaced revision:[^\n]*/gi, '')
-        .replace(/Suarez Company[\s\S]*?Replaced revision:[^\n]*/gi, '');
+        .replace(/(?:^[^\n]+\n)?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[^\n]*/gi, '')
+        .replace(/(?:^|\n)\s*(?:[^\n\|]*?\|\s*)?(?:Suarez Company|SWEET HOME|BLK\d+)[^\n]*/gi, '');
       let res = [];
 
       // 1. Droga pokarmowa (Oral)
@@ -860,52 +862,56 @@ class SDSChemicalExtractor {
       for (let i = 0; i < components.length; i++) {
         const comp = components[i];
         const searchNames = [comp.originalName, comp.name, comp.cas].filter(Boolean);
-        let blockText = null;
+        let compDnel = [];
+        let compPnec = [];
 
         for (const name of searchNames) {
           if (!name || name.length < 3) continue;
-          const escaped = name
-            .replace(/[—–]/g, '-')
+          const cleanName = name.replace(/\s*[-—–]\s*/g, '-').trim();
+          const escaped = cleanName
             .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
-            .replace(/\\\-/g, '[-—–]')
+            .replace(/\\\*/g, '\\*?')
+            .replace(/\\\-/g, '[-—–\\s]*')
             .replace(/\s+/g, '\\s+');
 
           const otherPatterns = components.filter(c => c !== comp)
-            .flatMap(c => [c.originalName, c.name])
+            .flatMap(c => [c.originalName, c.name, c.cas])
             .filter(n => n && n.length >= 4)
-            .map(n => n.replace(/[—–]/g, '-').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&').replace(/\\\-/g, '[-—–]').replace(/\s+/g, '\\s+'));
+            .map(n => n.replace(/\s*[-—–]\s*/g, '-').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&').replace(/\\\*/g, '\\*?').replace(/\\\-/g, '[-—–\\s]*').replace(/\s+/g, '\\s+'));
 
-          const genericNextSub = `(?:^|\\n)\\s*[A-Za-z0-9\\s\\(\\)\\[\\]\\-–—\\.]{3,80}?\\s*(?:\\||\\n)\\s*(?:Threshold Limit Value|Predicted no-effect concentration|Health\\s*-\\s*Derived no-effect)`;
+          const genericNextSub = `(?:^|\\n)\\s*[A-Za-z0-9\\s\\(\\)\\[\\]\\-–—\\.,\\*\\/]{3,120}?\\s*(?:\\||\\n)\\s*(?:Threshold Limit Value|Predicted no-effect concentration|Health\\s*-\\s*Derived no-effect)`;
           const endPat = otherPatterns.length > 0 
             ? `(?=(?:^|\\n)\\s*(?:${otherPatterns.join('|')})(?:\\b|[\\s\\|\\-\\)]|$))|(?=${genericNextSub})|(?:^|\\n)\\s*8\\.2\\b|$`
             : `(?=${genericNextSub})|(?:^|\\n)\\s*8\\.2\\b|$`;
-          const reg = new RegExp(`(?:^|\\n)\\s*${escaped}(?:\\b|[\\s\\|\\-\\)]|$)([\\s\\S]*?)(?:${endPat})`, 'i');
-          const m = clean.match(reg);
-          if (m && /Predicted no-effect|Health\s*-\s*Derived/i.test(m[1])) {
-            blockText = m[1];
-            break;
+          
+          const regAll = new RegExp(`(?:^|\\n)\\s*${escaped}(?:\\b|[\\s\\|\\-\\)]|$)([\\s\\S]*?)(?:${endPat})`, 'gi');
+          const matches = [...clean.matchAll(regAll)];
+          
+          for (const m of matches) {
+            const blockText = m[1];
+            if (/Predicted no-effect concentration\s*-\s*PNEC/i.test(blockText)) {
+              const pnecMatches = [...blockText.matchAll(/Predicted no-effect concentration\s*-\s*PNEC([\s\S]*?)(?=Health\s*-\\s*Derived|Predicted no-effect|8\\.2|SECTION|$)/gi)];
+              for (const pm of pnecMatches) {
+                compPnec.push(...parsePnecBlock(pm[1]));
+              }
+            }
+            if (/Health\s*-\s*Derived no-effect level/i.test(blockText)) {
+              const dnelMatches = [...blockText.matchAll(/Health\s*-\s*Derived no-effect level\s*-\s*DNEL\s*\/\s*DMEL([\s\S]*?)(?=Predicted no-effect|Health\s*-\\s*Derived|8\\.2|SECTION|$)/gi)];
+              for (const dm of dnelMatches) {
+                compDnel.push(...parseDnelBlock(dm[1]));
+              }
+            }
           }
+          if (compDnel.length > 0 || compPnec.length > 0) break;
         }
 
-        if (blockText) {
-          let compDnel = [];
-          let compPnec = [];
-          const pnecMatches = [...blockText.matchAll(/Predicted no-effect concentration\s*-\s*PNEC([\s\S]*?)(?=Health\s*-\s*Derived|Predicted no-effect|8\.2|SECTION|$)/gi)];
-          for (const pm of pnecMatches) {
-            compPnec.push(...parsePnecBlock(pm[1]));
-          }
-          const dnelMatches = [...blockText.matchAll(/Health\s*-\s*Derived no-effect level\s*-\s*DNEL\s*\/\s*DMEL([\s\S]*?)(?=Predicted no-effect|Health\s*-\s*Derived|8\.2|SECTION|$)/gi)];
-          for (const dm of dnelMatches) {
-            compDnel.push(...parseDnelBlock(dm[1]));
-          }
-          if (compDnel.length > 0 || compPnec.length > 0) {
-            const keyName = comp.name || comp.originalName || comp.cas;
-            bySubstance[keyName] = {
-              cas: comp.cas,
-              dnel: compDnel,
-              pnec: compPnec
-            };
-          }
+        if (compDnel.length > 0 || compPnec.length > 0) {
+          const keyName = comp.name || comp.originalName || comp.cas;
+          bySubstance[keyName] = {
+            cas: comp.cas,
+            dnel: Array.from(new Set(compDnel)),
+            pnec: Array.from(new Set(compPnec))
+          };
         }
       }
     }
@@ -915,12 +921,11 @@ class SDSChemicalExtractor {
     for (const m of pnecRaw) {
       pnecList.push(...parsePnecBlock(m[1]));
     }
-    const dnelRaw = [...clean.matchAll(/Health\s*-\s*Derived no-effect level\s*-\s*DNEL\s*\/\s*DMEL([\s\S]*?)(?=Predicted no-effect|Health\s*-\s*Derived|SECTION|8\.2|$)/gi)];
+    const dnelRaw = [...clean.matchAll(/Health\s*-\s*Derived no-effect level\s*-\s*DNEL\s*\/\s*DMEL([\s\S]*?)(?=Predicted no-effect|Health\s*-\\s*Derived|SECTION|8\.2|$)/gi)];
     let dnelList = [];
     for (const m of dnelRaw) {
       dnelList.push(...parseDnelBlock(m[1]));
     }
-
     return { dnel: dnelList, pnec: pnecList, bySubstance };
   }
 
@@ -2207,6 +2212,8 @@ class SDSProcessorEngine {
       .replace(/(?:^|\n)\s*(?:Suarez\s+Company|Company)[^\n]*[\s\S]{1,500}?\n\s*\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/gi, '')
       .replace(/Suarez Company[\s\S]*?Replaced revision:[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*(?:Revision nr\.?|Revisione n\.?|Wersja nr|Dated|Data|Printed on|Stampato il)\s*[:\.]?\s*[^\n]*/gi, '')
+      .replace(/(?:^|\n)\s*(?:Suarez\s+Company|Company|Distributor|Dystrybutor)\s*\|[^\n]*/gi, '')
+      .replace(/(?:^|\n)\s*(?!(?:LC|EC|IC|LD|NOEC|NOAEL|LOAEL)\d*)(?:BLK\d+(?:-\d+)?|[A-Z]{2,6}\d{3,8}(?:-\d+)?)\s*-\s*[^\n]+/gi, '')
       .replace(/(?:^|\n)\s*(?:Page|Strona|Pagina)\b[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/g, '')
       .replace(/(?:^|\n)\s*\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}\s*(?:Production Name|Trade Name|Nazwa produktu|Product name|Nome prodotto)?[^\n]*/gi, '')
@@ -2779,8 +2786,8 @@ class SDSProcessorEngine {
     }
     let v = val.replace(/\r/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
 
-    // Czyszczenie separatorów tabelarycznych |
-    v = v.replace(/^[\|\s\-:]+/, '').replace(/[\|\s]+$/, '').replace(/\s*\|\s*/g, ', ');
+    // Czyszczenie separatorów tabelarycznych | oraz wiodących myślników (z wyłączeniem liczb ujemnych np. -114 lub -0,35)
+    v = v.replace(/^[\|\s:]+/, '').replace(/^-(?!\d)/, '').replace(/[\|\s]+$/, '').replace(/\s*\|\s*/g, ', ');
 
     // Obsługa prawnych uzasadnień braku danych (Załącznik II do UE 2020/878)
     if (/Reason for missing data/i.test(v)) {
@@ -2912,8 +2919,11 @@ class SDSProcessorEngine {
     // 1. Usunięcie artefaktów paginacji PDF i powtórzonych nagłówków
     let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
 
-    // Scalenie połamanych linii nagłówków parametrów w sekcji 9
+    // Usunięcie artefaktów nagłówkowych i separatorów tabelarycznych rozbijających wieloliniowe parametry
     clean = clean
+      .replace(/(?:^|\n)\s*(?!(?:LC|EC|IC|LD|NOEC|NOAEL|LOAEL)\d*)(?:BLK\d+(?:-\d+)?|[A-Z]{2,6}\d{3,8}(?:-\d+)?)\s*-\s*[^\n]+/gi, '')
+      .replace(/(?:^|\n)\s*\|\s*\|\s*/g, ' ')
+      .replace(/(Reason for missing data[^\n]+)\n\s*([^\n]+(?:safety and classification|applies to solids|organic peroxides|decompose)[^\n]*)/gi, '$1 $2')
       .replace(/Boiling point or initial boiling point and\s*\n\s*boiling range/gi, 'Boiling point or initial boiling point and boiling range')
       .replace(/Punto di ebollizione o punto iniziale di ebollizione e\s*\n\s*intervallo di ebollizione/gi, 'Punto di ebollizione o punto iniziale di ebollizione e intervallo di ebollizione')
       .replace(/Lower and upper explosion\s*\n\s*limit/gi, 'Lower and upper explosion limit')
@@ -2957,9 +2967,11 @@ class SDSProcessorEngine {
         customExtract: (text) => {
           let m = text.match(/(?:Kinematic viscosity|Viscosità cinematica|Lepkość kinematyczna)\s*[:\.]?\s*([^\n]+)/i);
           if (!m) return "Brak danych";
-          let raw = m[1].trim();
+          let raw = m[1].replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
           let norm = SDSProcessorEngine.normalizePhysChemValue(raw, "viscosity");
-          if (norm === "Nie dotyczy" || /brak danych/i.test(norm)) return "Brak danych";
+          if (norm === "Nie oznaczono") return "Nie oznaczono";
+          if (norm === "Nie dotyczy" || norm === "Brak danych") return "Brak danych";
+          if (/^Brak danych\s*\(/i.test(norm)) return norm;
           if (/^\d+(?:[.,]\d+)?(?!\s*(?:mm²\/s|cSt|mPa|Pa\.s|\/s))/i.test(norm)) {
             norm = norm.replace(/^(\d+(?:[.,]\d+)?)/, '$1 mm²/s');
           }
@@ -3342,8 +3354,10 @@ class SDSProcessorEngine {
           .flatMap(c => [c.originalName, c.name, c.cas])
           .filter(n => n && n.length >= 3)
           .map(n => n.replace(/\s*[-—–]\s*/g, '-').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&').replace(/\\\*/g, '\\*?').replace(/\\\-/g, '[-—–]\\s*').replace(/\s+/g, '\\s+'));
-        const endPat = otherNames.length > 0 ? `(?=(?:^|\\n)\\s*(?:${otherNames.join('|')})\\b)|(?:^|\\n)\\s*12\\.[2-7]\\b|$` : `(?:^|\\n)\\s*12\\.[2-7]\\b|$`;
-        const reg = new RegExp(`(?:^|\\n)\\s*${escaped}\\b([\\s\\S]*?)(?:${endPat})`, 'i');
+        const endPat = otherNames.length > 0 
+          ? `(?=(?:^|\\n)\\s*(?:${otherNames.join('|')})(?:\\b|[\\s\\|\\-\\)]|$))|(?:^|\\n)\\s*12\\.[2-7]\\b|$` 
+          : `(?:^|\\n)\\s*12\\.[2-7]\\b|$`;
+        const reg = new RegExp(`(?:^|\\n)\\s*${escaped}(?:\\b|[\\s\\|\\-\\)]|$)([\\s\\S]*?)(?:${endPat})`, 'i');
         const m = bClean.match(reg);
         if (m && m[1] && m[1].trim()) return m[1].trim();
 
@@ -3514,16 +3528,32 @@ class SDSProcessorEngine {
         const subBlock = extractSubstanceBlock(block3, comp);
         const info = [];
         if (subBlock) {
-          const partM = subBlock.match(/(?:Partition coefficient(?:\s*[:\.]?\s*n-octanol\/water)?|Log\s*Kow|Log\s*Pow)\s*[:\.]?\s*([^\n]+)/i);
-          if (partM) {
-            const val = partM[1].trim().replace(/(\d+)\.(\d+)/g, '$1,$2');
+          let logKowVal = null;
+          const logKowValM = subBlock.match(/(?:Partition coefficient|Log\s*Kow|Log\s*Pow)[^\n]*?Value\s*[:\.]?\s*([^\n]+)/i);
+          if (logKowValM) {
+            logKowVal = logKowValM[1].trim();
+          } else {
+            const partM = subBlock.match(/(?:Partition coefficient(?:\s*[:\.]?\s*n-octanol\/water)?|Log\s*Kow|Log\s*Pow)\s*[:\.]?\s*([^\n]+)/i);
+            if (partM) logKowVal = partM[1].trim();
+          }
+          if (logKowVal) {
+            const val = logKowVal.replace(/^=\s*/, '').replace(/(\d+)\.(\d+)/g, '$1,$2');
             info.push(`współczynnik podziału n-oktanol/woda (log Kow): ${val}`);
           }
-          const bcfM = subBlock.match(/BCF\s*[:\.]?\s*([^\n-]+)/i);
-          if (bcfM) {
-            const val = bcfM[1].trim().replace(/(\d+)\.(\d+)/g, '$1,$2');
+
+          let bcfVal = null;
+          const bcfValM = subBlock.match(/BCF[^\n]*?Value\s*[:\.]?\s*([^\n]+)/i);
+          if (bcfValM) {
+            bcfVal = bcfValM[1].trim();
+          } else {
+            const bcfSimpleM = subBlock.match(/BCF\s*(?:[:=]|\b(?:is|=))\s*([^\n]+)/i) || subBlock.match(/BCF\s*[:\.]?\s*([^\n-]+)/i);
+            if (bcfSimpleM && bcfSimpleM[1].trim()) bcfVal = bcfSimpleM[1].trim();
+          }
+          if (bcfVal) {
+            const val = bcfVal.replace(/^=\s*/, '').replace(/(\d+)\.(\d+)/g, '$1,$2');
             info.push(`współczynnik biokoncentracji BCF = ${val}`);
           }
+
           if (/Not bioaccumulative|Non bioaccumulabile/i.test(subBlock)) {
             info.push("nie wykazuje zdolności do bioakumulacji");
           } else if (/(?<!Not\s+|Non\s+)Bioaccumulative\b/i.test(subBlock)) {

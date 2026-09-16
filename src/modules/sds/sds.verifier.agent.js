@@ -480,11 +480,12 @@ ${JSON.stringify(keyAuditSections, null, 2)}`;
 
       if (parsed.remediatedSections && typeof parsed.remediatedSections === 'object') {
         for (const [secKey, newContent] of Object.entries(parsed.remediatedSections)) {
+          // Deterministyczne sekcje laboratoryjne i tabelaryczne (3, 8, 9, 12, 14, 15) podlegają ochronie Single Source of Truth
+          // Zakaz nadpisywania wyliczonych danych chemicznych, NDS, DNEL/PNEC i ekotoksyczności przez halucynacje LLM
+          if (['section_3', 'section_8', 'section_9', 'section_12', 'section_14', 'section_15'].includes(secKey)) {
+            continue;
+          }
           if (sections[secKey] && typeof newContent === 'string' && newContent.trim().length > 20) {
-            // Bezpiecznik: jeśli sekcja 8 miała już ustalone zwolnienie konsumenckie ze ŚOI, zachowaj je
-            if (secKey === 'section_8' && sections[secKey].content.includes('W normalnych warunkach stosowania konsumenckiego') && !newContent.includes('W normalnych warunkach stosowania konsumenckiego')) {
-              continue;
-            }
             sections[secKey] = { ...sections[secKey], content: newContent.trim() };
           }
         }
