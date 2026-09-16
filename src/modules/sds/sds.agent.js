@@ -141,7 +141,10 @@ ${JSON.stringify(agentPayload.descriptiveSectionsToTranslate, null, 2)}`;
         await SDSDocxExporter.export(finalData, outputFilename);
         
         console.log(`[Agent SDS] Zakończono! Zapisano plik: ${outputFilename}`);
-        return outputFilename;
+        return {
+            docxPath: outputFilename,
+            resolvedProductName: finalData.metadata?.productName || finalData.productName || "PRODUKT_CHEMICZNY"
+        };
 
 
     } catch (error) {

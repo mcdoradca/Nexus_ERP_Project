@@ -135,6 +135,31 @@ Płyn do mycia naczyń`;
   assert(cleanedForeign.includes("1.2. Istotne zidentyfikowane zastosowania"), "BŁĄD: Usunięto treść merytoryczną!");
   console.log("-> TEST 4 PASSED: Nagłówki obcych producentów są prawidłowo i uniwersalnie czyszczone.");
 
+  // --------------------------------------------------------------------------
+  // TEST 5: SSOT i eliminacja zastałych nazw technicznych plików
+  // --------------------------------------------------------------------------
+  console.log("\n[TEST 5] Weryfikacja reguły isTechnicalFilename oraz pierwszeństwa SSOT nad nazwą techniczną...");
+  
+  assert(SDSProcessorEngine.isTechnicalFilename("8034055535448_SDS_ORCHIDEA_E_VANIGLIA (1)"), "Powinno rozpoznać jako nazwę techniczną");
+  assert(SDSProcessorEngine.isTechnicalFilename("8034055535448_SDS_TALCO (1).rtf"), "Powinno rozpoznać .rtf jako nazwę techniczną");
+  assert(SDSProcessorEngine.isTechnicalFilename("temp_sds_1726467890123.pdf"), "Powinno rozpoznać temp_sds jako nazwę techniczną");
+  assert(SDSProcessorEngine.isTechnicalFilename("PRODUKT CHEMICZNY"), "Powinno rozpoznać PRODUKT CHEMICZNY jako nazwę techniczną");
+  assert(!SDSProcessorEngine.isTechnicalFilename("SGRASSANTE EXTRA UNIVERSAL"), "Nie powinno rozpoznać ręcznej nazwy handlowej jako technicznej");
+
+  // Nawet jeśli z UI przyszedł zaległy ciąg techniczny z poprzedniego pliku, SSOT z karty ma bezwzględne pierwszeństwo
+  const talcoRawSection1 = `1.1. Identificatore del prodotto
+Nome commerciale: SWEET HOME - ESSENZA TALCO
+Codice del prodotto: 8034055535431
+UFI: 1234-5678-90AB-CDEF
+1.2. Usi identificati
+Profumatore per ambienti`;
+
+  const s1TalcoContent = engine.processSection1(talcoRawSection1, "8034055535448_SDS_ORCHIDEA_E_VANIGLIA (1)");
+  assert.strictEqual(engine.lastResolvedTradeName, "SWEET HOME - ESSENZA TALCO", `Oczekiwano SWEET HOME - ESSENZA TALCO, otrzymano: ${engine.lastResolvedTradeName}`);
+  assert(s1TalcoContent.includes("SWEET HOME - ESSENZA TALCO"), "Sekcja 1.1 nie zawiera wyekstrahowanej nazwy z karty źródłowej!");
+  assert(!s1TalcoContent.includes("ORCHIDEA"), "Do Sekcji 1.1 wyciekła zaległa nazwa z parametru wejściowego!");
+  console.log("-> TEST 5 PASSED: Karta źródłowa jest bezwzględnym SSOT (nawet przy zastałym parametrze z UI).");
+
   console.log("\n========================================================");
   console.log("WSZYSTKIE TESTY ZERO HARDCODES ZAKOŃCZONE SUKCESEM (100%)");
   console.log("========================================================");

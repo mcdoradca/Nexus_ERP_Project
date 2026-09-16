@@ -2074,12 +2074,18 @@ class SDSProcessorEngine {
     return `${brandPart} - ${descPart}`;
   }
 
+  static isTechnicalFilename(name) {
+    if (!name || typeof name !== 'string') return true;
+    const trimmed = name.trim();
+    return /^(?:PRODUKT CHEMICZNY|Mieszanina chemiczna|temp_sds_.*|\d{8,14}(?:_SDS.*)?|_SDS_.*|.*\.(?:pdf|rtf))$/i.test(trimmed);
+  }
+
   processSection1(contentIt, productName = "", ufi = "", manualOverrides = {}, extractedCode = "") {
     let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
 
     // 1.1. Identyfikator produktu (SSOT: Karta PDF producenta)
     let tradeNameMatch = clean.match(/(?:Trade name|Nome commerciale|Nazwa handlowa|Product name)\s*[:\.]?\s*([^\n]+)/i);
-    const isTechnicalFilename = !productName || /^(?:PRODUKT CHEMICZNY|Mieszanina chemiczna|temp_sds_.*|\d{8,14}(?:_SDS.*)?|_SDS_.*|.*\.pdf)$/i.test(productName.trim());
+    const isTechnicalFilename = SDSProcessorEngine.isTechnicalFilename(productName);
 
     let rawTrade = "";
     if (manualOverrides && manualOverrides.productName && manualOverrides.productName.trim()) {
@@ -3671,7 +3677,7 @@ class SDSProcessorEngine {
       throw new HITLError(this.anomalies);
     }
 
-    const isTechnicalFilename = !productName || /^(?:PRODUKT CHEMICZNY|Mieszanina chemiczna|temp_sds_.*|\d{8,14}(?:_SDS.*)?|_SDS_.*|.*\.pdf)$/i.test(productName.trim());
+    const isTechnicalFilename = SDSProcessorEngine.isTechnicalFilename(productName);
     const finalProductName = this.lastResolvedTradeName || (!isTechnicalFilename ? SDSProcessorEngine.polonizeTradeName(productName) : "Karta Charakterystyki");
 
     return {

@@ -46,13 +46,21 @@ async function processSds(req, res) {
         tempFilePath = path.join(process.cwd(), `temp_sds_${Date.now()}${ext}`);
         fs.writeFileSync(tempFilePath, req.file.buffer);
 
-        const outputDocxPath = await processSdsWithAgent(tempFilePath, productName);
+        const agentResult = await processSdsWithAgent(tempFilePath, productName);
+        const outputDocxPath = (typeof agentResult === 'object' && agentResult.docxPath) ? agentResult.docxPath : agentResult;
+        const resolvedTradeName = (typeof agentResult === 'object' && agentResult.resolvedProductName) ? agentResult.resolvedProductName : (productName || 'PRODUKT_CHEMICZNY');
 
         if (!outputDocxPath || !fs.existsSync(outputDocxPath)) {
              return res.status(500).json({ error: 'Agent nie wygenerował pliku DOCX.' });
         }
 
-        res.download(outputDocxPath, `Karta_Charakterystyki_PL_${productName.replace(/\s+/g, '_')}.docx`, (err) => {
+        const safeTradeName = resolvedTradeName.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_');
+        const downloadFileName = `Karta_Charakterystyki_PL_${safeTradeName}.docx`;
+
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Resolved-Product-Name');
+        res.setHeader('X-Resolved-Product-Name', encodeURIComponent(resolvedTradeName));
+
+        res.download(outputDocxPath, downloadFileName, (err) => {
             if (err) console.error("Błąd podczas pobierania:", err);
             if (fs.existsSync(outputDocxPath)) fs.unlinkSync(outputDocxPath);
         });
@@ -84,12 +92,21 @@ async function resumeProcess(req, res) {
         tempFilePath = path.join(process.cwd(), `temp_sds_${Date.now()}${ext}`);
         fs.writeFileSync(tempFilePath, req.file.buffer);
 
-        const outputDocxPath = await processSdsWithAgent(tempFilePath, productName, manualOverrides);
+        const agentResult = await processSdsWithAgent(tempFilePath, productName, manualOverrides);
+        const outputDocxPath = (typeof agentResult === 'object' && agentResult.docxPath) ? agentResult.docxPath : agentResult;
+        const resolvedTradeName = (typeof agentResult === 'object' && agentResult.resolvedProductName) ? agentResult.resolvedProductName : (productName || 'PRODUKT_CHEMICZNY');
         
         if (!outputDocxPath || !fs.existsSync(outputDocxPath)) {
              return res.status(500).json({ error: 'Agent nie wygenerował pliku DOCX.' });
         }
-        res.download(outputDocxPath, `Karta_Charakterystyki_PL_${productName.replace(/\s+/g, '_')}.docx`, (err) => {
+
+        const safeTradeName = resolvedTradeName.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_');
+        const downloadFileName = `Karta_Charakterystyki_PL_${safeTradeName}.docx`;
+
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Resolved-Product-Name');
+        res.setHeader('X-Resolved-Product-Name', encodeURIComponent(resolvedTradeName));
+
+        res.download(outputDocxPath, downloadFileName, (err) => {
             if (err) console.error("Błąd podczas pobierania:", err);
             if (fs.existsSync(outputDocxPath)) fs.unlinkSync(outputDocxPath);
         });

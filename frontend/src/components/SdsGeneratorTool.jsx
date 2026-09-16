@@ -16,6 +16,23 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
     
     const fileInputRef = useRef(null);
 
+    const getDownloadFileName = (response, defaultName) => {
+        let fileName = '';
+        const disposition = response && response.headers ? (response.headers['content-disposition'] || response.headers['Content-Disposition']) : null;
+        if (disposition && disposition.indexOf('filename=') !== -1) {
+            const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+            const matches = filenameRegex.exec(disposition);
+            if (matches != null && matches[1]) {
+                fileName = decodeURIComponent(matches[1].replace(/['"]/g, ''));
+            }
+        }
+        if (!fileName && response && response.headers && response.headers['x-resolved-product-name']) {
+            const resolvedName = decodeURIComponent(response.headers['x-resolved-product-name']);
+            fileName = `Karta_Charakterystyki_PL_${resolvedName.replace(/\s+/g, '_')}.docx`;
+        }
+        return fileName || defaultName;
+    };
+
     const handleFileSelect = (e) => {
         const selected = e.target.files[0];
         if (!selected) return;
@@ -27,9 +44,10 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
             setFile(selected);
             setError(null);
             setSuccess(false);
-            if (!productName) {
-                setProductName(selected.name.replace(/\.(pdf|rtf)$/i, ''));
-            }
+            setAnomalies([]);
+            setInvestigatorResult(null);
+            // Zawsze synchronizuj nazwę handlową z nowo wybranym plikiem źródłowym
+            setProductName(selected.name.replace(/\.(pdf|rtf)$/i, ''));
         } else {
             setError('Proszę wybrać prawidłowy plik źródłowy w formacie PDF lub RTF.');
         }
@@ -57,15 +75,26 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                 responseType: 'blob' // Wymagane przy pobieraniu plików Binarnych!
             });
 
+            // Pobranie rzeczywistej nazwy z nagłówków serwera (SSOT)
+            const fallbackName = `Karta_Charakterystyki_${productName || (file ? file.name.replace(/\.(pdf|rtf)$/i, '') : 'PL')}.docx`;
+            const fileName = getDownloadFileName(response, fallbackName);
+
+            if (response.headers && response.headers['x-resolved-product-name']) {
+                const resolvedName = decodeURIComponent(response.headers['x-resolved-product-name']);
+                if (resolvedName && resolvedName !== 'PRODUKT_CHEMICZNY') {
+                    setProductName(resolvedName);
+                }
+            }
+
             // Wymuszenie pobrania
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
-            const fileName = `Karta_Charakterystyki_${productName || (file ? file.name.replace(/\.(pdf|rtf)$/i, '') : 'PL')}.docx`;
             link.setAttribute('download', fileName);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
             
             setSuccess(true);
         } catch (err) {
@@ -129,14 +158,24 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                 responseType: 'blob'
             });
 
+            const fallbackName = `Karta_Charakterystyki_PL_${productName || (file ? file.name.replace(/\.(pdf|rtf)$/i, '') : 'WZNOWIONA')}.docx`;
+            const fileName = getDownloadFileName(response, fallbackName);
+
+            if (response.headers && response.headers['x-resolved-product-name']) {
+                const resolvedName = decodeURIComponent(response.headers['x-resolved-product-name']);
+                if (resolvedName && resolvedName !== 'PRODUKT_CHEMICZNY') {
+                    setProductName(resolvedName);
+                }
+            }
+
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
-            const fileName = `Karta_Charakterystyki_PL_${productName || (file ? file.name.replace(/\.(pdf|rtf)$/i, '') : 'WZNOWIONA')}.docx`;
             link.setAttribute('download', fileName);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
             
             setSuccess(true);
             setAnomalies([]);
@@ -207,7 +246,12 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                                 </div>
                                 
                                 <div 
-                                    onClick={() => !isProcessing && fileInputRef.current?.click()}
+                                    onClick={() => {
+                                        if (!isProcessing && fileInputRef.current) {
+                                            fileInputRef.current.value = '';
+                                            fileInputRef.current.click();
+                                        }
+                                    }}
                                     className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${file ? 'border-indigo-400 bg-indigo-50/50' : 'border-slate-300 hover:border-indigo-400 hover:bg-slate-50'} ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     <input 
