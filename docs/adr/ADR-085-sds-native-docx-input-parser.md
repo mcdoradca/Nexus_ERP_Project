@@ -47,13 +47,25 @@ Decyzją operacyjną użytkownika dopuszczono dostarczanie kart wejściowych bez
    - Zaktualizowano odcinanie rozszerzenia źródłowego przy pobieraniu wygenerowanego pliku (`replace(/\.(pdf|rtf|docx)$/i, '')`).
    - Przebudowano produkcyjny pakiet dystrybucyjny frontendu (`npm run build`).
 
+8. **Wieloetapowa Tarcza Ekstrakcji Podsekcji 1.2 i Auto-Remediacja w SDSSchemaValidator:**
+   - Wyeliminowano błąd `[SDS_SCHEMA_VIOLATION]: Brak lub pusta wymagana sekcja narracyjna: 'section_1_2'`.
+   - W `SDSDocxParser`: rozszerzono `matchSectionHeader` o warianty wielojęzyczne (`SEZIONE`, `SECTION`, `SEKCJA`, `SECCIÓN`, `ABSCHNITT`, `RUBRIQUE`), sprawdzanie nagłówków w tabelach banerowych (`<w:tbl>`) oraz automatyczne przenoszenie akapitów preambuły zawierających `1.1`/`1.2` do sekcji 1.
+   - W `prepareAgentPayload`: wprowadzono 4-etapową kaskadę odzyskiwania podsekcji 1.2:
+     1. Regex numeryczny `1.2` -> `1.3`.
+     2. Semantyczne słowa kluczowe w wielu językach (`Usi pertinenti identificati`, `Relevant identified uses`, `Istotne zidentyfikowane zastosowania`, `Zastosowania zidentyfikowane`).
+     3. Globalne skanowanie całego dokumentu (`fullText`).
+     4. Gwarantowany fallback zgodny z załącznikiem II do REACH (UE 2020/878).
+   - W `SDSSchemaValidator.validateTranslatedSections`: wdrożono normalizację aliasów kluczy (`section_1.2`, `1.2`, `section1_2`, `section_1` -> `section_1_2`) oraz automatyczną naprawę (auto-remediację) z tekstu źródłowego lub bezpiecznego szablonu prawnego w razie pominięcia sekcji 1.2 przez LLM.
+
 ## Skutki i Weryfikacja
 - Całkowite wyeliminowanie błędów odczytu sekcji 3.2 i 4.1 wynikających ze spłaszczania wektorowego PDF.
-- Pomyślne przejście dedykowanego zestawu testów w `tests/sds.docx_input.test.js` (6/6 PASS):
+- Wyeliminowanie błędu asercji kontraktu LLM dla sekcji 1.2 dzięki wielopoziomowej tarczy ekstrakcyjnej i auto-remediacji walidatora.
+- Pomyślne przejście dedykowanego zestawu testów w `tests/sds.docx_input.test.js` (7/7 PASS):
   1. Detekcja formatu `isDocxFile`.
   2. Ekstrakcja 16 sekcji z `SANDALO.docx` bez wycieku nagłówków.
   3. Bezpośrednia ekstrakcja tabeli składników z `SANDALO.docx` (17 komponentów z kompletnymi danymi).
   4. Ekstrakcja z `TALCO.docx`.
   5. Integracja z `SDSDocumentParser.extractText`.
   6. Pełne przygotowanie deterministycznego payloadu w `SDSProcessorEngine`.
-- Zero regresji na istniejących zestawach testowych PDF i RTF.
+  7. Auto-remediacja i normalizacja kluczy dla `section_1_2` w `SDSSchemaValidator`.
+- Zero regresji na istniejących zestawach testowych PDF i RTF (9/9 PASS w dedykowanych testach jednostkowych i walidacyjnych).

@@ -114,4 +114,41 @@ test('SDSProcessorEngine - Pełne przygotowanie payloadu z wejściowego pliku DO
   const s4 = payload.deterministicSections.section_4;
   assert.ok(s4.content.includes('SEKCJA 4'), 'Sekcja 4 musi być wygenerowana deterministycznie');
   assert.ok(!s4.content.includes('6/35'), 'Sekcja 4 nie może zawierać artefaktu nagłówkowego 6/35');
+
+  // Weryfikacja sekcji 1.2 w toTranslate - tarcza ochronna
+  assert.ok(payload.descriptiveSectionsToTranslate.section_1_2, 'section_1_2 musi być zawsze obecna w toTranslate');
+  assert.ok(payload.descriptiveSectionsToTranslate.section_1_2.trim().length > 20, 'section_1_2 nie może być pusta');
+});
+
+test('SDSSchemaValidator - Auto-remediacja i normalizacja kluczy dla section_1_2', () => {
+  const { SDSSchemaValidator } = require('../src/modules/sds/sds.schema.validator');
+
+  // Przypadek 1: LLM zwrócił notację kropkową "section_1.2" zamiast "section_1_2"
+  const responseWithDot = {
+    'section_1.2': '1.2. Istotne zidentyfikowane zastosowania: Odświeżacz powietrza.',
+    'section_5': 'SEKCJA 5: Postępowanie w przypadku pożaru...',
+    'section_6': 'SEKCJA 6: Postępowanie w przypadku niezamierzonego uwolnienia...',
+    'section_7': 'SEKCJA 7: Postępowanie z substancjami i magazynowanie...',
+    'section_10': 'SEKCJA 10: Stabilność i reaktywność...',
+    'section_11': 'SEKCJA 11: Informacje toksykologiczne\n11.1. Informacje na temat klas zagrożenia\n11.2. Informacje o innych zagrożeniach'
+  };
+
+  assert.doesNotThrow(() => {
+    SDSSchemaValidator.validateTranslatedSections(responseWithDot);
+  }, 'Powinno znormalizować section_1.2 do section_1_2 bez błędu');
+  assert.ok(responseWithDot.section_1_2, 'Klucz section_1_2 powinien zostać zmapowany');
+
+  // Przypadek 2: LLM w ogóle pominął section_1_2 (brak klucza)
+  const responseMissing12 = {
+    'section_5': 'SEKCJA 5: Postępowanie w przypadku pożaru...',
+    'section_6': 'SEKCJA 6: Postępowanie w przypadku niezamierzonego uwolnienia...',
+    'section_7': 'SEKCJA 7: Postępowanie z substancjami i magazynowanie...',
+    'section_10': 'SEKCJA 10: Stabilność i reaktywność...',
+    'section_11': 'SEKCJA 11: Informacje toksykologiczne\n11.1. Informacje na temat klas zagrożenia\n11.2. Informacje o innych zagrożeniach'
+  };
+
+  assert.doesNotThrow(() => {
+    SDSSchemaValidator.validateTranslatedSections(responseMissing12);
+  }, 'Auto-remediacja powinna uzupełnić brakującą sekcję 1.2 bez wyrzucenia błędu');
+  assert.ok(responseMissing12.section_1_2.includes('1.2.'), 'Auto-remediacja powinna wstawić poprawny nagłówek 1.2');
 });

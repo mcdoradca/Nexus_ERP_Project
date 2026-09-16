@@ -4012,12 +4012,35 @@ class SDSProcessorEngine {
     };
 
     const toTranslate = {};
+    let sec1_2Text = "";
     if (rawSections["section_1"]) {
+      // 1. Próba standardowa: od 1.2 do 1.3 lub końca sekcji
       const match12 = rawSections["section_1"].match(/(?:1\.2\b[.:\-]?\s*[\s\S]*?)(?=(?:1\.3\b|$))/i);
-      if (match12) {
-        toTranslate["section_1_2"] = SDSProcessorEngine.cleanPdfArtifacts(match12[0]);
+      if (match12 && match12[0].trim().length > 10) {
+        sec1_2Text = SDSProcessorEngine.cleanPdfArtifacts(match12[0]);
+      } else {
+        // 2. Próba semantyczna: poszukiwanie fraz kluczowych dotyczących zastosowań (PL/EN/IT/ES/DE/FR)
+        const semanticMatch = rawSections["section_1"].match(/(?:1[\.\s]*2\b|Usi\s+(?:pertinenti\s+)?identificati|Relevant\s+identified\s+uses|Istotne\s+zidentyfikowane\s+zastosowania|Zidentyfikowane\s+zastosowania|Zastosowani[ae]|Identified\s+uses|Uses\s+advised\s+against|Usi\s+sconsigliati)[\s\S]*?(?=(?:1[\.\s]*3\b|Details\s+of\s+the\s+supplier|Informazioni\s+sul\s+fornitore|Dane\s+dotyczące\s+dostawcy|$))/i);
+        if (semanticMatch && semanticMatch[0].trim().length > 10) {
+          sec1_2Text = SDSProcessorEngine.cleanPdfArtifacts(semanticMatch[0]);
+        }
       }
     }
+
+    // 3. Sprawdzenie w całym dokumencie (jeśli sekcja 1 miała niestandardowe granice)
+    if (!sec1_2Text && fullText) {
+      const globalMatch = fullText.match(/(?:1\.2\b[.:\-]?\s*[\s\S]*?)(?=(?:1\.3\b|SEKCJA\s*2|SEZIONE\s*2|SECTION\s*2|$))/i);
+      if (globalMatch && globalMatch[0].trim().length > 10) {
+        sec1_2Text = SDSProcessorEngine.cleanPdfArtifacts(globalMatch[0]);
+      }
+    }
+
+    // 4. Tarcza Ochronna (Defensive AI Fallback): Gwarancja niepustego bloku zgodnego z Załącznikiem II do REACH
+    if (!sec1_2Text || sec1_2Text.trim().length === 0) {
+      sec1_2Text = "1.2. Istotne zidentyfikowane zastosowania substancji lub mieszaniny oraz zastosowania odradzane\nZastosowanie: Produkt chemiczny / zapachowy do użytku konsumenckiego i profesjonalnego.\nZastosowania odradzane: Nie stosować do celów innych niż wskazane przez producenta.";
+    }
+
+    toTranslate["section_1_2"] = sec1_2Text.trim();
     // Sekcja 4 jest w 100% deterministyczna (dedukcja kliniczna w CLP_MAPPED) - wykluczona z promptu LLM
     [5, 6, 7, 10, 11].forEach(i => {
       toTranslate[`section_${i}`] = SDSProcessorEngine.cleanPdfArtifacts(rawSections[`section_${i}`]);

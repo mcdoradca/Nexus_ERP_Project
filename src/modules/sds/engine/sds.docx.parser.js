@@ -154,20 +154,28 @@ class SDSDocxParser {
    * @param {string} text 
    * @returns {string|null} np. "section_1", "section_2", ..., "section_16"
    */
-  static matchSectionHeader(text) {
+  static matchSectionHeader(text, currentKey = null) {
     if (!text || typeof text !== 'string') return null;
     const clean = text.trim();
 
-    // Wzorzec 1: SEZIONE / SECTION / SEKCJA X
-    const p1 = /(?:SEZIONE|SECTION|SEKCJA)\s*([1-9]|1[0-6])\b/i.exec(clean);
+    // Wzorzec 1: SEZIONE / SECTION / SEKCJA / SECCIÓN / ABSCHNITT / RUBRIQUE X
+    const p1 = /(?:SEZIONE|SECTION|SEKCJA|SECCI[OÓ]N|ABSCHNITT|RUBRIQUE)\s*(?:N\.?|NR\.?|NO\.?|NUMBER)?\s*[:\.\-]?\s*([1-9]|1[0-6])\b/i.exec(clean);
     if (p1) {
       return `section_${parseInt(p1[1], 10)}`;
     }
 
-    // Wzorzec 2: "1. IDENTYFIKACJA...", "2. ZAGROŻENIA...", "3. SKŁAD..."
-    const p2 = /^([1-9]|1[0-6])\.\s*(?:IDENT|ZAGRO|SKŁAD|COMPOS|HAZARD|FIRST|ŚRODKI|POSTĘPOWANIE|FIRE|UWOLN|RELEASE|MANIPOL|POSTĘP|KONTROLA|EXPOS|WŁAŚCIWOŚCI|PROPR|STABIL|TOKSYK|TOXIC|EKOLOG|ECOLOG|ODPAD|DISPOSAL|TRANSP|PRZEPIS|REGULAT|INNE|OTHER)/i.exec(clean);
+    // Wzorzec 2: "1. IDENTYFIKACJA...", "1: IDENTYFIKACJA", "1 - IDENTYFIKACJA", "1 IDENTYFIKACJA"
+    const p2 = /^([1-9]|1[0-6])\s*[:\.\-]?\s*(?:IDENT|ZAGRO|SKŁAD|COMPOS|HAZARD|FIRST|ŚRODKI|POSTĘPOWANIE|FIRE|UWOLN|RELEASE|MANIPOL|POSTĘP|MAGAZYN|KONTROLA|EXPOS|WŁAŚCIWOŚCI|PROPR|STABIL|TOKSYK|TOXIC|EKOLOG|ECOLOG|ODPAD|DISPOSAL|TRANSP|PRZEPIS|REGULAT|INNE|OTHER|ABSCHNITT|RUBRIQUE)/i.exec(clean);
     if (p2) {
       return `section_${parseInt(p2[1], 10)}`;
+    }
+
+    // Wzorzec 3: Jeśli jesteśmy w preambule i pojawia się podsekcja 1.1 lub 1.2
+    if (!currentKey || currentKey === 'preamble') {
+      const p3 = /^(?:1\.1\b|1\.2\b)\s*[:\.\-]?\s*(?:Identyfikator|Product|Identificatore|Relevant|Usi|Istotne|Zastosowanie)/i.exec(clean);
+      if (p3) {
+        return `section_1`;
+      }
     }
 
     return null;
@@ -209,7 +217,7 @@ class SDSDocxParser {
         const text = SDSDocxParser.extractParagraphText(el, $);
         if (!text) return;
 
-        const detectedSec = SDSDocxParser.matchSectionHeader(text);
+        const detectedSec = SDSDocxParser.matchSectionHeader(text, currentSectionKey);
         if (detectedSec) {
           currentSectionKey = detectedSec;
         }
@@ -218,6 +226,14 @@ class SDSDocxParser {
       } else if (tagName === 'w:tbl' || tagName === 'tbl') {
         const tableRows = SDSDocxParser.parseTableNode(el, $);
         if (tableRows && tableRows.length > 0) {
+          // Sprawdzamy czy pierwsza komórka tabeli zawiera nagłówek nowej sekcji
+          if (tableRows[0] && tableRows[0][0]) {
+            const detectedFromTable = SDSDocxParser.matchSectionHeader(tableRows[0][0], currentSectionKey);
+            if (detectedFromTable) {
+              currentSectionKey = detectedFromTable;
+            }
+          }
+
           tablesBySection[currentSectionKey].push(tableRows);
           allTables.push({ section: currentSectionKey, rows: tableRows });
 
@@ -227,6 +243,21 @@ class SDSDocxParser {
         }
       }
     });
+
+    // Jeśli w preambule znalazły się podpunkty sekcji 1 (np. 1.1 lub 1.2 przed formalnym nagłówkiem), przenieś je do section_1
+    const cleanedPreamble = [];
+    let movingToSec1 = false;
+    for (const pText of sections['preamble']) {
+      if (/^(?:1\.1\b|1\.2\b|Usi\s+pertinenti|Relevant\s+identified|Istotne\s+zidentyfikowane)/i.test(pText.trim())) {
+        movingToSec1 = true;
+      }
+      if (movingToSec1) {
+        sections['section_1'].unshift(pText);
+      } else {
+        cleanedPreamble.push(pText);
+      }
+    }
+    sections['preamble'] = cleanedPreamble;
 
     // Składanie końcowego wyniku sekcji w postaci stringów
     const formattedSections = {};
