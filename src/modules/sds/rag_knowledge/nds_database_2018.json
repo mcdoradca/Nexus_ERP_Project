@@ -541,7 +541,7 @@
 "123-39-7": { "substance": "N-Metyloformamid", "NDS": "10 mg/m³", "NDSCh": "20 mg/m³", "NDSP": "brak", "uwagi": "skóra" },
 "1589-47-5": { "substance": "2-Metoksypropan-1-ol", "NDS": "19 mg/m³", "NDSCh": "38 mg/m³", "NDSP": "brak", "uwagi": "skóra" },
 "112-30-1": { "substance": "Dekan-1-ol i jego izomery", "NDS": "66 mg/m³", "NDSCh": "132 mg/m³", "NDSP": "brak", "uwagi": "brak" },
-"128-37-0": { "substance": "2,6-Di-tert-butylo-4-metylofenol", "NDS": "10 mg/m³", "NDSCh": "brak", "NDSP": "brak", "uwagi": "brak" },
+"128-37-0": { "substance": "2,6-di-tert-butylo-4-metylofenol (BHT)", "NDS": "10 mg/m³ (frakcja wdychalna)", "NDSCh": "nie ustalono", "NDSP": "brak", "uwagi": "brak" },
 "2687-91-4": { "substance": "1-Etylo-2-pirolidon", "NDS": "40 mg/m³", "NDSCh": "80 mg/m³", "NDSP": "brak", "uwagi": "skóra" },
 "13838-16-9": { "substance": "Enfluran", "NDS": "150 mg/m³", "NDSCh": "300 mg/m³", "NDSP": "brak", "uwagi": "brak" },
 "115-86-6": { "substance": "Fosforan trifenylu", "NDS": "3 mg/m³", "NDSCh": "brak", "NDSP": "brak", "uwagi": "brak" },

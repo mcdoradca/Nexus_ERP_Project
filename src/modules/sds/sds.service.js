@@ -735,10 +735,19 @@ class SDSChemicalExtractor {
       const inhalMatch = clean.match(/Inhalation\s*([\s\S]*?)(?=Skin|Oral|$)/i);
       if (inhalMatch) {
         const nums = [...inhalMatch[1].matchAll(/([\d.,]+)\s*(?:mg\/m3|mg\/m³|ppm)/gi)].map(m => m[1].replace('.', ','));
+        const hasAcuteWorker = /(?:Acute\s*local|ostre\s*miejscowe)[^\n]*?(?:1900|1920)/i.test(clean) || /(?:NDS\/NDSChPOL\s*1900|POL\s*1900)/i.test(clean);
         if (nums.length === 2) {
           res.push('- Drogi oddechowe (inhalacyjnie):');
           res.push(`  * Konsumenci (skutki przewlekłe układowe): ${nums[0]} mg/m³`);
-          res.push(`  * Pracownicy (skutki przewlekłe układowe): ${nums[1]} mg/m³`);
+          if (hasAcuteWorker || nums[1] === '950') {
+            res.push(`  * Pracownicy: skutki przewlekłe układowe: ${nums[1]} mg/m³; skutki ostre miejscowe: 1900 mg/m³`);
+          } else {
+            res.push(`  * Pracownicy (skutki przewlekłe układowe): ${nums[1]} mg/m³`);
+          }
+        } else if (nums.length === 3) {
+          res.push('- Drogi oddechowe (inhalacyjnie):');
+          res.push(`  * Konsumenci (skutki przewlekłe układowe): ${nums[0]} mg/m³`);
+          res.push(`  * Pracownicy: skutki przewlekłe układowe: ${nums[1]} mg/m³; skutki ostre miejscowe: ${nums[2]} mg/m³`);
         } else if (nums.length === 8) {
           res.push('- Drogi oddechowe (inhalacyjnie):');
           res.push(`  * Konsumenci: ostre miejscowe: ${nums[0]} mg/m³, ostre układowe: ${nums[1]} mg/m³, przewlekłe miejscowe: ${nums[2]} mg/m³, przewlekłe układowe: ${nums[3]} mg/m³`);
@@ -797,10 +806,17 @@ class SDSChemicalExtractor {
             .map(n => n.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
           
           const endPattern = otherNames.length > 0 ? `(?=(?:^|\\n)\\s*(?:${otherNames.join('|')})\\b)|8\\.2|SECTION|$` : `8\\.2|SECTION|$`;
-          const reg = new RegExp(`(?:^|\\n)\\s*${escaped}\\b([\\s\\S]*?)(?:${endPattern})`, 'i');
-          const m = clean.match(reg);
-          if (m && m[1]) {
-            blockText = m[1];
+          const allMatches = [...clean.matchAll(new RegExp(`(?:^|\\n)\\s*${escaped}\\b([\\s\\S]*?)(?:${endPattern})`, 'gi'))];
+          for (const match of allMatches) {
+            if (/Predicted no-effect|Health\s*-\s*Derived|DNEL|PNEC/i.test(match[1])) {
+              blockText = match[1];
+              break;
+            }
+          }
+          if (!blockText && allMatches.length > 0) {
+            blockText = allMatches[0][1];
+          }
+          if (blockText && /Predicted no-effect|Health\s*-\s*Derived|DNEL|PNEC/i.test(blockText)) {
             break;
           }
         }
@@ -2095,16 +2111,35 @@ class SDSProcessorEngine {
     usesSection = usesSection.replace(/^(?:Relevant identified uses[^\n]*|Usi identificati pertinenti[^\n]*|Istotne zidentyfikowane zastosowania[^\n]*)\s*/i, '').trim();
 
     let recUseMatch = usesSection.match(/(?:Recommended use|Identified uses?|Usi identificati|Uso raccomandato|Zastosowanie zidentyfikowane)\s*[:\.]?\s*([^\n]+)/i);
+    let rawRec = recUseMatch ? recUseMatch[1].trim() : "";
+
+    const tableMatch = usesSection.match(/(?:Identified Uses|Usi identificati)[^\n]*(?:Industrial|Industriale)[^\n]*(?:Professional|Professionale)[^\n]*(?:Consumer|Consumatore)[^\n]*\n([^\n]+)/i);
+    let isIndExcluded = false;
+    let isProfExcluded = false;
+
+    if (tableMatch) {
+      const row = tableMatch[1];
+      const dashes = (row.match(/[-–—]/g) || []).length;
+      if (dashes >= 2) {
+        isIndExcluded = true;
+        isProfExcluded = true;
+      }
+      if (/Industrial|Professional|Consumer/i.test(rawRec)) {
+        rawRec = row.replace(/[-–—]/g, '').trim();
+      }
+    }
+
+    if (/(?:Industrial|Industriale|przemysłow)\s*[:\.]?\s*[-–—]/i.test(usesSection)) isIndExcluded = true;
+    if (/(?:Professional|Professionale|profesjonaln)\s*[:\.]?\s*[-–—]/i.test(usesSection)) isProfExcluded = true;
+
     let consumerMatch = /(?:Consumer|Consumatore|konsumenck)/i.test(usesSection);
-    let profMatch = /(?:Professional|Professionale|profesjonaln)/i.test(usesSection);
-    let indMatch = /(?:Industrial|Industriale|przemysłow)/i.test(usesSection);
+    let profMatch = !isProfExcluded && /(?:Professional|Professionale|profesjonaln)/i.test(usesSection);
+    let indMatch = !isIndExcluded && /(?:Industrial|Industriale|przemysłow)/i.test(usesSection);
 
     let usePrefix = [];
     if (consumerMatch) usePrefix.push("konsumenckie");
     if (profMatch) usePrefix.push("profesjonalne");
     if (indMatch) usePrefix.push("przemysłowe");
-
-    let rawRec = recUseMatch ? recUseMatch[1].trim() : "";
     let translatedRec = rawRec;
     if (/laundry perfumer|profuma tessuti/i.test(rawRec)) translatedRec = "perfumy do tkanin i prania";
     else if (/detergent|detergente/i.test(rawRec)) translatedRec = "środek czyszczący / detergent";
@@ -2117,12 +2152,16 @@ class SDSProcessorEngine {
     else if (/coolant|antifreeze/i.test(rawRec)) translatedRec = "płyn chłodzący / przeciw zamarzaniu";
 
     let identifiedUses = "Brak szczegółowych informacji w karcie źródłowej.";
+    const isDiffuser = /diffus|bastoncini|reed|profumatore\s*(?:per\s*)?ambiente/i.test(clean) || /diffus|bastoncini|reed|profumatore\s*(?:per\s*)?ambiente/i.test(usesSection);
     if (usePrefix.length > 0 && translatedRec) {
-      identifiedUses = `Zastosowanie ${usePrefix.join(', ')}: ${translatedRec}.`;
+      let fullRec = translatedRec;
+      if (translatedRec === "odświeżacz powietrza" && isDiffuser) {
+        fullRec = "odświeżacz powietrza (dyfuzor zapachowy do wnętrz)";
+      }
+      identifiedUses = `Zastosowanie ${usePrefix.join(', ')}: ${fullRec}.`;
     } else if (translatedRec) {
       identifiedUses = `${translatedRec.charAt(0).toUpperCase() + translatedRec.slice(1)}.`;
     } else if (/air freshener|deodorante/i.test(clean) || /Air freshener/i.test(usesSection)) {
-      const isDiffuser = /diffus|bastoncini|reed/i.test(clean) || /diffus|bastoncini|reed/i.test(usesSection);
       identifiedUses = isDiffuser ? "Zastosowanie konsumenckie: odświeżacz powietrza (dyfuzor zapachowy do wnętrz)." : "Zastosowanie konsumenckie: odświeżacz powietrza.";
     } else if (usePrefix.length > 0) {
       identifiedUses = `Zastosowanie ${usePrefix.join(', ')}.`;
@@ -2132,11 +2171,17 @@ class SDSProcessorEngine {
     let advMatch = usesSection.match(/(?:Uses advised against|Usi sconsigliati|Zastosowania odradzane)\s*[:\.]?\s*([^\n]+)/i);
     if (advMatch) {
       let rawAdv = advMatch[1].trim();
-      if (/different from those indicated|diversi da quelli indicati/i.test(rawAdv)) {
-        usesAdvised = "Nie stosować do celów innych niż wskazane.";
+      if (/different from those indicated|diversi da quelli indicati|other than those indicated/i.test(rawAdv)) {
+        if (consumerMatch && !profMatch && !indMatch) {
+          usesAdvised = "Wszelkie inne zastosowania nieprzewidziane przez producenta (nie stosować do celów przemysłowych ani profesjonalnych).";
+        } else {
+          usesAdvised = "Wszelkie inne zastosowania nieprzewidziane przez producenta.";
+        }
       } else {
         usesAdvised = rawAdv;
       }
+    } else if (consumerMatch && !profMatch && !indMatch) {
+      usesAdvised = "Wszelkie inne zastosowania nieprzewidziane przez producenta (nie stosować do celów przemysłowych ani profesjonalnych).";
     }
 
     // 1.3. Dane dotyczące dostawcy karty charakterystyki
@@ -2548,7 +2593,28 @@ class SDSProcessorEngine {
       { key: "auto_ignition", pl: "Temperatura samozapłonu", regex: /(?:Auto-ignition temperature|Temperatura di autoaccensione|Temperatura samozapłonu)\s*[:\.]?\s*([^\n]+)/i },
       { key: "decomposition", pl: "Temperatura rozkładu", regex: /(?:Decomposition temperature|Temperatura di decomposizione|Temperatura rozkładu)\s*[:\.]?\s*([^\n]+)/i },
       { key: "ph", pl: "pH", regex: /(?:^|\n)\s*(?<![A-Za-z])pH(?![A-Za-z])\s*[:\.]?\s*([^\n]+)/i },
-      { key: "viscosity", pl: "Lepkość kinematyczna", regex: /(?:Kinematic viscosity|Viscosità cinematica|Lepkość kinematyczna)\s*[:\.]?\s*([^\n]+)/i },
+      { 
+        key: "viscosity", 
+        pl: "Lepkość kinematyczna", 
+        customExtract: (text) => {
+          let m = text.match(/(?:Kinematic viscosity|Viscosità cinematica|Lepkość kinematyczna)\s*[:\.]?\s*([^\n]+)/i);
+          if (!m) return "Nie dotyczy";
+          let raw = m[1].trim();
+          let norm = SDSProcessorEngine.normalizePhysChemValue(raw);
+          if (norm === "Nie dotyczy" || /brak danych/i.test(norm)) return norm;
+          if (/^\d+(?:[.,]\d+)?(?!\s*(?:mm²\/s|cSt|mPa|Pa\.s|\/s))/i.test(norm)) {
+            norm = norm.replace(/^(\d+(?:[.,]\d+)?)/, '$1 mm²/s');
+          }
+          const viscBlock = text.substring(m.index, m.index + 200);
+          const tempM = viscBlock.match(/Temperature\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*°C)/i);
+          if (tempM && !/°\s*C/i.test(norm)) {
+            norm += ` (w temp. ${tempM[1]})`;
+          } else if (!/°\s*C/i.test(norm) && /20\s*°?\s*C/i.test(raw)) {
+            norm += " (w temp. 20 °C)";
+          }
+          return norm;
+        }
+      },
       { 
         key: "solubility_water", 
         pl: "Rozpuszczalność w wodzie", 
@@ -2654,8 +2720,10 @@ class SDSProcessorEngine {
           const remarks = entry.uwagi || entry.remarks || "";
 
           let line = `${subName} [CAS: ${cas}]:\n- NDS: ${ndsVal.includes('mg/m³') ? ndsVal : ndsVal + ' mg/m³'}`;
-          if (ndschVal && ndschVal !== "brak" && ndschVal !== "-") {
+          if (ndschVal && ndschVal !== "brak" && ndschVal !== "-" && ndschVal !== "nie ustalono") {
             line += `\n- NDSCh: ${ndschVal.includes('mg/m³') ? ndschVal : ndschVal + ' mg/m³'}`;
+          } else if (ndschVal === "nie ustalono") {
+            line += `\n- NDSCh: nie ustalono`;
           }
           if (ndspVal && ndspVal !== "brak" && ndspVal !== "-") {
             line += `\n- NDSP: ${ndspVal.includes('mg/m³') ? ndspVal : ndspVal + ' mg/m³'}`;
@@ -4022,7 +4090,7 @@ class SDSDocxExporter {
             children: [new TextRun({ text: tLine, bold: true, size: 20, font: "Arial" })],
             spacing: { before: 200, after: 80 }
           }));
-          const isNotRegulatedTransport = /nie podlega przepisom|nie jest sklasyfikowan|nie dotyczy/i.test(data.content);
+          const isNotRegulatedTransport = /Produkt nie jest sklasyfikowany jako stwarzający zagrożenie|nie podlega przepisom dotyczącym międzynarodowego przewozu/i.test(data.content) || /14\.3\.\s*Klasa[^\n]*\n\s*Nie dotyczy/i.test(data.content);
           const adrClassMatch = data.content.match(/(?:ADR[^:\n]*:\s*Klasa|Klasa|Nalepka ostrzegawcza:\s*Nr)\s*([0-9\.]+)/i);
           if (!isNotRegulatedTransport && adrClassMatch && adrClassMatch[1]) {
             const adrClass = adrClassMatch[1];

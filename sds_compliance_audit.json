@@ -1,0 +1,17 @@
+[
+  {
+    "rule": "PIKTOGRAMY_GHS",
+    "status": "AUTO_REMEDIATED",
+    "message": "Uzupełniono brakujące kody piktogramów ostrzegawczych GHS (GHS02, GHS07) w sekcji 2.2 wynikające z klasyfikacji mieszaniny (Flam. Liq. 2, Eye Irrit. 2)."
+  },
+  {
+    "rule": "BIERNIK_W_EUH208",
+    "status": "AUTO_REMEDIATED",
+    "message": "W sekcji 16 ujednolicono brzmienie zwrotu EUH208 do formy zawierającej nazwę substancji w bierniku: 'EUH208: Zawiera kumarynę (2H-chromen-2-on). Może powodować wystąpienie reakcji alergicznej.'"
+  },
+  {
+    "rule": "100%_JEZYK_POLSKI",
+    "status": "AUTO_REMEDIATED",
+    "message": "Przetłumaczono pozostałości obcojęzyczne w wartościach PNEC w sekcji 8.1 ('soil dw' -> 'suchej masy gleby') oraz w opisie gatunku w sekcji 12.1 ('and' -> 'i')."
+  }
+]

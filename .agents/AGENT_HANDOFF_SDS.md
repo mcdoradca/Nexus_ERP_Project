@@ -1,7 +1,7 @@
 # DOKUMENT PRZEKAZANIA PROJEKTU (AGENT HANDOFF)
 ## Moduł: Bezpieczeństwo Chemiczne i Generator Kart Charakterystyki (SDS / MSDS)
-**Data sporządzenia:** 2026-09-15  
-**Status modułu:** WDROŻENIE ADR-074 ZAKOŃCZONE SUKCESEM (100% COMPLIANT, PRODUKCJA)  
+**Data sporządzenia:** 2026-09-16  
+**Status modułu:** WDROŻENIE ADR-078 ZAKOŃCZONE SUKCESEM (100% COMPLIANT, PRODUKCJA)  
 **Kluczowe akty prawne:** Rozporządzenie Komisji (UE) 2020/878 (Załącznik II do REACH), Rozporządzenie (WE) nr 1272/2008 (CLP), Dz.U. 2024 poz. 1017 (NDS), Dz.U. 2020 poz. 10 (Odpady), Umowa ADR 2023–2025, Dz.U. 2016 poz. 138 (Seveso III).  
 **Stan testów:** 122/122 testów systemowych PASSED (`npm test`), 7/7 testów prawno-chemicznych PASSED (`tests/sds.compliance.test.js`), 12/12 punktów audytu PASSED (`tests/sds.8_points_audit.test.js`), 6/6 testów RTF PASSED (`tests/sds.rtf.test.js`).  
 **Środowisko:** Node.js, Express, Google Generative AI (`gemini-3.8-flash`), DOCX Generator, Sharp, PurePngEncoder.
@@ -167,6 +167,11 @@ Wszystkie kluczowe decyzje techniczne i prawne są udokumentowane w katalogu `do
 - **ADR-058:** Poprawki prawne NDS (Dz.U. 2024 poz. 1017), proporcjonalność ŚOI, kwalifikacja odpadów.
 - **ADR-059:** Naprawa integralności SCL w Sekcji 3.2 oraz ekstrakcji bioakumulacji w 12.3.
 - **ADR-060:** Potrójna tarcza ochronna dla bioakumulacji w Sekcji 12.3 (dynamiczne granice i BCF).
+- **ADR-071 – ADR-074:** Dane podmiotu ITALLUX, kanonizacja nagłówków i audyt jakościowy sekcji 4.
+- **ADR-075:** Eliminacja zafałszowania daty producenta i odblokowanie nagłówków RTF.
+- **ADR-076:** Zero-Hardcodes audit i uniwersalizacja filtrów paginacyjnych.
+- **ADR-077:** Wdrożenie SDSSchemaValidator i eliminacja Dual-Truth.
+- **ADR-078:** Eliminacja regresji graficznej ADR 14.3, lepkość kinematyczna 9.1, NDS BHT / DNEL etanol 8.1 i analiza tabelaryczna zastosowań 1.2.
 
 ---
 
