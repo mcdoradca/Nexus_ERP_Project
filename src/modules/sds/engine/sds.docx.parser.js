@@ -50,8 +50,8 @@ class SDSDocxParser {
   static cleanArtifacts(text) {
     if (!text || typeof text !== 'string') return "";
     return text
-      .replace(/(?:^|\n)\s*(?:[A-Za-z0-9_\-\.\s]{2,40})?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[\s\S]*?(?:Dated|Data|Printed|Stampato)[\s\S]*?\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/gi, '')
-      .replace(/(?:^|\n)\s*(?:Suarez\s+Company|Company|Distributor|Dystrybutor)[\s\S]*?\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/gi, '')
+      .replace(/(?:^|\n)\s*(?:[A-Za-z0-9_\-\.\s]{2,40})?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[^\n]{0,120}?(?:Dated|Data|Printed|Stampato)[^\n]{0,120}?\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/gi, '')
+      .replace(/(?:^|\n)\s*(?:Suarez\s+Company|Company|Distributor|Dystrybutor)[^\n]{0,120}?\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/gi, '')
       .replace(/(?:^|\n)\s*\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/g, '')
       .replace(/Dated\s+[0-3]?\d[\/.-][0-1]?\d[\/.-]\d{4}[^\n]*/gi, '')
       .replace(/Printed\s+on\s+[^\n]*/gi, '')
@@ -251,13 +251,46 @@ class SDSDocxParser {
 
     let currentSectionKey = 'preamble';
 
-    const bodyChildren = $('w\\:document > w\\:body').children();
+    const bodyChildren = $('w\\:body, body').children();
 
-    bodyChildren.each((_, el) => {
-      const tagName = (el.tagName || el.name || "").toLowerCase();
+    const processNode = (node) => {
+      const tagName = (node.tagName || node.name || "").toLowerCase();
 
-      if (tagName === 'w:p' || tagName === 'p') {
-        const text = SDSDocxParser.extractParagraphText(el, $);
+      if (tagName === 'w:tbl' || tagName === 'tbl') {
+        const isLayoutTable = !!SDSDocxParser.tableContainsSectionHeader(node, $, currentSectionKey);
+
+        if (isLayoutTable) {
+          // Tabela układu strony: rozwijamy akapity komórka po komórce z bieżącą detekcją granic sekcji
+          $(node).find('w\\:tr, tr').each((_, tr) => {
+            $(tr).find('w\\:tc, tc').each((_, tc) => {
+              $(tc).children().each((_, child) => processNode(child));
+            });
+          });
+        } else {
+          // Właściwa tabela danych: zachowujemy strukturę wierszy i komórek
+          const tableRows = SDSDocxParser.parseTableNode(node, $);
+          if (tableRows && tableRows.length > 0) {
+            if (!tablesBySection[currentSectionKey]) tablesBySection[currentSectionKey] = [];
+            tablesBySection[currentSectionKey].push(tableRows);
+            allTables.push({ section: currentSectionKey, rows: tableRows });
+
+            const tableText = SDSDocxParser.formatTableAsText(tableRows);
+            if (sections[currentSectionKey]) sections[currentSectionKey].push(tableText);
+          }
+        }
+      } else if (tagName === 'w:p' || tagName === 'p') {
+        // Obsługa pól tekstowych w:txbxContent osadzonych wewnątrz akapitów
+        const txbx = $(node).find('w\\:txbxContent, txbxContent');
+        if (txbx.length > 0) {
+          txbx.each((_, tb) => {
+            $(tb).children().each((_, child) => processNode(child));
+          });
+        }
+
+        // Klon akapitu bez txbx, aby wyekstrahować czysty tekst akapitu bez podwójnego zliczania
+        const clone = $(node).clone();
+        clone.find('w\\:txbxContent, txbxContent, w\\:drawing, drawing').remove();
+        const text = SDSDocxParser.extractParagraphText(clone, $);
         if (!text) return;
         const cleaned = SDSDocxParser.cleanArtifacts(text);
         if (!cleaned) return;
@@ -267,42 +300,11 @@ class SDSDocxParser {
           currentSectionKey = detectedSec;
         }
 
-        sections[currentSectionKey].push(cleaned);
-      } else if (tagName === 'w:tbl' || tagName === 'tbl') {
-        const isLayoutTable = !!SDSDocxParser.tableContainsSectionHeader(el, $, currentSectionKey);
-
-        if (isLayoutTable) {
-          // Tabela układu strony: rozwijamy akapity komórka po komórce z bieżącą detekcją granic sekcji
-          $(el).find('w\\:tr, tr').each((_, tr) => {
-            $(tr).find('w\\:tc, tc').each((_, tc) => {
-              $(tc).find('w\\:p, p').each((_, p) => {
-                const text = SDSDocxParser.extractParagraphText(p, $);
-                if (!text) return;
-                const cleaned = SDSDocxParser.cleanArtifacts(text);
-                if (!cleaned) return;
-
-                const detectedSec = SDSDocxParser.matchSectionHeader(cleaned, currentSectionKey);
-                if (detectedSec && detectedSec !== currentSectionKey) {
-                  currentSectionKey = detectedSec;
-                }
-
-                sections[currentSectionKey].push(cleaned);
-              });
-            });
-          });
-        } else {
-          // Właściwa tabela danych: zachowujemy strukturę wierszy i komórek
-          const tableRows = SDSDocxParser.parseTableNode(el, $);
-          if (tableRows && tableRows.length > 0) {
-            tablesBySection[currentSectionKey].push(tableRows);
-            allTables.push({ section: currentSectionKey, rows: tableRows });
-
-            const tableText = SDSDocxParser.formatTableAsText(tableRows);
-            sections[currentSectionKey].push(tableText);
-          }
-        }
+        if (sections[currentSectionKey]) sections[currentSectionKey].push(cleaned);
       }
-    });
+    };
+
+    bodyChildren.each((_, el) => processNode(el));
 
     // Składanie końcowego wyniku sekcji w postaci tekstu
     const formattedSections = {};
@@ -474,7 +476,19 @@ class SDSDocxParser {
     // Formatowanie końcowe każdego komponentu
     return components.map(c => {
       const rawName = (c.name || '').trim();
-      const plName = (c.cas && resolvedSubstances[c.cas]) ? resolvedSubstances[c.cas] : rawName;
+      let plName = rawName;
+
+      if (typeof resolvedSubstances === 'function') {
+        plName = resolvedSubstances(c.cas, rawName, c.ec) || rawName;
+      } else if (c.cas && resolvedSubstances[c.cas]) {
+        plName = resolvedSubstances[c.cas];
+      }
+
+      // Formatowanie i uzupełnianie symbolu % przy stężeniu jeśli brakuje
+      let formattedConc = c.concentration ? c.concentration.trim() : '—';
+      if (formattedConc && formattedConc !== '—' && !formattedConc.includes('%') && /\d/.test(formattedConc)) {
+        formattedConc += ' %';
+      }
 
       const idParts = [
         `Numer CAS: ${c.cas || '—'}`,
@@ -488,6 +502,16 @@ class SDSDocxParser {
         fullClass += (fullClass ? ', ' : '') + c.sclAte.join(', ');
       }
 
+      // Translacja urzędowych uwag i fraz CLP (art. 17 ustawy o substancjach chemicznych)
+      fullClass = fullClass
+        .replace(/Substance with a community workplace exposure limit\.?/gi, 'Substancja z określonymi na poziomie Wspólnoty najwyższymi dopuszczalnymi stężeniami w środowisku pracy.')
+        .replace(/Classification note according to Annex VI to the CLP Regulation:\s*([A-Za-z0-9]+)/gi, 'Uwaga $1 (zgodnie z załącznikiem VI do rozporządzenia CLP)')
+        .replace(/Classification note:\s*([A-Za-z0-9]+)/gi, 'Uwaga $1')
+        .replace(/ATE Inhalation vapours[:\.]?\s*/gi, 'ATE (inhalacyjnie, pary): ')
+        .replace(/ATE Inhalation mists\/powders[:\.]?\s*/gi, 'ATE (inhalacyjnie, pyły/mgły): ')
+        .replace(/ATE Oral[:\.]?\s*/gi, 'ATE (droga pokarmowa): ')
+        .replace(/ATE Dermal[:\.]?\s*/gi, 'ATE (na skórę): ');
+
       return {
         cas: c.cas || '',
         name: plName || rawName,
@@ -497,7 +521,7 @@ class SDSDocxParser {
         reach: c.reach || '—',
         identifiers: idParts.join('\n'),
         classification: fullClass.trim(),
-        concentration: c.concentration || '—'
+        concentration: formattedConc
       };
     });
   }

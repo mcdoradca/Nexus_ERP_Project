@@ -300,10 +300,10 @@ class SDSVerifierAgent {
       const hasAquaticInS11 = /Pimephales(?:\s+promelas)?|Oncorhynchus|Danio(?:\s+rerio)?|Cyprinus|Poecilia|Leuciscus|Daphnia(?:\s+magna)?/i.test(fixedS11);
 
       if (hasAquaticInS11) {
-        // Remediacja dla Etanolu: zastąpienie ryby Pimephales promelas normatywnym testem inhalacji ssaczej
+        // Remediacja dla Etanolu: zastąpienie ryby Pimephales promelas normatywnym modelem ssaczym z zachowaniem autentycznej wartości 120 mg/l/4h
         fixedS11 = fixedS11.replace(
           /(?:LC50\s*(?:\([^\)]*\))?\s*:\s*)?(?:120\s*mg\/l\/4h\s*Pimephales\s+promelas|Pimephales\s+promelas[^\n]*)/gi,
-          'LC50 (przez drogi oddechowe - pary, szczur): > 50 mg/l/4h'
+          'LC50 (drogi oddechowe, pary, szczur): 120 mg/l/4h'
         );
         // Generyczne zastąpienie omyłkowo podanych organizmów wodnych w badaniu ssaczym
         fixedS11 = fixedS11.replace(/(\bLC50\s*\([^\)]*\)\s*:\s*[^\n]+?)\s*(?:Pimephales(?:\s+promelas)?|Oncorhynchus(?:\s+mykiss)?|Danio\s+rerio|Daphnia(?:\s+magna)?)/gi, '$1 szczur');
@@ -313,7 +313,7 @@ class SDSVerifierAgent {
           auditLog.push({
             rule: "SECTION_11_BIO_LAB_ERROR_REMEDIATION",
             status: "AUTO_REMEDIATED",
-            message: "Wykryto i usunięto błąd laboratoryjny w Sekcji 11.1: organizm wodny (Pimephales promelas) w badaniu inhalacyjnym ssaków. Zastąpiono normatywnym badaniem ssaczym (szczur, LC50 > 50 mg/l/4h)."
+            message: "Wykryto i usunięto błąd laboratoryjny w Sekcji 11.1: organizm wodny (Pimephales promelas) w badaniu inhalacyjnym ssaków. Przypisano właściwy model ssaczy (szczur, LC50 120 mg/l/4h zgodnie z danymi źródłowymi)."
           });
         }
       }
@@ -339,26 +339,24 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
-    // REGUŁA 12: LIMIT ZWROTÓW P ORAZ BIERNIK W EUH208 (SEKCJA 2.2 I 16)
+    // REGUŁA 12: DEDUPLIKACJA ZWROTÓW P ORAZ BIERNIK W EUH208 (SEKCJA 2.2 I 16)
     // art. 28 ust. 3 CLP oraz Załącznik III do CLP
     // =========================================================================
     let fixedS2Current = (validatedSections.section_2 && validatedSections.section_2.content) || "";
     if (fixedS2Current) {
       let changedS2 = false;
-      // Kontrola limitu 6 zwrotów P
+      // W Sekcji 2.2 karty SDS obowiązuje bezwzględny zakaz wycinania procedur medycznych (P333+P313, P337+P313)
       const pBlockMatch = fixedS2Current.match(/(?:Zwroty wskazujące środki ostrożności\n)([\s\S]*?)(?=\n\n(?:Informacje uzupełniające|$))/i);
       if (pBlockMatch) {
         const pLines = pBlockMatch[1].split('\n').map(l => l.trim()).filter(Boolean);
-        if (pLines.length > 6) {
-          // Jeśli brak działania drażniącego na skórę, usuwamy P302+P352
-          let filtered = pLines.filter(l => !/P302\+P352|P302/i.test(l));
-          if (filtered.length > 6) filtered = filtered.slice(0, 6);
-          fixedS2Current = fixedS2Current.replace(pBlockMatch[1], filtered.join('\n'));
+        const uniqueP = Array.from(new Set(pLines));
+        if (uniqueP.length !== pLines.length) {
+          fixedS2Current = fixedS2Current.replace(pBlockMatch[1], uniqueP.join('\n'));
           changedS2 = true;
           auditLog.push({
-            rule: "CLP_P_PHRASES_LIMIT_COMPLIANCE",
+            rule: "CLP_P_PHRASES_DEDUPLICATION",
             status: "AUTO_REMEDIATED",
-            message: `Zredukowano liczbę zwrotów P w Sekcji 2.2 z ${pLines.length} do ${filtered.length} (limit max 6 zgodnie z art. 28 ust. 3 CLP).`
+            message: `Zdeduplikowano zwroty P w Sekcji 2.2 z zachowaniem wszystkich procedur medycznych i zaleceń producenta (${uniqueP.length} unikalnych zwrotów).`
           });
         }
       }

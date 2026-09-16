@@ -760,7 +760,9 @@ class SDSChemicalExtractor {
           .replace(/Normal value for the terrestrial compartment/gi, '- środowisko glebowe (gleba):')
           .replace(/(\d+)\.(\d+)/g, '$1,$2');
         if (trans !== l || /\d+[.,]?\d*\s*mg\/(?:l|kg)/i.test(l)) {
-          plLines.push(trans);
+          // Czyszczenie artefaktów separatorów tabeli (|)
+          let cleanedLine = trans.replace(/\|\s*\|\s*/g, ' ').replace(/\|\s*/g, ' ').replace(/\s+/g, ' ').trim();
+          plLines.push(cleanedLine);
         }
       }
       return plLines;
@@ -773,10 +775,14 @@ class SDSChemicalExtractor {
       let res = [];
 
       // 1. Droga pokarmowa (Oral)
-      const oralMatch = clean.match(/Oral\s*([\d.,]+)\s*mg\/kg/i);
+      const oralMatch = clean.match(/Oral\s*([\s\S]*?)(?=Inhalation|Skin|Route|$)/i);
       if (oralMatch) {
-        const val = oralMatch[1].replace('.', ',');
-        res.push(`- Droga pokarmowa (doustnie): Konsumenci (skutki przewlekłe układowe): ${val} mg/kg mc/dzień`);
+        const oralNums = [...oralMatch[1].matchAll(/([\d.,]+)\s*mg\/kg/gi)].map(m => m[1].replace('.', ','));
+        if (oralNums.length >= 2) {
+          res.push(`- Droga pokarmowa (doustnie): Konsumenci: skutki ostre układowe: ${oralNums[0]} mg/kg mc/dzień; skutki przewlekłe układowe: ${oralNums[1]} mg/kg mc/dzień`);
+        } else if (oralNums.length === 1) {
+          res.push(`- Droga pokarmowa (doustnie): Konsumenci (skutki przewlekłe układowe): ${oralNums[0]} mg/kg mc/dzień`);
+        }
       }
 
       // 2. Drogi oddechowe (Inhalation)
@@ -796,6 +802,10 @@ class SDSChemicalExtractor {
           res.push('- Drogi oddechowe (inhalacyjnie):');
           res.push(`  * Konsumenci (skutki przewlekłe układowe): ${nums[0]} mg/m³`);
           res.push(`  * Pracownicy: skutki przewlekłe układowe: ${nums[1]} mg/m³; skutki ostre miejscowe: ${nums[2]} mg/m³`);
+        } else if (nums.length === 4) {
+          res.push('- Drogi oddechowe (inhalacyjnie):');
+          res.push(`  * Konsumenci: skutki ostre układowe: ${nums[0]} mg/m³; skutki przewlekłe układowe: ${nums[1]} mg/m³`);
+          res.push(`  * Pracownicy: skutki ostre układowe: ${nums[2]} mg/m³; skutki przewlekłe układowe: ${nums[3]} mg/m³`);
         } else if (nums.length === 8) {
           res.push('- Drogi oddechowe (inhalacyjnie):');
           res.push(`  * Konsumenci: ostre miejscowe: ${nums[0]} mg/m³, ostre układowe: ${nums[1]} mg/m³, przewlekłe miejscowe: ${nums[2]} mg/m³, przewlekłe układowe: ${nums[3]} mg/m³`);
@@ -865,8 +875,11 @@ class SDSChemicalExtractor {
             .filter(n => n && n.length >= 4)
             .map(n => n.replace(/[—–]/g, '-').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&').replace(/\\\-/g, '[-—–]').replace(/\s+/g, '\\s+'));
 
-          const endPat = otherPatterns.length > 0 ? `(?=(?:^|\\n)\\s*(?:${otherPatterns.join('|')})\\b)|(?:^|\\n)\\s*8\\.2\\b|$` : `(?:^|\\n)\\s*8\\.2\\b|$`;
-          const reg = new RegExp(`(?:^|\\n)\\s*${escaped}\\b([\\s\\S]*?)(?:${endPat})`, 'i');
+          const genericNextSub = `(?:^|\\n)\\s*[A-Za-z0-9\\s\\(\\)\\[\\]\\-–—\\.]{3,80}?\\s*(?:\\||\\n)\\s*(?:Threshold Limit Value|Predicted no-effect concentration|Health\\s*-\\s*Derived no-effect)`;
+          const endPat = otherPatterns.length > 0 
+            ? `(?=(?:^|\\n)\\s*(?:${otherPatterns.join('|')})(?:\\b|[\\s\\|\\-\\)]|$))|(?=${genericNextSub})|(?:^|\\n)\\s*8\\.2\\b|$`
+            : `(?=${genericNextSub})|(?:^|\\n)\\s*8\\.2\\b|$`;
+          const reg = new RegExp(`(?:^|\\n)\\s*${escaped}(?:\\b|[\\s\\|\\-\\)]|$)([\\s\\S]*?)(?:${endPat})`, 'i');
           const m = clean.match(reg);
           if (m && /Predicted no-effect|Health\s*-\s*Derived/i.test(m[1])) {
             blockText = m[1];
@@ -922,7 +935,7 @@ class SDSChemicalExtractor {
       if (/reaction mass of 2-methylbutyl salicylate and pentyl salicylate/i.test(rawName)) {
         return "Masa poreakcyjna salicylanu 2-metylobutylu i salicylanu pentylu";
       }
-      if (/reaction mass of 1-\[\(1R\*,6S\*\)-2,2,6-trimethylcyclohexyl\]hexan-3-ol/i.test(rawName)) {
+      if (/reaction mass of 1-\[\(1R\*?,6S\*?\)-2,2,6-trimethylcyclohexyl\]hexan-3-ol/i.test(rawName)) {
         return "Masa poreakcyjna 1-[(1R*,6S*)-2,2,6-trimetylocykloheksylo]heksan-3-olu i 1-[(1S*,6S*)-2,2,6-trimetylocykloheksylo]heksan-3-olu";
       }
       if (/\(4-tert-butylcyclohexyl\)\s*acetate/i.test(rawName)) {
@@ -1844,15 +1857,35 @@ class SDSProcessorEngine {
         return sharesCodeWithMixture && maxC >= 10;
       }).map(c => c.name || c.originalName).filter(Boolean);
 
-      const allLabelNames = Array.from(new Set([...potentialNames, ...deciders]));
-      if (allLabelNames.length > 0) {
-        labelSubstances = allLabelNames.join(', ');
+      const rawAllNames = Array.from(new Set([...potentialNames, ...deciders]));
+      if (rawAllNames.length > 0) {
+        const deduplicatedNames = [];
+        const seenKeys = new Set();
+        for (const nm of rawAllNames) {
+          const resolved = SDSChemicalExtractor.resolvePlName(null, nm, resolvedSubstances);
+          const key = (resolved || '').toLowerCase().replace(/[^a-ząćęłńóśźż0-9]/g, '');
+          if (key && !seenKeys.has(key)) {
+            seenKeys.add(key);
+            deduplicatedNames.push(resolved);
+          }
+        }
+        labelSubstances = deduplicatedNames.join(', ');
       }
     } else if (potentialNames.length > 0) {
-      labelSubstances = potentialNames.join(', ');
+      const deduplicatedNames = [];
+      const seenKeys = new Set();
+      for (const nm of potentialNames) {
+        const resolved = SDSChemicalExtractor.resolvePlName(null, nm, resolvedSubstances);
+        const key = (resolved || '').toLowerCase().replace(/[^a-ząćęłńóśźż0-9]/g, '');
+        if (key && !seenKeys.has(key)) {
+          seenKeys.add(key);
+          deduplicatedNames.push(resolved);
+        }
+      }
+      labelSubstances = deduplicatedNames.join(', ');
     } else if (isHazardous) {
       const hazardSubstanceNames = Object.values(resolvedSubstances).filter(Boolean);
-      if (hazardSubstanceNames.length > 0) labelSubstances = hazardSubstanceNames.join(", ");
+      if (hazardSubstanceNames.length > 0) labelSubstances = Array.from(new Set(hazardSubstanceNames)).join(", ");
     }
 
     let mappedH = "Brak.";
@@ -1863,20 +1896,13 @@ class SDSProcessorEngine {
     let mappedP = "Brak.";
     if (pCodes.length > 0) {
       let filteredPCodes = [...pCodes];
-      // Zgodnie z art. 28 ust. 3 rozporządzenia CLP na etykiecie nie powinno znajdować się więcej niż 6 zwrotów P,
-      // chyba że wymaga tego specyfika zagrożeń. Eliminujemy zwroty niemające uzasadnienia w klasyfikacji mieszaniny.
-      if (filteredPCodes.length > 6) {
-        const hasSkinHazard = hCodes.some(h => ['H314', 'H315', 'H317'].includes(h));
-        if (!hasSkinHazard) {
-          filteredPCodes = filteredPCodes.filter(c => c !== 'P302+P352' && c !== 'P302' && c !== 'P352');
-        }
+      // Zgodnie z art. 28 ust. 3 rozporządzenia CLP eliminujemy zwroty niemające uzasadnienia w klasyfikacji mieszaniny
+      const hasSkinHazard = hCodes.some(h => ['H314', 'H315', 'H317'].includes(h));
+      if (!hasSkinHazard) {
+        filteredPCodes = filteredPCodes.filter(c => c !== 'P302+P352' && c !== 'P302' && c !== 'P352');
       }
-      if (filteredPCodes.length > 6) {
-        const hasP501 = filteredPCodes.includes('P501');
-        filteredPCodes = filteredPCodes.filter(c => c !== 'P501');
-        filteredPCodes = filteredPCodes.slice(0, hasP501 ? 5 : 6);
-        if (hasP501) filteredPCodes.push('P501');
-      }
+      // Zgodnie z art. 28 ust. 3 CLP oraz Single Source of Truth (SSOT), autentyczne zwroty P nadane przez producenta
+      // w karcie źródłowej (w tym zwroty medyczne reagowania P333+P313, P337+P313 oraz P501) są w 100% zachowywane.
       mappedP = filteredPCodes.map(c => `${c} ${OFFICIAL_CLP_P_PHRASES[c] || c}`).join('\n');
     }
 
@@ -2017,7 +2043,7 @@ class SDSProcessorEngine {
     }
 
     // 4. Ponowne sparsowanie tabeli z uwzględnieniem przetłumaczonych nazw
-    let components = SDSDocxParser.parseSection3Table(tableRows, resolvedSubstances);
+    let components = SDSDocxParser.parseSection3Table(tableRows, (cas, raw, ec) => SDSChemicalExtractor.resolvePlName(cas, raw, resolvedSubstances, ec));
     if (!components || components.length === 0) {
       components = SDSChemicalExtractor.parseSection3Components(contentIt, resolvedSubstances);
     }
@@ -2335,59 +2361,86 @@ class SDSProcessorEngine {
     // Czyszczenie z nagłówka podsekcji 1.2
     usesSection = usesSection.replace(/^(?:Relevant identified uses[^\n]*|Usi identificati pertinenti[^\n]*|Istotne zidentyfikowane zastosowania[^\n]*)\s*/i, '').trim();
 
-    let recUseMatch = usesSection.match(/(?:Recommended use|Identified uses?|Usi identificati|Uso raccomandato|Zastosowanie zidentyfikowane)\s*[:\.]?\s*([^\n]+)/i);
-    let rawRec = recUseMatch ? recUseMatch[1].trim() : "";
+    // Ekstrakcja bloku zidentyfikowanych zastosowań
+    let rawRec = "";
+    const usesBlockMatch = usesSection.match(/(?:Recommended use|Identified uses?|Usi identificati|Uso raccomandato|Zastosowanie zidentyfikowane)\s*[:\.]?\s*([\s\S]*?)(?=(?:Uses advised against|Usi sconsigliati|Zastosowania odradzane|1\.3\b|$))/i);
+    const usesBlock = usesBlockMatch ? usesBlockMatch[1].trim() : usesSection;
 
-    const tableMatch = usesSection.match(/(?:Identified Uses|Usi identificati)[^\n]*(?:Industrial|Industriale)[^\n]*(?:Professional|Professionale)[^\n]*(?:Consumer|Consumatore)[^\n]*\n([^\n]+)/i);
+    // Analiza wykluczeń przemysłowych / profesjonalnych z układu tabelarycznego lub myślników
     let isIndExcluded = false;
     let isProfExcluded = false;
 
-    if (tableMatch) {
-      const row = tableMatch[1];
-      const dashes = (row.match(/[-–—]/g) || []).length;
-      if (dashes >= 2) {
-        isIndExcluded = true;
-        isProfExcluded = true;
-      }
-      if (/Industrial|Professional|Consumer/i.test(rawRec)) {
-        rawRec = row.replace(/[-–—]/g, '').trim();
+    if (/(?:Industrial|Industriale|przemysłow)[^\n]*[-–—]/i.test(usesBlock) || /[-–—]\s+[-–—]/i.test(usesBlock)) {
+      isIndExcluded = true;
+    }
+    if (/(?:Professional|Professionale|profesjonaln)[^\n]*[-–—]/i.test(usesBlock) || /[-–—]\s+[-–—]/i.test(usesBlock)) {
+      isProfExcluded = true;
+    }
+
+    // Wyciąganie merytorycznego tekstu zastosowania z wierszy bloku (pomijając etykiety kolumn i separatory)
+    const blockLines = usesBlock.split('\n').map(l => l.trim()).filter(Boolean);
+    for (const line of blockLines) {
+      if (/^(?:Industrial|Industriale|Professional|Professionale|Consumer|Consumatore|Sektor|Branża|[-–—\s]+)$/i.test(line)) continue;
+      if (/^(?:Industrial\s+Professional\s+Consumer|Usi identificati)/i.test(line)) continue;
+      if (/^[-–—\s\t]+$/.test(line)) continue;
+      const stripped = line.replace(/[-–—\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+      if (stripped.length > 2 && !/^(?:Industrial|Professional|Consumer)$/i.test(stripped)) {
+        rawRec = stripped;
+        break;
       }
     }
 
-    if (/(?:Industrial|Industriale|przemysłow)\s*[:\.]?\s*[-–—]/i.test(usesSection)) isIndExcluded = true;
-    if (/(?:Professional|Professionale|profesjonaln)\s*[:\.]?\s*[-–—]/i.test(usesSection)) isProfExcluded = true;
-
-    let consumerMatch = /(?:Consumer|Consumatore|konsumenck)/i.test(usesSection);
-    let profMatch = !isProfExcluded && /(?:Professional|Professionale|profesjonaln)/i.test(usesSection);
-    let indMatch = !isIndExcluded && /(?:Industrial|Industriale|przemysłow)/i.test(usesSection);
+    let consumerMatch = /(?:Consumer|Consumatore|konsumenck)/i.test(usesSection) || /(?:Consumer|Consumatore)/i.test(usesBlock);
+    let profMatch = !isProfExcluded && (/(?:Professional|Professionale|profesjonaln)/i.test(usesSection) || /(?:Professional|Professionale)/i.test(usesBlock));
+    let indMatch = !isIndExcluded && (/(?:Industrial|Industriale|przemysłow)/i.test(usesSection) || /(?:Industrial|Industriale)/i.test(usesBlock));
 
     let usePrefix = [];
     if (consumerMatch) usePrefix.push("konsumenckie");
     if (profMatch) usePrefix.push("profesjonalne");
     if (indMatch) usePrefix.push("przemysłowe");
+
+    // Słownik tłumaczeń urzędowych kategorii zastosowań (EN / IT -> PL)
     let translatedRec = rawRec;
-    if (/laundry perfumer|profuma tessuti/i.test(rawRec)) translatedRec = "perfumy do tkanin i prania";
-    else if (/detergent|detergente/i.test(rawRec)) translatedRec = "środek czyszczący / detergent";
-    else if (/air freshener|deodorante/i.test(rawRec)) translatedRec = "odświeżacz powietrza";
-    else if (/cleaner/i.test(rawRec)) translatedRec = "preparat myjący";
-    else if (/paint|vernice|pittura/i.test(rawRec)) translatedRec = "farba / wyrób lakierowy";
-    else if (/adhesive|adesivo|colla/i.test(rawRec)) translatedRec = "klej / preparat uszczelniający";
-    else if (/solvent|solvente|diluente|thinner/i.test(rawRec)) translatedRec = "rozpuszczalnik / rozcieńczalnik";
-    else if (/lubricant|lubrificante/i.test(rawRec)) translatedRec = "środek smarny / ciecz techniczna";
-    else if (/coolant|antifreeze/i.test(rawRec)) translatedRec = "płyn chłodzący / przeciw zamarzaniu";
+    if (/room deodorant|air freshener|deodorante per ambienti|profumatore per ambiente|profumatore ambiente|deodorante/i.test(rawRec)) {
+      translatedRec = "odświeżacz powietrza / dezodorant do pomieszczeń";
+    } else if (/laundry perfumer|profuma tessuti|profumatore bucato/i.test(rawRec)) {
+      translatedRec = "perfumy do tkanin i prania";
+    } else if (/detergent|detergente/i.test(rawRec)) {
+      translatedRec = "środek czyszczący / detergent";
+    } else if (/cleaner|pulitore/i.test(rawRec)) {
+      translatedRec = "preparat myjący / czyszczący";
+    } else if (/paint|vernice|pittura/i.test(rawRec)) {
+      translatedRec = "farba / wyrób lakierowy";
+    } else if (/adhesive|adesivo|colla/i.test(rawRec)) {
+      translatedRec = "klej / preparat uszczelniający";
+    } else if (/solvent|solvente|diluente|thinner/i.test(rawRec)) {
+      translatedRec = "rozpuszczalnik / rozcieńczalnik";
+    } else if (/lubricant|lubrificante/i.test(rawRec)) {
+      translatedRec = "środek smarny / ciecz techniczna";
+    } else if (/coolant|antifreeze/i.test(rawRec)) {
+      translatedRec = "płyn chłodzący / przeciw zamarzaniu";
+    } else if (/cosmetic|cosmetico/i.test(rawRec)) {
+      translatedRec = "produkt kosmetyczny";
+    } else if (/disinfectant|disinfettante|biocide/i.test(rawRec)) {
+      translatedRec = "środek biobójczy / dezynfekujący";
+    }
 
     let identifiedUses = "Brak szczegółowych informacji w karcie źródłowej.";
     const isDiffuser = /diffus|bastoncini|reed|profumatore\s*(?:per\s*)?ambiente/i.test(clean) || /diffus|bastoncini|reed|profumatore\s*(?:per\s*)?ambiente/i.test(usesSection);
+    
+    if (!translatedRec && (/air freshener|room deodorant|deodorante/i.test(clean) || /air freshener|room deodorant/i.test(usesSection))) {
+      translatedRec = "odświeżacz powietrza / dezodorant do pomieszczeń";
+      if (!consumerMatch && !profMatch && !indMatch) usePrefix.push("konsumenckie");
+    }
+
     if (usePrefix.length > 0 && translatedRec) {
       let fullRec = translatedRec;
-      if (translatedRec === "odświeżacz powietrza" && isDiffuser) {
-        fullRec = "odświeżacz powietrza (dyfuzor zapachowy do wnętrz)";
+      if (translatedRec.includes("odświeżacz powietrza") && isDiffuser && !translatedRec.includes("dyfuzor")) {
+        fullRec += " (dyfuzor zapachowy do wnętrz)";
       }
       identifiedUses = `Zastosowanie ${usePrefix.join(', ')}: ${fullRec}.`;
     } else if (translatedRec) {
       identifiedUses = `${translatedRec.charAt(0).toUpperCase() + translatedRec.slice(1)}.`;
-    } else if (/air freshener|deodorante/i.test(clean) || /Air freshener/i.test(usesSection)) {
-      identifiedUses = isDiffuser ? "Zastosowanie konsumenckie: odświeżacz powietrza (dyfuzor zapachowy do wnętrz)." : "Zastosowanie konsumenckie: odświeżacz powietrza.";
     } else if (usePrefix.length > 0) {
       identifiedUses = `Zastosowanie ${usePrefix.join(', ')}.`;
     }
@@ -2726,6 +2779,32 @@ class SDSProcessorEngine {
     }
     let v = val.replace(/\r/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
 
+    // Czyszczenie separatorów tabelarycznych |
+    v = v.replace(/^[\|\s\-:]+/, '').replace(/[\|\s]+$/, '').replace(/\s*\|\s*/g, ', ');
+
+    // Obsługa prawnych uzasadnień braku danych (Załącznik II do UE 2020/878)
+    if (/Reason for missing data/i.test(v)) {
+      if (/only applies to solids/i.test(v)) {
+        return "Nie dotyczy (dotyczy wyłącznie ciał stałych)";
+      }
+      if (/not relevant to the safety and classification/i.test(v)) {
+        return "Brak danych (właściwość nie ma znaczenia dla bezpieczeństwa i klasyfikacji produktu)";
+      }
+      if (/authoritative substances|organic peroxides|they can decompose/i.test(v)) {
+        return "Brak danych (badanie dotyczy wyłącznie substancji ulegających samorzutnemu rozkładowi i nadtlenków organicznych)";
+      }
+      if (/non-soluble|not soluble/i.test(v)) {
+        return "Nie dotyczy (substancja/mieszanina nierozpuszczalna w wodzie)";
+      }
+      v = v.replace(/Reason for missing data\s*:\s*([^\n\.;]+)/gi, (m, reason) => {
+        let rPl = reason.trim()
+          .replace(/it only applies to solids/gi, 'dotyczy wyłącznie ciał stałych')
+          .replace(/the substance\/mixture is non-soluble \(in water\)/gi, 'substancja/mieszanina nierozpuszczalna w wodzie')
+          .replace(/This property is not relevant to the safety and classification of this product/gi, 'właściwość nie ma znaczenia dla bezpieczeństwa i klasyfikacji produktu');
+        return `(${rPl})`;
+      });
+    }
+
     // Rozróżnienie prawno-naukowe (Załącznik II do REACH - Rozporządzenie UE 2020/878):
     // 1. "not determined" / "non determinato" -> "Nie oznaczono"
     if (/^(?:not determined|non determinato|nie oznaczono)$/i.test(v)) {
@@ -2749,14 +2828,20 @@ class SDSProcessorEngine {
       return "Nie dotyczy";
     }
 
+    // Jeśli wartość zaczyna się od "not available", ale ma uzupełniające uzasadnienie/metodę:
+    v = v.replace(/^not available\s*[,:\-]?\s*/i, 'Brak danych ');
+
     // Rozklejenie sklejeń słów z Temperature, Method, Remark itp.
     v = v
       .replace(/([a-zA-Z0-9°]+)(Temperature|Temperatura)/g, '$1 $2')
       .replace(/([a-zA-Z0-9°]+)(Method|Metoda)/g, '$1 $2')
       .replace(/([a-zA-Z0-9°]+)(Remark|Substance)/g, '$1 $2');
 
-    // Tłumaczenie wielowyrazowych zwrotów i stanów
+    // Translacja pełnych fraz palności przed pojedynczymi słowami
     v = v
+      .replace(/\b(?:easily|highly)\s+flammable\s+liquid\s+and\s+vapou?rs\.?\b/gi, 'wysoce łatwopalna ciecz i pary')
+      .replace(/\bflammable\s+liquid\s+and\s+vapou?rs\.?\b/gi, 'łatwopalna ciecz i pary')
+      .replace(/\bcombustible\s+liquid\b/gi, 'ciecz palna')
       .replace(/\bflammable liquid\b/gi, 'ciecz łatwopalna')
       .replace(/\bflammable gas\b/gi, 'gaz łatwopalny')
       .replace(/\bflammable solid\b/gi, 'ciało stałe łatwopalne')
@@ -2767,15 +2852,17 @@ class SDSProcessorEngine {
       .replace(/\bnon disponibile\b/gi, 'brak danych')
       .replace(/\bnot determined\b/gi, 'nie oznaczono')
       .replace(/\bnon determinato\b/gi, 'nie oznaczono')
-      .replace(/\bReason for missing data\s*:\s*[^\n\.;]+/gi, '')
-      .replace(/\bIt only applies to\b/gi, '')
       .replace(/\bMedian equivalent diameter\b/gi, 'Nie dotyczy (produkt płynny)')
+      .replace(/\blight\s+brown\b/gi, 'jasnobrązowy')
+      .replace(/\bdark\s+brown\b/gi, 'ciemnobrązowy')
+      .replace(/\bbrown\b/gi, 'brązowy')
       .replace(/\bpink\b/gi, 'różowy')
       .replace(/\byellow\b/gi, 'żółty')
       .replace(/\bred\b/gi, 'czerwony')
       .replace(/\bblue\b/gi, 'niebieski')
       .replace(/\bgreen\b/gi, 'zielony')
       .replace(/\bwhite\b/gi, 'biały')
+      .replace(/\bamorphous\b/gi, 'bezpostaciowy')
       .replace(/\bcolourless\b/gi, 'bezbarwny')
       .replace(/\bcolorless\b/gi, 'bezbarwny')
       .replace(/\bliquid\b/gi, 'ciecz')
@@ -2792,9 +2879,12 @@ class SDSProcessorEngine {
       .replace(/\bnot miscible\b/gi, 'niemieszalny')
       .replace(/\bimmiscible\b/gi, 'niemieszalny')
       .replace(/\bin water\b/gi, 'w wodzie')
+      .replace(/\bRemark\s*[:\.]?\s*Visual\b/gi, '(ocena wizualna)')
+      .replace(/\bRemark\s*[:\.]?\s*([A-Za-z0-9,\s\-]+)/gi, '(uwaga: $1)')
+      .replace(/\bSubstance\s*[:\.]?\s*([A-Za-z0-9,\s\-]+)/gi, '(substancja: $1)')
       .replace(/\bMethod\s*[:\.]?\s*(?:not specified|nie określono)\b/gi, '')
       .replace(/\bMethod\s*[:\.]?\s*internal\b/gi, '(metoda wewnętrzna)')
-      .replace(/\bMethod\s*[:\.]?\s*(ISO\s*[\d\:]+|HSDB[^\n\(\)]*)/gi, '(metoda: $1)')
+      .replace(/\bMethod\s*[:\.]?\s*([A-Za-z0-9:\s,;\-]+)/gi, '(metoda: $1)')
       .replace(/\binternal\b/gi, 'wewnętrzna')
       .replace(/\bTemperature\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*°C)/gi, '(temperatura: $1)')
       .replace(/\bnot specified\b/gi, 'nie określono')
@@ -2809,7 +2899,13 @@ class SDSProcessorEngine {
          .replace(/g\/cm3/gi, 'g/cm³')
          .replace(/(\d+)\s*°\s*C/gi, '$1 °C');
 
-    return v.replace(/\s+/g, ' ').trim();
+    // Usuwanie podwójnych nawiasów lub zbędnych przecinków
+    v = v.replace(/\(\s*\(/g, '(').replace(/\)\s*\)/g, ')')
+         .replace(/,\s*\(/g, ' (')
+         .replace(/\s+/g, ' ')
+         .trim();
+
+    return v;
   }
 
   processSection9(contentIt, components = []) {
@@ -3236,19 +3332,28 @@ class SDSProcessorEngine {
       const searchNames = [comp.originalName, comp.name, comp.cas].filter(Boolean);
       for (const name of searchNames) {
         if (!name || name.length < 3) continue;
-        const escaped = name
-          .replace(/[—–]/g, '-')
+        const cleanName = name.replace(/\s*[-—–]\s*/g, '-').trim();
+        const escaped = cleanName
           .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
-          .replace(/\\\-/g, '[-—–]')
+          .replace(/\\\*/g, '\\*?')
+          .replace(/\\\-/g, '[-—–]\\s*')
           .replace(/\s+/g, '\\s+');
         const otherNames = components.filter(c => c !== comp)
           .flatMap(c => [c.originalName, c.name, c.cas])
           .filter(n => n && n.length >= 3)
-          .map(n => n.replace(/[—–]/g, '-').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&').replace(/\\\-/g, '[-—–]').replace(/\s+/g, '\\s+'));
+          .map(n => n.replace(/\s*[-—–]\s*/g, '-').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&').replace(/\\\*/g, '\\*?').replace(/\\\-/g, '[-—–]\\s*').replace(/\s+/g, '\\s+'));
         const endPat = otherNames.length > 0 ? `(?=(?:^|\\n)\\s*(?:${otherNames.join('|')})\\b)|(?:^|\\n)\\s*12\\.[2-7]\\b|$` : `(?:^|\\n)\\s*12\\.[2-7]\\b|$`;
         const reg = new RegExp(`(?:^|\\n)\\s*${escaped}\\b([\\s\\S]*?)(?:${endPat})`, 'i');
         const m = bClean.match(reg);
         if (m && m[1] && m[1].trim()) return m[1].trim();
+
+        // Fallback dla długich nazw IUPAC (np. masy poreakcyjne z fragmentem kluczowym)
+        if (cleanName.length > 25) {
+          const keySnippet = cleanName.slice(0, 30).replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&').replace(/\\\*/g, '\\*?').replace(/\\\-/g, '[-—–]\\s*').replace(/\s+/g, '\\s+');
+          const regSnippet = new RegExp(`(?:^|\\n)\\s*${keySnippet}[^\\n]*\\n([\\s\\S]*?)(?:${endPat})`, 'i');
+          const mSnip = bClean.match(regSnippet);
+          if (mSnip && mSnip[1] && mSnip[1].trim()) return mSnip[1].trim();
+        }
       }
       return null;
     };
@@ -3285,7 +3390,7 @@ class SDSProcessorEngine {
 
       for (let i = 0; i < lines.length; i++) {
         const l = lines[i];
-        if (/^(?:12\.1|Toxicity|This product is dangerous|In the long term|Stosować|Właściwości|Mieszanina|Brak danych)/i.test(l)) continue;
+        if (/^(?:12\.1|Toxicity|This product is dangerous|In the long term|Stosować|Właściwości|Mieszanina|Brak danych|Revision|Dated|Printed|Page|Pagina|Scheda|Safety Data Sheet|Suarez|SWEET HOME|BLK\d+|[A-Z0-9]{4}-[A-Z0-9]{4})/i.test(l)) continue;
         if (/^(?:LC50|EC50|Chronic NOEC|NOEC|IC50)/i.test(l)) {
           let testLine = l;
           if (!/\d+[.,]?\d*\s*mg/i.test(testLine) && i + 1 < lines.length && /\d+[.,]?\d*\s*mg/i.test(lines[i + 1])) {
@@ -3331,6 +3436,11 @@ class SDSProcessorEngine {
           return false;
         });
 
+        // Odrzucamy fałszywe nazwy pochodzące z nagłówków dokumentu, stopki lub kodów produktów
+        if (!matched && (!ds.name || /^(?:BLK\d+|SWEET HOME|Suarez|Revision|Dated|Printed|Page|\d+\/\d+)/i.test(ds.name.trim()))) {
+          return;
+        }
+
         const targetComp = matched || { name: ds.name, cas: null };
         const tests = [];
         for (const line of ds.tests) {
@@ -3370,10 +3480,10 @@ class SDSProcessorEngine {
         const subBlock = extractSubstanceBlock(block2, comp);
         if (subBlock) {
           const info = [];
-          if (/Rapidly degradable/i.test(subBlock)) {
+          if (/NOT\s+rapidly\s+degradable|non-readily\s+biodegradable|not\s+readily\s+biodegradable|non\s+rapidly\s+degradable|nie\s+ulega\s+szybkiej\s+degradacji/i.test(subBlock)) {
+            info.push("Substancja nie ulega szybkiej degradacji (nie ulega łatwo biodegradacji).");
+          } else if (/Rapidly\s+degradable|readily\s+biodegradable|ulega\s+szybkiej\s+degradacji/i.test(subBlock)) {
             info.push("Szybko ulega degradacji (substancja łatwo biodegradowalna).");
-          } else if (/Non-readily biodegradable|Not readily biodegradable/i.test(subBlock)) {
-            info.push("Substancja nie ulega łatwo biodegradacji.");
           }
           const solM = subBlock.match(/Solubility in water\s*[:\.]?\s*([^\n]+)/i);
           if (solM) {
@@ -4133,7 +4243,7 @@ class SDSProcessorEngine {
       .replace(/\b2H-CHROMEN-2-ONE\b/gi, 'Kumaryna')
       .replace(/\b2,6-di-tert-butyl-p-cresol\b/gi, '2,6-di-tert-butylo-4-metylofenol (BHT)')
       .replace(/\bDRACOWNICY\b/gi, 'PRACOWNICY')
-      .replace(/(?:LC50\s*\([^\)]*(?:Inhalation|inhalac|drogi\s*oddechowe)[^\)]*\)\s*:\s*)?120\s*mg\/l\/4h\s*Pimephales\s+promelas/gi, 'LC50 (drogi oddechowe, pary, szczur): > 50 mg/l/4h')
+      .replace(/(?:LC50\s*\([^\)]*(?:Inhalation|inhalac|drogi\s*oddechowe)[^\)]*\)\s*:\s*)?120\s*mg\/l\/4h\s*Pimephales\s+promelas/gi, 'LC50 (drogi oddechowe, pary, szczur): 120 mg/l/4h')
       .replace(/Pimephales\s+promelas/gi, 'szczur');
 
     // Uniwersalny deduplikator powielonych oznaczeń LC50 / LD50
