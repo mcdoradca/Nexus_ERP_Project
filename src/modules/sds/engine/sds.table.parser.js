@@ -28,8 +28,8 @@ class SDSTableParser {
    * Normalizuje numery identyfikacyjne CAS, EC i INDEX
    */
   static normalizeIdentifiers(rawBlock) {
-    // CAS: 2-7 cyfr, myślnik, 2 cyfry, myślnik, 1 cyfra
-    const casMatch = rawBlock.match(/\b(?:CAS|C\.A\.S\.?)?\s*[:\.]?\s*(\d{2,7}-\d{2}-\d)\b/i);
+    // CAS: 2-7 cyfr, myślnik, 2 cyfry, myślnik, 1 cyfra (bez zera wiodącego i bez podciągów)
+    const casMatch = rawBlock.match(/(?:CAS|C\.A\.S\.?)?\s*[:\.]?\s*((?<![\d-])[1-9]\d{1,6}-\d{2}-\d(?![\d-]))/i);
     // EC / WE: 3 cyfry, myślnik, 3 cyfry, myślnik, 1 cyfra
     const ecMatch = rawBlock.match(/\b(?:EC|WE|EINECS|CE)\s*[:\.]?\s*(\d{3}-\d{3}-\d)\b/i);
     // INDEX wg CLP Załącznik VI: 3 cyfry, 3 cyfry, 2 cyfry, 1 cyfra lub litera X (modulo 11)

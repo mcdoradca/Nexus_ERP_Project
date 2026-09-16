@@ -273,6 +273,7 @@ const ALLERGEN_NAMES_PL = {
   "eugenol": "eugenol",
   "isoeugenol": "izoeugenol",
   "benzyl alcohol": "alkohol benzylowy",
+  "cineole": "1,8-cyneol (eukaliptol)",
   "methanol": "metanol",
   "acetone": "aceton (propan-2-on)",
   "propan-2-one": "aceton (propan-2-on)"
@@ -308,7 +309,15 @@ const CAS_TO_PL_MAP = {
   "123-11-5": "aldehyd anyżowy (4-metoksybenzaldehyd)",
   "128-37-0": "2,6-di-tert-butylo-4-metylofenol (BHT)",
   "108-88-3": "toluen",
-  "1222-05-5": "galaksolid (1,3,4,6,7,8-heksahydro-4,6,6,7,8,8-heksametyloindeno[5,6-c]piran)"
+  "1222-05-5": "galaksolid (1,3,4,6,7,8-heksahydro-4,6,6,7,8,8-heksametyloindeno[5,6-c]piran)",
+  "28219-61-6": "2-etylo-4-(2,2,3-trimetylocyklopent-3-en-1-ylo)but-2-en-1-ol",
+  "34590-94-8": "(2-metoksymetyloetoksy)propanol",
+  "107898-54-4": "(±) trans-3,3-dimetylo-5-(2,2,3-trimetylocyklopent-3-en-1-ylo)pent-4-en-2-ol",
+  "470-82-6": "1,8-cyneol (eukaliptol)",
+  "469-61-4": "alfa-cedren",
+  "64-19-7": "kwas octowy",
+  "142-82-5": "heptan",
+  "108-95-2": "fenol"
 };
 
 function mapHazardClass(text) {
@@ -582,7 +591,7 @@ class SDSChemicalExtractor {
   }
 
   static extractCas(text) {
-    const matches = this.extractUnique(text, /\b\d{2,7}-\d{2}-\d\b/g);
+    const matches = this.extractUnique(text, /(?<![\d-])[1-9]\d{1,6}-\d{2}-\d(?![\d-])/g);
     return matches.filter(cas => this.isValidCas(cas));
   }
   static extractEc(text) { return this.extractUnique(text, /\b\d{3}-\d{3}-\d\b/g); }
@@ -1086,7 +1095,7 @@ class SDSChemicalExtractor {
       .replace(/([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%)\s*\n\s*-\s*([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%)/g, (m, p1, p2, p3, p4) => (p1 || '') + p2 + ' - ' + (p3 || '') + p4)
       .replace(/([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?)\s*-\s*\n\s*([≥≤><~=]|>=|<=)?\s*(\d+(?:[.,]\d+)?\s*%)/g, (m, p1, p2, p3, p4) => (p1 || '') + p2 + ' - ' + (p3 || '') + p4);
 
-    const casMatches = [...cleanText.matchAll(/(?:CAS\s*[:\.]?\s*)?(\b\d{2,7}-\d{2}-\d\b)/gi)]
+    const casMatches = [...cleanText.matchAll(/(?:CAS\s*[:\.]?\s*)?((?<![\d-])[1-9]\d{1,6}-\d{2}-\d(?![\d-]))/gi)]
       .filter(m => SDSChemicalExtractor.isValidCas(m[1]));
     if (casMatches.length === 0) return [];
 
