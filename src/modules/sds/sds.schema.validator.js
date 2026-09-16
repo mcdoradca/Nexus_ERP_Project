@@ -92,12 +92,16 @@ class SDSSchemaValidator {
       }
     }
 
-    // 2. Walidacja Sekcji 2 (CLP / P-Statements limit <= 6)
+    // 2. Walidacja Sekcji 2 (CLP / P-Statements & Hasło ostrzegawcze)
     const s2 = sections.section_2 ? sections.section_2.content : "";
     if (s2) {
       const pMatches = [...s2.matchAll(/\b(P\d{3}(?:\+P\d{3})*)\b/g)];
-      if (pMatches.length > 6) {
-        errors.push(`Naruszenie Art. 28 Rozporządzenia CLP: Liczba zwrotów P w Sekcji 2.2 przekracza dopuszczalny limit 6 (znaleziono: ${pMatches.length}).`);
+      // W Karcie Charakterystyki SDS (Załącznik II do REACH) Sekcja 2.2 musi odzwierciedlać pełne
+      // bezpieczeństwo mieszaniny i zalecenia producenta (w tym procedury medyczne i ratunkowe).
+      // Limit "zazwyczaj do 6 zwrotów" z art. 28 ust. 3 CLP odnosi się do etykiety opakowania,
+      // a nie do karty SDS, gdzie wycinanie procedur medycznych (np. P333+P313, P337+P313) stanowi błąd prawny.
+      if (pMatches.length === 0 && !/nie wymaga zwrotów wskazujących środki ostrożności/i.test(s2)) {
+        errors.push("Sekcja 2.2 nie zawiera zwrotów wskazujących środki ostrożności (zwroty P).");
       }
       if (!/Niebezpieczeństwo|Uwaga|Brak hasła ostrzegawczego/i.test(s2)) {
         errors.push("Sekcja 2.2 nie zawiera poprawnego polskiego hasła ostrzegawczego CLP.");

@@ -427,7 +427,7 @@ class SDSVerifierAgent {
 Twoim zadaniem jest ostateczna inspekcja i eliminacja wszelkich niezgodności prawnych, formalnych i językowych.
 BEZWZGLĘDNE REGUŁY:
 1. 100% JĘZYK POLSKI: Żadnych obcojęzycznych zwrotów (np. "not specified", "not available", "liquid", "soluble in water"). Wszystko musi być fachowo przetłumaczone na język polski.
-2. LIMIT ZWROTÓW P (art. 28 ust. 3 CLP): W sekcji 2.2 nie może być więcej niż 6 zwrotów P. Jeśli jest więcej, zredukuj do maksymalnie 6 najważniejszych.
+2. ZWROTY P W KARCIE SDS (Załącznik II do REACH / art. 28 ust. 3 CLP): W sekcji 2.2 karty SDS zachowaj wszystkie autentyczne zwroty P nadane przez dostawcę odzwierciedlające charakter i stopień zagrożeń mieszaniny, a w szczególności zwroty dotyczące pomocy medycznej i reagowania (np. P333+P313, P337+P313), ochrony konsumentów (P101, P102) oraz usuwania odpadów (P501). Karta SDS nie jest etykietą opakowania – obowiązuje całkowity zakaz samowolnego wycinania zwrotów medycznych.
 3. BIERNIK W EUH208: Zwrot w sekcji 2.2 i 16 musi mieć formę "EUH208 Zawiera <nazwa substancji w bierniku, np. kumarynę>. Może powodować wystąpienie reakcji alergicznej."
 4. ROZPUSZCZALNOŚĆ (Sekcja 9.1): Zgodna ze źródłem (dla produktów rozpuszczalnych: "rozpuszczalny w wodzie", nigdy "not specified").
 5. DNEL (Sekcja 8.1): Czytelne rozbicie na Pracowników i Konsumentów, drogi narażenia i typy skutków per substancja, z zachowaniem nagłówka w formacie: "Substancja: <Nazwa> [CAS: <Numer>]".

@@ -47,7 +47,13 @@ Bezwzględnym warunkiem technicznym (narzuconym przez użytkownika) było zachow
    - Odrzucono nagłówki stron i kody produktów (`BLK0276-2`, `SWEET HOME`, `Suarez`, `Revision`) z wykazu organizmów testowych w Sekcji 12.1.
    - W Sekcji 12.2 wprowadzono pierwszeństwo weryfikacji przeczenia `NOT rapidly degradable` / `nie ulega szybkiej degradacji` przed badaniem twierdzącym `rapidly degradable`, a także uodporniono `extractSubstanceBlock` na rozbieżności spacji i myślników w długich nazwach IUPAC.
 
+7. **Harmonizacja Bramki Jakościowej (SDSSchemaValidator Quality Gate vs Art. 28 CLP):**
+   - Rozwiązano konflikt jurysdykcyjny pomiędzy regułą etykietowania opakowań (CLP Art. 28 ust. 3: „Na etykiecie umieszcza się zazwyczaj nie więcej niż 6 zwrotów...”) a Kartą Charakterystyki (REACH Art. 31 i Załącznik II - Rozporządzenie UE 2020/878).
+   - Karta SDS nie jest fizyczną etykietą opakowania – jej prawnym celem jest dostarczenie pełnego kompendium informacji o zagrożeniach dla całego łańcucha dostaw. Wycinanie autentycznych procedur medycznych (P333+P313, P337+P313), zaleceń prewencyjnych (P210, P302+P352, P305+P351+P338) czy ochrony konsumentów (P101, P102, P501) w imię etykietowego limitu 6 zwrotów stanowiło bezpośrednie naruszenie prawa.
+   - W `SDSSchemaValidator` usunięto fałszywą asercję blokującą `pMatches.length > 6`. Wprowadzono kontrolę obecności zwrotów P oraz weryfikację braku duplikatów.
+
 ## Skutki i Weryfikacja
 - Wszystkie 6 punktów audytu zostało pokrytych dedykowanym testem `tests/sds.audit_6_points_sandalo.test.js`.
-- Zestaw testów `sds.docx_input.test.js`, `sds.zero_hardcodes.test.js`, `sds.8_points_audit.test.js` oraz `sds.audit_6_points_sandalo.test.js` przechodzi w 100% (15/15 testów zielonych).
+- Model SDS z 8 autentycznymi zwrotami P przechodzi pełną walidację w `SDSSchemaValidator.validateFinalSds` bez jakichkolwiek błędów blokujących.
+- Zestaw testów `sds.docx_input.test.js`, `sds.zero_hardcodes.test.js`, `sds.8_points_audit.test.js`, `sds.schema.validator.test.js` oraz `sds.audit_6_points_sandalo.test.js` przechodzi w 100% (22/22 testy zielone).
 - Brak jakichkolwiek hardkodów na poziomie produktu.

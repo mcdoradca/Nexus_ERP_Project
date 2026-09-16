@@ -92,13 +92,13 @@ async function testValidateFinalSds() {
   }, "Model zmontowany z realnego PDF musi przejść pełną walidację prawną!");
   console.log("-> TEST 5 ZDANY: Model SDS z realnego pliku przeszedł pełną asercję jakościową.");
 
-  console.log("\n[TEST 6] Naruszenie limitu zwrotów P (> 6) w Sekcji 2.2 rzuca błąd asercji...");
+  console.log("\n[TEST 6] Całkowity brak zwrotów P w sklasyfikowanej Sekcji 2.2 rzuca błąd asercji...");
   const invalidPData = JSON.parse(JSON.stringify(finalData));
-  invalidPData.sections.section_2.content += "\nP101 P102 P210 P280 P301 P302 P305"; // 7 zwrotów P
+  invalidPData.sections.section_2.content = invalidPData.sections.section_2.content.replace(/\bP\d{3}(?:\+P\d{3})*[^\n]*/g, '');
   assert.throws(() => {
     SDSSchemaValidator.validateFinalSds(invalidPData);
-  }, /przekracza dopuszczalny limit 6/, "Przekroczenie limitu 6 zwrotów P musi rzucić błąd asercji!");
-  console.log("-> TEST 6 ZDANY: Zablokowano nadmiar zwrotów P zgodnie z art. 28 CLP.");
+  }, /nie zawiera zwrotów wskazujących środki ostrożności/, "Brak zwrotów P w karcie z zagrożeniami musi rzucić błąd asercji!");
+  console.log("-> TEST 6 ZDANY: Zablokowano brak zwrotów P w sklasyfikowanej Sekcji 2.2.");
 
   console.log("\n[TEST 7] Obecność 'Pimephales promelas' w karcie końcowej (brak naprawy) rzuca błąd asercji...");
   const unhealedData = JSON.parse(JSON.stringify(finalData));
