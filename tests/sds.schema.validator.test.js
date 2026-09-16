@@ -68,11 +68,11 @@ function testValidateTranslatedSections() {
 
 async function testValidateFinalSds() {
   console.log("\n[TEST 5] Pełna weryfikacja zintegrowanego modelu SDS na realnym pliku PDF...");
-  const pdfFilePath = path.join(__dirname, '..', 'docs', 'SDS', '8034055535448_SDS_ORCHIDEA_E_VANIGLIA (1) (1).pdf');
+  const pdfFilePath = path.join(__dirname, '..', 'docs', 'SDS', '8034055535431_SDS_TALCO (1).pdf');
   assert(fs.existsSync(pdfFilePath), "Brak pliku testowego PDF: " + pdfFilePath);
 
   const engine = new SDSProcessorEngine();
-  const agentPayload = await engine.prepareAgentPayload(pdfFilePath, "SWEET HOME - ORCHIDEA E VANIGLIA");
+  const agentPayload = await engine.prepareAgentPayload(pdfFilePath, "SWEET HOME - PROFUMATORE AMBIENTE TALCO");
 
   const agentTranslated = {
     section_1_2: "1.2. Istotne zidentyfikowane zastosowania substancji lub mieszaniny oraz zastosowania odradzane\nZastosowanie: Odświeżacz powietrza.\nZastosowania odradzane: Brak.",

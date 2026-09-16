@@ -22,13 +22,13 @@ ADRRegistry.loadRegistry(adrPath);
 const wastePath = path.join(__dirname, '..', 'src', 'modules', 'sds', 'rag_knowledge', 'waste_codes_pl.json');
 WasteRegistry.loadRegistry(wastePath);
 
-const pdfFilePath = path.join(__dirname, '..', 'docs', 'SDS', '8034055535448_SDS_ORCHIDEA_E_VANIGLIA (1) (1).pdf');
+const pdfFilePath = path.join(__dirname, '..', 'docs', 'SDS', '8034055535431_SDS_TALCO (1).pdf');
 assert(fs.existsSync(pdfFilePath), "Brak pliku testowego PDF: " + pdfFilePath);
 
 async function runAudit() {
   const engine = new SDSProcessorEngine();
   console.log("[1/3] Przygotowanie deterministycznego payloadu (prepareAgentPayload)...");
-  const agentPayload = await engine.prepareAgentPayload(pdfFilePath, "SWEET HOME - ORCHIDEA E VANIGLIA");
+  const agentPayload = await engine.prepareAgentPayload(pdfFilePath, "SWEET HOME - PROFUMATORE AMBIENTE TALCO");
   assert(agentPayload && agentPayload.deterministicSections, "Brak deterministycznych sekcji w payloadzie!");
 
   const detSecs = agentPayload.deterministicSections;
@@ -185,7 +185,7 @@ async function runAudit() {
   const pMatches = [...s2Content.matchAll(/\b(P\d{3}(?:\+P\d{3})*)\b/g)];
   assert(pMatches.length <= 6, `BŁĄD: Przekroczono limit zwrotów P w Sekcji 2.2! Znaleziono ${pMatches.length} zwrotów.`);
   assert(!s2Content.includes("P302+P352"), "BŁĄD: Nadmiarowy zwrot P302+P352 nie powinien występować przy braku zagrożenia skóry!");
-  assert(/Zawiera kumarynę/i.test(s2Content) || /Zawiera 2H-chromen-2-on/i.test(s2Content), "BŁĄD: EUH208 nie używa poprawnej formy biernikowej (kumarynę)!");
+  assert(/Zawiera[^\n.]*kumarynę/i.test(s2Content) || /Zawiera[^\n.]*2H-chromen-2-on/i.test(s2Content), "BŁĄD: EUH208 nie używa poprawnej formy biernikowej (kumarynę)!");
   console.log(`-> NOWY TEST 4 ZDANY: Liczba zwrotów P wynosi ${pMatches.length} (<= 6), EUH208 w bierniku.`);
 
   console.log("\n[NOWY TEST 5] Sekcja 1.2: Brak zniekształceń '- -'...");
@@ -195,9 +195,9 @@ async function runAudit() {
 
   // NOWY TEST 6: Eksport DOCX oraz weryfikacja piktogramów w archiwum
   console.log("\n[NOWY TEST 6] Eksport DOCX oraz weryfikacja piktogramów GHS, nalepki ADR i znaku LQ...");
-  const outDocxPath = path.resolve('docs/SDS/Karta_Charakterystyki_8034055535448_SDS_ORCHIDEA_E_VANIGLIA_V2_PL.docx');
+  const outDocxPath = path.resolve('docs/SDS/Karta_Charakterystyki_8034055535431_SDS_TALCO.docx');
   const finalExportData = {
-    productName: metadata.productName || "SWEET HOME - ORCHIDEA E VANIGLIA",
+    productName: metadata.productName || "SWEET HOME - PROFUMATORE AMBIENTE TALCO",
     version: metadata.version || "1.0 PL",
     replacedRevision: metadata.replacedRevision,
     compilationDate: metadata.compilationDate,
@@ -208,12 +208,6 @@ async function runAudit() {
   };
   await SDSDocxExporter.export(finalExportData, outDocxPath);
   assert(fs.existsSync(outDocxPath), "Plik DOCX nie został utworzony!");
-
-  // Synchronizacja plików (9).docx oraz (12).docx dla pełnej spójności artefaktów
-  const altDocxPath9 = path.resolve('docs/SDS/Karta_Charakterystyki_8034055535448_SDS_ORCHIDEA_E_VANIGLIA (9).docx');
-  const altDocxPath12 = path.resolve('docs/SDS/Karta_Charakterystyki_8034055535448_SDS_ORCHIDEA_E_VANIGLIA (12).docx');
-  fs.copyFileSync(outDocxPath, altDocxPath9);
-  fs.copyFileSync(outDocxPath, altDocxPath12);
 
   const AdmZip = require('adm-zip');
   const zip = new AdmZip(outDocxPath);
@@ -239,20 +233,20 @@ async function runAudit() {
   assert.strictEqual(metadata.version, "1.0 PL", `BŁĄD: Wersja powinna wynosić '1.0 PL', otrzymano: ${metadata.version}`);
   assert.strictEqual(metadata.compilationDate, todayPl, `BŁĄD: compilationDate powinna wynosić datę bieżącą sporządzenia (${todayPl}), otrzymano: ${metadata.compilationDate}`);
   assert.strictEqual(metadata.revisionDate, "Nie dotyczy", `BŁĄD: revisionDate dla wydania 1.0 PL powinna wynosić 'Nie dotyczy', otrzymano: ${metadata.revisionDate}`);
-  assert.strictEqual(metadata.replacedRevision, "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 14.02.2025 r.)", `BŁĄD: Zastępuje wersję nie zawiera poprawnej klauzuli: ${metadata.replacedRevision}`);
+  assert.strictEqual(metadata.replacedRevision, "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 05.12.2024 r.)", `BŁĄD: Zastępuje wersję nie zawiera poprawnej klauzuli: ${metadata.replacedRevision}`);
   
-  // Rygorystyczna weryfikacja XML pod kątem autentycznej daty producenta (14.02.2025 r.) oraz daty polskiej
-  assert(xmlContent.includes("opracowane na podstawie SDS producenta z dnia 14.02.2025 r."), "BŁĄD: W dokumencie DOCX brak poprawnej daty producenta 14.02.2025 r.!");
+  // Rygorystyczna weryfikacja XML pod kątem autentycznej daty producenta (05.12.2024 r.) oraz daty polskiej
+  assert(xmlContent.includes("opracowane na podstawie SDS producenta z dnia 05.12.2024 r."), "BŁĄD: W dokumencie DOCX brak poprawnej daty producenta 05.12.2024 r.!");
   assert(xmlContent.includes("Nie dotyczy"), "BŁĄD: W dokumencie DOCX brak pola 'Aktualizacja: Nie dotyczy'!");
   assert(xmlContent.includes(todayPl), `BŁĄD: W dokumencie DOCX brak daty sporządzenia polskiej wersji (${todayPl})!`);
   assert(!xmlContent.includes(`opracowane na podstawie SDS producenta z dnia ${todayPl}`), `BŁĄD KRYTYCZNY: Data producenta została zafałszowana bieżącą datą systemową: ${todayPl}!`);
   console.log(`-> NOWY TEST 7 ZDANY: Wersja: ${metadata.version}, Sporządzenie: ${metadata.compilationDate}, Aktualizacja: ${metadata.revisionDate}, Zastępuje: ${metadata.replacedRevision}`);
 
-  // NOWY TEST 8: Sekcja 1.1 - Kod produktu (BLK0033-2)
+  // NOWY TEST 8: Sekcja 1.1 - Kod produktu (BLK0039-2)
   console.log("\n[NOWY TEST 8] Sekcja 1.1: Prezentacja kodu produktu...");
-  assert(s1Content.includes("Kod produktu: BLK0033-2"), `BŁĄD: Brak kodu produktu BLK0033-2 w Sekcji 1.1:\n${s1Content}`);
-  assert.strictEqual(metadata.productCode, "BLK0033-2", `BŁĄD: metadata.productCode nie zawiera BLK0033-2!`);
-  console.log("-> NOWY TEST 8 ZDANY: Kod produktu BLK0033-2 poprawnie wyekstrahowany i zaprezentowany w 1.1.");
+  assert(s1Content.includes("Kod produktu: BLK0039-2"), `BŁĄD: Brak kodu produktu BLK0039-2 w Sekcji 1.1:\n${s1Content}`);
+  assert.strictEqual(metadata.productCode, "BLK0039-2", `BŁĄD: metadata.productCode nie zawiera BLK0039-2!`);
+  console.log("-> NOWY TEST 8 ZDANY: Kod produktu BLK0039-2 poprawnie wyekstrahowany i zaprezentowany w 1.1.");
 
   // NOWY TEST 9: Sekcja 4.2 - Kliniczna dedukcja objawów (brak szablonowego 'brak danych')
   console.log("\n[NOWY TEST 9] Sekcja 4.2: Kliniczna dedukcja objawów dla 4 dróg...");
@@ -260,7 +254,7 @@ async function runAudit() {
   assert(!/4\.2[^\n]*\n\s*Brak danych/i.test(s4Content), "BŁĄD: Sekcja 4.2 zawiera szablonowe 'Brak danych'!");
   assert(s4Content.includes("W kontakcie z oczami:"), "Brak opisu objawów dla oczu w 4.2!");
   assert(s4Content.includes("W kontakcie ze skórą:"), "Brak opisu objawów dla skóry w 4.2!");
-  assert(/zawiera kumaryn/i.test(s4Content), "BŁĄD: Sekcja 4.2 nie wymienia kumaryny przy narażeniu skórnym!");
+  assert(/zawiera[^\n]*kumaryn/i.test(s4Content), "BŁĄD: Sekcja 4.2 nie wymienia kumaryny przy narażeniu skórnym!");
   assert(s4Content.includes("Po narażeniu drogą oddechową:"), "Brak opisu objawów dróg oddechowych w 4.2!");
   assert(s4Content.includes("W przypadku spożycia:"), "Brak opisu objawów spożycia w 4.2!");
   assert(s4Content.includes("SKUTKI OPÓŹNIONE:"), "Brak sekcji skutków opóźnionych w 4.2!");

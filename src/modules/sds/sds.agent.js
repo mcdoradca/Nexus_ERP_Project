@@ -61,8 +61,8 @@ async function processSdsWithAgent(pdfPath, productName, manualOverrides = {}) {
             companyName: process.env.COMPANY_NAME || "ITALLUX Sp. z o.o.",
             address: process.env.COMPANY_ADDRESS || "ul. Wesoła 16",
             city: process.env.COMPANY_CITY || "63-600 Kępno",
-            website: process.env.COMPANY_WEBSITE || "www.prostozwloch.pl",
-            email: process.env.COMPANY_EMAIL || "kontakt@prostozwloch.pl",
+            website: process.env.COMPANY_WEBSITE || "www.prostozwloch.com.pl",
+            email: process.env.COMPANY_EMAIL || "kontakt@prostozwloch.com.pl",
             phone: process.env.COMPANY_PHONE || "+48 663116607",
             emergencyPhone: process.env.COMPANY_EMERGENCY_PHONE || process.env.COMPANY_PHONE || "+48 663116607"
         };

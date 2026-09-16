@@ -776,13 +776,20 @@ class SDSChemicalExtractor {
       // 3. Na skórę (Skin)
       const skinMatch = clean.match(/Skin\s*([\s\S]*?)(?=Oral|Inhalation|Legend|8\.2|$)/i);
       if (skinMatch) {
-        const nums = [...skinMatch[1].matchAll(/([\d.,]+)\s*(?:mg\/kg)/gi)].map(m => m[1].replace('.', ','));
-        if (nums.length === 2) {
+        const skinText = skinMatch[1];
+        const nums = [...skinText.matchAll(/([\d.,]+)\s*(?:mg\/kg)/gi)].map(m => m[1].replace('.', ','));
+        if (nums.length >= 4) {
+          res.push('- Na skórę:');
+          res.push(`  * Konsumenci: skutki ostre układowe: ${nums[0]} mg/kg mc/dzień; skutki przewlekłe układowe: ${nums[1]} mg/kg mc/dzień`);
+          res.push(`  * Pracownicy: skutki ostre układowe: ${nums[2]} mg/kg mc/dzień; skutki przewlekłe układowe: ${nums[3]} mg/kg mc/dzień`);
+        } else if (nums.length === 2) {
           res.push('- Na skórę:');
           res.push(`  * Konsumenci (skutki przewlekłe układowe): ${nums[0]} mg/kg mc/dzień`);
           res.push(`  * Pracownicy (skutki przewlekłe układowe): ${nums[1]} mg/kg mc/dzień`);
         } else if (nums.length === 1) {
           res.push(`- Na skórę: Konsumenci (skutki przewlekłe układowe): ${nums[0]} mg/kg mc/dzień`);
+        } else if (nums.length > 0) {
+          res.push(`- Na skórę: ${nums.join(' / ')} mg/kg mc/dzień`);
         }
       }
 
@@ -1273,8 +1280,8 @@ class PolishLegalTemplates {
     const compName = companyConfig.companyName || "ITALLUX Sp. z o.o.";
     const compAddress = companyConfig.address || "ul. Wesoła 16";
     const compCity = companyConfig.city ? `${companyConfig.postalCode ? companyConfig.postalCode + " " : ""}${companyConfig.city}` : "63-600 Kępno";
-    const compWebsite = companyConfig.website || "www.prostozwloch.pl";
-    const compEmail = companyConfig.email || "kontakt@prostozwloch.pl";
+    const compWebsite = companyConfig.website || "www.prostozwloch.com.pl";
+    const compEmail = companyConfig.email || "kontakt@prostozwloch.com.pl";
     const compPhone = companyConfig.phone || companyConfig.emergencyPhone || "+48 663116607";
 
     return (
@@ -1598,8 +1605,8 @@ class SDSProcessorEngine {
       companyName: companyConfig.companyName || process.env.COMPANY_NAME || "ITALLUX Sp. z o.o.",
       address: companyConfig.address || process.env.COMPANY_ADDRESS || "ul. Wesoła 16",
       city: companyConfig.city || process.env.COMPANY_CITY || "63-600 Kępno",
-      website: companyConfig.website || process.env.COMPANY_WEBSITE || "www.prostozwloch.pl",
-      email: companyConfig.email || process.env.COMPANY_EMAIL || "kontakt@prostozwloch.pl",
+      website: companyConfig.website || process.env.COMPANY_WEBSITE || "www.prostozwloch.com.pl",
+      email: companyConfig.email || process.env.COMPANY_EMAIL || "kontakt@prostozwloch.com.pl",
       phone: companyConfig.phone || process.env.COMPANY_PHONE || "+48 663116607",
       emergencyPhone: companyConfig.emergencyPhone || process.env.COMPANY_EMERGENCY_PHONE || process.env.COMPANY_PHONE || "+48 663116607"
     };
@@ -2226,8 +2233,8 @@ class SDSProcessorEngine {
     const compName = this.companyConfig.companyName || "ITALLUX Sp. z o.o.";
     const compAddress = this.companyConfig.address || "ul. Wesoła 16";
     const compCity = this.companyConfig.city ? `${this.companyConfig.postalCode ? this.companyConfig.postalCode + " " : ""}${this.companyConfig.city}` : "63-600 Kępno";
-    const compWebsite = this.companyConfig.website || "www.prostozwloch.pl";
-    const compEmail = this.companyConfig.email || "kontakt@prostozwloch.pl";
+    const compWebsite = this.companyConfig.website || "www.prostozwloch.com.pl";
+    const compEmail = this.companyConfig.email || "kontakt@prostozwloch.com.pl";
     const compPhone = this.companyConfig.phone || this.companyConfig.emergencyPhone || "+48 663116607";
     const emergPhone = this.companyConfig.emergencyPhone || compPhone;
 
@@ -2319,10 +2326,10 @@ class SDSProcessorEngine {
       if (hasSkinCorr) {
         skinSymptom += "Powoduje poważne oparzenia skóry i martwicę tkanek. Ryzyko głębokich ran.";
       } else if (hasSkinSens) {
-        const sensComp = components.find(c => /Skin Sens|H317/i.test(c.classification || ''));
-        if (sensComp && sensComp.name) {
-          const compAccusative = SDSChemicalExtractor.toAccusative(sensComp.name);
-          skinSymptom += `U osób szczególnie wrażliwych może wywołać reakcję alergiczną skóry (zawiera ${compAccusative}). Przy długotrwałym kontakcie może powodować wysuszenie lub pękanie skóry.`;
+        const sensComps = components.filter(c => /Skin Sens|H317/i.test(c.classification || ''));
+        if (sensComps.length > 0) {
+          const compNames = sensComps.map(c => SDSChemicalExtractor.toAccusative(c.name || c.originalName)).join(', ');
+          skinSymptom += `U osób szczególnie wrażliwych może wywołać reakcję alergiczną skóry (zawiera: ${compNames}). Przy długotrwałym kontakcie może powodować wysuszenie lub pękanie skóry.`;
         } else {
           skinSymptom += "U osób szczególnie wrażliwych może wywołać reakcję alergiczną skóry. Przy długotrwałym kontakcie może powodować wysuszenie lub pękanie skóry.";
         }
@@ -3020,6 +3027,8 @@ class SDSProcessorEngine {
       l = l.replace(/Fish Onchorhyncus mykiss/g, 'Ryby (Oncorhynchus mykiss)');
       l = l.replace(/Algae Skeletonema costatum/g, 'Glony (Skeletonema costatum)');
       l = l.replace(/Algae Pseudokirchneriella subcapitata/g, 'Glony (Pseudokirchneriella subcapitata)');
+      l = l.replace(/Danio rerio/g, 'Danio rerio');
+      l = l.replace(/Mytilus edulis/g, 'Mytilus edulis (omułek)');
       l = l.replace(/\b(\d+)\.(\d+)\b/g, (m, p1, p2) => p1 + ',' + p2);
       l = l.replace(/mg\/L/gi, 'mg/l');
       l = l.replace(/\b(\d+)\s*h\b/gi, (m, p1) => `(${p1} h)`);
@@ -3039,7 +3048,8 @@ class SDSProcessorEngine {
           .flatMap(c => [c.originalName, c.name, c.cas])
           .filter(n => n && n.length >= 3)
           .map(n => n.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
-        const endPat = otherNames.length > 0 ? `(?=(?:^|\\n)\\s*(?:${otherNames.join('|')})\\b)|12\\.\\d|SECTION|$` : `12\\.\\d|SECTION|$`;
+        // Usunięto SECTION z endPat, aby nagłówki kolejnych stron PDF nie przerywały ekstrakcji
+        const endPat = otherNames.length > 0 ? `(?=(?:^|\\n)\\s*(?:${otherNames.join('|')})\\b)|(?:^|\\n)\\s*12\\.[2-7]\\b|$` : `(?:^|\\n)\\s*12\\.[2-7]\\b|$`;
         const reg = new RegExp(`(?:^|\\n)\\s*${escaped}\\b([\\s\\S]*?)(?:${endPat})`, 'i');
         const m = blockText.match(reg);
         if (m && m[1] && m[1].trim()) return m[1].trim();
@@ -3061,18 +3071,31 @@ class SDSProcessorEngine {
       components.forEach(comp => {
         const subBlock = extractSubstanceBlock(block1, comp);
         if (subBlock) {
-          const lines = subBlock.split('\n').map(l => l.trim()).filter(Boolean);
+          const rawLines = subBlock.split('\n').map(l => l.trim()).filter(Boolean);
+          // Łączenie rozbitych linii: jeśli wskaźnik badawczy jest w jednej linii, a wartość w kolejnej
+          const lines = [];
+          for (let li = 0; li < rawLines.length; li++) {
+            let cur = rawLines[li];
+            if (/^(?:Revision|Revisione|Wersja|Dated|Data|Printed|Stampato|BLK|\d+\/\d+|Page|Pagina|Strona|Suarez)/i.test(cur)) continue;
+            if (/(?:LC50|EC50|NOEC|IC50)/i.test(cur)) {
+              if (!/\d+[.,]?\d*\s*mg/i.test(cur) && li + 1 < rawLines.length && /\d+[.,]?\d*\s*mg/i.test(rawLines[li + 1])) {
+                cur = cur + ' ' + rawLines[li + 1];
+                li++;
+              }
+              lines.push(cur);
+            }
+          }
+
           const tests = [];
           for (const line of lines) {
-            if (/^(?:Revision|Revisione|Wersja|Dated|Data|Printed|Stampato|BLK|\d+\/\d+|Page|Pagina|Strona|Suarez)/i.test(line)) continue;
             if (/(?:LC50|EC50|NOEC|IC50)/i.test(line)) {
               let plLine = line
-                .replace(/LC50\s*-\s*for Fish/gi, '- LC50 (ryby):')
-                .replace(/EC50\s*-\s*for Crustacea/gi, '- EC50 (skorupiaki):')
-                .replace(/EC50\s*-\s*for Algae\s*\/?\s*Aquatic Plants/gi, '- EC50 (glony / rośliny wodne):')
-                .replace(/Chronic NOEC for Fish/gi, '- NOEC (przewlekła, ryby):')
-                .replace(/Chronic NOEC for Crustacea/gi, '- NOEC (przewlekła, skorupiaki):')
-                .replace(/Chronic NOEC for Algae\s*\/?\s*Aquatic Plants/gi, '- NOEC (przewlekła, glony):')
+                .replace(/LC50\s*-\s*for Fish[:\.]?\s*/gi, '- LC50 (ryby): ')
+                .replace(/EC50\s*-\s*for Crustacea[:\.]?\s*/gi, '- EC50 (skorupiaki): ')
+                .replace(/EC50\s*-\s*for Algae(?:\s*\/?\s*Aquatic Plants)?[:\.]?\s*/gi, '- EC50 (glony / rośliny wodne): ')
+                .replace(/Chronic NOEC for Fish[:\.]?\s*/gi, '- NOEC (przewlekła, ryby): ')
+                .replace(/Chronic NOEC for Crustacea[:\.]?\s*/gi, '- NOEC (przewlekła, skorupiaki): ')
+                .replace(/Chronic NOEC for Algae(?:\s*\/?\s*Aquatic Plants)?[:\.]?\s*/gi, '- NOEC (przewlekła, glony): ')
                 .replace(/(\d+)\.(\d+)/g, '$1,$2');
               tests.push(formatEcotoxLine(plLine));
             }
@@ -3618,7 +3641,7 @@ class SDSProcessorEngine {
     const compName = (this.companyConfig && this.companyConfig.companyName) || process.env.COMPANY_NAME || "ITALLUX Sp. z o.o.";
     const compAddress = (this.companyConfig && this.companyConfig.address) || process.env.COMPANY_ADDRESS || "ul. Wesoła 16";
     const compCity = (this.companyConfig && this.companyConfig.city) || process.env.COMPANY_CITY || "63-600 Kępno";
-    const compSite = (this.companyConfig && this.companyConfig.website) || process.env.COMPANY_WEBSITE || "www.prostozwloch.pl";
+    const compSite = (this.companyConfig && this.companyConfig.website) || process.env.COMPANY_WEBSITE || "www.prostozwloch.com.pl";
     const addrStr = [compAddress, compCity].filter(Boolean).join(', ');
     const detailsStr = [addrStr, compSite].filter(Boolean).join(', ');
     const companyInfoSuffix = detailsStr ? ` (${detailsStr})` : "";

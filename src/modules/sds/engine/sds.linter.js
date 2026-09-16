@@ -114,6 +114,43 @@ class SDSLinter {
       errors.push("[Sekcja 14.6] BŁĄD TYPOGRAFICZNY: Wykryto osieroconą jednostkę ilości ograniczonej (LQ) pod wartością liczbową.");
     }
 
+    // ------------------------------------------------------------------------
+    // REGUŁA 6: DROGA SKÓRNA W DNEL DLA SUBSTANCJI Z NOTACJĄ SKÓRA (SEKCJA 8.1)
+    // ------------------------------------------------------------------------
+    if (/67-56-1|metanol|methanol/i.test(s3)) {
+      const methDnel = s8.match(/(?:metanol|methanol|67-56-1)[\s\S]*?(?=(?:substancja|etanol|toluen|aceton|galaxolide|2H-CHROMEN|\b[A-Z0-9_-]+ \[\b|8\.2|$))/i);
+      if (methDnel && /Pochodne poziomy niepowodujące zmian/i.test(methDnel[0])) {
+        if (!/Na\s+skórę/i.test(methDnel[0])) {
+          errors.push("[Sekcja 8.1] BŁĄD AUDYTU: Metanol posiada klasyfikację Acute Tox. 3 (H311) oraz notację 'skóra', lecz w wykazie DNEL pominięto wartości dla drogi skórnej ('Na skórę:').");
+        }
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // REGUŁA 7: INTEGRALNOŚĆ EKOTOKSYCZNOŚCI - ZAKAZ PUSTYCH WSKAŹNIKÓW (SEKCJA 12.1)
+    // ------------------------------------------------------------------------
+    if (s12) {
+      const emptyTestLines = s12.match(/^-\s*(?:LC50|EC50|NOEC|IC50)[^\n:]*:\s*$/gm);
+      if (emptyTestLines && emptyTestLines.length > 0) {
+        errors.push(`[Sekcja 12.1] BŁĄD STRUKTURALNY: Wykryto ${emptyTestLines.length} wierszy wskaźników badawczych bez wartości liczbowych (np. ucięte wartości testów ekotoksykologicznych).`);
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // REGUŁA 8: SPÓJNOŚĆ ALERGENÓW (SEKCJA 4.2 vs SEKCJA 2.2 / 3.2)
+    // ------------------------------------------------------------------------
+    const s4 = typeof sections.section_4 === 'object' ? (sections.section_4.content || "") : (sections.section_4 || "");
+    if (/EUH208/i.test(s2) && /zawiera/i.test(s4)) {
+      // Jeśli w sekcji 2.2 wymieniono więcej niż jeden alergen, sekcja 4.2 nie może wymieniać tylko jednego
+      const euhMatch = s2.match(/EUH208[^\n.]*/i);
+      if (euhMatch) {
+        const allergensInS2 = (euhMatch[0].match(/,/g) || []).length + 1;
+        if (allergensInS2 >= 2 && !s4.includes(',') && !/patrz/i.test(s4)) {
+          errors.push("[Sekcja 4.2] NIESPÓJNOŚĆ ALERGENÓW: Produkt zawiera wiele składników uczulających wykazanych w EUH208, a w Sekcji 4.2 wymieniono tylko pojedynczy składnik.");
+        }
+      }
+    }
+
     return {
       isValid: errors.length === 0,
       errors,
