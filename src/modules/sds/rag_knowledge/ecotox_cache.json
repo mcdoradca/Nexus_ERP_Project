@@ -44,5 +44,21 @@
     "mobility": "Rozpuszczalny w wodzie, wysoka mobilność w glebie.",
     "pbt": false,
     "endocrineDisruptor": false
+  },
+  "67-56-1": {
+    "name_pl": "metanol",
+    "biodegradability": "Łatwo ulega biodegradacji.",
+    "bioaccumulation": "Nie wykazuje potencjału bioakumulacji (log Kow = -0,77, BCF < 10).",
+    "mobility": "Wysoka mobilność w glebie.",
+    "pbt": false,
+    "endocrineDisruptor": false
+  },
+  "67-64-1": {
+    "name_pl": "aceton (propan-2-on)",
+    "biodegradability": "Łatwo ulega biodegradacji (91 % po 28 dniach, OECD 301 B).",
+    "bioaccumulation": "Nie wykazuje potencjału bioakumulacji (log Kow = -0,24, BCF = 3).",
+    "mobility": "Wysoka mobilność w glebie.",
+    "pbt": false,
+    "endocrineDisruptor": false
   }
 }

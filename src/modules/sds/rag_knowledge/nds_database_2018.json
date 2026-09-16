@@ -3,6 +3,7 @@
 "103-84-4": { "substance": "Acetanilid frakcja wdychalna", "NDS": "6 mg/m³", "NDSCh": "brak", "NDSP": "brak", "uwagi": "brak" },
 "98-86-2": { "substance": "Acetofenon", "NDS": "50 mg/m³", "NDSCh": "100 mg/m³", "NDSP": "brak", "uwagi": "brak" },
 "67-64-1": { "substance": "Aceton", "NDS": "600 mg/m³", "NDSCh": "1800 mg/m³", "NDSP": "brak", "uwagi": "brak" },
+"67-56-1": { "substance": "Metanol", "NDS": "100 mg/m³", "NDSCh": "300 mg/m³", "NDSP": "brak", "uwagi": "skóra" },
 "75-05-8": { "substance": "Acetonitryl", "NDS": "70 mg/m³", "NDSCh": "140 mg/m³", "NDSP": "brak", "uwagi": "skóra" },
 "103-23-1": { "substance": "Adypinian bis(2-etyloheksylu)", "NDS": "400 mg/m³", "NDSCh": "brak", "NDSP": "brak", "uwagi": "brak" },
 "107-02-8": { "substance": "Akrylaldehyd", "NDS": "0,05 mg/m³", "NDSCh": "0,1 mg/m³", "NDSP": "brak", "uwagi": "skóra" },

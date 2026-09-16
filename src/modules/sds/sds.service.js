@@ -261,7 +261,10 @@ const ALLERGEN_NAMES_PL = {
   "citral": "cytral",
   "eugenol": "eugenol",
   "isoeugenol": "izoeugenol",
-  "benzyl alcohol": "alkohol benzylowy"
+  "benzyl alcohol": "alkohol benzylowy",
+  "methanol": "metanol",
+  "acetone": "aceton (propan-2-on)",
+  "propan-2-one": "aceton (propan-2-on)"
 };
 
 const CAS_TO_PL_MAP = {
@@ -287,6 +290,8 @@ const CAS_TO_PL_MAP = {
   "100-51-6": "alkohol benzylowy",
   "64-17-5": "etanol",
   "67-63-0": "propan-2-ol",
+  "67-56-1": "metanol",
+  "67-64-1": "aceton (propan-2-on)",
   "57-55-6": "propano-1,2-diol",
   "56-81-5": "glicerol",
   "123-11-5": "aldehyd anyżowy (4-metoksybenzaldehyd)",
@@ -920,14 +925,15 @@ class SDSChemicalExtractor {
   }
 
   static parseLimsSection3(cleanText, resolvedSubstances = {}) {
-    let text = cleanText
+    let text = SDSProcessorEngine.cleanPdfArtifacts(cleanText)
       .replace(/Page\s+n\.\s*of\s*\d+/gi, '')
       .replace(/\d{2}\/\d{2}\/\d{4}\s*Production Name[^\n]+/gi, '')
       .replace(/(?:[^\n]+\n)?\s*(?:Revision|Revisione|Wersja)\s*(?:nr\.?|no\.?|n\.|:)?\s*\d+[\s\S]*?Replaced revision:[^\n]*/gi, '')
       .replace(/Suarez Company[\s\S]*?Replaced revision:[^\n]*/gi, '')
+      .replace(/(?:^|\n)\s*(?:Revision nr\.?|Revisione n\.?|Wersja nr|Dated|Data|Printed on|Stampato il)\s*[:\.]?\s*[^\n]*/gi, '')
       .replace(/The full wording of hazard[\s\S]*$/gi, '');
 
-    const matches = [...text.matchAll(/(?:^|\n)\s*INDEX\s+(\d{3}-\d{3}-\d{2}-\d|-)?\s*(\d+(?:[.,]\d+)?\s*[≤<=<]\s*x\s*[≤<=<]\s*\d+(?:[.,]\d+)?)/gi)];
+    const matches = [...text.matchAll(/(?:^|\n)\s*INDEX\s+(\d{3}-\d{3}-\d{2}-[\dXx]|-)?\s*(\d+(?:[.,]\d+)?\s*[≤<=<]\s*x\s*[≤<=<]\s*\d+(?:[.,]\d+)?)/gi)];
     if (matches.length === 0) return null;
 
     const components = [];
@@ -948,6 +954,19 @@ class SDSChemicalExtractor {
       
       let rawName = preLines.length > 0 ? preLines[preLines.length - 1] : '';
       rawName = rawName.replace(/-\s+/g, '-').replace(/\s+/g, ' ').trim();
+
+      let nextRawName = '';
+      if (i + 1 < matches.length) {
+        const nextBlockStart = matches[i + 1].index;
+        const currBlockEnd = m.index + m[0].length;
+        const betweenText = text.substring(currBlockEnd, nextBlockStart);
+        const betweenLines = betweenText.split('\n')
+          .map(l => l.trim())
+          .filter(l => l && !/^(?:Identification|Contains|3\.\d|Mixtures|Substances|EC\b|CAS\b|REACH\b|Revision|Revisione|Wersja|Dated|Data|Printed|Stampato|BLK|\d+\/\d+|Page|Suarez)/i.test(l));
+        if (betweenLines.length > 0) {
+          nextRawName = betweenLines[betweenLines.length - 1].replace(/-\s+/g, '-').replace(/\s+/g, ' ').trim();
+        }
+      }
 
       const nextStart = i + 1 < matches.length ? matches[i + 1].index : text.length;
       const blockBody = text.substring(m.index, nextStart);
@@ -972,14 +991,15 @@ class SDSChemicalExtractor {
       for (let line of remainingLines) {
         let cleaned = line;
         cleaned = cleaned.replace(/^EC\s*[:\.]?\s*\d{3}-\d{3}-\d\s*/i, '');
-        cleaned = cleaned.replace(/^INDEX\s*[:\.]?\s*[\d\-]+\s*/i, '');
+        cleaned = cleaned.replace(/^INDEX\s*[:\.]?\s*[\d\-Xx]+\s*/i, '');
         cleaned = cleaned.replace(/^CAS\s*[:\.]?\s*\d{2,7}-\d{2}-\d\s*/i, '');
         cleaned = cleaned.replace(/^REACH\s*(?:Reg\.?)?\s*[:\.]?\s*[\w\-]+\s*/i, '');
         cleaned = cleaned.replace(/^[≤<=<,.\d\s]+x[≤<=<,.\d\s]*/i, '');
         cleaned = cleaned.trim();
-        if (!cleaned || cleaned === rawName) continue;
+        if (!cleaned || cleaned.toLowerCase() === rawName.toLowerCase()) continue;
+        if (nextRawName && cleaned.toLowerCase() === nextRawName.toLowerCase()) continue;
         if (cleaned.includes(m[2])) continue;
-        if (/(?:Flam|Acute|Eye|Skin|Repr|Aquatic|Asp|STOT|Sens|H\d{3}|ATE|M\s*=|Specific|≥|≤)/i.test(cleaned)) {
+        if (/(?:Flam|Acute|Eye|Skin|Repr|Aquatic|Asp|STOT|Sens|H\d{3}|\bATE\b|\bATE\s*[:=\(]|M\s*=|Specific|≥|≤)/i.test(cleaned)) {
           if (!classLines.includes(cleaned)) {
             classLines.push(cleaned);
           }
@@ -991,7 +1011,7 @@ class SDSChemicalExtractor {
         .replace(/Specific Concentration Limits\s*[:\.]?/gi, 'Specyficzne stężenia graniczne:\n')
         .replace(/ATE Oral\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/kg)?)/gi, (m, v) => `ATE (droga pokarmowa) = ${v.includes('mg/kg') ? v : v + ' mg/kg'}`)
         .replace(/ATE Dermal\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/kg)?)/gi, (m, v) => `ATE (na skórę) = ${v.includes('mg/kg') ? v : v + ' mg/kg'}`)
-        .replace(/ATE Inhalation\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/l)?)/gi, (m, v) => `ATE (inhalacyjnie) = ${v.includes('mg/l') ? v : v + ' mg/l'}`)
+        .replace(/ATE Inhalation(?:\s*vapours?|\s*vapors?)?\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/l)?|\d+)/gi, (m, v) => `ATE (inhalacyjnie, pary) = ${v.includes('mg/l') ? v : v + ' mg/l'}`)
         .replace(/M\s*=\s*(\d+)/gi, 'M = $1')
         .replace(/M-Chronic\s*[:\.]?\s*(\d+)/gi, 'M (przewlekły) = $1')
         .replace(/M-Acute\s*[:\.]?\s*(\d+)/gi, 'M (ostry) = $1')
@@ -1034,7 +1054,7 @@ class SDSChemicalExtractor {
       .replace(/\d{2}\/\d{2}\/\d{4}\s*Production Name[^\n]+/gi, '')
       .replace(/Qty\s*Name\s*Ident\.\s*Numb\.\s*Classification\s*Registration\s*Number/gi, '');
 
-    const isLimsFormat = /x\s*=\s*Conc\.\s*%/i.test(cleanText) || /INDEX\s+(?:[\d\-]+)?\s*\d+(?:[.,]\d+)?\s*[≤<=<]\s*x/i.test(cleanText);
+    const isLimsFormat = /x\s*=\s*Conc\.\s*%/i.test(cleanText) || /INDEX\s+(?:[\d\-Xx]+)?\s*\d+(?:[.,]\d+)?\s*[≤<=<]\s*x/i.test(cleanText);
     if (isLimsFormat) {
       const limsComponents = this.parseLimsSection3(cleanText, resolvedSubstances);
       if (limsComponents && limsComponents.length > 0) {
@@ -1097,7 +1117,7 @@ class SDSChemicalExtractor {
       const ecMatch = body.match(/(?:EC|WE|EINECS)\s*[:\.]?\s*(\d{3}-\d{3}-\d)/i);
       const ecNumber = ecMatch ? ecMatch[1] : "—";
 
-      const indexMatch = body.match(/(?:Index|Indeks)\s*[:\.]?\s*(\d{3}-\d{3}-\d{2}-\d)/i);
+      const indexMatch = body.match(/(?:Index|Indeks)\s*[:\.]?\s*(\d{3}-\d{3}-\d{2}-[\dXx])/i);
       const indexNumber = indexMatch ? indexMatch[1] : "—";
 
       const reachMatch = body.match(/(?:01-\d{8,10}-\d{2}(?:-[A-Za-z0-9]{2,4})?|01-\d+-\d+-\w+)/);
@@ -1967,6 +1987,7 @@ class SDSProcessorEngine {
       .replace(/(?:^|\n)\s*(?:Page|Strona|Pagina)\b[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}\s*(?:Production Name|Trade Name|Nazwa produktu|Product name|Nome prodotto)?[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*(?:Production Name|Trade Name|Nazwa produktu|Product name|Nome prodotto)\s*[:\.]?\s*[^\n]*(?:\bDate|\bData)\s*$/gim, '')
+      .replace(/\bsrebreem\b/gi, 'srebrem')
       .replace(/\t/g, ' ');
   }
 
@@ -2489,10 +2510,33 @@ class SDSProcessorEngine {
   // ============================================================================
   // SEKCJA 9: WŁAŚCIWOŚCI FIZYKOCHEMICZNE (UE 2020/878 & WZORZEC EKOS)
   // ============================================================================
-  static normalizePhysChemValue(val) {
-    if (!val) return "Brak danych";
+  static normalizePhysChemValue(val, paramKey = null) {
+    if (!val) {
+      if (paramKey && /^(?:particle_characteristics)$/i.test(paramKey)) return "Nie dotyczy (produkt płynny)";
+      return "Brak danych";
+    }
     let v = val.replace(/\r/g, '').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
-    if (/^(?:N\.?A\.?|Not applicable|Non applicabile|Not available|Non disponibile|Brak danych)$/i.test(v) || /(?:N\.A\.|Not applicable)/i.test(v)) {
+
+    // Rozróżnienie prawno-naukowe (Załącznik II do REACH - Rozporządzenie UE 2020/878):
+    // 1. "not determined" / "non determinato" -> "Nie oznaczono"
+    if (/^(?:not determined|non determinato|nie oznaczono)$/i.test(v)) {
+      return "Nie oznaczono";
+    }
+
+    // 2. "not available" / "non disponibile" / "brak danych" -> "Brak danych"
+    if (/^(?:not available|non disponibile|brak danych|dane niedostępne)$/i.test(v)) {
+      return "Brak danych";
+    }
+
+    // 3. "not applicable" / "non applicabile" / "nie dotyczy" / "n/a"
+    if (/^(?:N\.?A\.?|Not applicable|Non applicabile|Nie dotyczy)$/i.test(v) || /(?:N\.A\.|Not applicable|Non applicabile)/i.test(v)) {
+      // Dla cieczy parametry takie jak lepkość i gęstość z przyczyn fizycznych nie mogą być "nie dotyczy"
+      if (paramKey && /^(?:viscosity|density|relative_vapour_density)$/i.test(paramKey)) {
+        return "Brak danych";
+      }
+      if (paramKey && /^(?:particle_characteristics)$/i.test(paramKey)) {
+        return "Nie dotyczy (produkt płynny)";
+      }
       return "Nie dotyczy";
     }
 
@@ -2511,6 +2555,9 @@ class SDSProcessorEngine {
       .replace(/\bliquido infiammabile\b/gi, 'ciecz łatwopalna')
       .replace(/\bnot available\s*they can decompose\b/gi, 'nie określono (substancje mogą ulegać rozkładowi)')
       .replace(/\bnot available\b/gi, 'brak danych')
+      .replace(/\bnon disponibile\b/gi, 'brak danych')
+      .replace(/\bnot determined\b/gi, 'nie oznaczono')
+      .replace(/\bnon determinato\b/gi, 'nie oznaczono')
       .replace(/\bReason for missing data\s*:\s*[^\n\.;]+/gi, '')
       .replace(/\bIt only applies to\b/gi, '')
       .replace(/\bMedian equivalent diameter\b/gi, 'Nie dotyczy (produkt płynny)')
@@ -2604,10 +2651,10 @@ class SDSProcessorEngine {
         pl: "Lepkość kinematyczna", 
         customExtract: (text) => {
           let m = text.match(/(?:Kinematic viscosity|Viscosità cinematica|Lepkość kinematyczna)\s*[:\.]?\s*([^\n]+)/i);
-          if (!m) return "Nie dotyczy";
+          if (!m) return "Brak danych";
           let raw = m[1].trim();
-          let norm = SDSProcessorEngine.normalizePhysChemValue(raw);
-          if (norm === "Nie dotyczy" || /brak danych/i.test(norm)) return norm;
+          let norm = SDSProcessorEngine.normalizePhysChemValue(raw, "viscosity");
+          if (norm === "Nie dotyczy" || /brak danych/i.test(norm)) return "Brak danych";
           if (/^\d+(?:[.,]\d+)?(?!\s*(?:mm²\/s|cSt|mPa|Pa\.s|\/s))/i.test(norm)) {
             norm = norm.replace(/^(\d+(?:[.,]\d+)?)/, '$1 mm²/s');
           }
@@ -2655,14 +2702,31 @@ class SDSProcessorEngine {
 
     let extractedLines = [];
     for (const p of paramsConfig) {
-      let rawVal = "Nie dotyczy";
+      let rawVal = null;
       if (p.customExtract) {
         rawVal = p.customExtract(clean);
       } else if (p.regex) {
         const match = clean.match(p.regex);
-        rawVal = match ? match[1].trim() : "Nie dotyczy";
+        rawVal = match ? match[1].trim() : null;
       }
-      let normVal = SDSProcessorEngine.normalizePhysChemValue(rawVal);
+      
+      let normVal;
+      if (!rawVal) {
+        if (p.key === "density" || p.key === "viscosity") {
+          normVal = "Brak danych";
+        } else if (p.key === "particle_characteristics") {
+          normVal = "Nie dotyczy (produkt płynny)";
+        } else {
+          normVal = "Nie dotyczy";
+        }
+      } else {
+        normVal = SDSProcessorEngine.normalizePhysChemValue(rawVal, p.key);
+        if ((p.key === "density" || p.key === "viscosity") && normVal === "Nie dotyczy") {
+          normVal = "Brak danych";
+        } else if (p.key === "particle_characteristics" && normVal === "Nie dotyczy") {
+          normVal = "Nie dotyczy (produkt płynny)";
+        }
+      }
       extractedLines.push(`${p.pl}: ${normVal}`);
     }
 
@@ -3191,7 +3255,7 @@ class SDSProcessorEngine {
   }
 
   processSection14(rawContent = "") {
-    const clean = SDSProcessorEngine.cleanPdfArtifacts(rawContent);
+    let clean = SDSProcessorEngine.cleanPdfArtifacts(rawContent);
 
     // Detekcja czy towar NIE podlega przepisom transportowym
     const isNotRegulated = /Not classified as dangerous|Non dangerous good|Non pericoloso|Not dangerous|Nie podlega przepisom|Non regolamentato/i.test(clean);
@@ -3254,10 +3318,12 @@ class SDSProcessorEngine {
 
     // Ilości ograniczone (LQ) wg rozdziału 3.4 ADR
     let lqValue = null;
-    const lqMatch = clean.match(/(?:Limited\s*Quantit(?:ies|y)|Ilości\s*ograniczone|LQ)\s*[:\.]?\s*([0-9]+(?:\s*[a-zA-Z]+|\s*lt|\s*L|\s*kg)?)/i);
+    clean = clean.replace(/((?:Limited\s*Quantit(?:ies|y)|Ilości\s*ograniczone|LQ)\s*[:\.]?\s*[0-9]+)\s*\n\s*(L|lt|kg|ml|g)\b/gi, '$1 $2');
+    const lqMatch = clean.match(/(?:Limited\s*Quantit(?:ies|y)|Ilości\s*ograniczone|LQ)\s*[:\.]?\s*([0-9]+(?:\s*(?:L|lt|kg|ml|g|[a-zA-Z]+))?)/i);
     if (lqMatch) {
       let rawLq = lqMatch[1].trim();
-      if (/1\s*lt/i.test(rawLq)) rawLq = "1 L";
+      if (/^1\s*lt$/i.test(rawLq) || rawLq === "1") rawLq = "1 L";
+      else if (/lt$/i.test(rawLq)) rawLq = rawLq.replace(/lt$/i, 'L');
       lqValue = rawLq;
       precDetails.push(`Ilości ograniczone (LQ): ${lqValue}`);
     } else if (adrEntry && adrEntry.lq) {
@@ -3799,6 +3865,9 @@ class SDSProcessorEngine {
         finalSections[key] = agentPayload.deterministicSections[key];
       } else if ([5, 6, 7, 10, 11].includes(i) && agentTranslated && agentTranslated[key]) {
         let content = SDSProcessorEngine.cleanPdfArtifacts(agentTranslated[key]).trim();
+        if (i === 10) {
+          content = content.replace(/\bsrebreem\b/gi, 'srebrem');
+        }
         if (i === 11) {
           content = SDSProcessorEngine.sanitizeSection11Hierarchy(content);
           content = SDSProcessorEngine.polonizeToxicologicalSection(content);
@@ -4069,7 +4138,8 @@ class SDSDocxExporter {
         continue;
       }
 
-      for (const line of lines) {
+      for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+        const line = lines[lineIndex];
         const tLine = line.trim();
         if (!tLine) continue;
 
@@ -4119,10 +4189,19 @@ class SDSDocxExporter {
         if (i === 14 && /Ilości ograniczone\s*\(LQ\)/i.test(tLine)) {
           const idx = tLine.indexOf(':');
           const headerTxt = idx !== -1 ? tLine.substring(0, idx + 1) : tLine;
-          const valTxt = idx !== -1 ? tLine.substring(idx + 1) : '';
+          let valTxt = idx !== -1 ? tLine.substring(idx + 1).trim() : '';
+
+          // Scalenie ewentualnej oderwanej jednostki z następnej linii (np. '1 \n L' lub 'L')
+          if (lineIndex + 1 < lines.length && /^(?:L|lt|kg|ml|g)\b/i.test(lines[lineIndex + 1].trim())) {
+            valTxt = (valTxt ? valTxt + ' ' : '') + lines[lineIndex + 1].trim();
+            lineIndex++; // pomijamy skonsumowaną linię jednostki, aby nie pojawiła się jako akapit pod obrazkiem
+          } else if (/^\d+$/.test(valTxt)) {
+            valTxt += " L";
+          }
+
           sectionsBody.push(new Paragraph({
             children: [
-              new TextRun({ text: headerTxt, bold: true, size: 20, font: "Arial" }),
+              new TextRun({ text: headerTxt + ' ', bold: true, size: 20, font: "Arial" }),
               new TextRun({ text: valTxt, size: 20, font: "Arial" })
             ],
             spacing: { before: 80, after: 60 }
