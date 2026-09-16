@@ -41,6 +41,12 @@ Decyzją operacyjną użytkownika dopuszczono dostarczanie kart wejściowych bez
    - Nazwa pliku wyjściowego zachowuje tożsamość 1:1 pliku źródłowego (zamiana rozszerzenia `.docx` na `[nazwa].docx`).
    - Proces sprzątania w tle (`cleanupOrphanPdfs`) usuwa tymczasowe pliki `temp_sds_*.docx` starsze niż 1 godzina.
 
+7. **Dostosowanie interfejsu użytkownika (`frontend/src/components/SdsGeneratorTool.jsx`):**
+   - Rozszerzono atrybut `accept` ukrytego selektora plików oraz funkcję walidacji `handleFileSelect` o rozszerzenie `.docx` oraz typ MIME `application/vnd.openxmlformats-officedocument.wordprocessingml.document`.
+   - Zaktualizowano etykiety wizualne obszaru upuszczania plików (dropzone) informujące o rekomendowanym formacie DOCX.
+   - Zaktualizowano odcinanie rozszerzenia źródłowego przy pobieraniu wygenerowanego pliku (`replace(/\.(pdf|rtf|docx)$/i, '')`).
+   - Przebudowano produkcyjny pakiet dystrybucyjny frontendu (`npm run build`).
+
 ## Skutki i Weryfikacja
 - Całkowite wyeliminowanie błędów odczytu sekcji 3.2 i 4.1 wynikających ze spłaszczania wektorowego PDF.
 - Pomyślne przejście dedykowanego zestawu testów w `tests/sds.docx_input.test.js` (6/6 PASS):
