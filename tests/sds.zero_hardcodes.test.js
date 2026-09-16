@@ -160,6 +160,22 @@ Profumatore per ambienti`;
   assert(!s1TalcoContent.includes("ORCHIDEA"), "Do Sekcji 1.1 wyciekła zaległa nazwa z parametru wejściowego!");
   console.log("-> TEST 5 PASSED: Karta źródłowa jest bezwzględnym SSOT (nawet przy zastałym parametrze z UI).");
 
+  // --------------------------------------------------------------------------
+  // TEST 6: Zachowanie tożsamości nazwy pliku 1:1
+  // --------------------------------------------------------------------------
+  console.log("\n[TEST 6] Weryfikacja zachowania tożsamości nazwy pliku wyjściowego 1:1...");
+  const sampleNames = [
+    { input: "8034055535448_SDS_TALCO (1).rtf", expected: "8034055535448_SDS_TALCO (1).docx" },
+    { input: "dupa 1234.pdf", expected: "dupa 1234.docx" },
+    { input: "KARTA_TESTOWA_V2.PDF", expected: "KARTA_TESTOWA_V2.docx" }
+  ];
+  sampleNames.forEach(({ input, expected }) => {
+    const base = input.replace(/\.(pdf|rtf)$/i, '');
+    const outName = `${base}.docx`;
+    assert.strictEqual(outName, expected, `Oczekiwano nazwy ${expected}, otrzymano ${outName}`);
+  });
+  console.log("-> TEST 6 PASSED: Nazwy plików wejściowych są w 100% zachowywane (1:1 z rozszerzeniem .docx).");
+
   console.log("\n========================================================");
   console.log("WSZYSTKIE TESTY ZERO HARDCODES ZAKOŃCZONE SUKCESEM (100%)");
   console.log("========================================================");

@@ -1,41 +1,31 @@
-# ADR-079: Usunięcie desynchronizacji stanu UI i dynamiczne wyznaczanie nazwy pobieranego pliku DOCX (SSOT)
+# ADR-079: Zachowanie tożsamości nazwy pliku 1:1, eliminacja desynchronizacji stanu UI i rozdzielenie nazwy pliku od nazwy handlowej
 
 ## Status
 Zaakceptowany i wdrożony (Production-Ready)
 
 ## Kontekst i Problem Biznesowy
-Użytkownik zgłosił błąd krytyczny: po przetłumaczeniu pierwszej karty charakterystyki (`ORCHIDEA_E_VANIGLIA`) i wgraniu zupełnie innego pliku (`8034055535448_SDS_TALCO (1).rtf`), wygenerowany plik Word (.docx) został zapisany na dysku użytkownika pod starą nazwą (`Karta_Charakterystyki_8034055535448_SDS_ORCHIDEA_E_VANIGLIA (1).docx`), a pole tekstowe "Nazwa Handlowa Produktu" w interfejsie użytkownika nadal wskazywało nazwę poprzedniego produktu.
+Użytkownik zgłosił krytyczną uwagę dotyczącą tożsamości plików w obrocie handlowym:
+Wgranie pliku posiadającego określoną nazwę handlową lub indeks katalogowy (np. `8034055535448_SDS_TALCO (1).rtf` lub `dupa 1234.pdf`) musi skutkować otrzymaniem wyjściowego pliku Word o **dokładnie tej samej nazwie bazowej z rozszerzeniem .docx** (`8034055535448_SDS_TALCO (1).docx`, `dupa 1234.docx`).
 
-Dogłębna inspekcja kodu wykazała brak jakichkolwiek "zaszytych" nazw produktów w silniku produkcyjnym, natomiast ujawniła 3 błędy synchronizacji stanu i kontraktu HTTP:
-1. **Frontend (`SdsGeneratorTool.jsx`):**
-   Warunek `if (!productName) setProductName(selected.name...)` uniemożliwiał nadpisanie pola przy wgraniu kolejnego pliku, gdy w stanie komponentu znajdowała się już niepusta wartość po poprzedniej konwersji. Dodatkowo selektor `<input type="file" />` nie czyścił właściwości `value`, uniemożliwiając ponowne wybranie tego samego pliku po ewentualnym błędzie.
-2. **Kontroler Backendowy (`sds.controller.js`):**
-   Funkcja `res.download(...)` korzystała na sztywno z `req.body.productName` z ciała żądania, zamiast z nazwy handlowej faktycznie wyekstrahowanej przez silnik SDS (`SDSProcessorEngine`) z Sekcji 1.1 dokumentu źródłowego (SSOT).
-3. **Detekcja nazw technicznych (`sds.service.js`):**
-   Wzorzec `isTechnicalFilename` był zduplikowany w dwóch miejscach i nie uwzględniał rozszerzenia `.rtf`.
+Przekombinowanie polegało na:
+1. Utożsamieniu nazwy handlowej produktu wewnątrz treści dokumentu (Sekcja 1.1) z fizyczną nazwą pliku na dysku. Silnik SDS nadawał plikowi pobieranemu przetłumaczoną nazwę chemiczną z sekcji 1.1 (`SWEET_HOME_-_ESSENZA_TALCO.docx`), wycinając numer EAN, indeks partii oraz indywidualną nazwę katalogową użytkownika.
+2. Automatycznym wpisywaniu nazwy pliku do pola "Nazwa Handlowa Produktu" w formularzu, przez co nazwa pliku wisiała w stanie React jako manualny parametr produktu i zniekształcała sekcję 1.1.
 
 ## Podjęte Decyzje Architektoniczne
 
-1. **Bezwzględna synchronizacja stanu we frontendzie (`SdsGeneratorTool.jsx`):**
-   - Każde zdarzenie wyboru nowego pliku (`handleFileSelect`) bezwarunkowo resetuje i synchronizuje `productName` z nazwą bazową wgranego pliku (usunięty warunek `if (!productName)`).
-   - Czyści stany poprzedniej operacji (`error`, `success`, `anomalies`, `investigatorResult`).
-   - Przed wywołaniem kliknięcia na ukryty element input następuje reset `fileInputRef.current.value = ''`.
-   - Nazwa pobieranego pliku DOCX pobierana jest dynamicznie z nagłówka `Content-Disposition` lub nagłówka `X-Resolved-Product-Name`, z bezpiecznym fallbackiem.
-   - Pobrany URL obiektu Blob jest natychmiast unieważniany przez `window.URL.revokeObjectURL(url)`.
+1. **Bezwzględne zachowanie tożsamości nazwy pliku 1:1:**
+   - Zarówno w kontrolerze backendowym (`sds.controller.js`), jak i w komponencie frontendowym (`SdsGeneratorTool.jsx`), nazwa generowanego i pobieranego pliku DOCX jest wyznaczana jako `basename(input) + .docx` (z zachowaniem spacji, nawiasów, numerów EAN i unikalnych identyfikatorów handlowych).
+   - Usunięto narzucanie prefiksów typu `Karta_Charakterystyki_PL_` oraz zakazano podmieniania nazwy pliku na przetłumaczoną nazwę z Sekcji 1.1.
 
-2. **Zwracanie SSOT z Agenta do Kontrolera (`sds.agent.js` & `sds.controller.js`):**
-   - `processSdsWithAgent` zwraca obiekt `{ docxPath, resolvedProductName }`.
-   - `sds.controller.js` odczytuje wyznaczoną przez silnik SDS nazwę handlową (`resolvedProductName`) i sanityzuje ją pod kątem niedozwolonych znaków systemów plików (`[\\/:*?"<>|]+`).
-   - Kontroler wystawia nagłówki CORS: `Access-Control-Expose-Headers: Content-Disposition, X-Resolved-Product-Name` oraz ustawia poprawną nazwę pliku w `res.download`.
+2. **Czyste rozdzielenie nazwy pliku od nazwy handlowej w treści karty:**
+   - **Plik na dysku:** Odpowiada 1:1 plikowi wejściowemu użytkownika.
+   - **Treść w Sekcji 1.1:** Jest wyekstrahowana i polonizowana w sposób w 100% autonomiczny i deterministyczny przez silnik SDS (SSOT) na podstawie treści karty producenta.
+   - **Pole tekstowe w UI:** Pełni wyłącznie rolę opcjonalnego nadpisania (*"Nazwa Handlowa Produktu (Opcjonalnie - nadpisanie w Sekcji 1.1)"*). Przy wgraniu nowego pliku pole to jest czyszczone (resetowane), a placeholder informuje o automatycznej detekcji. Jeśli pole pozostaje puste, karta sama pobiera autentyczną nazwę handlową ze swojego tekstu.
 
-3. **Konsolidacja metody `isTechnicalFilename` (`sds.service.js`):**
-   - Wdrożono statyczną metodę `SDSProcessorEngine.isTechnicalFilename(name)` uwzględniającą prefiksy EAN (`\d{8,14}(?:_SDS.*)?`), `temp_sds_.*`, rozszerzenia `.pdf` i `.rtf` oraz nazwy generyczne (`PRODUKT CHEMICZNY`, `Mieszanina chemiczna`).
-   - Zarówno `processSection1`, jak i `prepareAgentPayload` korzystają z jednolitej metody SSOT.
-
-4. **Testy regresyjne i automatyczne:**
-   - Rozszerzono `tests/sds.zero_hardcodes.test.js` o TEST 5 weryfikujący izolację nazw technicznych oraz nadrzędność nazwy handlowej zawartej w karcie (SSOT) nad zastałymi parametrami z UI.
+3. **Testy jednostkowe i weryfikacja (TEST 6 w `tests/sds.zero_hardcodes.test.js`):**
+   - Zweryfikowano zachowanie tożsamości plików dla próbek: `8034055535448_SDS_TALCO (1).rtf` $\rightarrow$ `8034055535448_SDS_TALCO (1).docx`, `dupa 1234.pdf` $\rightarrow$ `dupa 1234.docx`.
 
 ## Konsekwencje
-- Wyeliminowano ryzyko zapisu kart pod nazwami poprzednio przetwarzanych produktów.
-- Interfejs użytkownika w sposób transparentny i natychmiastowy odzwierciedla wgrany plik.
-- Pełna zgodność ze standardem Zero-Bypass i REACH UE 2020/878.
+- Zachowano pełen porządek w katalogowaniu plików i archiwizacji dokumentów magazynowych/handlowych użytkownika.
+- Wyeliminowano przypadki wycinania kodów EAN i numerów partii z nazw plików.
+- Pełna separacja fizycznej nazwy pliku od chemicznej tożsamości wewnątrz Sekcji 1.1.

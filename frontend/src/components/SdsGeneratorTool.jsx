@@ -16,7 +16,7 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
     
     const fileInputRef = useRef(null);
 
-    const getDownloadFileName = (response, defaultName) => {
+    const getDownloadFileName = (response, fallbackName) => {
         let fileName = '';
         const disposition = response && response.headers ? (response.headers['content-disposition'] || response.headers['Content-Disposition']) : null;
         if (disposition && disposition.indexOf('filename=') !== -1) {
@@ -26,11 +26,7 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                 fileName = decodeURIComponent(matches[1].replace(/['"]/g, ''));
             }
         }
-        if (!fileName && response && response.headers && response.headers['x-resolved-product-name']) {
-            const resolvedName = decodeURIComponent(response.headers['x-resolved-product-name']);
-            fileName = `Karta_Charakterystyki_PL_${resolvedName.replace(/\s+/g, '_')}.docx`;
-        }
-        return fileName || defaultName;
+        return fileName || fallbackName;
     };
 
     const handleFileSelect = (e) => {
@@ -46,8 +42,8 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
             setSuccess(false);
             setAnomalies([]);
             setInvestigatorResult(null);
-            // Zawsze synchronizuj nazwę handlową z nowo wybranym plikiem źródłowym
-            setProductName(selected.name.replace(/\.(pdf|rtf)$/i, ''));
+            // Resetujemy opcjonalne pole nadpisania - domyślnie karta sama wyekstrahuje nazwę handlową do treści
+            setProductName('');
         } else {
             setError('Proszę wybrać prawidłowy plik źródłowy w formacie PDF lub RTF.');
         }
@@ -75,16 +71,10 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                 responseType: 'blob' // Wymagane przy pobieraniu plików Binarnych!
             });
 
-            // Pobranie rzeczywistej nazwy z nagłówków serwera (SSOT)
-            const fallbackName = `Karta_Charakterystyki_${productName || (file ? file.name.replace(/\.(pdf|rtf)$/i, '') : 'PL')}.docx`;
+            // Nazwa pliku wyjściowego zachowuje w 100% tożsamość wgranego pliku (1:1 z rozszerzeniem .docx)
+            const originalBaseName = file ? file.name.replace(/\.(pdf|rtf)$/i, '') : 'karta_charakterystyki';
+            const fallbackName = `${originalBaseName}.docx`;
             const fileName = getDownloadFileName(response, fallbackName);
-
-            if (response.headers && response.headers['x-resolved-product-name']) {
-                const resolvedName = decodeURIComponent(response.headers['x-resolved-product-name']);
-                if (resolvedName && resolvedName !== 'PRODUKT_CHEMICZNY') {
-                    setProductName(resolvedName);
-                }
-            }
 
             // Wymuszenie pobrania
             const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -158,15 +148,9 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                 responseType: 'blob'
             });
 
-            const fallbackName = `Karta_Charakterystyki_PL_${productName || (file ? file.name.replace(/\.(pdf|rtf)$/i, '') : 'WZNOWIONA')}.docx`;
+            const originalBaseName = file ? file.name.replace(/\.(pdf|rtf)$/i, '') : 'karta_charakterystyki';
+            const fallbackName = `${originalBaseName}.docx`;
             const fileName = getDownloadFileName(response, fallbackName);
-
-            if (response.headers && response.headers['x-resolved-product-name']) {
-                const resolvedName = decodeURIComponent(response.headers['x-resolved-product-name']);
-                if (resolvedName && resolvedName !== 'PRODUKT_CHEMICZNY') {
-                    setProductName(resolvedName);
-                }
-            }
 
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
@@ -234,11 +218,11 @@ const SdsGeneratorTool = ({ token, API_URL }) => {
                             
                             <div className="space-y-5">
                                 <div>
-                                    <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2">Nazwa Handlowa Produktu</label>
+                                    <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2">Nazwa Handlowa Produktu (Opcjonalnie - nadpisanie w Sekcji 1.1)</label>
                                     <input 
                                         type="text" 
                                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                                        placeholder="np. SGRASSANTE EXTRA UNIVERSAL"
+                                        placeholder="Domyślnie pobierana automatycznie z karty źródłowej"
                                         value={productName}
                                         onChange={(e) => setProductName(e.target.value)}
                                         disabled={isProcessing}

@@ -54,8 +54,11 @@ async function processSds(req, res) {
              return res.status(500).json({ error: 'Agent nie wygenerował pliku DOCX.' });
         }
 
-        const safeTradeName = resolvedTradeName.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_');
-        const downloadFileName = `Karta_Charakterystyki_PL_${safeTradeName}.docx`;
+        // Nazwa pliku wyjściowego zachowuje w 100% tożsamość pliku źródłowego (1:1), podmieniając jedynie rozszerzenie na .docx
+        const originalBaseName = (req.file.originalname || 'Karta_Charakterystyki')
+            .replace(/\.(pdf|rtf)$/i, '')
+            .replace(/[\r\n\x00]/g, '');
+        const downloadFileName = `${originalBaseName}.docx`;
 
         res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Resolved-Product-Name');
         res.setHeader('X-Resolved-Product-Name', encodeURIComponent(resolvedTradeName));
@@ -100,8 +103,11 @@ async function resumeProcess(req, res) {
              return res.status(500).json({ error: 'Agent nie wygenerował pliku DOCX.' });
         }
 
-        const safeTradeName = resolvedTradeName.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_');
-        const downloadFileName = `Karta_Charakterystyki_PL_${safeTradeName}.docx`;
+        // Nazwa pliku wyjściowego zachowuje w 100% tożsamość pliku źródłowego (1:1)
+        const originalBaseName = (req.file.originalname || 'Karta_Charakterystyki')
+            .replace(/\.(pdf|rtf)$/i, '')
+            .replace(/[\r\n\x00]/g, '');
+        const downloadFileName = `${originalBaseName}.docx`;
 
         res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Resolved-Product-Name');
         res.setHeader('X-Resolved-Product-Name', encodeURIComponent(resolvedTradeName));

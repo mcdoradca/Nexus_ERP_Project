@@ -3,7 +3,7 @@
 **Data sporządzenia:** 2026-09-16  
 **Status modułu:** WDROŻENIE ADR-079 ZAKOŃCZONE SUKCESEM (100% COMPLIANT, PRODUKCJA)  
 **Kluczowe akty prawne:** Rozporządzenie Komisji (UE) 2020/878 (Załącznik II do REACH), Rozporządzenie (WE) nr 1272/2008 (CLP), Dz.U. 2024 poz. 1017 (NDS), Dz.U. 2020 poz. 10 (Odpady), Umowa ADR 2023–2025, Dz.U. 2016 poz. 138 (Seveso III).  
-**Stan testów:** 122/122 testów systemowych PASSED (`npm test`), 7/7 testów prawno-chemicznych PASSED (`tests/sds.compliance.test.js`), 12/12 punktów audytu PASSED (`tests/sds.8_points_audit.test.js`), 6/6 testów RTF PASSED (`tests/sds.rtf.test.js`), 5/5 zero-hardcodes PASSED (`tests/sds.zero_hardcodes.test.js`).  
+**Stan testów:** 122/122 testów systemowych PASSED (`npm test`), 7/7 testów prawno-chemicznych PASSED (`tests/sds.compliance.test.js`), 12/12 punktów audytu PASSED (`tests/sds.8_points_audit.test.js`), 6/6 testów RTF PASSED (`tests/sds.rtf.test.js`), 6/6 zero-hardcodes PASSED (`tests/sds.zero_hardcodes.test.js`).  
 **Środowisko:** Node.js, Express, Google Generative AI (`gemini-3.8-flash`), DOCX Generator, Sharp, PurePngEncoder.
 
 ---
