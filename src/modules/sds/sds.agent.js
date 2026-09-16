@@ -5,6 +5,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { SDSProcessorEngine, SDSDocxExporter, NDSRegistry } = require('./sds.service');
 const { SDSVerifierAgent } = require('./sds.verifier.agent');
 const { SDSSchemaValidator } = require('./sds.schema.validator');
+const { SDSLinter } = require('./engine/sds.linter');
 
 // Zgodnie z ADR-001 i architekturą Zero-Bypass Agent tłumaczy tylko wyselekcjonowane, czysto narracyjne sekcje.
 const SYSTEM_PROMPT = `JESTEŚ ELITARNYM AUDYTOREM CHEMICZNYM I REGULACYJNYM SYSTEMU KART CHARAKTERYSTYKI (SDS) W ŚRODOWISKU ANTIGRAVITY.
@@ -134,6 +135,14 @@ ${JSON.stringify(agentPayload.descriptiveSectionsToTranslate, null, 2)}`;
         // BRAMKA JAKOŚCIOWA 2: Rygorystyczna walidacja kompletnego modelu SDS przed wyrenderowaniem DOCX
         console.log(`[Agent SDS] KROK 4b: Walidacja kompletnego modelu SDS przed eksportem DOCX (SDSSchemaValidator)...`);
         SDSSchemaValidator.validateFinalSds(finalData);
+
+        // BRAMKA JAKOŚCIOWA 3: Rygorystyczny linter prawno-chemiczny Sanepid / PIP (SDSLinter)
+        console.log(`[Agent SDS] KROK 4c: Rygorystyczny linter Sanepid / PIP (SDSLinter)...`);
+        const lintResult = SDSLinter.auditAndLint(finalData);
+        if (!lintResult.isValid) {
+            console.error('[Agent SDS] Linter Sanepid/PIP wykrył uchybienia prawne:', lintResult.errors);
+            throw new Error(`[SANEPID_LINT_ERROR] Dokument nie spełnia kryteriów prawnych: ${lintResult.errors.join('; ')}`);
+        }
         
         // KROK 5: GENEROWANIE DOKUMENTU WORD (.DOCX)
         console.log(`[Agent SDS] KROK 5: Generowanie pliku DOCX...`);

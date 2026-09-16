@@ -16,6 +16,15 @@ const https = require("https");
 const { execSync } = require("child_process");
 const { SDSRtfConverter } = require("./sds.rtf.converter");
 const { SDSRTFParser } = require("./sds.rtf.parser");
+const {
+  CANONICAL_H_PHRASES,
+  CANONICAL_P_PHRASES,
+  CANONICAL_CLP_CLASSES,
+  CANONICAL_TEST_ORGANISMS
+} = require("./engine/sds.canonical.clp");
+const { SDSTableParser } = require("./engine/sds.table.parser");
+const { SubstanceAST, SDSDocumentAST } = require("./engine/sds.ast");
+const { SDSLinter } = require("./engine/sds.linter");
 
 // Obsługa HITLError (Zbiór Anomalii)
 class HITLError extends Error {
@@ -43,6 +52,7 @@ const SIGNAL_WORDS_MAP = {
 };
 
 const OFFICIAL_CLP_H_PHRASES = {
+  ...CANONICAL_H_PHRASES,
   H220: "Skrajnie łatwopalny gaz.",
   H224: "Skrajnie łatwopalna ciecz i pary.",
   H225: "Wysoce łatwopalna ciecz i pary.",
@@ -119,6 +129,7 @@ const OFFICIAL_CLP_H_PHRASES = {
 };
 
 const OFFICIAL_CLP_P_PHRASES = {
+  ...CANONICAL_P_PHRASES,
   P101: "W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę.",
   P102: "Chronić przed dziećmi.",
   P103: "Uważnie przeczytać wszystkie instrukcje i zastosować się do nich.",
@@ -4341,6 +4352,14 @@ module.exports = {
   SIGNAL_WORDS_MAP,
   ALLERGEN_NAMES_PL,
   CAS_TO_PL_MAP,
-  mapHazardClass
+  mapHazardClass,
+  SDSLinter,
+  SDSTableParser,
+  SubstanceAST,
+  SDSDocumentAST,
+  CANONICAL_H_PHRASES,
+  CANONICAL_P_PHRASES,
+  CANONICAL_CLP_CLASSES,
+  CANONICAL_TEST_ORGANISMS
 };
 
