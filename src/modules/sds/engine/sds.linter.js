@@ -6,6 +6,12 @@
 const { CANONICAL_TEST_ORGANISMS } = require('./sds.canonical.clp');
 
 class SDSLinter {
+  static lint(sdsData) {
+    if (!sdsData) return { isValid: true, errors: [], warnings: [], fixesApplied: [] };
+    const payload = sdsData.sections ? sdsData : { sections: sdsData };
+    return this.auditAndLint(payload);
+  }
+
   /**
    * Przeprowadza kompletny audyt zgodności wygenerowanych sekcji SDS
    * @param {Object} sdsData - Obiekt reprezentujący zmontowaną kartę SDS
@@ -148,6 +154,35 @@ class SDSLinter {
         if (allergensInS2 >= 2 && !s4.includes(',') && !/patrz/i.test(s4)) {
           errors.push("[Sekcja 4.2] NIESPÓJNOŚĆ ALERGENÓW: Produkt zawiera wiele składników uczulających wykazanych w EUH208, a w Sekcji 4.2 wymieniono tylko pojedynczy składnik.");
         }
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // REGUŁA 9: ZAKAZ EUH208 DLA MIESZANIN ZAKLASYFIKOWANYCH JAKO H317 (CLP ART. 18(3)(B))
+    // ------------------------------------------------------------------------
+    if (/(?:H317|Skin\s*Sens)/i.test(s2)) {
+      if (/EUH208/i.test(s2)) {
+        errors.push("[Sekcja 2.2] BŁĄD CLP ART. 18(3)(b): Mieszanina jest zaklasyfikowana jako Skin Sens. (H317) - substancje uczulające muszą znaleźć się na etykiecie pod 'Zawiera:', a umieszczanie zwrotu EUH208 jest niezgodne z prawem.");
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // REGUŁA 10: ZAKAZ POZOSTAWIANIA NAGŁÓWKÓW STRON (RUNNING HEADERS) W TREŚCI
+    // ------------------------------------------------------------------------
+    for (let i = 1; i <= 16; i++) {
+      const key = `section_${i}`;
+      const secVal = typeof sections[key] === 'object' ? (sections[key].content || "") : (sections[key] || "");
+      if (/Suarez\s+Company/i.test(secVal) || /(?:^|\n)\s*\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/.test(secVal)) {
+        errors.push(`[Sekcja ${i}] ARTEFAKT PARSERA: Wykryto niesfiltrowany nagłówek/stopkę strony PDF w treści dokumentu.`);
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // REGUŁA 11: OBECNOŚĆ ZWROTU P501 DLA MIESZANIN STWARZAJĄCYCH ZAGROŻENIE
+    // ------------------------------------------------------------------------
+    if (/(?:H317|H411|H412|H225|H226)/i.test(s2) && /Zwroty\s+wskazujące\s+środki\s+ostrożności/i.test(s2)) {
+      if (!/P501/i.test(s2)) {
+        errors.push("[Sekcja 2.2] BŁĄD BHP: Mieszanina stwarzająca zagrożenie nie zawiera obowiązkowego zwrotu P501 (Usuwanie).");
       }
     }
 
