@@ -2658,7 +2658,7 @@ class SDSProcessorEngine {
     return output;
   }
 
-  processSection5(contentIt) {
+  processSection5(contentIt, components = []) {
     let clean = (contentIt || "").replace(/\r/g, '');
 
     let suitableMatch = clean.match(/(?:Suitable extinguishing media|Mezzi di estinzione idonei|Odpowiednie środki gaśnicze)\s*[:\.]?\s*([^\n]+(?:\n[^\n]+)?)/i);
@@ -2668,6 +2668,13 @@ class SDSProcessorEngine {
 
     let rawSuitable = suitableMatch ? suitableMatch[1].replace(/Extinguishing media which must not.*/is, '').trim() : "";
     let suitableText = SDSProcessorEngine.translatePhrase(rawSuitable, "Piana gaśnicza, proszek gaśniczy, dwutlenek węgla (CO2), rozproszone prądy wody. Środki gaśnicze dobrać odpowiednio do materiałów palnych znajdujących się w otoczeniu pożaru.");
+    
+    // Weryfikacja obecności rozpuszczalników polarnych (np. alkoholi)
+    let hasPolarSolvent = components.some(c => /etanol|ethanol|metanol|methanol|isopropanol|propanol|izopropanol/i.test(c.name || c.originalName || ''));
+    if (hasPolarSolvent) {
+      suitableText = suitableText.replace(/\bpiana(?:\s+gaśnicza)?\b/gi, 'piana alkoholoodporna (np. typu AR-AFFF)');
+    }
+
     let unsuitableText = SDSProcessorEngine.translatePhrase(unsuitableMatch ? unsuitableMatch[1] : "", "Brak szczególnych.");
 
     
@@ -4241,7 +4248,7 @@ class SDSProcessorEngine {
     const s2 = this.processSection2(rawSections["section_2"], s3.resolvedSubstances, s3.components);
     const s1Content = this.processSection1(rawSections["section_1"], productName, ufi, manualOverrides, extractedCode);
     const s4Content = this.processSection4(rawSections["section_4"], s3.components, s2.content);
-    const s5Content = this.processSection5(rawSections["section_5"]);
+    const s5Content = this.processSection5(rawSections["section_5"], s3.components);
     const s6Content = this.processSection6(rawSections["section_6"]);
     const s7Content = this.processSection7(rawSections["section_7"]);
     const s8Content = this.processSection8(rawSections["section_8"], s3.components, s2.content);
