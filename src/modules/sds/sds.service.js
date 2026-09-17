@@ -2928,6 +2928,34 @@ class SDSProcessorEngine {
     // Zamiana kropek dziesiętnych na przecinki w liczbach (np. 1.00 -> 1,00, 20.5 -> 20,5)
     v = v.replace(/(\d+)\.(\d+)/g, '$1,$2');
     
+    // Fallback dla angielskich wtrąceń, które przetrwały wewnątrz nawiasów lub wartości
+    v = v.replace(/\bInitial boiling point\b/gi, '')
+         .replace(/\bSubstance\b/gi, 'substancja')
+         .replace(/\bTemperature\b/gi, 'temperatura')
+         .replace(/\bVapour pressure\b/gi, 'prężność par')
+         .replace(/\bRemark\s*[:\.]?\s*\)?\s*\(\s*(?:aria|powietrze)\s*=\s*1\s*\)/gi, '(powietrze=1)')
+         .replace(/\bRemark\b/gi, 'uwaga')
+         .replace(/\bMethod\b/gi, 'metoda')
+         .replace(/\bAuto-?ignition\b/gi, 'samozapłon')
+         .replace(/\bDensity\b/gi, 'gęstość')
+         .replace(/\bSolubility\b/gi, 'rozpuszczalność')
+         .replace(/\bMelting point\b/gi, 'temperatura topnienia')
+         .replace(/\bFlash point\b/gi, 'temperatura zapłonu')
+         .replace(/\bFlammability\b/gi, 'palność')
+         .replace(/\bDecomposition\b/gi, 'rozkład')
+         .replace(/\bViscosity\b/gi, 'lepkość')
+         .replace(/\(\s*substancja:\s*([^)]+?)\s*\)/gi, (match, p1) => {
+           let c = p1.trim();
+           if (c.endsWith(':')) c = c.slice(0, -1).trim();
+           return `(substancja: ${c})`;
+         })
+         .replace(/\(\s*uwaga:\s*([^)]+?)\s*\)/gi, (match, p1) => {
+           let c = p1.trim();
+           if (c.endsWith(':')) c = c.slice(0, -1).trim();
+           return `(uwaga: ${c})`;
+         })
+         .replace(/\s+\)/g, ')');
+    
     // Normalizacja zapisu jednostek
     v = v.replace(/mm2\/s/gi, 'mm²/s')
          .replace(/g\/ml/gi, 'g/ml')
