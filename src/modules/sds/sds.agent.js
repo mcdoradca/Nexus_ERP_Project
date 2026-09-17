@@ -164,6 +164,30 @@ ${JSON.stringify(agentPayload.descriptiveSectionsToTranslate, null, 2)}`;
     }
 }
 
+const { SDSVisionAgent } = require('./sds.vision.agent');
+const { SDSDocxBuilder } = require('./sds.docx.builder');
+
+async function processSdsWithVisionAgent(inputPath, outputPath, manualOverrides = {}) {
+    console.log(`[Agent SDS Vision] Rozpoczynanie wielomodalnego przetwarzania dla: ${inputPath}`);
+    const visionAgent = new SDSVisionAgent();
+    const sdsData = await visionAgent.processDocument(inputPath);
+    
+    if (manualOverrides && typeof manualOverrides === 'object') {
+        if (manualOverrides.productName && sdsData.metadata) sdsData.metadata.productName = manualOverrides.productName;
+        if (manualOverrides.ufi && sdsData.metadata) sdsData.metadata.ufi = manualOverrides.ufi;
+    }
+
+    const outDocx = outputPath || path.join(process.cwd(), `Karta_Charakterystyki_${Date.now()}.docx`);
+    await SDSDocxBuilder.buildDocx(sdsData, outDocx);
+
+    return {
+        docxPath: outDocx,
+        resolvedProductName: sdsData.metadata?.productName || "PRODUKT_CHEMICZNY",
+        sdsData
+    };
+}
+
 module.exports = {
-    processSdsWithAgent
+    processSdsWithAgent,
+    processSdsWithVisionAgent
 };

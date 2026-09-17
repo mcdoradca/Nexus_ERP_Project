@@ -1,17 +1,17 @@
 [
   {
-    "rule": "PIKTOGRAMY_GHS",
+    "rule": "DNEL_PNEC_MISSING",
     "status": "AUTO_REMEDIATED",
-    "message": "Uzupełniono brakujące kody piktogramów ostrzegawczych GHS (GHS02, GHS07) w sekcji 2.2 wynikające z klasyfikacji mieszaniny (Flam. Liq. 2, Eye Irrit. 2)."
+    "message": "W sekcji 8.1 błędnie stwierdzono brak wartości DNEL/PNEC dla składników podlegających rejestracji REACH. Uzupełniono wartości DNEL i PNEC w wymaganym formacie per substancja z podziałem na pracowników i konsumentów oraz drogi narażenia."
   },
   {
-    "rule": "BIERNIK_W_EUH208",
+    "rule": "ENDOCRINE_DISRUPTORS_CONTAMINATION",
     "status": "AUTO_REMEDIATED",
-    "message": "W sekcji 16 ujednolicono brzmienie zwrotu EUH208 do formy zawierającej nazwę substancji w bierniku: 'EUH208: Zawiera kumarynę (2H-chromen-2-on). Może powodować wystąpienie reakcji alergicznej.'"
+    "message": "W sekcji 11.2 usunięto wzmiankę o galaksolidzie (CAS 1222-05-5), który nie występuje w składzie produktu, oraz usunięto zduplikowany wiersz w sekcji 11.1. Zharmonizowano treść sekcji 11.2 z wymogami Rozporządzenia (UE) 2020/878."
   },
   {
-    "rule": "100%_JEZYK_POLSKI",
+    "rule": "ECOTOXICITY_MISSING_INGREDIENT",
     "status": "AUTO_REMEDIATED",
-    "message": "Przetłumaczono pozostałości obcojęzyczne w wartościach PNEC w sekcji 8.1 ('soil dw' -> 'suchej masy gleby') oraz w opisie gatunku w sekcji 12.1 ('and' -> 'i')."
+    "message": "W sekcji 12 uzupełniono brakujące dane ekotoksykologiczne, biodegradowalność oraz potencjał bioakumulacji dla składnika uczulającego wymienionego w sekcji 3: aldehydu cynamonowego (CAS 104-55-2)."
   }
 ]

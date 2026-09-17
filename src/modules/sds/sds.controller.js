@@ -1,4 +1,4 @@
-const { processSdsWithAgent } = require('./sds.agent');
+const { processSdsWithAgent, processSdsWithVisionAgent } = require('./sds.agent');
 const { investigateAnomaliesAgent } = require('./sds.investigator.agent');
 const { HITLError } = require('./sds.service');
 const path = require('path');
@@ -14,7 +14,7 @@ function cleanupOrphanPdfs() {
 
         files.forEach(file => {
             if ((file.startsWith('temp_sds_') && (file.endsWith('.pdf') || file.endsWith('.rtf') || file.endsWith('.docx'))) ||
-                (file.startsWith('Karta_Charakterystyki_PL_') && file.endsWith('.docx'))) {
+                (file.startsWith('Karta_Charakterystyki_') && file.endsWith('.docx'))) {
                 const filePath = path.join(cwd, file);
                 const stats = fs.statSync(filePath);
                 if (now - stats.mtimeMs > MAX_AGE_MS) {
@@ -47,7 +47,14 @@ async function processSds(req, res) {
         tempFilePath = path.join(process.cwd(), `temp_sds_${Date.now()}${ext}`);
         fs.writeFileSync(tempFilePath, req.file.buffer);
 
-        const agentResult = await processSdsWithAgent(tempFilePath, productName);
+        let agentResult;
+        try {
+            // Główny silnik wielomodalny Vision AI (Gemini 3.8 Flash / 3.1 Pro + SDSDocxBuilder)
+            agentResult = await processSdsWithVisionAgent(tempFilePath, null, { productName });
+        } catch (visionErr) {
+            console.warn('[SDS Controller] Fallback do silnika klasycznego z powodu błędu Vision:', visionErr.message);
+            agentResult = await processSdsWithAgent(tempFilePath, productName);
+        }
         const outputDocxPath = (typeof agentResult === 'object' && agentResult.docxPath) ? agentResult.docxPath : agentResult;
         const resolvedTradeName = (typeof agentResult === 'object' && agentResult.resolvedProductName) ? agentResult.resolvedProductName : (productName || 'PRODUKT_CHEMICZNY');
 
