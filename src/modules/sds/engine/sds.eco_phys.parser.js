@@ -8,6 +8,8 @@
  * 4. Polish Regulatory Formatting: Pełna polonizacja parametrów, organizmów testowych, metod OECD i jednostek.
  */
 
+const fs = require('fs');
+const path = require('path');
 const { SDSConsistencyEngine } = require('./sds.consistency.engine');
 
 class SDSEcoPhysParser {
@@ -20,10 +22,22 @@ class SDSEcoPhysParser {
     // Podział na podsekcje 12.1 - 12.7
     const block1 = this.extractBlock(clean, /12\.1\b/i, /12\.2\b/i);
     const block2 = this.extractBlock(clean, /12\.2\b/i, /12\.3\b/i);
-    const block3 = this.extractBlock(clean, /12\.3\b/i, /12\.4\b/i);
+    let block3 = this.extractBlock(clean, /12\.3\b/i, /12\.4\b/i);
     const block4 = this.extractBlock(clean, /12\.4\b/i, /12\.5\b/i);
     const block5 = this.extractBlock(clean, /12\.5\b/i, /12\.6\b/i);
     const block6 = this.extractBlock(clean, /12\.6\b/i, /12\.7\b/i);
+
+    const isClumped = /12\.1[\s\S]*?12\.2[\s\S]*?12\.3[\s\S]*?12\.4/i.test(clean);
+    if (isClumped) {
+      const idxBioAcc = clean.search(/(?:Not bioaccumulative|Non bioaccumulabile|Bioaccumulat|Bioaccumulab|Zdolność do bioakumulacji|Potenziale di bioaccumulo|Bioconcentr|BCF)/i);
+      const idxPbt = clean.search(/(?:No PBT or vPvB|Results of PBT and vPvB|Wyniki oceny właściwości PBT|Non contiene sostanze PBT|PBT[ \/]?vPvB|Valutazione PBT)/i);
+      const idxEndo = clean.search(/(?:List II|List I|Substances under evaluation for endocrine|endocrine disruption|Endocrine disrupting properties|Właściwości zaburzające|Proprietà di interferenza con il sistema endocrino)/i);
+      const idxOther = clean.search(/(?:12\.7|Other adverse effects|Altri effetti avversi|Inne szkodliwe skutki)/i);
+      const bioAccEnd = idxPbt !== -1 ? idxPbt : (idxEndo !== -1 ? idxEndo : (idxOther !== -1 ? idxOther : clean.length));
+      if (idxBioAcc !== -1 && idxBioAcc < bioAccEnd) {
+        block3 = clean.substring(idxBioAcc, bioAccEnd).trim();
+      }
+    }
 
     // --- 12.1. Toksyczność ---
     let s12_1 = "12.1. Toksyczność\nStosować dobrą praktykę zawodową, unikając przedostawania się produktu do środowiska.\n\n";
@@ -62,7 +76,10 @@ class SDSEcoPhysParser {
 
     // --- 12.3. Zdolność do bioakumulacji ---
     let s12_3 = "12.3. Zdolność do bioakumulacji\n";
-    const compBio = this.extractAllBioaccumulation(block3, components);
+    let compBio = this.extractAllBioaccumulation(block3, components);
+    if (compBio.length === 0 && /(?:BCF|Bioaccumul)/i.test(clean)) {
+      compBio = this.extractAllBioaccumulation(clean, components);
+    }
     if (compBio.length > 0) {
       s12_3 += "Informacje dotyczące składników:\n";
       compBio.forEach(cb => {
@@ -234,34 +251,83 @@ class SDSEcoPhysParser {
     const results = [];
     const lines = block3.split('\n').map(l => l.trim()).filter(Boolean);
 
+    let curComp = null;
+    const compMap = new Map();
     for (const c of components) {
-      const line = lines.find(l => {
-        if (c.cas && l.includes(c.cas)) return true;
+      compMap.set(c, []);
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      const matchedComp = components.find(c => {
+        if (c.cas && line.includes(c.cas)) return true;
         const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
         const cNorm = norm(c.originalName || c.name);
-        return cNorm && cNorm.length >= 5 && norm(l).includes(cNorm);
+        const lNorm = norm(line);
+        return cNorm && cNorm.length >= 5 && lNorm.includes(cNorm);
       });
 
-      if (line) {
-        const parts = [];
-        
-        // Log Kow
-        const kowM = line.match(/(?:Log\s*Kow|Log\s*Pow)[^0-9><~=]*((?:<=|>=|[<>=~])?\s*\d+(?:[.,]\d+)?)/i);
-        if (kowM) {
-          parts.push(`współczynnik podziału n-oktanol/woda (log Kow): ${kowM[1].replace('.', ',')}`);
+      if (matchedComp) {
+        curComp = matchedComp;
+      }
+
+      if (curComp) {
+        const parts = compMap.get(curComp);
+
+        if (/Not bioaccumulative|Non bioaccumulabile|Nie wykazuje (?:zdolności|potencjału) do bioakumulacji/i.test(line)) {
+          if (!parts.some(x => x.includes("bioakumulac"))) {
+            parts.push("nie wykazuje zdolności do bioakumulacji");
+          }
+        } else if (/Bioaccumulat|Bioaccumulab/i.test(line) && !/Not|Non/i.test(line)) {
+          if (!parts.some(x => x.includes("bioakumulac"))) {
+            parts.push("wykazuje zdolność do bioakumulacji (Bioaccumulative)");
+          }
         }
 
-        // BCF
-        const bcfM = line.match(/BCF[^0-9><~=]*((?:<=|>=|[<>=~])?\s*\d+(?:[.,]\d+)?)/i);
-        if (bcfM) {
-          parts.push(`współczynnik biokoncentracji (BCF) = ${bcfM[1].replace('=', '').trim().replace('.', ',')}`);
+        if (/BCF|Bioconcentr/i.test(line)) {
+          const bcfMatch = line.match(/(?:BCF|Bioconcentr(?:at|ant)ion\s+factor|Fattore di bioconcentrazione).*?(?:[:=~-]|(?:Value|Wartość)\s*[:\.]?\s*)\s*((?:<=|>=|[=~<≤>≥])?\s*\d+(?:[.,]\d+)?)/i)
+            || line.match(/(?:Value|Wartość)\s*[:\.]?\s*((?:<=|>=|[=~<≤>≥])?\s*\d+(?:[.,]\d+)?)/i)
+            || line.match(/\bBCF\s*=\s*((?:<=|>=|[=~<≤>≥])?\s*\d+(?:[.,]\d+)?)/i);
+          if (bcfMatch) {
+            const rawVal = bcfMatch[1].trim().replace(/\b(\d+)\.(\d+)\b/g, '$1,$2');
+            const cleanVal = rawVal.replace(/^[=~:]\s*/, '');
+            if (!parts.some(x => x.includes("BCF"))) {
+              parts.push(`współczynnik biokoncentracji BCF = ${cleanVal}`);
+            }
+          }
         }
 
-        if (/not\s*bioaccumulative|brak\s*potencjału/i.test(line)) {
-          parts.push("nie wykazuje potencjału do bioakumulacji");
+        if (/Log\s*Kow|Log\s*Pow|partition\s+coefficient/i.test(line)) {
+          const kowMatch = line.match(/(?:Log\s*Kow|Log\s*Pow|partition\s+coefficient).*?(?:[:=~-]|(?:Value|Wartość)\s*[:\.]?\s*)\s*((?:<=|>=|[=~<≤>≥])?\s*-?\d+(?:[.,]\d+)?)/i)
+            || line.match(/(?:Value|Wartość)\s*[:\.]?\s*((?:<=|>=|[=~<≤>≥])?\s*-?\d+(?:[.,]\d+)?)/i);
+          if (kowMatch) {
+            const rawVal = kowMatch[1].trim().replace(/\b(\d+)\.(\d+)\b/g, '$1,$2');
+            const cleanVal = rawVal.replace(/^[=~:]\s*/, '');
+            if (!parts.some(x => x.includes("Kow"))) {
+              parts.push(`współczynnik podziału n-oktanol/woda (log Kow): ${cleanVal}`);
+            }
+          }
         }
+      }
+    }
 
-        const info = parts.length > 0 ? parts.join(', ') + '.' : "Brak danych dotyczących bioakumulacji.";
+    // Defensive fallback to ecotox_cache.json if a component has no text data
+    let ecotoxCache = null;
+    try {
+      const p = path.join(__dirname, '..', 'rag_knowledge', 'ecotox_cache.json');
+      if (fs.existsSync(p)) {
+        ecotoxCache = JSON.parse(fs.readFileSync(p, 'utf8'));
+      }
+    } catch (_) {}
+
+    for (const [c, parts] of compMap.entries()) {
+      if (parts.length === 0 && ecotoxCache && c.cas && ecotoxCache[c.cas] && ecotoxCache[c.cas].bioaccumulation) {
+        parts.push(ecotoxCache[c.cas].bioaccumulation.replace(/\.$/, ''));
+      }
+
+      if (parts.length > 0) {
+        const info = parts.join(', ') + '.';
         results.push({
           name: c.name || c.originalName,
           cas: c.cas,
@@ -269,6 +335,7 @@ class SDSEcoPhysParser {
         });
       }
     }
+
     return results;
   }
 
@@ -329,18 +396,20 @@ class SDSEcoPhysParser {
   }
 
   static normalizeValue(raw, key) {
-    if (!raw || /^(?:N\.?A\.?|Not applicable|Non applicabile|Nie dotyczy)$/i.test(raw)) {
-      if (key === "density" || key === "viscosity") return "Brak danych";
+    if (!raw || /^(?:N\.?A\.?|Not applicable|Non applicabile|Nie dotyczy)$/i.test(raw.trim())) {
+      if (key === "density" || key === "viscosity" || key === "melting" || key === "vapour_pressure" || key === "boiling" || key === "relative_vapour_density") {
+        return "Brak danych";
+      }
       if (key === "particle_characteristics") return "Nie dotyczy (produkt płynny)";
       return "Nie dotyczy";
     }
     if (key === "particle_characteristics") {
       if (/N\.?A\.?|nie dotyczy|brak/i.test(raw)) return "Nie dotyczy (produkt płynny)";
     }
-    if (/^(?:not available|non disponibile|brak danych)$/i.test(raw)) {
+    if (/^(?:not available|non disponibile|brak danych)$/i.test(raw.trim())) {
       return "Brak danych";
     }
-    if (/^(?:not determined|non determinato|nie oznaczono)$/i.test(raw)) {
+    if (/^(?:not determined|non determinato|nie oznaczono)$/i.test(raw.trim())) {
       return "Nie oznaczono";
     }
 
@@ -352,6 +421,14 @@ class SDSEcoPhysParser {
       .replace(/Soluble in water|Soluble/gi, 'rozpuszczalny w wodzie')
       .replace(/\+\/-/g, '±')
       .replace(/(\d+)\.(\d+)/g, '$1,$2');
+
+    if (/^(?:N\.?A\.?|Not applicable|Non applicabile|Nie dotyczy)$/i.test(v.trim())) {
+      if (key === "density" || key === "viscosity" || key === "melting" || key === "vapour_pressure" || key === "boiling" || key === "relative_vapour_density") {
+        return "Brak danych";
+      }
+      if (key === "particle_characteristics") return "Nie dotyczy (produkt płynny)";
+      return "Nie dotyczy";
+    }
 
     // Specyficzne polonizacje
     if (key === "boiling") {

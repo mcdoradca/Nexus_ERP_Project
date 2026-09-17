@@ -81,6 +81,24 @@ class SDSLinter {
         }
       }
 
+      // Temperatura topnienia/krzepnięcia cieczy nie może być "nie dotyczy"
+      const meltingMatch = s9.match(/Temperatura\s+topnienia(?:\/krzepnięcia)?\s*[:\.]?\s*([^\n\r]+)/i);
+      if (meltingMatch) {
+        const val = meltingMatch[1].trim();
+        if (/nie\s+dotyczy/i.test(val)) {
+          errors.push("[Sekcja 9.1] BŁĄD PRAWNY: Temperatura topnienia/krzepnięcia dla produktu płynnego została oznaczona jako 'Nie dotyczy'. Ciecz fizycznie zawsze posiada temperaturę krzepnięcia (wymagane: 'Brak danych' lub 'Nie oznaczono').");
+        }
+      }
+
+      // Prężność pary cieczy nie może być "nie dotyczy"
+      const vapourMatch = s9.match(/Prężność\s+pary\s*[:\.]?\s*([^\n\r]+)/i);
+      if (vapourMatch) {
+        const val = vapourMatch[1].trim();
+        if (/nie\s+dotyczy/i.test(val)) {
+          errors.push("[Sekcja 9.1] BŁĄD PRAWNY: Prężność pary dla produktu płynnego została oznaczona jako 'Nie dotyczy'. Ciecz fizycznie zawsze posiada prężność pary (wymagane: 'Brak danych' lub 'Nie oznaczono').");
+        }
+      }
+
       // Charakterystyka cząstek dla cieczy powinna być "Nie dotyczy (produkt płynny)"
       const particleMatch = s9.match(/Charakterystyka\s+cząstek\s*[:\.]?\s*([^\n\r]+)/i);
       if (particleMatch) {
@@ -358,6 +376,14 @@ class SDSLinter {
       if (!/2023\/707/i.test(s15All)) {
         warnings.push("[Sekcja 15.1] BRAK ODNIESIENIA DO NOWYCH KLAS CLP: Brak powołania Rozporządzenia Delegowanego (UE) 2023/707 wprowadzającego nowe klasy zagrożeń (ED, PBT, vPvB, PMT, vPvM).");
       }
+    }
+
+    // ------------------------------------------------------------------------
+    // REGUŁA 24: ZAKAZ ANGLOJĘZYCZNYCH FRAZ W SEKCJI 15 (Seveso III: None)
+    // art. 17 Ustawy o substancjach chemicznych i ich mieszaninach
+    // ------------------------------------------------------------------------
+    if (s15All && /Kategoria\s+zagrożenia\s*[:\.]?\s*None\b/i.test(s15All)) {
+      errors.push("[Sekcja 15.1] BŁĄD JĘZYKOWY (ART. 17 USTAWY): Wykryto anglojęzyczny wpis 'Kategoria zagrożenia: None' w podsekcji Seveso III. Karta sporządzana na rynek polski musi być w całości w języku polskim (wymagane: 'Kategoria zagrożenia: Brak (mieszanina nie spełnia kryteriów ilościowych ani jakościowych Dyrektywy Seveso III)').");
     }
 
     return {

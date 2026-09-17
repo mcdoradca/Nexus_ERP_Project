@@ -1,5 +1,5 @@
 /**
- * TEST SUITE ADR-109: ENTERPRISE CROSS-SECTION CONSISTENCY & RECYDYWA ERADICATION
+ * TEST SUITE ADR-109 / ADR-110: ENTERPRISE CROSS-SECTION CONSISTENCY & RECYDYWA ERADICATION
  * Weryfikacja 6 punktów audytu Sanepid/PIP oraz norm UE 2020/878 i WE 1272/2008 na karcie NAJMA DOCX
  */
 
@@ -83,7 +83,7 @@ test('ADR-109 [PUNKT 2]: CLP Annex VI Harmonized Registry i eliminacja wycieków
   assert.ok(!/\(ang\./i.test(s3), 'Sekcja 3 nie może zawierać wycieków (ang. ...)');
 });
 
-test('ADR-109 [PUNKT 3]: Niedestrukcyjne parsowanie Sekcji 9.1 i 9.2 (gęstość, wrzenie, LZO)', async () => {
+test('ADR-109 [PUNKT 3]: Niedestrukcyjne parsowanie Sekcji 9.1 i 9.2 oraz poprawność metodyczna cieczy (ADR-110)', async () => {
   const engine = getTestEngine();
   const payload = await engine.prepareAgentPayload(NAJMA_DOCX, 'SWEET HOME LAYALI - PROFUMA TESSUTI E AMBIENTE NAJMA');
   const s9 = payload.deterministicSections.section_9.content;
@@ -95,7 +95,13 @@ test('ADR-109 [PUNKT 3]: Niedestrukcyjne parsowanie Sekcji 9.1 i 9.2 (gęstość
   // Temperatura wrzenia
   assert.ok(s9.includes('100°C') || s9.includes('100 °C'), 'Temperatura wrzenia musi zachować wartość 100°C');
 
-  // Cząstki dla cieczy
+  // ZGODNOŚĆ METODYCZNA ECHA: Brak danych zamiast Nie dotyczy dla parametrów fizycznie istniejących
+  assert.ok(s9.includes('Temperatura topnienia/krzepnięcia: Brak danych'), 'Temperatura krzepnięcia dla roztworu wodnego musi być Brak danych');
+  assert.ok(!s9.includes('Temperatura topnienia/krzepnięcia: Nie dotyczy'), 'Temperatura krzepnięcia dla cieczy nie może być Nie dotyczy');
+  assert.ok(s9.includes('Prężność pary: Brak danych'), 'Prężność pary dla roztworu ciekłego musi być Brak danych');
+  assert.ok(!s9.includes('Prężność pary: Nie dotyczy'), 'Prężność pary dla cieczy nie może być Nie dotyczy');
+
+  // Cząstki dla cieczy: Nie dotyczy
   assert.ok(s9.includes('Nie dotyczy (produkt płynny)'), 'Charakterystyka cząstek dla cieczy musi brzmieć "Nie dotyczy (produkt płynny)"');
 
   // LZO w 9.2
@@ -134,18 +140,23 @@ test('ADR-109 [PUNKT 5]: Precyzja techniczna ŚOI w Sekcji 8.2 (Załącznik II R
   assert.ok(s8.includes('A-P2') || s8.includes('PN-EN 14387'), 'Sekcja 8.2 musi powoływać filtr A-P2 i normę PN-EN 14387');
 });
 
-test('ADR-109 [PUNKT 6]: Przepisy prawa (Sekcja 15.1) i progi odcięcia Art. 31 REACH dla ED', async () => {
+test('ADR-109 [PUNKT 6]: Przepisy prawa (Sekcja 15.1), Seveso III po polsku (ADR-110) i progi odcięcia Art. 31 REACH dla ED', async () => {
   // Test progu 0.1% dla Galaksolidu
   const compsWithoutEd = [{ name: 'Zapach', concentration: '0.05%' }];
   const edStatusUnder = SDSConsistencyEngine.resolveEndocrineStatus(compsWithoutEd);
   assert.equal(edStatusUnder.declaredIn2_3, false, 'Substancja poniżej 0,1% nie może być deklarowana jako składnik stwarzający zagrożenie w 2.3');
   assert.ok(edStatusUnder.s2_3_text.includes('nie zawiera'), 'Sekcja 2.3 musi zawierać prawną formułę negatywną zgodną z REACH');
 
-  // Test Sekcji 15.1
-  const s15Text = SDSConsistencyEngine.getSection15LegalActs();
-  assert.ok(s15Text.includes('2019/1148'), 'Sekcja 15.1 musi powoływać Rozporządzenie (UE) 2019/1148');
-  assert.ok(s15Text.includes('2023/707'), 'Sekcja 15.1 musi powoływać Rozporządzenie Delegowane (UE) 2023/707');
-  assert.ok(s15Text.includes('Dz.U. 2016 poz. 138'), 'Sekcja 15.1 musi powoływać polskie rozporządzenie Seveso III Dz.U. 2016 poz. 138');
+  // Test Sekcji 15.1 z payloadu NAJMA
+  const engine = getTestEngine();
+  const payload = await engine.prepareAgentPayload(NAJMA_DOCX, 'SWEET HOME LAYALI - PROFUMA TESSUTI E AMBIENTE NAJMA');
+  const s15 = payload.deterministicSections.section_15.content;
+
+  assert.ok(s15.includes('2019/1148'), 'Sekcja 15.1 musi powoływać Rozporządzenie (UE) 2019/1148');
+  assert.ok(s15.includes('2023/707'), 'Sekcja 15.1 musi powoływać Rozporządzenie Delegowane (UE) 2023/707');
+  assert.ok(s15.includes('Dz.U. 2016 poz. 138'), 'Sekcja 15.1 musi powoływać polskie rozporządzenie Seveso III Dz.U. 2016 poz. 138');
+  assert.ok(s15.includes('Kategoria zagrożenia: Brak (mieszanina nie spełnia kryteriów ilościowych ani jakościowych Dyrektywy Seveso III)'), 'Sekcja 15.1 musi zawierać urzędową polską formułę Seveso III');
+  assert.ok(!s15.includes('Kategoria zagrożenia: None'), 'Sekcja 15.1 nie może zawierać anglojęzycznego wycieku Kategoria zagrożenia: None');
 });
 
 test('ADR-109: Integracyjny audyt SDSLinter i SDSVerifierAgent dla kompletnej karty NAJMA', async () => {
@@ -168,7 +179,7 @@ test('ADR-109: Integracyjny audyt SDSLinter i SDSVerifierAgent dla kompletnej ka
     section_12: { content: payload.deterministicSections.section_12.content },
     section_13: { content: payload.deterministicSections.section_13.content },
     section_14: { content: payload.deterministicSections.section_14.content },
-    section_15: { content: SDSConsistencyEngine.getSection15LegalActs() },
+    section_15: { content: payload.deterministicSections.section_15.content },
     section_16: { content: payload.deterministicSections.section_16.content }
   };
 

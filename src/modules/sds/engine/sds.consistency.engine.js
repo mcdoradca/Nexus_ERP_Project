@@ -21,12 +21,14 @@ class SDSConsistencyEngine {
     const isAlkaline = phVal !== null && phVal > 10.0;
     
     // Analiza alergenów i zagrożeń
-    const hasSkinSens = hCodes.includes('H317') || components.some(c => /H317|Skin\s*Sens/i.test(c.classification || ''));
+    const hasSkinSens = hCodes.some(h => /H317|EUH208/i.test(h)) || components.some(c => /H317|Skin\s*Sens/i.test(c.classification || ''));
+    const sensComp = components.find(c => /Skin Sens|H317/i.test(c.classification || ''));
     const hasEyeHazard = hCodes.some(h => ['H318', 'H319'].includes(h));
 
     let symptoms = [];
     if (isAcidic) {
-      symptoms.push("W kontakcie ze skórą: z uwagi na kwasowy odczyn produktu (pH 2,0–3,0) możliwe miejscowe zaczerwienienie i podrażnienie naskórka; u osób wrażliwych na składniki kompozycji zapachowej i konserwanty ryzyko odczynów alergicznych (świąd, rumień).");
+      const sensSuffix = (sensComp && sensComp.name) ? ` (zawiera ${sensComp.name})` : '';
+      symptoms.push(`W kontakcie ze skórą: z uwagi na kwasowy odczyn produktu (pH 2,0–3,0) możliwe miejscowe zaczerwienienie i podrażnienie naskórka; u osób wrażliwych na składniki kompozycji zapachowej i konserwanty ryzyko odczynów alergicznych (świąd, rumień)${sensSuffix}.`);
       symptoms.push("W kontakcie z oczami: możliwe łzawienie, pieczenie, kłucie i zaczerwienienie spojówek w razie bezpośredniego zachlapania oka.");
       symptoms.push("W razie połknięcia: może powodować podrażnienie błon śluzowych jamy ustnej, gardła i przewodu pokarmowego, ból brzucha i nudności.");
       symptoms.push("W następstwie wdychania: w normalnych warunkach stosowania produkt nie wywołuje negatywnych objawów oddechowych; u osób szczególnie wrażliwych na intensywne zapachy możliwe kichanie lub przejściowy kaszel.");
@@ -37,7 +39,11 @@ class SDSConsistencyEngine {
       symptoms.push("W następstwie wdychania: w warunkach normalnego stosowania brak objawów.");
     } else {
       if (hasSkinSens) {
-        symptoms.push("W kontakcie ze skórą: może powodować reakcję alergiczną skóry (świąd, miejscowy rumień, wysypka) u osób predysponowanych.");
+        if (sensComp && sensComp.name) {
+          symptoms.push(`W kontakcie ze skórą: U osób szczególnie wrażliwych może wywołać reakcję alergiczną skóry (zawiera ${sensComp.name}).`);
+        } else {
+          symptoms.push("W kontakcie ze skórą: U osób szczególnie wrażliwych może wywołać reakcję alergiczną skóry.");
+        }
       } else {
         symptoms.push("W kontakcie ze skórą: w warunkach prawidłowego użytkowania nie przewiduje się negatywnych objawów.");
       }
@@ -64,17 +70,19 @@ class SDSConsistencyEngine {
     const phVal = this.parseNumericPh(phStr);
     const isCorrosiveOrAcidic = phVal !== null && phVal < 4.0;
 
-    const handText = "Ochrona rąk: W zastosowaniach profesjonalnych i przemysłowych (oraz podczas usuwania skutków awarii) stosować rękawice ochronne odporne chemicznie (zalecany kauczuk nitrylowy o grubości minimalnej 0,4 mm, czas przebicia > 480 min zgodnie z normą PN-EN ISO 374-1). Przy krótkotrwałym kontakcie konsumenckim specjalne rękawice nie są wymagane; zaleca się unikać przedłużonego kontaktu cieczy ze skórą.";
+    const handText = "W normalnych warunkach stosowania konsumenckiego: ochrona rąk nie jest wymagana; zaleca się unikać przedłużonego kontaktu cieczy ze skórą. W warunkach przemysłowych, przeładunku hurtowego lub usuwania awarii zaleca się stosowanie rękawic ochronnych odpornych na działanie chemikaliów (zalecany kauczuk nitrylowy o grubości minimalnej 0,4 mm, czas przebicia > 480 min zgodnie z normą PN-EN ISO 374-1).";
 
     const eyeText = isCorrosiveOrAcidic
-      ? "Ochrona oczu lub twarzy: W warunkach przemysłowych, przeładunku lub ryzyka rozchlapania kwasowej cieczy stosować okulary ochronne lub gogle szczelne (zgodne z normą PN-EN 166). W warunkach typowego użytkowania konsumenckiego nie są wymagane."
-      : "Ochrona oczu lub twarzy: W zastosowaniach konsumenckich nie jest wymagana. W warunkach przemysłowych zaleca się stosowanie okularów ochronnych (PN-EN 166) w przypadku ryzyka zachlapania.";
+      ? "W normalnych warunkach stosowania konsumenckiego: środki ochrony oczu nie są wymagane. W warunkach przemysłowych, przeładunku hurtowego lub usuwania awarii zaleca się stosowanie okularów ochronnych zgodnych z normą PN-EN 166 (lub gogli szczelnych w razie ryzyka rozchlapania kwasowej cieczy)."
+      : "W normalnych warunkach stosowania konsumenckiego: środki ochrony oczu nie są wymagane. W warunkach przemysłowych, przeładunku hurtowego lub usuwania awarii zaleca się stosowanie okularów ochronnych zgodnych z normą PN-EN 166.";
 
-    const respText = "Ochrona dróg oddechowych: W normalnych warunkach eksploatacji i przy sprawnej wentylacji nie jest wymagana. W razie wystąpienia mgieł, aerozoli lub podczas prac awaryjnych w przestrzeniach zamkniętych stosować odpowiedni sprzęt ochrony dróg oddechowych z filtrem/pochłaniaczem kombinowanym typu A-P2 (lub A1P2) zgodnie z normą PN-EN 14387.";
+    const respText = "W normalnych warunkach stosowania przy właściwej wentylacji nie jest wymagana. W warunkach przemysłowych, w razie wystąpienia mgieł, aerozoli lub podczas prac awaryjnych stosować odpowiedni sprzęt ochrony dróg oddechowych z filtrem/pochłaniaczem kombinowanym typu A-P2 (lub A1P2) zgodnie z normą PN-EN 14387.";
 
-    const skinText = "Ochrona skóry i ciała: Standardowa odzież robocza. Przestrzegać ogólnych zasad higieny pracy: myć ręce przed przerwami i po zakończeniu pracy.";
+    const skinText = "W normalnych warunkach stosowania konsumenckiego: nie są wymagane szczególne środki ochrony. W warunkach przemysłowych stosować standardową odzież roboczą chroniącą przed kontaktem z chemikaliami. Przestrzegać ogólnych zasad higieny pracy: myć ręce przed przerwami i po zakończeniu pracy.";
 
     const envText = "Kontrola narażenia środowiska: Nie dopuścić do przedostania się dużych ilości produktu do wód gruntowych, kanalizacji miejskiej, cieków wodnych ani gleby.";
+
+    return { handText, eyeText, respText, skinText, envText };
 
     return { handText, eyeText, respText, skinText, envText };
   }
@@ -149,7 +157,7 @@ class SDSConsistencyEngine {
       "4. Rozporządzenie Delegowane Komisji (UE) 2023/707 z dnia 19 grudnia 2022 r. zmieniające rozporządzenie (WE) nr 1272/2008 w odniesieniu do klas zagrożenia oraz kryteriów klasyfikacji, oznakowania i pakowania substancji i mieszanin (właściwości zaburzające funkcjonowanie układu hormonalnego, PBT, vPvB, PMT, vPvM).",
       "5. Rozporządzenie Parlamentu Europejskiego i Rady (UE) 2019/1148 z dnia 20 czerwca 2019 r. w sprawie wprowadzania do obrotu i stosowania prekursorów materiałów wybuchowych: Produkt nie zawiera regulowanych ani podlegających zgłoszeniu prekursorów materiałów wybuchowych.",
       "6. Rozporządzenie (WE) nr 648/2004 Parlamentu Europejskiego i Rady z dnia 31 marca 2004 r. w sprawie detergentów z późn. zm.",
-      "7. Dyrektywa 2012/18/UE Parlamentu Europejskiego i Rady z dnia 4 lipca 2012 r. w sprawie kontroli niebezpieczeństwa poważnych awarii związanych z substancjami niebezpiecznymi (Seveso III): Kategoria zagrożenia: Nie dotyczy (produkt nie kwalifikuje się do żadnej z kategorii zagrożeń Seveso III).",
+      "7. Dyrektywa 2012/18/UE Parlamentu Europejskiego i Rady z dnia 4 lipca 2012 r. w sprawie kontroli niebezpieczeństwa poważnych awarii związanych z substancjami niebezpiecznymi (Seveso III): Kategoria zagrożenia: Brak (mieszanina nie spełnia kryteriów ilościowych ani jakościowych Dyrektywy Seveso III).",
       "",
       "Akty prawne Rzeczypospolitej Polskiej:",
       "1. Ustawa z dnia 25 lutego 2011 r. o substancjach chemicznych i ich mieszaninach (Dz.U. 2022 poz. 1816 z późn. zm.).",

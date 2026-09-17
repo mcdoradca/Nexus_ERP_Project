@@ -1531,7 +1531,7 @@ class PolishLegalTemplates {
       detergentLawLine = "- Rozporządzenie (WE) nr 648/2004 Parlamentu Europejskiego i Rady z dnia 31 marca 2004 r. w sprawie detergentów z późniejszymi zmianami.\n";
     }
 
-    let sevesoLine = "- Dyrektywa Seveso III (2012/18/UE) / Rozporządzenie Ministra Rozwoju z dnia 29 stycznia 2016 r. (Dz.U. 2016 poz. 138):\n  * Mieszanina nie podlega przepisom dyrektywy – brak substancji w ilościach progowych (Nie dotyczy).\n";
+    let sevesoLine = "- Dyrektywa Seveso III (2012/18/UE) / Rozporządzenie Ministra Rozwoju z dnia 29 stycznia 2016 r. (Dz.U. 2016 poz. 138):\n  * Kategoria zagrożenia: Brak (mieszanina nie spełnia kryteriów ilościowych ani jakościowych Dyrektywy Seveso III).\n";
     if (sevesoCategory === "P5c" || (!sevesoCategory && isHighlyFlammable)) {
       sevesoLine = "- Dyrektywa Seveso III (2012/18/UE) / Rozporządzenie Ministra Rozwoju z dnia 29 stycznia 2016 r. (Dz.U. 2016 poz. 138):\n" +
                    "  * Kategoria zagrożenia: P5c CIECZE ŁATWOPALNE.\n" +
@@ -1552,8 +1552,10 @@ class PolishLegalTemplates {
       sevesoLine = "- Dyrektywa Seveso III (2012/18/UE) / Rozporządzenie Ministra Rozwoju z dnia 29 stycznia 2016 r. (Dz.U. 2016 poz. 138):\n" +
                    "  * Kategoria zagrożenia: E2 ZAGROŻENIA DLA ŚRODOWISKA.\n" +
                    "  * Ilości progowe substancji niebezpiecznych decydujące o zaliczeniu zakładu: Zakład o Zwiększonym Ryzyku (ZZR) – 200 t; Zakład o Dużym Ryzyku (ZDR) – 500 t.\n";
-    } else if (sevesoCategory) {
+    } else if (sevesoCategory && !/^(?:none|brak|nie dotyczy|nessuna)$/i.test(sevesoCategory.trim())) {
       sevesoLine = `- Dyrektywa Seveso III (2012/18/UE) / Rozporządzenie Ministra Rozwoju z dnia 29 stycznia 2016 r. (Dz.U. 2016 poz. 138):\n  * Kategoria zagrożenia: ${sevesoCategory}.\n`;
+    } else {
+      sevesoLine = "- Dyrektywa Seveso III (2012/18/UE) / Rozporządzenie Ministra Rozwoju z dnia 29 stycznia 2016 r. (Dz.U. 2016 poz. 138):\n  * Kategoria zagrożenia: Brak (mieszanina nie spełnia kryteriów ilościowych ani jakościowych Dyrektywy Seveso III).\n";
     }
 
     return (
@@ -2983,8 +2985,8 @@ class SDSProcessorEngine {
 
     // 3. "not applicable" / "non applicabile" / "nie dotyczy" / "n/a"
     if (/^(?:N\.?A\.?|Not applicable|Non applicabile|Nie dotyczy)$/i.test(v) || /(?:N\.A\.|Not applicable|Non applicabile)/i.test(v)) {
-      // Dla cieczy parametry takie jak lepkość i gęstość z przyczyn fizycznych nie mogą być "nie dotyczy"
-      if (paramKey && /^(?:viscosity|density|relative_vapour_density)$/i.test(paramKey)) {
+      // Dla cieczy parametry fizyczne nie mogą być "nie dotyczy" (wymóg wytycznych ECHA i pkt 9 Zał. II)
+      if (paramKey && /^(?:viscosity|density|relative_vapour_density|melting|vapour_pressure|boiling)$/i.test(paramKey)) {
         return "Brak danych";
       }
       if (paramKey && /^(?:particle_characteristics)$/i.test(paramKey)) {
@@ -3392,6 +3394,9 @@ class SDSProcessorEngine {
                      clean.match(/(?:Seveso|2012\/18\/EU)[^\n\r]*?:\s*([A-Z0-9]+)/i);
     if (catMatch) {
       sevesoCat = catMatch[1].trim();
+      if (/^(?:none|nessuna|null)$/i.test(sevesoCat)) {
+        sevesoCat = "Brak";
+      }
     }
 
     // Wykrywanie ograniczeń Załącznika XVII REACH

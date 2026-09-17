@@ -694,6 +694,45 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
+    // REGUŁA 25: AUDYT SEKCJI 9.1 - ELIMINACJA "NIE DOTYCZY" DLA FIZYCZNIE ISTNIEJĄCYCH PARAMETRÓW CIECZY
+    // Wytyczne ECHA i pkt 9 Załącznika II do REACH (Temperatura krzepnięcia, prężność pary)
+    // =========================================================================
+    const s9ForFix = (validatedSections.section_9 && validatedSections.section_9.content) || "";
+    const isLiquidProduct = /ciecz|płyn|liquid/i.test(s9ForFix) || /ciecz|płyn/i.test(s2Content);
+    if (isLiquidProduct && s9ForFix) {
+      let fixedS9_2 = s9ForFix;
+      if (/Temperatura topnienia\/krzepnięcia:\s*Nie dotyczy/i.test(fixedS9_2)) {
+        fixedS9_2 = fixedS9_2.replace(/Temperatura topnienia\/krzepnięcia:\s*Nie dotyczy/gi, 'Temperatura topnienia/krzepnięcia: Brak danych');
+      }
+      if (/Prężność pary:\s*Nie dotyczy/i.test(fixedS9_2)) {
+        fixedS9_2 = fixedS9_2.replace(/Prężność pary:\s*Nie dotyczy/gi, 'Prężność pary: Brak danych');
+      }
+      if (fixedS9_2 !== s9ForFix) {
+        validatedSections.section_9 = { ...validatedSections.section_9, content: fixedS9_2 };
+        auditLog.push({
+          rule: "SECTION_9_METHODICAL_PHYSCHEM_REMEDIATION",
+          status: "AUTO_REMEDIATED",
+          message: "Zastąpiono błędne 'Nie dotyczy' dla temperatury krzepnięcia i prężności pary wartością 'Brak danych' zgodnie z wytycznymi ECHA."
+        });
+      }
+    }
+
+    // =========================================================================
+    // REGUŁA 26: AUDYT SEKCJI 15.1 - ELIMINACJA ANGLOJĘZYCZNEGO "None" W SEVESO III
+    // art. 17 Ustawy o substancjach chemicznych i ich mieszaninach
+    // =========================================================================
+    let s15ForFix = (validatedSections.section_15 && validatedSections.section_15.content) || "";
+    if (s15ForFix && /Kategoria zagrożenia:\s*None\b/i.test(s15ForFix)) {
+      s15ForFix = s15ForFix.replace(/Kategoria zagrożenia:\s*None\b/gi, 'Kategoria zagrożenia: Brak (mieszanina nie spełnia kryteriów ilościowych ani jakościowych Dyrektywy Seveso III)');
+      validatedSections.section_15 = { ...validatedSections.section_15, content: s15ForFix };
+      auditLog.push({
+        rule: "SECTION_15_SEVESO_LANGUAGE_REMEDIATION",
+        status: "AUTO_REMEDIATED",
+        message: "Wykryto i przetłumaczono anglojęzyczny wpis 'Kategoria zagrożenia: None' na język polski zgodnie z wymogami art. 17 Ustawy."
+      });
+    }
+
+    // =========================================================================
     // KROK AI: AUDYT NADZORCZY GEMINI 3.8 FLASH (DEFENSIVE AI QUALITY GATEWAY)
     // =========================================================================
     validatedSections = await SDSVerifierAgent.auditWithGemini(validatedSections, metadata, auditLog);
