@@ -271,8 +271,10 @@ const ALLERGEN_NAMES_PL = {
   "amyl cinnamal": "aldehyd amylocynamonowy",
   "cinnamyl alcohol": "alkohol cynamonowy",
   "citral": "cytral",
-  "eugenol": "eugenol",
+  "3,7-dimethyloct-6-en-1-ol": "cytronellol",
+  "3,7-dimethylnona-1,6-dien-3-ol": "(6E)-3,7-dimethylnona-1,6-dien-3-ol",
   "isoeugenol": "izoeugenol",
+  "eugenol": "eugenol",
   "benzyl alcohol": "alkohol benzylowy",
   "cineole": "1,8-cyneol (eukaliptol)",
   "methanol": "metanol",
@@ -295,6 +297,7 @@ const CAS_TO_PL_MAP = {
   "91-64-5": "kumaryna (2H-chromen-2-on)",
   "106-24-1": "geraniol",
   "106-22-9": "cytronellol",
+  "10339-55-6": "(6E)-3,7-dimethylnona-1,6-dien-3-ol",
   "118-58-1": "salicylan benzylu",
   "101-86-0": "aldehyd heksylocynamonowy",
   "107-75-5": "hydroksycytronellal",
@@ -712,9 +715,15 @@ class SDSChemicalExtractor {
     if (rawSubstances.length === 0) return null;
 
     let mappedParts = rawSubstances.map(part => {
-      let lower = part.toLowerCase();
-      for (const [enName, plName] of Object.entries(ALLERGEN_NAMES_PL)) {
-        if (lower === enName.toLowerCase() || lower.includes(enName.toLowerCase())) {
+      let lower = part.toLowerCase().trim();
+      const sortedAllergens = Object.entries(ALLERGEN_NAMES_PL).sort((a, b) => b[0].length - a[0].length);
+      for (const [enName, plName] of sortedAllergens) {
+        const enLower = enName.toLowerCase();
+        if (lower === enLower) {
+          return plName;
+        }
+        const wordRegex = new RegExp(`(^|[^a-z0-9])${enLower.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}([^a-z0-9]|$)`, 'i');
+        if (wordRegex.test(lower)) {
           return plName;
         }
       }
@@ -972,9 +981,15 @@ class SDSChemicalExtractor {
       }
     }
     if (rawName) {
-      const lowerRaw = rawName.toLowerCase();
-      for (const [en, pl] of Object.entries(ALLERGEN_NAMES_PL)) {
-        if (lowerRaw === en.toLowerCase() || lowerRaw.includes(en.toLowerCase())) {
+      const lowerRaw = rawName.toLowerCase().trim();
+      const sortedAllergens = Object.entries(ALLERGEN_NAMES_PL).sort((a, b) => b[0].length - a[0].length);
+      for (const [en, pl] of sortedAllergens) {
+        const enLower = en.toLowerCase();
+        if (lowerRaw === enLower) {
+          return pl;
+        }
+        const wordRegex = new RegExp(`(^|[^a-z0-9])${enLower.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}([^a-z0-9]|$)`, 'i');
+        if (wordRegex.test(lowerRaw)) {
           return pl;
         }
       }
@@ -1013,6 +1028,44 @@ class SDSChemicalExtractor {
       return pol;
     }
     return rawName || (cas ? `Substancja CAS: ${cas}` : "Składnik");
+  }
+
+  static findMatchingComponent(rawName, components = []) {
+    if (!rawName || !Array.isArray(components) || components.length === 0) return null;
+    const clean = rawName.trim().toLowerCase().replace(/[^a-ząćęłńóśźż0-9]/g, '');
+    if (!clean) return null;
+
+    // 1. Bezpośrednie dopasowanie leksykalne do originalName lub name
+    for (const c of components) {
+      const origClean = (c.originalName || '').trim().toLowerCase().replace(/[^a-ząćęłńóśźż0-9]/g, '');
+      const nameClean = (c.name || '').trim().toLowerCase().replace(/[^a-ząćęłńóśźż0-9]/g, '');
+      if (clean === origClean || clean === nameClean) {
+        return c;
+      }
+    }
+
+    // 2. Dopasowanie po synonimach chemicznych IUPAC / INCI i numerach CAS
+    for (const c of components) {
+      const cas = c.cas || '';
+      // CAS 97-54-1: izoeugenol (bezwzględne odróżnienie od eugenolu)
+      if (cas === '97-54-1' && clean.includes('isoeugenol')) return c;
+      // CAS 97-53-0: eugenol
+      if (cas === '97-53-0' && clean === 'eugenol') return c;
+      // CAS 106-22-9: cytronellol / 3,7-dimethyloct-6-en-1-ol
+      if (cas === '106-22-9' && (clean.includes('37dimethyloct6en1ol') || clean.includes('citronellol') || clean.includes('cytronellol'))) return c;
+      // CAS 10339-55-6: (6E)-3,7-dimethylnona-1,6-dien-3-ol / ethyllinalool
+      if (cas === '10339-55-6' && (clean.includes('37dimethylnona16dien3ol') || clean.includes('ethyllinalool') || clean.includes('etylolinalol'))) return c;
+      // CAS 91-64-5: kumaryna / 2H-chromen-2-on
+      if (cas === '91-64-5' && (clean.includes('2hchromen2one') || clean.includes('coumarin') || clean.includes('kumaryn'))) return c;
+      // CAS 115-95-7: octan linalilu / linalyl acetate
+      if (cas === '115-95-7' && (clean.includes('linalylacetate') || clean.includes('octanlinalilu'))) return c;
+      // CAS 106-24-1: geraniol
+      if (cas === '106-24-1' && clean.includes('geraniol')) return c;
+      // CAS 64-17-5: etanol
+      if (cas === '64-17-5' && (clean === 'etanol' || clean === 'ethanol')) return c;
+    }
+
+    return null;
   }
 
   static formatConcentration(concStr) {
@@ -1814,6 +1867,12 @@ class SDSProcessorEngine {
         : rawText.split(/(?:;|(?:,(?!\s*\d|\s*[a-z0-9\*]+\))))/).map(s => s.trim()).filter(s => s && !/(?:Hazard-determining|Pericoli|Zwroty|Piktogramy|Hasło|Signal|Word|EUH)/i.test(s) && s.length >= 3);
       
       potentialNames = rawNames.map(rn => {
+        if (components && Array.isArray(components)) {
+          const comp = SDSChemicalExtractor.findMatchingComponent(rn, components);
+          if (comp) {
+            return comp.name || comp.originalName;
+          }
+        }
         return SDSChemicalExtractor.resolvePlName(null, rn, resolvedSubstances);
       }).filter(Boolean);
     }
@@ -1889,7 +1948,16 @@ class SDSProcessorEngine {
         const deduplicatedNames = [];
         const seenKeys = new Set();
         for (const nm of rawAllNames) {
-          const resolved = SDSChemicalExtractor.resolvePlName(null, nm, resolvedSubstances);
+          let resolved = nm;
+          if (components && Array.isArray(components)) {
+            const comp = SDSChemicalExtractor.findMatchingComponent(nm, components);
+            if (comp) {
+              resolved = comp.name || comp.originalName;
+            }
+          }
+          if (resolved === nm) {
+            resolved = SDSChemicalExtractor.resolvePlName(null, nm, resolvedSubstances);
+          }
           const key = (resolved || '').toLowerCase().replace(/[^a-ząćęłńóśźż0-9]/g, '');
           if (key && !seenKeys.has(key)) {
             seenKeys.add(key);
@@ -1915,7 +1983,14 @@ class SDSProcessorEngine {
       const deduplicatedNames = [];
       const seenKeys = new Set();
       for (const nm of potentialNames) {
-        const resolved = SDSChemicalExtractor.resolvePlName(null, nm, resolvedSubstances);
+        let resolved = nm;
+        if (components && Array.isArray(components)) {
+          const comp = SDSChemicalExtractor.findMatchingComponent(nm, components);
+          if (comp) resolved = comp.name || comp.originalName;
+        }
+        if (resolved === nm) {
+          resolved = SDSChemicalExtractor.resolvePlName(null, nm, resolvedSubstances);
+        }
         const key = (resolved || '').toLowerCase().replace(/[^a-ząćęłńóśźż0-9]/g, '');
         if (key && !seenKeys.has(key)) {
           seenKeys.add(key);

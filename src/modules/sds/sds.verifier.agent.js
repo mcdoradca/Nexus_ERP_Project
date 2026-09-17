@@ -572,6 +572,61 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
+    // REGUŁA 21: AUDYT SEKCJI 2.2 - HARMONIZACJA ALERGENÓW I ELIMINACJA KLONOWANIA SYNONIMÓW
+    // Rozporządzenie CLP art. 18 ust. 3 lit. b (izoeugenol vs eugenol, eliminacja duplikatów IUPAC/INCI)
+    // =========================================================================
+    s2Audit = (validatedSections.section_2 && validatedSections.section_2.content) || "";
+    if (s2Audit) {
+      const labelMatch = s2Audit.match(/(Nazwy niebezpiecznych substancji wymienione na etykiecie\n)([^\n]+)/i);
+      if (labelMatch) {
+        let substancesLine = labelMatch[2];
+        let modified = false;
+
+        // 1. Wykrycie i naprawa fałszywego eugenolu zamiast izoeugenolu
+        const hasIsoInComps = components && components.some(c => c.cas === '97-54-1' || /izoeugenol|isoeugenol/i.test(c.name || c.originalName || ''));
+        const hasEugenolInComps = components && components.some(c => c.cas === '97-53-0' || (/eugenol/i.test(c.name || c.originalName || '') && !/izoeugenol|isoeugenol/i.test(c.name || c.originalName || '')));
+        
+        if (/\beugenol\b/i.test(substancesLine) && !/\bizoeugenol\b/i.test(substancesLine) && hasIsoInComps && !hasEugenolInComps) {
+          substancesLine = substancesLine.replace(/\beugenol\b/gi, 'izoeugenol');
+          modified = true;
+          auditLog.push({
+            rule: "SECTION_2_ALLERGEN_IDENTITY_REMEDIATION",
+            status: "AUTO_REMEDIATED",
+            message: "Wykryto i skorygowano błąd substytucji alergenu w Sekcji 2.2: zamieniono fałszywy 'eugenol' na poprawny 'izoeugenol' (CAS: 97-54-1) zgodnie ze składem w Sekcji 3."
+          });
+        }
+
+        // 2. Eliminacja klonowania nazw IUPAC obok nazw INCI
+        if (/3,7-dimethyloct-6-en-1-ol/i.test(substancesLine) && /cytronellol/i.test(substancesLine)) {
+          substancesLine = substancesLine.replace(/(?:,\s*)?3,7-DIMETHYLOCT-6-EN-1-OL(?:,\s*)?/gi, ', ').replace(/^,\s*|,\s*$/g, '').replace(/,\s*,/g, ',');
+          modified = true;
+          auditLog.push({
+            rule: "SECTION_2_SYNONYM_DEDUPLICATION",
+            status: "AUTO_REMEDIATED",
+            message: "Usunięto zduplikowaną nazwę chemiczną '3,7-DIMETHYLOCT-6-EN-1-OL' występującą obok nazwy 'cytronellol' na etykiecie w Sekcji 2.2."
+          });
+        }
+
+        if (/\b3,7-dimethylnona-1,6-dien-3-ol\b/i.test(substancesLine) && /\(6E\)-3,7-dimethylnona-1,6-dien-3-ol\b/i.test(substancesLine)) {
+          substancesLine = substancesLine.replace(/(?:,\s*)?3,7-DIMETHYLNONA-1,6-DIEN-3-OL(?:,\s*)?/gi, ', ').replace(/^,\s*|,\s*$/g, '').replace(/,\s*,/g, ',');
+          modified = true;
+          auditLog.push({
+            rule: "SECTION_2_SYNONYM_DEDUPLICATION",
+            status: "AUTO_REMEDIATED",
+            message: "Usunięto zduplikowaną postać nazwy chemicznej '3,7-DIMETHYLNONA-1,6-DIEN-3-OL' występującą obok '(6E)-3,7-dimethylnona-1,6-dien-3-ol' na etykiecie w Sekcji 2.2."
+          });
+        }
+
+        if (modified) {
+          const parts = substancesLine.split(',').map(s => s.trim()).filter(Boolean);
+          substancesLine = Array.from(new Set(parts)).join(', ');
+          s2Audit = s2Audit.replace(labelMatch[0], `${labelMatch[1]}${substancesLine}`);
+          validatedSections.section_2 = { ...validatedSections.section_2, content: s2Audit };
+        }
+      }
+    }
+
+    // =========================================================================
     // KROK AI: AUDYT NADZORCZY GEMINI 3.8 FLASH (DEFENSIVE AI QUALITY GATEWAY)
     // =========================================================================
     validatedSections = await SDSVerifierAgent.auditWithGemini(validatedSections, metadata, auditLog);

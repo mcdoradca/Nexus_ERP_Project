@@ -284,6 +284,31 @@ class SDSLinter {
       }
     }
 
+    // ------------------------------------------------------------------------
+    // REGUŁA 19: SPÓJNOŚĆ TOŻSAMOŚCI ALERGENÓW (IZOEUGENOL VS EUGENOL) I ZAKAZ KLONOWANIA SYNONIMÓW NA ETYKIECIE
+    // Rozporządzenie CLP art. 18 ust. 3 lit. b
+    // ------------------------------------------------------------------------
+    if (s2) {
+      const labelMatch = s2.match(/(?:Nazwy niebezpiecznych substancji wymienione na etykiecie|Substancje wymienione na etykiecie)[\s\S]*?(?=\n\n(?:Zwroty wskazujące rodzaj zagrożenia|$))/i);
+      if (labelMatch) {
+        const labelText = labelMatch[0];
+        // 1. Fałszywy eugenol zamiast izoeugenolu
+        const hasIsoInS3 = /(?:97-54-1|izoeugenol|isoeugenol)/i.test(s3);
+        const hasEugenolInS3 = /(?:97-53-0|\beugenol\b)/i.test(s3) && !/izoeugenol|isoeugenol/i.test(s3.replace(/97-54-1[^\n]+/g, ''));
+        if (/\beugenol\b/i.test(labelText) && !/\bizoeugenol\b/i.test(labelText) && hasIsoInS3 && !hasEugenolInS3) {
+          errors.push("[Sekcja 2.2] KRYTYCZNY BŁĄD IDENTYFIKACJI CHEMICZNEJ (CLP art. 18 ust. 3): Na etykiecie wpisano fałszywy alergen 'eugenol', podczas gdy w składzie (Sekcja 3) znajduje się 'izoeugenol' (CAS: 97-54-1). Są to dwie odrębne substancje chemiczne.");
+        }
+        // 2. Klonowanie substancji: 3,7-DIMETHYLOCT-6-EN-1-OL oraz cytronellol
+        if (/3,7-dimethyloct-6-en-1-ol/i.test(labelText) && /cytronellol/i.test(labelText)) {
+          errors.push("[Sekcja 2.2] BŁĄD KLONOWANIA SUBSTANCJI (BRAK HARMONIZACJI NAZEWNICTWA): Zdublowano ten sam składnik (CAS: 106-22-9) pod nazwą chemiczną ('3,7-DIMETHYLOCT-6-EN-1-OL') oraz nazwą zwyczajową ('cytronellol').");
+        }
+        // 3. Klonowanie substancji: 3,7-DIMETHYLNONA-1,6-DIEN-3-OL pod dwiema postaciami
+        if (/\b3,7-dimethylnona-1,6-dien-3-ol\b/i.test(labelText) && /\(6E\)-3,7-dimethylnona-1,6-dien-3-ol\b/i.test(labelText)) {
+          errors.push("[Sekcja 2.2] BŁĄD KLONOWANIA SUBSTANCJI (BRAK HARMONIZACJI NAZEWNICTWA): Zdublowano ten sam składnik (CAS: 10339-55-6) pod dwiema różnymi postaciami zapisu chemicznego.");
+        }
+      }
+    }
+
     return {
       isValid: errors.length === 0,
       errors,
