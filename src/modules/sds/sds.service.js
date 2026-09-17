@@ -1002,9 +1002,11 @@ class SDSChemicalExtractor {
         .replace(/acid\b/gi, 'kwas')
         .replace(/ether\b/gi, 'eter');
 
+      if (/linalyl acetate/i.test(rawName)) return "octan linalilu";
+
       // Korekta hybryd językowych (np. "3,7-dimethylocta-1,6-dien-3-yl octan" -> "octan 3,7-dimetylookta-1,6-dien-3-ylu")
-      if (pol.match(/^[a-zA-Z0-9,\-()*]+(?:yl|il|en)\s+octan$/i)) {
-        pol = pol.replace(/^([a-zA-Z0-9,\-()*]+(?:yl|il|en))\s+octan$/i, (match, prefix) => {
+      if (pol.match(/([a-zA-Z0-9,\-()*]+(?:yl|il|en))\s+octan\b/i)) {
+        pol = pol.replace(/([a-zA-Z0-9,\-()*]+(?:yl|il|en))\s+octan\b/gi, (match, prefix) => {
           return `octan ${prefix.replace(/dimethyl/g, 'dimetylo').replace(/ethyl/g, 'etylo').replace(/methyl/g, 'metylo').replace(/octa/g, 'okta')}u`;
         });
       }
@@ -2906,9 +2908,12 @@ class SDSProcessorEngine {
       .replace(/\bnot miscible\b/gi, 'niemieszalny')
       .replace(/\bimmiscible\b/gi, 'niemieszalny')
       .replace(/\bin water\b/gi, 'w wodzie')
+      .replace(/\bin H2[0O]\b/gi, 'w H2O')
+      .replace(/\bat atmospheric pressure\b/gi, 'pod ciśnieniem atmosferycznym')
+      .replace(/\bat\b\s+(?=\d)/gi, 'w ')
       .replace(/\bRemark\s*[:\.]?\s*Visual\b/gi, '(ocena wizualna)')
-      .replace(/\bRemark\s*[:\.]?\s*([A-Za-z0-9,\s\-]+?)(?=\s*(?:Substance|Temperature|Method|Initial boiling point|Vapour pressure|pH|Remark|$))/gi, '(uwaga: $1)')
-      .replace(/\bSubstance\s*[:\.]?\s*([A-Za-z0-9,\s\-]+?)(?=\s*(?:Remark|Temperature|Method|Initial boiling point|Vapour pressure|pH|$))/gi, '(substancja: $1)')
+      .replace(/\bRemark\s*[:\.]?\s*([A-Za-z0-9,\s\-\.\/%;\|]+?)(?=\s*(?:Substance|Temperature|Method|Initial boiling point|Vapour pressure|\bpH\b|Remark|$))/gi, '(uwaga: $1)')
+      .replace(/\bSubstance\s*[:\.]?\s*([A-Za-z0-9,\s\-\.\/%;\|]+?)(?=\s*(?:Remark|Temperature|Method|Initial boiling point|Vapour pressure|\bpH\b|$))/gi, '(substancja: $1)')
       .replace(/\baria\s*=\s*1\b/gi, 'powietrze=1')
       .replace(/\(uwaga:\s*\)/gi, '')
       .replace(/\bRemark:\s*\)/gi, '')
@@ -2952,7 +2957,8 @@ class SDSProcessorEngine {
       .replace(/Lower and upper explosion\s*\n\s*limit/gi, 'Lower and upper explosion limit')
       .replace(/Partition coefficient n-octanol\/water \(log\s*\n\s*value\)/gi, 'Partition coefficient n-octanol/water (log value)')
       .replace(/Density and\/or relative\s*\n\s*density/gi, 'Density and/or relative density')
-      .replace(/Volatile Organic compounds\s*-\s*VOCs/gi, 'Volatile Organic compounds - VOCs');
+      .replace(/Volatile Organic compounds\s*-\s*VOCs/gi, 'Volatile Organic compounds - VOCs')
+      .replace(/(?:\s*\|\s*|\s+|^)(Remark|Method|Substance|Temperature|Value|Initial boiling point|Boiling point|Vapour pressure|\bpH\b|Melting point|Flash point|Flammability|Density|Relative density|Solubility|Auto-ignition|Decomposition|Viscosity)\s*[:\.]/gi, '\n$1:');
 
     // Definicja 18 urzędowych parametrów fizykochemicznych wg Załącznika II (UE) 2020/878
     const paramsConfig = [
@@ -3363,7 +3369,7 @@ class SDSProcessorEngine {
     // Pomocnicza funkcja do ekstrakcji bloku substancji z podsekcji (12.2, 12.3, 12.4)
     const extractSubstanceBlock = (blockText, comp) => {
       if (!blockText) return null;
-      const bClean = blockText.replace(/[—–]/g, '-');
+      const bClean = blockText.replace(/[—–]/g, '-').replace(/\s*\|\s*/g, '\n');
       const searchNames = [comp.originalName, comp.name, comp.cas].filter(Boolean);
       for (const name of searchNames) {
         if (!name || name.length < 3) continue;
@@ -3513,7 +3519,7 @@ class SDSProcessorEngine {
     let s12_2 = "12.2. Trwałość i zdolność do rozkładu\n";
     let s2Substances = [];
     if (components && components.length > 0 && block2) {
-      const b2Clean = block2.replace(/[—–]/g, '-');
+      const b2Clean = block2.replace(/[—–]/g, '-').replace(/\s*\|\s*/g, '\n');
       const lines = b2Clean.split('\n').map(l => l.trim()).filter(Boolean);
       const detectedSubs = [];
       let currentSubstance = null;
