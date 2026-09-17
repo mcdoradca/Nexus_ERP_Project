@@ -287,6 +287,7 @@ const EC_TO_PL_MAP = {
 
 const CAS_TO_PL_MAP = {
   "32210-23-4": "octan 4-tert-butylocykloheksylu",
+  "115-95-7": "octan linalilu",
   "104-55-2": "aldehyd cynamonowy",
   "55965-84-9": "masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu (3:1)",
   "78-70-6": "linalol",
@@ -1000,6 +1001,13 @@ class SDSChemicalExtractor {
         .replace(/acetate\b/gi, 'octan')
         .replace(/acid\b/gi, 'kwas')
         .replace(/ether\b/gi, 'eter');
+
+      // Korekta hybryd językowych (np. "3,7-dimethylocta-1,6-dien-3-yl octan" -> "octan 3,7-dimetylookta-1,6-dien-3-ylu")
+      if (pol.match(/^[a-zA-Z0-9,\-()*]+(?:yl|il|en)\s+octan$/i)) {
+        pol = pol.replace(/^([a-zA-Z0-9,\-()*]+(?:yl|il|en))\s+octan$/i, (match, prefix) => {
+          return `octan ${prefix.replace(/dimethyl/g, 'dimetylo').replace(/ethyl/g, 'etylo').replace(/methyl/g, 'metylo').replace(/octa/g, 'okta')}u`;
+        });
+      }
       return pol;
     }
     return rawName || (cas ? `Substancja CAS: ${cas}` : "Składnik");
@@ -1119,10 +1127,14 @@ class SDSChemicalExtractor {
       let classText = classLines.join('\n');
       classText = classText
         .replace(/Specific Concentration Limits\s*[:\.]?/gi, 'Specyficzne stężenia graniczne:\n')
-        .replace(/Classification note(?:[^\n:]*):\s*([A-Z0-9]+)/gi, (match, note) => `Uwaga ${note} zgodnie z załącznikiem VI do rozporządzenia CLP`)
+        .replace(/Classification note[\s\S]*?:\s*([A-Z0-9]+)/gi, (match, note) => `Uwaga ${note} zgodnie z załącznikiem VI do rozporządzenia CLP`)
         .replace(/Classification note\s+([A-Z0-9]+)\b/gi, (match, note) => `Uwaga ${note} zgodnie z załącznikiem VI do rozporządzenia CLP`)
         .replace(/Classification note\s*$/gim, '')
-        .replace(/Substance with a community workplace exposure limit\.?/gi, 'Substancja, dla której określono wspólnotowe najwyższe dopuszczalne stężenia w środowisku pracy.')
+        .replace(/Substance\s+with\s+a\s+community\s+workplace\s+exposure\s+limit[\.\s]*/gi, 'Substancja, dla której określono wspólnotowe najwyższe dopuszczalne stężenia w środowisku pracy.')
+        .replace(/ATE\s*Inhalation\s*vapou?rs?/gi, 'ATE (inhalacyjnie, pary)')
+        .replace(/ATE\s*Inhalation\s*(?:mists?\/?powders?|powders?\/?mists?|dusts?\/?mists?)/gi, 'ATE (inhalacyjnie, pyły/mgły)')
+        .replace(/ATE\s*Oral/gi, 'ATE (droga pokarmowa)')
+        .replace(/ATE\s*Dermal/gi, 'ATE (na skórę)')
         .replace(/(?:ATE Oral|LD50 Oral)\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/kg)?)/gi, (match, v) => `ATE (droga pokarmowa) = ${v.includes('mg/kg') ? v : v + ' mg/kg'}`)
         .replace(/(?:ATE Dermal|LD50 Dermal)\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/kg)?)/gi, (match, v) => `ATE (na skórę) = ${v.includes('mg/kg') ? v : v + ' mg/kg'}`)
         .replace(/ATE Inhalation\s*(?:mists?\s*\/?\s*powders?|powders?\s*\/?\s*mists?|dusts?\s*\/?\s*mists?)\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/l)?|\d+)/gi, (match, v) => `ATE (inhalacyjnie, pyły/mgły) = ${v.includes('mg/l') ? v : v + ' mg/l'}`)
