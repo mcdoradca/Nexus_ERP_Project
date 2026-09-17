@@ -3622,7 +3622,22 @@ class SDSProcessorEngine {
     let s12_2 = "12.2. Trwałość i zdolność do rozkładu\n";
     let s2Substances = [];
     if (components && components.length > 0 && block2) {
-      const b2Clean = block2.replace(/[—–]/g, '-').replace(/\s*\|\s*/g, '\n');
+      let b2Clean = block2.replace(/[—–]/g, '-');
+      // Zabezpieczenie komórek tabeli: "Solubility in water | 100 - 1000 mg/l" -> "Solubility in water: 100 - 1000 mg/l"
+      b2Clean = b2Clean.replace(/\|\s*\n/g, ' | ');
+      b2Clean = b2Clean.replace(/\b(Solubility(?:\s+in\s+water)?|Rozpuszczalność(?:\s+w\s+wodzie)?)\s*\|\s*/gi, '$1: ');
+      b2Clean = b2Clean.replace(/\s*\|\s*/g, '\n');
+
+      // Rozdzielenie sklejonych w DOCX nazw składników ze wskaźnikami degradacji (np. "Rapidly degradable geraniol")
+      const compLookupNames = components.flatMap(c => [c.originalName, c.name]).filter(n => n && n.length >= 3);
+      compLookupNames.sort((a, b) => b.length - a.length);
+
+      for (const cn of compLookupNames) {
+        const esc = cn.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const reg = new RegExp(`(\\b(?:degradable|biodegradable|degradacji|rozkład))\\s+(${esc})\\b`, 'gi');
+        b2Clean = b2Clean.replace(reg, '$1\n$2');
+      }
+
       const lines = b2Clean.split('\n').map(l => l.trim()).filter(Boolean);
       const detectedSubs = [];
       let currentSubstance = null;
@@ -3632,7 +3647,9 @@ class SDSProcessorEngine {
         const l = lines[i];
         if (/^(?:12\.2|Persistence|Degradability|This product is|Stosować|Właściwości|Mieszanina|Brak danych|Revision|Dated|Printed|Page|Pagina|Pag\.|Scheda|Safety Data Sheet|Suarez|SWEET HOME|BLK\d+|[A-Z0-9]{4}-[A-Z0-9]{4})/i.test(l)) continue;
         
-        if (/(?:degradable|biodegradable|degradacji|rozkład|Solubility|Rozpuszczalność|OECD|ThOD|BOD|COD)/i.test(l)) {
+        const isMeasurementOrRange = /^[\d><~]+[\s\d\-.,]*\s*(?:mg\/l|g\/l|%|\b)/i.test(l) && !/[a-zA-Z]{3,}/.test(l.replace(/mg\/l|g\/l/gi, ''));
+
+        if (/(?:degradable|biodegradable|degradacji|rozkład|Solubility|Rozpuszczalność|OECD|ThOD|BOD|COD)/i.test(l) || isMeasurementOrRange) {
           currentInfo.push(l);
         } else {
           if (currentInfo.length > 0) {
@@ -3652,7 +3669,11 @@ class SDSProcessorEngine {
       }
 
       const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const processedCasOrNames = new Set();
+
       detectedSubs.forEach(ds => {
+        if (/^[\d><~]+[\s\d\-.,]*\s*(?:mg\/l|g\/l|%)?$/i.test(ds.name.trim())) return;
+
         const matched = components.find(c => {
           const cOrigNorm = norm(c.originalName);
           const cNameNorm = norm(c.name);
@@ -3666,7 +3687,7 @@ class SDSProcessorEngine {
           return false;
         });
 
-        if (!matched && (!ds.name || /^(?:BLK\d+|SWEET HOME|Suarez|Revision|Dated|Printed|Page|\d+\/\d+)/i.test(ds.name.trim()))) return;
+        if (!matched && (!ds.name || /^(?:BLK\d+|SWEET HOME|Suarez|Revision|Dated|Printed|Page|\d+\/\d+)/i.test(ds.name.trim()) || ds.name.length < 3)) return;
         const targetComp = matched || { name: ds.name, cas: null };
 
         const infoOut = [];
@@ -3681,31 +3702,53 @@ class SDSProcessorEngine {
           remainder = remainder.replace(/Rapidly\s+degradable|readily\s+biodegradable|easily\s+biodegradable|entirely\s+degradable|ulega\s+szybkiej\s+degradacji|łatwo\s+biodegradowalna|szybko\s+rozkładalna/gi, '');
         }
 
-        const solM = remainder.match(/(?:Solubility(?: in water)?|Rozpuszczalność(?: w wodzie)?)\s*[:\.]?\s*([^;\|]+)/i);
-        if (solM && solM[1].trim() && !/^(?:Rapidly|entirely|not)/i.test(solM[1].trim())) {
-          infoOut.push(`Rozpuszczalność w wodzie: ${solM[1].trim().replace(/(\d+)\.(\d+)/g, '$1,$2')}.`);
+        const solM = remainder.match(/(?:Solubility\s+in\s+water|Rozpuszczalność\s+w\s+wodzie|Solubility|Rozpuszczalność)\s*[:\.]?\s*([0-9><~][^;\n\|]*)/i);
+        if (solM && solM[1].trim()) {
+          const cleanSolVal = solM[1].trim().replace(/(\d+)\.(\d+)/g, '$1,$2');
+          infoOut.push(`Rozpuszczalność w wodzie: ${cleanSolVal}.`);
           remainder = remainder.replace(solM[0], '');
         }
 
+        remainder = remainder.replace(/\b(?:Solubility\s+in\s+water|Solubility|in\s+water|water|Rapidly\s+degradable|Entirely\s+degradable|degradable|biodegradable)\b/gi, ' ');
         remainder = remainder.replace(/[\|\-\s:;,]+/g, ' ').trim();
         
         if (remainder.length > 3) {
+          const isCompLeak = compLookupNames.some(cn => remainder.toLowerCase().includes(cn.toLowerCase()));
+          const isNoise = /^(?:in water|water|mg\/l|g\/l|rozpuszczalność|brak danych)$/i.test(remainder);
+          if (!isCompLeak && !isNoise) {
             let extra = remainder;
             extra = extra.replace(/\bSolubility\b/gi, 'Rozpuszczalność')
                          .replace(/\bin water\b/gi, 'w wodzie')
                          .replace(/\bDegradability\b/gi, 'zdolność do rozkładu');
-            
-            // Unikamy gołych słów "Rozpuszczalność w wodzie" bez wartości
             if (extra !== 'Rozpuszczalność w wodzie' && extra !== 'Rozpuszczalność') {
               infoOut.push(`Dodatkowe informacje: ${extra}.`);
             }
+          }
         }
         
         if (infoOut.length === 0) {
-           infoOut.push("Brak dostępnych danych dla substancji.");
+          infoOut.push("Brak dostępnych danych dla substancji.");
         }
 
-        s2Substances.push({ name: targetComp.name || targetComp.originalName, cas: targetComp.cas, info: infoOut });
+        const finalSubName = targetComp.name || targetComp.originalName;
+        const compKey = targetComp.cas || finalSubName;
+        if (!processedCasOrNames.has(compKey)) {
+          processedCasOrNames.add(compKey);
+          s2Substances.push({ name: finalSubName, cas: targetComp.cas, info: infoOut });
+        } else {
+          const existing = s2Substances.find(s => (s.cas && s.cas === targetComp.cas) || s.name === finalSubName);
+          if (existing) {
+            infoOut.forEach(item => {
+              if (!existing.info.includes(item)) {
+                if (existing.info.length === 1 && existing.info[0] === "Brak dostępnych danych dla substancji.") {
+                  existing.info = [item];
+                } else {
+                  existing.info.push(item);
+                }
+              }
+            });
+          }
+        }
       });
     }
 

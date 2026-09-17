@@ -202,6 +202,21 @@ class SDSLinter {
       }
     }
 
+    // ------------------------------------------------------------------------
+    // REGUŁA 13: INTEGRALNOŚĆ DANYCH EKOTOKSYKOLOGICZNYCH (SEKCJA 12.2)
+    // ------------------------------------------------------------------------
+    if (s12) {
+      if (/Rozpuszczalność w wodzie:\s*in water/i.test(s12)) {
+        errors.push("[Sekcja 12.2] KORUPCJA DANYCH: Wykryto zniekształcony wpis 'Rozpuszczalność w wodzie: in water' (błąd parsowania tabeli).");
+      }
+      if (/^[\d><~]+[\s\d\-.,]*\s*mg\/l\s*:/m.test(s12)) {
+        errors.push("[Sekcja 12.2] BŁĄD PARSERA: Wartość liczbowa/zakres stężeń został błędnie potraktowany jako nazwa substancji.");
+      }
+      if (/Dodatkowe informacje:\s*(?:geraniol|LINALYL ACETATE|galaxolide|ACETONE|2H-CHROMEN-2-ONE)\b/i.test(s12)) {
+        errors.push("[Sekcja 12.2] PRZEMIESZANIE SUBSTANCJI: Nazwa składnika wyciekła do pola 'Dodatkowe informacje' innej substancji.");
+      }
+    }
+
     return {
       isValid: errors.length === 0,
       errors,
