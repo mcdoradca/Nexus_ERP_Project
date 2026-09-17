@@ -816,6 +816,10 @@ class SDSChemicalExtractor {
           res.push('- Drogi oddechowe (inhalacyjnie):');
           res.push(`  * Konsumenci: ostre miejscowe: ${nums[0]} mg/m³, ostre układowe: ${nums[1]} mg/m³, przewlekłe miejscowe: ${nums[2]} mg/m³, przewlekłe układowe: ${nums[3]} mg/m³`);
           res.push(`  * Pracownicy: ostre miejscowe: ${nums[4]} mg/m³, ostre układowe: ${nums[5]} mg/m³, przewlekłe miejscowe: ${nums[6]} mg/m³, przewlekłe układowe: ${nums[7]} mg/m³`);
+        } else if (nums.length === 5) {
+          res.push('- Drogi oddechowe (inhalacyjnie):');
+          res.push(`  * Konsumenci: ostre miejscowe: ${nums[0]} mg/m³; przewlekłe miejscowe: ${nums[1]} mg/m³; przewlekłe układowe: ${nums[2]} mg/m³`);
+          res.push(`  * Pracownicy: przewlekłe miejscowe: ${nums[3]} mg/m³; przewlekłe układowe: ${nums[4]} mg/m³`);
         } else if (nums.length > 0) {
           res.push(`- Drogi oddechowe (inhalacyjnie): ${nums.join(' / ')} mg/m³`);
         }
