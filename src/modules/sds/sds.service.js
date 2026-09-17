@@ -749,7 +749,7 @@ class SDSChemicalExtractor {
       let lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
       let plLines = [];
       for (let l of lines) {
-        if (/^(?:Revision|Revisione|Wersja|Dated|Data|Printed|Stampato|BLK|\d+\/\d+|Page|Pagina|Strona|The full|Suarez)/i.test(l)) continue;
+        if (/^(?:Revision|Revisione|Wersja|Dated|Data|Printed|Stampato|BLK|\d+\/\d+|Page|Pagina|Pag\.|Strona|The full|Suarez)/i.test(l)) continue;
         if (/(?:bw\/d|mc\/dzień|\bOral\b|\bSkin\b|\bInhalation\b|Effects on)/i.test(l)) continue;
         let trans = l
           .replace(/Normal value in fresh water/gi, '- woda słodka:')
@@ -841,7 +841,7 @@ class SDSChemicalExtractor {
       if (res.length === 0) {
         let lines = clean.split('\n').map(l => l.trim()).filter(Boolean);
         for (let l of lines) {
-          if (/^(?:Revision|Revisione|Wersja|Dated|Data|Printed|Stampato|BLK|\d+\/\d+|Page|Pagina|Strona|Effects on|Route of exposure|Acute local|Chronic systemic|Suarez)/i.test(l)) continue;
+          if (/^(?:Revision|Revisione|Wersja|Dated|Data|Printed|Stampato|BLK|\d+\/\d+|Page|Pagina|Pag\.|Strona|Effects on|Route of exposure|Acute local|Chronic systemic|Suarez)/i.test(l)) continue;
           let trans = l
             .replace(/\bOral\b/gi, '- Droga pokarmowa (doustnie):')
             .replace(/\bInhalation\b/gi, '- Drogi oddechowe (inhalacyjnie):')
@@ -2214,7 +2214,7 @@ class SDSProcessorEngine {
       .replace(/(?:^|\n)\s*(?:Revision nr\.?|Revisione n\.?|Wersja nr|Dated|Data|Printed on|Stampato il)\s*[:\.]?\s*[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*(?:Suarez\s+Company|Company|Distributor|Dystrybutor)\s*\|[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*(?!(?:LC|EC|IC|LD|NOEC|NOAEL|LOAEL)\d*)(?:BLK\d+(?:-\d+)?|[A-Z]{2,6}\d{3,8}(?:-\d+)?)\s*-\s*[^\n]+/gi, '')
-      .replace(/(?:^|\n)\s*(?:Page|Strona|Pagina)\b[^\n]*/gi, '')
+      .replace(/(?:^|\n)\s*(?:Page|Strona|Pagina|Pag\.)\b[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*\d{1,3}\s*\/\s*\d{1,3}\s*(?=\n|$)/g, '')
       .replace(/(?:^|\n)\s*\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}\s*(?:Production Name|Trade Name|Nazwa produktu|Product name|Nome prodotto)?[^\n]*/gi, '')
       .replace(/(?:^|\n)\s*(?:Production Name|Trade Name|Nazwa produktu|Product name|Nome prodotto)\s*[:\.]?\s*[^\n]*(?:\bDate|\bData)\s*$/gim, '')
@@ -2887,8 +2887,11 @@ class SDSProcessorEngine {
       .replace(/\bimmiscible\b/gi, 'niemieszalny')
       .replace(/\bin water\b/gi, 'w wodzie')
       .replace(/\bRemark\s*[:\.]?\s*Visual\b/gi, '(ocena wizualna)')
-      .replace(/\bRemark\s*[:\.]?\s*([A-Za-z0-9,\s\-]+)/gi, '(uwaga: $1)')
-      .replace(/\bSubstance\s*[:\.]?\s*([A-Za-z0-9,\s\-]+)/gi, '(substancja: $1)')
+      .replace(/\bRemark\s*[:\.]?\s*([A-Za-z0-9,\s\-]+?)(?=\s*(?:Substance|Temperature|Method|Initial boiling point|Vapour pressure|pH|Remark|$))/gi, '(uwaga: $1)')
+      .replace(/\bSubstance\s*[:\.]?\s*([A-Za-z0-9,\s\-]+?)(?=\s*(?:Remark|Temperature|Method|Initial boiling point|Vapour pressure|pH|$))/gi, '(substancja: $1)')
+      .replace(/\baria\s*=\s*1\b/gi, 'powietrze=1')
+      .replace(/\(uwaga:\s*\)/gi, '')
+      .replace(/\bRemark:\s*\)/gi, '')
       .replace(/\bMethod\s*[:\.]?\s*(?:not specified|nie określono)\b/gi, '')
       .replace(/\bMethod\s*[:\.]?\s*internal\b/gi, '(metoda wewnętrzna)')
       .replace(/\bMethod\s*[:\.]?\s*([A-Za-z0-9:\s,;\-]+)/gi, '(metoda: $1)')
@@ -3404,7 +3407,7 @@ class SDSProcessorEngine {
 
       for (let i = 0; i < lines.length; i++) {
         const l = lines[i];
-        if (/^(?:12\.1|Toxicity|This product is dangerous|In the long term|Stosować|Właściwości|Mieszanina|Brak danych|Revision|Dated|Printed|Page|Pagina|Scheda|Safety Data Sheet|Suarez|SWEET HOME|BLK\d+|[A-Z0-9]{4}-[A-Z0-9]{4})/i.test(l)) continue;
+        if (/^(?:12\.1|Toxicity|This product is dangerous|In the long term|Stosować|Właściwości|Mieszanina|Brak danych|Revision|Dated|Printed|Page|Pagina|Pag\.|Scheda|Safety Data Sheet|Suarez|SWEET HOME|BLK\d+|[A-Z0-9]{4}-[A-Z0-9]{4})/i.test(l)) continue;
         if (/^(?:LC50|EC50|Chronic NOEC|NOEC|IC50)/i.test(l)) {
           let testLine = l;
           if (!/\d+[.,]?\d*\s*mg/i.test(testLine) && i + 1 < lines.length && /\d+[.,]?\d*\s*mg/i.test(lines[i + 1])) {
