@@ -3602,27 +3602,42 @@ class SDSProcessorEngine {
         const targetComp = matched || { name: ds.name, cas: null };
 
         const infoOut = [];
-        let hasDegradability = false;
-        const fullBlock = ds.info.join(' ');
+        let fullBlock = ds.info.join(' ');
+        let remainder = fullBlock;
         
-        if (/NOT\s+rapidly\s+degradable|non-readily\s+biodegradable|not\s+readily\s+biodegradable|non\s+rapidly\s+degradable|not\s+easily\s+biodegradable|nie\s+ulega\s+szybkiej\s+degradacji|inherently\s+biodegradable/i.test(fullBlock)) {
+        if (/NOT\s+rapidly\s+degradable|non-readily\s+biodegradable|not\s+readily\s+biodegradable|non\s+rapidly\s+degradable|not\s+easily\s+biodegradable|nie\s+ulega\s+szybkiej\s+degradacji|inherently\s+biodegradable/i.test(remainder)) {
           infoOut.push("Substancja nie ulega szybkiej degradacji (nie ulega łatwo biodegradacji).");
-          hasDegradability = true;
-        } else if (/Rapidly\s+degradable|readily\s+biodegradable|easily\s+biodegradable|ulega\s+szybkiej\s+degradacji|łatwo\s+biodegradowalna|szybko\s+rozkładalna/i.test(fullBlock)) {
+          remainder = remainder.replace(/NOT\s+rapidly\s+degradable|non-readily\s+biodegradable|not\s+readily\s+biodegradable|non\s+rapidly\s+degradable|not\s+easily\s+biodegradable|nie\s+ulega\s+szybkiej\s+degradacji|inherently\s+biodegradable/gi, '');
+        } else if (/Rapidly\s+degradable|readily\s+biodegradable|easily\s+biodegradable|entirely\s+degradable|ulega\s+szybkiej\s+degradacji|łatwo\s+biodegradowalna|szybko\s+rozkładalna/i.test(remainder)) {
           infoOut.push("Szybko ulega degradacji (substancja łatwo biodegradowalna).");
-          hasDegradability = true;
+          remainder = remainder.replace(/Rapidly\s+degradable|readily\s+biodegradable|easily\s+biodegradable|entirely\s+degradable|ulega\s+szybkiej\s+degradacji|łatwo\s+biodegradowalna|szybko\s+rozkładalna/gi, '');
         }
 
-        const solM = fullBlock.match(/Solubility in water\s*[:\.]?\s*([^\n;]+)/i);
-        if (solM) {
+        const solM = remainder.match(/(?:Solubility(?: in water)?|Rozpuszczalność(?: w wodzie)?)\s*[:\.]?\s*([^;\|]+)/i);
+        if (solM && solM[1].trim() && !/^(?:Rapidly|entirely|not)/i.test(solM[1].trim())) {
           infoOut.push(`Rozpuszczalność w wodzie: ${solM[1].trim().replace(/(\d+)\.(\d+)/g, '$1,$2')}.`);
+          remainder = remainder.replace(solM[0], '');
         }
 
-        if (hasDegradability) {
-          s2Substances.push({ name: targetComp.name || targetComp.originalName, cas: targetComp.cas, info: infoOut });
-        } else {
-          s2Substances.push({ name: targetComp.name || targetComp.originalName, cas: targetComp.cas, info: [...infoOut, `[Dane nierozpoznane: ${ds.info.join(' / ')}]`] });
+        remainder = remainder.replace(/[\|\-\s:;,]+/g, ' ').trim();
+        
+        if (remainder.length > 3) {
+            let extra = remainder;
+            extra = extra.replace(/\bSolubility\b/gi, 'Rozpuszczalność')
+                         .replace(/\bin water\b/gi, 'w wodzie')
+                         .replace(/\bDegradability\b/gi, 'zdolność do rozkładu');
+            
+            // Unikamy gołych słów "Rozpuszczalność w wodzie" bez wartości
+            if (extra !== 'Rozpuszczalność w wodzie' && extra !== 'Rozpuszczalność') {
+              infoOut.push(`Dodatkowe informacje: ${extra}.`);
+            }
         }
+        
+        if (infoOut.length === 0) {
+           infoOut.push("Brak dostępnych danych dla substancji.");
+        }
+
+        s2Substances.push({ name: targetComp.name || targetComp.originalName, cas: targetComp.cas, info: infoOut });
       });
     }
 
