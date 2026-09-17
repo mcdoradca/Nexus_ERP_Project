@@ -1,7 +1,7 @@
 # DOKUMENT PRZEKAZANIA PROJEKTU (AGENT HANDOFF)
 ## Moduł: Bezpieczeństwo Chemiczne i Generator Kart Charakterystyki (SDS / MSDS)
-**Data sporządzenia:** 2026-09-16  
-**Status modułu:** WDROŻENIE ADR-080 ZAKOŃCZONE SUKCESEM (100% COMPLIANT, PRODUKCJA)  
+**Data sporządzenia:** 2026-09-17  
+**Status modułu:** WDROŻENIE ADR-098 ZAKOŃCZONE SUKCESEM (100% COMPLIANT, PRODUKCJA)  
 **Kluczowe akty prawne:** Rozporządzenie Komisji (UE) 2020/878 (Załącznik II do REACH), Rozporządzenie (WE) nr 1272/2008 (CLP), Dz.U. 2024 poz. 1017 (NDS), Dz.U. 2020 poz. 10 (Odpady), Umowa ADR 2023–2025, Dz.U. 2016 poz. 138 (Seveso III).  
 **Stan testów:** 122/122 testów systemowych PASSED (`npm test`), 5/5 audyt Sanepid/PIP (`tests/sds.audit_sanepid_fixes.test.js`), 7/7 testów prawno-chemicznych PASSED (`tests/sds.compliance.test.js`), 12/12 punktów audytu PASSED (`tests/sds.8_points_audit.test.js`), 6/6 testów RTF PASSED (`tests/sds.rtf.test.js`), 6/6 zero-hardcodes PASSED (`tests/sds.zero_hardcodes.test.js`).  
 **Środowisko:** Node.js, Express, Google Generative AI (`gemini-3.8-flash`), DOCX Generator, Sharp, PurePngEncoder.
@@ -172,6 +172,10 @@ Wszystkie kluczowe decyzje techniczne i prawne są udokumentowane w katalogu `do
 - **ADR-076:** Zero-Hardcodes audit i uniwersalizacja filtrów paginacyjnych.
 - **ADR-077:** Wdrożenie SDSSchemaValidator i eliminacja Dual-Truth.
 - **ADR-078:** Eliminacja regresji graficznej ADR 14.3, lepkość kinematyczna 9.1, NDS BHT / DNEL etanol 8.1 i analiza tabelaryczna zastosowań 1.2.
+- **ADR-079 – ADR-084:** Poprawki Sanepid dla kart TALCO i SANDALO (metanol, organizmy ekotoksyczne, numery INDEX, CAS, alergeny) oraz czyszczenie nazw plików.
+- **ADR-085 – ADR-087:** Implementacja dedykowanego natywnego parsera DOCX/OpenXML. Odporność na układ, kanoniczny słownik ECHA/CLP oraz wyeliminowanie przecieków ujemnych wartości fizykochemicznych.
+- **ADR-088 – ADR-092:** Uszczelnienie baz NDS (izomery ksylenu), standaryzacja 5-elementowych wektorów inhalacyjnych DNEL, wdrożenie dwufazowego silnika `Anti-Shift` dla danych o biodegradacji, oraz tarcza medyczna dla P333+P313.
+- **ADR-093 – ADR-098:** Eliminacja hybryd językowych i tłumaczenie angielskich sierot w Sekcjach 3.2, 9.1 oraz 12.2. Dodanie zabezpieczeń w 5.1 dla pian alkoholoodpornych (AR-AFFF). Wygenerowanie sformalizowanych plików markdown ADR w folderze `docs/adr/`.
 
 ---
 
