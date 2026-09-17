@@ -2363,15 +2363,6 @@ class SDSProcessorEngine {
 
     if (!cleanName) return "Mieszanina chemiczna";
 
-    // Sprawdzenie obecności myślnika dzielącego markę/linię od wariantu / opisu
-    const splitMatch = cleanName.match(/^([^\-–—]+)\s*[\-–—]\s*(.+)$/);
-    if (!splitMatch) {
-      return cleanName;
-    }
-
-    const brandPart = splitMatch[1].trim(); // Człon 1 (marka/linia) - nienaruszony w oryginale
-    let descPart = splitMatch[2].trim();    // Człon 2 (opis i wariant)
-
     // Słownik mapowań fraz rodzajowych chemii gospodarczej i zapachowej (uporządkowany od najdłuższych/najbardziej specyficznych)
     const categoryMappings = [
       {
@@ -2431,6 +2422,20 @@ class SDSProcessorEngine {
         pl: "ŚRODEK CZYSZCZĄCY / DETERGENT"
       }
     ];
+
+    // Sprawdzenie obecności myślnika dzielącego markę/linię od wariantu / opisu
+    const splitMatch = cleanName.match(/^([^\-–—]+)\s*[\-–—]\s*(.+)$/);
+    if (!splitMatch) {
+      for (const cat of categoryMappings) {
+        if (cat.pattern.test(cleanName)) {
+          return cleanName.replace(cat.pattern, cat.pl).replace(/\s+/g, ' ').trim();
+        }
+      }
+      return cleanName;
+    }
+
+    const brandPart = splitMatch[1].trim(); // Człon 1 (marka/linia) - nienaruszony w oryginale
+    let descPart = splitMatch[2].trim();    // Człon 2 (opis i wariant)
 
     let matchedPlCategory = null;
     let variantPart = descPart;
