@@ -186,6 +186,22 @@ class SDSLinter {
       }
     }
 
+    // ------------------------------------------------------------------------
+    // REGUŁA 12: BEZPIECZEŃSTWO PPOŻ - PIANA ALKOHOLOODPORNA DLA CIECZY POLARNYCH (SEKCJA 5.1)
+    // ------------------------------------------------------------------------
+    const s5 = typeof sections.section_5 === 'object' ? (sections.section_5.content || "") : (sections.section_5 || "");
+    const isFlammableLiquid = /(?:Flam\.\s*Liq\.|H224|H225|H226|ciecz\s+łatwopalna)/i.test(s2);
+    const hasPolarSolventsInS3 = /(?:etanol|ethanol|metanol|methanol|propanol|isopropanol|izopropanol|butanol|aceton|acetone|glycol|glikol|ether|octan|acetate|64-17-5|67-56-1|67-63-0|67-64-1)/i.test(s3);
+    if (isFlammableLiquid && hasPolarSolventsInS3 && s5) {
+      const suitableMatch = s5.match(/(?:Odpowiednie\s+środki\s+gaśnicze|Suitable\s+extinguishing\s+media|Suitable\s+extinguishing\s+equipment)\s*[:\.]?\s*([^\n]+(?:\n[^\n]+)?)/i);
+      if (suitableMatch) {
+        const suitableText = suitableMatch[1];
+        if (/\bpian[a-zęóąśłżźćń]*\b/i.test(suitableText) && !/alkoholoodporn|AR-AFFF/i.test(suitableText)) {
+          errors.push("[Sekcja 5.1] KRYTYCZNY BŁĄD PPOŻ (ZAGROŻENIE ŻYCIA STRAŻAKÓW): Produkt jest łatwopalną cieczą polarną (H225/H226), a jako środek gaśniczy wskazano standardową pianę. Wymagane bezwzględne wskazanie piany alkoholoodpornej (np. typu AR-AFFF), gdyż standardowa piana ulega natychmiastowemu rozpuszczeniu.");
+        }
+      }
+    }
+
     return {
       isValid: errors.length === 0,
       errors,

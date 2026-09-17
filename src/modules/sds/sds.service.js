@@ -2165,6 +2165,9 @@ class SDSProcessorEngine {
     "dati non disponibili": "Brak danych.",
 
     // Pożarnictwo (Sekcja 5)
+    "extinguishing substances are: carbon dioxide, foam, chemical powder": "Środki gaśnicze: dwutlenek węgla (CO2), piana gaśnicza, proszek chemiczny.",
+    "carbon dioxide, foam, chemical powder": "Dwutlenek węgla (CO2), piana gaśnicza, proszek chemiczny.",
+    "carbon dioxide, foam, powder": "Dwutlenek węgla (CO2), piana gaśnicza, proszek gaśniczy.",
     "co2 or dry chemical fire extinguisher. foam; water": "Gaśnica śniegowa (CO2), gaśnica proszkowa, piana gaśnicza, woda.",
     "co2 or dry chemical fire extinguisher": "Gaśnica śniegowa (CO2), gaśnica proszkowa.",
     "estintori ad anidride carbonica (co2), a polvere, a schiuma, acqua": "Gaśnica śniegowa (CO2), gaśnica proszkowa, piana gaśnicza, woda.",
@@ -2658,25 +2661,88 @@ class SDSProcessorEngine {
     return output;
   }
 
-  processSection5(contentIt, components = []) {
+  static isFlammablePolarMixture(components = [], section2Text = '', section9Text = '') {
+    const s2 = String(section2Text || '');
+    const s9 = String(section9Text || '');
+
+    // 1. Sprawdzenie klasyfikacji palności cieczy (CLP / GHS: H224, H225, H226, Flam. Liq.)
+    const hasFlammableLiquidHazard = /(?:Flam\.\s*Liq\.|H224|H225|H226|ciecz\s+łatwopalna|ciecz\s+palna|flammable\s+liquid)/i.test(s2) ||
+      (Array.isArray(components) && components.some(c => /(?:Flam\.\s*Liq\.|H224|H225|H226)/i.test(c.classification || '')));
+
+    // 2. Sprawdzenie charakteru polarnego / rozpuszczalników polarnych
+    const hasPolarComponent = Array.isArray(components) && components.some(c => {
+      const name = `${c.name || ''} ${c.originalName || ''}`.toLowerCase();
+      const cas = (c.cas || '').trim();
+      const classif = (c.classification || '').toLowerCase();
+      const isPolarName = /\b(?:etanol|ethanol|metanol|methanol|propanol|isopropanol|izopropanol|butanol|aceton|acetone|glycol|glikol|ether|octan|acetate)\b/i.test(name) ||
+        /(?:-ol|-on)\b/i.test(name) ||
+        ['64-17-5', '67-56-1', '67-63-0', '71-23-8', '67-64-1', '34590-94-8', '107-98-2'].includes(cas);
+      return isPolarName && (classif.includes('flam') || classif.includes('h22') || !classif);
+    });
+
+    const isWaterMiscible = /(?:rozpuszczalny|mieszalny|miscible|soluble|rozpuszcza\s+się)\s+w\s+wodzie/i.test(s9);
+
+    return hasFlammableLiquidHazard && (hasPolarComponent || isWaterMiscible);
+  }
+
+  static enforceAlcoholResistantFoam(section5Content, isPolarFlammable = false) {
+    if (!section5Content || !isPolarFlammable) return section5Content;
+
+    let text = section5Content;
+
+    // 1. Normalizacja bloku odpowiednich środków gaśniczych
+    const suitableBlockRegex = /((?:5\.1\b[^\n]*\n)?\s*(?:Odpowiednie\s+środki\s+gaśnicze|ODPOWIEDNIE\s+ŚRODKI\s+GAŚNICZE|Suitable\s+extinguishing\s+equipment|Suitable\s+extinguishing\s+media|Mezzi\s+di\s+estinzione\s+idonei)\s*[:\.]?\s*)([\s\S]*?)(?=(?:\n\s*(?:Niewłaściwe\s+środki|NIEODPOWIEDNIE\s+ŚRODKI|Unsuitable|Mezzi\s+di\s+estinzione\s+non|5\.2\b)|$))/i;
+    const match = text.match(suitableBlockRegex);
+
+    if (match) {
+      const header = match[1];
+      let body = match[2];
+
+      // Wykrywamy pianę w dowolnej deklinacji bez istniejącego doprecyzowania alkoholoodpornego
+      const genericFoamRegex = /\b(?:piany(?:\s+gaśnicze)?|piana(?:\s+gaśnicza)?|pianę(?:\s+gaśniczą)?|pianą(?:\s+gaśniczą)?|pianami(?:\s+gaśniczymi)?|pian)\b(?!\s+(?:alkoholoodporn[a-zęóąśłżźćń]*|odporn[a-zęóąśłżźćń]*\s+na\s+alkohol|AR-AFFF))/gi;
+
+      if (genericFoamRegex.test(body)) {
+        body = body.replace(genericFoamRegex, 'piana alkoholoodporna (np. typu AR-AFFF)');
+      } else if (!/alkoholoodporn|AR-AFFF/i.test(body)) {
+        body = body.replace(/^(Środkami\s+gaśniczymi\s+są:\s*|Środki\s+gaśnicze:\s*|Gaśnica\s+[^\n,;]+,\s*|)/i, (prefix) => {
+          return prefix ? `${prefix}piana alkoholoodporna (np. typu AR-AFFF), ` : `piana alkoholoodporna (np. typu AR-AFFF), `;
+        });
+      }
+
+      text = text.replace(suitableBlockRegex, `${header}${body}`);
+    }
+
+    // 2. Normalizacja bloku niewłaściwych środków gaśniczych
+    const unsuitableBlockRegex = /((?:Niewłaściwe\s+środki\s+gaśnicze|NIEODPOWIEDNIE\s+ŚRODKI\s+GAŚNICZE|Unsuitable\s+extinguishing\s+media|Unsuitable\s+extinguishing\s+equipment|Mezzi\s+di\s+estinzione\s+non\s+idonei)\s*[:\.]?\s*)([^\n]+)/i;
+    const unMatch = text.match(unsuitableBlockRegex);
+    if (unMatch && !/zwykł[a-zęóąśłżźćń]*\s+pian|standardow[a-zęóąśłżźćń]*\s+pian|rozpuszczalnik/i.test(unMatch[2])) {
+      let unBody = unMatch[2].trim();
+      if (/brak\s+szczególnych/i.test(unBody) || /^brak\.?$/i.test(unBody)) {
+        unBody = "Nie stosować standardowej piany gaśniczej (ulega zniszczeniu pod wpływem rozpuszczalników polarnych/alkoholi) ani zwartych strumieni wody.";
+      } else {
+        unBody = unBody.replace(/\.?$/, '; nie stosować standardowej piany gaśniczej (ulega natychmiastowemu zniszczeniu na płonących cieczach polarnych/alkoholach).');
+      }
+      text = text.replace(unsuitableBlockRegex, `${unMatch[1]}${unBody}`);
+    }
+
+    return text;
+  }
+
+  processSection5(contentIt, components = [], section2Text = '', section9Text = '') {
     let clean = (contentIt || "").replace(/\r/g, '');
 
-    let suitableMatch = clean.match(/(?:Suitable extinguishing media|Mezzi di estinzione idonei|Odpowiednie środki gaśnicze)\s*[:\.]?\s*([^\n]+(?:\n[^\n]+)?)/i);
-    let unsuitableMatch = clean.match(/(?:Extinguishing media which must not be used(?: for safety reasons)?|Mezzi di estinzione non idonei|Niewłaściwe środki gaśnicze)\s*[:\.]?\s*([^\n]+)/i);
+    let suitableMatch = clean.match(/(?:Suitable extinguishing media|Suitable extinguishing equipment|Mezzi di estinzione idonei|Apparecchiature di estinzione idonee|Odpowiednie środki gaśnicze)\s*[:\.]?\s*([^\n]+(?:\n[^\n]+)?)/i);
+    let unsuitableMatch = clean.match(/(?:Extinguishing media which must not be used(?: for safety reasons)?|Unsuitable extinguishing equipment|Mezzi di estinzione non idonei|Apparecchiature di estinzione non idonee|Niewłaściwe środki gaśnicze)\s*[:\.]?\s*([^\n]+)/i);
     let hazardsMatch = clean.match(/(?:^|\n)\s*5\.2\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*5\.3\b|$)/i);
     let adviceMatch = clean.match(/(?:^|\n)\s*5\.3\b[.:\-]?\s*([\s\S]*?)$/i);
 
-    let rawSuitable = suitableMatch ? suitableMatch[1].replace(/Extinguishing media which must not.*/is, '').trim() : "";
+    let rawSuitable = suitableMatch ? suitableMatch[1].replace(/(?:Extinguishing media which must not|Unsuitable|Mezzi di estinzione non).*/is, '').trim() : "";
     let suitableText = SDSProcessorEngine.translatePhrase(rawSuitable, "Piana gaśnicza, proszek gaśniczy, dwutlenek węgla (CO2), rozproszone prądy wody. Środki gaśnicze dobrać odpowiednio do materiałów palnych znajdujących się w otoczeniu pożaru.");
     
-    // Weryfikacja obecności rozpuszczalników polarnych (np. alkoholi)
-    let hasPolarSolvent = components.some(c => /etanol|ethanol|metanol|methanol|isopropanol|propanol|izopropanol/i.test(c.name || c.originalName || ''));
-    if (hasPolarSolvent) {
-      suitableText = suitableText.replace(/\bpiana(?:\s+gaśnicza)?\b/gi, 'piana alkoholoodporna (np. typu AR-AFFF)');
-    }
+    // Weryfikacja obecności rozpuszczalników polarnych i palności (CLP-driven)
+    const isPolarFlammable = SDSProcessorEngine.isFlammablePolarMixture(components, section2Text, section9Text);
 
     let unsuitableText = SDSProcessorEngine.translatePhrase(unsuitableMatch ? unsuitableMatch[1] : "", "Brak szczególnych.");
-
     
     let rawHazards = hazardsMatch ? hazardsMatch[1].replace(/^(?:Special hazards[^\n]*|Pericoli speciali[^\n]*|Szczególne zagrożenia[^\n]*)\s*/i, '').trim() : "";
     let hazardsText = SDSProcessorEngine.translatePhrase(rawHazards, "Unikać wdychania produktów spalania.");
@@ -2692,6 +2758,8 @@ class SDSProcessorEngine {
     output += `Szczególne zagrożenia: ${hazardsText}\n\n`;
     output += "5.3. Informacje dla straży pożarnej\n";
     output += `Środki ochrony strażaków: ${adviceText}`;
+
+    output = SDSProcessorEngine.enforceAlcoholResistantFoam(output, isPolarFlammable);
 
     return output;
   }
@@ -4263,11 +4331,11 @@ class SDSProcessorEngine {
     const s2 = this.processSection2(rawSections["section_2"], s3.resolvedSubstances, s3.components);
     const s1Content = this.processSection1(rawSections["section_1"], productName, ufi, manualOverrides, extractedCode);
     const s4Content = this.processSection4(rawSections["section_4"], s3.components, s2.content);
-    const s5Content = this.processSection5(rawSections["section_5"], s3.components);
+    const s9Content = this.processSection9(rawSections["section_9"], s3.components);
+    const s5Content = this.processSection5(rawSections["section_5"], s3.components, s2.content, s9Content);
     const s6Content = this.processSection6(rawSections["section_6"]);
     const s7Content = this.processSection7(rawSections["section_7"]);
     const s8Content = this.processSection8(rawSections["section_8"], s3.components, s2.content);
-    const s9Content = this.processSection9(rawSections["section_9"], s3.components);
     const s12Res = this.processSection12(rawSections["section_12"], s3.components, s2.content);
     const s12Content = s12Res.content;
     const s13Content = this.processSection13(rawSections["section_13"], s3.components, s2.content, s1Content);
@@ -4453,7 +4521,19 @@ class SDSProcessorEngine {
       } else if (i === 4 && agentPayload.deterministicSections[key]) {
         // Sekcja 4: pełna deterministyczna dedukcja kliniczna na podstawie CLP i składników
         finalSections[key] = agentPayload.deterministicSections[key];
-      } else if ([5, 6, 7, 10, 11].includes(i) && agentTranslated && agentTranslated[key]) {
+      } else if (i === 5) {
+        // Sekcja 5: Sprawdzenie i normalizacja bezpieczeństwa pożarowego (piana alkoholoodporna AR-AFFF dla palnych cieczy polarnych)
+        let s5Source = (agentTranslated && agentTranslated[key]) ? agentTranslated[key] : (agentPayload.deterministicSections[key] ? agentPayload.deterministicSections[key].content : "");
+        let content = SDSProcessorEngine.cleanPdfArtifacts(s5Source).trim();
+        const componentsList = agentPayload.metadata?.components || (agentPayload.deterministicSections?.section_3?.components) || [];
+        const isPolarFlammable = SDSProcessorEngine.isFlammablePolarMixture(
+          componentsList,
+          agentPayload.deterministicSections?.section_2?.content || '',
+          agentPayload.deterministicSections?.section_9?.content || ''
+        );
+        content = SDSProcessorEngine.enforceAlcoholResistantFoam(content, isPolarFlammable);
+        finalSections[key] = { type: "CLP_MAPPED", content };
+      } else if ([6, 7, 10, 11].includes(i) && agentTranslated && agentTranslated[key]) {
         let content = SDSProcessorEngine.cleanPdfArtifacts(agentTranslated[key]).trim();
         if (i === 10) {
           content = content.replace(/\bsrebreem\b/gi, 'srebrem');

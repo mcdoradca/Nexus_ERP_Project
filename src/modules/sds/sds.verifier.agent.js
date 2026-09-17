@@ -394,6 +394,27 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
+    // REGUŁA 14: AUDYT BEZPIECZEŃSTWA PPOŻ W SEKCJI 5.1 (PIANA ALKOHOLOODPORNA AR-AFFF)
+    // Rozporządzenie (UE) 2020/878 Załącznik II Pkt 5.1 i CLP (Flam. Liq. + Rozpuszczalniki Polarne)
+    // =========================================================================
+    const s5Current = (validatedSections.section_5 && validatedSections.section_5.content) || "";
+    const s9Current = (validatedSections.section_9 && validatedSections.section_9.content) || "";
+    const { SDSProcessorEngine } = require('./sds.service');
+    const isPolarFlammable = SDSProcessorEngine.isFlammablePolarMixture(components, s2Content, s9Current);
+
+    if (isPolarFlammable && s5Current) {
+      const fixedS5 = SDSProcessorEngine.enforceAlcoholResistantFoam(s5Current, true);
+      if (fixedS5 !== s5Current) {
+        validatedSections.section_5 = { ...validatedSections.section_5, content: fixedS5 };
+        auditLog.push({
+          rule: "SECTION_5_ALCOHOL_RESISTANT_FOAM_ENFORCEMENT",
+          status: "AUTO_REMEDIATED",
+          message: "Wymuszono wskazanie piany alkoholoodpornej (np. typu AR-AFFF) w Sekcji 5.1 oraz zastrzeżenie dotyczące niszczenia standardowej piany na cieczach polarnych."
+        });
+      }
+    }
+
+    // =========================================================================
     // KROK AI: AUDYT NADZORCZY GEMINI 3.8 FLASH (DEFENSIVE AI QUALITY GATEWAY)
     // =========================================================================
     validatedSections = await SDSVerifierAgent.auditWithGemini(validatedSections, metadata, auditLog);

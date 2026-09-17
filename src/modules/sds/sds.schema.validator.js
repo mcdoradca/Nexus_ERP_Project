@@ -189,6 +189,26 @@ class SDSSchemaValidator {
       }
     }
 
+    // 10. Walidacja Sekcji 5 (Bezpieczeństwo pożarowe: piana alkoholoodporna AR-AFFF dla cieczy polarnych)
+    const s5Final = sections.section_5 ? sections.section_5.content : "";
+    if (s5Final) {
+      const isFlammableLiquid = /(?:Flam\.\s*Liq\.|H224|H225|H226|ciecz\s+łatwopalna)/i.test(s2);
+      const hasPolarSolvent = components.some(c => {
+        const name = `${c.name || ''} ${c.originalName || ''}`.toLowerCase();
+        return /\b(?:etanol|ethanol|metanol|methanol|isopropanol|propanol|aceton|glikol|glycol)\b/i.test(name) ||
+          ['64-17-5', '67-56-1', '67-63-0', '71-23-8', '67-64-1'].includes(c.cas);
+      });
+      if (isFlammableLiquid && hasPolarSolvent) {
+        const suitableMatch = s5Final.match(/(?:Odpowiednie\s+środki\s+gaśnicze|Suitable\s+extinguishing\s+media|Suitable\s+extinguishing\s+equipment)\s*[:\.]?\s*([^\n]+(?:\n[^\n]+)?)/i);
+        if (suitableMatch) {
+          const suitableText = suitableMatch[1];
+          if (/\bpian[a-zęóąśłżźćń]*\b/i.test(suitableText) && !/alkoholoodporn|AR-AFFF/i.test(suitableText)) {
+            errors.push("Sekcja 5.1 zawiera krytyczny błąd PPOŻ: dla łatwopalnej cieczy polarnej wskazano standardową pianę bez wymogu piany alkoholoodpornej (AR-AFFF).");
+          }
+        }
+      }
+    }
+
     if (errors.length > 0) {
       throw new SDSSchemaValidationError("Karta SDS nie spełnia rygorystycznych wymogów prawno-technicznych (Quality Gate).", errors);
     }

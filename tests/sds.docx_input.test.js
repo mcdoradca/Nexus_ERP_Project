@@ -6,18 +6,18 @@ const fs = require('fs');
 const { SDSDocxParser } = require('../src/modules/sds/engine/sds.docx.parser');
 const { SDSDocumentParser, SDSProcessorEngine } = require('../src/modules/sds/sds.service');
 
-const SANDALO_DOCX = path.resolve('docs/SDS/8034055535424_SDS_SANDALO org.docx');
+const MUSCHIO_DOCX = path.resolve('docs/SDS/8034055535394_SDS_MUSCHIO_BIANCO org.docx');
 
 test('DOCX Input Parser - Walidacja detekcji formatu isDocxFile', () => {
-  assert.strictEqual(fs.existsSync(SANDALO_DOCX), true, 'Plik SANDALO org.docx musi istnieć');
-  assert.strictEqual(SDSDocxParser.isDocxFile(SANDALO_DOCX), true, 'SANDALO org.docx powinien być rozpoznany jako DOCX');
+  assert.strictEqual(fs.existsSync(MUSCHIO_DOCX), true, 'Plik MUSCHIO_BIANCO org.docx musi istnieć');
+  assert.strictEqual(SDSDocxParser.isDocxFile(MUSCHIO_DOCX), true, 'MUSCHIO_BIANCO org.docx powinien być rozpoznany jako DOCX');
   assert.strictEqual(SDSDocxParser.isDocxFile('src/modules/sds/test.pdf'), false, 'Plik test.pdf nie jest DOCX');
   assert.strictEqual(SDSDocxParser.isDocxFile('non_existent.docx'), false, 'Nieistniejący plik zwraca false');
   assert.strictEqual(SDSDocxParser.isDocxFile(null), false, 'Null zwraca false');
 });
 
-test('DOCX Input Parser - Ekstrakcja 16 sekcji z SANDALO org.docx bez wycieku nagłówków stron', () => {
-  const parsed = SDSDocxParser.extractTextAndSections(SANDALO_DOCX);
+test('DOCX Input Parser - Ekstrakcja 16 sekcji z MUSCHIO_BIANCO org.docx bez wycieku nagłówków stron', () => {
+  const parsed = SDSDocxParser.extractTextAndSections(MUSCHIO_DOCX);
   assert.ok(parsed.fullText && parsed.fullText.length > 5000, 'Pełny tekst musi mieć ponad 5000 znaków');
   
   // Weryfikacja kompletności wszystkich 16 sekcji REACH
@@ -41,12 +41,12 @@ test('DOCX Input Parser - Ekstrakcja 16 sekcji z SANDALO org.docx bez wycieku na
   );
 });
 
-test('DOCX Input Parser - Bezpośrednia ekstrakcja 19 składników z tabel sekcji 3', () => {
-  const parsed = SDSDocxParser.extractTextAndSections(SANDALO_DOCX);
+test('DOCX Input Parser - Bezpośrednia ekstrakcja 14 składników z tabel sekcji 3', () => {
+  const parsed = SDSDocxParser.extractTextAndSections(MUSCHIO_DOCX);
   assert.ok(parsed.tablesBySection['section_3'].length > 0, 'Sekcja 3 musi zawierać tabele OpenXML');
 
   const components = SDSDocxParser.parseSection3Table(parsed.tablesBySection['section_3']);
-  assert.strictEqual(components.length, 19, `Oczekiwano 19 składników, znaleziono: ${components.length}`);
+  assert.strictEqual(components.length, 14, `Oczekiwano 14 składników, znaleziono: ${components.length}`);
 
   // Weryfikacja pierwszego składnika (etanol)
   const ethanol = components.find(c => c.cas === '64-17-5');
@@ -56,28 +56,27 @@ test('DOCX Input Parser - Bezpośrednia ekstrakcja 19 składników z tabel sekcj
   assert.ok(ethanol.concentration.includes('74') && ethanol.concentration.includes('78'), 'Stężenie etanolu to 74-78%');
   assert.ok(ethanol.classification.includes('Flam. Liq. 2') && ethanol.classification.includes('H225'), 'Klasyfikacja etanolu musi zawierać H225');
 
-  // Weryfikacja aldehydu cynamonowego ze stężeniem granicznym SCL
-  const cinnamal = components.find(c => c.cas === '104-55-2');
-  assert.ok(cinnamal, 'Aldehyd cynamonowy (CAS 104-55-2) musi być obecny');
-  assert.strictEqual(cinnamal.index, '606-155-00-6', 'Index dla cinnamaldehyde');
-  assert.ok(cinnamal.classification.includes('Skin Sens. 1A') && cinnamal.classification.includes('H317'), 'Klasyfikacja Skin Sens. 1A');
+  // Weryfikacja izoeugenolu ze stężeniem granicznym SCL
+  const isoeugenol = components.find(c => c.cas === '97-54-1');
+  assert.ok(isoeugenol, 'Izoeugenol (CAS 97-54-1) musi być obecny');
+  assert.ok(isoeugenol.classification.includes('Skin Sens. 1A') && isoeugenol.classification.includes('H317'), 'Klasyfikacja Skin Sens. 1A');
 
-  // Weryfikacja fenolu z ATE
-  const phenol = components.find(c => c.cas === '108-95-2');
-  assert.ok(phenol, 'Fenol (CAS 108-95-2) musi być obecny');
-  assert.strictEqual(phenol.ec, '203-632-7', 'WE dla fenolu to 203-632-7');
-  assert.ok(phenol.classification.includes('Muta. 2') || phenol.classification.includes('H341'), 'Klasyfikacja Muta. 2');
+  // Weryfikacja metanolu z ATE
+  const methanol = components.find(c => c.cas === '67-56-1');
+  assert.ok(methanol, 'Metanol (CAS 67-56-1) musi być obecny');
+  assert.strictEqual(methanol.ec, '200-659-6', 'WE dla metanolu to 200-659-6');
+  assert.ok(methanol.classification.includes('Acute Tox. 3') || methanol.classification.includes('H301'), 'Klasyfikacja Acute Tox. 3');
 });
 
 test('SDSDocumentParser - Integracja extractText z plikiem DOCX', async () => {
-  const text = await SDSDocumentParser.extractText(SANDALO_DOCX);
+  const text = await SDSDocumentParser.extractText(MUSCHIO_DOCX);
   assert.ok(text && text.length > 5000, 'extractText na DOCX musi zwrócić pełny tekst');
   assert.ok(text.includes('SECTION 1') || text.includes('SEKCJA 1'), 'Musi zawierać SEKCJA 1');
   assert.ok(text.includes('SECTION 3') || text.includes('SEKCJA 3'), 'Musi zawierać SEKCJA 3');
   assert.ok(text.includes('SECTION 16') || text.includes('SEKCJA 16'), 'Musi zawierać SEKCJA 16');
 });
 
-test('SDSProcessorEngine - Pełne przygotowanie payloadu z wejściowego pliku DOCX (SANDALO)', async () => {
+test('SDSProcessorEngine - Pełne przygotowanie payloadu z wejściowego pliku DOCX (MUSCHIO BIANCO)', async () => {
   const engine = new SDSProcessorEngine({
     companyName: 'ITALLUX Sp. z o.o.',
     address: 'ul. Wesoła 16',
@@ -88,26 +87,26 @@ test('SDSProcessorEngine - Pełne przygotowanie payloadu z wejściowego pliku DO
     emergencyPhone: '+48 663116607'
   });
 
-  const payload = await engine.prepareAgentPayload(SANDALO_DOCX);
+  const payload = await engine.prepareAgentPayload(MUSCHIO_DOCX);
   assert.ok(payload, 'Payload musi zostać wygenerowany');
   assert.ok(payload.deterministicSections, 'Musi zawierać deterministicSections');
   
   // Weryfikacja Sekcji 1: Nazwa handlowa i UFI
   const s1 = payload.deterministicSections.section_1.content;
-  assert.ok(s1.includes('SWEET HOME - PROFUMATORE AMBIENTE SANDALO'), 'Nazwa handlowa musi być pobrana z karty DOCX');
-  assert.ok(s1.includes('U6KJ-F3SM-UX0Q-6532'), 'Kod UFI musi być pobrany z karty DOCX');
+  assert.ok(s1.includes('SWEET HOME - PROFUMATORE AMBIENTE MUSCHIO BIANCO'), 'Nazwa handlowa musi być pobrana z karty DOCX');
+  assert.ok(s1.includes('19WA-P3AW-QX01-0EQK'), 'Kod UFI musi być pobrany z karty DOCX');
 
-  // Weryfikacja Sekcji 2: Brak fałszywych piktogramów czaszki (GHS06) i żrącego (GHS05)
+  // Weryfikacja Sekcji 2: Piktogramy i klasy zagrożeń
   const s2 = payload.deterministicSections.section_2.content;
   assert.ok(s2.includes('Flam. Liq. 2'), 'Klasyfikacja musi zawierać Flam. Liq. 2');
   assert.ok(s2.includes('H412'), 'Klasyfikacja musi zawierać H412');
   assert.ok(!s2.includes('GHS06'), 'Brak piktogramu czaszki GHS06');
   assert.ok(!s2.includes('GHS05'), 'Brak piktogramu żrącego GHS05');
 
-  // Weryfikacja Sekcji 3: Wszystkie 19 składników
-  assert.strictEqual(payload.metadata.components.length, 19, 'Metadata musi zawierać 19 komponentów');
+  // Weryfikacja Sekcji 3: Wszystkie 14 składników
+  assert.strictEqual(payload.metadata.components.length, 14, 'Metadata musi zawierać 14 komponentów');
   const s3 = payload.deterministicSections.section_3.content;
-  assert.ok(s3.includes('etanol'), 'Sekcja 3 musi zawierać etanol');
+  assert.ok(s3.includes('etanol') || s3.includes('ETHANOL'), 'Sekcja 3 musi zawierać etanol');
   assert.ok(s3.includes('74 ≤ x < 78'), 'Sekcja 3 musi zawierać stężenie etanolu');
 
   // Weryfikacja Sekcji 4: Brak halucynacji oparzeń chemicznych i martwicy
