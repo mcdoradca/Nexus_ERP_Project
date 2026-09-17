@@ -3652,9 +3652,9 @@ class SDSProcessorEngine {
         const l = lines[i];
         if (/^(?:12\.2|Persistence|Degradability|This product is|Stosować|Właściwości|Mieszanina|Brak danych|Revision|Dated|Printed|Page|Pagina|Pag\.|Scheda|Safety Data Sheet|Suarez|SWEET HOME|BLK\d+|[A-Z0-9]{4}-[A-Z0-9]{4})/i.test(l)) continue;
         
-        const isMeasurementOrRange = /^[\d><~]+[\s\d\-.,]*\s*(?:mg\/l|g\/l|%|\b)/i.test(l) && !/[a-zA-Z]{3,}/.test(l.replace(/mg\/l|g\/l/gi, ''));
+        const isMeasurementOrRange = /^[\d><~]+[\s\d\-.,]*\s*(?:%|\b)/i.test(l) && !/[a-zA-Z]{3,}/.test(l.replace(/mg\/l|g\/l/gi, ''));
 
-        if (/(?:degradable|biodegradable|degradacji|rozkład|Solubility|Rozpuszczalność|OECD|ThOD|BOD|COD)/i.test(l) || isMeasurementOrRange) {
+        if (/(?:degradable|biodegradable|degradacji|rozkład|OECD|ThOD|BOD|COD)/i.test(l)) {
           currentInfo.push(l);
         } else {
           if (currentInfo.length > 0) {
@@ -3707,25 +3707,21 @@ class SDSProcessorEngine {
           remainder = remainder.replace(/Rapidly\s+degradable|readily\s+biodegradable|easily\s+biodegradable|entirely\s+degradable|ulega\s+szybkiej\s+degradacji|łatwo\s+biodegradowalna|szybko\s+rozkładalna/gi, '');
         }
 
-        const solM = remainder.match(/(?:Solubility\s+in\s+water|Rozpuszczalność\s+w\s+wodzie|Solubility|Rozpuszczalność)\s*[:\.]?\s*([0-9><~][^;\n\|]*)/i);
-        if (solM && solM[1].trim()) {
-          const cleanSolVal = solM[1].trim().replace(/(\d+)\.(\d+)/g, '$1,$2');
-          infoOut.push(`Rozpuszczalność w wodzie: ${cleanSolVal}.`);
-          remainder = remainder.replace(solM[0], '');
-        }
-
+        // Całkowita eliminacja wycieku rozpuszczalności w wodzie z sekcji 12.2 (właściwość fizykochemiczna z Sekcji 9.1)
+        remainder = remainder.replace(/(?:Solubility\s+in\s+water|Rozpuszczalność\s+w\s+wodzie|Solubility|Rozpuszczalność)\s*[:\.]?\s*[0-9><~][^;\n\|]*/gi, ' ');
+        remainder = remainder.replace(/^[ \t]*[\d><~]+[\s\d\-.,]*\s*(?:mg\/l|g\/l)?/gmi, ' ');
         remainder = remainder.replace(/\b(?:Solubility\s+in\s+water|Solubility|in\s+water|water|Rapidly\s+degradable|Entirely\s+degradable|degradable|biodegradable)\b/gi, ' ');
         remainder = remainder.replace(/[\|\-\s:;,]+/g, ' ').trim();
         
         if (remainder.length > 3) {
           const isCompLeak = compLookupNames.some(cn => remainder.toLowerCase().includes(cn.toLowerCase()));
-          const isNoise = /^(?:in water|water|mg\/l|g\/l|rozpuszczalność|brak danych)$/i.test(remainder);
+          const isNoise = /^(?:in water|water|mg\/l|g\/l|rozpuszczalność|brak danych|\d+[\s\d\-–.,]*\s*(?:mg\/l|g\/l)?)$/i.test(remainder);
           if (!isCompLeak && !isNoise) {
             let extra = remainder;
             extra = extra.replace(/\bSolubility\b/gi, 'Rozpuszczalność')
                          .replace(/\bin water\b/gi, 'w wodzie')
                          .replace(/\bDegradability\b/gi, 'zdolność do rozkładu');
-            if (extra !== 'Rozpuszczalność w wodzie' && extra !== 'Rozpuszczalność') {
+            if (extra !== 'Rozpuszczalność w wodzie' && extra !== 'Rozpuszczalność' && !/(?:mg\/l|g\/l)/i.test(extra)) {
               infoOut.push(`Dodatkowe informacje: ${extra}.`);
             }
           }
@@ -3904,10 +3900,22 @@ class SDSProcessorEngine {
     output += `${s12_6.trim()}\n\n`;
     output += `${s12_7.trim()}`;
 
+    output = SDSProcessorEngine.sanitizeSection12(output);
+
     return {
       content: output.trim(),
       endocrineDisruptorInfo: edSubstanceSummary
     };
+  }
+
+  static sanitizeSection12(content) {
+    if (!content) return "";
+    let text = content;
+    // Całkowite wycięcie parametru fizykochemicznego rozpuszczalności w wodzie z sekcji 12.2 (właściwość należąca wyłącznie do Sekcji 9.1)
+    text = text.replace(/[ \t]*Rozpuszczalność\s+w\s+wodzie:\s*[^.\n]+(?:\.|$)/gi, '');
+    text = text.replace(/[ \t]*Solubility\s+in\s+water:\s*[^.\n]+(?:\.|$)/gi, '');
+    text = text.replace(/[ \t]{2,}/g, ' ');
+    return text.trim();
   }
 
   processSection13(rawContent = "", components = [], s2Content = "", s1Content = "") {

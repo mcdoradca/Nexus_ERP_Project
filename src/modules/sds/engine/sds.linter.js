@@ -206,8 +206,8 @@ class SDSLinter {
     // REGUŁA 13: INTEGRALNOŚĆ DANYCH EKOTOKSYKOLOGICZNYCH (SEKCJA 12.2)
     // ------------------------------------------------------------------------
     if (s12) {
-      if (/Rozpuszczalność w wodzie:\s*in water/i.test(s12)) {
-        errors.push("[Sekcja 12.2] KORUPCJA DANYCH: Wykryto zniekształcony wpis 'Rozpuszczalność w wodzie: in water' (błąd parsowania tabeli).");
+      if (/(?:Rozpuszczalność\s+w\s+wodzie|Solubility\s+in\s+water)/i.test(s12)) {
+        errors.push("[Sekcja 12.2] BŁĄD STRUKTURY DANYCH: Wykryto parametr fizykochemiczny 'Rozpuszczalność w wodzie' w Sekcji 12.2 (Trwałość i zdolność do rozkładu). Rozpuszczalność w wodzie należy wyłącznie do Sekcji 9.1.");
       }
       if (/^[\d><~]+[\s\d\-.,]*\s*mg\/l\s*:/m.test(s12)) {
         errors.push("[Sekcja 12.2] BŁĄD PARSERA: Wartość liczbowa/zakres stężeń został błędnie potraktowany jako nazwa substancji.");

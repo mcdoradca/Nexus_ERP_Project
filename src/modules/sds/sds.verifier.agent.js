@@ -469,6 +469,23 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
+    // REGUŁA 18: AUDYT SEKCJI 12.2 - ELIMINACJA PARAMETRU ROZPUSZCZALNOŚCI W WODZIE
+    // Rozporządzenie (UE) 2020/878 Załącznik II (Rozpuszczalność to Sekcja 9.1, nie 12.2)
+    // =========================================================================
+    const s12Latest = (validatedSections.section_12 && validatedSections.section_12.content) || "";
+    if (s12Latest && /(?:Rozpuszczalność\s+w\s+wodzie|Solubility\s+in\s+water)/i.test(s12Latest)) {
+      const fixedS12 = SDSVerifierAgent.sanitizeSection12(s12Latest);
+      if (fixedS12 !== s12Latest) {
+        validatedSections.section_12 = { ...validatedSections.section_12, content: fixedS12 };
+        auditLog.push({
+          rule: "SECTION_12_2_PHYSICOCHEM_LEAK_REMEDIATION",
+          status: "AUTO_REMEDIATED",
+          message: "Wykryto i wyeliminowano parametr fizykochemiczny 'Rozpuszczalność w wodzie' z Sekcji 12.2 (Trwałość i zdolność do rozkładu). Rozpuszczalność w wodzie należy wyłącznie do Sekcji 9.1."
+        });
+      }
+    }
+
+    // =========================================================================
     // KROK AI: AUDYT NADZORCZY GEMINI 3.8 FLASH (DEFENSIVE AI QUALITY GATEWAY)
     // =========================================================================
     validatedSections = await SDSVerifierAgent.auditWithGemini(validatedSections, metadata, auditLog);
@@ -604,6 +621,16 @@ ${JSON.stringify(keyAuditSections, null, 2)}`;
 
     text = text.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n');
     return text;
+  }
+
+  static sanitizeSection12(content) {
+    if (!content) return "";
+    let text = content;
+    // Całkowite wycięcie parametru fizykochemicznego rozpuszczalności w wodzie z sekcji 12.2 (właściwość należąca wyłącznie do Sekcji 9.1)
+    text = text.replace(/[ \t]*Rozpuszczalność\s+w\s+wodzie:\s*[^.\n]+(?:\.|$)/gi, '');
+    text = text.replace(/[ \t]*Solubility\s+in\s+water:\s*[^.\n]+(?:\.|$)/gi, '');
+    text = text.replace(/[ \t]{2,}/g, ' ');
+    return text.trim();
   }
 }
 
