@@ -1189,14 +1189,14 @@ class SDSChemicalExtractor {
         .replace(/Classification note\s+([A-Z0-9]+)\b/gi, (match, note) => `Uwaga ${note} zgodnie z załącznikiem VI do rozporządzenia CLP`)
         .replace(/Classification note\s*$/gim, '')
         .replace(/Substance\s+with\s+a\s+community\s+workplace\s+exposure\s+limit[\.\s]*/gi, 'Substancja, dla której określono wspólnotowe najwyższe dopuszczalne stężenia w środowisku pracy.')
-        .replace(/ATE\s*Inhalation\s*vapou?rs?/gi, 'ATE (inhalacyjnie, pary)')
-        .replace(/ATE\s*Inhalation\s*(?:mists?\/?powders?|powders?\/?mists?|dusts?\/?mists?)/gi, 'ATE (inhalacyjnie, pyły/mgły)')
-        .replace(/ATE\s*Oral/gi, 'ATE (droga pokarmowa)')
-        .replace(/ATE\s*Dermal/gi, 'ATE (na skórę)')
         .replace(/(?:ATE Oral|LD50 Oral)\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/kg)?)/gi, (match, v) => `ATE (droga pokarmowa) = ${v.includes('mg/kg') ? v : v + ' mg/kg'}`)
         .replace(/(?:ATE Dermal|LD50 Dermal)\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/kg)?)/gi, (match, v) => `ATE (na skórę) = ${v.includes('mg/kg') ? v : v + ' mg/kg'}`)
         .replace(/ATE Inhalation\s*(?:mists?\s*\/?\s*powders?|powders?\s*\/?\s*mists?|dusts?\s*\/?\s*mists?)\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/l)?|\d+)/gi, (match, v) => `ATE (inhalacyjnie, pyły/mgły) = ${v.includes('mg/l') ? v : v + ' mg/l'}`)
         .replace(/ATE Inhalation(?:\s*vapours?|\s*vapors?)?\s*[:\.]?\s*(\d+(?:[.,]\d+)?\s*(?:mg\/l)?|\d+)/gi, (match, v) => `ATE (inhalacyjnie, pary) = ${v.includes('mg/l') ? v : v + ' mg/l'}`)
+        .replace(/ATE\s*Inhalation\s*vapou?rs?/gi, 'ATE (inhalacyjnie, pary)')
+        .replace(/ATE\s*Inhalation\s*(?:mists?\/?powders?|powders?\/?mists?|dusts?\/?mists?)/gi, 'ATE (inhalacyjnie, pyły/mgły)')
+        .replace(/ATE\s*Oral/gi, 'ATE (droga pokarmowa)')
+        .replace(/ATE\s*Dermal/gi, 'ATE (na skórę)')
         .replace(/M\s*=\s*(\d+)/gi, 'M = $1')
         .replace(/M-Chronic\s*[:\.]?\s*(\d+)/gi, 'M (przewlekły) = $1')
         .replace(/M-Acute\s*[:\.]?\s*(\d+)/gi, 'M (ostry) = $1')
@@ -3164,7 +3164,7 @@ class SDSProcessorEngine {
       .replace(/Partition coefficient n-octanol\/water \(log\s*\n\s*value\)/gi, 'Partition coefficient n-octanol/water (log value)')
       .replace(/Density and\/or relative\s*\n\s*density/gi, 'Density and/or relative density')
       .replace(/Volatile Organic compounds\s*-\s*VOCs/gi, 'Volatile Organic compounds - VOCs')
-      .replace(/(?:\s*\|\s*|\s+|^)(Remark|Method|Substance|Temperature|Value|Initial boiling point|Boiling point|Vapour pressure|\bpH\b|Melting point|Flash point|Flammability|Density|Relative density|Solubility|Auto-ignition|Decomposition|Viscosity)\s*[:\.]/gi, '\n$1:');
+      .replace(/(?:\s*\|\s*|\s+|^)(Remark|Method|Substance|Temperature|Value|Initial boiling point|Boiling point|Vapour pressure|\bpH\b|Melting point|Flash point|Flammability|Relative density|Density|Solubility|Auto-ignition|Decomposition|Kinematic\s+viscosity|Viscosità\s+cinematica|Viscosity)\s*[:\.]/gi, '\n$1:');
 
     // Definicja 18 urzędowych parametrów fizykochemicznych wg Załącznika II (UE) 2020/878
     const paramsConfig = [
@@ -3200,7 +3200,7 @@ class SDSProcessorEngine {
         key: "viscosity", 
         pl: "Lepkość kinematyczna", 
         customExtract: (text) => {
-          let m = text.match(/(?:Kinematic viscosity|Viscosità cinematica|Lepkość kinematyczna)\s*[:\.]?\s*([^\n]+)/i);
+          let m = text.match(/(?:Kinematic\s+viscosity|Viscosità\s+cinematica|Lepkość\s+kinematyczna|\bViscosity\b|\bViscosità\b)\s*[:\.]?\s*([^\n]+)/i);
           if (!m) return "Brak danych";
           let raw = m[1].replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
           let norm = SDSProcessorEngine.normalizePhysChemValue(raw, "viscosity");

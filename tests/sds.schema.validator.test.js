@@ -68,14 +68,13 @@ function testValidateTranslatedSections() {
 
 async function testValidateFinalSds() {
   console.log("\n[TEST 5] Pełna weryfikacja zintegrowanego modelu SDS na realnym pliku PDF...");
-  const najmaFilePath = path.join(__dirname, '..', 'docs', 'SDS', '8051944811087_SDS_NAJMA.pdf');
-  const docxFilePath = path.join(__dirname, '..', 'docs', 'SDS', '8034055535394_SDS_MUSCHIO_BIANCO org.docx');
+  const najmaDocxPath = path.join(__dirname, '..', 'docs', 'SDS', '8051944811087_SDS_NAJMA_1to1_Konwertowany.docx');
   const pdfFilePath = path.join(__dirname, '..', 'docs', 'SDS', '8034055535431_SDS_TALCO (1).pdf');
-  const testFile = fs.existsSync(najmaFilePath) ? najmaFilePath : (fs.existsSync(docxFilePath) ? docxFilePath : pdfFilePath);
+  const testFile = fs.existsSync(najmaDocxPath) ? najmaDocxPath : pdfFilePath;
   assert(fs.existsSync(testFile), "Brak pliku testowego SDS (DOCX/PDF): " + testFile);
 
   const engine = new SDSProcessorEngine();
-  const testName = testFile === najmaFilePath ? "SWEET HOME LAYALI - PROFUMA TESSUTI E AMBIENTE NAJMA" : "SWEET HOME - PROFUMATORE AMBIENTE MUSCHIO BIANCO";
+  const testName = "SWEET HOME LAYALI - PROFUMA TESSUTI E AMBIENTE NAJMA";
   const agentPayload = await engine.prepareAgentPayload(testFile, testName);
 
   const agentTranslated = {

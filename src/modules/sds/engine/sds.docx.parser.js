@@ -371,109 +371,212 @@ class SDSDocxParser {
 
     if (rawRows.length === 0) return [];
 
-    // Odrzucamy powtarzające się nagłówki tabeli (np. na kolejnych stronach)
-    const cleanRows = rawRows.filter(r => {
-      if (!r || r.length === 0) return false;
-      const txt = r.join(' ').toLowerCase();
-      if ((txt.includes('identification') || txt.includes('identificazione') || txt.includes('identyfikacja')) &&
-          (txt.includes('conc') || txt.includes('stężenie') || txt.includes('classification') || txt.includes('klasyfikacja'))) {
-        return false;
-      }
-      return true;
-    });
+    // 1. Sprawdzamy czy tabela posiada zdefiniowany nagłówek kolumnowy (format horyzontalny)
+    let nameColIdx = -1;
+    let qtyColIdx = -1;
+    let identColIdx = -1;
+    let classColIdx = -1;
+    let reachColIdx = -1;
+    let headerRowIdx = -1;
 
-    const components = [];
-    let currentComp = null;
-
-    for (const row of cleanRows) {
-      const col0 = (row[0] || '').trim();
-      const fullRow = row.join('\n').trim();
-
-      const isIdentifierRow = /^(?:INDEX|EC|CAS|REACH|Numer\s*(?:WE|CAS|indeksowy|rejestracji))\b/i.test(col0);
-
-      // Nowy komponent w formacie blokowym rozpoczyna się, gdy col0 to nazwa substancji
-      if (col0 && !isIdentifierRow) {
-        if (currentComp && (currentComp.name || currentComp.cas)) {
-          components.push(currentComp);
-        }
-        currentComp = {
-          name: col0.replace(/\n/g, ' '),
-          cas: '',
-          ec: '—',
-          index: '—',
-          reach: '—',
-          concentration: '',
-          classification: '',
-          sclAte: []
-        };
-      } else if (!currentComp) {
-        currentComp = {
-          name: '',
-          cas: '',
-          ec: '—',
-          index: '—',
-          reach: '—',
-          concentration: '',
-          classification: '',
-          sclAte: []
-        };
-      }
-
-      // Ekstrakcja CAS - priorytet dla frazy CAS: X-X-X, aby uniknąć kolizji z końcówką INDEX
-      const casExplicit = fullRow.match(/\b(?:CAS|Numer\s*CAS)\s*[:\.]?\s*([1-9]\d{1,6}-\d{2}-\d)\b/i);
-      if (casExplicit && !currentComp.cas) {
-        currentComp.cas = casExplicit[1];
-      } else if (!currentComp.cas && !fullRow.includes('INDEX') && !fullRow.includes('Indeks')) {
-        const casGeneric = fullRow.match(/(?<![\d-])([1-9]\d{1,6}-\d{2}-\d)(?![\d-])/);
-        if (casGeneric) currentComp.cas = casGeneric[1];
-      }
-
-      // Ekstrakcja WE / EC
-      const ecMatch = fullRow.match(/\b(?:EC|WE|EINECS|Numer\s*WE)\s*[:\.]?\s*(\d{3}-\d{3}-\d)\b/i);
-      if (ecMatch && currentComp.ec === '—') {
-        currentComp.ec = ecMatch[1];
-      }
-
-      // Ekstrakcja Index (wykluczamy "INDEX -")
-      const indexMatch = fullRow.match(/\b(?:INDEX|Indeks|Numer\s*indeksowy)\s*[:\.]?\s*([0-9Xx]{3}-[0-9Xx]{3}-[0-9Xx]{2}-[\dXx])\b/i);
-      if (indexMatch && currentComp.index === '—') {
-        currentComp.index = indexMatch[1];
-      }
-
-      // Ekstrakcja REACH
-      const reachMatch = fullRow.match(/\b(?:REACH\s*Reg\.?|REACH|Numer\s*rejestracji\s*REACH)\s*[:\.]?\s*(01-\d{8,10}-\d{2}(?:-[A-Za-z0-9]{2,4})?)\b/i);
-      if (reachMatch && currentComp.reach === '—') {
-        currentComp.reach = reachMatch[1];
-      }
-
-      // Ekstrakcja stężenia
-      for (const cell of row) {
-        const concM = cell.match(/(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%\s*(?:-\s*(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%)?|\b\d+(?:[.,]\d+)?\s*≤\s*x\s*<\s*\d+(?:[.,]\d+)?|\b\d+(?:[.,]\d+)?\s*<\s*x\s*<\s*\d+(?:[.,]\d+)?/i);
-        if (concM && !currentComp.concentration) {
-          currentComp.concentration = concM[0].trim();
-        }
-      }
-
-      // Ekstrakcja klasyfikacji CLP i uwag SCL / ATE
-      for (let cIdx = 1; cIdx < row.length; cIdx++) {
-        const cell = row[cIdx].trim();
-        if (!cell) continue;
-        if (cell === currentComp.concentration) continue;
-
-        if (/Flam|Eye|Skin|Acute|Aquatic|Sens|STOT|Asp|Muta|Repr|Skin Corr|H\d{3}|EUH\d{3}|Substance with a community|Classification note/i.test(cell)) {
-          if (!currentComp.classification) {
-            currentComp.classification = cell.replace(/\n/g, ' ');
-          } else {
-            currentComp.classification += `, ${cell.replace(/\n/g, ' ')}`;
-          }
-        } else if (/ATE|LD50|LC50|SCL|M=|M\s*=\s*\d+/i.test(cell)) {
-          currentComp.sclAte.push(cell.replace(/\n/g, ' '));
-        }
+    for (let i = 0; i < Math.min(3, rawRows.length); i++) {
+      const row = rawRows[i];
+      let nIdx = -1, qIdx = -1, iIdx = -1, cIdx = -1, rIdx = -1;
+      row.forEach((cell, idx) => {
+        const c = cell.toLowerCase().trim();
+        if (/^(?:name|nazwa|substancja|substance|component)/i.test(c)) nIdx = idx;
+        else if (/^(?:qty|quantity|conc|stężenie|w\/w|ilość)/i.test(c)) qIdx = idx;
+        else if (/^(?:ident|identyfikator|cas|we|ec)/i.test(c)) iIdx = idx;
+        else if (/^(?:classification|class|klasyfikacja|pericol)/i.test(c)) cIdx = idx;
+        else if (/^(?:registration|rejestracj|reach)/i.test(c)) rIdx = idx;
+      });
+      if (nIdx !== -1 && (qIdx !== -1 || iIdx !== -1)) {
+        nameColIdx = nIdx;
+        qtyColIdx = qIdx;
+        identColIdx = iIdx;
+        classColIdx = cIdx;
+        reachColIdx = rIdx;
+        headerRowIdx = i;
+        break;
       }
     }
 
-    if (currentComp && (currentComp.name || currentComp.cas)) {
-      components.push(currentComp);
+    const components = [];
+
+    if (nameColIdx !== -1) {
+      // PRZYPADEK A: Tabela horyzontalna z nagłówkiem kolumnowym (np. Qty | Name | Ident | Classification)
+      for (let r = headerRowIdx + 1; r < rawRows.length; r++) {
+        const row = rawRows[r];
+        if (!row || row.length === 0) continue;
+        const nameVal = (row[nameColIdx] || '').trim();
+        if (!nameVal || /^(?:name|nazwa|substancja|substance|qty|quantity|conc|stężenie)/i.test(nameVal)) continue;
+
+        const fullRow = row.join('\n').trim();
+        const rawComp = {
+          name: nameVal.replace(/\n/g, ' '),
+          cas: '',
+          ec: '—',
+          index: '—',
+          reach: '—',
+          concentration: '',
+          classification: '',
+          sclAte: []
+        };
+
+        if (qtyColIdx !== -1 && row[qtyColIdx]) {
+          rawComp.concentration = row[qtyColIdx].trim();
+        }
+
+        // Ekstrakcja CAS z komórki identyfikatorów lub całego wiersza
+        const identText = identColIdx !== -1 ? (row[identColIdx] || '') : fullRow;
+        const casExplicit = identText.match(/\b(?:CAS|Numer\s*CAS)\s*[:\.]?\s*([1-9]\d{1,6}-\d{2}-\d)\b/i);
+        if (casExplicit) {
+          rawComp.cas = casExplicit[1];
+        } else {
+          const casGeneric = identText.match(/(?<![\d-])([1-9]\d{1,6}-\d{2}-\d)(?![\d-])/);
+          if (casGeneric) rawComp.cas = casGeneric[1];
+        }
+
+        // Ekstrakcja WE / EC
+        const ecMatch = identText.match(/\b(?:EC|WE|EINECS|Numer\s*WE)\s*[:\.]?\s*(\d{3}-\d{3}-\d)\b/i);
+        if (ecMatch) rawComp.ec = ecMatch[1];
+
+        // Ekstrakcja Index
+        const indexMatch = identText.match(/\b(?:INDEX|Indeks|Numer\s*indeksowy)\s*[:\.]?\s*([0-9Xx]{3}-[0-9Xx]{3}-[0-9Xx]{2}-[\dXx])\b/i);
+        if (indexMatch) rawComp.index = indexMatch[1];
+
+        // Ekstrakcja REACH
+        if (reachColIdx !== -1 && row[reachColIdx]) {
+          const rCell = row[reachColIdx].trim();
+          const rMatch = rCell.match(/(01-\d{8,10}-\d{2}(?:-[A-Za-z0-9]{2,4})?)/);
+          if (rMatch) rawComp.reach = rMatch[1];
+          else if (rCell && rCell !== '—') rawComp.reach = rCell;
+        } else {
+          const reachMatch = fullRow.match(/\b(?:REACH\s*Reg\.?|REACH|Numer\s*rejestracji\s*REACH)\s*[:\.]?\s*(01-\d{8,10}-\d{2}(?:-[A-Za-z0-9]{2,4})?)\b/i);
+          if (reachMatch) rawComp.reach = reachMatch[1];
+        }
+
+        // Ekstrakcja klasyfikacji
+        if (classColIdx !== -1 && row[classColIdx]) {
+          rawComp.classification = row[classColIdx].replace(/\n/g, ' ').trim();
+        } else {
+          for (let cIdx = 0; cIdx < row.length; cIdx++) {
+            if (cIdx === nameColIdx || cIdx === qtyColIdx || cIdx === identColIdx) continue;
+            const cell = row[cIdx].trim();
+            if (/Flam|Eye|Skin|Acute|Aquatic|Sens|STOT|Asp|Muta|Repr|Skin Corr|H\d{3}|EUH\d{3}/i.test(cell)) {
+              rawComp.classification = cell.replace(/\n/g, ' ');
+              break;
+            }
+          }
+        }
+
+        components.push(rawComp);
+      }
+    } else {
+      // PRZYPADEK B: Układ tradycyjny (blokowy)
+      // Odrzucamy powtarzające się nagłówki tabeli (np. na kolejnych stronach)
+      const cleanRows = rawRows.filter(r => {
+        if (!r || r.length === 0) return false;
+        const txt = r.join(' ').toLowerCase();
+        if ((txt.includes('identification') || txt.includes('identificazione') || txt.includes('identyfikacja')) &&
+            (txt.includes('conc') || txt.includes('stężenie') || txt.includes('classification') || txt.includes('klasyfikacja'))) {
+          return false;
+        }
+        return true;
+      });
+
+      let currentComp = null;
+
+      for (const row of cleanRows) {
+        const col0 = (row[0] || '').trim();
+        const fullRow = row.join('\n').trim();
+
+        const isIdentifierRow = /^(?:INDEX|EC|CAS|REACH|Numer\s*(?:WE|CAS|indeksowy|rejestracji))\b/i.test(col0);
+
+        // Nowy komponent w formacie blokowym rozpoczyna się, gdy col0 to nazwa substancji
+        if (col0 && !isIdentifierRow) {
+          if (currentComp && (currentComp.name || currentComp.cas)) {
+            components.push(currentComp);
+          }
+          currentComp = {
+            name: col0.replace(/\n/g, ' '),
+            cas: '',
+            ec: '—',
+            index: '—',
+            reach: '—',
+            concentration: '',
+            classification: '',
+            sclAte: []
+          };
+        } else if (!currentComp) {
+          currentComp = {
+            name: '',
+            cas: '',
+            ec: '—',
+            index: '—',
+            reach: '—',
+            concentration: '',
+            classification: '',
+            sclAte: []
+          };
+        }
+
+        // Ekstrakcja CAS - priorytet dla frazy CAS: X-X-X, aby uniknąć kolizji z końcówką INDEX
+        const casExplicit = fullRow.match(/\b(?:CAS|Numer\s*CAS)\s*[:\.]?\s*([1-9]\d{1,6}-\d{2}-\d)\b/i);
+        if (casExplicit && !currentComp.cas) {
+          currentComp.cas = casExplicit[1];
+        } else if (!currentComp.cas && !fullRow.includes('INDEX') && !fullRow.includes('Indeks')) {
+          const casGeneric = fullRow.match(/(?<![\d-])([1-9]\d{1,6}-\d{2}-\d)(?![\d-])/);
+          if (casGeneric) currentComp.cas = casGeneric[1];
+        }
+
+        // Ekstrakcja WE / EC
+        const ecMatch = fullRow.match(/\b(?:EC|WE|EINECS|Numer\s*WE)\s*[:\.]?\s*(\d{3}-\d{3}-\d)\b/i);
+        if (ecMatch && currentComp.ec === '—') {
+          currentComp.ec = ecMatch[1];
+        }
+
+        // Ekstrakcja Index (wykluczamy "INDEX -")
+        const indexMatch = fullRow.match(/\b(?:INDEX|Indeks|Numer\s*indeksowy)\s*[:\.]?\s*([0-9Xx]{3}-[0-9Xx]{3}-[0-9Xx]{2}-[\dXx])\b/i);
+        if (indexMatch && currentComp.index === '—') {
+          currentComp.index = indexMatch[1];
+        }
+
+        // Ekstrakcja REACH
+        const reachMatch = fullRow.match(/\b(?:REACH\s*Reg\.?|REACH|Numer\s*rejestracji\s*REACH)\s*[:\.]?\s*(01-\d{8,10}-\d{2}(?:-[A-Za-z0-9]{2,4})?)\b/i);
+        if (reachMatch && currentComp.reach === '—') {
+          currentComp.reach = reachMatch[1];
+        }
+
+        // Ekstrakcja stężenia
+        for (const cell of row) {
+          const concM = cell.match(/(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%\s*(?:-\s*(?:[≥≤><~=]|>=|<=)?\s*\d+(?:[.,]\d+)?\s*%)?|\b\d+(?:[.,]\d+)?\s*≤\s*x\s*<\s*\d+(?:[.,]\d+)?|\b\d+(?:[.,]\d+)?\s*<\s*x\s*<\s*\d+(?:[.,]\d+)?/i);
+          if (concM && !currentComp.concentration) {
+            currentComp.concentration = concM[0].trim();
+          }
+        }
+
+        // Ekstrakcja klasyfikacji CLP i uwag SCL / ATE
+        for (let cIdx = 1; cIdx < row.length; cIdx++) {
+          const cell = row[cIdx].trim();
+          if (!cell) continue;
+          if (cell === currentComp.concentration) continue;
+
+          if (/Flam|Eye|Skin|Acute|Aquatic|Sens|STOT|Asp|Muta|Repr|Skin Corr|H\d{3}|EUH\d{3}|Substance with a community|Classification note/i.test(cell)) {
+            if (!currentComp.classification) {
+              currentComp.classification = cell.replace(/\n/g, ' ');
+            } else {
+              currentComp.classification += `, ${cell.replace(/\n/g, ' ')}`;
+            }
+          } else if (/ATE|LD50|LC50|SCL|M=|M\s*=\s*\d+/i.test(cell)) {
+            currentComp.sclAte.push(cell.replace(/\n/g, ' '));
+          }
+        }
+      }
+
+      if (currentComp && (currentComp.name || currentComp.cas)) {
+        components.push(currentComp);
+      }
     }
 
     // Formatowanie końcowe każdego komponentu
