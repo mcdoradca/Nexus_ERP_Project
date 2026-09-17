@@ -2827,7 +2827,7 @@ class SDSProcessorEngine {
     return output;
   }
 
-  processSection7(contentIt) {
+  processSection7(contentIt, s2Content = "") {
     let clean = SDSProcessorEngine.cleanPdfArtifacts(contentIt);
 
     let s71Match = clean.match(/(?:^|\n)\s*7\.1\b[.:\-]?\s*([\s\S]*?)(?=(?:^|\n)\s*7\.2\b|$)/i);
@@ -2854,10 +2854,12 @@ class SDSProcessorEngine {
 
     let text73 = s73Match ? s73Match[1] : "";
     let specUseMatch = text73.match(/(?:Specific end use\(s\)|Usi finali particolari|Szczególne zastosowanie\(-a\) końcowe)\s*[:\.]?\s*([^\n]+)/i);
-    let indSolMatch = text73.match(/(?:Industrial sector specific solutions|Settore industriale soluzioni specifiche|Rozwiązania specyficzne dla sektora przemysłowego)\s*[:\.]?\s*([^\n]+)/i);
+    let indSolMatch = text73.match(/(?:Industrial sector specific solutions|Settore industriale soluzioni específicas|Rozwiązania specyficzne dla sektora przemysłowego)\s*[:\.]?\s*([^\n]+)/i);
 
     let specUseText = SDSProcessorEngine.translatePhrase(specUseMatch ? specUseMatch[1] : "", "Brak szczególnych.");
     let indSolText = SDSProcessorEngine.translatePhrase(indSolMatch ? indSolMatch[1] : "", "Brak szczególnych.");
+
+    const isFlammable = /(?:Flam\.\s*Liq\.|H224|H225|H226|ciecz\s+łatwopalna)/i.test(s2Content);
 
     let output = "SEKCJA 7: Postępowanie z substancjami i mieszaninami oraz ich magazynowanie\n\n";
     output += "7.1. Środki ostrożności dotyczące bezpiecznego postępowania\n";
@@ -2865,12 +2867,15 @@ class SDSProcessorEngine {
     output += `Zalecenia dotyczące ogólnej higieny pracy: ${hygiene}\n\n`;
     output += "7.2. Warunki bezpiecznego magazynowania, w tym informacje dotyczące wszelkich wzajemnych niezgodności\n";
     output += `Materiały niezgodne: ${incompText}\n`;
-    output += `Wskazówki dotyczące pomieszczeń magazynowych: ${premisesText}\n\n`;
-    output += "7.3. Szczególne zastosowanie(-a) końcowe\n";
+    output += `Wskazówki dotyczące pomieszczeń magazynowych: ${premisesText}\n`;
+    if (isFlammable) {
+      output += "Wytyczne dotyczące magazynowania cieczy łatwopalnych: Magazynowanie prowadzić zgodnie z polskimi przepisami ochrony przeciwpożarowej (Rozporządzenie Ministra Spraw Wewnętrznych i Administracji z dnia 7 czerwca 2010 r. w sprawie ochrony przeciwpożarowej budynków, innych obiektów budowlanych i terenów – Dz.U. 2010 nr 109 poz. 719 z późn. zm.). Przechowywać wyłącznie w oryginalnych, szczelnie zamkniętych pojemnikach, w chłodnym, suchym i dobrze wentylowanym miejscu, z dala od źródeł ciepła, gorących powierzchni, iskier, otwartego ognia i innych źródeł zapłonu. Zabezpieczyć przed wyładowaniami elektrostatycznymi. Pomieszczenia magazynowe powinny posiadać nienasiąkliwą posadzkę oraz zabezpieczenia rozlewiskowe (wanny wychwytowe) zapobiegające przedostaniu się cieczy do kanalizacji, wód gruntowych i gleby.\n";
+    }
+    output += "\n7.3. Szczególne zastosowanie(-a) końcowe\n";
     output += `${specUseText}\n`;
     output += `Rozwiązania specyficzne dla sektora przemysłowego: ${indSolText}`;
 
-    return output;
+    return SDSProcessorEngine.normalizeSection7Storage(output, isFlammable);
   }
 
   // ============================================================================
@@ -4377,7 +4382,7 @@ class SDSProcessorEngine {
     const s9Content = this.processSection9(rawSections["section_9"], s3.components);
     const s5Content = this.processSection5(rawSections["section_5"], s3.components, s2.content, s9Content);
     const s6Content = this.processSection6(rawSections["section_6"]);
-    const s7Content = this.processSection7(rawSections["section_7"]);
+    const s7Content = this.processSection7(rawSections["section_7"], s2.content);
     const s8Content = this.processSection8(rawSections["section_8"], s3.components, s2.content);
     const s12Res = this.processSection12(rawSections["section_12"], s3.components, s2.content);
     const s12Content = s12Res.content;
@@ -4545,6 +4550,27 @@ class SDSProcessorEngine {
     return text.replace(/\n{3,}/g, '\n\n').trim();
   }
 
+  static normalizeSection7Storage(content, isFlammableLiquid = false) {
+    if (!content) return "";
+    let text = content;
+
+    const trgsRegex = /(?:^|\n)[ \t]*(?:Storage\s+class\s+)?(?:TRGS\s*510(?:\s*\([^\)]*\))?|Lagerklasse\s*(?:TRGS\s*510)?|Klasa\s+składowania\s*(?:TRGS\s*510)?(?:\s*\([^\)]*\))?|Klasa\s+magazynowa\s*(?:TRGS\s*510)?(?:\s*\([^\)]*\))?)[^\n]*/gi;
+
+    if (trgsRegex.test(text)) {
+      if (isFlammableLiquid) {
+        const plStorageClause = "\nWytyczne dotyczące magazynowania cieczy łatwopalnych: Magazynowanie prowadzić zgodnie z polskimi przepisami ochrony przeciwpożarowej (Rozporządzenie Ministra Spraw Wewnętrznych i Administracji z dnia 7 czerwca 2010 r. w sprawie ochrony przeciwpożarowej budynków, innych obiektów budowlanych i terenów – Dz.U. 2010 nr 109 poz. 719 z późn. zm.). Przechowywać wyłącznie w oryginalnych, szczelnie zamkniętych pojemnikach, w chłodnym, suchym i dobrze wentylowanym miejscu, z dala od źródeł ciepła, gorących powierzchni, iskier, otwartego ognia i innych źródeł zapłonu. Zabezpieczyć przed wyładowaniami elektrostatycznymi. Pomieszczenia magazynowe powinny posiadać nienasiąkliwą posadzkę oraz zabezpieczenia rozlewiskowe (wanny wychwytowe) zapobiegające przedostaniu się cieczy do kanalizacji, wód gruntowych i gleby.";
+        text = text.replace(trgsRegex, plStorageClause);
+      } else {
+        text = text.replace(trgsRegex, '');
+      }
+    }
+
+    // Dodatkowa dezynfekcja obcych oznaczeń WGK / VwVwS / AwSV
+    text = text.replace(/(?:^|\n)[ \t]*(?:WGK\b|Wassergefährdungsklasse|Klasa\s+zagrożenia\s+wód\s+WGK)[^\n]*/gi, '');
+
+    return text.replace(/\n{3,}/g, '\n\n').trim();
+  }
+
   mergeCompletedSds(agentPayload, agentTranslated) {
     const finalSections = {};
 
@@ -4578,6 +4604,11 @@ class SDSProcessorEngine {
         finalSections[key] = { type: "CLP_MAPPED", content };
       } else if ([6, 7, 10, 11].includes(i) && agentTranslated && agentTranslated[key]) {
         let content = SDSProcessorEngine.cleanPdfArtifacts(agentTranslated[key]).trim();
+        if (i === 7) {
+          const s2Text = agentPayload.deterministicSections?.section_2?.content || "";
+          const isFlammable = /(?:Flam\.\s*Liq\.|H224|H225|H226|ciecz\s+łatwopalna)/i.test(s2Text);
+          content = SDSProcessorEngine.normalizeSection7Storage(content, isFlammable);
+        }
         if (i === 10) {
           content = content.replace(/\bsrebreem\b/gi, 'srebrem');
         }

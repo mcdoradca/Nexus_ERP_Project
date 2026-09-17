@@ -415,6 +415,24 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
+    // REGUŁA 15: AUDYT SEKCJI 7.2 - ELIMINACJA NIEMIECKICH NORM TRGS 510 I SUBSTYTUCJA PRAWNA
+    // Rozporządzenie (UE) 2020/878 Załącznik II Pkt 7.2 oraz Rozporządzenie MSWiA (Dz.U. 2010 nr 109 poz. 719)
+    // =========================================================================
+    const s7Current = (validatedSections.section_7 && validatedSections.section_7.content) || "";
+    if (s7Current && /(?:TRGS\s*510|Lagerklasse|Klasa\s+składowania\s*TRGS|Storage\s+class\s*TRGS)/i.test(s7Current)) {
+      const isFlammable = /(?:Flam\.\s*Liq\.|H224|H225|H226|ciecz\s+łatwopalna)/i.test(s2Content);
+      const fixedS7 = SDSProcessorEngine.normalizeSection7Storage(s7Current, isFlammable);
+      if (fixedS7 !== s7Current) {
+        validatedSections.section_7 = { ...validatedSections.section_7, content: fixedS7 };
+        auditLog.push({
+          rule: "SECTION_7_TRGS510_REMEDIATION",
+          status: "AUTO_REMEDIATED",
+          message: "Wykryto i usunięto niemiecką normę techniczną TRGS 510 z Sekcji 7.2, wprowadzając oficjalne polskie wytyczne ochrony przeciwpożarowej (Dz.U. 2010 nr 109 poz. 719)."
+        });
+      }
+    }
+
+    // =========================================================================
     // KROK AI: AUDYT NADZORCZY GEMINI 3.8 FLASH (DEFENSIVE AI QUALITY GATEWAY)
     // =========================================================================
     validatedSections = await SDSVerifierAgent.auditWithGemini(validatedSections, metadata, auditLog);

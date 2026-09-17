@@ -35,6 +35,7 @@ TWÓJ ZAKRES ODPOWIEDZIALNOŚCI (TRANSLATE_LLM & EXTRACT_RAW):
    - SEKCJA 7 (Postępowanie z substancjami i mieszaninami oraz ich magazynowanie):
      * 7.1. Środki ostrożności dotyczące bezpiecznego postępowania (wentylacja, higiena, unikanie kontaktu ze skórą i oczami).
      * 7.2. Warunki bezpiecznego magazynowania, w tym informacje dotyczące wszelkich wzajemnych niezgodności.
+       CAŁKOWITY ZAKAZ POWIELANIA NIEMIECKICH NORM KRAJOWYCH (np. TRGS 510, Lagerklasse, WGK). Wszelkie odwołania do TRGS 510 zastąp polskimi wymogami ochrony przeciwpożarowej dotyczącymi magazynowania cieczy łatwopalnych (Rozporządzenie MSWiA z dnia 7 czerwca 2010 r., Dz.U. 2010 nr 109 poz. 719 z późn. zm.).
      * 7.3. Szczególne zastosowania końcowe.
    - SEKCJA 10 (Stabilność i reaktywność):
      * 10.1 (Reaktywność), 10.2 (Stabilność chemiczna), 10.3 (Możliwość występowania niebezpiecznych reakcji), 10.4 (Warunki, których należy unikać), 10.5 (Materiały niezgodne), 10.6 (Niebezpieczne produkty rozkładu).

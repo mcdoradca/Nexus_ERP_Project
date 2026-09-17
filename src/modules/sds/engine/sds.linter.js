@@ -217,6 +217,16 @@ class SDSLinter {
       }
     }
 
+    // ------------------------------------------------------------------------
+    // REGUŁA 14: ZAKAZ POWIELANIA OBCYCH NORM KRAJOWYCH (TRGS 510 / WGK) W SEKCJI 7
+    // ------------------------------------------------------------------------
+    const s7 = typeof sections.section_7 === 'object' ? (sections.section_7.content || "") : (sections.section_7 || "");
+    if (s7) {
+      if (/(?:TRGS\s*510|Lagerklasse|Klasa\s+składowania\s*TRGS|Storage\s+class\s*TRGS)/i.test(s7)) {
+        errors.push("[Sekcja 7.2] BŁĄD JURYSDYKCJI (BEZREFLEKSYJNA TRANSLACJA): Wykryto niemiecką normę techniczną TRGS 510 w polskiej karcie SDS. Wymagane usunięcie lub powołanie polskich przepisów ppoż. (Dz.U. 2010 nr 109 poz. 719).");
+      }
+    }
+
     return {
       isValid: errors.length === 0,
       errors,
