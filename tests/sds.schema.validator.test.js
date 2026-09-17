@@ -68,13 +68,15 @@ function testValidateTranslatedSections() {
 
 async function testValidateFinalSds() {
   console.log("\n[TEST 5] Pełna weryfikacja zintegrowanego modelu SDS na realnym pliku PDF...");
-  const pdfFilePath = path.join(__dirname, '..', 'docs', 'SDS', '8034055535431_SDS_TALCO (1).pdf');
+  const najmaFilePath = path.join(__dirname, '..', 'docs', 'SDS', '8051944811087_SDS_NAJMA.pdf');
   const docxFilePath = path.join(__dirname, '..', 'docs', 'SDS', '8034055535394_SDS_MUSCHIO_BIANCO org.docx');
-  const testFile = fs.existsSync(docxFilePath) ? docxFilePath : pdfFilePath;
+  const pdfFilePath = path.join(__dirname, '..', 'docs', 'SDS', '8034055535431_SDS_TALCO (1).pdf');
+  const testFile = fs.existsSync(najmaFilePath) ? najmaFilePath : (fs.existsSync(docxFilePath) ? docxFilePath : pdfFilePath);
   assert(fs.existsSync(testFile), "Brak pliku testowego SDS (DOCX/PDF): " + testFile);
 
   const engine = new SDSProcessorEngine();
-  const agentPayload = await engine.prepareAgentPayload(testFile, "SWEET HOME - PROFUMATORE AMBIENTE MUSCHIO BIANCO");
+  const testName = testFile === najmaFilePath ? "SWEET HOME LAYALI - PROFUMA TESSUTI E AMBIENTE NAJMA" : "SWEET HOME - PROFUMATORE AMBIENTE MUSCHIO BIANCO";
+  const agentPayload = await engine.prepareAgentPayload(testFile, testName);
 
   const agentTranslated = {
     section_1_2: "1.2. Istotne zidentyfikowane zastosowania substancji lub mieszaniny oraz zastosowania odradzane\nZastosowanie: Odświeżacz powietrza.\nZastosowania odradzane: Brak.",

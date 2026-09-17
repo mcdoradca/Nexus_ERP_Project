@@ -659,6 +659,9 @@ class SDSChemicalExtractor {
       const restPart = n.substring(parenIdx);
       return `${this.toAccusative(mainPart)} ${restPart}`.trim();
     }
+    if (/^masa\s+poreakcyjna/i.test(n)) {
+      return n.replace(/^masa\s+poreakcyjna/i, 'masę poreakcyjną');
+    }
     const directMap = {
       'kumaryna': 'kumarynę',
       'Kumaryna': 'kumarynę',
@@ -1842,7 +1845,7 @@ class SDSProcessorEngine {
     const inferredGhs = SDSChemicalExtractor.inferGhsFromHCodes(hCodes);
     this.detectedGhsPictograms = isHazardous ? Array.from(new Set([...directGhs, ...inferredGhs])).sort() : [];
 
-    let signalWord = "Brak.";
+    let signalWord = "Brak hasła ostrzegawczego.";
     if (isHazardous) {
       if (/(PERICOLO|DANGER|NIEBEZPIECZEŃSTWO)/i.test(contentIt)) {
         signalWord = "Niebezpieczeństwo";
@@ -2019,7 +2022,7 @@ class SDSProcessorEngine {
     if (pCodes.length > 0) {
       let filteredPCodes = [...pCodes];
       // Zgodnie z art. 28 ust. 3 rozporządzenia CLP eliminujemy zwroty niemające uzasadnienia w klasyfikacji mieszaniny
-      const hasSkinHazard = hCodes.some(h => ['H314', 'H315', 'H317', 'H311', 'H312', 'H310'].includes(h)) || /H314|H315|H317|Skin\s*Sens|Skin\s*Irrit|Skin\s*Corr/i.test(s2Content);
+      const hasSkinHazard = hCodes.some(h => ['H314', 'H315', 'H317', 'H311', 'H312', 'H310'].includes(h)) || /H314|H315|H317|Skin\s*Sens|Skin\s*Irrit|Skin\s*Corr/i.test(contentIt || '');
       if (!hasSkinHazard) {
         filteredPCodes = filteredPCodes.filter(c => c !== 'P302+P352' && c !== 'P302' && c !== 'P352' && c !== 'P333+P313');
       }
