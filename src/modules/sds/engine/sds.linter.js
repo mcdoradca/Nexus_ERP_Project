@@ -31,6 +31,7 @@ class SDSLinter {
     const s11 = typeof sections.section_11 === 'object' ? (sections.section_11.content || "") : (sections.section_11 || "");
     const s12 = typeof sections.section_12 === 'object' ? (sections.section_12.content || "") : (sections.section_12 || "");
     const s14 = typeof sections.section_14 === 'object' ? (sections.section_14.content || "") : (sections.section_14 || "");
+    const s16 = typeof sections.section_16 === 'object' ? (sections.section_16.content || "") : (sections.section_16 || "");
 
     // ------------------------------------------------------------------------
     // REGUŁA 1: ZAKAZ OBCOJĘZYCZNYCH FRAZ W TEKŚCIE (CZYSTOŚĆ JĘZYKOWA RP)
@@ -253,6 +254,32 @@ class SDSLinter {
         if (isLC50orInhalation && hasDoseUnit && !isLD50orOralDermal) {
           errors.push(`[Sekcja 11.1] BŁĄD MERYTORYCZNY JEDNOSTEK TOKSYKOLOGICZNYCH: Wykryto parametr inhalacyjny z fizycznie niemożliwą jednostką dawki na masę ciała (${line.trim()}). Stężenie śmiertelne w powietrzu (inhalacja) musi być podawane w mg/l, mg/m³ lub ppm. Jednostka mg/kg dotyczy wyłącznie dawki doustnej/skórnej (LD50).`);
           break;
+        }
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // REGUŁA 17: ZAKAZ GENERYCZNEGO ZAPYCHACZA EUH208 ("Zawiera substancję uczulającą")
+    // Rozporządzenie CLP Załącznik III i art. 18 ust. 3 lit. b / art. 25 ust. 6
+    // ------------------------------------------------------------------------
+    if (s2 && /substancj[aęie]\s+uczulając[aąe]/i.test(s2)) {
+      errors.push("[Sekcja 2.2] BŁĄD CLP: Wykryto generyczny zapychacz 'Zawiera substancję uczulającą' w Sekcji 2.2. Zgodnie z CLP należy podać konkretne nazwy alergenów w bierniku lub usunąć zwrot EUH208, jeśli mieszanina jest zaklasyfikowana jako Skin Sens. (H317).");
+    }
+    if (s16 && /EUH208[^\n]*substancj[aęie]\s+uczulając[aąe]/i.test(s16)) {
+      errors.push("[Sekcja 16] BŁĄD CLP: Wykryto generyczny zapychacz 'Zawiera substancję uczulającą' dla EUH208 w Sekcji 16. Wymagane podanie konkretnych alergenów w bierniku (np. 'Zawiera kumarynę, geraniol...') lub oficjalnego wzorca ze zmienną [nazwa substancji uczulającej].");
+    }
+
+    // ------------------------------------------------------------------------
+    // REGUŁA 18: OBOWIĄZEK WYKAZANIA ETANOLU NA ETYKIECIE PRZY KLASYFIKACJI H225/H319
+    // Rozporządzenie CLP art. 18 ust. 3 lit. b (rozpuszczalnik bazowy w stężeniu dominującym >= 10%)
+    // ------------------------------------------------------------------------
+    const hasEthanolInS3 = /(?:etanol|ethanol|64-17-5)/i.test(s3) && /(?:[1-9]\d|\b[1-9]\d(?:\.\d+)?\s*%\b|\b7[4-8]\b)/.test(s3);
+    const isFlammableOrEyeInS2 = /H225|H319|Flam\.\s*Liq\.\s*2|Eye\s*Irrit\.\s*2/i.test(s2);
+    if (hasEthanolInS3 && isFlammableOrEyeInS2 && s2) {
+      const labelSubstancesMatch = s2.match(/(?:Nazwy niebezpiecznych substancji wymienione na etykiecie|Substancje wymienione na etykiecie)[\s\S]*?(?=\n\n(?:Zwroty wskazujące rodzaj zagrożenia|$))/i);
+      if (labelSubstancesMatch) {
+        if (!/(?:etanol|ethanol)/i.test(labelSubstancesMatch[0])) {
+          errors.push("[Sekcja 2.2] BŁĄD CLP ART. 18(3)(b): Brak etanolu w wykazie substancji decydujących o zagrożeniach mieszaniny (Nazwy niebezpiecznych substancji wymienione na etykiecie) przy obecności etanolu w stężeniu dominującym (≥ 10%) i klasyfikacji H225/H319.");
         }
       }
     }

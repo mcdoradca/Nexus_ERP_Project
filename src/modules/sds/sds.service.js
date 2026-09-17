@@ -124,7 +124,7 @@ const OFFICIAL_CLP_H_PHRASES = {
   H413: "Może powodować długotrwałe szkodliwe skutki dla organizmów wodnych.",
   EUH066: "Powtarzające się narażenie może powodować wysuszanie lub pękanie skóry.",
   EUH071: "Działa żrąco na drogi oddechowe.",
-  EUH208: "Zawiera substancję uczulającą. Może powodować wystąpienie reakcji alergicznej.",
+  EUH208: "Zawiera [nazwa substancji uczulającej]. Może powodować wystąpienie reakcji alergicznej.",
   EUH210: "Karta charakterystyki dostępna na żądanie.",
   EUH380: "Może powodować zaburzenia funkcjonowania układu hormonalnego u ludzi."
 };
@@ -650,7 +650,7 @@ class SDSChemicalExtractor {
     if (!name) return "";
     let n = name.trim();
     // Odmiana przed nawiasem, np. "kumaryna (2H-chromen-2-on)" -> "kumarynę (2H-chromen-2-on)"
-    const parenIdx = n.indexOf('(');
+    const parenIdx = n.search(/[\(\[]/);
     if (parenIdx !== -1) {
       const mainPart = n.substring(0, parenIdx).trim();
       const restPart = n.substring(parenIdx);
@@ -684,7 +684,7 @@ class SDSChemicalExtractor {
       const match = text.match(/EUH208\s*(?:Contains|Contiene|Zawiera|Innehåller)?[:\s]*([^.]+?)(?:\.\s*(?:May produce|Può provocare|Może powodować|Kan ge)|(?:\n\s*\n)|$)/is);
       if (match && match[1]) {
         let raw = match[1].replace(/-\s+/g, '-').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-        let parts = raw.split(/;\s*|\s*,\s*(?![^(]*\))/).map(s => s.trim()).filter(s => s && !/^(?:Contains|Contiene|Zawiera|May|Può|Może)/i.test(s));
+        let parts = raw.split(/;\s*|\s*,\s*(?![^(]*\))/).map(s => s.trim()).filter(s => s && !/^(?:Contains|Contiene|Zawiera|May|Può|Może|substancj[aęie]|substance|sostanz[ae])/i.test(s));
         rawSubstances.push(...parts);
       }
     }
@@ -1896,6 +1896,19 @@ class SDSProcessorEngine {
             deduplicatedNames.push(resolved);
           }
         }
+        // Zgodnie z art. 18 ust. 3 lit. b CLP: rozpuszczalnik bazowy (np. etanol) decydujący o klasyfikacji H225/H319 w stężeniu dominującym (>= 10%) bezwzględnie musi znaleźć się na etykiecie
+        const hasDominantEthanol = components && components.some(c => {
+          const isEth = (c.cas === '64-17-5' || /etanol|ethanol/i.test(c.name || c.originalName || ''));
+          const concNums = [...(c.concentration || '').matchAll(/(\d+(?:[.,]\d+)?)/g)].map(n => parseFloat(n[1].replace(',', '.')));
+          const maxC = concNums.length > 0 ? Math.max(...concNums) : 0;
+          return isEth && maxC >= 10;
+        });
+        if (hasDominantEthanol && (hCodes.includes('H225') || hCodes.includes('H319'))) {
+          if (!seenKeys.has('etanol')) {
+            seenKeys.add('etanol');
+            deduplicatedNames.push('etanol');
+          }
+        }
         labelSubstances = deduplicatedNames.join(', ');
       }
     } else if (potentialNames.length > 0) {
@@ -1913,6 +1926,13 @@ class SDSProcessorEngine {
     } else if (isHazardous) {
       const hazardSubstanceNames = Object.values(resolvedSubstances).filter(Boolean);
       if (hazardSubstanceNames.length > 0) labelSubstances = Array.from(new Set(hazardSubstanceNames)).join(", ");
+    }
+
+    // Ostateczna tarcza art. 18 ust. 3 lit. b CLP dla etanolu
+    if (components && components.some(c => (c.cas === '64-17-5' || /etanol|ethanol/i.test(c.name || c.originalName || '')) && /(?:[1-9]\d|\b[1-9]\d(?:\.\d+)?\s*%\b|\b7[4-8]\b)/.test(c.concentration || '')) && (hCodes.includes('H225') || hCodes.includes('H319'))) {
+      if (!/(?:etanol|ethanol)/i.test(labelSubstances)) {
+        labelSubstances = labelSubstances === "Nie dotyczy." ? "etanol" : `${labelSubstances}, etanol`;
+      }
     }
 
     let mappedH = "Brak.";
@@ -4155,7 +4175,37 @@ class SDSProcessorEngine {
       hPhrasesBlock.push(`${code}: ${phrase}`);
     });
     sortedEuhCodes.forEach(code => {
-      const phrase = OFFICIAL_CLP_H_PHRASES[code] || (code === "EUH208" ? "Zawiera substancję uczulającą. Może powodować wystąpienie reakcji alergicznej." : "Informacja uzupełniająca o zagrożeniach.");
+      let phrase = OFFICIAL_CLP_H_PHRASES[code] || "Informacja uzupełniająca o zagrożeniach.";
+      if (code === "EUH208") {
+        let allergens = [];
+        // 1. Sprawdź, czy Sekcja 2 zawiera już wyliczone alergeny dla EUH208
+        const matchS2 = s2Content.match(/EUH208\s*[:\.]?\s*Zawiera\s+([^.]+?)\.\s*Może/i);
+        if (matchS2 && matchS2[1] && !/substancj[aęie]/i.test(matchS2[1])) {
+          phrase = `Zawiera ${matchS2[1].trim()}. Może powodować wystąpienie reakcji alergicznej.`;
+        } else {
+          // 2. Wyodrębnij alergeny ze składników (Skin Sens / H317 / H334)
+          if (components && Array.isArray(components)) {
+            components.forEach(c => {
+              const cl = c.classification || '';
+              if (/(?:Skin\s*Sens|Resp\s*Sens|H317|H334)/i.test(cl)) {
+                let name = c.name || c.originalName || '';
+                if (name) {
+                  const resolved = SDSChemicalExtractor.resolvePlName(c.cas, name, {});
+                  const conjugated = SDSChemicalExtractor.toAccusative(resolved || name);
+                  if (conjugated && !allergens.includes(conjugated)) {
+                    allergens.push(conjugated);
+                  }
+                }
+              }
+            });
+          }
+          if (allergens.length > 0) {
+            phrase = `Zawiera ${allergens.join(', ')}. Może powodować wystąpienie reakcji alergicznej.`;
+          } else {
+            phrase = OFFICIAL_CLP_H_PHRASES["EUH208"] || "Zawiera [nazwa substancji uczulającej]. Może powodować wystąpienie reakcji alergicznej.";
+          }
+        }
+      }
       hPhrasesBlock.push(`${code}: ${phrase}`);
     });
 

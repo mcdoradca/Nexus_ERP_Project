@@ -486,6 +486,92 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
+    // REGUŁA 19: AUDYT SEKCJI 2.2 - GWARANCJA OBECNOŚCI ETANOLU NA ETYKIECIE
+    // Rozporządzenie CLP art. 18 ust. 3 lit. b (Etanol >= 10% przy klasyfikacji H225/H319)
+    // =========================================================================
+    let s2Audit = (validatedSections.section_2 && validatedSections.section_2.content) || "";
+    const hasEthanolInS3 = components && components.some(c => (c.cas === '64-17-5' || /etanol|ethanol/i.test(c.name || c.originalName || '')) && /(?:[1-9]\d|\b[1-9]\d(?:\.\d+)?\s*%\b|\b7[4-8]\b)/.test(c.concentration || ''));
+    const isFlammableOrEye = /H225|H319|Flam\.\s*Liq\.\s*2|Eye\s*Irrit\.\s*2/i.test(s2Audit);
+
+    if (hasEthanolInS3 && isFlammableOrEye && s2Audit) {
+      const labelMatch = s2Audit.match(/(Nazwy niebezpiecznych substancji wymienione na etykiecie\n)([^\n]+)/i);
+      if (labelMatch) {
+        const currentSubstances = labelMatch[2].trim();
+        if (!/(?:etanol|ethanol)/i.test(currentSubstances)) {
+          const newSubstances = currentSubstances === "Nie dotyczy." ? "etanol" : `${currentSubstances}, etanol`;
+          s2Audit = s2Audit.replace(labelMatch[0], `${labelMatch[1]}${newSubstances}`);
+          validatedSections.section_2 = { ...validatedSections.section_2, content: s2Audit };
+          auditLog.push({
+            rule: "SECTION_2_ETHANOL_LABEL_COMPLIANCE",
+            status: "AUTO_REMEDIATED",
+            message: "Uzupełniono wykaz substancji decydujących o klasyfikacji na etykiecie w Sekcji 2.2 o 'etanol' zgodnie z art. 18 ust. 3 lit. b CLP."
+          });
+        }
+      }
+    }
+
+    // =========================================================================
+    // REGUŁA 20: AUDYT SEKCJI 2.2 I 16 - ELIMINACJA GENERYCZNEGO ZAPYCHACZA EUH208
+    // Rozporządzenie CLP art. 18 ust. 3 lit. b, art. 25 ust. 6 oraz Załącznik III
+    // =========================================================================
+    // 1. Sprawdzenie Sekcji 2.2
+    s2Audit = (validatedSections.section_2 && validatedSections.section_2.content) || "";
+    if (s2Audit && /substancj[aęie]\s+uczulając[aąe]/i.test(s2Audit)) {
+      const mixtureHasSens = /Skin\s*Sens|Resp\s*Sens|H317|H334/i.test(s2Audit);
+      if (mixtureHasSens) {
+        // Przy H317 na etykiecie zwrot EUH208 jest bezwzględnie zakazany (art. 25 ust. 6 CLP)
+        s2Audit = s2Audit.replace(/EUH208[^\n]*\n?/gi, '').replace(/(Informacje uzupełniające\n)(?:\s*\n)?/i, '$1Brak.\n');
+        s2Audit = s2Audit.replace(/\n{3,}/g, '\n\n');
+      } else {
+        const { SDSChemicalExtractor } = require('./sds.service');
+        const correctEuh208 = SDSChemicalExtractor.formatEuh208(s2Audit, {}, components, []);
+        if (correctEuh208) {
+          s2Audit = s2Audit.replace(/EUH208[^\n]+/gi, correctEuh208);
+        } else {
+          s2Audit = s2Audit.replace(/EUH208[^\n]*\n?/gi, '').replace(/(Informacje uzupełniające\n)(?:\s*\n)?/i, '$1Brak.\n');
+        }
+      }
+      validatedSections.section_2 = { ...validatedSections.section_2, content: s2Audit };
+      auditLog.push({
+        rule: "SECTION_2_EUH208_PLACEHOLDER_REMEDIATION",
+        status: "AUTO_REMEDIATED",
+        message: "Wykryto i wyeliminowano generyczny zapychacz 'Zawiera substancję uczulającą' z Sekcji 2.2."
+      });
+    }
+
+    // 2. Sprawdzenie Sekcji 16
+    let s16Audit = (validatedSections.section_16 && validatedSections.section_16.content) || "";
+    if (s16Audit && /EUH208[^\n]*substancj[aęie]\s+uczulając[aąe]/i.test(s16Audit)) {
+      let allergens = [];
+      if (components && Array.isArray(components)) {
+        components.forEach(c => {
+          const cl = c.classification || '';
+          if (/(?:Skin\s*Sens|Resp\s*Sens|H317|H334)/i.test(cl)) {
+            let name = c.name || c.originalName || '';
+            if (name) {
+              const { SDSChemicalExtractor } = require('./sds.service');
+              const resolved = SDSChemicalExtractor.resolvePlName(c.cas, name, {});
+              const conjugated = SDSChemicalExtractor.toAccusative(resolved || name);
+              if (conjugated && !allergens.includes(conjugated)) {
+                allergens.push(conjugated);
+              }
+            }
+          }
+        });
+      }
+      const fixedPhrase = allergens.length > 0
+        ? `EUH208: Zawiera ${allergens.join(', ')}. Może powodować wystąpienie reakcji alergicznej.`
+        : "EUH208: Zawiera [nazwa substancji uczulającej]. Może powodować wystąpienie reakcji alergicznej.";
+      s16Audit = s16Audit.replace(/EUH208[^\n]*substancj[aęie]\s+uczulając[aąe][^\n]*/gi, fixedPhrase);
+      validatedSections.section_16 = { ...validatedSections.section_16, content: s16Audit };
+      auditLog.push({
+        rule: "SECTION_16_EUH208_DYNAMIC_ALLERGEN_REMEDIATION",
+        status: "AUTO_REMEDIATED",
+        message: "Zastąpiono generyczny zapychacz EUH208 w Sekcji 16 wykazem konkretnych alergenów w bierniku zgodnie z wymogami CLP."
+      });
+    }
+
+    // =========================================================================
     // KROK AI: AUDYT NADZORCZY GEMINI 3.8 FLASH (DEFENSIVE AI QUALITY GATEWAY)
     // =========================================================================
     validatedSections = await SDSVerifierAgent.auditWithGemini(validatedSections, metadata, auditLog);
@@ -572,9 +658,9 @@ ${JSON.stringify(keyAuditSections, null, 2)}`;
 
       if (parsed.remediatedSections && typeof parsed.remediatedSections === 'object') {
         for (const [secKey, newContent] of Object.entries(parsed.remediatedSections)) {
-          // Deterministyczne sekcje laboratoryjne i tabelaryczne (3, 8, 9, 12, 14, 15) podlegają ochronie Single Source of Truth
-          // Zakaz nadpisywania wyliczonych danych chemicznych, NDS, DNEL/PNEC i ekotoksyczności przez halucynacje LLM
-          if (['section_3', 'section_8', 'section_9', 'section_12', 'section_14', 'section_15'].includes(secKey)) {
+          // Deterministyczne sekcje laboratoryjne, prawne i etykietowe (2, 3, 8, 9, 12, 14, 15, 16) podlegają ochronie Single Source of Truth
+          // Zakaz nadpisywania wyliczonych danych chemicznych, NDS, DNEL/PNEC, oznakowania CLP i pełnego brzmienia zwrotów przez halucynacje LLM
+          if (['section_2', 'section_3', 'section_8', 'section_9', 'section_12', 'section_14', 'section_15', 'section_16'].includes(secKey)) {
             continue;
           }
           if (sections[secKey] && typeof newContent === 'string' && newContent.trim().length > 20) {

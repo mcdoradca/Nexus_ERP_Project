@@ -122,7 +122,7 @@ const CANONICAL_H_PHRASES = {
   EUH202: "Cyjanoakrylan. Niebezpieczeństwo. Skleja skórę i powieki w ciągu kilku sekund. Chronić przed dziećmi.",
   EUH204: "Zawiera izocyjaniany. Może powodować wystąpienie reakcji alergicznej.",
   EUH205: "Zawiera składniki epoksydowe. Może powodować wystąpienie reakcji alergicznej.",
-  EUH208: "Zawiera substancję uczulającą. Może powodować wystąpienie reakcji alergicznej.",
+  EUH208: "Zawiera [nazwa substancji uczulającej]. Może powodować wystąpienie reakcji alergicznej.",
   EUH210: "Karta charakterystyki dostępna na żądanie.",
   EUH380: "Może powodować zaburzenia funkcjonowania układu hormonalnego u ludzi.",
   EUH381: "Podejrzewa się, że powoduje zaburzenia funkcjonowania układu hormonalnego u ludzi."
