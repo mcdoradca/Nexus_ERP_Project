@@ -4058,6 +4058,7 @@ class SDSProcessorEngine {
     // Determinizm prawny CLP (Zero-Bypass Fallback):
     const isDangerousLiquid = /Flam\. Liq|Eye Irrit|Eye Dam|Skin Irrit|Skin Sens|Skin Corr|Acute Tox|STOT|Aquatic/i.test(s2Content);
     const isFlammableLiquid = /Flam\. Liq|H224|H225|H226/i.test(s2Content);
+    const isTattooProduct = /(?:tatu|tattoo|makijaż\s+permanentn|permanent\s+make-?up)/i.test(s1Content);
 
     if (isDangerousLiquid && !prodPoints.includes("3")) {
       prodPoints.push("3");
@@ -4065,7 +4066,12 @@ class SDSProcessorEngine {
     if (isFlammableLiquid && !prodPoints.includes("40")) {
       prodPoints.push("40");
     }
-    if (!contPoints.includes("75") && clean.includes("75")) {
+    // Pozycja 75 Załącznika XVII do REACH (Rozporządzenie (UE) 2020/2081) dotyczy WYŁĄCZNIE tuszów do tatuażu i makijażu permanentnego.
+    // Dla produktów nietatuatorskich (np. odświeżacze, dyfuzory, chemia gospodarcza) pozycja 75 nie ma zastosowania i musi zostać wykluczona.
+    if (!isTattooProduct) {
+      contPoints = contPoints.filter(p => p !== "75");
+      prodPoints = prodPoints.filter(p => p !== "75");
+    } else if (!contPoints.includes("75") && clean.includes("75")) {
       contPoints.push("75");
     }
 
@@ -4080,10 +4086,12 @@ class SDSProcessorEngine {
     }
     if (contPoints.length > 0) {
       let descList = [];
-      if (contPoints.includes("75")) descList.push("pozycji 75 (Substancje w tuszach do tatuażu i makijażu permanentnego)");
+      if (contPoints.includes("75") && isTattooProduct) descList.push("pozycji 75 (Substancje w tuszach do tatuażu i makijażu permanentnego)");
       const otherCont = contPoints.filter(p => p !== "75");
       if (otherCont.length > 0) descList.push(`pozycji ${otherCont.join(', ')}`);
-      restrLines.push(`  * Substancje zawarte w mieszaninie podlegają ograniczeniom wynikającym z ${descList.join(' oraz ')}.`);
+      if (descList.length > 0) {
+        restrLines.push(`  * Substancje zawarte w mieszaninie podlegają ograniczeniom wynikającym z ${descList.join(' oraz ')}.`);
+      }
     }
 
     let restrText = restrLines.length > 0 ? "\n" + restrLines.join('\n') : " Mieszanina nie podlega ograniczeniom na mocy załącznika XVII do rozporządzenia REACH.";

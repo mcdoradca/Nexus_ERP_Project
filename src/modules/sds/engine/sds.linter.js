@@ -227,6 +227,18 @@ class SDSLinter {
       }
     }
 
+    // ------------------------------------------------------------------------
+    // REGUŁA 15: ZAKAZ POWIELANIA OGRANICZEŃ DLA TUSZÓW DO TATUAŻU (POZ. 75 ZAŁĄCZNIKA XVII) DLA PRODUKTÓW NIETATUATORSKICH
+    // Rozporządzenie Komisji (UE) 2020/2081 (Poz. 75 dotyczy wyłącznie mieszanin do celów wykonywania tatuażu)
+    // ------------------------------------------------------------------------
+    const s15 = typeof sections.section_15 === 'object' ? (sections.section_15.content || "") : (sections.section_15 || "");
+    const isTattooProduct = /(?:tatu|tattoo|makijaż\s+permanentn|permanent\s+make-?up)/i.test(s1);
+    if (s15 && !isTattooProduct) {
+      if (/(?:pozycji\s*75|pozycja\s*75|tuszach\s+do\s+tatuażu)/i.test(s15)) {
+        errors.push("[Sekcja 15.1] ABSURD PRAWNY: Wykryto ograniczenie z pozycji 75 załącznika XVII (tusze do tatuażu i makijaż permanentny) w produkcie, który nie jest tuszem do tatuażu. Ograniczenie z pozycji 75 dotyczy wyłącznie mieszanin do tatuażu.");
+      }
+    }
+
     return {
       isValid: errors.length === 0,
       errors,

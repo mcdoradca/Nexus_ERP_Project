@@ -433,6 +433,25 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
+    // REGUŁA 16: AUDYT SEKCJI 15.1 - ELIMINACJA NIEUPRAWNIONEJ POZYCJI 75 (TUSZE DO TATUAŻU)
+    // Rozporządzenie (UE) 2020/2081 (Poz. 75 Załącznika XVII)
+    // =========================================================================
+    const s15Current = (validatedSections.section_15 && validatedSections.section_15.content) || "";
+    const isTattooProduct = /(?:tatu|tattoo|makijaż\s+permanentn|permanent\s+make-?up)/i.test(s1Current);
+    if (s15Current && !isTattooProduct && /(?:pozycji\s*75|pozycja\s*75|tuszach\s+do\s+tatuażu)/i.test(s15Current)) {
+      let fixedS15 = s15Current.replace(/[ \t]*\*[ \t]*Substancje\s+zawarte\s+w\s+mieszaninie\s+podlegają\s+ograniczeniom\s+wynikającym\s+z\s+pozycji\s*75[^\n]*\n?/gi, '');
+      fixedS15 = fixedS15.replace(/\n{3,}/g, '\n\n');
+      if (fixedS15 !== s15Current) {
+        validatedSections.section_15 = { ...validatedSections.section_15, content: fixedS15 };
+        auditLog.push({
+          rule: "SECTION_15_ANNEX_XVII_ENTRY_75_REMEDIATION",
+          status: "AUTO_REMEDIATED",
+          message: "Wykryto i usunięto nieuprawnione ograniczenie z pozycji 75 Załącznika XVII (tusze do tatuażu) z Sekcji 15.1."
+        });
+      }
+    }
+
+    // =========================================================================
     // KROK AI: AUDYT NADZORCZY GEMINI 3.8 FLASH (DEFENSIVE AI QUALITY GATEWAY)
     // =========================================================================
     validatedSections = await SDSVerifierAgent.auditWithGemini(validatedSections, metadata, auditLog);
