@@ -12,6 +12,7 @@
 const AdmZip = require('adm-zip');
 const cheerio = require('cheerio');
 const fs = require('fs');
+const { CLPHarmonizedRegistry } = require('./sds.clp.registry');
 
 class SDSDocxParser {
   /**
@@ -618,7 +619,7 @@ class SDSDocxParser {
         .replace(/ATE Oral[:\.]?\s*/gi, 'ATE (droga pokarmowa): ')
         .replace(/ATE Dermal[:\.]?\s*/gi, 'ATE (na skórę): ');
 
-      return {
+      const compObj = {
         cas: c.cas || '',
         name: plName || rawName,
         originalName: rawName,
@@ -629,6 +630,8 @@ class SDSDocxParser {
         classification: fullClass.trim(),
         concentration: formattedConc
       };
+
+      return CLPHarmonizedRegistry.enrichComponent(compObj);
     });
   }
 }

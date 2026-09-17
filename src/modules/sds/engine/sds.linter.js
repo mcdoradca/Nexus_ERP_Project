@@ -309,6 +309,57 @@ class SDSLinter {
       }
     }
 
+    // ------------------------------------------------------------------------
+    // REGUŁA 20: ZAKAZ OBCOJĘZYCZNYCH WTRĄCEŃ (ang. ...) W SEKCJI 3 (ART. 31 UST. 5 REACH)
+    // ------------------------------------------------------------------------
+    if (s3 && /\(ang\.[^\)]*\)/i.test(s3)) {
+      errors.push("[Sekcja 3] BŁĄD JĘZYKOWY (ART. 31 UST. 5 REACH): Wykryto anglojęzyczne wtrącenie '(ang. ...)' w wykazie składników Sekcji 3. Karta SDS w obrocie na terytorium RP musi być w całości w języku polskim.");
+    }
+
+    // ------------------------------------------------------------------------
+    // REGUŁA 21: SPÓJNOŚĆ MATERIAŁÓW NIEZGODNYCH W SEKCJI 10.5 DLA PRODUKTÓW KWASOWYCH
+    // ------------------------------------------------------------------------
+    const s10 = typeof sections.section_10 === 'object' ? (sections.section_10.content || "") : (sections.section_10 || "");
+    const phMatch = s9.match(/pH\s*[:\.]?\s*([0-9]+(?:[.,][0-9]+)?)/i);
+    const phVal = phMatch ? parseFloat(phMatch[1].replace(',', '.')) : null;
+    const isAcidic = (phVal !== null && phVal < 5) || /(?:kwas\s+(?:mrówkowy|octowy|solny|siarkowy|fosforowy|cytrynowy|mlekowy)|acid)/i.test(s3);
+    if (isAcidic && s10) {
+      if (/(?:brak szczególnych|nie są znane żadne szczególne|brak znanych|nie dotyczy)/i.test(s10) && !/(?:zasad|alkal|utleniacz|metal)/i.test(s10)) {
+        errors.push("[Sekcja 10.5] NIESPÓJNOŚĆ CHEMICZNA: Produkt ma odczyn kwasowy (pH < 5 lub obecność kwasów), a w Sekcji 10.5 wskazano 'Brak szczególnych'. Kwas bezwzględnie wchodzi w reakcję z mocnymi zasadami, utleniaczami oraz metalami.");
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // REGUŁA 22: PRECYZJA PARAMETRÓW ŚRODKÓW OCHRONY INDYWIDUALNEJ (SEKCJA 8.2)
+    // Rozporządzenie (UE) 2020/878 Załącznik II pkt 8.2
+    // ------------------------------------------------------------------------
+    const hasSkinOrEyeHazard = /(?:H314|H315|H317|H318|H319|Skin Corr|Eye Dam|Skin Irrit|Eye Irrit|Skin Sens)/i.test(s2);
+    if (hasSkinOrEyeHazard && s8) {
+      if (/(?:H314|H315|H317|Skin Corr|Skin Irrit|Skin Sens)/i.test(s2)) {
+        if (/rękawic/i.test(s8) && !/374/i.test(s8)) {
+          warnings.push("[Sekcja 8.2] ZALECENIE REACH: Wskazano ochronę rąk bez powołania zharmonizowanej normy technicznej PN-EN ISO 374-1.");
+        }
+      }
+      if (/(?:H314|H318|H319|Eye Dam|Eye Irrit|Skin Corr)/i.test(s2)) {
+        if (/ocz/i.test(s8) && !/166/i.test(s8)) {
+          warnings.push("[Sekcja 8.2] ZALECENIE REACH: Wskazano ochronę oczu bez powołania normy PN-EN 166.");
+        }
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // REGUŁA 23: AKTUALNOŚĆ AKTÓW PRAWNYCH W SEKCJI 15.1 (UE 2019/1148, UE 2023/707)
+    // ------------------------------------------------------------------------
+    const s15All = typeof sections.section_15 === 'object' ? (sections.section_15.content || "") : (sections.section_15 || "");
+    if (s15All) {
+      if (!/2019\/1148/i.test(s15All)) {
+        warnings.push("[Sekcja 15.1] BRAK ODNIESIENIA DO PREKURSORÓW: Brak powołania Rozporządzenia (UE) 2019/1148 w sprawie wprowadzania do obrotu i stosowania prekursorów materiałów wybuchowych.");
+      }
+      if (!/2023\/707/i.test(s15All)) {
+        warnings.push("[Sekcja 15.1] BRAK ODNIESIENIA DO NOWYCH KLAS CLP: Brak powołania Rozporządzenia Delegowanego (UE) 2023/707 wprowadzającego nowe klasy zagrożeń (ED, PBT, vPvB, PMT, vPvM).");
+      }
+    }
+
     return {
       isValid: errors.length === 0,
       errors,

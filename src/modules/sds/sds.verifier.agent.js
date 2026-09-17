@@ -627,6 +627,73 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
+    // REGUŁA 22: AUDYT SEKCJI 10.5 - MATERIAŁY NIEZGODNE (SPÓJNOŚĆ Z pH I SKŁADEM)
+    // Rozporządzenie (UE) 2020/878 Załącznik II pkt 10.5
+    // =========================================================================
+    const s10Content = (validatedSections.section_10 && validatedSections.section_10.content) || "";
+    const { SDSConsistencyEngine } = require('./engine/sds.consistency.engine');
+    const phValFromS9 = SDSConsistencyEngine.parseNumericPh(s9Current);
+    const isAcidProduct = SDSConsistencyEngine.inferAcidity(phValFromS9, components);
+    if (isAcidProduct && s10Content) {
+      if (/(?:brak szczególnych|nie są znane żadne szczególne|brak znanych|nie dotyczy)/i.test(s10Content) || !/(?:zasad|alkal|utleniacz|metal)/i.test(s10Content)) {
+        const incompMat = SDSConsistencyEngine.getSection10Incompatible(s9Current);
+        let fixedS10 = s10Content;
+        if (/10\.5\.\s*Materiały niezgodne[^\n]*/i.test(fixedS10)) {
+          fixedS10 = fixedS10.replace(/(10\.5\.\s*Materiały niezgodne\s*[:\.]?\s*)(?:[^\n]+)/i, `$1${incompMat}`);
+        } else {
+          fixedS10 = fixedS10.trim() + `\n\n10.5. Materiały niezgodne: ${incompMat}`;
+        }
+        validatedSections.section_10 = { ...validatedSections.section_10, content: fixedS10 };
+        auditLog.push({
+          rule: "SECTION_10_5_INCOMPATIBLE_MATERIALS_REMEDIATION",
+          status: "AUTO_REMEDIATED",
+          message: "Dostosowano materiały niezgodne w Sekcji 10.5 do kwasowego charakteru mieszaniny (zasady, mocne utleniacze, metale aktywne)."
+        });
+      }
+    }
+
+    // =========================================================================
+    // REGUŁA 23: AUDYT SEKCJI 15.1 - ROZPORZĄDZENIE (UE) 2019/1148 I (UE) 2023/707
+    // =========================================================================
+    let s15Audit = (validatedSections.section_15 && validatedSections.section_15.content) || "";
+    if (s15Audit) {
+      let changedS15 = false;
+      if (!/2019\/1148/i.test(s15Audit)) {
+        const precursorClause = "\n- Rozporządzenie Parlamentu Europejskiego i Rady (UE) 2019/1148 z dnia 20 czerwca 2019 r. w sprawie wprowadzania do obrotu i stosowania prekursorów materiałów wybuchowych: Produkt nie zawiera substancji wymienionych w załącznikach I i II (prekursory materiałów wybuchowych podlegające ograniczeniom lub obowiązkowi zgłoszenia).";
+        s15Audit = s15Audit.trim() + precursorClause;
+        changedS15 = true;
+      }
+      if (!/2023\/707/i.test(s15Audit)) {
+        const delegatedClause = "\n- Rozporządzenie Delegowane Komisji (UE) 2023/707 z dnia 19 grudnia 2022 r. zmieniające rozporządzenie (WE) nr 1272/2008 w odniesieniu do klas zagrożenia oraz kryteriów klasyfikacji, oznakowania i pakowania substancji i mieszanin (ED, PBT, vPvB, PMT, vPvM).";
+        s15Audit = s15Audit.trim() + delegatedClause;
+        changedS15 = true;
+      }
+      if (changedS15) {
+        validatedSections.section_15 = { ...validatedSections.section_15, content: s15Audit.trim() };
+        auditLog.push({
+          rule: "SECTION_15_LEGAL_ACTS_ENFORCEMENT",
+          status: "AUTO_REMEDIATED",
+          message: "Uzupełniono wykaz aktów prawnych w Sekcji 15.1 o Rozporządzenie (UE) 2019/1148 (prekursory MW) oraz Rozporządzenie Delegowane (UE) 2023/707."
+        });
+      }
+    }
+
+    // =========================================================================
+    // REGUŁA 24: AUDYT SEKCJI 3 - ELIMINACJA OBCOJĘZYCZNYCH WTRĄCEŃ (ang. ...)
+    // art. 31 ust. 5 REACH
+    // =========================================================================
+    let s3Audit = (validatedSections.section_3 && validatedSections.section_3.content) || "";
+    if (s3Audit && /\(ang\.[^\)]*\)/i.test(s3Audit)) {
+      s3Audit = s3Audit.replace(/\s*\(ang\.[^\)]*\)/gi, '');
+      validatedSections.section_3 = { ...validatedSections.section_3, content: s3Audit };
+      auditLog.push({
+        rule: "SECTION_3_ENGLISH_LEAK_REMEDIATION",
+        status: "AUTO_REMEDIATED",
+        message: "Wykryto i usunięto wtrącenia '(ang. ...)' z Sekcji 3 zgodnie z wymogiem czystości językowej art. 31 ust. 5 REACH."
+      });
+    }
+
+    // =========================================================================
     // KROK AI: AUDYT NADZORCZY GEMINI 3.8 FLASH (DEFENSIVE AI QUALITY GATEWAY)
     // =========================================================================
     validatedSections = await SDSVerifierAgent.auditWithGemini(validatedSections, metadata, auditLog);
