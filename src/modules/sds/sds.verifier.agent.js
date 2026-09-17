@@ -452,6 +452,23 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
+    // REGUŁA 17: AUDYT SEKCJI 11.1 - ELIMINACJA FIZYCZNIE NIEMOŻLIWYCH JEDNOSTEK TOKSYKOLOGICZNYCH
+    // Rozporządzenie (UE) 2020/878 Załącznik II (LC50 / inhalacja w mg/l, mg/m3, ppm vs LD50 w mg/kg)
+    // =========================================================================
+    const s11Latest = (validatedSections.section_11 && validatedSections.section_11.content) || "";
+    if (s11Latest) {
+      const fixedS11 = SDSVerifierAgent.sanitizeToxicologicalUnits(s11Latest);
+      if (fixedS11 !== s11Latest) {
+        validatedSections.section_11 = { ...validatedSections.section_11, content: fixedS11 };
+        auditLog.push({
+          rule: "SECTION_11_INVALID_INHALATION_UNIT_REMEDIATION",
+          status: "AUTO_REMEDIATED",
+          message: "Wykryto i wyeliminowano fizycznie niemożliwą jednostkę stężenia inhalacyjnego LC50 (mg/kg). Jednostka mg/kg dotyczy dawki pokarmowej/skórnej (LD50), a stężenie w powietrzu wyraża się w mg/l, mg/m³ lub ppm."
+        });
+      }
+    }
+
+    // =========================================================================
     // KROK AI: AUDYT NADZORCZY GEMINI 3.8 FLASH (DEFENSIVE AI QUALITY GATEWAY)
     // =========================================================================
     validatedSections = await SDSVerifierAgent.auditWithGemini(validatedSections, metadata, auditLog);
@@ -563,6 +580,30 @@ ${JSON.stringify(keyAuditSections, null, 2)}`;
     }
 
     return sections;
+  }
+
+  static sanitizeToxicologicalUnits(content) {
+    if (!content) return "";
+    let text = content;
+
+    // 1. Usunięcie nieprawidłowych linii LC50 z jednostką dawki (mg/kg, g/kg)
+    const lines = text.split('\n');
+    const cleanedLines = lines.filter(line => {
+      const isLC50 = /(?:LC50|CL50|\binhalac|\binhalation|drogi\s*oddechowe)/i.test(line);
+      const hasDose = /\b(?:mg\/kg|g\/kg|µg\/kg|ug\/kg)\b/i.test(line);
+      const isOralOrDermal = /(?:LD50|DL50|\bdoustn|\bskórn|\boral|\bdermal)/i.test(line);
+      if (isLC50 && hasDose && !isOralOrDermal) {
+        return false;
+      }
+      return true;
+    });
+    text = cleanedLines.join('\n');
+
+    // 2. Usunięcie nieprawidłowych segmentów inline LC50 z mg/kg
+    text = text.replace(/(?:[ \t]+|^)(?:[*-]\s*)?(?:LC50|CL50)\s*\([^\)]*(?:inhalac|inhalation|drogi\s*oddechowe|mists|powders|fumi|nebbie|pary|vapours|pył|mgła)[^\)]*\)\s*:\s*[0-9\.,\s><~]+\s*(?:mg\/kg|g\/kg|µg\/kg|ug\/kg)\s*(?:bw|m\.c\.)?\s*(?:rat|szczur|rabbit|królik|mouse|mysz|human|człowiek)?/gi, '');
+
+    text = text.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n');
+    return text;
   }
 }
 

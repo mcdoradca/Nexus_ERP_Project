@@ -238,6 +238,24 @@ class SDSLinter {
         errors.push("[Sekcja 15.1] ABSURD PRAWNY: Wykryto ograniczenie z pozycji 75 załącznika XVII (tusze do tatuażu i makijaż permanentny) w produkcie, który nie jest tuszem do tatuażu. Ograniczenie z pozycji 75 dotyczy wyłącznie mieszanin do tatuażu.");
       }
     }
+    // ------------------------------------------------------------------------
+    // REGUŁA 16: ZAKAZ FIZYCZNIE NIEMOŻLIWYCH JEDNOSTEK TOKSYKOLOGICZNYCH W SEKCJI 11.1
+    // Rozporządzenie (UE) 2020/878 Załącznik II; Wytyczne ECHA do CLP (OECD 403)
+    // Stężenie w powietrzu (inhalacja) to mg/l, mg/m3 lub ppm. mg/kg to dawka (LD50 doustnie/skórnie).
+    // ------------------------------------------------------------------------
+    if (s11) {
+      const s11Lines = s11.split('\n');
+      for (const line of s11Lines) {
+        const isLC50orInhalation = /(?:LC50|CL50|\binhalac|\binhalation|drogi\s*oddechowe)/i.test(line);
+        const hasDoseUnit = /\b(?:mg\/kg|g\/kg|µg\/kg|ug\/kg)\b/i.test(line);
+        const isLD50orOralDermal = /(?:LD50|DL50|\bdoustn|\bskórn|\boral|\bdermal)/i.test(line);
+
+        if (isLC50orInhalation && hasDoseUnit && !isLD50orOralDermal) {
+          errors.push(`[Sekcja 11.1] BŁĄD MERYTORYCZNY JEDNOSTEK TOKSYKOLOGICZNYCH: Wykryto parametr inhalacyjny z fizycznie niemożliwą jednostką dawki na masę ciała (${line.trim()}). Stężenie śmiertelne w powietrzu (inhalacja) musi być podawane w mg/l, mg/m³ lub ppm. Jednostka mg/kg dotyczy wyłącznie dawki doustnej/skórnej (LD50).`);
+          break;
+        }
+      }
+    }
 
     return {
       isValid: errors.length === 0,

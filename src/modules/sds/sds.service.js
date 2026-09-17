@@ -4531,12 +4531,38 @@ class SDSProcessorEngine {
       .replace(/(?:LC50\s*\([^\)]*(?:Inhalation|inhalac|drogi\s*oddechowe)[^\)]*\)\s*:\s*)?120\s*mg\/l\/4h\s*Pimephales\s+promelas/gi, 'LC50 (drogi oddechowe, pary, szczur): 120 mg/l/4h')
       .replace(/Pimephales\s+promelas/gi, 'szczur');
 
-    // Uniwersalny deduplikator powielonych oznaczeń LC50 / LD50
-    text = text.replace(/(?:LC50|LD50)[^\n:]*:\s*(?:LC50|LD50)[^\n:]*:\s*/gi, 'LC50 (drogi oddechowe, pary, szczur): ');
-    text = text.replace(/(LC50|LD50)\s*\([^\)]*\)\s*:\s*\1\s*\([^\)]*\)\s*:\s*/gi, '$1 (drogi oddechowe, pary, szczur): ');
+    // Deduplikator powielonych oznaczeń LC50 / LD50
+    text = text.replace(/LC50[^\n:]*:\s*LC50[^\n:]*:\s*/gi, 'LC50 (drogi oddechowe, pary, szczur): ');
+    text = text.replace(/LD50\s*\(([^\)]*)\)\s*:\s*LD50\s*\([^\)]*\)\s*:\s*/gi, 'LD50 ($1): ');
     text = text.replace(/(?:LC50\s*\([^\)]*\)\s*:\s*)+LC50\s*\([^\)]*\)\s*:\s*/gi, 'LC50 (drogi oddechowe, pary, szczur): ');
     text = text.replace(/(\d+h)\s+\1/gi, '$1');
 
+    text = SDSProcessorEngine.sanitizeToxicologicalUnits(text);
+
+    return text;
+  }
+
+  static sanitizeToxicologicalUnits(content) {
+    if (!content) return "";
+    let text = content;
+
+    // 1. Usunięcie nieprawidłowych linii LC50 z jednostką dawki (mg/kg, g/kg)
+    const lines = text.split('\n');
+    const cleanedLines = lines.filter(line => {
+      const isLC50 = /(?:LC50|CL50|\binhalac|\binhalation|drogi\s*oddechowe)/i.test(line);
+      const hasDose = /\b(?:mg\/kg|g\/kg|µg\/kg|ug\/kg)\b/i.test(line);
+      const isOralOrDermal = /(?:LD50|DL50|\bdoustn|\bskórn|\boral|\bdermal)/i.test(line);
+      if (isLC50 && hasDose && !isOralOrDermal) {
+        return false;
+      }
+      return true;
+    });
+    text = cleanedLines.join('\n');
+
+    // 2. Usunięcie nieprawidłowych segmentów inline LC50 z mg/kg
+    text = text.replace(/(?:[ \t]+|^)(?:[*-]\s*)?(?:LC50|CL50)\s*\([^\)]*(?:inhalac|inhalation|drogi\s*oddechowe|mists|powders|fumi|nebbie|pary|vapours|pył|mgła)[^\)]*\)\s*:\s*[0-9\.,\s><~]+\s*(?:mg\/kg|g\/kg|µg\/kg|ug\/kg)\s*(?:bw|m\.c\.)?\s*(?:rat|szczur|rabbit|królik|mouse|mysz|human|człowiek)?/gi, '');
+
+    text = text.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n');
     return text;
   }
 

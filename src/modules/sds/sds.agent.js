@@ -45,6 +45,7 @@ TWÓJ ZAKRES ODPOWIEDZIALNOŚCI (TRANSLATE_LLM & EXTRACT_RAW):
      * Drogi narażenia tłumacz na polski: oral / orale -> droga pokarmowa (doustnie), dermal / cutanea -> na skórę, inhalation / inalatoria -> przez drogi oddechowe (inhalacyjnie), vapours -> pary.
      * Nazwy substancji chemicznych tłumacz na polskie odpowiedniki (np. Ethanol -> Etanol, Toluene -> Toluen, Anisaldehyde -> Aldehyd anyżowy, 2H-chromen-2-one -> Kumaryna, 2,6-di-tert-butyl-p-cresol -> 2,6-di-tert-butylo-4-metylofenol (BHT)).
      * ABSOLUTNY ZAKAZ modyfikowania liczb, znaków operacyjnych (>, <, =, ~) i jednostek (mg/kg, mg/l, ppm, °C, %).
+     * SPÓJNOŚĆ JEDNOSTEK TOKSYKOLOGICZNYCH (UE 2020/878 Załącznik II): Stężenie śmiertelne LC50 (inhalacja, pary, mgły/pyły) wyraża się wyłącznie w mg/l, mg/m³ lub ppm. Jeśli w dokumencie źródłowym omyłkowo przypisano jednostkę mg/kg do parametru inhalacyjnego LC50 (błąd transkrypcji dawki LD50), bezwzględnie pomiń ten błędny wpis inhalacyjny, aby nie wprowadzać fizycznie niemożliwych danych.
      * Nagłówek '11.2. Informacje o innych zagrożeniach' umieść bezwzględnie poniżej punktu j) podsekcji 11.1.
 
 3. ABSOLUTNY ZAKAZ GENEROWANIA ARTEFAKTÓW PAGINACJI:
