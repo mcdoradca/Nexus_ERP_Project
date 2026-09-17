@@ -1910,9 +1910,9 @@ class SDSProcessorEngine {
     if (pCodes.length > 0) {
       let filteredPCodes = [...pCodes];
       // Zgodnie z art. 28 ust. 3 rozporządzenia CLP eliminujemy zwroty niemające uzasadnienia w klasyfikacji mieszaniny
-      const hasSkinHazard = hCodes.some(h => ['H314', 'H315', 'H317'].includes(h));
+      const hasSkinHazard = hCodes.some(h => ['H314', 'H315', 'H317', 'H311', 'H312', 'H310'].includes(h)) || /H314|H315|H317|Skin\s*Sens|Skin\s*Irrit|Skin\s*Corr/i.test(s2Content);
       if (!hasSkinHazard) {
-        filteredPCodes = filteredPCodes.filter(c => c !== 'P302+P352' && c !== 'P302' && c !== 'P352');
+        filteredPCodes = filteredPCodes.filter(c => c !== 'P302+P352' && c !== 'P302' && c !== 'P352' && c !== 'P333+P313');
       }
       // Zgodnie z art. 28 ust. 3 CLP oraz Single Source of Truth (SSOT), autentyczne zwroty P nadane przez producenta
       // w karcie źródłowej (w tym zwroty medyczne reagowania P333+P313, P337+P313 oraz P501) są w 100% zachowywane.
