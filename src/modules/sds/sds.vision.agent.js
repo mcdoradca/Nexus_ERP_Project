@@ -43,11 +43,98 @@ BEZWZGLĘDNE ZASADY JAKOŚCI I ZGODNOŚCI PRAWNEJ:
    - Wartości parametrów fizykochemicznych (pH, gęstość, lepkość, temperatura zapłonu) i ekotoksykologicznych (LD50, LC50, EC50, NOEC wraz z gatunkami i wytycznymi OECD) muszą być przepisane bez żadnych zmian liczbowych.
 3. BRAK HALUCYNACJI (ZERO GUESSWORK):
    - Jeśli dokument źródłowy nie podaje danej wartości, wpisz "Brak danych" lub "Nie dotyczy". Nigdy nie zmyślaj wyników badań laboratoryjnych.
-4. STRUKTURA DANYCH WYJŚCIOWYCH (JSON):
+4. CZYTELNY, NIEZLEPIONY UKŁAD AKAPITÓW (WZORZEC SANDALO 1:1):
+   Każda kategoria i każde pole w sekcjach narracyjnych MUSI być oddzielone znakiem nowej linii (\n) i posiadać wyraźną etykietę:
+   - W Sekcji 1.1:
+     Nazwa handlowa: [spolonizowana nazwa, np. SWEET HOME LAYALI - PERFUMY DO TKANIN I POMIESZCZEŃ NAJMA]
+     Kod produktu: [kod handlowy]
+     UFI: [kod UFI]
+   - W Sekcji 1.2:
+     Zastosowanie zidentyfikowane: [opis]
+     Zastosowania odradzane: [opis]
+   - W Sekcji 4.1:
+     W kontakcie ze skórą: [dokładny opis]
+     W kontakcie z oczami: [dokładny opis]
+     W przypadku spożycia: [dokładny opis]
+     Po narażeniu drogą oddechową: [dokładny opis]
+   - W Sekcji 5.1/5.2/5.3:
+     Odpowiednie środki gaśnicze: [opis]
+     Niewłaściwe środki gaśnicze: [opis]
+     Zagrożenia wynikające z narażenia na działanie pożaru: [opis]
+     Sprzęt ochronny strażaków: [opis]
+   - W Sekcji 6.1/6.3:
+     Dla osób nienależących do personelu udzielającego pomocy: [opis]
+     Dla osób udzielających pomocy: [opis]
+     Odpowiedni materiał do zbierania: [opis]
+   - W Sekcji 7.1/7.2:
+     Środki ostrożności: [opis]
+     Zalecenia dotyczące ogólnej higieny pracy: [opis]
+     Materiały niezgodne: [opis]
+     Wskazówki dotyczące pomieszczeń magazynowych: [opis]
+   - W Sekcji 8.2:
+     Ochrona oczu lub twarzy: [opis]
+     Ochrona rąk: [opis]
+     Ochrona skóry: [opis]
+     Ochrona dróg oddechowych: [opis]
+     Zagrożenia termiczne: [opis]
+     Kontrola narażenia środowiska: [opis]
+   - W Sekcji 9.1:
+     Każdy punkt od a) do s) w osobnej linii:
+     a) Stan skupienia: [wartość]
+     b) Kolor: [wartość]
+     c) Zapach: [wartość]
+     d) Temperatura topnienia/krzepnięcia: [wartość]
+     e) Temperatura wrzenia lub początkowa temperatura wrzenia i zakres temperatur wrzenia: [wartość]
+     f) Palność materiałów: [wartość]
+     g) Dolna i górna granica wybuchowości: [wartość]
+     h) Temperatura zapłonu: [wartość]
+     i) Temperatura samozapłonu: [wartość]
+     j) Temperatura rozkładu: [wartość]
+     k) pH: [wartość]
+     l) Lepkość kinematyczna: [wartość]
+     m) Rozpuszczalność w wodzie: [wartość]
+     n) Rozpuszczalność w oleju: [wartość]
+     o) Współczynnik podziału n-oktanol/woda (wartość współczynnika log): [wartość]
+     p) Prężność pary: [wartość]
+     q) Gęstość lub gęstość względna: [wartość]
+     r) Względna gęstość pary: [wartość]
+     s) Charakterystyka cząsteczek: [wartość]
+   - W Sekcji 11.1:
+     TOKSYCZNOŚĆ OSTRA
+     [dane per składnik LD50/LC50]
+     a) toksyczność ostra: [uzasadnienie]
+     b) działanie żrące/drażniące na skórę: [uzasadnienie]
+     c) poważne uszkodzenie oczu/działanie drażniące na oczy: [uzasadnienie]
+     d) działanie uczulające na drogi oddechowe lub skórę: [uzasadnienie]
+     e) działanie mutagenne na komórki rozrodcze: [uzasadnienie]
+     f) rakotwórczość: [uzasadnienie]
+     g) szkodliwe działanie na rozrodczość: [uzasadnienie]
+     h) działanie toksyczne na narządy docelowe – narażenie jednorazowe: [uzasadnienie]
+     i) działanie toksyczne na narządy docelowe – narażenie powtarzane: [uzasadnienie]
+     j) zagrożenie spowodowane aspiracją: [uzasadnienie]
+   - W Sekcji 14:
+     14.1. Numer UN lub numer identyfikacyjny ID: [wartość]
+     14.2. Prawidłowa nazwa przewozowa UN: [wartość]
+     14.3. Klasa(-y) zagrożenia w transporcie: [wartość]
+     14.4. Grupa pakowania: [wartość]
+     14.5. Zagrożenia dla środowiska: [wartość]
+     14.6. Szczególne środki ostrożności dla użytkowników: [wartość]
+     14.7. Transport morski luzem zgodnie z instrumentami IMO: [wartość]
+   - W Sekcji 16:
+     Pełne brzmienie zwrotów H i EUH przytoczonych w sekcjach 2 i 3 karty charakterystyki:
+     [każdy zwrot w nowej linii: Hxxx: Opis]
+     Wykaz klas i kategorii zagrożenia przytoczonych w karcie charakterystyki:
+     [każda klasa w nowej linii: Klasa Kat: Opis]
+     Objaśnienie skrótów i akronimów:
+     [każdy skrót w nowej linii: SKRÓT: Pełna nazwa]
+     Główne źródła literatury i danych:
+     Wskazówki szkoleniowe:
+
+5. STRUKTURA DANYCH WYJŚCIOWYCH (JSON):
    Musisz zwrócić wyłącznie poprawny obiekt JSON o następującej strukturze:
    {
      "metadata": {
-       "productName": "Pełna handlowa nazwa produktu",
+       "productName": "Pełna spolonizowana handlowa nazwa produktu (np. SWEET HOME LAYALI - PERFUMY DO TKANIN I POMIESZCZEŃ NAJMA)",
        "tradeCode": "Kod produktu (np. BLK...)",
        "ufi": "Kod UFI jeśli występuje, inaczej 'Nie dotyczy'",
        "compilationDate": "Data sporządzenia w formacie DD.MM.YYYY",
@@ -77,12 +164,7 @@ BEZWZGLĘDNE ZASADY JAKOŚCI I ZGODNOŚCI PRAWNEJ:
        }
      ],
      "sections": {
-       "1": {
-         "1.1": "Identyfikator produktu...",
-         "1.2": "Istotne zidentyfikowane zastosowania...",
-         "1.3": "Dane dostawcy karty charakterystyki (Dystrybutor: ITALLUX Sp. z o.o., ul. Wesoła 16, 63-600 Kępno, www.prostozwloch.com.pl, kontakt@prostozwloch.com.pl, tel. +48 663116607)",
-         "1.4": "Numery telefonów alarmowych w Polsce: Telefon alarmowy przedsiębiorstwa: +48 663116607 (pon-pt 8:00-16:00). Informacja toksykologiczna: Krajowe Centrum Informacji Toksykologicznej w Łodzi: +48 42 631 47 24 / 25; Całodobowy Ośrodek Informacji Toksykologicznej w Warszawie: +48 22 619 66 54. Ogólny numer alarmowy: 112."
-       },
+       "1": { "1.1": "...", "1.2": "...", "1.3": "...", "1.4": "..." },
        "2": { "2.1": "...", "2.2": "...", "2.3": "..." },
        "3": { "3.1": "Nie dotyczy", "3.2": "Mieszanina..." },
        "4": { "4.1": "...", "4.2": "...", "4.3": "..." },
@@ -90,17 +172,14 @@ BEZWZGLĘDNE ZASADY JAKOŚCI I ZGODNOŚCI PRAWNEJ:
        "6": { "6.1": "...", "6.2": "...", "6.3": "...", "6.4": "..." },
        "7": { "7.1": "...", "7.2": "...", "7.3": "..." },
        "8": { "8.1": "...", "8.2": "..." },
-       "9": {
-         "9.1": "Informacje na temat podstawowych właściwości fizycznych i chemicznych (dokładne punkty od a do s)",
-         "9.2": "Inne informacje (w tym LZO/VOC, klasy zagrożenia fizycznego)"
-       },
+       "9": { "9.1": "...", "9.2": "..." },
        "10": { "10.1": "...", "10.2": "...", "10.3": "...", "10.4": "...", "10.5": "...", "10.6": "..." },
-       "11": { "11.1": "Informacje na temat klas zagrożenia...", "11.2": "Informacje o innych zagrożeniach..." },
-       "12": { "12.1": "Toksyczność...", "12.2": "Trwałość i zdolność do rozkładu...", "12.3": "Zdolność do bioakumulacji...", "12.4": "Mobilność w glebie...", "12.5": "Wyniki oceny PBT i vPvB...", "12.6": "Zaburzanie gospodarki hormonalnej...", "12.7": "Inne szkodliwe skutki..." },
-       "13": { "13.1": "Metody unieszkodliwiania odpadów..." },
+       "11": { "11.1": "...", "11.2": "..." },
+       "12": { "12.1": "...", "12.2": "...", "12.3": "...", "12.4": "...", "12.5": "...", "12.6": "...", "12.7": "..." },
+       "13": { "13.1": "..." },
        "14": { "14.1": "...", "14.2": "...", "14.3": "...", "14.4": "...", "14.5": "...", "14.6": "...", "14.7": "..." },
-       "15": { "15.1": "Przepisy prawne dotyczące bezpieczeństwa, zdrowia i środowiska...", "15.2": "Ocena bezpieczeństwa chemicznego..." },
-       "16": { "16.1": "Inne informacje: pełne brzmienie zwrotów H i EUH, wykaz klas zagrożenia, objaśnienie skrótów i akronimów (ADR, RID, IMDG, IATA, CLP, REACH, NDS, NDSCh, DNEL, PNEC, LD50, LC50, EC50, NOEC, vPvB, PBT, SVHC, UFI), klauzula prawna." }
+       "15": { "15.1": "...", "15.2": "..." },
+       "16": { "16.1": "..." }
      },
      "transport": {
        "isRegulated": boolean,

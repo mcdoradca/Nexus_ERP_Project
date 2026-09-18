@@ -28,7 +28,7 @@ describe('SDSVisionAgent & SDSDocxBuilder - Testy Integracyjne (ADR-112)', () =>
   });
 
   it('3. Wygenerowany DOCX NAJMA posiada natywne tabele Worda i 16 sekcji', () => {
-    const docxPath = path.join('docs', 'SDS', '8051944811087_SDS_NAJMA_1.0_PL.docx');
+    const docxPath = path.join('docs', 'SDS', '8051944811087_SDS_NAJMA (8).docx');
     assert.ok(fs.existsSync(docxPath), `Plik DOCX nie istnieje: ${docxPath}`);
 
     const zip = new AdmZip(docxPath);

@@ -173,8 +173,16 @@ async function processSdsWithVisionAgent(inputPath, outputPath, manualOverrides 
     const sdsData = await visionAgent.processDocument(inputPath);
     
     if (manualOverrides && typeof manualOverrides === 'object') {
-        if (manualOverrides.productName && sdsData.metadata) sdsData.metadata.productName = manualOverrides.productName;
-        if (manualOverrides.ufi && sdsData.metadata) sdsData.metadata.ufi = manualOverrides.ufi;
+        if (manualOverrides.productName && manualOverrides.productName !== 'PRODUKT CHEMICZNY' && sdsData.metadata) {
+            sdsData.metadata.productName = manualOverrides.productName;
+        }
+        if (manualOverrides.ufi && sdsData.metadata) {
+            sdsData.metadata.ufi = manualOverrides.ufi;
+        }
+    }
+
+    if (sdsData.metadata?.productName) {
+        sdsData.productName = sdsData.metadata.productName;
     }
 
     const outDocx = outputPath || path.join(process.cwd(), `Karta_Charakterystyki_${Date.now()}.docx`);
