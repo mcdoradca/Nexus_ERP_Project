@@ -159,38 +159,43 @@ class SDSDocxBuilder {
 
     // 2. TABELA METADANYCH (Układ 2-kolumnowy z karty SANDALO 1:1)
     const metaBorders = {
-      top: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 6 },
-      bottom: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 6 },
-      left: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 6 },
-      right: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 6 },
+      top: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 12 },
+      bottom: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 12 },
+      left: { value: BorderStyle.NONE },
+      right: { value: BorderStyle.NONE },
       insideHorizontal: { value: BorderStyle.NONE },
       insideVertical: { value: BorderStyle.NONE }
     };
 
-    const compDate = meta.compilationDate || "17.09.2026";
+    // Pobranie oryginalnej daty z obcej karty by wstawić ją do fallbacku
+    const originalSdsDate = meta.compilationDate || "brak danych";
+    // Data polskiej wersji (obecna chyba że nadpisano)
+    const polCompilationDate = sdsData.compilationDate || new Date().toLocaleDateString('pl-PL');
+    
     const revDate = meta.revisionDate || "Nie dotyczy";
-    const replRev = meta.replacedRevision || "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 03.12.2024)";
+    const replRev = meta.replacedRevision || `Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia ${originalSdsDate})`;
     const textColor = "0A4027"; // Ciemnozielony kolor tekstu
+    const bgColor = "F9FAFB"; // Jasnoszare tło tabeli
 
     const metaRows = [
       new TableRow({
         children: [
           new TableCell({
             width: { size: 4800, type: WidthType.DXA },
-            shading: { fill: "F9FAFB", type: ShadingType.CLEAR },
+            shading: { fill: bgColor, type: ShadingType.CLEAR },
             margins: { top: 80, bottom: 40, left: 120, right: 120 },
             children: [
               new Paragraph({
                 children: [
                   new TextRun({ text: "Data sporządzenia: ", bold: true, size: 17, font: "Arial", color: textColor }),
-                  new TextRun({ text: compDate, size: 17, font: "Arial", color: textColor })
+                  new TextRun({ text: polCompilationDate, size: 17, font: "Arial", color: textColor })
                 ]
               })
             ]
           }),
           new TableCell({
             width: { size: 4800, type: WidthType.DXA },
-            shading: { fill: "F9FAFB", type: ShadingType.CLEAR },
+            shading: { fill: bgColor, type: ShadingType.CLEAR },
             margins: { top: 80, bottom: 40, left: 120, right: 120 },
             children: [
               new Paragraph({
@@ -207,7 +212,7 @@ class SDSDocxBuilder {
         children: [
           new TableCell({
             width: { size: 4800, type: WidthType.DXA },
-            shading: { fill: "F9FAFB", type: ShadingType.CLEAR },
+            shading: { fill: bgColor, type: ShadingType.CLEAR },
             margins: { top: 40, bottom: 80, left: 120, right: 120 },
             children: [
               new Paragraph({
@@ -220,7 +225,7 @@ class SDSDocxBuilder {
           }),
           new TableCell({
             width: { size: 4800, type: WidthType.DXA },
-            shading: { fill: "F9FAFB", type: ShadingType.CLEAR },
+            shading: { fill: bgColor, type: ShadingType.CLEAR },
             margins: { top: 40, bottom: 80, left: 120, right: 120 },
             children: [
               new Paragraph({
