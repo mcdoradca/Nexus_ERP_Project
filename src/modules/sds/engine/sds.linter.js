@@ -23,15 +23,25 @@ class SDSLinter {
     const fixesApplied = [];
 
     const sections = sdsData.sections || {};
-    const s1 = typeof sections.section_1 === 'object' ? (sections.section_1.content || "") : (sections.section_1 || "");
-    const s2 = typeof sections.section_2 === 'object' ? (sections.section_2.content || "") : (sections.section_2 || "");
-    const s3 = typeof sections.section_3 === 'object' ? (sections.section_3.content || "") : (sections.section_3 || "");
-    const s8 = typeof sections.section_8 === 'object' ? (sections.section_8.content || "") : (sections.section_8 || "");
-    const s9 = typeof sections.section_9 === 'object' ? (sections.section_9.content || "") : (sections.section_9 || "");
-    const s11 = typeof sections.section_11 === 'object' ? (sections.section_11.content || "") : (sections.section_11 || "");
-    const s12 = typeof sections.section_12 === 'object' ? (sections.section_12.content || "") : (sections.section_12 || "");
-    const s14 = typeof sections.section_14 === 'object' ? (sections.section_14.content || "") : (sections.section_14 || "");
-    const s16 = typeof sections.section_16 === 'object' ? (sections.section_16.content || "") : (sections.section_16 || "");
+    const getSecText = (num) => {
+      const raw = sections[`section_${num}`] || sections[String(num)] || "";
+      if (typeof raw === 'string') return raw;
+      if (typeof raw === 'object' && raw !== null) {
+        if (typeof raw.content === 'string') return raw.content;
+        return Object.values(raw).filter(v => typeof v === 'string').join('\n');
+      }
+      return "";
+    };
+
+    const s1 = getSecText(1);
+    const s2 = getSecText(2);
+    const s3 = getSecText(3);
+    const s8 = getSecText(8);
+    const s9 = getSecText(9);
+    const s11 = getSecText(11);
+    const s12 = getSecText(12);
+    const s14 = getSecText(14);
+    const s16 = getSecText(16);
 
     // ------------------------------------------------------------------------
     // REGUŁA 1: ZAKAZ OBCOJĘZYCZNYCH FRAZ W TEKŚCIE (CZYSTOŚĆ JĘZYKOWA RP)

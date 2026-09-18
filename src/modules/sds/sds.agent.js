@@ -166,11 +166,12 @@ ${JSON.stringify(agentPayload.descriptiveSectionsToTranslate, null, 2)}`;
 
 const { SDSVisionAgent } = require('./sds.vision.agent');
 const { SDSDocxBuilder } = require('./sds.docx.builder');
+const { SDSSwarmOrchestrator } = require('./engine/sds.swarm.orchestrator');
 
 async function processSdsWithVisionAgent(inputPath, outputPath, manualOverrides = {}) {
     console.log(`[Agent SDS Vision] Rozpoczynanie wielomodalnego przetwarzania dla: ${inputPath}`);
     const visionAgent = new SDSVisionAgent();
-    const sdsData = await visionAgent.processDocument(inputPath);
+    let sdsData = await visionAgent.processDocument(inputPath);
     
     if (manualOverrides && typeof manualOverrides === 'object') {
         if (manualOverrides.productName && manualOverrides.productName !== 'PRODUKT CHEMICZNY' && sdsData.metadata) {
@@ -183,6 +184,24 @@ async function processSdsWithVisionAgent(inputPath, outputPath, manualOverrides 
 
     if (sdsData.metadata?.productName) {
         sdsData.productName = sdsData.metadata.productName;
+    }
+
+    // WPIĘCIE ROJU AGENTÓW DZIEDZINOWYCH (SWARM RAG AUDIT):
+    console.log('[Agent SDS Vision] Przekazanie sdsData do Klastra Ekspertów Dziedzinowych (SDSSwarmOrchestrator)...');
+    const orchestrator = new SDSSwarmOrchestrator();
+    sdsData = await orchestrator.auditSdsData(sdsData);
+
+    // BRAMKA JAKOŚCIOWA LINTERA COMPLIANCE (SDSLinter):
+    console.log('[Agent SDS Vision] Weryfikacja spójności prawnej przez SDSLinter...');
+    try {
+        const lintResult = SDSLinter.auditAndLint(sdsData);
+        if (!lintResult.isValid) {
+            console.warn('[Agent SDS Vision] Uwagi SDSLinter:', lintResult.errors);
+        } else {
+            console.log('[Agent SDS Vision] Karta w 100% zgodna z regułami SDSLinter.');
+        }
+    } catch (lintErr) {
+        console.warn('[Agent SDS Vision] Błąd podczas lintingu (nieblokujący):', lintErr.message);
     }
 
     const outDocx = outputPath || path.join(process.cwd(), `Karta_Charakterystyki_${Date.now()}.docx`);

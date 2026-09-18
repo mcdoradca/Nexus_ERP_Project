@@ -4116,6 +4116,7 @@ class SDSDocxExporter {
     }));
 
     // 3. Oficjalny Blok Metadanych Dat i Wersji (Zgodnie z Pkt 0.2.5 Załącznika II do REACH)
+    const meta = sdsData.metadata || {};
     const originalSdsDate = meta.compilationDate || "brak danych";
     const polCompilationDate = sdsData.compilationDate || new Date().toLocaleDateString('pl-PL');
     

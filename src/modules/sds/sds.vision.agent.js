@@ -311,23 +311,23 @@ Zwróć WYŁĄCZNIE czysty obiekt JSON bez znaczników markdown.`;
   /**
    * Wzbogacenie danych o polskie normy NDS (Dz.U. 2024 poz. 1017) i oficjalne zwroty
    */
+  /**
+   * Wzbogacenie danych o polskie normy NDS (Dz.U. 2024 poz. 1017) i oficjalne zwroty
+   */
   enrichWithPolishRegulations(sdsData) {
     if (!sdsData.sections) sdsData.sections = {};
     if (!sdsData.components) sdsData.components = [];
 
-    // 1. Ładowanie bazy NDS
-    const ndsPath = path.join(__dirname, 'rag_knowledge', 'nds_database_2018.json');
-    if (fs.existsSync(ndsPath)) {
-      NDSRegistry.loadRegistry(ndsPath);
-    }
+    const { LocalKnowledgeConnector } = require('./engine/extractors/local.knowledge.connector');
+    const rag = new LocalKnowledgeConnector();
 
-    // 2. Wyznaczenie limitów NDS dla składników w sekcji 8.1 oraz mapowanie ATE
+    // 1. Ładowanie bazy NDS i wyznaczenie limitów NDS oraz ATE
     const foundNdsLimits = [];
     for (const comp of sdsData.components) {
       if (comp.cas && comp.cas !== '-' && comp.cas !== 'Brak') {
-        const ndsEntry = NDSRegistry.getEntry(comp.cas);
-        if (ndsEntry) {
-          let line = `${comp.namePl} [CAS: ${comp.cas}]:\n- NDS: ${ndsEntry.NDS}`;
+        const ndsEntry = rag.lookupPolishNDSSync(comp.cas);
+        if (ndsEntry && ndsEntry.found && ndsEntry.NDS !== 'brak') {
+          let line = `${comp.namePl || comp.nameEn || ndsEntry.substance} [CAS: ${comp.cas}]:\n- NDS: ${ndsEntry.NDS}`;
           if (ndsEntry.NDSCh && ndsEntry.NDSCh !== '-' && ndsEntry.NDSCh !== 'brak') {
             line += `\n- NDSCh: ${ndsEntry.NDSCh}`;
           }
@@ -363,49 +363,34 @@ Zwróć WYŁĄCZNIE czysty obiekt JSON bez znaczników markdown.`;
     sdsData.sections['8']['8.1'] = sec81Text.trim();
 
     // Sekcja 13: Kody odpadów wg Rozporządzenia Ministra Klimatu (Dz.U. 2020 poz. 10)
+    const isHaz = Boolean(
+      (sdsData.classification?.hazardClasses && sdsData.classification.hazardClasses.length > 0) ||
+      (sdsData.classification?.hPhrases && sdsData.classification.hPhrases.length > 0)
+    );
     const wasteSectionText = `Metody unieszkodliwiania odpadów:
-Odzyskać, jeśli to możliwe. Nie wprowadzać do kanalizacji, wód powierzchniowych ani gruntowych. Likwidację pozostałości produktu oraz opakowań powierzać wyłącznie uprawnionym podmiotom posiadającym stosowne decyzje odpadowe (BDO).
+Odzyskać lub poddać recyklingowi, jeśli to możliwe. Nie wprowadzać do kanalizacji, wód powierzchniowych ani gruntowych. Likwidację pozostałości produktu oraz opakowań powierzać wyłącznie uprawnionym podmiotom posiadającym stosowne decyzje odpadowe (BDO).
 
 Klasyfikacja i proponowane kody odpadów (Dz.U. 2020 poz. 10):
-- Odpady z produktu (gospodarstwa domowe / konsumenci): 20 01 30 (Detergenty inne niż wymienione w 20 01 29).
-- Odpady z produktu (sektor przemysłowy / czyszczenie instalacji): 16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05) lub 07 06 99 (Inne niewymienione odpady).
+- Odpady z produktu (gospodarstwa domowe / konsumenci): ${isHaz ? '20 01 29* (Detergenty zawierające substancje niebezpieczne)' : '20 01 30 (Detergenty inne niż wymienione w 20 01 29)'}.
+- Odpady z produktu (sektor przemysłowy / czyszczenie instalacji): ${isHaz ? '16 03 05* (Organiczne odpady zawierające substancje niebezpieczne) lub 07 06 04*' : '16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05) lub 07 06 99 (Inne niewymienione odpady)'}.
 - Odpady opakowaniowe (oczyszczone, selektywna zbiórka): 15 01 02 (Opakowania z tworzyw sztucznych).
 - Odpady opakowaniowe (zanieczyszczone pozostałościami niebezpiecznymi): 15 01 10* (Opakowania zawierające pozostałości substancji niebezpiecznych lub nimi skażone).
 
 Krajowe akty prawne:
-- Ustawa z dnia 14 grudnia 2012 r. o odpadach (Dz.U. 2023 poz. 1587 z późn. zm.).
+- Ustawa z dnia 14 grudnia 2012 r. o odpadach (t.j. Dz.U. 2023 poz. 1587 z późn. zm.).
 - Rozporządzenie Ministra Klimatu z dnia 2 stycznia 2020 r. w sprawie katalogu odpadów (Dz.U. 2020 poz. 10).
-- Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadami opakowaniowymi (Dz.U. 2023 poz. 1658 z późn. zm.).`;
+- Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadami opakowaniowymi (t.j. Dz.U. 2023 poz. 1658 z późn. zm.).`;
 
     sdsData.sections['13'] = sdsData.sections['13'] || {};
     sdsData.sections['13']['13.1'] = wasteSectionText;
 
-    // Sekcja 15.1: Pojedyncza, czysta lista aktów prawnych bez duplikacji
-    const officialLegalText = `Prawodawstwo Unii Europejskiej:
-- Rozporządzenie (WE) nr 1907/2006 Parlamentu Europejskiego i Rady z dnia 18 grudnia 2006 r. w sprawie rejestracji, oceny, udzielania zezwoleń i stosowanych ograniczeń w zakresie chemikaliów (REACH) z późniejszymi zmianami.
-- Rozporządzenie Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniające załącznik II do rozporządzenia (WE) nr 1907/2006 (wymogi dotyczące sporządzania kart charakterystyki).
-- Rozporządzenie Parlamentu Europejskiego i Rady (WE) nr 1272/2008 z dnia 16 grudnia 2008 r. w sprawie klasyfikacji, oznakowania i pakowania substancji i mieszanin (CLP) wraz ze wszystkimi adaptacjami do postępu technicznego (ATP 1-22).
-- Rozporządzenie Komisji (UE) nr 758/2013 z dnia 10 sierpnia 2013 r. (sprostowanie załącznika VI do rozporządzenia CLP).
-- Dyrektywa 98/24/WE w sprawie ochrony zdrowia i bezpieczeństwa pracowników przed ryzykiem związanym ze środkami chemicznymi w miejscu pracy.
-- Dyrektywa 2000/39/WE ustanawiająca pierwszą listę indykatywnych wartości dopuszczalnych narażenia zawodowego.
-- Rozporządzenie (UE) nr 649/2012 (PIC): Brak substancji podlegających procedurze zgody.
-- Dyrektywa Seveso III (2012/18/UE): Kategoria zagrożenia: Brak (mieszanina nie spełnia kryteriów kwalifikacyjnych).
-- Niemiecka klasa zagrożenia wód (WGK): Klasa 1 (lekko niebezpieczny dla wód).
-- Niemiecka klasa magazynowania TRGS 510: LGK 10.
-- Substancje wzbudzające szczególnie duże obawy (Lista Kandydacka SVHC, art. 59 rozporządzenia REACH): Mieszanina nie zawiera substancji z Listy Kandydackiej w stężeniu ≥ 0,1% wag.
-- Substancje podlegające procedurze zezwoleń (Załącznik XIV do rozporządzenia REACH): Żaden ze składników mieszaniny nie podlega obowiązkowi uzyskania zezwolenia.
-- Ograniczenia dotyczące produkcji, wprowadzania do obrotu i stosowania (Załącznik XVII do rozporządzenia REACH): Ograniczenie 75 (dla zawartych substancji).
-
-Prawodawstwo Rzeczypospolitej Polskiej:
-- Ustawa z dnia 25 lutego 2011 r. o substancjach chemicznych i ich mieszaninach (t.j. Dz.U. 2022 poz. 1816 z późn. zm.).
-- Rozporządzenie Ministra Rodziny, Pracy i Polityki Społecznej z dnia 12 czerwca 2018 r. w sprawie najwyższych dopuszczalnych stężeń i natężeń czynników szkodliwych dla zdrowia w środowisku pracy (Dz.U. 2018 poz. 1286 z późn. zm., w tym Dz.U. 2024 poz. 1017).
-- Ustawa z dnia 14 grudnia 2012 r. o odpadach (t.j. Dz.U. 2023 poz. 1587 z późn. zm.).
-- Rozporządzenie Ministra Klimatu z dnia 2 stycznia 2020 r. w sprawie katalogu odpadów (Dz.U. 2020 poz. 10).
-- Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadami opakowaniowymi (t.j. Dz.U. 2023 poz. 1658 z późn. zm.).
-- Ustawa z dnia 19 sierpnia 2011 r. o przewozie towarów niebezpiecznych (t.j. Dz.U. 2024 poz. 643 z późn. zm.) oraz Umowa europejska dotycząca międzynarodowego przewozu drogowego towarów niebezpiecznych (ADR).`;
-
+    // Sekcja 15.1: Czysty wykaz aktów prawnych z RAG (BEZ WGK, TRGS 510 i Ograniczenia 75)
+    const isFlammable = Boolean(
+      sdsData.classification?.hazardClasses?.some(c => /Flam/i.test(c)) ||
+      sdsData.classification?.hPhrases?.some(h => /H22[456]/i.test(h))
+    );
     sdsData.sections['15'] = sdsData.sections['15'] || {};
-    sdsData.sections['15']['15.1'] = officialLegalText;
+    sdsData.sections['15']['15.1'] = rag.lookupLegalActs({ isFlammable, isTattooProduct: false });
     sdsData.sections['15']['15.2'] = "Dla mieszaniny nie przeprowadzono oceny bezpieczeństwa chemicznego.";
 
     return sdsData;
