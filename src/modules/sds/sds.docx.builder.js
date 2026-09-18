@@ -287,6 +287,8 @@ class SDSDocxBuilder {
         await this.renderSection4(docChildren, secData, sdsData);
       } else if (secNum === 5) {
         await this.renderSection5(docChildren, secData, sdsData);
+      } else if (secNum === 7) {
+        await this.renderSection7(docChildren, secData, sdsData);
       } else if (secNum === 8) {
         await this.renderSection8(docChildren, secData, sdsData);
       } else if (secNum === 9) {
@@ -975,6 +977,56 @@ Dodatkowe wskazówki: Schładzać zagrożone pojemniki rozpylonym strumieniem wo
   }
 
   /**
+   * Renderuje Sekcję 7 (Magazynowanie i manipulowanie, zakaz TRGS/WGK, obligatoryjny zakaz sprężonego powietrza)
+   */
+  static async renderSection7(docChildren, secData, sdsData) {
+    const sub71 = OFFICIAL_SUBSECTIONS_PL["7.1"] || "7.1. Środki ostrożności dotyczące bezpiecznego postępowania";
+    const sub72 = OFFICIAL_SUBSECTIONS_PL["7.2"] || "7.2. Warunki bezpiecznego magazynowania, w tym informacje dotyczące wszelkich wzajemnych niezgodności";
+    const sub73 = OFFICIAL_SUBSECTIONS_PL["7.3"] || "7.3. Szczególne zastosowanie(-a) końcowe";
+
+    let text71 = secData["7.1"] || secData["7"] || "";
+    let text72 = secData["7.2"] || "";
+    let text73 = secData["7.3"] || "Brak szczególnych zaleceń poza wymienionymi w podsekcji 1.2.";
+
+    const clean7 = (t) => t
+      .replace(/(?:^|\n)[ \t]*(?:Storage\s+class\s+)?(?:TRGS\s*510(?:\s*\([^\)]*\))?|Lagerklasse\s*(?:TRGS\s*510)?|Klasa\s+składowania\s*(?:TRGS\s*510)?(?:\s*\([^\)]*\))?|Klasa\s+magazynowa\s*(?:TRGS\s*510)?(?:\s*\([^\)]*\))?)[^\n]*/gi, '')
+      .replace(/(?:^|\n)[ \t]*(?:WGK\b|Wassergefährdungsklasse|Klasa\s+zagrożenia\s+wód\s+WGK)[^\n]*/gi, '')
+      .trim();
+
+    text71 = clean7(text71);
+    text72 = clean7(text72);
+
+    if (!/sprężon(?:ego|ym)\s+powietrz(?:a|em)/i.test(text71)) {
+      const airNotice = "Zabrania się stosowania sprężonego powietrza do napełniania, opróżniania, przetłaczania lub manipulowania produktem (ryzyko powstawania niebezpiecznych aerozoli i wyładowań elektrostatycznych).";
+      text71 = text71 ? `${text71}\n${airNotice}` : `Zapewnić odpowiednią wentylację ogólną i miejscową. Nie jeść, nie pić i nie palić podczas pracy. ${airNotice}`;
+    }
+
+    // 7.1
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: sub71, bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+    this.renderFormattedParagraphs(docChildren, text71, "7.1");
+
+    // 7.2
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: sub72, bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+    if (!text72) {
+      text72 = "Przechowywać wyłącznie w oryginalnych, szczelnie zamkniętych opakowaniach, w chłodnym, suchym i dobrze wentylowanym miejscu. Chronić przed bezpośrednim działaniem promieni słonecznych, ciepła i źródeł zapłonu. Stosować nienasiąkliwe posadzki chemoodporne.";
+    }
+    this.renderFormattedParagraphs(docChildren, text72, "7.2");
+
+    // 7.3
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: sub73, bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+    this.renderFormattedParagraphs(docChildren, text73, "7.3");
+  }
+
+  /**
    * Renderuje Sekcję 8 (Klauzula DNEL/PNEC oraz rozbicie ŚOI konsument vs przemysł)
    */
   static async renderSection8(docChildren, secData, sdsData) {
@@ -1075,8 +1127,12 @@ Dodatkowe wskazówki: Schładzać zagrożone pojemniki rozpylonym strumieniem wo
       children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["9.2.2"], bold: true, size: 19, font: "Arial" })],
       spacing: { before: 60, after: 40 }
     }));
+    let vocText = secData["9.2.2"] || "";
+    if (!vocText || /brak danych/i.test(vocText) || !/%/i.test(vocText)) {
+      vocText = localKnowledge.calculateVocContent(sdsData.components || [], secData["9.1"] || "");
+    }
     docChildren.push(new Paragraph({
-      children: [new TextRun({ text: secData["9.2.2"] || "Lotne związki organiczne (LZO / VOC): brak danych. Szybkość parowania: brak danych.", size: 19, font: "Arial" })],
+      children: [new TextRun({ text: vocText, size: 19, font: "Arial" })],
       spacing: { after: 80 }
     }));
   }
@@ -1271,30 +1327,16 @@ Krajowe akty prawne:
       spacing: { before: 180, after: 80 }
     }));
 
-    const cleanLegal151 = `Prawodawstwo Unii Europejskiej:
-- Rozporządzenie (WE) nr 1907/2006 Parlamentu Europejskiego i Rady z dnia 18 grudnia 2006 r. w sprawie rejestracji, oceny, udzielania zezwoleń i stosowanych ograniczeń w zakresie chemikaliów (REACH) z późniejszymi zmianami.
-- Rozporządzenie Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniające załącznik II do rozporządzenia (WE) nr 1907/2006 (wymogi dotyczące sporządzania kart charakterystyki).
-- Rozporządzenie Parlamentu Europejskiego i Rady (WE) nr 1272/2008 z dnia 16 grudnia 2008 r. w sprawie klasyfikacji, oznakowania i pakowania substancji i mieszanin (CLP) wraz ze wszystkimi adaptacjami do postępu technicznego (ATP 1-22).
-- Rozporządzenie Komisji (UE) nr 758/2013 z dnia 10 sierpnia 2013 r. (sprostowanie załącznika VI do rozporządzenia CLP).
-- Dyrektywa 98/24/WE w sprawie ochrony zdrowia i bezpieczeństwa pracowników przed ryzykiem związanym ze środkami chemicznymi w miejscu pracy.
-- Dyrektywa 2000/39/WE ustanawiająca pierwszą listę indykatywnych wartości dopuszczalnych narażenia zawodowego.
-- Rozporządzenie (UE) nr 649/2012 (PIC): Brak substancji podlegających procedurze zgody.
-- Dyrektywa Seveso III (2012/18/UE): Kategoria zagrożenia: Brak (mieszanina nie spełnia kryteriów kwalifikacyjnych).
-- Niemiecka klasa zagrożenia wód (WGK): Klasa 1 (lekko niebezpieczny dla wód).
-- Niemiecka klasa magazynowania TRGS 510: LGK 10.
-- Substancje wzbudzające szczególnie duże obawy (Lista Kandydacka SVHC, art. 59 rozporządzenia REACH): Mieszanina nie zawiera substancji z Listy Kandydackiej w stężeniu ≥ 0,1% wag.
-- Substancje podlegające procedurze zezwoleń (Załącznik XIV do rozporządzenia REACH): Żaden ze składników mieszaniny nie podlega obowiązkowi uzyskania zezwolenia.
-- Ograniczenia dotyczące produkcji, wprowadzania do obrotu i stosowania (Załącznik XVII do rozporządzenia REACH): Ograniczenie 75 (dla zawartych substancji).
+    let legal151 = secData["15.1"] || "";
+    if (!legal151 || legal151.includes('WGK') || legal151.includes('TRGS 510') || !legal151.includes('2019/1148')) {
+      const isFlammable = Boolean(
+        sdsData.classification?.hazardClasses?.some(c => /Flam/i.test(c)) ||
+        sdsData.classification?.hPhrases?.some(h => /H22[456]/i.test(h))
+      );
+      legal151 = localKnowledge.lookupLegalActs({ isFlammable, isTattooProduct: false });
+    }
 
-Prawodawstwo Rzeczypospolitej Polskiej:
-- Ustawa z dnia 25 lutego 2011 r. o substancjach chemicznych i ich mieszaninach (t.j. Dz.U. 2022 poz. 1816 z późn. zm.).
-- Rozporządzenie Ministra Rodziny, Pracy i Polityki Społecznej z dnia 12 czerwca 2018 r. w sprawie najwyższych dopuszczalnych stężeń i natężeń czynników szkodliwych dla zdrowia w środowisku pracy (Dz.U. 2018 poz. 1286 z późn. zm., w tym Dz.U. 2024 poz. 1017).
-- Ustawa z dnia 14 grudnia 2012 r. o odpadach (t.j. Dz.U. 2023 poz. 1587 z późn. zm.).
-- Rozporządzenie Ministra Klimatu z dnia 2 stycznia 2020 r. w sprawie katalogu odpadów (Dz.U. 2020 poz. 10).
-- Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadami opakowaniowymi (t.j. Dz.U. 2023 poz. 1658 z późn. zm.).
-- Ustawa z dnia 19 sierpnia 2011 r. o przewozie towarów niebezpiecznych (t.j. Dz.U. 2024 poz. 643 z późn. zm.) oraz Umowa europejska dotycząca międzynarodowego przewozu drogowego towarów niebezpiecznych (ADR).`;
-
-    this.renderFormattedParagraphs(docChildren, cleanLegal151, "15.1");
+    this.renderFormattedParagraphs(docChildren, legal151, "15.1");
 
     // 15.2. Ocena bezpieczeństwa chemicznego
     docChildren.push(new Paragraph({
@@ -1313,21 +1355,28 @@ Prawodawstwo Rzeczypospolitej Polskiej:
   static async renderSection16(docChildren, secData, sdsData) {
     let raw16 = secData["16.1"] || secData["16"] || "";
     
-    // Wstrzyknięcie urzędowej definicji EUH208 jeśli występuje w Sekcji 2, a brak jej w Sekcji 16
-    const sec2 = sdsData.sections?.['2']?.['2.2'] || '';
+    // Wstrzyknięcie lub uzupełnienie urzędowej definicji EUH208
+    const sec2 = sdsData.sections?.['2'] ? (typeof sdsData.sections['2'] === 'string' ? sdsData.sections['2'] : (sdsData.sections['2']['2.2'] || '')) : '';
+    const sensComps = (sdsData.components || []).filter(c => /Skin Sens|H317/i.test(c.clp || ''));
+    let allergenNames = "";
+    if (sensComps.length > 0) {
+      allergenNames = sensComps.map(c => c.namePl.replace(/\s*\(ang\..*?\)/gi, '').trim()).join(', ');
+    } else {
+      const m = sec2.match(/Zawiera\s*([^.]+?)(?:\.\s*Może|\.|$)/i);
+      allergenNames = m ? m[1].replace(/\n+/g, ' ').trim() : "";
+    }
+    allergenNames = allergenNames.replace(/\s+/g, ' ').replace(/\n+/g, ' ').trim();
+    if (!allergenNames) allergenNames = "substancje uczulające";
+
+    const euhDefinition = `EUH208: Zawiera ${allergenNames}. Może powodować wystąpienie reakcji alergicznej.`;
+
+    // 1. Sanacja wszelkich placeholderów w nawiasach kwadratowych
+    raw16 = raw16.replace(/(EUH208:?\s*Zawiera\s*)\[[^\]]+\]/gi, `$1${allergenNames}`);
+    raw16 = raw16.replace(/\[(?:nazwa\s+substancji\s+uczulającej|substancj[eaęy]|substancj[eaęy]\s+uczulając[eaęy]|nazwa\s+składnika|alergeny?|alergenów|konkretne\s+alergeny)\]/gi, allergenNames);
+    raw16 = raw16.replace(/Zawiera\s+substancj[ęe]\s+uczulając[ąa]\./gi, `Zawiera ${allergenNames}.`);
+
+    // 2. Wstrzyknięcie definicji jeśli występuje w Sekcji 2, a brak w Sekcji 16
     if (/EUH208/i.test(sec2) && !raw16.includes('EUH208:')) {
-      const sensComps = (sdsData.components || []).filter(c => /Skin Sens|H317/i.test(c.clp || ''));
-      let allergenNames = "";
-      if (sensComps.length > 0) {
-        allergenNames = sensComps.map(c => c.namePl.replace(/\s*\(ang\..*?\)/gi, '').trim()).join('; ');
-      } else {
-        const m = sec2.match(/Zawiera\s*([^.]+)\./i);
-        allergenNames = m ? m[1].replace(/\n+/g, ' ').trim() : "substancje uczulające";
-      }
-      allergenNames = allergenNames.replace(/\s+/g, ' ').replace(/\n+/g, ' ').trim();
-      const euhDefinition = `EUH208: Zawiera ${allergenNames}. Może powodować wystąpienie reakcji alergicznej.`;
-      
-      // Umieść zaraz po nagłówku zwrotów H i EUH
       if (raw16.includes('Pełne brzmienie zwrotów H i EUH')) {
         raw16 = raw16.replace(/(Pełne brzmienie zwrotów H i EUH[^\n]*\n)/i, `$1${euhDefinition}\n`);
       } else {

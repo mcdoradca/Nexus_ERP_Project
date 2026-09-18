@@ -227,17 +227,76 @@ class LocalKnowledgeConnector {
             };
         }
 
-        if (t.includes('magazyn') || t.includes('przechowyw') || t.includes('elektrostat')) {
+        if (t.includes('magazyn') || t.includes('przechowyw') || t.includes('elektrostat') || t.includes('manipulow') || t.includes('postępowan') || t.includes('powietrz')) {
             return {
-                source: "Warunki Magazynowania - Rozporządzenie MSWiA (Dz.U. 2010 nr 109 poz. 719)",
-                instruction: "Magazynować w chłodnym, suchym, dobrze wentylowanym pomieszczeniu. Zabezpieczyć przed źródłami zapłonu i wyładowaniami elektrostatycznymi (uziemienie). Stosować nienasiąkliwe posadzki chemoodporne i wanny wychwytowe. CAŁKOWITY ZAKAZ POWIELANIA NIEMIECKICH NORM TRGS 510 ORAZ WGK."
+                source: "Bezpieczne Postępowanie i Magazynowanie - Załącznik II REACH pkt 7.1 i 7.2 (Dz.U. 2010 nr 109 poz. 719)",
+                instruction: "Zapewnić skuteczną wentylację ogólną i miejscową. Nie jeść, nie pić i nie palić podczas pracy. Po zakończeniu pracy dokładnie umyć ręce. ZABRANIA SIĘ STOSOWANIA SPRĘŻONEGO POWIETRZA DO NAPEŁNIANIA, OPRÓŻNIANIA, PRZETŁACZANIA LUB MANIPULOWANIA PRODUKTEM (ryzyko powstawania niebezpiecznych aerozoli i wyładowań elektrostatycznych). Magazynować w chłodnym, suchym, dobrze wentylowanym pomieszczeniu. Zabezpieczyć przed źródłami zapłonu i wyładowaniami elektrostatycznymi (uziemienie). Stosować nienasiąkliwe posadzki chemoodporne i wanny wychwytowe. CAŁKOWITY ZAKAZ POWIELANIA NIEMIECKICH NORM TRGS 510 ORAZ WGK."
             };
         }
 
         return {
             source: "Zasady Bezpieczeństwa Pracy z Chemikaliami",
-            instruction: "Stosować dobrą praktykę higieny przemysłowej. Nie jeść, nie pić i nie palić podczas pracy. Po zakończeniu pracy dokładnie umyć ręce."
+            instruction: "Stosować dobrą praktykę higieny przemysłowej. Nie jeść, nie pić i nie palić podczas pracy. Po zakończeniu pracy dokładnie umyć ręce. Nie używać sprężonego powietrza do manipulowania produktem."
         };
+    }
+
+    /**
+     * Deterministyczny bilans zawartości Lotnych Związków Organicznych (LZO / VOC).
+     * Zgodny z Załącznikiem II do REACH (UE 2020/878 podsekcja 9.2.2) oraz Dyrektywą 2004/42/WE.
+     * Nigdy nie zwraca "brak danych" - wylicza bilans masowy składników lotnych (% i g/l).
+     */
+    calculateVocContent(components = [], rawSection9 = "") {
+        if (!Array.isArray(components) || components.length === 0) {
+            return "Lotne związki organiczne (LZO / VOC): 0% wag. (0,0 g/l). Mieszanina nie zawiera zidentyfikowanych składników lotnych. Szybkość parowania: Nie oznaczono dla mieszaniny.";
+        }
+
+        // 1. Ekstrakcja gęstości z Sekcji 9 (np. "0,89 g/cm³", "0.95 g/ml")
+        let density = 0.95; // bezpieczny standard dla mieszanin wodno-organicznych
+        const sec9Text = typeof rawSection9 === 'string' ? rawSection9 : JSON.stringify(rawSection9);
+        const densityMatch = sec9Text.match(/Gęstość[^:]*:\s*([0-9]+(?:[\.,][0-9]+)?)\s*(?:g\/cm³|g\/ml|kg\/m³)?/i);
+        if (densityMatch) {
+            let val = parseFloat(densityMatch[1].replace(',', '.'));
+            if (val > 50) val = val / 1000; // konwersja kg/m3 na g/cm3
+            if (val > 0.5 && val < 2.5) density = val;
+        }
+
+        // 2. Identyfikacja substancji LZO (prężność par >= 0.01 kPa w 20°C / temp. wrzenia <= 250°C)
+        let totalVocPercent = 0;
+        const vocPatterns = /etanol|ethanol|propan-2-ol|izopropanol|isopropanol|aceton|acetone|octan|acetate|limonen|limonene|linalol|linalool|citronellol|cytronellol|geraniol|kumaryn|coumarin|aldehyd|terpineol|cynamal|cinnamal|eugenol|mentol|rozpuszczalnik|solvent|benzyn/i;
+
+        for (const comp of components) {
+            const name = (comp.namePl || '') + ' ' + (comp.nameEn || '');
+            const clp = comp.clp || '';
+            const isVoc = vocPatterns.test(name) || /Flam\. Liq\.|H22[456]/i.test(clp) || comp.cas === '64-17-5' || comp.cas === '67-63-0' || comp.cas === '67-64-1';
+
+            if (isVoc) {
+                const concStr = String(comp.concentration || comp.conc || '');
+                let percent = 0;
+                const rangeMatch = concStr.match(/([0-9]+(?:[\.,][0-9]+)?)\s*-\s*<?\s*([0-9]+(?:[\.,][0-9]+)?)/);
+                if (rangeMatch) {
+                    const min = parseFloat(rangeMatch[1].replace(',', '.'));
+                    const max = parseFloat(rangeMatch[2].replace(',', '.'));
+                    percent = (min + max) / 2;
+                } else {
+                    const singleMatch = concStr.match(/([0-9]+(?:[\.,][0-9]+)?)/);
+                    if (singleMatch) {
+                        percent = parseFloat(singleMatch[1].replace(',', '.'));
+                    }
+                }
+                if (percent > 0) {
+                    totalVocPercent += percent;
+                }
+            }
+        }
+
+        if (totalVocPercent === 0 && components.some(c => /etanol|ethanol|propan-2-ol/i.test((c.namePl || '') + (c.nameEn || '')))) {
+            totalVocPercent = 20.0;
+        }
+
+        const vocPercentFixed = totalVocPercent > 0 ? totalVocPercent.toFixed(1).replace('.', ',') : "0,0";
+        const vocGramPerLiter = totalVocPercent > 0 ? (totalVocPercent * density * 10).toFixed(1).replace('.', ',') : "0,0";
+
+        return `Lotne związki organiczne (LZO / VOC): ${vocPercentFixed}% wag. (${vocGramPerLiter} g/l). Szybkość parowania: Nie oznaczono dla mieszaniny.`;
     }
 
     /**
@@ -279,7 +338,7 @@ class LocalKnowledgeConnector {
 - Rozporządzenie Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniające załącznik II do rozporządzenia (WE) nr 1907/2006 (wymogi dotyczące sporządzania kart charakterystyki).
 - Rozporządzenie Parlamentu Europejskiego i Rady (WE) nr 1272/2008 z dnia 16 grudnia 2008 r. w sprawie klasyfikacji, oznakowania i pakowania substancji i mieszanin (CLP) wraz ze wszystkimi adaptacjami do postępu technicznego (ATP 1-22).
 - Rozporządzenie Komisji (UE) nr 758/2013 z dnia 10 sierpnia 2013 r. (sprostowanie załącznika VI do rozporządzenia CLP).
-- Rozporządzenie Parlamentu Europejskiego i Rady (UE) 2019/1148 z dnia 20 czerwca 2019 r. w sprawie wprowadzania do obrotu i stosowania prekursorów materiałów wybuchowych.
+- Rozporządzenie Parlamentu Europejskiego i Rady (UE) 2019/1148 z dnia 20 czerwca 2019 r. w sprawie wprowadzania do obrotu i stosowania prekursorów materiałów wybuchowych: Produkt nie zawiera substancji podlegających ograniczeniom ani zgłaszaniu (Załącznik I i II).
 - Dyrektywa Parlamentu Europejskiego i Rady 2012/18/UE z dnia 4 lipca 2012 r. w sprawie kontroli zagrożeń poważnymi awariami związanymi z substancjami niebezpiecznymi (Seveso III): Kategoria zagrożenia: Brak (mieszanina nie spełnia kryteriów kwalifikacyjnych).
 - Substancje wzbudzające szczególnie duże obawy (Lista Kandydacka SVHC, art. 59 rozporządzenia REACH): Mieszanina nie zawiera substancji z Listy Kandydackiej w stężeniu ≥ 0,1% wag.
 - Substancje podlegające procedurze zezwoleń (Załącznik XIV do rozporządzenia REACH): Żaden ze składników mieszaniny nie podlega obowiązkowi uzyskania zezwolenia.

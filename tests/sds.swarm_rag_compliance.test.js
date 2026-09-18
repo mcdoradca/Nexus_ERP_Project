@@ -167,4 +167,89 @@ Pracownicy powinni zostać przeszkoleni w zakresie prawidłowego obchodzenia si�
         // 5. Upewnienie się że stare, ucięte linijki z promptu LLM zostały bezwzględnie usunięte
         assert.ok(!s16.includes('Wskazówki szkoleniowe: \nPracownicy powinni zostać przeszkoleni w zakresie prawidłowego obchodzenia się z produktami chemicznymi oraz zasad higieny i bezpieczeństwa pracy.'), 'Stary, ucięty tekst szkoleń musi zostać usunięty');
     });
+
+    it('8. Sekcja 7: Egzekwowanie zakazu stosowania sprężonego powietrza (Załącznik II REACH pkt 7.1)', async () => {
+        const orchestrator = new SDSSwarmOrchestrator();
+        const testData = {
+            classification: { hazardClasses: [], hPhrases: [] },
+            components: [],
+            sections: {
+                '7': {
+                    '7.1': 'Zapewnić wentylację.',
+                    '7.2': 'Przechowywać w magazynie.'
+                }
+            }
+        };
+        const audited = await orchestrator.auditSdsData(testData);
+        assert.ok(
+            /sprężon(?:ego|ym)\s+powietrz(?:a|em)/i.test(audited.sections['7']['7.1']),
+            'Sekcja 7.1 musi zawierać zakaz stosowania sprężonego powietrza!'
+        );
+    });
+
+    it('9. Sekcja 9.2.2: Deterministyczny bilans LZO (VOC) w % oraz g/l bez prawa do "brak danych"', async () => {
+        const orchestrator = new SDSSwarmOrchestrator();
+        const testData = {
+            classification: { hazardClasses: ['Flam. Liq. 2'], hPhrases: ['H225'] },
+            components: [
+                { namePl: 'Etanol', cas: '64-17-5', concentration: '15 - 25%', clp: 'Flam. Liq. 2 H225' },
+                { namePl: 'Kompozycja zapachowa (d-limonen)', cas: '5989-27-5', concentration: '2 - 4%', clp: 'Flam. Liq. 3 H226' }
+            ],
+            sections: {
+                '9': {
+                    '9.1': 'Gęstość: 0,90 g/cm³',
+                    '9.2.2': 'Lotne związki organiczne (LZO / VOC): brak danych.'
+                }
+            }
+        };
+        const audited = await orchestrator.auditSdsData(testData);
+        const s922 = audited.sections['9']['9.2.2'];
+        assert.ok(!s922.includes('brak danych'), 'Sekcja 9.2.2 nie może zawierać wpisu "brak danych"!');
+        assert.ok(s922.includes('% wag.'), 'Sekcja 9.2.2 musi zawierać wartość w % wag.');
+        assert.ok(s922.includes('g/l'), 'Sekcja 9.2.2 musi zawierać wartość w g/l');
+        assert.ok(s922.includes('23,0% wag.'), `Oczekiwano wyliczonego LZO ok. 23%, otrzymano: ${s922}`);
+    });
+
+    it('10. Sekcja 15.1: Obowiązkowe przywołanie Rozporządzenia (UE) 2019/1148 (prekursory materiałów wybuchowych)', async () => {
+        const orchestrator = new SDSSwarmOrchestrator();
+        const testData = {
+            classification: { hazardClasses: [], hPhrases: [] },
+            components: [],
+            sections: {
+                '15': {}
+            }
+        };
+        const audited = await orchestrator.auditSdsData(testData);
+        const s151 = audited.sections['15']['15.1'];
+        assert.ok(s151.includes('2019/1148'), 'Sekcja 15.1 musi przywoływać Rozporządzenie (UE) 2019/1148!');
+        assert.ok(s151.includes('prekursorów materiałów wybuchowych'), 'Sekcja 15.1 musi wspominać prekursory materiałów wybuchowych');
+        assert.ok(!s151.includes('WGK'), 'Sekcja 15.1 nie może zawierać WGK!');
+        assert.ok(!s151.includes('TRGS 510'), 'Sekcja 15.1 nie może zawierać TRGS 510!');
+    });
+
+    it('11. Sekcja 16: Sanacja znacznika [nazwa substancji uczulającej] i wstrzyknięcie konkretnych alergenów', async () => {
+        const orchestrator = new SDSSwarmOrchestrator();
+        const testData = {
+            classification: { hazardClasses: [], hPhrases: [] },
+            components: [
+                { namePl: 'Kumaryna', cas: '91-64-5', clp: 'Skin Sens. 1B H317' },
+                { namePl: 'Geraniol', cas: '106-24-1', clp: 'Skin Sens. 1 H317' }
+            ],
+            sections: {
+                '2': {
+                    '2.2': 'EUH208 Zawiera kumarynę, geraniol. Może powodować wystąpienie reakcji alergicznej.'
+                },
+                '16': {
+                    '16.1': `Pełne brzmienie zwrotów H i EUH:
+EUH208: Zawiera [nazwa substancji uczulającej]. Może powodować wystąpienie reakcji alergicznej.
+Objaśnienie skrótów i akronimów:
+NDS: Najwyższe Dopuszczalne Stężenie`
+                }
+            }
+        };
+        const audited = await orchestrator.auditSdsData(testData);
+        const s16 = audited.sections['16']['16.1'];
+        assert.ok(!s16.includes('[nazwa substancji uczulającej]'), 'W Sekcji 16 nie może pozostać znacznik [nazwa substancji uczulającej]!');
+        assert.ok(s16.includes('Zawiera Kumaryna, Geraniol.') || s16.includes('Zawiera kumarynę, geraniol.'), `Oczekiwano konkretnych nazw alergenów w EUH208 w Sekcji 16, otrzymano: ${s16}`);
+    });
 });

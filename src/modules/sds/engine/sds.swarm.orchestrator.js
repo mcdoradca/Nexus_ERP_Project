@@ -173,7 +173,7 @@ class SDSSwarmOrchestrator {
             sections['8']['8.1'] = sec81Text.trim();
         }
 
-        // 4. Sekcja 7: Usunięcie niemieckich TRGS 510 i WGK
+        // 4. Sekcja 7: Usunięcie niemieckich TRGS 510/WGK oraz wdrożenie zakazu stosowania sprężonego powietrza (Załącznik II REACH pkt 7.1)
         if (sections['7'] && typeof sections['7'] === 'object') {
             for (const k of Object.keys(sections['7'])) {
                 if (typeof sections['7'][k] === 'string') {
@@ -183,6 +183,15 @@ class SDSSwarmOrchestrator {
                         .replace(/Lagerklasse[^;\n\.]*/gi, '')
                         .replace(/WGK\s*:\s*\d+/gi, '')
                         .trim();
+                }
+            }
+            const s71 = sections['7']['7.1'] || sections['7']['7'] || '';
+            if (!/sprężon(?:ego|ym)\s+powietrz(?:a|em)/i.test(s71)) {
+                const airClause = "Zabrania się stosowania sprężonego powietrza do napełniania, opróżniania, przetłaczania lub manipulowania produktem (ryzyko powstawania niebezpiecznych aerozoli i wyładowań elektrostatycznych).";
+                if (sections['7']['7.1']) {
+                    sections['7']['7.1'] += `\n${airClause}`;
+                } else {
+                    sections['7']['7.1'] = `Zapewnić odpowiednią wentylację. Nie jeść, nie pić i nie palić podczas pracy. ${airClause}`;
                 }
             }
         }
@@ -204,7 +213,7 @@ Krajowe akty prawne:
 - Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadami opakowaniowymi (t.j. Dz.U. 2023 poz. 1658 z późn. zm.).`;
         }
 
-        // 6. Sekcja 15.1: Czysty wykaz aktów prawnych (brak WGK, TRGS, Ograniczenia 75)
+        // 6. Sekcja 15.1: Czysty wykaz aktów prawnych (brak WGK, TRGS, Ograniczenia 75, obowiązkowe Rozporządzenie UE 2019/1148)
         if (sections['15'] && typeof sections['15'] === 'object') {
             const isFlammable = Boolean(
                 sdsData.classification?.hazardClasses?.some(c => /Flam/i.test(c)) ||
@@ -216,25 +225,62 @@ Krajowe akty prawne:
             }
         }
 
-        // 7. Sekcja 16: Egzekwowanie kanonicznej stopki prawnej ITALLUX (literatura, szkolenia, rewizja 1.0 PL, klauzula prawna)
+        // 7. Sekcja 9.2.2: Deterministyczny bilans LZO (VOC) bez prawa do "brak danych"
+        if (sections['9'] && typeof sections['9'] === 'object') {
+            const current922 = sections['9']['9.2.2'] || '';
+            if (!current922 || /brak danych/i.test(current922) || !/%/i.test(current922)) {
+                sections['9']['9.2.2'] = this.rag.calculateVocContent(sdsData.components || [], sections['9']['9.1'] || '');
+            }
+        }
+
+        // 8. Sekcja 16: Egzekwowanie kanonicznej stopki prawnej ITALLUX i sanacja znacznika EUH208
         if (sections['16']) {
             const canonicalFooter = this.rag.getSection16LegalFooter(sdsData.metadata || {});
+            const sec2 = sections['2'] ? (typeof sections['2'] === 'string' ? sections['2'] : (sections['2']['2.2'] || '')) : '';
+            const sensComps = (sdsData.components || []).filter(c => /Skin Sens|H317/i.test(c.clp || ''));
+            let allergenNames = "";
+            if (sensComps.length > 0) {
+                allergenNames = sensComps.map(c => c.namePl.replace(/\s*\(ang\..*?\)/gi, '').trim()).join(', ');
+            } else {
+                const m = sec2.match(/Zawiera\s*([^.]+?)(?:\.\s*Może|\.|$)/i);
+                allergenNames = m ? m[1].replace(/\n+/g, ' ').trim() : "";
+            }
+            allergenNames = allergenNames.replace(/\s+/g, ' ').replace(/\n+/g, ' ').trim();
+            if (!allergenNames) allergenNames = "substancje uczulające";
+
             const sanitize16 = (text) => {
                 if (!text || typeof text !== 'string') return canonicalFooter;
-                const cutIndex = text.search(/(?:Główne\s+źródła\s+literatury|Wskazówki\s+szkoleniowe|Zalecenia\s+i\s+wskazówki\s+szkoleniowe|Informacje\s+o\s+zmianach|Klauzula\s+prawna)/i);
-                const prefix = cutIndex >= 0 ? text.substring(0, cutIndex).trim() : text.trim();
+                let cleaned = text.replace(/(EUH208:?\s*Zawiera\s*)\[[^\]]+\]/gi, `$1${allergenNames}`);
+                cleaned = cleaned.replace(/\[(?:nazwa\s+substancji\s+uczulającej|substancj[eaęy]|substancj[eaęy]\s+uczulając[eaęy]|nazwa\s+składnika|alergeny?|alergenów|konkretne\s+alergeny)\]/gi, allergenNames);
+                cleaned = cleaned.replace(/Zawiera\s+substancj[ęe]\s+uczulając[ąa]\./gi, `Zawiera ${allergenNames}.`);
+
+                // Gwarancja obecności definicji EUH208 jeśli występuje w Sekcji 2 lub w komponentach
+                if (/EUH208/i.test(sec2) || sensComps.length > 0) {
+                    if (!cleaned.includes('EUH208:')) {
+                        const euhDef = `EUH208: Zawiera ${allergenNames}. Może powodować wystąpienie reakcji alergicznej.`;
+                        if (cleaned.includes('Pełne brzmienie zwrotów H i EUH')) {
+                            cleaned = cleaned.replace(/(Pełne brzmienie zwrotów H i EUH[^\n]*\n)/i, `$1${euhDef}\n`);
+                        } else {
+                            cleaned = `Pełne brzmienie zwrotów H i EUH przytoczonych w sekcjach 2 i 3:\n${euhDef}\n\n` + cleaned;
+                        }
+                    }
+                }
+
+                const cutIndex = cleaned.search(/(?:Główne\s+źródła\s+literatury|Wskazówki\s+szkoleniowe|Zalecenia\s+i\s+wskazówki\s+szkoleniowe|Informacje\s+o\s+zmianach|Klauzula\s+prawna)/i);
+                const prefix = cutIndex >= 0 ? cleaned.substring(0, cutIndex).trim() : cleaned.trim();
                 return prefix ? `${prefix}\n\n${canonicalFooter}` : canonicalFooter;
             };
 
             if (typeof sections['16'] === 'string') {
-                sections['16'] = sanitize16(sections['16']);
+                sections['16'] = { '16.1': sanitize16(sections['16']) };
             } else if (typeof sections['16'] === 'object') {
                 if (sections['16']['16.1']) {
                     sections['16']['16.1'] = sanitize16(sections['16']['16.1']);
                 } else if (sections['16']['16']) {
-                    sections['16']['16'] = sanitize16(sections['16']['16']);
+                    sections['16']['16.1'] = sanitize16(sections['16']['16']);
+                    delete sections['16']['16'];
                 } else {
-                    sections['16']['16.1'] = canonicalFooter;
+                    sections['16']['16.1'] = sanitize16("");
                 }
             }
         }

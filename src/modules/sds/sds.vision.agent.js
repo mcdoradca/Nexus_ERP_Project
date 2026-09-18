@@ -99,6 +99,11 @@ BEZWZGLĘDNE ZASADY JAKOŚCI I ZGODNOŚCI PRAWNEJ:
      q) Gęstość lub gęstość względna: [wartość]
      r) Względna gęstość pary: [wartość]
      s) Charakterystyka cząsteczek: [wartość]
+   - W Sekcji 7:
+     W Sekcji 7.1 podaj środki ostrożności oraz bezwzględny zakaz stosowania sprężonego powietrza do napełniania, opróżniania, przetłaczania lub manipulowania produktem.
+     W Sekcji 7.2 podaj polskie warunki magazynowania (całkowity zakaz norm TRGS 510 i WGK).
+   - W Sekcji 9.2.2:
+     Podaj zawartość Lotnych Związków Organicznych (LZO / VOC) w % oraz g/l wyliczoną ze składników lotnych. Zakaz wpisu "brak danych".
    - W Sekcji 11.1:
      TOKSYCZNOŚĆ OSTRA
      [dane per składnik LD50/LC50]
