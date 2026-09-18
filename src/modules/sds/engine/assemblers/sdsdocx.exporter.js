@@ -39,64 +39,87 @@ class SDSDocxExporter {
     }));
 
     // 3. Oficjalny Blok Metadanych Dat i Wersji (Zgodnie z Pkt 0.2.5 Załącznika II do REACH)
-    const metaBorder = {
-      top: { style: BorderStyle.SINGLE, size: 6, color: "00A651" },
-      bottom: { style: BorderStyle.SINGLE, size: 6, color: "00A651" },
-      left: { style: BorderStyle.SINGLE, size: 4, color: "D0D5DD" },
-      right: { style: BorderStyle.SINGLE, size: 4, color: "D0D5DD" },
-      insideHorizontal: { style: BorderStyle.NONE },
-      insideVertical: { style: BorderStyle.SINGLE, size: 4, color: "E5E7EB" }
+    const metaBorders = {
+      top: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 6 },
+      bottom: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 6 },
+      left: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 6 },
+      right: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 6 },
+      insideHorizontal: { value: BorderStyle.NONE },
+      insideVertical: { value: BorderStyle.NONE }
     };
+
+    const compDate = meta.compilationDate || "17.09.2026";
+    const revDate = meta.revisionDate || "Nie dotyczy";
+    const replRev = meta.replacedRevision || "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 03.12.2024)";
+    const textColor = "0A4027"; // Ciemnozielony
+
+    const metaRows = [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 4800, type: WidthType.DXA },
+            shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
+            margins: { top: 80, bottom: 40, left: 120, right: 120 },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: "Data sporządzenia: ", bold: true, size: 18, font: "Arial", color: textColor }),
+                  new TextRun({ text: compDate, size: 18, font: "Arial", color: textColor })
+                ]
+              })
+            ]
+          }),
+          new TableCell({
+            width: { size: 4800, type: WidthType.DXA },
+            shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
+            margins: { top: 80, bottom: 40, left: 120, right: 120 },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: "Wersja: ", bold: true, size: 18, font: "Arial", color: textColor }),
+                  new TextRun({ text: versionStr, size: 18, font: "Arial", color: textColor })
+                ]
+              })
+            ]
+          })
+        ]
+      }),
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 4800, type: WidthType.DXA },
+            shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
+            margins: { top: 40, bottom: 80, left: 120, right: 120 },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: "Aktualizacja: ", bold: true, size: 18, font: "Arial", color: textColor }),
+                  new TextRun({ text: revDate, size: 18, font: "Arial", color: textColor })
+                ]
+              })
+            ]
+          }),
+          new TableCell({
+            width: { size: 4800, type: WidthType.DXA },
+            shading: { fill: "FFFFFF", type: ShadingType.CLEAR },
+            margins: { top: 40, bottom: 80, left: 120, right: 120 },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: "Zastępuje wersję: ", bold: true, size: 18, font: "Arial", color: textColor }),
+                  new TextRun({ text: replRev, size: 18, font: "Arial", color: textColor })
+                ]
+              })
+            ]
+          })
+        ]
+      })
+    ];
 
     const metadataTable = new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
-      borders: metaBorder,
-      rows: [
-        new TableRow({
-          children: [
-            new TableCell({
-              width: { size: 50, type: WidthType.PERCENTAGE },
-              shading: { fill: "F9FAFB" },
-              margins: { top: 100, bottom: 100, left: 150, right: 150 },
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({ text: "Data sporządzenia: ", bold: true, size: 18, font: "Arial" }),
-                    new TextRun({ text: compilationDate, size: 18, font: "Arial" })
-                  ],
-                  spacing: { after: 60 }
-                }),
-                new Paragraph({
-                  children: [
-                    new TextRun({ text: "Aktualizacja: ", bold: true, size: 18, font: "Arial" }),
-                    new TextRun({ text: revisionDate, size: 18, font: "Arial" })
-                  ]
-                })
-              ]
-            }),
-            new TableCell({
-              width: { size: 50, type: WidthType.PERCENTAGE },
-              shading: { fill: "F9FAFB" },
-              margins: { top: 100, bottom: 100, left: 150, right: 150 },
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({ text: "Wersja: ", bold: true, size: 18, font: "Arial" }),
-                    new TextRun({ text: versionStr, size: 18, font: "Arial" })
-                  ],
-                  spacing: { after: 60 }
-                }),
-                new Paragraph({
-                  children: [
-                    new TextRun({ text: "Zastępuje wersję: ", bold: true, size: 18, font: "Arial" }),
-                    new TextRun({ text: replacedRevision, size: 18, font: "Arial" })
-                  ]
-                })
-              ]
-            })
-          ]
-        })
-      ]
+      borders: metaBorders,
+      rows: metaRows
     });
     sectionsBody.push(metadataTable);
     sectionsBody.push(new Paragraph({ text: "", spacing: { after: 200 } }));

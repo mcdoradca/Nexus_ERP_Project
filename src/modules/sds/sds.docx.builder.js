@@ -159,17 +159,18 @@ class SDSDocxBuilder {
 
     // 2. TABELA METADANYCH (Układ 2-kolumnowy z karty SANDALO 1:1)
     const metaBorders = {
-      top: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 12 },
-      bottom: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 12 },
-      left: { value: BorderStyle.NONE },
-      right: { value: BorderStyle.NONE },
+      top: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 6 },
+      bottom: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 6 },
+      left: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 6 },
+      right: { color: "00A651", space: 4, value: BorderStyle.SINGLE, size: 6 },
       insideHorizontal: { value: BorderStyle.NONE },
       insideVertical: { value: BorderStyle.NONE }
     };
 
     const compDate = meta.compilationDate || "17.09.2026";
     const revDate = meta.revisionDate || "Nie dotyczy";
-    const replRev = meta.replacedRevision || "Brak (wydanie pierwsze w języku polskim)";
+    const replRev = meta.replacedRevision || "Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia 03.12.2024)";
+    const textColor = "0A4027"; // Ciemnozielony kolor tekstu
 
     const metaRows = [
       new TableRow({
@@ -181,8 +182,8 @@ class SDSDocxBuilder {
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: "Data sporządzenia: ", bold: true, size: 17, font: "Arial" }),
-                  new TextRun({ text: compDate, size: 17, font: "Arial" })
+                  new TextRun({ text: "Data sporządzenia: ", bold: true, size: 17, font: "Arial", color: textColor }),
+                  new TextRun({ text: compDate, size: 17, font: "Arial", color: textColor })
                 ]
               })
             ]
@@ -194,8 +195,8 @@ class SDSDocxBuilder {
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: "Wersja: ", bold: true, size: 17, font: "Arial" }),
-                  new TextRun({ text: versionStr, size: 17, font: "Arial" })
+                  new TextRun({ text: "Wersja: ", bold: true, size: 17, font: "Arial", color: textColor }),
+                  new TextRun({ text: versionStr, size: 17, font: "Arial", color: textColor })
                 ]
               })
             ]
@@ -211,8 +212,8 @@ class SDSDocxBuilder {
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: "Aktualizacja: ", bold: true, size: 17, font: "Arial" }),
-                  new TextRun({ text: revDate, size: 17, font: "Arial" })
+                  new TextRun({ text: "Aktualizacja: ", bold: true, size: 17, font: "Arial", color: textColor }),
+                  new TextRun({ text: revDate, size: 17, font: "Arial", color: textColor })
                 ]
               })
             ]
@@ -224,8 +225,8 @@ class SDSDocxBuilder {
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: "Zastępuje wersję: ", bold: true, size: 17, font: "Arial" }),
-                  new TextRun({ text: replRev, size: 17, font: "Arial" })
+                  new TextRun({ text: "Zastępuje wersję: ", bold: true, size: 17, font: "Arial", color: textColor }),
+                  new TextRun({ text: replRev, size: 17, font: "Arial", color: textColor })
                 ]
               })
             ]
