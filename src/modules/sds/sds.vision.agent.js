@@ -128,7 +128,24 @@ BEZWZGLĘDNE ZASADY JAKOŚCI I ZGODNOŚCI PRAWNEJ:
      Objaśnienie skrótów i akronimów:
      [każdy skrót w nowej linii: SKRÓT: Pełna nazwa]
      Główne źródła literatury i danych:
-     Wskazówki szkoleniowe:
+     - Karty charakterystyki substancji składowych udostępnione przez producentów i dostawców surowców.
+     - Baza danych Europejskiej Agencji Chemikaliów (ECHA): https://echa.europa.eu/
+     - Baza danych PubChem National Library of Medicine: https://pubchem.ncbi.nlm.nih.gov/
+     - Obowiązujące unijne i krajowe akty prawne (REACH, CLP, Dz.U. 2018 poz. 1286, Dz.U. 2023 poz. 1587).
+     Zalecenia i wskazówki szkoleniowe dla pracowników:
+     Przed przystąpieniem do pracy z produktem należy zapoznać się z treścią niniejszej karty charakterystyki oraz przepisami BHP obowiązującymi na stanowisku pracy. Pracownicy mający kontakt z produktem powinni zostać przeszkoleni w zakresie prawidłowego i bezpiecznego obchodzenia się z chemikaliami oraz postępowania w sytuacjach awaryjnych.
+     Informacje o zmianach i aktualizacji:
+     Niniejsza karta charakterystyki (wersja 1.0 PL) stanowi wydanie pierwsze w języku polskim, opracowane na podstawie karty charakterystyki SDS producenta z dnia [data sporządzenia karty producenta] r.
+     Aktualizacja została sporządzona i dostosowana zgodnie z wymogami Rozporządzenia Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniającego załącznik II do rozporządzenia (WE) nr 1907/2006 (REACH) oraz przepisami prawa Rzeczypospolitej Polskiej.
+     Główne zmiany wprowadzone w bieżącej wersji obejmują:
+     - Sekcja 1.3: Aktualizacja danych dostawcy karty w Rzeczypospolitej Polskiej na ITALLUX Sp. z o.o. (ul. Wesoła 16, 63-600 Kępno, www.prostozwloch.com.pl).
+     - Sekcja 8.1: Weryfikacja i implementacja krajowych norm higienicznych w środowisku pracy (NDS, NDSCh) na podstawie Rozporządzenia MRPiPS (Dz.U. 2018 poz. 1286 z późn. zm.).
+     - Sekcja 11.2 i 12.6: Wdrożenie obligatoryjnych podsekcji dotyczących właściwości zaburzających funkcjonowanie układu hormonalnego.
+     - Sekcja 13: Aktualizacja klasyfikacji i 6-cyfrowych kodów odpadów zgodnie z ustawą o odpadach i Dz.U. 2020 poz. 10.
+     - Sekcja 14: Weryfikacja i zharmonizowanie warunków przewozu zgodnie z Umową ADR.
+     Klauzula prawna i ochrona praw autorskich:
+     Niniejsze autorskie opracowanie tłumaczenia, formatowania oraz adaptacji regulacyjnej do prawa polskiego stanowi własność intelektualną firmy ITALLUX Sp. z o.o.. Kopiowanie i wykorzystywanie całości lub fragmentów w celach komercyjnych przez podmioty trzecie bez uprzedniej zgody właściciela jest zabronione. Dozwolone jest wykorzystanie dokumentu przez odbiorców w łańcuchu dostaw do celów bezpieczeństwa pracy i ochrony zdrowia.
+     Informacje zawarte w niniejszej karcie wynikają z aktualnego stanu wiedzy producenta i dystrybutora i odnoszą się wyłącznie do opisanego produktu. Użytkownik ponosi odpowiedzialność za stworzenie bezpiecznych warunków pracy oraz spełnienie wymagań prawnych związanych z jego zastosowaniem.
 
 5. STRUKTURA DANYCH WYJŚCIOWYCH (JSON):
    Musisz zwrócić wyłącznie poprawny obiekt JSON o następującej strukturze:

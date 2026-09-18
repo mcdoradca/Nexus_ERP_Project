@@ -15,7 +15,8 @@ ZASADY:
 2. W sekcji 1.1 BARDZO RYGORYSTYCZNIE sprawdź nazwę handlową (product name). Zabrania się zostawiania uciętych nazw oraz wstawek typu "(ang. ...)" powstałych w procesie tłumaczenia. Nazwa musi być kompletna, pełna i czysta, bez komentarzy w nawiasach.
 3. W sekcji 1 upewnij się, że nie ma zagranicznych organów toksykologicznych. Podaj oficjalne polskie numery alarmowe (Łódź +48 42 631 47 24, Warszawa +48 22 619 66 54, 112).
 4. W sekcji 16 skontroluj legendę zwrotów H i EUH. Zadbaj by definicja zwrotu EUH208 ("Zawiera [substancje]. Może powodować wystąpienie reakcji alergicznej.") była w 100% obecna w słowniku.
-5. Zadbaj by informacje były podane w 100% poprawną, urzędową polszczyzną bez własnych interpretacji.`,
+5. Zadbaj by informacje były podane w 100% poprawną, urzędową polszczyzną bez własnych interpretacji.
+6. W sekcji 16 bezwzględnie dopilnuj obecności pełnej stopki korporacyjnej ITALLUX: Główne źródła literatury i danych (ECHA, PubChem, REACH, CLP, Dz.U. 2018 poz. 1286, Dz.U. 2023 poz. 1587), Zalecenia i wskazówki szkoleniowe dla pracowników, Informacje o zmianach i aktualizacji (wersja 1.0 PL, 5 punktów zmian w tym ITALLUX Sp. z o.o.) oraz Klauzula prawna i ochrona praw autorskich ITALLUX Sp. z o.o.. Bezwzględny zakaz ucinania lub skracania tej stopki.`,
             generationConfig: {
                 responseMimeType: "application/json",
                 temperature: 0.0

@@ -215,6 +215,29 @@ Krajowe akty prawne:
                 sections['15']['15.2'] = "Dla mieszaniny nie przeprowadzono oceny bezpieczeństwa chemicznego.";
             }
         }
+
+        // 7. Sekcja 16: Egzekwowanie kanonicznej stopki prawnej ITALLUX (literatura, szkolenia, rewizja 1.0 PL, klauzula prawna)
+        if (sections['16']) {
+            const canonicalFooter = this.rag.getSection16LegalFooter(sdsData.metadata || {});
+            const sanitize16 = (text) => {
+                if (!text || typeof text !== 'string') return canonicalFooter;
+                const cutIndex = text.search(/(?:Główne\s+źródła\s+literatury|Wskazówki\s+szkoleniowe|Zalecenia\s+i\s+wskazówki\s+szkoleniowe|Informacje\s+o\s+zmianach|Klauzula\s+prawna)/i);
+                const prefix = cutIndex >= 0 ? text.substring(0, cutIndex).trim() : text.trim();
+                return prefix ? `${prefix}\n\n${canonicalFooter}` : canonicalFooter;
+            };
+
+            if (typeof sections['16'] === 'string') {
+                sections['16'] = sanitize16(sections['16']);
+            } else if (typeof sections['16'] === 'object') {
+                if (sections['16']['16.1']) {
+                    sections['16']['16.1'] = sanitize16(sections['16']['16.1']);
+                } else if (sections['16']['16']) {
+                    sections['16']['16'] = sanitize16(sections['16']['16']);
+                } else {
+                    sections['16']['16.1'] = canonicalFooter;
+                }
+            }
+        }
     }
 
     /**

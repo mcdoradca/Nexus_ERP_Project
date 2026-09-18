@@ -113,4 +113,58 @@ describe('RAG & Swarm Compliance Engine Tests (ADR-0117)', () => {
             'Komponent CMI/MIT musi mieć wstrzyknięte ATE'
         );
     });
+
+    it('7. Egzekwowanie kanonicznej stopki Sekcji 16 (ECHA, PubChem, szkolenia, rewizja 1.0 PL, ITALLUX)', async () => {
+        const orchestrator = new SDSSwarmOrchestrator();
+        const testData = {
+            metadata: {
+                compilationDate: '24.03.2023',
+                version: '1.0 PL'
+            },
+            classification: { hazardClasses: [], hPhrases: [] },
+            components: [],
+            sections: {
+                '16': {
+                    '16.1': `Pełne brzmienie zwrotów H i EUH:
+H225 Wysoce łatwopalna ciecz i pary.
+Objaśnienie skrótów i akronimów:
+NDS: Najwyższe Dopuszczalne Stężenie
+Główne źródła literatury i danych: 
+Rozporządzenie (WE) nr 1907/2006 Parlamentu Europejskiego i Rady (REACH) wraz z późniejszymi zmianami.
+Rozporządzenie (WE) nr 1272/2008 Parlamentu Europejskiego i Rady (CLP) wraz z późniejszymi zmianami.
+Baza danych ECHA.
+Wskazówki szkoleniowe: 
+Pracownicy powinni zostać przeszkoleni w zakresie prawidłowego obchodzenia się z produktami chemicznymi oraz zasad higieny i bezpieczeństwa pracy.`
+                }
+            }
+        };
+
+        const audited = await orchestrator.auditSdsData(testData);
+        const s16 = audited.sections['16']['16.1'];
+
+        // 1. Sprawdzenie źródeł danych i literatury
+        assert.ok(s16.includes('https://echa.europa.eu/'), 'Sekcja 16 musi zawierać link do bazy ECHA');
+        assert.ok(s16.includes('https://pubchem.ncbi.nlm.nih.gov/'), 'Sekcja 16 musi zawierać link do PubChem');
+        assert.ok(s16.includes('Dz.U. 2018 poz. 1286'), 'Sekcja 16 musi wymieniać Dz.U. 2018 poz. 1286');
+        assert.ok(s16.includes('Dz.U. 2023 poz. 1587'), 'Sekcja 16 musi wymieniać Dz.U. 2023 poz. 1587');
+
+        // 2. Sprawdzenie zaleceń szkoleniowych
+        assert.ok(s16.includes('Zalecenia i wskazówki szkoleniowe dla pracowników:'), 'Wymagany pełny nagłówek zaleceń szkoleniowych');
+        assert.ok(s16.includes('Przed przystąpieniem do pracy z produktem należy zapoznać się z treścią niniejszej karty'), 'Wymagany urzędowy tekst szkoleniowy');
+
+        // 3. Sprawdzenie informacji o zmianach i dynamicznej daty
+        assert.ok(s16.includes('Niniejsza karta charakterystyki (wersja 1.0 PL) stanowi wydanie pierwsze w języku polskim, opracowane na podstawie karty charakterystyki SDS producenta z dnia 24.03.2023 r.'), 'Data sporządzenia karty producenta musi być dynamicznie wstrzyknięta');
+        assert.ok(s16.includes('Sekcja 1.3: Aktualizacja danych dostawcy karty w Rzeczypospolitej Polskiej na ITALLUX Sp. z o.o.'), 'Punkt 1 zmian: ITALLUX');
+        assert.ok(s16.includes('Sekcja 8.1: Weryfikacja i implementacja krajowych norm higienicznych'), 'Punkt 2 zmian: NDS');
+        assert.ok(s16.includes('Sekcja 11.2 i 12.6: Wdrożenie obligatoryjnych podsekcji dotyczących właściwości zaburzających funkcjonowanie układu hormonalnego'), 'Punkt 3 zmian: ED');
+        assert.ok(s16.includes('Sekcja 13: Aktualizacja klasyfikacji i 6-cyfrowych kodów odpadów'), 'Punkt 4 zmian: Kody odpadów');
+        assert.ok(s16.includes('Sekcja 14: Weryfikacja i zharmonizowanie warunków przewozu zgodnie z Umową ADR'), 'Punkt 5 zmian: ADR');
+
+        // 4. Sprawdzenie klauzuli prawnej ITALLUX
+        assert.ok(s16.includes('Klauzula prawna i ochrona praw autorskich:'), 'Wymagany nagłówek klauzuli prawnej');
+        assert.ok(s16.includes('stanowi własność intelektualną firmy ITALLUX Sp. z o.o..'), 'Klauzula musi zastrzegać własność intelektualną firmy ITALLUX Sp. z o.o.');
+
+        // 5. Upewnienie się że stare, ucięte linijki z promptu LLM zostały bezwzględnie usunięte
+        assert.ok(!s16.includes('Wskazówki szkoleniowe: \nPracownicy powinni zostać przeszkoleni w zakresie prawidłowego obchodzenia się z produktami chemicznymi oraz zasad higieny i bezpieczeństwa pracy.'), 'Stary, ucięty tekst szkoleń musi zostać usunięty');
+    });
 });

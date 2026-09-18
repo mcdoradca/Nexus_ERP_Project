@@ -19,6 +19,8 @@ const {
 } = require('docx');
 
 const { GHSPictogramGenerator, ADRPictogramGenerator } = require('./sds.service');
+const { LocalKnowledgeConnector } = require('./engine/extractors/local.knowledge.connector');
+const localKnowledge = new LocalKnowledgeConnector();
 
 const SECTION_TITLES_PL = {
   1: "SEKCJA 1: IDENTYFIKACJA SUBSTANCJI/MIESZANINY I IDENTYFIKACJA PRZEDSIĘBIORSTWA",
@@ -1332,6 +1334,12 @@ Prawodawstwo Rzeczypospolitej Polskiej:
         raw16 = `${euhDefinition}\n\n` + raw16;
       }
     }
+
+    // Gwarancja kanonicznej stopki prawnej (Single Source of Truth z LocalKnowledgeConnector)
+    const canonicalFooter = localKnowledge.getSection16LegalFooter(sdsData.metadata || {});
+    const cutIdx = raw16.search(/(?:Główne\s+źródła\s+literatury|Wskazówki\s+szkoleniowe|Zalecenia\s+i\s+wskazówki\s+szkoleniowe|Informacje\s+o\s+zmianach|Klauzula\s+prawna)/i);
+    const body16 = cutIdx >= 0 ? raw16.substring(0, cutIdx).trim() : raw16.trim();
+    raw16 = body16 ? `${body16}\n\n${canonicalFooter}` : canonicalFooter;
 
     this.renderFormattedParagraphs(docChildren, raw16, "16");
   }
