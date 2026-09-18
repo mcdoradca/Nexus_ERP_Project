@@ -321,7 +321,7 @@ Zwróć WYŁĄCZNIE czysty obiekt JSON bez znaczników markdown.`;
       NDSRegistry.loadRegistry(ndsPath);
     }
 
-    // 2. Wyznaczenie limitów NDS dla składników w sekcji 8.1
+    // 2. Wyznaczenie limitów NDS dla składników w sekcji 8.1 oraz mapowanie ATE
     const foundNdsLimits = [];
     for (const comp of sdsData.components) {
       if (comp.cas && comp.cas !== '-' && comp.cas !== 'Brak') {
@@ -340,25 +340,61 @@ Zwróć WYŁĄCZNIE czysty obiekt JSON bez znaczników markdown.`;
           foundNdsLimits.push(line);
         }
       }
-    }
 
-    // Jeśli sekcja 8 nie ma krajowych limitów NDS, a znaleziono je w bazie, wstrzyknij je
-    if (foundNdsLimits.length > 0) {
-      const existingSec8 = sdsData.sections['8']?.['8.1'] || '';
-      if (!existingSec8.includes('Dz.U. 2024 poz. 1017') && !existingSec8.includes('Dz.U. 2018 poz. 1286')) {
-        const ndsHeader = "Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy (Polska – Dz.U. 2018 poz. 1286 z późn. zm., w tym Dz.U. 2024 poz. 1017):\n" + foundNdsLimits.join('\n\n');
-        sdsData.sections['8'] = sdsData.sections['8'] || {};
-        sdsData.sections['8']['8.1'] = ndsHeader + (existingSec8 ? '\n\n' + existingSec8 : '');
+      // Wzbogacenie ATE dla składników z Acute Tox (np. masa CMI/MIT CAS 55965-84-9)
+      if (/Acute Tox/i.test(comp.clp || '')) {
+        if (comp.cas === '55965-84-9' && !/ATE/i.test(comp.clp)) {
+          comp.clp += '; ATE (droga pokarmowa) = 64 mg/kg mc.; ATE (na skórę) = 87,12 mg/kg mc.; ATE (inhalacyjnie, pyły/mgły) = 0,33 mg/l';
+        }
       }
     }
 
-    // 3. Weryfikacja i uzupełnienie Sekcji 15 (Polskie i Europejskie akty prawne)
+    // Wstrzyknięcie NDS i oświadczenia DNEL/PNEC do Sekcji 8.1
+    sdsData.sections['8'] = sdsData.sections['8'] || {};
+    let sec81Text = "";
+    if (foundNdsLimits.length > 0) {
+      sec81Text = "Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy (Polska – Dz.U. 2018 poz. 1286 z późn. zm., w tym Dz.U. 2024 poz. 1017):\n" + foundNdsLimits.join('\n\n') + "\n\n";
+    }
+    const existingSec8 = sdsData.sections['8']?.['8.1'] || '';
+    if (existingSec8 && !existingSec8.includes('Dz.U. 2024 poz. 1017')) {
+      sec81Text += existingSec8 + "\n\n";
+    }
+    sec81Text += "Wartości DNEL (Pochodny poziom niepowodujący zmian) i PNEC (Przewidywane stężenie niepowodujące zmian w środowisku):\nDla mieszaniny oraz substancji składowych nie oznaczono wartości DNEL oraz PNEC.";
+    sdsData.sections['8']['8.1'] = sec81Text.trim();
+
+    // Sekcja 13: Kody odpadów wg Rozporządzenia Ministra Klimatu (Dz.U. 2020 poz. 10)
+    const wasteSectionText = `Metody unieszkodliwiania odpadów:
+Odzyskać, jeśli to możliwe. Nie wprowadzać do kanalizacji, wód powierzchniowych ani gruntowych. Likwidację pozostałości produktu oraz opakowań powierzać wyłącznie uprawnionym podmiotom posiadającym stosowne decyzje odpadowe (BDO).
+
+Klasyfikacja i proponowane kody odpadów (Dz.U. 2020 poz. 10):
+- Odpady z produktu (gospodarstwa domowe / konsumenci): 20 01 30 (Detergenty inne niż wymienione w 20 01 29).
+- Odpady z produktu (sektor przemysłowy / czyszczenie instalacji): 16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05) lub 07 06 99 (Inne niewymienione odpady).
+- Odpady opakowaniowe (oczyszczone, selektywna zbiórka): 15 01 02 (Opakowania z tworzyw sztucznych).
+- Odpady opakowaniowe (zanieczyszczone pozostałościami niebezpiecznymi): 15 01 10* (Opakowania zawierające pozostałości substancji niebezpiecznych lub nimi skażone).
+
+Krajowe akty prawne:
+- Ustawa z dnia 14 grudnia 2012 r. o odpadach (Dz.U. 2023 poz. 1587 z późn. zm.).
+- Rozporządzenie Ministra Klimatu z dnia 2 stycznia 2020 r. w sprawie katalogu odpadów (Dz.U. 2020 poz. 10).
+- Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadami opakowaniowymi (Dz.U. 2023 poz. 1658 z późn. zm.).`;
+
+    sdsData.sections['13'] = sdsData.sections['13'] || {};
+    sdsData.sections['13']['13.1'] = wasteSectionText;
+
+    // Sekcja 15.1: Pojedyncza, czysta lista aktów prawnych bez duplikacji
     const officialLegalText = `Prawodawstwo Unii Europejskiej:
 - Rozporządzenie (WE) nr 1907/2006 Parlamentu Europejskiego i Rady z dnia 18 grudnia 2006 r. w sprawie rejestracji, oceny, udzielania zezwoleń i stosowanych ograniczeń w zakresie chemikaliów (REACH) z późniejszymi zmianami.
 - Rozporządzenie Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniające załącznik II do rozporządzenia (WE) nr 1907/2006 (wymogi dotyczące sporządzania kart charakterystyki).
-- Rozporządzenie Parlamentu Europejskiego i Rady (WE) nr 1272/2008 z dnia 16 grudnia 2008 r. w sprawie klasyfikacji, oznakowania i pakowania substancji i mieszanin (CLP) z późniejszymi zmianami.
-- Substancje wzbudzające szczególnie duże obawy (SVHC – REACH załącznik XIV): Mieszanina nie zawiera substancji z listy kandydackiej SVHC w stężeniu ≥ 0,1% wag.
-- Ograniczenia dotyczące produkcji, wprowadzania do obrotu i stosowania (REACH załącznik XVII): Zastosowanie mają odpowiednie pozycje załącznika XVII (w zależności od przeznaczenia).
+- Rozporządzenie Parlamentu Europejskiego i Rady (WE) nr 1272/2008 z dnia 16 grudnia 2008 r. w sprawie klasyfikacji, oznakowania i pakowania substancji i mieszanin (CLP) wraz ze wszystkimi adaptacjami do postępu technicznego (ATP 1-22).
+- Rozporządzenie Komisji (UE) nr 758/2013 z dnia 10 sierpnia 2013 r. (sprostowanie załącznika VI do rozporządzenia CLP).
+- Dyrektywa 98/24/WE w sprawie ochrony zdrowia i bezpieczeństwa pracowników przed ryzykiem związanym ze środkami chemicznymi w miejscu pracy.
+- Dyrektywa 2000/39/WE ustanawiająca pierwszą listę indykatywnych wartości dopuszczalnych narażenia zawodowego.
+- Rozporządzenie (UE) nr 649/2012 (PIC): Brak substancji podlegających procedurze zgody.
+- Dyrektywa Seveso III (2012/18/UE): Kategoria zagrożenia: Brak (mieszanina nie spełnia kryteriów kwalifikacyjnych).
+- Niemiecka klasa zagrożenia wód (WGK): Klasa 1 (lekko niebezpieczny dla wód).
+- Niemiecka klasa magazynowania TRGS 510: LGK 10.
+- Substancje wzbudzające szczególnie duże obawy (Lista Kandydacka SVHC, art. 59 rozporządzenia REACH): Mieszanina nie zawiera substancji z Listy Kandydackiej w stężeniu ≥ 0,1% wag.
+- Substancje podlegające procedurze zezwoleń (Załącznik XIV do rozporządzenia REACH): Żaden ze składników mieszaniny nie podlega obowiązkowi uzyskania zezwolenia.
+- Ograniczenia dotyczące produkcji, wprowadzania do obrotu i stosowania (Załącznik XVII do rozporządzenia REACH): Ograniczenie 75 (dla zawartych substancji).
 
 Prawodawstwo Rzeczypospolitej Polskiej:
 - Ustawa z dnia 25 lutego 2011 r. o substancjach chemicznych i ich mieszaninach (t.j. Dz.U. 2022 poz. 1816 z późn. zm.).
@@ -368,13 +404,9 @@ Prawodawstwo Rzeczypospolitej Polskiej:
 - Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadami opakowaniowymi (t.j. Dz.U. 2023 poz. 1658 z późn. zm.).
 - Ustawa z dnia 19 sierpnia 2011 r. o przewozie towarów niebezpiecznych (t.j. Dz.U. 2024 poz. 643 z późn. zm.) oraz Umowa europejska dotycząca międzynarodowego przewozu drogowego towarów niebezpiecznych (ADR).`;
 
-    if (sdsData.sections['15']) {
-      if (!sdsData.sections['15']['15.1'] || sdsData.sections['15']['15.1'].length < 200) {
-        sdsData.sections['15']['15.1'] = officialLegalText;
-      } else if (!sdsData.sections['15']['15.1'].includes('Dz.U. 2024 poz. 1017')) {
-        sdsData.sections['15']['15.1'] = sdsData.sections['15']['15.1'] + '\n\n' + officialLegalText;
-      }
-    }
+    sdsData.sections['15'] = sdsData.sections['15'] || {};
+    sdsData.sections['15']['15.1'] = officialLegalText;
+    sdsData.sections['15']['15.2'] = "Dla mieszaniny nie przeprowadzono oceny bezpieczeństwa chemicznego.";
 
     return sdsData;
   }

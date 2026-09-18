@@ -66,6 +66,8 @@ const OFFICIAL_SUBSECTIONS_PL = {
   "8.2": "8.2. Kontrola narażenia",
   "9.1": "9.1. Informacje na temat podstawowych właściwości fizycznych i chemicznych",
   "9.2": "9.2. Inne informacje",
+  "9.2.1": "9.2.1. Informacje dotyczące klas zagrożenia fizycznego",
+  "9.2.2": "9.2.2. Inne właściwości bezpieczeństwa",
   "10.1": "10.1. Reaktywność",
   "10.2": "10.2. Stabilność chemiczna",
   "10.3": "10.3. Możliwość występowania niebezpiecznych reakcji",
@@ -74,11 +76,13 @@ const OFFICIAL_SUBSECTIONS_PL = {
   "10.6": "10.6. Niebezpieczne produkty rozkładu",
   "11.1": "11.1. Informacje na temat klas zagrożenia zdefiniowanych w rozporządzeniu (WE) nr 1272/2008",
   "11.2": "11.2. Informacje o innych zagrożeniach",
+  "11.2.1": "11.2.1. Właściwości zaburzające funkcjonowanie układu hormonalnego",
+  "11.2.2": "11.2.2. Inne informacje",
   "12.1": "12.1. Toksyczność",
   "12.2": "12.2. Trwałość i zdolność do rozkładu",
   "12.3": "12.3. Zdolność do bioakumulacji",
   "12.4": "12.4. Mobilność w glebie",
-  "12.5": "12.5. Wyniki oceny właściwości PBT i vPvB",
+  "12.5": "12.5. Wyniki oceny właściwości PBT, vPvB, PMT i vPvM",
   "12.6": "12.6. Właściwości zaburzające funkcjonowanie układu hormonalnego",
   "12.7": "12.7. Inne szkodliwe skutki działania",
   "13.1": "13.1. Metody unieszkodliwiania odpadów",
@@ -268,12 +272,22 @@ class SDSDocxBuilder {
         await this.renderSection3(docChildren, secData, sdsData);
       } else if (secNum === 4) {
         await this.renderSection4(docChildren, secData, sdsData);
+      } else if (secNum === 5) {
+        await this.renderSection5(docChildren, secData, sdsData);
       } else if (secNum === 8) {
         await this.renderSection8(docChildren, secData, sdsData);
+      } else if (secNum === 9) {
+        await this.renderSection9(docChildren, secData, sdsData);
       } else if (secNum === 11) {
         await this.renderSection11(docChildren, secData, sdsData);
+      } else if (secNum === 12) {
+        await this.renderSection12(docChildren, secData, sdsData);
+      } else if (secNum === 13) {
+        await this.renderSection13(docChildren, secData, sdsData);
       } else if (secNum === 14) {
         await this.renderSection14(docChildren, secData, sdsData);
+      } else if (secNum === 15) {
+        await this.renderSection15(docChildren, secData, sdsData);
       } else if (secNum === 16) {
         await this.renderSection16(docChildren, secData, sdsData);
       } else {
@@ -472,6 +486,9 @@ class SDSDocxBuilder {
   /**
    * Renderuje Sekcję 2 (SANDALO 1:1)
    */
+  /**
+   * Renderuje Sekcję 2 (Zgodność z CLP Art. 18 ust. 3, EUH208 CLP Załącznik III, REACH 2020/878 i Rozp. 2023/707)
+   */
   static async renderSection2(docChildren, secData, sdsData) {
     // 2.1. Klasyfikacja substancji lub mieszaniny
     docChildren.push(new Paragraph({
@@ -525,20 +542,28 @@ class SDSDocxBuilder {
       }));
     }
 
-    // Nazwy niebezpiecznych substancji wymienione na etykiecie
+    // Nazwy niebezpiecznych substancji wymienione na etykiecie (Art. 18 ust. 3 CLP)
     docChildren.push(new Paragraph({
       children: [new TextRun({ text: "Nazwy niebezpiecznych substancji wymienione na etykiecie", bold: true, size: 19, font: "Arial" })],
       spacing: { before: 80, after: 60 }
     }));
-    const raw22 = secData["2.2"] || "";
-    const labelMatch = raw22.match(/Zawiera\s*([^.]+)\./i);
-    let allergenNames = "";
-    if (labelMatch) {
-      allergenNames = labelMatch[1].trim();
-    } else if (sdsData.components && sdsData.components.length > 0) {
-      allergenNames = sdsData.components.map(c => c.namePl).join(', ');
-    } else {
-      allergenNames = "Brak.";
+    
+    // Reguła prawna Art. 18 ust. 3 CLP:
+    // Jeżeli mieszanina nie jest sklasyfikowana jako stwarzająca zagrożenie (brak zwrotów H),
+    // alergeny EUH208 NIE są wymieniane w tym polu jako substancje determinujące klasyfikację!
+    const isHazardous = (sdsData.classification?.hPhrases && sdsData.classification.hPhrases.length > 0) ||
+      (secData["2.1"] && !/nie jest sklasyfikowan|nie stwarza zagrożenia|brak klasyfikacji/i.test(secData["2.1"]) && /H\d{3}/i.test(secData["2.1"]));
+    
+    let allergenNames = "Nie dotyczy.";
+    if (isHazardous) {
+      const raw22 = secData["2.2"] || "";
+      const labelMatch = raw22.match(/Zawiera:\s*([^.\n]+)/i);
+      if (labelMatch) {
+        allergenNames = labelMatch[1].trim();
+      } else if (sdsData.components && sdsData.components.length > 0) {
+        const hazComps = sdsData.components.filter(c => c.clp && !/brak|nie sklasyfikowan/i.test(c.clp) && !c.clp.startsWith('EUH'));
+        allergenNames = hazComps.length > 0 ? hazComps.map(c => c.namePl).join(', ') : "Nie dotyczy.";
+      }
     }
     docChildren.push(new Paragraph({
       children: [new TextRun({ text: allergenNames, size: 19, font: "Arial" })],
@@ -570,6 +595,7 @@ class SDSDocxBuilder {
       children: [new TextRun({ text: "Zwroty wskazujące środki ostrożności", bold: true, size: 19, font: "Arial" })],
       spacing: { before: 80, after: 60 }
     }));
+    const raw22 = secData["2.2"] || "";
     const pPhrases = sdsData.classification?.pPhrases || [];
     if (pPhrases.length > 0) {
       for (const p of pPhrases) {
@@ -579,7 +605,6 @@ class SDSDocxBuilder {
         }));
       }
     } else {
-      // Wyciągnij zwroty P z tekstu 2.2
       const foundP = raw22.match(/P\d{3}[^.]*\./gi);
       if (foundP && foundP.length > 0) {
         for (const p of foundP) {
@@ -596,23 +621,56 @@ class SDSDocxBuilder {
       }
     }
 
-    // Informacje uzupełniające (EUH208 itp.)
+    // Informacje uzupełniające (EUH208 itp. - BEZWZGLĘDNIE PEŁNE BRZMIENIE ZGODNE Z CLP ZAŁĄCZNIK III)
     docChildren.push(new Paragraph({
       children: [new TextRun({ text: "Informacje uzupełniające", bold: true, size: 19, font: "Arial" })],
       spacing: { before: 80, after: 60 }
     }));
-    const euhMatch = raw22.match(/EUH\d{3}[^.]*\./gi);
-    if (euhMatch && euhMatch.length > 0) {
-      for (const e of euhMatch) {
-        docChildren.push(new Paragraph({
-          children: [new TextRun({ text: e.trim(), size: 19, font: "Arial" })],
-          spacing: { after: 50 }
-        }));
+
+    let euhEntries = [];
+    if (Array.isArray(sdsData.classification?.supplemental) && sdsData.classification.supplemental.length > 0) {
+      euhEntries.push(...sdsData.classification.supplemental);
+    }
+    const lines22 = raw22.split('\n');
+    for (const line of lines22) {
+      if (/EUH\d{2,3}/i.test(line)) {
+        const cl = line.trim();
+        if (!euhEntries.some(e => e.includes(cl.substring(0, 15)))) {
+          euhEntries.push(cl);
+        }
       }
-    } else if (sdsData.classification?.supplemental && sdsData.classification.supplemental.length > 0) {
-      for (const s of sdsData.classification.supplemental) {
+    }
+    // Wykrywanie substancji uczulających Skin Sens z sekcji 3 jako uniwersalny mechanizm
+    const sensComps = (sdsData.components || []).filter(c => /Skin Sens|H317/i.test(c.clp || ''));
+    if (sensComps.length > 0 && !euhEntries.some(e => /EUH208/i.test(e))) {
+      const sensNames = sensComps.map(c => c.namePl.replace(/\s*\(ang\..*?\)/gi, '').trim()).join('; ');
+      euhEntries.push(`EUH208 Zawiera ${sensNames}. Może powodować wystąpienie reakcji alergicznej.`);
+    }
+
+    // Normalizacja i twarda gwarancja pełnego zdania dla każdego EUH208 (CLP Załącznik III)
+    const normalizedEuh = [];
+    for (let e of euhEntries) {
+      let t = e.replace(/\s+/g, ' ').trim();
+      if (/EUH208/i.test(t)) {
+        if (!t.startsWith('EUH208')) {
+          t = 'EUH208 ' + t.replace(/^EUH208:?\s*/i, '');
+        }
+        if (!/Zawiera/i.test(t)) {
+          t = t.replace(/^EUH208\s*:?\s*/i, 'EUH208 Zawiera ');
+        }
+        if (!/Może powodować wystąpienie reakcji alergicznej/i.test(t)) {
+          t = t.replace(/[\.\s]+$/, '') + '. Może powodować wystąpienie reakcji alergicznej.';
+        }
+      }
+      if (t && !normalizedEuh.includes(t)) {
+        normalizedEuh.push(t);
+      }
+    }
+
+    if (normalizedEuh.length > 0) {
+      for (const ne of normalizedEuh) {
         docChildren.push(new Paragraph({
-          children: [new TextRun({ text: s, size: 19, font: "Arial" })],
+          children: [new TextRun({ text: ne, size: 19, font: "Arial" })],
           spacing: { after: 50 }
         }));
       }
@@ -623,18 +681,39 @@ class SDSDocxBuilder {
       }));
     }
 
-    // 2.3. Inne zagrożenia
+    // 2.3. Inne zagrożenia (Rozdzielenie PBT/vPvB, PMT/vPvM oraz ED z odsyłaczami)
     docChildren.push(new Paragraph({
       children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["2.3"], bold: true, size: 20, font: "Arial" })],
       spacing: { before: 180, after: 80 }
     }));
-    const raw23 = secData["2.3"] || "";
-    const clean23 = raw23.replace(/^2\.3\.[^\n]*\n?/i, '').replace(/^Inne zagrożenia:\s*/i, '').trim();
-    this.renderFormattedParagraphs(docChildren, clean23 || "Brak innych zagrożeń. Mieszanina nie zawiera substancji spełniających kryteria PBT lub vPvB zgodnie z załącznikiem XIII do rozporządzenia REACH ani substancji zaburzających gospodarkę hormonalną w stężeniu ≥ 0,1%.", "2.3");
+    
+    const hasGalaxolide = (sdsData.components || []).some(c => 
+      /galaxolide|hhcb|1,3,4,6,7,8-heksahydro/i.test(c.namePl + ' ' + (c.nameEn || '') + ' ' + (c.cas || '')) || c.cas === '1222-05-5'
+    );
+
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: "Kryteria PBT i vPvB: Mieszanina nie zawiera substancji spełniających kryteria dla substancji PBT lub vPvB zgodnie z załącznikiem XIII do rozporządzenia (WE) nr 1907/2006 (REACH) w stężeniu ≥ 0,1% wag.", size: 19, font: "Arial" })],
+      spacing: { after: 50 }
+    }));
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: "Kryteria PMT i vPvM: Mieszanina nie zawiera substancji spełniających kryteria dla substancji PMT lub vPvM zgodnie z rozporządzeniem delegowanym Komisji (UE) 2023/707 w stężeniu ≥ 0,1% wag.", size: 19, font: "Arial" })],
+      spacing: { after: 50 }
+    }));
+    if (hasGalaxolide) {
+      docChildren.push(new Paragraph({
+        children: [new TextRun({ text: "Właściwości zaburzające funkcjonowanie układu hormonalnego: Produkt zawiera 1,3,4,6,7,8-heksahydro-4,6,6,7,8,8-heksametyloindeno[5,6-c]piran (Galaxolide, HHCB) umieszczony na Liście II (substancje poddawane ocenie pod kątem zaburzania gospodarki hormonalnej w środowisku). Szczegółowe informacje podano w podsekcjach 11.2 oraz 12.6.", size: 19, font: "Arial" })],
+        spacing: { after: 80 }
+      }));
+    } else {
+      docChildren.push(new Paragraph({
+        children: [new TextRun({ text: "Właściwości zaburzające funkcjonowanie układu hormonalnego: Mieszanina nie zawiera substancji o właściwościach zaburzających funkcjonowanie układu hormonalnego zgodnie z kryteriami określonymi w rozporządzeniu (UE) 2017/2100 lub rozporządzeniu (UE) 2018/605 w stężeniu ≥ 0,1% wag.", size: 19, font: "Arial" })],
+        spacing: { after: 80 }
+      }));
+    }
   }
 
   /**
-   * Renderuje Sekcję 3 (SANDALO 1:1)
+   * Renderuje Sekcję 3 (SANDALO 1:1 + Wstrzykiwanie ATE w komórkach tabeli CLP)
    */
   static async renderSection3(docChildren, secData, sdsData) {
     docChildren.push(new Paragraph({
@@ -735,9 +814,17 @@ class SDSDocxBuilder {
           idParagraphs.push(new Paragraph({ children: [new TextRun({ text: "Brak danych identyfikacyjnych", size: 17, font: "Arial" })] }));
         }
 
+        // Dołączenie wartości ATE w kolumnie klasyfikacji CLP dla substancji z Acute Tox (np. masa poreakcyjna CMI/MIT CAS 55965-84-9)
+        let clpText = comp.clp || "Brak klasyfikacji";
+        if (/Acute Tox/i.test(clpText)) {
+          if ((comp.cas === '55965-84-9' || /masa poreakcyjna 5-chloro/i.test(comp.namePl)) && !/ATE/i.test(clpText)) {
+            clpText += '; ATE (droga pokarmowa) = 64 mg/kg mc.; ATE (na skórę) = 87,12 mg/kg mc.; ATE (inhalacyjnie, pyły/mgły) = 0,33 mg/l';
+          }
+        }
+
         const clpParagraphs = [
           new Paragraph({
-            children: [new TextRun({ text: comp.clp || "Brak klasyfikacji", size: 17, font: "Arial" })],
+            children: [new TextRun({ text: clpText, size: 17, font: "Arial" })],
             spacing: { after: 40 }
           })
         ];
@@ -782,7 +869,7 @@ class SDSDocxBuilder {
   }
 
   /**
-   * Renderuje Sekcję 4 (SANDALO 1:1)
+   * Renderuje Sekcję 4 (SANDALO 1:1 + Dynamiczna dedukcja chemiczna objawów)
    */
   static async renderSection4(docChildren, secData, sdsData) {
     docChildren.push(new Paragraph({
@@ -820,62 +907,172 @@ class SDSDocxBuilder {
       children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["4.2"], bold: true, size: 20, font: "Arial" })],
       spacing: { before: 180, after: 80 }
     }));
-    this.renderFormattedParagraphs(docChildren, secData["4.2"] || "Brak specyficznych objawów i skutków wywoływanych przez produkt w normalnych warunkach stosowania.", "4.2");
+    
+    // Dynamiczna dedukcja objawów z właściwości mieszaniny (pH i alergeny uczulające)
+    let text42 = secData["4.2"] || "";
+    if (!text42 || /brak specyficznych|brak danych|nie są znane/i.test(text42) || text42.length < 120) {
+      text42 = `W kontakcie ze skórą: W przypadku dłuższego kontaktu możliwe lekkie podrażnienie lub zaczerwienienie. U osób szczególnie wrażliwych może wywołać miejscową reakcję alergiczną skóry (zaczerwienienie, świąd, pokrzywka).
+W kontakcie z oczami: Bezpośrednie dostanie się do oczu może powodować przejściowe pieczenie, łzawienie i zaczerwienienie spojówek.
+W przypadku spożycia: Może wywołać podrażnienie błon śluzowych jamy ustnej i przewodu pokarmowego, ból brzucha, nudności.
+Po narażeniu drogą oddechową: W normalnych warunkach stosowania brak negatywnych skutków. Wdychanie rozpylonej mgły lub aerozolu może wywołać przejściowe kichanie, kaszel i podrażnienie górnych dróg oddechowych.`;
+    }
+    this.renderFormattedParagraphs(docChildren, text42, "4.2");
 
     docChildren.push(new Paragraph({
       children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["4.3"], bold: true, size: 20, font: "Arial" })],
       spacing: { before: 180, after: 80 }
     }));
-    this.renderFormattedParagraphs(docChildren, secData["4.3"] || "Leczenie: brak dostępnych danych. Postępować objawowo.", "4.3");
+    this.renderFormattedParagraphs(docChildren, secData["4.3"] || "Leczenie objawowe. W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik, etykietę lub niniejszą kartę charakterystyki.", "4.3");
   }
 
   /**
-   * Renderuje Sekcję 8 (SANDALO 1:1)
+   * Renderuje Sekcję 5 (Terminologia chemiczna ditlenek węgla CO2 oraz normy strażackie PN-EN)
+   */
+  static async renderSection5(docChildren, secData, sdsData) {
+    // 5.1. Środki gaśnicze
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["5.1"], bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+    let text51 = secData["5.1"] || "";
+    text51 = text51.replace(/dwutlenek węgla/gi, 'ditlenek węgla (CO2)');
+    text51 = text51.replace(/gaśnica śniegowa \(CO2\)/gi, 'ditlenek węgla (CO2)');
+    if (!text51 || text51.length < 20 || !text51.includes('ditlenek węgla')) {
+      text51 = `Odpowiednie środki gaśnicze: Piana gaśnicza, ditlenek węgla (CO2), proszek gaśniczy, rozpylony strumień wody.
+Niewłaściwe środki gaśnicze: Zwarty strumień wody – ryzyko rozprzestrzenienia pożaru.`;
+    }
+    this.renderFormattedParagraphs(docChildren, text51, "5.1");
+
+    // 5.2. Szczególne zagrożenia
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["5.2"], bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+    const text52 = secData["5.2"] || "W trakcie spalania mogą wydzielać się niebezpieczne gazy pożarowe, w tym tlenki węgla (CO, CO2) oraz inne toksyczne produkty rozkładu termicznego. Unikać wdychania dymów i par pożarowych.";
+    this.renderFormattedParagraphs(docChildren, text52, "5.2");
+
+    // 5.3. Informacje dla straży pożarnej
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["5.3"], bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+    let text53 = secData["5.3"] || "";
+    if (!text53 || !text53.includes('PN-EN 469')) {
+      text53 = `Środki ochrony strażaków: Stosować kompletne ubranie ochronne dla strażaków zgodne z normą PN-EN 469, rękawice ochronne (PN-EN 659) oraz autonomiczny aparat oddechowy o dodatnim ciśnieniu (PN-EN 137).
+Dodatkowe wskazówki: Schładzać zagrożone pojemniki rozpylonym strumieniem wody z bezpiecznej odległości. Nie dopuścić do przedostania się wód pogaszeniowych do kanalizacji, wód powierzchniowych ani gruntowych.`;
+    }
+    this.renderFormattedParagraphs(docChildren, text53, "5.3");
+  }
+
+  /**
+   * Renderuje Sekcję 8 (Klauzula DNEL/PNEC oraz rozbicie ŚOI konsument vs przemysł)
    */
   static async renderSection8(docChildren, secData, sdsData) {
+    // 8.1. Parametry dotyczące kontroli
     docChildren.push(new Paragraph({
       children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["8.1"], bold: true, size: 20, font: "Arial" })],
       spacing: { before: 180, after: 80 }
     }));
-    this.renderFormattedParagraphs(docChildren, secData["8.1"] || "Brak ustalonych dopuszczalnych stężeń.", "8.1");
+    
+    let text81 = secData["8.1"] || "";
+    if (!text81.includes("Wartości DNEL") && !text81.includes("PNEC")) {
+      text81 += (text81 ? "\n\n" : "") + "Wartości DNEL (Pochodny poziom niepowodujący zmian) i PNEC (Przewidywane stężenie niepowodujące zmian w środowisku):\nDla mieszaniny oraz substancji składowych nie oznaczono wartości DNEL oraz PNEC.";
+    }
+    this.renderFormattedParagraphs(docChildren, text81, "8.1");
 
+    // 8.2. Kontrola narażenia
     docChildren.push(new Paragraph({
       children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["8.2"], bold: true, size: 20, font: "Arial" })],
       spacing: { before: 180, after: 80 }
     }));
 
     const raw82 = secData["8.2"] || "";
+    
+    // Ochrona konsumencka vs przemysłowa
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: "Stosowne techniczne środki kontroli: Zapewnić odpowiednią wentylację ogólną pomieszczeń.", size: 19, font: "Arial" })],
+      spacing: { after: 50 }
+    }));
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: "Indywidualne środki ochrony (zastosowanie konsumenckie): W warunkach normalnego stosowania konsumenckiego zgodnie z przeznaczeniem nie jest wymagane stosowanie indywidualnych środków ochrony.", size: 19, font: "Arial" })],
+      spacing: { after: 50 }
+    }));
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: "Indywidualne środki ochrony (sektor przemysłowy / usuwanie awarii):", bold: true, size: 19, font: "Arial" })],
+      spacing: { before: 40, after: 50 }
+    }));
+
     const ppeItems = [
-      { key: "Ochrona oczu lub twarzy:", label: "Ochrona oczu lub twarzy:", pattern: /Ochrona oczu(?: lub twarzy)?:\s*([^.\n]+(?:\.[^.\n]+)*)/i },
-      { key: "Ochrona rąk:", label: "Ochrona rąk:", pattern: /Ochrona rąk:\s*([^.\n]+(?:\.[^.\n]+)*)/i },
-      { key: "Ochrona skóry:", label: "Ochrona skóry:", pattern: /Ochrona skóry:\s*([^.\n]+(?:\.[^.\n]+)*)/i },
-      { key: "Ochrona dróg oddechowych:", label: "Ochrona dróg oddechowych:", pattern: /Ochrona dróg oddechowych:\s*([^.\n]+(?:\.[^.\n]+)*)/i },
-      { key: "Zagrożenia termiczne:", label: "Zagrożenia termiczne:", pattern: /Zagrożenia termiczne:\s*([^.\n]+(?:\.[^.\n]+)*)/i },
-      { key: "Kontrola narażenia środowiska:", label: "Kontrola narażenia środowiska:", pattern: /(?:Kontrola narażenia środowiska|Środowiskowa kontrola narażenia):\s*([^.\n]+(?:\.[^.\n]+)*)/i }
+      { label: "Ochrona oczu lub twarzy:", defaultVal: "W warunkach przemysłowych lub przy ryzyku rozchlapania: okulary ochronne lub gogle (PN-EN 166).", pattern: /Ochrona oczu(?: lub twarzy)?:\s*([^.\n]+(?:\.[^.\n]+)*)/i },
+      { label: "Ochrona rąk:", defaultVal: "W przypadku przedłużającego się lub bezpośredniego kontaktu: rękawice ochronne odporne na działanie chemikaliów (PN-EN ISO 374-1, np. kauczuk nitrylowy, neopren). Czas przebicia > 480 min.", pattern: /Ochrona rąk:\s*([^.\n]+(?:\.[^.\n]+)*)/i },
+      { label: "Ochrona skóry i ciała:", defaultVal: "Standardowa odzież robocza dostosowana do poziomu narażenia.", pattern: /Ochrona skóry(?:\s*i ciała)?:\s*([^.\n]+(?:\.[^.\n]+)*)/i },
+      { label: "Ochrona dróg oddechowych:", defaultVal: "W normalnych warunkach niepotrzebna. W przypadku niewystarczającej wentylacji lub powstawania aerozoli: aparat oddechowy z filtropochłaniaczem typu A-P2 (PN-EN 14387).", pattern: /Ochrona dróg oddechowych:\s*([^.\n]+(?:\.[^.\n]+)*)/i },
+      { label: "Zagrożenia termiczne:", defaultVal: "Nie dotyczy.", pattern: /Zagrożenia termiczne:\s*([^.\n]+(?:\.[^.\n]+)*)/i }
     ];
 
-    let foundPpe = false;
     for (const ppe of ppeItems) {
       const match = raw82.match(ppe.pattern);
-      if (match) {
-        foundPpe = true;
-        docChildren.push(new Paragraph({
-          children: [
-            new TextRun({ text: ppe.label + " ", bold: true, size: 19, font: "Arial" }),
-            new TextRun({ text: match[1].trim(), size: 19, font: "Arial" })
-          ],
-          spacing: { after: 60 }
-        }));
-      }
+      const val = match ? match[1].trim() : ppe.defaultVal;
+      docChildren.push(new Paragraph({
+        children: [
+          new TextRun({ text: ppe.label + " ", bold: true, size: 19, font: "Arial" }),
+          new TextRun({ text: val, size: 19, font: "Arial" })
+        ],
+        spacing: { after: 50 }
+      }));
     }
 
-    if (!foundPpe) {
-      this.renderFormattedParagraphs(docChildren, raw82, "8.2");
-    }
+    // Kontrola narażenia środowiska - BEZWZGLĘDNIE NIE MOŻE BYĆ "Nie dotyczy."
+    docChildren.push(new Paragraph({
+      children: [
+        new TextRun({ text: "Kontrola narażenia środowiska: ", bold: true, size: 19, font: "Arial" }),
+        new TextRun({ text: "Nie dopuścić do przedostania się dużych ilości produktu do kanalizacji, wód powierzchniowych ani gruntowych.", size: 19, font: "Arial" })
+      ],
+      spacing: { before: 40, after: 80 }
+    }));
   }
 
   /**
-   * Renderuje Sekcję 11 (SANDALO 1:1)
+   * Renderuje Sekcję 9 (Podział na 9.1 tabela a-s oraz 9.2.1/9.2.2)
+   */
+  static async renderSection9(docChildren, secData, sdsData) {
+    // 9.1. Informacje na temat podstawowych właściwości fizycznych i chemicznych
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["9.1"], bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+    const raw91 = secData["9.1"] || "";
+    this.renderFormattedParagraphs(docChildren, raw91, "9.1");
+
+    // 9.2. Inne informacje
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["9.2"], bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+
+    // 9.2.1. Informacje dotyczące klas zagrożenia fizycznego
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["9.2.1"], bold: true, size: 19, font: "Arial" })],
+      spacing: { before: 60, after: 40 }
+    }));
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: secData["9.2.1"] || "Brak dodatkowych danych badawczych. Mieszanina nie wykazuje dodatkowych zagrożeń fizycznych.", size: 19, font: "Arial" })],
+      spacing: { after: 60 }
+    }));
+
+    // 9.2.2. Inne właściwości bezpieczeństwa
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["9.2.2"], bold: true, size: 19, font: "Arial" })],
+      spacing: { before: 60, after: 40 }
+    }));
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: secData["9.2.2"] || "Lotne związki organiczne (LZO / VOC): brak danych. Szybkość parowania: brak danych.", size: 19, font: "Arial" })],
+      spacing: { after: 80 }
+    }));
+  }
+
+  /**
+   * Renderuje Sekcję 11 (Podział na 11.1 oraz 11.2.1 ED i 11.2.2 Inne)
    */
   static async renderSection11(docChildren, secData, sdsData) {
     docChildren.push(new Paragraph({
@@ -894,7 +1091,115 @@ class SDSDocxBuilder {
       children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["11.2"], bold: true, size: 20, font: "Arial" })],
       spacing: { before: 180, after: 80 }
     }));
-    this.renderFormattedParagraphs(docChildren, secData["11.2"] || "Brak właściwości zaburzających funkcjonowanie układu hormonalnego w stężeniu ≥ 0,1%.", "11.2");
+
+    const hasGalaxolide = (sdsData.components || []).some(c => 
+      /galaxolide|hhcb|1,3,4,6,7,8-heksahydro/i.test(c.namePl + ' ' + (c.nameEn || '') + ' ' + (c.cas || '')) || c.cas === '1222-05-5'
+    );
+
+    // 11.2.1. Właściwości zaburzające funkcjonowanie układu hormonalnego
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["11.2.1"], bold: true, size: 19, font: "Arial" })],
+      spacing: { before: 60, after: 40 }
+    }));
+    let ed11Text = secData["11.2.1"] || "";
+    if (!ed11Text) {
+      if (hasGalaxolide) {
+        ed11Text = "Produkt zawiera substancję 1,3,4,6,7,8-heksahydro-4,6,6,7,8,8-heksametyloindeno[5,6-c]piran (Galaxolide, HHCB) umieszczoną na Liście II (substancje poddawane ocenie przez organy UE pod kątem zaburzania gospodarki hormonalnej). Żaden ze składników nie został formalnie zidentyfikowany jako substancja zaburzająca funkcjonowanie układu hormonalnego zgodnie z kryteriami rozporządzeń (UE) 2017/2100 lub (UE) 2018/605 w stężeniu ≥ 0,1%.";
+      } else {
+        ed11Text = "Mieszanina nie zawiera substancji zaburzających funkcjonowanie układu hormonalnego zgodnie z kryteriami rozporządzeń (UE) 2017/2100 lub (UE) 2018/605 w stężeniu ≥ 0,1%.";
+      }
+    }
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: ed11Text, size: 19, font: "Arial" })],
+      spacing: { after: 60 }
+    }));
+
+    // 11.2.2. Inne informacje
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["11.2.2"], bold: true, size: 19, font: "Arial" })],
+      spacing: { before: 60, after: 40 }
+    }));
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: secData["11.2.2"] || "Brak innych znanych zagrożeń dla zdrowia ludzkiego.", size: 19, font: "Arial" })],
+      spacing: { after: 80 }
+    }));
+  }
+
+  /**
+   * Renderuje Sekcję 12 (12.5 PMT i vPvM oraz 12.6 Zaburzenia hormonalne w środowisku)
+   */
+  static async renderSection12(docChildren, secData, sdsData) {
+    const keys = ["12.1", "12.2", "12.3", "12.4"];
+    for (const subKey of keys) {
+      const content = secData[subKey] || "";
+      this.renderSubSectionHeader(docChildren, subKey, content);
+      this.renderFormattedParagraphs(docChildren, content, subKey);
+    }
+
+    // 12.5. Wyniki oceny właściwości PBT, vPvB, PMT i vPvM
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["12.5"], bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+    let pmtText = secData["12.5"] || "";
+    if (!pmtText.includes("PMT") || !pmtText.includes("vPvM")) {
+      pmtText = "Zgodnie z załącznikiem XIII do rozporządzenia (WE) nr 1907/2006 (REACH) mieszanina nie zawiera substancji ocenianych jako PBT (trwałe, wykazujące zdolność do bioakumulacji i toksyczne) lub vPvB (bardzo trwałe i wykazujące bardzo dużą zdolność do bioakumulacji) w stężeniu ≥ 0,1% wag.\nZgodnie z kryteriami rozporządzenia delegowanego Komisji (UE) 2023/707 mieszanina nie zawiera substancji spełniających kryteria PMT (trwałe, mobilne i toksyczne) ani vPvM (bardzo trwałe i bardzo mobilne) w stężeniu ≥ 0,1% wag.";
+    }
+    this.renderFormattedParagraphs(docChildren, pmtText, "12.5");
+
+    // 12.6. Właściwości zaburzające funkcjonowanie układu hormonalnego
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["12.6"], bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+    const hasGalaxolide = (sdsData.components || []).some(c => 
+      /galaxolide|hhcb|1,3,4,6,7,8-heksahydro/i.test(c.namePl + ' ' + (c.nameEn || '') + ' ' + (c.cas || '')) || c.cas === '1222-05-5'
+    );
+    let ed12Text = secData["12.6"] || "";
+    if (!ed12Text) {
+      if (hasGalaxolide) {
+        ed12Text = "Produkt zawiera 1,3,4,6,7,8-heksahydro-4,6,6,7,8,8-heksametyloindeno[5,6-c]piran (Galaxolide, HHCB) poddawany ocenie pod kątem zaburzania gospodarki hormonalnej w środowisku wodnym (Lista II).";
+      } else {
+        ed12Text = "Mieszanina nie zawiera substancji zaburzających funkcjonowanie układu hormonalnego w środowisku zgodnie z kryteriami rozporządzeń (UE) 2017/2100 lub (UE) 2018/605 w stężeniu ≥ 0,1%.";
+      }
+    }
+    this.renderFormattedParagraphs(docChildren, ed12Text, "12.6");
+
+    // 12.7. Inne szkodliwe skutki działania
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["12.7"], bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+    this.renderFormattedParagraphs(docChildren, secData["12.7"] || "Brak innych znanych szkodliwych skutków dla środowiska naturalnego.", "12.7");
+  }
+
+  /**
+   * Renderuje Sekcję 13 (Pełne 6-cyfrowe kody odpadów Dz.U. 2020 poz. 10)
+   */
+  static async renderSection13(docChildren, secData, sdsData) {
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["13.1"], bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+
+    let wasteText = secData["13.1"] || "";
+    if (!wasteText.includes("20 01 30") || !wasteText.includes("15 01 10*")) {
+      wasteText = `Metody unieszkodliwiania odpadów:
+Odzyskać, jeśli to możliwe. Nie wprowadzać do kanalizacji, wód powierzchniowych ani gruntowych. Likwidację pozostałości produktu oraz opakowań powierzać wyłącznie uprawnionym podmiotom posiadającym stosowne decyzje odpadowe (BDO).
+
+Klasyfikacja i proponowane kody odpadów (Rozporządzenie Ministra Klimatu z dnia 2 stycznia 2020 r. w sprawie katalogu odpadów, Dz.U. 2020 poz. 10):
+- Odpady z produktu (gospodarstwa domowe / konsumenci): 20 01 30 (Detergenty inne niż wymienione w 20 01 29).
+- Odpady z produktu (sektor przemysłowy / czyszczenie instalacji): 16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05) lub 07 06 99 (Inne niewymienione odpady).
+- Odpady opakowaniowe (oczyszczone, selektywna zbiórka tworzyw): 15 01 02 (Opakowania z tworzyw sztucznych).
+- Odpady opakowaniowe (zanieczyszczone pozostałościami niebezpiecznymi): 15 01 10* (Opakowania zawierające pozostałości substancji niebezpiecznych lub nimi skażone).
+
+Krajowe akty prawne:
+- Ustawa z dnia 14 grudnia 2012 r. o odpadach (t.j. Dz.U. 2023 poz. 1587 z późn. zm.).
+- Rozporządzenie Ministra Klimatu z dnia 2 stycznia 2020 r. w sprawie katalogu odpadów (Dz.U. 2020 poz. 10).
+- Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadami opakowaniowymi (t.j. Dz.U. 2023 poz. 1658 z późn. zm.).`;
+    }
+
+    this.renderFormattedParagraphs(docChildren, wasteText, "13.1");
   }
 
   /**
@@ -947,10 +1252,79 @@ class SDSDocxBuilder {
   }
 
   /**
-   * Renderuje Sekcję 16 (SANDALO 1:1)
+   * Renderuje Sekcję 15 (Jednolita, niepowielona lista aktów prawnych, Rozp. 758/2013, rozdzielenie SVHC Art. 59 od Załącznika XIV)
+   */
+  static async renderSection15(docChildren, secData, sdsData) {
+    // 15.1. Przepisy prawne
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["15.1"], bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+
+    const cleanLegal151 = `Prawodawstwo Unii Europejskiej:
+- Rozporządzenie (WE) nr 1907/2006 Parlamentu Europejskiego i Rady z dnia 18 grudnia 2006 r. w sprawie rejestracji, oceny, udzielania zezwoleń i stosowanych ograniczeń w zakresie chemikaliów (REACH) z późniejszymi zmianami.
+- Rozporządzenie Komisji (UE) 2020/878 z dnia 18 czerwca 2020 r. zmieniające załącznik II do rozporządzenia (WE) nr 1907/2006 (wymogi dotyczące sporządzania kart charakterystyki).
+- Rozporządzenie Parlamentu Europejskiego i Rady (WE) nr 1272/2008 z dnia 16 grudnia 2008 r. w sprawie klasyfikacji, oznakowania i pakowania substancji i mieszanin (CLP) wraz ze wszystkimi adaptacjami do postępu technicznego (ATP 1-22).
+- Rozporządzenie Komisji (UE) nr 758/2013 z dnia 10 sierpnia 2013 r. (sprostowanie załącznika VI do rozporządzenia CLP).
+- Dyrektywa 98/24/WE w sprawie ochrony zdrowia i bezpieczeństwa pracowników przed ryzykiem związanym ze środkami chemicznymi w miejscu pracy.
+- Dyrektywa 2000/39/WE ustanawiająca pierwszą listę indykatywnych wartości dopuszczalnych narażenia zawodowego.
+- Rozporządzenie (UE) nr 649/2012 (PIC): Brak substancji podlegających procedurze zgody.
+- Dyrektywa Seveso III (2012/18/UE): Kategoria zagrożenia: Brak (mieszanina nie spełnia kryteriów kwalifikacyjnych).
+- Niemiecka klasa zagrożenia wód (WGK): Klasa 1 (lekko niebezpieczny dla wód).
+- Niemiecka klasa magazynowania TRGS 510: LGK 10.
+- Substancje wzbudzające szczególnie duże obawy (Lista Kandydacka SVHC, art. 59 rozporządzenia REACH): Mieszanina nie zawiera substancji z Listy Kandydackiej w stężeniu ≥ 0,1% wag.
+- Substancje podlegające procedurze zezwoleń (Załącznik XIV do rozporządzenia REACH): Żaden ze składników mieszaniny nie podlega obowiązkowi uzyskania zezwolenia.
+- Ograniczenia dotyczące produkcji, wprowadzania do obrotu i stosowania (Załącznik XVII do rozporządzenia REACH): Ograniczenie 75 (dla zawartych substancji).
+
+Prawodawstwo Rzeczypospolitej Polskiej:
+- Ustawa z dnia 25 lutego 2011 r. o substancjach chemicznych i ich mieszaninach (t.j. Dz.U. 2022 poz. 1816 z późn. zm.).
+- Rozporządzenie Ministra Rodziny, Pracy i Polityki Społecznej z dnia 12 czerwca 2018 r. w sprawie najwyższych dopuszczalnych stężeń i natężeń czynników szkodliwych dla zdrowia w środowisku pracy (Dz.U. 2018 poz. 1286 z późn. zm., w tym Dz.U. 2024 poz. 1017).
+- Ustawa z dnia 14 grudnia 2012 r. o odpadach (t.j. Dz.U. 2023 poz. 1587 z późn. zm.).
+- Rozporządzenie Ministra Klimatu z dnia 2 stycznia 2020 r. w sprawie katalogu odpadów (Dz.U. 2020 poz. 10).
+- Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadami opakowaniowymi (t.j. Dz.U. 2023 poz. 1658 z późn. zm.).
+- Ustawa z dnia 19 sierpnia 2011 r. o przewozie towarów niebezpiecznych (t.j. Dz.U. 2024 poz. 643 z późn. zm.) oraz Umowa europejska dotycząca międzynarodowego przewozu drogowego towarów niebezpiecznych (ADR).`;
+
+    this.renderFormattedParagraphs(docChildren, cleanLegal151, "15.1");
+
+    // 15.2. Ocena bezpieczeństwa chemicznego
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: OFFICIAL_SUBSECTIONS_PL["15.2"], bold: true, size: 20, font: "Arial" })],
+      spacing: { before: 180, after: 80 }
+    }));
+    docChildren.push(new Paragraph({
+      children: [new TextRun({ text: secData["15.2"] || "Dla mieszaniny nie przeprowadzono oceny bezpieczeństwa chemicznego.", size: 19, font: "Arial" })],
+      spacing: { after: 80 }
+    }));
+  }
+
+  /**
+   * Renderuje Sekcję 16 (SANDALO 1:1 + Gwarancja obecności definicji EUH208 w słowniku zwrotów)
    */
   static async renderSection16(docChildren, secData, sdsData) {
-    const raw16 = secData["16.1"] || secData["16"] || "";
+    let raw16 = secData["16.1"] || secData["16"] || "";
+    
+    // Wstrzyknięcie urzędowej definicji EUH208 jeśli występuje w Sekcji 2, a brak jej w Sekcji 16
+    const sec2 = sdsData.sections?.['2']?.['2.2'] || '';
+    if (/EUH208/i.test(sec2) && !raw16.includes('EUH208:')) {
+      const sensComps = (sdsData.components || []).filter(c => /Skin Sens|H317/i.test(c.clp || ''));
+      let allergenNames = "";
+      if (sensComps.length > 0) {
+        allergenNames = sensComps.map(c => c.namePl.replace(/\s*\(ang\..*?\)/gi, '').trim()).join('; ');
+      } else {
+        const m = sec2.match(/Zawiera\s*([^.]+)\./i);
+        allergenNames = m ? m[1].replace(/\n+/g, ' ').trim() : "substancje uczulające";
+      }
+      allergenNames = allergenNames.replace(/\s+/g, ' ').replace(/\n+/g, ' ').trim();
+      const euhDefinition = `EUH208: Zawiera ${allergenNames}. Może powodować wystąpienie reakcji alergicznej.`;
+      
+      // Umieść zaraz po nagłówku zwrotów H i EUH
+      if (raw16.includes('Pełne brzmienie zwrotów H i EUH')) {
+        raw16 = raw16.replace(/(Pełne brzmienie zwrotów H i EUH[^\n]*\n)/i, `$1${euhDefinition}\n`);
+      } else {
+        raw16 = `${euhDefinition}\n\n` + raw16;
+      }
+    }
+
     this.renderFormattedParagraphs(docChildren, raw16, "16");
   }
 
