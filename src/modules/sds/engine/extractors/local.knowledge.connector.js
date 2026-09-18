@@ -230,7 +230,7 @@ class LocalKnowledgeConnector {
         if (t.includes('magazyn') || t.includes('przechowyw') || t.includes('elektrostat') || t.includes('manipulow') || t.includes('postępowan') || t.includes('powietrz')) {
             return {
                 source: "Bezpieczne Postępowanie i Magazynowanie - Załącznik II REACH pkt 7.1 i 7.2 (Dz.U. 2010 nr 109 poz. 719)",
-                instruction: "Zapewnić skuteczną wentylację ogólną i miejscową. Nie jeść, nie pić i nie palić podczas pracy. Po zakończeniu pracy dokładnie umyć ręce. ZABRANIA SIĘ STOSOWANIA SPRĘŻONEGO POWIETRZA DO NAPEŁNIANIA, OPRÓŻNIANIA, PRZETŁACZANIA LUB MANIPULOWANIA PRODUKTEM (ryzyko powstawania niebezpiecznych aerozoli i wyładowań elektrostatycznych). Magazynować w chłodnym, suchym, dobrze wentylowanym pomieszczeniu. Zabezpieczyć przed źródłami zapłonu i wyładowaniami elektrostatycznymi (uziemienie). Stosować nienasiąkliwe posadzki chemoodporne i wanny wychwytowe. CAŁKOWITY ZAKAZ POWIELANIA NIEMIECKICH NORM TRGS 510 ORAZ WGK."
+                instruction: "Zapewnić skuteczną wentylację ogólną i miejscową. Nie jeść, nie pić i nie palić podczas pracy. Po zakończeniu pracy dokładnie umyć ręce. ZABRANIA SIĘ STOSOWANIA SPRĘŻONEGO POWIETRZA DO NAPEŁNIANIA, OPRÓŻNIANIA, PRZETŁACZANIA LUB MANIPULOWANIA PRODUKTEM (ryzyko powstawania niebezpiecznych aerozoli i wyładowań elektrostatycznych). Magazynować w chłodnym, suchym, dobrze wentylowanym pomieszczeniu. Zabezpieczyć przed źródłami zapłonu i wyładowaniami elektrostatycznymi (uziemienie). Stosować nienasiąkliwe posadzki chemoodporne i wanny wychwytowe."
             };
         }
 
@@ -297,6 +297,66 @@ class LocalKnowledgeConnector {
         const vocGramPerLiter = totalVocPercent > 0 ? (totalVocPercent * density * 10).toFixed(1).replace('.', ',') : "0,0";
 
         return `Lotne związki organiczne (LZO / VOC): ${vocPercentFixed}% wag. (${vocGramPerLiter} g/l). Szybkość parowania: Nie oznaczono dla mieszaniny.`;
+    }
+
+    /**
+     * Synchronizuje wartości ATE w tekście Sekcji 11.1 z urzędowymi danymi ze zharmonizowanego
+     * Załącznika VI do CLP (ATP 1-22). Eliminuje rozbieżność między Sekcją 3.2 a Sekcją 11.1.
+     * @param {string} section11Text - surowy tekst Sekcji 11.1
+     * @param {Array} components - lista składników z polami cas i clp
+     * @returns {string} poprawiony tekst Sekcji 11.1 z urzędowymi wartościami ATE
+     */
+    synchronizeAteInSection11(section11Text, components = []) {
+        if (!section11Text || !Array.isArray(components)) return section11Text;
+        let fixed = section11Text;
+
+        const acuteToxComps = components.filter(c => /Acute Tox/i.test(c.clp || ''));
+        for (const comp of acuteToxComps) {
+            if (!comp.cas) continue;
+            // Wyszukaj dane ATE z SSOT (Annex VI)
+            let ssotEntry = null;
+            if (this.clpDb && Array.isArray(this.clpDb.substances)) {
+                ssotEntry = this.clpDb.substances.find(s => s.cas === comp.cas);
+            }
+            if (!ssotEntry || !ssotEntry.ate) continue;
+
+            const oral = ssotEntry.ate.oral || '';
+            const dermal = ssotEntry.ate.dermal || '';
+            const inhal = ssotEntry.ate.inhalation_mists || ssotEntry.ate.inhalation_vapours || '';
+
+            // Regex wyłapujący kontekst CAS w sekcji 11.1 — blok tekstu odnoszący się do tej substancji
+            // Zamień dowolne wartości ATE oral/dermal/inhalation powiązane z tym CAS na urzędowe
+            const casEscaped = comp.cas.replace(/-/g, '[\\-–]');
+            const casRegion = new RegExp(`(${casEscaped}[\\s\\S]{0,600})`, 'i');
+            const casMatch = fixed.match(casRegion);
+            if (casMatch) {
+                let block = casMatch[1];
+                // Zamiana wartości oral ATE
+                if (oral) {
+                    block = block.replace(
+                        /(?:ATE|LD50)[\s:]*(?:\(?(?:droga\s+pokarmowa|pokarmowo|doustnie|oral)\)?)\s*[:=]\s*\d+(?:[.,]\d+)?\s*mg\/kg(?:\s*mc\.?)?/gi,
+                        `ATE (droga pokarmowa) = ${oral}`
+                    );
+                }
+                // Zamiana wartości dermal ATE
+                if (dermal) {
+                    block = block.replace(
+                        /(?:ATE|LD50)[\s:]*(?:\(?(?:na\s+skórę|skóra|skórnie|dermal)\)?)\s*[:=]\s*\d+(?:[.,]\d+)?\s*mg\/kg(?:\s*mc\.?)?/gi,
+                        `ATE (na skórę) = ${dermal}`
+                    );
+                }
+                // Zamiana wartości inhalacyjnych ATE
+                if (inhal) {
+                    block = block.replace(
+                        /(?:ATE|LC50)[\s:]*(?:\(?(?:inhalacyjnie|inhalacja|droga\s+oddechowa|inhalation(?:,\s*pyły\/mgły)?)\)?)\s*[:=]\s*\d+(?:[.,]\d+)?\s*mg\/l/gi,
+                        `ATE (inhalacyjnie, pyły/mgły) = ${inhal}`
+                    );
+                }
+                fixed = fixed.replace(casMatch[1], block);
+            }
+        }
+
+        return fixed;
     }
 
     /**

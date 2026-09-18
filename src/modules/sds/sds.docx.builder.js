@@ -991,6 +991,9 @@ Dodatkowe wskazówki: Schładzać zagrożone pojemniki rozpylonym strumieniem wo
     const clean7 = (t) => t
       .replace(/(?:^|\n)[ \t]*(?:Storage\s+class\s+)?(?:TRGS\s*510(?:\s*\([^\)]*\))?|Lagerklasse\s*(?:TRGS\s*510)?|Klasa\s+składowania\s*(?:TRGS\s*510)?(?:\s*\([^\)]*\))?|Klasa\s+magazynowa\s*(?:TRGS\s*510)?(?:\s*\([^\)]*\))?)[^\n]*/gi, '')
       .replace(/(?:^|\n)[ \t]*(?:WGK\b|Wassergefährdungsklasse|Klasa\s+zagrożenia\s+wód\s+WGK)[^\n]*/gi, '')
+      // Usunięcie wycieku meta-instrukcji RAG o „zakazie powielania niemieckich norm"
+      .replace(/[^\n.]*?(?:CAŁKOWITY\s+ZAKAZ|całkowity\s+zakaz|ZAKAZ)[^\n.]*?niemieckich\s+norm[^\n.]*\.?/gi, '')
+      .replace(/[ \t]{2,}/g, ' ')
       .trim();
 
     text71 = clean7(text71);

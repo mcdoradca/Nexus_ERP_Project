@@ -173,7 +173,7 @@ class SDSSwarmOrchestrator {
             sections['8']['8.1'] = sec81Text.trim();
         }
 
-        // 4. Sekcja 7: Usunięcie niemieckich TRGS 510/WGK oraz wdrożenie zakazu stosowania sprężonego powietrza (Załącznik II REACH pkt 7.1)
+        // 4. Sekcja 7: Usunięcie niemieckich TRGS 510/WGK, meta-instrukcji RAG oraz wdrożenie zakazu stosowania sprężonego powietrza (Załącznik II REACH pkt 7.1)
         if (sections['7'] && typeof sections['7'] === 'object') {
             for (const k of Object.keys(sections['7'])) {
                 if (typeof sections['7'][k] === 'string') {
@@ -182,6 +182,9 @@ class SDSSwarmOrchestrator {
                         .replace(/TRGS\s*510[^;\n\.]*/gi, '')
                         .replace(/Lagerklasse[^;\n\.]*/gi, '')
                         .replace(/WGK\s*:\s*\d+/gi, '')
+                        // Usunięcie wycieku meta-instrukcji RAG o "zakazie powielania niemieckich norm"
+                        .replace(/[^\n.]*?(?:CAŁKOWITY\s+ZAKAZ|całkowity\s+zakaz|ZAKAZ)[^\n.]*?niemieckich\s+norm[^\n.]*\.?/gi, '')
+                        .replace(/[ \t]{2,}/g, ' ')
                         .trim();
                 }
             }
@@ -282,6 +285,14 @@ Krajowe akty prawne:
                 } else {
                     sections['16']['16.1'] = sanitize16("");
                 }
+            }
+        }
+
+        // 9. Sekcja 11.1: Synchronizacja wartości ATE z urzędowymi danymi ze zharmonizowanego Załącznika VI do CLP
+        if (sections['11'] && typeof sections['11'] === 'object') {
+            const raw111 = sections['11']['11.1'] || '';
+            if (raw111 && Array.isArray(sdsData.components)) {
+                sections['11']['11.1'] = this.rag.synchronizeAteInSection11(raw111, sdsData.components);
             }
         }
     }

@@ -252,4 +252,59 @@ NDS: Najwyższe Dopuszczalne Stężenie`
         assert.ok(!s16.includes('[nazwa substancji uczulającej]'), 'W Sekcji 16 nie może pozostać znacznik [nazwa substancji uczulającej]!');
         assert.ok(s16.includes('Zawiera Kumaryna, Geraniol.') || s16.includes('Zawiera kumarynę, geraniol.'), `Oczekiwano konkretnych nazw alergenów w EUH208 w Sekcji 16, otrzymano: ${s16}`);
     });
+
+    it('12. Sekcja 11.1 vs 3.2: Synchronizacja ATE ze zharmonizowanego Załącznika VI do CLP (SSOT)', async () => {
+        const orchestrator = new SDSSwarmOrchestrator();
+        const testData = {
+            classification: { hazardClasses: ['Acute Tox. 3'], hPhrases: ['H301'] },
+            components: [
+                {
+                    namePl: 'masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu (3:1)',
+                    cas: '55965-84-9',
+                    concentration: '< 0,00093%',
+                    clp: 'Acute Tox. 2 H330; Acute Tox. 2 H310; Acute Tox. 3 H301; Skin Corr. 1C H314; Eye Dam. 1 H318; Skin Sens. 1A H317'
+                }
+            ],
+            sections: {
+                '11': {
+                    '11.1': `Toksyczność ostra:
+masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu (3:1) (CAS: 55965-84-9):
+ATE (droga pokarmowa) = 100 mg/kg mc.
+ATE (na skórę) = 50 mg/kg mc.
+ATE (inhalacyjnie, pyły/mgły) = 0,05 mg/l
+Substancja sklasyfikowana jako Acute Tox. 2 (H330, H310) oraz Acute Tox. 3 (H301).`
+                }
+            }
+        };
+        const audited = await orchestrator.auditSdsData(testData);
+        const s111 = audited.sections['11']['11.1'];
+        // Wartości muszą odpowiadać SSOT z Załącznika VI do CLP (clp_annex_vi_harmonized.json)
+        assert.ok(s111.includes('64 mg/kg mc.'), `ATE oral powinien wynosić 64 mg/kg mc. (Annex VI SSOT), otrzymano: ${s111}`);
+        assert.ok(s111.includes('87,12 mg/kg mc.'), `ATE dermal powinien wynosić 87,12 mg/kg mc. (Annex VI SSOT), otrzymano: ${s111}`);
+        assert.ok(s111.includes('0,33 mg/l'), `ATE inhalacyjnie powinien wynosić 0,33 mg/l (Annex VI SSOT), otrzymano: ${s111}`);
+        // Wartości błędne (progi graniczne kategorii) muszą być wyeliminowane
+        assert.ok(!s111.includes('100 mg/kg'), 'Sekcja 11.1 nie może zawierać progu granicznego 100 mg/kg zamiast urzędowego ATE!');
+        assert.ok(!s111.includes('50 mg/kg'), 'Sekcja 11.1 nie może zawierać progu granicznego 50 mg/kg zamiast urzędowego ATE!');
+        assert.ok(!s111.includes('0,05 mg/l'), 'Sekcja 11.1 nie może zawierać progu granicznego 0,05 mg/l zamiast urzędowego ATE!');
+    });
+
+    it('13. Sekcja 7.2: Brak wycieku meta-instrukcji RAG o niemieckich normach w treści dokumentu', async () => {
+        const orchestrator = new SDSSwarmOrchestrator();
+        const testData = {
+            classification: { hazardClasses: [], hPhrases: [] },
+            components: [],
+            sections: {
+                '7': {
+                    '7.1': 'Zapewnić wentylację.',
+                    '7.2': 'Przechowywać w chłodnym, suchym pomieszczeniu. Stosować nienasiąkliwe posadzki chemoodporne i wanny wychwytowe. CAŁKOWITY ZAKAZ powielania niemieckich norm.'
+                }
+            }
+        };
+        const audited = await orchestrator.auditSdsData(testData);
+        const s72 = audited.sections['7']['7.2'];
+        assert.ok(!s72.includes('CAŁKOWITY ZAKAZ'), `Sekcja 7.2 nie może zawierać meta-instrukcji "CAŁKOWITY ZAKAZ", otrzymano: ${s72}`);
+        assert.ok(!s72.includes('niemieckich norm'), `Sekcja 7.2 nie może zawierać frazy "niemieckich norm", otrzymano: ${s72}`);
+        assert.ok(s72.includes('posadzki chemoodporne'), 'Sekcja 7.2 musi zachować merytoryczną treść o posadzkach chemoodpornych');
+        assert.ok(s72.includes('wanny wychwytowe'), 'Sekcja 7.2 musi zachować merytoryczną treść o wannach wychwytowych');
+    });
 });
