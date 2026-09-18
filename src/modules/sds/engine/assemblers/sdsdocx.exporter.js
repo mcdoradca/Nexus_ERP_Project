@@ -52,7 +52,10 @@ class SDSDocxExporter {
     const polCompilationDate = sdsData.compilationDate || new Date().toLocaleDateString('pl-PL');
     
     const revDate = meta.revisionDate || "Nie dotyczy";
-    const replRev = meta.replacedRevision || `Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia ${originalSdsDate})`;
+    let replRev = meta.replacedRevision || "";
+    if (!replRev || replRev.toLowerCase().includes('brak') || replRev.toLowerCase().includes('none') || replRev.toLowerCase().includes('nessun') || replRev === "Nie dotyczy") {
+        replRev = `Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia ${originalSdsDate})`;
+    }
     const textColor = "0A4027"; // Ciemnozielony
     const bgColor = "F9FAFB"; // Jasnoszare tło
 
@@ -414,7 +417,7 @@ class SDSDocxExporter {
                 border: { bottom: { color: "E5E7EB", space: 4, value: BorderStyle.SINGLE, size: 4 } },
                 spacing: { after: 120 },
                 children: [
-                  new TextRun({ text: `KARTA CHARAKTERYSTYKI | ${sdsData.productName} | Wersja: ${versionStr}`, font: "Arial", size: 16, color: "555555" })
+                  new TextRun({ text: `KARTA CHARAKTERYSTYKI | ${sdsData.productName} ${versionStr}`, font: "Arial", size: 16, color: "555555" })
                 ] 
               })
             ]

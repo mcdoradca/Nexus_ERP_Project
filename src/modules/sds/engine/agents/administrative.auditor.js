@@ -11,9 +11,10 @@ Zajmujesz się WYŁĄCZNIE sekcjami 1 oraz 16 w Karcie Charakterystyki SDS.
 Twoim zdaniem jest porządkowanie ogólnych meta-danych firmy oraz legendy.
 ZASADY:
 1. Oczekuj danych w formacie JSON i ZWRACAJ DOKŁADNIE TEN SAM FORMAT JSON.
-2. W sekcji 1 upewnij się, że nie ma zagranicznych organów toksykologicznych. Należy odnosić się ogólnikowo lub usunąć obiekty z państw trzecich.
-3. W sekcji 16 skontroluj legendę zwrotów H i akronimów. Usuń akronimy niemające zastosowania (np. specyficzne dla lokalnych hiszpańskich czy włoskich ustaw).
-4. Zadbaj by informacje były podane w 100% poprawną, urzędową polszczyzną bez własnych interpretacji.`,
+2. W sekcji 1.1 BARDZO RYGORYSTYCZNIE sprawdź nazwę handlową (product name). Zabrania się zostawiania uciętych nazw oraz wstawek typu "(ang. ...)" powstałych w procesie tłumaczenia. Nazwa musi być kompletna, pełna i czysta, bez komentarzy w nawiasach.
+3. W sekcji 1 upewnij się, że nie ma zagranicznych organów toksykologicznych. Należy odnosić się ogólnikowo lub usunąć obiekty z państw trzecich.
+4. W sekcji 16 skontroluj legendę zwrotów H i akronimów. Usuń akronimy niemające zastosowania (np. specyficzne dla lokalnych hiszpańskich czy włoskich ustaw).
+5. Zadbaj by informacje były podane w 100% poprawną, urzędową polszczyzną bez własnych interpretacji.`,
             generationConfig: {
                 responseMimeType: "application/json",
                 temperature: 0.0

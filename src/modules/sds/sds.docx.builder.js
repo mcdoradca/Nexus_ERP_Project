@@ -173,7 +173,12 @@ class SDSDocxBuilder {
     const polCompilationDate = sdsData.compilationDate || new Date().toLocaleDateString('pl-PL');
     
     const revDate = meta.revisionDate || "Nie dotyczy";
-    const replRev = meta.replacedRevision || `Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia ${originalSdsDate})`;
+    
+    let replRev = meta.replacedRevision || "";
+    if (!replRev || replRev.toLowerCase().includes('brak') || replRev.toLowerCase().includes('none') || replRev.toLowerCase().includes('nessun') || replRev === "Nie dotyczy") {
+        replRev = `Brak (wydanie pierwsze w języku polskim, opracowane na podstawie SDS producenta z dnia ${originalSdsDate})`;
+    }
+    
     const textColor = "0A4027"; // Ciemnozielony kolor tekstu
     const bgColor = "F9FAFB"; // Jasnoszare tło tabeli
 
@@ -328,7 +333,7 @@ class SDSDocxBuilder {
                 spacing: { after: 120 },
                 children: [
                   new TextRun({
-                    text: `KARTA CHARAKTERYSTYKI | ${prodName} | Wersja: ${versionStr}`,
+                    text: `KARTA CHARAKTERYSTYKI | ${prodName} ${versionStr}`,
                     font: "Arial",
                     size: 16,
                     color: "555555"
@@ -489,9 +494,6 @@ class SDSDocxBuilder {
     }));
   }
 
-  /**
-   * Renderuje Sekcję 2 (SANDALO 1:1)
-   */
   /**
    * Renderuje Sekcję 2 (Zgodność z CLP Art. 18 ust. 3, EUH208 CLP Załącznik III, REACH 2020/878 i Rozp. 2023/707)
    */
