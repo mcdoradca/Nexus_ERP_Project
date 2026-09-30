@@ -316,3 +316,64 @@ test('Zadanie 37: wywołanie writeBackToBaseLinker jest blokowane przez WRITE_BA
     const result = orch.writeBackToBaseLinker({});
     assert.strictEqual(result, undefined);
 });
+
+test('GPSR Tarcza Defensywna: A6 rekonstruuje pełny adres podmiotu w Sekcji 6, gdy model podał tylko nazwę', async () => {
+    const orch = new Orchestrator('8000137015436');
+    orch.state.next_action = 'RUN_A6';
+    orch.state.a1_result = {};
+    orch.state.a2_result = {};
+    orch.state.a4_result = {};
+    orch.state.a5_result = {};
+    orch.state.extracted_data = {
+        inci: { value: "Aqua, Glycerin" },
+        eu_responsible_person: {
+            data: {
+                name: "Paglieri S.p.A.",
+                address_eu: "S.S. per Genova Km 98, 15122 Alessandria, Włochy",
+                contact: "info@paglieri.it"
+            }
+        }
+    };
+
+    const orgExtractDesc = require('../baselinker.extract.js').extractResponsiblePersonFromDescription;
+    require('../baselinker.extract.js').extractResponsiblePersonFromDescription = () => ({
+        name: "Paglieri S.p.A.",
+        address_eu: "S.S. per Genova Km 98, 15122 Alessandria, Włochy",
+        contact: "info@paglieri.it"
+    });
+    
+    const orgCall = aiWrapper.callAgentWithTelemetry;
+    aiWrapper.callAgentWithTelemetry = async ({ agentId }) => {
+        if (agentId === '6') {
+            return {
+                result: {
+                    section_1_html: "<p>S1</p>",
+                    section_2_html: "<p>S2</p>",
+                    section_3_html: "<p>S3</p>",
+                    section_4_html: "<p>S4</p>",
+                    section_5_html: "<p>S5</p>",
+                    section_6_html: "<h2>⚠️ Bezpieczeństwo i GPSR</h2><ul><li>➡️ <b>Podmiot odpowiedzialny w UE:</b> Paglieri S.p.A.</li></ul>"
+                },
+                usage: {}
+            };
+        }
+        return {
+            result: {
+                section_1_html: "<p>S1</p>",
+                section_2_html: "<p>S2</p>",
+                section_4_html: "<p>S4</p>"
+            },
+            usage: {}
+        };
+    };
+
+    await orch.run(null);
+
+    assert.strictEqual(orch.state.node_status['A6'], 'OK');
+    const s6 = orch.state.a6_result.section_6_html;
+    assert.ok(s6.includes("Paglieri S.p.A., S.S. per Genova Km 98, 15122 Alessandria, Włochy"), "Sekcja 6 musi zawierać pełny adres podmiotu odpowiedzialnego");
+
+    aiWrapper.callAgentWithTelemetry = orgCall;
+    require('../baselinker.extract.js').extractResponsiblePersonFromDescription = orgExtractDesc;
+});
+

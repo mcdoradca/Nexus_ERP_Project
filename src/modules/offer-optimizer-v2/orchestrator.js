@@ -87,7 +87,8 @@ const a1Schema = {
                 name: { type: "string" },
                 address_eu: { type: "string" },
                 contact: { type: "string" }
-            }
+            },
+            required: ["name", "address_eu"]
         },
         logistics: {
             type: "object",
@@ -738,7 +739,7 @@ class Orchestrator {
                 if (!this.state.extracted_data.inci?.value) stillMissing.push('INCI');
                 
                 // Weryfikacja EU Responsible Person po A1
-                const finalEu = this.state.extracted_data.eu_responsible_person?.data || eu;
+                const finalEu = this.state.extracted_data.eu_responsible_person?.data || {};
                 if (!finalEu.name || !finalEu.address_eu || !finalEu.contact) {
                     stillMissing.push('Osoba Odpowiedzialna (Brak/Niepełne)');
                 } else {
@@ -1167,6 +1168,7 @@ class Orchestrator {
                 capacity: extracted.capacity?.value || undefined,
                 line: extracted.line?.value || undefined,
                 inci: this.state.extracted_data.inci?.value || undefined,
+                eu_responsible_person: this.state.extracted_data.eu_responsible_person?.data || undefined,
                 a1: this.state.a1_result,
                 a2: this.state.a2_result,
                 a4: this.state.a4_result,
@@ -1202,6 +1204,26 @@ class Orchestrator {
                     }
                 }
                 if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
+
+                // TARCZA DEFENSYWNA DLA GPSR (Podmiot odpowiedzialny w Sekcji 6):
+                // Gwarantujemy, że Sekcja 6 HTML zawiera pełny adres pocztowy i kontakt,
+                // a nie samą nazwę podmiotu.
+                const euData = this.state.extracted_data.eu_responsible_person?.data;
+                if (euData && euData.name && euData.address_eu && result.section_6_html) {
+                    const fullEuString = `${euData.name}, ${euData.address_eu}`;
+                    const euPattern = /(<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*<b>\s*Podmiot odpowiedzialny w UE:?\s*<\/b>\s*)(.*?)(<\/li>)/i;
+                    if (euPattern.test(result.section_6_html)) {
+                        result.section_6_html = result.section_6_html.replace(euPattern, (match, prefix, content, suffix) => {
+                            if (!/\d/.test(content) || !content.includes(euData.address_eu)) {
+                                return `${prefix}${fullEuString}${suffix}`;
+                            }
+                            return match;
+                        });
+                    } else if (result.section_6_html.includes('</ul>')) {
+                        result.section_6_html = result.section_6_html.replace('</ul>', `<li>➡️ <b>Podmiot odpowiedzialny w UE:</b> ${fullEuString}</li></ul>`);
+                    }
+                }
+
                 this.state.token_usage_per_node['A6'] = usage;
                 this.state.a6_result = result;
 

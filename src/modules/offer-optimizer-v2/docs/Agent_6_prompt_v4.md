@@ -31,7 +31,9 @@ s5 Parametry: <h2>📊…</h2><ul> z node_1_pim: Marka, Linia, Nazwa, Pojemnoś�
 s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2><p>Przechowywać w szczelnie zamkniętym fabrycznym opakowaniu z dala od źródeł ciepła i promieni słonecznych. Chronić przed mrozem. Przechowywać poza zasięgiem dzieci.</p> zasady przechowywania/przeznaczenia +
    KAŻDE ostrzeżenie z mandatory_safety_warnings jako osobny
    <li>🛡️ <b>Ostrzeżenie CLP/GPSR:</b> [treść DOSŁOWNA — zakaz parafrazy]</li>
-   + podmiot odpowiedzialny w UE (nazwa).
+   + podmiot odpowiedzialny w UE jako pełny wpis GPSR (nazwa oraz pełny fizyczny adres pocztowy – zakaz umieszczania linków/maili w HTML):
+   <li>➡️ <b>Podmiot odpowiedzialny w UE:</b> [Nazwa], [Ulica i nr, Kod Miasto, Kraj]</li>.
+   BEZWZGLĘDNY ZAKAZ ucinania adresu pocztowego – jeśli podmiot posiada adres w danych wejściowych, MUSI być w całości umieszczony w opisie!
    [Po Tobie s3/s5/s6 zostaną zamrożone hashem — pisz je od razu finalnie.]
 
 ## WYJŚCIE
