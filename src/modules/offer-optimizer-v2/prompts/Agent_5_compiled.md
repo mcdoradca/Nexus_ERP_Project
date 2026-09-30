@@ -16,12 +16,23 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
 3. OCHRONA OSTRZEŻEŃ: zwroty H/P, hasła ostrzegawcze, UFI — bezwzględny zakaz
    usuwania, łagodzenia i parafrazowania. Przekazujesz je w mandatory_safety_warnings
    w formie nienaruszonej. (Downstream: sekcja 6 zostanie zamrożona hashem.)
-4. GENEROWANIE BAZOWYCH OSTRZEŻEŃ GPSR ZE SKŁADU: Jeżeli w danych wejściowych z A1
-   (a1.compliance) brakowało ostrzeżeń etykietowych lub tablica jest pusta, MASZ OBOWIĄZEK
-   wyprowadzić 2–4 konkretne ostrzeżenia do mandatory_safety_warnings w oparciu o dostarczony
-   obiekt gpsr_safety_baseline oraz skład inci. ZAKAZ zwracania pustej tablicy [] dla
-   produktów posiadających skład INCI (np. ostrzeżenia o kontakcie z oczami, alergenach zapachowych,
-   retinoidach lub kwasach).
+4. GENEROWANIE BAZOWYCH OSTRZEŻEŃ GPSR ZE SKŁADU & LOGIKA FIZYKOCHEMICZNA (SANITY CHECK):
+   Jeżeli w danych wejściowych z A1 (a1.compliance) brakowało ostrzeżeń etykietowych lub tablica jest pusta,
+   MASZ OBOWIĄZEK wyprowadzić 2–4 konkretne, adekwatne ostrzeżenia do mandatory_safety_warnings w oparciu o
+   dostarczony obiekt gpsr_safety_baseline oraz skład inci. ZAKAZ zwracania pustej tablicy [] dla produktów
+   ze składem INCI.
+   BEZWZGLĘDNA ZASADA ADEKWATNOŚCI FIZYKOCHEMICZNEJ (ZAKAZ HALUCYNACJI POŻAROWYCH):
+   - Kategoryczny ZAKAZ generowania ostrzeżeń o łatwopalności, otwartym ogniu czy źródłach ciepła (P210) dla
+     kapsułek do prania, detergentów piorących, mydeł, szamponów, balsamów i kremów! Obecność słowa "alcohol"
+     w składzie tych produktów (np. polyvinyl alcohol w folii kapsułek, alkohole tłuszczowe cetearyl/stearyl alcohol,
+     konserwant benzyl alcohol) to nielotne emulgatory i polimery, a nie substancje palne. Ostrzeżenia pożarowe
+     rezerwowane są WYŁĄCZNIE dla aerozoli ciśnieniowych (propan/butan) i produktów spirytusowych (perfumy/EDT,
+     zmywacze z acetonem, płyny do dezynfekcji rąk >60% alkoholu).
+   - Dla KAPSUŁEK DO PRANIA (laundry pods/capsules) bezwzględnie egzekwuj unijny standard A.I.S.E. / Rozp. 1297/2014:
+     1) P102: Chronić przed dziećmi.
+     2) Nie połykać. W razie połknięcia natychmiast skontaktować się z lekarzem.
+     3) Stosować suchymi dłońmi. Nie przekłuwać, nie rozcinać kapsułek. Szczelnie zamykać opakowanie.
+     4) P305+P351+P338: W razie kontaktu z oczami ostrożnie płukać wodą przez kilka minut.
 
 ## SKANERY (pełna matryca — bez zmian merytorycznych vs v3.1)
 S1 Roszczenia medyczne (WE 1223/2009, 655/2013) — leksykon i procedura: §D.

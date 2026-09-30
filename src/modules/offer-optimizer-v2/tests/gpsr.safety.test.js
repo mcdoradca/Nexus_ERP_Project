@@ -46,6 +46,29 @@ test('GPSR Safety Service - Wyprowadzanie ostrzeżeń ze składu INCI i SDS', as
         assert.ok(res.warnings.some(w => w.includes('dziećmi') || w.includes('P102')), 'Brak ochrony przed dziećmi (P102)');
     });
 
+    await t.test('Kapsułki do prania z Polyvinyl Alcohol (PVA): brak ostrzeżeń pożarowych, obecne ostrzeżenia A.I.S.E. i P102', () => {
+        const res = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Ariel Allin1 Pods Kapsułki do prania tkanin Color 50 szt.',
+            inci: 'MEA-Laureth Sulfate, Polyvinyl Alcohol, Propylene Glycol, Aqua, Parfum, Linalool',
+            isChemical: true
+        });
+        assert.ok(res.detected_risks.includes('LAUNDRY_CAPSULES_SAFETY'), 'Nie wykryto LAUNDRY_CAPSULES_SAFETY');
+        assert.strictEqual(res.detected_risks.includes('VOLATILE_ALCOHOL'), false, 'Błędnie oznaczono kapsułki do prania jako łatwopalne (VOLATILE_ALCOHOL)!');
+        assert.ok(!res.warnings.some(w => w.includes('ognia') || w.includes('łatwopalne')), 'Kapsułki do prania nie mogą mieć ostrzeżenia o otwartym ogniu!');
+        assert.ok(res.warnings.some(w => w.includes('dziećmi') && w.includes('P102')), 'Brak P102 dla kapsułek');
+        assert.ok(res.warnings.some(w => w.includes('suchymi dłońmi') || w.includes('rozcinać')), 'Brak ostrzeżenia o stosowaniu suchymi dłońmi');
+        assert.ok(res.warnings.some(w => w.includes('P305+P351+P338') || w.includes('oczu')), 'Brak procedury płukania oczu');
+    });
+
+    await t.test('Kosmetyk z Cetearyl Alcohol nie wywołuje ostrzeżenia o łatwopalności', () => {
+        const res = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Krem nawilżający do twarzy 50ml',
+            inci: 'Aqua, Glycerin, Cetearyl Alcohol, Stearyl Alcohol, Benzyl Alcohol, Parfum'
+        });
+        assert.strictEqual(res.detected_risks.includes('VOLATILE_ALCOHOL'), false, 'Błędnie oznaczono Cetearyl/Stearyl alcohol jako VOLATILE_ALCOHOL');
+        assert.ok(!res.warnings.some(w => w.includes('ognia') || w.includes('łatwopalne')), 'Krem nawilżający nie może mieć ostrzeżenia o otwartym ogniu');
+    });
+
     await t.test('Zwraca bezpieczny fallback przy pustym INCI', () => {
         const res = gpsrSafetyService.generateGpsrWarnings({
             inci: ''
@@ -55,3 +78,4 @@ test('GPSR Safety Service - Wyprowadzanie ostrzeżeń ze składu INCI i SDS', as
         assert.ok(res.warnings.some(w => w.includes('użytku zewnętrznego')), 'Brak domyślnego ostrzeżenia o użytku zewnętrznym');
     });
 });
+
