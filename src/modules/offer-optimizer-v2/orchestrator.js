@@ -1071,11 +1071,19 @@ class Orchestrator {
 
         // --- KROK 5: A5 ---
         if (this.state.next_action === 'RUN_A5') {
+            const gpsrSafetyService = require('./services/gpsr.safety.service');
+            const gpsrBaseline = gpsrSafetyService.generateGpsrWarnings({
+                inci: this.state.extracted_data.inci?.value,
+                productName: product?.text_fields?.name,
+                isChemical: this.state.chemical_route
+            });
+
             const agent5Data = {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
                 brand: extracted.brand?.value || undefined,
                 inci: this.state.extracted_data.inci?.value || undefined,
+                gpsr_safety_baseline: gpsrBaseline,
                 a1: this.state.a1_result,
                 a2: this.state.a2_result,
                 a4: this.state.a4_result
@@ -1107,6 +1115,13 @@ class Orchestrator {
                     }
                 }
                 
+                // Tarcza Defensive AI: jeśli A5 zwrócił pustą listę ostrzeżeń, wstrzykujemy bazowe ostrzeżenia z SDS GPSR
+                if (!result.mandatory_safety_warnings || !Array.isArray(result.mandatory_safety_warnings) || result.mandatory_safety_warnings.length === 0) {
+                    if (gpsrBaseline.warnings && gpsrBaseline.warnings.length > 0) {
+                        result.mandatory_safety_warnings = gpsrBaseline.warnings;
+                    }
+                }
+
                 if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
                 this.state.token_usage_per_node['A5'] = usage;
                 this.state.a5_result = result;

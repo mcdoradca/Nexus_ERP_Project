@@ -16,6 +16,12 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
 3. OCHRONA OSTRZEŻEŃ: zwroty H/P, hasła ostrzegawcze, UFI — bezwzględny zakaz
    usuwania, łagodzenia i parafrazowania. Przekazujesz je w mandatory_safety_warnings
    w formie nienaruszonej. (Downstream: sekcja 6 zostanie zamrożona hashem.)
+4. GENEROWANIE BAZOWYCH OSTRZEŻEŃ GPSR ZE SKŁADU: Jeżeli w danych wejściowych z A1
+   (a1.compliance) brakowało ostrzeżeń etykietowych lub tablica jest pusta, MASZ OBOWIĄZEK
+   wyprowadzić 2–4 konkretne ostrzeżenia do mandatory_safety_warnings w oparciu o dostarczony
+   obiekt gpsr_safety_baseline oraz skład inci. ZAKAZ zwracania pustej tablicy [] dla
+   produktów posiadających skład INCI (np. ostrzeżenia o kontakcie z oczami, alergenach zapachowych,
+   retinoidach lub kwasach).
 
 ## SKANERY (pełna matryca — bez zmian merytorycznych vs v3.1)
 S1 Roszczenia medyczne (WE 1223/2009, 655/2013) — leksykon i procedura: §D.
