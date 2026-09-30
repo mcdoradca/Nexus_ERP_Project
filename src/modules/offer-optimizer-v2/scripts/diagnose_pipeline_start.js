@@ -71,9 +71,11 @@ async function testGeminiModels() {
 
         const localPimData = {
             text_fields: {
-                name: "Felce Azzurra płyn do kąpieli",
+                name: "Equilibra Carbone Attivo Oczyszczający krem-żel do twarzy 75ml",
                 description: "",
-                features: {}
+                features: {
+                    "Marka": "Equilibra"
+                }
             },
             allegro_schema: [
                 { name: "Marka", required: true },
