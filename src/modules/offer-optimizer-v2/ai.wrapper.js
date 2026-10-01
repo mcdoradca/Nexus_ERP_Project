@@ -129,6 +129,10 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
 
             // --- KROK 1: GROUNDING (pobieranie danych z sieci) ---
             const groundingConfig = { ...baseConfig, tools: [{ googleSearch: {} }] };
+            // Narzędzie googleSearch posiada własny autonomiczny silnik kwerend.
+            // Wymuszanie zewnętrznego thinkingLevel w Kroku 1 buforuje cytaty stron w myślach i aktywuje
+            // filtr RECITATION (czyszczący content do zera). Usunięcie thinkingConfig z Kroku 1 całkowicie eliminuje ten błąd.
+            delete groundingConfig.thinkingConfig;
             // Krok 1 nie wymaga temperature 0 (chcemy elastyczności w wyszukiwaniu)
 
             let groundedResponse;

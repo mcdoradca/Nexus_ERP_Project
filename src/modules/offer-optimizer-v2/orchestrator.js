@@ -499,7 +499,7 @@ class Orchestrator {
                 agentData.osint_data = this.state.osint_data;
             }
             if (this.state.revision_loop_count > 0) {
-                agentData.revision_warning = `Poprzednie znaleziska INCI się różniły lub były błędne (Próba ${this.state.revision_loop_count+1}/3). MUSISZ poszukać głębiej, przeszukaj przynajmniej 2 INNE źródła, by znaleźć nową (trzecią/czwartą) wersję pozwalającą ustalić bezbłędny konsensus na podstawie powtarzalności.`;
+                agentData.revision_warning = `Poprzednie znaleziska INCI się różniły lub były niepełne (Próba ${this.state.revision_loop_count+1}/3). Zbadaj MINIMUM 5 KOLEJNYCH UNIKALNYCH STRON. Użyj międzynarodowych synonimów w Google: 'ingredienti', 'inhaltsstoffe', 'ingredients', 'composizione' i sprawdź bezpośrednio oficjalny serwis marki lub zagraniczne drogerie, by znaleźć wariant pozwalający ustalić bezbłędny konsensus powtarzalności.`;
             }
             
             let promptTemplate = fs.readFileSync(path.join(__dirname, 'docs', 'Agent_1_prompt_v4.md'), 'utf8');
