@@ -476,4 +476,20 @@ test('Orchestrator mapuje country_of_origin oraz logistics capacity do extracted
     assert.strictEqual(orch.state.extracted_data['capacity'].value, "650 ml");
 });
 
+test('ADR-0127: callAgentWithTelemetry w Standard Path poprawnie wywołuje generateContentWithTimeout bez ReferenceError', async () => {
+    // Sprawdzamy czy wywołanie dla agenta w ścieżce Standard (np. Agent 5, który ma grounding: false)
+    // nie rzuca ReferenceError: generateContentWithTimeout is not defined
+    try {
+        await aiWrapper.callAgentWithTelemetry({
+            agentId: "5",
+            prompt: "Test prompt",
+            schema: { type: "object", properties: { sanitization_status: { type: "string" } } }
+        });
+    } catch (err) {
+        // Jeśli nie ma sieci / API_KEY lub zwróci błąd API, to normalne, ale NIE MOŻE to być ReferenceError!
+        assert.ok(!err.message.includes('generateContentWithTimeout is not defined'), 'Nie powinno rzucać ReferenceError dla generateContentWithTimeout!');
+    }
+});
+
+
 

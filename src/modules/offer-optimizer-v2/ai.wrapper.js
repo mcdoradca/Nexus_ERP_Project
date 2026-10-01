@@ -76,6 +76,29 @@ function extractGroundedTextFromResponse(groundedResponse, agentId) {
 }
 
 /**
+ * Wykonuje wywołanie generateContent z twardą tarczą timeoutu defensywnego (Promise.race).
+ * Zapobiega wiszeniu potoku na poziomie gRPC/REST powyżej zdefiniowanego limitu czasu.
+ */
+async function generateContentWithTimeout(params, timeoutMs = 90000, callLabel = 'LLM') {
+    let timer = null;
+    const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+            reject(new Error(`[DEFENSIVE AI TIMEOUT] Przekroczono limit czasu (${Math.round(timeoutMs / 1000)}s) dla wywołania ${callLabel}. Przerwano, aby zapobiec zawieszeniu potoku.`));
+        }, timeoutMs);
+    });
+
+    try {
+        const result = await Promise.race([
+            ai.models.generateContent(params),
+            timeoutPromise
+        ]);
+        return result;
+    } finally {
+        if (timer) clearTimeout(timer);
+    }
+}
+
+/**
  * Wrapper telemetrii i wykonania dla modelu Gemini.
  * @param {Object} params
  * @param {string} params.agentId - Jawny identyfikator agenta (S-7)
@@ -139,29 +162,6 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
             let groundedCandidate;
             let groundingUsage = {};
             let groundedText = '';
-
-/**
- * Wykonuje wywołanie generateContent z twardą tarczą timeoutu defensywnego (Promise.race).
- * Zapobiega wiszeniu potoku na poziomie gRPC/REST powyżej zdefiniowanego limitu czasu.
- */
-async function generateContentWithTimeout(params, timeoutMs = 90000, callLabel = 'LLM') {
-    let timer = null;
-    const timeoutPromise = new Promise((_, reject) => {
-        timer = setTimeout(() => {
-            reject(new Error(`[DEFENSIVE AI TIMEOUT] Przekroczono limit czasu (${Math.round(timeoutMs / 1000)}s) dla wywołania ${callLabel}. Przerwano, aby zapobiec zawieszeniu potoku.`));
-        }, timeoutMs);
-    });
-
-    try {
-        const result = await Promise.race([
-            ai.models.generateContent(params),
-            timeoutPromise
-        ]);
-        return result;
-    } finally {
-        if (timer) clearTimeout(timer);
-    }
-}
 
             const executeStep1 = async (stepPrompt) => {
                 let resp;

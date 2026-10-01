@@ -27,7 +27,7 @@ Użytkownik zgłosił problem zawieszania się potoku EAN Pipeline (V2). Średni
    - Każda zmiana akcji i statusu natychmiast zapisuje stan na dysku i rozgłasza zdarzenie `PIPELINE_STATUS` przez WebSocket.
 
 2. **Defensywna tarcza timeoutu w AI Wrapper (`ai.wrapper.js`):**
-   - Wdrożono funkcję `generateContentWithTimeout(params, timeoutMs, callLabel)` opartą na `Promise.race` z automatycznym czyszczeniem timera.
+   - Wdrożono funkcję `generateContentWithTimeout(params, timeoutMs, callLabel)` opartą na `Promise.race` z automatycznym czyszczeniem timera na poziomie modułu (`top-level module scope`), gwarantując pełną dostępność zarówno dla ścieżki Two-Step (A1), jak i Standard Path (A2, A4, A5, A6, A7, A10) bez ryzyka błędu `ReferenceError`.
    - Ustalono twarde limity: 90s dla zapytań z Google Search (Krok 1 Grounding oraz Standard Path) oraz 60s dla ekstrakcji struktury JSON (Krok 2) i fallbacków.
    - W przypadku przekroczenia czasu w Kroku 1 aktywowany jest defensywny fallback bez Google Search lub kontrolowany wyjątek, zapobiegający martwym zatorom.
 
@@ -43,4 +43,6 @@ Użytkownik zgłosił problem zawieszania się potoku EAN Pipeline (V2). Średni
 ## Konsekwencje
 - Potok EAN Pipeline jest w 100% reaktywny – użytkownik w czasie rzeczywistym widzi postęp każdego agenta Swarm w terminalu i na liście węzłów.
 - Wyeliminowano zjawisko wiszących procesów i konieczność ręcznego odświeżania strony klawiszem F5.
-- Wszystkie 137 testów jednostkowych i integracyjnych przechodzi pomyślnie.
+- Wyeliminowano błąd zakresu zmiennych `generateContentWithTimeout is not defined` w standardowych wywołaniach agentów.
+- Wszystkie 138 testów jednostkowych i integracyjnych przechodzi pomyślnie.
+
