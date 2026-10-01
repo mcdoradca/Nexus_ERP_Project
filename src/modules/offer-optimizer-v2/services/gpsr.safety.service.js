@@ -90,10 +90,10 @@ class GpsrSafetyService {
         if (!inci || typeof inci !== 'string' || inci.trim().length === 0) {
             // Domyślne ostrzeżenie ogólne dla produktów bez podanego składu
             if (isLaundryCapsules) {
-                warnings.push("P102: Chronić przed dziećmi.");
+                warnings.push("P102 – Chronić przed dziećmi.");
                 warnings.push("Nie połykać. W razie połknięcia skontaktować się z lekarzem.");
                 warnings.push("Stosować suchymi dłońmi. Nie przekłuwać i nie rozcinać kapsułek.");
-                warnings.push("P305+P351+P338: W przypadku dostania się do oczu ostrożnie płukać wodą przez kilka minut.");
+                warnings.push("P305+P351+P338 – W przypadku dostania się do oczu ostrożnie płukać wodą przez kilka minut.");
                 return { detected_risks: ['LAUNDRY_CAPSULES_SAFETY'], warnings };
             }
             warnings.push("Produkt przeznaczony wyłącznie do użytku zewnętrznego zgodnie z przeznaczeniem.");
@@ -107,10 +107,10 @@ class GpsrSafetyService {
         // --- MODUŁ SPECJALNY: KAPSUŁKI DO PRANIA (Rozp. UE 1297/2014 & A.I.S.E.) ---
         if (isLaundryCapsules) {
             detectedRisks.push('LAUNDRY_CAPSULES_SAFETY');
-            warnings.push("P102: Chronić przed dziećmi.");
+            warnings.push("P102 – Chronić przed dziećmi.");
             warnings.push("Nie połykać. W razie połknięcia natychmiast skontaktować się z ośrodkiem zatruć lub lekarzem.");
             warnings.push("Stosować suchymi dłońmi. Nie przekłuwać, nie rozrywać i nie rozcinać kapsułki. Szczelnie zamykać opakowanie po użyciu.");
-            warnings.push("P305+P351+P338: W przypadku dostania się do oczu: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
+            warnings.push("P305+P351+P338 – W przypadku dostania się do oczu: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
             
             // Sprawdzenie alergenów zapachowych dla kapsułek (np. Linalool)
             const foundAllergens = this.fragranceAllergens.filter(allergen => 
@@ -121,9 +121,14 @@ class GpsrSafetyService {
                 warnings.push(`Zawiera substancje zapachowe mogące powodować reakcję alergiczną (${sampleAllergens}).`);
             }
 
+            const sanitizedCapsuleWarnings = warnings.map(w => 
+                w.replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
+                 .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*):\s*/i, '$1 – ')
+            );
+
             return {
                 detected_risks: detectedRisks,
-                warnings: [...new Set(warnings)].slice(0, 4)
+                warnings: [...new Set(sanitizedCapsuleWarnings)].slice(0, 4)
             };
         }
 
@@ -152,10 +157,13 @@ class GpsrSafetyService {
         }
 
         // 4. Sprawdzenie surfaktantów / produktów myjących
+        // Unikamy duplikacji: jeśli to chemia gospodarcza / kapsułki, zwrot P305 w sekcji 6 zastąpi ogólne zdanie
         const hasSurfactants = this.surfactants.some(s => cleanInci.includes(s));
         if (hasSurfactants || cleanInci.includes('soap') || cleanInci.includes('mydło') || cleanInci.includes('szampon')) {
             detectedRisks.push('EYE_IRRITANT_SURFACTANT');
-            warnings.push("W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą.");
+            if (!isChemical && !isLaundryCapsules) {
+                warnings.push("W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą.");
+            }
         }
 
         // 5. Sprawdzenie alkoholi łatwopalnych / rozpuszczalników lotnych (FIZYKOCHEMIA I LOGIKA KATEGORII)
@@ -182,16 +190,19 @@ class GpsrSafetyService {
         if (isChemical) {
             detectedRisks.push('HOUSEHOLD_CHEMICAL');
             if (this.euphracPhrases && this.euphracPhrases.pPhrases) {
-                // P102: Chronić przed dziećmi
+                // P102 – Chronić przed dziećmi
                 if (this.euphracPhrases.pPhrases['P102']) {
-                    warnings.push(`P102: ${this.euphracPhrases.pPhrases['P102']}`);
+                    const p102Text = String(this.euphracPhrases.pPhrases['P102']).replace(/^[:\s–-]+/, '').trim();
+                    warnings.push(`P102 – ${p102Text}`);
                 }
-                // P305+P351+P338: W przypadku dostania się do oczu
+                // P305+P351+P338 – W przypadku dostania się do oczu
                 if (this.euphracPhrases.pPhrases['P305+P351+P338']) {
-                    warnings.push(`P305+P351+P338: ${this.euphracPhrases.pPhrases['P305+P351+P338']}`);
+                    let p305Text = String(this.euphracPhrases.pPhrases['P305+P351+P338']).replace(/^[:\s–-]+/, '').trim();
+                    p305Text = p305Text.replace(/\bDO OCZÓW\b/gi, 'DO OCZU');
+                    warnings.push(`P305+P351+P338 – ${p305Text}`);
                 }
             } else {
-                warnings.push("P102: Chronić przed dziećmi.");
+                warnings.push("P102 – Chronić przed dziećmi.");
                 warnings.push("W razie połknięcia lub kontaktu z oczami niezwłocznie zasięgnąć porady lekarza i pokazać opakowanie lub etykietę.");
             }
         }
@@ -202,8 +213,15 @@ class GpsrSafetyService {
             warnings.push("Przechowywać w temperaturze pokojowej (15–25°C), w oryginalnym opakowaniu, w miejscu niedostępnym dla małych dzieci.");
         }
 
+        // Standaryzacja językowa i interpunkcyjna: usunięcie form archaicznych oraz ujednolicenie prefiksów zwrotów
+        const sanitizedWarnings = warnings.map(w => {
+            return w
+                .replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
+                .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*):\s*/i, '$1 – ');
+        });
+
         // Ograniczamy do max 4 najważniejszych, konkretnych ostrzeżeń (zwięzłość dla konsumenta)
-        const dedupedWarnings = [...new Set(warnings)].slice(0, 4);
+        const dedupedWarnings = [...new Set(sanitizedWarnings)].slice(0, 4);
 
         return {
             detected_risks: detectedRisks,

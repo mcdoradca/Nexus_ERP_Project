@@ -75,6 +75,43 @@ const normalizeTags = (htmlStr) => {
                   .replace(/<i>/g, '<em>').replace(/<\/i>/g, '</em>');
 };
 
+const sanitizeSection6Html = (htmlStr) => {
+    if (!htmlStr || typeof htmlStr !== 'string') return htmlStr;
+    let res = htmlStr;
+
+    // 1. Standaryzacja językowa i eliminacja archaizmów fleksyjnych (np. "DO OCZÓW" -> "DO OCZU")
+    res = res.replace(/\bDO OCZÓW\b/gi, 'DO OCZU');
+
+    // 2. Likwidacja zbitych dwukropków po etykiecie ostrzeżenia i kodzie zwrotu:
+    // np. "<b>Ostrzeżenie CLP/GPSR:</b> P102: ..." -> "<b>Ostrzeżenie CLP/GPSR:</b> P102 – ..."
+    res = res.replace(/(<b>\s*Ostrzeżenie\s+CLP\/GPSR:?\s*<\/b>\s*)([A-Z0-9+]+):/gi, '$1$2 –');
+
+    // 3. Likwidacja podwójnych dwukropków "::" w całym stringu
+    res = res.replace(/::+/g, ':');
+
+    // 4. Eliminacja potrójnego dwukropka w treści zwrotu P305 np. "P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie..."
+    res = res.replace(/(P305\+P351\+P338\s*–\s*W\s+PRZYPADKU\s+DOSTANIA\s+SIĘ\s+DO\s+OCZU):/gi, '$1 –');
+
+    // 5. Eliminacja redundancji semantycznej (Deduplikacja ostrzeżeń o oczach):
+    // Jeśli w sekcji występuje zwrot CLP P305 (np. P305+P351+P338), usuwamy ogólne zdanie o płukaniu oczu
+    const hasP305 = /P305/i.test(res);
+    if (hasP305) {
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<b>\s*Ostrzeżenie\s+CLP\/GPSR:?\s*<\/b>\s*)?W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą\.?\s*<\/li>/gi, '');
+    }
+
+    // 6. Eliminacja redundancji między <p> wstępnym a listą punktowaną dot. dzieci:
+    // Jeśli w liście występuje P102 lub "Chronić przed dziećmi", usuwamy zduplikowane zdanie z akapitu <p>
+    const hasP102 = /P102|Chronić przed dziećmi/i.test(res);
+    if (hasP102) {
+        res = res.replace(/(<p[^>]*>[\s\S]*?)(?:Przechowywać poza zasięgiem dzieci\.?|Chronić przed dziećmi\.?)\s*([\s\S]*?<\/p>)/gi, (m, before, after) => {
+            const combined = (before + ' ' + after).replace(/\s\s+/g, ' ').replace(/<p>\s+/, '<p>').replace(/\s+<\/p>/, '</p>');
+            return combined;
+        });
+    }
+
+    return res;
+};
+
 const a1Schema = {
     type: "object",
     properties: {
@@ -1245,6 +1282,18 @@ class Orchestrator {
                     }
                 }
 
+                // TARCZA DETERMINISTYCZNA POPRAWNOŚCI JĘZYKOWEJ I HIGIENY INTERPUNKCYJNEJ DLA SEKCJI 6:
+                if (result.section_6_html) {
+                    result.section_6_html = sanitizeSection6Html(result.section_6_html);
+                }
+
+                // Globalna tarcza językowa (eliminacja formy "OCZÓW" i zbitych dwukropków "::" ze wszystkich sekcji):
+                for (let k of allowedKeysA6) {
+                    if (result[k] && typeof result[k] === 'string') {
+                        result[k] = result[k].replace(/\bDO OCZÓW\b/gi, 'DO OCZU').replace(/::+/g, ':');
+                    }
+                }
+
                 this.state.token_usage_per_node['A6'] = usage;
                 this.state.a6_result = result;
 
@@ -1633,5 +1682,6 @@ module.exports = {
     PHASE_2_LEGAL,
     PHASE_3_CREATION,
     PHASE_4_AUDIT,
-    normalizeTags
+    normalizeTags,
+    sanitizeSection6Html
 };
