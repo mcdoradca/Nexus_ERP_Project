@@ -9,6 +9,73 @@ const ai = new GoogleGenAI({
 });
 
 /**
+ * Ekstrahuje surowy tekst z odpowiedzi Kroku 1 (Grounding) z pełną odpornością na RECITATION.
+ * W bibliotece @google/genai oficjalny getter response.text zwraca undefined, gdy model
+ * ustawi finishReason na RECITATION lub gdy treść została częściowo oznaczona cytowaniami.
+ * Ta funkcja kaskadowo penetruje strukturę parts i groundingMetadata, aby nigdy nie utracić
+ * odnalezionych przez model danych o produkcie i składzie INCI.
+ */
+function extractGroundedTextFromResponse(groundedResponse, agentId) {
+    if (!groundedResponse) return '';
+
+    // 1. Próba standardowego gettera SDK
+    if (typeof groundedResponse.text === 'string' && groundedResponse.text.trim().length >= 10) {
+        return groundedResponse.text.trim();
+    }
+
+    const candidate = groundedResponse.candidates && groundedResponse.candidates[0];
+    if (!candidate) return '';
+
+    // 2. Bezpośrednia ekstrakcja z parts (z pominięciem myśli - thought: true)
+    if (candidate.content && Array.isArray(candidate.content.parts)) {
+        const directTextParts = candidate.content.parts
+            .filter(p => !p.thought && typeof p.text === 'string' && p.text.trim().length > 0)
+            .map(p => p.text.trim());
+        
+        if (directTextParts.length > 0) {
+            const combined = directTextParts.join('\n\n');
+            if (combined.length >= 10) {
+                console.log(`[DEFENSIVE AI] Odzyskano ${combined.length} znaków z candidate.content.parts (omijając blokadę gettera text przy ${candidate.finishReason || 'N/A'}) dla agenta ${agentId}.`);
+                return combined;
+            }
+        }
+
+        // 3. Fallback: Ekstrakcja z partów myśli (thought: true), jeśli model przeprowadził research w buforze myśli
+        const thoughtParts = candidate.content.parts
+            .filter(p => p.thought && typeof p.text === 'string' && p.text.trim().length > 0)
+            .map(p => p.text.trim());
+        
+        if (thoughtParts.length > 0) {
+            const combinedThoughts = thoughtParts.join('\n\n');
+            if (combinedThoughts.length >= 10) {
+                console.warn(`[DEFENSIVE AI] Model zakończył z ${candidate.finishReason || 'N/A'} bez czystego tekstu wyjściowego. Odzyskano wiedzę z bufora myśli (${combinedThoughts.length} znaków) dla agenta ${agentId}.`);
+                return combinedThoughts;
+            }
+        }
+    }
+
+    // 4. Fallback: Ekstrakcja z groundingMetadata.groundingChunks (fragmenty stron z Google Search)
+    if (candidate.groundingMetadata && Array.isArray(candidate.groundingMetadata.groundingChunks)) {
+        const webChunks = candidate.groundingMetadata.groundingChunks
+            .map(chunk => {
+                if (chunk.web && chunk.web.title) {
+                    return `ŹRÓDŁO: ${chunk.web.title} (${chunk.web.uri || ''})\n${chunk.web.snippet || ''}`;
+                }
+                return '';
+            })
+            .filter(Boolean);
+        
+        if (webChunks.length > 0) {
+            const chunksText = webChunks.join('\n\n');
+            console.warn(`[DEFENSIVE AI] Odzyskano fragmenty stron z groundingChunks (${chunksText.length} znaków) dla agenta ${agentId}.`);
+            return chunksText;
+        }
+    }
+
+    return '';
+}
+
+/**
  * Wrapper telemetrii i wykonania dla modelu Gemini.
  * @param {Object} params
  * @param {string} params.agentId - Jawny identyfikator agenta (S-7)
@@ -65,42 +132,71 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
             // Krok 1 nie wymaga temperature 0 (chcemy elastyczności w wyszukiwaniu)
 
             let groundedResponse;
-            try {
-                groundedResponse = await ai.models.generateContent({
-                    model: model,
-                    contents: prompt,
-                    config: groundingConfig
-                });
-            } catch (apiError) {
-                const errStr = typeof apiError.message === 'string' ? apiError.message : JSON.stringify(apiError);
-                const isGroundingBlocked = errStr.includes('User location is not supported') 
-                    || apiError.status === 412 
-                    || errStr.includes('FAILED_PRECONDITION')
-                    || errStr.includes('412');
+            let groundedCandidate;
+            let groundingUsage = {};
+            let groundedText = '';
 
-                if (isGroundingBlocked) {
-                    console.warn(`[DEFENSIVE AI] Grounding zablokowany w Kroku 1 dla agenta ${agentId} (status: ${apiError.status || 'N/A'}, msg: ${errStr.substring(0, 200)}). Fallback: wywołanie bez Google Search.`);
-                    const fallbackGroundingConfig = { ...baseConfig };
-                    groundedResponse = await ai.models.generateContent({
+            const executeStep1 = async (stepPrompt) => {
+                let resp;
+                try {
+                    resp = await ai.models.generateContent({
                         model: model,
-                        contents: prompt,
-                        config: fallbackGroundingConfig
+                        contents: stepPrompt,
+                        config: groundingConfig
                     });
-                } else {
-                    throw apiError;
+                } catch (apiError) {
+                    const errStr = typeof apiError.message === 'string' ? apiError.message : JSON.stringify(apiError);
+                    const isGroundingBlocked = errStr.includes('User location is not supported') 
+                        || apiError.status === 412 
+                        || errStr.includes('FAILED_PRECONDITION')
+                        || errStr.includes('412');
+
+                    if (isGroundingBlocked) {
+                        console.warn(`[DEFENSIVE AI] Grounding zablokowany w Kroku 1 dla agenta ${agentId} (status: ${apiError.status || 'N/A'}, msg: ${errStr.substring(0, 200)}). Fallback: wywołanie bez Google Search.`);
+                        const fallbackGroundingConfig = { ...baseConfig };
+                        resp = await ai.models.generateContent({
+                            model: model,
+                            contents: stepPrompt,
+                            config: fallbackGroundingConfig
+                        });
+                    } else {
+                        throw apiError;
+                    }
+                }
+                return resp;
+            };
+
+            groundedResponse = await executeStep1(prompt);
+            groundedCandidate = groundedResponse.candidates && groundedResponse.candidates[0];
+            groundingUsage = groundedResponse.usageMetadata || {};
+
+            // Obsługa RECITATION w Kroku 1 — log informacyjny
+            if (groundedCandidate && groundedCandidate.finishReason === 'RECITATION') {
+                console.warn(`[V2 Wrapper] RECITATION wykryty w Kroku 1 agenta ${agentId}. Aktywacja tarczy defensywnej odzyskiwania tekstu.`);
+            }
+
+            groundedText = extractGroundedTextFromResponse(groundedResponse, agentId);
+
+            // Jeśli pierwsze podejście dało pusty wynik (np. twardy filtr RECITATION wyczyścił parts), wykonujemy 1 defensywny retry z dyrektywą parafrazowania
+            if (!groundedText || groundedText.trim().length < 10) {
+                console.warn(`[DEFENSIVE AI] Krok 1 dla agenta ${agentId} zwrócił pusty tekst (${groundedText.length} znaków, finishReason: ${groundedCandidate?.finishReason || 'N/A'}). Podejmuję 1 defensywną próbę re-groundingu z dyrektywą parafrazowania...`);
+                const retryPrompt = `${prompt}\n\n[DODATKOWA DYREKTYWA ANTY-RECITATION]: Wyszukaj fakty w Google, ale podsumuj i sformułuj je własnymi słowami. Nie kopiuj dosłownych bloków tekstu ze stron drogerii 1:1, zmień szyk zdań, aby uniknąć blokady licencyjnej cytowań (RECITATION).`;
+                try {
+                    const retryResponse = await executeStep1(retryPrompt);
+                    const retryCandidate = retryResponse.candidates && retryResponse.candidates[0];
+                    const retryText = extractGroundedTextFromResponse(retryResponse, agentId);
+                    if (retryText && retryText.trim().length >= 10) {
+                        groundedResponse = retryResponse;
+                        groundedCandidate = retryCandidate;
+                        groundedText = retryText;
+                        groundingUsage = retryResponse.usageMetadata || groundingUsage;
+                        console.log(`[DEFENSIVE AI] Retry Kroku 1 zakończony sukcesem (${groundedText.length} znaków).`);
+                    }
+                } catch (retryErr) {
+                    console.warn(`[DEFENSIVE AI] Retry Kroku 1 nie powiódł się:`, retryErr.message);
                 }
             }
 
-            const groundedCandidate = groundedResponse.candidates && groundedResponse.candidates[0];
-            const groundingUsage = groundedResponse.usageMetadata || {};
-            
-            // Obsługa RECITATION w Kroku 1 — jeśli model skopiował tekst 1:1,
-            // próbujemy mimo to użyć częściowej odpowiedzi (często jest użyteczna)
-            if (groundedCandidate && groundedCandidate.finishReason === 'RECITATION') {
-                console.warn(`[V2 Wrapper] RECITATION wykryty w Kroku 1 agenta ${agentId}. Próbuję użyć częściowej odpowiedzi.`);
-            }
-
-            const groundedText = groundedResponse.text || '';
             if (!groundedText || groundedText.trim().length < 10) {
                 throw new Error(`Krok 1 (Grounding) zwrócił pustą lub zbyt krótką odpowiedź (${groundedText.length} znaków). Brak danych z sieci.`);
             }
@@ -290,6 +386,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
 
 module.exports = {
     callAgentWithTelemetry,
+    extractGroundedTextFromResponse,
     Type,
     ThinkingLevel
 };

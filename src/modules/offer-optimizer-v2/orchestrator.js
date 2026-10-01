@@ -574,6 +574,17 @@ class Orchestrator {
                 this.state.token_usage_per_node['A1'] = usage;
                 this.state.a1_result = result;
 
+                if (result.country_of_origin && result.country_of_origin.value) {
+                    this.state.extracted_data.country_of_origin = {
+                        value: result.country_of_origin.value,
+                        source: 'osint_a1'
+                    };
+                    this.state.extracted_data['Kraj pochodzenia'] = {
+                        value: result.country_of_origin.value,
+                        source: 'osint_a1'
+                    };
+                }
+
                 if (result.missing_parameters && typeof result.missing_parameters.value === 'object') {
                     for (let key of Object.keys(result.missing_parameters.value)) {
                         this.state.extracted_data[key] = {
@@ -595,6 +606,16 @@ class Orchestrator {
                         data: result.logistics.value,
                         source: 'osint_a1'
                     };
+                    if (result.logistics.value.net_capacity_or_weight) {
+                        this.state.extracted_data['Pojemność'] = {
+                            value: result.logistics.value.net_capacity_or_weight,
+                            source: 'osint_a1'
+                        };
+                        this.state.extracted_data['capacity'] = {
+                            value: result.logistics.value.net_capacity_or_weight,
+                            source: 'osint_a1'
+                        };
+                    }
                 }
                 
                 if (result.compliance && result.compliance.value && typeof result.compliance.value === 'object') {

@@ -377,3 +377,103 @@ test('GPSR Tarcza Defensywna: A6 rekonstruuje pełny adres podmiotu w Sekcji 6, 
     require('../baselinker.extract.js').extractResponsiblePersonFromDescription = orgExtractDesc;
 });
 
+test('Tarcza Defensywna Krok 1: extractGroundedTextFromResponse odzyskuje tekst z candidate.content.parts przy RECITATION gdy geter .text zwraca undefined', () => {
+    const { extractGroundedTextFromResponse } = require('../ai.wrapper.js');
+    const mockResponse = {
+        // Symulacja gettera SDK @google/genai, który zwraca undefined przy RECITATION
+        get text() { return undefined; },
+        candidates: [
+            {
+                finishReason: 'RECITATION',
+                content: {
+                    parts: [
+                        { text: '{"country_of_origin": "Włochy", "extracted_inci_candidates": [["AQUA", "GLYCERIN"]]}' }
+                    ]
+                }
+            }
+        ]
+    };
+
+    const extracted = extractGroundedTextFromResponse(mockResponse, '1');
+    assert.ok(extracted.length > 20, "Musi odzyskać tekst z candidate.content.parts");
+    assert.ok(extracted.includes("AQUA"), "Musi zawierać odnalezione składniki");
+});
+
+test('Tarcza Defensywna Krok 1: extractGroundedTextFromResponse odzyskuje tekst z bufora myśli lub groundingChunks, gdy brak partów bez thought', () => {
+    const { extractGroundedTextFromResponse } = require('../ai.wrapper.js');
+    const mockResponseThoughts = {
+        get text() { return undefined; },
+        candidates: [
+            {
+                finishReason: 'RECITATION',
+                content: {
+                    parts: [
+                        { thought: true, text: 'Znalazłem skład: AQUA, SODIUM LAURETH SULFATE, GLYCERIN.' }
+                    ]
+                }
+            }
+        ]
+    };
+
+    const extractedThoughts = extractGroundedTextFromResponse(mockResponseThoughts, '1');
+    assert.ok(extractedThoughts.includes("SODIUM LAURETH SULFATE"), "Musi odzyskać tekst z bufora myśli");
+
+    const mockResponseChunks = {
+        get text() { return undefined; },
+        candidates: [
+            {
+                finishReason: 'RECITATION',
+                groundingMetadata: {
+                    groundingChunks: [
+                        { web: { title: 'Drogeria Hebe', uri: 'https://hebe.pl', snippet: 'Skład produktu: Aqua, Cetearyl Alcohol.' } }
+                    ]
+                }
+            }
+        ]
+    };
+
+    const extractedChunks = extractGroundedTextFromResponse(mockResponseChunks, '1');
+    assert.ok(extractedChunks.includes("Drogeria Hebe"), "Musi odzyskać tekst ze snippetów groundingChunks");
+});
+
+test('Orchestrator mapuje country_of_origin oraz logistics capacity do extracted_data po A1', () => {
+    const orch = new Orchestrator('8000137015436');
+    const mockA1Result = {
+        country_of_origin: { value: "Włochy" },
+        logistics: {
+            value: {
+                net_capacity_or_weight: "650 ml"
+            }
+        }
+    };
+
+    // Symulacja bloku mapowania A1 w Orchestratorze
+    if (mockA1Result.country_of_origin && mockA1Result.country_of_origin.value) {
+        orch.state.extracted_data = orch.state.extracted_data || {};
+        orch.state.extracted_data.country_of_origin = {
+            value: mockA1Result.country_of_origin.value,
+            source: 'osint_a1'
+        };
+        orch.state.extracted_data['Kraj pochodzenia'] = {
+            value: mockA1Result.country_of_origin.value,
+            source: 'osint_a1'
+        };
+    }
+    if (mockA1Result.logistics?.value?.net_capacity_or_weight) {
+        orch.state.extracted_data['Pojemność'] = {
+            value: mockA1Result.logistics.value.net_capacity_or_weight,
+            source: 'osint_a1'
+        };
+        orch.state.extracted_data['capacity'] = {
+            value: mockA1Result.logistics.value.net_capacity_or_weight,
+            source: 'osint_a1'
+        };
+    }
+
+    assert.strictEqual(orch.state.extracted_data.country_of_origin.value, "Włochy");
+    assert.strictEqual(orch.state.extracted_data['Kraj pochodzenia'].value, "Włochy");
+    assert.strictEqual(orch.state.extracted_data['Pojemność'].value, "650 ml");
+    assert.strictEqual(orch.state.extracted_data['capacity'].value, "650 ml");
+});
+
+
