@@ -299,6 +299,7 @@ class Orchestrator {
         }
 
         this.state.node_status['PRE'] = 'OK';
+        this.emitState();
 
         if (this.state.current_phase === PHASE_1_GROUNDING) {
             await this.runPhase1(pimData);
@@ -312,6 +313,9 @@ class Orchestrator {
     }
 
     async runPhase1(pimData) {
+        this.state.node_status['EXTRACT'] = 'RUNNING';
+        this.emitState();
+
         const blData = await loadProductDataAsync(this.gtin, pimData);
         let product = null;
         if (blData && blData.products) {
@@ -507,6 +511,7 @@ class Orchestrator {
         // WALIDACJA EU PRZENIESIONA NA KONIEC A1 ABY POZWOLIĆ AGENTOWI ZNALEŹĆ TE DANE
         
         this.state.node_status['EXTRACT'] = 'OK';
+        this.emitState();
 
         // missingFields is now calculated earlier
 
@@ -518,6 +523,7 @@ class Orchestrator {
             } else {
                 this.state.next_action = 'RUN_A1';
             }
+            this.emitState();
         }
         
         while (this.state.next_action === 'RUN_A1') {
@@ -531,6 +537,8 @@ class Orchestrator {
             };
             
             traceNode('1', this.gtin, 'A1_START', { missingFields, osint_data: !!this.state.osint_data, loop: this.state.revision_loop_count });
+            this.state.node_status['A1'] = this.state.revision_loop_count > 0 ? 'RETRYING' : 'RUNNING';
+            this.emitState();
             
             if (this.state.osint_data) {
                 agentData.osint_data = this.state.osint_data;
@@ -833,6 +841,7 @@ class Orchestrator {
                     traceNode('1', this.gtin, 'A1_COMPLETED_SUCCESSFULLY', 'Przejście do A2');
                     this.state.node_status['A1'] = 'OK';
                     this.state.next_action = 'RUN_A2';
+                    this.emitState();
                 }
             } catch (e) {
                 console.log('⚠️ BŁĄD PHASE 1 (OSINT): ' + e.message);
@@ -863,12 +872,15 @@ class Orchestrator {
                     this.state.node_status['A1'] = 'ERROR_IGNORED';
                     this.state.hitl_alert = 'OSINT Pominęty: ' + e.message;
                     this.state.next_action = 'RUN_A2';
+                    this.emitState();
                 }
             }
         }
 
         // --- KROK 2: A2 ---
         if (this.state.next_action === 'RUN_A2') {
+            this.state.node_status['A2'] = 'RUNNING';
+            this.emitState();
             if (!this.state.extracted_data.inci?.value) {
                 console.log('⚠️ BLOKADA KRYTYCZNA: Próba przejścia do A2 bez INCI.');
                 this.state.node_status['A1'] = 'CRITICAL_MISSING_INCI';
@@ -971,6 +983,7 @@ class Orchestrator {
 
                 this.state.node_status['A2'] = 'OK';
                 this.state.next_action = 'RUN_A4';
+                this.emitState();
             } catch (e) {
                 this.state.node_status['A2'] = 'ERROR';
                 this.state.hitl_alert = e.message;
@@ -985,7 +998,10 @@ class Orchestrator {
             if (!this.state.chemical_route) {
                 this.state.node_status['A4'] = 'SKIPPED';
                 this.state.next_action = 'RUN_A5';
+                this.emitState();
             } else {
+                this.state.node_status['A4'] = 'RUNNING';
+                this.emitState();
                 try {
                     const rawInciArray = (this.state.extracted_data.inci.value || '').split(',').map(i => i.trim()).filter(i => i);
                     
@@ -1117,6 +1133,7 @@ class Orchestrator {
 
                     this.state.node_status['A4'] = 'OK';
                     this.state.next_action = 'RUN_A5';
+                    this.emitState();
                 } catch (e) {
                     this.state.node_status['A4'] = 'ERROR';
                     this.state.hitl_alert = e.message;
@@ -1130,6 +1147,8 @@ class Orchestrator {
 
         // --- KROK 5: A5 ---
         if (this.state.next_action === 'RUN_A5') {
+            this.state.node_status['A5'] = 'RUNNING';
+            this.emitState();
             const gpsrSafetyService = require('./services/gpsr.safety.service');
             const gpsrBaseline = gpsrSafetyService.generateGpsrWarnings({
                 inci: this.state.extracted_data.inci?.value,
@@ -1197,6 +1216,7 @@ class Orchestrator {
 
                 this.state.node_status['A5'] = 'OK';
                 this.state.next_action = 'RUN_A6';
+                this.emitState();
             } catch (e) {
                 this.state.node_status['A5'] = 'ERROR';
                 this.state.hitl_alert = e.message;
@@ -1219,6 +1239,8 @@ class Orchestrator {
 
         // --- KROK 6: A6 ---
         if (this.state.next_action === 'RUN_A6') {
+            this.state.node_status['A6'] = 'RUNNING';
+            this.emitState();
             const agent6Data = {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
@@ -1325,6 +1347,7 @@ class Orchestrator {
 
                 this.state.node_status['A6'] = 'OK';
                 this.state.next_action = 'RUN_A7';
+                this.emitState();
             } catch (e) {
                 this.state.node_status['A6'] = 'ERROR';
                 this.state.hitl_alert = e.message;
@@ -1336,6 +1359,8 @@ class Orchestrator {
 
         // --- KROK 7: A7 ---
         if (this.state.next_action === 'RUN_A7') {
+            this.state.node_status['A7'] = 'RUNNING';
+            this.emitState();
             const agent7Data = {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
@@ -1415,6 +1440,7 @@ class Orchestrator {
 
                 this.state.node_status['A7'] = 'OK';
                 this.state.next_action = 'RUN_A10';
+                this.emitState();
             } catch (e) {
                 this.state.node_status['A7'] = 'ERROR';
                 this.state.hitl_alert = e.message;
@@ -1426,6 +1452,8 @@ class Orchestrator {
 
         // --- KROK 10: A10 ---
         if (this.state.next_action === 'RUN_A10') {
+            this.state.node_status['A10'] = 'RUNNING';
+            this.emitState();
             const agent10Data = {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
@@ -1521,6 +1549,7 @@ class Orchestrator {
 
                 this.state.node_status['A10'] = 'OK';
                 this.state.next_action = 'FINISH';
+                this.emitState();
             } catch (e) {
                 this.state.node_status['A10'] = 'ERROR';
                 this.state.hitl_alert = e.message;

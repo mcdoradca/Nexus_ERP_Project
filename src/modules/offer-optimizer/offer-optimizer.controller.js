@@ -693,6 +693,20 @@ const triggerUltimatePipeline = async (req, res) => {
 
                     if (latestState) {
                         orch.resumeFromState(latestState);
+                        // Sanacja stanu: jeśli poprzedni stan zakończył się zatrzymaniem (HALT), a użytkownik
+                        // uruchamia potok na nowo bez jawnych hitlOverrides, resetujemy flagę akcji,
+                        // aby potok nie utknął ponownie w martwym punkcie HALT.
+                        if (orch.state.next_action === 'HALT' && (!Array.isArray(hitlOverrides) || hitlOverrides.length === 0)) {
+                            console.log(`[Controller] Poprzedni stan potoku dla EAN: ${ean} zakończył się na HALT (${orch.state.hitl_alert || 'Brak opisu'}). Resetowanie next_action na RUN_EXTRACT w celu ponownego, czystego przejścia.`);
+                            orch.state.next_action = 'RUN_EXTRACT';
+                            orch.state.hitl_alert = null;
+                            orch.state.aggregated_hitl_errors = [];
+                            for (let k in orch.state.node_status) {
+                                if (orch.state.node_status[k] === 'HALTED_HITL_REQUIRED' || orch.state.node_status[k] === 'ERROR') {
+                                    delete orch.state.node_status[k];
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -847,9 +861,15 @@ const triggerUltimatePipeline = async (req, res) => {
                          }
                      });
                 } else {
+                     const errorMsg = orch.state.hitl_alert || 'Orchestrator V2 zakończył pracę, ale nie wygenerował wyniku A10';
                      await prisma.product.update({
                          where: { ean },
-                         data: { offerDraft: { status: 'ERROR', error: 'Orchestrator V2 zakończył pracę, ale nie wygenerował wyniku A10' } }
+                         data: { offerDraft: { status: 'ERROR', error: errorMsg } }
+                     });
+                     socketService.broadcast('nexus-notification', {
+                         type: 'PIPELINE_ERROR',
+                         ean: ean,
+                         error: errorMsg
                      });
                 }
             } catch (err) {
@@ -857,6 +877,11 @@ const triggerUltimatePipeline = async (req, res) => {
                 await prisma.product.update({
                     where: { ean },
                     data: { offerDraft: { status: 'ERROR', error: err.message || 'Krytyczny błąd Orchestratora V2' } }
+                });
+                socketService.broadcast('nexus-notification', {
+                    type: 'PIPELINE_ERROR',
+                    ean: ean,
+                    error: err.message || 'Krytyczny błąd Orchestratora V2'
                 });
             }
         })();

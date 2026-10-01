@@ -385,12 +385,12 @@ export const UnifiedProductPipelineView = ({
             if (editingProduct) {
                 const res = await axios.patch(`${API_URL}/api/products/${editingProduct}`, newProductForm, { headers: { Authorization: `Bearer ${token}` } });
                 savedProduct = res.data;
-                alert('Zaktualizowano kartotekę PIM.');
+                if (e) alert('Zaktualizowano kartotekę PIM.');
             } else {
                 const res = await axios.post(`${API_URL}/api/products`, newProductForm, { headers: { Authorization: `Bearer ${token}` } });
                 savedProduct = res.data;
                 setEditingProduct(savedProduct.id);
-                alert('Utworzono nową kartotekę PIM.');
+                if (e) alert('Utworzono nową kartotekę PIM.');
             }
             if (fetchAppGlobalData) fetchAppGlobalData();
             
@@ -445,6 +445,16 @@ export const UnifiedProductPipelineView = ({
                 return;
             }
             
+            // Przejście do widoku aktywnego pipeline I natychmiastowe ustawienie liveEan PRZED wysłaniem żądania
+            setLiveEan(savedProd.ean);
+            setIsDashboardActive(true);
+            setPipelineStatus('THINKING');
+            setPipelineLogs([{ time: new Date().toLocaleTimeString(), agentId: 'System', msg: `Uruchamianie potoku EAN dla ${savedProd.ean}...` }]);
+            setPipelinePhase('INICJALIZACJA SYSTEMU');
+            setActiveNodes(['INICJALIZACJA']);
+            setNodeStatuses({ PRE: 'RUNNING' });
+            setHitlAlert(null);
+
             const payload = { ean: savedProd.ean };
             if (Array.isArray(hitlOverrides)) payload.hitlOverrides = hitlOverrides;
             if (forceRestart) payload.forceRestart = true;
@@ -460,21 +470,9 @@ export const UnifiedProductPipelineView = ({
                 const errData = await response.json();
                 throw new Error(errData.error || "Nie udało się uruchomić AI Agenta");
             }
-
-            const data = await response.json();
-            alert("Agent Supervisor rozpoczął pracę! Obserwuj postępy w prawej kolumnie.");
-            
-            // Przejście do widoku aktywnego pipeline
-            setLiveEan(savedProd.ean);
-            setIsDashboardActive(true);
-            setPipelineStatus('THINKING');
-            setPipelineLogs([]);
-            setPipelinePhase('INICJALIZACJA SYSTEMU');
-            setActiveNodes([]);
-            setNodeStatuses({});
-            setHitlAlert(null);
         } catch (error) {
             console.error(error);
+            setPipelineStatus('ERROR');
             alert(error.message);
         }
     };
@@ -792,13 +790,19 @@ export const UnifiedProductPipelineView = ({
                                         ))}
                                     </div>
                                     <div className="mt-4 text-xs text-slate-500 font-mono flex flex-wrap gap-4">
-                                        {Object.entries(nodeStatuses).map(([node, status]) => (
-                                            <div key={node} className={`flex items-center space-x-1 ${status === 'COMPLETED' ? 'text-emerald-400' : status === 'IN_PROGRESS' ? 'text-indigo-400' : 'text-slate-500'}`}>
-                                                {status === 'COMPLETED' && <CheckCircle2 className="w-3 h-3" />}
-                                                {status === 'IN_PROGRESS' && <Loader2 className="w-3 h-3 animate-spin" />}
-                                                <span>{node.split('_').pop()}</span>
-                                            </div>
-                                        ))}
+                                        {Object.entries(nodeStatuses).map(([node, status]) => {
+                                            const isCompleted = status === 'COMPLETED' || status === 'OK' || status === 'SKIPPED' || status === 'ERROR_IGNORED';
+                                            const isInProgress = status === 'IN_PROGRESS' || status === 'RUNNING' || status === 'RETRYING';
+                                            const isError = status === 'ERROR' || status === 'HALTED_HITL_REQUIRED' || status === 'CRITICAL_INPUT_ERROR' || status === 'CRITICAL_MISSING_INCI';
+                                            return (
+                                                <div key={node} className={`flex items-center space-x-1 ${isCompleted ? 'text-emerald-400' : isInProgress ? 'text-indigo-400' : isError ? 'text-rose-400' : 'text-slate-500'}`}>
+                                                    {isCompleted && <CheckCircle2 className="w-3 h-3" />}
+                                                    {isInProgress && <Loader2 className="w-3 h-3 animate-spin" />}
+                                                    {isError && <AlertTriangle className="w-3 h-3" />}
+                                                    <span>{node.split('_').pop()}{status === 'RETRYING' ? ' (retry)' : ''}</span>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                                 <div className="flex-1 bg-[#0a0a0a] rounded-lg border border-slate-700 p-4 font-mono text-[11px] overflow-y-auto flex flex-col custom-scrollbar shadow-inner">

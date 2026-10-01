@@ -140,29 +140,53 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
             let groundingUsage = {};
             let groundedText = '';
 
+/**
+ * Wykonuje wywołanie generateContent z twardą tarczą timeoutu defensywnego (Promise.race).
+ * Zapobiega wiszeniu potoku na poziomie gRPC/REST powyżej zdefiniowanego limitu czasu.
+ */
+async function generateContentWithTimeout(params, timeoutMs = 90000, callLabel = 'LLM') {
+    let timer = null;
+    const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+            reject(new Error(`[DEFENSIVE AI TIMEOUT] Przekroczono limit czasu (${Math.round(timeoutMs / 1000)}s) dla wywołania ${callLabel}. Przerwano, aby zapobiec zawieszeniu potoku.`));
+        }, timeoutMs);
+    });
+
+    try {
+        const result = await Promise.race([
+            ai.models.generateContent(params),
+            timeoutPromise
+        ]);
+        return result;
+    } finally {
+        if (timer) clearTimeout(timer);
+    }
+}
+
             const executeStep1 = async (stepPrompt) => {
                 let resp;
                 try {
-                    resp = await ai.models.generateContent({
+                    resp = await generateContentWithTimeout({
                         model: model,
                         contents: stepPrompt,
                         config: groundingConfig
-                    });
+                    }, 90000, `Agent_${agentId}_Step1_Grounding`);
                 } catch (apiError) {
                     const errStr = typeof apiError.message === 'string' ? apiError.message : JSON.stringify(apiError);
                     const isGroundingBlocked = errStr.includes('User location is not supported') 
                         || apiError.status === 412 
                         || errStr.includes('FAILED_PRECONDITION')
-                        || errStr.includes('412');
+                        || errStr.includes('412')
+                        || errStr.includes('DEFENSIVE AI TIMEOUT');
 
                     if (isGroundingBlocked) {
-                        console.warn(`[DEFENSIVE AI] Grounding zablokowany w Kroku 1 dla agenta ${agentId} (status: ${apiError.status || 'N/A'}, msg: ${errStr.substring(0, 200)}). Fallback: wywołanie bez Google Search.`);
+                        console.warn(`[DEFENSIVE AI] Grounding zablokowany/timeout w Kroku 1 dla agenta ${agentId} (status: ${apiError.status || 'N/A'}, msg: ${errStr.substring(0, 200)}). Fallback: wywołanie bez Google Search.`);
                         const fallbackGroundingConfig = { ...baseConfig };
-                        resp = await ai.models.generateContent({
+                        resp = await generateContentWithTimeout({
                             model: model,
                             contents: stepPrompt,
                             config: fallbackGroundingConfig
-                        });
+                        }, 60000, `Agent_${agentId}_Step1_Fallback`);
                     } else {
                         throw apiError;
                     }
@@ -220,11 +244,11 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
 
             const structurePrompt = `Jesteś precyzyjnym parserem danych. Na podstawie poniższego raportu badawczego, wyekstrahuj WYŁĄCZNIE dane, które FAKTYCZNIE znajdują się w tekście raportu. NIE wymyślaj, NIE dodawaj, NIE halucynuj żadnych danych. Jeśli konkretna informacja nie istnieje w raporcie, pozostaw odpowiednie pole puste (pusty string "") lub null.\n\n--- RAPORT BADAWCZY (JEDYNE ŹRÓDŁO PRAWDY) ---\n${groundedText}\n--- KONIEC RAPORTU ---\n\nZwróć ustrukturyzowany JSON zgodny ze schematem.`;
 
-            response = await ai.models.generateContent({
+            response = await generateContentWithTimeout({
                 model: model,
                 contents: structurePrompt,
                 config: structureConfig
-            });
+            }, 60000, `Agent_${agentId}_Step2_JSON`);
 
             // Merge usage z obu kroków (łączna telemetria)
             const structureUsage = response.usageMetadata || {};
@@ -256,11 +280,11 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
             console.log(`[AI WRAPPER - RAW REQUEST DUMP (Agent ${agentId})] Payload size: ${payloadDump.length} bytes`);
 
             try {
-                response = await ai.models.generateContent({
+                response = await generateContentWithTimeout({
                     model: model,
                     contents: prompt,
                     config: config
-                });
+                }, 90000, `Agent_${agentId}_Standard`);
             } catch (apiError) {
                 // DEEP ERROR AUDIT
                 const errorDetails = {
