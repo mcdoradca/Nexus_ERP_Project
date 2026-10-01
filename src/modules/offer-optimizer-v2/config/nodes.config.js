@@ -21,7 +21,8 @@ function getNodeConfig(agentId) {
 
 const FORBIDDEN_SOURCES = [
     'allegro\\.pl', 'allegrolokalnie\\.pl', 'olx\\.pl', 'empik\\.com',
-    'ebay\\..*', 'amazon\\..*', 'aliexpress\\..*', 'ceneo\\.pl'
+    'ebay\\..*', 'amazon\\..*', 'aliexpress\\..*', 'ceneo\\.pl',
+    'incibeauty\\..*', 'inci\\.beauty'
 ];
 
 const DATA_SOURCE_MODE = process.env.NODE_ENV === 'test' || process.argv.some(arg => arg.includes('test')) ? 'fixture' : 'api';
