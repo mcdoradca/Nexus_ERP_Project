@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Search, Loader2, Upload, Maximize2, Trash2, Edit3, Save, X, Image as ImageIcon, Briefcase, Plus, Instagram, CalendarDays, LayoutDashboard, Target, CheckCircle2, Megaphone, Calculator, Users, Leaf, PackageSearch, Filter, Menu, ChevronLeft } from 'lucide-react';
+import { Search, Loader2, Upload, Maximize2, Trash2, Edit3, Save, X, Image as ImageIcon, Briefcase, Plus, Instagram, CalendarDays, LayoutDashboard, Target, CheckCircle2, Megaphone, Calculator, Users, Leaf, PackageSearch, Filter, Menu, ChevronLeft, Sparkles } from 'lucide-react';
 import InfluencerCrmView from './InfluencerCrmView';
 import ItalianFrameTool from '../components/ItalianFrameTool';
 import SdsGeneratorTool from '../components/SdsGeneratorTool';
+import AdIntelligenceTool from '../components/AdIntelligenceTool';
 
 const POST_TYPES = ['Zdjęcie', 'Rozbudowana Karuzela', 'Rolka (Reels)', 'Insta Story', 'Infografika'];
 const STATUSES = ['Szkic', 'Do Akceptacji', 'Zatwierdzone', 'Opublikowane'];
@@ -441,6 +442,12 @@ const MToolView = ({ token, API_URL, currentUser, campaigns, socket }) => {
               <Instagram className={`w-4 h-4 mr-3 shrink-0 ${activeSubTool==='SMI'?'text-indigo-600':'text-slate-400'}`} /> Harmonogram SMI
             </button>
             <button 
+              onClick={() => handleToolSelect('AD_INTELLIGENCE')}
+              className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium flex items-center transition-all whitespace-nowrap ${activeSubTool === 'AD_INTELLIGENCE' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+            >
+              <Sparkles className={`w-4 h-4 mr-3 shrink-0 ${activeSubTool==='AD_INTELLIGENCE'?'text-indigo-600':'text-slate-400'}`} /> Skaner Reklam (Ad Spy)
+            </button>
+            <button 
               onClick={() => handleToolSelect('ECOBOM')}
               className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium flex items-center transition-all whitespace-nowrap ${activeSubTool === 'ECOBOM' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
             >
@@ -497,6 +504,11 @@ const MToolView = ({ token, API_URL, currentUser, campaigns, socket }) => {
                <ItalianFrameTool token={token} API_URL={API_URL} />
             </div>
          )}
+         {activeSubTool === 'AD_INTELLIGENCE' && (
+            <div className="flex-1 flex flex-col bg-slate-100 font-sans overflow-hidden animate-in fade-in duration-300">
+               <AdIntelligenceTool token={token} API_URL={API_URL} campaigns={campaigns} />
+            </div>
+         )}
          {activeSubTool === 'SMI' && (
             <div className="flex-1 flex flex-col bg-gradient-to-b from-[#f8fafc] to-[#e2e8f0] text-slate-900 font-sans overflow-hidden animate-in fade-in duration-300">
                <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={handleFileUpload} />
@@ -522,6 +534,13 @@ const MToolView = ({ token, API_URL, currentUser, campaigns, socket }) => {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
+                  <button 
+                      onClick={() => handleToolSelect('AD_INTELLIGENCE')} 
+                      className="px-3 py-1.5 rounded-md text-[10px] font-bold flex items-center transition-all bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
+                      title="Skaner Reklam & Creative Studio"
+                  >
+                      <Sparkles className="w-3.5 h-3.5 mr-1.5 text-indigo-600" /> Skaner Reklam
+                  </button>
                   <button 
                       onClick={() => setShowAiOrchestrator(!showAiOrchestrator)} 
                       className={`px-3 py-1.5 rounded-md text-[10px] font-bold flex items-center transition-all ${showAiOrchestrator ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
