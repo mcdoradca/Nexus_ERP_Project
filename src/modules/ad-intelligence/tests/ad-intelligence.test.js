@@ -34,7 +34,7 @@ test('AdIntelligenceService - scoreAdsWithGemini wylicza Longevity Index i zwrac
     assert.ok(result.marketInsights.blue_ocean_angles.length > 0, 'Powinien zidentyfikować luki błękitnego oceanu');
 });
 
-test('AdIntelligenceService - synthesizeAnglesAndHooks generuje dokładnie 4 kąty i 28 haczyków', async () => {
+test('AdIntelligenceService - synthesizeAnglesAndHooks generuje 4 kąty, 28 haczyków i integruje PIM', async () => {
     const mockWinners = [
         { extractedHook: "Dlaczego krem nawilżający przestaje działać?", keyAngle: "Bariera lipidowa", activeDays: 75, whyItWorks: "Demaskuje powszechny błąd" }
     ];
@@ -44,19 +44,34 @@ test('AdIntelligenceService - synthesizeAnglesAndHooks generuje dokładnie 4 ką
         blue_ocean_angles: ["Analiza INCI"]
     };
 
+    const mockProduct = {
+        id: "prod-test-1",
+        name: "Serum Peptydowe UltraLift",
+        salePrice: 189.00,
+        features: "5 peptydów sygnałowych, kwas hialuronowy 4D",
+        descriptionHtml: "<p>Klinicznie potwierdzona regeneracja bariery skórnej.</p>"
+    };
+
     const strategy = await adIntelligenceService.synthesizeAnglesAndHooks({
         topWinners: mockWinners,
         marketInsights: mockInsights,
-        brandProfile: { name: 'Skin Care Korea', usp: 'Czyste INCI', proof: '12k klientów' }
+        brandProfile: { name: 'Skin Care Korea', usp: 'Czyste INCI', proof: '12k klientów' },
+        productData: mockProduct
     });
 
     assert.ok(strategy.angles.length >= 4, 'Powinny powstać min. 4 kąty psychologiczne');
     assert.strictEqual(strategy.hooks_28.length, 28, 'Musi wygenerować dokładnie 28 haczyków (hooks_28)');
     assert.ok(strategy.static_ad_briefs.length > 0, 'Powinny powstać briefy reklam statycznych');
     assert.ok(strategy.reels_briefs.length > 0, 'Powinny powstać briefy dla formatu Reels');
+
+    // Weryfikacja jakości copy - brak pustych lub powtórzonych nagłówków
+    const firstBrief = strategy.static_ad_briefs[0];
+    assert.ok(firstBrief.headline, 'Musi posiadać headline');
+    assert.ok(firstBrief.subheadline, 'Musi posiadać subheadline');
+    assert.notStrictEqual(firstBrief.headline.toLowerCase(), firstBrief.subheadline.toLowerCase(), 'Subheadline nie może być identyczny z headline');
 });
 
-test('CreativeStudioService - generateStaticAd generuje plik graficzny PNG z kompozycją typografii', async () => {
+test('CreativeStudioService - generateStaticAd generuje plik graficzny PNG z kompozycją i Shadow Baking', async () => {
     const brief = {
         id: "TEST_STAT_1",
         headline: "Skin Care Korea: Czysty skład bez kompromisów",
@@ -70,10 +85,12 @@ test('CreativeStudioService - generateStaticAd generuje plik graficzny PNG z kom
     };
 
     const asset = await creativeStudioService.generateStaticAd(brief, { name: 'Skin Care Korea' });
-    assert.ok(asset.mediaUrl.startsWith('/uploads/ad-intelligence/'));
+    assert.ok(asset.mediaUrl, 'mediaUrl musi być ustawione');
+    assert.ok(asset.localUrl.startsWith('/uploads/ad-intelligence/'));
+    assert.ok(asset.base64DataUrl.startsWith('data:image/png;base64,'));
     assert.strictEqual(asset.mediaType, 'image');
 
-    const localFilePath = path.join(__dirname, '../../../../frontend/public', asset.mediaUrl);
+    const localFilePath = path.join(__dirname, '../../../../frontend/public', asset.localUrl);
     assert.ok(fs.existsSync(localFilePath), 'Fizyczny plik PNG musi istnieć na dysku');
     assert.ok(fs.statSync(localFilePath).size > 1000, 'Rozmiar pliku musi być większy niż 1 KB');
 });
@@ -95,10 +112,11 @@ test('CreativeStudioService - generateReelsVideo generuje pionowe wideo MP4 (9:1
     };
 
     const videoAsset = await creativeStudioService.generateReelsVideo(reelBrief, { name: 'Skin Care Korea' });
-    assert.ok(videoAsset.mediaUrl.startsWith('/uploads/ad-intelligence/'));
+    assert.ok(videoAsset.mediaUrl, 'mediaUrl musi być ustawione');
+    assert.ok(videoAsset.localUrl.startsWith('/uploads/ad-intelligence/'));
     assert.strictEqual(videoAsset.mediaType, 'video');
 
-    const localVideoPath = path.join(__dirname, '../../../../frontend/public', videoAsset.mediaUrl);
+    const localVideoPath = path.join(__dirname, '../../../../frontend/public', videoAsset.localUrl);
     assert.ok(fs.existsSync(localVideoPath), 'Fizyczny plik MP4 musi istnieć na dysku');
     assert.ok(fs.statSync(localVideoPath).size > 5000, 'Plik wideo MP4 musi mieć prawidłowy rozmiar > 5KB');
 });

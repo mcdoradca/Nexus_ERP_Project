@@ -197,13 +197,25 @@ ${JSON.stringify(promptBatch, null, 2)}`;
 
     /**
      * Węzeł 2: Synteza Kątów, 28 Hooków i Matrycy Kreacji (Gemini 3.1 Pro z ThinkingLevel.HIGH)
+     * Zintegrowana z danymi produktowymi PIM (skład, cena, realne zalety)
      */
-    async synthesizeAnglesAndHooks({ topWinners, marketInsights, brandProfile }) {
+    async synthesizeAnglesAndHooks({ topWinners, marketInsights, brandProfile, productData = {} }) {
         console.log(`[AdIntelligence] Uruchamiam syntezę 28 hooków i matrycy kreacji przez Gemini 3.1 Pro...`);
 
-        const brandName = brandProfile?.name || 'Nexus Brand';
+        const brandName = brandProfile?.name || productData?.brand?.name || 'Nexus Brand';
         const brandUsp = brandProfile?.usp || 'Najwyższej czystości włoska i koreańska formuła, certyfikaty dermatologiczne, ponad 15 000 zadowolonych klientów B2B/B2C';
         const brandProof = brandProfile?.proof || 'Testy aplikacyjne pod nadzorem lekarzy, zgodność z normami UE i GPSR, ponad 4.9/5 w opiniach użytkowników';
+
+        // Ekstrakcja danych fizycznego produktu z PIM
+        const prodName = productData?.name || brandName;
+        const prodPrice = productData?.salePrice ? `${Number(productData.salePrice).toFixed(2)} zł` : '';
+        const prodFeatures = productData?.features 
+            ? (typeof productData.features === 'string' ? productData.features : JSON.stringify(productData.features))
+            : 'Formuła hipoalergiczna, testowana dermatologicznie, certyfikat UE';
+        
+        // Oczyszczenie HTML z opisu produktu
+        const rawDesc = productData?.descriptionHtml || '';
+        const prodCleanDesc = rawDesc.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim().substring(0, 500);
 
         const creativeMatrixSchema = {
             type: "object",
@@ -285,8 +297,8 @@ ${JSON.stringify(promptBatch, null, 2)}`;
             required: ["campaign_strategy", "angles", "hooks_28", "static_ad_briefs", "reels_briefs"]
         };
 
-        const synthesizerPrompt = `Jesteś legendarnym strategiem reklam direct-response (poziom Gary Halbert / Eugene Schwartz) wspartym analityką Big Data z bibliotek reklam.
-Zeskanowaliśmy rynek i oto najlepsi zwycięzcy konkurencji (Top Winners z wielotygodniowym czasem emisji):
+        const synthesizerPrompt = `Jesteś legendarnym strategiem reklam direct-response (poziom Eugene Schwartz / Gary Halbert) wspartym analityką Big Data z bibliotek reklam.
+Zeskanowaliśmy rynek i oto najlepsi zwycięzcy konkurencji (Top Winners z wielotygodniowym czasem emisji potwierdzającym konwersję):
 ${JSON.stringify(topWinners.slice(0, 10).map(w => ({
     hook: w.extractedHook,
     angle: w.keyAngle,
@@ -295,19 +307,26 @@ ${JSON.stringify(topWinners.slice(0, 10).map(w => ({
 })), null, 2)}
 
 Spostrzeżenia rynkowe:
-- Nasycone komunikaty (UNIKAJ ICH): ${marketInsights.saturated_claims.join(', ')}
-- Luki Błękitnego Oceanu (WYKORZYSTAJ JE): ${marketInsights.blue_ocean_angles.join(', ')}
+- Nasycone komunikaty (BEZWZGLĘDNIE ICH UNIKAJ): ${marketInsights.saturated_claims.join(', ')}
+- Luki Błękitnego Oceanu (BEZWZGLĘDNIE JE WYKORZYSTAJ): ${marketInsights.blue_ocean_angles.join(', ')}
 
-NASZA MARKA:
-- Nazwa: ${brandName}
-- USP: ${brandUsp}
-- Dowody / Trust Assets: ${brandProof}
+DANE FIZYCZNEGO PRODUKTU Z PIM NEXUS (WYKORZYSTAJ JE BEZPOŚREDNIO):
+- Nazwa produktu: ${prodName}
+${prodPrice ? `- Cena katalogowa: ${prodPrice}` : ''}
+- Właściwości i formuła: ${prodFeatures}
+${prodCleanDesc ? `- Opis produktu: ${prodCleanDesc}` : ''}
+- Brand / Marka: ${brandName}
+- Filozofia marki: ${brandUsp}
+- Twarde dowody zaufania: ${brandProof}
 
-ZADANIE PRODUKCYJNE:
-1. Zdefiniuj 4 wyraziste kąty psychologiczne (angles: np. Kontrast & Demaskowanie mitu, Twardy Dowód Naukowy / Certyfikaty, Problem-Agitation-Solution, Asymetria Cenowa & Gwarancja).
-2. Wygeneruj DOKŁADNIE 28 mocnych, bezwzględnie chwytliwych haczyków (hooks_28 - po 7 na każdy kąt). Każdy haczyk musi zatrzymywać kciuk w pierwszych 1.5 sekundy.
-3. Wygeneruj 4 dopracowane briefy dla reklam statycznych (static_ad_briefs): nagłówek, podtytuł, copy perswazyjne (120-250 znaków), konkretny CTA, tekst badge'a zaufania, budżet testowy (np. 150-300 zł) oraz prompt wizualny.
-4. Wygeneruj 2 kompletne scenariusze dynamicznych Reels (reels_briefs): haczyk w pierwszych 3s, pełny scenopis lektorski (script_voiceover) rozbity na 3-4 dynamiczne sceny z napisami na ekranie (onscreen_text).`;
+KRYTYCZNE ZASADY JAKOŚCI COPYWRITINGU (ZERO BŁĘDÓW):
+1. Język: 100% naturalna polszczyzna z bezwzględnym zachowaniem wszystkich polskich znaków diakrytycznych (ą, ę, ó, ś, ć, ż, ź, ł, ń). Żadnych literówek!
+2. ZAKAZ POWTÓRZEŃ: Subheadline NIE MOŻE być powtórzeniem ani parafrazą Headline!
+   - Headline to chwytliwy hak uwagi (max 7-10 słów), np. "Koniec z przesuszaniem skóry po demakijażu."
+   - Subheadline to twardy fakt, specyfikacja lub dowód (np. "Kompleks 5 ceramidów odbudowuje barierę lipidową w 48h. Przetestowane klinicznie.").
+3. Dokładnie 4 unikalne kąty psychologiczne (angles).
+4. Dokładnie 28 unikalnych haczyków (hooks_28 - po 7 na każdy kąt).
+5. 4 dopracowane briefy dla reklam statycznych (static_ad_briefs) oraz 2 scenariusze dynamicznych Reels (reels_briefs) oparte na produkcie "${prodName}".`;
 
         let modelToUse = 'gemini-3.1-pro-preview';
         let config = {
@@ -315,6 +334,8 @@ ZADANIE PRODUKCYJNE:
             responseSchema: creativeMatrixSchema,
             thinkingConfig: { thinkingBudget: 1024 }
         };
+
+        let strategyOutput = null;
 
         try {
             const resp = await ai.models.generateContent({
@@ -324,7 +345,7 @@ ZADANIE PRODUKCYJNE:
             });
 
             const parsedText = resp.text || (resp.candidates && resp.candidates[0]?.content?.parts?.[0]?.text);
-            return JSON.parse(parsedText);
+            strategyOutput = JSON.parse(parsedText);
         } catch (err) {
             console.warn(`[AdIntelligence] Próba Gemini 3.1 Pro z Thinking zwróciła: ${err.message}. Fallback na gemini-3.8-flash.`);
             try {
@@ -338,12 +359,60 @@ ZADANIE PRODUKCYJNE:
                     }
                 });
                 const parsedText = fallbackResp.text || (fallbackResp.candidates && fallbackResp.candidates[0]?.content?.parts?.[0]?.text);
-                return JSON.parse(parsedText);
+                strategyOutput = JSON.parse(parsedText);
             } catch (err2) {
                 console.error('[AdIntelligence] Błąd krytyczny syntezy LLM:', err2.message);
-                return this._deterministicFallbackMatrix(brandName, brandUsp);
+                strategyOutput = this._deterministicFallbackMatrix(brandName, brandUsp, productData);
             }
         }
+
+        return this._postProcessStrategyResult(strategyOutput, productData);
+    }
+
+    /**
+     * Weryfikuje i wzbogaca wynik syntezy o fizyczne dane z PIM oraz eliminuje powtórzenia copy
+     */
+    _postProcessStrategyResult(strategy, productData = {}) {
+        if (!strategy) return strategy;
+
+        const defaultProductImg = productData?.imageUrl 
+            || (Array.isArray(productData?.images) && productData.images.length > 0 ? productData.images[0] : null);
+
+        // Sanityzacja i weryfikacja nagłówków statyków
+        if (Array.isArray(strategy.static_ad_briefs)) {
+            strategy.static_ad_briefs = strategy.static_ad_briefs.map((brief, idx) => {
+                let headline = (brief.headline || '').trim();
+                let subheadline = (brief.subheadline || '').trim();
+
+                // Jeśli headline i subheadline są zbyt podobne, podmień subheadline na twardy dowód
+                if (!subheadline || headline.toLowerCase() === subheadline.toLowerCase() || subheadline.length < 10) {
+                    subheadline = productData.salePrice 
+                        ? `Certyfikowana formuła UE. Cena: ${Number(productData.salePrice).toFixed(2)} zł. Dostawa 24h.`
+                        : `Potwierdzona skuteczność w badaniach aplikacyjnych. Formuła z certyfikatem UE.`;
+                }
+
+                return {
+                    ...brief,
+                    id: brief.id || `STATIC_${idx + 1}`,
+                    headline,
+                    subheadline,
+                    productImageUrl: defaultProductImg,
+                    productName: productData?.name || null
+                };
+            });
+        }
+
+        // Sanityzacja scenariuszy Reels
+        if (Array.isArray(strategy.reels_briefs)) {
+            strategy.reels_briefs = strategy.reels_briefs.map((reel, idx) => ({
+                ...reel,
+                id: reel.id || `REEL_${idx + 1}`,
+                productImageUrl: defaultProductImg,
+                productName: productData?.name || null
+            }));
+        }
+
+        return strategy;
     }
 
     /**
@@ -505,9 +574,12 @@ ZADANIE PRODUKCYJNE:
         };
     }
 
-    _deterministicFallbackMatrix(brandName, brandUsp) {
+    _deterministicFallbackMatrix(brandName, brandUsp, productData = {}) {
+        const prodName = productData?.name || brandName;
+        const priceStr = productData?.salePrice ? ` w cenie ${Number(productData.salePrice).toFixed(2)} zł` : '';
+
         return {
-            campaign_strategy: `Strategia oparta na demaskowaniu mitów rynkowych i demonstracji twardych dowodów dla ${brandName}.`,
+            campaign_strategy: `Strategia oparta na demaskowaniu mitów rynkowych i demonstracji twardych dowodów dla ${prodName}.`,
             angles: [
                 { id: "A1", name: "Demaskowanie Mitów & Kontrast", psychological_trigger: "Ciekawość i nieufność do rynku", core_promise: "Prawdziwe fakty bez marketingowej ściemy" },
                 { id: "A2", name: "Twardy Dowód Społeczny & Liczby", psychological_trigger: "Bezpieczeństwo w tłumie i autorytet", core_promise: "Tysiące zadowolonych użytkowników i certyfikaty" },
@@ -520,19 +592,19 @@ ZADANIE PRODUKCYJNE:
                 hook_text: i % 4 === 0 
                     ? `Dlaczego 90% produktów w tej kategorii zawodzi po 2 tygodniach?` 
                     : i % 4 === 1 
-                    ? `Ponad 15 000 osób przetestowało ten patent. Oto co stało się z ich wynikami.`
+                    ? `Ponad 15 000 osób przetestowało ${prodName}. Oto co stało się z ich wynikami.`
                     : i % 4 === 2
                     ? `Zanim wydasz kolejne 200 zł na obietnice bez pokrycia, zobacz to jedno porównanie.`
-                    : `Jeden prosty krok rano, który zmienia wszystko. Bez skomplikowanych zabiegów.`,
+                    : `Jeden prosty krok rano, który zmienia wszystko. Czysty skład bez ściemy.`,
                 visual_cue: "Zbliżenie na produkt i kontrastowe zestawienie z liczbami",
                 format: i % 3 === 0 ? "REELS" : (i % 2 === 0 ? "KARUZELA" : "STATYK")
             })),
             static_ad_briefs: [
                 {
                     id: "STATIC_1",
-                    headline: `${brandName}: Koniec z kompromisami.`,
-                    subheadline: "Czysta formuła. Certyfikowana jakość.",
-                    body_copy: `Dlaczego zadowalać się przeciętnością? Odkryj ${brandName} – połączenie zaawansowanych składników z bezkompromisowym bezpieczeństwem. Potwierdzone przez tysiące klientów.`,
+                    headline: `${prodName}: Koniec z kompromisami.`,
+                    subheadline: `Czysta formuła. Certyfikowana jakość UE${priceStr}.`,
+                    body_copy: `Dlaczego zadowalać się przeciętnością? Odkryj ${prodName} – połączenie zaawansowanych składników z bezkompromisowym bezpieczeństwem. Potwierdzone przez tysiące klientów.`,
                     cta_text: "Sprawdź Pełny Skład i Ofertę",
                     badge_text: "⭐ 4.9/5 | 100% Czyste Składniki",
                     suggested_budget: "250 zł / test A/B",
@@ -543,7 +615,7 @@ ZADANIE PRODUKCYJNE:
                     id: "STATIC_2",
                     headline: "Liczby, które mówią same za siebie.",
                     subheadline: "Ponad 15 000 zamówień bez ani jednej reklamacji jakościowej.",
-                    body_copy: `Nie wierz obietnicom na słowo. Przetestuj ${brandName} i poczuj różnicę już od pierwszej aplikacji. Szybka wysyłka prosto z polskiego magazynu.`,
+                    body_copy: `Nie wierz obietnicom na słowo. Przetestuj ${prodName} i poczuj różnicę już od pierwszej aplikacji. Szybka wysyłka prosto z polskiego magazynu.`,
                     cta_text: "Zamów z Gwarancją Satysfakcji",
                     badge_text: "99.4% Pozytywnych Opinii",
                     suggested_budget: "300 zł / test A/B",
@@ -554,13 +626,13 @@ ZADANIE PRODUKCYJNE:
             reels_briefs: [
                 {
                     id: "REEL_1",
-                    title: "3 sygnały, że Twój obecny produkt niszczy barierę ochronną",
+                    title: `3 sygnały, że Twój obecny produkt niszczy barierę ochronną`,
                     hook_3s: "Jeśli Twoja skóra tak reaguje – natychmiast odstaw ten produkt!",
-                    script_voiceover: "Większość z nas nie zdaje sobie sprawy, że uczucie ściągnięcia po myciu to krzyk skóry o pomoc. Zwykłe detergenty wypłukują lipidy. Zamiast tego potrzebujesz formuły biomimetycznej, która regeneruje płaszcz ochronny w 3 minuty. Zobacz jak to działa.",
+                    script_voiceover: `Większość z nas nie zdaje sobie sprawy, że uczucie ściągnięcia po myciu to krzyk skóry o pomoc. Zwykłe detergenty wypłukują lipidy. Zamiast tego potrzebujesz ${prodName}, który regeneruje płaszcz ochronny w 3 minuty. Zobacz jak to działa.`,
                     scenes: [
                         { timestamp: "0:00 - 0:03", onscreen_text: "STOP! Czy Twoja skóra też tak robi?", visual_action: "Dynamiczne zbliżenie na twarz, czerwony znacznik ostrzeżenia" },
                         { timestamp: "0:03 - 0:08", onscreen_text: "Błąd #1: Zwykłe kosmetyki niszczą lipidy", visual_action: "Szybki montaż butelek z przekreśleniem" },
-                        { timestamp: "0:08 - 0:13", onscreen_text: "Rozwiązanie: Czysta formuła biomimetyczna", visual_action: "Pokazanie luksusowej konsystencji i aplikacji produktu" },
+                        { timestamp: "0:08 - 0:13", onscreen_text: `Rozwiązanie: ${prodName} z certyfikatem UE`, visual_action: "Pokazanie luksusowej konsystencji i aplikacji produktu" },
                         { timestamp: "0:13 - 0:18", onscreen_text: "Sprawdź link w bio i odbierz kod rabatowy", visual_action: "Plansza z logo i przyciskiem CTA" }
                     ],
                     cta_audio: "Kliknij link poniżej i sprawdź dostępność nowej partii.",
@@ -572,3 +644,4 @@ ZADANIE PRODUKCYJNE:
 }
 
 module.exports = new AdIntelligenceService();
+

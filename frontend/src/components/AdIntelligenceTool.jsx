@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
     Search, 
@@ -16,10 +16,22 @@ import {
     Layers, 
     ShieldCheck, 
     ChevronRight,
-    Flame
+    Flame,
+    Edit3,
+    RefreshCw,
+    X,
+    Package,
+    DollarSign
 } from 'lucide-react';
 
 const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
+    // Krok 0: Produkty z PIM
+    const [productsList, setProductsList] = useState([]);
+    const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+    const [productSearch, setProductSearch] = useState('');
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
+
     // Krok 1: Stan wejściowy skanera
     const [query, setQuery] = useState('Kosmetyki do pielęgnacji / K-Beauty');
     const [brandName, setBrandName] = useState('Skin Care Korea');
@@ -37,13 +49,79 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
     const [isGeneratingAssets, setIsGeneratingAssets] = useState(false);
     const [generatedAssets, setGeneratedAssets] = useState([]);
 
-    // Krok 4: Eksport do Harmonogramu SMI
+    // Krok 4: HITL Studio - Modal edycji i re-renderu kreacji
+    const [editingAsset, setEditingAsset] = useState(null);
+    const [isReRendering, setIsReRendering] = useState(false);
+
+    // Krok 5: Eksport do Harmonogramu SMI
     const [selectedCampaignId, setSelectedCampaignId] = useState(campaigns && campaigns.length > 0 ? campaigns[0].id : '');
     const [isExporting, setIsExporting] = useState(false);
     const [exportSuccessMessage, setExportSuccessMessage] = useState(null);
 
     // Lightbox / Video Modal
     const [activeMediaModal, setActiveMediaModal] = useState(null);
+
+    // Pobieranie listy produktów z PIM przy montowaniu komponentu
+    useEffect(() => {
+        fetchProductsFromPim();
+    }, []);
+
+    const fetchProductsFromPim = async (searchTerm = '') => {
+        setIsLoadingProducts(true);
+        try {
+            const res = await axios.get(`${API_URL}/api/ad-intelligence/products`, {
+                params: { search: searchTerm },
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.data && res.data.success) {
+                setProductsList(res.data.products || []);
+            }
+        } catch (err) {
+            console.error('Błąd pobierania produktów z PIM:', err);
+        } finally {
+            setIsLoadingProducts(false);
+        }
+    };
+
+    // Obsługa wyboru produktu z PIM
+    const handleSelectProduct = (prod) => {
+        setSelectedProduct(prod);
+        setIsProductDropdownOpen(false);
+
+        // Automatyczne wypełnienie parametrów skanera danymi produktu
+        if (prod.name) setQuery(prod.name);
+        if (prod.brand?.name) setBrandName(prod.brand.name);
+
+        if (prod.features) {
+            const featText = typeof prod.features === 'string' ? prod.features : JSON.stringify(prod.features);
+            setBrandUsp(`Unikalna formuła: ${featText.replace(/[{"}\[\]]/g, ' ').substring(0, 120)}`);
+        }
+
+        const priceStr = prod.salePrice ? `Cena katalogowa: ${Number(prod.salePrice).toFixed(2)} zł. ` : '';
+        setBrandProof(`${priceStr}Oficjalna dystrybucja, zgodność z normami UE i GPSR, testy aplikacyjne.`);
+    };
+
+    const handleClearSelectedProduct = () => {
+        setSelectedProduct(null);
+    };
+
+    // Bezpieczne rozwiązywanie adresu URL mediów (Supabase CDN vs ścieżka lokalna vs Base64)
+    const resolveMediaUrl = (asset) => {
+        if (!asset) return '';
+        // 1. Jeśli dostępny jest inline Base64 data URI, renderuj natychmiast
+        if (asset.base64DataUrl) return asset.base64DataUrl;
+
+        const url = asset.mediaUrl || asset.localUrl;
+        if (!url) return '';
+
+        // 2. Jeśli to pełny URL (Supabase CDN https:// lub Base64)
+        if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+            return url;
+        }
+
+        // 3. Względna ścieżka lokalna serwera Express
+        return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+    };
 
     // Uruchomienie skanera i analizy Gemini
     const handleStartScan = async () => {
@@ -70,6 +148,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                     usp: brandUsp,
                     proof: brandProof
                 },
+                productId: selectedProduct ? selectedProduct.id : null,
                 limit: 50
             }, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -88,7 +167,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
         }
     };
 
-    // Uruchomienie generacji fizycznych assetów (Statyki + Reels)
+    // Uruchomienie generacji fizycznych assetów (Statyki z packshotem + Reels)
     const handleGenerateAssets = async () => {
         if (!scanData || !scanData.strategy) return;
         setIsGeneratingAssets(true);
@@ -101,7 +180,8 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
         try {
             const res = await axios.post(`${API_URL}/api/ad-intelligence/generate-assets`, {
                 briefs: briefsToGenerate,
-                brandProfile: { name: brandName }
+                brandProfile: { name: brandName },
+                productId: selectedProduct ? selectedProduct.id : null
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -116,6 +196,98 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
             alert('Wystąpił błąd: ' + (err.response?.data?.error || err.message));
         } finally {
             setIsGeneratingAssets(false);
+        }
+    };
+
+    // Otwarcie modalnego studia korekty HITL dla wybranej kreacji
+    const handleOpenEditModal = (asset, index) => {
+        setEditingAsset({
+            ...asset,
+            assetIndex: index,
+            editHeadline: asset.headline || '',
+            editSubheadline: asset.subheadline || '',
+            editContent: asset.content || '',
+            editCta: 'Sprawdź Ofertę',
+            editHashtags: asset.hashtags || '',
+            editBudget: asset.adBudgetInfo || '250 zł',
+            editProductImg: asset.productImageUrl || (selectedProduct?.imageUrl || ''),
+            editScenes: Array.isArray(asset.scenes) ? JSON.parse(JSON.stringify(asset.scenes)) : []
+        });
+    };
+
+    // Zapisanie korekty lokalnie w liście assetów
+    const handleSaveEditingAssetLocally = () => {
+        if (!editingAsset) return;
+
+        const updated = [...generatedAssets];
+        const current = updated[editingAsset.assetIndex];
+
+        updated[editingAsset.assetIndex] = {
+            ...current,
+            headline: editingAsset.editHeadline,
+            subheadline: editingAsset.editSubheadline,
+            content: editingAsset.editContent,
+            hashtags: editingAsset.editHashtags,
+            adBudgetInfo: editingAsset.editBudget,
+            productImageUrl: editingAsset.editProductImg,
+            scenes: editingAsset.editScenes
+        };
+
+        setGeneratedAssets(updated);
+        setEditingAsset(null);
+    };
+
+    // Ponowne wyrenderowanie kreacji przez silnik Sharp / FFmpeg (HITL Re-Render)
+    const handleReRenderEditingAsset = async () => {
+        if (!editingAsset) return;
+        setIsReRendering(true);
+
+        const briefPayload = {
+            id: editingAsset.id,
+            headline: editingAsset.editHeadline,
+            subheadline: editingAsset.editSubheadline,
+            body_copy: editingAsset.editContent,
+            cta_text: editingAsset.editCta,
+            badge_text: '⭐ 4.9/5 | 100% Czyste Składniki',
+            suggested_budget: editingAsset.editBudget,
+            hashtags: editingAsset.editHashtags,
+            productImageUrl: editingAsset.editProductImg,
+            type: editingAsset.mediaType === 'video' ? 'REELS' : 'STATIC',
+            format: editingAsset.format,
+            scenes: editingAsset.editScenes
+        };
+
+        try {
+            const res = await axios.post(`${API_URL}/api/ad-intelligence/re-render-asset`, {
+                brief: briefPayload,
+                brandProfile: { name: brandName },
+                productId: selectedProduct ? selectedProduct.id : null
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (res.data && res.data.success && res.data.asset) {
+                const newAsset = res.data.asset;
+                const updated = [...generatedAssets];
+                updated[editingAsset.assetIndex] = newAsset;
+                setGeneratedAssets(updated);
+
+                // Zaktualizuj widok w modalu
+                setEditingAsset(prev => ({
+                    ...prev,
+                    ...newAsset,
+                    mediaUrl: newAsset.mediaUrl,
+                    base64DataUrl: newAsset.base64DataUrl
+                }));
+                alert('Kreacja została pomyślnie zrekomponowana i wyrenderowana! ✅');
+            } else {
+                alert('Błąd re-renderowania: ' + (res.data?.error || 'Nieznany błąd'));
+            }
+        } catch (err) {
+            console.error('Błąd re-renderowania:', err);
+            alert('Wystąpił błąd podczas re-renderu: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsReRendering(false);
         }
     };
 
@@ -156,35 +328,253 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
         alert('Skopiowano do schowka: ' + text.substring(0, 40) + '...');
     };
 
+    // Lista zdjęć z produktu wybranego z PIM
+    const availableProductImages = selectedProduct ? [
+        ...(selectedProduct.imageUrl ? [selectedProduct.imageUrl] : []),
+        ...(Array.isArray(selectedProduct.images) ? selectedProduct.images : [])
+    ] : [];
+
     return (
         <div className="flex-1 flex flex-col bg-slate-100 overflow-y-auto custom-scrollbar p-6 space-y-6 text-slate-800">
             
-            {/* Modal podglądu mediów (Wideo / Obraz) */}
+            {/* MODAL PODGLĄDU MEDIÓW (LIGHTBOX) */}
             {activeMediaModal && (
                 <div className="fixed inset-0 bg-slate-950/85 z-[400] flex items-center justify-center p-4 backdrop-blur-md" onClick={() => setActiveMediaModal(null)}>
                     <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden max-w-lg w-full shadow-2xl relative" onClick={e => e.stopPropagation()}>
                         <div className="p-3 bg-slate-800 border-b border-slate-700 flex justify-between items-center text-white">
-                            <span className="text-xs font-bold flex items-center">
-                                {activeMediaModal.mediaType === 'video' ? <Video className="w-4 h-4 mr-2 text-pink-400" /> : <ImageIcon className="w-4 h-4 mr-2 text-indigo-400" />}
+                            <span className="text-xs font-bold flex items-center truncate max-w-[85%]">
+                                {activeMediaModal.mediaType === 'video' ? <Video className="w-4 h-4 mr-2 text-pink-400 shrink-0" /> : <ImageIcon className="w-4 h-4 mr-2 text-indigo-400 shrink-0" />}
                                 {activeMediaModal.headline || 'Podgląd kreacji'}
                             </span>
                             <button onClick={() => setActiveMediaModal(null)} className="text-slate-400 hover:text-white font-bold text-sm">✕</button>
                         </div>
-                        <div className="flex justify-center items-center bg-black p-4">
+                        <div className="flex justify-center items-center bg-black p-4 min-h-[300px]">
                             {activeMediaModal.mediaType === 'video' ? (
                                 <video 
-                                    src={`${API_URL}${activeMediaModal.mediaUrl}`} 
+                                    src={resolveMediaUrl(activeMediaModal)} 
                                     controls 
                                     autoPlay 
                                     className="max-h-[75vh] rounded-lg shadow-lg aspect-[9/16]" 
                                 />
                             ) : (
                                 <img 
-                                    src={`${API_URL}${activeMediaModal.mediaUrl}`} 
+                                    src={resolveMediaUrl(activeMediaModal)} 
                                     className="max-h-[75vh] object-contain rounded-lg shadow-lg" 
                                     alt="Kreacja" 
                                 />
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL HITL: KOREKTA I RE-RENDER KREACJI */}
+            {editingAsset && (
+                <div className="fixed inset-0 bg-slate-950/85 z-[500] flex items-center justify-center p-4 backdrop-blur-md">
+                    <div className="bg-white border border-slate-300 rounded-2xl overflow-hidden max-w-4xl w-full shadow-2xl flex flex-col max-h-[90vh]">
+                        {/* Header Modalu */}
+                        <div className="px-6 py-4 bg-slate-900 text-white flex justify-between items-center border-b border-slate-800">
+                            <div className="flex items-center gap-2">
+                                <Edit3 className="w-5 h-5 text-indigo-400" />
+                                <div>
+                                    <h2 className="text-sm font-black uppercase tracking-wider">
+                                        Studio Korekty HITL (Human-In-The-Loop)
+                                    </h2>
+                                    <p className="text-[11px] text-slate-400">
+                                        Dopracuj nagłówki, treść, wybierz właściwe zdjęcie z PIM i zrekomponuj kreację
+                                    </p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setEditingAsset(null)}
+                                className="text-slate-400 hover:text-white font-bold text-lg p-1"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Ciało Modalu (2 Kolumny: Podgląd + Edycja) */}
+                        <div className="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-12 gap-6">
+                            
+                            {/* Lewa Kolumna: Podgląd wygenerowanego assetu */}
+                            <div className="md:col-span-5 flex flex-col items-center bg-slate-900 rounded-xl p-4 border border-slate-800">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-3 self-start">
+                                    Aktualny podgląd pliku
+                                </span>
+                                
+                                <div className="w-full flex justify-center items-center relative rounded-lg overflow-hidden bg-black/60 min-h-[260px]">
+                                    {editingAsset.mediaType === 'video' ? (
+                                        <video 
+                                            src={resolveMediaUrl(editingAsset)} 
+                                            controls 
+                                            className="max-h-[380px] rounded-lg aspect-[9/16]" 
+                                        />
+                                    ) : (
+                                        <img 
+                                            src={resolveMediaUrl(editingAsset)} 
+                                            className="max-h-[380px] object-contain rounded-lg shadow-xl" 
+                                            alt="Podgląd edytowany" 
+                                        />
+                                    )}
+                                </div>
+
+                                <div className="mt-4 w-full text-center">
+                                    <button
+                                        onClick={handleReRenderEditingAsset}
+                                        disabled={isReRendering}
+                                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                                    >
+                                        {isReRendering ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                Przeliczanie & Re-renderowanie...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <RefreshCw className="w-4 h-4" />
+                                                Przelicz i Re-renderuj Kreację (Sharp/FFmpeg)
+                                            </>
+                                        )}
+                                    </button>
+                                    <p className="text-[10px] text-slate-400 mt-1">
+                                        Wypala nowy cień i nakłada aktualny tekst z PIM
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Prawa Kolumna: Pola edycji */}
+                            <div className="md:col-span-7 space-y-4 text-xs">
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
+                                        Główny Nagłówek (Headline)
+                                    </label>
+                                    <input 
+                                        type="text"
+                                        value={editingAsset.editHeadline}
+                                        onChange={e => setEditingAsset({ ...editingAsset, editHeadline: e.target.value })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg font-bold text-slate-900 focus:bg-white focus:border-indigo-500 outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
+                                        Podtytuł / Dowód Liczbowy (Subheadline)
+                                    </label>
+                                    <input 
+                                        type="text"
+                                        value={editingAsset.editSubheadline}
+                                        onChange={e => setEditingAsset({ ...editingAsset, editSubheadline: e.target.value })}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-700 focus:bg-white focus:border-indigo-500 outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
+                                        Treść posta / Scenariusz (Body Copy)
+                                    </label>
+                                    <textarea 
+                                        rows={4}
+                                        value={editingAsset.editContent}
+                                        onChange={e => setEditingAsset({ ...editingAsset, editContent: e.target.value })}
+                                        className="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg font-normal text-slate-800 focus:bg-white focus:border-indigo-500 outline-none leading-relaxed"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
+                                            Przycisk CTA
+                                        </label>
+                                        <input 
+                                            type="text"
+                                            value={editingAsset.editCta}
+                                            onChange={e => setEditingAsset({ ...editingAsset, editCta: e.target.value })}
+                                            className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg font-semibold outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
+                                            Budżet Testowy
+                                        </label>
+                                        <input 
+                                            type="text"
+                                            value={editingAsset.editBudget}
+                                            onChange={e => setEditingAsset({ ...editingAsset, editBudget: e.target.value })}
+                                            className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg font-semibold outline-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Wybór zdjęcia produktu z galerii PIM */}
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
+                                        Wybierz Packshot z Galerii Produktu (PIM)
+                                    </label>
+                                    {availableProductImages.length > 0 ? (
+                                        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                            {availableProductImages.map((imgUrl, i) => (
+                                                <div 
+                                                    key={i}
+                                                    onClick={() => setEditingAsset({ ...editingAsset, editProductImg: imgUrl })}
+                                                    className={`w-14 h-14 rounded-lg overflow-hidden border-2 cursor-pointer shrink-0 transition-all ${editingAsset.editProductImg === imgUrl ? 'border-indigo-600 ring-2 ring-indigo-300 scale-105' : 'border-slate-300 hover:border-slate-400 opacity-70 hover:opacity-100'}`}
+                                                >
+                                                    <img src={imgUrl} className="w-full h-full object-cover" alt="Packshot thumbnail" />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-[11px] text-slate-400 italic">Brak galerii zdjęć w wybranym produkcie PIM.</p>
+                                    )}
+                                </div>
+
+                                {/* Edycja scen dla formatu Reels */}
+                                {editingAsset.mediaType === 'video' && Array.isArray(editingAsset.editScenes) && editingAsset.editScenes.length > 0 && (
+                                    <div className="space-y-2 pt-2 border-t border-slate-200">
+                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
+                                            Napisy ekranowe poszczególnych scen Reels (1-4)
+                                        </span>
+                                        {editingAsset.editScenes.map((sc, sIdx) => (
+                                            <div key={sIdx} className="flex items-center gap-2">
+                                                <span className="text-[10px] font-mono font-bold text-slate-500 w-16 shrink-0">
+                                                    Scena {sIdx + 1}:
+                                                </span>
+                                                <input 
+                                                    type="text"
+                                                    value={sc.onscreen_text || ''}
+                                                    onChange={e => {
+                                                        const updatedScenes = [...editingAsset.editScenes];
+                                                        updatedScenes[sIdx] = { ...updatedScenes[sIdx], onscreen_text: e.target.value };
+                                                        setEditingAsset({ ...editingAsset, editScenes: updatedScenes });
+                                                    }}
+                                                    className="w-full px-2.5 py-1 bg-slate-50 border border-slate-300 rounded text-xs outline-none"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Stopka Modalu z Przyciskami */}
+                        <div className="px-6 py-3 bg-slate-100 border-t border-slate-200 flex justify-between items-center">
+                            <span className="text-[11px] text-slate-500">
+                                Wprowadzone zmiany zostaną przypisane do eksportu do SMI.
+                            </span>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setEditingAsset(null)}
+                                    className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition-all"
+                                >
+                                    Anuluj
+                                </button>
+                                <button
+                                    onClick={handleSaveEditingAssetLocally}
+                                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1.5"
+                                >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    Zastosuj i Zapisz Zmiany
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -198,23 +588,149 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                             Multi-Agent Swarm
                         </span>
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700 uppercase tracking-widest border border-emerald-200">
-                            Zero Placeholders
+                            PIM Connected
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-700 uppercase tracking-widest border border-purple-200">
+                            HITL Studio
                         </span>
                     </div>
                     <h1 className="text-xl font-black text-slate-900 flex items-center">
                         <Sparkles className="w-5 h-5 mr-2 text-indigo-600" /> Ad Intelligence & Creative Studio
                     </h1>
                     <p className="text-xs text-slate-500 mt-1">
-                        Skaner reklam konkurencji, analiza Time-Decay (Gemini 3.8 Flash), synteza 28 hooków (Gemini 3.1 Pro) oraz montaż kreacji (Imagen 3 / Sharp / FFmpeg).
+                        Skaner reklam konkurencji, ocena Time-Decay (Gemini 3.8 Flash), synteza 28 hooków (Gemini 3.1 Pro) oraz montaż kreacji z packshotami produktów z bazy PIM (Sharp Shadow Baking + FFmpeg Reels).
                     </p>
                 </div>
             </div>
 
-            {/* KROK 1: FORMULARZ SKANERA */}
+            {/* SELEKTOR PRODUKTU Z PIM */}
             <div className="bg-white border border-slate-300 rounded-xl p-6 shadow-sm space-y-4">
                 <div className="border-b border-slate-200 pb-3 flex justify-between items-center">
                     <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center">
-                        <Search className="w-4 h-4 mr-2 text-indigo-600" /> 1. Konfiguracja Skanera Rynku & Profilu Marki
+                        <Package className="w-4 h-4 mr-2 text-indigo-600" /> 1. Powiąż z Produktem z Bazy PIM (Nexus ERP)
+                    </h2>
+                    {selectedProduct && (
+                        <button 
+                            onClick={handleClearSelectedProduct}
+                            className="text-[11px] font-bold text-red-500 hover:text-red-700 flex items-center"
+                        >
+                            ✕ Odłącz produkt
+                        </button>
+                    )}
+                </div>
+
+                {!selectedProduct ? (
+                    <div className="space-y-3">
+                        <div className="flex gap-2">
+                            <div className="relative flex-1">
+                                <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                                <input 
+                                    type="text"
+                                    value={productSearch}
+                                    onChange={e => {
+                                        setProductSearch(e.target.value);
+                                        fetchProductsFromPim(e.target.value);
+                                    }}
+                                    onFocus={() => setIsProductDropdownOpen(true)}
+                                    placeholder="Wyszukaj produkt po nazwie, SKU lub EAN z PIM..."
+                                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+                                />
+                            </div>
+                            <button
+                                onClick={() => setIsProductDropdownOpen(!isProductDropdownOpen)}
+                                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold transition-all"
+                            >
+                                {isProductDropdownOpen ? 'Zwiń listę' : 'Przeglądaj katalog'}
+                            </button>
+                        </div>
+
+                        {/* Dropdown z listą produktów */}
+                        {isProductDropdownOpen && (
+                            <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white shadow-lg custom-scrollbar">
+                                {isLoadingProducts ? (
+                                    <div className="p-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                                        <Loader2 className="w-4 h-4 animate-spin" /> Ładowanie produktów z PIM...
+                                    </div>
+                                ) : productsList.length === 0 ? (
+                                    <div className="p-4 text-center text-xs text-slate-500">
+                                        Nie znaleziono produktów w PIM dla podanej frazy.
+                                    </div>
+                                ) : (
+                                    productsList.map(prod => (
+                                        <div 
+                                            key={prod.id}
+                                            onClick={() => handleSelectProduct(prod)}
+                                            className="p-3 hover:bg-indigo-50 cursor-pointer flex items-center justify-between transition-colors text-xs"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                {prod.imageUrl ? (
+                                                    <img src={prod.imageUrl} className="w-9 h-9 object-cover rounded border border-slate-200" alt="" />
+                                                ) : (
+                                                    <div className="w-9 h-9 rounded bg-slate-100 flex items-center justify-center text-slate-400">
+                                                        <Package className="w-4 h-4" />
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <span className="font-bold text-slate-900 block">{prod.name}</span>
+                                                    <span className="text-[10px] text-slate-500">SKU: {prod.sku} • EAN: {prod.ean} • Marka: {prod.brand?.name || 'Brak'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="font-bold text-emerald-600 block">{prod.salePrice ? `${Number(prod.salePrice).toFixed(2)} zł` : 'Brak ceny'}</span>
+                                                <span className="text-[10px] text-indigo-600 font-semibold">Wybierz →</span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    /* Karta aktywnie wybranego produktu */
+                    <div className="bg-indigo-50/60 border border-indigo-200 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            {selectedProduct.imageUrl || (selectedProduct.images && selectedProduct.images[0]) ? (
+                                <img 
+                                    src={selectedProduct.imageUrl || selectedProduct.images[0]} 
+                                    className="w-16 h-16 object-cover rounded-lg border-2 border-indigo-300 shadow-sm" 
+                                    alt={selectedProduct.name} 
+                                />
+                            ) : (
+                                <div className="w-16 h-16 rounded-lg bg-indigo-100 border-2 border-indigo-300 flex items-center justify-center text-indigo-600">
+                                    <Package className="w-6 h-6" />
+                                </div>
+                            )}
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="px-2 py-0.5 rounded text-[9px] font-black bg-indigo-600 text-white uppercase">
+                                        Połączono z PIM
+                                    </span>
+                                    <span className="text-[11px] font-bold text-slate-500">SKU: {selectedProduct.sku}</span>
+                                </div>
+                                <h3 className="text-sm font-black text-slate-900 mt-0.5">{selectedProduct.name}</h3>
+                                <p className="text-[11px] text-slate-600">
+                                    Cena: <strong className="text-emerald-700">{selectedProduct.salePrice ? `${Number(selectedProduct.salePrice).toFixed(2)} zł` : 'Nie ustalono'}</strong> • Dostępne zdjęcia w galerii: <strong>{availableProductImages.length}</strong>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setIsProductDropdownOpen(true)}
+                                className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg text-xs font-bold text-slate-700 shadow-sm transition-all"
+                            >
+                                Zmień produkt
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* KROK 2: KONFIGURACJA SKANERA I PROFILU MARKI */}
+            <div className="bg-white border border-slate-300 rounded-xl p-6 shadow-sm space-y-4">
+                <div className="border-b border-slate-200 pb-3 flex justify-between items-center">
+                    <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center">
+                        <Search className="w-4 h-4 mr-2 text-indigo-600" /> 2. Parametry Skanera Rynku & Pozycjonowania
                     </h2>
                     <button 
                         onClick={() => setShowDatasetInput(!showDatasetInput)}
@@ -236,7 +752,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                         />
                     </div>
                     <div>
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Nazwa Twojej Marki (w Nexus ERP)</label>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Nazwa Marki</label>
                         <input 
                             type="text"
                             value={brandName}
@@ -261,7 +777,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                             type="text"
                             value={brandProof}
                             onChange={e => setBrandProof(e.target.value)}
-                            placeholder="np. Badania kliniczne, ponad 12 000 klientek"
+                            placeholder="np. Badania kliniczne, certyfikat UE, ponad 12 000 klientek"
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
                         />
                     </div>
@@ -301,7 +817,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                 </div>
             </div>
 
-            {/* KROK 2: WYNIKI SKANOWANIA (TOP WINNERS & MARKET INSIGHTS) */}
+            {/* KROK 3: WYNIKI SKANOWANIA (TOP WINNERS & MARKET INSIGHTS) */}
             {scanData && (
                 <div className="space-y-6 animate-in fade-in duration-300">
                     
@@ -375,9 +891,9 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                         <div className="bg-white border border-slate-300 rounded-xl p-6 shadow-sm space-y-4">
                             <div className="border-b border-slate-200 pb-3 flex justify-between items-center">
                                 <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center">
-                                    <Layers className="w-4 h-4 mr-2 text-indigo-600" /> Matryca 28 Haczyków (Zgodnych z Twoją Marką)
+                                    <Layers className="w-4 h-4 mr-2 text-indigo-600" /> Matryca 28 Haczyków (Zoptymalizowanych pod Twój Produkt)
                                 </h2>
-                                <span className="text-xs font-bold text-indigo-600">Gemini 3.1 Pro Strategy</span>
+                                <span className="text-xs font-bold text-indigo-600">Gemini 3.1 Pro Thinking</span>
                             </div>
 
                             {/* Angle Tabs */}
@@ -418,9 +934,10 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                             </div>
 
                             {/* Action to Generate Assets */}
-                            <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
+                            <div className="pt-4 border-t border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                                 <span className="text-xs text-slate-500 font-medium">
-                                    Gotowe briefy: {scanData.strategy.static_ad_briefs?.length || 0} statyków + {scanData.strategy.reels_briefs?.length || 0} Reels
+                                    Gotowe briefy do zmontowania: {scanData.strategy.static_ad_briefs?.length || 0} statyków + {scanData.strategy.reels_briefs?.length || 0} Reels
+                                    {selectedProduct && <strong className="text-indigo-600 ml-1">z fizycznym packshotem {selectedProduct.name}</strong>}
                                 </span>
                                 <button
                                     onClick={handleGenerateAssets}
@@ -430,12 +947,12 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                                     {isGeneratingAssets ? (
                                         <>
                                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            Generowanie Statyków & Montaż Reels (FFmpeg)...
+                                            Komponowanie Packshotów & Montaż Reels (FFmpeg)...
                                         </>
                                     ) : (
                                         <>
                                             <Sparkles className="w-4 h-4 mr-2" />
-                                            Wygeneruj Gotowe Kreacje (Statyki Imagen/Sharp + Reels FFmpeg)
+                                            Wygeneruj Gotowe Kreacje (Statyki Sharp + Reels FFmpeg)
                                         </>
                                     )}
                                 </button>
@@ -445,7 +962,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                 </div>
             )}
 
-            {/* KROK 3: WYGENEROWANE ASSETY (STATYKI & REELS) */}
+            {/* KROK 4: WYGENEROWANE ASSETY (STATYKI & REELS) Z PRZYCISKIEM KOREKTY HITL */}
             {generatedAssets.length > 0 && (
                 <div className="bg-white border border-slate-300 rounded-xl p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
                     <div className="border-b border-slate-200 pb-3 flex justify-between items-center">
@@ -453,13 +970,13 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                             <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center">
                                 <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600" /> Gotowe Kreacje Multimedialne ({generatedAssets.length} sztuk)
                             </h2>
-                            <p className="text-xs text-slate-500">Materiały wyrenderowane lokalnie (statyki PNG 1080x1080 + wideo Reels MP4 9:16)</p>
+                            <p className="text-xs text-slate-500">Materiały zsynchronizowane z CDN Supabase oraz kopią lokalną. Kliknij "Edytuj / Korekta (HITL)", aby zmienić copy, packshot lub sceny.</p>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {generatedAssets.map((asset, idx) => (
-                            <div key={asset.id || idx} className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col justify-between">
+                            <div key={asset.id || idx} className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
                                 <div>
                                     {/* Podgląd Mediów */}
                                     <div 
@@ -468,12 +985,12 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                                     >
                                         {asset.mediaType === 'video' ? (
                                             <video 
-                                                src={`${API_URL}${asset.mediaUrl}`} 
+                                                src={resolveMediaUrl(asset)} 
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
                                             />
                                         ) : (
                                             <img 
-                                                src={`${API_URL}${asset.mediaUrl}`} 
+                                                src={resolveMediaUrl(asset)} 
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform" 
                                                 alt="Podgląd" 
                                             />
@@ -486,10 +1003,15 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                                             </span>
                                         </div>
 
-                                        <div className="absolute top-2 left-2">
+                                        <div className="absolute top-2 left-2 flex gap-1.5">
                                             <span className="px-2 py-0.5 rounded text-[9px] font-black bg-slate-900/80 text-white uppercase backdrop-blur-sm">
                                                 {asset.format}
                                             </span>
+                                            {asset.productImageUrl && (
+                                                <span className="px-2 py-0.5 rounded text-[9px] font-black bg-indigo-600/90 text-white uppercase backdrop-blur-sm">
+                                                    PIM Packshot
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
 
@@ -498,6 +1020,11 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                                         <h3 className="text-xs font-black text-slate-900 leading-snug">
                                             {asset.headline}
                                         </h3>
+                                        {asset.subheadline && (
+                                            <p className="text-[11px] font-bold text-indigo-700">
+                                                {asset.subheadline}
+                                            </p>
+                                        )}
                                         <p className="text-[11px] text-slate-600 line-clamp-3 whitespace-pre-line">
                                             {asset.content}
                                         </p>
@@ -507,22 +1034,29 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                                     </div>
                                 </div>
 
-                                <div className="p-4 pt-2 border-t border-slate-200 flex justify-between items-center text-[10px] text-slate-500">
-                                    <span>Budżet: <strong className="text-slate-800">{asset.adBudgetInfo}</strong></span>
-                                    <span className="text-emerald-600 font-bold">Gotowe do publikacji</span>
+                                <div className="p-4 pt-2 border-t border-slate-200 flex justify-between items-center text-[10px]">
+                                    <span className="text-slate-500">Budżet: <strong className="text-slate-800">{asset.adBudgetInfo}</strong></span>
+                                    
+                                    {/* Przycisk Studia Korekty HITL */}
+                                    <button
+                                        onClick={() => handleOpenEditModal(asset, idx)}
+                                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-md font-bold flex items-center gap-1 transition-all"
+                                    >
+                                        <Edit3 className="w-3.5 h-3.5" /> Edytuj / HITL
+                                    </button>
                                 </div>
                             </div>
                         ))}
                     </div>
 
-                    {/* KROK 4: EKSPORT DO HARMONOGRAMU SMI */}
+                    {/* KROK 5: EKSPORT DO HARMONOGRAMU SMI */}
                     <div className="bg-slate-50 border border-indigo-200 rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-4">
                         <div>
                             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center">
                                 <Send className="w-4 h-4 mr-2 text-indigo-600" /> Eksport do Harmonogramu SMI (Nexus ERP)
                             </h3>
                             <p className="text-[11px] text-slate-600 mt-0.5">
-                                Przenieś wygenerowane kreacje wprost do kalendarza postów w statusie "Do Akceptacji".
+                                Przenieś wygenerowane i dopracowane kreacje wprost do kalendarza postów w statusie "Do Akceptacji".
                             </p>
                         </div>
 
