@@ -32,13 +32,17 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
 
-    // Krok 1: Stan wejściowy skanera
-    const [query, setQuery] = useState('Kosmetyki do pielęgnacji / K-Beauty');
-    const [brandName, setBrandName] = useState('Skin Care Korea');
-    const [brandUsp, setBrandUsp] = useState('Włoska i koreańska technologia liposomowa, czyste INCI bez alkoholu i parabenów');
-    const [brandProof, setBrandProof] = useState('Ponad 12 000 klientek, badania aplikacyjne pod nadzorem dermatologów, ocena 4.9/5');
+    // Krok 1: Stan wejściowy skanera (zgodny z rynkiem polskim, max 300 rekordów)
+    const [query, setQuery] = useState('');
+    const [brandName, setBrandName] = useState('');
+    const [brandUsp, setBrandUsp] = useState('');
+    const [brandProof, setBrandProof] = useState('');
+    const [scanLimit, setScanLimit] = useState(100);
+    const [apifyToken, setApifyToken] = useState('');
+    const [apifyDatasetId, setApifyDatasetId] = useState('');
     const [customDatasetJson, setCustomDatasetJson] = useState('');
     const [showDatasetInput, setShowDatasetInput] = useState(false);
+    const [showAdvancedApify, setShowAdvancedApify] = useState(false);
 
     // Krok 2: Stan analizy i syntezy
     const [isScanning, setIsScanning] = useState(false);
@@ -74,7 +78,12 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.data && res.data.success) {
-                setProductsList(res.data.products || []);
+                const prods = res.data.products || [];
+                setProductsList(prods);
+                // Automatycznie powiąż pierwszy produkt z bazy PIM, jeśli użytkownik jeszcze nic nie wybrał
+                if (!selectedProduct && prods.length > 0 && !query) {
+                    handleSelectProduct(prods[0]);
+                }
             }
         } catch (err) {
             console.error('Błąd pobierania produktów z PIM:', err);
@@ -85,20 +94,32 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
 
     // Obsługa wyboru produktu z PIM
     const handleSelectProduct = (prod) => {
+        if (!prod) return;
         setSelectedProduct(prod);
         setIsProductDropdownOpen(false);
 
         // Automatyczne wypełnienie parametrów skanera danymi produktu
         if (prod.name) setQuery(prod.name);
-        if (prod.brand?.name) setBrandName(prod.brand.name);
+        if (prod.brand?.name) {
+            setBrandName(prod.brand.name);
+        } else {
+            const extractedBrand = prod.name ? prod.name.split(' ')[0] : 'Nasza Marka';
+            setBrandName(extractedBrand);
+        }
 
         if (prod.features) {
             const featText = typeof prod.features === 'string' ? prod.features : JSON.stringify(prod.features);
-            setBrandUsp(`Unikalna formuła: ${featText.replace(/[{"}\[\]]/g, ' ').substring(0, 120)}`);
+            setBrandUsp(`Unikalna formuła: ${featText.replace(/[{"}\[\]]/g, ' ').trim().substring(0, 120)}`);
+        } else if (prod.descriptionHtml) {
+            const cleanDesc = prod.descriptionHtml.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+            setBrandUsp(cleanDesc.substring(0, 120) || 'Wysoka wydajność, niezawodna jakość i sprawdzona formuła');
+        } else {
+            setBrandUsp('Wysoka wydajność, profesjonalny standard i konkurencyjna cena rynkowa');
         }
 
-        const priceStr = prod.salePrice ? `Cena katalogowa: ${Number(prod.salePrice).toFixed(2)} zł. ` : '';
-        setBrandProof(`${priceStr}Oficjalna dystrybucja, zgodność z normami UE i GPSR, testy aplikacyjne.`);
+        const priceStr = prod.salePrice ? `Cena: ${Number(prod.salePrice).toFixed(2)} zł. ` : '';
+        const eanStr = prod.ean ? `EAN: ${prod.ean}. ` : '';
+        setBrandProof(`${priceStr}${eanStr}Oficjalna dystrybucja, gwarancja jakości, zgodność z normami UE i GPSR.`);
     };
 
     const handleClearSelectedProduct = () => {
@@ -123,7 +144,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
         return `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
     };
 
-    // Uruchomienie skanera i analizy Gemini
+    // Uruchomienie skanera i analizy Gemini (rynek PL, max 300 rekordów)
     const handleStartScan = async () => {
         setIsScanning(true);
         setScanData(null);
@@ -139,17 +160,22 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
             }
         }
 
+        // Rygorystyczny limit dla rynku polskiego (max 300)
+        const safeLimit = Math.min(Math.max(parseInt(scanLimit) || 100, 1), 300);
+
         try {
             const res = await axios.post(`${API_URL}/api/ad-intelligence/scan`, {
                 query,
                 dataset: parsedDataset,
+                apifyToken: apifyToken.trim() || null,
+                apifyDatasetId: apifyDatasetId.trim() || null,
                 brandProfile: {
                     name: brandName,
                     usp: brandUsp,
                     proof: brandProof
                 },
                 productId: selectedProduct ? selectedProduct.id : null,
-                limit: 50
+                limit: safeLimit
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -728,64 +754,124 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
 
             {/* KROK 2: KONFIGURACJA SKANERA I PROFILU MARKI */}
             <div className="bg-white border border-slate-300 rounded-xl p-6 shadow-sm space-y-4">
-                <div className="border-b border-slate-200 pb-3 flex justify-between items-center">
-                    <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center">
-                        <Search className="w-4 h-4 mr-2 text-indigo-600" /> 2. Parametry Skanera Rynku & Pozycjonowania
-                    </h2>
-                    <button 
-                        onClick={() => setShowDatasetInput(!showDatasetInput)}
-                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
-                    >
-                        {showDatasetInput ? 'Ukryj wklejanie JSON' : '+ Wklej własny dataset (Apify/Meta JSON)'}
-                    </button>
+                <div className="border-b border-slate-200 pb-3 flex flex-wrap justify-between items-center gap-2">
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center">
+                            <Search className="w-4 h-4 mr-2 text-indigo-600" /> 2. Parametry Skanera Rynku & Pozycjonowania
+                        </h2>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-200 uppercase">
+                            Rynek PL (Polska)
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={() => setShowAdvancedApify(!showAdvancedApify)}
+                            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                        >
+                            {showAdvancedApify ? 'Ukryj Apify' : '⚙️ Apify API / Dataset ID'}
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button 
+                            onClick={() => setShowDatasetInput(!showDatasetInput)}
+                            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                        >
+                            {showDatasetInput ? 'Ukryj wklejanie JSON' : '+ Wklej własny JSON'}
+                        </button>
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Słowa kluczowe / Nisza konkurencji</label>
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div className="md:col-span-6">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Słowa kluczowe / Kategoria rynku PL</label>
                         <input 
                             type="text"
                             value={query}
                             onChange={e => setQuery(e.target.value)}
-                            placeholder="np. Kosmetyki nawilżające / Pielęgnacja twarzy"
+                            placeholder="np. Cif mleczko czyszczące / odświeżacz powietrza / płyn do prania"
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
                         />
                     </div>
-                    <div>
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Nazwa Marki</label>
+                    <div className="md:col-span-3">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Nazwa Marki / Produktu</label>
                         <input 
                             type="text"
                             value={brandName}
                             onChange={e => setBrandName(e.target.value)}
-                            placeholder="np. Skin Care Korea"
+                            placeholder="np. Felce Azzurra / Cif / MIL MIL"
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
                         />
                     </div>
-                    <div>
+                    <div className="md:col-span-3">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
+                            Liczba reklam (Rynek PL: max 300)
+                        </label>
+                        <input 
+                            type="number"
+                            min="10"
+                            max="300"
+                            value={scanLimit}
+                            onChange={e => {
+                                const val = parseInt(e.target.value);
+                                setScanLimit(isNaN(val) ? '' : Math.min(300, Math.max(1, val)));
+                            }}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-indigo-700 focus:bg-white focus:border-indigo-500 outline-none"
+                        />
+                    </div>
+
+                    <div className="md:col-span-6">
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Główna Obietnica & USP Marki</label>
                         <input 
                             type="text"
                             value={brandUsp}
                             onChange={e => setBrandUsp(e.target.value)}
-                            placeholder="np. Włoska formuła liposomowa, czyste INCI"
+                            placeholder="np. Włoska formuła, certyfikowane składniki, wysoka wydajność"
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
                         />
                     </div>
-                    <div>
+                    <div className="md:col-span-6">
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Twarde Dowody & Social Proof</label>
                         <input 
                             type="text"
                             value={brandProof}
                             onChange={e => setBrandProof(e.target.value)}
-                            placeholder="np. Badania kliniczne, certyfikat UE, ponad 12 000 klientek"
+                            placeholder="np. Certyfikat UE, badania jakościowe, oficjalna dystrybucja"
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
                         />
                     </div>
                 </div>
 
+                {showAdvancedApify && (
+                    <div className="pt-3 border-t border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in">
+                        <div>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
+                                Apify Dataset ID (Opcjonalnie - bezpośrednie ID zbioru)
+                            </label>
+                            <input 
+                                type="text"
+                                value={apifyDatasetId}
+                                onChange={e => setApifyDatasetId(e.target.value)}
+                                placeholder="np. xL9... (ID z Apify Storage > Datasets)"
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono outline-none focus:bg-white focus:border-indigo-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
+                                Apify API Token (Opcjonalnie - nadpisanie domyślnego tokenu)
+                            </label>
+                            <input 
+                                type="password"
+                                value={apifyToken}
+                                onChange={e => setApifyToken(e.target.value)}
+                                placeholder="apify_api_..."
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono outline-none focus:bg-white focus:border-indigo-500"
+                            />
+                        </div>
+                    </div>
+                )}
+
                 {showDatasetInput && (
                     <div className="pt-2 animate-in fade-in">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Opcjonalnie: Wklej tablicę JSON reklam z Apify / Meta Ad Library</label>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Wklej tablicę JSON reklam z Apify / Meta Ad Library</label>
                         <textarea 
                             rows={4}
                             value={customDatasetJson}
@@ -796,7 +882,10 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                     </div>
                 )}
 
-                <div className="pt-2 flex justify-end">
+                <div className="pt-2 flex justify-between items-center">
+                    <span className="text-[11px] text-slate-500">
+                        Skaner analizuje do <strong>{scanLimit || 100}</strong> autentycznych reklam na rynku polskim (PL).
+                    </span>
                     <button
                         onClick={handleStartScan}
                         disabled={isScanning || !query}
@@ -819,7 +908,32 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
 
             {/* KROK 3: WYNIKI SKANOWANIA (TOP WINNERS & MARKET INSIGHTS) */}
             {scanData && (
-                <div className="space-y-6 animate-in fade-in duration-300">
+                scanData.totalScanned === 0 ? (
+                    <div className="bg-amber-50 border border-amber-300 rounded-xl p-6 shadow-sm text-slate-800 space-y-3 animate-in fade-in duration-300">
+                        <div className="flex items-center gap-2 text-amber-800 font-black text-sm">
+                            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                            <span>Brak aktywnych reklam w bibliotece dla zapytania: "{query}" na rynku polskim (PL)</span>
+                        </div>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                            Zgodnie z polityką <strong>Zero-Fake Data</strong>, system nie generuje sztucznych atrap ani halucynacji konkurencji. Aby przeprowadzić analizę rynkową:
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                            <div className="bg-white p-3.5 rounded-lg border border-amber-200">
+                                <span className="font-bold text-xs text-indigo-700 block mb-1">1. Poszerz frazę</span>
+                                <span className="text-[11px] text-slate-600">Zamiast wąskiego SKU, podaj ogólną kategorię, np. "odświeżacz powietrza", "płyn do prania" lub nazwę marki.</span>
+                            </div>
+                            <div className="bg-white p-3.5 rounded-lg border border-amber-200">
+                                <span className="font-bold text-xs text-indigo-700 block mb-1">2. Podłącz Apify Dataset</span>
+                                <span className="text-[11px] text-slate-600">Rozwiń opcję "Apify API / Dataset ID" i wprowadź ID gotowego zbioru pobranego z aktora Facebook Ads Scraper.</span>
+                            </div>
+                            <div className="bg-white p-3.5 rounded-lg border border-amber-200">
+                                <span className="font-bold text-xs text-indigo-700 block mb-1">3. Wklej JSON</span>
+                                <span className="text-[11px] text-slate-600">Skorzystaj z opcji "+ Wklej własny JSON", by przetworzyć wyeksportowaną listę reklam konkurencji.</span>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-6 animate-in fade-in duration-300">
                     
                     {/* Insights Box */}
                     <div className="bg-slate-900 text-white rounded-xl p-6 shadow-md border border-slate-800">
@@ -960,7 +1074,8 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                         </div>
                     )}
                 </div>
-            )}
+            )
+        )}
 
             {/* KROK 4: WYGENEROWANE ASSETY (STATYKI & REELS) Z PRZYCISKIEM KOREKTY HITL */}
             {generatedAssets.length > 0 && (

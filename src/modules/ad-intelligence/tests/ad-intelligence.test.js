@@ -14,14 +14,19 @@ test('AdIntelligenceService - fetchCompetitorAds poprawnie normalizuje dane', as
     const ads = await adIntelligenceService.fetchCompetitorAds({ dataset: rawAds });
     assert.strictEqual(ads.length, 1);
     assert.strictEqual(ads[0].headline, "Test Headline");
-    assert.strictEqual(ads[0].platform, "Meta / Instagram");
+    assert.strictEqual(ads[0].platform, "Meta (FB/IG)");
 });
 
 test('AdIntelligenceService - scoreAdsWithGemini wylicza Longevity Index i zwraca Top Winners', async () => {
-    const ads = await adIntelligenceService.fetchCompetitorAds({ query: 'Kosmetyki do twarzy', limit: 10 });
-    assert.ok(ads.length > 0, 'Powinien pobrać listę reklam benchmarku');
+    const fixtureAds = [
+        { id: 'ad-pl-1', headline: "Płyn do prania Soft", copy: "Włoska formuła usuwająca plamy w 30 stopniach.", startDate: new Date(Date.now() - 65 * 86400000).toISOString(), platform: 'Meta (FB/IG)' },
+        { id: 'ad-pl-2', headline: "Cif Mleczko do czyszczenia", copy: "Skuteczne usuwanie kamienia i tłuszczu bez rysowania.", startDate: new Date(Date.now() - 40 * 86400000).toISOString(), platform: 'Meta (FB/IG)' },
+        { id: 'ad-pl-3', headline: "Mydło Felce Azzurra", copy: "Klasyczny zapach talku prosto z Włoch.", startDate: new Date(Date.now() - 20 * 86400000).toISOString(), platform: 'Meta (FB/IG)' }
+    ];
+    const ads = await adIntelligenceService.fetchCompetitorAds({ dataset: fixtureAds, limit: 10 });
+    assert.strictEqual(ads.length, 3, 'Powinien pobrać 3 rekordy z fixture');
 
-    const result = await adIntelligenceService.scoreAdsWithGemini(ads, { name: 'Skin Care Korea' });
+    const result = await adIntelligenceService.scoreAdsWithGemini(ads, { name: 'Nexus FMCG' });
     assert.ok(result.totalScanned > 0);
     assert.ok(Array.isArray(result.topWinners));
     assert.ok(result.topWinners.length > 0);

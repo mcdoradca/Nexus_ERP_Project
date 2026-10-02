@@ -52,9 +52,10 @@ class AdIntelligenceController {
      */
     async scanAndAnalyze(req, res) {
         try {
-            const { query, dataset, brandProfile, limit, productId } = req.body;
+            const { query, dataset, brandProfile, limit, productId, apifyToken, apifyDatasetId } = req.body;
+            const safeLimit = Math.min(Math.max(parseInt(limit) || 50, 1), 300);
 
-            console.log(`[AdIntelligenceController] Otrzymano żądanie skanowania rynku dla: "${query || 'domyślna nisza'}" (Produkt ID: ${productId || 'brak'})...`);
+            console.log(`[AdIntelligenceController] Otrzymano żądanie skanowania rynku dla: "${query || 'produkt PIM'}" (Produkt ID: ${productId || 'brak'}, Limit PL: ${safeLimit})...`);
 
             // Pobieramy dane fizycznego produktu z PIM jeśli został wskazany
             let productData = null;
@@ -65,11 +66,18 @@ class AdIntelligenceController {
                 });
             }
 
-            // 1. Ingestia reklam
+            const effectiveQuery = (query || '').trim() || (productData ? productData.name : '');
+            if (!effectiveQuery && (!dataset || dataset.length === 0) && !apifyDatasetId) {
+                return res.status(400).json({ success: false, error: 'Wymagane jest podanie słowa kluczowego, nazwy marki, wyboru produktu z PIM lub datasetu Apify.' });
+            }
+
+            // 1. Ingestia reklam z autentycznych źródeł (Apify / Live Search / Meta API / Dataset)
             const ads = await adIntelligenceService.fetchCompetitorAds({
-                query: query || (productData ? productData.name : 'Kosmetyki do pielęgnacji'),
+                query: effectiveQuery,
                 dataset: dataset || null,
-                limit: limit ? parseInt(limit) : 50
+                apifyToken: apifyToken || null,
+                apifyDatasetId: apifyDatasetId || null,
+                limit: safeLimit
             });
 
             // 2. Scoring wielomodalny i analiza Time-Decay (Gemini 3.8 Flash)
@@ -96,7 +104,10 @@ class AdIntelligenceController {
                     salePrice: productData.salePrice,
                     imageUrl: productData.imageUrl,
                     images: productData.images
-                } : null
+                } : null,
+                notice: scoreResult.totalScanned === 0 
+                    ? 'Nie wykryto aktywnych reklam w bibliotece dla tego hasła w Polsce. Strategia została wygenerowana w oparciu o profil produktu z PIM.'
+                    : null
             });
         } catch (err) {
             console.error('[AdIntelligenceController] Błąd w scanAndAnalyze:', err);
