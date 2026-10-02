@@ -257,6 +257,9 @@ class CreativeStudioService {
         concatContent += `file '${framePaths[framePaths.length - 1].replace(/\\/g, '/')}'\n`;
         fs.writeFileSync(concatTxt, concatContent, 'utf8');
 
+        const silentWavPath = path.join(reelTempDir, 'silent.wav');
+        this._createSilentWav(silentWavPath, Math.ceil((scenes.length * durationPerScene) + 2));
+
         const outputMp4 = path.join(this.outputDir, `${fileId}.mp4`);
 
         try {
@@ -264,8 +267,7 @@ class CreativeStudioService {
                 ffmpeg()
                     .input(concatTxt)
                     .inputOptions(['-f', 'concat', '-safe', '0'])
-                    .input('anullsrc=channel_layout=stereo:sample_rate=44100')
-                    .inputOptions(['-f', 'lavfi'])
+                    .input(silentWavPath)
                     .outputOptions([
                         '-c:v', 'libx264',
                         '-pix_fmt', 'yuv420p',
@@ -275,7 +277,10 @@ class CreativeStudioService {
                     ])
                     .save(outputMp4)
                     .on('end', () => resolve(outputMp4))
-                    .on('error', (err) => reject(err));
+                    .on('error', (err) => {
+                        console.error('[CreativeStudio] FFmpeg video encode error:', err.message);
+                        reject(err);
+                    });
             });
         } finally {
             // Sprzątanie plików tymczasowych
@@ -296,6 +301,36 @@ class CreativeStudioService {
             adBudgetInfo: reelBrief.suggested_budget || '350 zł',
             notes: `Format Reels (9:16) zmontowany przez FFmpeg. Czas trwania: ~14s. Sceny: ${scenes.length}.`
         };
+    }
+
+    /**
+     * Generuje natywny, bezszumowy bufor WAV (PCM 16-bit stereo 44.1kHz)
+     * Eliminuje zależność od wirtualnego demuxera `-f lavfi`, który nie jest wkompilowany w Windows builds ffmpeg-static.
+     */
+    _createSilentWav(filePath, durationSec = 16, sampleRate = 44100) {
+        const numChannels = 2;
+        const bitsPerSample = 16;
+        const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+        const blockAlign = numChannels * (bitsPerSample / 8);
+        const dataSize = Math.floor(durationSec * byteRate);
+        const buffer = Buffer.alloc(44 + dataSize);
+
+        buffer.write('RIFF', 0);
+        buffer.writeUInt32LE(36 + dataSize, 4);
+        buffer.write('WAVE', 8);
+        buffer.write('fmt ', 12);
+        buffer.writeUInt32LE(16, 16);
+        buffer.writeUInt16LE(1, 20); // PCM
+        buffer.writeUInt16LE(numChannels, 22);
+        buffer.writeUInt32LE(sampleRate, 24);
+        buffer.writeUInt32LE(byteRate, 28);
+        buffer.writeUInt16LE(blockAlign, 32);
+        buffer.writeUInt16LE(bitsPerSample, 34);
+        buffer.write('data', 36);
+        buffer.writeUInt32LE(dataSize, 40);
+
+        fs.writeFileSync(filePath, buffer);
+        return filePath;
     }
 
     _escapeXml(str) {
