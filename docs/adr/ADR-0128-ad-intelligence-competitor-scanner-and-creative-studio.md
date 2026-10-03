@@ -29,23 +29,24 @@ Użytkownik zgłosił zapotrzebowanie na automatyzację procesu monitorowania ry
 
 4. **Konektory Rynkowe, Limit 300 Rekordów (Polska) & Polityka Zero-Fake:**
    - **Rygorystyczny Limit:** Ze względu na specyfikę rynku polskiego (PL), maksymalna liczba skanowanych rekordów została ograniczona do `max 300` (domyślnie 100).
-   - **Konektory Rynkowe:** Wprowadzono obsługę Apify Dataset ID / Actor Token, Meta Graph API (`ads_archive`) oraz Live Web Search Grounding przez Gemini z Google Search.
+   - **Konektory Rynkowe i Odporność Apify:** Wprowadzono obsługę Apify Dataset ID / Actor Token, Meta Graph API (`ads_archive`) oraz Live Web Search Grounding przez Gemini z Google Search. W przypadku wyczerpania bezpłatnego limitu konta Apify (np. błąd 400 `platform-feature-disabled` przy przekroczeniu miesięcznego progu), system nie załamuje procesu, lecz rejestruje czytelny log telemetryczny i automatycznie przechodzi na Live Web Search Grounding.
    - **Polityka Zero-Fake Data:** Całkowite usunięcie hardcoded atrap ("Skin Care Korea", mocków kosmetycznych). Jeśli biblioteka reklam nie zwróci wyników dla podanej frazy, system uczciwie wyświetla Empty State z instrukcją poszerzenia zapytania lub podłączenia ID datasetu Apify, zamiast halucynować nieistniejące reklamy.
-   - **Dynamiczne Uziemienie w PIM:** Automatyczne mapowanie dowolnego produktu z bazy Nexus ERP (np. chemia gospodarcza, kosmetyki, odświeżacze, narzędzia) do matrycy perswazyjnej.
 
-5. **Wielowarstwowy Silnik Kreacji Multimedialnych (`CreativeStudioService`):**
-   - **Statyki (1080x1080) z Shadow Baking:** Kompozycja fizycznego packshotu z PIM na nowoczesnym tle gradientowym. Pod packshotem wypalany jest wektorowy cień kontaktowy (SVG `feGaussianBlur`), eliminujący efekt zawieszenia w próżni. Typografia po lewej stronie uwzględnia wyliczone pole tekstowe bez kolizji z produktem.
-   - **Reels (9:16 - 1080x1920) z Klatkami Produktowymi:** Montaż 4 scen (Hook, Agitacja bólu, Rozwiązanie / Packshot z PIM, CTA) za pomocą `Sharp` + `fluent-ffmpeg`. Podkład audio z natywnego bufora PCM WAV eliminuje błędy `-f lavfi`.
+5. **Wielowarstwowy Silnik Kreacji Multimedialnych (`CreativeStudioService`) & Obsługa Produktów Spoza PIM:**
+   - **Brak Przymusu PIM & Czysty Start:** Formularz nie jest automatycznie przejmowany przez pierwszy produkt z PIM na mount. Użytkownik ma pełną swobodę wyboru produktu z PIM LUB podania dowolnego produktu rynkowego spoza bazy wraz z zewnętrznym adresem URL packshotu (`customProductImgUrl`).
+   - **Przycisk "Wyczyść formularz":** Umożliwia natychmiastowe zresetowanie wszystkich pól i odłączenie produktu PIM jednym kliknięciem.
+   - **Statyki (1080x1080) z Shadow Baking:** Kompozycja fizycznego packshotu (z PIM lub z zewnętrznego linku) na nowoczesnym tle gradientowym. Pod packshotem wypalany jest wektorowy cień kontaktowy (SVG `feGaussianBlur`), eliminujący efekt zawieszenia w próżni. Typografia po lewej stronie uwzględnia wyliczone pole tekstowe bez kolizji z produktem.
+   - **Reels (9:16 - 1080x1920) z Klatkami Produktowymi:** Montaż 4 scen (Hook, Agitacja bólu, Rozwiązanie / Packshot z PIM lub zewnętrzny, CTA) za pomocą `Sharp` + `fluent-ffmpeg`. Podkład audio z natywnego bufora PCM WAV eliminuje błędy `-f lavfi`.
    - **Odporność Produkcyjna (Supabase CDN + Base64):** Wygenerowane bufory są automatycznie wgrywane do bucketu `nexus-files` w Supabase Storage, zwracając globalny adres URL (`publicUrl`). Jednocześnie asset zwraca inline `base64DataUrl` i ścieżkę lokalną, co gwarantuje 100% niezawodności wyświetlania na produkcji `https://n-e-s.it`.
 
 6. **Studio Korekty HITL (Human-In-The-Loop) w `AdIntelligenceTool.jsx`:**
    - Przycisk "Edytuj / HITL" na każdej kreacji otwiera modal edycyjny.
-   - Użytkownik ma pełną swobodę korekty nagłówka, podtytułu, treści posta, CTA, budżetu, wyboru zdjęcia z galerii produktu PIM oraz napisów ekranowych każdej sceny Reels.
+   - Użytkownik ma pełną swobodę korekty nagłówka, podtytułu, treści posta, CTA, budżetu, wyboru zdjęcia z galerii produktu PIM lub własnego linku oraz napisów ekranowych każdej sceny Reels.
    - Dedykowany endpoint `POST /api/ad-intelligence/re-render-asset` pozwala na ponowne zrekomponowanie i wyrenderowanie grafiki lub wideo w locie.
 
 ## Weryfikacja i Testy
 - Zaktualizowano suitę testów `src/modules/ad-intelligence/tests/ad-intelligence.test.js`:
-  - 6/6 testów jednostkowych PASSED (w tym Shadow Baking, PIM integration, time-decay scoring, URL resolution, deterministic fixtures).
+  - 7/7 testów jednostkowych PASSED (w tym Shadow Baking, PIM integration, obsługa produktu spoza PIM z zewnętrznym packshotem, time-decay scoring, URL resolution, deterministic fixtures).
 - Suita regresyjna projektu `npm test`: **138/138 testów PASSED** (0 błędów, 0 regresji).
-- Kompilacja produkcyjna Vite: **`built in 4.24s`** bez błędów.
+- Kompilacja produkcyjna Vite: **`built in 7.78s`** bez błędów.
 

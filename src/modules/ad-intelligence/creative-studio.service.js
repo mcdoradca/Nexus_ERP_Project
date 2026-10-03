@@ -105,13 +105,14 @@ class CreativeStudioService {
      * Komponuje fizyczny packshot z PIM, wypieka wektorowy cień (Shadow Baking) i nakłada typografię
      */
     async generateStaticAd(adBrief, brandProfile = {}, productData = {}) {
-        const brandName = brandProfile.name || productData.brand?.name || 'NEXUS';
+        const brandName = brandProfile.name || productData.brand?.name || productData.name || 'NEXUS';
         const fileId = `static_${adBrief.id || Date.now()}_${Math.random().toString(36).substring(7)}`;
         const outputFileName = `${fileId}.png`;
         const outputPath = path.join(this.outputDir, outputFileName);
 
-        // 1. Ustalenie źródła zdjęcia produktu (z briefu lub z PIM)
+        // 1. Ustalenie źródła zdjęcia produktu (z briefu, profilu zewnętrznego lub z PIM)
         const productImgSource = adBrief.productImageUrl 
+            || brandProfile.customProductImgUrl
             || productData.imageUrl 
             || (Array.isArray(productData.images) && productData.images.length > 0 ? productData.images[0] : null);
 
@@ -299,13 +300,14 @@ class CreativeStudioService {
      * Montuje sceny z animowanym packshotem produktu i napisami ekranowymi
      */
     async generateReelsVideo(reelBrief, brandProfile = {}, productData = {}) {
-        const brandName = brandProfile.name || productData.brand?.name || 'NEXUS';
+        const brandName = brandProfile.name || productData.brand?.name || productData.name || 'NEXUS';
         const fileId = `reel_${reelBrief.id || Date.now()}_${Math.random().toString(36).substring(7)}`;
         const reelTempDir = path.join(this.tempDir, fileId);
         fs.mkdirSync(reelTempDir, { recursive: true });
 
-        // Ustalenie zdjęcia produktu
+        // Ustalenie zdjęcia produktu (z briefu, profilu zewnętrznego lub z PIM)
         const productImgSource = reelBrief.productImageUrl 
+            || brandProfile.customProductImgUrl
             || productData.imageUrl 
             || (Array.isArray(productData.images) && productData.images.length > 0 ? productData.images[0] : null);
 

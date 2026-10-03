@@ -19,6 +19,7 @@ import {
     Flame,
     Edit3,
     RefreshCw,
+    RotateCcw,
     X,
     Package,
     DollarSign
@@ -37,6 +38,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
     const [brandName, setBrandName] = useState('');
     const [brandUsp, setBrandUsp] = useState('');
     const [brandProof, setBrandProof] = useState('');
+    const [customProductImgUrl, setCustomProductImgUrl] = useState('');
     const [scanLimit, setScanLimit] = useState(100);
     const [apifyToken, setApifyToken] = useState('');
     const [apifyDatasetId, setApifyDatasetId] = useState('');
@@ -80,10 +82,8 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
             if (res.data && res.data.success) {
                 const prods = res.data.products || [];
                 setProductsList(prods);
-                // Automatycznie powiąż pierwszy produkt z bazy PIM, jeśli użytkownik jeszcze nic nie wybrał
-                if (!selectedProduct && prods.length > 0 && !query) {
-                    handleSelectProduct(prods[0]);
-                }
+                // Celowo NIE wybieramy automatycznie żadnego produktu z bazy PIM.
+                // Formularz pozostaje czysty i gotowy do wpisania dowolnego produktu/kategorii spoza PIM.
             }
         } catch (err) {
             console.error('Błąd pobierania produktów z PIM:', err);
@@ -107,6 +107,10 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
             setBrandName(extractedBrand);
         }
 
+        if (prod.imageUrl) {
+            setCustomProductImgUrl(prod.imageUrl);
+        }
+
         if (prod.features) {
             const featText = typeof prod.features === 'string' ? prod.features : JSON.stringify(prod.features);
             setBrandUsp(`Unikalna formuła: ${featText.replace(/[{"}\[\]]/g, ' ').trim().substring(0, 120)}`);
@@ -124,6 +128,22 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
 
     const handleClearSelectedProduct = () => {
         setSelectedProduct(null);
+    };
+
+    // Całkowite wyczyszczenie formularza i przywrócenie stanu początkowego
+    const handleResetForm = () => {
+        setSelectedProduct(null);
+        setProductSearch('');
+        setQuery('');
+        setBrandName('');
+        setBrandUsp('');
+        setBrandProof('');
+        setCustomProductImgUrl('');
+        setCustomDatasetJson('');
+        setApifyDatasetId('');
+        setScanData(null);
+        setGeneratedAssets([]);
+        setExportSuccessMessage(null);
     };
 
     // Bezpieczne rozwiązywanie adresu URL mediów (Supabase CDN vs ścieżka lokalna vs Base64)
@@ -172,7 +192,8 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                 brandProfile: {
                     name: brandName,
                     usp: brandUsp,
-                    proof: brandProof
+                    proof: brandProof,
+                    customProductImgUrl: customProductImgUrl.trim() || (selectedProduct?.imageUrl || null)
                 },
                 productId: selectedProduct ? selectedProduct.id : null,
                 limit: safeLimit
@@ -206,7 +227,12 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
         try {
             const res = await axios.post(`${API_URL}/api/ad-intelligence/generate-assets`, {
                 briefs: briefsToGenerate,
-                brandProfile: { name: brandName },
+                brandProfile: { 
+                    name: brandName,
+                    usp: brandUsp,
+                    proof: brandProof,
+                    customProductImgUrl: customProductImgUrl.trim() || (selectedProduct?.imageUrl || null)
+                },
                 productId: selectedProduct ? selectedProduct.id : null
             }, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -633,7 +659,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
             <div className="bg-white border border-slate-300 rounded-xl p-6 shadow-sm space-y-4">
                 <div className="border-b border-slate-200 pb-3 flex justify-between items-center">
                     <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center">
-                        <Package className="w-4 h-4 mr-2 text-indigo-600" /> 1. Powiąż z Produktem z Bazy PIM (Nexus ERP)
+                        <Package className="w-4 h-4 mr-2 text-indigo-600" /> 1. Powiąż z Produktem z Bazy PIM (Nexus ERP) — Opcjonalnie
                     </h2>
                     {selectedProduct && (
                         <button 
@@ -647,6 +673,9 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
 
                 {!selectedProduct ? (
                     <div className="space-y-3">
+                        <p className="text-[11px] text-slate-500">
+                            Wybór produktu z bazy PIM jest opcjonalny. Pozwala automatycznie załadować dane i zdjęcia z katalogu ERP. Możesz również pominąć ten krok i wprowadzić dowolny produkt rynkowy poniżej.
+                        </p>
                         <div className="flex gap-2">
                             <div className="relative flex-1">
                                 <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
@@ -765,6 +794,14 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                     </div>
                     <div className="flex items-center gap-3">
                         <button 
+                            onClick={handleResetForm}
+                            title="Wyczyść wszystkie pola formularza"
+                            className="text-[11px] font-bold text-slate-500 hover:text-rose-600 transition-colors flex items-center gap-1 bg-slate-100 hover:bg-rose-50 px-2.5 py-1 rounded-md border border-slate-200 hover:border-rose-200"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5" /> Wyczyść formularz
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button 
                             onClick={() => setShowAdvancedApify(!showAdvancedApify)}
                             className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
                         >
@@ -837,6 +874,26 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                             placeholder="np. Certyfikat UE, badania jakościowe, oficjalna dystrybucja"
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
                         />
+                    </div>
+
+                    <div className="md:col-span-12">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
+                            URL Packshotu / Zdjęcia Produktu (Opcjonalnie - dla produktów spoza PIM lub własnego zdjęcia)
+                        </label>
+                        <div className="flex gap-2">
+                            <input 
+                                type="url"
+                                value={customProductImgUrl}
+                                onChange={e => setCustomProductImgUrl(e.target.value)}
+                                placeholder="https://... (np. bezpośredni link do zdjęcia butelki / opakowania w formacie PNG/JPG)"
+                                className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono focus:bg-white focus:border-indigo-500 outline-none"
+                            />
+                            {customProductImgUrl && (
+                                <div className="w-9 h-9 rounded border border-slate-300 overflow-hidden bg-white shrink-0 flex items-center justify-center p-0.5 shadow-sm">
+                                    <img src={customProductImgUrl} alt="Podgląd" className="w-full h-full object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 

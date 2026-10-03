@@ -57,13 +57,24 @@ class AdIntelligenceController {
 
             console.log(`[AdIntelligenceController] Otrzymano żądanie skanowania rynku dla: "${query || 'produkt PIM'}" (Produkt ID: ${productId || 'brak'}, Limit PL: ${safeLimit})...`);
 
-            // Pobieramy dane fizycznego produktu z PIM jeśli został wskazany
+            // Pobieramy dane fizycznego produktu z PIM jeśli został wskazany, lub tworzymy syntetyczny profil produktu spoza PIM
             let productData = null;
             if (productId) {
                 productData = await prisma.product.findUnique({
                     where: { id: productId },
                     include: { brand: true }
                 });
+            } else if (brandProfile && (brandProfile.name || brandProfile.customProductImgUrl || brandProfile.usp)) {
+                productData = {
+                    id: null,
+                    name: brandProfile.name || query || 'Produkt',
+                    imageUrl: brandProfile.customProductImgUrl || null,
+                    images: brandProfile.customProductImgUrl ? [brandProfile.customProductImgUrl] : [],
+                    salePrice: brandProfile.salePrice || null,
+                    brand: { name: brandProfile.name || 'Nasza Marka' },
+                    features: brandProfile.usp || null,
+                    descriptionHtml: brandProfile.proof || null
+                };
             }
 
             const effectiveQuery = (query || '').trim() || (productData ? productData.name : '');
@@ -100,7 +111,7 @@ class AdIntelligenceController {
                 product: productData ? {
                     id: productData.id,
                     name: productData.name,
-                    sku: productData.sku,
+                    sku: productData.sku || 'Spoza PIM',
                     salePrice: productData.salePrice,
                     imageUrl: productData.imageUrl,
                     images: productData.images
@@ -135,6 +146,17 @@ class AdIntelligenceController {
                     where: { id: productId },
                     include: { brand: true }
                 });
+            } else if (brandProfile && (brandProfile.name || brandProfile.customProductImgUrl || brandProfile.usp)) {
+                productData = {
+                    id: null,
+                    name: brandProfile.name || 'Produkt',
+                    imageUrl: brandProfile.customProductImgUrl || null,
+                    images: brandProfile.customProductImgUrl ? [brandProfile.customProductImgUrl] : [],
+                    salePrice: brandProfile.salePrice || null,
+                    brand: { name: brandProfile.name || 'Nasza Marka' },
+                    features: brandProfile.usp || null,
+                    descriptionHtml: brandProfile.proof || null
+                };
             }
 
             console.log(`[AdIntelligenceController] Rozpoczynam generowanie ${briefs.length} assetów multimedialnych dla produktu "${productData?.name || 'ogólnego'}"...`);
@@ -183,6 +205,17 @@ class AdIntelligenceController {
                     where: { id: productId },
                     include: { brand: true }
                 });
+            } else if (brandProfile && (brandProfile.name || brandProfile.customProductImgUrl || brandProfile.usp)) {
+                productData = {
+                    id: null,
+                    name: brandProfile.name || 'Produkt',
+                    imageUrl: brandProfile.customProductImgUrl || null,
+                    images: brandProfile.customProductImgUrl ? [brandProfile.customProductImgUrl] : [],
+                    salePrice: brandProfile.salePrice || null,
+                    brand: { name: brandProfile.name || 'Nasza Marka' },
+                    features: brandProfile.usp || null,
+                    descriptionHtml: brandProfile.proof || null
+                };
             }
 
             console.log(`[AdIntelligenceController] HITL Re-render assetu: "${brief.headline || brief.title || brief.id}"...`);

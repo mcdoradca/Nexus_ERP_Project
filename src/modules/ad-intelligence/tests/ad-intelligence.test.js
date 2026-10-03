@@ -144,3 +144,36 @@ test('AdIntelligenceController - exportToSmi waliduje wymagane parametry', async
     assert.strictEqual(statusCode, 400);
     assert.strictEqual(jsonResult.success, false);
 });
+
+test('AdIntelligenceService & CreativeStudio - obsługa produktu spoza bazy PIM (zewnętrzny packshot URL i brandProfile)', async () => {
+    const brandProfile = {
+        name: 'Air Wick Polska',
+        customProductImgUrl: 'https://images.unsplash.com/photo-1527799820374-dcf8d9d4a388',
+        usp: 'Naturalne olejki eteryczne i świeżość do 120 dni',
+        proof: 'Certyfikat jakości, testy laboratoryjne'
+    };
+
+    const strategy = await adIntelligenceService.synthesizeAnglesAndHooks({
+        topWinners: [
+            { extractedHook: "Twój dom nie pachnie tak świeżo jak myślisz", keyAngle: "Czystość i komfort", activeDays: 45, whyItWorks: "Zwrócenie uwagi na niezauważalny problem" }
+        ],
+        marketInsights: {
+            dominant_hooks: ["Długotrwały zapach"],
+            saturated_claims: ["100% natury"],
+            blue_ocean_angles: ["Neutralizacja cząsteczkowa"]
+        },
+        brandProfile,
+        productData: {} // Celowo pusty - produkt spoza bazy PIM
+    });
+
+    assert.ok(strategy.static_ad_briefs.length > 0, 'Briefy statyczne muszą powstać');
+    const firstBrief = strategy.static_ad_briefs[0];
+    assert.strictEqual(firstBrief.productImageUrl, brandProfile.customProductImgUrl, 'Brief musi zawierać zewnętrzny packshot URL');
+    assert.strictEqual(firstBrief.productName, brandProfile.name, 'Brief musi zawierać nazwę marki produktu zewnętrznego');
+
+    // Test generacji fizycznego statyku dla produktu spoza PIM
+    const staticAsset = await creativeStudioService.generateStaticAd(firstBrief, brandProfile, {});
+    assert.ok(staticAsset.mediaUrl, 'mediaUrl musi być ustawione');
+    assert.strictEqual(staticAsset.productImageUrl, brandProfile.customProductImgUrl);
+    assert.strictEqual(staticAsset.mediaType, 'image');
+});

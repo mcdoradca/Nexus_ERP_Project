@@ -1,15 +1,23 @@
 const axios = require('axios');
 const { GoogleGenAI } = require('@google/genai');
 
-const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-    httpOptions: { timeout: 90000 }
-}) : null;
+let _aiInstance = null;
+function getAi() {
+    if (_aiInstance) return _aiInstance;
+    const key = process.env.GEMINI_API_KEY;
+    if (key) {
+        _aiInstance = new GoogleGenAI({
+            apiKey: key,
+            httpOptions: { timeout: 90000 }
+        });
+    }
+    return _aiInstance;
+}
 
 /**
  * AdIntelligenceService
  * Multi-Agent Swarm do skanowania reklam konkurencji (Apify / Live Web Search / Meta Ad Library),
- * rygorystycznej oceny Time-Decay (Longevity Index) oraz syntezy 28 hooków dopasowanych do PIM.
+ * rygorystycznej oceny Time-Decay (Longevity Index) oraz syntezy 28 hooków dopasowanych do PIM i produktów zewnętrznych.
  * ZERO PLACEHOLDERÓW - W 100% autentyczne dane z sieci i bazy Nexus ERP.
  */
 class AdIntelligenceService {
@@ -59,7 +67,7 @@ class AdIntelligenceService {
         }
 
         // 4. Autentyczny Live Web Search Grounding przez Gemini z Google Search (Polska)
-        if (query && ai) {
+        if (query) {
             const liveAds = await this._liveSearchAdsWithGemini(query, safeLimit);
             if (liveAds && liveAds.length > 0) {
                 return liveAds;
@@ -170,6 +178,7 @@ DANE REKLAM DO OCENY:
 ${JSON.stringify(promptBatch, null, 2)}`;
 
         let evaluatedResult = null;
+        const ai = getAi();
         if (ai) {
             try {
                 const resp = await ai.models.generateContent({
@@ -240,14 +249,14 @@ ${JSON.stringify(promptBatch, null, 2)}`;
         const brandUsp = brandProfile?.usp || 'Certyfikowana jakość, transparentny skład, gwarancja satysfakcji i szybka realizacja';
         const brandProof = brandProfile?.proof || 'Zgodność z normami UE i GPSR, testy jakościowe, tysiące zadowolonych klientów';
 
-        // Ekstrakcja danych fizycznego produktu z PIM
-        const prodName = productData?.name || brandName;
-        const prodPrice = productData?.salePrice ? `${Number(productData.salePrice).toFixed(2)} zł` : '';
+        // Ekstrakcja danych fizycznego produktu z PIM lub danych zewnętrznych
+        const prodName = productData?.name || brandProfile?.name || brandName;
+        const prodPrice = productData?.salePrice ? `${Number(productData.salePrice).toFixed(2)} zł` : (brandProfile?.price ? `${brandProfile.price} zł` : '');
         const prodFeatures = productData?.features 
             ? (typeof productData.features === 'string' ? productData.features : JSON.stringify(productData.features))
-            : 'Formuła wysokiej wydajności, certyfikowane bezpieczeństwo';
+            : (brandProfile?.usp || 'Formuła wysokiej wydajności, certyfikowane bezpieczeństwo');
         
-        const rawDesc = productData?.descriptionHtml || '';
+        const rawDesc = productData?.descriptionHtml || brandProfile?.proof || '';
         const prodCleanDesc = rawDesc.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim().substring(0, 500);
 
         const creativeMatrixSchema = {
@@ -367,6 +376,7 @@ KRYTYCZNE ZASADY JAKOŚCI COPYWRITINGU:
 5. 4 briefy reklam statycznych oraz 2 scenariusze dynamicznych Reels oparte na "${prodName}".`;
 
         let strategyOutput = null;
+        const ai = getAi();
 
         if (ai) {
             try {
@@ -398,14 +408,14 @@ KRYTYCZNE ZASADY JAKOŚCI COPYWRITINGU:
                     strategyOutput = JSON.parse(parsedText);
                 } catch (err2) {
                     console.error('[AdIntelligence] Błąd krytyczny syntezy LLM:', err2.message);
-                    strategyOutput = this._deterministicFallbackMatrix(brandName, brandUsp, productData);
+                    strategyOutput = this._deterministicFallbackMatrix(brandName, brandUsp, productData, brandProfile);
                 }
             }
         } else {
-            strategyOutput = this._deterministicFallbackMatrix(brandName, brandUsp, productData);
+            strategyOutput = this._deterministicFallbackMatrix(brandName, brandUsp, productData, brandProfile);
         }
 
-        return this._postProcessStrategyResult(strategyOutput, productData);
+        return this._postProcessStrategyResult(strategyOutput, productData, brandProfile);
     }
 
     /**
@@ -509,7 +519,14 @@ Zwróć odpowiedź w formacie JSON z tablicą obiektów w polu "ads". Jeśli dla
                     return this._normalizeAds(res.data);
                 }
             } catch (err) {
-                console.warn(`[AdIntelligence] Błąd wykonania aktora Apify: ${err.message}`);
+                const isLimitError = err.response?.data?.error?.message?.includes('Monthly usage hard limit') 
+                    || err.response?.data?.error?.type === 'platform-feature-disabled'
+                    || (err.message && err.message.includes('400'));
+                if (isLimitError) {
+                    console.warn(`[AdIntelligence] Apify zgłosił wyczerpanie miesięcznego limitu konta ($7.00 Hard Limit). Płynny fallback na autentyczny Gemini Live Web Search Grounding.`);
+                } else {
+                    console.warn(`[AdIntelligence] Błąd wykonania aktora Apify: ${err.message}`);
+                }
             }
         }
 
@@ -522,9 +539,9 @@ Zwróć odpowiedź w formacie JSON z tablicą obiektów w polu "ads". Jeśli dla
     _normalizeAds(dataset) {
         return dataset.map((item, idx) => {
             const headline = item.headline || item.title || item.ad_title || item.adTitle || item.ad_creative_link_titles?.[0] || '';
-            const copy = item.copy || item.text || item.ad_text || item.adBody || item.body || item.description || item.adDescription || '';
+            const copy = item.copy || item.text || item.ad_text || item.adBody || item.body || item.ad_creative_bodies?.[0] || item.description || item.adDescription || '';
             const platform = item.platform || (Array.isArray(item.publisherPlatform) ? item.publisherPlatform.join('/') : 'Meta (FB/IG)');
-            const advertiser = item.advertiser || item.pageName || item.brand || null;
+            const advertiser = item.advertiser || item.pageName || item.page_name || item.brand || null;
             const startDate = item.startDate || item.ad_delivery_start_time || item.created_at || item.adCreationTime || new Date(Date.now() - 25 * 86400000).toISOString();
 
             return {
@@ -566,13 +583,16 @@ Zwróć odpowiedź w formacie JSON z tablicą obiektów w polu "ads". Jeśli dla
     }
 
     /**
-     * Post-processing i sanityzacja strategii
+     * Post-processing i sanityzacja strategii z uwzględnieniem profilu marki / produktu spoza PIM
      */
-    _postProcessStrategyResult(strategy, productData = {}) {
+    _postProcessStrategyResult(strategy, productData = {}, brandProfile = {}) {
         if (!strategy) return strategy;
 
         const defaultProductImg = productData?.imageUrl 
+            || brandProfile?.customProductImgUrl
             || (Array.isArray(productData?.images) && productData.images.length > 0 ? productData.images[0] : null);
+
+        const targetProdName = productData?.name || brandProfile?.name || null;
 
         if (Array.isArray(strategy.static_ad_briefs)) {
             strategy.static_ad_briefs = strategy.static_ad_briefs.map((brief, idx) => {
@@ -582,7 +602,7 @@ Zwróć odpowiedź w formacie JSON z tablicą obiektów w polu "ads". Jeśli dla
                 if (!subheadline || headline.toLowerCase() === subheadline.toLowerCase() || subheadline.length < 10) {
                     subheadline = productData.salePrice 
                         ? `Certyfikowana jakość UE. Cena: ${Number(productData.salePrice).toFixed(2)} zł. Dostawa 24h.`
-                        : `Potwierdzona skuteczność w testach jakościowych. Standard UE.`;
+                        : (brandProfile?.proof || `Potwierdzona skuteczność w testach jakościowych. Standard UE.`);
                 }
 
                 return {
@@ -591,7 +611,7 @@ Zwróć odpowiedź w formacie JSON z tablicą obiektów w polu "ads". Jeśli dla
                     headline,
                     subheadline,
                     productImageUrl: defaultProductImg,
-                    productName: productData?.name || null
+                    productName: targetProdName
                 };
             });
         }
@@ -601,7 +621,7 @@ Zwróć odpowiedź w formacie JSON z tablicą obiektów w polu "ads". Jeśli dla
                 ...reel,
                 id: reel.id || `REEL_${idx + 1}`,
                 productImageUrl: defaultProductImg,
-                productName: productData?.name || null
+                productName: targetProdName
             }));
         }
 
