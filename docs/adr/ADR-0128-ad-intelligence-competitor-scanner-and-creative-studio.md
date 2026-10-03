@@ -52,10 +52,24 @@ Użytkownik zgłosił zapotrzebowanie na automatyzację procesu monitorowania ry
    - **Eliminacja Błędu Referencyjnego w Skanerze Gemini:** Naprawiono błąd braku instancji klienta `ai` w `_liveSearchAdsWithGemini`, który powodował fałszywy pusty wynik `[]` przy wyczerpaniu limitu Apify. Wdrożono odporne parsowanie JSON z Live Search Grounding (Google Search) oraz rozszerzone wyszukiwanie polskich kampanii marketingowych.
    - **Agent Autouzupełniania z Sieci (`POST /api/ad-intelligence/enrich-product`):** Po wpisaniu nazwy marki lub produktu w polu formularza, agent autonomicznie odnajduje oficjalną witrynę producenta lub e-sklepu w Polsce, wyciąga kluczowe parametry (USP, certyfikaty/proof, opis, kategorię i bezpośrednie zdjęcie) i automatycznie uzupełnia formularz.
    - **Odblokowanie Generowania Kreacji przy 0 Reklamach & Tryb Bezpośredni:** Usunięto błąd widoku w `AdIntelligenceTool.jsx`, który ukrywał 28 haczyków i przycisk generowania grafik/wideo przy zerowym wyniku skanera. Wprowadzono również przycisk **„⚡ Generuj Własne Kreacje Bezpośrednio”** (`directGeneration: true`), który pozwala na natychmiastową syntezę i render kreacji z danych produktu bez czekania na skaner konkurencji.
+9. **Ekstrakcja Szczegółów Reklam i Linków Sklepowych w „Zwycięskich Kreacjach Konkurencji”:**
+   - Do modeli Gemini (`_liveSearchAdsWithGemini` i `scoreAdsWithGemini`) dodano ekstrakcję i mapowanie: `adUrl` / `snapshotUrl` (bezpośredni link do reklamy lub podglądu w bibliotece), `productUrl` (bezpośredni link do promowanego e-sklepu / karty produktu) oraz `productName` (pełna nazwa reklamowanego przedmiotu).
+   - W UI karty zwycięzców wzbogacono o klikalne odnośniki zewnętrzne (`🔗 Zobacz reklamę ↗`, `🛍️ Oferta / Sklep ↗`) oraz wyróżnioną plakietkę nazwy produktu.
+10. **Nieograniczona i Wielowymiarowa Analiza Rynkowa:**
+    - Usunięto sztuczne ograniczenie do 3 punktów. Model zwraca pełną, wielowymiarową syntezę rynkową: Podsumowanie Wykonawcze (`executiveSummary`), Dominujące Haczyki w PL (`dominantHooksInPoland`), Nasycone Obietnice / Czerwony Ocean (`saturatedClaimsRedOcean`), Niewykorzystane Kąty / Błękitny Ocean (`blueOceanAngles`), Analiza Ofert i Cen (`pricingAndOfferStructures`), oraz Wyzwalacze Emocjonalne Odbiorców (`audienceEmotionalTriggers`).
+11. **Dyrektor Promptów AI w 100% po Polsku (`PromptDirectorService`) & Lifting Wizualny Sharp Studio Podium:**
+    - **Nowy Agent AI (`PromptDirectorService`):** Wyspecjalizowany agent generujący 5 kompletnych, produkcyjnych promptów w języku polskim dla nowoczesnych silników graficznych i wideo:
+      1. `nano_banana_packshot` – fotorealistyczny packshot produktowy na neutralnym/podium tle (Nano Banana / Midjourney).
+      2. `omni_rich_content` – infografika i karta Rich Content A+ z rozbiciem cech, mikro-ikonami i certyfikatami (Liblib / OmniGen).
+      3. `reels_video_flow` – scenariusz klatka po klatce dla dynamicznego wideo 9:16 (Google Vids / Google Flow / Kling AI).
+      4. `story_tiktok_viral` – viralowy format pionowy z dynamicznym hookiem w pierwszych 2 sekundach (TikTok / Runway Gen-3).
+      5. `macro_details` – zbliżenie makro tekstury, składu i jakości wykonania (DALL-E 3 / Flux).
+      - Wszystkie prompty są generowane w bogatym, technicznym języku polskim (światło studyjne, optyka, tekstury) i wyposażone w przycisk kopiowania 1-kliknięciem w UI oraz w modalu HITL.
+    - **Commercial Showcase Podium (Sharp):** Zastąpiono płaskie kompozyty nowoczesnym, 4-motywowym layoutem studyjnym (`Cyber Indigo`, `Sunset Coral`, `Emerald Botanic`, `Obsidian Gold`). Packshot osadzony jest w zaokrąglonej kapsule ze szkła akrylowego (Frosted Glass) z podwójnym cieniem kontaktowym, ambientowym rim-lightingiem, oceną 5 gwiazdek (`★ ★ ★ ★ ★ 4.9/5`), listą korzyści z checkmarkami (`✓`), wstęgą promocyjną i trójwymiarowym przyciskiem CTA.
 
 ## Weryfikacja i Testy
 - Zaktualizowano suitę testów `src/modules/ad-intelligence/tests/ad-intelligence.test.js`:
-  - 10/10 testów jednostkowych PASSED (w tym Shadow Baking, PIM integration, obsługa produktu spoza PIM, bezpośredni upload pliku z dysku, autouzupełnianie z sieci przez agenta OSINT, tryb natychmiastowej bezpośredniej generacji strategii, time-decay scoring, URL resolution, deterministic fixtures).
-- Suita regresyjna projektu `npm test`: **138+ testów PASSED** (0 błędów, 0 regresji).
-- Kompilacja produkcyjna Vite: **`built in 1.71s`** bez błędów.
+  - 12/12 testów jednostkowych PASSED (w tym PromptDirectorService w j. polskim, generowanie promptów dla 5 silników, wzbogacanie briefów, Commercial Showcase Podium, upload materiałów, obsługa produktów spoza PIM, bezpośrednia generacja).
+- Suita regresyjna projektu `npm test`: **138/138 testów PASSED** (0 błędów, 0 regresji).
+- Kompilacja produkcyjna Vite: **`built in 5.56s`** bez błędów.
 

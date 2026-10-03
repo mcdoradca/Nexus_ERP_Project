@@ -295,3 +295,63 @@ test('AdIntelligenceController - scanAndAnalyze z directGeneration generuje stra
     assert.ok(resJson.strategy.hooks_28 && resJson.strategy.hooks_28.length === 28, 'Musi zawierać 28 haczyków');
     assert.ok(resJson.strategy.static_ad_briefs && resJson.strategy.static_ad_briefs.length > 0, 'Musi zawierać briefy statyczne');
 });
+
+test('PromptDirectorService - generuje 5 profesjonalnych promptów AI w 100% po polsku', async () => {
+    const promptDirectorService = require('../prompt-director.service');
+    const brief = {
+        headline: "Czystość bez szorowania",
+        subheadline: "Certyfikowana formuła z minerałami",
+        body_copy: "Usuwa 100% kamienia i tłuszczu z powierzchni kuchennych.",
+        productName: "Cif Ultra Mleczko"
+    };
+
+    const prompts = await promptDirectorService.generateProductionPrompts({
+        brief,
+        brandProfile: { name: 'Cif Polska', usp: 'Mikrogranulki czyszczące' },
+        productData: { name: 'Cif Ultra Mleczko' }
+    });
+
+    assert.ok(prompts, 'Obiekt promptów musi istnieć');
+    assert.ok(prompts.nano_banana_packshot, 'Musi zawierać prompt dla Nano Banana');
+    assert.ok(prompts.omni_rich_content, 'Musi zawierać prompt dla OmniGen');
+    assert.ok(prompts.reels_video_flow, 'Musi zawierać prompt dla Google Flow');
+    assert.ok(prompts.story_tiktok_viral, 'Musi zawierać prompt dla TikTok UGC');
+    assert.ok(prompts.macro_details, 'Musi zawierać prompt makro detali');
+
+    // Weryfikacja języka polskiego - brak typowo angielskich zwrotów placeholders
+    assert.match(prompts.nano_banana_packshot, /[ąćęłńóśźż]/i, 'Prompt Nano Banana musi być po polsku z polskimi znakami');
+    assert.match(prompts.reels_video_flow, /[ąćęłńóśźż]/i, 'Prompt wideo Flow musi być po polsku z polskimi znakami');
+});
+
+test('AdIntelligenceService - scoreAdsWithGemini zachowuje linki do reklam i produktów oraz zwraca bogatą analizę rynkową', async () => {
+    const adsWithLinks = [
+        {
+            id: 'ad-winner-1',
+            advertiser: 'Cif Polska',
+            productName: 'Cif Mleczko Cytrynowe 750ml',
+            headline: 'Lśniąca kuchnia w 30 sekund',
+            copy: 'Odkryj moc mikrokryształków. Sprawdź ofertę na oficjalnej stronie.',
+            startDate: new Date(Date.now() - 50 * 86400000).toISOString(),
+            adUrl: 'https://www.facebook.com/ads/library/?id=123456789',
+            productUrl: 'https://cif.pl/produkty/mleczko-cytrynowe'
+        }
+    ];
+
+    const result = await adIntelligenceService.scoreAdsWithGemini(adsWithLinks, { name: 'Cif' });
+    assert.strictEqual(result.topWinners.length, 1);
+    const winner = result.topWinners[0];
+
+    // Sprawdzamy czy linki i nazwa produktu zostały nienaruszone
+    assert.strictEqual(winner.productName, 'Cif Mleczko Cytrynowe 750ml');
+    assert.strictEqual(winner.adUrl, 'https://www.facebook.com/ads/library/?id=123456789');
+    assert.strictEqual(winner.productUrl, 'https://cif.pl/produkty/mleczko-cytrynowe');
+
+    // Sprawdzamy czy analiza rynkowa nie jest ograniczona do 3 pozycji i zawiera bogate sekcje
+    assert.ok(result.marketInsights.dominant_hooks.length > 0);
+    assert.ok(result.marketInsights.saturated_claims.length > 0);
+    assert.ok(result.marketInsights.blue_ocean_angles.length > 0);
+    assert.ok(Array.isArray(result.marketInsights.pricing_and_offers), 'Musi zawierać sekcję ofert cenowych');
+    assert.ok(Array.isArray(result.marketInsights.audience_triggers), 'Musi zawierać triggery audytorium');
+    assert.ok(typeof result.marketInsights.executive_summary === 'string', 'Musi zawierać podsumowanie wykonawcze');
+});
+

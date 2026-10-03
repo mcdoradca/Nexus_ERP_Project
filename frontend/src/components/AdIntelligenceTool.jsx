@@ -26,8 +26,164 @@ import {
     UploadCloud,
     FileUp,
     FileText,
-    Trash2
+    Trash2,
+    ExternalLink
 } from 'lucide-react';
+
+// Komponent do prezentacji i błyskawicznego kopiowania (1-klik) promptów AI w 100% po polsku
+// Przystosowany do: Nano Banana, OmniGen / Liblib, Google Flow, Kling AI, TikTok / Reels UGC, Makro Detale
+const AiPromptsViewer = ({ prompts, defaultExpanded = false }) => {
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+    const [activeKey, setActiveKey] = useState('nano_banana_packshot');
+    const [copiedKey, setCopiedKey] = useState(null);
+
+    if (!prompts || typeof prompts !== 'object' || Object.keys(prompts).length === 0) return null;
+
+    const promptConfigs = [
+        { 
+            key: 'nano_banana_packshot', 
+            icon: '🍌', 
+            name: 'Nano Banana', 
+            tool: 'Nano Banana / Flux.1 / Midjourney',
+            badge: 'Packshot Studyjny E-commerce'
+        },
+        { 
+            key: 'omni_rich_content', 
+            icon: '📦', 
+            name: 'OmniGen', 
+            tool: 'OmniGen / Liblib AI',
+            badge: 'Rich Content A+ (1:1)'
+        },
+        { 
+            key: 'reels_video_flow', 
+            icon: '🎬', 
+            name: 'Google Flow', 
+            tool: 'Google Flow / Kling / Runway',
+            badge: 'Wideo Reels 9:16 (Motion)'
+        },
+        { 
+            key: 'story_tiktok_viral', 
+            icon: '📱', 
+            name: 'TikTok Viral', 
+            tool: 'TikTok / Stories 9:16',
+            badge: 'Natywny UGC Hook'
+        },
+        { 
+            key: 'macro_details', 
+            icon: '🔬', 
+            name: 'Makro Detal', 
+            tool: 'Nano Banana / Flux Macro',
+            badge: 'Zbliżenie Składników & Etykiety'
+        }
+    ];
+
+    const currentText = prompts[activeKey] || Object.values(prompts)[0] || '';
+
+    const handleCopy = (text, key) => {
+        if (!text) return;
+        navigator.clipboard.writeText(text);
+        setCopiedKey(key);
+        setTimeout(() => setCopiedKey(null), 2500);
+    };
+
+    return (
+        <div className="mt-3 bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 border border-slate-800 rounded-xl p-3 text-white shadow-md">
+            <div className="flex flex-wrap justify-between items-center gap-2">
+                <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="flex items-center gap-2 text-left hover:opacity-90 transition-opacity"
+                >
+                    <span className="p-1 bg-amber-400/20 text-amber-400 rounded-md">
+                        <Sparkles className="w-3.5 h-3.5" />
+                    </span>
+                    <div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-black uppercase tracking-wider text-amber-400">
+                                Prompty AI (100% Polski)
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-400/10 text-amber-300 font-bold border border-amber-400/30">
+                                5 Generatorów
+                            </span>
+                        </div>
+                        <p className="text-[9px] text-slate-400">
+                            Nano Banana • OmniGen • Google Flow • Kling • TikTok
+                        </p>
+                    </div>
+                </button>
+
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => handleCopy(currentText, activeKey)}
+                        className={`px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm ${
+                            copiedKey === activeKey
+                                ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
+                                : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                        }`}
+                        title="Kliknij, aby skopiować prompt do schowka"
+                    >
+                        {copiedKey === activeKey ? (
+                            <><CheckCircle2 className="w-3 h-3" /> Skopiowano!</>
+                        ) : (
+                            <><Copy className="w-3 h-3" /> Kopiuj Prompt</>
+                        )}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="text-[10px] text-slate-400 hover:text-white px-1.5 py-0.5"
+                    >
+                        {isExpanded ? 'Zwiń ▲' : 'Rozwiń ▼'}
+                    </button>
+                </div>
+            </div>
+
+            {isExpanded && (
+                <div className="mt-3 pt-2.5 border-t border-slate-800 animate-in fade-in duration-200">
+                    {/* Przyciski wyboru promptu */}
+                    <div className="flex gap-1.5 overflow-x-auto pb-2 custom-scrollbar">
+                        {promptConfigs.map(cfg => {
+                            const val = prompts[cfg.key];
+                            if (!val) return null;
+                            const isActive = activeKey === cfg.key;
+                            return (
+                                <button
+                                    key={cfg.key}
+                                    type="button"
+                                    onClick={() => setActiveKey(cfg.key)}
+                                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 shrink-0 transition-all ${
+                                        isActive 
+                                            ? 'bg-amber-400 text-slate-950 shadow-md ring-1 ring-amber-300 font-black' 
+                                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                                    }`}
+                                >
+                                    <span>{cfg.icon}</span>
+                                    <span>{cfg.name}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Treść promptu do wklejenia */}
+                    <div className="mt-2 bg-slate-950 rounded-lg p-2.5 border border-slate-800/80">
+                        <div className="flex justify-between items-center gap-2 mb-1.5 text-[10px] text-slate-400">
+                            <span className="font-bold text-amber-300">
+                                {promptConfigs.find(c => c.key === activeKey)?.tool}
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                                {promptConfigs.find(c => c.key === activeKey)?.badge}
+                            </span>
+                        </div>
+                        <p className="text-[11px] text-slate-200 font-sans leading-relaxed select-all whitespace-pre-wrap max-h-36 overflow-y-auto custom-scrollbar pr-1">
+                            {currentText}
+                        </p>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
     // Krok 0: Produkty z PIM
@@ -783,6 +939,16 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                                         ))}
                                     </div>
                                 )}
+
+                                {/* Prompty AI dla edytowanego assetu */}
+                                <AiPromptsViewer 
+                                    prompts={editingAsset.production_prompts 
+                                        || (editingAsset.mediaType === 'video' 
+                                            ? scanData?.strategy?.reels_briefs?.[Math.max(0, editingAsset.assetIndex - (scanData?.strategy?.static_ad_briefs?.length || 0))]?.production_prompts
+                                            : scanData?.strategy?.static_ad_briefs?.[editingAsset.assetIndex]?.production_prompts)
+                                        || scanData?.strategy?.static_ad_briefs?.[0]?.production_prompts}
+                                    defaultExpanded={true}
+                                />
                             </div>
                         </div>
 
@@ -1272,48 +1438,114 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                     ) : (
                         <>
                             {/* Insights Box */}
-                            <div className="bg-slate-900 text-white rounded-xl p-6 shadow-md border border-slate-800">
-                                <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+                            {/* Insights Box - Pełna i Nieograniczona Analiza Rynkowa */}
+                            <div className="bg-slate-900 text-white rounded-xl p-6 shadow-md border border-slate-800 space-y-5">
+                                <div className="flex flex-wrap items-center justify-between pb-3 border-b border-slate-800 gap-2">
                                     <span className="text-xs font-black uppercase tracking-widest text-indigo-400 flex items-center">
-                                        <TrendingUp className="w-4 h-4 mr-2" /> Analiza Rynkowa (Zeskanowano: {scanData.totalScanned} reklam)
+                                        <TrendingUp className="w-4 h-4 mr-2" /> Pełna Analiza Rynkowa (Zeskanowano: {scanData.totalScanned} reklam)
                                     </span>
-                                    <span className="text-[11px] font-bold text-slate-400">Silnik: Gemini 3.8 Flash + Gemini 3.1 Pro</span>
+                                    <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold">Polska (PL)</span>
+                                        <span>•</span>
+                                        <span>Silnik: Gemini 3.8 Flash + Gemini 3.1 Pro Swarm</span>
+                                    </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                                    <div className="bg-slate-800/60 p-4 rounded-lg border border-red-500/20">
-                                        <span className="font-bold text-red-400 flex items-center mb-2">
-                                            <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> Przesycone komunikaty (Czerwony Ocean):
+                                {/* Executive Summary */}
+                                {scanData.marketInsights?.executive_summary && (
+                                    <div className="p-3.5 bg-indigo-950/60 border border-indigo-500/30 rounded-lg text-xs leading-relaxed text-indigo-100 flex items-start gap-2.5">
+                                        <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                                        <div>
+                                            <strong className="text-amber-300 block mb-0.5 uppercase tracking-wide text-[10px]">Synteza Strategiczna Rynku PL:</strong>
+                                            {scanData.marketInsights.executive_summary}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                                    {/* Dominujące Haczyki */}
+                                    <div className="bg-slate-800/60 p-4 rounded-lg border border-indigo-500/30 flex flex-col">
+                                        <span className="font-bold text-indigo-400 flex items-center mb-2.5 text-xs">
+                                            <Flame className="w-3.5 h-3.5 mr-1.5 text-indigo-400" /> Dominujące Haczyki w Polsce:
                                         </span>
-                                        <ul className="list-disc pl-5 space-y-1 text-slate-300 text-[11px]">
-                                            {(scanData.marketInsights?.saturated_claims || []).map((c, i) => <li key={i}>{c}</li>)}
+                                        <ul className="list-disc pl-4 space-y-1.5 text-slate-300 text-[11px] leading-relaxed flex-1">
+                                            {(scanData.marketInsights?.dominant_hooks || []).map((h, i) => (
+                                                <li key={i} className="hover:text-white transition-colors">{h}</li>
+                                            ))}
                                         </ul>
                                     </div>
-                                    <div className="bg-slate-800/60 p-4 rounded-lg border border-emerald-500/20">
-                                        <span className="font-bold text-emerald-400 flex items-center mb-2">
-                                            <ShieldCheck className="w-3.5 h-3.5 mr-1.5" /> Luki Rynkowe (Błękitny Ocean):
+
+                                    {/* Czerwony Ocean (Przesycone) */}
+                                    <div className="bg-slate-800/60 p-4 rounded-lg border border-red-500/30 flex flex-col">
+                                        <span className="font-bold text-red-400 flex items-center mb-2.5 text-xs">
+                                            <AlertTriangle className="w-3.5 h-3.5 mr-1.5 text-red-400" /> Przesycone Komunikaty (Czerwony Ocean):
                                         </span>
-                                        <ul className="list-disc pl-5 space-y-1 text-slate-300 text-[11px]">
-                                            {(scanData.marketInsights?.blue_ocean_angles || []).map((b, i) => <li key={i}>{b}</li>)}
+                                        <ul className="list-disc pl-4 space-y-1.5 text-slate-300 text-[11px] leading-relaxed flex-1">
+                                            {(scanData.marketInsights?.saturated_claims || []).map((c, i) => (
+                                                <li key={i} className="hover:text-white transition-colors">{c}</li>
+                                            ))}
                                         </ul>
                                     </div>
+
+                                    {/* Błękitny Ocean (Luki) */}
+                                    <div className="bg-slate-800/60 p-4 rounded-lg border border-emerald-500/30 flex flex-col">
+                                        <span className="font-bold text-emerald-400 flex items-center mb-2.5 text-xs">
+                                            <ShieldCheck className="w-3.5 h-3.5 mr-1.5 text-emerald-400" /> Luki Rynkowe i Przewagi (Błękitny Ocean):
+                                        </span>
+                                        <ul className="list-disc pl-4 space-y-1.5 text-slate-300 text-[11px] leading-relaxed flex-1">
+                                            {(scanData.marketInsights?.blue_ocean_angles || []).map((b, i) => (
+                                                <li key={i} className="hover:text-white transition-colors">{b}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+
+                                    {/* Oferty i Struktura Cenowa */}
+                                    {scanData.marketInsights?.pricing_and_offers && scanData.marketInsights.pricing_and_offers.length > 0 && (
+                                        <div className="bg-slate-800/60 p-4 rounded-lg border border-amber-500/30 flex flex-col">
+                                            <span className="font-bold text-amber-400 flex items-center mb-2.5 text-xs">
+                                                <DollarSign className="w-3.5 h-3.5 mr-1.5 text-amber-400" /> Strategie Cenowe i Oferty:
+                                            </span>
+                                            <ul className="list-disc pl-4 space-y-1.5 text-slate-300 text-[11px] leading-relaxed flex-1">
+                                                {scanData.marketInsights.pricing_and_offers.map((p, i) => (
+                                                    <li key={i} className="hover:text-white transition-colors">{p}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    {/* Triggery i Obiekcje Konsumentów */}
+                                    {scanData.marketInsights?.audience_triggers && scanData.marketInsights.audience_triggers.length > 0 && (
+                                        <div className="bg-slate-800/60 p-4 rounded-lg border border-cyan-500/30 flex flex-col md:col-span-2 lg:col-span-2">
+                                            <span className="font-bold text-cyan-400 flex items-center mb-2.5 text-xs">
+                                                <Layers className="w-3.5 h-3.5 mr-1.5 text-cyan-400" /> Psychologiczne Triggery & Obiekcje Klientów w Polsce:
+                                            </span>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {scanData.marketInsights.audience_triggers.map((t, i) => (
+                                                    <div key={i} className="p-2 bg-slate-900/80 rounded border border-slate-700/60 text-[11px] text-slate-300 flex items-start gap-1.5">
+                                                        <span className="text-cyan-400 font-bold shrink-0">▸</span>
+                                                        <span>{t}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
                             {/* Zwycięzcy Konkurencji (Top Winners wg Time-Decay) */}
                             {scanData.topWinners && scanData.topWinners.length > 0 && (
                                 <div className="bg-white border border-slate-300 rounded-xl p-6 shadow-sm space-y-4">
-                                    <div className="border-b border-slate-200 pb-3 flex justify-between items-center">
+                                    <div className="border-b border-slate-200 pb-3 flex flex-wrap justify-between items-center gap-2">
                                         <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center">
                                             <Flame className="w-4 h-4 mr-2 text-amber-500" /> Zwycięskie Kreacje Konkurencji (Top Winners z długim czasem emisji)
                                         </h2>
                                         <span className="text-xs text-slate-500 font-semibold">Wyselekcjonowano {scanData.topWinners.length} benchmarków</span>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {scanData.topWinners.map((ad, idx) => (
-                                            <div key={ad.id || idx} className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col justify-between hover:shadow-md transition-all">
-                                                <div className="space-y-2">
+                                            <div key={ad.id || idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between hover:shadow-md transition-all">
+                                                <div className="space-y-2.5">
                                                     <div className="flex justify-between items-center text-[10px]">
                                                         <span className="font-black px-2 py-0.5 rounded bg-amber-100 text-amber-800 flex items-center">
                                                             <Clock className="w-3 h-3 mr-1" /> {ad.activeDays} dni emisji
@@ -1322,14 +1554,53 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                                                             Score: {ad.overallWinningScore}/10
                                                         </span>
                                                     </div>
+
+                                                    {/* Reklamodawca i Nazwa Produktu */}
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-[10px] font-black uppercase text-indigo-700 tracking-wider">
+                                                            {ad.advertiser || 'Konkurent rynkowy'}
+                                                        </span>
+                                                        {ad.productName && (
+                                                            <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+                                                                📦 {ad.productName}
+                                                            </span>
+                                                        )}
+                                                    </div>
+
                                                     <h3 className="text-xs font-black text-slate-900 leading-snug">
                                                         "{ad.extractedHook}"
                                                     </h3>
-                                                    <p className="text-[11px] text-slate-600 line-clamp-3">
+                                                    <p className="text-[11px] text-slate-600 line-clamp-3 leading-relaxed">
                                                         {ad.copy}
                                                     </p>
+
+                                                    {/* Bezpośrednie linki do reklamy i produktu */}
+                                                    {(ad.adUrl || ad.productUrl || ad.snapshotUrl) && (
+                                                        <div className="pt-2 flex flex-wrap gap-2 text-[10px] font-bold">
+                                                            {(ad.adUrl || ad.snapshotUrl) && (
+                                                                <a 
+                                                                    href={ad.adUrl || ad.snapshotUrl} 
+                                                                    target="_blank" 
+                                                                    rel="noreferrer" 
+                                                                    className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md border border-indigo-200 transition-colors"
+                                                                >
+                                                                    <ExternalLink className="w-3 h-3" /> Zobacz reklamę ↗
+                                                                </a>
+                                                            )}
+                                                            {ad.productUrl && (
+                                                                <a 
+                                                                    href={ad.productUrl} 
+                                                                    target="_blank" 
+                                                                    rel="noreferrer" 
+                                                                    className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-md border border-emerald-200 transition-colors"
+                                                                >
+                                                                    🛍️ Oferta / Sklep ↗
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="mt-3 pt-2 border-t border-slate-200 text-[10px] text-slate-500">
+                                                <div className="mt-3 pt-2.5 border-t border-slate-200 text-[10px] text-slate-500">
                                                     <span className="font-bold text-indigo-600">Dlaczego działa:</span> {ad.whyItWorks}
                                                 </div>
                                             </div>
@@ -1485,6 +1756,15 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                                         <div className="text-[10px] text-indigo-600 font-bold">
                                             {asset.hashtags}
                                         </div>
+
+                                        {/* Prompt Director AI - 100% Polski dla generatorów obrazu i wideo */}
+                                        <AiPromptsViewer 
+                                            prompts={asset.production_prompts 
+                                                || (asset.mediaType === 'video' 
+                                                    ? scanData?.strategy?.reels_briefs?.[Math.max(0, idx - (scanData?.strategy?.static_ad_briefs?.length || 0))]?.production_prompts
+                                                    : scanData?.strategy?.static_ad_briefs?.[idx]?.production_prompts)
+                                                || scanData?.strategy?.static_ad_briefs?.[0]?.production_prompts}
+                                        />
                                     </div>
                                 </div>
 

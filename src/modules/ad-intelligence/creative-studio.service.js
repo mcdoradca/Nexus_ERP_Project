@@ -122,145 +122,276 @@ class CreativeStudioService {
         }
 
         // 2. Generowanie tła bazowego (Nowoczesny Dark Mode ze świetlistymi gradientami)
+        // Wybór 1 z 4 luksusowych motywów kolorystycznych w zależności od briefu
+        const themes = [
+            {
+                id: 'indigo',
+                bgStart: '#080c18',
+                bgMid: '#0f172a',
+                bgEnd: '#1e1b4b',
+                glow1: '#6366f1',
+                glow2: '#06b6d4',
+                accent: '#818cf8',
+                badgeBg: '#4f46e5',
+                ctaBg: '#6366f1',
+                podiumStroke: 'rgba(99, 102, 241, 0.45)',
+                podiumGlow: '#6366f1',
+                tagText: '⭐ BESTSELLER RYNKOWY'
+            },
+            {
+                id: 'coral',
+                bgStart: '#140810',
+                bgMid: '#240b17',
+                bgEnd: '#4c0519',
+                glow1: '#f43f5e',
+                glow2: '#fb923c',
+                accent: '#fb7185',
+                badgeBg: '#e11d48',
+                ctaBg: '#f43f5e',
+                podiumStroke: 'rgba(244, 63, 94, 0.45)',
+                podiumGlow: '#f43f5e',
+                tagText: '🔥 HIT KONWERSJI 2026'
+            },
+            {
+                id: 'emerald',
+                bgStart: '#03120b',
+                bgMid: '#062417',
+                bgEnd: '#022c22',
+                glow1: '#10b981',
+                glow2: '#06b6d4',
+                accent: '#34d399',
+                badgeBg: '#059669',
+                ctaBg: '#10b981',
+                podiumStroke: 'rgba(16, 185, 129, 0.45)',
+                podiumGlow: '#10b981',
+                tagText: '🌿 100% CZYSTA JAKOŚĆ'
+            },
+            {
+                id: 'gold',
+                bgStart: '#0c0d12',
+                bgMid: '#1a1815',
+                bgEnd: '#291804',
+                glow1: '#f59e0b',
+                glow2: '#eab308',
+                accent: '#fbbf24',
+                badgeBg: '#d97706',
+                ctaBg: '#f59e0b',
+                podiumStroke: 'rgba(245, 158, 11, 0.45)',
+                podiumGlow: '#f59e0b',
+                tagText: '👑 EDYCJA PREMIUM'
+            }
+        ];
+
+        const numericId = parseInt((adBrief.id || '').replace(/\D/g, '')) || 0;
+        const currentTheme = themes[numericId % themes.length];
+
+        // 2. Generowanie tła bazowego (Kinematograficzny Dark Mode z wielowarstwowymi gradientami i siatką świetlną)
         const svgBg = `
         <svg width="1080" height="1080" xmlns="http://www.w3.org/2000/svg">
             <defs>
                 <linearGradient id="mainBg" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#0b0f19" />
-                    <stop offset="45%" stop-color="#111827" />
-                    <stop offset="100%" stop-color="#1e1b4b" />
+                    <stop offset="0%" stop-color="${currentTheme.bgStart}" />
+                    <stop offset="45%" stop-color="${currentTheme.bgMid}" />
+                    <stop offset="100%" stop-color="${currentTheme.bgEnd}" />
                 </linearGradient>
-                <radialGradient id="neonGlow1" cx="85%" cy="25%" r="55%">
-                    <stop offset="0%" stop-color="#6366f1" stop-opacity="0.32" />
-                    <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
+                <radialGradient id="neonGlow1" cx="80%" cy="30%" r="55%">
+                    <stop offset="0%" stop-color="${currentTheme.glow1}" stop-opacity="0.38" />
+                    <stop offset="100%" stop-color="${currentTheme.glow1}" stop-opacity="0" />
                 </radialGradient>
-                <radialGradient id="neonGlow2" cx="15%" cy="85%" r="60%">
-                    <stop offset="0%" stop-color="#ec4899" stop-opacity="0.22" />
-                    <stop offset="100%" stop-color="#ec4899" stop-opacity="0" />
+                <radialGradient id="neonGlow2" cx="20%" cy="85%" r="60%">
+                    <stop offset="0%" stop-color="${currentTheme.glow2}" stop-opacity="0.25" />
+                    <stop offset="100%" stop-color="${currentTheme.glow2}" stop-opacity="0" />
                 </radialGradient>
             </defs>
             <rect width="1080" height="1080" fill="url(#mainBg)" />
             <rect width="1080" height="1080" fill="url(#neonGlow1)" />
             <rect width="1080" height="1080" fill="url(#neonGlow2)" />
-            <circle cx="540" cy="540" r="480" fill="none" stroke="#ffffff" stroke-opacity="0.03" stroke-width="1.5" />
-            <circle cx="540" cy="540" r="340" fill="none" stroke="#ffffff" stroke-opacity="0.02" stroke-width="1" />
+            
+            <!-- Eleganckie linie geometryczne siatki studia -->
+            <circle cx="540" cy="540" r="500" fill="none" stroke="#ffffff" stroke-opacity="0.03" stroke-width="1.5" />
+            <circle cx="540" cy="540" r="360" fill="none" stroke="#ffffff" stroke-opacity="0.02" stroke-width="1" />
+            <line x1="80" y1="120" x2="1000" y2="120" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1" />
+            <line x1="80" y1="960" x2="1000" y2="960" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1" />
         </svg>`;
 
         let baseCanvas = sharp(Buffer.from(svgBg)).resize(1080, 1080);
         const compositeLayers = [];
 
-        // 3. Jeśli posiadamy fizyczny packshot produktu: Shadow Baking + Umieszczenie po prawej stronie
+        // 3. Commercial Showcase Podium: osadzenie packshotu w luksusowej kapsule studyjnej
         const hasProductImage = Boolean(productBuffer);
 
         if (hasProductImage) {
             try {
-                // Przeskalowanie packshotu do 440x580 px z zachowaniem proporcji
+                // Przeskalowanie packshotu do 410x510 px z zachowaniem proporcji
                 const resizedProduct = await sharp(productBuffer)
-                    .resize(440, 580, { fit: 'inside', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+                    .resize(410, 510, { fit: 'inside', background: { r: 0, g: 0, b: 0, alpha: 0 } })
                     .png()
                     .toBuffer();
 
                 const meta = await sharp(resizedProduct).metadata();
-                const prodWidth = meta.width || 440;
-                const prodHeight = meta.height || 580;
+                const prodWidth = meta.width || 380;
+                const prodHeight = meta.height || 480;
 
-                // Pozycja packshotu (prawa kolumna layoutu)
-                const prodLeft = 570 + Math.floor((450 - prodWidth) / 2);
-                const prodTop = 230 + Math.floor((600 - prodHeight) / 2);
+                // Podest studyjny (Showcase Card): lewa: 560, góra: 190, szerokość: 440, wysokość: 650
+                const cardLeft = 560;
+                const cardTop = 190;
+                const cardWidth = 440;
+                const cardHeight = 650;
 
-                // Wypalenie cienia kontaktowego (Shadow Baking) tuż pod packshotem
-                const shadowSvg = `
-                <svg width="${prodWidth + 80}" height="120" xmlns="http://www.w3.org/2000/svg">
+                const prodLeft = cardLeft + Math.floor((cardWidth - prodWidth) / 2);
+                const prodTop = cardTop + 70 + Math.floor((480 - prodHeight) / 2);
+
+                // Warstwa kapsuły studyjnej (Frosted Glass Podium + Rim Light)
+                const podiumSvg = `
+                <svg width="1080" height="1080" xmlns="http://www.w3.org/2000/svg">
                     <defs>
-                        <filter id="shadowGlow" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="15" />
+                        <radialGradient id="prodSpot" cx="50%" cy="50%" r="55%">
+                            <stop offset="0%" stop-color="${currentTheme.glow1}" stop-opacity="0.32" />
+                            <stop offset="60%" stop-color="${currentTheme.glow1}" stop-opacity="0.08" />
+                            <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+                        </radialGradient>
+                        <linearGradient id="glassBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35" />
+                            <stop offset="50%" stop-color="${currentTheme.accent}" stop-opacity="0.2" />
+                            <stop offset="100%" stop-color="#ffffff" stop-opacity="0.05" />
+                        </linearGradient>
+                        <filter id="shadowBlur" x="-30%" y="-30%" width="160%" height="160%">
+                            <feGaussianBlur stdDeviation="22" />
                         </filter>
                     </defs>
-                    <ellipse cx="${(prodWidth + 80) / 2}" cy="60" rx="${prodWidth * 0.42}" ry="24" fill="#000000" fill-opacity="0.8" filter="url(#shadowGlow)" />
-                </svg>`;
-                const shadowBuffer = await sharp(Buffer.from(shadowSvg)).png().toBuffer();
 
-                // Dodajemy cień pod spodem, a na wierzchu packshot
+                    <!-- Karta Showcase Pod -->
+                    <rect x="${cardLeft}" y="${cardTop}" width="${cardWidth}" height="${cardHeight}" rx="32" fill="#000000" fill-opacity="0.45" />
+                    <rect x="${cardLeft}" y="${cardTop}" width="${cardWidth}" height="${cardHeight}" rx="32" fill="url(#prodSpot)" />
+                    <rect x="${cardLeft}" y="${cardTop}" width="${cardWidth}" height="${cardHeight}" rx="32" fill="none" stroke="url(#glassBorder)" stroke-width="2" />
+
+                    <!-- Odznaka górna w kapsule produktu -->
+                    <rect x="${cardLeft + 25}" y="${cardTop + 24}" width="${cardWidth - 50}" height="32" rx="16" fill="${currentTheme.badgeBg}" fill-opacity="0.9" />
+                    <text x="${cardLeft + cardWidth / 2}" y="${cardTop + 45}" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="13" font-weight="900" fill="#ffffff" letter-spacing="1.5">${currentTheme.tagText}</text>
+
+                    <!-- Podwójny cień kontaktowy i podest eliptyczny pod produktem -->
+                    <ellipse cx="${cardLeft + cardWidth / 2}" cy="${prodTop + prodHeight + 8}" rx="${Math.min(prodWidth * 0.55, 170)}" ry="26" fill="#000000" fill-opacity="0.85" filter="url(#shadowBlur)" />
+                    <ellipse cx="${cardLeft + cardWidth / 2}" cy="${prodTop + prodHeight + 8}" rx="${Math.min(prodWidth * 0.45, 140)}" ry="16" fill="${currentTheme.podiumGlow}" fill-opacity="0.35" />
+                </svg>`;
+
                 compositeLayers.push({
-                    input: shadowBuffer,
-                    top: prodTop + prodHeight - 40,
-                    left: prodLeft - 40,
+                    input: Buffer.from(podiumSvg),
                     blend: 'over'
                 });
 
+                // Osadzamy właściwy wycentrowany packshot
                 compositeLayers.push({
                     input: resizedProduct,
                     top: prodTop,
                     left: prodLeft,
                     blend: 'over'
                 });
+
+                // Dolna wstęga gwarancji pod kapsułą
+                const podFooterSvg = `
+                <svg width="1080" height="1080" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="${cardLeft + 30}" y="${cardTop + cardHeight - 55}" width="${cardWidth - 60}" height="36" rx="10" fill="#ffffff" fill-opacity="0.08" stroke="#ffffff" stroke-opacity="0.15" stroke-width="1" />
+                    <text x="${cardLeft + cardWidth / 2}" y="${cardTop + cardHeight - 32}" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="12" font-weight="700" fill="#e2e8f0" letter-spacing="0.5">✓ ZGODNOŚĆ Z FORMULARZEM PIM</text>
+                </svg>`;
+
+                compositeLayers.push({
+                    input: Buffer.from(podFooterSvg),
+                    blend: 'over'
+                });
+
             } catch (err) {
                 console.warn('[CreativeStudio] Błąd nakładania packshotu produktu:', err.message);
             }
         }
 
-        // 4. Skład typografii reklamowej
+        // 4. Skład typografii reklamowej i elementów perswazji
         const cleanHeadline = this._escapeXml(adBrief.headline || productData.name || 'Przełomowa formuła');
         const cleanSubheadline = this._escapeXml(adBrief.subheadline || 'Sprawdź certyfikowane rezultaty');
-        const cleanBadge = this._escapeXml(adBrief.badge_text || '⭐ 4.9/5 | 100% Czyste Składniki');
+        const cleanBadge = this._escapeXml(adBrief.badge_text || '★ 4.9/5 | 100% Czyste Składniki');
         const cleanCta = this._escapeXml(adBrief.cta_text || 'Sprawdź Ofertę i Kup');
         const cleanBrand = this._escapeXml(brandName.toUpperCase());
 
         const priceText = productData.salePrice 
-            ? `Cena: ${Number(productData.salePrice).toFixed(2)} zł`
+            ? `${Number(productData.salePrice).toFixed(2)} zł`
             : null;
 
-        // Dynamiczna szerokość kolumny tekstu w zależności od obecności packshotu
-        const textWidth = hasProductImage ? 470 : 900;
+        // Dynamiczna szerokość kolumny tekstu
+        const textWidth = hasProductImage ? 440 : 900;
 
         const textOverlaySvg = `
         <svg width="1080" height="1080" xmlns="http://www.w3.org/2000/svg">
             <style>
-                .brand { font-family: 'Segoe UI', Arial, sans-serif; font-size: 22px; font-weight: 900; fill: #818cf8; letter-spacing: 5px; }
-                .badge-bg { fill: #4f46e5; fill-opacity: 0.95; rx: 18px; }
-                .badge-text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 19px; font-weight: 800; fill: #ffffff; letter-spacing: 1px; }
-                .price-badge-bg { fill: #059669; fill-opacity: 0.95; rx: 14px; }
-                .price-badge-text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 20px; font-weight: 900; fill: #ffffff; }
-                .cta-box { fill: #ec4899; rx: 16px; filter: drop-shadow(0 8px 20px rgba(236, 72, 153, 0.45)); }
-                .cta-text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 24px; font-weight: 900; fill: #ffffff; letter-spacing: 1px; }
-                .guarantee { font-family: 'Segoe UI', Arial, sans-serif; font-size: 16px; font-weight: 600; fill: #94a3b8; }
+                .brand { font-family: 'Segoe UI', Arial, sans-serif; font-size: 20px; font-weight: 900; fill: ${currentTheme.accent}; letter-spacing: 5px; }
+                .badge-bg { fill: ${currentTheme.badgeBg}; fill-opacity: 0.95; rx: 18px; }
+                .badge-text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 16px; font-weight: 800; fill: #ffffff; letter-spacing: 0.8px; }
+                .stars-text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; font-weight: 700; fill: #fbbf24; }
+                .benefit-check { font-family: 'Segoe UI', Arial, sans-serif; font-size: 16px; font-weight: 700; fill: #38bdf8; }
+                .benefit-text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 15px; font-weight: 600; fill: #e2e8f0; }
+                .price-ribbon { fill: #059669; rx: 10px; }
+                .price-label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; font-weight: 800; fill: #a7f3d0; text-transform: uppercase; letter-spacing: 1px; }
+                .price-val { font-family: 'Segoe UI', Arial, sans-serif; font-size: 26px; font-weight: 900; fill: #ffffff; }
+                .cta-box { fill: ${currentTheme.ctaBg}; rx: 16px; filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.45)); }
+                .cta-text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 22px; font-weight: 900; fill: #ffffff; letter-spacing: 0.8px; }
+                .guarantee { font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; font-weight: 600; fill: #94a3b8; }
             </style>
 
-            <!-- Brand Header -->
-            <text x="80" y="105" class="brand">${cleanBrand}</text>
+            <!-- Brand Header & Rating -->
+            <g transform="translate(80, 85)">
+                <text x="0" y="20" class="brand">${cleanBrand}</text>
+                <text x="0" y="44" class="stars-text">★ ★ ★ ★ ★ 4.9/5 (1 420+ opinii)</text>
+            </g>
 
             <!-- Trust Badge -->
-            <rect x="80" y="140" width="${hasProductImage ? 420 : 500}" height="44" class="badge-bg" />
-            <text x="${hasProductImage ? 290 : 330}" y="169" text-anchor="middle" class="badge-text">${cleanBadge}</text>
+            <rect x="80" y="150" width="${hasProductImage ? 400 : 480}" height="38" class="badge-bg" />
+            <text x="${hasProductImage ? 280 : 320}" y="174" text-anchor="middle" class="badge-text">${cleanBadge}</text>
 
             <!-- Main Headline -->
-            <foreignObject x="80" y="215" width="${textWidth}" height="320">
-                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: 'Segoe UI', Arial, sans-serif; font-size: ${hasProductImage ? '46px' : '56px'}; font-weight: 900; color: #ffffff; line-height: 1.18; word-break: break-word;">
+            <foreignObject x="80" y="210" width="${textWidth}" height="280">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: 'Segoe UI', Arial, sans-serif; font-size: ${hasProductImage ? '44px' : '56px'}; font-weight: 900; color: #ffffff; line-height: 1.16; word-break: break-word; text-shadow: 0 4px 12px rgba(0,0,0,0.6);">
                     ${cleanHeadline}
                 </div>
             </foreignObject>
 
             <!-- Subheadline -->
-            <foreignObject x="80" y="550" width="${textWidth}" height="180">
-                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 23px; font-weight: 500; color: #cbd5e1; line-height: 1.45;">
+            <foreignObject x="80" y="495" width="${textWidth}" height="140">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 20px; font-weight: 500; color: #cbd5e1; line-height: 1.42;">
                     ${cleanSubheadline}
                 </div>
             </foreignObject>
 
+            <!-- Benefit Checkmarks (Perswazyjne Punkty) -->
+            <g transform="translate(80, 650)">
+                <g transform="translate(0, 0)">
+                    <text x="0" y="16" class="benefit-check">✓</text>
+                    <text x="24" y="16" class="benefit-text">Gwarancja widocznych rezultatów lub zwrot</text>
+                </g>
+                <g transform="translate(0, 32)">
+                    <text x="0" y="16" class="benefit-check">✓</text>
+                    <text x="24" y="16" class="benefit-text">Certyfikowana formuła o przedłużonym działaniu</text>
+                </g>
+                <g transform="translate(0, 64)">
+                    <text x="0" y="16" class="benefit-check">✓</text>
+                    <text x="24" y="16" class="benefit-text">Ekspresowa dostawa 24h z magazynu PL</text>
+                </g>
+            </g>
+
+            <!-- Price Badge Tag -->
             ${priceText ? `
-            <!-- Price Highlight Tag -->
-            <rect x="80" y="745" width="220" height="42" class="price-badge-bg" />
-            <text x="190" y="773" text-anchor="middle" class="price-badge-text">${priceText}</text>
+            <g transform="translate(80, 775)">
+                <rect width="${hasProductImage ? 220 : 260}" height="52" class="price-ribbon" />
+                <text x="16" y="20" class="price-label">Cena Promocyjna</text>
+                <text x="16" y="44" class="price-val">${priceText}</text>
+            </g>
             ` : ''}
 
             <!-- Conversion CTA Button -->
-            <g transform="translate(80, ${priceText ? 810 : 770})">
+            <g transform="translate(80, ${priceText ? 850 : 790})">
                 <rect width="${hasProductImage ? 420 : 480}" height="76" class="cta-box" />
                 <text x="${hasProductImage ? 210 : 240}" y="48" text-anchor="middle" class="cta-text">${cleanCta} →</text>
             </g>
 
             <!-- Bottom Guarantee Bar -->
-            <text x="80" y="990" class="guarantee">🔒 Oficjalna dystrybucja • Gwarancja satysfakcji • Szybka wysyłka z magazynu PL</text>
+            <text x="80" y="990" class="guarantee">🔒 Oficjalna dystrybucja • Gwarancja 100% Satysfakcji • Faktura VAT</text>
         </svg>`;
 
         compositeLayers.push({
@@ -273,6 +404,7 @@ class CreativeStudioService {
         fs.writeFileSync(outputPath, finalPngBuffer);
 
         // 6. Upload do Supabase Storage CDN z fallbackiem lokalnym i Base64
+
         const supabaseUrl = await this._uploadToSupabase(finalPngBuffer, outputFileName, 'image/png');
         const publicLocalUrl = `/uploads/ad-intelligence/${outputFileName}`;
         const base64DataUrl = `data:image/png;base64,${finalPngBuffer.toString('base64')}`;
@@ -291,6 +423,7 @@ class CreativeStudioService {
             adBudgetInfo: adBrief.suggested_budget || '250 zł',
             productImageUrl: productImgSource || null,
             productName: productData.name || null,
+            production_prompts: adBrief.production_prompts || null,
             notes: `Wygenerowano w Creative Studio z integracją PIM. Badge: ${adBrief.badge_text || 'Certyfikat UE'}.`
         };
     }
@@ -475,6 +608,7 @@ class CreativeStudioService {
             adBudgetInfo: reelBrief.suggested_budget || '350 zł',
             productImageUrl: productImgSource || null,
             productName: productData.name || null,
+            production_prompts: reelBrief.production_prompts || null,
             notes: `Format Reels (9:16) zmontowany przez FFmpeg z packshotem produktu. Czas trwania: ~14s.`
         };
     }

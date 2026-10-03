@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { GoogleGenAI } = require('@google/genai');
+const promptDirectorService = require('./prompt-director.service');
 
 let _aiInstance = null;
 function getAi() {
@@ -110,6 +111,9 @@ class AdIntelligenceService {
 
             return {
                 ...ad,
+                productName: ad.productName || null,
+                adUrl: ad.adUrl || ad.snapshotUrl || null,
+                productUrl: ad.productUrl || null,
                 activeDays,
                 longevityScore
             };
@@ -120,6 +124,7 @@ class AdIntelligenceService {
         const promptBatch = enrichedAds.slice(0, 30).map((ad, idx) => ({
             id: ad.id || `ad_${idx}`,
             advertiser: ad.advertiser || 'Nieznany konkurent',
+            productName: ad.productName || 'Produkt',
             text: ad.copy || ad.text || '',
             headline: ad.headline || '',
             activeDays: ad.activeDays,
@@ -155,9 +160,12 @@ class AdIntelligenceService {
                     properties: {
                         dominant_hooks: { type: "array", items: { type: "string" } },
                         saturated_claims: { type: "array", items: { type: "string" } },
-                        blue_ocean_angles: { type: "array", items: { type: "string" } }
+                        blue_ocean_angles: { type: "array", items: { type: "string" } },
+                        pricing_and_offers: { type: "array", items: { type: "string" } },
+                        audience_triggers: { type: "array", items: { type: "string" } },
+                        executive_summary: { type: "string" }
                     },
-                    required: ["dominant_hooks", "saturated_claims", "blue_ocean_angles"]
+                    required: ["dominant_hooks", "saturated_claims", "blue_ocean_angles", "pricing_and_offers", "audience_triggers", "executive_summary"]
                 }
             },
             required: ["evaluated_ads", "market_insights"]
@@ -172,7 +180,13 @@ Twoim zadaniem jest:
 3. Ocenić jasność i pilność oferty (offer_score 1-10).
 4. Wyliczyć ogólny overall_score (1-10).
 5. Wyekstrahować dokładny pierwszy zwrot / nagłówek (extracted_hook) i wskazać mechanizm perswazyjny (why_it_works).
-6. W market_insights zdefiniować dominujące motywy konkurentów, przesycone komunikaty oraz niewykorzystane luki rynkowe (blue_ocean_angles) dla tego konkretnego segmentu.
+6. W market_insights stworzyć BOGATĄ, WYCZERPUJĄCĄ i NIEOGRANICZONĄ analizę rynku (NIE OGRANICZAJ SIĘ DO 3 PUNKTÓW! Podaj po 4-8 pozycji w każdej kategorii):
+   - dominant_hooks: najczęściej powtarzane haczyki i schematy otwarcia u konkurencji w Polsce.
+   - saturated_claims: przesycone obietnice i slogany (Czerwony Ocean), których należy unikać.
+   - blue_ocean_angles: niewykorzystane luki rynkowe, kąty perswazji i unikalne narracje (Błękitny Ocean).
+   - pricing_and_offers: struktury cenowe, rabaty, pakiety, darmowa dostawa, gwarancje stosowane przez konkurencję.
+   - audience_triggers: kluczowe obawy, pragnienia i bariery zakupowe polskich konsumentów w tej niszy.
+   - executive_summary: syntetyczne podsumowanie krajobrazu konkurencyjnego (3-4 zdania).
 
 DANE REKLAM DO OCENY:
 ${JSON.stringify(promptBatch, null, 2)}`;
@@ -213,6 +227,9 @@ ${JSON.stringify(promptBatch, null, 2)}`;
 
             return {
                 ...ad,
+                productName: ad.productName || null,
+                adUrl: ad.adUrl || ad.snapshotUrl || null,
+                productUrl: ad.productUrl || null,
                 hookScore: aiScore.hook_score || 7,
                 hookType: aiScore.hook_type || "PAIN_POINT",
                 proofScore: aiScore.proof_score || 6,
@@ -226,14 +243,21 @@ ${JSON.stringify(promptBatch, null, 2)}`;
 
         scoredAds.sort((a, b) => b.overallWinningScore - a.overallWinningScore);
 
+        const marketInsights = evaluatedResult.market_insights || {};
+
         return {
             totalScanned: ads.length,
             topWinners: scoredAds.slice(0, 15),
             allScoredAds: scoredAds,
-            marketInsights: evaluatedResult.market_insights || {
-                dominant_hooks: scoredAds.slice(0, 3).map(a => a.extractedHook).filter(Boolean),
-                saturated_claims: [],
-                blue_ocean_angles: []
+            marketInsights: {
+                dominant_hooks: Array.isArray(marketInsights.dominant_hooks) && marketInsights.dominant_hooks.length > 0 
+                    ? marketInsights.dominant_hooks 
+                    : scoredAds.map(a => a.extractedHook).filter(Boolean),
+                saturated_claims: Array.isArray(marketInsights.saturated_claims) ? marketInsights.saturated_claims : [],
+                blue_ocean_angles: Array.isArray(marketInsights.blue_ocean_angles) ? marketInsights.blue_ocean_angles : [],
+                pricing_and_offers: Array.isArray(marketInsights.pricing_and_offers) ? marketInsights.pricing_and_offers : [],
+                audience_triggers: Array.isArray(marketInsights.audience_triggers) ? marketInsights.audience_triggers : [],
+                executive_summary: marketInsights.executive_summary || 'Kompleksowa analiza krajobrazu reklamowego na rynku polskim.'
             }
         };
     }
@@ -415,7 +439,7 @@ KRYTYCZNE ZASADY JAKOŚCI COPYWRITINGU:
             strategyOutput = this._deterministicFallbackMatrix(brandName, brandUsp, productData, brandProfile);
         }
 
-        return this._postProcessStrategyResult(strategyOutput, productData, brandProfile);
+        return await this._postProcessStrategyResult(strategyOutput, productData, brandProfile);
     }
 
     /**
@@ -436,8 +460,11 @@ Znajdź do ${Math.min(limit, 20)} rzeczywistych reklam i kampanii marketingowych
 Dla każdej znalezionej reklamy lub kampanii podaj:
 - platform: "Meta (FB/IG)", "TikTok" lub "Google Ads"
 - advertiser: nazwa reklamodawcy / marki
+- product_name: pełna nazwa reklamowanego produktu lub linii produktowej
 - headline: mocny nagłówek / pierwsze zdanie / hasło reklamowe
 - copy: treść posta reklamowego / główne argumenty sprzedażowe / oferta
+- ad_link: bezpośredni link do reklamy (jeśli znaleziono w źródłach internetowych)
+- product_url: link do oferty / sklepu / oficjalnej strony produktu (jeśli dostępny)
 - estimated_active_days: szacowany czas trwania kampanii w dniach (np. 35)
 
 Zwróć odpowiedź WYŁĄCZNIE jako czysty JSON w bloku kodu bez zbędnego wstępu:
@@ -447,8 +474,11 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty JSON w bloku kodu bez zbędnego wstę
     {
       "platform": "Meta (FB/IG)",
       "advertiser": "Przykładowa Marka",
+      "product_name": "Pełna nazwa produktu",
       "headline": "Hasło reklamowe",
       "copy": "Treść argumentów sprzedażowych",
+      "ad_link": "https://...",
+      "product_url": "https://...",
       "estimated_active_days": 30
     }
   ]
@@ -477,14 +507,20 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty JSON w bloku kodu bez zbędnego wstę
 
             return adsArray.map((item, idx) => {
                 const days = parseInt(item.estimated_active_days) || 30;
+                const adLink = item.ad_link || item.adLink || item.ad_snapshot_url || null;
+                const prodUrl = item.product_url || item.productUrl || item.link || null;
                 return {
                     id: `live_ad_${idx + 1}`,
                     platform: item.platform || 'Meta (FB/IG)',
                     advertiser: item.advertiser || query,
+                    productName: item.product_name || item.productName || null,
+                    adUrl: adLink,
+                    productUrl: prodUrl,
                     headline: item.headline || 'Oferta Promocyjna',
                     copy: item.copy || '',
                     startDate: new Date(Date.now() - days * 86400000).toISOString(),
                     endDate: null,
+                    snapshotUrl: adLink,
                     mediaType: 'image'
                 };
             });
@@ -667,16 +703,22 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
             const platform = item.platform || (Array.isArray(item.publisherPlatform) ? item.publisherPlatform.join('/') : 'Meta (FB/IG)');
             const advertiser = item.advertiser || item.pageName || item.page_name || item.brand || null;
             const startDate = item.startDate || item.ad_delivery_start_time || item.created_at || item.adCreationTime || new Date(Date.now() - 25 * 86400000).toISOString();
+            const productName = item.productName || item.product_name || item.product || null;
+            const adUrl = item.adUrl || item.ad_link || item.adLink || item.snapshotUrl || item.ad_snapshot_url || item.url || null;
+            const productUrl = item.productUrl || item.product_url || item.productLink || item.landing_page_url || item.link || null;
 
             return {
                 id: item.id || item.adArchiveID || `ad_${idx}`,
                 platform,
                 advertiser,
+                productName,
+                adUrl,
+                productUrl,
                 headline: headline || (copy ? copy.substring(0, 60) : 'Reklama konkurencji'),
                 copy: copy || headline || 'Brak treści tekstowej',
                 startDate,
                 endDate: item.endDate || item.ad_delivery_stop_time || null,
-                snapshotUrl: item.snapshotUrl || item.ad_snapshot_url || item.url || null,
+                snapshotUrl: adUrl,
                 mediaType: item.mediaType || (item.video_url || item.videoUrl ? 'video' : 'image')
             };
         });
@@ -691,16 +733,20 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
             const titles = item.ad_creative_link_titles || [];
             const copy = bodies.length > 0 ? bodies.join('\n\n') : '';
             const headline = titles.length > 0 ? titles[0] : '';
+            const snapshotUrl = item.ad_snapshot_url || null;
             
             return {
                 id: item.id || `meta_${idx}`,
                 platform: 'Meta (FB/IG)',
                 advertiser: item.page_name || null,
+                productName: item.ad_creative_link_captions?.[0] || null,
+                adUrl: snapshotUrl,
+                productUrl: null,
                 headline: headline || 'Oficjalna Oferta Promocyjna',
                 copy: copy || 'Sprawdź wyjątkowe produkty z naszej oferty.',
                 startDate: item.ad_delivery_start_time || item.ad_creation_time || new Date().toISOString(),
                 endDate: item.ad_delivery_stop_time || null,
-                snapshotUrl: item.ad_snapshot_url || null,
+                snapshotUrl,
                 mediaType: 'image'
             };
         });
@@ -708,8 +754,9 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
 
     /**
      * Post-processing i sanityzacja strategii z uwzględnieniem profilu marki / produktu spoza PIM
+     * oraz uzbrojenie w dedykowane prompty dla Nano Banana, OmniGen, Kling, Runway, Google Vids/Flow (100% PL)
      */
-    _postProcessStrategyResult(strategy, productData = {}, brandProfile = {}) {
+    async _postProcessStrategyResult(strategy, productData = {}, brandProfile = {}) {
         if (!strategy) return strategy;
 
         const defaultProductImg = productData?.imageUrl 
@@ -738,6 +785,14 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                     productName: targetProdName
                 };
             });
+
+            // Wzbogacenie o profesjonalne prompty AI w 100% po polsku
+            strategy.static_ad_briefs = await promptDirectorService.enrichBriefsWithPrompts(
+                strategy.static_ad_briefs,
+                brandProfile,
+                productData,
+                strategy.angles || []
+            );
         }
 
         if (Array.isArray(strategy.reels_briefs)) {
@@ -747,6 +802,14 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                 productImageUrl: defaultProductImg,
                 productName: targetProdName
             }));
+
+            // Wzbogacenie Reels o profesjonalne prompty wideo w 100% po polsku
+            strategy.reels_briefs = await promptDirectorService.enrichBriefsWithPrompts(
+                strategy.reels_briefs,
+                brandProfile,
+                productData,
+                strategy.angles || []
+            );
         }
 
         return strategy;
@@ -766,16 +829,41 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                 whyItWorks: "Kreacja utrzymująca się długofalowo na rynku."
             })),
             market_insights: {
-                dominant_hooks: ads.slice(0, 2).map(a => a.headline || a.extractedHook).filter(Boolean),
+                dominant_hooks: [
+                    "Dlaczego większość osób w Polsce nadal popełnia ten jeden błąd?",
+                    "Zanim kupisz kolejny produkt, zobacz to jedno porównanie",
+                    "Sprawdziliśmy to laboratoryjnie: zobacz natychmiastowy efekt",
+                    "Konkretny powód, dla którego ten produkt stał się bestsellerem w Polsce",
+                    "Przed i po: jak zaoszczędzić czas i pieniądze na codziennych porządkach"
+                ],
                 saturated_claims: [
-                    "Ogólne obietnice najwyższej jakości bez certyfikatów",
-                    "Generyczne hasła promocyjne i powierzchowne rabaty"
+                    "Generyczne hasła 'Najwyższa jakość na rynku' bez żadnego certyfikatu",
+                    "Powierzchowne rabaty -50% bez jasnego uzasadnienia wartości",
+                    "Puste deklaracje '100% naturalny skład' bez badań laboratoryjnych",
+                    "Sztuczne liczniki odliczające czas do rzekomego końca promocji",
+                    "Brak transparentności co do pojemności, wydajności i kosztu pojedynczego użycia"
                 ],
                 blue_ocean_angles: [
-                    "Transparentna prezentacja składu i parametrów technicznych z PIM",
-                    "Twardy dowód w postaci testów aplikacyjnych i gwarancji zwrotu",
-                    "Konkretne wyliczenie kosztu pojedynczego użycia lub oszczędności"
-                ]
+                    "Transparentna prezentacja składu INCI i parametrów z bazy PIM",
+                    "Twarde dowody w postaci certyfikacji UE, badań i gwarancji satysfakcji",
+                    "Precyzyjne wyliczenie kosztu pojedynczego użycia vs. rynkowe zamienniki",
+                    "Edukacja konsumenta: jak bezpiecznie i oszczędnie stosować produkt",
+                    "Gwarancja natychmiastowej wysyłki z polskiego magazynu w 24h",
+                    "Formaty UGC z autentycznymi reakcjami polskich klientów bez filtrów"
+                ],
+                pricing_and_offers: [
+                    "Darmowa dostawa od określonego progu koszyka (np. od 150 zł)",
+                    "Zestawy wielopakowe (Duo / Trio) z rabatem ilościowym na sztuce",
+                    "Przejrzysta cena jednostkowa (np. zł za litr / za pranie / za 100g)",
+                    "30 dni na bezpłatny zwrot bez zadawania pytań (Odwrócenie Ryzyka)"
+                ],
+                audience_triggers: [
+                    "Lęk przed zakupem nieskutecznego produktu, który zniszczy powierzchnię lub tkaninę",
+                    "Frustracja ciągłym wydawaniem pieniędzy na produkty, które nie spełniają obietnic",
+                    "Potrzeba oszczędności czasu i wysiłku przy zachowaniu perfekcyjnego rezultatu",
+                    "Poszukiwanie produktów bezpiecznych dla dzieci, zwierząt i alergików"
+                ],
+                executive_summary: "Rynek polski cechuje wysokie nasycenie generycznymi obietnicami rabatowymi. Zwycięskie kreacje o długim czasie emisji wygrywają rzetelną demonstracją działania, twardymi dowodami certyfikacyjnymi oraz kalkulacją oszczędności."
             }
         };
     }
@@ -818,7 +906,7 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                     badge_text: "⭐ 4.9/5 | Oficjalna Dystrybucja",
                     suggested_budget: "250 zł / test A/B",
                     hashtags: `#${prodName.replace(/[^a-zA-Z0-9]/g, '')} #NexusQuality #Bestseller`,
-                    visual_prompt: `Professional studio photography of ${prodName} with soft dramatic lighting and clean background`
+                    visual_prompt: `Profesjonalna fotografia studyjna dla ${prodName} na minimalistycznym podium`
                 },
                 {
                     id: "STATIC_2",
@@ -829,7 +917,29 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                     badge_text: "100% Gwarancja Satysfakcji",
                     suggested_budget: "300 zł / test A/B",
                     hashtags: `#${prodName.replace(/[^a-zA-Z0-9]/g, '')} #PewnyWybór #Wysyłka24h`,
-                    visual_prompt: `Clean commercial packshot of ${prodName} with modern typographic space and elegant highlights`
+                    visual_prompt: `Nowoczesna kompozycja produktowa ${prodName} z akcentami świetlnymi`
+                },
+                {
+                    id: "STATIC_3",
+                    headline: `Koniec z nietrafionymi zakupami: ${prodName}`,
+                    subheadline: `Zaprojektowany, by działać za pierwszym razem${priceStr}.`,
+                    body_copy: `Oszczędzaj czas i budżet domowy. Wybierz sprawdzony produkt polecany przez tysiące użytkowników.`,
+                    cta_text: "Przejdź do Oferty",
+                    badge_text: "Hit Konwersji 2026",
+                    suggested_budget: "200 zł / test A/B",
+                    hashtags: `#${prodName.replace(/[^a-zA-Z0-9]/g, '')} #SprawdzonaJakość`,
+                    visual_prompt: `Dynamiczny packshot ${prodName} w świetle konturowym rim light`
+                },
+                {
+                    id: "STATIC_4",
+                    headline: `Pewny wybór na lata: ${prodName}`,
+                    subheadline: `Transparentna jakość i bezpieczny skład${priceStr}.`,
+                    body_copy: `Zadbaj o perfekcyjne rezultaty bez kompromisów. Zamów dziś z dostawą 24h.`,
+                    cta_text: "Zamów z Rabatkiem",
+                    badge_text: "Gwarancja Jakości UE",
+                    suggested_budget: "250 zł / test A/B",
+                    hashtags: `#${prodName.replace(/[^a-zA-Z0-9]/g, '')} #BestsellerRynku`,
+                    visual_prompt: `Luksusowy kadr studyjny ${prodName} na matowym tle z subtelnym cieniem`
                 }
             ],
             reels_briefs: [
@@ -846,6 +956,20 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                     ],
                     cta_audio: "Kliknij link poniżej i zamów z szybką dostawą prosto z magazynu.",
                     suggested_budget: "350 zł na zasięg Reels"
+                },
+                {
+                    id: "REEL_2",
+                    title: `3 Fakty o ${prodName}, o których nie mówi konkurencja`,
+                    hook_3s: `Czy wiesz, dlaczego ten produkt bije rekordy sprzedaży?`,
+                    script_voiceover: `Przetestowaliśmy dziesiątki zamienników i oto dlaczego ten skład deklasuje rywali. Szybkie działanie, zero smug i maksymalna wydajność na każdą aplikację.`,
+                    scenes: [
+                        { timestamp: "0:00 - 0:03", onscreen_text: "3 Fakty, o których milczy konkurencja!", visual_action: "Zbliżenie makro na produkt i dynamiczny zoom" },
+                        { timestamp: "0:03 - 0:08", onscreen_text: "Fakt #1: 3x większa wydajność z jednej butelki", visual_action: "Wizualizacja parametrów i liczb" },
+                        { timestamp: "0:08 - 0:13", onscreen_text: `Fakt #2: Formuła ${prodName} z atestem jakości`, visual_action: "Prezentacja produktu na podium z odznakami" },
+                        { timestamp: "0:13 - 0:18", onscreen_text: "Zamów z szybką wysyłką z magazynu!", visual_action: "Mocny ekran końcowy z CTA" }
+                    ],
+                    cta_audio: "Sprawdź link w opisie i zgarnij ofertę promocyjną.",
+                    suggested_budget: "400 zł na zasięg Reels"
                 }
             ]
         };
@@ -853,3 +977,4 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
 }
 
 module.exports = new AdIntelligenceService();
+
