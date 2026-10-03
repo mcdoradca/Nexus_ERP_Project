@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { 
     Search, 
@@ -22,7 +22,11 @@ import {
     RotateCcw,
     X,
     Package,
-    DollarSign
+    DollarSign,
+    UploadCloud,
+    FileUp,
+    FileText,
+    Trash2
 } from 'lucide-react';
 
 const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
@@ -39,6 +43,12 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
     const [brandUsp, setBrandUsp] = useState('');
     const [brandProof, setBrandProof] = useState('');
     const [customProductImgUrl, setCustomProductImgUrl] = useState('');
+    const [isUploadingMaterial, setIsUploadingMaterial] = useState(false);
+    const [uploadedMaterial, setUploadedMaterial] = useState(null);
+    const [isUploadingModalMaterial, setIsUploadingModalMaterial] = useState(false);
+    const mainFileInputRef = useRef(null);
+    const modalFileInputRef = useRef(null);
+
     const [scanLimit, setScanLimit] = useState(100);
     const [apifyToken, setApifyToken] = useState('');
     const [apifyDatasetId, setApifyDatasetId] = useState('');
@@ -128,6 +138,64 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
 
     const handleClearSelectedProduct = () => {
         setSelectedProduct(null);
+        setCustomProductImgUrl('');
+        setUploadedMaterial(null);
+        if (mainFileInputRef.current) mainFileInputRef.current.value = '';
+    };
+
+    // Wgrywanie pliku z komputera (zdjęcie, wideo, packshot)
+    const handleFileUpload = async (event, isModal = false) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        if (isModal) {
+            setIsUploadingModalMaterial(true);
+        } else {
+            setIsUploadingMaterial(true);
+        }
+
+        try {
+            const res = await axios.post(`${API_URL}/api/ad-intelligence/upload-material`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (res.data && res.data.success) {
+                const uploadedUrl = res.data.url;
+                if (isModal) {
+                    setEditingAsset(prev => ({
+                        ...prev,
+                        editProductImg: uploadedUrl
+                    }));
+                } else {
+                    setCustomProductImgUrl(uploadedUrl);
+                    setUploadedMaterial({
+                        originalName: res.data.originalName,
+                        size: res.data.size,
+                        mediaType: res.data.mediaType,
+                        url: uploadedUrl
+                    });
+                }
+            } else {
+                alert('Błąd podczas wgrywania pliku: ' + (res.data?.error || 'Nieznany błąd'));
+            }
+        } catch (err) {
+            console.error('Błąd uploadu pliku z dysku:', err);
+            alert('Nie udało się wgrać pliku: ' + (err.response?.data?.error || err.message));
+        } finally {
+            if (isModal) {
+                setIsUploadingModalMaterial(false);
+                if (modalFileInputRef.current) modalFileInputRef.current.value = '';
+            } else {
+                setIsUploadingMaterial(false);
+                if (mainFileInputRef.current) mainFileInputRef.current.value = '';
+            }
+        }
     };
 
     // Całkowite wyczyszczenie formularza i przywrócenie stanu początkowego
@@ -139,11 +207,13 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
         setBrandUsp('');
         setBrandProof('');
         setCustomProductImgUrl('');
+        setUploadedMaterial(null);
         setCustomDatasetJson('');
         setApifyDatasetId('');
         setScanData(null);
         setGeneratedAssets([]);
         setExportSuccessMessage(null);
+        if (mainFileInputRef.current) mainFileInputRef.current.value = '';
     };
 
     // Bezpieczne rozwiązywanie adresu URL mediów (Supabase CDN vs ścieżka lokalna vs Base64)
@@ -557,11 +627,33 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                                     </div>
                                 </div>
 
-                                {/* Wybór zdjęcia produktu z galerii PIM */}
+                                {/* Wybór zdjęcia / packshotu lub wgranie z komputera */}
                                 <div>
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
-                                        Wybierz Packshot z Galerii Produktu (PIM)
-                                    </label>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
+                                            Packshot / Materiał Wizualny Kreacji
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => modalFileInputRef.current?.click()}
+                                            disabled={isUploadingModalMaterial}
+                                            className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors"
+                                        >
+                                            {isUploadingModalMaterial ? (
+                                                <><Loader2 className="w-3 h-3 animate-spin"/> Wgrywanie...</>
+                                            ) : (
+                                                <><UploadCloud className="w-3 h-3"/> Wgraj własny plik z dysku</>
+                                            )}
+                                        </button>
+                                        <input 
+                                            type="file"
+                                            ref={modalFileInputRef}
+                                            onChange={(e) => handleFileUpload(e, true)}
+                                            accept="image/*,video/*"
+                                            className="hidden"
+                                        />
+                                    </div>
+
                                     {availableProductImages.length > 0 ? (
                                         <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
                                             {availableProductImages.map((imgUrl, i) => (
@@ -575,8 +667,18 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-[11px] text-slate-400 italic">Brak galerii zdjęć w wybranym produkcie PIM.</p>
+                                        <p className="text-[11px] text-slate-400 italic">Brak galerii zdjęć w PIM. Możesz wgrać własny plik powyżej lub podać URL.</p>
                                     )}
+
+                                    <div className="mt-2 flex gap-2">
+                                        <input 
+                                            type="text"
+                                            value={editingAsset.editProductImg || ''}
+                                            onChange={e => setEditingAsset({ ...editingAsset, editProductImg: e.target.value })}
+                                            placeholder="URL lub ścieżka do zdjęcia/packshotu..."
+                                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs font-mono outline-none focus:bg-white focus:border-indigo-500"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Edycja scen dla formatu Reels */}
@@ -877,23 +979,93 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                     </div>
 
                     <div className="md:col-span-12">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">
-                            URL Packshotu / Zdjęcia Produktu (Opcjonalnie - dla produktów spoza PIM lub własnego zdjęcia)
-                        </label>
-                        <div className="flex gap-2">
-                            <input 
-                                type="url"
-                                value={customProductImgUrl}
-                                onChange={e => setCustomProductImgUrl(e.target.value)}
-                                placeholder="https://... (np. bezpośredni link do zdjęcia butelki / opakowania w formacie PNG/JPG)"
-                                className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono focus:bg-white focus:border-indigo-500 outline-none"
-                            />
-                            {customProductImgUrl && (
-                                <div className="w-9 h-9 rounded border border-slate-300 overflow-hidden bg-white shrink-0 flex items-center justify-center p-0.5 shadow-sm">
-                                    <img src={customProductImgUrl} alt="Podgląd" className="w-full h-full object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
-                                </div>
-                            )}
+                        <div className="flex flex-wrap justify-between items-center mb-1 gap-2">
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                                Packshot / Materiał Wizualny (URL lub Wgraj Plik z Komputera)
+                            </label>
+                            <span className="text-[10px] text-slate-400">
+                                Obsługa zdjęć (PNG, JPG, WEBP) i wideo (MP4, MOV) do 50 MB
+                            </span>
                         </div>
+
+                        {/* Ukryty input do wgrywania plików z komputera */}
+                        <input 
+                            type="file" 
+                            ref={mainFileInputRef}
+                            onChange={(e) => handleFileUpload(e, false)}
+                            accept="image/*,video/*"
+                            className="hidden" 
+                        />
+
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <div className="flex-1 flex gap-2">
+                                <input 
+                                    type="text"
+                                    value={customProductImgUrl}
+                                    onChange={e => {
+                                        setCustomProductImgUrl(e.target.value);
+                                        setUploadedMaterial(null);
+                                    }}
+                                    placeholder="Wklej URL zdjęcia https://... LUB wgraj bezpośrednio z dysku →"
+                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono focus:bg-white focus:border-indigo-500 outline-none"
+                                />
+                                {customProductImgUrl && (
+                                    <div className="w-9 h-9 rounded border border-slate-300 overflow-hidden bg-white shrink-0 flex items-center justify-center p-0.5 shadow-sm relative group">
+                                        {uploadedMaterial?.mediaType === 'video' || customProductImgUrl.match(/\.(mp4|mov|webm)$/i) ? (
+                                            <Video className="w-5 h-5 text-pink-600" />
+                                        ) : (
+                                            <img src={customProductImgUrl} alt="Podgląd" className="w-full h-full object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => mainFileInputRef.current?.click()}
+                                disabled={isUploadingMaterial}
+                                className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-sm disabled:opacity-50"
+                            >
+                                {isUploadingMaterial ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                                        Wgrywanie z dysku...
+                                    </>
+                                ) : (
+                                    <>
+                                        <UploadCloud className="w-4 h-4 text-indigo-600" />
+                                        Wgraj z komputera
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Pasek statusu wgranego pliku z dysku */}
+                        {uploadedMaterial && (
+                            <div className="mt-2 p-2 bg-indigo-50/70 border border-indigo-200 rounded-lg flex items-center justify-between text-xs animate-in fade-in">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    <span className="p-1 bg-indigo-600 text-white rounded shrink-0">
+                                        {uploadedMaterial.mediaType === 'video' ? <Video className="w-3.5 h-3.5" /> : <ImageIcon className="w-3.5 h-3.5" />}
+                                    </span>
+                                    <div className="truncate">
+                                        <span className="font-bold text-slate-800">{uploadedMaterial.originalName}</span>
+                                        <span className="text-[10px] text-slate-500 ml-2">({(uploadedMaterial.size / 1024).toFixed(0)} KB • Zapisano)</span>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setUploadedMaterial(null);
+                                        setCustomProductImgUrl('');
+                                        if (mainFileInputRef.current) mainFileInputRef.current.value = '';
+                                    }}
+                                    className="text-slate-400 hover:text-rose-600 p-1 transition-colors shrink-0"
+                                    title="Usuń plik"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 

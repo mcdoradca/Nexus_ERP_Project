@@ -177,3 +177,65 @@ test('AdIntelligenceService & CreativeStudio - obsługa produktu spoza bazy PIM 
     assert.strictEqual(staticAsset.productImageUrl, brandProfile.customProductImgUrl);
     assert.strictEqual(staticAsset.mediaType, 'image');
 });
+
+test('AdIntelligenceController & CreativeStudio - uploadMediaMaterial zapisuje plik z dysku i generuje kreację', async () => {
+    // 1. Tworzymy mały bufor obrazu PNG 100x100
+    const sharp = require('sharp');
+    const testPngBuffer = await sharp({
+        create: {
+            width: 100,
+            height: 100,
+            channels: 4,
+            background: { r: 255, g: 0, b: 0, alpha: 1 }
+        }
+    }).png().toBuffer();
+
+    let resJson = null;
+    let resStatus = 200;
+    const mockRes = {
+        status: (s) => { resStatus = s; return mockRes; },
+        json: (data) => { resJson = data; return mockRes; }
+    };
+
+    const mockReq = {
+        file: {
+            originalname: 'custom_packshot_test.png',
+            mimetype: 'image/png',
+            buffer: testPngBuffer,
+            size: testPngBuffer.length
+        }
+    };
+
+    await adIntelligenceController.uploadMediaMaterial(mockReq, mockRes);
+    assert.strictEqual(resStatus, 200);
+    assert.ok(resJson.success, 'Upload musi zwrócić success: true');
+    assert.ok(resJson.url, 'Upload musi zwrócić url');
+    assert.strictEqual(resJson.mediaType, 'image');
+
+    // Sprawdzamy czy fizyczny plik istnieje na dysku
+    const localUploadedPath = path.join(__dirname, '../../../../frontend/public', resJson.localUrl);
+    assert.ok(fs.existsSync(localUploadedPath), 'Plik z uploadu musi fizycznie istnieć na dysku serwera');
+
+    // 2. Weryfikujemy czy CreativeStudio potrafi wygenerować statyk z nowo wgranego pliku
+    const brief = {
+        id: "UPLOAD_TEST_1",
+        headline: "Test Wgranego Packshotu",
+        subheadline: "Sprawdzona integracja pliku lokalnego",
+        body_copy: "Opis testowy z pliku wgranego z komputera.",
+        cta_text: "Kup Teraz",
+        badge_text: "⭐ Nowość",
+        suggested_budget: "200 zł",
+        hashtags: "#TestUpload",
+        productImageUrl: resJson.localUrl
+    };
+
+    const asset = await creativeStudioService.generateStaticAd(brief, { name: 'Test Marka' });
+    assert.ok(asset.mediaUrl, 'mediaUrl wygenerowanego assetu musi być ustawione');
+    assert.strictEqual(asset.mediaType, 'image');
+    assert.strictEqual(asset.productImageUrl, resJson.localUrl);
+
+    // Czyszczenie pliku testowego
+    if (fs.existsSync(localUploadedPath)) {
+        fs.unlinkSync(localUploadedPath);
+    }
+});

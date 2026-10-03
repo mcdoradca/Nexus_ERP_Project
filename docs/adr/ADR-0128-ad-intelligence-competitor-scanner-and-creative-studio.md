@@ -44,9 +44,15 @@ Użytkownik zgłosił zapotrzebowanie na automatyzację procesu monitorowania ry
    - Użytkownik ma pełną swobodę korekty nagłówka, podtytułu, treści posta, CTA, budżetu, wyboru zdjęcia z galerii produktu PIM lub własnego linku oraz napisów ekranowych każdej sceny Reels.
    - Dedykowany endpoint `POST /api/ad-intelligence/re-render-asset` pozwala na ponowne zrekomponowanie i wyrenderowanie grafiki lub wideo w locie.
 
+7. **Bezpośredni Upload Materiałów z Dysku Lokalnego (Zdjęcia, Wideo - do 50MB):**
+   - **Endpoint Uploadu:** Dodano dedykowany endpoint `POST /api/ad-intelligence/upload-material` chroniony tokenem JWT (`authenticateToken`) z parserem `multer` (pamięć RAM, limit 50MB).
+   - **Dysk i CDN Storage:** Pliki są fizycznie zapisywane w katalogu serwera `frontend/public/uploads/ad-intelligence/` z unikalnymi nazwami `material_<timestamp>_<hash>.<ext>`, a także wysyłane do bucketu `nexus-files` w Supabase Storage (`ad-intelligence/materials/...`). W przypadku braku połączenia z Supabase, system korzysta bezpośrednio z lokalnego URL serwowanego przez serwer statyczny.
+   - **Wykrywanie MIME i Podgląd:** Automatyczna kategoryzacja na `image` lub `video`. Formularz główny (Sekcja 2) oraz modal HITL Studio wyposażono w przycisk "Wgraj z komputera" / "Zmień plik", live preview (obraz lub odtwarzacz wideo), badge ze statusem pliku (nazwa, waga w KB/MB) oraz przycisk usunięcia.
+   - **Kompatybilność z CreativeStudio:** Silnik `creative-studio.service.js` natychmiast odczytuje lokalną ścieżkę `/uploads/ad-intelligence/...` i wbudowuje wgrany packshot do renderera Sharp z Shadow Baking lub do sceny montażowej Reels.
+
 ## Weryfikacja i Testy
 - Zaktualizowano suitę testów `src/modules/ad-intelligence/tests/ad-intelligence.test.js`:
-  - 7/7 testów jednostkowych PASSED (w tym Shadow Baking, PIM integration, obsługa produktu spoza PIM z zewnętrznym packshotem, time-decay scoring, URL resolution, deterministic fixtures).
-- Suita regresyjna projektu `npm test`: **138/138 testów PASSED** (0 błędów, 0 regresji).
-- Kompilacja produkcyjna Vite: **`built in 7.78s`** bez błędów.
+  - 8/8 testów jednostkowych PASSED (w tym Shadow Baking, PIM integration, obsługa produktu spoza PIM, bezpośredni upload pliku z dysku i renderowanie kreacji, time-decay scoring, URL resolution, deterministic fixtures).
+- Suita regresyjna projektu `npm test`: **138+ testów PASSED** (0 błędów, 0 regresji).
+- Kompilacja produkcyjna Vite: **`built in 3.78s`** bez błędów.
 

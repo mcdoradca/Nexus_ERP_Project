@@ -1,9 +1,84 @@
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { createClient } = require('@supabase/supabase-js');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const adIntelligenceService = require('./ad-intelligence.service');
 const creativeStudioService = require('./creative-studio.service');
 
+const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY)
+    ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+    : null;
+
 class AdIntelligenceController {
+
+    /**
+     * Wgrywanie pliku multimedialnego (zdjęcie, wideo, packshot) bezpośrednio z dysku komputera
+     */
+    async uploadMediaMaterial(req, res) {
+        try {
+            const file = req.file;
+            if (!file) {
+                return res.status(400).json({ success: false, error: 'Brak przesłanego pliku.' });
+            }
+
+            const uploadDir = path.join(__dirname, '../../../frontend/public/uploads/ad-intelligence');
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+
+            const rawExt = (path.extname(file.originalname) || '').toLowerCase() || '.png';
+            const safeName = `material_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${rawExt}`;
+            const localFilePath = path.join(uploadDir, safeName);
+
+            // 1. Zapis fizyczny pliku w lokalnym publicznym katalogu serwera
+            fs.writeFileSync(localFilePath, file.buffer);
+            const localUrl = `/uploads/ad-intelligence/${safeName}`;
+
+            // 2. Upload do Supabase Storage jeśli skonfigurowano
+            let publicUrl = null;
+            if (supabase) {
+                try {
+                    const storagePath = `ad-intelligence/materials/${safeName}`;
+                    const { error } = await supabase.storage
+                        .from('nexus-files')
+                        .upload(storagePath, file.buffer, {
+                            contentType: file.mimetype,
+                            upsert: true
+                        });
+                    if (!error) {
+                        const { data } = supabase.storage.from('nexus-files').getPublicUrl(storagePath);
+                        publicUrl = data?.publicUrl || null;
+                    }
+                } catch (supaErr) {
+                    console.warn('[AdIntelligenceController] Ostrzeżenie uploadu do Supabase:', supaErr.message);
+                }
+            }
+
+            const isVideo = file.mimetype.startsWith('video/') || ['.mp4', '.mov', '.webm', '.avi'].includes(rawExt);
+            const mediaType = isVideo ? 'video' : 'image';
+
+            console.log(`[AdIntelligenceController] Pomyślnie wgrano plik z dysku: "${file.originalname}" (${mediaType}, ${file.size} B) -> ${publicUrl || localUrl}`);
+
+            return res.json({
+                success: true,
+                url: publicUrl || localUrl,
+                localUrl,
+                publicUrl,
+                fileName: safeName,
+                originalName: file.originalname,
+                mediaType,
+                size: file.size
+            });
+        } catch (err) {
+            console.error('[AdIntelligenceController] Błąd w uploadMediaMaterial:', err);
+            return res.status(500).json({
+                success: false,
+                error: err.message || 'Błąd podczas wgrywania pliku z komputera.'
+            });
+        }
+    }
 
     /**
      * Pobiera listę produktów z PIM (baza Nexus ERP) na potrzeby selektora w studio
