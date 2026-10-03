@@ -122,15 +122,42 @@ class AdIntelligenceController {
     }
 
     /**
+     * Agent OSINT: Autonomiczne odnajdywanie oficjalnej strony producenta / sklepu
+     * oraz uzupełnianie parametrów produktu (USP, dowody, opis, packshot)
+     */
+    async enrichProduct(req, res) {
+        try {
+            const { name } = req.body;
+            if (!name || !name.trim()) {
+                return res.status(400).json({ success: false, error: 'Wymagana jest nazwa marki lub produktu do autouzupełnienia.' });
+            }
+
+            console.log(`[AdIntelligenceController] Żądanie autouzupełnienia z sieci dla: "${name}"...`);
+            const enrichedData = await adIntelligenceService.enrichProductFromWeb(name);
+
+            return res.json({
+                success: true,
+                enrichedData
+            });
+        } catch (err) {
+            console.error('[AdIntelligenceController] Błąd w enrichProduct:', err);
+            return res.status(500).json({
+                success: false,
+                error: err.message || 'Błąd podczas odnajdywania informacji o produkcie w sieci.'
+            });
+        }
+    }
+
+    /**
      * Skanuje reklamy konkurencji, ocenia je przez Gemini 3.8 Flash i syntetyzuje 28 hooków przez Gemini 3.1 Pro
-     * z uwzględnieniem wybranego produktu z PIM
+     * z uwzględnieniem wybranego produktu z PIM lub generuje bezpośrednio z profilu produktu
      */
     async scanAndAnalyze(req, res) {
         try {
-            const { query, dataset, brandProfile, limit, productId, apifyToken, apifyDatasetId } = req.body;
+            const { query, dataset, brandProfile, limit, productId, apifyToken, apifyDatasetId, directGeneration } = req.body;
             const safeLimit = Math.min(Math.max(parseInt(limit) || 50, 1), 300);
 
-            console.log(`[AdIntelligenceController] Otrzymano żądanie skanowania rynku dla: "${query || 'produkt PIM'}" (Produkt ID: ${productId || 'brak'}, Limit PL: ${safeLimit})...`);
+            console.log(`[AdIntelligenceController] Otrzymano żądanie ${directGeneration ? 'bezpośredniej generacji strategii' : 'skanowania rynku'} dla: "${query || 'produkt PIM'}" (Produkt ID: ${productId || 'brak'}, Limit PL: ${safeLimit})...`);
 
             // Pobieramy dane fizycznego produktu z PIM jeśli został wskazany, lub tworzymy syntetyczny profil produktu spoza PIM
             let productData = null;
@@ -153,8 +180,42 @@ class AdIntelligenceController {
             }
 
             const effectiveQuery = (query || '').trim() || (productData ? productData.name : '');
-            if (!effectiveQuery && (!dataset || dataset.length === 0) && !apifyDatasetId) {
+            if (!effectiveQuery && (!dataset || dataset.length === 0) && !apifyDatasetId && !directGeneration) {
                 return res.status(400).json({ success: false, error: 'Wymagane jest podanie słowa kluczowego, nazwy marki, wyboru produktu z PIM lub datasetu Apify.' });
+            }
+
+            // TRYB BEZPOŚREDNI: Generacja natychmiastowa bez czekania na skaner konkurencji
+            if (directGeneration) {
+                console.log('[AdIntelligenceController] Uruchamiam tryb bezpośredniej generacji strategii z profilu produktu...');
+                const marketInsights = {
+                    dominant_hooks: ["Sprawdzona skuteczność", "Najwyższa jakość", "Profesjonalna formuła"],
+                    saturated_claims: ["Zwykłe rozwiązania bez atestu"],
+                    blue_ocean_angles: ["Unikalna technologia", "Rekomendacja ekspertów", "Gwarancja rezultatów"]
+                };
+
+                const strategyResult = await adIntelligenceService.synthesizeAnglesAndHooks({
+                    topWinners: [],
+                    marketInsights,
+                    brandProfile: brandProfile || {},
+                    productData: productData || {}
+                });
+
+                return res.json({
+                    success: true,
+                    totalScanned: 0,
+                    topWinners: [],
+                    marketInsights,
+                    strategy: strategyResult,
+                    product: productData ? {
+                        id: productData.id,
+                        name: productData.name,
+                        sku: productData.sku || 'Spoza PIM',
+                        salePrice: productData.salePrice,
+                        imageUrl: productData.imageUrl,
+                        images: productData.images
+                    } : null,
+                    notice: 'Strategia i 28 haczyków zostały wygenerowane bezpośrednio na podstawie parametrów Twojego produktu (tryb natychmiastowy).'
+                });
             }
 
             // 1. Ingestia reklam z autentycznych źródeł (Apify / Live Search / Meta API / Dataset)
@@ -192,7 +253,7 @@ class AdIntelligenceController {
                     images: productData.images
                 } : null,
                 notice: scoreResult.totalScanned === 0 
-                    ? 'Nie wykryto aktywnych reklam w bibliotece dla tego hasła w Polsce. Strategia została wygenerowana w oparciu o profil produktu z PIM.'
+                    ? 'Nie wykryto bezpośrednich archiwalnych reklam w bibliotece dla tej wąskiej frazy. Strategia oraz 28 haczyków zostały wygenerowane w oparciu o profil produktu i psychologię perswazji.'
                     : null
             });
         } catch (err) {

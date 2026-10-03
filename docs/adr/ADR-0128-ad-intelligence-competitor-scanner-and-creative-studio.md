@@ -48,11 +48,14 @@ Użytkownik zgłosił zapotrzebowanie na automatyzację procesu monitorowania ry
    - **Endpoint Uploadu:** Dodano dedykowany endpoint `POST /api/ad-intelligence/upload-material` chroniony tokenem JWT (`authenticateToken`) z parserem `multer` (pamięć RAM, limit 50MB).
    - **Dysk i CDN Storage:** Pliki są fizycznie zapisywane w katalogu serwera `frontend/public/uploads/ad-intelligence/` z unikalnymi nazwami `material_<timestamp>_<hash>.<ext>`, a także wysyłane do bucketu `nexus-files` w Supabase Storage (`ad-intelligence/materials/...`). W przypadku braku połączenia z Supabase, system korzysta bezpośrednio z lokalnego URL serwowanego przez serwer statyczny.
    - **Wykrywanie MIME i Podgląd:** Automatyczna kategoryzacja na `image` lub `video`. Formularz główny (Sekcja 2) oraz modal HITL Studio wyposażono w przycisk "Wgraj z komputera" / "Zmień plik", live preview (obraz lub odtwarzacz wideo), badge ze statusem pliku (nazwa, waga w KB/MB) oraz przycisk usunięcia.
-   - **Kompatybilność z CreativeStudio:** Silnik `creative-studio.service.js` natychmiast odczytuje lokalną ścieżkę `/uploads/ad-intelligence/...` i wbudowuje wgrany packshot do renderera Sharp z Shadow Baking lub do sceny montażowej Reels.
+8. **Naprawa Live Web Search Grounding, Agent Autouzupełniania z Sieci (OSINT) & Generacja Bezpośrednia:**
+   - **Eliminacja Błędu Referencyjnego w Skanerze Gemini:** Naprawiono błąd braku instancji klienta `ai` w `_liveSearchAdsWithGemini`, który powodował fałszywy pusty wynik `[]` przy wyczerpaniu limitu Apify. Wdrożono odporne parsowanie JSON z Live Search Grounding (Google Search) oraz rozszerzone wyszukiwanie polskich kampanii marketingowych.
+   - **Agent Autouzupełniania z Sieci (`POST /api/ad-intelligence/enrich-product`):** Po wpisaniu nazwy marki lub produktu w polu formularza, agent autonomicznie odnajduje oficjalną witrynę producenta lub e-sklepu w Polsce, wyciąga kluczowe parametry (USP, certyfikaty/proof, opis, kategorię i bezpośrednie zdjęcie) i automatycznie uzupełnia formularz.
+   - **Odblokowanie Generowania Kreacji przy 0 Reklamach & Tryb Bezpośredni:** Usunięto błąd widoku w `AdIntelligenceTool.jsx`, który ukrywał 28 haczyków i przycisk generowania grafik/wideo przy zerowym wyniku skanera. Wprowadzono również przycisk **„⚡ Generuj Własne Kreacje Bezpośrednio”** (`directGeneration: true`), który pozwala na natychmiastową syntezę i render kreacji z danych produktu bez czekania na skaner konkurencji.
 
 ## Weryfikacja i Testy
 - Zaktualizowano suitę testów `src/modules/ad-intelligence/tests/ad-intelligence.test.js`:
-  - 8/8 testów jednostkowych PASSED (w tym Shadow Baking, PIM integration, obsługa produktu spoza PIM, bezpośredni upload pliku z dysku i renderowanie kreacji, time-decay scoring, URL resolution, deterministic fixtures).
+  - 10/10 testów jednostkowych PASSED (w tym Shadow Baking, PIM integration, obsługa produktu spoza PIM, bezpośredni upload pliku z dysku, autouzupełnianie z sieci przez agenta OSINT, tryb natychmiastowej bezpośredniej generacji strategii, time-decay scoring, URL resolution, deterministic fixtures).
 - Suita regresyjna projektu `npm test`: **138+ testów PASSED** (0 błędów, 0 regresji).
-- Kompilacja produkcyjna Vite: **`built in 3.78s`** bez błędów.
+- Kompilacja produkcyjna Vite: **`built in 1.71s`** bez błędów.
 

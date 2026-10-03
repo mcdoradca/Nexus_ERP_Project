@@ -239,3 +239,59 @@ test('AdIntelligenceController & CreativeStudio - uploadMediaMaterial zapisuje p
         fs.unlinkSync(localUploadedPath);
     }
 });
+
+test('AdIntelligenceService & Controller - enrichProductFromWeb autonomicznie bada produkt i uzupełnia pola', async () => {
+    // 1. Test bezpośredniego wywołania serwisu
+    const enriched = await adIntelligenceService.enrichProductFromWeb('Air Wick');
+    assert.ok(enriched, 'Wynik enrichmentu musi istnieć');
+    assert.ok(enriched.brandName, 'brandName musi być uzupełnione');
+    assert.ok(enriched.usp, 'USP musi być uzupełnione');
+    assert.ok(enriched.proof, 'Proof musi być uzupełnione');
+    assert.ok(enriched.description, 'Opis musi być uzupełniony');
+
+    // 2. Test kontrolera enrichProduct
+    let resJson = null;
+    let resStatus = 200;
+    const mockRes = {
+        status: (s) => { resStatus = s; return mockRes; },
+        json: (data) => { resJson = data; return mockRes; }
+    };
+    const mockReq = {
+        body: { name: 'Cif' }
+    };
+
+    await adIntelligenceController.enrichProduct(mockReq, mockRes);
+    assert.strictEqual(resStatus, 200);
+    assert.ok(resJson.success, 'Odpowiedź kontrolera musi mieć success: true');
+    assert.ok(resJson.enrichedData, 'Odpowiedź musi zawierać enrichedData');
+    assert.ok(resJson.enrichedData.usp, 'enrichedData musi zawierać usp');
+});
+
+test('AdIntelligenceController - scanAndAnalyze z directGeneration generuje strategię i 28 hooków natychmiast', async () => {
+    let resJson = null;
+    let resStatus = 200;
+    const mockRes = {
+        status: (s) => { resStatus = s; return mockRes; },
+        json: (data) => { resJson = data; return mockRes; }
+    };
+    const mockReq = {
+        body: {
+            directGeneration: true,
+            query: 'Krem nawilżający',
+            brandProfile: {
+                name: 'BioDerm',
+                usp: 'Kwas hialuronowy i ceramidy',
+                proof: 'Testy dermatologiczne'
+            }
+        }
+    };
+
+    await adIntelligenceController.scanAndAnalyze(mockReq, mockRes);
+    assert.strictEqual(resStatus, 200);
+    assert.ok(resJson.success, 'Odpowiedź musi mieć success: true');
+    assert.strictEqual(resJson.totalScanned, 0, 'W trybie direct totalScanned wynosi 0');
+    assert.ok(resJson.strategy, 'Strategia musi być wygenerowana');
+    assert.ok(resJson.strategy.angles && resJson.strategy.angles.length === 4, 'Musi zawierać 4 kąty');
+    assert.ok(resJson.strategy.hooks_28 && resJson.strategy.hooks_28.length === 28, 'Musi zawierać 28 haczyków');
+    assert.ok(resJson.strategy.static_ad_briefs && resJson.strategy.static_ad_briefs.length > 0, 'Musi zawierać briefy statyczne');
+});

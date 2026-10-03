@@ -11,6 +11,7 @@ const upload = multer({
 });
 
 router.get('/products', authenticateToken, (req, res) => adIntelligenceController.getProductsForPicker(req, res));
+router.post('/enrich-product', authenticateToken, (req, res) => adIntelligenceController.enrichProduct(req, res));
 router.post('/upload-material', authenticateToken, upload.single('file'), (req, res) => adIntelligenceController.uploadMediaMaterial(req, res));
 router.post('/scan', authenticateToken, (req, res) => adIntelligenceController.scanAndAnalyze(req, res));
 router.post('/generate-assets', authenticateToken, (req, res) => adIntelligenceController.generateCreativeAssets(req, res));

@@ -46,6 +46,8 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
     const [isUploadingMaterial, setIsUploadingMaterial] = useState(false);
     const [uploadedMaterial, setUploadedMaterial] = useState(null);
     const [isUploadingModalMaterial, setIsUploadingModalMaterial] = useState(false);
+    const [isEnrichingProduct, setIsEnrichingProduct] = useState(false);
+    const [enrichSuccessMessage, setEnrichSuccessMessage] = useState(null);
     const mainFileInputRef = useRef(null);
     const modalFileInputRef = useRef(null);
 
@@ -198,6 +200,80 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
         }
     };
 
+    // Autonomiczne odnajdywanie oficjalnej strony i danych produktu przez Agenta OSINT (Google Search)
+    const handleAutoEnrichProduct = async () => {
+        const targetName = (brandName || query || '').trim();
+        if (!targetName) {
+            alert('Wpisz najpierw nazwę marki lub produktu w polu poniżej, aby Agent mógł odnaleźć informacje w sieci.');
+            return;
+        }
+
+        setIsEnrichingProduct(true);
+        setEnrichSuccessMessage(null);
+
+        try {
+            const res = await axios.post(`${API_URL}/api/ad-intelligence/enrich-product`, {
+                name: targetName
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (res.data && res.data.success && res.data.enrichedData) {
+                const d = res.data.enrichedData;
+                if (d.brandName) setBrandName(d.brandName);
+                if (d.usp) setBrandUsp(d.usp);
+                if (d.proof) setBrandProof(d.proof);
+                if (d.suggestedQuery && !query) setQuery(d.suggestedQuery);
+                if (d.imageUrl && !customProductImgUrl && !selectedProduct) setCustomProductImgUrl(d.imageUrl);
+                
+                const siteInfo = d.website ? ` (Oficjalna strona: ${d.website})` : '';
+                setEnrichSuccessMessage(`✓ Agent AI odnalazł produkt w sieci i uzupełnił parametry! Kategoria: ${d.category}${siteInfo}`);
+            } else {
+                alert('Nie udało się odnaleźć szczegółowych danych: ' + (res.data?.error || 'Brak danych'));
+            }
+        } catch (err) {
+            console.error('Błąd podczas autouzupełniania z sieci:', err);
+            alert('Błąd agenta OSINT: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsEnrichingProduct(false);
+        }
+    };
+
+    // Bezpośrednia natychmiastowa generacja strategii z profilu produktu (z pominięciem skanera konkurencji)
+    const handleStartDirectGeneration = async () => {
+        setIsScanning(true);
+        setScanData(null);
+        setGeneratedAssets([]);
+        setExportSuccessMessage(null);
+
+        try {
+            const res = await axios.post(`${API_URL}/api/ad-intelligence/scan`, {
+                query: query || brandName || (selectedProduct?.name || 'Produkt'),
+                directGeneration: true,
+                brandProfile: {
+                    name: brandName || (selectedProduct?.brand?.name || 'Nasza Marka'),
+                    usp: brandUsp,
+                    proof: brandProof,
+                    customProductImgUrl: customProductImgUrl.trim() || (selectedProduct?.imageUrl || null)
+                },
+                productId: selectedProduct ? selectedProduct.id : null
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (res.data && res.data.success) {
+                setScanData(res.data);
+            } else {
+                alert('Błąd bezpośredniej generacji: ' + (res.data?.error || 'Nieznany błąd'));
+            }
+        } catch (err) {
+            console.error('Błąd bezpośredniej generacji:', err);
+            alert('Wystąpił błąd: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsScanning(false);
+        }
+    };
+
     // Całkowite wyczyszczenie formularza i przywrócenie stanu początkowego
     const handleResetForm = () => {
         setSelectedProduct(null);
@@ -213,6 +289,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
         setScanData(null);
         setGeneratedAssets([]);
         setExportSuccessMessage(null);
+        setEnrichSuccessMessage(null);
         if (mainFileInputRef.current) mainFileInputRef.current.value = '';
     };
 
@@ -931,7 +1008,22 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                         />
                     </div>
                     <div className="md:col-span-3">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1">Nazwa Marki / Produktu</label>
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Nazwa Marki / Produktu</label>
+                            <button
+                                type="button"
+                                onClick={handleAutoEnrichProduct}
+                                disabled={isEnrichingProduct || (!brandName && !query)}
+                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors disabled:opacity-50"
+                                title="Agent odnajdzie oficjalną stronę producenta i uzupełni USP, dowody oraz opis"
+                            >
+                                {isEnrichingProduct ? (
+                                    <><Loader2 className="w-3 h-3 animate-spin text-indigo-600" /> Szukam w sieci...</>
+                                ) : (
+                                    <><Sparkles className="w-3 h-3 text-indigo-600" /> Odnajdź w sieci</>
+                                )}
+                            </button>
+                        </div>
                         <input 
                             type="text"
                             value={brandName}
@@ -1111,125 +1203,144 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                     </div>
                 )}
 
-                <div className="pt-2 flex justify-between items-center">
+                {enrichSuccessMessage && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-lg text-emerald-800 text-xs font-medium flex items-center justify-between animate-in fade-in">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span>{enrichSuccessMessage}</span>
+                        </div>
+                        <button type="button" onClick={() => setEnrichSuccessMessage(null)} className="text-emerald-600 hover:text-emerald-900 font-bold ml-2">✕</button>
+                    </div>
+                )}
+
+                <div className="pt-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <span className="text-[11px] text-slate-500">
                         Skaner analizuje do <strong>{scanLimit || 100}</strong> autentycznych reklam na rynku polskim (PL).
                     </span>
-                    <button
-                        onClick={handleStartScan}
-                        disabled={isScanning || !query}
-                        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-md flex items-center transition-all disabled:opacity-50"
-                    >
-                        {isScanning ? (
-                            <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Skanowanie rynku & Audyt Gemini...
-                            </>
-                        ) : (
-                            <>
-                                <Sparkles className="w-4 h-4 mr-2" />
-                                Zeskanuj Rynek & Uruchom Gemini Swarm
-                            </>
-                        )}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={handleStartDirectGeneration}
+                            disabled={isScanning || (!brandName && !query && !selectedProduct)}
+                            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-md flex items-center transition-all disabled:opacity-50"
+                            title="Generuj 4 kąty, 28 haczyków i kreacje natychmiast z profilu produktu bez czekania na skaner konkurencji"
+                        >
+                            {isScanning ? (
+                                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                            ) : (
+                                <Flame className="w-4 h-4 mr-1.5 text-amber-300" />
+                            )}
+                            ⚡ Generuj Własne Kreacje Bezpośrednio
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleStartScan}
+                            disabled={isScanning || !query}
+                            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-md flex items-center transition-all disabled:opacity-50"
+                        >
+                            {isScanning ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Skanowanie rynku & Audyt Gemini...
+                                </>
+                            ) : (
+                                <>
+                                    <Sparkles className="w-4 h-4 mr-2" />
+                                    Zeskanuj Rynek & Uruchom Gemini Swarm
+                                </>
+                            )}
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* KROK 3: WYNIKI SKANOWANIA (TOP WINNERS & MARKET INSIGHTS) */}
+            {/* KROK 3: WYNIKI SKANOWANIA & MATRYCA STRATEGII */}
             {scanData && (
-                scanData.totalScanned === 0 ? (
-                    <div className="bg-amber-50 border border-amber-300 rounded-xl p-6 shadow-sm text-slate-800 space-y-3 animate-in fade-in duration-300">
-                        <div className="flex items-center gap-2 text-amber-800 font-black text-sm">
-                            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-                            <span>Brak aktywnych reklam w bibliotece dla zapytania: "{query}" na rynku polskim (PL)</span>
-                        </div>
-                        <p className="text-xs text-slate-600 leading-relaxed">
-                            Zgodnie z polityką <strong>Zero-Fake Data</strong>, system nie generuje sztucznych atrap ani halucynacji konkurencji. Aby przeprowadzić analizę rynkową:
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                            <div className="bg-white p-3.5 rounded-lg border border-amber-200">
-                                <span className="font-bold text-xs text-indigo-700 block mb-1">1. Poszerz frazę</span>
-                                <span className="text-[11px] text-slate-600">Zamiast wąskiego SKU, podaj ogólną kategorię, np. "odświeżacz powietrza", "płyn do prania" lub nazwę marki.</span>
+                <div className="space-y-6 animate-in fade-in duration-300">
+                    {/* Baner informacyjny przy 0 zeskanowanych reklamach (Zero-Fake lub Tryb Bezpośredni) */}
+                    {scanData.totalScanned === 0 ? (
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 shadow-sm text-slate-800 space-y-1.5">
+                            <div className="flex items-center gap-2 text-blue-900 font-black text-sm">
+                                <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
+                                <span>{scanData.notice || `Strategia oraz 28 haczyków zostały wygenerowane bezpośrednio dla Twojego produktu!`}</span>
                             </div>
-                            <div className="bg-white p-3.5 rounded-lg border border-amber-200">
-                                <span className="font-bold text-xs text-indigo-700 block mb-1">2. Podłącz Apify Dataset</span>
-                                <span className="text-[11px] text-slate-600">Rozwiń opcję "Apify API / Dataset ID" i wprowadź ID gotowego zbioru pobranego z aktora Facebook Ads Scraper.</span>
-                            </div>
-                            <div className="bg-white p-3.5 rounded-lg border border-amber-200">
-                                <span className="font-bold text-xs text-indigo-700 block mb-1">3. Wklej JSON</span>
-                                <span className="text-[11px] text-slate-600">Skorzystaj z opcji "+ Wklej własny JSON", by przetworzyć wyeksportowaną listę reklam konkurencji.</span>
-                            </div>
+                            <p className="text-[11px] text-slate-600">
+                                Poniżej znajduje się kompletna strategia perswazji, 4 psychologiczne kąty, 28 haczyków oraz gotowe briefy. Kliknij <strong>„Wygeneruj Gotowe Kreacje”</strong>, aby fizycznie złożyć statyki i Reels z Twoim packshotem.
+                            </p>
                         </div>
-                    </div>
-                ) : (
-                    <div className="space-y-6 animate-in fade-in duration-300">
-                    
-                    {/* Insights Box */}
-                    <div className="bg-slate-900 text-white rounded-xl p-6 shadow-md border border-slate-800">
-                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
-                            <span className="text-xs font-black uppercase tracking-widest text-indigo-400 flex items-center">
-                                <TrendingUp className="w-4 h-4 mr-2" /> Analiza Rynkowa (Zeskanowano: {scanData.totalScanned} reklam)
-                            </span>
-                            <span className="text-[11px] font-bold text-slate-400">Silnik: Gemini 3.8 Flash + Gemini 3.1 Pro</span>
-                        </div>
+                    ) : (
+                        <>
+                            {/* Insights Box */}
+                            <div className="bg-slate-900 text-white rounded-xl p-6 shadow-md border border-slate-800">
+                                <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+                                    <span className="text-xs font-black uppercase tracking-widest text-indigo-400 flex items-center">
+                                        <TrendingUp className="w-4 h-4 mr-2" /> Analiza Rynkowa (Zeskanowano: {scanData.totalScanned} reklam)
+                                    </span>
+                                    <span className="text-[11px] font-bold text-slate-400">Silnik: Gemini 3.8 Flash + Gemini 3.1 Pro</span>
+                                </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                            <div className="bg-slate-800/60 p-4 rounded-lg border border-red-500/20">
-                                <span className="font-bold text-red-400 flex items-center mb-2">
-                                    <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> Przesycone komunikaty (Czerwony Ocean):
-                                </span>
-                                <ul className="list-disc pl-5 space-y-1 text-slate-300 text-[11px]">
-                                    {(scanData.marketInsights?.saturated_claims || []).map((c, i) => <li key={i}>{c}</li>)}
-                                </ul>
-                            </div>
-                            <div className="bg-slate-800/60 p-4 rounded-lg border border-emerald-500/20">
-                                <span className="font-bold text-emerald-400 flex items-center mb-2">
-                                    <ShieldCheck className="w-3.5 h-3.5 mr-1.5" /> Luki Rynkowe (Błękitny Ocean):
-                                </span>
-                                <ul className="list-disc pl-5 space-y-1 text-slate-300 text-[11px]">
-                                    {(scanData.marketInsights?.blue_ocean_angles || []).map((b, i) => <li key={i}>{b}</li>)}
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Zwycięzcy Konkurencji (Top Winners wg Time-Decay) */}
-                    <div className="bg-white border border-slate-300 rounded-xl p-6 shadow-sm space-y-4">
-                        <div className="border-b border-slate-200 pb-3 flex justify-between items-center">
-                            <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center">
-                                <Flame className="w-4 h-4 mr-2 text-amber-500" /> Zwycięskie Kreacje Konkurencji (Top Winners z długim czasem emisji)
-                            </h2>
-                            <span className="text-xs text-slate-500 font-semibold">Wyselekcjonowano {scanData.topWinners?.length} benchmarków</span>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {(scanData.topWinners || []).map((ad, idx) => (
-                                <div key={ad.id || idx} className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col justify-between hover:shadow-md transition-all">
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center text-[10px]">
-                                            <span className="font-black px-2 py-0.5 rounded bg-amber-100 text-amber-800 flex items-center">
-                                                <Clock className="w-3 h-3 mr-1" /> {ad.activeDays} dni emisji
-                                            </span>
-                                            <span className="font-bold text-slate-600 bg-slate-200 px-2 py-0.5 rounded">
-                                                Score: {ad.overallWinningScore}/10
-                                            </span>
-                                        </div>
-                                        <h3 className="text-xs font-black text-slate-900 leading-snug">
-                                            "{ad.extractedHook}"
-                                        </h3>
-                                        <p className="text-[11px] text-slate-600 line-clamp-3">
-                                            {ad.copy}
-                                        </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                    <div className="bg-slate-800/60 p-4 rounded-lg border border-red-500/20">
+                                        <span className="font-bold text-red-400 flex items-center mb-2">
+                                            <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> Przesycone komunikaty (Czerwony Ocean):
+                                        </span>
+                                        <ul className="list-disc pl-5 space-y-1 text-slate-300 text-[11px]">
+                                            {(scanData.marketInsights?.saturated_claims || []).map((c, i) => <li key={i}>{c}</li>)}
+                                        </ul>
                                     </div>
-                                    <div className="mt-3 pt-2 border-t border-slate-200 text-[10px] text-slate-500">
-                                        <span className="font-bold text-indigo-600">Dlaczego działa:</span> {ad.whyItWorks}
+                                    <div className="bg-slate-800/60 p-4 rounded-lg border border-emerald-500/20">
+                                        <span className="font-bold text-emerald-400 flex items-center mb-2">
+                                            <ShieldCheck className="w-3.5 h-3.5 mr-1.5" /> Luki Rynkowe (Błękitny Ocean):
+                                        </span>
+                                        <ul className="list-disc pl-5 space-y-1 text-slate-300 text-[11px]">
+                                            {(scanData.marketInsights?.blue_ocean_angles || []).map((b, i) => <li key={i}>{b}</li>)}
+                                        </ul>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
+                            </div>
 
-                    {/* 28 HACZYKÓW & KĄTY PSYCHOLOGICZNE */}
+                            {/* Zwycięzcy Konkurencji (Top Winners wg Time-Decay) */}
+                            {scanData.topWinners && scanData.topWinners.length > 0 && (
+                                <div className="bg-white border border-slate-300 rounded-xl p-6 shadow-sm space-y-4">
+                                    <div className="border-b border-slate-200 pb-3 flex justify-between items-center">
+                                        <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center">
+                                            <Flame className="w-4 h-4 mr-2 text-amber-500" /> Zwycięskie Kreacje Konkurencji (Top Winners z długim czasem emisji)
+                                        </h2>
+                                        <span className="text-xs text-slate-500 font-semibold">Wyselekcjonowano {scanData.topWinners.length} benchmarków</span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {scanData.topWinners.map((ad, idx) => (
+                                            <div key={ad.id || idx} className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex flex-col justify-between hover:shadow-md transition-all">
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between items-center text-[10px]">
+                                                        <span className="font-black px-2 py-0.5 rounded bg-amber-100 text-amber-800 flex items-center">
+                                                            <Clock className="w-3 h-3 mr-1" /> {ad.activeDays} dni emisji
+                                                        </span>
+                                                        <span className="font-bold text-slate-600 bg-slate-200 px-2 py-0.5 rounded">
+                                                            Score: {ad.overallWinningScore}/10
+                                                        </span>
+                                                    </div>
+                                                    <h3 className="text-xs font-black text-slate-900 leading-snug">
+                                                        "{ad.extractedHook}"
+                                                    </h3>
+                                                    <p className="text-[11px] text-slate-600 line-clamp-3">
+                                                        {ad.copy}
+                                                    </p>
+                                                </div>
+                                                <div className="mt-3 pt-2 border-t border-slate-200 text-[10px] text-slate-500">
+                                                    <span className="font-bold text-indigo-600">Dlaczego działa:</span> {ad.whyItWorks}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {/* 28 HACZYKÓW & KĄTY PSYCHOLOGICZNE - RENDEROWANE ZAWSZE GDY DOSTĘPNA STRATEGIA */}
                     {scanData.strategy && (
                         <div className="bg-white border border-slate-300 rounded-xl p-6 shadow-sm space-y-4">
                             <div className="border-b border-slate-200 pb-3 flex justify-between items-center">
@@ -1303,8 +1414,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                         </div>
                     )}
                 </div>
-            )
-        )}
+            )}
 
             {/* KROK 4: WYGENEROWANE ASSETY (STATYKI & REELS) Z PRZYCISKIEM KOREKTY HITL */}
             {generatedAssets.length > 0 && (
