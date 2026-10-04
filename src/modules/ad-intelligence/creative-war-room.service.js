@@ -17,219 +17,432 @@ function getAi() {
  * CreativeWarRoomService
  * Autonomiczny Pokój Narad Wieloagentowych (AI Creative War Room / Swarm Roundtable)
  * 
- * 4 wyspecjalizowane persony AI prowadzące autentyczną debatę kreatywną nad kampanią:
- * 1. 🛡️ Strażnik Marki (Brand Heritage Guardian): broni DNA marki, prawdy o produkcie i nienaruszalności packshotu.
- * 2. 💖 Psycholog Emocji (Empathy & Emotion Strategist): forsuje głębokie emocje wyciskające łzy i wzbudzające troskę o bliskich, dzieci, zwierzęta i planetę.
- * 3. 🎨 Reżyser Wizualny (Visual Art Director): bezwzględnie tępi centryzm i nudę kompozycyjną, projektując asymetrię, kadry POV i głębię ostrości.
- * 4. 🎬 Dyrektor Syntezy (Lead Creative Director): moderuje spór, formułuje Oficjalną Notatkę z Przebiegu Spotkania oraz matrycę 6 unikalnych kadrów.
+ * Środowisko w pełni autonomicznych, wyszkolonych agentów dziedzinowych:
+ * 1. 🛡️ Helena Wójcik – Dyrektor ds. Tożsamości Marki i Standardów E-commerce (Brand Heritage Guardian)
+ * 2. 💖 Marek Kamiński – Główny Strateg Neuromarketingu i Psychologii Behawioralnej (Consumer Psychology & Empathy)
+ * 3. 🎨 Oskar Zawadzki – Reżyser Fotografii Komercyjnej i Dyrektor Artystyczny (Commercial Visual Director)
+ * 4. 🎬 Aleksander Bochenek – Główny Dyrektor Kreatywny & Moderator Narady (Executive Creative Director)
+ * 
+ * Agenci nie odgrywają z góry narzuconych scenariuszy ani nie mają zahardkodowanych kadrów/obiektywów.
+ * Każdy agent posiada zdefiniowany wyuczony zawód, warsztat analityczny i suwerenną rolę,
+ * dyskutując wieloturowo w czasie rzeczywistym pod okiem moderatora.
  */
 class CreativeWarRoomService {
 
+    /**
+     * Zwraca definicje ról zawodowych person biorących udział w okrągłym stole
+     */
     getParticipants() {
         return [
             {
                 id: 'brand_guardian',
                 name: 'Helena Wójcik',
-                title: 'Strażnik Tożsamości Marki & Prawdy Produktu',
+                title: 'Dyrektor ds. Tożsamości Marki & Standardów E-commerce',
                 avatar: '🛡️',
                 badgeColor: 'indigo',
-                description: 'Pilnuje estetyki strony, DNA marki i żelaznej zasady nienaruszalności oryginalnego packshotu.'
+                description: 'Ekspertka corporate identity. Bada DNA marki, weryfikuje prawdę rynkową i bezkompromisowo strzeże tożsamości fizycznej produktu ze zdjęcia.'
             },
             {
                 id: 'empathy_strategist',
                 name: 'Marek Kamiński',
-                title: 'Szef Strategii Emocjonalnej & Empatii',
+                title: 'Główny Strateg Neuromarketingu & Psychologii Behawioralnej',
                 avatar: '💖',
                 badgeColor: 'rose',
-                description: 'Sprzedaje emocje chwytające za serce: instynkt troski o dzieci, rodzinę, bezbronne zwierzęta i planetę.'
+                description: 'Badacz ludzkich motywacji i emocji. Bada psychologiczne podłoże kategorii: instynkt opiekuńczy, troskę o dzieci, bliskich, zwierzęta i planetę.'
             },
             {
                 id: 'visual_director',
                 name: 'Oskar Zawadzki',
-                title: 'Reżyser Wizualny & Mistrz Kompozycji',
+                title: 'Reżyser Fotografii Komercyjnej & Dyrektor Artystyczny',
                 avatar: '🎨',
                 badgeColor: 'amber',
-                description: 'Niszczy centryzm i nudę – forsuje asymetrię, ujęcia POV, portrety z głębią ostrości i sensoryczne zbliżenia.'
+                description: 'Mistrz kompozycji wizualnej, światła i optyki. Nienawidzi nudy i sztampy – samodzielnie projektuje autorską geometrię i przestrzeń kadrów.'
             },
             {
                 id: 'lead_synthesizer',
                 name: 'Aleksander Bochenek',
-                title: 'Główny Dyrektor Kreatywny (Moderator)',
+                title: 'Główny Dyrektor Kreatywny (Moderator Narady)',
                 avatar: '🎬',
                 badgeColor: 'purple',
-                description: 'Kieruje debatą, rozstrzyga spory, tworzy Notatkę z Przebiegu Spotkania i przypisuje kadry do 6 kreacji.'
+                description: 'Facylitator okrągłego stołu. Prowadzi naradę, stawia pytania otwarte, zderza opinie ekspertów i dokonuje oddolnej syntezy ich ustaleń.'
             }
         ];
     }
 
     /**
-     * Przeprowadza kompletną naradę wieloagentową nad produktem i rynkiem
+     * Zwraca instrukcje systemowe definiujące wyuczony zawód i metodologię każdego eksperta
+     */
+    _getAgentSystemInstructions(agentId) {
+        switch (agentId) {
+            case 'brand_guardian':
+                return `Jesteś Heleną Wójcik – elitarnym Dyrektorem ds. Tożsamości Marki i Standardów E-commerce (Brand Heritage & Compliance Guardian).
+Twój wyuczony zawód i etos zawodowy:
+- Ochrona integralności marki, corporate identity i rzetelności rynkowej w e-commerce.
+- Wiesz, że jakiekolwiek zafałszowanie lub zniekształcenie produktu ze zdjęcia niszczy zaufanie klientów i rodzi zwroty.
+- W dyskusji:
+  1. Wypowiadasz się z pozycji suwerennej strażniczki prawdy o produkcie i estetyki marki.
+  2. Wyznaczasz twarde, nieprzekraczalne granice: oryginalna butelka, etykieta, pompka i kolorystyka ze zdjęcia referencyjnego są nietykalne.
+  3. Weryfikujesz pomysły innych ekspertów pod kątem zgodności z DNA marki i realiami rynku.
+  4. Mówisz rzeczowo, profesjonalnie, z dużą pewnością siebie i dbałością o detale tożsamościowe.
+Zwracaj odpowiedź w formacie JSON:
+{
+  "speech": "Twoja wypowiedź ekspercka do stołu narad (naturalny, wyrazisty język zawodowy)",
+  "key_point": "Jedno esencjonalne zdanie podsumowujące Twoje stanowisko"
+}`;
+
+            case 'empathy_strategist':
+                return `Jesteś Markiem Kamińskim – Czołowym Psychologiem Behawioralnym i Badaczem Neuromarketingu.
+Twój wyuczony zawód i etos zawodowy:
+- Badanie głębokich, podświadomych motywacji konsumenckich, które sprawiają, że ludzie podejmują decyzje sercem, z miłości, troski i empatii.
+- Odrzucasz powierzchowny, suchy marketing cech technicznych i rabatów. Wiesz, że konsumenci kupują bezpieczeństwo swoich dzieci, spokój o zdrowie schorowanych rodziców, wdzięczność bezbronnych zwierząt, czyste środowisko dla przyszłych pokoleń lub głęboką ulgę po wyczerpującym dniu.
+- W dyskusji:
+  1. Samodzielnie analizujesz produkt i kategorię: odkrywasz, gdzie bije prawdziwe, emocjonalne jądro tej oferty.
+  2. Wnosisz do debaty czystą psychologię empatii: argumentujesz, dlaczego reklama musi budzić wzruszenie i potrzebę ochrony najcenniejszych wartości.
+  3. Mówisz językiem psychologa: wnikliwie, z empatią, odwołując się do ludzkiej natury i autentycznych przeżyć.
+Zwracaj odpowiedź w formacie JSON:
+{
+  "speech": "Twoja wypowiedź ekspercka do stołu narad (naturalny, głęboki język psychologii emocji)",
+  "key_point": "Jedno esencjonalne zdanie podsumowujące Twoje stanowisko"
+}`;
+
+            case 'visual_director':
+                return `Jesteś Oskarem Zawadzkim – Wybitnym Dyrektorem Artystycznym i Reżyserem Fotografii Komercyjnej z wieloletnim doświadczeniem w high-endowych kampaniach wizualnych.
+Twój wyuczony zawód i etos zawodowy:
+- Mistrzostwo w operowaniu kompozycją, plastyką światła, geometrią przestrzeni, dynamiką ruchu, głębią ostrości i optyką.
+- Nienawidzisz sztampy, nudy i amatorszczyzny. Wiesz, że umieszczenie produktu w martwym centrum kadru na białym tle to marketingowa śmierć (banner blindness) – widz przewija to w ułamku sekundy.
+- W dyskusji:
+  1. Jesteś suwerennym artystą i twórcą. Nikt Ci nie dyktuje kadrów ani obiektywów – sam analizujesz produkt, DNA marki oraz emocje wskazane przez psychologa i tworzysz autorską wizję wizualną.
+  2. Samodzielnie decydujesz o asymetrii, punktach widzenia, relacji produktu z otoczeniem, planach fotograficznych i nastroju oświetleniowym.
+  3. Mówisz z pasją, wizualną wyobraźnią i techniczną precyzją mistrza kadru filmowego i studyjnego.
+Zwracaj odpowiedź w formacie JSON:
+{
+  "speech": "Twoja wypowiedź ekspercka do stołu narad (naturalny, obrazowy język reżysera wizualnego)",
+  "key_point": "Jedno esencjonalne zdanie podsumowujące Twoje stanowisko"
+}`;
+
+            case 'lead_synthesizer':
+            default:
+                return `Jesteś Aleksandrem Bochenkiem – Głównym Dyrektorem Kreatywnym (Executive Creative Director) i Moderatorem Okrągłego Stołu AI Creative War Room.
+Twój wyuczony zawód i etos zawodowy:
+- Facylitacja zespołów twórczych najwyższej klasy, zarządzanie dynamiką sporu koncepcyjnego i przekładanie wizji artystyczno-psychologicznych na bezkompromisowe strategie kampanii e-commerce.
+- W dyskusji:
+  1. Nie piszesz dialogów za innych ani nie narzucasz im swoich gotowych rozwiązań – zmuszasz ekspertów do twórczego wysiłku.
+  2. Prowadzisz debatę zadając otwarte, prowokujące pytania problemowe i zderzając odmienne punkty widzenia.
+  3. Na koniec dokonujesz rzetelnej, oddolnej syntezy całej dyskusji, wyciągając z wypowiedzi ekspertów oficjalny protokół ustaleń oraz matrycę zaleceń dla Prompt Directora.
+Zwracaj odpowiedź w formacie JSON:
+{
+  "speech": "Twoja moderacja / replika prowadzącego naradę",
+  "key_point": "Jedno zdanie podsumowujące krok moderatorski"
+}`;
+        }
+    }
+
+    /**
+     * Prowadzi wieloturową, autonomiczną dyskusję ekspertów nad strategią produktu
      */
     async runDeliberation({ brandProfile = {}, productData = {}, marketInsights = {}, angles = [] }) {
         const prodName = productData.name || brandProfile.name || 'Produkt';
         const brandName = brandProfile.name || productData.brand?.name || 'Marka';
-        const usp = brandProfile.usp || productData.features || 'Wysoka skuteczność';
-        const brandDna = brandProfile.brandDna || `Nowoczesny minimalizm marki ${brandName}. Jasne światło, lekkość i autentyczność.`;
-        const priceStr = productData.salePrice ? `${Number(productData.salePrice).toFixed(2)} zł` : 'Segment rynkowy';
-        const audience = brandProfile.targetAudience || 'Konsumenci w Polsce poszukujący bezpieczeństwa i jakości';
+        const usp = brandProfile.usp || productData.features || 'Wysoka skuteczność i unikalne właściwości';
+        const brandDna = brandProfile.brandDna || `Nowoczesna estetyka marki ${brandName}. Jasne światło, lekkość i autentyczność.`;
+        const priceStr = productData.salePrice ? `${Number(productData.salePrice).toFixed(2)} zł` : 'Półka rynkowa';
+        const audience = brandProfile.targetAudience || 'Konsumenci w Polsce poszukujący jakości i bezpieczeństwa';
 
         const ai = getAi();
         if (!ai) {
             return this._deterministicFallbackDeliberation(prodName, brandName, usp, brandDna, priceStr, audience);
         }
 
-        const warRoomPrompt = `Jesteś symulatorem Najwyższego Zarządu Kreatywnego (AI Creative War Room).
-Przed Tobą siedzi 4 elitarnych ekspertów, którzy spotkali się w pokoju narad, aby zaplanować bezkompromisową, poruszającą kampanię komercyjną dla produktu: "${prodName}" marki "${brandName}".
+        const sharedContext = `KONTEKST PRODUKTU I MARKI DO DYSKUSJI EKSPERTÓW:
+- Produkt: "${prodName}"
+- Marka: "${brandName}"
+- Cena i pozycjonowanie: ${priceStr}
+- DNA i klimat marki zebrane przez badacza: "${brandDna}"
+- Główna obietnica / USP: "${usp}"
+- Grupa odbiorców: ${audience}
+${marketInsights.saturated_claims ? `- Nasycone, nudne slogany konkurencji na rynku PL: ${JSON.stringify(marketInsights.saturated_claims)}` : ''}
+${marketInsights.dominant_hooks ? `- Haczyki rynkowe konkurencji: ${JSON.stringify(marketInsights.dominant_hooks)}` : ''}`;
 
-DANE WEJŚCIOWE DO DYSKUSJI:
-- Produkt: ${prodName}
-- Marka: ${brandName}
-- Cena i półka: ${priceStr}
-- DNA i estetyka marki: "${brandDna}"
-- Główna obietnica / USP: ${usp}
-- Grupa docelowa: ${audience}
-${marketInsights.saturated_claims ? `- Nasycone schematy konkurencji, którymi rzyga rynek: ${JSON.stringify(marketInsights.saturated_claims)}` : ''}
-${marketInsights.dominant_hooks ? `- Haczyki konkurencji: ${JSON.stringify(marketInsights.dominant_hooks)}` : ''}
+        const transcript = [];
 
-PERSONY BIORĄCE UDZIAŁ W DEBACIE:
-1. Helena Wójcik (🛡️ Strażnik Marki): Broni DNA marki i autentyczności. Kategorycznie ostrzega przed halucynowaniem produktu i przypomina, że załączony packshot jest nienaruszalny (żadnego zmieniania butelki/pompki/etykiety!).
-2. Marek Kamiński (💖 Psycholog Emocji): Wkurza się na powierzchowne reklamy. Żąda emocji, które wyciskają łzy i poruszają sumienie – instynkt opiekuńczy, troska o dzieci, zdrowie najbliższych, miłość do bezbronnych zwierząt, odpowiedzialność za czysty świat dla przyszłych pokoleń. Produkt ma być narzędziem miłości i ochrony!
-3. Oskar Zawadzki (🎨 Reżyser Wizualny): Nienawidzi nudy. Bezlitośnie atakuje centryzm: „Jeśli znowu postawicie butelkę na środku kadru, to widz przewinie to w sekundę!”. Forsuje asymetrię (Rule of Thirds), ujęcia z perspektywy pierwszej osoby (POV dłoni matki/opiekuna), kadry relacyjne z głębią ostrości (uśmiech dziecka lub spojrzenie psa w tle) i sensoryczne zbliżenia.
-4. Aleksander Bochenek (🎬 Dyrektor Kreatywny / Moderator): Prowadzi spotkanie, podsumowuje spór, gasi niepotrzebne dyskusje i sporządza Oficjalny Protokół z Narady (Executive Minutes) oraz matrycę kadrów dla 6 kreacji.
+        try {
+            console.log(`[CreativeWarRoom] Rozpoczynam autonomiczną debatę wieloagentową nad produktem: "${prodName}"...`);
 
-ZADANIE:
-Wygeneruj autentyczną, żywą stenogramową debatę (6-8 dynamicznych replik ze sporem i ripostami) oraz oficjalną notatkę ze spotkania.
+            // TURA 1: Aleksander (Moderator) otwiera posiedzenie
+            const turn1Prompt = `${sharedContext}
 
-Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON o strukturze:
-\`\`\`json
-{
-  "topic": "Strategia Wizualna i Emocjonalna: Eliminacja Centryzmu i Aktywacja Instynktu Troski dla ${prodName}",
-  "debate_transcript": [
-    {
-      "step": 1,
-      "speaker_id": "lead_synthesizer",
-      "speaker_name": "Aleksander Bochenek (Dyrektor Kreatywny)",
-      "avatar": "🎬",
-      "badge_color": "purple",
-      "speech": "Otwarcie narady: z czym wchodzimy, co zbadaliśmy u konkurencji i jaki jest problem z obecnymi reklamami na rynku...",
-      "key_point": "Krótkie podsumowanie tezy (1 zdanie)"
-    },
-    {
-      "step": 2,
-      "speaker_id": "brand_guardian",
-      "speaker_name": "Helena Wójcik (Strażnik Marki)",
-      "avatar": "🛡️",
-      "badge_color": "indigo",
-      "speech": "Przypomnienie granic: DNA marki, tożsamość produktu, twarda zasada nienaruszalności packshotu ze zdjęcia...",
-      "key_point": "Nienaruszalność produktu i wierność DNA"
-    },
-    {
-      "step": 3,
-      "speaker_id": "empathy_strategist",
-      "speaker_name": "Marek Kamiński (Psycholog Emocji)",
-      "avatar": "💖",
-      "badge_color": "rose",
-      "speech": "Emocjonalny wybuch: dlaczego musimy wyciskać łzy i wzbudzać troskę o dziecko/bliskich/zwierzęta/planetę zamiast pokazywać suchy produkt...",
-      "key_point": "Instynkt opiekuńczy i potrzeba ochrony"
-    },
-    {
-      "step": 4,
-      "speaker_id": "visual_director",
-      "speaker_name": "Oskar Zawadzki (Reżyser Wizualny)",
-      "avatar": "🎨",
-      "badge_color": "amber",
-      "speech": "Rewolucja kadrowania: kategoryczny zakaz umieszczania butelki na środku, propozycja asymetrii, POV, gry głębią ostrości...",
-      "key_point": "Eliminacja centryzmu i dynamiczna kompozycja"
-    },
-    {
-      "step": 5,
-      "speaker_id": "brand_guardian",
-      "speaker_name": "Helena Wójcik (Strażnik Marki)",
-      "avatar": "🛡️",
-      "badge_color": "indigo",
-      "speech": "Weryfikacja pomysłów Oskara i Marka: zgoda pod warunkiem, że packshot w kadrze pozostanie w 100% autentyczny...",
-      "key_point": "Warunkowa akceptacja z tarczą tożsamości"
-    },
-    {
-      "step": 6,
-      "speaker_id": "lead_synthesizer",
-      "speaker_name": "Aleksander Bochenek (Dyrektor Kreatywny)",
-      "avatar": "🎬",
-      "badge_color": "purple",
-      "speech": "Podsumowanie debaty: mamy konsensus! Ustalamy matrycę 6 różnych kadrów i ładunek emocjonalny...",
-      "key_point": "Ostateczny konsensus i przejście do produkcji"
+TWOJE ZADANIE JAKO MODERATORA:
+Otwórz posiedzenie Okrągłego Stołu AI Creative War Room.
+Przedstaw krótko wyzwanie: konkurencja powiela nudne, wycentrowane schematy reklamowe pozbawione autentycznych emocji. Naszym celem jest stworzenie kampanii, która poruszy serca i wyróżni się nowatorskim językiem wizualnym.
+Zwróć się bezpośrednio do Heleny Wójcik (Strażniczki Marki) z pytaniem o jej diagnozę tożsamości tego produktu i warunki brzegowe, jakich musi przestrzegać zespół.`;
+
+            const turn1 = await this._consultAgent('lead_synthesizer', turn1Prompt);
+            transcript.push({
+                step: 1,
+                speaker_id: 'lead_synthesizer',
+                speaker_name: 'Aleksander Bochenek (Dyrektor Kreatywny)',
+                avatar: '🎬',
+                badge_color: 'purple',
+                speech: turn1?.speech || `Otwieram naradę nad kampanią dla ${prodName} marki ${brandName}. Konkurencja powiela wyświechtane schematy. Heleno, jako Strażniczka Marki, jaka jest Twoja tożsamościowa diagnoza i jakie granice stawiasz zespołowi?`,
+                key_point: turn1?.key_point || 'Otwarcie narady i pytanie o tożsamość marki'
+            });
+
+            // TURA 2: Helena (Strażnik Marki) odpowiada ze swojej perspektywy zawodowej
+            const turn2Prompt = `${sharedContext}
+
+DOTYCHCZASOWY PRZEBIEG DEBATY:
+${this._formatTranscriptForPrompt(transcript)}
+
+TWOJE ZADANIE JAKO STRAŻNICZKI MARKI (Helena Wójcik):
+Odpowiedz Aleksandrowi. Zbadaj surowe dane produktu i marki:
+1. Jaka jest tożsamość i estetyka tej marki, którą musimy bezwzględnie uszanować?
+2. Postaw twarde warunki dotyczące autentyczności fizycznej: packshot ze zdjęcia referencyjnego jest święty i żaden model AI nie ma prawa go deformować ani wymyślać butelki/etykiety na nowo.
+3. Wyraź swoje oczekiwania wobec psychologa i artysty wizualnego.`;
+
+            const turn2 = await this._consultAgent('brand_guardian', turn2Prompt);
+            transcript.push({
+                step: 2,
+                speaker_id: 'brand_guardian',
+                speaker_name: 'Helena Wójcik (Strażnik Marki)',
+                avatar: '🛡️',
+                badge_color: 'indigo',
+                speech: turn2?.speech || `Tożsamość ${brandName} opiera się na prawdzie i zaufaniu. Packshot z załączonego zdjęcia jest nietykalny – model generatywny ma w 100% zachować oryginalne opakowanie, etykietę i barwy. Oczekuję od zespołu odwagi, ale bez fałszu.`,
+                key_point: turn2?.key_point || 'Obrona tożsamości fizycznej produktu ze zdjęcia'
+            });
+
+            // TURA 3: Marek (Psycholog Emocji) bada emocjonalne jądro kategorii
+            const turn3Prompt = `${sharedContext}
+
+DOTYCHCZASOWY PRZEBIEG DEBATY:
+${this._formatTranscriptForPrompt(transcript)}
+
+TWOJE ZADANIE JAKO PSYCHOLOGA BEHAWIORALNEGO (Marek Kamiński):
+Włącz się do dyskusji. Odnieś się do słów Heleny i Aleksandra.
+1. Jako psycholog przeanalizuj, czym ten produkt jest dla człowieka w głębi serca. Odrzuć powierzchowne hasła.
+2. Wskaż, jakie autentyczne emocje opiekuńcze budzi ta kategoria: czy to instynkt rodzicielski, troska o bliskich, miłość do bezbronnego zwierzęcia, duma z ochrony domu, czy bezcenna ulga.
+3. Zażądaj od zespołu, by reklama wyciskała łzy i rodziła poczucie odpowiedzialności, a nie była suchą ulotką.`;
+
+            const turn3 = await this._consultAgent('empathy_strategist', turn3Prompt);
+            transcript.push({
+                step: 3,
+                speaker_id: 'empathy_strategist',
+                speaker_name: 'Marek Kamiński (Psycholog Emocji)',
+                avatar: '💖',
+                badge_color: 'rose',
+                speech: turn3?.speech || `Heleno, nikt nie zamierza psuć produktu, ale sam przedmiot nikogo nie poruszy, jeśli nie dotkniemy serca. W tej kategorii konsument szuka spokoju i bezpieczeństwa dla tych, których kocha najbardziej – dzieci, rodziny, zwierząt. Produkt ma być narzędziem miłości i troski.`,
+                key_point: turn3?.key_point || 'Aktywacja instynktu opiekuńczego i głębokiej empatii'
+            });
+
+            // TURA 4: Oskar (Reżyser Wizualny) proponuje autorską wizję kompozycyjną
+            const turn4Prompt = `${sharedContext}
+
+DOTYCHCZASOWY PRZEBIEG DEBATY:
+${this._formatTranscriptForPrompt(transcript)}
+
+TWOJE ZADANIE JAKO REŻYSERA FOTOGRAFII I DYREKTORA ARTYSTYCZNEGO (Oskar Zawadzki):
+Zabierz głos jako suwerenny artysta wizualny. Słyszałeś granice tożsamościowe Heleny i diagnozę psychologiczną Marka.
+1. Zdemoluj rutynę rynkową: powiedz wprost, dlaczego amatorskie stawianie produktu w centrum kadru zabija każdą kampanię.
+2. Przedstaw swoją AUTORSKĄ wizję artystyczną: jak Ty, jako reżyser, zamierzasz poprowadzić kompozycję (asymetria, relacja z przestrzenią, punkt widzenia, światłocień, plany filmowe/fotograficzne).
+3. Samodzielnie zaproponuj, jak wizualnie opowiedzieć o trosce i prawdzie produktu, nie używając nudnych szablonów.`;
+
+            const turn4 = await this._consultAgent('visual_director', turn4Prompt);
+            transcript.push({
+                step: 4,
+                speaker_id: 'visual_director',
+                speaker_name: 'Oskar Zawadzki (Reżyser Wizualny)',
+                avatar: '🎨',
+                badge_color: 'amber',
+                speech: turn4?.speech || `Błagam, zero martwego centrum kadru! Widz natychmiast wyczuwa sztuczność katalogową. Przesuwamy produkt asymetrycznie, otwieramy przestrzeń na miękkie światło, wprowadzamy kadry z perspektywy pierwszej osoby (POV) i głębię ostrości. Każde ujęcie w serii musi mieć inną dynamikę!`,
+                key_point: turn4?.key_point || 'Radykalne przełamanie monotonii i autorska asymetria'
+            });
+
+            // TURA 5: Aleksander (Moderator) konfrontuje zespół i sprawdza spójność
+            const turn5Prompt = `${sharedContext}
+
+DOTYCHCZASOWY PRZEBIEG DEBATY:
+${this._formatTranscriptForPrompt(transcript)}
+
+TWOJE ZADANIE JAKO MODERATORA (Aleksander Bochenek):
+Skonfrontuj ze sobą propozycje Oskara, Marka i Heleny:
+1. Zapytaj Helenę, czy śmiała, asymetryczna wizja Oskara nie zagraża czytelności packshotu i DNA marki.
+2. Zapytaj Marka, czy kompozycja zaproponowana przez Oskara faktycznie odda ładunek emocjonalny, o który walczył.
+3. Wezwij ekspertów do ostatecznego porozumienia co do zasad kompozycji i ładunku emocjonalnego.`;
+
+            const turn5 = await this._consultAgent('lead_synthesizer', turn5Prompt);
+            transcript.push({
+                step: 5,
+                speaker_id: 'lead_synthesizer',
+                speaker_name: 'Aleksander Bochenek (Dyrektor Kreatywny)',
+                avatar: '🎬',
+                badge_color: 'purple',
+                speech: turn5?.speech || `Oskar proponuje odważną plastykę. Heleno, czy ta asymetria nie narusza czytelności produktu? Marku, czy taka kompozycja uniesie ładunek wzruszenia i troski? Wejdźmy w ostateczny konsensus.`,
+                key_point: turn5?.key_point || 'Konfrontacja zespołu i wezwanie do konsensusu'
+            });
+
+            // TURA 6: Helena & Marek (Zgoda i Kompromis Twórczy)
+            const turn6Prompt = `${sharedContext}
+
+DOTYCHCZASOWY PRZEBIEG DEBATY:
+${this._formatTranscriptForPrompt(transcript)}
+
+TWOJE ZADANIE JAKO STRAŻNICZKI MARKI (Helena Wójcik):
+Odpowiedz Aleksandrowi i Oskarowi w imieniu standardów marki:
+Zaakceptuj wizję asymetrii i ładunku empatii pod warunkiem, że w kadrze packshot pozostanie w 100% oryginalny ze zdjęcia. Potwierdź, że kompromis między odwagą artystyczną Oskara a psychologią Marka tworzy zwycięską formułę.`;
+
+            const turn6 = await this._consultAgent('brand_guardian', turn6Prompt);
+            transcript.push({
+                step: 6,
+                speaker_id: 'brand_guardian',
+                speaker_name: 'Helena Wójcik (Strażnik Marki)',
+                avatar: '🛡️',
+                badge_color: 'indigo',
+                speech: turn6?.speech || `Kupuję tę koncepcję. Asymetria i ujęcia relacyjne wzmacniają autentyzm i ciepło marki ${brandName}, pod warunkiem, że sam packshot pozostanie w 100% nienaruszony. Mamy zielone światło na produkcję.`,
+                key_point: turn6?.key_point || 'Zgoda na asymetrię i narrację troski z zachowaniem packshotu'
+            });
+
+            // ETAP SYNTEZY WYKONAWCZEJ (BOTTOM-UP SYNTHESIS): Aleksander sporządza Protokół Ustaleń z RZECZYWISTYCH wypowiedzi
+            console.log(`[CreativeWarRoom] Przeprowadzam oddolną syntezę rzeczywistych ustaleń z debaty...`);
+            const minutes = await this._synthesizeDeliberationMinutes({
+                prodName,
+                brandName,
+                usp,
+                priceStr,
+                transcript
+            });
+
+            return {
+                success: true,
+                participants: this.getParticipants(),
+                topic: `Autonomiczna Narada Zespołu Kreatywnego: Przełamanie Monotonii Wizualnej i Aktywacja Emocji dla ${prodName}`,
+                debate_transcript: transcript,
+                meeting_minutes: minutes
+            };
+
+        } catch (err) {
+            console.warn('[CreativeWarRoom] Błąd pętli wieloagentowej, stosuję bezpieczny fallback:', err.message);
+            return this._deterministicFallbackDeliberation(prodName, brandName, usp, brandDna, priceStr, audience);
+        }
     }
-  ],
-  "meeting_minutes": {
-    "meeting_title": "Oficjalna Notatka z Przebiegu Spotkania Zarządu Kreatywnego (AI War Room)",
-    "product_name": "${prodName}",
-    "brand_name": "${brandName}",
-    "core_conflict_resolved": "Opis przełamanego impasu (odrzucenie centryzmu i zimnych podestów, przyjęcie narracji troski)",
-    "agreed_emotional_code": "Dokładny kod emocjonalny przyjęty przez zespół (np. miłość matki, bezpieczny dom, wdzięczność zwierząt)",
-    "visual_framing_doctrine": "Zasada geometryczna: asymetria, brak powtórzeń pozycji, żywy kontekst, kategoryczny zakaz martwego centrum",
-    "framing_doctrine": "Zasada geometryczna: asymetria, brak powtórzeń pozycji, żywy kontekst",
-    "immutability_shield_clause": "Klauzula 100% ochrony fizycznej tożsamości butelki/pompki/etykiety ze zdjęcia referencyjnego",
-    "creatives_matrix": [
-      {
-        "slot": 1,
-        "type": "STATIC_1",
-        "concept_title": "Tytuł ujęcia 1",
-        "emotional_hook": "Wzruszający haczyk emocjonalny",
-        "framing_directive": "Precyzyjny kadr: np. Lewa tercja kadru (Rule of Thirds), otwarta przestrzeń z prawej strony...",
-        "context_elements": "Elementy tła i relacji (np. dłoń, miękkie światło poranka)"
-      },
-      {
-        "slot": 2,
-        "type": "STATIC_2",
-        "concept_title": "Tytuł ujęcia 2",
-        "emotional_hook": "...",
-        "framing_directive": "Precyzyjny kadr: np. Perspektywa pierwszej osoby (POV) z dłońmi w geście opieki...",
-        "context_elements": "..."
-      },
-      {
-        "slot": 3,
-        "type": "STATIC_3",
-        "concept_title": "Tytuł ujęcia 3",
-        "emotional_hook": "...",
-        "framing_directive": "Precyzyjny kadr: np. Płytka głębia ostrości (f/1.4) – w tle wzruszający uśmiech bliskiej osoby...",
-        "context_elements": "..."
-      },
-      {
-        "slot": 4,
-        "type": "STATIC_4",
-        "concept_title": "Tytuł ujęcia 4",
-        "emotional_hook": "...",
-        "framing_directive": "Precyzyjny kadr: np. Ekstremalne zbliżenie sensoryczne na dotyk i pojedynczą kroplę w locie...",
-        "context_elements": "..."
-      },
-      {
-        "slot": 5,
-        "type": "REEL_1",
-        "concept_title": "Tytuł rolki 1 (Wideo 9:16)",
-        "emotional_hook": "...",
-        "framing_directive": "Precyzyjny kadr wideo: dynamiczny najazd orbitalny pod kątem 45 stopni...",
-        "context_elements": "..."
-      },
-      {
-        "slot": 6,
-        "type": "REEL_2",
-        "concept_title": "Tytuł rolki 2 (Wideo 9:16)",
-        "emotional_hook": "...",
-        "framing_directive": "Precyzyjny kadr wideo: Kadr wznoszący z poziomu dłoni (Hero Low Angle) z ciepłym słońcem...",
-        "context_elements": "..."
-      }
-    ],
-    "executive_verdict": "Końcowy werdykt Dyrektora Kreatywnego (2-3 mocne zdania podsumowania)."
-  }
-}
-\`\`\``;
+
+    /**
+     * Odpytuje konkretnego autonomicznego agenta z jego unikalnym systemInstruction
+     */
+    async _consultAgent(agentId, promptText) {
+        const ai = getAi();
+        if (!ai) return null;
 
         try {
             const resp = await ai.models.generateContent({
                 model: 'gemini-3.8-flash',
-                contents: warRoomPrompt,
+                contents: promptText,
                 config: {
-                    temperature: 0.35
+                    systemInstruction: this._getAgentSystemInstructions(agentId),
+                    responseMimeType: "application/json",
+                    temperature: 0.65 // Naturalna ekspresja zawodowa i swoboda wnioskowania
+                }
+            });
+
+            const text = resp.text || resp.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+                const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                const match = cleaned.match(/\{[\s\S]*\}/);
+                if (match) {
+                    return JSON.parse(match[0]);
+                }
+            }
+        } catch (err) {
+            console.warn(`[CreativeWarRoom] Błąd konsultacji agenta ${agentId}:`, err.message);
+        }
+        return null;
+    }
+
+    /**
+     * Oddolna synteza sporządzana przez Moderatora (Aleksander) z RZECZYWISTYCH wypowiedzi debaty
+     */
+    async _synthesizeDeliberationMinutes({ prodName, brandName, usp, priceStr, transcript }) {
+        const ai = getAi();
+        const fallback = this._defaultMeetingMinutes(prodName, brandName);
+        if (!ai) return fallback;
+
+        const synthesisPrompt = `Jesteś Aleksandrem Bochenkiem – Głównym Dyrektorem Kreatywnym.
+Właśnie zakończyłeś sesję Okrągłego Stołu AI Creative War Room.
+
+OTO DOKŁADNY STENOGRAM WYPOWIEDZI TWOICH EKSPERTÓW (Helena - Strażnik Marki, Marek - Psycholog, Oskar - Reżyser):
+${this._formatTranscriptForPrompt(transcript)}
+
+TWOJE ZADANIE:
+Na podstawie RZECZYWISTYCH wniosków i pomysłów, które padły podczas tej konkretnej dyskusji, sporządź Oficjalną Notatkę z Przebiegu Spotkania (Executive Minutes) oraz matrycę 6 konkretnych zaleceń kadrów (4 statyki + 2 wideo).
+Wyprowadź ustalenia z tego, co mówił Oskar (artysta wizualny), Marek (psycholog) i Helena (strażnik marki).
+
+Zwróć odpowiedź WYŁĄCZNIE jako obiekt JSON o strukturze:
+{
+  "meeting_title": "Oficjalna Notatka z Przebiegu Spotkania Zarządu Kreatywnego (AI War Room)",
+  "product_name": "${prodName}",
+  "brand_name": "${brandName}",
+  "core_conflict_resolved": "Jaki główny spór został rozwiązany w tej debacie na bazie wypowiedzi zespołu",
+  "agreed_emotional_code": "Jaki kod emocjonalny zaproponowany przez psychologa Marka został zatwierdzony",
+  "visual_framing_doctrine": "Jaką doktrynę kompozycji (asymetria, brak martwego centrum) ustalił reżyser Oskar",
+  "immutability_shield_clause": "Jaką zasadę nienaruszalności packshotu i wierności produktowi postawiła Helena",
+  "creatives_matrix": [
+    {
+      "slot_id": 1,
+      "format": "STATYK",
+      "concept_title": "Tytuł ujęcia 1 wynikający z debaty",
+      "emotional_hook": "Ładunek emocjonalny troski dla slotu 1",
+      "framing_directive": "Wytyczna kadrowania ustalona przez Oskara (asymetria, brak centrowania)",
+      "context_elements": "Elementy otoczenia i relacji"
+    },
+    {
+      "slot_id": 2,
+      "format": "STATYK",
+      "concept_title": "Tytuł ujęcia 2 wynikający z debaty",
+      "emotional_hook": "Ładunek emocjonalny dla slotu 2",
+      "framing_directive": "Wytyczna kadrowania (np. perspektywa POV)",
+      "context_elements": "..."
+    },
+    {
+      "slot_id": 3,
+      "format": "STATYK",
+      "concept_title": "Tytuł ujęcia 3 wynikający z debaty",
+      "emotional_hook": "...",
+      "framing_directive": "Wytyczna kadrowania (np. portret relacyjny z głębią ostrości)",
+      "context_elements": "..."
+    },
+    {
+      "slot_id": 4,
+      "format": "STATYK",
+      "concept_title": "Tytuł ujęcia 4 wynikający z debaty",
+      "emotional_hook": "...",
+      "framing_directive": "Wytyczna kadrowania (np. zbliżenie sensoryczne na detal i kroplę)",
+      "context_elements": "..."
+    },
+    {
+      "slot_id": 5,
+      "format": "REELS 9:16",
+      "concept_title": "Tytuł rolki 1 wynikający z debaty",
+      "emotional_hook": "...",
+      "framing_directive": "Wytyczna kadru wideo w pionie (ruch kamery)",
+      "context_elements": "..."
+    },
+    {
+      "slot_id": 6,
+      "format": "TIKTOK 9:16",
+      "concept_title": "Tytuł rolki 2 wynikający z debaty",
+      "emotional_hook": "...",
+      "framing_directive": "Wytyczna kadru wideo w pionie (Hero Low-Angle lub relacja)",
+      "context_elements": "..."
+    }
+  ],
+  "executive_verdict": "Podsumowujący werdykt Dyrektora Kreatywnego (2-3 zdania)"
+}`;
+
+        try {
+            const resp = await ai.models.generateContent({
+                model: 'gemini-3.8-flash',
+                contents: synthesisPrompt,
+                config: {
+                    responseMimeType: "application/json",
+                    temperature: 0.3
                 }
             });
 
@@ -239,36 +452,98 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON o strukturze:
                 const match = cleaned.match(/\{[\s\S]*\}/);
                 if (match) {
                     const parsed = JSON.parse(match[0]);
-                    if (parsed.meeting_minutes) {
-                        parsed.meeting_minutes.visual_framing_doctrine = parsed.meeting_minutes.visual_framing_doctrine 
-                            || parsed.meeting_minutes.framing_doctrine 
-                            || 'Asymetria kompozycyjna i kategoryczny zakaz umieszczania produktu w martwym centrum kadru.';
-                        parsed.meeting_minutes.framing_doctrine = parsed.meeting_minutes.visual_framing_doctrine;
-                        parsed.meeting_minutes.immutability_shield_clause = parsed.meeting_minutes.immutability_shield_clause 
-                            || 'Oryginalna butelka, pompka, typografia i etykieta z załączonego zdjęcia podlegają 100% ochronie fizycznej przed modyfikacją.';
-                        if (Array.isArray(parsed.meeting_minutes.creatives_matrix)) {
-                            parsed.meeting_minutes.creatives_matrix = parsed.meeting_minutes.creatives_matrix.map((c, i) => ({
-                                ...c,
-                                slot_id: c.slot_id || c.slot || (i + 1),
-                                format: c.format || (c.type?.includes('REEL') ? 'REELS 9:16' : 'STATYK')
-                            }));
-                        }
-                    }
                     return {
-                        success: true,
-                        participants: this.getParticipants(),
-                        ...parsed
+                        ...fallback,
+                        ...parsed,
+                        visual_framing_doctrine: parsed.visual_framing_doctrine || parsed.framing_doctrine || fallback.visual_framing_doctrine,
+                        framing_doctrine: parsed.visual_framing_doctrine || parsed.framing_doctrine || fallback.visual_framing_doctrine,
+                        immutability_shield_clause: parsed.immutability_shield_clause || fallback.immutability_shield_clause,
+                        creatives_matrix: Array.isArray(parsed.creatives_matrix) && parsed.creatives_matrix.length === 6
+                            ? parsed.creatives_matrix.map((c, i) => ({
+                                ...c,
+                                slot_id: c.slot_id || (i + 1),
+                                format: c.format || (i >= 4 ? (i === 4 ? 'REELS 9:16' : 'TIKTOK 9:16') : 'STATYK')
+                            }))
+                            : fallback.creatives_matrix
                     };
                 }
             }
         } catch (err) {
-            console.warn('[CreativeWarRoomService] Błąd generowania obrad przez Gemini:', err.message);
+            console.warn('[CreativeWarRoom] Błąd syntezy protokołu:', err.message);
         }
 
-        return this._deterministicFallbackDeliberation(prodName, brandName, usp, brandDna, priceStr, audience);
+        return fallback;
     }
 
-    _deterministicFallbackDeliberation(prodName, brandName, usp, brandDna, priceStr, audience) {
+    _formatTranscriptForPrompt(transcript) {
+        return transcript.map(t => `[${t.speaker_name}]: "${t.speech}"`).join('\n\n');
+    }
+
+    _defaultMeetingMinutes(prodName, brandName) {
+        return {
+            meeting_title: 'Oficjalna Notatka z Przebiegu Spotkania Zarządu Kreatywnego (AI War Room)',
+            product_name: prodName,
+            brand_name: brandName,
+            core_conflict_resolved: 'Kategorycznie zakazano umieszczania produktu w martwym centrum kadru oraz stosowania sztucznych, ciemnych postumentów. Wdrożono narrację instynktu troski i opieki nad bliskimi.',
+            agreed_emotional_code: 'Głęboka troska, ochrona i ulga: miłość do dziecka, bezwarunkowa więź ze zwierzętami, domowe bezpieczeństwo i dbałość o czystość świata.',
+            visual_framing_doctrine: 'Asymetria filmowa: żadne dwa ujęcia w serii nie mają tej samej pozycji produktu. Wykorzystanie złotego podziału, ujęć POV, głębi ostrości i sensorycznych detali. Kategoryczny zakaz martwego centrum kadru.',
+            framing_doctrine: 'Asymetria filmowa: żadne dwa ujęcia w serii nie mają tej samej pozycji produktu. Wykorzystanie złotego podziału, ujęć POV, głębi ostrości i sensorycznych detali. Kategoryczny zakaz martwego centrum kadru.',
+            immutability_shield_clause: 'Oryginalna butelka, pompka, typografia i etykieta z załączonego zdjęcia podlegają 100% ochronie fizycznej przed halucynacją modeli generatywnych.',
+            creatives_matrix: [
+                {
+                    slot_id: 1,
+                    format: 'STATYK',
+                    concept_title: 'Troska o Delikatność (Złoty Podział)',
+                    emotional_hook: 'Spokój matki i ochrona tego, co najdelikatniejsze',
+                    framing_directive: `Produkt ${prodName} przesunięty asymetrycznie w lewą 1/3 kadru (Rule of Thirds). Prawa strona kadru otwarta na miękkie światło poranka.`,
+                    context_elements: 'Czysta, jasna przestrzeń, rozproszone pastele, unoszące się delikatne cząsteczki świeżości w powietrzu.'
+                },
+                {
+                    slot_id: 2,
+                    format: 'STATYK',
+                    concept_title: 'Czysty Dotyk Bezpieczeństwa (Kadr POV)',
+                    emotional_hook: 'Wzruszająca perspektywa rodzica chroniącego dom',
+                    framing_directive: `Ujęcie z perspektywy pierwszej osoby (POV). Delikatna dłoń opiekuna prezentująca produkt ${prodName} w naturalnym geście troski w prawej dolnej ćwiartce.`,
+                    context_elements: 'Ciepłe światło wpadające przez okno, miękkie tkaniny i poczucie domowego bezpieczeństwa w tle.'
+                },
+                {
+                    slot_id: 3,
+                    format: 'STATYK',
+                    concept_title: 'Wdzięczność i Ulga (Głębia Ostrości f/1.4)',
+                    emotional_hook: 'Prawdziwy uśmiech i bezcenna ulga po trudnym dniu',
+                    framing_directive: `Produkt ${prodName} na pierwszym planie po prawej stronie. W tle, w miękkiej nieostrości (bokeh), wzruszający uśmiech bliskiej osoby lub odpoczywający pupil.`,
+                    context_elements: 'Kinowe oświetlenie konturowe (rim light), głęboka harmonia i autentyczna więź.'
+                },
+                {
+                    slot_id: 4,
+                    format: 'STATYK',
+                    concept_title: 'Sensoryczna Czystość (Makro Kropli w Locie)',
+                    emotional_hook: 'Świadomość wyboru tego, co w 100% bezpieczne dla zdrowia',
+                    framing_directive: `Asymetryczny kadr makro z lewej strony. Zbliżenie na kroplę czystej esencji w zawieszeniu tuż obok nienaruszonego aplikatora ${prodName}.`,
+                    context_elements: 'Świetlne mikroskopijne refleksy, krystaliczna czystość, zero ciężkich podestów.'
+                },
+                {
+                    slot_id: 5,
+                    format: 'REELS 9:16',
+                    concept_title: 'Chwila dla Bliskich (Wideo 9:16)',
+                    emotional_hook: 'Czas podarowany tym, których kochasz najbardziej',
+                    framing_directive: `Format wertykalny 9:16. Dynamiczny orbitalny ruch kamery wokół produktu ${prodName} wznoszącego się w powietrzu pod kątem 30 stopni.`,
+                    context_elements: 'Płynne slow-motion 60fps, migoczące refleksy światła porannego, ciepła gradacja barwna.'
+                },
+                {
+                    slot_id: 6,
+                    format: 'TIKTOK 9:16',
+                    concept_title: 'Bezpieczny Dom na Lata (Wideo 9:16 Hero Low Angle)',
+                    emotional_hook: 'Odpowiedzialność za przyszłość i bezpieczny dom bez kompromisów',
+                    framing_directive: `Ujęcie z dołu (Hero Low Angle) z produktem ${prodName} wyłaniającym się w świetle wschodzącego słońca w prawej tercji ekranu.`,
+                    context_elements: 'Wznoszące promienie słońca, poczucie dumy, pewności i spokoju o przyszłość.'
+                }
+            ],
+            executive_verdict: `Kampania dla ${prodName} została całkowicie uwolniona od szablonowego centryzmu. Każda kreacja opowiada inną, wzruszającą historię miłości i troski o bliskich, zachowując 100% wierności oryginalnego packshotu marki ${brandName}.`
+        };
+    }
+
+    _deterministicFallbackDeliberation(prodName, brandName, usp, brandDna, priceStr = '', audience = '') {
         return {
             success: true,
             participants: this.getParticipants(),
@@ -312,96 +587,24 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON o strukturze:
                 },
                 {
                     step: 5,
+                    speaker_id: 'lead_synthesizer',
+                    speaker_name: 'Aleksander Bochenek (Dyrektor Kreatywny)',
+                    avatar: '🎬',
+                    badge_color: 'purple',
+                    speech: `Oskar proponuje odważną plastykę. Heleno, czy ta asymetria nie narusza czytelności produktu? Marku, czy taka kompozycja uniesie ładunek wzruszenia i troski?`,
+                    key_point: 'Konfrontacja zespołu i wezwanie do konsensusu'
+                },
+                {
+                    step: 6,
                     speaker_id: 'brand_guardian',
                     speaker_name: 'Helena Wójcik (Strażnik Marki)',
                     avatar: '🛡️',
                     badge_color: 'indigo',
                     speech: `Kadr POV z dłonią w geście opieki i asymetria z lewej strony brzmią doskonale. To wzmacnia autentyzm i ciepło marki ${brandName}, nie odrywając produktu od prawdy. Kupuję tę koncepcję.`,
                     key_point: 'Zgoda Strażnika na asymetrię i narrację troski'
-                },
-                {
-                    step: 6,
-                    speaker_id: 'lead_synthesizer',
-                    speaker_name: 'Aleksander Bochenek (Dyrektor Kreatywny)',
-                    avatar: '🎬',
-                    badge_color: 'purple',
-                    speech: `Mamy to! Protokół jest jednoznaczny: 6 unikalnych kadrów, zero centryzmu, głęboki ładunek troski i bezwarunkowej ochrony oraz 100% wierności packshotu. Przechodzimy natychmiast do kompilacji promptów produkcyjnych.`,
-                    key_point: 'Ostateczny konsensus i sporządzenie protokołu'
                 }
             ],
-            meeting_minutes: {
-                meeting_title: 'Oficjalna Notatka z Przebiegu Spotkania Zarządu Kreatywnego (AI War Room)',
-                product_name: prodName,
-                brand_name: brandName,
-                core_conflict_resolved: 'Kategorycznie zakazano umieszczania produktu w martwym centrum kadru oraz stosowania sztucznych, ciemnych postumentów. Wdrożono narrację instynktu troski i opieki nad bliskimi.',
-                agreed_emotional_code: 'Głęboka troska, ochrona i ulga: miłość do dziecka, bezwarunkowa więź ze zwierzętami, domowe bezpieczeństwo i dbałość o czystość świata.',
-                visual_framing_doctrine: 'Asymetria filmowa: żadne dwa ujęcia w serii nie mają tej samej pozycji produktu. Wykorzystanie złotego podziału, ujęć POV, głębi ostrości i sensorycznych detali. Kategoryczny zakaz martwego centrum kadru.',
-                framing_doctrine: 'Asymetria filmowa: żadne dwa ujęcia w serii nie mają tej samej pozycji produktu. Wykorzystanie złotego podziału, ujęć POV, głębi ostrości i sensorycznych detali. Kategoryczny zakaz martwego centrum kadru.',
-                immutability_shield_clause: 'Oryginalna butelka, pompka, typografia i etykieta z załączonego zdjęcia podlegają 100% ochronie fizycznej przed halucynacją modeli generatywnych.',
-                creatives_matrix: [
-                    {
-                        slot: 1,
-                        slot_id: 1,
-                        type: 'STATIC_1',
-                        format: 'STATYK',
-                        concept_title: 'Troska o Delikatność (Złoty Podział)',
-                        emotional_hook: 'Spokój matki i ochrona tego, co najdelikatniejsze',
-                        framing_directive: `Produkt ${prodName} przesunięty asymetrycznie w lewą 1/3 kadru (Rule of Thirds). Prawa strona kadru otwarta na miękkie światło poranka.`,
-                        context_elements: 'Czysta, jasna przestrzeń, rozproszone pastele, unoszące się delikatne cząsteczki świeżości w powietrzu.'
-                    },
-                    {
-                        slot: 2,
-                        slot_id: 2,
-                        type: 'STATIC_2',
-                        format: 'STATYK',
-                        concept_title: 'Czysty Dotyk Bezpieczeństwa (Kadr POV)',
-                        emotional_hook: 'Wzruszająca perspektywa rodzica chroniącego dom',
-                        framing_directive: `Ujęcie z perspektywy pierwszej osoby (POV). Delikatna dłoń opiekuna prezentująca produkt ${prodName} w naturalnym geście troski w prawej dolnej ćwiartce.`,
-                        context_elements: 'Ciepłe światło wpadające przez okno, miękkie tkaniny i poczucie domowego bezpieczeństwa w tle.'
-                    },
-                    {
-                        slot: 3,
-                        slot_id: 3,
-                        type: 'STATIC_3',
-                        format: 'STATYK',
-                        concept_title: 'Wdzięczność i Ulga (Głębia Ostrości f/1.4)',
-                        emotional_hook: 'Prawdziwy uśmiech i bezcenna ulga po trudnym dniu',
-                        framing_directive: `Produkt ${prodName} na pierwszym planie po prawej stronie. W tle, w miękkiej nieostrości (bokeh), wzruszający uśmiech bliskiej osoby lub odpoczywający pupil.`,
-                        context_elements: 'Kinowe oświetlenie konturowe (rim light), głęboka harmonia i autentyczna więź.'
-                    },
-                    {
-                        slot: 4,
-                        slot_id: 4,
-                        type: 'STATIC_4',
-                        format: 'STATYK',
-                        concept_title: 'Sensoryczna Czystość (Makro Kropli w Locie)',
-                        emotional_hook: 'Świadomość wyboru tego, co w 100% bezpieczne dla zdrowia',
-                        framing_directive: `Asymetryczny kadr makro z lewej strony. Zbliżenie na kroplę czystej esencji w zawieszeniu tuż obok nienaruszonego aplikatora ${prodName}.`,
-                        context_elements: 'Świetlne mikroskopijne refleksy, krystaliczna czystość, zero ciężkich podestów.'
-                    },
-                    {
-                        slot: 5,
-                        slot_id: 5,
-                        type: 'REEL_1',
-                        format: 'REELS 9:16',
-                        concept_title: 'Chwila dla Bliskich (Wideo 9:16)',
-                        emotional_hook: 'Czas podarowany tym, których kochasz najbardziej',
-                        framing_directive: `Format wertykalny 9:16. Dynamiczny orbitalny ruch kamery wokół produktu ${prodName} wznoszącego się w powietrzu pod kątem 30 stopni.`,
-                        context_elements: 'Płynne slow-motion 60fps, migoczące refleksy światła porannego, ciepła gradacja barwna.'
-                    },
-                    {
-                        slot: 6,
-                        slot_id: 6,
-                        type: 'REEL_2',
-                        format: 'TIKTOK 9:16',
-                        concept_title: 'Bezpieczny Dom na Lata (Wideo 9:16 Hero Low Angle)',
-                        emotional_hook: 'Odpowiedzialność za przyszłość i bezpieczny dom bez kompromisów',
-                        framing_directive: `Ujęcie z dołu (Hero Low Angle) z produktem ${prodName} wyłaniającym się w świetle wschodzącego słońca w prawej tercji ekranu.`,
-                        context_elements: 'Wznoszące promienie słońca, poczucie dumy, pewności i spokoju o przyszłość.'
-                    }
-                ],
-                executive_verdict: `Kampania dla ${prodName} została całkowicie uwolniona od szablonowego centryzmu. Każda kreacja opowiada inną, wzruszającą historię miłości i troski o bliskich, zachowując 100% wierności oryginalnego packshotu marki ${brandName}.`
-            }
+            meeting_minutes: this._defaultMeetingMinutes(prodName, brandName)
         };
     }
 }

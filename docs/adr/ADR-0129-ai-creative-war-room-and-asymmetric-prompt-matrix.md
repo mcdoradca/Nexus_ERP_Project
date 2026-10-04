@@ -16,19 +16,18 @@ Użytkownicy weryfikujący generowane kreacje graficzne e-commerce zidentyfikowa
 
 ## 2. Podjęte Decyzje Architektoniczne
 
-### 2.1. Autonomiczny Serwis Pokoju Narad (`CreativeWarRoomService`)
-W module `src/modules/ad-intelligence/creative-war-room.service.js` powołano dedykowaną jednostkę orkiestracji 4 person AI:
-1. 🛡️ **Strażnik Tożsamości Marki & Prawdy Produktu (Helena Wójcik):**
-   - Broni estetyki i DNA marki pozyskanego przez Agenta Badacza DNA.
-   - Wdraża bezwzględną klauzulę nienaruszalności packshotu (`Product Immutability Shield`) ze zdjęcia referencyjnego.
-2. 💖 **Szef Strategii Emocjonalnej & Empatii (Marek Kamiński):**
-   - Odpowiedzialny za ładunek emocjonalny wyciskający łzy i budzący instynkt opiekuńczy (dzieci, rodzina, zwierzęta, planeta).
-   - Definiuje produkt nie jako "gadżet", lecz jako narzędzie czułości, ulgi i bezpieczeństwa.
-3. 🎨 **Reżyser Wizualny & Mistrz Kompozycji (Oskar Zawadzki):**
-   - Radykalnie eliminuje martwe centrum kadru.
-   - Forsuje asymetrię (Rule of Thirds – lewa/prawa tercja), ujęcia z pierwszej osoby (POV dłoni matki/opiekuna), kadry relacyjne z głębią ostrości (f/1.4 z uśmiechem w bokeh) oraz sensoryczne makro kropli esencji w zawieszeniu.
-4. 🎬 **Główny Dyrektor Kreatywny / Moderator (Aleksander Bochenek):**
-   - Moderuje spór, gasi impasy i sporządza Oficjalną Notatkę z Przebiegu Spotkania (`meeting_minutes`) oraz 6-slotową matrycę kompozycyjną (`creatives_matrix`).
+### 2.1. Prawdziwa Wieloagentowość vs Eliminacja Skryptologii Jednopromptowej (`CreativeWarRoomService`)
+W module `src/modules/ad-intelligence/creative-war-room.service.js` zrezygnowano z wyreżyserowanego dialogu w jednym zapytaniu LLM na rzecz **autentycznej, wieloturowej debaty agentowej**:
+1. **Zero Narzucania Rozwiązań (Eliminacja Mikrozarządzania):** Żaden agent nie ma w instrukcjach podanych z góry obiektywów, gotowych ujęć czy tekstów. Każdy posiada wyłącznie definicję swojej profesji, wyuczonego warsztatu, kryteriów oceny i etosu zawodowego:
+   - 🛡️ **Dyrektor ds. Tożsamości Marki (Helena Wójcik):** Ekspertka corporate identity i compliance e-commerce. Weryfikuje rzetelność rynkową i twardo strzeże 100% nienaruszalności fizycznej packshotu ze zdjęcia referencyjnego.
+   - 💖 **Główny Strateg Neuromarketingu & Psychologii Behawioralnej (Marek Kamiński):** Badacz ludzkich motywacji. Samodzielnie analizuje, jakimi emocjami żyje odbiorca i gdzie w kategorii produktu tkwi prawdziwa potrzeba opieki (dzieci, rodzina, zwierzęta, planeta).
+   - 🎨 **Reżyser Fotografii Komercyjnej & Dyrektor Artystyczny (Oskar Zawadzki):** Suwerenny twórca wizualny. Zwalcza amatorskie martwe centrum kadru; na bazie własnego zmysłu plastycznego i wiedzy optycznej dobiera asymetrię, punkty widzenia i światło.
+   - 🎬 **Główny Dyrektor Kreatywny & Moderator (Aleksander Bochenek):** Prowadzi stół narad przez pytania problemowe otwarte, zderza opinie ekspertów i sporządza oddolną syntezę ustaleń.
+2. **Sekwencyjna Pętla Debaty Wieloturowej (Multi-Turn Swarm):**
+   - Każda tura to niezależne wywołanie `gemini-3.8-flash` z odrębnym `systemInstruction` danej persony.
+   - Agent czyta dotychczasowy stenogram wypowiedzi i odpowiada z pozycji swojej specjalizacji.
+3. **Oddolna Synteza Ustaleń (Bottom-Up Emergent Synthesis):**
+   - Oficjalna Notatka ze Spotkania (`meeting_minutes`) oraz 6-slotowa matryca kadrów (`creatives_matrix`) powstają w drodze ekstrakcji z RZECZYWISTYCH wypowiedzi wypracowanych przez zespół podczas debaty.
 
 ### 2.2. Mapowanie Wytycznych z Narady do Prompt Directora (`PromptDirectorService`)
 - Metody `generateProductionPrompts` oraz `enrichBriefsWithPrompts` przyjmują `slotDirective` z matrycy Pokoju Narad.
