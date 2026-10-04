@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { GoogleGenAI } = require('@google/genai');
 const promptDirectorService = require('./prompt-director.service');
+const creativeWarRoomService = require('./creative-war-room.service');
 
 let _aiInstance = null;
 function getAi() {
@@ -439,6 +440,28 @@ KRYTYCZNE ZASADY JAKOŚCI COPYWRITINGU:
             strategyOutput = this._deterministicFallbackMatrix(brandName, brandUsp, productData, brandProfile);
         }
 
+        // Uruchomienie autonomicznego Okrągłego Stołu / Pokoju Narad Agentów (AI Creative War Room)
+        try {
+            console.log('[AdIntelligence] Rozpoczynam obrady w Pokoju Narad Agentów (Creative War Room)...');
+            const warRoomDeliberation = await creativeWarRoomService.runDeliberation({
+                brandProfile,
+                productData,
+                marketInsights,
+                angles: strategyOutput.angles || []
+            });
+            strategyOutput.war_room = warRoomDeliberation;
+        } catch (errWarRoom) {
+            console.warn('[AdIntelligence] Błąd w Pokoju Narad Agentów, stosuję fallback:', errWarRoom.message);
+            strategyOutput.war_room = creativeWarRoomService._deterministicFallbackDeliberation(
+                prodName,
+                brandName,
+                brandUsp,
+                brandProfile?.brandDna || ''
+            );
+        }
+
+        strategyOutput.market_insights = marketInsights;
+
         return await this._postProcessStrategyResult(strategyOutput, productData, brandProfile);
     }
 
@@ -841,6 +864,16 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty, gotowy tekst w języku polskim w for
 
         const targetProdName = productData?.name || brandProfile?.name || null;
 
+        // Gwarancja obecności Pokoju Narad w obiekcie strategii
+        if (!strategy.war_room) {
+            strategy.war_room = creativeWarRoomService._deterministicFallbackDeliberation(
+                targetProdName || 'Produkt',
+                brandProfile?.name || 'Marka',
+                brandProfile?.usp || 'Wysoka jakość',
+                brandProfile?.brandDna || ''
+            );
+        }
+
         if (Array.isArray(strategy.static_ad_briefs)) {
             strategy.static_ad_briefs = strategy.static_ad_briefs.map((brief, idx) => {
                 let headline = (brief.headline || '').trim();
@@ -862,13 +895,14 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty, gotowy tekst w języku polskim w for
                 };
             });
 
-            // Wzbogacenie o profesjonalne prompty AI w 100% po polsku (dwuagentowy Prompt Director)
+            // Wzbogacenie o profesjonalne prompty AI uzbrojone w wytyczne asymetrii i emocji z Pokoju Narad
             strategy.static_ad_briefs = await promptDirectorService.enrichBriefsWithPrompts(
                 strategy.static_ad_briefs,
                 brandProfile,
                 productData,
                 strategy.angles || [],
-                strategy.market_insights || {}
+                strategy.market_insights || {},
+                strategy.war_room
             );
         }
 
@@ -880,13 +914,23 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty, gotowy tekst w języku polskim w for
                 productName: targetProdName
             }));
 
-            // Wzbogacenie Reels o profesjonalne prompty wideo w 100% po polsku (dwuagentowy Prompt Director)
+            // Adaptacja slotów 5 i 6 z matrycy Pokoju Narad dla briefów Reels
+            const reelsWarRoom = strategy.war_room ? {
+                ...strategy.war_room,
+                meeting_minutes: {
+                    ...strategy.war_room.meeting_minutes,
+                    creatives_matrix: (strategy.war_room.meeting_minutes?.creatives_matrix || []).slice(4)
+                }
+            } : null;
+
+            // Wzbogacenie Reels o profesjonalne prompty wideo w 100% po polsku
             strategy.reels_briefs = await promptDirectorService.enrichBriefsWithPrompts(
                 strategy.reels_briefs,
                 brandProfile,
                 productData,
                 strategy.angles || [],
-                strategy.market_insights || {}
+                strategy.market_insights || {},
+                reelsWarRoom
             );
         }
 
@@ -946,7 +990,7 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty, gotowy tekst w języku polskim w for
         };
     }
 
-    _deterministicFallbackMatrix(brandName, brandUsp, productData = {}) {
+    _deterministicFallbackMatrix(brandName, brandUsp, productData = {}, brandProfile = {}) {
         const prodName = productData?.name || brandName || 'Produkt';
         const priceStr = productData?.salePrice ? ` w cenie ${Number(productData.salePrice).toFixed(2)} zł` : '';
         const featuresStr = productData?.features 
@@ -955,6 +999,12 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty, gotowy tekst w języku polskim w for
 
         return {
             campaign_strategy: `Strategia konwersji direct-response dla produktu ${prodName} w oparciu o unikalne korzyści.`,
+            war_room: creativeWarRoomService._deterministicFallbackDeliberation(
+                prodName,
+                brandName,
+                brandUsp,
+                brandProfile?.brandDna || ''
+            ),
             angles: [
                 { id: "A1", name: "Problem i Natychmiastowa Ulga", psychological_trigger: "Ukojenie frustracji klienta", core_promise: `Szybkie i skuteczne działanie z ${prodName}` },
                 { id: "A2", name: "Twarde Liczby i Certyfikacja", psychological_trigger: "Pewność i autorytet", core_promise: "Sprawdzony standard zgodny z normami UE" },

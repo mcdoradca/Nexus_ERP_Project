@@ -27,7 +27,13 @@ import {
     FileUp,
     FileText,
     Trash2,
-    ExternalLink
+    ExternalLink,
+    Users,
+    MessageSquare,
+    Pause,
+    FastForward,
+    Heart,
+    Eye
 } from 'lucide-react';
 
 // Komponent do prezentacji i błyskawicznego kopiowania (1-klik) promptów AI w 100% po polsku
@@ -178,6 +184,355 @@ const AiPromptsViewer = ({ prompts, defaultExpanded = false }) => {
                         <p className="text-[11px] text-slate-200 font-sans leading-relaxed select-all whitespace-pre-wrap max-h-36 overflow-y-auto custom-scrollbar pr-1">
                             {currentText}
                         </p>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// Komponent Wizualizacji Pokoju Narad Agentów w Czasie Rzeczywistym (Creative War Room Live Deliberation)
+// Zawiera symulację debaty na żywo z aktywnymi personami, stenogram oraz Oficjalną Notatkę z Przebiegu Spotkania (Executive Minutes)
+const CreativeWarRoomLiveViewer = ({ warRoom }) => {
+    const transcript = warRoom?.debate_transcript || [];
+    const participants = warRoom?.participants || [
+        { id: 'brand_guardian', name: 'Helena Wójcik', title: 'Strażnik Marki & Prawdy Produktu', avatar: '🛡️', badgeColor: 'indigo', description: 'Pilnuje estetyki strony, DNA marki i żelaznej zasady nienaruszalności oryginalnego packshotu.' },
+        { id: 'empathy_strategist', name: 'Marek Kamiński', title: 'Szef Strategii Emocjonalnej', avatar: '💖', badgeColor: 'rose', description: 'Sprzedaje emocje chwytające za serce: instynkt troski o dzieci, rodzinę, bezbronne zwierzęta i planetę.' },
+        { id: 'visual_director', name: 'Oskar Zawadzki', title: 'Reżyser Wizualny & Kompozycja', avatar: '🎨', badgeColor: 'amber', description: 'Niszczy centryzm i nudę – forsuje asymetrię, ujęcia POV, portrety z głębią ostrości i sensoryczne zbliżenia.' },
+        { id: 'lead_synthesizer', name: 'Aleksander Bochenek', title: 'Dyrektor Kreatywny (Moderator)', avatar: '🎬', badgeColor: 'purple', description: 'Kieruje debatą, rozstrzyga spory, tworzy Notatkę z Przebiegu Spotkania i przypisuje kadry do 6 kreacji.' }
+    ];
+    const minutes = warRoom?.meeting_minutes || {};
+
+    const [currentStepIndex, setCurrentStepIndex] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(true);
+    const [playbackSpeed, setPlaybackSpeed] = useState(1);
+    const [activeTab, setActiveTab] = useState('minutes');
+    const [hasCompleted, setHasCompleted] = useState(false);
+    const transcriptEndRef = useRef(null);
+
+    // Automatyczne przejście do kolejnej wypowiedzi
+    useEffect(() => {
+        if (!isPlaying || hasCompleted || transcript.length === 0) return;
+
+        const currentSpeechLength = transcript[currentStepIndex]?.speech?.length || 100;
+        const delay = Math.max(2500, Math.min(6000, currentSpeechLength * 25)) / playbackSpeed;
+
+        const timer = setTimeout(() => {
+            if (currentStepIndex < transcript.length - 1) {
+                setCurrentStepIndex(prev => prev + 1);
+            } else {
+                setHasCompleted(true);
+                setIsPlaying(false);
+                setActiveTab('minutes');
+            }
+        }, delay);
+
+        return () => clearTimeout(timer);
+    }, [isPlaying, currentStepIndex, hasCompleted, transcript, playbackSpeed]);
+
+    // Przewijanie do najnowszej wypowiedzi w stenogramie
+    useEffect(() => {
+        if (activeTab === 'transcript' && transcriptEndRef.current) {
+            transcriptEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [currentStepIndex, activeTab]);
+
+    if (!warRoom || transcript.length === 0) return null;
+
+    const currentTurn = transcript[currentStepIndex] || transcript[0];
+    const visibleTurns = hasCompleted ? transcript : transcript.slice(0, currentStepIndex + 1);
+
+    const handleSkipToEnd = () => {
+        setCurrentStepIndex(transcript.length - 1);
+        setHasCompleted(true);
+        setIsPlaying(false);
+        setActiveTab('minutes');
+    };
+
+    const handleRestart = () => {
+        setCurrentStepIndex(0);
+        setHasCompleted(false);
+        setIsPlaying(true);
+        setActiveTab('transcript');
+    };
+
+    return (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl text-white space-y-6 animate-in fade-in duration-300">
+            {/* Nagłówek Pokoju Narad */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-4 border-b border-slate-800 gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-pink-500 flex items-center justify-center shadow-lg relative shrink-0">
+                        <Users className="w-5 h-5 text-white" />
+                        {isPlaying && !hasCompleted && (
+                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900 animate-ping" />
+                        )}
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-sm font-black uppercase tracking-wider text-white">
+                                AI Creative War Room (Okrągły Stół Person Kreatywnych)
+                            </h2>
+                            <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                                4 Persony Swarm
+                            </span>
+                        </div>
+                        <p className="text-xs text-slate-400">
+                            {warRoom.topic || 'Debata nad eliminacją martwego centrum, asymetrią kadrów i ładunkiem emocjonalnym kampanii'}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Kontrolki Odtwarzacza & Przełącznik Zakładek */}
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center bg-slate-950/80 border border-slate-800 rounded-lg p-1">
+                        <button
+                            type="button"
+                            onClick={() => setIsPlaying(!isPlaying)}
+                            disabled={hasCompleted}
+                            className={`p-1.5 rounded text-xs font-bold transition-colors ${isPlaying ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30' : 'bg-slate-800 text-slate-300 hover:text-white'} disabled:opacity-40`}
+                            title={isPlaying ? "Wstrzymaj debatę" : "Odtwarzaj debatę"}
+                        >
+                            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                        </button>
+                        
+                        <button
+                            type="button"
+                            onClick={() => setPlaybackSpeed(s => s === 1 ? 2 : 1)}
+                            className="px-2 py-1 text-[10px] font-black text-slate-400 hover:text-indigo-400 transition-colors"
+                            title="Prędkość symulacji"
+                        >
+                            {playbackSpeed}x
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleRestart}
+                            className="p-1.5 text-slate-400 hover:text-white transition-colors"
+                            title="Restartuj debatę od początku"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+
+                    {!hasCompleted && (
+                        <button
+                            type="button"
+                            onClick={handleSkipToEnd}
+                            className="px-3 py-1.5 bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all"
+                        >
+                            <FastForward className="w-3.5 h-3.5" />
+                            Pomiń i pokaż notatkę
+                        </button>
+                    )}
+
+                    <div className="flex bg-slate-950/80 border border-slate-800 rounded-lg p-1">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('minutes')}
+                            className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                                activeTab === 'minutes' 
+                                    ? 'bg-purple-600 text-white shadow-sm' 
+                                    : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            📋 Notatka ze Spotkania
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('transcript')}
+                            className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                                activeTab === 'transcript' 
+                                    ? 'bg-indigo-600 text-white shadow-sm' 
+                                    : 'text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            💬 Stenogram Debaty ({visibleTurns.length}/{transcript.length})
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* WIRTUALNY STÓŁ KONFERENCYJNY - 4 KARTY UCZESTNIKÓW */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {participants.map(p => {
+                    const isSpeakingNow = isPlaying && !hasCompleted && currentTurn.speaker_id === p.id;
+                    return (
+                        <div
+                            key={p.id}
+                            className={`rounded-xl p-3 border transition-all duration-300 ${
+                                isSpeakingNow
+                                    ? 'bg-gradient-to-b from-indigo-950/90 to-purple-950/90 border-indigo-400 ring-2 ring-indigo-500/50 shadow-lg shadow-indigo-500/20 scale-[1.02]'
+                                    : 'bg-slate-950/60 border-slate-800/80 opacity-80 hover:opacity-100'
+                            }`}
+                        >
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xl">{p.avatar}</span>
+                                    <div>
+                                        <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                                            {p.name}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 leading-tight">
+                                            {p.title}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
+                                {p.description}
+                            </div>
+                            {isSpeakingNow && (
+                                <div className="mt-2.5 pt-2 border-t border-indigo-500/30 flex items-center justify-between text-[10px] text-indigo-300 font-bold animate-pulse">
+                                    <span>🎙️ MÓWI TERAZ...</span>
+                                    <span className="flex gap-0.5">
+                                        <span className="w-1 h-2 bg-indigo-400 rounded-full animate-bounce" />
+                                        <span className="w-1 h-3 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.1s]" />
+                                        <span className="w-1 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* ZAKŁADKA 1: STENOGRAM DEBATY NA ŻYWO */}
+            {activeTab === 'transcript' && (
+                <div className="space-y-3 bg-slate-950/80 rounded-xl p-4 border border-slate-800 max-h-[460px] overflow-y-auto custom-scrollbar">
+                    {visibleTurns.map((turn, idx) => {
+                        const isLatest = idx === visibleTurns.length - 1 && isPlaying && !hasCompleted;
+                        return (
+                            <div 
+                                key={idx} 
+                                className={`p-3.5 rounded-xl border transition-all ${
+                                    isLatest 
+                                        ? 'bg-indigo-950/50 border-indigo-500/50 ring-1 ring-indigo-500/30 shadow-md' 
+                                        : 'bg-slate-900/60 border-slate-800/80'
+                                }`}
+                            >
+                                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-lg">{turn.avatar || '💬'}</span>
+                                        <span className="text-xs font-bold text-white">{turn.speaker_name}</span>
+                                        <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
+                                            Krok #{turn.step || idx + 1}
+                                        </span>
+                                    </div>
+                                    {turn.key_point && (
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold">
+                                            📌 {turn.key_point}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-slate-200 leading-relaxed pl-7 border-l-2 border-slate-700/50 italic">
+                                    "{turn.speech}"
+                                </p>
+                            </div>
+                        );
+                    })}
+                    <div ref={transcriptEndRef} />
+                </div>
+            )}
+
+            {/* ZAKŁADKA 2: OFICJALNA NOTATKA Z PRZEBIEGU SPOTKANIA (EXECUTIVE MINUTES) */}
+            {activeTab === 'minutes' && (
+                <div className="space-y-5 animate-in fade-in duration-200">
+                    {/* Panel Kluczowych Ustaleń */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* ⚔️ Rozstrzygnięty Spór */}
+                        <div className="bg-slate-950/70 border border-purple-500/30 rounded-xl p-4 space-y-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                                ⚔️ Rozstrzygnięty Spór Strategiczny
+                            </span>
+                            <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                                {minutes.core_conflict_resolved || 'Odrzucenie sztucznych, wycentrowanych ujęć studyjnych na rzecz dynamicznej asymetrii i głębokiej emocjonalnej opowieści o opiece.'}
+                            </p>
+                        </div>
+
+                        {/* 💖 Zatwierdzony Kod Emocjonalny */}
+                        <div className="bg-slate-950/70 border border-rose-500/30 rounded-xl p-4 space-y-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
+                                💖 Zatwierdzony Kod Emocjonalny (Łzy & Troska)
+                            </span>
+                            <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                                {minutes.agreed_emotional_code || 'Instynkt bezwarunkowej troski i spokoju o najbliższych (dzieci, rodzina, zwierzęta, czyste środowisko) – produkt jako narzędzie czułości.'}
+                            </p>
+                        </div>
+
+                        {/* 📐 Doktryna Kompozycji & Asymetrii */}
+                        <div className="bg-slate-950/70 border border-amber-500/30 rounded-xl p-4 space-y-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                                📐 Doktryna Kompozycji & Asymetrii (Zero Centryzmu)
+                            </span>
+                            <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                                {minutes.visual_framing_doctrine || 'Kategoryczny zakaz centrowania produktu w martwym środku kadru. Reguła trójpodziału, ujęcia POV z perspektywy dłoni, portrety z głębią ostrości.'}
+                            </p>
+                        </div>
+
+                        {/* 🛡️ Klauzula Nienaruszalności Produktu */}
+                        <div className="bg-slate-950/70 border border-emerald-500/30 rounded-xl p-4 space-y-1.5">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                                🛡️ Tarcza Nienaruszalności Packshotu
+                            </span>
+                            <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                                {minutes.immutability_shield_clause || 'Oryginalna butelka, pompka, typografia i etykieta z załączonego zdjęcia podlegają 100% ochronie fizycznej przed halucynacją modeli generatywnych.'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Matryca 6 Zróżnicowanych Kadrów */}
+                    <div className="space-y-3 pt-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                🎯 Zatwierdzona Matryca 6 Zróżnicowanych Kadrów (Zmapowana do Kreacji)
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                                4 x Statyk E-commerce + 2 x Dynamiczne Wideo 9:16
+                            </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {(minutes.creatives_matrix || [
+                                { slot_id: 1, format: 'STATYK', framing_directive: 'Asymetria – Lewa 1/3 kadru (Rule of Thirds)', emotional_hook: 'Spokój rodzica o bezpieczeństwo i delikatność', context_elements: 'Czysta, poranna przestrzeń z promieniami słońca' },
+                                { slot_id: 2, format: 'STATYK', framing_directive: 'POV – Ujęcie z perspektywy dłoni opiekuna', emotional_hook: 'Dotyk czułości i natychmiastowe ukojenie', context_elements: 'Ciepłe, minimalistyczne wnętrze' },
+                                { slot_id: 3, format: 'STATYK', framing_directive: 'Portret Relacyjny – Produkt na 1. planie, w tle miękki bokeh', emotional_hook: 'Wzruszenie i wdzięczność domowników', context_elements: 'Naturalny uśmiech w nieostrości tła f/1.4' },
+                                { slot_id: 4, format: 'STATYK', framing_directive: 'Sensoryczne Makro – Zbliżenie 100mm na detal i kroplę', emotional_hook: 'Fascynacja czystością i szacunek dla natury', context_elements: 'Zawieszona mikrokropla esencji w locie' },
+                                { slot_id: 5, format: 'REELS 9:16', framing_directive: 'Dynamiczny najazd boczny pod kątem 45 stopni', emotional_hook: 'Ulga i pewność wyboru potwierdzona natychmiastowym efektem', context_elements: 'Kinowy grading 60fps w ciepłych barwach' },
+                                { slot_id: 6, format: 'TIKTOK 9:16', framing_directive: 'Hero Low-Angle – Lekko z dołu z dynamicznym wejściem dłoni', emotional_hook: 'Duma z mądrego wyboru i troski o planetę', context_elements: 'Świeże, organiczne otoczenie bez postumentów' }
+                            ]).map((slot, sIdx) => (
+                                <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2 flex flex-col justify-between hover:border-indigo-500/50 transition-colors">
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
+                                                Slot #{slot.slot_id || sIdx + 1}
+                                            </span>
+                                            <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-wider ${
+                                                slot.format?.includes('REELS') || slot.format?.includes('TIKTOK')
+                                                    ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
+                                                    : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                                            }`}>
+                                                {slot.format || 'STATYK'}
+                                            </span>
+                                        </div>
+                                        <div className="text-xs font-bold text-white mb-1">
+                                            📐 {slot.framing_directive}
+                                        </div>
+                                        <div className="text-[11px] text-rose-300 mb-1 leading-snug">
+                                            💖 {slot.emotional_hook}
+                                        </div>
+                                        {slot.context_elements && (
+                                            <div className="text-[10px] text-slate-400 leading-tight">
+                                                🌿 Otoczenie: {slot.context_elements}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[9px] text-slate-500">
+                                        <span>Zmapowano do Prompt Directora</span>
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}
@@ -1713,6 +2068,11 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                                 </button>
                             </div>
                         </div>
+                    )}
+
+                    {/* OKRĄGŁY STÓŁ PERSON KREATYWNYCH - AI CREATIVE WAR ROOM */}
+                    {scanData.strategy?.war_room && (
+                        <CreativeWarRoomLiveViewer warRoom={scanData.strategy.war_room} />
                     )}
                 </div>
             )}

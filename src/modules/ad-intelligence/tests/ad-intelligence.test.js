@@ -414,4 +414,85 @@ test('PromptDirectorService - Tarcza Nienaruszalności Produktu (Product Immutab
     assert.doesNotMatch(packshotPrompt, /kamiennym postumencie/i, 'Prompt nie może zawierać kliszy kamiennego postumentu');
 });
 
+test('CreativeWarRoomService: przeprowadza wieloagentową debatę (4 persony) i generuje Notatkę ze Spotkania oraz matrycę 6 asymetrycznych kadrów', async () => {
+    const creativeWarRoomService = require('../creative-war-room.service');
+    assert.ok(creativeWarRoomService, 'CreativeWarRoomService musi być załadowany');
+
+    const participants = creativeWarRoomService.getParticipants();
+    assert.strictEqual(participants.length, 4, 'W debacie musi brać udział dokładnie 4 ekspertów AI');
+    
+    const participantIds = participants.map(p => p.id);
+    assert.ok(participantIds.includes('brand_guardian'), 'Musi istnieć Strażnik Marki (Helena Wójcik)');
+    assert.ok(participantIds.includes('empathy_strategist'), 'Musi istnieć Psycholog Emocji (Marek Kamiński)');
+    assert.ok(participantIds.includes('visual_director'), 'Musi istnieć Reżyser Wizualny (Oskar Zawadzki)');
+    assert.ok(participantIds.includes('lead_synthesizer'), 'Musi istnieć Główny Dyrektor Kreatywny (Aleksander Bochenek)');
+
+    const deliberation = await creativeWarRoomService.runDeliberation({
+        brandProfile: {
+            name: 'EcoCare Baby',
+            usp: 'Hipoalergiczny płyn do kąpieli niemowląt',
+            brandDna: 'Klimat: Czysta miłość rodzicielska, miękkie światło poranka. Odbiorca: Noworodki i troskliwi rodzice. Emocje: Bezwzględna opieka, wzruszenie i spokój.'
+        },
+        productData: {
+            name: 'Płyn do Kąpieli Niemowląt EcoCare',
+            salePrice: 39.99
+        },
+        marketInsights: {
+            saturated_claims: ['Generyczne slogany o czystości bez atestów'],
+            dominant_hooks: ['Czy wiesz, czym myjesz skórę swojego dziecka?']
+        }
+    });
+
+    assert.ok(deliberation, 'Wynik obrad nie może być pusty');
+    assert.ok(Array.isArray(deliberation.debate_transcript), 'Stenogram debaty musi być tablicą wypowiedzi');
+    assert.ok(deliberation.debate_transcript.length >= 4, 'Stenogram musi zawierać co najmniej 4 wypowiedzi uczestników');
+
+    const minutes = deliberation.meeting_minutes;
+    assert.ok(minutes, 'Oficjalna Notatka ze Spotkania (meeting_minutes) musi być obecna');
+    assert.ok(minutes.core_conflict_resolved, 'Notatka musi opisywać rozstrzygnięty spór');
+    assert.ok(minutes.agreed_emotional_code, 'Notatka musi definiować zatwierdzony kod emocjonalny');
+    assert.ok(minutes.visual_framing_doctrine, 'Notatka musi zawierać doktrynę kompozycji i zakaz martwego centrum');
+    assert.ok(minutes.immutability_shield_clause, 'Notatka musi zawierać klauzulę nienaruszalności packshotu');
+
+    assert.ok(Array.isArray(minutes.creatives_matrix), 'Matryca kadrów musi być tablicą 6 slotów');
+    assert.strictEqual(minutes.creatives_matrix.length, 6, 'Matryca musi definiować dokładnie 6 unikalnych slotów kreacji');
+
+    // Weryfikacja eliminacji centryzmu: żaden slot nie może nakazywać umieszczenia produktu w martwym centrum
+    minutes.creatives_matrix.forEach(slot => {
+        assert.ok(slot.framing_directive, `Slot #${slot.slot_id} musi posiadać wytyczną kadrowania`);
+        assert.doesNotMatch(slot.framing_directive, /martwym centrum|na środku kadru/i, `Slot #${slot.slot_id} nie może forsować martwego centrum`);
+        assert.ok(slot.emotional_hook, `Slot #${slot.slot_id} musi posiadać ładunek emocjonalny troski/empatii`);
+    });
+});
+
+test('AdIntelligenceService: integruje Pokój Narad Agentów i przekazuje wytyczne do promptów briefów', async () => {
+    const service = require('../ad-intelligence.service');
+    assert.ok(service, 'AdIntelligenceService musi istnieć');
+
+    const strategy = await service.synthesizeAnglesAndHooks({
+        topWinners: [],
+        marketInsights: {},
+        brandProfile: {
+            name: 'PureBotanica',
+            brandDna: 'Pastelowy minimalizm i naturalne światło.'
+        },
+        productData: {
+            name: 'Krem Nawilżający z Ceramidami',
+            salePrice: 89.00
+        }
+    });
+
+    assert.ok(strategy.war_room, 'Strategia musi zawierać obiekt Pokoju Narad Agentów (war_room)');
+    assert.ok(Array.isArray(strategy.war_room.debate_transcript), 'war_room musi posiadać stenogram debaty');
+    assert.ok(strategy.war_room.meeting_minutes, 'war_room musi posiadać meeting_minutes');
+    assert.ok(strategy.war_room.meeting_minutes.creatives_matrix, 'war_room musi posiadać matrycę 6 slotów');
+
+    // Weryfikacja wzbogacenia briefów o wytyczne z Pokoju Narad
+    assert.ok(strategy.static_ad_briefs && strategy.static_ad_briefs.length > 0, 'Musi posiadać briefy statyczne');
+    const firstBrief = strategy.static_ad_briefs[0];
+    assert.ok(firstBrief.production_prompts, 'Brief musi posiadać wygenerowane production_prompts');
+    assert.ok(firstBrief.framing_directive, 'Brief musi posiadać przypisaną wytyczną kadrowania z Pokoju Narad');
+});
+
+
 
