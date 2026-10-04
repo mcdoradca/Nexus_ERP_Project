@@ -86,7 +86,7 @@ test('CreativeStudioService - generateStaticAd generuje plik graficzny PNG z kom
         badge_text: "⭐ 4.9/5 | 100% Czyste INCI",
         suggested_budget: "250 zł",
         hashtags: "#SkinCare #KBeauty",
-        visual_prompt: "Luxury cosmetic bottle on marble"
+        visual_prompt: "Świetlista lewitacja butelki w czystej przestrzeni z rozproszonym światłem"
     };
 
     const asset = await creativeStudioService.generateStaticAd(brief, { name: 'Skin Care Korea' });
@@ -354,4 +354,64 @@ test('AdIntelligenceService - scoreAdsWithGemini zachowuje linki do reklam i pro
     assert.ok(Array.isArray(result.marketInsights.audience_triggers), 'Musi zawierać triggery audytorium');
     assert.ok(typeof result.marketInsights.executive_summary === 'string', 'Musi zawierać podsumowanie wykonawcze');
 });
+
+test('AdIntelligenceService - Agent Badacza DNA i Klimatu Marki (Brand DNA Scout) bada tożsamość i kod emocjonalny', async () => {
+    const brandInfo = {
+        brandName: 'e-Fiore',
+        website: 'https://e-fiore.pl',
+        category: 'Kosmetyki naturalne',
+        description: 'Rozświetlające serum z witaminą C i ekstraktem z jeżyny.',
+        usp: 'Naturalna witamina C i antyoksydanty z jeżyn rozjaśniające cerę',
+        proof: '100% wegański skład, certyfikowane surowce organiczne',
+        targetAudience: 'Kobiety 20-40 lat poszukujące promiennego blasku skóry'
+    };
+
+    const dna = await adIntelligenceService.scoutBrandDnaAndAesthetics(brandInfo);
+    assert.ok(dna, 'Agent DNA musi zwrócić analizę tożsamości marki');
+    assert.ok(typeof dna === 'string');
+    assert.ok(dna.length > 30, 'Analiza DNA musi być wyczerpująca');
+    assert.match(dna, /(Klimat|Odbiorca|Emocje|marki)/i, 'DNA musi zawierać zdefiniowane wymiary tożsamości');
+});
+
+test('PromptDirectorService - Tarcza Nienaruszalności Produktu (Product Immutability Shield) oraz brak klisz postumentów', async () => {
+    const promptDirectorService = require('../prompt-director.service');
+    const brief = {
+        headline: "Promienny blask i energia każdego dnia",
+        subheadline: "Serum Black & Berry z witaminą C",
+        body_copy: "Rozjaśnij przebarwienia i ciesz się gładką, rozświetloną cerą bez ciężkich formuł.",
+        productName: "Serum Rozjaśniające Black & Berry"
+    };
+
+    const brandDna = "Klimat: Pastelowy, owocowo-botaniczny minimalizm e-Fiore. Jasne, miękkie światło dzienne, soczystość owoców jeżyn i witaminy C. Odbiorca: Kobiety poszukujące naturalnego rozświetlenia. Emocje: Radość, lekkość, świeżość, promienny blask bez ciemnych podestów.";
+
+    const prompts = await promptDirectorService.generateProductionPrompts({
+        brief,
+        brandProfile: {
+            name: 'e-Fiore',
+            usp: 'Witamina C z jeżynami',
+            brandDna
+        },
+        productData: {
+            name: 'Serum Rozjaśniające Black & Berry',
+            salePrice: 69.00
+        }
+    });
+
+    assert.ok(prompts, 'Obiekt promptów musi zostać wygenerowany');
+    assert.ok(prompts.nano_banana_packshot, 'Musi istnieć prompt packshotu Nano Banana');
+
+    // Weryfikacja Tarczy Nienaruszalności Produktu:
+    // Prompt musi zabraniać przeprojektowywania butelki i nakazywać zachowanie 100% wierności ze zdjęciem
+    const packshotPrompt = prompts.nano_banana_packshot;
+    assert.match(
+        packshotPrompt,
+        /(Nienaruszalny|referencyjn|100%|oryginaln|zakaz modyfikow|tożsamość|wierność)/i,
+        'Prompt Nano Banana musi zawierać Tarczę Nienaruszalności Produktu (Product Immutability Shield)'
+    );
+
+    // Weryfikacja braku archaicznych marmurowych/kamiennych postumentów w wygenerowanych promptach
+    assert.doesNotMatch(packshotPrompt, /marmurowym postumencie/i, 'Prompt nie może zawierać kliszy marmurowego postumentu');
+    assert.doesNotMatch(packshotPrompt, /kamiennym postumencie/i, 'Prompt nie może zawierać kliszy kamiennego postumentu');
+});
+
 

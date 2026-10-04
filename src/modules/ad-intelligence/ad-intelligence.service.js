@@ -531,8 +531,10 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty JSON w bloku kodu bez zbędnego wstę
     }
 
     /**
-     * Agent OSINT: Autonomiczne odnajdywanie oficjalnej strony producenta / sklepu
-     * oraz uzupełnianie parametrów produktu (USP, dowody, opis, packshot)
+     * Agent OSINT & Badacz DNA Marki:
+     * Faza 1: Autonomiczne odnajdywanie oficjalnej strony producenta / sklepu i faktów o produkcie
+     * Faza 2: Dedykowany Agent Badacza DNA & Klimatu Marki (Brand DNA & Aesthetics Scout)
+     * badający styl wizualny, pozycjonowanie cenowe, odbiorcę oraz kod emocjonalny
      */
     async enrichProductFromWeb(productOrBrandName) {
         if (!productOrBrandName || !productOrBrandName.trim()) {
@@ -540,11 +542,12 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty JSON w bloku kodu bez zbędnego wstę
         }
 
         const name = productOrBrandName.trim();
-        console.log(`[AdIntelligence] Agent OSINT przeszukuje sieć pod kątem: "${name}"...`);
+        console.log(`[AdIntelligence] Faza 1 (Agent OSINT): przeszukuje sieć pod kątem: "${name}"...`);
 
         const ai = getAi();
         if (!ai) {
             console.warn('[AdIntelligence] Brak klucza GEMINI_API_KEY. Zwracam profil syntetyczny.');
+            const fallbackDna = `Klimat: Nowoczesna, czysta estetyka użytkowa marki ${name}. Jasne, naturalne światło, autentyczny kontekst codziennego życia. Odbiorca: Klienci poszukujący sprawdzonych, certyfikowanych rozwiązań. Emocje: Spokój, pewność wyboru, zaufanie i wygoda.`;
             return {
                 brandName: name,
                 website: '',
@@ -554,11 +557,12 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty JSON w bloku kodu bez zbędnego wstę
                 proof: 'Zgodność z normami UE, pozytywne opinie klientów, gwarancja producenta.',
                 targetAudience: 'Świadomi konsumenci poszukujący sprawdzonych rozwiązań.',
                 suggestedQuery: name,
-                imageUrl: ''
+                imageUrl: '',
+                brandDna: fallbackDna
             };
         }
 
-        const prompt = `Jesteś elitarnym agentem OSINT i researcherem e-commerce w Polsce.
+        const osintPrompt = `Jesteś elitarnym agentem OSINT i researcherem e-commerce w Polsce.
 Przeszukaj żywy internet (Google Search) pod kątem marki lub produktu: "${name}".
 Odnajdź oficjalną stronę producenta, oficjalny sklep lub czołową ofertę handlową w Polsce.
 
@@ -588,10 +592,11 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
 }
 \`\`\``;
 
+        let baseData = null;
         try {
             const resp = await ai.models.generateContent({
                 model: 'gemini-3.8-flash',
-                contents: prompt,
+                contents: osintPrompt,
                 config: {
                     tools: [{ googleSearch: {} }],
                     temperature: 0.1
@@ -606,8 +611,7 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
             if (!jsonMatch) throw new Error('Nie udało się wyodrębnić JSON z odpowiedzi agenta.');
 
             const parsed = JSON.parse(jsonMatch[0]);
-
-            return {
+            baseData = {
                 brandName: parsed.brandName || name,
                 website: parsed.website || '',
                 category: parsed.category || 'Ogólna',
@@ -620,7 +624,7 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
             };
         } catch (err) {
             console.warn(`[AdIntelligence] Błąd podczas autouzupełniania z sieci (${name}): ${err.message}. Zwracam dane defensywne.`);
-            return {
+            baseData = {
                 brandName: name,
                 website: '',
                 category: 'E-commerce / Pielęgnacja & Dom',
@@ -632,6 +636,78 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                 imageUrl: ''
             };
         }
+
+        // FAZA 2: DEDYKOWANY AGENT BADACZA DNA I KLIMATU MARKI (Brand DNA & Aesthetics Scout)
+        // Zbiera DNA, styl wizualny strony, pozycjonowanie cenowe i emocje dla Agenta Artystycznego
+        console.log(`[AdIntelligence] Faza 2 (Agent DNA Marki): badanie klimatu i kodu estetycznego dla "${baseData.brandName}"...`);
+        try {
+            const dna = await this.scoutBrandDnaAndAesthetics(baseData);
+            return {
+                ...baseData,
+                brandDna: dna
+            };
+        } catch (dnaErr) {
+            console.warn('[AdIntelligence] Błąd fazy 2 Agenta DNA:', dnaErr.message);
+            const fallbackDna = `Klimat: Nowoczesny, minimalistyczny styl marki ${baseData.brandName}. Naturalne, czyste oświetlenie studyjne, autentyczność i lekkość w przestrzeni. Odbiorca: ${baseData.targetAudience || 'Świadomi konsumenci'}. Emocje: Spokój, pewność wyboru, zaufanie do jakości i natychmiastowa satysfakcja z rezultatów.`;
+            return {
+                ...baseData,
+                brandDna: fallbackDna
+            };
+        }
+    }
+
+    /**
+     * Nowy Agent AI: Badacz DNA i Klimatu Marki (Brand DNA & Aesthetics Scout)
+     * Samodzielny agent analizujący styl wizualny, pozycjonowanie, odbiorcę i emocje
+     */
+    async scoutBrandDnaAndAesthetics({ brandName, website = '', category = '', description = '', usp = '', proof = '', targetAudience = '' }) {
+        const ai = getAi();
+        if (!ai) {
+            return `Klimat: Nowoczesna, czysta estetyka marki ${brandName}. Jasne światło dzienne, autentyczność i przestrzeń. Odbiorca: ${targetAudience || 'Świadomi konsumenci'}. Emocje: Pewność jakości, świeżość i zaufanie.`;
+        }
+
+        const dnaPrompt = `Jesteś elitarnym Dyrektorem Marki i Architektem Tożsamości Wizualnej (Brand DNA & Aesthetics Scout).
+Twoim zadaniem jest zbadać i zdefiniować unikalne DNA, klimat wizualny i emocjonalny marki: "${brandName}".
+
+DANE WEJŚCIOWE OD AGENTA OSINT:
+- Marka: ${brandName}
+- Oficjalna strona / sklep: ${website || 'Brak bezpośredniego adresu, wywnioskuj ze specyfiki marki i produktów'}
+- Kategoria: ${category}
+- Opis produktu: ${description}
+- USP: ${usp}
+- Grupa docelowa: ${targetAudience}
+
+TWOJE ZADANIE:
+Przeprowadź dogłębną syntezę tożsamości marki i produktu w 4 wymiarach:
+1. Klimat wizualny i estetyka strony/marki (np. czy to pastelowy, owocowo-botaniczny minimalizm jak w e-Fiore, czy sterylna apteczna biel dermokosmetyków, czy surowy techniczny profesjonalizm chemii gospodarczej, czy luksusowa elegancja premium).
+2. Pozycjonowanie i półka cenowa (czy to produkt marketowy/masowy, rzemieślniczy e-commerce, czy ekskluzywny luksus; jak to wpływa na narrację wizualną).
+3. Precyzyjny odbiorca i kontekst użycia (czy dla człowieka czy dla zwierzęcia, jaki wiek, styl życia i potrzeba).
+4. Główny kod emocjonalny i sensoryczny (np. promienny blask i radość, orzeźwiająca świeżość owoców, ukojenie i ulga, laboratoryjna niezawodność).
+
+WYTYCZNA DLA AGENTA ARTYSTYCZNEGO:
+Sformułuj zwięzłą, esencjonalną syntezę (3-4 zdania), która będzie bezpośrednią instrukcją dla Agenta Artystycznego w sekcji kreacji. Agent Artystyczny musi z tego opisu od razu wiedzieć, w jakim świecie i klimacie ma żyć ten produkt, jakie emocje ma budzić i dlaczego ma unikać generycznych schematów (np. ciemnych, ciężkich podestów dla lekkich produktów).
+
+Zwróć odpowiedź WYŁĄCZNIE jako czysty, gotowy tekst w języku polskim w formacie:
+"Klimat: [Styl wizualny, kolorystyka, światło i przestrzeń]. Odbiorca: [Precyzyjny profil odbiorcy i kontekst]. Półka i percepcja: [Pozycjonowanie cenowe i charakter oferty]. Emocje: [Kluczowe emocje, zmysłowość i wrażenie odbiorcy]."`;
+
+        try {
+            const resp = await ai.models.generateContent({
+                model: 'gemini-3.8-flash',
+                contents: dnaPrompt,
+                config: {
+                    temperature: 0.2
+                }
+            });
+
+            const text = (resp.text || resp.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+            if (text && text.length > 30) {
+                return text;
+            }
+        } catch (err) {
+            console.warn('[AdIntelligence] Błąd generowania DNA przez Gemini:', err.message);
+        }
+
+        return `Klimat: Świeża, nowoczesna estetyka marki ${brandName}. Jasne, rozproszone światło i czysta przestrzeń. Odbiorca: ${targetAudience || 'Konsumenci w Polsce'}. Półka i percepcja: Starannie dopracowana jakość w uczciwej cenie rynkowej. Emocje: Pewność wyboru, zadowolenie z rezultatów i zaufanie do sprawdzonych składników.`;
     }
 
     /**
@@ -786,12 +862,13 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                 };
             });
 
-            // Wzbogacenie o profesjonalne prompty AI w 100% po polsku
+            // Wzbogacenie o profesjonalne prompty AI w 100% po polsku (dwuagentowy Prompt Director)
             strategy.static_ad_briefs = await promptDirectorService.enrichBriefsWithPrompts(
                 strategy.static_ad_briefs,
                 brandProfile,
                 productData,
-                strategy.angles || []
+                strategy.angles || [],
+                strategy.market_insights || {}
             );
         }
 
@@ -803,12 +880,13 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                 productName: targetProdName
             }));
 
-            // Wzbogacenie Reels o profesjonalne prompty wideo w 100% po polsku
+            // Wzbogacenie Reels o profesjonalne prompty wideo w 100% po polsku (dwuagentowy Prompt Director)
             strategy.reels_briefs = await promptDirectorService.enrichBriefsWithPrompts(
                 strategy.reels_briefs,
                 brandProfile,
                 productData,
-                strategy.angles || []
+                strategy.angles || [],
+                strategy.market_insights || {}
             );
         }
 
@@ -906,7 +984,7 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                     badge_text: "⭐ 4.9/5 | Oficjalna Dystrybucja",
                     suggested_budget: "250 zł / test A/B",
                     hashtags: `#${prodName.replace(/[^a-zA-Z0-9]/g, '')} #NexusQuality #Bestseller`,
-                    visual_prompt: `Profesjonalna fotografia studyjna dla ${prodName} na minimalistycznym podium`
+                    visual_prompt: `Dynamiczna lewitacja ${prodName} w czystej, jasnej przestrzeni z rozproszonym światłem i cząsteczkami w locie`
                 },
                 {
                     id: "STATIC_2",
@@ -917,7 +995,7 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                     badge_text: "100% Gwarancja Satysfakcji",
                     suggested_budget: "300 zł / test A/B",
                     hashtags: `#${prodName.replace(/[^a-zA-Z0-9]/g, '')} #PewnyWybór #Wysyłka24h`,
-                    visual_prompt: `Nowoczesna kompozycja produktowa ${prodName} z akcentami świetlnymi`
+                    visual_prompt: `Nowoczesna, świetlista kompozycja produktu ${prodName} w zawieszeniu z miękkimi cieniami dyfuzyjnymi`
                 },
                 {
                     id: "STATIC_3",
@@ -928,7 +1006,7 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                     badge_text: "Hit Konwersji 2026",
                     suggested_budget: "200 zł / test A/B",
                     hashtags: `#${prodName.replace(/[^a-zA-Z0-9]/g, '')} #SprawdzonaJakość`,
-                    visual_prompt: `Dynamiczny packshot ${prodName} w świetle konturowym rim light`
+                    visual_prompt: `Dynamiczny packshot ${prodName} w czystej przestrzeni w świetle konturowym rim light`
                 },
                 {
                     id: "STATIC_4",
@@ -939,7 +1017,7 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                     badge_text: "Gwarancja Jakości UE",
                     suggested_budget: "250 zł / test A/B",
                     hashtags: `#${prodName.replace(/[^a-zA-Z0-9]/g, '')} #BestsellerRynku`,
-                    visual_prompt: `Luksusowy kadr studyjny ${prodName} na matowym tle z subtelnym cieniem`
+                    visual_prompt: `Luksusowy kadr studyjny z lewitującym ${prodName} w harmonijnej, organicznej atmosferze`
                 }
             ],
             reels_briefs: [
@@ -965,7 +1043,7 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                     scenes: [
                         { timestamp: "0:00 - 0:03", onscreen_text: "3 Fakty, o których milczy konkurencja!", visual_action: "Zbliżenie makro na produkt i dynamiczny zoom" },
                         { timestamp: "0:03 - 0:08", onscreen_text: "Fakt #1: 3x większa wydajność z jednej butelki", visual_action: "Wizualizacja parametrów i liczb" },
-                        { timestamp: "0:08 - 0:13", onscreen_text: `Fakt #2: Formuła ${prodName} z atestem jakości`, visual_action: "Prezentacja produktu na podium z odznakami" },
+                        { timestamp: "0:08 - 0:13", onscreen_text: `Fakt #2: Formuła ${prodName} z atestem jakości`, visual_action: "Dynamiczne zawieszenie produktu w powietrzu z pulsującymi odznakami jakości" },
                         { timestamp: "0:13 - 0:18", onscreen_text: "Zamów z szybką wysyłką z magazynu!", visual_action: "Mocny ekran końcowy z CTA" }
                     ],
                     cta_audio: "Sprawdź link w opisie i zgarnij ofertę promocyjną.",

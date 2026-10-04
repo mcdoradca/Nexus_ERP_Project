@@ -57,19 +57,21 @@ Użytkownik zgłosił zapotrzebowanie na automatyzację procesu monitorowania ry
    - W UI karty zwycięzców wzbogacono o klikalne odnośniki zewnętrzne (`🔗 Zobacz reklamę ↗`, `🛍️ Oferta / Sklep ↗`) oraz wyróżnioną plakietkę nazwy produktu.
 10. **Nieograniczona i Wielowymiarowa Analiza Rynkowa:**
     - Usunięto sztuczne ograniczenie do 3 punktów. Model zwraca pełną, wielowymiarową syntezę rynkową: Podsumowanie Wykonawcze (`executiveSummary`), Dominujące Haczyki w PL (`dominantHooksInPoland`), Nasycone Obietnice / Czerwony Ocean (`saturatedClaimsRedOcean`), Niewykorzystane Kąty / Błękitny Ocean (`blueOceanAngles`), Analiza Ofert i Cen (`pricingAndOfferStructures`), oraz Wyzwalacze Emocjonalne Odbiorców (`audienceEmotionalTriggers`).
-11. **Dyrektor Promptów AI w 100% po Polsku (`PromptDirectorService`) & Lifting Wizualny Sharp Studio Podium:**
-    - **Nowy Agent AI (`PromptDirectorService`):** Wyspecjalizowany agent generujący 5 kompletnych, produkcyjnych promptów w języku polskim dla nowoczesnych silników graficznych i wideo:
-      1. `nano_banana_packshot` – fotorealistyczny packshot produktowy na neutralnym/podium tle (Nano Banana / Midjourney).
-      2. `omni_rich_content` – infografika i karta Rich Content A+ z rozbiciem cech, mikro-ikonami i certyfikatami (Liblib / OmniGen).
-      3. `reels_video_flow` – scenariusz klatka po klatce dla dynamicznego wideo 9:16 (Google Vids / Google Flow / Kling AI).
-      4. `story_tiktok_viral` – viralowy format pionowy z dynamicznym hookiem w pierwszych 2 sekundach (TikTok / Runway Gen-3).
-      5. `macro_details` – zbliżenie makro tekstury, składu i jakości wykonania (DALL-E 3 / Flux).
-      - Wszystkie prompty są generowane w bogatym, technicznym języku polskim (światło studyjne, optyka, tekstury) i wyposażone w przycisk kopiowania 1-kliknięciem w UI oraz w modalu HITL.
+11. **Lifting Wizualny Sharp Studio Podium:**
     - **Commercial Showcase Podium (Sharp):** Zastąpiono płaskie kompozyty nowoczesnym, 4-motywowym layoutem studyjnym (`Cyber Indigo`, `Sunset Coral`, `Emerald Botanic`, `Obsidian Gold`). Packshot osadzony jest w zaokrąglonej kapsule ze szkła akrylowego (Frosted Glass) z podwójnym cieniem kontaktowym, ambientowym rim-lightingiem, oceną 5 gwiazdek (`★ ★ ★ ★ ★ 4.9/5`), listą korzyści z checkmarkami (`✓`), wstęgą promocyjną i trójwymiarowym przyciskiem CTA.
+12. **Nowy Agent AI: Badacz DNA i Klimatu Marki (Brand DNA & Aesthetics Scout) & Nowa Rubryka w Sekcji 2:**
+    - Po zakończeniu pracy Agenta OSINT (`enrich-product`) automatycznie uruchamia się dedykowany Agent Badacza DNA (`scoutBrandDnaAndAesthetics`).
+    - Agent bada oficjalną stronę www marki i profil produktu w 4 wymiarach: klimat wizualny (paleta, światło, przestrzeń), pozycjonowanie i półka cenowa (market vs e-commerce rzemieślniczy vs luxury), profil odbiorcy (człowiek vs zwierzę, wiek, styl życia) oraz kod emocjonalny (blask, ulga, energia, świeżość, zaufanie).
+    - Wynik ląduje w nowej rubryce w Sekcji 2 UI: **„DNA, Klimat & Estetyka Marki”** (`brandProfile.brandDna`), z pełną możliwością edycji przez użytkownika (HITL) i automatycznym przekazaniem do generatora kreacji.
+13. **Dwuagentowa Architektura Prompt Director & Tarcza Nienaruszalności Produktu (Product Immutability Shield):**
+    - **Węzeł 1: Dyrektor Kreatywny & Strateg Emocji (Creative & Emotional Director AI):** Sięga bezpośrednio po gotowe `brandDna`, dane produktu i Kąty A1–A4. Zamiast sztywnych regułek zakazowych, model rozumie zjawisko przesytu i ślepoty banerowej (ad fatigue / banner blindness) i wie, dlaczego archaiczne, ciemne postumenty z kamienia, marmuru czy drewna niszczą konwersję. Buduje organiczny świat produktu (World-Building) oparty na lewitacji w czystej, jasnej przestrzeni, dynamicznych cząsteczkach składników w locie (np. soczyste owoce, krople witaminowej esencji) i autentycznych emocjach człowieka.
+    - **Węzeł 2: Architekt Promptów Technicznych (Prompt Systems Architect AI):** Zna matematykę i fizykę modeli generatywnych (Nano Banana, Flux, Midjourney, Kling AI, Runway Gen-3, Google Flow, OmniGen / Liblib). Wdraża żelazną klauzulę tożsamości:
+      `OBIEKT CENTRALNY: Nienaruszalny produkt referencyjny z załączonego zdjęcia. ZAKAZ modyfikowania, przeprojektowywania lub opisywania na nowo kształtu butelki, pompki, etykiety, typografii i kolorystyki – produkt w 100% zachowuje oryginalną tożsamość fizyczną.`
+      Zapobiega to halucynowaniu obiektu (eliminacja problemu zamiany różowego serum w czarną buteleczkę z pipetą). Prompt kieruje uwagę modelu wyłącznie na otoczenie, fizykę światła, lewitację, cząsteczki i emocjonalny nastrój (100% Copy-Paste Ready po polsku).
 
 ## Weryfikacja i Testy
 - Zaktualizowano suitę testów `src/modules/ad-intelligence/tests/ad-intelligence.test.js`:
-  - 12/12 testów jednostkowych PASSED (w tym PromptDirectorService w j. polskim, generowanie promptów dla 5 silników, wzbogacanie briefów, Commercial Showcase Podium, upload materiałów, obsługa produktów spoza PIM, bezpośrednia generacja).
+  - 14/14 testów jednostkowych PASSED (w tym Badacz DNA Marki, dwuagentowy Prompt Director, Tarcza Nienaruszalności Produktu, eliminacja klisz postumentów, upload z dysku, PIM i scoring).
 - Suita regresyjna projektu `npm test`: **138/138 testów PASSED** (0 błędów, 0 regresji).
-- Kompilacja produkcyjna Vite: **`built in 5.56s`** bez błędów.
+- Kompilacja produkcyjna Vite: **`built in 6.96s`** bez błędów.
 

@@ -15,58 +15,146 @@ function getAi() {
 
 /**
  * PromptDirectorService
- * Elitarny Agent AI wyszkolony w inżynierii promptów dla generatorów grafiki i wideo:
- * Nano Banana, Liblib/OmniGen, Midjourney, Flux.1 Pro, Kling AI, Runway Gen-3, Google Vids, Google Flow.
+ * Dwuagentowy system generowania promptów dla modeli obrazu i wideo:
  * 
- * Bezwzględna zasada: Generuje prompty w 100% naturalnym, plastycznym, bogatym języku POLSKIM
- * z profesjonalną terminologią oświetlenia, optyki, kompozycji i dynamiki filmowej.
+ * WĘZEŁ 1: Dyrektor Kreatywny & Strateg Emocji (Creative & Emotional Director AI)
+ * - Analizuje zebrane DNA marki (klimat strony, kolorystykę, światło), pozycjonowanie cenowe,
+ *   grupę docelową (człowiek vs zwierzę, wiek, styl życia) oraz Kąty perswazji (A1-A4).
+ * - Kontrastuje z audytem konkurencji (unika nasyconych klisz i ślepoty banerowej).
+ * - Kreuje organiczny świat produktu (World-Building) oparty na silnych emocjach (energia, blask, ulga, świeżość).
+ * 
+ * WĘZEŁ 2: Architekt Promptów Technicznych (Prompt Systems Architect AI)
+ * - Zna fizykę współczesnych silników (Nano Banana, Liblib/OmniGen, Kling AI, Runway Gen-3, Google Flow, Flux).
+ * - Twardo stosuje Zasadę Nienaruszalności Produktu (Product Immutability / Identity Anchor):
+ *   ZAKAZ opisywania wyglądu butelki/opakowania od nowa (co chroni przed zmianą różowego serum w czarną butelkę z pipetą).
+ * - Generuje prompty w 100% naturalnym, plastycznym języku POLSKIM z fizyką lewitacji, czystej przestrzeni i światła.
  */
 class PromptDirectorService {
 
     /**
-     * Generuje zestaw specjalistycznych promptów produkcyjnych dla danej kreacji / produktu
+     * Główna metoda generująca zestaw promptów produkcyjnych w architekturze dwuagentowej
      */
-    async generateProductionPrompts({ brief, brandProfile = {}, productData = {}, angle = null }) {
+    async generateProductionPrompts({ brief, brandProfile = {}, productData = {}, angle = null, marketInsights = {} }) {
         const prodName = productData.name || brandProfile.name || brief.productName || 'Produkt';
         const brandName = brandProfile.name || productData.brand?.name || 'Marka';
         const usp = brandProfile.usp || productData.features || brief.subheadline || 'Wysoka jakość i skuteczność';
         const headline = brief.headline || 'Przełomowe rozwiązanie';
+        const brandDna = brandProfile.brandDna || `Klimat: Nowoczesna, autentyczna estetyka marki ${brandName}. Jasne, rozproszone światło i lekkość. Odbiorca: Świadomi konsumenci poszukujący sprawdzonych rezultatów.`;
+        const priceStr = productData.salePrice ? `${Number(productData.salePrice).toFixed(2)} zł` : (brandProfile.priceInfo || 'Segment komercyjny');
         const visualAction = brief.visual_prompt || brief.visual_action || '';
         const scenesContext = Array.isArray(brief.scenes) 
             ? brief.scenes.map(s => `${s.timestamp}: ${s.onscreen_text} (${s.visual_action})`).join(' | ')
             : '';
 
-        const systemPrompt = `Jesteś światowej klasy Dyrektorem Kreatywnym AI (Prompt Director & Cinematographer) wyspecjalizowanym w pisaniu promptów dla wiodących generatorów obrazu i wideo: Nano Banana, Liblib AI / OmniGen, Flux.1, Midjourney v6, Kling AI, Runway Gen-3, Google Vids oraz Google Flow.
+        const ai = getAi();
+        if (!ai) {
+            return this._deterministicFallbackPrompts(prodName, brandName, usp, headline, brandDna, productData);
+        }
 
-TWOJE ZADANIE:
-Na podstawie poniższych danych briefu marketingowego stwórz 5 hiper-szczegółowych, profesjonalnych promptów produkcyjnych.
-Użytkownik skopiuje Twój prompt i wklei go bezpośrednio do Nano Banana, OmniGen, Klinga, Google Vids lub Google Flow, aby od razu wygenerować bezbłędny, fotorealistyczny materiał komercyjny.
-
-KRYTYCZNE WYMAGANIE JĘZYKOWE:
-Każdy prompt MUSI być napisany w 100% w bogatym, plastycznym, profesjonalnym języku POLSKIM!
-Nie używaj ogólników typu "piękny produkt, 8k". Stosuj precyzyjny żargon fotografii komercyjnej i kinematografii w języku polskim:
-- Oświetlenie: oświetlenie kluczowe softbox 45 stopni, subtelne tylne światło konturowe (rim light), odbicia fresnelowskie, miękkie cienie dyfuzyjne.
-- Optyka: obiektyw portretowy 85mm f/1.4 lub makro 100mm, płytka głębia ostrości (bokeh), krystaliczna ostrość na detalach produktu i etykiety.
-- Kompozycja: złoty podział, perspektywa z poziomu oczu lub delikatny żabi kąt, luksusowe podłoże (marmur, matowe szkło, naturalny kamień, krople rosy).
-- Ruch kamery (dla wideo): powolny najazd typu push-in / dolly-forward, płynny orbitalny obrót kamery 360 stopni wokół produktu, dynamiczne slow-motion 60fps, profesjonalny grading barwny w palecie teal & orange lub pastel luxury.
+        // =========================================================================
+        // WĘZEŁ 1: DYREKTOR KREATYWNY & STRATEG EMOCJI (Creative Director AI)
+        // =========================================================================
+        let creativeVision = null;
+        try {
+            const creativePrompt = `Jesteś światowej sławy Dyrektorem Kreatywnym w agencji high-end commercial (odpowiednik dyrektorów kreatywnych z Cannes Lions i Vogue Commercials).
+Twoim zadaniem jest stworzyć UNIKALNY ŚWIAT WIZUALNY (World-Building) oraz NARRACJĘ EMOCJONALNĄ dla kampanii produktu: "${prodName}" marki "${brandName}".
 
 DANE WEJŚCIOWE:
 - Produkt: ${prodName}
 - Marka: ${brandName}
+- Cena i półka: ${priceStr}
+- DNA i klimat marki zebrany przez Agenta DNA: "${brandDna}"
 - Główna obietnica / USP: ${usp}
 - Nagłówek reklamowy: "${headline}"
-${visualAction ? `- Sugestia wizualna z briefu: ${visualAction}` : ''}
-${scenesContext ? `- Scenopis Reels: ${scenesContext}` : ''}
-${angle ? `- Kąt perswazji: ${angle}` : ''}
+${angle ? `- Kąt perswazji psychologicznej: ${angle}` : ''}
+${visualAction ? `- Sugestia z briefu: ${visualAction}` : ''}
+${marketInsights.saturated_claims ? `- Nasycone schematy konkurencji, których należy unikać: ${JSON.stringify(marketInsights.saturated_claims)}` : ''}
 
-Zwróć odpowiedź w formacie JSON z dokładnie 5 wyspecjalizowanymi promptami:
-1. "nano_banana_packshot": Komercyjna fotografia studyjna packshotu produktu (Nano Banana / Flux.1 / Midjourney).
-2. "omni_rich_content": Karta produktu / Rich Content A+ dla e-commerce pokazująca produkt w kontekście użycia lub składników (OmniGen / Liblib).
-3. "reels_video_flow": Dynamiczny prompt wideo dla Google Flow / Kling AI / Runway (pionowy kadr 9:16, ruch kamery, światło, animacja efektu produktu).
-4. "story_tiktok_viral": Żywy, natywny kadr social-media TikTok/Story (autentyczny styl UGC lub dynamiczny commercial look 9:16).
-5. "macro_details": Ultra-zbliżenie makro na fakturę, formułę, krople, etykietę lub technologiczny detal produktu.
+ZASADY KREATYWNE I PSYCHOLOGICZNE:
+1. ZROZUMIENIE PRODUKTU I ODBIORCY:
+   - Zastanów się, z jakim produktem masz do czynienia (czy to kosmetyk, chemia domowa, produkt dla psa, czy artykuł spożywczy) oraz kto go używa (np. kobieta 20+ szukająca promiennego blasku "glow", czy rodzina szukająca czystości, czy pasjonat).
+   - Dopasuj emocje: nie pisz generycznych haseł. Odwołaj się do zmysłów, ulgi, zachwytu, pewności siebie, lekkości i witalności.
+2. PRZEŁAMANIE BANEROWEJ ŚLEPOTY (ZAKAZ MARTWYCH POSTUMENTÓW):
+   - Internet jest zasypany produktami stojącymi na ciemnych, marmurowych, łupkowych czy drewnianych postumentach. Powoduje to natychmiastowe zignorowanie reklamy (ad fatigue).
+   - Zbuduj dynamiczną, żywą przestrzeń: produkt lewitujący w czystej, jasnej przestrzeni, zawieszony w harmonijnej równowadze, otoczony dynamicznymi cząsteczkami w locie (np. soczyste owoce, krople witaminowej esencji, mikroskopijne refleksy światła słonecznego, delikatny powiew).
+3. SZACUNEK DLA ORYGINALNEGO PRODUKTU:
+   - Pamiętaj: produkt ze zdjęcia referencyjnego jest ŚWIĘTY. Nie wymyślasz nowego opakowania! Tworzysz świat WOKÓŁ oryginalnego produktu.
 
-Zwróć WYŁĄCZNIE obiekt JSON w formacie:
+Zwróć odpowiedź w formacie JSON:
+\`\`\`json
+{
+  "target_audience_insight": "Kim dokładnie jest odbiorca i czego pragnie na poziomie podświadomym",
+  "emotional_core": "Kluczowy kod emocjonalny sceny (np. promienny blask, radosna ulga, zmysłowa świeżość)",
+  "world_environment": "Opis żywego świata i scenerii (czysta przestrzeń, lewitacja, cząsteczki w locie, zero postumentów)",
+  "lighting_and_atmosphere": "Precyzyjna fizyka światła dopasowana do klimatu marki (np. poranne rozproszone słońce, miękkie cienie dyfuzyjne, rim light)",
+  "sensory_elements": "Elementy sensoryczne i dynamiczne (np. krople rosy w zawieszeniu, składniki botaniczne w locie, świetlna mgiełka)"
+}
+\`\`\``;
+
+            const creativeResp = await ai.models.generateContent({
+                model: 'gemini-3.8-flash',
+                contents: creativePrompt,
+                config: {
+                    temperature: 0.3
+                }
+            });
+
+            const creativeText = creativeResp.text || creativeResp.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (creativeText) {
+                const cleaned = creativeText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                const match = cleaned.match(/\{[\s\S]*\}/);
+                if (match) creativeVision = JSON.parse(match[0]);
+            }
+        } catch (cErr) {
+            console.warn('[PromptDirectorService] Błąd Węzła 1 (Creative Director):', cErr.message);
+        }
+
+        // =========================================================================
+        // WĘZEŁ 2: ARCHITEKT PROMPTÓW TECHNICZNYCH (Prompt Systems Architect)
+        // =========================================================================
+        const visionContext = creativeVision ? `
+KONCEPCJA DYREKTORA KREATYWNEGO (WĘZEŁ 1):
+- Wgląd w odbiorcę: ${creativeVision.target_audience_insight}
+- Rdzeń emocjonalny: ${creativeVision.emotional_core}
+- Świat i scenografia (World-Building): ${creativeVision.world_environment}
+- Fizyka światła i atmosfera: ${creativeVision.lighting_and_atmosphere}
+- Detale sensoryczne i dynamika: ${creativeVision.sensory_elements}
+` : `Koncepcja: Nowoczesny, świetlisty świat marki ${brandName} w oparciu o ${brandDna}. Lewitacja produktu w czystej przestrzeni, rozproszone miękkie światło dzienne i dynamiczne cząsteczki w locie.`;
+
+        const architectPrompt = `Jesteś elitarnym Architektem Promptów AI (Prompt Systems Architect) wyspecjalizowanym w silnikach generatywnych: Nano Banana, Liblib AI / OmniGen, Kling AI, Runway Gen-3, Google Flow, Flux.1 oraz Midjourney v6.
+
+TWOJE ZADANIE:
+Przełóż poniższą wizję Dyrektora Kreatywnego na 5 gotowych, technicznych promptów produkcyjnych w 100% w języku POLSKIM.
+Użytkownik skopiuje Twój prompt 1-kliknięciem i wklei bezpośrednio do Nano Banana, OmniGen, Klinga, Google Flow lub Runwaya, aby natychmiast otrzymać zachwycający, komercyjny materiał.
+
+KRYTYCZNA ZASADA FIZYKI MODELI GENERATYWNYCH (PRODUCT IMMUTABILITY SHIELD):
+Gdy generatory AI otrzymują packshot produktu, a w prompcie zaczyna się opisywać wygląd butelki/etykiety, model natychmiast ZMIENIA produkt (np. różowe serum zamienia w czarną buteleczkę z pipetą).
+Dlatego w KAŻDYM prompcie MUSISZ zastosować żelazną klauzulę tożsamości referencyjnej:
+"OBIEKT CENTRALNY: Nienaruszalny produkt referencyjny z załączonego zdjęcia. Bezwzględny zakaz modyfikowania, przeprojektowywania lub opisywania na nowo kształtu butelki, pompki, etykiety, typografii i kolorystyki – produkt w 100% zachowuje oryginalną tożsamość fizyczną."
+Cała treść prompta ma instruować model w zakresie:
+- Scenografii, czystej przestrzeni i lewitacji (ŻADNYCH marmurowych, drewnianych, kamiennych ani łupkowych postumentów!),
+- Oświetlenia studyjnego i kinowego (kąty softboxa, światło konturowe rim-light, odbicia fresnelowskie, miękkie cienie),
+- Fizyki cząsteczek w powietrzu (soczyste składniki w locie, mikroskopijne krople, refleksy światła),
+- Optyki (obiektyw 85mm f/1.4, makro 100mm f/2.8, płytka głębia ostrości, bokeh),
+- Ruchu kamery (najazd push-in, orbitalny obrót 360, slow-motion 60fps),
+- Prawdziwych emocji człowieka (autentyczna, promienna skóra, zmysłowa aplikacja kropli bez sztucznych póz).
+
+DANE PRODUKTU I MARKI:
+- Produkt: ${prodName}
+- Marka: ${brandName}
+- DNA i Klimat Marki: ${brandDna}
+- Nagłówek reklamowy: "${headline}"
+${scenesContext ? `- Scenopis wideo: ${scenesContext}` : ''}
+${visionContext}
+
+Zwróć obiekt JSON z dokładnie 5 promptami:
+1. "nano_banana_packshot": Komercyjna fotografia produktowa w lewitacji w czystej, świetlistej przestrzeni studyjnej (Nano Banana / Midjourney / Flux.1).
+2. "omni_rich_content": Karta Rich Content A+ / infografika e-commerce pokazująca produkt w dynamicznym otoczeniu składników i właściwości (OmniGen / Liblib).
+3. "reels_video_flow": Scenariusz wideo 9:16 klatka po klatce dla Google Flow / Kling AI / Google Vids z ruchem kamery, dynamiką i oświetleniem.
+4. "story_tiktok_viral": Żywy, natywny format social UGC / TikTok 9:16 z emocjonalnym haczykiem wizualnym w pierwszych 2 sekundach (TikTok / Runway Gen-3).
+5. "macro_details": Sensoryczne zbliżenie makro na konsystencję, krople w locie i mikroskopijne detale jakości (Flux / DALL-E).
+
+Zwróć WYŁĄCZNIE poprawny JSON:
 \`\`\`json
 {
   "nano_banana_packshot": "...",
@@ -77,38 +165,34 @@ Zwróć WYŁĄCZNIE obiekt JSON w formacie:
 }
 \`\`\``;
 
-        const ai = getAi();
-        if (ai) {
-            try {
-                const resp = await ai.models.generateContent({
-                    model: 'gemini-3.8-flash',
-                    contents: systemPrompt,
-                    config: {
-                        temperature: 0.2
-                    }
-                });
-
-                const text = resp.text || resp.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (text) {
-                    const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-                    const match = cleaned.match(/\{[\s\S]*\}/);
-                    if (match) {
-                        return JSON.parse(match[0]);
-                    }
+        try {
+            const resp = await ai.models.generateContent({
+                model: 'gemini-3.8-flash',
+                contents: architectPrompt,
+                config: {
+                    temperature: 0.2
                 }
-            } catch (err) {
-                console.warn('[PromptDirectorService] Błąd generowania promptów przez Gemini Flash:', err.message);
+            });
+
+            const text = resp.text || resp.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+                const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                const match = cleaned.match(/\{[\s\S]*\}/);
+                if (match) {
+                    return JSON.parse(match[0]);
+                }
             }
+        } catch (err) {
+            console.warn('[PromptDirectorService] Błąd Węzła 2 (Prompt Architect):', err.message);
         }
 
-        // Fallback deterministyczny w bogatym języku polskim
-        return this._deterministicFallbackPrompts(prodName, brandName, usp, headline);
+        return this._deterministicFallbackPrompts(prodName, brandName, usp, headline, brandDna, productData);
     }
 
     /**
      * Wzbogaca całą tablicę briefów o dedykowane prompty produkcyjne w 100% po polsku
      */
-    async enrichBriefsWithPrompts(briefs = [], brandProfile = {}, productData = {}, angles = []) {
+    async enrichBriefsWithPrompts(briefs = [], brandProfile = {}, productData = {}, angles = [], marketInsights = {}) {
         if (!Array.isArray(briefs) || briefs.length === 0) return briefs;
 
         const angleMap = new Map();
@@ -125,7 +209,8 @@ Zwróć WYŁĄCZNIE obiekt JSON w formacie:
                     brief,
                     brandProfile,
                     productData,
-                    angle: angleName
+                    angle: angleName,
+                    marketInsights
                 });
                 return {
                     ...brief,
@@ -137,9 +222,10 @@ Zwróć WYŁĄCZNIE obiekt JSON w formacie:
                 const brandName = brandProfile.name || productData.brand?.name || 'Marka';
                 const usp = brandProfile.usp || productData.features || brief.subheadline || 'Wysoka jakość';
                 const headline = brief.headline || 'Przełomowe rozwiązanie';
+                const brandDna = brandProfile.brandDna || '';
                 return {
                     ...brief,
-                    production_prompts: this._deterministicFallbackPrompts(prodName, brandName, usp, headline)
+                    production_prompts: this._deterministicFallbackPrompts(prodName, brandName, usp, headline, brandDna, productData)
                 };
             }
         }));
@@ -147,17 +233,22 @@ Zwróć WYŁĄCZNIE obiekt JSON w formacie:
         return enriched;
     }
 
-    _deterministicFallbackPrompts(prodName, brandName, usp, headline) {
+    /**
+     * Deterministyczny fallback promptów spełniający w 100% reguły nienaruszalności produktu i braku postumentów
+     */
+    _deterministicFallbackPrompts(prodName, brandName, usp, headline, brandDna = '', productData = {}) {
+        const dnaSnippet = brandDna ? `Zgodnie z DNA marki: ${brandDna.substring(0, 140)}. ` : '';
+
         return {
-            nano_banana_packshot: `Profesjonalna fotografia produktowa e-commerce dla ${prodName} marki ${brandName}. Produkt stoi centralnie na matowym, grafitowym postumencie z naturalnego kamienia. Oświetlenie studyjne trzypunktowe: miękkie światło kluczowe z lewej strony, delikatne oświetlenie konturowe typu rim light w chłodnym odcieniu błękitu, subtelne cienie kontaktowe na podłożu. Krystalicznie czysta ostrość na etykiecie i bryle opakowania, obiektyw 90mm makro, f/2.8, płytka głębia ostrości z eleganckim rozmyciem tła w odcieniach głębokiego granatu i antracytu. Atmosfera luksusu, czystości i komercyjnego prestiżu.`,
+            nano_banana_packshot: `Komercyjna fotografia studyjna e-commerce dla produktu marki ${brandName}. OBIEKT CENTRALNY: Nienaruszalny produkt referencyjny z załączonego zdjęcia (${prodName}). ZAKAZ modyfikowania, przeprojektowywania lub opisywania na nowo kształtu butelki, pompki, etykiety, typografii i kolorystyki – produkt w 100% zachowuje oryginalną tożsamość fizyczną ze zdjęcia. SCENOGRAFIA: Produkt lewituje w harmonijnej równowadze w czystej, nowoczesnej przestrzeni o jasnej, pastelowej tonacji. Żadnych kamiennych, marmurowych ani drewnianych postumentów. OŚWIETLENIE: Miękkie, rozproszone światło kluczowe softbox 45 stopni, subtelny tylny rim light podkreślający krawędzie opakowania, delikatne cienie dyfuzyjne w przestrzeni poniżej. Wokół produktu zawieszone w powietrzu mikroskopijne, lśniące cząsteczki świeżości i świetlne refleksy. Obiektyw portretowy 85mm f/1.4, krystaliczna ostrość na oryginalnej etykiecie, płytka głębia ostrości. Atmosfera lekkości, czystości i promiennej energii.`,
             
-            omni_rich_content: `Karta wizualna Rich Content A+ dla ${prodName}. Kompozycja pod kątem 45 stopni ukazująca opakowanie produktu w otoczeniu naturalnych, świeżych elementów odzwierciedlających właściwości: ${usp}. W tle subtelne cząsteczki świetlne i delikatne krople wody na matowej tafli szkła. Ciepłe, poranne światło słoneczne wpadające pod kątem, miękkie przejścia tonalne, realistyczne tekstury materiałów, studyjna jakość katalogowa, bez zniekształceń, proporcje 1:1, styl nowoczesnego e-commerce premium.`,
+            omni_rich_content: `Karta wizualna Rich Content A+ dla e-commerce dla produktu marki ${brandName}. OBIEKT CENTRALNY: Dokładny produkt referencyjny ze zdjęcia referencyjnego (${prodName}) w 100% wierności wizualnej i kolorystycznej. KOMPOZYCJA: Dynamiczny kadr pod kątem 30 stopni. Produkt zawieszony w czystej przestrzeni, otoczony unoszącymi się w powietrzu świeżymi cząsteczkami i kroplami esencji odzwierciedlającymi właściwości: ${usp}. W tle miękkie, poranne światło słoneczne, przejścia tonalne dopasowane do estetyki marki. ${dnaSnippet}Bez ciężkich cokołów czy ciemnych podestów. Studyjna jakość katalogowa, proporcje 1:1, nowoczesny e-commerce premium budzący natychmiastowe zaufanie i zachwyt.`,
             
-            reels_video_flow: `Dynamiczny spot wideo w formacie pionowym 9:16 dla platformy TikTok i Instagram Reels. Płynny najazd kamery typu dolly-in w kierunku ${prodName}. Kamera wykonuje subtelny obrót o 20 stopni, odsłaniając lśniące detale etykiety i obietnicę: "${headline}". Oświetlenie kinowe z dynamicznymi refleksami światła neonowego przesuwającymi się po krawędziach butelki. W tle płynne, powolne cząsteczki mgiełki w zwolnionym tempie 60fps. Głęboki kontrast, profesjonalna gradacja barwna w stylu nowoczesnej reklamy high-tech.`,
+            reels_video_flow: `Dynamiczny spot wideo w pionowym formacie 9:16 dla platformy Instagram Reels i Google Flow. Płynny najazd kamery typu slow push-in w kierunku produktu ${prodName} (dokładny obiekt z załączonego zdjęcia referencyjnego, zachowujący oryginalne barwy, etykietę i detale bez żadnych zniekształceń). Produkt lewituje w czystej, jasnej przestrzeni. Wokół niego w zwolnionym tempie 60fps wirują subtelne cząsteczki światła i mikrokrople esencji. Kamera wykonuje delikatny obrót o 15 stopni, uwypuklając blask i dynamiczny nagłówek: "${headline}". Kinowy grading barwny w jasnej, promiennej palecie barw. Emocje: natychmiastowa ulga, witalność i zachwyt efektami.`,
             
-            story_tiktok_viral: `Natywny, angażujący kadr wideo 9:16 w estetyce nowoczesnego UGC na TikToka. Produkt ${prodName} prezentowany na jasnym, minimalistycznym blacie z naturalnego jasnego dębu w nowoczesnym, nasłonecznionym wnętrzu. Autentyczne, miękkie światło dzienne z bocznego okna, naturalne refleksy, dynamiczna kompozycja przyciągająca wzrok w pierwszych 2 sekundach. W kadrze widoczna świeżość, lekkość i bezpretensjonalny luksus codziennego użytkowania.`,
+            story_tiktok_viral: `Natywny, wciągający kadr wideo w formacie 9:16 w nowoczesnej estetyce UGC na TikToka. W kadrze widoczna zmysłowa, autentyczna interakcja: delikatna dłoń prezentująca oryginalny produkt ${prodName} w jasnym, nasłonecznionym wnętrzu o minimalistycznym charakterze. Miękkie światło dzienne z bocznego okna, naturalny uśmiech i promienny blask skóry w tle. Żadnych sztywnych, studyjnych postumentów. W pierwszych 2 sekundach dynamiczny mikro-ruch przyciągający wzrok, lekkość i autentyczna radość z pielęgnacji. Odbiorca natychmiast utożsamia się z poczuciem świeżości i zaufania.`,
             
-            macro_details: `Zbliżenie makro ekstremalne (extreme close-up) na fakturę opakowania i aplikator produktu ${prodName}. Ostrość igłowa na mikroskopijnych detalach tłoczenia logo ${brandName}, pojedynczych lśniących kroplach rosy osadzonych na chłodnej powierzchni tworzywa. Obiektyw 100mm f/1.8 macro, głębia ostrości zaledwie kilku milimetrów, zmysłowa gra światła i cienia, perfekcyjna czystość laboratoryjna.`
+            macro_details: `Ekstremalne zbliżenie sensoryczne makro (extreme close-up macro 100mm f/2.8) ukazujące nienaruszony produkt ${prodName} marki ${brandName}. Ostrość igłowa na oryginalnym detalu aplikatora i załamaniu światła na gładkiej powierzchni opakowania. Wokół unosi się pojedyncza, krystaliczna kropla esencji witaminowej zawieszona w locie, w której odbija się miękkie światło studyjne. Mikroskopijna głębia ostrości, sensualna czystość i zachwyt nad teksturą. Zero ciężkich powierzchni – czysta gra światła, transparentności i świeżości.`
         };
     }
 }

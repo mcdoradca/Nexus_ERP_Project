@@ -198,6 +198,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
     const [brandName, setBrandName] = useState('');
     const [brandUsp, setBrandUsp] = useState('');
     const [brandProof, setBrandProof] = useState('');
+    const [brandDna, setBrandDna] = useState('');
     const [customProductImgUrl, setCustomProductImgUrl] = useState('');
     const [isUploadingMaterial, setIsUploadingMaterial] = useState(false);
     const [uploadedMaterial, setUploadedMaterial] = useState(null);
@@ -292,10 +293,16 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
         const priceStr = prod.salePrice ? `Cena: ${Number(prod.salePrice).toFixed(2)} zł. ` : '';
         const eanStr = prod.ean ? `EAN: ${prod.ean}. ` : '';
         setBrandProof(`${priceStr}${eanStr}Oficjalna dystrybucja, gwarancja jakości, zgodność z normami UE i GPSR.`);
+
+        const dnaInitial = prod.features 
+            ? `Klimat: Nowoczesna, czysta estetyka ${prod.name}. ${typeof prod.features === 'string' ? prod.features : JSON.stringify(prod.features)}. Odbiorca: Klienci poszukujący sprawdzonych rezultatów. Emocje: Spokój, pewność wyboru i zaufanie.`
+            : `Klimat: Sprawdzona jakość marki ${prod.brand?.name || 'Nexus'}. Odbiorca: Konsumenci ceniący skuteczność i transparentność. Emocje: Satysfakcja i pewność.`;
+        setBrandDna(dnaInitial);
     };
 
     const handleClearSelectedProduct = () => {
         setSelectedProduct(null);
+        setBrandDna('');
         setCustomProductImgUrl('');
         setUploadedMaterial(null);
         if (mainFileInputRef.current) mainFileInputRef.current.value = '';
@@ -379,11 +386,12 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                 if (d.brandName) setBrandName(d.brandName);
                 if (d.usp) setBrandUsp(d.usp);
                 if (d.proof) setBrandProof(d.proof);
+                if (d.brandDna) setBrandDna(d.brandDna);
                 if (d.suggestedQuery && !query) setQuery(d.suggestedQuery);
                 if (d.imageUrl && !customProductImgUrl && !selectedProduct) setCustomProductImgUrl(d.imageUrl);
                 
                 const siteInfo = d.website ? ` (Oficjalna strona: ${d.website})` : '';
-                setEnrichSuccessMessage(`✓ Agent AI odnalazł produkt w sieci i uzupełnił parametry! Kategoria: ${d.category}${siteInfo}`);
+                setEnrichSuccessMessage(`✓ Agenci AI odnaleźli produkt w sieci i zbadali DNA marki! Kategoria: ${d.category}${siteInfo}`);
             } else {
                 alert('Nie udało się odnaleźć szczegółowych danych: ' + (res.data?.error || 'Brak danych'));
             }
@@ -410,6 +418,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                     name: brandName || (selectedProduct?.brand?.name || 'Nasza Marka'),
                     usp: brandUsp,
                     proof: brandProof,
+                    brandDna: brandDna,
                     customProductImgUrl: customProductImgUrl.trim() || (selectedProduct?.imageUrl || null)
                 },
                 productId: selectedProduct ? selectedProduct.id : null
@@ -438,6 +447,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
         setBrandName('');
         setBrandUsp('');
         setBrandProof('');
+        setBrandDna('');
         setCustomProductImgUrl('');
         setUploadedMaterial(null);
         setCustomDatasetJson('');
@@ -496,6 +506,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                     name: brandName,
                     usp: brandUsp,
                     proof: brandProof,
+                    brandDna: brandDna,
                     customProductImgUrl: customProductImgUrl.trim() || (selectedProduct?.imageUrl || null)
                 },
                 productId: selectedProduct ? selectedProduct.id : null,
@@ -615,7 +626,7 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
         try {
             const res = await axios.post(`${API_URL}/api/ad-intelligence/re-render-asset`, {
                 brief: briefPayload,
-                brandProfile: { name: brandName },
+                brandProfile: { name: brandName, brandDna: brandDna },
                 productId: selectedProduct ? selectedProduct.id : null
             }, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -1233,6 +1244,25 @@ const AdIntelligenceTool = ({ token, API_URL, campaigns }) => {
                             onChange={e => setBrandProof(e.target.value)}
                             placeholder="np. Certyfikat UE, badania jakościowe, oficjalna dystrybucja"
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold focus:bg-white focus:border-indigo-500 outline-none"
+                        />
+                    </div>
+
+                    <div className="md:col-span-12">
+                        <div className="flex flex-wrap justify-between items-center mb-1 gap-2">
+                            <label className="text-[10px] font-black text-purple-700 uppercase tracking-wider flex items-center gap-1.5">
+                                <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                                DNA, Klimat & Estetyka Marki (Styl Wizualny, Półka Cenowa, Odbiorca & Emocje)
+                            </label>
+                            <span className="text-[10px] text-purple-700 font-bold bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                                🧬 Zbierane autonomicznie przez Agenta DNA z witryny www i profilu
+                            </span>
+                        </div>
+                        <textarea 
+                            rows={2}
+                            value={brandDna}
+                            onChange={e => setBrandDna(e.target.value)}
+                            placeholder="np. Klimat: Pastelowy, owocowo-botaniczny minimalizm e-Fiore. Jasne, miękkie światło dzienne, soczystość owoców jeżyn i witaminy C. Odbiorca: Kobiety poszukujące naturalnego rozświetlenia i energii. Emocje: Radość, lekkość, świeżość, promienny blask bez ciężkich i ciemnych podestów."
+                            className="w-full px-3 py-2 bg-purple-50/30 border border-purple-200 rounded-lg text-xs font-medium focus:bg-white focus:border-purple-500 outline-none leading-relaxed custom-scrollbar text-slate-800"
                         />
                     </div>
 
