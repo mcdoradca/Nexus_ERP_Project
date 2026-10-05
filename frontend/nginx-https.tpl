@@ -30,12 +30,12 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers off;
 
-    root /usr/share/nginx/html;
+    root /var/www/nexus/frontend/dist;
     index index.html;
 
     # Proxy dla zapytań API do backendu
     location /api/ {
-        proxy_pass http://backend:3001/api/;
+        proxy_pass http://127.0.0.1:3001/api/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -53,7 +53,7 @@ server {
 
     # Proxy dla WebSocketów (Socket.IO)
     location /api/socket.io/ {
-        proxy_pass http://backend:3001/api/socket.io/;
+        proxy_pass http://127.0.0.1:3001/api/socket.io/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -66,7 +66,7 @@ server {
     }
 
     location /socket.io/ {
-        proxy_pass http://backend:3001/api/socket.io/;
+        proxy_pass http://127.0.0.1:3001/api/socket.io/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
