@@ -27,8 +27,8 @@ i poprawność języka polskiego, precyzję fleksyjną oraz higienę typograficz
 
 ## BLUEPRINT 6 SEKCJI
 s1 USP: <h1>🌟 [Nazwa + korzyść/pojemność]</h1><p>2–3 zdania konkretu</p>.
-s2 Q&A AEO: <h2>❓…</h2> + pary z A5 (safe_aeo_problems ↔ safe_aeo_answers, 1:1):
-   <li>❓ <b>Zapytanie:</b> …</li><li>💡 <b>Rozwiązanie:</b> …</li>.
+s2 Q&A AEO: <h2>❓…</h2> + pary z A5 (safe_aeo_questions ↔ safe_aeo_answers, 1:1):
+   <li>❓ <b>Pytanie:</b> …</li><li>💡 <b>Rozwiązanie:</b> …</li>.
 s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
    node_4_aeo.technical_benefits_aeo + detected_synergies (punkty ⚡).
    [Naprawa v3.1: usunięto polecenie samodzielnego opisywania INCI "z SOT RAG" —

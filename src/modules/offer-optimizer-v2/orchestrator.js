@@ -673,8 +673,15 @@ class Orchestrator {
                 // --- WERYFIKACJA INCI ZE SKRYPTU (Zlecona przez A1 OSINT) ---
                 traceInci(this.gtin, 'A1_RAW_OUTPUT_CANDIDATES', result.extracted_inci_candidates);
                 const candidatesRaw = (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) ? result.extracted_inci_candidates.value : [];
-                const candidates = candidatesRaw.map(c => Array.isArray(c) ? c.join(', ') : c);
+                const candidates = candidatesRaw.map(c => Array.isArray(c) ? c.map(i => i.replace(/^\d+\.\s*/, '')).join(', ') : (typeof c === 'string' ? c.replace(/^\d+\.\s*/, '') : c));
                 
+                if (candidates.length > 0) {
+                    this.state.last_inci_candidates = candidates;
+                } else if (this.state.last_inci_candidates && this.state.last_inci_candidates.length > 0) {
+                    candidates.push(...this.state.last_inci_candidates);
+                    this.state.revision_loop_count = 2; // Wymuś koniec prób i przejście do HITL
+                }
+
                 traceInci(this.gtin, 'A1_MAPPED_CANDIDATES', candidates);
 
                 if (candidates.length > 0) {

@@ -42,13 +42,13 @@ S4 Chwalenie się prawem (cruelty-free bez certyfikatu): §F.
 S5 Ochrona ostrzeżeń GPSR/CLP: dyrektywa 3 powyżej.
 
 ## GENERACJA AEO
-safe_aeo_problems (5–10 pytań long-tail z realnych danych wejściowych — opinie,
+safe_aeo_questions (5–10 pytań long-tail z realnych danych wejściowych — opinie,
 INCI; zakaz wymyślania pytań bez pokrycia w danych) + safe_aeo_answers (1:1,
 max 300 znaków, E-E-A-T, zero marketingowej waty).
 
 ## WYJŚCIE
 JSON wg responseSchema: pipeline_id, sanitization_status (PASSED_CLEAN |
-PASSED_WITH_REDACTION | BLOCKED_CRITICAL_LEGAL_BREACH), safe_aeo_problems[],
+PASSED_WITH_REDACTION | BLOCKED_CRITICAL_LEGAL_BREACH), safe_aeo_questions[],
 safe_aeo_answers[], preserved_minor_flaws_for_pratfall[], mandatory_safety_warnings[]
 |null, illegal_claims_stripped_log[] (max 10 wpisów, format: "TYP: oryginał →
 redakcja").
