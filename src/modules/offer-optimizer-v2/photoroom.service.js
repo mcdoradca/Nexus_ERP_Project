@@ -196,7 +196,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         
         inputBuffer = await padToSquare(inputBuffer, onLog);
         fd.append('imageFile', inputBuffer, `${ean}_src.jpg`);
-        fd.append('removeBackground', 'true');
+        fd.append('removeBackground', 'false');
         fd.append('editWithAI.mode', 'ai.auto');
         fd.append('editWithAI.prompt', generatedPrompt);
         // Parametr Photoroom API zapobiegający ucinaniu produktu z brzegów kadru
