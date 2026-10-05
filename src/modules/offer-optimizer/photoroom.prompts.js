@@ -570,10 +570,10 @@ function buildPhotoroomRequest({ ean, slot, category, pimText, imageBlob, patchA
 
   // Kompozycja — deterministyczny wybór z puli przypisanej do slotu
   const comp = COMPOSITIONS[pick(rng, plan.compPool)];
-  fd.append('paddingTop', String(comp.pT));
-  fd.append('paddingBottom', String(comp.pB));
-  fd.append('paddingLeft', String(comp.pL));
-  fd.append('paddingRight', String(comp.pR));
+  fd.append('paddingTop', String(Math.min(0.49, comp.pT)));
+  fd.append('paddingBottom', String(Math.min(0.49, comp.pB)));
+  fd.append('paddingLeft', String(Math.min(0.49, comp.pL)));
+  fd.append('paddingRight', String(Math.min(0.49, comp.pR)));
   fd.append('horizontalAlignment', comp.hA);
   fd.append('verticalAlignment', comp.vA);
 
@@ -601,10 +601,21 @@ async function cropForMacroSlot(sourceBuffer, topFraction = 0.62) {
   const sharp = require('sharp');
   const img = sharp(sourceBuffer);
   const { width, height } = await img.metadata();
-  return img
+  let quality = 95;
+  let outputBuffer = await img
     .extract({ left: 0, top: 0, width, height: Math.round(height * topFraction) })
-    .jpeg({ quality: 95, chromaSubsampling: '4:4:4' }) // wysoka jakość, metadane patrz [9]
+    .jpeg({ quality, chromaSubsampling: '4:4:4' })
     .toBuffer();
+    
+  const MAX_BYTES = 1.9 * 1024 * 1024;
+  while (outputBuffer.length > MAX_BYTES && quality > 10) {
+      quality -= 10;
+      outputBuffer = await sharp(sourceBuffer)
+        .extract({ left: 0, top: 0, width, height: Math.round(height * topFraction) })
+        .jpeg({ quality, chromaSubsampling: '4:4:4' })
+        .toBuffer();
+  }
+  return outputBuffer;
 }
 
 // ============================================================================

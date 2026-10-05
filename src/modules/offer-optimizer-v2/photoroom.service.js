@@ -96,13 +96,27 @@ async function padToSquare(imageBuffer, onLog = () => {}) {
 
     onLog(`[NORMALIZACJA] Wejscie ${meta.width}x${meta.height} -> ${side}x${side} (biale tlo)`);
 
-    return await sharp(imageBuffer)
+    let quality = 95;
+    let outputBuffer = await sharp(imageBuffer)
         .flatten({ background: '#FFFFFF' })
         .extend({ top, bottom: side - meta.height - top,
                   left, right: side - meta.width - left,
                   background: '#FFFFFF' })
-        .jpeg({ quality: 95 })
+        .jpeg({ quality })
         .toBuffer();
+
+    const MAX_BYTES = 1.9 * 1024 * 1024;
+    while (outputBuffer.length > MAX_BYTES && quality > 10) {
+        quality -= 10;
+        outputBuffer = await sharp(imageBuffer)
+            .flatten({ background: '#FFFFFF' })
+            .extend({ top, bottom: side - meta.height - top,
+                      left, right: side - meta.width - left,
+                      background: '#FFFFFF' })
+            .jpeg({ quality })
+            .toBuffer();
+    }
+    return outputBuffer;
 }
 
 // Główna usługa wywoływana przez kontroler
@@ -182,7 +196,7 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         
         inputBuffer = await padToSquare(inputBuffer, onLog);
         fd.append('imageFile', inputBuffer, `${ean}_src.jpg`);
-        fd.append('removeBackground', 'false');
+        fd.append('removeBackground', 'true');
         fd.append('editWithAI.mode', 'ai.auto');
         fd.append('editWithAI.prompt', generatedPrompt);
         // Parametr Photoroom API zapobiegający ucinaniu produktu z brzegów kadru
