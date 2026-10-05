@@ -237,7 +237,23 @@ const CreativeWarRoomLiveViewer = ({ warRoom }) => {
         }
     }, [currentStepIndex, activeTab]);
 
-    if (!warRoom || transcript.length === 0) return null;
+    if (!warRoom) return null;
+
+    if (warRoom.success === false) {
+        return (
+            <div className="bg-slate-900 border border-rose-500/30 rounded-2xl p-6 shadow-xl text-white space-y-3 animate-in fade-in duration-300">
+                <div className="flex items-center gap-2.5 text-rose-400 font-bold text-sm">
+                    <span className="text-lg">⚠️</span>
+                    <span>AI Creative War Room: Narada nie mogła zostać przeprowadzona</span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed pl-7">
+                    {warRoom.error || 'Wystąpił problem z połączeniem z modelem Gemini lub z generowaniem autonomicznych odpowiedzi agentów.'}
+                </p>
+            </div>
+        );
+    }
+
+    if (transcript.length === 0) return null;
 
     const currentTurn = transcript[currentStepIndex] || transcript[0];
     const visibleTurns = hasCompleted ? transcript : transcript.slice(0, currentStepIndex + 1);
@@ -444,9 +460,13 @@ const CreativeWarRoomLiveViewer = ({ warRoom }) => {
                             <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
                                 ⚔️ Rozstrzygnięty Spór Strategiczny
                             </span>
-                            <p className="text-xs text-slate-200 leading-relaxed font-medium">
-                                {minutes.core_conflict_resolved || 'Odrzucenie sztucznych, wycentrowanych ujęć studyjnych na rzecz dynamicznej asymetrii i głębokiej emocjonalnej opowieści o opiece.'}
-                            </p>
+                            {minutes.core_conflict_resolved ? (
+                                <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                                    {minutes.core_conflict_resolved}
+                                </p>
+                            ) : (
+                                <p className="text-xs text-slate-500 italic">Brak odnotowanego sporu w protokole</p>
+                            )}
                         </div>
 
                         {/* 💖 Zatwierdzony Kod Emocjonalny */}
@@ -454,9 +474,13 @@ const CreativeWarRoomLiveViewer = ({ warRoom }) => {
                             <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
                                 💖 Zatwierdzony Kod Emocjonalny (Łzy & Troska)
                             </span>
-                            <p className="text-xs text-slate-200 leading-relaxed font-medium">
-                                {minutes.agreed_emotional_code || 'Instynkt bezwarunkowej troski i spokoju o najbliższych (dzieci, rodzina, zwierzęta, czyste środowisko) – produkt jako narzędzie czułości.'}
-                            </p>
+                            {minutes.agreed_emotional_code ? (
+                                <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                                    {minutes.agreed_emotional_code}
+                                </p>
+                            ) : (
+                                <p className="text-xs text-slate-500 italic">Brak odnotowanego kodu emocjonalnego</p>
+                            )}
                         </div>
 
                         {/* 📐 Doktryna Kompozycji & Asymetrii */}
@@ -464,9 +488,13 @@ const CreativeWarRoomLiveViewer = ({ warRoom }) => {
                             <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
                                 📐 Doktryna Kompozycji & Asymetrii (Zero Centryzmu)
                             </span>
-                            <p className="text-xs text-slate-200 leading-relaxed font-medium">
-                                {minutes.visual_framing_doctrine || 'Kategoryczny zakaz centrowania produktu w martwym środku kadru. Reguła trójpodziału, ujęcia POV z perspektywy dłoni, portrety z głębią ostrości.'}
-                            </p>
+                            {minutes.visual_framing_doctrine ? (
+                                <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                                    {minutes.visual_framing_doctrine}
+                                </p>
+                            ) : (
+                                <p className="text-xs text-slate-500 italic">Brak odnotowanej doktryny kompozycji</p>
+                            )}
                         </div>
 
                         {/* 🛡️ Klauzula Nienaruszalności Produktu */}
@@ -474,9 +502,13 @@ const CreativeWarRoomLiveViewer = ({ warRoom }) => {
                             <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
                                 🛡️ Tarcza Nienaruszalności Packshotu
                             </span>
-                            <p className="text-xs text-slate-200 leading-relaxed font-medium">
-                                {minutes.immutability_shield_clause || 'Oryginalna butelka, pompka, typografia i etykieta z załączonego zdjęcia podlegają 100% ochronie fizycznej przed halucynacją modeli generatywnych.'}
-                            </p>
+                            {minutes.immutability_shield_clause ? (
+                                <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                                    {minutes.immutability_shield_clause}
+                                </p>
+                            ) : (
+                                <p className="text-xs text-slate-500 italic">Brak odnotowanej klauzuli packshotu</p>
+                            )}
                         </div>
                     </div>
 
@@ -484,55 +516,59 @@ const CreativeWarRoomLiveViewer = ({ warRoom }) => {
                     <div className="space-y-3 pt-2">
                         <div className="flex items-center justify-between">
                             <span className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                                🎯 Zatwierdzona Matryca 6 Zróżnicowanych Kadrów (Zmapowana do Kreacji)
+                                🎯 Zatwierdzona Matryca Zróżnicowanych Kadrów (Zmapowana do Kreacji)
                             </span>
                             <span className="text-[10px] text-slate-400">
                                 4 x Statyk E-commerce + 2 x Dynamiczne Wideo 9:16
                             </span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {(minutes.creatives_matrix || [
-                                { slot_id: 1, format: 'STATYK', framing_directive: 'Asymetria – Lewa 1/3 kadru (Rule of Thirds)', emotional_hook: 'Spokój rodzica o bezpieczeństwo i delikatność', context_elements: 'Czysta, poranna przestrzeń z promieniami słońca' },
-                                { slot_id: 2, format: 'STATYK', framing_directive: 'POV – Ujęcie z perspektywy dłoni opiekuna', emotional_hook: 'Dotyk czułości i natychmiastowe ukojenie', context_elements: 'Ciepłe, minimalistyczne wnętrze' },
-                                { slot_id: 3, format: 'STATYK', framing_directive: 'Portret Relacyjny – Produkt na 1. planie, w tle miękki bokeh', emotional_hook: 'Wzruszenie i wdzięczność domowników', context_elements: 'Naturalny uśmiech w nieostrości tła f/1.4' },
-                                { slot_id: 4, format: 'STATYK', framing_directive: 'Sensoryczne Makro – Zbliżenie 100mm na detal i kroplę', emotional_hook: 'Fascynacja czystością i szacunek dla natury', context_elements: 'Zawieszona mikrokropla esencji w locie' },
-                                { slot_id: 5, format: 'REELS 9:16', framing_directive: 'Dynamiczny najazd boczny pod kątem 45 stopni', emotional_hook: 'Ulga i pewność wyboru potwierdzona natychmiastowym efektem', context_elements: 'Kinowy grading 60fps w ciepłych barwach' },
-                                { slot_id: 6, format: 'TIKTOK 9:16', framing_directive: 'Hero Low-Angle – Lekko z dołu z dynamicznym wejściem dłoni', emotional_hook: 'Duma z mądrego wyboru i troski o planetę', context_elements: 'Świeże, organiczne otoczenie bez postumentów' }
-                            ]).map((slot, sIdx) => (
-                                <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2 flex flex-col justify-between hover:border-indigo-500/50 transition-colors">
-                                    <div>
-                                        <div className="flex items-center justify-between mb-1.5">
-                                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
-                                                Slot #{slot.slot_id || sIdx + 1}
-                                            </span>
-                                            <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-wider ${
-                                                slot.format?.includes('REELS') || slot.format?.includes('TIKTOK')
-                                                    ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
-                                                    : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                                            }`}>
-                                                {slot.format || 'STATYK'}
-                                            </span>
-                                        </div>
-                                        <div className="text-xs font-bold text-white mb-1">
-                                            📐 {slot.framing_directive}
-                                        </div>
-                                        <div className="text-[11px] text-rose-300 mb-1 leading-snug">
-                                            💖 {slot.emotional_hook}
-                                        </div>
-                                        {slot.context_elements && (
-                                            <div className="text-[10px] text-slate-400 leading-tight">
-                                                🌿 Otoczenie: {slot.context_elements}
+                        {(!minutes.creatives_matrix || minutes.creatives_matrix.length === 0) ? (
+                            <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-6 text-center text-xs text-slate-400 italic">
+                                Brak wygenerowanej matrycy kadrów z syntezy narady.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {minutes.creatives_matrix.map((slot, sIdx) => (
+                                    <div key={sIdx} className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2 flex flex-col justify-between hover:border-indigo-500/50 transition-colors">
+                                        <div>
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
+                                                    Slot #{slot.slot_id || sIdx + 1}
+                                                </span>
+                                                <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-wider ${
+                                                    slot.format?.includes('REELS') || slot.format?.includes('TIKTOK')
+                                                        ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
+                                                        : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                                                }`}>
+                                                    {slot.format || 'STATYK'}
+                                                </span>
                                             </div>
-                                        )}
+                                            {slot.concept_title && (
+                                                <div className="text-xs font-semibold text-purple-300 mb-0.5">
+                                                    ✨ {slot.concept_title}
+                                                </div>
+                                            )}
+                                            <div className="text-xs font-bold text-white mb-1">
+                                                📐 {slot.framing_directive}
+                                            </div>
+                                            <div className="text-[11px] text-rose-300 mb-1 leading-snug">
+                                                💖 {slot.emotional_hook}
+                                            </div>
+                                            {slot.context_elements && (
+                                                <div className="text-[10px] text-slate-400 leading-tight">
+                                                    🌿 Otoczenie: {slot.context_elements}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[9px] text-slate-500">
+                                            <span>Zmapowano do Prompt Directora</span>
+                                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                        </div>
                                     </div>
-                                    <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[9px] text-slate-500">
-                                        <span>Zmapowano do Prompt Directora</span>
-                                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

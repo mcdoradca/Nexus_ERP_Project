@@ -29,6 +29,11 @@ W module `src/modules/ad-intelligence/creative-war-room.service.js` zrezygnowano
 3. **Oddolna Synteza Ustaleń (Bottom-Up Emergent Synthesis):**
    - Oficjalna Notatka ze Spotkania (`meeting_minutes`) oraz 6-slotowa matryca kadrów (`creatives_matrix`) powstają w drodze ekstrakcji z RZECZYWISTYCH wypowiedzi wypracowanych przez zespół podczas debaty.
 
+### 2.1.1. Żelazna Doktryna Zero-Mock i Prawdziwe Zgłaszanie Błędów (Zero Mock Dialogues Policy)
+- **Kategoryczna Likwidacja Mocków:** Całkowicie usunięto metody `_deterministicFallbackDeliberation` oraz `_defaultMeetingMinutes`. Żaden komponent backendowy ani frontendowy nie posiada prawa do wstrzykiwania predefiniowanych wypowiedzi, gotowych matryc kadrów ani zapasowych dialogów (`speech: turn?.speech || '...'`).
+- **Uczciwa Obsługa Błędów (Defensive AI):** W przypadku niedostępności klucza `GEMINI_API_KEY` lub awarii sieci, system natychmiast zwraca `{ success: false, error: ... }`, a interfejs `CreativeWarRoomLiveViewer` renderuje czytelny baner diagnostyczny dla użytkownika zamiast symulować sztuczną debatę.
+- **Odporność na Błędy Formatowania:** Wdrożono 2-etapowy retry wewnątrz `_consultAgent` oraz `_synthesizeDeliberationMinutes` z automatyczną ekstrakcją obiektów JSON.
+
 ### 2.2. Mapowanie Wytycznych z Narady do Prompt Directora (`PromptDirectorService`)
 - Metody `generateProductionPrompts` oraz `enrichBriefsWithPrompts` przyjmują `slotDirective` z matrycy Pokoju Narad.
 - Każdy slot otrzymuje unikalne wytyczne kadrowania (asymetria) oraz dedykowany ładunek emocjonalny, z zachowaniem nadrzędnej tarczy nienaruszalności produktu (`[DOKŁADNY_OBIEKT_ZE_ZDJĘCIA]`).

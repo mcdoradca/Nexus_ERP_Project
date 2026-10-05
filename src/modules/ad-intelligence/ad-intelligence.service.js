@@ -451,13 +451,14 @@ KRYTYCZNE ZASADY JAKOŚCI COPYWRITINGU:
             });
             strategyOutput.war_room = warRoomDeliberation;
         } catch (errWarRoom) {
-            console.warn('[AdIntelligence] Błąd w Pokoju Narad Agentów, stosuję fallback:', errWarRoom.message);
-            strategyOutput.war_room = creativeWarRoomService._deterministicFallbackDeliberation(
-                prodName,
-                brandName,
-                brandUsp,
-                brandProfile?.brandDna || ''
-            );
+            console.warn('[AdIntelligence] Błąd w Pokoju Narad Agentów:', errWarRoom.message);
+            strategyOutput.war_room = {
+                success: false,
+                error: errWarRoom.message,
+                participants: creativeWarRoomService.getParticipants(),
+                debate_transcript: [],
+                meeting_minutes: null
+            };
         }
 
         strategyOutput.market_insights = marketInsights;
@@ -864,14 +865,15 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty, gotowy tekst w języku polskim w for
 
         const targetProdName = productData?.name || brandProfile?.name || null;
 
-        // Gwarancja obecności Pokoju Narad w obiekcie strategii
+        // Gwarancja obecności struktury Pokoju Narad w obiekcie strategii (bez fałszywych skryptów)
         if (!strategy.war_room) {
-            strategy.war_room = creativeWarRoomService._deterministicFallbackDeliberation(
-                targetProdName || 'Produkt',
-                brandProfile?.name || 'Marka',
-                brandProfile?.usp || 'Wysoka jakość',
-                brandProfile?.brandDna || ''
-            );
+            strategy.war_room = {
+                success: false,
+                error: 'Pokój Narad Agentów nie został uruchomiony dla tej analizy',
+                participants: creativeWarRoomService.getParticipants(),
+                debate_transcript: [],
+                meeting_minutes: null
+            };
         }
 
         if (Array.isArray(strategy.static_ad_briefs)) {
@@ -999,12 +1001,13 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty, gotowy tekst w języku polskim w for
 
         return {
             campaign_strategy: `Strategia konwersji direct-response dla produktu ${prodName} w oparciu o unikalne korzyści.`,
-            war_room: creativeWarRoomService._deterministicFallbackDeliberation(
-                prodName,
-                brandName,
-                brandUsp,
-                brandProfile?.brandDna || ''
-            ),
+            war_room: {
+                success: false,
+                error: 'Wymagane uruchomienie autonomicznej narady AI Creative War Room przez LLM',
+                participants: creativeWarRoomService.getParticipants(),
+                debate_transcript: [],
+                meeting_minutes: null
+            },
             angles: [
                 { id: "A1", name: "Problem i Natychmiastowa Ulga", psychological_trigger: "Ukojenie frustracji klienta", core_promise: `Szybkie i skuteczne działanie z ${prodName}` },
                 { id: "A2", name: "Twarde Liczby i Certyfikacja", psychological_trigger: "Pewność i autorytet", core_promise: "Sprawdzony standard zgodny z normami UE" },
