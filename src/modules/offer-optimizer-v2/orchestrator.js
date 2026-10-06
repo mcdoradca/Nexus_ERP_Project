@@ -7,7 +7,7 @@ const { FORBIDDEN_SOURCES, DATA_SOURCE_MODE } = require('./config/nodes.config')
 const baselinkerExtract = require('./baselinker.extract.js');
 const { normalizeIngredientName } = require('./normalization.js');
 const ragService = require('./knowledge.rag.service.js');
-const { validate_html_whitelist, scan_medical_claims_lexical, scan_stopwords } = require('./validators');
+const { validate_html_whitelist, scan_medical_claims_lexical, scan_stopwords, normalize_aeo_faq_labels, aeo_faq_check } = require('./validators');
 
 const PHASE_1_GROUNDING = 'PHASE_1_GROUNDING';
 const PHASE_2_LEGAL = 'PHASE_2_LEGAL';
@@ -1181,9 +1181,11 @@ class Orchestrator {
                 properties: {
                     sanitization_status: { type: "string" },
                     mandatory_safety_warnings: { type: "array", items: { type: "string" } },
-                    preserved_minor_flaws_for_pratfall: { type: "array", items: { type: "string" } }
+                    preserved_minor_flaws_for_pratfall: { type: "array", items: { type: "string" } },
+                    safe_aeo_questions: { type: "array", items: { type: "string" } },
+                    safe_aeo_answers: { type: "array", items: { type: "string" } }
                 },
-                required: ["sanitization_status", "mandatory_safety_warnings", "preserved_minor_flaws_for_pratfall"]
+                required: ["sanitization_status", "mandatory_safety_warnings", "preserved_minor_flaws_for_pratfall", "safe_aeo_questions", "safe_aeo_answers"]
             };
 
             try {
@@ -1192,12 +1194,31 @@ class Orchestrator {
                 });
                 
                 const warnings = [];
-                const allowedKeysA5 = ['sanitization_status', 'mandatory_safety_warnings', 'preserved_minor_flaws_for_pratfall'];
+                const allowedKeysA5 = ['sanitization_status', 'mandatory_safety_warnings', 'preserved_minor_flaws_for_pratfall', 'safe_aeo_questions', 'safe_aeo_answers'];
                 for (let k of Object.keys(result)) {
                     if (!allowedKeysA5.includes(k)) {
                         warnings.push('A5_FIELD_REJECTED: ' + k);
                         delete result[k];
                     }
+                }
+
+                // Tarcza Defensive AI dla FAQ SEO/GEO (Sekcja 2): pary pytań i odpowiedzi muszą być 1:1.
+                // Brak par → A6 buduje FAQ samodzielnie wg reguł promptu (fallback), z ostrzeżeniem w logu.
+                const aeoQuestions = Array.isArray(result.safe_aeo_questions) ? result.safe_aeo_questions.filter(q => typeof q === 'string' && q.trim() !== '') : [];
+                const aeoAnswers = Array.isArray(result.safe_aeo_answers) ? result.safe_aeo_answers.filter(a => typeof a === 'string' && a.trim() !== '') : [];
+                if (aeoQuestions.length === 0 || aeoAnswers.length === 0) {
+                    warnings.push('A5_AEO_FAQ_MISSING: A6 zbuduje FAQ samodzielnie');
+                    console.warn(`[A5] Brak par FAQ SEO/GEO dla ${this.gtin} (pytania: ${aeoQuestions.length}, odpowiedzi: ${aeoAnswers.length})`);
+                    result.safe_aeo_questions = [];
+                    result.safe_aeo_answers = [];
+                } else {
+                    const pairCount = Math.min(aeoQuestions.length, aeoAnswers.length);
+                    if (aeoQuestions.length !== aeoAnswers.length) {
+                        warnings.push(`A5_AEO_FAQ_LENGTH_MISMATCH: ${aeoQuestions.length}/${aeoAnswers.length} -> przycięto do ${pairCount}`);
+                        console.warn(`[A5] Niezgodna liczba pytań/odpowiedzi FAQ dla ${this.gtin}: ${aeoQuestions.length}/${aeoAnswers.length}`);
+                    }
+                    result.safe_aeo_questions = aeoQuestions.slice(0, pairCount);
+                    result.safe_aeo_answers = aeoAnswers.slice(0, pairCount);
                 }
                 
                 // Tarcza Defensive AI: jeśli A5 zwrócił pustą listę ostrzeżeń, wstrzykujemy bazowe ostrzeżenia z SDS GPSR
@@ -1242,6 +1263,31 @@ class Orchestrator {
             const v3 = scan_stopwords(htmlStr);
             if (v3.length > 0) return nodeName + '_OUTPUT_REJECTED: scan_stopwords (' + v3.map(h => h.word).join(', ') + ')';
             return null;
+        };
+
+        // BRAMKA FAQ SEO/GEO (Sekcja 2): deterministyczna normalizacja etykiet (Problem→Pytanie,
+        // Rozwiązanie/Answer→Odpowiedź, emoji ❓/✔️) + walidacja struktury (pary 1:1, pytanie z '?').
+        // Zwraca { html, halted }. halted=true → węzeł zatrzymany do HITL (wywołujący robi return).
+        const applyAeoFaqGate = (sectionHtml, nodeName) => {
+            const fixedHtml = normalize_aeo_faq_labels(sectionHtml);
+            if (fixedHtml !== sectionHtml) {
+                this.state.normalization_warnings = [...(this.state.normalization_warnings || []), nodeName + '_AEO_FAQ_LABELS_NORMALIZED'];
+                console.log(`[${nodeName}] Sekcja 2: znormalizowano etykiety FAQ (Pytanie/Odpowiedź) dla ${this.gtin}`);
+            }
+            const faqCheck = aeo_faq_check(fixedHtml);
+            if (!faqCheck.valid) {
+                const err = nodeName + '_OUTPUT_REJECTED: aeo_faq_check (' + faqCheck.errors.join(', ') + ')';
+                console.warn(`[${nodeName}] ${err}`);
+                this.state.normalization_warnings = [...(this.state.normalization_warnings || []), err];
+                if (this.state.node_status[nodeName] !== 'HITL_OVERRIDDEN') {
+                    this.state.node_status[nodeName] = 'HALTED_HITL_REQUIRED';
+                    this.state.hitl_alert = err;
+                    this.state.next_action = 'HALT';
+                    this.emitState();
+                    return { html: fixedHtml, halted: true };
+                }
+            }
+            return { html: fixedHtml, halted: false };
         };
 
         // --- KROK 6: A6 ---
@@ -1352,6 +1398,10 @@ class Orchestrator {
                     }
                 }
 
+                const faqGateA6 = applyAeoFaqGate(result.section_2_html, 'A6');
+                result.section_2_html = faqGateA6.html;
+                if (faqGateA6.halted) return;
+
                 this.state.node_status['A6'] = 'OK';
                 this.state.next_action = 'RUN_A7';
                 this.emitState();
@@ -1444,6 +1494,10 @@ class Orchestrator {
                         }
                     }
                 }
+
+                const faqGateA7 = applyAeoFaqGate(a7_res_full.section_2_html, 'A7');
+                a7_res_full.section_2_html = faqGateA7.html;
+                if (faqGateA7.halted) return;
 
                 this.state.node_status['A7'] = 'OK';
                 this.state.next_action = 'RUN_A10';
@@ -1553,6 +1607,10 @@ class Orchestrator {
                         }
                     }
                 }
+
+                const faqGateA10 = applyAeoFaqGate(finalDoc.section_2_html, 'A10');
+                finalDoc.section_2_html = faqGateA10.html;
+                if (faqGateA10.halted) return;
 
                 this.state.node_status['A10'] = 'OK';
                 this.state.next_action = 'FINISH';

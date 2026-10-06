@@ -177,11 +177,13 @@ function emoji_structure_check(html) {
         }
     }
     
-    if (html.includes('❌') && !/❌\s*<b>Problem:<\/b>/.test(html)) {
-        errors.push('Invalid ❌ Problem pattern');
+    // Sekcja 2 (FAQ SEO/GEO): kanoniczny wzorzec par to ❓ Pytanie: / ✔️ Odpowiedź:
+    // (pełna walidacja par — V12 aeo_faq_check)
+    if (/<(b|strong)>\s*Problem\s*:?\s*<\/\1>/i.test(html)) {
+        errors.push('Forbidden Problem label (use ❓ Pytanie:)');
     }
-    if (html.includes('✔️') && !/✔️\s*<b>Answer:<\/b>/.test(html)) {
-        errors.push('Invalid ✔️ Answer pattern');
+    if (/❌\s*<(b|strong)>\s*Pytanie:/.test(html)) {
+        errors.push('Invalid ❌ Pytanie pattern (use ❓ Pytanie:)');
     }
 
     return { valid: errors.length === 0, errors };
@@ -299,6 +301,81 @@ function validate_eu_responsible_person(eu) {
     return { valid: errors.length === 0, errors };
 }
 
+// V12 — Sekcja 2: FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI)
+// Kanoniczny wzorzec par (SOT 01 §4, emoji z białej listy Allegro):
+// <li>❓ <b>Pytanie:</b> …?</li><li>✔️ <b>Odpowiedź:</b> …</li>
+
+// Deterministyczna normalizacja etykiet i emoji par (idempotentna).
+// Naprawia wyłącznie formę etykiet — NIE zamienia twierdzeń w pytania (to egzekwuje aeo_faq_check).
+function normalize_aeo_faq_labels(html) {
+    if (!html || typeof html !== 'string') return html;
+    let res = html;
+
+    // 1. Etykiety pytań: Problem / Question → Pytanie (dwukropek wewnątrz tagu, ewentualny zewnętrzny usuwany)
+    res = res.replace(/(<(strong|b)>\s*)(?:Problem|Question|Pytanie)\s*:?\s*(<\/\2>)(\s*:)?/gi, '$1Pytanie:$3');
+    // 2. Etykiety odpowiedzi: Answer / Rozwiązanie → Odpowiedź
+    res = res.replace(/(<(strong|b)>\s*)(?:Answer|Rozwiązanie|Odpowiedź)\s*:?\s*(<\/\2>)(\s*:)?/gi, '$1Odpowiedź:$3');
+    // 3. Emoji przed etykietą pytania → ❓ (obsługa <li>/<p> i komentarzy <!-- Applied -->)
+    res = res.replace(/(<(?:li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)(?:❌|🔴|❓|❔)?\s*(<(strong|b)>Pytanie:<\/\3>)/g, '$1❓ $2');
+    // 4. Emoji przed etykietą odpowiedzi → ✔️
+    res = res.replace(/(<(?:li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)(?:✔️|✔|🟢|💡|✅|☑️)?\s*(<(strong|b)>Odpowiedź:<\/\3>)/g, '$1✔️ $2');
+
+    return res;
+}
+
+// Walidacja struktury FAQ: naprzemienne pary Pytanie→Odpowiedź, pytanie zakończone '?',
+// niepusta odpowiedź, zakaz etykiet Problem/Rozwiązanie/Answer.
+function aeo_faq_check(html) {
+    if (!html || typeof html !== 'string' || html.trim() === '') {
+        return { valid: false, errors: ['Empty section 2'], pairs: 0 };
+    }
+    const errors = [];
+    const stripTags = (s) => s.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+
+    if (/<(strong|b)>\s*(?:Problem|Rozwiązanie|Answer)\s*:?\s*<\/\1>/i.test(html)) {
+        errors.push('Forbidden label (Problem/Rozwiązanie/Answer)');
+    }
+
+    const sequence = [];
+    const itemRegex = /<(li|p)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+    let match;
+    while ((match = itemRegex.exec(html)) !== null) {
+        const inner = match[2].replace(/<!--[\s\S]*?-->/g, '').trim();
+        const q = inner.match(/^❓\s*<(strong|b)>Pytanie:<\/\1>\s*([\s\S]*)$/);
+        if (q) {
+            sequence.push({ type: 'Q', text: stripTags(q[2]) });
+            continue;
+        }
+        const a = inner.match(/^✔️\s*<(strong|b)>Odpowiedź:<\/\1>\s*([\s\S]*)$/);
+        if (a) {
+            sequence.push({ type: 'A', text: stripTags(a[2]) });
+        }
+    }
+
+    const questions = sequence.filter(s => s.type === 'Q');
+    const answers = sequence.filter(s => s.type === 'A');
+
+    if (questions.length === 0) errors.push('No ❓ Pytanie: items');
+    if (questions.length !== answers.length) {
+        errors.push(`Unpaired Q/A (${questions.length}/${answers.length})`);
+    }
+    for (let i = 0; i < sequence.length; i++) {
+        const expected = i % 2 === 0 ? 'Q' : 'A';
+        if (sequence[i].type !== expected) {
+            errors.push(`Broken Q/A order at item ${i + 1}`);
+            break;
+        }
+    }
+    questions.forEach((q, i) => {
+        if (!/\?\s*$/.test(q.text)) errors.push(`Question ${i + 1} is not a question (missing '?')`);
+    });
+    answers.forEach((a, i) => {
+        if (a.text.length === 0) errors.push(`Answer ${i + 1} is empty`);
+    });
+
+    return { valid: errors.length === 0, errors, pairs: Math.min(questions.length, answers.length) };
+}
+
 module.exports = {
     ean_checksum,
     route_chemical,
@@ -311,5 +388,7 @@ module.exports = {
     c2pa_check,
     freeze_sections,
     verify_frozen,
-    validate_eu_responsible_person
+    validate_eu_responsible_person,
+    normalize_aeo_faq_labels,
+    aeo_faq_check
 };

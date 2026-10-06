@@ -27,8 +27,26 @@ i poprawność języka polskiego, precyzję fleksyjną oraz higienę typograficz
 
 ## BLUEPRINT 6 SEKCJI
 s1 USP: <h1>🌟 [Nazwa + korzyść/pojemność]</h1><p>2–3 zdania konkretu</p>.
-s2 Q&A AEO: <h2>❓…</h2> + pary z A5 (safe_aeo_questions ↔ safe_aeo_answers, 1:1):
-   <li>❓ <b>Pytanie:</b> …</li><li>💡 <b>Rozwiązanie:</b> …</li>.
+s2 FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI — Google, ChatGPT, Claude, Perplexity):
+   <h2>❓ [fraza kategorii + kluczowy efekt, np. Płyn do podłóg bez smug – najczęstsze pytania]</h2><ul> + 3–5 par.
+   ŹRÓDŁO: pary z A5 (a5.safe_aeo_questions ↔ a5.safe_aeo_answers, 1:1, kolejność zachowana).
+   Puste tablice A5 → zbuduj pary samodzielnie wg reguł poniżej, WYŁĄCZNIE z faktów payloadu.
+   FORMAT PARY (jedyny dopuszczalny, bez wyjątków):
+   <li>❓ <b>Pytanie:</b> …?</li><li>✔️ <b>Odpowiedź:</b> …</li>
+   PYTANIE = naturalne zapytanie, które człowiek wpisuje w Google lub zadaje asystentowi AI.
+   Pełne zdanie pytające zakończone znakiem '?'. Rotuj 3 intencje wyszukiwania:
+     (a) szukanie produktu: 'Jaki płyn do podłóg nie zostawia smug?'
+     (b) problem użytkownika: 'Co zrobić, gdy płyn do podłóg zostawia smugi?'
+     (c) poradnik how-to: 'Jak myć podłogę, żeby nie zostawały smugi?'
+   Pytanie zawiera frazę kategorii + cechę/efekt (język klienta, nie język producenta).
+   BEZWZGLĘDNY ZAKAZ: etykiet 'Problem:' / 'Rozwiązanie:' / 'Answer:'; twierdzeń zamiast pytań
+   ('Inne mydła wysuszają skórę.'); pytań o wady opakowania/produktu (te należą do s4);
+   pytań, na które payload nie daje faktycznej odpowiedzi.
+   ODPOWIEDŹ = answer-first: pierwsze zdanie odpowiada wprost i wskazuje produkt (marka + linia)
+   jako rozwiązanie; drugie zdanie — mechanizm lub fakt z payloadu (składnik, parametr,
+   sposób użycia). Max 300 znaków, zrozumiała bez kontekstu (AI cytuje ją wyrwaną z opisu).
+   [Kod po Tobie: normalizacja etykiet + bramka aeo_faq_check (pary 1:1, '?' na końcu pytania)
+   — naruszenie zatrzymuje ofertę do HITL.]
 s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
    node_4_aeo.technical_benefits_aeo + detected_synergies (punkty ⚡).
    [Naprawa v3.1: usunięto polecenie samodzielnego opisywania INCI "z SOT RAG" —

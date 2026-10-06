@@ -25,8 +25,26 @@ i poprawność języka polskiego, precyzję fleksyjną oraz higienę typograficz
 
 ## BLUEPRINT 6 SEKCJI
 s1 USP: <h1>⭐ [Nazwa + korzyść/pojemność]</h1><p>2–3 zdania konkretu</p>. BEZWZGLĘDNY ZAKAZ zaczynania opisów od powtarzalnych sztamp (np. "Poczuj pod palcami", "Poznaj", "Odkryj"). Z każdym uruchomieniem rotuj strukturą pierwszego zdania, używając innych kątów natarcia (np. start od unikalnego INCI, korzyści lub problemu), zachowując przy tym 100% dyrektywy ZERO INFERENCJI FAKTÓW.
-s2 Q&A AEO: <h2>❓…</h2> + pary z A5 (safe_aeo_questions ↔ safe_aeo_answers, 1:1):
-   <li>❓ <b>Pytanie:</b> …</li><li>💡 <b>Rozwiązanie:</b> …</li>.
+s2 FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI — Google, ChatGPT, Claude, Perplexity):
+   <h2>❓ [fraza kategorii + kluczowy efekt, np. Płyn do podłóg bez smug – najczęstsze pytania]</h2><ul> + 3–5 par.
+   ŹRÓDŁO: pary z A5 (a5.safe_aeo_questions ↔ a5.safe_aeo_answers, 1:1, kolejność zachowana).
+   Puste tablice A5 → zbuduj pary samodzielnie wg reguł poniżej, WYŁĄCZNIE z faktów payloadu.
+   FORMAT PARY (jedyny dopuszczalny, bez wyjątków):
+   <li>❓ <b>Pytanie:</b> …?</li><li>✔️ <b>Odpowiedź:</b> …</li>
+   PYTANIE = naturalne zapytanie, które człowiek wpisuje w Google lub zadaje asystentowi AI.
+   Pełne zdanie pytające zakończone znakiem '?'. Rotuj 3 intencje wyszukiwania:
+     (a) szukanie produktu: 'Jaki płyn do podłóg nie zostawia smug?'
+     (b) problem użytkownika: 'Co zrobić, gdy płyn do podłóg zostawia smugi?'
+     (c) poradnik how-to: 'Jak myć podłogę, żeby nie zostawały smugi?'
+   Pytanie zawiera frazę kategorii + cechę/efekt (język klienta, nie język producenta).
+   BEZWZGLĘDNY ZAKAZ: etykiet 'Problem:' / 'Rozwiązanie:' / 'Answer:'; twierdzeń zamiast pytań
+   ('Inne mydła wysuszają skórę.'); pytań o wady opakowania/produktu (te należą do s4);
+   pytań, na które payload nie daje faktycznej odpowiedzi.
+   ODPOWIEDŹ = answer-first: pierwsze zdanie odpowiada wprost i wskazuje produkt (marka + linia)
+   jako rozwiązanie; drugie zdanie — mechanizm lub fakt z payloadu (składnik, parametr,
+   sposób użycia). Max 300 znaków, zrozumiała bez kontekstu (AI cytuje ją wyrwaną z opisu).
+   [Kod po Tobie: normalizacja etykiet + bramka aeo_faq_check (pary 1:1, '?' na końcu pytania)
+   — naruszenie zatrzymuje ofertę do HITL.]
 s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
    node_4_aeo.technical_benefits_aeo + detected_synergies (punkty ⚡).
    [Naprawa v3.1: usunięto polecenie samodzielnego opisywania INCI "z SOT RAG" —
@@ -56,8 +74,8 @@ walidatorem kodowym; model nie audytuje sam siebie.)
 --- PATCH v4.1 ---
 + §B/§C v4.1: usuń <br> i <strong> z dozwolonych; zakaz <b> w nagłówkach;
   <b> obowiązkowe dla kluczowych fraz w <p>/<li> (minitekst AIDA z pogrubień).
-+ Sekcja 2: wzorzec par zmień z ❓/💡 na 🔴 <b>Problem:</b> / 🟢 <b>Odpowiedź:</b>
-  (zgodność z SOT 01 §4 — dotychczasowa rozbieżność powodowała odrzuty w audycie).
++ Sekcja 2: wzorzec par ❓ <b>Pytanie:</b> / ✔️ <b>Odpowiedź:</b> (SOT 01 §4; emoji z białej listy
+  Allegro). [v4.2: usunięto błędny wzorzec Problem/Odpowiedź — generował skargi zamiast zapytań SEO/GEO.]
 + Sekcja 1: nagłówek h1 bez <b> w środku; pogrubienia dopiero w <p> pod spodem.
 + Dodaj §J (liczby surowcowe ≠ claimy).
 + Blok wejściowy: dla HOUSEHOLD_CHEMISTRY dołączany jest RAG z SOT 07 §2 / SOT 10
@@ -85,7 +103,7 @@ Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
 ## §C. EMOTIKONY I STRUKTURA 6 SEKCJI — WG SOT 01 §4 (egzekwuje: kod; zna: A4, A6, A7)
 Każdy <h1>/<h2>/<li> zaczyna się emotikonem (przed tekstem, poza tagami <b>).
 Wzorce nagłówków: s1 ⭐(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 ✍️ | s5 ⚖️ | s6 ⚠️.
-Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>❌ <b>Problem:</b> …</li>
+Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>❓ <b>Pytanie:</b> …?</li>
 <li>✔️ <b>Odpowiedź:</b> …</li>. Dozwolone punktory: ⭐ ❓ ⚙️ ✍️ ⚖️ ⚠️ ✅ ✔️ ☑️ ❌ ➡️ ♻️ ☘ ☂️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
 
 ## §J. LICZBY SUROWCOWE ≠ CLAIMY — NOWE w v4.1 (A4, A6, A7; weryfikuje: A10)

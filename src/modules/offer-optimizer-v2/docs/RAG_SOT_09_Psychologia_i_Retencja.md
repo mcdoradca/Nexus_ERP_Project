@@ -35,8 +35,8 @@ Rozpraszanie niewypowiedzianych obaw przed kliknięciem „Kup Teraz":
 
 ## 3. SOCJOLOGIA SOCIAL PROOF: HOMOFILIA SOCJOLOGICZNA
 Zastąpienie ogólnych zachwytów kontekstową precyzją – zaufaniem do ludzi *z tym samym problemem* (dane po sanityzacji Agenta 5):
-* *Homofilia zabiegana:* „🔴 Problem: Poranny pośpiech i brak czasu na wchłanianie pielęgnacji przed makijażem. 🟢 Answer: Lekka baza wchłania się do matu w ok. 30 sekund, stanowiąc bazę pod podkład, która nie roluje się w ciągu dnia."
-* *Homofilia pasjonata:* „🔴 Problem: Zastygły tłuszcz na ruszcie po grillu. 🟢 Answer: Aktywne alkalia rozpuszczają zwęglone resztki – wystarczy przetrzeć wilgotną gąbką bez rysowania rusztu."
+* *Homofilia zabiegana:* „❓ Pytanie: Czy produkt wchłania się przed zrobieniem makijażu? ✔️ Odpowiedź: Lekka baza wchłania się do matu w ok. 30 sekund, stanowiąc bazę pod podkład, która nie roluje się w ciągu dnia."
+* *Homofilia pasjonata:* „❓ Pytanie: Czy poradzi sobie z zaschniętym tłuszczem na ruszcie? ✔️ Odpowiedź: Aktywne alkalia rozpuszczają zwęglone resztki – wystarczy przetrzeć wilgotną gąbką bez rysowania rusztu."
 
 ---
 

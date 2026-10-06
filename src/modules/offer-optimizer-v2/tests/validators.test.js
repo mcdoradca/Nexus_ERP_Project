@@ -77,9 +77,79 @@ test('V7 emoji_structure_check', async (t) => {
     assert.deepStrictEqual(v.emoji_structure_check('<h1>⭐ Nagłówek</h1><li>✅ Punkt</li>'), { valid: true, errors: [] });
     assert.deepStrictEqual(v.emoji_structure_check('<h1>⭐ Nagłówek 🔥</h1>').valid, false);
     assert.deepStrictEqual(v.emoji_structure_check('<h1>Brak emoji</h1>').valid, false);
-    assert.deepStrictEqual(v.emoji_structure_check('<li>❌ <b>Problem:</b> test</li><li>✔️ <b>Answer:</b> test</li>').valid, true);
+    assert.deepStrictEqual(v.emoji_structure_check('<li>❓ <b>Pytanie:</b> test?</li><li>✔️ <b>Odpowiedź:</b> test</li>').valid, true);
+    assert.deepStrictEqual(v.emoji_structure_check('<li>❌ <b>Pytanie:</b> test?</li>').valid, false);
+    assert.deepStrictEqual(v.emoji_structure_check('<li>❌ <b>Problem:</b> test</li>').valid, false);
     assert.deepStrictEqual(v.emoji_structure_check('<li>❌ <b>Problem</b> test</li>').valid, false);
     assert.deepStrictEqual(v.emoji_structure_check(null).valid, true);
+});
+
+test('V12 normalize_aeo_faq_labels', async (t) => {
+    await t.test('Problem -> Pytanie, ❌ -> ❓ (b i strong)', () => {
+        assert.strictEqual(
+            v.normalize_aeo_faq_labels('<li>❌ <strong>Problem:</strong> Czy płyn zostawia smugi?</li>'),
+            '<li>❓ <strong>Pytanie:</strong> Czy płyn zostawia smugi?</li>'
+        );
+        assert.strictEqual(
+            v.normalize_aeo_faq_labels('<li>🔴 <b>Problem</b>: Jak myć podłogę bez smug?</li>'),
+            '<li>❓ <b>Pytanie:</b> Jak myć podłogę bez smug?</li>'
+        );
+    });
+    await t.test('Rozwiązanie/Answer -> Odpowiedź, 💡/🟢 -> ✔️', () => {
+        assert.strictEqual(
+            v.normalize_aeo_faq_labels('<li>💡 <b>Rozwiązanie:</b> Tak.</li><li>🟢 <strong>Answer:</strong> Nie.</li>'),
+            '<li>✔️ <b>Odpowiedź:</b> Tak.</li><li>✔️ <strong>Odpowiedź:</strong> Nie.</li>'
+        );
+    });
+    await t.test('Komentarz Applied przed emoji oraz wariant <p>', () => {
+        assert.strictEqual(
+            v.normalize_aeo_faq_labels('<li><!-- Applied: x -->❌ <strong>Problem:</strong> A?</li><p>✔️ <b>Odpowiedź:</b> B</p>'),
+            '<li><!-- Applied: x -->❓ <strong>Pytanie:</strong> A?</li><p>✔️ <b>Odpowiedź:</b> B</p>'
+        );
+    });
+    await t.test('Idempotentność i bezpieczne wejście', () => {
+        const canon = '<li>❓ <strong>Pytanie:</strong> A?</li><li>✔️ <strong>Odpowiedź:</strong> B</li>';
+        assert.strictEqual(v.normalize_aeo_faq_labels(canon), canon);
+        assert.strictEqual(v.normalize_aeo_faq_labels(v.normalize_aeo_faq_labels(canon)), canon);
+        assert.strictEqual(v.normalize_aeo_faq_labels(null), null);
+        assert.strictEqual(v.normalize_aeo_faq_labels(''), '');
+    });
+});
+
+test('V12 aeo_faq_check', async (t) => {
+    const h2 = '<h2>❓ Płyn do podłóg bez smug – najczęstsze pytania</h2>';
+    await t.test('Poprawne FAQ SEO/GEO', () => {
+        const html = h2 + '<ul><li>❓ <strong>Pytanie:</strong> Jaki płyn do podłóg nie zostawia smug?</li>' +
+            '<li>✔️ <strong>Odpowiedź:</strong> <!-- Applied: x -->Płyn X nie zostawia smug dzięki <strong>szybkiemu odparowaniu</strong>.</li>' +
+            '<li>❓ <b>Pytanie:</b> Jak myć podłogę, żeby nie zostawały smugi?</li>' +
+            '<li>✔️ <b>Odpowiedź:</b> Rozcieńcz 30 ml w 5 l wody.</li></ul>';
+        assert.deepStrictEqual(v.aeo_faq_check(html), { valid: true, errors: [], pairs: 2 });
+    });
+    await t.test('Etykieta Problem jest odrzucana', () => {
+        const res = v.aeo_faq_check('<li>❌ <strong>Problem:</strong> Inne płyny zostawiają smugi.</li><li>✔️ <strong>Odpowiedź:</strong> X.</li>');
+        assert.strictEqual(res.valid, false);
+        assert.ok(res.errors.some(e => e.includes('Forbidden label')));
+    });
+    await t.test('Twierdzenie zamiast pytania jest odrzucane', () => {
+        const res = v.aeo_faq_check('<li>❓ <strong>Pytanie:</strong> Inne mydła wysuszają skórę.</li><li>✔️ <strong>Odpowiedź:</strong> X.</li>');
+        assert.strictEqual(res.valid, false);
+        assert.ok(res.errors.some(e => e.includes("missing '?'")));
+    });
+    await t.test('Brak pary i zła kolejność', () => {
+        const unpaired = v.aeo_faq_check('<li>❓ <strong>Pytanie:</strong> A?</li>');
+        assert.strictEqual(unpaired.valid, false);
+        assert.ok(unpaired.errors.some(e => e.includes('Unpaired')));
+        const order = v.aeo_faq_check('<li>✔️ <strong>Odpowiedź:</strong> B</li><li>❓ <strong>Pytanie:</strong> A?</li>');
+        assert.strictEqual(order.valid, false);
+        assert.ok(order.errors.some(e => e.includes('Broken Q/A order')));
+    });
+    await t.test('Pusta odpowiedź i puste wejście', () => {
+        const empty = v.aeo_faq_check('<li>❓ <strong>Pytanie:</strong> A?</li><li>✔️ <strong>Odpowiedź:</strong> </li>');
+        assert.strictEqual(empty.valid, false);
+        assert.ok(empty.errors.some(e => e.includes('Answer 1 is empty')));
+        assert.strictEqual(v.aeo_faq_check(null).valid, false);
+        assert.strictEqual(v.aeo_faq_check('').valid, false);
+    });
 });
 
 test('V8 gate_ingredients', async (t) => {

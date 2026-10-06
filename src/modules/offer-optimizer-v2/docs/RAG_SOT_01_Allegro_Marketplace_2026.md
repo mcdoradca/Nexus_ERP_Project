@@ -54,7 +54,7 @@ Opis na Allegro musi być projektowany **linearnie pod Mobile First** (na smartf
 
 ### Wzorzec Struktury 6 Sekcji (Blueprint):
 1.  **Sekcja 1: `<h1>` [Emoji] [Tytuł oferty + USP + Pojemność/Waga]** — *Wiersz: Tylko tekst.* Pod nagłówkiem `<p>` z 2–3 zdaniami konkretu o formule i obietnicy wartości (z pogrubieniami kluczowych fraz). Bez lania wody.
-2.  **Sekcja 2: `<h2>` ❓ Problem & Answer** — *Wiersz: Tekst po lewej (50%) + Zdjęcie po prawej (50%).* Lista `<ul>` z parami: `<li>🔴 <b>Problem:</b> [ból klienta z bazy RAG]</li>` oraz `<li>🟢 <b>Answer:</b> [rozwiązanie technologiczne]</li>`.
+2.  **Sekcja 2: `<h2>` ❓ Najczęstsze pytania i odpowiedzi** — *Wiersz: Tekst po lewej (50%) + Zdjęcie po prawej (50%).* Lista `<ul>` z parami: `<li>❓ <b>Pytanie:</b> [naturalne zapytanie klienta wpisywane w Google lub zadawane asystentowi AI, zakończone '?' - SEO/GEO]</li>` oraz `<li>✔️ <b>Odpowiedź:</b> [bezpośrednia odpowiedź wskazująca produkt + merytoryczne rozwiązanie technologiczne]</li>`.
 3.  **Sekcja 3: `<h2>` ⚙️ Technical Benefits** — *Wiersz: Zdjęcie po lewej (50%) + Tekst po prawej (50%).* Lista `<ul>` z mechanizmami (np. System 2w1) i rolą składników INCI/aktywnych (nazwy pogrubione).
 4.  **Sekcja 4: `<h2>` 📝 Sposób użycia i rutyna** — *Wiersz: Tylko tekst lub Tekst + Zdjęcie.* Lista numerowana `<ol>`: dozowanie, obszar aplikacji, wmasowywanie, porady.
 5.  **Sekcja 5: `<h2>` 📊 Parametry Techniczne** — *Wiersz: Tekst po lewej (50%) + Zdjęcie po prawej (50%).* Lista `<ul>` z KPA: Marka, Linia, Nazwa, Pojemność, Typ skóry/domu, Certyfikaty, EAN, Kod producenta, Waga (wartości pogrubione).

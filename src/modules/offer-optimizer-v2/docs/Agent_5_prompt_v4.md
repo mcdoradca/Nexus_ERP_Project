@@ -45,10 +45,20 @@ S3 Greenwashing / czarny PR surowcowy: §F.
 S4 Chwalenie się prawem (cruelty-free bez certyfikatu): §F.
 S5 Ochrona ostrzeżeń GPSR/CLP: dyrektywa 3 powyżej.
 
-## GENERACJA AEO
-safe_aeo_questions (5–10 pytań long-tail z realnych danych wejściowych — opinie,
-INCI; zakaz wymyślania pytań bez pokrycia w danych) + safe_aeo_answers (1:1,
-max 300 znaków, E-E-A-T, zero marketingowej waty).
+## GENERACJA AEO (SEO / GEO FAQ)
+safe_aeo_questions (5–10 pytań) — naturalne zapytania, które konsumenci wpisują w Google lub
+zadają asystentom AI (ChatGPT, Claude, Perplexity) w kontekście kategorii i zastosowania produktu.
+Pełne zdania pytające zakończone '?', w języku klienta. Rotuj 3 intencje wyszukiwania:
+  (a) szukanie produktu: 'Jaki płyn do podłóg nie zostawia smug?'
+  (b) problem użytkownika: 'Co zrobić, gdy płyn do podłóg zostawia smugi?'
+  (c) poradnik how-to: 'Jak myć podłogę, żeby nie zostawały smugi?'
+Źródła tematów: kategoria i przeznaczenie produktu (PIM), realne potrzeby z opinii (A2), funkcje
+INCI (A4). Opinie wskazują PROBLEM klienta — przekuj go w zapytanie, NIE w skargę ani wadę.
+ZAKAZ: twierdzeń zamiast pytań, etykiety 'Problem', pytań o wady opakowania/produktu (wady
+trafiają wyłącznie do preserved_minor_flaws_for_pratfall), pytań bez pokrycia w danych.
+safe_aeo_answers (1:1 z pytaniami, ta sama kolejność, max 300 znaków, E-E-A-T): pierwsze zdanie
+odpowiada wprost i wskazuje produkt jako rozwiązanie; dalej mechanizm/fakt z danych wejściowych.
+Zero marketingowej waty, zero claimów spoza danych (skanery S1–S6 obowiązują także tutaj).
 
 ## WYJŚCIE
 JSON wg responseSchema: pipeline_id, sanitization_status (PASSED_CLEAN |

@@ -6,6 +6,11 @@ const inciRefService = require('../inci.reference.service.js');
 const { Orchestrator, PHASE_1_GROUNDING } = require('../orchestrator.js');
 const aiWrapper = require('../ai.wrapper.js');
 
+// Poprawna Sekcja 2 (FAQ SEO/GEO) — przechodzi bramkę aeo_faq_check (ADR-0131)
+const VALID_FAQ_S2 = '<h2>❓ Płyn do podłóg bez smug – najczęstsze pytania</h2><ul>' +
+    '<li>❓ <b>Pytanie:</b> Jaki płyn do podłóg nie zostawia smug?</li>' +
+    '<li>✔️ <b>Odpowiedź:</b> Płyn testowy nie zostawia smug dzięki <b>szybkiemu odparowaniu</b>.</li></ul>';
+
 test('Orchestrator - ZBIORCZY HITL na pustym eu_responsible_person po A1', async (t) => {
     const originalCall = aiWrapper.callAgentWithTelemetry;
     aiWrapper.callAgentWithTelemetry = async () => ({
@@ -120,7 +125,7 @@ test('Zadanie 36-DOK: normalizacja tagów z punktu 1 działa na poziomie A6', as
     const orgCall = aiWrapper.callAgentWithTelemetry;
     aiWrapper.callAgentWithTelemetry = async () => ({
         result: { 
-            section_1_html: '<p><b>Naglowek</b> i <i>tekst</i></p>', section_2_html: '2', 
+            section_1_html: '<p><b>Naglowek</b> i <i>tekst</i></p>', section_2_html: VALID_FAQ_S2, 
             section_3_html: '3', section_4_html: '4', section_5_html: '5', section_6_html: '6' 
         },
         usage: {}
@@ -167,7 +172,7 @@ test('Zadanie 36-DOK: A7 - zmiana sekcji zamrożonej daje FROZEN_SECTION_VIOLATI
 test('Zadanie 36-DOK: A10 - patch w sekcję zamrożoną jest odrzucany', async () => {
     const orch = new Orchestrator('8000137015436');
     orch.state.next_action = 'RUN_A10';
-    orch.state.a6_result = { section_3_html: 'BARDZO_STARA_TRESC', section_1_html: 'T1' };
+    orch.state.a6_result = { section_3_html: 'BARDZO_STARA_TRESC', section_1_html: 'T1', section_2_html: VALID_FAQ_S2 };
     orch.state.a7_result = orch.state.a6_result;
     
     const orgCall = aiWrapper.callAgentWithTelemetry;
@@ -192,7 +197,7 @@ test('Zadanie 36-DOK: A10 - patch w sekcję zamrożoną jest odrzucany', async (
 test('Zadanie 36-DOK: A10 - patch poza zamrożonymi nakłada się poprawnie', async () => {
     const orch = new Orchestrator('8000137015436');
     orch.state.next_action = 'RUN_A10';
-    orch.state.a6_result = { section_1_html: '<h2>A</h2><p>B</p>', section_3_html: 'FROZEN' };
+    orch.state.a6_result = { section_1_html: '<h2>A</h2><p>B</p>', section_2_html: VALID_FAQ_S2, section_3_html: 'FROZEN' };
     orch.state.a7_result = orch.state.a6_result;
     
     const orgCall = aiWrapper.callAgentWithTelemetry;
@@ -220,7 +225,7 @@ test('Zadanie 36-DOK: Normalizacja tagów działa na tag <i>', async () => {
     const orgCall = aiWrapper.callAgentWithTelemetry;
     aiWrapper.callAgentWithTelemetry = async () => ({
         result: { 
-            section_1_html: '<p><i>tekst</i></p>', section_2_html: '2', 
+            section_1_html: '<p><i>tekst</i></p>', section_2_html: VALID_FAQ_S2, 
             section_3_html: '3', section_4_html: '4', section_5_html: '5', section_6_html: '6' 
         },
         usage: {}
@@ -243,7 +248,7 @@ test('Zadanie 36-DOK: A7 weryfikacja nie zamraża innych sekcji', async () => {
     aiWrapper.callAgentWithTelemetry = async (args) => {
         return {
             result: { 
-                section_1_html: '1', section_2_html: '2_NEW', section_4_html: '4' 
+                section_1_html: '1', section_2_html: VALID_FAQ_S2, section_4_html: '4' 
             },
             usage: {}
         };
@@ -262,7 +267,7 @@ test('Zadanie 36-DOK: A7 weryfikacja nie zamraża innych sekcji', async () => {
 test('Zadanie 36-DOK: A10 ignoruje braki na dozwolonych patchach w schemacie tablicy', async () => {
     const orch = new Orchestrator('8000137015436');
     orch.state.next_action = 'RUN_A10';
-    orch.state.a7_result = { section_1_html: '<p>B</p>', section_3_html: 'FROZEN' };
+    orch.state.a7_result = { section_1_html: '<p>B</p>', section_2_html: VALID_FAQ_S2, section_3_html: 'FROZEN' };
     
     const orgCall = aiWrapper.callAgentWithTelemetry;
     aiWrapper.callAgentWithTelemetry = async () => ({
@@ -317,6 +322,81 @@ test('Zadanie 37: wywołanie writeBackToBaseLinker jest blokowane przez WRITE_BA
     assert.strictEqual(result, undefined);
 });
 
+test('ADR-0131: A6 - bramka FAQ normalizuje etykiety Problem/Rozwiązanie i przepuszcza poprawne pytania', async () => {
+    const orch = new Orchestrator('8000137015436');
+    orch.state.next_action = 'RUN_A6';
+    orch.state.a1_result = {}; orch.state.a2_result = {}; orch.state.a4_result = {}; orch.state.a5_result = {};
+    const orgCall = aiWrapper.callAgentWithTelemetry;
+    aiWrapper.callAgentWithTelemetry = async () => ({
+        result: {
+            section_1_html: '<p>S1</p>',
+            section_2_html: '<h2>❓ FAQ</h2><ul><li>❌ <b>Problem:</b> Jak myć podłogę, żeby nie zostawały smugi?</li><li>💡 <b>Rozwiązanie:</b> Użyj 30 ml na 5 l wody.</li></ul>',
+            section_3_html: '3', section_4_html: '4', section_5_html: '5', section_6_html: '6'
+        },
+        usage: {}
+    });
+
+    await orch.run(null);
+
+    assert.strictEqual(orch.state.node_status['A6'], 'OK');
+    assert.ok(orch.state.a6_result.section_2_html.includes('❓ <strong>Pytanie:</strong>'));
+    assert.ok(orch.state.a6_result.section_2_html.includes('✔️ <strong>Odpowiedź:</strong>'));
+    assert.ok(orch.state.normalization_warnings.includes('A6_AEO_FAQ_LABELS_NORMALIZED'));
+
+    aiWrapper.callAgentWithTelemetry = orgCall;
+});
+
+test('ADR-0131: A6 - twierdzenia-skargi zamiast pytań w Sekcji 2 zatrzymują potok (HITL)', async () => {
+    const orch = new Orchestrator('8000137015436');
+    orch.state.next_action = 'RUN_A6';
+    orch.state.a1_result = {}; orch.state.a2_result = {}; orch.state.a4_result = {}; orch.state.a5_result = {};
+    const orgCall = aiWrapper.callAgentWithTelemetry;
+    aiWrapper.callAgentWithTelemetry = async () => ({
+        result: {
+            section_1_html: '<p>S1</p>',
+            section_2_html: '<h2>❓ FAQ</h2><ul><li>❌ <b>Problem:</b> Inne mydła wysuszają skórę.</li><li>✔️ <b>Odpowiedź:</b> Gliceryna nawilża.</li></ul>',
+            section_3_html: '3', section_4_html: '4', section_5_html: '5', section_6_html: '6'
+        },
+        usage: {}
+    });
+
+    await orch.run(null);
+
+    assert.strictEqual(orch.state.node_status['A6'], 'HALTED_HITL_REQUIRED');
+    assert.ok(orch.state.hitl_alert.includes('A6_OUTPUT_REJECTED: aeo_faq_check'));
+    assert.strictEqual(orch.state.next_action, 'HALT');
+
+    aiWrapper.callAgentWithTelemetry = orgCall;
+});
+
+test('ADR-0131: A5 - pary safe_aeo_questions/answers nie są wycinane i są przycinane do 1:1', async () => {
+    const orch = new Orchestrator('8000137015436');
+    orch.state.next_action = 'RUN_A5';
+    const orgCall = aiWrapper.callAgentWithTelemetry;
+    aiWrapper.callAgentWithTelemetry = async ({ agentId }) => {
+        if (agentId === '5') {
+            return {
+                result: {
+                    sanitization_status: 'PASSED_CLEAN', mandatory_safety_warnings: ['P102 – Chronić przed dziećmi.'], preserved_minor_flaws_for_pratfall: [],
+                    safe_aeo_questions: ['Jaki płyn do podłóg nie zostawia smug?', 'Jak myć podłogę, żeby nie zostawały smugi?'],
+                    safe_aeo_answers: ['Płyn X nie zostawia smug.']
+                },
+                usage: {}
+            };
+        }
+        throw new Error('STOP_AFTER_A5');
+    };
+
+    await orch.run(null);
+
+    assert.deepStrictEqual(orch.state.a5_result.safe_aeo_questions, ['Jaki płyn do podłóg nie zostawia smug?']);
+    assert.deepStrictEqual(orch.state.a5_result.safe_aeo_answers, ['Płyn X nie zostawia smug.']);
+    assert.ok(orch.state.normalization_warnings.some(w => w.startsWith('A5_AEO_FAQ_LENGTH_MISMATCH')));
+    assert.ok(!orch.state.normalization_warnings.some(w => w.includes('A5_FIELD_REJECTED: safe_aeo')));
+
+    aiWrapper.callAgentWithTelemetry = orgCall;
+});
+
 test('GPSR Tarcza Defensywna: A6 rekonstruuje pełny adres podmiotu w Sekcji 6, gdy model podał tylko nazwę', async () => {
     const orch = new Orchestrator('8000137015436');
     orch.state.next_action = 'RUN_A6';
@@ -348,7 +428,7 @@ test('GPSR Tarcza Defensywna: A6 rekonstruuje pełny adres podmiotu w Sekcji 6, 
             return {
                 result: {
                     section_1_html: "<p>S1</p>",
-                    section_2_html: "<p>S2</p>",
+                    section_2_html: VALID_FAQ_S2,
                     section_3_html: "<p>S3</p>",
                     section_4_html: "<p>S4</p>",
                     section_5_html: "<p>S5</p>",
@@ -360,7 +440,7 @@ test('GPSR Tarcza Defensywna: A6 rekonstruuje pełny adres podmiotu w Sekcji 6, 
         return {
             result: {
                 section_1_html: "<p>S1</p>",
-                section_2_html: "<p>S2</p>",
+                section_2_html: VALID_FAQ_S2,
                 section_4_html: "<p>S4</p>"
             },
             usage: {}

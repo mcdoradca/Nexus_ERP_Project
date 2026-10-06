@@ -34,7 +34,7 @@ Każde oświadczenie tekstowe, graficzne, wizualne lub symboliczne dotyczące dz
 
 *   **Hiperbola marketingowa (Abstrakcja i Przesada):** Twierdzenia w sposób oczywisty przesadzone lub abstrakcyjne, których żaden rozsądny konsument nie bierze dosłownie (np. *„Dodaje skrzydeł"*, *„Królewski dotyk luksusu"*, *„Zapach, który przeniesie Cię do raju"*), są w pełni dozwolone i nie wymagają badań laboratoryjnych.
 *   **Skuteczne stężenie:** Można opisywać mechanizm działania konkretnego składnika aktywnego (np. *Luminescine®*, *Witamina C*), pod warunkiem, że znajduje się on w produkcie w stężeniu efektywnym (potwierdzonym przez producenta surowca) i nie przypisuje mu się cech leku.
-*   **Język Korzyści AEO (Problem & Answer):** Najskuteczniejszą formą oświadczeń jest mapowanie problemu konsumenta na rozwiązanie technologiczne poparte badaniami aplikacyjnymi (np. *„Problem: szara skóra → Answer: 95% testerek potwierdziło natychmiastowy efekt rozświetlenia po 7 dniach stosowania"*).
+*   **Język Korzyści AEO (Pytanie & Odpowiedź):** Najskuteczniejszą formą oświadczeń jest mapowanie pytań konsumenta (SEO/GEO) na merytoryczne odpowiedzi poparte badaniami aplikacyjnymi (np. *„Pytanie: Czy krem rozświetla szarą skórę? → Odpowiedź: 95% testerek potwierdziło natychmiastowy efekt rozświetlenia po 7 dniach stosowania"*).
 
 > ⚠️ **Uwaga o liczbach z bazy wiedzy (spójność z SOT 05/06/09):** Wartości typu „95% testerek", „redukcja o 20%", „6000x silniejszy antyoksydant" mogą wejść do opisu **tylko** jeśli mają pokrycie w badaniach aplikacyjnych/dokumentacji surowcowej danego produktu w PIM. Dane porównawcze o składnikach z SOT 05/06 to wiedza tła – NIE wolno ich przenosić 1:1 jako claimu o gotowym produkcie bez dowodu (kryterium 3 i 4).
 
