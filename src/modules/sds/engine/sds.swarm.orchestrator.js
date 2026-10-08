@@ -129,7 +129,7 @@ class SDSSwarmOrchestrator {
             sections['2']['2.2'] = sec22;
         }
 
-        // 2. Sekcja 3.2: Wzbogacenie ATE dla CAS 55965-84-9 (CMI/MIT)
+        // 2. Sekcja 3.2 i 11.1: Wzbogacenie ATE dla CAS 55965-84-9 (CMI/MIT)
         if (Array.isArray(sdsData.components)) {
             for (const comp of sdsData.components) {
                 if (comp.cas === '55965-84-9' && !/ATE/i.test(comp.clp || '')) {
@@ -141,36 +141,53 @@ class SDSSwarmOrchestrator {
             }
         }
 
-        // 3. Sekcja 8.1: NDS z oficjalnej bazy + klauzula DNEL/PNEC
+        if (sections['11'] && typeof sections['11'] === 'object') {
+            let s111 = sections['11']['11.1'] || '';
+            if (s111.includes('55965-84-9')) {
+                const clpData = await this.rag.lookupHarmonizedCLP('55965-84-9');
+                if (clpData.found && clpData.ate) {
+                    s111 = s111
+                        .replace(/ATE\s*\([^\)]*pokarmow[^\)]*\)\s*=\s*[^;\n]+/i, `ATE (droga pokarmowa) = ${clpData.ate.oral}`)
+                        .replace(/ATE\s*\([^\)]*skór[^\)]*\)\s*=\s*[^;\n]+/i, `ATE (na skórę) = ${clpData.ate.dermal}`)
+                        .replace(/ATE\s*\([^\)]*inhalac[^\)]*\)\s*=\s*[^;\n]+/i, `ATE (inhalacyjnie, pyły/mgły) = ${clpData.ate.inhalation_mists}`);
+                    sections['11']['11.1'] = s111;
+                }
+            }
+        }
+
+        // 3. Sekcja 8.1: NDS z oficjalnej bazy + zachowanie wyekstrahowanych DNEL/PNEC
         if (sections['8'] && typeof sections['8'] === 'object') {
-            const foundLimits = [];
-            if (Array.isArray(sdsData.components)) {
-                for (const comp of sdsData.components) {
-                    if (comp.cas && comp.cas !== '-' && comp.cas !== 'Brak') {
-                        const nds = await this.rag.lookupPolishNDS(comp.cas);
-                        if (nds.found && nds.NDS !== 'brak') {
-                            let entry = `${comp.namePl || comp.nameEn || nds.substance} [CAS: ${comp.cas}]:\n- NDS: ${nds.NDS}`;
-                            if (nds.NDSCh && nds.NDSCh !== 'brak' && nds.NDSCh !== '-') entry += `\n- NDSCh: ${nds.NDSCh}`;
-                            if (nds.NDSP && nds.NDSP !== 'brak' && nds.NDSP !== '-') entry += `\n- NDSP: ${nds.NDSP}`;
-                            if (nds.uwagi && nds.uwagi !== 'brak' && nds.uwagi !== '-') entry += `\n- Uwagi: ${nds.uwagi}`;
-                            foundLimits.push(entry);
+            const existing81 = sections['8']['8.1'] || '';
+            if (!existing81.includes('Dz.U. 2024 poz. 1017')) {
+                const foundLimits = [];
+                if (Array.isArray(sdsData.components)) {
+                    for (const comp of sdsData.components) {
+                        if (comp.cas && comp.cas !== '-' && comp.cas !== 'Brak') {
+                            const nds = await this.rag.lookupPolishNDS(comp.cas);
+                            if (nds.found && nds.NDS !== 'brak') {
+                                let entry = `${comp.namePl || comp.nameEn || nds.substance} [CAS: ${comp.cas}]:\n- NDS: ${nds.NDS}`;
+                                if (nds.NDSCh && nds.NDSCh !== 'brak' && nds.NDSCh !== '-') entry += `\n- NDSCh: ${nds.NDSCh}`;
+                                if (nds.NDSP && nds.NDSP !== 'brak' && nds.NDSP !== '-') entry += `\n- NDSP: ${nds.NDSP}`;
+                                if (nds.uwagi && nds.uwagi !== 'brak' && nds.uwagi !== '-') entry += `\n- Uwagi: ${nds.uwagi}`;
+                                foundLimits.push(entry);
+                            }
                         }
                     }
                 }
-            }
 
-            let sec81Text = "";
-            if (foundLimits.length > 0) {
-                sec81Text = "Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy (Polska – Dz.U. 2018 poz. 1286 z późn. zm., w tym Dz.U. 2024 poz. 1017):\n" + foundLimits.join('\n\n') + "\n\n";
+                let sec81Text = "";
+                if (foundLimits.length > 0) {
+                    sec81Text = "Krajowe wartości najwyższych dopuszczalnych stężeń w środowisku pracy (Polska – Dz.U. 2018 poz. 1286 z późn. zm., w tym Dz.U. 2024 poz. 1017):\n" + foundLimits.join('\n\n') + "\n\n";
+                }
+                if (existing81) {
+                    sec81Text += existing81 + "\n\n";
+                }
+                const hasDnelPnec = /DNEL|PNEC|Pochodny poziom|Przewidywane stężenie/i.test(existing81);
+                if (!hasDnelPnec) {
+                    sec81Text += "Wartości DNEL (Pochodny poziom niepowodujący zmian) i PNEC (Przewidywane stężenie niepowodujące zmian w środowisku):\nDla mieszaniny oraz substancji składowych nie oznaczono wartości DNEL oraz PNEC.";
+                }
+                sections['8']['8.1'] = sec81Text.trim();
             }
-            const existing81 = sections['8']['8.1'] || '';
-            if (existing81 && !existing81.includes('Dz.U. 2024 poz. 1017')) {
-                sec81Text += existing81 + "\n\n";
-            }
-            if (!sec81Text.includes('Wartości DNEL') && !sec81Text.includes('nie oznaczono wartości DNEL')) {
-                sec81Text += "Wartości DNEL (Pochodny poziom niepowodujący zmian) i PNEC (Przewidywane stężenie niepowodujące zmian w środowisku):\nDla mieszaniny oraz substancji składowych nie oznaczono wartości DNEL oraz PNEC.";
-            }
-            sections['8']['8.1'] = sec81Text.trim();
         }
 
         // 4. Sekcja 7: Usunięcie niemieckich TRGS 510/WGK, meta-instrukcji RAG oraz wdrożenie zakazu stosowania sprężonego powietrza (Załącznik II REACH pkt 7.1)
@@ -201,8 +218,11 @@ class SDSSwarmOrchestrator {
 
         // 5. Sekcja 13: Kody odpadów (Dz.U. 2020 poz. 10)
         if (sections['13'] && typeof sections['13'] === 'object') {
-            const wasteInfo = await this.rag.lookupWasteCode(sdsData.metadata?.productName || '', hasHazards);
-            sections['13']['13.1'] = `Metody unieszkodliwiania odpadów:
+            const current13 = sections['13']['13.1'] || '';
+            const hasExistingCodes = /\b\d{2}\s*\d{2}\s*\d{2}/.test(current13);
+            if (!hasExistingCodes || current13.length < 50) {
+                const wasteInfo = await this.rag.lookupWasteCode(sdsData.metadata?.productName || '', hasHazards);
+                sections['13']['13.1'] = `Metody unieszkodliwiania odpadów:
 Odzyskać lub poddać recyklingowi, jeśli to możliwe. Nie wprowadzać do kanalizacji, wód powierzchniowych ani gruntowych. Likwidację pozostałości produktu oraz opakowań powierzać wyłącznie uprawnionym podmiotom posiadającym stosowne decyzje odpadowe (wpis do rejestru BDO).
 
 Klasyfikacja i proponowane kody odpadów (Rozporządzenie Ministra Klimatu z dnia 2 stycznia 2020 r. w sprawie katalogu odpadów, Dz.U. 2020 poz. 10):
@@ -214,6 +234,12 @@ Krajowe akty prawne:
 - Ustawa z dnia 14 grudnia 2012 r. o odpadach (t.j. Dz.U. 2023 poz. 1587 z późn. zm.).
 - Rozporządzenie Ministra Klimatu z dnia 2 stycznia 2020 r. w sprawie katalogu odpadów (Dz.U. 2020 poz. 10).
 - Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadami opakowaniowymi (t.j. Dz.U. 2023 poz. 1658 z późn. zm.).`;
+            } else if (!current13.includes('Dz.U. 2020 poz. 10')) {
+                sections['13']['13.1'] = current13 + `\n\nKrajowe akty prawne:
+- Ustawa z dnia 14 grudnia 2012 r. o odpadach (t.j. Dz.U. 2023 poz. 1587 z późn. zm.).
+- Rozporządzenie Ministra Klimatu z dnia 2 stycznia 2020 r. w sprawie katalogu odpadów (Dz.U. 2020 poz. 10).
+- Ustawa z dnia 13 czerwca 2013 r. o gospodarce opakowaniami i odpadami opakowaniowymi (t.j. Dz.U. 2023 poz. 1658 z późn. zm.).`;
+            }
         }
 
         // 6. Sekcja 15.1: Czysty wykaz aktów prawnych (brak WGK, TRGS, Ograniczenia 75, obowiązkowe Rozporządzenie UE 2019/1148)

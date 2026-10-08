@@ -1040,7 +1040,8 @@ Dodatkowe wskazówki: Schładzać zagrożone pojemniki rozpylonym strumieniem wo
     }));
     
     let text81 = secData["8.1"] || "";
-    if (!text81.includes("Wartości DNEL") && !text81.includes("PNEC")) {
+    const hasDnelPnec = /DNEL|PNEC|Pochodny poziom|Przewidywane stężenie/i.test(text81);
+    if (!hasDnelPnec) {
       text81 += (text81 ? "\n\n" : "") + "Wartości DNEL (Pochodny poziom niepowodujący zmian) i PNEC (Przewidywane stężenie niepowodujące zmian w środowisku):\nDla mieszaniny oraz substancji składowych nie oznaczono wartości DNEL oraz PNEC.";
     }
     this.renderFormattedParagraphs(docChildren, text81, "8.1");
@@ -1252,13 +1253,18 @@ Dodatkowe wskazówki: Schładzać zagrożone pojemniki rozpylonym strumieniem wo
     }));
 
     let wasteText = secData["13.1"] || "";
-    if (!wasteText.includes("20 01 30") || !wasteText.includes("15 01 10*")) {
+    const hasWasteCodes = /\b\d{2}\s*\d{2}\s*\d{2}/.test(wasteText);
+    if (!wasteText || wasteText.length < 50 || !hasWasteCodes) {
+      const isHaz = Boolean(
+        (sdsData.classification?.hazardClasses && sdsData.classification.hazardClasses.length > 0) ||
+        (sdsData.classification?.hPhrases && sdsData.classification.hPhrases.length > 0)
+      );
       wasteText = `Metody unieszkodliwiania odpadów:
 Odzyskać, jeśli to możliwe. Nie wprowadzać do kanalizacji, wód powierzchniowych ani gruntowych. Likwidację pozostałości produktu oraz opakowań powierzać wyłącznie uprawnionym podmiotom posiadającym stosowne decyzje odpadowe (BDO).
 
 Klasyfikacja i proponowane kody odpadów (Rozporządzenie Ministra Klimatu z dnia 2 stycznia 2020 r. w sprawie katalogu odpadów, Dz.U. 2020 poz. 10):
-- Odpady z produktu (gospodarstwa domowe / konsumenci): 20 01 30 (Detergenty inne niż wymienione w 20 01 29).
-- Odpady z produktu (sektor przemysłowy / czyszczenie instalacji): 16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05) lub 07 06 99 (Inne niewymienione odpady).
+- Odpady z produktu (gospodarstwa domowe / konsumenci): ${isHaz ? '20 01 29* (Detergenty zawierające substancje niebezpieczne)' : '20 01 30 (Detergenty inne niż wymienione w 20 01 29)'}.
+- Odpady z produktu (sektor przemysłowy / czyszczenie instalacji): ${isHaz ? '16 03 05* (Organiczne odpady zawierające substancje niebezpieczne) lub 07 06 04*' : '16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05) lub 07 06 99 (Inne niewymienione odpady)'}.
 - Odpady opakowaniowe (oczyszczone, selektywna zbiórka tworzyw): 15 01 02 (Opakowania z tworzyw sztucznych).
 - Odpady opakowaniowe (zanieczyszczone pozostałościami niebezpiecznymi): 15 01 10* (Opakowania zawierające pozostałości substancji niebezpiecznych lub nimi skażone).
 

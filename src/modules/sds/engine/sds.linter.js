@@ -73,29 +73,32 @@ class SDSLinter {
     // ------------------------------------------------------------------------
     const isLiquid = /ciecz|liquid|płyn|liquido/i.test(s9) || /ciecz|płyn/i.test(s2);
     if (isLiquid) {
-      // Lepkość cieczy nie może być "nie dotyczy"
+      // Lepkość cieczy nie może być "nie dotyczy" (chyba że podano liczbową wartość lepkości dynamicznej/kinematycznej)
       const viscosityMatch = s9.match(/Lepkość(?:\s+kinematyczna|\s+dynamiczna)?\s*[:\.]?\s*([^\n\r]+)/i);
       if (viscosityMatch) {
         const val = viscosityMatch[1].trim();
-        if (/nie\s+dotyczy/i.test(val)) {
+        const hasNumericViscosity = /\d+[\.,]?\d*\s*(?:mPa|mm|cSt|cP|Pa)/i.test(val);
+        if (!hasNumericViscosity && /nie\s+dotyczy/i.test(val)) {
           errors.push("[Sekcja 9.1] BŁĄD PRAWNY: Lepkość dla produktu płynnego została oznaczona jako 'Nie dotyczy'. Płyn fizycznie zawsze posiada lepkość (wymagane: wartość liczbowa, 'Brak danych' lub 'Nie oznaczono').");
         }
       }
 
       // Gęstość cieczy nie może być "nie dotyczy"
-      const densityMatch = s9.match(/Gęstość(?:\s+lub\s+gęstość\s+względna)?\s*[:\.]?\s*([^\n\r]+)/i);
+      const densityMatch = s9.match(/(?:^|\n)[ \t]*(?:[a-z]\)\s*)?Gęstość(?:\s+lub\s+gęstość\s+względna)?\s*[:\.]?\s*([^\n\r]+)/i);
       if (densityMatch) {
         const val = densityMatch[1].trim();
-        if (/nie\s+dotyczy/i.test(val)) {
+        const hasNumericDensity = /\d+[\.,]?\d*/.test(val);
+        if (!hasNumericDensity && /nie\s+dotyczy/i.test(val)) {
           errors.push("[Sekcja 9.1] BŁĄD PRAWNY: Gęstość dla produktu płynnego została oznaczona jako 'Nie dotyczy'. Płyn fizycznie zawsze posiada gęstość.");
         }
       }
 
       // Temperatura topnienia/krzepnięcia cieczy nie może być "nie dotyczy"
-      const meltingMatch = s9.match(/Temperatura\s+topnienia(?:\/krzepnięcia)?\s*[:\.]?\s*([^\n\r]+)/i);
+      const meltingMatch = s9.match(/(?:^|\n)[ \t]*(?:[a-z]\)\s*)?Temperatura\s+topnienia(?:\/[^\s:]+)?\s*[:\.]?\s*([^\n\r]+)/i);
       if (meltingMatch) {
         const val = meltingMatch[1].trim();
-        if (/nie\s+dotyczy/i.test(val)) {
+        const hasNumericTemp = /-?\d+[\.,]?\d*/.test(val);
+        if (!hasNumericTemp && /nie\s+dotyczy/i.test(val)) {
           errors.push("[Sekcja 9.1] BŁĄD PRAWNY: Temperatura topnienia/krzepnięcia dla produktu płynnego została oznaczona jako 'Nie dotyczy'. Ciecz fizycznie zawsze posiada temperaturę krzepnięcia (wymagane: 'Brak danych' lub 'Nie oznaczono').");
         }
       }
