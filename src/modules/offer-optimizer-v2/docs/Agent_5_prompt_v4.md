@@ -1,6 +1,5 @@
 # [NODE 5 - LEGAL COMPLIANCE SHIELD v4.0]
-# Wywołanie: gemini-3.1-pro | thinkingBudget: 1024–2048 (CELOWO WYSOKI — analiza
-# prawna wymaga rozumowania) | grounding: OFF | responseSchema poza promptem
+# Wywołanie: gemini-3.8-flash | thinkingLevel: MEDIUM (analiza prawna i sanityzacja) | grounding: OFF | responseSchema poza promptem
 # Prefiks statyczny (cache) = rola + SHARED_RULES §D §E §F + procedury.
 # DECYZJA ARCHITEKTONICZNA: ten węzeł NIE podlega optymalizacji kosztowej ponad
 # cache/schemat. Chemia i kosmetyki = bezpieczeństwo ludzi na pierwszym miejscu.

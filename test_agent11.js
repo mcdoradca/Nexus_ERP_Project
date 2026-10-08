@@ -10,8 +10,7 @@ async function runTest() {
             model: 'gemini-3.8-flash',
             contents: 'Test',
             config: {
-                thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM },
-                temperature: 0.8
+                thinkingConfig: { thinkingLevel: ThinkingLevel.MEDIUM }
             }
         });
         console.log("SUKCES!", response.text.substring(0, 50));

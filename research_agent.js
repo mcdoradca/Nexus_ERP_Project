@@ -41,8 +41,8 @@ async function runResearchAgent() {
                 }],
                 tools: [{ googleSearch: {} }],
                 generationConfig: {
-                    temperature: 0.2,
-                    maxOutputTokens: 8192
+                    maxOutputTokens: 8192,
+                    thinkingConfig: { thinkingLevel: "low" }
                 }
             })
         });
@@ -83,7 +83,7 @@ async function fallbackTo25() {
             body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
                 tools: [{ googleSearch: {} }],
-                generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
+                generationConfig: { maxOutputTokens: 8192, thinkingConfig: { thinkingLevel: "low" } }
             })
         });
         const data = await response.json();

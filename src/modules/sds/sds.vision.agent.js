@@ -258,7 +258,9 @@ Zwróć WYŁĄCZNIE czysty obiekt JSON bez znaczników markdown.`;
       }],
       generationConfig: {
         responseMimeType: "application/json",
-        temperature: 0.0
+        thinkingConfig: {
+          thinkingLevel: "MINIMAL"
+        }
       }
     };
 

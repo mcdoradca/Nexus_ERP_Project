@@ -28,7 +28,7 @@ async function runResearchAgent() {
             body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
                 tools: [{ googleSearch: {} }],
-                generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }
+                generationConfig: { maxOutputTokens: 8192, thinkingConfig: { thinkingLevel: "low" } }
             })
         });
 

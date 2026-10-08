@@ -227,7 +227,7 @@ async function generateWithRetry(model, promptOrParts, maxRetries = 2, agentId =
             else if (isThinkingConfigError) failureReason = 'CONFIG_ERROR';
 
             if (isThinkingConfigError) {
-                broadcastLog(`UWAGA: Model odrzuciĹ‚ parametr thinkingBudget: 0. Fallback (usuniÄ™cie parametru).`);
+                broadcastLog(`UWAGA: Model odrzucił konfigurację myślenia. Fallback (usunięcie parametru).`);
                 if (model.generationConfig && model.generationConfig.thinkingConfig) {
                     delete model.generationConfig.thinkingConfig;
                 }
@@ -384,7 +384,7 @@ async function gatherProductIntelligence(ean, productName, existingDataFromPim =
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview-customtools",
             tools: [{ googleSearch: {} }],
-            generationConfig: { temperature: 0.1 }
+            generationConfig: { thinkingConfig: { thinkingLevel: "low" } }
         });
         
         const prompt = `JesteĹ› ekspertem ds. baz danych kosmetycznych i badaczem e-commerce.
@@ -429,7 +429,7 @@ async function gatherCustomerSentiment(ean, productName, existingSentimentFromPi
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
             tools: [{ googleSearch: {} }],
-            generationConfig: { temperature: 0.2 }
+            generationConfig: { thinkingConfig: { thinkingLevel: "low" } }
         });
 
         const prompt = `JesteĹ› analitykiem opinii konsumenckich i sentimentu e-commerce.
@@ -465,7 +465,7 @@ async function generateComplianceReport(productName, aeoContent, originalDescrip
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
-            generationConfig: { temperature: 0.0 } // 0.0 rygorystycznie - brak miejsca na halucynacje prawne
+            generationConfig: { thinkingConfig: { thinkingLevel: "high" } } // high rygorystycznie - brak miejsca na halucynacje prawne
         });
         
         const parts = [
@@ -518,9 +518,9 @@ async function generateNativeAnalysis(textContent, nativeImagesUrls = [], analys
 
     promptText += `\n\n--- PEĹNE DANE POBRANE Z API ALLEGRO ---\n${textContent}\n--- KONIEC DANYCH ---`;
 
-    // Przymusowa rygorystyczna temperatura 0.0 dla audytĂłw prawnych, blokujÄ…ca halucynacje.
+    // Rygorystyczny poziom myślenia dla audytów prawnych blokujący halucynacje
     const generationConfig = {
-        temperature: isCosmeticAudit ? 0.0 : 0.6,
+        thinkingConfig: { thinkingLevel: isCosmeticAudit ? "high" : "medium" },
         responseMimeType: "application/json",
         maxOutputTokens: 8192,
         responseSchema: {
@@ -653,7 +653,7 @@ async function generateOfferJSON(baseTitle, attributesArray) {
         systemInstruction: GEO_SYSTEM_PROMPT,
         // Wymuszenie formatu JSON z gwarancjÄ… niezgadywania markdowna
         generationConfig: {
-            temperature: 0.1, // Niska temperatura by wynik byĹ‚ techniczny i deterministyczny
+            thinkingConfig: { thinkingLevel: "low" },
             responseMimeType: "application/json",
         }
     });
@@ -692,7 +692,7 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
          tools: [{ googleSearch: {} }],
          systemInstruction: VISION_AUDIT_PROMPT,
          generationConfig: {
-            temperature: 0.2, // Audyt graficzny pozwala na ciutkÄ™ analizy kontekstowej CRO 
+            thinkingConfig: { thinkingLevel: "low" },
             responseMimeType: "application/json",
          }
     });
@@ -773,7 +773,7 @@ async function generateTitleOnly(textContent, currentTitle) {
         model: "gemini-3.8-flash",
         tools: [{ googleSearch: {} }],
         generationConfig: {
-            temperature: 0.8, // TrochÄ™ wiÄ™ksza kreatywnoĹ›Ä‡ dla wariacji tytuĹ‚Ăłw
+            thinkingConfig: { thinkingLevel: "medium" },
             responseMimeType: "application/json",
             responseSchema: {
                 type: "OBJECT",
@@ -962,7 +962,7 @@ async function autofillMissingParameters(ean, productName, currentFeatures, requ
     const model = genAI.getGenerativeModel({
         model: "gemini-3.1-pro-preview",
         tools: [{ googleSearch: {} }],
-        generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+        generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }
     });
     
     // Zabezpieczenie przed przepalaniem tokenĂłw: mapujemy tylko brakujÄ…ce/wymagane parametry
@@ -1020,7 +1020,7 @@ async function generateAEOContent(productName, originalDescription, intelligence
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
             systemInstruction: require('./ai.prompts').AEO_AGENT_PROMPT,
-            generationConfig: { temperature: 0.4 } 
+            generationConfig: { thinkingConfig: { thinkingLevel: "medium" } } 
         });
         const prompt = `Produkt: ${productName}\nOpis ĹşrĂłdĹ‚owy: ${originalDescription || 'Brak'}\nDane z wywiadu (INCI/Parametry): ${intelligenceData || 'Brak'}\nStwĂłrz zwartÄ… strukturÄ™ AEO.`;
         const result = await generateWithRetry(model, prompt, 2, "Agent_AEO");
@@ -1038,7 +1038,7 @@ async function generateGEOTextContent(productName, aeoContent, intelligenceData,
             model: "gemini-3.1-pro-preview",
             systemInstruction: require('./ai.prompts').GEO_TEXT_AGENT_PROMPT,
             generationConfig: { 
-                temperature: 0.6, 
+                thinkingConfig: { thinkingLevel: "medium" }, 
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: "OBJECT",
@@ -1098,7 +1098,7 @@ async function adaptToSegmentAndTone(productName, htmlContent, features, categor
             model: "gemini-3.8-flash",
             systemInstruction: require('./ai.prompts').SEGMENT_TONE_AGENT_PROMPT,
             generationConfig: { 
-                temperature: 0.5, 
+                thinkingConfig: { thinkingLevel: "medium" }, 
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: "OBJECT",
@@ -1158,8 +1158,6 @@ async function runNode1_Autofill(ean, productName, productFeatures = {}, allegro
             model: "gemini-3.8-flash",
             tools: [{ googleSearch: {} }],
             generationConfig: { 
-                temperature: 0.0, 
-                topP: 0.1, 
                 maxOutputTokens: 8192,
                 responseMimeType: "application/json",
                 thinkingConfig: { thinkingLevel: "minimal" } 
@@ -1205,7 +1203,7 @@ async function runNode2_Sentiment(ean, productName) {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.8-flash",
             tools: [{ googleSearch: {} }],
-            generationConfig: { temperature: 0.1, topP: 0.2, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "minimal" } }
+            generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "minimal" } }
         });
         const systemPrompt = getMasterPrompt(2);
         const prompt = `${systemPrompt}\n\n--- DANE WEJĹšCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}`;
@@ -1223,8 +1221,6 @@ async function runNode4_INCIParser(inciString, ragKnowledge, pimPayload) {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.8-flash",
             generationConfig: { 
-                temperature: 0.0, 
-                topP: 0.1, 
                 maxOutputTokens: 8192,
                 responseMimeType: "application/json",
                 thinkingConfig: { thinkingLevel: "minimal" },
@@ -1259,7 +1255,7 @@ async function runNode5_LegalSanitizer(productName, generatedContent, rawSentime
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
-            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "high" } }
+            generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "high" } }
         });
         const systemPrompt = getMasterPrompt(5);
         const prompt = `${systemPrompt}\n\n--- DANE WEJĹšCIOWE ---\nPRODUKT: ${productName}\nKONTENT DO ANALIZY: ${JSON.stringify(generatedContent)}\nSUROWY SENTIMENT: ${JSON.stringify(rawSentiment)}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
@@ -1279,7 +1275,7 @@ async function runNode6_Copywriter(productName, aeoFeatures, legalData, toneGuid
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.8-flash",
-            generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json", maxOutputTokens: 8192, thinkingConfig: { thinkingLevel: "low" } }
+            generationConfig: { responseMimeType: "application/json", maxOutputTokens: 8192, thinkingConfig: { thinkingLevel: "medium" } }
         });
         const systemPrompt = getMasterPrompt(6);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nCECHY AEO: ${JSON.stringify(aeoFeatures)}\nDANE PRAWNE I GEO: ${JSON.stringify(legalData)}\nWYTYCZNE TONU: ${JSON.stringify(toneGuidelines)}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;
@@ -1295,7 +1291,7 @@ async function runNode7_Psychology(productName, htmlDraft, sentimentData, ragKno
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.8-flash",
-            generationConfig: { temperature: 0.3, topP: 0.4, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }
+            generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "medium" } }
         });
         const systemPrompt = getMasterPrompt(7);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nPRODUKT: ${productName}\nSZKIC HTML: ${JSON.stringify(htmlDraft)}\nSENTIMENT: ${JSON.stringify(sentimentData)}\n\n--- SOT KNOWLEDGE & ORCHESTRATOR INSTRUCTIONS ---\n${ragKnowledge}`;
@@ -1312,7 +1308,7 @@ async function runNode8_Scenographer(productName, autofillData, category, knownK
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
             tools: [{ googleSearch: {} }],
-            generationConfig: { temperature: 0.2, topP: 0.5, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }
+            generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }
         });
         const systemPrompt = getMasterPrompt(8);
         
@@ -1381,7 +1377,7 @@ async function runNode9_VisionAuditor(imageUrls) {
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.8-flash", // Szybki i tani model Vision
-            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "minimal" } }
+            generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "minimal" } }
         });
         const systemPrompt = getMasterPrompt(9);
         
@@ -1413,7 +1409,7 @@ async function runNode10_Sentinel(finalPayload, originalPimData, ragKnowledge = 
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.1-pro-preview",
-            generationConfig: { temperature: 0.0, topP: 0.1, responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }
+            generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "high" } }
         });
         const systemPrompt = getMasterPrompt(10);
         const prompt = `${systemPrompt}\n\n--- DANE WEJŚCIOWE ---\nGOTOWA OFERTA: ${JSON.stringify(finalPayload)}\nSUROWE DANE PIM: ${JSON.stringify(originalPimData)}\n\n--- SOT KNOWLEDGE ---\n${ragKnowledge}`;

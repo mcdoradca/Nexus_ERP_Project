@@ -90,7 +90,9 @@ async function processSdsWithAgent(pdfPath, productName, manualOverrides = {}) {
             systemInstruction: SYSTEM_PROMPT,
             generationConfig: { 
                 responseMimeType: "application/json",
-                temperature: 0.0
+                thinkingConfig: {
+                    thinkingLevel: "LOW"
+                }
             }
         });
 

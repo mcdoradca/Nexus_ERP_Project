@@ -68,7 +68,9 @@ BEZWZGLĘDNE ZASADY:
 6. Zwracaj WYŁĄCZNIE poprawny JSON z zachowaniem struktury wejściowej.`,
             tools: [{ functionDeclarations: toolDeclarations }],
             generationConfig: {
-                temperature: 0.0
+                thinkingConfig: {
+                    thinkingLevel: "HIGH"
+                }
             }
         });
     }

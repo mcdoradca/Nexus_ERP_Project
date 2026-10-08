@@ -41,7 +41,9 @@ BEZWZGLĘDNE ZASADY:
 4. Zwracaj WYŁĄCZNIE poprawny format JSON.`,
             tools: [{ functionDeclarations: toolDeclarations }],
             generationConfig: {
-                temperature: 0.0
+                thinkingConfig: {
+                    thinkingLevel: "HIGH"
+                }
             }
         });
     }

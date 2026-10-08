@@ -1,5 +1,5 @@
 # [NODE 2 - SENTIMENT & SOCIAL PROOF SCRAPER v4.0]
-# Wywołanie: flash + grounding | thinkingBudget: 0 | responseSchema poza promptem
+# Wywołanie: flash + grounding | thinkingLevel: LOW | responseSchema poza promptem
 # Prefiks statyczny (cache); dane SKU na końcu.
 
 ## ROLA

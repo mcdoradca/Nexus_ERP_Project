@@ -111,7 +111,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
         throw new Error("BŁĄD BLOKUJĄCY (S-7): Wywołanie LLM bez jawnego agentId.");
     }
     
-    const { model, thinkingLevel, grounding, temperature, maxOutputTokens } = getNodeConfig(agentId);
+    const { model, thinkingLevel, grounding, maxOutputTokens } = getNodeConfig(agentId);
     if (!process.env.GEMINI_API_KEY) {
         throw new Error("HITL: Brak klucza API (GEMINI_API_KEY) w środowisku.");
     }
@@ -122,9 +122,6 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
         baseConfig.thinkingConfig = {
             thinkingLevel: thinkingLevel
         };
-    }
-    if (temperature !== undefined) {
-        baseConfig.temperature = temperature;
     }
     if (maxOutputTokens !== undefined) {
         baseConfig.maxOutputTokens = maxOutputTokens;
@@ -235,10 +232,10 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
             const structureConfig = { ...baseConfig };
             structureConfig.responseMimeType = "application/json";
             structureConfig.responseSchema = schema;
-            // Krok 2 nie wymaga głębokiego myślenia — to czysta ekstrakcja danych
-            delete structureConfig.thinkingConfig;
-            // Krok 2 wymaga niskiej temperature (determinizm ekstrakcji)
-            structureConfig.temperature = 0;
+            // Krok 2 to czysta ekstrakcja danych — minimalny poziom myślenia (brak overthinking)
+            structureConfig.thinkingConfig = {
+                thinkingLevel: ThinkingLevel.MINIMAL
+            };
             // Usuwamy maxOutputTokens z Kroku 2 — pozwalamy mu swobodnie generować JSON
             delete structureConfig.maxOutputTokens;
 

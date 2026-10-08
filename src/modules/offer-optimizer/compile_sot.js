@@ -20,7 +20,7 @@ async function extractSOT(filePath, docType) {
     try {
         const model = genAI.getGenerativeModel({ 
             model: "gemini-3.1-pro-preview",
-            generationConfig: { temperature: 0.1 }
+            generationConfig: { thinkingConfig: { thinkingLevel: "low" } }
         });
         
         const pdfData = fs.readFileSync(filePath);

@@ -72,7 +72,9 @@ async function investigateAnomaliesAgent(anomalies) {
         systemInstruction: SYSTEM_PROMPT,
         generationConfig: { 
             responseMimeType: "application/json",
-            temperature: 0.0 // ZERO halucynacji
+            thinkingConfig: {
+                thinkingLevel: "MEDIUM"
+            }
         }
     });
 

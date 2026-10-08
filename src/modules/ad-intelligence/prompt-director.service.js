@@ -1,4 +1,4 @@
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenAI, ThinkingLevel } = require('@google/genai');
 
 let _aiInstance = null;
 function getAi() {
@@ -106,7 +106,9 @@ Zwróć odpowiedź w formacie JSON:
                 model: 'gemini-3.8-flash',
                 contents: creativePrompt,
                 config: {
-                    temperature: 0.3
+                    thinkingConfig: {
+                        thinkingLevel: ThinkingLevel.MEDIUM
+                    }
                 }
             });
 
@@ -179,7 +181,9 @@ Zwróć WYŁĄCZNIE poprawny JSON:
                 model: 'gemini-3.8-flash',
                 contents: architectPrompt,
                 config: {
-                    temperature: 0.2
+                    thinkingConfig: {
+                        thinkingLevel: ThinkingLevel.LOW
+                    }
                 }
             });
 

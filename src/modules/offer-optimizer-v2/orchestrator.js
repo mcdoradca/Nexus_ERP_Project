@@ -1190,7 +1190,7 @@ class Orchestrator {
 
             try {
                 const { result, usage } = await aiWrapper.callAgentWithTelemetry({
-                    agentId: "5", prompt: prompt5, schema: a5Schema, temperature: 0
+                    agentId: "5", prompt: prompt5, schema: a5Schema
                 });
                 
                 const warnings = [];
@@ -1553,7 +1553,7 @@ class Orchestrator {
 
             try {
                 const { result, usage } = await aiWrapper.callAgentWithTelemetry({
-                    agentId: "10", prompt: prompt10, schema: a10Schema, temperature: 0
+                    agentId: "10", prompt: prompt10, schema: a10Schema
                 });
                 
                 const warnings = [];

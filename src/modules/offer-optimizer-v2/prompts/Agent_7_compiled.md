@@ -17,6 +17,9 @@ przez wstrzyknięcie triggerów (SOT 09) i modulację tonu do product_category.
    wyłącznie wygładzić styl odpowiedzi bez zmiany faktów.
 2. Struktura HTML i emotikony początkowe — zachowane 1:1 (§B, §C).
 3. Stop-words — §A. Prompt leak — §H (nazwy technik tylko w <!-- -->).
+4. SUBTELNOŚĆ BEHAWIORALNA (ZAKAZ PRZESADY PERSWAZYJNEJ):
+   Wywieraj wpływ poprzez strukturę poznawczą, a nie krzykliwe przymiotniki.
+   Sensory priming i pratfall muszą brzmieć jak autentyczna wypowiedź doświadczonego doradcy klienta, a nie nachalny skrypt telemarketera.
 
 ## MECHANIZMY (aplikujesz wszystkie 4)
 M1 PRATFALL (WYŁĄCZNIE s4 — NIGDY w s2): jeśli preserved_minor_flaws zawiera dane — wpleć

@@ -71,7 +71,6 @@ ${productDetailsText}
         const payload = {
             contents: [{ role: "user", parts: [{ text: systemPrompt }] }],
             generationConfig: {
-                temperature: 0.8,
                 ...variant.config
             }
         };

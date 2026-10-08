@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenAI, ThinkingLevel } = require('@google/genai');
 const promptDirectorService = require('./prompt-director.service');
 const creativeWarRoomService = require('./creative-war-room.service');
 
@@ -202,7 +202,9 @@ ${JSON.stringify(promptBatch, null, 2)}`;
                     config: {
                         responseMimeType: "application/json",
                         responseSchema: scoringSchema,
-                        temperature: 0.1
+                        thinkingConfig: {
+                            thinkingLevel: ThinkingLevel.LOW
+                        }
                     }
                 });
 
@@ -411,7 +413,9 @@ KRYTYCZNE ZASADY JAKOŚCI COPYWRITINGU:
                     config: {
                         responseMimeType: "application/json",
                         responseSchema: creativeMatrixSchema,
-                        thinkingConfig: { thinkingBudget: 1024 }
+                        thinkingConfig: {
+                            thinkingLevel: ThinkingLevel.HIGH
+                        }
                     }
                 });
 
@@ -426,7 +430,9 @@ KRYTYCZNE ZASADY JAKOŚCI COPYWRITINGU:
                         config: {
                             responseMimeType: "application/json",
                             responseSchema: creativeMatrixSchema,
-                            temperature: 0.2
+                            thinkingConfig: {
+                                thinkingLevel: ThinkingLevel.MEDIUM
+                            }
                         }
                     });
                     const parsedText = fallbackResp.text || (fallbackResp.candidates && fallbackResp.candidates[0]?.content?.parts?.[0]?.text);
@@ -514,8 +520,7 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty JSON w bloku kodu bez zbędnego wstę
                 model: 'gemini-3.8-flash',
                 contents: searchPrompt,
                 config: {
-                    tools: [{ googleSearch: {} }],
-                    temperature: 0.1
+                    tools: [{ googleSearch: {} }]
                 }
             });
 
@@ -622,8 +627,7 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny obiekt JSON:
                 model: 'gemini-3.8-flash',
                 contents: osintPrompt,
                 config: {
-                    tools: [{ googleSearch: {} }],
-                    temperature: 0.1
+                    tools: [{ googleSearch: {} }]
                 }
             });
 
@@ -719,7 +723,9 @@ Zwróć odpowiedź WYŁĄCZNIE jako czysty, gotowy tekst w języku polskim w for
                 model: 'gemini-3.8-flash',
                 contents: dnaPrompt,
                 config: {
-                    temperature: 0.2
+                    thinkingConfig: {
+                        thinkingLevel: ThinkingLevel.MEDIUM
+                    }
                 }
             });
 

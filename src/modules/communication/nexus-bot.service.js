@@ -343,8 +343,9 @@ async function processBotMention(messageContent, authorName, mode, targetId, soc
             toolConfig: { functionCallingConfig: { mode: "AUTO" }, includeServerSideToolInvocations: true },
             systemInstruction: { parts: [{ text: systemInstruction }] },
             generationConfig: {
-                temperature: 0.1,
-                topP: 0.8
+                thinkingConfig: {
+                    thinkingLevel: "MEDIUM"
+                }
             }
         });
 

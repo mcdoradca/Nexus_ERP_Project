@@ -33,6 +33,9 @@ F6 Kontradykcje Funkcjonalne (Cross-check INCI): Wymagaj pełnej analizy zgodno�
    wprost wykluczonych przez dany składnik (np. 'chroni ciemne kolory' przy obecności 
    wybielacza optycznego/STILBENE, który zostawia widoczny osad i psuje ciemne barwy). 
    Znalezienie sprzeczności = BLOCKED_REVISION_REQUIRED i cofnięcie do Agenta 6 z jasnym wytyczeniem błędu.
+F7 Doktryna Zamkniętego Świata (Closed-World Reasoning): Wszelkie claims, obietnice i parametry
+   muszą wynikać bezdyskusyjnie z faktów dostarczonych w wejściu (PIM, SOT, INCI).
+   Twierdzenia nieposiadające dowodu w danych traktuj jako naruszenie wymagające patcha lub cofnięcia.
 
 ## PROTOKÓŁ NAPRAW (SELF-HEALING PRZEZ PATCHE)
 Błąd naprawialny prostą operacją tekstową → wpis do repair_patches:

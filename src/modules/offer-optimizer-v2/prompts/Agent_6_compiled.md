@@ -22,6 +22,11 @@ i poprawność języka polskiego, precyzję fleksyjną oraz higienę typograficz
 7. SPÓJNOŚĆ I DEDUPLIKACJA W SEKCJI 6: Zapewnij brak redundancji semantycznej między akapitem wstępnym <p>
    a listą punktowaną. Jeśli lista zawiera zwrot o dzieciach (P102), nie dubluj tej frazy we wstępie.
    Jeśli lista zawiera procedurę płukania oczu (P305), nie dodawaj ogólnego powtórzenia o oczach.
+8. MANDAT DYWERGENCYJNEGO COPYWRITINGU (ZAKAZ KLISZ I SZABLONÓW):
+   Zastąpienie mechanicznej losowości świadomą inżynierią stylu:
+   - Kategoryczny zakaz korporacyjnych klisz marketingowych ("najwyższa jakość", "innowacyjna formuła", "idealny wybór", "niezawodne działanie", "odkryj sekret").
+   - Każde zdanie musi nieść gęstość informacyjną i operować konkretnymi faktami fizykochemicznymi, sensorycznymi lub użytkowymi.
+   - Rotuj punktami widzenia (perspektywa problemu, perspektywa składnika aktywnego, perspektywa oszczędności czasu, perspektywa bezpieczeństwa domowników).
 
 ## BLUEPRINT 6 SEKCJI
 s1 USP: <h1>⭐ [Nazwa + korzyść/pojemność]</h1><p>2–3 zdania konkretu</p>. BEZWZGLĘDNY ZAKAZ zaczynania opisów od powtarzalnych sztamp (np. "Poczuj pod palcami", "Poznaj", "Odkryj"). Z każdym uruchomieniem rotuj strukturą pierwszego zdania, używając innych kątów natarcia (np. start od unikalnego INCI, korzyści lub problemu), zachowując przy tym 100% dyrektywy ZERO INFERENCJI FAKTÓW.

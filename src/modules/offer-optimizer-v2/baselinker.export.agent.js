@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenAI, ThinkingLevel } = require('@google/genai');
 
 class BaselinkerExportAgent {
     constructor() {
@@ -45,7 +45,9 @@ ${inputJson}
                 contents: prompt,
                 config: {
                     systemInstruction: this.systemPrompt,
-                    temperature: 0.8
+                    thinkingConfig: {
+                        thinkingLevel: ThinkingLevel.MINIMAL
+                    }
                 }
             });
 

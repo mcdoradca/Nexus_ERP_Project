@@ -131,7 +131,7 @@ const oldPromptLogic = `    let surface = dict.surfaces[seed % dict.surfaces.len
         if (apiKey) {
             try {
                 const genAI = new GoogleGenerativeAI(apiKey);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", generationConfig: { temperature: 0.1 }});
+                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", generationConfig: { thinkingConfig: { thinkingLevel: " \low\\ } }});
                 const promptInstruction = \`Extract the main 2-3 natural active ingredients from this product data and translate them to English as a comma separated list. If none found, reply with "natural elements". Data: \${productDetailsText}\`;
                 const result = await generateWithRetry(model, promptInstruction, 2, "Agent_Slot9_Ingredients");
                 ingredients = result.response.text().replace(/\n/g, '').trim();
@@ -159,7 +159,7 @@ const newPromptLogic = `    let environment = dict.environments[seed % dict.envi
         if (apiKey) {
             try {
                 const genAI = new GoogleGenerativeAI(apiKey);
-                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", generationConfig: { temperature: 0.1 }});
+                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", generationConfig: { thinkingConfig: { thinkingLevel: " \low\\ } }});
                 const promptInstruction = \`Extract the main 2-3 natural active ingredients from this product data and translate them to English as a comma separated list. If none found, reply with "natural elements". Data: \${productDetailsText}\`;
                 const result = await generateWithRetry(model, promptInstruction, 2, "Agent_Slot9_Ingredients");
                 ingredients = result.response.text().replace(/\\n/g, '').trim();

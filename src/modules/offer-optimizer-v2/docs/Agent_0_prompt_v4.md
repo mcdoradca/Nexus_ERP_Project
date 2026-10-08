@@ -3,7 +3,7 @@
 ## ZMIANA ARCHITEKTONICZNA
 Node 0 nie jest już promptem LLM. Maszyna stanowa, routing, gatekeeping, cache i
 walidatory to deterministyczny kod (spec poniżej). LLM w Node 0 wolno użyć wyłącznie
-do generowania podsumowań HITL czytelnych dla operatora (flash, thinkingBudget=0).
+do generowania podsumowań HITL czytelnych dla operatora (flash, thinkingLevel=MINIMAL).
 Zysk: zero tokenów na orkiestrację + eliminacja halucynacji routingu z definicji.
 
 ## FAZY (Agent 3 USUNIĘTY — brak referencji w enumach, statusach i hard-failach)

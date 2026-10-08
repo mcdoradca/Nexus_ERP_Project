@@ -1,4 +1,4 @@
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenAI, ThinkingLevel } = require('@google/genai');
 
 let _aiInstance = null;
 function getAi() {
@@ -84,6 +84,7 @@ Twój wyuczony zawód i etos zawodowy:
   2. Wyznaczasz twarde, nieprzekraczalne granice: oryginalna butelka, etykieta, pompka i kolorystyka ze zdjęcia referencyjnego są nietykalne.
   3. Weryfikujesz pomysły innych ekspertów pod kątem zgodności z DNA marki i realiami rynku.
   4. Mówisz rzeczowo, profesjonalnie, z dużą pewnością siebie i dbałością o detale tożsamościowe.
+- DOKTRYNA ANTY-KLISZ: Odrzucaj bezbarwne slogany ("produkt premium", "najwyższa jakość"). Wymagaj zakorzenienia w faktach z PIM i fotografii referencyjnej.
 Zwracaj odpowiedź w formacie JSON:
 {
   "speech": "Twoja wypowiedź ekspercka do stołu narad (naturalny, wyrazisty język zawodowy)",
@@ -99,6 +100,7 @@ Twój wyuczony zawód i etos zawodowy:
   1. Samodzielnie analizujesz produkt i kategorię: odkrywasz, gdzie bije prawdziwe, emocjonalne jądro tej oferty.
   2. Wnosisz do debaty czystą psychologię empatii: argumentujesz, dlaczego reklama musi budzić wzruszenie i potrzebę ochrony najcenniejszych wartości.
   3. Mówisz językiem psychologa: wnikliwie, z empatią, odwołując się do ludzkiej natury i autentycznych przeżyć.
+- DOKTRYNA ANTY-KLISZ: Zakaż ogólników ("klient będzie zadowolony"). Skup się na mikromomentach psychologicznych: bezradności przed plamą, uldze z czystego otoczenia, dumie z bezpiecznego domu.
 Zwracaj odpowiedź w formacie JSON:
 {
   "speech": "Twoja wypowiedź ekspercka do stołu narad (naturalny, głęboki język psychologii emocji)",
@@ -114,6 +116,7 @@ Twój wyuczony zawód i etos zawodowy:
   1. Jesteś suwerennym artystą i twórcą. Nikt Ci nie dyktuje kadrów ani obiektywów – sam analizujesz produkt, DNA marki oraz emocje wskazane przez psychologa i tworzysz autorską wizję wizualną.
   2. Samodzielnie decydujesz o asymetrii, punktach widzenia, relacji produktu z otoczeniem, planach fotograficznych i nastroju oświetleniowym.
   3. Mówisz z pasją, wizualną wyobraźnią i techniczną precyzją mistrza kadru filmowego i studyjnego.
+- DOKTRYNA ANTY-KLISZ: Bezwzględny zakaz martwych kadrów na środku stołu/postumentu. Proponuj dynamiczne cięcia, makro-faktury, światło kontrowe, perspektywę subiektywną (POV).
 Zwracaj odpowiedź w formacie JSON:
 {
   "speech": "Twoja wypowiedź ekspercka do stołu narad (naturalny, obrazowy język reżysera wizualnego)",
@@ -358,7 +361,9 @@ Zaakceptuj wizję asymetrii i ładunku empatii pod warunkiem, że w kadrze packs
                     config: {
                         systemInstruction: this._getAgentSystemInstructions(agentId),
                         responseMimeType: "application/json",
-                        temperature: 0.65
+                        thinkingConfig: {
+                            thinkingLevel: ThinkingLevel.MEDIUM
+                        }
                     }
                 });
 
@@ -481,7 +486,9 @@ Zwróć odpowiedź WYŁĄCZNIE jako obiekt JSON o strukturze:
                     contents: synthesisPrompt,
                     config: {
                         responseMimeType: "application/json",
-                        temperature: 0.3
+                        thinkingConfig: {
+                            thinkingLevel: ThinkingLevel.MEDIUM
+                        }
                     }
                 });
 

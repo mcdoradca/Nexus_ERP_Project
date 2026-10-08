@@ -1,5 +1,5 @@
 # [NODE 1 - PIM RESEARCHER & OSINT AUTOFILL v4.0]
-# Wywołanie: flash + grounding | thinkingBudget: LOW | responseSchema: Node1_Output (poza promptem)
+# Wywołanie: gemini-3.1-pro + grounding | thinkingLevel: HIGH | responseSchema: Node1_Output (poza promptem)
 # Prefiks statyczny (cache) = całość poniżej; dane SKU doklejane na końcu.
 
 ## ROLA

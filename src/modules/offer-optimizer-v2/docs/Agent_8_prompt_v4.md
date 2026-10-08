@@ -1,5 +1,5 @@
 # [NODE 8 - INGREDIENT MAPPER & SCENOGRAPHY CURATOR v4.1]
-# Wywołanie: flash | thinkingBudget: 0 | grounding: ON tylko krok 2 | responseSchema poza promptem
+# Wywołanie: flash | thinkingLevel: LOW | grounding: ON tylko krok 2 | responseSchema poza promptem
 # Prefiks statyczny (cache) = rola + dyrektywy + SHARED_RULES §G + protokół.
 # UWAGA: v4.0 tego węzła była już dobrze zoptymalizowana (maxItems, maxLength) —
 # telemetria to potwierdza (223 tokeny completion). Zmiany minimalne.

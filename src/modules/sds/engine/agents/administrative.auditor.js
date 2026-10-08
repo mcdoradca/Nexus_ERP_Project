@@ -19,7 +19,9 @@ ZASADY:
 6. W sekcji 16 bezwzględnie dopilnuj obecności pełnej stopki korporacyjnej ITALLUX: Główne źródła literatury i danych (ECHA, PubChem, REACH, CLP, Dz.U. 2018 poz. 1286, Dz.U. 2023 poz. 1587), Zalecenia i wskazówki szkoleniowe dla pracowników, Informacje o zmianach i aktualizacji (wersja 1.0 PL, 5 punktów zmian w tym ITALLUX Sp. z o.o.) oraz Klauzula prawna i ochrona praw autorskich ITALLUX Sp. z o.o.. Bezwzględny zakaz ucinania lub skracania tej stopki.`,
             generationConfig: {
                 responseMimeType: "application/json",
-                temperature: 0.0
+                thinkingConfig: {
+                    thinkingLevel: "MEDIUM"
+                }
             }
         });
     }
