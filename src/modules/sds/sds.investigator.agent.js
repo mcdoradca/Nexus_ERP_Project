@@ -17,62 +17,28 @@ Struktura odpowiedzi:
 }
 Jeśli nie jesteś w 100% pewien, wymuś pustą nazwę, by zostawić to człowiekowi.`;
 
-async function fetchFromPubChem(casNumber) {
-    try {
-        const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(casNumber)}/JSON`;
-        const response = await axios.get(url, { timeout: 15000 });
-        if (response.data && response.data.PC_Compounds && response.data.PC_Compounds.length > 0) {
-            const compound = response.data.PC_Compounds[0];
-            const props = compound.props || [];
-            let iupacName = null;
-            let molecularFormula = null;
-            
-            for (const p of props) {
-                if (p.urn && p.urn.label === "IUPAC Name" && p.urn.name === "Preferred") {
-                    iupacName = p.value.sval;
-                }
-                if (p.urn && p.urn.label === "Molecular Formula") {
-                    molecularFormula = p.value.sval;
-                }
-            }
-            return {
-                source: "PubChem",
-                iupacName: iupacName,
-                molecularFormula: molecularFormula,
-                raw_data: "Pobrano z bezpiecznego Fallback (NCBI PubChem API)"
-            };
-        }
-    } catch (e) {
-        console.error(`[HITL Agent] PubChem Fallback error dla ${casNumber}: ${e.message}`);
-    }
-    return null;
-}
-
 async function callApifyScraper(casNumber, retries = 1) {
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
             const token = process.env.APIFY_API_TOKEN;
             if (!token) {
-                console.warn("[HITL Agent] Brak APIFY_API_TOKEN. Uruchamiam darmowy Fallback PubChem.");
-                return await fetchFromPubChem(casNumber);
+                console.warn("[HITL Agent] Brak APIFY_API_TOKEN. Pomijam dedykowany scraper.");
+                return null;
             }
 
+            // Uruchamiamy aktora ECHA Scraper synchronicznie (czeka na wynik)
             const response = await axios.post(`https://api.apify.com/v2/acts/studio-amba~echa-scraper/run-sync-get-dataset-items?token=${token}`, {
                 "search_term": casNumber
-            }, { timeout: 120000 }); 
+            }, { timeout: 120000 }); // Wydłużony timeout do 120s (2 minuty)
 
             if (response.data && response.data.length > 0) {
                 return response.data[0];
             }
-            // Zabezpieczenie: puste dane z Apify -> uderzamy do PubChem
-            return await fetchFromPubChem(casNumber);
+            return null;
         } catch (err) {
-            console.error(`[HITL Agent] Błąd odpytywania Apify ECHA (próba ${attempt + 1}):`, err.message);
-            if (attempt === retries) {
-                console.log("[HITL Agent] Próba ostatecznego uruchomienia Fallback PubChem...");
-                return await fetchFromPubChem(casNumber);
-            }
-            await new Promise(r => setTimeout(r, 2000));
+            console.error(`[HITL Agent] Błąd odpytywania Apify ECHA Scraper (próba ${attempt + 1}):`, err.message);
+            if (attempt === retries) return null;
+            await new Promise(r => setTimeout(r, 2000)); // Krótkie opóźnienie przed ponowieniem
         }
     }
     return null;

@@ -383,6 +383,7 @@ Zwróć WYŁĄCZNIE czysty obiekt JSON bez znaczników markdown.`;
     if (existingSec8 && !existingSec8.includes('Dz.U. 2024 poz. 1017')) {
       sec81Text += existingSec8 + "\n\n";
     }
+    sec81Text += "Wartości DNEL (Pochodny poziom niepowodujący zmian) i PNEC (Przewidywane stężenie niepowodujące zmian w środowisku):\nDla mieszaniny oraz substancji składowych nie oznaczono wartości DNEL oraz PNEC.";
     sdsData.sections['8']['8.1'] = sec81Text.trim();
 
     // Sekcja 13: Kody odpadów wg Rozporządzenia Ministra Klimatu (Dz.U. 2020 poz. 10)
