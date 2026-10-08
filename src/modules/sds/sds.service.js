@@ -334,7 +334,12 @@ const CAS_TO_PL_MAP = {
   "469-61-4": "alfa-cedren",
   "64-19-7": "kwas octowy",
   "142-82-5": "heptan",
-  "108-95-2": "fenol"
+  "108-95-2": "fenol",
+  "68411-30-3": "kwas benzenosulfonowy, pochodne C10-13-alkilowe, sole sodowe",
+  "68439-45-2": "alkohole, C9-11, etoksylowane (5 EO)",
+  "497-19-8": "węglan sodu",
+  "7664-93-9": "kwas siarkowy",
+  "101-84-8": "eter difenylowy"
 };
 
 function mapHazardClass(text) {

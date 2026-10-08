@@ -68,13 +68,13 @@ function testValidateTranslatedSections() {
 
 async function testValidateFinalSds() {
   console.log("\n[TEST 5] Pełna weryfikacja zintegrowanego modelu SDS na realnym pliku PDF...");
-  const najmaDocxPath = path.join(__dirname, '..', 'docs', 'SDS', '8051944811087_SDS_NAJMA_1to1_Konwertowany.docx');
-  const pdfFilePath = path.join(__dirname, '..', 'docs', 'SDS', '8034055535431_SDS_TALCO (1).pdf');
-  const testFile = fs.existsSync(najmaDocxPath) ? najmaDocxPath : pdfFilePath;
+  const goldenMasterDocxPath = path.join(__dirname, '..', 'docs', 'SDS', 'KARTA CHARAKTERYSTYKI CIF 8720181414800 (5).docx');
+  const pdfFilePath = path.join(__dirname, '..', 'docs', 'SDS', 'KARTA CHARAKTERYSTYKI CIF 8720181414800.pdf');
+  const testFile = fs.existsSync(goldenMasterDocxPath) ? goldenMasterDocxPath : pdfFilePath;
   assert(fs.existsSync(testFile), "Brak pliku testowego SDS (DOCX/PDF): " + testFile);
 
   const engine = new SDSProcessorEngine();
-  const testName = "SWEET HOME LAYALI - PROFUMA TESSUTI E AMBIENTE NAJMA";
+  const testName = "CIF CREMA PINK BLOOM";
   const agentPayload = await engine.prepareAgentPayload(testFile, testName);
 
   const agentTranslated = {
