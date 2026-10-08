@@ -340,9 +340,9 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
             totalTokenCount: metadata.totalTokenCount || 0
         };
 
-        const candidate = response.candidates && response.candidates[0];
-        const isMaxTokens = candidate && candidate.finishReason === 'MAX_TOKENS';
-        const isRecitation = candidate && candidate.finishReason === 'RECITATION';
+        let candidate = response.candidates && response.candidates[0];
+        let isMaxTokens = candidate && candidate.finishReason === 'MAX_TOKENS';
+        let isRecitation = candidate && candidate.finishReason === 'RECITATION';
 
         // Bezpieczne pobranie surowego tekstu z gettera lub kaskadowego ekstraktora
         let responseText = '';
@@ -358,7 +358,53 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
             responseText = extractGroundedTextFromResponse(response, agentId);
         }
 
-        const hasRecoveredContent = responseText && responseText.trim().length >= 10;
+        let hasRecoveredContent = responseText && responseText.trim().length >= 10;
+
+        // TARCZA DEFENSIVE AI: 1 automatyczny retry z dyrektywą parafrazowania anty-recitation
+        if (isRecitation && !hasRecoveredContent) {
+            console.warn(`[DEFENSIVE AI] Agent ${agentId} zablokowany przez filtr RECITATION (brak treści wyjściowej). Podejmuję 1 defensywną próbę z dyrektywą parafrazowania anty-recitation...`);
+            onLog(`[AI WRAPPER - DEFENSIVE AI] Wykryto RECITATION dla agenta ${agentId}. Uruchamiam automatyczny retry z dyrektywą parafrazowania.`);
+            
+            const retryPrompt = `${prompt}\n\n[DODATKOWA DYREKTYWA ANTY-RECITATION]: Poprzednia odpowiedź została zablokowana przez filtr praw autorskich/cytowań (RECITATION). Sformułuj całą treść zwięźle własnymi słowami w języku polskim. Bezwzględnie zachowaj kody P/H, parametry techniczne i strukturę JSON, ale nie kopiuj wielozdaniowych formułek prawnych ani całych zdań z internetu 1:1. Zmień szyk i konstrukcję zdań.`;
+            
+            try {
+                const retryResponse = await generateContentWithTimeout({
+                    model: model,
+                    contents: retryPrompt,
+                    config: config
+                }, 60000, `Agent_${agentId}_AntyRecitation_Retry`);
+
+                const retryCandidate = retryResponse.candidates && retryResponse.candidates[0];
+                let retryText = '';
+                try {
+                    if (typeof retryResponse.text === 'string') retryText = retryResponse.text;
+                } catch (_) {}
+                if (!retryText || retryText.trim().length === 0) {
+                    retryText = extractGroundedTextFromResponse(retryResponse, agentId);
+                }
+
+                if (retryText && retryText.trim().length >= 10) {
+                    // Scalenie metryk tokenów z obu prób (S-7)
+                    const prevMeta = response.usageMetadata || {};
+                    const retryMeta = retryResponse.usageMetadata || {};
+                    mergedUsage = {
+                        promptTokenCount: (prevMeta.promptTokenCount || 0) + (retryMeta.promptTokenCount || 0),
+                        candidatesTokenCount: (prevMeta.candidatesTokenCount || 0) + (retryMeta.candidatesTokenCount || 0),
+                        thoughtsTokenCount: (prevMeta.thoughtsTokenCount || 0) + (retryMeta.thoughtsTokenCount || 0),
+                        totalTokenCount: (prevMeta.totalTokenCount || 0) + (retryMeta.totalTokenCount || 0)
+                    };
+
+                    response = retryResponse;
+                    candidate = retryCandidate;
+                    responseText = retryText;
+                    isRecitation = retryCandidate && retryCandidate.finishReason === 'RECITATION';
+                    hasRecoveredContent = true;
+                    console.log(`[DEFENSIVE AI] Retry anty-recitation dla agenta ${agentId} powiódł się (${responseText.length} znaków).`);
+                }
+            } catch (retryErr) {
+                console.warn(`[DEFENSIVE AI] Retry anty-recitation dla agenta ${agentId} nie powiódł się:`, retryErr.message);
+            }
+        }
 
         // Obowiązkowa telemetria (S-7)
         if (typeof aiMetricsService.logUsage === 'function') {

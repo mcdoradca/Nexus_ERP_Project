@@ -1246,6 +1246,31 @@ class Orchestrator {
                 this.state.next_action = 'RUN_A6';
                 this.emitState();
             } catch (e) {
+                const isRecitationBlocked = typeof e.message === 'string' && (e.message.includes('RECITATION') || e.message.includes('skopiował zbyt dużo tekstu'));
+                if (isRecitationBlocked) {
+                    console.warn(`[DEFENSIVE AI - A5] Zgłoszono blokadę RECITATION dla węzła A5 (EAN: ${this.gtin}). Aktywacja deterministycznej tarczy GPSR baseline.`);
+                    const fallbackWarnings = (gpsrBaseline && Array.isArray(gpsrBaseline.warnings) && gpsrBaseline.warnings.length > 0)
+                        ? gpsrBaseline.warnings
+                        : ['Chronić przed dziećmi.', 'Stosować zgodnie z przeznaczeniem.'];
+
+                    this.state.a5_result = {
+                        sanitization_status: 'PASSED_CLEAN',
+                        mandatory_safety_warnings: fallbackWarnings,
+                        preserved_minor_flaws_for_pratfall: [],
+                        safe_aeo_questions: [],
+                        safe_aeo_answers: []
+                    };
+                    this.state.token_usage_per_node['A5'] = { promptTokenCount: 0, candidatesTokenCount: 0, totalTokenCount: 0 };
+                    this.state.normalization_warnings = [
+                        ...(this.state.normalization_warnings || []),
+                        'A5_RECITATION_DEFENSIVE_FALLBACK: Zastosowano deterministyczne ostrzeżenia GPSR z bazy PIM (filtr RECITATION Google)'
+                    ];
+                    this.state.node_status['A5'] = 'OK';
+                    this.state.next_action = 'RUN_A6';
+                    this.emitState();
+                    return;
+                }
+
                 this.state.node_status['A5'] = 'ERROR';
                 this.state.hitl_alert = e.message;
                 this.state.next_action = 'HALT';

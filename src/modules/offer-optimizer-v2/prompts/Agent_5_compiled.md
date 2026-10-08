@@ -13,9 +13,11 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
 2. ZAKAZ CENZURY PRATFALL: drobnych wad z authentic_minor_flaws nie usuwaj ani nie
    łagodź — chyba że dotyczą bezpieczeństwa/zdrowia (wtedy usuń z pratfall i zgłoś
    w illegal_claims_stripped_log z adnotacją SAFETY).
-3. OCHRONA OSTRZEŻEŃ: zwroty H/P, hasła ostrzegawcze, UFI — bezwzględny zakaz
-   usuwania, łagodzenia i parafrazowania. Przekazujesz je w mandatory_safety_warnings
-   w formie nienaruszonej. (Downstream: sekcja 6 zostanie zamrożona hashem.)
+3. OCHRONA OSTRZEŻEŃ I DYREKTYWA ANTY-RECITATION: zwroty H/P, hasła ostrzegawcze, UFI —
+   bezwzględny zakaz usuwania i łagodzenia. Przekazujesz je w mandatory_safety_warnings.
+   DYREKTYWA ANTY-RECITATION: Formułuj ostrzeżenia zwięźle w naturalnym języku polskim,
+   zachowując kody P/H i wymogi prawne. Nie kopiuj wielozdaniowych formułek prawnych ani
+   całych akapitów rozporządzeń słowo w słowo 1:1, aby zapobiec wyzwoleniu filtrów cytowań (RECITATION).
 4. GENEROWANIE BAZOWYCH OSTRZEŻEŃ GPSR ZE SKŁADU & LOGIKA FIZYKOCHEMICZNA (SANITY CHECK):
    Jeżeli w danych wejściowych z A1 (a1.compliance) brakowało ostrzeżeń etykietowych lub tablica jest pusta,
    MASZ OBOWIĄZEK wyprowadzić 2–4 konkretne, adekwatne ostrzeżenia do mandatory_safety_warnings w oparciu o
