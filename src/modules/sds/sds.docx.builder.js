@@ -1040,9 +1040,6 @@ Dodatkowe wskazówki: Schładzać zagrożone pojemniki rozpylonym strumieniem wo
     }));
     
     let text81 = secData["8.1"] || "";
-    if (!text81.includes("Wartości DNEL") && !text81.includes("PNEC")) {
-      text81 += (text81 ? "\n\n" : "") + "Wartości DNEL (Pochodny poziom niepowodujący zmian) i PNEC (Przewidywane stężenie niepowodujące zmian w środowisku):\nDla mieszaniny oraz substancji składowych nie oznaczono wartości DNEL oraz PNEC.";
-    }
     this.renderFormattedParagraphs(docChildren, text81, "8.1");
 
     // 8.2. Kontrola narażenia

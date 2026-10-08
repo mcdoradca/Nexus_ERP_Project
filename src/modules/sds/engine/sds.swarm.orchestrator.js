@@ -167,9 +167,6 @@ class SDSSwarmOrchestrator {
             if (existing81 && !existing81.includes('Dz.U. 2024 poz. 1017')) {
                 sec81Text += existing81 + "\n\n";
             }
-            if (!sec81Text.includes('Wartości DNEL') && !sec81Text.includes('nie oznaczono wartości DNEL')) {
-                sec81Text += "Wartości DNEL (Pochodny poziom niepowodujący zmian) i PNEC (Przewidywane stężenie niepowodujące zmian w środowisku):\nDla mieszaniny oraz substancji składowych nie oznaczono wartości DNEL oraz PNEC.";
-            }
             sections['8']['8.1'] = sec81Text.trim();
         }
 

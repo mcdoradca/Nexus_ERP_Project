@@ -169,21 +169,10 @@ class SDSVerifierAgent {
     }
 
     // =========================================================================
-    // REGUŁA 5: AUDYT KWALIFIKACJI ODPADÓW (SEKCJA 13 vs SEKCJA 2.1)
+    // REGUŁA 5: AUDYT KWALIFIKACJI ODPADÓW (WYŁĄCZONA Z POWODU SABOTAŻU I ZMIANY KLASYFIKACJI NA 20 01 30)
     // Dz.U. 2020 poz. 10, art. 3 ust. 1 pkt 13-14 ustawy o odpadach
     // =========================================================================
-    if (!hasMixtureHazard && /20 01 29\*|16 03 05\*|07 06 04\*/i.test(s13Content)) {
-      let fixedS13 = s13Content
-        .replace(/20 01 29\*\s*\(Detergenty zawierające substancje niebezpieczne\)/gi, '20 01 30 (Detergenty inne niż wymienione w 20 01 29)')
-        .replace(/16 03 05\*\s*\(Organiczne odpady zawierające substancje niebezpieczne\)/gi, '16 03 06 (Organiczne odpady inne niż wymienione w 16 03 05)')
-        .replace(/07 06 04\*\s*\(Inne rozpuszczalniki organiczne, roztwory z przemywania i ciecze macierzyste\)/gi, '07 06 99 (Inne niewymienione odpady)');
-      validatedSections.section_13 = { ...validatedSections.section_13, content: fixedS13 };
-      auditLog.push({
-        rule: "WASTE_CODE_CLASSIFICATION_FIX",
-        status: "AUTO_REMEDIATED",
-        message: "Produkt nie jest zaklasyfikowany jako stwarzający zagrożenie. Zamieniono nieuprawnione kody odpadów niebezpiecznych z gwiazdką (*) na właściwe kody inne niż niebezpieczne (20 01 30 / 16 03 06)."
-      });
-    }
+    // Kod został skasowany, aby zachować zgodność z oryginalną kartą SDS dla Rifiuti Pericolosi.
 
     // =========================================================================
     // REGUŁA 6: AUDYT ROZPORZĄDZENIA O DETERGENTACH (SEKCJA 15.1)
