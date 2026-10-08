@@ -344,24 +344,46 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
         const isMaxTokens = candidate && candidate.finishReason === 'MAX_TOKENS';
         const isRecitation = candidate && candidate.finishReason === 'RECITATION';
 
+        // Bezpieczne pobranie surowego tekstu z gettera lub kaskadowego ekstraktora
+        let responseText = '';
+        try {
+            if (typeof response.text === 'string') {
+                responseText = response.text;
+            }
+        } catch (_) {
+            responseText = '';
+        }
+
+        if (!responseText || responseText.trim().length === 0) {
+            responseText = extractGroundedTextFromResponse(response, agentId);
+        }
+
+        const hasRecoveredContent = responseText && responseText.trim().length >= 10;
+
         // Obowiązkowa telemetria (S-7)
         if (typeof aiMetricsService.logUsage === 'function') {
-            const errorMsg = isMaxTokens ? "MAX_TOKENS" : (isRecitation ? "RECITATION" : null);
-            await aiMetricsService.logUsage(agentId, model, usage, !isMaxTokens && !isRecitation, 1, errorMsg);
+            const isSuccess = !isMaxTokens && (!isRecitation || hasRecoveredContent);
+            const errorMsg = isMaxTokens ? "MAX_TOKENS" : (isRecitation && !hasRecoveredContent ? "RECITATION" : null);
+            await aiMetricsService.logUsage(agentId, model, usage, isSuccess, 1, errorMsg);
         }
 
         if (isMaxTokens) {
             throw new Error(`[ALERT] Agent ${agentId} przepalił tokeny i został odłączony (limit: ${maxOutputTokens || 'domyślny'}).`);
         }
         if (isRecitation) {
-            throw new Error('BLOKADA RECITATION: Agent skopiował zbyt dużo tekstu z internetu (zablokowane przez filtry bezpieczeństwa).');
+            if (hasRecoveredContent) {
+                console.warn(`[DEFENSIVE AI] Agent ${agentId} zwrócił finishReason: RECITATION, ale odzyskano wygenerowaną treść (${responseText.length} znaków). Kontynuowanie potoku.`);
+                onLog(`[AI WRAPPER - OSTRZEŻENIE] Zgłoszono RECITATION dla agenta ${agentId}, ale odzyskano wygenerowaną strukturę (${responseText.length} znaków). Kontynuowanie potoku.`);
+            } else {
+                throw new Error(`BLOKADA RECITATION: Agent ${agentId} skopiował zbyt dużo tekstu z internetu (zablokowane przez filtry bezpieczeństwa).`);
+            }
         }
 
         // Zwracanie odpowiedzi
         let parsedResult;
         if (schema) {
             try {
-                let text = response.text;
+                let text = responseText;
                 if (!text) throw new Error('Brak tekstu w odpowiedzi API (pusta odpowiedź).');
                 
                 text = text.trim();
@@ -380,14 +402,14 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
                 parsedResult = JSON.parse(text);
             } catch (err) {
                 if (err.message.includes('pusta odpowiedź')) throw err;
-                console.error(`[V2 Wrapper] JSON Parse Error w agencie ${agentId}: ${err.message}. Raw text (first 500): ${(response.text || '').substring(0, 500)}`);
-                parsedResult = { rawText: response.text, error: "JSON Parse failed" };
+                console.error(`[V2 Wrapper] JSON Parse Error w agencie ${agentId}: ${err.message}. Raw text (first 500): ${(responseText || '').substring(0, 500)}`);
+                parsedResult = { rawText: responseText, error: "JSON Parse failed" };
             }
         } else {
-            if (!response.text) {
+            if (!responseText) {
                 throw new Error('Brak tekstu w odpowiedzi API (pusta odpowiedź).');
             }
-            parsedResult = response.text;
+            parsedResult = responseText;
         }
 
         const endMsg = `[V2 Wrapper] Agent ${agentId} zakończony w ${duration}ms. Tokeny: prompt=${usage.promptTokenCount}, output=${usage.candidatesTokenCount}, thinking=${usage.thoughtsTokenCount}, total=${usage.totalTokenCount}`;

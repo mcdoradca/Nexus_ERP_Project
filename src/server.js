@@ -64,23 +64,28 @@ app.use(helmet({
 }));
 
 // KRYTYCZNY LOGGER DO DIAGNOSTYKI
+// KRYTYCZNY LOGGER DO DIAGNOSTYKI (Asynchroniczny, zero memory-leak)
 const fs = require('fs');
 app.use((req, res, next) => {
     const start = Date.now();
+    let errorResponseBody = null;
     const oldJson = res.json;
     res.json = function(body) {
-        res.locals.body = body;
+        if (res.statusCode >= 400 && body) {
+            // Przechwytujemy tylko małe payloady błędów do analizy awarii
+            try {
+                errorResponseBody = typeof body === 'object' ? JSON.stringify(body).substring(0, 1000) : String(body).substring(0, 1000);
+            } catch (_) {}
+        }
         return oldJson.apply(res, arguments);
     };
     res.on('finish', () => {
         const duration = Date.now() - start;
         const logLine = `[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - ${res.statusCode} - ${duration}ms\n`;
-        // Jesli wystapil blad, logujemy cialo odpowiedzi
-        if (res.statusCode >= 400) {
-            fs.appendFileSync(path.join(__dirname, '../logs/debug-requests.log'), logLine + `  Response: ${JSON.stringify(res.locals.body)}\n`);
-        } else {
-            fs.appendFileSync(path.join(__dirname, '../logs/debug-requests.log'), logLine);
-        }
+        const finalEntry = (res.statusCode >= 400 && errorResponseBody)
+            ? logLine + `  Response: ${errorResponseBody}\n`
+            : logLine;
+        fs.appendFile(path.join(__dirname, '../logs/debug-requests.log'), finalEntry, () => {});
     });
     next();
 });
@@ -431,7 +436,11 @@ app.get('/api/products', authenticateToken, async (req, res) => {
                id: true, ean: true, sku: true, name: true, stock: true, 
                salePrice: true, status: true, isSynced: true, createdAt: true,
                imageUrl: true, riskScore: true, targetMargin: true,
-               brand: true, allegroCategory: true,
+               brand: true,
+               allegroCategoryId: true,
+               allegroCategory: {
+                   select: { id: true, name: true }
+               },
                bomElements: { include: { material: true } }
             }, 
             orderBy: { name: 'asc' } 

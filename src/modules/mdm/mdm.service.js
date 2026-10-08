@@ -98,6 +98,63 @@ async function handleProductContentOptimized(payload) {
     }
 }
 
+// In-memory cache wymaganych parametrów kategorii Allegro dla DQS (TTL: 1h)
+const categoryRequiredParamsCache = new Map();
+const categoryInFlightPromises = new Map();
+const CATEGORY_PARAMS_CACHE_TTL_MS = 60 * 60 * 1000;
+
+/**
+ * Pobiera i cache'uje minimalny zestaw wymaganych parametrów dla kategorii Allegro.
+ * Zamiast ładować 140+ KB JSON-a parametrów przy każdym produkcie, pobiera tylko tablicę { id, name }.
+ * Wykorzystuje In-Flight Promise Coalescing, eliminując efekt "Thundering Herd" przy starcie serwera.
+ */
+async function getRequiredParamsForCategory(categoryId) {
+    if (!categoryId) return [];
+    const cached = categoryRequiredParamsCache.get(categoryId);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp < CATEGORY_PARAMS_CACHE_TTL_MS)) {
+        return cached.params;
+    }
+
+    if (categoryInFlightPromises.has(categoryId)) {
+        return categoryInFlightPromises.get(categoryId);
+    }
+
+    const promise = (async () => {
+        try {
+            const cat = await prisma.marketplaceCategory.findUnique({
+                where: { id: categoryId },
+                select: { parameters: true }
+            });
+            
+            let rawParams = [];
+            if (Array.isArray(cat?.parameters)) {
+                rawParams = cat.parameters;
+            } else if (typeof cat?.parameters === 'string') {
+                try { rawParams = JSON.parse(cat.parameters); } catch (_) { rawParams = []; }
+            }
+
+            const required = (Array.isArray(rawParams) ? rawParams : [])
+                .filter(p => p && (p.required || (p.restrictions && p.restrictions.requiredForProduct)))
+                .map(p => ({ id: p.id, name: p.name }));
+
+            categoryRequiredParamsCache.set(categoryId, {
+                params: required,
+                timestamp: Date.now()
+            });
+            return required;
+        } catch (err) {
+            exportLogger.error(`[MDM SERVICE] Błąd podczas pobierania parametrów kategorii ${categoryId} do cache DQS:`, { error: err.message });
+            return [];
+        } finally {
+            categoryInFlightPromises.delete(categoryId);
+        }
+    })();
+
+    categoryInFlightPromises.set(categoryId, promise);
+    return promise;
+}
+
 /**
  * Algorytm obliczający Data Quality Score (PXM Readiness) dla produktu.
  * Weryfikuje Filar 1 (PIM Core) oraz Filar 2 (Zależny od kanału - Allegro).
@@ -141,14 +198,19 @@ async function calculateProductDQS(product) {
     let channelScore = 0;
     const missingChannel = [];
     
-    if (!product.allegroCategoryId || !product.allegroCategory) {
+    const categoryId = product.allegroCategoryId || product.allegroCategory?.id;
+    if (!categoryId) {
         missingChannel.push('Nie przypisano do kategorii docelowej Allegro (Brak weryfikacji)');
     } else {
-        const schemaParams = product.allegroCategory.parameters;
-        // Filtrujemy tylko te, które są wymagane (required: true) 
-        // UWAGA: Allegro oznacza wymagane pola we flagach, nie zawsze jako proste 'required: true'. Czasem jest 'requiredForProduct'.
-        // Upraszczamy logikę dla wdrożenia w oparciu o obiekt z API Allegro
-        const requiredParams = schemaParams.filter(p => p.required || (p.restrictions && p.restrictions.requiredForProduct));
+        let requiredParams = [];
+        if (Array.isArray(product.allegroCategory?.parameters)) {
+            // Filtrujemy tylko te, które są wymagane (required: true lub requiredForProduct)
+            requiredParams = product.allegroCategory.parameters
+                .filter(p => p && (p.required || (p.restrictions && p.restrictions.requiredForProduct)));
+        } else {
+            // Bezpieczne pobranie ze zoptymalizowanego in-memory cache'a kategorii
+            requiredParams = await getRequiredParamsForCategory(categoryId);
+        }
         
         if (requiredParams.length === 0) {
             // Brak specjalnych wymagań poza domyślnymi
