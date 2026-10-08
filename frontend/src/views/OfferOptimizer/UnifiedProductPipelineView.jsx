@@ -36,16 +36,10 @@ const ImageModal = ({ url, onClose }) => {
                 </button>
                 {!imgError ? (
                     <img 
-                        src={useDirectUrl ? url : proxyUrl} 
+                        src={proxyUrl} 
                         alt="Powiększenie" 
                         className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-xl" 
-                        onError={() => {
-                            if (!useDirectUrl && url.startsWith('http')) {
-                                setUseDirectUrl(true);
-                            } else {
-                                setImgError(true);
-                            }
-                        }}
+                        onError={() => setImgError(true)}
                     />
                 ) : (
                     <div className="flex flex-col items-center text-center text-slate-400 p-8 border border-slate-700 rounded-xl bg-slate-900/50">
@@ -143,6 +137,20 @@ export const UnifiedProductPipelineView = ({
     // NOWE STANY WIZUALIZACJI AGENTA
     const [pipelinePhase, setPipelinePhase] = useState('');
     const [activeNodes, setActiveNodes] = useState([]);
+
+    // Watchdog ochrony przed zawieszeniem fazy inicjalizacji (brak zdarzeń WebSocket / restart PM2)
+    useEffect(() => {
+        let timer = null;
+        if (pipelineStatus === 'THINKING' && (pipelinePhase === 'INICJALIZACJA SYSTEMU' || activeNodes.includes('INICJALIZACJA'))) {
+            timer = setTimeout(() => {
+                setPipelineStatus('ERROR');
+                alert("Przekroczono czas oczekiwania na inicjalizację potoku (25s). Backend lub połączenie WebSocket nie odpowiedziały na czas. Spróbuj kliknąć 'Zapisz PIM i Uruchom Agenta' ponownie.");
+            }, 25000);
+        }
+        return () => {
+            if (timer) clearTimeout(timer);
+        };
+    }, [pipelineStatus, pipelinePhase, activeNodes]);
     const [nodeStatuses, setNodeStatuses] = useState({});
     const [pipelineLogs, setPipelineLogs] = useState([]);
     const [hitlAlert, setHitlAlert] = useState(null);
@@ -707,6 +715,22 @@ export const UnifiedProductPipelineView = ({
                     <button onClick={onClose} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-md text-xs font-bold uppercase transition-colors">
                         Wróć do Katalogu
                     </button>
+                    <button 
+                        type="button"
+                        onClick={() => {
+                            if (!window.confirm("Czy na pewno chcesz usunąć lokalny szkic z przeglądarki i przeładować kartotekę z bazy?")) return;
+                            localStorage.removeItem(DRAFT_KEY);
+                            setPipelineStatus('IDLE');
+                            setPipelinePhase('');
+                            setActiveNodes([]);
+                            setNodeStatuses({});
+                            window.location.reload();
+                        }}
+                        className="px-4 py-2 bg-slate-800 hover:bg-rose-950/60 text-slate-300 hover:text-rose-300 border border-slate-600 hover:border-rose-500/50 rounded-md text-xs font-bold uppercase transition-all"
+                        title="Usuwa zacięty szkic z LocalStorage przeglądarki"
+                    >
+                        Wyczyść Szkic
+                    </button>
                     <button onClick={handleTriggerPipelineFromScratch} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-xs font-bold uppercase transition-colors flex items-center shadow-[0_0_15px_rgba(79,70,229,0.4)]">
                         <Cpu className="w-4 h-4 mr-2" /> Zapisz PIM i Uruchom Agenta
                     </button>
@@ -762,7 +786,7 @@ export const UnifiedProductPipelineView = ({
                                 Potok został wstrzymany zgodnie z polityką bezpieczeństwa. Możesz uzupełnić dane w systemie i spróbować ponownie, lub wymusić kontynuację pomimo braków.
                             </p>
                             <div className="flex space-x-4 pt-4">
-                                <button onClick={() => setPipelineStatus('THINKING')} className="px-4 py-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition font-bold border border-slate-600">
+                                <button onClick={() => { setPipelineStatus('IDLE'); setPipelinePhase(''); setActiveNodes([]); setNodeStatuses({}); }} className="px-4 py-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition font-bold border border-slate-600">
                                     Przerwij
                                 </button>
                                 <button onClick={() => {

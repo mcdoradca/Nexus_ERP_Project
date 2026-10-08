@@ -242,7 +242,8 @@ const proxyImage = async (req, res) => {
     } catch (e) {
         console.error("[ProxyImage] Błąd proxy dla URL:", url, e.message);
         // TARCZA BŁĘDÓW (Defensive AI) - Fallback
-        res.redirect(url);
+        // Bezpieczny fallback: zwracamy 404 z informacją o błędzie zamiast redirectu do S3, który generowałby AccessDenied XML
+        return res.status(404).json({ error: "Nie udało się pobrać obrazu (link wygasł lub serwer odrzucił połączenie).", details: e.message });
     }
 };
 
