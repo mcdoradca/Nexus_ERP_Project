@@ -5,7 +5,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 async function test() {
     const model = genAI.getGenerativeModel({ 
         model: "gemini-3.1-pro-preview",
-        generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "minimal" } }
+        generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }
     });
     const prompt = "Zwróć mi JSON z losowym słowem: { \"slowo\": \"...\" }";
     const result = await model.generateContent(prompt);

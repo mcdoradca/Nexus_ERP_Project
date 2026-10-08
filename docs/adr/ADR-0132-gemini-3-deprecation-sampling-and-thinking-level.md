@@ -32,18 +32,19 @@ Zdefiniowano 4 suwerenne profile kognitywne agentów w systemie:
    - **Agenci:** Agent 1 Krok 1 (OSINT Rejestrowy), Agent 4 (Chemical AEO Parser), Agent 2 (Sentiment Clusterer), Ad Intelligence Scorer, Prompt Director Węzeł 2 (Architekt Dyfuzji), SDS Semantic Arbiter, Allegro Ads Sentinel.
    - **Uzasadnienie:** Zogniskowana ocena analityczna według sztywnych matryc scoringowych, wykrywanie anomalii i kategoryzacja bez zbędnych spekulacji.
 
-4. **Profil D: Ekstraktorzy Danych i Strukturatorzy (`ThinkingLevel.MINIMAL`):**
+4. **Profil D: Ekstraktorzy Danych i Strukturatorzy (`ThinkingLevel.LOW`):**
    - **Agenci:** Agent 1 Krok 2 (JSON Parser raportu badawczego), BaseLinker Export Agent (`Payload Formatter`), SDS Vision Extractor, SDS Narrative Translator.
-   - **Uzasadnienie:** Natychmiastowe przepisanie danych do schematu JSON bez tworzenia tokenów spekulacyjnych (*overthinking* w Krok 2 groziło dopowiadaniem brakujących parametrów).
+   - **Kluczowe odkrycie empiryczne (Wycofanie MINIMAL):** Mimo istnienia wartości `ThinkingLevel.MINIMAL` w definicjach TypeScript biblioteki `@google/genai`, produkcyjny backend Google Gemini odrzuca tę wartość błędem `HTTP 400: Thinking level MINIMAL is not supported for this model. Please retry with other thinking level.`. Z tego powodu jedynymi dopuszczalnymi i obsługiwanymi poziomami wnioskowania na platformie są **`LOW`**, **`MEDIUM`** oraz **`HIGH`**. Wszystkie komponenty ekstrakcyjne i formatujące zostały skonfigurowane na `ThinkingLevel.LOW` (niski narzut myślenia, pełna kompatybilność z walidatorem Google).
 
 ### 2. Eliminacja Wycofanych Parametrów w Kodzie
-- Zaktualizowano `src/modules/offer-optimizer-v2/config/nodes.config.js` – usunięto właściwości `temperature` ze wszystkich węzłów (w tym węzła 1, 2, 4 i 11), przypisano precyzyjne `ThinkingLevel`.
-- Zaktualizowano `src/modules/offer-optimizer-v2/ai.wrapper.js` – usunięto `temperature` z `baseConfig` oraz z Kroku 2 (`structureConfig`), ustawiając w Kroku 2 `thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL }`.
+- Zaktualizowano `src/modules/offer-optimizer-v2/config/nodes.config.js` – usunięto właściwości `temperature` ze wszystkich węzłów, przypisano precyzyjne `ThinkingLevel`.
+- Zaktualizowano `src/modules/offer-optimizer-v2/ai.wrapper.js` – usunięto `temperature` z `baseConfig` oraz z Kroku 2 (`structureConfig`), ustawiając w Kroku 2 `thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }`.
 - Zaktualizowano `src/modules/offer-optimizer-v2/orchestrator.js` – usunięto przekazywanie `temperature: 0` w wywołaniach Agenta 5 i Agenta 10.
-- Zaktualizowano `src/modules/offer-optimizer-v2/baselinker.export.agent.js` – usunięto `temperature: 0.8`, wdrożono `ThinkingLevel.MINIMAL`.
+- Zaktualizowano `src/modules/offer-optimizer-v2/baselinker.export.agent.js` – usunięto `temperature: 0.8`, wdrożono `ThinkingLevel.LOW`.
 - Zaktualizowano moduł `ad-intelligence` (`ad-intelligence.service.js`, `creative-war-room.service.js`, `prompt-director.service.js`) – usunięto parametry temperatury oraz przestarzały `thinkingBudget: 1024`, wdrażając enum `ThinkingLevel` (`HIGH`, `MEDIUM`, `LOW`).
-- Zaktualizowano moduł `sds` (`sds.agent.js`, `sds.investigator.agent.js`, `sds.verifier.agent.js`, `sds.vision.agent.js`, `engine/agents/*`) – usunięto `temperature: 0.0`, wdrożono `thinkingConfig` z odpowiednimi poziomami (`HIGH` dla audytorów, `MINIMAL` dla wizji i translatora, `MEDIUM` dla arbitra).
+- Zaktualizowano moduł `sds` (`sds.agent.js`, `sds.investigator.agent.js`, `sds.verifier.agent.js`, `sds.vision.agent.js`, `engine/agents/*`) – usunięto `temperature: 0.0`, wdrożono `thinkingConfig` z poziomami `HIGH`, `MEDIUM` oraz `LOW`.
 - Zaktualizowano moduł komunikacji `nexus-bot.service.js` – usunięto `temperature: 0.1` i `topP: 0.8`, wdrożono `thinkingLevel: "MEDIUM"`.
+- Zaktualizowano moduł `offer-optimizer` (legacy `ai.service.js`, `compile_sot.js`) oraz skrypty pomocnicze – usunięto wszystkie instancje `temperature`, `topP` i przestarzały `thinkingBudget`.
 
 ### 3. Wzmocnienie Warstwy Semantycznej Promptów
 - W promptach Agenta 6 wdrożono regułę 8: *Mandat Dywergencyjnego Copywritingu* (bezwzględny zakaz klisz korporacyjnych, rotacja kątów natarcia).
@@ -52,6 +53,7 @@ Zdefiniowano 4 suwerenne profile kognitywne agentów w systemie:
 - W promptach Creative War Room dodano *Doktrynę Anty-Klisz* dla każdej z 4 person.
 
 ## Konsekwencje i Weryfikacja
-- **Zgodność z API Google:** System jest w 100% odporny na wycofanie parametrów samplera i budżetu myślenia. Błąd HTTP 400 `INVALID_ARGUMENT` został wyeliminowany.
-- **Odporność na regresję testową:** Rozszerzono `src/modules/offer-optimizer-v2/tests/config.test.js` o asercje weryfikujące brak wycofanych parametrów (`temperature`, `top_p`, `top_k`, `thinkingBudget`) oraz zgodność taksonomii `thinkingLevel` dla wszystkich węzłów.
-- **Wyniki testów:** 154/154 testy potoku Offer Optimizer V2 przechodzą pomyślnie (`154 pass, 0 fail`).
+- **Zgodność z API Google:** System jest w 100% odporny na wycofanie parametrów samplera i budżetu myślenia. Błąd HTTP 400 `INVALID_ARGUMENT` z tytułu `MINIMAL` został wyeliminowany poprzez rygorystyczne przejście na `LOW`.
+- **Weryfikacja na żywym API Google:** Przetestowano end-to-end Agenta 1 z narzędziem Google Search Grounding (Krok 1) oraz ekstrakcją JSON (Krok 2) na modelu `gemini-3.1-pro-preview` – potok zakończony sukcesem bez błędów sieciowych i walidacyjnych.
+- **Odporność na regresję testową:** Rozszerzono `src/modules/offer-optimizer-v2/tests/config.test.js` o asercje weryfikujące brak wycofanych parametrów (`temperature`, `top_p`, `top_k`, `thinkingBudget`), zakaz stosowania `MINIMAL` oraz poprawność poziomów `LOW`, `MEDIUM`, `HIGH`.
+- **Wyniki testów:** 155/155 testów potoku Offer Optimizer V2 przechodzi pomyślnie (`155 pass, 0 fail`).

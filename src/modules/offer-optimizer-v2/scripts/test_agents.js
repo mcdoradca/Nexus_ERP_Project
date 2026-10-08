@@ -4,7 +4,7 @@ const { callAgentWithTelemetry, ThinkingLevel } = require('./ai.wrapper.js');
 async function runTests() {
     console.log("=== Rozpoczęcie testów E1 ===");
     try {
-        console.log("\n1. Test węzła Flash (MINIMAL)");
+        console.log("\n1. Test węzła Flash (MEDIUM)");
         const flashResult = await callAgentWithTelemetry({
             agentId: 'TestFlashNode',
             model: 'gemini-3.8-flash',

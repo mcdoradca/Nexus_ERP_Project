@@ -1160,7 +1160,7 @@ async function runNode1_Autofill(ean, productName, productFeatures = {}, allegro
             generationConfig: { 
                 maxOutputTokens: 8192,
                 responseMimeType: "application/json",
-                thinkingConfig: { thinkingLevel: "minimal" } 
+                thinkingConfig: { thinkingLevel: "low" } 
             }
         });
         const systemPrompt = getMasterPrompt(1);
@@ -1203,7 +1203,7 @@ async function runNode2_Sentiment(ean, productName) {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.8-flash",
             tools: [{ googleSearch: {} }],
-            generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "minimal" } }
+            generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }
         });
         const systemPrompt = getMasterPrompt(2);
         const prompt = `${systemPrompt}\n\n--- DANE WEJĹšCIOWE ---\nPRODUKT: ${productName}\nEAN: ${ean}`;
@@ -1223,7 +1223,7 @@ async function runNode4_INCIParser(inciString, ragKnowledge, pimPayload) {
             generationConfig: { 
                 maxOutputTokens: 8192,
                 responseMimeType: "application/json",
-                thinkingConfig: { thinkingLevel: "minimal" },
+                thinkingConfig: { thinkingLevel: "low" },
                 responseSchema: {
                     type: "object",
                     properties: {
@@ -1377,7 +1377,7 @@ async function runNode9_VisionAuditor(imageUrls) {
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.8-flash", // Szybki i tani model Vision
-            generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "minimal" } }
+            generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }
         });
         const systemPrompt = getMasterPrompt(9);
         

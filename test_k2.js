@@ -6,7 +6,7 @@ async function testFlash() {
     try {
         const model = genAI.getGenerativeModel({
             model: "gemini-3.8-flash",
-            generationConfig: { thinkingConfig: { thinkingLevel: "minimal" } }
+            generationConfig: { thinkingConfig: { thinkingLevel: "low" } }
         });
         const result = await model.generateContent("Say hello");
         console.log("Flash Minimal Success:", result.response.usageMetadata);

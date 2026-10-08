@@ -46,7 +46,7 @@ ${inputJson}
                 config: {
                     systemInstruction: this.systemPrompt,
                     thinkingConfig: {
-                        thinkingLevel: ThinkingLevel.MINIMAL
+                        thinkingLevel: ThinkingLevel.LOW
                     }
                 }
             });

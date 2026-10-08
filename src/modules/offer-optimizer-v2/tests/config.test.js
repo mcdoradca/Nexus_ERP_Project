@@ -48,3 +48,12 @@ test('Konfiguracja węzłów: Precyzyjna taksonomia kognitywna thinkingLevel per
     assert.strictEqual(getNodeConfig(11).thinkingLevel, ThinkingLevel.MEDIUM, 'A11 wymaga MEDIUM');
 });
 
+test('Ochrona przed błędem 400: Żaden węzeł nie używa ThinkingLevel.MINIMAL (nieobsługiwanego przez API)', () => {
+    const nodeIds = [1, 2, 4, 5, 6, 7, 9, 10, 11];
+    for (const id of nodeIds) {
+        const cfg = getNodeConfig(id);
+        assert.notStrictEqual(cfg.thinkingLevel, ThinkingLevel.MINIMAL, `Węzeł ${id} nie może używać MINIMAL - odrzucane przez Google API`);
+        assert.ok([ThinkingLevel.LOW, ThinkingLevel.MEDIUM, ThinkingLevel.HIGH].includes(cfg.thinkingLevel), `Węzeł ${id} musi używać LOW, MEDIUM lub HIGH`);
+    }
+});
+
