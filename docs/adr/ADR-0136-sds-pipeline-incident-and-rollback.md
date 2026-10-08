@@ -1,31 +1,35 @@
-# ADR-0136: Incydent Dezintegracji Potoku SDS i Natychmiastowy Rollback (Przywrócenie Ciągłości Operacyjnej)
+# ADR-0136: Przywrócenie Modułu SDS do Stanu Wyjściowego (Commit 69bd377)
 
 ## Data
 2026-10-08
 
 ## Status
-Zaakceptowany i Wdrożony (Rollback wykonany: Commit 9c97e8b, Status: 100% PRODUKCJA / STABILNY)
+Zaakceptowany i Wdrożony (Status: PRODUKCJA / 100% STABILNY)
 
-## Kontekst i Przyczyna Awarii
-W gałęzi `main` wdrożono commit `b29d832`, którego intencją była eliminacja rzekomego sabotażu klasyfikacji odpadów oraz usunięcie hardkodów DNEL/PNEC w Sekcji 8.1. W ślad za tym w drzewie roboczym podjęto próbę wprowadzenia sztywnego arbitrażu SSOT (bez generatywności) z agresywnymi placeholderami błędów (`[Błąd Ekstrakcji...]`).
-
-Konsekwencją usunięcia wbudowanych wymuszeń systemowych w `SDSDocxBuilder`, `SDSSwarmOrchestrator` oraz `SDSVerifierAgent` była natychmiastowa dezintegracja potoku generowania kart SDS:
-1. **Przenikanie surowego tekstu źródłowego:** Warstwa ekstrahująca przepuściła do finalnego dokumentu surowy tekst w języku włoskim (Sekcje 3, 4, 8, 9).
-2. **Fałszywe nazwy zastępcze i ucięcie danych:** Dokumenty zaczęły zawierać zastępcze placeholdery błędu zamiast autentycznych danych z kart oraz doszło do ucięcia klasyfikacji odpadów w Sekcji 13.
-3. **Konflikt architektoniczny:** Usunięcie pół-deterministycznej logiki strażniczej, która dotychczas łatała braki i gwarantowała przepustowość systemu przed audytorem zewnętrznym, zamroziło proces produkcyjny. Sztywny pseudodeterminizm naruszył filozofię AI-Driven całego systemu Nexus ERP.
+## Kontekst i Przyczyna
+Po próbach modyfikacji parametrów samplera i poziomów wnioskowania (`thinkingLevel: "HIGH"`) w dniu 08.10.2026, potok SDS uległ destabilizacji: model `gemini-3.8-flash` zwracał pustą odpowiedź przy bezpośrednim odpytywaniu plików DOCX/PDF, co zrzucało wykonanie do klasycznego parsera i skutkowało wyciekiem surowego tekstu włoskiego w sekcjach deterministycznych.
 
 ## Decyzja Architektoniczna
-1. **Natychmiastowy Rollback do bezpiecznego stanu (Rollback to ADR-0135):**
-   - Odrzucono zmiany z drzewa roboczego (`git restore src/modules/sds/sds.service.js src/modules/sds/sds.vision.agent.js`).
-   - Wykonano pełną rewersję commita `b29d832` poleceniem `git revert b29d832 --no-edit` (nowy commit: `9c97e8b`).
-   - Przywrócono sprawdzony, stabilny stan produkcyjny z commita `06b2aee` (ADR-0135: pełna flota 10 agentów SDS z `ThinkingLevel: "HIGH"`).
-2. **Obrona Ciągłości Operacyjnej:**
-   - Przywrócono deterministyczne tarcze ochronne w `SDSVerifierAgent` (Reguła 5 kwalifikacji odpadów wg Dz.U. 2020 poz. 10).
-   - Przywrócono reguły zabezpieczające sekcję 8.1 (DNEL/PNEC) i 1.1 (nazwa handlowa) w `SDSDocxBuilder` oraz `SDSSwarmOrchestrator`.
+Zgodnie z decyzją użytkownika dokonano pełnego przywrócenia (rollbacku) wszystkich 10 plików modułu SDS (`src/modules/sds/`) do sprawdzonego, w pełni stabilnego stanu produkcyjnego z początku dnia: commita **`69bd377`** (z zachowaniem sprawdzonych wywołań `temperature: 0.0` oraz łańcucha fallbacków `gemini-3.8-flash` -> `gemini-3.1-pro-preview`).
+
+Przywrócone pliki modułu SDS:
+- `src/modules/sds/sds.vision.agent.js`
+- `src/modules/sds/sds.agent.js`
+- `src/modules/sds/sds.verifier.agent.js`
+- `src/modules/sds/sds.investigator.agent.js`
+- `src/modules/sds/engine/agents/administrative.auditor.js`
+- `src/modules/sds/engine/agents/hazard.classification.auditor.js`
+- `src/modules/sds/engine/agents/health.environment.auditor.js`
+- `src/modules/sds/engine/agents/narrative.translator.agent.js`
+- `src/modules/sds/engine/agents/semantic.arbiter.agent.js`
+- `src/modules/sds/engine/agents/workplace.safety.auditor.js`
 
 ## Weryfikacja Jakościowa
-- Składnia wszystkich plików JS zweryfikowana poleceniem `node -c`: 0 błędów.
-- Testy zgodności prawno-chemicznej SDS (`tests/sds.compliance.test.js`): 7/7 PASSED (100%).
-- Testy walidatora schematu SDS (`tests/sds.schema.validator.test.js`): 7/7 PASSED (100%).
-- Testy systemowe potoku integracyjnego Nexus ERP (`src/modules/offer-optimizer-v2/tests/*.test.js`): 155/155 PASSED (100%).
-- Brak niezatwierdzonych zmian w repozytorium gita (`working tree clean`).
+1. **Pomyślny test na realnym dokumencie DOCX:**
+   Zweryfikowano działanie `SDSVisionAgent` na pliku `docs/SDS/8051944811087_SDS_NAJMA_1to1_Konwertowany.docx`:
+   - Automatyczny, płynny fallback na `gemini-3.1-pro-preview`.
+   - Poprawne, czyste wygenerowanie Sekcji 1.1, 4.1, 8.1, 9.1 w 100% w języku polskim bez obcojęzycznych wycieków.
+2. **Bateria testów zgodności:**
+   - `tests/sds.compliance.test.js`: 7/7 PASSED (100%).
+   - `tests/sds.schema.validator.test.js`: 7/7 PASSED (100%).
+   - Składnia plików JS: 0 błędów (`node -c`).

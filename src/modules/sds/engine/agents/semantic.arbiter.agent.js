@@ -15,9 +15,7 @@ ZASADY:
 4. Zwracasz skorygowany obiekt JSON, który ma identyczną strukturę wejściową jak dostarczony.`,
             generationConfig: {
                 responseMimeType: "application/json",
-                thinkingConfig: {
-                    thinkingLevel: "HIGH"
-                }
+                temperature: 0.0
             }
         });
     }

@@ -71,9 +71,7 @@ BEZWZGLĘDNE ZASADY:
 7. Zwracaj WYŁĄCZNIE poprawny JSON z zachowaniem struktury wejściowych sekcji.`,
             tools: [{ functionDeclarations: toolDeclarations }],
             generationConfig: {
-                thinkingConfig: {
-                    thinkingLevel: "HIGH"
-                }
+                temperature: 0.0
             }
         });
     }

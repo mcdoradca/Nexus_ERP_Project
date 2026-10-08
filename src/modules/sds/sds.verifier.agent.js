@@ -791,9 +791,7 @@ Zwróć WYŁĄCZNIE obiekt JSON w formacie:
 }`,
         generationConfig: {
           responseMimeType: "application/json",
-          thinkingConfig: {
-            thinkingLevel: "HIGH"
-          }
+          temperature: 0.0
         }
       });
 

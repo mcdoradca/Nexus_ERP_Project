@@ -16,9 +16,7 @@ ZASADY:
 4. Odpowiadasz WYŁĄCZNIE czystym formatem JSON bez znaczników markdown.`,
             generationConfig: {
                 responseMimeType: "application/json",
-                thinkingConfig: {
-                    thinkingLevel: "HIGH"
-                }
+                temperature: 0.0 // Pełny determinizm
             }
         });
     }
