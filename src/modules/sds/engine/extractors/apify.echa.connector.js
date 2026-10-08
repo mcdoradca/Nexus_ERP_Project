@@ -1,9 +1,11 @@
 const axios = require('axios');
+const { PubChemPugRestClient } = require('./pubchem.pug.rest.client');
 require('dotenv').config();
 
 /**
  * Apify ECHA Connector - Integracja z Apify ECHA Europe Chemicals Scraper
  * Pełni rolę SSOT (Single Source of Truth) dla klasyfikacji (CLP) i fraz GHS/EuPhraC.
+ * Wyposażony w defensywny fallback do oficjalnego PubChem PUG REST API (NCBI).
  */
 class ApifyEchaConnector {
     constructor() {
@@ -11,6 +13,7 @@ class ApifyEchaConnector {
         // Używamy zaufanego aktora, np. parseforge~echa-europe-chemicals-scraper
         this.actorId = 'parseforge~echa-europe-chemicals-scraper'; 
         this.baseUrl = 'https://api.apify.com/v2';
+        this.pubchemFallback = new PubChemPugRestClient();
     }
 
     /**
@@ -20,7 +23,8 @@ class ApifyEchaConnector {
      */
     async fetchChemicalData(query) {
         if (!this.apiToken) {
-            throw new Error('[ApifyEchaConnector] Brak APIFY_API_TOKEN w środowisku.');
+            console.warn(`[ApifyEchaConnector] Brak APIFY_API_TOKEN. Uruchamiam PubChem PUG REST Fallback dla '${query}'...`);
+            return await this.pubchemFallback.fetchFullChemicalProfile(query);
         }
 
         try {
@@ -48,13 +52,18 @@ class ApifyEchaConnector {
             if (datasetResponse.data && datasetResponse.data.length > 0) {
                 return this._normalizeEchaData(datasetResponse.data[0]);
             } else {
-                console.warn(`[ApifyEchaConnector] Brak wyników dla: ${query}`);
-                return null;
+                console.warn(`[ApifyEchaConnector] Brak wyników w Apify dla: ${query}. Uruchamiam PubChem PUG REST Fallback...`);
+                return await this.pubchemFallback.fetchFullChemicalProfile(query);
             }
 
         } catch (error) {
-            console.error(`[ApifyEchaConnector] Błąd komunikacji z Apify:`, error.message);
-            throw error;
+            console.warn(`[ApifyEchaConnector] Błąd komunikacji z Apify (${error.message}). Przełączam na PubChem PUG REST Fallback dla: ${query}...`);
+            try {
+                return await this.pubchemFallback.fetchFullChemicalProfile(query);
+            } catch (fallbackError) {
+                console.error(`[ApifyEchaConnector] Błąd procedury PubChem Fallback:`, fallbackError.message);
+                return null;
+            }
         }
     }
 

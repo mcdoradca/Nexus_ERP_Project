@@ -33,14 +33,14 @@ class EuphracUpdater {
                     // Tu symulujemy ekstrakcję słownikową z ustrukturyzowanej odpowiedzi ECHA.
                     if (data.hPhrases) {
                         data.hPhrases.forEach(phrase => {
-                            const match = phrase.match(/^(H\d+[a-zA-Z]*)\s*:\s*(.*)/);
-                            if (match) ssotData.hPhrases[match[1]] = match[2];
+                            const match = phrase.match(/^(H\d+[a-zA-Z]*)(?:\s*:\s*(.*))?/);
+                            if (match) ssotData.hPhrases[match[1]] = match[2] || ssotData.hPhrases[match[1]] || match[1];
                         });
                     }
                     if (data.pPhrases) {
                         data.pPhrases.forEach(phrase => {
-                            const match = phrase.match(/^(P\d+(?:\+P\d+)*)\s*:\s*(.*)/);
-                            if (match) ssotData.pPhrases[match[1]] = match[2];
+                            const match = phrase.match(/^(P\d+(?:\+P\d+)*)(?:\s*:\s*(.*))?/);
+                            if (match) ssotData.pPhrases[match[1]] = match[2] || ssotData.pPhrases[match[1]] || match[1];
                         });
                     }
                 }

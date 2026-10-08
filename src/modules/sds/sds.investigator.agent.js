@@ -1,6 +1,9 @@
 require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios = require('axios');
+const { PubChemPugRestClient } = require('./engine/extractors/pubchem.pug.rest.client');
+
+const pubchemClient = new PubChemPugRestClient();
 
 const SYSTEM_PROMPT = `Jesteś Agentem Śledczym ds. Bezpieczeństwa Chemicznego (Ekspert REACH).
 Twoim zadaniem jest znalezienie prawidłowej, międzynarodowej nazwy IUPAC w języku polskim oraz wzoru sumarycznego dla substancji, których nie udało się zidentyfikować systemowi głównemu (anomalie CAS).
@@ -22,8 +25,8 @@ async function callApifyScraper(casNumber, retries = 1) {
         try {
             const token = process.env.APIFY_API_TOKEN;
             if (!token) {
-                console.warn("[HITL Agent] Brak APIFY_API_TOKEN. Pomijam dedykowany scraper.");
-                return null;
+                console.warn("[HITL Agent] Brak APIFY_API_TOKEN. Uruchamiam PubChem PUG REST Fallback.");
+                return await pubchemClient.fetchFullChemicalProfile(casNumber);
             }
 
             // Uruchamiamy aktora ECHA Scraper synchronicznie (czeka na wynik)
@@ -34,10 +37,19 @@ async function callApifyScraper(casNumber, retries = 1) {
             if (response.data && response.data.length > 0) {
                 return response.data[0];
             }
-            return null;
+            console.warn(`[HITL Agent] Aktor ECHA zwrócił pusty wynik dla CAS ${casNumber}. Przełączam na PubChem PUG REST Fallback...`);
+            return await pubchemClient.fetchFullChemicalProfile(casNumber);
         } catch (err) {
             console.error(`[HITL Agent] Błąd odpytywania Apify ECHA Scraper (próba ${attempt + 1}):`, err.message);
-            if (attempt === retries) return null;
+            if (attempt === retries) {
+                console.warn(`[HITL Agent] Apify niedostępne po ${attempt + 1} próbach. Aktywacja PubChem PUG REST Fallback dla CAS ${casNumber}...`);
+                try {
+                    return await pubchemClient.fetchFullChemicalProfile(casNumber);
+                } catch (fallbackErr) {
+                    console.error(`[HITL Agent] Błąd PubChem Fallback:`, fallbackErr.message);
+                    return null;
+                }
+            }
             await new Promise(r => setTimeout(r, 2000)); // Krótkie opóźnienie przed ponowieniem
         }
     }
