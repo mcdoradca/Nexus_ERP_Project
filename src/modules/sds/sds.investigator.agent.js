@@ -73,7 +73,7 @@ async function investigateAnomaliesAgent(anomalies) {
         generationConfig: { 
             responseMimeType: "application/json",
             thinkingConfig: {
-                thinkingLevel: "MEDIUM"
+                thinkingLevel: "HIGH"
             }
         }
     });

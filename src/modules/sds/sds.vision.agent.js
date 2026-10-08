@@ -259,7 +259,7 @@ Zwróć WYŁĄCZNIE czysty obiekt JSON bez znaczników markdown.`;
       generationConfig: {
         responseMimeType: "application/json",
         thinkingConfig: {
-          thinkingLevel: "LOW"
+          thinkingLevel: "HIGH"
         }
       }
     };

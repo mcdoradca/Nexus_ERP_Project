@@ -91,7 +91,7 @@ async function processSdsWithAgent(pdfPath, productName, manualOverrides = {}) {
             generationConfig: { 
                 responseMimeType: "application/json",
                 thinkingConfig: {
-                    thinkingLevel: "LOW"
+                    thinkingLevel: "HIGH"
                 }
             }
         });

@@ -20,7 +20,7 @@ ZASADY:
             generationConfig: {
                 responseMimeType: "application/json",
                 thinkingConfig: {
-                    thinkingLevel: "MEDIUM"
+                    thinkingLevel: "HIGH"
                 }
             }
         });
