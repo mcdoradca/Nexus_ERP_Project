@@ -804,7 +804,7 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
                 width: deepData.width,
                 height: deepData.height,
                 taxRate: deepData.taxRate,
-                descriptionHtml: deepData.description || '',
+                descriptionHtml: deepData.descriptionHtml || deepData.description || '',
                 features: deepData.features || {},
                 videoUrl: deepData.videoUrl,
                 stockErpUnits: deepData.stockErpUnits,
@@ -829,32 +829,36 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
             }
         };
 
+        // Ostrzeżenie dla UI: BaseLinker (źródło priorytetowe) zawiódł, a dane pochodzą ze źródeł zastępczych.
+        // Bez tego pola awaria BL (np. zablokowane konto) była niewidoczna – formularz zostawał pusty bez komunikatu.
+        const blWarning = blFetchError || null;
+
         // 1. Open Beauty Facts (Kosmetyki)
         let data = await safeFetch(`https://world.openbeautyfacts.org/api/v0/product/${ean}.json`);
         if (data && data.status === 1 && data.product) {
-            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: allegroBrand || data.product.brands || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures });
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: allegroBrand || data.product.brands || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures, source: 'openbeautyfacts', blWarning });
         }
 
         // 2. Open Food Facts (FMCG)
         data = await safeFetch(`https://world.openfoodfacts.org/api/v0/product/${ean}.json`);
         if (data && data.status === 1 && data.product) {
-            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: allegroBrand || data.product.brands || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures });
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: allegroBrand || data.product.brands || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures, source: 'openfoodfacts', blWarning });
         }
         
         // 3. Open Product Facts (Inne)
         data = await safeFetch(`https://world.openproductfacts.org/api/v0/product/${ean}.json`);
         if (data && data.status === 1 && data.product) {
-            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: allegroBrand || data.product.brands || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures });
+            return res.status(200).json({ name: data.product.product_name || data.product.product_name_pl || data.product.generic_name || '', brand: allegroBrand || data.product.brands || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures, source: 'openproductfacts', blWarning });
         }
 
         // 4. UPC Item DB (Globalny Mix)
         data = await safeFetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${ean}`);
         if (data && data.code === 'OK' && data.items && data.items.length > 0) {
-            return res.status(200).json({ name: data.items[0].title || '', brand: allegroBrand || data.items[0].brand || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures });
+            return res.status(200).json({ name: data.items[0].title || '', brand: allegroBrand || data.items[0].brand || '', allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures, source: 'upcitemdb', blWarning });
         }
 
         if (globalAllegroCatId) {
-            return res.status(200).json({ name: '', brand: allegroBrand, allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures });
+            return res.status(200).json({ name: '', brand: allegroBrand, allegroCategoryId: globalAllegroCatId, existingProductId: existingProduct ? existingProduct.id : null, features: globalMergedFeatures, source: 'allegro', blWarning });
         }
 
         res.status(404).json({ 

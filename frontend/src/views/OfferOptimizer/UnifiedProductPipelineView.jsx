@@ -5,6 +5,7 @@ import { StrictWysiwyg } from './components/HitlReviewer/StrictWysiwyg';
 import { TileSimulator } from './components/HitlReviewer/TileSimulator';
 import { ImageUploadBox } from './components/SingleAuctionFetcher/ImageUploadBox';
 import { PhotographicAuditorCard } from './components/VisionFeedback/PhotographicAuditorCard';
+import { describeBaselinkerError, describeAutofillError } from '../../utils';
 import { 
   Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp, Search,
   Hash, CloudLightning, Loader2, Package, Image, PlayCircle, FileText, CheckCircle2, Zap,
@@ -615,7 +616,7 @@ export const UnifiedProductPipelineView = ({
         setAutofillEanLoading(true);
         try {
             const res = await axios.get(`${API_URL}/api/products/autofill/${newProductForm.ean}`, { headers: { Authorization: `Bearer ${token}` } });
-            const { name, brand, sku, price, stock, baselinkerId, imageUrl, weight, length, width, height, taxRate, images, descriptionHtml, features, videoUrl, stockErpUnits, stockWmsUnits, allegroCategoryId, existingProductId } = res.data;
+            const { name, brand, sku, price, stock, baselinkerId, imageUrl, weight, length, width, height, taxRate, images, descriptionHtml, features, videoUrl, stockErpUnits, stockWmsUnits, allegroCategoryId, existingProductId, blWarning, source } = res.data;
             
             if (existingProductId) {
                 setEditingProduct(existingProductId);
@@ -667,10 +668,16 @@ export const UnifiedProductPipelineView = ({
                 stockWmsUnits: stockWmsUnits !== undefined ? stockWmsUnits : prev.stockWmsUnits,
                 allegroCategoryId: allegroCategoryId || prev.allegroCategoryId
             }));
+
+            // BaseLinker zawiódł – dane (jeśli są) pochodzą ze źródła zastępczego. Informujemy operatora po wypełnieniu formularza.
+            if (blWarning) {
+                console.warn('--- BASELINKER WARNING (autofill fallback) ---', { blWarning, source });
+                alert(`Dane NIE zostały pobrane z BaseLinkera${source ? ` (użyto źródła zastępczego: ${source})` : ''}.\n\n${describeBaselinkerError(blWarning)}`);
+            }
         } catch (err) {
             const debugInfo = err.response?.data?.debug;
             console.log('--- BASELINKER DEBUG INFO ---', debugInfo);
-            alert(`Brak EAN w bazach lub BaseLinker odmówił dostępu.\nSprawdź konsolę (F12) by zobaczyć co odpowiedział serwer bazy!`);
+            alert(describeAutofillError(err));
         } finally {
             setAutofillEanLoading(false);
         }

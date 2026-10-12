@@ -17,3 +17,42 @@ export const getDepartmentColor = (department) => {
   if (d.includes('GOŚĆ') || d.includes('GOSC') || d.includes('GUEST')) return 'bg-slate-400 border-slate-300 text-white shadow-md';
   return 'bg-slate-500 border-slate-400 text-white shadow-sm';
 };
+
+/**
+ * Tłumaczy surowy komunikat błędu BaseLinkera (z backendu: blWarning / debug) na czytelną informację dla operatora.
+ * Rozpoznanie po treści odpowiedzi API BaseLinkera; nieznane komunikaty zwracane są w surowej postaci.
+ */
+export const describeBaselinkerError = (rawMessage) => {
+  const raw = typeof rawMessage === 'string' ? rawMessage.trim() : '';
+  if (!raw) return 'Nieznany błąd BaseLinkera (brak szczegółów z serwera).';
+  const msg = raw.toLowerCase();
+
+  if (msg.includes('blocked')) {
+    return `KONTO BASELINKER ZABLOKOWANE – API odrzuca token.\nSprawdź status konta/płatności w panelu BaseLinkera lub skontaktuj się z supportem.\n\nOdpowiedź API: ${raw}`;
+  }
+  if (msg.includes('invalid user token') || msg.includes('token')) {
+    return `Nieprawidłowy token BaseLinkera.\nWygeneruj nowy (Moje konto → API) i zapisz go w ustawieniach systemu (BASELINKER_TOKEN).\n\nOdpowiedź API: ${raw}`;
+  }
+  if (msg.includes('limit') || msg.includes('429')) {
+    return `Przekroczony limit zapytań API BaseLinkera. Spróbuj ponownie za ok. 2 minuty.\n\nOdpowiedź API: ${raw}`;
+  }
+  if (msg.includes('nie istnieje w pim')) {
+    return `Produktu z tym EAN nie ma w katalogu BaseLinkera.\n\nSzczegóły: ${raw}`;
+  }
+  return `Błąd BaseLinkera: ${raw}`;
+};
+
+/**
+ * Buduje komunikat błędu dla nieudanego wywołania /api/products/autofill/:ean (axios error).
+ */
+export const describeAutofillError = (err) => {
+  const data = err?.response?.data;
+  if (data?.debug) {
+    return `Nie znaleziono danych dla EAN w żadnym źródle.\n\n${describeBaselinkerError(data.debug)}`;
+  }
+  if (data?.details || data?.error) {
+    return `Błąd serwera agregatora EAN: ${data.details || data.error}`;
+  }
+  return `Brak połączenia z serwerem: ${err?.message || 'nieznany błąd sieci'}`;
+};
+

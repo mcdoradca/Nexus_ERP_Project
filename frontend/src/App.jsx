@@ -31,7 +31,7 @@ import {
   Package, Database, Image, FileText, Bot, BarChart3, LogOut, CheckSquare, CheckCircle, BookOpen
 } from 'lucide-react';
 
-import { getInitials, getDepartmentColor } from './utils';
+import { getInitials, getDepartmentColor, describeBaselinkerError, describeAutofillError } from './utils';
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
 
@@ -277,7 +277,7 @@ function App() {
     setAutofillEanLoading(true);
     try {
       const res = await axios.get(`${API_URL}/api/products/autofill/${newProductForm.ean}`, { headers: { Authorization: `Bearer ${token}` } });
-      const { name, brand, sku, price, stock, baselinkerId, imageUrl, weight, length, width, height, taxRate, images, descriptionHtml, features, videoUrl, stockErpUnits, stockWmsUnits } = res.data;
+      const { name, brand, sku, price, stock, baselinkerId, imageUrl, weight, length, width, height, taxRate, images, descriptionHtml, features, videoUrl, stockErpUnits, stockWmsUnits, blWarning, source } = res.data;
       
       let matchedBrandId = newProductForm.brandId;
       if (brand && typeof brand === 'string') {
@@ -326,10 +326,16 @@ function App() {
         stockErpUnits: stockErpUnits !== undefined ? stockErpUnits : prev.stockErpUnits,
         stockWmsUnits: stockWmsUnits !== undefined ? stockWmsUnits : prev.stockWmsUnits
       }));
+
+      // BaseLinker zawiódł – dane (jeśli są) pochodzą ze źródła zastępczego. Informujemy operatora po wypełnieniu formularza.
+      if (blWarning) {
+        console.warn('--- BASELINKER WARNING (autofill fallback) ---', { blWarning, source });
+        alert(`Dane NIE zostały pobrane z BaseLinkera${source ? ` (użyto źródła zastępczego: ${source})` : ''}.\n\n${describeBaselinkerError(blWarning)}`);
+      }
     } catch (err) {
       const debugInfo = err.response?.data?.debug;
       console.log('--- BASELINKER DEBUG INFO ---', debugInfo);
-      alert(`Brak EAN w bazach lub BaseLinker odmówił dostępu.\nSprawdź konsolę (F12) by zobaczyć co odpowiedział serwer bazy!`);
+      alert(describeAutofillError(err));
     } finally {
       setAutofillEanLoading(false);
     }
