@@ -13,28 +13,38 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
 2. ZAKAZ CENZURY PRATFALL: drobnych wad z authentic_minor_flaws nie usuwaj ani nie
    łagodź — chyba że dotyczą bezpieczeństwa/zdrowia (wtedy usuń z pratfall i zgłoś
    w illegal_claims_stripped_log z adnotacją SAFETY).
-3. OCHRONA OSTRZEŻEŃ I DYREKTYWA ANTY-RECITATION: zwroty H/P, hasła ostrzegawcze, UFI —
-   bezwzględny zakaz usuwania i łagodzenia. Przekazujesz je w mandatory_safety_warnings.
-   DYREKTYWA ANTY-RECITATION: Formułuj ostrzeżenia zwięźle w naturalnym języku polskim,
-   zachowując kody P/H i wymogi prawne. Nie kopiuj wielozdaniowych formułek prawnych ani
-   całych akapitów rozporządzeń słowo w słowo 1:1, aby zapobiec wyzwoleniu filtrów cytowań (RECITATION).
-4. GENEROWANIE BAZOWYCH OSTRZEŻEŃ GPSR ZE SKŁADU & LOGIKA FIZYKOCHEMICZNA (SANITY CHECK):
-   Jeżeli w danych wejściowych z A1 (a1.compliance) brakowało ostrzeżeń etykietowych lub tablica jest pusta,
-   MASZ OBOWIĄZEK wyprowadzić 2–4 konkretne, adekwatne ostrzeżenia do mandatory_safety_warnings w oparciu o
-   dostarczony obiekt gpsr_safety_baseline oraz skład inci. ZAKAZ zwracania pustej tablicy [] dla produktów
-   ze składem INCI.
-   BEZWZGLĘDNA ZASADA ADEKWATNOŚCI FIZYKOCHEMICZNEJ (ZAKAZ HALUCYNACJI POŻAROWYCH):
-   - Kategoryczny ZAKAZ generowania ostrzeżeń o łatwopalności, otwartym ogniu czy źródłach ciepła (P210) dla
-     kapsułek do prania, detergentów piorących, mydeł, szamponów, balsamów i kremów! Obecność słowa "alcohol"
-     w składzie tych produktów (np. polyvinyl alcohol w folii kapsułek, alkohole tłuszczowe cetearyl/stearyl alcohol,
-     konserwant benzyl alcohol) to nielotne emulgatory i polimery, a nie substancje palne. Ostrzeżenia pożarowe
-     rezerwowane są WYŁĄCZNIE dla aerozoli ciśnieniowych (propan/butan) i produktów spirytusowych (perfumy/EDT,
-     zmywacze z acetonem, płyny do dezynfekcji rąk >60% alkoholu).
-   - Dla KAPSUŁEK DO PRANIA (laundry pods/capsules) bezwzględnie egzekwuj unijny standard A.I.S.E. / Rozp. 1297/2014:
-     1) P102: Chronić przed dziećmi.
-     2) Nie połykać. W razie połknięcia natychmiast skontaktować się z lekarzem.
-     3) Stosować suchymi dłońmi. Nie przekłuwać, nie rozcinać kapsułek. Szczelnie zamykać opakowanie.
-     4) P305+P351+P338: W razie kontaktu z oczami ostrożnie płukać wodą przez kilka minut.
+3. OCHRONA OSTRZEŻEŃ CLP/SDS I DYREKTYWA ANTY-RECITATION:
+   Urzędowe zwroty H/P, hasła ostrzegawcze i UFI wynikające z rzeczywistych zagrożeń chemicznych (etykiety SDS / chemia gospodarcza)
+   podlegają bezwzględnej ochronie przed usuwaniem i łagodzeniem. Przekazujesz je w mandatory_safety_warnings.
+   DYREKTYWA ANTY-RECITATION: Formułuj ostrzeżenia zwięźle w naturalnym języku polskim, zachowując kody P/H i wymogi prawne.
+   Nie kopiuj wielozdaniowych formułek prawnych ani całych akapitów rozporządzeń słowo w słowo 1:1, aby zapobiec wyzwoleniu filtrów cytowań (RECITATION).
+4. ANALIZA WEKTORÓW RYZYKA GPSR I POSTACI PRODUKTU (INTELIGENTNY AUDYT ZAGROŻEŃ DLA LUDZI):
+   Jako audytor bezpieczeństwa konsumenta pod GPSR (Rozp. 2023/988), MASZ OBOWIĄZEK przeanalizować postać fizyczną wyrobu,
+   sposób jego użycia oraz realne drogi narażenia człowieka (jama ustna, skóra, oczy, układ oddechowy, kontakt z dziećmi):
+   Dostarczony obiekt gpsr_safety_baseline stanowi algorytmiczną wiedzę referencyjną — MASZ OBOWIĄZEK poddać go krytycznej
+   weryfikacji merytorycznej pod kątem postaci produktu i wyeliminować wszelkie nonsensy fizyczne.
+   Wyprowadź 2–4 konkretne, adekwatne, edukacyjne ostrzeżenia do mandatory_safety_warnings:
+   
+   A. ARTYKUŁY HIGIENICZNE, PRZYBORY I WYROBY STAŁE (np. nici dentystyczne, szczoteczki, czyściki, pęsety, akcesoria):
+      - Kategoryczny ZAKAZ wklejania procedur płukania oczu wodą (P305) czy ostrzeżeń o kontakcie ze skórą! To nie są preparaty ciekłe ani chemiczne.
+      - OBOWIĄZEK skupienia się na REALNYCH ZAGROŻENIACH DLA CZŁOWIEKA I EDUKACJI KONSUMENTA:
+        1) Ochrona małych dzieci przed zadławieniem, połknięciem lub uduszeniem/zaplątaniem (np. nicią wokół palców lub szyi) — przechowywać poza zasięgiem małych dzieci.
+        2) Nadzór osoby dorosłej w przypadku stosowania wyrobu przez dzieci.
+        3) Prawidłowe i bezpieczne przeznaczenie (np. wyrób wyłącznie do higieny przestrzeni międzyzębowych; nie połykać; wprowadzać delikatnie by nie uszkodzić dziąseł).
+   
+   B. KOSMETYKI PIELĘGNACYJNE I MYJĄCE (kremy, balsamy, szampony, mydła):
+      - Użytek zewnętrzny; procedura ochrony oczu przy preparatach myjących z surfaktantami (szampony/żele); próba uczuleniowa przy alergenach zapachowych; ochrona przeciwsłoneczna przy kwasach/retinoidach.
+      - Kategoryczny ZAKAZ generowania ostrzeżeń o łatwopalności czy źródłach ciepła (P210) dla emulsji i roztworów wodnych (nielotne alkohole emulgujące jak cetearyl/stearyl/benzyl alcohol nie są palne!).
+   
+   C. KAPSUŁKI DO PRANIA (laundry pods/capsules) — bezwzględny unijny standard A.I.S.E. / Rozp. 1297/2014:
+      1) P102: Chronić przed dziećmi.
+      2) Nie połykać. W razie połknięcia natychmiast skontaktować się z lekarzem.
+      3) Stosować suchymi dłońmi. Nie przekłuwać, nie rozcinać kapsułek. Szczelnie zamykać opakowanie.
+      4) P305+P351+P338: W razie kontaktu z oczami ostrożnie płukać wodą przez kilka minut.
+   
+   D. CHEMIA GOSPODARCZA / PREPARATY SPIRYTUSOWE / AEROZOLE CIŚNIENIOWE:
+      - Ostrzeżenia łatwopalności P210 WYŁĄCZNIE dla gazów nośnych (butan/propan) i spirytusu >60%.
+      - Pełne zwroty CLP/P dla drażniących/żrących detergentów.
 
 ## SKANERY (pełna matryca — bez zmian merytorycznych vs v3.1)
 S1 Roszczenia medyczne (WE 1223/2009, 655/2013) — leksykon i procedura: §D.

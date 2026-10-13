@@ -1157,10 +1157,15 @@ class Orchestrator {
             this.state.node_status['A5'] = 'RUNNING';
             this.emitState();
             const gpsrSafetyService = require('./services/gpsr.safety.service');
+            const isActualHouseholdChemical = Boolean(
+                this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL') || 
+                product?.sds_required || 
+                product?.clp_signal_word
+            );
             const gpsrBaseline = gpsrSafetyService.generateGpsrWarnings({
                 inci: this.state.extracted_data.inci?.value,
                 productName: product?.text_fields?.name,
-                isChemical: this.state.chemical_route
+                isChemical: isActualHouseholdChemical
             });
 
             const agent5Data = {

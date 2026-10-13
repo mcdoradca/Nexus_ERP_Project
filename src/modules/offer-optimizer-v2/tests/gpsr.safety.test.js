@@ -127,5 +127,20 @@ test('GPSR Safety Service - Wyprowadzanie ostrzeżeń ze składu INCI i SDS', as
         // 4. Deduplikacja powtórzenia o dzieciach we wstępie <p>
         assert.strictEqual(cleaned.includes('Przechowywać poza zasięgiem dzieci.'), false, 'Nie usunięto zduplikowanego zdania o dzieciach z akapitu <p>');
     });
+
+    await t.test('Akcesorium higieny jamy ustnej (Nić dentystyczna): brak ostrzeżeń o oczach i mrozie, obecna ochrona dzieci przed zadławieniem', () => {
+        const res = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Woskowana nić dentystyczna miętowa 50 m',
+            inci: 'Nylon, Cera Microcristallina, Aroma',
+            isChemical: false
+        });
+
+        assert.ok(res.detected_risks.includes('ORAL_CARE_ACCESSORY'), 'Nie oznaczono jako ORAL_CARE_ACCESSORY');
+        assert.strictEqual(res.warnings.some(w => /ocz/i.test(w)), false, 'Nić dentystyczna nie może zawierać ostrzeżeń o oczach!');
+        assert.strictEqual(res.warnings.some(w => /ogień|paln/i.test(w)), false, 'Nić dentystyczna nie może zawierać ostrzeżeń o ogniu!');
+        assert.ok(res.warnings.some(w => w.includes('przestrzeni międzyzębowych') || w.includes('połykać')), 'Brak ostrzeżenia o przeznaczeniu do przestrzeni międzyzębowych');
+        assert.ok(res.warnings.some(w => w.includes('zadławienia') || w.includes('dzieci')), 'Brak ostrzeżenia o ochronie dzieci przed zadławieniem/zaplątaniem');
+        assert.ok(res.warnings.some(w => w.includes('nadzorem')), 'Brak zalecenia nadzoru dorosłych');
+    });
 });
 

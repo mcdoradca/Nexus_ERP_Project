@@ -62,7 +62,7 @@ s4 Sposób użycia: <h2>📝…</h2><p>Przed użyciem zapoznaj się z informacja
 s5 Parametry: <h2>📊…</h2><ul> z node_1_pim: Marka, Linia, Nazwa, Pojemność/Waga,
    Certyfikaty, pH, EAN, Kraj. ZERO NULL: parametr null → pomiń cały <li>.
    Zakaz "Brak danych".
-s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2><p>Przechowywać w szczelnie zamkniętym fabrycznym opakowaniu z dala od źródeł ciepła i promieni słonecznych. Chronić przed mrozem.</p> zasady przechowywania +
+s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2><p>[Zasady bezpiecznego przechowywania i higieny dopasowane do postaci wyrobu: dla artykułów stałych/higienicznych (np. nici dentystyczne, szczoteczki) podaj przechowywanie w czystym, suchym i higienicznym miejscu z dala od zanieczyszczeń i poza zasięgiem małych dzieci; dla kosmetyków ciekłych temperaturę pokojową i ochronę przed słońcem; dla chemii gospodarczej szczelne fabryczne opakowanie. Kategoryczny ZAKAZ bezmyślnego wklejania formułki o 'chronieniu przed mrozem' dla suchych wyrobów stałych!]</p> zasady przechowywania +
    KAŻDE ostrzeżenie z mandatory_safety_warnings jako osobny
    <li>🛡️ <b>Ostrzeżenie CLP/GPSR:</b> [treść ze standaryzacją interpunkcji: kod zwrotu oddzielony półpauzą, np. P102 – Chronić przed dziećmi. BEZWZGLĘDNY ZAKAZ podwójnych dwukropków!]</li>
    + podmiot odpowiedzialny w UE jako pełny wpis GPSR (nazwa oraz pełny fizyczny adres pocztowy – zakaz umieszczania linków/maili w HTML):

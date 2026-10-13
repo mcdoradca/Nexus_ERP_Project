@@ -86,6 +86,21 @@ class GpsrSafetyService {
                                   /(prani|laundry|wash|detergent|tkanin)/i.test(prodNameLower);
         const isLaundryDetergent = /(płyn do prania|zel do prania|żel do prania|proszek do prania|laundry)/i.test(prodNameLower);
         const isWaterBasedCleanser = isChemical || /(mydło|soap|szampon|shampoo|żel|zel|balsam|krem|cream|lotion|emulsja|płyn|plyn)/i.test(prodNameLower);
+        const isOralCareAccessory = /(nić|nic|floss|szczoteczk|toothbrush|wykałaczk|dental|czyścik|czyscik)/i.test(prodNameLower) &&
+                                    !/(pasta do zębów|pasta do zebow|toothpaste)/i.test(prodNameLower);
+
+        // --- MODUŁ DEDYKOWANY: AKCESORIA HIGIENY JAMY USTNEJ / WYROBY STAŁE (np. nić dentystyczna) ---
+        if (isOralCareAccessory) {
+            detectedRisks.push('ORAL_CARE_ACCESSORY');
+            warnings.push("Produkt przeznaczony wyłącznie do higieny przestrzeni międzyzębowych. Nie połykać.");
+            warnings.push("Przechowywać w miejscu niedostępnym dla małych dzieci. Ryzyko zadławienia i zaplątania.");
+            warnings.push("Dzieci poniżej 10 roku życia powinny używać produktu pod nadzorem osoby dorosłej.");
+            warnings.push("Wprowadzać nić delikatnie, aby uniknąć mechanicznego podrażnienia dziąseł.");
+            return {
+                detected_risks: detectedRisks,
+                warnings: warnings.slice(0, 4)
+            };
+        }
 
         if (!inci || typeof inci !== 'string' || inci.trim().length === 0) {
             // Domyślne ostrzeżenie ogólne dla produktów bez podanego składu
