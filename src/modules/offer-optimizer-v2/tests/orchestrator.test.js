@@ -571,5 +571,56 @@ test('ADR-0127: callAgentWithTelemetry w Standard Path poprawnie wywołuje gener
     }
 });
 
+test('Orchestrator - PIM INCI Protection & Prompt Sterilization: wygaszanie poszukiwań INCI i ochrona przed nadpisaniem', async () => {
+    let capturedPrompt = '';
+    const originalCall = aiWrapper.callAgentWithTelemetry;
+    aiWrapper.callAgentWithTelemetry = async ({ prompt, agentId }) => {
+        if (agentId === '1') {
+            capturedPrompt = prompt;
+        }
+        return {
+            usage: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 },
+            result: {
+                pipeline_id: "test",
+                country_of_origin: "Włochy",
+                research_sources_used: ["https://example.com"],
+                extracted_inci_candidates: [["INCI_FROM_INTERNET"]],
+                eu_responsible_person: {
+                    name: "Test Corp",
+                    address_eu: "Via Roma 1, 00100 Rzym, Włochy",
+                    contact: "test@example.com"
+                }
+            }
+        };
+    };
+
+    const pimData = {
+        name: "Testowy krem",
+        features: {
+            "Skład/INCI": "Aqua, Glycerin, Panthenol"
+        }
+    };
+
+    const orch = new Orchestrator("8000137015436");
+    orch.emitState = () => {};
+
+    await orch.runPhase1(pimData);
+
+    // Sprawdzenie sterylizacji promptu Agenta 1
+    assert.ok(capturedPrompt.includes('Skład INCI: POMIŃ'), 'Prompt powinien zawierać dyrektywę POMIŃ');
+    assert.ok(capturedPrompt.includes('ZIGNORUJ. Skład produktu został już podany i zatwierdzony w PIM'), 'Prompt powinien zawierać dyrektywę ZIGNORUJ');
+    assert.ok(!capturedPrompt.includes('Skład INCI (absolutny priorytet).'), 'Prompt NIE powinien zawierać absolutnego priorytetu dla INCI');
+    assert.ok(!capturedPrompt.includes('[EAN] (ingredienti OR inci OR composizione'), 'Prompt NIE powinien zawierać zapytań o składniki w matrycy');
+    assert.ok(capturedPrompt.includes('existing_pim_inci'), 'DANE SKU powinny zawierać existing_pim_inci');
+
+    // Sprawdzenie ochrony stanu: skład z PIM NIE został nadpisany przez A1
+    assert.ok(orch.state.extracted_data.inci.value.includes("Aqua"), "Skład z PIM/fixture powinien zostać zachowany");
+    assert.notStrictEqual(orch.state.extracted_data.inci.value, "INCI_FROM_INTERNET");
+    assert.notStrictEqual(orch.state.extracted_data.inci.source, "osint_a1");
+
+    aiWrapper.callAgentWithTelemetry = originalCall;
+});
+
+
 
 

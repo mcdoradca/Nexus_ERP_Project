@@ -527,16 +527,18 @@ class Orchestrator {
         }
         
         while (this.state.next_action === 'RUN_A1') {
+            const hasPimInci = Boolean(extracted?.inci?.value && String(extracted.inci.value).trim().length > 0);
             const agentData = {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
                 brand: extracted.brand?.value || undefined,
                 capacity: extracted.capacity?.value || undefined,
+                existing_pim_inci: hasPimInci ? extracted.inci.value : undefined,
                 missingFields: missingFields,
                 revision_loop_count: this.state.revision_loop_count
             };
             
-            traceNode('1', this.gtin, 'A1_START', { missingFields, osint_data: !!this.state.osint_data, loop: this.state.revision_loop_count });
+            traceNode('1', this.gtin, 'A1_START', { missingFields, osint_data: !!this.state.osint_data, loop: this.state.revision_loop_count, hasPimInci });
             this.state.node_status['A1'] = this.state.revision_loop_count > 0 ? 'RETRYING' : 'RUNNING';
             this.emitState();
             
@@ -544,14 +546,28 @@ class Orchestrator {
                 agentData.osint_data = this.state.osint_data;
             }
             if (this.state.revision_loop_count > 0) {
-                agentData.revision_warning = `Poprzednie znaleziska INCI się różniły lub były niepełne (Próba ${this.state.revision_loop_count+1}/3). Zbadaj MINIMUM 5 KOLEJNYCH UNIKALNYCH STRON. Użyj międzynarodowych synonimów w Google: 'ingredienti', 'inhaltsstoffe', 'ingredients', 'composizione' i sprawdź bezpośrednio oficjalny serwis marki lub zagraniczne drogerie, by znaleźć wariant pozwalający ustalić bezbłędny konsensus powtarzalności.`;
+                if (hasPimInci) {
+                    agentData.revision_warning = `Poprzednie próby odnalezienia brakujących danych (GPSR / Podmiot Odpowiedzialny / logistyka) były niepełne (Próba ${this.state.revision_loop_count+1}/3). Zbadaj MINIMUM 5 KOLEJNYCH UNIKALNYCH STRON, skupiając się na podmiocie odpowiedzialnym w UE i parametrach brakujących. ZAKAZ szukania składu INCI.`;
+                } else {
+                    agentData.revision_warning = `Poprzednie znaleziska INCI się różniły lub były niepełne (Próba ${this.state.revision_loop_count+1}/3). Zbadaj MINIMUM 5 KOLEJNYCH UNIKALNYCH STRON. Użyj międzynarodowych synonimów w Google: 'ingredienti', 'inhaltsstoffe', 'ingredients', 'composizione' i sprawdź bezpośrednio oficjalny serwis marki lub zagraniczne drogerie, by znaleźć wariant pozwalający ustalić bezbłędny konsensus powtarzalności.`;
+                }
             }
             
             let promptTemplate = fs.readFileSync(path.join(__dirname, 'docs', 'Agent_1_prompt_v4.md'), 'utf8');
             
-            if (extracted?.inci?.value) {
-                promptTemplate = promptTemplate.replace('- Skład INCI (absolutny priorytet).', '');
-                promptTemplate = promptTemplate.replace(/1\. INCI \(Skład\):[\s\S]*?\(będzie to tablica tablic\)\./, '1. INCI (Skład): ZIGNORUJ. Skład INCI został już odnaleziony w PIM. Zwróć pustą tablicę lub null w `extracted_inci_candidates`.');
+            if (hasPimInci) {
+                promptTemplate = promptTemplate.replace(
+                    /(\s*\*\s*Skład INCI \(absolutny priorytet\)\.)/,
+                    '\n     * Skład INCI: POMIŃ (Skład INCI został już w 100% podany w PIM - KATEGORYCZNY ZAKAZ wyszukiwania składu).'
+                );
+                promptTemplate = promptTemplate.replace(
+                    /- WIELOJĘZYCZNA MATRYCA KWEREND[\s\S]*?(?=- CELE WYSZUKIWANIA:)/,
+                    '- WIELOJĘZYCZNA MATRYCA KWEREND (MULTILINGUAL OPERATORS): Skład INCI jest już znany z PIM. KATEGORYCZNY ZAKAZ generowania kwerend o składniki w Google Search (np. ingredienti, inhaltsstoffe, ingredients)! Skup się wyłącznie na pozostałych brakach: Podmiot Odpowiedzialny w UE (GPSR), logistyka, CLP oraz missingFields.\n   '
+                );
+                promptTemplate = promptTemplate.replace(
+                    /1\. INCI \(Skład\):[\s\S]*?(?=2\. LOGISTYKA:)/,
+                    '1. INCI (Skład): ZIGNORUJ. Skład produktu został już podany i zatwierdzony w PIM (Karta Techniczna i Skład). KATEGORYCZNY ZAKAZ wyszukiwania składu w sieci, skanowania etykiet pod kątem INCI i marnowania tokenów wyszukiwarki. Zwróć pustą tablicę [] w `extracted_inci_candidates`.\n'
+                );
             }
             
             const prompt = promptTemplate.replace('{{SKU_DATA}}', JSON.stringify(agentData, null, 2));
@@ -672,139 +688,146 @@ class Orchestrator {
                 
                 // --- WERYFIKACJA INCI ZE SKRYPTU (Zlecona przez A1 OSINT) ---
                 traceInci(this.gtin, 'A1_RAW_OUTPUT_CANDIDATES', result.extracted_inci_candidates);
-                const candidatesRaw = (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) ? result.extracted_inci_candidates.value : [];
-                const candidates = candidatesRaw.map(c => Array.isArray(c) ? c.map(i => i.replace(/^\d+\.\s*/, '')).join(', ') : (typeof c === 'string' ? c.replace(/^\d+\.\s*/, '') : c));
-                
-                if (candidates.length > 0) {
-                    this.state.last_inci_candidates = candidates;
-                } else if (this.state.last_inci_candidates && this.state.last_inci_candidates.length > 0) {
-                    candidates.push(...this.state.last_inci_candidates);
-                    this.state.revision_loop_count = 2; // Wymuś koniec prób i przejście do HITL
-                }
 
-                traceInci(this.gtin, 'A1_MAPPED_CANDIDATES', candidates);
-
-                if (candidates.length > 0) {
-                    let selectedInci = candidates[0];
-                    let foundMatch = false;
+                if (hasPimInci) {
+                    console.log(`[Orchestrator] Skład INCI podany w PIM (${extracted.inci.value.substring(0, 50)}...). Pomijam ewaluację kandydatów OSINT i chronię stan PIM przed nadpisaniem.`);
+                    this.state.extracted_data.inci = extracted.inci;
+                    traceInci(this.gtin, 'INCI_PRESERVED_FROM_PIM', this.state.extracted_data.inci);
+                } else {
+                    const candidatesRaw = (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) ? result.extracted_inci_candidates.value : [];
+                    const candidates = candidatesRaw.map(c => Array.isArray(c) ? c.map(i => i.replace(/^\d+\.\s*/, '')).join(', ') : (typeof c === 'string' ? c.replace(/^\d+\.\s*/, '') : c));
                     
-                    if (candidates.length > 1) {
-                        const getWords = (str) => new Set(str.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 2));
-                        for (let i = 0; i < candidates.length; i++) {
-                            const wordsI = getWords(candidates[i]);
-                            for (let j = i + 1; j < candidates.length; j++) {
-                                const wordsJ = getWords(candidates[j]);
-                                let intersection = new Set([...wordsI].filter(x => wordsJ.has(x)));
-                                let union = new Set([...wordsI, ...wordsJ]);
-                                let sim = intersection.size / (union.size || 1);
-                                
-                                // Rygorystyczny match dla Spójnej Pary INCI: 0.85 (85% powtarzalności)
-                                if (sim >= 0.85) { 
-                                    selectedInci = candidates[i].length > candidates[j].length ? candidates[i] : candidates[j];
-                                    foundMatch = true;
-                                    break;
-                                }
-                            }
-                            if (foundMatch) break;
-                        }
+                    if (candidates.length > 0) {
+                        this.state.last_inci_candidates = candidates;
+                    } else if (this.state.last_inci_candidates && this.state.last_inci_candidates.length > 0) {
+                        candidates.push(...this.state.last_inci_candidates);
+                        this.state.revision_loop_count = 2; // Wymuś koniec prób i przejście do HITL
                     }
-                    
-                    if (!foundMatch && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
-                        if (this.state.revision_loop_count < 2) {
-                            this.state.revision_loop_count++;
-                            this.state.next_action = 'RUN_A1';
-                            this.state.node_status['A1'] = 'RETRYING';
-                            traceNode('1', this.gtin, 'A1_INCI_CONFLICT_RETRY', { count: this.state.revision_loop_count });
-                            console.log(`[Orchestrator] Sprzeczne/pojedyncze INCI z OSINT (próba ${this.state.revision_loop_count}). Brak spójnej pary. Ponawiam OSINT...`);
-                            continue; // Pętla wraca do RUN_A1
-                        } else {
-                            this.state.hitl_inci_candidates = candidates;
-                            const preview1 = candidates[0] ? candidates[0].substring(0, 150) + (candidates[0].length > 150 ? '...' : '') : 'Brak';
-                            const preview2 = candidates.length > 1 ? candidates[1].substring(0, 150) + (candidates[1].length > 150 ? '...' : '') : 'Brak drugiego wariantu';
-                            this.state.hitl_alert = `OSINT_CONFLICTING_INCI_MAX_RETRYS: Po ${this.state.revision_loop_count + 1} próbach nie udało się znaleźć spójnej pary składów (lub znaleziono tylko jedno źródło). Sprawdź ręcznie i zatwierdź.\n[Wersja 1]: ${preview1}\n[Wersja 2]: ${preview2}`;
+
+                    traceInci(this.gtin, 'A1_MAPPED_CANDIDATES', candidates);
+
+                    if (candidates.length > 0) {
+                        let selectedInci = candidates[0];
+                        let foundMatch = false;
+                        
+                        if (candidates.length > 1) {
+                            const getWords = (str) => new Set(str.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 2));
+                            for (let i = 0; i < candidates.length; i++) {
+                                const wordsI = getWords(candidates[i]);
+                                for (let j = i + 1; j < candidates.length; j++) {
+                                    const wordsJ = getWords(candidates[j]);
+                                    let intersection = new Set([...wordsI].filter(x => wordsJ.has(x)));
+                                    let union = new Set([...wordsI, ...wordsJ]);
+                                    let sim = intersection.size / (union.size || 1);
+                                    
+                                    // Rygorystyczny match dla Spójnej Pary INCI: 0.85 (85% powtarzalności)
+                                    if (sim >= 0.85) { 
+                                        selectedInci = candidates[i].length > candidates[j].length ? candidates[i] : candidates[j];
+                                        foundMatch = true;
+                                        break;
+                                    }
+                                }
+                                if (foundMatch) break;
+                            }
+                        }
+                        
+                        if (!foundMatch && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
+                            if (this.state.revision_loop_count < 2) {
+                                this.state.revision_loop_count++;
+                                this.state.next_action = 'RUN_A1';
+                                this.state.node_status['A1'] = 'RETRYING';
+                                traceNode('1', this.gtin, 'A1_INCI_CONFLICT_RETRY', { count: this.state.revision_loop_count });
+                                console.log(`[Orchestrator] Sprzeczne/pojedyncze INCI z OSINT (próba ${this.state.revision_loop_count}). Brak spójnej pary. Ponawiam OSINT...`);
+                                continue; // Pętla wraca do RUN_A1
+                            } else {
+                                this.state.hitl_inci_candidates = candidates;
+                                const preview1 = candidates[0] ? candidates[0].substring(0, 150) + (candidates[0].length > 150 ? '...' : '') : 'Brak';
+                                const preview2 = candidates.length > 1 ? candidates[1].substring(0, 150) + (candidates[1].length > 150 ? '...' : '') : 'Brak drugiego wariantu';
+                                this.state.hitl_alert = `OSINT_CONFLICTING_INCI_MAX_RETRYS: Po ${this.state.revision_loop_count + 1} próbach nie udało się znaleźć spójnej pary składów (lub znaleziono tylko jedno źródło). Sprawdź ręcznie i zatwierdź.\n[Wersja 1]: ${preview1}\n[Wersja 2]: ${preview2}`;
+                                this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
+                                traceNode('1', this.gtin, 'A1_HALT_TRIGGERED', 'Brak spójnej pary INCI po max próbach. Wersja 1: ' + preview1 + ', Wersja 2: ' + preview2);
+                                this.state.next_action = 'HALT';
+                                this.emitState();
+                                return;
+                            }
+                        }
+                        
+                        const polishPattern = /\b(woda|kwas|ekstrakt|olej|sok|gliceryna|masło|maslo|liść|lisc|korzeń|korzen|wyciąg|wyciag)\b/i;
+                        if (polishPattern.test(selectedInci) && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
+                            this.state.hitl_alert = 'OSINT_TRANSLATED_INCI_ERROR: Wykryto polskie tłumaczenie w składzie INCI (niedozwolone). Zaktualizuj na oryginalny skład łaciński/angielski.';
                             this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
-                            traceNode('1', this.gtin, 'A1_HALT_TRIGGERED', 'Brak spójnej pary INCI po max próbach. Wersja 1: ' + preview1 + ', Wersja 2: ' + preview2);
+                            traceNode('1', this.gtin, 'A1_HALT_TRIGGERED', 'Wykryto polskie tłumaczenie w składzie INCI: ' + selectedInci);
                             this.state.next_action = 'HALT';
                             this.emitState();
                             return;
                         }
-                    }
-                    
-                    const polishPattern = /\b(woda|kwas|ekstrakt|olej|sok|gliceryna|masło|maslo|liść|lisc|korzeń|korzen|wyciąg|wyciag)\b/i;
-                    if (polishPattern.test(selectedInci) && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {
-                        this.state.hitl_alert = 'OSINT_TRANSLATED_INCI_ERROR: Wykryto polskie tłumaczenie w składzie INCI (niedozwolone). Zaktualizuj na oryginalny skład łaciński/angielski.';
-                        this.state.node_status['A1'] = 'HALTED_HITL_REQUIRED';
-                        traceNode('1', this.gtin, 'A1_HALT_TRIGGERED', 'Wykryto polskie tłumaczenie w składzie INCI: ' + selectedInci);
-                        this.state.next_action = 'HALT';
-                        this.emitState();
-                        return;
-                    }
 
-                    // --- WALIDACJA SPÓJNOŚCI COSING PO OSINT (KRYTYCZNE ZABEZPIECZENIE V2) ---
-                    const rawInciArrOSINT = selectedInci.split(',').map(i => i.trim()).filter(i => i);
-                    const gateResOSINT = gate_ingredients(rawInciArrOSINT.map(normalizeIngredientName));
-                    if ((gateResOSINT.status === 'BANNED_SUBSTANCE_DETECTED' || gateResOSINT.status === 'INGREDIENT_NOT_COSMETIC')) {
-                        // Nie przerywamy od razu, dodamy do zagregowanego błędu poniżej
-                        this.state.hitl_substance = gateResOSINT.substance;
-                        this.state.aggregated_hitl_errors = this.state.aggregated_hitl_errors || [];
-                        this.state.aggregated_hitl_errors.push(gateResOSINT.status + ' FOUND IN OSINT INCI (CMR / Banned)');
-                        traceNode('1', this.gtin, 'A1_COSING_GATE_HIT', gateResOSINT);
-                    }
-                    
-                    const inciRefOSINT = require('./inci.reference.service.js');
-                    let oIdx = 0;
-                    const notInGlossaryOSINT = [];
-                    const checkHitExactOSINT = (phrase) => {
-                        let cleaned = phrase.replace(/[.,;]+$/, '').trim();
-                        let v = normalizeIngredientName(cleaned);
-                        let variants = [v];
-                        if (!v.endsWith('s')) variants.push(v + 's');
-                        if (v.endsWith('s')) variants.push(v.slice(0, -1));
-                        for (let variant of variants) {
-                            if (inciRefOSINT.isOfficialIngredient(variant)) return true;
+                        // --- WALIDACJA SPÓJNOŚCI COSING PO OSINT (KRYTYCZNE ZABEZPIECZENIE V2) ---
+                        const rawInciArrOSINT = selectedInci.split(',').map(i => i.trim()).filter(i => i);
+                        const gateResOSINT = gate_ingredients(rawInciArrOSINT.map(normalizeIngredientName));
+                        if ((gateResOSINT.status === 'BANNED_SUBSTANCE_DETECTED' || gateResOSINT.status === 'INGREDIENT_NOT_COSMETIC')) {
+                            // Nie przerywamy od razu, dodamy do zagregowanego błędu poniżej
+                            this.state.hitl_substance = gateResOSINT.substance;
+                            this.state.aggregated_hitl_errors = this.state.aggregated_hitl_errors || [];
+                            this.state.aggregated_hitl_errors.push(gateResOSINT.status + ' FOUND IN OSINT INCI (CMR / Banned)');
+                            traceNode('1', this.gtin, 'A1_COSING_GATE_HIT', gateResOSINT);
                         }
-                        return false;
-                    };
-                    
-                    while (oIdx < rawInciArrOSINT.length) {
-                        let rawI = rawInciArrOSINT[oIdx];
-                        let found = checkHitExactOSINT(rawI);
-                        if (!found) {
-                            if (oIdx + 1 < rawInciArrOSINT.length) {
-                                let gluedNext = rawI + ',' + rawInciArrOSINT[oIdx+1];
-                                if (checkHitExactOSINT(gluedNext)) {
-                                    rawInciArrOSINT[oIdx] = gluedNext;
-                                    rawInciArrOSINT.splice(oIdx+1, 1);
-                                    found = true;
+                        
+                        const inciRefOSINT = require('./inci.reference.service.js');
+                        let oIdx = 0;
+                        const notInGlossaryOSINT = [];
+                        const checkHitExactOSINT = (phrase) => {
+                            let cleaned = phrase.replace(/[.,;]+$/, '').trim();
+                            let v = normalizeIngredientName(cleaned);
+                            let variants = [v];
+                            if (!v.endsWith('s')) variants.push(v + 's');
+                            if (v.endsWith('s')) variants.push(v.slice(0, -1));
+                            for (let variant of variants) {
+                                if (inciRefOSINT.isOfficialIngredient(variant)) return true;
+                            }
+                            return false;
+                        };
+                        
+                        while (oIdx < rawInciArrOSINT.length) {
+                            let rawI = rawInciArrOSINT[oIdx];
+                            let found = checkHitExactOSINT(rawI);
+                            if (!found) {
+                                if (oIdx + 1 < rawInciArrOSINT.length) {
+                                    let gluedNext = rawI + ',' + rawInciArrOSINT[oIdx+1];
+                                    if (checkHitExactOSINT(gluedNext)) {
+                                        rawInciArrOSINT[oIdx] = gluedNext;
+                                        rawInciArrOSINT.splice(oIdx+1, 1);
+                                        found = true;
+                                    }
+                                }
+                                if (!found && oIdx - 1 >= 0) {
+                                    let gluedPrev = rawInciArrOSINT[oIdx-1] + ',' + rawI;
+                                    if (checkHitExactOSINT(gluedPrev)) {
+                                        rawInciArrOSINT[oIdx-1] = gluedPrev;
+                                        rawInciArrOSINT.splice(oIdx, 1);
+                                        oIdx--;
+                                        found = true;
+                                    }
                                 }
                             }
-                            if (!found && oIdx - 1 >= 0) {
-                                let gluedPrev = rawInciArrOSINT[oIdx-1] + ',' + rawI;
-                                if (checkHitExactOSINT(gluedPrev)) {
-                                    rawInciArrOSINT[oIdx-1] = gluedPrev;
-                                    rawInciArrOSINT.splice(oIdx, 1);
-                                    oIdx--;
-                                    found = true;
-                                }
-                            }
+                            if (!found) notInGlossaryOSINT.push(rawI);
+                            oIdx++;
                         }
-                        if (!found) notInGlossaryOSINT.push(rawI);
-                        oIdx++;
+                        if (notInGlossaryOSINT.length > 0) {
+                            this.state.normalization_warnings = this.state.normalization_warnings || [];
+                            this.state.normalization_warnings.push('INGREDIENT_NOT_IN_GLOSSARY_OSINT: ' + notInGlossaryOSINT.join(', '));
+                            traceNode('1', this.gtin, 'A1_GLOSSARY_WARNING', notInGlossaryOSINT);
+                        }
+                        
+                        // Nadpisanie zmiennej przefiltrowanym, spójnym tekstem
+                        selectedInci = rawInciArrOSINT.join(', ');
+                        // --------------------------------------------------------
+                        
+                        this.state.extracted_data.inci = { value: selectedInci, source: 'osint_a1' };
+                        traceInci(this.gtin, 'INCI_SAVED_TO_STATE', this.state.extracted_data.inci);
+                    } else {
+                        traceInci(this.gtin, 'A1_RETURNED_EMPTY_CANDIDATES', 'Brak kandydatów INCI w odp.');
                     }
-                    if (notInGlossaryOSINT.length > 0) {
-                        this.state.normalization_warnings = this.state.normalization_warnings || [];
-                        this.state.normalization_warnings.push('INGREDIENT_NOT_IN_GLOSSARY_OSINT: ' + notInGlossaryOSINT.join(', '));
-                        traceNode('1', this.gtin, 'A1_GLOSSARY_WARNING', notInGlossaryOSINT);
-                    }
-                    
-                    // Nadpisanie zmiennej przefiltrowanym, spójnym tekstem
-                    selectedInci = rawInciArrOSINT.join(', ');
-                    // --------------------------------------------------------
-                    
-                    this.state.extracted_data.inci = { value: selectedInci, source: 'osint_a1' };
-                    traceInci(this.gtin, 'INCI_SAVED_TO_STATE', this.state.extracted_data.inci);
-                } else {
-                    traceInci(this.gtin, 'A1_RETURNED_EMPTY_CANDIDATES', 'Brak kandydatów INCI w odp.');
                 }
                 
                 // Sprawdzamy czy po OSINCIE nadal brakuje kluczowych pól i agregujemy błędy
