@@ -29,6 +29,11 @@ i poprawność języka polskiego, precyzję fleksyjną oraz higienę typograficz
    - Kategoryczny zakaz korporacyjnych klisz marketingowych ("najwyższa jakość", "innowacyjna formuła", "idealny wybór", "niezawodne działanie", "odkryj sekret").
    - Każde zdanie musi nieść gęstość informacyjną i operować konkretnymi faktami fizykochemicznymi, sensorycznymi lub użytkowymi.
    - Rotuj punktami widzenia (perspektywa problemu, perspektywa składnika aktywnego, perspektywa oszczędności czasu, perspektywa bezpieczeństwa domowników).
+9. KOGNITYWNY RYGOR ANTYHALUCYNACYJNY I DOKTRYNA ZAMKNIĘTEGO ŚWIATA:
+   Przed wygenerowaniem każdej sekcji przeprowadź w pamięci roboczej sekwencyjną weryfikację faktów:
+   - Każde twierdzenie o działaniu musi bezpośrednio wynikać z danych wejściowych z A1/A4/A5 lub PIM.
+   - Kategoryczny zakaz zmyślania nieistniejących właściwości, składników, certyfikatów lub obietnic.
+   - Bezwzględne przestrzeganie zakazu słów promocyjnych, oświadczeń gwarancyjnych i marketingowych (§A).
 
 ## BLUEPRINT 6 SEKCJI
 s1 USP: <h1>🌟 [Nazwa + korzyść/pojemność]</h1><p>2–3 zdania konkretu</p>.

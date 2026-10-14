@@ -39,9 +39,14 @@ test('V2 route_chemical', async (t) => {
 
 test('V3 scan_stopwords', async (t) => {
     assert.strictEqual(v.scan_stopwords('To jest świetny produkt.').length, 0);
-    assert.strictEqual(v.scan_stopwords('Kup teraz, promocja!').length, 1);
+    assert.strictEqual(v.scan_stopwords('Dziś wielka promocja!').length, 1);
+    assert.strictEqual(v.scan_stopwords('Kup teraz, promocja!').length, 2, 'Kup teraz oraz promocja muszą być wykryte');
     assert.strictEqual(v.scan_stopwords('To jest super produkt.').length, 1);
     assert.strictEqual(v.scan_stopwords('gwarancja najniższej ceny tutaj').length, 1);
+    assert.strictEqual(v.scan_stopwords('Nasz bestseller oraz nowość!').length, 2, 'Wykrywa bestseller i nowość');
+    assert.strictEqual(v.scan_stopwords('Polecamy kupić na Allegro').length, 2, 'Wykrywa polecamy i allegro');
+    assert.strictEqual(v.scan_stopwords('Przechowywać w oryginalnym opakowaniu w suchym miejscu.').length, 0, 'Legalny zwrot GPSR w oryginalnym opakowaniu nie może być blokowany');
+    assert.strictEqual(v.scan_stopwords('Gwarantujemy 100% oryginalny produkt z Włoch.').length, 2, 'Wykrywa gwarantujemy i 100% oryginalny');
     assert.strictEqual(v.scan_stopwords(null).length, 0);
 });
 

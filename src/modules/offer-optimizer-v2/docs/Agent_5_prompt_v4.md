@@ -49,7 +49,14 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
       - Ostrzeżenia łatwopalności P210 WYŁĄCZNIE dla gazów nośnych (butan/propan) i spirytusu >60%.
       - Pełne zwroty CLP/P dla drażniących/żrących detergentów.
 
-## SKANERY (pełna matryca — bez zmian merytorycznych vs v3.1)
+5. KOGNITYWNY RYGOR ANTYHALUCYNACYJNY I DOKTRYNA ZAMKNIĘTEGO ŚWIATA:
+   Przed wygenerowaniem pytań/odpowiedzi AEO oraz ostrzeżeń GPSR przeprowadź w pamięci roboczej sekwencyjną weryfikację faktów:
+   - Zakaz zmyślania pytań lub odpowiedzi, które sugerują nieistniejące właściwości produktu lub obiecują efekty niemożliwe.
+   - Odpowiedzi safe_aeo_answers nie mogą zawierać słów zakazanych (§A: gwarantuje, niezawodny, najlepszy, bezkonkurencyjny, hit, okazja, promocja).
+   - Ostrzeżenia GPSR muszą wynikać ściśle z wektora ryzyka postaci produktu, bez nonsensów fizycznych.
+
+## SKANERY
+S0 Słowa zakazane Allegro i UOKiK (§A): bezwzględna eliminacja słownictwa z §A z pytań i odpowiedzi FAQ AEO.
 S1 Roszczenia medyczne (WE 1223/2009, 655/2013) — leksykon i procedura: §D.
 S2 Biocydy (BPR 528/2012) — obie ścieżki (z/bez pozwolenia): §E.
 S3 Greenwashing / czarny PR surowcowy: §F.

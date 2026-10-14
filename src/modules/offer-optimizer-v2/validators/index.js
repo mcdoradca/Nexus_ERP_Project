@@ -42,14 +42,33 @@ function route_chemical(pim) {
     return { is_chemical: reasons.length > 0, reasons };
 }
 
-// V3
+// V3 — Słowa i frazy zakazane przez Regulamin Allegro (Stan na 2026 r.) + UOKiK Overpromising
 function scan_stopwords(html) {
     if (!html) return [];
     const stopwords = [
-        'gratis', 'tanio', 'tani[a-z]*', 'promocj[aeiłąę]*', 'hit', 'prezent', 'okazj[aeiłąę]*', 
-        'najtaniej', 'wyprzeda[żz][a-z]*', 'mega', 'super', 'gwarancj[aeiłąę]* najniższej ceny',
-        'gwarancj[aeiłąę]*', 'gwarantuj[a-z]*', 'udowodniona skuteczność', 'cudown[a-z]*', 'magiczn[a-z]*',
-        'w 100% udowodnione', 'pewność działania'
+        // Gwarancje, oświadczenia pewnościowe i autentyczność (najdłuższe frazy najpierw)
+        'gwarancj[aeiłąę]* najniższej ceny', 'gwarancj[aeiłąę]* jakoś[ćc]i', 'gwarancj[aeiłąę]* satysfakcji', 'gwarancj[aeiłąę]* zwrotu',
+        'gwarancj[aeiłąę]* oryginalnoś[ćc]i', 'gwarancj[aeiłąę]*', 'gwarantuj[a-z]*',
+        'udowodnion[a-z]* skutecznoś[ćc]', 'w 100% udowodnion[a-z]*', '100% udowodnion[a-z]*',
+        'pewnoś[ćc] działania', 'pewnoś[ćc] zakupu', '100% pewnoś[ćc]i',
+        'cudown[a-z]*', 'magiczn[a-z]*', 'niezawodn[a-z]*',
+        '100% oryginaln[a-z]*', 'oryginalny produkt', 'oryginalna receptura',
+
+        // Promocje, ceny, rabaty
+        'najniższa cena', 'nisk[a-z]* cen[a-z]*', 'super cen[a-z]*', 'cen[a-z]* hurtow[a-z]*',
+        'gratis[a-z]*', 'darmow[a-z]* dostaw[a-z]*', 'darmow[a-z]*', 'za darmo',
+        'tanio', 'tani[a-z]*', 'najtaniej',
+        'promocj[aeiłąę]*', 'promocyjn[a-z]*', 'wyprzeda[żz][a-z]*',
+        'hit[a-z]* cenow[a-z]*', 'hit[a-z]*',
+        'prezent[a-z]*', 'okazj[aeiłąę]*', 'okazyjn[a-z]*',
+        'bestseller[a-z]*', 'nowoś[ćc][a-z]*',
+        'mega', 'super', 'rabat[a-z]*', 'upust[a-z]*', 'zniżk[aeiłąę]*',
+
+        // CTA, platformowe i manipulacyjne
+        'kup teraz', 'kupuj teraz', 'zamów teraz', 'kliknij', 'dodaj do koszyka',
+        'polecam[a-z]*', 'sprawdź to', 'tylko u nas',
+        'allegro', 'aukcj[aeiłąę]*', 'wysyłk[a-z]* 24h', 'szybka wysyłka',
+        'w stylu', 'odpowiednik', 'zamiennik', 'lepsze niż'
     ];
     const pattern = new RegExp(`(^|[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(${stopwords.join('|')})(?=[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]|$)`, 'gi');
     const hits = [];

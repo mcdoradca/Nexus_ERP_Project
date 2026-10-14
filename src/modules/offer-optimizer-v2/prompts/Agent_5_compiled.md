@@ -46,7 +46,14 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
       - Ostrzeżenia łatwopalności P210 WYŁĄCZNIE dla gazów nośnych (butan/propan) i spirytusu >60%.
       - Pełne zwroty CLP/P dla drażniących/żrących detergentów.
 
-## SKANERY (pełna matryca — bez zmian merytorycznych vs v3.1)
+5. KOGNITYWNY RYGOR ANTYHALUCYNACYJNY I DOKTRYNA ZAMKNIĘTEGO ŚWIATA:
+   Przed wygenerowaniem pytań/odpowiedzi AEO oraz ostrzeżeń GPSR przeprowadź w pamięci roboczej sekwencyjną weryfikację faktów:
+   - Zakaz zmyślania pytań lub odpowiedzi, które sugerują nieistniejące właściwości produktu lub obiecują efekty niemożliwe.
+   - Odpowiedzi safe_aeo_answers nie mogą zawierać słów zakazanych (§A: gwarantuje, niezawodny, najlepszy, bezkonkurencyjny, hit, okazja, promocja).
+   - Ostrzeżenia GPSR muszą wynikać ściśle z wektora ryzyka postaci produktu, bez nonsensów fizycznych.
+
+## SKANERY
+S0 Słowa zakazane Allegro i UOKiK (§A): bezwzględna eliminacja słownictwa z §A z pytań i odpowiedzi FAQ AEO.
 S1 Roszczenia medyczne (WE 1223/2009, 655/2013) — leksykon i procedura: §D.
 S2 Biocydy (BPR 528/2012) — obie ścieżki (z/bez pozwolenia): §E.
 S3 Greenwashing / czarny PR surowcowy: §F.
@@ -78,23 +85,14 @@ redakcja").
 --- DANE WEJŚCIOWE {A1.compliance, A2.matrix, A4.benefits} (dynamiczne) ---
 
 
---- PATCH v4.1 ---
-+ SKANER 3 (greenwashing) doprecyzuj wg §F v4.1: "'bez składnika X' oceniaj
-  dwuwarunkowo (prawdziwość w PIM + brak demonizacji) — nie wycinaj hurtowo
-  legalnych deklaracji tekstury (SOT 09 §2)."
-+ Dodaj SKANER 6 (Omnibus VIII, SOT 02 §1B): "Przekroczenie limitów CMR
-  (2%/0,5%/0,3%) w produkcie wprowadzonym do obrotu PRZED 1.05.2026 = okres
-  przejściowy do 31.07.2028 → alert HITL z datami, NIE automatyczna blokada.
-  Produkt wprowadzony PO 1.05.2026 → BLOCKED_CRITICAL_LEGAL_BREACH."
-+ Prefiks statyczny: pełne teksty SOT 02 §3 (czarna lista BPR + disclaimer),
-  SOT 03 §1–2 (6 kryteriów claims), SOT 02 §1C (słownictwo) — wklejone
-  deterministycznie, NIE przez retrieval.
-
 --- WSPÓLNE REGUŁY ---
-## §A. STOP-WORDS ALLEGRO + UOKiK
-ZAKAZ UŻYWANIA TYCH SŁÓW W JAKIMKOLWIEK KONTEKŚCIE:
-Marketingowe: gratis, tanio, promocja, hit, prezent, okazja, najtaniej, wyprzedaż, mega, super, gwarancja najniższej ceny.
-Overpromising (UOKiK): gwarancja, gwarantuje, udowodniona skuteczność, cudowny, magiczny, w 100% udowodnione, pewność działania.
+## §A. STOP-WORDS ALLEGRO + UOKiK (egzekwuje: kod i A10; znają i przestrzegają: A4, A5, A6, A7, A10)
+Bezwzględny zakaz stosowania w opisie, tytułach i nagłówkach słów naruszających Regulamin Allegro 2026 i wytyczne UOKiK:
+1. Promocyjne, cenowe i rabatowe: gratis, gratisy, darmowy/a/e, darmowa dostawa, za darmo, tanio, tani/a/e, najtaniej, niska cena, super cena, cena hurtowa, promocja, promocje, promocyjny/a/e, wyprzedaż, wyprzedaże, okazja, okazje, okazyjny/a/e, hit, hity, hit cenowy, bestseller, bestsellerowy, nowość, nowości, mega, super, rabat, rabaty, upust, zniżka, zniżki. (Gratisy dozwolone wyłącznie w systemowych Zestawach Produktowych Allegro).
+2. Gwarancyjne i overpromising: gwarancja (najniższej ceny, jakości, satysfakcji, zwrotu), gwarantuje, gwarantujemy, udowodniona skuteczność, w 100% udowodnione, 100% udowodnione, pewność działania, pewność zakupu, 100% pewności, cudowny, magiczny, niezawodny, 100% oryginalny, oryginalny produkt, oryginalna receptura, gwarancja oryginalności. (Uwaga: neutralny zwrot GPSR "w oryginalnym opakowaniu" jest dozwolony).
+3. Transakcyjne i Call-to-Action: kup teraz, kupuj teraz, zamów teraz, kliknij, dodaj do koszyka, polecam, polecamy, sprawdź to, tylko u nas, allegro, aukcja, aukcje, wysyłka 24h, szybka wysyłka.
+4. Porównania i substytuty: w stylu, odpowiednik, zamiennik, lepsze niż, typu [marka].
+OBOWIĄZEK AGENTA 10: Wykrycie każdego takiego słowa i jego NATYCHMIASTOWA zamiana w `repair_patches` na neutralny, profesjonalny odpowiednik (np. "gwarantuje czystość" → "zapewnia skuteczne oczyszczanie", "hit/bestseller" → usunięcie słowa).
 
 ## §D. ROSZCZENIA MEDYCZNE — LEKSYKON TWARDY (kod + A5 + A10-semantyka)
 Blokujące: leczy, wyleczył, uzdrawia, terapia, lekarstwo, diagnozuje, antybiotyk,
@@ -124,4 +122,3 @@ Zakaz "cruelty-free/nietestowany na zwierzętach" bez niezależnego certyfikatu
 
 --- DANE SKU ---
 {{SKU_DATA}}
-

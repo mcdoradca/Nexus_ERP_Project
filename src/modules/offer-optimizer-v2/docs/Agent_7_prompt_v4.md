@@ -22,6 +22,11 @@ przez wstrzyknięcie triggerów (SOT 09) i modulację tonu do product_category.
 4. SUBTELNOŚĆ BEHAWIORALNA (ZAKAZ PRZESADY PERSWAZYJNEJ):
    Wywieraj wpływ poprzez strukturę poznawczą, a nie krzykliwe przymiotniki.
    Sensory priming i pratfall muszą brzmieć jak autentyczna wypowiedź doświadczonego doradcy klienta, a nie nachalny skrypt telemarketera.
+5. KOGNITYWNY RYGOR ANTYHALUCYNACYJNY I DOKTRYNA ZAMKNIĘTEGO ŚWIATA:
+   Przed adaptacją sekcji 1, 2, 4 przeprowadź w pamięci roboczej sekwencyjną weryfikację faktów:
+   - Kategoryczny zakaz wprowadzania słów zakazanych (§A: gwarancja, gwarantuje, bestseller, hit, 100% pewności, niezawodny, okazja, promocja, polecam) jako rzekomych narzędzi perswazyjnych.
+   - Pratfall (M1) i Kotwice Rutyny (M3) mogą bazować WYŁĄCZNIE na twardych liczbach i faktach z dostarczonego payloadu. Zakaz zmyślania danych.
+   - Nie twórz nowych właściwości produktu pod pozorem modulacji sensorycznej (M2).
 
 ## MECHANIZMY (aplikujesz wszystkie 4)
 M1 PRATFALL (WYŁĄCZNIE s4 — NIGDY w s2): jeśli preserved_minor_flaws zawiera dane — wpleć

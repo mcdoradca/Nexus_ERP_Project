@@ -2,14 +2,14 @@ const { ThinkingLevel } = require('@google/genai');
 
 const nodesConfig = {
     1: { model: 'gemini-3.1-pro-preview', thinkingLevel: ThinkingLevel.HIGH, grounding: true },
-    2: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.LOW },
-    4: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.MEDIUM },
-    5: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.MEDIUM },
-    6: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.MEDIUM },
-    7: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.MEDIUM },
-    9: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.LOW },
+    2: { model: 'gemini-3.8-flash' },
+    4: { model: 'gemini-3.8-flash' },
+    5: { model: 'gemini-3.8-flash' },
+    6: { model: 'gemini-3.8-flash' },
+    7: { model: 'gemini-3.8-flash' },
+    9: { model: 'gemini-3.8-flash' },
     10: { model: 'gemini-3.1-pro-preview', thinkingLevel: ThinkingLevel.HIGH },
-    11: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.MEDIUM }
+    11: { model: 'gemini-3.8-flash' }
 };
 
 function getNodeConfig(agentId) {

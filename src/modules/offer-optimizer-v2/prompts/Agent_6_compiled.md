@@ -27,9 +27,14 @@ i poprawność języka polskiego, precyzję fleksyjną oraz higienę typograficz
    - Kategoryczny zakaz korporacyjnych klisz marketingowych ("najwyższa jakość", "innowacyjna formuła", "idealny wybór", "niezawodne działanie", "odkryj sekret").
    - Każde zdanie musi nieść gęstość informacyjną i operować konkretnymi faktami fizykochemicznymi, sensorycznymi lub użytkowymi.
    - Rotuj punktami widzenia (perspektywa problemu, perspektywa składnika aktywnego, perspektywa oszczędności czasu, perspektywa bezpieczeństwa domowników).
+9. KOGNITYWNY RYGOR ANTYHALUCYNACYJNY I DOKTRYNA ZAMKNIĘTEGO ŚWIATA:
+   Przed wygenerowaniem każdej sekcji przeprowadź w pamięci roboczej sekwencyjną weryfikację faktów:
+   - Każde twierdzenie o działaniu musi bezpośrednio wynikać z danych wejściowych z A1/A4/A5 lub PIM.
+   - Kategoryczny zakaz zmyślania nieistniejących właściwości, składników, certyfikatów lub obietnic.
+   - Bezwzględne przestrzeganie zakazu słów promocyjnych, oświadczeń gwarancyjnych i marketingowych (§A).
 
 ## BLUEPRINT 6 SEKCJI
-s1 USP: <h1>⭐ [Nazwa + korzyść/pojemność]</h1><p>2–3 zdania konkretu</p>. BEZWZGLĘDNY ZAKAZ zaczynania opisów od powtarzalnych sztamp (np. "Poczuj pod palcami", "Poznaj", "Odkryj"). Z każdym uruchomieniem rotuj strukturą pierwszego zdania, używając innych kątów natarcia (np. start od unikalnego INCI, korzyści lub problemu), zachowując przy tym 100% dyrektywy ZERO INFERENCJI FAKTÓW.
+s1 USP: <h1>🌟 [Nazwa + korzyść/pojemność]</h1><p>2–3 zdania konkretu</p>.
 s2 FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI — Google, ChatGPT, Claude, Perplexity):
    <h2>❓ [fraza kategorii + kluczowy efekt, np. Płyn do podłóg bez smug – najczęstsze pytania]</h2><ul> + 3–5 par.
    ŹRÓDŁO: pary z A5 (a5.safe_aeo_questions ↔ a5.safe_aeo_answers, 1:1, kolejność zachowana).
@@ -62,7 +67,7 @@ s5 Parametry: <h2>📊…</h2><ul> z node_1_pim: Marka, Linia, Nazwa, Pojemnoś�
    Zakaz "Brak danych".
 s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2><p>[Zasady bezpiecznego przechowywania i higieny dopasowane do postaci wyrobu: dla artykułów stałych/higienicznych (np. nici dentystyczne, szczoteczki) podaj przechowywanie w czystym, suchym i higienicznym miejscu z dala od zanieczyszczeń i poza zasięgiem małych dzieci; dla kosmetyków ciekłych temperaturę pokojową i ochronę przed słońcem; dla chemii gospodarczej szczelne fabryczne opakowanie. Kategoryczny ZAKAZ bezmyślnego wklejania formułki o 'chronieniu przed mrozem' dla suchych wyrobów stałych!]</p> zasady przechowywania +
    KAŻDE ostrzeżenie z mandatory_safety_warnings jako osobny
-   <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [treść ze standaryzacją interpunkcji: kod zwrotu oddzielony półpauzą, np. P102 – Chronić przed dziećmi. BEZWZGLĘDNY ZAKAZ podwójnych dwukropków!]</li>
+   <li>🛡️ <b>Ostrzeżenie CLP/GPSR:</b> [treść ze standaryzacją interpunkcji: kod zwrotu oddzielony półpauzą, np. P102 – Chronić przed dziećmi. BEZWZGLĘDNY ZAKAZ podwójnych dwukropków!]</li>
    + podmiot odpowiedzialny w UE jako pełny wpis GPSR (nazwa oraz pełny fizyczny adres pocztowy – zakaz umieszczania linków/maili w HTML):
    <li>➡️ <b>Podmiot odpowiedzialny w UE:</b> [Nazwa], [Ulica i nr, Kod Miasto, Kraj]</li>.
    BEZWZGLĘDNY ZAKAZ ucinania adresu pocztowego – jeśli podmiot posiada adres w danych wejściowych, MUSI być w całości umieszczony w opisie!
@@ -76,23 +81,14 @@ walidatorem kodowym; model nie audytuje sam siebie.)
 --- DANE WEJŚCIOWE {A1 slim, A4, A5} (dynamiczne) ---
 
 
---- PATCH v4.1 ---
-+ §B/§C v4.1: usuń <br> i <strong> z dozwolonych; zakaz <b> w nagłówkach;
-  <b> obowiązkowe dla kluczowych fraz w <p>/<li> (minitekst AIDA z pogrubień).
-+ Sekcja 2: wzorzec par ❓ <b>Pytanie:</b> / ✔️ <b>Odpowiedź:</b> (SOT 01 §4; emoji z białej listy
-  Allegro). [v4.2: usunięto błędny wzorzec Problem/Odpowiedź — generował skargi zamiast zapytań SEO/GEO.]
-+ Sekcja 1: nagłówek h1 bez <b> w środku; pogrubienia dopiero w <p> pod spodem.
-+ Dodaj §J (liczby surowcowe ≠ claimy).
-+ Blok wejściowy: dla HOUSEHOLD_CHEMISTRY dołączany jest RAG z SOT 07 §2 / SOT 10
-  (grupy funkcjonalne wykrytych składników) — korzystaj z niego przy s3 zamiast
-  wiedzy własnej.
-
 --- WSPÓLNE REGUŁY ---
-## §A. STOP-WORDS ALLEGRO + UOKiK (egzekwuje: kod; zna: A6, A7)
-Marketingowe: gratis, tanio, promocja, hit, prezent, okazja, najtaniej, wyprzedaż,
-mega, super, gwarancja najniższej ceny.
-Overpromising (UOKiK): gwarancja, gwarantuje, udowodniona skuteczność, cudowny,
-magiczny, w 100% udowodnione, pewność działania.
+## §A. STOP-WORDS ALLEGRO + UOKiK (egzekwuje: kod i A10; znają i przestrzegają: A4, A5, A6, A7, A10)
+Bezwzględny zakaz stosowania w opisie, tytułach i nagłówkach słów naruszających Regulamin Allegro 2026 i wytyczne UOKiK:
+1. Promocyjne, cenowe i rabatowe: gratis, gratisy, darmowy/a/e, darmowa dostawa, za darmo, tanio, tani/a/e, najtaniej, niska cena, super cena, cena hurtowa, promocja, promocje, promocyjny/a/e, wyprzedaż, wyprzedaże, okazja, okazje, okazyjny/a/e, hit, hity, hit cenowy, bestseller, bestsellerowy, nowość, nowości, mega, super, rabat, rabaty, upust, zniżka, zniżki. (Gratisy dozwolone wyłącznie w systemowych Zestawach Produktowych Allegro).
+2. Gwarancyjne i overpromising: gwarancja (najniższej ceny, jakości, satysfakcji, zwrotu), gwarantuje, gwarantujemy, udowodniona skuteczność, w 100% udowodnione, 100% udowodnione, pewność działania, pewność zakupu, 100% pewności, cudowny, magiczny, niezawodny, 100% oryginalny, oryginalny produkt, oryginalna receptura, gwarancja oryginalności. (Uwaga: neutralny zwrot GPSR "w oryginalnym opakowaniu" jest dozwolony).
+3. Transakcyjne i Call-to-Action: kup teraz, kupuj teraz, zamów teraz, kliknij, dodaj do koszyka, polecam, polecamy, sprawdź to, tylko u nas, allegro, aukcja, aukcje, wysyłka 24h, szybka wysyłka.
+4. Porównania i substytuty: w stylu, odpowiednik, zamiennik, lepsze niż, typu [marka].
+OBOWIĄZEK AGENTA 10: Wykrycie każdego takiego słowa i jego NATYCHMIASTOWA zamiana w `repair_patches` na neutralny, profesjonalny odpowiednik (np. "gwarantuje czystość" → "zapewnia skuteczne oczyszczanie", "hit/bestseller" → usunięcie słowa).
 
 ## §B. DOZWOLONY HTML — WG SOT 01 (egzekwuje: kod; zna: A4, A6, A7)
 Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
@@ -107,9 +103,10 @@ Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
 
 ## §C. EMOTIKONY I STRUKTURA 6 SEKCJI — WG SOT 01 §4 (egzekwuje: kod; zna: A4, A6, A7)
 Każdy <h1>/<h2>/<li> zaczyna się emotikonem (przed tekstem, poza tagami <b>).
-Wzorce nagłówków: s1 ⭐(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 ✍️ | s5 ⚖️ | s6 ⚠️.
+Wzorce nagłówków: s1 🌟(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 📝 | s5 📊 | s6 ⚠️.
 Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>❓ <b>Pytanie:</b> …?</li>
-<li>✔️ <b>Odpowiedź:</b> …</li>. Dozwolone punktory: ⭐ ❓ ⚙️ ✍️ ⚖️ ⚠️ ✅ ✔️ ☑️ ❌ ➡️ ♻️ ☘ ☂️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
+<li>✔️ <b>Odpowiedź:</b> …</li>. Dozwolone punktory: ✅ ✔️ 🛡️ 🏅 🏆 🔬 📊 🌱 🌿 ♻️ 💧
+⚠️ ➡️ 🔴 🟢 ⚡ 💆‍♀️ 🏷️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
 
 ## §J. LICZBY SUROWCOWE ≠ CLAIMY — NOWE w v4.1 (A4, A6, A7; weryfikuje: A10)
 Wartości z SOT 05/06/09 ("6000x silniejszy", "+3000% penetracji", "95% testerek")
@@ -120,8 +117,7 @@ przenoszenia właściwości składnika na cały produkt.
 
 ## MAPA DYSTRYBUCJI PREFIKSÓW (Orkiestrator składa per węzeł):
 A1: §I | A4: §A §B §C §I §J | A5: §A §D §E §F | A6: §A §B §C §J | A7: §A §B §C §H §J |
-A8: §G | A9: §G | A10: §A §D §E §F §J (warstwa semantyczna)
+A8: §G | A9: §G | A10: §A §D §E §F §J §K (warstwa semantyczna i samonaprawa stop-words)
 
 --- DANE SKU ---
 {{SKU_DATA}}
-

@@ -16,10 +16,10 @@ test('Zabezpieczenie przed regresją kompilatora: brak parametrów w promptach',
     }
 });
 
-test('Konfiguracja węzłów: A5 zoptymalizowana (Flash/MEDIUM)', () => {
+test('Konfiguracja węzłów: A5 zoptymalizowana (Flash bez thinkingLevel)', () => {
     const configA5 = getNodeConfig(5);
     assert.strictEqual(configA5.model, 'gemini-3.8-flash', 'A5 zostało zoptymalizowane pod kątem kosztów');
-    assert.strictEqual(configA5.thinkingLevel, ThinkingLevel.MEDIUM, 'A5 musi używać thinkingLevel MEDIUM');
+    assert.strictEqual(configA5.thinkingLevel, undefined, 'A5 (Flash) nie używa thinkingLevel');
 });
 
 test('Konfiguracja węzłów: Brak wycofanych parametrów próbkowania (temperature, top_p, top_k, thinkingBudget)', () => {
@@ -32,20 +32,24 @@ test('Konfiguracja węzłów: Brak wycofanych parametrów próbkowania (temperat
         assert.strictEqual(cfg.top_k, undefined, `Węzeł ${id} nie może zawierać parametru top_k`);
         assert.strictEqual(cfg.topK, undefined, `Węzeł ${id} nie może zawierać parametru topK`);
         assert.strictEqual(cfg.thinkingBudget, undefined, `Węzeł ${id} nie może zawierać parametru thinkingBudget`);
-        assert.ok(cfg.thinkingLevel, `Węzeł ${id} musi posiadać jawny thinkingLevel`);
     }
 });
 
-test('Konfiguracja węzłów: Precyzyjna taksonomia kognitywna thinkingLevel per agent', () => {
-    assert.strictEqual(getNodeConfig(1).thinkingLevel, ThinkingLevel.HIGH, 'A1 (OSINT INCI Deep Search) wymaga HIGH');
-    assert.strictEqual(getNodeConfig(2).thinkingLevel, ThinkingLevel.LOW, 'A2 (Sentiment Clusterer) wymaga LOW');
-    assert.strictEqual(getNodeConfig(4).thinkingLevel, ThinkingLevel.MEDIUM, 'A4 (Chemical AEO Parser) wymaga MEDIUM');
-    assert.strictEqual(getNodeConfig(5).thinkingLevel, ThinkingLevel.MEDIUM, 'A5 (Legal Compliance Shield) wymaga MEDIUM');
-    assert.strictEqual(getNodeConfig(6).thinkingLevel, ThinkingLevel.MEDIUM, 'A6 (Master Copywriter) wymaga MEDIUM');
-    assert.strictEqual(getNodeConfig(7).thinkingLevel, ThinkingLevel.MEDIUM, 'A7 (Psychology Adaptor) wymaga MEDIUM');
-    assert.strictEqual(getNodeConfig(9).thinkingLevel, ThinkingLevel.LOW, 'A9 (Vision Auditor) wymaga LOW');
-    assert.strictEqual(getNodeConfig(10).thinkingLevel, ThinkingLevel.HIGH, 'A10 (Master Compliance Sentinel) wymaga HIGH');
-    assert.strictEqual(getNodeConfig(11).thinkingLevel, ThinkingLevel.MEDIUM, 'A11 wymaga MEDIUM');
+test('Konfiguracja węzłów: Precyzyjna taksonomia - thinkingLevel HIGH wyłącznie dla modeli Pro (A1, A10)', () => {
+    const proNodes = [1, 10];
+    const flashNodes = [2, 4, 5, 6, 7, 9, 11];
+    
+    for (const id of proNodes) {
+        const cfg = getNodeConfig(id);
+        assert.strictEqual(cfg.model, 'gemini-3.1-pro-preview', `Węzeł Pro ${id} musi używać gemini-3.1-pro-preview`);
+        assert.strictEqual(cfg.thinkingLevel, ThinkingLevel.HIGH, `Węzeł Pro ${id} wymaga ThinkingLevel.HIGH`);
+    }
+
+    for (const id of flashNodes) {
+        const cfg = getNodeConfig(id);
+        assert.strictEqual(cfg.model, 'gemini-3.8-flash', `Węzeł Flash ${id} musi używać gemini-3.8-flash`);
+        assert.strictEqual(cfg.thinkingLevel, undefined, `Węzeł Flash ${id} nie może posiadać thinkingLevel`);
+    }
 });
 
 test('Ochrona przed błędem 400: Żaden węzeł nie używa ThinkingLevel.MINIMAL (nieobsługiwanego przez API)', () => {
@@ -53,7 +57,9 @@ test('Ochrona przed błędem 400: Żaden węzeł nie używa ThinkingLevel.MINIMA
     for (const id of nodeIds) {
         const cfg = getNodeConfig(id);
         assert.notStrictEqual(cfg.thinkingLevel, ThinkingLevel.MINIMAL, `Węzeł ${id} nie może używać MINIMAL - odrzucane przez Google API`);
-        assert.ok([ThinkingLevel.LOW, ThinkingLevel.MEDIUM, ThinkingLevel.HIGH].includes(cfg.thinkingLevel), `Węzeł ${id} musi używać LOW, MEDIUM lub HIGH`);
+        if (cfg.thinkingLevel) {
+            assert.strictEqual(cfg.thinkingLevel, ThinkingLevel.HIGH, `Węzeł Pro ${id} musi używać HIGH`);
+        }
     }
 });
 

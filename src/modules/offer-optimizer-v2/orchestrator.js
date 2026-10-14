@@ -1566,8 +1566,19 @@ class Orchestrator {
 
         // --- KROK 10: A10 ---
         if (this.state.next_action === 'RUN_A10') {
-            this.state.node_status['A10'] = 'RUNNING';
-            this.emitState();
+            // Generowanie realnego raportu pre-audytu kodowego dla Agenta 10
+            const s1Stopwords = scan_stopwords(this.state.a7_result.section_1_html);
+            const s2Stopwords = scan_stopwords(this.state.a7_result.section_2_html);
+            const s4Stopwords = scan_stopwords(this.state.a7_result.section_4_html);
+            const detectedStopwords = [
+                ...s1Stopwords.map(h => ({ section: 'section_1_html', word: h.word })),
+                ...s2Stopwords.map(h => ({ section: 'section_2_html', word: h.word })),
+                ...s4Stopwords.map(h => ({ section: 'section_4_html', word: h.word }))
+            ];
+            const preAuditReport = detectedStopwords.length > 0
+                ? `WYKRYTO SŁOWA ZAKAZANE REGULAMINEM ALLEGRO (§A): ${detectedStopwords.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM W repair_patches NA NEUTRALNE ODPOWIEDNIKI.`
+                : "Automated checks passed.";
+
             const agent10Data = {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
@@ -1576,7 +1587,7 @@ class Orchestrator {
                 section_1_html: this.state.a7_result.section_1_html,
                 section_2_html: this.state.a7_result.section_2_html,
                 section_4_html: this.state.a7_result.section_4_html,
-                audit_report: "Automated checks passed."
+                audit_report: preAuditReport
             };
             
             traceInci(this.gtin, 'AGENT_10_INPUT', agent10Data);
@@ -1628,8 +1639,8 @@ class Orchestrator {
                         warnings.push('A10_PATCH_ON_FROZEN_SECTION: ' + p.target_section);
                         continue; // Odrzucamy ten patch, bo idzie na zamrożone
                     }
-                    if (finalDoc[p.target_section]) {
-                        finalDoc[p.target_section] = finalDoc[p.target_section].replace(p.find_exact, p.replace_with);
+                    if (finalDoc[p.target_section] && p.find_exact) {
+                        finalDoc[p.target_section] = finalDoc[p.target_section].split(p.find_exact).join(p.replace_with);
                         console.log("[DEBUG A10] finalDoc po patchu na " + p.target_section + ":", finalDoc[p.target_section]);
                     }
                 }

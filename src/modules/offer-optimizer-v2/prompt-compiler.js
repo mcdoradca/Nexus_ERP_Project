@@ -22,7 +22,8 @@ function countPolishDiacritics(text) {
 }
 
 const sharedRulesContent = fs.readFileSync(path.join(filesDir, 'SHARED_RULES_v4.1.md'), 'utf8');
-const patchContent = fs.readFileSync(path.join(filesDir, 'PATCH_v4.1_prompty.md'), 'utf8');
+const patchPath = path.join(filesDir, 'PATCH_v4.1_prompty.md');
+const patchContent = fs.existsSync(patchPath) ? fs.readFileSync(patchPath, 'utf8') : '';
 
 // Parse SHARED_RULES sections
 const sections = {};
@@ -35,13 +36,13 @@ while ((match = sectionRegex.exec(sharedRulesContent)) !== null) {
 const nodeMap = {
     1: ['§I'],
     2: [],
-    4: ['§B', '§C', '§I', '§J'],
-    5: ['§D', '§E', '§F'],
+    4: ['§A', '§B', '§C', '§I', '§J'],
+    5: ['§A', '§D', '§E', '§F'],
     6: ['§A', '§B', '§C', '§J'],
     7: ['§A', '§B', '§C', '§H', '§J'],
     8: ['§G'],
     9: ['§G'],
-    10: ['§D', '§E', '§F', '§J']
+    10: ['§A', '§D', '§E', '§F', '§J']
 };
 
 const agentsToCompile = [1, 2, 4, 5, 6, 7, 8, 9, 10];

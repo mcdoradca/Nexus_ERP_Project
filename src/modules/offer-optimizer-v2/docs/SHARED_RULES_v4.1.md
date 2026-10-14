@@ -5,11 +5,13 @@
 # i §J (liczby surowcowe ≠ claimy). To rozbieżności, które generowały pętle
 # rewizyjne: A6 pisał wg promptu, A10 odrzucał wg SOT.
 
-## §A. STOP-WORDS ALLEGRO + UOKiK (egzekwuje: kod; zna: A6, A7)
-Marketingowe: gratis, tanio, promocja, hit, prezent, okazja, najtaniej, wyprzedaż,
-mega, super, gwarancja najniższej ceny.
-Overpromising (UOKiK): gwarancja, gwarantuje, udowodniona skuteczność, cudowny,
-magiczny, w 100% udowodnione, pewność działania.
+## §A. STOP-WORDS ALLEGRO + UOKiK (egzekwuje: kod i A10; znają i przestrzegają: A4, A5, A6, A7, A10)
+Bezwzględny zakaz stosowania w opisie, tytułach i nagłówkach słów naruszających Regulamin Allegro 2026 i wytyczne UOKiK:
+1. Promocyjne, cenowe i rabatowe: gratis, gratisy, darmowy/a/e, darmowa dostawa, za darmo, tanio, tani/a/e, najtaniej, niska cena, super cena, cena hurtowa, promocja, promocje, promocyjny/a/e, wyprzedaż, wyprzedaże, okazja, okazje, okazyjny/a/e, hit, hity, hit cenowy, bestseller, bestsellerowy, nowość, nowości, mega, super, rabat, rabaty, upust, zniżka, zniżki. (Gratisy dozwolone wyłącznie w systemowych Zestawach Produktowych Allegro).
+2. Gwarancyjne i overpromising: gwarancja (najniższej ceny, jakości, satysfakcji, zwrotu), gwarantuje, gwarantujemy, udowodniona skuteczność, w 100% udowodnione, 100% udowodnione, pewność działania, pewność zakupu, 100% pewności, cudowny, magiczny, niezawodny, 100% oryginalny, oryginalny produkt, oryginalna receptura, gwarancja oryginalności. (Uwaga: neutralny zwrot GPSR "w oryginalnym opakowaniu" jest dozwolony).
+3. Transakcyjne i Call-to-Action: kup teraz, kupuj teraz, zamów teraz, kliknij, dodaj do koszyka, polecam, polecamy, sprawdź to, tylko u nas, allegro, aukcja, aukcje, wysyłka 24h, szybka wysyłka.
+4. Porównania i substytuty: w stylu, odpowiednik, zamiennik, lepsze niż, typu [marka].
+OBOWIĄZEK AGENTA 10: Wykrycie każdego takiego słowa i jego NATYCHMIASTOWA zamiana w `repair_patches` na neutralny, profesjonalny odpowiednik (np. "gwarantuje czystość" → "zapewnia skuteczne oczyszczanie", "hit/bestseller" → usunięcie słowa).
 
 ## §B. DOZWOLONY HTML — WG SOT 01 (egzekwuje: kod; zna: A4, A6, A7)
 Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
@@ -92,5 +94,6 @@ Bez dowodu → język jakościowy ("znacząco", "intensywnie"). Zakaz automatycz
 przenoszenia właściwości składnika na cały produkt.
 
 ## MAPA DYSTRYBUCJI PREFIKSÓW (Orkiestrator składa per węzeł):
-A1: §I | A4: §B §C §I §J | A5: §D §E §F | A6: §A §B §C §J | A7: §A §B §C §H §J |
-A8: §G | A9: §G | A10: §D §E §F §J (warstwa semantyczna)
+A1: §I | A4: §A §B §C §I §J | A5: §A §D §E §F | A6: §A §B §C §J | A7: §A §B §C §H §J |
+A8: §G | A9: §G | A10: §A §D §E §F §J §K (warstwa semantyczna i samonaprawa stop-words)
+

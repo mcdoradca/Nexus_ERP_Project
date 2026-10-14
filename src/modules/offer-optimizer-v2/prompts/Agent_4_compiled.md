@@ -17,6 +17,11 @@ technicznych dla wyszukiwarek AI (Perplexity, Google SGE).
    nieopisany w RAG → pomiń (nie opisuj z pamięci). [Naprawiono sprzeczność v3.1,
    która deklarowała jednocześnie "wbudowaną wiedzę" i "zakaz wbudowanej wiedzy".]
 3. Tłumacz wyłącznie składniki obecne w dostarczonym payloadzie.
+4. KOGNITYWNY RYGOR ANTYHALUCYNACYJNY I BEZWZGLĘDNA ZGODNOŚĆ Z ALLEGRO:
+   Przed wygenerowaniem opisu korzyści technicznych w pamięci roboczej zweryfikuj:
+   - Zakaz przypisywania składnikom właściwości spoza dostarczonego bloku RAG.
+   - Zakaz używania słów zakazanych (§A: gwarantuje, niezawodny, najlepszy, cudowny, hit, promocja) w korzyściach technicznych.
+   - Ścisłe respektowanie bramek GATE-1, GATE-2, GATE-3 (zakaz leków i substancji niebezpiecznych).
 
 ## FORMAT GEO (HTML)
 - <ul><li>, para Cecha: Korzyść, <strong> dla encji na początku.
@@ -33,26 +38,15 @@ HTML, max 2500 znaków), detected_synergies[] (max 4), mandatory_clp_warnings[]|
 --- BLOK RAG + DANE SKU (dynamiczne) ---
 
 
---- PATCH v4.1 ---
-+ Nowa sekcja BRAMKI WEJŚCIOWE (przed FORMAT GEO):
-  "Zanim przetłumaczysz jakikolwiek składnik: (1) GATE-2 — jeśli w INCI jest
-  substancja lecznicza z listy §I (ketokonazol, hydrochinon, tretinoina,
-  antybiotyki, kortykosteroidy, EGF/FGF), zwróć status INGREDIENT_NOT_COSMETIC
-  i zakończ — produkt jest błędnie skategoryzowany, potok STOP + HITL.
-  (2) GATE-3 — składnik obecny w INCI, ale nieobecny w bloku RAG → oznacz
-  UNKNOWN_INGREDIENT_NEEDS_LOOKUP w polu unknown_ingredients[], pomiń w opisie,
-  nie zgaduj funkcji."
-+ W FORMAT GEO zamień wszystkie <strong> na <b> (SOT 01). Dodaj: "Zakaz <b>
-  wewnątrz nagłówków; zakaz <br>."
-+ Dodaj dyrektywę §J: "Liczby z bloku RAG (SOT 05/06) to dane surowcowe —
-  zakaz przenoszenia jako claim liczbowy o produkcie bez dowodu w PIM;
-  stosuj język jakościowy."
-+ Do WYJŚCIA dodaj pola: gate_status (PASSED | INGREDIENT_NOT_COSMETIC |
-  BANNED_SUBSTANCE_DETECTED), unknown_ingredients[].
-+ Blok wejściowy: "--- BLOK RAG (z getKnowledgeForIngredients: wpisy SOT 06/10/05/04
-  per składnik + lista unknown_ingredients) + DANE SKU ---".
-
 --- WSPÓLNE REGUŁY ---
+## §A. STOP-WORDS ALLEGRO + UOKiK (egzekwuje: kod i A10; znają i przestrzegają: A4, A5, A6, A7, A10)
+Bezwzględny zakaz stosowania w opisie, tytułach i nagłówkach słów naruszających Regulamin Allegro 2026 i wytyczne UOKiK:
+1. Promocyjne, cenowe i rabatowe: gratis, gratisy, darmowy/a/e, darmowa dostawa, za darmo, tanio, tani/a/e, najtaniej, niska cena, super cena, cena hurtowa, promocja, promocje, promocyjny/a/e, wyprzedaż, wyprzedaże, okazja, okazje, okazyjny/a/e, hit, hity, hit cenowy, bestseller, bestsellerowy, nowość, nowości, mega, super, rabat, rabaty, upust, zniżka, zniżki. (Gratisy dozwolone wyłącznie w systemowych Zestawach Produktowych Allegro).
+2. Gwarancyjne i overpromising: gwarancja (najniższej ceny, jakości, satysfakcji, zwrotu), gwarantuje, gwarantujemy, udowodniona skuteczność, w 100% udowodnione, 100% udowodnione, pewność działania, pewność zakupu, 100% pewności, cudowny, magiczny, niezawodny, 100% oryginalny, oryginalny produkt, oryginalna receptura, gwarancja oryginalności. (Uwaga: neutralny zwrot GPSR "w oryginalnym opakowaniu" jest dozwolony).
+3. Transakcyjne i Call-to-Action: kup teraz, kupuj teraz, zamów teraz, kliknij, dodaj do koszyka, polecam, polecamy, sprawdź to, tylko u nas, allegro, aukcja, aukcje, wysyłka 24h, szybka wysyłka.
+4. Porównania i substytuty: w stylu, odpowiednik, zamiennik, lepsze niż, typu [marka].
+OBOWIĄZEK AGENTA 10: Wykrycie każdego takiego słowa i jego NATYCHMIASTOWA zamiana w `repair_patches` na neutralny, profesjonalny odpowiednik (np. "gwarantuje czystość" → "zapewnia skuteczne oczyszczanie", "hit/bestseller" → usunięcie słowa).
+
 ## §B. DOZWOLONY HTML — WG SOT 01 (egzekwuje: kod; zna: A4, A6, A7)
 Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
 - <br> ZAKAZANY — nowy akapit przez osobne <p> (v4.0 błędnie dopuszczał <br>).
@@ -66,9 +60,10 @@ Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
 
 ## §C. EMOTIKONY I STRUKTURA 6 SEKCJI — WG SOT 01 §4 (egzekwuje: kod; zna: A4, A6, A7)
 Każdy <h1>/<h2>/<li> zaczyna się emotikonem (przed tekstem, poza tagami <b>).
-Wzorce nagłówków: s1 ⭐(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 ✍️ | s5 ⚖️ | s6 ⚠️.
-Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>❓ <b>Pytanie:</b> …</li>
-<li>✔️ <b>Odpowiedź:</b> …</li>. Dozwolone punktory: ⭐ ❓ ⚙️ ✅ ⚖️ ⚠️ ✅ ✔️ ☑️ ❌ ➡️ ♻️ ☘ ☂️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
+Wzorce nagłówków: s1 🌟(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 📝 | s5 📊 | s6 ⚠️.
+Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>❓ <b>Pytanie:</b> …?</li>
+<li>✔️ <b>Odpowiedź:</b> …</li>. Dozwolone punktory: ✅ ✔️ 🛡️ 🏅 🏆 🔬 📊 🌱 🌿 ♻️ 💧
+⚠️ ➡️ 🔴 🟢 ⚡ 💆‍♀️ 🏷️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
 
 ## §I. BRAMKI SKŁADNIKOWE — NOWE w v4.1 (A1, A4; egzekwuje: kod + STOP potoku)
 GATE-1 SUBSTANCJE ZAKAZANE (SOT 04 §1): wykrycie w INCI/PIM substancji CMR
@@ -92,8 +87,7 @@ przenoszenia właściwości składnika na cały produkt.
 
 ## MAPA DYSTRYBUCJI PREFIKSÓW (Orkiestrator składa per węzeł):
 A1: §I | A4: §A §B §C §I §J | A5: §A §D §E §F | A6: §A §B §C §J | A7: §A §B §C §H §J |
-A8: §G | A9: §G | A10: §A §D §E §F §J (warstwa semantyczna)
+A8: §G | A9: §G | A10: §A §D §E §F §J §K (warstwa semantyczna i samonaprawa stop-words)
 
 --- DANE SKU ---
 {{SKU_DATA}}
-

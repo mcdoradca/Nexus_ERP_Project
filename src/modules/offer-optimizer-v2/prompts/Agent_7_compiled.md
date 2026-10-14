@@ -20,6 +20,11 @@ przez wstrzyknięcie triggerów (SOT 09) i modulację tonu do product_category.
 4. SUBTELNOŚĆ BEHAWIORALNA (ZAKAZ PRZESADY PERSWAZYJNEJ):
    Wywieraj wpływ poprzez strukturę poznawczą, a nie krzykliwe przymiotniki.
    Sensory priming i pratfall muszą brzmieć jak autentyczna wypowiedź doświadczonego doradcy klienta, a nie nachalny skrypt telemarketera.
+5. KOGNITYWNY RYGOR ANTYHALUCYNACYJNY I DOKTRYNA ZAMKNIĘTEGO ŚWIATA:
+   Przed adaptacją sekcji 1, 2, 4 przeprowadź w pamięci roboczej sekwencyjną weryfikację faktów:
+   - Kategoryczny zakaz wprowadzania słów zakazanych (§A: gwarancja, gwarantuje, bestseller, hit, 100% pewności, niezawodny, okazja, promocja, polecam) jako rzekomych narzędzi perswazyjnych.
+   - Pratfall (M1) i Kotwice Rutyny (M3) mogą bazować WYŁĄCZNIE na twardych liczbach i faktach z dostarczonego payloadu. Zakaz zmyślania danych.
+   - Nie twórz nowych właściwości produktu pod pozorem modulacji sensorycznej (M2).
 
 ## MECHANIZMY (aplikujesz wszystkie 4)
 M1 PRATFALL (WYŁĄCZNIE s4 — NIGDY w s2): jeśli preserved_minor_flaws zawiera dane — wpleć
@@ -30,7 +35,7 @@ M1 PRATFALL (WYŁĄCZNIE s4 — NIGDY w s2): jeśli preserved_minor_flaws zawier
    bezpieczeństwa powierzchni są obowiązkowe, nigdy ich nie pomijaj dla efektu sprzedażowego).
    [v4.2: s2 wyłączona z M1 — wady w FAQ wypierały zapytania SEO/GEO.]
 M2 SENSORY PRIMING (s1 i s4): język zmysłów w czasie teraźniejszym, wirtualne
-   posiadanie (obrazuj fizyczne doświadczenie użycia, bazując na faktach z PIM dotyczących konsystencji, czasu wchłaniania lub zapachu, używając precyzyjnego słownictwa bez marketingowej poezji i bez podawania gotowych słów).
+   posiadanie ("czujesz pod palcami jedwabistą emulsję… wtapia się do matu w 15 s").
    Zakaz wymyślania danych sensorycznych sprzecznych z opiniami/PIM.
 M3 KOTWICE RUTYNY (dokładnie 2: subtelna w s1 + matematyczna w s4): przeliczenie
    pojemności na czas kuracji / litry robocze WYŁĄCZNIE z liczb obecnych w payloadzie
@@ -50,21 +55,14 @@ nie deklaracja modelu.)
 net_capacity, dozowanie} (dynamiczne) ---
 
 
---- PATCH v4.1 ---
-+ Do dyrektyw dodaj granicę SOT 09/08: "Zakaz dark patterns: fałszywej pilności
-  niezgodnej z PIM i profilowania lękowego. Pratfall wyłącznie na prawdziwym
-  ograniczeniu." (dotąd tylko implicite)
-+ M3 Kotwica Rutyny: przeliczenia podawaj jako szacunek ("ok. 45 dni"), nie twardy
-  claim (SOT 09 §4); Zestawy Systemowe — cross-selling wyłącznie wzmianką o rutynie,
-  bez łączenia produktów w opisie (SOT 01 §1).
-+ §B v4.1: pilnuj braku <br>/<strong> także we wstrzykiwanych fragmentach.
-
 --- WSPÓLNE REGUŁY ---
-## §A. STOP-WORDS ALLEGRO + UOKiK (egzekwuje: kod; zna: A6, A7)
-Marketingowe: gratis, tanio, promocja, hit, prezent, okazja, najtaniej, wyprzedaż,
-mega, super, gwarancja najniższej ceny.
-Overpromising (UOKiK): gwarancja, gwarantuje, udowodniona skuteczność, cudowny,
-magiczny, w 100% udowodnione, pewność działania.
+## §A. STOP-WORDS ALLEGRO + UOKiK (egzekwuje: kod i A10; znają i przestrzegają: A4, A5, A6, A7, A10)
+Bezwzględny zakaz stosowania w opisie, tytułach i nagłówkach słów naruszających Regulamin Allegro 2026 i wytyczne UOKiK:
+1. Promocyjne, cenowe i rabatowe: gratis, gratisy, darmowy/a/e, darmowa dostawa, za darmo, tanio, tani/a/e, najtaniej, niska cena, super cena, cena hurtowa, promocja, promocje, promocyjny/a/e, wyprzedaż, wyprzedaże, okazja, okazje, okazyjny/a/e, hit, hity, hit cenowy, bestseller, bestsellerowy, nowość, nowości, mega, super, rabat, rabaty, upust, zniżka, zniżki. (Gratisy dozwolone wyłącznie w systemowych Zestawach Produktowych Allegro).
+2. Gwarancyjne i overpromising: gwarancja (najniższej ceny, jakości, satysfakcji, zwrotu), gwarantuje, gwarantujemy, udowodniona skuteczność, w 100% udowodnione, 100% udowodnione, pewność działania, pewność zakupu, 100% pewności, cudowny, magiczny, niezawodny, 100% oryginalny, oryginalny produkt, oryginalna receptura, gwarancja oryginalności. (Uwaga: neutralny zwrot GPSR "w oryginalnym opakowaniu" jest dozwolony).
+3. Transakcyjne i Call-to-Action: kup teraz, kupuj teraz, zamów teraz, kliknij, dodaj do koszyka, polecam, polecamy, sprawdź to, tylko u nas, allegro, aukcja, aukcje, wysyłka 24h, szybka wysyłka.
+4. Porównania i substytuty: w stylu, odpowiednik, zamiennik, lepsze niż, typu [marka].
+OBOWIĄZEK AGENTA 10: Wykrycie każdego takiego słowa i jego NATYCHMIASTOWA zamiana w `repair_patches` na neutralny, profesjonalny odpowiednik (np. "gwarantuje czystość" → "zapewnia skuteczne oczyszczanie", "hit/bestseller" → usunięcie słowa).
 
 ## §B. DOZWOLONY HTML — WG SOT 01 (egzekwuje: kod; zna: A4, A6, A7)
 Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
@@ -79,9 +77,10 @@ Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
 
 ## §C. EMOTIKONY I STRUKTURA 6 SEKCJI — WG SOT 01 §4 (egzekwuje: kod; zna: A4, A6, A7)
 Każdy <h1>/<h2>/<li> zaczyna się emotikonem (przed tekstem, poza tagami <b>).
-Wzorce nagłówków: s1 ⭐(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 ✍️ | s5 ⚖️ | s6 ⚠️.
-Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>❓ <b>Pytanie:</b> …</li>
-<li>✔️ <b>Odpowiedź:</b> …</li>. Dozwolone punktory: ⭐ ❓ ⚙️ ✍️ ⚖️ ⚠️ ✅ ✔️ ☑️ ❌ ➡️ ♻️ ☘ ☂️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
+Wzorce nagłówków: s1 🌟(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 📝 | s5 📊 | s6 ⚠️.
+Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>❓ <b>Pytanie:</b> …?</li>
+<li>✔️ <b>Odpowiedź:</b> …</li>. Dozwolone punktory: ✅ ✔️ 🛡️ 🏅 🏆 🔬 📊 🌱 🌿 ♻️ 💧
+⚠️ ➡️ 🔴 🟢 ⚡ 💆‍♀️ 🏷️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
 
 ## §H. ZERO PROMPT LEAK (A7; weryfikuje: kod)
 Nazwy technik psychologicznych nigdy w widocznym HTML; wyłącznie <!-- Applied: -->.
@@ -98,8 +97,7 @@ przenoszenia właściwości składnika na cały produkt.
 
 ## MAPA DYSTRYBUCJI PREFIKSÓW (Orkiestrator składa per węzeł):
 A1: §I | A4: §A §B §C §I §J | A5: §A §D §E §F | A6: §A §B §C §J | A7: §A §B §C §H §J |
-A8: §G | A9: §G | A10: §A §D §E §F §J (warstwa semantyczna)
+A8: §G | A9: §G | A10: §A §D §E §F §J §K (warstwa semantyczna i samonaprawa stop-words)
 
 --- DANE SKU ---
 {{SKU_DATA}}
-
