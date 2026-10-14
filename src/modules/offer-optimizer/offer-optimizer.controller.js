@@ -714,7 +714,7 @@ const triggerUltimatePipeline = async (req, res) => {
                 // Zastosowanie opcjonalnych nadpisań HITL (z przeglądarki)
                 if (Array.isArray(hitlOverrides) && hitlOverrides.length > 0) {
                     hitlOverrides.forEach(node => {
-                        if (orch.state.node_status[node] === 'HALTED_HITL_REQUIRED') {
+                        if (orch.state.node_status[node] === 'HALTED_HITL_REQUIRED' || orch.state.node_status[node] === 'ERROR') {
                             try {
                                 orch.resolveHitl({ node, decision: 'ACCEPT_AND_CONTINUE', operator_note: 'Overridden via PIM frontend.' });
                             } catch(e) {
@@ -783,7 +783,12 @@ const triggerUltimatePipeline = async (req, res) => {
                      console.log(`[Controller] Zatrzymano na bramce HITL: ${orch.state.hitl_alert}`);
                      
                      // Zatrzymujemy potok ale informujemy frontend o alertach, by pozwolil overrideowac
-                     const haltedNode = Object.keys(orch.state.node_status).find(k => orch.state.node_status[k] !== 'OK' && orch.state.node_status[k] !== 'SKIPPED' && orch.state.node_status[k] !== 'HITL_OVERRIDDEN') || 'UNKNOWN';
+                     const haltedStatuses = ['HALTED_HITL_REQUIRED', 'CRITICAL_MISSING_INCI', 'CRITICAL_INPUT_ERROR', 'ERROR'];
+                     const nonHaltingStatuses = ['OK', 'SKIPPED', 'ERROR_IGNORED', 'HITL_OVERRIDDEN', 'COMPLETED'];
+                     const nodeKeysReversed = Object.keys(orch.state.node_status || {}).reverse();
+                     const haltedNode = nodeKeysReversed.find(k => haltedStatuses.includes(orch.state.node_status[k]))
+                         || nodeKeysReversed.find(k => !nonHaltingStatuses.includes(orch.state.node_status[k]))
+                         || 'UNKNOWN';
                      socketService.broadcast('nexus-notification', {
                          type: 'PIPELINE_HITL_ALERT',
                          ean: ean,

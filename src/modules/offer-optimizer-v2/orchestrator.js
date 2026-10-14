@@ -1566,130 +1566,150 @@ class Orchestrator {
 
         // --- KROK 10: A10 ---
         if (this.state.next_action === 'RUN_A10') {
-            // Generowanie realnego raportu pre-audytu kodowego dla Agenta 10
-            const s1Stopwords = scan_stopwords(this.state.a7_result.section_1_html);
-            const s2Stopwords = scan_stopwords(this.state.a7_result.section_2_html);
-            const s4Stopwords = scan_stopwords(this.state.a7_result.section_4_html);
-            const detectedStopwords = [
-                ...s1Stopwords.map(h => ({ section: 'section_1_html', word: h.word })),
-                ...s2Stopwords.map(h => ({ section: 'section_2_html', word: h.word })),
-                ...s4Stopwords.map(h => ({ section: 'section_4_html', word: h.word }))
-            ];
-            const preAuditReport = detectedStopwords.length > 0
-                ? `WYKRYTO SŁOWA ZAKAZANE REGULAMINEM ALLEGRO (§A): ${detectedStopwords.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM W repair_patches NA NEUTRALNE ODPOWIEDNIKI.`
-                : "Automated checks passed.";
+            if (this.state.node_status['A10'] === 'HITL_OVERRIDDEN') {
+                console.log('[Orchestrator] Węzeł A10 oznaczony jako HITL_OVERRIDDEN. Pomijam wywołanie LLM, przyjmuję sekcje z A7.');
+                this.state.a10_result = { ...(this.state.a7_result || {}) };
+                this.state.next_action = 'FINISH';
+                this.emitState();
+            } else {
+                this.state.node_status['A10'] = 'RUNNING';
+                this.emitState();
 
-            const agent10Data = {
-                gtin_ean: this.gtin,
-                product_name: product?.text_fields?.name || undefined,
-                brand: extracted.brand?.value || undefined,
-                inci: this.state.extracted_data.inci?.value || undefined,
-                section_1_html: this.state.a7_result.section_1_html,
-                section_2_html: this.state.a7_result.section_2_html,
-                section_4_html: this.state.a7_result.section_4_html,
-                audit_report: preAuditReport
-            };
-            
-            traceInci(this.gtin, 'AGENT_10_INPUT', agent10Data);
-            
-            const prompt10Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_10_compiled.md'), 'utf8');
-            const prompt10 = prompt10Template.replace('{{SKU_DATA}}', JSON.stringify(agent10Data, null, 2));
+                // Generowanie realnego raportu pre-audytu kodowego dla Agenta 10
+                const s1Stopwords = scan_stopwords(this.state.a7_result.section_1_html);
+                const s2Stopwords = scan_stopwords(this.state.a7_result.section_2_html);
+                const s4Stopwords = scan_stopwords(this.state.a7_result.section_4_html);
+                const detectedStopwords = [
+                    ...s1Stopwords.map(h => ({ section: 'section_1_html', word: h.word })),
+                    ...s2Stopwords.map(h => ({ section: 'section_2_html', word: h.word })),
+                    ...s4Stopwords.map(h => ({ section: 'section_4_html', word: h.word }))
+                ];
+                const preAuditReport = detectedStopwords.length > 0
+                    ? `WYKRYTO SŁOWA ZAKAZANE REGULAMINEM ALLEGRO (§A): ${detectedStopwords.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM W repair_patches NA NEUTRALNE ODPOWIEDNIKI.`
+                    : "Automated checks passed.";
 
-            const a10Schema = {
-                type: "object",
-                properties: {
-                    patches: {
-                        type: "array",
-                        items: {
-                            type: "object",
-                            properties: {
-                                target_section: { type: "string" },
-                                find_exact: { type: "string" },
-                                replace_with: { type: "string" },
-                                justification: { type: "string" }
-                            },
-                            required: ["target_section", "find_exact", "replace_with", "justification"]
+                const agent10Data = {
+                    gtin_ean: this.gtin,
+                    product_name: product?.text_fields?.name || undefined,
+                    brand: extracted.brand?.value || undefined,
+                    inci: this.state.extracted_data.inci?.value || undefined,
+                    section_1_html: this.state.a7_result.section_1_html,
+                    section_2_html: this.state.a7_result.section_2_html,
+                    section_4_html: this.state.a7_result.section_4_html,
+                    audit_report: preAuditReport
+                };
+                
+                traceInci(this.gtin, 'AGENT_10_INPUT', agent10Data);
+                
+                const prompt10Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_10_compiled.md'), 'utf8');
+                const prompt10 = prompt10Template.replace('{{SKU_DATA}}', JSON.stringify(agent10Data, null, 2));
+
+                const a10Schema = {
+                    type: "object",
+                    properties: {
+                        patches: {
+                            type: "array",
+                            items: {
+                                type: "object",
+                                properties: {
+                                    target_section: { type: "string" },
+                                    find_exact: { type: "string" },
+                                    replace_with: { type: "string" },
+                                    justification: { type: "string" }
+                                },
+                                required: ["target_section", "find_exact", "replace_with", "justification"]
+                            }
+                        }
+                    },
+                    required: ["patches"]
+                };
+
+                try {
+                    const { result, usage } = await aiWrapper.callAgentWithTelemetry({
+                        agentId: "10", prompt: prompt10, schema: a10Schema
+                    });
+                    
+                    const warnings = [];
+                    const allowedKeysA10 = ['patches'];
+                    for (let k of Object.keys(result)) {
+                        if (!allowedKeysA10.includes(k)) {
+                            warnings.push('A10_FIELD_REJECTED: ' + k);
+                            delete result[k];
                         }
                     }
-                },
-                required: ["patches"]
-            };
-
-            try {
-                const { result, usage } = await aiWrapper.callAgentWithTelemetry({
-                    agentId: "10", prompt: prompt10, schema: a10Schema
-                });
-                
-                const warnings = [];
-                const allowedKeysA10 = ['patches'];
-                for (let k of Object.keys(result)) {
-                    if (!allowedKeysA10.includes(k)) {
-                        warnings.push('A10_FIELD_REJECTED: ' + k);
-                        delete result[k];
+                    this.state.token_usage_per_node['A10'] = usage;
+                    
+                    let finalDoc = { ...this.state.a7_result };
+                    console.log("[DEBUG A10] a7_result na poczatku:", this.state.a7_result);
+                    const patches = result.patches || [];
+                    
+                    for (let p of patches) {
+                        if (['section_3_html', 'section_5_html', 'section_6_html'].includes(p.target_section)) {
+                            warnings.push('A10_PATCH_ON_FROZEN_SECTION: ' + p.target_section);
+                            continue; // Odrzucamy ten patch, bo idzie na zamrożone
+                        }
+                        if (finalDoc[p.target_section] && p.find_exact) {
+                            finalDoc[p.target_section] = finalDoc[p.target_section].split(p.find_exact).join(p.replace_with);
+                            console.log("[DEBUG A10] finalDoc po patchu na " + p.target_section + ":", finalDoc[p.target_section]);
+                        }
                     }
-                }
-                this.state.token_usage_per_node['A10'] = usage;
-                
-                let finalDoc = { ...this.state.a7_result };
-                console.log("[DEBUG A10] a7_result na poczatku:", this.state.a7_result);
-                const patches = result.patches || [];
-                
-                for (let p of patches) {
-                    if (['section_3_html', 'section_5_html', 'section_6_html'].includes(p.target_section)) {
-                        warnings.push('A10_PATCH_ON_FROZEN_SECTION: ' + p.target_section);
-                        continue; // Odrzucamy ten patch, bo idzie na zamrożone
-                    }
-                    if (finalDoc[p.target_section] && p.find_exact) {
-                        finalDoc[p.target_section] = finalDoc[p.target_section].split(p.find_exact).join(p.replace_with);
-                        console.log("[DEBUG A10] finalDoc po patchu na " + p.target_section + ":", finalDoc[p.target_section]);
-                    }
-                }
-                console.log("[DEBUG A10] finalDoc przed walidacja:", finalDoc);
-                
-                this.state.a10_result = finalDoc;
-                
-                traceInci(this.gtin, 'AGENT_10_OUTPUT_PATCHES', patches);
-                traceInci(this.gtin, 'AGENT_10_FINAL_HTML', this.state.a10_result);
+                    console.log("[DEBUG A10] finalDoc przed walidacja:", finalDoc);
+                    
+                    this.state.a10_result = finalDoc;
+                    
+                    traceInci(this.gtin, 'AGENT_10_OUTPUT_PATCHES', patches);
+                    traceInci(this.gtin, 'AGENT_10_FINAL_HTML', this.state.a10_result);
 
-                if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
+                    if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
 
-                for (let i of [1,2,4]) {
-                    let sec = finalDoc['section_' + i + '_html'];
-                    if (sec) {
-                        sec = normalizeTags(sec);
-                        finalDoc['section_' + i + '_html'] = sec;
-                        const err = runHtmlValidators(sec, 'A10');
-                        if (err) {
-                            if (this.state.node_status['A10'] !== 'HITL_OVERRIDDEN') {
-                                this.state.node_status['A10'] = 'HALTED_HITL_REQUIRED';
-                                this.state.hitl_alert = err;
-                                this.state.normalization_warnings.push(err);
-                                this.state.next_action = 'HALT';
-                                this.emitState();
-                                return;
+                    for (let i of [1,2,4]) {
+                        let sec = finalDoc['section_' + i + '_html'];
+                        if (sec) {
+                            sec = normalizeTags(sec);
+                            finalDoc['section_' + i + '_html'] = sec;
+                            const err = runHtmlValidators(sec, 'A10');
+                            if (err) {
+                                if (this.state.node_status['A10'] !== 'HITL_OVERRIDDEN') {
+                                    this.state.node_status['A10'] = 'HALTED_HITL_REQUIRED';
+                                    this.state.hitl_alert = err;
+                                    this.state.normalization_warnings.push(err);
+                                    this.state.next_action = 'HALT';
+                                    this.emitState();
+                                    return;
+                                }
                             }
                         }
                     }
+
+                    const faqGateA10 = applyAeoFaqGate(finalDoc.section_2_html, 'A10');
+                    finalDoc.section_2_html = faqGateA10.html;
+                    if (faqGateA10.halted) return;
+
+                    this.state.node_status['A10'] = 'OK';
+                    this.state.next_action = 'FINISH';
+                    this.emitState();
+                } catch (e) {
+                    if (this.state.node_status['A10'] === 'HITL_OVERRIDDEN') {
+                        console.warn(`[Orchestrator] Błąd A10 zignorowany ze względu na HITL_OVERRIDDEN: ${e.message}`);
+                        this.state.a10_result = { ...(this.state.a7_result || {}) };
+                        this.state.next_action = 'FINISH';
+                        this.emitState();
+                    } else {
+                        this.state.node_status['A10'] = 'HALTED_HITL_REQUIRED';
+                        this.state.hitl_alert = e.message;
+                        this.state.next_action = 'HALT';
+                        this.emitState();
+                        return;
+                    }
                 }
-
-                const faqGateA10 = applyAeoFaqGate(finalDoc.section_2_html, 'A10');
-                finalDoc.section_2_html = faqGateA10.html;
-                if (faqGateA10.halted) return;
-
-                this.state.node_status['A10'] = 'OK';
-                this.state.next_action = 'FINISH';
-                this.emitState();
-            } catch (e) {
-                this.state.node_status['A10'] = 'ERROR';
-                this.state.hitl_alert = e.message;
-                this.state.next_action = 'HALT';
-                this.emitState();
-                return;
             }
         }
         
         // --- FINISH: Składanie ---
         if (this.state.next_action === 'FINISH') {
+            if (!this.state.a10_result) {
+                this.state.a10_result = { ...(this.state.a7_result || {}) };
+            }
             const s5 = this.state.a10_result['section_5_html'] || '';
             const s6 = this.state.a10_result['section_6_html'] || '';
             const extra4 = [s5, s6].filter(Boolean).join('\n<br>\n');
@@ -1780,6 +1800,9 @@ class Orchestrator {
         if (decision === 'ACCEPT_AND_CONTINUE') {
             this.state.hitl_alert = null;
             this.state.node_status[node] = 'HITL_OVERRIDDEN';
+            if (node === 'A10' && !this.state.a10_result) {
+                this.state.a10_result = { ...(this.state.a7_result || {}) };
+            }
             
             const nextNodeMap = {
                 'EXTRACT': 'RUN_A1',

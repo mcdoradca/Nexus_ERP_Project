@@ -162,12 +162,15 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
 
             const executeStep1 = async (stepPrompt) => {
                 let resp;
+                const isHighThinkingOrPro = (thinkingLevel && thinkingLevel === ThinkingLevel.HIGH) 
+                    || (typeof model === 'string' && (model.includes('pro') || model.includes('3.1')));
+                const step1TimeoutMs = isHighThinkingOrPro ? 180000 : 90000;
                 try {
                     resp = await generateContentWithTimeout({
                         model: model,
                         contents: stepPrompt,
                         config: groundingConfig
-                    }, 90000, `Agent_${agentId}_Step1_Grounding`);
+                    }, step1TimeoutMs, `Agent_${agentId}_Step1_Grounding`);
                 } catch (apiError) {
                     const errStr = typeof apiError.message === 'string' ? apiError.message : JSON.stringify(apiError);
                     const isGroundingBlocked = errStr.includes('User location is not supported') 
@@ -280,12 +283,16 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
             onLog(`\n[AI WRAPPER - RAW REQUEST DUMP (Agent ${agentId})]\n${payloadDump}\n[END RAW REQUEST DUMP]\n`);
             console.log(`[AI WRAPPER - RAW REQUEST DUMP (Agent ${agentId})] Payload size: ${payloadDump.length} bytes`);
 
+            const isHighThinkingOrPro = (thinkingLevel && thinkingLevel === ThinkingLevel.HIGH) 
+                || (typeof model === 'string' && (model.includes('pro') || model.includes('3.1')));
+            const standardTimeoutMs = isHighThinkingOrPro ? 180000 : 90000;
+
             try {
                 response = await generateContentWithTimeout({
                     model: model,
                     contents: prompt,
                     config: config
-                }, 90000, `Agent_${agentId}_Standard`);
+                }, standardTimeoutMs, `Agent_${agentId}_Standard`);
             } catch (apiError) {
                 // DEEP ERROR AUDIT
                 const errorDetails = {
