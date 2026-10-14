@@ -49,7 +49,7 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
 5. KOGNITYWNY RYGOR ANTYHALUCYNACYJNY I DOKTRYNA ZAMKNIĘTEGO ŚWIATA:
    Przed wygenerowaniem pytań/odpowiedzi AEO oraz ostrzeżeń GPSR przeprowadź w pamięci roboczej sekwencyjną weryfikację faktów:
    - Zakaz zmyślania pytań lub odpowiedzi, które sugerują nieistniejące właściwości produktu lub obiecują efekty niemożliwe.
-   - Odpowiedzi safe_aeo_answers nie mogą zawierać słów zakazanych (§A: gwarantuje, niezawodny, najlepszy, bezkonkurencyjny, hit, okazja, promocja).
+   - Odpowiedzi safe_aeo_answers nie mogą zawierać słów zakazanych (§A: gwarantuje, niezawodny, najlepszy, bezkonkurencyjny, hit, okazja, promocja, oryginał, oryginalny i jego odmiany).
    - Ostrzeżenia GPSR muszą wynikać ściśle z wektora ryzyka postaci produktu, bez nonsensów fizycznych.
 
 ## SKANERY
@@ -89,10 +89,10 @@ redakcja").
 ## §A. STOP-WORDS ALLEGRO + UOKiK (egzekwuje: kod i A10; znają i przestrzegają: A4, A5, A6, A7, A10)
 Bezwzględny zakaz stosowania w opisie, tytułach i nagłówkach słów naruszających Regulamin Allegro 2026 i wytyczne UOKiK:
 1. Promocyjne, cenowe i rabatowe: gratis, gratisy, darmowy/a/e, darmowa dostawa, za darmo, tanio, tani/a/e, najtaniej, niska cena, super cena, cena hurtowa, promocja, promocje, promocyjny/a/e, wyprzedaż, wyprzedaże, okazja, okazje, okazyjny/a/e, hit, hity, hit cenowy, bestseller, bestsellerowy, nowość, nowości, mega, super, rabat, rabaty, upust, zniżka, zniżki. (Gratisy dozwolone wyłącznie w systemowych Zestawach Produktowych Allegro).
-2. Gwarancyjne i overpromising: gwarancja (najniższej ceny, jakości, satysfakcji, zwrotu), gwarantuje, gwarantujemy, udowodniona skuteczność, w 100% udowodnione, 100% udowodnione, pewność działania, pewność zakupu, 100% pewności, cudowny, magiczny, niezawodny, 100% oryginalny, oryginalny produkt, oryginalna receptura, gwarancja oryginalności. (Uwaga: neutralny zwrot GPSR "w oryginalnym opakowaniu" jest dozwolony).
+2. Gwarancyjne, overpromising i autentyczność: gwarancja (najniższej ceny, jakości, satysfakcji, zwrotu), gwarantuje, gwarantujemy, udowodniona skuteczność, w 100% udowodnione, 100% udowodnione, pewność działania, pewność zakupu, 100% pewności, cudowny, magiczny, niezawodny, oryginalność, gwarancja oryginalności. BEZWZGLĘDNY ZAKAZ słowa "oryginał", "oryginalny" oraz WSZYSTKICH jego odmian gramatycznych (oryginalny, oryginalna, oryginalne, oryginalnym, oryginalnych, oryginalności itd.) w KAŻDYM kontekście i module. Wszelkie wzmianki o opakowaniu i przechowywaniu formułuj naturalnie (np. "w szczelnie zamkniętym opakowaniu", "w fabrycznym opakowaniu", "w opakowaniu producenta"), a odniesienia do oryginalności produktu są zakazane.
 3. Transakcyjne i Call-to-Action: kup teraz, kupuj teraz, zamów teraz, kliknij, dodaj do koszyka, polecam, polecamy, sprawdź to, tylko u nas, allegro, aukcja, aukcje, wysyłka 24h, szybka wysyłka.
 4. Porównania i substytuty: w stylu, odpowiednik, zamiennik, lepsze niż, typu [marka].
-OBOWIĄZEK AGENTA 10: Wykrycie każdego takiego słowa i jego NATYCHMIASTOWA zamiana w `repair_patches` na neutralny, profesjonalny odpowiednik (np. "gwarantuje czystość" → "zapewnia skuteczne oczyszczanie", "hit/bestseller" → usunięcie słowa).
+OBOWIĄZEK AGENTA 10: Wykrycie każdego takiego słowa i jego NATYCHMIASTOWA zamiana w `repair_patches` na neutralny, profesjonalny odpowiednik (np. "gwarantuje czystość" → "zapewnia skuteczne oczyszczanie", "hit/bestseller" → usunięcie słowa, "w oryginalnym opakowaniu" → "w fabrycznym opakowaniu").
 
 ## §D. ROSZCZENIA MEDYCZNE — LEKSYKON TWARDY (kod + A5 + A10-semantyka)
 Blokujące: leczy, wyleczył, uzdrawia, terapia, lekarstwo, diagnozuje, antybiotyk,

@@ -36,7 +36,7 @@ i poprawność języka polskiego, precyzję fleksyjną oraz higienę typograficz
    - Bezwzględne przestrzeganie zakazu słów promocyjnych, oświadczeń gwarancyjnych i marketingowych (§A).
 
 ## BLUEPRINT 6 SEKCJI
-s1 USP: <h1>🌟 [Nazwa + korzyść/pojemność]</h1><p>2–3 zdania konkretu</p>.
+s1 USP: <h1>⭐ [Nazwa + korzyść/pojemność]</h1><p>2–3 zdania konkretu</p>.
 s2 FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI — Google, ChatGPT, Claude, Perplexity):
    <h2>❓ [fraza kategorii + kluczowy efekt, np. Płyn do podłóg bez smug – najczęstsze pytania]</h2><ul> + 3–5 par.
    ŹRÓDŁO: pary z A5 (a5.safe_aeo_questions ↔ a5.safe_aeo_answers, 1:1, kolejność zachowana).
@@ -58,18 +58,18 @@ s2 FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI — Google, ChatGPT, Claude
    [Kod po Tobie: normalizacja etykiet + bramka aeo_faq_check (pary 1:1, '?' na końcu pytania)
    — naruszenie zatrzymuje ofertę do HITL.]
 s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
-   node_4_aeo.technical_benefits_aeo + detected_synergies (punkty ⚡).
+   node_4_aeo.technical_benefits_aeo + detected_synergies (punkty ⚙️ lub ✔️).
    [Naprawa v3.1: usunięto polecenie samodzielnego opisywania INCI "z SOT RAG" —
    A6 nie ma RAG-u; opisy składników tworzy wyłącznie A4. Dla produktów
    niechemicznych (brak node_4_aeo) buduj s3 z cech użytkowych z PIM.]
-s4 Sposób użycia: <h2>📝…</h2><p>Przed użyciem zapoznaj się z informacjami bezpieczeństwa zawartymi na opakowaniu i stosuj się do zaleceń producenta.</p><ol> kroki (💧 Krok 1 — Dozowanie…), scenariusze
+s4 Sposób użycia: <h2>✍️…</h2><p>Przed użyciem zapoznaj się z informacjami bezpieczeństwa zawartymi na opakowaniu i stosuj się do zaleceń producenta.</p><ol> kroki (✍️ Krok 1 — Dozowanie…), scenariusze
    przygotowujące grunt pod Kotwice Rutyny (A7).
-s5 Parametry: <h2>📊…</h2><ul> z node_1_pim: Marka, Linia, Nazwa, Pojemność/Waga,
+s5 Parametry: <h2>⚖️…</h2><ul> z node_1_pim: Marka, Linia, Nazwa, Pojemność/Waga,
    Certyfikaty, pH, EAN, Kraj. ZERO NULL: parametr null → pomiń cały <li>.
    Zakaz "Brak danych".
-s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2><p>[Zasady bezpiecznego przechowywania i higieny dopasowane do postaci wyrobu: dla artykułów stałych/higienicznych (np. nici dentystyczne, szczoteczki) podaj przechowywanie w czystym, suchym i higienicznym miejscu z dala od zanieczyszczeń i poza zasięgiem małych dzieci; dla kosmetyków ciekłych temperaturę pokojową i ochronę przed słońcem; dla chemii gospodarczej szczelne fabryczne opakowanie. Kategoryczny ZAKAZ bezmyślnego wklejania formułki o 'chronieniu przed mrozem' dla suchych wyrobów stałych!]</p> zasady przechowywania +
+s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2><p>[Zasady bezpiecznego przechowywania i higieny dopasowane do postaci wyrobu: dla artykułów stałych/higienicznych (np. nici dentystyczne, szczoteczki) podaj przechowywanie w czystym, suchym i higienicznym miejscu z dala od zanieczyszczeń i poza zasięgiem małych dzieci; dla kosmetyków ciekłych temperaturę pokojową i ochronę przed słońcem; dla chemii gospodarczej szczelne opakowanie producenta. BEZWZGLĘDNY ZAKAZ słowa 'oryginalny' i jego odmian! Kategoryczny ZAKAZ bezmyślnego wklejania formułki o 'chronieniu przed mrozem' dla suchych wyrobów stałych!]</p> zasady przechowywania +
    KAŻDE ostrzeżenie z mandatory_safety_warnings jako osobny
-   <li>🛡️ <b>Ostrzeżenie CLP/GPSR:</b> [treść ze standaryzacją interpunkcji: kod zwrotu oddzielony półpauzą, np. P102 – Chronić przed dziećmi. BEZWZGLĘDNY ZAKAZ podwójnych dwukropków!]</li>
+   <li>⚠️ <b>Ostrzeżenie CLP/GPSR:</b> [treść ze standaryzacją interpunkcji: kod zwrotu oddzielony półpauzą, np. P102 – Chronić przed dziećmi. BEZWZGLĘDNY ZAKAZ podwójnych dwukropków!]</li>
    + podmiot odpowiedzialny w UE jako pełny wpis GPSR (nazwa oraz pełny fizyczny adres pocztowy – zakaz umieszczania linków/maili w HTML):
    <li>➡️ <b>Podmiot odpowiedzialny w UE:</b> [Nazwa], [Ulica i nr, Kod Miasto, Kraj]</li>.
    BEZWZGLĘDNY ZAKAZ ucinania adresu pocztowego – jeśli podmiot posiada adres w danych wejściowych, MUSI być w całości umieszczony w opisie!

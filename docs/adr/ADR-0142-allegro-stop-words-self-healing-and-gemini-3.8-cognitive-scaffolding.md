@@ -29,17 +29,16 @@ W potoku optymalizacji ofert EAN `offer-optimizer-v2` zidentyfikowano szereg inc
 - Zachowano `thinkingLevel: ThinkingLevel.HIGH` wyłącznie dla modeli klasy Pro (`gemini-3.1-pro-preview`) w węzłach 1 (OSINT & Ingestion) i 10 (Arbiter Końcowy i Strażnik Prawny).
 - W `ai.wrapper.js` zabezpieczono Krok 2 (Two-Step JSON) przed sztucznym wymuszaniem `ThinkingLevel.LOW` na modelach Flash nieposiadających tej konfiguracji.
 
-### B. Uszczelnienie Rejestru Stop-Words i Ochrona Formułek GPSR
-- W pliku `validators/index.js` rozszerzono funkcję `scan_stopwords` o pełny zestaw regexów Allegro 2026 i UOKiK (frazy promocyjne, overpromising, wezwania do działania, deklaracje oryginalności, roszczenia medyczne).
-- Wdrożono zabezpieczenie kontekstowe dla legalnych formułek GPSR/CLP: wykluczono blokowanie naturalnych zaleceń magazynowych typu *"przechowywać w oryginalnym opakowaniu"*, blokując wyłącznie nieuprawnione deklaracje handlowe typu *"100% oryginalny"*, *"gwarancja oryginalności"*.
+### B. Bezwzględna Eliminacja Słowa "Oryginalny" i Przywrócenie Kanonicznej Białej Listy Emoji
+- **Eliminacja słowa "oryginalny":** W [services/gpsr.safety.service.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/services/gpsr.safety.service.js) usunięto z kodu źródłowego wstrzykiwanie zwrotu `"w oryginalnym opakowaniu"`, zastępując go neutralnym opisem fizycznym `"w szczelnie zamkniętym opakowaniu"`.
+- **Walidator leksykalny:** W [validators/index.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/validators/index.js) wdrożono bezwzględne wzorce rdzenia `\borygina[łl][a-z]*\b` oraz `\boryginaln[a-z]*\b` – zakaz obejmuje KAŻDĄ formę gramatyczną (oryginalny, oryginalna, oryginalne, oryginalnym, oryginalnych, oryginalności itd.) bez żadnych wyjątków.
+- **Kanoniczna biała lista emoji:** W [SHARED_RULES_v4.1.md](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/docs/SHARED_RULES_v4.1.md) i promptach przywrócono ściśle oficjalną białą listę Allegro: nagłówki `s1 ⭐`, `s2 ❓`, `s3 ⚙️`, `s4 ✍️`, `s5 ⚖️`, `s6 ⚠️` oraz punktory `⭐ ❓ ⚙️ ✍️ ⚖️ ⚠️ ✅ ✔️ ☑️ ❌ ➡️ ♻️ ☘ ☂️`. Wycięto wszystkie niezatwierdzone ikony (`🌟`, `📝`, `📊`, `🛡️`).
 
-### C. Deterministyczna Samonaprawa w Orkiestratorze (Closed-Loop Self-Healing)
-- W pliku `orchestrator.js` przed wywołaniem Agenta 10 orkiestrator uruchamia pre-audyt `scan_stopwords` na sekcjach opisu (1, 2, 4).
-- Raport pre-audytu (`audit_report`) jest bezpośrednio wstrzykiwany do danych wejściowych Agenta 10 (`agent10Data.audit_report`), nakazując modelowi natychmiastowe wygenerowanie łatek naprawczych `repair_patches`.
-- Poprawiono aplikowanie łatek w kodzie: zastąpiono pojedynczy `replace` bezpieczną podmianą globalną:
-  ```javascript
-  targetText = targetText.split(p.find_exact).join(p.replace_with);
-  ```
+### C. Czysty Audyt Semantyczny Agenta 10 (Bez Sztucznego Betonowania i Regexów w Kodzie)
+- Odrzucono koncepcję sztucznych regexów zastępczych w kodzie orkiestratora ("betonowania słów"), która niszczyła fleksję języka polskiego i kontekst innych zdań.
+- Orkiestrator przekazuje wykryte słowa zakazane z pre-audytu kodowego bezpośrednio do `audit_report` Agenta 10 (Gemini 3.1 Pro z ThinkingLevel.HIGH).
+- Agent 10 jako arbiter prawno-semantyczny ma obowiązek wygenerować w `patches` kontekstową, naturalną gramatycznie łatkę naprawczą (`find_exact` -> `replace_with`), która zachowuje płynność polszczyzny.
+- Aplikowanie łatek odbywa się czysto i deterministycznie poprzez precyzyjną podmianę wskazanego przez model fragmentu.
 
 ### D. Scaffolding Kognitywny dla Modeli Flash (Doktryna Zamkniętego Świata)
 W związku z brakiem mechanicznego parametru `thinkingLevel`, do promptów węzłów Flash wstrzyknięto dyrektywy kognitywne kompensujące brak myślenia wewnętrznego:

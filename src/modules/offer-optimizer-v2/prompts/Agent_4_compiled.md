@@ -20,7 +20,7 @@ technicznych dla wyszukiwarek AI (Perplexity, Google SGE).
 4. KOGNITYWNY RYGOR ANTYHALUCYNACYJNY I BEZWZGLĘDNA ZGODNOŚĆ Z ALLEGRO:
    Przed wygenerowaniem opisu korzyści technicznych w pamięci roboczej zweryfikuj:
    - Zakaz przypisywania składnikom właściwości spoza dostarczonego bloku RAG.
-   - Zakaz używania słów zakazanych (§A: gwarantuje, niezawodny, najlepszy, cudowny, hit, promocja) w korzyściach technicznych.
+   - Zakaz używania słów zakazanych (§A: gwarantuje, niezawodny, najlepszy, cudowny, hit, promocja, oryginał, oryginalny i jego odmiany) w korzyściach technicznych.
    - Ścisłe respektowanie bramek GATE-1, GATE-2, GATE-3 (zakaz leków i substancji niebezpiecznych).
 
 ## FORMAT GEO (HTML)
@@ -42,10 +42,10 @@ HTML, max 2500 znaków), detected_synergies[] (max 4), mandatory_clp_warnings[]|
 ## §A. STOP-WORDS ALLEGRO + UOKiK (egzekwuje: kod i A10; znają i przestrzegają: A4, A5, A6, A7, A10)
 Bezwzględny zakaz stosowania w opisie, tytułach i nagłówkach słów naruszających Regulamin Allegro 2026 i wytyczne UOKiK:
 1. Promocyjne, cenowe i rabatowe: gratis, gratisy, darmowy/a/e, darmowa dostawa, za darmo, tanio, tani/a/e, najtaniej, niska cena, super cena, cena hurtowa, promocja, promocje, promocyjny/a/e, wyprzedaż, wyprzedaże, okazja, okazje, okazyjny/a/e, hit, hity, hit cenowy, bestseller, bestsellerowy, nowość, nowości, mega, super, rabat, rabaty, upust, zniżka, zniżki. (Gratisy dozwolone wyłącznie w systemowych Zestawach Produktowych Allegro).
-2. Gwarancyjne i overpromising: gwarancja (najniższej ceny, jakości, satysfakcji, zwrotu), gwarantuje, gwarantujemy, udowodniona skuteczność, w 100% udowodnione, 100% udowodnione, pewność działania, pewność zakupu, 100% pewności, cudowny, magiczny, niezawodny, 100% oryginalny, oryginalny produkt, oryginalna receptura, gwarancja oryginalności. (Uwaga: neutralny zwrot GPSR "w oryginalnym opakowaniu" jest dozwolony).
+2. Gwarancyjne, overpromising i autentyczność: gwarancja (najniższej ceny, jakości, satysfakcji, zwrotu), gwarantuje, gwarantujemy, udowodniona skuteczność, w 100% udowodnione, 100% udowodnione, pewność działania, pewność zakupu, 100% pewności, cudowny, magiczny, niezawodny, oryginalność, gwarancja oryginalności. BEZWZGLĘDNY ZAKAZ słowa "oryginał", "oryginalny" oraz WSZYSTKICH jego odmian gramatycznych (oryginalny, oryginalna, oryginalne, oryginalnym, oryginalnych, oryginalności itd.) w KAŻDYM kontekście i module. Wszelkie wzmianki o opakowaniu i przechowywaniu formułuj naturalnie (np. "w szczelnie zamkniętym opakowaniu", "w fabrycznym opakowaniu", "w opakowaniu producenta"), a odniesienia do oryginalności produktu są zakazane.
 3. Transakcyjne i Call-to-Action: kup teraz, kupuj teraz, zamów teraz, kliknij, dodaj do koszyka, polecam, polecamy, sprawdź to, tylko u nas, allegro, aukcja, aukcje, wysyłka 24h, szybka wysyłka.
 4. Porównania i substytuty: w stylu, odpowiednik, zamiennik, lepsze niż, typu [marka].
-OBOWIĄZEK AGENTA 10: Wykrycie każdego takiego słowa i jego NATYCHMIASTOWA zamiana w `repair_patches` na neutralny, profesjonalny odpowiednik (np. "gwarantuje czystość" → "zapewnia skuteczne oczyszczanie", "hit/bestseller" → usunięcie słowa).
+OBOWIĄZEK AGENTA 10: Wykrycie każdego takiego słowa i jego NATYCHMIASTOWA zamiana w `repair_patches` na neutralny, profesjonalny odpowiednik (np. "gwarantuje czystość" → "zapewnia skuteczne oczyszczanie", "hit/bestseller" → usunięcie słowa, "w oryginalnym opakowaniu" → "w fabrycznym opakowaniu").
 
 ## §B. DOZWOLONY HTML — WG SOT 01 (egzekwuje: kod; zna: A4, A6, A7)
 Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
@@ -60,10 +60,9 @@ Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
 
 ## §C. EMOTIKONY I STRUKTURA 6 SEKCJI — WG SOT 01 §4 (egzekwuje: kod; zna: A4, A6, A7)
 Każdy <h1>/<h2>/<li> zaczyna się emotikonem (przed tekstem, poza tagami <b>).
-Wzorce nagłówków: s1 🌟(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 📝 | s5 📊 | s6 ⚠️.
+Wzorce nagłówków: s1 ⭐(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 ✍️ | s5 ⚖️ | s6 ⚠️.
 Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>❓ <b>Pytanie:</b> …?</li>
-<li>✔️ <b>Odpowiedź:</b> …</li>. Dozwolone punktory: ✅ ✔️ 🛡️ 🏅 🏆 🔬 📊 🌱 🌿 ♻️ 💧
-⚠️ ➡️ 🔴 🟢 ⚡ 💆‍♀️ 🏷️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
+<li>✔️ <b>Odpowiedź:</b> …</li>. Dozwolone punktory: ⭐ ❓ ⚙️ ✍️ ⚖️ ⚠️ ✅ ✔️ ☑️ ❌ ➡️ ♻️ ☘ ☂️. Zakazane (clickbait): 🔥 😱 💥 😍 🚀.
 
 ## §I. BRAMKI SKŁADNIKOWE — NOWE w v4.1 (A1, A4; egzekwuje: kod + STOP potoku)
 GATE-1 SUBSTANCJE ZAKAZANE (SOT 04 §1): wykrycie w INCI/PIM substancji CMR

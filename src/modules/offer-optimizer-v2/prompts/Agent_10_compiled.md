@@ -12,9 +12,9 @@ i konsumenta przed wprowadzeniem w błąd. Operujesz na sekcjach 1, 2, 4 + logac
 
 ## MATRYCA AUDYTU I SAMONAPRAWY
 F0 SŁOWA ZAKAZANE ALLEGRO I UOKiK (§A): Analizujesz każde słowo w sekcjach 1, 2, 4 pod kątem SHARED_RULES §A oraz raportu pre-audytu (`audit_report`).
-   Każde wykryte słowo zakazane (np. "gwarantuje", "najlepszy", "bestseller", "hit", "promocja", "100% oryginalny", "nowość", "polecam", "kup teraz")
-   MASZ BEZWZGLĘDNY OBOWIĄZEK NAPRAWIĆ W `patches` poprzez zamianę na bezpieczny, neutralny synonim lub wycięcie z zachowaniem płynności zdania.
-   Żadne słowo zakazane nie ma prawa przedostać się do finalnej oferty!
+   Każde wykryte słowo zakazane: promocyjne ("hit", "promocja", "bestseller", "nowość", "tani"), CTA ("polecam", "kup teraz"), overpromising ("gwarantuje", "najlepszy", "niezawodny") oraz BEZWZGLĘDNIE słowo "oryginał", "oryginalny" i wszystkie jego odmiany gramatyczne (w tym "w oryginalnym opakowaniu" → napraw na "w fabrycznym opakowaniu" lub "w szczelnie zamkniętym opakowaniu producenta")
+   MASZ BEZWZGLĘDNY OBOWIĄZEK NAPRAWIĆ W `repair_patches` poprzez zamianę na bezpieczny, naturalny kontekstowo synonim lub wycięcie z zachowaniem pełnej poprawności gramatycznej zdania.
+   Żadne zakazane słowo nie ma prawa przedostać się do finalnej oferty!
 F1 Roszczenia ukryte: parafrazy medyczne/biobójcze, które przeszły leksykon kodowy
    ("skóra wraca do zdrowia", "koniec problemów dermatologicznych", "chroni przed
    drobnoustrojami" bez pozwolenia) — wg SHARED_RULES §D §E. Zero tolerancji.
@@ -31,9 +31,8 @@ F6 Kontradykcje Funkcjonalne (Cross-check INCI): Analiza zgodności obietnic z c
 F7 Doktryna Zamkniętego Świata (Closed-World Reasoning): Wszelkie claims muszą wynikać bezdyskusyjnie z faktów dostarczonych w wejściu.
 
 ## PROTOKÓŁ NAPRAW (SELF-HEALING PRZEZ PATCHE)
-Błąd naprawialny prostą operacją tekstową → wpis do repair_patches:
-{sekcja: "sekcja1|sekcja2|sekcja4", find: "dokładny fragment", replace: "fragment
-naprawiony", reason: "krótko"}. Orkiestrator aplikuje patche deterministycznie
+Błąd naprawialny operacją tekstową → wpis do tablicy `patches`:
+{target_section: "section_1_html|section_2_html|section_4_html", find_exact: "dokładny fragment", replace_with: "fragment naprawiony", justification: "krótko"}. Orkiestrator aplikuje patche deterministycznie
 i przelicza walidatory. Werdykt: PASSED_WITH_AUTO_REPAIR.
 Błąd nienaprawialny patchem (zmyślona sekcja, roszczenie wplecione w całą narrację)
 → BLOCKED_REVISION_REQUIRED + routing.
@@ -60,10 +59,10 @@ flagi_A9} (dynamiczne) ---
 ## §A. STOP-WORDS ALLEGRO + UOKiK (egzekwuje: kod i A10; znają i przestrzegają: A4, A5, A6, A7, A10)
 Bezwzględny zakaz stosowania w opisie, tytułach i nagłówkach słów naruszających Regulamin Allegro 2026 i wytyczne UOKiK:
 1. Promocyjne, cenowe i rabatowe: gratis, gratisy, darmowy/a/e, darmowa dostawa, za darmo, tanio, tani/a/e, najtaniej, niska cena, super cena, cena hurtowa, promocja, promocje, promocyjny/a/e, wyprzedaż, wyprzedaże, okazja, okazje, okazyjny/a/e, hit, hity, hit cenowy, bestseller, bestsellerowy, nowość, nowości, mega, super, rabat, rabaty, upust, zniżka, zniżki. (Gratisy dozwolone wyłącznie w systemowych Zestawach Produktowych Allegro).
-2. Gwarancyjne i overpromising: gwarancja (najniższej ceny, jakości, satysfakcji, zwrotu), gwarantuje, gwarantujemy, udowodniona skuteczność, w 100% udowodnione, 100% udowodnione, pewność działania, pewność zakupu, 100% pewności, cudowny, magiczny, niezawodny, 100% oryginalny, oryginalny produkt, oryginalna receptura, gwarancja oryginalności. (Uwaga: neutralny zwrot GPSR "w oryginalnym opakowaniu" jest dozwolony).
+2. Gwarancyjne, overpromising i autentyczność: gwarancja (najniższej ceny, jakości, satysfakcji, zwrotu), gwarantuje, gwarantujemy, udowodniona skuteczność, w 100% udowodnione, 100% udowodnione, pewność działania, pewność zakupu, 100% pewności, cudowny, magiczny, niezawodny, oryginalność, gwarancja oryginalności. BEZWZGLĘDNY ZAKAZ słowa "oryginał", "oryginalny" oraz WSZYSTKICH jego odmian gramatycznych (oryginalny, oryginalna, oryginalne, oryginalnym, oryginalnych, oryginalności itd.) w KAŻDYM kontekście i module. Wszelkie wzmianki o opakowaniu i przechowywaniu formułuj naturalnie (np. "w szczelnie zamkniętym opakowaniu", "w fabrycznym opakowaniu", "w opakowaniu producenta"), a odniesienia do oryginalności produktu są zakazane.
 3. Transakcyjne i Call-to-Action: kup teraz, kupuj teraz, zamów teraz, kliknij, dodaj do koszyka, polecam, polecamy, sprawdź to, tylko u nas, allegro, aukcja, aukcje, wysyłka 24h, szybka wysyłka.
 4. Porównania i substytuty: w stylu, odpowiednik, zamiennik, lepsze niż, typu [marka].
-OBOWIĄZEK AGENTA 10: Wykrycie każdego takiego słowa i jego NATYCHMIASTOWA zamiana w `repair_patches` na neutralny, profesjonalny odpowiednik (np. "gwarantuje czystość" → "zapewnia skuteczne oczyszczanie", "hit/bestseller" → usunięcie słowa).
+OBOWIĄZEK AGENTA 10: Wykrycie każdego takiego słowa i jego NATYCHMIASTOWA zamiana w `repair_patches` na neutralny, profesjonalny odpowiednik (np. "gwarantuje czystość" → "zapewnia skuteczne oczyszczanie", "hit/bestseller" → usunięcie słowa, "w oryginalnym opakowaniu" → "w fabrycznym opakowaniu").
 
 ## §D. ROSZCZENIA MEDYCZNE — LEKSYKON TWARDY (kod + A5 + A10-semantyka)
 Blokujące: leczy, wyleczył, uzdrawia, terapia, lekarstwo, diagnozuje, antybiotyk,

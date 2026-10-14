@@ -48,11 +48,11 @@ function scan_stopwords(html) {
     const stopwords = [
         // Gwarancje, oświadczenia pewnościowe i autentyczność (najdłuższe frazy najpierw)
         'gwarancj[aeiłąę]* najniższej ceny', 'gwarancj[aeiłąę]* jakoś[ćc]i', 'gwarancj[aeiłąę]* satysfakcji', 'gwarancj[aeiłąę]* zwrotu',
-        'gwarancj[aeiłąę]* oryginalnoś[ćc]i', 'gwarancj[aeiłąę]*', 'gwarantuj[a-z]*',
+        'gwarancj[aeiłąę]*', 'gwarantuj[a-z]*',
         'udowodnion[a-z]* skutecznoś[ćc]', 'w 100% udowodnion[a-z]*', '100% udowodnion[a-z]*',
         'pewnoś[ćc] działania', 'pewnoś[ćc] zakupu', '100% pewnoś[ćc]i',
         'cudown[a-z]*', 'magiczn[a-z]*', 'niezawodn[a-z]*',
-        '100% oryginaln[a-z]*', 'oryginalny produkt', 'oryginalna receptura',
+        'oryginalnoś[ćc][a-z]*', 'oryginaln[a-z]*', 'orygina[łl][a-z]*',
 
         // Promocje, ceny, rabaty
         'najniższa cena', 'nisk[a-z]* cen[a-z]*', 'super cen[a-z]*', 'cen[a-z]* hurtow[a-z]*',

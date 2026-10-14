@@ -225,7 +225,7 @@ class GpsrSafetyService {
         // 7. Podstawowe zasady ogólne GPSR (External use & storage)
         if (!isChemical && !isLaundryCapsules) {
             warnings.push("Tylko do użytku zewnętrznego. Nie stosować na podrażnioną lub uszkodzoną skórę.");
-            warnings.push("Przechowywać w temperaturze pokojowej (15–25°C), w oryginalnym opakowaniu, w miejscu niedostępnym dla małych dzieci.");
+            warnings.push("Przechowywać w temperaturze pokojowej (15–25°C), w szczelnie zamkniętym opakowaniu, w miejscu niedostępnym dla małych dzieci.");
         }
 
         // Standaryzacja językowa i interpunkcyjna: usunięcie form archaicznych oraz ujednolicenie prefiksów zwrotów

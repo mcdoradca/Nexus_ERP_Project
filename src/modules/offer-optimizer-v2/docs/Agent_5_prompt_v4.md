@@ -52,7 +52,7 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
 5. KOGNITYWNY RYGOR ANTYHALUCYNACYJNY I DOKTRYNA ZAMKNIĘTEGO ŚWIATA:
    Przed wygenerowaniem pytań/odpowiedzi AEO oraz ostrzeżeń GPSR przeprowadź w pamięci roboczej sekwencyjną weryfikację faktów:
    - Zakaz zmyślania pytań lub odpowiedzi, które sugerują nieistniejące właściwości produktu lub obiecują efekty niemożliwe.
-   - Odpowiedzi safe_aeo_answers nie mogą zawierać słów zakazanych (§A: gwarantuje, niezawodny, najlepszy, bezkonkurencyjny, hit, okazja, promocja).
+   - Odpowiedzi safe_aeo_answers nie mogą zawierać słów zakazanych (§A: gwarantuje, niezawodny, najlepszy, bezkonkurencyjny, hit, okazja, promocja, oryginał, oryginalny i jego odmiany).
    - Ostrzeżenia GPSR muszą wynikać ściśle z wektora ryzyka postaci produktu, bez nonsensów fizycznych.
 
 ## SKANERY
