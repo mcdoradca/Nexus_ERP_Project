@@ -8,6 +8,9 @@ const baselinkerExtract = require('./baselinker.extract.js');
 const { normalizeIngredientName } = require('./normalization.js');
 const ragService = require('./knowledge.rag.service.js');
 const { validate_html_whitelist, scan_medical_claims_lexical, scan_stopwords, normalize_aeo_faq_labels, aeo_faq_check } = require('./validators');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+const visionExtractorService = require('./vision-extractor.service');
 
 const PHASE_1_GROUNDING = 'PHASE_1_GROUNDING';
 const PHASE_2_LEGAL = 'PHASE_2_LEGAL';
@@ -324,6 +327,64 @@ class Orchestrator {
             product = blData;
         }
 
+        // =========================================================================
+        // KROK 0: ANALIZA WIZUALNA PRZEDNIEJ ETYKIETY (GEMINI VISION AI -> PIM SSOT)
+        // =========================================================================
+        const frontImageUrl = pimData?.imageUrl || (Array.isArray(pimData?.images) && pimData.images.length > 0 ? pimData.images[0] : null);
+        if (frontImageUrl && this.state.node_status['A0'] !== 'OK') {
+            this.state.node_status['A0'] = 'RUNNING';
+            this.emitState();
+
+            try {
+                console.log(`[Orchestrator V2] Uruchamianie Agenta 0 (Vision Extractor) dla zdjęcia frontu: ${frontImageUrl}`);
+                const visionResult = await visionExtractorService.extractFrontPackFeatures(
+                    frontImageUrl,
+                    this.gtin,
+                    (msg) => console.log(msg)
+                );
+
+                if (!visionResult.skipped && visionResult.pimFeatures && Object.keys(visionResult.pimFeatures).length > 0) {
+                    let currentFeatures = { ...(product?.text_fields?.features || {}) };
+                    let hasNew = false;
+                    for (const [k, v] of Object.entries(visionResult.pimFeatures)) {
+                        // ZASADA NIENARUSZALNOŚCI: Nie nadpisujemy wartości zdefiniowanych ręcznie przez operatora w PIM
+                        if (v && (!currentFeatures[k] || String(currentFeatures[k]).trim() === '')) {
+                            currentFeatures[k] = v;
+                            hasNew = true;
+                        }
+                    }
+
+                    if (hasNew) {
+                        try {
+                            await prisma.product.update({
+                                where: { ean: this.gtin },
+                                data: { features: JSON.stringify(currentFeatures) }
+                            });
+                            console.log(`[Orchestrator V2] Zapisano ${Object.keys(visionResult.pimFeatures).length} cech z etykiety frontowej do bazy PIM (Prisma).`);
+                        } catch (dbErr) {
+                            console.warn(`[Orchestrator V2] Ostrzeżenie zapisu cech do bazy PIM: ${dbErr.message}`);
+                        }
+
+                        if (product && product.text_fields) {
+                            product.text_fields.features = currentFeatures;
+                        }
+                    }
+
+                    this.state.vision_extracted_features = visionResult.pimFeatures;
+                    this.state.node_status['A0'] = 'OK';
+                    if (visionResult.usage) {
+                        this.state.token_usage_per_node['A0'] = visionResult.usage;
+                    }
+                } else {
+                    this.state.node_status['A0'] = 'SKIPPED';
+                }
+            } catch (vErr) {
+                console.warn(`[Orchestrator V2] Nieblokujący błąd analizy wizualnej: ${vErr.message}`);
+                this.state.node_status['A0'] = 'SKIPPED';
+            }
+            this.emitState();
+        }
+
         const extracted = baselinkerExtract.extractFromFeatures(product);
         const descResult = baselinkerExtract.extractResponsiblePersonFromDescription(product?.text_fields?.description);
         
@@ -345,7 +406,9 @@ class Orchestrator {
                 value: product?.text_fields?.name || null,
                 source: product?.text_fields?.name ? 'baselinker' : null,
                 matched_key: null
-            }
+            },
+            features: product?.text_fields?.features || {},
+            vision_features: this.state.vision_extracted_features || {}
         };
 
         // --- TRASA (KROK 1) ---
@@ -534,6 +597,7 @@ class Orchestrator {
                 brand: extracted.brand?.value || undefined,
                 capacity: extracted.capacity?.value || undefined,
                 existing_pim_inci: hasPimInci ? extracted.inci.value : undefined,
+                features: product?.text_fields?.features || {},
                 missingFields: missingFields,
                 revision_loop_count: this.state.revision_loop_count
             };

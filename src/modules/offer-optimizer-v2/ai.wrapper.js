@@ -106,7 +106,7 @@ async function generateContentWithTimeout(params, timeoutMs = 90000, callLabel =
  * @param {Object} [params.schema] - Opcjonalny schemat JSON dla responseSchema
  * @returns {Object} Zwraca sparsowany obiekt JSON.
  */
-async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {} }) {
+async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, onLog = () => {} }) {
     if (!agentId) {
         throw new Error("BŁĄD BLOKUJĄCY (S-7): Wywołanie LLM bez jawnego agentId.");
     }
@@ -278,7 +278,20 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
                 config.responseSchema = schema;
             }
 
-            const requestPayload = { model: model, contents: prompt, config: config };
+            let contentsPayload = prompt;
+            if (image && image.base64) {
+                contentsPayload = [
+                    { text: prompt },
+                    {
+                        inlineData: {
+                            mimeType: image.mimeType || 'image/jpeg',
+                            data: image.base64
+                        }
+                    }
+                ];
+            }
+
+            const requestPayload = { model: model, contents: contentsPayload, config: config };
             const payloadDump = JSON.stringify(requestPayload, null, 2);
             onLog(`\n[AI WRAPPER - RAW REQUEST DUMP (Agent ${agentId})]\n${payloadDump}\n[END RAW REQUEST DUMP]\n`);
             console.log(`[AI WRAPPER - RAW REQUEST DUMP (Agent ${agentId})] Payload size: ${payloadDump.length} bytes`);
@@ -290,7 +303,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, onLog = () => {
             try {
                 response = await generateContentWithTimeout({
                     model: model,
-                    contents: prompt,
+                    contents: contentsPayload,
                     config: config
                 }, standardTimeoutMs, `Agent_${agentId}_Standard`);
             } catch (apiError) {

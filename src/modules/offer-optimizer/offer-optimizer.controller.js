@@ -764,13 +764,17 @@ const triggerUltimatePipeline = async (req, res) => {
                     }
                 }
                 
+                const frontImageUrl = existingProduct?.imageUrl || (Array.isArray(existingProduct?.images) && existingProduct.images.length > 0 ? existingProduct.images[0] : null);
+
                 const localPimData = {
                     text_fields: {
                         name: existingProduct?.name || "PIM Name",
                         description: existingProduct?.descriptionHtml || "",
                         features: featuresObj
                     },
-                    allegro_schema: requiredSchema
+                    allegro_schema: requiredSchema,
+                    imageUrl: frontImageUrl,
+                    ean: ean
                 };
                 
                 await orch.run(localPimData);

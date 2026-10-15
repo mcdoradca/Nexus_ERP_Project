@@ -367,6 +367,17 @@ export const UnifiedProductPipelineView = ({
                                 updatedFeatures['Skład'] = data.payload.extracted_data.inci.value;
                                 hasChanges = true;
                             }
+
+                            // Dynamiczna synchronizacja cech Vision AI z przedniej etykiety do widoku PIM
+                            const incomingFeatures = data.payload.extracted_data.features || data.payload.extracted_data.vision_features;
+                            if (incomingFeatures && typeof incomingFeatures === 'object') {
+                                for (const [k, v] of Object.entries(incomingFeatures)) {
+                                    if (v && (!updatedFeatures[k] || String(updatedFeatures[k]).trim() === '')) {
+                                        updatedFeatures[k] = v;
+                                        hasChanges = true;
+                                    }
+                                }
+                            }
                             
                             return hasChanges ? { ...prev, features: updatedFeatures } : prev;
                         });
