@@ -112,4 +112,15 @@ test('Zadanie 18 - baselinker.extract.js na rzeczywistych danych', async (t) => 
         assert.strictEqual(extract.isValidInciValue('Argania Spinosa Kernel Oil'), true);
     });
 
+    await t.test('12. Ekstrakcja Pojemności z synonimów "Pojemność / Waga" oraz "Pojemność"', () => {
+        const prodWithBoth = {
+            features: {
+                "Pojemność / Waga": "300 ml",
+                "Zapach": "Kwiat migdałowca"
+            }
+        };
+        const res = extract.extractFromFeatures(prodWithBoth);
+        assert.strictEqual(res.capacity.value, '300 ml');
+        assert.ok(extract.normalizeFeatureKey(res.capacity.matched_key).includes('pojemnosc'));
+    });
 });

@@ -366,15 +366,20 @@ class Orchestrator {
                         try {
                             await prisma.product.update({
                                 where: { ean: this.gtin },
-                                data: { features: JSON.stringify(currentFeatures) }
+                                data: { features: currentFeatures }
                             });
                             console.log(`[Orchestrator V2] Zapisano ${Object.keys(visionResult.pimFeatures).length} cech z etykiety frontowej do bazy PIM (Prisma).`);
                         } catch (dbErr) {
                             console.warn(`[Orchestrator V2] Ostrzeżenie zapisu cech do bazy PIM: ${dbErr.message}`);
                         }
 
-                        if (product && product.text_fields) {
-                            product.text_fields.features = currentFeatures;
+                        if (!product) product = { text_fields: {} };
+                        if (!product.text_fields) product.text_fields = {};
+                        product.text_fields.features = currentFeatures;
+
+                        if (pimData) {
+                            pimData.features = { ...(pimData.features || {}), ...currentFeatures };
+                            if (pimData.text_fields) pimData.text_fields.features = currentFeatures;
                         }
                     }
 
@@ -396,6 +401,31 @@ class Orchestrator {
                 this.state.node_warnings = this.state.node_warnings || {};
                 this.state.node_warnings['A0'] = `Błąd analizy wizualnej: ${vErr.message}`;
             }
+
+            const interimExtracted = baselinkerExtract.extractFromFeatures(product);
+            const interimDesc = baselinkerExtract.extractResponsiblePersonFromDescription(product?.text_fields?.description);
+            this.state.extracted_data = {
+                inci: interimExtracted.inci,
+                mpn: interimExtracted.mpn,
+                brand: interimExtracted.brand,
+                capacity: interimExtracted.capacity,
+                usage: interimExtracted.usage,
+                warnings: interimExtracted.warnings,
+                line: interimExtracted.line,
+                truncated: interimExtracted.truncated,
+                recovered_keys: interimExtracted.recovered_keys,
+                eu_responsible_person: { 
+                    source: interimDesc.raw_fragment ? 'description' : null, 
+                    data: interimDesc 
+                },
+                product_name: {
+                    value: product?.text_fields?.name || null,
+                    source: product?.text_fields?.name ? 'baselinker' : null,
+                    matched_key: null
+                },
+                features: product?.text_fields?.features || {},
+                vision_features: this.state.vision_extracted_features || {}
+            };
             this.emitState();
         }
 
@@ -467,6 +497,12 @@ class Orchestrator {
                     Object.assign(featuresObj, JSON.parse(pimData.text_fields.features));
                 } catch(e) {}
             }
+            if (product?.text_fields?.features && typeof product.text_fields.features === 'object') {
+                Object.assign(featuresObj, product.text_fields.features);
+            }
+            if (this.state.vision_extracted_features && typeof this.state.vision_extracted_features === 'object') {
+                Object.assign(featuresObj, this.state.vision_extracted_features);
+            }
 
             for (let param of pimData.allegro_schema) {
                 const nameKey = param.name;
@@ -488,6 +524,21 @@ class Orchestrator {
                         break;
                     }
                 }
+
+                // Specjalne mapowanie synonimów fizycznych packshotu z Agenta 0 (Pojemność, Postać, Zapach, Dozownik)
+                if (!found) {
+                    if ((normNameKey.includes('pojemnosc') || normNameKey.includes('waga') || normNameKey === 'pojemnosc ml') && 
+                        (featuresObj['Pojemność'] || featuresObj['Pojemność / Waga'] || featuresObj['Waga'] || extracted?.capacity?.value)) {
+                        found = true;
+                    } else if ((normNameKey.includes('postac') || normNameKey.includes('forma')) && featuresObj['Postać']) {
+                        found = true;
+                    } else if ((normNameKey.includes('zapach') || normNameKey.includes('aromat') || normNameKey.includes('wariant zapachowy')) && featuresObj['Zapach']) {
+                        found = true;
+                    } else if ((normNameKey.includes('dozownik') || normNameKey.includes('opakowanie')) && featuresObj['Dozownik']) {
+                        found = true;
+                    }
+                }
+
                 if (!found && param.required) {
                     missingFields.push(nameKey);
                 }
@@ -609,9 +660,10 @@ class Orchestrator {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
                 brand: extracted.brand?.value || undefined,
-                capacity: extracted.capacity?.value || undefined,
+                capacity: extracted.capacity?.value || this.state.vision_extracted_features?.['Pojemność'] || this.state.vision_extracted_features?.['Pojemność / Waga'] || undefined,
                 existing_pim_inci: hasPimInci ? extracted.inci.value : undefined,
                 features: product?.text_fields?.features || {},
+                vision_features: this.state.vision_extracted_features || undefined,
                 missingFields: missingFields,
                 revision_loop_count: this.state.revision_loop_count
             };
@@ -646,6 +698,11 @@ class Orchestrator {
                     /1\. INCI \(Skład\):[\s\S]*?(?=2\. LOGISTYKA:)/,
                     '1. INCI (Skład): ZIGNORUJ. Skład produktu został już podany i zatwierdzony w PIM (Karta Techniczna i Skład). KATEGORYCZNY ZAKAZ wyszukiwania składu w sieci, skanowania etykiet pod kątem INCI i marnowania tokenów wyszukiwarki. Zwróć pustą tablicę [] w `extracted_inci_candidates`.\n'
                 );
+            }
+
+            if (this.state.vision_extracted_features && Object.keys(this.state.vision_extracted_features).length > 0) {
+                const keysList = Object.entries(this.state.vision_extracted_features).map(([k, v]) => `${k}: "${v}"`).join(', ');
+                promptTemplate += `\n\n### 🛡️ ZWERYFIKOWANE CECHY FIZYCZNE PACKSHOTU (AGENT 0 - VISION AI):\nNastępujące cechy fizyczne zostały odczytane w 100% ze zdjęcia frontowego packshotu: ${keysList}.\nKATEGORYCZNY ZAKAZ ich wyszukiwania w Google ani nadpisywania halucynacjami z sieci. Skup się wyłącznie na pozostałych brakach (GPSR, Podmiot Odpowiedzialny w UE, logistyka, wymiary).\n`;
             }
             
             const prompt = promptTemplate.replace('{{SKU_DATA}}', JSON.stringify(agentData, null, 2));
@@ -1016,6 +1073,12 @@ class Orchestrator {
                 product_name: product?.text_fields?.name || undefined,
                 brand: extracted.brand?.value || undefined
             };
+            if (this.state.vision_extracted_features && Object.keys(this.state.vision_extracted_features).length > 0) {
+                agent2Data.physical_grounding_context = {
+                    ...this.state.vision_extracted_features,
+                    _instruction: "UWAGA: Poniższe parametry fizyczne z etykiety frontowej packshotu służą wyłącznie jako kotwica weryfikacyjna wariantu (aby odrzucić opinie dotyczące innych formatów, np. saszetek uzupełniających lub innych wariantów zapachowych). ZAKAZ ograniczania analizy VoC tylko do nich. Przeanalizuj pełne, holistyczne doświadczenia klientów z działania, właściwości i użytkowania produktu na rynku."
+                };
+            }
             
             const prompt2Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_2_compiled.md'), 'utf8');
             const prompt2 = prompt2Template.replace('{{SKU_DATA}}', JSON.stringify(agent2Data, null, 2));
@@ -1153,6 +1216,12 @@ class Orchestrator {
                         brand: extracted.brand?.value || undefined,
                         inci: this.state.extracted_data.inci?.value || undefined
                     };
+                    if (this.state.vision_extracted_features && Object.keys(this.state.vision_extracted_features).length > 0) {
+                        agent4Data.physical_grounding_context = {
+                            ...this.state.vision_extracted_features,
+                            _instruction: "UWAGA: Poniższe cechy fizyczne (postać, zapach) stanowią kontekst formy aplikacyjnej produktu. Główne benefity techniczne i synergie MUSZĄ wynikać w 100% z mechanizmów biochemicznych składników aktywnych INCI i słownika RAG, a nie z samego opakowania czy dozownika."
+                        };
+                    }
                     
                     const prompt4Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_4_compiled.md'), 'utf8');
                     let prompt4 = prompt4Template.replace('{{SKU_DATA}}', JSON.stringify(agent4Data, null, 2));
@@ -1293,6 +1362,12 @@ class Orchestrator {
                 a2: this.state.a2_result,
                 a4: this.state.a4_result
             };
+            if (this.state.vision_extracted_features && Object.keys(this.state.vision_extracted_features).length > 0) {
+                agent5Data.physical_grounding_context = {
+                    ...this.state.vision_extracted_features,
+                    _instruction: "UWAGA: W parach pytań i odpowiedzi FAQ (Sekcja 2) zachowaj pełną różnorodność tematyczną (skuteczność, typ skóry/powierzchni, sposób aplikacji, przechowywanie, bezpieczeństwo składników). Maksymalnie jedno pytanie może nawiązywać do dozownika/opakowania. ZAKAZ tworzenia powtarzalnych, szablonowych pytań wyłącznie o butelkę lub dozownik."
+                };
+            }
             const prompt5Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_5_compiled.md'), 'utf8');
             const prompt5 = prompt5Template.replace('{{SKU_DATA}}', JSON.stringify(agent5Data, null, 2));
 
@@ -1443,10 +1518,12 @@ class Orchestrator {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
                 brand: extracted.brand?.value || undefined,
-                capacity: extracted.capacity?.value || undefined,
+                capacity: extracted.capacity?.value || this.state.vision_extracted_features?.['Pojemność'] || this.state.vision_extracted_features?.['Pojemność / Waga'] || undefined,
                 line: extracted.line?.value || undefined,
                 inci: this.state.extracted_data.inci?.value || undefined,
                 eu_responsible_person: this.state.extracted_data.eu_responsible_person?.data || undefined,
+                features: product?.text_fields?.features || {},
+                vision_features: this.state.vision_extracted_features || {},
                 a1: this.state.a1_result,
                 a2: this.state.a2_result,
                 a4: this.state.a4_result,
@@ -1499,6 +1576,29 @@ class Orchestrator {
                         });
                     } else if (result.section_6_html.includes('</ul>')) {
                         result.section_6_html = result.section_6_html.replace('</ul>', `<li>➡️ <b>Podmiot odpowiedzialny w UE:</b> ${fullEuString}</li></ul>`);
+                    }
+                }
+
+                // TARCZA DETERMINISTYCZNA: Wstrzyknięcie brakujących cech fizycznych z packshotu do Sekcji 6 (Karta Techniczna)
+                if (this.state.vision_extracted_features && result.section_6_html && result.section_6_html.includes('</ul>')) {
+                    const vf = this.state.vision_extracted_features;
+                    const itemsToAdd = [];
+                    if (vf['Pojemność'] && !/Pojemność/i.test(result.section_6_html)) {
+                        itemsToAdd.push(`<li>➡️ <b>Pojemność:</b> ${vf['Pojemność']}</li>`);
+                    } else if (vf['Pojemność / Waga'] && !/Pojemność/i.test(result.section_6_html) && !/Waga/i.test(result.section_6_html)) {
+                        itemsToAdd.push(`<li>➡️ <b>Pojemność / Waga:</b> ${vf['Pojemność / Waga']}</li>`);
+                    }
+                    if (vf['Zapach'] && !/Zapach|Nuta zapachowa/i.test(result.section_6_html)) {
+                        itemsToAdd.push(`<li>➡️ <b>Wariant zapachowy:</b> ${vf['Zapach']}</li>`);
+                    }
+                    if (vf['Postać'] && !/Postać|Formuła/i.test(result.section_6_html)) {
+                        itemsToAdd.push(`<li>➡️ <b>Forma produktu:</b> ${vf['Postać']}</li>`);
+                    }
+                    if (vf['Dozownik'] && !/Dozownik|Opakowanie/i.test(result.section_6_html)) {
+                        itemsToAdd.push(`<li>➡️ <b>Rodzaj opakowania / dozownik:</b> ${vf['Dozownik']}</li>`);
+                    }
+                    if (itemsToAdd.length > 0) {
+                        result.section_6_html = result.section_6_html.replace('</ul>', `${itemsToAdd.join('')}</ul>`);
                     }
                 }
 
@@ -1567,6 +1667,7 @@ class Orchestrator {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
                 brand: extracted.brand?.value || undefined,
+                vision_features: this.state.vision_extracted_features || undefined,
                 section_1_html: this.state.a6_result.section_1_html,
                 section_2_html: this.state.a6_result.section_2_html,
                 section_4_html: this.state.a6_result.section_4_html
@@ -1685,6 +1786,7 @@ class Orchestrator {
                     product_name: product?.text_fields?.name || undefined,
                     brand: extracted.brand?.value || undefined,
                     inci: this.state.extracted_data.inci?.value || undefined,
+                    vision_features: this.state.vision_extracted_features || undefined,
                     section_1_html: this.state.a7_result.section_1_html,
                     section_2_html: this.state.a7_result.section_2_html,
                     section_4_html: this.state.a7_result.section_4_html,

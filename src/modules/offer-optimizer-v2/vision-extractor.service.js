@@ -213,7 +213,17 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
 
         const pimFeatures = {};
         if (result.pojemnosc_waga && String(result.pojemnosc_waga).trim().length > 0) {
-            pimFeatures['Pojemność / Waga'] = String(result.pojemnosc_waga).trim();
+            const val = String(result.pojemnosc_waga).trim();
+            pimFeatures['Pojemność / Waga'] = val;
+            
+            // Mapowanie kanoniczne dla BaseLinkera i Allegro
+            const lowerVal = val.toLowerCase();
+            if (/\b(ml|l|litr|litra|litrów|fl\s*oz)\b/i.test(lowerVal) || (!/\b(kg|g|gram)\b/i.test(lowerVal))) {
+                pimFeatures['Pojemność'] = val;
+            }
+            if (/\b(kg|g|gram|gramów)\b/i.test(lowerVal)) {
+                pimFeatures['Waga'] = val;
+            }
         }
         if (result.zapach_wariant && String(result.zapach_wariant).trim().length > 0) {
             pimFeatures['Zapach'] = String(result.zapach_wariant).trim();

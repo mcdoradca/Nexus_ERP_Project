@@ -3,7 +3,7 @@
     "inci": ["ingredients inci", "skladniki inci", "sklad inci", "inci", "sklad", "skladniki", "ingredients"],
     "mpn": ["kod producenta"],
     "brand": ["marka", "brand"],
-    "capacity": ["pojemnosc", "capacity", "pojemnosc opakowania", "wielkosc"],
+    "capacity": ["pojemnosc", "capacity", "pojemnosc opakowania", "wielkosc", "pojemnosc waga", "waga", "masa"],
     "usage": ["usage instructions", "sposob uzycia"],
     "warnings": ["warnings", "uwagi dotyczace bezpieczenstwa"],
     "line": ["linia", "line", "product line"]

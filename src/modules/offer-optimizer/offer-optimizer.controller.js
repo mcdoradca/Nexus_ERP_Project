@@ -817,12 +817,35 @@ const triggerUltimatePipeline = async (req, res) => {
                          sekcja7: orch.state.a10_result?.section_7_html || ""
                      };
 
+                     let freshProduct = null;
+                     try {
+                         freshProduct = await prisma.product.findUnique({ where: { ean } });
+                     } catch (pErr) {}
+
                      let updatedFeatures = {};
                      try {
-                          updatedFeatures = typeof existingProduct?.features === 'string' ? JSON.parse(existingProduct.features) : (existingProduct?.features || {});
+                         const rawDbFeatures = freshProduct?.features || existingProduct?.features;
+                         updatedFeatures = typeof rawDbFeatures === 'string' ? JSON.parse(rawDbFeatures) : (rawDbFeatures || {});
                      } catch(e) {}
                      
+                     // KRYTYCZNA TARCZA TRWAŁOŚCI: Ochrona i wstrzyknięcie cech fizycznych odczytanych przez Agenta 0
+                     if (orch.state.vision_extracted_features && typeof orch.state.vision_extracted_features === 'object') {
+                         for (const [k, v] of Object.entries(orch.state.vision_extracted_features)) {
+                             if (v && (!updatedFeatures[k] || String(updatedFeatures[k]).trim() === '')) {
+                                 updatedFeatures[k] = v;
+                             }
+                         }
+                     }
+                     
                      if (orch.state.extracted_data) {
+                         if (orch.state.extracted_data.features && typeof orch.state.extracted_data.features === 'object') {
+                             for (const [k, v] of Object.entries(orch.state.extracted_data.features)) {
+                                 if (v && (!updatedFeatures[k] || String(updatedFeatures[k]).trim() === '')) {
+                                     updatedFeatures[k] = v;
+                                 }
+                             }
+                         }
+
                          const orchInci = orch.state.extracted_data.inci?.value;
                          const currentPimInci = updatedFeatures['Skład/INCI'] || updatedFeatures['INCI'] || updatedFeatures['Skład'];
                          

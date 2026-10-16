@@ -60,4 +60,36 @@ test('Vision Extractor - extractFrontPackFeatures obsługa wejść i fallbacków
         // Funkcja powinna ominąć puste/błędne i przejść do validDataUri
         // (W teście jednostkowym nie wywołujemy realnego Gemini AI bez klucza w test env jeśli nie mockujemy, ale sprawdzamy przejście pobrania)
     });
+
+    await t.test('Kanonizacja cech packshotu: rozbicie pojemnosc_waga na Pojemność i Waga', () => {
+        const buildPimFeatures = (raw) => {
+            const pimFeatures = {};
+            if (raw.pojemnosc_waga && String(raw.pojemnosc_waga).trim().length > 0) {
+                const val = String(raw.pojemnosc_waga).trim();
+                pimFeatures['Pojemność / Waga'] = val;
+                const lowerVal = val.toLowerCase();
+                if (/\b(ml|l|litr|litra|litrów|fl\s*oz)\b/i.test(lowerVal) || (!/\b(kg|g|gram)\b/i.test(lowerVal))) {
+                    pimFeatures['Pojemność'] = val;
+                }
+                if (/\b(kg|g|gram|gramów)\b/i.test(lowerVal)) {
+                    pimFeatures['Waga'] = val;
+                }
+            }
+            if (raw.zapach_wariant) pimFeatures['Zapach'] = String(raw.zapach_wariant).trim();
+            if (raw.postac) pimFeatures['Postać'] = String(raw.postac).trim();
+            if (raw.dozownik) pimFeatures['Dozownik'] = String(raw.dozownik).trim();
+            return pimFeatures;
+        };
+
+        const res1 = buildPimFeatures({ pojemnosc_waga: '300 ml', zapach_wariant: 'Kwiat migdałowca', postac: 'Mydło w płynie', dozownik: 'Pompka' });
+        assert.strictEqual(res1['Pojemność / Waga'], '300 ml');
+        assert.strictEqual(res1['Pojemność'], '300 ml');
+        assert.strictEqual(res1['Zapach'], 'Kwiat migdałowca');
+        assert.strictEqual(res1['Postać'], 'Mydło w płynie');
+        assert.strictEqual(res1['Dozownik'], 'Pompka');
+
+        const res2 = buildPimFeatures({ pojemnosc_waga: '1.5 kg' });
+        assert.strictEqual(res2['Pojemność / Waga'], '1.5 kg');
+        assert.strictEqual(res2['Waga'], '1.5 kg');
+    });
 });

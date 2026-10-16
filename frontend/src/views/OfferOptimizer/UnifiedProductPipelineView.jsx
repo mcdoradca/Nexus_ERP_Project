@@ -332,7 +332,10 @@ export const UnifiedProductPipelineView = ({
                     setVisionTickets(data.result.visionTickets || []);
                     setNewProductForm(prev => ({
                         ...prev,
-                        features: data.result.features || prev.features || {},
+                        features: {
+                            ...(prev.features || {}),
+                            ...(data.result.features || {})
+                        },
                         aeoContent: data.result.aeoContent || prev.aeoContent || '',
                         offerDraft: {
                             title: data.result.title || "",
@@ -1227,8 +1230,18 @@ export const UnifiedProductPipelineView = ({
                                                                     }
                                                                 });
 
+                                                                const CORE_PIM_KEYS = new Set([
+                                                                    'skład/inci', 'skład', 'inci', 'pojemność', 'pojemność / waga', 'waga',
+                                                                    'postać', 'zapach', 'dozownik', 'wydajność', 'przeznaczenie (front)', 
+                                                                    'wyróżniki (etykieta front)', 'kraj pochodzenia', 'informacje o bezpieczeństwie'
+                                                                ]);
+
                                                                 return Object.entries(displayFeatures)
-                                                                    .filter(([k]) => !categorySchema?.parameters?.some(p => String(p.name).toLowerCase().trim() === String(k).toLowerCase().trim()))
+                                                                    .filter(([k]) => {
+                                                                        const normK = String(k).toLowerCase().trim();
+                                                                        if (CORE_PIM_KEYS.has(normK)) return true;
+                                                                        return !categorySchema?.parameters?.some(p => String(p.name).toLowerCase().trim() === normK);
+                                                                    })
                                                                     .map(([k, v]) => {
                                                                         const displayVal = typeof v === 'object' ? JSON.stringify(v) : v;
                                                                         return (
