@@ -330,15 +330,23 @@ class Orchestrator {
         // =========================================================================
         // KROK 0: ANALIZA WIZUALNA PRZEDNIEJ ETYKIETY (GEMINI VISION AI -> PIM SSOT)
         // =========================================================================
-        const frontImageUrl = pimData?.imageUrl || (Array.isArray(pimData?.images) && pimData.images.length > 0 ? pimData.images[0] : null);
+        const candidateImages = [];
+        if (pimData?.imageUrl) candidateImages.push(pimData.imageUrl);
+        if (Array.isArray(pimData?.images)) {
+            for (const img of pimData.images) {
+                if (img && !candidateImages.includes(img)) candidateImages.push(img);
+            }
+        }
+        const frontImageUrl = candidateImages.length > 0 ? candidateImages[0] : null;
+
         if (frontImageUrl && this.state.node_status['A0'] !== 'OK') {
             this.state.node_status['A0'] = 'RUNNING';
             this.emitState();
 
             try {
-                console.log(`[Orchestrator V2] Uruchamianie Agenta 0 (Vision Extractor) dla zdjęcia frontu: ${frontImageUrl}`);
+                console.log(`[Orchestrator V2] Uruchamianie Agenta 0 (Vision Extractor) dla zdjęć frontu (${candidateImages.length} kandydatów, główny: ${frontImageUrl})`);
                 const visionResult = await visionExtractorService.extractFrontPackFeatures(
-                    frontImageUrl,
+                    candidateImages,
                     this.gtin,
                     (msg) => console.log(msg)
                 );
@@ -376,11 +384,17 @@ class Orchestrator {
                         this.state.token_usage_per_node['A0'] = visionResult.usage;
                     }
                 } else {
-                    this.state.node_status['A0'] = 'SKIPPED';
+                    const skipReason = visionResult.error || visionResult.reason || 'Brak czytelnych cech na etykiecie';
+                    console.warn(`[Orchestrator V2] Agent 0 nie odczytał cech (${skipReason}). Fallback do danych tekstowych PIM.`);
+                    this.state.node_status['A0'] = 'FAILED_FALLBACK_TO_PIM';
+                    this.state.node_warnings = this.state.node_warnings || {};
+                    this.state.node_warnings['A0'] = `Brak odczytu z etykiety (${skipReason}). Zastosowano dane tekstowe PIM.`;
                 }
             } catch (vErr) {
-                console.warn(`[Orchestrator V2] Nieblokujący błąd analizy wizualnej: ${vErr.message}`);
-                this.state.node_status['A0'] = 'SKIPPED';
+                console.warn(`[Orchestrator V2] Błąd analizy wizualnej: ${vErr.message}. Fallback do danych tekstowych PIM.`);
+                this.state.node_status['A0'] = 'FAILED_FALLBACK_TO_PIM';
+                this.state.node_warnings = this.state.node_warnings || {};
+                this.state.node_warnings['A0'] = `Błąd analizy wizualnej: ${vErr.message}`;
             }
             this.emitState();
         }

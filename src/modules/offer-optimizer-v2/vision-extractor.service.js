@@ -8,9 +8,10 @@ const imageHttpsAgent = new https.Agent({
 });
 
 /**
- * Bezpieczne pobranie bufora obrazu z obsługą Data URI oraz adresów zdalnych HTTP/HTTPS.
+ * Bezpieczne i odporne na WAF pobranie bufora obrazu z obsługą Data URI,
+ * wielopoziomowej kaskady nagłówków (Tier 1-4) oraz weryfikacji MIME.
  */
-async function fetchImageBuffer(url, timeoutMs = 15000) {
+async function fetchImageBuffer(url, timeoutMs = 15000, onLog = () => {}) {
     if (!url || typeof url !== 'string') {
         throw new Error('Brak poprawnego adresu URL obrazu.');
     }
@@ -20,27 +21,96 @@ async function fetchImageBuffer(url, timeoutMs = 15000) {
         if (matches) {
             return {
                 buffer: Buffer.from(matches[2], 'base64'),
-                mimeType: matches[1]
+                mimeType: matches[1],
+                tierUsed: 'Data URI'
             };
         }
     }
 
-    const response = await axios.get(url, {
-        responseType: 'arraybuffer',
-        timeout: timeoutMs,
-        httpsAgent: imageHttpsAgent,
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-        }
-    });
+    let refererHeader = undefined;
+    try {
+        const parsedUrl = new URL(url);
+        refererHeader = `${parsedUrl.protocol}//${parsedUrl.host}/`;
+    } catch (_) {
+        // Ignorujemy błędy parsowania nieprawidłowych stringów URL
+    }
 
-    const contentType = response.headers['content-type'] || 'image/jpeg';
-    const mimeType = contentType.split(';')[0].trim();
-    return {
-        buffer: Buffer.from(response.data),
-        mimeType: mimeType || 'image/jpeg'
-    };
+    const fetchTiers = [
+        {
+            name: 'Tier 1 (Browser + Referer)',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                'Accept-Language': 'pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7,it;q=0.6',
+                ...(refererHeader ? { 'Referer': refererHeader } : {})
+            }
+        },
+        {
+            name: 'Tier 2 (Googlebot-Image WAF Whitelist)',
+            headers: {
+                'User-Agent': 'Googlebot-Image/1.0',
+                'Accept': 'image/*,*/*;q=0.8'
+            }
+        },
+        {
+            name: 'Tier 3 (No User-Agent / Minimal HTTP)',
+            headers: {
+                'Accept': '*/*'
+            }
+        },
+        {
+            name: 'Tier 4 (cURL Native)',
+            headers: {
+                'User-Agent': 'curl/7.88.1',
+                'Accept': '*/*'
+            }
+        }
+    ];
+
+    const perAttemptTimeout = Math.max(3500, Math.floor(timeoutMs / fetchTiers.length));
+    let lastError = null;
+
+    for (let i = 0; i < fetchTiers.length; i++) {
+        const tier = fetchTiers[i];
+        try {
+            const response = await axios.get(url, {
+                responseType: 'arraybuffer',
+                timeout: perAttemptTimeout,
+                httpsAgent: imageHttpsAgent,
+                headers: tier.headers
+            });
+
+            const contentType = response.headers['content-type'] || 'image/jpeg';
+            const rawMime = contentType.split(';')[0].trim().toLowerCase();
+
+            // Tarcza weryfikacji MIME: eliminacja fałszywych stron błędów HTML z kodem 200
+            if (rawMime.includes('text/html') || rawMime.includes('text/plain') || rawMime.includes('application/json')) {
+                throw new Error(`Serwer zwrócił dokument tekstowy (${rawMime}) zamiast pliku graficznego.`);
+            }
+
+            if (!response.data || response.data.length < 100) {
+                throw new Error(`Pobrany bufor obrazu jest zbyt mały lub pusty (${response.data ? response.data.length : 0} B).`);
+            }
+
+            if (i > 0) {
+                onLog(`[VISION EXTRACTOR] Obraz pobrany pomyślnie za pomocą tarczy awaryjnej: ${tier.name}.`);
+            }
+
+            return {
+                buffer: Buffer.from(response.data),
+                mimeType: rawMime.startsWith('image/') ? rawMime : 'image/jpeg',
+                tierUsed: tier.name
+            };
+        } catch (err) {
+            lastError = err;
+            const errStatus = err.response ? `HTTP ${err.response.status}` : (err.code || err.message);
+            if (i < fetchTiers.length - 1) {
+                onLog(`[VISION EXTRACTOR] ${tier.name} odrzucony (${errStatus}). Przełączam na ${fetchTiers[i + 1].name}...`);
+            }
+        }
+    }
+
+    throw new Error(`Wszystkie ${fetchTiers.length} strategie pobierania obrazu zawiodły. Ostatni błąd: ${lastError ? lastError.message : 'Brak odpowiedzi'}`);
 }
 
 const FRONT_VISION_PROMPT = `# [AGENT 0 - FRONT-PACK VISION EXTRACTOR v1.0]
@@ -80,17 +150,54 @@ const frontVisionSchema = {
 
 /**
  * Ekstrahuje cechy fizyczne i wizualne z przedniego zdjęcia produktu za pomocą Gemini 3.8 Flash Vision.
+ * Obsługuje pojedynczy adres URL oraz tablicę alternatywnych ujęć packshotu z galerii PIM.
  */
-async function extractFrontPackFeatures(imageUrl, ean = null, onLog = () => {}) {
-    if (!imageUrl) {
-        return { raw: null, pimFeatures: {}, skipped: true, reason: 'Brak URL zdjęcia' };
+async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog = () => {}) {
+    const candidateUrls = Array.isArray(imageUrlOrCandidates)
+        ? imageUrlOrCandidates.filter(u => typeof u === 'string' && u.trim().length > 0)
+        : (typeof imageUrlOrCandidates === 'string' && imageUrlOrCandidates.trim().length > 0 ? [imageUrlOrCandidates.trim()] : []);
+
+    if (candidateUrls.length === 0) {
+        return { raw: null, pimFeatures: {}, skipped: true, reason: 'Brak dostępnego adresu URL zdjęcia w PIM' };
+    }
+
+    let buffer = null;
+    let mimeType = 'image/jpeg';
+    let tierUsed = 'N/A';
+    let lastError = null;
+    let successfulUrl = null;
+
+    for (let idx = 0; idx < candidateUrls.length; idx++) {
+        const currentUrl = candidateUrls[idx];
+        const candidateLabel = candidateUrls.length > 1 ? ` (Zdjęcie ${idx + 1}/${candidateUrls.length})` : '';
+        try {
+            onLog(`[VISION EXTRACTOR] Pobieranie obrazu do analizy etykiety frontowej dla EAN: ${ean || 'N/A'}${candidateLabel}...`);
+            const fetchRes = await fetchImageBuffer(currentUrl, 15000, onLog);
+            buffer = fetchRes.buffer;
+            mimeType = fetchRes.mimeType;
+            tierUsed = fetchRes.tierUsed;
+            successfulUrl = currentUrl;
+            break;
+        } catch (fetchErr) {
+            lastError = fetchErr;
+            onLog(`[VISION EXTRACTOR OSTRZEŻENIE] Niepowodzenie pobierania zdjęcia${candidateLabel}: ${fetchErr.message}`);
+        }
+    }
+
+    if (!buffer) {
+        const errMsg = `Nie udało się pobrać żadnego z ${candidateUrls.length} dostępnych zdjęć packshotu: ${lastError ? lastError.message : 'Brak danych'}`;
+        console.warn(`[VISION EXTRACTOR BŁĄD] ${errMsg}`);
+        onLog(`[VISION EXTRACTOR OSTRZEŻENIE] ${errMsg}. Potok kontynuuje na danych tekstowych PIM.`);
+        return {
+            raw: null,
+            pimFeatures: {},
+            skipped: true,
+            error: errMsg
+        };
     }
 
     try {
-        onLog(`[VISION EXTRACTOR] Pobieranie obrazu do analizy etykiety frontowej dla EAN: ${ean || 'N/A'}...`);
-        const { buffer, mimeType } = await fetchImageBuffer(imageUrl, 15000);
-        
-        onLog(`[VISION EXTRACTOR] Obraz pobrany pomyślnie (${(buffer.length / 1024).toFixed(1)} KB, MIME: ${mimeType}). Uruchamianie analizy Vision AI (Agent 0)...`);
+        onLog(`[VISION EXTRACTOR] Obraz pobrany pomyślnie (${(buffer.length / 1024).toFixed(1)} KB, MIME: ${mimeType}, ${tierUsed}). Uruchamianie analizy Vision AI (Agent 0)...`);
         
         const base64Data = buffer.toString('base64');
         const { result, usage } = await aiWrapper.callAgentWithTelemetry({
@@ -133,10 +240,11 @@ async function extractFrontPackFeatures(imageUrl, ean = null, onLog = () => {}) 
             raw: result,
             pimFeatures,
             usage,
+            imageUrl: successfulUrl,
             skipped: false
         };
     } catch (err) {
-        const errMsg = `[VISION EXTRACTOR BŁĄD] Nie udało się odczytać cech ze zdjęcia: ${err.message}`;
+        const errMsg = `[VISION EXTRACTOR BŁĄD] Model Vision nie zdołał przeanalizować etykiety: ${err.message}`;
         console.warn(errMsg);
         onLog(`[VISION EXTRACTOR OSTRZEŻENIE] ${errMsg}. Potok kontynuuje na danych tekstowych PIM.`);
         return {
