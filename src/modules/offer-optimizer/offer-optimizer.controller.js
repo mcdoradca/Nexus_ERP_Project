@@ -10,6 +10,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const EventBus = require('../../core/EventBus');
 const baselinkerExportAgent = require('../offer-optimizer-v2/baselinker.export.agent');
+const baselinkerExtract = require('../offer-optimizer-v2/baselinker.extract');
 const { exportLogger } = require('../../utils/logger');
 const sharp = require('sharp');
 
@@ -822,12 +823,29 @@ const triggerUltimatePipeline = async (req, res) => {
                      } catch(e) {}
                      
                      if (orch.state.extracted_data) {
-                         if (orch.state.extracted_data.inci?.value) {
-                             updatedFeatures['Skład/INCI'] = orch.state.extracted_data.inci.value;
+                         const orchInci = orch.state.extracted_data.inci?.value;
+                         const currentPimInci = updatedFeatures['Skład/INCI'] || updatedFeatures['INCI'] || updatedFeatures['Skład'];
+                         
+                         // Jeśli potok posiada zweryfikowany, poprawny skład INCI
+                         if (orchInci && baselinkerExtract.isValidInciValue(orchInci)) {
+                             updatedFeatures['Skład/INCI'] = orchInci;
                              delete updatedFeatures['INCI'];
                              delete updatedFeatures['Skład'];
                              delete updatedFeatures['SKŁAD'];
                              delete updatedFeatures['skład'];
+                         } else if (currentPimInci && baselinkerExtract.isValidInciValue(currentPimInci)) {
+                             // Jeśli w PIM był już poprawny skład, nie pozwól na jego nadpisanie ani degradację
+                             updatedFeatures['Skład/INCI'] = currentPimInci;
+                             delete updatedFeatures['INCI'];
+                             delete updatedFeatures['Skład'];
+                             delete updatedFeatures['SKŁAD'];
+                             delete updatedFeatures['skład'];
+                         }
+                         
+                         // Jeśli w starych parametrach 'Skład' była np. postać "Koncentrat", przenieś do 'Postać' jeśli puste
+                         const legacySkladVal = updatedFeatures['Skład'] || (existingProduct?.features && existingProduct.features['Skład']);
+                         if (legacySkladVal && !baselinkerExtract.isValidInciValue(legacySkladVal) && !updatedFeatures['Postać']) {
+                             updatedFeatures['Postać'] = legacySkladVal;
                          }
                          if (orch.state.extracted_data.country_of_origin?.value) {
                              updatedFeatures['Kraj pochodzenia'] = orch.state.extracted_data.country_of_origin.value;

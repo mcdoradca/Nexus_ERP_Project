@@ -590,7 +590,7 @@ class Orchestrator {
         }
         
         while (this.state.next_action === 'RUN_A1') {
-            const hasPimInci = Boolean(extracted?.inci?.value && String(extracted.inci.value).trim().length > 0);
+            const hasPimInci = Boolean(extracted?.inci?.value && baselinkerExtract.isValidInciValue(extracted.inci.value));
             const agentData = {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,

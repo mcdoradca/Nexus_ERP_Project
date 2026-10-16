@@ -362,9 +362,10 @@ export const UnifiedProductPipelineView = ({
                             const updatedFeatures = { ...prev.features };
                             let hasChanges = false;
                             
-                            if (data.payload.extracted_data.inci && data.payload.extracted_data.inci.value && updatedFeatures['INCI'] !== data.payload.extracted_data.inci.value) {
-                                updatedFeatures['INCI'] = data.payload.extracted_data.inci.value;
-                                updatedFeatures['Skład'] = data.payload.extracted_data.inci.value;
+                            if (data.payload.extracted_data.inci && data.payload.extracted_data.inci.value && updatedFeatures['Skład/INCI'] !== data.payload.extracted_data.inci.value) {
+                                updatedFeatures['Skład/INCI'] = data.payload.extracted_data.inci.value;
+                                delete updatedFeatures['INCI'];
+                                delete updatedFeatures['Skład'];
                                 hasChanges = true;
                             }
 

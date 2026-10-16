@@ -37,6 +37,55 @@ function parseFeaturesTolerant(raw) {
     return { data: null, truncated: true, recovered_keys: [] };
 }
 
+const NON_INCI_FORM_WORDS = new Set([
+    'koncentrat', 'plyn', 'zel', 'proszek', 'kapsulki', 'tabletki', 'pianka', 'spray', 
+    'balsam', 'krem', 'kostka', 'chusteczki', 'mleczko', 'zawiesina', 'emulsja', 
+    'mydlo', 'szampon', 'odzywka', 'plyn do plukania', 'plyn do prania',
+    'nowy', 'oryginalne', 'tak', 'nie', 'brak', 'dotyczy', 'nie dotyczy', 'zestaw', 
+    '1 sztuka', '1 szt', 'standard', 'uniwersalny'
+]);
+
+const INCI_POSITIVE_PATTERNS = [
+    /\b(aqua|water|glycerin|extract|oil|acid|sulfate|chloride|alcohol|parfum|fragrance)\b/i,
+    /\b(surfactant|tenside|surfactants|środki powierzchniowo czynne|substancje zapachowe|konserwanty)\b/i,
+    /\b(phenoxyethanol|sodium|potassium|citric|linalool|limonene|geraniol|citronellol)\b/i,
+    /\b(methylisothiazolinone|methylchloroisothiazolinone|benzalkonium|cetearyl)\b/i,
+    /\d+%\s*-\s*\d+%/i,   // np. 5%-15%
+    /[<>]\s*\d+%/i        // np. < 5%, > 30%
+];
+
+function isValidInciValue(val) {
+    if (!val || typeof val !== 'string') return false;
+    const trimmed = val.trim();
+    if (trimmed.length < 4) return false;
+    
+    const norm = normalizeFeatureKey(trimmed);
+    if (NON_INCI_FORM_WORDS.has(norm)) {
+        return false;
+    }
+
+    // Jeśli zawiera przecinek lub średnik i ma co najmniej 2 człony -> wysoce prawdopodobna lista składników
+    if (trimmed.includes(',') || trimmed.includes(';')) {
+        const parts = trimmed.split(/[,;]/).map(p => p.trim()).filter(Boolean);
+        if (parts.length >= 2) return true;
+    }
+
+    // Jeśli zawiera charakterystyczne wzorce chemiczne lub detergentowe
+    for (const pat of INCI_POSITIVE_PATTERNS) {
+        if (pat.test(trimmed)) return true;
+    }
+
+    // Pojedyncze składniki botaniczne/kosmetyczne (np. "Argania Spinosa Kernel Oil")
+    const words = trimmed.split(/\s+/);
+    if (words.length >= 2 && words.length <= 6) {
+        if (/\b(oil|butter|extract|wax|juice|water|seed|leaf|flower|root)\b/i.test(trimmed)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function extractFromFeatures(product) {
     const result = {
         inci: { value: null, source: null, matched_key: null },
@@ -46,6 +95,7 @@ function extractFromFeatures(product) {
         usage: { value: null, source: null, matched_key: null },
         warnings: { value: null, source: null, matched_key: null },
         line: { value: null, source: null, matched_key: null },
+        postac: { value: null, source: null, matched_key: null },
         truncated: false,
         recovered_keys: []
     };
@@ -94,13 +144,46 @@ function extractFromFeatures(product) {
 
     for (const [targetKey, synonyms] of Object.entries(map)) {
         let foundKey = null;
-        for (const fKey of featureKeys) {
-            const norm = normalizeFeatureKey(fKey);
-            // Krok 2 - 'kod karty' ma być ignorowany w configu. Tutaj i tak ignorujemy jeśli nie było match,
-            // ale jeśli jest dodany do ignored, to nie bierzemy go pod uwagę w ogóle.
-            if (synonyms.includes(norm)) {
-                foundKey = fKey;
-                break;
+
+        if (targetKey === 'inci') {
+            // Rygorystyczna hierarchia: najpierw szukamy dedykowanych kluczy wieloczłonowych ("sklad inci", "ingredients inci"),
+            // a dopiero w ostateczności ogólnego "sklad". Każda wartość musi przejść walidator isValidInciValue.
+            const candidates = [];
+            for (const fKey of featureKeys) {
+                const norm = normalizeFeatureKey(fKey);
+                const synonymIndex = synonyms.indexOf(norm);
+                if (synonymIndex !== -1) {
+                    candidates.push({ fKey, norm, priority: synonymIndex, value: features[fKey] });
+                }
+            }
+
+            // Sortujemy po priorytecie z konfiguracji (im mniejszy indeks w tablicy synonimów, tym wyższy priorytet)
+            candidates.sort((a, b) => a.priority - b.priority);
+
+            for (const candidate of candidates) {
+                if (isValidInciValue(candidate.value)) {
+                    foundKey = candidate.fKey;
+                    break;
+                } else {
+                    // Jeśli odrzucony parametr to np. "Skład" z wartością określającą postać fizyczną (np. "Koncentrat"),
+                    // przekierowujemy go bezpiecznie do właściwości postac
+                    const normVal = normalizeFeatureKey(candidate.value);
+                    if (NON_INCI_FORM_WORDS.has(normVal) && !result.postac.value) {
+                        result.postac = {
+                            value: candidate.value,
+                            source: "baselinker_features",
+                            matched_key: candidate.fKey
+                        };
+                    }
+                }
+            }
+        } else {
+            for (const fKey of featureKeys) {
+                const norm = normalizeFeatureKey(fKey);
+                if (synonyms.includes(norm)) {
+                    foundKey = fKey;
+                    break;
+                }
             }
         }
         
@@ -120,9 +203,8 @@ function extractFromFeatures(product) {
         const inciMatch = desc.match(/(?:INCI|Składniki|Skład|Ingredients)\s*:\s*([^<]{5,400})(?:<|$|\n)/i);
         if (inciMatch && inciMatch[1]) {
             const extractedFragment = inciMatch[1].trim();
-            // Tarcza błędów (Defensive AI): Prawdziwe INCI powinno posiadać przecinki. 
-            // Jeżeli złapiemy wypracowanie promocyjne zamiast listy, nie uznajemy tego.
-            if (extractedFragment.includes(',') || extractedFragment.split(' ').length < 15) {
+            // Tarcza błędów (Defensive AI): Prawdziwe INCI musi spełniać kryteria składu
+            if (isValidInciValue(extractedFragment)) {
                 result.inci = {
                     value: extractedFragment,
                     source: "baselinker_description_regex",
@@ -208,6 +290,7 @@ function extractResponsiblePersonFromDescription(html) {
 
 module.exports = {
     normalizeFeatureKey,
+    isValidInciValue,
     extractFromFeatures,
     extractResponsiblePersonFromDescription
 };

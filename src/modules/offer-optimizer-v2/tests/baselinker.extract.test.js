@@ -79,4 +79,37 @@ test('Zadanie 18 - baselinker.extract.js na rzeczywistych danych', async (t) => 
         assert.strictEqual(res.mpn.source, 'baselinker_features');
     });
 
+    await t.test('9. Regresja INCI: Odrzucenie pseudowartości ("Skład": "Koncentrat") i ochrona przed fałszywym INCI', () => {
+        const fakeProduct = {
+            features: {
+                "Pojemność": "1000 ml",
+                "Skład": "Koncentrat"
+            }
+        };
+        const res = extract.extractFromFeatures(fakeProduct);
+        assert.strictEqual(res.inci.value, null, 'Pojedyncze słowo "Koncentrat" nie może zostać uznane za INCI');
+        assert.strictEqual(res.postac.value, 'Koncentrat', 'Wartość formy fizycznej powinna zostać przekierowana do postac');
+    });
+
+    await t.test('10. Regresja INCI: Priorytetyzacja "Skład/INCI" nad zanieczyszczonym parametrem "Skład"', () => {
+        const fakeProduct = {
+            features: {
+                "Skład": "Koncentrat",
+                "Skład/INCI": "5%-15% Cationic surfactants, perfumes, Methylisothiazolinone"
+            }
+        };
+        const res = extract.extractFromFeatures(fakeProduct);
+        assert.strictEqual(res.inci.value, '5%-15% Cationic surfactants, perfumes, Methylisothiazolinone');
+        assert.strictEqual(res.inci.matched_key, 'Skład/INCI');
+    });
+
+    await t.test('11. Jednostkowy test isValidInciValue: weryfikacja filtrów czarnej listy i struktury', () => {
+        assert.strictEqual(extract.isValidInciValue('Koncentrat'), false);
+        assert.strictEqual(extract.isValidInciValue('Płyn'), false);
+        assert.strictEqual(extract.isValidInciValue('Proszek'), false);
+        assert.strictEqual(extract.isValidInciValue('Aqua, Glycerin, Sodium Laureth Sulfate'), true);
+        assert.strictEqual(extract.isValidInciValue('5%-15% Cationic surfactants, perfumes'), true);
+        assert.strictEqual(extract.isValidInciValue('Argania Spinosa Kernel Oil'), true);
+    });
+
 });
