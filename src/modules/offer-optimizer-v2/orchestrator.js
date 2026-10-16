@@ -2,7 +2,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
 const aiWrapper = require('./ai.wrapper');
-const { ean_checksum, route_chemical, validate_eu_responsible_person, gate_ingredients } = require('./validators');
+const { ean_checksum, route_chemical, validate_eu_responsible_person, gate_ingredients, hasBannedLilial } = require('./validators');
 const { FORBIDDEN_SOURCES, DATA_SOURCE_MODE } = require('./config/nodes.config');
 const baselinkerExtract = require('./baselinker.extract.js');
 const { normalizeIngredientName } = require('./normalization.js');
@@ -759,8 +759,22 @@ class Orchestrator {
                     traceInci(this.gtin, 'INCI_PRESERVED_FROM_PIM', this.state.extracted_data.inci);
                 } else {
                     const candidatesRaw = (result.extracted_inci_candidates && result.extracted_inci_candidates.value && Array.isArray(result.extracted_inci_candidates.value)) ? result.extracted_inci_candidates.value : [];
-                    const candidates = candidatesRaw.map(c => Array.isArray(c) ? c.map(i => i.replace(/^\d+\.\s*/, '')).join(', ') : (typeof c === 'string' ? c.replace(/^\d+\.\s*/, '') : c));
+                    let candidates = candidatesRaw.map(c => Array.isArray(c) ? c.map(i => i.replace(/^\d+\.\s*/, '')).join(', ') : (typeof c === 'string' ? c.replace(/^\d+\.\s*/, '') : c));
                     
+                    // --- FILTRACJA STARYCH / WYCOFANYCH FORMUŁ (Lilial / Butylphenyl Methylpropional - zakaz UE od 01.03.2022) ---
+                    if (candidates.length > 0) {
+                        const legalCandidates = candidates.filter(c => !hasBannedLilial(c));
+                        if (legalCandidates.length > 0 && legalCandidates.length < candidates.length) {
+                            const discarded = candidates.filter(c => hasBannedLilial(c));
+                            console.log(`[Orchestrator V2] Odrzucono ${discarded.length} starych/wycofanych wariantów INCI zawierających zakazany BUTYLPHENYL METHYLPROPIONAL (Lilial, zakaz UE od 2022). Pozostało ${legalCandidates.length} wariantów nowej formuły.`);
+                            traceInci(this.gtin, 'A1_DISCARDED_LILIAL_CANDIDATES', discarded);
+                            candidates = legalCandidates;
+                        } else if (legalCandidates.length === 0 && candidates.some(c => hasBannedLilial(c))) {
+                            console.warn(`[Orchestrator V2] Wszyscy kandydaci INCI (${candidates.length}) zawierają zakazany BUTYLPHENYL METHYLPROPIONAL (Lilial). Wymagana reformulacja lub weryfikacja HITL.`);
+                            traceInci(this.gtin, 'A1_ALL_CANDIDATES_HAVE_LILIAL', candidates);
+                        }
+                    }
+
                     if (candidates.length > 0) {
                         this.state.last_inci_candidates = candidates;
                     } else if (this.state.last_inci_candidates && this.state.last_inci_candidates.length > 0) {

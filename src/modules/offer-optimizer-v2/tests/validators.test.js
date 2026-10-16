@@ -160,7 +160,8 @@ test('V12 aeo_faq_check', async (t) => {
 
 test('V8 gate_ingredients', async (t) => {
     const banned = [
-        'perboric acid, sodium salt', 'trimethylbenzoyl diphenylphosphine oxide', 'tpo', 'n,n-dimethyl-p-toluidine', 'tetrabromobisphenol-a', 'dibutyltin oxide', '4-methylbenzylidene camphor', '4-mbc', 'benzophenone-2', 'bp-2', 'benzophenone-5', 'bp-5', 'titanium dioxide (nano)', 'hydrated silica (nano)', 'silica silylate (nano)', 'silver (nano)'
+        'perboric acid, sodium salt', 'trimethylbenzoyl diphenylphosphine oxide', 'tpo', 'n,n-dimethyl-p-toluidine', 'tetrabromobisphenol-a', 'dibutyltin oxide', '4-methylbenzylidene camphor', '4-mbc', 'benzophenone-2', 'bp-2', 'benzophenone-5', 'bp-5', 'titanium dioxide (nano)', 'hydrated silica (nano)', 'silica silylate (nano)', 'silver (nano)',
+        'butylphenyl methylpropional', 'lilial', 'p-bmhca', '2-(4-tert-butylbenzyl)propionaldehyde'
     ];
     let bCount = 0;
     for (const sub of banned) {
@@ -263,3 +264,25 @@ test('V11 validate_eu_responsible_person - zbyt dlugie pole', () => {
         contact: 'C'.repeat(300)
     }).valid, false);
 });
+
+test('hasBannedLilial detector for reformulations', async (t) => {
+    await t.test('Wykrywa warianty Butylphenyl Methylpropional (Lilial)', () => {
+        assert.strictEqual(v.hasBannedLilial('Butylphenyl Methylpropional'), true);
+        assert.strictEqual(v.hasBannedLilial('BUTYLPHENYL METHYLPROPIONAL'), true);
+        assert.strictEqual(v.hasBannedLilial('butylphenyl-methylpropional'), true);
+        assert.strictEqual(v.hasBannedLilial('Aqua, Glycerin, Parfum, Butylphenyl Methylpropional, Limonene'), true);
+        assert.strictEqual(v.hasBannedLilial('Zawiera Lilial jako alergen zapachowy'), true);
+        assert.strictEqual(v.hasBannedLilial('p-bmhca'), true);
+        assert.strictEqual(v.hasBannedLilial('p - bmhca'), true);
+        assert.strictEqual(v.hasBannedLilial('2-(4-tert-butylbenzyl)propionaldehyde'), true);
+    });
+
+    await t.test('Przepuszcza bezpieczne i nowe receptury INCI', () => {
+        assert.strictEqual(v.hasBannedLilial('Aqua, Glycerin, Parfum, Limonene, Linalool, Citronellol'), false);
+        assert.strictEqual(v.hasBannedLilial('Sodium Laureth Sulfate, Cocamidopropyl Betaine'), false);
+        assert.strictEqual(v.hasBannedLilial(''), false);
+        assert.strictEqual(v.hasBannedLilial(null), false);
+        assert.strictEqual(v.hasBannedLilial(undefined), false);
+    });
+});
+

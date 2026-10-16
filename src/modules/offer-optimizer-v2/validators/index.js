@@ -208,12 +208,20 @@ function emoji_structure_check(html) {
     return { valid: errors.length === 0, errors };
 }
 
+const LILIAL_REGEX = /\b(butylphenyl[\s-]*methylpropional|lilial|p[\s-]*bmhca|2-\(4-tert-butylbenzyl\)propionaldehyde)\b/i;
+
+function hasBannedLilial(str) {
+    if (!str || typeof str !== 'string') return false;
+    return LILIAL_REGEX.test(str);
+}
+
 // V8
 function gate_ingredients(inci_list) {
     if (!inci_list || !Array.isArray(inci_list)) return { status: 'OK' };
     
     const gate1 = [
-        'perboric acid, sodium salt', 'trimethylbenzoyl diphenylphosphine oxide', 'tpo', 'n,n-dimethyl-p-toluidine', 'tetrabromobisphenol-a', 'dibutyltin oxide', '4-methylbenzylidene camphor', '4-mbc', 'benzophenone-2', 'bp-2', 'benzophenone-5', 'bp-5', 'titanium dioxide (nano)', 'hydrated silica (nano)', 'silica silylate (nano)', 'silver (nano)'
+        'perboric acid, sodium salt', 'trimethylbenzoyl diphenylphosphine oxide', 'tpo', 'n,n-dimethyl-p-toluidine', 'tetrabromobisphenol-a', 'dibutyltin oxide', '4-methylbenzylidene camphor', '4-mbc', 'benzophenone-2', 'bp-2', 'benzophenone-5', 'bp-5', 'titanium dioxide (nano)', 'hydrated silica (nano)', 'silica silylate (nano)', 'silver (nano)',
+        'butylphenyl methylpropional', 'lilial', 'p-bmhca', '2-(4-tert-butylbenzyl)propionaldehyde'
     ];
     const gate2 = [
         'ketoconazole', 'climbazole', 'clotrimazole', 'miconazole', 'hydroquinone', 'tretinoin', 'adapalene', 'isotretinoin', 'egf', 'fgf', 'erythromycin', 'clindamycin', 'neomycin', 'corticosteroids', 'hydrocortisone'
@@ -409,5 +417,6 @@ module.exports = {
     verify_frozen,
     validate_eu_responsible_person,
     normalize_aeo_faq_labels,
-    aeo_faq_check
+    aeo_faq_check,
+    hasBannedLilial
 };

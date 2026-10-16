@@ -74,8 +74,9 @@ wirusów"). Pratfall wyłącznie na PRAWDZIWYM ograniczeniu z PIM/opinii.
 
 ## §I. BRAMKI SKŁADNIKOWE — NOWE w v4.1 (A1, A4; egzekwuje: kod + STOP potoku)
 GATE-1 SUBSTANCJE ZAKAZANE (SOT 04 §1): wykrycie w INCI/PIM substancji CMR
-i zakazanych (m.in. Perboric acid, TPO, N,N-dimethyl-p-toluidine, 4-MBC, BP-2/BP-5,
-zakazane nano) = natychmiastowa blokada publikacji + HITL.
+i zakazanych (m.in. Butylphenyl Methylpropional / Lilial / p-BMHCA — zakaz UE od 01.03.2022,
+Perboric acid, TPO, N,N-dimethyl-p-toluidine, 4-MBC, BP-2/BP-5, zakazane nano) =
+natychmiastowe odrzucenie starej receptury przez A1 na rzecz nowej formuły lub blokada publikacji + HITL.
 GATE-2 SKŁADNIKI NIE-KOSMETYCZNE (SOT 06 §2): Ketoconazole, Clotrimazole,
 Miconazole, Hydroquinone, Tretinoin, Adapalene, Isotretinoin, EGF/FGF, antybiotyki
 (Erythromycin, Clindamycin, Neomycin), kortykosteroidy = błędna kategoryzacja
