@@ -536,6 +536,17 @@ class Orchestrator {
         if (!extracted?.inci?.value) missingFields.push('inci');
         if (!this.state.extracted_data.eu_responsible_person.source) missingFields.push('eu_responsible_person');
 
+        const hasInci = Boolean(extracted?.inci?.value && baselinkerExtract.isValidInciValue(extracted.inci.value));
+        const hasResponsible = Boolean(this.state.extracted_data.eu_responsible_person?.source && (this.state.extracted_data.eu_responsible_person?.data?.name || typeof this.state.extracted_data.eu_responsible_person?.data === 'string'));
+        const hasBrand = Boolean(this.state.extracted_data.brand?.source || product?.brand?.name || featuresObj['Marka']);
+        const hasName = Boolean(this.state.extracted_data.product_name?.source || product?.text_fields?.name);
+
+        const criticalMissing = [];
+        if (!hasInci) criticalMissing.push('inci');
+        if (!hasResponsible) criticalMissing.push('eu_responsible_person');
+        if (!hasBrand) criticalMissing.push('brand');
+        if (!hasName) criticalMissing.push('product_name');
+
         // Dynamiczne wykrywanie brakujących parametrów Allegro
         if (pimData && pimData.allegro_schema) {
             const configExtract = require('./baselinker.extract.config.json');
@@ -581,11 +592,11 @@ class Orchestrator {
             }
         }
 
-        if (missingFields.length > 0 && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
+        if (criticalMissing.length > 0 && this.state.node_status['EXTRACT'] !== 'HITL_OVERRIDDEN') {
             const osintScraper = require('../offer-optimizer/osint.scraper.service');
             const productNameForOsint = product?.text_fields?.name || "Nieznany Produkt";
-            console.log(`[Orchestrator] Brakujące parametry: ${missingFields.join(', ')}. Uruchamiam OSINT Scraper...`);
-            const osintText = await osintScraper.searchAndExtract(this.gtin, productNameForOsint, missingFields);
+            console.log(`[Orchestrator] Brakujące parametry krytyczne: ${criticalMissing.join(', ')}. Uruchamiam OSINT Scraper...`);
+            const osintText = await osintScraper.searchAndExtract(this.gtin, productNameForOsint, criticalMissing);
             
             if (osintText) {
                 this.state.osint_data = osintText;
@@ -680,10 +691,13 @@ class Orchestrator {
         // missingFields is now calculated earlier
 
         if (this.state.next_action === 'RUN_EXTRACT') {
-            if (missingFields.length === 0 && !this.state.osint_data) {
+            if (criticalMissing.length === 0 && !this.state.osint_data) {
                 this.state.next_action = 'RUN_A2';
                 this.state.node_status['A1'] = 'SKIPPED';
-                this.state.token_usage_per_node['A1'] = { tokens_saved: true, reason: 'No missing fields detected after extraction.' };
+                this.state.token_usage_per_node['A1'] = { 
+                    tokens_saved: true, 
+                    reason: 'Dane krytyczne (INCI, GPSR / Podmiot Odpowiedzialny, Marka, Nazwa) obecne w PIM/rejestrze. Pominięto OSINT i Agenta 1.' 
+                };
             } else {
                 this.state.next_action = 'RUN_A1';
             }
@@ -692,19 +706,22 @@ class Orchestrator {
         
         while (this.state.next_action === 'RUN_A1') {
             const hasPimInci = Boolean(extracted?.inci?.value && baselinkerExtract.isValidInciValue(extracted.inci.value));
+            const hasResponsible = Boolean(this.state.extracted_data.eu_responsible_person?.source && (this.state.extracted_data.eu_responsible_person?.data?.name || typeof this.state.extracted_data.eu_responsible_person?.data === 'string'));
             const agentData = {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
                 brand: extracted.brand?.value || undefined,
                 capacity: extracted.capacity?.value || this.state.vision_extracted_features?.['Pojemność'] || this.state.vision_extracted_features?.['Pojemność / Waga'] || undefined,
                 existing_pim_inci: hasPimInci ? extracted.inci.value : undefined,
+                existing_eu_responsible_person: hasResponsible ? this.state.extracted_data.eu_responsible_person.data : undefined,
                 features: product?.text_fields?.features || {},
                 vision_features: this.state.vision_extracted_features || undefined,
                 missingFields: missingFields,
+                criticalMissing: criticalMissing,
                 revision_loop_count: this.state.revision_loop_count
             };
             
-            traceNode('1', this.gtin, 'A1_START', { missingFields, osint_data: !!this.state.osint_data, loop: this.state.revision_loop_count, hasPimInci });
+            traceNode('1', this.gtin, 'A1_START', { missingFields, criticalMissing, osint_data: !!this.state.osint_data, loop: this.state.revision_loop_count, hasPimInci, hasResponsible });
             this.state.node_status['A1'] = this.state.revision_loop_count > 0 ? 'RETRYING' : 'RUNNING';
             this.emitState();
             
@@ -736,11 +753,25 @@ class Orchestrator {
                 );
             }
 
+            if (hasResponsible) {
+                const respData = this.state.extracted_data.eu_responsible_person.data;
+                const respName = (respData && respData.name) || (typeof respData === 'string' ? respData : 'Zarejestrowany w bazie');
+                promptTemplate = promptTemplate.replace(
+                    /(\s*\*\s*Podmiot Odpowiedzialny w UE \(wymóg GPSR - nazwa, pełny adres, mail\/WWW\)\.)/,
+                    '\n     * Podmiot Odpowiedzialny w UE: POMIŃ (Podmiot odpowiedzialny został już w 100% zidentyfikowany i zarejestrowany w bazie - KATEGORYCZNY ZAKAZ wyszukiwania w sieci).'
+                );
+                promptTemplate = promptTemplate.replace(
+                    /3\. GPSR & PODMIOT ODPOWIEDZIALNY W UE[\s\S]*?(?=4\. CLP \(Klasyfikacja)/,
+                    `3. GPSR & PODMIOT ODPOWIEDZIALNY W UE (eu_responsible_person): ZNANY I ZMAPOWANY Z REJESTRU BAZY (${respName}).\n   - Podmiot odpowiedzialny w UE został już w 100% zidentyfikowany i zweryfikowany w rejestrze bazy: ${JSON.stringify(respData)}.\n   - KATEGORYCZNY ZAKAZ wykonywania jakichkolwiek zapytań w Google Search o podmiot odpowiedzialny, producenta, ich adresy lub telefony! Nie marnuj na to żadnych zapytań ani tokenów.\n   - W polu \`eu_responsible_person\` przepisz dokładnie ten obiekt przekazany w danych lub null, skupiając się wyłącznie na pozostałych brakach.\n`
+                );
+                promptTemplate += `\n\n### 🛡️ PODMIOT ODPOWIEDZIALNY W UE (GPSR) ZAPISANY W BAZIE:\nPodmiot odpowiedzialny: ${respName} (${JSON.stringify(respData)}). KATEGORYCZNY ZAKAZ generowania kwerend w Google Search dotyczących podmiotu odpowiedzialnego, producenta lub ich adresów.\n`;
+            }
+
             if (this.state.vision_extracted_features && Object.keys(this.state.vision_extracted_features).length > 0) {
                 const keysList = Object.entries(this.state.vision_extracted_features).map(([k, v]) => `${k}: "${v}"`).join(', ');
                 promptTemplate += `\n\n### 🛡️ ZWERYFIKOWANE CECHY FIZYCZNE PACKSHOTU (AGENT 0 - VISION AI):\nNastępujące cechy fizyczne zostały odczytane w 100% ze zdjęcia frontowego packshotu: ${keysList}.\nKATEGORYCZNY ZAKAZ ich wyszukiwania w Google ani nadpisywania halucynacjami z sieci. Skup się wyłącznie na pozostałych brakach (GPSR, Podmiot Odpowiedzialny w UE, logistyka, wymiary).\n`;
             }
-            
+
             const prompt = promptTemplate.replace('{{SKU_DATA}}', JSON.stringify(agentData, null, 2));
             
             try {

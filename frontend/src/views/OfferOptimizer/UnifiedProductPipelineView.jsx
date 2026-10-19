@@ -232,7 +232,14 @@ export const UnifiedProductPipelineView = ({
                             }
                         });
                     }
-                    const fallbackTickets = fallbackImages.map(img => ({ originalUrl: img }));
+                    // Reguła progowa 5 zdjęć: <= 5 zdjęć oznacza surową kartę, Slot 1 czeka na ręczny upload packshotu
+                    const isRawCard = fallbackImages.length <= 5;
+                    const fallbackTickets = isRawCard
+                        ? [
+                            { originalUrl: '', alerts: ["Wymagany nowy packshot wysokiej jakości"], isCompliant: false, replacedUrl: null },
+                            ...fallbackImages.slice(1).map(img => ({ originalUrl: img }))
+                          ]
+                        : fallbackImages.map(img => ({ originalUrl: img }));
 
                     // TYLKO JEŚLI NIE MA DRAFTU W LOKALNEJ PAMIĘCI - NADPISUJEMY STAN BAZĄ
                     if (!hasDraft) {
@@ -469,13 +476,19 @@ export const UnifiedProductPipelineView = ({
     const triggerParallelSlotGenerations = async (targetSlotIndexes, targetEan, sourceImageObj) => {
         if (!targetEan) return;
         
-        const hasSource = sourceImageObj && (
-            sourceImageObj.replacedUrl || 
-            (sourceImageObj.originalUrl && (sourceImageObj.originalUrl.startsWith('http') || sourceImageObj.originalUrl.startsWith('data:image')))
-        );
+        let normalizedSource = null;
+        if (typeof sourceImageObj === 'string' && sourceImageObj.trim().length > 0 && !sourceImageObj.includes('Wymagane nowe zdjęcie')) {
+            normalizedSource = { originalUrl: sourceImageObj.trim() };
+        } else if (sourceImageObj && typeof sourceImageObj === 'object') {
+            if (sourceImageObj.replacedUrl && typeof sourceImageObj.replacedUrl === 'string' && sourceImageObj.replacedUrl.trim().length > 0) {
+                normalizedSource = { replacedUrl: sourceImageObj.replacedUrl.trim() };
+            } else if (sourceImageObj.originalUrl && typeof sourceImageObj.originalUrl === 'string' && sourceImageObj.originalUrl.trim().length > 0 && !sourceImageObj.originalUrl.includes('Wymagane nowe zdjęcie')) {
+                normalizedSource = { originalUrl: sourceImageObj.originalUrl.trim() };
+            }
+        }
 
-        if (!hasSource) {
-            console.warn(`[Visual AI Multi-Slot] Brak zdjęcia w Slocie 1 dla EAN: ${targetEan}. Pomijanie automatycznego generowania scenerii.`);
+        if (!normalizedSource) {
+            console.warn(`[Visual AI Multi-Slot] Brak poprawnego packshotu w Slocie 1 dla EAN: ${targetEan}. Pomijanie automatycznego generowania scenerii.`);
             return;
         }
 
@@ -508,7 +521,7 @@ export const UnifiedProductPipelineView = ({
                 const result = await requestLifestyleGeneration({
                     ean: targetEan,
                     imageIndex: slotIndex,
-                    primaryImageObj: sourceImageObj,
+                    primaryImageObj: normalizedSource,
                     token
                 });
 
@@ -556,6 +569,18 @@ export const UnifiedProductPipelineView = ({
 
     const handleTriggerPipeline = async (hitlOverrides = null, forceRestart = false) => {
         try {
+            // Weryfikacja obecności packshotu w Slocie 1 przed startem generowania i potoku
+            const primaryImgCandidate = (visionTickets && visionTickets[0]) 
+                ? (visionTickets[0].replacedUrl || visionTickets[0].originalUrl)
+                : (newProductForm.imageUrl || (newProductForm.images && newProductForm.images[0]));
+            
+            const hasValidPrimaryImg = primaryImgCandidate && typeof primaryImgCandidate === 'string' && primaryImgCandidate.trim().length > 0 && !primaryImgCandidate.includes('Wymagane nowe zdjęcie');
+
+            if (!hasValidPrimaryImg) {
+                alert("Slot 1 (Packshot główny) jest pusty. Wgraj zdjęcie packshotu wysokiej jakości do Slotu 1 przed uruchomieniem Agenta.");
+                return;
+            }
+
             // Najpierw zapisujemy formularz PIM
             const savedProd = await handleCreateProduct();
             if (!savedProd || !savedProd.ean) {
@@ -576,11 +601,11 @@ export const UnifiedProductPipelineView = ({
             // RÓWNOLEGŁE, WSPÓŁBIEŻNE WYWOŁANIE GENEROWANIA ZDJĘĆ DLA SLOTÓW 2, 3, 5, 6 (indeksy 1, 2, 4, 5)
             // Uruchamiane w tle bez await, z pełną izolacją błędów w obie strony
             try {
-                const primaryImg = (visionTickets && visionTickets[0]) 
+                const primaryObj = (visionTickets && visionTickets[0] && (visionTickets[0].replacedUrl || visionTickets[0].originalUrl)) 
                     ? visionTickets[0] 
-                    : (savedProd.images && savedProd.images[0] ? { originalUrl: savedProd.images[0] } : null);
+                    : { originalUrl: primaryImgCandidate };
                 
-                triggerParallelSlotGenerations([1, 2, 4, 5], savedProd.ean, primaryImg).catch(slotErr => {
+                triggerParallelSlotGenerations([1, 2, 4, 5], savedProd.ean, primaryObj).catch(slotErr => {
                     console.error("[Visual AI] Niezłapany błąd w procesie generowania zdjęć:", slotErr);
                 });
             } catch (imgInitErr) {
@@ -769,6 +794,9 @@ export const UnifiedProductPipelineView = ({
                 setBrandSearchTerm(brand || '');
             }
             
+            const blImages = Array.isArray(images) ? images : [];
+            const isModifiedCard = blImages.length > 5;
+
             setNewProductForm(prev => ({
                 ...prev,
                 name: name || prev.name,
@@ -777,7 +805,7 @@ export const UnifiedProductPipelineView = ({
                 stock: stock !== undefined ? stock : prev.stock,
                 baselinkerId: baselinkerId || prev.baselinkerId,
                 brandId: matchedBrandId || prev.brandId,
-                imageUrl: imageUrl || prev.imageUrl,
+                imageUrl: isModifiedCard ? (imageUrl || prev.imageUrl) : '',
                 weight: weight !== undefined ? weight : prev.weight,
                 length: length !== undefined ? length : prev.length,
                 width: width !== undefined ? width : prev.width,
@@ -791,6 +819,28 @@ export const UnifiedProductPipelineView = ({
                 stockWmsUnits: stockWmsUnits !== undefined ? stockWmsUnits : prev.stockWmsUnits,
                 allegroCategoryId: allegroCategoryId || prev.allegroCategoryId
             }));
+
+            // Logika biletów wizualnych dla Slotu 1:
+            // Jeśli pobrano <= 5 zdjęć: Slot 1 czeka na ręczny upload wysokiej jakości packshotu przez operatora.
+            // Jeśli pobrano > 5 zdjęć: Karta była już poprawiona w Nexusie, przekazujemy pierwsze zdjęcie do Slotu 1.
+            let autofillTickets = [];
+            if (isModifiedCard) {
+                autofillTickets = blImages.map(img => ({ originalUrl: img }));
+            } else {
+                autofillTickets = [
+                    { originalUrl: '', alerts: ["Wymagany nowy packshot wysokiej jakości"], isCompliant: false, replacedUrl: null },
+                    ...blImages.slice(1).map(img => ({ originalUrl: img }))
+                ];
+            }
+            while (autofillTickets.length < 6) {
+                autofillTickets.push({
+                    originalUrl: `Wymagane nowe zdjęcie (nr ${autofillTickets.length + 1})`,
+                    alerts: ["Pusty slot"],
+                    isCompliant: false,
+                    replacedUrl: null
+                });
+            }
+            setVisionTickets(autofillTickets);
 
             // BaseLinker zawiódł – dane (jeśli są) pochodzą ze źródła zastępczego. Informujemy operatora po wypełnieniu formularza.
             if (blWarning) {

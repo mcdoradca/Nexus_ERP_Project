@@ -24,15 +24,6 @@ jobs:
           npm install
           npm run build
 
-      - name: Copy frontend dist via SCP
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "frontend/dist"
-          target: "/var/www/nexus"
-
       - name: Deploy Backend and Restart via SSH
         uses: appleboy/ssh-action@v1.2.3
         with:
@@ -56,6 +47,13 @@ jobs:
             git reset --hard origin/main
             git clean -fd
             
+            # 2.5 Budowanie produkcyjnego frontendu na serwerze
+            echo "--- Budowanie frontendu na serwerze ---"
+            cd /var/www/nexus/frontend
+            npm install
+            npm run build
+            cd /var/www/nexus
+
             # 3. Zainstaluj zależności backendu i uruchom TESTY (CI)
             npm install
             
