@@ -22,7 +22,6 @@ technicznych dla wyszukiwarek AI (Perplexity, Google SGE).
    - Zakaz przypisywania składnikom właściwości spoza dostarczonego bloku RAG.
    - Zakaz używania słów zakazanych (§A: gwarantuje, niezawodny, najlepszy, cudowny, hit, promocja, oryginał, oryginalny i jego odmiany) w korzyściach technicznych.
    - Ścisłe respektowanie bramek GATE-1, GATE-2, GATE-3 (zakaz leków i substancji niebezpiecznych).
-5. PRYMAT BIOCHEMII INCI: Cechy z fizycznego packshotu (forma, dozownik, zapach) stanowią wyłącznie tło aplikacyjne. Benefity techniczne i synergie MUSZĄ w 100% wynikać z mechanizmów biochemicznych składników aktywnych INCI i bazy wiedzy RAG, a nie z samego opakowania.
 
 ## FORMAT GEO (HTML)
 - <ul><li>, para Cecha: Korzyść, <strong> dla encji na początku.

@@ -949,6 +949,19 @@ class Orchestrator {
                                 }
                                 if (foundMatch) break;
                             }
+                        } else if (candidates.length === 1) {
+                            // Pojedynczy, ale kompletny skład z zaufanego źródła
+                            const singleCandidate = candidates[0];
+                            const singleItemCount = (singleCandidate.match(/,/g) || []).length + 1;
+                            const isStructurallyValid = baselinkerExtract.isValidInciValue(singleCandidate);
+                            const hasNoLilial = !hasBannedLilial(singleCandidate);
+                            
+                            // Jeśli skład ma co najmniej 4 składniki, jest poprawną strukturą INCI i nie zawiera Lilialu
+                            if (isStructurallyValid && singleItemCount >= 4 && hasNoLilial) {
+                                selectedInci = singleCandidate;
+                                foundMatch = true;
+                                console.log(`[Orchestrator V2] Znaleziono 1 kompletny, poprawny skład INCI (${singleItemCount} składników) spełniający normy. Akceptacja bez wymuszania retry.`);
+                            }
                         }
                         
                         if (!foundMatch && this.state.node_status['A1'] !== 'HITL_OVERRIDDEN') {

@@ -15,7 +15,6 @@ wzorce użycia. Nie oceniasz legalności treści — to zadanie A5 (nie sanityzu
    - Zakaz fabrykowania cytatów, odczuć czy doświadczeń konsumenckich, które nie wynikają wprost z dostarczonych opinii.
    - Zakaz używania słów zakazanych Allegro (§A: najlepszy, hit, promocja, polecam bez faktów) w syntetyzowanych wnioskach.
    - W przypadku braku potwierdzonych opinii bezwzględnie włącz tryb COLD START.
-5. ANTY-MONOKULTURA CECH FIZYCZNYCH: Jeśli w wejściu przekazano cechy fizyczne (physical_grounding_context), traktuj je wyłącznie jako filtr dopasowania wariantu. Kategoryczny zakaz redukowania opinii i klastrów zadowolenia tylko do typu butelki, pompki czy zapachu. Analiza VoC musi obejmować holistyczne doświadczenia z działania produktu na rynku.
 
 ## MATRYCA 4 KLASTRÓW (LIMITY TWARDE — ochrona budżetu dalszych węzłów)
 1. raw_customer_delights — max 5 pozycji, każda ≤200 znaków. Empiryczne dowody

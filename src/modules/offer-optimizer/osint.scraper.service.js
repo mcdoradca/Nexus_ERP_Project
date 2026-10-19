@@ -38,13 +38,25 @@ class OsintScraperService {
                 queryTerms = ` (${terms.join(' OR ')})`;
             }
             
-            const searchQuery = `"${ean}" "${productName}"${queryTerms}`;
-            const searchUrl = `https://www.bing.com/search?q=${encodeURIComponent(searchQuery)}`;
+            // Elastyczne zapytanie: ścisły EAN w cudzysłowie + słowa z nazwy produktu bez cudzysłowów + synonimy braków
+            let cleanProductName = '';
+            if (productName && typeof productName === 'string') {
+                cleanProductName = productName
+                    .replace(/["'”„]/g, '')
+                    .replace(/\b\d+(\s*(ml|l|g|kg|szt))\b/gi, '')
+                    .trim()
+                    .split(/\s+/)
+                    .slice(0, 4)
+                    .join(' ');
+            }
+
+            let searchQuery = `"${ean}"${cleanProductName ? ' ' + cleanProductName : ''}${queryTerms}`;
+            let searchUrl = `https://www.bing.com/search?q=${encodeURIComponent(searchQuery)}`;
             agent1Logger.info(`[OSINT] Wywołano wyszukiwarkę BING (Obejście OVH) z q=${searchQuery}`);
             
             const searchHeaders = { ...this.headers, 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
-            const searchResponse = await axios.get(searchUrl, { headers: searchHeaders, timeout: 10000 });
-            const $ = cheerio.load(searchResponse.data);
+            let searchResponse = await axios.get(searchUrl, { headers: searchHeaders, timeout: 10000 });
+            let $ = cheerio.load(searchResponse.data);
             
             let links = [];
             $('#b_results .b_algo h2 a').each((i, el) => links.push($(el).attr('href')));

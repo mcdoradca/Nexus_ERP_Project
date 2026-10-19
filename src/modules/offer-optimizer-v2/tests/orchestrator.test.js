@@ -621,6 +621,56 @@ test('Orchestrator - PIM INCI Protection & Prompt Sterilization: wygaszanie posz
     aiWrapper.callAgentWithTelemetry = originalCall;
 });
 
+test('Orchestrator V2: Akceptacja 1 kompletnego, poprawnego składu INCI z OSINT bez zbędnego retry', async () => {
+    const originalCall = aiWrapper.callAgentWithTelemetry;
+    const orgExtract = require('../baselinker.extract.js').extractFromFeatures;
+
+    require('../baselinker.extract.js').extractFromFeatures = (prod) => {
+        const res = orgExtract(prod);
+        res.inci = { value: '', source: null };
+        return res;
+    };
+
+    aiWrapper.callAgentWithTelemetry = async (opts) => {
+        return {
+            usage: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 },
+            result: {
+                pipeline_id: "test",
+                country_of_origin: "Włochy",
+                research_sources_used: ["https://drogeria.pl"],
+                extracted_inci_candidates: [
+                    ["1. AQUA", "2. SODIUM LAURETH SULFATE", "3. COCAMIDOPROPYL BETAINE", "4. GLYCERIN", "5. CITRIC ACID"]
+                ],
+                eu_responsible_person: {
+                    name: "Test Corp Sp. z o.o.",
+                    address_eu: "Via Roma 1, 00100 Rzym, Włochy",
+                    contact: "kontakt@test.pl"
+                }
+            }
+        };
+    };
+
+    // Produkt bez INCI w PIM - wymaga odnalezienia w OSINT
+    const pimData = {
+        name: "Testowy szampon bez INCI",
+        features: {}
+    };
+
+    const orch = new Orchestrator("8000137015436");
+    orch.emitState = () => {};
+
+    await orch.runPhase1(pimData);
+
+    assert.strictEqual(orch.state.revision_loop_count, 0, "Nie powinno wymuszać pętli ponowienia, gdy odnaleziono kompletny skład");
+    assert.ok(orch.state.extracted_data.inci, "Skład INCI powinien zostać zapisany do extracted_data");
+    assert.strictEqual(orch.state.extracted_data.inci.source, "osint_a1");
+    assert.ok(orch.state.extracted_data.inci.value.includes("AQUA"), "Skład musi zawierać odnalezione składniki");
+    assert.ok(orch.state.extracted_data.inci.value.includes("CITRIC ACID"), "Skład musi zawierać odnalezione składniki");
+
+    require('../baselinker.extract.js').extractFromFeatures = orgExtract;
+    aiWrapper.callAgentWithTelemetry = originalCall;
+});
+
 
 
 

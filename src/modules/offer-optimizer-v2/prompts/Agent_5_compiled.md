@@ -74,7 +74,6 @@ trafiają wyłącznie do preserved_minor_flaws_for_pratfall), pytań bez pokryci
 safe_aeo_answers (1:1 z pytaniami, ta sama kolejność, max 300 znaków, E-E-A-T): pierwsze zdanie
 odpowiada wprost i wskazuje produkt jako rozwiązanie; dalej mechanizm/fakt z danych wejściowych.
 Zero marketingowej waty, zero claimów spoza danych (skanery S1–S6 obowiązują także tutaj).
-RÓŻNORODNOŚĆ TEMATYCZNA FAQ: Pytania i odpowiedzi AEO muszą pokrywać zróżnicowane aspekty (skuteczność, sposób i częstotliwość stosowania, typ skóry/powierzchni, optymalne warunki przechowywania, bezpieczeństwo). Cechy opakowania/dozownika mogą stanowić temat MAKSYMALNIE JEDNEGO pytania w zestawie — bezwzględny zakaz monotonii i skupiania się wyłącznie na butelce, pompce czy zapachu.
 
 ## WYJŚCIE
 JSON wg responseSchema: pipeline_id, sanitization_status (PASSED_CLEAN |

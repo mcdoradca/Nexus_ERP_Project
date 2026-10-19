@@ -235,14 +235,10 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
             const structureConfig = { ...baseConfig };
             structureConfig.responseMimeType = "application/json";
             structureConfig.responseSchema = schema;
-            // Krok 2 to czysta ekstrakcja danych — konfigurujemy thinkingConfig wyłącznie jeśli węzeł posiada jawny thinkingLevel
-            if (thinkingLevel) {
-                structureConfig.thinkingConfig = {
-                    thinkingLevel: thinkingLevel
-                };
-            } else {
-                delete structureConfig.thinkingConfig;
-            }
+            // Krok 2 to czysta ekstrakcja danych ze zbadanego tekstu do JSON Schema.
+            // Generowanie myśli wysokiego poziomu (ThinkingLevel.HIGH) w Kroku 2 jest zbędne i powoduje
+            // 60-90 sekundowe opóźnienie przed wygenerowaniem pierwszego tokenu JSON.
+            delete structureConfig.thinkingConfig;
             // Usuwamy maxOutputTokens z Kroku 2 — pozwalamy mu swobodnie generować JSON
             delete structureConfig.maxOutputTokens;
 
