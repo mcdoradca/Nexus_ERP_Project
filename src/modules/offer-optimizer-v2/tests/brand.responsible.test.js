@@ -63,4 +63,46 @@ test('BrandResponsibleService - Weryfikacja bazy podmiotów odpowiedzialnych', a
         assert.ok(clean.includes('Firma XYZ Sp. z o.o.'));
         assert.ok(clean.includes('ul. Kwiatowa 5, 00-001 Warszawa'));
     });
+
+    await t.test('7. Spuma di Sciampagna mapuje się na oficjalnego producenta REAL CHIMICA S.R.L. z adresem we Włoszech', () => {
+        const sds = brandService.findResponsibleEntity('Spuma di Sciampagna');
+        assert.ok(sds, 'Spuma di Sciampagna musi być odnaleziona w rejestrze');
+        assert.strictEqual(sds.name, 'REAL CHIMICA S.R.L.');
+        assert.ok(sds.address_eu.includes('Via Monte Santo 37'));
+        assert.ok(sds.address_eu.includes('20831 Seregno'));
+        assert.ok(sds.address_eu.includes('Włochy'));
+
+        const formatted = brandService.formatForHtmlDescription(sds);
+        assert.strictEqual(formatted, 'REAL CHIMICA S.R.L., Via Monte Santo 37, 20831 Seregno (MB), Włochy');
+        assert.ok(!formatted.includes('@'), 'formatForHtmlDescription NIE może zawierać adresu e-mail');
+    });
+
+    await t.test('8. Włoskie towary marek globalnych mapują się na spółki we Włoszech, a nie w Polsce', () => {
+        const fabuloso = brandService.findResponsibleEntity('Fabuloso');
+        assert.ok(fabuloso);
+        assert.strictEqual(fabuloso.name, 'Colgate-Palmolive Commerciale S.r.l.');
+        assert.ok(fabuloso.address_eu.includes('Roma'));
+
+        const sole = brandService.findResponsibleEntity('Sole');
+        assert.ok(sole);
+        assert.strictEqual(sole.name, 'Reckitt Benckiser Commercial (Italia) S.r.l.');
+        assert.ok(sole.address_eu.includes('Milano'));
+
+        const viakal = brandService.findResponsibleEntity('Viakal');
+        assert.ok(viakal);
+        assert.strictEqual(viakal.name, 'Procter & Gamble S.r.l.');
+        assert.ok(viakal.address_eu.includes('Roma'));
+
+        const bref = brandService.findResponsibleEntity('Bref');
+        assert.ok(bref);
+        assert.strictEqual(bref.name, 'Henkel Italia S.r.l.');
+        assert.ok(bref.address_eu.includes('Milano'));
+    });
+
+    await t.test('9. Tarcza stripContactInfo NIE uszkadza kodów EAN-13 ani kodów pocztowych', () => {
+        const s5 = '<li>⚖️ <b>Kod EAN:</b> 8004120040436</li><li>⚖️ <b>Pojemność:</b> 500 ml</li>';
+        const cleaned = brandService.stripContactInfo(s5);
+        assert.ok(cleaned.includes('8004120040436'), 'Kod EAN nie może zostać wycięty przez filtr telefoniczny');
+        assert.ok(cleaned.includes('500 ml'));
+    });
 });

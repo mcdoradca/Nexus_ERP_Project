@@ -102,6 +102,7 @@ class BrandResponsibleService {
     /**
      * Twarda tarcza sanityzacyjna: usuwa e-maile, telefony oraz linki/domeny www z tekstu opisu HTML.
      * Zapobiega blokadzie aukcji przez filtry antykontaktowe Allegro.
+     * Odporna na kody EAN-13, EAN-8 oraz kody pocztowe UE.
      */
     stripContactInfo(text) {
         if (!text || typeof text !== 'string') return text;
@@ -112,10 +113,14 @@ class BrandResponsibleService {
             .replace(/https?:\/\/[^\s<>"']+/gi, '')
             // Usuń www.domena...
             .replace(/\bwww\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s<>"']*)?/gi, '')
-            // Usuń etykiety typu 'kontakt:', 'tel:', 'infolinia:'
-            .replace(/\b(?:kontakt|contact|tel|telefon|phone|fax|infolinia)\s*:?\s*/gi, '')
-            // Usuń numery telefonów (dowolny ciąg z plusem lub bez, z 7-15 cyframi i separatorami)
-            .replace(/(?:\+?\d{1,4}[\s.-]*)?(?:\(?\d{2,4}\)?[\s.-]*)?\d{2,4}[\s.-]?\d{2,4}[\s.-]?\d{2,4}\b/g, '')
+            // Usuń numery telefonów z prefiksem międzynarodowym + (np. +39..., +48...) wraz z opcjonalną etykietą
+            .replace(/(?:\b(?:kontakt|contact|tel(?:efon)?|phone|fax|infolinia|infolinea|mobile|kom)\.?\s*:?\s*)?\+\d{1,3}(?:[\s.-]*\(?\d{1,4}\)?)*(?:[\s.-]*\d{2,4}){2,}\b/gi, '')
+            // Usuń numery telefonów poprzedzone jawną etykietą (np. tel. 0321 827011, kontakt: 22 123 45 67)
+            .replace(/\b(?:kontakt|contact|tel(?:efon)?|phone|fax|infolinia|infolinea|mobile|kom)\.?\s*:?\s*(?:\(?\d{2,4}\)?[\s.-]*)?\d{2,4}[\s.-]?\d{2,4}[\s.-]?\d{2,4}\b/gi, '')
+            // Usuń osierocone etykiety kontaktowe
+            .replace(/\b(?:kontakt|contact|tel(?:efon)?|phone|fax|infolinia|infolinea|mobile|kom)\.?\s*:?\s*/gi, '')
+            // Usuń numery telefonów z wyraźnymi separatorami grup cyfr (np. 022 123 45 67, 0321-827-011) - nie rusza ciągłych 13-cyfrowych kodów EAN
+            .replace(/\b\(?\d{2,4}\)?[\s.-]+\d{2,4}[\s.-]+\d{2,4}(?:[\s.-]+\d{1,4})?\b/g, '')
             // Wyczyść ewentualne podwójne przecinki, dwukropki lub pozostałości spacji
             .replace(/,\s*,/g, ',')
             .replace(/,\s*$/g, '')

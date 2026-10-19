@@ -79,4 +79,23 @@ test('Brand Registry & Pre-Flight Resolution w Orchestratorze', async (t) => {
         assert.ok(cleaned.includes('MIL MIL 76 S.p.A.'));
         assert.ok(cleaned.includes('Via Sciarei 8, 28064 Landiona (NO), Włochy'));
     });
+
+    await t.test('4. Spuma di Sciampagna rozwiązuje się automatycznie w orchestratorze na REAL CHIMICA S.R.L. bez kontaktu w A6', async () => {
+        const orch = new Orchestrator('8000137015436');
+        orch.emitState = () => {};
+
+        await orch.runPhase1({
+            brand: { name: "Spuma di Sciampagna" },
+            text_fields: {
+                name: "Spuma di Sciampagna Płyn do prania",
+                features: { "Marka": "Spuma di Sciampagna" }
+            }
+        });
+
+        const eu = orch.state.extracted_data.eu_responsible_person;
+        assert.ok(eu, 'eu_responsible_person musi być zdefiniowane');
+        assert.strictEqual(eu.data.name, 'REAL CHIMICA S.R.L.');
+        assert.ok(eu.data.address_eu.includes('20831 Seregno'));
+        assert.ok(eu.data.address_eu.includes('Włochy'));
+    });
 });

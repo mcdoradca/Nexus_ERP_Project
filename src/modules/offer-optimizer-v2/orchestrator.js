@@ -222,11 +222,10 @@ function generateInciVariants(rawInci) {
 }
 
 async function loadProductDataAsync(ean, pimData) {
+    if (pimData && pimData.text_fields) {
+        return pimData;
+    }
     if (DATA_SOURCE_MODE === 'api') {
-        if (pimData && pimData.text_fields) {
-            console.log(`[Orchestrator V2] Używam danych z bazy PIM (lokalnego cache) dla EAN ${ean}, omijając zapytanie do API BaseLinkera...`);
-            return pimData;
-        }
         throw new Error(`Brak kompletnych danych PIM dla EAN ${ean}. Automatyczne pobieranie w locie z API BaseLinkera zostało ZABLOKOWANE przez politykę (ochrona przed banem limitów 429).`);
     }
     const dir = path.join(__dirname, 'tests', 'fixtures');
@@ -1681,7 +1680,10 @@ class Orchestrator {
                 capacity: extracted.capacity?.value || this.state.vision_extracted_features?.['Pojemność'] || this.state.vision_extracted_features?.['Pojemność / Waga'] || undefined,
                 line: extracted.line?.value || undefined,
                 inci: this.state.extracted_data.inci?.value || undefined,
-                eu_responsible_person: this.state.extracted_data.eu_responsible_person?.data || undefined,
+                eu_responsible_person: this.state.extracted_data.eu_responsible_person?.data ? {
+                    name: this.state.extracted_data.eu_responsible_person.data.name,
+                    address_eu: this.state.extracted_data.eu_responsible_person.data.address_eu
+                } : undefined,
                 features: product?.text_fields?.features || {},
                 vision_features: this.state.vision_extracted_features || {},
                 a1: this.state.a1_result,
@@ -1721,18 +1723,15 @@ class Orchestrator {
                 if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
 
                 // TARCZA DEFENSYWNA DLA GPSR (Podmiot odpowiedzialny w Sekcji 6):
-                // Gwarantujemy, że Sekcja 6 HTML zawiera pełny adres pocztowy i kontakt,
-                // a nie samą nazwę podmiotu.
+                // Gwarantujemy, że Sekcja 6 HTML zawiera pełny fizyczny adres pocztowy i nazwę,
+                // bez jakichkolwiek danych kontaktowych (zakaz e-mail, telefonów, stron WWW wg regulaminu Allegro).
                 const euData = this.state.extracted_data.eu_responsible_person?.data;
                 if (euData && euData.name && euData.address_eu && result.section_6_html) {
                     const fullEuString = brandResponsibleService.formatForHtmlDescription(euData);
                     const euPattern = /(<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*<b>\s*Podmiot odpowiedzialny w UE:?\s*<\/b>\s*)(.*?)(<\/li>)/i;
                     if (euPattern.test(result.section_6_html)) {
                         result.section_6_html = result.section_6_html.replace(euPattern, (match, prefix, content, suffix) => {
-                            if (!/\d/.test(content) || !content.includes(euData.address_eu)) {
-                                return `${prefix}${fullEuString}${suffix}`;
-                            }
-                            return match;
+                            return `${prefix}${fullEuString}${suffix}`;
                         });
                     } else if (result.section_6_html.includes('</ul>')) {
                         result.section_6_html = result.section_6_html.replace('</ul>', `<li>➡️ <b>Podmiot odpowiedzialny w UE:</b> ${fullEuString}</li></ul>`);
@@ -1767,9 +1766,10 @@ class Orchestrator {
                     result.section_6_html = sanitizeSection6Html(result.section_6_html);
                 }
 
-                // Globalna tarcza językowa (eliminacja formy "OCZÓW" i zbitych dwukropków "::" ze wszystkich sekcji):
+                // Globalna tarcza językowa i anty-kontaktowa Allegro dla wszystkich sekcji:
                 for (let k of allowedKeysA6) {
                     if (result[k] && typeof result[k] === 'string') {
+                        result[k] = brandResponsibleService.stripContactInfo(result[k]);
                         result[k] = result[k].replace(/\bDO OCZÓW\b/gi, 'DO OCZU').replace(/::+/g, ':');
                     }
                 }
@@ -2070,12 +2070,12 @@ class Orchestrator {
             
             const offer = {
                 title: this.state.extracted_data.product_name?.value,
-                description: this.state.a10_result['section_1_html'] || '',
-                description_extra1: this.state.a10_result['section_2_html'] || '',
-                description_extra2: this.state.a10_result['section_3_html'] || '',
-                description_extra3: this.state.a10_result['section_4_html'] || '',
-                description_extra4: extra4,
-                extra_field_4245: this.state.a10_result['section_7_html'] || '',
+                description: brandResponsibleService.stripContactInfo(this.state.a10_result['section_1_html'] || ''),
+                description_extra1: brandResponsibleService.stripContactInfo(this.state.a10_result['section_2_html'] || ''),
+                description_extra2: brandResponsibleService.stripContactInfo(this.state.a10_result['section_3_html'] || ''),
+                description_extra3: brandResponsibleService.stripContactInfo(this.state.a10_result['section_4_html'] || ''),
+                description_extra4: brandResponsibleService.stripContactInfo(extra4),
+                extra_field_4245: brandResponsibleService.stripContactInfo(this.state.a10_result['section_7_html'] || ''),
                 ingredients_inci: this.state.extracted_data.inci?.value,
                 eu_responsible_person: this.state.extracted_data.eu_responsible_person,
                 safety_warnings: this.state.a5_result?.mandatory_safety_warnings || [],

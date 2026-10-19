@@ -22,7 +22,7 @@
       "name": "REAL CHIMICA S.R.L.",
       "address_eu": "Via Monte Santo 37, 20831 Seregno (MB), Włochy",
       "contact": "info@realchimica.it",
-      "brands": ["chante clair", "chanteclair", "quasar", "vert"]
+      "brands": ["chante clair", "chanteclair", "quasar", "vert", "spuma di sciampagna", "spumadisciampagna", "sauber"]
     },
     "italchimica": {
       "name": "Italchimica S.r.l.",
@@ -55,15 +55,15 @@
       "brands": ["cif", "cif professional", "coccolino", "dove", "rexona", "domestos", "unilever"]
     },
     "procter_gamble": {
-      "name": "Procter & Gamble DS Polska Sp. z o.o.",
-      "address_eu": "ul. Zabraniecka 20, 03-872 Warszawa, Polska",
-      "contact": "konsument.pg@pg.com",
-      "brands": ["viakal", "fairy", "ariel", "lenor", "pampers", "gillette"]
+      "name": "Procter & Gamble S.r.l.",
+      "address_eu": "Viale Giorgio Ribotta 11, 00144 Roma (RM), Włochy",
+      "contact": "consumatori.im@pg.com",
+      "brands": ["viakal", "dash", "fairy", "ariel", "lenor", "pampers", "gillette"]
     },
     "loreal": {
-      "name": "L'Oréal Polska Sp. z o.o.",
-      "address_eu": "ul. Grzybowska 62, 00-844 Warszawa, Polska",
-      "contact": "infolinia@loreal.com",
+      "name": "L'Oréal Italia S.p.A.",
+      "address_eu": "Via Primaticcio 155, 20147 Milano (MI), Włochy",
+      "contact": "infolinea@loreal.it",
       "brands": ["l'oreal", "loreal", "cerave", "garnier", "maybelline", "la roche-posay"]
     },
     "bolton_manitoba": {
@@ -79,16 +79,22 @@
       "brands": ["bio form", "bioform", "limonnello", "scansafatiche", "soft"]
     },
     "colgate_palmolive": {
-      "name": "Colgate-Palmolive (Poland) Sp. z o.o.",
-      "address_eu": "ul. Wybrzeże Gdyńskie 6D, 01-531 Warszawa, Polska",
-      "contact": "konsument@colpal.com",
+      "name": "Colgate-Palmolive Commerciale S.r.l.",
+      "address_eu": "Viale Alexandre Gustave Eiffel 15, 00148 Roma (RM), Włochy",
+      "contact": "servizio_consumatori@colpal.com",
       "brands": ["fabuloso", "ajax", "palmolive", "colgate"]
     },
     "reckitt_benckiser": {
-      "name": "Reckitt Benckiser (Poland) S.A.",
-      "address_eu": "ul. Okunin 1, 05-100 Nowy Dwór Mazowiecki, Polska",
-      "contact": "consumer.relations-pl@reckitt.com",
+      "name": "Reckitt Benckiser Commercial (Italia) S.r.l.",
+      "address_eu": "Via Spadolini 7, 20141 Milano (MI), Włochy",
+      "contact": "commerciale.italia@reckitt.com",
       "brands": ["sole", "calgon", "finish", "vanish", "woolite", "dettol"]
+    },
+    "henkel_italia": {
+      "name": "Henkel Italia S.r.l.",
+      "address_eu": "Via Amoretti 78, 20157 Milano (MI), Włochy",
+      "contact": "henkel.italia@henkel.com",
+      "brands": ["bref", "dixan", "pril", "perlana", "bio presto", "nelsen", "general", "henkel"]
     },
     "drammock": {
       "name": "Drammock International Ltd (EU Rep: CE.way Regulatory)",
