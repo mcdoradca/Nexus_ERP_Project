@@ -11,6 +11,7 @@ const { validate_html_whitelist, scan_medical_claims_lexical, scan_stopwords, no
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const visionExtractorService = require('./vision-extractor.service');
+const brandResponsibleService = require('./brand.responsible.service');
 
 const PHASE_1_GROUNDING = 'PHASE_1_GROUNDING';
 const PHASE_2_LEGAL = 'PHASE_2_LEGAL';
@@ -111,6 +112,9 @@ const sanitizeSection6Html = (htmlStr) => {
             return combined;
         });
     }
+
+    // 7. Twarda tarcza anty-kontaktowa Allegro (zakaz e-mail, telefonów, stron www w opisie oferty pod rygorem bana)
+    res = brandResponsibleService.stripContactInfo(res);
 
     return res;
 };
@@ -402,8 +406,26 @@ class Orchestrator {
                 this.state.node_warnings['A0'] = `Błąd analizy wizualnej: ${vErr.message}`;
             }
 
+            const resolveResponsiblePerson = (extractedBrand, productName, descResult) => {
+                if (descResult && descResult.name && descResult.address_eu && descResult.contact) {
+                    return { source: 'description', data: descResult };
+                }
+                const matched = brandResponsibleService.findResponsibleEntity(extractedBrand, productName);
+                if (matched) {
+                    return { source: 'brand_registry', data: matched };
+                }
+                return {
+                    source: descResult?.raw_fragment ? 'description' : null,
+                    data: descResult || { name: null, address_eu: null, contact: null }
+                };
+            };
+
             const interimExtracted = baselinkerExtract.extractFromFeatures(product);
             const interimDesc = baselinkerExtract.extractResponsiblePersonFromDescription(product?.text_fields?.description);
+            const interimBrandName = interimExtracted.brand?.value || product?.brand?.name || '';
+            const productName = product?.text_fields?.name || '';
+            const interimEu = resolveResponsiblePerson(interimBrandName, productName, interimDesc);
+
             this.state.extracted_data = {
                 inci: interimExtracted.inci,
                 mpn: interimExtracted.mpn,
@@ -414,10 +436,7 @@ class Orchestrator {
                 line: interimExtracted.line,
                 truncated: interimExtracted.truncated,
                 recovered_keys: interimExtracted.recovered_keys,
-                eu_responsible_person: { 
-                    source: interimDesc.raw_fragment ? 'description' : null, 
-                    data: interimDesc 
-                },
+                eu_responsible_person: interimEu,
                 product_name: {
                     value: product?.text_fields?.name || null,
                     source: product?.text_fields?.name ? 'baselinker' : null,
@@ -429,8 +448,25 @@ class Orchestrator {
             this.emitState();
         }
 
+        const resolveResponsiblePerson = (extractedBrand, productName, descResult) => {
+            if (descResult && descResult.name && descResult.address_eu && descResult.contact) {
+                return { source: 'description', data: descResult };
+            }
+            const matched = brandResponsibleService.findResponsibleEntity(extractedBrand, productName);
+            if (matched) {
+                return { source: 'brand_registry', data: matched };
+            }
+            return {
+                source: descResult?.raw_fragment ? 'description' : null,
+                data: descResult || { name: null, address_eu: null, contact: null }
+            };
+        };
+
         const extracted = baselinkerExtract.extractFromFeatures(product);
         const descResult = baselinkerExtract.extractResponsiblePersonFromDescription(product?.text_fields?.description);
+        const brandName = extracted.brand?.value || product?.brand?.name || '';
+        const productName = product?.text_fields?.name || '';
+        const finalEu = resolveResponsiblePerson(brandName, productName, descResult);
         
         this.state.extracted_data = {
             inci: extracted.inci,
@@ -442,10 +478,7 @@ class Orchestrator {
             line: extracted.line,
             truncated: extracted.truncated,
             recovered_keys: extracted.recovered_keys,
-            eu_responsible_person: { 
-                source: descResult.raw_fragment ? 'description' : null, 
-                data: descResult 
-            },
+            eu_responsible_person: finalEu,
             product_name: {
                 value: product?.text_fields?.name || null,
                 source: product?.text_fields?.name ? 'baselinker' : null,
@@ -476,33 +509,36 @@ class Orchestrator {
         this.state.chemical_route = reasons.length > 0;
         // --- KONIEC TRASY ---
 
+        // Skonsolidowany obiekt cech produktu (PIM + product + vision features)
+        let featuresObj = {};
+        if (pimData && pimData.features && typeof pimData.features === 'object') Object.assign(featuresObj, pimData.features);
+        if (pimData && pimData['features|pl'] && typeof pimData['features|pl'] === 'object') Object.assign(featuresObj, pimData['features|pl']);
+        if (typeof pimData?.text_fields?.features === 'object' && pimData?.text_fields?.features !== null) {
+            Object.assign(featuresObj, pimData.text_fields.features);
+        } else if (typeof pimData?.text_fields?.features === 'string') {
+            try {
+                Object.assign(featuresObj, JSON.parse(pimData.text_fields.features));
+            } catch(e) {}
+        }
+        if (product?.text_fields?.features && typeof product.text_fields.features === 'object') {
+            Object.assign(featuresObj, product.text_fields.features);
+        }
+        if (this.state.vision_extracted_features && typeof this.state.vision_extracted_features === 'object') {
+            Object.assign(featuresObj, this.state.vision_extracted_features);
+        }
+
         const missingFields = [];
-        if (!this.state.extracted_data.brand.source) missingFields.push('brand');
-        if (!this.state.extracted_data.product_name.source) missingFields.push('product_name');
-        if (!this.state.extracted_data.line.source) missingFields.push('line');
-        missingFields.push('country_of_origin');
+        if (!this.state.extracted_data.brand.source && !product?.brand?.name && !featuresObj['Marka']) missingFields.push('brand');
+        if (!this.state.extracted_data.product_name.source && !product?.text_fields?.name) missingFields.push('product_name');
+        if (!this.state.extracted_data.line.source && !featuresObj['Linia']) missingFields.push('line');
+        const hasOrigin = featuresObj['Kraj pochodzenia'] || featuresObj['Kraj produkcji'] || featuresObj['country_of_origin'] || featuresObj['Kraj'] || this.state.extracted_data['Kraj pochodzenia']?.value;
+        if (!hasOrigin) missingFields.push('country_of_origin');
         if (!extracted?.inci?.value) missingFields.push('inci');
         if (!this.state.extracted_data.eu_responsible_person.source) missingFields.push('eu_responsible_person');
 
         // Dynamiczne wykrywanie brakujących parametrów Allegro
         if (pimData && pimData.allegro_schema) {
             const configExtract = require('./baselinker.extract.config.json');
-            let featuresObj = {};
-            if (pimData.features && typeof pimData.features === 'object') Object.assign(featuresObj, pimData.features);
-            if (pimData['features|pl'] && typeof pimData['features|pl'] === 'object') Object.assign(featuresObj, pimData['features|pl']);
-            if (typeof pimData.text_fields?.features === 'object' && pimData.text_fields?.features !== null) {
-                Object.assign(featuresObj, pimData.text_fields.features);
-            } else if (typeof pimData.text_fields?.features === 'string') {
-                try {
-                    Object.assign(featuresObj, JSON.parse(pimData.text_fields.features));
-                } catch(e) {}
-            }
-            if (product?.text_fields?.features && typeof product.text_fields.features === 'object') {
-                Object.assign(featuresObj, product.text_fields.features);
-            }
-            if (this.state.vision_extracted_features && typeof this.state.vision_extracted_features === 'object') {
-                Object.assign(featuresObj, this.state.vision_extracted_features);
-            }
 
             for (let param of pimData.allegro_schema) {
                 const nameKey = param.name;
@@ -795,6 +831,10 @@ class Orchestrator {
                         data: result.eu_responsible_person.value,
                         source: 'osint_a1'
                     };
+                    const activeBrand = extracted.brand?.value || product?.brand?.name || '';
+                    if (activeBrand) {
+                        brandResponsibleService.registerDiscoveredEntity(activeBrand, result.eu_responsible_person.value);
+                    }
                 }
                 
                 if (result.logistics && result.logistics.value && typeof result.logistics.value === 'object') {
@@ -1565,7 +1605,7 @@ class Orchestrator {
                 // a nie samą nazwę podmiotu.
                 const euData = this.state.extracted_data.eu_responsible_person?.data;
                 if (euData && euData.name && euData.address_eu && result.section_6_html) {
-                    const fullEuString = `${euData.name}, ${euData.address_eu}`;
+                    const fullEuString = brandResponsibleService.formatForHtmlDescription(euData);
                     const euPattern = /(<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*<b>\s*Podmiot odpowiedzialny w UE:?\s*<\/b>\s*)(.*?)(<\/li>)/i;
                     if (euPattern.test(result.section_6_html)) {
                         result.section_6_html = result.section_6_html.replace(euPattern, (match, prefix, content, suffix) => {

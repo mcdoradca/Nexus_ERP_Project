@@ -1,0 +1,130 @@
+{
+  "entities": {
+    "paglieri": {
+      "name": "Paglieri S.p.A.",
+      "address_eu": "S.S. per Genova Km 98, 15122 Alessandria, Włochy",
+      "contact": "info@paglieri.it",
+      "brands": ["felce azzurra", "mon amour", "il bianco", "cleo", "labrosan", "saponello"]
+    },
+    "mil_mil_76": {
+      "name": "MIL MIL 76 S.p.A.",
+      "address_eu": "Via Sciarei 8, 28064 Landiona (NO), Włochy",
+      "contact": "info@milmil.it",
+      "brands": ["mil mil", "mil", "delice", "delice solaire", "figaro", "perla", "mill", "mill mill", "milmil professional"]
+    },
+    "sodalis_conter": {
+      "name": "Conter S.r.l.",
+      "address_eu": "Viale Europa 12, 26855 Lodi Vecchio (LO), Włochy",
+      "contact": "info@sodalisgroup.com",
+      "brands": ["tesori d'oriente", "tesori doriente", "vidal", "leonsis", "denim"]
+    },
+    "real_chimica": {
+      "name": "REAL CHIMICA S.R.L.",
+      "address_eu": "Via Monte Santo 37, 20831 Seregno (MB), Włochy",
+      "contact": "info@realchimica.it",
+      "brands": ["chante clair", "chanteclair", "quasar", "vert"]
+    },
+    "italchimica": {
+      "name": "Italchimica S.r.l.",
+      "address_eu": "Riviera Maestri del Lavoro 10, 35127 Padova (PD), Włochy",
+      "contact": "info@italchimica.it",
+      "brands": ["dual power", "dermomed", "sanitec"]
+    },
+    "athenas": {
+      "name": "Athena's S.r.l.",
+      "address_eu": "Via del Lavoro 32, 40065 Pianoro (BO), Włochy",
+      "contact": "info@athenas.it",
+      "brands": ["l'erboristica", "l' erboristica di athena's", "lerboristica", "athena's"]
+    },
+    "equilibra": {
+      "name": "Equilibra S.r.l.",
+      "address_eu": "Via Plava 74, 10135 Torino (TO), Włochy",
+      "contact": "info@equilibra.it",
+      "brands": ["equilibra"]
+    },
+    "suarez_company": {
+      "name": "Suarez Company S.r.l.",
+      "address_eu": "Via Don Minzoni 13, 20020 Vanzaghello (MI), Włochy",
+      "contact": "info@suarezcompany.it",
+      "brands": ["suarez sweet home", "sweet home", "sweet home collection", "marki suarez", "sweet", "suarez"]
+    },
+    "unilever": {
+      "name": "Unilever Europe B.V.",
+      "address_eu": "Weena 455, 3013 AL Rotterdam, Holandia",
+      "contact": "consumer-service.nl@unilever.com",
+      "brands": ["cif", "cif professional", "coccolino", "dove", "rexona", "domestos", "unilever"]
+    },
+    "procter_gamble": {
+      "name": "Procter & Gamble DS Polska Sp. z o.o.",
+      "address_eu": "ul. Zabraniecka 20, 03-872 Warszawa, Polska",
+      "contact": "konsument.pg@pg.com",
+      "brands": ["viakal", "fairy", "ariel", "lenor", "pampers", "gillette"]
+    },
+    "loreal": {
+      "name": "L'Oréal Polska Sp. z o.o.",
+      "address_eu": "ul. Grzybowska 62, 00-844 Warszawa, Polska",
+      "contact": "infolinia@loreal.com",
+      "brands": ["l'oreal", "loreal", "cerave", "garnier", "maybelline", "la roche-posay"]
+    },
+    "bolton_manitoba": {
+      "name": "Bolton Manitoba S.p.A.",
+      "address_eu": "Via Pirelli 19, 20124 Milano (MI), Włochy",
+      "contact": "bolton@boltonmanitoba.it",
+      "brands": ["omino bianco", "wc net", "smac", "borotalco"]
+    },
+    "biochimica": {
+      "name": "Biochimica S.p.A.",
+      "address_eu": "Via Roma 49, 40050 Castello d'Argile (BO), Włochy",
+      "contact": "info@biochimicaspa.it",
+      "brands": ["bio form", "bioform", "limonnello", "scansafatiche", "soft"]
+    },
+    "colgate_palmolive": {
+      "name": "Colgate-Palmolive (Poland) Sp. z o.o.",
+      "address_eu": "ul. Wybrzeże Gdyńskie 6D, 01-531 Warszawa, Polska",
+      "contact": "konsument@colpal.com",
+      "brands": ["fabuloso", "ajax", "palmolive", "colgate"]
+    },
+    "reckitt_benckiser": {
+      "name": "Reckitt Benckiser (Poland) S.A.",
+      "address_eu": "ul. Okunin 1, 05-100 Nowy Dwór Mazowiecki, Polska",
+      "contact": "consumer.relations-pl@reckitt.com",
+      "brands": ["sole", "calgon", "finish", "vanish", "woolite", "dettol"]
+    },
+    "drammock": {
+      "name": "Drammock International Ltd (EU Rep: CE.way Regulatory)",
+      "address_eu": "Kunaverjeva ulica 9, 1000 Ljubljana, Słowenia",
+      "contact": "info@ceway.eu",
+      "brands": ["beauty formulas"]
+    },
+    "trimay_eu": {
+      "name": "Trimay Europe S.r.o.",
+      "address_eu": "Vodičkova 791/41, 110 00 Praha 1, Czechy",
+      "contact": "info@trimay.eu",
+      "brands": ["trimay"]
+    },
+    "vitanativ_hsa": {
+      "name": "H.S.A. S.p.A.",
+      "address_eu": "Via dei Ponti 25, 21050 Bisuschio (VA), Włochy",
+      "contact": "info@hsacosmetics.com",
+      "brands": ["vitanativ"]
+    },
+    "giardino_dei_sensi": {
+      "name": "Linea Erre S.r.l.",
+      "address_eu": "Via Fratelli Cervi 2, 20090 Trezzano sul Naviglio (MI), Włochy",
+      "contact": "info@lineaerre.it",
+      "brands": ["giardino dei sensi"]
+    },
+    "eloderma": {
+      "name": "Union Cosmetics S.r.l.",
+      "address_eu": "Via dell'Industria 15, 37047 San Bonifacio (VR), Włochy",
+      "contact": "info@unioncosmetics.it",
+      "brands": ["eloderma"]
+    },
+    "spic_and_span": {
+      "name": "Prestige Brands Europe B.V.",
+      "address_eu": "Keizersgracht 484, 1016 EH Amsterdam, Holandia",
+      "contact": "info@prestigebrands.com",
+      "brands": ["spic&span", "spic and span"]
+    }
+  }
+}
