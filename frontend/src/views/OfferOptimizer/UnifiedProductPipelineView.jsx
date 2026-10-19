@@ -10,7 +10,7 @@ import { describeBaselinkerError, describeAutofillError } from '../../utils';
 import { 
   Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp, Search,
   Hash, CloudLightning, Loader2, Package, Image, PlayCircle, FileText, CheckCircle2, Zap,
-  Target, DollarSign, Plus, Trash2, Cloud, ChevronLeft, ChevronRight, AlertTriangle
+  Target, DollarSign, Plus, Trash2, Cloud, ChevronLeft, ChevronRight, AlertTriangle, Sparkles
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
@@ -130,8 +130,14 @@ export const UnifiedProductPipelineView = ({
     const [liveTitle, setLiveTitle] = useState("");
     const [liveEan, setLiveEan] = useState("");
     const [editorHtml, setEditorHtml] = useState({ sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę." });
-    const [editorKey, setEditorKey] = useState(0); 
-    const [visionTickets, setVisionTickets] = useState([]);
+    const [visionTickets, setVisionTickets] = useState(() => [
+        { originalUrl: '', alerts: ["Wymagany nowy packshot wysokiej jakości"], isCompliant: false, replacedUrl: null },
+        { originalUrl: 'Wymagane nowe zdjęcie (nr 2)', alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null },
+        { originalUrl: 'Wymagane nowe zdjęcie (nr 3)', alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null },
+        { originalUrl: 'Wymagane nowe zdjęcie (nr 4)', alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null },
+        { originalUrl: 'Wymagane nowe zdjęcie (nr 5)', alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null },
+        { originalUrl: 'Wymagane nowe zdjęcie (nr 6)', alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null }
+    ]);
     const [viewingImageUrl, setViewingImageUrl] = useState(null);
     const [generatingSlots, setGeneratingSlots] = useState({});
     const [slotTrendReports, setSlotTrendReports] = useState({});
@@ -241,6 +247,15 @@ export const UnifiedProductPipelineView = ({
                           ]
                         : fallbackImages.map(img => ({ originalUrl: img }));
 
+                    while (fallbackTickets.length < 6) {
+                        fallbackTickets.push({
+                            originalUrl: `Wymagane nowe zdjęcie (nr ${fallbackTickets.length + 1})`,
+                            alerts: ["Pusty slot"],
+                            isCompliant: false,
+                            replacedUrl: null
+                        });
+                    }
+
                     // TYLKO JEŚLI NIE MA DRAFTU W LOKALNEJ PAMIĘCI - NADPISUJEMY STAN BAZĄ
                     if (!hasDraft) {
                         setNewProductForm({ ...p, bdoEprCost: parseFloat(calcBdo.toFixed(4)) });
@@ -252,7 +267,15 @@ export const UnifiedProductPipelineView = ({
                                 ...(p.offerDraft.htmlContent || {}),
                                 sekcja7: (p.offerDraft.htmlContent && p.offerDraft.htmlContent.sekcja7 !== undefined) ? p.offerDraft.htmlContent.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę."
                             });
-                            const draftTickets = p.offerDraft.visionTickets || p.offerDraft.images || [];
+                            const draftTickets = [...(p.offerDraft.visionTickets || p.offerDraft.images || [])];
+                            while (draftTickets.length < 6) {
+                                draftTickets.push({
+                                    originalUrl: `Wymagane nowe zdjęcie (nr ${draftTickets.length + 1})`,
+                                    alerts: ["Pusty slot"],
+                                    isCompliant: false,
+                                    replacedUrl: null
+                                });
+                            }
                             setVisionTickets(draftTickets.length > 0 ? draftTickets : fallbackTickets);
                         } else {
                             setLiveTitle(p.name || "");
@@ -325,11 +348,14 @@ export const UnifiedProductPipelineView = ({
         }
     }, [newProductForm?.allegroCategoryId, token]);
 
+    // Jednolite źródło prawdy dla EAN produktu w całym widoku
+    const effectiveEan = (newProductForm?.ean ? String(newProductForm.ean).trim() : '') || (liveEan ? String(liveEan).trim() : '');
+
     // WebSocket listener for EAN Pipeline progress
     useEffect(() => {
         if (!socket) return;
         const handler = (data) => {
-            if (data.ean && String(data.ean) !== String(liveEan).trim()) return;
+            if (data.ean && effectiveEan && String(data.ean) !== String(effectiveEan).trim()) return;
 
             if (data.type === 'PIPELINE_COMPLETE') {
                 setPipelineStatus('SUCCESS');
@@ -341,11 +367,35 @@ export const UnifiedProductPipelineView = ({
                     setLiveTitle(data.result.title || "");
                     if (data.result.visionTickets && data.result.visionTickets.length > 0) {
                         setVisionTickets(prev => {
-                            const current = Array.isArray(prev) ? prev : [];
-                            return data.result.visionTickets.map((t, idx) => ({
-                                ...t,
-                                replacedUrl: current[idx]?.replacedUrl || t.replacedUrl
-                            }));
+                            const current = Array.isArray(prev) ? [...prev] : [];
+                            const incoming = data.result.visionTickets;
+                            const maxLen = Math.max(current.length, incoming.length, 6);
+                            const merged = [];
+                            for (let i = 0; i < maxLen; i++) {
+                                const curr = current[i];
+                                const inc = incoming[i];
+                                // ZACHOWANIE 1: Jeśli slot posiada wygenerowane/zamienione zdjęcie (replacedUrl), nigdy go nie niszczymy
+                                if (curr && curr.replacedUrl) {
+                                    merged.push({
+                                        ...(inc || {}),
+                                        ...curr,
+                                        replacedUrl: curr.replacedUrl,
+                                        isCompliant: true,
+                                        alerts: []
+                                    });
+                                } else if (curr && (generatingSlots[i] || curr.originalUrl?.includes('Sceneria AI') || curr.alerts?.some(a => a.includes('generowanie')))) {
+                                    // ZACHOWANIE 2: Slot jest aktywnie generowany przez proces wieloslotowy AI w tle
+                                    merged.push(curr);
+                                } else if (inc) {
+                                    // ZACHOWANIE 3: Dane przychodzące z potoku
+                                    merged.push(inc);
+                                } else if (curr) {
+                                    merged.push(curr);
+                                } else {
+                                    merged.push({ originalUrl: `Slot #${i + 1}`, alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null });
+                                }
+                            }
+                            return merged;
                         });
                     }
                     setNewProductForm(prev => ({
@@ -414,7 +464,7 @@ export const UnifiedProductPipelineView = ({
         };
         socket.on('nexus-notification', handler);
         return () => socket.off('nexus-notification', handler);
-    }, [socket, liveEan]);
+    }, [socket, effectiveEan, generatingSlots]);
 
     // Handle Create Product
     const handleCreateProduct = async (e) => {
@@ -452,13 +502,14 @@ export const UnifiedProductPipelineView = ({
 
     // Trigger Supervisor Pipeline
     const handleRegenerateTitle = async () => {
-        if (!liveEan || isRegeneratingTitle) return;
+        const targetEan = effectiveEan;
+        if (!targetEan || isRegeneratingTitle) return;
         setIsRegeneratingTitle(true);
         try {
             const res = await fetch(`${API_URL}/api/offer-optimizer/regenerate-title`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ ean: liveEan, currentTitle: liveTitle })
+                body: JSON.stringify({ ean: targetEan, currentTitle: liveTitle })
             });
             const data = await res.json();
             if (res.ok && data.title) {
@@ -581,6 +632,11 @@ export const UnifiedProductPipelineView = ({
                 return;
             }
 
+            // Synchronizacja wgranego packshotu do formularza PIM przed trwałym zapisem
+            if (primaryImgCandidate && newProductForm.imageUrl !== primaryImgCandidate) {
+                newProductForm.imageUrl = primaryImgCandidate;
+            }
+
             // Najpierw zapisujemy formularz PIM
             const savedProd = await handleCreateProduct();
             if (!savedProd || !savedProd.ean) {
@@ -666,7 +722,7 @@ export const UnifiedProductPipelineView = ({
             };
             
             await axios.post(`${API_URL}/api/offer-optimizer/save-draft`, {
-                ean: liveEan,
+                ean: effectiveEan || liveEan,
                 draftData
             }, { headers: { Authorization: `Bearer ${token}` } });
             
@@ -689,7 +745,7 @@ export const UnifiedProductPipelineView = ({
                 images: visionTickets
             };
             const res = await axios.post(`${API_URL}/api/offer-optimizer/validate-baselinker-export`, {
-                ean: liveEan,
+                ean: effectiveEan || liveEan,
                 draftData
             }, { headers: { Authorization: `Bearer ${token}` } });
             
@@ -714,7 +770,7 @@ export const UnifiedProductPipelineView = ({
                 agentPayload: exportValidationResult ? exportValidationResult.agentPayload : null
             };
             const res = await axios.post(`${API_URL}/api/offer-optimizer/export-baselinker`, {
-                ean: liveEan,
+                ean: effectiveEan || liveEan,
                 draftData,
                 exportToken: exportValidationResult ? exportValidationResult.exportToken : null
             }, { headers: { Authorization: `Bearer ${token}` } });
@@ -819,6 +875,7 @@ export const UnifiedProductPipelineView = ({
                 stockWmsUnits: stockWmsUnits !== undefined ? stockWmsUnits : prev.stockWmsUnits,
                 allegroCategoryId: allegroCategoryId || prev.allegroCategoryId
             }));
+            setLiveEan(newProductForm.ean);
 
             // Logika biletów wizualnych dla Slotu 1:
             // Jeśli pobrano <= 5 zdjęć: Slot 1 czeka na ręczny upload wysokiej jakości packshotu przez operatora.
@@ -917,6 +974,31 @@ export const UnifiedProductPipelineView = ({
                 </div>
             </div>
 
+            {/* Baner równoległego generowania scenerii AI */}
+            {Object.values(generatingSlots).filter(Boolean).length > 0 && (
+                <div className="bg-indigo-950/90 border border-indigo-500/50 rounded-lg p-3 px-4 mb-4 flex items-center justify-between shrink-0 shadow-lg shadow-indigo-950/50">
+                    <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin flex items-center justify-center">
+                            <Sparkles className="w-4 h-4 text-indigo-400" />
+                        </div>
+                        <div>
+                            <div className="text-xs font-black text-white uppercase tracking-wider flex items-center">
+                                <span>Równoległe generowanie scenerii lifestyle AI</span>
+                                <span className="ml-2 bg-indigo-500/30 text-indigo-300 text-[10px] px-2 py-0.5 rounded border border-indigo-400/30">
+                                    Sloty: {Object.entries(generatingSlots).filter(([_, v]) => v).map(([k]) => `#${Number(k) + 1}`).join(', ')}
+                                </span>
+                            </div>
+                            <div className="text-[10px] text-indigo-300">
+                                Photoroom AI generuje fotorealistyczne otoczenie produktowe równolegle z potokiem EAN Pipeline.
+                            </div>
+                        </div>
+                    </div>
+                    <div className="text-[10px] font-mono font-bold text-indigo-300 bg-indigo-900/60 px-3 py-1 rounded border border-indigo-700/50 flex items-center">
+                        <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin text-indigo-400" />
+                        Przetwarzanie w toku ({Object.values(generatingSlots).filter(Boolean).length})
+                    </div>
+                </div>
+            )}
             
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-10 pb-32">
                 
@@ -1051,7 +1133,7 @@ export const UnifiedProductPipelineView = ({
                                     <div className="grid grid-cols-1 gap-6 flex-grow content-start">
                                         {visionTickets && visionTickets.length > 0 ? visionTickets.map((ticket, i) => (
                                             <PhotographicAuditorCard 
-                                                key={i} index={i} ean={liveEan} imageObj={ticket} primaryImageObj={visionTickets[0]}
+                                                key={i} index={i} ean={effectiveEan} imageObj={ticket} primaryImageObj={visionTickets[0]}
                                                 socket={socket}
                                                 isExternalGenerating={Boolean(generatingSlots[i])}
                                                 externalTrendReport={slotTrendReports[i] || null}
@@ -1062,6 +1144,13 @@ export const UnifiedProductPipelineView = ({
                                                         updated[i] = { ...updated[i], replacedUrl: newUrl, isCompliant: true, alerts: [] };
                                                         return updated;
                                                     });
+                                                    // Synchronizacja wgranego packshotu ze Slotu 1 do formularza PIM
+                                                    if (i === 0 && newUrl) {
+                                                        setNewProductForm(prev => ({
+                                                            ...prev,
+                                                            imageUrl: newUrl
+                                                        }));
+                                                    }
                                                 }} 
                                                 onImageDelete={() => {
                                                     setVisionTickets(prev => {
@@ -1069,6 +1158,13 @@ export const UnifiedProductPipelineView = ({
                                                         updated[i] = { originalUrl: `Wymagane nowe zdjęcie (nr ${i + 1})`, alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null };
                                                         return updated;
                                                     });
+                                                    // Wyczyszczenie miniatury PIM po usunięciu packshotu ze Slotu 1
+                                                    if (i === 0) {
+                                                        setNewProductForm(prev => ({
+                                                            ...prev,
+                                                            imageUrl: ''
+                                                        }));
+                                                    }
                                                 }}
                                                 onView={(url) => setViewingImageUrl(url)}
                                             />
@@ -1180,7 +1276,17 @@ export const UnifiedProductPipelineView = ({
                                            <div className="flex-1 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-sm flex flex-col justify-center">
                                               <label className="text-[10px] font-black text-indigo-800 uppercase tracking-widest mb-3 flex items-center"><CloudLightning className="w-4 h-4 mr-2"/> Automatyka Globalnej Sieci (EAN)</label>
                                               <div className="flex space-x-4 items-end">
-                                                <input type="text" placeholder="Zeskanuj kod kreskowy tu..." className="flex-1 px-4 py-3 bg-white border border-blue-200 rounded-sm text-sm font-bold text-slate-800 focus:border-indigo-500 outline-none font-mono tracking-widest shadow-inner" value={newProductForm.ean} onChange={e => setNewProductForm({...newProductForm, ean: e.target.value})} />
+                                                <input 
+                                                  type="text" 
+                                                  placeholder="Zeskanuj kod kreskowy tu..." 
+                                                  className="flex-1 px-4 py-3 bg-white border border-blue-200 rounded-sm text-sm font-bold text-slate-800 focus:border-indigo-500 outline-none font-mono tracking-widest shadow-inner" 
+                                                  value={newProductForm.ean} 
+                                                  onChange={e => {
+                                                    const val = e.target.value;
+                                                    setNewProductForm(prev => ({ ...prev, ean: val }));
+                                                    setLiveEan(val);
+                                                  }} 
+                                                />
                                                 <button type="button" onClick={handleAutofillEAN} disabled={autofillEanLoading} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest rounded-sm shadow-md transition-all flex items-center shrink-0">
                                                   {autofillEanLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Search className="w-4 h-4 mr-2"/> } {autofillEanLoading ? 'Szukam...' : 'Interpoluj EAN'}
                                                 </button>

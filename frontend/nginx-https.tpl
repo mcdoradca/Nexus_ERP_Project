@@ -78,9 +78,17 @@ server {
         proxy_send_timeout 86400s;
     }
 
-    # Wszystkie zapytania kierujemy na index.html (konieczne dla SPA)
+    # Cache dla zasobów statycznych z hashem (Vite assets)
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # Wszystkie zapytania kierujemy na index.html (konieczne dla SPA) - tarcza anty-cache dla index.html
     location / {
         try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
+        expires -1;
     }
 
     # Blokada dostępu do ukrytych plików

@@ -35,7 +35,12 @@ export const PhotographicAuditorCard = ({
     React.useEffect(() => {
         if (!socket) return;
         const handler = (data) => {
-            if (data.type === 'LIFESTYLE_LOG' && String(data.ean) === String(ean)) {
+            if (data.type === 'LIFESTYLE_LOG') {
+                const logEan = data.ean ? String(data.ean).trim() : '';
+                const myEan = ean ? String(ean).trim() : '';
+                if (myEan && logEan && logEan !== myEan) {
+                    return;
+                }
                 // Filtrowanie logów dedykowanych dla konkretnego slotu (jeśli backend przekazał imageIndex)
                 if (data.imageIndex !== undefined && Number(data.imageIndex) !== Number(index)) {
                     return;
@@ -62,7 +67,8 @@ export const PhotographicAuditorCard = ({
     );
 
     const handleGenerateLifestyle = async () => {
-        if (!ean) {
+        const targetEan = ean || (primaryImageObj && primaryImageObj.ean) || '';
+        if (!targetEan) {
             alert("Brak kodu EAN niezbędnego do pobrania miniatury i wygenerowania lifestylu.");
             return;
         }
@@ -70,7 +76,7 @@ export const PhotographicAuditorCard = ({
         setAiLogs([]);
         try {
             const result = await requestLifestyleGeneration({
-                ean,
+                ean: targetEan,
                 imageIndex: index,
                 primaryImageObj,
                 token
@@ -149,15 +155,25 @@ export const PhotographicAuditorCard = ({
     }, [imageObj.originalUrl]);
 
     return (
-        <div className={`flex flex-col bg-slate-50 border rounded-sm overflow-hidden shadow-sm transition-all relative ${isFixed ? 'border-emerald-300' : 'border-slate-400'}`}>
+        <div className={`flex flex-col bg-slate-50 border rounded-sm overflow-hidden shadow-sm transition-all relative ${isGenerating ? 'border-indigo-500 ring-2 ring-indigo-500/30' : (isFixed ? 'border-emerald-300' : 'border-slate-400')}`}>
             
             {/* Nagłówek Biletu */}
-            <div className={`px-4 py-2 border-b text-[10px] uppercase font-black tracking-widest flex items-center justify-between ${isFixed ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : (imageObj.isCompliant ? 'bg-slate-100 text-slate-500 border-slate-400' : 'bg-rose-50 text-rose-600 border-rose-200')}`}>
+            <div className={`px-4 py-2 border-b text-[10px] uppercase font-black tracking-widest flex items-center justify-between transition-colors ${
+                isGenerating 
+                    ? 'bg-indigo-900/80 border-indigo-500 text-indigo-200 animate-pulse'
+                    : isFixed 
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700' 
+                        : (imageObj.isCompliant ? 'bg-slate-100 text-slate-500 border-slate-400' : 'bg-rose-50 text-rose-600 border-rose-200')
+            }`}>
                 <span className="flex items-center">
                     <Camera className="w-3 h-3 mr-2" />
                     Slot Zdjęcia #{index + 1}
                 </span>
-                {isFixed ? (
+                {isGenerating ? (
+                    <span className="flex items-center font-bold text-indigo-300">
+                        <RefreshCw className="w-3 h-3 mr-1.5 animate-spin text-indigo-400" /> Generowanie AI w toku...
+                    </span>
+                ) : isFixed ? (
                     <span className="flex items-center font-bold text-indigo-600">
                         <Sparkles className="w-3 h-3 mr-1 text-indigo-500" /> AI Generated (EU AI Act Art. 50)
                     </span>
@@ -200,7 +216,7 @@ export const PhotographicAuditorCard = ({
                              </div>
                          )}
                          <div className="relative z-10 flex flex-col items-center text-center p-4">
-                             {isMissingPhotosAlert && (
+                             {isMissingPhotosAlert ? (
                                  <>
                                      <span className="text-[10px] font-bold text-slate-500 leading-relaxed max-w-[90%] mb-4">
                                          {typeof imageObj.originalUrl === 'object' ? (imageObj.originalUrl.human_readable_description || JSON.stringify(imageObj.originalUrl)) : (imageObj.originalUrl || "Wymagane nowe zdjęcie")}
@@ -230,6 +246,18 @@ export const PhotographicAuditorCard = ({
                                          Dodaj własne zdjęcie
                                      </button>
                                  </>
+                             ) : (
+                                 /* Opcja regeneracji dla slotu posiadającego już zdjęcie */
+                                 index !== 0 && !isGenerating && (
+                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/80 p-3 rounded backdrop-blur-sm flex flex-col items-center space-y-2">
+                                         <button 
+                                             onClick={handleGenerateLifestyle}
+                                             className="flex items-center bg-indigo-600 text-white font-bold px-3 py-1.5 rounded text-[10px] hover:bg-indigo-500 shadow uppercase tracking-wider"
+                                         >
+                                             <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Przegeneruj na Scenerię AI
+                                         </button>
+                                     </div>
+                                 )
                              )}
                          </div>
                      </div>
@@ -237,7 +265,23 @@ export const PhotographicAuditorCard = ({
                      <img src={imageObj.replacedUrl || undefined} alt="Poprawione zdjęcie" className="w-full h-full absolute inset-0 object-contain bg-slate-100 transition-transform group-hover:scale-105 z-0" />
                  )}
                  
-                 {/* Nakładka Dropzone Aktywna na Hover lub Drug (Zawsze aktywna w kodzie by łapać styl po dragu na rodzicu) */}
+                 {/* Prominentna Nakładka Aktywnego Generowania AI */}
+                 {isGenerating && (
+                     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4 text-center">
+                         <div className="relative mb-3">
+                             <div className="w-12 h-12 rounded-full border-4 border-indigo-500/30 border-t-indigo-400 animate-spin flex items-center justify-center"></div>
+                             <Sparkles className="w-5 h-5 text-indigo-400 absolute inset-0 m-auto animate-pulse" />
+                         </div>
+                         <span className="text-white text-xs font-black uppercase tracking-widest mb-1">
+                             Tworzenie Scenerii AI
+                         </span>
+                         <span className="text-[10px] text-indigo-300 font-medium leading-relaxed max-w-[85%]">
+                             Photoroom AI generuje fotorealistyczne otoczenie dla Slotu #{index + 1}...
+                         </span>
+                     </div>
+                 )}
+
+                 {/* Nakładka Dropzone Aktywna na Hover lub Drag */}
                  <div 
                      className={`absolute inset-0 z-10 transition-all flex flex-col items-center justify-center backdrop-blur-sm pointer-events-none
                          ${isDragging ? 'bg-indigo-500/40 opacity-100 ring-4 ring-inset ring-indigo-400' : 'opacity-0'}
