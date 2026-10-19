@@ -426,6 +426,51 @@ class Orchestrator {
             const productName = product?.text_fields?.name || '';
             const interimEu = resolveResponsiblePerson(interimBrandName, productName, interimDesc);
 
+            // --- BACK-OF-PACK VISION INCI OCR ---
+            // Jeśli w PIM brakuje poprawnego składu INCI, a dysponujemy zdjęciami produktu,
+            // Gemini 3.8 Flash Vision skanuje etykietę w poszukiwaniu składu w 3 sekundy.
+            if ((!interimExtracted.inci?.value || !baselinkerExtract.isValidInciValue(interimExtracted.inci.value)) && candidateImages.length > 0) {
+                try {
+                    console.log(`[Orchestrator V2] Brak składu INCI w PIM. Uruchamianie Agenta 0 (Vision Back-of-Pack OCR) na ${candidateImages.length} zdjęciach...`);
+                    const visionInciRes = await visionExtractorService.extractInciFromBackPack(
+                        candidateImages,
+                        this.gtin,
+                        (msg) => console.log(msg)
+                    );
+
+                    if (visionInciRes && visionInciRes.found && visionInciRes.inci) {
+                        const vInci = visionInciRes.inci;
+                        console.log(`[Orchestrator V2] Vision Extractor pomyślnie odczytał skład ze zdjęcia: ${vInci.substring(0, 80)}...`);
+                        
+                        if (!product) product = { text_fields: {} };
+                        if (!product.text_fields) product.text_fields = {};
+                        const updatedFeatures = { ...(product.text_fields.features || {}) };
+                        updatedFeatures['INCI'] = vInci;
+                        updatedFeatures['Skład'] = vInci;
+                        product.text_fields.features = updatedFeatures;
+
+                        if (pimData) {
+                            pimData.features = { ...(pimData.features || {}), ...updatedFeatures };
+                            if (pimData.text_fields) pimData.text_fields.features = updatedFeatures;
+                        }
+
+                        try {
+                            await prisma.product.update({
+                                where: { ean: this.gtin },
+                                data: { features: updatedFeatures }
+                            });
+                            console.log(`[Orchestrator V2] Zapisano odczytany ze zdjęcia skład INCI do bazy PIM (Prisma).`);
+                        } catch (dbErr) {
+                            console.warn(`[Orchestrator V2] Ostrzeżenie zapisu INCI do bazy PIM: ${dbErr.message}`);
+                        }
+
+                        interimExtracted.inci = { value: vInci, source: 'vision_packshot', matched_key: 'INCI' };
+                    }
+                } catch (vInciErr) {
+                    console.warn(`[Orchestrator V2] Błąd skanowania Vision Back-of-Pack INCI: ${vInciErr.message}`);
+                }
+            }
+
             this.state.extracted_data = {
                 inci: interimExtracted.inci,
                 mpn: interimExtracted.mpn,
@@ -940,14 +985,45 @@ class Orchestrator {
                                     let union = new Set([...wordsI, ...wordsJ]);
                                     let sim = intersection.size / (union.size || 1);
                                     
-                                    // Rygorystyczny match dla Spójnej Pary INCI: 0.85 (85% powtarzalności)
-                                    if (sim >= 0.85) { 
+                                    // Uelastyczniony próg konsensusu: 0.65 (65% powtarzalności)
+                                    // Pokrywa synonimy (np. optical brightener vs fluorescent brightener) oraz drobne reformulacje
+                                    if (sim >= 0.65) { 
                                         selectedInci = candidates[i].length > candidates[j].length ? candidates[i] : candidates[j];
                                         foundMatch = true;
+                                        console.log(`[Orchestrator V2] Znaleziono spójną parę INCI (podobieństwo: ${(sim * 100).toFixed(1)}%). Akceptacja dłuższego wariantu.`);
                                         break;
                                     }
                                 }
                                 if (foundMatch) break;
+                            }
+
+                            // Fallback gdy żaden match nie przekroczył 0.65, ale kandydaci są poprawnymi składami
+                            if (!foundMatch) {
+                                const validCandidates = candidates.filter(c => 
+                                    baselinkerExtract.isValidInciValue(c) && 
+                                    !hasBannedLilial(c) && 
+                                    ((c.match(/,/g) || []).length + 1) >= 4
+                                );
+
+                                if (validCandidates.length >= 2) {
+                                    for (let i = 0; i < validCandidates.length; i++) {
+                                        const wordsI = getWords(validCandidates[i]);
+                                        for (let j = i + 1; j < validCandidates.length; j++) {
+                                            const wordsJ = getWords(validCandidates[j]);
+                                            let intersection = new Set([...wordsI].filter(x => wordsJ.has(x)));
+                                            let union = new Set([...wordsI, ...wordsJ]);
+                                            let sim = intersection.size / (union.size || 1);
+                                            
+                                            if (sim >= 0.45) {
+                                                selectedInci = validCandidates[i].length > validCandidates[j].length ? validCandidates[i] : validCandidates[j];
+                                                foundMatch = true;
+                                                console.log(`[Orchestrator V2] Wykryto warianty składu z tego samego produktu (podobieństwo: ${(sim * 100).toFixed(1)}%). Akceptacja bezpiecznego, pełniejszego wariantu bez blokowania potoku.`);
+                                                break;
+                                            }
+                                        }
+                                        if (foundMatch) break;
+                                    }
+                                }
                             }
                         } else if (candidates.length === 1) {
                             // Pojedynczy, ale kompletny skład z zaufanego źródła

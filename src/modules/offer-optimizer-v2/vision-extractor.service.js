@@ -1,6 +1,7 @@
 const axios = require('axios');
 const https = require('https');
 const aiWrapper = require('./ai.wrapper.js');
+const baselinkerExtract = require('./baselinker.extract.js');
 
 const imageHttpsAgent = new https.Agent({ 
     rejectUnauthorized: false,
@@ -266,7 +267,108 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
     }
 }
 
+const BACK_PACK_INCI_PROMPT = `Jesteś analitykiem etykiet produktów konsumenckich i przemysłowych (kosmetyki, chemia gospodarcza, detergenty, artykuły gospodarstwa domowego).
+Twoim jedynym zadaniem jest zbadanie przesłanego zdjęcia i sprawdzenie, czy widoczna jest na nim etykieta ze składem surowcowym/chemicznym produktu (INCI, Ingredients, Skład, Składniki, Composizione chimica, Inhaltsstoffe, Composition, Ingredients list).
+
+ZASADY ANALIZY:
+1. JEŚLI NA ZDJĘCIU NIE MA ETYKIETY ZE SKŁADEM (jest to front opakowania, wizualizacja marketingowa, korek, piktogramy bezpieczeństwa bez listy składników, lub tekst jest całkowicie nieczytelny):
+   - Ustaw: "has_ingredients_label": false
+   - Ustaw: "inci": null
+   - Ustaw: "raw_composition_text": null
+
+2. JEŚLI NA ZDJĘCIU JEST WIDOCZNA ETYKIETA ZE SKŁADEM (kosmetyczne INCI lub skład chemiczny detergentu wg rozporządzenia WE 648/2004 lub substancje CLP):
+   - Ustaw: "has_ingredients_label": true
+   - W polu "raw_composition_text" przepisz dosłowny odczytany tekst składu z etykiety.
+   - W polu "inci" zwróć skład znormalizowany jako listę składników oddzielonych przecinkami, WIELKIMI LITERAMI (np. "AQUA, HYDROGEN PEROXIDE, ALCOHOLS, C12-18, ETHOXYLATED, SODIUM DODECYLBENZENESULFONATE, COCO-BETAINE, PARFUM").
+   - Jeśli na etykiecie występują nazwy chemiczne w języku włoskim, francuskim, niemieckim lub polskim (np. "Alcoli, C12-18, etossilati; Perossido di idrogeno sol. al 35%; Acido benzensulfonico..."):
+     dokonaj ich precyzyjnej transkrypcji na standardową nomenklaturę chemiczną / INCI (np. "ALCOHOLS, C12-18, ETHOXYLATED, HYDROGEN PEROXIDE, SODIUM DODECYLBENZENESULFONATE, COCO-BETAINE").
+
+KATEGORYCZNY ZAKAZ ZGADYWANIA. Jeśli tekst jest nieczytelny lub go brak, ustaw has_ingredients_label: false.`;
+
+const backPackInciSchema = {
+    type: "object",
+    properties: {
+        has_ingredients_label: { type: "boolean" },
+        inci: { type: ["string", "null"] },
+        raw_composition_text: { type: ["string", "null"] }
+    },
+    required: ["has_ingredients_label", "inci"]
+};
+
+/**
+ * Skanuje zdjęcia produktu z galerii (Back-of-Pack OCR) za pomocą Gemini 3.8 Flash Vision w poszukiwaniu etykiety ze składem INCI / chemicznym.
+ * @param {Array<string>|string} imageUrlOrCandidates - Zdjęcia produktu
+ * @param {string|null} ean - Kod EAN
+ * @param {Function} onLog - Callback logowania
+ * @returns {Promise<{ found: boolean, inci: string|null, raw: string|null, imageUrl: string|null, usage: Object|null }>}
+ */
+async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog = () => {}) {
+    const candidateUrls = Array.isArray(imageUrlOrCandidates)
+        ? imageUrlOrCandidates.filter(u => typeof u === 'string' && u.trim().length > 0)
+        : (typeof imageUrlOrCandidates === 'string' && imageUrlOrCandidates.trim().length > 0 ? [imageUrlOrCandidates.trim()] : []);
+
+    if (candidateUrls.length === 0) {
+        return { found: false, inci: null, raw: null, imageUrl: null, reason: 'Brak dostępnych zdjęć do analizy etykiety' };
+    }
+
+    for (let idx = 0; idx < candidateUrls.length; idx++) {
+        const currentUrl = candidateUrls[idx];
+        const label = candidateUrls.length > 1 ? ` (Zdjęcie ${idx + 1}/${candidateUrls.length})` : '';
+        
+        let bufferRes;
+        try {
+            onLog(`[VISION INCI OCR] Pobieranie zdjęcia${label} dla EAN: ${ean || 'N/A'}...`);
+            bufferRes = await fetchImageBuffer(currentUrl, 15000, onLog);
+        } catch (fetchErr) {
+            onLog(`[VISION INCI OCR OSTRZEŻENIE] Niepowodzenie pobierania zdjęcia${label}: ${fetchErr.message}`);
+            continue;
+        }
+
+        try {
+            onLog(`[VISION INCI OCR] Analiza multimodalna Gemini 3.8 Flash Vision dla zdjęcia${label}...`);
+            const base64Data = bufferRes.buffer.toString('base64');
+            const { result, usage } = await aiWrapper.callAgentWithTelemetry({
+                agentId: "0",
+                prompt: BACK_PACK_INCI_PROMPT,
+                schema: backPackInciSchema,
+                image: {
+                    mimeType: bufferRes.mimeType,
+                    base64: base64Data
+                },
+                onLog
+            });
+
+            if (result && result.has_ingredients_label && result.inci && typeof result.inci === 'string') {
+                const cleanedInci = result.inci.trim();
+                const itemCount = (cleanedInci.match(/,/g) || []).length + 1;
+                
+                if (itemCount >= 3 && baselinkerExtract.isValidInciValue(cleanedInci)) {
+                    onLog(`[VISION INCI OCR SUKCES] Odczytano skład ze zdjęcia${label} (${itemCount} składników): ${cleanedInci.substring(0, 100)}...`);
+                    return {
+                        found: true,
+                        inci: cleanedInci,
+                        raw: result.raw_composition_text,
+                        imageUrl: currentUrl,
+                        usage
+                    };
+                } else {
+                    onLog(`[VISION INCI OCR INFO] Zdjęcie${label} zawierało etykietę, ale odczytany skład nie spełnia wymogów strukturalnych INCI (liczba: ${itemCount}). Szukam dalej...`);
+                }
+            }
+        } catch (aiErr) {
+            onLog(`[VISION INCI OCR OSTRZEŻENIE] Błąd Vision AI dla zdjęcia${label}: ${aiErr.message}`);
+        }
+    }
+
+    return { found: false, inci: null, raw: null, imageUrl: null };
+}
+
 module.exports = {
     extractFrontPackFeatures,
-    fetchImageBuffer
+    extractInciFromBackPack,
+    fetchImageBuffer,
+    FRONT_VISION_PROMPT,
+    frontVisionSchema,
+    BACK_PACK_INCI_PROMPT,
+    backPackInciSchema
 };

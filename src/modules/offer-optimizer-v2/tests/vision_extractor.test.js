@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { fetchImageBuffer, extractFrontPackFeatures } = require('../vision-extractor.service.js');
+const { fetchImageBuffer, extractFrontPackFeatures, extractInciFromBackPack } = require('../vision-extractor.service.js');
 
 test('Vision Extractor - fetchImageBuffer testy jednostkowe', async (t) => {
     await t.test('Odrzucenie pustego lub niepoprawnego URL', async () => {
@@ -91,5 +91,65 @@ test('Vision Extractor - extractFrontPackFeatures obsługa wejść i fallbacków
         const res2 = buildPimFeatures({ pojemnosc_waga: '1.5 kg' });
         assert.strictEqual(res2['Pojemność / Waga'], '1.5 kg');
         assert.strictEqual(res2['Waga'], '1.5 kg');
+    });
+});
+
+test('Vision Extractor - extractInciFromBackPack testy jednostkowe', async (t) => {
+    await t.test('Brak URL zwraca found = false', async () => {
+        const res1 = await extractInciFromBackPack(null);
+        assert.strictEqual(res1.found, false);
+        assert.strictEqual(res1.inci, null);
+
+        const res2 = await extractInciFromBackPack([]);
+        assert.strictEqual(res2.found, false);
+        assert.strictEqual(res2.inci, null);
+    });
+
+    await t.test('Prawidłowa ekstrakcja i normalizacja składu INCI z mocka Vision', async () => {
+        const aiWrapper = require('../ai.wrapper.js');
+        const orgCall = aiWrapper.callAgentWithTelemetry;
+
+        const dummyBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        const dataUri = `data:image/png;base64,${dummyBase64}`;
+
+        aiWrapper.callAgentWithTelemetry = async () => ({
+            result: {
+                has_ingredients_label: true,
+                inci: 'AQUA, HYDROGEN PEROXIDE, ALCOHOLS, C12-18, ETHOXYLATED, SODIUM DODECYLBENZENESULFONATE, COCO-BETAINE',
+                raw_composition_text: 'Perossido di idrogeno 35%, Alcoli C12-18 etossilati...'
+            },
+            usage: { totalTokenCount: 150 }
+        });
+
+        const res = await extractInciFromBackPack([dataUri], '8000137015436');
+        assert.strictEqual(res.found, true);
+        assert.ok(res.inci.includes('HYDROGEN PEROXIDE'));
+        assert.ok(res.inci.includes('COCO-BETAINE'));
+        assert.strictEqual(res.imageUrl, dataUri);
+
+        aiWrapper.callAgentWithTelemetry = orgCall;
+    });
+
+    await t.test('Odrzucenie etykiety bez składu (has_ingredients_label = false)', async () => {
+        const aiWrapper = require('../ai.wrapper.js');
+        const orgCall = aiWrapper.callAgentWithTelemetry;
+
+        const dummyBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        const dataUri = `data:image/png;base64,${dummyBase64}`;
+
+        aiWrapper.callAgentWithTelemetry = async () => ({
+            result: {
+                has_ingredients_label: false,
+                inci: null,
+                raw_composition_text: null
+            },
+            usage: { totalTokenCount: 50 }
+        });
+
+        const res = await extractInciFromBackPack([dataUri], '8000137015436');
+        assert.strictEqual(res.found, false);
+        assert.strictEqual(res.inci, null);
+
+        aiWrapper.callAgentWithTelemetry = orgCall;
     });
 });
