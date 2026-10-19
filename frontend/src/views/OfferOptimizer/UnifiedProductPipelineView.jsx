@@ -130,6 +130,7 @@ export const UnifiedProductPipelineView = ({
     const [liveTitle, setLiveTitle] = useState("");
     const [liveEan, setLiveEan] = useState("");
     const [editorHtml, setEditorHtml] = useState({ sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę." });
+    const [editorKey, setEditorKey] = useState(0);
     const [visionTickets, setVisionTickets] = useState(() => [
         { originalUrl: '', alerts: ["Wymagany nowy packshot wysokiej jakości"], isCompliant: false, replacedUrl: null },
         { originalUrl: 'Wymagane nowe zdjęcie (nr 2)', alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null },
