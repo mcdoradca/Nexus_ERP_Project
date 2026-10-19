@@ -1359,7 +1359,7 @@ class Orchestrator {
                         for (let v of variants) {
                             const data = inciRefService.getInciFunctionData(v);
                             if (data && data.functions && data.functions.length > 0) {
-                                ragText += `[INCI_DICT] ${data.inci_name || v}: ${data.functions.join(', ')}\n`;
+                                ragText += `[INCI_DICT_COSING] ${data.inci_name || v}: ${data.functions.join(', ')}\n`;
                                 functionFound = true;
                                 break;
                             }
@@ -1368,11 +1368,15 @@ class Orchestrator {
                             warnings.push('INGREDIENT_NO_FUNCTION: ' + rawI);
                         }
                     }
+                    if (ragText) {
+                        ragText += `\n[WYTYCZNA REKONTEKSTUALIZACJI DZIEDZINOWEJ DLA A4]: Powyższy słownik CosIng reprezentuje zastosowania w formulacjach kosmetycznych (WE 1223/2009). Jeżeli produkt należy do chemii gospodarczej lub detergentów (WE 648/2004 – np. odkamieniacz, płyn do WC, płyn do łazienek, preparat czyszczący, myjący), składniki interpretuj zgodnie z ich rolą technologiczną w czyszczeniu i odkamienianiu (kwasy organiczne/nieorganiczne = substancje aktywne rozpuszczające kamień wapienny i rdzę; kategoryczny zakaz opisywania ich jako konserwantów!).\n`;
+                    }
                     
                     const agent4Data = {
                         gtin_ean: this.gtin,
                         product_name: product?.text_fields?.name || undefined,
                         brand: extracted.brand?.value || undefined,
+                        category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name || undefined,
                         inci: this.state.extracted_data.inci?.value || undefined
                     };
                     if (this.state.vision_extracted_features && Object.keys(this.state.vision_extracted_features).length > 0) {

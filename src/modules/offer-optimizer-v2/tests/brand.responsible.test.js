@@ -105,4 +105,15 @@ test('BrandResponsibleService - Weryfikacja bazy podmiotów odpowiedzialnych', a
         assert.ok(cleaned.includes('8004120040436'), 'Kod EAN nie może zostać wycięty przez filtr telefoniczny');
         assert.ok(cleaned.includes('500 ml'));
     });
+
+    await t.test('10. Tarcza stripContactInfo bezwzględnie zachowuje polską leksykę CLP ("kontaktowe", "KONTAKTU") oraz "Kompleks"', () => {
+        const clp1 = 'Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć.';
+        assert.strictEqual(brandService.stripContactInfo(clp1), clp1, 'Nie wolno wycinać "kontakt" ze słowa "kontaktowe"');
+
+        const clp2 = 'W PRZYPADKU KONTAKTU ZE SKÓRĄ: Umyć dużą ilością wody z mydłem.';
+        assert.strictEqual(brandService.stripContactInfo(clp2), clp2, 'Nie wolno wycinać "KONTAKT" ze słowa "KONTAKTU"');
+
+        const syn = '⚡ <b>Kompleks neutralizujący:</b> Unikalne połączenie kwasów organicznych.';
+        assert.strictEqual(brandService.stripContactInfo(syn), syn, 'Nie wolno wycinać "kom" ze słowa "Kompleks"');
+    });
 });

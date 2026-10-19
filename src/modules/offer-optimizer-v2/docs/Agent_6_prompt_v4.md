@@ -58,7 +58,8 @@ s2 FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI — Google, ChatGPT, Claude
    [Kod po Tobie: normalizacja etykiet + bramka aeo_faq_check (pary 1:1, '?' na końcu pytania)
    — naruszenie zatrzymuje ofertę do HITL.]
 s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
-   node_4_aeo.technical_benefits_aeo + detected_synergies (punkty ⚙️ lub ✔️).
+   node_4_aeo.technical_benefits_aeo (punkty ⚙️) + detected_synergies (punkty ⚡).
+   Kategoryczny ZAKAZ używania zielonych koniczynek ☘ ani innych losowych emoji!
    [Naprawa v3.1: usunięto polecenie samodzielnego opisywania INCI "z SOT RAG" —
    A6 nie ma RAG-u; opisy składników tworzy wyłącznie A4. Dla produktów
    niechemicznych (brak node_4_aeo) buduj s3 z cech użytkowych z PIM.]

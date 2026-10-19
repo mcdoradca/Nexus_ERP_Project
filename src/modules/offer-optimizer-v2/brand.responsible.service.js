@@ -102,7 +102,7 @@ class BrandResponsibleService {
     /**
      * Twarda tarcza sanityzacyjna: usuwa e-maile, telefony oraz linki/domeny www z tekstu opisu HTML.
      * Zapobiega blokadzie aukcji przez filtry antykontaktowe Allegro.
-     * Odporna na kody EAN-13, EAN-8 oraz kody pocztowe UE.
+     * Odporna na kody EAN-13, EAN-8, kody pocztowe UE oraz leksykę medyczną i CLP (np. kontakt ze skórą, soczewki kontaktowe, kompleks).
      */
     stripContactInfo(text) {
         if (!text || typeof text !== 'string') return text;
@@ -113,12 +113,12 @@ class BrandResponsibleService {
             .replace(/https?:\/\/[^\s<>"']+/gi, '')
             // Usuń www.domena...
             .replace(/\bwww\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s<>"']*)?/gi, '')
-            // Usuń numery telefonów z prefiksem międzynarodowym + (np. +39..., +48...) wraz z opcjonalną etykietą
-            .replace(/(?:\b(?:kontakt|contact|tel(?:efon)?|phone|fax|infolinia|infolinea|mobile|kom)\.?\s*:?\s*)?\+\d{1,3}(?:[\s.-]*\(?\d{1,4}\)?)*(?:[\s.-]*\d{2,4}){2,}\b/gi, '')
-            // Usuń numery telefonów poprzedzone jawną etykietą (np. tel. 0321 827011, kontakt: 22 123 45 67)
-            .replace(/\b(?:kontakt|contact|tel(?:efon)?|phone|fax|infolinia|infolinea|mobile|kom)\.?\s*:?\s*(?:\(?\d{2,4}\)?[\s.-]*)?\d{2,4}[\s.-]?\d{2,4}[\s.-]?\d{2,4}\b/gi, '')
-            // Usuń osierocone etykiety kontaktowe
-            .replace(/\b(?:kontakt|contact|tel(?:efon)?|phone|fax|infolinia|infolinea|mobile|kom)\.?\s*:?\s*/gi, '')
+            // Usuń numery telefonów z prefiksem międzynarodowym + (np. +39..., +48...) wraz z opcjonalną etykietą telefoniczną
+            .replace(/(?:\b(?:infolinia|infolinea|telefon|tel)\.?\s*:?\s*)?\+\d{1,3}(?:[\s.-]*\(?\d{1,4}\)?)*(?:[\s.-]*\d{2,4}){2,}\b/gi, '')
+            // Usuń numery telefonów poprzedzone jawną etykietą telefoniczną (np. tel. 0321 827011, infolinia: 22 123 45 67)
+            .replace(/\b(?:infolinia|infolinea|telefon|tel)\.?\s*:?\s*(?:\(?\d{2,4}\)?[\s.-]*)?\d{2,4}[\s.-]?\d{2,4}[\s.-]?\d{2,4}\b/gi, '')
+            // Usuń osierocone etykiety stricte telefoniczne
+            .replace(/\b(?:infolinia|infolinea|telefon|tel)\.?\s*:?\s*/gi, '')
             // Usuń numery telefonów z wyraźnymi separatorami grup cyfr (np. 022 123 45 67, 0321-827-011) - nie rusza ciągłych 13-cyfrowych kodów EAN
             .replace(/\b\(?\d{2,4}\)?[\s.-]+\d{2,4}[\s.-]+\d{2,4}(?:[\s.-]+\d{1,4})?\b/g, '')
             // Wyczyść ewentualne podwójne przecinki, dwukropki lub pozostałości spacji
