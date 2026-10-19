@@ -35,9 +35,9 @@ test('Konfiguracja węzłów: Brak wycofanych parametrów próbkowania (temperat
     }
 });
 
-test('Konfiguracja węzłów: Precyzyjna taksonomia - thinkingLevel HIGH wyłącznie dla modeli Pro (A1, A10)', () => {
-    const proNodes = [1, 10];
-    const flashNodes = [2, 4, 5, 6, 7, 9, 11];
+test('Konfiguracja węzłów: Precyzyjna taksonomia - thinkingLevel HIGH wyłącznie dla modeli Pro (A10 Sentinel)', () => {
+    const proNodes = [10];
+    const flashNodes = [1, 2, 4, 5, 6, 7, 9, 11];
     
     for (const id of proNodes) {
         const cfg = getNodeConfig(id);
@@ -50,6 +50,10 @@ test('Konfiguracja węzłów: Precyzyjna taksonomia - thinkingLevel HIGH wyłąc
         assert.strictEqual(cfg.model, 'gemini-3.8-flash', `Węzeł Flash ${id} musi używać gemini-3.8-flash`);
         assert.strictEqual(cfg.thinkingLevel, undefined, `Węzeł Flash ${id} nie może posiadać thinkingLevel`);
     }
+
+    // A1 musi mieć włączony grounding (Google Search)
+    const cfgA1 = getNodeConfig(1);
+    assert.strictEqual(cfgA1.grounding, true, 'Węzeł A1 musi mieć włączony grounding dla OSINT');
 });
 
 test('Ochrona przed błędem 400: Żaden węzeł nie używa ThinkingLevel.MINIMAL (nieobsługiwanego przez API)', () => {

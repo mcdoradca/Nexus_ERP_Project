@@ -39,10 +39,18 @@ Szczegółowy audyt logów wykonania (`Node_1_Execution_Trace_*.log`, `INCI_TRAC
 - Usunięto sztywne cudzysłowy blokujące wyszukiwarkę wokół pełnej nazwy produktu.
 - Zapytanie bazuje na ścisłym EAN `"${ean}"` oraz oczyszczonych słowach kluczowych i synonimach braków, co pozwala Bingowi dostarczać treść stron drogerii bezpośrednio do `osint_data`.
 
+### E. Migracja Węzła 1 (Agent 1) na `gemini-3.8-flash` i Tarcza Timeoutu
+- Zdiagnozowano, że wywołanie `gemini-3.1-pro-preview` z narzędziem `googleSearch` (grounding) na API Google trwa od 180 do 222 sekund, co wykraczało poza limit i powodowało kaskadowy błąd defensywnego fallbacku `Agent_1_Step1_Fallback` (60s).
+- Zmigrowano Węzeł 1 w `nodes.config.js` na lekki i zoptymalizowany pod kątem wyszukiwania model `gemini-3.8-flash` (bez `thinkingLevel`).
+- Testy na żywym API wykazały, że `gemini-3.8-flash` wykonuje pełny grounding Google Search w **21 sekund** (10x szybciej niż Pro), bez błędu RECITATION i z pełnym odzyskiem składu INCI.
+- Zaktualizowano taksonomię w `config.test.js`: jedynym węzłem Pro z `ThinkingLevel.HIGH` pozostaje Agent 10 (Sentinel).
+- W `ai.wrapper.js` dodano twarde czyszczenie `delete fallbackGroundingConfig.thinkingConfig` przed wywołaniem fallbacku, zapewniając że żaden fallback nie zawiśnie w pętli myślenia.
+
 ---
 
 ## 3. Weryfikacja i Testy
 - Utworzono test jednostkowy w `orchestrator.test.js`: *„Orchestrator V2: Akceptacja 1 kompletnego, poprawnego składu INCI z OSINT bez zbędnego retry”*.
-- Zweryfikowano zachowanie taksonomii węzłów w `config.test.js`.
+- Zaktualizowano test taksonomii w `config.test.js`: A1 jako Flash z groundingiem, A10 jako jedyny model Pro.
+- Zweryfikowano odporność fallbacku w `ai.wrapper.js`.
 - Zrekompilowano prompty przez `prompt-compiler.js`.
 - Cały zestaw testów jednostkowych przeszedł na zielono: **198/198 testów PASSED (0 błędów)**.

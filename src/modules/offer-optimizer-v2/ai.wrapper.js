@@ -182,6 +182,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
                     if (isGroundingBlocked) {
                         console.warn(`[DEFENSIVE AI] Grounding zablokowany/timeout w Kroku 1 dla agenta ${agentId} (status: ${apiError.status || 'N/A'}, msg: ${errStr.substring(0, 200)}). Fallback: wywołanie bez Google Search.`);
                         const fallbackGroundingConfig = { ...baseConfig };
+                        delete fallbackGroundingConfig.thinkingConfig;
                         resp = await generateContentWithTimeout({
                             model: model,
                             contents: stepPrompt,
