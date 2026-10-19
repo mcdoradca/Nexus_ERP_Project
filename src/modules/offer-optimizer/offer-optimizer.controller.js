@@ -561,10 +561,11 @@ const generateLifestyle = async (req, res) => {
                 const socketService = require('../../core/socket');
                 
                 const onLog = (msg) => {
-                    const logObj = { time: new Date().toLocaleTimeString(), agentId: 'Agent 11 & Photoroom', message: msg, ean };
+                    const logObj = { time: new Date().toLocaleTimeString(), agentId: `Agent 11 (Slot ${Number(imageIndex) + 1})`, message: msg, ean, imageIndex: Number(imageIndex) };
                     socketService.broadcast('nexus-notification', {
                         type: 'LIFESTYLE_LOG',
                         jobId,
+                        imageIndex: Number(imageIndex),
                         ...logObj
                     });
                 };

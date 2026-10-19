@@ -1,7 +1,19 @@
 import React, { useState, useRef } from 'react';
 import { Camera, AlertTriangle, UploadCloud, CheckCircle2, Maximize2, Trash2, RefreshCw, Sparkles } from 'lucide-react';
+import { requestLifestyleGeneration } from '../../services/lifestyleImageService';
 
-export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj, socket, onImageReplace, onImageDelete, onView }) => {
+export const PhotographicAuditorCard = ({ 
+    imageObj, 
+    index, 
+    ean, 
+    primaryImageObj, 
+    socket, 
+    onImageReplace, 
+    onImageDelete, 
+    onView,
+    isExternalGenerating = false,
+    externalTrendReport = null
+}) => {
     const fileInputRef = useRef(null);
     // imageObj { originalUrl: string, alerts: string[], isCompliant: boolean, replacedUrl: string|null }
     
@@ -17,10 +29,17 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
     const [aiLogs, setAiLogs] = useState([]);
     const logsEndRef = useRef(null);
 
+    const isGenerating = isGeneratingAi || Boolean(isExternalGenerating);
+    const currentTrendReport = trendReport || externalTrendReport;
+
     React.useEffect(() => {
         if (!socket) return;
         const handler = (data) => {
             if (data.type === 'LIFESTYLE_LOG' && String(data.ean) === String(ean)) {
+                // Filtrowanie logów dedykowanych dla konkretnego slotu (jeśli backend przekazał imageIndex)
+                if (data.imageIndex !== undefined && Number(data.imageIndex) !== Number(index)) {
+                    return;
+                }
                 setAiLogs(prev => [...prev, data]);
                 setTimeout(() => {
                     if (logsEndRef.current) {
@@ -31,7 +50,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
         };
         socket.on('nexus-notification', handler);
         return () => socket.off('nexus-notification', handler);
-    }, [socket, ean]);
+    }, [socket, ean, index]);
 
     const isFixed = !!imageObj.replacedUrl;
     
@@ -50,80 +69,17 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
         setIsGeneratingAi(true);
         setAiLogs([]);
         try {
-            const token = localStorage.getItem('aps_token') || localStorage.getItem('token') || '';
-            const API_URL = import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`;
-            
-            const bodyData = { ean, imageIndex: index };
-            if (primaryImageObj) {
-                if (primaryImageObj.replacedUrl) {
-                    bodyData.imageBase64 = primaryImageObj.replacedUrl;
-                } else if (primaryImageObj.originalUrl) {
-                    if (primaryImageObj.originalUrl.startsWith('data:image')) {
-                        bodyData.imageBase64 = primaryImageObj.originalUrl;
-                    } else if (primaryImageObj.originalUrl.startsWith('http')) {
-                        bodyData.sourceImageUrl = primaryImageObj.originalUrl;
-                    }
-                }
-            }
-            
-            const res = await fetch(`${API_URL}/api/offer-optimizer/generate-lifestyle`, {
-                method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json' 
-                },
-                body: JSON.stringify(bodyData)
+            const result = await requestLifestyleGeneration({
+                ean,
+                imageIndex: index,
+                primaryImageObj,
+                token
             });
             
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
-            }
-            
-            const initData = await res.json();
-            
-            if (initData && initData.jobId) {
-                const jobId = initData.jobId;
-                let attempts = 0;
-                const maxAttempts = 60; // Max 60 prób x 3s = 180s
-                
-                while (attempts < maxAttempts) {
-                    await new Promise(resolve => setTimeout(resolve, 3000));
-                    attempts++;
-                    
-                    try {
-                        const statusRes = await fetch(`${API_URL}/api/offer-optimizer/generate-lifestyle/status/${jobId}`, {
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                        
-                        if (!statusRes.ok) continue;
-                        
-                        const statusData = await statusRes.json();
-                        
-                        if (statusData.status === 'COMPLETED') {
-                            if (statusData.newImageBase64) {
-                                if (onImageReplace) onImageReplace(statusData.newImageBase64);
-                                if (statusData.visualTrendReport) {
-                                    setTrendReport(statusData.visualTrendReport);
-                                }
-                            }
-                            return;
-                        }
-                        
-                        if (statusData.status === 'ERROR') {
-                            throw new Error(statusData.error || "Wystąpił błąd podczas przetwarzania obrazu przez AI.");
-                        }
-                    } catch (pollErr) {
-                        if (pollErr.message && !pollErr.message.includes('fetch')) {
-                            throw pollErr;
-                        }
-                    }
-                }
-                throw new Error(`Przekroczono czas oczekiwania na odpowiedź serwera Wizualnego AI (180s). Próba przerwana.`);
-            } else if (initData && initData.newImageBase64) {
-                if (onImageReplace) onImageReplace(initData.newImageBase64);
-                if (initData.visualTrendReport) {
-                    setTrendReport(initData.visualTrendReport);
+            if (result && result.newImageBase64) {
+                if (onImageReplace) onImageReplace(result.newImageBase64);
+                if (result.visualTrendReport) {
+                    setTrendReport(result.visualTrendReport);
                 }
             }
         } catch (error) {
@@ -253,11 +209,11 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                                          <>
                                              <button 
                                                  onClick={handleGenerateLifestyle}
-                                                 disabled={isGeneratingAi}
-                                                 className="flex items-center bg-indigo-600 text-white font-bold px-4 py-3 rounded-sm text-xs hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 transition-all uppercase tracking-widest mb-3"
+                                                 disabled={isGenerating}
+                                                 className="flex items-center bg-indigo-600 text-white font-bold px-4 py-3 rounded-sm text-xs hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 transition-all uppercase tracking-widest mb-3 disabled:opacity-50"
                                              >
-                                                 {isGeneratingAi ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-                                                 {isGeneratingAi ? "Generowanie AI..." : "✨ Wygeneruj Lifestyle AI"}
+                                                 {isGenerating ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                                                 {isGenerating ? "Generowanie AI..." : "✨ Wygeneruj Lifestyle AI"}
                                              </button>
                                              <div className="flex items-center space-x-2 text-[10px] text-slate-600 font-bold uppercase tracking-widest mb-3">
                                                  <div className="h-px bg-slate-300 w-8"></div>
@@ -318,7 +274,7 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
             )}
 
              {/* Terminal Logów AI - Aktywny podczas generowania */}
-             {(isGeneratingAi || aiLogs.length > 0) && (
+             {(isGenerating || aiLogs.length > 0) && (
                  <div className="bg-[#0a0a0a] border-t border-slate-700 p-3 h-64 overflow-y-auto font-mono text-[10px] flex flex-col custom-scrollbar shadow-inner">
                      <div className="text-slate-500 mb-2 uppercase tracking-widest text-[9px] border-b border-slate-800 pb-1 flex justify-between shrink-0">
                          <span>Agent 11 - Raw Dump</span>
@@ -364,10 +320,10 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
                 </button>
                 <button 
                     onClick={handleGenerateLifestyle}
-                    disabled={isGeneratingAi}
-                    className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 hover:text-indigo-600 transition-colors flex justify-center items-center"
+                    disabled={isGenerating}
+                    className="flex-1 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 hover:text-indigo-600 transition-colors flex justify-center items-center disabled:opacity-50"
                 >
-                    {isGeneratingAi ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
+                    {isGenerating ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
                     Generuj AI
                 </button>
                 <button 
@@ -387,14 +343,14 @@ export const PhotographicAuditorCard = ({ imageObj, index, ean, primaryImageObj,
             </div>
             
             {/* Raport z analizy wizualnej (Visual Trend Report) */}
-            {trendReport && (
+            {currentTrendReport && (
                 <div className="bg-indigo-50 border-t border-indigo-100 p-3">
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-1 flex items-center">
                         <Sparkles className="w-3 h-3 mr-1" />
                         Raport Trendów (Visual Agent)
                     </h4>
                     <p className="text-xs text-indigo-900 leading-relaxed italic">
-                        "{typeof trendReport === 'object' ? JSON.stringify(trendReport) : trendReport}"
+                        "{typeof currentTrendReport === 'object' ? JSON.stringify(currentTrendReport) : currentTrendReport}"
                     </p>
                 </div>
             )}

@@ -5,6 +5,7 @@ import { StrictWysiwyg } from './components/HitlReviewer/StrictWysiwyg';
 import { TileSimulator } from './components/HitlReviewer/TileSimulator';
 import { ImageUploadBox } from './components/SingleAuctionFetcher/ImageUploadBox';
 import { PhotographicAuditorCard } from './components/VisionFeedback/PhotographicAuditorCard';
+import { requestLifestyleGeneration } from './services/lifestyleImageService';
 import { describeBaselinkerError, describeAutofillError } from '../../utils';
 import { 
   Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp, Search,
@@ -132,6 +133,8 @@ export const UnifiedProductPipelineView = ({
     const [editorKey, setEditorKey] = useState(0); 
     const [visionTickets, setVisionTickets] = useState([]);
     const [viewingImageUrl, setViewingImageUrl] = useState(null);
+    const [generatingSlots, setGeneratingSlots] = useState({});
+    const [slotTrendReports, setSlotTrendReports] = useState({});
     const [pipelineStatus, setPipelineStatus] = useState('IDLE');
     const [pipelineStep, setPipelineStep] = useState('');
     
@@ -329,7 +332,15 @@ export const UnifiedProductPipelineView = ({
                         sekcja7: prev.sekcja7 !== undefined ? prev.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę."
                     }));
                     setLiveTitle(data.result.title || "");
-                    setVisionTickets(data.result.visionTickets || []);
+                    if (data.result.visionTickets && data.result.visionTickets.length > 0) {
+                        setVisionTickets(prev => {
+                            const current = Array.isArray(prev) ? prev : [];
+                            return data.result.visionTickets.map((t, idx) => ({
+                                ...t,
+                                replacedUrl: current[idx]?.replacedUrl || t.replacedUrl
+                            }));
+                        });
+                    }
                     setNewProductForm(prev => ({
                         ...prev,
                         features: {
@@ -343,7 +354,7 @@ export const UnifiedProductPipelineView = ({
                                 ...(data.result.editorHtml || {}),
                                 sekcja7: (prev.offerDraft && prev.offerDraft.htmlContent && prev.offerDraft.htmlContent.sekcja7 !== undefined) ? prev.offerDraft.htmlContent.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę."
                             },
-                            images: data.result.visionTickets || []
+                            images: (data.result.visionTickets && data.result.visionTickets.length > 0) ? data.result.visionTickets : (prev.offerDraft?.images || [])
                         }
                     }));
                     setEditorKey(prev => prev + 1);
@@ -455,6 +466,89 @@ export const UnifiedProductPipelineView = ({
         }
     };
 
+    const triggerParallelSlotGenerations = async (targetSlotIndexes, targetEan, sourceImageObj) => {
+        if (!targetEan) return;
+        
+        const hasSource = sourceImageObj && (
+            sourceImageObj.replacedUrl || 
+            (sourceImageObj.originalUrl && (sourceImageObj.originalUrl.startsWith('http') || sourceImageObj.originalUrl.startsWith('data:image')))
+        );
+
+        if (!hasSource) {
+            console.warn(`[Visual AI Multi-Slot] Brak zdjęcia w Slocie 1 dla EAN: ${targetEan}. Pomijanie automatycznego generowania scenerii.`);
+            return;
+        }
+
+        // Zapewnienie co najmniej wymaganej liczby slotów w visionTickets
+        setVisionTickets(prev => {
+            const next = Array.isArray(prev) ? [...prev] : [];
+            const maxNeededIndex = Math.max(...targetSlotIndexes);
+            while (next.length <= maxNeededIndex) {
+                next.push({
+                    originalUrl: `Wymagane nowe zdjęcie (nr ${next.length + 1})`,
+                    alerts: ["Oczekiwanie na generowanie AI"],
+                    isCompliant: false,
+                    replacedUrl: null
+                });
+            }
+            return next;
+        });
+
+        // Oznaczenie slotów jako aktywnie generowane
+        setGeneratingSlots(prev => {
+            const next = { ...prev };
+            targetSlotIndexes.forEach(idx => { next[idx] = true; });
+            return next;
+        });
+
+        console.log(`[Visual AI Multi-Slot] Rozpoczęto współbieżne generowanie dla slotów: ${targetSlotIndexes.map(i => i + 1).join(', ')} dla EAN: ${targetEan}`);
+
+        const promises = targetSlotIndexes.map(async (slotIndex) => {
+            try {
+                const result = await requestLifestyleGeneration({
+                    ean: targetEan,
+                    imageIndex: slotIndex,
+                    primaryImageObj: sourceImageObj,
+                    token
+                });
+
+                if (result && result.newImageBase64) {
+                    setVisionTickets(prev => {
+                        const next = [...prev];
+                        if (!next[slotIndex]) {
+                            next[slotIndex] = { originalUrl: `Slot #${slotIndex + 1}`, isCompliant: true };
+                        }
+                        next[slotIndex] = {
+                            ...next[slotIndex],
+                            replacedUrl: result.newImageBase64,
+                            isCompliant: true,
+                            alerts: []
+                        };
+                        return next;
+                    });
+
+                    if (result.visualTrendReport) {
+                        setSlotTrendReports(prev => ({
+                            ...prev,
+                            [slotIndex]: result.visualTrendReport
+                        }));
+                    }
+                    console.log(`[Visual AI Multi-Slot] Pomyślnie wygenerowano Slot ${slotIndex + 1} dla EAN: ${targetEan}`);
+                }
+            } catch (slotErr) {
+                console.error(`[Visual AI Multi-Slot] Błąd generowania dla Slota ${slotIndex + 1}:`, slotErr.message);
+            } finally {
+                setGeneratingSlots(prev => ({
+                    ...prev,
+                    [slotIndex]: false
+                }));
+            }
+        });
+
+        await Promise.allSettled(promises);
+        console.log(`[Visual AI Multi-Slot] Zakończono sesję generowania wieloslotowego dla EAN: ${targetEan}`);
+    };
+
     const handleTriggerPipelineFromScratch = () => {
         setAccumulatedHitlOverrides([]);
         handleTriggerPipeline(null, true);
@@ -478,6 +572,20 @@ export const UnifiedProductPipelineView = ({
             setActiveNodes(['INICJALIZACJA']);
             setNodeStatuses({ PRE: 'RUNNING' });
             setHitlAlert(null);
+
+            // RÓWNOLEGŁE, WSPÓŁBIEŻNE WYWOŁANIE GENEROWANIA ZDJĘĆ DLA SLOTÓW 2, 3, 5, 6 (indeksy 1, 2, 4, 5)
+            // Uruchamiane w tle bez await, z pełną izolacją błędów w obie strony
+            try {
+                const primaryImg = (visionTickets && visionTickets[0]) 
+                    ? visionTickets[0] 
+                    : (savedProd.images && savedProd.images[0] ? { originalUrl: savedProd.images[0] } : null);
+                
+                triggerParallelSlotGenerations([1, 2, 4, 5], savedProd.ean, primaryImg).catch(slotErr => {
+                    console.error("[Visual AI] Niezłapany błąd w procesie generowania zdjęć:", slotErr);
+                });
+            } catch (imgInitErr) {
+                console.error("[Visual AI] Błąd startu generowania zdjęć w tle:", imgInitErr);
+            }
 
             const payload = { ean: savedProd.ean };
             if (Array.isArray(hitlOverrides)) payload.hitlOverrides = hitlOverrides;
@@ -895,13 +1003,22 @@ export const UnifiedProductPipelineView = ({
                                             <PhotographicAuditorCard 
                                                 key={i} index={i} ean={liveEan} imageObj={ticket} primaryImageObj={visionTickets[0]}
                                                 socket={socket}
+                                                isExternalGenerating={Boolean(generatingSlots[i])}
+                                                externalTrendReport={slotTrendReports[i] || null}
                                                 onImageReplace={(newUrl) => {
-                                                    const updated = [...visionTickets]; updated[i].replacedUrl = newUrl; setVisionTickets(updated);
+                                                    setVisionTickets(prev => {
+                                                        const updated = [...prev];
+                                                        if (!updated[i]) updated[i] = { originalUrl: `Slot #${i + 1}` };
+                                                        updated[i] = { ...updated[i], replacedUrl: newUrl, isCompliant: true, alerts: [] };
+                                                        return updated;
+                                                    });
                                                 }} 
                                                 onImageDelete={() => {
-                                                    const updated = [...visionTickets];
-                                                    updated[i] = { originalUrl: `Wymagane nowe zdjęcie (nr ${i + 1})`, alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null };
-                                                    setVisionTickets(updated);
+                                                    setVisionTickets(prev => {
+                                                        const updated = [...prev];
+                                                        updated[i] = { originalUrl: `Wymagane nowe zdjęcie (nr ${i + 1})`, alerts: ["Pusty slot"], isCompliant: false, replacedUrl: null };
+                                                        return updated;
+                                                    });
                                                 }}
                                                 onView={(url) => setViewingImageUrl(url)}
                                             />
