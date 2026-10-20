@@ -22,7 +22,17 @@ class GpsrSafetyService {
             'benzyl salicylate', 'benzyl benzoate', 'benzyl cinnamate', 'farnesol',
             'hexyl cinnamal', 'hydroxycitronellal', 'alpha-isomethyl ionone',
             'amyl cinnamal', 'amylcinnamyl alcohol', 'anise alcohol', 'butylphenyl methylpropional',
-            'evernia prunastri', 'evernia furfuracea', 'oak moss', 'tree moss'
+            'evernia prunastri', 'evernia furfuracea', 'oak moss', 'tree moss',
+            'amyl salicylate', 'hexyl salicylate', 'tetramethyl acetyloctahydronaphthalenes',
+            'otne', 'acetyl cedrene', 'menthol', 'camphor', 'terpineol', 'terpinolene',
+            'beta-caryophyllene', 'pinene'
+        ];
+
+        // Konserwanty i substancje o silnym potencjale uczulającym podlegające pod EUH208 (Rozp. CLP Załącznik II pkt 2.8)
+        this.sensitizingPreservatives = [
+            'benzisothiazolinone', 'methylisothiazolinone', 'methylchloroisothiazolinone',
+            'octylisothiazolinone', 'glutaral', 'iodopropynyl butylcarbamate', 'bronopol',
+            '2-bromo-2-nitropropane-1,3-diol', 'diazolidinyl urea', 'imidazolidinyl urea'
         ];
 
         // Retinoidy pod nadzorem Rozp. 2024/996
@@ -69,23 +79,108 @@ class GpsrSafetyService {
         }
     }
 
+    formatSubstanceName(rawName) {
+        if (!rawName) return '';
+        const lower = String(rawName).trim().toLowerCase();
+        const specialMap = {
+            'hexyl cinnamal': 'Hexyl Cinnamal',
+            'coumarin': 'Coumarin',
+            'linalool': 'Linalool',
+            'limonene': 'Limonene',
+            'citronellol': 'Citronellol',
+            'geraniol': 'Geraniol',
+            'citral': 'Citral',
+            'eugenol': 'Eugenol',
+            'benzyl salicylate': 'Benzyl Salicylate',
+            'amyl salicylate': 'Amyl Salicylate',
+            'hexyl salicylate': 'Hexyl Salicylate',
+            'otne': 'Tetramethyl Acetyloctahydronaphthalenes (OTNE)',
+            'tetramethyl acetyloctahydronaphthalenes': 'Tetramethyl Acetyloctahydronaphthalenes (OTNE)',
+            'benzisothiazolinone': 'Benzisothiazolinone',
+            'methylisothiazolinone': 'Methylisothiazolinone',
+            'methylchloroisothiazolinone': 'Methylchloroisothiazolinone',
+            'octylisothiazolinone': 'Octylisothiazolinone',
+            'iodopropynyl butylcarbamate': 'Iodopropynyl Butylcarbamate',
+            'bronopol': 'Bronopol',
+            'glutaral': 'Glutaral'
+        };
+        if (specialMap[lower]) return specialMap[lower];
+        return lower.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    }
+
+    splitCombinedPPhrases(input) {
+        if (!input) return [];
+        const rawList = Array.isArray(input) ? input : [input];
+        const result = [];
+
+        for (const item of rawList) {
+            if (!item || typeof item !== 'string') continue;
+            let str = item.trim();
+
+            // Rozpoznawanie sklejonych procedur medycznych np. "P305+P351+P338 + P337+P313" lub "P305+P351+P338 / P337+P313"
+            const multiGroupRegex = /(P\d{3}(?:\+P\d{3})*)\s*(?:\+|\/|\band\b|\boraz\b)\s*(P\d{3}(?:\+P\d{3})*)/i;
+            if (multiGroupRegex.test(str)) {
+                const matches = str.match(/P\d{3}(?:\+P\d{3})*/gi);
+                if (matches && matches.length > 1) {
+                    for (const code of matches) {
+                        const cleanCode = code.toUpperCase().trim();
+                        let text = this.euphracPhrases?.pPhrases?.[cleanCode];
+                        if (!text) {
+                            if (cleanCode === 'P305+P351+P338') {
+                                text = "W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.";
+                            } else if (cleanCode === 'P337+P313') {
+                                text = "W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza.";
+                            } else if (cleanCode === 'P280') {
+                                text = "Stosować ochronę oczu / ochronę twarzy.";
+                            } else if (cleanCode === 'P102') {
+                                text = "Chronić przed dziećmi.";
+                            }
+                        }
+                        if (text) {
+                            text = text.replace(/^[:\s–-]+/, '').trim().replace(/\bDO OCZÓW\b/gi, 'DO OCZU');
+                            result.push(`${cleanCode} – ${text}`);
+                        } else {
+                            result.push(cleanCode);
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            result.push(str);
+        }
+        return result;
+    }
+
     /**
-     * Analizuje skład INCI i generuje bazowe ostrzeżenia bezpieczeństwa GPSR.
+     * Analizuje skład INCI i generuje bazowe ostrzeżenia bezpieczeństwa GPSR / CLP.
      * @param {Object} params
      * @param {string} params.inci - Skład INCI (rozdzielony przecinkami)
      * @param {string} [params.productName] - Nazwa produktu
      * @param {boolean} [params.isChemical] - Czy to produkt chemii gospodarczej / detergent
+     * @param {Object} [params.compliance] - Dane zgodności z PIM/OSINT (clp_signal_word, clp_h_phrases, clp_p_phrases)
+     * @param {string[]} [params.hPhrases] - Zwroty H z karty SDS lub PIM
+     * @param {string[]} [params.pPhrases] - Zwroty P z karty SDS lub PIM
      * @returns {Object} { detected_risks: string[], warnings: string[] }
      */
-    generateGpsrWarnings({ inci, productName = '', isChemical = false }) {
+    generateGpsrWarnings({ inci, productName = '', isChemical = false, compliance = null, hPhrases = [], pPhrases = [] }) {
         const warnings = [];
         const detectedRisks = [];
 
         const prodNameLower = String(productName || '').toLowerCase();
         const isLaundryCapsules = /(kapsułk|kapsulk|capsule|pod[s]?)/i.test(prodNameLower) && 
                                   /(prani|laundry|wash|detergent|tkanin)/i.test(prodNameLower);
-        const isLaundryDetergent = /(płyn do prania|zel do prania|żel do prania|proszek do prania|laundry)/i.test(prodNameLower);
-        const isWaterBasedCleanser = isChemical || /(mydło|soap|szampon|shampoo|żel|zel|balsam|krem|cream|lotion|emulsja|płyn|plyn)/i.test(prodNameLower);
+        const isLaundryDetergent = /(płyn do prania|zel do prania|żel do prania|proszek do prania|laundry|odplamiacz|płyn do płukania)/i.test(prodNameLower);
+        const isActualChemical = Boolean(
+            isChemical ||
+            isLaundryCapsules ||
+            isLaundryDetergent ||
+            /(chemia|detergent|odkamien|zmywark|czyszcz|płyn do wc|udrożniacz)/i.test(prodNameLower) ||
+            compliance?.clp_signal_word ||
+            (compliance?.clp_h_phrases && compliance.clp_h_phrases.length > 0)
+        );
+
+        const isWaterBasedCleanser = isActualChemical || /(mydło|soap|szampon|shampoo|żel|zel|balsam|krem|cream|lotion|emulsja|płyn|plyn)/i.test(prodNameLower);
         const isToothbrush = /(szczoteczk|toothbrush)/i.test(prodNameLower) &&
                              !/(pasta do zębów|pasta do zebow|toothpaste)/i.test(prodNameLower);
         const isDentalFloss = /(nić|nic|floss|wykałaczk|dental|czyścik|czyscik)/i.test(prodNameLower) &&
@@ -100,7 +195,7 @@ class GpsrSafetyService {
             warnings.push("Po użyciu dokładnie opłukać główkę szczoteczki pod bieżącą wodą i przechowywać w pozycji pionowej, główką do góry, w czystym i suchym miejscu.");
             return {
                 detected_risks: detectedRisks,
-                warnings: warnings.slice(0, 4)
+                warnings: warnings
             };
         }
 
@@ -114,7 +209,7 @@ class GpsrSafetyService {
             warnings.push("Wprowadzać nić delikatnie, aby uniknąć mechanicznego podrażnienia dziąseł.");
             return {
                 detected_risks: detectedRisks,
-                warnings: warnings.slice(0, 4)
+                warnings: warnings
             };
         }
 
@@ -124,8 +219,13 @@ class GpsrSafetyService {
                 warnings.push("P102 – Chronić przed dziećmi.");
                 warnings.push("Nie połykać. W razie połknięcia skontaktować się z lekarzem.");
                 warnings.push("Stosować suchymi dłońmi. Nie przekłuwać i nie rozcinać kapsułek.");
-                warnings.push("P305+P351+P338 – W przypadku dostania się do oczu ostrożnie płukać wodą przez kilka minut.");
+                warnings.push("P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
                 return { detected_risks: ['LAUNDRY_CAPSULES_SAFETY'], warnings };
+            }
+            if (isActualChemical) {
+                warnings.push("P102 – Chronić przed dziećmi.");
+                warnings.push("P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
+                return { detected_risks: ['HOUSEHOLD_CHEMICAL'], warnings };
             }
             warnings.push("Produkt przeznaczony wyłącznie do użytku zewnętrznego zgodnie z przeznaczeniem.");
             warnings.push("Przechowywać w suchym miejscu, w temperaturze pokojowej, z dala od dzieci.");
@@ -135,124 +235,131 @@ class GpsrSafetyService {
         const cleanInci = inci.toLowerCase();
         const ingredientsList = cleanInci.split(/[,;\n]+/).map(i => i.trim()).filter(Boolean);
 
-        // --- MODUŁ SPECJALNY: KAPSUŁKI DO PRANIA (Rozp. UE 1297/2014 & A.I.S.E.) ---
-        if (isLaundryCapsules) {
-            detectedRisks.push('LAUNDRY_CAPSULES_SAFETY');
-            warnings.push("P102 – Chronić przed dziećmi.");
-            warnings.push("Nie połykać. W razie połknięcia natychmiast skontaktować się z ośrodkiem zatruć lub lekarzem.");
-            warnings.push("Stosować suchymi dłońmi. Nie przekłuwać, nie rozrywać i nie rozcinać kapsułki. Szczelnie zamykać opakowanie po użyciu.");
-            warnings.push("P305+P351+P338 – W przypadku dostania się do oczu: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
-            
-            // Sprawdzenie alergenów zapachowych dla kapsułek (np. Linalool)
-            const foundAllergens = this.fragranceAllergens.filter(allergen => 
-                ingredientsList.some(ing => ing.includes(allergen))
-            );
-            if (foundAllergens.length > 0) {
-                const sampleAllergens = foundAllergens.slice(0, 2).map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ');
-                warnings.push(`Zawiera substancje zapachowe mogące powodować reakcję alergiczną (${sampleAllergens}).`);
-            }
-
-            const sanitizedCapsuleWarnings = warnings.map(w => 
-                w.replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
-                 .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*):\s*/i, '$1 – ')
-            );
-
-            return {
-                detected_risks: detectedRisks,
-                warnings: [...new Set(sanitizedCapsuleWarnings)].slice(0, 4)
-            };
-        }
-
-        // 1. Sprawdzenie alergenów zapachowych (Rozp. 2023/1545)
-        const foundAllergens = this.fragranceAllergens.filter(allergen => 
+        // Wykrywanie substancji uczulających (zarówno alergenów zapachowych jak i konserwantów)
+        const foundFragranceAllergens = this.fragranceAllergens.filter(allergen => 
             ingredientsList.some(ing => ing.includes(allergen))
         );
-        if (foundAllergens.length > 0) {
-            detectedRisks.push('FRAGRANCE_ALLERGENS');
-            const sampleAllergens = foundAllergens.slice(0, 3).map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ');
-            warnings.push(`Produkt zawiera kompozycję zapachową z potencjalnymi alergenami (${sampleAllergens}). W przypadku wystąpienia podrażnienia lub reakcji uczuleniowej przerwać stosowanie.`);
-        }
+        const foundPreservatives = this.sensitizingPreservatives.filter(preservative =>
+            ingredientsList.some(ing => ing.includes(preservative))
+        );
+        const allFoundSensitizers = [...new Set([...foundFragranceAllergens, ...foundPreservatives])];
 
-        // 2. Sprawdzenie retinoidów (Rozp. 2024/996)
-        const hasRetinoids = this.retinoids.some(r => cleanInci.includes(r));
-        if (hasRetinoids) {
-            detectedRisks.push('RETINOIDS');
-            warnings.push("Zawiera witaminę A (retinoidy). Przed użyciem należy uwzględnić jej dzienne pobranie z innych źródeł. Nie stosować na uszkodzoną skórę i unikać ekspozycji na słońce.");
-        }
+        // Konsolidacja zwrotów H i P z parametrów i compliance
+        const combinedHPhrases = [
+            ...(Array.isArray(hPhrases) ? hPhrases : []),
+            ...(Array.isArray(compliance?.clp_h_phrases) ? compliance.clp_h_phrases : [])
+        ];
+        const rawPPhrases = [
+            ...(Array.isArray(pPhrases) ? pPhrases : []),
+            ...(Array.isArray(compliance?.clp_p_phrases) ? compliance.clp_p_phrases : [])
+        ];
+        const splitPPhrases = this.splitCombinedPPhrases(rawPPhrases);
 
-        // 3. Sprawdzenie kwasów (AHA / BHA / PHA)
-        const hasAcids = this.acids.some(a => cleanInci.includes(a));
-        if (hasAcids) {
-            detectedRisks.push('PEELING_ACIDS');
-            warnings.push("Zawiera hydroksykwasy. Unikać bezpośredniego kontaktu z oczami i błonami śluzowymi. W ciągu dnia zaleca się stosowanie ochrony przeciwsłonecznej (SPF).");
-        }
+        const hasEyeIrritation = combinedHPhrases.some(h => /H319|H318/i.test(h)) || isActualChemical;
 
-        // 4. Sprawdzenie surfaktantów / produktów myjących
-        // Unikamy duplikacji: jeśli to chemia gospodarcza / kapsułki, zwrot P305 w sekcji 6 zastąpi ogólne zdanie
-        const hasSurfactants = this.surfactants.some(s => cleanInci.includes(s));
-        if (hasSurfactants || cleanInci.includes('soap') || cleanInci.includes('mydło') || cleanInci.includes('szampon')) {
-            detectedRisks.push('EYE_IRRITANT_SURFACTANT');
-            if (!isChemical && !isLaundryCapsules) {
+        // --- OBSŁUGA CHEMII GOSPODARCZEJ I DETERGENTÓW (REŻIM CLP 1272/2008 & REŻIM DETERGENTOWY 648/2004) ---
+        if (isActualChemical) {
+            detectedRisks.push('HOUSEHOLD_CHEMICAL');
+
+            // 1. P102 – Chronić przed dziećmi (Obowiązkowy dla mieszanin konsumenckich)
+            warnings.push("P102 – Chronić przed dziećmi.");
+
+            // 2. P280 – Stosować ochronę oczu / ochronę twarzy (Wymagany przy H319/H318)
+            if (hasEyeIrritation) {
+                detectedRisks.push('EYE_IRRITATION_H319');
+                warnings.push("P280 – Stosować ochronę oczu / ochronę twarzy.");
+            }
+
+            // 3. P305+P351+P338 – Faza 1: Płukanie oczu wodą
+            if (hasEyeIrritation || isLaundryCapsules) {
+                warnings.push("P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
+            }
+
+            // 4. P337+P313 – Faza 2: Pomoc lekarska w razie utrzymywania się podrażnienia oczu
+            if (hasEyeIrritation) {
+                warnings.push("P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza.");
+            }
+
+            // 5. EUH208 – Informacja uzupełniająca o zagrożeniach (Art. 25 ust. 6 CLP, Rozp. 2023/1545)
+            // Zgodnie z prawem unijnym wymieniamy WSZYSTKIE zidentyfikowane substancje uczulające (BEZ UCINANIA)
+            if (allFoundSensitizers.length > 0) {
+                detectedRisks.push('EUH208_SENSITIZER');
+                const formattedSensitizers = allFoundSensitizers.map(s => this.formatSubstanceName(s)).join(', ');
+                warnings.push(`EUH208 – Zawiera ${formattedSensitizers}. Może powodować wystąpienie reakcji alergicznej.`);
+            }
+
+            // 6. Dołączenie ewentualnych pozostałych zwrotów P ze specyfikacji/SDS (zdekomponowanych)
+            for (const p of splitPPhrases) {
+                if (!warnings.some(w => w.includes(p.substring(0, 4)))) {
+                    warnings.push(p);
+                }
+            }
+
+            // Dodatkowe wytyczne dla kapsułek do prania (A.I.S.E. / Rozp. 1297/2014)
+            if (isLaundryCapsules) {
+                detectedRisks.push('LAUNDRY_CAPSULES_SAFETY');
+                warnings.push("Nie połykać. W razie połknięcia natychmiast skontaktować się z ośrodkiem zatruć lub lekarzem.");
+                warnings.push("Stosować suchymi dłońmi. Nie przekłuwać, nie rozrywać i nie rozcinać kapsułki. Szczelnie zamykać opakowanie po użyciu.");
+            }
+        } else {
+            // --- OBSŁUGA KOSMETYKÓW I PRODUKTÓW PIELĘGNACYJNYCH (Rozporządzenie 1223/2009 & GPSR) ---
+            // 1. Alergeny w kosmetykach: informacja GPSR (bez zwrotu CLP EUH208)
+            if (foundFragranceAllergens.length > 0) {
+                detectedRisks.push('FRAGRANCE_ALLERGENS');
+                const sampleAllergens = foundFragranceAllergens.map(a => this.formatSubstanceName(a)).join(', ');
+                warnings.push(`Produkt zawiera kompozycję zapachową z potencjalnymi alergenami (${sampleAllergens}). W przypadku wystąpienia podrażnienia lub reakcji uczuleniowej przerwać stosowanie.`);
+            }
+
+            // 2. Retinoidy (Rozp. 2024/996)
+            const hasRetinoids = this.retinoids.some(r => cleanInci.includes(r));
+            if (hasRetinoids) {
+                detectedRisks.push('RETINOIDS');
+                warnings.push("Zawiera witaminę A (retinoidy). Przed użyciem należy uwzględnić jej dzienne pobranie z innych źródeł. Nie stosować na uszkodzoną skórę i unikać ekspozycji na słońce.");
+            }
+
+            // 3. Kwasy (AHA / BHA / PHA)
+            const hasAcids = this.acids.some(a => cleanInci.includes(a));
+            if (hasAcids) {
+                detectedRisks.push('PEELING_ACIDS');
+                warnings.push("Zawiera hydroksykwasy. Unikać bezpośredniego kontaktu z oczami i błonami śluzowymi. W ciągu dnia zaleca się stosowanie ochrony przeciwsłonecznej (SPF).");
+            }
+
+            // 4. Surfaktanty myjące (oczy)
+            const hasSurfactants = this.surfactants.some(s => cleanInci.includes(s));
+            if (hasSurfactants || cleanInci.includes('soap') || cleanInci.includes('mydło') || cleanInci.includes('szampon')) {
+                detectedRisks.push('EYE_IRRITANT_SURFACTANT');
                 warnings.push("W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą.");
             }
-        }
 
-        // 5. Sprawdzenie alkoholi łatwopalnych / rozpuszczalników lotnych (FIZYKOCHEMIA I LOGIKA KATEGORII)
-        // Bezwzględny zakaz oznaczania kapsułek do prania, detergentów piorących i produktów wodnych jako łatwopalne
-        const isNotFlammableCategory = isLaundryCapsules || isLaundryDetergent || (isWaterBasedCleanser && !/(aerozol|spray|perfum|woda toaletowa|zmywacz)/i.test(prodNameLower));
-        
-        if (!isNotFlammableCategory) {
-            // Weryfikacja czy w składzie występuje realny rozpuszczalnik łatwopalny, a nie polimer PVA czy alkohole tłuszczowe
-            const hasFlammableSolvent = this.flammableSolvents.some(solv => {
-                return ingredientsList.some(ing => {
-                    // Wykluczenie niepalnych alkoholi (np. polyvinyl alcohol, cetearyl alcohol)
-                    if (this.nonFlammableAlcohols.some(nonFlam => ing.includes(nonFlam))) return false;
-                    return ing === solv || ing.includes(solv);
+            // 5. Alkohole łatwopalne
+            const isNotFlammableCategory = isWaterBasedCleanser && !/(aerozol|spray|perfum|woda toaletowa|zmywacz)/i.test(prodNameLower);
+            if (!isNotFlammableCategory) {
+                const hasFlammableSolvent = this.flammableSolvents.some(solv => {
+                    return ingredientsList.some(ing => {
+                        if (this.nonFlammableAlcohols.some(nonFlam => ing.includes(nonFlam))) return false;
+                        return ing === solv || ing.includes(solv);
+                    });
                 });
-            });
-
-            if (hasFlammableSolvent) {
-                detectedRisks.push('VOLATILE_ALCOHOL');
-                warnings.push("Produkt zawiera substancje łatwopalne. Przechowywać z dala od otwartego ognia, iskier i bezpośrednich źródeł ciepła.");
-            }
-        }
-
-        // 6. Produkty chemii gospodarczej / detergenty (powiązanie z SDS CLP P-phrases)
-        if (isChemical) {
-            detectedRisks.push('HOUSEHOLD_CHEMICAL');
-            if (this.euphracPhrases && this.euphracPhrases.pPhrases) {
-                // P102 – Chronić przed dziećmi
-                if (this.euphracPhrases.pPhrases['P102']) {
-                    const p102Text = String(this.euphracPhrases.pPhrases['P102']).replace(/^[:\s–-]+/, '').trim();
-                    warnings.push(`P102 – ${p102Text}`);
+                if (hasFlammableSolvent) {
+                    detectedRisks.push('VOLATILE_ALCOHOL');
+                    warnings.push("Produkt zawiera substancje łatwopalne. Przechowywać z dala od otwartego ognia, iskier i bezpośrednich źródeł ciepła.");
                 }
-                // P305+P351+P338 – W przypadku dostania się do oczu
-                if (this.euphracPhrases.pPhrases['P305+P351+P338']) {
-                    let p305Text = String(this.euphracPhrases.pPhrases['P305+P351+P338']).replace(/^[:\s–-]+/, '').trim();
-                    p305Text = p305Text.replace(/\bDO OCZÓW\b/gi, 'DO OCZU');
-                    warnings.push(`P305+P351+P338 – ${p305Text}`);
-                }
-            } else {
-                warnings.push("P102 – Chronić przed dziećmi.");
-                warnings.push("W razie połknięcia lub kontaktu z oczami niezwłocznie zasięgnąć porady lekarza i pokazać opakowanie lub etykietę.");
             }
-        }
 
-        // 7. Podstawowe zasady ogólne GPSR (External use & storage)
-        if (!isChemical && !isLaundryCapsules) {
+            // 6. Ogólne zasady GPSR dla kosmetyków
             warnings.push("Tylko do użytku zewnętrznego. Nie stosować na podrażnioną lub uszkodzoną skórę.");
             warnings.push("Przechowywać w temperaturze pokojowej (15–25°C), w szczelnie zamkniętym opakowaniu, w miejscu niedostępnym dla małych dzieci.");
         }
 
-        // Standaryzacja językowa i interpunkcyjna: usunięcie form archaicznych oraz ujednolicenie prefiksów zwrotów
+        // Standaryzacja językowa i interpunkcyjna
         const sanitizedWarnings = warnings.map(w => {
             return w
                 .replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
-                .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*):\s*/i, '$1 – ');
+                .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3}):\s*/i, '$1 – ');
         });
 
-        // Ograniczamy do max 4 najważniejszych, konkretnych ostrzeżeń (zwięzłość dla konsumenta)
-        const dedupedWarnings = [...new Set(sanitizedWarnings)].slice(0, 4);
+        // Deduplikacja bez sztucznego obcinania - pełna lista prawna
+        const dedupedWarnings = [...new Set(sanitizedWarnings)];
 
         return {
             detected_risks: detectedRisks,

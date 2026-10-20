@@ -6,7 +6,12 @@
     "capacity": ["pojemnosc", "capacity", "pojemnosc opakowania", "wielkosc", "pojemnosc waga", "waga", "masa"],
     "usage": ["usage instructions", "sposob uzycia"],
     "warnings": ["warnings", "uwagi dotyczace bezpieczenstwa"],
-    "line": ["linia", "line", "product line"]
+    "line": ["linia", "line", "product line"],
+    "clp_signal_word": ["haslo ostrzegawcze", "signal word", "haslo clp", "uwaga", "niebezpieczenstwo", "pericolo", "danger", "warning"],
+    "clp_h_phrases": ["zwroty h", "zagrozenia", "hazard statements", "zwroty wskazujace rodzaj zagrozenia", "zagrozenie clp", "h-phrases", "h phrases", "h_phrases"],
+    "clp_p_phrases": ["zwroty p", "srodki ostroznosci", "precautionary statements", "srodki ostroznosci clp", "p-phrases", "p phrases", "p_phrases"],
+    "clp_euh_phrases": ["zwroty euh", "euh", "informacje uzupelniajace o zagrozeniach", "euh208", "euh-phrases"],
+    "detergent_composition": ["sklad detergentu", "rozporzadzenie o detergentach", "detergent composition", "zawartosc surfaktantow", "sklad wg 648 2004", "konserwanty detergent"]
   },
   "ignoredFeatures": [
     "kod karty"

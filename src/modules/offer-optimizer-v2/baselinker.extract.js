@@ -96,6 +96,11 @@ function extractFromFeatures(product) {
         warnings: { value: null, source: null, matched_key: null },
         line: { value: null, source: null, matched_key: null },
         postac: { value: null, source: null, matched_key: null },
+        clp_signal_word: { value: null, source: null, matched_key: null },
+        clp_h_phrases: { value: null, source: null, matched_key: null },
+        clp_p_phrases: { value: null, source: null, matched_key: null },
+        clp_euh_phrases: { value: null, source: null, matched_key: null },
+        detergent_composition: { value: null, source: null, matched_key: null },
         truncated: false,
         recovered_keys: []
     };

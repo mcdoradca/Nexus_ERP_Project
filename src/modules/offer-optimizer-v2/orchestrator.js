@@ -118,6 +118,26 @@ const sanitizeSection5Html = (htmlStr, pimData = {}) => {
     return res;
 };
 
+const sanitizeSection3Html = (htmlStr, allowedSourcesStr = '') => {
+    if (!htmlStr || typeof htmlStr !== 'string') return htmlStr;
+    let res = htmlStr;
+
+    // Eliminacja halucynacji konserwantów kosmetycznych w detergentach (np. Phenoxyethanol)
+    const allowedLower = String(allowedSourcesStr || '').toLowerCase();
+    const knownHallucinablePreservatives = [
+        { name: 'Phenoxyethanol', regex: /\b(?:phenoxyethanol|fenoksyetanol)\b/i }
+    ];
+
+    for (const item of knownHallucinablePreservatives) {
+        if (item.regex.test(res) && !item.regex.test(allowedLower)) {
+            console.warn(`[Orchestrator V2] Wykryto halucynację ${item.name} w Sekcji 3. Wycinanie nieautoryzowanego składnika.`);
+            res = res.replace(new RegExp(`<li[^>]*>\\s*(?:⚙️|⚡)?\\s*<b>\\s*(?:Składnik:?\\s*)?${item.name}[^<]*<\\/b>[\\s\\S]*?<\\/li>`, 'gi'), '');
+        }
+    }
+
+    return res;
+};
+
 const sanitizeSection6Html = (htmlStr) => {
     if (!htmlStr || typeof htmlStr !== 'string') return htmlStr;
     let res = htmlStr;
@@ -125,25 +145,41 @@ const sanitizeSection6Html = (htmlStr) => {
     // 1. Standaryzacja językowa i eliminacja archaizmów fleksyjnych (np. "DO OCZÓW" -> "DO OCZU")
     res = res.replace(/\bDO OCZÓW\b/gi, 'DO OCZU');
 
-    // 2. Likwidacja zbitych dwukropków po etykiecie ostrzeżenia i kodzie zwrotu:
-    // np. "<b>Ostrzeżenie (CLP):</b> P102: ..." -> "<b>Ostrzeżenie (CLP):</b> P102 – ..."
-    res = res.replace(/(<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\))?|Środki\s+ostrożności\s*(?:\(GPSR\))?):?\s*<\/b>\s*)([A-Z0-9+]+):/gi, '$1$2 –');
+    // 2. Usunięcie błędnej hybrydy prawnej "CLP/GPSR"
+    res = res.replace(/Ostrzeżenie\s+CLP\/GPSR:?/gi, 'Ostrzeżenie (CLP):');
+    res = res.replace(/Wytyczne\s+bezpieczeństwa\s+CLP\/GPSR:?/gi, 'Wytyczne bezpieczeństwa (GPSR):');
 
-    // 3. Likwidacja podwójnych dwukropków "::" w całym stringu
+    // 3. Rozklejanie sklejonych procedur medycznych kodów P w punktach <li>
+    // np. "<li>⚠️ <b>Ostrzeżenie (CLP):</b> P305+P351+P338 + P337+P313: ...</li>"
+    const gpsrSafetyService = require('./services/gpsr.safety.service');
+    res = res.replace(/<li[^>]*>\s*(?:⚠️|➡️|🛡️|\*|-)?\s*(?:<b>\s*Ostrzeżenie\s*(?:\(CLP\))?:?\s*<\/b>\s*)?(P\d{3}(?:\+P\d{3})*\s*(?:\+|\/|\band\b|\boraz\b)\s*P\d{3}[^<]*)<\/li>/gi, (match, pGroup) => {
+        const splitPhrases = gpsrSafetyService.splitCombinedPPhrases(pGroup);
+        if (splitPhrases.length > 1) {
+            return splitPhrases.map(phrase => `<li>⚠️ <b>Ostrzeżenie (CLP):</b> ${phrase}</li>`).join('\n');
+        }
+        return match;
+    });
+
+    // 4. Likwidacja zbitych dwukropków po etykiecie ostrzeżenia i kodzie zwrotu:
+    // np. "<b>Ostrzeżenie (CLP):</b> P102: ..." -> "<b>Ostrzeżenie (CLP):</b> P102 – ..."
+    res = res.replace(/(<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\))?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\))?|Środki\s+ostrożności\s*(?:\(GPSR\))?):?\s*<\/b>\s*)([A-Z0-9+]+):/gi, '$1$2 –');
+
+    // 5. Likwidacja podwójnych dwukropków "::" w całym stringu
     res = res.replace(/::+/g, ':');
 
-    // 4. Eliminacja potrójnego dwukropka w treści zwrotu P305 np. "P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie..."
+    // 6. Standaryzacja zwrotu EUH208
+    res = res.replace(/(EUH208):/gi, '$1 –');
+
+    // 7. Eliminacja potrójnego dwukropka w treści zwrotu P305 np. "P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie..."
     res = res.replace(/(P305\+P351\+P338\s*–\s*W\s+PRZYPADKU\s+DOSTANIA\s+SIĘ\s+DO\s+OCZU):/gi, '$1 –');
 
-    // 5. Eliminacja redundancji semantycznej (Deduplikacja ostrzeżeń o oczach):
-    // Jeśli w sekcji występuje zwrot CLP P305 (np. P305+P351+P338), usuwamy ogólne zdanie o płukaniu oczu
+    // 8. Eliminacja redundancji semantycznej (Deduplikacja ostrzeżeń o oczach):
     const hasP305 = /P305/i.test(res);
     if (hasP305) {
-        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\))?|Środki\s+ostrożności\s*(?:\(GPSR\))?):?\s*<\/b>\s*)?W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą\.?\s*<\/li>/gi, '');
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\))?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\))?|Środki\s+ostrożności\s*(?:\(GPSR\))?):?\s*<\/b>\s*)?W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą\.?\s*<\/li>/gi, '');
     }
 
-    // 6. Eliminacja redundancji między <p> wstępnym a listą punktowaną dot. dzieci:
-    // Jeśli w liście występuje P102 lub "Chronić przed dziećmi", usuwamy zduplikowane zdanie z akapitu <p>
+    // 9. Eliminacja redundancji między <p> wstępnym a listą punktowaną dot. dzieci:
     const hasP102 = /P102|Chronić przed dziećmi/i.test(res);
     if (hasP102) {
         res = res.replace(/(<p[^>]*>[\s\S]*?)(?:Przechowywać poza zasięgiem dzieci\.?|Chronić przed dziećmi\.?)\s*([\s\S]*?<\/p>)/gi, (m, before, after) => {
@@ -152,7 +188,7 @@ const sanitizeSection6Html = (htmlStr) => {
         });
     }
 
-    // 7. Twarda tarcza anty-kontaktowa Allegro (zakaz e-mail, telefonów, stron www w opisie oferty pod rygorem bana)
+    // 10. Twarda tarcza anty-kontaktowa Allegro (zakaz e-mail, telefonów, stron www w opisie oferty pod rygorem bana)
     res = brandResponsibleService.stripContactInfo(res);
 
     return res;
@@ -559,6 +595,11 @@ class Orchestrator {
             usage: extracted.usage,
             warnings: extracted.warnings,
             line: extracted.line,
+            clp_signal_word: extracted.clp_signal_word,
+            clp_h_phrases: extracted.clp_h_phrases,
+            clp_p_phrases: extracted.clp_p_phrases,
+            clp_euh_phrases: extracted.clp_euh_phrases,
+            detergent_composition: extracted.detergent_composition,
             truncated: extracted.truncated,
             recovered_keys: extracted.recovered_keys,
             eu_responsible_person: finalEu,
@@ -580,11 +621,17 @@ class Orchestrator {
         for (let key of catKeys) {
             if (product && product[key]) {
                 const valStr = String(product[key]).toLowerCase();
-                if (valStr.includes('chemia') || valStr.includes('chemical') || valStr.includes('biobójcz') || valStr.includes('biocid')) {
+                if (/(chemia|chemical|biob[oó]jcz|biocid|prani|laundry|detergent|czyszcz|czysto[sś][cć]|myci|odkamien|zmywark|dishwash|p[lł]yn do |kapsu[lł]k)/i.test(valStr)) {
                     reasons.push('CATEGORY_CHEMICAL');
                     break;
                 }
             }
+        }
+        if (product?.text_fields?.name && /(p[lł]yn do prania|kapsu[lł]ki do prania|odplamiacz|proszek do prania|p[lł]yn do p[lł]ukania|detergent|odkamieniacz|udro[żz]niacz|p[lł]yn do wc)/i.test(product.text_fields.name)) {
+            if (!reasons.includes('CATEGORY_CHEMICAL')) reasons.push('CATEGORY_CHEMICAL');
+        }
+        if (extracted.clp_signal_word?.value || product?.clp_signal_word) {
+            if (!reasons.includes('CATEGORY_CHEMICAL')) reasons.push('CATEGORY_CHEMICAL');
         }
         reasons.push('SDS_STATUS_UNKNOWN');
         
@@ -1411,12 +1458,19 @@ class Orchestrator {
                         ragText += `\n[WYTYCZNA REKONTEKSTUALIZACJI DZIEDZINOWEJ DLA A4]: Powyższy słownik CosIng reprezentuje zastosowania w formulacjach kosmetycznych (WE 1223/2009). Jeżeli produkt należy do chemii gospodarczej lub detergentów (WE 648/2004 – np. odkamieniacz, płyn do WC, płyn do łazienek, preparat czyszczący, myjący), składniki interpretuj zgodnie z ich rolą technologiczną w czyszczeniu i odkamienianiu (kwasy organiczne/nieorganiczne = substancje aktywne rozpuszczające kamień wapienny i rdzę; kategoryczny zakaz opisywania ich jako konserwantów!).\n`;
                     }
                     
+                    const complianceData = this.state.extracted_data.compliance?.data || {
+                        clp_signal_word: this.state.extracted_data.clp_signal_word?.value,
+                        clp_h_phrases: this.state.extracted_data.clp_h_phrases?.value ? (Array.isArray(this.state.extracted_data.clp_h_phrases.value) ? this.state.extracted_data.clp_h_phrases.value : [this.state.extracted_data.clp_h_phrases.value]) : [],
+                        clp_p_phrases: this.state.extracted_data.clp_p_phrases?.value ? (Array.isArray(this.state.extracted_data.clp_p_phrases.value) ? this.state.extracted_data.clp_p_phrases.value : [this.state.extracted_data.clp_p_phrases.value]) : []
+                    };
                     const agent4Data = {
                         gtin_ean: this.gtin,
                         product_name: product?.text_fields?.name || undefined,
                         brand: extracted.brand?.value || undefined,
                         category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name || undefined,
-                        inci: this.state.extracted_data.inci?.value || undefined
+                        inci: this.state.extracted_data.inci?.value || undefined,
+                        detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
+                        compliance: complianceData
                     };
                     if (this.state.vision_extracted_features && Object.keys(this.state.vision_extracted_features).length > 0) {
                         agent4Data.physical_grounding_context = {
@@ -1466,9 +1520,8 @@ class Orchestrator {
                         warnings.push('A4_LIMIT_TRUNCATED: detected_synergies');
                     }
                     
-                    if (result.mandatory_clp_warnings !== null) {
-                        warnings.push('A4_CLP_WITHOUT_SOURCE');
-                        result.mandatory_clp_warnings = null;
+                    if (result.mandatory_clp_warnings && Array.isArray(result.mandatory_clp_warnings) && result.mandatory_clp_warnings.length > 0) {
+                        this.state.mandatory_clp_warnings = result.mandatory_clp_warnings;
                     }
                     
                     if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
@@ -1546,19 +1599,39 @@ class Orchestrator {
             const isActualHouseholdChemical = Boolean(
                 this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL') || 
                 product?.sds_required || 
-                product?.clp_signal_word
+                product?.clp_signal_word ||
+                this.state.extracted_data.clp_signal_word?.value ||
+                this.state.extracted_data.compliance?.data
             );
+            const complianceData = this.state.extracted_data.compliance?.data || {
+                clp_signal_word: this.state.extracted_data.clp_signal_word?.value,
+                clp_h_phrases: this.state.extracted_data.clp_h_phrases?.value ? (Array.isArray(this.state.extracted_data.clp_h_phrases.value) ? this.state.extracted_data.clp_h_phrases.value : [this.state.extracted_data.clp_h_phrases.value]) : [],
+                clp_p_phrases: this.state.extracted_data.clp_p_phrases?.value ? (Array.isArray(this.state.extracted_data.clp_p_phrases.value) ? this.state.extracted_data.clp_p_phrases.value : [this.state.extracted_data.clp_p_phrases.value]) : []
+            };
             const gpsrBaseline = gpsrSafetyService.generateGpsrWarnings({
-                inci: this.state.extracted_data.inci?.value,
+                inci: this.state.extracted_data.inci?.value || this.state.extracted_data.detergent_composition?.value,
                 productName: product?.text_fields?.name,
-                isChemical: isActualHouseholdChemical
+                isChemical: isActualHouseholdChemical,
+                compliance: complianceData,
+                hPhrases: complianceData.clp_h_phrases,
+                pPhrases: complianceData.clp_p_phrases
             });
+
+            if (this.state.mandatory_clp_warnings && Array.isArray(this.state.mandatory_clp_warnings)) {
+                for (const w of this.state.mandatory_clp_warnings) {
+                    if (!gpsrBaseline.warnings.includes(w)) {
+                        gpsrBaseline.warnings.push(w);
+                    }
+                }
+            }
 
             const agent5Data = {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
                 brand: extracted.brand?.value || undefined,
                 inci: this.state.extracted_data.inci?.value || undefined,
+                detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
+                compliance: complianceData,
                 gpsr_safety_baseline: gpsrBaseline,
                 a1: this.state.a1_result,
                 a2: this.state.a2_result,
@@ -1618,12 +1691,15 @@ class Orchestrator {
                     result.safe_aeo_answers = aeoAnswers.slice(0, pairCount);
                 }
                 
-                // Tarcza Defensive AI: jeśli A5 zwrócił pustą listę ostrzeżeń, wstrzykujemy bazowe ostrzeżenia z SDS GPSR
-                if (!result.mandatory_safety_warnings || !Array.isArray(result.mandatory_safety_warnings) || result.mandatory_safety_warnings.length === 0) {
-                    if (gpsrBaseline.warnings && gpsrBaseline.warnings.length > 0) {
-                        result.mandatory_safety_warnings = gpsrBaseline.warnings;
-                    }
-                }
+                // Tarcza Defensive AI: bezwzględne scalenie ostrzeżeń z bazy prawnej SDS GPSR z wyjściem A5 (ochrona przed gubieniem zwrotów EUH208, P280, P102)
+                const mergedWarnings = [
+                    ...(Array.isArray(result.mandatory_safety_warnings) ? result.mandatory_safety_warnings : []),
+                    ...(Array.isArray(gpsrBaseline.warnings) ? gpsrBaseline.warnings : [])
+                ];
+                result.mandatory_safety_warnings = [...new Set(mergedWarnings.map(w => 
+                    w.replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
+                     .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3}):\s*/i, '$1 – ')
+                ))];
 
                 if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
                 this.state.token_usage_per_node['A5'] = usage;
@@ -1723,6 +1799,8 @@ class Orchestrator {
                 capacity: extracted.capacity?.value || this.state.vision_extracted_features?.['Pojemność'] || this.state.vision_extracted_features?.['Pojemność / Waga'] || undefined,
                 line: extracted.line?.value || undefined,
                 inci: this.state.extracted_data.inci?.value || undefined,
+                detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
+                compliance: this.state.extracted_data.compliance?.data || undefined,
                 eu_responsible_person: this.state.extracted_data.eu_responsible_person?.data ? {
                     name: this.state.extracted_data.eu_responsible_person.data.name,
                     address_eu: this.state.extracted_data.eu_responsible_person.data.address_eu
@@ -1781,6 +1859,17 @@ class Orchestrator {
                     }
                 }
 
+                // TARCZA DETERMINISTYCZNA DLA SEKCJI 3 (Closed-World INCI):
+                // Eliminacja halucynacji kosmetycznych konserwantów (np. Phenoxyethanol w detergentach)
+                if (result.section_3_html) {
+                    const allowedSourcesStr = [
+                        this.state.extracted_data.inci?.value,
+                        this.state.extracted_data.detergent_composition?.value,
+                        JSON.stringify(product?.text_fields?.features || {}),
+                        JSON.stringify(this.state.a4_result || {})
+                    ].filter(Boolean).join(' ');
+                    result.section_3_html = sanitizeSection3Html(result.section_3_html, allowedSourcesStr);
+                }
 
                 // TARCZA DETERMINISTYCZNA DLA SEKCJI 5 (Parametry Techniczne ⚖️):
                 // Eliminacja fałszywych certyfikatów CE w kosmetykach oraz marketingowych halucynacji pH w pudrach i formach bezwodnych
@@ -1962,28 +2051,62 @@ class Orchestrator {
                 this.state.node_status['A10'] = 'RUNNING';
                 this.emitState();
 
-                // Generowanie realnego raportu pre-audytu kodowego dla Agenta 10
-                const s1Stopwords = scan_stopwords(this.state.a7_result.section_1_html);
-                const s2Stopwords = scan_stopwords(this.state.a7_result.section_2_html);
-                const s4Stopwords = scan_stopwords(this.state.a7_result.section_4_html);
-                const detectedStopwords = [
-                    ...s1Stopwords.map(h => ({ section: 'section_1_html', word: h.word })),
-                    ...s2Stopwords.map(h => ({ section: 'section_2_html', word: h.word })),
-                    ...s4Stopwords.map(h => ({ section: 'section_4_html', word: h.word }))
+                // Generowanie realnego raportu pre-audytu kodowego dla Agenta 10 na wszystkich 6 sekcjach
+                const detectedStopwords = [];
+                for (let i = 1; i <= 6; i++) {
+                    const secHtml = this.state.a7_result['section_' + i + '_html'];
+                    if (secHtml) {
+                        const hits = scan_stopwords(secHtml);
+                        detectedStopwords.push(...hits.map(h => ({ section: `section_${i}_html`, word: h.word })));
+                    }
+                }
+
+                // Weryfikacja zgodności prawnej sekcji 3, 5 i 6
+                const s5Check = validate_section5_compliance(this.state.a7_result.section_5_html, {
+                    is_medical_device: product?.is_medical_device,
+                    product_name: product?.text_fields?.name
+                });
+                const s6Check = validate_section6_compliance(this.state.a7_result.section_6_html, {
+                    has_eye_irritation: Boolean(this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL')),
+                    has_sensitizers: Boolean(this.state.extracted_data.inci?.value && /(linalool|limonene|coumarin|hexyl cinnamal|benzyl salicylate|isothiazolinone)/i.test(this.state.extracted_data.inci.value)),
+                    is_chemical: Boolean(this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL'))
+                });
+                const allowedSourcesList = (this.state.extracted_data.inci?.value || '').split(',').map(s => s.trim());
+                if (this.state.extracted_data.detergent_composition?.value) {
+                    allowedSourcesList.push(...this.state.extracted_data.detergent_composition.value.split(',').map(s => s.trim()));
+                }
+                const s3Check = validate_section3_ingredients_closed_world(this.state.a7_result.section_3_html, allowedSourcesList);
+
+                const complianceIssues = [
+                    ...s5Check.errors.map(e => `[Sekcja 5] ${e}`),
+                    ...s6Check.errors.map(e => `[Sekcja 6] ${e}`),
+                    ...s3Check.errors.map(e => `[Sekcja 3] ${e}`)
                 ];
-                const preAuditReport = detectedStopwords.length > 0
-                    ? `WYKRYTO SŁOWA ZAKAZANE REGULAMINEM ALLEGRO (§A): ${detectedStopwords.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM W repair_patches NA NEUTRALNE ODPOWIEDNIKI.`
-                    : "Automated checks passed.";
+
+                let preAuditReport = '';
+                if (detectedStopwords.length > 0) {
+                    preAuditReport += `WYKRYTO SŁOWA ZAKAZANE REGULAMINEM ALLEGRO (§A): ${detectedStopwords.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM W patches NA NEUTRALNE ODPOWIEDNIKI.\n`;
+                }
+                if (complianceIssues.length > 0) {
+                    preAuditReport += `WYKRYTO NIEZGODNOŚCI PRAWNE I FORMALNE: ${complianceIssues.join(' | ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM W patches.\n`;
+                }
+                if (!preAuditReport) {
+                    preAuditReport = "Automated checks passed.";
+                }
 
                 const agent10Data = {
                     gtin_ean: this.gtin,
                     product_name: product?.text_fields?.name || undefined,
                     brand: extracted.brand?.value || undefined,
                     inci: this.state.extracted_data.inci?.value || undefined,
+                    detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
                     vision_features: this.state.vision_extracted_features || undefined,
                     section_1_html: this.state.a7_result.section_1_html,
                     section_2_html: this.state.a7_result.section_2_html,
+                    section_3_html: this.state.a7_result.section_3_html,
                     section_4_html: this.state.a7_result.section_4_html,
+                    section_5_html: this.state.a7_result.section_5_html,
+                    section_6_html: this.state.a7_result.section_6_html,
                     audit_report: preAuditReport
                 };
                 
@@ -2032,15 +2155,33 @@ class Orchestrator {
                     const patches = result.patches || [];
                     
                     for (let p of patches) {
-                        if (['section_3_html', 'section_5_html', 'section_6_html'].includes(p.target_section)) {
-                            warnings.push('A10_PATCH_ON_FROZEN_SECTION: ' + p.target_section);
-                            continue; // Odrzucamy ten patch, bo idzie na zamrożone
-                        }
                         if (finalDoc[p.target_section] && p.find_exact) {
                             finalDoc[p.target_section] = finalDoc[p.target_section].split(p.find_exact).join(p.replace_with);
                             console.log("[DEBUG A10] finalDoc po patchu na " + p.target_section + ":", finalDoc[p.target_section]);
                         }
                     }
+
+                    // Reinforcement post-patch sanitizers
+                    if (finalDoc.section_3_html) {
+                        const allowedSourcesStr = [
+                            this.state.extracted_data.inci?.value,
+                            this.state.extracted_data.detergent_composition?.value,
+                            JSON.stringify(product?.text_fields?.features || {}),
+                            JSON.stringify(this.state.a4_result || {})
+                        ].filter(Boolean).join(' ');
+                        finalDoc.section_3_html = sanitizeSection3Html(finalDoc.section_3_html, allowedSourcesStr);
+                    }
+                    if (finalDoc.section_5_html) {
+                        finalDoc.section_5_html = sanitizeSection5Html(finalDoc.section_5_html, {
+                            product_name: this.state.product_name,
+                            category: this.state.category_path,
+                            features: this.state.features
+                        });
+                    }
+                    if (finalDoc.section_6_html) {
+                        finalDoc.section_6_html = sanitizeSection6Html(finalDoc.section_6_html);
+                    }
+
                     console.log("[DEBUG A10] finalDoc przed walidacja:", finalDoc);
                     
                     this.state.a10_result = finalDoc;
@@ -2050,7 +2191,7 @@ class Orchestrator {
 
                     if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
 
-                    for (let i of [1,2,4]) {
+                    for (let i of [1, 2, 3, 4, 5, 6]) {
                         let sec = finalDoc['section_' + i + '_html'];
                         if (sec) {
                             sec = normalizeTags(sec);
@@ -2210,10 +2351,6 @@ class Orchestrator {
         }
         this.emitState();
     }
-
-    async runPhase2() { throw new Error('NOT_IMPLEMENTED_E4b'); }
-    async runPhase3() { throw new Error('NOT_IMPLEMENTED_E4b'); }
-    async runPhase4() { throw new Error('NOT_IMPLEMENTED_E4b'); }
 
     writeBackToBaseLinker(offer) {
         if (!WRITE_BACK_ENABLED) {

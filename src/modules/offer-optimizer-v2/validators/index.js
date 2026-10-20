@@ -432,6 +432,68 @@ function validate_section5_compliance(html, options = {}) {
     return { valid: errors.length === 0, errors };
 }
 
+function validate_section6_compliance(html, options = {}) {
+    if (!html || typeof html !== 'string') return { valid: true, errors: [] };
+    const errors = [];
+
+    // 1. ZAKAZ ZBITKÓW KODÓW P (np. P305+P351+P338 + P337+P313 w jednej linii)
+    const gluedPRegex = /P\d{3}(?:\+P\d{3})*\s*\+\s*P\d{3}/i;
+    if (gluedPRegex.test(html)) {
+        errors.push('Contains glued multi-procedure P-codes with plus operator (must be separated into distinct <li> items)');
+    }
+
+    // 2. ZAKAZ HYBRYDY Ostrzeżenie CLP/GPSR:
+    if (/CLP\/GPSR/i.test(html)) {
+        errors.push('Contains illegal hybrid label CLP/GPSR (must be CLP for chemicals, GPSR for cosmetics/articles)');
+    }
+
+    // 3. Weryfikacja wymogu P280 dla H319/H318
+    const hasEyeIrritation = options.has_eye_irritation === true ||
+                            (Array.isArray(options.h_phrases) && options.h_phrases.some(h => /H319|H318/i.test(h)));
+    if (hasEyeIrritation && !html.includes('P280')) {
+        errors.push('Missing mandatory P280 eye protection statement for H319/H318 classification');
+    }
+
+    // 4. Weryfikacja EUH208 przy obecności alergenów w chemii
+    if (options.has_sensitizers === true && !html.includes('EUH208') && options.is_chemical === true) {
+        errors.push('Missing mandatory EUH208 allergen statement for chemical mixture with sensitizers');
+    }
+
+    return { valid: errors.length === 0, errors };
+}
+
+function validate_section3_ingredients_closed_world(html, allowedIngredients = []) {
+    if (!html || typeof html !== 'string') return { valid: true, errors: [] };
+    const errors = [];
+
+    const allowedLower = (allowedIngredients || []).map(i => String(i).toLowerCase().trim()).filter(Boolean);
+    if (allowedLower.length === 0) {
+        return { valid: true, errors: [] };
+    }
+
+    // Wyciągamy nagłówki/nazwy składników z punktów <li> w sekcji 3
+    const itemRegex = /<li[^>]*>\s*(?:⚙️|⚡)?\s*<b>\s*(?:Składnik:?\s*)?([^:<]+?)\s*:\s*<\/b>/gi;
+    let match;
+    const knownPreservativesAndActives = [
+        'phenoxyethanol', 'fenoksyetanol', 'parabens', 'parabeny', 'dmdm hydantoin',
+        'triclosan', 'triklosan', 'chlorhexidine', 'chlorheksydyna', 'bht', 'bha'
+    ];
+
+    while ((match = itemRegex.exec(html)) !== null) {
+        const ingredientClaim = match[1].toLowerCase().trim();
+        for (const chem of knownPreservativesAndActives) {
+            if (ingredientClaim.includes(chem)) {
+                const isAllowed = allowedLower.some(allowed => allowed.includes(chem));
+                if (!isAllowed) {
+                    errors.push(`UNAUTHORIZED_HALLUCINATED_INGREDIENT: ${match[1]} (not present in product documentation)`);
+                }
+            }
+        }
+    }
+
+    return { valid: errors.length === 0, errors };
+}
+
 module.exports = {
     ean_checksum,
     route_chemical,
@@ -448,5 +510,7 @@ module.exports = {
     normalize_aeo_faq_labels,
     aeo_faq_check,
     hasBannedLilial,
-    validate_section5_compliance
+    validate_section5_compliance,
+    validate_section6_compliance,
+    validate_section3_ingredients_closed_world
 };
