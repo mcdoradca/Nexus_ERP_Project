@@ -7,7 +7,7 @@ const { FORBIDDEN_SOURCES, DATA_SOURCE_MODE } = require('./config/nodes.config')
 const baselinkerExtract = require('./baselinker.extract.js');
 const { normalizeIngredientName } = require('./normalization.js');
 const ragService = require('./knowledge.rag.service.js');
-const { validate_html_whitelist, scan_medical_claims_lexical, scan_stopwords, normalize_aeo_faq_labels, aeo_faq_check } = require('./validators');
+const { validate_html_whitelist, scan_medical_claims_lexical, scan_stopwords, normalize_aeo_faq_labels, aeo_faq_check, validate_section5_compliance, validate_section6_compliance, validate_section3_ingredients_closed_world } = require('./validators');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const visionExtractorService = require('./vision-extractor.service');
@@ -1691,15 +1691,17 @@ class Orchestrator {
                     result.safe_aeo_answers = aeoAnswers.slice(0, pairCount);
                 }
                 
-                // Tarcza Defensive AI: bezwzględne scalenie ostrzeżeń z bazy prawnej SDS GPSR z wyjściem A5 (ochrona przed gubieniem zwrotów EUH208, P280, P102)
-                const mergedWarnings = [
-                    ...(Array.isArray(result.mandatory_safety_warnings) ? result.mandatory_safety_warnings : []),
-                    ...(Array.isArray(gpsrBaseline.warnings) ? gpsrBaseline.warnings : [])
-                ];
-                result.mandatory_safety_warnings = [...new Set(mergedWarnings.map(w => 
-                    w.replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
-                     .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3}):\s*/i, '$1 – ')
-                ))];
+                // Tarcza Defensive AI: jeśli A5 zwrócił pustą listę ostrzeżeń, wstrzykujemy bazowe ostrzeżenia z SDS GPSR
+                if (!result.mandatory_safety_warnings || !Array.isArray(result.mandatory_safety_warnings) || result.mandatory_safety_warnings.length === 0) {
+                    if (gpsrBaseline.warnings && gpsrBaseline.warnings.length > 0) {
+                        result.mandatory_safety_warnings = gpsrBaseline.warnings;
+                    }
+                } else {
+                    result.mandatory_safety_warnings = result.mandatory_safety_warnings.map(w => 
+                        w.replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
+                         .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3}):\s*/i, '$1 – ')
+                    );
+                }
 
                 if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
                 this.state.token_usage_per_node['A5'] = usage;
@@ -2155,6 +2157,10 @@ class Orchestrator {
                     const patches = result.patches || [];
                     
                     for (let p of patches) {
+                        if (['section_3_html', 'section_5_html', 'section_6_html'].includes(p.target_section)) {
+                            warnings.push('A10_PATCH_ON_FROZEN_SECTION: ' + p.target_section);
+                            continue; // Odrzucamy ten patch, bo idzie na zamrożone
+                        }
                         if (finalDoc[p.target_section] && p.find_exact) {
                             finalDoc[p.target_section] = finalDoc[p.target_section].split(p.find_exact).join(p.replace_with);
                             console.log("[DEBUG A10] finalDoc po patchu na " + p.target_section + ":", finalDoc[p.target_section]);

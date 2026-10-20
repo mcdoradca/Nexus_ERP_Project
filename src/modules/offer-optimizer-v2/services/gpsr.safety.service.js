@@ -255,7 +255,7 @@ class GpsrSafetyService {
         ];
         const splitPPhrases = this.splitCombinedPPhrases(rawPPhrases);
 
-        const hasEyeIrritation = combinedHPhrases.some(h => /H319|H318/i.test(h)) || isActualChemical;
+        const hasEyeIrritation = combinedHPhrases.some(h => /H319|H318/i.test(h));
 
         // --- OBSŁUGA CHEMII GOSPODARCZEJ I DETERGENTÓW (REŻIM CLP 1272/2008 & REŻIM DETERGENTOWY 648/2004) ---
         if (isActualChemical) {
@@ -271,9 +271,7 @@ class GpsrSafetyService {
             }
 
             // 3. P305+P351+P338 – Faza 1: Płukanie oczu wodą
-            if (hasEyeIrritation || isLaundryCapsules) {
-                warnings.push("P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
-            }
+            warnings.push("P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
 
             // 4. P337+P313 – Faza 2: Pomoc lekarska w razie utrzymywania się podrażnienia oczu
             if (hasEyeIrritation) {
