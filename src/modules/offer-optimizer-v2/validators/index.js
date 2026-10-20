@@ -429,6 +429,13 @@ function validate_section5_compliance(html, options = {}) {
         }
     }
 
+    if (options.require_manufacturer && options.manufacturer) {
+        const hasProducer = /<li[^>]*>[\s\S]*?Producent:?[\s\S]*?<\/li>/i.test(html);
+        if (!hasProducer) {
+            errors.push(`Missing manufacturer (${options.manufacturer}) in technical specifications Section 5`);
+        }
+    }
+
     return { valid: errors.length === 0, errors };
 }
 

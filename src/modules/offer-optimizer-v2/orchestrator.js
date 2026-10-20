@@ -112,7 +112,25 @@ const sanitizeSection5Html = (htmlStr, pimData = {}) => {
         res = res.replace(/<li[^>]*>\s*(?:➡️|⚖️|📊|\*|-)?\s*(?:<b>|<strong>)?\s*pH:?\s*(?:<\/b>|<\/strong>)?\s*(?:<b>|<strong>)?\s*(?:zbilansowane|neutralne|fizjologiczne|odpowiednie|w[lł]a[sś]ciwe|optymalne|przyjazne|brak\s+danych|null)\s*(?:<\/b>|<\/strong>)?\s*<\/li>/gi, '');
     }
 
-    // 3. Eliminacja ewentualnych pustych list <ul></ul> powstałych po usunięciu elementów
+    // 3. OCHRONA I UZUPEŁNIENIE PODMIOTU WYTWÓRCZEGO (GPSR / Specyfikacja Techniczna):
+    // Jeśli w sekcji 5 brakuje parametru Producent, a podmiot wytwórczy jest znany z PIM/GPSR i różni się od pustego,
+    // deterministycznie wstawiamy parametr Producent:.
+    const manufacturerName = pimData?.manufacturer || pimData?.producer || pimData?.eu_responsible_person?.name;
+    if (manufacturerName && typeof manufacturerName === 'string' && manufacturerName.trim().length > 1) {
+        const cleanManuf = manufacturerName.trim();
+        const hasProducerTag = /<li[^>]*>\s*(?:➡️|⚖️|📊|\*|-)?\s*(?:<b>|<strong>)?\s*Producent:?\s*(?:<\/b>|<\/strong>)?/i.test(res);
+        if (!hasProducerTag) {
+            const brandPattern = /(<li[^>]*>\s*(?:➡️|⚖️|📊|\*|-)?\s*(?:<b>|<strong>)?\s*Marka:?\s*(?:<\/b>|<\/strong>)?[sS]*?<\/li>)/i;
+            const producerLi = `<li>➡️ <b>Producent:</b> ${cleanManuf}</li>`;
+            if (brandPattern.test(res)) {
+                res = res.replace(brandPattern, `$1\n${producerLi}`);
+            } else if (res.includes('</ul>')) {
+                res = res.replace('</ul>', `${producerLi}</ul>`);
+            }
+        }
+    }
+
+    // 4. Eliminacja ewentualnych pustych list <ul></ul> powstałych po usunięciu elementów
     res = res.replace(/<ul[^>]*>\s*<\/ul>/gi, '');
 
     return res;
@@ -840,6 +858,8 @@ class Orchestrator {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
                 brand: extracted.brand?.value || undefined,
+                manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name || undefined,
+                scent: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'] || undefined,
                 capacity: extracted.capacity?.value || this.state.vision_extracted_features?.['Pojemność'] || this.state.vision_extracted_features?.['Pojemność / Waga'] || undefined,
                 existing_pim_inci: hasPimInci ? extracted.inci.value : undefined,
                 existing_eu_responsible_person: hasResponsible ? this.state.extracted_data.eu_responsible_person.data : undefined,
@@ -1880,7 +1900,10 @@ class Orchestrator {
                         product_name: this.state.product_name,
                         name: this.state.product_name,
                         category: this.state.category_path,
-                        features: this.state.features
+                        features: this.state.features,
+                        manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name,
+                        brand: extracted.brand?.value || this.state.extracted_data?.brand?.value,
+                        eu_responsible_person: this.state.extracted_data?.eu_responsible_person?.data
                     };
                     result.section_5_html = sanitizeSection5Html(result.section_5_html, pimPayload);
                 }
@@ -1951,6 +1974,7 @@ class Orchestrator {
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
                 brand: extracted.brand?.value || undefined,
+                scent_variant: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'] || undefined,
                 vision_features: this.state.vision_extracted_features || undefined,
                 section_1_html: this.state.a6_result.section_1_html,
                 section_2_html: this.state.a6_result.section_2_html,
@@ -2065,7 +2089,9 @@ class Orchestrator {
                 // Weryfikacja zgodności prawnej sekcji 3, 5 i 6
                 const s5Check = validate_section5_compliance(this.state.a7_result.section_5_html, {
                     is_medical_device: product?.is_medical_device,
-                    product_name: product?.text_fields?.name
+                    product_name: product?.text_fields?.name,
+                    manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name,
+                    require_manufacturer: Boolean(extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name)
                 });
                 const s6Check = validate_section6_compliance(this.state.a7_result.section_6_html, {
                     has_eye_irritation: Boolean(this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL')),
@@ -2099,6 +2125,8 @@ class Orchestrator {
                     gtin_ean: this.gtin,
                     product_name: product?.text_fields?.name || undefined,
                     brand: extracted.brand?.value || undefined,
+                    manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name || undefined,
+                    scent_variant: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'] || undefined,
                     inci: this.state.extracted_data.inci?.value || undefined,
                     detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
                     vision_features: this.state.vision_extracted_features || undefined,
@@ -2155,10 +2183,11 @@ class Orchestrator {
                     console.log("[DEBUG A10] a7_result na poczatku:", this.state.a7_result);
                     const patches = result.patches || [];
                     
+                    const allowedSectionsA10 = ['section_1_html', 'section_2_html', 'section_3_html', 'section_4_html', 'section_5_html', 'section_6_html'];
                     for (let p of patches) {
-                        if (['section_3_html', 'section_5_html', 'section_6_html'].includes(p.target_section)) {
-                            warnings.push('A10_PATCH_ON_FROZEN_SECTION: ' + p.target_section);
-                            continue; // Odrzucamy ten patch, bo idzie na zamrożone
+                        if (!allowedSectionsA10.includes(p.target_section)) {
+                            warnings.push('A10_PATCH_ON_UNKNOWN_SECTION: ' + p.target_section);
+                            continue;
                         }
                         if (finalDoc[p.target_section] && p.find_exact) {
                             finalDoc[p.target_section] = finalDoc[p.target_section].split(p.find_exact).join(p.replace_with);
@@ -2180,7 +2209,10 @@ class Orchestrator {
                         finalDoc.section_5_html = sanitizeSection5Html(finalDoc.section_5_html, {
                             product_name: this.state.product_name,
                             category: this.state.category_path,
-                            features: this.state.features
+                            features: this.state.features,
+                            manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name,
+                            brand: extracted.brand?.value || this.state.extracted_data?.brand?.value,
+                            eu_responsible_person: this.state.extracted_data?.eu_responsible_person?.data
                         });
                     }
                     if (finalDoc.section_6_html) {

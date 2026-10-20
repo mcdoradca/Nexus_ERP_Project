@@ -34,9 +34,11 @@ M1 PRATFALL (WYŁĄCZNIE s4 — NIGDY w s2): jeśli preserved_minor_flaws zawier
    produkt NIE jest; dla chemii kwaśnej: "NIE NADAJE SIĘ do marmuru i wapieni" — wykluczenia
    bezpieczeństwa powierzchni są obowiązkowe, nigdy ich nie pomijaj dla efektu sprzedażowego).
 M2 SENSORY PRIMING (s1 i s4): język zmysłów w czasie teraźniejszym, wirtualne posiadanie
-   ściśle dopasowane do REALNEJ FIZYCZNEJ FUNKCJI I BIOMECHANIKI PRZEDMIOTU:
+   ściśle dopasowane do REALNEJ FIZYCZNEJ FUNKCJI I BIOMECHANIKI PRZEDMIOTU ORAZ ZDEKLAROWANYCH NUT:
+   - Chemia gospodarcza i detergenty: działanie piany, usuwanie zabrudzeń, brak gryzących oparów.
+     SPÓJNOŚĆ OLFAKTORYCZNA ZAPACHU: Jeśli w SKU przekazano wariant zapachowy (np. bryza morska, ocean, cytrusy, lawenda) lub wynika on z nazwy produktu, Sensory Priming we wstępie (s1) i sposobie użycia (s4) MUSI ściśle operować TYM KONKRETNYM profilem zapachowym (np. rześki powiew morskiej bryzy).
+     KATEGORYCZNY ZAKAZ halucynowania generycznych klisz zapachowych typu „zapach czystej bawełny”, „zapach świeżego prania” czy zmyślania obcych nut zapachowych sprzecznych ze zdeklarowanym wariantem produktu! Jeśli produkt jest bezzapachowy lub bezwonny — zakaz generowania jakichkolwiek deskryptorów zapachu.
    - Kosmetyki: tekstura, wchłanianie, odczucie na skórze/włosach ("czujesz pod dłońmi aksamitną emulsję…").
-   - Chemia gospodarcza: działanie piany, świeży zapach czystości, brak gryzących oparów.
    - Artykuły higieniczne i wyroby mechaniczne (szczoteczki do zębów, narzędzia, akcesoria):
      ERGONOMIA I BIOMECHANIKA! Pewny, wyprofilowany chwyt rękojeści w dłoni, sprężysta praca
      włókien na powierzchni szkliwa pod kątem 45 stopni, płynny ruch wymiatający wzdłuż linii dziąseł.
@@ -58,7 +60,7 @@ JSON wg responseSchema: pipeline_id, sekcja1, sekcja2, sekcja4, behavioral_audit
 nie deklaracja modelu.)
 
 --- DANE WEJŚCIOWE {s1, s2, s4, preserved_minor_flaws, product_category,
-net_capacity, dozowanie} (dynamiczne) ---
+net_capacity, dozowanie, scent_variant} (dynamiczne) ---
 
 
 --- WSPÓLNE REGUŁY ---

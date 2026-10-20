@@ -55,8 +55,7 @@ s2 FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI — Google, ChatGPT, Claude
    ODPOWIEDŹ = answer-first: pierwsze zdanie odpowiada wprost i wskazuje produkt (marka + linia)
    jako rozwiązanie; drugie zdanie — mechanizm lub fakt z payloadu (składnik, parametr,
    sposób użycia). Max 300 znaków, zrozumiała bez kontekstu (AI cytuje ją wyrwaną z opisu).
-   Jeśli produkt zawiera rozjaśniacze optyczne (FWA), jedna z par FAQ powinna rozwiewać wątpliwości konsumenta
-   dotyczące prania tkanin ciemnych/czarnych (wyjaśniając brak rekomendacji i ryzyko optycznego zszarzenia czerni).
+   Jeśli produkt jest uniwersalnym detergentem piorącym lub płynem do bieli/kolorów, jedna z par FAQ powinna rozwiewać wątpliwości konsumenta dotyczące wykluczenia prania wełny i jedwabiu (ochrona przed degradacją włókien białkowych w alkalicznym pH). Jeśli produkt zawiera rozjaśniacze optyczne (FWA), jedna z par FAQ powinna rozwiewać wątpliwości konsumenta dotyczące prania tkanin ciemnych/czarnych (wyjaśniając brak rekomendacji i ryzyko optycznego zszarzenia czerni).
    [Kod po Tobie: normalizacja etykiet + bramka aeo_faq_check (pary 1:1, '?' na końcu pytania)
    — naruszenie zatrzymuje ofertę do HITL.]
 s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
@@ -64,7 +63,9 @@ s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
    Kategoryczny ZAKAZ używania zielonych koniczynek ☘ ani innych losowych emoji!
    SPÓJNOŚĆ WERTYKALNA SKŁADNIKÓW I FORMULACJI: Sekcja 3 MUSI zawierać kompletne korzyści wygenerowane przez A4.
    Jeśli w formule występują konserwanty (BIT, MIT, Kathon CG), punkt ⚙️ wyjaśniający stabilizację mikrobiologiczną
-   formulacji MUSI znaleźć się w Sekcji 3. Kategoryczny zakaz ucinania lub pomijania składników obecnych w danych A4!
+   formulacji MUSI znaleźć się w Sekcji 3. Jeśli w formule występuje kompozycja zapachowa (Parfum / Limonene / Linalool itp.),
+   punkt ⚙️ MUSI wyjaśniać rolę zapachową i neutralizację bazy surfaktantowej. Kategoryczny zakaz ucinania lub pomijania składników obecnych w danych A4!
+   SEPARACJA WARSTW: Punkty ⚙️ wyjaśniają wyłącznie fizykochemiczny mechanizm działania cząsteczek. Wszelkie konsumenckie zakazy aplikacyjne (np. wykluczenia tkaninowe) należą wyłącznie do Sekcji 4 i Sekcji 2.
    [Naprawa v3.1: usunięto polecenie samodzielnego opisywania INCI "z SOT RAG" —
    A6 nie ma RAG-u; opisy składników tworzy wyłącznie A4. Dla produktów
    niechemicznych (brak node_4_aeo) buduj s3 z cech użytkowych z PIM.]
@@ -74,9 +75,11 @@ s4 Sposób użycia: <h2>✍️…</h2><p>Przed użyciem zapoznaj się z informac
      * Dla artykułów higieny jamy ustnej (np. szczoteczka do zębów): opisz anatomiczną biomechanikę szczotkowania (ergonomia chwytu rękojeści, kąt 45° do linii dziąseł, ruch wymiatająco-obrotowy od dziąsła do korony zęba, umiarkowany nacisk, mycie min. 2 minuty). Kategoryczny zakaz absurdalnych opisów czucia włókien palcami w jamie ustnej!
      * Dla kosmetyków i chemii: precyzyjne kroki aplikacji, spieniania, dozowania, czasu działania i płukania.
    - FIZYKOCHEMICZNE WYKLUCZENIA I ZALECENIA TKANINOWE (SOT 10 i SOT 07):
+     * DLA UNIWERSALNYCH DETERGENTÓW PIORĄCYCH (płyny, proszki, kapsułki do bieli i kolorów, o ile produkt nie jest dedykowaną formułą o neutralnym pH do wełny i jedwabiu): MASZ BEZWZGLĘDNY OBOWIĄZEK zawrzeć wykluczenie prania wełny i jedwabiu naturalnego (standardowe detergenty o odczynie alkalicznym degradują i filcują naturalne włókna białkowe — keratynę i fibroinę). Zalecaj wyłącznie do tkanin bawełnianych, lnianych i syntetycznych.
      * Jeśli produkt jest detergentem/płynem zawierającym rozjaśniacze optyczne (FWA / Optical Brighteners): w Sposobie użycia MASZ BEZWZGLĘDNY OBOWIĄZEK zawrzeć wykluczenie prania tkanin czarnych i ciemnych (promieniowanie fluorescencyjne optycznie wygasza głęboką czerń, powodując efekt zszarzenia i spłowienia). Zalecaj do bieli i kolorów jasnych.
      * Jeśli produkt zawiera proteazę (enzym trawiący białka): bezwzględny zakaz stosowania do wełny i jedwabiu naturalnego (włókna białkowe).
-s5 Parametry: <h2>⚖️…</h2><ul> z node_1_pim: Marka, Linia, Nazwa, Pojemność/Waga, Twardość włosia (dla szczoteczek do zębów), EAN, Kraj. ZERO NULL: parametr null → pomiń cały <li>. Zakaz "Brak danych".
+s5 Parametry: <h2>⚖️…</h2><ul> z node_1_pim: Marka, Producent, Linia, Nazwa, Pojemność/Waga, Wariant zapachowy (dla produktów perfumowanych/zapachowych — kategoryczny ZAKAZ dla artykułów bezwonnych!), Twardość włosia (dla szczoteczek do zębów), EAN, Kraj. ZERO NULL: parametr null → pomiń cały <li>. Zakaz "Brak danych".
+   OBOWIĄZKOWY PARAMETR PRODUCENT: W świetle przepisów GPSR i standardów specyfikacji technicznej obok marki MUSI widnieć podmiot wytwórczy (np. <li>➡️ <b>Producent:</b> [Nazwa podmiotu wytwórczego z PIM/GPSR]</li>). Jeśli w danych wejściowych nazwa producenta różni się od marki marketingowej, podanie Producenta jest obligatoryjne!
    KOGNITYWNY RYGOR FIZYKOCHEMICZNY I PRAWNY DLA PARAMETRÓW:
    - ZAKAZ ZNAKU CE W KOSMETYKACH I CHEMII: Kosmetyki (Rozp. 1223/2009) oraz chemia gospodarcza podlegają odrębnym przepisom i BEZWZGLĘDNIE NIE POSIADAJĄ OZNACZENIA CE! Umieszczenie znaku CE przy produkcie kosmetycznym to rażący błąd formalno-prawny i wprowadzanie konsumenta w błąd. Kategoryczny zakaz generowania wpisu 'Certyfikaty: CE' dla kosmetyków i chemii! Parametr 'Certyfikaty:' wolno podać WYŁĄCZNIE wtedy, gdy produkt posiada autentyczny certyfikat jakościowy/eko w PIM (np. ECOCERT, COSMOS, Vegan Society, Leaping Bunny) lub jest rzeczywistym wyrobem medycznym MDR podlegającym certyfikacji.
    - RYGOR FIZYKOCHEMICZNY PARAMETRU pH: Odczyn pH istnieje wyłącznie w środowisku wodnym. KATEGORYCZNY ZAKAZ podawania parametru pH oraz marketingowych fraz typu 'pH: Zbilansowane' / 'pH: Neutralne' dla postaci bezwodnych: suchych pudrów mineralnych (talk w proszku), pudrów prasowanych/sypkich, cieni, suchych wyrobów stałych (szczoteczki) oraz czystych olejów bezwodnych. Parametr pH podawaj WYŁĄCZNIE dla formulacji z fazą wodną (kremy, toniki, szampony, emulsje) i TYLKO pod warunkiem, że w PIM podano twardą wartość liczbową (np. 5.5). Brak fazy wodnej lub brak twardej wartości liczbowej w PIM = bezwzględne pominięcie parametru pH (nie generuj całego <li>).
