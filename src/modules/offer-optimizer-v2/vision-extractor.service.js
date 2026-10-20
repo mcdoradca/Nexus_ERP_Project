@@ -118,25 +118,30 @@ const FRONT_VISION_PROMPT = `# [AGENT 0 - FRONT-PACK VISION EXTRACTOR v1.0]
 Jesteś precyzyjnym systemem komputerowej analizy wizualnej opakowań produktów e-commerce.
 Twoim zadaniem jest odczytanie wyłącznie twardych faktów widocznych na załączonym zdjęciu przedniej części opakowania (etykieta frontowa / packshot).
 
-DOKTRYNA ZAMKNIĘTEGO ŚWIATA (CLOSED-WORLD REASONING):
+DOKTRYNA ZAMKNIĘTEGO ŚWIATA I ONTOLOGII PRODUKTU:
 - Kategoryczny zakaz konfabulacji, domysłów i szacowania "na oko".
+- Zanim przypiszesz parametry, USTAL CZYM FIZYCZNIE JEST PRZEDMIOT NA ZDJĘCIU:
+  * Jeśli to artykuł higieniczny, przybór lub narzędzie (np. szczoteczka do zębów, nić, gąbka, pęseta), jest to wyrób bezwonny! KATEGORYCZNY ZAKAZ przypisywania zapachu (zapach_wariant = null).
+  * Oznaczenia na szczoteczkach i akcesoriach typu "Medium", "Soft", "Hard", "Ultra Soft", "Średnia", "Miękka", "Twarda" to TWARDOŚĆ WŁOSIA (twardosc_wlosia), a NIE wariant zapachowy!
 - Jeśli dana cecha lub parametr nie jest wyraźnie widoczny na etykiecie frontowej, zwróć dla niego wartość null.
 - Zwracaj wyłącznie dane w 100% pewne i czytelne z grafiki.
 
 KRYTYCZNE ZADANIA EKSTRAKCJI:
 1. Pojemność lub waga: odczytaj dokładną wartość z jednostką (np. "750 ml", "1.5 l", "500 g", "1.5 kg"). Jeśli brak, null.
-2. Wariant zapachowy lub wersja: odczytaj nazwę wariantu lub nuty zapachowej (np. "Lawenda", "Cytryna i mięta", "Sensitive", "Ocean Fresh"). Jeśli bezzapachowy lub brak, null.
-3. Postać fizyczna: precyzyjnie określ postać (np. "płyn", "żel", "pianka", "spray", "proszek", "kapsułki", "tabletki", "krem", "balsam", "chusteczki").
-4. Typ dozownika / zamknięcia: wskaż widoczny mechanizm (np. "pompka", "atomizer / spray", "korek / nakrętka", "nakrętka z miarką", "brak").
-5. Wydajność lub liczba użyć: jeśli podano liczbę prań, kapsułek lub doz (np. "40 prań", "60 kapsułek", "100 doz"), wpisz. W przeciwnym razie null.
-6. Przeznaczenie frontowe: główne docelowe zastosowanie podane na froncie (np. "do czyszczenia łazienki i armatury", "do zmywarek", "do tkanin kolorowych"). Jeśli brak, null.
-7. Kluczowe hasła i wyróżniki z etykiety: lista haseł marketingowo-technologicznych z frontu (np. ["Ultra Power", "98% składników pochodzenia naturalnego", "0% barwników"]). Jeśli brak, pusta tablica [].`;
+2. Wariant zapachowy lub wersja: odczytaj nazwę wariantu lub nuty zapachowej dla kosmetyków i chemii (np. "Lawenda", "Cytryna i mięta", "Sensitive", "Ocean Fresh"). DLA ARTYKUŁÓW BEZWONNYCH (SZCZOTECZKI DO ZĘBÓW, AKCESORIA) ZAWSZE NULL!
+3. Twardość włosia (dla szczoteczek do zębów i pędzli): odczytaj stopień twardości (np. "Soft", "Medium", "Hard", "Ultra Soft", "Średnia", "Miękka", "Twarda"). Jeśli produkt nie posiada włosia, null.
+4. Postać fizyczna: precyzyjnie określ postać (np. "płyn", "żel", "pianka", "spray", "proszek", "kapsułki", "tabletki", "krem", "balsam", "chusteczki", "szczoteczka manualna", "wyrób higieniczny").
+5. Typ dozownika / zamknięcia: wskaż widoczny mechanizm (np. "pompka", "atomizer / spray", "korek / nakrętka", "nakrętka z miarką", "brak").
+6. Wydajność lub liczba użyć: jeśli podano liczbę prań, kapsułek lub doz (np. "40 prań", "60 kapsułek", "100 doz"), wpisz. W przeciwnym razie null.
+7. Przeznaczenie frontowe: główne docelowe zastosowanie podane na froncie (np. "do czyszczenia łazienki i armatury", "do higieny jamy ustnej", "do tkanin kolorowych"). Jeśli brak, null.
+8. Kluczowe hasła i wyróżniki z etykiety: lista haseł marketingowo-technologicznych z frontu (np. ["Ultra Power", "98% składników pochodzenia naturalnego", "0% barwników"]). Jeśli brak, pusta tablica [].`;
 
 const frontVisionSchema = {
     type: "object",
     properties: {
         pojemnosc_waga: { type: ["string", "null"] },
         zapach_wariant: { type: ["string", "null"] },
+        twardosc_wlosia: { type: ["string", "null"] },
         postac: { type: ["string", "null"] },
         dozownik: { type: ["string", "null"] },
         wydajnosc_liczba_uzyc: { type: ["string", "null"] },
@@ -226,8 +231,17 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
                 pimFeatures['Waga'] = val;
             }
         }
+        if (result.twardosc_wlosia && String(result.twardosc_wlosia).trim().length > 0) {
+            pimFeatures['Twardość włosia'] = String(result.twardosc_wlosia).trim();
+        }
         if (result.zapach_wariant && String(result.zapach_wariant).trim().length > 0) {
-            pimFeatures['Zapach'] = String(result.zapach_wariant).trim();
+            const rawZapach = String(result.zapach_wariant).trim();
+            // Tarcza ontologiczna: Jeśli do zapachu omyłkowo trafiło oznaczenie twardości włosia (np. MEDIUM, SOFT, HARD), przenieś do Twardość włosia
+            if (/^(soft|medium|hard|ultra\s*soft|extra\s*soft|średni[a|e]?|miękki[a|e]?|tward[y|a|e]?)$/i.test(rawZapach)) {
+                pimFeatures['Twardość włosia'] = rawZapach;
+            } else {
+                pimFeatures['Zapach'] = rawZapach;
+            }
         }
         if (result.postac && String(result.postac).trim().length > 0) {
             pimFeatures['Postać'] = String(result.postac).trim();

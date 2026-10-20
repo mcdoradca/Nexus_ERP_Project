@@ -87,8 +87,8 @@ const sanitizeSection6Html = (htmlStr) => {
     res = res.replace(/\bDO OCZÓW\b/gi, 'DO OCZU');
 
     // 2. Likwidacja zbitych dwukropków po etykiecie ostrzeżenia i kodzie zwrotu:
-    // np. "<b>Ostrzeżenie CLP/GPSR:</b> P102: ..." -> "<b>Ostrzeżenie CLP/GPSR:</b> P102 – ..."
-    res = res.replace(/(<b>\s*Ostrzeżenie\s+CLP\/GPSR:?\s*<\/b>\s*)([A-Z0-9+]+):/gi, '$1$2 –');
+    // np. "<b>Ostrzeżenie (CLP):</b> P102: ..." -> "<b>Ostrzeżenie (CLP):</b> P102 – ..."
+    res = res.replace(/(<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\))?|Środki\s+ostrożności\s*(?:\(GPSR\))?):?\s*<\/b>\s*)([A-Z0-9+]+):/gi, '$1$2 –');
 
     // 3. Likwidacja podwójnych dwukropków "::" w całym stringu
     res = res.replace(/::+/g, ':');
@@ -100,7 +100,7 @@ const sanitizeSection6Html = (htmlStr) => {
     // Jeśli w sekcji występuje zwrot CLP P305 (np. P305+P351+P338), usuwamy ogólne zdanie o płukaniu oczu
     const hasP305 = /P305/i.test(res);
     if (hasP305) {
-        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<b>\s*Ostrzeżenie\s+CLP\/GPSR:?\s*<\/b>\s*)?W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą\.?\s*<\/li>/gi, '');
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\))?|Środki\s+ostrożności\s*(?:\(GPSR\))?):?\s*<\/b>\s*)?W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą\.?\s*<\/li>/gi, '');
     }
 
     // 6. Eliminacja redundancji między <p> wstępnym a listą punktowaną dot. dzieci:
@@ -1742,28 +1742,6 @@ class Orchestrator {
                     }
                 }
 
-                // TARCZA DETERMINISTYCZNA: Wstrzyknięcie brakujących cech fizycznych z packshotu do Sekcji 6 (Karta Techniczna)
-                if (this.state.vision_extracted_features && result.section_6_html && result.section_6_html.includes('</ul>')) {
-                    const vf = this.state.vision_extracted_features;
-                    const itemsToAdd = [];
-                    if (vf['Pojemność'] && !/Pojemność/i.test(result.section_6_html)) {
-                        itemsToAdd.push(`<li>➡️ <b>Pojemność:</b> ${vf['Pojemność']}</li>`);
-                    } else if (vf['Pojemność / Waga'] && !/Pojemność/i.test(result.section_6_html) && !/Waga/i.test(result.section_6_html)) {
-                        itemsToAdd.push(`<li>➡️ <b>Pojemność / Waga:</b> ${vf['Pojemność / Waga']}</li>`);
-                    }
-                    if (vf['Zapach'] && !/Zapach|Nuta zapachowa/i.test(result.section_6_html)) {
-                        itemsToAdd.push(`<li>➡️ <b>Wariant zapachowy:</b> ${vf['Zapach']}</li>`);
-                    }
-                    if (vf['Postać'] && !/Postać|Formuła/i.test(result.section_6_html)) {
-                        itemsToAdd.push(`<li>➡️ <b>Forma produktu:</b> ${vf['Postać']}</li>`);
-                    }
-                    if (vf['Dozownik'] && !/Dozownik|Opakowanie/i.test(result.section_6_html)) {
-                        itemsToAdd.push(`<li>➡️ <b>Rodzaj opakowania / dozownik:</b> ${vf['Dozownik']}</li>`);
-                    }
-                    if (itemsToAdd.length > 0) {
-                        result.section_6_html = result.section_6_html.replace('</ul>', `${itemsToAdd.join('')}</ul>`);
-                    }
-                }
 
                 // TARCZA DETERMINISTYCZNA POPRAWNOŚCI JĘZYKOWEJ I HIGIENY INTERPUNKCYJNEJ DLA SEKCJI 6:
                 if (result.section_6_html) {

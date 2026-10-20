@@ -86,11 +86,27 @@ class GpsrSafetyService {
                                   /(prani|laundry|wash|detergent|tkanin)/i.test(prodNameLower);
         const isLaundryDetergent = /(płyn do prania|zel do prania|żel do prania|proszek do prania|laundry)/i.test(prodNameLower);
         const isWaterBasedCleanser = isChemical || /(mydło|soap|szampon|shampoo|żel|zel|balsam|krem|cream|lotion|emulsja|płyn|plyn)/i.test(prodNameLower);
-        const isOralCareAccessory = /(nić|nic|floss|szczoteczk|toothbrush|wykałaczk|dental|czyścik|czyscik)/i.test(prodNameLower) &&
-                                    !/(pasta do zębów|pasta do zebow|toothpaste)/i.test(prodNameLower);
+        const isToothbrush = /(szczoteczk|toothbrush)/i.test(prodNameLower) &&
+                             !/(pasta do zębów|pasta do zebow|toothpaste)/i.test(prodNameLower);
+        const isDentalFloss = /(nić|nic|floss|wykałaczk|dental|czyścik|czyscik)/i.test(prodNameLower) &&
+                              !/(szczoteczk|toothbrush|pasta do zębów|pasta do zebow|toothpaste)/i.test(prodNameLower);
 
-        // --- MODUŁ DEDYKOWANY: AKCESORIA HIGIENY JAMY USTNEJ / WYROBY STAŁE (np. nić dentystyczna) ---
-        if (isOralCareAccessory) {
+        // --- MODUŁ DEDYKOWANY: SZCZOTECZKI MANUALNE DO ZĘBÓW (PN-EN ISO 20126, GPSR UE 2023/988) ---
+        if (isToothbrush) {
+            detectedRisks.push('TOOTHBRUSH_SAFETY');
+            warnings.push("Produkt przeznaczony wyłącznie do higieny jamy ustnej. Nie gryźć i nie połykać elementów szczoteczki.");
+            warnings.push("Zaleca się wymianę szczoteczki na nową co 2–3 miesiące, po przebytych infekcjach lub w przypadku widocznego zużycia włókien.");
+            warnings.push("Dzieci poniżej 6 roku życia powinny szczotkować zęby pod nadzorem osoby dorosłej w celu wyrobienia właściwej techniki mycia.");
+            warnings.push("Po użyciu dokładnie opłukać główkę szczoteczki pod bieżącą wodą i przechowywać w pozycji pionowej, główką do góry, w czystym i suchym miejscu.");
+            return {
+                detected_risks: detectedRisks,
+                warnings: warnings.slice(0, 4)
+            };
+        }
+
+        // --- MODUŁ DEDYKOWANY: NICI DENTYSTYCZNE I AKCESORIA MIĘDZYZĘBOWE (PN-EN ISO 28158, GPSR UE 2023/988) ---
+        if (isDentalFloss) {
+            detectedRisks.push('DENTAL_FLOSS_SAFETY');
             detectedRisks.push('ORAL_CARE_ACCESSORY');
             warnings.push("Produkt przeznaczony wyłącznie do higieny przestrzeni międzyzębowych. Nie połykać.");
             warnings.push("Przechowywać w miejscu niedostępnym dla małych dzieci. Ryzyko zadławienia i zaplątania.");

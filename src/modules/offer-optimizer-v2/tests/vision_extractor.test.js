@@ -75,7 +75,17 @@ test('Vision Extractor - extractFrontPackFeatures obsługa wejść i fallbacków
                     pimFeatures['Waga'] = val;
                 }
             }
-            if (raw.zapach_wariant) pimFeatures['Zapach'] = String(raw.zapach_wariant).trim();
+            if (raw.twardosc_wlosia && String(raw.twardosc_wlosia).trim().length > 0) {
+                pimFeatures['Twardość włosia'] = String(raw.twardosc_wlosia).trim();
+            }
+            if (raw.zapach_wariant && String(raw.zapach_wariant).trim().length > 0) {
+                const rawZapach = String(raw.zapach_wariant).trim();
+                if (/^(soft|medium|hard|ultra\s*soft|extra\s*soft|średni[a|e]?|miękki[a|e]?|tward[y|a|e]?)$/i.test(rawZapach)) {
+                    pimFeatures['Twardość włosia'] = rawZapach;
+                } else {
+                    pimFeatures['Zapach'] = rawZapach;
+                }
+            }
             if (raw.postac) pimFeatures['Postać'] = String(raw.postac).trim();
             if (raw.dozownik) pimFeatures['Dozownik'] = String(raw.dozownik).trim();
             return pimFeatures;
@@ -91,6 +101,14 @@ test('Vision Extractor - extractFrontPackFeatures obsługa wejść i fallbacków
         const res2 = buildPimFeatures({ pojemnosc_waga: '1.5 kg' });
         assert.strictEqual(res2['Pojemność / Waga'], '1.5 kg');
         assert.strictEqual(res2['Waga'], '1.5 kg');
+
+        const resToothbrush = buildPimFeatures({ twardosc_wlosia: 'Medium', zapach_wariant: null, postac: 'Szczoteczka manualna', dozownik: 'Brak' });
+        assert.strictEqual(resToothbrush['Twardość włosia'], 'Medium');
+        assert.strictEqual(resToothbrush['Zapach'], undefined);
+
+        const resShield = buildPimFeatures({ zapach_wariant: 'MEDIUM' });
+        assert.strictEqual(resShield['Twardość włosia'], 'MEDIUM');
+        assert.strictEqual(resShield['Zapach'], undefined);
     });
 });
 

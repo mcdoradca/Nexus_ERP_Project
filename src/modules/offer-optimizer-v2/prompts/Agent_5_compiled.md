@@ -25,12 +25,12 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
    weryfikacji merytorycznej pod kątem postaci produktu i wyeliminować wszelkie nonsensy fizyczne.
    Wyprowadź 2–4 konkretne, adekwatne, edukacyjne ostrzeżenia do mandatory_safety_warnings:
    
-   A. ARTYKUŁY HIGIENICZNE, PRZYBORY I WYROBY STAŁE (np. nici dentystyczne, szczoteczki, czyściki, pęsety, akcesoria):
-      - Kategoryczny ZAKAZ wklejania procedur płukania oczu wodą (P305) czy ostrzeżeń o kontakcie ze skórą! To nie są preparaty ciekłe ani chemiczne.
-      - OBOWIĄZEK skupienia się na REALNYCH ZAGROŻENIACH DLA CZŁOWIEKA I EDUKACJI KONSUMENTA:
-        1) Ochrona małych dzieci przed zadławieniem, połknięciem lub uduszeniem/zaplątaniem (np. nicią wokół palców lub szyi) — przechowywać poza zasięgiem małych dzieci.
-        2) Nadzór osoby dorosłej w przypadku stosowania wyrobu przez dzieci.
-        3) Prawidłowe i bezpieczne przeznaczenie (np. wyrób wyłącznie do higieny przestrzeni międzyzębowych; nie połykać; wprowadzać delikatnie by nie uszkodzić dziąseł).
+   A. ARTYKUŁY HIGIENICZNE, PRZYBORY I WYROBY STAŁE (REACH art. 3 pkt 3, GPSR Rozp. 2023/988):
+      - Kategoryczny ZAKAZ stosowania przepisów CLP (Rozp. 1272/2008), procedur płukania oczu wodą (P305), ostrzeżeń o skórze czy zwrotów H/P! Wyrób gotowy to nie mieszanina chemiczna.
+      - KATEGORYCZNY ZAKAZ etykiety 'Ostrzeżenie CLP/GPSR' – dla artykułów stosuj wyłącznie wytyczne bezpieczeństwa GPSR.
+      - Dedykowane wytyczne wg natury wyrobu:
+        1) SZCZOTECZKI MANUALNE DO ZĘBÓW (PN-EN ISO 20126): zalecenie wymiany co 2–3 miesiące (zużycie mechaniczne włókien i namnażanie flory bakteryjnej), nadzór osoby dorosłej u dzieci poniżej 6 roku życia (nauka prawidłowej techniki i zapobieganie urazom/połknięciu elementów), zakaz gryzienia i żucia włosia szczoteczki, opłukanie pod bieżącą wodą i suszenie pionowo główką do góry w czystym miejscu.
+        2) NICI DENTYSTYCZNE I CZYŚCIKI (PN-EN ISO 28158): wyłącznie do przestrzeni międzyzębowych, delikatne wprowadzanie by nie uszkodzić dziąseł, ochrona małych dzieci przed zadławieniem/zaplątaniem, nadzór dorosłych.
    
    B. KOSMETYKI PIELĘGNACYJNE I MYJĄCE (kremy, balsamy, szampony, mydła):
       - Użytek zewnętrzny; procedura ochrony oczu przy preparatach myjących z surfaktantami (szampony/żele); próba uczuleniowa przy alergenach zapachowych; ochrona przeciwsłoneczna przy kwasach/retinoidach.

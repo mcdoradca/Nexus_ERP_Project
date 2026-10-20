@@ -70,3 +70,28 @@ Detergenty o działaniu dezynfekującym, antybakteryjnym, grzybobójczym czy ple
 *   **CZARNA LISTA SŁÓW ZAKAZANYCH W BIOCYDACH (Art. 72 BPR):** W reklamie i opisie biocydu **bezwzględnie zakazane jest stosowanie określeń sugerujących brak zagrożenia lub niskie ryzyko**. Agent AI ma twardy filtr wycinający słowa:
     `nietoksyczny`, `nieszkodliwy`, `naturalny`, `przyjazny dla środowiska`, `przyjazny dla zwierząt`, `całkowicie bezpieczny`, `wolny od chemikaliów`, `produkt o niskim ryzyku`.
     *(Nawet jeśli płyn do dezynfekcji opiera się na bio-etanolu lub kwasie mlekowym, nazwanie go „naturalnym i bezpiecznym biocydem" jest nielegalne!).*
+
+---
+
+## 4. REŻIM WYROBÓW I ARTYKUŁÓW GOTOWYCH (GPSR 2023/988 & REACH ART. 3 PKT 3)
+
+Artykuły higieniczne, przybory i wyroby gotowe (szczoteczki do zębów, nici dentystyczne, szczotki do włosów, akcesoria, narzędzia) stanowią odrębną kategorię ontologiczną i prawną:
+
+### A. Definicja i Granica Prawna (REACH art. 3 pkt 3):
+*   Zgodnie z art. 3 pkt 3 REACH (WE 1907/2006) **wyrób (artykuł)** to przedmiot, który podczas produkcji otrzymuje szczególny kształt, powierzchnię lub konstrukcję decydującą o jego funkcji w stopniu większym niż jego skład chemiczny.
+*   **KATEGORYCZNY ZAKAZ PODCIĄGANIA WYROBÓW POD CLP (WE 1272/2008):** Rozporządzenie CLP dotyczy **wyłącznie substancji i mieszanin chemicznych**. Przypisywanie wyrobom gotowym (np. manualnej szczoteczce do zębów) etykiety `Ostrzeżenie CLP`, kodów zwrotów H/P lub piktogramów ostrzegawczych GHS jest rażącym błędem formalno-prawnym.
+*   **LIKWIDACJA HYBRYDY „CLP/GPSR”:** Oznaczenie ostrzeżeń jako `⚠️ Ostrzeżenie CLP/GPSR:` jest zabronione. Wyrób podlega pod **GPSR (Rozporządzenie UE 2023/988)** oraz normy użytkowe i bezpieczeństwa.
+
+### B. Standardy Bezpieczeństwa dla Higieny Jamy Ustnej (Normy ISO):
+1.  **Szczoteczki manualne do zębów (PN-EN ISO 20126):**
+    *   Wyrób podlega wymogom wytrzymałości mechanicznej pęczków włosia oraz zaokrąglenia końcówek włókien chroniących szkliwo i tkanki miękkie przyzębia.
+    *   **Obligatoryjne wytyczne bezpieczeństwa GPSR:**
+        - Etykieta w Sekcji 6: `⚠️ Wytyczne bezpieczeństwa (GPSR):` (lub `⚠️ Ostrzeżenie (GPSR):`).
+        - *Wymiana wyrobu:* Zalecenie wymiany szczoteczki na nową co 2–3 miesiące, po przebytych infekcjach dróg oddechowych lub w razie mechanicznego odkształcenia włókien (zapobieganie utracie właściwości ochronnych i namnażaniu flory bakteryjnej).
+        - *Ochrona dzieci:* Dzieci poniżej 6 roku życia powinny szczotkować zęby pod nadzorem osoby dorosłej (nauka prawidłowej techniki wymiatającej, zapobieganie gryzieniu główki i połknięciu pęczków).
+        - *Zakaz gryzienia:* Produkt służy do czyszczenia zębów – nie gryźć i nie połykać elementów wyrobu.
+        - *Higiena i przechowywanie:* Dokładne opłukanie główki pod bieżącą wodą po każdym użyciu i przechowywanie w pozycji pionowej główką do góry w czystym, przewiewnym miejscu.
+2.  **Nici dentystyczne i czyściki międzyzębowe (PN-EN ISO 28158):**
+    *   Wyłącznie do higieny przestrzeni międzyzębowych; delikatne wprowadzanie w przestrzeń w celu ochrony brodawek dziąsłowych; ochrona małych dzieci przed zadławieniem lub zaplątaniem.
+3.  **Pasty do zębów z fluorem (Kosmetyki WE 1223/2009):**
+    *   Dla dzieci poniżej 6 lat: stosować ilość pasty wielkości ziarnka grochu pod kontrolą dorosłych.

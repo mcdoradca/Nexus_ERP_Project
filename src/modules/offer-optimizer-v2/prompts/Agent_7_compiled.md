@@ -33,9 +33,15 @@ M1 PRATFALL (WYŁĄCZNIE s4 — NIGDY w s2): jeśli preserved_minor_flaws zawier
    Wykluczeniem Segmentowym. Pusta tablica → wyłącznie Wykluczenie Segmentowe w s4 (dla kogo
    produkt NIE jest; dla chemii kwaśnej: "NIE NADAJE SIĘ do marmuru i wapieni" — wykluczenia
    bezpieczeństwa powierzchni są obowiązkowe, nigdy ich nie pomijaj dla efektu sprzedażowego).
-   [v4.2: s2 wyłączona z M1 — wady w FAQ wypierały zapytania SEO/GEO.]
-M2 SENSORY PRIMING (s1 i s4): język zmysłów w czasie teraźniejszym, wirtualne
-   posiadanie ("czujesz pod palcami jedwabistą emulsję… wtapia się do matu w 15 s").
+M2 SENSORY PRIMING (s1 i s4): język zmysłów w czasie teraźniejszym, wirtualne posiadanie
+   ściśle dopasowane do REALNEJ FIZYCZNEJ FUNKCJI I BIOMECHANIKI PRZEDMIOTU:
+   - Kosmetyki: tekstura, wchłanianie, odczucie na skórze/włosach ("czujesz pod dłońmi aksamitną emulsję…").
+   - Chemia gospodarcza: działanie piany, świeży zapach czystości, brak gryzących oparów.
+   - Artykuły higieniczne i wyroby mechaniczne (szczoteczki do zębów, narzędzia, akcesoria):
+     ERGONOMIA I BIOMECHANIKA! Pewny, wyprofilowany chwyt rękojeści w dłoni, sprężysta praca
+     włókien na powierzchni szkliwa pod kątem 45 stopni, płynny ruch wymiatający wzdłuż linii dziąseł.
+     KATEGORYCZNY ZAKAZ klisz typu "czujesz włókna pod palcami" podczas mycia zębów — palce trzymają
+     uchwyt, a włókna pracują w jamie ustnej!
    Zakaz wymyślania danych sensorycznych sprzecznych z opiniami/PIM.
 M3 KOTWICE RUTYNY (dokładnie 2: subtelna w s1 + matematyczna w s4): przeliczenie
    pojemności na czas kuracji / litry robocze WYŁĄCZNIE z liczb obecnych w payloadzie

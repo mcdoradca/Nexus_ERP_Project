@@ -142,5 +142,40 @@ test('GPSR Safety Service - Wyprowadzanie ostrzeżeń ze składu INCI i SDS', as
         assert.ok(res.warnings.some(w => w.includes('zadławienia') || w.includes('dzieci')), 'Brak ostrzeżenia o ochronie dzieci przed zadławieniem/zaplątaniem');
         assert.ok(res.warnings.some(w => w.includes('nadzorem')), 'Brak zalecenia nadzoru dorosłych');
     });
+
+    await t.test('Szczoteczka manualna do zębów (PN-EN ISO 20126): wytyczne wymiany co 2-3 mies., nadzór dzieci <6 lat, brak CLP i nici', () => {
+        const res = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Szczoteczka do zębów manualna Medium 1 szt.',
+            inci: '',
+            isChemical: false
+        });
+
+        assert.ok(res.detected_risks.includes('TOOTHBRUSH_SAFETY'), 'Nie oznaczono jako TOOTHBRUSH_SAFETY');
+        assert.strictEqual(res.detected_risks.includes('HOUSEHOLD_CHEMICAL'), false, 'Szczoteczka nie może być oznaczona jako chemia!');
+        assert.strictEqual(res.warnings.some(w => /nić|floss|przestrzeni międzyzębowych/i.test(w)), false, 'Szczoteczka nie może zawierać ostrzeżeń o nici dentystycznej!');
+        assert.strictEqual(res.warnings.some(w => /CLP|H\d{3}|P\d{3}/i.test(w)), false, 'Szczoteczka nie może zawierać zwrotów CLP ani kodów H/P!');
+        assert.strictEqual(res.warnings.some(w => /(?:dostania się do oczu|kontaktu z oczami|przepłukać oczy|płukania oczu)/i.test(w)), false, 'Szczoteczka nie może zawierać procedur płukania oczu!');
+        assert.ok(res.warnings.some(w => w.includes('2–3 miesiące') || w.includes('wymianę')), 'Brak wytycznej o wymianie co 2-3 miesiące wg ISO 20126');
+        assert.ok(res.warnings.some(w => w.includes('6 roku życia') && w.includes('nadzorem')), 'Brak wytycznej o nadzorze dzieci poniżej 6 roku życia');
+        assert.ok(res.warnings.some(w => w.includes('Nie gryźć') || w.includes('połykać')), 'Brak wytycznej o niegryzieniu elementów szczoteczki');
+    });
+
+    await t.test('Sanityzacja nowoczesnych etykiet: Wytyczne bezpieczeństwa (GPSR) oraz Ostrzeżenie (CLP)', () => {
+        const { sanitizeSection6Html } = require('../orchestrator.js');
+        const dirtyHtml = `
+            <h2>⚠️ Bezpieczeństwo i informacje GPSR</h2>
+            <p>Przechowywać w czystym miejscu.</p>
+            <ul>
+                <li>⚠️ <b>Wytyczne bezpieczeństwa (GPSR):</b> Zaleca się wymianę szczoteczki na nową co 2–3 miesiące.</li>
+                <li>⚠️ <b>Ostrzeżenie (CLP):</b> P102: Chronić przed dziećmi.</li>
+                <li>⚠️ <b>Ostrzeżenie (CLP):</b> P305+P351+P338: W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą.</li>
+            </ul>
+        `;
+        const cleaned = sanitizeSection6Html(dirtyHtml);
+        assert.strictEqual(cleaned.includes('P102:'), false, 'Pozostał dwukropek po kodzie P102:');
+        assert.ok(cleaned.includes('P102 – Chronić przed dziećmi.'), 'Brak półpauzy po P102');
+        assert.ok(cleaned.includes('Wytyczne bezpieczeństwa (GPSR)'), 'Usunięto poprawną etykietę GPSR');
+        assert.ok(cleaned.includes('Ostrzeżenie (CLP)'), 'Usunięto poprawną etykietę CLP');
+    });
 });
 
