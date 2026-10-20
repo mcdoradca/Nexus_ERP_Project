@@ -403,6 +403,35 @@ function aeo_faq_check(html) {
     return { valid: errors.length === 0, errors, pairs: Math.min(questions.length, answers.length) };
 }
 
+function validate_section5_compliance(html, options = {}) {
+    if (!html || typeof html !== 'string') return { valid: true, errors: [] };
+    const errors = [];
+
+    const isMedicalDevice = options.is_medical_device === true ||
+                            options.medical_device === true ||
+                            /\b(?:wyr[oó]b\s+medyczny|medical\s+device)\b/i.test(JSON.stringify(options));
+
+    if (!isMedicalDevice) {
+        if (/<li[^>]*>[\s\S]*?Certyfikat(?:y)?[\s\S]*?\bCE\b[\s\S]*?<\/li>/i.test(html)) {
+            errors.push('Contains illegal CE marking for non-medical cosmetic or chemical product');
+        }
+    }
+
+    const isAnhydrousOrArticle = /\b(puder|pudru|talk|talku|proszek|proszku|shadow|cie[nń]|cienie|puder mineralny|szczoteczk|artyku[lł]|ni[cć] dentystyczn|olej\b|olejek\b)\b/i.test(JSON.stringify(options) + ' ' + html);
+
+    if (isAnhydrousOrArticle) {
+        if (/<li[^>]*>[\s\S]*?pH:?[\s\S]*?<\/li>/i.test(html)) {
+            errors.push('Contains pH claim for anhydrous product or article (physicochemical impossibility)');
+        }
+    } else {
+        if (/<li[^>]*>[\s\S]*?pH:?[\s\S]*?(?:zbilansowane|neutralne|fizjologiczne|odpowiednie|w[lł]a[sś]ciwe|optymalne|brak danych|null)[\s\S]*?<\/li>/i.test(html)) {
+            errors.push('Contains non-numeric marketing pH claim');
+        }
+    }
+
+    return { valid: errors.length === 0, errors };
+}
+
 module.exports = {
     ean_checksum,
     route_chemical,
@@ -418,5 +447,6 @@ module.exports = {
     validate_eu_responsible_person,
     normalize_aeo_faq_labels,
     aeo_faq_check,
-    hasBannedLilial
+    hasBannedLilial,
+    validate_section5_compliance
 };

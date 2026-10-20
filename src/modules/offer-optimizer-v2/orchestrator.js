@@ -79,6 +79,45 @@ const normalizeTags = (htmlStr) => {
                   .replace(/<i>/g, '<em>').replace(/<\/i>/g, '</em>');
 };
 
+const sanitizeSection5Html = (htmlStr, pimData = {}) => {
+    if (!htmlStr || typeof htmlStr !== 'string') return htmlStr;
+    let res = htmlStr;
+
+    // 1. BEZWZGLĘDNY ZAKAZ ZNAKU CE DLA KOSMETYKÓW I CHEMII GOSPODARCZEJ (Rozp. 1223/2009 & 765/2008):
+    // Znak CE dotyczy wyrobów medycznych MDR (2017/745), zabawek, elektroniki itp.
+    // Kosmetyki i chemia gospodarcza NIE posiadają i nie mogą posiadać oznaczenia CE.
+    const isMedicalDevice = pimData?.is_medical_device === true ||
+                            pimData?.medical_device === true ||
+                            /\b(?:wyr[oó]b\s+medyczny|medical\s+device)\b/i.test(JSON.stringify(pimData || {}));
+
+    if (!isMedicalDevice) {
+        // Usuń cały punkt <li>, jeśli jedynym certyfikatem jest CE (np. "Certyfikaty: CE", "Certyfikat: Oznakowanie CE", "Certyfikaty: <b>CE</b>")
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚖️|📊|\*|-)?\s*(?:<b>|<strong>)?\s*Certyfikat(?:y)?:?\s*(?:<\/b>|<\/strong>)?\s*(?:<b>|<strong>)?\s*(?:Oznakowanie\s+)?CE\b\s*(?:<\/b>|<\/strong>)?\s*<\/li>/gi, '');
+
+        // Jeśli w liście certyfikatów CE występuje obok innych certyfikatów (np. "ECOCERT, CE" lub "CE, Vegan"), wytnij wyłącznie samo "CE"
+        res = res.replace(/(<li[^>]*>\s*(?:➡️|⚖️|📊|\*|-)?\s*(?:<b>|<strong>)?\s*Certyfikat(?:y)?:?\s*(?:<\/b>|<\/strong>)?[\s\S]*?)(?:,\s*CE\b|\bCE\s*,\s*)/gi, '$1');
+    }
+
+    // 2. RYGOR FIZYKOCHEMICZNY PARAMETRU pH (Definicja: pH = -log[H3O+] w roztworze wodnym):
+    // Odczyn pH istnieje wyłącznie w obecności wolnej fazy wodnej.
+    // Czyste pudry mineralne (talk w proszku), pudry sypkie/prasowane, cienie do powiek, artykuły stałe (szczoteczki, nici), czyste oleje bezwodne fizykochemicznie NIE POSIADAJĄ pH.
+    const pimContext = (JSON.stringify(pimData || {}) + ' ' + htmlStr).toLowerCase();
+    const isAnhydrousOrArticle = /\b(puder|pudru|talk|talku|proszek|proszku|shadow|cie[nń]|cienie|puder mineralny|szczoteczk|artyku[lł]|ni[cć] dentystyczn|olej\b|olejek\b)\b/i.test(pimContext);
+
+    if (isAnhydrousOrArticle) {
+        // Dla wyrobów bezwodnych / pudrów / artykułów usuwamy CAŁY punkt <li> z pH bez względu na treść
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚖️|📊|\*|-)?\s*(?:<b>|<strong>)?\s*pH:?\s*(?:<\/b>|<\/strong>)?[\s\S]*?<\/li>/gi, '');
+    } else {
+        // Dla pozostałych wyrobów: usuwamy marketingowy bełkot niemający wartości liczbowej (np. "pH: Zbilansowane", "pH: Neutralne", "pH: Odpowiednie", "pH: Brak danych")
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚖️|📊|\*|-)?\s*(?:<b>|<strong>)?\s*pH:?\s*(?:<\/b>|<\/strong>)?\s*(?:<b>|<strong>)?\s*(?:zbilansowane|neutralne|fizjologiczne|odpowiednie|w[lł]a[sś]ciwe|optymalne|przyjazne|brak\s+danych|null)\s*(?:<\/b>|<\/strong>)?\s*<\/li>/gi, '');
+    }
+
+    // 3. Eliminacja ewentualnych pustych list <ul></ul> powstałych po usunięciu elementów
+    res = res.replace(/<ul[^>]*>\s*<\/ul>/gi, '');
+
+    return res;
+};
+
 const sanitizeSection6Html = (htmlStr) => {
     if (!htmlStr || typeof htmlStr !== 'string') return htmlStr;
     let res = htmlStr;
@@ -1743,6 +1782,19 @@ class Orchestrator {
                 }
 
 
+                // TARCZA DETERMINISTYCZNA DLA SEKCJI 5 (Parametry Techniczne ⚖️):
+                // Eliminacja fałszywych certyfikatów CE w kosmetykach oraz marketingowych halucynacji pH w pudrach i formach bezwodnych
+                if (result.section_5_html) {
+                    const pimPayload = {
+                        ...(this.state.pim_data || {}),
+                        product_name: this.state.product_name,
+                        name: this.state.product_name,
+                        category: this.state.category_path,
+                        features: this.state.features
+                    };
+                    result.section_5_html = sanitizeSection5Html(result.section_5_html, pimPayload);
+                }
+
                 // TARCZA DETERMINISTYCZNA POPRAWNOŚCI JĘZYKOWEJ I HIGIENY INTERPUNKCYJNEJ DLA SEKCJI 6:
                 if (result.section_6_html) {
                     result.section_6_html = sanitizeSection6Html(result.section_6_html);
@@ -2200,5 +2252,6 @@ module.exports = {
     PHASE_3_CREATION,
     PHASE_4_AUDIT,
     normalizeTags,
+    sanitizeSection5Html,
     sanitizeSection6Html
 };

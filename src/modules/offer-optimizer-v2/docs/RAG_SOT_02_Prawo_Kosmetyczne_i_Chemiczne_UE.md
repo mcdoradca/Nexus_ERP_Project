@@ -95,3 +95,29 @@ Artykuły higieniczne, przybory i wyroby gotowe (szczoteczki do zębów, nici de
     *   Wyłącznie do higieny przestrzeni międzyzębowych; delikatne wprowadzanie w przestrzeń w celu ochrony brodawek dziąsłowych; ochrona małych dzieci przed zadławieniem lub zaplątaniem.
 3.  **Pasty do zębów z fluorem (Kosmetyki WE 1223/2009):**
     *   Dla dzieci poniżej 6 lat: stosować ilość pasty wielkości ziarnka grochu pod kontrolą dorosłych.
+
+---
+
+## 5. REŻIM ZNAKU CE I BEZWZGLĘDNY ZAKAZ DLA KOSMETYKÓW ORAZ FIZYKOCHEMIA PARAMETRU pH
+
+### A. Zakaz Oznakowania CE w Kosmetykach i Chemii Gospodarczej (Rozporządzenie 1223/2009 & 765/2008):
+1.  **Status prawny znaku CE (Conformité Européenne):**
+    *   Oznakowanie CE jest zastrzeżone **wyłącznie** dla wyrobów objętych unijnym prawodawstwem harmonizacyjnym przewidującym jego umieszczanie (tzw. dyrektywy Nowego Podejścia), m.in.: wyroby medyczne (MDR 2017/745), zabawki (2009/48/WE), sprzęt elektryczny i elektroniczny (EMC/LVD/RoHS), maszyny oraz środki ochrony indywidualnej (ŚOI 2016/425).
+2.  **KOSMETYKI PODLEGAJĄ POD ROZPORZĄDZENIE (WE) NR 1223/2009 I BEZWZGLĘDNIE NIE POSIADAJĄ OZNACZENIA CE:**
+    *   Rozporządzenie 1223/2009 nie przewiduje, nie dopuszcza i nie zezwala na znak CE. Umieszczenie znaku CE na produkcie kosmetycznym lub w opisie/parametrach oferty (`Certyfikaty: CE`) jest **rażącym błędem formalno-prawnym** naruszającym art. 30 ust. 2 Rozporządzenia (WE) nr 765/2008 oraz art. 20 Rozporządzenia 1223/2009 (wprowadzanie konsumenta w błąd co do charakteru prawnego i rzekomej certyfikacji wyrobu).
+    *   W świetle ustawy o przeciwdziałaniu nieuczciwym praktykom rynkowym oraz wytycznych UOKiK, sugerowanie że kosmetyk lub chemia gospodarcza posiada „Certyfikat CE” stanowi czyn nieuczciwej konkurencji i bezprawne przypisywanie produktowi atestu medycznego/państwowego.
+    *   **Zasada Agenta AI dla Sekcji 5 (Parametry ⚖️):**
+        - Kategoryczny zakaz generowania wpisu `Certyfikaty: CE` dla kosmetyków i detergentów!
+        - Parametr `Certyfikaty:` może wystąpić **wyłącznie**, gdy produkt posiada poświadczony certyfikat jakościowy/ekologiczny w PIM (np. ECOCERT, COSMOS, Vegan Society, Leaping Bunny) lub jest rzeczywistym wyrobem medycznym MDR podlegającym certyfikacji.
+
+### B. Rygor Fizykochemiczny Parametru pH (Definicja i Postać Fizyczna):
+1.  **Fizykochemiczna definicja odczynu pH:**
+    *   Wartość pH to ujemny logarytm dziesiętny ze stężenia (aktywności) jonów hydroniowych w roztworze wodnym ($pH = -\log_{10}[H_3O^+]$).
+    *   Odczyn pH istnieje, dysocjuje i może być mierzony **wyłącznie w obecności fazy wodnej** (roztwory wodne, hydrożele, emulsje O/W i W/O, zawiesiny ciekłe).
+2.  **BRAK PARAMETRU pH DLA POSTACI BEZWODNYCH I ARTYKUŁÓW:**
+    *   Czysty suchy puder mineralny (talk w proszku), pudry sypkie, pudry w kamieniu, cienie do powiek, czyste oleje roślinne/syntetyczne bezwodne oraz artykuły stałe (szczoteczki do zębów, nici dentystyczne) **nie tworzą środowiska wodnego i fizykochemicznie NIE POSIADAJĄ parametru pH**.
+    *   Wpisywanie dla pudrów mineralnych, talku czy form bezwodnych haseł typu `pH: Zbilansowane`, `pH: Neutralne`, `pH: 5.5` to bezmyślna marketingowa halucynacja laboratoryjna i wprowadzanie klienta w błąd.
+3.  **Zasada Agenta AI dla Sekcji 5 (Parametry ⚖️):**
+    *   Dla pudrów, talku, proszków bezwodnych, cieni i artykułów higienicznych: **całkowity zakaz generowania parametru pH (pomiń cały punkt `<li>`)**.
+    *   Dla produktów z fazą wodną (kremy, emulsje, toniki, płyny, żele): parametr `pH:` wolno podać **wyłącznie wtedy, gdy w danych PIM/katalogu widnieje twarda wartość liczbowa** (np. `5.5`). Kategoryczny zakaz używania bełkotu opisowego: `Zbilansowane`, `Odpowiednie`, `Przyjazne dla skóry` lub `Brak danych`.
+
