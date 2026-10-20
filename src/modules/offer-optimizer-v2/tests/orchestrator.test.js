@@ -169,7 +169,7 @@ test('Zadanie 36-DOK: A7 - zmiana sekcji zamrożonej daje FROZEN_SECTION_VIOLATI
     aiWrapper.callAgentWithTelemetry = orgCall;
 });
 
-test('Zadanie 36-DOK: A10 - patch w sekcję zamrożoną jest odrzucany', async () => {
+test('Zadanie 36-DOK / ADR-0163: A10 - patch w sekcję nieznaną jest odrzucany', async () => {
     const orch = new Orchestrator('8000137015436');
     orch.state.next_action = 'RUN_A10';
     orch.state.a6_result = { section_3_html: 'BARDZO_STARA_TRESC', section_1_html: 'T1', section_2_html: VALID_FAQ_S2 };
@@ -179,7 +179,7 @@ test('Zadanie 36-DOK: A10 - patch w sekcję zamrożoną jest odrzucany', async (
     aiWrapper.callAgentWithTelemetry = async () => ({
         result: { 
             patches: [
-                { target_section: 'section_3_html', find_exact: 'BARDZO_STARA_TRESC', replace_with: 'NOWA', justification: 'bo tak' }
+                { target_section: 'section_unknown_html', find_exact: 'BARDZO_STARA_TRESC', replace_with: 'NOWA', justification: 'bo tak' }
             ]
         },
         usage: {}
@@ -188,7 +188,7 @@ test('Zadanie 36-DOK: A10 - patch w sekcję zamrożoną jest odrzucany', async (
     await orch.run(null);
     
     assert.strictEqual(orch.state.node_status['A10'], 'OK'); // sam zignoruje
-    assert.ok(orch.state.normalization_warnings.includes('A10_PATCH_ON_FROZEN_SECTION: section_3_html'));
+    assert.ok(orch.state.normalization_warnings.includes('A10_PATCH_ON_UNKNOWN_SECTION: section_unknown_html'));
     assert.strictEqual(orch.state.a10_result.section_3_html, 'BARDZO_STARA_TRESC');
     
     aiWrapper.callAgentWithTelemetry = orgCall;

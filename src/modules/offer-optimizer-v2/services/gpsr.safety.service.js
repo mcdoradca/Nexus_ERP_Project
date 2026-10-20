@@ -161,9 +161,10 @@ class GpsrSafetyService {
      * @param {Object} [params.compliance] - Dane zgodności z PIM/OSINT (clp_signal_word, clp_h_phrases, clp_p_phrases)
      * @param {string[]} [params.hPhrases] - Zwroty H z karty SDS lub PIM
      * @param {string[]} [params.pPhrases] - Zwroty P z karty SDS lub PIM
+     * @param {Object} [params.features] - Cechy produktu z PIM/BaseLinker
      * @returns {Object} { detected_risks: string[], warnings: string[] }
      */
-    generateGpsrWarnings({ inci, productName = '', isChemical = false, compliance = null, hPhrases = [], pPhrases = [] }) {
+    generateGpsrWarnings({ inci, productName = '', isChemical = false, compliance = null, hPhrases = [], pPhrases = [], features = {} } = {}) {
         const warnings = [];
         const detectedRisks = [];
 
@@ -172,7 +173,8 @@ class GpsrSafetyService {
                                   /(prani|laundry|wash|detergent|tkanin)/i.test(prodNameLower);
         const isLaundryDetergent = /(płyn do prania|zel do prania|żel do prania|proszek do prania|laundry|odplamiacz|płyn do płukania)/i.test(prodNameLower);
         const isAerosol = /(aerozol|spray|aerosol|atomizer|odświeżacz powietrza|odswiezacz powietrza)/i.test(prodNameLower) ||
-                          features?.['Postać'] === 'Spray' || features?.['Postać'] === 'Aerozol';
+                          features?.['Postać'] === 'Spray' || features?.['Postać'] === 'Aerozol' ||
+                          features?.['Postac'] === 'Spray' || features?.['Postac'] === 'Aerozol';
         const isActualChemical = Boolean(
             isChemical ||
             isLaundryCapsules ||

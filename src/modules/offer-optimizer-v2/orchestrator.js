@@ -1630,7 +1630,8 @@ class Orchestrator {
                 isChemical: isActualHouseholdChemical,
                 compliance: complianceData,
                 hPhrases: complianceData.clp_h_phrases,
-                pPhrases: complianceData.clp_p_phrases
+                pPhrases: complianceData.clp_p_phrases,
+                features: product?.features || {}
             });
 
             if (this.state.mandatory_clp_warnings && Array.isArray(this.state.mandatory_clp_warnings)) {
