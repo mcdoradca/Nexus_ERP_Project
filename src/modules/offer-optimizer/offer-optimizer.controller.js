@@ -649,12 +649,25 @@ const triggerUltimatePipeline = async (req, res) => {
 
         console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta V2 dla EAN: ${ean}`);
         
-        // Oznaczamy istniejący produkt w bazie jako PROCESSING, aby zapobiec zwracaniu przestarzałych wyników przez polling
+        // Oznaczamy istniejący produkt w bazie jako PROCESSING, zachowując dotychczasowe bilety zdjęć visionTickets
         const existingProduct = await prisma.product.findUnique({ where: { ean } });
         if (existingProduct) {
+            let existingDraft = {};
+            try {
+                existingDraft = typeof existingProduct.offerDraft === 'string'
+                    ? JSON.parse(existingProduct.offerDraft)
+                    : (existingProduct.offerDraft || {});
+            } catch (e) {}
+
             await prisma.product.update({
                 where: { ean },
-                data: { offerDraft: { status: 'PROCESSING', startedAt: Date.now() } }
+                data: {
+                    offerDraft: {
+                        ...existingDraft,
+                        status: 'PROCESSING',
+                        startedAt: Date.now()
+                    }
+                }
             });
         }
 

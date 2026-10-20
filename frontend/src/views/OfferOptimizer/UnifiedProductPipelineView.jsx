@@ -142,6 +142,7 @@ export const UnifiedProductPipelineView = ({
     const [viewingImageUrl, setViewingImageUrl] = useState(null);
     const [generatingSlots, setGeneratingSlots] = useState({});
     const [slotTrendReports, setSlotTrendReports] = useState({});
+    const [autoGenerateLifestyle, setAutoGenerateLifestyle] = useState(true);
     const [pipelineStatus, setPipelineStatus] = useState('IDLE');
     const [pipelineStep, setPipelineStep] = useState('');
     
@@ -525,8 +526,28 @@ export const UnifiedProductPipelineView = ({
         }
     };
 
-    const triggerParallelSlotGenerations = async (targetSlotIndexes, targetEan, sourceImageObj) => {
+    const isSlotFilled = (ticket) => {
+        if (!ticket) return false;
+        if (ticket.replacedUrl && typeof ticket.replacedUrl === 'string' && ticket.replacedUrl.trim().length > 0) {
+            return true;
+        }
+        if (ticket.originalUrl && typeof ticket.originalUrl === 'string' && ticket.originalUrl.trim().length > 0) {
+            const u = ticket.originalUrl.trim();
+            const isPlaceholder = u.includes('Wymagane nowe zdjęcie') ||
+                                  u.includes('Pusty slot') ||
+                                  u.includes('Audyt') ||
+                                  u.includes('Analiza') ||
+                                  u.includes('Slot #');
+            if (!isPlaceholder && (u.startsWith('http') || u.startsWith('data:image'))) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const triggerParallelSlotGenerations = async (targetSlotIndexes, targetEan, sourceImageObj, currentTickets = null, options = {}) => {
         if (!targetEan) return;
+        const { forceRegenerate = false } = options;
         
         let normalizedSource = null;
         if (typeof sourceImageObj === 'string' && sourceImageObj.trim().length > 0 && !sourceImageObj.includes('Wymagane nowe zdjęcie')) {
@@ -544,10 +565,27 @@ export const UnifiedProductPipelineView = ({
             return;
         }
 
+        const effectiveTickets = Array.isArray(currentTickets) ? currentTickets : (visionTickets || []);
+
+        // Smart Idempotency: wykluczamy sloty, które już posiadają wygenerowane lub wgrane zdjęcia
+        const slotsToProcess = targetSlotIndexes.filter(slotIndex => {
+            if (generatingSlots[slotIndex]) return false; // Slot jest już w trakcie aktywnego generowania
+            if (forceRegenerate) return true;
+            const ticket = effectiveTickets[slotIndex];
+            return !isSlotFilled(ticket);
+        });
+
+        if (slotsToProcess.length === 0) {
+            console.log(`[Visual AI Multi-Slot] Wszystkie sloty (${targetSlotIndexes.map(i => i + 1).join(', ')}) posiadają już wygenerowane zdjęcia. Pomijanie zapytań do API Photoroom (ochrona tokenów).`);
+            return;
+        }
+
+        console.log(`[Visual AI Multi-Slot] Uruchamianie generowania dla brakujących slotów: ${slotsToProcess.map(i => i + 1).join(', ')} (pominięto istniejące: ${targetSlotIndexes.filter(i => !slotsToProcess.includes(i)).map(i => i + 1).join(', ') || 'brak'})`);
+
         // Zapewnienie co najmniej wymaganej liczby slotów w visionTickets
         setVisionTickets(prev => {
             const next = Array.isArray(prev) ? [...prev] : [];
-            const maxNeededIndex = Math.max(...targetSlotIndexes);
+            const maxNeededIndex = Math.max(...slotsToProcess);
             while (next.length <= maxNeededIndex) {
                 next.push({
                     originalUrl: `Wymagane nowe zdjęcie (nr ${next.length + 1})`,
@@ -559,16 +597,16 @@ export const UnifiedProductPipelineView = ({
             return next;
         });
 
-        // Oznaczenie slotów jako aktywnie generowane
+        // Oznaczenie tylko faktycznie generowanych slotów jako aktywne
         setGeneratingSlots(prev => {
             const next = { ...prev };
-            targetSlotIndexes.forEach(idx => { next[idx] = true; });
+            slotsToProcess.forEach(idx => { next[idx] = true; });
             return next;
         });
 
-        console.log(`[Visual AI Multi-Slot] Rozpoczęto współbieżne generowanie dla slotów: ${targetSlotIndexes.map(i => i + 1).join(', ')} dla EAN: ${targetEan}`);
+        console.log(`[Visual AI Multi-Slot] Rozpoczęto współbieżne generowanie dla slotów: ${slotsToProcess.map(i => i + 1).join(', ')} dla EAN: ${targetEan}`);
 
-        const promises = targetSlotIndexes.map(async (slotIndex) => {
+        const promises = slotsToProcess.map(async (slotIndex) => {
             try {
                 const result = await requestLifestyleGeneration({
                     ean: targetEan,
@@ -619,7 +657,8 @@ export const UnifiedProductPipelineView = ({
         handleTriggerPipeline(null, true);
     };
 
-    const handleTriggerPipeline = async (hitlOverrides = null, forceRestart = false) => {
+    const handleTriggerPipeline = async (hitlOverrides = null, forceRestart = false, options = {}) => {
+        const { skipImages = false, forceRegenerateImages = false } = options;
         try {
             // Weryfikacja obecności packshotu w Slocie 1 przed startem generowania i potoku
             const primaryImgCandidate = (visionTickets && visionTickets[0]) 
@@ -656,17 +695,24 @@ export const UnifiedProductPipelineView = ({
             setHitlAlert(null);
 
             // RÓWNOLEGŁE, WSPÓŁBIEŻNE WYWOŁANIE GENEROWANIA ZDJĘĆ DLA SLOTÓW 2, 3, 5, 6 (indeksy 1, 2, 4, 5)
-            // Uruchamiane w tle bez await, z pełną izolacją błędów w obie strony
-            try {
-                const primaryObj = (visionTickets && visionTickets[0] && (visionTickets[0].replacedUrl || visionTickets[0].originalUrl)) 
-                    ? visionTickets[0] 
-                    : { originalUrl: primaryImgCandidate };
-                
-                triggerParallelSlotGenerations([1, 2, 4, 5], savedProd.ean, primaryObj).catch(slotErr => {
-                    console.error("[Visual AI] Niezłapany błąd w procesie generowania zdjęć:", slotErr);
-                });
-            } catch (imgInitErr) {
-                console.error("[Visual AI] Błąd startu generowania zdjęć w tle:", imgInitErr);
+            // Uruchamiane w tle wyłącznie gdy generowanie nie zostało zablokowane (wznowienie HITL lub tryb Tylko Opis)
+            const isHitlResume = Array.isArray(hitlOverrides) && hitlOverrides.length > 0;
+            const shouldDispatchImages = !skipImages && !isHitlResume && autoGenerateLifestyle;
+
+            if (shouldDispatchImages) {
+                try {
+                    const primaryObj = (visionTickets && visionTickets[0] && (visionTickets[0].replacedUrl || visionTickets[0].originalUrl)) 
+                        ? visionTickets[0] 
+                        : { originalUrl: primaryImgCandidate };
+                    
+                    triggerParallelSlotGenerations([1, 2, 4, 5], savedProd.ean, primaryObj, visionTickets, { forceRegenerate: forceRegenerateImages }).catch(slotErr => {
+                        console.error("[Visual AI] Niezłapany błąd w procesie generowania zdjęć:", slotErr);
+                    });
+                } catch (imgInitErr) {
+                    console.error("[Visual AI] Błąd startu generowania zdjęć w tle:", imgInitErr);
+                }
+            } else {
+                console.log(`[Visual AI Multi-Slot] Pomijanie dispatchu generowania zdjęć (skipImages: ${skipImages}, isHitlResume: ${isHitlResume}, autoGenerateLifestyle: ${autoGenerateLifestyle})`);
             }
 
             const payload = { ean: savedProd.ean };
@@ -969,6 +1015,23 @@ export const UnifiedProductPipelineView = ({
                     >
                         Wyczyść Szkic
                     </button>
+                    <label className="flex items-center text-[10px] font-bold text-slate-300 uppercase tracking-wider cursor-pointer bg-slate-800/80 px-3 py-2 rounded-md border border-slate-700 hover:border-slate-600 select-none transition-colors" title="Jeśli zaznaczone, agent wygeneruje scenerie AI wyłącznie dla pustych slotów 2, 3, 5, 6 (istniejące zdjęcia są chronione).">
+                        <input 
+                            type="checkbox" 
+                            checked={autoGenerateLifestyle} 
+                            onChange={(e) => setAutoGenerateLifestyle(e.target.checked)} 
+                            className="mr-2 rounded accent-indigo-500 cursor-pointer w-3.5 h-3.5" 
+                        />
+                        <span>Auto-scenerie AI</span>
+                    </label>
+                    <button 
+                        type="button"
+                        onClick={() => handleTriggerPipeline(null, true, { skipImages: true })} 
+                        className="px-4 py-2 bg-slate-800 hover:bg-indigo-950/60 text-slate-300 hover:text-indigo-300 border border-slate-600 hover:border-indigo-500/50 rounded-md text-xs font-bold uppercase transition-all flex items-center shadow-sm"
+                        title="Uruchamia tylko potok generowania opisu i parametrów (0 zapytań do API Photoroom, 100% ochrona tokenów)"
+                    >
+                        <FileText className="w-4 h-4 mr-1.5 text-indigo-400" /> Tylko Opis
+                    </button>
                     <button onClick={handleTriggerPipelineFromScratch} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md text-xs font-bold uppercase transition-colors flex items-center shadow-[0_0_15px_rgba(79,70,229,0.4)]">
                         <Cpu className="w-4 h-4 mr-2" /> Zapisz PIM i Uruchom Agenta
                     </button>
@@ -1055,7 +1118,7 @@ export const UnifiedProductPipelineView = ({
                                 <button onClick={() => {
                                     const newOverrides = [...new Set([...accumulatedHitlOverrides, hitlAlert?.node])].filter(Boolean);
                                     setAccumulatedHitlOverrides(newOverrides);
-                                    handleTriggerPipeline(newOverrides);
+                                    handleTriggerPipeline(newOverrides, false, { skipImages: true });
                                 }} className="px-6 py-2 bg-red-600 text-white font-bold rounded hover:bg-red-500 shadow-lg shadow-red-900/50 transition">
                                     Zatwierdź brak i kontynuuj
                                 </button>
@@ -1125,12 +1188,45 @@ export const UnifiedProductPipelineView = ({
                             <div className="xl:col-span-5 flex flex-col space-y-6 h-full">
                                 {/* Vision AI */}
                                 <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl flex flex-col">
-                                    <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-6 flex items-center justify-between">
+                                    <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-4 flex items-center justify-between">
                                         <span className="flex items-center"><Search className="w-4 h-4 mr-2 text-indigo-400" /> Audyt Multimodalny (Vision AI)</span>
                                         <span className="bg-indigo-500/10 text-indigo-400 px-2 py-1 rounded-md text-[10px]">
                                             {visionTickets && visionTickets.length > 0 ? `${visionTickets.filter(v => v.isCompliant || v.replacedUrl).length} / ${visionTickets.length} Poprawne` : '0 / 0'}
                                         </span>
                                     </h2>
+                                    <div className="grid grid-cols-2 gap-2 mb-6">
+                                        <button 
+                                            type="button"
+                                            onClick={() => {
+                                                const primaryCandidate = (visionTickets && visionTickets[0]) ? (visionTickets[0].replacedUrl || visionTickets[0].originalUrl) : (newProductForm.imageUrl || (newProductForm.images && newProductForm.images[0]));
+                                                if (!primaryCandidate || primaryCandidate.includes('Wymagane nowe zdjęcie')) {
+                                                    alert("Wymagany packshot w Slocie 1 do wygenerowania scenerii.");
+                                                    return;
+                                                }
+                                                triggerParallelSlotGenerations([1, 2, 4, 5], effectiveEan, visionTickets[0] || { originalUrl: primaryCandidate }, visionTickets, { forceRegenerate: false });
+                                            }}
+                                            className="py-2 px-2 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 rounded text-[10px] font-bold uppercase tracking-wider flex items-center justify-center transition-all"
+                                            title="Generuje scenerie Photoroom AI wyłącznie dla slotów 2, 3, 5, 6, które nie mają jeszcze wygenerowanego zdjęcia"
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-400" /> Generuj brakujące
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => {
+                                                const primaryCandidate = (visionTickets && visionTickets[0]) ? (visionTickets[0].replacedUrl || visionTickets[0].originalUrl) : (newProductForm.imageUrl || (newProductForm.images && newProductForm.images[0]));
+                                                if (!primaryCandidate || primaryCandidate.includes('Wymagane nowe zdjęcie')) {
+                                                    alert("Wymagany packshot w Slocie 1 do wygenerowania scenerii.");
+                                                    return;
+                                                }
+                                                if (!window.confirm("Wymuszenie ponownej generacji zastąpi dotychczasowe zdjęcia w slotach 2, 3, 5, 6 i zużyje nowe tokeny API Photoroom. Czy na pewno chcesz kontynuować?")) return;
+                                                triggerParallelSlotGenerations([1, 2, 4, 5], effectiveEan, visionTickets[0] || { originalUrl: primaryCandidate }, visionTickets, { forceRegenerate: true });
+                                            }}
+                                            className="py-2 px-2 bg-slate-800 hover:bg-amber-950/40 text-slate-400 hover:text-amber-300 border border-slate-700 hover:border-amber-500/40 rounded text-[10px] font-bold uppercase tracking-wider flex items-center justify-center transition-all"
+                                            title="Wymusza ponowne wygenerowanie wszystkich 4 slotów lifestylowych z nadpisaniem"
+                                        >
+                                            <RefreshCw className="w-3.5 h-3.5 mr-1" /> Wymuś (4x)
+                                        </button>
+                                    </div>
                                     <div className="grid grid-cols-1 gap-6 flex-grow content-start">
                                         {visionTickets && visionTickets.length > 0 ? visionTickets.map((ticket, i) => (
                                             <PhotographicAuditorCard 

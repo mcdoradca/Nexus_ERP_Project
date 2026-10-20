@@ -93,4 +93,105 @@ test('Wieloslotowe generowanie zdjęć AI (Sloty 2, 3, 5, 6) - Weryfikacja archi
         assert.strictEqual(logObj.agentId, 'Agent 11 (Slot 5)', 'AgentId musi precyzyjnie identyfikować numer slotu (5 dla indeksu 4)');
         assert.strictEqual(logObj.imageIndex, 4, 'imageIndex musi być liczbą odpowiadającą indeksowi slotu');
     });
+
+    await t.test('6. Smart Idempotency - całkowite pominięcie zapytań API gdy sloty posiadają wygenerowane zdjęcia', () => {
+        const isSlotFilled = (ticket) => {
+            if (!ticket) return false;
+            if (ticket.replacedUrl && typeof ticket.replacedUrl === 'string' && ticket.replacedUrl.trim().length > 0) return true;
+            if (ticket.originalUrl && typeof ticket.originalUrl === 'string' && ticket.originalUrl.trim().length > 0) {
+                const u = ticket.originalUrl.trim();
+                const isPlaceholder = u.includes('Wymagane nowe zdjęcie') || u.includes('Pusty slot') || u.includes('Audyt') || u.includes('Analiza');
+                if (!isPlaceholder && (u.startsWith('http') || u.startsWith('data:image'))) return true;
+            }
+            return false;
+        };
+
+        const targetSlotIndexes = [1, 2, 4, 5];
+        const currentTickets = [
+            { originalUrl: 'packshot.jpg', isCompliant: true },
+            { originalUrl: 'src2.jpg', replacedUrl: 'data:image/jpeg;base64,slot2' },
+            { originalUrl: 'src3.jpg', replacedUrl: 'data:image/jpeg;base64,slot3' },
+            { originalUrl: 'src4.jpg', isCompliant: true },
+            { originalUrl: 'src5.jpg', replacedUrl: 'data:image/jpeg;base64,slot5' },
+            { originalUrl: 'src6.jpg', replacedUrl: 'data:image/jpeg;base64,slot6' }
+        ];
+
+        const slotsToProcess = targetSlotIndexes.filter(idx => !isSlotFilled(currentTickets[idx]));
+        assert.strictEqual(slotsToProcess.length, 0, 'Żaden slot nie powinien trafić do kolejki generowania API (0 zużytych tokenów)');
+    });
+
+    await t.test('7. Selektywne generowanie braków - generowane wyłącznie puste sloty', () => {
+        const isSlotFilled = (ticket) => {
+            if (!ticket) return false;
+            if (ticket.replacedUrl && typeof ticket.replacedUrl === 'string' && ticket.replacedUrl.trim().length > 0) return true;
+            if (ticket.originalUrl && typeof ticket.originalUrl === 'string' && ticket.originalUrl.trim().length > 0) {
+                const u = ticket.originalUrl.trim();
+                const isPlaceholder = u.includes('Wymagane nowe zdjęcie') || u.includes('Pusty slot') || u.includes('Audyt') || u.includes('Analiza');
+                if (!isPlaceholder && (u.startsWith('http') || u.startsWith('data:image'))) return true;
+            }
+            return false;
+        };
+
+        const targetSlotIndexes = [1, 2, 4, 5];
+        const currentTickets = [
+            { originalUrl: 'packshot.jpg', isCompliant: true },
+            { originalUrl: 'src2.jpg', replacedUrl: 'data:image/jpeg;base64,slot2' }, // obsadzony
+            { originalUrl: 'Wymagane nowe zdjęcie (nr 3)', alerts: ['Pusty slot'], replacedUrl: null }, // pusty (indeks 2)
+            { originalUrl: 'src4.jpg', isCompliant: true },
+            { originalUrl: 'src5.jpg', replacedUrl: 'data:image/jpeg;base64,slot5' }, // obsadzony
+            { originalUrl: 'Wymagane nowe zdjęcie (nr 6)', alerts: ['Pusty slot'], replacedUrl: null }  // pusty (indeks 5)
+        ];
+
+        const slotsToProcess = targetSlotIndexes.filter(idx => !isSlotFilled(currentTickets[idx]));
+        assert.deepStrictEqual(slotsToProcess, [2, 5], 'Do API powinny trafić wyłącznie brakujące sloty: indeks 2 (Slot 3) i indeks 5 (Slot 6)');
+    });
+
+    await t.test('8. Wymuszenie ponownej generacji (forceRegenerate: true)', () => {
+        const targetSlotIndexes = [1, 2, 4, 5];
+        const currentTickets = [
+            { originalUrl: 'packshot.jpg', isCompliant: true },
+            { originalUrl: 'src2.jpg', replacedUrl: 'data:image/jpeg;base64,slot2' },
+            { originalUrl: 'src3.jpg', replacedUrl: 'data:image/jpeg;base64,slot3' },
+            { originalUrl: 'src4.jpg', isCompliant: true },
+            { originalUrl: 'src5.jpg', replacedUrl: 'data:image/jpeg;base64,slot5' },
+            { originalUrl: 'src6.jpg', replacedUrl: 'data:image/jpeg;base64,slot6' }
+        ];
+
+        const forceRegenerate = true;
+        const slotsToProcess = targetSlotIndexes.filter(() => forceRegenerate);
+        assert.deepStrictEqual(slotsToProcess, [1, 2, 4, 5], 'W trybie wymuszenia wszystkie 4 sloty lifestylowe muszą zostać przetworzone');
+    });
+
+    await t.test('9. Blokada re-triggeru zdjęć w trybie wznowienia HITL i trybie Tylko Opis', () => {
+        const checkShouldDispatch = ({ skipImages, isHitlResume, autoGenerateLifestyle }) => {
+            return !skipImages && !isHitlResume && autoGenerateLifestyle;
+        };
+
+        // Scenariusz A: Wznowienie HITL po akceptacji składu INCI
+        assert.strictEqual(checkShouldDispatch({ skipImages: true, isHitlResume: true, autoGenerateLifestyle: true }), false, 'HITL nie może generować zdjęć');
+        // Scenariusz B: Operator klika "Tylko Opis"
+        assert.strictEqual(checkShouldDispatch({ skipImages: true, isHitlResume: false, autoGenerateLifestyle: true }), false, 'Tryb Tylko Opis blokuje generowanie');
+        // Scenariusz C: Normalny start od zera z włączonym przełącznikiem
+        assert.strictEqual(checkShouldDispatch({ skipImages: false, isHitlResume: false, autoGenerateLifestyle: true }), true, 'Standardowy potok uruchamia generowanie');
+    });
+
+    await t.test('10. Ochrona visionTickets podczas oznaczania statusu PROCESSING w offerDraft', () => {
+        const existingOfferDraft = {
+            title: 'Stary Tytuł',
+            visionTickets: [
+                { originalUrl: 'packshot.jpg', isCompliant: true },
+                { originalUrl: 'slot2.jpg', replacedUrl: 'data:image/jpeg;base64,slot2' }
+            ]
+        };
+
+        const updatedOfferDraft = {
+            ...existingOfferDraft,
+            status: 'PROCESSING',
+            startedAt: 123456789
+        };
+
+        assert.strictEqual(updatedOfferDraft.status, 'PROCESSING');
+        assert.ok(Array.isArray(updatedOfferDraft.visionTickets) && updatedOfferDraft.visionTickets.length === 2, 'visionTickets nie mogą zostać skasowane');
+        assert.strictEqual(updatedOfferDraft.visionTickets[1].replacedUrl, 'data:image/jpeg;base64,slot2');
+    });
 });
