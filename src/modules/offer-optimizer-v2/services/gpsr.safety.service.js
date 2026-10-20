@@ -171,10 +171,13 @@ class GpsrSafetyService {
         const isLaundryCapsules = /(kapsułk|kapsulk|capsule|pod[s]?)/i.test(prodNameLower) && 
                                   /(prani|laundry|wash|detergent|tkanin)/i.test(prodNameLower);
         const isLaundryDetergent = /(płyn do prania|zel do prania|żel do prania|proszek do prania|laundry|odplamiacz|płyn do płukania)/i.test(prodNameLower);
+        const isAerosol = /(aerozol|spray|aerosol|atomizer|odświeżacz powietrza|odswiezacz powietrza)/i.test(prodNameLower) ||
+                          features?.['Postać'] === 'Spray' || features?.['Postać'] === 'Aerozol';
         const isActualChemical = Boolean(
             isChemical ||
             isLaundryCapsules ||
             isLaundryDetergent ||
+            isAerosol ||
             /(chemia|detergent|odkamien|zmywark|czyszcz|płyn do wc|udrożniacz)/i.test(prodNameLower) ||
             compliance?.clp_signal_word ||
             (compliance?.clp_h_phrases && compliance.clp_h_phrases.length > 0)
@@ -216,14 +219,20 @@ class GpsrSafetyService {
         if (!inci || typeof inci !== 'string' || inci.trim().length === 0) {
             // Domyślne ostrzeżenie ogólne dla produktów bez podanego składu
             if (isLaundryCapsules) {
+                warnings.push("P101 – W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę.");
                 warnings.push("P102 – Chronić przed dziećmi.");
+                warnings.push("P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.");
                 warnings.push("Nie połykać. W razie połknięcia skontaktować się z lekarzem.");
                 warnings.push("Stosować suchymi dłońmi. Nie przekłuwać i nie rozcinać kapsułek.");
                 warnings.push("P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
                 return { detected_risks: ['LAUNDRY_CAPSULES_SAFETY'], warnings };
             }
-            if (isActualChemical) {
+            if (isActualChemical || isAerosol) {
+                warnings.push("P101 – W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę.");
                 warnings.push("P102 – Chronić przed dziećmi.");
+                if (isAerosol || isLaundryDetergent) {
+                    warnings.push("P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.");
+                }
                 warnings.push("P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
                 return { detected_risks: ['HOUSEHOLD_CHEMICAL'], warnings };
             }
@@ -261,6 +270,7 @@ class GpsrSafetyService {
             hasEyeIrritation ||
             isLaundryDetergent ||
             isLaundryCapsules ||
+            isAerosol ||
             compliance?.clp_signal_word ||
             (compliance?.clp_h_phrases && compliance.clp_h_phrases.length > 0)
         );

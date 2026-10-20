@@ -187,10 +187,7 @@ const sanitizeSection6Html = (htmlStr) => {
     // 6. Standaryzacja zwrotu EUH208
     res = res.replace(/(EUH208):/gi, '$1 –');
 
-    // 7. Eliminacja potrójnego dwukropka w treści zwrotu P305 np. "P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie..."
-    res = res.replace(/(P305\+P351\+P338\s*–\s*W\s+PRZYPADKU\s+DOSTANIA\s+SIĘ\s+DO\s+OCZU):/gi, '$1 –');
-
-    // 8. Eliminacja redundancji semantycznej (Deduplikacja ostrzeżeń o oczach):
+    // 7. Eliminacja redundancji semantycznej (Deduplikacja ostrzeżeń o oczach):
     const hasP305 = /P305/i.test(res);
     if (hasP305) {
         res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\)|CLP\/GPSR)?|Środki\s+ostrożności\s*(?:\(GPSR\)|CLP\/GPSR)?):?\s*<\/b>\s*)?W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą\.?\s*<\/li>/gi, '');

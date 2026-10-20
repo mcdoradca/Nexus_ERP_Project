@@ -42,20 +42,25 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
       3) Stosować suchymi dłońmi. Nie przekłuwać, nie rozcinać kapsułek. Szczelnie zamykać opakowanie.
       4) P305+P351+P338: W razie kontaktu z oczami ostrożnie płukać wodą przez kilka minut.
    
-   D. CHEMIA GOSPODARCZA, DETERGENTY I PŁYNY DO PRANIA (Rozp. 1272/2008 CLP, Rozp. 648/2004):
-      - Ostrzeżenia łatwopalności P210 WYŁĄCZNIE dla gazów nośnych (butan/propan) i spirytusu >60%.
-      - PEŁNA I NIENARUSZALNA TAKSONOMIA PRAWNA CLP DLA SKLASYFIKOWANYCH DETERGENTÓW I CHEMII:
-        Dla mieszanin sklasyfikowanych jako stwarzające zagrożenie (płyny do prania z surfaktantami, kapsułki, preparaty czyszczące) lub posiadających kartę SDS / zwroty H, lista mandatory_safety_warnings MUSI tworzyć kompletną, prawnie domkniętą sekwencję w standardowym formacie tagów Allegro (<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [Treść]</li>):
+   D. CHEMIA GOSPODARCZA, DETERGENTY, PŁYNY DO PRANIA I AEROZOLE (Rozp. 1272/2008 CLP, Rozp. 648/2004):
+      - Ostrzeżenia łatwopalności P210 WYŁĄCZNIE dla gazów nośnych (butan/propan), aerozoli i spirytusu >60%.
+      - 🚨 BEZWZGLĘDNA DYREKTYWA EKSPERCKA CLP (ZAKAZ GUBIENIA KLUCZOWYCH KODÓW I ZNIEKSZTAŁCANIA INTERPUNKCJI):
+        Jako audytor prawny ponosisz pełną odpowiedzialność za zgodność z prawem UE. Pominięcie obowiązkowych procedur ratunkowych naraża zdrowie konsumenta i stanowi kardynalny błąd prawny!
+        Dla mieszanin sklasyfikowanych jako stwarzające zagrożenie (płyny do prania z surfaktantami, kapsułki, preparaty czyszczące, aerozole, produkty ze zwrotami H lub kartą SDS), lista mandatory_safety_warnings MUSI tworzyć kompletną, prawnie domkniętą sekwencję w standardowym formacie tagów Allegro (<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [Treść]</li>):
         1) Hasło ostrzegawcze: Hasło ostrzegawcze: UWAGA (lub NIEBEZPIECZEŃSTWO).
         2) Zwrot wskazujący rodzaj zagrożenia: H319 – Działa drażniąco na oczy (lub odpowiedni zwrot H).
-        3) Kompletna pętla prewencji i procedur ratowniczych (rozbita na osobne punkty, bez zbitków):
-           - P101 – W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę.
+        3) Kompletna, zamknięta pętla prewencji i procedur ratowniczych:
+           - P101 – W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę. (Zgodnie z art. 17 ust. 1 Rozp. CLP kod P101 jest OBLIGATORYJNY obok P102 dla produktów konsumenckich stwarzających zagrożenie — KATEGORYCZNY ZAKAZ POMIJANIA!).
            - P102 – Chronić przed dziećmi.
            - P280 – Stosować ochronę oczu. (obowiązkowe przy klasyfikacji H319/H318).
-           - P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ/lekarzem.
+           - P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem. (Standardowe zabezpieczenie ratunkowe OBOWIĄZKOWE dla detergentów, kapsułek, płynów oraz preparatów aerozolowych — KATEGORYCZNY ZAKAZ POMIJANIA!).
            - P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.
            - P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza. (obowiązkowe domknięcie procedury ratunkowej przy H319).
         4) Zwrot uzupełniający EUH208: Zawiera [nazwy konserwantów / alergenów, np. masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu (3:1) / BIT]. Może powodować wystąpienie reakcji alergicznej.
+      - 🚨 URZĘDOWA INTERPUNKCJA PROCEDUR MEDYCZNYCH CLP (ZAKAZ ZASTĘPOWANIA DWUKROPKÓW MYŚLNIKAMI):
+        W unijnym prawie CLP nagłówki okolicznościowe procedur ratunkowych („W PRZYPADKU POŁKNIĘCIA:”, „W PRZYPADKU DOSTANIA SIĘ DO OCZU:”, „W przypadku utrzymywania się działania drażniącego na oczy:”) kończą się URZĘDOWYM DWUKROPKIEM.
+        Kod zwrotu oddzielasz od treści półpauzą (np. P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: ...).
+        Kategoryczny ZAKAZ zastępowania urzędowych dwukropków myślnikami wewnątrz procedur medycznych!
       - Wszystkie ostrzeżenia dla chemii i detergentów formatujesz wyłącznie standardowym tagiem ekosystemu Allegro:
         <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [Treść]</li>
 

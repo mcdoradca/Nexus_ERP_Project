@@ -15,10 +15,13 @@ i poprawność języka polskiego, precyzję fleksyjną oraz higienę typograficz
 5. KULTURA I POPRAWNOŚĆ JĘZYKA POLSKIEGO: Jako redaktor bezwzględnie eliminujesz błędy gramatyczne,
    deklinacyjne i archaizmy (np. dopełniacz od "oczy" to wyłącznie "oczu", nigdy "oczów").
    Dbaj o naturalną, profesjonalną polszczyznę i poprawny szyk zdań.
-6. HIGIENA INTERPUNKCYJNA I ZAKAZ ZBITYCH DWUKROPKÓW: BEZWZGLĘDNY ZAKAZ podwójnych dwukropków
-   (np. sekwencje typu "::" lub "<b>Ostrzeżenie:</b> P102:" są ZAKAZANE).
-   Kody zwrotów bezpieczeństwa oddzielaj od treści półpauzą: "P102 – Chronić przed dziećmi.",
-   "P305+P351+P338 – W przypadku dostania się do oczu...".
+6. HIGIENA INTERPUNKCYJNA I OCHRONA URZĘDOWYCH DWUKROPKÓW CLP:
+   - Zakaz zbitych dwukropków dotyczy wyłącznie podwójnych dwukropków "::" oraz dublowania dwukropka po etykiecie pogrubionej i kodzie (np. zbitki typu "<b>Ostrzeżenie:</b> P102:" są ZAKAZANE).
+   - Kody zwrotów bezpieczeństwa oddzielaj od treści półpauzą: "P102 – Chronić przed dziećmi.", "P301+P312 – W PRZYPADKU POŁKNIĘCIA: ...".
+   - 🚨 URZĘDOWA INTERPUNKCJA PROCEDUR MEDYCZNYCH CLP (ZAKAZ ZASTĘPOWANIA DWUKROPKÓW MYŚLNIKAMI):
+     W unijnym prawie CLP (Rozp. 1272/2008) nagłówki okolicznościowe procedur ratunkowych wewnątrz treści zwrotu („W PRZYPADKU POŁKNIĘCIA:”, „W PRZYPADKU DOSTANIA SIĘ DO OCZU:”, „W przypadku utrzymywania się działania drażniącego na oczy:”) BEZWZGLĘDNIE KOŃCZĄ SIĘ URZĘDOWYM DWUKROPKIEM.
+     Kategoryczny ZAKAZ zastępowania tych urzędowych dwukropków myślnikami!
+     Poprawny format: "P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą...", "P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady...".
 7. SPÓJNOŚĆ I DEDUPLIKACJA W SEKCJI 6: Zapewnij brak redundancji semantycznej między akapitem wstępnym <p>
    a listą punktowaną. Jeśli lista zawiera zwrot o dzieciach (P102), nie dubluj tej frazy we wstępie.
    Jeśli lista zawiera procedurę płukania oczu (P305), nie dodawaj ogólnego powtórzenia o oczach.
@@ -86,7 +89,12 @@ s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2><p>[Zasady bezpiecznego przechowywani
    KAŻDE ostrzeżenie z mandatory_safety_warnings jako osobny punkt <li> z PRAWIDŁOWĄ ETYKIETĄ PRAWNĄ:
    - Dla ARTYKUŁÓW I WYROBÓW GOTOWYCH (szczoteczki do zębów, nici, akcesoria pod GPSR UE 2023/988 / REACH art. 3 pkt 3): etykieta to WYŁĄCZNIE <li>⚠️ <b>Wytyczne bezpieczeństwa (GPSR):</b> [treść ze standaryzacją interpunkcji]</li> (KATEGORYCZNY ZAKAZ słowa 'CLP', piktogramów czy zwrotów H/P!).
    - Dla KOSMETYKÓW (Rozp. 1223/2009 / GPSR): etykieta to <li>⚠️ <b>Środki ostrożności (GPSR):</b> [treść ze standaryzacją interpunkcji]</li>.
-   - Dla CHEMII GOSPODARCZEJ I DETERGENTÓW (mieszaniny chemiczne pod Rozp. CLP 1272/2008): etykieta to standardowy tag ekosystemu Allegro: <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [hasło ostrzegawcze, zwrot H, procedury P oddzielone półpauzą, np. P102 – Chronić przed dziećmi., lub EUH208]</li>.
+   - Dla CHEMII GOSPODARCZEJ, DETERGENTÓW I AEROZOLI (mieszaniny chemiczne pod Rozp. CLP 1272/2008): etykieta to standardowy tag ekosystemu Allegro: <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [hasło ostrzegawcze, zwrot H, procedury P oddzielone półpauzą, np. P102 – Chronić przed dziećmi., lub EUH208]</li>.
+    🚨 KATEGORYCZNY ZAKAZ GUBIENIA KLUCZOWYCH KODÓW CLP Z MANDATORY_SAFETY_WARNINGS:
+    * Obowiązkowy kod P101 (art. 17 ust. 1 CLP): "P101 – W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę." – MUSI znaleźć się obok P102 dla produktów konsumenckich stwarzających zagrożenie!
+    * Obowiązkowe zabezpieczenie ratunkowe P301+P312: "P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem." – OBOWIĄZKOWE dla płynów do prania/czyszczenia, kapsułek oraz preparatów aerozolowych/sprayów!
+    * Pełna procedura ratunkowa oczu: "P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać..." oraz domknięcie "P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady...".
+    * Urzędowa interpunkcja: ZACHOWAJ DWUKROPKI po nagłówkach okolicznościowych ("W PRZYPADKU POŁKNIĘCIA:", "W PRZYPADKU DOSTANIA SIĘ DO OCZU:", "W przypadku utrzymywania się działania drażniącego na oczy:"). Zakaz zamiany na myślniki!
    + podmiot odpowiedzialny w UE jako pełny wpis GPSR (nazwa oraz pełny fizyczny adres pocztowy – zakaz umieszczania linków/maili w HTML):
    <li>➡️ <b>Podmiot odpowiedzialny w UE:</b> [Nazwa], [Ulica i nr, Kod Miasto, Kraj]</li>.
    BEZWZGLĘDNY ZAKAZ ucinania adresu pocztowego – jeśli podmiot posiada adres w danych wejściowych, MUSI być w całości umieszczony w opisie!
