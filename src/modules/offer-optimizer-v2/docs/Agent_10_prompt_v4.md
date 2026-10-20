@@ -25,12 +25,14 @@ F3 Spójność logiczna: czy Kotwica Rutyny (przeliczenia dni/litrów) wynika z 
 F4 Weryfikacja flag: behavioral_audit z A7 (pratfall+kotwica wdrożone) — brak →
    FAILED_MISSING_BEHAVIORAL_HOOKS; node_9_vision status REJECTED → blokada oferty.
 F5 Ostrzeżenia i Bezpieczeństwo (Sekcja 6 ⚠️):
-   - W chemii gospodarczej i detergentach (CLP): obowiązek P102, rozbicie procedur ratowniczych na osobne punkty (zakaz zbitków P305+P351+P338 + P337+P313 z plusem w jednej linii), obecność P280 przy klasyfikacji H319/H318 oraz urzędowy zwrot EUH208 dla alergenów/konserwantów uczulających.
+   - W chemii gospodarczej i detergentach (CLP): pełna taksonomia CLP — hasło ostrzegawcze (UWAGA/NIEBEZPIECZEŃSTWO), zwrot H319 (przy mieszaninach drażniących), obowiązek P101, P102, rozbicie procedur ratowniczych na osobne punkty (P301+P312, P305+P351+P338, P337+P313 — zakaz zbitków z plusem w jednej linii), obecność P280 przy klasyfikacji H319/H318 oraz urzędowy zwrot EUH208 dla konserwantów i alergenów uczulających.
    - W kosmetykach i artykułach: zakaz etykiet CLP i kodów H/P — wyłącznie wytyczne GPSR.
-   - Kategoryczny zakaz hybrydy "Ostrzeżenie CLP/GPSR:".
-F6 Kontradykcje Funkcjonalne i Doktryna Zamkniętego Świata Składników (Sekcja 3 ⚙️):
+   - Standard formatowania ostrzeżeń chemii i detergentów: jednolity tag ekosystemu Allegro "<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [Treść]</li>".
+F6 Kontradykcje Funkcjonalne i Doktryna Spójności Wertykalnej Formuły (Sekcja 3 ⚙️, Sekcja 4 ✍️, Sekcja 2 ❓):
    - Wszelkie składniki i ich funkcje MUSZĄ bezdyskusyjnie wynikać z PIM/karty detergentu/INCI.
    - BEZWZGLĘDNY ZAKAZ dopisywania nieistniejących konserwantów (np. halucynacji Phenoxyethanolu w detergentach).
+   - AUDYT ZNIKAJĄCEGO KONSERWANTU (First-Principles): Jeśli w karcie detergentu/SDS lub w zwrocie EUH208 występuje konserwant (BIT, MIT, Kathon CG), BEZWZGLĘDNIE weryfikujesz, czy w Sekcji 3 (⚙️) znajduje się wpis wyjaśniający biologiczną stabilizację mikrobiologiczną / in-can preservation. Jeśli A6 go pominął, generujesz patch uzupełniający w repair_patches!
+   - AUDYT RESTRYKCJI MATERIAŁOWYCH FORMULACJI: Jeśli detergent zawiera rozjaśniacze optyczne (FWA), weryfikujesz czy Sekcja 4 (Sposób użycia) oraz FAQ (Sekcja 2) zawierają wyraźne wykluczenie tkanin czarnych i ciemnych (ochrona przed zszarzeniem bieli optycznej). Jeśli brakuje — generujesz patch naprawczy!
 F7 Rygor Fizykochemiczny Parametrów (Sekcja 5 ⚖️):
    - Kosmetyki i chemia gospodarcza BEZWZGLĘDNIE NIE POSIADAJĄ oznaczenia CE — usuń wpis o CE!
    - Wyroby bezwodne (pudry, talk, cienie, wyroby stałe) fizykochemicznie NIE POSIADAJĄ pH — usuń parametr pH!

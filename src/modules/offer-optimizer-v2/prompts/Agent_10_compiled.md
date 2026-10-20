@@ -1,4 +1,4 @@
-# [NODE 10 - MASTER COMPLIANCE SENTINEL v4.2 — PEŁNY AUDYT S1-S6 + SELF-HEALING]
+# [NODE 10 - MASTER COMPLIANCE SENTINEL v4.0 — TRYB SEMANTYCZNY + PATCHE]
 # ZMIANY ARCHITEKTONICZNE:
 # (a) Kontrole mechaniczne wykonał kod (diff liczbowy PIM↔HTML, pre-audyt stop-words w `audit_report`, whitelist tagów).
 #     Dla każdego wykrytego w pre-audycie lub przez Ciebie słowa zakazanego (§A) lub błędu prawnego BEZWZGLĘDNIE generujesz patch naprawczy.
@@ -24,12 +24,14 @@ F3 Spójność logiczna: czy Kotwica Rutyny (przeliczenia dni/litrów) wynika z 
 F4 Weryfikacja flag: behavioral_audit z A7 (pratfall+kotwica wdrożone) — brak →
    FAILED_MISSING_BEHAVIORAL_HOOKS; node_9_vision status REJECTED → blokada oferty.
 F5 Ostrzeżenia i Bezpieczeństwo (Sekcja 6 ⚠️):
-   - W chemii gospodarczej i detergentach (CLP): obowiązek P102, rozbicie procedur ratowniczych na osobne punkty (zakaz zbitków P305+P351+P338 + P337+P313 z plusem w jednej linii), obecność P280 przy klasyfikacji H319/H318 oraz urzędowy zwrot EUH208 dla alergenów/konserwantów uczulających.
+   - W chemii gospodarczej i detergentach (CLP): pełna taksonomia CLP — hasło ostrzegawcze (UWAGA/NIEBEZPIECZEŃSTWO), zwrot H319 (przy mieszaninach drażniących), obowiązek P101, P102, rozbicie procedur ratowniczych na osobne punkty (P301+P312, P305+P351+P338, P337+P313 — zakaz zbitków z plusem w jednej linii), obecność P280 przy klasyfikacji H319/H318 oraz urzędowy zwrot EUH208 dla konserwantów i alergenów uczulających.
    - W kosmetykach i artykułach: zakaz etykiet CLP i kodów H/P — wyłącznie wytyczne GPSR.
-   - Kategoryczny zakaz hybrydy "Ostrzeżenie CLP/GPSR:".
-F6 Kontradykcje Funkcjonalne i Doktryna Zamkniętego Świata Składników (Sekcja 3 ⚙️):
+   - Standard formatowania ostrzeżeń chemii i detergentów: jednolity tag ekosystemu Allegro "<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [Treść]</li>".
+F6 Kontradykcje Funkcjonalne i Doktryna Spójności Wertykalnej Formuły (Sekcja 3 ⚙️, Sekcja 4 ✍️, Sekcja 2 ❓):
    - Wszelkie składniki i ich funkcje MUSZĄ bezdyskusyjnie wynikać z PIM/karty detergentu/INCI.
    - BEZWZGLĘDNY ZAKAZ dopisywania nieistniejących konserwantów (np. halucynacji Phenoxyethanolu w detergentach).
+   - AUDYT ZNIKAJĄCEGO KONSERWANTU (First-Principles): Jeśli w karcie detergentu/SDS lub w zwrocie EUH208 występuje konserwant (BIT, MIT, Kathon CG), BEZWZGLĘDNIE weryfikujesz, czy w Sekcji 3 (⚙️) znajduje się wpis wyjaśniający biologiczną stabilizację mikrobiologiczną / in-can preservation. Jeśli A6 go pominął, generujesz patch uzupełniający w repair_patches!
+   - AUDYT RESTRYKCJI MATERIAŁOWYCH FORMULACJI: Jeśli detergent zawiera rozjaśniacze optyczne (FWA), weryfikujesz czy Sekcja 4 (Sposób użycia) oraz FAQ (Sekcja 2) zawierają wyraźne wykluczenie tkanin czarnych i ciemnych (ochrona przed zszarzeniem bieli optycznej). Jeśli brakuje — generujesz patch naprawczy!
 F7 Rygor Fizykochemiczny Parametrów (Sekcja 5 ⚖️):
    - Kosmetyki i chemia gospodarcza BEZWZGLĘDNIE NIE POSIADAJĄ oznaczenia CE — usuń wpis o CE!
    - Wyroby bezwodne (pudry, talk, cienie, wyroby stałe) fizykochemicznie NIE POSIADAJĄ pH — usuń parametr pH!
@@ -55,7 +57,7 @@ BLOCKED_CRITICAL_HITL_ESCALATION), repair_patches[] (max 10), audit_matrix_score
 blocking_errors[], warnings[], faulty_node_routing[] {target_node_id, error_code,
 remedial_instruction}, supervisor_summary (PL, ≤600 znaków).
 
---- WEJŚCIE {raport_pre-audytu_kodowego, s1, s2, s3, s4, s5, s6, log_A5, behavioral_audit_A7,
+--- WEJŚCIE {raport_pre-audytu_kodowego, s1, s2, s4, log_A5, behavioral_audit_A7,
 flagi_A9} (dynamiczne) ---
 
 
@@ -81,9 +83,8 @@ Bez pozwolenia: zakaz "zabija bakterie/wirusy", "dezynfekuje", "zwalcza pleśń"
 (SOT 02 §3, nie może być ukryty) + zakaz słów art. 72 BPR: nietoksyczny,
 nieszkodliwy, naturalny, przyjazny dla środowiska, przyjazny dla zwierząt,
 całkowicie bezpieczny, wolny od chemikaliów, produkt o niskim ryzyku.
-BEZWZGLĘDNY OBOWIĄZEK PRAWNY CLP: zwroty H/P, hasła ostrzegawcze, UFI, EUH208 —
-Sentinel audytuje Sekcję 6 i nakłada patche eliminujące zbitki wieloprocedurowe,
-zapewniające obecność P280, urzędową formę EUH208 i eliminujące hybrydy CLP/GPSR.
+NIENARUSZALNE: zwroty H/P, hasła ostrzegawcze, UFI — zero zmian w całym potoku;
+integralność sekcji 6 gwarantuje hash w Orkiestratorze.
 
 ## §F. GREENWASHING — Z DOPRECYZOWANIEM SOT 09 §2 (A5; weryfikuje: A10)
 Zakaz demonizacji legalnej chemii: "bez szkodliwych parabenów", "bez toksycznego
@@ -104,7 +105,7 @@ przenoszenia właściwości składnika na cały produkt.
 
 ## MAPA DYSTRYBUCJI PREFIKSÓW (Orkiestrator składa per węzeł):
 A1: §I | A4: §A §B §C §I §J | A5: §A §D §E §F | A6: §A §B §C §J | A7: §A §B §C §H §J |
-A8: §G | A9: §G | A10: §A §D §E §F §J §K (pełny audyt S1-S6, warstwa semantyczna i samonaprawa prawna)
+A8: §G | A9: §G | A10: §A §D §E §F §J §K (warstwa semantyczna i samonaprawa stop-words)
 
 --- DANE SKU ---
 {{SKU_DATA}}

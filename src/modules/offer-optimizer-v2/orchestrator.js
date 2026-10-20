@@ -145,24 +145,23 @@ const sanitizeSection6Html = (htmlStr) => {
     // 1. Standaryzacja językowa i eliminacja archaizmów fleksyjnych (np. "DO OCZÓW" -> "DO OCZU")
     res = res.replace(/\bDO OCZÓW\b/gi, 'DO OCZU');
 
-    // 2. Usunięcie błędnej hybrydy prawnej "CLP/GPSR"
-    res = res.replace(/Ostrzeżenie\s+CLP\/GPSR:?/gi, 'Ostrzeżenie (CLP):');
-    res = res.replace(/Wytyczne\s+bezpieczeństwa\s+CLP\/GPSR:?/gi, 'Wytyczne bezpieczeństwa (GPSR):');
+    // 2. Zachowanie spójnego standardu tagów ofertowych Allegro
+    // Nie wymuszamy sztucznej zamiany "Ostrzeżenie CLP/GPSR:" na "Ostrzeżenie (CLP):" - szanujemy spójny standard wizualny oferty
 
     // 3. Rozklejanie sklejonych procedur medycznych kodów P w punktach <li>
-    // np. "<li>⚠️ <b>Ostrzeżenie (CLP):</b> P305+P351+P338 + P337+P313: ...</li>"
+    // np. "<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P305+P351+P338 + P337+P313: ...</li>"
     const gpsrSafetyService = require('./services/gpsr.safety.service');
-    res = res.replace(/<li[^>]*>\s*(?:⚠️|➡️|🛡️|\*|-)?\s*(?:<b>\s*Ostrzeżenie\s*(?:\(CLP\))?:?\s*<\/b>\s*)?(P\d{3}(?:\+P\d{3})*\s*(?:\+|\/|\band\b|\boraz\b)\s*P\d{3}[^<]*)<\/li>/gi, (match, pGroup) => {
+    res = res.replace(/<li[^>]*>\s*(?:⚠️|➡️|🛡️|\*|-)?\s*(?:<b>\s*Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?:?\s*<\/b>\s*)?(P\d{3}(?:\+P\d{3})*\s*(?:\+|\/|\band\b|\boraz\b)\s*P\d{3}[^<]*)<\/li>/gi, (match, pGroup) => {
         const splitPhrases = gpsrSafetyService.splitCombinedPPhrases(pGroup);
         if (splitPhrases.length > 1) {
-            return splitPhrases.map(phrase => `<li>⚠️ <b>Ostrzeżenie (CLP):</b> ${phrase}</li>`).join('\n');
+            return splitPhrases.map(phrase => `<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> ${phrase}</li>`).join('\n');
         }
         return match;
     });
 
     // 4. Likwidacja zbitych dwukropków po etykiecie ostrzeżenia i kodzie zwrotu:
-    // np. "<b>Ostrzeżenie (CLP):</b> P102: ..." -> "<b>Ostrzeżenie (CLP):</b> P102 – ..."
-    res = res.replace(/(<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\))?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\))?|Środki\s+ostrożności\s*(?:\(GPSR\))?):?\s*<\/b>\s*)([A-Z0-9+]+):/gi, '$1$2 –');
+    // np. "<b>Ostrzeżenie CLP/GPSR:</b> P102: ..." -> "<b>Ostrzeżenie CLP/GPSR:</b> P102 – ..."
+    res = res.replace(/(<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\)|CLP\/GPSR)?|Środki\s+ostrożności\s*(?:\(GPSR\)|CLP\/GPSR)?):?\s*<\/b>\s*)([A-Z0-9+]+):/gi, '$1$2 –');
 
     // 5. Likwidacja podwójnych dwukropków "::" w całym stringu
     res = res.replace(/::+/g, ':');
@@ -176,7 +175,7 @@ const sanitizeSection6Html = (htmlStr) => {
     // 8. Eliminacja redundancji semantycznej (Deduplikacja ostrzeżeń o oczach):
     const hasP305 = /P305/i.test(res);
     if (hasP305) {
-        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\))?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\))?|Środki\s+ostrożności\s*(?:\(GPSR\))?):?\s*<\/b>\s*)?W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą\.?\s*<\/li>/gi, '');
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\)|CLP\/GPSR)?|Środki\s+ostrożności\s*(?:\(GPSR\)|CLP\/GPSR)?):?\s*<\/b>\s*)?W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą\.?\s*<\/li>/gi, '');
     }
 
     // 9. Eliminacja redundancji między <p> wstępnym a listą punktowaną dot. dzieci:

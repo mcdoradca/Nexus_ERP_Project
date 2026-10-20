@@ -55,11 +55,16 @@ s2 FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI — Google, ChatGPT, Claude
    ODPOWIEDŹ = answer-first: pierwsze zdanie odpowiada wprost i wskazuje produkt (marka + linia)
    jako rozwiązanie; drugie zdanie — mechanizm lub fakt z payloadu (składnik, parametr,
    sposób użycia). Max 300 znaków, zrozumiała bez kontekstu (AI cytuje ją wyrwaną z opisu).
+   Jeśli produkt zawiera rozjaśniacze optyczne (FWA), jedna z par FAQ powinna rozwiewać wątpliwości konsumenta
+   dotyczące prania tkanin ciemnych/czarnych (wyjaśniając brak rekomendacji i ryzyko optycznego zszarzenia czerni).
    [Kod po Tobie: normalizacja etykiet + bramka aeo_faq_check (pary 1:1, '?' na końcu pytania)
    — naruszenie zatrzymuje ofertę do HITL.]
 s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
    node_4_aeo.technical_benefits_aeo (punkty ⚙️) + detected_synergies (punkty ⚡).
    Kategoryczny ZAKAZ używania zielonych koniczynek ☘ ani innych losowych emoji!
+   SPÓJNOŚĆ WERTYKALNA SKŁADNIKÓW I FORMULACJI: Sekcja 3 MUSI zawierać kompletne korzyści wygenerowane przez A4.
+   Jeśli w formule występują konserwanty (BIT, MIT, Kathon CG), punkt ⚙️ wyjaśniający stabilizację mikrobiologiczną
+   formulacji MUSI znaleźć się w Sekcji 3. Kategoryczny zakaz ucinania lub pomijania składników obecnych w danych A4!
    [Naprawa v3.1: usunięto polecenie samodzielnego opisywania INCI "z SOT RAG" —
    A6 nie ma RAG-u; opisy składników tworzy wyłącznie A4. Dla produktów
    niechemicznych (brak node_4_aeo) buduj s3 z cech użytkowych z PIM.]
@@ -67,7 +72,10 @@ s4 Sposób użycia: <h2>✍️…</h2><p>Przed użyciem zapoznaj się z informac
    przygotowujące grunt pod Kotwice Rutyny (A7). KOGNITYWNY RYGOR BIOMECHANIKI I ANATOMII:
    - Zanim opiszesz kroki, przeanalizuj FIZYCZNĄ FUNKCJĘ I BIOMECHANIKĘ PRZEDMIOTU:
      * Dla artykułów higieny jamy ustnej (np. szczoteczka do zębów): opisz anatomiczną biomechanikę szczotkowania (ergonomia chwytu rękojeści, kąt 45° do linii dziąseł, ruch wymiatająco-obrotowy od dziąsła do korony zęba, umiarkowany nacisk, mycie min. 2 minuty). Kategoryczny zakaz absurdalnych opisów czucia włókien palcami w jamie ustnej!
-     * Dla kosmetyków i chemii: precyzyjne kroki aplikacji, spieniania, czasu działania i spłukiwania.
+     * Dla kosmetyków i chemii: precyzyjne kroki aplikacji, spieniania, dozowania, czasu działania i płukania.
+   - FIZYKOCHEMICZNE WYKLUCZENIA I ZALECENIA TKANINOWE (SOT 10 i SOT 07):
+     * Jeśli produkt jest detergentem/płynem zawierającym rozjaśniacze optyczne (FWA / Optical Brighteners): w Sposobie użycia MASZ BEZWZGLĘDNY OBOWIĄZEK zawrzeć wykluczenie prania tkanin czarnych i ciemnych (promieniowanie fluorescencyjne optycznie wygasza głęboką czerń, powodując efekt zszarzenia i spłowienia). Zalecaj do bieli i kolorów jasnych.
+     * Jeśli produkt zawiera proteazę (enzym trawiący białka): bezwzględny zakaz stosowania do wełny i jedwabiu naturalnego (włókna białkowe).
 s5 Parametry: <h2>⚖️…</h2><ul> z node_1_pim: Marka, Linia, Nazwa, Pojemność/Waga, Twardość włosia (dla szczoteczek do zębów), EAN, Kraj. ZERO NULL: parametr null → pomiń cały <li>. Zakaz "Brak danych".
    KOGNITYWNY RYGOR FIZYKOCHEMICZNY I PRAWNY DLA PARAMETRÓW:
    - ZAKAZ ZNAKU CE W KOSMETYKACH I CHEMII: Kosmetyki (Rozp. 1223/2009) oraz chemia gospodarcza podlegają odrębnym przepisom i BEZWZGLĘDNIE NIE POSIADAJĄ OZNACZENIA CE! Umieszczenie znaku CE przy produkcie kosmetycznym to rażący błąd formalno-prawny i wprowadzanie konsumenta w błąd. Kategoryczny zakaz generowania wpisu 'Certyfikaty: CE' dla kosmetyków i chemii! Parametr 'Certyfikaty:' wolno podać WYŁĄCZNIE wtedy, gdy produkt posiada autentyczny certyfikat jakościowy/eko w PIM (np. ECOCERT, COSMOS, Vegan Society, Leaping Bunny) lub jest rzeczywistym wyrobem medycznym MDR podlegającym certyfikacji.
@@ -77,8 +85,7 @@ s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2><p>[Zasady bezpiecznego przechowywani
    KAŻDE ostrzeżenie z mandatory_safety_warnings jako osobny punkt <li> z PRAWIDŁOWĄ ETYKIETĄ PRAWNĄ:
    - Dla ARTYKUŁÓW I WYROBÓW GOTOWYCH (szczoteczki do zębów, nici, akcesoria pod GPSR UE 2023/988 / REACH art. 3 pkt 3): etykieta to WYŁĄCZNIE <li>⚠️ <b>Wytyczne bezpieczeństwa (GPSR):</b> [treść ze standaryzacją interpunkcji]</li> (KATEGORYCZNY ZAKAZ słowa 'CLP', piktogramów czy zwrotów H/P!).
    - Dla KOSMETYKÓW (Rozp. 1223/2009 / GPSR): etykieta to <li>⚠️ <b>Środki ostrożności (GPSR):</b> [treść ze standaryzacją interpunkcji]</li>.
-   - Dla CHEMII GOSPODARCZEJ I DETERGENTÓW (mieszaniny chemiczne pod Rozp. CLP 1272/2008): etykieta to <li>⚠️ <b>Ostrzeżenie (CLP):</b> [kod zwrotu oddzielony półpauzą, np. P102 – Chronić przed dziećmi.]</li>.
-   - BEZWZGLĘDNY, KATEGORYCZNY ZAKAZ używania hybrydy 'Ostrzeżenie CLP/GPSR:' (błąd prawny).
+   - Dla CHEMII GOSPODARCZEJ I DETERGENTÓW (mieszaniny chemiczne pod Rozp. CLP 1272/2008): etykieta to standardowy tag ekosystemu Allegro: <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [hasło ostrzegawcze, zwrot H, procedury P oddzielone półpauzą, np. P102 – Chronić przed dziećmi., lub EUH208]</li>.
    + podmiot odpowiedzialny w UE jako pełny wpis GPSR (nazwa oraz pełny fizyczny adres pocztowy – zakaz umieszczania linków/maili w HTML):
    <li>➡️ <b>Podmiot odpowiedzialny w UE:</b> [Nazwa], [Ulica i nr, Kod Miasto, Kraj]</li>.
    BEZWZGLĘDNY ZAKAZ ucinania adresu pocztowego – jeśli podmiot posiada adres w danych wejściowych, MUSI być w całości umieszczony w opisie!
