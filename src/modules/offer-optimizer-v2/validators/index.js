@@ -443,25 +443,37 @@ function validate_section6_compliance(html, options = {}) {
     if (!html || typeof html !== 'string') return { valid: true, errors: [] };
     const errors = [];
 
-    // 1. ZAKAZ ZBITKÓW KODÓW P (np. P305+P351+P338 + P337+P313 w jednej linii)
-    const gluedPRegex = /P\d{3}(?:\+P\d{3})*\s*\+\s*P\d{3}/i;
-    if (gluedPRegex.test(html)) {
-        errors.push('Contains glued multi-procedure P-codes with plus operator (must be separated into distinct <li> items)');
+    // 1. ZAKAZ ROZSZCZEPIANIA KODÓW PROCEDUR RATUNKOWYCH NA POJEDYNCZE NAGŁÓWKI BEZ DYSPÓZYCJI
+    // np. "P301 – W PRZYPADKU POŁKNIĘCIA:</li>" lub "P305 – W PRZYPADKU DOSTANIA SIĘ DO OCZU:</li>"
+    if (/P301\s*–\s*W\s+PRZYPADKU\s+POŁKNIĘCIA:\s*<\/li>/i.test(html) ||
+        /P305\s*–\s*W\s+PRZYPADKU\s+DOSTANIA\s+SIĘ\s+DO\s+OCZU:\s*<\/li>/i.test(html) ||
+        /P337\s*–\s*W\s+przypadku\s+utrzymywania\s+się\s+działania\s+drażniącego\s+na\s+oczy:\s*<\/li>/i.test(html)) {
+        errors.push('Contains severed incomplete P-code conditional triggers (must use full compound CLP formulas: P301+P312, P305+P351+P338, P337+P313)');
     }
 
-    // 2. ZAKAZ HYBRYDY Ostrzeżenie CLP/GPSR:
-    if (/CLP\/GPSR/i.test(html)) {
-        errors.push('Contains illegal hybrid label CLP/GPSR (must be CLP for chemicals, GPSR for cosmetics/articles)');
+    // 2. WYMÓG STANDARDU TAGU EKOSYSTEMU ALLEGRO: Ostrzeżenie CLP/GPSR (zakaz ucinania do 'Ostrzeżenie CLP:')
+    if (options.is_chemical && /<b>\s*Ostrzeżenie\s+CLP:\s*<\/b>/i.test(html)) {
+        errors.push("Missing '/GPSR' in label tag: must use unified Allegro ecosystem tag '<b>Ostrzeżenie CLP/GPSR:</b>'");
     }
 
-    // 3. Weryfikacja wymogu P280 dla H319/H318
+    // 3. Weryfikacja hasła ostrzegawczego (musi używać myślnika, nie dwukropka: Hasło ostrzegawcze – UWAGA)
+    if (options.is_chemical && /Hasło\s+ostrzegawcze:\s*(?:UWAGA|NIEBEZPIECZEŃSTWO)/i.test(html)) {
+        errors.push("Signal word label must use dash delimiter: 'Hasło ostrzegawcze – UWAGA' (or NIEBEZPIECZEŃSTWO) instead of colon");
+    }
+
+    // 4. Weryfikacja wymogu P280 dla H319/H318
     const hasEyeIrritation = options.has_eye_irritation === true ||
                             (Array.isArray(options.h_phrases) && options.h_phrases.some(h => /H319|H318/i.test(h)));
     if (hasEyeIrritation && !html.includes('P280')) {
         errors.push('Missing mandatory P280 eye protection statement for H319/H318 classification');
     }
 
-    // 4. Weryfikacja EUH208 przy obecności alergenów w chemii
+    // 5. Weryfikacja wymogu P264 (dokładnie umyć ręce po użyciu) dla H319/H318
+    if (hasEyeIrritation && !html.includes('P264')) {
+        errors.push('Missing mandatory P264 hand washing statement for H319/H318 classification');
+    }
+
+    // 6. Weryfikacja EUH208 przy obecności alergenów w chemii
     if (options.has_sensitizers === true && !html.includes('EUH208') && options.is_chemical === true) {
         errors.push('Missing mandatory EUH208 allergen statement for chemical mixture with sensitizers');
     }

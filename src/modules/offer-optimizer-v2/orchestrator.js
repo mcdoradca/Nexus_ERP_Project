@@ -163,8 +163,11 @@ const sanitizeSection6Html = (htmlStr) => {
     // 1. Standaryzacja językowa i eliminacja archaizmów fleksyjnych (np. "DO OCZÓW" -> "DO OCZU")
     res = res.replace(/\bDO OCZÓW\b/gi, 'DO OCZU');
 
-    // 2. Zachowanie spójnego standardu tagów ofertowych Allegro
-    // Nie wymuszamy sztucznej zamiany "Ostrzeżenie CLP/GPSR:" na "Ostrzeżenie (CLP):" - szanujemy spójny standard wizualny oferty
+    // 2. Normalizacja tagu do jednolitego standardu ekosystemu Allegro (Ostrzeżenie CLP/GPSR)
+    res = res.replace(/<b>\s*Ostrzeżenie\s+CLP:\s*<\/b>/gi, '<b>Ostrzeżenie CLP/GPSR:</b>');
+
+    // 2.1. Standaryzacja hasła ostrzegawczego (myślnik zamiast dwukropka)
+    res = res.replace(/Hasło\s+ostrzegawcze:\s*(UWAGA|NIEBEZPIECZEŃSTWO)/gi, 'Hasło ostrzegawcze – $1');
 
     // 3. Rozklejanie sklejonych procedur medycznych kodów P w punktach <li>
     // np. "<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P305+P351+P338 + P337+P313: ...</li>"
@@ -187,7 +190,18 @@ const sanitizeSection6Html = (htmlStr) => {
     // 6. Standaryzacja zwrotu EUH208
     res = res.replace(/(EUH208):/gi, '$1 –');
 
-    // 7. Eliminacja redundancji semantycznej (Deduplikacja ostrzeżeń o oczach):
+    // 7. Eliminacja osieroconych nagłówków okolicznościowych, jeśli w opisie jest już pełna formuła
+    if (/P301\+P312/.test(res)) {
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️)?\s*(?:<b>[^<]*<\/b>\s*)?P301\s*–\s*W\s+PRZYPADKU\s+POŁKNIĘCIA:\s*<\/li>/gi, '');
+    }
+    if (/P305\+P351\+P338/.test(res)) {
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️)?\s*(?:<b>[^<]*<\/b>\s*)?P305\s*–\s*W\s+PRZYPADKU\s+DOSTANIA\s+SIĘ\s+DO\s+OCZU:\s*<\/li>/gi, '');
+    }
+    if (/P337\+P313/.test(res)) {
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️)?\s*(?:<b>[^<]*<\/b>\s*)?P337\s*–\s*W\s+przypadku\s+utrzymywania\s+się\s+działania\s+drażniącego\s+na\s+oczy:\s*<\/li>/gi, '');
+    }
+
+    // 8. Eliminacja redundancji semantycznej (Deduplikacja ostrzeżeń o oczach):
     const hasP305 = /P305/i.test(res);
     if (hasP305) {
         res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\)|CLP\/GPSR)?|Środki\s+ostrożności\s*(?:\(GPSR\)|CLP\/GPSR)?):?\s*<\/b>\s*)?W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą\.?\s*<\/li>/gi, '');

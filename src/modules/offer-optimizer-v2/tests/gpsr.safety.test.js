@@ -175,7 +175,68 @@ test('GPSR Safety Service - Wyprowadzanie ostrzeżeń ze składu INCI i SDS', as
         assert.strictEqual(cleaned.includes('P102:'), false, 'Pozostał dwukropek po kodzie P102:');
         assert.ok(cleaned.includes('P102 – Chronić przed dziećmi.'), 'Brak półpauzy po P102');
         assert.ok(cleaned.includes('Wytyczne bezpieczeństwa (GPSR)'), 'Usunięto poprawną etykietę GPSR');
-        assert.ok(cleaned.includes('Ostrzeżenie (CLP)'), 'Usunięto poprawną etykietę CLP');
+    });
+
+    await t.test('ADR-0165: Chemia H319 generuje Hasło ostrzegawcze z myślnikiem, P264, P280 i nierozerwalne formuły kombinowane', () => {
+        const res = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Płyn do prania uniwersalny 1,5L',
+            inci: 'Aqua, Sodium Laureth Sulfate, Parfum, Limonene',
+            isChemical: true,
+            compliance: { clp_signal_word: 'UWAGA', clp_h_phrases: ['H319 – Działa drażniąco na oczy.'] }
+        });
+
+        // 1. Hasło ostrzegawcze z myślnikiem (nie z dwukropkiem!)
+        assert.ok(res.warnings.includes('Hasło ostrzegawcze – UWAGA'), 'Brak Hasło ostrzegawcze – UWAGA');
+        assert.strictEqual(res.warnings.includes('Hasło ostrzegawcze: UWAGA'), false, 'Wykryto błędny dwukropek w hasle ostrzegawczym');
+
+        // 2. Prewencja P264 obok P280
+        assert.ok(res.warnings.includes('P264 – Dokładnie umyć ręce po użyciu.'), 'Brak obowiązkowego kodu prewencji P264');
+        assert.ok(res.warnings.includes('P280 – Stosować ochronę oczu / ochronę twarzy.'), 'Brak kodu P280');
+
+        // 3. Pełne formuły kombinowane
+        assert.ok(res.warnings.some(w => w.startsWith('P301+P312 – ')), 'Brak pełnej formuły P301+P312');
+        assert.ok(res.warnings.some(w => w.startsWith('P305+P351+P338 – ')), 'Brak pełnej formuły P305+P351+P338');
+        assert.ok(res.warnings.some(w => w.startsWith('P337+P313 – ')), 'Brak pełnej formuły P337+P313');
+
+        // 4. Zakaz osieroconych kodów nagłówkowych bez dopełnienia
+        for (const w of res.warnings) {
+            assert.strictEqual(/^P301\s*–/i.test(w), false, `Wykryto rozszczepiony kod P301: ${w}`);
+            assert.strictEqual(/^P305\s*–/i.test(w), false, `Wykryto rozszczepiony kod P305: ${w}`);
+            assert.strictEqual(/^P337\s*–/i.test(w), false, `Wykryto rozszczepiony kod P337: ${w}`);
+        }
+    });
+
+    await t.test('ADR-0165: splitCombinedPPhrases scala rozszczepione pojedyncze kody z bazy w formuły kombinowane', () => {
+        const rawFragmented = ['P301', 'P312', 'P305', 'P351', 'P338', 'P337', 'P313', 'P264', 'P280'];
+        const consolidated = gpsrSafetyService.splitCombinedPPhrases(rawFragmented);
+
+        assert.ok(consolidated.some(p => p.startsWith('P301+P312 – ')), 'Nie scalono P301 i P312');
+        assert.ok(consolidated.some(p => p.startsWith('P305+P351+P338 – ')), 'Nie scalono P305, P351 i P338');
+        assert.ok(consolidated.some(p => p.startsWith('P337+P313 – ')), 'Nie scalono P337 i P313');
+
+        // Żaden z pojedynczych kodów nagłówkowych nie pozostał osierocony
+        assert.strictEqual(consolidated.some(p => p === 'P301' || p.startsWith('P301 –')), false);
+        assert.strictEqual(consolidated.some(p => p === 'P305' || p.startsWith('P305 –')), false);
+        assert.strictEqual(consolidated.some(p => p === 'P337' || p.startsWith('P337 –')), false);
+    });
+
+    await t.test('ADR-0165: sanitizeSection6Html normalizuje Ostrzeżenie CLP na Ostrzeżenie CLP/GPSR oraz myślnik w haśle', () => {
+        const { sanitizeSection6Html } = require('../orchestrator.js');
+        const rawHtml = `
+            <h2>⚠️ Bezpieczeństwo i informacje GPSR</h2>
+            <ul>
+                <li>➡️ <b>Ostrzeżenie CLP:</b> Hasło ostrzegawcze: UWAGA</li>
+                <li>➡️ <b>Ostrzeżenie CLP:</b> P102 – Chronić przed dziećmi.</li>
+                <li>➡️ <b>Ostrzeżenie CLP:</b> P301 – W PRZYPADKU POŁKNIĘCIA:</li>
+                <li>➡️ <b>Ostrzeżenie CLP:</b> P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.</li>
+            </ul>
+        `;
+        const cleaned = sanitizeSection6Html(rawHtml);
+
+        assert.ok(cleaned.includes('<b>Ostrzeżenie CLP/GPSR:</b>'), 'Nie zamieniono Ostrzeżenie CLP na Ostrzeżenie CLP/GPSR');
+        assert.strictEqual(cleaned.includes('<b>Ostrzeżenie CLP:</b>'), false, 'Pozostał niekompletny tag Ostrzeżenie CLP:');
+        assert.ok(cleaned.includes('Hasło ostrzegawcze – UWAGA'), 'Nie znormalizowano hasła ostrzegawczego do myślnika');
+        assert.strictEqual(cleaned.includes('P301 – W PRZYPADKU POŁKNIĘCIA:</li>'), false, 'Nie wyczyszczono osieroconego nagłówka P301');
     });
 });
 

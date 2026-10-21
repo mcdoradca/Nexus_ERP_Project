@@ -89,11 +89,14 @@ s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2><p>[Zasady bezpiecznego przechowywani
    KAŻDE ostrzeżenie z mandatory_safety_warnings jako osobny punkt <li> z PRAWIDŁOWĄ ETYKIETĄ PRAWNĄ:
    - Dla ARTYKUŁÓW I WYROBÓW GOTOWYCH (szczoteczki do zębów, nici, akcesoria pod GPSR UE 2023/988 / REACH art. 3 pkt 3): etykieta to WYŁĄCZNIE <li>⚠️ <b>Wytyczne bezpieczeństwa (GPSR):</b> [treść ze standaryzacją interpunkcji]</li> (KATEGORYCZNY ZAKAZ słowa 'CLP', piktogramów czy zwrotów H/P!).
    - Dla KOSMETYKÓW (Rozp. 1223/2009 / GPSR): etykieta to <li>⚠️ <b>Środki ostrożności (GPSR):</b> [treść ze standaryzacją interpunkcji]</li>.
-   - Dla CHEMII GOSPODARCZEJ, DETERGENTÓW I AEROZOLI (mieszaniny chemiczne pod Rozp. CLP 1272/2008): etykieta to standardowy tag ekosystemu Allegro: <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [hasło ostrzegawcze, zwrot H, procedury P oddzielone półpauzą, np. P102 – Chronić przed dziećmi., lub EUH208]</li>.
-    🚨 KATEGORYCZNY ZAKAZ GUBIENIA KLUCZOWYCH KODÓW CLP Z MANDATORY_SAFETY_WARNINGS:
+   - Dla CHEMII GOSPODARCZEJ, DETERGENTÓW I AEROZOLI (mieszaniny chemiczne pod Rozp. CLP 1272/2008): etykieta to standardowy tag ekosystemu Allegro: <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [hasło ostrzegawcze, zwrot H, procedury P oddzielone półpauzą, np. P102 – Chronić przed dziećmi., lub EUH208]</li> (KATEGORYCZNY ZAKAZ ucinania do 'Ostrzeżenie CLP:'!).
+    🚨 KATEGORYCZNY ZAKAZ GUBIENIA KLUCZOWYCH KODÓW CLP Z MANDATORY_SAFETY_WARNINGS I ICH ROZSZCZEPIANIA:
+    * Hasło ostrzegawcze: "Hasło ostrzegawcze – UWAGA" (lub "Hasło ostrzegawcze – NIEBEZPIECZEŃSTWO") — format z myślnikiem, zakaz dwukropka po słowie ostrzegawcze!
     * Obowiązkowy kod P101 (art. 17 ust. 1 CLP): "P101 – W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę." – MUSI znaleźć się obok P102 dla produktów konsumenckich stwarzających zagrożenie!
+    * Obowiązkowa prewencja P264 i P280 (przy H319/H318): "P264 – Dokładnie umyć ręce po użyciu." oraz "P280 – Stosować ochronę oczu / ochronę twarzy." — KATEGORYCZNY ZAKAZ POMIJANIA P264!
     * Obowiązkowe zabezpieczenie ratunkowe P301+P312: "P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem." – OBOWIĄZKOWE dla płynów do prania/czyszczenia, kapsułek oraz preparatów aerozolowych/sprayów!
     * Pełna procedura ratunkowa oczu: "P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać..." oraz domknięcie "P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady...".
+    * 🚨 KATEGORYCZNY ZAKAZ ROZBIJANIA FORMULARZY KOMBINOWANYCH: Procedury P301+P312, P305+P351+P338 oraz P337+P313 stanowią nierozerwalne formuły. Kategoryczny zakaz rozbijania ich na pojedyncze kody w osobnych liniach (P301, P312, P305, P351, P338, P337, P313) i tworzenia urwanych zdań w rodzaju "P301 – W PRZYPADKU POŁKNIĘCIA:"!
     * Urzędowa interpunkcja: ZACHOWAJ DWUKROPKI po nagłówkach okolicznościowych ("W PRZYPADKU POŁKNIĘCIA:", "W PRZYPADKU DOSTANIA SIĘ DO OCZU:", "W przypadku utrzymywania się działania drażniącego na oczy:"). Zakaz zamiany na myślniki!
    + podmiot odpowiedzialny w UE jako pełny wpis GPSR (nazwa oraz pełny fizyczny adres pocztowy – zakaz umieszczania linków/maili w HTML):
    <li>➡️ <b>Podmiot odpowiedzialny w UE:</b> [Nazwa], [Ulica i nr, Kod Miasto, Kraj]</li>.

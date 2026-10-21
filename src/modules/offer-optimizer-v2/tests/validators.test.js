@@ -286,3 +286,80 @@ test('hasBannedLilial detector for reformulations', async (t) => {
     });
 });
 
+test('V13 validate_section6_compliance - wymogi CLP, P264, zakaz rozszczepiania procedur i tag Allegro', async (t) => {
+    await t.test('Wykrywa rozszczepione nagłówki okolicznościowe bez dyspozycji', () => {
+        const brokenHtml = `
+            <ul>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Hasło ostrzegawcze – UWAGA</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P102 – Chronić przed dziećmi.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P301 – W PRZYPADKU POŁKNIĘCIA:</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P305 – W PRZYPADKU DOSTANIA SIĘ DO OCZU:</li>
+            </ul>
+        `;
+        const res = v.validate_section6_compliance(brokenHtml, { is_chemical: true, has_eye_irritation: true });
+        assert.strictEqual(res.valid, false);
+        assert.ok(res.errors.some(e => e.includes('severed incomplete P-code conditional triggers')));
+    });
+
+    await t.test('Wykrywa brak członu /GPSR w tagu (Ostrzeżenie CLP: zamiast Ostrzeżenie CLP/GPSR:)', () => {
+        const missingGpsrTagHtml = `
+            <ul>
+                <li>➡️ <b>Ostrzeżenie CLP:</b> Hasło ostrzegawcze – UWAGA</li>
+                <li>➡️ <b>Ostrzeżenie CLP:</b> P102 – Chronić przed dziećmi.</li>
+                <li>➡️ <b>Ostrzeżenie CLP:</b> P264 – Dokładnie umyć ręce po użyciu.</li>
+                <li>➡️ <b>Ostrzeżenie CLP:</b> P280 – Stosować ochronę oczu.</li>
+            </ul>
+        `;
+        const res = v.validate_section6_compliance(missingGpsrTagHtml, { is_chemical: true, has_eye_irritation: true });
+        assert.strictEqual(res.valid, false);
+        assert.ok(res.errors.some(e => e.includes("Missing '/GPSR' in label tag")));
+    });
+
+    await t.test('Wykrywa dwukropek w haśle ostrzegawczym (musi być myślnik)', () => {
+        const colonSignalWordHtml = `
+            <ul>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Hasło ostrzegawcze: UWAGA</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P102 – Chronić przed dziećmi.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P264 – Dokładnie umyć ręce po użyciu.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P280 – Stosować ochronę oczu.</li>
+            </ul>
+        `;
+        const res = v.validate_section6_compliance(colonSignalWordHtml, { is_chemical: true, has_eye_irritation: true });
+        assert.strictEqual(res.valid, false);
+        assert.ok(res.errors.some(e => e.includes('Signal word label must use dash delimiter')));
+    });
+
+    await t.test('Wykrywa brak P264 oraz P280 dla H319/H318', () => {
+        const missingP264Html = `
+            <ul>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Hasło ostrzegawcze – UWAGA</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P102 – Chronić przed dziećmi.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P280 – Stosować ochronę oczu.</li>
+            </ul>
+        `;
+        const res = v.validate_section6_compliance(missingP264Html, { is_chemical: true, has_eye_irritation: true });
+        assert.strictEqual(res.valid, false);
+        assert.ok(res.errors.some(e => e.includes('Missing mandatory P264')));
+    });
+
+    await t.test('Akceptuje poprawny zestaw CLP zgodny ze standardem Allegro i CLP', () => {
+        const correctHtml = `
+            <ul>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Hasło ostrzegawcze – UWAGA</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> H319 – Działa drażniąco na oczy.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P101 – W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P102 – Chronić przed dziećmi.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P264 – Dokładnie umyć ręce po użyciu.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P280 – Stosować ochronę oczu / ochronę twarzy.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> EUH208 – Zawiera Limonene. Może powodować wystąpienie reakcji alergicznej.</li>
+            </ul>
+        `;
+        const res = v.validate_section6_compliance(correctHtml, { is_chemical: true, has_eye_irritation: true, has_sensitizers: true });
+        assert.strictEqual(res.valid, true);
+        assert.strictEqual(res.errors.length, 0);
+    });
+});
+

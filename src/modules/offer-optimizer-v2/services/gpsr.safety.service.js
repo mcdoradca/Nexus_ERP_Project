@@ -113,6 +113,15 @@ class GpsrSafetyService {
         const rawList = Array.isArray(input) ? input : [input];
         const result = [];
 
+        // Zbiorcza analiza obecności kodów składowych procedur kombinowanych
+        const upperJoined = rawList.map(item => String(item || '').toUpperCase()).join(' ');
+
+        // Flagi obecności procedur kombinowanych
+        let handledSwallowing = false;
+        let handledEyesWash = false;
+        let handledEyesDoctor = false;
+        let handledSkin = false;
+
         for (const item of rawList) {
             if (!item || typeof item !== 'string') continue;
             let str = item.trim();
@@ -130,8 +139,16 @@ class GpsrSafetyService {
                                 text = "W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.";
                             } else if (cleanCode === 'P337+P313') {
                                 text = "W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza.";
+                            } else if (cleanCode === 'P301+P312') {
+                                text = "W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.";
+                            } else if (cleanCode === 'P302+P352') {
+                                text = "W PRZYPADKU KONTAKTU ZE SKÓRĄ: Umyć dużą ilością wody z mydłem.";
                             } else if (cleanCode === 'P280') {
                                 text = "Stosować ochronę oczu / ochronę twarzy.";
+                            } else if (cleanCode === 'P264') {
+                                text = "Dokładnie umyć ręce po użyciu.";
+                            } else if (cleanCode === 'P101') {
+                                text = "W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę.";
                             } else if (cleanCode === 'P102') {
                                 text = "Chronić przed dziećmi.";
                             }
@@ -143,6 +160,47 @@ class GpsrSafetyService {
                             result.push(cleanCode);
                         }
                     }
+                    continue;
+                }
+            }
+
+            // Odrzucenie osieroconych nagłówków okolicznościowych i scalanie w formuły kombinowane CLP
+            const cleanItemCode = str.split(/[\s–-]/)[0].toUpperCase();
+            if (cleanItemCode === 'P301' || cleanItemCode === 'P312') {
+                if (!handledSwallowing) {
+                    handledSwallowing = true;
+                    result.push("P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.");
+                }
+                continue;
+            }
+            if (cleanItemCode === 'P305' || cleanItemCode === 'P351' || cleanItemCode === 'P338') {
+                if (!handledEyesWash) {
+                    handledEyesWash = true;
+                    result.push("P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
+                }
+                continue;
+            }
+            if (cleanItemCode === 'P337' || cleanItemCode === 'P313') {
+                if (!handledEyesDoctor) {
+                    handledEyesDoctor = true;
+                    result.push("P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza.");
+                }
+                continue;
+            }
+            if (cleanItemCode === 'P302' || cleanItemCode === 'P352') {
+                if (!handledSkin) {
+                    handledSkin = true;
+                    result.push("P302+P352 – W PRZYPADKU KONTAKTU ZE SKÓRĄ: Umyć dużą ilością wody z mydłem.");
+                }
+                continue;
+            }
+
+            // Jeśli to sam kod (np. P264, P280, P210), pobierz opis z SSOT jeśli brak treści
+            if (/^P\d{3}$/i.test(cleanItemCode) && str === cleanItemCode) {
+                let text = this.euphracPhrases?.pPhrases?.[cleanItemCode];
+                if (text) {
+                    text = text.replace(/^[:\s–-]+/, '').trim().replace(/\bDO OCZÓW\b/gi, 'DO OCZU');
+                    result.push(`${cleanItemCode} – ${text}`);
                     continue;
                 }
             }
@@ -232,6 +290,8 @@ class GpsrSafetyService {
             if (isActualChemical || isAerosol) {
                 warnings.push("P101 – W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę.");
                 warnings.push("P102 – Chronić przed dziećmi.");
+                warnings.push("P264 – Dokładnie umyć ręce po użyciu.");
+                warnings.push("P280 – Stosować ochronę oczu / ochronę twarzy.");
                 if (isAerosol || isLaundryDetergent) {
                     warnings.push("P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.");
                 }
@@ -281,10 +341,10 @@ class GpsrSafetyService {
         if (isActualChemical) {
             detectedRisks.push('HOUSEHOLD_CHEMICAL');
 
-            // 1. Hasło ostrzegawcze (DANGER / WARNING wg CLP)
+            // 1. Hasło ostrzegawcze (DANGER / WARNING wg CLP) - format z myślnikiem wg standardu Allegro
             if (isClassifiedChemical) {
                 const signalWord = compliance?.clp_signal_word || 'UWAGA';
-                warnings.push(`Hasło ostrzegawcze: ${signalWord}`);
+                warnings.push(`Hasło ostrzegawcze – ${signalWord}`);
             }
 
             // 2. Zwroty wskazujące rodzaj zagrożenia (H-phrases)
@@ -305,25 +365,30 @@ class GpsrSafetyService {
             // 4. P102 – Chronić przed dziećmi (Obowiązkowy dla mieszanin konsumenckich)
             warnings.push("P102 – Chronić przed dziećmi.");
 
-            // 5. P280 – Stosować ochronę oczu / ochronę twarzy (Wymagany przy H319/H318)
+            // 5. P264 – Dokładnie umyć ręce po użyciu (Prewencja ogólna przy H319/H318)
+            if (isClassifiedChemical) {
+                warnings.push("P264 – Dokładnie umyć ręce po użyciu.");
+            }
+
+            // 6. P280 – Stosować ochronę oczu / ochronę twarzy (Wymagany przy H319/H318)
             if (isClassifiedChemical) {
                 warnings.push("P280 – Stosować ochronę oczu / ochronę twarzy.");
             }
 
-            // 6. P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ / lekarzem
+            // 7. P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ / lekarzem
             if (isClassifiedChemical || isLaundryCapsules) {
                 warnings.push("P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.");
             }
 
-            // 7. P305+P351+P338 – Faza 1: Płukanie oczu wodą
+            // 8. P305+P351+P338 – Faza 1: Płukanie oczu wodą
             warnings.push("P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
 
-            // 8. P337+P313 – Faza 2: Pomoc lekarska w razie utrzymywania się podrażnienia oczu
+            // 9. P337+P313 – Faza 2: Pomoc lekarska w razie utrzymywania się podrażnienia oczu
             if (isClassifiedChemical) {
                 warnings.push("P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza.");
             }
 
-            // 9. EUH208 – Informacja uzupełniająca o zagrożeniach (Art. 25 ust. 6 CLP, Rozp. 2023/1545)
+            // 10. EUH208 – Informacja uzupełniająca o zagrożeniach (Art. 25 ust. 6 CLP, Rozp. 2023/1545)
             // Zgodnie z prawem unijnym wymieniamy WSZYSTKIE zidentyfikowane substancje uczulające (BEZ UCINANIA)
             if (allFoundSensitizers.length > 0) {
                 detectedRisks.push('EUH208_SENSITIZER');
@@ -331,9 +396,14 @@ class GpsrSafetyService {
                 warnings.push(`EUH208 – Zawiera ${formattedSensitizers}. Może powodować wystąpienie reakcji alergicznej.`);
             }
 
-            // 6. Dołączenie ewentualnych pozostałych zwrotów P ze specyfikacji/SDS (zdekomponowanych)
+            // 11. Dołączenie ewentualnych pozostałych zwrotów P ze specyfikacji/SDS (skonsolidowanych)
+            // Kategoryczny zakaz wstrzykiwania osieroconych kodów nagłówkowych (P301, P305, P337 itd.)
             for (const p of splitPPhrases) {
-                if (!warnings.some(w => w.includes(p.substring(0, 4)))) {
+                const codeOnly = p.split(/[\s–-]/)[0].toUpperCase();
+                if (/^(P301|P312|P305|P351|P338|P337|P313|P302|P352)$/.test(codeOnly)) {
+                    continue;
+                }
+                if (!warnings.some(w => w.includes(codeOnly))) {
                     warnings.push(p);
                 }
             }
