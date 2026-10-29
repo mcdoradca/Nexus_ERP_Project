@@ -6,8 +6,14 @@ const EventBus = require('../../core/EventBus');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const { generateWithRetry } = require('../offer-optimizer/ai.service');
 
+const SENTINEL_ENABLED = false;
+
 async function runSentinelAudit() {
     try {
+        if (!SENTINEL_ENABLED) {
+            console.log("[SENTINEL] Agent_Ads_Sentinel jest wyłączony (SENTINEL_ENABLED = false). Pomijam audyt.");
+            return "BRAK KRYTYCZNYCH ZMIAN";
+        }
         console.log("[SENTINEL] Rozpoczynam głęboki audyt zmian na Allegro (Deep Research)...");
         
         // Zgodnie z architekturą, Sentinel używa Google Search Grounding by zdobyć najświeższe fakty.
@@ -63,6 +69,10 @@ Jeżeli w sieci nie ma absolutnie żadnych nowych informacji o opłatach lub reg
 }
 
 function initSentinel() {
+    if (!SENTINEL_ENABLED) {
+        console.log("[SENTINEL] Moduł Agent_Ads_Sentinel wyłączony. Harmonogram CRON (0 4 * * *) nieaktywny.");
+        return;
+    }
     // CRON: Odpalaj codziennie o 04:00 rano
     cron.schedule('0 4 * * *', () => {
         runSentinelAudit();
@@ -71,6 +81,7 @@ function initSentinel() {
 }
 
 module.exports = {
+    SENTINEL_ENABLED,
     initSentinel,
     runSentinelAudit
 };

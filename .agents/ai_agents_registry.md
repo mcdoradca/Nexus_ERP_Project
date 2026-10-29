@@ -33,7 +33,7 @@
 | Agent ID | Model | Opis |
 |---|---|---|
 | `Agent_Logistics_Optimizer` | gemini-3.8-flash | Algorytmiczne kalkulowanie najtańszych gabarytów i podpowiadanie lepszych kartonów. |
-| `Agent_Ads_Sentinel` | gemini-3.8-flash | Codzienny zautomatyzowany audyt zwrotu (ROAS) z Allegro Ads i rekomendacje włącz/wyłącz kampanie. |
+| `Agent_Ads_Sentinel` | ~~WYŁĄCZONY~~ | **[WYŁĄCZONY 2026-10-29]** Codzienny zautomatyzowany audyt zmian regulaminowych i stawek Allegro (Deep Research Grounding). |
 | `Agent_Data_Analyst` | gemini-3.8-flash | (W Demand Forecast) Szacowanie popytu przy użyciu trendów rynkowych, świąt, i danych twardych (S/A). |
 | `Agent_SOT_Compiler` | gemini-3.1-pro-preview | Generowanie ustrukturyzowanych Kart Charakterystyki/Cech na podstawie plików (PDF, Zdjęcia etykiet). |
 | `Agent_Ebook_Generator` | gemini-3.1-pro-preview | Dynamiczne pisanie merytorycznych rozdziałów z użyciem twardej wiedzy z PIM (np. kosmetyki/ingrediencje). |

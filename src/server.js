@@ -1170,8 +1170,8 @@ app.post('/api/allegro-sentinel/trigger', authenticateToken, async (req, res) =>
             return res.status(403).json({ error: 'Brak uprawnień do wyzwalania Sentinela.' });
         }
         // Uruchamiamy w tle, żeby nie blokować odpowiedzi
-        allegroSentinelService.runSentinelAudit().catch(err => console.error("Ręczny audyt Sentinela nie powiódł się:", err));
-        res.status(200).json({ message: 'Sentinel otrzymał rozkaz Deep Researchu i rozpoczął skanowanie sieci Allegro.' });
+        console.log('[SENTINEL] Zablokowano ręczne wyzwolenie: Agent_Ads_Sentinel jest wyłączony.');
+        return res.status(200).json({ message: 'Agent Allegro Sentinel (Deep Research) jest wyłączony.', disabled: true });
     } catch (err) {
         res.status(500).json({ error: 'Błąd wyzwalania Sentinela' });
     }
@@ -1248,7 +1248,7 @@ cron.schedule('0 6 * * *', async () => {
 });
 
 // --- TŁO: CRON JOB ALLEGRO SENTINEL (DEEP RESEARCH) ---
-allegroSentinelService.initSentinel();
+if (allegroSentinelService.SENTINEL_ENABLED) allegroSentinelService.initSentinel();
 
 // Nodemon Auto-Wakeup trigger
 // Nodemon Auto-Wakeup trigger
