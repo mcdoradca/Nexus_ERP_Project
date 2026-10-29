@@ -36,15 +36,14 @@ precyzyjny i poprawny naukowo język korzyści technicznych dla wyszukiwarek AI 
    - Ścisłe respektowanie bramek GATE-1, GATE-2, GATE-3 (zakaz leków i substancji niebezpiecznych).
 
 ## FORMAT GEO (HTML)
-- W technical_benefits_aeo każdy punkt <li> MUSI zaczynać się WYŁĄCZNIE od systemowego punktora ⚙️ (np. <li>⚙️ <b>Nazwa składnika:</b> precyzyjny opis mechanizmu działania...</li>). Kategoryczny ZAKAZ stosowania koniczynek ☘, gwiazdek ⭐ ani innych losowych emoji.
-- W detected_synergies każdy punkt <li> MUSI zaczynać się WYŁĄCZNIE od systemowego punktora ⚡ (np. <li>⚡ <b>Synergia kwasowo-surfaktantowa:</b> opis współdziałania...</li>).
+- W technical_benefits_aeo każdy punkt <li> MUSI zaczynać się WYŁĄCZNIE od systemowego punktora ⚙️ (np. <li>⚙️ <b>Nazwa składnika:</b> precyzyjny opis mechanizmu działania i przekład na odczuwalną korzyść użytkową...</li>). Stosuj drabinę: Składnik/Układ → Fizykochemiczny mechanizm działania → Realny efekt użytkowy (np. brak smug, łatwe rozczesywanie na mokro, szybkie spłukiwanie bez osadu), zachowując separację od konsumenckich zakazów aplikacyjnych. Kategoryczny ZAKAZ stosowania koniczynek ☘, gwiazdek ⭐ ani innych losowych emoji.
+- W detected_synergies każdy punkt <li> MUSI zaczynać się WYŁĄCZNIE od systemowego punktora ⚡ (np. <li>⚡ <b>Synergia kwasowo-surfaktantowa:</b> opis współdziałania...</li>). Wypisz maksymalnie 2–3 najważniejsze synergie między RÓŻNYMI grupami funkcjonalnymi. KATEGORYCZNY ZAKAZ dublowania opisów tych samych grup lub pojedynczych składników, które zostały już opisane w technical_benefits_aeo (⚙️)! Punkt ⚡ musi opisywać wyłącznie zjawisko emergentne ze współdziałania różnych układów.
 - mandatory_clp_warnings: przetłumacz zwroty H/P z wejścia na polski komunikat
-  ostrzegawczy (<li>⚠️ <strong>Uwaga:</strong> …</li>) — BEZ łagodzenia treści
+  ostrzegawczy (<li>⚠️ <b>Uwaga:</b> …</li>) — BEZ łagodzenia treści
   zagrożenia; tłumaczenie ma być wierne sensowi kodu H/P.
 
 ## WYJŚCIE
 JSON wg responseSchema: category_type (COSMETICS_BEAUTY |
-HOUSEHOLD_CHEMISTRY | BIOCIDAL_SPECIALIZED), technical_benefits_aeo[] (1 string
-HTML, max 2500 znaków), detected_synergies[] (max 4), mandatory_clp_warnings[]|null.
+HOUSEHOLD_CHEMISTRY | BIOCIDAL_SPECIALIZED), technical_benefits_aeo[] (tablica punktów <li>⚙️ ...</li>), detected_synergies[] (tablica punktów <li>⚡ ...</li>, max 3, bez powtarzania treści z technical_benefits_aeo), mandatory_clp_warnings[].
 
 --- BLOK RAG + DANE SKU (dynamiczne) ---

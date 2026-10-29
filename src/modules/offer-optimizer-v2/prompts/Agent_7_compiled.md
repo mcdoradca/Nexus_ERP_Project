@@ -47,20 +47,19 @@ M2 SENSORY PRIMING (s1 i s4): język zmysłów w czasie teraźniejszym, wirtualn
    Zakaz wymyślania danych sensorycznych sprzecznych z opiniami/PIM.
 M3 KOTWICE RUTYNY (dokładnie 2: subtelna w s1 + matematyczna w s4): przeliczenie
    pojemności na czas kuracji / litry robocze WYŁĄCZNIE z liczb obecnych w payloadzie
-   (pojemność, dozowanie). Brak danych do przeliczenia → kotwica jakościowa bez liczb
+   (net_capacity, dozowanie). Brak danych do przeliczenia → kotwica jakościowa bez liczb
    (zakaz wymyślania "45 dni" bez podstawy — kod diff_numeric to wychwyci).
-M4 TON wg product_category: COSMETICS_BEAUTY — ekspercki Beauty Rx, troska o barierę;
+M4 TON wg product_category I ŚCIEŻKA SKANOWANIA MOBILNEGO (FAB):
+   COSMETICS_BEAUTY — ekspercki Beauty Rx, troska o barierę;
    HOUSEHOLD_CHEMISTRY/BIOCIDAL — inżynieryjny konkret, wydajność, bezpieczeństwo
    powierzchni; NON_CHEMICAL_GENERAL — praktyczność, ergonomia, trwałość.
+   Zachowaj i wzmocnij rytm pogrubień <b> w section_1_html i section_4_html (czytane po kolei mają tworzyć spójny przekaz korzyści dla kupującego na smartfonie). Wykorzystaj autentyczne zachwyty (customer_delights) i zastosowania (real_life_use_cases) z payloadu, jeśli są dostępne.
 
 ## WYJŚCIE
-JSON wg responseSchema: pipeline_id, sekcja1, sekcja2, sekcja4, behavioral_audit
-{pratfall_effect_injected, sensory_priming_applied, routine_anchor_added}.
-(Pole legal_and_technical_data_intact USUNIĘTE — gwarantuje to hash w kodzie,
-nie deklaracja modelu.)
+JSON wg responseSchema: section_1_html, section_2_html, section_4_html (stringi HTML).
 
---- DANE WEJŚCIOWE {s1, s2, s4, preserved_minor_flaws, product_category,
-net_capacity, dozowanie, scent_variant} (dynamiczne) ---
+--- DANE WEJŚCIOWE {section_1_html, section_2_html, section_4_html, preserved_minor_flaws, product_category,
+net_capacity, dozowanie, scent_variant, customer_delights, real_life_use_cases} (dynamiczne) ---
 
 
 --- WSPÓLNE REGUŁY ---
@@ -70,7 +69,7 @@ Bezwzględny zakaz stosowania w opisie, tytułach i nagłówkach słów naruszaj
 2. Gwarancyjne, overpromising i autentyczność: gwarancja (najniższej ceny, jakości, satysfakcji, zwrotu), gwarantuje, gwarantujemy, udowodniona skuteczność, w 100% udowodnione, 100% udowodnione, pewność działania, pewność zakupu, 100% pewności, cudowny, magiczny, niezawodny, oryginalność, gwarancja oryginalności. BEZWZGLĘDNY ZAKAZ słowa "oryginał", "oryginalny" oraz WSZYSTKICH jego odmian gramatycznych (oryginalny, oryginalna, oryginalne, oryginalnym, oryginalnych, oryginalności itd.) w KAŻDYM kontekście i module. Wszelkie wzmianki o opakowaniu i przechowywaniu formułuj naturalnie (np. "w szczelnie zamkniętym opakowaniu", "w fabrycznym opakowaniu", "w opakowaniu producenta"), a odniesienia do oryginalności produktu są zakazane.
 3. Transakcyjne i Call-to-Action: kup teraz, kupuj teraz, zamów teraz, kliknij, dodaj do koszyka, polecam, polecamy, sprawdź to, tylko u nas, allegro, aukcja, aukcje, wysyłka 24h, szybka wysyłka.
 4. Porównania i substytuty: w stylu, odpowiednik, zamiennik, lepsze niż, typu [marka].
-OBOWIĄZEK AGENTA 10: Wykrycie każdego takiego słowa i jego NATYCHMIASTOWA zamiana w `repair_patches` na neutralny, profesjonalny odpowiednik (np. "gwarantuje czystość" → "zapewnia skuteczne oczyszczanie", "hit/bestseller" → usunięcie słowa, "w oryginalnym opakowaniu" → "w fabrycznym opakowaniu").
+OBOWIĄZEK AGENTA 10: Wykrycie każdego takiego słowa i jego NATYCHMIASTOWA zamiana w `patches` na neutralny, profesjonalny odpowiednik (np. "gwarantuje czystość" → "zapewnia skuteczne oczyszczanie", "hit/bestseller" → usunięcie słowa, "w oryginalnym opakowaniu" → "w fabrycznym opakowaniu").
 
 ## §B. DOZWOLONY HTML — WG SOT 01 (egzekwuje: kod; zna: A4, A6, A7)
 Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
@@ -105,10 +104,6 @@ to dane dostawców surowców / literatura kierunkowa — wchodzą do opisu WYŁ�
 przy pokryciu w badaniach aplikacyjnych GOTOWEGO produktu w PIM (SOT 03 kryt. 3–4).
 Bez dowodu → język jakościowy ("znacząco", "intensywnie"). Zakaz automatycznego
 przenoszenia właściwości składnika na cały produkt.
-
-## MAPA DYSTRYBUCJI PREFIKSÓW (Orkiestrator składa per węzeł):
-A1: §I | A4: §A §B §C §I §J | A5: §A §D §E §F | A6: §A §B §C §J | A7: §A §B §C §H §J |
-A8: §G | A9: §G | A10: §A §D §E §F §J §K (warstwa semantyczna i samonaprawa stop-words)
 
 --- DANE SKU ---
 {{SKU_DATA}}

@@ -452,13 +452,16 @@ function validate_section6_compliance(html, options = {}) {
     }
 
     // 2. WYMÓG STANDARDU TAGU EKOSYSTEMU ALLEGRO: Ostrzeżenie CLP/GPSR (zakaz ucinania do 'Ostrzeżenie CLP:')
-    if (options.is_chemical && /<b>\s*Ostrzeżenie\s+CLP:\s*<\/b>/i.test(html)) {
+    if (options.is_chemical && /<(?:b|strong)>\s*Ostrzeżenie\s+CLP:\s*<\/(?:b|strong)>/i.test(html)) {
         errors.push("Missing '/GPSR' in label tag: must use unified Allegro ecosystem tag '<b>Ostrzeżenie CLP/GPSR:</b>'");
     }
 
     // 3. Weryfikacja hasła ostrzegawczego (musi używać myślnika, nie dwukropka: Hasło ostrzegawcze – UWAGA)
     if (options.is_chemical && /Hasło\s+ostrzegawcze:\s*(?:UWAGA|NIEBEZPIECZEŃSTWO)/i.test(html)) {
         errors.push("Signal word label must use dash delimiter: 'Hasło ostrzegawcze – UWAGA' (or NIEBEZPIECZEŃSTWO) instead of colon");
+    }
+    if (/W\s+PRZYPADKU\s+(?:POŁKNIĘCIA|DOSTANIA\s+SIĘ\s+DO\s+OCZU|KONTAKTU\s+ZE\s+SKÓRĄ)\s*[–-]/i.test(html) || /W\s+przypadku\s+utrzymywania\s+się\s+działania\s+drażniącego\s+na\s+oczy\s*[–-]/i.test(html)) {
+        errors.push('CLP conditional trigger header must end with a statutory colon (:), not a dash');
     }
 
     // 4. Weryfikacja wymogu P280 dla H319/H318
@@ -491,7 +494,7 @@ function validate_section3_ingredients_closed_world(html, allowedIngredients = [
     }
 
     // Wyciągamy nagłówki/nazwy składników z punktów <li> w sekcji 3
-    const itemRegex = /<li[^>]*>\s*(?:⚙️|⚡)?\s*<b>\s*(?:Składnik:?\s*)?([^:<]+?)\s*:\s*<\/b>/gi;
+    const itemRegex = /<li[^>]*>\s*(?:⚙️|⚡)?\s*<(?:b|strong)>\s*(?:Składnik:?\s*)?([^:<]+?)\s*:\s*<\/(?:b|strong)>/gi;
     let match;
     const knownPreservativesAndActives = [
         'phenoxyethanol', 'fenoksyetanol', 'parabens', 'parabeny', 'dmdm hydantoin',

@@ -49,17 +49,16 @@ M2 SENSORY PRIMING (s1 i s4): język zmysłów w czasie teraźniejszym, wirtualn
    Zakaz wymyślania danych sensorycznych sprzecznych z opiniami/PIM.
 M3 KOTWICE RUTYNY (dokładnie 2: subtelna w s1 + matematyczna w s4): przeliczenie
    pojemności na czas kuracji / litry robocze WYŁĄCZNIE z liczb obecnych w payloadzie
-   (pojemność, dozowanie). Brak danych do przeliczenia → kotwica jakościowa bez liczb
+   (net_capacity, dozowanie). Brak danych do przeliczenia → kotwica jakościowa bez liczb
    (zakaz wymyślania "45 dni" bez podstawy — kod diff_numeric to wychwyci).
-M4 TON wg product_category: COSMETICS_BEAUTY — ekspercki Beauty Rx, troska o barierę;
+M4 TON wg product_category I ŚCIEŻKA SKANOWANIA MOBILNEGO (FAB):
+   COSMETICS_BEAUTY — ekspercki Beauty Rx, troska o barierę;
    HOUSEHOLD_CHEMISTRY/BIOCIDAL — inżynieryjny konkret, wydajność, bezpieczeństwo
    powierzchni; NON_CHEMICAL_GENERAL — praktyczność, ergonomia, trwałość.
+   Zachowaj i wzmocnij rytm pogrubień <b> w section_1_html i section_4_html (czytane po kolei mają tworzyć spójny przekaz korzyści dla kupującego na smartfonie). Wykorzystaj autentyczne zachwyty (customer_delights) i zastosowania (real_life_use_cases) z payloadu, jeśli są dostępne.
 
 ## WYJŚCIE
-JSON wg responseSchema: pipeline_id, sekcja1, sekcja2, sekcja4, behavioral_audit
-{pratfall_effect_injected, sensory_priming_applied, routine_anchor_added}.
-(Pole legal_and_technical_data_intact USUNIĘTE — gwarantuje to hash w kodzie,
-nie deklaracja modelu.)
+JSON wg responseSchema: section_1_html, section_2_html, section_4_html (stringi HTML).
 
---- DANE WEJŚCIOWE {s1, s2, s4, preserved_minor_flaws, product_category,
-net_capacity, dozowanie, scent_variant} (dynamiczne) ---
+--- DANE WEJŚCIOWE {section_1_html, section_2_html, section_4_html, preserved_minor_flaws, product_category,
+net_capacity, dozowanie, scent_variant, customer_delights, real_life_use_cases} (dynamiczne) ---

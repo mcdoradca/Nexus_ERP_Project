@@ -40,6 +40,8 @@ i poprawność języka polskiego, precyzję fleksyjną oraz higienę typograficz
 
 ## BLUEPRINT 6 SEKCJI
 s1 USP: <h1>⭐ [Nazwa + korzyść/pojemność]</h1><p>2–3 zdania konkretu</p>.
+   RYGOR MOBILE-FIRST EYE-TRACKING (ŚCIEŻKA POGRUBIEŃ FAB wg SOT 09 §1 i SHARED_RULES §B):
+   W każdym zdaniu akapitu <p> wyróżnij tagiem <b> kluczową frazę niosącą konkretną korzyść użytkową lub parametr (3–5 słów), tak aby same pogrubienia czytane jedno po drugim tworzyły w 3 sekundy spójny minitekst sprzedażowy (Problem/Potrzeba → Mechanizm formuły → Rezultat i wydajność). Rozbroj główną obiekcję zakupową (np. brak obciążenia, brak smug, szybkie spłukiwanie).
 s2 FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI — Google, ChatGPT, Claude, Perplexity):
    <h2>❓ [fraza kategorii + kluczowy efekt, np. Płyn do podłóg bez smug – najczęstsze pytania]</h2><ul> + 3–5 par.
    ŹRÓDŁO: pary z A5 (a5.safe_aeo_questions ↔ a5.safe_aeo_answers, 1:1, kolejność zachowana).
@@ -68,7 +70,7 @@ s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
    Jeśli w formule występują konserwanty (BIT, MIT, Kathon CG), punkt ⚙️ wyjaśniający stabilizację mikrobiologiczną
    formulacji MUSI znaleźć się w Sekcji 3. Jeśli w formule występuje kompozycja zapachowa (Parfum / Limonene / Linalool itp.),
    punkt ⚙️ MUSI wyjaśniać rolę zapachową i neutralizację bazy surfaktantowej. Kategoryczny zakaz ucinania lub pomijania składników obecnych w danych A4!
-   SEPARACJA WARSTW: Punkty ⚙️ wyjaśniają wyłącznie fizykochemiczny mechanizm działania cząsteczek. Wszelkie konsumenckie zakazy aplikacyjne (np. wykluczenia tkaninowe) należą wyłącznie do Sekcji 4 i Sekcji 2.
+   SEPARACJA WARSTW I ZAKAZ DUPLIKACJI ⚙️ vs ⚡: Punkty ⚙️ wyjaśniają wyłącznie fizykochemiczny mechanizm działania cząsteczek i ich przekład na odczuwalną korzyść użytkową. Jeśli punkt ⚡ z A4 powtarza semantycznie opis tej samej grupy składników co punkt ⚙️, skonsoliduj lub pomiń redundantny duplikat ⚡, zachowując 100% wszystkich składników i konserwantów w punktach ⚙️. Wszelkie konsumenckie zakazy aplikacyjne (np. wykluczenia tkaninowe) należą wyłącznie do Sekcji 4 i Sekcji 2.
    [Naprawa v3.1: usunięto polecenie samodzielnego opisywania INCI "z SOT RAG" —
    A6 nie ma RAG-u; opisy składników tworzy wyłącznie A4. Dla produktów
    niechemicznych (brak node_4_aeo) buduj s3 z cech użytkowych z PIM.]
@@ -106,8 +108,6 @@ s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2><p>[Zasady bezpiecznego przechowywani
    [Po Tobie s3/s5/s6 zostaną zamrożone hashem — pisz je od razu finalnie.]
 
 ## WYJŚCIE
-JSON wg responseSchema: pipeline_id, sekcja1…sekcja6 (stringi HTML).
-(Pola html_validation_passed / stop_words_detected USUNIĘTE — samoocena zastąpiona
-walidatorem kodowym; model nie audytuje sam siebie.)
+JSON wg responseSchema: section_1_html, section_2_html, section_3_html, section_4_html, section_5_html, section_6_html (stringi HTML).
 
 --- DANE WEJŚCIOWE {A1 slim, A4, A5} (dynamiczne) ---

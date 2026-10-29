@@ -149,7 +149,7 @@ const sanitizeSection3Html = (htmlStr, allowedSourcesStr = '') => {
     for (const item of knownHallucinablePreservatives) {
         if (item.regex.test(res) && !item.regex.test(allowedLower)) {
             console.warn(`[Orchestrator V2] Wykryto halucynację ${item.name} w Sekcji 3. Wycinanie nieautoryzowanego składnika.`);
-            res = res.replace(new RegExp(`<li[^>]*>\\s*(?:⚙️|⚡)?\\s*<b>\\s*(?:Składnik:?\\s*)?${item.name}[^<]*<\\/b>[\\s\\S]*?<\\/li>`, 'gi'), '');
+            res = res.replace(new RegExp(`<li[^>]*>\\s*(?:⚙️|⚡)?\\s*<(?:b|strong)>\\s*(?:Składnik:?\\s*)?${item.name}[^<]*<\\/(?:b|strong)>[\\s\\S]*?<\\/li>`, 'gi'), '');
         }
     }
 
@@ -164,25 +164,28 @@ const sanitizeSection6Html = (htmlStr) => {
     res = res.replace(/\bDO OCZÓW\b/gi, 'DO OCZU');
 
     // 2. Normalizacja tagu do jednolitego standardu ekosystemu Allegro (Ostrzeżenie CLP/GPSR)
-    res = res.replace(/<b>\s*Ostrzeżenie\s+CLP:\s*<\/b>/gi, '<b>Ostrzeżenie CLP/GPSR:</b>');
+    res = res.replace(/<(b|strong)>\s*Ostrzeżenie\s+CLP:\s*<\/\1>/gi, '<$1>Ostrzeżenie CLP/GPSR:</$1>');
 
     // 2.1. Standaryzacja hasła ostrzegawczego (myślnik zamiast dwukropka)
     res = res.replace(/Hasło\s+ostrzegawcze:\s*(UWAGA|NIEBEZPIECZEŃSTWO)/gi, 'Hasło ostrzegawcze – $1');
+    res = res.replace(/(W\s+PRZYPADKU\s+(?:POŁKNIĘCIA|DOSTANIA\s+SIĘ\s+DO\s+OCZU|KONTAKTU\s+ZE\s+SKÓRĄ))\s*[–-]\s*/g, '$1: ');
+    res = res.replace(/(W\s+przypadku\s+utrzymywania\s+się\s+działania\s+drażniącego\s+na\s+oczy)\s*[–-]\s*/g, '$1: ');
 
     // 3. Rozklejanie sklejonych procedur medycznych kodów P w punktach <li>
     // np. "<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P305+P351+P338 + P337+P313: ...</li>"
     const gpsrSafetyService = require('./services/gpsr.safety.service');
-    res = res.replace(/<li[^>]*>\s*(?:⚠️|➡️|🛡️|\*|-)?\s*(?:<b>\s*Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?:?\s*<\/b>\s*)?(P\d{3}(?:\+P\d{3})*\s*(?:\+|\/|\band\b|\boraz\b)\s*P\d{3}[^<]*)<\/li>/gi, (match, pGroup) => {
+    res = res.replace(/<li[^>]*>\s*(?:⚠️|➡️|🛡️|\*|-)?\s*(?:<(?:b|strong)>\s*Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?:?\s*<\/(?:b|strong)>\s*)?(P\d{3}(?:\+P\d{3})*\s*(?:\+|\/|\band\b|\boraz\b)\s*P\d{3}[^<]*)<\/li>/gi, (match, pGroup) => {
         const splitPhrases = gpsrSafetyService.splitCombinedPPhrases(pGroup);
         if (splitPhrases.length > 1) {
-            return splitPhrases.map(phrase => `<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> ${phrase}</li>`).join('\n');
+            const tag = /<strong>/i.test(match) ? 'strong' : 'b';
+            return splitPhrases.map(phrase => `<li>➡️ <${tag}>Ostrzeżenie CLP/GPSR:</${tag}> ${phrase}</li>`).join('\n');
         }
         return match;
     });
 
     // 4. Likwidacja zbitych dwukropków po etykiecie ostrzeżenia i kodzie zwrotu:
     // np. "<b>Ostrzeżenie CLP/GPSR:</b> P102: ..." -> "<b>Ostrzeżenie CLP/GPSR:</b> P102 – ..."
-    res = res.replace(/(<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\)|CLP\/GPSR)?|Środki\s+ostrożności\s*(?:\(GPSR\)|CLP\/GPSR)?):?\s*<\/b>\s*)([A-Z0-9+]+):/gi, '$1$2 –');
+    res = res.replace(/(<(?:b|strong)>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\)|CLP\/GPSR)?|Środki\s+ostrożności\s*(?:\(GPSR\)|CLP\/GPSR)?):?\s*<\/(?:b|strong)>\s*)([A-Z0-9+]+):/gi, '$1$2 –');
 
     // 5. Likwidacja podwójnych dwukropków "::" w całym stringu
     res = res.replace(/::+/g, ':');
@@ -192,19 +195,19 @@ const sanitizeSection6Html = (htmlStr) => {
 
     // 7. Eliminacja osieroconych nagłówków okolicznościowych, jeśli w opisie jest już pełna formuła
     if (/P301\+P312/.test(res)) {
-        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️)?\s*(?:<b>[^<]*<\/b>\s*)?P301\s*–\s*W\s+PRZYPADKU\s+POŁKNIĘCIA:\s*<\/li>/gi, '');
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️)?\s*(?:<(?:b|strong)>[^<]*<\/(?:b|strong)>\s*)?P301\s*–\s*W\s+PRZYPADKU\s+POŁKNIĘCIA:\s*<\/li>/gi, '');
     }
     if (/P305\+P351\+P338/.test(res)) {
-        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️)?\s*(?:<b>[^<]*<\/b>\s*)?P305\s*–\s*W\s+PRZYPADKU\s+DOSTANIA\s+SIĘ\s+DO\s+OCZU:\s*<\/li>/gi, '');
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️)?\s*(?:<(?:b|strong)>[^<]*<\/(?:b|strong)>\s*)?P305\s*–\s*W\s+PRZYPADKU\s+DOSTANIA\s+SIĘ\s+DO\s+OCZU:\s*<\/li>/gi, '');
     }
     if (/P337\+P313/.test(res)) {
-        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️)?\s*(?:<b>[^<]*<\/b>\s*)?P337\s*–\s*W\s+przypadku\s+utrzymywania\s+się\s+działania\s+drażniącego\s+na\s+oczy:\s*<\/li>/gi, '');
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️)?\s*(?:<(?:b|strong)>[^<]*<\/(?:b|strong)>\s*)?P337\s*–\s*W\s+przypadku\s+utrzymywania\s+się\s+działania\s+drażniącego\s+na\s+oczy:\s*<\/li>/gi, '');
     }
 
     // 8. Eliminacja redundancji semantycznej (Deduplikacja ostrzeżeń o oczach):
     const hasP305 = /P305/i.test(res);
     if (hasP305) {
-        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<b>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\)|CLP\/GPSR)?|Środki\s+ostrożności\s*(?:\(GPSR\)|CLP\/GPSR)?):?\s*<\/b>\s*)?W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą\.?\s*<\/li>/gi, '');
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<(?:b|strong)>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\)|CLP\/GPSR)?|Środki\s+ostrożności\s*(?:\(GPSR\)|CLP\/GPSR)?):?\s*<\/(?:b|strong)>\s*)?W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą\.?\s*<\/li>/gi, '');
     }
 
     // 9. Eliminacja redundancji między <p> wstępnym a listą punktowaną dot. dzieci:
@@ -1664,7 +1667,7 @@ class Orchestrator {
                 detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
                 compliance: complianceData,
                 gpsr_safety_baseline: gpsrBaseline,
-                a1: this.state.a1_result,
+                a1: this.state.a1_result ? { country_of_origin: this.state.a1_result.country_of_origin?.value || this.state.a1_result.country_of_origin || undefined, logistics: this.state.a1_result.logistics?.value || this.state.a1_result.logistics || undefined } : undefined,
                 a2: this.state.a2_result,
                 a4: this.state.a4_result
             };
@@ -1731,6 +1734,8 @@ class Orchestrator {
                     result.mandatory_safety_warnings = result.mandatory_safety_warnings.map(w => 
                         w.replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
                          .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3}):\s*/i, '$1 – ')
+                         .replace(/(W\s+PRZYPADKU\s+(?:POŁKNIĘCIA|DOSTANIA\s+SIĘ\s+DO\s+OCZU|KONTAKTU\s+ZE\s+SKÓRĄ))\s*[–-]\s*/g, '$1: ')
+                         .replace(/(W\s+przypadku\s+utrzymywania\s+się\s+działania\s+drażniącego\s+na\s+oczy)\s*[–-]\s*/g, '$1: ')
                     );
                 }
 
@@ -1840,11 +1845,12 @@ class Orchestrator {
                 } : undefined,
                 features: product?.text_fields?.features || {},
                 vision_features: this.state.vision_extracted_features || {},
-                a1: this.state.a1_result,
+                a1: this.state.a1_result ? { country_of_origin: this.state.a1_result.country_of_origin?.value || this.state.a1_result.country_of_origin || undefined, logistics: this.state.a1_result.logistics?.value || this.state.a1_result.logistics || undefined } : undefined,
                 a2: this.state.a2_result,
                 a4: this.state.a4_result,
                 a5: this.state.a5_result
             };
+            delete agent6Data.a2;
             const prompt6Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_6_compiled.md'), 'utf8');
             const prompt6 = prompt6Template.replace('{{SKU_DATA}}', JSON.stringify(agent6Data, null, 2));
 
@@ -1882,7 +1888,7 @@ class Orchestrator {
                 const euData = this.state.extracted_data.eu_responsible_person?.data;
                 if (euData && euData.name && euData.address_eu && result.section_6_html) {
                     const fullEuString = brandResponsibleService.formatForHtmlDescription(euData);
-                    const euPattern = /(<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*<b>\s*Podmiot odpowiedzialny w UE:?\s*<\/b>\s*)(.*?)(<\/li>)/i;
+                    const euPattern = /(<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*<(?:b|strong)>\s*Podmiot odpowiedzialny w UE:?\s*<\/(?:b|strong)>\s*)(.*?)(<\/li>)/i;
                     if (euPattern.test(result.section_6_html)) {
                         result.section_6_html = result.section_6_html.replace(euPattern, (match, prefix, content, suffix) => {
                             return `${prefix}${fullEuString}${suffix}`;
@@ -1983,6 +1989,12 @@ class Orchestrator {
             this.state.node_status['A7'] = 'RUNNING';
             this.emitState();
             const agent7Data = {
+                product_category: this.state.a4_result?.category_type || (this.state.is_chemical ? 'HOUSEHOLD_CHEMISTRY' : 'COSMETICS_BEAUTY'),
+                net_capacity: extracted?.capacity?.value || this.state.extracted_data?.['Pojemność']?.value || this.state.extracted_data?.capacity?.value || this.state.vision_extracted_features?.['Pojemność'] || this.state.vision_extracted_features?.['Pojemność / Waga'] || undefined,
+                dozowanie: extracted?.usage?.value || product?.text_fields?.features?.['Dozowanie'] || product?.text_fields?.features?.['Sposób użycia'] || undefined,
+                preserved_minor_flaws: this.state.a5_result?.preserved_minor_flaws_for_pratfall || [],
+                customer_delights: this.state.a2_result?.social_proof_matrix?.raw_customer_delights || undefined,
+                real_life_use_cases: this.state.a2_result?.social_proof_matrix?.real_life_use_cases || undefined,
                 gtin_ean: this.gtin,
                 product_name: product?.text_fields?.name || undefined,
                 brand: extracted.brand?.value || undefined,
@@ -2290,7 +2302,7 @@ class Orchestrator {
             }
             const s5 = this.state.a10_result['section_5_html'] || '';
             const s6 = this.state.a10_result['section_6_html'] || '';
-            const extra4 = [s5, s6].filter(Boolean).join('\n<br>\n');
+            const extra4 = [s5, s6].filter(Boolean).join('\n\n');
             
             const offer = {
                 title: this.state.extracted_data.product_name?.value,

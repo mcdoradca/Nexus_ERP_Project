@@ -27,7 +27,7 @@ const patchContent = fs.existsSync(patchPath) ? fs.readFileSync(patchPath, 'utf8
 
 // Parse SHARED_RULES sections
 const sections = {};
-const sectionRegex = /## (§[A-J])[^\n]*(?:\n(?!## §)[^\n]*)*(?:\n|$)/g;
+const sectionRegex = /## (§[A-J])[^\n]*(?:\n(?!## (?:§|MAPA))[^\n]*)*(?:\n|$)/g;
 let match;
 while ((match = sectionRegex.exec(sharedRulesContent)) !== null) {
     sections[match[1]] = match[0].trim();
@@ -97,7 +97,7 @@ for (const agentId of agentsToCompile) {
     compiledPrompt += `\n\n--- DANE SKU ---\n{{SKU_DATA}}`;
     
     // Usuń z linii komentarzowych (zaczynających się od #) parametry wywołania i cache
-    const filterKeywords = ['cache', 'wywołanie:', 'thinkingbudget', 'thinkinglevel', 'responseschema poza promptem', 'grounding:'];
+    const filterKeywords = ['cache', 'wywołanie:', 'thinkingbudget', 'thinkinglevel', 'thinking', 'gemini', 'responseschema poza promptem', 'grounding:'];
     compiledPrompt = compiledPrompt.split('\n').filter(line => {
         if (!line.trim().startsWith('#')) return true;
         const lowerLine = line.toLowerCase();

@@ -361,5 +361,27 @@ test('V13 validate_section6_compliance - wymogi CLP, P264, zakaz rozszczepiania 
         assert.strictEqual(res.valid, true);
         assert.strictEqual(res.errors.length, 0);
     });
+
+    await t.test('Wykrywa brak /GPSR przy tagu <strong> oraz myślnik zamiast dwukropka w nagłówku okolicznościowym P305+P351+P338', () => {
+        const dashInTriggerHtml = `
+            <ul>
+                <li>➡️ <strong>Ostrzeżenie CLP:</strong> Hasło ostrzegawcze – UWAGA</li>
+                <li>➡️ <strong>Ostrzeżenie CLP/GPSR:</strong> P264 – Dokładnie umyć ręce po użyciu.</li>
+                <li>➡️ <strong>Ostrzeżenie CLP/GPSR:</strong> P280 – Stosować ochronę oczu.</li>
+                <li>➡️ <strong>Ostrzeżenie CLP/GPSR:</strong> P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU – Ostrożnie płukać wodą przez kilka minut.</li>
+            </ul>
+        `;
+        const res = v.validate_section6_compliance(dashInTriggerHtml, { is_chemical: true, has_eye_irritation: true });
+        assert.strictEqual(res.valid, false);
+        assert.ok(res.errors.some(e => e.includes("Missing '/GPSR' in label tag")));
+        assert.ok(res.errors.some(e => e.includes('CLP conditional trigger header must end with a statutory colon')));
+    });
+
+    await t.test('validate_section3_ingredients_closed_world wykrywa nieautoryzowany konserwant w tagu <strong>', () => {
+        const s3Html = '<ul><li>⚙️ <strong>Phenoxyethanol:</strong> konserwant chroniący formulację.</li></ul>';
+        const res = v.validate_section3_ingredients_closed_world(s3Html, ['Aqua', 'Sodium Laureth Sulfate']);
+        assert.strictEqual(res.valid, false);
+        assert.ok(res.errors.some(e => e.includes('UNAUTHORIZED_HALLUCINATED_INGREDIENT')));
+    });
 });
 

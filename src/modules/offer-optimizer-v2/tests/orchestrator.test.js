@@ -721,6 +721,78 @@ test('Orchestrator V2: Konsensus INCI dla synonimów (Optical vs Fluorescent Bri
     aiWrapper.callAgentWithTelemetry = originalCall;
 });
 
+test('ADR-0167: A7 otrzymuje pełny wsad behawioralny (Pratfall, Kotwica Rutyny, Ton Kategorii), a extra4 nie zawiera tagu <br>', async () => {
+    const orch = new Orchestrator('8000137015436');
+    orch.state.next_action = 'RUN_A7';
+    orch.state.a4_result = { category_type: 'COSMETICS_BEAUTY' };
+    orch.state.a5_result = {
+        preserved_minor_flaws_for_pratfall: ['Gęsta konsystencja wymaga energicznego wstrząśnięcia'],
+        mandatory_safety_warnings: ['P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą.']
+    };
+    orch.state.a2_result = {
+        social_proof_matrix: {
+            raw_customer_delights: ['Włosy są miękkie i sypkie'],
+            real_life_use_cases: ['Codzienna pielęgnacja po myciu']
+        }
+    };
+    orch.state.extracted_data = {
+        product_name: { value: 'Szampon Keratynowy 500 ml' },
+        brand: { value: 'MilMil' },
+        capacity: { value: '500 ml' },
+        inci: { value: 'Aqua, Glycerin' },
+        eu_responsible_person: { source: 'baselinker', data: { name: 'Mirato S.p.A.', address_eu: 'Strada Provinciale 1, 28064 Landiona, Włochy' } }
+    };
+    orch.state.a6_result = {
+        section_1_html: '<h2>⭐ Szampon</h2><p>Tekst <strong>pogrubiony</strong>.</p>',
+        section_2_html: VALID_FAQ_S2,
+        section_3_html: '<h2>⚙️ Mechanizm</h2><ul><li>⚙️ <strong>Glycerin:</strong> humektant.</li></ul>',
+        section_4_html: '<h2>✍️ Sposób użycia</h2><p>Krok 1.</p>',
+        section_5_html: '<h2>⚖️ Parametry</h2><ul><li>➡️ <strong>Marka:</strong> MilMil</li><li>➡️ <strong>Producent:</strong> Mirato S.p.A.</li></ul>',
+        section_6_html: '<h2>⚠️ Bezpieczeństwo</h2><ul><li>➡️ <strong>Ostrzeżenie CLP/GPSR:</strong> P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą.</li></ul>'
+    };
 
+    let capturedA7Prompt = '';
+    const orgCall = aiWrapper.callAgentWithTelemetry;
+    aiWrapper.callAgentWithTelemetry = async ({ agentId, prompt }) => {
+        if (agentId === '7') {
+            capturedA7Prompt = prompt;
+            return {
+                result: {
+                    section_1_html: orch.state.a6_result.section_1_html,
+                    section_2_html: VALID_FAQ_S2,
+                    section_4_html: orch.state.a6_result.section_4_html
+                },
+                usage: {}
+            };
+        }
+        if (agentId === '10') {
+            return {
+                result: {
+                    patches: [
+                        {
+                            target_section: 'section_6_html',
+                            find_exact: 'W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie',
+                            replace_with: 'W PRZYPADKU DOSTANIA SIĘ DO OCZU – Ostrożnie',
+                            justification: 'Test post-sanitizera CLP po patchu A10'
+                        }
+                    ]
+                },
+                usage: {}
+            };
+        }
+        return { result: {}, usage: {} };
+    };
 
+    await orch.run({ text_fields: { name: 'Szampon Keratynowy 500 ml', features: { 'Dozowanie': '10 ml na jedno mycie' } } });
 
+    assert.ok(capturedA7Prompt.includes('Gęsta konsystencja wymaga energicznego wstrząśnięcia'), 'A7 musi otrzymać preserved_minor_flaws');
+    assert.ok(capturedA7Prompt.includes('COSMETICS_BEAUTY'), 'A7 musi otrzymać product_category');
+    assert.ok(capturedA7Prompt.includes('500 ml'), 'A7 musi otrzymać net_capacity');
+    assert.ok(capturedA7Prompt.includes('10 ml na jedno mycie'), 'A7 musi otrzymać dozowanie');
+    assert.ok(capturedA7Prompt.includes('Włosy są miękkie i sypkie'), 'A7 musi otrzymać customer_delights');
+    assert.strictEqual(orch.state.node_status['A10'], 'OK');
+    assert.ok(!orch.state.final_offer.description_extra4.includes('<br>'), 'description_extra4 nie może zawierać nielegalnego tagu <br>');
+    assert.ok(orch.state.final_offer.description_extra4.includes('W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie'), 'Post-sanitizer po A10 musi przywrócić urzędowy dwukropek nawet przy tagach <strong>');
+
+    aiWrapper.callAgentWithTelemetry = orgCall;
+});
