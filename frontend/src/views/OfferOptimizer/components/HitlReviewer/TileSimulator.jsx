@@ -23,6 +23,31 @@ const mockStandardizedDescription = {
 };
 
 export const TileSimulator = ({ customSections = mockStandardizedDescription.sections }) => {
+    const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
+    const apiBase = import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`;
+
+    const resolveSafeImgSrc = (rawUrl) => {
+        if (!rawUrl || typeof rawUrl !== 'string') return null;
+        const trimmed = rawUrl.trim();
+        if (
+            !trimmed ||
+            trimmed.includes('Wymagane nowe zdjęcie') ||
+            trimmed.includes('Pusty slot') ||
+            trimmed.includes('Slot #') ||
+            trimmed.includes('Audyt') ||
+            trimmed.includes('Analiza')
+        ) {
+            return null;
+        }
+        if (trimmed.startsWith('data:image') || trimmed.startsWith('blob:') || trimmed.includes('/api/offer-optimizer/proxy-image')) {
+            return trimmed;
+        }
+        if (trimmed.startsWith('http')) {
+            return `${apiBase}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(trimmed)}&token=${token}`;
+        }
+        return null;
+    };
+
     return (
         <div className="w-full bg-white rounded-sm shadow-xl overflow-hidden border border-slate-400">
             {/* Header / Belka */}
@@ -42,9 +67,14 @@ export const TileSimulator = ({ customSections = mockStandardizedDescription.sec
                         <div key={sectionIdx} className="flex flex-col gap-6 w-full">
                             {section.items.map((item, itemIdx) => {
                                 if (item.type === 'IMAGE') {
+                                    const safeSrc = resolveSafeImgSrc(item.content);
                                     return (
                                         <div key={itemIdx} className="flex-1 rounded-sm overflow-hidden shadow-sm border border-slate-300 flex items-center justify-center bg-white min-h-[200px]">
-                                            <img src={item.content || undefined} alt={`Block ${sectionIdx}-${itemIdx}`} className="max-w-full max-h-[400px] object-contain" />
+                                            {safeSrc ? (
+                                                <img src={safeSrc} alt={`Block ${sectionIdx}-${itemIdx}`} className="max-w-full max-h-[400px] object-contain" />
+                                            ) : (
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Brak zdjęcia w slocie #{sectionIdx + 1}</span>
+                                            )}
                                         </div>
                                     );
                                 }

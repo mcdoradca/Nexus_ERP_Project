@@ -98,6 +98,16 @@ export const StrictWysiwyg = ({ initialContent = "", onChange }) => {
         }
     });
 
+    React.useEffect(() => {
+        if (!editor) return;
+        const incoming = initialContent || "";
+        const current = editor.getHTML();
+        const isCurrentEmpty = !current || current === '<p></p>' || current.trim() === '';
+        if (incoming !== current && (!editor.isFocused || isCurrentEmpty)) {
+            editor.commands.setContent(incoming, false);
+        }
+    }, [editor, initialContent]);
+
     if (!editor) return null;
     return (
         <div className="w-full bg-white border border-slate-400 shadow-sm rounded-sm overflow-hidden flex flex-col">

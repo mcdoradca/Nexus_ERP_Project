@@ -199,131 +199,303 @@ export const UnifiedProductPipelineView = ({
 
     // Inicjalizacja PIM (Edycja) oraz Odzyskiwanie Wersji Roboczej
     const DRAFT_KEY = `nexus_pipeline_draft_${editingProduct || 'new'}`;
+    const DEFAULT_SEKCJA_7 = "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę.";
+
+    const isValidMediaUrl = (url) => {
+        if (!url || typeof url !== 'string') return false;
+        const trimmed = url.trim();
+        if (!trimmed) return false;
+        if (
+            trimmed.includes('Wymagane nowe zdjęcie') ||
+            trimmed.includes('Pusty slot') ||
+            trimmed.includes('Slot #') ||
+            trimmed.includes('Audyt') ||
+            trimmed.includes('Analiza')
+        ) {
+            return false;
+        }
+        return trimmed.startsWith('http') || trimmed.startsWith('data:image') || trimmed.startsWith('blob:') || trimmed.startsWith('/api/');
+    };
+
+    const getSafeImageSrc = (url) => {
+        if (!isValidMediaUrl(url)) return undefined;
+        const trimmed = url.trim();
+        if (trimmed.startsWith('data:image') || trimmed.startsWith('blob:') || trimmed.includes('/api/offer-optimizer/proxy-image')) {
+            return trimmed;
+        }
+        if (trimmed.startsWith('http')) {
+            return `${API_URL}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(trimmed)}&token=${token}`;
+        }
+        return trimmed;
+    };
 
     useEffect(() => {
-        let hasDraft = false;
+        const extractHtmlSections = (rawHtmlContent) => {
+            if (!rawHtmlContent) return null;
+            if (typeof rawHtmlContent === 'string' && rawHtmlContent.replace(/<[^>]*>/g, '').trim() !== '') {
+                return { sekcja1: rawHtmlContent, sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: DEFAULT_SEKCJA_7 };
+            }
+            if (typeof rawHtmlContent === 'object') {
+                const hasAny = ['sekcja1', 'sekcja2', 'sekcja3', 'sekcja4', 'sekcja5', 'sekcja6'].some(
+                    k => typeof rawHtmlContent[k] === 'string' && rawHtmlContent[k].replace(/<[^>]*>/g, '').trim() !== ''
+                );
+                if (hasAny) {
+                    return {
+                        sekcja1: rawHtmlContent.sekcja1 || "",
+                        sekcja2: rawHtmlContent.sekcja2 || "",
+                        sekcja3: rawHtmlContent.sekcja3 || "",
+                        sekcja4: rawHtmlContent.sekcja4 || "",
+                        sekcja5: rawHtmlContent.sekcja5 || "",
+                        sekcja6: rawHtmlContent.sekcja6 || "",
+                        sekcja7: rawHtmlContent.sekcja7 !== undefined ? rawHtmlContent.sekcja7 : DEFAULT_SEKCJA_7
+                    };
+                }
+            }
+            return null;
+        };
+
+        const normalizeTicket = (item, idx) => {
+            if (!item) return null;
+            if (typeof item === 'string') {
+                if (!isValidMediaUrl(item)) return null;
+                const trimmed = item.trim();
+                return {
+                    originalUrl: trimmed.startsWith('data:image') ? `Slot #${idx + 1}` : trimmed,
+                    replacedUrl: trimmed.startsWith('data:image') ? trimmed : null,
+                    isCompliant: true,
+                    alerts: []
+                };
+            }
+            if (typeof item === 'object') {
+                const candidateReplaced = isValidMediaUrl(item.replacedUrl)
+                    ? item.replacedUrl.trim()
+                    : (isValidMediaUrl(item.url) && item.url.trim().startsWith('data:image') ? item.url.trim() : null);
+                const candidateOriginal = isValidMediaUrl(item.originalUrl)
+                    ? item.originalUrl.trim()
+                    : (isValidMediaUrl(item.url) && !item.url.trim().startsWith('data:image') ? item.url.trim() : '');
+                if (candidateReplaced || candidateOriginal) {
+                    return {
+                        ...item,
+                        originalUrl: candidateOriginal || (candidateReplaced ? `Slot #${idx + 1}` : ''),
+                        replacedUrl: candidateReplaced,
+                        isCompliant: Boolean(candidateReplaced || item.isCompliant),
+                        alerts: candidateReplaced ? [] : (Array.isArray(item.alerts) ? item.alerts : [])
+                    };
+                }
+            }
+            return null;
+        };
+
+        let localDraft = null;
         const draftStr = localStorage.getItem(DRAFT_KEY);
         if (draftStr) {
             try {
-                const draft = JSON.parse(draftStr);
-                if (draft && draft.newProductForm && (draft.newProductForm.name || draft.newProductForm.sku || draft.newProductForm.ean)) {
-                    setNewProductForm(draft.newProductForm);
-                    if (draft.editorHtml) setEditorHtml(draft.editorHtml);
-                    if (draft.liveTitle) setLiveTitle(draft.liveTitle);
-                    if (draft.visionTickets) setVisionTickets(draft.visionTickets);
-                    if (draft.brandSearchTerm) setBrandSearchTerm(draft.brandSearchTerm);
-                    hasDraft = true;
-                    console.log("Przywrócono niezapisaną wersję roboczą z LocalStorage!");
-                }
-            } catch(e) { console.error("Błąd odczytu draftu", e); }
+                localDraft = JSON.parse(draftStr);
+            } catch (e) {
+                console.error("Błąd odczytu draftu", e);
+            }
         }
 
-        if (editingProduct) {
-            axios.get(`${API_URL}/api/products/${editingProduct}`, { headers: { Authorization: `Bearer ${token}` } })
-                .then(res => {
-                    const p = res.data;
-                    let calcBdo = parseFloat(p.bdoEprCost) || 0;
-                    if (p.bomElements && p.bomElements.length > 0) {
-                        calcBdo = 0;
-                        p.bomElements.forEach(b => { calcBdo += (parseFloat(b.weightGrams) / 1000) * parseFloat(b.material.ratePerKg); });
-                    }
-                    
-                    // Odzyskanie danych prawego panelu z bazy
-                    let fallbackImages = [];
-                    if (p.imageUrl && typeof p.imageUrl === 'string' && p.imageUrl.trim() !== '') {
-                        fallbackImages.push(p.imageUrl);
-                    }
-                    if (Array.isArray(p.images) && p.images.length > 0) {
-                        p.images.forEach(img => {
-                            if (img && typeof img === 'string' && img.trim() !== '' && !fallbackImages.includes(img)) {
-                                fallbackImages.push(img);
-                            }
-                        });
-                    }
-                    // Reguła progowa 5 zdjęć: <= 5 zdjęć oznacza surową kartę, Slot 1 czeka na ręczny upload packshotu
-                    const isRawCard = fallbackImages.length <= 5;
-                    const fallbackTickets = isRawCard
-                        ? [
-                            { originalUrl: '', alerts: ["Wymagany nowy packshot wysokiej jakości"], isCompliant: false, replacedUrl: null },
-                            ...fallbackImages.slice(1).map(img => ({ originalUrl: img }))
-                          ]
-                        : fallbackImages.map(img => ({ originalUrl: img }));
+        if (!editingProduct) {
+            if (localDraft && localDraft.newProductForm && (localDraft.newProductForm.name || localDraft.newProductForm.sku || localDraft.newProductForm.ean)) {
+                setNewProductForm(localDraft.newProductForm);
+                if (localDraft.editorHtml) {
+                    setEditorHtml(localDraft.editorHtml);
+                    setEditorKey(prev => prev + 1);
+                }
+                if (localDraft.liveTitle) setLiveTitle(localDraft.liveTitle);
+                if (localDraft.visionTickets) setVisionTickets(localDraft.visionTickets);
+                if (localDraft.brandSearchTerm) setBrandSearchTerm(localDraft.brandSearchTerm);
+            }
+            return;
+        }
 
-                    while (fallbackTickets.length < 6) {
-                        fallbackTickets.push({
-                            originalUrl: `Wymagane nowe zdjęcie (nr ${fallbackTickets.length + 1})`,
+        axios.get(`${API_URL}/api/products/${editingProduct}`, { headers: { Authorization: `Bearer ${token}` } })
+            .then(res => {
+                const p = res.data;
+                let calcBdo = parseFloat(p.bdoEprCost) || 0;
+                if (p.bomElements && p.bomElements.length > 0) {
+                    calcBdo = 0;
+                    p.bomElements.forEach(b => { calcBdo += (parseFloat(b.weightGrams) / 1000) * parseFloat(b.material.ratePerKg); });
+                }
+
+                // Oczyszczenie obrazów w rekordzie PIM z ewentualnych placeholderów tekstowych
+                let fallbackImages = [];
+                if (isValidMediaUrl(p.imageUrl)) {
+                    fallbackImages.push(p.imageUrl.trim());
+                }
+                if (Array.isArray(p.images) && p.images.length > 0) {
+                    p.images.forEach(img => {
+                        if (isValidMediaUrl(img) && !fallbackImages.includes(img.trim())) {
+                            fallbackImages.push(img.trim());
+                        }
+                    });
+                }
+
+                let dbDraft = null;
+                if (p.offerDraft) {
+                    try {
+                        dbDraft = typeof p.offerDraft === 'string' ? JSON.parse(p.offerDraft) : p.offerDraft;
+                    } catch (_) {
+                        dbDraft = null;
+                    }
+                }
+
+                // Odbudowa slotów zdjęć z bazy (offerDraft) oraz ewentualnego draftu lokalnego
+                const dbRawTickets = (Array.isArray(dbDraft?.visionTickets) && dbDraft.visionTickets.length > 0)
+                    ? dbDraft.visionTickets
+                    : (Array.isArray(dbDraft?.images) ? dbDraft.images : []);
+                const localRawTickets = Array.isArray(localDraft?.visionTickets) ? localDraft.visionTickets : [];
+
+                const maxSlots = Math.max(dbRawTickets.length, localRawTickets.length, 6);
+                const mergedTickets = [];
+                let hasAnyDraftPhoto = false;
+
+                for (let i = 0; i < maxSlots; i++) {
+                    const fromDb = normalizeTicket(dbRawTickets[i], i);
+                    const fromLocal = normalizeTicket(localRawTickets[i], i);
+                    const chosen = (fromDb && fromDb.replacedUrl)
+                        ? fromDb
+                        : (fromLocal && fromLocal.replacedUrl)
+                            ? fromLocal
+                            : (fromDb || fromLocal);
+                    if (chosen) {
+                        hasAnyDraftPhoto = true;
+                        mergedTickets.push(chosen);
+                    } else {
+                        mergedTickets.push(null);
+                    }
+                }
+
+                // Jeśli Slot 1 w szkicu był pusty, a w bazie PIM zapisano poprawny packshot (np. data:image lub po optymalizacji AI), przywracamy go do Slotu 1
+                const hasCustomPrimaryInPim = isValidMediaUrl(p.imageUrl) && (
+                    p.imageUrl.trim().startsWith('data:image') ||
+                    p.lastContentSource === 'OFFER_OPTIMIZER_AI' ||
+                    hasAnyDraftPhoto ||
+                    fallbackImages.length > 5
+                );
+                if (!mergedTickets[0] && hasCustomPrimaryInPim) {
+                    const primaryTrimmed = p.imageUrl.trim();
+                    mergedTickets[0] = {
+                        originalUrl: primaryTrimmed.startsWith('data:image') ? 'Slot #1' : primaryTrimmed,
+                        replacedUrl: primaryTrimmed.startsWith('data:image') ? primaryTrimmed : null,
+                        isCompliant: true,
+                        alerts: []
+                    };
+                    hasAnyDraftPhoto = true;
+                }
+
+                // Fallback dla kart bez szkicu AI
+                const isRawCard = !hasCustomPrimaryInPim && fallbackImages.length <= 5;
+                const fallbackTickets = isRawCard
+                    ? [
+                        { originalUrl: '', alerts: ["Wymagany nowy packshot wysokiej jakości"], isCompliant: false, replacedUrl: null },
+                        ...fallbackImages.slice(1).map(img => ({ originalUrl: img, isCompliant: true, alerts: [], replacedUrl: null }))
+                      ]
+                    : fallbackImages.map((img, idx) => ({
+                        originalUrl: img.startsWith('data:image') ? `Slot #${idx + 1}` : img,
+                        replacedUrl: img.startsWith('data:image') ? img : null,
+                        isCompliant: true,
+                        alerts: []
+                      }));
+
+                while (fallbackTickets.length < 6) {
+                    fallbackTickets.push({
+                        originalUrl: `Wymagane nowe zdjęcie (nr ${fallbackTickets.length + 1})`,
+                        alerts: ["Pusty slot"],
+                        isCompliant: false,
+                        replacedUrl: null
+                    });
+                }
+
+                const resolvedTickets = hasAnyDraftPhoto
+                    ? mergedTickets.map((t, idx) => {
+                        if (t) return t;
+                        if (idx === 0) {
+                            return { originalUrl: '', alerts: ["Wymagany nowy packshot wysokiej jakości"], isCompliant: false, replacedUrl: null };
+                        }
+                        return {
+                            originalUrl: `Wymagane nowe zdjęcie (nr ${idx + 1})`,
                             alerts: ["Pusty slot"],
                             isCompliant: false,
                             replacedUrl: null
-                        });
-                    }
+                        };
+                    })
+                    : fallbackTickets;
 
-                    // TYLKO JEŚLI NIE MA DRAFTU W LOKALNEJ PAMIĘCI - NADPISUJEMY STAN BAZĄ
-                    if (!hasDraft) {
-                        setNewProductForm({ ...p, bdoEprCost: parseFloat(calcBdo.toFixed(4)) });
-                        setBrandSearchTerm(p.brand ? p.brand.name : '');
-                        
-                        if (p.offerDraft) {
-                            setLiveTitle(p.offerDraft.title || p.name || "");
-                            setEditorHtml({
-                                ...(p.offerDraft.htmlContent || {}),
-                                sekcja7: (p.offerDraft.htmlContent && p.offerDraft.htmlContent.sekcja7 !== undefined) ? p.offerDraft.htmlContent.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę."
-                            });
-                            const draftTickets = [...(p.offerDraft.visionTickets || p.offerDraft.images || [])];
-                            while (draftTickets.length < 6) {
-                                draftTickets.push({
-                                    originalUrl: `Wymagane nowe zdjęcie (nr ${draftTickets.length + 1})`,
-                                    alerts: ["Pusty slot"],
-                                    isCompliant: false,
-                                    replacedUrl: null
-                                });
-                            }
-                            setVisionTickets(draftTickets.length > 0 ? draftTickets : fallbackTickets);
-                        } else {
-                            setLiveTitle(p.name || "");
-                            if (p.descriptionHtml) {
-                                setEditorHtml({ sekcja1: p.descriptionHtml, sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę." });
-                            }
-                            setVisionTickets(fallbackTickets);
-                        }
-                        setLiveEan(p.ean || "");
-                        setEditorKey(prev => prev + 1);
-                    } else {
-                        // Zawsze aktualizujemy liveEan, żeby websocket wiedział kogo słuchać
-                        setLiveEan(p.ean || "");
-                    }
-                })
-                .catch(err => alert("Błąd wczytywania produktu z bazy"));
-        }
+                setVisionTickets(resolvedTickets);
+
+                // Odbudowa sekcji opisu HTML (Priorytet: Baza offerDraft -> Niepusty LocalStorage -> Opis PIM descriptionHtml)
+                const dbSections = extractHtmlSections(dbDraft?.htmlContent || dbDraft);
+                const localSections = extractHtmlSections(localDraft?.editorHtml);
+                const pimSections = extractHtmlSections(p.descriptionHtml);
+                const resolvedHtml = dbSections || localSections || pimSections || {
+                    sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: DEFAULT_SEKCJA_7
+                };
+                setEditorHtml(resolvedHtml);
+
+                // Odbudowa tytułu
+                const resolvedTitle = dbDraft?.title || localDraft?.liveTitle || p.name || "";
+                setLiveTitle(resolvedTitle);
+
+                // Oczyszczenie formularza PIM z ciężkiego obiektu offerDraft oraz uszkodzonych URL-i zdjęć
+                const { offerDraft: _omitOfferDraft, ...cleanPimProduct } = p;
+                const slot1Media = resolvedTickets[0] ? (resolvedTickets[0].replacedUrl || (isValidMediaUrl(resolvedTickets[0].originalUrl) ? resolvedTickets[0].originalUrl : '')) : '';
+                const cleanPrimaryImageUrl = isValidMediaUrl(p.imageUrl) ? p.imageUrl.trim() : (isValidMediaUrl(slot1Media) ? slot1Media : '');
+
+                setNewProductForm({
+                    ...cleanPimProduct,
+                    imageUrl: cleanPrimaryImageUrl,
+                    images: fallbackImages,
+                    bdoEprCost: parseFloat(calcBdo.toFixed(4))
+                });
+                setBrandSearchTerm(p.brand ? p.brand.name : (localDraft?.brandSearchTerm || ''));
+                setLiveEan(p.ean || "");
+                setEditorKey(prev => prev + 1);
+            })
+            .catch(err => alert("Błąd wczytywania produktu z bazy"));
     }, [editingProduct, token, DRAFT_KEY]);
 
     const isQuotaExceededRef = useRef(false);
+    const skipNextAutosaveRef = useRef(false);
 
-    // Autosave do LocalStorage
+    // Autosave do LocalStorage (lekki szkic bez duplikowania megabajtów z bazy PIM)
     useEffect(() => {
+        if (skipNextAutosaveRef.current) {
+            skipNextAutosaveRef.current = false;
+            return;
+        }
         if (newProductForm.name || newProductForm.sku || newProductForm.ean) {
              const cleanupOldDrafts = () => {
                  try {
                      const keys = Object.keys(localStorage);
                      const draftKeys = keys.filter(k => k.startsWith('nexus_pipeline_draft_') && k !== DRAFT_KEY);
-                     // Jeśli jest więcej niż 1 inny draft, usuwamy pierwszy z brzegu by zwolnić limit
                      if (draftKeys.length > 1) {
                          localStorage.removeItem(draftKeys[0]);
                      }
                  } catch(e) {}
              };
 
-             const draft = { newProductForm, editorHtml, liveTitle, visionTickets, brandSearchTerm };
+             const { offerDraft: _omitDraft, images: _omitImages, imageUrl: rawImgUrl, ...lightweightForm } = newProductForm;
+             const safeForm = {
+                 ...lightweightForm,
+                 imageUrl: (typeof rawImgUrl === 'string' && !rawImgUrl.startsWith('data:image')) ? rawImgUrl : ''
+             };
+
+             const draft = { newProductForm: safeForm, editorHtml, liveTitle, visionTickets, brandSearchTerm };
              try {
                  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
                  isQuotaExceededRef.current = false;
              } catch (e) {
                  if (e.name === 'QuotaExceededError' || e.message.includes('quota') || e.message.includes('Quota')) {
                      cleanupOldDrafts();
-                     if (!isQuotaExceededRef.current) {
-                         console.warn("Przekroczono limit LocalStorage. Zapisuję draft bez zdjęć.");
-                     }
-                     const fallbackDraft = { newProductForm, editorHtml, liveTitle, brandSearchTerm };
+                     const lightweightTickets = Array.isArray(visionTickets)
+                         ? visionTickets.map(t => ({
+                             ...t,
+                             replacedUrl: (typeof t?.replacedUrl === 'string' && t.replacedUrl.startsWith('data:image')) ? null : (t?.replacedUrl || null)
+                         }))
+                         : [];
+                     const fallbackDraft = { newProductForm: safeForm, editorHtml, liveTitle, visionTickets: lightweightTickets, brandSearchTerm };
                      try {
                          localStorage.setItem(DRAFT_KEY, JSON.stringify(fallbackDraft));
                          isQuotaExceededRef.current = false;
@@ -367,6 +539,7 @@ export const UnifiedProductPipelineView = ({
                         sekcja7: prev.sekcja7 !== undefined ? prev.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę."
                     }));
                     setLiveTitle(data.result.title || "");
+                    setEditorKey(prev => prev + 1);
                     if (data.result.visionTickets && data.result.visionTickets.length > 0) {
                         setVisionTickets(prev => {
                             const current = Array.isArray(prev) ? [...prev] : [];
@@ -744,6 +917,7 @@ export const UnifiedProductPipelineView = ({
                 title: liveTitle,
                 htmlContent: editorHtml,
                 images: visionTickets,
+                visionTickets: visionTickets,
                 sku: newProductForm.sku,
                 brandId: newProductForm.brandId,
                 subiektId: newProductForm.subiektId,
@@ -773,6 +947,8 @@ export const UnifiedProductPipelineView = ({
                 draftData
             }, { headers: { Authorization: `Bearer ${token}` } });
             
+            skipNextAutosaveRef.current = true;
+            localStorage.removeItem(DRAFT_KEY);
             alert('Sukces! Szkic i dane PIM zostały zapisane w systemie.');
             if (fetchAppGlobalData) fetchAppGlobalData();
         } catch (err) {
@@ -814,7 +990,8 @@ export const UnifiedProductPipelineView = ({
                 htmlContent: exportValidationResult ? exportValidationResult.sections : editorHtml,
                 images: visionTickets,
                 features: exportValidationResult ? exportValidationResult.parameters : {},
-                agentPayload: exportValidationResult ? exportValidationResult.agentPayload : null
+                visionTickets: visionTickets,
+                agentPayload: exportValidationResult?.agentPayload ? { ...exportValidationResult.agentPayload, images: undefined } : null
             };
             const res = await axios.post(`${API_URL}/api/offer-optimizer/export-baselinker`, {
                 ean: effectiveEan || liveEan,
@@ -822,6 +999,8 @@ export const UnifiedProductPipelineView = ({
                 exportToken: exportValidationResult ? exportValidationResult.exportToken : null
             }, { headers: { Authorization: `Bearer ${token}` } });
             
+            skipNextAutosaveRef.current = true;
+            localStorage.removeItem(DRAFT_KEY);
             alert(res.data.message || 'Zlecono eksport i akceptację MDM! PIM -> BaseLinker.');
             setShowExportConfirm(false);
             if (fetchAppGlobalData) fetchAppGlobalData();
@@ -1362,10 +1541,10 @@ export const UnifiedProductPipelineView = ({
                                         
                                         <div className="flex flex-col md:flex-row gap-6 mb-6">
                                            {/* Stabilna Główna Miniaturka */}
-                                           {newProductForm.imageUrl && (
+                                           {getSafeImageSrc(newProductForm.imageUrl) && (
                                               <div className="w-40 shrink-0 bg-white border border-slate-200 rounded-sm p-3 shadow-sm flex flex-col items-center justify-center">
                                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block w-full text-center border-b border-slate-100 pb-2">Główna Miniatura</span>
-                                                 <img src={newProductForm.imageUrl || undefined} alt="PIM Thumbnail" className="w-full h-auto object-contain rounded-sm" />
+                                                 <img src={getSafeImageSrc(newProductForm.imageUrl)} alt="PIM Thumbnail" className="w-full h-auto object-contain rounded-sm" />
                                               </div>
                                            )}
                                            
@@ -1532,7 +1711,7 @@ export const UnifiedProductPipelineView = ({
                                                     <div className="grid grid-cols-4 gap-2 mt-4">
                                                        {(newProductForm.images || []).map((img, idx) => (
                                                            <div key={idx} className="aspect-square bg-white border border-slate-400 rounded-sm overflow-hidden shadow-sm">
-                                                              <img src={img || undefined} alt="PIM" className="w-full h-full object-cover" />
+                                                              <img src={getSafeImageSrc(img)} alt="PIM" className="w-full h-full object-cover" />
                                                            </div>
                                                        ))}
                                                     </div>

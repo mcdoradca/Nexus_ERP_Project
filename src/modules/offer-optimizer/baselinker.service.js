@@ -179,9 +179,6 @@ class BaseLinkerService {
         // MDM przekazuje tylko draftData, ale w draftData może być "product" na którym operowaliśmy, albo pobierzemy go z bazy
         // W MDM to było rzucane w kontekście gdzie product.offerDraft to draftData.
         // Jeśli nie mamy pełnego obiektu produktu (np. ean), pobieramy EAN z bazy aby mieć dane dla Allegro.
-        const { PrismaClient } = require('@prisma/client');
-        const prisma = new PrismaClient();
-        
         let product = {};
         if (productId) {
             const dbProd = await prisma.product.findFirst({ where: { baselinkerId: productId.toString() } });

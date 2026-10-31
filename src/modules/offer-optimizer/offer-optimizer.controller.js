@@ -248,29 +248,90 @@ const proxyImage = async (req, res) => {
     }
 };
 
+const isValidOfferImageUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const trimmed = url.trim();
+    if (!trimmed) return false;
+    if (
+        trimmed.includes('Wymagane nowe zdjęcie') ||
+        trimmed.includes('Pusty slot') ||
+        trimmed.includes('Slot #') ||
+        trimmed.includes('Audyt') ||
+        trimmed.includes('Analiza') ||
+        trimmed.includes('placeholder.com')
+    ) {
+        return false;
+    }
+    return trimmed.startsWith('http') || trimmed.startsWith('data:image');
+};
+
 const saveDraft = async (req, res) => {
     try {
         const { ean, draftData } = req.body;
         if (!ean || !draftData) return res.status(400).json({ error: "Brak EAN lub danych draftu" });
 
+        const existingProduct = await prisma.product.findUnique({ where: { ean } });
+        let existingDraft = {};
+        if (existingProduct && existingProduct.offerDraft) {
+            try {
+                existingDraft = typeof existingProduct.offerDraft === 'string'
+                    ? JSON.parse(existingProduct.offerDraft)
+                    : existingProduct.offerDraft;
+            } catch (_) {
+                existingDraft = {};
+            }
+        }
+
+        // Ochrona przed przypadkowym nadpisaniem istniejącego opisu pustymi sekcjami
+        const hasIncomingHtml = draftData.htmlContent && (
+            (typeof draftData.htmlContent === 'string' && draftData.htmlContent.replace(/<[^>]*>/g, '').trim() !== '') ||
+            (typeof draftData.htmlContent === 'object' && ['sekcja1', 'sekcja2', 'sekcja3', 'sekcja4', 'sekcja5', 'sekcja6'].some(
+                k => typeof draftData.htmlContent[k] === 'string' && draftData.htmlContent[k].replace(/<[^>]*>/g, '').trim() !== ''
+            ))
+        );
+        const effectiveHtmlContent = hasIncomingHtml
+            ? draftData.htmlContent
+            : (existingDraft.htmlContent || draftData.htmlContent);
+
+        // Ochrona przed przypadkowym nadpisaniem wygenerowanych zdjęć samymi pustymi placeholderami
+        const incomingTickets = Array.isArray(draftData.visionTickets) && draftData.visionTickets.length > 0
+            ? draftData.visionTickets
+            : (Array.isArray(draftData.images) ? draftData.images : []);
+        const hasIncomingValidPhotos = incomingTickets.some(img => {
+            if (typeof img === 'string') return isValidOfferImageUrl(img);
+            return isValidOfferImageUrl(img?.replacedUrl) || isValidOfferImageUrl(img?.url) || isValidOfferImageUrl(img?.originalUrl);
+        });
+        const existingTickets = Array.isArray(existingDraft.visionTickets) && existingDraft.visionTickets.length > 0
+            ? existingDraft.visionTickets
+            : (Array.isArray(existingDraft.images) ? existingDraft.images : []);
+        const effectiveTickets = hasIncomingValidPhotos ? incomingTickets : (existingTickets.length > 0 ? existingTickets : incomingTickets);
+
+        const mergedDraftData = {
+            ...existingDraft,
+            ...draftData,
+            htmlContent: effectiveHtmlContent,
+            images: effectiveTickets,
+            visionTickets: effectiveTickets
+        };
+
         const updatePayload = {
-            offerDraft: draftData,
+            offerDraft: mergedDraftData,
         };
 
         // Synchronizacja głównych pól PIM (Tytuł, Opis HTML, Zdjęcia)
-        if (draftData.title) {
-            updatePayload.name = draftData.title;
+        if (mergedDraftData.title) {
+            updatePayload.name = mergedDraftData.title;
         }
-        if (draftData.htmlContent) {
-            const fullHtml = typeof draftData.htmlContent === 'object'
-                ? Object.values(draftData.htmlContent).join("")
-                : String(draftData.htmlContent);
+        if (effectiveHtmlContent && hasIncomingHtml) {
+            const fullHtml = typeof effectiveHtmlContent === 'object'
+                ? Object.values(effectiveHtmlContent).join("")
+                : String(effectiveHtmlContent);
             updatePayload.descriptionHtml = fullHtml;
         }
-        if (Array.isArray(draftData.images) && draftData.images.length > 0) {
-            const imageUrls = draftData.images
-                .map(img => typeof img === 'string' ? img : (img.url || img.replacedUrl || img.originalUrl))
-                .filter(Boolean);
+        if (Array.isArray(effectiveTickets) && effectiveTickets.length > 0) {
+            const imageUrls = effectiveTickets
+                .map(img => typeof img === 'string' ? img : (img.replacedUrl || img.url || img.originalUrl))
+                .filter(isValidOfferImageUrl);
             if (imageUrls.length > 0) {
                 updatePayload.images = imageUrls;
                 updatePayload.imageUrl = imageUrls[0];
@@ -280,7 +341,11 @@ const saveDraft = async (req, res) => {
         if (draftData.sku !== undefined && draftData.sku !== null && String(draftData.sku).trim() !== '') {
             updatePayload.sku = String(draftData.sku).trim();
         }
-        if (draftData.brandId !== undefined) updatePayload.brandId = draftData.brandId;
+        if (draftData.brandId !== undefined) {
+            updatePayload.brandId = (draftData.brandId && typeof draftData.brandId === 'string' && draftData.brandId.trim() !== '')
+                ? draftData.brandId.trim()
+                : null;
+        }
         if (draftData.subiektId !== undefined) {
             updatePayload.subiektId = (draftData.subiektId && typeof draftData.subiektId === 'string' && draftData.subiektId.trim() !== '')
                 ? draftData.subiektId.trim()
@@ -302,7 +367,11 @@ const saveDraft = async (req, res) => {
         if (draftData.stock !== undefined) updatePayload.stock = draftData.stock;
         if (draftData.stockErpUnits !== undefined) updatePayload.stockErpUnits = draftData.stockErpUnits;
         if (draftData.stockWmsUnits !== undefined) updatePayload.stockWmsUnits = draftData.stockWmsUnits;
-        if (draftData.allegroCategoryId !== undefined) updatePayload.allegroCategoryId = draftData.allegroCategoryId;
+        if (draftData.allegroCategoryId !== undefined) {
+            updatePayload.allegroCategoryId = (draftData.allegroCategoryId && typeof draftData.allegroCategoryId === 'string' && draftData.allegroCategoryId.trim() !== '')
+                ? draftData.allegroCategoryId.trim()
+                : null;
+        }
         if (draftData.features !== undefined) updatePayload.features = draftData.features;
 
         if (draftData.basePrice !== undefined) updatePayload.basePrice = draftData.basePrice;
@@ -816,9 +885,14 @@ const triggerUltimatePipeline = async (req, res) => {
                          candidates: orch.state.hitl_inci_candidates
                      });
                 } else if (orch.state.final_offer) {
+                     let freshProductForDraft = null;
+                     try {
+                         freshProductForDraft = await prisma.product.findUnique({ where: { ean } });
+                     } catch (_) {}
                      let currentOfferDraft = {};
                      try {
-                         currentOfferDraft = typeof existingProduct?.offerDraft === 'string' ? JSON.parse(existingProduct.offerDraft) : (existingProduct?.offerDraft || {});
+                         const rawDraftSource = freshProductForDraft?.offerDraft || existingProduct?.offerDraft;
+                         currentOfferDraft = typeof rawDraftSource === 'string' ? JSON.parse(rawDraftSource) : (rawDraftSource || {});
                      } catch (e) {}
                      
                      const editorHtmlObj = {

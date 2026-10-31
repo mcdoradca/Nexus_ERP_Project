@@ -29,10 +29,48 @@ class BaselinkerExportService {
      * Zgodnie z wytycznymi z KI (Amazon Lupa) kompresuje zdjęcie jeśli to konieczne
      * aby zmieścić Base64 poniżej 2MB przy zachowaniu wymiarów.
      */
+    isValidExportImageUrl(url) {
+        if (!url || typeof url !== 'string') return false;
+        const trimmed = url.trim();
+        if (!trimmed) return false;
+        const isPlaceholder =
+            trimmed.includes('upload.cdn.baselinker.com') ||
+            trimmed.includes('placeholder.com') ||
+            trimmed.includes('Wymagane nowe zdjęcie') ||
+            trimmed.includes('Pusty slot') ||
+            trimmed.includes('Slot #') ||
+            trimmed.includes('Audyt') ||
+            trimmed.includes('Analiza');
+        const isValidFormat = trimmed.startsWith('http') || trimmed.startsWith('data:image');
+        return !isPlaceholder && isValidFormat;
+    }
+
     async compressImage(url) {
+        const MAX_BYTES = 1.9 * 1024 * 1024;
         if (url.startsWith('data:image')) {
             const base64Data = url.split(',')[1] || "";
-            return "data:" + base64Data;
+            if (base64Data.length <= MAX_BYTES) {
+                return "data:" + base64Data;
+            }
+            try {
+                const buffer = Buffer.from(base64Data, 'base64');
+                let quality = 90;
+                let compressedB64 = await sharp(buffer).jpeg({ quality }).toBuffer().then(b => b.toString('base64'));
+                while (compressedB64.length > MAX_BYTES && quality > 10) {
+                    quality -= 10;
+                    compressedB64 = await sharp(buffer).jpeg({ quality }).toBuffer().then(b => b.toString('base64'));
+                }
+                exportLogger.info(`[BaselinkerExportService] Skompresowano obraz Base64 do jakości ${quality}.`);
+                return "data:" + compressedB64;
+            } catch (b64Err) {
+                exportLogger.warn(`[BaselinkerExportService] Błąd kompresji obrazu Base64: ${b64Err.message}`);
+                return "data:" + base64Data;
+            }
+        }
+
+        if (!this.isValidExportImageUrl(url)) {
+            exportLogger.warn(`[BaselinkerExportService] Odrzucono nieprawidłowy URL obrazu przed kompresją: ${url}`);
+            return null;
         }
 
         try {
@@ -40,8 +78,6 @@ class BaselinkerExportService {
             const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 15000 });
             let buffer = Buffer.from(response.data);
             
-            // Limit to < 1.9MB
-            const MAX_BYTES = 1.9 * 1024 * 1024;
             let quality = 95;
             let base64str = await sharp(buffer).jpeg({ quality }).toBuffer().then(b => b.toString('base64'));
             
@@ -54,7 +90,7 @@ class BaselinkerExportService {
             return "data:" + base64str;
         } catch (err) {
             exportLogger.warn(`[BaselinkerExportService] Błąd pobierania/kompresji obrazu: ${url} - Fallback do url:`, err.message);
-            return `url:${url}`; // Bezpośredni fallback z prefiksem `url:` w razie błędu proxy/dostępu
+            return url.startsWith('http') ? `url:${url}` : null;
         }
     }
 
@@ -140,33 +176,27 @@ class BaselinkerExportService {
                 let url = typeof img === 'string' ? img : (img.replacedUrl || img.url || img.originalUrl || "");
                 if (typeof url !== 'string') url = String(url);
 
-                const isPlaceholder = url.includes('upload.cdn.baselinker.com') || 
-                                      url.includes('placeholder.com') || 
-                                      url.includes('Wymagane nowe zdjęcie') || 
-                                      url.includes('Audyt') || 
-                                      url.includes('Analiza');
-                                      
-                const isValidFormat = url.startsWith('http') || url.startsWith('data:image');
-
-                if (isPlaceholder || !isValidFormat) {
+                if (!this.isValidExportImageUrl(url)) {
                     finalImages.push(""); // Pusty string u nas oznacza skip w indeksacji (BaseLinker zignoruje ten slot)
-                } else if (url) {
-                    finalImages.push(url);
+                } else {
+                    finalImages.push(url.trim());
                 }
             }
         } else {
             // Logika Fallbacku z dawnego MDM: jeśli frontend nie przysłał zdjęć, wstrzykujemy PIM
-            if (mainImageUrl) finalImages.push(mainImageUrl);
+            if (this.isValidExportImageUrl(mainImageUrl)) finalImages.push(mainImageUrl.trim());
             if (product.images && Array.isArray(product.images)) {
-                product.images.forEach(img => finalImages.push(img));
+                product.images.forEach(img => {
+                    if (this.isValidExportImageUrl(img)) finalImages.push(img.trim());
+                });
             }
         }
 
         // Dodatkowa tarcza: Jeśli po wszystkim nie mamy miniaturki na index 0 (jest pusta), 
-        // a w bazie PIM mamy zdjęcie główne (imageUrl) i nie jest to BaseLinker CDN, wymuszamy je na index 0.
+        // a w bazie PIM mamy poprawne zdjęcie główne (imageUrl) niebędące placeholderem ani BaseLinker CDN, wymuszamy je na index 0.
         if (mainImageUrl && (!finalImages[0] || finalImages[0] === "")) {
-             if (!mainImageUrl.includes('upload.cdn.baselinker.com') && !mainImageUrl.includes('placeholder.com')) {
-                 finalImages[0] = mainImageUrl;
+             if (this.isValidExportImageUrl(mainImageUrl)) {
+                 finalImages[0] = mainImageUrl.trim();
              }
         }
 
@@ -176,7 +206,9 @@ class BaselinkerExportService {
             if (!url) continue; // Skipujemy puste (np. odrzucone linki CDN), dzięki czemu BaseLinker zachowa stare zdjęcie na tej pozycji
             
             const compressedDataUrl = await this.compressImage(url);
-            payload.images[i.toString()] = compressedDataUrl;
+            if (compressedDataUrl) {
+                payload.images[i.toString()] = compressedDataUrl;
+            }
         }
 
         return payload;
