@@ -24,7 +24,7 @@ async function generatePrompt(slot, productDetailsText, ean = null, imageBase64 
     try {
         console.log(`[Prompt Master] LLM (Agent 11) tymczasowo wyłączony dla slota ${slot}. Wstrzykuję stały prompt.`);
         
-        const hardcodedPrompt = "Odczytaj wszystkie informacje ze zdjęcia produktu zwłaszcza funkcje i zastosowanie. Następnie wygeneruj zdjęcie z produktem w tle nawiązujące do jego charakteru, cech i funkcji odczytanych ze zdjęcia. Bądź oryginalny i nie powtarzaj ujęć. Produkt nie może stać w centrum kadru. Produkt nie może stać na pierwszym planie. Produkt jest dodatkiem do zdjęcia a nie jego głównym elementem. Produkt musi posiadać w 100% zgodną etykietę z załączonym oryginałem. Stosuj jasne oświetlenie i nowoczesne ujęcia. Wykonujesz zdjęcia do e-commerce więc muszą zachęcać do zakupu. Nie wolno Ci nic pisać na zdjęciu.";
+        const hardcodedPrompt = "Odczytaj wszystkie informacje ze zdjęcia produktu zwłaszcza funkcje i zastosowanie. Następnie wygeneruj zdjęcie z produktem w tle nawiązujące do jego charakteru, cech i funkcji odczytanych ze zdjęcia. Bądź oryginalny i nie powtarzaj ujęć. Niech zdjęcia mają charakter lifestylowy gdzie jest obecny człowiek. Produkt nie może stać w centrum kadru. Produkt nie może stać na pierwszym planie. Produkt jest dodatkiem do zdjęcia a nie jego głównym elementem. Produkt musi posiadać w 100% zgodną etykietę z załączonym oryginałem. Stosuj jasne oświetlenie i nowoczesne ujęcia. Wykonujesz zdjęcia do e-commerce więc muszą zachęcać do zakupu. Nie wolno Ci nic pisać na zdjęciu.";
         
         const finalPrompt = MANDATORY_PREFIX + hardcodedPrompt;
         

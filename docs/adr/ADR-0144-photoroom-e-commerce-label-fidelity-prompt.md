@@ -8,7 +8,7 @@ Dotychczasowy prompt koncentrował się na umieszczeniu produktu w tle, jednak b
 ## Podjęte decyzje
 Zaktualizowano stałą `hardcodedPrompt` w [src/modules/offer-optimizer-v2/prompt-master.service.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/prompt-master.service.js) do następującej treści:
 
-> *"Odczytaj wszystkie informacje ze zdjęcia produktu zwłaszcza funkcje i zastosowanie. Następnie wygeneruj zdjęcie z produktem w tle nawiązujące do jego charakteru, cech i funkcji odczytanych ze zdjęcia. Bądź oryginalny i nie powtarzaj ujęć. Produkt nie może stać w centrum kadru. Produkt nie może stać na pierwszym planie. Produkt jest dodatkiem do zdjęcia a nie jego głównym elementem. Produkt musi posiadać w 100% zgodną etykietę z załączonym oryginałem. Stosuj jasne oświetlenie i nowoczesne ujęcia. Wykonujesz zdjęcia do e-commerce więc muszą zachęcać do zakupu. Nie wolno Ci nic pisać na zdjęciu."*
+> *"Odczytaj wszystkie informacje ze zdjęcia produktu zwłaszcza funkcje i zastosowanie. Następnie wygeneruj zdjęcie z produktem w tle nawiązujące do jego charakteru, cech i funkcji odczytanych ze zdjęcia. Bądź oryginalny i nie powtarzaj ujęć. Niech zdjęcia mają charakter lifestylowy gdzie jest obecny człowiek. Produkt nie może stać w centrum kadru. Produkt nie może stać na pierwszym planie. Produkt jest dodatkiem do zdjęcia a nie jego głównym elementem. Produkt musi posiadać w 100% zgodną etykietę z załączonym oryginałem. Stosuj jasne oświetlenie i nowoczesne ujęcia. Wykonujesz zdjęcia do e-commerce więc muszą zachęcać do zakupu. Nie wolno Ci nic pisać na zdjęciu."*
 
 Kluczowe wzmocnienia semantyczne:
 1. **Pełna zgodność etykiety (100% label fidelity):** Bezwzględny nakaz odwzorowania etykiety z załączonego oryginału bez halucynacji graficznych.
