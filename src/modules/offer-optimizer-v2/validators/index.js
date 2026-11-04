@@ -79,13 +79,44 @@ function scan_stopwords(html) {
     return hits;
 }
 
-// V4
+// V4 — Roszczenia medyczne (WE 1223/2009, 655/2013) oraz nieautoryzowane roszczenia biobójcze (BPR 528/2012)
+function scan_biocidal_claims_lexical(html) {
+    if (!html) return [];
+    const biocidalClaims = [
+        'antybakteryjn[a-ząćęłńóśźż]*', 'przeciwbakteryjn[a-ząćęłńóśźż]*',
+        'przeciwwirusow[a-ząćęłńóśźż]*', 'antywirusow[a-ząćęłńóśźż]*',
+        'biobójcz[a-ząćęłńóśźż]*', 'bakteriobójcz[a-ząćęłńóśźż]*', 'wirusobójcz[a-ząćęłńóśźż]*',
+        'grzybobójcz[a-ząćęłńóśźż]*', 'pleśniobójcz[a-ząćęłńóśźż]*', 'przeciwgrzybicz[a-ząćęłńóśźż]*',
+        'dezynfekuj[a-ząćęłńóśźż]*', 'dezynfekcj[a-ząćęłńóśźż]*',
+        'odkażaj[a-ząćęłńóśźż]*', 'odkaża[a-ząćęłńóśźż]*', 'sterylizuj[a-ząćęłńóśźż]*',
+        'antibatteric[oaie]', 'igienizzant[ei]', 'disinfettant[ei]',
+        '(?:zabija|usuwa|eliminuje|likwiduje|zwalcza)\\s+(?:do\\s+)?(?:99[.,]9%\\s*)?(?:bakteri[eią]|wirusy|wirusów|zarazki|zarazków|drobnoustroje|drobnoustrojów|mikroby|mikrobów|pleśń|grzyby)',
+        '99[.,]9%\\s*(?:bakterii|wirusów|zarazków|drobnoustrojów|mikrobów)'
+    ];
+    const pattern = new RegExp(`(^|[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(${biocidalClaims.join('|')})(?=[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]|$)`, 'gi');
+    const hits = [];
+    let match;
+    while ((match = pattern.exec(html)) !== null) {
+        hits.push({ word: match[2], index: match.index + match[1].length });
+    }
+    return hits;
+}
+
 function scan_medical_claims_lexical(html) {
     if (!html) return [];
     const claims = [
         'lecz[yć]*', 'wyleczy[a-z]*', 'uzdrawia[a-z]*', 'terapi[aeiłąę]*', 'lekarstw[a-z]*', 
         'diagnozuj[a-z]*', 'antybiotyk[a-z]*', 'goi rany', 'zapobiega chorobom', 
-        'likwiduje (łuszczycę|egzemę|trądzik|azs)', 'regeneruje tkanki chorobowe'
+        'likwiduje (łuszczycę|egzemę|trądzik|azs)', 'regeneruje tkanki chorobowe',
+        'antybakteryjn[a-ząćęłńóśźż]*', 'przeciwbakteryjn[a-ząćęłńóśźż]*',
+        'przeciwwirusow[a-ząćęłńóśźż]*', 'antywirusow[a-ząćęłńóśźż]*',
+        'biobójcz[a-ząćęłńóśźż]*', 'bakteriobójcz[a-ząćęłńóśźż]*', 'wirusobójcz[a-ząćęłńóśźż]*',
+        'grzybobójcz[a-ząćęłńóśźż]*', 'pleśniobójcz[a-ząćęłńóśźż]*', 'przeciwgrzybicz[a-ząćęłńóśźż]*',
+        'dezynfekuj[a-ząćęłńóśźż]*', 'dezynfekcj[a-ząćęłńóśźż]*',
+        'odkażaj[a-ząćęłńóśźż]*', 'odkaża[a-ząćęłńóśźż]*', 'sterylizuj[a-ząćęłńóśźż]*',
+        'antibatteric[oaie]', 'igienizzant[ei]', 'disinfettant[ei]',
+        '(?:zabija|usuwa|eliminuje|likwiduje|zwalcza)\\s+(?:do\\s+)?(?:99[.,]9%\\s*)?(?:bakteri[eią]|wirusy|wirusów|zarazki|zarazków|drobnoustroje|drobnoustrojów|mikroby|mikrobów|pleśń|grzyby)',
+        '99[.,]9%\\s*(?:bakterii|wirusów|zarazków|drobnoustrojów|mikrobów)'
     ];
     const pattern = new RegExp(`(^|[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(${claims.join('|')})(?=[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]|$)`, 'gi');
     const hits = [];
@@ -521,6 +552,7 @@ module.exports = {
     route_chemical,
     scan_stopwords,
     scan_medical_claims_lexical,
+    scan_biocidal_claims_lexical,
     validate_html_whitelist,
     diff_numeric,
     emoji_structure_check,

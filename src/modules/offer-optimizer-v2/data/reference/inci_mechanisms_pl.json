@@ -1,0 +1,286 @@
+{
+  "version": "1.0.0",
+  "description": "Lokalny, samouczący się słownik mechanizmów działania składników INCI i detergentowych (WE 1223/2009 i WE 648/2004) w języku polskim, zoptymalizowany pod skanowanie wzrokiem (pogrubienia <b>).",
+  "ingredients": {
+    "aqua": {
+      "names": ["aqua", "water", "woda", "aqua (water)"],
+      "is_base": true,
+      "cosmetic_html": "<li>⚙️ <b>Aqua (Woda oczyszczona):</b> stanowi bazę rozpuszczającą składniki hydrofilowe i zapewnia <b>równomierne rozprowadzanie formuły</b> na powierzchni skóry lub włosów.</li>",
+      "chemical_html": "<li>⚙️ <b>Aqua (Baza wodna):</b> pełni funkcję rozpuszczalnika nośnikowego, który <b>aktywuje środki powierzchniowo czynne</b> i ułatwia szybkie spłukiwanie rozpuszczonych zabrudzeń.</li>"
+    },
+    "glycerin": {
+      "names": ["glycerin", "gliceryna", "glycerine", "glicerol"],
+      "role": "humectant",
+      "cosmetic_html": "<li>⚙️ <b>Glycerin (Gliceryna roślinna):</b> mała cząsteczka higroskopijna, która <b>wiąże wodę w warstwie rogowej naskórka</b>, chroniąc skórę przed przesuszeniem i ściągnięciem po myciu.</li>",
+      "chemical_html": "<li>⚙️ <b>Glycerin (Gliceryna):</b> składnik kondycjonujący, który <b>ogranicza wysuszające działanie detergentów</b> podczas kontaktu roztworu roboczego ze skórą dłoni.</li>"
+    },
+    "sodium laureth sulfate": {
+      "names": ["sodium laureth sulfate", "sles"],
+      "role": "anionic_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Sodium Laureth Sulfate (SLES):</b> anionowy środek powierzchniowo czynny, który <b>tworzy gęstą, stabilną pianę</b> i skutecznie emulguje sebum oraz codzienne zanieczyszczenia.</li>",
+      "chemical_html": "<li>⚙️ <b>Sodium Laureth Sulfate:</b> aktywny surfaktant anionowy, który <b>obniża napięcie powierzchniowe wody</b> i odrywa tłuste osady od czyszczonego podłoża.</li>"
+    },
+    "sodium lauryl sulfate": {
+      "names": ["sodium lauryl sulfate", "sls"],
+      "role": "anionic_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Sodium Lauryl Sulfate (SLS):</b> silny środek myjący i pianotwórczy, który <b>dokładnie usuwa nadmiar sebum</b> oraz pozostałości produktów do stylizacji.</li>",
+      "chemical_html": "<li>⚙️ <b>Sodium Lauryl Sulfate:</b> surfaktant o wysokiej zdolności dyspergowania tłuszczu, zapewniający <b>intensywne odtłuszczanie powierzchni</b>.</li>"
+    },
+    "ammonium lauryl sulfate": {
+      "names": ["ammonium lauryl sulfate", "als"],
+      "role": "anionic_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Ammonium Lauryl Sulfate:</b> środek powierzchniowo czynny o dużej cząsteczce, który <b>wytwarza kremową pianę</b> i skutecznie oczyszcza skórę oraz włosy.</li>",
+      "chemical_html": "<li>⚙️ <b>Ammonium Lauryl Sulfate:</b> anionowy związek myjący wspomagający <b>usuwanie zabrudzeń organicznych</b>.</li>"
+    },
+    "sodium coco-sulfate": {
+      "names": ["sodium coco-sulfate", "scs"],
+      "role": "anionic_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Sodium Coco-Sulfate:</b> środek myjący pozyskiwany z kwasów tłuszczowych oleju kokosowego, zapewniający <b>skuteczne oczyszczanie i obfitą pianę</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Sodium Coco-Sulfate:</b> roślinny surfaktant anionowy odpowiedzialny za <b>emulgowanie tłuszczu i brudu</b>.</li>"
+    },
+    "cocamidopropyl betaine": {
+      "names": ["cocamidopropyl betaine", "kokamidopropylobetaina"],
+      "role": "amphoteric_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Cocamidopropyl Betaine:</b> amfoteryczny surfaktant z oleju kokosowego, który <b>łagodzi działanie bazy myjącej</b> i zagęszcza pianę, pozostawiając skórę miękką w dotyku.</li>",
+      "chemical_html": "<li>⚙️ <b>Cocamidopropyl Betaine:</b> amfoteryczny środek powierzchniowo czynny, który <b>stabilizuje pianę roboczą</b> i wspomaga zwilżanie czyszczonych powierzchni.</li>"
+    },
+    "coco-betaine": {
+      "names": ["coco-betaine", "kokobetaina"],
+      "role": "amphoteric_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Coco-Betaine:</b> łagodny surfaktant amfoteryczny, który <b>zwiększa kremowość piany</b> i redukuje potencjał drażniący środków anionowych.</li>",
+      "chemical_html": "<li>⚙️ <b>Coco-Betaine:</b> ko-surfaktant stabilizujący strukturę miceli, który <b>przyspiesza odrywanie plam tłuszczowych</b> od włókien i powierzchni.</li>"
+    },
+    "coco-glucoside": {
+      "names": ["coco-glucoside", "glukozyd kokosowy"],
+      "role": "nonionic_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Coco-Glucoside (Glukozyd kokosowy):</b> niejonowy, biodegradowalny środek myjący z cukru i oleju kokosowego, który <b>delikatnie oczyszcza bez naruszania bariery lipidowej</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Coco-Glucoside:</b> niejonowy surfaktant pochodzenia roślinnego zapewniający <b>skuteczne zwilżanie i czyszczenie bez smug</b>.</li>"
+    },
+    "decyl glucoside": {
+      "names": ["decyl glucoside", "glukozyd decylowy"],
+      "role": "nonionic_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Decyl Glucoside:</b> wyjątkowo łagodny glukozyd niejonowy, który <b>myje wrażliwą skórę bez efektu ściągnięcia</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Decyl Glucoside:</b> niejonowy związek powierzchniowo czynny ułatwiający <b>penetrację wody w głąb zabrudzeń</b>.</li>"
+    },
+    "lauryl glucoside": {
+      "names": ["lauryl glucoside", "glukozyd laurylowy"],
+      "role": "nonionic_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Lauryl Glucoside:</b> cukrowy środek powierzchniowo czynny, który <b>poprawia gęstość emulsji myjącej</b> i wspiera łagodne oczyszczanie.</li>",
+      "chemical_html": "<li>⚙️ <b>Lauryl Glucoside:</b> niejonowy surfaktant wspomagający <b>rozpuszczanie tłustych osadów</b> w niskich temperaturach.</li>"
+    },
+    "citric acid": {
+      "names": ["citric acid", "kwas cytrynowy"],
+      "role": "acid_ph_regulator",
+      "cosmetic_html": "<li>⚙️ <b>Citric Acid (Kwas cytrynowy):</b> regulator kwasowości, który <b>utrzymuje fizjologiczne pH formuły</b> zbliżone do naturalnego odczynu skóry i domyka łuski włosa.</li>",
+      "chemical_html": "<li>⚙️ <b>Citric Acid (Kwas cytrynowy):</b> aktywny związek odkamieniający i chelatujący, który <b>rozpuszcza osady z kamienia wapiennego i mydła</b> oraz zapobiega powstawaniu zacieków.</li>"
+    },
+    "lactic acid": {
+      "names": ["lactic acid", "kwas mlekowy"],
+      "role": "acid_ph_regulator",
+      "cosmetic_html": "<li>⚙️ <b>Lactic Acid (Kwas mlekowy):</b> hydroksykwas (AHA), który w niskim stężeniu <b>nawilża warstwę rogową i stabilizuje kwaśne pH</b> strefy pielęgnowanej.</li>",
+      "chemical_html": "<li>⚙️ <b>Lactic Acid (Kwas mlekowy):</b> organiczny kwas rozpuszczający <b>naloty mineralne, rdzę i osady wapienne</b> z armatury oraz ceramiki.</li>"
+    },
+    "sodium chloride": {
+      "names": ["sodium chloride", "chlorek sodu"],
+      "role": "viscosity_controller",
+      "cosmetic_html": "<li>⚙️ <b>Sodium Chloride:</b> elektrolit regulujący lepkość, który <b>nadaje żelowej formule optymalną gęstość</b>, zapobiegając przelewaniu się produktu przez dłonie.</li>",
+      "chemical_html": "<li>⚙️ <b>Sodium Chloride:</b> regulator reologii roztworu, który <b>zagęszcza płyn czyszczący</b> i ułatwia jego precyzyjne dozowanie.</li>"
+    },
+    "parfum": {
+      "names": ["parfum", "fragrance", "aroma", "kompozycja zapachowa", "perfume"],
+      "role": "fragrance",
+      "cosmetic_html": "<li>⚙️ <b>Parfum (Kompozycja zapachowa):</b> starannie dobrany bukiet zapachowy, który <b>neutralizuje woń bazy surowcowej</b> i pozostawia na skórze lub włosach przyjemny aromat.</li>",
+      "chemical_html": "<li>⚙️ <b>Parfum (Kompozycja zapachowa):</b> aktywna frakcja aromatyczna, która <b>neutralizuje nieprzyjemne zapachy</b> i pozostawia we wnętrzu lub na tkaninach długotrwałą świeżość.</li>"
+    },
+    "panthenol": {
+      "names": ["panthenol", "pantenol", "prowitamina b5", "d-panthenol"],
+      "role": "soothing_humectant",
+      "cosmetic_html": "<li>⚙️ <b>Panthenol (Prowitamina B5):</b> składnik kojący i higroskopijny, który <b>łagodzi podrażnienia naskórka</b>, wygładza włókno włosa i wspiera barierę hydrolipidową.</li>",
+      "chemical_html": "<li>⚙️ <b>Panthenol:</b> dodatek ochronny w formułach do mycia ręcznego, który <b>chroni naskórek dłoni przed przesuszeniem</b>.</li>"
+    },
+    "allantoin": {
+      "names": ["allantoin", "alantoina"],
+      "role": "soothing_humectant",
+      "cosmetic_html": "<li>⚙️ <b>Allantoin (Alantoina):</b> pochodna mocznika o działaniu kojącym, która <b>zmiękcza szorstki naskórek i redukuje uczucie dyskomfortu</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Allantoin:</b> składnik łagodzący wspierający <b>ochronę skóry dłoni podczas prac domowych</b>.</li>"
+    },
+    "tocopherol": {
+      "names": ["tocopherol", "tocopheryl acetate", "witamina e", "octan tokoferylu"],
+      "role": "antioxidant",
+      "cosmetic_html": "<li>⚙️ <b>Tocopherol / Tocopheryl Acetate (Witamina E):</b> silny antyoksydant rozpuszczalny w tłuszczach, który <b>chroni lipidy naskórka przed utlenianiem</b> i wzmacnia elastyczność skóry.</li>",
+      "chemical_html": "<li>⚙️ <b>Tocopherol:</b> stabilizator przeciwutleniający chroniący <b>trwałość składników zapachowych i lipidowych</b> w formule.</li>"
+    },
+    "argania spinosa kernel oil": {
+      "names": ["argania spinosa kernel oil", "olej arganowy", "olejek arganowy"],
+      "role": "emollient",
+      "cosmetic_html": "<li>⚙️ <b>Argania Spinosa Kernel Oil (Olej arganowy):</b> bogaty w nienasycone kwasy tłuszczowe (Omega-6 i Omega-9) emolient, który <b>wygładza strukturę skóry i włosów</b> oraz ogranicza transepidermalną ucieczkę wody (TEWL).</li>",
+      "chemical_html": "<li>⚙️ <b>Argania Spinosa Kernel Oil (Olej arganowy):</b> naturalny składnik pielęgnujący, który <b>zmiękcza i odżywia</b> czyszczone powierzchnie lub włókna.</li>"
+    },
+    "butyrospermum parkii butter": {
+      "names": ["butyrospermum parkii butter", "butyrospermum parkii (shea) butter", "masło shea", "maslo shea", "karite"],
+      "role": "emollient",
+      "cosmetic_html": "<li>⚙️ <b>Butyrospermum Parkii Butter (Masło Shea):</b> odżywczy emolient roślinny tworzący na skórze <b>delikatny film ochronny</b>, który regeneruje suchy naskórek i przywraca mu miękkość.</li>",
+      "chemical_html": "<li>⚙️ <b>Butyrospermum Parkii Butter:</b> składnik natłuszczający i kondycjonujący w formułach ochronnych.</li>"
+    },
+    "prunus amygdalus dulcis oil": {
+      "names": ["prunus amygdalus dulcis oil", "prunus amygdalus dulcis (sweet almond) oil", "olej ze słodkich migdałów", "olejek migdałowy"],
+      "role": "emollient",
+      "cosmetic_html": "<li>⚙️ <b>Prunus Amygdalus Dulcis Oil (Olej ze słodkich migdałów):</b> lekki emolient bogaty w kwas oleinowy i linolowy, który <b>zmiękcza naskórek bez tłustego filmu</b> i poprawia elastyczność skóry.</li>",
+      "chemical_html": "<li>⚙️ <b>Prunus Amygdalus Dulcis Oil:</b> roślinny emolient pielęgnujący i wygładzający.</li>"
+    },
+    "aloe barbadensis leaf juice": {
+      "names": ["aloe barbadensis leaf juice", "aloe barbadensis leaf extract", "aloes", "sok z aloesu", "ekstrakt z aloesu"],
+      "role": "soothing_humectant",
+      "cosmetic_html": "<li>⚙️ <b>Aloe Barbadensis Leaf Juice (Sok z liści aloesu):</b> bogaty w polisacharydy humektant, który <b>intensywnie nawilża, chłodzi i koi naskórek</b> narażony na przesuszenie.</li>",
+      "chemical_html": "<li>⚙️ <b>Aloe Barbadensis Extract (Ekstrakt z aloesu):</b> dodatek kondycjonujący, który <b>zwiększa łagodność formuły dla skóry dłoni</b>.</li>"
+    },
+    "sodium hyaluronate": {
+      "names": ["sodium hyaluronate", "hyaluronic acid", "kwas hialuronowy", "hialuronian sodu"],
+      "role": "humectant",
+      "cosmetic_html": "<li>⚙️ <b>Sodium Hyaluronate (Kwas hialuronowy):</b> biopolimer zdolny do wiązania dużej ilości cząsteczek wody, który <b>zapewnia długotrwałe nawodnienie i sprężystość skóry</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Sodium Hyaluronate:</b> składnik utrzymujący wilgoć i chroniący przed wysuszeniem.</li>"
+    },
+    "hydrolyzed keratin": {
+      "names": ["hydrolyzed keratin", "keratin", "keratyna", "hydrolizowana keratyna"],
+      "role": "conditioning_protein",
+      "cosmetic_html": "<li>⚙️ <b>Hydrolyzed Keratin (Hydrolizowana keratyna):</b> drobnocząsteczkowe białko budulcowe, które <b>uzupełnia mikrouszkodzenia na powierzchni włosa</b>, zwiększając jego gładkość, połysk i odporność na łamanie.</li>",
+      "chemical_html": "<li>⚙️ <b>Hydrolyzed Keratin:</b> składnik kondycjonujący chroniący strukturę włókien.</li>"
+    },
+    "cetearyl alcohol": {
+      "names": ["cetearyl alcohol", "cetyl alcohol", "stearyl alcohol", "alkohol cetearylowy", "alkohol cetylowy"],
+      "role": "emollient_emulsifier",
+      "cosmetic_html": "<li>⚙️ <b>Cetearyl Alcohol (Alkohol tłuszczowy – emolient):</b> łagodny, nielotny alkohol woskowy pochodzenia roślinnego, który <b>wygładza skórę i włosy, ułatwia rozczesywanie</b> oraz nadaje kremową konsystencję (nie wysusza skóry).</li>",
+      "chemical_html": "<li>⚙️ <b>Cetearyl Alcohol:</b> stabilizator emulsji i środek zmiękczający.</li>"
+    },
+    "behentrimonium chloride": {
+      "names": ["behentrimonium chloride", "cetrimonium chloride", "quaternium-80", "polyquaternium-7", "polyquaternium-10"],
+      "role": "cationic_conditioner",
+      "cosmetic_html": "<li>⚙️ <b>Kationowy składnik kondycjonujący (Antystatyk):</b> neutralizuje ujemny ładunek elektrostatyczny na powierzchni włosów, dzięki czemu <b>zapobiega puszeniu i elektryzowaniu się pasm</b> oraz ułatwia rozczesywanie na mokro.</li>",
+      "chemical_html": "<li>⚙️ <b>Kationowy związek powierzchniowo czynny:</b> osadza się cienką warstwą na włóknach tkanin, <b>nadając praniu miękkość i redukując elektryzowanie się ubrań</b>.</li>"
+    },
+    "charcoal powder": {
+      "names": ["charcoal powder", "activated charcoal", "węgiel aktywny", "wegiel aktywny"],
+      "role": "adsorbent",
+      "cosmetic_html": "<li>⚙️ <b>Charcoal Powder (Węgiel aktywny):</b> porowaty adsorbent pochodzenia roślinnego, który <b>przyciąga i wiąże nadmiar sebum oraz zanieczyszczenia z porów skóry</b>, zapewniając efekt zmatowienia.</li>",
+      "chemical_html": "<li>⚙️ <b>Charcoal Powder (Węgiel aktywny):</b> składnik adsorbujący cząsteczki brudu i neutralizujący nieprzyjemne zapachy.</li>"
+    },
+    "talc": {
+      "names": ["talc", "talk"],
+      "role": "absorbent",
+      "cosmetic_html": "<li>⚙️ <b>Talc (Talk mineralny):</b> naturalny minerał krzemianowy o strukturze płytkowej, który <b>pochłania nadmiar wilgoci i potu</b>, nadaje skórze jedwabistą gładkość i chroni przed otarciami naskórka.</li>",
+      "chemical_html": "<li>⚙️ <b>Talc (Talk):</b> mineralny wypełniacz pochłaniający wilgoć.</li>"
+    },
+    "zinc oxide": {
+      "names": ["zinc oxide", "tlenek cynku"],
+      "role": "soothing_ astringent",
+      "cosmetic_html": "<li>⚙️ <b>Zinc Oxide (Tlenek cynku):</b> mineralny składnik ochronny i ściągający, który <b>tworzy barierę przed wilgocią oraz koi podrażniony naskórek</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Zinc Oxide:</b> pigment i stabilizator mineralny.</li>"
+    },
+    "potassium cocoate": {
+      "names": ["potassium cocoate", "potassium olivate", "sodium palmate", "sodium cocoate", "sodium tallowate", "soap", "mydło", "mydło marsylskie", "sapone di marsiglia"],
+      "role": "soap_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Naturalne mydło roślinne (Potassium/Sodium Cocoate & Olivate):</b> tradycyjna baza myjąca z zmydlonych olejów roślinnych, która <b>skutecznie i łagodnie oczyszcza skórę</b>, łatwo spłukując się wodą.</li>",
+      "chemical_html": "<li>⚙️ <b>Mydło (Soap / Mydło Marsylskie):</b> naturalny związek powierzchniowo czynny z kwasów tłuszczowych, który <b>wiąże jony wapnia i wspomaga wywabianie plam tłuszczowych oraz białkowych</b> z tkanin.</li>"
+    },
+    "hydrogen peroxide": {
+      "names": ["hydrogen peroxide", "nadtlenek wodoru", "sodium percarbonate", "nadwęglan sodu", "związki wybielające na bazie tlenu", "aktywny tlen"],
+      "role": "oxygen_bleach",
+      "cosmetic_html": "<li>⚙️ <b>Hydrogen Peroxide (Nadtlenek wodoru):</b> składnik utleniający stosowany w formułach rozjaśniających i higienicznych.</li>",
+      "chemical_html": "<li>⚙️ <b>Aktywny tlen (Hydrogen Peroxide / Związki wybielające na bazie tlenu):</b> uwalnia cząsteczki aktywnego tlenu, które <b>rozbijają wiązania chemiczne kolorowych plam (kawa, wino, trawa, owoce)</b> bez uszkadzania struktury włókien i bez użycia chloru.</li>"
+    },
+    "sodium dodecylbenzenesulfonate": {
+      "names": ["sodium dodecylbenzenesulfonate", "anionowe środki powierzchniowo czynne", "anionic surfactants", "benzenesulfonic acid"],
+      "role": "anionic_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Anionowy środek powierzchniowo czynny:</b> odpowiada za <b>tworzenie piany i usuwanie tłustych zanieczyszczeń</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Anionowe środki powierzchniowo czynne (np. Sodium Dodecylbenzenesulfonate):</b> główne cząsteczki piorące i myjące, które <b>otaczają drobiny brudu, kurzu i potu</b>, odrywając je od powierzchni i zapobiegając ich ponownemu osadzaniu (redepoyzcji).</li>"
+    },
+    "alcohols, c12-18, ethoxylated": {
+      "names": ["alcohols, c12-18, ethoxylated", "alcohols, c12-14, ethoxylated", "c12-15 pareth-7", "trideceth-9", "niejonowe środki powierzchniowo czynne", "non-ionic surfactants"],
+      "role": "nonionic_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Niejonowy emulgator (Ethoxylated Alcohols):</b> łączy fazę wodną z olejkami zapachowymi, zapewniając <b>klarowność i stabilność formuły</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Niejonowe środki powierzchniowo czynne (np. etoksylowane alkohole C12-18):</b> specjalistyczne surfaktanty odporne na twardość wody, które <b>rozpuszczają zaschnięty tłuszcz, oleje i sebum już w niskich temperaturach (od 20–30°C)</b>.</li>"
+    },
+    "cationic surfactants": {
+      "names": ["kationowe środki powierzchniowo czynne", "cationic surfactants", "dihydrogenated tallowoylethyl hydroxyethylmonium methosulfate", "esterquat"],
+      "role": "cationic_conditioner",
+      "cosmetic_html": "<li>⚙️ <b>Kationowy środek kondycjonujący:</b> wygładza powierzchnię włosa i zapobiega elektryzowaniu.</li>",
+      "chemical_html": "<li>⚙️ <b>Kationowe środki powierzchniowo czynne (Esterquaty zmiękczające):</b> wygładzają mikrowłókna tkanin podczas płukania, <b>zapewniając puszystość ubrań, łatwiejsze prasowanie oraz ochronę przed elektryzowaniem</b>.</li>"
+    },
+    "sodium bicarbonate": {
+      "names": ["sodium bicarbonate", "wodorowęglan sodu", "soda oczyszczona", "bicarbonato", "sodium carbonate", "węglan sodu", "soda"],
+      "role": "alkaline_builder",
+      "cosmetic_html": "<li>⚙️ <b>Sodium Bicarbonate (Wodorowęglan sodu):</b> mineralny składnik oczyszczający i odświeżający, który <b>wspomaga neutralizację nieprzyjemnych zapachów</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Soda aktywna (Sodium Bicarbonate / Sodium Carbonate):</b> alkaliczny środek zmiękczający wodę i odtłuszczający, który <b>zwiększa siłę myjącą detergentów, usuwa przypalenia i neutralizuje kwaśne zapachy</b>.</li>"
+    },
+    "enzymes": {
+      "names": ["enzymes", "enzymy", "protease", "proteaza", "amylase", "amylaza", "lipase", "lipaza", "cellulase", "celulaza", "mannanase", "subtilisin"],
+      "role": "enzymes",
+      "cosmetic_html": "<li>⚙️ <b>Kompleks enzymatyczny:</b> wspomaga delikatne złuszczanie martwego naskórka i wygładzenie skóry.</li>",
+      "chemical_html": "<li>⚙️ <b>Aktywne enzymy (Proteaza / Amylaza / Lipaza / Celulaza):</b> biologiczne katalizatory, które <b>rozcinają trudne plamy białkowe, skrobiowe i tłuszczowe</b> na mniejsze fragmenty łatwo wypłukiwane przez wodę, jednocześnie chroniąc gładkość włókien.</li>"
+    },
+    "optical brighteners": {
+      "names": ["optical brighteners", "fluorescent brightener", "rozjaśniacze optyczne", "rozjasniacze optyczne", "disodium distyrylbiphenyl disulfonate"],
+      "role": "optical_brightener",
+      "cosmetic_html": "<li>⚙️ <b>Składnik rozświetlający:</b> optycznie poprawia blask i świeżość powierzchni.</li>",
+      "chemical_html": "<li>⚙️ <b>Rozjaśniacze optyczne (Optical / Fluorescent Brighteners):</b> cząsteczki pochłaniające światło UV i odbijające pasmo niebieskie, które <b>optycznie niwelują żółknięcie i przywracają tkaninom śnieżną biel</b>.</li>"
+    },
+    "phosphonates": {
+      "names": ["phosphonates", "fosfoniany", "polycarboxylates", "polikarboksylany", "zeolites", "zeolity", "tetrasodium edta", "disodium edta", "tetrasodium glutamate diacetate"],
+      "role": "chelating_builder",
+      "cosmetic_html": "<li>⚙️ <b>Składnik chelatujący (np. EDTA / Glutamate Diacetate):</b> wiąże jony metali ciężkich z wody kranowej, <b>zwiększając trwałość kosmetyku i pienistość w twardej wodzie</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Sekwestranty i związki zmiękczające wodę (Fosfoniany / Polikarboksylany / Chelatory):</b> wychwytują jony wapnia i magnezu odpowiedzialne za twardość wody, dzięki czemu <b>chronią grzałkę pralki przed kamieniem i zapobiegają szarzeniu tkanin</b>.</li>"
+    },
+    "preservatives": {
+      "names": ["phenoxyethanol", "sodium benzoate", "potassium sorbate", "benzisothiazolinone", "methylisothiazolinone", "methylchloroisothiazolinone", "benzyl alcohol", "ethylhexylglycerin", "dmdm hydantoin"],
+      "role": "preservative",
+      "cosmetic_html": "<li>⚙️ <b>Układ konserwujący (np. Sodium Benzoate / Phenoxyethanol):</b> zabezpiecza czystość mikrobiologiczną produktu przez cały okres stosowania, <b>chroniąc formułę przed rozwojem drobnoustrojów po otwarciu opakowania</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Stabilizator mikrobiologiczny (np. Benzisothiazolinone / Methylisothiazolinone):</b> chroni wodną recepturę detergentu przed zepsuciem podczas przechowywania, <b>zapewniając stabilność i świeżość produktu do ostatniej dozy</b>.</li>"
+    },
+    "fragrance_allergens": {
+      "names": ["limonene", "linalool", "hexyl cinnamal", "citronellol", "geraniol", "coumarin", "alpha-isomethyl ionone", "benzyl salicylate", "eugenol", "citral"],
+      "role": "fragrance_component",
+      "cosmetic_html": "<li>⚙️ <b>Składniki kompozycji zapachowej (np. Limonene, Linalool):</b> lotne molekuły aromatyczne budujące <b>wielowymiarowy profil zapachowy produktu</b> podczas aplikacji.</li>",
+      "chemical_html": "<li>⚙️ <b>Nuty aromatyczne (np. Limonene, Linalool, Hexyl Cinnamal):</b> składniki kompozycji zapachowej odpowiadające za <b>świeży, wyczuwalny zapach</b> na umytych powierzchniach i wypranych tkaninach.</li>"
+    }
+  },
+  "synergies": [
+    {
+      "id": "anionic_amphoteric_mildness",
+      "required_roles": ["anionic_surfactant", "amphoteric_surfactant"],
+      "cosmetic_html": "<li>⚡ <b>Synergia Łagodnego Oczyszczania (Surfaktant Anionowy + Betaina):</b> połączenie składnika myjącego z amfoteryczną betainą tworzy mieszane micele o większym rozmiarze, co <b>zwiększa gęstość piany i znacząco obniża ryzyko przesuszenia naskórka</b>.</li>",
+      "chemical_html": "<li>⚡ <b>Synergia Aktywnej Piany (Surfaktanty Anionowe + Amfoteryczne):</b> współdziałanie obu grup związków powierzchniowo czynnych <b>stabilizuje pianę roboczą i przyspiesza odrywanie zaschniętego brudu</b> od podłoża.</li>"
+    },
+    {
+      "id": "anionic_nonionic_degreasing",
+      "required_roles": ["anionic_surfactant", "nonionic_surfactant"],
+      "cosmetic_html": "<li>⚡ <b>Synergia Myjąca (Surfaktanty Anionowe + Glukozydy Niejonowe):</b> połączenie zapewnia <b>dokładne zmycie sebum przy zachowaniu wysokiej delikatności</b> dla bariery hydrolipidowej.</li>",
+      "chemical_html": "<li>⚡ <b>Synergia Dwufazowego Odtłuszczania (Anionowe + Niejonowe Środki Powierzchniowo Czynne):</b> surfaktanty niejonowe rozbijają tłuste plamy i oleje, a surfaktanty anionowe <b>zamykają je w micelach i wypłukują z wodą bez pozostawiania smug</b>.</li>"
+    },
+    {
+      "id": "humectant_emollient_barrier",
+      "required_roles": ["humectant", "emollient"],
+      "cosmetic_html": "<li>⚡ <b>Synergia Nawilżająco-Okluzyjna (Humektant + Emolient):</b> humektant przyciąga i wiąże cząsteczki wody w naskórku, natomiast emolient tworzy warstwę ochronną, która <b>zamyka nawilżenie w skórze i wygładza jej powierzchnię</b>.</li>",
+      "chemical_html": "<li>⚡ <b>Synergia Ochrony Powierzchni i Dłoni (Humektant + Emolient):</b> zestawienie składników kondycjonujących <b>chroni dłonie i pielęgnowane materiały przed utratą elastyczności</b>.</li>"
+    },
+    {
+      "id": "oxygen_surfactant_stain_removal",
+      "required_roles": ["oxygen_bleach", "nonionic_surfactant"],
+      "cosmetic_html": "<li>⚡ <b>Synergia Oczyszczająca:</b> połączenie składników aktywnych przyspiesza usuwanie osadów.</li>",
+      "chemical_html": "<li>⚡ <b>Synergia Odplamiania Tlenowego (Aktywny Tlen + Surfaktanty):</b> środki powierzchniowo czynne otwierają dostęp do wnętrza plamy, a aktywny tlen <b>utlenia barwniki organiczne, przywracając czystość włókien w jednym cyklu</b>.</li>"
+    },
+    {
+      "id": "acid_surfactant_descaling",
+      "required_roles": ["acid_ph_regulator", "anionic_surfactant"],
+      "cosmetic_html": "<li>⚡ <b>Synergia Równowagi pH i Oczyszczania:</b> połączenie bazy myjącej z regulatorem kwasowości <b>oczyszcza skórę bez naruszania jej naturalnego płaszcza ochronnego</b>.</li>",
+      "chemical_html": "<li>⚡ <b>Synergia Odkamieniania i Połysku (Kwas Organiczny + Surfaktant):</b> kwas rozpuszcza osady wapienne i kamień wodny, podczas gdy środek powierzchniowo czynny <b>usuwa osad z mydła i nadaje powierzchni lśniący połysk bez smug</b>.</li>"
+    },
+    {
+      "id": "enzymes_builders_laundry",
+      "required_roles": ["enzymes", "chelating_builder"],
+      "cosmetic_html": "<li>⚡ <b>Synergia Wygładzająca:</b> stabilizacja jonowa wspiera aktywność składników pielęgnujących.</li>",
+      "chemical_html": "<li>⚡ <b>Synergia Bio-Aktywnego Prania (Enzymy + Sekwestranty Zmiękczające Wodę):</b> zmiękczacze neutralizują twardość wody, tworząc optymalne środowisko dla enzymów, które <b>precyzyjnie rozkładają zaschnięte plamy już w niskich temperaturach</b>.</li>"
+    }
+  ],
+  "auto_learned": {}
+}
+

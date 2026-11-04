@@ -385,3 +385,65 @@ test('V13 validate_section6_compliance - wymogi CLP, P264, zakaz rozszczepiania 
     });
 });
 
+test('V4B scan_biocidal_claims_lexical & Deterministic Legal Sanitizer (Rozp. BPR 528/2012, 655/2013, Allegro 2026)', async (t) => {
+    const deterministicEngine = require('../services/deterministic-pipeline.engine');
+    const visionExtractor = require('../vision-extractor.service');
+
+    await t.test('Wykrywa polskie i włoskie/angielskie roszczenia biobójcze, antybakteryjne, przeciwwirusowe i dezynfekujące', () => {
+        const forbiddenSamples = [
+            '<p>Ten płyn działa antybakteryjnie i przeciwwirusowo.</p>',
+            '<p>Preparat biobójczy i bakteriobójczy do łazienki.</p>',
+            '<p>Środek dezynfekujący powierzchnie, zabija 99,9% bakterii i wirusów.</p>',
+            '<p>Mydło odkażające oraz grzybobójcze (Antibatterico, Disinfettante).</p>'
+        ];
+        for (const sample of forbiddenSamples) {
+            const bioHits = v.scan_biocidal_claims_lexical(sample);
+            assert.ok(bioHits.length > 0, `Powinien wykryć roszczenie biobójcze w: ${sample}`);
+        }
+    });
+
+    await t.test('sanitizeOfferTitle usuwa z tytułu oferty słowa biobójcze, antybakteryjne oraz stop-words Allegro', () => {
+        const rawTitle = 'ORYGINALNY HIT Chanteclair Sgrassatore Płyn Antybakteryjny Dezynfekujący Antibatterico 600 ml!';
+        const cleanTitle = deterministicEngine.sanitizeOfferTitle(rawTitle);
+        assert.strictEqual(v.scan_biocidal_claims_lexical(cleanTitle).length, 0, 'Tytuł po sanityzacji nie może zawierać słów biobójczych');
+        assert.strictEqual(v.scan_stopwords(cleanTitle).length, 0, 'Tytuł po sanityzacji nie może zawierać stop-words Allegro');
+        assert.ok(cleanTitle.includes('Chanteclair'), 'Tytuł musi zachować markę');
+        assert.ok(cleanTitle.includes('600 ml'), 'Tytuł musi zachować pojemność');
+    });
+
+    await t.test('sanitizeHtmlClaimsAndStopwords przekształca roszczenia biobójcze i medyczne w bezpieczne roszczenia higieniczno-czyszczące', () => {
+        const dirtyHtml = '<p>Oryginalny płyn antybakteryjny i przeciwwirusowy dezynfekuje kuchnię oraz zabija 99,9% bakterii i zarazków, gwarantując efekt leczniczy.</p>';
+        const cleanHtml = deterministicEngine.sanitizeHtmlClaimsAndStopwords(dirtyHtml);
+        assert.strictEqual(v.scan_biocidal_claims_lexical(cleanHtml).length, 0, 'Po sanityzacji brak słów biobójczych');
+        assert.strictEqual(v.scan_medical_claims_lexical(cleanHtml).length, 0, 'Po sanityzacji brak słów medycznych');
+        assert.strictEqual(v.scan_stopwords(cleanHtml).length, 0, 'Po sanityzacji brak stop-words Allegro');
+        assert.ok(cleanHtml.includes('higienicznie oczyszczający'), 'Powinien zamienić antybakteryjny na higienicznie oczyszczający');
+    });
+
+    await t.test('sanitizeVisionFrontText neutralizuje napisy biobójcze odczytane z włoskiego/polskiego frontu opakowania', () => {
+        const rawFront = 'Igienizzante Antibatterico – usuwa 99,9% bakterii i dezynfekuje';
+        const sanitizedFront = visionExtractor.sanitizeVisionFrontText(rawFront);
+        assert.strictEqual(v.scan_biocidal_claims_lexical(sanitizedFront).length, 0);
+        assert.ok(sanitizedFront.toLowerCase().includes('higieniczn'));
+    });
+
+    await t.test('tryBuildDeterministicSection3 buduje kompletną Sekcję 3 z priorytetem Składników Wiodących z Frontu (Agent 0) w 0ms', () => {
+        const res = deterministicEngine.tryBuildDeterministicSection3({
+            inci: 'Aqua, Sodium Laureth Sulfate, Cocamidopropyl Betaine, Glycerin, Argania Spinosa Kernel Oil, Citric Acid, Parfum',
+            isChemical: false,
+            productName: 'Żel pod prysznic z olejem arganowym 500 ml',
+            visionFeatures: {
+                'Składniki wiodące (Front)': 'Olej arganowy'
+            }
+        });
+        assert.strictEqual(res.canSkipA4, true);
+        assert.ok(res.section_3_html.includes('<h2>⚙️'));
+        assert.ok(res.section_3_html.includes('Argania Spinosa Kernel Oil'), 'Powinien priorytetowo uwzględnić Olej arganowy z frontu opakowania');
+        assert.strictEqual(v.scan_biocidal_claims_lexical(res.section_3_html).length, 0);
+        assert.strictEqual(v.scan_medical_claims_lexical(res.section_3_html).length, 0);
+        assert.strictEqual(v.scan_stopwords(res.section_3_html).length, 0);
+        assert.strictEqual(v.emoji_structure_check(res.section_3_html).valid, true);
+    });
+});
+
+

@@ -796,3 +796,80 @@ test('ADR-0167: A7 otrzymuje pełny wsad behawioralny (Pratfall, Kotwica Rutyny,
 
     aiWrapper.callAgentWithTelemetry = orgCall;
 });
+
+test('ADR-0168: Pełny przebieg zoptymalizowanego potoku (Silnik Deterministyczny + Fast-Pass + Tarcza Biobójcza BPR)', async () => {
+    const { scan_biocidal_claims_lexical, scan_stopwords } = require('../validators');
+    const orch = new Orchestrator('8000137015436');
+    orch.emitState = () => {};
+    orch.state.vision_extracted_features = {
+        'Postać': 'żel',
+        'Pojemność / Waga': '500 ml',
+        'Dozownik': 'pompka',
+        'Zapach': 'arganowy',
+        'Składniki wiodące (Front)': 'Olej arganowy'
+    };
+    orch.state.node_status['A0'] = 'OK';
+
+    const calledAgents = [];
+    let capturedA6Prompt = '';
+    const orgCall = aiWrapper.callAgentWithTelemetry;
+    aiWrapper.callAgentWithTelemetry = async ({ agentId, prompt }) => {
+        calledAgents.push(agentId);
+        if (agentId === '6') {
+            capturedA6Prompt = prompt;
+            return {
+                result: {
+                    section_1_html: '<h1>⭐ Żel pod prysznic Felce Azzurra z olejem arganowym 500 ml</h1><p>Oryginalny antybakteryjny żel pod prysznic zapewnia <b>głębokie oczyszczenie i miękkość naskórka</b> podczas codziennej kąpieli.</p><ul><li>✔️ <b>Olej arganowy i gliceryna</b> – chronią barierę hydrolipidową i <b>zapobiegają przesuszeniu skóry</b>.</li></ul>',
+                    section_2_html: VALID_FAQ_S2,
+                    section_3_html: '',
+                    section_4_html: '<h2>✍️ Sposób użycia i dozowanie</h2><p>Gęsta formuła wymaga <b>dokładnego spłukania ciepłą wodą</b> po zakończeniu mycia.</p><ul><li>✍️ <b>Krok 1 (Dozowanie):</b> Naciśnij pompkę i nanieś porcję żelu na wilgotną skórę.</li><li>✍️ <b>Krok 2 (Mycie i spłukiwanie):</b> Masuj do uzyskania piany, a następnie obficie spłucz wodą.</li></ul>',
+                    section_5_html: '<p>Placeholder S5</p>',
+                    section_6_html: '<p>Placeholder S6</p>'
+                },
+                usage: { promptTokenCount: 2500, candidatesTokenCount: 900, totalTokenCount: 3400 }
+            };
+        }
+        return { result: { patches: [] }, usage: {} };
+    };
+
+    const pimPayload = {
+        text_fields: {
+            name: 'ORYGINALNY Felce Azzurra Antybakteryjny Żel pod prysznic 500 ml',
+            description: 'Podmiot odpowiedzialny: Paglieri S.p.A., S.S. per Genova Km 98, 15122 Alessandria, Włochy, info@paglieri.it',
+            features: {
+                'Marka': 'Felce Azzurra',
+                'Producent': 'Paglieri S.p.A.',
+                'Linia': 'Classico',
+                'Kraj pochodzenia': 'Włochy',
+                'Skład': 'Aqua, Sodium Laureth Sulfate, Cocamidopropyl Betaine, Glycerin, Argania Spinosa Kernel Oil, Citric Acid, Parfum',
+                'kod karty': '<div>' + 'X'.repeat(35000) + '</div>'
+            }
+        }
+    };
+
+    await orch.run(pimPayload);
+
+    // 1. Tylko Agent 6 został wywołany przez LLM (A1, A2, A4, A5, A7, A10 zaoszczędzone deterministycznie!)
+    assert.deepStrictEqual(calledAgents, ['6'], 'W pełnym przebiegu z kompletnym PIM powinien zostać wywołany wyłącznie Agent 6');
+    assert.strictEqual(orch.state.token_usage_per_node['A2'].tokens_saved, true);
+    assert.strictEqual(orch.state.token_usage_per_node['A4'].tokens_saved, true);
+    assert.strictEqual(orch.state.token_usage_per_node['A5'].tokens_saved, true);
+    assert.strictEqual(orch.state.token_usage_per_node['A7'].tokens_saved, true);
+    assert.strictEqual(orch.state.token_usage_per_node['A10'].tokens_saved, true);
+
+    // 2. Prompt Agenta 6 został oczyszczony z 35 KB śmieciowego szablonu HTML ('kod karty') i zawiera Składniki wiodące z frontu
+    assert.ok(!capturedA6Prompt.includes('XXXXXXXXXX'), 'Prompt A6 nie może zawierać 35KB szablonu kod karty');
+    assert.ok(capturedA6Prompt.includes('Olej arganowy'), 'Prompt A6 musi zawierać Składniki wiodące (Front) z Agenta 0');
+
+    // 3. Tytuł oferty oraz treść HTML są w 100% wolne od słów biobójczych/antybakteryjnych i stop-words Allegro
+    assert.ok(orch.state.final_offer, 'Oferta końcowa musi zostać wygenerowana');
+    assert.strictEqual(scan_biocidal_claims_lexical(orch.state.final_offer.title).length, 0, 'Tytuł oferty nie może zawierać słów biobójczych');
+    assert.strictEqual(scan_stopwords(orch.state.final_offer.title).length, 0, 'Tytuł oferty nie może zawierać stop-words');
+    assert.strictEqual(scan_biocidal_claims_lexical(orch.state.final_offer.description).length, 0, 'Sekcja 1 nie może zawierać słów biobójczych');
+    assert.strictEqual(scan_stopwords(orch.state.final_offer.description).length, 0, 'Sekcja 1 nie może zawierać stop-words');
+    assert.ok(orch.state.final_offer.description_extra2.includes('Argania Spinosa Kernel Oil'), 'Sekcja 3 musi zawierać składnik wiodący z frontu');
+    assert.ok(orch.state.final_offer.description_extra4.includes('Kluczowe składniki (z etykiety):</strong> Olej arganowy'), 'Sekcja 5 musi eksponować kluczowe składniki z frontu');
+
+    aiWrapper.callAgentWithTelemetry = orgCall;
+});
+

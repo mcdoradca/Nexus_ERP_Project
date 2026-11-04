@@ -37,9 +37,14 @@ i poprawność języka polskiego, precyzję fleksyjną oraz higienę typograficz
    - Bezwzględne przestrzeganie zakazu słów promocyjnych, oświadczeń gwarancyjnych i marketingowych (§A).
 
 ## BLUEPRINT 6 SEKCJI
-s1 USP: <h1>⭐ [Nazwa + korzyść/pojemność]</h1><p>2–3 zdania konkretu</p>.
+s1 USP (Szybkie Skanowanie Wzrokiem F-Pattern + Cechy z Frontu Opakowania Agent 0 Vision):
+   <h2>⭐ [Nazwa + korzyść/pojemność]</h2><p>2–3 zdania konkretu z pogrubieniami <b></p><ul>4–5 punktów korzyści <li>✔️ <b>[Hasło korzyści]:</b> [konkret]</li></ul>.
+   WYKORZYSTANIE DANYCH Z FRONTU OPAKOWANIA (vision_features z Agenta 0):
+   Jeśli w `vision_features` odczytano `Składniki wiodące (Front)`, `Przeznaczenie (Front)`, `Wyróżniki (Etykieta Front)`, `Wydajność`, `Postać`, `Dozownik`, `Zapach` lub `Twardość włosia` — MUSISZ uczynić z nich główną oś przekazu w Sekcji 1!
    RYGOR MOBILE-FIRST EYE-TRACKING (ŚCIEŻKA POGRUBIEŃ FAB wg SOT 09 §1 i SHARED_RULES §B):
-   W każdym zdaniu akapitu <p> wyróżnij tagiem <b> kluczową frazę niosącą konkretną korzyść użytkową lub parametr (3–5 słów), tak aby same pogrubienia czytane jedno po drugim tworzyły w 3 sekundy spójny minitekst sprzedażowy (Problem/Potrzeba → Mechanizm formuły → Rezultat i wydajność). Rozbroj główną obiekcję zakupową (np. brak obciążenia, brak smug, szybkie spłukiwanie).
+   - W akapicie <p> wyróżnij tagiem <b> kluczowe frazy (3–5 słów) oraz wpleć subtelną Kotwicę Rutyny i Torowanie Sensoryczne (Sensory Priming ściśle zgodny z wariantem zapachowym i postacią produktu; zakaz zmyślania zapachu dla wyrobów bezwonnych!).
+   - Po akapicie <p> dodaj listę <ul> z 4–5 punktami `<li>✔️ <b>[Kluczowa korzyść / Wyróżnik]:</b> [jednozdaniowe wyjaśnienie mechanizmu i efektu dla klienta]</li>`, aby kupujący skanujący opis wzrokiem w 3 sekundy wyłapał najważniejsze atuty produktu.
+   - KATEGORYCZNY ZAKAZ słów biobójczych ("antybakteryjny", "przeciwwirusowy", "dezynfekujący", "odkażający", "biobójczy", "99,9% bakterii") — zastępuj je wyłącznie sformułowaniami "higieniczna czystość", "higienicznie oczyszczający", "głębokie oczyszczanie".
 s2 FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI — Google, ChatGPT, Claude, Perplexity):
    <h2>❓ [fraza kategorii + kluczowy efekt, np. Płyn do podłóg bez smug – najczęstsze pytania]</h2><ul> + 3–5 par.
    ŹRÓDŁO: pary z A5 (a5.safe_aeo_questions ↔ a5.safe_aeo_answers, 1:1, kolejność zachowana).
@@ -72,8 +77,12 @@ s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
    [Naprawa v3.1: usunięto polecenie samodzielnego opisywania INCI "z SOT RAG" —
    A6 nie ma RAG-u; opisy składników tworzy wyłącznie A4. Dla produktów
    niechemicznych (brak node_4_aeo) buduj s3 z cech użytkowych z PIM.]
-s4 Sposób użycia: <h2>✍️…</h2><p>Przed użyciem zapoznaj się z informacjami bezpieczeństwa zawartymi na opakowaniu i stosuj się do zaleceń producenta.</p><ol> kroki (✍️ Krok 1 — …), scenariusze
-   przygotowujące grunt pod Kotwice Rutyny (A7). KOGNITYWNY RYGOR BIOMECHANIKI I ANATOMII:
+s4 Sposób użycia (Instrukcja Krok po Kroku + Kotwica Rutyny + Wykluczenie Pratfall):
+   <h2>✍️…</h2><p>Przed użyciem zapoznaj się z informacjami bezpieczeństwa zawartymi na opakowaniu i stosuj się do zaleceń producenta.</p><ol> kroki (`<li>✍️ <b>Krok 1 – [Nazwa etapu]:</b> [instrukcja]</li>` — każdy punkt `<ol><li>` zaczyna się WYŁĄCZNIE od emoji ✍️, zakaz używania 💧, 🫧, 🌊!).
+   Po liście `<ol>` dodaj zwięzły akapit `<p>` zawierający:
+   1) Kotwicę Rutyny (przeliczenie wydajności lub pojemności z payloadu na codzienny rytuał użytkowania, bez zmyślania liczb spoza payloadu),
+   2) Uczciwe Wykluczenie Segmentowe (Pratfall z `a5.preserved_minor_flaws_for_pratfall` lub z ograniczeń fizykochemicznych produktu, przekute w dowód specjalizacji formuły).
+   KOGNITYWNY RYGOR BIOMECHANIKI I ANATOMII:
    - Zanim opiszesz kroki, przeanalizuj FIZYCZNĄ FUNKCJĘ I BIOMECHANIKĘ PRZEDMIOTU:
      * Dla artykułów higieny jamy ustnej (np. szczoteczka do zębów): opisz anatomiczną biomechanikę szczotkowania (ergonomia chwytu rękojeści, kąt 45° do linii dziąseł, ruch wymiatająco-obrotowy od dziąsła do korony zęba, umiarkowany nacisk, mycie min. 2 minuty). Kategoryczny zakaz absurdalnych opisów czucia włókien palcami w jamie ustnej!
      * Dla kosmetyków i chemii: precyzyjne kroki aplikacji, spieniania, dozowania, czasu działania i płukania.

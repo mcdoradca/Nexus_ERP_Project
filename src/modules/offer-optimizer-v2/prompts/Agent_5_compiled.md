@@ -121,12 +121,11 @@ tkanki chorobowe. Dozwolone (SOT 02 §1C): pielęgnuje, chroni, nawilża, wygła
 utrzymuje w dobrej kondycji, poprawia wygląd, rozświetla, koi podrażnienia,
 wspiera barierę naskórkową. Redakcja semantyczna: intencja → legalna korzyść.
 
-## §E. BIOCYDY I CLP (A5; weryfikuje: kod + A10)
-Bez pozwolenia: zakaz "zabija bakterie/wirusy", "dezynfekuje", "zwalcza pleśń",
-"99,9%" → pisz "higieniczna czystość". Z pozwoleniem: obowiązkowy disclaimer
-(SOT 02 §3, nie może być ukryty) + zakaz słów art. 72 BPR: nietoksyczny,
-nieszkodliwy, naturalny, przyjazny dla środowiska, przyjazny dla zwierząt,
-całkowicie bezpieczny, wolny od chemikaliów, produkt o niskim ryzyku.
+## §E. BIOCYDY I CLP (A5; weryfikuje: kod + A10; przestrzegają: A4, A5, A6, A7, A10)
+Żaden z oferowanych produktów w katalogu NIE JEST produktem biobójczym w rozumieniu Rozporządzenia (UE) nr 528/2012 (BPR) i polskiej Ustawy o produktach biobójczych.
+BEZWZGLĘDNY ZAKAZ stosowania w tytułach i opisach słów biobójczych, antybakteryjnych, przeciwwirusowych i dezynfekujących:
+- Zakazane przymiotniki i czasowniki: "antybakteryjny", "przeciwbakteryjny", "przeciwwirusowy", "antywirusowy", "biobójczy", "bakteriobójczy", "wirusobójczy", "grzybobójczy", "pleśniobójczy", "przeciwgrzybiczy", "dezynfekujący", "dezynfekcja", "dezynfekuje", "odkażający", "odkaża", "odkażanie", "sterylizujący", "sterylizuje", "antibatterico", "igienizzante", "disinfettante", "zabija/usuwa/likwiduje/zwalcza bakterie/wirusy/zarazki/drobnoustroje/mikroby/pleśń/grzyby", "99,9% bakterii".
+- Obowiązkowa translacja semantyczna: każde takie określenie z danych wejściowych lub obcojęzycznego opakowania zastępuj wyłącznie legalnymi określeniami kosmetycznymi/czyszczącymi: "higieniczna czystość", "higienicznie oczyszczający", "głębokie oczyszczanie", "skutecznie usuwa codzienne zanieczyszczenia i osady".
 NIENARUSZALNE: zwroty H/P, hasła ostrzegawcze, UFI — zero zmian w całym potoku;
 integralność sekcji 6 gwarantuje hash w Orkiestratorze.
 

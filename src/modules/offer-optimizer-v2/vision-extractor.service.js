@@ -134,7 +134,9 @@ KRYTYCZNE ZADANIA EKSTRAKCJI:
 5. Typ dozownika / zamknięcia: wskaż widoczny mechanizm (np. "pompka", "atomizer / spray", "korek / nakrętka", "nakrętka z miarką", "brak").
 6. Wydajność lub liczba użyć: jeśli podano liczbę prań, kapsułek lub doz (np. "40 prań", "60 kapsułek", "100 doz"), wpisz. W przeciwnym razie null.
 7. Przeznaczenie frontowe: główne docelowe zastosowanie podane na froncie (np. "do czyszczenia łazienki i armatury", "do higieny jamy ustnej", "do tkanin kolorowych"). Jeśli brak, null.
-8. Kluczowe hasła i wyróżniki z etykiety: lista haseł marketingowo-technologicznych z frontu (np. ["Ultra Power", "98% składników pochodzenia naturalnego", "0% barwników"]). Jeśli brak, pusta tablica [].`;
+8. Kluczowe hasła i wyróżniki z etykiety: lista haseł marketingowo-technologicznych z frontu (np. ["Ultra Power", "98% składników pochodzenia naturalnego", "0% barwników"]). Jeśli brak, pusta tablica [].
+9. Kluczowe składniki wyróżnione na froncie (Hero Ingredients): lista najważniejszych składników aktywnych, ekstraktów, olejków lub substancji eksponowanych na przedniej etykiecie (np. ["Olej arganowy", "Mydło marsylskie", "Kwas hialuronowy", "Aktywny tlen", "Soda", "Aloes"]). Przetłumacz nazwy z włoskiego/angielskiego/niemieckiego na język polski. Jeśli brak, pusta tablica [].
+UWAGA PRAWNA (BPR 528/2012): Jeśli na zagranicznym opakowaniu widnieje słowo "Igienizzante", "Antibatterico", "Sanitizing", "Antibacterial" lub "Antybakteryjny", tłumacz je wyłącznie jako "Higieniczna czystość" lub "Głębokie oczyszczanie" (zakaz przypisywania właściwości biobójczych/antybakteryjnych/przeciwwirusowych).`;
 
 const frontVisionSchema = {
     type: "object",
@@ -149,10 +151,25 @@ const frontVisionSchema = {
         glowne_hasla_front: {
             type: "array",
             items: { type: "string" }
+        },
+        kluczowe_skladniki_front: {
+            type: "array",
+            items: { type: "string" }
         }
     },
     required: ["postac", "dozownik"]
 };
+
+function sanitizeVisionFrontText(str) {
+    if (!str || typeof str !== 'string') return str;
+    return str
+        .replace(/\b(antybakteryjn[a-ząćęłńóśźż]*|przeciwbakteryjn[a-ząćęłńóśźż]*|antibatteric[oaie]|antibacterial)\b/gi, 'higienicznie oczyszczający')
+        .replace(/\b(przeciwwirusow[a-ząćęłńóśźż]*|antywirusow[a-ząćęłńóśźż]*|wirusobójcz[a-ząćęłńóśźż]*|antiviral)\b/gi, 'głęboko oczyszczający')
+        .replace(/\b(biobójcz[a-ząćęłńóśźż]*|bakteriobójcz[a-ząćęłńóśźż]*|grzybobójcz[a-ząćęłńóśźż]*|pleśniobójcz[a-ząćęłńóśźż]*)\b/gi, 'intensywnie czyszczący')
+        .replace(/\b(dezynfekuj[a-ząćęłńóśźż]*|dezynfekcj[a-ząćęłńóśźż]*|odkażaj[a-ząćęłńóśźż]*|odkaża[a-ząćęłńóśźż]*|igienizzante|disinfettante|sanitizing)\b/gi, 'zapewniający higieniczną czystość')
+        .replace(/\b(zabija|usuwa|eliminuje|likwiduje)\s+(?:do\s+)?99[.,]9%\s*(?:bakterii|wirusów|zarazków|drobnoustrojów|mikrobów)\b/gi, 'skutecznie usuwa zanieczyszczenia i osady')
+        .trim();
+}
 
 /**
  * Ekstrahuje cechy fizyczne i wizualne z przedniego zdjęcia produktu za pomocą Gemini 3.8 Flash Vision.
@@ -235,7 +252,7 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
             pimFeatures['Twardość włosia'] = String(result.twardosc_wlosia).trim();
         }
         if (result.zapach_wariant && String(result.zapach_wariant).trim().length > 0) {
-            const rawZapach = String(result.zapach_wariant).trim();
+            const rawZapach = sanitizeVisionFrontText(String(result.zapach_wariant).trim());
             // Tarcza ontologiczna: Jeśli do zapachu omyłkowo trafiło oznaczenie twardości włosia (np. MEDIUM, SOFT, HARD), przenieś do Twardość włosia
             if (/^(soft|medium|hard|ultra\s*soft|extra\s*soft|średni[a|e]?|miękki[a|e]?|tward[y|a|e]?)$/i.test(rawZapach)) {
                 pimFeatures['Twardość włosia'] = rawZapach;
@@ -244,7 +261,7 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
             }
         }
         if (result.postac && String(result.postac).trim().length > 0) {
-            pimFeatures['Postać'] = String(result.postac).trim();
+            pimFeatures['Postać'] = sanitizeVisionFrontText(String(result.postac).trim());
         }
         if (result.dozownik && String(result.dozownik).trim().length > 0) {
             pimFeatures['Dozownik'] = String(result.dozownik).trim();
@@ -253,10 +270,19 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
             pimFeatures['Wydajność'] = String(result.wydajnosc_liczba_uzyc).trim();
         }
         if (result.przeznaczenie_front && String(result.przeznaczenie_front).trim().length > 0) {
-            pimFeatures['Przeznaczenie (Front)'] = String(result.przeznaczenie_front).trim();
+            pimFeatures['Przeznaczenie (Front)'] = sanitizeVisionFrontText(String(result.przeznaczenie_front).trim());
         }
         if (Array.isArray(result.glowne_hasla_front) && result.glowne_hasla_front.length > 0) {
-            pimFeatures['Wyróżniki (Etykieta Front)'] = result.glowne_hasla_front.map(s => String(s).trim()).filter(Boolean).join(', ');
+            pimFeatures['Wyróżniki (Etykieta Front)'] = result.glowne_hasla_front
+                .map(s => sanitizeVisionFrontText(String(s).trim()))
+                .filter(Boolean)
+                .join(', ');
+        }
+        if (Array.isArray(result.kluczowe_skladniki_front) && result.kluczowe_skladniki_front.length > 0) {
+            pimFeatures['Składniki wiodące (Front)'] = result.kluczowe_skladniki_front
+                .map(s => sanitizeVisionFrontText(String(s).trim()))
+                .filter(Boolean)
+                .join(', ');
         }
 
         onLog(`[VISION EXTRACTOR] Pomyślnie odczytano ${Object.keys(pimFeatures).length} cech z etykiety frontowej: ${Object.keys(pimFeatures).join(', ')}.`);
@@ -316,14 +342,20 @@ const backPackInciSchema = {
  * @param {Function} onLog - Callback logowania
  * @returns {Promise<{ found: boolean, inci: string|null, raw: string|null, imageUrl: string|null, usage: Object|null }>}
  */
-async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog = () => {}) {
-    const candidateUrls = Array.isArray(imageUrlOrCandidates)
+async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog = () => {}, skipFrontUrl = null) {
+    const rawCandidateUrls = Array.isArray(imageUrlOrCandidates)
         ? imageUrlOrCandidates.filter(u => typeof u === 'string' && u.trim().length > 0)
         : (typeof imageUrlOrCandidates === 'string' && imageUrlOrCandidates.trim().length > 0 ? [imageUrlOrCandidates.trim()] : []);
 
-    if (candidateUrls.length === 0) {
+    if (rawCandidateUrls.length === 0) {
         return { found: false, inci: null, raw: null, imageUrl: null, reason: 'Brak dostępnych zdjęć do analizy etykiety' };
     }
+
+    // Jeśli posiadamy więcej niż 1 zdjęcie i znamy już URL zdjęcia frontowego (zbadanego w extractFrontPackFeatures),
+    // pomijamy powtórne skanowanie frontu w poszukiwaniu tylnej etykiety INCI (oszczędność wywołania Vision API).
+    const candidateUrls = (skipFrontUrl && rawCandidateUrls.length > 1)
+        ? rawCandidateUrls.filter(u => u.trim() !== skipFrontUrl.trim())
+        : rawCandidateUrls;
 
     for (let idx = 0; idx < candidateUrls.length; idx++) {
         const currentUrl = candidateUrls[idx];
@@ -381,6 +413,7 @@ module.exports = {
     extractFrontPackFeatures,
     extractInciFromBackPack,
     fetchImageBuffer,
+    sanitizeVisionFrontText,
     FRONT_VISION_PROMPT,
     frontVisionSchema,
     BACK_PACK_INCI_PROMPT,
