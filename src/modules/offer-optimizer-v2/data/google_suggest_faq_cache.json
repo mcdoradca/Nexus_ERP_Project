@@ -1,0 +1,56 @@
+{
+  "cif::scouring_cream": {
+    "timestamp": 1793901178536,
+    "category_pl": "mleczko do czyszczenia",
+    "suggestions": [
+      "czy mleczko cif rysuje",
+      "czy mleczko cif usuwa kamień",
+      "czy mleczko cif wybiela",
+      "czy mleczko cif zawiera chlor",
+      "czy mleczko cif ma datę ważności",
+      "czy mleczko cif jest żrące",
+      "czy cif mleczko jest dobre",
+      "czy cif mleczko jest zdrowe",
+      "czy mleczko do czyszczenia",
+      "cif mleczko do czyszczenia",
+      "cif mleczko z wybielaczem",
+      "cif mleczko w sprayu"
+    ]
+  },
+  "soft::laundry_powder": {
+    "timestamp": 1793901178773,
+    "category_pl": "proszek do prania",
+    "suggestions": [
+      "czy proszek do prania lensil jest dobry",
+      "czy proszek do prania wsypuje sie do bebna",
+      "czy proszek do prania e jest dobry",
+      "czy proszek do prania to detergent",
+      "czy proszek do prania ma termin przydatności",
+      "czy proszek do prania mozna dac do bebna",
+      "czy proszek do prania niszczy pralkę",
+      "jak stosowac proszek do prania",
+      "proszek do prania który ładnie pachnie",
+      "proszek do prania ktory nie uczula",
+      "proszek do prania który pięknie pachnie",
+      "proszek.do prania które wybrac"
+    ]
+  },
+  "chanteclair::laundry_liquid": {
+    "timestamp": 1793901178978,
+    "category_pl": "płyn do prania",
+    "suggestions": [
+      "czy płyn do prania można wlać do bębna",
+      "czy płyn do prania wlewa się tam gdzie proszek",
+      "czy płyn do prania to to samo co płyn do płukania",
+      "czy płyn do prania i żel do prania to to samo",
+      "czy płyn do prania można wlewać bezpośrednio do bębna pralki",
+      "czy płyn do prania ma termin ważności",
+      "czy płyn do prania może się przeterminować",
+      "jak stosować płyn do prania",
+      "jak stosować płyn do prania w pralce",
+      "płyn do prania który ładnie pachnie",
+      "plyn do prania ktory dlugo pachnie",
+      "płyn do prania który nie uczula"
+    ]
+  }
+}

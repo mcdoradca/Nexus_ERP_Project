@@ -13,6 +13,7 @@ const prisma = new PrismaClient();
 const visionExtractorService = require('./vision-extractor.service');
 const brandResponsibleService = require('./brand.responsible.service');
 const deterministicEngine = require('./services/deterministic-pipeline.engine');
+const googleSuggestFaqService = require('./services/google-suggest-faq.service');
 
 const PHASE_1_GROUNDING = 'PHASE_1_GROUNDING';
 const PHASE_2_LEGAL = 'PHASE_2_LEGAL';
@@ -2014,6 +2015,26 @@ class Orchestrator {
             const normalizedCapForA6 = rawCapForA6
                 ? deterministicEngine.normalizeCapacityValue(rawCapForA6, product?.text_fields?.name, this.state.vision_extracted_features || {})
                 : undefined;
+
+            let searchIntentFaqBlueprint = undefined;
+            try {
+                searchIntentFaqBlueprint = await googleSuggestFaqService.harvestSearchIntentFaq({
+                    productName: sanitizedNameForA6 || product?.text_fields?.name,
+                    brand: extracted.brand?.value || product?.brand?.name,
+                    capacity: normalizedCapForA6 || rawCapForA6,
+                    scent: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'],
+                    category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
+                    isChemical: isActualHouseholdChemicalA6,
+                    visionFeatures: this.state.vision_extracted_features || {},
+                    features: product?.text_fields?.features || {},
+                    inci: this.state.extracted_data.inci?.value,
+                    detergentComposition: this.state.extracted_data.detergent_composition?.value
+                });
+                this.state.search_intent_faq_blueprint = searchIntentFaqBlueprint;
+            } catch (faqErr) {
+                console.warn('[Orchestrator V2] Ostrzeżenie harvestera Google Suggest FAQ:', faqErr.message);
+            }
+
             const agent6Data = {
                 gtin_ean: this.gtin,
                 product_name: sanitizedNameForA6 || undefined,
@@ -2031,6 +2052,7 @@ class Orchestrator {
                 } : undefined,
                 features: deterministicEngine.cleanFeaturesForPrompt(product?.text_fields?.features || {}),
                 vision_features: this.state.vision_extracted_features || {},
+                search_intent_faq_blueprint: searchIntentFaqBlueprint,
                 a1: this.state.a1_result ? { country_of_origin: this.state.a1_result.country_of_origin?.value || this.state.a1_result.country_of_origin || undefined, logistics: this.state.a1_result.logistics?.value || this.state.a1_result.logistics || undefined } : undefined,
                 a2: this.state.a2_result,
                 a4: this.state.a4_result,
@@ -2642,6 +2664,8 @@ class Orchestrator {
             if (this.state.extracted_data.product_name && sanitizedTitle) {
                 this.state.extracted_data.product_name.value = sanitizedTitle;
             }
+            const faqSchema = deterministicEngine.extractFaqJsonLdFromSection2(this.state.a10_result['section_2_html'] || '');
+            this.state.faq_schema_jsonld = faqSchema.jsonLdObject;
             
             const offer = {
                 title: sanitizedTitle,
@@ -2651,6 +2675,8 @@ class Orchestrator {
                 description_extra3: brandResponsibleService.stripContactInfo(this.state.a10_result['section_4_html'] || ''),
                 description_extra4: brandResponsibleService.stripContactInfo(extra4),
                 extra_field_4245: brandResponsibleService.stripContactInfo(this.state.a10_result['section_7_html'] || ''),
+                faq_schema_jsonld: faqSchema.jsonLdObject || undefined,
+                faq_schema_script_tag: faqSchema.scriptTag || undefined,
                 ingredients_inci: this.state.extracted_data.inci?.value,
                 eu_responsible_person: this.state.extracted_data.eu_responsible_person,
                 safety_warnings: this.state.a5_result?.mandatory_safety_warnings || [],

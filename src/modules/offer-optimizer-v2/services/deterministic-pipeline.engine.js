@@ -926,6 +926,62 @@ function normalizeEmojiAndStructure(htmlStr, sectionNum = 1) {
     return res;
 }
 
+/**
+ * 9. EKSTRAKCJA SCHEMA.ORG FAQPAGE (JSON-LD) Z SEKCJI 2 DLA SKLEPU WWW I AGENTÓW ZAKUPOWYCH AI (GEO/AEO)
+ */
+function extractFaqJsonLdFromSection2(section2Html = '') {
+    if (!section2Html || typeof section2Html !== 'string') {
+        return { mainEntity: [], jsonLdObject: null, scriptTag: '' };
+    }
+
+    const stripTags = (s) => String(s || '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    const items = [];
+    const liRegex = /<(?:li|p)\b[^>]*>([\s\S]*?)<\/(?:li|p)>/gi;
+    let match;
+    let pendingQuestion = null;
+
+    while ((match = liRegex.exec(section2Html)) !== null) {
+        const inner = match[1].replace(/<!--[\s\S]*?-->/g, '').trim();
+        const qMatch = inner.match(/^❓\s*<(?:strong|b)>\s*Pytanie:\s*<\/(?:strong|b)>\s*([\s\S]*)$/i);
+        if (qMatch) {
+            pendingQuestion = stripTags(qMatch[1]);
+            continue;
+        }
+        const aMatch = inner.match(/^✔️\s*<(?:strong|b)>\s*Odpowiedź:\s*<\/(?:strong|b)>\s*([\s\S]*)$/i);
+        if (aMatch && pendingQuestion) {
+            const answerText = stripTags(aMatch[1]);
+            if (pendingQuestion && answerText) {
+                items.push({
+                    '@type': 'Question',
+                    name: pendingQuestion,
+                    acceptedAnswer: {
+                        '@type': 'Answer',
+                        text: answerText
+                    }
+                });
+            }
+            pendingQuestion = null;
+        }
+    }
+
+    if (items.length === 0) {
+        return { mainEntity: [], jsonLdObject: null, scriptTag: '' };
+    }
+
+    const jsonLdObject = {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: items
+    };
+
+    const scriptTag = `<script type="application/ld+json">\n${JSON.stringify(jsonLdObject, null, 2)}\n</script>`;
+    return {
+        mainEntity: items,
+        jsonLdObject,
+        scriptTag
+    };
+}
+
 module.exports = {
     loadMechanismsDb,
     cleanFeaturesForPrompt,
@@ -939,5 +995,6 @@ module.exports = {
     learnFromAgent4Output,
     buildDeterministicSection5,
     buildDeterministicSection6,
-    normalizeEmojiAndStructure
+    normalizeEmojiAndStructure,
+    extractFaqJsonLdFromSection2
 };

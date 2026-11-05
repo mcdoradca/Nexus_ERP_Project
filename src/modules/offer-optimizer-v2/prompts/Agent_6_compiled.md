@@ -44,27 +44,30 @@ s1 USP (Szybkie Skanowanie Wzrokiem F-Pattern + Cechy z Frontu Opakowania Agent 
    RYGOR MOBILE-FIRST EYE-TRACKING (ŚCIEŻKA POGRUBIEŃ FAB wg SOT 09 §1 i SHARED_RULES §B):
    - W akapicie <p> wyróżnij tagiem <b> 2–3 kluczowe frazy korzyści (po 3–5 słów) oraz wpleć subtelną Kotwicę Rutyny i Torowanie Sensoryczne (Sensory Priming ściśle zgodny z wariantem zapachowym i postacią produktu; zakaz zmyślania zapachu dla wyrobów bezwonnych!).
    - Po akapicie <p> dodaj listę <ul> z 4–5 punktami `<li>✔️ <b>[Kluczowa korzyść po polsku]:</b> [jednozdaniowe wyjaśnienie mechanizmu z pogrubionym <b>efektem dla klienta</b>]</li>`, aby kupujący skanujący opis wzrokiem w 3 sekundy wyłapał najważniejsze atuty produktu.
-   - KATEGORYCZNY ZAKAZ wstawiania obcojęzycznych sloganów w nawiasach (np. ZAKAZ pisania `Aktywny wybielacz (Potere Sbiancante)`, `Gęsta piana (Schiuma Potente)`, `Wszechstronne zastosowanie (Multiuso)`, `Ergonomiczny atomizer (Spray Attivo)`). Pisz w 100% po polsku!
+   - KATEGORYCZNY ZAKAZ wstawiania obcojęzycznych sloganów w nawiasach (np. ZAKAZ pisania `Aktywny wybielacz (Potere Sbiancante)`, `Gęsta piana (Schiuma Potente)`, `Wszechstronne zastosowanie (Multiuso)`, `Ergonomiczny atomizer (Spray Attivo)`). Pisz wyłącznie po polsku!
    - KATEGORYCZNY ZAKAZ słów biobójczych ("antybakteryjny", "przeciwwirusowy", "dezynfekujący", "odkażający", "biobójczy", "99,9% bakterii") — zastępuj je wyłącznie sformułowaniami "higieniczna czystość", "higienicznie oczyszczający", "głębokie oczyszczanie".
-s2 FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI — Google, ChatGPT, Claude, Perplexity):
-   <h2>❓ [fraza kategorii + kluczowy efekt, np. Płyn do podłóg bez smug – najczęstsze pytania]</h2><ul> + 3–4 pary.
-   ŹRÓDŁO: Jeśli tablice `a5.safe_aeo_questions` i `a5.safe_aeo_answers` są puste (lub nieobecne), ZBUDUJ 3–4 NATURALNE, LUDZKIE PARY PYTANIE-ODPOWIEDŹ SAMODZIELNIE wg reguł poniżej, WYŁĄCZNIE z faktów payloadu!
+s2 FAQ SEO/GEO (magnes na wyszukiwarkę Google, Allegro oraz boty zakupowe AI — Google AI Overviews, ChatGPT Shopping, Perplexity):
+   <h2>❓ [fraza kategorii z długiego ogona + kluczowy efekt, np. Mleczko do czyszczenia bez zarysowań – najczęstsze pytania]</h2><ul> + 4 pary.
+   ŹRÓDŁO I ARCHITEKTURA ZAPYTAŃ WYSZUKIWARKOWYCH (`search_intent_faq_blueprint`):
+   - W payloadzie otrzymujesz obiekt `search_intent_faq_blueprint`, który zawiera:
+     * `google_autocomplete_queries`: rzeczywiste, najczęściej wpisywane przez Polaków zapytania z Google Autocomplete (`suggestqueries.google.com`) dla tej kategorii i marki,
+     * `recommended_search_questions`: 4 gotowe pytania sformułowane ściśle pod 4 filary intencji wyszukiwarkowych i konwersacyjnych agentów zakupowych AI:
+       1) **Filar 1 (AI Shopping Discovery / Dlaczego warto / Trwałość zapachu lub skuteczność czyszczenia)** – pod zapytania typu *"Znajdź mi dobry płyn do prania z zapachem który długo się utrzymuje"* lub *"Jaki środek skutecznie usuwa tłuszcz i osady bez smug?"*,
+       2) **Filar 2 (Intencja Instruktażowa "Jak stosować i dozować")** – pod zapytania typu *"Jak stosować proszek do prania Soft?"*, *"Czy płyn wlewa się do szuflady pralki czy do bębna?"*, *"Jak aplikować i spłukiwać mleczko do czyszczenia?"*,
+       3) **Filar 3 (Obiekcja z Google Autocomplete / Bezpieczeństwo powierzchni lub tkanin)** – pod zapytania typu *"Czy mleczko Cif rysuje czyszczone powierzchnie?"*, *"Do jakich tkanin i kolorów nadaje się ten detergent, a jakich unikać (np. wełny/jedwabiu)?"*,
+       4) **Filar 4 (Wydajność opakowania i kluczowe składniki z etykiety)** – pod zapytania typu *"Na ile prań wystarcza opakowanie?"*, *"Jakie składniki aktywne odpowiadają za działanie produktu?"*.
+   - **BEZWZGLĘDNY OBOWIĄZEK:** Wykorzystaj wszystkie 4 pytania z `search_intent_faq_blueprint.recommended_search_questions` (lub zaadaptuj je 1:1 do faktów produktu), tak aby boty Google, Allegro i agenci AI trafiali dokładnie na te frazy pytań, których szukają klienci!
    🚨 TWARDA BARIERA ONTOLOGICZNA KATEGORII (CHEMIA DOMOWA vs KOSMETYKI):
-   - Zanim napiszesz pytania i odpowiedzi w Sekcji 2, sprawdź czy produkt to CHEMIA GOSPODARCZA / ŚRODEK CZYSZCZĄCY / DETERGENT (np. Cif, Chanteclair, Domestos, środek wielofunkcyjny, wybielacz, odtłuszczacz, odkamieniacz, płyn do prania/płukania/naczyń/podłóg/kuchni/łazienki/WC, `Sodium Hypochlorite`, `Sodium Hydroxide`, `a4.category_type === 'HOUSEHOLD_CHEMISTRY'`), czy KOSMETYK DO CIAŁA/WŁOSÓW!
-   - DLA CHEMII GOSPODARCZEJ I ŚRODKÓW CZYSZCZĄCYCH OBOWIĄZUJE CAŁKOWITY ZAKAZ używania słownictwa kosmetycznego ("pielęgnacja skóry", "miękkość i komfort naskórka", "nanieś na zwilżoną skórę lub włosy", "wmasuj do uzyskania aksamitnej emulsji")! W FAQ dla chemii gospodarczej pytaj i odpowiadaj WYŁĄCZNIE o:
-     1) Do jakich powierzchni (lub tkanin) przeznaczony jest preparat i jakie zabrudzenia usuwa (np. tłuszcz kuchenny, osady, przebarwienia),
-     2) Na jakich wrażliwych powierzchniach (lub tkaninach) NIE należy go stosować (np. przy wybielaczu chlorowym: zakaz stosowania na surowym drewnie, aluminium, linoleum, marmurze i tkaninach; przy kwasach: zakaz na marmurze i wapieniu; przy detergentach: wykluczenie wełny i jedwabiu),
-     3) Jak prawidłowo aplikować i spłukiwać środek, aby uzyskać czystość bez smug i zacieków.
+   - Zanim napiszesz pytania i odpowiedzi w Sekcji 2, sprawdź czy produkt to CHEMIA GOSPODARCZA / ŚRODEK CZYSZCZĄCY / DETERGENT (np. Cif, Chanteclair, Domestos, Soft, środek wielofunkcyjny, wybielacz, odtłuszczacz, odkamieniacz, płyn/proszek do prania, płyn do płukania/naczyń/podłóg/kuchni/łazienki/WC, `Sodium Hypochlorite`, `Sodium Hydroxide`, `product_category === 'HOUSEHOLD_CHEMISTRY'`), czy KOSMETYK DO CIAŁA/WŁOSÓW!
+   - DLA CHEMII GOSPODARCZEJ I ŚRODKÓW CZYSZCZĄCYCH OBOWIĄZUJE CAŁKOWITY ZAKAZ używania słownictwa kosmetycznego ("pielęgnacja skóry", "miękkość i komfort naskórka", "nanieś na zwilżoną skórę lub włosy", "wmasuj do uzyskania aksamitnej emulsji")!
    FORMAT PARY (jedyny dopuszczalny, bez wyjątków):
    <li>❓ <b>Pytanie:</b> …?</li><li>✔️ <b>Odpowiedź:</b> …</li>
-   PYTANIE = naturalne zapytanie pisane normalną polszczyzną (bez wklejania surowych nazw katalogowych PISANYCH WIELKIMI LITERAMI!), które człowiek wpisuje w Google lub zadaje asystentowi AI. Pełne zdanie pytające zakończone znakiem '?'.
-   BEZWZGLĘDNY ZAKAZ: etykiet 'Problem:' / 'Rozwiązanie:' / 'Answer:'; twierdzeń zamiast pytań
-   ('Inne mydła wysuszają skórę.'); pytań, na które payload nie daje faktycznej odpowiedzi.
-   ODPOWIEDŹ = answer-first: pierwsze zdanie odpowiada wprost i wskazuje produkt (marka + naturalna nazwa)
-   jako rozwiązanie; drugie zdanie — mechanizm lub fakt z payloadu (składnik, parametr,
-   sposób użycia). W każdej odpowiedzi wyróżnij tagiem `<b>...</b>` kluczową informację dla szybkiego skanowania wzrokiem! Max 300 znaków.
-   [Kod po Tobie: normalizacja etykiet + bramka aeo_faq_check (pary 1:1, '?' na końcu pytania)
-   — naruszenie zatrzymuje ofertę do HITL.]
+   PYTANIE = naturalne zapytanie pisane normalną polszczyzną (bez wklejania surowych nazw katalogowych PISANYCH WIELKIMI LITERAMI i bez słów zakazanych Allegro jak `najlepszy` czy `100%`), które człowiek wpisuje w Google lub zadaje asystentowi AI. Pełne zdanie pytające zakończone znakiem '?'.
+   BEZWZGLĘDNY ZAKAZ: etykiet 'Problem:' / 'Rozwiązanie:' / 'Answer:'; twierdzeń zamiast pytań; pytań, na które payload nie daje faktycznej odpowiedzi.
+   ODPOWIEDŹ = **Entity-First Atomic Citation (standard GEO 2026 dla AI Overviews i Perplexity Shopping)**:
+   - Pierwsze zdanie MUSI odpowiadać wprost i zawierać **pełną encję produktu** (marka + naturalna nazwa + pojemność/wariant) oraz pogrubioną `<b>kluczową korzyść lub parametr</b>` (dzięki temu, gdy bot AI wytnie samą odpowiedź do czatu, wie dokładnie jakiego produktu dotyczy cytat!).
+   - Drugie zdanie podaje twardy mechanizm fizykochemiczny, dozowanie lub regułę materiałową z payloadu (`vision_features`, `inci`, `a4`), również z pogrubieniem `<b>...</b>` najważniejszego faktu dla szybkiego skanowania wzrokiem na smartfonie. Max 320 znaków na odpowiedź.
+   [Kod po Tobie: normalizacja etykiet + bramka aeo_faq_check + automatyczna ekstrakcja Schema.org FAQPage JSON-LD dla sklepu WWW.]
 s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
    node_4_aeo.technical_benefits_aeo (punkty ⚙️) + detected_synergies (punkty ⚡).
    Kategoryczny ZAKAZ używania zielonych koniczynek ☘ ani innych losowych emoji!
@@ -103,7 +106,7 @@ s6 Bezpieczeństwo GPSR: <h2>⚠️…</h2><p>[Zasady bezpiecznego przechowywani
     🚨 KATEGORYCZNY ZAKAZ GUBIENIA KLUCZOWYCH KODÓW CLP Z MANDATORY_SAFETY_WARNINGS I ICH ROZSZCZEPIANIA:
     * Hasło ostrzegawcze: "Hasło ostrzegawcze – UWAGA" (lub "Hasło ostrzegawcze – NIEBEZPIECZEŃSTWO") — format z myślnikiem, zakaz dwukropka po słowie ostrzegawcze!
     * Obowiązkowy kod P101 (art. 17 ust. 1 CLP): "P101 – W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę." – MUSI znaleźć się obok P102 dla produktów konsumenckich stwarzających zagrożenie!
-    * Obowiązkowa prewencja P264 i P280 (przy H319/H318): "P264 – Dokładnie umyć ręce po użyciu." oraz "P280 – Stosować ochronę oczu / ochronę twarzy." — KATEGORYCZNY ZAKAZ POMIJANIA P264!
+    * Obowiązkowa prewencja P264 (przy H319/H318): "P264 – Dokładnie umyć ręce po użyciu." — KATEGORYCZNY ZAKAZ POMIJANIA P264 oraz KATEGORYCZNY ZAKAZ dodawania przemysłowego kodu P280 ("Stosować ochronę oczu / ochronę twarzy.") dla konsumenckiej chemii domowej!
     * Obowiązkowe zabezpieczenie ratunkowe P301+P312: "P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem." – OBOWIĄZKOWE dla płynów do prania/czyszczenia, kapsułek oraz preparatów aerozolowych/sprayów!
     * Pełna procedura ratunkowa oczu: "P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać..." oraz domknięcie "P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady...".
     * 🚨 KATEGORYCZNY ZAKAZ ROZBIJANIA FORMULARZY KOMBINOWANYCH: Procedury P301+P312, P305+P351+P338 oraz P337+P313 stanowią nierozerwalne formuły. Kategoryczny zakaz rozbijania ich na pojedyncze kody w osobnych liniach (P301, P312, P305, P351, P338, P337, P313) i tworzenia urwanych zdań w rodzaju "P301 – W PRZYPADKU POŁKNIĘCIA:"!

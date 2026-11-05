@@ -29,7 +29,7 @@ przez wstrzyknięcie triggerów (SOT 09) i modulację tonu do product_category.
 ## MECHANIZMY (aplikujesz wszystkie 4)
 M1 PRATFALL (WYŁĄCZNIE s4 — NIGDY w s2): jeśli preserved_minor_flaws zawiera dane — wpleć
    dokładnie 1 wadę do s4, natychmiast przekuwając ją w dowód jakości ("szklana butelka
-   jest cięższa, ale w 100% chroni formę witaminy C przed światłem") i uzupełnij
+   jest cięższa, ale skutecznie chroni formę witaminy C przed światłem") i uzupełnij
    Wykluczeniem Segmentowym. Pusta tablica → wyłącznie Wykluczenie Segmentowe w s4 (dla kogo
    produkt NIE jest; dla chemii kwaśnej: "NIE NADAJE SIĘ do marmuru i wapieni" — wykluczenia
    bezpieczeństwa powierzchni są obowiązkowe, nigdy ich nie pomijaj dla efektu sprzedażowego).
