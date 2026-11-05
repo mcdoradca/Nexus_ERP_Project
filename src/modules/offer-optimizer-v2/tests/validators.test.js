@@ -119,6 +119,20 @@ test('V12 normalize_aeo_faq_labels', async (t) => {
         assert.strictEqual(v.normalize_aeo_faq_labels(v.normalize_aeo_faq_labels(canon)), canon);
         assert.strictEqual(v.normalize_aeo_faq_labels(null), null);
         assert.strictEqual(v.normalize_aeo_faq_labels(''), '');
+        const rawFromA6 = '<h2>❓ Mleczko do czyszczenia – najczęstsze pytania</h2><ul>' +
+            '<li>❓ <b>Czy Cif mleczko rysuje powierzchnie?</b></li>' +
+            '<li>✔️ <b>Odpowiedź:</b> Nie rysuje szkliwa.</li>' +
+            '<li>❓ Jak prawidłowo aplikować mleczko?</li>' +
+            '<li>✔️ Nanieś na wilgotną ściereczkę.</li>' +
+            '<li>✔️ <b>Pytanie:</b> Na jak długo wystarcza opakowanie?</li>' +
+            '<li>✔️ <b>Odpowiedź:</b> Na wiele tygodni.</li>' +
+            '<li><b>Czy środek usuwa tłuszcz?</b></li>' +
+            '<li>✔️ <b>Odpowiedź:</b> Tak, skutecznie usuwa tłuszcz.</li>' +
+            '</ul>';
+        const normalized = v.normalize_aeo_faq_labels(rawFromA6);
+        const check = v.aeo_faq_check(normalized);
+        assert.strictEqual(check.valid, true, 'Po normalizacji wszystkie 4 pary Q/A muszą przejść aeo_faq_check: ' + check.errors.join(', '));
+        assert.strictEqual(check.pairs, 4);
     });
 });
 

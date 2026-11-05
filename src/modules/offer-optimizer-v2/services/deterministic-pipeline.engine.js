@@ -914,7 +914,11 @@ function normalizeEmojiAndStructure(htmlStr, sectionNum = 1) {
         const firstEmoji = allowedSet.find(e => trimmed.startsWith(e));
         if (!firstEmoji) {
             trimmed = trimmed.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]\s*/u, '').trim();
-            trimmed = `${defaultLiEmoji} ${trimmed}`;
+            const plainInner = trimmed.replace(/<[^>]+>/g, '').trim();
+            const resolvedLiEmoji = (sectionNum === 2 && ((/\?\s*$/.test(plainInner) && !/Odpowiedź:/i.test(plainInner)) || /Pytanie:/i.test(plainInner)))
+                ? '❓'
+                : defaultLiEmoji;
+            trimmed = `${resolvedLiEmoji} ${trimmed}`;
         } else {
             // Usuwamy jakiekolwiek dodatkowe emoji ze środka tekstu <li> (wymóg V7 emoji_structure_check)
             const rest = trimmed.substring(firstEmoji.length).replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, '');

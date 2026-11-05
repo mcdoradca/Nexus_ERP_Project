@@ -52,5 +52,74 @@
       "plyn do prania ktory dlugo pachnie",
       "płyn do prania który nie uczula"
     ]
+  },
+  "generic::multipurpose_cleaner": {
+    "timestamp": 1793901798977,
+    "category_pl": "środek do czyszczenia powierzchni",
+    "suggestions": [
+      "środek do czyszczenia powierzchni",
+      "środek do czyszczenia powierzchni chromowanych",
+      "srodek do czyszczenia powierzchni dla dzieci",
+      "środek do czyszczenia powierzchni metalowych",
+      "środek do czyszczenia powierzchni matowych",
+      "środek do czyszczenia powierzchni inox",
+      "środek do czyszczenia powierzchni lakierowanych",
+      "środek do czyszczenia powierzchni emaliowanych",
+      "środek do czyszczenia powierzchni betonowych",
+      "środek do czyszczenia powierzchni w kuchni"
+    ]
+  },
+  "equilibra::body_cream": {
+    "timestamp": 1793901799392,
+    "category_pl": "balsam i krem pielęgnacyjny",
+    "suggestions": [
+      "czy balsam i krem pielęgnacyjny jest dobry",
+      "czy balsam i krem pielęgnacyjny jest zdrowy",
+      "czy balsam i krem pielęgnacyjny jest",
+      "equilibra balsam",
+      "equilibra balsam do ust",
+      "equilibra balsam do włosów",
+      "equilibra balsam po opalaniu",
+      "equilibra różany balsam do ust z kwasem hialuronowym",
+      "equilibra aloe balsam",
+      "equilibra arganowy balsam do ust",
+      "equilibra arganowy balsam do ust 5 5 ml"
+    ]
+  },
+  "felce azzurra::shower_gel": {
+    "timestamp": 1793901810941,
+    "category_pl": "żel pod prysznic i płyn do kąpieli",
+    "suggestions": [
+      "czy felce azzurra żel do prania",
+      "czy felce azzurra żel do mycia twarzy",
+      "czy felce azzurra żel do twarzy",
+      "żel pod prysznic i płyn do kąpieli baked cinnamon buns treaclemoon",
+      "żel pod prysznic i płyn do kąpieli",
+      "familove żel pod prysznic i płyn do kąpieli",
+      "bobini szampon żel pod prysznic i płyn do kąpieli 3w1",
+      "felce azzurra żel pod prysznic",
+      "felce azzurra żel pod prysznic opinię",
+      "felce azzurra żel",
+      "felce azzurra żel pod prysznic white musk",
+      "felce azzurra żel do mycia"
+    ]
+  },
+  "cif::multipurpose_cleaner": {
+    "timestamp": 1793901811204,
+    "category_pl": "środek do czyszczenia powierzchni",
+    "suggestions": [
+      "środek do czyszczenia powierzchni",
+      "środek do czyszczenia powierzchni chromowanych",
+      "srodek do czyszczenia powierzchni dla dzieci",
+      "środek do czyszczenia powierzchni metalowych",
+      "środek do czyszczenia powierzchni matowych",
+      "środek do czyszczenia powierzchni inox",
+      "środek do czyszczenia powierzchni lakierowanych",
+      "środek do czyszczenia powierzchni emaliowanych",
+      "środek do czyszczenia powierzchni betonowych",
+      "środek do czyszczenia powierzchni w kuchni",
+      "cif srodek do czyszczenia",
+      "cif środek czyszczący"
+    ]
   }
 }

@@ -2190,8 +2190,14 @@ class Orchestrator {
                     if (result[k] && typeof result[k] === 'string') {
                         result[k] = brandResponsibleService.stripContactInfo(result[k]);
                         result[k] = deterministicEngine.sanitizeHtmlClaimsAndStopwords(result[k]);
+                        if (idx === 2) {
+                            result[k] = normalize_aeo_faq_labels(result[k]);
+                        }
                         if (isFullPipelineRun) {
                             result[k] = deterministicEngine.normalizeEmojiAndStructure(result[k], idx);
+                        }
+                        if (idx === 2) {
+                            result[k] = normalize_aeo_faq_labels(result[k]);
                         }
                         result[k] = result[k].replace(/\bDO OCZÓW\b/gi, 'DO OCZU').replace(/::+/g, ':');
                     }

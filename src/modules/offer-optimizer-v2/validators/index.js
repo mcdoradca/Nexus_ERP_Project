@@ -367,16 +367,44 @@ function validate_eu_responsible_person(eu) {
 // Naprawia wyłącznie formę etykiet — NIE zamienia twierdzeń w pytania (to egzekwuje aeo_faq_check).
 function normalize_aeo_faq_labels(html) {
     if (!html || typeof html !== 'string') return html;
-    let res = html.replace(/<(strong|b)>\s*(?:Problem|Question|Pytanie)\s*:\s*([^<]+)<\/\1>/gi, '<$1>Pytanie:</$1> <$1>$2</$1>');
+    let res = html.replace(/<(strong|b)>\s*(?:Problem|Question|Pytanie|Q)\s*(?:\d+\s*)?:\s*([^<]+)<\/\1>/gi, '<$1>Pytanie:</$1> <$1>$2</$1>');
+    res = res.replace(/<(strong|b)>\s*(?:Answer|Rozwiązanie|Odpowiedź|A)\s*(?:\d+\s*)?:\s*([^<]+)<\/\1>/gi, '<$1>Odpowiedź:</$1> <$1>$2</$1>');
 
     // 1. Etykiety pytań: Problem / Question → Pytanie (dwukropek wewnątrz tagu, ewentualny zewnętrzny usuwany)
-    res = res.replace(/(<(strong|b)>\s*)(?:Problem|Question|Pytanie)\s*:?\s*(<\/\2>)(\s*:)?/gi, '$1Pytanie:$3');
+    res = res.replace(/(<(strong|b)>\s*)(?:Problem|Question|Pytanie|Q)\s*(?:\d+\s*)?:?\s*(<\/\2>)(\s*:)?/gi, '$1Pytanie:$3');
     // 2. Etykiety odpowiedzi: Answer / Rozwiązanie → Odpowiedź
-    res = res.replace(/(<(strong|b)>\s*)(?:Answer|Rozwiązanie|Odpowiedź)\s*:?\s*(<\/\2>)(\s*:)?/gi, '$1Odpowiedź:$3');
+    res = res.replace(/(<(strong|b)>\s*)(?:Answer|Rozwiązanie|Odpowiedź|A)\s*(?:\d+\s*)?:?\s*(<\/\2>)(\s*:)?/gi, '$1Odpowiedź:$3');
+    res = res.replace(/(<(?:li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)(?:❌|🔴|❓|❔|✔️|✔|✅|☑️|➡️|⭐)?\s*(?:Problem|Question|Pytanie)\s*(?:\d+\s*)?:\s*/gi, '$1❓ <b>Pytanie:</b> ');
+    res = res.replace(/(<(?:li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)(?:✔️|✔|🟢|💡|✅|☑️|➡️|⭐)?\s*(?:Answer|Rozwiązanie|Odpowiedź)\s*(?:\d+\s*)?:\s*/gi, '$1✔️ <b>Odpowiedź:</b> ');
     // 3. Emoji przed etykietą pytania → ❓ (obsługa <li>/<p> i komentarzy <!-- Applied -->)
-    res = res.replace(/(<(?:li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)(?:❌|🔴|❓|❔)?\s*(<(strong|b)>Pytanie:<\/\3>)/g, '$1❓ $2');
+    res = res.replace(/(<(?:li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)(?:❌|🔴|❓|❔|✔️|✔|✅|☑️|➡️|⭐)?\s*(<(strong|b)>Pytanie:<\/\3>)/g, '$1❓ $2');
     // 4. Emoji przed etykietą odpowiedzi → ✔️
-    res = res.replace(/(<(?:li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)(?:✔️|✔|🟢|💡|✅|☑️)?\s*(<(strong|b)>Odpowiedź:<\/\3>)/g, '$1✔️ $2');
+    res = res.replace(/(<(?:li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)(?:✔️|✔|🟢|💡|✅|☑️|➡️|⭐)?\s*(<(strong|b)>Odpowiedź:<\/\3>)/g, '$1✔️ $2');
+
+    res = res.replace(/(<(li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)([\s\S]*?)(<\/\2>)/gi, (full, openTag, tagName, inner, closeTag) => {
+        const trimmed = inner.trim();
+        if (!trimmed) return full;
+        if (/^❓\s*<(?:strong|b)>Pytanie:<\/(?:strong|b)>/i.test(trimmed)) return full;
+        if (/^✔️\s*<(?:strong|b)>Odpowiedź:<\/(?:strong|b)>/i.test(trimmed)) return full;
+
+        if (/^❓\s*/.test(trimmed)) {
+            const rest = trimmed.replace(/^❓\s*/, '');
+            return `${openTag}❓ <b>Pytanie:</b> ${rest}${closeTag}`;
+        }
+
+        const plainText = trimmed.replace(/<[^>]+>/g, '').trim();
+        if (/\?\s*$/.test(plainText) && !/Odpowiedź:/i.test(plainText)) {
+            const rest = trimmed.replace(/^(?:✔️|✔|✅|☑️|➡️|⭐|❓|❔|❌|🔴)\s*/u, '');
+            return `${openTag}❓ <b>Pytanie:</b> ${rest}${closeTag}`;
+        }
+
+        if (/^✔️\s*/.test(trimmed) && !/\?\s*$/.test(plainText) && !/Pytanie:/i.test(plainText) && plainText.length > 0) {
+            const rest = trimmed.replace(/^✔️\s*/, '');
+            return `${openTag}✔️ <b>Odpowiedź:</b> ${rest}${closeTag}`;
+        }
+
+        return full;
+    });
 
     return res;
 }
