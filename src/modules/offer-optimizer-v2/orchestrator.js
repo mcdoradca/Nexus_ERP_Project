@@ -194,7 +194,10 @@ const sanitizeSection6Html = (htmlStr) => {
     // 6. Standaryzacja zwrotu EUH208 / EUH206
     res = res.replace(/(EUH208|EUH206):/gi, '$1 –');
 
-    // 7. Eliminacja osieroconych nagłówków okolicznościowych, jeśli w opisie jest już pełna formuła
+    // 7. Eliminacja przemysłowego nakazu P280 (ochrona oczu / ochrona twarzy) ze środków chemii domowej
+    res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<(?:b|strong)>[^<]*<\/(?:b|strong)>\s*)?P280\s*[–:-]\s*[^<]*<\/li>\s*/gi, '');
+
+    // 7b. Eliminacja osieroconych nagłówków okolicznościowych, jeśli w opisie jest już pełna formuła
     if (/P301\+P312/.test(res)) {
         res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️)?\s*(?:<(?:b|strong)>[^<]*<\/(?:b|strong)>\s*)?P301\s*–\s*W\s+PRZYPADKU\s+POŁKNIĘCIA:\s*<\/li>/gi, '');
     }
@@ -605,6 +608,12 @@ class Orchestrator {
         }
 
         const resolveResponsiblePerson = (extractedBrand, productName, descResult) => {
+            if (descResult && descResult.name && /unilever\s+europe\s+b\.?v\.?/i.test(descResult.name)) {
+                const itUnilever = brandResponsibleService.findResponsibleEntity('unilever', productName);
+                if (itUnilever) {
+                    return { source: 'brand_registry', data: itUnilever };
+                }
+            }
             if (descResult && descResult.name && descResult.address_eu && descResult.contact) {
                 return { source: 'description', data: descResult };
             }

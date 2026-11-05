@@ -49,10 +49,10 @@
       "brands": ["suarez sweet home", "sweet home", "sweet home collection", "marki suarez", "sweet", "suarez"]
     },
     "unilever": {
-      "name": "Unilever Europe B.V.",
-      "address_eu": "Weena 455, 3013 AL Rotterdam, Holandia",
-      "contact": "consumer-service.nl@unilever.com",
-      "brands": ["cif", "cif professional", "coccolino", "dove", "rexona", "domestos", "unilever"]
+      "name": "Unilever Italia Mkt. Operations S.r.l.",
+      "address_eu": "Via Paolo di Dono 3/A, 00142 Roma (RM), Włochy",
+      "contact": "consumer-service.it@unilever.com",
+      "brands": ["cif", "cif professional", "coccolino", "dove", "rexona", "domestos", "svelto", "lysoform", "mentadent", "sunsilk", "clear", "unilever"]
     },
     "procter_gamble": {
       "name": "Procter & Gamble S.r.l.",

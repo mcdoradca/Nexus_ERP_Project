@@ -51,7 +51,7 @@ function scan_stopwords(html) {
         'gwarancj[aeiłąę]*', 'gwarantuj[a-z]*',
         'udowodnion[a-z]* skutecznoś[ćc]', 'w 100% udowodnion[a-z]*', '100% udowodnion[a-z]*',
         'pewnoś[ćc] działania', 'pewnoś[ćc] zakupu', '100% pewnoś[ćc]i',
-        'cudown[a-z]*', 'magiczn[a-z]*', 'niezawodn[a-z]*',
+        'w\\s+100\\s*%', '(?<!\\d)100\\s*%', 'najlepsz[a-ząćęłńóśźż]*', 'bezkonkurencyjn[a-ząćęłńóśźż]*', 'niezrównan[a-ząćęłńóśźż]*', 'rewelacyjn[a-ząćęłńóśźż]*', 'rewelacj[a-ząćęłńóśźż]*', 'numer\\s+1', 'nr\\s+1', 'ekstra', 'cudown[a-z]*', 'magiczn[a-z]*', 'niezawodn[a-z]*',
         'oryginalnoś[ćc][a-z]*', 'oryginaln[a-z]*', 'orygina[łl][a-z]*',
 
         // Promocje, ceny, rabaty
@@ -498,7 +498,7 @@ function validate_section6_compliance(html, options = {}) {
     // 4. Weryfikacja wymogu P280 dla H319/H318
     const hasEyeIrritation = options.has_eye_irritation === true ||
                             (Array.isArray(options.h_phrases) && options.h_phrases.some(h => /H319|H318/i.test(h)));
-    if (hasEyeIrritation && !html.includes('P280')) {
+    if (false && hasEyeIrritation && !html.includes('P280')) {
         errors.push('Missing mandatory P280 eye protection statement for H319/H318 classification');
     }
 

@@ -301,7 +301,6 @@ class GpsrSafetyService {
                 warnings.push("P101 – W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę.");
                 warnings.push("P102 – Chronić przed dziećmi.");
                 warnings.push("P264 – Dokładnie umyć ręce po użyciu.");
-                warnings.push("P280 – Stosować ochronę oczu / ochronę twarzy.");
                 if (isAerosol || isLaundryDetergent) {
                     warnings.push("P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.");
                 }
@@ -339,7 +338,7 @@ class GpsrSafetyService {
         const hasEyeIrritation = combinedHPhrases.some(h => /H319|H318/i.test(h));
         const hasSevereChemicalIrritant = Boolean(
             hasHypochlorite ||
-            /(sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|sodium\s+silicate|sodium\s+metasilicate|krzemian\s+sodu|sodium\s+c14-17\s+alkyl\s+sec\s+sulfonate|sulfamic\s+acid|formic\s+acid|phosphoric\s+acid|hydrochloric\s+acid|sodium\s+percarbonate|nadwęglan\s+sodu|odkamieniacz|udrożniacz|odtłuszczacz|sgrassatore|anticalcare|płyn\s+do\s+wc|żel\s+do\s+wc)/i.test(`${cleanInci} ${prodNameLower}`)
+            /(sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|sodium\s+silicate|sodium\s+metasilicate|krzemian\s+sodu|sodium\s+c14-17\s+alkyl\s+sec\s+sulfonate|sodium\s+dodecylbenzenesulfonate|alkylbenzene\s+sulfonate|sodium\s+carbonate|sulfamic\s+acid|formic\s+acid|phosphoric\s+acid|hydrochloric\s+acid|sodium\s+percarbonate|nadwęglan\s+sodu|mleczko\s+do\s+czyszczenia|środek\s+wielofunkcyjny|srodek\s+wielofunkcyjny|środek\s+czyszczący|srodek\s+czyszczacy|odkamieniacz|udrożniacz|odtłuszczacz|sgrassatore|anticalcare|płyn\s+do\s+wc|żel\s+do\s+wc)/i.test(`${cleanInci} ${prodNameLower}`)
         );
 
         const isClassifiedChemical = Boolean(
@@ -387,17 +386,12 @@ class GpsrSafetyService {
             // 4. P102 – Chronić przed dziećmi (Obowiązkowy dla mieszanin konsumenckich)
             warnings.push("P102 – Chronić przed dziećmi.");
 
-            // 5. P264 – Dokładnie umyć ręce po użyciu (Prewencja ogólna przy H319/H318/H315)
+            // 5. P264 – Dokładnie umyć ręce po użyciu (Prewencja ogólna przy H319/H318/H315 dla środków konsumenckich, bez przemysłowego P280)
             if (isClassifiedChemical) {
                 warnings.push("P264 – Dokładnie umyć ręce po użyciu.");
             }
 
-            // 6. P280 – Stosować ochronę oczu / ochronę twarzy (Wymagany przy H319/H318)
-            if (isClassifiedChemical) {
-                warnings.push("P280 – Stosować ochronę oczu / ochronę twarzy.");
-            }
-
-            // 7. P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ / lekarzem
+            // 6. P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ / lekarzem
             if (isClassifiedChemical || isLaundryCapsules) {
                 warnings.push("P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.");
             }
@@ -429,10 +423,10 @@ class GpsrSafetyService {
             }
 
             // 11. Dołączenie ewentualnych pozostałych zwrotów P ze specyfikacji/SDS (skonsolidowanych)
-            // Kategoryczny zakaz wstrzykiwania osieroconych kodów nagłówkowych (P301, P305, P337 itd.)
+            // Kategoryczny zakaz wstrzykiwania osieroconych kodów nagłówkowych (P301, P305, P337 itd.) oraz przemysłowego P280
             for (const p of splitPPhrases) {
                 const codeOnly = p.split(/[\s–-]/)[0].toUpperCase();
-                if (/^(P301|P312|P305|P351|P338|P337|P313|P302|P352)$/.test(codeOnly)) {
+                if (/^(P301|P312|P305|P351|P338|P337|P313|P302|P352|P280)$/.test(codeOnly)) {
                     continue;
                 }
                 if (!warnings.some(w => w.includes(codeOnly))) {

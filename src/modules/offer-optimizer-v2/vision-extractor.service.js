@@ -164,16 +164,23 @@ const frontVisionSchema = {
 
 function sanitizeVisionFrontText(str) {
     if (!str || typeof str !== 'string') return str;
-    return str
+    let cleaned = str
         // 1. Tarcza BPR 528/2012 (Biobójcze -> Higieniczne)
         .replace(/\b(antybakteryjn[a-ząćęłńóśźż]*|przeciwbakteryjn[a-ząćęłńóśźż]*|antibatteric[oaie]|antibacterial)\b/gi, 'higienicznie oczyszczający')
         .replace(/\b(przeciwwirusow[a-ząćęłńóśźż]*|antywirusow[a-ząćęłńóśźż]*|wirusobójcz[a-ząćęłńóśźż]*|antiviral)\b/gi, 'głęboko oczyszczający')
         .replace(/\b(biobójcz[a-ząćęłńóśźż]*|bakteriobójcz[a-ząćęłńóśźż]*|grzybobójcz[a-ząćęłńóśźż]*|pleśniobójcz[a-ząćęłńóśźż]*)\b/gi, 'intensywnie czyszczący')
         .replace(/\b(dezynfekuj[a-ząćęłńóśźż]*|dezynfekcj[a-ząćęłńóśźż]*|odkażaj[a-ząćęłńóśźż]*|odkaża[a-ząćęłńóśźż]*|igienizzante|disinfettante|sanitizing)\b/gi, 'zapewniający higieniczną czystość')
         .replace(/\b(zabija|usuwa|eliminuje|likwiduje)\s+(?:do\s+)?99[.,]9%\s*(?:bakterii|wirusów|zarazków|drobnoustrojów|mikrobów)\b/gi, 'skutecznie usuwa zanieczyszczenia i osady')
-        // 2. Usuwanie obcojęzycznych wtrąceń w nawiasach np. "(multiuso)", "(Potere Sbiancante)", "(Schiuma Potente)", "(Spray Attivo)", "(z wybielaczem)"
+        // 2. Eliminacja zakazanych przez Allegro deklaracji "100%" i "99,9%" z etykiety frontowej (z zachowaniem fleksji polskiej)
+        .replace(/\busuwa\s+(?:nawet\s+|do\s+)?100\s*%\s+uporczywego\s+brudu\b/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa uporczywy brud' : 'skutecznie usuwa uporczywy brud')
+        .replace(/\busuwa\s+(?:nawet\s+|do\s+)?100\s*%\s+tłuszczu\b/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa tłuszcz' : 'skutecznie usuwa tłuszcz')
+        .replace(/\busuwa\s+(?:nawet\s+|do\s+)?100\s*%\s+kamienia\b/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa kamień' : 'skutecznie usuwa kamień')
+        .replace(/\busuwa\s+(?:nawet\s+|do\s+)?100\s*%/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa całość' : 'skutecznie usuwa całość')
+        .replace(/\bw\s+100\s*%/gi, 'w pełni')
+        .replace(/(?<!\d)(?:100|99[.,]9)\s*%\s*/g, '')
+        // 3. Usuwanie obcojęzycznych wtrąceń w nawiasach np. "(multiuso)", "(Potere Sbiancante)", "(Schiuma Potente)", "(Spray Attivo)", "(z wybielaczem)"
         .replace(/\s*\(\s*(?:multiuso|potere\s+sbiancante|schiuma\s+potente|spray\s+attivo|formula\s+migliorata|azione\s+sgrassante|senza\s+aloni|senza\s+risciacquo|con\s+candeggina|candeggina|z\s+wybielaczem|pulito\s+profondo|profumo\s+di\s+pulito)\s*\)/gi, '')
-        // 3. Tłumaczenie włoskich sloganów z etykiety frontowej na naturalny język polski
+        // 4. Tłumaczenie włoskich sloganów z etykiety frontowej na naturalny język polski
         .replace(/\bformula\s+migliorata\b/gi, 'Ulepszona formuła')
         .replace(/\bspray\s+attivo\b/gi, 'Aktywny spray')
         .replace(/\bpotere\s+sbiancante\b/gi, 'Siła wybielania')
@@ -188,6 +195,10 @@ function sanitizeVisionFrontText(str) {
         .replace(/\bmultiuso\b/gi, 'wielofunkcyjny')
         .replace(/\s{2,}/g, ' ')
         .trim();
+    if (cleaned.length > 0 && /^[a-ząćęłńóśźż]/.test(cleaned) && /^[A-ZĄĆĘŁŃÓŚŹŻ0-9]/.test(str.trim())) {
+        cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    }
+    return cleaned;
 }
 
 /**

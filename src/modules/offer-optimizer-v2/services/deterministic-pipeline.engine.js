@@ -234,8 +234,10 @@ function sanitizeOfferTitle(rawTitle) {
 
     // C. Eliminacja słów zakazanych przez Regulamin Allegro 2026 (§A Stop-words) z tytułu
     title = title
+        .replace(/\b(?:w\s+)?100\s*%\b/gi, '')
+        .replace(/(?<!\d)100\s*%/g, '')
         .replace(/\b(?:100%\s*)?(?:orygina[łl][a-ząćęłńóśźż]*|oryginaln[a-ząćęłńóśźż]*)\b/gi, '')
-        .replace(/\b(?:gwarancj[a-ząćęłńóśźż]*|gwarantuj[a-ząćęłńóśźż]*|niezawodn[a-ząćęłńóśźż]*|cudown[a-ząćęłńóśźż]*|magiczn[a-ząćęłńóśźż]*)\b/gi, '')
+        .replace(/\b(?:gwarancj[a-ząćęłńóśźż]*|gwarantuj[a-ząćęłńóśźż]*|niezawodn[a-ząćęłńóśźż]*|cudown[a-ząćęłńóśźż]*|magiczn[a-ząćęłńóśźż]*|najlepsz[a-ząćęłńóśźż]*|bezkonkurencyjn[a-ząćęłńóśźż]*|niezrównan[a-ząćęłńóśźż]*|rewelacyjn[a-ząćęłńóśźż]*|rewelacj[a-ząćęłńóśźż]*|ekstra|numer\s+1|nr\s+1)\b/gi, '')
         .replace(/\b(?:hit\s+cenowy|super\s+cena|niska\s+cena|cena\s+hurtowa|najniższa\s+cena|darmowa\s+dostawa|szybka\s+wysyłka|wysyłka\s+24h|kup\s+teraz|zamów\s+teraz|tylko\s+u\s+nas)\b/gi, '')
         .replace(/\b(?:bestseller[a-ząćęłńóśźż]*|promocj[a-ząćęłńóśźż]*|promocyjn[a-ząćęłńóśźż]*|wyprzeda[żz][a-ząćęłńóśźż]*|okazj[a-ząćęłńóśźż]*|okazyjn[a-ząćęłńóśźż]*|gratis[a-ząćęłńóśźż]*|rabat[a-ząćęłńóśźż]*|upust[a-ząćęłńóśźż]*|zniżk[a-ząćęłńóśźż]*|najtaniej|tanio|tani[a-ząćęłńóśźż]*|allegro|aukcj[a-ząćęłńóśźż]*|polecam[a-ząćęłńóśźż]*|nowoś[ćc][a-ząćęłńóśźż]*|mega|super|hit)\b/gi, '');
 
@@ -327,11 +329,19 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr) {
         })
         .replace(/\b(?:w\s+100%\s+udowodnion[a-ząćęłńóśźż]*|100%\s+udowodnion[a-ząćęłńóśźż]*|udowodnion[a-ząćęłńóśźż]*\s+skutecznoś[ćc])\b/gi, 'potwierdzone działanie użytkowe')
         .replace(/\b(?:pewnoś[ćc]\s+działania|pewnoś[ćc]\s+zakupu|100%\s+pewnoś[ćc]i)\b/gi, 'przewidywalny efekt użytkowy')
-        .replace(/\b(?:cudown|magiczn|niezawodn)(y|a|e|ym|ych|ego|ej|ą|ie)\b/gi, (_, s) => {
+        // Deklaracje "100%" i superlatywy marketingowe zakazane przez Allegro (z zachowaniem fleksji polskiej)
+        .replace(/\busuwa\s+(?:nawet\s+|do\s+)?100\s*%\s+uporczywego\s+brudu\b/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa uporczywy brud' : 'skutecznie usuwa uporczywy brud')
+        .replace(/\busuwa\s+(?:nawet\s+|do\s+)?100\s*%\s+tłuszczu\b/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa tłuszcz' : 'skutecznie usuwa tłuszcz')
+        .replace(/\busuwa\s+(?:nawet\s+|do\s+)?100\s*%\s+kamienia\b/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa kamień' : 'skutecznie usuwa kamień')
+        .replace(/\busuwa\s+(?:nawet\s+|do\s+)?100\s*%/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa całość' : 'skutecznie usuwa całość')
+        .replace(/\bw\s+100\s*%/gi, 'w pełni')
+        .replace(/(?<!\d)100\s*%\s*/g, '')
+        .replace(/\b(?:najlepsz|bezkonkurencyjn|niezrównan|rewelacyjn|cudown|magiczn|niezawodn)(y|a|e|ym|ych|ego|ej|ą|ie)\b/gi, (_, s) => {
             const low = s.toLowerCase();
             if (low === 'ie') return 'skutecznie';
             return `skuteczn${low}`;
         })
+        .replace(/\b(?:rewelacj[a-ząćęłńóśźż]*|numer\s+1|nr\s+1|ekstra)\b/gi, 'wysoka skuteczność')
         // Promocje, ceny, CTA
         .replace(/\b(?:najniższa\s+cena|nisk[a-ząćęłńóśźż]*\s+cen[a-ząćęłńóśźż]*|super\s+cen[a-ząćęłńóśźż]*|cen[a-ząćęłńóśźż]*\s+hurtow[a-ząćęłńóśźż]*|darmow[a-ząćęłńóśźż]*\s+dostaw[a-ząćęłńóśźż]*|za\s+darmo|kup\s+teraz|kupuj\s+teraz|zamów\s+teraz|dodaj\s+do\s+koszyka|tylko\s+u\s+nas|sprawdź\s+to|szybka\s+wysyłka|wysyłk[a-ząćęłńóśźż]*\s+24h|hit[a-ząćęłńóśźż]*\s+cenow[a-ząćęłńóśźż]*|lepsze\s+niż|w\s+stylu)\b/gi, 'wysoka wydajność')
         .replace(/\b(?:gratis[a-ząćęłńóśźż]*|darmow[a-ząćęłńóśźż]*|najtaniej|tanio|tani[a-ząćęłńóśźż]*|promocj[a-ząćęłńóśźż]*|promocyjn[a-ząćęłńóśźż]*|wyprzeda[żz][a-ząćęłńóśźż]*|bestseller[a-ząćęłńóśźż]*|nowoś[ćc][a-ząćęłńóśźż]*|rabat[a-ząćęłńóśźż]*|upust[a-ząćęłńóśźż]*|zniżk[a-ząćęłńóśźż]*|kliknij|allegro|aukcj[a-ząćęłńóśźż]*|odpowiednik|zamiennik)\b/gi, 'produkt')
@@ -698,13 +708,19 @@ function buildDeterministicSection5({
 
     const addParam = (label, val) => {
         if (!val || typeof val !== 'string') return;
-        const trimmed = cleanItalianAndClaims(val);
+        let trimmed = cleanItalianAndClaims(val);
         if (!trimmed || /^(null|undefined|brak|brak danych|n\/a|-)$/i.test(trimmed)) return;
+        if (trimmed.length > 0 && /^[a-ząćęłńóśźż]/.test(trimmed) && /^[A-ZĄĆĘŁŃÓŚŹŻ0-9]/.test(val.trim())) {
+            trimmed = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+        }
         items.push(`<li>➡️ <b>${label}:</b> ${trimmed}</li>`);
     };
 
     const resolvedBrand = brand || features?.['Marka'] || features?.['Brand'] || '';
-    const resolvedManufacturer = manufacturer || features?.['Producent'] || '';
+    let resolvedManufacturer = manufacturer || features?.['Producent'] || '';
+    if (/unilever\s+europe\s+b\.?v\.?/i.test(resolvedManufacturer)) {
+        resolvedManufacturer = 'Unilever Italia Mkt. Operations S.r.l.';
+    }
     const resolvedLine = line || features?.['Linia'] || '';
     const resolvedPostac = visionFeatures?.['Postać'] || features?.['Postać'] || features?.['Postac'] || features?.['Forma'] || '';
     const rawCap = capacity || visionFeatures?.['Pojemność / Waga'] || visionFeatures?.['Pojemność'] || visionFeatures?.['Waga'] || features?.['Pojemność'] || features?.['Waga'] || '';
@@ -830,7 +846,15 @@ function buildDeterministicSection6({
     }
 
     if (euResponsiblePerson && (euResponsiblePerson.name || typeof euResponsiblePerson === 'string')) {
-        const formattedEu = brandResponsibleService.formatForHtmlDescription(euResponsiblePerson);
+        let normalizedEu = euResponsiblePerson;
+        if (typeof euResponsiblePerson === 'object' && /unilever\s+europe\s+b\.?v\.?/i.test(String(euResponsiblePerson.name || ''))) {
+            normalizedEu = {
+                name: 'Unilever Italia Mkt. Operations S.r.l.',
+                address_eu: 'Via Paolo di Dono 3/A, 00142 Roma (RM), Włochy',
+                contact: 'consumer-service.it@unilever.com'
+            };
+        }
+        const formattedEu = brandResponsibleService.formatForHtmlDescription(normalizedEu);
         if (formattedEu) {
             listItems.push(`<li>➡️ <b>Podmiot odpowiedzialny w UE:</b> ${formattedEu}</li>`);
         }
