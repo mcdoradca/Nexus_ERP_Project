@@ -47,7 +47,7 @@ test('V3 scan_stopwords', async (t) => {
     assert.strictEqual(v.scan_stopwords('Polecamy kupić na Allegro').length, 2, 'Wykrywa polecamy i allegro');
     assert.ok(v.scan_stopwords('Przechowywać w oryginalnym opakowaniu w suchym miejscu.').length > 0, 'Wykrywa zakazane słowo oryginalnym');
     assert.strictEqual(v.scan_stopwords('Przechowywać w szczelnie zamkniętym opakowaniu w suchym miejscu.').length, 0, 'Czysty opis bez zakazanych słów przechodzi');
-    assert.strictEqual(v.scan_stopwords('Gwarantujemy 100% oryginalny produkt z Włoch.').length, 2, 'Wykrywa gwarantujemy i oryginalny');
+    assert.strictEqual(v.scan_stopwords('Gwarantujemy 100% oryginalny produkt z Włoch.').length, 3, 'Wykrywa gwarantujemy, 100% i oryginalny');
     assert.strictEqual(v.scan_stopwords(null).length, 0);
 });
 

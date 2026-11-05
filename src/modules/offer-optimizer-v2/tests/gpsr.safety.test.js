@@ -177,7 +177,7 @@ test('GPSR Safety Service - Wyprowadzanie ostrzeżeń ze składu INCI i SDS', as
         assert.ok(cleaned.includes('Wytyczne bezpieczeństwa (GPSR)'), 'Usunięto poprawną etykietę GPSR');
     });
 
-    await t.test('ADR-0165: Chemia H319 generuje Hasło ostrzegawcze z myślnikiem, P264, P280 i nierozerwalne formuły kombinowane', () => {
+    await t.test('ADR-0165/ADR-0168: Chemia H319 generuje Hasło ostrzegawcze z myślnikiem, P264 (bez przemysłowego P280) i nierozerwalne formuły kombinowane', () => {
         const res = gpsrSafetyService.generateGpsrWarnings({
             productName: 'Płyn do prania uniwersalny 1,5L',
             inci: 'Aqua, Sodium Laureth Sulfate, Parfum, Limonene',
@@ -189,9 +189,9 @@ test('GPSR Safety Service - Wyprowadzanie ostrzeżeń ze składu INCI i SDS', as
         assert.ok(res.warnings.includes('Hasło ostrzegawcze – UWAGA'), 'Brak Hasło ostrzegawcze – UWAGA');
         assert.strictEqual(res.warnings.includes('Hasło ostrzegawcze: UWAGA'), false, 'Wykryto błędny dwukropek w hasle ostrzegawczym');
 
-        // 2. Prewencja P264 obok P280
+        // 2. Prewencja P264 (bez przemysłowego P280 o ochronie twarzy dla chemii domowej)
         assert.ok(res.warnings.includes('P264 – Dokładnie umyć ręce po użyciu.'), 'Brak obowiązkowego kodu prewencji P264');
-        assert.ok(res.warnings.includes('P280 – Stosować ochronę oczu / ochronę twarzy.'), 'Brak kodu P280');
+        assert.strictEqual(res.warnings.some(w => w.startsWith('P280')), false, 'Konsumencka chemia domowa nie może zawierać przemysłowego kodu P280');
 
         // 3. Pełne formuły kombinowane
         assert.ok(res.warnings.some(w => w.startsWith('P301+P312 – ')), 'Brak pełnej formuły P301+P312');
@@ -256,7 +256,7 @@ test('GPSR Safety Service - Wyprowadzanie ostrzeżeń ze składu INCI i SDS', as
         assert.ok(res.warnings.some(w => w.startsWith('H319 – ')), 'Brak zwrotu H319 (działanie drażniące na oczy)');
         assert.ok(res.warnings.some(w => w.startsWith('P102 – ')), 'Brak zwrotu P102');
         assert.ok(res.warnings.some(w => w.startsWith('P264 – ')), 'Brak zwrotu P264');
-        assert.ok(res.warnings.some(w => w.startsWith('P280 – ')), 'Brak zwrotu P280');
+        assert.strictEqual(res.warnings.some(w => w.startsWith('P280')), false, 'Konsumencka chemia domowa nie może zawierać przemysłowego zwrotu P280');
         assert.ok(res.warnings.some(w => w.startsWith('P302+P352 – ')), 'Brak zwrotu P302+P352');
         assert.ok(res.warnings.some(w => w.startsWith('P305+P351+P338 – ')), 'Brak zwrotu P305+P351+P338');
         assert.ok(res.warnings.some(w => w.startsWith('EUH206 – Uwaga! Nie stosować razem z innymi produktami. Może wydzielać niebezpieczne gazy (chlor).')), 'Brak obowiązkowego zwrotu EUH206 dla wybielacza chlorowego');
