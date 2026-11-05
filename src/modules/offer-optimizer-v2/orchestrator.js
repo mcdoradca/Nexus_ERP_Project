@@ -191,8 +191,8 @@ const sanitizeSection6Html = (htmlStr) => {
     // 5. Likwidacja podwójnych dwukropków "::" w całym stringu
     res = res.replace(/::+/g, ':');
 
-    // 6. Standaryzacja zwrotu EUH208
-    res = res.replace(/(EUH208):/gi, '$1 –');
+    // 6. Standaryzacja zwrotu EUH208 / EUH206
+    res = res.replace(/(EUH208|EUH206):/gi, '$1 –');
 
     // 7. Eliminacja osieroconych nagłówków okolicznościowych, jeśli w opisie jest już pełna formuła
     if (/P301\+P312/.test(res)) {
@@ -623,6 +623,17 @@ class Orchestrator {
         const brandName = extracted.brand?.value || product?.brand?.name || '';
         const productName = product?.text_fields?.name || '';
         const finalEu = resolveResponsiblePerson(brandName, productName, descResult);
+
+        if (extracted.capacity?.value) {
+            const normCap = deterministicEngine.normalizeCapacityValue(
+                extracted.capacity.value,
+                productName,
+                this.state.vision_extracted_features || {}
+            );
+            if (normCap) {
+                extracted.capacity.value = normCap;
+            }
+        }
         
         this.state.extracted_data = {
             inci: extracted.inci,
@@ -664,11 +675,17 @@ class Orchestrator {
                 }
             }
         }
-        if (product?.text_fields?.name && /(p[lł]yn do prania|kapsu[lł]ki do prania|odplamiacz|proszek do prania|p[lł]yn do p[lł]ukania|detergent|odkamieniacz|udro[żz]niacz|p[lł]yn do wc)/i.test(product.text_fields.name)) {
-            if (!reasons.includes('CATEGORY_CHEMICAL')) reasons.push('CATEGORY_CHEMICAL');
-        }
-        if (extracted.clp_signal_word?.value || product?.clp_signal_word) {
-            if (!reasons.includes('CATEGORY_CHEMICAL')) reasons.push('CATEGORY_CHEMICAL');
+        const isDetectedChemical = deterministicEngine.detectHouseholdChemical({
+            productName: product?.text_fields?.name,
+            category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name || product?.category || product?.group,
+            inci: extracted.inci?.value,
+            detergentComposition: extracted.detergent_composition?.value,
+            visionFeatures: this.state.vision_extracted_features || {},
+            features: product?.text_fields?.features || product?.features || {},
+            isChemical: Boolean(extracted.clp_signal_word?.value || product?.clp_signal_word || product?.sds_required)
+        });
+        if (isDetectedChemical && !reasons.includes('CATEGORY_CHEMICAL')) {
+            reasons.push('CATEGORY_CHEMICAL');
         }
         reasons.push('SDS_STATUS_UNKNOWN');
         
@@ -1361,6 +1378,8 @@ class Orchestrator {
                     productName: product?.text_fields?.name,
                     brand: extracted.brand?.value || product?.brand?.name,
                     isChemical: Boolean(this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL')),
+                    inci: this.state.extracted_data.inci?.value,
+                    detergentComposition: this.state.extracted_data.detergent_composition?.value,
                     visionFeatures: this.state.vision_extracted_features || {},
                     features: product?.text_fields?.features || {}
                 });
@@ -1496,13 +1515,21 @@ class Orchestrator {
                 this.state.node_status['A4'] = 'RUNNING';
                 this.emitState();
                 try {
-                    const isActualHouseholdChemicalA4 = Boolean(
-                        this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL') || 
-                        product?.sds_required || 
-                        product?.clp_signal_word ||
-                        this.state.extracted_data.clp_signal_word?.value ||
-                        this.state.extracted_data.compliance?.data
-                    );
+                    const isActualHouseholdChemicalA4 = deterministicEngine.detectHouseholdChemical({
+                        isChemical: Boolean(
+                            this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL') || 
+                            product?.sds_required || 
+                            product?.clp_signal_word ||
+                            this.state.extracted_data.clp_signal_word?.value ||
+                            this.state.extracted_data.compliance?.data
+                        ),
+                        productName: product?.text_fields?.name,
+                        category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
+                        inci: this.state.extracted_data.inci?.value,
+                        detergentComposition: this.state.extracted_data.detergent_composition?.value,
+                        visionFeatures: this.state.vision_extracted_features || {},
+                        features: product?.text_fields?.features || product?.features || {}
+                    });
                     const complianceData = this.state.extracted_data.compliance?.data || {
                         clp_signal_word: this.state.extracted_data.clp_signal_word?.value,
                         clp_h_phrases: this.state.extracted_data.clp_h_phrases?.value ? (Array.isArray(this.state.extracted_data.clp_h_phrases.value) ? this.state.extracted_data.clp_h_phrases.value : [this.state.extracted_data.clp_h_phrases.value]) : [],
@@ -1714,13 +1741,22 @@ class Orchestrator {
             this.state.node_status['A5'] = 'RUNNING';
             this.emitState();
             const gpsrSafetyService = require('./services/gpsr.safety.service');
-            const isActualHouseholdChemical = Boolean(
-                this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL') || 
-                product?.sds_required || 
-                product?.clp_signal_word ||
-                this.state.extracted_data.clp_signal_word?.value ||
-                this.state.extracted_data.compliance?.data
-            );
+            const isActualHouseholdChemical = deterministicEngine.detectHouseholdChemical({
+                isChemical: Boolean(
+                    this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL') || 
+                    product?.sds_required || 
+                    product?.clp_signal_word ||
+                    this.state.extracted_data.clp_signal_word?.value ||
+                    this.state.extracted_data.compliance?.data
+                ),
+                a4CategoryType: this.state.a4_result?.category_type,
+                productName: product?.text_fields?.name,
+                category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
+                inci: this.state.extracted_data.inci?.value,
+                detergentComposition: this.state.extracted_data.detergent_composition?.value,
+                visionFeatures: this.state.vision_extracted_features || {},
+                features: product?.text_fields?.features || product?.features || {}
+            });
             const complianceData = this.state.extracted_data.compliance?.data || {
                 clp_signal_word: this.state.extracted_data.clp_signal_word?.value,
                 clp_h_phrases: this.state.extracted_data.clp_h_phrases?.value ? (Array.isArray(this.state.extracted_data.clp_h_phrases.value) ? this.state.extracted_data.clp_h_phrases.value : [this.state.extracted_data.clp_h_phrases.value]) : [],
@@ -1733,7 +1769,11 @@ class Orchestrator {
                 compliance: complianceData,
                 hPhrases: complianceData.clp_h_phrases,
                 pPhrases: complianceData.clp_p_phrases,
-                features: product?.features || {}
+                features: {
+                    ...(product?.features || {}),
+                    ...(product?.text_fields?.features || {}),
+                    ...(this.state.vision_extracted_features || {})
+                }
             });
 
             if (this.state.mandatory_clp_warnings && Array.isArray(this.state.mandatory_clp_warnings)) {
@@ -1945,11 +1985,32 @@ class Orchestrator {
             const sanitizedNameForA6 = product?.text_fields?.name
                 ? deterministicEngine.sanitizeOfferTitle(product.text_fields.name)
                 : undefined;
+            const isActualHouseholdChemicalA6 = deterministicEngine.detectHouseholdChemical({
+                isChemical: Boolean(
+                    this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL') || 
+                    product?.sds_required || 
+                    product?.clp_signal_word ||
+                    this.state.extracted_data.clp_signal_word?.value ||
+                    this.state.extracted_data.compliance?.data
+                ),
+                a4CategoryType: this.state.a4_result?.category_type,
+                productName: product?.text_fields?.name,
+                category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
+                inci: this.state.extracted_data.inci?.value,
+                detergentComposition: this.state.extracted_data.detergent_composition?.value,
+                visionFeatures: this.state.vision_extracted_features || {},
+                features: product?.text_fields?.features || product?.features || {}
+            });
+            const rawCapForA6 = extracted.capacity?.value || this.state.vision_extracted_features?.['Pojemność'] || this.state.vision_extracted_features?.['Pojemność / Waga'] || undefined;
+            const normalizedCapForA6 = rawCapForA6
+                ? deterministicEngine.normalizeCapacityValue(rawCapForA6, product?.text_fields?.name, this.state.vision_extracted_features || {})
+                : undefined;
             const agent6Data = {
                 gtin_ean: this.gtin,
                 product_name: sanitizedNameForA6 || undefined,
+                product_category: isActualHouseholdChemicalA6 ? 'HOUSEHOLD_CHEMISTRY' : 'COSMETICS_BEAUTY',
                 brand: extracted.brand?.value || undefined,
-                capacity: extracted.capacity?.value || this.state.vision_extracted_features?.['Pojemność'] || this.state.vision_extracted_features?.['Pojemność / Waga'] || undefined,
+                capacity: normalizedCapForA6 || rawCapForA6 || undefined,
                 line: extracted.line?.value || undefined,
                 hero_ingredients_front: this.state.vision_extracted_features?.['Składniki wiodące (Front)'] || product?.text_fields?.features?.['Składniki wiodące (Front)'] || undefined,
                 inci: this.state.extracted_data.inci?.value || undefined,
@@ -2000,13 +2061,6 @@ class Orchestrator {
 
                 // Kompilacja deterministycznych sekcji techniczno-prawnych (Sekcja 3 fallback, Sekcja 5, Sekcja 6) w pełnym przebiegu potoku
                 const euData = this.state.extracted_data.eu_responsible_person?.data;
-                const isActualHouseholdChemicalA6 = Boolean(
-                    this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL') || 
-                    product?.sds_required || 
-                    product?.clp_signal_word ||
-                    this.state.extracted_data.clp_signal_word?.value ||
-                    this.state.extracted_data.compliance?.data
-                );
 
                 if (isFullPipelineRun && result.section_1_html) {
                     if (this.state.deterministic_section_3_html) {
@@ -2351,10 +2405,20 @@ class Orchestrator {
                     manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name,
                     require_manufacturer: Boolean(extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name)
                 });
+                const isActualHouseholdChemicalA10 = deterministicEngine.detectHouseholdChemical({
+                    isChemical: Boolean(this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL')),
+                    a4CategoryType: this.state.a4_result?.category_type,
+                    productName: product?.text_fields?.name,
+                    category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
+                    inci: this.state.extracted_data.inci?.value,
+                    detergentComposition: this.state.extracted_data.detergent_composition?.value,
+                    visionFeatures: this.state.vision_extracted_features || {},
+                    features: product?.text_fields?.features || product?.features || {}
+                });
                 const s6Check = validate_section6_compliance(this.state.a7_result.section_6_html, {
-                    has_eye_irritation: Boolean(this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL')),
+                    has_eye_irritation: isActualHouseholdChemicalA10,
                     has_sensitizers: Boolean(this.state.extracted_data.inci?.value && /(linalool|limonene|coumarin|hexyl cinnamal|benzyl salicylate|isothiazolinone)/i.test(this.state.extracted_data.inci.value)),
-                    is_chemical: Boolean(this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL'))
+                    is_chemical: isActualHouseholdChemicalA10
                 });
                 const allowedSourcesList = (this.state.extracted_data.inci?.value || '').split(',').map(s => s.trim());
                 if (this.state.extracted_data.detergent_composition?.value) {

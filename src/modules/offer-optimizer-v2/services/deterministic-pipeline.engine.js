@@ -69,12 +69,135 @@ function cleanFeaturesForPrompt(featuresObj) {
 }
 
 /**
+ * 1b. TWARDA DETEKCJA KATEGORII CHEMII GOSPODARCZEJ / DETERGENTÓW (WE 648/2004 / CLP 1272/2008)
+ * Chroni przed pomyleniem środka czyszczącego/wybielacza (np. Cif Candeggina) z kosmetykiem do skóry/włosów.
+ */
+function detectHouseholdChemical({
+    productName = '',
+    category = '',
+    inci = '',
+    detergentComposition = '',
+    visionFeatures = {},
+    features = {},
+    a4CategoryType = '',
+    isChemical = false,
+    sdsRequired = false,
+    clpSignalWord = '',
+    clpHPhrases = []
+} = {}) {
+    if (isChemical === true || sdsRequired === true) return true;
+    if (a4CategoryType === 'HOUSEHOLD_CHEMISTRY' || a4CategoryType === 'BIOCIDAL_SPECIALIZED') return true;
+    if (clpSignalWord && String(clpSignalWord).trim().length > 0) return true;
+    if (Array.isArray(clpHPhrases) && clpHPhrases.length > 0) return true;
+
+    const textContext = [
+        productName,
+        category,
+        visionFeatures?.['Przeznaczenie (Front)'],
+        visionFeatures?.['Wyróżniki (Etykieta Front)'],
+        visionFeatures?.['Składniki wiodące (Front)'],
+        features?.['Przeznaczenie'],
+        features?.['Zastosowanie'],
+        features?.['Kategoria']
+    ].filter(Boolean).join(' ').toLowerCase();
+
+    if (/(chemia|chemical|biob[oó]jcz|biocid|prani|laundry|detergent|czyszcz|czysto[sś][cć]\s+powierzchni|odkamien|zmywark|dishwash|p[lł]yn do prania|żel do prania|zel do prania|kapsu[lł]ki do prania|odplamiacz|proszek do prania|p[lł]yn do p[lł]ukania|udro[żz]niacz|p[lł]yn do wc|żel do wc|kostka do wc|zawieszka do wc|[sś]rodek wielofunkcyjny|srodek wielofunkcyjny|[sś]rodek czyszcz[aą]cy|srodek czyszczacy|[sś]rodek do czyszczenia|[sś]rodek myj[aą]cy|preparat czyszcz[aą]cy|preparat do czyszczenia|p[lł]yn uniwersalny|plyn uniwersalny|p[lł]yn do mycia|mleczko do czyszczenia|odt[lł]uszczacz|odtluszczacz|wybielacz|do kuchni|do [lł]azien|do pod[lł][oó]g|do szyb|do luster|do mebli|do dywan|do tapicerki|do naczy[nń]|do piekarnik|do grilla|do kabin|do armatury|do fug|czyszczenie powierzchni|zmywalnych powierzchni|powierzchni twardych|t[lł]uszcz kuchenny|od[sś]wie[żz]acz powietrza|neutralizator zapach|poch[lł]aniacz wilgoci|candeggin|sgrassatore|multiuso|anticalcare|pavimenti|lavatrice|lavastoviglie|bucato|ammorbidente|smacchiatore)/i.test(textContext)) {
+        return true;
+    }
+
+    const inciContext = [inci, detergentComposition].filter(Boolean).join(' ').toLowerCase();
+    if (/(sodium\s+hypochlorite|podchloryn\s+sodu|calcium\s+hypochlorite|sodium\s+c14-17\s+alkyl\s+sec\s+sulfonate|sodium\s+dodecylbenzenesulfonate|alkylbenzene\s+sulfonate|sodium\s+silicate|sodium\s+metasilicate|krzemian\s+sodu|phosphonates|fosfoniany|polycarboxylates|polikarboksylany|zeolites|zeolity|optical\s+brightener|fluorescent\s+brightener|rozja[sś]niacze\s+optyczne|sodium\s+percarbonate|nadw[eę]glan\s+sodu|\btaed\b|sulfamic\s+acid|formic\s+acid|anionowe\s+[sś]rodki\s+powierzchniowo\s+czynne|niejonowe\s+[sś]rodki\s+powierzchniowo\s+czynne|zwi[aą]zki\s+wybielaj[aą]ce)/i.test(inciContext)) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * 1c. NORMALIZACJA POJEMNOŚCI / WAGI NETTO (Eliminacja surowych ułamków bez jednostki typu "0,650" -> "650 ml")
+ */
+function normalizeCapacityValue(rawCapacity, productName = '', visionFeatures = {}) {
+    const visionCap = visionFeatures?.['Pojemność / Waga'] || visionFeatures?.['Pojemność'] || visionFeatures?.['Waga'] || '';
+    if (visionCap && /\b(\d+(?:[.,]\d+)?)\s*(ml|l|g|kg|szt\.?|kaps\.?|tabletek|kapsułek|prań)\b/i.test(String(visionCap))) {
+        const m = String(visionCap).trim().match(/^(\d+(?:[.,]\d+)?)\s*(ml|l|g|kg|szt\.?|kaps\.?|tabletek|kapsułek|prań)$/i);
+        if (m) {
+            return `${m[1].replace('.', ',')} ${m[2].toLowerCase()}`;
+        }
+        return String(visionCap).trim();
+    }
+
+    const nameMatch = String(productName || '').match(/\b(\d+(?:[.,]\d+)?)\s*(ml|l|g|kg|szt\.?|kaps\.?|tabletek|kapsułek)\b/i);
+    const rawStr = String(rawCapacity || '').trim();
+
+    if (rawStr) {
+        const rawWithUnit = rawStr.match(/^(\d+(?:[.,]\d+)?)\s*(ml|l|litr|g|kg|gram|szt\.?|kaps\.?|m)\b/i);
+        if (rawWithUnit) {
+            let unit = rawWithUnit[2].toLowerCase();
+            if (unit === 'litr') unit = 'l';
+            if (unit === 'gram') unit = 'g';
+            return `${rawWithUnit[1].replace('.', ',')} ${unit}`;
+        }
+    }
+
+    if (nameMatch) {
+        return `${nameMatch[1].replace('.', ',')} ${nameMatch[2].toLowerCase()}`;
+    }
+
+    if (rawStr && /^\d+(?:[.,]\d+)?$/.test(rawStr)) {
+        const num = parseFloat(rawStr.replace(',', '.'));
+        if (!isNaN(num) && num > 0) {
+            const isSolid = /\b(proszek|puder|talk|kostk|mydło w kostce|sól|tabletki)\b/i.test(`${productName} ${visionFeatures?.['Postać'] || ''}`);
+            if (num < 1) {
+                return `${Math.round(num * 1000)} ${isSolid ? 'g' : 'ml'}`;
+            }
+            if (num < 10) {
+                return `${rawStr.replace('.', ',')} ${isSolid ? 'kg' : 'l'}`;
+            }
+            return `${Math.round(num)} ${isSolid ? 'g' : 'ml'}`;
+        }
+    }
+
+    return rawStr;
+}
+
+/**
  * 2. TARCZA PRAWNA: SANITYZACJA TYTUŁU OFERTY (BPR 528/2012, Claim Compliance 655/2013, Stop-words Allegro 2026)
  * Żaden z oferowanych produktów nie jest produktem biobójczym — eliminujemy wszelkie sugestie biobójczości z tytułów.
  */
 function sanitizeOfferTitle(rawTitle) {
     if (!rawTitle || typeof rawTitle !== 'string') return rawTitle;
     let title = rawTitle.trim();
+
+    // Naprawa częstych literówek z katalogów hurtowych (np. CANDEGINA -> Candeggina)
+    title = title.replace(/\bcandegina\b/gi, 'Candeggina');
+
+    // Jeśli tytuł jest zapisany KRZYKLIWYM CAPS LOCKIEM (np. "CIF ŚRODEK WIELOFUNKCYJNY CANDEGINA 650 ML"),
+    // konwertujemy go na estetyczny zapis mieszany z zachowaniem wielkich liter dla marek i skrótów.
+    const lettersOnly = title.replace(/[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, '');
+    const upperLetters = title.replace(/[^A-ZĄĆĘŁŃÓŚŹŻ]/g, '');
+    if (lettersOnly.length >= 6 && upperLetters.length / lettersOnly.length > 0.7) {
+        const properNouns = new Set([
+            'cif', 'candeggina', 'chanteclair', 'felce', 'azzurra', 'paglieri', 'bref', 'ajax',
+            'domestos', 'ariel', 'persil', 'lenor', 'coccolino', 'dash', 'finish', 'fairy',
+            'vanish', 'omino', 'bianco', 'spuma', 'sciampagna', 'tesori', 'oriente', 'milmil',
+            'intesa', 'malizia', 'borotalco', 'nivea', 'dove', 'colgate', 'palmolive', 'frosch',
+            'ludwik', 'somat', 'pronto', 'sidolux', 'vileda', 'heitmann', 'beckmann', 'harpic',
+            'kret', 'tytan', 'unilever', 'henkel', 'marsiglia', 'argan', 'sensitive', 'classico'
+        ]);
+        const acronyms = new Set(['wc', 'uv', 'spf', 'ph', 'led', 'xxl', 'xl', 'bio', 'eco', '3d']);
+        const words = title.toLowerCase().split(/\s+/);
+        title = words.map((w, idx) => {
+            const cleanW = w.replace(/[^a-ząćęłńóśźż0-9]/gi, '');
+            if (acronyms.has(cleanW)) return w.toUpperCase();
+            if (idx === 0 || properNouns.has(cleanW)) {
+                return w.charAt(0).toUpperCase() + w.slice(1);
+            }
+            return w;
+        }).join(' ');
+    }
+
+    // Normalizacja jednostek miar w tytule (np. "650 ML" -> "650 ml", "1,5 L" -> "1,5 l")
+    title = title.replace(/\b(\d+(?:[.,]\d+)?)\s*(ML|L|KG|G|SZT)\b/g, (_, num, unit) => `${num} ${unit.toLowerCase()}`);
 
     // A. Eliminacja roszczeń biobójczych, antybakteryjnych, przeciwwirusowych i dezynfekujących (BPR 528/2012)
     title = title
@@ -216,6 +339,10 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr) {
         .replace(/\bpolecam(y)?\b/gi, 'zaleca się')
         .replace(/\b(?:mega|super)\b/gi, 'wysoce');
 
+    // --- KROK D: ELIMINACJA OBCOJĘZYCZNYCH WTRĄCEŃ W NAWIASACH (np. "(Potere Sbiancante)", "(Schiuma Potente)", "(multiuso)") ---
+    res = res
+        .replace(/\s*\(\s*(?:potere\s+sbiancante|schiuma\s+potente|spray\s+attivo|formula\s+migliorata|multiuso|azione\s+sgrassante|senza\s+aloni|senza\s+risciacquo|con\s+candeggina|pulito\s+profondo|profumo\s+di\s+pulito)\s*\)/gi, '');
+
     // Higiena językowa i interpunkcyjna
     res = res
         .replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
@@ -228,23 +355,34 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr) {
 /**
  * 4. DETERMINISTYCZNY GENERATOR A2 (Zastępuje puste / halucynujące wywołanie Agenta 2 — 0 tokenów!)
  */
-function buildDeterministicA2Result({ isChemical = false, productName = '', visionFeatures = {}, inci = '' } = {}) {
+function buildDeterministicA2Result({ isChemical = false, productName = '', visionFeatures = {}, features = {}, inci = '', detergentComposition = '' } = {}) {
+    const resolvedIsChemical = detectHouseholdChemical({
+        isChemical,
+        productName,
+        inci,
+        detergentComposition,
+        visionFeatures,
+        features
+    });
     const nameLower = String(productName || '').toLowerCase();
-    const inciLower = String(inci || '').toLowerCase();
+    const inciLower = [inci, detergentComposition].filter(Boolean).join(' ').toLowerCase();
+    const combinedLower = `${nameLower} ${inciLower} ${JSON.stringify(visionFeatures || {}).toLowerCase()}`;
     const minorFlaws = [];
 
-    if (isChemical) {
-        if (/(prani|płyn do prania|żel do prania|proszek|kapsułk)/i.test(nameLower)) {
+    if (resolvedIsChemical) {
+        if (/(sodium\s+hypochlorite|podchloryn\s+sodu|candeggin|wybielacz)/i.test(combinedLower)) {
+            minorFlaws.push('Ze względu na zawartość aktywnego wybielacza (podchlorynu sodu) preparatu nie należy stosować na powierzchniach wrażliwych na alkalia i utleniacze, takich jak surowe drewno, aluminium, linoleum, marmur oraz tkaniny kolorowe');
+        } else if (/(prani|płyn do prania|żel do prania|proszek|kapsułk|lavatrice|bucato)/i.test(combinedLower)) {
             if (!/(wełny|jedwabiu|delikatn)/i.test(nameLower)) {
                 minorFlaws.push('Formuła o odczynie alkalicznym nie jest przeznaczona do prania naturalnej wełny i jedwabiu');
             }
-            if (/(optical brightener|fluorescent brightener|rozjaśniacz|biel)/i.test(inciLower + ' ' + nameLower)) {
+            if (/(optical brightener|fluorescent brightener|rozjaśniacz|biel)/i.test(combinedLower)) {
                 minorFlaws.push('Ze względu na zawartość rozjaśniaczy optycznych produkt nie jest zalecany do prania czarnych i ciemnych tkanin');
             }
-        } else if (/(odkamien|kwaśn|łazien|wc|sanit|citric acid|lactic acid)/i.test(nameLower + ' ' + inciLower)) {
+        } else if (/(odkamien|kwaśn|anticalcare|citric acid|lactic acid|sulfamic acid|formic acid)/i.test(combinedLower)) {
             minorFlaws.push('Formuła odkamieniająca nie nadaje się do powierzchni kwasowrażliwych, takich jak marmur, trawertyn, wapień czy niezabezpieczone aluminium');
         } else {
-            minorFlaws.push('Skoncentrowana formuła wymaga przestrzegania zalecanego dozowania i dokładnego spłukania wodą przy kontakcie z delikatnymi powierzchniami');
+            minorFlaws.push('Skoncentrowana formuła czyszcząca wymaga przestrzegania zalecanego sposobu użycia i dokładnego spłukania wodą przy kontakcie z delikatnymi powierzchniami');
         }
     } else if (/(szczoteczk|toothbrush)/i.test(nameLower)) {
         minorFlaws.push('Włókna ulegają naturalnemu zużyciu mechanicznemu, dlatego szczoteczkę należy wymieniać co 2–3 miesiące');
@@ -269,7 +407,10 @@ function buildDeterministicA2Result({ isChemical = false, productName = '', visi
 }
 
 /**
- * 4b. DETERMINISTYCZNY GENERATOR A5 (Tarcza GPSR/CLP + Ziarna FAQ AEO — oszczędza ~7 500 tokenów Węzła 5)
+ * 4b. DETERMINISTYCZNY GENERATOR A5 (Tarcza GPSR/CLP — oszczędza ~7 500 tokenów Węzła 5).
+ *     UWAGA: Zwraca puste tablice `safe_aeo_questions: []` i `safe_aeo_answers: []`, aby Agent 6
+ *     napisał w Sekcji 2 w 100% naturalne, ludzkie i dopasowane do produktu pytania i odpowiedzi FAQ
+ *     z pogrubieniami `<b>` (zamiast sztywnych szablonów ze sklejanych stringów JS).
  */
 function buildDeterministicA5Result({
     productName = '',
@@ -280,7 +421,9 @@ function buildDeterministicA5Result({
     gpsrBaseline = null,
     minorFlaws = [],
     a2Result = null,
+    a4Result = null,
     visionFeatures = {},
+    features = {},
     inci = ''
 } = {}) {
     const resolvedGpsrWarnings = (Array.isArray(gpsrWarnings) && gpsrWarnings.length > 0)
@@ -289,79 +432,13 @@ function buildDeterministicA5Result({
     const resolvedMinorFlaws = (Array.isArray(minorFlaws) && minorFlaws.length > 0)
         ? minorFlaws
         : (Array.isArray(a2Result?.social_proof_matrix?.authentic_minor_flaws) ? a2Result.social_proof_matrix.authentic_minor_flaws : []);
-    const cleanName = sanitizeOfferTitle(productName || 'Produkt');
-    const cleanBrand = sanitizeHtmlClaimsAndStopwords(brand || 'producenta');
-    const nameLower = cleanName.toLowerCase();
-    const inciLower = String(inci || '').toLowerCase();
-
-    const postac = visionFeatures?.['Postać'] || (isChemical ? 'płyn' : 'kosmetyk');
-    const dozownik = visionFeatures?.['Dozownik'] && !/^brak$/i.test(visionFeatures['Dozownik']) ? visionFeatures['Dozownik'] : null;
-    const wydajnosc = visionFeatures?.['Wydajność'] || null;
-    const zapach = visionFeatures?.['Zapach'] || null;
-    const hero = visionFeatures?.['Składniki wiodące (Front)'] || null;
-    const przeznaczenie = visionFeatures?.['Przeznaczenie (Front)'] || null;
-    const capStr = capacity || visionFeatures?.['Pojemność / Waga'] || '';
-
-    const questions = [];
-    const answers = [];
-
-    if (isChemical) {
-        const isLaundry = /(prani|płyn do prania|żel do prania|proszek|kapsułk|płukania)/i.test(nameLower);
-        if (isLaundry) {
-            questions.push(`Do jakich tkanin przeznaczony jest ${cleanName}?`);
-            const hasFwa = /(optical brightener|fluorescent brightener|rozjaśniacz)/i.test(inciLower);
-            if (hasFwa) {
-                answers.push(`${cleanName} marki ${cleanBrand} jest przeznaczony do prania białych i jasnych tkanin bawełnianych, lnianych oraz syntetycznych. Ze względu na odczyn alkaliczny i obecność rozjaśniaczy optycznych nie należy stosować go do naturalnej wełny, jedwabiu ani tkanin czarnych.`);
-            } else {
-                answers.push(`${cleanName} marki ${cleanBrand} skutecznie pierze tkaniny bawełniane, lniane i mieszane w szerokim zakresie temperatur. Nie należy stosować go do prania naturalnej wełny oraz jedwabiu, które wymagają specjalistycznych środków o neutralnym pH.`);
-            }
-
-            questions.push(`Jak dozować ${cleanName}, aby uzyskać optymalną skuteczność prania?`);
-            answers.push(`Produkt w postaci skoncentrowanej (${postac}${capStr ? ', ' + capStr : ''}) należy dozować do szuflady pralki lub bezpośrednio do bębna zgodnie z tabelą na opakowaniu, uwzględniając stopień zabrudzenia bielizny oraz twardość wody.${wydajnosc ? ' Opakowanie wystarcza średnio na ' + wydajnosc + '.' : ''}`);
-
-            questions.push(`Czy ${cleanName} całkowicie wypłukuje się z włókien tkanin?`);
-            answers.push(`Tak, zastosowany układ niejonowych i anionowych środków powierzchniowo czynnych łatwo rozpuszcza się w wodzie, dzięki czemu ${cleanName} wypłukuje się z tkanin bez pozostawiania białych zacieków i sztywności włókien.`);
-        } else {
-            questions.push(`Do jakich powierzchni można bezpiecznie stosować ${cleanName}?`);
-            if (/(odkamien|kwaśn|łazien|wc|citric acid|lactic acid)/i.test(nameLower + ' ' + inciLower)) {
-                answers.push(`${cleanName} marki ${cleanBrand} doskonale sprawdza się na ceramice sanitarnej, glazurze, stali nierdzewnej, chromowanej armaturze i szkle. Nie należy stosować go na powierzchniach wrażliwych na kwasy, takich jak marmur, wapień czy kamień naturalny.`);
-            } else {
-                answers.push(`${cleanName} marki ${cleanBrand} jest przeznaczony do zmywalnych powierzchni domowych${przeznaczenie ? ' (' + przeznaczenie + ')' : ''}, zapewniając dokładne usunięcie tłuszczu oraz osadów bez pozostawiania smug.`);
-            }
-
-            questions.push(`Jak prawidłowo aplikować ${cleanName}, aby uniknąć smug i zacieków?`);
-            answers.push(`Nanieś niewielką ilość preparatu (${postac}${dozownik ? ', opakowanie: ' + dozownik : ''}) bezpośrednio na czyszczoną powierzchnię lub wilgotną ściereczkę, przetrzyj zabrudzone miejsce, a następnie spłucz czystą wodą lub wytrzyj do sucha.`);
-
-            questions.push(`Co odpowiada za skuteczność czyszczącą produktu ${cleanName}?`);
-            answers.push(`Za szybkie odrywanie brudu w ${cleanName} odpowiadają aktywne środki powierzchniowo czynne${hero ? ' wzbogacone o ' + hero : ''}, które emulgują tłuszcz i ułatwiają jego spłukanie wodą${zapach ? ', pozostawiając świeży zapach (' + zapach + ')' : ''}.`);
-        }
-    } else if (/(szczoteczk|toothbrush)/i.test(nameLower)) {
-        const twardosc = visionFeatures?.['Twardość włosia'] || 'odpowiednio dobrana';
-        questions.push(`Dla kogo przeznaczona jest ${cleanName} i jaką ma twardość włosia?`);
-        answers.push(`${cleanName} marki ${cleanBrand} posiada włosie o twardości: ${twardosc}, co pozwala na dokładne oczyszczanie powierzchni szkliwa oraz przestrzeni przydziąsłowych podczas codziennego szczotkowania.`);
-
-        questions.push(`Jak często należy wymieniać szczoteczkę ${cleanName} na nową?`);
-        answers.push(`Zgodnie z zaleceniami higienicznymi szczoteczkę ${cleanName} należy wymieniać co 2–3 miesiące, a także po przebytej infekcji jamy ustnej lub w momencie zauważalnego odkształcenia włókien.`);
-
-        questions.push(`Jak dbać o higienę szczoteczki ${cleanName} po każdym myciu zębów?`);
-        answers.push(`Po każdym użyciu główkę szczoteczki należy dokładnie opłukać pod strumieniem bieżącej wody i odstawić w pozycji pionowej (główką do góry) w suchym, przewiewnym miejscu.`);
-    } else {
-        questions.push(`Jakie korzyści pielęgnacyjne zapewnia regularne stosowanie produktu ${cleanName}?`);
-        answers.push(`${cleanName} marki ${cleanBrand} skutecznie oczyszcza i pielęgnuje${przeznaczenie ? ' (' + przeznaczenie + ')' : ''}, wykorzystując zbilansowaną bazę surowcową${hero ? ' oraz składniki wiodące takie jak ' + hero : ''}, aby wspierać miękkość i komfort naskórka bez efektu przesuszenia.`);
-
-        questions.push(`Czy ${cleanName} nadaje się do codziennego stosowania?`);
-        answers.push(`Tak, formuła o dopracowanej konsystencji (${postac}${capStr ? ', pojemność ' + capStr : ''}) została opracowana z myślą o codziennej rutynie higieniczno-pielęgnacyjnej, łatwo się rozprowadza i szybko spłukuje wodą.`);
-
-        questions.push(`Jak dozować i aplikować ${cleanName}, aby w pełni wykorzystać wydajność opakowania?`);
-        answers.push(`Niewielką porcję produktu (${dozownik ? 'wygodny ' + dozownik : 'odpowiednią do potrzeb'}) nanieś na zwilżoną skórę lub włosy, delikatnie wmasuj do uzyskania aksamitnej emulsji${zapach ? ' o profilu zapachowym: ' + zapach : ''}, a następnie dokładnie spłucz letnią wodą.`);
-    }
 
     return {
         sanitization_status: 'PASSED_CLEAN',
         mandatory_safety_warnings: resolvedGpsrWarnings,
         preserved_minor_flaws_for_pratfall: resolvedMinorFlaws,
-        safe_aeo_questions: questions,
-        safe_aeo_answers: answers
+        safe_aeo_questions: [],
+        safe_aeo_answers: []
     };
 }
 
@@ -374,7 +451,10 @@ function tryBuildDeterministicSection3({
     detergentComposition = '',
     isChemical = false,
     productName = '',
+    category = '',
     visionFeatures = {},
+    features = {},
+    compliance = null,
     clpWarnings = []
 } = {}) {
     const db = loadMechanismsDb();
@@ -383,7 +463,19 @@ function tryBuildDeterministicSection3({
         return { canSkipA4: false };
     }
 
-    const categoryType = isChemical ? 'HOUSEHOLD_CHEMISTRY' : 'COSMETICS_BEAUTY';
+    const resolvedIsChemical = detectHouseholdChemical({
+        isChemical,
+        productName,
+        category,
+        inci,
+        detergentComposition,
+        visionFeatures,
+        features,
+        clpSignalWord: compliance?.clp_signal_word,
+        clpHPhrases: compliance?.clp_h_phrases
+    });
+
+    const categoryType = resolvedIsChemical ? 'HOUSEHOLD_CHEMISTRY' : 'COSMETICS_BEAUTY';
     const rawItems = rawSource
         .split(/[,;\n]+/)
         .map(s => s.replace(/^\d+\.\s*/, '').trim())
@@ -430,7 +522,7 @@ function tryBuildDeterministicSection3({
         if (hit) {
             usedDbKeys.add(hit.dbKey);
             if (hit.entry.role) matchedRoles.add(hit.entry.role);
-            const htmlBullet = isChemical
+            const htmlBullet = resolvedIsChemical
                 ? (hit.entry.chemical_html || hit.entry.cosmetic_html)
                 : (hit.entry.cosmetic_html || hit.entry.chemical_html);
             if (htmlBullet) matchedBenefits.push(htmlBullet);
@@ -445,7 +537,7 @@ function tryBuildDeterministicSection3({
         if (hit) {
             usedDbKeys.add(hit.dbKey);
             if (hit.entry.role) matchedRoles.add(hit.entry.role);
-            const htmlBullet = isChemical
+            const htmlBullet = resolvedIsChemical
                 ? (hit.entry.chemical_html || hit.entry.cosmetic_html)
                 : (hit.entry.cosmetic_html || hit.entry.chemical_html);
             if (htmlBullet && matchedBenefits.length < 7) {
@@ -458,7 +550,7 @@ function tryBuildDeterministicSection3({
     const detectedSynergies = [];
     for (const syn of db.synergies || []) {
         if (Array.isArray(syn.required_roles) && syn.required_roles.every(r => matchedRoles.has(r))) {
-            const synHtml = isChemical ? (syn.chemical_html || syn.cosmetic_html) : (syn.cosmetic_html || syn.chemical_html);
+            const synHtml = resolvedIsChemical ? (syn.chemical_html || syn.cosmetic_html) : (syn.cosmetic_html || syn.chemical_html);
             if (synHtml && detectedSynergies.length < 3) {
                 detectedSynergies.push(synHtml);
             }
@@ -467,7 +559,7 @@ function tryBuildDeterministicSection3({
 
     // Jeśli nie mamy ani jednej synergii z par ról, dodajemy uniwersalną synergię formuły przy >= 3 składnikach
     if (detectedSynergies.length === 0 && matchedBenefits.length >= 3) {
-        if (isChemical) {
+        if (resolvedIsChemical) {
             detectedSynergies.push('<li>⚡ <b>Synergia Skutecznego Czyszczenia i Ochrony Powierzchni:</b> współdziałanie bazy myjącej z układami pomocniczymi <b>przyspiesza rozpuszczanie zabrudzeń i ułatwia spłukiwanie bez pozostawiania osadu</b>.</li>');
         } else {
             detectedSynergies.push('<li>⚡ <b>Synergia Oczyszczająco-Pielęgnująca:</b> zbilansowane połączenie bazy myjącej lub nośnikowej ze składnikami kondycjonującymi <b>zapewnia skuteczne działanie przy zachowaniu komfortu i miękkości naskórka</b>.</li>');
@@ -481,11 +573,11 @@ function tryBuildDeterministicSection3({
         return { canSkipA4: false };
     }
 
-    const heading = isChemical
+    const heading = resolvedIsChemical
         ? `<h2>⚙️ Skład chemiczny i mechanizm działania aktywnej formuły</h2>`
         : `<h2>⚙️ Składniki aktywne i mechanizm działania formuły</h2>`;
 
-    const introP = isChemical
+    const introP = resolvedIsChemical
         ? `<p>Receptura produktu opiera się na <b>celowanym doborze związków powierzchniowo czynnych i składników funkcyjnych</b>, w której każdy element odpowiada za konkretny etap rozbijania i wypłukiwania zabrudzeń:</p>`
         : `<p>Formuła kosmetyku łączy <b>składniki oczyszczające, nawilżające oraz kondycjonujące</b>, które współpracują ze sobą dla zachowania równowagi hydrolipidowej i wysokiego komfortu aplikacji:</p>`;
 
@@ -587,9 +679,26 @@ function buildDeterministicSection5({
     const cleanTitle = sanitizeOfferTitle(productName || '');
     const items = [];
 
+    const cleanItalianAndClaims = (str) => {
+        if (!str || typeof str !== 'string') return '';
+        return sanitizeHtmlClaimsAndStopwords(str)
+            .replace(/\s*\(\s*(?:multiuso|potere\s+sbiancante|schiuma\s+potente|spray\s+attivo|formula\s+migliorata|azione\s+sgrassante|senza\s+aloni|senza\s+risciacquo|con\s+candeggina|candeggina|z\s+wybielaczem|pulito\s+profondo|profumo\s+di\s+pulito)\s*\)/gi, '')
+            .replace(/\bformula\s+migliorata\b/gi, 'Ulepszona formuła')
+            .replace(/\bspray\s+attivo\b/gi, 'Aktywny spray')
+            .replace(/\bpotere\s+sbiancante\b/gi, 'Siła wybielania')
+            .replace(/\bschiuma\s+potente\b/gi, 'Aktywna piana')
+            .replace(/\bazione\s+sgrassante\b/gi, 'Działanie odtłuszczające')
+            .replace(/\bsenza\s+aloni\b/gi, 'Bez smug')
+            .replace(/\bsenza\s+risciacquo\b/gi, 'Bez spłukiwania')
+            .replace(/\bcon\s+candeggina\b/gi, 'z wybielaczem')
+            .replace(/\bmultiuso\b/gi, 'wielofunkcyjny')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+    };
+
     const addParam = (label, val) => {
         if (!val || typeof val !== 'string') return;
-        const trimmed = sanitizeHtmlClaimsAndStopwords(val.trim());
+        const trimmed = cleanItalianAndClaims(val);
         if (!trimmed || /^(null|undefined|brak|brak danych|n\/a|-)$/i.test(trimmed)) return;
         items.push(`<li>➡️ <b>${label}:</b> ${trimmed}</li>`);
     };
@@ -598,15 +707,24 @@ function buildDeterministicSection5({
     const resolvedManufacturer = manufacturer || features?.['Producent'] || '';
     const resolvedLine = line || features?.['Linia'] || '';
     const resolvedPostac = visionFeatures?.['Postać'] || features?.['Postać'] || features?.['Postac'] || features?.['Forma'] || '';
-    const resolvedCapacity = capacity || visionFeatures?.['Pojemność / Waga'] || visionFeatures?.['Pojemność'] || visionFeatures?.['Waga'] || features?.['Pojemność'] || features?.['Waga'] || '';
+    const rawCap = capacity || visionFeatures?.['Pojemność / Waga'] || visionFeatures?.['Pojemność'] || visionFeatures?.['Waga'] || features?.['Pojemność'] || features?.['Waga'] || '';
+    const resolvedCapacity = normalizeCapacityValue(rawCap, cleanTitle, visionFeatures);
     const resolvedDozownik = visionFeatures?.['Dozownik'] || features?.['Dozownik'] || features?.['Opakowanie'] || '';
     const resolvedWydajnosc = visionFeatures?.['Wydajność'] || features?.['Wydajność'] || features?.['Liczba prań'] || '';
     const resolvedTwardosc = visionFeatures?.['Twardość włosia'] || features?.['Twardość włosia'] || '';
-    const resolvedZapach = visionFeatures?.['Zapach'] || features?.['Zapach'] || features?.['Nuta zapachowa'] || '';
-    const resolvedHero = visionFeatures?.['Składniki wiodące (Front)'] || '';
+    let resolvedZapach = visionFeatures?.['Zapach'] || features?.['Zapach'] || features?.['Nuta zapachowa'] || '';
+    let resolvedHero = visionFeatures?.['Składniki wiodące (Front)'] || '';
     const resolvedPrzeznaczenie = visionFeatures?.['Przeznaczenie (Front)'] || features?.['Przeznaczenie'] || features?.['Zastosowanie'] || '';
     const resolvedWyrozniki = visionFeatures?.['Wyróżniki (Etykieta Front)'] || '';
     const resolvedCountry = countryOfOrigin || features?.['Kraj pochodzenia'] || features?.['Kraj produkcji'] || '';
+
+    // Jeśli w polu Zapach znalazł się składnik chemiczny (np. "con Candeggina (z wybielaczem)"), nie wyświetlaj go jako zapachu
+    if (resolvedZapach && /(?:candeggin|wybielacz|bicarbonato|sod[aą]\s+oczyszczon|ammoniaca|amoniak)/i.test(resolvedZapach)) {
+        if (!resolvedHero && /candeggin|wybielacz/i.test(resolvedZapach)) {
+            resolvedHero = 'Wybielacz';
+        }
+        resolvedZapach = '';
+    }
 
     const isUnscentedArticle = /\b(szczoteczk|toothbrush|ni[cć]\s+dentystyczn|gąbk|pęset|maszynk)\b/i.test(cleanTitle + ' ' + resolvedPostac);
 
@@ -656,32 +774,47 @@ function buildDeterministicSection5({
 function buildDeterministicSection6({
     productName = '',
     isChemical = false,
+    inci = '',
+    detergentComposition = '',
+    compliance = null,
     mandatoryWarnings = [],
     mandatorySafetyWarnings = [],
     euResponsiblePerson = null,
-    visionFeatures = {}
+    visionFeatures = {},
+    features = {}
 } = {}) {
     const resolvedWarnings = (Array.isArray(mandatoryWarnings) && mandatoryWarnings.length > 0)
         ? mandatoryWarnings
         : (Array.isArray(mandatorySafetyWarnings) ? mandatorySafetyWarnings : []);
+    const resolvedIsChemical = detectHouseholdChemical({
+        isChemical,
+        productName,
+        inci,
+        detergentComposition,
+        visionFeatures,
+        features,
+        clpSignalWord: compliance?.clp_signal_word,
+        clpHPhrases: compliance?.clp_h_phrases
+    }) || resolvedWarnings.some(w => /\b(H3\d{2}|P102|P264|P280|P305\+P351\+P338|EUH20[68]|Hasło ostrzegawcze)\b/i.test(String(w)));
+
     const nameLower = String(productName || '').toLowerCase();
     const postacLower = String(visionFeatures?.['Postać'] || '').toLowerCase();
     const isArticle = /\b(szczoteczk|toothbrush|ni[cć]\s+dentystyczn|floss|czyścik|gąbk|akcesori)\b/i.test(nameLower + ' ' + postacLower);
-    const isDryPowder = /\b(talk|puder|proszek)\b/i.test(nameLower + ' ' + postacLower) && !isChemical;
+    const isDryPowder = /\b(talk|puder|proszek)\b/i.test(nameLower + ' ' + postacLower) && !resolvedIsChemical;
 
     let storageParagraph = '';
     if (isArticle) {
         storageParagraph = `<p>Przechowywać w <b>czystym, suchym i przewiewnym miejscu</b>, w sposób higieniczny, poza zasięgiem małych dzieci.</p>`;
     } else if (isDryPowder) {
         storageParagraph = `<p>Przechowywać w <b>suchym miejscu w temperaturze pokojowej</b>, w szczelnie zamkniętym fabrycznym opakowaniu producenta, chroniąc przed wilgocią i dostępem dzieci.</p>`;
-    } else if (isChemical) {
+    } else if (resolvedIsChemical) {
         storageParagraph = `<p>Przechowywać wyłącznie w <b>szczelnie zamkniętym fabrycznym opakowaniu producenta</b>, w chłodnym i suchym miejscu, z dala od źródeł ciepła oraz w miejscu niedostępnym dla dzieci.</p>`;
     } else {
         storageParagraph = `<p>Przechowywać w <b>temperaturze pokojowej (15–25°C)</b>, w szczelnie zamkniętym fabrycznym opakowaniu producenta, z dala od bezpośredniego działania promieni słonecznych i poza zasięgiem dzieci.</p>`;
     }
 
     const listItems = [];
-    const labelTag = isChemical
+    const labelTag = resolvedIsChemical
         ? '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> '
         : (isArticle ? '<li>⚠️ <b>Wytyczne bezpieczeństwa (GPSR):</b> ' : '<li>⚠️ <b>Środki ostrożności (GPSR):</b> ');
 
@@ -772,6 +905,8 @@ function normalizeEmojiAndStructure(htmlStr, sectionNum = 1) {
 module.exports = {
     loadMechanismsDb,
     cleanFeaturesForPrompt,
+    detectHouseholdChemical,
+    normalizeCapacityValue,
     sanitizeOfferTitle,
     sanitizeHtmlClaimsAndStopwords,
     buildDeterministicA2Result,

@@ -444,6 +444,66 @@ test('V4B scan_biocidal_claims_lexical & Deterministic Legal Sanitizer (Rozp. BP
         assert.strictEqual(v.scan_stopwords(res.section_3_html).length, 0);
         assert.strictEqual(v.emoji_structure_check(res.section_3_html).valid, true);
     });
+
+    await t.test('Higiena danych Cif Candeggina: normalizacja pojemności 0,650 -> 650 ml, ALL-CAPS tytułu, filtracja con Candeggina z zapachu i brak włoskich wtrąceń', () => {
+        // 1. Normalizacja surowego floata 0,650 z BaseLinkera
+        const normCap = deterministicEngine.normalizeCapacityValue(
+            '0,650',
+            'CIF ŚRODEK WIELOFUNKCYJNY CANDEGINA 650 ML',
+            { 'Postać': 'spray' }
+        );
+        assert.strictEqual(normCap, '650 ml');
+
+        // 2. Normalizacja krzyczącego tytułu ALL-CAPS i literówki CANDEGINA -> Candeggina
+        const cleanTitle = deterministicEngine.sanitizeOfferTitle('CIF ŚRODEK WIELOFUNKCYJNY CANDEGINA 650 ML');
+        assert.strictEqual(cleanTitle, 'Cif środek wielofunkcyjny Candeggina 650 ml');
+
+        // 3. Sanitizacja wtrąceń włoskich w HTML (Sekcja 1)
+        const rawHtml = '<p>Aktywny wybielacz (Potere Sbiancante) i gęsta piana (Schiuma Potente) zapewniają wszechstronne zastosowanie (Multiuso) przez ergonomiczny atomizer (Spray Attivo).</p>';
+        const cleanHtml = deterministicEngine.sanitizeHtmlClaimsAndStopwords(rawHtml);
+        assert.strictEqual(/Potere Sbiancante|Schiuma Potente|Multiuso|Spray Attivo/i.test(cleanHtml), false, 'Powinien usunąć włoskie nawiasy marketingowe z tekstu polskiego');
+
+        // 4. Sekcja 3 dla Cif Candeggina zawiera pogrubienia <b>...</b> i przystępny język bez żargonu "reologia"
+        const detS3 = deterministicEngine.tryBuildDeterministicSection3({
+            inci: 'Aqua, Sodium Hypochlorite, Sodium C14-17 Alkyl Sec Sulfonate, Sodium Hydroxide, Sodium Silicate, Sodium Carbonate, Sodium Chloride, Parfum',
+            productName: 'CIF ŚRODEK WIELOFUNKCYJNY CANDEGINA 650 ML',
+            isChemical: false,
+            visionFeatures: {
+                'Przeznaczenie': 'uniwersalne czyszczenie powierzchni',
+                'Składniki wiodące (Front)': 'Wybielacz'
+            }
+        });
+        assert.strictEqual(detS3.canSkipA4, true);
+        assert.strictEqual(detS3.a4_result.category_type, 'HOUSEHOLD_CHEMISTRY');
+        assert.ok(detS3.section_3_html.includes('<b>'), 'Sekcja 3 musi zawierać pogrubienia <b>...</b> korzyści użytkowych');
+        assert.strictEqual(/reologi/i.test(detS3.section_3_html), false, 'Sekcja 3 nie może zawierać akademickiego żargonu "reologii"');
+
+        // 5. Sekcja 5 dla Cif Candeggina: 650 ml, brak con Candeggina w Wariancie zapachowym, oczyszczone Cechy dodatkowe
+        const s5Html = deterministicEngine.buildDeterministicSection5({
+            gtin: '8720182303097',
+            productName: 'CIF ŚRODEK WIELOFUNKCYJNY CANDEGINA 650 ML',
+            brand: 'Cif',
+            manufacturer: 'Unilever Europe B.V.',
+            capacity: '0,650',
+            countryOfOrigin: 'Włochy',
+            inci: 'Aqua, Sodium Hypochlorite, Sodium C14-17 Alkyl Sec Sulfonate, Sodium Hydroxide, Sodium Silicate, Sodium Carbonate, Sodium Chloride, Parfum',
+            visionFeatures: {
+                'Postać': 'spray',
+                'Pojemność / Waga': '0,650',
+                'Dozownik': 'atomizer / spray',
+                'Zapach': 'con Candeggina (z wybielaczem)',
+                'Składniki wiodące (Front)': 'Wybielacz',
+                'Przeznaczenie': 'uniwersalne czyszczenie powierzchni (multiuso)',
+                'Cechy dodatkowe (Front)': 'Formula Migliorata, Spray Attivo, 100% higieniczna czystość, Potere Sbiancante, Schiuma Potente'
+            }
+        });
+        assert.ok(s5Html.includes('650 ml'), 'Sekcja 5 musi wyświetlać 650 ml zamiast surowego 0,650');
+        assert.strictEqual(s5Html.includes('0,650'), false, 'Sekcja 5 nie może zawierać surowego ułamka 0,650');
+        assert.strictEqual(s5Html.includes('Wariant zapachowy:'), false, 'Wybielacz (con Candeggina) nie może być wyświetlany jako Wariant zapachowy');
+        assert.strictEqual(/Formula Migliorata|Potere Sbiancante|Schiuma Potente|\(multiuso\)/i.test(s5Html), false, 'Sekcja 5 nie może zawierać nieprzetłumaczonych włoskich haseł z etykiety');
+        assert.ok(s5Html.includes('Cif środek wielofunkcyjny Candeggina 650 ml'), 'Nazwa produktu w Sekcji 5 musi być znormalizowana z ALL-CAPS');
+    });
 });
+
 
 

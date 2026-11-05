@@ -873,3 +873,82 @@ test('ADR-0168: Pełny przebieg zoptymalizowanego potoku (Silnik Deterministyczn
     aiWrapper.callAgentWithTelemetry = orgCall;
 });
 
+test('Regresja Cif Candeggina 650 ml (EAN 8720182303097): pełna klasyfikacja chemii gospodarczej, brak halucynacji o skórze/włosach, normalizacja 650 ml i sekcja 6 CLP z EUH206', async () => {
+    const orch = new Orchestrator('8720182303097');
+    orch.emitState = () => {};
+    orch.state.vision_extracted_features = {
+        'Postać': 'spray',
+        'Pojemność / Waga': '0,650',
+        'Dozownik': 'atomizer / spray',
+        'Zapach': 'con Candeggina (z wybielaczem)',
+        'Składniki wiodące (Front)': 'Wybielacz',
+        'Przeznaczenie': 'uniwersalne czyszczenie powierzchni (multiuso)',
+        'Cechy dodatkowe (Front)': 'Formula Migliorata, Spray Attivo, 100% higieniczna czystość, Potere Sbiancante, Schiuma Potente'
+    };
+    orch.state.node_status['A0'] = 'OK';
+
+    let capturedA6Prompt = '';
+    const orgCall = aiWrapper.callAgentWithTelemetry;
+    aiWrapper.callAgentWithTelemetry = async ({ agentId, prompt }) => {
+        if (agentId === '6') {
+            capturedA6Prompt = prompt;
+            return {
+                result: {
+                    section_1_html: '<h1>⭐ Cif Candeggina Spray Wielofunkcyjny 650 ml – Higieniczna czystość z wybielaczem</h1><p>Wielozadaniowy preparat w sprayu Cif Candeggina 650 ml łączy <b>siłę aktywnego wybielacza</b> z formułą gęstej piany, zapewniając <b>higieniczną czystość twardych powierzchni</b> w kuchni i łazience.</p><ul><li>✔️ <b>Aktywny wybielacz (Potere Sbiancante):</b> skutecznie <b>usuwa uporczywe osady organiczne</b> z fug, zlewozmywaków i ceramiki.</li><li>✔️ <b>Gęsta piana (Schiuma Potente):</b> stabilnie przylega do pionowych płytek, <b>ułatwiając rozpuszczanie zaschniętego tłuszczu</b>.</li></ul>',
+                    section_2_html: '<h2>❓ Czyszczenie powierzchni z wybielaczem – najczęstsze pytania</h2><p>❓ <b>Pytanie: Do jakich powierzchni w kuchni i łazience najlepiej stosować spray Cif Candeggina?</b></p><p>✔️ <b>Odpowiedź:</b> Preparat z aktywnym wybielaczem sprawdza się na <b>zmywalnych twardych powierzchniach</b>, takich jak emaliowane i stalowe zlewozmywaki, płytki ceramiczne, fugi, umywalki, wanny oraz blaty robocze, z których <b>usuwa tłuste plamy oraz osady po kawie i herbacie</b>.</p><p>❓ <b>Pytanie: Na jakich materiałach nie należy używać środka Cif z wybielaczem?</b></p><p>✔️ <b>Odpowiedź:</b> Ze względu na obecność <b>podchlorynu sodu</b> nie należy nanosić sprayu na <b>surowe drewno, aluminium, linoleum, marmur oraz tkaniny</b>, a przed użyciem na nietypowym podłożu warto wykonać próbę w mało widocznym miejscu.</p><p>❓ <b>Pytanie: Jak prawidłowo spłukiwać powierzchnie po zastosowaniu piany Cif Candeggina?</b></p><p>✔️ <b>Odpowiedź:</b> Po odczekaniu kilkudziesięciu sekund należy przetrzeć czyszczone miejsce wilgotną ściereczką i <b>dokładnie spłukać czystą wodą</b>, co jest szczególnie ważne na <b>blatach mających kontakt z żywnością</b>.</p>',
+                    section_3_html: '',
+                    section_4_html: '<h2>✍️ Sposób użycia – instrukcja krok po kroku</h2><p>Przed użyciem zapoznaj się z informacjami bezpieczeństwa zawartymi na opakowaniu i stosuj się do zaleceń producenta.</p><ul><li>✍️ <b>Krok 1 – Przygotowanie dyszy:</b> Przekręć końcówkę rozpylacza z pozycji STOP na symbol spryskiwania.</li><li>✍️ <b>Krok 2 – Naniesienie preparatu:</b> Rozpyl płyn bezpośrednio na zabrudzoną powierzchnię z odległości <b>15–20 cm</b>.</li><li>✍️ <b>Krok 3 – Czas działania i spłukanie:</b> Pozostaw pianę na <b>kilkadziesiąt sekund</b>, przetrzyj wilgotną gąbką i <b>obficie spłucz czystą wodą</b>.</li></ul><p>Pojemność <b>650 ml</b> w ergonomicznym atomizerze ułatwia codzienne porządki w kuchni i łazience. Ze względu na zawartość <b>aktywnego wybielacza</b> preparat wymaga dokładnego spłukania wodą po umyciu oraz <b>nie powinien być stosowany na aluminium, surowym drewnie, linoleum, marmurze i tkaninach</b>.</p>',
+                    section_5_html: '<p>Placeholder S5</p>',
+                    section_6_html: '<p>Placeholder S6</p>'
+                },
+                usage: { promptTokenCount: 2400, candidatesTokenCount: 950, totalTokenCount: 3350 }
+            };
+        }
+        return { result: { patches: [] }, usage: {} };
+    };
+
+    const cifPimPayload = {
+        text_fields: {
+            name: 'CIF ŚRODEK WIELOFUNKCYJNY CANDEGINA 650 ML',
+            description: 'Podmiot odpowiedzialny: Unilever Europe B.V., Weena 455, 3013 AL Rotterdam, Holandia, info@unilever.com',
+            features: {
+                'Marka': 'Cif',
+                'Producent': 'Unilever Europe B.V.',
+                'Pojemność': '0,650',
+                'Kraj pochodzenia': 'Włochy',
+                'Skład': 'Aqua, Sodium Hypochlorite, Sodium C14-17 Alkyl Sec Sulfonate, Sodium Hydroxide, Sodium Silicate, Sodium Carbonate, Sodium Chloride, Parfum'
+            }
+        }
+    };
+
+    await orch.run(cifPimPayload);
+
+    assert.ok(orch.state.final_offer, 'Oferta końcowa Cif Candeggina musi zostać wygenerowana');
+    // 1. Prompt A6 otrzymał kategorię HOUSEHOLD_CHEMISTRY, znormalizowaną nazwę i pojemność 650 ml oraz PUSTE tablice szablonów FAQ (by A6 pisał naturalne FAQ dla chemii)
+    assert.ok(capturedA6Prompt.includes('"product_category": "HOUSEHOLD_CHEMISTRY"'), 'A6 musi otrzymać product_category: HOUSEHOLD_CHEMISTRY');
+    assert.ok(capturedA6Prompt.includes('Cif środek wielofunkcyjny Candeggina 650 ml'), 'A6 musi otrzymać znormalizowaną nazwę bez ALL-CAPS i z poprawioną pisownią Candeggina');
+    assert.ok(capturedA6Prompt.includes('"capacity": "650 ml"'), 'A6 musi otrzymać znormalizowaną pojemność 650 ml zamiast 0,650');
+    assert.deepStrictEqual(orch.state.a5_result.safe_aeo_questions, [], 'A5 deterministyczny nie może wstrzykiwać sztywnych szablonów pytań kosmetycznych');
+
+    // 2. Sekcja 1 pozbawiona włoskich wtrąceń nawiasowych
+    assert.strictEqual(/Potere Sbiancante|Schiuma Potente/i.test(orch.state.final_offer.description), false, 'Sekcja 1 nie może zawierać włoskich wtrąceń w nawiasach');
+
+    // 3. Sekcja 3 zawiera pogrubienia <b>/<strong> i przystępne opisy składników czyszczących
+    assert.ok(orch.state.final_offer.description_extra2.includes('Sodium Hypochlorite'), 'Sekcja 3 musi zawierać Sodium Hypochlorite');
+    assert.ok(/<(?:b|strong)>/.test(orch.state.final_offer.description_extra2), 'Sekcja 3 musi zawierać pogrubienia <b>/<strong>');
+
+    // 4. Sekcja 5 ma 650 ml, poprawną nazwę i brak con Candeggina jako zapachu
+    assert.ok(orch.state.final_offer.description_extra4.includes('650 ml'), 'Sekcja 5 musi zawierać 650 ml');
+    assert.strictEqual(orch.state.final_offer.description_extra4.includes('0,650'), false, 'Sekcja 5 nie może zawierać 0,650');
+    assert.strictEqual(orch.state.final_offer.description_extra4.includes('Wariant zapachowy:'), false, 'Sekcja 5 nie może traktować wybielacza jako wariantu zapachowego');
+
+    // 5. Sekcja 6 (w description_extra4) to pełna sekcja CLP dla środka z podchlorynem sodu (z EUH206, H315, H319, P102, P264, P280, P305+P351+P338), bez kosmetycznych ostrzeżeń o uszkodzonej skórze
+    assert.ok(orch.state.final_offer.description_extra4.includes('Hasło ostrzegawcze – UWAGA'), 'Sekcja 6 musi zawierać Hasło ostrzegawcze – UWAGA');
+    assert.ok(orch.state.final_offer.description_extra4.includes('EUH206 – Uwaga! Nie stosować razem z innymi produktami. Może wydzielać niebezpieczne gazy (chlor).'), 'Sekcja 6 musi zawierać zwrot EUH206 dla wybielacza chlorowego');
+    assert.ok(orch.state.final_offer.description_extra4.includes('P305+P351+P338 – '), 'Sekcja 6 musi zawierać procedurę P305+P351+P338');
+    assert.strictEqual(/podrażnioną lub uszkodzoną skórę/i.test(orch.state.final_offer.description_extra4), false, 'Sekcja 6 nie może zawierać kosmetycznej formułki o podrażnionej skórze');
+
+    aiWrapper.callAgentWithTelemetry = orgCall;
+});
+
+

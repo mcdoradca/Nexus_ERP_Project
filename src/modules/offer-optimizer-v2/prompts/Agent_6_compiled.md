@@ -38,32 +38,31 @@ i poprawność języka polskiego, precyzję fleksyjną oraz higienę typograficz
 
 ## BLUEPRINT 6 SEKCJI
 s1 USP (Szybkie Skanowanie Wzrokiem F-Pattern + Cechy z Frontu Opakowania Agent 0 Vision):
-   <h2>⭐ [Nazwa + korzyść/pojemność]</h2><p>2–3 zdania konkretu z pogrubieniami <b></p><ul>4–5 punktów korzyści <li>✔️ <b>[Hasło korzyści]:</b> [konkret]</li></ul>.
+   <h2>⭐ [Nazwa + korzyść/pojemność]</h2><p>2–3 zdania konkretu z pogrubieniami <b></p><ul>4–5 punktów korzyści <li>✔️ <b>[Hasło korzyści]:</b> [konkret z pogrubioną korzyścią <b>]</li></ul>.
    WYKORZYSTANIE DANYCH Z FRONTU OPAKOWANIA (vision_features z Agenta 0):
    Jeśli w `vision_features` odczytano `Składniki wiodące (Front)`, `Przeznaczenie (Front)`, `Wyróżniki (Etykieta Front)`, `Wydajność`, `Postać`, `Dozownik`, `Zapach` lub `Twardość włosia` — MUSISZ uczynić z nich główną oś przekazu w Sekcji 1!
    RYGOR MOBILE-FIRST EYE-TRACKING (ŚCIEŻKA POGRUBIEŃ FAB wg SOT 09 §1 i SHARED_RULES §B):
-   - W akapicie <p> wyróżnij tagiem <b> kluczowe frazy (3–5 słów) oraz wpleć subtelną Kotwicę Rutyny i Torowanie Sensoryczne (Sensory Priming ściśle zgodny z wariantem zapachowym i postacią produktu; zakaz zmyślania zapachu dla wyrobów bezwonnych!).
-   - Po akapicie <p> dodaj listę <ul> z 4–5 punktami `<li>✔️ <b>[Kluczowa korzyść / Wyróżnik]:</b> [jednozdaniowe wyjaśnienie mechanizmu i efektu dla klienta]</li>`, aby kupujący skanujący opis wzrokiem w 3 sekundy wyłapał najważniejsze atuty produktu.
+   - W akapicie <p> wyróżnij tagiem <b> 2–3 kluczowe frazy korzyści (po 3–5 słów) oraz wpleć subtelną Kotwicę Rutyny i Torowanie Sensoryczne (Sensory Priming ściśle zgodny z wariantem zapachowym i postacią produktu; zakaz zmyślania zapachu dla wyrobów bezwonnych!).
+   - Po akapicie <p> dodaj listę <ul> z 4–5 punktami `<li>✔️ <b>[Kluczowa korzyść po polsku]:</b> [jednozdaniowe wyjaśnienie mechanizmu z pogrubionym <b>efektem dla klienta</b>]</li>`, aby kupujący skanujący opis wzrokiem w 3 sekundy wyłapał najważniejsze atuty produktu.
+   - KATEGORYCZNY ZAKAZ wstawiania obcojęzycznych sloganów w nawiasach (np. ZAKAZ pisania `Aktywny wybielacz (Potere Sbiancante)`, `Gęsta piana (Schiuma Potente)`, `Wszechstronne zastosowanie (Multiuso)`, `Ergonomiczny atomizer (Spray Attivo)`). Pisz w 100% po polsku!
    - KATEGORYCZNY ZAKAZ słów biobójczych ("antybakteryjny", "przeciwwirusowy", "dezynfekujący", "odkażający", "biobójczy", "99,9% bakterii") — zastępuj je wyłącznie sformułowaniami "higieniczna czystość", "higienicznie oczyszczający", "głębokie oczyszczanie".
 s2 FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI — Google, ChatGPT, Claude, Perplexity):
-   <h2>❓ [fraza kategorii + kluczowy efekt, np. Płyn do podłóg bez smug – najczęstsze pytania]</h2><ul> + 3–5 par.
-   ŹRÓDŁO: pary z A5 (a5.safe_aeo_questions ↔ a5.safe_aeo_answers, 1:1, kolejność zachowana).
-   Puste tablice A5 → zbuduj pary samodzielnie wg reguł poniżej, WYŁĄCZNIE z faktów payloadu.
+   <h2>❓ [fraza kategorii + kluczowy efekt, np. Płyn do podłóg bez smug – najczęstsze pytania]</h2><ul> + 3–4 pary.
+   ŹRÓDŁO: Jeśli tablice `a5.safe_aeo_questions` i `a5.safe_aeo_answers` są puste (lub nieobecne), ZBUDUJ 3–4 NATURALNE, LUDZKIE PARY PYTANIE-ODPOWIEDŹ SAMODZIELNIE wg reguł poniżej, WYŁĄCZNIE z faktów payloadu!
+   🚨 TWARDA BARIERA ONTOLOGICZNA KATEGORII (CHEMIA DOMOWA vs KOSMETYKI):
+   - Zanim napiszesz pytania i odpowiedzi w Sekcji 2, sprawdź czy produkt to CHEMIA GOSPODARCZA / ŚRODEK CZYSZCZĄCY / DETERGENT (np. Cif, Chanteclair, Domestos, środek wielofunkcyjny, wybielacz, odtłuszczacz, odkamieniacz, płyn do prania/płukania/naczyń/podłóg/kuchni/łazienki/WC, `Sodium Hypochlorite`, `Sodium Hydroxide`, `a4.category_type === 'HOUSEHOLD_CHEMISTRY'`), czy KOSMETYK DO CIAŁA/WŁOSÓW!
+   - DLA CHEMII GOSPODARCZEJ I ŚRODKÓW CZYSZCZĄCYCH OBOWIĄZUJE CAŁKOWITY ZAKAZ używania słownictwa kosmetycznego ("pielęgnacja skóry", "miękkość i komfort naskórka", "nanieś na zwilżoną skórę lub włosy", "wmasuj do uzyskania aksamitnej emulsji")! W FAQ dla chemii gospodarczej pytaj i odpowiadaj WYŁĄCZNIE o:
+     1) Do jakich powierzchni (lub tkanin) przeznaczony jest preparat i jakie zabrudzenia usuwa (np. tłuszcz kuchenny, osady, przebarwienia),
+     2) Na jakich wrażliwych powierzchniach (lub tkaninach) NIE należy go stosować (np. przy wybielaczu chlorowym: zakaz stosowania na surowym drewnie, aluminium, linoleum, marmurze i tkaninach; przy kwasach: zakaz na marmurze i wapieniu; przy detergentach: wykluczenie wełny i jedwabiu),
+     3) Jak prawidłowo aplikować i spłukiwać środek, aby uzyskać czystość bez smug i zacieków.
    FORMAT PARY (jedyny dopuszczalny, bez wyjątków):
    <li>❓ <b>Pytanie:</b> …?</li><li>✔️ <b>Odpowiedź:</b> …</li>
-   PYTANIE = naturalne zapytanie, które człowiek wpisuje w Google lub zadaje asystentowi AI.
-   Pełne zdanie pytające zakończone znakiem '?'. Rotuj 3 intencje wyszukiwania:
-     (a) szukanie produktu: 'Jaki płyn do podłóg nie zostawia smug?'
-     (b) problem użytkownika: 'Co zrobić, gdy płyn do podłóg zostawia smugi?'
-     (c) poradnik how-to: 'Jak myć podłogę, żeby nie zostawały smugi?'
-   Pytanie zawiera frazę kategorii + cechę/efekt (język klienta, nie język producenta).
+   PYTANIE = naturalne zapytanie pisane normalną polszczyzną (bez wklejania surowych nazw katalogowych PISANYCH WIELKIMI LITERAMI!), które człowiek wpisuje w Google lub zadaje asystentowi AI. Pełne zdanie pytające zakończone znakiem '?'.
    BEZWZGLĘDNY ZAKAZ: etykiet 'Problem:' / 'Rozwiązanie:' / 'Answer:'; twierdzeń zamiast pytań
-   ('Inne mydła wysuszają skórę.'); pytań o wady opakowania/produktu (te należą do s4);
-   pytań, na które payload nie daje faktycznej odpowiedzi.
-   ODPOWIEDŹ = answer-first: pierwsze zdanie odpowiada wprost i wskazuje produkt (marka + linia)
+   ('Inne mydła wysuszają skórę.'); pytań, na które payload nie daje faktycznej odpowiedzi.
+   ODPOWIEDŹ = answer-first: pierwsze zdanie odpowiada wprost i wskazuje produkt (marka + naturalna nazwa)
    jako rozwiązanie; drugie zdanie — mechanizm lub fakt z payloadu (składnik, parametr,
-   sposób użycia). Max 300 znaków, zrozumiała bez kontekstu (AI cytuje ją wyrwaną z opisu).
-   Jeśli produkt jest uniwersalnym detergentem piorącym lub płynem do bieli/kolorów, jedna z par FAQ powinna rozwiewać wątpliwości konsumenta dotyczące wykluczenia prania wełny i jedwabiu (ochrona przed degradacją włókien białkowych w alkalicznym pH). Jeśli produkt zawiera rozjaśniacze optyczne (FWA), jedna z par FAQ powinna rozwiewać wątpliwości konsumenta dotyczące prania tkanin ciemnych/czarnych (wyjaśniając brak rekomendacji i ryzyko optycznego zszarzenia czerni).
+   sposób użycia). W każdej odpowiedzi wyróżnij tagiem `<b>...</b>` kluczową informację dla szybkiego skanowania wzrokiem! Max 300 znaków.
    [Kod po Tobie: normalizacja etykiet + bramka aeo_faq_check (pary 1:1, '?' na końcu pytania)
    — naruszenie zatrzymuje ofertę do HITL.]
 s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z

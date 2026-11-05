@@ -127,15 +127,17 @@ DOKTRYNA ZAMKNIĘTEGO ŚWIATA I ONTOLOGII PRODUKTU:
 - Zwracaj wyłącznie dane w 100% pewne i czytelne z grafiki.
 
 KRYTYCZNE ZADANIA EKSTRAKCJI:
-1. Pojemność lub waga: odczytaj dokładną wartość z jednostką (np. "750 ml", "1.5 l", "500 g", "1.5 kg"). Jeśli brak, null.
-2. Wariant zapachowy lub wersja: odczytaj nazwę wariantu lub nuty zapachowej dla kosmetyków i chemii (np. "Lawenda", "Cytryna i mięta", "Sensitive", "Ocean Fresh"). DLA ARTYKUŁÓW BEZWONNYCH (SZCZOTECZKI DO ZĘBÓW, AKCESORIA) ZAWSZE NULL!
+1. Pojemność lub waga: odczytaj dokładną wartość z jednostką (np. "650 ml", "750 ml", "1.5 l", "500 g", "1.5 kg"). Jeśli brak, null.
+2. Wariant zapachowy lub wersja: odczytaj nazwę rzeczywistej nuty zapachowej dla kosmetyków i chemii (np. "Lawenda", "Cytryna i mięta", "Ocean Fresh").
+   - DLA ARTYKUŁÓW BEZWONNYCH (SZCZOTECZKI DO ZĘBÓW, AKCESORIA) ZAWSZE NULL!
+   - KATEGORYCZNY ZAKAZ wpisywania składników chemicznych/czyszczących jako zapachu! Napisy typu "con Candeggina" (z wybielaczem), "con Bicarbonato" (z sodą), "con Aceto" (z octem), "con Ammoniaca" (z amoniakiem) oznaczają SKŁADNIK AKTYWNY (wpisz "Wybielacz", "Soda oczyszczona" lub "Ocet" do kluczowe_skladniki_front), a dla zapach_wariant zwróć null (chyba że obok podano rzeczywistą nutę zapachową np. Cytryna, Eukaliptus).
 3. Twardość włosia (dla szczoteczek do zębów i pędzli): odczytaj stopień twardości (np. "Soft", "Medium", "Hard", "Ultra Soft", "Średnia", "Miękka", "Twarda"). Jeśli produkt nie posiada włosia, null.
-4. Postać fizyczna: precyzyjnie określ postać (np. "płyn", "żel", "pianka", "spray", "proszek", "kapsułki", "tabletki", "krem", "balsam", "chusteczki", "szczoteczka manualna", "wyrób higieniczny").
-5. Typ dozownika / zamknięcia: wskaż widoczny mechanizm (np. "pompka", "atomizer / spray", "korek / nakrętka", "nakrętka z miarką", "brak").
-6. Wydajność lub liczba użyć: jeśli podano liczbę prań, kapsułek lub doz (np. "40 prań", "60 kapsułek", "100 doz"), wpisz. W przeciwnym razie null.
-7. Przeznaczenie frontowe: główne docelowe zastosowanie podane na froncie (np. "do czyszczenia łazienki i armatury", "do higieny jamy ustnej", "do tkanin kolorowych"). Jeśli brak, null.
-8. Kluczowe hasła i wyróżniki z etykiety: lista haseł marketingowo-technologicznych z frontu (np. ["Ultra Power", "98% składników pochodzenia naturalnego", "0% barwników"]). Jeśli brak, pusta tablica [].
-9. Kluczowe składniki wyróżnione na froncie (Hero Ingredients): lista najważniejszych składników aktywnych, ekstraktów, olejków lub substancji eksponowanych na przedniej etykiecie (np. ["Olej arganowy", "Mydło marsylskie", "Kwas hialuronowy", "Aktywny tlen", "Soda", "Aloes"]). Przetłumacz nazwy z włoskiego/angielskiego/niemieckiego na język polski. Jeśli brak, pusta tablica [].
+4. Postać fizyczna: precyzyjnie określ postać po polsku (np. "płyn", "żel", "pianka", "spray", "proszek", "kapsułki", "tabletki", "krem", "balsam", "mleczko", "chusteczki", "szczoteczka manualna", "wyrób higieniczny").
+5. Typ dozownika / zamknięcia: wskaż widoczny mechanizm po polsku (np. "pompka", "atomizer / spray", "korek / nakrętka", "nakrętka z miarką", "brak").
+6. Wydajność lub liczba użyć: jeśli podano liczbę prań, kapsułek lub doz (np. "40 prań", "60 kapsułek", "100 doz"), wpisz po polsku. W przeciwnym razie null.
+7. Przeznaczenie frontowe: główne docelowe zastosowanie podane na froncie, przetłumaczone w 100% na język polski bez obcojęzycznych wtrąceń w nawiasach (np. "uniwersalne czyszczenie powierzchni", "do czyszczenia kuchni i łazienki", "do higieny jamy ustnej", "do tkanin kolorowych"). Jeśli brak, null.
+8. Kluczowe hasła i wyróżniki z etykiety: lista haseł z frontu PRZETŁUMACZONYCH W 100% NA NATURALNY JĘZYK POLSKI (np. zamiast włoskich "Formula Migliorata", "Spray Attivo", "Potere Sbiancante", "Schiuma Potente" zwróć wyłącznie polskie odpowiedniki: ["Ulepszona formuła", "Aktywny spray", "Siła wybielania", "Aktywna piana"]). KATEGORYCZNY ZAKAZ zwracania słów po włosku/niemiecku/angielsku ani dopisywania ich w nawiasach! Jeśli brak, pusta tablica [].
+9. Kluczowe składniki wyróżnione na froncie (Hero Ingredients): lista najważniejszych składników aktywnych, ekstraktów, olejków lub substancji czyszczących eksponowanych na przedniej etykiecie, przetłumaczona w 100% na język polski (np. ["Wybielacz", "Olej arganowy", "Mydło marsylskie", "Kwas hialuronowy", "Aktywny tlen", "Soda oczyszczona", "Aloes"]). Jeśli brak, pusta tablica [].
 UWAGA PRAWNA (BPR 528/2012): Jeśli na zagranicznym opakowaniu widnieje słowo "Igienizzante", "Antibatterico", "Sanitizing", "Antibacterial" lub "Antybakteryjny", tłumacz je wyłącznie jako "Higieniczna czystość" lub "Głębokie oczyszczanie" (zakaz przypisywania właściwości biobójczych/antybakteryjnych/przeciwwirusowych).`;
 
 const frontVisionSchema = {
@@ -163,11 +165,28 @@ const frontVisionSchema = {
 function sanitizeVisionFrontText(str) {
     if (!str || typeof str !== 'string') return str;
     return str
+        // 1. Tarcza BPR 528/2012 (Biobójcze -> Higieniczne)
         .replace(/\b(antybakteryjn[a-ząćęłńóśźż]*|przeciwbakteryjn[a-ząćęłńóśźż]*|antibatteric[oaie]|antibacterial)\b/gi, 'higienicznie oczyszczający')
         .replace(/\b(przeciwwirusow[a-ząćęłńóśźż]*|antywirusow[a-ząćęłńóśźż]*|wirusobójcz[a-ząćęłńóśźż]*|antiviral)\b/gi, 'głęboko oczyszczający')
         .replace(/\b(biobójcz[a-ząćęłńóśźż]*|bakteriobójcz[a-ząćęłńóśźż]*|grzybobójcz[a-ząćęłńóśźż]*|pleśniobójcz[a-ząćęłńóśźż]*)\b/gi, 'intensywnie czyszczący')
         .replace(/\b(dezynfekuj[a-ząćęłńóśźż]*|dezynfekcj[a-ząćęłńóśźż]*|odkażaj[a-ząćęłńóśźż]*|odkaża[a-ząćęłńóśźż]*|igienizzante|disinfettante|sanitizing)\b/gi, 'zapewniający higieniczną czystość')
         .replace(/\b(zabija|usuwa|eliminuje|likwiduje)\s+(?:do\s+)?99[.,]9%\s*(?:bakterii|wirusów|zarazków|drobnoustrojów|mikrobów)\b/gi, 'skutecznie usuwa zanieczyszczenia i osady')
+        // 2. Usuwanie obcojęzycznych wtrąceń w nawiasach np. "(multiuso)", "(Potere Sbiancante)", "(Schiuma Potente)", "(Spray Attivo)", "(z wybielaczem)"
+        .replace(/\s*\(\s*(?:multiuso|potere\s+sbiancante|schiuma\s+potente|spray\s+attivo|formula\s+migliorata|azione\s+sgrassante|senza\s+aloni|senza\s+risciacquo|con\s+candeggina|candeggina|z\s+wybielaczem|pulito\s+profondo|profumo\s+di\s+pulito)\s*\)/gi, '')
+        // 3. Tłumaczenie włoskich sloganów z etykiety frontowej na naturalny język polski
+        .replace(/\bformula\s+migliorata\b/gi, 'Ulepszona formuła')
+        .replace(/\bspray\s+attivo\b/gi, 'Aktywny spray')
+        .replace(/\bpotere\s+sbiancante\b/gi, 'Siła wybielania')
+        .replace(/\bschiuma\s+potente\b/gi, 'Aktywna piana')
+        .replace(/\bazione\s+sgrassante\b/gi, 'Działanie odtłuszczające')
+        .replace(/\bsenza\s+aloni\b/gi, 'Bez smug')
+        .replace(/\bsenza\s+risciacquo\b/gi, 'Bez spłukiwania')
+        .replace(/\bprofumo\s+di\s+pulito\b/gi, 'Świeży zapach czystości')
+        .replace(/\bpulito\s+profondo\b/gi, 'Głębokie czyszczenie')
+        .replace(/\bcon\s+candeggina\b/gi, 'z wybielaczem')
+        .replace(/\bcandeggina\b/gi, 'Wybielacz')
+        .replace(/\bmultiuso\b/gi, 'wielofunkcyjny')
+        .replace(/\s{2,}/g, ' ')
         .trim();
 }
 
@@ -253,9 +272,16 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
         }
         if (result.zapach_wariant && String(result.zapach_wariant).trim().length > 0) {
             const rawZapach = sanitizeVisionFrontText(String(result.zapach_wariant).trim());
-            // Tarcza ontologiczna: Jeśli do zapachu omyłkowo trafiło oznaczenie twardości włosia (np. MEDIUM, SOFT, HARD), przenieś do Twardość włosia
+            // Tarcza ontologiczna 1: Jeśli do zapachu omyłkowo trafiło oznaczenie twardości włosia (np. MEDIUM, SOFT, HARD), przenieś do Twardość włosia
             if (/^(soft|medium|hard|ultra\s*soft|extra\s*soft|średni[a|e]?|miękki[a|e]?|tward[y|a|e]?)$/i.test(rawZapach)) {
                 pimFeatures['Twardość włosia'] = rawZapach;
+            } else if (/^(?:(?:z\s+)?wybielacz(?:em)?|candeggina|con\s+candeggina|(?:z\s+)?sod[ąa]|bicarbonato|(?:z\s+)?octem|aceto|(?:z\s+)?amoniakiem|ammoniaca)$/i.test(rawZapach)) {
+                // Tarcza ontologiczna 2: Składniki chemiczne (np. wybielacz / soda / ocet) to NIE nuta zapachowa -> przenieś do Składników wiodących
+                const heroList = Array.isArray(result.kluczowe_skladniki_front) ? result.kluczowe_skladniki_front : [];
+                const cleanHero = /wybielacz|candeggina/i.test(rawZapach) ? 'Wybielacz' : rawZapach;
+                if (!heroList.some(h => String(h).toLowerCase().includes(cleanHero.toLowerCase()))) {
+                    result.kluczowe_skladniki_front = [...heroList, cleanHero];
+                }
             } else {
                 pimFeatures['Zapach'] = rawZapach;
             }

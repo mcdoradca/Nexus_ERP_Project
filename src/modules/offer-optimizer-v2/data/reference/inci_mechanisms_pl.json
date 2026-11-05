@@ -83,8 +83,8 @@
     "sodium chloride": {
       "names": ["sodium chloride", "chlorek sodu"],
       "role": "viscosity_controller",
-      "cosmetic_html": "<li>⚙️ <b>Sodium Chloride:</b> elektrolit regulujący lepkość, który <b>nadaje żelowej formule optymalną gęstość</b>, zapobiegając przelewaniu się produktu przez dłonie.</li>",
-      "chemical_html": "<li>⚙️ <b>Sodium Chloride:</b> regulator reologii roztworu, który <b>zagęszcza płyn czyszczący</b> i ułatwia jego precyzyjne dozowanie.</li>"
+      "cosmetic_html": "<li>⚙️ <b>Sodium Chloride (Chlorek sodu):</b> naturalny składnik zagęszczający, który <b>nadaje żelowej formule optymalną gęstość</b>, zapobiegając przelewaniu się produktu przez dłonie.</li>",
+      "chemical_html": "<li>⚙️ <b>Sodium Chloride (Chlorek sodu):</b> składnik zagęszczający, który <b>nadaje płynowi odpowiednią gęstość</b> i zapobiega zbyt szybkiemu spływaniu piany z pionowych powierzchni.</li>"
     },
     "parfum": {
       "names": ["parfum", "fragrance", "aroma", "kompozycja zapachowa", "perfume"],
@@ -241,9 +241,57 @@
       "role": "fragrance_component",
       "cosmetic_html": "<li>⚙️ <b>Składniki kompozycji zapachowej (np. Limonene, Linalool):</b> lotne molekuły aromatyczne budujące <b>wielowymiarowy profil zapachowy produktu</b> podczas aplikacji.</li>",
       "chemical_html": "<li>⚙️ <b>Nuty aromatyczne (np. Limonene, Linalool, Hexyl Cinnamal):</b> składniki kompozycji zapachowej odpowiadające za <b>świeży, wyczuwalny zapach</b> na umytych powierzchniach i wypranych tkaninach.</li>"
+    },
+    "sodium hypochlorite": {
+      "names": ["sodium hypochlorite", "podchloryn sodu", "wybielacz", "candeggina", "aktywny chlor", "związki wybielające na bazie chloru", "chlorine-based bleaching agents"],
+      "role": "chlorine_bleach",
+      "cosmetic_html": "<li>⚙️ <b>Sodium Hypochlorite:</b> składnik oczyszczający i rozjaśniający.</li>",
+      "chemical_html": "<li>⚙️ <b>Sodium Hypochlorite (Podchloryn sodu – aktywny wybielacz):</b> silny składnik utleniający i wybielający, który <b>błyskawicznie rozkłada trudne plamy z kawy, herbaty, wina i tłuszczu</b> oraz przywraca czyszczonym powierzchniom <b>higieniczną czystość i śnieżną biel</b>.</li>"
+    },
+    "sodium c14-17 alkyl sec sulfonate": {
+      "names": ["sodium c14-17 alkyl sec sulfonate", "secondary alkane sulfonate", "alkanosulfonian sodu"],
+      "role": "anionic_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Sodium C14-17 Alkyl Sec Sulfonate:</b> środek powierzchniowo czynny odpowiadający za pienienie i oczyszczanie.</li>",
+      "chemical_html": "<li>⚙️ <b>Sodium C14-17 Alkyl Sec Sulfonate (Anionowy środek myjący):</b> aktywny składnik odtłuszczający, który <b>tworzy gęstą pianę, odrywa zaschnięty tłuszcz kuchenny od podłoża</b> i ułatwia jego szybkie spłukanie wodą bez smug.</li>"
+    },
+    "sodium hydroxide": {
+      "names": ["sodium hydroxide", "wodorotlenek sodu", "potassium hydroxide", "wodorotlenek potasu"],
+      "role": "alkaline_builder",
+      "cosmetic_html": "<li>⚙️ <b>Sodium Hydroxide (Regulator pH):</b> składnik korygujący odczyn kwasowo-zasadowy, który <b>zapewnia stabilność i odpowiednie pH formuły</b> kosmetycznej.</li>",
+      "chemical_html": "<li>⚙️ <b>Sodium Hydroxide (Wodorotlenek sodu):</b> składnik alkaliczny o silnym działaniu odtłuszczającym, który <b>rozpuszcza przypalony tłuszcz i lepkie osady kuchenne</b> oraz utrzymuje trwałość składników wybielających.</li>"
+    },
+    "sodium silicate": {
+      "names": ["sodium silicate", "sodium metasilicate", "krzemian sodu", "metakrzemian sodu"],
+      "role": "alkaline_corrosion_inhibitor",
+      "cosmetic_html": "<li>⚙️ <b>Sodium Silicate:</b> mineralny składnik stabilizujący pH.</li>",
+      "chemical_html": "<li>⚙️ <b>Sodium Silicate (Krzemian sodu):</b> mineralny składnik ochronny, który <b>wspomaga odrywanie brudu i chroni czyszczone powierzchnie przed matowieniem</b> oraz korozją pod wpływem silnych środków myjących.</li>"
+    },
+    "sulfamic acid": {
+      "names": ["sulfamic acid", "kwas amidosulfonowy", "formic acid", "kwas mrówkowy", "phosphoric acid", "kwas fosforowy"],
+      "role": "acid_ph_regulator",
+      "cosmetic_html": "<li>⚙️ <b>Regulator kwasowości:</b> odpowiada za kontrolę odczynu pH formulacji.</li>",
+      "chemical_html": "<li>⚙️ <b>Aktywny kwas odkamieniający (Sulfamic / Formic / Phosphoric Acid):</b> szybko działający składnik odkamieniający, który <b>rozpuszcza twardy kamień wodny, rdzę oraz osady z mydła</b> na armaturze i ceramice łazienkowej.</li>"
+    },
+    "isopropyl alcohol": {
+      "names": ["isopropyl alcohol", "isopropanol", "alkohol izopropylowy", "alcohol denat.", "butoxyethanol", "2-butoxyethanol", "propylene glycol butyl ether"],
+      "role": "solvent_degreaser",
+      "cosmetic_html": "<li>⚙️ <b>Alcohol Denat. / Isopropyl Alcohol:</b> lekki rozpuszczalnik nośnikowy, który <b>przyspiesza wchłanianie formuły i daje uczucie odświeżenia</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Aktywny rozpuszczalnik odtłuszczający (Alkohol / Glikol eterowy):</b> rozpuszcza tłuste ślady palców oraz smugi i <b>przyspiesza odparowywanie płynu, pozostawiając połysk bez konieczności polerowania</b>.</li>"
     }
   },
   "synergies": [
+    {
+      "id": "chlorine_anionic_foam",
+      "required_roles": ["chlorine_bleach", "anionic_surfactant"],
+      "cosmetic_html": "<li>⚡ <b>Synergia Oczyszczająca:</b> połączenie składników aktywnych przyspiesza usuwanie zabrudzeń.</li>",
+      "chemical_html": "<li>⚡ <b>Synergia Wybielania i Aktywnej Piany (Podchloryn Sodu + Środek Pianotwórczy):</b> połączenie aktywnego wybielacza z surfaktantem sprawia, że <b>gęsta piana dłużej utrzymuje się na pionowych powierzchniach</b>, jednocześnie rozpuszczając tłuszcz i usuwając trudne plamy.</li>"
+    },
+    {
+      "id": "alkaline_chlorine_stability",
+      "required_roles": ["chlorine_bleach", "alkaline_builder"],
+      "cosmetic_html": "<li>⚡ <b>Synergia Stabilizująca:</b> odpowiednie pH utrzymuje trwałość składników aktywnych.</li>",
+      "chemical_html": "<li>⚡ <b>Synergia Odtłuszczająco-Stabilizująca (Układ Alkaliczny + Wybielacz):</b> zasadowy odczyn przyspiesza rozbijanie lepkiego tłuszczu kuchennego i <b>chroni aktywny wybielacz przed przedwczesnym rozpadem</b>, zapewniając pełną skuteczność do ostatniej dozy.</li>"
+    },
     {
       "id": "anionic_amphoteric_mildness",
       "required_roles": ["anionic_surfactant", "amphoteric_surfactant"],

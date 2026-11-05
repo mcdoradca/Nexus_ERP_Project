@@ -227,18 +227,28 @@ class GpsrSafetyService {
         const detectedRisks = [];
 
         const prodNameLower = String(productName || '').toLowerCase();
+        const featuresStr = JSON.stringify(features || {}).toLowerCase();
+        const rawInciLower = String(inci || '').toLowerCase();
+        const combinedContextLower = `${prodNameLower} ${featuresStr} ${rawInciLower}`;
+
         const isLaundryCapsules = /(kapsułk|kapsulk|capsule|pod[s]?)/i.test(prodNameLower) && 
                                   /(prani|laundry|wash|detergent|tkanin)/i.test(prodNameLower);
-        const isLaundryDetergent = /(płyn do prania|zel do prania|żel do prania|proszek do prania|laundry|odplamiacz|płyn do płukania)/i.test(prodNameLower);
+        const isLaundryDetergent = /(płyn do prania|plyn do prania|zel do prania|żel do prania|proszek do prania|laundry|odplamiacz|płyn do płukania|plyn do plukania|lavatrice|bucato|ammorbidente|smacchiatore)/i.test(prodNameLower);
         const isAerosol = /(aerozol|spray|aerosol|atomizer|odświeżacz powietrza|odswiezacz powietrza)/i.test(prodNameLower) ||
-                          features?.['Postać'] === 'Spray' || features?.['Postać'] === 'Aerozol' ||
-                          features?.['Postac'] === 'Spray' || features?.['Postac'] === 'Aerozol';
+                          /\b(spray|aerozol|atomizer)\b/i.test(String(features?.['Postać'] || features?.['Postac'] || features?.['Dozownik'] || ''));
+        const hasHypochlorite = /(sodium\s+hypochlorite|podchloryn\s+sodu|calcium\s+hypochlorite|candeggin[ao]|candegin[ao]|związki\s+wybielające\s+na\s+bazie\s+chloru|chlorine[\s-]*based\s+bleaching)/i.test(combinedContextLower) ||
+                                (/\b(wybielacz|bleach)\b/i.test(prodNameLower + ' ' + featuresStr) && !/(tlenow|oxygen|pasta do zębów|zęb)/i.test(combinedContextLower));
+        const hasChemicalInciMarkers = /(sodium\s+hypochlorite|podchloryn\s+sodu|sodium\s+c14-17\s+alkyl\s+sec\s+sulfonate|sodium\s+dodecylbenzenesulfonate|alkylbenzene\s+sulfonate|sodium\s+silicate|sodium\s+metasilicate|krzemian\s+sodu|phosphonates|fosfoniany|polycarboxylates|polikarboksylany|zeolites|zeolity|optical\s+brightener|fluorescent\s+brightener|rozjaśniacze\s+optyczne|sodium\s+percarbonate|nadwęglan\s+sodu|\btaed\b|sulfamic\s+acid|formic\s+acid|anionowe\s+środki\s+powierzchniowo\s+czynne|niejonowe\s+środki\s+powierzchniowo\s+czynne)/i.test(rawInciLower);
+        const hasHouseholdNameOrPurpose = /(chemia|detergent|odkamien|zmywark|czyszcz|myjący|myjacy|płyn do wc|plyn do wc|żel do wc|kostka do wc|udrożniacz|udrozniacz|środek wielofunkcyjny|srodek wielofunkcyjny|środek czyszczący|srodek czyszczacy|środek do czyszczenia|preparat czyszczący|płyn uniwersalny|plyn uniwersalny|mleczko do czyszczenia|odtłuszczacz|odtluszczacz|do kuchni|do łazien|do lazien|do podłóg|do podlog|do szyb|do mebli|do dywan|do naczyń|do naczyn|do piekarnik|do grilla|do kabin|do fug|czyszczenie powierzchni|zmywalnych powierzchni|candeggin|sgrassatore|multiuso|anticalcare|pavimenti|lavastoviglie)/i.test(prodNameLower + ' ' + String(features?.['Przeznaczenie (Front)'] || features?.['Przeznaczenie'] || features?.['Kategoria'] || ''));
+
         const isActualChemical = Boolean(
             isChemical ||
             isLaundryCapsules ||
             isLaundryDetergent ||
             isAerosol ||
-            /(chemia|detergent|odkamien|zmywark|czyszcz|płyn do wc|udrożniacz)/i.test(prodNameLower) ||
+            hasHypochlorite ||
+            hasChemicalInciMarkers ||
+            hasHouseholdNameOrPurpose ||
             compliance?.clp_signal_word ||
             (compliance?.clp_h_phrases && compliance.clp_h_phrases.length > 0)
         );
@@ -327,9 +337,15 @@ class GpsrSafetyService {
         const splitPPhrases = this.splitCombinedPPhrases(rawPPhrases);
 
         const hasEyeIrritation = combinedHPhrases.some(h => /H319|H318/i.test(h));
+        const hasSevereChemicalIrritant = Boolean(
+            hasHypochlorite ||
+            /(sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|sodium\s+silicate|sodium\s+metasilicate|krzemian\s+sodu|sodium\s+c14-17\s+alkyl\s+sec\s+sulfonate|sulfamic\s+acid|formic\s+acid|phosphoric\s+acid|hydrochloric\s+acid|sodium\s+percarbonate|nadwęglan\s+sodu|odkamieniacz|udrożniacz|odtłuszczacz|sgrassatore|anticalcare|płyn\s+do\s+wc|żel\s+do\s+wc)/i.test(`${cleanInci} ${prodNameLower}`)
+        );
 
         const isClassifiedChemical = Boolean(
             hasEyeIrritation ||
+            hasHypochlorite ||
+            hasSevereChemicalIrritant ||
             isLaundryDetergent ||
             isLaundryCapsules ||
             isAerosol ||
@@ -340,6 +356,9 @@ class GpsrSafetyService {
         // --- OBSŁUGA CHEMII GOSPODARCZEJ I DETERGENTÓW (REŻIM CLP 1272/2008 & REŻIM DETERGENTOWY 648/2004) ---
         if (isActualChemical) {
             detectedRisks.push('HOUSEHOLD_CHEMICAL');
+            if (hasHypochlorite) {
+                detectedRisks.push('CHLORINE_BLEACH_EUH206');
+            }
 
             // 1. Hasło ostrzegawcze (DANGER / WARNING wg CLP) - format z myślnikiem wg standardu Allegro
             if (isClassifiedChemical) {
@@ -355,6 +374,9 @@ class GpsrSafetyService {
                         warnings.push(h);
                     }
                 } else {
+                    if (hasHypochlorite) {
+                        warnings.push("H315 – Działa drażniąco na skórę.");
+                    }
                     warnings.push("H319 – Działa drażniąco na oczy.");
                 }
             }
@@ -365,7 +387,7 @@ class GpsrSafetyService {
             // 4. P102 – Chronić przed dziećmi (Obowiązkowy dla mieszanin konsumenckich)
             warnings.push("P102 – Chronić przed dziećmi.");
 
-            // 5. P264 – Dokładnie umyć ręce po użyciu (Prewencja ogólna przy H319/H318)
+            // 5. P264 – Dokładnie umyć ręce po użyciu (Prewencja ogólna przy H319/H318/H315)
             if (isClassifiedChemical) {
                 warnings.push("P264 – Dokładnie umyć ręce po użyciu.");
             }
@@ -380,12 +402,22 @@ class GpsrSafetyService {
                 warnings.push("P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.");
             }
 
+            // 7b. P302+P352 – W PRZYPADKU KONTAKTU ZE SKÓRĄ: Umyć dużą ilością wody (dla preparatów z podchlorynem sodu / H315)
+            if (hasHypochlorite) {
+                warnings.push("P302+P352 – W PRZYPADKU KONTAKTU ZE SKÓRĄ: Umyć dużą ilością wody.");
+            }
+
             // 8. P305+P351+P338 – Faza 1: Płukanie oczu wodą
             warnings.push("P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
 
             // 9. P337+P313 – Faza 2: Pomoc lekarska w razie utrzymywania się podrażnienia oczu
             if (isClassifiedChemical) {
                 warnings.push("P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza.");
+            }
+
+            // 9b. EUH206 – Obowiązkowe ostrzeżenie dla mieszanin zawierających aktywny chlor / podchloryn sodu (Załącznik II CLP pkt 2.6)
+            if (hasHypochlorite) {
+                warnings.push("EUH206 – Uwaga! Nie stosować razem z innymi produktami. Może wydzielać niebezpieczne gazy (chlor).");
             }
 
             // 10. EUH208 – Informacja uzupełniająca o zagrożeniach (Art. 25 ust. 6 CLP, Rozp. 2023/1545)

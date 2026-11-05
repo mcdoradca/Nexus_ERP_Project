@@ -367,7 +367,7 @@ function validate_eu_responsible_person(eu) {
 // Naprawia wyłącznie formę etykiet — NIE zamienia twierdzeń w pytania (to egzekwuje aeo_faq_check).
 function normalize_aeo_faq_labels(html) {
     if (!html || typeof html !== 'string') return html;
-    let res = html;
+    let res = html.replace(/<(strong|b)>\s*(?:Problem|Question|Pytanie)\s*:\s*([^<]+)<\/\1>/gi, '<$1>Pytanie:</$1> <$1>$2</$1>');
 
     // 1. Etykiety pytań: Problem / Question → Pytanie (dwukropek wewnątrz tagu, ewentualny zewnętrzny usuwany)
     res = res.replace(/(<(strong|b)>\s*)(?:Problem|Question|Pytanie)\s*:?\s*(<\/\2>)(\s*:)?/gi, '$1Pytanie:$3');

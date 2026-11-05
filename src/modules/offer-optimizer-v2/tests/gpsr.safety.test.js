@@ -238,5 +238,30 @@ test('GPSR Safety Service - Wyprowadzanie ostrzeżeń ze składu INCI i SDS', as
         assert.ok(cleaned.includes('Hasło ostrzegawcze – UWAGA'), 'Nie znormalizowano hasła ostrzegawczego do myślnika');
         assert.strictEqual(cleaned.includes('P301 – W PRZYPADKU POŁKNIĘCIA:</li>'), false, 'Nie wyczyszczono osieroconego nagłówka P301');
     });
+
+    await t.test('Cif Candeggina 650 ml (chlorowy środek czyszczący): klasyfikacja jako HOUSEHOLD_CHEMICAL, pełny blok CLP i obowiązkowy zwrot EUH206', () => {
+        const res = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'CIF ŚRODEK WIELOFUNKCYJNY CANDEGINA 650 ML',
+            inci: 'Aqua, Sodium Hypochlorite, Sodium C14-17 Alkyl Sec Sulfonate, Sodium Hydroxide, Sodium Silicate, Sodium Carbonate, Sodium Chloride, Parfum',
+            isChemical: false,
+            features: {
+                'Przeznaczenie': 'uniwersalne czyszczenie powierzchni (multiuso)'
+            }
+        });
+
+        assert.ok(res.detected_risks.includes('HOUSEHOLD_CHEMICAL'), 'Cif Candeggina musi zostać sklasyfikowany jako HOUSEHOLD_CHEMICAL');
+        assert.ok(res.detected_risks.includes('CHLORINE_BLEACH_EUH206'), 'Musi wykryć ryzyko wydzielania chloru z podchlorynu sodu (EUH206)');
+        assert.ok(res.warnings.includes('Hasło ostrzegawcze – UWAGA'), 'Brak hasła ostrzegawczego UWAGA');
+        assert.ok(res.warnings.some(w => w.startsWith('H315 – ')), 'Brak zwrotu H315 (działanie drażniące na skórę)');
+        assert.ok(res.warnings.some(w => w.startsWith('H319 – ')), 'Brak zwrotu H319 (działanie drażniące na oczy)');
+        assert.ok(res.warnings.some(w => w.startsWith('P102 – ')), 'Brak zwrotu P102');
+        assert.ok(res.warnings.some(w => w.startsWith('P264 – ')), 'Brak zwrotu P264');
+        assert.ok(res.warnings.some(w => w.startsWith('P280 – ')), 'Brak zwrotu P280');
+        assert.ok(res.warnings.some(w => w.startsWith('P302+P352 – ')), 'Brak zwrotu P302+P352');
+        assert.ok(res.warnings.some(w => w.startsWith('P305+P351+P338 – ')), 'Brak zwrotu P305+P351+P338');
+        assert.ok(res.warnings.some(w => w.startsWith('EUH206 – Uwaga! Nie stosować razem z innymi produktami. Może wydzielać niebezpieczne gazy (chlor).')), 'Brak obowiązkowego zwrotu EUH206 dla wybielacza chlorowego');
+        assert.strictEqual(res.warnings.some(w => /uszkodzoną skórę|podrażnioną skórę/i.test(w)), false, 'Środek chemiczny z wybielaczem nie może mieć ostrzeżeń kosmetycznych o podrażnionej skórze');
+    });
 });
+
 
