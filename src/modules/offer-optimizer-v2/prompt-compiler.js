@@ -42,10 +42,11 @@ const nodeMap = {
     7: ['§A', '§B', '§C', '§H', '§J'],
     8: ['§G'],
     9: ['§G'],
-    10: ['§A', '§D', '§E', '§F', '§J']
+    10: ['§A', '§D', '§E', '§F', '§J'],
+    11: ['§A', '§D', '§E', '§F', '§J']
 };
 
-const agentsToCompile = [1, 2, 4, 5, 6, 7, 8, 9, 10];
+const agentsToCompile = [1, 2, 4, 5, 6, 7, 8, 9, 10, 11];
 let totalDiacritics = 0;
 
 console.log("Rozpoczynam kompilację promptów v4 + v4.1 patch (tylko wskazane sekcje)...");

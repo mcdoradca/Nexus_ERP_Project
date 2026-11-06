@@ -183,7 +183,7 @@ function sanitizeVisionFrontText(str) {
         // 4. Tłumaczenie włoskich sloganów z etykiety frontowej na naturalny język polski
         .replace(/\bformula\s+migliorata\b/gi, 'Ulepszona formuła')
         .replace(/\bspray\s+attivo\b/gi, 'Aktywny spray')
-        .replace(/\bpotere\s+sbiancante\b/gi, 'Siła wybielania')
+        .replace(/\bpotere\s+sbiancante\b/gi, 'Właściwości wybielające')
         .replace(/\bschiuma\s+potente\b/gi, 'Aktywna piana')
         .replace(/\bazione\s+sgrassante\b/gi, 'Działanie odtłuszczające')
         .replace(/\bsenza\s+aloni\b/gi, 'Bez smug')

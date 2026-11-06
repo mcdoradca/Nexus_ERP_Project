@@ -84,7 +84,13 @@
       "names": ["sodium chloride", "chlorek sodu"],
       "role": "viscosity_controller",
       "cosmetic_html": "<li>⚙️ <b>Sodium Chloride (Chlorek sodu):</b> naturalny składnik zagęszczający, który <b>nadaje żelowej formule optymalną gęstość</b>, zapobiegając przelewaniu się produktu przez dłonie.</li>",
-      "chemical_html": "<li>⚙️ <b>Sodium Chloride (Chlorek sodu):</b> składnik zagęszczający, który <b>nadaje płynowi odpowiednią gęstość</b> i zapobiega zbyt szybkiemu spływaniu piany z pionowych powierzchni.</li>"
+      "chemical_html": "<li>⚙️ <b>Sodium Chloride (Chlorek sodu):</b> mineralny regulator lepkości, który <b>nadaje roztworowi optymalną konsystencję</b> i ogranicza zbyt szybkie ściekanie preparatu z czyszczonych powierzchni.</li>"
+    },
+    "cocamine oxide": {
+      "names": ["cocamine oxide", "tlenek kokaminy", "lauramine oxide", "tlenek lauraminy", "amine oxide", "tlenki amin"],
+      "role": "foaming_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Cocamine Oxide (Tlenek kokaminy):</b> łagodny surfaktant amfoteryczny, który <b>tworzy stabilną pianę i ułatwia delikatne mycie</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Cocamine Oxide (Tlenek kokaminy):</b> wysoce odporny na utleniacze surfaktant amfoteryczny, który <b>generuje gęstą, aktywną pianę utrzymującą preparat na pionowych ścianach i wnikającą głęboko w porowate fugi</b>.</li>"
     },
     "parfum": {
       "names": ["parfum", "fragrance", "aroma", "kompozycja zapachowa", "perfume"],
@@ -210,7 +216,7 @@
       "names": ["sodium bicarbonate", "wodorowęglan sodu", "soda oczyszczona", "bicarbonato", "sodium carbonate", "węglan sodu", "soda"],
       "role": "alkaline_builder",
       "cosmetic_html": "<li>⚙️ <b>Sodium Bicarbonate (Wodorowęglan sodu):</b> mineralny składnik oczyszczający i odświeżający, który <b>wspomaga neutralizację nieprzyjemnych zapachów</b>.</li>",
-      "chemical_html": "<li>⚙️ <b>Soda aktywna (Sodium Bicarbonate / Sodium Carbonate):</b> alkaliczny środek zmiękczający wodę i odtłuszczający, który <b>zwiększa siłę myjącą detergentów, usuwa przypalenia i neutralizuje kwaśne zapachy</b>.</li>"
+      "chemical_html": "<li>⚙️ <b>Soda aktywna (Sodium Bicarbonate / Sodium Carbonate):</b> mineralny środek alkalizujący i zmiękczający wodę, który <b>podnosi efektywność myjącą roztworu, wspomaga odrywanie zanieczyszczeń organicznych i neutralizuje nieprzyjemne zapachy</b>.</li>"
     },
     "enzymes": {
       "names": ["enzymes", "enzymy", "protease", "proteaza", "amylase", "amylaza", "lipase", "lipaza", "cellulase", "celulaza", "mannanase", "subtilisin"],

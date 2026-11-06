@@ -2259,7 +2259,7 @@ class Orchestrator {
                     reason: 'Zunifikowano z węzłem A6 (Inżynieria Konwersji i Sensoryka wykonana w A6)'
                 };
                 this.state.node_status['A7'] = 'OK';
-                this.state.next_action = 'RUN_A10';
+                this.state.next_action = 'RUN_A11';
                 this.emitState();
             } else {
                 const agent7Data = {
@@ -2353,7 +2353,7 @@ class Orchestrator {
                     if (faqGateA7.halted) return;
 
                     this.state.node_status['A7'] = 'OK';
-                    this.state.next_action = 'RUN_A10';
+                    this.state.next_action = 'RUN_A11';
                     this.emitState();
                 } catch (e) {
                     this.state.node_status['A7'] = 'ERROR';
@@ -2361,6 +2361,111 @@ class Orchestrator {
                     this.state.next_action = 'HALT';
                     this.emitState();
                     return;
+                }
+            }
+        }
+
+        // --- KROK 11: A11 (Kognitywny Inspektor Domenowo-Produktowy i Fact-Checker) ---
+        if (this.state.next_action === 'RUN_A11') {
+            if (this.state.node_status['A11'] === 'HITL_OVERRIDDEN') {
+                console.log('[Orchestrator] Węzeł A11 oznaczony jako HITL_OVERRIDDEN. Pomijam wywołanie LLM.');
+                this.state.next_action = 'RUN_A10';
+                this.emitState();
+            } else {
+                this.state.node_status['A11'] = 'RUNNING';
+                this.emitState();
+
+                const agent11Data = {
+                    gtin_ean: this.gtin,
+                    product_name: product?.text_fields?.name || undefined,
+                    brand: extracted.brand?.value || undefined,
+                    manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name || undefined,
+                    category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name || undefined,
+                    scent_variant: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'] || undefined,
+                    inci: this.state.extracted_data.inci?.value || undefined,
+                    detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
+                    vision_features: this.state.vision_extracted_features || undefined,
+                    section_1_html: this.state.a7_result?.section_1_html,
+                    section_2_html: this.state.a7_result?.section_2_html,
+                    section_3_html: this.state.a7_result?.section_3_html,
+                    section_4_html: this.state.a7_result?.section_4_html,
+                    section_5_html: this.state.a7_result?.section_5_html,
+                    section_6_html: this.state.a7_result?.section_6_html
+                };
+
+                const a11Schema = {
+                    type: "object",
+                    properties: {
+                        product_identity: {
+                            type: "object",
+                            properties: {
+                                exact_product_type: { type: "string" },
+                                primary_regime: { type: "string" },
+                                target_surfaces_and_exclusions: { type: "string" },
+                                primary_active_chemistry: {
+                                    type: "array",
+                                    items: { type: "string" }
+                                }
+                            },
+                            required: ["exact_product_type", "primary_regime"]
+                        },
+                        domain_issues_detected: {
+                            type: "array",
+                            items: { type: "string" }
+                        },
+                        patches: {
+                            type: "array",
+                            items: {
+                                type: "object",
+                                properties: {
+                                    target_section: { type: "string" },
+                                    find_exact: { type: "string" },
+                                    replace_with: { type: "string" },
+                                    justification: { type: "string" }
+                                },
+                                required: ["target_section", "find_exact", "replace_with", "justification"]
+                            }
+                        }
+                    },
+                    required: ["product_identity", "patches"]
+                };
+
+                const prompt11Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_11_compiled.md'), 'utf8');
+                const prompt11 = prompt11Template.replace('{{SKU_DATA}}', JSON.stringify(agent11Data, null, 2));
+
+                try {
+                    const { result, usage } = await aiWrapper.callAgentWithTelemetry({
+                        agentId: "11",
+                        prompt: prompt11,
+                        schema: a11Schema
+                    });
+
+                    this.state.token_usage_per_node['A11'] = usage;
+                    this.state.a11_result = result;
+
+                    console.log(`[Orchestrator V2] Agent 11 zidentyfikował produkt: "${result.product_identity?.exact_product_type}", reżim: "${result.product_identity?.primary_regime}". Wykryte kwestie:`, result.domain_issues_detected || []);
+
+                    const patchesA11 = result.patches || [];
+                    const allowedSectionsA11 = ['section_1_html', 'section_2_html', 'section_3_html', 'section_4_html', 'section_5_html', 'section_6_html'];
+
+                    if (this.state.a7_result) {
+                        for (let p of patchesA11) {
+                            if (!allowedSectionsA11.includes(p.target_section)) continue;
+                            if (this.state.a7_result[p.target_section] && p.find_exact) {
+                                this.state.a7_result[p.target_section] = this.state.a7_result[p.target_section].split(p.find_exact).join(p.replace_with);
+                                console.log(`[Orchestrator V2] [A11 PATCH] Zaaplikowano patch w ${p.target_section}: "${p.justification}"`);
+                            }
+                        }
+                    }
+
+                    this.state.node_status['A11'] = 'OK';
+                    this.state.next_action = 'RUN_A10';
+                    this.emitState();
+                } catch (e) {
+                    console.warn(`[Orchestrator V2] Ostrzeżenie: Błąd podczas wykonania Agenta 11 (${e.message}). Przekazuję stan do Agenta 10.`);
+                    this.state.node_status['A11'] = 'WARNING_FALLBACK';
+                    this.state.next_action = 'RUN_A10';
+                    this.emitState();
                 }
             }
         }
@@ -2490,23 +2595,7 @@ class Orchestrator {
                     preAuditReport = "Automated checks passed.";
                 }
 
-                // WARUNKOWY FAST-PASS AGENTA 10:
-                // Jeśli w pełnym przebiegu potoku wszystkie 6 sekcji istnieje i przeszło 9 twardych bramek walidacyjnych bez ani jednego błędu,
-                // pomijamy kosztowne wywołanie modelu gemini-3.1-pro-preview.
-                if (isFullPipelineRun && allSixPresent && preAuditReport === "Automated checks passed.") {
-                    console.log(`[Orchestrator V2] ✅ FAST-PASS A10 dla EAN ${this.gtin}: Wszystkie 9 bramek walidacyjnych (BPR Biobójcze, Kosmetyczne 655/2013, Stop-words §A, HTML Whitelist, Emoji V7, FAQ AEO, Closed-World INCI, Sekcja 5, GPSR/CLP Sekcja 6) zaliczone w 100% (0 tokenów).`);
-                    this.state.a10_result = { ...this.state.a7_result };
-                    this.state.token_usage_per_node['A10'] = {
-                        promptTokenCount: 0,
-                        candidatesTokenCount: 0,
-                        totalTokenCount: 0,
-                        tokens_saved: true,
-                        reason: 'FAST-PASS: 0 błędów w deterministycznym audycie 9 bramek (pominięto gemini-3.1-pro-preview)'
-                    };
-                    this.state.node_status['A10'] = 'OK';
-                    this.state.next_action = 'FINISH';
-                    this.emitState();
-                } else {
+                // ELIMINACJA FAST-PASS (Zgodnie z protokołem Dual-Agent QA: Agent 10 zawsze wykonuje audyt LLM)
                     const agent10Data = {
                         gtin_ean: this.gtin,
                         product_name: product?.text_fields?.name || undefined,
@@ -2658,7 +2747,6 @@ class Orchestrator {
                             return;
                         }
                     }
-                }
             }
         }
         
@@ -2780,7 +2868,8 @@ class Orchestrator {
                 'A4': 'RUN_A5',
                 'A5': 'RUN_A6',
                 'A6': 'RUN_A7',
-                'A7': 'RUN_A10',
+                'A7': 'RUN_A11',
+                'A11': 'RUN_A10',
                 'A10': 'FINISH'
             };
             this.state.next_action = nextNodeMap[node] || 'HALT';

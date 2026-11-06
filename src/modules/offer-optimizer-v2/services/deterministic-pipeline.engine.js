@@ -446,22 +446,35 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr) {
         .replace(/,\s*<\/(?:li|p|h[1-6])>/gi, '</$1>')
         .replace(/\s{2,}/g, ' ');
 
-    // --- KROK G: ELIMINACJA KALEEK PRALNICZYCH I ZMYWARKOWYCH W CHEMII POWIERZCHNIOWEJ ---
+    // --- KROK G: ELIMINACJA KALEEK PRALNICZYCH, ZMYWARKOWYCH I KUCHENNYCH ORAZ TARCZA BHP PLEŚNI ---
     res = res
+        // Eliminacja kalek kuchennych w chemii sanitarnej / łazienkowej
+        .replace(/usuwa\s+przypalenia\s+i\s+neutralizuje\s+kwaśne\s+zapachy/gi, 'wspomaga odrywanie zanieczyszczeń organicznych i neutralizuje nieprzyjemne zapachy')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])usuwa\s+przypalenia(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wspomaga odrywanie zanieczyszczeń')
+        // Tarcza BHP procedury usuwania pleśni/grzybów (Krok 1: Kategoryczny zakaz ścierania na sucho i pylenia zarodników)
+        .replace(/(?:usuń\s+z\s+niego\s+powierzchowne\s+zanieczyszczenia|usuń\s+powierzchowne\s+zanieczyszczenia|zetrzyj\s+powierzchniowy\s+nalot)/gi, 'nanieś preparat bezpośrednio na zapleśniałą powierzchnię bez wstępnego ścierania mechanicznego (aby uniknąć rozprzestrzeniania zarodników w powietrzu)')
+                // Tarcza interwencyjności: eliminacja zwrotów o "codziennych porządkach" dla silnej chemii żrącej/chlorowej
+        .replace(/(?:do|podczas|w\s+trakcie)\s+codziennych\s+porządków/gi, 'do doraźnych zabiegów czyszczących')
+        .replace(/(?:do|podczas|w\s+trakcie)\s+regularnych\s+porządków/gi, 'do okresowej interwencji sanitarnej')
+        .replace(/(?:w\s+codziennych\s+porządkach|w\s+regularnych\s+porządkach)/gi, 'w doraźnych zabiegach czyszczących')
+        .replace(/wiele\s+tygodni\s+regularnych\s+porządków/gi, 'wiele doraźnych zabiegów czyszczących')
+        // Eliminacja kalek pralniczych
         .replace(/rozpuszczają\s+zaschnięty\s+tłuszcz,\s+oleje\s+i\s+sebum\s+już\s+w\s+niskich\s+temperaturach\s*\(od\s*20[–-]30\s*°?\s*C\)/gi, 'błyskawicznie zwilżają mytą powierzchnię, ułatwiając wnikanie w osady mineralne i mydlane oraz ich spłukiwanie bez smug')
         .replace(/już\s+w\s+niskich\s+temperaturach\s*\(od\s*20[–-]30\s*°?\s*C\)/gi, 'podczas codziennego zmywania i czyszczenia')
         .replace(/chronią\s+grzałkę\s+pralki\s+przed\s+kamieniem\s+i\s+zapobiegają\s+szarzeniu\s+tkanin/gi, 'wiążą jony twardości wody, zapobiegając powstawaniu zacieków wapiennych na armaturze i ceramice')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])tłuszcz,\s*oleje\s+i\s+sebum(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'tłuszcz, oleje i osady mineralne');
 
     // --- KROK H: WYODRĘBNIENIE BLOKU WYKLUCZENIA MATERIAŁOWEGO (PRATFALL W SEKCJI 4) ---
+    // Konwersja nieautoryzowanego na Allegro symbolu ⛔ na dozwolony symbol ostrzegawczy ⚠️
+    res = res.replace(/⛔/g, '⚠️');
     if (!/WYKLUCZENIE\s+ZASTOSOWANIA/i.test(res)) {
         // Przypadek A: wykluczenie zaszyte wewnątrz dłuższego akapitu po kropce lub innym znaku interpunkcyjnym
         res = res.replace(/([.!?])\s+((?:Ze względu na|Nie\s+(?:należy\s+)?(?:stosować|używać)\s+na|Preparatu\s+nie\s+należy\s+stosować\s+na)[^<]*?(?:marmur|trawertyn|wapie[ńn]|aluminium|kwasowrażliw|kamie[ńn]\s+naturaln|tkanin)[^<]*?)(<\/p>)/i, (m, punct, g1, g2) => {
-            return punct + '</p><p>⛔ <b>WYKLUCZENIE ZASTOSOWANIA:</b> ' + g1 + g2;
+            return punct + '</p><p>⚠️ <b>WYKLUCZENIE ZASTOSOWANIA:</b> ' + g1 + g2;
         });
-        // Przypadek B: cały akapit to wykluczenie, ale brakowało nagłówka ⛔ <b>WYKLUCZENIE ZASTOSOWANIA:</b>
+        // Przypadek B: cały akapit to wykluczenie, ale brakowało nagłówka ⚠️ <b>WYKLUCZENIE ZASTOSOWANIA:</b>
         res = res.replace(/<p>\s*((?:Ze względu na|Nie\s+(?:należy\s+)?(?:stosować|używać)\s+na|Preparatu\s+nie\s+należy\s+stosować\s+na)[^<]*?(?:marmur|trawertyn|wapie[ńn]|aluminium|kwasowrażliw|kamie[ńn]\s+naturaln|tkanin)[^<]*?)<\/p>/i, (m, g1) => {
-            return '<p>⛔ <b>WYKLUCZENIE ZASTOSOWANIA:</b> ' + g1 + '</p>';
+            return '<p>⚠️ <b>WYKLUCZENIE ZASTOSOWANIA:</b> ' + g1 + '</p>';
         });
     }
 
@@ -693,7 +706,7 @@ function tryBuildDeterministicSection3({
             usedDbKeys.add(hit.dbKey);
             if (hit.entry.role) matchedRoles.add(hit.entry.role);
             const htmlBullet = formatBulletHtml(hit.dbKey, hit.entry);
-            if (htmlBullet && matchedBenefits.length < 7) {
+            if (htmlBullet && matchedBenefits.length < 10) {
                 matchedBenefits.push(htmlBullet);
             }
         }
@@ -927,7 +940,7 @@ function buildDeterministicSection5({
     let resolvedZapach = visionFeatures?.['Zapach'] || features?.['Zapach'] || features?.['Nuta zapachowa'] || '';
     let resolvedHero = visionFeatures?.['Składniki wiodące (Front)'] || '';
     const resolvedPrzeznaczenie = visionFeatures?.['Przeznaczenie (Front)'] || features?.['Przeznaczenie'] || features?.['Zastosowanie'] || '';
-    const resolvedWyrozniki = visionFeatures?.['Wyróżniki (Etykieta Front)'] || '';
+    const resolvedWyrozniki = visionFeatures?.['Wyróżniki (Etykieta Front)'] || features?.['Cechy dodatkowe'] || features?.['Wyróżniki'] || '';
     let resolvedCountry = countryOfOrigin || features?.['Kraj pochodzenia'] || features?.['Kraj produkcji'] || '';
 
     // Korekta konfliktu pochodzenia: Unilever Italia / włoskie linie z holenderskim prefiksem EAN 87
@@ -975,7 +988,15 @@ function buildDeterministicSection5({
         addParam('Wydajność deklarowana', resolvedWydajnosc);
     }
     if (resolvedWyrozniki) {
-        addParam('Cechy dodatkowe', resolvedWyrozniki);
+        // Eliminacja pustych sloganów reklamowych z Cech dodatkowych (np. Siła wybielania, Potere Sbiancante)
+        const cleanWyrozniki = String(resolvedWyrozniki)
+            .split(/[,;]+/)
+            .map(s => s.trim())
+            .filter(s => s && !/(?:siła\s+wybielania|potere\s+sbiancante|ulepszona\s+formuła|formula\s+migliorata|aktywny\s+spray|spray\s+attivo|silna\s+formuła|super\s+moc|moc\s+czyszczenia|błyskawiczne\s+działanie)/i.test(s))
+            .join(', ');
+        if (cleanWyrozniki) {
+            addParam('Cechy dodatkowe', cleanWyrozniki);
+        }
     }
     addParam('Kraj pochodzenia', resolvedCountry);
     addParam('Stan opakowania', 'Fabryczne opakowanie producenta');
@@ -1108,6 +1129,7 @@ function normalizeEmojiAndStructure(htmlStr, sectionNum = 1) {
         .replace(/\u267B(?!\uFE0F)/g, '♻️')
         .replace(/\u2611(?!\uFE0F)/g, '☑️')
         // Zamiana nieautoryzowanych emoji na dozwolone odpowiedniki z białej listy Allegro
+        .replace(/⛔/g, '⚠️')
         .replace(/💧|🫧|🌊|🧴|🧽|🧹|🧺|🌸|🍋|🌿|✨|🛡️|💎|👑|🔥|😱|💥|😍|🚀|☘️?|☂️?/gu, () => {
             if (sectionNum === 4) return '✍️';
             if (sectionNum === 3) return '⚙️';

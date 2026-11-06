@@ -644,7 +644,30 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
     // 10. Wyodrębniony blok WYKLUCZENIE ZASTOSOWANIA w Sekcji 4 dla odkamieniaczy i wybielaczy
     const isDescalerOrBleach = /(?:anticalcare|odkamieniacz|odwapniacz|usuwanie\s+kamienia|przeciw\s+kamieniowi|con\s+aceto|z\s+octem|candeggina|wybielacz)/i.test(`${prodName} ${inci} ${detComp}`);
     if (isDescalerOrBleach && s4 && !/WYKLUCZENIE\s+ZASTOSOWANIA/i.test(s4)) {
-        errors.push('[Zaszyte wykluczenie materiałowe] Dla odkamieniacza / wybielacza Sekcja 4 musi zawierać wyodrębniony blok "<p>⛔ <b>WYKLUCZENIE ZASTOSOWANIA:</b> ...</p>".');
+        errors.push('[Zaszyte wykluczenie materiałowe] Dla odkamieniacza / wybielacza Sekcja 4 musi zawierać wyodrębniony blok "<p>⚠️ <b>WYKLUCZENIE ZASTOSOWANIA:</b> ...</p>".');
+    }
+
+    // 11. Kalka kuchenna (przypalenia / garnki / piekarniki) w chemii sanitarnej lub przeciwgrzybiczej
+    if (/(?:usuwa\s+przypalenia|przypalon[a-ząćęłńóśźż]*\s+(?:tłuszcz|garnk|piekarnik)|do\s+przypaleń)/i.test(allHtml) && (isBathroomDedicated || /(?:muffa|pleśn[a-ząćęłńóśźż]*|grzyb[a-ząćęłńóśźż]*|sanitarn[a-ząćęłńóśźż]*)/i.test(prodName))) {
+        errors.push('[Kalka kuchenna] Zwrot o usuwaniu przypaleń lub czyszczeniu garnków/piekarnika w preparacie sanitarnym / przeciwgrzybiczym.');
+    }
+
+    // 12. Błąd procedury BHP przeciwpleśniowej (zakaz ścierania na sucho przed aplikacją chemii)
+    const isAntifungalOrMold = /(?:muffa|pleśń|pleśni|grzyb|antygrzybi)/i.test(`${prodName} ${allHtml}`);
+    if (isAntifungalOrMold && /(?:usuń\s+(?:z\s+niego\s+)?powierzchowne\s+zanieczyszczenia|zetrzyj\s+powierzchniowy\s+nalot|zetrzyj\s+pleśń\s+na\s+sucho)/i.test(s4)) {
+        errors.push('[Zagrożenie biologiczne BHP] Kategoryczny zakaz zalecania mechanicznego ścierania lub usuwania nalotów pleśni na sucho przed użyciem chemii (powoduje niebezpieczne pylenie toksycznych zarodników).');
+    }
+
+    // 13. Absurd technologiczny: preparat żrący / z chlorem / grzybobójczy jako "codzienne porządki"
+    if (isChlorineBleach || isAntifungalOrMold) {
+        if (/(?:codziennych\s+porządków|regularnych\s+porządków|do\s+codziennego\s+sprzątania)/i.test(`${s1} ${s2}`)) {
+            errors.push('[Błędny reżim stosowania] Silnie żrący/zasadowy preparat z chlorem lub przeciwgrzybiczy nie może być określany jako środek do "codziennych/regularnych porządków" (jest to preparat do doraźnej interwencji).');
+        }
+    }
+
+    // 14. Zakaz nieautoryzowanego symbolu ⛔ na Allegro
+    if (allHtml.includes('⛔')) {
+        errors.push('[Niedozwolony symbol Allegro] W opisie użyto ikony ⛔, która jest zabroniona na Allegro (wymagane użycie ⚠️).');
     }
 
     return { valid: errors.length === 0, errors };

@@ -534,7 +534,7 @@ test('V4B scan_biocidal_claims_lexical & Deterministic Legal Sanitizer (Rozp. BP
         // B. Wyodrębnienie wykluczenia materiałowego (Pratfall) w Sekcji 4
         const mergedS4 = '<p>Regularne stosowanie w łazience. Jedno opakowanie 650 ml wystarcza na wiele cykli mycia. Ze względu na zawartość kwasów nie stosować na marmurze, trawertynie, powierzchniach wapiennych ani niezabezpieczonym aluminium.</p>';
         const fixedS4 = deterministicEngine.sanitizeHtmlClaimsAndStopwords(mergedS4);
-        assert.ok(fixedS4.includes('<p>⛔ <b>WYKLUCZENIE ZASTOSOWANIA:</b> Ze względu na zawartość kwasów nie stosować na marmurze, trawertynie, powierzchniach wapiennych ani niezabezpieczonym aluminium.</p>'), 'Wykluczenie materiałowe musi zostać rozdzielone na wyodrębniony blok z nagłówkiem');
+        assert.ok(fixedS4.includes('<p>⚠️ <b>WYKLUCZENIE ZASTOSOWANIA:</b> Ze względu na zawartość kwasów nie stosować na marmurze, trawertynie, powierzchniach wapiennych ani niezabezpieczonym aluminium.</p>'), 'Wykluczenie materiałowe musi zostać rozdzielone na wyodrębniony blok z nagłówkiem');
         assert.ok(fixedS4.includes('wiele cykli mycia.</p>'), 'Pierwszy akapit z rutyną musi zostać poprawnie domknięty');
 
         // C. Tarcza antykontaktowa Allegro (usunięcie e-maili, domen i linków www)
@@ -566,5 +566,67 @@ test('V4B scan_biocidal_claims_lexical & Deterministic Legal Sanitizer (Rozp. BP
             address_eu: 'Via Paolo di Dono 3/A, 00142 Roma (RM), Włochy'
         });
         assert.strictEqual(euWithoutContact.valid, true, 'Podmiot odpowiedzialny w UE jest w 100% poprawny bez pola contact');
+
+        // F. v4.14: Testy anty-kalki kuchennej, BHP pleśni, reżimu interwencji i ikony Allegro ⚠️
+        // F1. Usuwanie kalek kuchennych (przypalenia) w chemii łazienkowej
+        const kitchenClaimHtml = '<p>Soda oczyszczona zwiększa siłę myjącą detergentów, usuwa przypalenia i neutralizuje zapachy.</p>';
+        const cleanedKitchenHtml = deterministicEngine.sanitizeHtmlClaimsAndStopwords(kitchenClaimHtml);
+        assert.strictEqual(cleanedKitchenHtml.includes('przypalenia'), false, 'sanitizeHtmlClaimsAndStopwords musi usuwać kalkę kuchenną o przypaleniach');
+
+        // F2. Tarcza BHP przy pleśni (zakaz ścierania na sucho przed aplikacją chemii)
+        const moldScrapeS4 = '<ol><li>✍️ <b>Krok 1 – Przygotowanie powierzchni:</b> zlokalizuj ognisko pleśni i usuń z niego powierzchowne zanieczyszczenia miękką ściereczką.</li><li>✍️ <b>Krok 2 – Aplikacja:</b> spryskaj fugi.</li></ol>';
+        const fixedMoldS4 = deterministicEngine.sanitizeHtmlClaimsAndStopwords(moldScrapeS4);
+        assert.strictEqual(fixedMoldS4.includes('usuń z niego powierzchowne zanieczyszczenia'), false, 'Tarcza BHP musi usuwać zalecenie ścierania pleśni na sucho');
+        assert.ok(fixedMoldS4.includes('nanieś preparat bezpośrednio na zapleśniałą powierzchnię bez wstępnego ścierania mechanicznego'), 'Krok 1 musi nakazywać bezpośrednią aplikację zapobiegając pyleniu zarodników');
+
+        // F3. Reżim stosowania (interwencja vs codzienne porządki dla chloru i kwasów)
+        const dailyBleachHtml = '<p>Preparat z aktywnym chlorem do codziennych porządków w łazience.</p>';
+        const fixedBleachHtml = deterministicEngine.sanitizeHtmlClaimsAndStopwords(dailyBleachHtml);
+        assert.strictEqual(fixedBleachHtml.includes('codziennych porządków'), false, 'Preparat z chlorem nie może być nazwany środkiem do codziennych porządków');
+        assert.ok(fixedBleachHtml.includes('doraźnych zabiegów czyszczących'), 'Musi zostać zamieniony na doraźne zabiegi czyszczące');
+
+        // F4. Zakaz ikony ⛔ i zamiana na ⚠️
+        const badEmojiHtml = '<p>⛔ <b>WYKLUCZENIE ZASTOSOWANIA:</b> Nie stosować na aluminium.</p>';
+        const cleanEmojiHtml = deterministicEngine.sanitizeHtmlClaimsAndStopwords(badEmojiHtml);
+        assert.strictEqual(cleanEmojiHtml.includes('⛔'), false, 'Ikona ⛔ musi zostać usunięta ze względu na zasady Allegro');
+        assert.ok(cleanEmojiHtml.includes('⚠️ <b>WYKLUCZENIE ZASTOSOWANIA:</b>'), 'Ikona ⛔ musi zostać zastąpiona dozwoloną ikoną ⚠️');
+
+        // F5. Walidator validate_domain_and_chemical_logic: wychwytywanie błędów v4.14
+        const moldValidationResult = v.validate_domain_and_chemical_logic({
+            section_1_html: '<p>Cif spray do usuwania pleśni do codziennych porządków</p>',
+            section_3_html: '<p>Soda usuwa przypalenia z piekarników</p>',
+            section_4_html: '<p>Krok 1: usuń powierzchowne zanieczyszczenia z pleśni przecierając szmatką. ⛔ <b>WYKLUCZENIE:</b> aluminium.</p>',
+            section_6_html: '<p>Nie połykać.</p>'
+        }, {
+            productName: 'Cif spray do usuwania pleśni 500 ml',
+            isChemical: true
+        });
+        assert.strictEqual(moldValidationResult.valid, false);
+        assert.ok(moldValidationResult.errors.some(e => e.includes('Kalka kuchenna')), 'Musi wykryć kalkę kuchenną');
+        assert.ok(moldValidationResult.errors.some(e => e.includes('Zagrożenie biologiczne BHP')), 'Musi wykryć zagrożenie BHP ścierania pleśni');
+        assert.ok(moldValidationResult.errors.some(e => e.includes('Błędny reżim stosowania')), 'Musi wykryć codzienne porządki dla chloru');
+        assert.ok(moldValidationResult.errors.some(e => e.includes('Niedozwolony symbol Allegro')), 'Musi wykryć zabronioną ikonę ⛔');
+
+        // F6. Puryzm parametrów w Sekcji 5 (odsiewanie sloganów marketingowych)
+        const s5Slogans = deterministicEngine.buildDeterministicSection5({
+            productName: 'Cif spray do usuwania pleśni 500 ml',
+            brand: 'Cif',
+            manufacturer: 'Unilever',
+            capacity: '500 ml',
+            features: {
+                'Cechy dodatkowe': 'Siła wybielania, Potere Sbiancante, Usuwa plamy z pleśni, Ulepszona formuła'
+            }
+        });
+        assert.strictEqual(s5Slogans.includes('Siła wybielania'), false, 'Siła wybielania musi zostać odfiltrowana');
+        assert.strictEqual(s5Slogans.includes('Potere Sbiancante'), false, 'Potere Sbiancante musi zostać odfiltrowane');
+        assert.strictEqual(s5Slogans.includes('Ulepszona formuła'), false, 'Ulepszona formuła musi zostać odfiltrowana');
+        assert.ok(s5Slogans.includes('Usuwa plamy z pleśni'), 'Merytoryczna cecha "Usuwa plamy z pleśni" musi zostać zachowana');
+
+        // F7. Sekcja 3: Cocamine Oxide i czystość Sodium Chloride
+        const s3Inci = deterministicEngine.tryBuildDeterministicSection3({
+            inci: 'Aqua, Sodium Hypochlorite, Cocamine Oxide, Sodium Hydroxide, Sodium Chloride'
+        });
+        assert.ok(s3Inci.section_3_html.includes('Cocamine Oxide') || s3Inci.section_3_html.includes('Tlenek kokaminy'), 'Cocamine Oxide musi zostać uwzględniony w mechanizmach Sekcji 3');
+        assert.strictEqual(s3Inci.section_3_html.includes('gęstą, stabilną pianę') && s3Inci.section_3_html.includes('Sodium Chloride'), false, 'Piana nie może być przypisana do Sodium Chloride');
     });
 });
