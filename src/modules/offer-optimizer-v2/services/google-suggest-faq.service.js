@@ -80,6 +80,12 @@ function detectCanonicalSearchCategory({ productName = '', category = '', vision
     if (/(płyn\s+do\s+wc|żel\s+do\s+wc|kostk[ai]\s+do\s+wc|toalet)/i.test(combined)) {
         return { key: 'wc_cleaner', labelPl: 'żel do czyszczenia WC', group: 'SURFACE_CLEANER' };
     }
+    if (/(do\s+łazienek|do\s+łazienki|do\s+lazienek|do\s+lazienki|łazienkow|lazienkow|powierzchni\s+sanitarnych|sanitar|bagno)/i.test(combined) && !/(kuchni|cucina)/i.test(combined)) {
+        return { key: 'bathroom_cleaner', labelPl: 'środek do czyszczenia łazienki i sanitariatów', group: 'SURFACE_CLEANER' };
+    }
+    if (/(do\s+kuchni|kuchenn|cucina|piekarnik|grill)/i.test(combined) && !/(łazienk|lazienk|bagno)/i.test(combined)) {
+        return { key: 'kitchen_cleaner', labelPl: 'środek do czyszczenia kuchni', group: 'SURFACE_CLEANER' };
+    }
     if (/(płyn\s+do\s+podłóg|plyn\s+do\s+podlog|pavimenti)/i.test(combined)) {
         return { key: 'floor_cleaner', labelPl: 'płyn do mycia podłóg', group: 'SURFACE_CLEANER' };
     }
@@ -151,13 +157,37 @@ function formatNaturalProductName(productName = '', brand = '', capacity = '') {
     let clean = String(productName || '').trim();
     if (!clean) return brand || 'ten produkt';
 
-    // Jeśli ponad 60% liter jest wielkich (surowy wpis z ERP np. "CIF ŚRODEK WIELOFUNKCYJNY CANDEGINA 650 ML"), normalizujemy
-    const letters = clean.replace(/[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, '');
-    const upperLetters = letters.replace(/[^A-ZĄĆĘŁŃÓŚŹŻ]/g, '');
-    if (letters.length > 4 && upperLetters.length / letters.length > 0.6) {
-        clean = clean.toLowerCase();
-        clean = clean.charAt(0).toUpperCase() + clean.slice(1);
-    }
+    const properNouns = new Set([
+        'cif', 'candeggina', 'chanteclair', 'felce', 'azzurra', 'paglieri', 'bref', 'ajax',
+        'domestos', 'ariel', 'persil', 'lenor', 'coccolino', 'dash', 'finish', 'fairy',
+        'vanish', 'omino', 'bianco', 'spuma', 'sciampagna', 'tesori', 'oriente', 'milmil',
+        'intesa', 'malizia', 'borotalco', 'nivea', 'dove', 'colgate', 'palmolive', 'frosch',
+        'ludwik', 'somat', 'pronto', 'sidolux', 'vileda', 'heitmann', 'beckmann', 'harpic',
+        'kret', 'tytan', 'unilever', 'henkel', 'marsiglia', 'argan', 'sensitive', 'classico', 'soft'
+    ]);
+    const acronyms = new Set(['wc', 'uv', 'spf', 'ph', 'led', 'xxl', 'xl', 'bio', 'eco', '3d']);
+
+    // Normalizacja słowo po słowie: likwidacja pojedynczych słów pisanych CAPS LOCKIEM (np. "CIF ŻEL DO ŁAZIENEK Candeggina")
+    // oraz przywrócenie wielkiej litery dla nazw własnych (np. "candeggina" -> "Candeggina").
+    const words = clean.split(/\s+/);
+    clean = words.map((w, idx) => {
+        const cleanW = w.replace(/[^a-ząćęłńóśźż0-9]/gi, '').toLowerCase();
+        if (!cleanW) return w;
+        if (acronyms.has(cleanW)) return w.toUpperCase();
+        if (properNouns.has(cleanW)) {
+            return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+        }
+        const lettersInW = w.replace(/[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, '');
+        const upperInW = w.replace(/[^A-ZĄĆĘŁŃÓŚŹŻ]/g, '');
+        if (lettersInW.length >= 2 && upperInW.length === lettersInW.length) {
+            const lowerW = w.toLowerCase();
+            return idx === 0 ? lowerW.charAt(0).toUpperCase() + lowerW.slice(1) : lowerW;
+        }
+        if (idx === 0) {
+            return w.charAt(0).toUpperCase() + w.slice(1);
+        }
+        return w;
+    }).join(' ');
 
     // Przywrócenie poprawnej wielkiej litery dla marki
     if (brand && typeof brand === 'string' && brand.trim().length > 1) {
@@ -183,6 +213,22 @@ function formatNaturalProductName(productName = '', brand = '', capacity = '') {
     }
 
     return clean;
+}
+
+/**
+ * Odmienia przymiotnik lub rzeczownik zapachowy do poprawnej polszczyzny (eliminuje kalkę "o zapachu świeży" -> "o świeżym zapachu").
+ */
+function formatPolishScentPhrase(rawScent = '') {
+    const s = String(rawScent || '').replace(/\s*\([^)]*\)\s*/g, '').trim();
+    if (!s || /^(brak|neutralny|bezzapachowy|classic|classico)$/i.test(s)) return '';
+    const lower = s.toLowerCase();
+    if (/^(śwież|morsk|cytrusow|kwiatow|leśn|sosnow|lawendow|orientaln|klasyczn|delikatn|owocow|zielon|pudrow|migdałow|waniliow|kokosow|aloesow|różan)y$/i.test(lower)) {
+        return `o ${lower.replace(/y$/i, 'ym')} zapachu`;
+    }
+    if (/^(morsk|niebiesk|śwież)i$/i.test(lower)) {
+        return `o ${lower.replace(/i$/i, 'im')} zapachu`;
+    }
+    return `w wariancie zapachowym ${s}`;
 }
 
 /**
@@ -273,76 +319,92 @@ function buildFourPillarQuestions({
     const frontPurpose = visionFeatures?.['Przeznaczenie (Front)'] || '';
     const frontWashCount = visionFeatures?.['Wydajność'] || '';
     const cleanScent = String(scent || '').replace(/\s*\([^)]*\)\s*/g, '').trim();
+    const scentPhrase = formatPolishScentPhrase(cleanScent);
+    const shortBrandRef = brand ? `preparat ${brand}` : 'ten preparat';
+    const isBathroomSpecific = catInfo.key === 'bathroom_cleaner' || catInfo.key === 'wc_cleaner' ||
+        (/(łazienk|lazienk|sanitar|toalet|wc|bagno)/i.test(`${naturalName} ${frontPurpose}`) && !/(kuchni|cucina)/i.test(`${naturalName} ${frontPurpose}`));
+    const isKitchenSpecific = catInfo.key === 'kitchen_cleaner' ||
+        (/(kuchni|kuchenn|cucina|piekarnik|grill)/i.test(`${naturalName} ${frontPurpose}`) && !/(łazienk|lazienk|bagno)/i.test(`${naturalName} ${frontPurpose}`));
 
     const questions = [];
 
     if (catInfo.group === 'LAUNDRY') {
         // FILAR 1: Intencja AI Shopping / Discovery ("Znajdź mi dobry płyn/proszek do prania z zapachem który długo się utrzymuje")
-        if (cleanScent) {
-            questions.push(`Co sprawia, że ${naturalName} skutecznie odświeża tkaniny i pozostawia na ubraniach długo utrzymujący się zapach (${cleanScent})?`);
+        if (scentPhrase) {
+            questions.push(`Co sprawia, że ${naturalName} skutecznie odświeża tkaniny i pozostawia na ubraniach długo utrzymujący się aromat (${scentPhrase})?`);
         } else {
             questions.push(`Co sprawia, że ${naturalName} skutecznie usuwa plamy już w niskich temperaturach i zapewnia długotrwałą świeżość prania?`);
         }
 
         // FILAR 2: Intencja Instruktażowa Google ("Jak stosować proszek do prania Soft?" / "Czy płyn do prania wlewa się do bębna czy szuflady?")
         if (catInfo.key === 'laundry_powder') {
-            questions.push(`Jak prawidłowo stosować i dozować ${naturalName} w pralce automatycznej oraz podczas prania ręcznego?`);
+            questions.push(`Jak prawidłowo stosować i dozować ten proszek do prania w pralce automatycznej oraz podczas prania ręcznego?`);
         } else if (catInfo.key === 'fabric_softener' || catInfo.key === 'laundry_perfume') {
-            questions.push(`Jak dozować ${naturalName} do przegródki pralki, aby uzyskać miękkość tkanin i trwały aromat po wysuszeniu?`);
+            questions.push(`Jak dozować ${shortBrandRef} do przegródki pralki, aby uzyskać miękkość tkanin i trwały zapach po wysuszeniu?`);
         } else {
-            questions.push(`Jak prawidłowo stosować i dozować ${naturalName} – do szuflady pralki czy bezpośrednio do bębna?`);
+            questions.push(`Jak prawidłowo dozować ten detergent – do szuflady pralki czy bezpośrednio do bębna?`);
         }
 
         // FILAR 3: Intencja Kompatybilności i Bezpieczeństwa Tkanin (z Google PAA + wykluczenia fizykochemiczne)
         if (hasOpticalBrighteners) {
-            questions.push(`Do jakich rodzajów tkanin przeznaczony jest ${naturalName} i dlaczego nie należy stosować go do wełny, jedwabiu oraz czarnych ubrań?`);
+            questions.push(`Do jakich rodzajów tkanin przeznaczony jest ${shortBrandRef} i dlaczego nie należy stosować go do wełny, jedwabiu oraz czarnych ubrań?`);
         } else {
-            questions.push(`Do jakich rodzajów tkanin i kolorów nadaje się ${naturalName}, a jakich delikatnych materiałów (np. wełny lub jedwabiu) należy unikać?`);
+            questions.push(`Do jakich rodzajów tkanin i kolorów nadaje się ten środek piorący, a jakich delikatnych włókien (np. wełny lub jedwabiu) należy unikać?`);
         }
 
         // FILAR 4: Intencja Wydajności Opakowania ("Na ile prań wystarcza...")
         if (frontWashCount) {
-            questions.push(`Na ile cykli prania wystarcza opakowanie ${naturalName} (${frontWashCount}) przy standardowym załadunku pralki?`);
+            questions.push(`Na ile cykli prania wystarcza opakowanie (${frontWashCount}) przy standardowym załadunku pralki?`);
         } else {
-            questions.push(`Jaka jest wydajność opakowania ${naturalName}${capacity ? ` (${capacity})` : ''} i które składniki aktywne odpowiadają za rozpuszczanie zabrudzeń?`);
+            questions.push(`Jaka jest wydajność opakowania${capacity ? ` ${capacity}` : ''} i które składniki aktywne odpowiadają za rozpuszczanie zabrudzeń?`);
         }
     } else if (catInfo.group === 'SURFACE_CLEANER' || catInfo.group === 'DISH_CLEANER') {
-        // FILAR 1: Intencja AI Shopping / Skuteczność czyszczenia ("Jaki środek do czyszczenia tłuszczu i uporczywego brudu bez smug?")
-        questions.push(`Jakie zabrudzenia usuwa ${naturalName} i co sprawia, że skutecznie czyści powierzchnie w kuchni oraz łazience bez smug?`);
-
-        // FILAR 2: Intencja z Google Autocomplete ("czy mleczko cif rysuje" / kompatybilność powierzchniowa)
-        if (catInfo.key === 'scouring_cream') {
-            questions.push(`Czy ${naturalName} rysuje czyszczone powierzchnie i na jakich materiałach w kuchni oraz łazience można go bezpiecznie stosować?`);
-        } else if (hasBleach) {
-            questions.push(`Do jakich powierzchni nadaje się ${naturalName} z aktywnym wybielaczem, a na jakich materiałach (np. drewno, aluminium, marmur, tkaniny) nie należy go używać?`);
-        } else if (catInfo.key === 'descaler') {
-            questions.push(`Czy ${naturalName} skutecznie usuwa osady z kamienia oraz mydła i na jakich powierzchniach kwasowrażliwych (np. marmur, wapień) nie należy go stosować?`);
+        // FILAR 1: Intencja AI Shopping / Skuteczność czyszczenia (z rozdzieleniem Łazienki od Kuchni)
+        if (isBathroomSpecific) {
+            questions.push(`Jakie osady i zabrudzenia usuwa ${naturalName} w łazience oraz co sprawia, że przywraca ceramice sanitarnej higieniczną czystość?`);
+        } else if (isKitchenSpecific) {
+            questions.push(`Jakie zabrudzenia tłuszczowe i osady usuwa ${naturalName} w kuchni bez pozostawiania smug?`);
         } else {
-            questions.push(`Do jakich powierzchni zmywalnych przeznaczony jest ${naturalName} i na jakich delikatnych materiałach należy zachować ostrożność?`);
+            questions.push(`Jakie zabrudzenia usuwa ${naturalName} i co sprawia, że skutecznie czyści zmywalne powierzchnie bez smug?`);
+        }
+
+        // FILAR 2: Intencja z Google Autocomplete ("czy mleczko cif rysuje" / kompatybilność powierzchniowa + zakaz armatury i tkanin przy chlorze)
+        if (catInfo.key === 'scouring_cream') {
+            questions.push(`Czy to mleczko czyszczące rysuje powierzchnie i na jakich materiałach można je bezpiecznie stosować?`);
+        } else if (hasBleach) {
+            questions.push(`Do jakich powierzchni nadaje się ten preparat z aktywnym wybielaczem, a dlaczego nie wolno stosować go na armaturze chromowanej, metalach, drewnie, marmurze ani na jakichkolwiek tkaninach?`);
+        } else if (catInfo.key === 'descaler') {
+            questions.push(`Czy ${shortBrandRef} skutecznie usuwa kamień wodny oraz osady z mydła i na jakich powierzchniach kwasowrażliwych (np. marmur, wapień) nie należy go stosować?`);
+        } else {
+            questions.push(`Do jakich powierzchni zmywalnych przeznaczony jest ${shortBrandRef} i na jakich delikatnych materiałach należy zachować ostrożność?`);
         }
 
         // FILAR 3: Intencja Instruktażowa ("Jak stosować... i jak spłukiwać?")
-        questions.push(`Jak prawidłowo aplikować i spłukiwać ${naturalName}, aby szybko usunąć uporczywy tłuszcz oraz osady bez zacieków?`);
+        if (isBathroomSpecific) {
+            questions.push(`Jak prawidłowo aplikować i spłukiwać żel na ceramice sanitarnej, wannach, umywalkach oraz fugach, aby uzyskać czystość bez zacieków?`);
+        } else {
+            questions.push(`Jak prawidłowo aplikować i zmywać ${shortBrandRef}, aby szybko usunąć zabrudzenia oraz osady bez zacieków?`);
+        }
 
-        // FILAR 4: Intencja Składnikowa / Zapachowa z Google Suggest ("czy zawiera chlor/wybielacz", wydajność opakowania)
-        questions.push(`Jakie składniki aktywne odpowiadają za działanie ${naturalName}${cleanScent ? ` o zapachu ${cleanScent}` : ''} i jak wydajne jest opakowanie${capacity ? ` ${capacity}` : ''}?`);
+        // FILAR 4: Intencja Składnikowa / Zapachowa z Google Suggest (z poprawną fleksją "o świeżym zapachu" i bez powtarzania pełnej nazwy)
+        questions.push(`Jakie składniki aktywne odpowiadają za działanie formuły${scentPhrase ? ` ${scentPhrase}` : ''} i jak wydajne jest opakowanie${capacity ? ` ${capacity}` : ''}?`);
     } else if (catInfo.group === 'ORAL_CARE') {
         questions.push(`Jakie korzyści w codziennej higienie jamy ustnej i ochronie szkliwa zapewnia ${naturalName}?`);
-        questions.push(`Jak prawidłowo stosować ${naturalName} podczas codziennego mycia zębów, aby zadbać o dziąsła i świeży oddech?`);
-        questions.push(`Dla kogo przeznaczony jest ${naturalName} i czy sprawdza się przy wrażliwych zębach oraz dziąsłach?`);
-        questions.push(`Na jak długo wystarcza ${naturalName}${capacity ? ` (${capacity})` : ''} przy regularnym stosowaniu rano i wieczorem?`);
+        questions.push(`Jak prawidłowo stosować ten produkt podczas codziennego mycia zębów, aby zadbać o dziąsła i świeży oddech?`);
+        questions.push(`Dla kogo przeznaczony jest ${shortBrandRef} i czy sprawdza się przy wrażliwych zębach oraz dziąsłach?`);
+        questions.push(`Na jak długo wystarcza opakowanie${capacity ? ` ${capacity}` : ''} przy regularnym stosowaniu rano i wieczorem?`);
     } else {
         // BODY_CARE / HAIR_CARE / KOSMETYKI
-        questions.push(`Jakie właściwości pielęgnacyjne ma ${naturalName} i co sprawia, że jego zapach${cleanScent ? ` (${cleanScent})` : ''} przyjemnie utrzymuje się na skórze?`);
-        questions.push(`Jak prawidłowo stosować ${naturalName} podczas codziennej kąpieli lub pielęgnacji, aby nie przesuszać naskórka?`);
+        questions.push(`Jakie właściwości pielęgnacyjne ma ${naturalName} i co sprawia, że jego aromat${scentPhrase ? ` (${scentPhrase})` : ''} przyjemnie utrzymuje się na skórze?`);
+        questions.push(`Jak prawidłowo stosować ten kosmetyk podczas codziennej kąpieli lub pielęgnacji, aby nie przesuszać naskórka?`);
         if (catInfo.key === 'deodorant') {
-            questions.push(`Czy ${naturalName} ${hasAluminum ? 'zawiera sole glinu (aluminium)' : 'ma formułę bez soli aluminium'} i czy pozostawia ślady na ubraniach?`);
+            questions.push(`Czy ${shortBrandRef} ${hasAluminum ? 'zawiera sole glinu (aluminium)' : 'ma formułę bez soli aluminium'} i czy pozostawia ślady na ubraniach?`);
         } else if (catInfo.key === 'talcum_powder') {
-            questions.push(`Do jakiego typu skóry przeznaczony jest ${naturalName} i jak bezpiecznie aplikować sypki puder mineralny po kąpieli?`);
+            questions.push(`Do jakiego typu skóry przeznaczony jest ${shortBrandRef} i jak bezpiecznie aplikować sypki puder mineralny po kąpieli?`);
         } else {
-            questions.push(`Do jakiego typu skóry lub włosów najlepiej sprawdza się ${naturalName} i czy nadaje się do codziennego użytku dla całej rodziny?`);
+            questions.push(`Do jakiego typu skóry lub włosów najlepiej sprawdza się ${shortBrandRef} i czy nadaje się do codziennego użytku?`);
         }
-        questions.push(`Jakie składniki kondycjonujące zawiera ${naturalName} i na jak długo wystarcza opakowanie${capacity ? ` ${capacity}` : ''}?`);
+        questions.push(`Jakie składniki kondycjonujące zawiera formuła i na jak długo wystarcza opakowanie${capacity ? ` ${capacity}` : ''}?`);
     }
 
     return {

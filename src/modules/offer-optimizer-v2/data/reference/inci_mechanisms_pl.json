@@ -90,7 +90,7 @@
       "names": ["parfum", "fragrance", "aroma", "kompozycja zapachowa", "perfume"],
       "role": "fragrance",
       "cosmetic_html": "<li>⚙️ <b>Parfum (Kompozycja zapachowa):</b> starannie dobrany bukiet zapachowy, który <b>neutralizuje woń bazy surowcowej</b> i pozostawia na skórze lub włosach przyjemny aromat.</li>",
-      "chemical_html": "<li>⚙️ <b>Parfum (Kompozycja zapachowa):</b> aktywna frakcja aromatyczna, która <b>neutralizuje nieprzyjemne zapachy</b> i pozostawia we wnętrzu lub na tkaninach długotrwałą świeżość.</li>"
+      "chemical_html": "<li>⚙️ <b>Parfum (Kompozycja zapachowa):</b> starannie dobrana frakcja aromatyczna, która <b>neutralizuje woń surowców chemicznych oraz nieprzyjemne zapachy</b>, pozostawiając po sprzątaniu wyczuwalną, długotrwałą świeżość.</li>"
     },
     "panthenol": {
       "names": ["panthenol", "pantenol", "prowitamina b5", "d-panthenol"],
@@ -240,25 +240,25 @@
       "names": ["limonene", "linalool", "hexyl cinnamal", "citronellol", "geraniol", "coumarin", "alpha-isomethyl ionone", "benzyl salicylate", "eugenol", "citral"],
       "role": "fragrance_component",
       "cosmetic_html": "<li>⚙️ <b>Składniki kompozycji zapachowej (np. Limonene, Linalool):</b> lotne molekuły aromatyczne budujące <b>wielowymiarowy profil zapachowy produktu</b> podczas aplikacji.</li>",
-      "chemical_html": "<li>⚙️ <b>Nuty aromatyczne (np. Limonene, Linalool, Hexyl Cinnamal):</b> składniki kompozycji zapachowej odpowiadające za <b>świeży, wyczuwalny zapach</b> na umytych powierzchniach i wypranych tkaninach.</li>"
+      "chemical_html": "<li>⚙️ <b>Nuty aromatyczne (np. Limonene, Linalool, Hexyl Cinnamal):</b> lotne składniki kompozycji zapachowej odpowiadające za <b>świeży, długo utrzymujący się aromat</b> po zakończeniu czyszczenia lub prania.</li>"
     },
     "sodium hypochlorite": {
       "names": ["sodium hypochlorite", "podchloryn sodu", "wybielacz", "candeggina", "aktywny chlor", "związki wybielające na bazie chloru", "chlorine-based bleaching agents"],
       "role": "chlorine_bleach",
       "cosmetic_html": "<li>⚙️ <b>Sodium Hypochlorite:</b> składnik oczyszczający i rozjaśniający.</li>",
-      "chemical_html": "<li>⚙️ <b>Sodium Hypochlorite (Podchloryn sodu – aktywny wybielacz):</b> silny składnik utleniający i wybielający, który <b>błyskawicznie rozkłada trudne plamy z kawy, herbaty, wina i tłuszczu</b> oraz przywraca czyszczonym powierzchniom <b>higieniczną czystość i śnieżną biel</b>.</li>"
+      "chemical_html": "<li>⚙️ <b>Sodium Hypochlorite (Podchloryn sodu – aktywny wybielacz):</b> silny związek utleniający i wybielający, który <b>błyskawicznie rozkłada uporczywe przebarwienia, ciemne naloty w fugach oraz osady organiczne</b>, przywracając ceramice sanitarnej i zmywalnym powierzchniom <b>higieniczną czystość oraz śnieżną biel</b>.</li>"
     },
     "sodium c14-17 alkyl sec sulfonate": {
       "names": ["sodium c14-17 alkyl sec sulfonate", "secondary alkane sulfonate", "alkanosulfonian sodu"],
       "role": "anionic_surfactant",
       "cosmetic_html": "<li>⚙️ <b>Sodium C14-17 Alkyl Sec Sulfonate:</b> środek powierzchniowo czynny odpowiadający za pienienie i oczyszczanie.</li>",
-      "chemical_html": "<li>⚙️ <b>Sodium C14-17 Alkyl Sec Sulfonate (Anionowy środek myjący):</b> aktywny składnik odtłuszczający, który <b>tworzy gęstą pianę, odrywa zaschnięty tłuszcz kuchenny od podłoża</b> i ułatwia jego szybkie spłukanie wodą bez smug.</li>"
+      "chemical_html": "<li>⚙️ <b>Sodium C14-17 Alkyl Sec Sulfonate (Anionowy środek myjący):</b> aktywny składnik odtłuszczający, który <b>tworzy gęstą pianę, odrywa zaschnięty brud i tłuste osady od podłoża</b> oraz ułatwia ich szybkie spłukanie wodą bez smug.</li>"
     },
     "sodium hydroxide": {
       "names": ["sodium hydroxide", "wodorotlenek sodu", "potassium hydroxide", "wodorotlenek potasu"],
       "role": "alkaline_builder",
       "cosmetic_html": "<li>⚙️ <b>Sodium Hydroxide (Regulator pH):</b> składnik korygujący odczyn kwasowo-zasadowy, który <b>zapewnia stabilność i odpowiednie pH formuły</b> kosmetycznej.</li>",
-      "chemical_html": "<li>⚙️ <b>Sodium Hydroxide (Wodorotlenek sodu):</b> składnik alkaliczny o silnym działaniu odtłuszczającym, który <b>rozpuszcza przypalony tłuszcz i lepkie osady kuchenne</b> oraz utrzymuje trwałość składników wybielających.</li>"
+      "chemical_html": "<li>⚙️ <b>Sodium Hydroxide (Wodorotlenek sodu):</b> regulator zasadowego pH i składnik alkaliczny, który <b>wspomaga rozpuszczanie tłustych osadów oraz zanieczyszczeń organicznych</b> i stabilizuje trwałość podchlorynu sodu w formule.</li>"
     },
     "sodium silicate": {
       "names": ["sodium silicate", "sodium metasilicate", "krzemian sodu", "metakrzemian sodu"],
@@ -314,7 +314,7 @@
       "id": "alkaline_chlorine_stability",
       "required_roles": ["chlorine_bleach", "alkaline_builder"],
       "cosmetic_html": "<li>⚡ <b>Synergia Stabilizująca:</b> odpowiednie pH utrzymuje trwałość składników aktywnych.</li>",
-      "chemical_html": "<li>⚡ <b>Synergia Odtłuszczająco-Stabilizująca (Układ Alkaliczny + Wybielacz):</b> zasadowy odczyn przyspiesza rozbijanie lepkiego tłuszczu kuchennego i <b>chroni aktywny wybielacz przed przedwczesnym rozpadem</b>, zapewniając pełną skuteczność do ostatniej dozy.</li>"
+      "chemical_html": "<li>⚡ <b>Synergia Utleniająco-Stabilizująca (Układ Alkaliczny + Aktywny Wybielacz):</b> zasadowy odczyn wodorotlenku sodu przyspiesza rozbijanie lepkich osadów organicznych i <b>chroni podchloryn sodu przed przedwczesnym rozpadem</b>, zapewniając pełną siłę wybielania do ostatniej dozy.</li>"
     },
     {
       "id": "anionic_amphoteric_mildness",

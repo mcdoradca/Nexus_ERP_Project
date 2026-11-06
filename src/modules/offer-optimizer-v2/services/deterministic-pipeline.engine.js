@@ -194,30 +194,37 @@ function sanitizeOfferTitle(rawTitle) {
     // Naprawa częstych literówek z katalogów hurtowych (np. CANDEGINA -> Candeggina)
     title = title.replace(/\bcandegina\b/gi, 'Candeggina');
 
-    // Jeśli tytuł jest zapisany KRZYKLIWYM CAPS LOCKIEM (np. "CIF ŚRODEK WIELOFUNKCYJNY CANDEGINA 650 ML"),
-    // konwertujemy go na estetyczny zapis mieszany z zachowaniem wielkich liter dla marek i skrótów.
-    const lettersOnly = title.replace(/[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, '');
-    const upperLetters = title.replace(/[^A-ZĄĆĘŁŃÓŚŹŻ]/g, '');
-    if (lettersOnly.length >= 6 && upperLetters.length / lettersOnly.length > 0.7) {
-        const properNouns = new Set([
-            'cif', 'candeggina', 'chanteclair', 'felce', 'azzurra', 'paglieri', 'bref', 'ajax',
-            'domestos', 'ariel', 'persil', 'lenor', 'coccolino', 'dash', 'finish', 'fairy',
-            'vanish', 'omino', 'bianco', 'spuma', 'sciampagna', 'tesori', 'oriente', 'milmil',
-            'intesa', 'malizia', 'borotalco', 'nivea', 'dove', 'colgate', 'palmolive', 'frosch',
-            'ludwik', 'somat', 'pronto', 'sidolux', 'vileda', 'heitmann', 'beckmann', 'harpic',
-            'kret', 'tytan', 'unilever', 'henkel', 'marsiglia', 'argan', 'sensitive', 'classico'
-        ]);
-        const acronyms = new Set(['wc', 'uv', 'spf', 'ph', 'led', 'xxl', 'xl', 'bio', 'eco', '3d']);
-        const words = title.toLowerCase().split(/\s+/);
-        title = words.map((w, idx) => {
-            const cleanW = w.replace(/[^a-ząćęłńóśźż0-9]/gi, '');
-            if (acronyms.has(cleanW)) return w.toUpperCase();
-            if (idx === 0 || properNouns.has(cleanW)) {
-                return w.charAt(0).toUpperCase() + w.slice(1);
-            }
-            return w;
-        }).join(' ');
-    }
+    // Jeśli cały tytuł lub pojedyncze słowa w tytule są zapisane KRZYKLIWYM CAPS LOCKIEM
+    // (np. "CIF ŚRODEK WIELOFUNKCYJNY CANDEGINA 650 ML" lub "CIF ŻEL DO ŁAZIENEK Candeggina 750 ml"),
+    // konwertujemy je na estetyczny zapis mieszany z zachowaniem wielkich liter dla marek i skrótów.
+    const properNouns = new Set([
+        'cif', 'candeggina', 'chanteclair', 'felce', 'azzurra', 'paglieri', 'bref', 'ajax',
+        'domestos', 'ariel', 'persil', 'lenor', 'coccolino', 'dash', 'finish', 'fairy',
+        'vanish', 'omino', 'bianco', 'spuma', 'sciampagna', 'tesori', 'oriente', 'milmil',
+        'intesa', 'malizia', 'borotalco', 'nivea', 'dove', 'colgate', 'palmolive', 'frosch',
+        'ludwik', 'somat', 'pronto', 'sidolux', 'vileda', 'heitmann', 'beckmann', 'harpic',
+        'kret', 'tytan', 'unilever', 'henkel', 'marsiglia', 'argan', 'sensitive', 'classico', 'soft'
+    ]);
+    const acronyms = new Set(['wc', 'uv', 'spf', 'ph', 'led', 'xxl', 'xl', 'bio', 'eco', '3d']);
+    const words = title.split(/\s+/);
+    title = words.map((w, idx) => {
+        const cleanW = w.replace(/[^a-ząćęłńóśźż0-9]/gi, '').toLowerCase();
+        if (!cleanW) return w;
+        if (acronyms.has(cleanW)) return w.toUpperCase();
+        if (properNouns.has(cleanW)) {
+            return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+        }
+        const lettersInW = w.replace(/[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, '');
+        const upperInW = w.replace(/[^A-ZĄĆĘŁŃÓŚŹŻ]/g, '');
+        if (lettersInW.length >= 2 && upperInW.length === lettersInW.length) {
+            const lowerW = w.toLowerCase();
+            return idx === 0 ? lowerW.charAt(0).toUpperCase() + lowerW.slice(1) : lowerW;
+        }
+        if (idx === 0) {
+            return w.charAt(0).toUpperCase() + w.slice(1);
+        }
+        return w;
+    }).join(' ');
 
     // Normalizacja jednostek miar w tytule (np. "650 ML" -> "650 ml", "1,5 L" -> "1,5 l", "0,500 l" -> "500 ml")
     title = title
@@ -346,7 +353,7 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr) {
         // Gwarancje i obietnice pewnościowe
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])gwarancj[a-ząćęłńóśźż]*\s+(?:najniższej\s+ceny|jakoś[ćc]i|satysfakcji|zwrotu)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wysoki standard wykonania')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])gwarantuj(e|ą|emy)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => (s.toLowerCase() === 'ą' ? 'zapewniają' : 'zapewnia'))
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])gwarantuj(ący|ąca|ące|ącego|ącej|ącym|ących)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => `zapewniając${s.slice(2).toLowerCase()}`)
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])gwarantuj(ący|ąca|ące|ącego|ącej|ącym|ących|ąc)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => `zapewniając${s.slice(2).toLowerCase()}`)
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])gwarancj(a|i|ę|ą)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => {
             const low = s.toLowerCase();
             if (low === 'ą') return 'podstawą';
@@ -397,12 +404,18 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr) {
             if (nEnd === 'ach') return `${p}ych powierzchniach`;
             return `${p}${adjEnd} powierzchnię`;
         })
-        // Eliminacja pleonazmów i tautologii ("osusz do sucha", "zapach czystości", "Synergia bazy czyszczącej i olejków zapachowych")
+        // Eliminacja pleonazmów, kalek językowych i tautologii ("osusz do sucha", "o zapachu świeży", "zapach czystości", "tkaniny kolorowe" przy wybielaczu)
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])osusz\s+do\s+sucha(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => /^[A-Z]/.test(m) ? 'Wytrzyj do sucha' : 'wytrzyj do sucha')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])osuszyć\s+do\s+sucha(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wytrzeć do sucha')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])osuszając\s+do\s+sucha(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wycierając do sucha')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])o\s+zapachu\s+(śwież|morsk|cytrusow|kwiatow|leśn|sosnow|lawendow|orientaln|klasyczn|delikatn|owocow)y(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, stem) => `o ${stem.toLowerCase()}ym zapachu`)
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])o\s+zapachu\s+(śwież|morsk)i(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, stem) => `o ${stem.toLowerCase()}im zapachu`)
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])zapach\s+czystości(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'świeży zapach')
         .replace(/Synergia\s+bazy\s+czyszczącej\s+i\s+olejków\s+zapachowych/gi, 'Synergia Skutecznego Czyszczenia i Świeżości')
+        .replace(/gładkość\s+armatury\s+i\s+płytek/gi, 'gładkość ceramiki sanitarnej i płytek')
+        .replace(/oraz\s+tkaniny\s+kolorowe/gi, 'oraz wszelkie tkaniny i tekstylia')
+        .replace(/W\s+PRZYPADKU\s+KONTAKTU\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ')
+        .replace(/Brak\s+zdjęcia\s+w\s+slocie\s*#\d+/gi, '')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])spłucz\s+obficie\s+czyszczoną\s+powierzchnię\s+bieżącą\s+wodą(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => /^[A-Z]/.test(m) ? 'Przetrzyj czyszczoną powierzchnię czystą, wilgotną ściereczką lub spłucz wodą' : 'przetrzyj czyszczoną powierzchnię czystą, wilgotną ściereczką lub spłucz wodą')
         // Higiena interpunkcyjna
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])DO OCZÓW(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'DO OCZU')
@@ -431,7 +444,7 @@ function buildDeterministicA2Result({ isChemical = false, productName = '', visi
 
     if (resolvedIsChemical) {
         if (/(sodium\s+hypochlorite|podchloryn\s+sodu|candeggin|wybielacz)/i.test(combinedLower)) {
-            minorFlaws.push('Ze względu na zawartość aktywnego wybielacza (podchlorynu sodu) preparatu nie należy stosować na powierzchniach wrażliwych na alkalia i utleniacze, takich jak surowe drewno, aluminium, linoleum, marmur oraz tkaniny kolorowe');
+            minorFlaws.push('Ze względu na zawartość aktywnego wybielacza (podchlorynu sodu) i silnie zasadowy odczyn preparatu nie wolno stosować na armaturze chromowanej, mosiężnej, niklowanej ani czarnej matowej, a także na surowym drewnie, aluminium, linoleum, marmurze oraz jakichkolwiek tkaninach i tekstyliach');
         } else if (/(mleczko\s+do\s+czyszczenia|mleczko\s+czyszczące|calcium\s+carbonate|węglan\s+wapnia|naturalne\s+cząsteczki)/i.test(combinedLower)) {
             minorFlaws.push('Ze względu na zawartość mineralnych mikrocząsteczek czyszczących mleczka nie należy stosować na powierzchniach lakierowanych na wysoki połysk, delikatnym akrylu oraz nieodpornych na ścieranie tworzywach sztucznych');
         } else if (/(prani|płyn do prania|żel do prania|proszek|kapsułk|lavatrice|bucato)/i.test(combinedLower)) {
@@ -772,7 +785,8 @@ function buildDeterministicSection5({
 
     const resolvedBrand = brand || features?.['Marka'] || features?.['Brand'] || '';
     let resolvedManufacturer = manufacturer || features?.['Producent'] || '';
-    if (/unilever\s+europe\s+b\.?v\.?/i.test(resolvedManufacturer)) {
+    if (/^(?:unilever|unilever\s+europe\s+b\.?v\.?)$/i.test(String(resolvedManufacturer).trim()) ||
+        (!resolvedManufacturer && /^(?:cif|coccolino|svelto|lysoform|dove)$/i.test(String(resolvedBrand).trim()))) {
         resolvedManufacturer = 'Unilever Italia Mkt. Operations S.r.l.';
     }
     const resolvedLine = line || features?.['Linia'] || '';
@@ -871,12 +885,17 @@ function buildDeterministicSection6({
     const postacLower = String(visionFeatures?.['Postać'] || '').toLowerCase();
     const isArticle = /\b(szczoteczk|toothbrush|ni[cć]\s+dentystyczn|floss|czyścik|gąbk|akcesori)\b/i.test(nameLower + ' ' + postacLower);
     const isDryPowder = /\b(talk|puder|proszek)\b/i.test(nameLower + ' ' + postacLower) && !resolvedIsChemical;
+    const hasHypochlorite = /(sodium\s+hypochlorite|podchloryn\s+sodu|candeggin|EUH206)/i.test(
+        `${nameLower} ${inci || ''} ${detergentComposition || ''} ${resolvedWarnings.join(' ')}`
+    );
 
     let storageParagraph = '';
     if (isArticle) {
         storageParagraph = `<p>Przechowywać w <b>czystym, suchym i przewiewnym miejscu</b>, w sposób higieniczny, poza zasięgiem małych dzieci.</p>`;
     } else if (isDryPowder) {
         storageParagraph = `<p>Przechowywać w <b>suchym miejscu w temperaturze pokojowej</b>, w szczelnie zamkniętym fabrycznym opakowaniu producenta, chroniąc przed wilgocią i dostępem dzieci.</p>`;
+    } else if (hasHypochlorite) {
+        storageParagraph = `<p>Przechowywać wyłącznie w <b>szczelnie zamkniętym fabrycznym opakowaniu producenta, w pozycji pionowej</b>, w chłodnym, suchym i zacienionym miejscu, z dala od źródeł ciepła oraz bezpośredniego światła słonecznego (aby zachować stabilność podchlorynu sodu), w miejscu niedostępnym dla dzieci.</p>`;
     } else if (resolvedIsChemical) {
         storageParagraph = `<p>Przechowywać wyłącznie w <b>szczelnie zamkniętym fabrycznym opakowaniu producenta</b>, w chłodnym i suchym miejscu, z dala od źródeł ciepła oraz w miejscu niedostępnym dla dzieci.</p>`;
     } else {
@@ -897,6 +916,10 @@ function buildDeterministicSection6({
             .trim();
         if (!cleanW) continue;
         listItems.push(`${labelTag}${cleanW}</li>`);
+    }
+
+    if (resolvedIsChemical && !listItems.some(li => /Nie\s+połykać/i.test(li))) {
+        listItems.push(`${labelTag}Nie połykać.</li>`);
     }
 
     if (euResponsiblePerson && (euResponsiblePerson.name || typeof euResponsiblePerson === 'string')) {

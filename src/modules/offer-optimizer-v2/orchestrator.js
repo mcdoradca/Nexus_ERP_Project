@@ -7,7 +7,7 @@ const { FORBIDDEN_SOURCES, DATA_SOURCE_MODE } = require('./config/nodes.config')
 const baselinkerExtract = require('./baselinker.extract.js');
 const { normalizeIngredientName } = require('./normalization.js');
 const ragService = require('./knowledge.rag.service.js');
-const { validate_html_whitelist, scan_medical_claims_lexical, scan_biocidal_claims_lexical, scan_stopwords, emoji_structure_check, normalize_aeo_faq_labels, aeo_faq_check, validate_section5_compliance, validate_section6_compliance, validate_section3_ingredients_closed_world } = require('./validators');
+const { validate_html_whitelist, scan_medical_claims_lexical, scan_biocidal_claims_lexical, scan_stopwords, emoji_structure_check, normalize_aeo_faq_labels, aeo_faq_check, validate_section5_compliance, validate_section6_compliance, validate_section3_ingredients_closed_world, validate_domain_and_chemical_logic } = require('./validators');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const visionExtractorService = require('./vision-extractor.service');
@@ -2054,11 +2054,14 @@ class Orchestrator {
                 vision_features: deterministicEngine.cleanFeaturesForPrompt(this.state.vision_extracted_features || {}),
                 search_intent_faq_blueprint: searchIntentFaqBlueprint,
                 a1: this.state.a1_result ? { country_of_origin: this.state.a1_result.country_of_origin?.value || this.state.a1_result.country_of_origin || undefined, logistics: this.state.a1_result.logistics?.value || this.state.a1_result.logistics || undefined } : undefined,
-                a2: this.state.a2_result,
+                a2: this.state.a2_result ? {
+                    application_context: this.state.a2_result.application_context,
+                    material_exclusions: this.state.a2_result.material_exclusions,
+                    chemical_synergy: this.state.a2_result.chemical_synergy
+                } : undefined,
                 a4: this.state.a4_result,
                 a5: this.state.a5_result
             };
-            delete agent6Data.a2;
             const prompt6Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_6_compiled.md'), 'utf8');
             const prompt6 = prompt6Template.replace('{{SKU_DATA}}', JSON.stringify(agent6Data, null, 2));
 
@@ -2095,16 +2098,7 @@ class Orchestrator {
 
                 if (isFullPipelineRun && result.section_1_html) {
                     if (this.state.deterministic_section_3_html) {
-                        const allowedListForS3 = [
-                            ...(this.state.extracted_data.inci?.value || '').split(','),
-                            ...(this.state.extracted_data.detergent_composition?.value || '').split(',')
-                        ].map(s => s.trim()).filter(Boolean);
-                        const s3ValidCheck = result.section_3_html
-                            ? validate_section3_ingredients_closed_world(result.section_3_html, allowedListForS3)
-                            : { valid: false };
-                        if (!result.section_3_html || !s3ValidCheck.valid) {
-                            result.section_3_html = this.state.deterministic_section_3_html;
-                        }
+                        result.section_3_html = this.state.deterministic_section_3_html;
                     }
 
                     if (this.state.extracted_data.inci?.value && euData && euData.name) {
@@ -2456,11 +2450,18 @@ class Orchestrator {
                     allowedSourcesList.push(...this.state.extracted_data.detergent_composition.value.split(',').map(s => s.trim()));
                 }
                 const s3Check = validate_section3_ingredients_closed_world(this.state.a7_result.section_3_html, allowedSourcesList);
+                const domainCheck = validate_domain_and_chemical_logic(this.state.a7_result, {
+                    productName: product?.text_fields?.name,
+                    inci: this.state.extracted_data.inci?.value,
+                    detergentComposition: this.state.extracted_data.detergent_composition?.value,
+                    isChemical: isActualHouseholdChemicalA10
+                });
 
                 const complianceIssues = [
                     ...s5Check.errors.map(e => `[Sekcja 5] ${e}`),
                     ...s6Check.errors.map(e => `[Sekcja 6] ${e}`),
                     ...s3Check.errors.map(e => `[Sekcja 3] ${e}`),
+                    ...domainCheck.errors,
                     ...structuralErrors
                 ];
 

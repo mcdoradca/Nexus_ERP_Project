@@ -48,26 +48,26 @@ function scan_stopwords(html) {
     const stopwords = [
         // Gwarancje, oświadczenia pewnościowe i autentyczność (najdłuższe frazy najpierw)
         'gwarancj[aeiłąę]* najniższej ceny', 'gwarancj[aeiłąę]* jakoś[ćc]i', 'gwarancj[aeiłąę]* satysfakcji', 'gwarancj[aeiłąę]* zwrotu',
-        'gwarancj[aeiłąę]*', 'gwarantuj[a-z]*',
-        'udowodnion[a-z]* skutecznoś[ćc]', 'w 100% udowodnion[a-z]*', '100% udowodnion[a-z]*',
+        'gwarancj[aeiłąę]*', 'gwarantuj[a-ząćęłńóśźż]*',
+        'udowodnion[a-ząćęłńóśźż]* skutecznoś[ćc]', 'w 100% udowodnion[a-ząćęłńóśźż]*', '100% udowodnion[a-ząćęłńóśźż]*',
         'pewnoś[ćc] działania', 'pewnoś[ćc] zakupu', '100% pewnoś[ćc]i',
-        'w\\s+100\\s*%', '(?<!\\d)100\\s*%', 'najlepsz[a-ząćęłńóśźż]*', 'bezkonkurencyjn[a-ząćęłńóśźż]*', 'niezrównan[a-ząćęłńóśźż]*', 'rewelacyjn[a-ząćęłńóśźż]*', 'rewelacj[a-ząćęłńóśźż]*', 'numer\\s+1', 'nr\\s+1', 'ekstra', 'cudown[a-z]*', 'magiczn[a-z]*', 'niezawodn[a-z]*',
-        'oryginalnoś[ćc][a-z]*', 'oryginaln[a-z]*', 'orygina[łl][a-z]*',
+        'w\\s+100\\s*%', '(?<!\\d)100\\s*%', 'najlepsz[a-ząćęłńóśźż]*', 'bezkonkurencyjn[a-ząćęłńóśźż]*', 'niezrównan[a-ząćęłńóśźż]*', 'rewelacyjn[a-ząćęłńóśźż]*', 'rewelacj[a-ząćęłńóśźż]*', 'numer\\s+1', 'nr\\s+1', 'ekstra', 'cudown[a-ząćęłńóśźż]*', 'magiczn[a-ząćęłńóśźż]*', 'niezawodn[a-ząćęłńóśźż]*',
+        'oryginalnoś[ćc][a-ząćęłńóśźż]*', 'oryginaln[a-ząćęłńóśźż]*', 'orygina[łl][a-ząćęłńóśźż]*',
 
         // Promocje, ceny, rabaty
-        'najniższa cena', 'nisk[a-z]* cen[a-z]*', 'super cen[a-z]*', 'cen[a-z]* hurtow[a-z]*',
-        'gratis[a-z]*', 'darmow[a-z]* dostaw[a-z]*', 'darmow[a-z]*', 'za darmo',
-        'tanio', 'tani[a-z]*', 'najtaniej',
-        'promocj[aeiłąę]*', 'promocyjn[a-z]*', 'wyprzeda[żz][a-z]*',
-        'hit[a-z]* cenow[a-z]*', 'hit[a-z]*',
-        'prezent[a-z]*', 'okazj[aeiłąę]*', 'okazyjn[a-z]*',
-        'bestseller[a-z]*', 'nowoś[ćc][a-z]*',
-        'mega', 'super', 'rabat[a-z]*', 'upust[a-z]*', 'zniżk[aeiłąę]*',
+        'najniższa cena', 'nisk[a-ząćęłńóśźż]* cen[a-ząćęłńóśźż]*', 'super cen[a-ząćęłńóśźż]*', 'cen[a-ząćęłńóśźż]* hurtow[a-ząćęłńóśźż]*',
+        'gratis[a-ząćęłńóśźż]*', 'darmow[a-ząćęłńóśźż]* dostaw[a-ząćęłńóśźż]*', 'darmow[a-ząćęłńóśźż]*', 'za darmo',
+        'tanio', 'tani[a-ząćęłńóśźż]*', 'najtaniej',
+        'promocj[aeiłąę]*', 'promocyjn[a-ząćęłńóśźż]*', 'wyprzeda[żz][a-ząćęłńóśźż]*',
+        'hit[a-ząćęłńóśźż]* cenow[a-ząćęłńóśźż]*', 'hit[a-ząćęłńóśźż]*',
+        'prezent[a-ząćęłńóśźż]*', 'okazj[aeiłąę]*', 'okazyjn[a-ząćęłńóśźż]*',
+        'bestseller[a-ząćęłńóśźż]*', 'nowoś[ćc][a-ząćęłńóśźż]*',
+        'mega', 'super', 'rabat[a-ząćęłńóśźż]*', 'upust[a-ząćęłńóśźż]*', 'zniżk[aeiłąę]*',
 
         // CTA, platformowe i manipulacyjne
         'kup teraz', 'kupuj teraz', 'zamów teraz', 'kliknij', 'dodaj do koszyka',
-        'polecam[a-z]*', 'sprawdź to', 'tylko u nas',
-        'allegro', 'aukcj[aeiłąę]*', 'wysyłk[a-z]* 24h', 'szybka wysyłka',
+        'polecam[a-ząćęłńóśźż]*', 'sprawdź to', 'tylko u nas',
+        'allegro', 'aukcj[aeiłąę]*', 'wysyłk[a-ząćęłńóśźż]* 24h', 'szybka wysyłka',
         'w stylu', 'odpowiednik', 'zamiennik', 'lepsze niż'
     ];
     const pattern = new RegExp(`(^|[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(${stopwords.join('|')})(?=[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]|$)`, 'gi');
@@ -218,8 +218,6 @@ function emoji_structure_check(html) {
             errors.push(`Element <${match[1]}> does not start with an allowed emoji`);
         } else {
             const rest = text.substring(firstCharEmoji.length).trim();
-            // Checking if another emoji is present (naively check common emoji blocks)
-            // Some UI symbols block + Emoticons block + Misc Symbols + Dingbats + Transport
             const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/u;
             if (emojiRegex.test(rest)) {
                 errors.push(`Emoji in the middle of text in <${match[1]}>`);
@@ -227,8 +225,6 @@ function emoji_structure_check(html) {
         }
     }
     
-    // Sekcja 2 (FAQ SEO/GEO): kanoniczny wzorzec par to ❓ Pytanie: / ✔️ Odpowiedź:
-    // (pełna walidacja par — V12 aeo_faq_check)
     if (/<(b|strong)>\s*Problem\s*:?\s*<\/\1>/i.test(html)) {
         errors.push('Forbidden Problem label (use ❓ Pytanie:)');
     }
@@ -260,7 +256,6 @@ function gate_ingredients(inci_list) {
     
     const canon = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
     
-    // Przebieg A: Po pozycjach
     for (let i = 0; i < inci_list.length; i++) {
         const item = String(inci_list[i]);
         const canonPos = canon(item);
@@ -279,7 +274,6 @@ function gate_ingredients(inci_list) {
         }
     }
     
-    // Przebieg B: Po całym sklejonym składzie, dla wpisów mających przecinek w nazwie
     const fullInciCanon = canon(inci_list.join(','));
     for (const gate of gate1) {
         if (gate.includes(',')) {
@@ -326,12 +320,12 @@ function verify_frozen(s3, s5, s6, hashes) {
     if (mismatch.length > 0) return { valid: false, error: 'BLOCKED_CRITICAL', mismatch };
     return { valid: true };
 }
+
 // V11
 function validate_eu_responsible_person(eu) {
     if (!eu) return { valid: false, error: 'MALFORMED_EU_RESPONSIBLE_PERSON', errors: ['Missing object'] };
     const errors = [];
     
-    // Name validation
     if (!eu.name || typeof eu.name !== 'string' || eu.name.trim() === '' || eu.name.length > 200) errors.push('Name empty or exceeds 200 chars');
     if (eu.name) {
         if (eu.name.includes('\n')) errors.push('Name contains newline');
@@ -340,7 +334,6 @@ function validate_eu_responsible_person(eu) {
         if (/\b\d{2}-\d{3}\b/.test(eu.name) || /\b\d{5}\b/.test(eu.name)) errors.push('Name contains postal code');
     }
     
-    // Address validation
     if (!eu.address_eu || typeof eu.address_eu !== 'string' || eu.address_eu.trim() === '' || eu.address_eu.length > 250) errors.push('Address empty or exceeds 250 chars');
     if (eu.address_eu) {
         if (eu.address_eu.includes('\n')) errors.push('Address contains newline');
@@ -349,7 +342,6 @@ function validate_eu_responsible_person(eu) {
         if (!/\d/.test(eu.address_eu)) errors.push('Address must contain at least one digit');
     }
     
-    // Contact validation
     if (!eu.contact || typeof eu.contact !== 'string' || eu.contact.trim() === '' || eu.contact.length > 250) errors.push('Contact empty or exceeds 250 chars');
     if (eu.contact) {
         const contactLower = eu.contact.toLowerCase();
@@ -360,25 +352,16 @@ function validate_eu_responsible_person(eu) {
 }
 
 // V12 — Sekcja 2: FAQ SEO/GEO (magnes na wyszukiwarki i agentów AI)
-// Kanoniczny wzorzec par (SOT 01 §4, emoji z białej listy Allegro):
-// <li>❓ <b>Pytanie:</b> …?</li><li>✔️ <b>Odpowiedź:</b> …</li>
-
-// Deterministyczna normalizacja etykiet i emoji par (idempotentna).
-// Naprawia wyłącznie formę etykiet — NIE zamienia twierdzeń w pytania (to egzekwuje aeo_faq_check).
 function normalize_aeo_faq_labels(html) {
     if (!html || typeof html !== 'string') return html;
     let res = html.replace(/<(strong|b)>\s*(?:Problem|Question|Pytanie|Q)\s*(?:\d+\s*)?:\s*([^<]+)<\/\1>/gi, '<$1>Pytanie:</$1> <$1>$2</$1>');
     res = res.replace(/<(strong|b)>\s*(?:Answer|Rozwiązanie|Odpowiedź|A)\s*(?:\d+\s*)?:\s*([^<]+)<\/\1>/gi, '<$1>Odpowiedź:</$1> <$1>$2</$1>');
 
-    // 1. Etykiety pytań: Problem / Question → Pytanie (dwukropek wewnątrz tagu, ewentualny zewnętrzny usuwany)
     res = res.replace(/(<(strong|b)>\s*)(?:Problem|Question|Pytanie|Q)\s*(?:\d+\s*)?:?\s*(<\/\2>)(\s*:)?/gi, '$1Pytanie:$3');
-    // 2. Etykiety odpowiedzi: Answer / Rozwiązanie → Odpowiedź
     res = res.replace(/(<(strong|b)>\s*)(?:Answer|Rozwiązanie|Odpowiedź|A)\s*(?:\d+\s*)?:?\s*(<\/\2>)(\s*:)?/gi, '$1Odpowiedź:$3');
     res = res.replace(/(<(?:li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)(?:❌|🔴|❓|❔|✔️|✔|✅|☑️|➡️|⭐)?\s*(?:Problem|Question|Pytanie)\s*(?:\d+\s*)?:\s*/gi, '$1❓ <b>Pytanie:</b> ');
     res = res.replace(/(<(?:li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)(?:✔️|✔|🟢|💡|✅|☑️|➡️|⭐)?\s*(?:Answer|Rozwiązanie|Odpowiedź)\s*(?:\d+\s*)?:\s*/gi, '$1✔️ <b>Odpowiedź:</b> ');
-    // 3. Emoji przed etykietą pytania → ❓ (obsługa <li>/<p> i komentarzy <!-- Applied -->)
     res = res.replace(/(<(?:li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)(?:❌|🔴|❓|❔|✔️|✔|✅|☑️|➡️|⭐)?\s*(<(strong|b)>Pytanie:<\/\3>)/g, '$1❓ $2');
-    // 4. Emoji przed etykietą odpowiedzi → ✔️
     res = res.replace(/(<(?:li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)(?:✔️|✔|🟢|💡|✅|☑️|➡️|⭐)?\s*(<(strong|b)>Odpowiedź:<\/\3>)/g, '$1✔️ $2');
 
     res = res.replace(/(<(li|p)\b[^>]*>\s*(?:<!--[\s\S]*?-->\s*)*)([\s\S]*?)(<\/\2>)/gi, (full, openTag, tagName, inner, closeTag) => {
@@ -409,8 +392,6 @@ function normalize_aeo_faq_labels(html) {
     return res;
 }
 
-// Walidacja struktury FAQ: naprzemienne pary Pytanie→Odpowiedź, pytanie zakończone '?',
-// niepusta odpowiedź, zakaz etykiet Problem/Rozwiązanie/Answer.
 function aeo_faq_check(html) {
     if (!html || typeof html !== 'string' || html.trim() === '') {
         return { valid: false, errors: ['Empty section 2'], pairs: 0 };
@@ -502,20 +483,16 @@ function validate_section6_compliance(html, options = {}) {
     if (!html || typeof html !== 'string') return { valid: true, errors: [] };
     const errors = [];
 
-    // 1. ZAKAZ ROZSZCZEPIANIA KODÓW PROCEDUR RATUNKOWYCH NA POJEDYNCZE NAGŁÓWKI BEZ DYSPÓZYCJI
-    // np. "P301 – W PRZYPADKU POŁKNIĘCIA:</li>" lub "P305 – W PRZYPADKU DOSTANIA SIĘ DO OCZU:</li>"
     if (/P301\s*–\s*W\s+PRZYPADKU\s+POŁKNIĘCIA:\s*<\/li>/i.test(html) ||
         /P305\s*–\s*W\s+PRZYPADKU\s+DOSTANIA\s+SIĘ\s+DO\s+OCZU:\s*<\/li>/i.test(html) ||
         /P337\s*–\s*W\s+przypadku\s+utrzymywania\s+się\s+działania\s+drażniącego\s+na\s+oczy:\s*<\/li>/i.test(html)) {
         errors.push('Contains severed incomplete P-code conditional triggers (must use full compound CLP formulas: P301+P312, P305+P351+P338, P337+P313)');
     }
 
-    // 2. WYMÓG STANDARDU TAGU EKOSYSTEMU ALLEGRO: Ostrzeżenie CLP/GPSR (zakaz ucinania do 'Ostrzeżenie CLP:')
     if (options.is_chemical && /<(?:b|strong)>\s*Ostrzeżenie\s+CLP:\s*<\/(?:b|strong)>/i.test(html)) {
         errors.push("Missing '/GPSR' in label tag: must use unified Allegro ecosystem tag '<b>Ostrzeżenie CLP/GPSR:</b>'");
     }
 
-    // 3. Weryfikacja hasła ostrzegawczego (musi używać myślnika, nie dwukropka: Hasło ostrzegawcze – UWAGA)
     if (options.is_chemical && /Hasło\s+ostrzegawcze:\s*(?:UWAGA|NIEBEZPIECZEŃSTWO)/i.test(html)) {
         errors.push("Signal word label must use dash delimiter: 'Hasło ostrzegawcze – UWAGA' (or NIEBEZPIECZEŃSTWO) instead of colon");
     }
@@ -523,19 +500,16 @@ function validate_section6_compliance(html, options = {}) {
         errors.push('CLP conditional trigger header must end with a statutory colon (:), not a dash');
     }
 
-    // 4. Weryfikacja wymogu P280 dla H319/H318
     const hasEyeIrritation = options.has_eye_irritation === true ||
                             (Array.isArray(options.h_phrases) && options.h_phrases.some(h => /H319|H318/i.test(h)));
     if (false && hasEyeIrritation && !html.includes('P280')) {
         errors.push('Missing mandatory P280 eye protection statement for H319/H318 classification');
     }
 
-    // 5. Weryfikacja wymogu P264 (dokładnie umyć ręce po użyciu) dla H319/H318
     if (hasEyeIrritation && !html.includes('P264')) {
         errors.push('Missing mandatory P264 hand washing statement for H319/H318 classification');
     }
 
-    // 6. Weryfikacja EUH208 przy obecności alergenów w chemii
     if (options.has_sensitizers === true && !html.includes('EUH208') && options.is_chemical === true) {
         errors.push('Missing mandatory EUH208 allergen statement for chemical mixture with sensitizers');
     }
@@ -552,7 +526,6 @@ function validate_section3_ingredients_closed_world(html, allowedIngredients = [
         return { valid: true, errors: [] };
     }
 
-    // Wyciągamy nagłówki/nazwy składników z punktów <li> w sekcji 3
     const itemRegex = /<li[^>]*>\s*(?:⚙️|⚡)?\s*<(?:b|strong)>\s*(?:Składnik:?\s*)?([^:<]+?)\s*:\s*<\/(?:b|strong)>/gi;
     let match;
     const knownPreservativesAndActives = [
@@ -570,6 +543,68 @@ function validate_section3_ingredients_closed_world(html, allowedIngredients = [
                 }
             }
         }
+    }
+
+    return { valid: errors.length === 0, errors };
+}
+
+/**
+ * V10 — Walidator logiki domenowej, spójności pomieszczeń, bezpieczeństwa materiałowego (chlor/armatura/tkaniny)
+ * oraz Medical Whitelisting (P302+P352 STYCZNOŚCI ZE SKÓRĄ) i anty-spamowania FAQ.
+ */
+function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
+    const errors = [];
+    const s1 = String(sectionsObj.section_1_html || '');
+    const s2 = String(sectionsObj.section_2_html || '');
+    const s3 = String(sectionsObj.section_3_html || '');
+    const s4 = String(sectionsObj.section_4_html || '');
+    const s6 = String(sectionsObj.section_6_html || '');
+    const allHtml = `${s1}\n${s2}\n${s3}\n${s4}\n${s6}`;
+
+    const prodName = String(context.productName || '').toLowerCase();
+    const inci = String(context.inci || '').toLowerCase();
+    const detComp = String(context.detergentComposition || '').toLowerCase();
+    const isChlorineBleach = /(?:sodium\s+hypochlorite|podchloryn\s+sodu|candeggina|aktywn[a-ząćęłńóśźż]*\s+wybielacz|chlorine\s+bleach|z\s+chlorem)/i.test(`${prodName} ${inci} ${detComp}`);
+    const isBathroomDedicated = /(?:do\s+łazienek|do\s+łazienki|łazienkow[a-ząćęłńóśźż]*|do\s+toalet|do\s+wc|sanitarn[a-ząćęłńóśźż]*)/i.test(prodName) &&
+        !/(?:kuchni|kuchenn|uniwersaln)/i.test(prodName);
+
+    // 1. Ryzyko zniszczenia mienia: chlor / podchloryn sodu rekomendowany do armatury
+    if (isChlorineBleach) {
+        if (/(?:gładkoś[ćc]\s+armatury|pielęgnuj[a-ząćęłńóśźż]*\s+armatur|czyszczeni[ea]\s+armatury|do\s+armatury\s+i\s+płytek|bezpieczn[a-ząćęłńóśźż]*\s+dla\s+armatury)/i.test(`${s1} ${s2} ${s4}`)) {
+            errors.push('[Ryzyko zniszczenia mienia] Preparat z podchlorynem sodu (chlorem) nie może być rekomendowany do czyszczenia armatury (powoduje korozję i czernienie chromu/mosiądzu).');
+        }
+        if (/tkanin[ay]\s+kolorow[ea]/i.test(allHtml)) {
+            errors.push('[Nieprecyzyjne wykluczenie tkanin] Wybielacz żelowy z NaOH/NaOCl niszczy wszelkie włókna tekstylne – wykluczenie musi dotyczyć wszelkich tkanin i tekstyliów, nie tylko "tkanin kolorowych".');
+        }
+    }
+
+    // 2. Kalki maszynowe z odświeżaczy / płynów do płukania (np. "na tkaninach" w chemii twardych powierzchni)
+    if (context.isChemical && !/(?:prani|płukani|tkanin|odplamiacz|wybielacz\s+do\s+tkanin)/i.test(prodName)) {
+        if (/pozostawia\s+we\s+wnętrzu\s+lub\s+na\s+tkaninach/i.test(allHtml)) {
+            errors.push('[Kalka maszynowa] Niedopuszczalny zwrot "na tkaninach" przy opisie Parfum w preparacie do twardych powierzchni.');
+        }
+    }
+
+    // 3. Mieszanie kuchni z łazienką w produkcie dedykowanym wyłącznie do łazienek/toalet
+    if (isBathroomDedicated) {
+        if (/(?:w\s+kuchni|osady\s+kuchenne|tłuszczu\s+kuchennego|przypalon[a-ząćęłńóśźż]*\s+tłuszcz|z\s+kawy\s+i\s+herbaty)/i.test(`${s1} ${s2} ${s3} ${s4}`)) {
+            errors.push('[Niespójność domenowa] Produkt dedykowany do łazienek zawiera wklejki z odtłuszczacza kuchennego (kuchnia / przypalony tłuszcz / plamy z kawy i herbaty).');
+        }
+    }
+
+    // 4. Błąd gramatyczny "o zapachu świeży"
+    if (/o\s+zapachu\s+świeży\b/i.test(allHtml)) {
+        errors.push('[Błąd gramatyczny] Kalka językowa "o zapachu świeży" (wymagane: "o świeżym zapachu").');
+    }
+
+    // 5. Medical Whitelisting w P302+P352 ("W PRZYPADKU KONTAKTU ZE SKÓRĄ" -> "W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ")
+    if (/W\s+PRZYPADKU\s+KONTAKTU\s+ZE\s+SKÓRĄ/i.test(s6)) {
+        errors.push('[Medical Whitelisting CLP] W kodzie P302+P352 użyto zakazanego słowa "KONTAKTU ZE SKÓRĄ" zamiast "W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ".');
+    }
+
+    // 6. Obowiązkowe ostrzeżenie "Nie połykać." w chemii gospodarczej
+    if (context.isChemical && s6 && !/nie\s+połykać/i.test(s6)) {
+        errors.push('[Brak ostrzeżenia BHP] W Sekcji 6 brakuje obowiązkowego ostrzeżenia "Nie połykać.".');
     }
 
     return { valid: errors.length === 0, errors };
@@ -594,5 +629,6 @@ module.exports = {
     hasBannedLilial,
     validate_section5_compliance,
     validate_section6_compliance,
-    validate_section3_ingredients_closed_world
+    validate_section3_ingredients_closed_world,
+    validate_domain_and_chemical_logic
 };

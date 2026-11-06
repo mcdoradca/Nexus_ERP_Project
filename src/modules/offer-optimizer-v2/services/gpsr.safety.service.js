@@ -142,7 +142,7 @@ class GpsrSafetyService {
                             } else if (cleanCode === 'P301+P312') {
                                 text = "W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.";
                             } else if (cleanCode === 'P302+P352') {
-                                text = "W PRZYPADKU KONTAKTU ZE SKÓRĄ: Umyć dużą ilością wody z mydłem.";
+                                text = "W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ: Umyć dużą ilością wody.";
                             } else if (cleanCode === 'P280') {
                                 text = "Stosować ochronę oczu / ochronę twarzy.";
                             } else if (cleanCode === 'P264') {
@@ -190,7 +190,7 @@ class GpsrSafetyService {
             if (cleanItemCode === 'P302' || cleanItemCode === 'P352') {
                 if (!handledSkin) {
                     handledSkin = true;
-                    result.push("P302+P352 – W PRZYPADKU KONTAKTU ZE SKÓRĄ: Umyć dużą ilością wody z mydłem.");
+                    result.push("P302+P352 – W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ: Umyć dużą ilością wody.");
                 }
                 continue;
             }
@@ -395,10 +395,13 @@ class GpsrSafetyService {
             if (isClassifiedChemical || isLaundryCapsules) {
                 warnings.push("P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.");
             }
+            if (!isLaundryCapsules) {
+                warnings.push("Nie połykać.");
+            }
 
-            // 7b. P302+P352 – W PRZYPADKU KONTAKTU ZE SKÓRĄ: Umyć dużą ilością wody (dla preparatów z podchlorynem sodu / H315)
+            // 7b. P302+P352 – W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ: Umyć dużą ilością wody (Medical Whitelisting: słowo 'kontakt' tylko przy P305)
             if (hasHypochlorite) {
-                warnings.push("P302+P352 – W PRZYPADKU KONTAKTU ZE SKÓRĄ: Umyć dużą ilością wody.");
+                warnings.push("P302+P352 – W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ: Umyć dużą ilością wody.");
             }
 
             // 8. P305+P351+P338 – Faza 1: Płukanie oczu wodą
@@ -490,10 +493,11 @@ class GpsrSafetyService {
             warnings.push("Przechowywać w temperaturze pokojowej (15–25°C), w szczelnie zamkniętym opakowaniu, w miejscu niedostępnym dla małych dzieci.");
         }
 
-        // Standaryzacja językowa i interpunkcyjna
+        // Standaryzacja językowa i interpunkcyjna (w tym Medical Whitelisting dla P302+P352: KONTAKTU ZE SKÓRĄ -> STYCZNOŚCI ZE SKÓRĄ)
         const sanitizedWarnings = warnings.map(w => {
             return w
                 .replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
+                .replace(/W\s+PRZYPADKU\s+KONTAKTU\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ')
                 .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3}):\s*/i, '$1 – ');
         });
 

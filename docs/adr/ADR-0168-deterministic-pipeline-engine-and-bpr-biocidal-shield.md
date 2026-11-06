@@ -44,4 +44,10 @@ Potok generowania ofert e-commerce (`src/modules/offer-optimizer-v2`) wykonywał
 ## Consequences
 - Redukcja kosztu tokenowego z ~55 000+ tokenów (~4,00 PLN) do ~4 500–9 000 tokenów (~0,10–0,25 PLN / opis) przy wyższej czytelności mobilnej (F-pattern) i pełnym bezpieczeństwie prawnym (BPR 528/2012, WE 655/2013, GPSR, Allegro 2026).
 - Automatyczny rozwój lokalnej bazy wiedzy (`inci_mechanisms_pl.json`) z każdym kolejnym produktem posiadającym nowe składniki aktywne.
+- **Aktualizacja v4.11 (Audyt Technologiczny, Materiałowy i Domenowy – Cif Candeggina 8000680400017):**
+  - Wyeliminowano rekomendowanie preparatów z chlorem (`Sodium Hypochlorite` / `Candeggina`) i `Sodium Hydroxide` do armatury łazienkowej (ochrona chromu, mosiądzu, niklu i czarnych baterii przed korozją) oraz wprowadzono bezwzględne wykluczenie **wszelkich tkanin i tekstyliów** (zamiast nieprecyzyjnego „tkanin kolorowych”).
+  - Odseparowano szablony łazienkowe (`bathroom_cleaner`) od kuchennych (`kitchen_cleaner`) w `inci_mechanisms_pl.json` oraz `google-suggest-faq.service.js`, usuwając kalki z odświeżaczy (`na tkaninach` przy `Parfum`) oraz z odtłuszczaczy kuchennych (`plamy z kawy i herbaty`, `przypalony tłuszcz kuchenny`).
+  - Zlikwidowano keyword stuffing w FAQ (pełna nazwa katalogowa tylko w parze #1; naturalne zamienniki w parach #2–#4), naprawiono kalkę gramatyczną `o zapachu świeży` -> `o świeżym zapachu`, znormalizowano częściowy CAPS LOCK słowo po słowie (`CIF ŻEL DO ŁAZIENEK Candeggina` -> `Cif żel do łazienek Candeggina`) oraz uzupełniono pełną nazwę producenta `Unilever Italia Mkt. Operations S.r.l.`.
+  - Wdrożono Medical Whitelisting dla `P302+P352` (`W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ`), obowiązkowe ostrzeżenie `Nie połykać.`, klauzulę stabilności magazynowej podchlorynu sodu w Sekcji 6 oraz 10. bramkę walidacyjną `validate_domain_and_chemical_logic` w `validators/index.js` blokującą błędny `FAST-PASS` Agenta 10.
+
 
