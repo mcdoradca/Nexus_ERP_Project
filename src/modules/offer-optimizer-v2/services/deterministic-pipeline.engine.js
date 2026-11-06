@@ -427,6 +427,44 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr) {
         .replace(/::+/g, ':')
         .replace(/\s{2,}/g, ' ');
 
+    // --- KROK F: TARCZA ANTYKONTAKTOWA ALLEGRO (Zero e-maili, linków, domen www i telefonów w opisie HTML) ---
+    res = res
+        // Usuń adresy e-mail (np. consumer-service.it@unilever.com, info@paglieri.it)
+        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
+        // Usuń adresy URL z protokołem (http://..., https://...)
+        .replace(/https?:\/\/[^\s<>"']+/gi, '')
+        // Usuń www.domena...
+        .replace(/\bwww\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s<>"']*)?/gi, '')
+        // Usuń gołe domeny internetowe producentów i marek (np. unilever.com, paglieri.it, realchimica.it, ceway.eu)
+        .replace(/(?<![a-zA-Z0-9@])[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.(?:com|it|pl|eu|de|fr|org|net|nl)(?:\/[^\s<>"']*)?(?![a-zA-Z0-9])/gi, '')
+        // Usuń numery telefonów międzynarodowe i z etykietami kontaktowymi
+        .replace(/(?:\b(?:infolinia|infolinea|telefon|tel)\.?\s*:?\s*)?\+\d{1,3}(?:[\s.-]*\(?\d{1,4}\)?)*(?:[\s.-]*\d{2,4}){2,}\b/gi, '')
+        .replace(/\b(?:infolinia|infolinea|telefon|tel)\.?\s*:?\s*(?:\(?\d{2,4}\)?[\s.-]*)?\d{2,4}[\s.-]?\d{2,4}[\s.-]?\d{2,4}\b/gi, '')
+        // Usuń osierocone etykiety kontaktowe
+        .replace(/\b(?:infolinia|infolinea|e-mail|email|strona\s+www)\.?\s*:?\s*/gi, '')
+        .replace(/,\s*,/g, ',')
+        .replace(/,\s*<\/(?:li|p|h[1-6])>/gi, '</$1>')
+        .replace(/\s{2,}/g, ' ');
+
+    // --- KROK G: ELIMINACJA KALEEK PRALNICZYCH I ZMYWARKOWYCH W CHEMII POWIERZCHNIOWEJ ---
+    res = res
+        .replace(/rozpuszczają\s+zaschnięty\s+tłuszcz,\s+oleje\s+i\s+sebum\s+już\s+w\s+niskich\s+temperaturach\s*\(od\s*20[–-]30\s*°?\s*C\)/gi, 'błyskawicznie zwilżają mytą powierzchnię, ułatwiając wnikanie w osady mineralne i mydlane oraz ich spłukiwanie bez smug')
+        .replace(/już\s+w\s+niskich\s+temperaturach\s*\(od\s*20[–-]30\s*°?\s*C\)/gi, 'podczas codziennego zmywania i czyszczenia')
+        .replace(/chronią\s+grzałkę\s+pralki\s+przed\s+kamieniem\s+i\s+zapobiegają\s+szarzeniu\s+tkanin/gi, 'wiążą jony twardości wody, zapobiegając powstawaniu zacieków wapiennych na armaturze i ceramice')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])tłuszcz,\s*oleje\s+i\s+sebum(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'tłuszcz, oleje i osady mineralne');
+
+    // --- KROK H: WYODRĘBNIENIE BLOKU WYKLUCZENIA MATERIAŁOWEGO (PRATFALL W SEKCJI 4) ---
+    if (!/WYKLUCZENIE\s+ZASTOSOWANIA/i.test(res)) {
+        // Przypadek A: wykluczenie zaszyte wewnątrz dłuższego akapitu po kropce lub innym znaku interpunkcyjnym
+        res = res.replace(/([.!?])\s+((?:Ze względu na|Nie\s+(?:należy\s+)?(?:stosować|używać)\s+na|Preparatu\s+nie\s+należy\s+stosować\s+na)[^<]*?(?:marmur|trawertyn|wapie[ńn]|aluminium|kwasowrażliw|kamie[ńn]\s+naturaln|tkanin)[^<]*?)(<\/p>)/i, (m, punct, g1, g2) => {
+            return punct + '</p><p>⛔ <b>WYKLUCZENIE ZASTOSOWANIA:</b> ' + g1 + g2;
+        });
+        // Przypadek B: cały akapit to wykluczenie, ale brakowało nagłówka ⛔ <b>WYKLUCZENIE ZASTOSOWANIA:</b>
+        res = res.replace(/<p>\s*((?:Ze względu na|Nie\s+(?:należy\s+)?(?:stosować|używać)\s+na|Preparatu\s+nie\s+należy\s+stosować\s+na)[^<]*?(?:marmur|trawertyn|wapie[ńn]|aluminium|kwasowrażliw|kamie[ńn]\s+naturaln|tkanin)[^<]*?)<\/p>/i, (m, g1) => {
+            return '<p>⛔ <b>WYKLUCZENIE ZASTOSOWANIA:</b> ' + g1 + '</p>';
+        });
+    }
+
     return res;
 }
 
@@ -890,7 +928,12 @@ function buildDeterministicSection5({
     let resolvedHero = visionFeatures?.['Składniki wiodące (Front)'] || '';
     const resolvedPrzeznaczenie = visionFeatures?.['Przeznaczenie (Front)'] || features?.['Przeznaczenie'] || features?.['Zastosowanie'] || '';
     const resolvedWyrozniki = visionFeatures?.['Wyróżniki (Etykieta Front)'] || '';
-    const resolvedCountry = countryOfOrigin || features?.['Kraj pochodzenia'] || features?.['Kraj produkcji'] || '';
+    let resolvedCountry = countryOfOrigin || features?.['Kraj pochodzenia'] || features?.['Kraj produkcji'] || '';
+
+    // Korekta konfliktu pochodzenia: Unilever Italia / włoskie linie z holenderskim prefiksem EAN 87
+    if ((/unilever\s+italia/i.test(resolvedManufacturer) || /italia|włoch/i.test(resolvedManufacturer) || /anticalcare|candeggina|sgrassatore|con\s+aceto/i.test(cleanTitle)) && (!resolvedCountry || /niderland|holand/i.test(resolvedCountry))) {
+        resolvedCountry = 'Włochy';
+    }
 
     // Jeśli w polu Zapach znalazł się składnik chemiczny (np. "con Candeggina (z wybielaczem)"), nie wyświetlaj go jako zapachu
     if (resolvedZapach && /(?:candeggin|wybielacz|bicarbonato|sod[aą]\s+oczyszczon|ammoniaca|amoniak)/i.test(resolvedZapach)) {
@@ -1018,8 +1061,7 @@ function buildDeterministicSection6({
         if (typeof euResponsiblePerson === 'object' && /unilever\s+europe\s+b\.?v\.?/i.test(String(euResponsiblePerson.name || ''))) {
             normalizedEu = {
                 name: 'Unilever Italia Mkt. Operations S.r.l.',
-                address_eu: 'Via Paolo di Dono 3/A, 00142 Roma (RM), Włochy',
-                contact: 'consumer-service.it@unilever.com'
+                address_eu: 'Via Paolo di Dono 3/A, 00142 Roma (RM), Włochy'
             };
         }
         const formattedEu = brandResponsibleService.formatForHtmlDescription(normalizedEu);

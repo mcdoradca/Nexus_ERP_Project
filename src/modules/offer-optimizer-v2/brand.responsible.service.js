@@ -65,8 +65,7 @@ class BrandResponsibleService {
                     if (normBrand === normB || normBrand.includes(normB) || normB.includes(normBrand)) {
                         const candidate = {
                             name: entity.name,
-                            address_eu: entity.address_eu,
-                            contact: entity.contact
+                            address_eu: entity.address_eu
                         };
                         const valRes = validators.validate_eu_responsible_person(candidate);
                         if (valRes.valid) return candidate;
@@ -86,8 +85,7 @@ class BrandResponsibleService {
                     if (regex.test(normProduct)) {
                         const candidate = {
                             name: entity.name,
-                            address_eu: entity.address_eu,
-                            contact: entity.contact
+                            address_eu: entity.address_eu
                         };
                         const valRes = validators.validate_eu_responsible_person(candidate);
                         if (valRes.valid) return candidate;
@@ -113,12 +111,16 @@ class BrandResponsibleService {
             .replace(/https?:\/\/[^\s<>"']+/gi, '')
             // Usuń www.domena...
             .replace(/\bwww\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s<>"']*)?/gi, '')
+            // Usuń gołe domeny internetowe producentów (np. unilever.com, paglieri.it, realchimica.it, ceway.eu)
+            .replace(/(?<![a-zA-Z0-9@])[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.(?:com|it|pl|eu|de|fr|org|net|nl)(?:\/[^\s<>"']*)?(?![a-zA-Z0-9])/gi, '')
             // Usuń numery telefonów z prefiksem międzynarodowym + (np. +39..., +48...) wraz z opcjonalną etykietą telefoniczną
             .replace(/(?:\b(?:infolinia|infolinea|telefon|tel)\.?\s*:?\s*)?\+\d{1,3}(?:[\s.-]*\(?\d{1,4}\)?)*(?:[\s.-]*\d{2,4}){2,}\b/gi, '')
             // Usuń numery telefonów poprzedzone jawną etykietą telefoniczną (np. tel. 0321 827011, infolinia: 22 123 45 67)
             .replace(/\b(?:infolinia|infolinea|telefon|tel)\.?\s*:?\s*(?:\(?\d{2,4}\)?[\s.-]*)?\d{2,4}[\s.-]?\d{2,4}[\s.-]?\d{2,4}\b/gi, '')
-            // Usuń osierocone etykiety stricte telefoniczne
-            .replace(/\b(?:infolinia|infolinea|telefon|tel)\.?\s*:?\s*/gi, '')
+            // Usuń etykietę kontakt: wyłącznie gdy występuje z dwukropkiem (chroni zwroty 'soczewki kontaktowe' i 'kontakt ze skórą')
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])kontakt\s*:\s*/gi, '')
+            // Usuń osierocone etykiety kontaktowe, e-mailowe i telefoniczne
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:infolinia|infolinea|telefon|tel|e-mail|email|strona\s+www)\.?\s*:?\s*(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '')
             // Usuń numery telefonów z wyraźnymi separatorami grup cyfr (np. 022 123 45 67, 0321-827-011) - nie rusza ciągłych 13-cyfrowych kodów EAN
             .replace(/\b\(?\d{2,4}\)?[\s.-]+\d{2,4}[\s.-]+\d{2,4}(?:[\s.-]+\d{1,4})?\b/g, '')
             // Wyczyść ewentualne podwójne przecinki, dwukropki lub pozostałości spacji
@@ -154,7 +156,6 @@ class BrandResponsibleService {
         this.registry[entityId] = {
             name: entity.name.trim(),
             address_eu: entity.address_eu.trim(),
-            contact: (entity.contact || 'contact@manufacturer.eu').trim(),
             brands: [normBrand]
         };
 

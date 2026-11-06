@@ -342,8 +342,9 @@ function validate_eu_responsible_person(eu) {
         if (!/\d/.test(eu.address_eu)) errors.push('Address must contain at least one digit');
     }
     
-    if (!eu.contact || typeof eu.contact !== 'string' || eu.contact.trim() === '' || eu.contact.length > 250) errors.push('Contact empty or exceeds 250 chars');
-    if (eu.contact) {
+    // Pole contact jest opcjonalne (zgodnie z zakazem umieszczania danych kontaktowych/domen na Allegro)
+    if (eu.contact && typeof eu.contact === 'string' && eu.contact.trim() !== '') {
+        if (eu.contact.length > 250) errors.push('Contact exceeds 250 chars');
         const contactLower = eu.contact.toLowerCase();
         if (!contactLower.includes('@') && !contactLower.includes('http') && !contactLower.includes('www.')) errors.push('Contact must contain @, http or www');
     }
@@ -616,6 +617,34 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
     // 7. Halucynacja alergenów zapachowych w Sekcji 3
     if (/(?:Limonene|Linalool|Hexyl Cinnamal)/i.test(s3) && !/(?:limonene|linalool|hexyl\s+cinnamal)/i.test(`${inci} ${detComp}`)) {
         errors.push('[Halucynacja składników] W Sekcji 3 wymieniono niesprawdzone alergeny (Limonene, Linalool lub Hexyl Cinnamal), których brak w oficjalnym składzie INCI/detergentu.');
+    }
+
+    // 8. Kalka pralnicza / zmywarkowa (temperatury 20–30°C, grzałka pralki, sebum, szarzenie tkanin) w chemii do powierzchni
+    if (context.isChemical && !/(?:prani|płukani|tkanin|odplamiacz|wybielacz\s+do\s+tkanin|zmywark)/i.test(prodName)) {
+        if (/20[–-]30\s*°?\s*c/i.test(allHtml) || /w\s+niskich\s+temperaturach\s*\(od/i.test(allHtml)) {
+            errors.push('[Kalka pralnicza] Niedopuszczalny zwrot o praniu/zmywaniu w niskich temperaturach (20–30°C) w preparacie czyszczącym do powierzchni.');
+        }
+        if (/grzałk[aę]\s+pralki|szarzeni[u|e]\s+tkanin/i.test(allHtml)) {
+            errors.push('[Kalka pralnicza] Wzmianka o grzałce pralki lub szarzeniu tkanin w preparacie do powierzchni.');
+        }
+        if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])sebum(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/i.test(allHtml) && !/kosmetyk|twarz|skór|ciał/i.test(prodName)) {
+            errors.push('[Kalka pralnicza/kosmetyczna] Zwrot o usuwaniu sebum w chemii czyszczącej twarde powierzchnie.');
+        }
+    }
+
+    // 9. Twarda polityka antykontaktowa Allegro (zakaz e-maili, domen i linków www)
+    const hasEmail = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(allHtml);
+    const hasHttp = /https?:\/\/[^\s<>"']+/i.test(allHtml);
+    const hasWww = /\bwww\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i.test(allHtml);
+    const hasDomain = /(?<![a-zA-Z0-9@])[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.(?:com|it|pl|eu|de|fr|org|net|nl)(?:\/[^\s<>"']*)?(?![a-zA-Z0-9])/i.test(allHtml);
+    if (hasEmail || hasHttp || hasWww || hasDomain) {
+        errors.push('[Polityka Allegro] Opis HTML zawiera niedozwolone dane kontaktowe, adresy e-mail, linki lub domeny www.');
+    }
+
+    // 10. Wyodrębniony blok WYKLUCZENIE ZASTOSOWANIA w Sekcji 4 dla odkamieniaczy i wybielaczy
+    const isDescalerOrBleach = /(?:anticalcare|odkamieniacz|odwapniacz|usuwanie\s+kamienia|przeciw\s+kamieniowi|con\s+aceto|z\s+octem|candeggina|wybielacz)/i.test(`${prodName} ${inci} ${detComp}`);
+    if (isDescalerOrBleach && s4 && !/WYKLUCZENIE\s+ZASTOSOWANIA/i.test(s4)) {
+        errors.push('[Zaszyte wykluczenie materiałowe] Dla odkamieniacza / wybielacza Sekcja 4 musi zawierać wyodrębniony blok "<p>⛔ <b>WYKLUCZENIE ZASTOSOWANIA:</b> ...</p>".');
     }
 
     return { valid: errors.length === 0, errors };

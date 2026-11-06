@@ -85,9 +85,10 @@ s3 Mechanizm działania: <h2>⚙️…</h2> — WYŁĄCZNIE wstawienie bloków z
    niechemicznych (brak node_4_aeo) buduj s3 z cech użytkowych z PIM.]
 s4 Sposób użycia (Instrukcja Krok po Kroku + Kotwica Rutyny + Wykluczenie Pratfall):
    <h2>✍️…</h2><p>Przed użyciem zapoznaj się z informacjami bezpieczeństwa zawartymi na opakowaniu i stosuj się do zaleceń producenta.</p><ol> kroki (`<li>✍️ <b>Krok 1 – [Nazwa etapu]:</b> [instrukcja]</li>` — każdy punkt `<ol><li>` zaczyna się WYŁĄCZNIE od emoji ✍️, zakaz używania 💧, 🫧, 🌊!).
-   Po liście `<ol>` dodaj zwięzły akapit `<p>` zawierający:
-   1) Kotwicę Rutyny (przeliczenie wydajności lub pojemności z payloadu na codzienny rytuał użytkowania, bez zmyślania liczb spoza payloadu),
-   2) Uczciwe Wykluczenie Segmentowe (Pratfall z `a5.preserved_minor_flaws_for_pratfall` lub z ograniczeń fizykochemicznych produktu, przekute w konkretną wskazówkę materiałową, np. dla mleczek czyszczących unikanie powierzchni lakierowanych na wysoki połysk i delikatnego akrylu; KATEGORYCZNY ZAKAZ wklejania ogólnikowego zdania 'Skoncentrowana formuła czyszcząca wymaga przestrzegania zalecanego sposobu użycia...').
+   Po liście `<ol>` dodaj:
+   1) Kotwicę Rutyny (zwięzły akapit `<p>`: przeliczenie wydajności lub pojemności z payloadu na codzienny rytuał użytkowania, bez zmyślania liczb spoza payloadu),
+   2) 🚨 WYODRĘBNIONY BLOK WYKLUCZENIA MATERIAŁOWEGO (Pratfall) jako OSOBNY akapit `<p>`:
+      `<p>⛔ <b>WYKLUCZENIE ZASTOSOWANIA:</b> [precyzyjne wykluczenie powierzchni wrażliwych, np. dla preparatów kwasowych/odkamieniaczy: Ze względu na zawartość kwasów nie stosować na marmurze, trawertynie, powierzchniach wapiennych, kwasowrażliwych ani niezabezpieczonym aluminium; dla wybielaczy: nie stosować na armaturze chromowanej/mosiężnej, aluminium ani wszelkich tkaninach i tekstyliach; dla mleczek czyszczących: unikać powierzchni lakierowanych na wysoki połysk i delikatnego akrylu]. KATEGORYCZNY ZAKAZ wklejania wykluczenia w jeden ciągły tekst z rutyną/wydajnością!</p>`
    KOGNITYWNY RYGOR BIOMECHANIKI, ANATOMII I REALIZMU DOMOWEGO:
    - Zanim opiszesz kroki, przeanalizuj FIZYCZNĄ FUNKCJĘ I REALNY SPOSÓB UŻYCIA PRZEDMIOTU W DOMU:
      * Dla mleczek do czyszczenia (np. Cif) i sprayów kuchennych/łazienkowych: nanieś niewielką ilość mleczka na wilgotną gąbkę, ściereczkę lub bezpośrednio na zabrudzoną powierzchnię, przetrzyj bez nadmiernego szorowania, a następnie zmyj czystą, wilgotną ściereczką lub spłucz wodą i wytrzyj do sucha (KATEGORYCZNY ZAKAZ pisania 'zwilż czyszczoną strefę' oraz 'spłucz obficie czyszczoną płaszczyznę bieżącą wodą i osusz do sucha' — nikt nie polewa kuchennych blatów ani szafek wężem z bieżącą wodą!).

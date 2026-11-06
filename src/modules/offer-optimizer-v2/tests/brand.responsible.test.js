@@ -8,7 +8,7 @@ test('BrandResponsibleService - Weryfikacja bazy podmiotów odpowiedzialnych', a
         assert.ok(entity);
         assert.strictEqual(entity.name, 'Paglieri S.p.A.');
         assert.ok(entity.address_eu.includes('Alessandria'));
-        assert.ok(entity.contact.includes('info@paglieri.it'));
+        assert.strictEqual(entity.contact, undefined, 'Wpis podmiotu odpowiedzialnego nie może zawierać adresu e-mail/telefonu');
     });
 
     await t.test('2. Dopasowanie po wariancie marki (Mil Mil / Delice -> MIL MIL 76 S.p.A.)', () => {

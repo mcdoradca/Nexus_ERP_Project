@@ -1036,12 +1036,18 @@ class Orchestrator {
                 this.state.a1_result = result;
 
                 if (result.country_of_origin && result.country_of_origin.value) {
+                    let countryVal = result.country_of_origin.value;
+                    const mfrName = String(result.eu_responsible_person?.value?.name || this.state.extracted_data.eu_responsible_person?.data?.name || product?.text_fields?.features?.['Producent'] || '');
+                    const prodName = String(extracted.product_name?.value || product?.text_fields?.name || '');
+                    if ((/unilever\s+italia/i.test(mfrName) || /italia|włoch/i.test(mfrName) || /anticalcare|candeggina|sgrassatore|con\s+aceto/i.test(prodName)) && /niderland|holand/i.test(countryVal)) {
+                        countryVal = 'Włochy';
+                    }
                     this.state.extracted_data.country_of_origin = {
-                        value: result.country_of_origin.value,
+                        value: countryVal,
                         source: 'osint_a1'
                     };
                     this.state.extracted_data['Kraj pochodzenia'] = {
-                        value: result.country_of_origin.value,
+                        value: countryVal,
                         source: 'osint_a1'
                     };
                 }

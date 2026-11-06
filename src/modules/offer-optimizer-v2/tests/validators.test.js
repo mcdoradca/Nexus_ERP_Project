@@ -517,7 +517,54 @@ test('V4B scan_biocidal_claims_lexical & Deterministic Legal Sanitizer (Rozp. BP
         assert.strictEqual(/Formula Migliorata|Potere Sbiancante|Schiuma Potente|\(multiuso\)/i.test(s5Html), false, 'Sekcja 5 nie może zawierać nieprzetłumaczonych włoskich haseł z etykiety');
         assert.ok(s5Html.includes('Cif środek wielofunkcyjny Candeggina 650 ml'), 'Nazwa produktu w Sekcji 5 musi być znormalizowana z ALL-CAPS');
     });
+
+    await t.test('7. v4.13: Konflikt pochodzenia Włochy, wyodrębnienie wykluczeń materiałowych, tarcza antykontaktowa i eliminacja kalek pralniczych', () => {
+        // A. Konflikt pochodzenia: Unilever Italia z holenderskim EAN -> Kraj pochodzenia Włochy
+        const s5Italian = deterministicEngine.buildDeterministicSection5({
+            gtin: '8720182307842',
+            productName: 'Cif odkamieniacz spray eucalipto 650 ml',
+            brand: 'Cif',
+            manufacturer: 'Unilever Italia Mkt. Operations S.r.l.',
+            capacity: '650 ml',
+            countryOfOrigin: 'Niderlandy' // z holenderskiego prefixu 87
+        });
+        assert.ok(s5Italian.includes('Kraj pochodzenia:</b> Włochy'), 'Unilever Italia musi mapować kraj pochodzenia na Włochy, a nie Niderlandy');
+        assert.strictEqual(s5Italian.includes('Niderlandy'), false, 'Niderlandy nie mogą pojawić się dla włoskiej linii Unilever Italia');
+
+        // B. Wyodrębnienie wykluczenia materiałowego (Pratfall) w Sekcji 4
+        const mergedS4 = '<p>Regularne stosowanie w łazience. Jedno opakowanie 650 ml wystarcza na wiele cykli mycia. Ze względu na zawartość kwasów nie stosować na marmurze, trawertynie, powierzchniach wapiennych ani niezabezpieczonym aluminium.</p>';
+        const fixedS4 = deterministicEngine.sanitizeHtmlClaimsAndStopwords(mergedS4);
+        assert.ok(fixedS4.includes('<p>⛔ <b>WYKLUCZENIE ZASTOSOWANIA:</b> Ze względu na zawartość kwasów nie stosować na marmurze, trawertynie, powierzchniach wapiennych ani niezabezpieczonym aluminium.</p>'), 'Wykluczenie materiałowe musi zostać rozdzielone na wyodrębniony blok z nagłówkiem');
+        assert.ok(fixedS4.includes('wiele cykli mycia.</p>'), 'Pierwszy akapit z rutyną musi zostać poprawnie domknięty');
+
+        // C. Tarcza antykontaktowa Allegro (usunięcie e-maili, domen i linków www)
+        const dirtyHtml = '<p>Producent: Unilever Italia, via Paolo di Dono 3/A, Roma. Kontakt: consumer-service.it@unilever.com, www.unilever.it, https://unilever.com.</p>';
+        const cleanHtml = deterministicEngine.sanitizeHtmlClaimsAndStopwords(dirtyHtml);
+        assert.strictEqual(cleanHtml.includes('@'), false, 'sanitizeHtmlClaimsAndStopwords musi usuwać e-maile');
+        assert.strictEqual(cleanHtml.includes('www.'), false, 'sanitizeHtmlClaimsAndStopwords musi usuwać www.');
+        assert.strictEqual(cleanHtml.includes('http'), false, 'sanitizeHtmlClaimsAndStopwords musi usuwać linki http');
+        assert.strictEqual(cleanHtml.includes('unilever.it'), false, 'sanitizeHtmlClaimsAndStopwords musi usuwać domeny internetowe');
+
+        // D. validate_domain_and_chemical_logic: wykrywanie kalek pralniczych, kontaktów i braku bloku wykluczenia
+        const badNonLaundry = v.validate_domain_and_chemical_logic({
+            section_1_html: '<p>Cif spray do łazienki</p>',
+            section_3_html: '<p>Surfaktanty rozpuszczają tłuszcz i sebum już w niskich temperaturach (od 20–30°C)</p>',
+            section_4_html: '<p>Stosuj w łazience. Ze względu na kwas nie stosować na marmur.</p>',
+            section_6_html: '<p>Nie połykać. Kontakt: info@unilever.com</p>'
+        }, {
+            productName: 'Cif odkamieniacz spray 650 ml',
+            isChemical: true
+        });
+        assert.strictEqual(badNonLaundry.valid, false);
+        assert.ok(badNonLaundry.errors.some(e => e.includes('Kalka pralnicza')));
+        assert.ok(badNonLaundry.errors.some(e => e.includes('Polityka Allegro')));
+        assert.ok(badNonLaundry.errors.some(e => e.includes('Zaszyte wykluczenie materiałowe')));
+
+        // E. validate_eu_responsible_person: poprawna walidacja bez pola contact
+        const euWithoutContact = v.validate_eu_responsible_person({
+            name: 'Unilever Italia Mkt. Operations S.r.l.',
+            address_eu: 'Via Paolo di Dono 3/A, 00142 Roma (RM), Włochy'
+        });
+        assert.strictEqual(euWithoutContact.valid, true, 'Podmiot odpowiedzialny w UE jest w 100% poprawny bez pola contact');
+    });
 });
-
-
-

@@ -66,7 +66,7 @@
       "names": ["lauryl glucoside", "glukozyd laurylowy"],
       "role": "nonionic_surfactant",
       "cosmetic_html": "<li>⚙️ <b>Lauryl Glucoside:</b> cukrowy środek powierzchniowo czynny, który <b>poprawia gęstość emulsji myjącej</b> i wspiera łagodne oczyszczanie.</li>",
-      "chemical_html": "<li>⚙️ <b>Lauryl Glucoside:</b> niejonowy surfaktant wspomagający <b>rozpuszczanie tłustych osadów</b> w niskich temperaturach.</li>"
+      "chemical_html": "<li>⚙️ <b>Lauryl Glucoside:</b> łagodny niejonowy surfaktant pochodzenia roślinnego, który <b>wspomaga rozpuszczanie i odspajanie zabrudzeń od podłoża</b> oraz ułatwia spłukiwanie bez smug.</li>"
     },
     "citric acid": {
       "names": ["citric acid", "kwas cytrynowy"],
@@ -198,7 +198,7 @@
       "names": ["alcohols, c12-18, ethoxylated", "alcohols, c12-14, ethoxylated", "c12-15 pareth-7", "trideceth-9", "niejonowe środki powierzchniowo czynne", "non-ionic surfactants"],
       "role": "nonionic_surfactant",
       "cosmetic_html": "<li>⚙️ <b>Niejonowy emulgator (Ethoxylated Alcohols):</b> łączy fazę wodną z olejkami zapachowymi, zapewniając <b>klarowność i stabilność formuły</b>.</li>",
-      "chemical_html": "<li>⚙️ <b>Niejonowe środki powierzchniowo czynne (np. etoksylowane alkohole C12-18):</b> specjalistyczne surfaktanty odporne na twardość wody, które <b>rozpuszczają zaschnięty tłuszcz, oleje i sebum już w niskich temperaturach (od 20–30°C)</b>.</li>"
+      "chemical_html": "<li>⚙️ <b>Niejonowe środki powierzchniowo czynne:</b> zaawansowane surfaktanty obniżające napięcie powierzchniowe, które <b>błyskawicznie zwilżają czyszczoną powierzchnię, ułatwiają penetrację osadów z kamienia i mydła oraz zapewniają łatwe spłukiwanie bez smug</b>.</li>"
     },
     "cationic surfactants": {
       "names": ["kationowe środki powierzchniowo czynne", "cationic surfactants", "dihydrogenated tallowoylethyl hydroxyethylmonium methosulfate", "esterquat"],
@@ -228,7 +228,7 @@
       "names": ["phosphonates", "fosfoniany", "polycarboxylates", "polikarboksylany", "zeolites", "zeolity", "tetrasodium edta", "disodium edta", "tetrasodium glutamate diacetate"],
       "role": "chelating_builder",
       "cosmetic_html": "<li>⚙️ <b>Składnik chelatujący (np. EDTA / Glutamate Diacetate):</b> wiąże jony metali ciężkich z wody kranowej, <b>zwiększając trwałość kosmetyku i pienistość w twardej wodzie</b>.</li>",
-      "chemical_html": "<li>⚙️ <b>Sekwestranty i związki zmiękczające wodę (Fosfoniany / Polikarboksylany / Chelatory):</b> wychwytują jony wapnia i magnezu odpowiedzialne za twardość wody, dzięki czemu <b>chronią grzałkę pralki przed kamieniem i zapobiegają szarzeniu tkanin</b>.</li>"
+      "chemical_html": "<li>⚙️ <b>Sekwestranty i związki zmiękczające wodę (Fosfoniany / Polikarboksylany / Chelatory):</b> wychwytują jony wapnia i magnezu odpowiedzialne za twardość wody, dzięki czemu <b>zwiększają skuteczność bazy myjącej i zapobiegają odkładaniu się osadów mineralnych</b>.</li>"
     },
     "preservatives": {
       "names": ["phenoxyethanol", "sodium benzoate", "potassium sorbate", "benzisothiazolinone", "methylisothiazolinone", "methylchloroisothiazolinone", "benzyl alcohol", "ethylhexylglycerin", "dmdm hydantoin"],
