@@ -829,7 +829,19 @@ test('ADR-0168: Pełny przebieg zoptymalizowanego potoku (Silnik Deterministyczn
                 usage: { promptTokenCount: 2500, candidatesTokenCount: 900, totalTokenCount: 3400 }
             };
         }
-        return { result: { patches: [] }, usage: {} };
+        if (agentId === '11') {
+            return {
+                result: {
+                    product_identity: {
+                        exact_product_type: 'Żel pod prysznic',
+                        primary_regime: 'codzienny'
+                    },
+                    patches: []
+                },
+                usage: { promptTokenCount: 1000, candidatesTokenCount: 200, totalTokenCount: 1200 }
+            };
+        }
+        return { result: { patches: [] }, usage: { promptTokenCount: 1500, candidatesTokenCount: 300, totalTokenCount: 1800 } };
     };
 
     const pimPayload = {
@@ -849,13 +861,13 @@ test('ADR-0168: Pełny przebieg zoptymalizowanego potoku (Silnik Deterministyczn
 
     await orch.run(pimPayload);
 
-    // 1. Tylko Agent 6 został wywołany przez LLM (A1, A2, A4, A5, A7, A10 zaoszczędzone deterministycznie!)
-    assert.deepStrictEqual(calledAgents, ['6'], 'W pełnym przebiegu z kompletnym PIM powinien zostać wywołany wyłącznie Agent 6');
+    // 1. Dual-Agent QA: Agent 6 (tworzenie HTML), Agent 11 (audyt domenowy) oraz Agent 10 (audyt prawny CLP/GPSR/Allegro)
+    // A1, A2, A4, A5, A7 zaoszczędzone deterministycznie (0 tokenów)
+    assert.deepStrictEqual(calledAgents, ['6', '11', '10'], 'W architekturze Dual-Agent QA po Agencie 6 wywoływani są Agent 11 oraz Agent 10 (eliminacja FAST-PASS)');
     assert.strictEqual(orch.state.token_usage_per_node['A2'].tokens_saved, true);
     assert.strictEqual(orch.state.token_usage_per_node['A4'].tokens_saved, true);
     assert.strictEqual(orch.state.token_usage_per_node['A5'].tokens_saved, true);
     assert.strictEqual(orch.state.token_usage_per_node['A7'].tokens_saved, true);
-    assert.strictEqual(orch.state.token_usage_per_node['A10'].tokens_saved, true);
 
     // 2. Prompt Agenta 6 został oczyszczony z 35 KB śmieciowego szablonu HTML ('kod karty') i zawiera Składniki wiodące z frontu
     assert.ok(!capturedA6Prompt.includes('XXXXXXXXXX'), 'Prompt A6 nie może zawierać 35KB szablonu kod karty');
