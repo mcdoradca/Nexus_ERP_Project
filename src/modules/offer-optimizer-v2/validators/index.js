@@ -583,6 +583,9 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
         if (/pozostawia\s+we\s+wnętrzu\s+lub\s+na\s+tkaninach/i.test(allHtml)) {
             errors.push('[Kalka maszynowa] Niedopuszczalny zwrot "na tkaninach" przy opisie Parfum w preparacie do twardych powierzchni.');
         }
+        if (/(?:czyszczenia\s+lub\s+prania|lub\s+prania|albo\s+prania)/i.test(allHtml)) {
+            errors.push('[Kalka pralnicza] Niedopuszczalny zwrot z prania ("lub prania") w preparacie nieprzeznaczonym do tkanin/prania.');
+        }
     }
 
     // 3. Mieszanie kuchni z łazienką w produkcie dedykowanym wyłącznie do łazienek/toalet
@@ -592,9 +595,12 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
         }
     }
 
-    // 4. Błąd gramatyczny "o zapachu świeży"
+    // 4. Błędy gramatyczne fleksji zapachów
     if (/o\s+zapachu\s+świeży\b/i.test(allHtml)) {
         errors.push('[Błąd gramatyczny] Kalka językowa "o zapachu świeży" (wymagane: "o świeżym zapachu").');
+    }
+    if (/w\s+wariancie\s+zapachowym\s+[a-ząćęłńóśźż]+y(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/i.test(allHtml)) {
+        errors.push('[Błąd gramatyczny] Kalka "w wariancie zapachowym [przymiotnik]" (wymagane: "o zapachu [przymiotnik odmieniony]" np. "o zapachu cytrynowym").');
     }
 
     // 5. Medical Whitelisting w P302+P352 ("W PRZYPADKU KONTAKTU ZE SKÓRĄ" -> "W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ")
@@ -605,6 +611,11 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
     // 6. Obowiązkowe ostrzeżenie "Nie połykać." w chemii gospodarczej
     if (context.isChemical && s6 && !/nie\s+połykać/i.test(s6)) {
         errors.push('[Brak ostrzeżenia BHP] W Sekcji 6 brakuje obowiązkowego ostrzeżenia "Nie połykać.".');
+    }
+
+    // 7. Halucynacja alergenów zapachowych w Sekcji 3
+    if (/(?:Limonene|Linalool|Hexyl Cinnamal)/i.test(s3) && !/(?:limonene|linalool|hexyl\s+cinnamal)/i.test(`${inci} ${detComp}`)) {
+        errors.push('[Halucynacja składników] W Sekcji 3 wymieniono niesprawdzone alergeny (Limonene, Linalool lub Hexyl Cinnamal), których brak w oficjalnym składzie INCI/detergentu.');
     }
 
     return { valid: errors.length === 0, errors };

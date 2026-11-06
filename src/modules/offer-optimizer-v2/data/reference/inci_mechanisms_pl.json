@@ -233,14 +233,14 @@
     "preservatives": {
       "names": ["phenoxyethanol", "sodium benzoate", "potassium sorbate", "benzisothiazolinone", "methylisothiazolinone", "methylchloroisothiazolinone", "benzyl alcohol", "ethylhexylglycerin", "dmdm hydantoin"],
       "role": "preservative",
-      "cosmetic_html": "<li>⚙️ <b>Układ konserwujący (np. Sodium Benzoate / Phenoxyethanol):</b> zabezpiecza czystość mikrobiologiczną produktu przez cały okres stosowania, <b>chroniąc formułę przed rozwojem drobnoustrojów po otwarciu opakowania</b>.</li>",
-      "chemical_html": "<li>⚙️ <b>Stabilizator mikrobiologiczny (np. Benzisothiazolinone / Methylisothiazolinone):</b> chroni wodną recepturę detergentu przed zepsuciem podczas przechowywania, <b>zapewniając stabilność i świeżość produktu do ostatniej dozy</b>.</li>"
+      "cosmetic_html": "<li>⚙️ <b>Układ konserwujący:</b> zabezpiecza czystość mikrobiologiczną produktu przez cały okres stosowania, <b>chroniąc formułę przed rozwojem drobnoustrojów po otwarciu opakowania</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Stabilizator mikrobiologiczny:</b> chroni wodną recepturę detergentu przed zepsuciem podczas przechowywania, <b>zapewniając stabilność i świeżość produktu do ostatniej dozy</b>.</li>"
     },
     "fragrance_allergens": {
-      "names": ["limonene", "linalool", "hexyl cinnamal", "citronellol", "geraniol", "coumarin", "alpha-isomethyl ionone", "benzyl salicylate", "eugenol", "citral"],
+      "names": ["limonene", "linalool", "hexyl cinnamal", "citronellol", "geraniol", "coumarin", "alpha-isomethyl ionone", "benzyl salicylate", "eugenol", "isoeugenol", "citral"],
       "role": "fragrance_component",
-      "cosmetic_html": "<li>⚙️ <b>Składniki kompozycji zapachowej (np. Limonene, Linalool):</b> lotne molekuły aromatyczne budujące <b>wielowymiarowy profil zapachowy produktu</b> podczas aplikacji.</li>",
-      "chemical_html": "<li>⚙️ <b>Nuty aromatyczne (np. Limonene, Linalool, Hexyl Cinnamal):</b> lotne składniki kompozycji zapachowej odpowiadające za <b>świeży, długo utrzymujący się aromat</b> po zakończeniu czyszczenia lub prania.</li>"
+      "cosmetic_html": "<li>⚙️ <b>Składniki kompozycji zapachowej:</b> lotne molekuły aromatyczne budujące <b>wielowymiarowy profil zapachowy produktu</b> podczas aplikacji.</li>",
+      "chemical_html": "<li>⚙️ <b>Nuty aromatyczne:</b> lotne składniki kompozycji zapachowej odpowiadające za <b>świeży, długo utrzymujący się aromat</b> po zakończeniu sprzątania.</li>"
     },
     "sodium hypochlorite": {
       "names": ["sodium hypochlorite", "podchloryn sodu", "wybielacz", "candeggina", "aktywny chlor", "związki wybielające na bazie chloru", "chlorine-based bleaching agents"],

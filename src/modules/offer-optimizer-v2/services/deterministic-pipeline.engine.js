@@ -390,9 +390,9 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr) {
     res = res
         // Naprawa ewentualnych artefaktów z dawnych regexów ASCII
         .replace(/sprząprodukt/gi, 'sprzątania')
-        // Automatyczna konwersja ułamkowych litrów i kilogramów poniżej 1 jednostki w tekście (np. "0,500 l" -> "500 ml")
+        // Automatyczna konwersja ułamkowych litrów i kilogramów poniżej 1 jednostki w tekście (np. "0,500 l" -> "500 ml") z wyjątkiem parametrów logistycznych wagi brutto
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])0[.,](\d{1,3})\s*(?:l|litr(?:y|ów|a|ze)?)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, dec) => `${Math.round(parseFloat(`0.${dec}`) * 1000)} ml`)
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])0[.,](\d{1,3})\s*kg(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, dec) => `${Math.round(parseFloat(`0.${dec}`) * 1000)} g`)
+        .replace(/(?<!(?:waga|brutto|ok[.]?)\s+)(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])0[.,](\d{1,3})\s*kg(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, dec) => `${Math.round(parseFloat(`0.${dec}`) * 1000)} g`)
         // Eliminacja sztucznych pseudo-synonimów LLM ("czyszczona strefa", "czyszczona płaszczyzna") — uwaga: słowa kończące się na 'ę'/'ą' wymagają granic Unicode, nie ASCII \b!
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(czyszczon|zabrudzon|myt)(ą|ej|e|ym|ych)\s+(?:stref|płaszczyzn)(ę|y|ie|źnie|om|ach|y)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, prefix, adjEnd, nounEnd) => {
             const p = prefix;
@@ -408,8 +408,13 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr) {
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])osusz\s+do\s+sucha(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => /^[A-Z]/.test(m) ? 'Wytrzyj do sucha' : 'wytrzyj do sucha')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])osuszyć\s+do\s+sucha(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wytrzeć do sucha')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])osuszając\s+do\s+sucha(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wycierając do sucha')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])w\s+wariancie\s+zapachowym\s+([a-ząćęłńóśźż]+)y(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, stem) => `o zapachu ${stem.toLowerCase()}ym`)
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])w\s+wariancie\s+zapachowym\s+([a-ząćęłńóśźż]+)i(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, stem) => `o zapachu ${stem.toLowerCase()}im`)
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])w\s+wariancie\s+zapachowym\s+/gi, 'o zapachu ')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])o\s+zapachu\s+([a-ząćęłńóśźż]+(?:ow|n|sk|ck|cz|liw|ist|od|ed|yd))y(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, stem) => `o zapachu ${stem.toLowerCase()}ym`)
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])o\s+zapachu\s+(śwież|morsk|cytrusow|kwiatow|leśn|sosnow|lawendow|orientaln|klasyczn|delikatn|owocow)y(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, stem) => `o ${stem.toLowerCase()}ym zapachu`)
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])o\s+zapachu\s+(śwież|morsk)i(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, stem) => `o ${stem.toLowerCase()}im zapachu`)
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:czyszczenia\s+lub\s+prania|czyszczenia\s+albo\s+prania)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'sprzątania')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])zapach\s+czystości(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'świeży zapach')
         .replace(/Synergia\s+bazy\s+czyszczącej\s+i\s+olejków\s+zapachowych/gi, 'Synergia Skutecznego Czyszczenia i Świeżości')
         .replace(/gładkość\s+armatury\s+i\s+płytek/gi, 'gładkość ceramiki sanitarnej i płytek')
@@ -568,6 +573,43 @@ function tryBuildDeterministicSection3({
     const matchedRoles = new Set();
     const usedDbKeys = new Set();
 
+    // Kolekcjonujemy specyficzne alergeny zapachowe i konserwanty obecne w rzeczywistym INCI produktu
+    const detectedAllergenNames = [];
+    const detectedPreservativeNames = [];
+    for (const item of rawItems) {
+        const lowerItem = item.toLowerCase().trim();
+        const allergenEntry = db.ingredients?.['fragrance_allergens'];
+        if (allergenEntry && allergenEntry.names.some(n => lowerItem === n || (n.length >= 4 && lowerItem.includes(n)))) {
+            const cleanName = item.trim().replace(/^[\s,;]+|[\s,;]+$/g, '');
+            const capName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1).toLowerCase();
+            if (!detectedAllergenNames.includes(capName)) detectedAllergenNames.push(capName);
+        }
+        const presEntry = db.ingredients?.['preservatives'];
+        if (presEntry && presEntry.names.some(n => lowerItem === n || (n.length >= 4 && lowerItem.includes(n)))) {
+            const cleanName = item.trim().replace(/^[\s,;]+|[\s,;]+$/g, '');
+            const capName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1).toLowerCase();
+            if (!detectedPreservativeNames.includes(capName)) detectedPreservativeNames.push(capName);
+        }
+    }
+
+    const formatBulletHtml = (dbKey, entry) => {
+        let htmlBullet = resolvedIsChemical
+            ? (entry.chemical_html || entry.cosmetic_html)
+            : (entry.cosmetic_html || entry.chemical_html);
+        if (!htmlBullet) return '';
+
+        if (dbKey === 'fragrance_allergens') {
+            if (detectedAllergenNames.length > 0) {
+                htmlBullet = htmlBullet.replace(/<b>(Nuty aromatyczne|Składniki kompozycji zapachowej)(?:\s*\([^)]*\))?:<\/b>/i, `<b>$1 (${detectedAllergenNames.join(', ')}):</b>`);
+            }
+        } else if (dbKey === 'preservatives') {
+            if (detectedPreservativeNames.length > 0) {
+                htmlBullet = htmlBullet.replace(/<b>(Stabilizator mikrobiologiczny|Układ konserwujący)(?:\s*\([^)]*\))?:<\/b>/i, `<b>$1 (${detectedPreservativeNames.join(' / ')}):</b>`);
+            }
+        }
+        return htmlBullet;
+    };
+
     const matchSingleIngredient = (ingStr) => {
         const lower = ingStr.toLowerCase().trim();
         if (!lower) return null;
@@ -599,9 +641,7 @@ function tryBuildDeterministicSection3({
         if (hit) {
             usedDbKeys.add(hit.dbKey);
             if (hit.entry.role) matchedRoles.add(hit.entry.role);
-            const htmlBullet = resolvedIsChemical
-                ? (hit.entry.chemical_html || hit.entry.cosmetic_html)
-                : (hit.entry.cosmetic_html || hit.entry.chemical_html);
+            const htmlBullet = formatBulletHtml(hit.dbKey, hit.entry);
             if (htmlBullet) matchedBenefits.push(htmlBullet);
         } else {
             unmatchedFrontHero = true;
@@ -614,9 +654,7 @@ function tryBuildDeterministicSection3({
         if (hit) {
             usedDbKeys.add(hit.dbKey);
             if (hit.entry.role) matchedRoles.add(hit.entry.role);
-            const htmlBullet = resolvedIsChemical
-                ? (hit.entry.chemical_html || hit.entry.cosmetic_html)
-                : (hit.entry.cosmetic_html || hit.entry.chemical_html);
+            const htmlBullet = formatBulletHtml(hit.dbKey, hit.entry);
             if (htmlBullet && matchedBenefits.length < 7) {
                 matchedBenefits.push(htmlBullet);
             }
@@ -751,7 +789,9 @@ function buildDeterministicSection5({
     countryOfOrigin = '',
     features = {},
     visionFeatures = {},
-    isMedicalDevice = false
+    isMedicalDevice = false,
+    weight = null,
+    grossWeight = null
 } = {}) {
     const cleanTitle = sanitizeOfferTitle(productName || '');
     const items = [];
@@ -793,6 +833,56 @@ function buildDeterministicSection5({
     const resolvedPostac = visionFeatures?.['Postać'] || features?.['Postać'] || features?.['Postac'] || features?.['Forma'] || '';
     const rawCap = capacity || visionFeatures?.['Pojemność / Waga'] || visionFeatures?.['Pojemność'] || visionFeatures?.['Waga'] || features?.['Pojemność'] || features?.['Waga'] || '';
     const resolvedCapacity = normalizeCapacityValue(rawCap, cleanTitle, visionFeatures);
+
+    // Obliczanie parametru logistycznego wagi brutto
+    const rawGross = grossWeight || weight ||
+        visionFeatures?.['Waga brutto'] || visionFeatures?.['Waga z opakowaniem'] || visionFeatures?.['Waga'] ||
+        features?.['Waga brutto'] || features?.['Waga z opakowaniem'] || features?.['Waga (z opakowaniem)'] || features?.['Waga'] || '';
+
+    let resolvedGrossWeight = '';
+    if (rawGross) {
+        const num = parseFloat(String(rawGross).replace(',', '.').replace(/[^\d.]/g, ''));
+        if (!isNaN(num) && num > 0) {
+            if (num > 30) {
+                // Wartość w gramach (np. 850 g -> 0,85 kg)
+                resolvedGrossWeight = `${(num / 1000).toFixed(2).replace('.', ',').replace(/,00$/, '')} kg`;
+            } else {
+                resolvedGrossWeight = `${num.toString().replace('.', ',')} kg`;
+            }
+        } else if (typeof rawGross === 'string' && rawGross.trim()) {
+            resolvedGrossWeight = rawGross.trim();
+        }
+    }
+
+    const isUnscentedArticle = /\b(szczoteczk|toothbrush|ni[cć]\s+dentystyczn|gąbk|pęset|maszynk)\b/i.test(cleanTitle + ' ' + resolvedPostac);
+
+    // Jeśli brak jawnej wagi brutto w PIM/cechach, a mamy pojemność netto w ml lub l:
+    // obliczamy wiarygodną estymację logistyczną (gęstość płynu/żelu ~1.05 + waga butelki/zamknięcia)
+    if (!resolvedGrossWeight && resolvedCapacity && !isUnscentedArticle) {
+        const capMatch = String(resolvedCapacity).match(/^(\d+(?:[.,]\d+)?)\s*(ml|l|g|kg)\b/i);
+        if (capMatch) {
+            const val = parseFloat(capMatch[1].replace(',', '.'));
+            const unit = capMatch[2].toLowerCase();
+            let estimatedKg = 0;
+            if (unit === 'ml') {
+                const liters = val / 1000;
+                const tare = liters > 1 ? 0.12 : (liters >= 0.5 ? 0.065 : 0.04);
+                estimatedKg = (liters * 1.05) + tare;
+            } else if (unit === 'l') {
+                const tare = val > 2 ? 0.20 : 0.08;
+                estimatedKg = (val * 1.04) + tare;
+            } else if (unit === 'g') {
+                const tare = val >= 500 ? 0.05 : 0.02;
+                estimatedKg = (val / 1000) + tare;
+            } else if (unit === 'kg') {
+                estimatedKg = val + 0.08;
+            }
+            if (estimatedKg > 0) {
+                resolvedGrossWeight = `ok. ${estimatedKg.toFixed(2).replace('.', ',')} kg`;
+            }
+        }
+    }
+
     const resolvedDozownik = visionFeatures?.['Dozownik'] || features?.['Dozownik'] || features?.['Opakowanie'] || '';
     const resolvedWydajnosc = visionFeatures?.['Wydajność'] || features?.['Wydajność'] || features?.['Liczba prań'] || '';
     const resolvedTwardosc = visionFeatures?.['Twardość włosia'] || features?.['Twardość włosia'] || '';
@@ -810,8 +900,6 @@ function buildDeterministicSection5({
         resolvedZapach = '';
     }
 
-    const isUnscentedArticle = /\b(szczoteczk|toothbrush|ni[cć]\s+dentystyczn|gąbk|pęset|maszynk)\b/i.test(cleanTitle + ' ' + resolvedPostac);
-
     addParam('Marka', resolvedBrand);
     if (resolvedManufacturer) {
         addParam('Producent', resolvedManufacturer);
@@ -822,6 +910,9 @@ function buildDeterministicSection5({
     addParam('Linia produktowa', resolvedLine);
     addParam('Postać fizyczna', resolvedPostac);
     addParam('Pojemność / Waga netto', resolvedCapacity);
+    if (resolvedGrossWeight) {
+        addParam('Waga brutto', resolvedGrossWeight);
+    }
     if (resolvedDozownik && !/^brak$/i.test(resolvedDozownik)) {
         addParam('Typ dozownika / zamknięcia', resolvedDozownik);
     }

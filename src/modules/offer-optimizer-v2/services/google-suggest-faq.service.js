@@ -216,19 +216,29 @@ function formatNaturalProductName(productName = '', brand = '', capacity = '') {
 }
 
 /**
- * Odmienia przymiotnik lub rzeczownik zapachowy do poprawnej polszczyzny (eliminuje kalkę "o zapachu świeży" -> "o świeżym zapachu").
+ * Odmienia przymiotnik lub rzeczownik zapachowy do poprawnej polszczyzny (eliminuje kalkę "w wariancie zapachowym cytrynowy" -> "o zapachu cytrynowym").
  */
 function formatPolishScentPhrase(rawScent = '') {
     const s = String(rawScent || '').replace(/\s*\([^)]*\)\s*/g, '').trim();
     if (!s || /^(brak|neutralny|bezzapachowy|classic|classico)$/i.test(s)) return '';
     const lower = s.toLowerCase();
-    if (/^(śwież|morsk|cytrusow|kwiatow|leśn|sosnow|lawendow|orientaln|klasyczn|delikatn|owocow|zielon|pudrow|migdałow|waniliow|kokosow|aloesow|różan)y$/i.test(lower)) {
-        return `o ${lower.replace(/y$/i, 'ym')} zapachu`;
+
+    // 1. Przymiotniki zakończone na -y (np. cytrynowy, świeży, cytrusowy, lawendowy, leśny, sosnowy, itp.)
+    if (/^[a-ząćęłńóśźż]+y$/i.test(lower)) {
+        return `o zapachu ${lower.replace(/y$/i, 'ym')}`;
     }
-    if (/^(morsk|niebiesk|śwież)i$/i.test(lower)) {
-        return `o ${lower.replace(/i$/i, 'im')} zapachu`;
+    // 2. Przymiotniki zakończone na -i (np. morski, niebieski, rześki)
+    if (/^[a-ząćęłńóśźż]+i$/i.test(lower)) {
+        return `o zapachu ${lower.replace(/i$/i, 'im')}`;
     }
-    return `w wariancie zapachowym ${s}`;
+    // 3. Rzeczowniki rodzaju żeńskiego na -a (np. cytryna -> o zapachu cytryny, lawenda -> o zapachu lawendy, wanilia -> o zapachu wanilii)
+    if (/^[a-ząćęłńóśźż]+a$/i.test(lower)) {
+        if (/ia$/i.test(lower)) return `o zapachu ${lower.replace(/ia$/i, 'ii')}`;
+        if (/[k|g]a$/i.test(lower)) return `o zapachu ${lower.replace(/a$/i, 'i')}`;
+        return `o zapachu ${lower.replace(/a$/i, 'y')}`;
+    }
+    // 4. Rzeczowniki męskie / ogólne / złożone (np. eukaliptus, jaśmin, drzewo sandałowe)
+    return `o zapachu ${lower}`;
 }
 
 /**
@@ -489,6 +499,7 @@ async function harvestSearchIntentFaq({
 module.exports = {
     detectCanonicalSearchCategory,
     formatNaturalProductName,
+    formatPolishScentPhrase,
     filterAndCleanGoogleSuggestions,
     harvestSearchIntentFaq
 };

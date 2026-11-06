@@ -2114,7 +2114,9 @@ class Orchestrator {
                             detergentComposition: this.state.extracted_data.detergent_composition?.value,
                             visionFeatures: this.state.vision_extracted_features || {},
                             features: product?.text_fields?.features || {},
-                            isMedicalDevice: product?.is_medical_device
+                            isMedicalDevice: product?.is_medical_device,
+                            grossWeight: product?.weight || product?.text_fields?.features?.['Waga brutto'] || product?.text_fields?.features?.['Waga z opakowaniem jednostkowym'] || this.state.extracted_data?.logistics?.data?.gross_weight_kg || this.state.extracted_data?.['Waga']?.value,
+                            weight: product?.weight
                         });
 
                         result.section_6_html = deterministicEngine.buildDeterministicSection6({
