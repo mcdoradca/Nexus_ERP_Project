@@ -670,6 +670,16 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
         errors.push('[Niedozwolony symbol Allegro] W opisie użyto ikony ⛔, która jest zabroniona na Allegro (wymagane użycie ⚠️).');
     }
 
+    // 15. Błąd pojęciowo-technologiczny: płyn do płukania tkanin (ammorbidente) to nie detergent piorący
+    const isPureFabricSoftener = /(?:płyn[a-ząćęłńóśźż]*\s+do\s+płukania|plyn[a-z]*\s+do\s+plukania|koncentrat[a-ząćęłńóśźż]*\s+do\s+płukania|ammorbidente|zmiękczacz[a-ząćęłńóśźż]*\s+do\s+tkanin)/i.test(`${prodName} ${allHtml}`) &&
+        !/(?:płyn[a-ząćęłńóśźż]*\s+do\s+prania|żel[a-ząćęłńóśźż]*\s+do\s+prania|prosz[a-ząćęłńóśźż]*\s+do\s+prania|kapsułk[a-ząćęłńóśźż]*\s+do\s+prania|2w1|2\s*in\s*1|detersivo)/i.test(prodName);
+
+    if (isPureFabricSoftener) {
+        if (/\b\d+\s*prań\b/i.test(allHtml) || /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])cykl[a-ząćęłńóśźż]*\s+prania(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/i.test(allHtml) || /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])po\s+każdym\s+praniu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/i.test(allHtml) || /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])środ(?:ek|ka|kiem)\s+piorąc/i.test(allHtml)) {
+            errors.push('[Błąd pojęciowo-technologiczny] Płyn do płukania tkanin (ammorbidente) nie jest detergentem piorącym. Wydajność musi być podana w cyklach płukania (np. "65 cykli płukania" / "65 płukań"), a nie w praniach.');
+        }
+    }
+
     return { valid: errors.length === 0, errors };
 }
 

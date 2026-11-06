@@ -104,7 +104,7 @@ function detectCanonicalSearchCategory({ productName = '', category = '', vision
     if (/(perfumy\s+do\s+prania|profumo\s+bucato|eliksir\s+do\s+prania)/i.test(combined)) {
         return { key: 'laundry_perfume', labelPl: 'perfumy do prania', group: 'LAUNDRY' };
     }
-    if (/(płyn\s+do\s+płukania|plyn\s+do\s+plukania|koncentrat\s+do\s+płukania|ammorbidente)/i.test(combined)) {
+    if (/(płyn[a-ząćęłńóśźż]*\s+do\s+płukania|plyn[a-z]*\s+do\s+plukania|koncentrat[a-ząćęłńóśźż]*\s+do\s+płukania|ammorbidente|zmiękczacz[a-ząćęłńóśźż]*\s+do\s+tkanin)/i.test(combined)) {
         return { key: 'fabric_softener', labelPl: 'płyn do płukania tkanin', group: 'LAUNDRY' };
     }
     if (/(płyn\s+do\s+prania|plyn\s+do\s+prania|żel\s+do\s+prania|zel\s+do\s+prania|detergent\s+do\s+prania|lavatrice|bucato)/i.test(combined)) {
@@ -356,14 +356,23 @@ function buildFourPillarQuestions({
         }
 
         // FILAR 3: Intencja Kompatybilności i Bezpieczeństwa Tkanin (z Google PAA + wykluczenia fizykochemiczne)
-        if (hasOpticalBrighteners) {
+        if (catInfo.key === 'fabric_softener' || catInfo.key === 'laundry_perfume') {
+            questions.push(`Do jakich rodzajów tkanin nadaje się ${shortBrandRef} i jak wpływa na miękkość oraz ułatwianie prasowania ubrań?`);
+        } else if (hasOpticalBrighteners) {
             questions.push(`Do jakich rodzajów tkanin przeznaczony jest ${shortBrandRef} i dlaczego nie należy stosować go do wełny, jedwabiu oraz czarnych ubrań?`);
         } else {
             questions.push(`Do jakich rodzajów tkanin i kolorów nadaje się ten środek piorący, a jakich delikatnych włókien (np. wełny lub jedwabiu) należy unikać?`);
         }
 
-        // FILAR 4: Intencja Wydajności Opakowania ("Na ile prań wystarcza...")
-        if (frontWashCount) {
+        // FILAR 4: Intencja Wydajności Opakowania ("Na ile prań wystarcza..." / "Na ile cykli płukania...")
+        if (catInfo.key === 'fabric_softener' || catInfo.key === 'laundry_perfume') {
+            const rinseCount = frontWashCount ? String(frontWashCount).replace(/pra[ńn]/i, 'płukań') : null;
+            if (rinseCount) {
+                questions.push(`Na ile cykli płukania wystarcza opakowanie (${rinseCount}) przy standardowym załadunku pralki?`);
+            } else {
+                questions.push(`Jaka jest wydajność opakowania${capacity ? ` ${capacity}` : ''} i jak prawidłowo dozować koncentrat do przegródki na płyn zmiękczający?`);
+            }
+        } else if (frontWashCount) {
             questions.push(`Na ile cykli prania wystarcza opakowanie (${frontWashCount}) przy standardowym załadunku pralki?`);
         } else {
             questions.push(`Jaka jest wydajność opakowania${capacity ? ` ${capacity}` : ''} i które składniki aktywne odpowiadają za rozpuszczanie zabrudzeń?`);

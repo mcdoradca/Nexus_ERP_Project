@@ -1676,7 +1676,7 @@ class Orchestrator {
                         if (result.technical_benefits_aeo && Array.isArray(result.technical_benefits_aeo)) {
                             for (let idx = 0; idx < result.technical_benefits_aeo.length; idx++) {
                                 let htmlStr = result.technical_benefits_aeo[idx];
-                                htmlStr = deterministicEngine.sanitizeHtmlClaimsAndStopwords(htmlStr);
+                                htmlStr = deterministicEngine.sanitizeHtmlClaimsAndStopwords(htmlStr, { productName: product?.text_fields?.name || this.state.product_name });
                                 htmlStr = normalizeTags(htmlStr);
                                 result.technical_benefits_aeo[idx] = htmlStr;
                                 
@@ -2191,7 +2191,7 @@ class Orchestrator {
                     const k = `section_${idx}_html`;
                     if (result[k] && typeof result[k] === 'string') {
                         result[k] = brandResponsibleService.stripContactInfo(result[k]);
-                        result[k] = deterministicEngine.sanitizeHtmlClaimsAndStopwords(result[k]);
+                        result[k] = deterministicEngine.sanitizeHtmlClaimsAndStopwords(result[k], { productName: product?.text_fields?.name || this.state.product_name });
                         if (isFullPipelineRun) {
                             result[k] = deterministicEngine.normalizeEmojiAndStructure(result[k], idx);
                         }
@@ -2331,7 +2331,7 @@ class Orchestrator {
                     for (let i of [1,2,4]) {
                         let sec = a7_res_full['section_' + i + '_html'];
                         if (sec) {
-                            sec = deterministicEngine.sanitizeHtmlClaimsAndStopwords(sec);
+                            sec = deterministicEngine.sanitizeHtmlClaimsAndStopwords(sec, { productName: product?.text_fields?.name || this.state.product_name });
                             sec = normalizeTags(sec);
                             a7_res_full['section_' + i + '_html'] = sec;
                             const err = runHtmlValidators(sec, 'A7');
@@ -2488,7 +2488,7 @@ class Orchestrator {
                         if (this.state.a7_result[secKey]) {
                             let s = this.state.a7_result[secKey];
                             s = brandResponsibleService.stripContactInfo(s);
-                            s = deterministicEngine.sanitizeHtmlClaimsAndStopwords(s);
+                            s = deterministicEngine.sanitizeHtmlClaimsAndStopwords(s, { productName: product?.text_fields?.name || this.state.product_name });
                             s = deterministicEngine.normalizeEmojiAndStructure(s, i);
                             if (i === 2) s = normalize_aeo_faq_labels(s);
                             s = normalizeTags(s);

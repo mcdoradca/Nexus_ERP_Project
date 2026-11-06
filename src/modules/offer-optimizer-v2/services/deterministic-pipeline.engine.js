@@ -287,7 +287,7 @@ function sanitizeOfferTitle(rawTitle) {
  * 3. TARCZA PRAWNA DLA OPISÓW HTML: AUTOMATYCZNA TRANSLACJA ROSZCZEŃ BIOBÓJCZYCH (BPR 528/2012),
  *    MEDYCZNYCH (WE 1223/2009 / 655/2013), STOP-WORDS ALLEGRO (§A) ORAZ HIGIENA JĘZYKOWA POLSZCZYZNY
  */
-function sanitizeHtmlClaimsAndStopwords(htmlStr) {
+function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
     if (!htmlStr || typeof htmlStr !== 'string') return htmlStr;
     let res = htmlStr;
 
@@ -476,6 +476,34 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr) {
         res = res.replace(/<p>\s*((?:Ze względu na|Nie\s+(?:należy\s+)?(?:stosować|używać)\s+na|Preparatu\s+nie\s+należy\s+stosować\s+na)[^<]*?(?:marmur|trawertyn|wapie[ńn]|aluminium|kwasowrażliw|kamie[ńn]\s+naturaln|tkanin)[^<]*?)<\/p>/i, (m, g1) => {
             return '<p>⚠️ <b>WYKLUCZENIE ZASTOSOWANIA:</b> ' + g1 + '</p>';
         });
+    }
+
+    // --- KROK I: TARCZA ONTO-TECHNOLOGICZNA DLA PŁYNÓW DO PŁUKANIA TKANIN (AMMORBIDENTE) ---
+    // Płyn/koncentrat do płukania tkanin NIE JEST detergentem piorącym – nie pierze, nie usuwa plam, służy wyłącznie do płukania (zmiękczanie, zapach, ochrona włókien).
+    const isSoftener = /(?:płyn[a-ząćęłńóśźż]*\s+do\s+płukania|plyn[a-z]*\s+do\s+plukania|koncentrat[a-ząćęłńóśźż]*\s+do\s+płukania|ammorbidente|zmiękczacz[a-ząćęłńóśźż]*\s+do\s+tkanin)/i.test(`${context?.productName || ''} ${res}`) &&
+        !/(?:płyn[a-ząćęłńóśźż]*\s+do\s+prania|żel[a-ząćęłńóśźż]*\s+do\s+prania|prosz[a-ząćęłńóśźż]*\s+do\s+prania|kapsułk[a-ząćęłńóśźż]*\s+do\s+prania|2w1|2\s*in\s*1|detersivo)/i.test(context?.productName || '');
+
+    if (isSoftener) {
+        res = res
+            // Konwersja liczby prań na cykle płukania z poprawną fleksją języka polskiego
+            .replace(/(\d+)\s*(?:prań|prania|pranie)/gi, (m, num) => {
+                const n = parseInt(num, 10);
+                if (n === 1) return `${n} cykl płukania`;
+                const mod10 = n % 10;
+                const mod100 = n % 100;
+                if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+                    return `${n} cykle płukania`;
+                }
+                return `${n} cykli płukania`;
+            })
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])cykl([a-ząćęłńóśźż]*)\s+prania(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'cykl$1 płukania')
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])po\s+każdym\s+praniu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'po każdym płukaniu')
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])podczas\s+prania(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'podczas płukania tkanin')
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(środek\s+piorący|detergent\s+piorący)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'płyn do płukania tkanin')
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(środka\s+piorącego|detergentu\s+piorącego)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'płynu do płukania tkanin')
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(środkiem\s+piorącym|detergentem\s+piorącym)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'płynem do płukania tkanin')
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])usuwa\s+(?:uporczywe\s+)?(?:plamy|brud|zabrudzenia)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'zmiękcza włókna i chroni tkaniny')
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])rozpuszczani[ea]\s+zabrudzeń(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'nadawanie miękkości i elastyczności włóknom');
     }
 
     return res;
@@ -849,7 +877,7 @@ function buildDeterministicSection5({
 
     const cleanItalianAndClaims = (str) => {
         if (!str || typeof str !== 'string') return '';
-        return sanitizeHtmlClaimsAndStopwords(str)
+        return sanitizeHtmlClaimsAndStopwords(str, { productName: cleanTitle })
             .replace(/\s*\(\s*(?:multiuso|potere\s+sbiancante|schiuma\s+potente|spray\s+attivo|formula\s+migliorata|azione\s+sgrassante|senza\s+aloni|senza\s+risciacquo|con\s+candeggina|candeggina|z\s+wybielaczem|pulito\s+profondo|profumo\s+di\s+pulito)\s*\)/gi, '')
             .replace(/\bformula\s+migliorata\b/gi, 'Ulepszona formuła')
             .replace(/\bspray\s+attivo\b/gi, 'Aktywny spray')
@@ -936,6 +964,31 @@ function buildDeterministicSection5({
 
     const resolvedDozownik = visionFeatures?.['Dozownik'] || features?.['Dozownik'] || features?.['Opakowanie'] || '';
     const resolvedWydajnosc = visionFeatures?.['Wydajność'] || features?.['Wydajność'] || features?.['Liczba prań'] || '';
+    const isFabricSoftener = /(?:płyn[a-ząćęłńóśźż]*\s+do\s+płukania|plyn[a-z]*\s+do\s+plukania|koncentrat[a-ząćęłńóśźż]*\s+do\s+płukania|ammorbidente|zmiękczacz[a-ząćęłńóśźż]*\s+do\s+tkanin)/i.test(`${cleanTitle} ${features?.['Kategoria'] || ''} ${resolvedLine}`) &&
+        !/(?:płyn[a-ząćęłńóśźż]*\s+do\s+prania|żel[a-ząćęłńóśźż]*\s+do\s+prania|prosz[a-ząćęłńóśźż]*\s+do\s+prania|kapsułk[a-ząćęłńóśźż]*\s+do\s+prania|2w1|2\s*in\s*1|detersivo)/i.test(cleanTitle);
+
+    let formattedWydajnosc = resolvedWydajnosc;
+    if (isFabricSoftener && formattedWydajnosc) {
+        formattedWydajnosc = String(formattedWydajnosc).replace(/(\d+)\s*(?:prań|prania|pranie)/gi, (m, num) => {
+            const n = parseInt(num, 10);
+            if (n === 1) return `${n} cykl płukania`;
+            const mod10 = n % 10;
+            const mod100 = n % 100;
+            if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+                return `${n} cykle płukania`;
+            }
+            return `${n} cykli płukania`;
+        });
+        if (/^\d+$/.test(String(formattedWydajnosc).trim())) {
+            const n = parseInt(String(formattedWydajnosc).trim(), 10);
+            const mod10 = n % 10;
+            const mod100 = n % 100;
+            if (n === 1) formattedWydajnosc = `${n} cykl płukania`;
+            else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) formattedWydajnosc = `${n} cykle płukania`;
+            else formattedWydajnosc = `${n} cykli płukania`;
+        }
+    }
+
     const resolvedTwardosc = visionFeatures?.['Twardość włosia'] || features?.['Twardość włosia'] || '';
     let resolvedZapach = visionFeatures?.['Zapach'] || features?.['Zapach'] || features?.['Nuta zapachowa'] || '';
     let resolvedHero = visionFeatures?.['Składniki wiodące (Front)'] || '';
@@ -984,8 +1037,8 @@ function buildDeterministicSection5({
     if (resolvedPrzeznaczenie) {
         addParam('Przeznaczenie', resolvedPrzeznaczenie);
     }
-    if (resolvedWydajnosc) {
-        addParam('Wydajność deklarowana', resolvedWydajnosc);
+    if (formattedWydajnosc) {
+        addParam('Wydajność deklarowana', formattedWydajnosc);
     }
     if (resolvedWyrozniki) {
         // Eliminacja pustych sloganów reklamowych z Cech dodatkowych (np. Siła wybielania, Potere Sbiancante)

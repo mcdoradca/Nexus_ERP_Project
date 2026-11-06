@@ -629,4 +629,90 @@ test('V4B scan_biocidal_claims_lexical & Deterministic Legal Sanitizer (Rozp. BP
         assert.ok(s3Inci.section_3_html.includes('Cocamine Oxide') || s3Inci.section_3_html.includes('Tlenek kokaminy'), 'Cocamine Oxide musi zostać uwzględniony w mechanizmach Sekcji 3');
         assert.strictEqual(s3Inci.section_3_html.includes('gęstą, stabilną pianę') && s3Inci.section_3_html.includes('Sodium Chloride'), false, 'Piana nie może być przypisana do Sodium Chloride');
     });
+
+    await t.test('Weryfikacja v4.15: Ontologia płynów do płukania tkanin (ammorbidente vs detergent piorący)', () => {
+        // G1. Deterministyczna Sekcja 5: zmiana deklaracji 'prań' na 'cykli płukania' z poprawną odmianą PWN
+        const s5Softener65 = deterministicEngine.buildDeterministicSection5({
+            productName: 'Felce Azzurra płyn do płukania tkanin 2L',
+            brand: 'Felce Azzurra',
+            manufacturer: 'Paglieri',
+            capacity: '2000 ml',
+            features: {
+                'Wydajność': '65 prań'
+            }
+        });
+        assert.ok(s5Softener65.includes('<b>Wydajność deklarowana:</b> 65 cykli płukania'), '65 prań dla płynu do płukania musi być przeliczone na 65 cykli płukania');
+        assert.strictEqual(s5Softener65.includes('65 prań'), false, 'Niedopuszczalne słowo "prań" w parametrach płynu do płukania');
+
+        const s5Softener22 = deterministicEngine.buildDeterministicSection5({
+            productName: 'Coccolino ammorbidente concentrato 1L',
+            brand: 'Coccolino',
+            manufacturer: 'Unilever',
+            capacity: '1000 ml',
+            features: {
+                'Wydajność': '22 prania'
+            }
+        });
+        assert.ok(s5Softener22.includes('<b>Wydajność deklarowana:</b> 22 cykle płukania'), '22 prania dla płynu do płukania musi być odmodyfikowane na 22 cykle płukania');
+
+        const s5Softener1 = deterministicEngine.buildDeterministicSection5({
+            productName: 'Saszetka płynu do płukania 50ml',
+            brand: 'Lenor',
+            manufacturer: 'Procter & Gamble',
+            capacity: '50 ml',
+            features: {
+                'Wydajność': '1 pranie'
+            }
+        });
+        assert.ok(s5Softener1.includes('<b>Wydajność deklarowana:</b> 1 cykl płukania'), '1 pranie dla płynu do płukania musi być 1 cykl płukania');
+
+        // G2. Środek 2w1 (płyn do prania z płynem do płukania) zachowuje prań!
+        const s5DualDetergent = deterministicEngine.buildDeterministicSection5({
+            productName: 'Dual Power płyn do prania z płynem do płukania 2w1 2L',
+            brand: 'Dual Power',
+            manufacturer: 'Italsilva',
+            capacity: '2000 ml',
+            features: {
+                'Wydajność': '40 prań'
+            }
+        });
+        assert.ok(s5DualDetergent.includes('<b>Wydajność deklarowana:</b> 40 prań'), 'Preparat 2w1 piorący zachowuje parametr "prań"');
+
+        // G3. Sanityzacja HTML: zamiana pojęciowa w opisach
+        const rawSoftenerHtml = '<p>Ten środek piorący wystarcza na 65 prań. Zapewnia ochronę tkanin po każdym praniu oraz usuwa zabrudzenia w kolejnych cyklach prania.</p>';
+        const sanitizedSoftenerHtml = deterministicEngine.sanitizeHtmlClaimsAndStopwords(rawSoftenerHtml, {
+            productName: 'Tesori d\'Oriente płyn do płukania tkanin Białe Piżmo 760 ml'
+        });
+        assert.strictEqual(sanitizedSoftenerHtml.includes('środek piorący'), false, 'Niedopuszczalne określenie "środek piorący" dla płynu do płukania');
+        assert.ok(sanitizedSoftenerHtml.includes('płyn do płukania tkanin'), 'Zastąpiono przez "płyn do płukania tkanin"');
+        assert.strictEqual(sanitizedSoftenerHtml.includes('65 prań'), false, 'Niedopuszczalne "65 prań"');
+        assert.ok(sanitizedSoftenerHtml.includes('65 cykli płukania'), 'Zastąpiono przez "65 cykli płukania"');
+        assert.strictEqual(sanitizedSoftenerHtml.includes('po każdym praniu'), false, 'Niedopuszczalne "po każdym praniu"');
+        assert.ok(sanitizedSoftenerHtml.includes('po każdym płukaniu'), 'Zastąpiono przez "po każdym płukaniu"');
+        assert.strictEqual(sanitizedSoftenerHtml.includes('cyklach prania'), false, 'Niedopuszczalne "cyklach prania"');
+        assert.ok(sanitizedSoftenerHtml.includes('cyklach płukania'), 'Zastąpiono przez "cyklach płukania"');
+
+        // G4. Walidator validate_domain_and_chemical_logic: Reguła 15
+        const invalidValidationResult = v.validate_domain_and_chemical_logic({
+            section_1_html: '<p>Wspaniały środek piorący do tkanin.</p>',
+            section_2_html: '<p>Wystarcza na 65 prań w pralce.</p>',
+            section_4_html: '<p>Stosuj po każdym praniu w cyklu prania.</p>'
+        }, {
+            productName: 'Felce Azzurra ammorbidente puro 2L',
+            isChemical: true
+        });
+        assert.strictEqual(invalidValidationResult.valid, false);
+        assert.ok(invalidValidationResult.errors.some(e => e.includes('[Błąd pojęciowo-technologiczny]')), 'Musi zgłosić błąd pojęciowy w walidatorze');
+
+        // G5. Prawidłowy opis płynu do płukania przechodzi bez błędu Reguły 15
+        const validValidationResult = v.validate_domain_and_chemical_logic({
+            section_1_html: '<p>Wspaniały płyn do płukania tkanin.</p>',
+            section_2_html: '<p>Wystarcza na 65 cykli płukania w pralce.</p>',
+            section_4_html: '<p>Stosuj po każdym płukaniu w cyklu płukania.</p>'
+        }, {
+            productName: 'Felce Azzurra ammorbidente puro 2L',
+            isChemical: true
+        });
+        assert.strictEqual(validValidationResult.errors.some(e => e.includes('[Błąd pojęciowo-technologiczny]')), false, 'Poprawne frazy płukania nie mogą generować błędu');
+    });
 });

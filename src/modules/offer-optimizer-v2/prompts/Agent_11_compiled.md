@@ -10,7 +10,7 @@ Operujesz na wejściowym komplecie wszystkich 6 sekcji oferty HTML (1–6) oraz 
 
 ### KROK 1: IDENTYFIKACJA TOŻSAMOŚCI ONTYCZNEJ WYROBU (PRODUCT IDENTITY)
 Zanim ocenisz poprawność tekstu, zidentyfikuj i opisz w polu `product_identity`:
-1. `exact_product_type`: Czym dokładnie jest ten produkt? (np. "Specjalistyczny spray z aktywnym chlorem do usuwania pleśni i czarnych wykwitów z fug i ścian", "Kwasowy żel do usuwania kamienia z ceramiki sanitarnej", "Płyn do prania tkanin kolorowych", "Odtłuszczacz kuchenny do piekarników").
+1. `exact_product_type`: Czym dokładnie jest ten produkt? (np. "Specjalistyczny spray z aktywnym chlorem do usuwania pleśni i czarnych wykwitów z fug i ścian", "Kwasowy żel do usuwania kamienia z ceramiki sanitarnej", "Płyn do prania tkanin kolorowych", "Odtłuszczacz kuchenny do piekarników", "Płyn do płukania tkanin / koncentrat zmiękczający"). UWAGA: Płyn/koncentrat do płukania (ammorbidente) to preparat kondycjonujący do płukania, a NIE detergent piorący!
 2. `primary_regime`: Jaki jest charakter i reżim stosowania produktu?
    - CZY TO ŚRODEK DO DORAŹNEJ INTERWENCJI / OKRESOWYCH KURACJI (np. silny podchloryn do pleśni, agresywny kwas odkamieniający, odtłuszczacz do przypaleń)? Jeśli tak — KATEGORYCZNY ZAKAZ używania sformułowań "do codziennych porządków" / "do regularnego sprzątania".
    - CZY TO PRODUKT DO CODZIENNEJ PIELĘGNACJI (np. uniwersalny płyn do mycia naczyń, mydło w płynie)?
@@ -52,6 +52,11 @@ D5. PURYZM PARAMETRÓW TECHNICZNYCH (Sekcja 5 ⚖️):
 D6. ZAKAZ NIEDOZWOLONYCH ZNAKÓW I EMOJI:
    - Kategoryczny zakaz używania ikony `⛔` — na Allegro dozwolonym symbolem ostrzegawczym jest wyłącznie `⚠️` (np. `<p>⚠️ <b>WYKLUCZENIE ZASTOSOWANIA:</b> ...</p>`). Każde wystąpienie `⛔` zamień patchem na `⚠️`.
 
+D7. BŁĄD POJĘCIOWO-TECHNOLOGICZNY (PŁYN DO PŁUKANIA vs DETERGENT PIORĄCY):
+   - Płyn do płukania tkanin / koncentrat zmiękczający (ammorbidente) NIE PIERZE i nie usuwa zabrudzeń ani plam! Służy wyłącznie do ostatniej fazy prania (płukania), nadając tkaninom miękkość, redukując ładunki elektrostatyczne, ułatwiając prasowanie i nadając zapach.
+   - KATEGORYCZNY ZAKAZ używania w opisie płynu do płukania zwrotów: "X prań", "cykle prania", "po każdym praniu", "środek piorący", "usuwanie brudu/plam", "Wydajność deklarowana: X prań".
+   - Jeśli wykryjesz te błędy w płynie do płukania, BEZWZGLĘDNIE wygeneruj patch naprawczy zamieniający je na: "X cykli płukania" (lub "X płukań"), "po każdym płukaniu", "cykl płukania", "płyn do płukania tkanin", "zmiękczanie tkanin i ułatwianie prasowania".
+
 ---
 
 ## FORMAT WYJŚCIOWY (JSON)
@@ -78,6 +83,7 @@ Zwracasz czysty JSON zgodny ze strukturą:
 }
 ```
 Gdy brak błędów, tablica `patches` musi być pusta: `[]`.
+
 
 
 --- WSPÓLNE REGUŁY ---

@@ -55,6 +55,7 @@ F8 Audyt Bezpieczeństwa Materiałowego (Chlor vs Armatura/Tkaniny), Spójności
 - 🚨 AUDYT REŻIMU STOSOWANIA (DORAŹNA INTERWENCJA vs CODZIENNE PORZĄDKI): Dla żrących roztworów z chlorem, odgrzybiaczy oraz silnych kwasów odkamieniających KATEGORYCZNIE ZABRANIA SIĘ stosowania zwrotów 'do codziennych porządków' / 'regularnych porządków'. Zamień patchem na 'do okresowej interwencji sanitarnej' / 'doraźnych zabiegów czyszczących'.
 - 🚨 AUDYT CZYSTOŚCI CECH TECHNICZNYCH (Sekcja 5): Usuń z cech dodatkowych wszelkie hasła i slogany marketingowe ('Siła wybielania', 'Potere Sbiancante', 'Ulepszona formuła', 'Aktywny spray' itp.), zamieniając je na obiektywne właściwości fizykochemiczne (np. 'Właściwości wybielające') lub wycinając zbędny wpis patchem.
 - 🚨 AUDYT IKONY OSTRZEGAWCZEJ: Jeśli w jakimkolwiek miejscu oferty pojawiła się ikona ⛔ (zakazana na Allegro), BEZWZGLĘDNIE zamień ją patchem na dopuszczoną ikonę ⚠️!
+- 🚨 AUDYT PŁYNÓW DO PŁUKANIA (AMMORBIDENTE vs DETERGENT): Dla płynów i koncentratów do płukania tkanin weryfikujesz, czy produkt nie został nazwany środkiem piorącym, a jego wydajność nie została określona w "praniach" zamiast "cyklach płukania". Jeśli wykryjesz "prań" / "cykle prania" / "po każdym praniu" / "środek piorący" w płynie do płukania, BEZWZGLĘDNIE generujesz patch naprawczy zamieniający na "cykle płukania" / "płukania", "po każdym płukaniu" i "płyn do płukania tkanin"!
 
 ## PROTOKÓŁ NAPRAW (SELF-HEALING PRZEZ PATCHE)
 Każdy wykryty błąd naprawiasz operacją tekstową poprzez dodanie wpisu do tablicy `patches`:
