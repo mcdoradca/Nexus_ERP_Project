@@ -2051,7 +2051,7 @@ class Orchestrator {
                     address_eu: this.state.extracted_data.eu_responsible_person.data.address_eu
                 } : undefined,
                 features: deterministicEngine.cleanFeaturesForPrompt(product?.text_fields?.features || {}),
-                vision_features: this.state.vision_extracted_features || {},
+                vision_features: deterministicEngine.cleanFeaturesForPrompt(this.state.vision_extracted_features || {}),
                 search_intent_faq_blueprint: searchIntentFaqBlueprint,
                 a1: this.state.a1_result ? { country_of_origin: this.state.a1_result.country_of_origin?.value || this.state.a1_result.country_of_origin || undefined, logistics: this.state.a1_result.logistics?.value || this.state.a1_result.logistics || undefined } : undefined,
                 a2: this.state.a2_result,
@@ -2609,6 +2609,9 @@ class Orchestrator {
                             let sec = finalDoc['section_' + i + '_html'];
                             if (sec) {
                                 sec = deterministicEngine.sanitizeHtmlClaimsAndStopwords(sec);
+                                if (isFullPipelineRun) {
+                                    sec = deterministicEngine.normalizeEmojiAndStructure(sec, i);
+                                }
                                 sec = normalizeTags(sec);
                                 finalDoc['section_' + i + '_html'] = sec;
                                 const err = runHtmlValidators(sec, 'A10');

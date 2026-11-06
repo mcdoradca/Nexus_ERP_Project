@@ -277,9 +277,33 @@
       "role": "solvent_degreaser",
       "cosmetic_html": "<li>⚙️ <b>Alcohol Denat. / Isopropyl Alcohol:</b> lekki rozpuszczalnik nośnikowy, który <b>przyspiesza wchłanianie formuły i daje uczucie odświeżenia</b>.</li>",
       "chemical_html": "<li>⚙️ <b>Aktywny rozpuszczalnik odtłuszczający (Alkohol / Glikol eterowy):</b> rozpuszcza tłuste ślady palców oraz smugi i <b>przyspiesza odparowywanie płynu, pozostawiając połysk bez konieczności polerowania</b>.</li>"
+    },
+    "calcium carbonate": {
+      "names": ["calcium carbonate", "węglan wapnia", "naturalne cząsteczki czyszczące", "cząsteczki czyszczące", "naturalne mikrocząsteczki", "mikrocząsteczki czyszczące", "mikrokryształy", "natural cleaning particles"],
+      "role": "mineral_abrasive",
+      "cosmetic_html": "<li>⚙️ <b>Calcium Carbonate (Węglan wapnia):</b> naturalny minerał polerujący, który <b>łagodnie usuwa osady i wygładza powierzchnię szkliwa</b> bez naruszania jego struktury.</li>",
+      "chemical_html": "<li>⚙️ <b>Calcium Carbonate (Węglan wapnia – naturalne mikrocząsteczki czyszczące):</b> drobno zmielony minerał o kontrolowanej twardości, który <b>mechanicznie podważa i odspaja przypalony tłuszcz, zaschnięty brud oraz osady wapienne bez rysowania emalii, ceramiki i stali nierdzewnej</b>.</li>"
+    },
+    "bentonite": {
+      "names": ["bentonite", "bentonit", "glinka bentonitowa"],
+      "role": "mineral_thickener",
+      "cosmetic_html": "<li>⚙️ <b>Bentonite (Glinka mineralna):</b> naturalny minerał o właściwościach absorpcyjnych, który <b>pochłania nadmiar sebum i stabilizuje konsystencję kosmetyku</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Bentonite (Mineralny stabilizator zawiesiny):</b> naturalny minerał ilasty utrzymujący <b>gęstą, kremową konsystencję mleczka, dzięki czemu preparat nie spływa z pionowych ścianek zlewu czy piekarnika</b>.</li>"
+    },
+    "c9-11 pareth-8": {
+      "names": ["c9-11 pareth-8", "c9-11 pareth-6", "c11-15 pareth-7", "c12-15 pareth", "trideceth-9", "laureth-7", "pareth"],
+      "role": "nonionic_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Etoksylowany alkohol tłuszczowy (Emulgator niejonowy):</b> łączy fazę wodną z olejową i <b>wspomaga łagodne zmywanie zanieczyszczeń</b>.</li>",
+      "chemical_html": "<li>⚙️ <b>Niejonowy środek powierzchniowo czynny (np. C9-11 Pareth-8):</b> obniża napięcie powierzchniowe wody, <b>wnika pod warstwę zaschniętego tłuszczu kuchennego i ułatwia jego szybkie spłukanie bez tłustego filmu</b>.</li>"
     }
   },
   "synergies": [
+    {
+      "id": "abrasive_surfactant_cleaning",
+      "required_roles": ["mineral_abrasive", "anionic_surfactant"],
+      "cosmetic_html": "<li>⚡ <b>Synergia Polerująco-Oczyszczająca (Minerał Polerujący + Surfaktant):</b> drobinki mineralne odspajają osad, a piana myjąca <b>wypłukuje zanieczyszczenia i pozostawia gładką powierzchnię</b>.</li>",
+      "chemical_html": "<li>⚡ <b>Synergia Mikrocząsteczek Mineralnych i Surfaktantów (Odspajanie + Emulgowanie):</b> naturalne cząsteczki węglanu wapnia mechanicznie rozluźniają skorupę zaschniętego brudu, a środki powierzchniowo czynne <b>natychmiast rozpuszczają tłuszcz i pozwalają spłukać całość jednym ruchem</b>.</li>"
+    },
     {
       "id": "chlorine_anionic_foam",
       "required_roles": ["chlorine_bleach", "anionic_surfactant"],

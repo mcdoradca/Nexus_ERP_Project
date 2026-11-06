@@ -166,8 +166,10 @@ function formatNaturalProductName(productName = '', brand = '', capacity = '') {
         clean = clean.replace(new RegExp(`\\b${escapedBrand}\\b`, 'gi'), brandTrim);
     }
 
-    // Normalizacja jednostek
+    // Normalizacja jednostek (w tym ułamków poniżej 1 L / 1 kg, np. "0,500 l" -> "500 ml")
     clean = clean
+        .replace(/\b0[.,](\d{1,3})\s*(?:l|litr[a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, (_, dec) => `${Math.round(parseFloat(`0.${dec}`) * 1000)} ml`)
+        .replace(/\b0[.,](\d{1,3})\s*kg(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, (_, dec) => `${Math.round(parseFloat(`0.${dec}`) * 1000)} g`)
         .replace(/\b(\d+(?:[.,]\d+)?)\s*ML\b/gi, '$1 ml')
         .replace(/\b(\d+(?:[.,]\d+)?)\s*G\b/gi, '$1 g')
         .replace(/\b(\d+(?:[.,]\d+)?)\s*KG\b/gi, '$1 kg')

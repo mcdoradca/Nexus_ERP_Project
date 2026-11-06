@@ -63,7 +63,12 @@ function cleanFeaturesForPrompt(featuresObj) {
             continue;
         }
 
-        cleaned[rawKey] = isInciKey ? valStr : sanitizeHtmlClaimsAndStopwords(valStr);
+        const isCapKey = /(pojemno[sś][cć]|waga|capacity|weight)/i.test(keyLower);
+        if (isCapKey) {
+            cleaned[rawKey] = normalizeCapacityValue(valStr, featuresObj?.['Nazwa'] || '', featuresObj);
+        } else {
+            cleaned[rawKey] = isInciKey ? valStr : sanitizeHtmlClaimsAndStopwords(valStr);
+        }
     }
     return cleaned;
 }
@@ -114,33 +119,50 @@ function detectHouseholdChemical({
 }
 
 /**
- * 1c. NORMALIZACJA POJEMNOŚCI / WAGI NETTO (Eliminacja surowych ułamków bez jednostki typu "0,650" -> "650 ml")
+ * 1c. NORMALIZACJA POJEMNOŚCI / WAGI NETTO (Eliminacja surowych ułamków typu "0,650" oraz nienaturalnych "0,500 l" -> "500 ml")
  */
 function normalizeCapacityValue(rawCapacity, productName = '', visionFeatures = {}) {
-    const visionCap = visionFeatures?.['Pojemność / Waga'] || visionFeatures?.['Pojemność'] || visionFeatures?.['Waga'] || '';
-    if (visionCap && /\b(\d+(?:[.,]\d+)?)\s*(ml|l|g|kg|szt\.?|kaps\.?|tabletek|kapsułek|prań)\b/i.test(String(visionCap))) {
-        const m = String(visionCap).trim().match(/^(\d+(?:[.,]\d+)?)\s*(ml|l|g|kg|szt\.?|kaps\.?|tabletek|kapsułek|prań)$/i);
-        if (m) {
-            return `${m[1].replace('.', ',')} ${m[2].toLowerCase()}`;
+    const formatQuantityAndUnit = (numStr, unitStr) => {
+        const num = parseFloat(String(numStr).replace(',', '.'));
+        let unit = String(unitStr || '').toLowerCase();
+        if (unit === 'litr') unit = 'l';
+        if (unit === 'gram') unit = 'g';
+        if (!isNaN(num) && num > 0) {
+            if (num < 1 && unit === 'l') {
+                return `${Math.round(num * 1000)} ml`;
+            }
+            if (num < 1 && unit === 'kg') {
+                return `${Math.round(num * 1000)} g`;
+            }
+            const cleanNumStr = String(numStr).replace('.', ',').replace(/,(\d*?)0+$/, (_, d) => (d ? `,${d}` : ''));
+            return `${cleanNumStr} ${unit}`;
         }
-        return String(visionCap).trim();
+        return `${String(numStr).replace('.', ',')} ${unit}`;
+    };
+
+    const visionCap = visionFeatures?.['Pojemność / Waga'] || visionFeatures?.['Pojemność'] || visionFeatures?.['Waga'] || '';
+    if (visionCap && /\b(\d+(?:[.,]\d+)?)\s*(ml|l|litr|g|kg|gram|szt\.?|kaps\.?|tabletek|kapsułek|prań)\b/i.test(String(visionCap))) {
+        const m = String(visionCap).trim().match(/^(\d+(?:[.,]\d+)?)\s*(ml|l|litr|g|kg|gram|szt\.?|kaps\.?|tabletek|kapsułek|prań)$/i);
+        if (m) {
+            return formatQuantityAndUnit(m[1], m[2]);
+        }
+        return String(visionCap).trim()
+            .replace(/\b0[.,](\d{1,3})\s*(?:l|litr[a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, (_, dec) => `${Math.round(parseFloat(`0.${dec}`) * 1000)} ml`)
+            .replace(/\b0[.,](\d{1,3})\s*kg(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, (_, dec) => `${Math.round(parseFloat(`0.${dec}`) * 1000)} g`);
     }
 
-    const nameMatch = String(productName || '').match(/\b(\d+(?:[.,]\d+)?)\s*(ml|l|g|kg|szt\.?|kaps\.?|tabletek|kapsułek)\b/i);
+    const nameMatch = String(productName || '').match(/\b(\d+(?:[.,]\d+)?)\s*(ml|l|litr|g|kg|gram|szt\.?|kaps\.?|tabletek|kapsułek)\b/i);
     const rawStr = String(rawCapacity || '').trim();
 
     if (rawStr) {
         const rawWithUnit = rawStr.match(/^(\d+(?:[.,]\d+)?)\s*(ml|l|litr|g|kg|gram|szt\.?|kaps\.?|m)\b/i);
         if (rawWithUnit) {
-            let unit = rawWithUnit[2].toLowerCase();
-            if (unit === 'litr') unit = 'l';
-            if (unit === 'gram') unit = 'g';
-            return `${rawWithUnit[1].replace('.', ',')} ${unit}`;
+            return formatQuantityAndUnit(rawWithUnit[1], rawWithUnit[2]);
         }
     }
 
     if (nameMatch) {
-        return `${nameMatch[1].replace('.', ',')} ${nameMatch[2].toLowerCase()}`;
+        return formatQuantityAndUnit(nameMatch[1], nameMatch[2]);
     }
 
     if (rawStr && /^\d+(?:[.,]\d+)?$/.test(rawStr)) {
@@ -151,7 +173,8 @@ function normalizeCapacityValue(rawCapacity, productName = '', visionFeatures = 
                 return `${Math.round(num * 1000)} ${isSolid ? 'g' : 'ml'}`;
             }
             if (num < 10) {
-                return `${rawStr.replace('.', ',')} ${isSolid ? 'kg' : 'l'}`;
+                const cleanNumStr = rawStr.replace('.', ',').replace(/,(\d*?)0+$/, (_, d) => (d ? `,${d}` : ''));
+                return `${cleanNumStr} ${isSolid ? 'kg' : 'l'}`;
             }
             return `${Math.round(num)} ${isSolid ? 'g' : 'ml'}`;
         }
@@ -196,50 +219,53 @@ function sanitizeOfferTitle(rawTitle) {
         }).join(' ');
     }
 
-    // Normalizacja jednostek miar w tytule (np. "650 ML" -> "650 ml", "1,5 L" -> "1,5 l")
-    title = title.replace(/\b(\d+(?:[.,]\d+)?)\s*(ML|L|KG|G|SZT)\b/g, (_, num, unit) => `${num} ${unit.toLowerCase()}`);
+    // Normalizacja jednostek miar w tytule (np. "650 ML" -> "650 ml", "1,5 L" -> "1,5 l", "0,500 l" -> "500 ml")
+    title = title
+        .replace(/\b0[.,](\d{1,3})\s*(?:l|litr[a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, (_, dec) => `${Math.round(parseFloat(`0.${dec}`) * 1000)} ml`)
+        .replace(/\b0[.,](\d{1,3})\s*kg(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, (_, dec) => `${Math.round(parseFloat(`0.${dec}`) * 1000)} g`)
+        .replace(/\b(\d+(?:[.,]\d+)?)\s*(ML|L|KG|G|SZT)\b/g, (_, num, unit) => `${num} ${unit.toLowerCase()}`);
 
     // A. Eliminacja roszczeń biobójczych, antybakteryjnych, przeciwwirusowych i dezynfekujących (BPR 528/2012)
     title = title
-        .replace(/\b(?:antybakteryjn(?:y|a|e|ym|ych|ego|ej)|przeciwbakteryjn(?:y|a|e|ym|ych)|bakteriobójcz(?:y|a|e)|antibatteric[oaie]|antibacterial)\b/gi, (m) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:antybakteryjn(?:y|a|e|ym|ych|ego|ej)|przeciwbakteryjn(?:y|a|e|ym|ych)|bakteriobójcz(?:y|a|e)|antibatteric[oaie]|antibacterial)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => {
             if (/a$/i.test(m)) return 'Oczyszczająca';
             if (/e$/i.test(m)) return 'Oczyszczające';
             return 'Oczyszczający';
         })
-        .replace(/\b(?:przeciwwirusow(?:y|a|e)|antywirusow(?:y|a|e)|wirusobójcz(?:y|a|e)|antiviral)\b/gi, (m) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:przeciwwirusow(?:y|a|e)|antywirusow(?:y|a|e)|wirusobójcz(?:y|a|e)|antiviral)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => {
             if (/a$/i.test(m)) return 'Higieniczna';
             if (/e$/i.test(m)) return 'Higieniczne';
             return 'Higieniczny';
         })
-        .replace(/\b(?:biobójcz(?:y|a|e)|grzybobójcz(?:y|a|e)|pleśniobójcz(?:y|a|e)|przeciwgrzybicz(?:y|a|e))\b/gi, (m) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:biobójcz(?:y|a|e)|grzybobójcz(?:y|a|e)|pleśniobójcz(?:y|a|e)|przeciwgrzybicz(?:y|a|e))(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => {
             if (/a$/i.test(m)) return 'Czyszcząca';
             if (/e$/i.test(m)) return 'Czyszczące';
             return 'Czyszczący';
         })
-        .replace(/\b(?:dezynfekuj(?:ący|ąca|ące)|odkażaj(?:ący|ąca|ące)|sterylizuj(?:ący|ąca|ące)|igienizzante|disinfettante|sanitizing)\b/gi, (m) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekuj(?:ący|ąca|ące)|odkażaj(?:ący|ąca|ące)|sterylizuj(?:ący|ąca|ące)|igienizzante|disinfettante|sanitizing)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => {
             if (/a$/i.test(m)) return 'Higieniczna';
             if (/e$/i.test(m)) return 'Higieniczne';
             return 'Higieniczny';
         })
-        .replace(/\b(?:dezynfekcj(?:a|i|ą|ę)|odkażani(?:e|a)|sterylizacj(?:a|i))\b/gi, 'Higieniczna Czystość');
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekcj(?:a|i|ą|ę)|odkażani(?:e|a)|sterylizacj(?:a|i))(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'Higieniczna Czystość');
 
     // B. Eliminacja roszczeń medycznych (WE 1223/2009 / 655/2013) z tytułu
     title = title
-        .replace(/\b(?:lecznicz(?:y|a|e)|terapeutyczn(?:y|a|e)|uzdrawiaj(?:ący|ąca|ące))\b/gi, (m) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:lecznicz(?:y|a|e)|terapeutyczn(?:y|a|e)|uzdrawiaj(?:ący|ąca|ące))(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => {
             if (/a$/i.test(m)) return 'Pielęgnująca';
             if (/e$/i.test(m)) return 'Pielęgnujące';
             return 'Pielęgnujący';
         })
-        .replace(/\b(?:leczy|goi\s+rany|antybiotyk[a-ząćęłńóśźż]*|lekarstwo)\b/gi, 'Pielęgnacja');
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:leczy|goi\s+rany|antybiotyk[a-ząćęłńóśźż]*|lekarstwo)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'Pielęgnacja');
 
-    // C. Eliminacja słów zakazanych przez Regulamin Allegro 2026 (§A Stop-words) z tytułu
+    // C. Eliminacja słów zakazanych przez Regulamin Allegro 2026 (§A Stop-words) z tytułu (z pełnymi polskimi granicami słów Unicode)
     title = title
-        .replace(/\b(?:w\s+)?100\s*%\b/gi, '')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:w\s+)?100\s*%/gi, '')
         .replace(/(?<!\d)100\s*%/g, '')
-        .replace(/\b(?:100%\s*)?(?:orygina[łl][a-ząćęłńóśźż]*|oryginaln[a-ząćęłńóśźż]*)\b/gi, '')
-        .replace(/\b(?:gwarancj[a-ząćęłńóśźż]*|gwarantuj[a-ząćęłńóśźż]*|niezawodn[a-ząćęłńóśźż]*|cudown[a-ząćęłńóśźż]*|magiczn[a-ząćęłńóśźż]*|najlepsz[a-ząćęłńóśźż]*|bezkonkurencyjn[a-ząćęłńóśźż]*|niezrównan[a-ząćęłńóśźż]*|rewelacyjn[a-ząćęłńóśźż]*|rewelacj[a-ząćęłńóśźż]*|ekstra|numer\s+1|nr\s+1)\b/gi, '')
-        .replace(/\b(?:hit\s+cenowy|super\s+cena|niska\s+cena|cena\s+hurtowa|najniższa\s+cena|darmowa\s+dostawa|szybka\s+wysyłka|wysyłka\s+24h|kup\s+teraz|zamów\s+teraz|tylko\s+u\s+nas)\b/gi, '')
-        .replace(/\b(?:bestseller[a-ząćęłńóśźż]*|promocj[a-ząćęłńóśźż]*|promocyjn[a-ząćęłńóśźż]*|wyprzeda[żz][a-ząćęłńóśźż]*|okazj[a-ząćęłńóśźż]*|okazyjn[a-ząćęłńóśźż]*|gratis[a-ząćęłńóśźż]*|rabat[a-ząćęłńóśźż]*|upust[a-ząćęłńóśźż]*|zniżk[a-ząćęłńóśźż]*|najtaniej|tanio|tani[a-ząćęłńóśźż]*|allegro|aukcj[a-ząćęłńóśźż]*|polecam[a-ząćęłńóśźż]*|nowoś[ćc][a-ząćęłńóśźż]*|mega|super|hit)\b/gi, '');
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:100%\s*)?(?:orygina[łl][a-ząćęłńóśźż]*|oryginaln[a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:gwarancj[a-ząćęłńóśźż]*|gwarantuj[a-ząćęłńóśźż]*|niezawodn[a-ząćęłńóśźż]*|cudown[a-ząćęłńóśźż]*|magiczn[a-ząćęłńóśźż]*|najlepsz[a-ząćęłńóśźż]*|bezkonkurencyjn[a-ząćęłńóśźż]*|niezrównan[a-ząćęłńóśźż]*|rewelacyjn[a-ząćęłńóśźż]*|rewelacj[a-ząćęłńóśźż]*|ekstra|numer\s+1|nr\s+1)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:hit\s+cenowy|super\s+cena|niska\s+cena|cena\s+hurtowa|najniższa\s+cena|darmowa\s+dostawa|szybka\s+wysyłka|wysyłka\s+24h|kup\s+teraz|zamów\s+teraz|tylko\s+u\s+nas)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:bestseller[a-ząćęłńóśźż]*|promocj[a-ząćęłńóśźż]*|promocyjn[a-ząćęłńóśźż]*|wyprzeda[żz][a-ząćęłńóśźż]*|okazj[a-ząćęłńóśźż]*|okazyjn[a-ząćęłńóśźż]*|gratis[a-ząćęłńóśźż]*|rabat[a-ząćęłńóśźż]*|upust[a-ząćęłńóśźż]*|zniżk[a-ząćęłńóśźż]*|najtaniej|tanio|tani[a-ząćęłńóśźż]*|allegro|aukcj[a-ząćęłńóśźż]*|polecam[a-ząćęłńóśźż]*|nowoś[ćc][a-ząćęłńóśźż]*|mega|super|hit)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '');
 
     // Czyszczenie nadmiarowych spacji i wiszących myślników
     title = title
@@ -252,7 +278,7 @@ function sanitizeOfferTitle(rawTitle) {
 
 /**
  * 3. TARCZA PRAWNA DLA OPISÓW HTML: AUTOMATYCZNA TRANSLACJA ROSZCZEŃ BIOBÓJCZYCH (BPR 528/2012),
- *    MEDYCZNYCH (WE 1223/2009 / 655/2013) ORAZ STOP-WORDS ALLEGRO (§A)
+ *    MEDYCZNYCH (WE 1223/2009 / 655/2013), STOP-WORDS ALLEGRO (§A) ORAZ HIGIENA JĘZYKOWA POLSZCZYZNY
  */
 function sanitizeHtmlClaimsAndStopwords(htmlStr) {
     if (!htmlStr || typeof htmlStr !== 'string') return htmlStr;
@@ -261,101 +287,125 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr) {
     // --- KROK A: TARCZA ANTY-BIOBÓJCZA (Rozp. UE 528/2012 BPR & Ustawa o produktach biobójczych) ---
     res = res
         // Frazy złożone z procentami i drobnoustrojami
-        .replace(/\b(?:zabija|usuwa|eliminuje|likwiduje|zwalcza|niszczy)\s+(?:do\s+|nawet\s+)?(?:99[.,]9%\s*)?(?:bakteri[eią]|wirusy|wirusów|zarazki|zarazków|drobnoustroje|drobnoustrojów|mikroby|mikrobów|grzyby|grzybów|pleśń|pleśni)\b/gi, 'skutecznie usuwa zanieczyszczenia i osady')
-        .replace(/\b99[.,]9%\s*(?:bakterii|wirusów|zarazków|drobnoustrojów|mikrobów|grzybów|pleśni)\b/gi, 'codziennych zabrudzeń i osadów')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:zabija|usuwa|eliminuje|likwiduje|zwalcza|niszczy)\s+(?:do\s+|nawet\s+)?(?:99[.,]9%\s*)?(?:bakteri[eią]|wirusy|wirusów|zarazki|zarazków|drobnoustroje|drobnoustrojów|mikroby|mikrobów|grzyby|grzybów|pleśń|pleśni)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'skutecznie usuwa zanieczyszczenia i osady')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])99[.,]9%\s*(?:bakterii|wirusów|zarazków|drobnoustrojów|mikrobów|grzybów|pleśni)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'codziennych zabrudzeń i osadów')
         // Przymiotniki i przysłówki biobójcze / antybakteryjne / przeciwwirusowe
-        .replace(/\b(?:antybakteryjn|przeciwbakteryjn|bakteriobójcz)(y|a|e|ym|ych|ego|ej|ą|o)\b/gi, (_, suffix) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:antybakteryjn|przeciwbakteryjn|bakteriobójcz)(y|a|e|ym|ych|ego|ej|ą|o)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, suffix) => {
             const s = suffix.toLowerCase();
             if (s === 'o') return 'higienicznie';
             return `higienicznie oczyszczając${s}`;
         })
-        .replace(/\b(?:przeciwwirusow|antywirusow|wirusobójcz)(y|a|e|ym|ych|ego|ej|ą|o)\b/gi, (_, suffix) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:przeciwwirusow|antywirusow|wirusobójcz)(y|a|e|ym|ych|ego|ej|ą|o)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, suffix) => {
             const s = suffix.toLowerCase();
             if (s === 'o') return 'głęboko';
             return `głęboko oczyszczając${s}`;
         })
-        .replace(/\b(?:biobójcz|grzybobójcz|pleśniobójcz|przeciwgrzybicz)(y|a|e|ym|ych|ego|ej|ą|o)\b/gi, (_, suffix) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:biobójcz|grzybobójcz|pleśniobójcz|przeciwgrzybicz)(y|a|e|ym|ych|ego|ej|ą|o)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, suffix) => {
             const s = suffix.toLowerCase();
             if (s === 'o') return 'intensywnie';
             return `intensywnie czyszcząc${s}`;
         })
-        .replace(/\b(?:dezynfekuj|odkażaj|sterylizuj)(ący|ąca|ące|ącego|ącej|ącym|ących)\b/gi, (_, suffix) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekuj|odkażaj|sterylizuj)(ący|ąca|ące|ącego|ącej|ącym|ących)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, suffix) => {
             return `higienicznie czyszcząc${suffix.slice(2).toLowerCase()}`;
         })
-        .replace(/\b(?:dezynfekuje|odkaża|sterylizuje)\b/gi, 'zapewnia higieniczną czystość')
-        .replace(/\b(?:dezynfekują|odkażają|sterylizują)\b/gi, 'zapewniają higieniczną czystość')
-        .replace(/\b(?:dezynfekować|odkażać|sterylizować)\b/gi, 'higienicznie oczyszczać')
-        .replace(/\b(?:dezynfekcj|odkażani|sterylizacj)(a|i|ę|ą|e|u|em)\b/gi, (_, suffix) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekuje|odkaża|sterylizuje)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'zapewnia higieniczną czystość')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekują|odkażają|sterylizują)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'zapewniają higieniczną czystość')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekować|odkażać|sterylizować)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'higienicznie oczyszczać')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekcj|odkażani|sterylizacj)(a|i|ę|ą|e|u|em)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, suffix) => {
             const s = suffix.toLowerCase();
             if (s === 'i' || s === 'a') return 'higienicznej czystości';
             if (s === 'ą' || s === 'em') return 'higienicznym oczyszczaniem';
             return 'higieniczną czystość';
         })
-        .replace(/\b(?:antibatteric[oaie]|igienizzant[ei]|disinfettant[ei])\b/gi, 'higienicznie oczyszczający');
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:antibatteric[oaie]|igienizzant[ei]|disinfettant[ei])(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'higienicznie oczyszczający');
 
     // --- KROK B: TARCZA ANTY-MEDYCZNA (Rozp. WE 1223/2009 i 655/2013) ---
     res = res
-        .replace(/\blikwiduje\s+(?:łuszczycę|egzemę|trądzik|azs)\b/gi, 'pielęgnuje skórę wymagającą i skłonną do podrażnień')
-        .replace(/\bregeneruje\s+tkanki\s+chorobowe\b/gi, 'wspiera naturalną odnowę naskórka')
-        .replace(/\bzapobiega\s+chorobom\b/gi, 'wspiera utrzymanie dobrej kondycji skóry')
-        .replace(/\bgoi\s+rany\b/gi, 'wspomaga regenerację naskórka')
-        .replace(/\b(?:wyleczy[a-ząćęłńóśźż]*|uzdrawia[a-ząćęłńóśźż]*|lecz(?:y|ą|yć|ący|ąca|ące|enie|niczy|nicza|nicze))\b/gi, 'pielęgnuje i koi')
-        .replace(/\bterapi(a|i|ę|ą)\b/gi, (_, s) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])likwiduje\s+(?:łuszczycę|egzemę|trądzik|azs)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'pielęgnuje skórę wymagającą i skłonną do podrażnień')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])regeneruje\s+tkanki\s+chorobowe(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wspiera naturalną odnowę naskórka')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])zapobiega\s+chorobom(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wspiera utrzymanie dobrej kondycji skóry')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])goi\s+rany(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wspomaga regenerację naskórka')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:wyleczy[a-ząćęłńóśźż]*|uzdrawia[a-ząćęłńóśźż]*|lecz(?:y|ą|yć|ący|ąca|ące|enie|niczy|nicza|nicze))(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'pielęgnuje i koi')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])terapi(a|i|ę|ą)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => {
             const low = s.toLowerCase();
             if (low === 'i') return 'kuracji pielęgnacyjnej';
             if (low === 'ę') return 'kurację pielęgnacyjną';
             if (low === 'ą') return 'kuracją pielęgnacyjną';
             return 'kuracja pielęgnacyjna';
         })
-        .replace(/\b(?:lekarstw[a-ząćęłńóśźż]*|antybiotyk[a-ząćęłńóśźż]*|diagnozuj[a-ząćęłńóśźż]*)\b/gi, 'preparat pielęgnacyjny');
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:lekarstw[a-ząćęłńóśźż]*|antybiotyk[a-ząćęłńóśźż]*|diagnozuj[a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'preparat pielęgnacyjny');
 
-    // --- KROK C: TARCZA STOP-WORDS ALLEGRO 2026 & UOKiK OVERPROMISING (§A) ---
+    // --- KROK C: TARCZA STOP-WORDS ALLEGRO 2026 & UOKiK OVERPROMISING (§A) Z GRANICAMI UNICODE ---
     res = res
         // Oryginalny / oryginał -> fabryczny / producenta
-        .replace(/\bw\s+oryginalnym\s+opakowaniu\b/gi, 'w fabrycznym opakowaniu producenta')
-        .replace(/\boryginaln(e|ego|ym|ych)\s+opakowani(e|a|u|ach)\b/gi, 'fabryczne opakowanie producenta')
-        .replace(/\b(?:gwarancj[a-ząćęłńóśźż]*\s+oryginalnoś[ćc][a-ząćęłńóśźż]*|oryginalnoś[ćc][a-ząćęłńóśźż]*)\b/gi, 'autentyczność receptury')
-        .replace(/\boryginaln(y|a|e|ym|ych|ego|ej|ą)\b/gi, (_, s) => `fabryczn${s.toLowerCase()}`)
-        .replace(/\borygina[łl][a-ząćęłńóśźż]*\b/gi, 'produkt fabryczny')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])w\s+oryginalnym\s+opakowaniu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'w fabrycznym opakowaniu producenta')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])oryginaln(e|ego|ym|ych)\s+opakowani(e|a|u|ach)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'fabryczne opakowanie producenta')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:gwarancj[a-ząćęłńóśźż]*\s+oryginalnoś[ćc][a-ząćęłńóśźż]*|oryginalnoś[ćc][a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'autentyczność receptury')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])oryginaln(y|a|e|ym|ych|ego|ej|ą)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => `fabryczn${s.toLowerCase()}`)
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])orygina[łl][a-ząćęłńóśźż]*(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'produkt fabryczny')
         // Gwarancje i obietnice pewnościowe
-        .replace(/\bgwarancj[a-ząćęłńóśźż]*\s+(?:najniższej\s+ceny|jakoś[ćc]i|satysfakcji|zwrotu)\b/gi, 'wysoki standard wykonania')
-        .replace(/\bgwarantuj(e|ą|emy)\b/gi, (_, s) => (s.toLowerCase() === 'ą' ? 'zapewniają' : 'zapewnia'))
-        .replace(/\bgwarantuj(ący|ąca|ące|ącego|ącej|ącym|ących)\b/gi, (_, s) => `zapewniając${s.slice(2).toLowerCase()}`)
-        .replace(/\bgwarancj(a|i|ę|ą)\b/gi, (_, s) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])gwarancj[a-ząćęłńóśźż]*\s+(?:najniższej\s+ceny|jakoś[ćc]i|satysfakcji|zwrotu)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wysoki standard wykonania')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])gwarantuj(e|ą|emy)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => (s.toLowerCase() === 'ą' ? 'zapewniają' : 'zapewnia'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])gwarantuj(ący|ąca|ące|ącego|ącej|ącym|ących)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => `zapewniając${s.slice(2).toLowerCase()}`)
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])gwarancj(a|i|ę|ą)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => {
             const low = s.toLowerCase();
             if (low === 'ą') return 'podstawą';
             if (low === 'ę') return 'pewność';
             return 'wyznacznik';
         })
-        .replace(/\b(?:w\s+100%\s+udowodnion[a-ząćęłńóśźż]*|100%\s+udowodnion[a-ząćęłńóśźż]*|udowodnion[a-ząćęłńóśźż]*\s+skutecznoś[ćc])\b/gi, 'potwierdzone działanie użytkowe')
-        .replace(/\b(?:pewnoś[ćc]\s+działania|pewnoś[ćc]\s+zakupu|100%\s+pewnoś[ćc]i)\b/gi, 'przewidywalny efekt użytkowy')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:w\s+100%\s+udowodnion[a-ząćęłńóśźż]*|100%\s+udowodnion[a-ząćęłńóśźż]*|udowodnion[a-ząćęłńóśźż]*\s+skutecznoś[ćc])(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'potwierdzone działanie użytkowe')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:pewnoś[ćc]\s+działania|pewnoś[ćc]\s+zakupu|100%\s+pewnoś[ćc]i)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'przewidywalny efekt użytkowy')
         // Deklaracje "100%" i superlatywy marketingowe zakazane przez Allegro (z zachowaniem fleksji polskiej)
-        .replace(/\busuwa\s+(?:nawet\s+|do\s+)?100\s*%\s+uporczywego\s+brudu\b/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa uporczywy brud' : 'skutecznie usuwa uporczywy brud')
-        .replace(/\busuwa\s+(?:nawet\s+|do\s+)?100\s*%\s+tłuszczu\b/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa tłuszcz' : 'skutecznie usuwa tłuszcz')
-        .replace(/\busuwa\s+(?:nawet\s+|do\s+)?100\s*%\s+kamienia\b/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa kamień' : 'skutecznie usuwa kamień')
-        .replace(/\busuwa\s+(?:nawet\s+|do\s+)?100\s*%/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa całość' : 'skutecznie usuwa całość')
-        .replace(/\bw\s+100\s*%/gi, 'w pełni')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])usuwa\s+(?:nawet\s+|do\s+)?100\s*%\s+uporczywego\s+brudu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa uporczywy brud' : 'skutecznie usuwa uporczywy brud')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])usuwa\s+(?:nawet\s+|do\s+)?100\s*%\s+tłuszczu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa tłuszcz' : 'skutecznie usuwa tłuszcz')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])usuwa\s+(?:nawet\s+|do\s+)?100\s*%\s+kamienia(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa kamień' : 'skutecznie usuwa kamień')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])usuwa\s+(?:nawet\s+|do\s+)?100\s*%/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa całość' : 'skutecznie usuwa całość')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])w\s+100\s*%/gi, 'w pełni')
         .replace(/(?<!\d)100\s*%\s*/g, '')
-        .replace(/\b(?:najlepsz|bezkonkurencyjn|niezrównan|rewelacyjn|cudown|magiczn|niezawodn)(y|a|e|ym|ych|ego|ej|ą|ie)\b/gi, (_, s) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:najlepsz|bezkonkurencyjn|niezrównan|rewelacyjn|cudown|magiczn|niezawodn)(y|a|e|ym|ych|ego|ej|ą|ie)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => {
             const low = s.toLowerCase();
             if (low === 'ie') return 'skutecznie';
             return `skuteczn${low}`;
         })
-        .replace(/\b(?:rewelacj[a-ząćęłńóśźż]*|numer\s+1|nr\s+1|ekstra)\b/gi, 'wysoka skuteczność')
-        // Promocje, ceny, CTA
-        .replace(/\b(?:najniższa\s+cena|nisk[a-ząćęłńóśźż]*\s+cen[a-ząćęłńóśźż]*|super\s+cen[a-ząćęłńóśźż]*|cen[a-ząćęłńóśźż]*\s+hurtow[a-ząćęłńóśźż]*|darmow[a-ząćęłńóśźż]*\s+dostaw[a-ząćęłńóśźż]*|za\s+darmo|kup\s+teraz|kupuj\s+teraz|zamów\s+teraz|dodaj\s+do\s+koszyka|tylko\s+u\s+nas|sprawdź\s+to|szybka\s+wysyłka|wysyłk[a-ząćęłńóśźż]*\s+24h|hit[a-ząćęłńóśźż]*\s+cenow[a-ząćęłńóśźż]*|lepsze\s+niż|w\s+stylu)\b/gi, 'wysoka wydajność')
-        .replace(/\b(?:gratis[a-ząćęłńóśźż]*|darmow[a-ząćęłńóśźż]*|najtaniej|tanio|tani[a-ząćęłńóśźż]*|promocj[a-ząćęłńóśźż]*|promocyjn[a-ząćęłńóśźż]*|wyprzeda[żz][a-ząćęłńóśźż]*|bestseller[a-ząćęłńóśźż]*|nowoś[ćc][a-ząćęłńóśźż]*|rabat[a-ząćęłńóśźż]*|upust[a-ząćęłńóśźż]*|zniżk[a-ząćęłńóśźż]*|kliknij|allegro|aukcj[a-ząćęłńóśźż]*|odpowiednik|zamiennik)\b/gi, 'produkt')
-        .replace(/\b(?:okazj[a-ząćęłńóśźż]*|okazyjn[a-ząćęłńóśźż]*|prezent[a-ząćęłńóśźż]*|hit[a-ząćęłńóśźż]*)\b/gi, 'wybór')
-        .replace(/\bpolecam(y)?\b/gi, 'zaleca się')
-        .replace(/\b(?:mega|super)\b/gi, 'wysoce');
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:rewelacj[a-ząćęłńóśźż]*|numer\s+1|nr\s+1|ekstra)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wysoka skuteczność')
+        // Promocje, ceny, CTA (z granicami słów Unicode, co chroni polskie wyrazy typu "sprzątania", "pytania", "czytania")
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:najniższa\s+cena|nisk[a-ząćęłńóśźż]*\s+cen[a-ząćęłńóśźż]*|super\s+cen[a-ząćęłńóśźż]*|cen[a-ząćęłńóśźż]*\s+hurtow[a-ząćęłńóśźż]*|darmow[a-ząćęłńóśźż]*\s+dostaw[a-ząćęłńóśźż]*|za\s+darmo|kup\s+teraz|kupuj\s+teraz|zamów\s+teraz|dodaj\s+do\s+koszyka|tylko\s+u\s+nas|sprawdź\s+to|szybka\s+wysyłka|wysyłk[a-ząćęłńóśźż]*\s+24h|hit[a-ząćęłńóśźż]*\s+cenow[a-ząćęłńóśźż]*|lepsze\s+niż|w\s+stylu)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wysoka wydajność')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:gratis[a-ząćęłńóśźż]*|darmow[a-ząćęłńóśźż]*|najtaniej|tanio|tani[a-ząćęłńóśźż]*|promocj[a-ząćęłńóśźż]*|promocyjn[a-ząćęłńóśźż]*|wyprzeda[żz][a-ząćęłńóśźż]*|bestseller[a-ząćęłńóśźż]*|nowoś[ćc][a-ząćęłńóśźż]*|rabat[a-ząćęłńóśźż]*|upust[a-ząćęłńóśźż]*|zniżk[a-ząćęłńóśźż]*|kliknij|allegro|aukcj[a-ząćęłńóśźż]*|odpowiednik|zamiennik)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'produkt')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:okazj[a-ząćęłńóśźż]*|okazyjn[a-ząćęłńóśźż]*|prezent[a-ząćęłńóśźż]*|hit[a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wybór')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])polecam(y)?(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'zaleca się')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:mega|super)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wysoce');
 
     // --- KROK D: ELIMINACJA OBCOJĘZYCZNYCH WTRĄCEŃ W NAWIASACH (np. "(Potere Sbiancante)", "(Schiuma Potente)", "(multiuso)") ---
     res = res
         .replace(/\s*\(\s*(?:potere\s+sbiancante|schiuma\s+potente|spray\s+attivo|formula\s+migliorata|multiuso|azione\s+sgrassante|senza\s+aloni|senza\s+risciacquo|con\s+candeggina|pulito\s+profondo|profumo\s+di\s+pulito)\s*\)/gi, '');
 
-    // Higiena językowa i interpunkcyjna
+    // --- KROK E: TARCZA POPRAWNOŚCI JĘZYKOWEJ, JEDNOSTEK MIAR (< 1 L -> ml) I NATURALNEJ POLSZCZYZNY ---
     res = res
-        .replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
+        // Naprawa ewentualnych artefaktów z dawnych regexów ASCII
+        .replace(/sprząprodukt/gi, 'sprzątania')
+        // Automatyczna konwersja ułamkowych litrów i kilogramów poniżej 1 jednostki w tekście (np. "0,500 l" -> "500 ml")
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])0[.,](\d{1,3})\s*(?:l|litr(?:y|ów|a|ze)?)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, dec) => `${Math.round(parseFloat(`0.${dec}`) * 1000)} ml`)
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])0[.,](\d{1,3})\s*kg(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, dec) => `${Math.round(parseFloat(`0.${dec}`) * 1000)} g`)
+        // Eliminacja sztucznych pseudo-synonimów LLM ("czyszczona strefa", "czyszczona płaszczyzna") — uwaga: słowa kończące się na 'ę'/'ą' wymagają granic Unicode, nie ASCII \b!
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(czyszczon|zabrudzon|myt)(ą|ej|e|ym|ych)\s+(?:stref|płaszczyzn)(ę|y|ie|źnie|om|ach|y)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, prefix, adjEnd, nounEnd) => {
+            const p = prefix;
+            const nEnd = nounEnd.toLowerCase();
+            if (nEnd === 'ę') return `${p}ą powierzchnię`;
+            if (nEnd === 'y' && adjEnd.toLowerCase() === 'e') return `${p}e powierzchnie`;
+            if (nEnd === 'y' || nEnd === 'ie' || nEnd === 'źnie') return `${p}ej powierzchni`;
+            if (nEnd === 'om') return `${p}ym powierzchniom`;
+            if (nEnd === 'ach') return `${p}ych powierzchniach`;
+            return `${p}${adjEnd} powierzchnię`;
+        })
+        // Eliminacja pleonazmów i tautologii ("osusz do sucha", "zapach czystości", "Synergia bazy czyszczącej i olejków zapachowych")
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])osusz\s+do\s+sucha(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => /^[A-Z]/.test(m) ? 'Wytrzyj do sucha' : 'wytrzyj do sucha')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])osuszyć\s+do\s+sucha(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wytrzeć do sucha')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])osuszając\s+do\s+sucha(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wycierając do sucha')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])zapach\s+czystości(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'świeży zapach')
+        .replace(/Synergia\s+bazy\s+czyszczącej\s+i\s+olejków\s+zapachowych/gi, 'Synergia Skutecznego Czyszczenia i Świeżości')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])spłucz\s+obficie\s+czyszczoną\s+powierzchnię\s+bieżącą\s+wodą(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => /^[A-Z]/.test(m) ? 'Przetrzyj czyszczoną powierzchnię czystą, wilgotną ściereczką lub spłucz wodą' : 'przetrzyj czyszczoną powierzchnię czystą, wilgotną ściereczką lub spłucz wodą')
+        // Higiena interpunkcyjna
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])DO OCZÓW(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'DO OCZU')
         .replace(/::+/g, ':')
         .replace(/\s{2,}/g, ' ');
 
@@ -382,6 +432,8 @@ function buildDeterministicA2Result({ isChemical = false, productName = '', visi
     if (resolvedIsChemical) {
         if (/(sodium\s+hypochlorite|podchloryn\s+sodu|candeggin|wybielacz)/i.test(combinedLower)) {
             minorFlaws.push('Ze względu na zawartość aktywnego wybielacza (podchlorynu sodu) preparatu nie należy stosować na powierzchniach wrażliwych na alkalia i utleniacze, takich jak surowe drewno, aluminium, linoleum, marmur oraz tkaniny kolorowe');
+        } else if (/(mleczko\s+do\s+czyszczenia|mleczko\s+czyszczące|calcium\s+carbonate|węglan\s+wapnia|naturalne\s+cząsteczki)/i.test(combinedLower)) {
+            minorFlaws.push('Ze względu na zawartość mineralnych mikrocząsteczek czyszczących mleczka nie należy stosować na powierzchniach lakierowanych na wysoki połysk, delikatnym akrylu oraz nieodpornych na ścieranie tworzywach sztucznych');
         } else if (/(prani|płyn do prania|żel do prania|proszek|kapsułk|lavatrice|bucato)/i.test(combinedLower)) {
             if (!/(wełny|jedwabiu|delikatn)/i.test(nameLower)) {
                 minorFlaws.push('Formuła o odczynie alkalicznym nie jest przeznaczona do prania naturalnej wełny i jedwabiu');
@@ -391,8 +443,10 @@ function buildDeterministicA2Result({ isChemical = false, productName = '', visi
             }
         } else if (/(odkamien|kwaśn|anticalcare|citric acid|lactic acid|sulfamic acid|formic acid)/i.test(combinedLower)) {
             minorFlaws.push('Formuła odkamieniająca nie nadaje się do powierzchni kwasowrażliwych, takich jak marmur, trawertyn, wapień czy niezabezpieczone aluminium');
+        } else if (/(odtłuszczacz|odtluszczacz|sgrassatore)/i.test(combinedLower)) {
+            minorFlaws.push('Silnie odtłuszczająca formuła nie jest przeznaczona do surowego drewna, poliwęglanów (pleksi) oraz powierzchni woskowanych');
         } else {
-            minorFlaws.push('Skoncentrowana formuła czyszcząca wymaga przestrzegania zalecanego sposobu użycia i dokładnego spłukania wodą przy kontakcie z delikatnymi powierzchniami');
+            minorFlaws.push('Przed użyciem na delikatnych lub lakierowanych materiałach zaleca się wykonanie próby w mało widocznym miejscu oraz dokładne przetarcie powierzchni wilgotną ściereczką po czyszczeniu');
         }
     } else if (/(szczoteczk|toothbrush)/i.test(nameLower)) {
         minorFlaws.push('Włókna ulegają naturalnemu zużyciu mechanicznemu, dlatego szczoteczkę należy wymieniać co 2–3 miesiące');
@@ -576,10 +630,10 @@ function tryBuildDeterministicSection3({
         }
     }
 
-    // Warunek bezpieczeństwa: pomijamy LLM Agenta 4 wyłącznie wtedy, gdy rozpoznaliśmy min. 3 składniki
-    // i żaden składnik wiodący z frontu opakowania (Agent 0) nie został pominięty.
+    // Warunek bezpieczeństwa: pomijamy LLM Agenta 4, gdy rozpoznaliśmy min. 3 składniki
+    // (lub wszystkie składniki z krótkiego składu wraz z wyróżnikiem frontowym).
     const minRequiredMatches = Math.min(3, rawItems.length);
-    if (matchedBenefits.length < minRequiredMatches || unmatchedFrontHero) {
+    if (matchedBenefits.length < minRequiredMatches || (unmatchedFrontHero && matchedBenefits.length < 3)) {
         return { canSkipA4: false };
     }
 
@@ -887,9 +941,18 @@ function normalizeEmojiAndStructure(htmlStr, sectionNum = 1) {
         6: '➡️'
     }[sectionNum] || '✔️';
 
-    // Zamiana nieautoryzowanych emoji na dozwolone odpowiedniki z białej listy Allegro
+    // Normalizacja pojedynczych znaków Unicode bez selektora wariacji \uFE0F (np. ✔ -> ✔️, ⚙ -> ⚙️, ✍ -> ✍️)
     let res = htmlStr
-        .replace(/💧|🫧|🌊|🧴|🧽|🧹|🧺|🌸|🍋|🌿|✨|🛡️|💎|👑|🔥|😱|💥|😍|🚀|☘️?|☂️?/gu, (match) => {
+        .replace(/\u2714(?!\uFE0F)/g, '✔️')
+        .replace(/\u2699(?!\uFE0F)/g, '⚙️')
+        .replace(/\u270D(?!\uFE0F)/g, '✍️')
+        .replace(/\u2696(?!\uFE0F)/g, '⚖️')
+        .replace(/\u26A0(?!\uFE0F)/g, '⚠️')
+        .replace(/\u27A1(?!\uFE0F)/g, '➡️')
+        .replace(/\u267B(?!\uFE0F)/g, '♻️')
+        .replace(/\u2611(?!\uFE0F)/g, '☑️')
+        // Zamiana nieautoryzowanych emoji na dozwolone odpowiedniki z białej listy Allegro
+        .replace(/💧|🫧|🌊|🧴|🧽|🧹|🧺|🌸|🍋|🌿|✨|🛡️|💎|👑|🔥|😱|💥|😍|🚀|☘️?|☂️?/gu, () => {
             if (sectionNum === 4) return '✍️';
             if (sectionNum === 3) return '⚙️';
             if (sectionNum === 6) return '⚠️';
@@ -902,18 +965,22 @@ function normalizeEmojiAndStructure(htmlStr, sectionNum = 1) {
         const startsWithAllowed = allowedSet.some(e => cleanInner.startsWith(e));
         if (!startsWithAllowed) {
             // Usuwamy ewentualny inny symbol z początku
-            cleanInner = cleanInner.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]\s*/u, '').trim();
+            cleanInner = cleanInner.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]\uFE0F?\s*/u, '').trim();
             cleanInner = `${defaultHeadingEmoji} ${cleanInner}`;
         }
         return `<${tag}${attrs}>${cleanInner}</${tag}>`;
     });
 
     // Upewniamy się, że każdy <li> zaczyna się od dozwolonego emoji (po ewentualnym komentarzu <!-- Applied -->)
-    res = res.replace(/<li([^>]*)>(\s*(?:<!--[\s\S]*?-->\s*)*)([\s\S]*?)<\/li>/gi, (full, attrs, comments, inner) => {
+    res = res.replace(/<li([^>]*)>((?:\s*<!--[\s\S]*?-->\s*)*)([\s\S]*?)<\/li>/gi, (full, attrs, comments, inner) => {
         let trimmed = inner.trim();
+        // Jeśli LLM umieścił emoji wewnątrz otwierającego tagu <b> lub <strong> na początku <li> (np. <li><b>✔️ Tekst:</b>...), wysuwamy emoji przed tag
+        trimmed = trimmed.replace(/^(<(?:b|strong)[^>]*>)\s*(⭐|❓|⚙️|✍️|⚖️|⚠️|✅|✔️|☑️|❌|➡️|♻️|⚡)\s*/i, '$2 $1');
         const firstEmoji = allowedSet.find(e => trimmed.startsWith(e));
         if (!firstEmoji) {
-            trimmed = trimmed.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]\s*/u, '').trim();
+            trimmed = trimmed.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]\uFE0F?\s*/u, '').trim();
+            // Usuwamy również ewentualne osierocone emoji ze środka tekstu <li>
+            trimmed = trimmed.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]\uFE0F?/gu, '');
             const plainInner = trimmed.replace(/<[^>]+>/g, '').trim();
             const resolvedLiEmoji = (sectionNum === 2 && ((/\?\s*$/.test(plainInner) && !/Odpowiedź:/i.test(plainInner)) || /Pytanie:/i.test(plainInner)))
                 ? '❓'
@@ -921,8 +988,8 @@ function normalizeEmojiAndStructure(htmlStr, sectionNum = 1) {
             trimmed = `${resolvedLiEmoji} ${trimmed}`;
         } else {
             // Usuwamy jakiekolwiek dodatkowe emoji ze środka tekstu <li> (wymóg V7 emoji_structure_check)
-            const rest = trimmed.substring(firstEmoji.length).replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, '');
-            trimmed = `${firstEmoji}${rest}`;
+            const rest = trimmed.substring(firstEmoji.length).replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]\uFE0F?/gu, '').trimStart();
+            trimmed = `${firstEmoji} ${rest}`;
         }
         return `<li${attrs}>${comments || ''}${trimmed}</li>`;
     });
