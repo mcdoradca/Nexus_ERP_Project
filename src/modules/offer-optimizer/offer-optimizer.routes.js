@@ -23,7 +23,8 @@ router.post('/validate-baselinker-export', express.json({ limit: '50mb' }), cont
 router.post('/export-baselinker', express.json({ limit: '50mb' }), controller.exportToBaselinker);
 router.post('/generate-lifestyle', express.json({ limit: '50mb' }), controller.generateLifestyle);
 router.get('/generate-lifestyle/status/:jobId', controller.checkLifestyleStatus);
-router.post('/pipeline/trigger', express.json(), controller.triggerUltimatePipeline);
+router.post('/extract-back-label', express.json({ limit: '50mb' }), controller.extractBackLabel);
+router.post('/pipeline/trigger', express.json({ limit: '50mb' }), controller.triggerUltimatePipeline);
 router.get('/pipeline/status/:ean', controller.checkPipelineStatus);
 
 // RAG / Supervisor Endpoints

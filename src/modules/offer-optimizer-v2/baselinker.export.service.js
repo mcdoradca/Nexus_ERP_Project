@@ -154,6 +154,11 @@ class BaselinkerExportService {
         let finalFeatures = { ...existingFeatures, ...hardFeatures, ...(draftData.features || {}) };
         
         for (const [key, val] of Object.entries(finalFeatures)) {
+            const normKey = String(key).toLowerCase().trim();
+            if (normKey === 'zdjęcie tyłu opakowania' || normKey === 'zdjecie tylu opakowania' || normKey === '_backimageurl' || (typeof val === 'string' && val.startsWith('data:image'))) {
+                delete finalFeatures[key];
+                continue;
+            }
             if (typeof val === 'string') {
                 finalFeatures[key] = this.encodeEmojis(val, false);
             }

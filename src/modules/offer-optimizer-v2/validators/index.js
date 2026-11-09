@@ -680,6 +680,26 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
         }
     }
 
+    // 16. Zakaz halucynacji przemysłowego ŚOI (maski przeciwpyłowe/gazowe, gogle, okulary ochronne) w chemii domowej spoza etykiety
+    const pimLabelText = `${context.pimWarnings || ''} ${context.pimUsage || ''}`;
+    const labelExplicitlyRequiresMaskOrGoggles = /(?:mask[ęięa]\s+ochronn|półmask|respirator|gogl[ei]\s+ochronn|okular[yów]\s+ochronn|ochronę\s+oczu\s*\/\s*ochronę\s+twarzy)/i.test(pimLabelText);
+    if (!labelExplicitlyRequiresMaskOrGoggles && /(?:mask[ęięa]\s+ochronn|półmask|respirator|gogl[ei]\s+ochronn|okular[yów]\s+ochronn|ochronę\s+oczu\s*\/\s*ochronę\s+twarzy)/i.test(allHtml)) {
+        errors.push('[Halucynacja BHP / Nadmiarowa ochrona] W opisie chemii domowej pojawił się nieuzasadniony wymóg zakładania maski ochronnej, gogli lub okularów ochronnych spoza etykiety produktu (wymagane wyłącznie rękawice ochronne i wietrzenie pomieszczenia, chyba że etykieta stanowi inaczej).');
+    }
+
+    // 17. Bezwzględny obowiązek rękawic ochronnych przy środkach żrących, silnie zasadowych/kwasowych, wybielaczach, do piekarników lub gdy wymaga tego etykieta
+    const requiresGlovesByFormulaOrLabel = Boolean(context.requiresProtectiveGloves) ||
+        /(?:sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|wodorotlenek\s+potasu|sodium\s+hypochlorite|podchloryn\s+sodu|candeggina|wybielacz|kwas\s+solny|hydrochloric\s+acid|kwas\s+fosforowy|phosphoric\s+acid|kwas\s+amidosulfonowy|sulfamic\s+acid|\bH314\b|\bH315\b|piekarnik|komink|grill|przypale[ńn]|muffa|pleś[ńn]|żrąc|rękawic|guanti)/i.test(`${prodName} ${inci} ${detComp} ${pimLabelText}`);
+
+    if (requiresGlovesByFormulaOrLabel) {
+        if (s6 && !/rękawic/i.test(s6)) {
+            errors.push('[Brak wymogu rękawic ochronnych w Sekcji 6] Dla środka żrącego / drażniącego skórę / silnej chemii gospodarczej lub zgodnie z etykietą, Sekcja 6 (BHP/CLP) musi bezwzględnie zawierać wymóg: "P280 – Stosować rękawice ochronne.".');
+        }
+        if (s4 && !/rękawic/i.test(s4)) {
+            errors.push('[Brak wymogu rękawic ochronnych w Sekcji 4] Dla środka żrącego / drażniącego skórę / silnej chemii gospodarczej lub zgodnie z etykietą, instrukcja użycia w Sekcji 4 musi informować o konieczności założenia rękawic ochronnych.');
+        }
+    }
+
     return { valid: errors.length === 0, errors };
 }
 

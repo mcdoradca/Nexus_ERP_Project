@@ -256,11 +256,67 @@ test('GPSR Safety Service - Wyprowadzanie ostrzeżeń ze składu INCI i SDS', as
         assert.ok(res.warnings.some(w => w.startsWith('H319 – ')), 'Brak zwrotu H319 (działanie drażniące na oczy)');
         assert.ok(res.warnings.some(w => w.startsWith('P102 – ')), 'Brak zwrotu P102');
         assert.ok(res.warnings.some(w => w.startsWith('P264 – ')), 'Brak zwrotu P264');
-        assert.strictEqual(res.warnings.some(w => w.startsWith('P280')), false, 'Konsumencka chemia domowa nie może zawierać przemysłowego zwrotu P280');
+        assert.ok(res.warnings.includes('P280 – Stosować rękawice ochronne.'), 'Środek żrący/chlorowy z NaOH i NaOCl musi bezwzględnie wymagać rękawic ochronnych (P280)');
+        assert.strictEqual(res.warnings.some(w => /ochronę oczu|mask/i.test(w)), false, 'Konsumencka chemia domowa nie może zawierać przemysłowego nakazu masek ani gogli');
         assert.ok(res.warnings.some(w => w.startsWith('P302+P352 – ')), 'Brak zwrotu P302+P352');
         assert.ok(res.warnings.some(w => w.startsWith('P305+P351+P338 – ')), 'Brak zwrotu P305+P351+P338');
         assert.ok(res.warnings.some(w => w.startsWith('EUH206 – Uwaga! Nie stosować razem z innymi produktami. Może wydzielać niebezpieczne gazy (chlor).')), 'Brak obowiązkowego zwrotu EUH206 dla wybielacza chlorowego');
         assert.strictEqual(res.warnings.some(w => /uszkodzoną skórę|podrażnioną skórę/i.test(w)), false, 'Środek chemiczny z wybielaczem nie może mieć ostrzeżeń kosmetycznych o podrażnionej skórze');
+    });
+
+    await t.test('Back-of-Pack SSOT: Odtłuszczacz do piekarnika i środek żrący wymaga rękawic ochronnych, a walidator blokuje halucynację maski i gogli', () => {
+        const { validate_domain_and_chemical_logic } = require('../validators/index.js');
+        const deterministicEngine = require('../services/deterministic-pipeline.engine.js');
+
+        // 1. Odczyt z tylnej etykiety w PIM (Ostrzeżenia + Sposób użycia)
+        const resOven = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Chanteclair Sgrassatore Forni e Grill 500 ml - Płyn do czyszczenia piekarnika',
+            inci: 'Aqua, Potassium Hydroxide, Non-ionic surfactants <5%',
+            isChemical: true,
+            features: {
+                'Ostrzeżenia': 'UWAGA. Działa drażniąco na skórę i oczy. Chronić przed dziećmi. Stosować rękawice ochronne. Nie wdychać rozpylonej cieczy.',
+                'Sposób użycia': 'Załóż rękawice ochronne. Spryskaj wystudzony piekarnik z odległości 20 cm, pozostaw na 10 minut i zmyj wilgotną gąbką.'
+            }
+        });
+
+        assert.ok(resOven.detected_risks.includes('PROTECTIVE_GLOVES_REQUIRED'), 'Musi wykryć obowiązek rękawic ochronnych');
+        assert.ok(resOven.warnings.includes('P280 – Stosować rękawice ochronne.'), 'Brak wymogu rękawic ochronnych P280');
+        assert.strictEqual(resOven.warnings.some(w => /mask|gogl|okular/i.test(w)), false, 'Zakaz halucynowania maski lub okularów ochronnych przy czyszczeniu piekarnika');
+
+        // 2. Walidator odrzuca halucynację maski i okularów w Sekcji 4
+        const badMaskCheck = validate_domain_and_chemical_logic({
+            section_4_html: '<h2>✍️ Sposób użycia</h2><ol><li>✍️ <b>Krok 1:</b> Załóż maskę ochronną i okulary ochronne przed czyszczeniem piekarnika.</li></ol>',
+            section_6_html: '<h2>⚠️ Bezpieczeństwo</h2><ul><li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Nie połykać.</li><li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P280 – Stosować rękawice ochronne.</li></ul>'
+        }, {
+            productName: 'Płyn do czyszczenia piekarnika 500 ml',
+            inci: 'Aqua, Potassium Hydroxide',
+            isChemical: true,
+            requiresProtectiveGloves: true
+        });
+        assert.strictEqual(badMaskCheck.valid, false, 'Walidator musi zablokować halucynację maski i okularów');
+        assert.ok(badMaskCheck.errors.some(e => e.includes('[Halucynacja BHP / Nadmiarowa ochrona]')), 'Brak błędu o halucynacji maski/okularów');
+
+        // 3. Walidator odrzuca brak rękawic ochronnych przy środku żrącym
+        const missingGlovesCheck = validate_domain_and_chemical_logic({
+            section_4_html: '<h2>✍️ Sposób użycia</h2><ol><li>✍️ <b>Krok 1:</b> Nanieś preparat na zabrudzoną powierzchnię.</li></ol><p>⚠️ <b>WYKLUCZENIE ZASTOSOWANIA:</b> Nie stosować na aluminium.</p>',
+            section_6_html: '<h2>⚠️ Bezpieczeństwo</h2><ul><li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Nie połykać.</li><li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P102 – Chronić przed dziećmi.</li></ul>'
+        }, {
+            productName: 'Żel żrący z wodorotlenkiem sodu 750 ml',
+            inci: 'Aqua, Sodium Hydroxide, Sodium Hypochlorite',
+            isChemical: true,
+            requiresProtectiveGloves: true
+        });
+        assert.strictEqual(missingGlovesCheck.valid, false, 'Walidator musi odrzucić brak rękawic ochronnych przy środku żrącym');
+        assert.ok(missingGlovesCheck.errors.some(e => e.includes('[Brak wymogu rękawic ochronnych w Sekcji 6]')), 'Brak błędu o rękawicach w Sekcji 6');
+        assert.ok(missingGlovesCheck.errors.some(e => e.includes('[Brak wymogu rękawic ochronnych w Sekcji 4]')), 'Brak błędu o rękawicach w Sekcji 4');
+
+        // 4. Deterministyczna sanityzacja zamienia halucynowaną maskę i okulary na rękawice i wietrzenie
+        const sanitizedS4 = deterministicEngine.sanitizeHtmlClaimsAndStopwords(
+            '<p>Przed aplikacją załóż maskę ochronną i okulary ochronne.</p>',
+            { productName: 'Płyn do piekarnika' }
+        );
+        assert.strictEqual(/maskę|okulary/i.test(sanitizedS4), false, 'Sanitizer nie usunął halucynowanej maski i okularów');
+        assert.ok(/rękawice ochronne/i.test(sanitizedS4), 'Sanitizer nie zastąpił maski rękawicami ochronnymi');
     });
 });
 

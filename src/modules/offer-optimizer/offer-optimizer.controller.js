@@ -849,6 +849,8 @@ const triggerUltimatePipeline = async (req, res) => {
                 }
                 
                 const frontImageUrl = existingProduct?.imageUrl || (Array.isArray(existingProduct?.images) && existingProduct.images.length > 0 ? existingProduct.images[0] : null);
+                const backImageUrl = featuresObj?.['Zdjęcie tyłu opakowania'] || featuresObj?.['_backImageUrl'] || null;
+                const galleryImages = Array.isArray(existingProduct?.images) ? [...existingProduct.images] : [];
 
                 const localPimData = {
                     text_fields: {
@@ -858,6 +860,8 @@ const triggerUltimatePipeline = async (req, res) => {
                     },
                     allegro_schema: requiredSchema,
                     imageUrl: frontImageUrl,
+                    backImageUrl: backImageUrl,
+                    images: galleryImages,
                     ean: ean
                 };
                 
@@ -966,6 +970,12 @@ const triggerUltimatePipeline = async (req, res) => {
                          }
                          if (orch.state.extracted_data.capacity?.value) {
                              updatedFeatures['Pojemność'] = orch.state.extracted_data.capacity.value;
+                         }
+                         if (orch.state.extracted_data.warnings?.value && (!updatedFeatures['Ostrzeżenia'] || String(updatedFeatures['Ostrzeżenia']).trim() === '')) {
+                             updatedFeatures['Ostrzeżenia'] = orch.state.extracted_data.warnings.value;
+                         }
+                         if (orch.state.extracted_data.usage?.value && (!updatedFeatures['Sposób użycia'] || String(updatedFeatures['Sposób użycia']).trim() === '')) {
+                             updatedFeatures['Sposób użycia'] = orch.state.extracted_data.usage.value;
                          }
                          if (orch.state.extracted_data.eu_responsible_person?.data) {
                              const eu = orch.state.extracted_data.eu_responsible_person.data;
@@ -1181,6 +1191,87 @@ const generateItalianFrame = async (req, res) => {
     }
 };
 
+const extractBackLabel = async (req, res) => {
+    try {
+        const { ean, backImageUrl, productId } = req.body || {};
+        if (!backImageUrl || typeof backImageUrl !== 'string' || !backImageUrl.trim()) {
+            return res.status(400).json({ error: 'Wymagane zdjęcie tyłu opakowania (backImageUrl).' });
+        }
+
+        const visionExtractorService = require('../offer-optimizer-v2/vision-extractor.service');
+        const baselinkerExtract = require('../offer-optimizer-v2/baselinker.extract');
+        const socketService = require('../../core/socket');
+
+        const onLog = (msg) => {
+            console.log(msg);
+            if (ean) {
+                socketService.broadcast('nexus-notification', {
+                    type: 'PIPELINE_LOG',
+                    ean,
+                    agentId: 'Vision Back-Pack OCR',
+                    message: msg
+                });
+            }
+        };
+
+        const extractionResult = await visionExtractorService.extractInciFromBackPack(
+            [backImageUrl.trim()],
+            ean || null,
+            onLog
+        );
+
+        let updatedFeatures = {};
+        let existingProduct = null;
+        if (productId) {
+            existingProduct = await prisma.product.findUnique({ where: { id: productId } }).catch(() => null);
+        }
+        if (!existingProduct && ean) {
+            existingProduct = await prisma.product.findUnique({ where: { ean: String(ean).trim() } }).catch(() => null);
+        }
+
+        if (existingProduct) {
+            try {
+                const rawFeatures = existingProduct.features;
+                updatedFeatures = typeof rawFeatures === 'string' ? JSON.parse(rawFeatures) : { ...(rawFeatures || {}) };
+            } catch (_) {
+                updatedFeatures = {};
+            }
+
+            updatedFeatures['Zdjęcie tyłu opakowania'] = backImageUrl.trim();
+            if (extractionResult.inci && baselinkerExtract.isValidInciValue(extractionResult.inci)) {
+                updatedFeatures['Skład/INCI'] = extractionResult.inci;
+                delete updatedFeatures['INCI'];
+                delete updatedFeatures['Skład'];
+            }
+            if (extractionResult.warnings) {
+                updatedFeatures['Ostrzeżenia'] = extractionResult.warnings;
+            }
+            if (extractionResult.usageInstructions) {
+                updatedFeatures['Sposób użycia'] = extractionResult.usageInstructions;
+            }
+
+            await prisma.product.update({
+                where: { id: existingProduct.id },
+                data: { features: updatedFeatures }
+            }).catch((dbErr) => console.warn('[extractBackLabel] Ostrzeżenie zapisu do DB:', dbErr.message));
+        }
+
+        return res.status(200).json({
+            found: Boolean(extractionResult.found),
+            inci: extractionResult.inci || null,
+            warnings: extractionResult.warnings || null,
+            usageInstructions: extractionResult.usageInstructions || null,
+            pimFeatures: {
+                ...(extractionResult.pimFeatures || {}),
+                'Zdjęcie tyłu opakowania': backImageUrl.trim()
+            }
+        });
+    } catch (error) {
+        console.error('[extractBackLabel] Błąd analizy zdjęcia tyłu opakowania:', error);
+        return res.status(500).json({ error: error.message || 'Błąd analizy zdjęcia tyłu opakowania przez Vision AI.' });
+    }
+};
+
 module.exports = {
     startOptimization,
     checkStatus,
@@ -1192,6 +1283,7 @@ module.exports = {
     exportToBaselinker,
     generateLifestyle,
     checkLifestyleStatus,
+    extractBackLabel,
     triggerUltimatePipeline,
     checkPipelineStatus,
     ingestKnowledgeDocument,

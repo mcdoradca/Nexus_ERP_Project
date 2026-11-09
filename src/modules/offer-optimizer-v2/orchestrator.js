@@ -195,8 +195,14 @@ const sanitizeSection6Html = (htmlStr) => {
     // 6. Standaryzacja zwrotu EUH208 / EUH206
     res = res.replace(/(EUH208|EUH206):/gi, '$1 –');
 
-    // 7. Eliminacja przemysłowego nakazu P280 (ochrona oczu / ochrona twarzy) ze środków chemii domowej
-    res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<(?:b|strong)>[^<]*<\/(?:b|strong)>\s*)?P280\s*[–:-]\s*[^<]*<\/li>\s*/gi, '');
+    // 7. Normalizacja P280: w chemii domowej zachowujemy wymóg rękawic ochronnych ("P280 – Stosować rękawice ochronne."),
+    // natomiast odrzucamy przemysłowy nakaz ochrony oczu/twarzy/odzieży, jeśli brak wymogu rękawic.
+    res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<(?:b|strong)>[^<]*<\/(?:b|strong)>\s*)?P280\s*[–:-]\s*([^<]*)<\/li>\s*/gi, (match, body) => {
+        if (/rękawic/i.test(body)) {
+            return '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P280 – Stosować rękawice ochronne.</li>\n';
+        }
+        return '';
+    });
 
     // 7b. Eliminacja osieroconych nagłówków okolicznościowych, jeśli w opisie jest już pełna formuła
     if (/P301\+P312/.test(res)) {
@@ -540,49 +546,89 @@ class Orchestrator {
             const productName = product?.text_fields?.name || '';
             const interimEu = resolveResponsiblePerson(interimBrandName, productName, interimDesc);
 
-            // --- BACK-OF-PACK VISION INCI OCR ---
-            // Jeśli w PIM brakuje poprawnego składu INCI, a dysponujemy zdjęciami produktu,
-            // Gemini 3.8 Flash Vision skanuje etykietę w poszukiwaniu składu w 3 sekundy.
-            if ((!interimExtracted.inci?.value || !baselinkerExtract.isValidInciValue(interimExtracted.inci.value)) && candidateImages.length > 0) {
+            // --- BACK-OF-PACK VISION OCR (Skład/INCI + Ostrzeżenia + Sposób użycia) ---
+            const dedicatedBackImg = pimData?.backImageUrl
+                || product?.text_fields?.features?.['Zdjęcie tyłu opakowania']
+                || product?.text_fields?.features?.['_backImageUrl']
+                || null;
+            const backPackCandidates = [];
+            if (dedicatedBackImg) backPackCandidates.push(dedicatedBackImg);
+            for (const img of candidateImages) {
+                if (img && !backPackCandidates.includes(img)) backPackCandidates.push(img);
+            }
+
+            const hasValidInci = Boolean(interimExtracted.inci?.value && baselinkerExtract.isValidInciValue(interimExtracted.inci.value));
+            const hasValidWarnings = Boolean(interimExtracted.warnings?.value && String(interimExtracted.warnings.value).trim().length > 5);
+            const hasValidUsage = Boolean(interimExtracted.usage?.value && String(interimExtracted.usage.value).trim().length > 5);
+
+            if ((!hasValidInci || !hasValidWarnings || !hasValidUsage) && backPackCandidates.length > 0 && !this.state.back_pack_vision_done) {
+                this.state.back_pack_vision_done = true;
                 try {
-                    console.log(`[Orchestrator V2] Brak składu INCI w PIM. Uruchamianie Agenta 0 (Vision Back-of-Pack OCR) na ${candidateImages.length} zdjęciach...`);
+                    console.log(`[Orchestrator V2] Brak pełnych danych tylnej etykiety w PIM (INCI:${hasValidInci}, Ostrzeżenia:${hasValidWarnings}, Sposób użycia:${hasValidUsage}). Uruchamianie Agenta 0 (Vision Back-of-Pack OCR) na ${backPackCandidates.length} zdjęciach...`);
                     const visionInciRes = await visionExtractorService.extractInciFromBackPack(
-                        candidateImages,
+                        backPackCandidates,
                         this.gtin,
                         (msg) => console.log(msg),
-                        frontImageUrl
+                        dedicatedBackImg ? frontImageUrl : frontImageUrl
                     );
 
-                    if (visionInciRes && visionInciRes.found && visionInciRes.inci) {
-                        const vInci = visionInciRes.inci;
-                        console.log(`[Orchestrator V2] Vision Extractor pomyślnie odczytał skład ze zdjęcia: ${vInci.substring(0, 80)}...`);
-                        
+                    if (visionInciRes && visionInciRes.found) {
                         if (!product) product = { text_fields: {} };
                         if (!product.text_fields) product.text_fields = {};
                         const updatedFeatures = { ...(product.text_fields.features || {}) };
-                        updatedFeatures['INCI'] = vInci;
-                        updatedFeatures['Skład'] = vInci;
-                        product.text_fields.features = updatedFeatures;
+                        let changed = false;
 
-                        if (pimData) {
-                            pimData.features = { ...(pimData.features || {}), ...updatedFeatures };
-                            if (pimData.text_fields) pimData.text_fields.features = updatedFeatures;
+                        if (dedicatedBackImg && !updatedFeatures['Zdjęcie tyłu opakowania']) {
+                            updatedFeatures['Zdjęcie tyłu opakowania'] = dedicatedBackImg;
+                            changed = true;
                         }
 
-                        try {
-                            await prisma.product.update({
-                                where: { ean: this.gtin },
-                                data: { features: updatedFeatures }
-                            });
-                            console.log(`[Orchestrator V2] Zapisano odczytany ze zdjęcia skład INCI do bazy PIM (Prisma).`);
-                        } catch (dbErr) {
-                            console.warn(`[Orchestrator V2] Ostrzeżenie zapisu INCI do bazy PIM: ${dbErr.message}`);
+                        if (visionInciRes.inci && !hasValidInci) {
+                            const vInci = visionInciRes.inci;
+                            console.log(`[Orchestrator V2] Vision Extractor odczytał Skład/INCI ze zdjęcia tyłu: ${vInci.substring(0, 80)}...`);
+                            updatedFeatures['Skład/INCI'] = vInci;
+                            updatedFeatures['INCI'] = vInci;
+                            updatedFeatures['Skład'] = vInci;
+                            interimExtracted.inci = { value: vInci, source: 'vision_packshot', matched_key: 'Skład/INCI' };
+                            changed = true;
                         }
 
-                        interimExtracted.inci = { value: vInci, source: 'vision_packshot', matched_key: 'INCI' };
+                        if (visionInciRes.warnings && !hasValidWarnings) {
+                            const vWarn = visionInciRes.warnings;
+                            console.log(`[Orchestrator V2] Vision Extractor odczytał Ostrzeżenia ze zdjęcia tyłu: ${vWarn.substring(0, 80)}...`);
+                            updatedFeatures['Ostrzeżenia'] = vWarn;
+                            interimExtracted.warnings = { value: vWarn, source: 'vision_packshot', matched_key: 'Ostrzeżenia' };
+                            changed = true;
+                        }
+
+                        if (visionInciRes.usageInstructions && !hasValidUsage) {
+                            const vUsage = visionInciRes.usageInstructions;
+                            console.log(`[Orchestrator V2] Vision Extractor odczytał Sposób użycia ze zdjęcia tyłu: ${vUsage.substring(0, 80)}...`);
+                            updatedFeatures['Sposób użycia'] = vUsage;
+                            interimExtracted.usage = { value: vUsage, source: 'vision_packshot', matched_key: 'Sposób użycia' };
+                            changed = true;
+                        }
+
+                        if (changed) {
+                            product.text_fields.features = updatedFeatures;
+                            if (pimData) {
+                                pimData.features = { ...(pimData.features || {}), ...updatedFeatures };
+                                if (pimData.text_fields) pimData.text_fields.features = updatedFeatures;
+                            }
+
+                            try {
+                                await prisma.product.update({
+                                    where: { ean: this.gtin },
+                                    data: { features: updatedFeatures }
+                                });
+                                console.log(`[Orchestrator V2] Zapisano odczytane z tylnej etykiety parametry (Skład/INCI, Ostrzeżenia, Sposób użycia) do bazy PIM (Prisma).`);
+                            } catch (dbErr) {
+                                console.warn(`[Orchestrator V2] Ostrzeżenie zapisu danych tylnej etykiety do bazy PIM: ${dbErr.message}`);
+                            }
+                        }
                     }
                 } catch (vInciErr) {
-                    console.warn(`[Orchestrator V2] Błąd skanowania Vision Back-of-Pack INCI: ${vInciErr.message}`);
+                    console.warn(`[Orchestrator V2] Błąd skanowania Vision Back-of-Pack: ${vInciErr.message}`);
                 }
             }
 
@@ -606,6 +652,60 @@ class Orchestrator {
                 vision_features: this.state.vision_extracted_features || {}
             };
             this.emitState();
+        }
+
+        const standaloneBackImg = pimData?.backImageUrl
+            || product?.text_fields?.features?.['Zdjęcie tyłu opakowania']
+            || product?.text_fields?.features?.['_backImageUrl']
+            || null;
+        if (standaloneBackImg && !this.state.back_pack_vision_done) {
+            const checkExtracted = baselinkerExtract.extractFromFeatures(product);
+            const hasVInci = Boolean(checkExtracted.inci?.value && baselinkerExtract.isValidInciValue(checkExtracted.inci.value));
+            const hasVWarn = Boolean(checkExtracted.warnings?.value && String(checkExtracted.warnings.value).trim().length > 5);
+            const hasVUsage = Boolean(checkExtracted.usage?.value && String(checkExtracted.usage.value).trim().length > 5);
+            if (!hasVInci || !hasVWarn || !hasVUsage) {
+                this.state.back_pack_vision_done = true;
+                try {
+                    const visionInciRes = await visionExtractorService.extractInciFromBackPack(
+                        [standaloneBackImg],
+                        this.gtin,
+                        (msg) => console.log(msg),
+                        frontImageUrl
+                    );
+                    if (visionInciRes && visionInciRes.found) {
+                        if (!product) product = { text_fields: {} };
+                        if (!product.text_fields) product.text_fields = {};
+                        const updatedFeatures = { ...(product.text_fields.features || {}) };
+                        updatedFeatures['Zdjęcie tyłu opakowania'] = standaloneBackImg;
+                        if (visionInciRes.inci && !hasVInci) {
+                            updatedFeatures['Skład/INCI'] = visionInciRes.inci;
+                            updatedFeatures['INCI'] = visionInciRes.inci;
+                            updatedFeatures['Skład'] = visionInciRes.inci;
+                        }
+                        if (visionInciRes.warnings && !hasVWarn) {
+                            updatedFeatures['Ostrzeżenia'] = visionInciRes.warnings;
+                        }
+                        if (visionInciRes.usageInstructions && !hasVUsage) {
+                            updatedFeatures['Sposób użycia'] = visionInciRes.usageInstructions;
+                        }
+                        product.text_fields.features = updatedFeatures;
+                        if (pimData) {
+                            pimData.features = { ...(pimData.features || {}), ...updatedFeatures };
+                            if (pimData.text_fields) pimData.text_fields.features = updatedFeatures;
+                        }
+                        try {
+                            await prisma.product.update({
+                                where: { ean: this.gtin },
+                                data: { features: updatedFeatures }
+                            });
+                        } catch (dbErr) {
+                            console.warn(`[Orchestrator V2] Ostrzeżenie zapisu danych tylnej etykiety do bazy PIM: ${dbErr.message}`);
+                        }
+                    }
+                } catch (vErr) {
+                    console.warn(`[Orchestrator V2] Błąd samodzielnego skanowania tylnej etykiety: ${vErr.message}`);
+                }
+            }
         }
 
         const resolveResponsiblePerson = (extractedBrand, productName, descResult) => {
@@ -1799,6 +1899,7 @@ class Orchestrator {
                     }
                 }
             }
+            this.state.gpsr_baseline = gpsrBaseline;
 
             if (isFullPipelineRun) {
                 console.log(`[Orchestrator V2] ⚡ Deterministyczna bramka GPSR/CLP i generator matrycy AEO FAQ dla EAN ${this.gtin} (0 tokenów).`);
@@ -1830,6 +1931,8 @@ class Orchestrator {
                     brand: extracted.brand?.value || undefined,
                     inci: this.state.extracted_data.inci?.value || undefined,
                     detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
+                    pim_safety_warnings: this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'] || undefined,
+                    pim_usage_instructions: this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia'] || undefined,
                     compliance: complianceData,
                     gpsr_safety_baseline: gpsrBaseline,
                     a1: this.state.a1_result ? { country_of_origin: this.state.a1_result.country_of_origin?.value || this.state.a1_result.country_of_origin || undefined, logistics: this.state.a1_result.logistics?.value || this.state.a1_result.logistics || undefined } : undefined,
@@ -2041,6 +2144,13 @@ class Orchestrator {
                 console.warn('[Orchestrator V2] Ostrzeżenie harvestera Google Suggest FAQ:', faqErr.message);
             }
 
+            const pimWarningsVal = this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'] || undefined;
+            const pimUsageVal = this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia'] || undefined;
+            const requiresGlovesFlag = Boolean(
+                this.state.gpsr_baseline?.detected_risks?.includes('PROTECTIVE_GLOVES_REQUIRED') ||
+                /(?:sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|wodorotlenek\s+potasu|sodium\s+hypochlorite|podchloryn\s+sodu|candeggina|wybielacz|kwas\s+solny|hydrochloric\s+acid|kwas\s+fosforowy|phosphoric\s+acid|kwas\s+amidosulfonowy|sulfamic\s+acid|\bH314\b|\bH315\b|piekarnik|komink|grill|przypale[ńn]|muffa|pleś[ńn]|żrąc|rękawic|guanti)/i.test(`${product?.text_fields?.name || ''} ${this.state.extracted_data.inci?.value || ''} ${this.state.extracted_data.detergent_composition?.value || ''} ${pimWarningsVal || ''} ${pimUsageVal || ''}`)
+            );
+
             const agent6Data = {
                 gtin_ean: this.gtin,
                 product_name: sanitizedNameForA6 || undefined,
@@ -2051,6 +2161,9 @@ class Orchestrator {
                 hero_ingredients_front: this.state.vision_extracted_features?.['Składniki wiodące (Front)'] || product?.text_fields?.features?.['Składniki wiodące (Front)'] || undefined,
                 inci: this.state.extracted_data.inci?.value || undefined,
                 detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
+                pim_safety_warnings: pimWarningsVal,
+                pim_usage_instructions: pimUsageVal,
+                requires_protective_gloves: requiresGlovesFlag,
                 compliance: this.state.extracted_data.compliance?.data || undefined,
                 eu_responsible_person: this.state.extracted_data.eu_responsible_person?.data ? {
                     name: this.state.extracted_data.eu_responsible_person.data.name,
@@ -2186,12 +2299,35 @@ class Orchestrator {
                     result.section_6_html = sanitizeSection6Html(result.section_6_html);
                 }
 
+                // TARCZA DETERMINISTYCZNA RĘKAWIC OCHRONNYCH (P280) W SEKCJI 4 I SEKCJI 6:
+                if (requiresGlovesFlag) {
+                    if (result.section_4_html && !/rękawic/i.test(result.section_4_html)) {
+                        if (/(<(?:b|strong)>\s*Krok\s+1\s*:?\s*<\/(?:b|strong)>\s*)/i.test(result.section_4_html)) {
+                            result.section_4_html = result.section_4_html.replace(/(<(?:b|strong)>\s*Krok\s+1\s*:?\s*<\/(?:b|strong)>\s*)/i, '$1Załóż rękawice ochronne. ');
+                        } else if (/<\/p>/i.test(result.section_4_html)) {
+                            result.section_4_html = result.section_4_html.replace(/<\/p>/i, ' Podczas dozowania i aplikacji preparatu stosuj rękawice ochronne.</p>');
+                        }
+                    }
+                    if (result.section_6_html && !/rękawic/i.test(result.section_6_html)) {
+                        const p280Item = '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P280 – Stosować rękawice ochronne.</li>';
+                        if (/(<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*<(?:b|strong)>\s*Podmiot odpowiedzialny w UE)/i.test(result.section_6_html)) {
+                            result.section_6_html = result.section_6_html.replace(/(<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*<(?:b|strong)>\s*Podmiot odpowiedzialny w UE)/i, `${p280Item}\n$1`);
+                        } else if (result.section_6_html.includes('</ul>')) {
+                            result.section_6_html = result.section_6_html.replace('</ul>', `${p280Item}</ul>`);
+                        }
+                    }
+                }
+
                 // Globalna tarcza językowa, prawna (BPR Biobójcze / Kosmetyczne 655/2013 / Stop-words §A) i anty-kontaktowa Allegro dla wszystkich sekcji:
                 for (let idx = 1; idx <= 6; idx++) {
                     const k = `section_${idx}_html`;
                     if (result[k] && typeof result[k] === 'string') {
                         result[k] = brandResponsibleService.stripContactInfo(result[k]);
-                        result[k] = deterministicEngine.sanitizeHtmlClaimsAndStopwords(result[k], { productName: product?.text_fields?.name || this.state.product_name });
+                        result[k] = deterministicEngine.sanitizeHtmlClaimsAndStopwords(result[k], {
+                            productName: product?.text_fields?.name || this.state.product_name,
+                            pimWarnings: pimWarningsVal,
+                            pimUsage: pimUsageVal
+                        });
                         if (isFullPipelineRun) {
                             result[k] = deterministicEngine.normalizeEmojiAndStructure(result[k], idx);
                         }
@@ -2375,6 +2511,13 @@ class Orchestrator {
                 this.state.node_status['A11'] = 'RUNNING';
                 this.emitState();
 
+                const pimWarningsA11 = this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'] || undefined;
+                const pimUsageA11 = this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia'] || undefined;
+                const requiresGlovesA11 = Boolean(
+                    this.state.gpsr_baseline?.detected_risks?.includes('PROTECTIVE_GLOVES_REQUIRED') ||
+                    /(?:sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|wodorotlenek\s+potasu|sodium\s+hypochlorite|podchloryn\s+sodu|candeggina|wybielacz|kwas\s+solny|hydrochloric\s+acid|kwas\s+fosforowy|phosphoric\s+acid|kwas\s+amidosulfonowy|sulfamic\s+acid|\bH314\b|\bH315\b|piekarnik|komink|grill|przypale[ńn]|muffa|pleś[ńn]|żrąc|rękawic|guanti)/i.test(`${product?.text_fields?.name || ''} ${this.state.extracted_data.inci?.value || ''} ${this.state.extracted_data.detergent_composition?.value || ''} ${pimWarningsA11 || ''} ${pimUsageA11 || ''}`)
+                );
+
                 const agent11Data = {
                     gtin_ean: this.gtin,
                     product_name: product?.text_fields?.name || undefined,
@@ -2384,6 +2527,9 @@ class Orchestrator {
                     scent_variant: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'] || undefined,
                     inci: this.state.extracted_data.inci?.value || undefined,
                     detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
+                    pim_safety_warnings: pimWarningsA11,
+                    pim_usage_instructions: pimUsageA11,
+                    requires_protective_gloves: requiresGlovesA11,
                     vision_features: this.state.vision_extracted_features || undefined,
                     section_1_html: this.state.a7_result?.section_1_html,
                     section_2_html: this.state.a7_result?.section_2_html,
@@ -2562,12 +2708,21 @@ class Orchestrator {
                 if (this.state.extracted_data.detergent_composition?.value) {
                     allowedSourcesList.push(...this.state.extracted_data.detergent_composition.value.split(',').map(s => s.trim()));
                 }
+                const pimWarningsA10 = this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'] || undefined;
+                const pimUsageA10 = this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia'] || undefined;
+                const requiresGlovesA10 = Boolean(
+                    this.state.gpsr_baseline?.detected_risks?.includes('PROTECTIVE_GLOVES_REQUIRED') ||
+                    /(?:sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|wodorotlenek\s+potasu|sodium\s+hypochlorite|podchloryn\s+sodu|candeggina|wybielacz|kwas\s+solny|hydrochloric\s+acid|kwas\s+fosforowy|phosphoric\s+acid|kwas\s+amidosulfonowy|sulfamic\s+acid|\bH314\b|\bH315\b|piekarnik|komink|grill|przypale[ńn]|muffa|pleś[ńn]|żrąc|rękawic|guanti)/i.test(`${product?.text_fields?.name || ''} ${this.state.extracted_data.inci?.value || ''} ${this.state.extracted_data.detergent_composition?.value || ''} ${pimWarningsA10 || ''} ${pimUsageA10 || ''}`)
+                );
                 const s3Check = validate_section3_ingredients_closed_world(this.state.a7_result.section_3_html, allowedSourcesList);
                 const domainCheck = validate_domain_and_chemical_logic(this.state.a7_result, {
                     productName: product?.text_fields?.name,
                     inci: this.state.extracted_data.inci?.value,
                     detergentComposition: this.state.extracted_data.detergent_composition?.value,
-                    isChemical: isActualHouseholdChemicalA10
+                    isChemical: isActualHouseholdChemicalA10,
+                    pimWarnings: pimWarningsA10,
+                    pimUsage: pimUsageA10,
+                    requiresProtectiveGloves: requiresGlovesA10
                 });
 
                 const complianceIssues = [
@@ -2604,6 +2759,9 @@ class Orchestrator {
                         scent_variant: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'] || undefined,
                         inci: this.state.extracted_data.inci?.value || undefined,
                         detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
+                        pim_safety_warnings: pimWarningsA10,
+                        pim_usage_instructions: pimUsageA10,
+                        requires_protective_gloves: requiresGlovesA10,
                         vision_features: this.state.vision_extracted_features || undefined,
                         section_1_html: this.state.a7_result.section_1_html,
                         section_2_html: this.state.a7_result.section_2_html,
@@ -2693,6 +2851,23 @@ class Orchestrator {
                         if (finalDoc.section_6_html) {
                             finalDoc.section_6_html = sanitizeSection6Html(finalDoc.section_6_html);
                         }
+                        if (requiresGlovesA10) {
+                            if (finalDoc.section_4_html && !/rękawic/i.test(finalDoc.section_4_html)) {
+                                if (/(<(?:b|strong)>\s*Krok\s+1\s*:?\s*<\/(?:b|strong)>\s*)/i.test(finalDoc.section_4_html)) {
+                                    finalDoc.section_4_html = finalDoc.section_4_html.replace(/(<(?:b|strong)>\s*Krok\s+1\s*:?\s*<\/(?:b|strong)>\s*)/i, '$1Załóż rękawice ochronne. ');
+                                } else if (/<\/p>/i.test(finalDoc.section_4_html)) {
+                                    finalDoc.section_4_html = finalDoc.section_4_html.replace(/<\/p>/i, ' Podczas dozowania i aplikacji preparatu stosuj rękawice ochronne.</p>');
+                                }
+                            }
+                            if (finalDoc.section_6_html && !/rękawic/i.test(finalDoc.section_6_html)) {
+                                const p280Item = '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P280 – Stosować rękawice ochronne.</li>';
+                                if (/(<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*<(?:b|strong)>\s*Podmiot odpowiedzialny w UE)/i.test(finalDoc.section_6_html)) {
+                                    finalDoc.section_6_html = finalDoc.section_6_html.replace(/(<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*<(?:b|strong)>\s*Podmiot odpowiedzialny w UE)/i, `${p280Item}\n$1`);
+                                } else if (finalDoc.section_6_html.includes('</ul>')) {
+                                    finalDoc.section_6_html = finalDoc.section_6_html.replace('</ul>', `${p280Item}</ul>`);
+                                }
+                            }
+                        }
 
                         console.log("[DEBUG A10] finalDoc przed walidacja:", finalDoc);
                         
@@ -2706,7 +2881,11 @@ class Orchestrator {
                         for (let i of [1, 2, 3, 4, 5, 6]) {
                             let sec = finalDoc['section_' + i + '_html'];
                             if (sec) {
-                                sec = deterministicEngine.sanitizeHtmlClaimsAndStopwords(sec);
+                                sec = deterministicEngine.sanitizeHtmlClaimsAndStopwords(sec, {
+                                    productName: product?.text_fields?.name || this.state.product_name,
+                                    pimWarnings: pimWarningsA10,
+                                    pimUsage: pimUsageA10
+                                });
                                 if (isFullPipelineRun) {
                                     sec = deterministicEngine.normalizeEmojiAndStructure(sec, i);
                                 }
@@ -2826,8 +3005,11 @@ class Orchestrator {
                             sekcja7: this.state.final_offer.extra_field_4245
                         },
                         features: { 
+                            "Skład/INCI": this.state.final_offer.ingredients_inci,
                             INCI: this.state.final_offer.ingredients_inci,
-                            "Skład": this.state.final_offer.ingredients_inci
+                            "Skład": this.state.final_offer.ingredients_inci,
+                            ...(this.state.extracted_data.warnings?.value ? { "Ostrzeżenia": this.state.extracted_data.warnings.value } : {}),
+                            ...(this.state.extracted_data.usage?.value ? { "Sposób użycia": this.state.extracted_data.usage.value } : {})
                         }
                     }
                 });

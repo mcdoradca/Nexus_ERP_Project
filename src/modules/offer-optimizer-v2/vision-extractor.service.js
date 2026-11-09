@@ -344,40 +344,60 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
     }
 }
 
-const BACK_PACK_INCI_PROMPT = `Jesteś analitykiem etykiet produktów konsumenckich i przemysłowych (kosmetyki, chemia gospodarcza, detergenty, artykuły gospodarstwa domowego).
-Twoim jedynym zadaniem jest zbadanie przesłanego zdjęcia i sprawdzenie, czy widoczna jest na nim etykieta ze składem surowcowym/chemicznym produktu (INCI, Ingredients, Skład, Składniki, Composizione chimica, Inhaltsstoffe, Composition, Ingredients list).
+const BACK_PACK_INCI_PROMPT = `Jesteś eksperckim analitykiem etykiet produktów konsumenckich i chemii gospodarczej (kosmetyki, detergenty, środki czyszczące, artykuły gospodarstwa domowego).
+Twoim zadaniem jest zbadanie przesłanego zdjęcia tyłu opakowania (kontretykiety) i precyzyjne odczytanie 3 kluczowych sekcji informacyjnych z etykiety:
+1. SKŁAD (INCI / Składniki / Ingredients / Composizione chimica / Inhaltsstoffe / skład detergentu wg Rozp. WE 648/2004 / substancje czynne CLP).
+2. OSTRZEŻENIA BEZPIECZEŃSTWA (Hasło ostrzegawcze UWAGA / NIEBEZPIECZEŃSTWO / ATTENZIONE / PERICOLO, zwroty H, zwroty P, zwroty EUH, wymagane środki ochrony indywidualnej np. rękawice ochronne, ochrona oczu, ostrzeżenia o nierozpylaniu lub niemieszaniu z innymi środkami).
+3. SPOSÓB UŻYCIA (Instrukcja stosowania, dozowanie, czas działania, spłukiwanie, zalecenia aplikacyjne i wykluczenia powierzchni z etykiety).
 
-ZASADY ANALIZY:
-1. JEŚLI NA ZDJĘCIU NIE MA ETYKIETY ZE SKŁADEM (jest to front opakowania, wizualizacja marketingowa, korek, piktogramy bezpieczeństwa bez listy składników, lub tekst jest całkowicie nieczytelny):
+ZASADY ANALIZY (DOKTRYNA ZAMKNIĘTEGO ŚWIATA – ZERO ZGADYWANIA):
+1. JEŚLI NA ZDJĘCIU NIE MA TYLNEJ ETYKIETY INFORMACYJNEJ (jest to wyłącznie front opakowania bez instrukcji/składu/ostrzeżeń lub tekst jest całkowicie nieczytelny):
    - Ustaw: "has_ingredients_label": false
-   - Ustaw: "inci": null
-   - Ustaw: "raw_composition_text": null
+   - Ustaw: "has_back_label": false
+   - Ustaw: "inci": null, "raw_composition_text": null, "warnings": null, "usage_instructions": null
 
-2. JEŚLI NA ZDJĘCIU JEST WIDOCZNA ETYKIETA ZE SKŁADEM (kosmetyczne INCI lub skład chemiczny detergentu wg rozporządzenia WE 648/2004 lub substancje CLP):
-   - Ustaw: "has_ingredients_label": true
-   - W polu "raw_composition_text" przepisz dosłowny odczytany tekst składu z etykiety.
-   - W polu "inci" zwróć skład znormalizowany jako listę składników oddzielonych przecinkami, WIELKIMI LITERAMI (np. "AQUA, HYDROGEN PEROXIDE, ALCOHOLS, C12-18, ETHOXYLATED, SODIUM DODECYLBENZENESULFONATE, COCO-BETAINE, PARFUM").
-   - Jeśli na etykiecie występują nazwy chemiczne w języku włoskim, francuskim, niemieckim lub polskim (np. "Alcoli, C12-18, etossilati; Perossido di idrogeno sol. al 35%; Acido benzensulfonico..."):
-     dokonaj ich precyzyjnej transkrypcji na standardową nomenklaturę chemiczną / INCI (np. "ALCOHOLS, C12-18, ETHOXYLATED, HYDROGEN PEROXIDE, SODIUM DODECYLBENZENESULFONATE, COCO-BETAINE").
+2. EKSTRAKCJA SKŁADU ("inci" oraz "raw_composition_text"):
+   - Jeśli na zdjęciu widoczny jest skład (kosmetyczne INCI, skład detergentu wg WE 648/2004 np. "<5% niejonowe środki powierzchniowo czynne..." lub lista substancji niebezpiecznych CLP "Zawiera: Wodorotlenek sodu, Podchloryn sodu..."):
+     * Ustaw "has_ingredients_label": true oraz "has_back_label": true.
+     * W "raw_composition_text" przepisz dosłowny tekst składu z etykiety.
+     * W "inci" zwróć znormalizowaną listę składników oddzielonych przecinkami (np. "AQUA, SODIUM HYPOCHLORITE, SODIUM HYDROXIDE, COCAMINE OXIDE, PARFUM" lub dla detergentu: "<5% anionowe środki powierzchniowo czynne, środki wybielające na bazie chloru, kompozycja zapachowa (Limonene), Zawiera: Sodium Hypochlorite, Sodium Hydroxide"). Nazwy chemiczne z języka włoskiego/niemieckiego/francuskiego (np. "Idrossido di sodio", "Ipoclorito di sodio", "Tensioattivi non ionici") przetłumacz precyzyjnie na standardową nomenklaturę INCI / polską.
+   - Jeśli skład nie jest widoczny lub nieczytelny: ustaw "has_ingredients_label": false oraz "inci": null.
 
-KATEGORYCZNY ZAKAZ ZGADYWANIA. Jeśli tekst jest nieczytelny lub go brak, ustaw has_ingredients_label: false.`;
+3. EKSTRAKCJA OSTRZEŻEŃ BEZPIECZEŃSTWA ("warnings"):
+   - Jeśli na etykiecie widoczne są ostrzeżenia bezpieczeństwa, piktogramy z opisem CLP lub środki ostrożności:
+     * Ustaw "has_back_label": true.
+     * Przetłumacz je wiernie w 100% na język polski z zachowaniem oficjalnych kodów H/P/EUH (jeśli występują) oraz realnych wymogów ochrony (np. jeśli etykieta nakazuje "Indossare guanti protettivi" / "Stosować rękawice ochronne" -> wpisz "Stosować rękawice ochronne (P280)").
+     * KATEGORYCZNY ZAKAZ ZGADYWANIA I DOPISYWANIA ŚRODKÓW OCHRONY SPOZA ETYKIETY (np. zakaz dopisywania maski czy okularów, jeśli etykieta ich nie wymienia!).
+   - Jeśli brak widocznych ostrzeżeń na zdjęciu, ustaw "warnings": null.
+
+4. EKSTRAKCJA SPOSOBU UŻYCIA ("usage_instructions"):
+   - Jeśli na etykiecie widoczna jest instrukcja użycia / dozowania ("Modo d'uso", "Istruzioni per l'uso", "Sposób użycia", "Gebrauchsanweisung"):
+     * Ustaw "has_back_label": true.
+     * Przetłumacz ją wiernie i kompletnie na naturalny język polski (kroki aplikacji, czas odczekania, temperatura, spłukiwanie, powierzchnie wykluczone, ewentualny wymóg użycia rękawiczek podczas mycia).
+     * Zastosuj zgodność z BPR: słowa typu "igienizzante/antibatterico" tłumacz jako "higienicznie czyszczący".
+   - Jeśli brak widocznej instrukcji użycia na zdjęciu, ustaw "usage_instructions": null.`;
 
 const backPackInciSchema = {
     type: "object",
     properties: {
         has_ingredients_label: { type: "boolean" },
+        has_back_label: { type: "boolean" },
         inci: { type: ["string", "null"] },
-        raw_composition_text: { type: ["string", "null"] }
+        raw_composition_text: { type: ["string", "null"] },
+        warnings: { type: ["string", "null"] },
+        usage_instructions: { type: ["string", "null"] }
     },
     required: ["has_ingredients_label", "inci"]
 };
 
 /**
- * Skanuje zdjęcia produktu z galerii (Back-of-Pack OCR) za pomocą Gemini 3.8 Flash Vision w poszukiwaniu etykiety ze składem INCI / chemicznym.
- * @param {Array<string>|string} imageUrlOrCandidates - Zdjęcia produktu
+ * Skanuje zdjęcia produktu (w szczególności zdjęcie tyłu opakowania / kontretykietę) za pomocą Gemini 3.8 Flash Vision
+ * w celu ekstrakcji: Składu/INCI, Ostrzeżeń bezpieczeństwa (CLP/GPSR/BHP) oraz Sposobu użycia.
+ * @param {Array<string>|string} imageUrlOrCandidates - Zdjęcia produktu (w tym zdjęcie tyłu opakowania)
  * @param {string|null} ean - Kod EAN
  * @param {Function} onLog - Callback logowania
- * @returns {Promise<{ found: boolean, inci: string|null, raw: string|null, imageUrl: string|null, usage: Object|null }>}
+ * @param {string|null} skipFrontUrl - Opcjonalny URL zdjęcia frontowego do pominięcia
+ * @returns {Promise<{ found: boolean, inci: string|null, warnings: string|null, usageInstructions: string|null, pimFeatures: Object, raw: string|null, imageUrl: string|null, usage: Object|null }>}
  */
 async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog = () => {}, skipFrontUrl = null) {
     const rawCandidateUrls = Array.isArray(imageUrlOrCandidates)
@@ -385,7 +405,7 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
         : (typeof imageUrlOrCandidates === 'string' && imageUrlOrCandidates.trim().length > 0 ? [imageUrlOrCandidates.trim()] : []);
 
     if (rawCandidateUrls.length === 0) {
-        return { found: false, inci: null, raw: null, imageUrl: null, reason: 'Brak dostępnych zdjęć do analizy etykiety' };
+        return { found: false, inci: null, warnings: null, usageInstructions: null, pimFeatures: {}, raw: null, imageUrl: null, reason: 'Brak dostępnych zdjęć do analizy etykiety' };
     }
 
     // Jeśli posiadamy więcej niż 1 zdjęcie i znamy już URL zdjęcia frontowego (zbadanego w extractFrontPackFeatures),
@@ -394,21 +414,23 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
         ? rawCandidateUrls.filter(u => u.trim() !== skipFrontUrl.trim())
         : rawCandidateUrls;
 
+    let bestPartialResult = null;
+
     for (let idx = 0; idx < candidateUrls.length; idx++) {
         const currentUrl = candidateUrls[idx];
         const label = candidateUrls.length > 1 ? ` (Zdjęcie ${idx + 1}/${candidateUrls.length})` : '';
         
         let bufferRes;
         try {
-            onLog(`[VISION INCI OCR] Pobieranie zdjęcia${label} dla EAN: ${ean || 'N/A'}...`);
+            onLog(`[VISION BACK-PACK OCR] Pobieranie zdjęcia${label} dla EAN: ${ean || 'N/A'}...`);
             bufferRes = await fetchImageBuffer(currentUrl, 15000, onLog);
         } catch (fetchErr) {
-            onLog(`[VISION INCI OCR OSTRZEŻENIE] Niepowodzenie pobierania zdjęcia${label}: ${fetchErr.message}`);
+            onLog(`[VISION BACK-PACK OCR OSTRZEŻENIE] Niepowodzenie pobierania zdjęcia${label}: ${fetchErr.message}`);
             continue;
         }
 
         try {
-            onLog(`[VISION INCI OCR] Analiza multimodalna Gemini 3.8 Flash Vision dla zdjęcia${label}...`);
+            onLog(`[VISION BACK-PACK OCR] Analiza multimodalna Gemini 3.8 Flash Vision (Skład / Ostrzeżenia / Sposób użycia) dla zdjęcia${label}...`);
             const base64Data = bufferRes.buffer.toString('base64');
             const { result, usage } = await aiWrapper.callAgentWithTelemetry({
                 agentId: "0",
@@ -421,29 +443,74 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                 onLog
             });
 
-            if (result && result.has_ingredients_label && result.inci && typeof result.inci === 'string') {
-                const cleanedInci = result.inci.trim();
-                const itemCount = (cleanedInci.match(/,/g) || []).length + 1;
-                
-                if (itemCount >= 3 && baselinkerExtract.isValidInciValue(cleanedInci)) {
-                    onLog(`[VISION INCI OCR SUKCES] Odczytano skład ze zdjęcia${label} (${itemCount} składników): ${cleanedInci.substring(0, 100)}...`);
+            if (result) {
+                let validInci = null;
+                let validWarnings = null;
+                let validUsage = null;
+                const pimFeatures = {};
+
+                if (result.has_ingredients_label && result.inci && typeof result.inci === 'string') {
+                    const cleanedInci = result.inci.trim();
+                    const itemCount = (cleanedInci.match(/[,;]/g) || []).length + 1;
+                    if ((itemCount >= 2 || /zawiera:|środki powierzchniowo czynne|sodium|acid|aqua|alcohol|peroxide|hypochlorite/i.test(cleanedInci)) && baselinkerExtract.isValidInciValue(cleanedInci)) {
+                        validInci = cleanedInci;
+                        pimFeatures['Skład/INCI'] = validInci;
+                    } else {
+                        onLog(`[VISION BACK-PACK OCR INFO] Zdjęcie${label} zawierało tekst składu, ale nie spełnia on wymogów strukturalnych INCI (liczba: ${itemCount}).`);
+                    }
+                }
+
+                if (result.warnings && typeof result.warnings === 'string' && result.warnings.trim().length >= 5) {
+                    validWarnings = result.warnings.trim()
+                        .replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
+                        .replace(/W\s+PRZYPADKU\s+KONTAKTU\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ')
+                        .replace(/\s{2,}/g, ' ');
+                    pimFeatures['Ostrzeżenia'] = validWarnings;
+                }
+
+                if (result.usage_instructions && typeof result.usage_instructions === 'string' && result.usage_instructions.trim().length >= 5) {
+                    validUsage = sanitizeVisionFrontText(result.usage_instructions.trim());
+                    pimFeatures['Sposób użycia'] = validUsage;
+                }
+
+                if (validInci) {
+                    onLog(`[VISION BACK-PACK OCR SUKCES] Odczytano dane z tylnej etykiety${label} (Skład/INCI: TAK, Ostrzeżenia: ${validWarnings ? 'TAK' : 'NIE'}, Sposób użycia: ${validUsage ? 'TAK' : 'NIE'}).`);
                     return {
                         found: true,
-                        inci: cleanedInci,
-                        raw: result.raw_composition_text,
+                        inci: validInci,
+                        warnings: validWarnings,
+                        usageInstructions: validUsage,
+                        pimFeatures,
+                        raw: result.raw_composition_text || null,
                         imageUrl: currentUrl,
                         usage
                     };
-                } else {
-                    onLog(`[VISION INCI OCR INFO] Zdjęcie${label} zawierało etykietę, ale odczytany skład nie spełnia wymogów strukturalnych INCI (liczba: ${itemCount}). Szukam dalej...`);
+                }
+
+                if ((validWarnings || validUsage) && !bestPartialResult) {
+                    onLog(`[VISION BACK-PACK OCR INFO] Odczytano Ostrzeżenia/Sposób użycia ze zdjęcia${label} (brak pełnego INCI na tym ujęciu).`);
+                    bestPartialResult = {
+                        found: true,
+                        inci: null,
+                        warnings: validWarnings,
+                        usageInstructions: validUsage,
+                        pimFeatures,
+                        raw: result.raw_composition_text || null,
+                        imageUrl: currentUrl,
+                        usage
+                    };
                 }
             }
         } catch (aiErr) {
-            onLog(`[VISION INCI OCR OSTRZEŻENIE] Błąd Vision AI dla zdjęcia${label}: ${aiErr.message}`);
+            onLog(`[VISION BACK-PACK OCR OSTRZEŻENIE] Błąd Vision AI dla zdjęcia${label}: ${aiErr.message}`);
         }
     }
 
-    return { found: false, inci: null, raw: null, imageUrl: null };
+    if (bestPartialResult) {
+        return bestPartialResult;
+    }
+
+    return { found: false, inci: null, warnings: null, usageInstructions: null, pimFeatures: {}, raw: null, imageUrl: null };
 }
 
 module.exports = {

@@ -177,6 +177,91 @@ export const UnifiedProductPipelineView = ({
     // NOWE STANY EKSPORTU BASELINKER
     const [isValidatingExport, setIsValidatingExport] = useState(false);
     const [exportValidationResult, setExportValidationResult] = useState(null);
+    const [isExtractingBackLabel, setIsExtractingBackLabel] = useState(false);
+    const backImageFileInputRef = useRef(null);
+
+    const handleExtractBackLabel = async (overrideImageUrl) => {
+        const targetImg = overrideImageUrl || newProductForm?.features?.['Zdjęcie tyłu opakowania'];
+        if (!targetImg) {
+            alert('Najpierw wgraj zdjęcie tyłu opakowania.');
+            return;
+        }
+        setIsExtractingBackLabel(true);
+        try {
+            const res = await axios.post(`${API_URL}/api/offer-optimizer/extract-back-label`, {
+                ean: (newProductForm?.ean ? String(newProductForm.ean).trim() : '') || (liveEan ? String(liveEan).trim() : ''),
+                backImageUrl: targetImg
+            }, { headers: { Authorization: `Bearer ${token}` } });
+
+            if (res.data && res.data.found) {
+                setNewProductForm(prev => {
+                    const updatedFeatures = { ...(prev.features || {}) };
+                    updatedFeatures['Zdjęcie tyłu opakowania'] = targetImg;
+                    if (res.data.inci) {
+                        updatedFeatures['Skład/INCI'] = res.data.inci;
+                        delete updatedFeatures['INCI'];
+                        delete updatedFeatures['Skład'];
+                    }
+                    if (res.data.warnings) {
+                        updatedFeatures['Ostrzeżenia'] = res.data.warnings;
+                    }
+                    if (res.data.usageInstructions) {
+                        updatedFeatures['Sposób użycia'] = res.data.usageInstructions;
+                    }
+                    return { ...prev, features: updatedFeatures };
+                });
+            } else {
+                alert('Agent Vision nie wykrył czytelnego składu, ostrzeżeń ani instrukcji użycia na tym zdjęciu. Upewnij się, że zdjęcie tyłu opakowania jest wyraźne, lub uzupełnij pola ręcznie.');
+            }
+        } catch (err) {
+            console.error('[BackLabel Vision] Błąd odczytu tylnej etykiety:', err);
+            alert('Błąd odczytu tylnej etykiety przez Vision AI: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsExtractingBackLabel(false);
+        }
+    };
+
+    const handleBackImageFileChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const img = new window.Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_DIM = 1600; // Wysoka rozdzielczość pod OCR drobnego druku z tylnej etykiety
+                let width = img.width;
+                let height = img.height;
+                if (width > height) {
+                    if (width > MAX_DIM) {
+                        height = Math.round(height * (MAX_DIM / width));
+                        width = MAX_DIM;
+                    }
+                } else {
+                    if (height > MAX_DIM) {
+                        width = Math.round(width * (MAX_DIM / height));
+                        height = MAX_DIM;
+                    }
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.88);
+                setNewProductForm(prev => ({
+                    ...prev,
+                    features: {
+                        ...(prev.features || {}),
+                        'Zdjęcie tyłu opakowania': compressedBase64
+                    }
+                }));
+                handleExtractBackLabel(compressedBase64);
+            };
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    };
 
     const brandDropdownRef = useRef(null);
 
@@ -477,8 +562,16 @@ export const UnifiedProductPipelineView = ({
              };
 
              const { offerDraft: _omitDraft, images: _omitImages, imageUrl: rawImgUrl, ...lightweightForm } = newProductForm;
+             const safeFeatures = { ...(lightweightForm.features || {}) };
+             if (typeof safeFeatures['Zdjęcie tyłu opakowania'] === 'string' && safeFeatures['Zdjęcie tyłu opakowania'].startsWith('data:image')) {
+                 delete safeFeatures['Zdjęcie tyłu opakowania'];
+             }
+             if (typeof safeFeatures['_backImageUrl'] === 'string' && safeFeatures['_backImageUrl'].startsWith('data:image')) {
+                 delete safeFeatures['_backImageUrl'];
+             }
              const safeForm = {
                  ...lightweightForm,
+                 features: safeFeatures,
                  imageUrl: (typeof rawImgUrl === 'string' && !rawImgUrl.startsWith('data:image')) ? rawImgUrl : ''
              };
 
@@ -612,6 +705,14 @@ export const UnifiedProductPipelineView = ({
                                 updatedFeatures['Skład/INCI'] = data.payload.extracted_data.inci.value;
                                 delete updatedFeatures['INCI'];
                                 delete updatedFeatures['Skład'];
+                                hasChanges = true;
+                            }
+                            if (data.payload.extracted_data.warnings && data.payload.extracted_data.warnings.value && (!updatedFeatures['Ostrzeżenia'] || String(updatedFeatures['Ostrzeżenia']).trim() === '')) {
+                                updatedFeatures['Ostrzeżenia'] = data.payload.extracted_data.warnings.value;
+                                hasChanges = true;
+                            }
+                            if (data.payload.extracted_data.usage && data.payload.extracted_data.usage.value && (!updatedFeatures['Sposób użycia'] || String(updatedFeatures['Sposób użycia']).trim() === '')) {
+                                updatedFeatures['Sposób użycia'] = data.payload.extracted_data.usage.value;
                                 hasChanges = true;
                             }
 
@@ -1544,9 +1645,93 @@ export const UnifiedProductPipelineView = ({
                                            {getSafeImageSrc(newProductForm.imageUrl) && (
                                               <div className="w-40 shrink-0 bg-white border border-slate-200 rounded-sm p-3 shadow-sm flex flex-col items-center justify-center">
                                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 block w-full text-center border-b border-slate-100 pb-2">Główna Miniatura</span>
-                                                 <img src={getSafeImageSrc(newProductForm.imageUrl)} alt="PIM Thumbnail" className="w-full h-auto object-contain rounded-sm" />
+                                                 <img
+                                                    src={getSafeImageSrc(newProductForm.imageUrl)}
+                                                    alt="PIM Thumbnail"
+                                                    onClick={() => setViewingImageUrl(newProductForm.imageUrl)}
+                                                    className="w-full h-auto object-contain rounded-sm cursor-pointer hover:opacity-90 transition-opacity"
+                                                    title="Kliknij, aby powiększyć"
+                                                 />
                                               </div>
                                            )}
+
+                                           {/* Dedykowany slot: Zdjęcie tyłu opakowania (Skład/INCI, Ostrzeżenia, Sposób użycia) */}
+                                           <div className="w-56 shrink-0 bg-emerald-50/60 border border-emerald-200 rounded-sm p-3 shadow-sm flex flex-col items-center justify-between">
+                                              <div className="w-full flex items-center justify-between border-b border-emerald-200 pb-2 mb-2">
+                                                 <span className="text-[9px] font-black text-emerald-800 uppercase tracking-widest">Zdjęcie tyłu opakowania</span>
+                                                 {newProductForm.features?.['Zdjęcie tyłu opakowania'] && (
+                                                    <button
+                                                       type="button"
+                                                       onClick={() => {
+                                                          const updated = { ...(newProductForm.features || {}) };
+                                                          delete updated['Zdjęcie tyłu opakowania'];
+                                                          setNewProductForm(prev => ({ ...prev, features: updated }));
+                                                       }}
+                                                       className="text-emerald-400 hover:text-rose-500 transition-colors"
+                                                       title="Usuń zdjęcie tyłu opakowania"
+                                                    >
+                                                       <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                 )}
+                                              </div>
+
+                                              <input
+                                                 type="file"
+                                                 accept="image/*"
+                                                 ref={backImageFileInputRef}
+                                                 onChange={handleBackImageFileChange}
+                                                 className="hidden"
+                                              />
+
+                                              {getSafeImageSrc(newProductForm.features?.['Zdjęcie tyłu opakowania']) ? (
+                                                 <div className="w-full flex flex-col items-center space-y-2">
+                                                    <img
+                                                       src={getSafeImageSrc(newProductForm.features?.['Zdjęcie tyłu opakowania'])}
+                                                       alt="Zdjęcie tyłu opakowania"
+                                                       onClick={() => setViewingImageUrl(newProductForm.features?.['Zdjęcie tyłu opakowania'])}
+                                                       className="w-full h-28 object-contain bg-white border border-emerald-200 rounded-sm cursor-pointer hover:opacity-90 transition-opacity"
+                                                       title="Kliknij, aby powiększyć tylną etykietę"
+                                                    />
+                                                    <div className="w-full flex space-x-1.5">
+                                                       <button
+                                                          type="button"
+                                                          onClick={() => backImageFileInputRef.current?.click()}
+                                                          className="flex-1 py-1.5 px-2 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors"
+                                                       >
+                                                          Zmień
+                                                       </button>
+                                                       <button
+                                                          type="button"
+                                                          disabled={isExtractingBackLabel}
+                                                          onClick={() => handleExtractBackLabel()}
+                                                          className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors flex items-center justify-center"
+                                                          title="Odczytaj Skład/INCI, Ostrzeżenia i Sposób użycia przez Agent Vision"
+                                                       >
+                                                          {isExtractingBackLabel ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                                                          {isExtractingBackLabel ? 'Skan...' : 'Skanuj AI'}
+                                                       </button>
+                                                    </div>
+                                                 </div>
+                                              ) : (
+                                                 <button
+                                                    type="button"
+                                                    onClick={() => backImageFileInputRef.current?.click()}
+                                                    className="w-full h-32 border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-white/80 hover:bg-emerald-50 rounded-sm flex flex-col items-center justify-center p-3 text-center transition-colors"
+                                                 >
+                                                    {isExtractingBackLabel ? (
+                                                       <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mb-1.5" />
+                                                    ) : (
+                                                       <Image className="w-6 h-6 text-emerald-500 mb-1.5" />
+                                                    )}
+                                                    <span className="text-[9px] font-black text-emerald-800 uppercase tracking-wider leading-tight">
+                                                       Wgraj tył opakowania
+                                                    </span>
+                                                    <span className="text-[8px] font-bold text-emerald-600 mt-1 leading-tight">
+                                                       Auto-OCR: Skład/INCI, Ostrzeżenia, Sposób użycia
+                                                    </span>
+                                                 </button>
+                                              )}
+                                           </div>
                                            
                                            {/* Moduł API EAN */}
                                            <div className="flex-1 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-sm flex flex-col justify-center">
@@ -1765,41 +1950,83 @@ export const UnifiedProductPipelineView = ({
                                                                 <Database className="w-4 h-4 mr-1 text-emerald-600"/>
                                                                 <span>Karta Techniczna i Skład (Parametry PIM)</span>
                                                             </div>
+                                                            {newProductForm.features?.['Zdjęcie tyłu opakowania'] && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={isExtractingBackLabel}
+                                                                    onClick={() => handleExtractBackLabel()}
+                                                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors flex items-center shadow-sm"
+                                                                >
+                                                                    {isExtractingBackLabel ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                                                                    {isExtractingBackLabel ? 'Odczytuję etykietę...' : 'Odczytaj z tyłu opakowania (AI)'}
+                                                                </button>
+                                                            )}
                                                          </div>
                                                          
                                                          <div className="flex flex-col space-y-2">
                                                             {(() => {
-                                                                const basePimParams = ['Skład/INCI'];
+                                                                const basePimParams = ['Skład/INCI', 'Ostrzeżenia', 'Sposób użycia'];
                                                                 const currentFeatures = newProductForm.features || {};
-                                                                const displayFeatures = { ...currentFeatures };
+                                                                const displayFeatures = {};
                                                                 
                                                                 basePimParams.forEach(p => {
-                                                                    if (!(p in displayFeatures)) {
-                                                                        displayFeatures[p] = '';
+                                                                    displayFeatures[p] = currentFeatures[p] !== undefined ? currentFeatures[p] : '';
+                                                                });
+                                                                Object.entries(currentFeatures).forEach(([k, v]) => {
+                                                                    if (!(k in displayFeatures)) {
+                                                                        displayFeatures[k] = v;
                                                                     }
                                                                 });
 
                                                                 const CORE_PIM_KEYS = new Set([
-                                                                    'skład/inci', 'skład', 'inci', 'pojemność', 'pojemność / waga', 'waga',
+                                                                    'skład/inci', 'skład', 'inci', 'ostrzeżenia', 'sposób użycia',
+                                                                    'pojemność', 'pojemność / waga', 'waga',
                                                                     'postać', 'zapach', 'dozownik', 'wydajność', 'przeznaczenie (front)', 
                                                                     'wyróżniki (etykieta front)', 'kraj pochodzenia', 'informacje o bezpieczeństwie'
+                                                                ]);
+                                                                const HIDDEN_IMAGE_KEYS = new Set([
+                                                                    'zdjęcie tyłu opakowania', 'zdjecie tylu opakowania', '_backimageurl'
+                                                                ]);
+                                                                const MULTILINE_PIM_KEYS = new Set([
+                                                                    'skład/inci', 'skład', 'inci', 'ostrzeżenia', 'sposób użycia', 'informacje o bezpieczeństwie'
                                                                 ]);
 
                                                                 return Object.entries(displayFeatures)
                                                                     .filter(([k]) => {
                                                                         const normK = String(k).toLowerCase().trim();
+                                                                        if (HIDDEN_IMAGE_KEYS.has(normK)) return false;
                                                                         if (CORE_PIM_KEYS.has(normK)) return true;
                                                                         return !categorySchema?.parameters?.some(p => String(p.name).toLowerCase().trim() === normK);
                                                                     })
                                                                     .map(([k, v]) => {
-                                                                        const displayVal = typeof v === 'object' ? JSON.stringify(v) : v;
+                                                                        const displayVal = typeof v === 'object' ? JSON.stringify(v) : (v ?? '');
+                                                                        const normK = String(k).toLowerCase().trim();
+                                                                        const isMultiline = MULTILINE_PIM_KEYS.has(normK);
+                                                                        const placeholderMap = {
+                                                                            'skład/inci': 'Skład INCI / skład detergentu (odczytywany ze zdjęcia tyłu lub wpisany ręcznie)...',
+                                                                            'ostrzeżenia': 'Ostrzeżenia CLP / BHP z tylnej etykiety (np. Chronić przed dziećmi. Stosować rękawice ochronne)...',
+                                                                            'sposób użycia': 'Instrukcja użycia i dozowania z tylnej etykiety...'
+                                                                        };
                                                                         return (
-                                                                            <div key={k} className="flex items-center space-x-2 group">
+                                                                            <div key={k} className="flex items-start space-x-2 group">
                                                                                 <input type="text" value={k} readOnly className="w-1/3 bg-white border border-emerald-200 rounded-sm px-3 py-2 text-[10px] font-bold text-emerald-700 uppercase tracking-widest shadow-sm" />
-                                                                                <input type="text" value={displayVal} placeholder="Wpisz wartość..." onChange={e => {
-                                                                                    const updated = {...newProductForm.features, [k]: e.target.value};
-                                                                                    setNewProductForm({...newProductForm, features: updated});
-                                                                                }} className="flex-1 bg-white border border-emerald-200 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-emerald-500 shadow-sm" />
+                                                                                {isMultiline ? (
+                                                                                    <textarea
+                                                                                        rows={2}
+                                                                                        value={displayVal}
+                                                                                        placeholder={placeholderMap[normK] || 'Wpisz wartość...'}
+                                                                                        onChange={e => {
+                                                                                            const updated = {...newProductForm.features, [k]: e.target.value};
+                                                                                            setNewProductForm({...newProductForm, features: updated});
+                                                                                        }}
+                                                                                        className="flex-1 bg-white border border-emerald-200 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-emerald-500 shadow-sm resize-y"
+                                                                                    />
+                                                                                ) : (
+                                                                                    <input type="text" value={displayVal} placeholder="Wpisz wartość..." onChange={e => {
+                                                                                        const updated = {...newProductForm.features, [k]: e.target.value};
+                                                                                        setNewProductForm({...newProductForm, features: updated});
+                                                                                    }} className="flex-1 bg-white border border-emerald-200 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-emerald-500 shadow-sm" />
+                                                                                )}
                                                                                 <button type="button" onClick={() => {
                                                                                     const updated = {...newProductForm.features};
                                                                                     delete updated[k];

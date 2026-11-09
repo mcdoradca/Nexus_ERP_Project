@@ -52,7 +52,8 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
            - P101 – W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę. (Zgodnie z art. 17 ust. 1 Rozp. CLP kod P101 jest OBLIGATORYJNY obok P102 dla produktów konsumenckich stwarzających zagrożenie — KATEGORYCZNY ZAKAZ POMIJANIA!).
            - P102 – Chronić przed dziećmi.
            - P264 – Dokładnie umyć ręce po użyciu. (obowiązkowa prewencja ogólna przy H319/H318 — KATEGORYCZNY ZAKAZ POMIJANIA!).
-           - P280 – Stosować ochronę oczu. (obowiązkowe przy klasyfikacji H319/H318).
+           - P280 – Stosować rękawice ochronne. (OBOWIĄZKOWE przy środkach żrących, silnie zasadowych/kwasowych, z podchlorynem sodu, wodorotlenkiem sodu/potasu, do piekarników/przypaleń/pleśni, przy klasyfikacji H314/H315 lub gdy w `pim_safety_warnings` / `pim_usage_instructions` widnieje wymóg rękawic; KATEGORYCZNY ZAKAZ zmyślania przemysłowych masek, półmasek, gogli i okularów ochronnych dla chemii domowej spoza etykiety!).
+           - P302+P352 – W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ: Umyć dużą ilością wody. (obowiązkowe przy H315 / podrażnieniu skóry / wymaganych rękawicach).
            - P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem. (Standardowe zabezpieczenie ratunkowe OBOWIĄZKOWE dla detergentów, kapsułek, płynów oraz preparatów aerozolowych — KATEGORYCZNY ZAKAZ POMIJANIA!).
            - P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.
            - P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza. (obowiązkowe domknięcie procedury ratunkowej przy H319).

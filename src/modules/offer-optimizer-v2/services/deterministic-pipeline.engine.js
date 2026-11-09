@@ -37,7 +37,8 @@ function cleanFeaturesForPrompt(featuresObj) {
     const cleaned = {};
     const blacklistedKeys = [
         'kod karty', 'szablon', 'template', 'html', 'opis_html', 'opis html',
-        'allegro_html', 'baselinker_html', 'style', 'css', 'svg', 'baner'
+        'allegro_html', 'baselinker_html', 'style', 'css', 'svg', 'baner',
+        'zdjęcie tyłu opakowania', 'zdjecie tylu opakowania', '_backimageurl'
     ];
 
     for (const [rawKey, rawVal] of Object.entries(featuresObj)) {
@@ -58,8 +59,11 @@ function cleanFeaturesForPrompt(featuresObj) {
             continue;
         }
 
-        const isInciKey = /(inci|skład|sklad|ingredients|composizione)/i.test(keyLower);
-        if (!isInciKey && valStr.length > 500) {
+        const isInciOrLabelKey = /(inci|skład|sklad|ingredients|composizione|ostrze[żz]enia|warnings|bezpiecze[ńn]stw|spos[oó]b\s+u[żz]ycia|spos[oó]b\s+u[żz]ywania|instrukcja|dozowanie|stosowanie)/i.test(keyLower);
+        if (!isInciOrLabelKey && valStr.length > 500) {
+            continue;
+        }
+        if (isInciOrLabelKey && valStr.length > 3000) {
             continue;
         }
 
@@ -67,7 +71,7 @@ function cleanFeaturesForPrompt(featuresObj) {
         if (isCapKey) {
             cleaned[rawKey] = normalizeCapacityValue(valStr, featuresObj?.['Nazwa'] || '', featuresObj);
         } else {
-            cleaned[rawKey] = isInciKey ? valStr : sanitizeHtmlClaimsAndStopwords(valStr);
+            cleaned[rawKey] = isInciOrLabelKey ? valStr : sanitizeHtmlClaimsAndStopwords(valStr);
         }
     }
     return cleaned;
@@ -463,6 +467,19 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
         .replace(/już\s+w\s+niskich\s+temperaturach\s*\(od\s*20[–-]30\s*°?\s*C\)/gi, 'podczas codziennego zmywania i czyszczenia')
         .replace(/chronią\s+grzałkę\s+pralki\s+przed\s+kamieniem\s+i\s+zapobiegają\s+szarzeniu\s+tkanin/gi, 'wiążą jony twardości wody, zapobiegając powstawaniu zacieków wapiennych na armaturze i ceramice')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])tłuszcz,\s*oleje\s+i\s+sebum(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'tłuszcz, oleje i osady mineralne');
+
+    // --- KROK G2: TARCZA PRZECIW HALUCYNACJI PRZEMYSŁOWEGO ŚOI (MASKI / GOGLE / OKULARY) W CHEMII DOMOWEJ ---
+    const labelTextForPpe = `${context?.pimWarnings || ''} ${context?.pimUsage || ''}`;
+    if (!/(?:mask[ęięa]\s+ochronn|półmask|respirator|gogl[ei]\s+ochronn|okular[yów]\s+ochronn)/i.test(labelTextForPpe)) {
+        res = res
+            .replace(/(?:załóż|założyć|stosuj|stosować|używaj|używać)\s+(?:rękawice\s+ochronne\s*,\s*)?(?:maskę(?:\s+ochronną)?|półmaskę|respirator)\s+(?:oraz|i)\s+(?:okulary|gogle)(?:\s+ochronne)?/gi, 'załóż rękawice ochronne i zadbaj o wietrzenie pomieszczenia')
+            .replace(/(?:załóż|założyć|stosuj|stosować|używaj|używać)\s+(?:okulary|gogle)(?:\s+ochronne)?\s+(?:oraz|i)\s+(?:maskę(?:\s+ochronną)?|półmaskę|respirator)/gi, 'załóż rękawice ochronne i zadbaj o wietrzenie pomieszczenia')
+            .replace(/(?:w\s+masce\s+ochronnej\s+i\s+okularach(?:\s+ochronnych)?|w\s+masce\s+i\s+okularach(?:\s+ochronnych)?|w\s+okularach\s+ochronnych\s+i\s+masce)/gi, 'w rękawicach ochronnych przy dobrej wentylacji')
+            .replace(/,\s*(?:maskę\s+ochronną|okulary\s+ochronne|gogle\s+ochronne)(?:\s+(?:oraz|i)\s+(?:maskę\s+ochronną|okulary\s+ochronne|gogle\s+ochronne))?/gi, '')
+            .replace(/(?:oraz|i)\s+(?:maskę\s+ochronną|okulary\s+ochronne|gogle\s+ochronne)/gi, '')
+            .replace(/Stosować\s+rękawice\s+ochronne\s*\/\s*odzież\s+ochronną\s*\/\s*ochronę\s+oczu\s*\/\s*ochronę\s+twarzy\.?/gi, 'Stosować rękawice ochronne.')
+            .replace(/Stosować\s+ochronę\s+oczu\s*\/\s*ochronę\s+twarzy\.?/gi, 'Stosować rękawice ochronne.');
+    }
 
     // --- KROK H: WYODRĘBNIENIE BLOKU WYKLUCZENIA MATERIAŁOWEGO (PRATFALL W SEKCJI 4) ---
     // Konwersja nieautoryzowanego na Allegro symbolu ⛔ na dozwolony symbol ostrzegawczy ⚠️

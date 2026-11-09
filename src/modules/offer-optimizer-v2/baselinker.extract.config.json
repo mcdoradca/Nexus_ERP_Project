@@ -4,8 +4,8 @@
     "mpn": ["kod producenta"],
     "brand": ["marka", "brand"],
     "capacity": ["pojemnosc", "capacity", "pojemnosc opakowania", "wielkosc", "pojemnosc waga", "waga", "masa"],
-    "usage": ["usage instructions", "sposob uzycia"],
-    "warnings": ["warnings", "uwagi dotyczace bezpieczenstwa"],
+    "usage": ["usage instructions", "sposob uzycia", "sposob uzywania", "instrukcja uzycia", "stosowanie", "dozowanie"],
+    "warnings": ["warnings", "uwagi dotyczace bezpieczenstwa", "ostrzezenia", "ostrzezenia dotyczace bezpieczenstwa", "informacje o bezpieczenstwie", "srodki ostroznosci", "bezpieczenstwo"],
     "line": ["linia", "line", "product line"],
     "clp_signal_word": ["haslo ostrzegawcze", "signal word", "haslo clp", "uwaga", "niebezpieczenstwo", "pericolo", "danger", "warning"],
     "clp_h_phrases": ["zwroty h", "zagrozenia", "hazard statements", "zwroty wskazujace rodzaj zagrozenia", "zagrozenie clp", "h-phrases", "h phrases", "h_phrases"],
@@ -14,7 +14,9 @@
     "detergent_composition": ["sklad detergentu", "rozporzadzenie o detergentach", "detergent composition", "zawartosc surfaktantow", "sklad wg 648 2004", "konserwanty detergent"]
   },
   "ignoredFeatures": [
-    "kod karty"
+    "kod karty",
+    "zdjecie tylu opakowania",
+    "_backimageurl"
   ],
   "exportWhiteList": [
     "name",

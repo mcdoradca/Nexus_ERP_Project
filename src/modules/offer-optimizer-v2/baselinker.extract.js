@@ -184,6 +184,10 @@ function extractFromFeatures(product) {
             }
         } else {
             for (const fKey of featureKeys) {
+                const rawVal = features[fKey];
+                if (rawVal === null || rawVal === undefined || (typeof rawVal === 'string' && rawVal.trim() === '')) {
+                    continue;
+                }
                 const norm = normalizeFeatureKey(fKey);
                 if (synonyms.includes(norm)) {
                     foundKey = fKey;

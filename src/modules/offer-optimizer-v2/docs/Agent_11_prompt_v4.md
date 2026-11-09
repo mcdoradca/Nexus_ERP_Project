@@ -58,6 +58,13 @@ D7. BŁĄD POJĘCIOWO-TECHNOLOGICZNY (PŁYN DO PŁUKANIA vs DETERGENT PIORĄCY):
    - KATEGORYCZNY ZAKAZ używania w opisie płynu do płukania zwrotów: "X prań", "cykle prania", "po każdym praniu", "środek piorący", "usuwanie brudu/plam", "Wydajność deklarowana: X prań".
    - Jeśli wykryjesz te błędy w płynie do płukania, BEZWZGLĘDNIE wygeneruj patch naprawczy zamieniający je na: "X cykli płukania" (lub "X płukań"), "po każdym płukaniu", "cykl płukania", "płyn do płukania tkanin", "zmiękczanie tkanin i ułatwianie prasowania".
 
+D8. AUDYT REALIZMU BHP I ZGODNOŚCI Z TYLNĄ ETYKIETĄ (`pim_safety_warnings`, `pim_usage_instructions`, `requires_protective_gloves`):
+   - KATEGORYCZNY ZAKAZ HALUCYNACJI PRZEMYSŁOWEGO ŚOI W CHEMII DOMOWEJ: Jeżeli w jakiejkolwiek sekcji (szczególnie w Sekcji 4 przy czyszczeniu piekarnika, grilla, kuchni lub łazienki albo w Sekcji 6) pojawił się wymóg zakładania **maski ochronnej, półmaski, respiratora, gogli lub okularów ochronnych** (bądź sformułowanie „Stosować ochronę oczu / ochronę twarzy”), a wymóg ten NIE widnieje dosłownie w `pim_safety_warnings` / `pim_usage_instructions`, BEZWZGLĘDNIE wygeneruj patch naprawczy zamieniający ten nadmiarowy nakaz na stosowanie rękawic ochronnych i wietrzenie pomieszczenia!
+   - BEZWZGLĘDNY OBOWIĄZEK RĘKAWIC OCHRONNYCH PRZY ŚRODKACH ŻRĄCYCH I SILNEJ CHEMII: Jeżeli `requires_protective_gloves === true` LUB produkt zawiera `Sodium Hydroxide`, `Potassium Hydroxide`, `Sodium Hypochlorite` (chlor/wybielacz), silne kwasy odkamieniające, klasyfikację `H314`/`H315`, jest odtłuszczaczem do piekarników/przypaleń/pleśni LUB wymóg rękawic widnieje w `pim_safety_warnings`/`pim_usage_instructions`, sprawdź czy:
+     1) Sekcja 4 (Sposób użycia) wyraźnie zaleca założenie rękawic ochronnych,
+     2) Sekcja 6 (BHP/CLP) zawiera punkt `<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P280 – Stosować rękawice ochronne.</li>`.
+     Jeśli w Sekcji 4 lub 6 brakuje wymogu rękawic ochronnych dla takiego środka, BEZWZGLĘDNIE wygeneruj patch uzupełniający!
+
 ---
 
 ## FORMAT WYJŚCIOWY (JSON)
