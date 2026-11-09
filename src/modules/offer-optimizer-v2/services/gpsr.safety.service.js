@@ -379,17 +379,45 @@ class GpsrSafetyService {
             /(sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|sodium\s+silicate|sodium\s+metasilicate|krzemian\s+sodu|sodium\s+c14-17\s+alkyl\s+sec\s+sulfonate|sodium\s+dodecylbenzenesulfonate|alkylbenzene\s+sulfonate|sodium\s+carbonate|sulfamic\s+acid|formic\s+acid|phosphoric\s+acid|hydrochloric\s+acid|sodium\s+percarbonate|nadwęglan\s+sodu|mleczko\s+do\s+czyszczenia|środek\s+wielofunkcyjny|srodek\s+wielofunkcyjny|środek\s+czyszczący|srodek\s+czyszczacy|odkamieniacz|udrożniacz|odtłuszczacz|sgrassatore|anticalcare|płyn\s+do\s+wc|żel\s+do\s+wc)/i.test(`${cleanInci} ${prodNameLower}`)
         );
 
+        const isGlassOrMildSurfaceSpray = Boolean(
+            /(?:do\s+szyb|do\s+szkła|do\s+luster|płyn\s+do\s+szyb|vetri|glass\s+cleaner|cristalli|specchi)/i.test(prodNameLower) &&
+            !hasSevereChemicalIrritant &&
+            !hasHypochlorite &&
+            !isLaundryDetergent &&
+            !isLaundryCapsules
+        );
+
+        const labelExplicitlyDeclaresHazard = Boolean(
+            /(?:\bH314\b|\bH315\b|\bH318\b|\bH319\b|\bH225\b|\bH226\b|\bH290\b|\bP264\b|\bP280\b|\bP305\b|\bP337\b|drażniąc[a-ząćęłńóśźż]*\s+na\s+(?:oczy|skórę)|uszkodzeni[ea]\s+oczu|oparzeni[ea]\s+skóry|irritazione\s+oculare|provoca\s+grave|causes\s+serious\s+eye|causes\s+skin\s+irritation|niebezpieczeństwo|pericolo|danger|hasło\s+ostrzegawcze\s*[–:-]\s*(?:uwaga|niebezpieczeństwo))/i.test(
+                `${rawPimWarnings} ${combinedHPhrases.join(' ')} ${splitPPhrases.join(' ')} ${compliance?.clp_signal_word || ''}`
+            )
+        );
+
+        // Jeżeli posiadamy odczyt z tylnej etykiety (rawPimWarnings) lub jest to łagodny płyn do szyb/luster,
+        // który na etykiecie posiada wyłącznie zwroty ostrożności P101/P102/P103 i EUH208 (bez H319/H315/H314 i bez piktogramu),
+        // NIE WOLNO fabrykować klasyfikacji H319, hasła UWAGA ani procedur P264/P305/P337!
+        const isMildUnclassifiedChemical = Boolean(
+            !labelExplicitlyDeclaresHazard &&
+            !hasSevereChemicalIrritant &&
+            !hasHypochlorite &&
+            !isLaundryDetergent &&
+            !isLaundryCapsules &&
+            !isAerosol &&
+            (Boolean(rawPimWarnings && rawPimWarnings.length >= 10) || isGlassOrMildSurfaceSpray)
+        );
+
         const isClassifiedChemical = Boolean(
-            hasEyeIrritation ||
-            hasSkinIrritationOrCorrosion ||
-            hasHypochlorite ||
-            hasSevereChemicalIrritant ||
-            isLaundryDetergent ||
-            isLaundryCapsules ||
-            isAerosol ||
-            compliance?.clp_signal_word ||
-            (compliance?.clp_h_phrases && compliance.clp_h_phrases.length > 0) ||
-            Boolean(rawPimWarnings)
+            !isMildUnclassifiedChemical && (
+                hasEyeIrritation ||
+                hasSkinIrritationOrCorrosion ||
+                hasHypochlorite ||
+                hasSevereChemicalIrritant ||
+                isLaundryDetergent ||
+                isLaundryCapsules ||
+                isAerosol ||
+                labelExplicitlyDeclaresHazard ||
+                (compliance?.clp_h_phrases && compliance.clp_h_phrases.length > 0)
+            )
         );
 
         // --- OBSŁUGA CHEMII GOSPODARCZEJ I DETERGENTÓW (REŻIM CLP 1272/2008 & REŻIM DETERGENTOWY 648/2004) ---
@@ -445,6 +473,11 @@ class GpsrSafetyService {
             // 4. P102 – Chronić przed dziećmi (Obowiązkowy dla mieszanin konsumenckich)
             warnings.push("P102 – Chronić przed dziećmi.");
 
+            // 4b. P103 – Uważnie przeczytać wszystkie instrukcje i zastosować się do nich (jeśli występuje na etykiecie lub dla łagodnych sprayów z P103)
+            if (/(?:\bP103\b|uważnie\s+przeczytać\s+wszystkie\s+instrukcje|leggere\s+attentamente\s+e\s+seguire|read\s+carefully\s+and\s+follow)/i.test(`${rawPimWarnings} ${splitPPhrases.join(' ')}`) || isMildUnclassifiedChemical) {
+                warnings.push("P103 – Uważnie przeczytać wszystkie instrukcje i zastosować się do nich.");
+            }
+
             // 5. P264 – Dokładnie umyć ręce po użyciu
             if (isClassifiedChemical) {
                 warnings.push("P264 – Dokładnie umyć ręce po użyciu.");
@@ -460,10 +493,10 @@ class GpsrSafetyService {
             }
 
             // 6. P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ / lekarzem
-            if (isClassifiedChemical || isLaundryCapsules) {
+            if (isClassifiedChemical || isLaundryCapsules || /\bP301\b|połknięci/i.test(rawPimWarnings)) {
                 warnings.push("P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.");
             }
-            if (!isLaundryCapsules) {
+            if ((isClassifiedChemical || /nie\s+połykać|non\s+ingerire|do\s+not\s+swallow/i.test(rawPimWarnings)) && !isLaundryCapsules) {
                 warnings.push("Nie połykać.");
             }
 
@@ -473,10 +506,12 @@ class GpsrSafetyService {
             }
 
             // 8. P305+P351+P338 – Faza 1: Płukanie oczu wodą
-            warnings.push("P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
+            if (isClassifiedChemical || /\bP305\b|dostania\s+się\s+do\s+oczu/i.test(rawPimWarnings)) {
+                warnings.push("P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
+            }
 
             // 9. P337+P313 – Faza 2: Pomoc lekarska w razie utrzymywania się podrażnienia oczu
-            if (isClassifiedChemical) {
+            if (isClassifiedChemical || /\bP337\b/i.test(rawPimWarnings)) {
                 warnings.push("P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza.");
             }
 
@@ -493,10 +528,21 @@ class GpsrSafetyService {
                 warnings.push(`EUH208 – Zawiera ${formattedSensitizers}. Może powodować wystąpienie reakcji alergicznej.`);
             }
 
-            // 11. Dołączenie ewentualnych pozostałych zwrotów P ze specyfikacji/SDS (skonsolidowanych)
-            for (const p of splitPPhrases) {
+            // 11. Dołączenie ewentualnych pozostałych zwrotów P ze specyfikacji/SDS (skonsolidowanych, z twardą deduplikacją po kodzie i treści)
+            for (const rawP of splitPPhrases) {
+                const p = String(rawP || '')
+                    .replace(/^(?:Uwaga|Ostrzeżenie(?:\s+CLP(?:\/GPSR)?)?)\s*[–:-]\s*/i, '')
+                    .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3})\s*(?:[–:-]\s*|\s+)/i, '$1 – ')
+                    .trim();
+                if (!p) continue;
                 const codeOnly = p.split(/[\s–-]/)[0].toUpperCase();
-                if (/^(P301|P312|P305|P351|P338|P337|P313|P302|P352|P280)$/.test(codeOnly)) {
+                if (/^(P101|P102|P103|P264|P301|P312|P305|P351|P338|P337|P313|P302|P352|P280|EUH206|EUH208)$/.test(codeOnly)) {
+                    if (codeOnly === 'P103' && !warnings.some(w => /\bP103\b/i.test(w))) {
+                        warnings.push("P103 – Uważnie przeczytać wszystkie instrukcje i zastosować się do nich.");
+                    }
+                    continue;
+                }
+                if (/(?:pokazać pojemnik lub etykietę|chronić przed dziećmi|uważnie przeczytać wszystkie instrukcje|dokładnie umyć ręce|nie połykać|dostania się do oczu|styczności ze skórą|kontaktu ze skórą|działa drażniąco na oczy|reakcji alergicznej|izotiazol|isothiazol|^zawiera\b)/i.test(p)) {
                     continue;
                 }
                 if (!warnings.some(w => w.includes(codeOnly))) {
@@ -508,15 +554,15 @@ class GpsrSafetyService {
             if (rawPimWarnings) {
                 const labelClauses = rawPimWarnings
                     .split(/(?:\r?\n|;\s*|\.\s+)/)
-                    .map(s => s.trim())
+                    .map(s => s.replace(/^(?:Uwaga|Ostrzeżenie(?:\s+CLP(?:\/GPSR)?)?)\s*[–:-]\s*/i, '').trim())
                     .filter(s => s.length >= 6);
                 for (const clause of labelClauses) {
                     const normalizedClause = clause.endsWith('.') ? clause : `${clause}.`;
-                    // Pomijamy zdania już pokryte przez standardowe kody P/H/EUH
-                    if (/^(?:Hasło\s+ostrzegawcze|UWAGA\.?|NIEBEZPIECZEŃSTWO\.?|P101|P102|P264|P280|P301|P302|P305|P337|H314|H315|H318|H319|EUH206|EUH208)/i.test(normalizedClause)) {
+                    // Pomijamy zdania już pokryte przez standardowe kody P/H/EUH oraz rozbite człony EUH208 ("Zawiera...", "Może powodować wystąpienie reakcji alergicznej")
+                    if (/^(?:Hasło\s+ostrzegawcze|UWAGA\.?|NIEBEZPIECZEŃSTWO\.?|P101|P102|P103|P264|P280|P301|P302|P305|P337|H314|H315|H318|H319|EUH206|EUH208|Zawiera\b|Contains\b|Contiene\b)/i.test(normalizedClause)) {
                         continue;
                     }
-                    if (/(?:chronić przed dziećmi|dokładnie umyć ręce|nie połykać|dostania się do oczu|styczności ze skórą|kontaktu ze skórą|działa drażniąco na oczy|działa drażniąco na skórę|stosować rękawice ochronne|pokazać pojemnik lub etykietę)/i.test(normalizedClause)) {
+                    if (/(?:chronić przed dziećmi|uważnie przeczytać wszystkie instrukcje|zastosować się do nich|dokładnie umyć ręce|nie połykać|dostania się do oczu|styczności ze skórą|kontaktu ze skórą|działa drażniąco na oczy|działa drażniąco na skórę|stosować rękawice ochronne|pokazać pojemnik lub etykietę|reakcji alergicznej|reazione allergica|allergic reaction|izotiazol|isothiazol)/i.test(normalizedClause)) {
                         continue;
                     }
                     if (!warnings.some(w => w.toLowerCase().includes(clause.toLowerCase().substring(0, Math.min(25, clause.length))))) {
@@ -586,7 +632,7 @@ class GpsrSafetyService {
             return w
                 .replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
                 .replace(/W\s+PRZYPADKU\s+KONTAKTU\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ')
-                .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3}):\s*/i, '$1 – ');
+                .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3})\s*(?:[–:-]\s*|\s+)/i, '$1 – ');
         });
 
         // Deduplikacja bez sztucznego obcinania - pełna lista prawna

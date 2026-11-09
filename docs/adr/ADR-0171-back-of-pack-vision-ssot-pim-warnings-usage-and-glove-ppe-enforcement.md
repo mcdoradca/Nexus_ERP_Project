@@ -32,7 +32,19 @@ Wdrożono architekturę **Back-of-Pack Label Single Source of Truth (SSOT)**:
      - **Regułę 17:** bezwzględny obowiązek obecności rękawic ochronnych zarówno w Sekcji 4, jak i Sekcji 6 (`P280 – Stosować rękawice ochronne.`) dla środków żrących, silnie zasadowych/kwasowych, wybielaczy, preparatów do piekarników/pleśni oraz gdy wymaga tego etykieta.
    - Zaktualizowano i przekompilowano prompty `Agent_5_prompt_v4.md`, `Agent_6_prompt_v4.md`, `Agent_11_prompt_v4.md` oraz `Agent_10_prompt_v4.md`.
 
-## 3. Weryfikacja
+## 3. Rewizja 2 (Audyt Etykiety Kontra Opis dla *Dual Power Orizon Płyn do szyb i szkła 500 ml*, EAN `8050999571427`)
+W wyniku audytu tylnej etykiety *Dual Power Orizon Vetri 500 ml* (`Italchimica S.r.l.`) względem wygenerowanego opisu wdrożono 4 poprawki systemowe:
+1. **Brak fałszywego `H319` i potrójnych duplikatów w Sekcji 6 (`gpsr.safety.service.js`, `deterministic-pipeline.engine.js`, `orchestrator.js`):**
+   - Dla mieszanin nieklasyfikowanych jako drażniące oczy (`isMildUnclassifiedChemical`), które na tylnej etykiecie posiadają wyłącznie zwroty ostrożności `P101`, `P102`, `P103` oraz `EUH208` (bez piktogramu CLP, bez hasła `UWAGA` i bez `H319`), zablokowano fabrykowanie `Hasło ostrzegawcze – UWAGA`, `H319 – Działa drażniąco na oczy.`, `P264`, `P301+P312`, `Nie połykać.`, `P305+P351+P338` oraz `P337+P313`.
+   - Naprawiono wyrażenie regularne w `sanitizeSection6Html` (`orchestrator.js`), które zamieniało `Zawiera:` i `Uwaga:` na `Zawiera –` / `Uwaga –`, oraz wdrożono twardą deduplikację po kodach CLP (`P101`, `P102`, `P103`, `EUH208`) i po znormalizowanej treści zdania (eliminacja duplikatów z `mandatory_clp_warnings` Agenta 4 oraz rozbitych członów `EUH208`).
+2. **Wzbogacenie Sekcji 3 i FAQ Q4 przy deklaracjach WE 648/2004 ograniczonych do konserwantów (`deterministic-pipeline.engine.js`, `Agent_6_prompt_v4.md`):**
+   - W `tryBuildDeterministicSection3` dodano KROK 2b: gdy skład na etykiecie detergentu (np. płynu do szyb wg Rozp. 648/2004) wymienia wyłącznie konserwanty (`Benzisothiazolinone`, `Methylchloroisothiazolinone/Methylisothiazolinone`), silnik deterministycznie poprzedza je rzeczywistymi mechanizmami bazy czyszczącej (szybko odparowująca baza na surowcach pochodzenia naturalnego + technologia niskiej emisji *Air Label Score A+*), dzięki czemu Sekcja 3 i FAQ Q4 nigdy nie prezentują konserwantów (`BIT`, `MCI/MI`) jako głównych substancji myjących.
+3. **Rozszerzenie ekstrakcji Vision Back-of-Pack (`vision-extractor.service.js`):**
+   - Rozbudowano `BACK_PACK_INCI_PROMPT` oraz `backPackInciSchema` o pola `target_surfaces` (-> `Przeznaczenie`, np. *szyby, kryształy, lustra oraz powierzchnie plastikowe i laminowane*), `certifications_and_claims` (-> `Cechy dodatkowe`, np. *Air Label Score A+, testowany dermatologicznie, testowany na nikiel, rtęć, ołów i chrom, H.A.C.C.P., butelka w 30% z plastiku z recyklingu*) oraz `manufacturer_name` (-> `Producent`, np. *Italchimica S.r.l.*).
+4. **Higiena Sekcji 5 (`deterministic-pipeline.engine.js`, `orchestrator.js`):**
+   - Zablokowano wyświetlanie placeholderów `Producent: nieznany producent` (automatyczny fallback do `eu_responsible_person.name` z GPSR, np. `Italchimica S.r.l.`, lub marki) oraz ogólnikowych wypełniaczy `Wydajność deklarowana: Długi czas użytkowania` pozbawionych wartości liczbowej.
+
+## 4. Weryfikacja
 - Testy jednostkowe (`gpsr.safety.test.js`, `vision_extractor.test.js`, `validators.test.js`): **117/117 PASS (0 błędów)**.
-- Build produkcyjny frontendu (`vite build`): **PASS (0 błędów)**.
+- Kompilacja promptów (`prompt-compiler.js`) i walidacja składni JS (`node --check`): **PASS (0 błędów)**.
 

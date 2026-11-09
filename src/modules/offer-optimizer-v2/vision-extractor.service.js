@@ -373,9 +373,14 @@ ZASADY ANALIZY (DOKTRYNA ZAMKNIĘTEGO ŚWIATA – ZERO ZGADYWANIA):
 4. EKSTRAKCJA SPOSOBU UŻYCIA ("usage_instructions"):
    - Jeśli na etykiecie widoczna jest instrukcja użycia / dozowania ("Modo d'uso", "Istruzioni per l'uso", "Sposób użycia", "Gebrauchsanweisung"):
      * Ustaw "has_back_label": true.
-     * Przetłumacz ją wiernie i kompletnie na naturalny język polski (kroki aplikacji, czas odczekania, temperatura, spłukiwanie, powierzchnie wykluczone, ewentualny wymóg użycia rękawiczek podczas mycia).
+     * Przetłumacz ją wiernie i kompletnie na naturalny język polski (kroki aplikacji, odległość rozpylania, czas odczekania, temperatura, spłukiwanie lub wycieranie do sucha, powierzchnie wykluczone, ewentualny wymóg użycia rękawiczek podczas mycia).
      * Zastosuj zgodność z BPR: słowa typu "igienizzante/antibatterico" tłumacz jako "higienicznie czyszczący".
-   - Jeśli brak widocznej instrukcji użycia na zdjęciu, ustaw "usage_instructions": null.`;
+   - Jeśli brak widocznej instrukcji użycia na zdjęciu, ustaw "usage_instructions": null.
+
+5. EKSTRAKCJA POWIERZCHNI DOCELOWYCH, CERTYFIKATÓW / TESTÓW ORAZ PRODUCENTA ("target_surfaces", "certifications_and_claims", "manufacturer_name"):
+   - W "target_surfaces" wypisz po polsku wszystkie powierzchnie i zastosowania wymienione w opisie na tylnej etykiecie (np. "do czyszczenia szyb, kryształów, luster oraz powierzchni plastikowych i laminowanych").
+   - W "certifications_and_claims" wypisz po polsku wszystkie certyfikaty, badania i atuty środowiskowe z tylnej etykiety (np. "certyfikat Air Label Score A+ (minimalna emisja substancji do powietrza), testowany dermatologicznie, testowany na obecność niklu, rtęci, ołowiu i chromu, odpowiedni do planów H.A.C.C.P., butelka zawiera 30% plastiku z recyklingu").
+   - W "manufacturer_name" podaj pełną nazwę producenta z kontretykiety (np. "Italchimica S.r.l.").`;
 
 const backPackInciSchema = {
     type: "object",
@@ -385,7 +390,10 @@ const backPackInciSchema = {
         inci: { type: ["string", "null"] },
         raw_composition_text: { type: ["string", "null"] },
         warnings: { type: ["string", "null"] },
-        usage_instructions: { type: ["string", "null"] }
+        usage_instructions: { type: ["string", "null"] },
+        target_surfaces: { type: ["string", "null"] },
+        certifications_and_claims: { type: ["string", "null"] },
+        manufacturer_name: { type: ["string", "null"] }
     },
     required: ["has_ingredients_label", "inci"]
 };
@@ -452,7 +460,7 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                 if (result.has_ingredients_label && result.inci && typeof result.inci === 'string') {
                     const cleanedInci = result.inci.trim();
                     const itemCount = (cleanedInci.match(/[,;]/g) || []).length + 1;
-                    if ((itemCount >= 2 || /zawiera:|środki powierzchniowo czynne|sodium|acid|aqua|alcohol|peroxide|hypochlorite/i.test(cleanedInci)) && baselinkerExtract.isValidInciValue(cleanedInci)) {
+                    if ((itemCount >= 2 || /zawiera:|środki powierzchniowo czynne|konserwant|preservative|isothiazol|benzisothiazol|sodium|acid|aqua|alcohol|peroxide|hypochlorite/i.test(cleanedInci)) && baselinkerExtract.isValidInciValue(cleanedInci)) {
                         validInci = cleanedInci;
                         pimFeatures['Skład/INCI'] = validInci;
                     } else {
@@ -471,6 +479,18 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                 if (result.usage_instructions && typeof result.usage_instructions === 'string' && result.usage_instructions.trim().length >= 5) {
                     validUsage = sanitizeVisionFrontText(result.usage_instructions.trim());
                     pimFeatures['Sposób użycia'] = validUsage;
+                }
+
+                if (result.target_surfaces && typeof result.target_surfaces === 'string' && result.target_surfaces.trim().length >= 5) {
+                    pimFeatures['Przeznaczenie'] = sanitizeVisionFrontText(result.target_surfaces.trim());
+                }
+
+                if (result.certifications_and_claims && typeof result.certifications_and_claims === 'string' && result.certifications_and_claims.trim().length >= 5) {
+                    pimFeatures['Cechy dodatkowe'] = sanitizeVisionFrontText(result.certifications_and_claims.trim());
+                }
+
+                if (result.manufacturer_name && typeof result.manufacturer_name === 'string' && result.manufacturer_name.trim().length >= 3) {
+                    pimFeatures['Producent'] = result.manufacturer_name.trim();
                 }
 
                 if (validInci) {

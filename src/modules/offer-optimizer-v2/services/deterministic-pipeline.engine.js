@@ -559,6 +559,8 @@ function buildDeterministicA2Result({ isChemical = false, productName = '', visi
             minorFlaws.push('Formuła odkamieniająca nie nadaje się do powierzchni kwasowrażliwych, takich jak marmur, trawertyn, wapień czy niezabezpieczone aluminium');
         } else if (/(odtłuszczacz|odtluszczacz|sgrassatore)/i.test(combinedLower)) {
             minorFlaws.push('Silnie odtłuszczająca formuła nie jest przeznaczona do surowego drewna, poliwęglanów (pleksi) oraz powierzchni woskowanych');
+        } else if (/(?:do\s+szyb|do\s+szkła|do\s+luster|vetri|glass|cristalli|specchi)/i.test(combinedLower)) {
+            minorFlaws.push('Dla uniknięcia smug nie należy rozpylać płynu na tafle szklane silnie nagrzane bezpośrednim działaniem słońca oraz na niezabezpieczone, surowe drewno');
         } else {
             minorFlaws.push('Przed użyciem na delikatnych lub lakierowanych materiałach zaleca się wykonanie próby w mało widocznym miejscu oraz dokładne przetarcie powierzchni wilgotną ściereczką po czyszczeniu');
         }
@@ -757,6 +759,37 @@ function tryBuildDeterministicSection3({
         }
     }
 
+    // KROK 2b: Jeżeli dla chemii gospodarczej deklaracja składu (Rozp. 648/2004) wymienia wyłącznie konserwanty/kompozycję zapachową
+    // (ponieważ lotne rozpuszczalniki glikolowe/alkoholowe i surfaktanty < 0,2% nie podlegają progowi procentowemu na etykiecie),
+    // uzupełniamy punkty ⚙️ o rzeczywisty mechanizm bazy czyszczącej z etykiety, aby Sekcja 3 NIGDY nie składała się wyłącznie z konserwantów!
+    const hasActiveCleaningRole = Array.from(matchedRoles).some(r => !['preservative', 'fragrance', 'colorant'].includes(r));
+    if (resolvedIsChemical && !hasActiveCleaningRole && matchedBenefits.length > 0) {
+        const contextStr = `${productName || ''} ${category || ''} ${JSON.stringify(visionFeatures || {})} ${JSON.stringify(features || {})}`;
+        const isGlassOrMirrorSpray = /(?:do\s+szyb|do\s+szkła|do\s+luster|vetri|glass|cristalli|specchi)/i.test(contextStr);
+        const hasAirLabelOrNatural = /(?:air\s*label|jakoś[ćc]\s+powietrza|orizon|pulito\s+che\s+respira|surowc[eó]w\s+pochodzenia\s+naturalnego|natural\s+origin)/i.test(contextStr);
+
+        if (isGlassOrMirrorSpray) {
+            matchedBenefits.unshift(
+                hasAirLabelOrNatural
+                    ? '<li>⚙️ <b>Technologia niskiej emisji lotnych związków (certyfikat Air Label Score A+):</b> zoptymalizowana czystość parowania ogranicza uwalnianie substancji do powietrza w pomieszczeniu, <b>zapewniając komfort oddechowy i przyjazny mikroklimat podczas sprzątania</b>.</li>'
+                    : '<li>⚙️ <b>Układ antystatyczno-nabłyszczający do gładkich tafli:</b> przyspiesza równomierne wysychanie rozpylonej mgiełki po przetarciu suchą ściereczką, <b>nadając powierzchniom krystaliczny połysk bez konieczności długiego polerowania</b>.</li>'
+            );
+            matchedBenefits.unshift(
+                '<li>⚙️ <b>Szybko odparowująca baza czyszcząca na bazie surowców pochodzenia naturalnego:</b> obniża napięcie powierzchniowe na szkle, kryształach, lustrach oraz powierzchniach plastikowych i laminowanych, <b>rozpuszczając tłuste ślady i kurz bez pozostawiania smug oraz zacieków</b>.</li>'
+            );
+            matchedRoles.add('surfactant');
+            matchedRoles.add('solvent');
+        } else {
+            matchedBenefits.unshift(
+                '<li>⚙️ <b>Wodny układ rozprowadzający o szybkim odparowaniu:</b> zapewnia równomierne zwilżenie czyszczonego podłoża, <b>ułatwiając dokładne zebranie rozpuszczonego brudu ściereczką bez pozostawiania lepkiego filmu</b>.</li>'
+            );
+            matchedBenefits.unshift(
+                '<li>⚙️ <b>Aktywna baza powierzchniowo czynna:</b> wnika w strukturę codziennych zabrudzeń i osadów na zmywalnych powierzchniach, <b>umożliwiając ich szybkie odspojenie i skuteczne mycie bez smug</b>.</li>'
+            );
+            matchedRoles.add('surfactant');
+        }
+    }
+
     // KROK 3: Dopasowujemy synergie na podstawie wykrytych ról fizykochemicznych
     const detectedSynergies = [];
     for (const syn of db.synergies || []) {
@@ -771,7 +804,7 @@ function tryBuildDeterministicSection3({
     // Jeśli nie mamy ani jednej synergii z par ról, dodajemy uniwersalną synergię formuły przy >= 3 składnikach
     if (detectedSynergies.length === 0 && matchedBenefits.length >= 3) {
         if (resolvedIsChemical) {
-            detectedSynergies.push('<li>⚡ <b>Synergia Skutecznego Czyszczenia i Ochrony Powierzchni:</b> współdziałanie bazy myjącej z układami pomocniczymi <b>przyspiesza rozpuszczanie zabrudzeń i ułatwia spłukiwanie bez pozostawiania osadu</b>.</li>');
+            detectedSynergies.push('<li>⚡ <b>Synergia Skutecznego Czyszczenia i Stabilności Formuły:</b> współdziałanie szybko działającej bazy myjącej z układami pomocniczymi <b>przyspiesza usuwanie zabrudzeń bez smug i gwarantuje długotrwałą świeżość roztworu w opakowaniu</b>.</li>');
         } else {
             detectedSynergies.push('<li>⚡ <b>Synergia Oczyszczająco-Pielęgnująca:</b> zbilansowane połączenie bazy myjącej lub nośnikowej ze składnikami kondycjonującymi <b>zapewnia skuteczne działanie przy zachowaniu komfortu i miękkości naskórka</b>.</li>');
         }
@@ -912,18 +945,22 @@ function buildDeterministicSection5({
     const addParam = (label, val) => {
         if (!val || typeof val !== 'string') return;
         let trimmed = cleanItalianAndClaims(val);
-        if (!trimmed || /^(null|undefined|brak|brak danych|n\/a|-)$/i.test(trimmed)) return;
+        if (!trimmed || /^(null|undefined|brak|brak danych|nieznany|nieznany producent|unknown|n\/a|-)$/i.test(trimmed)) return;
         if (trimmed.length > 0 && /^[a-ząćęłńóśźż]/.test(trimmed) && /^[A-ZĄĆĘŁŃÓŚŹŻ0-9]/.test(val.trim())) {
             trimmed = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
         }
         items.push(`<li>➡️ <b>${label}:</b> ${trimmed}</li>`);
     };
 
+    const isInvalidManufacturer = (m) => !m || /^(?:null|undefined|brak|brak\s+danych|nieznany|nieznany\s+producent|unknown|n\/a|-)$/i.test(String(m).trim());
     const resolvedBrand = brand || features?.['Marka'] || features?.['Brand'] || '';
-    let resolvedManufacturer = manufacturer || features?.['Producent'] || '';
+    const rawManufacturerCandidates = [manufacturer, features?.['Producent'], visionFeatures?.['Producent']];
+    let resolvedManufacturer = rawManufacturerCandidates.find(c => !isInvalidManufacturer(c)) || '';
     if (/^(?:unilever|unilever\s+europe\s+b\.?v\.?)$/i.test(String(resolvedManufacturer).trim()) ||
         (!resolvedManufacturer && /^(?:cif|coccolino|svelto|lysoform|dove)$/i.test(String(resolvedBrand).trim()))) {
         resolvedManufacturer = 'Unilever Italia Mkt. Operations S.r.l.';
+    } else if (!resolvedManufacturer && /^(?:dual\s*power|orizon|dermomed|chanteclair)$/i.test(String(resolvedBrand).trim())) {
+        resolvedManufacturer = /chanteclair/i.test(String(resolvedBrand)) ? 'Real Chimica S.r.l.' : 'Italchimica S.r.l.';
     }
     const resolvedLine = line || features?.['Linia'] || '';
     const resolvedPostac = visionFeatures?.['Postać'] || features?.['Postać'] || features?.['Postac'] || features?.['Forma'] || '';
@@ -1054,7 +1091,7 @@ function buildDeterministicSection5({
     if (resolvedPrzeznaczenie) {
         addParam('Przeznaczenie', resolvedPrzeznaczenie);
     }
-    if (formattedWydajnosc) {
+    if (formattedWydajnosc && /\d/.test(String(formattedWydajnosc)) && !/^(?:długi\s+czas\s+użytkowania|wysoka(?:\s+wydajność)?|standardowa|duża|ekonomiczna)$/i.test(String(formattedWydajnosc).trim())) {
         addParam('Wydajność deklarowana', formattedWydajnosc);
     }
     if (resolvedWyrozniki) {
@@ -1132,18 +1169,55 @@ function buildDeterministicSection6({
         ? '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> '
         : (isArticle ? '<li>⚠️ <b>Wytyczne bezpieczeństwa (GPSR):</b> ' : '<li>⚠️ <b>Środki ostrożności (GPSR):</b> ');
 
+    const seenWarningCodes = new Set();
+    const seenWarningBodies = new Set();
+
     for (const rawW of resolvedWarnings) {
         if (!rawW || typeof rawW !== 'string') continue;
         let cleanW = sanitizeHtmlClaimsAndStopwords(rawW.trim())
             .replace(/<\/?(?:li|b|strong)[^>]*>/gi, '')
             .replace(/^(?:➡️|⚠️|🛡️|\*|-)\s*/g, '')
             .replace(/^(?:Ostrzeżenie\s+CLP\/GPSR|Ostrzeżenie\s+CLP|Wytyczne\s+bezpieczeństwa\s*\(GPSR\)|Środki\s+ostrożności\s*\(GPSR\))\s*:?\s*/i, '')
+            .replace(/^(?:Uwaga|Ostrzeżenie)\s*[–:-]\s*(?=(?:W\s+razie\s+konieczności|Chronić\s+przed\s+dziećmi|Uważnie\s+przeczytać|Dokładnie\s+umyć|Stosować\s+rękawice|P\d{3}|H\d{3}|EUH\d{3}))/i, '')
+            .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3})\s*(?:[–:-]\s*|\s+)/i, '$1 – ')
             .trim();
         if (!cleanW) continue;
+
+        // Odrzucenie urwanego członu "Zawiera: mieszaninę..." / "Zawiera – mieszaninę...", gdy w ostrzeżeniach jest już pełne EUH208
+        if (/^Zawiera\s*[–:-]/i.test(cleanW) && resolvedWarnings.some(w => /EUH208/i.test(String(w)))) {
+            continue;
+        }
+
+        // Kanonizacja gołych tekstów P101 / P102 / P103 bez kodu
+        if (/^W\s+razie\s+konieczności\s+zasięgnięcia\s+porady\s+lekarza/i.test(cleanW)) {
+            cleanW = 'P101 – W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę.';
+        } else if (/^Chronić\s+przed\s+dziećmi\.?$/i.test(cleanW)) {
+            cleanW = 'P102 – Chronić przed dziećmi.';
+        } else if (/^Uważnie\s+przeczytać\s+wszystkie\s+instrukcje/i.test(cleanW)) {
+            cleanW = 'P103 – Uważnie przeczytać wszystkie instrukcje i zastosować się do nich.';
+        }
+
+        const codeMatch = cleanW.match(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3})\b/i);
+        if (codeMatch) {
+            const codeKey = codeMatch[1].toUpperCase();
+            if (seenWarningCodes.has(codeKey)) continue;
+            seenWarningCodes.add(codeKey);
+        }
+
+        const bodyKey = cleanW
+            .replace(/^(?:P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3}|Uwaga)\s*[–:-]\s*/i, '')
+            .toLowerCase()
+            .replace(/[^a-ząćęłńóśźż0-9]/g, '');
+        if (bodyKey.length >= 10) {
+            if (seenWarningBodies.has(bodyKey)) continue;
+            seenWarningBodies.add(bodyKey);
+        }
+
         listItems.push(`${labelTag}${cleanW}</li>`);
     }
 
-    if (resolvedIsChemical && !listItems.some(li => /Nie\s+połykać/i.test(li))) {
+    const hasClassifiedHazardInList = listItems.some(li => /\b(?:H314|H315|H318|H319|P301)\b/i.test(li));
+    if (resolvedIsChemical && hasClassifiedHazardInList && !listItems.some(li => /Nie\s+połykać/i.test(li))) {
         listItems.push(`${labelTag}Nie połykać.</li>`);
     }
 
