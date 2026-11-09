@@ -523,6 +523,17 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
             .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])rozpuszczani[ea]\s+zabrudzeń(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'nadawanie miękkości i elastyczności włóknom');
     }
 
+    // --- KROK J: TARCZA ONTO-SENSORYCZNA DLA PŁYNÓW DO MYCIA NACZYŃ (KONTAKT Z ŻYWNOŚCIĄ / BRAK PERFUM NA TALERZACH) ---
+    const isDishwashingProduct = /(?:płyn[a-ząćęłńóśźż]*\s+do\s+(?:mycia\s+)?naczyń|plyn[a-z]*\s+do\s+(?:mycia\s+)?naczyn|do\s+mycia\s+naczyń|\bpiatti\b|dishwash)/i.test(`${context?.productName || ''} ${res}`);
+    if (isDishwashingProduct) {
+        res = res
+            .replace(/pozostawiając\s+po\s+sprzątaniu\s+wyczuwalną,\s+długotrwałą\s+świeżość/gi, 'w kąpieli wodnej podczas zmywania i całkowicie spłukując się z wodą, dzięki czemu naczynia pozostają bezwonne w kontakcie z żywnością')
+            .replace(/odpowiadające\s+za\s+(?:<b>)?świeży,\s+długo\s+utrzymujący\s+się\s+aromat(?:<\/b>)?\s+po\s+zakończeniu\s+sprzątania/gi, 'wspomagające <b>neutralizację uciążliwych zapachów kuchennych (ryb, czosnku, cebuli)</b> podczas zmywania i całkowicie spłukujące się z powierzchni naczyń')
+            .replace(/po\s+zakończeniu\s+sprzątania/gi, 'po zakończeniu zmywania naczyń')
+            .replace(/podczas\s+sprzątania/gi, 'podczas zmywania naczyń')
+            .replace(/po\s+sprzątaniu/gi, 'po umyciu naczyń');
+    }
+
     return res;
 }
 
@@ -699,22 +710,53 @@ function tryBuildDeterministicSection3({
         }
     }
 
+    const contextStr = `${productName || ''} ${category || ''} ${JSON.stringify(visionFeatures || {})} ${JSON.stringify(features || {})}`;
+    const isDishwashing = /(?:do\s+(?:mycia\s+)?naczyń|do\s+naczyn|płyn\s+do\s+naczyń|plyn\s+do\s+naczyn|\bpiatti\b|dishwash|zmywani[ea]\s+naczyń|do\s+zmywarek|lavastoviglie)/i.test(contextStr);
+    const isLaundry = /(?:do\s+prania|do\s+płukania|płyn\s+do\s+prania|żel\s+do\s+prania|proszek\s+do\s+prania|kapsułk[ai]\s+do\s+prania|bucato|lavatrice|ammorbidente)/i.test(contextStr);
+
     const formatBulletHtml = (dbKey, entry) => {
         let htmlBullet = resolvedIsChemical
             ? (entry.chemical_html || entry.cosmetic_html)
             : (entry.cosmetic_html || entry.chemical_html);
         if (!htmlBullet) return '';
 
-        if (dbKey === 'fragrance_allergens') {
-            if (detectedAllergenNames.length > 0) {
-                htmlBullet = htmlBullet.replace(/<b>(Nuty aromatyczne|Składniki kompozycji zapachowej)(?:\s*\([^)]*\))?:<\/b>/i, `<b>$1 (${detectedAllergenNames.join(', ')}):</b>`);
+        if (isDishwashing && resolvedIsChemical) {
+            if (dbKey === 'sodium dodecylbenzenesulfonate') {
+                return '<li>⚙️ <b>Anionowe środki powierzchniowo czynne (np. Sodium Dodecylbenzenesulfonate):</b> główne cząsteczki odtłuszczające, które <b>obniżają napięcie powierzchniowe wody (także chłodnej), emulgują tłuszcz oraz zaschnięte resztki jedzenia i ułatwiają ich spłukanie z naczyń bez zacieków</b>.</li>';
             }
-        } else if (dbKey === 'preservatives') {
+            if (dbKey === 'amphoteric surfactants' || dbKey === 'cocamidopropyl betaine') {
+                return '<li>⚙️ <b>Amfoteryczne środki powierzchniowo czynne (np. betainy kokosowe):</b> ko-surfaktanty wspomagające odtłuszczanie w chłodnej wodzie, które <b>zagęszczają i stabilizują aktywną pianę oraz łagodzą działanie surfaktantów anionowych na skórę dłoni</b> podczas ręcznego zmywania.</li>';
+            }
+        }
+
+        // Konsolidacja Parfum i alergenów zapachowych w jeden spójny punkt ⚙️ (eliminacja duplikacji dwóch punktów o zapachu)
+        if (dbKey === 'parfum' || dbKey === 'fragrance_allergens') {
+            const allergenLabel = detectedAllergenNames.length > 0 ? `: ${detectedAllergenNames.join(', ')}` : '';
+            if (isDishwashing && resolvedIsChemical) {
+                return `<li>⚙️ <b>Kompozycja zapachowa i nuty aromatyczne (Parfum${allergenLabel}):</b> neutralizuje uciążliwe zapachy kuchenne (np. po rybach, czosnku, cebuli i smażonym tłuszczu) w kąpieli wodnej podczas zmywania oraz <b>całkowicie spłukuje się wraz z wodą, pozostawiając naczynia higienicznie czyste i bezwonne w kontakcie z żywnością</b>.</li>`;
+            }
+            if (resolvedIsChemical) {
+                const activityNoun = isLaundry ? 'praniu' : 'czyszczeniu';
+                return `<li>⚙️ <b>Kompozycja zapachowa (Parfum${allergenLabel}):</b> starannie dobrana frakcja aromatyczna, która <b>neutralizuje woń surowców chemicznych oraz nieprzyjemne zapachy</b>, pozostawiając po ${activityNoun} wyczuwalną świeżość.</li>`;
+            }
+            return `<li>⚙️ <b>Kompozycja zapachowa (Parfum${allergenLabel}):</b> starannie dobrany bukiet aromatyczny, który <b>neutralizuje woń bazy surowcowej i buduje przyjemny profil zapachowy produktu</b> podczas aplikacji.</li>`;
+        }
+
+        if (dbKey === 'preservatives') {
             if (detectedPreservativeNames.length > 0) {
                 htmlBullet = htmlBullet.replace(/<b>(Stabilizator mikrobiologiczny|Układ konserwujący)(?:\s*\([^)]*\))?:<\/b>/i, `<b>$1 (${detectedPreservativeNames.join(' / ')}):</b>`);
             }
         }
         return htmlBullet;
+    };
+
+    const markIngredientUsed = (dbKey, entry) => {
+        usedDbKeys.add(dbKey);
+        if (dbKey === 'parfum' || dbKey === 'fragrance_allergens') {
+            usedDbKeys.add('parfum');
+            usedDbKeys.add('fragrance_allergens');
+        }
+        if (entry.role) matchedRoles.add(entry.role);
     };
 
     const matchSingleIngredient = (ingStr) => {
@@ -746,8 +788,7 @@ function tryBuildDeterministicSection3({
     for (const hero of frontHeroItems) {
         const hit = matchSingleIngredient(hero);
         if (hit) {
-            usedDbKeys.add(hit.dbKey);
-            if (hit.entry.role) matchedRoles.add(hit.entry.role);
+            markIngredientUsed(hit.dbKey, hit.entry);
             const htmlBullet = formatBulletHtml(hit.dbKey, hit.entry);
             if (htmlBullet) matchedBenefits.push(htmlBullet);
         } else {
@@ -759,8 +800,7 @@ function tryBuildDeterministicSection3({
     for (const item of rawItems) {
         const hit = matchSingleIngredient(item);
         if (hit) {
-            usedDbKeys.add(hit.dbKey);
-            if (hit.entry.role) matchedRoles.add(hit.entry.role);
+            markIngredientUsed(hit.dbKey, hit.entry);
             const htmlBullet = formatBulletHtml(hit.dbKey, hit.entry);
             if (htmlBullet && matchedBenefits.length < 10) {
                 matchedBenefits.push(htmlBullet);
@@ -771,9 +811,8 @@ function tryBuildDeterministicSection3({
     // KROK 2b: Jeżeli dla chemii gospodarczej deklaracja składu (Rozp. 648/2004) wymienia wyłącznie konserwanty/kompozycję zapachową
     // (ponieważ lotne rozpuszczalniki glikolowe/alkoholowe i surfaktanty < 0,2% nie podlegają progowi procentowemu na etykiecie),
     // uzupełniamy punkty ⚙️ o rzeczywisty mechanizm bazy czyszczącej z etykiety, aby Sekcja 3 NIGDY nie składała się wyłącznie z konserwantów!
-    const hasActiveCleaningRole = Array.from(matchedRoles).some(r => !['preservative', 'fragrance', 'colorant'].includes(r));
+    const hasActiveCleaningRole = Array.from(matchedRoles).some(r => !['preservative', 'fragrance', 'fragrance_component', 'colorant'].includes(r));
     if (resolvedIsChemical && !hasActiveCleaningRole && matchedBenefits.length > 0) {
-        const contextStr = `${productName || ''} ${category || ''} ${JSON.stringify(visionFeatures || {})} ${JSON.stringify(features || {})}`;
         const isGlassOrMirrorSpray = /(?:do\s+szyb|do\s+szkła|do\s+luster|vetri|glass|cristalli|specchi)/i.test(contextStr);
         const hasAirLabelOrNatural = /(?:air\s*label|jakoś[ćc]\s+powietrza|orizon|pulito\s+che\s+respira|surowc[eó]w\s+pochodzenia\s+naturalnego|natural\s+origin)/i.test(contextStr);
 
@@ -1058,6 +1097,26 @@ function buildDeterministicSection5({
             if (n === 1) formattedWydajnosc = `${n} cykl płukania`;
             else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) formattedWydajnosc = `${n} cykle płukania`;
             else formattedWydajnosc = `${n} cykli płukania`;
+        }
+    }
+
+    // Jeśli brak jawnej wydajności w PIM, a w instrukcji użycia podano precyzyjną dawkę w ml na litry wody (np. 13 ml na 5 l wody przy 1000 ml):
+    if (!formattedWydajnosc && resolvedCapacity) {
+        const capM = String(resolvedCapacity).match(/^(\d+(?:[.,]\d+)?)\s*(ml|l)\b/i);
+        const usageText = String(features?.['Sposób użycia'] || features?.['Dozowanie'] || '');
+        const doseM = usageText.match(/\b(\d+(?:[.,]\d+)?)\s*ml\s*(?:płynu\s*|preparatu\s*|koncentratu\s*|środka\s*)?(?:w|na)\s*(\d+)\s*(?:l|litr)/i);
+        if (capM && doseM) {
+            const capNum = parseFloat(capM[1].replace(',', '.'));
+            const totalMl = capM[2].toLowerCase() === 'l' ? capNum * 1000 : capNum;
+            const doseMl = parseFloat(doseM[1].replace(',', '.'));
+            const waterL = doseM[2];
+            if (totalMl > 0 && doseMl > 0 && totalMl >= doseMl * 2) {
+                const cycles = Math.floor(totalMl / doseMl);
+                const isDish = /(?:do\s+(?:mycia\s+)?naczyń|do\s+naczyn|\bpiatti\b|dishwash|zlew)/i.test(`${cleanTitle} ${usageText}`);
+                formattedWydajnosc = isDish
+                    ? `ok. ${cycles} cykli zmywania (przy dozowaniu ${doseM[1]} ml / ${waterL} l wody)`
+                    : `ok. ${cycles} cykli mycia (przy dozowaniu ${doseM[1]} ml / ${waterL} l wody)`;
+            }
         }
     }
 

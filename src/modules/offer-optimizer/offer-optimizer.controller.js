@@ -1249,6 +1249,17 @@ const extractBackLabel = async (req, res) => {
             if (extractionResult.usageInstructions) {
                 updatedFeatures['Sposób użycia'] = extractionResult.usageInstructions;
             }
+            if (extractionResult.pimFeatures) {
+                if (extractionResult.pimFeatures['Przeznaczenie']) {
+                    updatedFeatures['Przeznaczenie'] = extractionResult.pimFeatures['Przeznaczenie'];
+                }
+                if (extractionResult.pimFeatures['Cechy dodatkowe']) {
+                    updatedFeatures['Cechy dodatkowe'] = extractionResult.pimFeatures['Cechy dodatkowe'];
+                }
+                if (extractionResult.pimFeatures['Producent']) {
+                    updatedFeatures['Producent'] = extractionResult.pimFeatures['Producent'];
+                }
+            }
 
             await prisma.product.update({
                 where: { id: existingProduct.id },

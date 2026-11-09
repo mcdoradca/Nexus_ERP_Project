@@ -170,6 +170,18 @@ const sanitizeSection3Html = (htmlStr, allowedSourcesStr = '') => {
         }
     }
 
+    // Eliminacja duplikacji dwóch osobnych punktów zapachowych (⚙️ Parfum + ⚙️ Nuty aromatyczne)
+    if (/Parfum/i.test(res) && /Nuty\s+aromatyczne/i.test(res)) {
+        const nutyMatch = res.match(/<li[^>]*>\s*⚙️\s*<(?:b|strong)>\s*Nuty\s+aromatyczne\s*(\([^)]*\))?:\s*<\/(?:b|strong)>[\s\S]*?<\/li>\s*/i);
+        if (nutyMatch) {
+            const allergensParen = nutyMatch[1] ? `: ${nutyMatch[1].replace(/[()]/g, '').trim()}` : '';
+            res = res.replace(nutyMatch[0], '');
+            if (allergensParen) {
+                res = res.replace(/(<(?:b|strong)>)\s*Parfum\s*\(Kompozycja\s+zapachowa\)\s*:/i, `$1Kompozycja zapachowa i nuty aromatyczne (Parfum${allergensParen}):`);
+            }
+        }
+    }
+
     return res;
 };
 
@@ -660,6 +672,21 @@ class Orchestrator {
                             updatedFeatures['Sposób użycia'] = vUsage;
                             interimExtracted.usage = { value: vUsage, source: 'vision_packshot', matched_key: 'Sposób użycia' };
                             changed = true;
+                        }
+
+                        if (visionInciRes.pimFeatures) {
+                            if (visionInciRes.pimFeatures['Przeznaczenie']) {
+                                updatedFeatures['Przeznaczenie'] = visionInciRes.pimFeatures['Przeznaczenie'];
+                                changed = true;
+                            }
+                            if (visionInciRes.pimFeatures['Cechy dodatkowe']) {
+                                updatedFeatures['Cechy dodatkowe'] = visionInciRes.pimFeatures['Cechy dodatkowe'];
+                                changed = true;
+                            }
+                            if (visionInciRes.pimFeatures['Producent']) {
+                                updatedFeatures['Producent'] = visionInciRes.pimFeatures['Producent'];
+                                changed = true;
+                            }
                         }
 
                         if (changed) {

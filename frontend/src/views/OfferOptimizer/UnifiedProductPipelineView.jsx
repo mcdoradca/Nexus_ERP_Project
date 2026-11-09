@@ -208,6 +208,17 @@ export const UnifiedProductPipelineView = ({
                     if (res.data.usageInstructions) {
                         updatedFeatures['Sposób użycia'] = res.data.usageInstructions;
                     }
+                    if (res.data.pimFeatures) {
+                        if (res.data.pimFeatures['Przeznaczenie']) {
+                            updatedFeatures['Przeznaczenie'] = res.data.pimFeatures['Przeznaczenie'];
+                        }
+                        if (res.data.pimFeatures['Cechy dodatkowe']) {
+                            updatedFeatures['Cechy dodatkowe'] = res.data.pimFeatures['Cechy dodatkowe'];
+                        }
+                        if (res.data.pimFeatures['Producent']) {
+                            updatedFeatures['Producent'] = res.data.pimFeatures['Producent'];
+                        }
+                    }
                     return { ...prev, features: updatedFeatures };
                 });
             } else {

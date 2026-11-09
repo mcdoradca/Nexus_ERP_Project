@@ -195,10 +195,16 @@
       "chemical_html": "<li>⚙️ <b>Aktywny tlen (Hydrogen Peroxide / Związki wybielające na bazie tlenu):</b> uwalnia cząsteczki aktywnego tlenu, które <b>rozbijają wiązania chemiczne kolorowych plam (kawa, wino, trawa, owoce)</b> bez uszkadzania struktury włókien i bez użycia chloru.</li>"
     },
     "sodium dodecylbenzenesulfonate": {
-      "names": ["sodium dodecylbenzenesulfonate", "anionowe środki powierzchniowo czynne", "anionic surfactants", "benzenesulfonic acid"],
+      "names": ["sodium dodecylbenzenesulfonate", "anionowe środki powierzchniowo czynne", "anionic surfactants", "tensioattivi anionici", "anionowe związki powierzchniowo czynne", "benzenesulfonic acid"],
       "role": "anionic_surfactant",
       "cosmetic_html": "<li>⚙️ <b>Anionowy środek powierzchniowo czynny:</b> odpowiada za <b>tworzenie piany i usuwanie tłustych zanieczyszczeń</b>.</li>",
-      "chemical_html": "<li>⚙️ <b>Anionowe środki powierzchniowo czynne (np. Sodium Dodecylbenzenesulfonate):</b> główne cząsteczki piorące i myjące, które <b>otaczają drobiny brudu, kurzu i potu</b>, odrywając je od powierzchni i zapobiegając ich ponownemu osadzaniu (redepoyzcji).</li>"
+      "chemical_html": "<li>⚙️ <b>Anionowe środki powierzchniowo czynne (np. Sodium Dodecylbenzenesulfonate):</b> główne cząsteczki myjące i odtłuszczające, które <b>otaczają cząsteczki tłuszczu oraz zabrudzeń organicznych</b>, odrywając je od podłoża i ułatwiając szybkie spłukanie bez powstawania zacieków.</li>"
+    },
+    "amphoteric surfactants": {
+      "names": ["amfoteryczne środki powierzchniowo czynne", "amphoteric surfactants", "tensioattivi anfoteri", "amfoteryczne związki powierzchniowo czynne", "związki powierzchniowo czynne amfoteryczne"],
+      "role": "amphoteric_surfactant",
+      "cosmetic_html": "<li>⚙️ <b>Amfoteryczne środki powierzchniowo czynne:</b> łagodne ko-surfaktanty, które <b>zagęszczają pianę i redukują potencjał drażniący bazy myjącej</b>, chroniąc barierę hydrolipidową naskórka.</li>",
+      "chemical_html": "<li>⚙️ <b>Amfoteryczne środki powierzchniowo czynne (np. betainy kokosowe):</b> ko-surfaktanty wspomagające odtłuszczanie (także w chłodnej wodzie), które <b>zagęszczają i stabilizują aktywną pianę oraz łagodzą działanie surfaktantów anionowych na skórę dłoni</b> podczas ręcznego zmywania.</li>"
     },
     "alcohols, c12-18, ethoxylated": {
       "names": ["alcohols, c12-18, ethoxylated", "alcohols, c12-14, ethoxylated", "c12-15 pareth-7", "trideceth-9", "niejonowe środki powierzchniowo czynne", "non-ionic surfactants"],
@@ -326,7 +332,7 @@
       "id": "anionic_amphoteric_mildness",
       "required_roles": ["anionic_surfactant", "amphoteric_surfactant"],
       "cosmetic_html": "<li>⚡ <b>Synergia Łagodnego Oczyszczania (Surfaktant Anionowy + Betaina):</b> połączenie składnika myjącego z amfoteryczną betainą tworzy mieszane micele o większym rozmiarze, co <b>zwiększa gęstość piany i znacząco obniża ryzyko przesuszenia naskórka</b>.</li>",
-      "chemical_html": "<li>⚡ <b>Synergia Aktywnej Piany (Surfaktanty Anionowe + Amfoteryczne):</b> współdziałanie obu grup związków powierzchniowo czynnych <b>stabilizuje pianę roboczą i przyspiesza odrywanie zaschniętego brudu</b> od podłoża.</li>"
+      "chemical_html": "<li>⚡ <b>Synergia Odtłuszczania i Ochrony Dłoni (Surfaktanty Anionowe + Amfoteryczne):</b> współdziałanie obu grup związków powierzchniowo czynnych <b>zwiększa siłę rozbijania tłuszczu (także w chłodnej wodzie) i stabilizuje gęstą pianę, jednocześnie łagodząc działanie bazy myjącej na naskórek dłoni</b>.</li>"
     },
     {
       "id": "anionic_nonionic_degreasing",
