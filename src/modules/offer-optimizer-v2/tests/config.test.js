@@ -35,14 +35,14 @@ test('Konfiguracja węzłów: Brak wycofanych parametrów próbkowania (temperat
     }
 });
 
-test('Konfiguracja węzłów: Precyzyjna taksonomia - thinkingLevel HIGH wyłącznie dla modeli Pro (A10 Sentinel)', () => {
+test('Konfiguracja węzłów: Precyzyjna taksonomia - thinkingLevel LOW dla modeli Pro (A10 Sentinel - ADR-0172)', () => {
     const proNodes = [10];
     const flashNodes = [1, 2, 4, 5, 6, 7, 9, 11];
     
     for (const id of proNodes) {
         const cfg = getNodeConfig(id);
         assert.strictEqual(cfg.model, 'gemini-3.1-pro-preview', `Węzeł Pro ${id} musi używać gemini-3.1-pro-preview`);
-        assert.strictEqual(cfg.thinkingLevel, ThinkingLevel.HIGH, `Węzeł Pro ${id} wymaga ThinkingLevel.HIGH`);
+        assert.strictEqual(cfg.thinkingLevel, ThinkingLevel.LOW, `Węzeł Pro ${id} wymaga ThinkingLevel.LOW`);
     }
 
     for (const id of flashNodes) {
@@ -62,7 +62,7 @@ test('Ochrona przed błędem 400: Żaden węzeł nie używa ThinkingLevel.MINIMA
         const cfg = getNodeConfig(id);
         assert.notStrictEqual(cfg.thinkingLevel, ThinkingLevel.MINIMAL, `Węzeł ${id} nie może używać MINIMAL - odrzucane przez Google API`);
         if (cfg.thinkingLevel) {
-            assert.strictEqual(cfg.thinkingLevel, ThinkingLevel.HIGH, `Węzeł Pro ${id} musi używać HIGH`);
+            assert.strictEqual(cfg.thinkingLevel, ThinkingLevel.LOW, `Węzeł Pro ${id} musi używać LOW`);
         }
     }
 });

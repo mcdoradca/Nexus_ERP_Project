@@ -501,6 +501,8 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
 module.exports = {
     callAgentWithTelemetry,
     extractGroundedTextFromResponse,
+    generateContentWithTimeout,
+    ai,
     Type,
     ThinkingLevel
 };
