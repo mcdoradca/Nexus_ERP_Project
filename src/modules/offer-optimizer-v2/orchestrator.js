@@ -266,6 +266,14 @@ const sanitizeSection6Html = (htmlStr) => {
         return fullLi;
     });
 
+    // 8b. Dla łagodnych nieklasyfikowanych mieszanin chemicznych (posiadających wyłącznie P101/P102/P103/EUH208, bez H314/H315/H318/H319 i bez hasła ostrzegawczego)
+    // usuwamy ewentualne dopisane patchem LLM zwroty P301+P312 oraz "Nie połykać." spoza etykiety:
+    const hasClassifiedHazardInHtml = /\b(?:H314|H315|H318|H319|Hasło\s+ostrzegawcze)\b/i.test(res);
+    if (!hasClassifiedHazardInHtml && /Ostrzeżenie\s+CLP\/GPSR/i.test(res)) {
+        res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<(?:b|strong)>[^<]*<\/(?:b|strong)>\s*)?(?:P301\+P312\b[^<]*|Nie\s+połykać\.?\s*)<\/li>\s*/gi, '');
+        res = res.replace(/(<p[^>]*>[\s\S]*?)\s*Nie\s+połykać\.?\s*([\s\S]*?<\/p>)/gi, '$1$2');
+    }
+
     // 9. Eliminacja redundancji między <p> wstępnym a listą punktowaną dot. dzieci:
     const hasP102 = /P102|Chronić przed dziećmi/i.test(res);
     if (hasP102) {

@@ -674,18 +674,27 @@ function tryBuildDeterministicSection3({
     // Kolekcjonujemy specyficzne alergeny zapachowe i konserwanty obecne w rzeczywistym INCI produktu
     const detectedAllergenNames = [];
     const detectedPreservativeNames = [];
-    for (const item of rawItems) {
+    const stripGroupWrapper = (str) => String(str || '')
+        .replace(/^(?:środki\s+konserwujące|konserwant(?:y)?|conservante|preservative(?:s)?|kompozycja\s+zapachowa|parfum|profumo|fragrance|zawiera|contains|contiene)\s*[:(]?\s*/i, '')
+        .replace(/[()[\]]+/g, '')
+        .replace(/^[\s,;/]+|[\s,;/]+$/g, '')
+        .trim();
+
+    const subTokens = rawSource
+        .split(/[,;\n/()]+/)
+        .map(s => stripGroupWrapper(s.replace(/^\d+\.\s*/, '')))
+        .filter(Boolean);
+
+    for (const item of subTokens) {
         const lowerItem = item.toLowerCase().trim();
         const allergenEntry = db.ingredients?.['fragrance_allergens'];
         if (allergenEntry && allergenEntry.names.some(n => lowerItem === n || (n.length >= 4 && lowerItem.includes(n)))) {
-            const cleanName = item.trim().replace(/^[\s,;]+|[\s,;]+$/g, '');
-            const capName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1).toLowerCase();
+            const capName = item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
             if (!detectedAllergenNames.includes(capName)) detectedAllergenNames.push(capName);
         }
         const presEntry = db.ingredients?.['preservatives'];
         if (presEntry && presEntry.names.some(n => lowerItem === n || (n.length >= 4 && lowerItem.includes(n)))) {
-            const cleanName = item.trim().replace(/^[\s,;]+|[\s,;]+$/g, '');
-            const capName = cleanName.charAt(0).toUpperCase() + cleanName.slice(1).toLowerCase();
+            const capName = item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
             if (!detectedPreservativeNames.includes(capName)) detectedPreservativeNames.push(capName);
         }
     }
@@ -825,9 +834,12 @@ function tryBuildDeterministicSection3({
         ? `<p>Receptura produktu opiera się na <b>celowanym doborze związków powierzchniowo czynnych i składników funkcyjnych</b>, w której każdy element odpowiada za konkretny etap rozbijania i wypłukiwania zabrudzeń:</p>`
         : `<p>Formuła kosmetyku łączy <b>składniki oczyszczające, nawilżające oraz kondycjonujące</b>, które współpracują ze sobą dla zachowania równowagi hydrolipidowej i wysokiego komfortu aplikacji:</p>`;
 
-    const inciFooter = inci
-        ? `<p><b>Skład INCI:</b> ${sanitizeHtmlClaimsAndStopwords(inci)}</p>`
-        : (detergentComposition ? `<p><b>Skład (zgodnie z Rozp. WE 648/2004):</b> ${sanitizeHtmlClaimsAndStopwords(detergentComposition)}</p>` : '');
+    const rawFooterComp = detergentComposition || inci;
+    const inciFooter = rawFooterComp
+        ? (resolvedIsChemical
+            ? `<p><b>Skład (zgodnie z Rozp. WE 648/2004):</b> ${sanitizeHtmlClaimsAndStopwords(rawFooterComp)}</p>`
+            : `<p><b>Skład INCI:</b> ${sanitizeHtmlClaimsAndStopwords(rawFooterComp)}</p>`)
+        : '';
 
     const section3Html = `${heading}${introP}<ul>${matchedBenefits.join('')}${detectedSynergies.join('')}</ul>${inciFooter}`;
 
@@ -953,7 +965,13 @@ function buildDeterministicSection5({
     };
 
     const isInvalidManufacturer = (m) => !m || /^(?:null|undefined|brak|brak\s+danych|nieznany|nieznany\s+producent|unknown|n\/a|-)$/i.test(String(m).trim());
-    const resolvedBrand = brand || features?.['Marka'] || features?.['Brand'] || '';
+    let resolvedBrand = brand || features?.['Marka'] || features?.['Brand'] || visionFeatures?.['Marka'] || '';
+    if (!resolvedBrand && cleanTitle) {
+        const brandMatch = cleanTitle.match(/^(Dual\s+Power|Chanteclair|Cif|Coccolino|Soft|Dermomed|Svelto|Lysoform|Spuma\s+di\s+Sciampagna|Tesori\s+d'Oriente|Felce\s+Azzurra|Quasar|Napisan|Winni's|Omino\s+Bianco|Smac|Vetril|Bref|Domestos|Ajax|Frosch|Ace)\b/i);
+        if (brandMatch) {
+            resolvedBrand = brandMatch[1];
+        }
+    }
     const rawManufacturerCandidates = [manufacturer, features?.['Producent'], visionFeatures?.['Producent']];
     let resolvedManufacturer = rawManufacturerCandidates.find(c => !isInvalidManufacturer(c)) || '';
     if (/^(?:unilever|unilever\s+europe\s+b\.?v\.?)$/i.test(String(resolvedManufacturer).trim()) ||
@@ -962,7 +980,7 @@ function buildDeterministicSection5({
     } else if (!resolvedManufacturer && /^(?:dual\s*power|orizon|dermomed|chanteclair)$/i.test(String(resolvedBrand).trim())) {
         resolvedManufacturer = /chanteclair/i.test(String(resolvedBrand)) ? 'Real Chimica S.r.l.' : 'Italchimica S.r.l.';
     }
-    const resolvedLine = line || features?.['Linia'] || '';
+    const resolvedLine = line || features?.['Linia'] || visionFeatures?.['Linia'] || '';
     const resolvedPostac = visionFeatures?.['Postać'] || features?.['Postać'] || features?.['Postac'] || features?.['Forma'] || '';
     const rawCap = capacity || visionFeatures?.['Pojemność / Waga'] || visionFeatures?.['Pojemność'] || visionFeatures?.['Waga'] || features?.['Pojemność'] || features?.['Waga'] || '';
     const resolvedCapacity = normalizeCapacityValue(rawCap, cleanTitle, visionFeatures);
@@ -1046,8 +1064,26 @@ function buildDeterministicSection5({
     const resolvedTwardosc = visionFeatures?.['Twardość włosia'] || features?.['Twardość włosia'] || '';
     let resolvedZapach = visionFeatures?.['Zapach'] || features?.['Zapach'] || features?.['Nuta zapachowa'] || '';
     let resolvedHero = visionFeatures?.['Składniki wiodące (Front)'] || '';
-    const resolvedPrzeznaczenie = visionFeatures?.['Przeznaczenie (Front)'] || features?.['Przeznaczenie'] || features?.['Zastosowanie'] || '';
-    const resolvedWyrozniki = visionFeatures?.['Wyróżniki (Etykieta Front)'] || features?.['Cechy dodatkowe'] || features?.['Wyróżniki'] || '';
+    const frontPrzeznaczenie = String(visionFeatures?.['Przeznaczenie (Front)'] || '').trim();
+    const backPrzeznaczenie = String(features?.['Przeznaczenie'] || features?.['Zastosowanie'] || '').trim();
+    const resolvedPrzeznaczenie = (backPrzeznaczenie.length > frontPrzeznaczenie.length) ? backPrzeznaczenie : (frontPrzeznaczenie || backPrzeznaczenie);
+    const mergedWyroznikiParts = [
+        visionFeatures?.['Wyróżniki (Etykieta Front)'],
+        features?.['Cechy dodatkowe'],
+        features?.['Wyróżniki']
+    ].filter(Boolean).join(', ');
+    const seenWyroznikSet = new Set();
+    const resolvedWyrozniki = mergedWyroznikiParts
+        .split(/[,;]+/)
+        .map(s => s.trim())
+        .filter(s => {
+            if (!s) return false;
+            const k = s.toLowerCase();
+            if (seenWyroznikSet.has(k)) return false;
+            seenWyroznikSet.add(k);
+            return true;
+        })
+        .join(', ');
     let resolvedCountry = countryOfOrigin || features?.['Kraj pochodzenia'] || features?.['Kraj produkcji'] || '';
 
     // Korekta konfliktu pochodzenia: Unilever Italia / włoskie linie z holenderskim prefiksem EAN 87

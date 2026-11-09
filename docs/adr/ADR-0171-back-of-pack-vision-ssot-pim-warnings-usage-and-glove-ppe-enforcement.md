@@ -41,8 +41,11 @@ W wyniku audytu tylnej etykiety *Dual Power Orizon Vetri 500 ml* (`Italchimica S
    - W `tryBuildDeterministicSection3` dodano KROK 2b: gdy skład na etykiecie detergentu (np. płynu do szyb wg Rozp. 648/2004) wymienia wyłącznie konserwanty (`Benzisothiazolinone`, `Methylchloroisothiazolinone/Methylisothiazolinone`), silnik deterministycznie poprzedza je rzeczywistymi mechanizmami bazy czyszczącej (szybko odparowująca baza na surowcach pochodzenia naturalnego + technologia niskiej emisji *Air Label Score A+*), dzięki czemu Sekcja 3 i FAQ Q4 nigdy nie prezentują konserwantów (`BIT`, `MCI/MI`) jako głównych substancji myjących.
 3. **Rozszerzenie ekstrakcji Vision Back-of-Pack (`vision-extractor.service.js`):**
    - Rozbudowano `BACK_PACK_INCI_PROMPT` oraz `backPackInciSchema` o pola `target_surfaces` (-> `Przeznaczenie`, np. *szyby, kryształy, lustra oraz powierzchnie plastikowe i laminowane*), `certifications_and_claims` (-> `Cechy dodatkowe`, np. *Air Label Score A+, testowany dermatologicznie, testowany na nikiel, rtęć, ołów i chrom, H.A.C.C.P., butelka w 30% z plastiku z recyklingu*) oraz `manufacturer_name` (-> `Producent`, np. *Italchimica S.r.l.*).
-4. **Higiena Sekcji 5 (`deterministic-pipeline.engine.js`, `orchestrator.js`):**
+4. **Higiena Sekcji 5, Sekcji 3 i Sekcji 6 (Rewizja 3 – `deterministic-pipeline.engine.js`, `orchestrator.js`, `Agent_10_prompt_v4.md`):**
    - Zablokowano wyświetlanie placeholderów `Producent: nieznany producent` (automatyczny fallback do `eu_responsible_person.name` z GPSR, np. `Italchimica S.r.l.`, lub marki) oraz ogólnikowych wypełniaczy `Wydajność deklarowana: Długi czas użytkowania` pozbawionych wartości liczbowej.
+   - W `tryBuildDeterministicSection3` oczyszczono nazwy konserwantów z prefiksów kategorii i nawiasów (`Środki konserwujące (...)`) oraz ustawiono dla `resolvedIsChemical` etykietę stopki `Skład (zgodnie z Rozp. WE 648/2004):`.
+   - W `buildDeterministicSection5` połączono cechy z frontu (`visionFeatures`) i z tyłu opakowania (`features['Przeznaczenie']`, `features['Cechy dodatkowe']`) oraz dodano rozpoznawanie marki z początku tytułu oferty.
+   - W `Agent_10_prompt_v4.md` oraz `sanitizeSection6Html` (`orchestrator.js`) zablokowano dopisywanie patchem `P301+P312` i `Nie połykać.` dla nieklasyfikowanych łagodnych mieszanin chemicznych (posiadających wyłącznie `P101`, `P102`, `P103` i `EUH208`).
 
 ## 4. Weryfikacja
 - Testy jednostkowe (`gpsr.safety.test.js`, `vision_extractor.test.js`, `validators.test.js`): **117/117 PASS (0 błędów)**.
