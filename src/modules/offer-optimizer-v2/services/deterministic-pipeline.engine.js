@@ -293,7 +293,8 @@ function sanitizeOfferTitle(rawTitle) {
  */
 function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
     if (!htmlStr || typeof htmlStr !== 'string') return htmlStr;
-    let res = htmlStr;
+    // Zabezpieczenie progów stężeń (<5%, <15%, <30%) przed błędną interpretacją jako tagi HTML (<5>)
+    let res = htmlStr.replace(/<(\d)/g, '< $1');
 
     // --- KROK A: TARCZA ANTY-BIOBÓJCZA (Rozp. UE 528/2012 BPR & Ustawa o produktach biobójczych) ---
     res = res
@@ -1398,7 +1399,7 @@ function normalizeEmojiAndStructure(htmlStr, sectionNum = 1) {
             trimmed = trimmed.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]\uFE0F?\s*/u, '').trim();
             // Usuwamy również ewentualne osierocone emoji ze środka tekstu <li>
             trimmed = trimmed.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]\uFE0F?/gu, '');
-            const plainInner = trimmed.replace(/<[^>]+>/g, '').trim();
+            const plainInner = trimmed.replace(/<\/?[a-zA-Z][^>]*>/g, '').trim();
             const resolvedLiEmoji = (sectionNum === 2 && ((/\?\s*$/.test(plainInner) && !/Odpowiedź:/i.test(plainInner)) || /Pytanie:/i.test(plainInner)))
                 ? '❓'
                 : defaultLiEmoji;
@@ -1422,7 +1423,7 @@ function extractFaqJsonLdFromSection2(section2Html = '') {
         return { mainEntity: [], jsonLdObject: null, scriptTag: '' };
     }
 
-    const stripTags = (s) => String(s || '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    const stripTags = (s) => String(s || '').replace(/<\/?[a-zA-Z][^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s{2,}/g, ' ').trim();
     const items = [];
     const liRegex = /<(?:li|p)\b[^>]*>([\s\S]*?)<\/(?:li|p)>/gi;
     let match;

@@ -132,7 +132,7 @@ function validate_html_whitelist(html) {
     if (!html) return { valid: true, errors: [] };
     const errors = [];
     
-    const tagRegex = /<\/?([a-z0-9]+)[^>]*>/gi;
+    const tagRegex = /<\/?([a-z][a-z0-9]*)\b[^>]*>/gi;
     let match;
     const allowed = ['h1', 'h2', 'p', 'ul', 'ol', 'li', 'strong', 'em'];
     while ((match = tagRegex.exec(html)) !== null) {
@@ -376,7 +376,7 @@ function normalize_aeo_faq_labels(html) {
             return `${openTag}❓ <b>Pytanie:</b> ${rest}${closeTag}`;
         }
 
-        const plainText = trimmed.replace(/<[^>]+>/g, '').trim();
+        const plainText = trimmed.replace(/<\/?[a-zA-Z][^>]*>/g, '').trim();
         if (/\?\s*$/.test(plainText) && !/Odpowiedź:/i.test(plainText)) {
             const rest = trimmed.replace(/^(?:✔️|✔|✅|☑️|➡️|⭐|❓|❔|❌|🔴)\s*/u, '');
             return `${openTag}❓ <b>Pytanie:</b> ${rest}${closeTag}`;
@@ -398,7 +398,7 @@ function aeo_faq_check(html) {
         return { valid: false, errors: ['Empty section 2'], pairs: 0 };
     }
     const errors = [];
-    const stripTags = (s) => s.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+    const stripTags = (s) => s.replace(/<\/?[a-zA-Z][^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
 
     if (/<(strong|b)>\s*(?:Problem|Rozwiązanie|Answer)\s*:?\s*<\/\1>/i.test(html)) {
         errors.push('Forbidden label (Problem/Rozwiązanie/Answer)');

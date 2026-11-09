@@ -77,7 +77,8 @@ const traceNode = (nodeId, gtin, step, data) => {
 
 const normalizeTags = (htmlStr) => {
     if (!htmlStr) return htmlStr;
-    return htmlStr.replace(/<b>/g, '<strong>').replace(/<\/b>/g, '</strong>')
+    return htmlStr.replace(/<(\d)/g, '< $1')
+                  .replace(/<b>/g, '<strong>').replace(/<\/b>/g, '</strong>')
                   .replace(/<i>/g, '<em>').replace(/<\/i>/g, '</em>');
 };
 
@@ -254,7 +255,7 @@ const sanitizeSection6Html = (htmlStr) => {
     res = res.replace(/<li[^>]*>([\s\S]*?)<\/li>\s*/gi, (fullLi, inner) => {
         if (/Podmiot\s+odpowiedzialny\s+w\s+UE/i.test(inner)) return fullLi;
         const bodyText = inner
-            .replace(/<[^>]+>/g, '')
+            .replace(/<\/?[a-zA-Z][^>]*>/g, '')
             .replace(/^(?:➡️|⚠️|🛡️|\*|-)\s*/g, '')
             .replace(/^(?:Ostrzeżenie\s+CLP\/GPSR|Ostrzeżenie\s+CLP|Wytyczne\s+bezpieczeństwa\s*\(GPSR\)|Środki\s+ostrożności\s*\(GPSR\))\s*:?\s*/i, '')
             .trim();
