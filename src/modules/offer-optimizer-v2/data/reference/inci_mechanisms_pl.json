@@ -15,7 +15,7 @@
       "chemical_html": "<li>⚙️ <b>Glycerin (Gliceryna):</b> składnik kondycjonujący, który <b>ogranicza wysuszające działanie detergentów</b> podczas kontaktu roztworu roboczego ze skórą dłoni.</li>"
     },
     "sodium laureth sulfate": {
-      "names": ["sodium laureth sulfate", "sles"],
+      "names": ["sodium laureth sulfate", "sles", "alcohols, c12-14, ethoxylated, sulfates, sodium salts", "alkohole c12-14, etoksylowane, siarczanowane, sole sodowe"],
       "role": "anionic_surfactant",
       "cosmetic_html": "<li>⚙️ <b>Sodium Laureth Sulfate (SLES):</b> anionowy środek powierzchniowo czynny, który <b>tworzy gęstą, stabilną pianę</b> i skutecznie emulguje sebum oraz codzienne zanieczyszczenia.</li>",
       "chemical_html": "<li>⚙️ <b>Sodium Laureth Sulfate:</b> aktywny surfaktant anionowy, który <b>obniża napięcie powierzchniowe wody</b> i odrywa tłuste osady od czyszczonego podłoża.</li>"
@@ -90,7 +90,7 @@
       "names": ["cocamine oxide", "tlenek kokaminy", "lauramine oxide", "tlenek lauraminy", "amine oxide", "tlenki amin"],
       "role": "foaming_surfactant",
       "cosmetic_html": "<li>⚙️ <b>Cocamine Oxide (Tlenek kokaminy):</b> łagodny surfaktant amfoteryczny, który <b>tworzy stabilną pianę i ułatwia delikatne mycie</b>.</li>",
-      "chemical_html": "<li>⚙️ <b>Cocamine Oxide (Tlenek kokaminy):</b> wysoce odporny na utleniacze surfaktant amfoteryczny, który <b>generuje gęstą, aktywną pianę utrzymującą preparat na pionowych ścianach i wnikającą głęboko w porowate fugi</b>.</li>"
+      "chemical_html": "<li>⚙️ <b>Cocamine Oxide (Tlenek kokaminy):</b> wysoce odporny na utleniacze surfaktant amfoteryczny, który <b>generuje gęstą, aktywną pianę utrzymującą preparat na pionowych powierzchniach</b> i wspomaga zwilżanie osadów.</li>"
     },
     "parfum": {
       "names": ["parfum", "fragrance", "aroma", "kompozycja zapachowa", "perfume"],
@@ -255,10 +255,10 @@
       "chemical_html": "<li>⚙️ <b>Nuty aromatyczne:</b> lotne składniki kompozycji zapachowej odpowiadające za <b>świeży, długo utrzymujący się aromat</b> po zakończeniu sprzątania.</li>"
     },
     "sodium hypochlorite": {
-      "names": ["sodium hypochlorite", "podchloryn sodu", "wybielacz", "candeggina", "aktywny chlor", "związki wybielające na bazie chloru", "chlorine-based bleaching agents"],
+      "names": ["sodium hypochlorite", "podchloryn sodu", "wybielacz", "candeggina", "aktywny chlor", "środki wybielające na bazie chloru", "związki wybielające na bazie chloru", "chlorine-based bleaching agents"],
       "role": "chlorine_bleach",
       "cosmetic_html": "<li>⚙️ <b>Sodium Hypochlorite:</b> składnik oczyszczający i rozjaśniający.</li>",
-      "chemical_html": "<li>⚙️ <b>Sodium Hypochlorite (Podchloryn sodu – aktywny wybielacz):</b> silny związek utleniający i wybielający, który <b>błyskawicznie rozkłada uporczywe przebarwienia, ciemne naloty w fugach oraz osady organiczne</b>, przywracając ceramice sanitarnej i zmywalnym powierzchniom <b>higieniczną czystość oraz śnieżną biel</b>.</li>"
+      "chemical_html": "<li>⚙️ <b>Sodium Hypochlorite (Podchloryn sodu – aktywny wybielacz):</b> silny związek utleniający i wybielający, który <b>błyskawicznie rozkłada uporczywe przebarwienia oraz osady organiczne</b>, przywracając ceramice sanitarnej i zmywalnym powierzchniom <b>higieniczną czystość oraz śnieżną biel</b>.</li>"
     },
     "sodium c14-17 alkyl sec sulfonate": {
       "names": ["sodium c14-17 alkyl sec sulfonate", "secondary alkane sulfonate", "alkanosulfonian sodu"],

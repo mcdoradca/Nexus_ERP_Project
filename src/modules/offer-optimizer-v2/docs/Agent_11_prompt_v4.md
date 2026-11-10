@@ -26,10 +26,12 @@ Zanim ocenisz poprawność tekstu, zidentyfikuj i opisz w polu `product_identity
 
 Przeanalizuj wszystkie sekcje HTML pod kątem 6 filarów zgodności domenowej:
 
-D1. KALKI MIĘDZYKATEGORIALNE I ABSURDY KONTEKSTOWE:
+D1. KALKI MIĘDZYKATEGORIALNE, CHEMIA KWAS vs ZASADA ORAZ ABSURDY KONTEKSTOWE:
    - Kalki kuchenne w produktach łazienkowych/odgrzybiaczach: natychmiast usuń lub napraw wtręty o "usuwaniu przypaleń", "przypalonych garnkach", "piekarnikach", "tłuszczu kuchennym", "plamach z kawy i herbaty".
    - Kalki pralnicze w preparatach do powierzchni twardych: natychmiast usuń wzmianki o "zakończeniu prania", "wypłukanych tkaninach", "niskich temperaturach prania (od 20–30°C)".
-   - Wszelkie obco-kategorialne wtręty zamień na zjawiska adekwatne do łazienki/produktu: osady mydlane, zacieki wapienne, biofilmy, wykwity pleśniowe.
+   - 🚨 KALKA Z FUG W ŻELACH/PŁYNACH DO WC: Jeśli produkt jest żelem lub płynem do muszli WC, kategorycznie usuń wzmianki o "ciemnych nalotach w fugach", "wannach i umywalkach" — wnętrze muszli toaletowej nie ma fug!
+   - 🚨 BŁĄD LOGICZNO-CHEMICZNY (CHLOR vs KAMIEŃ/ZACIEKI MINERALNE): Zasadowy wybielacz chlorowy (`Sodium Hypochlorite` + `Sodium Hydroxide`, bez kwasów w składzie) utlenia osady organiczne i wybiela przebarwienia, ale NIE rozpuszcza kamienia wapiennego ani zacieków mineralnych (do rozpuszczania kamienia służą kwasy)! Jeśli w opisie wybielacza chlorowego napisano, że „usuwa kamień” lub „usuwa zacieki mineralne / osady wapienne”, BEZWZGLĘDNIE wygeneruj patch zmieniający to na „usuwa uporczywe przebarwienia i osady organiczne”.
+   - Sprawdź czystość językową i gramatykę (np. błąd `wykonana w częściowo` zamień na `wykonana częściowo`).
 
 D2. BEZPIECZEŃSTWO BIOLOGICZNE I PROCEDURY BHP (Sekcja 4 Krok 1):
    - W preparatach biobójczych, przeciwgrzybiczych i do usuwania pleśni/wykwitów ściennych KATEGORYCZNIE ZABRANIA SIĘ zalecania mechanicznego ścierania, przecierania na sucho lub wstępnego zdrapywania nalotów przed nałożeniem preparatu! (Powoduje to gwałtowne pylenie toksycznych zarodników i mykotoksyn w powietrzu, zagrażając układowi oddechowemu).

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const brandResponsibleService = require('../brand.responsible.service');
+const gpsrSafetyService = require('./gpsr.safety.service');
 
 const INCI_MECH_PATH = path.join(__dirname, '..', 'data', 'reference', 'inci_mechanisms_pl.json');
 
@@ -424,7 +425,8 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
         .replace(/Synergia\s+bazy\s+czyszczącej\s+i\s+olejków\s+zapachowych/gi, 'Synergia Skutecznego Czyszczenia i Świeżości')
         .replace(/gładkość\s+armatury\s+i\s+płytek/gi, 'gładkość ceramiki sanitarnej i płytek')
         .replace(/oraz\s+tkaniny\s+kolorowe/gi, 'oraz wszelkie tkaniny i tekstylia')
-        .replace(/W\s+PRZYPADKU\s+KONTAKTU\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ')
+        .replace(/W\s+PRZYPADKU\s+(?:KONTAKTU|KONTATKU)\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])w\s+częściowo(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'częściowo')
         .replace(/Brak\s+zdjęcia\s+w\s+slocie\s*#\d+/gi, '')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])spłucz\s+obficie\s+czyszczoną\s+powierzchnię\s+bieżącą\s+wodą(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => /^[A-Z]/.test(m) ? 'Przetrzyj czyszczoną powierzchnię czystą, wilgotną ściereczką lub spłucz wodą' : 'przetrzyj czyszczoną powierzchnię czystą, wilgotną ściereczką lub spłucz wodą')
         // Higiena interpunkcyjna
@@ -471,15 +473,19 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
 
     // --- KROK G2: TARCZA PRZECIW HALUCYNACJI PRZEMYSŁOWEGO ŚOI (MASKI / GOGLE / OKULARY) W CHEMII DOMOWEJ ---
     const labelTextForPpe = `${context?.pimWarnings || ''} ${context?.pimUsage || ''}`;
+    const hasCorrosiveH314OrH318 = /\b(?:H314|H318)\b/i.test(`${labelTextForPpe} ${res}`);
     if (!/(?:mask[ęięa]\s+ochronn|półmask|respirator|gogl[ei]\s+ochronn|okular[yów]\s+ochronn)/i.test(labelTextForPpe)) {
         res = res
             .replace(/(?:załóż|założyć|stosuj|stosować|używaj|używać)\s+(?:rękawice\s+ochronne\s*,\s*)?(?:maskę(?:\s+ochronną)?|półmaskę|respirator)\s+(?:oraz|i)\s+(?:okulary|gogle)(?:\s+ochronne)?/gi, 'załóż rękawice ochronne i zadbaj o wietrzenie pomieszczenia')
             .replace(/(?:załóż|założyć|stosuj|stosować|używaj|używać)\s+(?:okulary|gogle)(?:\s+ochronne)?\s+(?:oraz|i)\s+(?:maskę(?:\s+ochronną)?|półmaskę|respirator)/gi, 'załóż rękawice ochronne i zadbaj o wietrzenie pomieszczenia')
             .replace(/(?:w\s+masce\s+ochronnej\s+i\s+okularach(?:\s+ochronnych)?|w\s+masce\s+i\s+okularach(?:\s+ochronnych)?|w\s+okularach\s+ochronnych\s+i\s+masce)/gi, 'w rękawicach ochronnych przy dobrej wentylacji')
             .replace(/,\s*(?:maskę\s+ochronną|okulary\s+ochronne|gogle\s+ochronne)(?:\s+(?:oraz|i)\s+(?:maskę\s+ochronną|okulary\s+ochronne|gogle\s+ochronne))?/gi, '')
-            .replace(/(?:oraz|i)\s+(?:maskę\s+ochronną|okulary\s+ochronne|gogle\s+ochronne)/gi, '')
-            .replace(/Stosować\s+rękawice\s+ochronne\s*\/\s*odzież\s+ochronną\s*\/\s*ochronę\s+oczu\s*\/\s*ochronę\s+twarzy\.?/gi, 'Stosować rękawice ochronne.')
-            .replace(/Stosować\s+ochronę\s+oczu\s*\/\s*ochronę\s+twarzy\.?/gi, 'Stosować rękawice ochronne.');
+            .replace(/(?:oraz|i)\s+(?:maskę\s+ochronną|okulary\s+ochronne|gogle\s+ochronne)/gi, '');
+        if (!hasCorrosiveH314OrH318) {
+            res = res
+                .replace(/Stosować\s+rękawice\s+ochronne\s*\/\s*odzież\s+ochronną\s*\/\s*ochronę\s+oczu\s*\/\s*ochronę\s+twarzy\.?/gi, 'Stosować rękawice ochronne.')
+                .replace(/Stosować\s+ochronę\s+oczu\s*\/\s*ochronę\s+twarzy\.?/gi, 'Stosować rękawice ochronne.');
+        }
     }
 
     // --- KROK H: WYODRĘBNIENIE BLOKU WYKLUCZENIA MATERIAŁOWEGO (PRATFALL W SEKCJI 4) ---
@@ -533,6 +539,27 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
             .replace(/po\s+zakończeniu\s+sprzątania/gi, 'po zakończeniu zmywania naczyń')
             .replace(/podczas\s+sprzątania/gi, 'podczas zmywania naczyń')
             .replace(/po\s+sprzątaniu/gi, 'po umyciu naczyń');
+    }
+
+    // --- KROK K: TARCZA CHEMICZNA (CHLOR/ZASADA vs KAMIEŃ/MINERAŁY) ORAZ IZOLACJA PRODUKTÓW WC PRZED FUGAMI ---
+    const isToiletWcProduct = /(?:żel\s+do\s+wc|płyn\s+do\s+wc|kostk[ai]\s+do\s+wc|wc\s+gel|do\s+toalet|muszl[ia]\s+toaletow)/i.test(context?.productName || '') &&
+        !/(?:pleś[ńn]|muffa|do\s+fug|odgrzybiacz)/i.test(context?.productName || '');
+    if (isToiletWcProduct) {
+        res = res
+            .replace(/,\s*ciemne\s+naloty\s+w\s+fugach/gi, '')
+            .replace(/\bciemne\s+naloty\s+w\s+fugach\s+(?:oraz|i)\s+/gi, '')
+            .replace(/\bw\s+fugach\b/gi, 'na ściankach muszli toaletowej')
+            .replace(/wannach,\s*umywalkach\s+oraz\s+fugach/gi, 'wnętrzu muszli toaletowej');
+    }
+
+    const chemSource = `${context?.productName || ''} ${context?.inci || ''} ${context?.detergentComposition || ''} ${res}`;
+    const hasBleachChem = /(?:sodium\s+hypochlorite|podchloryn\s+sodu|candeggina|wybielacz\s+(?:na\s+bazie\s+)?chloru|aktywny\s+wybielacz)/i.test(chemSource);
+    const hasDescalingAcid = /(?:citric\s+acid|kwas\s+cytrynowy|sulfamic|amidosulfonow|formic|mrówkow|phosphoric|fosforow|hydrochloric|solny|lactic|mlekow|acetic|octow|anticalcare|odkamieniacz|odwapniacz)/i.test(`${context?.productName || ''} ${context?.inci || ''} ${context?.detergentComposition || ''}`);
+    if (hasBleachChem && !hasDescalingAcid) {
+        res = res
+            .replace(/usuwa\s+zacieki\s+mineralne,\s*przebarwienia\s+oraz\s+osady\s+organiczne/gi, 'usuwa uporczywe przebarwienia, zżółknięcia oraz osady organiczne')
+            .replace(/(?:zacieki\s+mineralne,\s*|osady\s+wapienne,\s*)/gi, '')
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(usuwa|rozpuszcza|rozbija|eliminuje|likwiduje)\s+(?:zacieki\s+mineralne|osady\s+mineralne|osady\s+wapienne|kamie[ńn]\s+wapienny|kamie[ńn]\s+wodny|kamie[ńn])(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '$1 uporczywe zżółknięcia i osady organiczne');
     }
 
     return res;
@@ -714,12 +741,41 @@ function tryBuildDeterministicSection3({
     const contextStr = `${productName || ''} ${category || ''} ${JSON.stringify(visionFeatures || {})} ${JSON.stringify(features || {})}`;
     const isDishwashing = /(?:do\s+(?:mycia\s+)?naczyń|do\s+naczyn|płyn\s+do\s+naczyń|plyn\s+do\s+naczyn|\bpiatti\b|dishwash|zmywani[ea]\s+naczyń|do\s+zmywarek|lavastoviglie)/i.test(contextStr);
     const isLaundry = /(?:do\s+prania|do\s+płukania|płyn\s+do\s+prania|żel\s+do\s+prania|proszek\s+do\s+prania|kapsułk[ai]\s+do\s+prania|bucato|lavatrice|ammorbidente)/i.test(contextStr);
+    const isToiletWc = /(?:żel\s+do\s+wc|płyn\s+do\s+wc|kostk[ai]\s+do\s+wc|wc\s+gel|do\s+toalet|muszl[ia]\s+toaletow)/i.test(contextStr) &&
+        !/(?:pleś[ńn]|muffa|do\s+fug|odgrzybiacz)/i.test(contextStr);
+    const isMoldOrGrout = /(?:pleś[ńn]|muffa|grzyb|do\s+fug|odgrzybiacz)/i.test(contextStr);
 
     const formatBulletHtml = (dbKey, entry) => {
         let htmlBullet = resolvedIsChemical
             ? (entry.chemical_html || entry.cosmetic_html)
             : (entry.cosmetic_html || entry.chemical_html);
         if (!htmlBullet) return '';
+
+        if (isToiletWc && resolvedIsChemical) {
+            if (dbKey === 'sodium hypochlorite') {
+                return '<li>⚙️ <b>Sodium Hypochlorite (Podchloryn sodu – aktywny wybielacz):</b> silny związek utleniający i wybielający, który <b>błyskawicznie rozkłada uporczywe przebarwienia, zżółknięcia oraz osady organiczne w muszli toaletowej</b>, przywracając ceramice WC <b>higieniczną czystość oraz śnieżną biel</b>.</li>';
+            }
+            if (dbKey === 'sodium hydroxide') {
+                return '<li>⚙️ <b>Sodium Hydroxide (Wodorotlenek sodu):</b> regulator zasadowego pH i składnik alkaliczny, który <b>wspomaga rozkładanie osadów organicznych w muszli toaletowej</b> oraz stabilizuje trwałość i skuteczność podchlorynu sodu w formule żelu.</li>';
+            }
+            if (dbKey === 'sodium dodecylbenzenesulfonate' || dbKey === 'sodium laureth sulfate') {
+                const hasSlesInSource = /(?:sodium\s+laureth\s+sulfate|alcohols,\s*c12-14,\s*ethoxylated,\s*sulfates)/i.test(rawSource);
+                const labelSuffix = hasSlesInSource ? ' (Sodium Laureth Sulfate)' : '';
+                return `<li>⚙️ <b>Anionowe środki powierzchniowo czynne${labelSuffix}:</b> główne cząsteczki myjące, które <b>otaczają i odrywają osady organiczne oraz zabrudzenia z wewnętrznych ścianek muszli toaletowej</b>, ułatwiając ich dokładne spłukanie wodą bez powstawania zacieków.</li>`;
+            }
+            if (dbKey === 'amphoteric surfactants' || dbKey === 'cocamidopropyl betaine') {
+                return '<li>⚙️ <b>Amfoteryczne środki powierzchniowo czynne:</b> ko-surfaktanty funkcyjne, które <b>zagęszczają strukturę żelu, poprawiają jego stabilne przyleganie do pionowych ścianek muszli</b> oraz wspomagają zwilżanie czyszczonej ceramiki.</li>';
+            }
+        }
+
+        if (isMoldOrGrout && resolvedIsChemical) {
+            if (dbKey === 'sodium hypochlorite') {
+                return '<li>⚙️ <b>Sodium Hypochlorite (Podchloryn sodu – aktywny wybielacz):</b> silny związek utleniający i wybielający, który <b>błyskawicznie rozkłada uporczywe przebarwienia, ciemne naloty w fugach oraz osady organiczne</b>, przywracając ceramice sanitarnej i zmywalnym powierzchniom <b>higieniczną czystość oraz śnieżną biel</b>.</li>';
+            }
+            if (dbKey === 'cocamine oxide') {
+                return '<li>⚙️ <b>Cocamine Oxide (Tlenek kokaminy):</b> wysoce odporny na utleniacze surfaktant amfoteryczny, który <b>generuje gęstą, aktywną pianę utrzymującą preparat na pionowych ścianach i wnikającą głęboko w porowate fugi</b>.</li>';
+            }
+        }
 
         if (isDishwashing && resolvedIsChemical) {
             if (dbKey === 'sodium dodecylbenzenesulfonate') {
@@ -757,6 +813,10 @@ function tryBuildDeterministicSection3({
             usedDbKeys.add('parfum');
             usedDbKeys.add('fragrance_allergens');
         }
+        if (isToiletWc && (dbKey === 'sodium dodecylbenzenesulfonate' || dbKey === 'sodium laureth sulfate')) {
+            usedDbKeys.add('sodium dodecylbenzenesulfonate');
+            usedDbKeys.add('sodium laureth sulfate');
+        }
         if (entry.role) matchedRoles.add(entry.role);
     };
 
@@ -791,7 +851,7 @@ function tryBuildDeterministicSection3({
         if (hit) {
             markIngredientUsed(hit.dbKey, hit.entry);
             const htmlBullet = formatBulletHtml(hit.dbKey, hit.entry);
-            if (htmlBullet) matchedBenefits.push(htmlBullet);
+            if (htmlBullet && !matchedBenefits.includes(htmlBullet)) matchedBenefits.push(htmlBullet);
         } else {
             unmatchedFrontHero = true;
         }
@@ -803,7 +863,7 @@ function tryBuildDeterministicSection3({
         if (hit) {
             markIngredientUsed(hit.dbKey, hit.entry);
             const htmlBullet = formatBulletHtml(hit.dbKey, hit.entry);
-            if (htmlBullet && matchedBenefits.length < 10) {
+            if (htmlBullet && !matchedBenefits.includes(htmlBullet) && matchedBenefits.length < 10) {
                 matchedBenefits.push(htmlBullet);
             }
         }
@@ -843,7 +903,14 @@ function tryBuildDeterministicSection3({
     const detectedSynergies = [];
     for (const syn of db.synergies || []) {
         if (Array.isArray(syn.required_roles) && syn.required_roles.every(r => matchedRoles.has(r))) {
-            const synHtml = resolvedIsChemical ? (syn.chemical_html || syn.cosmetic_html) : (syn.cosmetic_html || syn.chemical_html);
+            let synHtml = resolvedIsChemical ? (syn.chemical_html || syn.cosmetic_html) : (syn.cosmetic_html || syn.chemical_html);
+            if (isToiletWc && resolvedIsChemical) {
+                if (syn.id === 'chlorine_anionic_foam') {
+                    synHtml = '<li>⚡ <b>Synergia Wybielania i Przyczepności Żelu (Podchloryn Sodu + Surfaktanty):</b> połączenie aktywnego wybielacza ze środkami powierzchniowo czynnymi sprawia, że <b>gęsty żel stabilnie przylega do pionowych ścianek muszli toaletowej</b>, rozkładając przebarwienia i osady organiczne także pod linią wody.</li>';
+                } else if (syn.id === 'anionic_amphoteric_mildness') {
+                    synHtml = '<li>⚡ <b>Synergia Zwilżania i Zagęszczania (Surfaktanty Anionowe + Amfoteryczne):</b> współdziałanie obu grup związków powierzchniowo czynnych <b>zwiększa efektywność odrywania osadów organicznych i utrzymuje gęstą konsystencję żelu na pionowych ściankach muszli toaletowej</b>.</li>';
+                }
+            }
             if (synHtml && detectedSynergies.length < 3) {
                 detectedSynergies.push(synHtml);
             }
@@ -1267,22 +1334,33 @@ function buildDeterministicSection6({
 
     const seenWarningCodes = new Set();
     const seenWarningBodies = new Set();
+    const hasCorrosiveIngestionPhrase = resolvedWarnings.some(w => /\b(?:P301\+P330\+P331|H314|NIE\s+wywoływać\s+wymiotów)\b/i.test(String(w)));
+    const hasCorrosiveSkinPhrase = resolvedWarnings.some(w => /\b(?:P303\+P361\+P353|P303)\b/i.test(String(w)));
 
     for (const rawW of resolvedWarnings) {
         if (!rawW || typeof rawW !== 'string') continue;
-        let cleanW = sanitizeHtmlClaimsAndStopwords(rawW.trim())
+        let cleanW = sanitizeHtmlClaimsAndStopwords(rawW.trim(), {
+            productName,
+            inci,
+            detergentComposition,
+            pimWarnings: resolvedWarnings.join(' ')
+        })
             .replace(/<\/?(?:li|b|strong)[^>]*>/gi, '')
             .replace(/^(?:➡️|⚠️|🛡️|\*|-)\s*/g, '')
             .replace(/^(?:Ostrzeżenie\s+CLP\/GPSR|Ostrzeżenie\s+CLP|Wytyczne\s+bezpieczeństwa\s*\(GPSR\)|Środki\s+ostrożności\s*\(GPSR\))\s*:?\s*/i, '')
             .replace(/^(?:Uwaga|Ostrzeżenie)\s*[–:-]\s*(?=(?:W\s+razie\s+konieczności|Chronić\s+przed\s+dziećmi|Uważnie\s+przeczytać|Dokładnie\s+umyć|Stosować\s+rękawice|P\d{3}|H\d{3}|EUH\d{3}))/i, '')
-            .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3})\s*(?:[–:-]\s*|\s+)/i, '$1 – ')
             .trim();
-        if (!cleanW) continue;
+        cleanW = gpsrSafetyService.normalizeClpPhraseText(cleanW);
+        if (!cleanW || gpsrSafetyService.isOrphanClpOrRawIngredientFragment(cleanW)) continue;
 
         // Odrzucenie urwanego członu "Zawiera: mieszaninę..." / "Zawiera – mieszaninę...", gdy w ostrzeżeniach jest już pełne EUH208
         if (/^Zawiera\s*[–:-]/i.test(cleanW) && resolvedWarnings.some(w => /EUH208/i.test(String(w)))) {
             continue;
         }
+
+        // Dla H314 pomijamy zdublowane P301+P312 oraz P302+P352 jeśli występują kanoniczne P301+P330+P331 i P303+P361+P353
+        if (hasCorrosiveIngestionPhrase && /^P301\+P312\b/i.test(cleanW)) continue;
+        if (hasCorrosiveSkinPhrase && /^P302\+P352\b/i.test(cleanW)) continue;
 
         // Kanonizacja gołych tekstów P101 / P102 / P103 bez kodu
         if (/^W\s+razie\s+konieczności\s+zasięgnięcia\s+porady\s+lekarza/i.test(cleanW)) {
@@ -1312,9 +1390,17 @@ function buildDeterministicSection6({
         listItems.push(`${labelTag}${cleanW}</li>`);
     }
 
+    // Umieszczamy "Nie połykać." w grupie prewencyjnej (bezpośrednio po P102), nigdy między procedurami ratunkowymi P3xx
     const hasClassifiedHazardInList = listItems.some(li => /\b(?:H314|H315|H318|H319|P301)\b/i.test(li));
-    if (resolvedIsChemical && hasClassifiedHazardInList && !listItems.some(li => /Nie\s+połykać/i.test(li))) {
-        listItems.push(`${labelTag}Nie połykać.</li>`);
+    const existingSwallowIdx = listItems.findIndex(li => />\s*Nie\s+połykać\.?\s*<\/li>/i.test(li));
+    const p102Idx = listItems.findIndex(li => /\bP102\b/i.test(li));
+    if (existingSwallowIdx !== -1 && p102Idx !== -1 && existingSwallowIdx > p102Idx + 1) {
+        const [swallowItem] = listItems.splice(existingSwallowIdx, 1);
+        const newP102Idx = listItems.findIndex(li => /\bP102\b/i.test(li));
+        listItems.splice(newP102Idx + 1, 0, swallowItem);
+    } else if (resolvedIsChemical && hasClassifiedHazardInList && existingSwallowIdx === -1 && !listItems.some(li => /Nie\s+połykać/i.test(li))) {
+        const insertAt = p102Idx !== -1 ? p102Idx + 1 : 0;
+        listItems.splice(insertAt, 0, `${labelTag}Nie połykać.</li>`);
     }
 
     if (euResponsiblePerson && (euResponsiblePerson.name || typeof euResponsiblePerson === 'string')) {

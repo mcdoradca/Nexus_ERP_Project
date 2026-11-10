@@ -515,6 +515,35 @@ function validate_section6_compliance(html, options = {}) {
         errors.push('Missing mandatory EUH208 allergen statement for chemical mixture with sensitizers');
     }
 
+    if (/\bKONTATKT?U\b/i.test(html)) {
+        errors.push('Orthographic typo in CLP phrase ("KONTATKU" instead of "STYCZNOŚCI" / "KONTAKTU")');
+    }
+
+    // Wykrywanie urwanych fragmentów procedur CLP oraz surowych nazw składników wklejonych jako osobne ostrzeżenia <li>
+    const liMatches = html.match(/<li[^>]*>[\s\S]*?<\/li>/gi) || [];
+    for (const li of liMatches) {
+        const plain = li
+            .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+            .replace(/^(?:➡️|⚠️|🛡️|\*|-)\s*/g, '')
+            .replace(/^(?:Ostrzeżenie\s+CLP\/GPSR|Ostrzeżenie\s+CLP|Wytyczne\s+bezpieczeństwa\s*\(GPSR\)|Środki\s+ostrożności\s*\(GPSR\))\s*:?\s*/i, '')
+            .trim();
+        if (!/^(?:P\d{3}|H\d{3}|EUH\d{3}|Hasło\s+ostrzegawcze)/i.test(plain)) {
+            if (/^(?:Spłukać\s+skórę\s+pod\s+strumieniem\s+wody|NIE\s+wywoływać\s+wymiotów|Może\s+(?:uwalniać|wydzielać)\s+niebezpieczne\s+gazy|Natychmiast\s+zdjąć\s+całą\s+zanieczyszczoną\s+odzież)\b/i.test(plain)) {
+                errors.push(`Severed/duplicated CLP fragment as standalone item: "${plain}"`);
+            }
+            if (/\balkohol[ei]\s+C\d{1,2}[-–]\d{1,2}\b/i.test(plain) && /(?:etoksylowan|siarczanowan|sole\s+sodow)/i.test(plain)) {
+                errors.push(`Raw chemical ingredient leaked as safety warning: "${plain}"`);
+            }
+        }
+    }
+
+    if (/\bH314\b/i.test(html) && /\bP301\+P312\b/i.test(html)) {
+        errors.push('Corrosive H314 product must use P301+P330+P331 instead of mild P301+P312');
+    }
+    if (/\bP303\+P361\+P353\b/i.test(html) && /\bP302\+P352\b/i.test(html)) {
+        errors.push('Duplicate skin-contact procedure: P302+P352 must not appear alongside P303+P361+P353');
+    }
+
     return { valid: errors.length === 0, errors };
 }
 
@@ -604,9 +633,9 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
         errors.push('[Błąd gramatyczny] Kalka "w wariancie zapachowym [przymiotnik]" (wymagane: "o zapachu [przymiotnik odmieniony]" np. "o zapachu cytrynowym").');
     }
 
-    // 5. Medical Whitelisting w P302+P352 ("W PRZYPADKU KONTAKTU ZE SKÓRĄ" -> "W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ")
-    if (/W\s+PRZYPADKU\s+KONTAKTU\s+ZE\s+SKÓRĄ/i.test(s6)) {
-        errors.push('[Medical Whitelisting CLP] W kodzie P302+P352 użyto zakazanego słowa "KONTAKTU ZE SKÓRĄ" zamiast "W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ".');
+    // 5. Medical Whitelisting w P302+P352 / P303 ("W PRZYPADKU KONTAKTU/KONTATKU ZE SKÓRĄ" -> "W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ")
+    if (/W\s+PRZYPADKU\s+(?:KONTAKTU|KONTATKU)\s+ZE\s+SKÓRĄ/i.test(s6)) {
+        errors.push('[Medical Whitelisting CLP] W Sekcji 6 użyto zakazanego słowa "KONTAKTU/KONTATKU ZE SKÓRĄ" zamiast "W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ".');
     }
 
     // 6. Obowiązkowe ostrzeżenie "Nie połykać." w chemii gospodarczej
@@ -697,6 +726,34 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
         }
         if (s4 && !/rękawic/i.test(s4)) {
             errors.push('[Brak wymogu rękawic ochronnych w Sekcji 4] Dla środka żrącego / drażniącego skórę / silnej chemii gospodarczej lub zgodnie z etykietą, instrukcja użycia w Sekcji 4 musi informować o konieczności założenia rękawic ochronnych.');
+        }
+    }
+
+    // 18. Izolacja produktów WC przed kalką z płynów do fug i pleśni
+    const isToiletWcProduct = /(?:żel\s+do\s+wc|płyn\s+do\s+wc|kostk[ai]\s+do\s+wc|wc\s+gel|do\s+toalet|muszl[ia]\s+toaletow)/i.test(prodName) &&
+        !/(?:pleś[ńn]|muffa|do\s+fug|odgrzybiacz)/i.test(prodName);
+    if (isToiletWcProduct && /(?:\bw\s+fugach\b|ciemne\s+naloty\s+w\s+fugach|wannach,\s*umywalkach\s+oraz\s+fugach)/i.test(`${s1} ${s2} ${s3} ${s4}`)) {
+        errors.push('[Kalka międzykategorialna WC vs Fugi] Produkt do WC / muszli toaletowej nie może zawierać wtrętów o czyszczeniu fug (kalka z preparatu na pleśń).');
+    }
+
+    // 19. Błąd logiczno-chemiczny: zasadowy wybielacz chlorowy (bez kwasu) nie rozpuszcza kamienia ani zacieków mineralnych
+    const hasDescalingAcid = /(?:citric\s+acid|kwas\s+cytrynowy|sulfamic|amidosulfonow|formic|mrówkow|phosphoric|fosforow|hydrochloric|solny|lactic|mlekow|acetic|octow|anticalcare|odkamieniacz|odwapniacz)/i.test(`${prodName} ${inci} ${detComp}`);
+    if (isChlorineBleach && !hasDescalingAcid && /(?:usuwa|rozpuszcza|rozbija|eliminuje|likwiduje)\s+[^.<]{0,40}(?:kamie[ńn]\b|zacieki\s+mineralne|osady\s+mineralne|osady\s+wapienne)/i.test(`${s1} ${s2} ${s3} ${s4}`)) {
+        errors.push('[Błąd logiczno-chemiczny] Zasadowy wybielacz chlorowy (NaOCl + NaOH) bez kwasu nie rozpuszcza kamienia wapiennego ani zacieków mineralnych (utlenia wyłącznie przebarwienia i osady organiczne).');
+    }
+
+    // 20. Błąd gramatyczny ("wykonana w częściowo")
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])w\s+częściowo(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/i.test(allHtml)) {
+        errors.push('[Błąd gramatyczny] Niedopuszczalna fraza "w częściowo" (wymagane: "częściowo" lub "w części").');
+    }
+
+    // 21. Kontrola czystości i nierozerwalności CLP w Sekcji 6 (urwane procedury, surowe składniki, H314 vs P301+P312)
+    if (s6) {
+        const s6Check = validate_section6_compliance(s6, { is_chemical: Boolean(context.isChemical) });
+        for (const s6Err of s6Check.errors) {
+            if (/(?:KONTATKU|Severed\/duplicated|Raw chemical ingredient|Corrosive H314|Duplicate skin-contact)/.test(s6Err)) {
+                errors.push(`[Błąd struktury CLP Sekcji 6] ${s6Err}`);
+            }
         }
     }
 

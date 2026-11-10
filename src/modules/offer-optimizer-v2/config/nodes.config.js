@@ -9,7 +9,7 @@ const nodesConfig = {
     6: { model: 'gemini-3.8-flash' },
     7: { model: 'gemini-3.8-flash' },
     9: { model: 'gemini-3.8-flash' },
-    10: { model: 'gemini-3.1-pro-preview', thinkingLevel: ThinkingLevel.LOW },
+    10: { model: 'gemini-3.1-pro-preview', thinkingLevel: ThinkingLevel.MEDIUM },
     11: { model: 'gemini-3.8-flash' }
 };
 

@@ -716,3 +716,127 @@ test('V4B scan_biocidal_claims_lexical & Deterministic Legal Sanitizer (Rozp. BP
         assert.strictEqual(validValidationResult.errors.some(e => e.includes('[Błąd pojęciowo-technologiczny]')), false, 'Poprawne frazy płukania nie mogą generować błędu');
     });
 });
+
+
+test('ADR-0173: Wrogie testy regresyjne Dual Power WC Gel Candeggina (9 bugów produkcyjnych)', async (t) => {
+    const deterministicEngine = require('../services/deterministic-pipeline.engine.js');
+    const googleSuggestFaq = require('../services/google-suggest-faq.service.js');
+
+    const wcContext = {
+        productName: 'Dual Power żel do WC Candeggina 700 ml',
+        inci: '< 5% fosfoniany, środki wybielające na bazie chloru, anionowe środki powierzchniowo czynne, amfoteryczne środki powierzchniowo czynne, kompozycja zapachowa (Parfum). Zawiera: SODIUM HYDROXIDE, SODIUM LAURETH SULFATE (Alcohols, C12-14, ethoxylated, sulfates, sodium salts)',
+        isChemical: true,
+        requiresProtectiveGloves: true
+    };
+
+    await t.test('A. Walidatory bezwzględnie ODRZUCAJĄ dokładnie takie halucynacje, błędy chemiczne, gramatyczne i CLP z produkcji', () => {
+        const res = v.validate_domain_and_chemical_logic({
+            section_1_html: '<h2>⭐ Dual Power żel do WC Candeggina 700 ml</h2><ul><li>✔️ <b>Odpowiedzialne opakowanie:</b> butelka wykonana w częściowo z plastiku pochodzącego z recyklingu.</li></ul>',
+            section_2_html: '<h2>❓ Najczęstsze pytania</h2><ul><li>❓ <b>Pytanie:</b> Co usuwa?</li><li>✔️ <b>Odpowiedź:</b> Preparat usuwa zacieki mineralne, przebarwienia oraz osady organiczne.</li></ul>',
+            section_3_html: '<h2>⚙️ Skład chemiczny</h2><ul><li>⚙️ <b>Sodium Hypochlorite:</b> rozkłada przebarwienia, ciemne naloty w fugach oraz osady organiczne.</li></ul>',
+            section_4_html: '<h2>✍️ Sposób użycia</h2><ol><li>✍️ <b>Krok 1:</b> Załóż rękawice ochronne i nanieś pod obrzeże muszli toaletowej.</li></ol>',
+            section_6_html: [
+                '<h2>⚠️ Bezpieczeństwo</h2><ul>',
+                '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> H314 – Powoduje poważne oparzenia skóry oraz uszkodzenia oczu.</li>',
+                '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P280 – Stosować rękawice ochronne.</li>',
+                '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P301+P312 – W PRZYPADKU POŁKNIĘCIA: skontaktować się z lekarzem.</li>',
+                '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Nie połykać.</li>',
+                '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P303+P361+P353 – W PRZYPADKU KONTATKU ZE SKÓRĄ (lub z włosami): zdjąć odzież.</li>',
+                '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Spłukać skórę pod strumieniem wody lub prysznicem.</li>',
+                '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> NIE wywoływać wymiotów.</li>',
+                '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> alkohole C12-14, etoksylowane, siarczanowane, sole sodowe.</li>',
+                '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> EUH206 – Może uwalniać niebezpieczne gazy (chlor).</li>',
+                '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Może uwalniać niebezpieczne gazy (chlor).</li>',
+                '</ul>'
+            ].join('')
+        }, wcContext);
+
+        assert.strictEqual(res.valid, false, 'Walidator musi odrzucić brudny opis z 9 usterkami produkcyjnymi');
+        const allErrs = res.errors.join('\n');
+        assert.ok(allErrs.includes('[Kalka międzykategorialna WC vs Fugi]'), `Brak wykrycia kalki "w fugach" w żelu do WC: ${allErrs}`);
+        assert.ok(allErrs.includes('[Błąd logiczno-chemiczny]'), `Brak wykrycia sprzeczności "usuwa zacieki mineralne" dla NaOCl/NaOH: ${allErrs}`);
+        assert.ok(allErrs.includes('[Błąd gramatyczny]'), `Brak wykrycia błędu "w częściowo": ${allErrs}`);
+
+        const s6Res = v.validate_section6_compliance(
+            '<h2>⚠️ Bezpieczeństwo</h2><ul>' +
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> H314 – Powoduje poważne oparzenia skóry.</li>' +
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P303+P361+P353 – W PRZYPADKU KONTATKU ZE SKÓRĄ: zdjąć odzież.</li>' +
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Spłukać skórę pod strumieniem wody lub prysznicem.</li>' +
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> alkohole C12-14, etoksylowane, siarczanowane, sole sodowe.</li>' +
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> NIE wywoływać wymiotów.</li>' +
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P301+P312 – W PRZYPADKU POŁKNIĘCIA: skontaktować się z lekarzem.</li>' +
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P302+P352 – W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ: Umyć wodą.</li>' +
+            '</ul>',
+            wcContext
+        );
+        assert.strictEqual(s6Res.valid, false, 'validate_section6_compliance musi odrzucić literówkę KONTATKU, urwane zwroty, wyciek składnika i P301+P312 przy H314');
+        const s6Errs = s6Res.errors.join('\n');
+        assert.ok(/KONTATKU|literówka/i.test(s6Errs), `Brak błędu literówki KONTATKU: ${s6Errs}`);
+        assert.ok(/rozerwany|urwany|P303|P331/i.test(s6Errs), `Brak błędu urwanych fraz P303/P331: ${s6Errs}`);
+        assert.ok(/alkohole C12-14|składnik/i.test(s6Errs), `Brak błędu wycieku składnika SDS: ${s6Errs}`);
+        assert.ok(/P301\+P312|P302\+P352|H314/i.test(s6Errs), `Brak błędu niespójnych kodów przy H314: ${s6Errs}`);
+    });
+
+    await t.test('B. tryBuildDeterministicSection3 obsługuje "środki wybielające na bazie chloru", nie wstawia fug/tłuszczu i nie dubluje anionowych surfaktantów', () => {
+        const s3Wc = deterministicEngine.tryBuildDeterministicSection3({
+            productName: wcContext.productName,
+            isChemical: true,
+            inci: wcContext.inci
+        });
+        assert.strictEqual(s3Wc.canSkipA4, true, 'Deterministyczna Sekcja 3 powinna zostać zbudowana dla żelu do WC');
+        assert.ok(/Sodium Hypochlorite/i.test(s3Wc.section_3_html), 'Musi zmapować "środki wybielające na bazie chloru" na Sodium Hypochlorite');
+        assert.strictEqual(/\bw fugach\b|fugi\b/i.test(s3Wc.section_3_html), false, 'Żel do WC nie może wspominać o fugach');
+        assert.strictEqual(/rozpuszczając tłuszcz|tłustych osadów|odtłuszczające/i.test(s3Wc.section_3_html), false, 'Żel do WC nie może udawać odtłuszczacza kuchennego');
+
+        const anionicBullets = (s3Wc.section_3_html.match(/<li>\s*⚙️\s*<b>Anionowe środki powierzchniowo czynne/gi) || []).length;
+        assert.strictEqual(anionicBullets, 1, `Kategoria "anionowe środki..." i SLES nie mogą tworzyć zdublowanych kafelków (znaleziono ${anionicBullets})`);
+
+        // Pozytywny test kontrolny: środek do pleśni i fug NADAL może opisywać fugi
+        const s3Mold = deterministicEngine.tryBuildDeterministicSection3({
+            productName: 'Cif Muffa spray do pleśni i fug 500 ml',
+            category: 'Fugi i pleśń',
+            isChemical: true,
+            inci: 'Aqua, Sodium Hypochlorite, Cocamine Oxide'
+        });
+        assert.strictEqual(s3Mold.canSkipA4, true);
+        assert.ok(/w fugach|fug/i.test(s3Mold.section_3_html), 'Preparat na pleśń w fugach powinien zachować kontekst fug');
+    });
+
+    await t.test('C. sanitizeHtmlClaimsAndStopwords naprawia kalki i błędy gramatyczne, ale zachowuje chelatację osadów przez fosfoniany', () => {
+        const fixedS1 = deterministicEngine.sanitizeHtmlClaimsAndStopwords(
+            '<p>Odpowiedzialne opakowanie: butelka wykonana w częściowo z plastiku z recyklingu.</p>',
+            wcContext
+        );
+        assert.ok(fixedS1.includes('wykonana częściowo z plastiku'), `Nie poprawiono gramatyki "w częściowo": ${fixedS1}`);
+        assert.strictEqual(fixedS1.includes('w częściowo'), false);
+
+        const fixedS2 = deterministicEngine.sanitizeHtmlClaimsAndStopwords(
+            '<p>Preparat usuwa zacieki mineralne, przebarwienia oraz osady organiczne w muszli WC.</p>',
+            wcContext
+        );
+        assert.strictEqual(/usuwa zacieki mineralne/i.test(fixedS2), false, `Nie usunięto błędu "usuwa zacieki mineralne": ${fixedS2}`);
+        assert.ok(/osady organiczne/i.test(fixedS2), 'Sanitizer uszkodził poprawną część zdania o osadach organicznych');
+
+        const fixedS3 = deterministicEngine.sanitizeHtmlClaimsAndStopwords(
+            '<ul><li><b>Sodium Hypochlorite:</b> rozkłada przebarwienia, ciemne naloty w fugach oraz osady organiczne.</li>' +
+            '<li><b>Fosfoniany:</b> wychwytują jony wapnia i magnezu i zapobiegają odkładaniu się osadów mineralnych.</li></ul>',
+            wcContext
+        );
+        assert.strictEqual(/w fugach/i.test(fixedS3), false, `Nie wycięto "w fugach" w żelu do WC: ${fixedS3}`);
+        assert.ok(/zapobiegają odkładaniu się osadów mineralnych/i.test(fixedS3), 'Sanitizer bezprawnie usunął chelatujące zapobieganie osadom mineralnym przez fosfoniany');
+    });
+
+    await t.test('D. harvestSearchIntentFaq generuje pytania pod muszlę WC (bez wanny, kabiny, fug i zacieków mineralnych dla wybielacza chlorowego)', async () => {
+        const faqWc = await googleSuggestFaq.harvestSearchIntentFaq({
+            productName: wcContext.productName,
+            brand: 'Dual Power',
+            capacity: '700 ml',
+            isChemical: true,
+            inci: wcContext.inci
+        });
+        const allQ = faqWc.recommended_search_questions.join(' | ');
+        assert.strictEqual(/wann|kabin|fug|zacieki mineralne|kamień/i.test(allQ), false, `FAQ WC zawiera obce powierzchnie lub kamień dla chloru: ${allQ}`);
+        assert.ok(/muszl|toalet|WC/i.test(allQ), `FAQ WC nie odnosi się do muszli toaletowej: ${allQ}`);
+        assert.ok(/przebarwienia|osady organiczne/i.test(allQ), `FAQ chlorowego żelu WC powinno pytać o przebarwienia/osady organiczne: ${allQ}`);
+    });
+});

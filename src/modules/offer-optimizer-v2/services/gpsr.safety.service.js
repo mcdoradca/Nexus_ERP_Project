@@ -108,23 +108,78 @@ class GpsrSafetyService {
         return lower.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     }
 
+    /**
+     * Wspólny normalizator zwrotów CLP: usuwa literówki (KONTATKU, DO OCZÓW),
+     * wymusza Medical Whitelisting (STYCZNOŚCI ZE SKÓRĄ) oraz kanoniczną interpunkcję kodów P/H/EUH.
+     */
+    normalizeClpPhraseText(rawStr) {
+        if (!rawStr || typeof rawStr !== 'string') return '';
+        return rawStr
+            .replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
+            .replace(/\bKONTATKT?U\b/gi, 'KONTAKTU')
+            .replace(/W\s+PRZYPADKU\s+(?:KONTAKTU|KONTATKU)\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ')
+            .replace(/^(?:Uwaga|Ostrzeżenie(?:\s+CLP(?:\/GPSR)?)?)\s*[–:-]\s*/i, '')
+            .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3})\s*(?:[–:-]\s*|\s+)/i, '$1 – ')
+            .replace(/(W\s+PRZYPADKU\s+(?:POŁKNIĘCIA|DOSTANIA\s+SIĘ\s+DO\s+OCZU|STYCZNOŚCI\s+ZE\s+SKÓRĄ)(?:\s*\([^)]+\))?)\s*[–-]\s*/gi, '$1: ')
+            .replace(/(W\s+przypadku\s+utrzymywania\s+się\s+działania\s+drażniącego\s+na\s+oczy)\s*[–-]\s*/gi, '$1: ')
+            .trim();
+    }
+
+    /**
+     * Wykrywa urwane zdania wieloczłonowych procedur CLP (np. P303, P301+P330+P331, EUH206)
+     * oraz surowe nazwy substancji z listy składników ("Zawiera: ..."), które nie mogą występować jako osobne ostrzeżenia.
+     */
+    isOrphanClpOrRawIngredientFragment(rawStr) {
+        if (!rawStr || typeof rawStr !== 'string') return true;
+        const clean = this.normalizeClpPhraseText(rawStr)
+            .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+            .replace(/^(?:➡️|⚠️|🛡️|\*|-)\s*/g, '')
+            .trim();
+        if (!clean || clean.length < 4) return true;
+
+        // Jeżeli wpis zaczyna się od kodu CLP/H/EUH, nie jest urwanym fragmentem bez kodu
+        if (/^(?:P\d{3}|H\d{3}|EUH\d{3}|Hasło\s+ostrzegawcze)\b/i.test(clean)) {
+            return false;
+        }
+
+        // Urwane fragmenty z wielozdaniowych zwrotów P303, P301+P330+P331, P305+P351+P338, EUH206
+        if (/^(?:Spłukać\s+skórę\s+pod\s+strumieniem\s+wody|Natychmiast\s+zdjąć\s+całą\s+zanieczyszczoną\s+odzież|NIE\s+wywoływać\s+wymiotów|Wypłukać\s+usta|Wyjąć\s+soczewki\s+kontaktowe|Nadal\s+płukać|Ostrożnie\s+płukać\s+wodą|W\s+przypadku\s+złego\s+samopoczucia\s+skontaktować\s+się|Może\s+(?:uwalniać|wydzielać)\s+niebezpieczne\s+gazy|Nie\s+stosować\s+razem\s+z\s+innymi\s+produktami|Umyć\s+dużą\s+ilością\s+wody)\b/i.test(clean)) {
+            return true;
+        }
+
+        // Surowe nazwy składników chemicznych oraz deklaracje składu CLP/detergentowe z etykiety (nie blokuje ostrzeżeń kosmetycznych typu "Zawiera witaminę A / hydroksykwasy")
+        if (/^(?:Zawiera|Contains|Contiene|Skład(?:\s+chemiczny)?|Composizione(?:\s+chimica)?|Chemical\s+composition)\s*[:–-]/i.test(clean) ||
+            /^(?:Zawiera|Contains|Contiene)\s+(?:wodorotlenek|podchloryn|alkohol[ei]\s+C\d+|fosfonian|środki\s+wybielające|surfaktant|sodium\s+hydroxide|sodium\s+hypochlorite|alcoli)\b/i.test(clean)) {
+            return true;
+        }
+        if (/^(?:alkohol[ei]\s+C\d+|etoksylowan[a-ząćęłńóśźż]*|siarczanowan[a-ząćęłńóśźż]*|sole\s+sodowe|wodorotlenek\s+sodu|podchloryn\s+sodu|fosfoniany|środki\s+wybielające|anionowe\s+środki|amfoteryczne\s+środki|niejonowe\s+środki|kompozycja\s+zapachowa|centro\s+antiveleni|emergency\s+number|ośrodek\s+zatruć)\b/i.test(clean)) {
+            return true;
+        }
+        if (/\balkohol[ei]\s+C\d{1,2}[-–]\d{1,2}\b/i.test(clean) && /(?:etoksylowan|siarczanowan|sole\s+sodow)/i.test(clean)) {
+            return true;
+        }
+
+        return false;
+    }
+
     splitCombinedPPhrases(input) {
         if (!input) return [];
         const rawList = Array.isArray(input) ? input : [input];
         const result = [];
 
-        // Zbiorcza analiza obecności kodów składowych procedur kombinowanych
-        const upperJoined = rawList.map(item => String(item || '').toUpperCase()).join(' ');
-
         // Flagi obecności procedur kombinowanych
         let handledSwallowing = false;
+        let handledCorrosiveSwallowing = false;
         let handledEyesWash = false;
         let handledEyesDoctor = false;
         let handledSkin = false;
+        let handledCorrosiveSkin = false;
+
+        const hasCorrosiveInput = rawList.some(item => /\b(?:P301\+P330\+P331|P330|P331|P303\+P361\+P353|P303|P361|P353)\b/i.test(String(item || '')));
 
         for (const item of rawList) {
             if (!item || typeof item !== 'string') continue;
-            let str = item.trim();
+            let str = this.normalizeClpPhraseText(item.trim());
 
             // Rozpoznawanie sklejonych procedur medycznych np. "P305+P351+P338 + P337+P313" lub "P305+P351+P338 / P337+P313"
             const multiGroupRegex = /(P\d{3}(?:\+P\d{3})*)\s*(?:\+|\/|\band\b|\boraz\b)\s*(P\d{3}(?:\+P\d{3})*)/i;
@@ -139,8 +194,12 @@ class GpsrSafetyService {
                                 text = "W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.";
                             } else if (cleanCode === 'P337+P313') {
                                 text = "W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza.";
+                            } else if (cleanCode === 'P301+P330+P331') {
+                                text = "W PRZYPADKU POŁKNIĘCIA: wypłukać usta. NIE wywoływać wymiotów.";
                             } else if (cleanCode === 'P301+P312') {
                                 text = "W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.";
+                            } else if (cleanCode === 'P303+P361+P353') {
+                                text = "W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ (lub z włosami): Natychmiast zdjąć całą zanieczyszczoną odzież. Spłukać skórę pod strumieniem wody lub prysznicem.";
                             } else if (cleanCode === 'P302+P352') {
                                 text = "W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ: Umyć dużą ilością wody.";
                             } else if (cleanCode === 'P280') {
@@ -154,7 +213,7 @@ class GpsrSafetyService {
                             }
                         }
                         if (text) {
-                            text = text.replace(/^[:\s–-]+/, '').trim().replace(/\bDO OCZÓW\b/gi, 'DO OCZU');
+                            text = this.normalizeClpPhraseText(text.replace(/^[:\s–-]+/, '').trim());
                             result.push(`${cleanCode} – ${text}`);
                         } else {
                             result.push(cleanCode);
@@ -166,8 +225,16 @@ class GpsrSafetyService {
 
             // Odrzucenie osieroconych nagłówków okolicznościowych i scalanie w formuły kombinowane CLP
             const cleanItemCode = str.split(/[\s–-]/)[0].toUpperCase();
+            if (cleanItemCode === 'P301+P330+P331' || cleanItemCode === 'P330' || cleanItemCode === 'P331' || (hasCorrosiveInput && cleanItemCode === 'P301')) {
+                if (!handledCorrosiveSwallowing) {
+                    handledCorrosiveSwallowing = true;
+                    handledSwallowing = true;
+                    result.push("P301+P330+P331 – W PRZYPADKU POŁKNIĘCIA: wypłukać usta. NIE wywoływać wymiotów.");
+                }
+                continue;
+            }
             if (cleanItemCode === 'P301' || cleanItemCode === 'P312') {
-                if (!handledSwallowing) {
+                if (!handledSwallowing && !handledCorrosiveSwallowing) {
                     handledSwallowing = true;
                     result.push("P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.");
                 }
@@ -187,8 +254,16 @@ class GpsrSafetyService {
                 }
                 continue;
             }
+            if (cleanItemCode === 'P303+P361+P353' || cleanItemCode === 'P303' || cleanItemCode === 'P361' || cleanItemCode === 'P353') {
+                if (!handledCorrosiveSkin) {
+                    handledCorrosiveSkin = true;
+                    handledSkin = true;
+                    result.push("P303+P361+P353 – W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ (lub z włosami): Natychmiast zdjąć całą zanieczyszczoną odzież. Spłukać skórę pod strumieniem wody lub prysznicem.");
+                }
+                continue;
+            }
             if (cleanItemCode === 'P302' || cleanItemCode === 'P352') {
-                if (!handledSkin) {
+                if (!handledSkin && !handledCorrosiveSkin) {
                     handledSkin = true;
                     result.push("P302+P352 – W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ: Umyć dużą ilością wody.");
                 }
@@ -199,7 +274,7 @@ class GpsrSafetyService {
             if (/^P\d{3}$/i.test(cleanItemCode) && str === cleanItemCode) {
                 let text = this.euphracPhrases?.pPhrases?.[cleanItemCode];
                 if (text) {
-                    text = text.replace(/^[:\s–-]+/, '').trim().replace(/\bDO OCZÓW\b/gi, 'DO OCZU');
+                    text = this.normalizeClpPhraseText(text.replace(/^[:\s–-]+/, '').trim());
                     result.push(`${cleanItemCode} – ${text}`);
                     continue;
                 }
@@ -473,6 +548,11 @@ class GpsrSafetyService {
             // 4. P102 – Chronić przed dziećmi (Obowiązkowy dla mieszanin konsumenckich)
             warnings.push("P102 – Chronić przed dziećmi.");
 
+            // 4a. Ostrzeżenie prewencyjne "Nie połykać." w grupie prewencyjnej (przed procedurami ratunkowymi P3xx)
+            if ((isClassifiedChemical || /nie\s+połykać|non\s+ingerire|do\s+not\s+swallow/i.test(rawPimWarnings)) && !isLaundryCapsules) {
+                warnings.push("Nie połykać.");
+            }
+
             // 4b. P103 – Uważnie przeczytać wszystkie instrukcje i zastosować się do nich (jeśli występuje na etykiecie lub dla łagodnych sprayów z P103)
             if (/(?:\bP103\b|uważnie\s+przeczytać\s+wszystkie\s+instrukcje|leggere\s+attentamente\s+e\s+seguire|read\s+carefully\s+and\s+follow)/i.test(`${rawPimWarnings} ${splitPPhrases.join(' ')}`) || isMildUnclassifiedChemical) {
                 warnings.push("P103 – Uważnie przeczytać wszystkie instrukcje i zastosować się do nich.");
@@ -483,7 +563,7 @@ class GpsrSafetyService {
                 warnings.push("P264 – Dokładnie umyć ręce po użyciu.");
             }
 
-            // 5b. P280 – Stosować rękawice ochronne (OBOWIĄZKOWE dla środków żrących, zasadowych z NaOH/KOH, z chlorem, kwasowych, do piekarników/odgrzybiaczy lub gdy etykieta wprost tego wymaga)
+            // 5b. P280 – Stosować rękawice ochronne (dla H314/H318 z ochroną oczu, dla pozostałych same rękawice ochronne)
             if (requiresProtectiveGloves) {
                 if (hasSevereCorrosionH314OrH318) {
                     warnings.push("P280 – Stosować rękawice ochronne i ochronę oczu.");
@@ -492,16 +572,22 @@ class GpsrSafetyService {
                 }
             }
 
-            // 6. P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ / lekarzem
-            if (isClassifiedChemical || isLaundryCapsules || /\bP301\b|połknięci/i.test(rawPimWarnings)) {
+            const hasCorrosiveH314 = Boolean(
+                combinedHPhrases.some(h => /\bH314\b/i.test(h)) ||
+                /\b(?:H314|P301\+P330\+P331|P303\+P361\+P353|P331)\b|\bNIE\s+wywoływać\s+wymiotów/i.test(`${rawPimWarnings} ${splitPPhrases.join(' ')}`)
+            );
+
+            // 6. Procedura po połknięciu: dla żrących H314 kanoniczne P301+P330+P331 (bez wywoływania wymiotów), dla pozostałych P301+P312
+            if (hasCorrosiveH314 && !isLaundryCapsules) {
+                warnings.push("P301+P330+P331 – W PRZYPADKU POŁKNIĘCIA: wypłukać usta. NIE wywoływać wymiotów.");
+            } else if (isClassifiedChemical || isLaundryCapsules || /\bP301\b|połknięci/i.test(rawPimWarnings)) {
                 warnings.push("P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem.");
             }
-            if ((isClassifiedChemical || /nie\s+połykać|non\s+ingerire|do\s+not\s+swallow/i.test(rawPimWarnings)) && !isLaundryCapsules) {
-                warnings.push("Nie połykać.");
-            }
 
-            // 7b. P302+P352 – W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ: Umyć dużą ilością wody (Medical Whitelisting: słowo 'kontakt' tylko przy P305)
-            if (hasHypochlorite || requiresProtectiveGloves) {
+            // 7b. Procedura kontaktu ze skórą: dla żrących H314 / etykiet z P303 kanoniczne P303+P361+P353, dla pozostałych P302+P352
+            if (hasCorrosiveH314 || /\bP303\b/i.test(`${rawPimWarnings} ${splitPPhrases.join(' ')}`)) {
+                warnings.push("P303+P361+P353 – W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ (lub z włosami): Natychmiast zdjąć całą zanieczyszczoną odzież. Spłukać skórę pod strumieniem wody lub prysznicem.");
+            } else if (hasHypochlorite || requiresProtectiveGloves) {
                 warnings.push("P302+P352 – W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ: Umyć dużą ilością wody.");
             }
 
@@ -510,7 +596,7 @@ class GpsrSafetyService {
                 warnings.push("P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.");
             }
 
-            // 9. P337+P313 – Faza 2: Pomoc lekarska w razie utrzymywania się podrażnienia oczu
+            // 9. P337+P313 – Faza 2: Pomoc lekarska w razie utrzymywania się podrażnienia oczu (dla H314 tylko jeśli nie koliduje z etykietą lub z P305)
             if (isClassifiedChemical || /\bP337\b/i.test(rawPimWarnings)) {
                 warnings.push("P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza.");
             }
@@ -530,19 +616,16 @@ class GpsrSafetyService {
 
             // 11. Dołączenie ewentualnych pozostałych zwrotów P ze specyfikacji/SDS (skonsolidowanych, z twardą deduplikacją po kodzie i treści)
             for (const rawP of splitPPhrases) {
-                const p = String(rawP || '')
-                    .replace(/^(?:Uwaga|Ostrzeżenie(?:\s+CLP(?:\/GPSR)?)?)\s*[–:-]\s*/i, '')
-                    .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3})\s*(?:[–:-]\s*|\s+)/i, '$1 – ')
-                    .trim();
-                if (!p) continue;
+                const p = this.normalizeClpPhraseText(String(rawP || ''));
+                if (!p || this.isOrphanClpOrRawIngredientFragment(p)) continue;
                 const codeOnly = p.split(/[\s–-]/)[0].toUpperCase();
-                if (/^(P101|P102|P103|P264|P301|P312|P305|P351|P338|P337|P313|P302|P352|P280|EUH206|EUH208)$/.test(codeOnly)) {
+                if (/^(P101|P102|P103|P264|P301|P301\+P312|P301\+P330\+P331|P312|P330|P331|P302|P302\+P352|P352|P303|P303\+P361\+P353|P361|P353|P305|P305\+P351\+P338|P351|P338|P337|P337\+P313|P313|P280|H314|H315|H318|H319|EUH206|EUH208)$/.test(codeOnly)) {
                     if (codeOnly === 'P103' && !warnings.some(w => /\bP103\b/i.test(w))) {
                         warnings.push("P103 – Uważnie przeczytać wszystkie instrukcje i zastosować się do nich.");
                     }
                     continue;
                 }
-                if (/(?:pokazać pojemnik lub etykietę|chronić przed dziećmi|uważnie przeczytać wszystkie instrukcje|dokładnie umyć ręce|nie połykać|dostania się do oczu|styczności ze skórą|kontaktu ze skórą|działa drażniąco na oczy|reakcji alergicznej|izotiazol|isothiazol|^zawiera\b)/i.test(p)) {
+                if (/(?:pokazać pojemnik lub etykietę|chronić przed dziećmi|uważnie przeczytać wszystkie instrukcje|dokładnie umyć ręce|nie połykać|dostania się do oczu|styczności ze skórą|kontaktu ze skórą|działa drażniąco na oczy|reakcji alergicznej|izotiazol|isothiazol|niebezpieczne gazy|wywoływać wymiotów)/i.test(p)) {
                     continue;
                 }
                 if (!warnings.some(w => w.includes(codeOnly))) {
@@ -551,18 +634,27 @@ class GpsrSafetyService {
             }
 
             // 11b. Wstrzyknięcie specyficznych ostrzeżeń odczytanych bezpośrednio z tylnej etykiety opakowania (features['Ostrzeżenia'])
+            // Dzielimy wyłącznie po znakach nowej linii lub granicach kodów CLP/sekcji (NIGDY po kropce wewnątrz zdań CLP!)
             if (rawPimWarnings) {
                 const labelClauses = rawPimWarnings
-                    .split(/(?:\r?\n|;\s*|\.\s+)/)
-                    .map(s => s.replace(/^(?:Uwaga|Ostrzeżenie(?:\s+CLP(?:\/GPSR)?)?)\s*[–:-]\s*/i, '').trim())
+                    .split(/(?:\r?\n|(?=\s+(?:Hasło\s+ostrzegawcze|P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3}|Zawiera\b|Contains\b|Contiene\b|Skład\b|Composizione\b)\b))/i)
+                    .map(s => s.replace(/\s+(?:Zawiera|Contains|Contiene|Skład(?:\s+chemiczny)?|Composizione(?:\s+chimica)?)\b[\s\S]*$/i, '').trim())
+                    .map(s => this.normalizeClpPhraseText(s))
                     .filter(s => s.length >= 6);
                 for (const clause of labelClauses) {
-                    const normalizedClause = clause.endsWith('.') ? clause : `${clause}.`;
-                    // Pomijamy zdania już pokryte przez standardowe kody P/H/EUH oraz rozbite człony EUH208 ("Zawiera...", "Może powodować wystąpienie reakcji alergicznej")
-                    if (/^(?:Hasło\s+ostrzegawcze|UWAGA\.?|NIEBEZPIECZEŃSTWO\.?|P101|P102|P103|P264|P280|P301|P302|P305|P337|H314|H315|H318|H319|EUH206|EUH208|Zawiera\b|Contains\b|Contiene\b)/i.test(normalizedClause)) {
+                    if (this.isOrphanClpOrRawIngredientFragment(clause)) {
                         continue;
                     }
-                    if (/(?:chronić przed dziećmi|uważnie przeczytać wszystkie instrukcje|zastosować się do nich|dokładnie umyć ręce|nie połykać|dostania się do oczu|styczności ze skórą|kontaktu ze skórą|działa drażniąco na oczy|działa drażniąco na skórę|stosować rękawice ochronne|pokazać pojemnik lub etykietę|reakcji alergicznej|reazione allergica|allergic reaction|izotiazol|isothiazol)/i.test(normalizedClause)) {
+                    const normalizedClause = clause.endsWith('.') ? clause : `${clause}.`;
+                    // Pomijamy zdania już pokryte przez standardowe kody P/H/EUH
+                    if (/^(?:Hasło\s+ostrzegawcze|UWAGA\.?|NIEBEZPIECZEŃSTWO\.?|PERICOLO\.?|DANGER\.?|P101|P102|P103|P264|P280|P301|P302|P303|P305|P337|H314|H315|H318|H319|EUH206|EUH208)/i.test(normalizedClause)) {
+                        continue;
+                    }
+                    if (/(?:chronić przed dziećmi|uważnie przeczytać wszystkie instrukcje|zastosować się do nich|dokładnie umyć ręce|nie połykać|dostania się do oczu|styczności ze skórą|kontaktu ze skórą|działa drażniąco na oczy|działa drażniąco na skórę|stosować rękawice ochronne|pokazać pojemnik lub etykietę|reakcji alergicznej|reazione allergica|allergic reaction|izotiazol|isothiazol|niebezpieczne gazy|wywoływać wymiotów)/i.test(normalizedClause)) {
+                        continue;
+                    }
+                    const clauseCodeMatch = normalizedClause.match(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3})\b/i);
+                    if (clauseCodeMatch && warnings.some(w => w.toUpperCase().startsWith(clauseCodeMatch[1].toUpperCase()))) {
                         continue;
                     }
                     if (!warnings.some(w => w.toLowerCase().includes(clause.toLowerCase().substring(0, Math.min(25, clause.length))))) {
@@ -627,13 +719,10 @@ class GpsrSafetyService {
             warnings.push("Przechowywać w temperaturze pokojowej (15–25°C), w szczelnie zamkniętym opakowaniu, w miejscu niedostępnym dla małych dzieci.");
         }
 
-        // Standaryzacja językowa i interpunkcyjna (w tym Medical Whitelisting dla P302+P352: KONTAKTU ZE SKÓRĄ -> STYCZNOŚCI ZE SKÓRĄ)
-        const sanitizedWarnings = warnings.map(w => {
-            return w
-                .replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
-                .replace(/W\s+PRZYPADKU\s+KONTAKTU\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ')
-                .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3})\s*(?:[–:-]\s*|\s+)/i, '$1 – ');
-        });
+        // Standaryzacja językowa i interpunkcyjna (w tym korekta literówek KONTATKU oraz Medical Whitelisting STYCZNOŚCI ZE SKÓRĄ)
+        const sanitizedWarnings = warnings
+            .map(w => this.normalizeClpPhraseText(w))
+            .filter(w => Boolean(w) && !this.isOrphanClpOrRawIngredientFragment(w));
 
         // Deduplikacja bez sztucznego obcinania - pełna lista prawna
         const dedupedWarnings = [...new Set(sanitizedWarnings)];

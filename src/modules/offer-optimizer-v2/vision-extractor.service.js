@@ -366,7 +366,8 @@ ZASADY ANALIZY (DOKTRYNA ZAMKNIĘTEGO ŚWIATA – ZERO ZGADYWANIA):
 3. EKSTRAKCJA OSTRZEŻEŃ BEZPIECZEŃSTWA ("warnings"):
    - Jeśli na etykiecie widoczne są ostrzeżenia bezpieczeństwa, piktogramy z opisem CLP lub środki ostrożności:
      * Ustaw "has_back_label": true.
-     * Przetłumacz je wiernie w 100% na język polski z zachowaniem oficjalnych kodów H/P/EUH (jeśli występują) oraz realnych wymogów ochrony (np. jeśli etykieta nakazuje "Indossare guanti protettivi" / "Stosować rękawice ochronne" -> wpisz "Stosować rękawice ochronne (P280)").
+     * Przetłumacz je wiernie w 100% na język polski z zachowaniem oficjalnych, kompletnych kodów H/P/EUH (np. P301+P330+P331, P303+P361+P353, P305+P351+P338, EUH206 — zachowaj oba zdania w jednym zwrocie bez rozdzielania!).
+     * KATEGORYCZNY ZAKAZ wrzucania do pola "warnings" sekcji składników chemicznych ("Zawiera: wodorotlenek sodu, alkohole C12-14..." / "Composizione chimica") ani numerów alarmowych Centro Antiveleni — skład należy wyłącznie do pola "inci"!
      * KATEGORYCZNY ZAKAZ ZGADYWANIA I DOPISYWANIA ŚRODKÓW OCHRONY SPOZA ETYKIETY (np. zakaz dopisywania maski czy okularów, jeśli etykieta ich nie wymienia!).
    - Jeśli brak widocznych ostrzeżeń na zdjęciu, ustaw "warnings": null.
 
@@ -471,8 +472,11 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                 if (result.warnings && typeof result.warnings === 'string' && result.warnings.trim().length >= 5) {
                     validWarnings = result.warnings.trim()
                         .replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
-                        .replace(/W\s+PRZYPADKU\s+KONTAKTU\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ')
-                        .replace(/\s{2,}/g, ' ');
+                        .replace(/\bKONTATKT?U\b/gi, 'KONTAKTU')
+                        .replace(/W\s+PRZYPADKU\s+(?:KONTAKTU|KONTATKU)\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ')
+                        .replace(/\s*(?:Zawiera|Contains|Contiene|Skład\s+chemiczny|Composizione\s+chimica)\s*[:–-]?\s*(?:wodorotlenek|alkohol|sodium|alcoli|fosfonian)[^.\n]*\.?/gi, '')
+                        .replace(/\s{2,}/g, ' ')
+                        .trim();
                     pimFeatures['Ostrzeżenia'] = validWarnings;
                 }
 

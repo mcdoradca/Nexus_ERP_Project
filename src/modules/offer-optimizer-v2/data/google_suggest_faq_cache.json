@@ -121,5 +121,23 @@
       "cif srodek do czyszczenia",
       "cif środek czyszczący"
     ]
+  },
+  "dual power::wc_cleaner": {
+    "timestamp": 1794295611313,
+    "category_pl": "żel do czyszczenia WC",
+    "suggestions": [
+      "czy dual power żel pod prysznic",
+      "czy dual power żel wybrać",
+      "żel do czyszczenia wc",
+      "czy żel do czyszczenia wc jest dobry",
+      "czy żel do czyszczenia wc można myć w zmywarce",
+      "jak stosować żel do czyszczenia wc w sprayu",
+      "dual power żel do zmywarki",
+      "dual power żel",
+      "dual power żel do mycia twarzy",
+      "dual power żel pod prysznic",
+      "dual power żel do paznokci",
+      "dual power żel do prania"
+    ]
   }
 }

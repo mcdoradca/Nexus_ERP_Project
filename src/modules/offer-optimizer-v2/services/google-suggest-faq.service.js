@@ -324,6 +324,7 @@ function buildFourPillarQuestions({
 } = {}) {
     const combinedInci = `${inci || ''} ${detergentComposition || ''} ${JSON.stringify(visionFeatures || {})}`.toLowerCase();
     const hasBleach = /(sodium\s+hypochlorite|podchloryn\s+sodu|candeggin|wybielacz)/i.test(combinedInci + ' ' + naturalName);
+    const hasAcid = /(citric\s+acid|kwas\s+cytrynowy|sulfamic|amidosulfonow|formic|mrówkow|phosphoric|fosforow|hydrochloric|solny|lactic|mlekow|acetic|octow|anticalcare|odkamieniacz)/i.test(combinedInci + ' ' + naturalName);
     const hasOpticalBrighteners = /(optical\s+brightener|fluorescent\s+brightener|rozjaśniacz)/i.test(combinedInci);
     const hasAluminum = /(aluminum\s+chlorohydrate|aluminum\s+sesquichlorohydrate|sole\s+aluminium)/i.test(combinedInci);
     const frontPurpose = visionFeatures?.['Przeznaczenie (Front)'] || '';
@@ -331,8 +332,9 @@ function buildFourPillarQuestions({
     const cleanScent = String(scent || '').replace(/\s*\([^)]*\)\s*/g, '').trim();
     const scentPhrase = formatPolishScentPhrase(cleanScent);
     const shortBrandRef = brand ? `preparat ${brand}` : 'ten preparat';
-    const isBathroomSpecific = catInfo.key === 'bathroom_cleaner' || catInfo.key === 'wc_cleaner' ||
-        (/(łazienk|lazienk|sanitar|toalet|wc|bagno)/i.test(`${naturalName} ${frontPurpose}`) && !/(kuchni|cucina)/i.test(`${naturalName} ${frontPurpose}`));
+    const isWcSpecific = catInfo.key === 'wc_cleaner';
+    const isBathroomSpecific = catInfo.key === 'bathroom_cleaner' ||
+        (/(łazienk|lazienk|sanitar|bagno)/i.test(`${naturalName} ${frontPurpose}`) && !isWcSpecific && !/(kuchni|cucina)/i.test(`${naturalName} ${frontPurpose}`));
     const isKitchenSpecific = catInfo.key === 'kitchen_cleaner' ||
         (/(kuchni|kuchenn|cucina|piekarnik|grill)/i.test(`${naturalName} ${frontPurpose}`) && !/(łazienk|lazienk|bagno)/i.test(`${naturalName} ${frontPurpose}`));
 
@@ -378,8 +380,14 @@ function buildFourPillarQuestions({
             questions.push(`Jaka jest wydajność opakowania${capacity ? ` ${capacity}` : ''} i które składniki aktywne odpowiadają za rozpuszczanie zabrudzeń?`);
         }
     } else if (catInfo.group === 'SURFACE_CLEANER' || catInfo.group === 'DISH_CLEANER') {
-        // FILAR 1: Intencja AI Shopping / Skuteczność czyszczenia (z rozdzieleniem Łazienki od Kuchni)
-        if (isBathroomSpecific) {
+        // FILAR 1: Intencja AI Shopping / Skuteczność czyszczenia (z rozdzieleniem WC, Łazienki i Kuchni)
+        if (isWcSpecific) {
+            if (hasBleach && !hasAcid) {
+                questions.push(`Jakie przebarwienia, zżółknięcia i osady organiczne usuwa ${naturalName} w muszli toaletowej oraz co sprawia, że przywraca ceramice WC higieniczną czystość?`);
+            } else {
+                questions.push(`Jakie osady i zabrudzenia usuwa ${naturalName} w muszli toaletowej oraz co sprawia, że przywraca ceramice WC higieniczną czystość?`);
+            }
+        } else if (isBathroomSpecific) {
             questions.push(`Jakie osady i zabrudzenia usuwa ${naturalName} w łazience oraz co sprawia, że przywraca ceramice sanitarnej higieniczną czystość?`);
         } else if (isKitchenSpecific) {
             questions.push(`Jakie zabrudzenia tłuszczowe i osady usuwa ${naturalName} w kuchni bez pozostawiania smug?`);
@@ -399,7 +407,9 @@ function buildFourPillarQuestions({
         }
 
         // FILAR 3: Intencja Instruktażowa ("Jak stosować... i jak spłukiwać?")
-        if (isBathroomSpecific) {
+        if (isWcSpecific) {
+            questions.push(`Jak prawidłowo aplikować i spłukiwać ${shortBrandRef} pod obrzeżem muszli toaletowej oraz pod linią wody, aby uzyskać higieniczną czystość?`);
+        } else if (isBathroomSpecific) {
             questions.push(`Jak prawidłowo aplikować i spłukiwać żel na ceramice sanitarnej, wannach, umywalkach oraz fugach, aby uzyskać czystość bez zacieków?`);
         } else {
             questions.push(`Jak prawidłowo aplikować i zmywać ${shortBrandRef}, aby szybko usunąć zabrudzenia oraz osady bez zacieków?`);

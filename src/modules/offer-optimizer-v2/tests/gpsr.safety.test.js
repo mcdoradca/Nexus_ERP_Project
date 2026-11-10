@@ -318,6 +318,99 @@ test('GPSR Safety Service - Wyprowadzanie ostrzeżeń ze składu INCI i SDS', as
         assert.strictEqual(/maskę|okulary/i.test(sanitizedS4), false, 'Sanitizer nie usunął halucynowanej maski i okularów');
         assert.ok(/rękawice ochronne/i.test(sanitizedS4), 'Sanitizer nie zastąpił maski rękawicami ochronnymi');
     });
+
+    await t.test('REGRESJA Dual Power WC Gel H314 (ADR-0173): Brudny zrzut CLP/GPSR, literówka KONTATKU, rozbity P303, wyciek INCI i kolejność Nie połykać', () => {
+        const deterministicEngine = require('../services/deterministic-pipeline.engine.js');
+        const { sanitizeSection6Html } = require('../orchestrator.js');
+        const { validate_section6_compliance } = require('../validators/index.js');
+
+        // 1. Symulacja dokładnie takiego brudnego wejścia z Vision/PIM, jakie rozbiło Sekcję 6 na produkcji
+        const dirtyWarnings = [
+            'H314 Powoduje poważne oparzenia skóry oraz uszkodzenia oczu.',
+            'H412 Działa szkodliwie na organizmy wodne, powodując długotrwałe skutki.',
+            'P102 Chronić przed dziećmi.',
+            'P280 Stosować rękawice ochronne / ochronę oczu / ochronę twarzy.',
+            'P301+P312 W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ/lekarzem.',
+            'P301+P330+P331 W PRZYPADKU POŁKNIĘCIA: wypłukać usta.',
+            'NIE wywoływać wymiotów.',
+            'Nie połykać.',
+            'P302+P352 W PRZYPADKU KONTAKTU ZE SKÓRĄ: Umyć dużą ilością wody.',
+            'P303+P361+P353 – W PRZYPADKU KONTATKU ZE SKÓRĄ (lub z włosami): Natychmiast zdjąć całą zanieczyszczoną odzież.',
+            'Spłukać skórę pod strumieniem wody lub prysznicem.',
+            'P305+P351+P338 W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut.',
+            'EUH206 – Uwaga! Nie stosować razem z innymi produktami. Może uwalniać niebezpieczne gazy (chlor).',
+            'Może uwalniać niebezpieczne gazy (chlor).',
+            'alkohole C12-14, etoksylowane, siarczanowane, sole sodowe.'
+        ].join('\n');
+
+        const resWc = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Dual Power żel do WC Candeggina 700 ml',
+            inci: '< 5% fosfoniany, środki wybielające na bazie chloru, anionowe środki powierzchniowo czynne, amfoteryczne środki powierzchniowo czynne, kompozycja zapachowa. Zawiera: Sodium Hydroxide, Alcohols, C12-14, ethoxylated, sulfates, sodium salts',
+            isChemical: true,
+            pimWarnings: dirtyWarnings
+        });
+
+        const joinedWarnings = resWc.warnings.join('\n');
+
+        // A. Literówka KONTATKU oraz niedozwolone na Allegro KONTAKTU muszą zniknąć na rzecz STYCZNOŚCI
+        assert.strictEqual(/KONTATKU|KONTAKTU/i.test(joinedWarnings), false, `Literówka lub fraza KONTAKTU przetrwała: ${joinedWarnings}`);
+        assert.ok(
+            resWc.warnings.some(w => w.includes('P303+P361+P353') && w.includes('W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ') && w.includes('Spłukać skórę pod strumieniem wody lub prysznicem')),
+            `P303+P361+P353 nie zostało scalone lub kanonizowane: ${joinedWarnings}`
+        );
+
+        // B. Zakaz urwanych sierot i zdublowanych/wyciekłych linii z SDS
+        assert.strictEqual(resWc.warnings.some(w => /^Spłukać skórę pod strumieniem wody/i.test(w)), false, 'Sierota P303 (Spłukać skórę...) pojawiła się jako osobny punkt');
+        assert.strictEqual(resWc.warnings.some(w => /^NIE wywoływać wymiotów/i.test(w)), false, 'Sierota P331 (NIE wywoływać wymiotów) pojawiła się poza P301+P330+P331');
+        assert.strictEqual(resWc.warnings.some(w => /^Może uwalniać niebezpieczne gazy/i.test(w)), false, 'Duplikat chloru EUH206 pojawił się jako osobny punkt');
+        assert.strictEqual(resWc.warnings.some(w => /alkohole C12-14|siarczanowane|etoksylowane/i.test(w)), false, 'Surowy składnik chemiczny SDS wyciekł do ostrzeżeń CLP');
+
+        // C. Dla substancji żrącej H314 nie mogą współistnieć łagodne P301+P312 ani P302+P352
+        assert.strictEqual(resWc.warnings.some(w => /^P301\+P312\b/i.test(w)), false, 'Zdublowane/łagodniejsze P301+P312 nie może występować obok H314 / P301+P330+P331');
+        assert.strictEqual(resWc.warnings.some(w => /^P302\+P352\b/i.test(w)), false, 'Zdublowane/łagodniejsze P302+P352 nie może występować obok H314 / P303+P361+P353');
+
+        // D. Ochrona oczu dla żrącego H314 w P280 musi zostać zachowana
+        assert.ok(resWc.warnings.some(w => w.startsWith('P280') && /ochronę oczu|twarzy/i.test(w)), `P280 dla H314 straciło ochronę oczu: ${joinedWarnings}`);
+
+        // E. Umiejscowienie "Nie połykać." zaraz po P102 (nie pomiędzy procedurami ratunkowymi P301 i P303)
+        const idxP102 = resWc.warnings.findIndex(w => /^P102\b/.test(w));
+        const idxNoSwallow = resWc.warnings.findIndex(w => /^Nie połykać\.?$/i.test(w.trim()));
+        const idxP301 = resWc.warnings.findIndex(w => /^P301/.test(w));
+        assert.ok(idxP102 !== -1 && idxNoSwallow !== -1 && idxP301 !== -1, 'Brak P102, Nie połykać lub P301');
+        assert.ok(idxNoSwallow === idxP102 + 1 && idxNoSwallow < idxP301, `Nie połykać powinno stać zaraz po P102 (idxP102=${idxP102}, idxNoSwallow=${idxNoSwallow}, idxP301=${idxP301})`);
+
+        // 2. Deterministyczna Sekcja 6 + sanityzator Orchestratora na brudnym HTML-u produkcyjnym (symulacja dokładnie 6 usterek z produkcji)
+        const brokenProductionHtml = [
+            '<h2>⚠️ Ostrzeżenia bezpieczeństwa</h2><ul>',
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> H314 – Powoduje poważne oparzenia skóry oraz uszkodzenia oczu.</li>',
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P102 – Chronić przed dziećmi.</li>',
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P280 – Stosować rękawice ochronne / ochronę oczu / ochronę twarzy.</li>',
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P301+P330+P331 – W PRZYPADKU POŁKNIĘCIA: wypłukać usta.</li>',
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> NIE wywoływać wymiotów.</li>',
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Nie połykać.</li>',
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z lekarzem.</li>',
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P302+P352 – W PRZYPADKU KONTAKTU ZE SKÓRĄ: Umyć dużą ilością wody.</li>',
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P303+P361+P353 – W PRZYPADKU KONTATKU ZE SKÓRĄ (lub z włosami): Natychmiast zdjąć całą zanieczyszczoną odzież.</li>',
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Spłukać skórę pod strumieniem wody lub prysznicem.</li>',
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> alkohole C12-14, etoksylowane, siarczanowane, sole sodowe.</li>',
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> EUH206 – Uwaga! Nie stosować razem z innymi produktami. Może uwalniać niebezpieczne gazy (chlor).</li>',
+            '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Może uwalniać niebezpieczne gazy (chlor).</li>',
+            '</ul>'
+        ].join('\n');
+
+        const repairedS6 = sanitizeSection6Html(brokenProductionHtml);
+        const s6Check = validate_section6_compliance(repairedS6, { productName: 'Dual Power żel do WC Candeggina 700 ml', isChemical: true });
+        assert.strictEqual(s6Check.valid, true, `Naprawiona Sekcja 6 nie przeszła walidacji compliance: ${s6Check.errors.join(' | ')}`);
+        assert.ok(/P280.*ochronę oczu/i.test(repairedS6), 'sanitizeSection6Html wyciął ochronę oczu dla H314');
+        assert.strictEqual(/P301\+P312|P302\+P352|KONTATKU|alkohole C12-14/i.test(repairedS6), false, 'sanitizeSection6Html przepuścił nieusunięte usterki CLP');
+
+        // 3. Test regresyjny braku kolizji na kosmetyku ("Zawiera witaminę A" nie może zostać wycięte)
+        const cosmeticRes = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Krem odmładzający z retinolem 50 ml',
+            inci: 'Aqua, Glycerin, Retinol, Tocopherol'
+        });
+        assert.ok(cosmeticRes.warnings.some(w => /Zawiera witaminę A/i.test(w)), 'Filtr surowych składników z SDS uszkodził legalne ostrzeżenie kosmetyczne o retinoidach');
+    });
 });
 
 

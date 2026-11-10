@@ -190,15 +190,18 @@ const sanitizeSection6Html = (htmlStr) => {
     if (!htmlStr || typeof htmlStr !== 'string') return htmlStr;
     let res = htmlStr;
 
-    // 1. Standaryzacja językowa i eliminacja archaizmów fleksyjnych (np. "DO OCZÓW" -> "DO OCZU")
-    res = res.replace(/\bDO OCZÓW\b/gi, 'DO OCZU');
+    // 1. Standaryzacja językowa, korekta literówek (KONTATKU, DO OCZÓW) oraz Medical Whitelisting
+    res = res
+        .replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
+        .replace(/\bKONTATKT?U\b/gi, 'KONTAKTU')
+        .replace(/W\s+PRZYPADKU\s+(?:KONTAKTU|KONTATKU)\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ');
 
     // 2. Normalizacja tagu do jednolitego standardu ekosystemu Allegro (Ostrzeżenie CLP/GPSR)
     res = res.replace(/<(b|strong)>\s*Ostrzeżenie\s+CLP:\s*<\/\1>/gi, '<$1>Ostrzeżenie CLP/GPSR:</$1>');
 
     // 2.1. Standaryzacja hasła ostrzegawczego (myślnik zamiast dwukropka)
     res = res.replace(/Hasło\s+ostrzegawcze:\s*(UWAGA|NIEBEZPIECZEŃSTWO)/gi, 'Hasło ostrzegawcze – $1');
-    res = res.replace(/(W\s+PRZYPADKU\s+(?:POŁKNIĘCIA|DOSTANIA\s+SIĘ\s+DO\s+OCZU|KONTAKTU\s+ZE\s+SKÓRĄ))\s*[–-]\s*/g, '$1: ');
+    res = res.replace(/(W\s+PRZYPADKU\s+(?:POŁKNIĘCIA|DOSTANIA\s+SIĘ\s+DO\s+OCZU|STYCZNOŚCI\s+ZE\s+SKÓRĄ)(?:\s*\([^)]+\))?)\s*[–-]\s*/gi, '$1: ');
     res = res.replace(/(W\s+przypadku\s+utrzymywania\s+się\s+działania\s+drażniącego\s+na\s+oczy)\s*[–-]\s*/g, '$1: ');
 
     // 3. Rozklejanie sklejonych procedur medycznych kodów P w punktach <li>
@@ -223,17 +226,29 @@ const sanitizeSection6Html = (htmlStr) => {
     // 6. Standaryzacja zwrotu EUH208 / EUH206
     res = res.replace(/(EUH208|EUH206)\s*:/gi, '$1 –');
 
-    // 7. Normalizacja P280: w chemii domowej zachowujemy wymóg rękawic ochronnych ("P280 – Stosować rękawice ochronne."),
-    // natomiast odrzucamy przemysłowy nakaz ochrony oczu/twarzy/odzieży, jeśli brak wymogu rękawic.
+    // 7. Normalizacja P280: w chemii domowej zachowujemy wymóg rękawic ochronnych,
+    // przy czym dla H314/H318 dopuszczamy ochronę oczu jeśli wynika z etykiety/klasyfikacji
+    const hasSevereCorrosiveInS6 = /\b(?:H314|H318)\b/i.test(res);
     res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<(?:b|strong)>[^<]*<\/(?:b|strong)>\s*)?P280\s*[–:-]\s*([^<]*)<\/li>\s*/gi, (match, body) => {
         if (/rękawic/i.test(body)) {
+            if (hasSevereCorrosiveInS6 && /ochron[ęy]\s+oczu/i.test(body)) {
+                return '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P280 – Stosować rękawice ochronne i ochronę oczu.</li>\n';
+            }
             return '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P280 – Stosować rękawice ochronne.</li>\n';
         }
         return '';
     });
 
+    // 7a. Scalenie urwanej procedury P303+P361+P353 do pełnej kanonicznej formuły CLP
+    res = res.replace(/(<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*<(?:b|strong)>[^<]*<\/(?:b|strong)>\s*P303\+P361\+P353\s*[–:-]\s*)([^<]+)(<\/li>)/gi, (m, prefix, body, suffix) => {
+        if (!/Spłukać\s+skórę/i.test(body)) {
+            return `${prefix}W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ (lub z włosami): Natychmiast zdjąć całą zanieczyszczoną odzież. Spłukać skórę pod strumieniem wody lub prysznicem.${suffix}`;
+        }
+        return m;
+    });
+
     // 7b. Eliminacja osieroconych nagłówków okolicznościowych, jeśli w opisie jest już pełna formuła
-    if (/P301\+P312/.test(res)) {
+    if (/P301\+(?:P312|P330\+P331)/.test(res)) {
         res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️)?\s*(?:<(?:b|strong)>[^<]*<\/(?:b|strong)>\s*)?P301\s*–\s*W\s+PRZYPADKU\s+POŁKNIĘCIA:\s*<\/li>/gi, '');
     }
     if (/P305\+P351\+P338/.test(res)) {
@@ -243,7 +258,7 @@ const sanitizeSection6Html = (htmlStr) => {
         res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️)?\s*(?:<(?:b|strong)>[^<]*<\/(?:b|strong)>\s*)?P337\s*–\s*W\s+przypadku\s+utrzymywania\s+się\s+działania\s+drażniącego\s+na\s+oczy:\s*<\/li>/gi, '');
     }
 
-    // 8. Eliminacja redundancji semantycznej (Deduplikacja ostrzeżeń o oczach oraz zduplikowanych zwrotów P101/P102/P103/EUH208):
+    // 8. Eliminacja redundancji semantycznej, urwanych zdań wieloczęściowych CLP oraz surowych nazw składników chemicznych
     const hasP305 = /P305/i.test(res);
     if (hasP305) {
         res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<(?:b|strong)>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\)|CLP\/GPSR)?|Środki\s+ostrożności\s*(?:\(GPSR\)|CLP\/GPSR)?):?\s*<\/(?:b|strong)>\s*)?W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą\.?\s*<\/li>/gi, '');
@@ -252,6 +267,9 @@ const sanitizeSection6Html = (htmlStr) => {
     const seenLiCodes = new Set();
     const seenLiBodies = new Set();
     const hasEUH208InSection = /EUH208/i.test(res);
+    const hasCorrosiveIngestion = /P301\+P330\+P331/i.test(res);
+    const hasCorrosiveSkin = /P303\+P361\+P353/i.test(res);
+
     res = res.replace(/<li[^>]*>([\s\S]*?)<\/li>\s*/gi, (fullLi, inner) => {
         if (/Podmiot\s+odpowiedzialny\s+w\s+UE/i.test(inner)) return fullLi;
         const bodyText = inner
@@ -260,6 +278,15 @@ const sanitizeSection6Html = (htmlStr) => {
             .replace(/^(?:Ostrzeżenie\s+CLP\/GPSR|Ostrzeżenie\s+CLP|Wytyczne\s+bezpieczeństwa\s*\(GPSR\)|Środki\s+ostrożności\s*\(GPSR\))\s*:?\s*/i, '')
             .trim();
         if (hasEUH208InSection && /^Zawiera\s*[–:-]/i.test(bodyText)) {
+            return '';
+        }
+        if (gpsrSafetyService.isOrphanClpOrRawIngredientFragment(bodyText)) {
+            return '';
+        }
+        if (hasCorrosiveIngestion && /^P301\+P312\b/i.test(bodyText)) {
+            return '';
+        }
+        if (hasCorrosiveSkin && /^P302\+P352\b/i.test(bodyText)) {
             return '';
         }
         const codeMatch = bodyText.match(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3})\b/i);
@@ -278,6 +305,18 @@ const sanitizeSection6Html = (htmlStr) => {
         }
         return fullLi;
     });
+
+    // 8a. Przeniesienie "Nie połykać." z wnętrza procedur P3xx do sekcji prewencyjnej (bezpośrednio po P102)
+    const p102LiMatch = res.match(/<li[^>]*>[^<]*(?:<[^>]+>[^<]*<\/[^>]+>)?[^<]*\bP102\b[\s\S]*?<\/li>/i);
+    const swallowLiMatch = res.match(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<(?:b|strong)>[^<]*<\/(?:b|strong)>\s*)?Nie\s+połykać\.?\s*<\/li>\s*/i);
+    if (p102LiMatch && swallowLiMatch) {
+        const p102Idx = res.indexOf(p102LiMatch[0]);
+        const swallowIdx = res.indexOf(swallowLiMatch[0]);
+        if (swallowIdx > p102Idx + p102LiMatch[0].length + 5 && /P3\d{2}/.test(res.slice(p102Idx, swallowIdx))) {
+            res = res.replace(swallowLiMatch[0], '');
+            res = res.replace(p102LiMatch[0], `${p102LiMatch[0]}${swallowLiMatch[0].trim()}`);
+        }
+    }
 
     // 8b. Dla łagodnych nieklasyfikowanych mieszanin chemicznych (posiadających wyłącznie P101/P102/P103/EUH208, bez H314/H315/H318/H319 i bez hasła ostrzegawczego)
     // usuwamy ewentualne dopisane patchem LLM zwroty P301+P312 oraz "Nie połykać." spoza etykiety:
@@ -1975,18 +2014,19 @@ class Orchestrator {
 
             if (this.state.mandatory_clp_warnings && Array.isArray(this.state.mandatory_clp_warnings)) {
                 for (const rawW of this.state.mandatory_clp_warnings) {
-                    const w = String(rawW || '')
-                        .replace(/^(?:Uwaga|Ostrzeżenie(?:\s+CLP(?:\/GPSR)?)?)\s*[–:-]\s*/i, '')
-                        .replace(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3})\s*(?:[–:-]\s*|\s+)/i, '$1 – ')
-                        .trim();
-                    if (!w) continue;
-                    if (/^(?:P101|P102|P103|P264|P280|P301|P302|P305|P337|H314|H315|H318|H319|EUH206|EUH208|Zawiera\b|Contains\b|Contiene\b)/i.test(w)) {
+                    const w = gpsrSafetyService.normalizeClpPhraseText(String(rawW || ''));
+                    if (!w || gpsrSafetyService.isOrphanClpOrRawIngredientFragment(w)) continue;
+                    if (/^(?:P101|P102|P103|P264|P280|P301|P302|P303|P305|P337|H314|H315|H318|H319|EUH206|EUH208|Zawiera\b|Contains\b|Contiene\b)/i.test(w)) {
                         if (/^P103\b/i.test(w) && !gpsrBaseline.warnings.some(bw => /\bP103\b/i.test(bw))) {
                             gpsrBaseline.warnings.push("P103 – Uważnie przeczytać wszystkie instrukcje i zastosować się do nich.");
                         }
                         continue;
                     }
-                    if (/(?:pokazać pojemnik lub etykietę|chronić przed dziećmi|uważnie przeczytać wszystkie instrukcje|dokładnie umyć ręce|nie połykać|dostania się do oczu|styczności ze skórą|kontaktu ze skórą|działa drażniąco na oczy|reakcji alergicznej|izotiazol|isothiazol)/i.test(w)) {
+                    if (/(?:pokazać pojemnik lub etykietę|chronić przed dziećmi|uważnie przeczytać wszystkie instrukcje|dokładnie umyć ręce|nie połykać|dostania się do oczu|styczności ze skórą|kontaktu ze skórą|działa drażniąco na oczy|reakcji alergicznej|izotiazol|isothiazol|niebezpieczne gazy|wywoływać wymiotów)/i.test(w)) {
+                        continue;
+                    }
+                    const codePrefix = w.match(/^(P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3})\b/i);
+                    if (codePrefix && gpsrBaseline.warnings.some(bw => bw.toUpperCase().startsWith(codePrefix[1].toUpperCase()))) {
                         continue;
                     }
                     if (!gpsrBaseline.warnings.includes(w)) {
@@ -2429,6 +2469,8 @@ class Orchestrator {
                         result[k] = brandResponsibleService.stripContactInfo(result[k]);
                         result[k] = deterministicEngine.sanitizeHtmlClaimsAndStopwords(result[k], {
                             productName: product?.text_fields?.name || this.state.product_name,
+                            inci: this.state.extracted_data.inci?.value,
+                            detergentComposition: this.state.extracted_data.detergent_composition?.value,
                             pimWarnings: pimWarningsVal,
                             pimUsage: pimUsageVal
                         });
@@ -2571,7 +2613,13 @@ class Orchestrator {
                     for (let i of [1,2,4]) {
                         let sec = a7_res_full['section_' + i + '_html'];
                         if (sec) {
-                            sec = deterministicEngine.sanitizeHtmlClaimsAndStopwords(sec, { productName: product?.text_fields?.name || this.state.product_name });
+                            sec = deterministicEngine.sanitizeHtmlClaimsAndStopwords(sec, {
+                                productName: product?.text_fields?.name || this.state.product_name,
+                                inci: this.state.extracted_data.inci?.value,
+                                detergentComposition: this.state.extracted_data.detergent_composition?.value,
+                                pimWarnings: this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'],
+                                pimUsage: this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia']
+                            });
                             sec = normalizeTags(sec);
                             a7_res_full['section_' + i + '_html'] = sec;
                             const err = runHtmlValidators(sec, 'A7');
@@ -2738,7 +2786,14 @@ class Orchestrator {
                         if (this.state.a7_result[secKey]) {
                             let s = this.state.a7_result[secKey];
                             s = brandResponsibleService.stripContactInfo(s);
-                            s = deterministicEngine.sanitizeHtmlClaimsAndStopwords(s, { productName: product?.text_fields?.name || this.state.product_name });
+                            s = deterministicEngine.sanitizeHtmlClaimsAndStopwords(s, {
+                                productName: product?.text_fields?.name || this.state.product_name,
+                                inci: this.state.extracted_data.inci?.value,
+                                detergentComposition: this.state.extracted_data.detergent_composition?.value,
+                                pimWarnings: this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'],
+                                pimUsage: this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia']
+                            });
+                            if (i === 6) s = sanitizeSection6Html(s);
                             s = deterministicEngine.normalizeEmojiAndStructure(s, i);
                             if (i === 2) s = normalize_aeo_faq_labels(s);
                             s = normalizeTags(s);
@@ -2999,9 +3054,12 @@ class Orchestrator {
                             if (sec) {
                                 sec = deterministicEngine.sanitizeHtmlClaimsAndStopwords(sec, {
                                     productName: product?.text_fields?.name || this.state.product_name,
+                                    inci: this.state.extracted_data.inci?.value,
+                                    detergentComposition: this.state.extracted_data.detergent_composition?.value,
                                     pimWarnings: pimWarningsA10,
                                     pimUsage: pimUsageA10
                                 });
+                                if (i === 6) sec = sanitizeSection6Html(sec);
                                 if (isFullPipelineRun) {
                                     sec = deterministicEngine.normalizeEmojiAndStructure(sec, i);
                                 }
