@@ -207,10 +207,10 @@
       "chemical_html": "<li>⚙️ <b>Amfoteryczne środki powierzchniowo czynne (np. betainy kokosowe):</b> ko-surfaktanty wspomagające odtłuszczanie (także w chłodnej wodzie), które <b>zagęszczają i stabilizują aktywną pianę oraz łagodzą działanie surfaktantów anionowych na skórę dłoni</b> podczas ręcznego zmywania.</li>"
     },
     "alcohols, c12-18, ethoxylated": {
-      "names": ["alcohols, c12-18, ethoxylated", "alcohols, c12-14, ethoxylated", "c12-15 pareth-7", "trideceth-9", "niejonowe środki powierzchniowo czynne", "non-ionic surfactants"],
+      "names": ["alcohols, c12-18, ethoxylated", "alcohols, c12-14, ethoxylated", "c12-15 pareth-7", "trideceth-9", "niejonowe środki powierzchniowo czynne", "non-ionic surfactants", "nonionic surfactants"],
       "role": "nonionic_surfactant",
       "cosmetic_html": "<li>⚙️ <b>Niejonowy emulgator (Ethoxylated Alcohols):</b> łączy fazę wodną z olejkami zapachowymi, zapewniając <b>klarowność i stabilność formuły</b>.</li>",
-      "chemical_html": "<li>⚙️ <b>Niejonowe środki powierzchniowo czynne:</b> zaawansowane surfaktanty obniżające napięcie powierzchniowe, które <b>błyskawicznie zwilżają czyszczoną powierzchnię, ułatwiają penetrację osadów z kamienia i mydła oraz zapewniają łatwe spłukiwanie bez smug</b>.</li>"
+      "chemical_html": "<li>⚙️ <b>Niejonowe środki powierzchniowo czynne:</b> obniżają napięcie powierzchniowe roztworu, dzięki czemu <b>błyskawicznie zwilżają czyszczoną powierzchnię, ułatwiają odspajanie zabrudzeń i zapewniają łatwe spłukiwanie bez smug</b>.</li>"
     },
     "cationic surfactants": {
       "names": ["kationowe środki powierzchniowo czynne", "cationic surfactants", "dihydrogenated tallowoylethyl hydroxyethylmonium methosulfate", "esterquat"],
@@ -338,7 +338,7 @@
       "id": "anionic_nonionic_degreasing",
       "required_roles": ["anionic_surfactant", "nonionic_surfactant"],
       "cosmetic_html": "<li>⚡ <b>Synergia Myjąca (Surfaktanty Anionowe + Glukozydy Niejonowe):</b> połączenie zapewnia <b>dokładne zmycie sebum przy zachowaniu wysokiej delikatności</b> dla bariery hydrolipidowej.</li>",
-      "chemical_html": "<li>⚡ <b>Synergia Dwufazowego Odtłuszczania (Anionowe + Niejonowe Środki Powierzchniowo Czynne):</b> surfaktanty niejonowe rozbijają tłuste plamy i oleje, a surfaktanty anionowe <b>zamykają je w micelach i wypłukują z wodą bez pozostawiania smug</b>.</li>"
+      "chemical_html": "<li>⚡ <b>Synergia Zwilżania i Emulgowania (Anionowe + Niejonowe Środki Powierzchniowo Czynne):</b> surfaktanty niejonowe obniżają napięcie powierzchniowe i zwilżają zabrudzenia, a surfaktanty anionowe <b>zamykają je w micelach i wypłukują z wodą bez pozostawiania smug</b>.</li>"
     },
     {
       "id": "humectant_emollient_barrier",

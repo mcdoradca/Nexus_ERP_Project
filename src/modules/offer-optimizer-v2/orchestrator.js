@@ -5,7 +5,7 @@ const aiWrapper = require('./ai.wrapper');
 const { ean_checksum, route_chemical, validate_eu_responsible_person, gate_ingredients, hasBannedLilial } = require('./validators');
 const { FORBIDDEN_SOURCES, DATA_SOURCE_MODE } = require('./config/nodes.config');
 const baselinkerExtract = require('./baselinker.extract.js');
-const { normalizeIngredientName } = require('./normalization.js');
+const { normalizeIngredientName, normalizeInciToLegalEnglish } = require('./normalization.js');
 const ragService = require('./knowledge.rag.service.js');
 const { validate_html_whitelist, scan_medical_claims_lexical, scan_biocidal_claims_lexical, scan_stopwords, emoji_structure_check, normalize_aeo_faq_labels, aeo_faq_check, validate_section5_compliance, validate_section6_compliance, validate_section3_ingredients_closed_world, validate_domain_and_chemical_logic } = require('./validators');
 const { PrismaClient } = require('@prisma/client');
@@ -1750,223 +1750,279 @@ class Orchestrator {
             } else {
                 this.state.node_status['A4'] = 'RUNNING';
                 this.emitState();
+                const isActualHouseholdChemicalA4 = deterministicEngine.detectHouseholdChemical({
+                    isChemical: Boolean(
+                        this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL') || 
+                        product?.sds_required || 
+                        product?.clp_signal_word ||
+                        this.state.extracted_data.clp_signal_word?.value ||
+                        this.state.extracted_data.compliance?.data
+                    ),
+                    productName: product?.text_fields?.name,
+                    category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
+                    inci: this.state.extracted_data.inci?.value,
+                    detergentComposition: this.state.extracted_data.detergent_composition?.value,
+                    visionFeatures: this.state.vision_extracted_features || {},
+                    features: product?.text_fields?.features || product?.features || {}
+                });
                 try {
-                    const isActualHouseholdChemicalA4 = deterministicEngine.detectHouseholdChemical({
-                        isChemical: Boolean(
-                            this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL') || 
-                            product?.sds_required || 
-                            product?.clp_signal_word ||
-                            this.state.extracted_data.clp_signal_word?.value ||
-                            this.state.extracted_data.compliance?.data
-                        ),
-                        productName: product?.text_fields?.name,
-                        category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
-                        inci: this.state.extracted_data.inci?.value,
-                        detergentComposition: this.state.extracted_data.detergent_composition?.value,
-                        visionFeatures: this.state.vision_extracted_features || {},
-                        features: product?.text_fields?.features || product?.features || {}
-                    });
                     const complianceData = this.state.extracted_data.compliance?.data || {
                         clp_signal_word: this.state.extracted_data.clp_signal_word?.value,
                         clp_h_phrases: this.state.extracted_data.clp_h_phrases?.value ? (Array.isArray(this.state.extracted_data.clp_h_phrases.value) ? this.state.extracted_data.clp_h_phrases.value : [this.state.extracted_data.clp_h_phrases.value]) : [],
                         clp_p_phrases: this.state.extracted_data.clp_p_phrases?.value ? (Array.isArray(this.state.extracted_data.clp_p_phrases.value) ? this.state.extracted_data.clp_p_phrases.value : [this.state.extracted_data.clp_p_phrases.value]) : []
                     };
 
-                    const detS3 = isFullPipelineRun ? deterministicEngine.tryBuildDeterministicSection3({
-                        inci: this.state.extracted_data.inci?.value,
-                        detergentComposition: this.state.extracted_data.detergent_composition?.value,
-                        productName: product?.text_fields?.name,
-                        category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
-                        isChemical: isActualHouseholdChemicalA4,
-                        visionFeatures: this.state.vision_extracted_features || {},
-                        features: product?.text_fields?.features || {},
-                        compliance: complianceData
-                    }) : { canSkipA4: false };
+                    // ARCHITEKTURA UNIWERSALNA (v4.18): Agent 4 (Flash) analizuje skład INCI / WE 648/2004 kontekstowo
+                    // z pełną świadomością zastosowania, postaci i sposobu użycia wyrobu (brak ślepych kalek ze statycznego JSON-a).
+                    // tryBuildDeterministicSection3 pozostaje wyłącznie bezpiecznym fallbackiem przy awarii LLM.
+                    const rawInciArray = (this.state.extracted_data.inci.value || '').split(',').map(i => i.trim()).filter(i => i);
+                    const inciRefService = require('./inci.reference.service.js');
+                    const mechDb = deterministicEngine.loadMechanismsDb ? deterministicEngine.loadMechanismsDb() : null;
+                    const warnings = [];
+                    let ragText = '';
 
-                    if (detS3.canSkipA4) {
-                        console.log(`[Orchestrator V2] ⚡ Deterministyczny Silnik INCI zbudował Sekcję 3 i analizę A4 dla EAN ${this.gtin} w 0ms (0 tokenów).`);
-                        this.state.a4_result = detS3.a4_result;
-                        this.state.deterministic_section_3_html = detS3.section_3_html;
-                        if (detS3.a4_result.mandatory_clp_warnings && detS3.a4_result.mandatory_clp_warnings.length > 0) {
-                            this.state.mandatory_clp_warnings = detS3.a4_result.mandatory_clp_warnings;
+                    for (let rawI of rawInciArray) {
+                        const variants = generateInciVariants(rawI);
+                        let functionFound = false;
+                        for (let v of variants) {
+                            const data = inciRefService.getInciFunctionData(v);
+                            if (data && data.functions && data.functions.length > 0) {
+                                ragText += `[INCI_DICT_COSING] ${data.inci_name || v}: ${data.functions.join(', ')}\n`;
+                                functionFound = true;
+                                break;
+                            }
                         }
-                        this.state.token_usage_per_node['A4'] = {
-                            promptTokenCount: 0,
-                            candidatesTokenCount: 0,
-                            totalTokenCount: 0,
-                            tokens_saved: true,
-                            reason: 'Deterministyczny silnik INCI (słownik lokalny + CosIng)'
-                        };
-                        this.state.node_status['A4'] = 'OK';
-                        this.state.next_action = 'RUN_A5';
-                        this.emitState();
-                    } else {
-                        const rawInciArray = (this.state.extracted_data.inci.value || '').split(',').map(i => i.trim()).filter(i => i);
-                        
-                        const inciRefService = require('./inci.reference.service.js');
-                        const warnings = [];
-                        let ragText = '';
-                        
-                        for (let rawI of rawInciArray) {
-                            const variants = generateInciVariants(rawI);
-                            let functionFound = false;
-                            for (let v of variants) {
-                                const data = inciRefService.getInciFunctionData(v);
-                                if (data && data.functions && data.functions.length > 0) {
-                                    ragText += `[INCI_DICT_COSING] ${data.inci_name || v}: ${data.functions.join(', ')}\n`;
+                        if (!functionFound && mechDb && mechDb.ingredients) {
+                            const lowerI = rawI.toLowerCase().trim();
+                            for (const [mKey, mEntry] of Object.entries(mechDb.ingredients)) {
+                                const names = (mEntry.names || [mKey]).map(n => n.toLowerCase());
+                                if (names.some(n => lowerI.includes(n))) {
+                                    ragText += `[DET_GROUP_CHEM] ${rawI}: role=${mEntry.role || mKey}\n`;
                                     functionFound = true;
                                     break;
                                 }
                             }
-                            if (!functionFound) {
-                                warnings.push('INGREDIENT_NO_FUNCTION: ' + rawI);
-                            }
                         }
-                        if (ragText) {
-                            ragText += `\n[WYTYCZNA REKONTEKSTUALIZACJI DZIEDZINOWEJ DLA A4]: Powyższy słownik CosIng reprezentuje zastosowania w formulacjach kosmetycznych (WE 1223/2009). Jeżeli produkt należy do chemii gospodarczej lub detergentów (WE 648/2004 – np. odkamieniacz, płyn do WC, płyn do łazienek, preparat czyszczący, myjący), składniki interpretuj zgodnie z ich rolą technologiczną w czyszczeniu i odkamienianiu (kwasy organiczne/nieorganiczne = substancje aktywne rozpuszczające kamień wapienny i rdzę; kategoryczny zakaz opisywania ich jako konserwantów!).\n`;
+                        if (!functionFound) {
+                            warnings.push('INGREDIENT_NO_FUNCTION: ' + rawI);
                         }
-                        
-                        const agent4Data = {
-                            gtin_ean: this.gtin,
-                            product_name: product?.text_fields?.name || undefined,
-                            brand: extracted.brand?.value || undefined,
-                            category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name || undefined,
-                            inci: this.state.extracted_data.inci?.value || undefined,
-                            detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
+                    }
+                    if (ragText) {
+                        ragText += `\n[WYTYCZNA REKONTEKSTUALIZACJI DZIEDZINOWEJ DLA A4]: Słownik CosIng pochodzi z bazy kosmetycznej (WE 1223/2009), natomiast tutaj dopasowujesz mechanizm fizykochemiczny ściśle do produktu: "${product?.text_fields?.name || ''}" (${this.state.vision_extracted_features?.['Przeznaczenie (Front)'] || product?.text_fields?.features?.['Przeznaczenie'] || 'wg danych SKU'}), postać: "${this.state.vision_extracted_features?.['Postać'] || product?.text_fields?.features?.['Postać'] || 'nieokreślona'}". ZAKAZ przenoszenia cudzych zastosowań (np. kamienia wodnego i osadów z mydła do frytkownic lub kuchni, fug do WC, prania do powierzchni twardych) oraz ZAKAZ nazywania roztworów jednofazowych "dwufazowymi"!\n`;
+                    }
+
+                    const englishInciForA4 = normalizeInciToLegalEnglish(this.state.extracted_data.inci?.value || '');
+                    const englishDetCompForA4 = this.state.extracted_data.detergent_composition?.value
+                        ? normalizeInciToLegalEnglish(this.state.extracted_data.detergent_composition.value)
+                        : undefined;
+                    const agent4Data = {
+                        gtin_ean: this.gtin,
+                        product_name: product?.text_fields?.name || undefined,
+                        product_purpose: this.state.vision_extracted_features?.['Przeznaczenie (Front)'] || product?.text_fields?.features?.['Przeznaczenie'] || product?.text_fields?.features?.['Przeznaczenie (Front)'] || undefined,
+                        physical_form: this.state.vision_extracted_features?.['Postać'] || product?.text_fields?.features?.['Postać'] || undefined,
+                        dispenser_type: this.state.vision_extracted_features?.['Dozownik'] || product?.text_fields?.features?.['Dozownik'] || undefined,
+                        usage_instructions: this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia'] || undefined,
+                        brand: extracted.brand?.value || undefined,
+                        category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name || undefined,
+                        inci: englishInciForA4 || undefined,
+                        detergent_composition: englishDetCompForA4,
+                        compliance: complianceData
+                    };
+                    if (this.state.vision_extracted_features && Object.keys(this.state.vision_extracted_features).length > 0) {
+                        agent4Data.physical_grounding_context = {
+                            ...this.state.vision_extracted_features,
+                            _instruction: "UWAGA: Poniższe cechy fizyczne (postać, zapach, przeznaczenie) wyznaczają realny obiekt użycia i stan skupienia formuły. Opisz mechanizm działania składników z INCI ściśle w kontekście tego produktu i powierzchni z instrukcji — bez kalek z innych kategorii i bez zmyślania składników."
+                        };
+                    }
+
+                    const prompt4Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_4_compiled.md'), 'utf8');
+                    let prompt4 = prompt4Template.replace('{{SKU_DATA}}', JSON.stringify(agent4Data, null, 2));
+                    prompt4 = prompt4.replace('--- BLOK RAG + DANE SKU (dynamiczne) ---', `--- BLOK RAG ---\n${ragText}\n\n--- DANE SKU ---\n`);
+
+                    const a4Schema = {
+                        type: "object",
+                        properties: {
+                            category_type: { type: "string" },
+                            technical_benefits_aeo: { type: "array", items: { type: "string" } },
+                            detected_synergies: { type: "array", items: { type: "string" } },
+                            mandatory_clp_warnings: { type: "array", items: { type: "string" }, nullable: true }
+                        },
+                        required: ["category_type", "technical_benefits_aeo", "detected_synergies", "mandatory_clp_warnings"]
+                    };
+
+                    const { result, usage } = await aiWrapper.callAgentWithTelemetry({
+                        agentId: "4",
+                        prompt: prompt4,
+                        schema: a4Schema
+                    });
+
+                    const allowedKeysA4 = ['category_type', 'technical_benefits_aeo', 'detected_synergies', 'mandatory_clp_warnings'];
+                    for (let k of Object.keys(result)) {
+                        if (!allowedKeysA4.includes(k)) {
+                            warnings.push('A4_FIELD_REJECTED: ' + k);
+                            delete result[k];
+                        }
+                    }
+
+                    let a4FallbackUsed = false;
+                    if (!Array.isArray(result.technical_benefits_aeo) || result.technical_benefits_aeo.length === 0) {
+                        const emptyFallbackDetS3 = deterministicEngine.tryBuildDeterministicSection3({
+                            inci: englishInciForA4 || this.state.extracted_data.inci?.value,
+                            detergentComposition: englishDetCompForA4 || this.state.extracted_data.detergent_composition?.value,
+                            productName: product?.text_fields?.name,
+                            category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
+                            isChemical: isActualHouseholdChemicalA4,
+                            visionFeatures: this.state.vision_extracted_features || {},
+                            features: product?.text_fields?.features || {},
                             compliance: complianceData
-                        };
-                        if (this.state.vision_extracted_features && Object.keys(this.state.vision_extracted_features).length > 0) {
-                            agent4Data.physical_grounding_context = {
-                                ...this.state.vision_extracted_features,
-                                _instruction: "UWAGA: Poniższe cechy fizyczne (postać, zapach) stanowią kontekst formy aplikacyjnej produktu. Główne benefity techniczne i synergie MUSZĄ wynikać w 100% z mechanizmów biochemicznych składników aktywnych INCI i słownika RAG, a nie z samego opakowania czy dozownika."
-                            };
-                        }
-                        
-                        const prompt4Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_4_compiled.md'), 'utf8');
-                        let prompt4 = prompt4Template.replace('{{SKU_DATA}}', JSON.stringify(agent4Data, null, 2));
-                        prompt4 = prompt4.replace('--- BLOK RAG + DANE SKU (dynamiczne) ---', `--- BLOK RAG ---\n${ragText}\n\n--- DANE SKU ---\n`);
-
-                        const a4Schema = {
-                            type: "object",
-                            properties: {
-                                category_type: { type: "string" },
-                                technical_benefits_aeo: { type: "array", items: { type: "string" } },
-                                detected_synergies: { type: "array", items: { type: "string" } },
-                                mandatory_clp_warnings: { type: "array", items: { type: "string" }, nullable: true }
-                            },
-                            required: ["category_type", "technical_benefits_aeo", "detected_synergies", "mandatory_clp_warnings"]
-                        };
-
-                        const { result, usage } = await aiWrapper.callAgentWithTelemetry({
-                            agentId: "4",
-                            prompt: prompt4,
-                            schema: a4Schema
                         });
-
-                        const allowedKeysA4 = ['category_type', 'technical_benefits_aeo', 'detected_synergies', 'mandatory_clp_warnings'];
-                        for (let k of Object.keys(result)) {
-                            if (!allowedKeysA4.includes(k)) {
-                                warnings.push('A4_FIELD_REJECTED: ' + k);
-                                delete result[k];
+                        if (emptyFallbackDetS3 && emptyFallbackDetS3.a4_result && emptyFallbackDetS3.section_3_html) {
+                            console.warn(`[Orchestrator V2] A4 zwrócił puste technical_benefits_aeo — używam oczyszczonego fallbacku deterministycznego Sekcji 3.`);
+                            if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
+                            this.state.token_usage_per_node['A4'] = usage;
+                            this.state.a4_result = emptyFallbackDetS3.a4_result;
+                            if (Array.isArray(emptyFallbackDetS3.a4_result.mandatory_clp_warnings) && emptyFallbackDetS3.a4_result.mandatory_clp_warnings.length > 0 && !(this.state.mandatory_clp_warnings?.length > 0)) {
+                                this.state.mandatory_clp_warnings = emptyFallbackDetS3.a4_result.mandatory_clp_warnings;
                             }
+                            this.state.deterministic_section_3_html = emptyFallbackDetS3.section_3_html;
+                            this.state.node_status['A4'] = 'WARNING_FALLBACK';
+                            this.state.next_action = 'RUN_A5';
+                            this.emitState();
+                            a4FallbackUsed = true;
                         }
+                    }
 
-                        if (result.technical_benefits_aeo && Array.isArray(result.technical_benefits_aeo)) {
-                            let htmlStr = result.technical_benefits_aeo.join('');
-                            if (htmlStr.length > 2500) {
-                                warnings.push('A4_LIMIT_TRUNCATED: technical_benefits_aeo');
-                            }
+                    if (result.technical_benefits_aeo && Array.isArray(result.technical_benefits_aeo)) {
+                        let htmlStr = result.technical_benefits_aeo.join('');
+                        if (htmlStr.length > 2500) {
+                            warnings.push('A4_LIMIT_TRUNCATED: technical_benefits_aeo');
                         }
-                        
-                        if (result.detected_synergies && Array.isArray(result.detected_synergies) && result.detected_synergies.length > 4) {
-                            result.detected_synergies = result.detected_synergies.slice(0, 4);
-                            warnings.push('A4_LIMIT_TRUNCATED: detected_synergies');
-                        }
-                        
-                        if (result.mandatory_clp_warnings && Array.isArray(result.mandatory_clp_warnings) && result.mandatory_clp_warnings.length > 0) {
-                            this.state.mandatory_clp_warnings = result.mandatory_clp_warnings;
-                        }
-                        
+                    }
+
+                    if (result.detected_synergies && Array.isArray(result.detected_synergies) && result.detected_synergies.length > 4) {
+                        result.detected_synergies = result.detected_synergies.slice(0, 4);
+                        warnings.push('A4_LIMIT_TRUNCATED: detected_synergies');
+                    }
+
+                    if (result.mandatory_clp_warnings && Array.isArray(result.mandatory_clp_warnings) && result.mandatory_clp_warnings.length > 0) {
+                        this.state.mandatory_clp_warnings = result.mandatory_clp_warnings;
+                    }
+
+                    if (!a4FallbackUsed) {
                         if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
-                        
+
                         this.state.token_usage_per_node['A4'] = usage;
                         this.state.a4_result = result;
+                    }
 
-                        // Walidatory A4
-                        if (result.technical_benefits_aeo && Array.isArray(result.technical_benefits_aeo)) {
-                            for (let idx = 0; idx < result.technical_benefits_aeo.length; idx++) {
-                                let htmlStr = result.technical_benefits_aeo[idx];
-                                htmlStr = deterministicEngine.sanitizeHtmlClaimsAndStopwords(htmlStr, { productName: product?.text_fields?.name || this.state.product_name });
-                                htmlStr = normalizeTags(htmlStr);
-                                result.technical_benefits_aeo[idx] = htmlStr;
-                                
-                                const v1 = validate_html_whitelist(htmlStr);
-                                if (!v1.valid) {
-                                    if (this.state.node_status['A4'] !== 'HITL_OVERRIDDEN') {
-                                        const msg = 'A4_OUTPUT_REJECTED: validate_html_whitelist (' + v1.errors.join(', ') + ')';
-                                        this.state.hitl_alert = msg;
-                                        this.state.normalization_warnings.push(msg);
-                                        this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
-                                        this.state.next_action = 'HALT';
-                                        this.emitState();
-                                        return;
-                                    }
-                                }
-                                
-                                const v2 = scan_medical_claims_lexical(htmlStr);
-                                if (v2.length > 0) {
-                                    if (this.state.node_status['A4'] !== 'HITL_OVERRIDDEN') {
-                                        const msg = 'A4_OUTPUT_REJECTED: scan_medical_claims_lexical (' + v2.map(h => h.word).join(', ') + ')';
-                                        this.state.hitl_alert = msg;
-                                        this.state.normalization_warnings.push(msg);
-                                        this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
-                                        this.state.next_action = 'HALT';
-                                        this.emitState();
-                                        return;
-                                    }
-                                }
+                    const a4SanitizeCtx = {
+                        productName: product?.text_fields?.name || this.state.product_name,
+                        inci: englishInciForA4 || this.state.extracted_data.inci?.value,
+                        detergentComposition: englishDetCompForA4 || this.state.extracted_data.detergent_composition?.value,
+                        visionFeatures: this.state.vision_extracted_features || {}
+                    };
 
-                                const vBiocidal = scan_biocidal_claims_lexical(htmlStr);
-                                if (vBiocidal.length > 0) {
-                                    if (this.state.node_status['A4'] !== 'HITL_OVERRIDDEN') {
-                                        const msg = 'A4_OUTPUT_REJECTED: scan_biocidal_claims_lexical (' + vBiocidal.map(h => h.word).join(', ') + ')';
-                                        this.state.hitl_alert = msg;
-                                        this.state.normalization_warnings.push(msg);
-                                        this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
-                                        this.state.next_action = 'HALT';
-                                        this.emitState();
-                                        return;
-                                    }
+                    if (result.detected_synergies && Array.isArray(result.detected_synergies)) {
+                        result.detected_synergies = result.detected_synergies.map(synStr =>
+                            normalizeTags(deterministicEngine.sanitizeHtmlClaimsAndStopwords(String(synStr || ''), a4SanitizeCtx))
+                        );
+                    }
+
+                    // Walidatory A4
+                    if (result.technical_benefits_aeo && Array.isArray(result.technical_benefits_aeo)) {
+                        for (let idx = 0; idx < result.technical_benefits_aeo.length; idx++) {
+                            let htmlStr = result.technical_benefits_aeo[idx];
+                            htmlStr = deterministicEngine.sanitizeHtmlClaimsAndStopwords(htmlStr, a4SanitizeCtx);
+                            htmlStr = normalizeTags(htmlStr);
+                            result.technical_benefits_aeo[idx] = htmlStr;
+
+                            const v1 = validate_html_whitelist(htmlStr);
+                            if (!v1.valid) {
+                                if (this.state.node_status['A4'] !== 'HITL_OVERRIDDEN') {
+                                    const msg = 'A4_OUTPUT_REJECTED: validate_html_whitelist (' + v1.errors.join(', ') + ')';
+                                    this.state.hitl_alert = msg;
+                                    this.state.normalization_warnings.push(msg);
+                                    this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
+                                    this.state.next_action = 'HALT';
+                                    this.emitState();
+                                    return;
                                 }
-                                
-                                const v3 = scan_stopwords(htmlStr);
-                                if (v3.length > 0) {
-                                    if (this.state.node_status['A4'] !== 'HITL_OVERRIDDEN') {
-                                        const msg = 'A4_OUTPUT_REJECTED: scan_stopwords (' + v3.map(h => h.word).join(', ') + ')';
-                                        this.state.hitl_alert = msg;
-                                        this.state.normalization_warnings.push(msg);
-                                        this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
-                                        this.state.next_action = 'HALT';
-                                        this.emitState();
-                                        return;
-                                    }
+                            }
+
+                            const v2 = scan_medical_claims_lexical(htmlStr);
+                            if (v2.length > 0) {
+                                if (this.state.node_status['A4'] !== 'HITL_OVERRIDDEN') {
+                                    const msg = 'A4_OUTPUT_REJECTED: scan_medical_claims_lexical (' + v2.map(h => h.word).join(', ') + ')';
+                                    this.state.hitl_alert = msg;
+                                    this.state.normalization_warnings.push(msg);
+                                    this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
+                                    this.state.next_action = 'HALT';
+                                    this.emitState();
+                                    return;
+                                }
+                            }
+
+                            const vBiocidal = scan_biocidal_claims_lexical(htmlStr);
+                            if (vBiocidal.length > 0) {
+                                if (this.state.node_status['A4'] !== 'HITL_OVERRIDDEN') {
+                                    const msg = 'A4_OUTPUT_REJECTED: scan_biocidal_claims_lexical (' + vBiocidal.map(h => h.word).join(', ') + ')';
+                                    this.state.hitl_alert = msg;
+                                    this.state.normalization_warnings.push(msg);
+                                    this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
+                                    this.state.next_action = 'HALT';
+                                    this.emitState();
+                                    return;
+                                }
+                            }
+
+                            const v3 = scan_stopwords(htmlStr);
+                            if (v3.length > 0) {
+                                if (this.state.node_status['A4'] !== 'HITL_OVERRIDDEN') {
+                                    const msg = 'A4_OUTPUT_REJECTED: scan_stopwords (' + v3.map(h => h.word).join(', ') + ')';
+                                    this.state.hitl_alert = msg;
+                                    this.state.normalization_warnings.push(msg);
+                                    this.state.node_status['A4'] = 'HALTED_HITL_REQUIRED';
+                                    this.state.next_action = 'HALT';
+                                    this.emitState();
+                                    return;
                                 }
                             }
                         }
+                    }
 
-                        // Auto-learning: wzbogać lokalny słownik o nowo przeanalizowane składniki
-                        deterministicEngine.learnFromAgent4Output(result, isActualHouseholdChemicalA4);
-
+                    if (!a4FallbackUsed) {
                         this.state.node_status['A4'] = 'OK';
                         this.state.next_action = 'RUN_A5';
                         this.emitState();
                     }
                 } catch (e) {
-                    this.state.node_status['A4'] = 'ERROR';
-                    this.state.hitl_alert = e.message;
-                    this.state.next_action = 'HALT';
-                    this.emitState();
-                    return;
+                    const fallbackDetS3 = deterministicEngine.tryBuildDeterministicSection3({
+                        inci: normalizeInciToLegalEnglish(this.state.extracted_data.inci?.value || '') || this.state.extracted_data.inci?.value,
+                        detergentComposition: this.state.extracted_data.detergent_composition?.value ? normalizeInciToLegalEnglish(this.state.extracted_data.detergent_composition.value) : undefined,
+                        productName: product?.text_fields?.name,
+                        category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
+                        isChemical: isActualHouseholdChemicalA4,
+                        visionFeatures: this.state.vision_extracted_features || {},
+                        features: product?.text_fields?.features || {},
+                        compliance: this.state.extracted_data.compliance?.data || null
+                    });
+                    if (fallbackDetS3 && fallbackDetS3.a4_result && fallbackDetS3.section_3_html) {
+                        console.warn(`[Orchestrator V2] Fallback deterministyczny Sekcji 3 po błędzie A4 (${e.message}).`);
+                        this.state.a4_result = fallbackDetS3.a4_result;
+                        if (Array.isArray(fallbackDetS3.a4_result.mandatory_clp_warnings) && fallbackDetS3.a4_result.mandatory_clp_warnings.length > 0 && !(this.state.mandatory_clp_warnings?.length > 0)) {
+                            this.state.mandatory_clp_warnings = fallbackDetS3.a4_result.mandatory_clp_warnings;
+                        }
+                        this.state.deterministic_section_3_html = fallbackDetS3.section_3_html;
+                        this.state.node_status['A4'] = 'WARNING_FALLBACK';
+                        this.state.next_action = 'RUN_A5';
+                        this.emitState();
+                    } else {
+                        this.state.node_status['A4'] = 'ERROR';
+                        this.state.hitl_alert = e.message;
+                        this.state.next_action = 'HALT';
+                        this.emitState();
+                        return;
+                    }
                 }
             }
         }
@@ -2294,8 +2350,8 @@ class Orchestrator {
                 capacity: normalizedCapForA6 || rawCapForA6 || undefined,
                 line: extracted.line?.value || undefined,
                 hero_ingredients_front: this.state.vision_extracted_features?.['Składniki wiodące (Front)'] || product?.text_fields?.features?.['Składniki wiodące (Front)'] || undefined,
-                inci: this.state.extracted_data.inci?.value || undefined,
-                detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
+                inci: normalizeInciToLegalEnglish(this.state.extracted_data.inci?.value || '') || undefined,
+                detergent_composition: this.state.extracted_data.detergent_composition?.value ? normalizeInciToLegalEnglish(this.state.extracted_data.detergent_composition.value) : undefined,
                 pim_safety_warnings: pimWarningsVal,
                 pim_usage_instructions: pimUsageVal,
                 requires_protective_gloves: requiresGlovesFlag,
@@ -2353,6 +2409,23 @@ class Orchestrator {
                 if (isFullPipelineRun && result.section_1_html) {
                     if (this.state.deterministic_section_3_html) {
                         result.section_3_html = this.state.deterministic_section_3_html;
+                    } else if ((!result.section_3_html || !String(result.section_3_html).trim()) && Array.isArray(this.state.a4_result?.technical_benefits_aeo) && this.state.a4_result.technical_benefits_aeo.length > 0) {
+                        const a4Lis = this.state.a4_result.technical_benefits_aeo.map(b => {
+                            const item = String(b || '').trim();
+                            return /^<li[\s>]/i.test(item) ? item : `<li>${item}</li>`;
+                        }).join('');
+                        result.section_3_html = `<h2>Mechanizm działania składników aktywnych</h2><ul>${a4Lis}</ul>`;
+                    }
+
+                    const rawCompA6 = normalizeInciToLegalEnglish(this.state.extracted_data.detergent_composition?.value || this.state.extracted_data.inci?.value || '').replace(/<(\d)/g, '< $1').trim();
+                    if (rawCompA6 && result.section_3_html) {
+                        const compLabelA6 = isActualHouseholdChemicalA6 ? 'Skład (zgodnie z Rozp. WE 648/2004)' : 'Skład INCI';
+                        const compFooterHtml = `<p><b>${compLabelA6}:</b> ${rawCompA6}</p>`;
+                        if (/<p[^>]*>\s*<(?:b|strong)>\s*Skład\b[\s\S]*?<\/p>/i.test(result.section_3_html)) {
+                            result.section_3_html = result.section_3_html.replace(/<p[^>]*>\s*<(?:b|strong)>\s*Skład\b[\s\S]*?<\/p>/i, compFooterHtml);
+                        } else {
+                            result.section_3_html = `${result.section_3_html}${compFooterHtml}`;
+                        }
                     }
 
                     if (this.state.extracted_data.inci?.value && euData && euData.name) {
@@ -2673,12 +2746,14 @@ class Orchestrator {
                 const agent11Data = {
                     gtin_ean: this.gtin,
                     product_name: product?.text_fields?.name || undefined,
+                    product_purpose: this.state.vision_extracted_features?.['Przeznaczenie (Front)'] || product?.text_fields?.features?.['Przeznaczenie'] || product?.text_fields?.features?.['Przeznaczenie (Front)'] || undefined,
+                    physical_form: this.state.vision_extracted_features?.['Postać'] || product?.text_fields?.features?.['Postać'] || undefined,
                     brand: extracted.brand?.value || undefined,
                     manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name || undefined,
                     category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name || undefined,
                     scent_variant: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'] || undefined,
-                    inci: this.state.extracted_data.inci?.value || undefined,
-                    detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
+                    inci: normalizeInciToLegalEnglish(this.state.extracted_data.inci?.value || '') || undefined,
+                    detergent_composition: this.state.extracted_data.detergent_composition?.value ? normalizeInciToLegalEnglish(this.state.extracted_data.detergent_composition.value) : undefined,
                     pim_safety_warnings: pimWarningsA11,
                     pim_usage_instructions: pimUsageA11,
                     requires_protective_gloves: requiresGlovesA11,
@@ -2925,11 +3000,13 @@ class Orchestrator {
                     const agent10Data = {
                         gtin_ean: this.gtin,
                         product_name: product?.text_fields?.name || undefined,
+                        product_purpose: this.state.vision_extracted_features?.['Przeznaczenie (Front)'] || product?.text_fields?.features?.['Przeznaczenie'] || product?.text_fields?.features?.['Przeznaczenie (Front)'] || undefined,
+                        physical_form: this.state.vision_extracted_features?.['Postać'] || product?.text_fields?.features?.['Postać'] || undefined,
                         brand: extracted.brand?.value || undefined,
                         manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name || undefined,
                         scent_variant: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'] || undefined,
-                        inci: this.state.extracted_data.inci?.value || undefined,
-                        detergent_composition: this.state.extracted_data.detergent_composition?.value || undefined,
+                        inci: normalizeInciToLegalEnglish(this.state.extracted_data.inci?.value || '') || undefined,
+                        detergent_composition: this.state.extracted_data.detergent_composition?.value ? normalizeInciToLegalEnglish(this.state.extracted_data.detergent_composition.value) : undefined,
                         pim_safety_warnings: pimWarningsA10,
                         pim_usage_instructions: pimUsageA10,
                         requires_protective_gloves: requiresGlovesA10,
@@ -3130,7 +3207,7 @@ class Orchestrator {
                 extra_field_4245: brandResponsibleService.stripContactInfo(this.state.a10_result['section_7_html'] || ''),
                 faq_schema_jsonld: faqSchema.jsonLdObject || undefined,
                 faq_schema_script_tag: faqSchema.scriptTag || undefined,
-                ingredients_inci: this.state.extracted_data.inci?.value,
+                ingredients_inci: normalizeInciToLegalEnglish(this.state.extracted_data.inci?.value || '') || this.state.extracted_data.inci?.value,
                 eu_responsible_person: this.state.extracted_data.eu_responsible_person,
                 safety_warnings: this.state.a5_result?.mandatory_safety_warnings || [],
                 source_map: {

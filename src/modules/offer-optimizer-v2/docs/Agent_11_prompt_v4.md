@@ -24,7 +24,16 @@ Zanim ocenisz poprawność tekstu, zidentyfikuj i opisz w polu `product_identity
 
 ### KROK 2: BEZWZGLĘDNY AUDYT MERYTORYCZNO-FAKTOGRAFICZNY I GENEROWANIE PATCHY
 
-Przeanalizuj wszystkie sekcje HTML pod kątem 6 filarów zgodności domenowej:
+Przeanalizuj wszystkie sekcje HTML pod kątem uniwersalnych filarów zgodności z pierwszych zasad (niezależnie od tego, czy oceniasz chemię do AGD, żel WC, mydło, szampon, płyn do prania czy odkamieniacz):
+
+D0. AUDYT UNIWERSALNY Z PIERWSZYCH ZASAD (OBIEKT ↔ BRUD ↔ POSTAĆ ↔ ETYKIETA 1:1 ABC -> ABC):
+   - Spójność zabrudzeń i powierzchni z obiektem użycia: Sprawdź KAŻDE zdanie w Sekcjach 1–5 pod kątem fizycznej obecności danego zabrudzenia/powierzchni w TYM produkcie. KATEGORYCZNIE usuwaj patchem obce kalki międzykategorialne (np. „kamień wodny i osady z mydła” w preparacie do frytkownicy/kuchni/tkanin lub w mydle!; „ciemne naloty w fugach” w żelu do muszli WC; „przypalenia z piekarnika” w chemii łazienkowej; „pranie/20–30°C” w chemii powierzchni twardych).
+   - Spójność postaci fizycznej i zakaz pseudonauki: Sprawdź `physical_form` i opis producenta. Jeśli produkt to jednorodny roztwór wodny, żel lub zwykły spray (nie jest wyraźnie oznaczony jako dwufazowy), BEZWZGLĘDNIE usuń patchem pseudonaukowe wtręty typu „Dwufazowe Odtłuszczanie” / „dwufazowy” oraz wyssaną z palca „aktywną pianę”, jeśli etykieta mówi jedynie o płynie/sprayu!
+   - Wierność etykiecie producenta (`ABC -> ABC` + angielskie INCI):
+     1) Skład w Sekcji 3 musi wiernie w 100% odpowiadać `inci` / `detergent_composition` w oficjalnej nomenklaturze angielskiej INCI / WE 648/2004 (zakaz pomijania składników lub konserwantów w stopce oraz punktach ⚙️).
+     2) Sposób użycia w Sekcji 4 musi wiernie odwzorowywać `pim_usage_instructions` (zakaz przeinaczania czasów, dawek czy zaleceń producenta).
+     3) Ostrzeżenia w Sekcji 6 (w tym `EUH208`) muszą wiernie odwzorowywać deklarację producenta w `pim_safety_warnings` — nie wolno decydować za producenta i dopisywać do `EUH208` substancji (np. BIT w stężeniu poniżej progu CLP SCL), których producent celowo nie zawarł w swoim `EUH208` na etykiecie!
+   - Uniwersalne bezpieczeństwo elektryczno-termiczne AGD: Jeżeli produkt służy do ręcznego czyszczenia wnętrza lub elementów urządzeń elektrycznych / grzewczych (np. frytkownica, piekarnik, grill elektryczny, opiekacz, płyta grzewcza, toster), a w Sekcji 4 brakuje jednoznacznego zalecenia odłączenia zasilania z gniazdka i całkowitego ostudzenia grzałki/komory przed użyciem płynu na bazie wody (obok oryginalnych kroków z etykiety) — BEZWZGLĘDNIE uzupełnij je patchem w Sekcji 4!
 
 D1. KALKI MIĘDZYKATEGORIALNE, CHEMIA KWAS vs ZASADA ORAZ ABSURDY KONTEKSTOWE:
    - Kalki kuchenne w produktach łazienkowych/odgrzybiaczach: natychmiast usuń lub napraw wtręty o "usuwaniu przypaleń", "przypalonych garnkach", "piekarnikach", "tłuszczu kuchennym", "plamach z kawy i herbaty".

@@ -413,4 +413,68 @@ test('GPSR Safety Service - Wyprowadzanie ostrzeżeń ze składu INCI i SDS', as
     });
 });
 
+test('ADR-0174: Regresja Dual Power Frytkownice (brak kolizji -nic z nicią dentystyczną) + wierność 1:1 etykiecie EUH208', async (t) => {
+    await t.test('A. Wyraz "frytkownic" i "chłodnic" nie aktywuje gałęzi nici dentystycznej; prawdziwa nić nadal działa', () => {
+        const airFryerRes = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Dual Power środek do czyszczenia frytkownic 500 ml',
+            inci: '5-15% Anionic surfactants, <5% Non-ionic surfactants, Parfum, Preservatives (Benzisothiazolinone, Methylchloroisothiazolinone, Methylisothiazolinone)',
+            isChemical: true,
+            features: {
+                'Ostrzeżenia': 'P101 W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę. P102 Chronić przed dziećmi. P103 Uważnie przeczytaj i przestrzegaj wszystkich instrukcji. Zawiera: Mieszanina 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu. Może powodować wystąpienie reakcji alergicznej.'
+            }
+        });
+        assert.strictEqual(airFryerRes.detected_risks.includes('DENTAL_FLOSS_SAFETY'), false, `Słowo "frytkownic" błędnie aktywowało DENTAL_FLOSS_SAFETY: ${airFryerRes.warnings.join(' | ')}`);
+        assert.strictEqual(airFryerRes.warnings.some(w => /krwawien|dziąs|pomiędzy zębami/i.test(w)), false, 'Środek do frytkownic otrzymał ostrzeżenia dla nici dentystycznych!');
+
+        const radiatorRes = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Płyn do czyszczenia chłodnic samochodowych 500 ml',
+            inci: 'Aqua, Citric Acid, Non-ionic surfactants',
+            isChemical: true
+        });
+        assert.strictEqual(radiatorRes.detected_risks.includes('DENTAL_FLOSS_SAFETY'), false, 'Słowo "chłodnic" błędnie aktywowało DENTAL_FLOSS_SAFETY');
+
+        const realFlossRes = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Nić dentystyczna woskowana miętowa 50m',
+            inci: ''
+        });
+        assert.strictEqual(realFlossRes.detected_risks.includes('DENTAL_FLOSS_SAFETY'), true, 'Prawdziwa nić dentystyczna musi aktywować DENTAL_FLOSS_SAFETY');
+    });
+
+    await t.test('B. EUH208 zachowuje 1:1 etykietę producenta (ABC -> ABC) bez dopisywania BIT spoza deklaracji CLP, a bez etykiety wyprowadza pełną listę z INCI', () => {
+        const labelledRes = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Dual Power środek do czyszczenia frytkownic 500 ml',
+            inci: '5-15% Anionic surfactants, <5% Non-ionic surfactants, Parfum, Preservatives (Benzisothiazolinone, Methylchloroisothiazolinone, Methylisothiazolinone)',
+            isChemical: true,
+            features: {
+                'Ostrzeżenia': 'P101 W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę. P102 Chronić przed dziećmi. Contains Mixture of: 5-chloro-2-methyl-2H-isothiazol-3-one and 2-methyl-2H-isothiazol-3-one. May produce an allergic reaction.'
+            }
+        });
+        const labelledEuh = labelledRes.warnings.filter(w => /EUH208/i.test(w));
+        assert.strictEqual(labelledEuh.length, 1, `Powinien być dokładnie jeden wpis EUH208 z etykiety producenta, otrzymano: ${labelledEuh.join(' | ')}`);
+        assert.strictEqual(/benzisothiazolinone/i.test(labelledEuh[0]), false, `Do EUH208 z etykiety bezprawnie dopisano BIT mimo progu SCL producenta: ${labelledEuh[0]}`);
+        assert.ok(/isothiazol/i.test(labelledEuh[0]), `EUH208 powinno zachować deklarację producenta dot. MCI/MI: ${labelledEuh[0]}`);
+
+        const labelledResPlColon = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Dual Power środek do czyszczenia frytkownic 500 ml',
+            inci: '5-15% Anionic surfactants, <5% Non-ionic surfactants, Parfum, Preservatives (Benzisothiazolinone, Methylchloroisothiazolinone, Methylisothiazolinone)',
+            isChemical: true,
+            features: {
+                'Ostrzeżenia': 'P101 W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę. P102 Chronić przed dziećmi. P103 Uważnie przeczytać wszystkie instrukcje i zastosować się do nich. EUH208 Zawiera: Mieszanina 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu. Może powodować wystąpienie reakcji alergicznej.'
+            }
+        });
+        const labelledEuhPlColon = labelledResPlColon.warnings.filter(w => /EUH208/i.test(w));
+        assert.strictEqual(labelledEuhPlColon.length, 1, `Powinien być dokładnie 1 wpis EUH208 dla polskiego zapisu z dwukropkiem, otrzymano: ${labelledEuhPlColon.join(' | ')}`);
+        assert.strictEqual(/benzisothiazolinone/i.test(labelledEuhPlColon[0]), false, `Nie wolno dopisywać BIT do EUH208 z polskiej etykiety "Zawiera:": ${labelledEuhPlColon[0]}`);
+
+        const unlabelledRes = gpsrSafetyService.generateGpsrWarnings({
+            productName: 'Detergent testowy bez etykiety EUH208 500 ml',
+            inci: '5-15% Anionic surfactants, Benzisothiazolinone, Methylchloroisothiazolinone, Methylisothiazolinone',
+            isChemical: true
+        });
+        const unlabelledEuh = unlabelledRes.warnings.find(w => /EUH208/i.test(w)) || '';
+        assert.ok(/Benzisothiazolinone/i.test(unlabelledEuh) && /Methylchloroisothiazolinone/i.test(unlabelledEuh), `Bez gotowego EUH208 z etykiety należy wyprowadzić oba alergeny z INCI: ${unlabelledEuh}`);
+    });
+});
+
+
 

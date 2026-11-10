@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const brandResponsibleService = require('../brand.responsible.service');
 const gpsrSafetyService = require('./gpsr.safety.service');
+const { normalizeInciToLegalEnglish } = require('../normalization');
 
 const INCI_MECH_PATH = path.join(__dirname, '..', 'data', 'reference', 'inci_mechanisms_pl.json');
 
@@ -423,6 +424,7 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:czyszczenia\s+lub\s+prania|czyszczenia\s+albo\s+prania)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'sprzątania')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])zapach\s+czystości(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'świeży zapach')
         .replace(/Synergia\s+bazy\s+czyszczącej\s+i\s+olejków\s+zapachowych/gi, 'Synergia Skutecznego Czyszczenia i Świeżości')
+        .replace(/Synergia\s+Dwufazowego\s+Odtłuszczania/gi, (m) => /dwufazow|bifasic|biphase|2-faz/i.test(`${context?.productName || ''} ${JSON.stringify(context?.visionFeatures || {})}`) ? m : 'Synergia Zwilżania i Emulgowania')
         .replace(/gładkość\s+armatury\s+i\s+płytek/gi, 'gładkość ceramiki sanitarnej i płytek')
         .replace(/oraz\s+tkaniny\s+kolorowe/gi, 'oraz wszelkie tkaniny i tekstylia')
         .replace(/W\s+PRZYPADKU\s+(?:KONTAKTU|KONTATKU)\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ')
@@ -466,10 +468,10 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
         .replace(/(?:w\s+codziennych\s+porządkach|w\s+regularnych\s+porządkach)/gi, 'w doraźnych zabiegach czyszczących')
         .replace(/wiele\s+tygodni\s+regularnych\s+porządków/gi, 'wiele doraźnych zabiegów czyszczących')
         // Eliminacja kalek pralniczych
-        .replace(/rozpuszczają\s+zaschnięty\s+tłuszcz,\s+oleje\s+i\s+sebum\s+już\s+w\s+niskich\s+temperaturach\s*\(od\s*20[–-]30\s*°?\s*C\)/gi, 'błyskawicznie zwilżają mytą powierzchnię, ułatwiając wnikanie w osady mineralne i mydlane oraz ich spłukiwanie bez smug')
+        .replace(/rozpuszczają\s+zaschnięty\s+tłuszcz,\s+oleje\s+i\s+sebum\s+już\s+w\s+niskich\s+temperaturach\s*\(od\s*20[–-]30\s*°?\s*C\)/gi, 'błyskawicznie zwilżają czyszczoną powierzchnię, ułatwiając odspajanie zabrudzeń organicznych oraz ich spłukiwanie bez smug')
         .replace(/już\s+w\s+niskich\s+temperaturach\s*\(od\s*20[–-]30\s*°?\s*C\)/gi, 'podczas codziennego zmywania i czyszczenia')
         .replace(/chronią\s+grzałkę\s+pralki\s+przed\s+kamieniem\s+i\s+zapobiegają\s+szarzeniu\s+tkanin/gi, 'wiążą jony twardości wody, zapobiegając powstawaniu zacieków wapiennych na armaturze i ceramice')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])tłuszcz,\s*oleje\s+i\s+sebum(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'tłuszcz, oleje i osady mineralne');
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])tłuszcz,\s*oleje\s+i\s+sebum(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'tłuszcz, oleje i zabrudzenia organiczne');
 
     // --- KROK G2: TARCZA PRZECIW HALUCYNACJI PRZEMYSŁOWEGO ŚOI (MASKI / GOGLE / OKULARY) W CHEMII DOMOWEJ ---
     const labelTextForPpe = `${context?.pimWarnings || ''} ${context?.pimUsage || ''}`;
@@ -560,6 +562,16 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
             .replace(/usuwa\s+zacieki\s+mineralne,\s*przebarwienia\s+oraz\s+osady\s+organiczne/gi, 'usuwa uporczywe przebarwienia, zżółknięcia oraz osady organiczne')
             .replace(/(?:zacieki\s+mineralne,\s*|osady\s+wapienne,\s*)/gi, '')
             .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(usuwa|rozpuszcza|rozbija|eliminuje|likwiduje)\s+(?:zacieki\s+mineralne|osady\s+mineralne|osady\s+wapienne|kamie[ńn]\s+wapienny|kamie[ńn]\s+wodny|kamie[ńn])(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '$1 uporczywe zżółknięcia i osady organiczne');
+    }
+
+    // --- KROK L: TARCZA IZOLACJI KALKI ŁAZIENKOWEJ ("KAMIEŃ I MYDŁO") POZA KATEGORIĄ SANITARNO-ODKAMIENIAJĄCĄ ---
+    const isBathroomOrDescalerCtx = /(?:łazienk|kabin|prysznic|armatur|wan[naey]|umywalk|kafelk|glazur|odkamienia|anticalcare|wc\b|toalet|bagno|doccia)/i.test(`${context?.productName || ''} ${JSON.stringify(context?.visionFeatures || {})}`);
+    if (!isBathroomOrDescalerCtx) {
+        res = res
+            .replace(/osadów\s+z\s+kamienia\s+(?:wodnego\s+)?i\s+mydła/gi, 'uporczywych zabrudzeń organicznych')
+            .replace(/osady\s+z\s+kamienia\s+(?:wodnego\s+)?i\s+mydła/gi, 'uporczywe zabrudzenia organiczne')
+            .replace(/osadami\s+z\s+kamienia\s+(?:wodnego\s+)?i\s+mydła/gi, 'uporczywymi zabrudzeniami organicznymi')
+            .replace(/kamienia\s+(?:wodnego\s+)?i\s+mydła/gi, 'uporczywych zabrudzeń');
     }
 
     return res;
@@ -941,7 +953,7 @@ function tryBuildDeterministicSection3({
         ? `<p>Receptura produktu opiera się na <b>celowanym doborze związków powierzchniowo czynnych i składników funkcyjnych</b>, w której każdy element odpowiada za konkretny etap rozbijania i wypłukiwania zabrudzeń:</p>`
         : `<p>Formuła kosmetyku łączy <b>składniki oczyszczające, nawilżające oraz kondycjonujące</b>, które współpracują ze sobą dla zachowania równowagi hydrolipidowej i wysokiego komfortu aplikacji:</p>`;
 
-    const rawFooterComp = detergentComposition || inci;
+    const rawFooterComp = normalizeInciToLegalEnglish(detergentComposition || inci);
     const inciFooter = rawFooterComp
         ? (resolvedIsChemical
             ? `<p><b>Skład (zgodnie z Rozp. WE 648/2004):</b> ${sanitizeHtmlClaimsAndStopwords(rawFooterComp)}</p>`
@@ -967,60 +979,11 @@ function tryBuildDeterministicSection3({
 }
 
 /**
- * Samouczący się zapis nowych składników wygenerowanych przez Agenta 4 do bazy `inci_mechanisms_pl.json`.
+ * Samouczący się zapis wyłączony przed globalnym zatruwaniem kontekstów między produktami:
+ * opisy generowane dla konkretnego wyrobu (np. frytkownicy lub WC) nie mogą być zapisywane globalnie pod kluczem składnika.
  */
 function learnFromAgent4Output(a4Result, isChemical = false) {
-    if (!a4Result || !Array.isArray(a4Result.technical_benefits_aeo)) return 0;
-    const db = loadMechanismsDb();
-    if (!db.auto_learned) db.auto_learned = {};
-
-    let learnedCount = 0;
-    const bulletRegex = /<li[^>]*>\s*⚙️\s*<(?:b|strong)>\s*([^:<(]+?)(?:\s*\([^)]*\))?\s*:?\s*<\/(?:b|strong)>\s*([\s\S]*?)<\/li>/i;
-
-    for (const rawItem of a4Result.technical_benefits_aeo) {
-        if (typeof rawItem !== 'string') continue;
-        const m = rawItem.match(bulletRegex);
-        if (!m) continue;
-
-        const ingName = m[1].replace(/^Składnik\s*/i, '').trim();
-        const keyLower = ingName.toLowerCase();
-        if (!keyLower || keyLower.length < 3 || keyLower.length > 80) continue;
-
-        // Sprawdzamy, czy składnik już istnieje w bazie głównej
-        const existsInMain = Object.entries(db.ingredients || {}).some(([k, v]) => {
-            const names = (v.names || [k]).map(n => n.toLowerCase());
-            return names.includes(keyLower);
-        });
-        if (existsInMain) continue;
-
-        const cleanHtml = sanitizeHtmlClaimsAndStopwords(
-            rawItem.replace(/<\s*strong\s*>/gi, '<b>').replace(/<\s*\/\s*strong\s*>/gi, '</b>')
-        );
-
-        if (!db.auto_learned[keyLower]) {
-            db.auto_learned[keyLower] = {
-                names: [keyLower],
-                learned_at: new Date().toISOString()
-            };
-        }
-        if (isChemical) {
-            if (!db.auto_learned[keyLower].chemical_html) {
-                db.auto_learned[keyLower].chemical_html = cleanHtml;
-                learnedCount++;
-            }
-        } else {
-            if (!db.auto_learned[keyLower].cosmetic_html) {
-                db.auto_learned[keyLower].cosmetic_html = cleanHtml;
-                learnedCount++;
-            }
-        }
-    }
-
-    if (learnedCount > 0) {
-        saveMechanismsDb(db);
-        console.log(`[DeterministicEngine] Samouczenie: dopisano ${learnedCount} nowych mechanizmów składników do inci_mechanisms_pl.json.`);
-    }
-    return learnedCount;
+    return 0;
 }
 
 /**

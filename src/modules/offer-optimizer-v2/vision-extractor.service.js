@@ -2,6 +2,7 @@ const axios = require('axios');
 const https = require('https');
 const aiWrapper = require('./ai.wrapper.js');
 const baselinkerExtract = require('./baselinker.extract.js');
+const { normalizeInciToLegalEnglish } = require('./normalization.js');
 
 const imageHttpsAgent = new https.Agent({ 
     rejectUnauthorized: false,
@@ -357,24 +358,25 @@ ZASADY ANALIZY (DOKTRYNA ZAMKNIĘTEGO ŚWIATA – ZERO ZGADYWANIA):
    - Ustaw: "inci": null, "raw_composition_text": null, "warnings": null, "usage_instructions": null
 
 2. EKSTRAKCJA SKŁADU ("inci" oraz "raw_composition_text"):
-   - Jeśli na zdjęciu widoczny jest skład (kosmetyczne INCI, skład detergentu wg WE 648/2004 np. "<5% niejonowe środki powierzchniowo czynne..." lub lista substancji niebezpiecznych CLP "Zawiera: Wodorotlenek sodu, Podchloryn sodu..."):
+   - Jeśli na zdjęciu widoczny jest skład (kosmetyczne INCI, skład detergentu wg WE 648/2004 lub lista substancji niebezpiecznych CLP):
      * Ustaw "has_ingredients_label": true oraz "has_back_label": true.
-     * W "raw_composition_text" przepisz dosłowny tekst składu z etykiety.
-     * W "inci" zwróć znormalizowaną listę składników oddzielonych przecinkami (np. "AQUA, SODIUM HYPOCHLORITE, SODIUM HYDROXIDE, COCAMINE OXIDE, PARFUM" lub dla detergentu: "<5% anionowe środki powierzchniowo czynne, środki wybielające na bazie chloru, kompozycja zapachowa (Limonene), Zawiera: Sodium Hypochlorite, Sodium Hydroxide"). Nazwy chemiczne z języka włoskiego/niemieckiego/francuskiego (np. "Idrossido di sodio", "Ipoclorito di sodio", "Tensioattivi non ionici") przetłumacz precyzyjnie na standardową nomenklaturę INCI / polską.
+     * W "raw_composition_text" przepisz dosłowny tekst składu z etykiety (1:1).
+     * W "inci" zwróć znormalizowaną listę WSZYSTKICH składników i przedziałów stężeń w OFICJALNEJ NOMENKLATURZE ANGIELSKIEJ INCI / WE 648/2004 (np. dla kosmetyków: "AQUA, SODIUM LAURETH SULFATE, COCAMIDOPROPYL BETAINE, PARFUM, CITRIC ACID"; dla detergentów: "5-15% Anionic surfactants, <5% Non-ionic surfactants, Parfum, Preservatives (Benzisothiazolinone, Methylchloroisothiazolinone, Methylisothiazolinone)" albo "<5% Phosphonates, Chlorine-based bleaching agents, Anionic surfactants, Amphoteric surfactants, Parfum. Contains: Sodium Hydroxide, Alcohols, C12-14, ethoxylated, sulfates, sodium salts"). Nazwy chemiczne z języka włoskiego, niemieckiego, francuskiego czy polskiego (np. "Idrossido di sodio", "Ipoclorito di sodio", "Tensioattivi anionici", "Wodorotlenek sodu", "Woda") BEZWZGLĘDNIE tłumacz na standardową nomenklaturę angielską INCI / IUPAC zgodnie z prawem UE! ZAKAZ wstawiania polskich tłumaczeń składników w polu "inci"!
+     * ZASADA 1:1 (ABC -> ABC): Przepisz każdy składnik i konserwant obecny na etykiecie bez dodawania ani pomijania jakiegokolwiek związku.
    - Jeśli skład nie jest widoczny lub nieczytelny: ustaw "has_ingredients_label": false oraz "inci": null.
 
 3. EKSTRAKCJA OSTRZEŻEŃ BEZPIECZEŃSTWA ("warnings"):
    - Jeśli na etykiecie widoczne są ostrzeżenia bezpieczeństwa, piktogramy z opisem CLP lub środki ostrożności:
      * Ustaw "has_back_label": true.
-     * Przetłumacz je wiernie w 100% na język polski z zachowaniem oficjalnych, kompletnych kodów H/P/EUH (np. P301+P330+P331, P303+P361+P353, P305+P351+P338, EUH206 — zachowaj oba zdania w jednym zwrocie bez rozdzielania!).
-     * KATEGORYCZNY ZAKAZ wrzucania do pola "warnings" sekcji składników chemicznych ("Zawiera: wodorotlenek sodu, alkohole C12-14..." / "Composizione chimica") ani numerów alarmowych Centro Antiveleni — skład należy wyłącznie do pola "inci"!
-     * KATEGORYCZNY ZAKAZ ZGADYWANIA I DOPISYWANIA ŚRODKÓW OCHRONY SPOZA ETYKIETY (np. zakaz dopisywania maski czy okularów, jeśli etykieta ich nie wymienia!).
+     * Przetłumacz je wiernie w 100% na język polski (1:1 dokładnie to, co deklaruje producent na etykiecie) z zachowaniem oficjalnych, kompletnych kodów H/P/EUH (np. P101, P102, P103, P301+P330+P331, P303+P361+P353, P305+P351+P338, EUH206, EUH208 — zachowaj oba zdania w jednym zwrocie bez rozdzielania!).
+     * KATEGORYCZNY ZAKAZ wrzucania do pola "warnings" sekcji składników chemicznych ("Contains / Zawiera: wodorotlenek sodu, alkohole C12-14..." / "Composizione chimica") ani numerów alarmowych Centro Antiveleni — skład należy wyłącznie do pola "inci"! (UWAGA: zwrot uczuleniowy EUH208 typu "Zawiera mieszaninę ... Może powodować wystąpienie reakcji alergicznej" JEST ostrzeżeniem i należy do "warnings" w dokładnym zakresie podanym przez producenta — nie dopisuj substancji spoza EUH208!).
+     * KATEGORYCZNY ZAKAZ ZGADYWANIA I DOPISYWANIA ŚRODKÓW OCHRONY LUB ZAGROŻEŃ SPOZA ETYKIETY (np. zakaz dopisywania maski, okularów czy H319, jeśli etykieta ich nie wymienia!).
    - Jeśli brak widocznych ostrzeżeń na zdjęciu, ustaw "warnings": null.
 
 4. EKSTRAKCJA SPOSOBU UŻYCIA ("usage_instructions"):
    - Jeśli na etykiecie widoczna jest instrukcja użycia / dozowania ("Modo d'uso", "Istruzioni per l'uso", "Sposób użycia", "Gebrauchsanweisung"):
      * Ustaw "has_back_label": true.
-     * Przetłumacz ją wiernie i kompletnie na naturalny język polski (kroki aplikacji, odległość rozpylania, czas odczekania, temperatura, spłukiwanie lub wycieranie do sucha, powierzchnie wykluczone, ewentualny wymóg użycia rękawiczek podczas mycia).
+     * Przetłumacz ją wiernie i kompletnie (1:1 ABC -> ABC) na naturalny język polski z zachowaniem wszystkich sekcji, temperatur (np. "nawet na zimno"), czasów działania, spłukiwania (np. "wodą zdatną do picia") oraz uwag typu "postępować zgodnie z instrukcją obsługi urządzenia". Kategoryczny zakaz przeinaczania lub wymyślania etapów spoza etykiety producenta!
      * Zastosuj zgodność z BPR: słowa typu "igienizzante/antibatterico" tłumacz jako "higienicznie czyszczący".
    - Jeśli brak widocznej instrukcji użycia na zdjęciu, ustaw "usage_instructions": null.
 
@@ -459,9 +461,9 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                 const pimFeatures = {};
 
                 if (result.has_ingredients_label && result.inci && typeof result.inci === 'string') {
-                    const cleanedInci = result.inci.trim();
+                    const cleanedInci = normalizeInciToLegalEnglish(result.inci.trim());
                     const itemCount = (cleanedInci.match(/[,;]/g) || []).length + 1;
-                    if ((itemCount >= 2 || /zawiera:|środki powierzchniowo czynne|konserwant|preservative|isothiazol|benzisothiazol|sodium|acid|aqua|alcohol|peroxide|hypochlorite/i.test(cleanedInci)) && baselinkerExtract.isValidInciValue(cleanedInci)) {
+                    if ((itemCount >= 2 || /contains:|zawiera:|surfactants|środki powierzchniowo czynne|konserwant|preservative|isothiazol|benzisothiazol|sodium|acid|aqua|alcohol|peroxide|hypochlorite/i.test(cleanedInci)) && baselinkerExtract.isValidInciValue(cleanedInci)) {
                         validInci = cleanedInci;
                         pimFeatures['Skład/INCI'] = validInci;
                     } else {

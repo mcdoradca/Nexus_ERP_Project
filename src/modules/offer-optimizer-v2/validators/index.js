@@ -638,8 +638,13 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
         errors.push('[Medical Whitelisting CLP] W Sekcji 6 użyto zakazanego słowa "KONTAKTU/KONTATKU ZE SKÓRĄ" zamiast "W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ".');
     }
 
-    // 6. Obowiązkowe ostrzeżenie "Nie połykać." w chemii gospodarczej
-    if (context.isChemical && s6 && !/nie\s+połykać/i.test(s6)) {
+    // 6. Obowiązkowe ostrzeżenie "Nie połykać." w sklasyfikowanej chemii gospodarczej (z poszanowaniem łagodnych produktów z etykietą 1:1 bez klasyfikacji CLP H3xx)
+    const rawLabelW = String(context.pimWarnings || '').trim();
+    const isMildUnclassifiedWithExplicitLabel = Boolean(
+        rawLabelW.length >= 10 &&
+        !/(?:\bH3\d{2}\b|\bP301\b|uwaga|niebezpieczeństwo|attenzion|pericol|danger|warning|nie\s+połykać|non\s+ingerire|do\s+not\s+swallow|połknięc)/i.test(`${rawLabelW} ${s6}`)
+    );
+    if (context.isChemical && !isMildUnclassifiedWithExplicitLabel && s6 && !/nie\s+połykać/i.test(s6)) {
         errors.push('[Brak ostrzeżenia BHP] W Sekcji 6 brakuje obowiązkowego ostrzeżenia "Nie połykać.".');
     }
 
@@ -755,6 +760,16 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
                 errors.push(`[Błąd struktury CLP Sekcji 6] ${s6Err}`);
             }
         }
+    }
+
+    // 22. Uniwersalna kontrola pseudonauki ("dwufazowe" dla jednorodnych formulacji) oraz kalki "z kamienia i mydła" poza chemią kwasowo-łazienkową
+    const isBiphasicProduct = /dwufazow|bifasic|biphase|2-faz/i.test(`${prodName} ${JSON.stringify(context.visionFeatures || {})}`);
+    if (!isBiphasicProduct && /dwufazow[a-ząćęłńóśźż]*\s+odtłuszczani/i.test(allHtml)) {
+        errors.push('[Błąd fizykochemii] Pseudonaukowe określenie "dwufazowe odtłuszczanie" dla jednorodnego roztworu jednofazowego.');
+    }
+    const isBathroomOrDescaler = /(?:łazienk|lazienk|sanitar|odkamien|anticalcare|armatur|prysznic|kabin|wanna|umywalk|bagno|citric\s+acid|lactic\s+acid|sulfamic\s+acid|formic\s+acid|phosphoric\s+acid|acetic\s+acid|kwas\s+)/i.test(`${prodName} ${inci} ${detComp}`);
+    if (!isBathroomOrDescaler && /osad[a-ząćęłńóśźż]*\s+z\s+kamienia\s+i\s+mydła/i.test(`${s1} ${s2} ${s3} ${s4}`)) {
+        errors.push('[Kalka łazienkowa] Wzmianka o "osadach z kamienia i mydła" w produkcie niebędącym kwasowym środkiem do łazienki lub odkamieniaczem.');
     }
 
     return { valid: errors.length === 0, errors };

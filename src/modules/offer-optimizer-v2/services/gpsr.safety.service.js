@@ -352,11 +352,15 @@ class GpsrSafetyService {
             /\b(H3\d{2}|P102|P264|P280|P305|EUH20[68])\b/i.test(rawPimWarnings)
         );
 
-        const isWaterBasedCleanser = isActualChemical || /(mydło|soap|szampon|shampoo|żel|zel|balsam|krem|cream|lotion|emulsja|płyn|plyn)/i.test(prodNameLower);
-        const isToothbrush = /(szczoteczk|toothbrush)/i.test(prodNameLower) &&
-                             !/(pasta do zębów|pasta do zebow|toothpaste)/i.test(prodNameLower);
-        const isDentalFloss = /(nić|nic|floss|wykałaczk|dental|czyścik|czyscik)/i.test(prodNameLower) &&
-                              !/(szczoteczk|toothbrush|pasta do zębów|pasta do zebow|toothpaste)/i.test(prodNameLower);
+        const isWaterBasedCleanser = isActualChemical || /(?<![a-ząćęłńóśźż0-9])(?:mydł[oa]|soap|szampon[a-z]*|shampoo|żel[a-z]*|zel|balsam[a-z]*|krem[a-z]*|cream|lotion|emulsj[a-ząćęłńóśźż]*|płyn[a-z]*|plyn)(?![a-ząćęłńóśźż0-9])/i.test(prodNameLower);
+        const isOralChemical = /(?:pasta\s+do\s+zębów|pasta\s+do\s+zebow|toothpaste|płyn\s+do\s+płukania\s+jamy|mouthwash|collutorio|środek|płyn|żel|spray|detergent)/i.test(prodNameLower);
+        const isToothbrush = /(?<![a-ząćęłńóśźż0-9])(?:szczoteczk[a-ząćęłńóśźż]*|toothbrush[a-z]*)(?![a-ząćęłńóśźż0-9])/i.test(prodNameLower) &&
+                             !isOralChemical &&
+                             !isActualChemical;
+        const isDentalFloss = /(?<![a-ząćęłńóśźż0-9])(?:ni[ćc]|nici|floss|wykałaczk[a-ząćęłńóśźż]*|czyścik[a-ząćęłńóśźż]*\s+międzyzębow[a-ząćęłńóśźż]*|dental\s+floss)(?![a-ząćęłńóśźż0-9])/i.test(prodNameLower) &&
+                              !isToothbrush &&
+                              !isOralChemical &&
+                              !isActualChemical;
 
         // --- MODUŁ DEDYKOWANY: SZCZOTECZKI MANUALNE DO ZĘBÓW (PN-EN ISO 20126, GPSR UE 2023/988) ---
         if (isToothbrush) {
@@ -607,8 +611,18 @@ class GpsrSafetyService {
             }
 
             // 10. EUH208 – Informacja uzupełniająca o zagrożeniach (Art. 25 ust. 6 CLP, Rozp. 2023/1545)
-            // Zgodnie z prawem unijnym wymieniamy WSZYSTKIE zidentyfikowane substancje uczulające (BEZ UCINANIA)
-            if (allFoundSensitizers.length > 0) {
+            // ZASADA 1:1 Z ETYKIETĄ PRODUCENTA (ABC -> ABC): Jeżeli tylna etykieta producenta (rawPimWarnings) jawnie podaje deklarację EUH208
+            // (ponieważ producent na podstawie stężeń ppm w SDS decyduje o progach SCL wyzwalających EUH208), honorujemy dokładną treść producenta!
+            // W przeciwnym razie (brak gotowego EUH208 z etykiety) wyprowadzamy komplet alergenów/konserwantów uczulających ze składu INCI.
+            const labelEuh208Match = rawPimWarnings
+                ? rawPimWarnings.match(/(?:EUH208\s*(?:[–:-]\s*|\s+))?((?:Zawiera|Contains|Contiene)(?:\s*:\s*|\s+)[^\n]{3,260}?(?::\s*|\.\s*)(?:Może\s+powodować\s+wystąpienie\s+reakcji\s+alergicznej|Może\s+powodować\s+reakcję\s+alergiczną|Può\s+provocare\s+una\s+reazione\s+allergica|May\s+(?:produce|cause)\s+an\s+allergic\s+reaction)[^.\n]*\.?)/i)
+                : null;
+            if (labelEuh208Match && labelEuh208Match[1]) {
+                detectedRisks.push('EUH208_SENSITIZER');
+                let exactEuhText = labelEuh208Match[1].trim().replace(/^(Zawiera|Contains|Contiene)\s*:\s*/i, '$1 ');
+                if (!exactEuhText.endsWith('.')) exactEuhText += '.';
+                warnings.push(`EUH208 – ${exactEuhText}`);
+            } else if (allFoundSensitizers.length > 0) {
                 detectedRisks.push('EUH208_SENSITIZER');
                 const formattedSensitizers = allFoundSensitizers.map(s => this.formatSubstanceName(s)).join(', ');
                 warnings.push(`EUH208 – Zawiera ${formattedSensitizers}. Może powodować wystąpienie reakcji alergicznej.`);

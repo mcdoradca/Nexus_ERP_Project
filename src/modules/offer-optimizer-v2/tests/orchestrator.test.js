@@ -809,7 +809,7 @@ test('ADR-0167: A7 otrzymuje pełny wsad behawioralny (Pratfall, Kotwica Rutyny,
     aiWrapper.callAgentWithTelemetry = orgCall;
 });
 
-test('ADR-0168: Pełny przebieg zoptymalizowanego potoku (Silnik Deterministyczny + Fast-Pass + Tarcza Biobójcza BPR)', async () => {
+test('ADR-0168 / ADR-0174: Pełny przebieg zoptymalizowanego potoku (Kontekstowy Agent 4 + Silnik Deterministyczny A2/A5/A7 + Dual-Agent QA + Tarcza Biobójcza BPR)', async () => {
     const { scan_biocidal_claims_lexical, scan_stopwords } = require('../validators');
     const orch = new Orchestrator('8000137015436');
     orch.emitState = () => {};
@@ -827,6 +827,20 @@ test('ADR-0168: Pełny przebieg zoptymalizowanego potoku (Silnik Deterministyczn
     const orgCall = aiWrapper.callAgentWithTelemetry;
     aiWrapper.callAgentWithTelemetry = async ({ agentId, prompt }) => {
         calledAgents.push(agentId);
+        if (agentId === '4') {
+            return {
+                result: {
+                    category_type: 'cosmetic',
+                    technical_benefits_aeo: [
+                        '<b>Sodium Laureth Sulfate i Cocamidopropyl Betaine</b> – łagodnie oczyszczają skórę ciała podczas codziennej kąpieli, tworząc kremową pianę.',
+                        '<b>Glycerin i Argania Spinosa Kernel Oil</b> – nawilżają naskórek oraz wspierają barierę hydrolipidową bez uczucia ściągnięcia.'
+                    ],
+                    detected_synergies: ['Synergia Zwilżania i Pielęgnacji Naskórka'],
+                    mandatory_clp_warnings: []
+                },
+                usage: { promptTokenCount: 900, candidatesTokenCount: 220, totalTokenCount: 1120 }
+            };
+        }
         if (agentId === '6') {
             capturedA6Prompt = prompt;
             return {
@@ -873,11 +887,11 @@ test('ADR-0168: Pełny przebieg zoptymalizowanego potoku (Silnik Deterministyczn
 
     await orch.run(pimPayload);
 
-    // 1. Dual-Agent QA: Agent 6 (tworzenie HTML), Agent 11 (audyt domenowy) oraz Agent 10 (audyt prawny CLP/GPSR/Allegro)
-    // A1, A2, A4, A5, A7 zaoszczędzone deterministycznie (0 tokenów)
-    assert.deepStrictEqual(calledAgents, ['6', '11', '10'], 'W architekturze Dual-Agent QA po Agencie 6 wywoływani są Agent 11 oraz Agent 10 (eliminacja FAST-PASS)');
+    // 1. Dual-Agent QA: Kontekstowy Agent 4 (INCI/648), Agent 6 (tworzenie HTML), Agent 11 (audyt domenowy) oraz Agent 10 (audyt prawny CLP/GPSR/Allegro)
+    // A1, A2, A5, A7 zaoszczędzone deterministycznie (0 tokenów)
+    assert.deepStrictEqual(calledAgents, ['4', '6', '11', '10'], 'W architekturze ADR-0174 Agent 4 działa kontekstowo, a po Agencie 6 wywoływani są Agent 11 oraz Agent 10');
+    assert.strictEqual(orch.state.node_status['A4'], 'OK');
     assert.strictEqual(orch.state.token_usage_per_node['A2'].tokens_saved, true);
-    assert.strictEqual(orch.state.token_usage_per_node['A4'].tokens_saved, true);
     assert.strictEqual(orch.state.token_usage_per_node['A5'].tokens_saved, true);
     assert.strictEqual(orch.state.token_usage_per_node['A7'].tokens_saved, true);
 

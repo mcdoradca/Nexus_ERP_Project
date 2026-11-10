@@ -391,8 +391,11 @@ function buildFourPillarQuestions({
             questions.push(`Jakie osady i zabrudzenia usuwa ${naturalName} w łazience oraz co sprawia, że przywraca ceramice sanitarnej higieniczną czystość?`);
         } else if (isKitchenSpecific) {
             questions.push(`Jakie zabrudzenia tłuszczowe i osady usuwa ${naturalName} w kuchni bez pozostawiania smug?`);
+        } else if (frontPurpose) {
+            const cleanPurpose = String(frontPurpose).replace(/^(?:do\s+)?/i, 'do ').trim();
+            questions.push(`Jakie zabrudzenia usuwa ${naturalName} (${cleanPurpose}) i jak działa jego formuła czyszcząca?`);
         } else {
-            questions.push(`Jakie zabrudzenia usuwa ${naturalName} i co sprawia, że skutecznie czyści zmywalne powierzchnie bez smug?`);
+            questions.push(`Jakie zabrudzenia usuwa ${naturalName} i jak działa jego aktywna formuła czyszcząca?`);
         }
 
         // FILAR 2: Intencja z Google Autocomplete ("czy mleczko cif rysuje" / kompatybilność powierzchniowa + zakaz armatury i tkanin przy chlorze)
@@ -402,8 +405,10 @@ function buildFourPillarQuestions({
             questions.push(`Do jakich powierzchni nadaje się ten preparat z aktywnym wybielaczem, a dlaczego nie wolno stosować go na armaturze chromowanej, metalach, drewnie, marmurze ani na jakichkolwiek tkaninach?`);
         } else if (catInfo.key === 'descaler') {
             questions.push(`Czy ${shortBrandRef} skutecznie usuwa kamień wodny oraz osady z mydła i na jakich powierzchniach kwasowrażliwych (np. marmur, wapień) nie należy go stosować?`);
+        } else if (frontPurpose) {
+            questions.push(`Do jakich elementów i powierzchni przeznaczony jest ${shortBrandRef} oraz jakich materiałów i podzespołów należy unikać podczas czyszczenia?`);
         } else {
-            questions.push(`Do jakich powierzchni zmywalnych przeznaczony jest ${shortBrandRef} i na jakich delikatnych materiałach należy zachować ostrożność?`);
+            questions.push(`Do jakich powierzchni przeznaczony jest ${shortBrandRef} i na jakich delikatnych materiałach należy zachować ostrożność?`);
         }
 
         // FILAR 3: Intencja Instruktażowa ("Jak stosować... i jak spłukiwać?")

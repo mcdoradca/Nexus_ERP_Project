@@ -840,3 +840,75 @@ test('ADR-0173: Wrogie testy regresyjne Dual Power WC Gel Candeggina (9 bugów p
         assert.ok(/przebarwienia|osady organiczne/i.test(allQ), `FAQ chlorowego żelu WC powinno pytać o przebarwienia/osady organiczne: ${allQ}`);
     });
 });
+
+test('ADR-0174: Uniwersalność domenowa (brak kalki łazienkowej i pseudonauki dwufazowej) + angielskie nazewnictwo INCI/648', async (t) => {
+    const { normalizeInciToLegalEnglish } = require('../normalization');
+    const deterministicEngine = require('../services/deterministic-pipeline.engine');
+
+    await t.test('A. normalizeInciToLegalEnglish tłumaczy skład 648/2004 i INCI 1:1 na prawny angielski bez dodawania lub usuwania substancji', () => {
+        const plComp = '5-15% anionowe środki powierzchniowo czynne, <5% niejonowe środki powierzchniowo czynne. Zawiera: kompozycje zapachowe, środki konserwujące (Benzizotiazolinon, Metylochloroizotiazolinon, Metyloizotiazolinon).';
+        const enComp = normalizeInciToLegalEnglish(plComp);
+        assert.ok(/Anionic surfactants/i.test(enComp), `Brak angielskiego "Anionic surfactants": ${enComp}`);
+        assert.ok(/Non-ionic surfactants/i.test(enComp), `Brak angielskiego "Non-ionic surfactants": ${enComp}`);
+        assert.ok(/Parfum/i.test(enComp), `Brak "Parfum": ${enComp}`);
+        assert.ok(/Benzisothiazolinone/i.test(enComp), `Brak "Benzisothiazolinone": ${enComp}`);
+        assert.ok(/Methylchloroisothiazolinone/i.test(enComp), `Brak "Methylchloroisothiazolinone": ${enComp}`);
+        assert.ok(/Methylisothiazolinone/i.test(enComp), `Brak "Methylisothiazolinone": ${enComp}`);
+
+        const plCosmInci = 'Woda, Gliceryna, Siarczan sodowo-lauretowy, Kwas cytrynowy';
+        const enCosmInci = normalizeInciToLegalEnglish(plCosmInci);
+        assert.ok(/Aqua/i.test(enCosmInci) && /Glycerin/i.test(enCosmInci) && /Sodium Laureth Sulfate/i.test(enCosmInci) && /Citric Acid/i.test(enCosmInci), `Kosmetyczne INCI powinno być po angielsku: ${enCosmInci}`);
+    });
+
+    await t.test('B. Walidator domenowy odrzuca "kamienia i mydła" oraz "dwufazowego odtłuszczania" na frytkownicy i mydle, a przepuszcza kwaśny odkamieniacz łazienkowy', () => {
+        const dirtyAirFryer = v.validate_domain_and_chemical_logic({
+            section_1_html: '<h1>⭐ Dual Power środek do czyszczenia frytkownic 500 ml</h1><p>Spray do czyszczenia kosza frytkownicy.</p>',
+            section_3_html: '<h2>🔬 Mechanizm</h2><ul><li><b>Non-ionic surfactants</b> – ułatwiają penetrację osadów z kamienia i mydła.</li><li><b>Synergia Dwufazowego Odtłuszczania:</b> jednorodny roztwór wodny.</li></ul>'
+        }, {
+            productName: 'Dual Power środek do czyszczenia frytkownic 500 ml',
+            isChemical: true,
+            inci: '5-15% Anionic surfactants, <5% Non-ionic surfactants, Parfum'
+        });
+        assert.strictEqual(dirtyAirFryer.valid, false, 'Walidator musi odrzucić halucynację łazienkową i dwufazowe odtłuszczanie dla frytkownicy');
+        const errJoined = dirtyAirFryer.errors.join(' | ');
+        assert.ok(/kamienia i mydła/i.test(errJoined), `Brak błędu dot. osadów z kamienia i mydła: ${errJoined}`);
+        assert.ok(/dwufazow/i.test(errJoined), `Brak błędu dot. Synergii Dwufazowego Odtłuszczania: ${errJoined}`);
+
+        const dirtySoap = v.validate_domain_and_chemical_logic({
+            section_1_html: '<h1>⭐ Mydło w płynie nawilżające 500 ml</h1><p>Delikatne mydło do rąk.</p>',
+            section_3_html: '<h2>🔬 Mechanizm</h2><ul><li><b>Cocamidopropyl Betaine</b> – ułatwia penetrację osadów z kamienia i mydła.</li></ul>'
+        }, {
+            productName: 'Mydło w płynie nawilżające 500 ml',
+            isChemical: false,
+            inci: 'Aqua, Sodium Laureth Sulfate, Cocamidopropyl Betaine, Glycerin'
+        });
+        assert.strictEqual(dirtySoap.valid, false, 'Walidator musi odrzucić "osady z kamienia i mydła" także na mydle do rąk!');
+
+        const validBathroomDescaler = v.validate_domain_and_chemical_logic({
+            section_1_html: '<h1>⭐ Odświeżający płyn do kabin prysznicowych i armatury 750 ml</h1><p>Skutecznie usuwa osady w łazience.</p>',
+            section_3_html: '<h2>🔬 Mechanizm</h2><ul><li><b>Citric Acid</b> – rozpuszcza zacieki i osady z kamienia i mydła w kabinie prysznicowej.</li></ul>'
+        }, {
+            productName: 'Odświeżający płyn do kabin prysznicowych i armatury 750 ml',
+            isChemical: true,
+            inci: 'Aqua, Citric Acid, Non-ionic surfactants'
+        });
+        assert.strictEqual(validBathroomDescaler.valid, true, `Kwaśny preparat do kabin prysznicowych nie może zostać fałszywie zablokowany: ${validBathroomDescaler.errors.join(' | ')}`);
+    });
+
+    await t.test('C. Baza inci_mechanisms_pl.json i sanitizer nigdy nie wstrzykują "kamienia i mydła" ani "dwufazowe" do ogólnych produktów', () => {
+        const s3FallbackAirFryer = deterministicEngine.tryBuildDeterministicSection3({
+            productName: 'Dual Power środek do czyszczenia frytkownic 500 ml',
+            isChemical: true,
+            inci: '5-15% Anionic surfactants, <5% Non-ionic surfactants, Parfum, Preservatives (Benzisothiazolinone)',
+            visionFeatures: { 'Postać': 'płyn w sprayu', 'Przeznaczenie (Front)': 'do frytkownic beztłuszczowych' }
+        });
+        assert.ok(s3FallbackAirFryer && s3FallbackAirFryer.section_3_html, 'Fallback deterministyczny S3 powinien wygenerować bezpieczny opis dla 4 składników');
+        assert.strictEqual(/kamienia i mydła|dwufazow/i.test(s3FallbackAirFryer.section_3_html), false, `Wyciek starego szablonu w fallbacku S3: ${s3FallbackAirFryer.section_3_html}`);
+
+        const sanitizedStr = deterministicEngine.sanitizeHtmlClaimsAndStopwords(
+            '<p>Synergia Dwufazowego Odtłuszczania ułatwia penetrację osadów z kamienia i mydła w koszu frytkownicy.</p>',
+            { productName: 'Dual Power środek do czyszczenia frytkownic 500 ml', inci: '5-15% Anionic surfactants, <5% Non-ionic surfactants' }
+        );
+        assert.strictEqual(/dwufazow|kamienia i mydła/i.test(sanitizedStr), false, `Sanitizer nie usunął zakazanych kalek na frytkownicy: ${sanitizedStr}`);
+    });
+});
