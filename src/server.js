@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { logger } = require('./utils/logger');
+const { resolveBaseLinkerToken, encryptSecret, testBaseLinkerToken } = require('./utils/secretVault');
 
 // Globalna Tarcza Ochronna Procesu Node.js (Zasada Nieśmiertelnego Serwera)
 let _serverInstance = null;
@@ -483,23 +484,162 @@ app.get('/api/products/:id', authenticateToken, async (req, res) => {
     }
 });
 // --- System Settings API ---
+const SECRET_SETTING_KEYS = new Set(['BASELINKER_TOKEN', 'ALLEGRO_ACCESS_TOKEN', 'ALLEGRO_REFRESH_TOKEN', 'ELEVENLABS_API_KEY']);
+
 app.get('/api/settings/:key', authenticateToken, async (req, res) => {
     if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
     try {
-        const setting = await prisma.systemSetting.findUnique({ where: { key: req.params.key } });
+        const key = String(req.params.key || '').trim();
+        const setting = await prisma.systemSetting.findUnique({ where: { key } });
+
+        if (key === 'BASELINKER_TOKEN') {
+            let resolved = { token: null, source: 'none', encrypted: false, updatedAt: setting?.updatedAt || null };
+            let decryptError = null;
+            try {
+                resolved = await resolveBaseLinkerToken(prisma);
+            } catch (vaultErr) {
+                decryptError = vaultErr.message;
+            }
+            const auditSetting = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN_AUDIT' } });
+            let audit = null;
+            if (auditSetting?.value) {
+                try { audit = JSON.parse(auditSetting.value); } catch (_) { audit = null; }
+            }
+            return res.json({
+                key: 'BASELINKER_TOKEN',
+                value: '',
+                configured: Boolean(resolved.token),
+                encrypted: Boolean(resolved.encrypted),
+                tokenSource: resolved.source,
+                updatedAt: resolved.updatedAt || setting?.updatedAt || null,
+                decryptError,
+                audit
+            });
+        }
+
+        if (SECRET_SETTING_KEYS.has(key)) {
+            return res.json({
+                key,
+                value: '',
+                configured: Boolean(setting?.value),
+                updatedAt: setting?.updatedAt || null
+            });
+        }
+
         res.json(setting || { value: '' });
     } catch (error) { res.status(500).json({ error: 'Błąd serwera ustawień' }); }
+});
+
+app.post('/api/settings/BASELINKER_TOKEN/verify', authenticateToken, async (req, res) => {
+    if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
+    try {
+        const resolved = await resolveBaseLinkerToken(prisma);
+        if (!resolved.token) {
+            return res.status(200).json({
+                ok: false,
+                source: 'none',
+                encrypted: false,
+                errorCode: 'MISSING_TOKEN',
+                errorMessage: 'Brak skonfigurowanego tokena BASELINKER_TOKEN w systemie.'
+            });
+        }
+        const check = await testBaseLinkerToken(resolved.token);
+        return res.json({
+            ok: check.ok,
+            source: resolved.source,
+            encrypted: resolved.encrypted,
+            updatedAt: resolved.updatedAt,
+            inventories: check.inventories || [],
+            errorCode: check.errorCode || null,
+            errorMessage: check.errorMessage || null
+        });
+    } catch (error) {
+        return res.status(500).json({ ok: false, errorCode: 'VAULT_ERROR', errorMessage: error.message });
+    }
 });
 
 app.post('/api/settings', authenticateToken, async (req, res) => {
     if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
     try {
-        const { key, value } = req.body;
+        const { key, value, confirmOverwrite } = req.body;
+        if (!key || typeof key !== 'string') {
+            return res.status(400).json({ error: 'Nieprawidłowy klucz ustawień.' });
+        }
+
+        if (key === 'BASELINKER_TOKEN') {
+            const candidate = typeof value === 'string' ? value.trim() : '';
+
+            // 1. Pre-flight: weryfikacja nowego tokena w API Base.com ZANIM dotkniemy bazy danych
+            const verification = await testBaseLinkerToken(candidate);
+            if (!verification.ok) {
+                return res.status(400).json({
+                    error: verification.errorMessage,
+                    errorCode: verification.errorCode
+                });
+            }
+
+            // 2. Blokada przypadkowego nadpisania działającego tokena w bazie
+            let existingActive = false;
+            try {
+                const existing = await resolveBaseLinkerToken(prisma);
+                if (existing.source === 'db' && existing.token) {
+                    const existingCheck = await testBaseLinkerToken(existing.token);
+                    existingActive = existingCheck.ok;
+                }
+            } catch (_) {
+                existingActive = false;
+            }
+            if (existingActive && confirmOverwrite !== true) {
+                return res.status(409).json({
+                    error: 'W bazie istnieje już aktywny, działający token BaseLinkera. Zaznacz potwierdzenie nadpisania, aby go zastąpić.',
+                    requiresOverwriteConfirm: true
+                });
+            }
+
+            // 3. Szyfrowanie AES-256-GCM przed zapisem i zapis śladu audytowego (bez bajtów sekretu)
+            const encryptedPayload = encryptSecret(candidate);
+            const saved = await prisma.systemSetting.upsert({
+                where: { key: 'BASELINKER_TOKEN' },
+                update: { value: encryptedPayload },
+                create: { key: 'BASELINKER_TOKEN', value: encryptedPayload }
+            });
+
+            const auditRecord = {
+                updatedByUserId: req.user.id,
+                updatedByEmail: req.user.email || null,
+                updatedAt: new Date().toISOString(),
+                inventoriesCount: verification.inventories.length
+            };
+            await prisma.systemSetting.upsert({
+                where: { key: 'BASELINKER_TOKEN_AUDIT' },
+                update: { value: JSON.stringify(auditRecord) },
+                create: { key: 'BASELINKER_TOKEN_AUDIT', value: JSON.stringify(auditRecord) }
+            });
+
+            logger.info('[SECURITY AUDIT] Zaktualizowano i zaszyfrowano BASELINKER_TOKEN', {
+                userId: req.user.id,
+                inventoriesCount: verification.inventories.length
+            });
+
+            return res.json({
+                key: 'BASELINKER_TOKEN',
+                configured: true,
+                encrypted: true,
+                tokenSource: 'db',
+                updatedAt: saved.updatedAt,
+                inventories: verification.inventories,
+                audit: auditRecord
+            });
+        }
+
         const setting = await prisma.systemSetting.upsert({
             where: { key },
             update: { value },
             create: { key, value }
         });
+        if (SECRET_SETTING_KEYS.has(key)) {
+            return res.json({ key: setting.key, configured: Boolean(setting.value), updatedAt: setting.updatedAt });
+        }
         res.json(setting);
     } catch (error) { res.status(500).json({ error: 'Błąd serwera ustawień' }); }
 });
@@ -1181,14 +1321,15 @@ app.post('/api/allegro-sentinel/trigger', authenticateToken, async (req, res) =>
 cron.schedule('0 5 * * *', async () => {
     console.log('[CRON Worker] Uruchamiam cykliczną interpolację i synchronizację z BaseLinkerem (05:00 AM)...');
     try {
-        const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN' } });
-        if (!tokenRecord || !tokenRecord.value || tokenRecord.value.length < 5) return;
+        const resolvedBl = await resolveBaseLinkerToken(prisma);
+        if (!resolvedBl.token || resolvedBl.token.length < 5) return;
+        const blCronToken = resolvedBl.token;
         
         // Namierz Default Inventory
         const invFormData = new URLSearchParams();
         invFormData.append('method', 'getInventories');
         invFormData.append('parameters', JSON.stringify({}));
-        const invRes = await fetch('https://api.baselinker.com/connector.php', { method: 'POST', headers: { 'X-BLToken': tokenRecord.value }, body: invFormData });
+        const invRes = await fetch('https://api.baselinker.com/connector.php', { method: 'POST', headers: { 'X-BLToken': blCronToken }, body: invFormData });
         const invData = await invRes.json();
         if (invData.status !== 'SUCCESS' || !invData.inventories || invData.inventories.length === 0) return;
         const targetInventoryId = invData.inventories[0].inventory_id;
@@ -1206,7 +1347,7 @@ cron.schedule('0 5 * * *', async () => {
             reqFormData.append('method', 'getInventoryProductsData');
             reqFormData.append('parameters', JSON.stringify({ "inventory_id": targetInventoryId, "products": chunkIds }));
             
-            const chunkRes = await fetch('https://api.baselinker.com/connector.php', { method: 'POST', headers: { 'X-BLToken': tokenRecord.value }, body: reqFormData });
+            const chunkRes = await fetch('https://api.baselinker.com/connector.php', { method: 'POST', headers: { 'X-BLToken': blCronToken }, body: reqFormData });
             const chunkData = await chunkRes.json();
             
             if (chunkData.status === 'SUCCESS' && chunkData.products) {

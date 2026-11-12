@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const axios = require('axios');
+const { resolveBaseLinkerToken } = require('../../utils/secretVault');
 
 async function executeFraudBlacklistProtocol(profile) {
     console.log(`[FRAUD AGENT] Klient ${profile.allegroLogin} spełnił warunki ryzyka. Przekazano do weryfikacji ręcznej.`);
@@ -56,13 +57,13 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
     syncProgress.currentDate = null;
 
     try {
-        const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN' } });
-        const blToken = process.env.BASELINKER_TOKEN || (tokenRecord ? tokenRecord.value : null);
+        const resolvedToken = await resolveBaseLinkerToken(prisma);
+        const blToken = resolvedToken.token;
         if (!blToken) {
-            console.log("[RMA TELEMETRY] BŁĄD: Brak tokena BASELINKER_TOKEN ani w process.env, ani w bazie danych.");
+            console.log("[RMA TELEMETRY] BŁĄD: Brak tokena BASELINKER_TOKEN ani w .env, ani w bazie danych.");
             return false;
         }
-        console.log(`[RMA TELEMETRY] Token odczytany pomyślnie. Zaczyna się na: ${blToken.substring(0,8)}...`);
+        console.log(`[RMA TELEMETRY] Token BaseLinker odczytany bezpiecznie (źródło: ${resolvedToken.source}, szyfrowany: ${resolvedToken.encrypted}).`);
 
         const lastLogSetting = await prisma.systemSetting.findUnique({ where: { key: 'rma_last_return_date' } });
         // Domyślnie cofamy się o 30 dni jeśli brak historii

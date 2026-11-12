@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Users, Settings, Archive, RotateCcw, Search, CloudLightning, Save, CheckCircle2, Trash2, ShoppingCart, ExternalLink, Loader2, Image } from 'lucide-react';
+import { Plus, Users, Settings, Archive, RotateCcw, Search, CloudLightning, Save, CheckCircle2, Trash2, ShoppingCart, ExternalLink, Loader2, Image, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { getInitials, getDepartmentColor } from '../utils';
 
 const AdminPanelView = ({
@@ -16,7 +16,13 @@ const AdminPanelView = ({
   const [archivedTasks, setArchivedTasks] = useState([]);
   const [debugImages, setDebugImages] = useState([]);
   const [baseLinkerToken, setBaseLinkerToken] = useState('');
+  const [tokenMeta, setTokenMeta] = useState(null);
+  const [confirmOverwrite, setConfirmOverwrite] = useState(false);
+  const [isSavingToken, setIsSavingToken] = useState(false);
+  const [isVerifyingToken, setIsVerifyingToken] = useState(false);
   const [tokenSaved, setTokenSaved] = useState(false);
+  const [tokenError, setTokenError] = useState('');
+  const [tokenVerifyInfo, setTokenVerifyInfo] = useState(null);
   
   const [allegroAuthData, setAllegroAuthData] = useState(null);
   const [isAllegroPolling, setIsAllegroPolling] = useState(false);
@@ -37,7 +43,10 @@ const AdminPanelView = ({
          .catch(err => console.error(err));
     } else if (activeTab === 'INTEGRATIONS') {
        axios.get(`${API_URL}/api/settings/BASELINKER_TOKEN`, { headers: { Authorization: `Bearer ${token}` } })
-         .then(res => setBaseLinkerToken(res.data.value || ''))
+         .then(res => {
+           setTokenMeta(res.data || null);
+           setBaseLinkerToken('');
+         })
          .catch(err => console.error(err));
     } else if (activeTab === 'PHOTOROOM_DEBUG') {
        axios.get(`${API_URL}/api/photoroom/debug/list`, { headers: { Authorization: `Bearer ${token}` } })
@@ -80,12 +89,52 @@ const AdminPanelView = ({
     }
   };
 
-  const handleSaveToken = async () => {
+  const handleVerifyToken = async () => {
+     setTokenError('');
+     setTokenVerifyInfo(null);
+     setIsVerifyingToken(true);
      try {
-        await axios.post(`${API_URL}/api/settings`, { key: 'BASELINKER_TOKEN', value: baseLinkerToken }, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await axios.post(`${API_URL}/api/settings/BASELINKER_TOKEN/verify`, {}, { headers: { Authorization: `Bearer ${token}` } });
+        setTokenVerifyInfo(res.data);
+     } catch (err) {
+        setTokenError(err.response?.data?.errorMessage || err.response?.data?.error || 'Nie udało się zweryfikować tokena BaseLinker.');
+     } finally {
+        setIsVerifyingToken(false);
+     }
+  };
+
+  const handleSaveToken = async () => {
+     setTokenError('');
+     setTokenSaved(false);
+     setTokenVerifyInfo(null);
+     const trimmed = baseLinkerToken.trim();
+     if (trimmed.length < 25) {
+        setTokenError(`Token jest zbyt krótki (${trimmed.length} zn.). Wklej pełny, ważny token API z Base.com — baza danych nie została zmieniona.`);
+        return;
+     }
+     setIsSavingToken(true);
+     try {
+        const res = await axios.post(
+          `${API_URL}/api/settings`,
+          { key: 'BASELINKER_TOKEN', value: trimmed, confirmOverwrite },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setBaseLinkerToken('');
+        setConfirmOverwrite(false);
+        setTokenMeta(res.data || null);
+        setTokenVerifyInfo({
+          ok: true,
+          source: res.data?.tokenSource || 'db',
+          encrypted: true,
+          inventories: res.data?.inventories || []
+        });
         setTokenSaved(true);
-        setTimeout(() => setTokenSaved(false), 3000);
-     } catch (err) { alert('Błąd synchronizacji integracji'); }
+        setTimeout(() => setTokenSaved(false), 5000);
+     } catch (err) {
+        setTokenError(err.response?.data?.error || 'Błąd weryfikacji lub zapisu tokena (poprzedni stan bazy został zachowany).');
+     } finally {
+        setIsSavingToken(false);
+     }
   };
 
   const handleRestore = async (taskId) => {
@@ -275,23 +324,89 @@ const AdminPanelView = ({
                       </div>
                       
                       <div className="space-y-4">
-                         <p className="text-xs text-slate-500 font-bold mb-6">Wklej tutaj swój wygenerowany BaseLinker Token. Umożliwi on systemowi Nexus autoryzowane odpytywanie Twojego prywatnego magazynu celem pobierania EAN'ów oraz nazw asortymentu w module PIM.</p>
-                         
+                         <p className="text-xs text-slate-500 font-bold mb-4">Wklej tutaj swój wygenerowany BaseLinker Token. Przed zapisem backend przetestuje połączenie z Base.com, zaszyfruje token (AES-256-GCM) i nigdy nie odeśle go z powrotem do przeglądarki.</p>
+
+                         {tokenMeta && (
+                           <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-sm text-xs">
+                             <div className="flex items-center gap-2 text-slate-700 font-bold">
+                               <ShieldCheck className={`w-4 h-4 ${tokenMeta.configured ? 'text-emerald-600' : 'text-amber-500'}`} />
+                               <span>
+                                 Status: {tokenMeta.configured
+                                   ? `Zapisany (${tokenMeta.tokenSource === 'env' ? 'ENV serwera' : tokenMeta.encrypted ? 'Szyfrowany AES-256-GCM w bazie' : 'Legacy w bazie'})`
+                                   : 'Brak aktywnego klucza'}
+                               </span>
+                               {tokenMeta.updatedAt && (
+                                 <span className="text-[11px] font-normal text-slate-500">
+                                   • Zmiana: {new Date(tokenMeta.updatedAt).toLocaleString('pl-PL')}
+                                 </span>
+                               )}
+                             </div>
+                             <button
+                               type="button"
+                               onClick={handleVerifyToken}
+                               disabled={isVerifyingToken}
+                               className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-sm text-[10px] font-black uppercase tracking-wider hover:bg-slate-100 disabled:opacity-50 flex items-center"
+                             >
+                               {isVerifyingToken ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+                               Testuj połączenie
+                             </button>
+                           </div>
+                         )}
+
                          <div className="flex space-x-4">
-                            <input 
-                               type="password" 
-                               placeholder="1000000-xxxx-xxxx-xxxx-xxxxxxxxxxxx" 
-                               className="flex-1 px-6 py-4 bg-slate-50 border border-slate-400 rounded-sm text-sm font-mono text-slate-900 focus:border-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-300"
+                            <input
+                               id="bl_personal_api_token_once"
+                               name="bl_personal_api_token_once"
+                               type="password"
+                               autoComplete="new-password"
+                               data-lpignore="true"
+                               data-1p-ignore="true"
+                               data-form-type="other"
+                               placeholder="Wklej pełny token Base.com (pole celowo zawsze puste)"
+                               className="flex-1 px-6 py-4 bg-slate-50 border border-slate-400 rounded-sm text-sm font-mono text-slate-900 focus:border-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-400"
                                value={baseLinkerToken}
                                onChange={(e) => setBaseLinkerToken(e.target.value)}
                             />
-                            <button 
-                               onClick={handleSaveToken} 
-                               className="px-8 py-4 bg-slate-900 text-white rounded-sm text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 shadow-xl shadow-slate-900/10 transition-all active:scale-95 flex items-center hover:shadow-indigo-500/20"
+                            <button
+                               type="button"
+                               onClick={handleSaveToken}
+                               disabled={isSavingToken}
+                               className="px-8 py-4 bg-slate-900 text-white rounded-sm text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 shadow-xl shadow-slate-900/10 transition-all active:scale-95 flex items-center hover:shadow-indigo-500/20 disabled:opacity-50"
                             >
-                               {tokenSaved ? <><CheckCircle2 className="w-4 h-4 mr-2 text-emerald-400"/> Zapisano</> : <><Save className="w-4 h-4 mr-2"/> Zapisz Klucz</>}
+                               {isSavingToken ? <><Loader2 className="w-4 h-4 mr-2 animate-spin"/> Weryfikacja...</> : tokenSaved ? <><CheckCircle2 className="w-4 h-4 mr-2 text-emerald-400"/> Zapisano i Zweryfikowano</> : <><Save className="w-4 h-4 mr-2"/> Zweryfikuj i Zapisz</>}
                             </button>
                          </div>
+
+                         {tokenMeta?.configured && tokenMeta?.tokenSource === 'db' && (
+                           <label className="flex items-center gap-2 text-xs text-slate-600 font-semibold cursor-pointer select-none pt-1">
+                             <input
+                               type="checkbox"
+                               checked={confirmOverwrite}
+                               onChange={(e) => setConfirmOverwrite(e.target.checked)}
+                               className="rounded border-slate-400"
+                             />
+                             Świadomie potwierdzam zastąpienie obecnego tokena w bazie (wymagane tylko jeśli obecny token działa)
+                           </label>
+                         )}
+
+                         {tokenError && (
+                           <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-sm flex items-start gap-2">
+                             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                             <span>{tokenError}</span>
+                           </div>
+                         )}
+
+                         {tokenVerifyInfo && (
+                           <div className={`p-3.5 border text-xs font-bold rounded-sm ${tokenVerifyInfo.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                             {tokenVerifyInfo.ok ? (
+                               <span>
+                                 Połączenie z Base.com aktywne (źródło: {tokenVerifyInfo.source === 'env' ? 'ENV' : 'baza AES-256-GCM'}). Wykryte katalogi ({tokenVerifyInfo.inventories?.length || 0}): {(tokenVerifyInfo.inventories || []).map(i => `${i.name} [#${i.inventory_id}]`).join(', ') || 'brak'}.
+                               </span>
+                             ) : (
+                               <span>Test połączenia nieudany ({tokenVerifyInfo.errorCode}): {tokenVerifyInfo.errorMessage}</span>
+                             )}
+                           </div>
+                         )}
                       </div>
                    </div>
 

@@ -6,6 +6,7 @@ const chatService = require('./chat.service');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { getBaseLinkerToken } = require('../../utils/secretVault');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -28,14 +29,11 @@ const inMemoryCache = {
 
 async function getCachedBaselinkerData() {
     const now = Date.now();
-    // Odśwież cache co godzinę (3600000 ms)
-    if (inMemoryCache.baselinkerToken && inMemoryCache.baselinkerInventoryId && (now - inMemoryCache.lastUpdate < 3600000)) {
-        return { token: inMemoryCache.baselinkerToken, inventoryId: inMemoryCache.baselinkerInventoryId };
+    const token = await getBaseLinkerToken(prisma);
+    // Odśwież cache inventoryId co godzinę (lub natychmiast po zmianie tokena)
+    if (inMemoryCache.baselinkerToken === token && inMemoryCache.baselinkerInventoryId && (now - inMemoryCache.lastUpdate < 3600000)) {
+        return { token, inventoryId: inMemoryCache.baselinkerInventoryId };
     }
-    
-    const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN' } });
-    if (!tokenRecord || !tokenRecord.value) throw new Error('Brak tokenu BaseLinker w systemie.');
-    const token = tokenRecord.value;
     
     const paramsInv = new URLSearchParams();
     paramsInv.append('method', 'getInventories');

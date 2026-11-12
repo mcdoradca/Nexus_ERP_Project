@@ -4,6 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { exportLogger } = require('../../utils/logger');
 const AllegroService = require('../offer-optimizer/allegro.service');
+const { getBaseLinkerToken } = require('../../utils/secretVault');
 
 class BaselinkerExportService {
     
@@ -229,11 +230,7 @@ class BaselinkerExportService {
             const payload = await this.buildPayload(inventoryId, productId, draftData, product);
 
             // --- 5. EKSPORT DO BASELINKER API ---
-            const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN' } });
-            if (!tokenRecord || !tokenRecord.value) {
-                throw new Error("Brak tokenu BASELINKER_TOKEN w bazie");
-            }
-            const token = tokenRecord.value;
+            const token = await getBaseLinkerToken(prisma);
 
             const params = new URLSearchParams();
             params.append('method', 'addInventoryProduct');

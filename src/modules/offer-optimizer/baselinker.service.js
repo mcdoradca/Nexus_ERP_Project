@@ -2,6 +2,7 @@ const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { exportLogger } = require('../../utils/logger');
+const { getBaseLinkerToken } = require('../../utils/secretVault');
 
 const BASELINKER_API_URL = 'https://api.baselinker.com/connector.php';
 
@@ -37,11 +38,7 @@ async function callBaseLinkerApi(method, parameters = {}, retries = 3, backoff =
     }
 
     try {
-        const tokenRecord = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN' } });
-        if (!tokenRecord || !tokenRecord.value || tokenRecord.value.length < 5) {
-            throw new Error('Brak ważnego klucza BASELINKER_TOKEN w tabeli SystemSetting.');
-        }
-        const token = tokenRecord.value;
+        const token = await getBaseLinkerToken(prisma);
 
         const params = new URLSearchParams();
         params.append('method', method);
