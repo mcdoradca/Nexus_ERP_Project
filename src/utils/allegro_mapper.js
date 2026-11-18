@@ -1420,17 +1420,18 @@ function buildAllegroDescriptionSections({
         const s3 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja3 || htmlContent.section_3_html || '');
         const s4 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja4 || htmlContent.section_4_html || '');
         const s5 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja5 || htmlContent.section_5_html || '');
-        const s6 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja6 || htmlContent.section_6_html || '');
         const s7 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja7 || htmlContent.section_7_html || '');
 
+        // Moduł 6 (sekcja6 / GPSR) jest celowo pomijany w opisie — trafia wyłącznie do pola safetyInformation (GPSR).
+        // Stały układ A/B (IMAGE po lewej, TEXT po prawej) wykorzystujący wszystkie 6 zdjęć (indexy 0..5):
+        // S1 <- Zdjęcie 2, S2 <- Zdjęcie 3, S3 <- Zdjęcie 4, S4 <- Zdjęcie 5, S5 <- Zdjęcie 6, S7 <- Zdjęcie 1.
         const entries = [
-            { key: 'sekcja1', text: s1, imgIdx: 0, imageFirst: true },
-            { key: 'sekcja2', text: s2, imgIdx: 1, imageFirst: true },
-            { key: 'sekcja3', text: s3, imgIdx: 2, imageFirst: true },
-            { key: 'sekcja4', text: s4, imgIdx: 3, imageFirst: true },
-            { key: 'sekcja5', text: s5, imgIdx: 4, imageFirst: true },
-            { key: 'sekcja6', text: s6, imgIdx: 5, imageFirst: true },
-            { key: 'sekcja7', text: s7, imgIdx: -1, imageFirst: true }
+            { key: 'sekcja1', text: s1, imgIdx: 1, imageFirst: true },
+            { key: 'sekcja2', text: s2, imgIdx: 2, imageFirst: true },
+            { key: 'sekcja3', text: s3, imgIdx: 3, imageFirst: true },
+            { key: 'sekcja4', text: s4, imgIdx: 4, imageFirst: true },
+            { key: 'sekcja5', text: s5, imgIdx: 5, imageFirst: true },
+            { key: 'sekcja7', text: s7, imgIdx: 0, imageFirst: true }
         ];
 
         for (const entry of entries) {
@@ -1580,7 +1581,7 @@ function buildAllegroContentPreflight({
 
     if (effectiveIncludeDescription) {
         if (descBuild.sectionsCount === 0) {
-            errors.push('Brak wygenerowanego opisu (sekcje 1–7 i descriptionHtml są puste).');
+            errors.push('Brak wygenerowanego opisu (sekcje 1–5, 7 i descriptionHtml są puste).');
         }
         if (descBuild.exceedsLimit) {
             errors.push(`Opis przekracza limit REST API Allegro (${descBuild.totalBytes} / ${MAX_ALLEGRO_DESCRIPTION_BYTES} bajtów UTF-8).`);

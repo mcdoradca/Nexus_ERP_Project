@@ -519,7 +519,7 @@ function validate_section6_compliance(html, options = {}) {
         errors.push('Orthographic typo in CLP phrase ("KONTATKU" instead of "STYCZNOŚCI" / "KONTAKTU")');
     }
 
-    // Wykrywanie urwanych fragmentów procedur CLP oraz surowych nazw składników wklejonych jako osobne ostrzeżenia <li>
+    // Wykrywanie urwanych fragmentów procedur CLP oraz surowych nazw składników / list alergenów z INCI wklejonych jako osobne ostrzeżenia <li>
     const liMatches = html.match(/<li[^>]*>[\s\S]*?<\/li>/gi) || [];
     for (const li of liMatches) {
         const plain = li
@@ -531,7 +531,9 @@ function validate_section6_compliance(html, options = {}) {
             if (/^(?:Spłukać\s+skórę\s+pod\s+strumieniem\s+wody|NIE\s+wywoływać\s+wymiotów|Może\s+(?:uwalniać|wydzielać)\s+niebezpieczne\s+gazy|Natychmiast\s+zdjąć\s+całą\s+zanieczyszczoną\s+odzież)\b/i.test(plain)) {
                 errors.push(`Severed/duplicated CLP fragment as standalone item: "${plain}"`);
             }
-            if (/\balkohol[ei]\s+C\d{1,2}[-–]\d{1,2}\b/i.test(plain) && /(?:etoksylowan|siarczanowan|sole\s+sodow)/i.test(plain)) {
+            if ((/\balkohol[ei]\s+C\d{1,2}[-–]\d{1,2}\b/i.test(plain) && /(?:etoksylowan|siarczanowan|sole\s+sodow)/i.test(plain)) ||
+                /^(?:Skład(?:\s+INCI)?|INCI|Zawiera)\s*[:–-]/i.test(plain) ||
+                /^Produkt\s+zawiera\s+(?:kompozycję\s+zapachową|składniki\s+kompozycji\s+zapachowej|substancje\s+zapachowe)\b[^\n]*\balergen/i.test(plain)) {
                 errors.push(`Raw chemical ingredient leaked as safety warning: "${plain}"`);
             }
         }

@@ -147,15 +147,25 @@ class GpsrSafetyService {
             return true;
         }
 
-        // Surowe nazwy składników chemicznych oraz deklaracje składu CLP/detergentowe z etykiety (nie blokuje ostrzeżeń kosmetycznych typu "Zawiera witaminę A / hydroksykwasy")
-        if (/^(?:Zawiera|Contains|Contiene|Skład(?:\s+chemiczny)?|Composizione(?:\s+chimica)?|Chemical\s+composition)\s*[:–-]/i.test(clean) ||
+        // Surowe nazwy składników chemicznych, listy INCI oraz syntetyczne podsumowania alergenów z INCI w danych GPSR
+        if (/^(?:Zawiera|Contains|Contiene|Skład(?:\s+chemiczny|\s+INCI)?|INCI|Ingredients(?:\s+INCI)?|Alergeny(?:\s+zapachowe)?|Composizione(?:\s+chimica)?|Chemical\s+composition)\s*[:–-]/i.test(clean) ||
             /^(?:Zawiera|Contains|Contiene)\s+(?:wodorotlenek|podchloryn|alkohol[ei]\s+C\d+|fosfonian|środki\s+wybielające|surfaktant|sodium\s+hydroxide|sodium\s+hypochlorite|alcoli)\b/i.test(clean)) {
+            return true;
+        }
+        if (/^Produkt\s+zawiera\s+(?:kompozycję\s+zapachową|składniki\s+kompozycji\s+zapachowej|substancje\s+zapachowe)\b[^\n]*\balergen/i.test(clean) ||
+            /^(?:Zawiera|Produkt\s+zawiera)\s+(?:kompozycję\s+zapachową|substancje\s+zapachowe)[^\n]*(?:potencjalnymi\s+alergenami|mogące\s+wywołać\s+reakcję\s+alergiczną)/i.test(clean)) {
             return true;
         }
         if (/^(?:alkohol[ei]\s+C\d+|etoksylowan[a-ząćęłńóśźż]*|siarczanowan[a-ząćęłńóśźż]*|sole\s+sodowe|wodorotlenek\s+sodu|podchloryn\s+sodu|fosfoniany|środki\s+wybielające|anionowe\s+środki|amfoteryczne\s+środki|niejonowe\s+środki|kompozycja\s+zapachowa|centro\s+antiveleni|emergency\s+number|ośrodek\s+zatruć)\b/i.test(clean)) {
             return true;
         }
         if (/\balkohol[ei]\s+C\d{1,2}[-–]\d{1,2}\b/i.test(clean) && /(?:etoksylowan|siarczanowan|sole\s+sodow)/i.test(clean)) {
+            return true;
+        }
+
+        const matchedKnownSensitizers = [...this.fragranceAllergens, ...this.sensitizingPreservatives]
+            .filter(item => new RegExp(`(?:^|[,;(\\s])${item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:$|[,;)\\s.])`, 'i').test(clean));
+        if (matchedKnownSensitizers.length >= 2 && !/(?:przerwać\s+stosowanie|zasięgnąć\s+porady|chronić\s+przed|płukać|połykać|używać|stosować)/i.test(clean)) {
             return true;
         }
 
@@ -424,15 +434,6 @@ class GpsrSafetyService {
         const cleanInci = String(inci || '').toLowerCase();
         const ingredientsList = cleanInci.split(/[,;\n]+/).map(i => i.trim()).filter(Boolean);
 
-        // Wykrywanie substancji uczulających (zarówno alergenów zapachowych jak i konserwantów)
-        const foundFragranceAllergens = this.fragranceAllergens.filter(allergen => 
-            ingredientsList.some(ing => ing.includes(allergen))
-        );
-        const foundPreservatives = this.sensitizingPreservatives.filter(preservative =>
-            ingredientsList.some(ing => ing.includes(preservative))
-        );
-        const allFoundSensitizers = [...new Set([...foundFragranceAllergens, ...foundPreservatives])];
-
         // Konsolidacja zwrotów H i P z parametrów i compliance
         const combinedHPhrases = [
             ...(Array.isArray(hPhrases) ? hPhrases : []),
@@ -610,10 +611,9 @@ class GpsrSafetyService {
                 warnings.push("EUH206 – Uwaga! Nie stosować razem z innymi produktami. Może wydzielać niebezpieczne gazy (chlor).");
             }
 
-            // 10. EUH208 – Informacja uzupełniająca o zagrożeniach (Art. 25 ust. 6 CLP, Rozp. 2023/1545)
-            // ZASADA 1:1 Z ETYKIETĄ PRODUCENTA (ABC -> ABC): Jeżeli tylna etykieta producenta (rawPimWarnings) jawnie podaje deklarację EUH208
-            // (ponieważ producent na podstawie stężeń ppm w SDS decyduje o progach SCL wyzwalających EUH208), honorujemy dokładną treść producenta!
-            // W przeciwnym razie (brak gotowego EUH208 z etykiety) wyprowadzamy komplet alergenów/konserwantów uczulających ze składu INCI.
+            // 10. EUH208 – Informacja uzupełniająca o zagrożeniach (Art. 25 ust. 6 CLP)
+            // ZASADA 1:1 Z ETYKIETĄ PRODUCENTA (ABC -> ABC): EUH208 umieszczamy WYŁĄCZNIE wtedy, gdy tylna etykieta producenta (rawPimWarnings)
+            // jawnie podaje taką deklarację. Nie dopisujemy składników/alergenów z pola INCI do sekcji GPSR.
             const labelEuh208Match = rawPimWarnings
                 ? rawPimWarnings.match(/(?:EUH208\s*(?:[–:-]\s*|\s+))?((?:Zawiera|Contains|Contiene)(?:\s*:\s*|\s+)[^\n]{3,260}?(?::\s*|\.\s*)(?:Może\s+powodować\s+wystąpienie\s+reakcji\s+alergicznej|Może\s+powodować\s+reakcję\s+alergiczną|Può\s+provocare\s+una\s+reazione\s+allergica|May\s+(?:produce|cause)\s+an\s+allergic\s+reaction)[^.\n]*\.?)/i)
                 : null;
@@ -622,10 +622,6 @@ class GpsrSafetyService {
                 let exactEuhText = labelEuh208Match[1].trim().replace(/^(Zawiera|Contains|Contiene)\s*:\s*/i, '$1 ');
                 if (!exactEuhText.endsWith('.')) exactEuhText += '.';
                 warnings.push(`EUH208 – ${exactEuhText}`);
-            } else if (allFoundSensitizers.length > 0) {
-                detectedRisks.push('EUH208_SENSITIZER');
-                const formattedSensitizers = allFoundSensitizers.map(s => this.formatSubstanceName(s)).join(', ');
-                warnings.push(`EUH208 – Zawiera ${formattedSensitizers}. Może powodować wystąpienie reakcji alergicznej.`);
             }
 
             // 11. Dołączenie ewentualnych pozostałych zwrotów P ze specyfikacji/SDS (skonsolidowanych, z twardą deduplikacją po kodzie i treści)
@@ -651,8 +647,8 @@ class GpsrSafetyService {
             // Dzielimy wyłącznie po znakach nowej linii lub granicach kodów CLP/sekcji (NIGDY po kropce wewnątrz zdań CLP!)
             if (rawPimWarnings) {
                 const labelClauses = rawPimWarnings
-                    .split(/(?:\r?\n|(?=\s+(?:Hasło\s+ostrzegawcze|P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3}|Zawiera\b|Contains\b|Contiene\b|Skład\b|Composizione\b)\b))/i)
-                    .map(s => s.replace(/\s+(?:Zawiera|Contains|Contiene|Skład(?:\s+chemiczny)?|Composizione(?:\s+chimica)?)\b[\s\S]*$/i, '').trim())
+                    .split(/(?:\r?\n|(?=\s+(?:Hasło\s+ostrzegawcze|P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3}|Zawiera\b|Contains\b|Contiene\b|Skład(?:\s+INCI)?\b|INCI\b|Ingredients\b|Ingredienti\b|Composizione\b)\b))/i)
+                    .map(s => s.replace(/\s+(?:Zawiera|Contains|Contiene|Skład(?:\s+chemiczny|\s+INCI)?|INCI|Ingredients|Ingredienti|Composizione(?:\s+chimica)?)\b[\s\S]*$/i, '').trim())
                     .map(s => this.normalizeClpPhraseText(s))
                     .filter(s => s.length >= 6);
                 for (const clause of labelClauses) {
@@ -685,14 +681,9 @@ class GpsrSafetyService {
             }
         } else {
             // --- OBSŁUGA KOSMETYKÓW I PRODUKTÓW PIELĘGNACYJNYCH (Rozporządzenie 1223/2009 & GPSR) ---
-            // 1. Alergeny w kosmetykach: informacja GPSR (bez zwrotu CLP EUH208)
-            if (foundFragranceAllergens.length > 0) {
-                detectedRisks.push('FRAGRANCE_ALLERGENS');
-                const sampleAllergens = foundFragranceAllergens.map(a => this.formatSubstanceName(a)).join(', ');
-                warnings.push(`Produkt zawiera kompozycję zapachową z potencjalnymi alergenami (${sampleAllergens}). W przypadku wystąpienia podrażnienia lub reakcji uczuleniowej przerwać stosowanie.`);
-            }
+            // Składniki INCI (w tym alergeny zapachowe) należą wyłącznie do modułu składu — nie dopisujemy ich do ostrzeżeń GPSR.
 
-            // 2. Retinoidy (Rozp. 2024/996)
+            // 1. Retinoidy (Rozp. 2024/996)
             const hasRetinoids = this.retinoids.some(r => cleanInci.includes(r));
             if (hasRetinoids) {
                 detectedRisks.push('RETINOIDS');

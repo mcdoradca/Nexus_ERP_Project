@@ -100,16 +100,15 @@ class BaselinkerExportService {
             payload.product_id = productId;
         }
 
-        // --- 1. KOMPILACJA SEKCJI OPISU (7 pól -> 6 sekcji) ---
+        // --- 1. KOMPILACJA SEKCJI OPISU (6 modułów — bez sekcja6 GPSR) ---
         payload.text_fields["description"] = this.encodeEmojis(draftData.htmlContent?.sekcja1 || draftData.sekcja1 || "", true);
         payload.text_fields["description_extra1"] = this.encodeEmojis(draftData.htmlContent?.sekcja2 || draftData.sekcja2 || "", true);
         payload.text_fields["description_extra2"] = this.encodeEmojis(draftData.htmlContent?.sekcja3 || draftData.sekcja3 || "", true);
         payload.text_fields["description_extra3"] = this.encodeEmojis(draftData.htmlContent?.sekcja4 || draftData.sekcja4 || "", true);
         
+        // Moduł 6 (sekcja6 / GPSR) jest wyłączony z opisu oferty (pozostaje wyłącznie pod kluczem GPSR).
         const sec5 = draftData.htmlContent?.sekcja5 || draftData.sekcja5 || "";
-        const sec6 = draftData.htmlContent?.sekcja6 || draftData.sekcja6 || "";
-        const combinedSec56 = [sec5, sec6].filter(Boolean).join("\n\n");
-        payload.text_fields["description_extra4"] = this.encodeEmojis(combinedSec56, true);
+        payload.text_fields["description_extra4"] = this.encodeEmojis(sec5, true);
         
         payload.text_fields["extra_field_4245"] = this.encodeEmojis(draftData.htmlContent?.sekcja7 || draftData.sekcja7 || "", true);
 

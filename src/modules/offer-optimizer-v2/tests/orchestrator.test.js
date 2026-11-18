@@ -804,7 +804,8 @@ test('ADR-0167: A7 otrzymuje pełny wsad behawioralny (Pratfall, Kotwica Rutyny,
     assert.ok(capturedA7Prompt.includes('Włosy są miękkie i sypkie'), 'A7 musi otrzymać customer_delights');
     assert.strictEqual(orch.state.node_status['A10'], 'OK');
     assert.ok(!orch.state.final_offer.description_extra4.includes('<br>'), 'description_extra4 nie może zawierać nielegalnego tagu <br>');
-    assert.ok(orch.state.final_offer.description_extra4.includes('W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie'), 'Post-sanitizer po A10 musi przywrócić urzędowy dwukropek nawet przy tagach <strong>');
+    assert.strictEqual(orch.state.final_offer.description_extra4.includes('P305+P351+P338'), false, 'description_extra4 nie może zawierać sekcji 6 GPSR');
+    assert.ok(orch.state.a10_result.section_6_html.includes('W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie'), 'Post-sanitizer po A10 musi przywrócić urzędowy dwukropek nawet przy tagach <strong> w section_6_html');
 
     aiWrapper.callAgentWithTelemetry = orgCall;
 });
@@ -975,16 +976,18 @@ test('Regresja Cif Candeggina 650 ml (EAN 8720182303097): pełna klasyfikacja ch
     assert.ok(orch.state.final_offer.description_extra2.includes('Sodium Hypochlorite'), 'Sekcja 3 musi zawierać Sodium Hypochlorite');
     assert.ok(/<(?:b|strong)>/.test(orch.state.final_offer.description_extra2), 'Sekcja 3 musi zawierać pogrubienia <b>/<strong>');
 
-    // 4. Sekcja 5 ma 650 ml, poprawną nazwę i brak con Candeggina jako zapachu
+    // 4. Sekcja 5 (description_extra4) ma 650 ml, poprawną nazwę, brak con Candeggina jako zapachu i NIE zawiera GPSR z Sekcji 6
     assert.ok(orch.state.final_offer.description_extra4.includes('650 ml'), 'Sekcja 5 musi zawierać 650 ml');
     assert.strictEqual(orch.state.final_offer.description_extra4.includes('0,650'), false, 'Sekcja 5 nie może zawierać 0,650');
     assert.strictEqual(orch.state.final_offer.description_extra4.includes('Wariant zapachowy:'), false, 'Sekcja 5 nie może traktować wybielacza jako wariantu zapachowego');
+    assert.strictEqual(orch.state.final_offer.description_extra4.includes('Hasło ostrzegawcze – UWAGA'), false, 'Sekcja 5 w description_extra4 nie może zawierać ostrzeżeń GPSR z Sekcji 6');
 
-    // 5. Sekcja 6 (w description_extra4) to pełna sekcja CLP dla środka z podchlorynem sodu (z EUH206, H315, H319, P102, P264, P280, P305+P351+P338), bez kosmetycznych ostrzeżeń o uszkodzonej skórze
-    assert.ok(orch.state.final_offer.description_extra4.includes('Hasło ostrzegawcze – UWAGA'), 'Sekcja 6 musi zawierać Hasło ostrzegawcze – UWAGA');
-    assert.ok(orch.state.final_offer.description_extra4.includes('EUH206 – Uwaga! Nie stosować razem z innymi produktami. Może wydzielać niebezpieczne gazy (chlor).'), 'Sekcja 6 musi zawierać zwrot EUH206 dla wybielacza chlorowego');
-    assert.ok(orch.state.final_offer.description_extra4.includes('P305+P351+P338 – '), 'Sekcja 6 musi zawierać procedurę P305+P351+P338');
-    assert.strictEqual(/podrażnioną lub uszkodzoną skórę/i.test(orch.state.final_offer.description_extra4), false, 'Sekcja 6 nie może zawierać kosmetycznej formułki o podrażnionej skórze');
+    // 5. Sekcja 6 (w a10_result.section_6_html pod pole GPSR) to pełna sekcja CLP dla środka z podchlorynem sodu (z EUH206, H315, H319, P102, P264, P280, P305+P351+P338), bez kosmetycznych ostrzeżeń o uszkodzonej skórze
+    const sec6Html = orch.state.a10_result.section_6_html || '';
+    assert.ok(sec6Html.includes('Hasło ostrzegawcze – UWAGA'), 'Sekcja 6 musi zawierać Hasło ostrzegawcze – UWAGA');
+    assert.ok(sec6Html.includes('EUH206 – Uwaga! Nie stosować razem z innymi produktami. Może wydzielać niebezpieczne gazy (chlor).'), 'Sekcja 6 musi zawierać zwrot EUH206 dla wybielacza chlorowego');
+    assert.ok(sec6Html.includes('P305+P351+P338 – '), 'Sekcja 6 musi zawierać procedurę P305+P351+P338');
+    assert.strictEqual(/podrażnioną lub uszkodzoną skórę/i.test(sec6Html), false, 'Sekcja 6 nie może zawierać kosmetycznej formułki o podrażnionej skórze');
 
     aiWrapper.callAgentWithTelemetry = orgCall;
 });

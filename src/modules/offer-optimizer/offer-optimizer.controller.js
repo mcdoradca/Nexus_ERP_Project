@@ -517,19 +517,17 @@ const exportToBaselinker = async (req, res) => {
                     draftData.htmlContent.sekcja3 || '',
                     draftData.htmlContent.sekcja4 || '',
                     draftData.htmlContent.sekcja5 || '',
-                    draftData.htmlContent.sekcja6 || '',
                     draftData.htmlContent.sekcja7 || ''
                 ].filter(Boolean).join('\n\n');
             }
         } else {
-            // fallback if flat
+            // fallback if flat (bez sekcja6 GPSR w treści opisu oferty)
             newDescHtml = [
                 draftData.sekcja1 || '',
                 draftData.sekcja2 || '',
                 draftData.sekcja3 || '',
                 draftData.sekcja4 || '',
                 draftData.sekcja5 || '',
-                draftData.sekcja6 || '',
                 draftData.sekcja7 || ''
             ].filter(Boolean).join('\n\n');
         }

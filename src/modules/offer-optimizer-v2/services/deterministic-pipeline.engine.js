@@ -1316,8 +1316,8 @@ function buildDeterministicSection6({
         cleanW = gpsrSafetyService.normalizeClpPhraseText(cleanW);
         if (!cleanW || gpsrSafetyService.isOrphanClpOrRawIngredientFragment(cleanW)) continue;
 
-        // Odrzucenie urwanego członu "Zawiera: mieszaninę..." / "Zawiera – mieszaninę...", gdy w ostrzeżeniach jest już pełne EUH208
-        if (/^Zawiera\s*[–:-]/i.test(cleanW) && resolvedWarnings.some(w => /EUH208/i.test(String(w)))) {
+        // Bezwarunkowe odrzucenie surowego wyliczenia składników "Zawiera: ..." / "Zawiera – ..." w danych GPSR
+        if (/^Zawiera\s*[–:-]/i.test(cleanW)) {
             continue;
         }
 

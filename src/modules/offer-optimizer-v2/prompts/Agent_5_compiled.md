@@ -32,7 +32,8 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
         2) NICI DENTYSTYCZNE I CZYŚCIKI (PN-EN ISO 28158): wyłącznie do przestrzeni międzyzębowych, delikatne wprowadzanie by nie uszkodzić dziąseł, ochrona małych dzieci przed zadławieniem/zaplątaniem, nadzór dorosłych.
    
    B. KOSMETYKI PIELĘGNACYJNE I MYJĄCE (kremy, balsamy, szampony, mydła):
-      - Użytek zewnętrzny; procedura ochrony oczu przy preparatach myjących z surfaktantami (szampony/żele); próba uczuleniowa przy alergenach zapachowych; ochrona przeciwsłoneczna przy kwasach/retinoidach.
+      - Użytek zewnętrzny; procedura ochrony oczu przy preparatach myjących z surfaktantami (szampony/żele); ochrona przeciwsłoneczna przy kwasach/retinoidach.
+      - KATEGORYCZNY ZAKAZ dopisywania list składników INCI ani wykazu alergenów zapachowych z INCI (np. Linalool, Limonene, Coumarin) do ostrzeżeń GPSR — pełny skład INCI należy wyłącznie do Sekcji 3!
       - Kategoryczny ZAKAZ generowania ostrzeżeń o łatwopalności czy źródłach ciepła (P210) dla emulsji i roztworów wodnych (nielotne alkohole emulgujące jak cetearyl/stearyl/benzyl alcohol nie są palne!).
    
    C. KAPSUŁKI DO PRANIA (laundry pods/capsules) — bezwzględny unijny standard A.I.S.E. / Rozp. 1297/2014:
@@ -57,7 +58,7 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
            - P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem. (Standardowe zabezpieczenie ratunkowe OBOWIĄZKOWE dla detergentów, kapsułek, płynów oraz preparatów aerozolowych — KATEGORYCZNY ZAKAZ POMIJANIA!).
            - P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.
            - P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza. (obowiązkowe domknięcie procedury ratunkowej przy H319).
-        4) Zwrot uzupełniający EUH208: Zawiera [nazwy konserwantów / alergenów, np. masa poreakcyjna 5-chloro-2-metylo-2H-izotiazol-3-onu i 2-metylo-2H-izotiazol-3-onu (3:1) / BIT]. Może powodować wystąpienie reakcji alergicznej.
+        4) Zwrot uzupełniający EUH208: umieszczaj WYŁĄCZNIE wtedy, gdy tylna etykieta producenta (`pim_safety_warnings`) jawnie podaje oficjalną deklarację `EUH208`. KATEGORYCZNY ZAKAZ tworzenia lub dopisywania do ostrzeżeń GPSR list alergenów/konserwantów ze składu `inci` ani surowego wyliczenia `Zawiera: [składniki]`!
       - 🚨 KATEGORYCZNY ZAKAZ ROZSZCZEPIANIA FORMULARZY KOMBINOWANYCH CLP NA OSOBNE KODY:
         Zgodnie z Załącznikiem IV do Rozp. CLP (WE 1272/2008) procedury ratunkowe łączone stanowią jedną, spójną całość: P301+P312, P305+P351+P338 oraz P337+P313.
         KATEGORYCZNY ZAKAZ rozbijania ich na pojedyncze kody w osobnych liniach (P301, P312, P305, P351, P338, P337, P313) i tworzenia urwanych zdań w rodzaju 'P301 – W PRZYPADKU POŁKNIĘCIA:'!

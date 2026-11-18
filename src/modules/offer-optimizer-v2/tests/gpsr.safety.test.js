@@ -4,12 +4,12 @@ const gpsrSafetyService = require('../services/gpsr.safety.service');
 
 test('GPSR Safety Service - Wyprowadzanie ostrzeżeń ze składu INCI i SDS', async (t) => {
     
-    await t.test('Wykrywa alergeny zapachowe (Linalool, Limonene)', () => {
+    await t.test('Kosmetyk NIE dopisuje alergenów zapachowych z INCI (Linalool, Limonene) do ostrzeżeń GPSR', () => {
         const res = gpsrSafetyService.generateGpsrWarnings({
             inci: 'Aqua, Glycerin, Cetearyl Alcohol, Parfum, Linalool, Limonene'
         });
-        assert.ok(res.detected_risks.includes('FRAGRANCE_ALLERGENS'), 'Nie wykryto ryzyka FRAGRANCE_ALLERGENS');
-        assert.ok(res.warnings.some(w => w.includes('alergenami') && w.includes('Linalool')), 'Brak ostrzeżenia o alergenach zapachowych');
+        assert.strictEqual(res.detected_risks.includes('FRAGRANCE_ALLERGENS'), false, 'Nie należy dopisywać alergenów zapachowych z INCI do ostrzeżeń GPSR');
+        assert.strictEqual(res.warnings.some(w => /Linalool|Limonene|potencjalnymi alergenami/i.test(w)), false, 'Składniki INCI nie mogą pojawiać się na końcu ostrzeżeń GPSR');
     });
 
     await t.test('Wykrywa retinoidy (Retinol)', () => {
@@ -440,7 +440,7 @@ test('ADR-0174: Regresja Dual Power Frytkownice (brak kolizji -nic z nicią dent
         assert.strictEqual(realFlossRes.detected_risks.includes('DENTAL_FLOSS_SAFETY'), true, 'Prawdziwa nić dentystyczna musi aktywować DENTAL_FLOSS_SAFETY');
     });
 
-    await t.test('B. EUH208 zachowuje 1:1 etykietę producenta (ABC -> ABC) bez dopisywania BIT spoza deklaracji CLP, a bez etykiety wyprowadza pełną listę z INCI', () => {
+    await t.test('B. EUH208 zachowuje 1:1 etykietę producenta (ABC -> ABC) bez dopisywania BIT spoza deklaracji CLP, a bez etykiety EUH208 nie dopisuje składników z INCI', () => {
         const labelledRes = gpsrSafetyService.generateGpsrWarnings({
             productName: 'Dual Power środek do czyszczenia frytkownic 500 ml',
             inci: '5-15% Anionic surfactants, <5% Non-ionic surfactants, Parfum, Preservatives (Benzisothiazolinone, Methylchloroisothiazolinone, Methylisothiazolinone)',
@@ -468,11 +468,30 @@ test('ADR-0174: Regresja Dual Power Frytkownice (brak kolizji -nic z nicią dent
 
         const unlabelledRes = gpsrSafetyService.generateGpsrWarnings({
             productName: 'Detergent testowy bez etykiety EUH208 500 ml',
-            inci: '5-15% Anionic surfactants, Benzisothiazolinone, Methylchloroisothiazolinone, Methylisothiazolinone',
+            inci: '5-15% Anionic surfactants, Benzisothiazolinone, Methylchloroisothiazolinone, Methylisothiazolinone, Linalool, Limonene',
             isChemical: true
         });
-        const unlabelledEuh = unlabelledRes.warnings.find(w => /EUH208/i.test(w)) || '';
-        assert.ok(/Benzisothiazolinone/i.test(unlabelledEuh) && /Methylchloroisothiazolinone/i.test(unlabelledEuh), `Bez gotowego EUH208 z etykiety należy wyprowadzić oba alergeny z INCI: ${unlabelledEuh}`);
+        assert.strictEqual(unlabelledRes.warnings.some(w => /EUH208|Benzisothiazolinone|Methylchloroisothiazolinone|Linalool|Limonene/i.test(w)), false, `Bez deklaracji EUH208 na etykiecie nie wolno dopisywać składników INCI na końcu GPSR: ${unlabelledRes.warnings.join(' | ')}`);
+    });
+
+    await t.test('C. Regresja usuwania wycieków składników INCI / Zawiera – ... / alergenów z Sekcji 6 (<li> i <p>)', () => {
+        const { sanitizeSection6Html } = require('../orchestrator.js');
+        const leakedHtml = `
+            <h2>⚠️ Bezpieczeństwo stosowania i informacje GPSR</h2>
+            <p>Przechowywać w temperaturze pokojowej (15–25°C), w szczelnie zamkniętym opakowaniu.</p>
+            <p>➡️ Ostrzeżenie CLP/GPSR: Produkt zawiera kompozycję zapachową z potencjalnymi alergenami (Linalool, Limonene, Coumarin). W przypadku wystąpienia podrażnienia przerwać stosowanie.</p>
+            <ul>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> H314 – Powoduje poważne oparzenia skóry oraz uszkodzenia oczu.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> P102 – Chronić przed dziećmi.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Zawiera – wodorotlenek sodu, D-glukopiranozę, oligomery, glikozydy decylowo-oktylowe.</li>
+                <li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> Skład INCI: Aqua, Sodium Laureth Sulfate, Parfum.</li>
+                <li>➡️ <b>Podmiot odpowiedzialny w UE:</b> Italchimica S.r.l., Riviera Maestri del Lavoro 10, 35127 Padova, Włochy</li>
+            </ul>
+        `;
+        const cleaned = sanitizeSection6Html(leakedHtml);
+        assert.strictEqual(/wodorotlenek sodu|D-glukopiranozę|Sodium Laureth Sulfate|Linalool|potencjalnymi alergenami/i.test(cleaned), false, `Wycieki składników INCI pozostały w Sekcji 6 GPSR: ${cleaned}`);
+        assert.ok(cleaned.includes('H314 – Powoduje poważne oparzenia skóry oraz uszkodzenia oczu.'));
+        assert.ok(cleaned.includes('Podmiot odpowiedzialny w UE:'));
     });
 });
 

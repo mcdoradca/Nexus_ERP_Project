@@ -29,10 +29,11 @@ Otrzymujesz **komplet gotowych danych** z systemu Nexus. Treści są przygotowan
 
 Architektura Nexusa generuje ściśle określony zestaw kluczy, który musisz przetransferować z poszanowaniem podziału na moduły:
 - **Moduł 1 (Mocne Strony)** wysyłany jest pod kluczem `description` (odpowiednik: Opis 1)
-- **Moduł 2 (Główny Opis)** wysyłany jest pod kluczem `description_extra1` (odpowiednik: Opis 2)
-- **Moduł 3 (Detale)** wysyłany jest pod kluczem `description_extra2` (odpowiednik: Opis 3)
-- **Moduł 4 (Specyfikacja)** wysyłany jest pod kluczem `description_extra3` (odpowiednik: Opis 4)
-- **Moduł 5 i 6 (INCI + FAQ)** są połączone i wysyłane pod kluczem `description_extra4` (odpowiednik: Opis 5)
+- **Moduł 2 (FAQ / Pytania)** wysyłany jest pod kluczem `description_extra1` (odpowiednik: Opis 2)
+- **Moduł 3 (Detale i Skład INCI)** wysyłany jest pod kluczem `description_extra2` (odpowiednik: Opis 3)
+- **Moduł 4 (Sposób użycia)** wysyłany jest pod kluczem `description_extra3` (odpowiednik: Opis 4)
+- **Moduł 5 (Specyfikacja Techniczna)** wysyłany jest pod kluczem `description_extra4` (odpowiednik: Opis 5 — bez Modułu 6 GPSR)
+- **Moduł 6 (Bezpieczeństwo / GPSR)** NIE jest eksportowany do opisu oferty (pozostaje wyłącznie pod sekcję GPSR)
 - **Moduł 7: Reklama** (uzupełniany ręcznie) wysyłany jest pod kluczem `extra_field_4245` (odpowiednik: Opis 6)
 
 Twoim zadaniem jest obsłużyć ten wsad i przyporządkować do struktury `text_fields` żądania API bez zmieniania czegokolwiek, a w szczególności omijając bezwzględnie edycję pola ręcznego `extra_field_4245`.

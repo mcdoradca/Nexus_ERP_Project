@@ -264,23 +264,21 @@ const sanitizeSection6Html = (htmlStr) => {
         res = res.replace(/<li[^>]*>\s*(?:➡️|⚠️|🛡️|\*|-)?\s*(?:<(?:b|strong)>\s*(?:Ostrzeżenie\s*(?:\((?:CLP|GPSR)\)|CLP\/GPSR)?|Wytyczne\s+bezpieczeństwa\s*(?:\(GPSR\)|CLP\/GPSR)?|Środki\s+ostrożności\s*(?:\(GPSR\)|CLP\/GPSR)?):?\s*<\/(?:b|strong)>\s*)?W przypadku dostania się produktu do oczu natychmiast przepłukać je obficie czystą, letnią wodą\.?\s*<\/li>/gi, '');
     }
 
+    const stripWarningTagPrefix = (text) => String(text || '')
+        .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+        .replace(/^(?:➡️|⚠️|🛡️|\*|-)\s*/g, '')
+        .replace(/^(?:Ostrzeżenie\s+CLP\/GPSR|Ostrzeżenie\s+CLP|Wytyczne\s+bezpieczeństwa\s*\(GPSR\)|Środki\s+ostrożności\s*\(GPSR\)|Środki\s+ostrożności)\s*:?\s*/i, '')
+        .trim();
+
     const seenLiCodes = new Set();
     const seenLiBodies = new Set();
-    const hasEUH208InSection = /EUH208/i.test(res);
     const hasCorrosiveIngestion = /P301\+P330\+P331/i.test(res);
     const hasCorrosiveSkin = /P303\+P361\+P353/i.test(res);
 
     res = res.replace(/<li[^>]*>([\s\S]*?)<\/li>\s*/gi, (fullLi, inner) => {
         if (/Podmiot\s+odpowiedzialny\s+w\s+UE/i.test(inner)) return fullLi;
-        const bodyText = inner
-            .replace(/<\/?[a-zA-Z][^>]*>/g, '')
-            .replace(/^(?:➡️|⚠️|🛡️|\*|-)\s*/g, '')
-            .replace(/^(?:Ostrzeżenie\s+CLP\/GPSR|Ostrzeżenie\s+CLP|Wytyczne\s+bezpieczeństwa\s*\(GPSR\)|Środki\s+ostrożności\s*\(GPSR\))\s*:?\s*/i, '')
-            .trim();
-        if (hasEUH208InSection && /^Zawiera\s*[–:-]/i.test(bodyText)) {
-            return '';
-        }
-        if (gpsrSafetyService.isOrphanClpOrRawIngredientFragment(bodyText)) {
+        const bodyText = stripWarningTagPrefix(inner);
+        if (/^Zawiera\s*[–:-]/i.test(bodyText) || gpsrSafetyService.isOrphanClpOrRawIngredientFragment(bodyText)) {
             return '';
         }
         if (hasCorrosiveIngestion && /^P301\+P312\b/i.test(bodyText)) {
@@ -304,6 +302,19 @@ const sanitizeSection6Html = (htmlStr) => {
             seenLiBodies.add(normalizedBody);
         }
         return fullLi;
+    });
+
+    // Analogiczne czyszczenie akapitów <p> z wyciekami surowych składników INCI / list alergenów z INCI (poza Podmiotem UE i tekstem przechowywania)
+    res = res.replace(/<p[^>]*>([\s\S]*?)<\/p>\s*/gi, (fullP, inner) => {
+        const rawStripped = String(inner || '').replace(/<\/?[a-zA-Z][^>]*>/g, '').trim();
+        if (/Podmiot\s+odpowiedzialny\s+w\s+UE|^Przechowywa[ćc]\b/i.test(rawStripped)) return fullP;
+        const isPrefixedWarning = /^(?:➡️|⚠️|🛡️|Ostrzeżenie|Środki\s+ostrożności|Wytyczne\s+bezpieczeństwa|Produkt\s+zawiera|Skład\s*INCI|INCI|Zawiera\s*[–:-])/i.test(rawStripped);
+        if (!isPrefixedWarning) return fullP;
+        const bodyText = stripWarningTagPrefix(inner);
+        if (gpsrSafetyService.isOrphanClpOrRawIngredientFragment(bodyText)) {
+            return '';
+        }
+        return fullP;
     });
 
     // 8a. Przeniesienie "Nie połykać." z wnętrza procedur P3xx do sekcji prewencyjnej (bezpośrednio po P102)
@@ -2942,20 +2953,24 @@ class Orchestrator {
                     visionFeatures: this.state.vision_extracted_features || {},
                     features: product?.text_fields?.features || product?.features || {}
                 });
+                const pimWarningsA10 = this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'] || undefined;
+                const pimUsageA10 = this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia'] || undefined;
                 const hasActualEyeIrritationA10 = Boolean(
                     this.state.gpsr_baseline?.warnings?.some(w => /\b(?:H319|H318)\b/i.test(String(w)))
                 );
+                const hasExplicitLabelEuh208A10 = Boolean(
+                    this.state.gpsr_baseline?.warnings?.some(w => /\bEUH208\b/i.test(String(w))) ||
+                    /\bEUH208\b/i.test(String(pimWarningsA10 || ''))
+                );
                 const s6Check = validate_section6_compliance(this.state.a7_result.section_6_html, {
                     has_eye_irritation: hasActualEyeIrritationA10,
-                    has_sensitizers: Boolean(this.state.extracted_data.inci?.value && /(linalool|limonene|coumarin|hexyl cinnamal|benzyl salicylate|isothiazolinone)/i.test(this.state.extracted_data.inci.value)),
+                    has_sensitizers: hasExplicitLabelEuh208A10,
                     is_chemical: isActualHouseholdChemicalA10
                 });
                 const allowedSourcesList = (this.state.extracted_data.inci?.value || '').split(',').map(s => s.trim());
                 if (this.state.extracted_data.detergent_composition?.value) {
                     allowedSourcesList.push(...this.state.extracted_data.detergent_composition.value.split(',').map(s => s.trim()));
                 }
-                const pimWarningsA10 = this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'] || undefined;
-                const pimUsageA10 = this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia'] || undefined;
                 const requiresGlovesA10 = Boolean(
                     this.state.gpsr_baseline?.detected_risks?.includes('PROTECTIVE_GLOVES_REQUIRED') ||
                     /(?:sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|wodorotlenek\s+potasu|sodium\s+hypochlorite|podchloryn\s+sodu|candeggina|wybielacz|kwas\s+solny|hydrochloric\s+acid|kwas\s+fosforowy|phosphoric\s+acid|kwas\s+amidosulfonowy|sulfamic\s+acid|\bH314\b|\bH315\b|piekarnik|komink|grill|przypale[ńn]|muffa|pleś[ńn]|żrąc|rękawic|guanti)/i.test(`${product?.text_fields?.name || ''} ${this.state.extracted_data.inci?.value || ''} ${this.state.extracted_data.detergent_composition?.value || ''} ${pimWarningsA10 || ''} ${pimUsageA10 || ''}`)
@@ -3187,7 +3202,6 @@ class Orchestrator {
             }
             const s5 = this.state.a10_result['section_5_html'] || '';
             const s6 = this.state.a10_result['section_6_html'] || '';
-            const extra4 = [s5, s6].filter(Boolean).join('\n\n');
             const sanitizedTitle = this.state.extracted_data.product_name?.value
                 ? deterministicEngine.sanitizeOfferTitle(this.state.extracted_data.product_name.value)
                 : this.state.extracted_data.product_name?.value;
@@ -3203,7 +3217,7 @@ class Orchestrator {
                 description_extra1: brandResponsibleService.stripContactInfo(this.state.a10_result['section_2_html'] || ''),
                 description_extra2: brandResponsibleService.stripContactInfo(this.state.a10_result['section_3_html'] || ''),
                 description_extra3: brandResponsibleService.stripContactInfo(this.state.a10_result['section_4_html'] || ''),
-                description_extra4: brandResponsibleService.stripContactInfo(extra4),
+                description_extra4: brandResponsibleService.stripContactInfo(s5),
                 extra_field_4245: brandResponsibleService.stripContactInfo(this.state.a10_result['section_7_html'] || ''),
                 faq_schema_jsonld: faqSchema.jsonLdObject || undefined,
                 faq_schema_script_tag: faqSchema.scriptTag || undefined,
@@ -3216,7 +3230,7 @@ class Orchestrator {
                     description_extra1: { source: 'pipeline', matched_key: 'section_2' },
                     description_extra2: { source: 'pipeline', matched_key: 'section_3' },
                     description_extra3: { source: 'pipeline', matched_key: 'section_4' },
-                    description_extra4: { source: 'pipeline', matched_key: 'section_5_6' },
+                    description_extra4: { source: 'pipeline', matched_key: 'section_5' },
                     extra_field_4245: { source: 'pipeline', matched_key: 'section_7' },
                     ingredients_inci: { source: 'baselinker', matched_key: null },
                     eu_responsible_person: { source: this.state.extracted_data.eu_responsible_person.source, matched_key: null },
@@ -3253,6 +3267,7 @@ class Orchestrator {
                             sekcja3: this.state.final_offer.description_extra2,
                             sekcja4: this.state.final_offer.description_extra3,
                             sekcja5: this.state.final_offer.description_extra4,
+                            sekcja6: brandResponsibleService.stripContactInfo(this.state.a10_result?.['section_6_html'] || ''),
                             sekcja7: this.state.final_offer.extra_field_4245
                         },
                         features: { 

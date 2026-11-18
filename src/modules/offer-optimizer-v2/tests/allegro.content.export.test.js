@@ -102,7 +102,7 @@ test('Allegro Content Export & Multi-Account Vault', async (t) => {
         assert.strictEqual(limited.overflowCount, 4);
     });
 
-    await t.test('3. buildAllegroDescriptionSections paruje sekcje z obrazami, pilnuje limitu 40000 B i dopisuje klauzulę AI Act', () => {
+    await t.test('3. buildAllegroDescriptionSections paruje sekcje z obrazami (S7<-Img1, S1<-Img2), pilnuje limitu 40000 B i dopisuje klauzulę AI Act', () => {
         const htmlContent = {
             sekcja1: '<h1>⭐ Produkt Testowy</h1><p><strong>Świetna</strong> jakość.</p>',
             sekcja2: '<h2>❓ FAQ</h2><ul><li><b>Pytanie:</b> Czy działa?</li></ul>',
@@ -118,13 +118,14 @@ test('Allegro Content Export & Multi-Account Vault', async (t) => {
         assert.strictEqual(built.sectionsCount, 3);
         assert.strictEqual(built.exceedsLimit, false);
         assert.deepStrictEqual(built.description.sections[0].items, [
-            { type: 'IMAGE', url: 'https://a.allegroimg.com/original/1/a.jpg' },
             { type: 'TEXT', content: '<h1>⭐ Produkt Testowy</h1><p><b>Świetna</b> jakość.</p>' }
         ]);
         assert.deepStrictEqual(built.description.sections[1].items, [
             { type: 'TEXT', content: '<h2>❓ FAQ</h2><ul><li><b>Pytanie:</b> Czy działa?</li></ul>' }
         ]);
-        assert.ok(built.description.sections[2].items[0].content.includes('Zdjęcia aranżacyjne: tła wygenerowane cyfrowo'));
+        assert.strictEqual(built.description.sections[2].items[0].type, 'IMAGE');
+        assert.strictEqual(built.description.sections[2].items[0].url, 'https://a.allegroimg.com/original/1/a.jpg');
+        assert.ok(built.description.sections[2].items[1].content.includes('Zdjęcia aranżacyjne: tła wygenerowane cyfrowo'));
 
         const huge = { sekcja1: `<p>${'A'.repeat(42000)}</p>` };
         const hugeBuilt = buildAllegroDescriptionSections({ htmlContent: huge, imageUrls: [] });
@@ -337,27 +338,39 @@ test('Allegro Content Export & Multi-Account Vault', async (t) => {
         assert.strictEqual(nestedPInLi.valid, false);
     });
 
-    await t.test('9. buildAllegroDescriptionSections wymusza stały układ A/B A/B ([IMAGE, TEXT]) dla wszystkich sekcji 1..6', () => {
+    await t.test('9. buildAllegroDescriptionSections pomija sekcja6 GPSR i paruje 6 modułów ze wszystkimi 6 zdjęciami w układzie A/B ([IMAGE, TEXT])', () => {
         const htmlContent = {
             sekcja1: '<h2>S1</h2><p>Opis 1</p>',
             sekcja2: '<h2>S2</h2><p>Opis 2</p>',
             sekcja3: '<h2>S3</h2><p>Opis 3</p>',
             sekcja4: '<h2>S4</h2><p>Opis 4</p>',
             sekcja5: '<h2>S5</h2><p>Opis 5</p>',
-            sekcja6: '<h2>S6</h2><p>Opis 6</p>',
+            sekcja6: '<h2>⚠️ Bezpieczeństwo GPSR</h2><p>Ostrzeżenia GPSR nie mogą trafić do opisu</p>',
             sekcja7: '<p>Dostawa i import</p>'
         };
         const imageUrls = Array.from({ length: 6 }, (_, i) => `https://a.allegroimg.com/original/slot/${i + 1}.jpg`);
         const built = buildAllegroDescriptionSections({ htmlContent, imageUrls });
 
-        assert.strictEqual(built.sectionsCount, 7);
+        assert.strictEqual(built.sectionsCount, 6);
+        const serializedDesc = JSON.stringify(built.description);
+        assert.strictEqual(serializedDesc.includes('Bezpieczeństwo GPSR'), false, 'sekcja6 GPSR nie może być eksportowana do opisu aukcji');
+
+        const expectedUrls = [
+            'https://a.allegroimg.com/original/slot/2.jpg', // Moduł 1 <- Zdjęcie 2
+            'https://a.allegroimg.com/original/slot/3.jpg', // Moduł 2 <- Zdjęcie 3
+            'https://a.allegroimg.com/original/slot/4.jpg', // Moduł 3 <- Zdjęcie 4
+            'https://a.allegroimg.com/original/slot/5.jpg', // Moduł 4 <- Zdjęcie 5
+            'https://a.allegroimg.com/original/slot/6.jpg', // Moduł 5 <- Zdjęcie 6
+            'https://a.allegroimg.com/original/slot/1.jpg'  // Moduł 7 <- Zdjęcie 1
+        ];
         for (let i = 0; i < 6; i++) {
             const sec = built.description.sections[i];
-            assert.strictEqual(sec.items.length, 2, `Sekcja ${i + 1} musi mieć 2 kolumny`);
+            assert.strictEqual(sec.items.length, 2, `Sekcja wyjściowa ${i + 1} musi mieć 2 kolumny`);
             assert.strictEqual(sec.items[0].type, 'IMAGE', `Sekcja ${i + 1}: zdjęcie musi być po lewej (items[0])`);
+            assert.strictEqual(sec.items[0].url, expectedUrls[i], `Sekcja ${i + 1}: niepoprawna kolejność zdjęcia`);
             assert.strictEqual(sec.items[1].type, 'TEXT', `Sekcja ${i + 1}: opis musi być po prawej (items[1])`);
         }
-        assert.deepStrictEqual(built.description.sections[6].items, [{ type: 'TEXT', content: '<p>Dostawa i import</p>' }]);
+        assert.ok(built.description.sections[5].items[1].content.includes('Dostawa i import'));
     });
 
     await t.test('10. getOfferAndCatalogForParams automatycznie rozwiązuje właściciela offerId między dwoma kontami i zgłasza brak podpiętego konta', async () => {

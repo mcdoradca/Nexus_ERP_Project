@@ -1839,12 +1839,12 @@ export const UnifiedProductPipelineView = ({
                                     <div className="relative flex-grow w-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-slate-50 rounded-lg border border-slate-700 p-2">
                                         <div className="origin-top-left scale-[1.05] w-[95%] mx-auto">
                                             <TileSimulator customSections={[
-                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[0]) ? (visionTickets[0].replacedUrl || visionTickets[0].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja1 } ] },
-                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[1]) ? (visionTickets[1].replacedUrl || visionTickets[1].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja2 } ] },
-                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[2]) ? (visionTickets[2].replacedUrl || visionTickets[2].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja3 } ] },
-                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[3]) ? (visionTickets[3].replacedUrl || visionTickets[3].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja4 } ] },
-                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[4]) ? (visionTickets[4].replacedUrl || visionTickets[4].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja5 } ] },
-                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[5]) ? (visionTickets[5].replacedUrl || visionTickets[5].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja6 } ] }
+                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[1]) ? (visionTickets[1].replacedUrl || visionTickets[1].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja1 } ] },
+                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[2]) ? (visionTickets[2].replacedUrl || visionTickets[2].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja2 } ] },
+                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[3]) ? (visionTickets[3].replacedUrl || visionTickets[3].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja3 } ] },
+                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[4]) ? (visionTickets[4].replacedUrl || visionTickets[4].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja4 } ] },
+                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[5]) ? (visionTickets[5].replacedUrl || visionTickets[5].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja5 } ] },
+                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[0]) ? (visionTickets[0].replacedUrl || visionTickets[0].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja7 } ] }
                                             ]} />
                                         </div>
                                     </div>
@@ -1899,13 +1899,13 @@ export const UnifiedProductPipelineView = ({
                                     </div>
                                     <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar flex-grow" style={{ minHeight: '600px' }}>
                                         {[
-                                            { key: 'sekcja1', label: 'Moduł 1: Mocne Strony' },
-                                            { key: 'sekcja2', label: 'Moduł 2: Główny Opis' },
-                                            { key: 'sekcja3', label: 'Moduł 3: Detale' },
-                                            { key: 'sekcja4', label: 'Moduł 4: Specyfikacja' },
-                                            { key: 'sekcja5', label: 'Moduł 5: INCI / Bezpieczeństwo' },
-                                            { key: 'sekcja6', label: 'Moduł 6: FAQ / Dodatkowe' },
-                                            { key: 'sekcja7', label: 'Moduł 7: Reklama' }
+                                            { key: 'sekcja1', label: 'Moduł 1: Mocne Strony (Zdjęcie 2)' },
+                                            { key: 'sekcja2', label: 'Moduł 2: FAQ / Pytania (Zdjęcie 3)' },
+                                            { key: 'sekcja3', label: 'Moduł 3: Detale i Skład INCI (Zdjęcie 4)' },
+                                            { key: 'sekcja4', label: 'Moduł 4: Sposób użycia (Zdjęcie 5)' },
+                                            { key: 'sekcja5', label: 'Moduł 5: Specyfikacja Techniczna (Zdjęcie 6)' },
+                                            { key: 'sekcja6', label: 'Moduł 6: Bezpieczeństwo / GPSR (tylko pole GPSR — nie idzie do opisu)' },
+                                            { key: 'sekcja7', label: 'Moduł 7: Reklama (Zdjęcie 1)' }
                                         ].map((sec) => (
                                             <div key={`${editorKey}-${sec.key}`}>
                                                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">{sec.label}</label>

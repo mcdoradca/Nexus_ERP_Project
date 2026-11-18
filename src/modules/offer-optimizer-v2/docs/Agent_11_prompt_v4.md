@@ -32,7 +32,7 @@ D0. AUDYT UNIWERSALNY Z PIERWSZYCH ZASAD (OBIEKT ↔ BRUD ↔ POSTAĆ ↔ ETYKIE
    - Wierność etykiecie producenta (`ABC -> ABC` + angielskie INCI):
      1) Skład w Sekcji 3 musi wiernie w 100% odpowiadać `inci` / `detergent_composition` w oficjalnej nomenklaturze angielskiej INCI / WE 648/2004 (zakaz pomijania składników lub konserwantów w stopce oraz punktach ⚙️).
      2) Sposób użycia w Sekcji 4 musi wiernie odwzorowywać `pim_usage_instructions` (zakaz przeinaczania czasów, dawek czy zaleceń producenta).
-     3) Ostrzeżenia w Sekcji 6 (w tym `EUH208`) muszą wiernie odwzorowywać deklarację producenta w `pim_safety_warnings` — nie wolno decydować za producenta i dopisywać do `EUH208` substancji (np. BIT w stężeniu poniżej progu CLP SCL), których producent celowo nie zawarł w swoim `EUH208` na etykiecie!
+     3) Ostrzeżenia w Sekcji 6 (w tym `EUH208`) muszą wiernie odwzorowywać deklarację producenta w `pim_safety_warnings` — nie wolno decydować za producenta ani dopisywać do Sekcji 6 GPSR składników z pola `inci`, surowych list `Zawiera: ...` czy wykazów alergenów zapachowych z INCI! Skład INCI należy wyłącznie do Sekcji 3.
    - Uniwersalne bezpieczeństwo elektryczno-termiczne AGD: Jeżeli produkt służy do ręcznego czyszczenia wnętrza lub elementów urządzeń elektrycznych / grzewczych (np. frytkownica, piekarnik, grill elektryczny, opiekacz, płyta grzewcza, toster), a w Sekcji 4 brakuje jednoznacznego zalecenia odłączenia zasilania z gniazdka i całkowitego ostudzenia grzałki/komory przed użyciem płynu na bazie wody (obok oryginalnych kroków z etykiety) — BEZWZGLĘDNIE uzupełnij je patchem w Sekcji 4!
 
 D1. KALKI MIĘDZYKATEGORIALNE, CHEMIA KWAS vs ZASADA ORAZ ABSURDY KONTEKSTOWE:
