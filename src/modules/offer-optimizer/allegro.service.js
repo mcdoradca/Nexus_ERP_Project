@@ -292,34 +292,29 @@ async function getFullOfferData(offerId) {
 
         const data = response.data;
         
-        // 1. TytuĹ‚ (name lub product.name)
-        const title = data.name || (data.product && data.product.name) || "";
+        // 1. Tytuł (name lub productSet[0].product.name)
+        const primaryProduct = data.productSet?.[0]?.product || data.product || null;
+        const title = data.name || primaryProduct?.name || "";
         
-        // 2. ZdjÄ™cia
+        // 2. Zdjęcia
         const imageUrls = data.images ? data.images.map(img => img.url) : [];
         
-        // 3. Kod EAN (GTIN) i Parametry
+        // 3. Kod EAN (GTIN) i Parametry (korzeń oferty + parametry produktowe)
         let ean = data.ean || "";
         let paramsText = "";
-        if (data.parameters) {
-            data.parameters.forEach(p => {
-                const vals = p.values ? p.values.join(", ") : (p.valuesIds ? p.valuesIds.join(", ") : "");
-                paramsText += `- [ID: ${p.id}] ${p.name || ''}: ${vals}\n`;
-                
-                // JeĹ›li znajdziemy parametr o ID 11323 (czÄ™sto EAN) lub name 'EAN'
-                if ((p.id === '11323' || (p.name && p.name.toUpperCase().includes('EAN'))) && !ean) {
-                    if (p.values && p.values.length > 0) {
-                        ean = p.values[0];
-                    } else if (p.valuesIds && p.valuesIds.length > 0) {
-                        ean = p.valuesIds[0];
-                    }
+        const combinedParams = [
+            ...(Array.isArray(data.parameters) ? data.parameters : []),
+            ...(Array.isArray(primaryProduct?.parameters) ? primaryProduct.parameters : [])
+        ];
+        combinedParams.forEach(p => {
+            const vals = p.values ? p.values.join(", ") : (p.valuesIds ? p.valuesIds.join(", ") : "");
+            paramsText += `- [ID: ${p.id}] ${p.name || ''}: ${vals}\n`;
+            if ((String(p.id) === '225693' || (p.name && /\b(?:ean|gtin)\b/i.test(p.name))) && !ean) {
+                if (p.values && p.values.length > 0) {
+                    ean = p.values[0];
                 }
-            });
-        }
-        
-        if (!ean && data.product && data.product.id) {
-             // Czasami product.id to UUID, czasami to moĹĽe byÄ‡ GTIN, ale w katalogu to zwykle UUID.
-        }
+            }
+        });
         
         // 4. Opis z sekcji (tylko TYPE: TEXT)
         let descriptionHtml = "";
@@ -594,14 +589,411 @@ async function getListingCompetitors(phrase, categoryId, limit = 60) {
     }
 }
 
+/**
+ * Dekoduje bezpiecznie publiczne roszczenia (scope, user_name, exp) z tokenu JWT Allegro bez ujawniania sekretu.
+ */
+function inspectTokenClaims(token) {
+    if (!token || typeof token !== 'string') {
+        return { validFormat: false, scopes: [], isUserToken: false, userName: null, expIso: null };
+    }
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+        return { validFormat: false, scopes: [], isUserToken: false, userName: null, expIso: null };
+    }
+    try {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+        const scopes = Array.isArray(payload.scope) ? payload.scope : [];
+        return {
+            validFormat: true,
+            scopes,
+            isUserToken: Boolean(payload.user_name),
+            userName: payload.user_name || null,
+            expIso: payload.exp ? new Date(payload.exp * 1000).toISOString() : null
+        };
+    } catch (_) {
+        return { validFormat: false, scopes: [], isUserToken: false, userName: null, expIso: null };
+    }
+}
+
+/**
+ * Weryfikuje czy aktualny token jest tokenem sprzedawcy (nie client_credentials) i posiada uprawnienia zapisu ofert.
+ */
+async function ensureSellerWriteToken() {
+    const token = await getAllegroToken();
+    const claims = inspectTokenClaims(token);
+
+    if (!claims.isUserToken) {
+        const err = new Error('Brak autoryzacji konta sprzedawcy Allegro (użyto wyłącznie tokena aplikacyjnego lub brak ALLEGRO_REFRESH_TOKEN). Przeprowadź logowanie Device Flow w Ustawieniach Integracji.');
+        err.statusCode = 401;
+        err.code = 'ALLEGRO_USER_AUTH_REQUIRED';
+        throw err;
+    }
+
+    const requiredScopes = ['allegro:api:sale:offers:read', 'allegro:api:sale:offers:write'];
+    const missingScopes = requiredScopes.filter(sc => !claims.scopes.includes(sc));
+    if (missingScopes.length > 0) {
+        const err = new Error(
+            `Token Allegro nie posiada wymaganych uprawnień zapisu (${missingScopes.join(', ')}). ` +
+            'Wejdź na https://apps.developer.allegro.pl, włącz brakujące uprawnienia dla aplikacji, a następnie wykonaj ponownie autoryzację konta Allegro (Device Flow) w Nexus ERP.'
+        );
+        err.statusCode = 403;
+        err.code = 'ALLEGRO_MISSING_SCOPES';
+        err.missingScopes = missingScopes;
+        throw err;
+    }
+
+    return { token, claims };
+}
+
+/**
+ * Pobiera pełny schemat parametrów kategorii Allegro (z options, restrictions, requiredIf i pełnym słownikiem).
+ */
+async function getCategoryParametersFull(categoryId, { forceRefresh = false } = {}) {
+    if (!categoryId) throw new Error('Brak categoryId do pobrania parametrów kategorii.');
+    const catIdStr = String(categoryId).trim();
+
+    let category = await prisma.marketplaceCategory.findUnique({ where: { id: catIdStr } });
+    const hasValidCachedParams = category && Array.isArray(category.parameters) && category.parameters.length > 0;
+
+    let refreshed = false;
+    if (!hasValidCachedParams || forceRefresh) {
+        const token = await getAllegroToken();
+        const [paramsRes, catRes] = await Promise.all([
+            apiClient.get(`https://api.allegro.pl/sale/categories/${encodeURIComponent(catIdStr)}/parameters`, {
+                headers: {
+                    'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/vnd.allegro.public.v1+json'
+                },
+                timeout: 15000
+            }),
+            apiClient.get(`https://api.allegro.pl/sale/categories/${encodeURIComponent(catIdStr)}`, {
+                headers: {
+                    'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/vnd.allegro.public.v1+json'
+                },
+                timeout: 15000
+            }).catch(() => null)
+        ]);
+
+        const rawParams = Array.isArray(paramsRes.data?.parameters) ? paramsRes.data.parameters : [];
+        const categoryName = catRes?.data?.name || category?.name || `Kategoria ${catIdStr}`;
+
+        category = await prisma.marketplaceCategory.upsert({
+            where: { id: catIdStr },
+            update: { name: categoryName, parameters: rawParams },
+            create: { id: catIdStr, name: categoryName, parameters: rawParams }
+        });
+        refreshed = true;
+    }
+
+    return {
+        id: category.id,
+        name: category.name,
+        parameters: Array.isArray(category.parameters) ? category.parameters : [],
+        refreshed
+    };
+}
+
+/**
+ * Wyszukuje oferty na koncie sprzedawcy Allegro odpowiadające produktowi (po SKU / external.id lub frazie).
+ */
+async function findSellerOffersForProduct({ ean = '', sku = '', name = '', baselinkerId = '', categoryId = '' } = {}) {
+    const { token } = await ensureSellerWriteToken();
+    const headers = {
+        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.allegro.public.v1+json'
+    };
+
+    const collected = new Map();
+
+    const addOffersFromResponse = (offers, matchSource) => {
+        if (!Array.isArray(offers)) return;
+        for (const o of offers) {
+            if (!o || !o.id) continue;
+            if (!collected.has(String(o.id))) {
+                collected.set(String(o.id), {
+                    id: String(o.id),
+                    name: o.name || '',
+                    categoryId: o.category?.id ? String(o.category.id) : null,
+                    status: o.publication?.status || 'UNKNOWN',
+                    externalId: o.external?.id || null,
+                    matchSource
+                });
+            }
+        }
+    };
+
+    const extCandidates = [sku, baselinkerId].map(v => (v ? String(v).trim() : '')).filter(Boolean);
+    for (const extId of [...new Set(extCandidates)]) {
+        try {
+            const res = await apiClient.get(`https://api.allegro.pl/sale/offers?external.id=${encodeURIComponent(extId)}&limit=10`, {
+                headers,
+                timeout: 12000
+            });
+            addOffersFromResponse(res.data?.offers, extId === sku ? 'external_sku' : 'external_bl');
+        } catch (err) {
+            console.warn(`[AllegroService] Błąd wyszukiwania oferty po external.id=${extId}:`, err.message);
+        }
+    }
+
+    if (collected.size === 0 && name) {
+        const cleanQuery = String(name).trim().split(/\s+/).slice(0, 4).join(' ');
+        if (cleanQuery.length >= 3) {
+            const params = new URLSearchParams({ name: cleanQuery, limit: '10' });
+            if (categoryId) params.set('category.id', String(categoryId));
+            try {
+                const res = await apiClient.get(`https://api.allegro.pl/sale/offers?${params.toString()}`, {
+                    headers,
+                    timeout: 12000
+                });
+                addOffersFromResponse(res.data?.offers, 'name_search');
+            } catch (err) {
+                console.warn(`[AllegroService] Błąd wyszukiwania oferty po nazwie "${cleanQuery}":`, err.message);
+            }
+        }
+    }
+
+    const candidates = Array.from(collected.values()).slice(0, 6);
+
+    // Weryfikujemy EAN wewnątrz top kandydatów przez GET /sale/product-offers/{id}
+    const normTargetEan = ean ? String(ean).trim() : '';
+    const enriched = await Promise.all(candidates.map(async (cand) => {
+        try {
+            const detail = await apiClient.get(`https://api.allegro.pl/sale/product-offers/${cand.id}`, {
+                headers,
+                timeout: 10000
+            });
+            const prodParams = detail.data?.productSet?.[0]?.product?.parameters || [];
+            const eanParam = prodParams.find(p => String(p.id) === '225693' || /\b(?:ean|gtin)\b/i.test(p.name || ''));
+            const offerEan = eanParam?.values?.[0] ? String(eanParam.values[0]).trim() : null;
+            return {
+                ...cand,
+                offerEan,
+                eanMatch: Boolean(normTargetEan && offerEan && normTargetEan === offerEan)
+            };
+        } catch (_) {
+            return { ...cand, offerEan: null, eanMatch: false };
+        }
+    }));
+
+    enriched.sort((a, b) => {
+        if (a.eanMatch !== b.eanMatch) return a.eanMatch ? -1 : 1;
+        if (a.status !== b.status) return a.status === 'ACTIVE' ? -1 : (b.status === 'ACTIVE' ? 1 : 0);
+        return 0;
+    });
+
+    return enriched;
+}
+
+/**
+ * Pobiera pełne dane konkretnej oferty oraz (opcjonalnie) dane powiązanego produktu z Katalogu Allegro (trustedContent).
+ */
+async function getOfferAndCatalogForParams(offerId) {
+    if (!offerId) throw new Error('Brak numeru oferty Allegro (offerId).');
+    const cleanOfferId = String(offerId).trim();
+    const { token, claims } = await ensureSellerWriteToken();
+
+    const headers = {
+        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.allegro.public.v1+json',
+        'Accept-Language': 'pl-PL'
+    };
+
+    const offerRes = await apiClient.get(`https://api.allegro.pl/sale/product-offers/${encodeURIComponent(cleanOfferId)}`, {
+        headers,
+        timeout: 15000
+    });
+    const offer = offerRes.data;
+    const productId = offer?.productSet?.[0]?.product?.id || null;
+
+    let catalogProduct = null;
+    if (productId) {
+        try {
+            const catRes = await apiClient.get(`https://api.allegro.pl/sale/products/${encodeURIComponent(productId)}`, {
+                headers,
+                timeout: 12000
+            });
+            catalogProduct = catRes.data;
+        } catch (err) {
+            console.warn(`[AllegroService] Nie udało się pobrać szczegółów katalogowych produktu ${productId}:`, err.message);
+        }
+    }
+
+    return { offer, catalogProduct, tokenClaims: claims };
+}
+
+/**
+ * Waliduje i parsuje listę składników INCI przez oficjalny endpoint Allegro `POST /ingredients/parse`.
+ */
+async function parseIngredientsWithAllegro({ categoryId, productId = '1', productName = 'Produkt', rawInci = '' } = {}) {
+    if (!categoryId || !rawInci || String(rawInci).trim() === '') {
+        return { supported: false, components: null, warnings: [], errors: ['Brak kategorii lub składu INCI.'] };
+    }
+    const { token } = await ensureSellerWriteToken();
+    const headers = {
+        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.allegro.public.v1+json',
+        'Content-Type': 'application/vnd.allegro.public.v1+json',
+        'Accept-Language': 'pl-PL'
+    };
+
+    const res = await apiClient.post('https://api.allegro.pl/ingredients/parse', {
+        categoryId: String(categoryId),
+        products: [
+            {
+                id: String(productId),
+                name: String(productName || 'Produkt').slice(0, 120),
+                ingredients: String(rawInci)
+            }
+        ]
+    }, { headers, timeout: 15000 });
+
+    const parsedProd = res.data?.products?.[0] || {};
+    const items = Array.isArray(parsedProd.items) ? parsedProd.items : [];
+    const warnings = Array.isArray(parsedProd.warnings) ? parsedProd.warnings : [];
+    const errors = Array.isArray(parsedProd.errors) ? parsedProd.errors : [];
+
+    const components = items
+        .map((item, idx) => ({
+            name: item.name || (items.length === 1 ? (productName || 'Skład produktu').slice(0, 100) : `Składnik ${idx + 1}`),
+            ingredients: (Array.isArray(item.ingredients) ? item.ingredients : [])
+                .map(ing => ({ name: String(ing.name || '').trim() }))
+                .filter(ing => ing.name !== '')
+        }))
+        .filter(c => c.ingredients.length > 0);
+
+    const hasUnknownWarning = warnings.some(w => w.code === 'UNKNOWN_INGREDIENT');
+
+    return {
+        supported: errors.length === 0 && !hasUnknownWarning && components.length > 0,
+        components: components.length > 0 ? components : null,
+        warnings,
+        errors,
+        rawResult: parsedProd
+    };
+}
+
+/**
+ * Formatuje tablicę błędów Allegro REST API (`422` / `400` / `403`) do czytelnego opisu z metadanymi.
+ */
+function formatAllegroApiErrors(data) {
+    if (!data || !Array.isArray(data.errors) || data.errors.length === 0) {
+        return typeof data === 'string' ? data : JSON.stringify(data || 'Nieznany błąd API Allegro');
+    }
+    return data.errors.map(e => {
+        const msg = e.userMessage || e.message || e.code || 'Błąd walidacji';
+        const pathInfo = e.path ? ` [${e.path}]` : '';
+        const meta = e.metadata && Object.keys(e.metadata).length > 0 ? ` (${JSON.stringify(e.metadata)})` : '';
+        return `${msg}${pathInfo}${meta}`;
+    }).join(' | ');
+}
+
+/**
+ * Wysyła `PATCH /sale/product-offers/{offerId}` wraz z automatycznym pollingiem operacji asynchronicznej `202 -> 303`.
+ */
+async function patchProductOffer(offerId, patchBody, { pollMaxAttempts = 12, pollIntervalMs = 1000 } = {}) {
+    if (!offerId) throw new Error('Brak numeru oferty Allegro (offerId).');
+    const cleanOfferId = String(offerId).trim();
+    const { token } = await ensureSellerWriteToken();
+
+    const headers = {
+        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.allegro.public.v1+json',
+        'Content-Type': 'application/vnd.allegro.public.v1+json',
+        'Accept-Language': 'pl-PL'
+    };
+
+    try {
+        const patchRes = await apiClient.patch(
+            `https://api.allegro.pl/sale/product-offers/${encodeURIComponent(cleanOfferId)}`,
+            patchBody,
+            {
+                headers,
+                timeout: 20000,
+                validateStatus: (status) => status >= 200 && status < 400
+            }
+        );
+
+        if (patchRes.status === 200) {
+            return {
+                status: 'COMPLETED',
+                httpStatus: 200,
+                offer: patchRes.data
+            };
+        }
+
+        if (patchRes.status === 202) {
+            const locationPath = patchRes.headers?.location || patchRes.headers?.Location;
+            if (!locationPath) {
+                return { status: 'ACCEPTED_NO_LOCATION', httpStatus: 202 };
+            }
+            const pollUrl = locationPath.startsWith('http')
+                ? locationPath
+                : `https://api.allegro.pl${locationPath.startsWith('/') ? '' : '/'}${locationPath}`;
+
+            for (let attempt = 1; attempt <= pollMaxAttempts; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+                const pollRes = await apiClient.get(pollUrl, {
+                    headers: {
+                        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/vnd.allegro.public.v1+json',
+                        'Accept-Language': 'pl-PL'
+                    },
+                    maxRedirects: 0,
+                    validateStatus: (s) => (s >= 200 && s < 400),
+                    timeout: 15000
+                });
+
+                if (pollRes.status === 303 || pollRes.status === 200) {
+                    return {
+                        status: 'COMPLETED',
+                        httpStatus: pollRes.status,
+                        attempts: attempt
+                    };
+                }
+            }
+
+            return {
+                status: 'PENDING_TIMEOUT',
+                httpStatus: 202,
+                location: pollUrl
+            };
+        }
+
+        return { status: 'COMPLETED', httpStatus: patchRes.status };
+    } catch (error) {
+        const status = error.response?.status;
+        const details = formatAllegroApiErrors(error.response?.data || error.message);
+        const err = new Error(`Allegro API PATCH error (${status || 'NETWORK'}): ${details}`);
+        err.statusCode = status || 500;
+        err.allegroErrors = error.response?.data?.errors || null;
+        throw err;
+    }
+}
+
 module.exports = {
     getAllegroToken,
+    inspectTokenClaims,
+    ensureSellerWriteToken,
     getOfferImages,
     getFullOfferData,
     fetchCategoryParameters,
+    getCategoryParametersFull,
     findCategoryByEan,
     findMatchingCategoryByName,
     getProductParametersByEan,
+    findSellerOffersForProduct,
+    getOfferAndCatalogForParams,
+    parseIngredientsWithAllegro,
+    patchProductOffer,
+    formatAllegroApiErrors,
     startDeviceFlow,
     pollForToken,
     searchProducts,

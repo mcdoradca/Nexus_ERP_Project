@@ -11,6 +11,12 @@ const prisma = new PrismaClient();
 const EventBus = require('../../core/EventBus');
 const baselinkerExportAgent = require('../offer-optimizer-v2/baselinker.export.agent');
 const baselinkerExtract = require('../offer-optimizer-v2/baselinker.extract');
+const {
+    stripHtmlAndEmoticons,
+    extractSafetyInformationText,
+    extractCleanInciForAllegro,
+    buildAllegroParameterPatchPayload
+} = require('../../utils/allegro_mapper');
 const { exportLogger } = require('../../utils/logger');
 const sharp = require('sharp');
 
@@ -529,10 +535,23 @@ const exportToBaselinker = async (req, res) => {
             newDescHtml += `\n\n${aiActDisclosure}`;
         }
 
+        const existingBeforeExport = await prisma.product.findUnique({ where: { ean }, select: { offerDraft: true } });
+        let preservedExistingDraft = {};
+        try {
+            preservedExistingDraft = typeof existingBeforeExport?.offerDraft === 'string'
+                ? JSON.parse(existingBeforeExport.offerDraft)
+                : (existingBeforeExport?.offerDraft || {});
+        } catch (_) {}
+
+        const mergedExportDraft = {
+            ...preservedExistingDraft,
+            ...draftData
+        };
+
         const product = await prisma.product.update({
             where: { ean },
             data: { 
-                offerDraft: draftData,
+                offerDraft: mergedExportDraft,
                 name: newTitle, // Nadpisujemy trzon!
                 descriptionHtml: newDescHtml, // Nadpisujemy trzon!
                 lastContentSource: 'OFFER_OPTIMIZER_AI' // Ustawiamy pieczątkę wysokiego zaufania
@@ -868,9 +887,14 @@ const triggerUltimatePipeline = async (req, res) => {
                 await orch.run(localPimData);
 
                 if (orch.state.next_action === 'HALT' && orch.state.hitl_alert) {
+                     let existingPausedDraft = {};
+                     try {
+                         const pCur = await prisma.product.findUnique({ where: { ean }, select: { offerDraft: true } });
+                         existingPausedDraft = typeof pCur?.offerDraft === 'string' ? JSON.parse(pCur.offerDraft) : (pCur?.offerDraft || {});
+                     } catch (_) {}
                      await prisma.product.update({
                          where: { ean },
-                         data: { offerDraft: { status: 'HITL_PAUSED', error: orch.state.hitl_alert } }
+                         data: { offerDraft: { ...existingPausedDraft, status: 'HITL_PAUSED', error: orch.state.hitl_alert } }
                      });
                      console.log(`[Controller] Zatrzymano na bramce HITL: ${orch.state.hitl_alert}`);
                      
@@ -1011,9 +1035,14 @@ const triggerUltimatePipeline = async (req, res) => {
                      });
                 } else {
                      const errorMsg = orch.state.hitl_alert || 'Orchestrator V2 zakończył pracę, ale nie wygenerował wyniku A10';
+                     let existingErrDraft = {};
+                     try {
+                         const pCur = await prisma.product.findUnique({ where: { ean }, select: { offerDraft: true } });
+                         existingErrDraft = typeof pCur?.offerDraft === 'string' ? JSON.parse(pCur.offerDraft) : (pCur?.offerDraft || {});
+                     } catch (_) {}
                      await prisma.product.update({
                          where: { ean },
-                         data: { offerDraft: { status: 'ERROR', error: errorMsg } }
+                         data: { offerDraft: { ...existingErrDraft, status: 'ERROR', error: errorMsg } }
                      });
                      socketService.broadcast('nexus-notification', {
                          type: 'PIPELINE_ERROR',
@@ -1023,9 +1052,14 @@ const triggerUltimatePipeline = async (req, res) => {
                 }
             } catch (err) {
                 console.error(`[Controller] Błąd asynchronicznego potoku V2 dla: ${ean}`, err);
+                let existingCatchDraft = {};
+                try {
+                    const pCur = await prisma.product.findUnique({ where: { ean }, select: { offerDraft: true } });
+                    existingCatchDraft = typeof pCur?.offerDraft === 'string' ? JSON.parse(pCur.offerDraft) : (pCur?.offerDraft || {});
+                } catch (_) {}
                 await prisma.product.update({
                     where: { ean },
-                    data: { offerDraft: { status: 'ERROR', error: err.message || 'Krytyczny błąd Orchestratora V2' } }
+                    data: { offerDraft: { ...existingCatchDraft, status: 'ERROR', error: err.message || 'Krytyczny błąd Orchestratora V2' } }
                 });
                 socketService.broadcast('nexus-notification', {
                     type: 'PIPELINE_ERROR',
@@ -1283,6 +1317,353 @@ const extractBackLabel = async (req, res) => {
     }
 };
 
+function computePatchBodyHash(patchBody) {
+    return crypto.createHash('sha256').update(JSON.stringify(patchBody || {})).digest('hex');
+}
+
+function signAllegroParamsToken({ ean, offerId, patchBody }) {
+    const timestamp = Date.now();
+    const patchHash = computePatchBodyHash(patchBody);
+    const sigPayload = `${ean}:${offerId}:${patchHash}:${timestamp}`;
+    const signature = crypto.createHmac('sha256', EXPORT_SECRET).update(sigPayload).digest('hex');
+    return Buffer.from(JSON.stringify({ ean, offerId: String(offerId), patchHash, timestamp, signature })).toString('base64');
+}
+
+function verifyAllegroParamsToken(token, { ean, offerId, patchBody }) {
+    const decoded = JSON.parse(Buffer.from(String(token), 'base64').toString('utf8'));
+    if (String(decoded.ean) !== String(ean) || String(decoded.offerId) !== String(offerId)) {
+        throw new Error('Niezgodność produktu lub oferty w tokenie eksportu Allegro.');
+    }
+    if (Date.now() - Number(decoded.timestamp) > 5 * 60 * 1000) {
+        throw new Error('Token eksportu parametrów Allegro wygasł. Odśwież podgląd (Pre-flight).');
+    }
+    const expectedHash = computePatchBodyHash(patchBody);
+    if (decoded.patchHash !== expectedHash) {
+        throw new Error('Zmieniono dane od ostatniego podglądu Pre-flight. Wykonaj ponowną weryfikację.');
+    }
+    const expectedSig = crypto.createHmac('sha256', EXPORT_SECRET)
+        .update(`${decoded.ean}:${decoded.offerId}:${decoded.patchHash}:${decoded.timestamp}`)
+        .digest('hex');
+    if (decoded.signature !== expectedSig) {
+        throw new Error('Nieważny podpis kryptograficzny tokenu eksportu Allegro.');
+    }
+}
+
+const searchAllegroOffers = async (req, res) => {
+    try {
+        const { ean = '', sku = '', name = '', baselinkerId = '', categoryId = '' } = req.query || {};
+        const { claims } = await AllegroService.ensureSellerWriteToken();
+        const offers = await AllegroService.findSellerOffersForProduct({ ean, sku, name, baselinkerId, categoryId });
+        return res.status(200).json({ offers, tokenClaims: claims });
+    } catch (error) {
+        const status = error.statusCode || error.response?.status || 500;
+        return res.status(status).json({
+            error: error.message || 'Błąd wyszukiwania ofert Allegro.',
+            code: error.code || null,
+            missingScopes: error.missingScopes || null
+        });
+    }
+};
+
+const validateAllegroParamsExport = async (req, res) => {
+    try {
+        const {
+            ean,
+            productId,
+            offerId,
+            categoryId,
+            features,
+            htmlContent,
+            includeSafetyInfo = true,
+            customSafetyText = null,
+            includeComposition = true,
+            selectedParamIds = null,
+            forceRefreshCategory = false
+        } = req.body || {};
+
+        if (!ean && !productId) {
+            return res.status(400).json({ error: 'Wymagany kod EAN lub ID produktu.' });
+        }
+
+        const product = await prisma.product.findUnique({
+            where: productId ? { id: String(productId) } : { ean: String(ean) },
+            include: { brand: true }
+        });
+        if (!product) {
+            return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM.' });
+        }
+
+        let existingDraft = {};
+        try {
+            existingDraft = typeof product.offerDraft === 'string'
+                ? JSON.parse(product.offerDraft)
+                : (product.offerDraft || {});
+        } catch (_) {
+            existingDraft = {};
+        }
+
+        let tokenClaims = null;
+        try {
+            const authCheck = await AllegroService.ensureSellerWriteToken();
+            tokenClaims = authCheck.claims;
+        } catch (authErr) {
+            return res.status(authErr.statusCode || 403).json({
+                error: authErr.message,
+                code: authErr.code || 'ALLEGRO_AUTH_ERROR',
+                missingScopes: authErr.missingScopes || null
+            });
+        }
+
+        let targetOfferId = offerId ? String(offerId).trim() : (existingDraft?.allegroOfferId ? String(existingDraft.allegroOfferId).trim() : '');
+        let matchedCandidates = [];
+
+        if (!targetOfferId) {
+            matchedCandidates = await AllegroService.findSellerOffersForProduct({
+                ean: product.ean,
+                sku: product.sku,
+                name: product.name,
+                baselinkerId: product.baselinkerId,
+                categoryId: categoryId || product.allegroCategoryId || ''
+            });
+            if (matchedCandidates.length > 0) {
+                targetOfferId = matchedCandidates[0].id;
+            }
+        }
+
+        if (!targetOfferId) {
+            return res.status(404).json({
+                error: 'Nie odnaleziono automatycznie oferty na koncie Allegro dla tego SKU/EAN. Wpisz numer oferty Allegro (offerId) ręcznie przed weryfikacją.',
+                candidates: []
+            });
+        }
+
+        const { offer, catalogProduct } = await AllegroService.getOfferAndCatalogForParams(targetOfferId);
+        const offerCatId = offer?.category?.id ? String(offer.category.id) : null;
+        const requestedCatId = categoryId ? String(categoryId).trim() : (product.allegroCategoryId ? String(product.allegroCategoryId).trim() : null);
+        const effectiveCatId = offerCatId || requestedCatId;
+
+        if (!effectiveCatId) {
+            return res.status(400).json({ error: 'Nie udało się określić ID kategorii Allegro dla wybranej oferty.' });
+        }
+
+        const catSchema = await AllegroService.getCategoryParametersFull(effectiveCatId, {
+            forceRefresh: Boolean(forceRefreshCategory)
+        });
+
+        let dbFeatures = {};
+        try {
+            dbFeatures = typeof product.features === 'string' ? JSON.parse(product.features) : (product.features || {});
+        } catch (_) {
+            dbFeatures = {};
+        }
+        const effectiveFeatures = {
+            ...dbFeatures,
+            ...(features && typeof features === 'object' ? features : {})
+        };
+
+        // 1. Ekstrakcja i czyszczenie ostrzeżeń z opisu (bez HTML i emotikonów) pod GPSR safetyInformation
+        const extractedSafety = extractSafetyInformationText({
+            htmlContent: htmlContent || existingDraft?.htmlContent || null,
+            descriptionHtml: product.descriptionHtml || '',
+            features: effectiveFeatures
+        });
+
+        const finalSafetyText = (typeof customSafetyText === 'string' && customSafetyText.trim() !== '')
+            ? stripHtmlAndEmoticons(customSafetyText)
+            : extractedSafety.text;
+
+        const safetyInfoPayload = {
+            apply: Boolean(includeSafetyInfo && finalSafetyText && finalSafetyText.trim().length > 0),
+            description: finalSafetyText
+        };
+
+        // 2. Ekstrakcja i walidacja INCI przez endpoint POST /ingredients/parse
+        const rawInci = extractCleanInciForAllegro({
+            features: effectiveFeatures,
+            ingredientsInci: existingDraft?.ingredients_inci || ''
+        });
+
+        let compositionDiagnostics = {
+            rawInci,
+            supported: false,
+            components: null,
+            warnings: [],
+            errors: []
+        };
+
+        if (rawInci) {
+            try {
+                const parsedRes = await AllegroService.parseIngredientsWithAllegro({
+                    categoryId: effectiveCatId,
+                    productId: product.ean,
+                    productName: offer?.name || product.name,
+                    rawInci
+                });
+                compositionDiagnostics = {
+                    rawInci,
+                    ...parsedRes
+                };
+            } catch (parseErr) {
+                compositionDiagnostics.errors = [parseErr.message || 'Błąd parsera składników Allegro (/ingredients/parse).'];
+            }
+        }
+
+        const compositionPayload = {
+            apply: Boolean(includeComposition && compositionDiagnostics.supported && Array.isArray(compositionDiagnostics.components) && compositionDiagnostics.components.length > 0),
+            components: compositionDiagnostics.components
+        };
+
+        const patchResult = buildAllegroParameterPatchPayload({
+            product,
+            features: effectiveFeatures,
+            categoryParameters: catSchema.parameters,
+            existingOffer: offer,
+            catalogProduct,
+            selectedParamIds,
+            safetyInfoPayload,
+            compositionPayload
+        });
+
+        if (offerCatId && requestedCatId && offerCatId !== requestedCatId) {
+            patchResult.warnings.unshift(
+                `Uwaga: Kategoria w ofercie Allegro (${offerCatId} - ${catSchema.name}) różni się od kategorii w karcie PIM (${requestedCatId}). Walidację wykonano względem kategorii aktywnej oferty.`
+            );
+        }
+
+        const exportToken = signAllegroParamsToken({
+            ean: product.ean,
+            offerId: targetOfferId,
+            patchBody: patchResult.patchBody
+        });
+
+        return res.status(200).json({
+            offer: {
+                id: String(offer.id),
+                name: offer.name,
+                status: offer.publication?.status || 'UNKNOWN',
+                categoryId: effectiveCatId,
+                categoryName: catSchema.name,
+                productId: offer.productSet?.[0]?.product?.id || null
+            },
+            matchedCandidates,
+            tokenClaims,
+            category: {
+                id: catSchema.id,
+                name: catSchema.name,
+                refreshed: catSchema.refreshed
+            },
+            diffRows: patchResult.diffRows,
+            missingRequired: patchResult.missingRequired,
+            errors: patchResult.errors,
+            warnings: patchResult.warnings,
+            changesSummary: patchResult.changesSummary,
+            safetyExtract: {
+                text: finalSafetyText,
+                source: customSafetyText ? 'operator_modal' : extractedSafety.source,
+                truncated: extractedSafety.truncated
+            },
+            safetyPreview: patchResult.safetyPreview,
+            compositionDiagnostics,
+            compositionPreview: patchResult.compositionPreview,
+            patchBody: patchResult.patchBody,
+            hasChanges: patchResult.hasChanges,
+            exportToken
+        });
+    } catch (error) {
+        exportLogger.error(`[ALLEGRO PREFLIGHT ERROR] ${error.message}`, { stack: error.stack });
+        const status = error.statusCode || error.response?.status || 500;
+        const msg = error.response?.data ? AllegroService.formatAllegroApiErrors(error.response.data) : error.message;
+        return res.status(status).json({ error: msg, code: error.code || null });
+    }
+};
+
+const exportAllegroParams = async (req, res) => {
+    try {
+        const { ean, productId, offerId, patchBody, exportToken, updatedFeatures, categoryId } = req.body || {};
+        if ((!ean && !productId) || !offerId || !patchBody || !exportToken) {
+            return res.status(400).json({ error: 'Brak wymaganych danych lub tokenu autoryzacji Pre-flight.' });
+        }
+
+        const product = await prisma.product.findUnique({
+            where: productId ? { id: String(productId) } : { ean: String(ean) }
+        });
+        if (!product) {
+            return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM.' });
+        }
+
+        try {
+            verifyAllegroParamsToken(exportToken, {
+                ean: product.ean,
+                offerId: String(offerId),
+                patchBody
+            });
+        } catch (tokErr) {
+            return res.status(403).json({ error: tokErr.message });
+        }
+
+        if (!patchBody || (Object.keys(patchBody).length === 0)) {
+            return res.status(400).json({ error: 'Brak zmian do wysłania na Allegro.' });
+        }
+
+        exportLogger.info(`[ALLEGRO EXPORT PARAMS] Wysyłanie PATCH do oferty ${offerId} (EAN: ${product.ean})`);
+        const patchResult = await AllegroService.patchProductOffer(offerId, patchBody);
+
+        let existingDraft = {};
+        try {
+            existingDraft = typeof product.offerDraft === 'string'
+                ? JSON.parse(product.offerDraft)
+                : (product.offerDraft || {});
+        } catch (_) {
+            existingDraft = {};
+        }
+
+        const updateData = {
+            offerDraft: {
+                ...existingDraft,
+                allegroOfferId: String(offerId),
+                allegroLastParamsExport: {
+                    timestamp: new Date().toISOString(),
+                    offerId: String(offerId),
+                    status: patchResult.status
+                }
+            }
+        };
+        if (updatedFeatures && typeof updatedFeatures === 'object') {
+            updateData.features = updatedFeatures;
+        }
+        if (categoryId && String(categoryId).trim() !== '') {
+            updateData.allegroCategoryId = String(categoryId).trim();
+        }
+
+        await prisma.product.update({
+            where: { id: product.id },
+            data: updateData
+        });
+
+        EventBus.publish('PRODUCT_ALLEGRO_PARAMS_EXPORTED', {
+            ean: product.ean,
+            offerId: String(offerId),
+            status: patchResult.status
+        });
+
+        return res.status(200).json({
+            status: patchResult.status,
+            offerId: String(offerId),
+            message: patchResult.status === 'PENDING_TIMEOUT'
+                ? `Wysłano aktualizację do oferty ${offerId} (Allegro nadal przetwarza zadanie w tle).`
+                : `Sukces! Zaktualizowano parametry i dane zgodności w ofercie Allegro (${offerId}).`,
+            patchResult
+        });
+    } catch (error) {
+        exportLogger.error(`[ALLEGRO EXPORT PARAMS ERROR] ${error.message}`, { stack: error.stack });
+        const status = error.statusCode || error.response?.status || 500;
+        return res.status(status).json({
+            error: error.message || 'Błąd wysyłki parametrów do Allegro.',
+            allegroErrors: error.allegroErrors || null
+        });
+    }
+};
+
 module.exports = {
     startOptimization,
     checkStatus,
@@ -1300,5 +1681,8 @@ module.exports = {
     ingestKnowledgeDocument,
     listKnowledgeDocuments,
     deleteKnowledgeDocument,
-    generateItalianFrame
+    generateItalianFrame,
+    searchAllegroOffers,
+    validateAllegroParamsExport,
+    exportAllegroParams
 };

@@ -180,6 +180,19 @@ export const UnifiedProductPipelineView = ({
     const [isExtractingBackLabel, setIsExtractingBackLabel] = useState(false);
     const backImageFileInputRef = useRef(null);
 
+    // STANY EKSPORTU PARAMETRÓW BEZPOŚREDNIO DO ALLEGRO REST API
+    const [allegroOfferId, setAllegroOfferId] = useState('');
+    const [allegroOfferCandidates, setAllegroOfferCandidates] = useState([]);
+    const [isSearchingAllegroOffer, setIsSearchingAllegroOffer] = useState(false);
+    const [isValidatingAllegroParams, setIsValidatingAllegroParams] = useState(false);
+    const [isExportingAllegroParams, setIsExportingAllegroParams] = useState(false);
+    const [allegroParamsValidationResult, setAllegroParamsValidationResult] = useState(null);
+    const [showAllegroParamsModal, setShowAllegroParamsModal] = useState(false);
+    const [allegroIncludeSafety, setAllegroIncludeSafety] = useState(true);
+    const [allegroCustomSafetyText, setAllegroCustomSafetyText] = useState('');
+    const [allegroIncludeComposition, setAllegroIncludeComposition] = useState(true);
+    const [allegroPreviewDirty, setAllegroPreviewDirty] = useState(false);
+
     const handleExtractBackLabel = async (overrideImageUrl) => {
         const targetImg = overrideImageUrl || newProductForm?.features?.['Zdjęcie tyłu opakowania'];
         if (!targetImg) {
@@ -545,6 +558,8 @@ export const UnifiedProductPipelineView = ({
                     images: fallbackImages,
                     bdoEprCost: parseFloat(calcBdo.toFixed(4))
                 });
+                setAllegroOfferId(dbDraft?.allegroOfferId ? String(dbDraft.allegroOfferId) : '');
+                setAllegroOfferCandidates([]);
                 setBrandSearchTerm(p.brand ? p.brand.name : (localDraft?.brandSearchTerm || ''));
                 setLiveEan(p.ean || "");
                 setEditorKey(prev => prev + 1);
@@ -1051,7 +1066,8 @@ export const UnifiedProductPipelineView = ({
                 inboundTransportCost: newProductForm.inboundTransportCost,
                 packagingCost: newProductForm.packagingCost,
                 bdoEprCost: newProductForm.bdoEprCost,
-                outboundTransportCost: newProductForm.outboundTransportCost
+                outboundTransportCost: newProductForm.outboundTransportCost,
+                ...(allegroOfferId ? { allegroOfferId: allegroOfferId.trim() } : {})
             };
             
             await axios.post(`${API_URL}/api/offer-optimizer/save-draft`, {
@@ -1121,6 +1137,121 @@ export const UnifiedProductPipelineView = ({
             alert('Błąd eksportu: ' + (err.response?.data?.error || err.message));
         } finally {
             setIsExporting(false);
+        }
+    };
+
+    const handleSearchAllegroOffers = async () => {
+        const targetEan = effectiveEan || liveEan || newProductForm.ean;
+        if (!targetEan && !newProductForm.sku && !newProductForm.name) {
+            alert('Uzupełnij EAN, SKU lub nazwę produktu przed wyszukaniem oferty na Allegro.');
+            return;
+        }
+        setIsSearchingAllegroOffer(true);
+        try {
+            const params = new URLSearchParams({
+                ean: targetEan || '',
+                sku: newProductForm.sku || '',
+                name: newProductForm.name || '',
+                baselinkerId: newProductForm.baselinkerId || '',
+                categoryId: newProductForm.allegroCategoryId || ''
+            });
+            const res = await axios.get(`${API_URL}/api/offer-optimizer/allegro-offers/search?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const foundOffers = Array.isArray(res.data?.offers) ? res.data.offers : [];
+            setAllegroOfferCandidates(foundOffers);
+            if (foundOffers.length === 0) {
+                alert('Nie znaleziono pasujących ofert na koncie Allegro dla tego SKU/EAN/nazwy. Możesz wpisać numer oferty (Offer ID) ręcznie.');
+            } else {
+                const best = foundOffers.find(o => o.eanMatch) || foundOffers[0];
+                if (best && (!allegroOfferId || foundOffers.length === 1 || best.eanMatch)) {
+                    setAllegroOfferId(best.id);
+                }
+            }
+        } catch (err) {
+            console.error('[AllegroSearch] Błąd:', err);
+            alert('Błąd wyszukiwania ofert Allegro: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsSearchingAllegroOffer(false);
+        }
+    };
+
+    const handleValidateAllegroParamsExport = async (overrideOptions = {}) => {
+        setIsValidatingAllegroParams(true);
+        try {
+            let targetProductId = editingProduct;
+            let targetEan = effectiveEan || liveEan || newProductForm.ean;
+            if (!targetProductId && !targetEan) {
+                const saved = await handleCreateProduct();
+                targetProductId = saved?.id;
+                targetEan = saved?.ean;
+            }
+            if (!targetEan && !targetProductId) {
+                alert('Zapisz najpierw kartotekę produktu z kodem EAN.');
+                return;
+            }
+
+            const effIncludeSafety = overrideOptions.includeSafetyInfo !== undefined ? overrideOptions.includeSafetyInfo : allegroIncludeSafety;
+            const effIncludeComp = overrideOptions.includeComposition !== undefined ? overrideOptions.includeComposition : allegroIncludeComposition;
+            const effCustomSafety = overrideOptions.customSafetyText !== undefined ? overrideOptions.customSafetyText : null;
+            const effOfferId = overrideOptions.offerId !== undefined ? overrideOptions.offerId : allegroOfferId;
+
+            const res = await axios.post(`${API_URL}/api/offer-optimizer/validate-allegro-params-export`, {
+                ean: targetEan,
+                productId: targetProductId,
+                offerId: effOfferId ? String(effOfferId).trim() : undefined,
+                categoryId: newProductForm.allegroCategoryId || undefined,
+                features: newProductForm.features || {},
+                htmlContent: editorHtml,
+                includeSafetyInfo: effIncludeSafety,
+                customSafetyText: effCustomSafety,
+                includeComposition: effIncludeComp,
+                forceRefreshCategory: Boolean(overrideOptions.forceRefreshCategory)
+            }, { headers: { Authorization: `Bearer ${token}` } });
+
+            setAllegroParamsValidationResult(res.data);
+            if (res.data?.offer?.id) {
+                setAllegroOfferId(String(res.data.offer.id));
+            }
+            if (Array.isArray(res.data?.matchedCandidates) && res.data.matchedCandidates.length > 0) {
+                setAllegroOfferCandidates(res.data.matchedCandidates);
+            }
+            if (overrideOptions.customSafetyText === undefined) {
+                setAllegroCustomSafetyText(res.data?.safetyExtract?.text || '');
+            }
+            setAllegroPreviewDirty(false);
+            setShowAllegroParamsModal(true);
+        } catch (err) {
+            console.error('[AllegroPreflight] Błąd:', err);
+            alert('Błąd przygotowania eksportu do Allegro: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsValidatingAllegroParams(false);
+        }
+    };
+
+    const handleConfirmAllegroParamsExport = async () => {
+        if (!allegroParamsValidationResult?.offer?.id || !allegroParamsValidationResult?.exportToken) return;
+        setIsExportingAllegroParams(true);
+        try {
+            const targetEan = effectiveEan || liveEan || newProductForm.ean;
+            const res = await axios.post(`${API_URL}/api/offer-optimizer/export-allegro-params`, {
+                ean: targetEan,
+                productId: editingProduct,
+                offerId: allegroParamsValidationResult.offer.id,
+                patchBody: allegroParamsValidationResult.patchBody,
+                exportToken: allegroParamsValidationResult.exportToken,
+                updatedFeatures: newProductForm.features || {},
+                categoryId: allegroParamsValidationResult.offer.categoryId
+            }, { headers: { Authorization: `Bearer ${token}` } });
+
+            alert(res.data?.message || 'Parametry i dane zgodności zostały wysłane do oferty Allegro!');
+            setShowAllegroParamsModal(false);
+            if (fetchAppGlobalData) fetchAppGlobalData();
+        } catch (err) {
+            console.error('[AllegroExport] Błąd:', err);
+            alert('Błąd wysyłki do Allegro API: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsExportingAllegroParams(false);
         }
     };
 
@@ -1612,6 +1743,16 @@ export const UnifiedProductPipelineView = ({
                                                 {isValidatingExport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                                                 Eksport Baselinker
                                             </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleValidateAllegroParamsExport()}
+                                                disabled={isValidatingAllegroParams}
+                                                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-[10px] uppercase font-black tracking-widest rounded-md transition-all shadow-md flex items-center disabled:opacity-50"
+                                                title="Waliduje parametry kategorii, skład INCI oraz czyste ostrzeżenia bez emotikonów i wysyła je bezpośrednio do Allegro REST API"
+                                            >
+                                                {isValidatingAllegroParams ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
+                                                Wyślij Parametry Allegro
+                                            </button>
                                         </div>
                                     </div>
                                     <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar flex-grow" style={{ minHeight: '600px' }}>
@@ -2081,64 +2222,192 @@ export const UnifiedProductPipelineView = ({
                                                       </div>
 
                                                       <div className="p-4 bg-slate-50 border border-slate-300 rounded-sm">
-                                                         <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 flex items-center justify-between">
+                                                         <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 flex flex-wrap items-center justify-between gap-2">
                                                             <div className="flex items-center space-x-3">
                                                                 <span>Katalog Parametrów Allegro ({Object.keys(newProductForm.features || {}).filter(k => categorySchema?.parameters?.some(p => String(p.name).toLowerCase().trim() === String(k).toLowerCase().trim())).length})</span>
                                                                 {categorySchema && <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-[9px] flex items-center"><Zap className="w-3 h-3 mr-1"/> Schema: {categorySchema.name}</span>}
                                                             </div>
-                                                            <button type="button" onClick={async () => {
-                                                                if (!editingProduct) return;
-                                                                try {
-                                                                    const btn = document.getElementById('btn_autofill_pxm');
-                                                                    const prevText = btn.innerHTML;
-                                                                    btn.innerHTML = 'Pobieram (BL + AI)...';
-                                                                    btn.disabled = true;
-                                                                    
-                                                                    const res = await axios.post(`${API_URL}/api/products/${editingProduct}/autofill-params`, {}, { headers: { Authorization: `Bearer ${token}` } });
-                                                                    setNewProductForm(prev => ({...prev, features: res.data.features}));
-                                                                    
-                                                                    btn.innerHTML = prevText;
-                                                                    btn.disabled = false;
-                                                                    alert("Zakończono PXM Auto-Fill. Zaimportowano dane z BaseLinkera, a luki uzupełnił Agent AI.");
-                                                                } catch (err) {
-                                                                    alert("Błąd: " + (err.response?.data?.error || err.message));
-                                                                    const btn = document.getElementById('btn_autofill_pxm');
-                                                                    if (btn) { btn.innerHTML = 'Pobierz dane (Auto-Fill)'; btn.disabled = false; }
-                                                                }
-                                                            }} id="btn_autofill_pxm" className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-sm text-[9px] font-bold uppercase transition-colors shadow-sm flex items-center">
-                                                                <Zap className="w-3 h-3 mr-1" /> Pobierz dane (Auto-Fill)
-                                                            </button>
+                                                            <div className="flex items-center space-x-2">
+                                                                <button type="button" onClick={async () => {
+                                                                    if (!editingProduct) return;
+                                                                    try {
+                                                                        const btn = document.getElementById('btn_autofill_pxm');
+                                                                        const prevText = btn.innerHTML;
+                                                                        btn.innerHTML = 'Pobieram (BL + AI)...';
+                                                                        btn.disabled = true;
+                                                                        
+                                                                        const res = await axios.post(`${API_URL}/api/products/${editingProduct}/autofill-params`, {}, { headers: { Authorization: `Bearer ${token}` } });
+                                                                        setNewProductForm(prev => ({...prev, features: res.data.features}));
+                                                                        
+                                                                        btn.innerHTML = prevText;
+                                                                        btn.disabled = false;
+                                                                        alert("Zakończono PXM Auto-Fill. Zaimportowano dane z BaseLinkera, a luki uzupełnił Agent AI.");
+                                                                    } catch (err) {
+                                                                        alert("Błąd: " + (err.response?.data?.error || err.message));
+                                                                        const btn = document.getElementById('btn_autofill_pxm');
+                                                                        if (btn) { btn.innerHTML = 'Pobierz dane (Auto-Fill)'; btn.disabled = false; }
+                                                                    }
+                                                                }} id="btn_autofill_pxm" className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-sm text-[9px] font-bold uppercase transition-colors shadow-sm flex items-center">
+                                                                    <Zap className="w-3 h-3 mr-1" /> Pobierz dane (Auto-Fill)
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleValidateAllegroParamsExport()}
+                                                                    disabled={isValidatingAllegroParams}
+                                                                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-sm text-[9px] font-bold uppercase transition-colors shadow-sm flex items-center disabled:opacity-50"
+                                                                    title="Przygotowuje podgląd Pre-flight i wysyła parametry, skład INCI oraz czyste ostrzeżenia bezpośrednio do Allegro API"
+                                                                >
+                                                                    {isValidatingAllegroParams ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Send className="w-3 h-3 mr-1" />}
+                                                                    Wyślij do Allegro API
+                                                                </button>
+                                                            </div>
+                                                         </div>
+
+                                                         {/* Pasek powiązania oferty docelowej Allegro (Offer ID) */}
+                                                         <div className="mb-3 p-3 bg-white border border-amber-200 rounded-sm flex flex-col space-y-2">
+                                                             <div className="flex items-center space-x-2">
+                                                                 <span className="w-1/3 text-[10px] font-black text-amber-800 uppercase tracking-widest">
+                                                                     Docelowa Aukcja Allegro (Offer ID)
+                                                                 </span>
+                                                                 <input
+                                                                     type="text"
+                                                                     value={allegroOfferId}
+                                                                     onChange={e => setAllegroOfferId(e.target.value)}
+                                                                     placeholder="Wpisz Offer ID lub kliknij Znajdź (auto po SKU/EAN)..."
+                                                                     className="flex-1 bg-slate-50 border border-slate-300 rounded-sm px-3 py-1.5 text-[11px] font-mono font-bold outline-none focus:border-amber-500"
+                                                                 />
+                                                                 <button
+                                                                     type="button"
+                                                                     onClick={handleSearchAllegroOffers}
+                                                                     disabled={isSearchingAllegroOffer}
+                                                                     className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-sm text-[10px] font-black uppercase tracking-wider flex items-center disabled:opacity-50 whitespace-nowrap"
+                                                                 >
+                                                                     {isSearchingAllegroOffer ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <Search className="w-3 h-3 mr-1.5" />}
+                                                                     Znajdź aukcję na Allegro
+                                                                 </button>
+                                                             </div>
+                                                             {allegroOfferCandidates.length > 0 && (
+                                                                 <div className="flex items-center space-x-2 pt-1">
+                                                                     <span className="w-1/3 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                                                                         Znalezione oferty ({allegroOfferCandidates.length}):
+                                                                     </span>
+                                                                     <select
+                                                                         value={allegroOfferId}
+                                                                         onChange={e => setAllegroOfferId(e.target.value)}
+                                                                         className="flex-1 bg-amber-50/40 border border-amber-200 rounded-sm px-2.5 py-1.5 text-[11px] font-bold outline-none focus:border-amber-500"
+                                                                     >
+                                                                         <option value="">-- Wybierz aukcję z listy --</option>
+                                                                         {allegroOfferCandidates.map(cand => (
+                                                                             <option key={cand.id} value={cand.id}>
+                                                                                 [{cand.status}]{cand.eanMatch ? ' [EAN OK]' : ''} {cand.id} — {cand.name}
+                                                                             </option>
+                                                                         ))}
+                                                                     </select>
+                                                                 </div>
+                                                             )}
                                                          </div>
                                                          
                                                          <div className="flex flex-col space-y-2">
                                                              {categorySchema?.parameters && categorySchema.parameters.map(param => {
                                                                 const isRequired = param.required;
+                                                                const isProductParam = Boolean(param.options?.describesProduct);
+                                                                const isMultiChoice = Boolean(param.restrictions?.multipleChoices);
+                                                                const hasAmbiguous = Boolean(param.options?.ambiguousValueId);
                                                                 const featKeys = Object.keys(newProductForm.features || {});
                                                                 const matchedKey = featKeys.find(k => String(k).toLowerCase().trim() === String(param.name).toLowerCase().trim());
                                                                 let val = matchedKey ? (newProductForm.features || {})[matchedKey] : '';
-                                                                if (val && param.dictionary && param.dictionary.length > 0) {
+                                                                if (val && param.dictionary && param.dictionary.length > 0 && !isMultiChoice) {
                                                                     const dictMatch = param.dictionary.find(d => String(d.value).toLowerCase().trim() === String(val).toLowerCase().trim());
                                                                     if (dictMatch) val = dictMatch.value;
                                                                 }
                                                                 const hasVal = val !== '';
+                                                                const selectedMulti = isMultiChoice && val
+                                                                    ? String(val).split(/[;,]/).map(s => s.trim()).filter(Boolean)
+                                                                    : [];
+                                                                const isCustomAmbiguousVal = hasAmbiguous && val && param.dictionary && !param.dictionary.some(d => String(d.value).toLowerCase().trim() === String(val).toLowerCase().trim());
+
                                                                 return (
                                                                  <div key={param.id} className={`flex items-center space-x-2 p-2 rounded-sm border ${hasVal ? 'bg-indigo-50/30 border-indigo-100' : 'bg-white border-slate-200'}`}>
                                                                      <div className="w-1/3 text-[10px] font-bold text-slate-700 uppercase tracking-widest flex flex-col">
-                                                                         <span>{param.name}</span>
-                                                                         {isRequired && <span className="text-[8px] text-rose-500 uppercase mt-0.5">Wymagane</span>}
+                                                                         <div className="flex items-center flex-wrap gap-1">
+                                                                             <span>{param.name}{param.unit ? ` (${param.unit})` : ''}</span>
+                                                                         </div>
+                                                                         <div className="flex items-center space-x-1.5 mt-0.5">
+                                                                             {isRequired && <span className="text-[8px] text-rose-500 uppercase">Wymagane</span>}
+                                                                             <span className={`text-[8px] px-1 rounded ${isProductParam ? 'bg-slate-200 text-slate-600' : 'bg-amber-100 text-amber-700'}`}>
+                                                                                 {isProductParam ? 'Produkt' : 'Oferta'}
+                                                                             </span>
+                                                                         </div>
                                                                      </div>
                                                                      {param.dictionary && param.dictionary.length > 0 ? (
-                                                                         <select className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" value={val} onChange={e => {
-                                                                             const updated = {...(newProductForm.features || {}), [param.name]: e.target.value};
-                                                                             if (!e.target.value) delete updated[param.name];
-                                                                             setNewProductForm({...newProductForm, features: updated});
-                                                                         }}>
-                                                                             <option value="">-- Wybierz ze słownika --</option>
-                                                                             {param.dictionary && param.dictionary.map(d => <option key={d.id} value={d.value}>{d.value}</option>)}
-                                                                         </select>
+                                                                         isMultiChoice ? (
+                                                                             <div className="flex-1 flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 bg-white border border-slate-300 rounded-sm">
+                                                                                 {param.dictionary.map(d => {
+                                                                                     const checked = selectedMulti.some(s => s.toLowerCase() === String(d.value).toLowerCase().trim());
+                                                                                     return (
+                                                                                         <label key={d.id} className={`cursor-pointer px-2 py-1 rounded text-[10px] font-bold border transition-colors ${checked ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-indigo-300'}`}>
+                                                                                             <input
+                                                                                                 type="checkbox"
+                                                                                                 className="hidden"
+                                                                                                 checked={checked}
+                                                                                                 onChange={() => {
+                                                                                                     const nextList = checked
+                                                                                                         ? selectedMulti.filter(s => s.toLowerCase() !== String(d.value).toLowerCase().trim())
+                                                                                                         : [...selectedMulti, d.value];
+                                                                                                     const updated = { ...(newProductForm.features || {}) };
+                                                                                                     if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
+                                                                                                     if (nextList.length > 0) updated[param.name] = nextList.join(', ');
+                                                                                                     else delete updated[param.name];
+                                                                                                     setNewProductForm({ ...newProductForm, features: updated });
+                                                                                                 }}
+                                                                                             />
+                                                                                             {d.value}
+                                                                                         </label>
+                                                                                     );
+                                                                                 })}
+                                                                             </div>
+                                                                         ) : (
+                                                                             <div className="flex-1 flex space-x-2">
+                                                                                 <select
+                                                                                     className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500"
+                                                                                     value={isCustomAmbiguousVal ? '__CUSTOM__' : val}
+                                                                                     onChange={e => {
+                                                                                         const nextVal = e.target.value;
+                                                                                         const updated = { ...(newProductForm.features || {}) };
+                                                                                         if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
+                                                                                         if (nextVal === '__CUSTOM__') {
+                                                                                             updated[param.name] = val || 'Inna';
+                                                                                         } else if (!nextVal) {
+                                                                                             delete updated[param.name];
+                                                                                         } else {
+                                                                                             updated[param.name] = nextVal;
+                                                                                         }
+                                                                                         setNewProductForm({ ...newProductForm, features: updated });
+                                                                                     }}
+                                                                                 >
+                                                                                     <option value="">-- Wybierz ze słownika --</option>
+                                                                                     {param.dictionary.map(d => <option key={d.id} value={d.value}>{d.value}</option>)}
+                                                                                     {hasAmbiguous && <option value="__CUSTOM__">[Wpisz własną wartość (Inna)]</option>}
+                                                                                 </select>
+                                                                                 {(isCustomAmbiguousVal || val === 'Inna') && hasAmbiguous && (
+                                                                                     <input
+                                                                                         type="text"
+                                                                                         className="w-1/2 bg-white border border-indigo-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500"
+                                                                                         placeholder="Wpisz własną wartość..."
+                                                                                         value={val === 'Inna' ? '' : val}
+                                                                                         onChange={e => {
+                                                                                             const updated = { ...(newProductForm.features || {}), [param.name]: e.target.value };
+                                                                                             if (!e.target.value) delete updated[param.name];
+                                                                                             setNewProductForm({ ...newProductForm, features: updated });
+                                                                                         }}
+                                                                                     />
+                                                                                 )}
+                                                                             </div>
+                                                                         )
                                                                      ) : (
-                                                                         <input type="text" className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" placeholder={`Wpisz wartość (${param.type})`} value={val} onChange={e => {
+                                                                         <input type="text" className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" placeholder={`Wpisz wartość (${param.type}${param.unit ? ', ' + param.unit : ''}${param.type === 'range' ? ', format: od-do' : ''})`} value={val} onChange={e => {
                                                                              const updated = {...(newProductForm.features || {}), [param.name]: e.target.value};
+                                                                             if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
                                                                              if (!e.target.value) delete updated[param.name];
                                                                              setNewProductForm({...newProductForm, features: updated});
                                                                          }} />
@@ -2328,6 +2597,266 @@ export const UnifiedProductPipelineView = ({
                                 >
                                     {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                                     Zatwierdź Eksport
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showAllegroParamsModal && allegroParamsValidationResult && (
+                <div className="fixed inset-0 z-[210] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+                        <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-amber-50 text-amber-900 shrink-0">
+                            <div className="flex items-center space-x-4">
+                                <Zap className="w-8 h-8 text-amber-600" />
+                                <div>
+                                    <h3 className="font-black text-lg uppercase tracking-tight">Pre-Flight Eksportu Parametrów Bezpośrednio do Allegro API</h3>
+                                    <p className="text-xs font-bold text-amber-800/80">
+                                        Oferta #{allegroParamsValidationResult.offer?.id} ({allegroParamsValidationResult.offer?.status}) • Kategoria: {allegroParamsValidationResult.category?.id} — {allegroParamsValidationResult.category?.name}
+                                        {allegroParamsValidationResult.tokenClaims?.userName ? ` • Konto: ${allegroParamsValidationResult.tokenClaims.userName}` : ''}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className={`px-4 py-2 rounded-md font-bold text-xs uppercase tracking-widest ${allegroParamsValidationResult.errors?.length === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                {allegroParamsValidationResult.errors?.length === 0 ? 'Gotowy do wysyłki' : 'Wykryto błędy'}
+                            </div>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50 space-y-5">
+                            {/* Wybór innej aukcji docelowej z listy lub ręcznie */}
+                            <div className="bg-white p-4 rounded-md border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex-1 min-w-[260px]">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aukcja Allegro</div>
+                                    <div className="text-sm font-black text-slate-800">{allegroParamsValidationResult.offer?.name}</div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="text"
+                                        value={allegroOfferId}
+                                        onChange={e => { setAllegroOfferId(e.target.value); setAllegroPreviewDirty(true); }}
+                                        className="px-3 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs font-mono font-bold w-36 outline-none focus:border-amber-500"
+                                        placeholder="Offer ID"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleValidateAllegroParamsExport({
+                                            offerId: allegroOfferId,
+                                            includeSafetyInfo: allegroIncludeSafety,
+                                            customSafetyText: allegroCustomSafetyText,
+                                            includeComposition: allegroIncludeComposition,
+                                            forceRefreshCategory: true
+                                        })}
+                                        disabled={isValidatingAllegroParams}
+                                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded text-[10px] font-black uppercase tracking-wider flex items-center"
+                                    >
+                                        {isValidatingAllegroParams ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+                                        Odśwież schemat i podgląd
+                                    </button>
+                                </div>
+                            </div>
+
+                            {allegroParamsValidationResult.errors?.length > 0 && (
+                                <div className="p-4 bg-rose-100 border border-rose-200 rounded-md">
+                                    <h4 className="text-xs font-black text-rose-800 uppercase tracking-widest mb-2">Błędy blokujące wysyłkę:</h4>
+                                    <ul className="list-disc pl-5 text-xs font-bold text-rose-700 space-y-1">
+                                        {allegroParamsValidationResult.errors.map((err, i) => <li key={i}>{err}</li>)}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {allegroParamsValidationResult.warnings?.length > 0 && (
+                                <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
+                                    <h4 className="text-xs font-black text-amber-800 uppercase tracking-widest mb-2">Ostrzeżenia i ograniczenia (Trusted Content / Wymagane pola):</h4>
+                                    <ul className="list-disc pl-5 text-xs font-medium text-amber-800 space-y-1">
+                                        {allegroParamsValidationResult.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Tabela zmian parametrów kategorii */}
+                            <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h4 className="text-xs font-black text-slate-600 uppercase tracking-widest">
+                                        Zmapowane parametry kategorii ({allegroParamsValidationResult.diffRows?.length || 0})
+                                    </h4>
+                                    <div className="flex items-center space-x-2 text-[10px] font-black uppercase">
+                                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">Nowe: {allegroParamsValidationResult.changesSummary?.toAddCount || 0}</span>
+                                        <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">Zmiany: {allegroParamsValidationResult.changesSummary?.toUpdateCount || 0}</span>
+                                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600">Zgodne: {allegroParamsValidationResult.changesSummary?.unchangedCount || 0}</span>
+                                    </div>
+                                </div>
+                                {allegroParamsValidationResult.diffRows?.length > 0 ? (
+                                    <div className="overflow-x-auto max-h-64 overflow-y-auto border border-slate-200 rounded-sm">
+                                        <table className="w-full text-left border-collapse text-xs">
+                                            <thead className="bg-slate-100 text-[10px] font-black text-slate-500 uppercase sticky top-0">
+                                                <tr>
+                                                    <th className="p-2 border-b border-slate-200">Parametr</th>
+                                                    <th className="p-2 border-b border-slate-200">Sekcja</th>
+                                                    <th className="p-2 border-b border-slate-200">Obecnie na Allegro</th>
+                                                    <th className="p-2 border-b border-slate-200">Nowa wartość z PIM</th>
+                                                    <th className="p-2 border-b border-slate-200">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {allegroParamsValidationResult.diffRows.map(row => (
+                                                    <tr key={row.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50">
+                                                        <td className="p-2 font-bold text-slate-800">{row.name} <span className="text-[10px] text-slate-400 font-mono">#{row.id}</span></td>
+                                                        <td className="p-2">
+                                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${row.section === 'PRODUCT' ? 'bg-slate-200 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
+                                                                {row.section === 'PRODUCT' ? 'Produkt' : 'Oferta'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-2 text-slate-500 max-w-[200px] truncate" title={row.currentValue || '-'}>{row.currentValue || '—'}</td>
+                                                        <td className="p-2 font-bold text-indigo-700 max-w-[220px] truncate" title={row.nextValue || '-'}>{row.nextValue || '—'}</td>
+                                                        <td className="p-2">
+                                                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                                                                row.status === 'ADD' ? 'bg-emerald-100 text-emerald-700' :
+                                                                row.status === 'UPDATE' ? 'bg-indigo-100 text-indigo-700' :
+                                                                row.status === 'BLOCKED_TRUSTED_CONTENT' ? 'bg-amber-100 text-amber-800' :
+                                                                row.status === 'VALIDATION_ERROR' ? 'bg-rose-100 text-rose-700' :
+                                                                'bg-slate-100 text-slate-500'
+                                                            }`}>
+                                                                {row.status === 'ADD' ? 'DODAJ' :
+                                                                 row.status === 'UPDATE' ? 'AKTUALIZUJ' :
+                                                                 row.status === 'BLOCKED_TRUSTED_CONTENT' ? 'TRUSTED (BLOKADA)' :
+                                                                 row.status === 'VALIDATION_ERROR' ? 'BŁĄD' : 'BEZ ZMIAN'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-500">Brak zmapowanych parametrów kategorii do aktualizacji.</p>
+                                )}
+                            </div>
+
+                            {/* Karta Składu INCI (`composition`) */}
+                            <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center">
+                                        Skład produktu / INCI (`productSet[0].composition`)
+                                    </h4>
+                                    <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={allegroIncludeComposition}
+                                            disabled={!allegroParamsValidationResult.compositionDiagnostics?.supported}
+                                            onChange={e => {
+                                                setAllegroIncludeComposition(e.target.checked);
+                                                setAllegroPreviewDirty(true);
+                                            }}
+                                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span>Dołącz skład INCI do PATCH</span>
+                                    </label>
+                                </div>
+                                {allegroParamsValidationResult.compositionDiagnostics?.rawInci ? (
+                                    <>
+                                        <div className="text-[11px] font-mono bg-slate-50 p-2.5 rounded border border-slate-200 text-slate-700 max-h-24 overflow-y-auto">
+                                            {allegroParamsValidationResult.compositionDiagnostics.rawInci}
+                                        </div>
+                                        {allegroParamsValidationResult.compositionDiagnostics.supported ? (
+                                            <div className="text-[11px] font-bold text-emerald-700 flex items-center">
+                                                <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                                                Zweryfikowano przez POST /ingredients/parse ({allegroParamsValidationResult.compositionDiagnostics.components?.[0]?.ingredients?.length || 0} składników INCI gotowych do wysyłki).
+                                            </div>
+                                        ) : (
+                                            <div className="text-[11px] font-bold text-amber-700 bg-amber-50 p-2.5 rounded border border-amber-200">
+                                                Parser INCI Allegro (`/ingredients/parse`) nie rozpoznał tego formatu dla tej kategorii (np. chemia domowa WE 648/2004 zamiast kosmetycznego INCI) — pole `composition` zostało bezpiecznie pominięte, aby uniknąć błędu 422.
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <p className="text-xs text-slate-500">Brak poprawnego składu INCI w polach PIM produktu.</p>
+                                )}
+                            </div>
+
+                            {/* Karta Ostrzeżeń GPSR (`safetyInformation`) */}
+                            <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest">
+                                            Ostrzeżenia GPSR z opisu (`safetyInformation` — czysty tekst bez HTML i emotikonów)
+                                        </h4>
+                                        <p className="text-[10px] text-slate-500">
+                                            Źródło: {allegroParamsValidationResult.safetyExtract?.source || 'brak'} • Obecnie na Allegro: {allegroParamsValidationResult.safetyPreview?.current ? `"${allegroParamsValidationResult.safetyPreview.current.slice(0, 80)}${allegroParamsValidationResult.safetyPreview.current.length > 80 ? '...' : ''}"` : 'brak'}
+                                        </p>
+                                    </div>
+                                    <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={allegroIncludeSafety}
+                                            onChange={e => {
+                                                setAllegroIncludeSafety(e.target.checked);
+                                                setAllegroPreviewDirty(true);
+                                            }}
+                                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span>Wyślij ostrzeżenia</span>
+                                    </label>
+                                </div>
+                                <textarea
+                                    rows={5}
+                                    value={allegroCustomSafetyText}
+                                    onChange={e => {
+                                        setAllegroCustomSafetyText(e.target.value);
+                                        setAllegroPreviewDirty(true);
+                                    }}
+                                    placeholder="Brak wyodrębnionych ostrzeżeń z opisu lub PIM..."
+                                    className="w-full bg-slate-50 border border-slate-300 rounded-sm p-3 text-xs font-medium text-slate-800 outline-none focus:border-amber-500 resize-y"
+                                />
+                                <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                                    <span>Automatycznie wyczyszczono HTML, emotikony i linki zewnętrzne.</span>
+                                    <span>{allegroCustomSafetyText.length} / 5000 zn.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-white border-t border-slate-200 flex flex-wrap justify-between items-center gap-3 shrink-0">
+                            <p className="text-xs text-slate-500 font-bold max-w-lg">
+                                Eksport wykonuje bezpieczne <strong className="text-amber-700">PATCH /sale/product-offers/{allegroParamsValidationResult.offer?.id}</strong> ze scaleniem istniejących parametrów i danych GPSR (RFC 7396).
+                            </p>
+                            <div className="flex items-center space-x-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAllegroParamsModal(false)}
+                                    disabled={isExportingAllegroParams}
+                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
+                                >
+                                    Anuluj
+                                </button>
+                                {allegroPreviewDirty && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleValidateAllegroParamsExport({
+                                            offerId: allegroOfferId,
+                                            includeSafetyInfo: allegroIncludeSafety,
+                                            customSafetyText: allegroCustomSafetyText,
+                                            includeComposition: allegroIncludeComposition
+                                        })}
+                                        disabled={isValidatingAllegroParams}
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md font-black text-xs uppercase tracking-widest flex items-center shadow-md disabled:opacity-50"
+                                    >
+                                        {isValidatingAllegroParams ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                                        Przelicz Pre-flight
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={handleConfirmAllegroParamsExport}
+                                    disabled={
+                                        isExportingAllegroParams ||
+                                        isValidatingAllegroParams ||
+                                        allegroPreviewDirty ||
+                                        !allegroParamsValidationResult.hasChanges ||
+                                        (allegroParamsValidationResult.errors?.length || 0) > 0
+                                    }
+                                    className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-md font-black text-xs uppercase tracking-widest transition-colors flex items-center shadow-lg disabled:opacity-50"
+                                >
+                                    {isExportingAllegroParams ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                                    {allegroParamsValidationResult.hasChanges ? 'Zatwierdź i wyślij do Allegro' : 'Brak zmian do wysłania'}
                                 </button>
                             </div>
                         </div>
