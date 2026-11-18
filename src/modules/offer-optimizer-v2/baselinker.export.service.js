@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 const { exportLogger } = require('../../utils/logger');
 const AllegroService = require('../offer-optimizer/allegro.service');
 const { getBaseLinkerToken } = require('../../utils/secretVault');
+const { isValidExportImageUrl } = require('../../utils/allegro_mapper');
 
 class BaselinkerExportService {
     
@@ -31,19 +32,7 @@ class BaselinkerExportService {
      * aby zmieścić Base64 poniżej 2MB przy zachowaniu wymiarów.
      */
     isValidExportImageUrl(url) {
-        if (!url || typeof url !== 'string') return false;
-        const trimmed = url.trim();
-        if (!trimmed) return false;
-        const isPlaceholder =
-            trimmed.includes('upload.cdn.baselinker.com') ||
-            trimmed.includes('placeholder.com') ||
-            trimmed.includes('Wymagane nowe zdjęcie') ||
-            trimmed.includes('Pusty slot') ||
-            trimmed.includes('Slot #') ||
-            trimmed.includes('Audyt') ||
-            trimmed.includes('Analiza');
-        const isValidFormat = trimmed.startsWith('http') || trimmed.startsWith('data:image');
-        return !isPlaceholder && isValidFormat;
+        return isValidExportImageUrl(url);
     }
 
     async compressImage(url) {

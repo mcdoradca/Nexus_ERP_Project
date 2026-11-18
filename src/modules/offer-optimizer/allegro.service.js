@@ -1,6 +1,16 @@
 const axios = require('axios');
+const crypto = require('crypto');
+const sharp = require('sharp');
 const dotenv = require('dotenv');
 dotenv.config();
+
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+const { encryptSecret, decryptSecret } = require('../../utils/secretVault');
+const { isAllegroHostedImageUrl, normalizeOfferImageUrls } = require('../../utils/allegro_mapper');
+
+const ALLEGRO_VAULT_KEY = 'ALLEGRO_ACCOUNTS_VAULT';
+const ALLEGRO_USER_AGENT = 'NexusSentinelv2/2.0 (+http://n-e-s.pl)';
 
 const apiClient = axios.create();
 
@@ -8,14 +18,15 @@ apiClient.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
-        if (error.response && error.response.status === 401 && !originalRequest._retry) {
+        if (error.response && error.response.status === 401 && originalRequest && !originalRequest._retry) {
             if (originalRequest.url && (originalRequest.url.includes('/auth/oauth/token') || originalRequest.url.includes('/auth/oauth/device'))) {
                 return Promise.reject(error);
             }
             originalRequest._retry = true;
-            console.log('[AllegroService] Otrzymano 401 Unauthorized z API Allegro. Wymuszam odswiezenie tokena (forceRefresh)...');
+            const targetAccountId = originalRequest._allegroAccountId || null;
+            console.log(`[AllegroService] Otrzymano 401 Unauthorized z API Allegro (konto: ${targetAccountId || 'domyślne'}). Wymuszam odswiezenie tokena (forceRefresh)...`);
             try {
-                const newToken = await getAllegroToken(true);
+                const newToken = await getAllegroToken(true, targetAccountId);
                 originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
                 return apiClient(originalRequest);
             } catch (refreshError) {
@@ -29,43 +40,174 @@ apiClient.interceptors.response.use(
 
 
 /**
- * Serwis integrujÄ…cy oficjalne API Allegro
+ * Serwis integrujacy oficjalne API Allegro (obsluga wielu kont sprzedawcow pod jednym CLIENT_ID)
  * Wymaga podania ALLEGRO_CLIENT_ID oraz ALLEGRO_CLIENT_SECRET w pliku .env
  */
 
-let cachedToken = null;
-let tokenExpiry = null;
-let tokenRefreshPromise = null;
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const tokenCacheByAccount = new Map(); // accountKey -> { token, expiry }
+const tokenRefreshPromises = new Map(); // accountKey -> Promise<string>
+const uploadedImageCache = new Map(); // sha256 -> { url, expiresAt }
 
-async function getAllegroToken(forceRefresh = false) {
-    if (!forceRefresh && cachedToken && tokenExpiry && Date.now() < tokenExpiry) {
-        return cachedToken;
+function buildAllegroHeaders(token, extra = {}) {
+    return {
+        'User-Agent': ALLEGRO_USER_AGENT,
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.allegro.public.v1+json',
+        ...extra
+    };
+}
+
+/**
+ * Odczytuje zaszyfrowany rejestr kont Allegro z SystemSetting z bezstratnym fallbackiem do starszych kluczy pojedynczego konta.
+ */
+async function readAllegroAccountsVault(injectedPrisma = prisma) {
+    const vaultSetting = await injectedPrisma.systemSetting.findUnique({ where: { key: ALLEGRO_VAULT_KEY } });
+    if (vaultSetting && vaultSetting.value && vaultSetting.value.trim()) {
+        const plainJson = decryptSecret(vaultSetting.value);
+        const parsed = JSON.parse(plainJson);
+        const accounts = parsed && typeof parsed.accounts === 'object' && parsed.accounts ? parsed.accounts : {};
+        const keys = Object.keys(accounts);
+        const defaultAccountId = (parsed.defaultAccountId && accounts[parsed.defaultAccountId])
+            ? parsed.defaultAccountId
+            : (keys[0] || null);
+        return { version: 1, defaultAccountId, accounts };
     }
 
-    if (tokenRefreshPromise) {
-        console.log("[AllegroService] Oczekiwanie na trwajÄ…cy proces odĹ›wieĹĽania tokenu (Singleton Lock)...");
-        return tokenRefreshPromise;
+    const [legacyAccess, legacyRefresh, legacyExpiry] = await Promise.all([
+        injectedPrisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_ACCESS_TOKEN' } }),
+        injectedPrisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_REFRESH_TOKEN' } }),
+        injectedPrisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' } })
+    ]);
+
+    if (legacyRefresh?.value || legacyAccess?.value) {
+        const accessVal = legacyAccess?.value ? decryptSecret(legacyAccess.value) : null;
+        const refreshVal = legacyRefresh?.value ? decryptSecret(legacyRefresh.value) : null;
+        const expiryVal = legacyExpiry?.value ? parseInt(legacyExpiry.value, 10) : 0;
+        const claims = inspectTokenClaims(accessVal || '');
+        const accId = claims.userName ? String(claims.userName) : 'default';
+        return {
+            version: 1,
+            defaultAccountId: accId,
+            accounts: {
+                [accId]: {
+                    accountId: accId,
+                    label: accId === 'default' ? 'Konto Domyślne' : `Konto #${accId}`,
+                    login: null,
+                    email: null,
+                    companyName: null,
+                    accessToken: accessVal,
+                    refreshToken: refreshVal,
+                    expiresAt: Number.isFinite(expiryVal) ? expiryVal : 0,
+                    scopes: claims.scopes || [],
+                    updatedAt: (legacyAccess?.updatedAt || legacyRefresh?.updatedAt || new Date()).toISOString()
+                }
+            }
+        };
     }
 
-    tokenRefreshPromise = (async () => {
+    return { version: 1, defaultAccountId: null, accounts: {} };
+}
+
+async function writeAllegroAccountsVault(vault, injectedPrisma = prisma) {
+    const normalized = {
+        version: 1,
+        defaultAccountId: vault.defaultAccountId || Object.keys(vault.accounts || {})[0] || null,
+        accounts: vault.accounts || {}
+    };
+    const encrypted = encryptSecret(JSON.stringify(normalized));
+    await injectedPrisma.systemSetting.upsert({
+        where: { key: ALLEGRO_VAULT_KEY },
+        update: { value: encrypted },
+        create: { key: ALLEGRO_VAULT_KEY, value: encrypted }
+    });
+    return normalized;
+}
+
+function formatSafeAccountMeta(acc, defaultAccountId) {
+    const claims = inspectTokenClaims(acc.accessToken || '');
+    const scopes = Array.isArray(acc.scopes) && acc.scopes.length > 0 ? acc.scopes : (claims.scopes || []);
+    return {
+        accountId: String(acc.accountId),
+        label: acc.label || `Konto #${acc.accountId}`,
+        login: acc.login || null,
+        email: acc.email || null,
+        companyName: acc.companyName || null,
+        isDefault: String(acc.accountId) === String(defaultAccountId),
+        hasWriteScope: scopes.includes('allegro:api:sale:offers:write') && scopes.includes('allegro:api:sale:offers:read'),
+        hasRefreshToken: Boolean(acc.refreshToken),
+        scopes,
+        tokenExpiresAt: acc.expiresAt ? new Date(acc.expiresAt).toISOString() : (claims.expIso || null),
+        updatedAt: acc.updatedAt || null
+    };
+}
+
+async function listConnectedAllegroAccounts(injectedPrisma = prisma) {
+    const vault = await readAllegroAccountsVault(injectedPrisma);
+    const list = Object.values(vault.accounts || {}).map(acc => formatSafeAccountMeta(acc, vault.defaultAccountId));
+    list.sort((a, b) => {
+        if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+        return String(a.label).localeCompare(String(b.label), 'pl');
+    });
+    return list;
+}
+
+async function resolveAccountIdOrDefault(requestedAccountId, injectedPrisma = prisma) {
+    const vault = await readAllegroAccountsVault(injectedPrisma);
+    const requested = requestedAccountId ? String(requestedAccountId).trim() : '';
+    if (requested && requested.toUpperCase() !== 'ALL') {
+        if (!vault.accounts[requested]) {
+            const err = new Error(`Wybrane konto Allegro (#${requested}) nie jest podłączone w systemie. Przejdź do Panelu Admina -> Integracje API i dodaj konto.`);
+            err.statusCode = 404;
+            err.code = 'ALLEGRO_ACCOUNT_NOT_FOUND';
+            throw err;
+        }
+        return { vault, accountId: requested, account: vault.accounts[requested] };
+    }
+    const defId = vault.defaultAccountId || Object.keys(vault.accounts || {})[0] || null;
+    return {
+        vault,
+        accountId: defId,
+        account: defId ? vault.accounts[defId] : null
+    };
+}
+
+async function getAllegroToken(forceRefresh = false, requestedAccountId = null, injectedPrisma = prisma) {
+    const explicitReq = requestedAccountId && String(requestedAccountId).trim() !== '' && String(requestedAccountId).trim().toUpperCase() !== 'ALL';
+    const preResolved = await resolveAccountIdOrDefault(requestedAccountId, injectedPrisma);
+    const cacheKey = preResolved.accountId || '__app__';
+
+    if (!forceRefresh) {
+        const mem = tokenCacheByAccount.get(cacheKey);
+        if (mem && mem.token && mem.expiry && Date.now() < mem.expiry) {
+            return mem.token;
+        }
+        if (preResolved.account?.accessToken && preResolved.account.expiresAt && Date.now() < Number(preResolved.account.expiresAt)) {
+            tokenCacheByAccount.set(cacheKey, { token: preResolved.account.accessToken, expiry: Number(preResolved.account.expiresAt) });
+            return preResolved.account.accessToken;
+        }
+    }
+
+    if (tokenRefreshPromises.has(cacheKey)) {
+        return tokenRefreshPromises.get(cacheKey);
+    }
+
+    const refreshPromise = (async () => {
         try {
-            const LOCK_KEY = 'ALLEGRO_REFRESH_LOCK';
+            const LOCK_KEY = preResolved.accountId ? `ALLEGRO_REFRESH_LOCK:${preResolved.accountId}` : 'ALLEGRO_REFRESH_LOCK';
             let acquiredLock = false;
 
             for (let i = 0; i < 20; i++) {
                 const now = Date.now();
-                const lockRecord = await prisma.systemSetting.findUnique({ where: { key: LOCK_KEY } });
+                const lockRecord = await injectedPrisma.systemSetting.findUnique({ where: { key: LOCK_KEY } });
 
                 if (!lockRecord) {
                     try {
-                        await prisma.systemSetting.create({ data: { key: LOCK_KEY, value: (now + 30000).toString() } });
+                        await injectedPrisma.systemSetting.create({ data: { key: LOCK_KEY, value: (now + 30000).toString() } });
                         acquiredLock = true;
                         break;
                     } catch (e) {}
                 } else if (parseInt(lockRecord.value, 10) < now) {
-                    const updated = await prisma.systemSetting.updateMany({
+                    const updated = await injectedPrisma.systemSetting.updateMany({
                         where: { key: LOCK_KEY, value: lockRecord.value },
                         data: { value: (now + 30000).toString() }
                     });
@@ -75,15 +217,13 @@ async function getAllegroToken(forceRefresh = false) {
                     }
                 }
 
-                const checkToken = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_ACCESS_TOKEN' } });
-                const checkExpiry = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' } });
-                if (checkToken && checkToken.value !== cachedToken && checkExpiry && parseInt(checkExpiry.value, 10) > now) {
-                    cachedToken = checkToken.value;
-                    tokenExpiry = parseInt(checkExpiry.value, 10);
-                    return cachedToken;
+                const freshResolved = await resolveAccountIdOrDefault(requestedAccountId, injectedPrisma);
+                const freshMem = tokenCacheByAccount.get(cacheKey);
+                if (freshResolved.account?.accessToken && freshResolved.account.expiresAt && Date.now() < Number(freshResolved.account.expiresAt) && freshResolved.account.accessToken !== freshMem?.token) {
+                    tokenCacheByAccount.set(cacheKey, { token: freshResolved.account.accessToken, expiry: Number(freshResolved.account.expiresAt) });
+                    return freshResolved.account.accessToken;
                 }
 
-                console.log('[AllegroService] Inny proces odświeża token. Oczekiwanie (DB Lock)...');
                 await new Promise(r => setTimeout(r, 1000));
             }
 
@@ -91,96 +231,94 @@ async function getAllegroToken(forceRefresh = false) {
                 throw new Error('Timeout oczekiwania na blokadę odświeżania tokenu z bazy danych (Allegro).');
             }
 
-            const checkToken = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_ACCESS_TOKEN' } });
-            const checkExpiry = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' } });
-            if (checkToken && checkToken.value !== cachedToken && checkExpiry && parseInt(checkExpiry.value, 10) > Date.now()) {
-                cachedToken = checkToken.value;
-                tokenExpiry = parseInt(checkExpiry.value, 10);
-                await prisma.systemSetting.update({ where: { key: LOCK_KEY }, data: { value: '0' } });
-                console.log('[AllegroService] Inny proces zdążył odświeżyć token. Pobrano nowy z bazy.');
-                return cachedToken;
-            }
-
-            if (!forceRefresh) {
-                if (checkToken && checkExpiry) {
-                    const expiry = parseInt(checkExpiry.value, 10);
-                    if (Date.now() < expiry) {
-                        cachedToken = checkToken.value;
-                        tokenExpiry = expiry;
-                        await prisma.systemSetting.update({ where: { key: LOCK_KEY }, data: { value: '0' } });
-                        return cachedToken;
-                    }
-                }
+            const { vault, accountId, account } = await resolveAccountIdOrDefault(requestedAccountId, injectedPrisma);
+            if (!forceRefresh && account?.accessToken && account.expiresAt && Date.now() < Number(account.expiresAt)) {
+                tokenCacheByAccount.set(cacheKey, { token: account.accessToken, expiry: Number(account.expiresAt) });
+                await injectedPrisma.systemSetting.updateMany({ where: { key: LOCK_KEY }, data: { value: '0' } });
+                return account.accessToken;
             }
 
             const clientId = process.env.ALLEGRO_CLIENT_ID;
             const clientSecret = process.env.ALLEGRO_CLIENT_SECRET;
-            
             if (!clientId || !clientSecret) {
-                 throw new Error("Brak autoryzacji do API Allegro. Skonfiguruj klucze deweloperskie w panelu aplikacji.");
+                throw new Error('Brak autoryzacji do API Allegro. Skonfiguruj klucze deweloperskie (ALLEGRO_CLIENT_ID / ALLEGRO_CLIENT_SECRET) w pliku .env.');
             }
             const authString = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
-            const refreshTokenSetting = await prisma.systemSetting.findUnique({ where: { key: 'ALLEGRO_REFRESH_TOKEN' } });
-
-            if (!refreshTokenSetting) {
-                console.warn("[AllegroService] Brak Refresh Tokenu! PrĂłba pobrania client_credentials (publicznego).");
+            if (!account || !account.refreshToken) {
+                if (explicitReq) {
+                    throw new Error(`Konto Allegro #${accountId} nie posiada aktywnego refresh_token. Przeprowadź ponowną autoryzację Device Flow.`);
+                }
+                console.warn('[AllegroService] Brak Refresh Tokenu! Proba pobrania client_credentials (publicznego).');
                 const response = await axios.post('https://allegro.pl/auth/oauth/token', 'grant_type=client_credentials', {
                     headers: {
-                        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+                        'User-Agent': ALLEGRO_USER_AGENT,
                         'Authorization': `Basic ${authString}`,
                         'Content-Type': 'application/x-www-form-urlencoded'
                     }
                 });
-                cachedToken = response.data.access_token;
-                tokenExpiry = Date.now() + (response.data.expires_in - 300) * 1000;
-                return cachedToken;
+                const appToken = response.data.access_token;
+                const appExpiry = Date.now() + (response.data.expires_in - 300) * 1000;
+                tokenCacheByAccount.set('__app__', { token: appToken, expiry: appExpiry });
+                return appToken;
             }
 
-            const response = await axios.post('https://allegro.pl/auth/oauth/token', 
-                `grant_type=refresh_token&refresh_token=${refreshTokenSetting.value}`, {
-                headers: {
-                    'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
-                    'Authorization': `Basic ${authString}`,
-                    'Content-Type': 'application/x-www-form-urlencoded'
+            const response = await axios.post(
+                'https://allegro.pl/auth/oauth/token',
+                `grant_type=refresh_token&refresh_token=${encodeURIComponent(account.refreshToken)}`,
+                {
+                    headers: {
+                        'User-Agent': ALLEGRO_USER_AGENT,
+                        'Authorization': `Basic ${authString}`,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
                 }
-            });
+            );
 
-            cachedToken = response.data.access_token;
-            tokenExpiry = Date.now() + (response.data.expires_in - 300) * 1000;
+            const nextAccessToken = response.data.access_token;
+            const nextExpiresAt = Date.now() + (response.data.expires_in - 300) * 1000;
+            const nextRefreshToken = response.data.refresh_token || account.refreshToken;
+            const refreshedClaims = inspectTokenClaims(nextAccessToken);
 
-            await prisma.systemSetting.upsert({ where: { key: 'ALLEGRO_ACCESS_TOKEN' }, update: { value: cachedToken }, create: { key: 'ALLEGRO_ACCESS_TOKEN', value: cachedToken } });
-            await prisma.systemSetting.upsert({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' }, update: { value: tokenExpiry.toString() }, create: { key: 'ALLEGRO_TOKEN_EXPIRY', value: tokenExpiry.toString() } });
+            vault.accounts[accountId] = {
+                ...account,
+                accountId,
+                accessToken: nextAccessToken,
+                refreshToken: nextRefreshToken,
+                expiresAt: nextExpiresAt,
+                scopes: refreshedClaims.scopes.length > 0 ? refreshedClaims.scopes : (account.scopes || []),
+                updatedAt: new Date().toISOString()
+            };
+            await writeAllegroAccountsVault(vault, injectedPrisma);
+            tokenCacheByAccount.set(cacheKey, { token: nextAccessToken, expiry: nextExpiresAt });
 
-            if (response.data.refresh_token) {
-                await prisma.systemSetting.upsert({ where: { key: 'ALLEGRO_REFRESH_TOKEN' }, update: { value: response.data.refresh_token }, create: { key: 'ALLEGRO_REFRESH_TOKEN', value: response.data.refresh_token } });
-            }
-
-            console.log("[AllegroService] OdĹ›wieĹĽono Token OAuth2 (User Token).");
-            return cachedToken;
+            console.log(`[AllegroService] Odświeżono Token OAuth2 dla konta #${accountId}.`);
+            return nextAccessToken;
         } catch (error) {
-            console.error("[AllegroService] BĹ‚Ä…d odĹ›wieĹĽania tokenu:", error.response ? error.response.data : error.message);
+            console.error('[AllegroService] Błąd odświeżania tokenu:', error.response ? error.response.data : error.message);
             try {
                 const { createAndSendNotification } = require('../communication/notifications.service');
                 await createAndSendNotification(
-                    'admin-id', 
-                    'Awaria autoryzacji Allegro', 
-                    'Token wygasĹ‚ lub zostaĹ‚ cofniÄ™ty. Wymagane ponowne logowanie przez Device Flow.', 
+                    'admin-id',
+                    'Awaria autoryzacji Allegro',
+                    'Token wygasł lub został cofnięty. Wymagane ponowne logowanie przez Device Flow.',
                     'error'
                 );
             } catch (notifErr) {
-                console.error("[AllegroService] Nie udaĹ‚o siÄ™ wysĹ‚aÄ‡ powiadomienia o bĹ‚Ä™dzie:", notifErr.message);
+                console.error('[AllegroService] Nie udało się wysłać powiadomienia o błędzie:', notifErr.message);
             }
-            throw new Error("Nie udaĹ‚o siÄ™ odĹ›wieĹĽyÄ‡ tokenu. PrzeprowadĹş ponowne logowanie Device Flow.");
+            throw new Error(error.message || 'Nie udało się odświeżyć tokenu. Przeprowadź ponowne logowanie Device Flow.');
         } finally {
             try {
-                await prisma.systemSetting.updateMany({ where: { key: 'ALLEGRO_REFRESH_LOCK' }, data: { value: '0' } });
-            } catch (e) { /* ignore */ }
-            tokenRefreshPromise = null;
+                const LOCK_KEY = preResolved.accountId ? `ALLEGRO_REFRESH_LOCK:${preResolved.accountId}` : 'ALLEGRO_REFRESH_LOCK';
+                await injectedPrisma.systemSetting.updateMany({ where: { key: LOCK_KEY }, data: { value: '0' } });
+            } catch (_) { /* ignore */ }
+            tokenRefreshPromises.delete(cacheKey);
         }
     })();
 
-    return tokenRefreshPromise;
+    tokenRefreshPromises.set(cacheKey, refreshPromise);
+    return refreshPromise;
 }
 
 async function startDeviceFlow() {
@@ -188,14 +326,14 @@ async function startDeviceFlow() {
     const clientSecret = process.env.ALLEGRO_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
-        throw new Error("Brak kluczy ALLEGRO_CLIENT_ID lub ALLEGRO_CLIENT_SECRET w zmiennych środowiskowych. Zrestartuj serwer (nodemon/pm2) aby przeładować plik .env.");
+        throw new Error('Brak kluczy ALLEGRO_CLIENT_ID lub ALLEGRO_CLIENT_SECRET w zmiennych środowiskowych. Zrestartuj serwer (nodemon/pm2) aby przeładować plik .env.');
     }
 
     const authString = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
     const response = await axios.post('https://allegro.pl/auth/oauth/device', `client_id=${clientId}`, {
         headers: {
-            'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+            'User-Agent': ALLEGRO_USER_AGENT,
             'Authorization': `Basic ${authString}`,
             'Content-Type': 'application/x-www-form-urlencoded'
         }
@@ -204,70 +342,161 @@ async function startDeviceFlow() {
     return response.data;
 }
 
-async function pollForToken(deviceCode) {
+async function saveAccountFromTokenData(tokenData, { label = null, setAsDefault = false } = {}, injectedPrisma = prisma) {
+    const accessToken = tokenData?.access_token;
+    const refreshToken = tokenData?.refresh_token || null;
+    const expiresIn = Number(tokenData?.expires_in || 43200);
+    const expiresAt = Date.now() + Math.max(60, expiresIn - 300) * 1000;
+    const claims = inspectTokenClaims(accessToken || '');
+    const accountId = claims.userName ? String(claims.userName) : 'default';
+
+    let meInfo = null;
+    if (accessToken && claims.scopes.includes('allegro:api:profile:read')) {
+        try {
+            const meRes = await axios.get('https://api.allegro.pl/me', {
+                headers: buildAllegroHeaders(accessToken),
+                timeout: 8000
+            });
+            meInfo = meRes.data || null;
+        } catch (_) {
+            meInfo = null;
+        }
+    }
+
+    const vault = await readAllegroAccountsVault(injectedPrisma);
+    const prevAccount = vault.accounts[accountId] || {};
+    const cleanLabel = (typeof label === 'string' && label.trim())
+        ? label.trim()
+        : (prevAccount.label || meInfo?.company?.name || meInfo?.login || `Konto #${accountId}`);
+
+    vault.accounts[accountId] = {
+        ...prevAccount,
+        accountId,
+        label: cleanLabel,
+        login: meInfo?.login || prevAccount.login || null,
+        email: meInfo?.email || prevAccount.email || null,
+        companyName: meInfo?.company?.name || prevAccount.companyName || null,
+        accessToken,
+        refreshToken: refreshToken || prevAccount.refreshToken || null,
+        expiresAt,
+        scopes: claims.scopes || [],
+        updatedAt: new Date().toISOString()
+    };
+
+    if (!vault.defaultAccountId || setAsDefault || Object.keys(vault.accounts).length === 1) {
+        vault.defaultAccountId = accountId;
+    }
+
+    const savedVault = await writeAllegroAccountsVault(vault, injectedPrisma);
+    tokenCacheByAccount.set(accountId, { token: accessToken, expiry: expiresAt });
+
+    return formatSafeAccountMeta(savedVault.accounts[accountId], savedVault.defaultAccountId);
+}
+
+async function pollForToken(deviceCode, { label = null, setAsDefault = false } = {}) {
     const clientId = process.env.ALLEGRO_CLIENT_ID;
     const clientSecret = process.env.ALLEGRO_CLIENT_SECRET;
     const authString = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
-    const response = await axios.post('https://allegro.pl/auth/oauth/token', 
-        `grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=${deviceCode}`, {
-        headers: {
-            'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
-            'Authorization': `Basic ${authString}`,
-            'Content-Type': 'application/x-www-form-urlencoded'
+    const response = await axios.post(
+        'https://allegro.pl/auth/oauth/token',
+        `grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=${deviceCode}`,
+        {
+            headers: {
+                'User-Agent': ALLEGRO_USER_AGENT,
+                'Authorization': `Basic ${authString}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
         }
-    });
+    );
 
     const tokenData = response.data;
-    
-    cachedToken = tokenData.access_token;
-    tokenExpiry = Date.now() + (tokenData.expires_in - 300) * 1000;
+    const accountMeta = await saveAccountFromTokenData(tokenData, { label, setAsDefault });
+    return { ...tokenData, accountMeta };
+}
 
-    await prisma.systemSetting.upsert({ where: { key: 'ALLEGRO_ACCESS_TOKEN' }, update: { value: cachedToken }, create: { key: 'ALLEGRO_ACCESS_TOKEN', value: cachedToken } });
-    await prisma.systemSetting.upsert({ where: { key: 'ALLEGRO_TOKEN_EXPIRY' }, update: { value: tokenExpiry.toString() }, create: { key: 'ALLEGRO_TOKEN_EXPIRY', value: tokenExpiry.toString() } });
-
-    if (tokenData.refresh_token) {
-        await prisma.systemSetting.upsert({ where: { key: 'ALLEGRO_REFRESH_TOKEN' }, update: { value: tokenData.refresh_token }, create: { key: 'ALLEGRO_REFRESH_TOKEN', value: tokenData.refresh_token } });
+async function setDefaultAllegroAccount(accountId, injectedPrisma = prisma) {
+    const cleanId = String(accountId || '').trim();
+    const vault = await readAllegroAccountsVault(injectedPrisma);
+    if (!vault.accounts[cleanId]) {
+        const err = new Error(`Konto Allegro #${cleanId} nie istnieje w skarbcu.`);
+        err.statusCode = 404;
+        throw err;
     }
+    vault.defaultAccountId = cleanId;
+    await writeAllegroAccountsVault(vault, injectedPrisma);
+    return listConnectedAllegroAccounts(injectedPrisma);
+}
 
-    return tokenData;
+async function updateAllegroAccountLabel(accountId, label, injectedPrisma = prisma) {
+    const cleanId = String(accountId || '').trim();
+    const cleanLabel = String(label || '').trim();
+    if (!cleanLabel) throw new Error('Nazwa etykiety konta nie może być pusta.');
+    const vault = await readAllegroAccountsVault(injectedPrisma);
+    if (!vault.accounts[cleanId]) {
+        const err = new Error(`Konto Allegro #${cleanId} nie istnieje w skarbcu.`);
+        err.statusCode = 404;
+        throw err;
+    }
+    vault.accounts[cleanId] = {
+        ...vault.accounts[cleanId],
+        label: cleanLabel.slice(0, 80),
+        updatedAt: new Date().toISOString()
+    };
+    await writeAllegroAccountsVault(vault, injectedPrisma);
+    return formatSafeAccountMeta(vault.accounts[cleanId], vault.defaultAccountId);
+}
+
+async function removeAllegroAccount(accountId, injectedPrisma = prisma) {
+    const cleanId = String(accountId || '').trim();
+    const vault = await readAllegroAccountsVault(injectedPrisma);
+    if (!vault.accounts[cleanId]) {
+        const err = new Error(`Konto Allegro #${cleanId} nie istnieje w skarbcu.`);
+        err.statusCode = 404;
+        throw err;
+    }
+    delete vault.accounts[cleanId];
+    tokenCacheByAccount.delete(cleanId);
+    const remainingKeys = Object.keys(vault.accounts);
+    if (vault.defaultAccountId === cleanId) {
+        vault.defaultAccountId = remainingKeys[0] || null;
+    }
+    await writeAllegroAccountsVault(vault, injectedPrisma);
+    return listConnectedAllegroAccounts(injectedPrisma);
 }
 
 /**
- * Pobiera ofertÄ™ na podstawie ID i ekstrahuje oryginalne adresy zdjÄ™Ä‡.
+ * Pobiera ofertę na podstawie ID i ekstrahuje oryginalne adresy zdjęć.
  */
-async function getOfferImages(offerId) {
+async function getOfferImages(offerId, { accountId = null } = {}) {
     if (!offerId) return [];
 
     try {
-        const token = await getAllegroToken();
-        
+        const token = await getAllegroToken(false, accountId);
+
         console.log(`[AllegroService] Odpytywanie /sale/product-offers/${offerId}...`);
         const response = await apiClient.get(`https://api.allegro.pl/sale/product-offers/${offerId}`, {
-            headers: {
-                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/vnd.allegro.public.v1+json'
-            },
+            headers: buildAllegroHeaders(token),
+            _allegroAccountId: accountId || null,
             timeout: 15000
         });
 
         const data = response.data;
         if (!data || !data.images) {
-             return [];
+            return [];
         }
 
-        const imageUrls = data.images.map(img => img.url);
-        console.log(`[AllegroService] Pobrano ${imageUrls.length} oryginalnych obrazĂłw z oferty.`);
+        const imageUrls = normalizeOfferImageUrls(data.images);
+        console.log(`[AllegroService] Pobrano ${imageUrls.length} oryginalnych obrazów z oferty.`);
         return imageUrls;
 
     } catch (error) {
         if (error.response && error.response.status === 404) {
-             console.warn(`[AllegroService] Oferta ${offerId} nie zostaĹ‚a znaleziona w API.`);
-             return [];
+            console.warn(`[AllegroService] Oferta ${offerId} nie została znaleziona w API.`);
+            return [];
         }
-        console.error(`[AllegroService] BĹ‚Ä…d pobierania danych oferty ${offerId}:`, error.response ? error.response.data : error.message);
-        throw new Error(`BĹ‚Ä…d integracji z ofertÄ… Allegro: ${error.message}`);
+        console.error(`[AllegroService] Błąd pobierania danych oferty ${offerId}:`, error.response ? error.response.data : error.message);
+        throw new Error(`Błąd integracji z ofertą Allegro: ${error.message}`);
     }
 }
 
@@ -297,7 +526,7 @@ async function getFullOfferData(offerId) {
         const title = data.name || primaryProduct?.name || "";
         
         // 2. Zdjęcia
-        const imageUrls = data.images ? data.images.map(img => img.url) : [];
+        const imageUrls = normalizeOfferImageUrls(data.images);
         
         // 3. Kod EAN (GTIN) i Parametry (korzeń oferty + parametry produktowe)
         let ean = data.ean || "";
@@ -616,10 +845,11 @@ function inspectTokenClaims(token) {
 }
 
 /**
- * Weryfikuje czy aktualny token jest tokenem sprzedawcy (nie client_credentials) i posiada uprawnienia zapisu ofert.
+ * Weryfikuje czy aktualny token (dla wybranego lub domyślnego konta) jest tokenem sprzedawcy i posiada uprawnienia zapisu ofert.
  */
-async function ensureSellerWriteToken() {
-    const token = await getAllegroToken();
+async function ensureSellerWriteToken(accountId = null, injectedPrisma = prisma) {
+    const resolved = await resolveAccountIdOrDefault(accountId, injectedPrisma);
+    const token = await getAllegroToken(false, resolved.accountId, injectedPrisma);
     const claims = inspectTokenClaims(token);
 
     if (!claims.isUserToken) {
@@ -642,7 +872,9 @@ async function ensureSellerWriteToken() {
         throw err;
     }
 
-    return { token, claims };
+    const effAccountId = resolved.accountId || claims.userName || null;
+    const accountLabel = resolved.account?.label || (effAccountId ? `Konto #${effAccountId}` : 'Konto Domyślne');
+    return { token, claims, accountId: effAccountId, accountLabel };
 }
 
 /**
@@ -696,16 +928,9 @@ async function getCategoryParametersFull(categoryId, { forceRefresh = false } = 
     };
 }
 
-/**
- * Wyszukuje oferty na koncie sprzedawcy Allegro odpowiadające produktowi (po SKU / external.id lub frazie).
- */
-async function findSellerOffersForProduct({ ean = '', sku = '', name = '', baselinkerId = '', categoryId = '' } = {}) {
-    const { token } = await ensureSellerWriteToken();
-    const headers = {
-        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.allegro.public.v1+json'
-    };
+async function findSellerOffersOnSingleAccount({ ean = '', sku = '', name = '', baselinkerId = '', categoryId = '', accountId = null } = {}) {
+    const { token, accountId: resolvedAccountId, accountLabel } = await ensureSellerWriteToken(accountId);
+    const headers = buildAllegroHeaders(token);
 
     const collected = new Map();
 
@@ -720,7 +945,9 @@ async function findSellerOffersForProduct({ ean = '', sku = '', name = '', basel
                     categoryId: o.category?.id ? String(o.category.id) : null,
                     status: o.publication?.status || 'UNKNOWN',
                     externalId: o.external?.id || null,
-                    matchSource
+                    matchSource,
+                    accountId: resolvedAccountId,
+                    accountLabel
                 });
             }
         }
@@ -731,11 +958,12 @@ async function findSellerOffersForProduct({ ean = '', sku = '', name = '', basel
         try {
             const res = await apiClient.get(`https://api.allegro.pl/sale/offers?external.id=${encodeURIComponent(extId)}&limit=10`, {
                 headers,
+                _allegroAccountId: resolvedAccountId,
                 timeout: 12000
             });
             addOffersFromResponse(res.data?.offers, extId === sku ? 'external_sku' : 'external_bl');
         } catch (err) {
-            console.warn(`[AllegroService] Błąd wyszukiwania oferty po external.id=${extId}:`, err.message);
+            console.warn(`[AllegroService] Błąd wyszukiwania oferty po external.id=${extId} (konto ${resolvedAccountId}):`, err.message);
         }
     }
 
@@ -747,11 +975,12 @@ async function findSellerOffersForProduct({ ean = '', sku = '', name = '', basel
             try {
                 const res = await apiClient.get(`https://api.allegro.pl/sale/offers?${params.toString()}`, {
                     headers,
+                    _allegroAccountId: resolvedAccountId,
                     timeout: 12000
                 });
                 addOffersFromResponse(res.data?.offers, 'name_search');
             } catch (err) {
-                console.warn(`[AllegroService] Błąd wyszukiwania oferty po nazwie "${cleanQuery}":`, err.message);
+                console.warn(`[AllegroService] Błąd wyszukiwania oferty po nazwie "${cleanQuery}" (konto ${resolvedAccountId}):`, err.message);
             }
         }
     }
@@ -764,6 +993,7 @@ async function findSellerOffersForProduct({ ean = '', sku = '', name = '', basel
         try {
             const detail = await apiClient.get(`https://api.allegro.pl/sale/product-offers/${cand.id}`, {
                 headers,
+                _allegroAccountId: resolvedAccountId,
                 timeout: 10000
             });
             const prodParams = detail.data?.productSet?.[0]?.product?.parameters || [];
@@ -779,32 +1009,60 @@ async function findSellerOffersForProduct({ ean = '', sku = '', name = '', basel
         }
     }));
 
-    enriched.sort((a, b) => {
+    return enriched;
+}
+
+/**
+ * Wyszukuje oferty na koncie sprzedawcy Allegro (lub równolegle na wszystkich podłączonych kontach przy accountId='ALL').
+ */
+async function findSellerOffersForProduct({ ean = '', sku = '', name = '', baselinkerId = '', categoryId = '', accountId = null } = {}) {
+    const reqAcc = accountId ? String(accountId).trim() : '';
+    let results = [];
+
+    if (reqAcc.toUpperCase() === 'ALL') {
+        const accounts = await listConnectedAllegroAccounts();
+        if (accounts.length === 0) {
+            results = await findSellerOffersOnSingleAccount({ ean, sku, name, baselinkerId, categoryId, accountId: null });
+        } else {
+            const writeAccounts = accounts.filter(a => a.hasWriteScope);
+            const targetAccounts = writeAccounts.length > 0 ? writeAccounts : accounts;
+            const settled = await Promise.allSettled(
+                targetAccounts.map(acc => findSellerOffersOnSingleAccount({
+                    ean, sku, name, baselinkerId, categoryId, accountId: acc.accountId
+                }))
+            );
+            for (const item of settled) {
+                if (item.status === 'fulfilled' && Array.isArray(item.value)) {
+                    results.push(...item.value);
+                }
+            }
+        }
+    } else {
+        results = await findSellerOffersOnSingleAccount({ ean, sku, name, baselinkerId, categoryId, accountId: reqAcc || null });
+    }
+
+    results.sort((a, b) => {
         if (a.eanMatch !== b.eanMatch) return a.eanMatch ? -1 : 1;
         if (a.status !== b.status) return a.status === 'ACTIVE' ? -1 : (b.status === 'ACTIVE' ? 1 : 0);
         return 0;
     });
 
-    return enriched;
+    return results;
 }
 
 /**
  * Pobiera pełne dane konkretnej oferty oraz (opcjonalnie) dane powiązanego produktu z Katalogu Allegro (trustedContent).
  */
-async function getOfferAndCatalogForParams(offerId) {
+async function getOfferAndCatalogForParams(offerId, { accountId = null } = {}) {
     if (!offerId) throw new Error('Brak numeru oferty Allegro (offerId).');
     const cleanOfferId = String(offerId).trim();
-    const { token, claims } = await ensureSellerWriteToken();
+    const { token, claims, accountId: resolvedAccountId, accountLabel } = await ensureSellerWriteToken(accountId);
 
-    const headers = {
-        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.allegro.public.v1+json',
-        'Accept-Language': 'pl-PL'
-    };
+    const headers = buildAllegroHeaders(token, { 'Accept-Language': 'pl-PL' });
 
     const offerRes = await apiClient.get(`https://api.allegro.pl/sale/product-offers/${encodeURIComponent(cleanOfferId)}`, {
         headers,
+        _allegroAccountId: resolvedAccountId,
         timeout: 15000
     });
     const offer = offerRes.data;
@@ -815,6 +1073,7 @@ async function getOfferAndCatalogForParams(offerId) {
         try {
             const catRes = await apiClient.get(`https://api.allegro.pl/sale/products/${encodeURIComponent(productId)}`, {
                 headers,
+                _allegroAccountId: resolvedAccountId,
                 timeout: 12000
             });
             catalogProduct = catRes.data;
@@ -823,24 +1082,21 @@ async function getOfferAndCatalogForParams(offerId) {
         }
     }
 
-    return { offer, catalogProduct, tokenClaims: claims };
+    return { offer, catalogProduct, tokenClaims: claims, accountId: resolvedAccountId, accountLabel };
 }
 
 /**
  * Waliduje i parsuje listę składników INCI przez oficjalny endpoint Allegro `POST /ingredients/parse`.
  */
-async function parseIngredientsWithAllegro({ categoryId, productId = '1', productName = 'Produkt', rawInci = '' } = {}) {
+async function parseIngredientsWithAllegro({ categoryId, productId = '1', productName = 'Produkt', rawInci = '', accountId = null } = {}) {
     if (!categoryId || !rawInci || String(rawInci).trim() === '') {
         return { supported: false, components: null, warnings: [], errors: ['Brak kategorii lub składu INCI.'] };
     }
-    const { token } = await ensureSellerWriteToken();
-    const headers = {
-        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.allegro.public.v1+json',
+    const { token, accountId: resolvedAccountId } = await ensureSellerWriteToken(accountId);
+    const headers = buildAllegroHeaders(token, {
         'Content-Type': 'application/vnd.allegro.public.v1+json',
         'Accept-Language': 'pl-PL'
-    };
+    });
 
     const res = await apiClient.post('https://api.allegro.pl/ingredients/parse', {
         categoryId: String(categoryId),
@@ -851,7 +1107,7 @@ async function parseIngredientsWithAllegro({ categoryId, productId = '1', produc
                 ingredients: String(rawInci)
             }
         ]
-    }, { headers, timeout: 15000 });
+    }, { headers, _allegroAccountId: resolvedAccountId, timeout: 15000 });
 
     const parsedProd = res.data?.products?.[0] || {};
     const items = Array.isArray(parsedProd.items) ? parsedProd.items : [];
@@ -894,20 +1150,158 @@ function formatAllegroApiErrors(data) {
 }
 
 /**
+ * Normalizuje bufor obrazu do dozwolonego typu MIME Allegro (`image/jpeg`, `image/png`, `image/webp`).
+ */
+async function normalizeBinaryForAllegroUpload(buffer, rawMime = 'image/jpeg') {
+    let mime = String(rawMime || 'image/jpeg').split(';')[0].trim().toLowerCase();
+    if (mime === 'image/jpg') mime = 'image/jpeg';
+    if (mime === 'image/jpeg' || mime === 'image/png' || mime === 'image/webp') {
+        return { buffer, mimeType: mime };
+    }
+    const converted = await sharp(buffer).jpeg({ quality: 92 }).toBuffer();
+    return { buffer: converted, mimeType: 'image/jpeg' };
+}
+
+/**
+ * Wgrywa pojedyncze zdjęcie (DataURI base64 lub zewnętrzny URL HTTP/HTTPS) na serwer Allegro `POST https://upload.allegro.pl/sale/images`.
+ * Zwraca docelowy adres URL w domenie `a.allegroimg.com`.
+ */
+async function uploadImageToAllegro({ source, isAiCoCreated = false, accountId = null, httpClient = apiClient, injectedPrisma = prisma } = {}) {
+    if (!source || typeof source !== 'string') {
+        throw new Error('Brak źródła obrazu do wysłania na Allegro.');
+    }
+    const cleanSource = source.trim();
+    if (isAllegroHostedImageUrl(cleanSource)) {
+        return {
+            url: cleanSource,
+            isAiCoCreated: Boolean(isAiCoCreated),
+            skippedUpload: true,
+            expiresAt: null
+        };
+    }
+
+    const { token, accountId: resolvedAccountId } = await ensureSellerWriteToken(accountId, injectedPrisma);
+    const aiFlag = Boolean(isAiCoCreated);
+    const cacheKey = crypto.createHash('sha256').update(`${resolvedAccountId || 'default'}:${aiFlag}:${cleanSource}`).digest('hex');
+    const cached = uploadedImageCache.get(cacheKey);
+    if (cached && cached.url && (!cached.expiresAt || (new Date(cached.expiresAt).getTime() - Date.now() > 5 * 60 * 1000))) {
+        return {
+            url: cached.url,
+            isAiCoCreated: aiFlag,
+            skippedUpload: false,
+            cached: true,
+            expiresAt: cached.expiresAt
+        };
+    }
+
+    const uploadBinaryBuffer = async (buf, rawMime) => {
+        const { buffer: readyBuf, mimeType } = await normalizeBinaryForAllegroUpload(buf, rawMime);
+        const res = await httpClient.post(
+            `https://upload.allegro.pl/sale/images?isAiCoCreated=${aiFlag}`,
+            readyBuf,
+            {
+                headers: buildAllegroHeaders(token, {
+                    'Content-Type': mimeType,
+                    'Accept-Language': 'pl-PL'
+                }),
+                _allegroAccountId: resolvedAccountId,
+                maxBodyLength: Infinity,
+                maxContentLength: Infinity,
+                timeout: 30000
+            }
+        );
+        const location = res.data?.location;
+        if (!location) {
+            throw new Error('Allegro /sale/images nie zwróciło pola location po uploadzie binarnym.');
+        }
+        return {
+            url: location,
+            expiresAt: res.data?.expiresAt || null
+        };
+    };
+
+    try {
+        let uploadRes = null;
+
+        if (cleanSource.startsWith('data:image/')) {
+            const match = cleanSource.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,([\s\S]+)$/);
+            if (!match) {
+                throw new Error('Nieprawidłowy format obrazu DataURI (oczekiwano data:image/...;base64,...).');
+            }
+            const rawMime = match[1];
+            const buf = Buffer.from(match[2], 'base64');
+            uploadRes = await uploadBinaryBuffer(buf, rawMime);
+        } else if (cleanSource.startsWith('http://') || cleanSource.startsWith('https://')) {
+            try {
+                const jsonRes = await httpClient.post(
+                    'https://upload.allegro.pl/sale/images',
+                    { url: cleanSource, isAiCoCreated: aiFlag },
+                    {
+                        headers: buildAllegroHeaders(token, {
+                            'Content-Type': 'application/vnd.allegro.public.v1+json',
+                            'Accept-Language': 'pl-PL'
+                        }),
+                        _allegroAccountId: resolvedAccountId,
+                        timeout: 25000
+                    }
+                );
+                if (!jsonRes.data?.location) {
+                    throw new Error('Brak pola location w odpowiedzi JSON uploadu Allegro.');
+                }
+                uploadRes = {
+                    url: jsonRes.data.location,
+                    expiresAt: jsonRes.data?.expiresAt || null
+                };
+            } catch (urlErr) {
+                const status = urlErr.response?.status;
+                if (status === 401 || status === 403) {
+                    throw urlErr;
+                }
+                // Fallback: pobranie bufora przez nasz serwer i upload binarny (omija blokady CDN/WAF zewnętrznych serwerów)
+                const dlRes = await axios.get(cleanSource, {
+                    responseType: 'arraybuffer',
+                    timeout: 15000,
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'image/*,*/*;q=0.8'
+                    }
+                });
+                const dlMime = dlRes.headers?.['content-type'] || 'image/jpeg';
+                uploadRes = await uploadBinaryBuffer(Buffer.from(dlRes.data), dlMime);
+            }
+        } else {
+            throw new Error(`Nieobsługiwany protokół obrazu: ${cleanSource.slice(0, 40)}`);
+        }
+
+        uploadedImageCache.set(cacheKey, uploadRes);
+        return {
+            url: uploadRes.url,
+            expiresAt: uploadRes.expiresAt,
+            isAiCoCreated: aiFlag,
+            skippedUpload: false
+        };
+    } catch (error) {
+        const status = error.response?.status;
+        const details = formatAllegroApiErrors(error.response?.data || error.message);
+        const err = new Error(`Allegro Image Upload error (${status || 'NETWORK'}): ${details}`);
+        err.statusCode = status || 500;
+        err.allegroErrors = error.response?.data?.errors || null;
+        throw err;
+    }
+}
+
+/**
  * Wysyła `PATCH /sale/product-offers/{offerId}` wraz z automatycznym pollingiem operacji asynchronicznej `202 -> 303`.
  */
-async function patchProductOffer(offerId, patchBody, { pollMaxAttempts = 12, pollIntervalMs = 1000 } = {}) {
+async function patchProductOffer(offerId, patchBody, { pollMaxAttempts = 12, pollIntervalMs = 1000, accountId = null } = {}) {
     if (!offerId) throw new Error('Brak numeru oferty Allegro (offerId).');
     const cleanOfferId = String(offerId).trim();
-    const { token } = await ensureSellerWriteToken();
+    const { token, accountId: resolvedAccountId } = await ensureSellerWriteToken(accountId);
 
-    const headers = {
-        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.allegro.public.v1+json',
+    const headers = buildAllegroHeaders(token, {
         'Content-Type': 'application/vnd.allegro.public.v1+json',
         'Accept-Language': 'pl-PL'
-    };
+    });
 
     try {
         const patchRes = await apiClient.patch(
@@ -915,6 +1309,7 @@ async function patchProductOffer(offerId, patchBody, { pollMaxAttempts = 12, pol
             patchBody,
             {
                 headers,
+                _allegroAccountId: resolvedAccountId,
                 timeout: 20000,
                 validateStatus: (status) => status >= 200 && status < 400
             }
@@ -940,12 +1335,8 @@ async function patchProductOffer(offerId, patchBody, { pollMaxAttempts = 12, pol
             for (let attempt = 1; attempt <= pollMaxAttempts; attempt++) {
                 await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
                 const pollRes = await apiClient.get(pollUrl, {
-                    headers: {
-                        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/vnd.allegro.public.v1+json',
-                        'Accept-Language': 'pl-PL'
-                    },
+                    headers: buildAllegroHeaders(token, { 'Accept-Language': 'pl-PL' }),
+                    _allegroAccountId: resolvedAccountId,
                     maxRedirects: 0,
                     validateStatus: (s) => (s >= 200 && s < 400),
                     timeout: 15000
@@ -979,6 +1370,14 @@ async function patchProductOffer(offerId, patchBody, { pollMaxAttempts = 12, pol
 }
 
 module.exports = {
+    ALLEGRO_VAULT_KEY,
+    readAllegroAccountsVault,
+    writeAllegroAccountsVault,
+    listConnectedAllegroAccounts,
+    saveAccountFromTokenData,
+    setDefaultAllegroAccount,
+    updateAllegroAccountLabel,
+    removeAllegroAccount,
     getAllegroToken,
     inspectTokenClaims,
     ensureSellerWriteToken,
@@ -992,6 +1391,7 @@ module.exports = {
     findSellerOffersForProduct,
     getOfferAndCatalogForParams,
     parseIngredientsWithAllegro,
+    uploadImageToAllegro,
     patchProductOffer,
     formatAllegroApiErrors,
     startDeviceFlow,

@@ -484,7 +484,7 @@ app.get('/api/products/:id', authenticateToken, async (req, res) => {
     }
 });
 // --- System Settings API ---
-const SECRET_SETTING_KEYS = new Set(['BASELINKER_TOKEN', 'ALLEGRO_ACCESS_TOKEN', 'ALLEGRO_REFRESH_TOKEN', 'ELEVENLABS_API_KEY']);
+const SECRET_SETTING_KEYS = new Set(['BASELINKER_TOKEN', 'ALLEGRO_ACCESS_TOKEN', 'ALLEGRO_REFRESH_TOKEN', 'ALLEGRO_ACCOUNTS_VAULT', 'ELEVENLABS_API_KEY']);
 
 app.get('/api/settings/:key', authenticateToken, async (req, res) => {
     if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });

@@ -15,7 +15,11 @@ const {
     stripHtmlAndEmoticons,
     extractSafetyInformationText,
     extractCleanInciForAllegro,
-    buildAllegroParameterPatchPayload
+    buildAllegroParameterPatchPayload,
+    collectPipelineImagesForAllegro,
+    buildAllegroDescriptionSections,
+    buildAllegroContentPreflight,
+    buildAllegroContentPatchBody
 } = require('../../utils/allegro_mapper');
 const { exportLogger } = require('../../utils/logger');
 const sharp = require('sharp');
@@ -1317,44 +1321,116 @@ const extractBackLabel = async (req, res) => {
     }
 };
 
-function computePatchBodyHash(patchBody) {
-    return crypto.createHash('sha256').update(JSON.stringify(patchBody || {})).digest('hex');
+function parseOfferDraftJson(rawDraft) {
+    if (!rawDraft) return {};
+    if (typeof rawDraft === 'object') return rawDraft;
+    try {
+        return JSON.parse(rawDraft);
+    } catch (_) {
+        return {};
+    }
 }
 
-function signAllegroParamsToken({ ean, offerId, patchBody }) {
+function computeCanonicalHash(obj) {
+    return crypto.createHash('sha256').update(JSON.stringify(obj || {})).digest('hex');
+}
+
+function signAllegroExportToken({ ean, offerId, accountId = '', payloadObj }) {
     const timestamp = Date.now();
-    const patchHash = computePatchBodyHash(patchBody);
-    const sigPayload = `${ean}:${offerId}:${patchHash}:${timestamp}`;
+    const acc = accountId ? String(accountId).trim() : '';
+    const patchHash = computeCanonicalHash(payloadObj);
+    const sigPayload = `${ean}:${acc}:${offerId}:${patchHash}:${timestamp}`;
     const signature = crypto.createHmac('sha256', EXPORT_SECRET).update(sigPayload).digest('hex');
-    return Buffer.from(JSON.stringify({ ean, offerId: String(offerId), patchHash, timestamp, signature })).toString('base64');
+    return Buffer.from(JSON.stringify({ ean, accountId: acc, offerId: String(offerId), patchHash, timestamp, signature })).toString('base64');
 }
 
-function verifyAllegroParamsToken(token, { ean, offerId, patchBody }) {
+function verifyAllegroExportToken(token, { ean, offerId, accountId = '', payloadObj }) {
     const decoded = JSON.parse(Buffer.from(String(token), 'base64').toString('utf8'));
-    if (String(decoded.ean) !== String(ean) || String(decoded.offerId) !== String(offerId)) {
-        throw new Error('Niezgodność produktu lub oferty w tokenie eksportu Allegro.');
+    const expectedAcc = accountId ? String(accountId).trim() : '';
+    if (
+        String(decoded.ean) !== String(ean) ||
+        String(decoded.offerId) !== String(offerId) ||
+        String(decoded.accountId || '') !== expectedAcc
+    ) {
+        throw new Error('Niezgodność produktu, konta lub oferty w tokenie eksportu Allegro.');
     }
     if (Date.now() - Number(decoded.timestamp) > 5 * 60 * 1000) {
-        throw new Error('Token eksportu parametrów Allegro wygasł. Odśwież podgląd (Pre-flight).');
+        throw new Error('Token eksportu Allegro wygasł. Odśwież podgląd (Pre-flight).');
     }
-    const expectedHash = computePatchBodyHash(patchBody);
+    const expectedHash = computeCanonicalHash(payloadObj);
     if (decoded.patchHash !== expectedHash) {
         throw new Error('Zmieniono dane od ostatniego podglądu Pre-flight. Wykonaj ponowną weryfikację.');
     }
     const expectedSig = crypto.createHmac('sha256', EXPORT_SECRET)
-        .update(`${decoded.ean}:${decoded.offerId}:${decoded.patchHash}:${decoded.timestamp}`)
+        .update(`${decoded.ean}:${decoded.accountId || ''}:${decoded.offerId}:${decoded.patchHash}:${decoded.timestamp}`)
         .digest('hex');
     if (decoded.signature !== expectedSig) {
         throw new Error('Nieważny podpis kryptograficzny tokenu eksportu Allegro.');
     }
 }
 
+async function resolveAllegroOfferContext({ product, existingDraft, requestedOfferId, requestedAccountId, categoryId }) {
+    let effAccountId = requestedAccountId && String(requestedAccountId).trim() !== '' && String(requestedAccountId).trim().toUpperCase() !== 'ALL'
+        ? String(requestedAccountId).trim()
+        : (existingDraft?.allegroAccountId ? String(existingDraft.allegroAccountId).trim() : null);
+
+    let authCheck;
+    if (requestedAccountId && String(requestedAccountId).trim().toUpperCase() === 'ALL') {
+        authCheck = await AllegroService.ensureSellerWriteToken(null);
+        effAccountId = authCheck.accountId;
+    } else {
+        authCheck = await AllegroService.ensureSellerWriteToken(effAccountId);
+        effAccountId = authCheck.accountId;
+    }
+
+    let targetOfferId = requestedOfferId ? String(requestedOfferId).trim() : (existingDraft?.allegroOfferId ? String(existingDraft.allegroOfferId).trim() : '');
+    let matchedCandidates = [];
+
+    if (!targetOfferId) {
+        const searchAcc = (requestedAccountId && String(requestedAccountId).trim().toUpperCase() === 'ALL') ? 'ALL' : effAccountId;
+        matchedCandidates = await AllegroService.findSellerOffersForProduct({
+            ean: product.ean,
+            sku: product.sku,
+            name: product.name,
+            baselinkerId: product.baselinkerId,
+            categoryId: categoryId || product.allegroCategoryId || '',
+            accountId: searchAcc
+        });
+        if (matchedCandidates.length > 0) {
+            targetOfferId = matchedCandidates[0].id;
+            if (matchedCandidates[0].accountId) {
+                effAccountId = matchedCandidates[0].accountId;
+            }
+        }
+    }
+
+    return {
+        targetOfferId,
+        effAccountId,
+        accountLabel: authCheck.accountLabel,
+        tokenClaims: authCheck.claims,
+        matchedCandidates
+    };
+}
+
 const searchAllegroOffers = async (req, res) => {
     try {
-        const { ean = '', sku = '', name = '', baselinkerId = '', categoryId = '' } = req.query || {};
-        const { claims } = await AllegroService.ensureSellerWriteToken();
-        const offers = await AllegroService.findSellerOffersForProduct({ ean, sku, name, baselinkerId, categoryId });
-        return res.status(200).json({ offers, tokenClaims: claims });
+        const { ean = '', sku = '', name = '', baselinkerId = '', categoryId = '', accountId = '' } = req.query || {};
+        const reqAcc = String(accountId || '').trim();
+        let tokenClaims = null;
+        if (!reqAcc || reqAcc.toUpperCase() !== 'ALL') {
+            const auth = await AllegroService.ensureSellerWriteToken(reqAcc || null);
+            tokenClaims = auth.claims;
+        }
+        const offers = await AllegroService.findSellerOffersForProduct({
+            ean,
+            sku,
+            name,
+            baselinkerId,
+            categoryId,
+            accountId: reqAcc || null
+        });
+        return res.status(200).json({ offers, tokenClaims });
     } catch (error) {
         const status = error.statusCode || error.response?.status || 500;
         return res.status(status).json({
@@ -1371,6 +1447,7 @@ const validateAllegroParamsExport = async (req, res) => {
             ean,
             productId,
             offerId,
+            accountId,
             categoryId,
             features,
             htmlContent,
@@ -1393,19 +1470,17 @@ const validateAllegroParamsExport = async (req, res) => {
             return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM.' });
         }
 
-        let existingDraft = {};
-        try {
-            existingDraft = typeof product.offerDraft === 'string'
-                ? JSON.parse(product.offerDraft)
-                : (product.offerDraft || {});
-        } catch (_) {
-            existingDraft = {};
-        }
+        const existingDraft = parseOfferDraftJson(product.offerDraft);
 
-        let tokenClaims = null;
+        let ctx;
         try {
-            const authCheck = await AllegroService.ensureSellerWriteToken();
-            tokenClaims = authCheck.claims;
+            ctx = await resolveAllegroOfferContext({
+                product,
+                existingDraft,
+                requestedOfferId: offerId,
+                requestedAccountId: accountId,
+                categoryId
+            });
         } catch (authErr) {
             return res.status(authErr.statusCode || 403).json({
                 error: authErr.message,
@@ -1414,30 +1489,16 @@ const validateAllegroParamsExport = async (req, res) => {
             });
         }
 
-        let targetOfferId = offerId ? String(offerId).trim() : (existingDraft?.allegroOfferId ? String(existingDraft.allegroOfferId).trim() : '');
-        let matchedCandidates = [];
-
-        if (!targetOfferId) {
-            matchedCandidates = await AllegroService.findSellerOffersForProduct({
-                ean: product.ean,
-                sku: product.sku,
-                name: product.name,
-                baselinkerId: product.baselinkerId,
-                categoryId: categoryId || product.allegroCategoryId || ''
-            });
-            if (matchedCandidates.length > 0) {
-                targetOfferId = matchedCandidates[0].id;
-            }
-        }
-
-        if (!targetOfferId) {
+        if (!ctx.targetOfferId) {
             return res.status(404).json({
                 error: 'Nie odnaleziono automatycznie oferty na koncie Allegro dla tego SKU/EAN. Wpisz numer oferty Allegro (offerId) ręcznie przed weryfikacją.',
                 candidates: []
             });
         }
 
-        const { offer, catalogProduct } = await AllegroService.getOfferAndCatalogForParams(targetOfferId);
+        const { offer, catalogProduct, accountLabel, tokenClaims } = await AllegroService.getOfferAndCatalogForParams(ctx.targetOfferId, {
+            accountId: ctx.effAccountId
+        });
         const offerCatId = offer?.category?.id ? String(offer.category.id) : null;
         const requestedCatId = categoryId ? String(categoryId).trim() : (product.allegroCategoryId ? String(product.allegroCategoryId).trim() : null);
         const effectiveCatId = offerCatId || requestedCatId;
@@ -1497,7 +1558,8 @@ const validateAllegroParamsExport = async (req, res) => {
                     categoryId: effectiveCatId,
                     productId: product.ean,
                     productName: offer?.name || product.name,
-                    rawInci
+                    rawInci,
+                    accountId: ctx.effAccountId
                 });
                 compositionDiagnostics = {
                     rawInci,
@@ -1530,10 +1592,11 @@ const validateAllegroParamsExport = async (req, res) => {
             );
         }
 
-        const exportToken = signAllegroParamsToken({
+        const exportToken = signAllegroExportToken({
             ean: product.ean,
-            offerId: targetOfferId,
-            patchBody: patchResult.patchBody
+            offerId: ctx.targetOfferId,
+            accountId: ctx.effAccountId,
+            payloadObj: patchResult.patchBody
         });
 
         return res.status(200).json({
@@ -1545,7 +1608,11 @@ const validateAllegroParamsExport = async (req, res) => {
                 categoryName: catSchema.name,
                 productId: offer.productSet?.[0]?.product?.id || null
             },
-            matchedCandidates,
+            account: {
+                id: ctx.effAccountId,
+                label: accountLabel
+            },
+            matchedCandidates: ctx.matchedCandidates,
             tokenClaims,
             category: {
                 id: catSchema.id,
@@ -1579,7 +1646,7 @@ const validateAllegroParamsExport = async (req, res) => {
 
 const exportAllegroParams = async (req, res) => {
     try {
-        const { ean, productId, offerId, patchBody, exportToken, updatedFeatures, categoryId } = req.body || {};
+        const { ean, productId, offerId, accountId = '', patchBody, exportToken, updatedFeatures, categoryId } = req.body || {};
         if ((!ean && !productId) || !offerId || !patchBody || !exportToken) {
             return res.status(400).json({ error: 'Brak wymaganych danych lub tokenu autoryzacji Pre-flight.' });
         }
@@ -1591,11 +1658,13 @@ const exportAllegroParams = async (req, res) => {
             return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM.' });
         }
 
+        const effAccountId = accountId ? String(accountId).trim() : '';
         try {
-            verifyAllegroParamsToken(exportToken, {
+            verifyAllegroExportToken(exportToken, {
                 ean: product.ean,
                 offerId: String(offerId),
-                patchBody
+                accountId: effAccountId,
+                payloadObj: patchBody
             });
         } catch (tokErr) {
             return res.status(403).json({ error: tokErr.message });
@@ -1605,24 +1674,21 @@ const exportAllegroParams = async (req, res) => {
             return res.status(400).json({ error: 'Brak zmian do wysłania na Allegro.' });
         }
 
-        exportLogger.info(`[ALLEGRO EXPORT PARAMS] Wysyłanie PATCH do oferty ${offerId} (EAN: ${product.ean})`);
-        const patchResult = await AllegroService.patchProductOffer(offerId, patchBody);
+        exportLogger.info(`[ALLEGRO EXPORT PARAMS] Wysyłanie PATCH do oferty ${offerId} (Konto: ${effAccountId || 'domyślne'}, EAN: ${product.ean})`);
+        const patchResult = await AllegroService.patchProductOffer(offerId, patchBody, {
+            accountId: effAccountId || null
+        });
 
-        let existingDraft = {};
-        try {
-            existingDraft = typeof product.offerDraft === 'string'
-                ? JSON.parse(product.offerDraft)
-                : (product.offerDraft || {});
-        } catch (_) {
-            existingDraft = {};
-        }
+        const existingDraft = parseOfferDraftJson(product.offerDraft);
 
         const updateData = {
             offerDraft: {
                 ...existingDraft,
                 allegroOfferId: String(offerId),
+                ...(effAccountId ? { allegroAccountId: effAccountId } : {}),
                 allegroLastParamsExport: {
                     timestamp: new Date().toISOString(),
+                    accountId: effAccountId || null,
                     offerId: String(offerId),
                     status: patchResult.status
                 }
@@ -1642,6 +1708,7 @@ const exportAllegroParams = async (req, res) => {
 
         EventBus.publish('PRODUCT_ALLEGRO_PARAMS_EXPORTED', {
             ean: product.ean,
+            accountId: effAccountId || null,
             offerId: String(offerId),
             status: patchResult.status
         });
@@ -1649,6 +1716,7 @@ const exportAllegroParams = async (req, res) => {
         return res.status(200).json({
             status: patchResult.status,
             offerId: String(offerId),
+            accountId: effAccountId || null,
             message: patchResult.status === 'PENDING_TIMEOUT'
                 ? `Wysłano aktualizację do oferty ${offerId} (Allegro nadal przetwarza zadanie w tle).`
                 : `Sukces! Zaktualizowano parametry i dane zgodności w ofercie Allegro (${offerId}).`,
@@ -1659,6 +1727,320 @@ const exportAllegroParams = async (req, res) => {
         const status = error.statusCode || error.response?.status || 500;
         return res.status(status).json({
             error: error.message || 'Błąd wysyłki parametrów do Allegro.',
+            allegroErrors: error.allegroErrors || null
+        });
+    }
+};
+
+function buildCanonicalContentDescriptor({ product, existingDraft, htmlContent, images, aiFlagsOverride, includeImages, includeDescription }) {
+    const effectiveHtmlContent = htmlContent || existingDraft?.htmlContent || null;
+    const effectiveDescriptionHtml = product?.descriptionHtml || '';
+    const effectiveDraftImages = (Array.isArray(images) && images.length > 0)
+        ? images
+        : (Array.isArray(existingDraft?.visionTickets) && existingDraft.visionTickets.length > 0
+            ? existingDraft.visionTickets
+            : (Array.isArray(existingDraft?.images) ? existingDraft.images : []));
+
+    const collected = collectPipelineImagesForAllegro({
+        draftImages: effectiveDraftImages,
+        productImageUrl: product?.imageUrl || null,
+        productImages: product?.images || [],
+        aiFlagsOverride
+    });
+
+    const tokenDigestObj = {
+        includeImages: Boolean(includeImages),
+        includeDescription: Boolean(includeDescription),
+        images: collected.images.map(i => ({ source: i.source, isAiCoCreated: i.isAiCoCreated })),
+        htmlContent: effectiveHtmlContent,
+        descriptionHtml: effectiveDescriptionHtml
+    };
+
+    return {
+        effectiveHtmlContent,
+        effectiveDescriptionHtml,
+        effectiveDraftImages,
+        collected,
+        tokenDigestObj
+    };
+}
+
+const validateAllegroContentExport = async (req, res) => {
+    try {
+        const {
+            ean,
+            productId,
+            offerId,
+            accountId,
+            htmlContent = null,
+            images = null,
+            includeImages = true,
+            includeDescription = true,
+            aiFlagsOverride = null
+        } = req.body || {};
+
+        if (!ean && !productId) {
+            return res.status(400).json({ error: 'Wymagany kod EAN lub ID produktu.' });
+        }
+
+        const product = await prisma.product.findUnique({
+            where: productId ? { id: String(productId) } : { ean: String(ean) }
+        });
+        if (!product) {
+            return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM.' });
+        }
+
+        const existingDraft = parseOfferDraftJson(product.offerDraft);
+
+        let ctx;
+        try {
+            ctx = await resolveAllegroOfferContext({
+                product,
+                existingDraft,
+                requestedOfferId: offerId,
+                requestedAccountId: accountId,
+                categoryId: product.allegroCategoryId || ''
+            });
+        } catch (authErr) {
+            return res.status(authErr.statusCode || 403).json({
+                error: authErr.message,
+                code: authErr.code || 'ALLEGRO_AUTH_ERROR',
+                missingScopes: authErr.missingScopes || null
+            });
+        }
+
+        if (!ctx.targetOfferId) {
+            return res.status(404).json({
+                error: 'Nie odnaleziono automatycznie oferty na koncie Allegro dla tego SKU/EAN. Wpisz numer oferty Allegro (offerId) ręcznie przed weryfikacją.',
+                candidates: []
+            });
+        }
+
+        const { offer, catalogProduct, accountLabel, tokenClaims } = await AllegroService.getOfferAndCatalogForParams(ctx.targetOfferId, {
+            accountId: ctx.effAccountId
+        });
+
+        const descriptor = buildCanonicalContentDescriptor({
+            product,
+            existingDraft,
+            htmlContent,
+            images,
+            aiFlagsOverride,
+            includeImages,
+            includeDescription
+        });
+
+        const preflight = buildAllegroContentPreflight({
+            existingOffer: offer,
+            catalogProduct,
+            htmlContent: descriptor.effectiveHtmlContent,
+            descriptionHtml: descriptor.effectiveDescriptionHtml,
+            draftImages: descriptor.effectiveDraftImages,
+            productImageUrl: product.imageUrl,
+            productImages: product.images,
+            includeImages,
+            includeDescription,
+            aiFlagsOverride
+        });
+
+        const exportToken = signAllegroExportToken({
+            ean: product.ean,
+            offerId: ctx.targetOfferId,
+            accountId: ctx.effAccountId,
+            payloadObj: descriptor.tokenDigestObj
+        });
+
+        return res.status(200).json({
+            offer: {
+                id: String(offer.id),
+                name: offer.name,
+                status: offer.publication?.status || 'UNKNOWN',
+                categoryId: offer?.category?.id ? String(offer.category.id) : null,
+                productId: offer?.productSet?.[0]?.product?.id || null
+            },
+            account: {
+                id: ctx.effAccountId,
+                label: accountLabel
+            },
+            matchedCandidates: ctx.matchedCandidates,
+            tokenClaims,
+            ...preflight,
+            exportToken
+        });
+    } catch (error) {
+        exportLogger.error(`[ALLEGRO CONTENT PREFLIGHT ERROR] ${error.message}`, { stack: error.stack });
+        const status = error.statusCode || error.response?.status || 500;
+        const msg = error.response?.data ? AllegroService.formatAllegroApiErrors(error.response.data) : error.message;
+        return res.status(status).json({ error: msg, code: error.code || null });
+    }
+};
+
+const exportAllegroContent = async (req, res) => {
+    try {
+        const {
+            ean,
+            productId,
+            offerId,
+            accountId = '',
+            htmlContent = null,
+            images = null,
+            includeImages = true,
+            includeDescription = true,
+            aiFlagsOverride = null,
+            exportToken
+        } = req.body || {};
+
+        if ((!ean && !productId) || !offerId || !exportToken) {
+            return res.status(400).json({ error: 'Brak wymaganych danych lub tokenu autoryzacji Pre-flight.' });
+        }
+
+        const product = await prisma.product.findUnique({
+            where: productId ? { id: String(productId) } : { ean: String(ean) }
+        });
+        if (!product) {
+            return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM.' });
+        }
+
+        const existingDraft = parseOfferDraftJson(product.offerDraft);
+        const effAccountId = accountId ? String(accountId).trim() : '';
+
+        const descriptor = buildCanonicalContentDescriptor({
+            product,
+            existingDraft,
+            htmlContent,
+            images,
+            aiFlagsOverride,
+            includeImages,
+            includeDescription
+        });
+
+        try {
+            verifyAllegroExportToken(exportToken, {
+                ean: product.ean,
+                offerId: String(offerId),
+                accountId: effAccountId,
+                payloadObj: descriptor.tokenDigestObj
+            });
+        } catch (tokErr) {
+            return res.status(403).json({ error: tokErr.message });
+        }
+
+        const { offer, catalogProduct } = await AllegroService.getOfferAndCatalogForParams(offerId, {
+            accountId: effAccountId || null
+        });
+
+        const preflightCheck = buildAllegroContentPreflight({
+            existingOffer: offer,
+            catalogProduct,
+            htmlContent: descriptor.effectiveHtmlContent,
+            descriptionHtml: descriptor.effectiveDescriptionHtml,
+            draftImages: descriptor.effectiveDraftImages,
+            productImageUrl: product.imageUrl,
+            productImages: product.images,
+            includeImages,
+            includeDescription,
+            aiFlagsOverride
+        });
+
+        if (preflightCheck.errors.length > 0) {
+            return res.status(400).json({ error: preflightCheck.errors.join(' | ') });
+        }
+        if (!preflightCheck.effectiveIncludeImages && !preflightCheck.effectiveIncludeDescription) {
+            return res.status(400).json({ error: 'Brak pól do aktualizacji (zablokowane przez Trusted Content lub odznaczone).' });
+        }
+
+        let uploadedImages = [];
+        if (preflightCheck.effectiveIncludeImages) {
+            exportLogger.info(`[ALLEGRO EXPORT CONTENT] Upload ${descriptor.collected.images.length} zdjęć na upload.allegro.pl dla oferty ${offerId} (konto: ${effAccountId || 'domyślne'})`);
+            const batchResults = [];
+            for (const item of descriptor.collected.images) {
+                const upRes = await AllegroService.uploadImageToAllegro({
+                    source: item.source,
+                    isAiCoCreated: item.isAiCoCreated,
+                    accountId: effAccountId || null
+                });
+                batchResults.push(upRes);
+            }
+            uploadedImages = batchResults;
+        }
+
+        const imageUrlsForDescription = preflightCheck.effectiveIncludeImages
+            ? uploadedImages.map(u => u.url)
+            : (preflightCheck.imagesPreview.current || []);
+
+        let builtDesc = null;
+        if (preflightCheck.effectiveIncludeDescription) {
+            builtDesc = buildAllegroDescriptionSections({
+                htmlContent: descriptor.effectiveHtmlContent,
+                descriptionHtml: descriptor.effectiveDescriptionHtml,
+                imageUrls: imageUrlsForDescription,
+                appendAiDisclosure: uploadedImages.some(u => u.isAiCoCreated)
+            });
+            if (builtDesc.exceedsLimit || builtDesc.sectionsCount === 0) {
+                return res.status(400).json({ error: 'Finalny opis po podstawieniu zdjęć przekracza limit 40 000 bajtów lub jest pusty.' });
+            }
+        }
+
+        const patchBody = buildAllegroContentPatchBody({
+            existingOffer: offer,
+            uploadedImages,
+            description: builtDesc ? builtDesc.description : null,
+            includeImages: preflightCheck.effectiveIncludeImages,
+            includeDescription: preflightCheck.effectiveIncludeDescription
+        });
+
+        if (Object.keys(patchBody).length === 0) {
+            return res.status(400).json({ error: 'Brak zmian do wysłania na Allegro.' });
+        }
+
+        exportLogger.info(`[ALLEGRO EXPORT CONTENT] Wysyłanie PATCH (opis/zdjęcia) do oferty ${offerId} (Konto: ${effAccountId || 'domyślne'}, EAN: ${product.ean})`);
+        const patchResult = await AllegroService.patchProductOffer(offerId, patchBody, {
+            accountId: effAccountId || null
+        });
+
+        await prisma.product.update({
+            where: { id: product.id },
+            data: {
+                offerDraft: {
+                    ...existingDraft,
+                    allegroOfferId: String(offerId),
+                    ...(effAccountId ? { allegroAccountId: effAccountId } : {}),
+                    allegroLastContentExport: {
+                        timestamp: new Date().toISOString(),
+                        accountId: effAccountId || null,
+                        offerId: String(offerId),
+                        status: patchResult.status,
+                        exportedImagesCount: uploadedImages.length,
+                        exportedSectionsCount: builtDesc ? builtDesc.sectionsCount : 0,
+                        uploadedUrls: uploadedImages.map(u => u.url)
+                    }
+                }
+            }
+        });
+
+        EventBus.publish('PRODUCT_ALLEGRO_CONTENT_EXPORTED', {
+            ean: product.ean,
+            accountId: effAccountId || null,
+            offerId: String(offerId),
+            status: patchResult.status
+        });
+
+        return res.status(200).json({
+            status: patchResult.status,
+            offerId: String(offerId),
+            accountId: effAccountId || null,
+            uploadedImagesCount: uploadedImages.length,
+            sectionsCount: builtDesc ? builtDesc.sectionsCount : 0,
+            message: patchResult.status === 'PENDING_TIMEOUT'
+                ? `Wysłano opis/zdjęcia do oferty ${offerId} (Allegro nadal przetwarza zadanie w tle).`
+                : `Sukces! Zaktualizowano opis i zdjęcia w ofercie Allegro (${offerId}).`,
+            patchResult
+        });
+    } catch (error) {
+        exportLogger.error(`[ALLEGRO EXPORT CONTENT ERROR] ${error.message}`, { stack: error.stack });
+        const status = error.statusCode || error.response?.status || 500;
+        return res.status(status).json({
+            error: error.message || 'Błąd wysyłki opisu i zdjęć do Allegro.',
             allegroErrors: error.allegroErrors || null
         });
     }
@@ -1684,5 +2066,7 @@ module.exports = {
     generateItalianFrame,
     searchAllegroOffers,
     validateAllegroParamsExport,
-    exportAllegroParams
+    exportAllegroParams,
+    validateAllegroContentExport,
+    exportAllegroContent
 };

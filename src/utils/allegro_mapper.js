@@ -1,6 +1,48 @@
 const { normalizeInciToLegalEnglish } = require('../modules/offer-optimizer-v2/normalization');
 
 const MAX_SAFETY_TEXT_LEN = 5000;
+const MAX_ALLEGRO_DESCRIPTION_BYTES = 40000;
+const MAX_ALLEGRO_OFFER_IMAGES_BUSINESS = 16;
+const AI_ACT_DISCLOSURE_HTML = '<p>Zdjęcia aranżacyjne: tła wygenerowane cyfrowo. Wygląd produktu i opakowania jest autentyczny.</p>';
+
+/**
+ * Sprawdza, czy URL/DataURI nadaje się do eksportu jako zdjęcie produktowe (odrzuca placeholdery i zablokowane linki CDN BaseLinkera).
+ */
+function isValidExportImageUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    const trimmed = url.trim();
+    if (!trimmed) return false;
+    const isPlaceholder =
+        trimmed.includes('upload.cdn.baselinker.com') ||
+        trimmed.includes('placeholder.com') ||
+        trimmed.includes('Wymagane nowe zdjęcie') ||
+        trimmed.includes('Pusty slot') ||
+        trimmed.includes('Slot #') ||
+        trimmed.includes('Audyt') ||
+        trimmed.includes('Analiza');
+    const isValidFormat = trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/');
+    return !isPlaceholder && isValidFormat;
+}
+
+function isAllegroHostedImageUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    return /^https?:\/\/[^/]*allegroimg\.com\//i.test(url.trim());
+}
+
+function getTrustedPathsSet(catalogProduct) {
+    return new Set([
+        ...(Array.isArray(catalogProduct?.trustedContent?.paths) ? catalogProduct.trustedContent.paths : []),
+        ...(Array.isArray(catalogProduct?.trustedContent?.productPaths) ? catalogProduct.trustedContent.productPaths : [])
+    ]);
+}
+
+function normalizeOfferImageUrls(rawImages) {
+    if (!Array.isArray(rawImages)) return [];
+    return rawImages
+        .map(img => (typeof img === 'string' ? img : (img && typeof img.url === 'string' ? img.url : '')))
+        .map(u => String(u || '').trim())
+        .filter(Boolean);
+}
 
 const NON_INCI_PLACEHOLDERS = new Set([
     'koncentrat', 'plyn', 'zel', 'proszek', 'kapsulki', 'tabletki', 'pianka', 'spray',
@@ -617,10 +659,7 @@ function buildAllegroParameterPatchPayload({
         }
     }
 
-    const trustedPaths = new Set([
-        ...(Array.isArray(catalogProduct?.trustedContent?.paths) ? catalogProduct.trustedContent.paths : []),
-        ...(Array.isArray(catalogProduct?.trustedContent?.productPaths) ? catalogProduct.trustedContent.productPaths : [])
-    ]);
+    const trustedPaths = getTrustedPathsSet(catalogProduct);
     const isAllProductParamsTrusted = trustedPaths.has('parameters') || trustedPaths.has('product.parameters');
 
     const existingOfferParams = Array.isArray(existingOffer?.parameters) ? existingOffer.parameters : [];
@@ -876,8 +915,406 @@ function buildAllegroParameterPatchPayload({
     };
 }
 
+/**
+ * Mechaniczny adapter formatu HTML dla elementu TEXT w `StandardizedDescription` Allegro API.
+ * Nie zmienia treści merytorycznej ani emotikonów — zamienia jedynie niedozwolone w API tagi (np. <strong> -> <b>, <br>, atrybuty)
+ * na ścisłą białą listę Allegro: {h1, h2, p, ul, ol, li, b}.
+ */
+function sanitizeHtmlForAllegroDescription(htmlStr) {
+    if (!htmlStr || typeof htmlStr !== 'string') return '';
+    let clean = htmlStr
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+        .replace(/<strong\b[^>]*>/gi, '<b>')
+        .replace(/<\/strong>/gi, '</b>')
+        .replace(/<h([3-6])\b[^>]*>/gi, '<h2>')
+        .replace(/<\/h[3-6]>/gi, '</h2>');
+
+    // Zamiana <br> poza listami na podział akapitów, a wewnątrz <li> na spację
+    clean = clean.replace(/<li\b[^>]*>([\s\S]*?)<\/li>/gi, (_, inner) => {
+        return `<li>${inner.replace(/<br\s*\/?>/gi, ' ')}</li>`;
+    });
+    clean = clean.replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, (_, inner) => {
+        const parts = inner.split(/<br\s*\/?>/gi).map(s => s.trim()).filter(Boolean);
+        return parts.map(part => `<p>${part}</p>`).join('');
+    });
+    clean = clean.replace(/<br\s*\/?>/gi, ' ');
+
+    // Biała lista 7 dozwolonych tagów Allegro (bez żadnych atrybutów)
+    const allowedTags = new Set(['h1', 'h2', 'p', 'ul', 'ol', 'li', 'b']);
+    clean = clean.replace(/<\/?([a-zA-Z0-9-]+)([^>]*)>/g, (match, rawTag) => {
+        const tag = String(rawTag).toLowerCase();
+        if (!allowedTags.has(tag)) return '';
+        return match.startsWith('</') ? `</${tag}>` : `<${tag}>`;
+    });
+
+    // Allegro zabrania zagnieżdżania tagów (np. <b>) wewnątrz <h1> oraz <h2>
+    clean = clean.replace(/<(h[12])>([\s\S]*?)<\/\1>/gi, (_, tag, inner) => {
+        const plainInner = inner.replace(/<\/?[a-z0-9]+>/gi, '').trim();
+        return plainInner ? `<${tag}>${plainInner}</${tag}>` : '';
+    });
+
+    // Odwijanie list błędnie owiniętych w <p>
+    clean = clean.replace(/<p>\s*(<(?:ul|ol)>[\s\S]*?<\/(?:ul|ol)>)\s*<\/p>/gi, '$1');
+
+    // Usuwanie pustych tagów (w tym <p>&nbsp;</p>)
+    clean = clean
+        .replace(/<p>(?:\s|&nbsp;)*<\/p>/gi, '')
+        .replace(/<li>(?:\s|&nbsp;)*<\/li>/gi, '')
+        .replace(/<(ul|ol)>(?:\s|&nbsp;)*<\/\1>/gi, '')
+        .trim();
+
+    if (!clean) return '';
+
+    // Jeżeli istnieje goły tekst poza tagami blokowymi (h1, h2, p, ul, ol), owijamy go w <p>
+    const blockRegex = /(<(?:h1|h2|p|ul|ol)>[\s\S]*?<\/(?:h1|h2|p|ul|ol)>)/gi;
+    const chunks = clean.split(blockRegex).map(chunk => chunk.trim()).filter(Boolean);
+    const normalizedChunks = chunks.map(chunk => {
+        if (/^<(?:h1|h2|p|ul|ol)>/i.test(chunk)) return chunk;
+        return `<p>${chunk}</p>`;
+    });
+
+    return normalizedChunks.join('');
+}
+
+/**
+ * Zbiera gotowe zdjęcia z potoku (visionTickets / draft.images / fallback PIM) z zachowaniem kolejności slotów.
+ */
+function collectPipelineImagesForAllegro({
+    draftImages = [],
+    productImageUrl = null,
+    productImages = [],
+    aiFlagsOverride = null,
+    maxImages = MAX_ALLEGRO_OFFER_IMAGES_BUSINESS
+} = {}) {
+    const collected = [];
+    const seen = new Set();
+
+    const pushCandidate = (rawSource, slotIndex, explicitAiFlag = null) => {
+        if (!isValidExportImageUrl(rawSource)) return;
+        const cleanUrl = rawSource.trim();
+        if (seen.has(cleanUrl)) return;
+        seen.add(cleanUrl);
+
+        let isAi = false;
+        if (typeof explicitAiFlag === 'boolean') {
+            isAi = explicitAiFlag;
+        } else if (aiFlagsOverride && typeof aiFlagsOverride === 'object' && typeof aiFlagsOverride[slotIndex] === 'boolean') {
+            isAi = aiFlagsOverride[slotIndex];
+        } else if (slotIndex > 0 && cleanUrl.startsWith('data:image/')) {
+            isAi = true;
+        }
+
+        collected.push({
+            slotIndex,
+            source: cleanUrl,
+            isAllegroHosted: isAllegroHostedImageUrl(cleanUrl),
+            isAiCoCreated: isAi
+        });
+    };
+
+    if (Array.isArray(draftImages) && draftImages.length > 0) {
+        draftImages.forEach((img, idx) => {
+            if (typeof img === 'string') {
+                pushCandidate(img, idx, null);
+                return;
+            }
+            if (img && typeof img === 'object') {
+                const url = img.replacedUrl || img.url || img.originalUrl || '';
+                const hasReplacedAi = Boolean(img.replacedUrl && idx > 0 && String(img.replacedUrl).startsWith('data:image/'));
+                const explicitFlag = typeof img.isAiCoCreated === 'boolean'
+                    ? img.isAiCoCreated
+                    : (typeof img.isAiGenerated === 'boolean' ? img.isAiGenerated : (hasReplacedAi ? true : null));
+                pushCandidate(url, idx, explicitFlag);
+            }
+        });
+    } else {
+        if (isValidExportImageUrl(productImageUrl)) {
+            pushCandidate(productImageUrl, 0, false);
+        }
+        if (Array.isArray(productImages)) {
+            productImages.forEach((img, idx) => {
+                pushCandidate(img, idx + (isValidExportImageUrl(productImageUrl) ? 1 : 0), false);
+            });
+        }
+    }
+
+    const overflowCount = Math.max(0, collected.length - maxImages);
+    return {
+        images: collected.slice(0, maxImages),
+        totalFound: collected.length,
+        overflowCount
+    };
+}
+
+/**
+ * Buduje strukturę `StandardizedDescription` dla REST API Allegro na podstawie gotowych sekcji `sekcja1..7` i listy URL-i zdjęć.
+ * Zachowuje spójność z BaseLinkerem (opcjonalna klauzula AI Act) oraz układem z TileSimulator.
+ */
+function buildAllegroDescriptionSections({
+    htmlContent = null,
+    descriptionHtml = '',
+    imageUrls = [],
+    appendAiDisclosure = false
+} = {}) {
+    const rawSections = [];
+
+    if (htmlContent && typeof htmlContent === 'object') {
+        const s1 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja1 || htmlContent.section_1_html || '');
+        const s2 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja2 || htmlContent.section_2_html || '');
+        const s3 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja3 || htmlContent.section_3_html || '');
+        const s4 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja4 || htmlContent.section_4_html || '');
+        const s5 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja5 || htmlContent.section_5_html || '');
+        const s6 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja6 || htmlContent.section_6_html || '');
+        const s7 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja7 || htmlContent.section_7_html || '');
+
+        const entries = [
+            { key: 'sekcja1', text: s1, imgIdx: 0, imageFirst: true },
+            { key: 'sekcja2', text: s2, imgIdx: 1, imageFirst: false },
+            { key: 'sekcja3', text: s3, imgIdx: 2, imageFirst: true },
+            { key: 'sekcja4', text: s4, imgIdx: 3, imageFirst: false },
+            { key: 'sekcja5', text: s5, imgIdx: 4, imageFirst: true },
+            { key: 'sekcja6', text: s6, imgIdx: 5, imageFirst: false },
+            { key: 'sekcja7', text: s7, imgIdx: -1, imageFirst: false }
+        ];
+
+        for (const entry of entries) {
+            if (!entry.text) continue;
+            const imgUrl = (entry.imgIdx >= 0 && Array.isArray(imageUrls) && imageUrls[entry.imgIdx])
+                ? String(imageUrls[entry.imgIdx]).trim()
+                : '';
+            const items = [];
+            if (imgUrl) {
+                if (entry.imageFirst) {
+                    items.push({ type: 'IMAGE', url: imgUrl });
+                    items.push({ type: 'TEXT', content: entry.text });
+                } else {
+                    items.push({ type: 'TEXT', content: entry.text });
+                    items.push({ type: 'IMAGE', url: imgUrl });
+                }
+            } else {
+                items.push({ type: 'TEXT', content: entry.text });
+            }
+            rawSections.push({ items });
+        }
+    } else {
+        const sourceStr = typeof htmlContent === 'string' ? htmlContent : descriptionHtml;
+        const cleanSingle = sanitizeHtmlForAllegroDescription(sourceStr || '');
+        if (cleanSingle) {
+            const firstImg = Array.isArray(imageUrls) && imageUrls[0] ? String(imageUrls[0]).trim() : '';
+            rawSections.push({
+                items: firstImg
+                    ? [{ type: 'IMAGE', url: firstImg }, { type: 'TEXT', content: cleanSingle }]
+                    : [{ type: 'TEXT', content: cleanSingle }]
+            });
+        }
+    }
+
+    if (appendAiDisclosure && rawSections.length > 0) {
+        const joinedAll = rawSections.map(s => s.items.map(i => i.content || '').join(' ')).join(' ');
+        if (!/tła wygenerowane cyfrowo/i.test(joinedAll)) {
+            const lastSec = rawSections[rawSections.length - 1];
+            const textItem = lastSec.items.find(i => i.type === 'TEXT');
+            if (textItem) {
+                textItem.content = `${textItem.content}${AI_ACT_DISCLOSURE_HTML}`;
+            } else {
+                rawSections.push({ items: [{ type: 'TEXT', content: AI_ACT_DISCLOSURE_HTML }] });
+            }
+        }
+    }
+
+    const description = { sections: rawSections };
+    const totalBytes = Buffer.byteLength(JSON.stringify(description), 'utf8');
+    return {
+        description,
+        sectionsCount: rawSections.length,
+        totalBytes,
+        exceedsLimit: totalBytes > MAX_ALLEGRO_DESCRIPTION_BYTES
+    };
+}
+
+/**
+ * Waliduje eksport opisu i zdjęć w fazie Pre-flight (bez mutacji i bez wgrywania plików na CDN Allegro).
+ */
+function buildAllegroContentPreflight({
+    existingOffer = {},
+    catalogProduct = null,
+    htmlContent = null,
+    descriptionHtml = '',
+    draftImages = [],
+    productImageUrl = null,
+    productImages = [],
+    includeImages = true,
+    includeDescription = true,
+    aiFlagsOverride = null
+} = {}) {
+    const errors = [];
+    const warnings = [];
+    const trustedPaths = getTrustedPathsSet(catalogProduct);
+    const imagesBlockedByTrusted = trustedPaths.has('images') || trustedPaths.has('product.images');
+    const descriptionBlockedByTrusted = trustedPaths.has('description') || trustedPaths.has('product.description');
+
+    const currentOfferImages = normalizeOfferImageUrls(existingOffer?.images);
+    const currentOfferDescription = existingOffer?.description && Array.isArray(existingOffer.description.sections)
+        ? existingOffer.description
+        : { sections: [] };
+
+    const collected = collectPipelineImagesForAllegro({
+        draftImages,
+        productImageUrl,
+        productImages,
+        aiFlagsOverride
+    });
+
+    if (includeImages && collected.overflowCount > 0) {
+        warnings.push(`Wykryto ${collected.totalFound} zdjęć, ale limit Allegro dla konta firmowego to ${MAX_ALLEGRO_OFFER_IMAGES_BUSINESS} — nadmiarowe (${collected.overflowCount}) zostały pominięte.`);
+    }
+
+    let effectiveIncludeImages = Boolean(includeImages);
+    if (effectiveIncludeImages && imagesBlockedByTrusted) {
+        effectiveIncludeImages = false;
+        warnings.push('Pole `images` jest chronione przez Trusted Content w Katalogu Allegro — aktualizacja zdjęć została zablokowana w Pre-flight.');
+    }
+    if (effectiveIncludeImages && collected.images.length === 0) {
+        errors.push('Brak prawidłowych zdjęć w PIM/Vision AI do wysłania na Allegro.');
+    }
+
+    let effectiveIncludeDescription = Boolean(includeDescription);
+    if (effectiveIncludeDescription && descriptionBlockedByTrusted) {
+        effectiveIncludeDescription = false;
+        warnings.push('Pole `description` jest chronione przez Trusted Content w Katalogu Allegro — aktualizacja opisu została zablokowana w Pre-flight.');
+    }
+
+    // Zdjęcia użyte w sekcjach opisu muszą istnieć w docelowej galerii `images[]` oferty.
+    // Do wyliczenia docelowego rozmiaru UTF-8 w Pre-flight (zanim wgramy Base64 na CDN Allegro)
+    // używamy dokładnej długości docelowego URL-a a.allegroimg.com, aby surowe Base64 nie fałszowały limitu 40000 B.
+    const descriptionImageUrls = effectiveIncludeImages
+        ? collected.images.map(img => img.source)
+        : currentOfferImages;
+    const simulatedCdnImageUrls = effectiveIncludeImages
+        ? collected.images.map((img, idx) => (
+            img.isAllegroHosted
+                ? img.source
+                : `https://a.allegroimg.com/original/000000/00000000000000000000000000${String(idx).padStart(2, '0')}`
+        ))
+        : currentOfferImages;
+
+    const hasAiImages = collected.images.some(img => img.isAiCoCreated);
+    const descBuildPreview = effectiveIncludeDescription
+        ? buildAllegroDescriptionSections({
+            htmlContent,
+            descriptionHtml,
+            imageUrls: descriptionImageUrls,
+            appendAiDisclosure: hasAiImages
+        })
+        : { description: currentOfferDescription, sectionsCount: currentOfferDescription.sections.length, totalBytes: Buffer.byteLength(JSON.stringify(currentOfferDescription), 'utf8'), exceedsLimit: false };
+
+    const descBuildSized = effectiveIncludeDescription
+        ? buildAllegroDescriptionSections({
+            htmlContent,
+            descriptionHtml,
+            imageUrls: simulatedCdnImageUrls,
+            appendAiDisclosure: hasAiImages
+        })
+        : descBuildPreview;
+
+    const descBuild = {
+        description: descBuildPreview.description,
+        sectionsCount: descBuildPreview.sectionsCount,
+        totalBytes: descBuildSized.totalBytes,
+        exceedsLimit: descBuildSized.exceedsLimit
+    };
+
+    if (effectiveIncludeDescription) {
+        if (descBuild.sectionsCount === 0) {
+            errors.push('Brak wygenerowanego opisu (sekcje 1–7 i descriptionHtml są puste).');
+        }
+        if (descBuild.exceedsLimit) {
+            errors.push(`Opis przekracza limit REST API Allegro (${descBuild.totalBytes} / ${MAX_ALLEGRO_DESCRIPTION_BYTES} bajtów UTF-8).`);
+        }
+        if (!effectiveIncludeImages && currentOfferImages.length === 0) {
+            warnings.push('Oferta na Allegro nie ma obecnie zdjęć, a wysyłka zdjęć jest wyłączona — opis zostanie wysłany wyłącznie jako sekcje tekstowe.');
+        }
+    }
+
+    const imagesNeedUploadCount = effectiveIncludeImages
+        ? collected.images.filter(img => !img.isAllegroHosted).length
+        : 0;
+
+    const currentImagesJson = JSON.stringify(currentOfferImages);
+    const nextImageSourcesJson = JSON.stringify(collected.images.map(img => img.source));
+    const imagesChanged = effectiveIncludeImages && (imagesNeedUploadCount > 0 || currentImagesJson !== nextImageSourcesJson);
+
+    const currentDescJson = JSON.stringify(currentOfferDescription);
+    const nextDescJson = JSON.stringify(descBuild.description);
+    const descriptionChanged = effectiveIncludeDescription && (imagesNeedUploadCount > 0 || currentDescJson !== nextDescJson);
+
+    const hasChanges = (imagesChanged || descriptionChanged) && (effectiveIncludeImages || effectiveIncludeDescription);
+
+    return {
+        hasChanges,
+        errors,
+        warnings,
+        trusted: {
+            imagesBlocked: imagesBlockedByTrusted,
+            descriptionBlocked: descriptionBlockedByTrusted
+        },
+        effectiveIncludeImages,
+        effectiveIncludeDescription,
+        imagesPreview: {
+            current: currentOfferImages,
+            next: collected.images,
+            changed: imagesChanged,
+            needUploadCount: imagesNeedUploadCount
+        },
+        descriptionPreview: {
+            currentSections: currentOfferDescription.sections || [],
+            nextSections: descBuild.description.sections || [],
+            sectionsCount: descBuild.sectionsCount,
+            totalBytes: descBuild.totalBytes,
+            maxBytes: MAX_ALLEGRO_DESCRIPTION_BYTES,
+            changed: descriptionChanged
+        }
+    };
+}
+
+/**
+ * Buduje finalny payload `PATCH /sale/product-offers/{offerId}` dla zdjęć i opisu (zawsze bez `productSet`).
+ */
+function buildAllegroContentPatchBody({
+    existingOffer = {},
+    uploadedImages = [],
+    description = null,
+    includeImages = true,
+    includeDescription = true
+} = {}) {
+    const patchBody = {};
+    if (includeImages) {
+        const finalUrls = uploadedImages.map(u => String(u.url || '').trim()).filter(Boolean);
+        patchBody.images = finalUrls;
+
+        const nextAiImages = uploadedImages
+            .filter(u => u.isAiCoCreated && u.url)
+            .map(u => ({ url: String(u.url).trim() }));
+        const hadPrevAi = Array.isArray(existingOffer?.aiCoCreatedContent?.images) && existingOffer.aiCoCreatedContent.images.length > 0;
+        if (nextAiImages.length > 0 || hadPrevAi) {
+            patchBody.aiCoCreatedContent = { images: nextAiImages };
+        }
+    }
+    if (includeDescription && description && Array.isArray(description.sections) && description.sections.length > 0) {
+        patchBody.description = description;
+    }
+    return patchBody;
+}
+
 module.exports = {
     MAX_SAFETY_TEXT_LEN,
+    MAX_ALLEGRO_DESCRIPTION_BYTES,
+    MAX_ALLEGRO_OFFER_IMAGES_BUSINESS,
+    AI_ACT_DISCLOSURE_HTML,
+    isValidExportImageUrl,
+    isAllegroHostedImageUrl,
+    normalizeOfferImageUrls,
     normalizeTextKey,
     mapAllegroParameters,
     stripHtmlAndEmoticons,
@@ -886,5 +1323,10 @@ module.exports = {
     convertValueToParameterUnit,
     encodeParameterValue,
     formatAllegroParamDisplay,
-    buildAllegroParameterPatchPayload
+    buildAllegroParameterPatchPayload,
+    sanitizeHtmlForAllegroDescription,
+    collectPipelineImagesForAllegro,
+    buildAllegroDescriptionSections,
+    buildAllegroContentPreflight,
+    buildAllegroContentPatchBody
 };

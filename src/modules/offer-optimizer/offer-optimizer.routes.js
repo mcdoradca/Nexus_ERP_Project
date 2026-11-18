@@ -24,6 +24,8 @@ router.post('/export-baselinker', express.json({ limit: '50mb' }), controller.ex
 router.get('/allegro-offers/search', controller.searchAllegroOffers);
 router.post('/validate-allegro-params-export', express.json({ limit: '50mb' }), controller.validateAllegroParamsExport);
 router.post('/export-allegro-params', express.json({ limit: '50mb' }), controller.exportAllegroParams);
+router.post('/validate-allegro-content-export', express.json({ limit: '50mb' }), controller.validateAllegroContentExport);
+router.post('/export-allegro-content', express.json({ limit: '50mb' }), controller.exportAllegroContent);
 router.post('/generate-lifestyle', express.json({ limit: '50mb' }), controller.generateLifestyle);
 router.get('/generate-lifestyle/status/:jobId', controller.checkLifestyleStatus);
 router.post('/extract-back-label', express.json({ limit: '50mb' }), controller.extractBackLabel);

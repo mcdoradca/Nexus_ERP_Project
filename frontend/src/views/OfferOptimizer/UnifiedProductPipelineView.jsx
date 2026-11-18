@@ -180,7 +180,9 @@ export const UnifiedProductPipelineView = ({
     const [isExtractingBackLabel, setIsExtractingBackLabel] = useState(false);
     const backImageFileInputRef = useRef(null);
 
-    // STANY EKSPORTU PARAMETRÓW BEZPOŚREDNIO DO ALLEGRO REST API
+    // STANY EKSPORTU PARAMETRÓW ORAZ OPISU I ZDJĘĆ BEZPOŚREDNIO DO ALLEGRO REST API
+    const [allegroAccounts, setAllegroAccounts] = useState([]);
+    const [allegroAccountId, setAllegroAccountId] = useState('');
     const [allegroOfferId, setAllegroOfferId] = useState('');
     const [allegroOfferCandidates, setAllegroOfferCandidates] = useState([]);
     const [isSearchingAllegroOffer, setIsSearchingAllegroOffer] = useState(false);
@@ -192,6 +194,16 @@ export const UnifiedProductPipelineView = ({
     const [allegroCustomSafetyText, setAllegroCustomSafetyText] = useState('');
     const [allegroIncludeComposition, setAllegroIncludeComposition] = useState(true);
     const [allegroPreviewDirty, setAllegroPreviewDirty] = useState(false);
+
+    // STANY EKSPORTU OPISU I ZDJĘĆ DO ALLEGRO REST API
+    const [isValidatingAllegroContent, setIsValidatingAllegroContent] = useState(false);
+    const [isExportingAllegroContent, setIsExportingAllegroContent] = useState(false);
+    const [allegroContentValidationResult, setAllegroContentValidationResult] = useState(null);
+    const [showAllegroContentModal, setShowAllegroContentModal] = useState(false);
+    const [allegroExportIncludeImages, setAllegroExportIncludeImages] = useState(true);
+    const [allegroExportIncludeDescription, setAllegroExportIncludeDescription] = useState(true);
+    const [allegroAiFlagsOverride, setAllegroAiFlagsOverride] = useState({});
+    const [allegroContentPreviewDirty, setAllegroContentPreviewDirty] = useState(false);
 
     const handleExtractBackLabel = async (overrideImageUrl) => {
         const targetImg = overrideImageUrl || newProductForm?.features?.['Zdjęcie tyłu opakowania'];
@@ -299,11 +311,22 @@ export const UnifiedProductPipelineView = ({
             setIsBrandDropdownOpen(false);
         } catch(err) { alert('Błąd tworzenia marki'); }
     };
-    // Ładowanie marek
+    // Ładowanie marek oraz podłączonych kont Allegro
     useEffect(() => {
         axios.get(`${API_URL}/api/brands`, { headers: { Authorization: `Bearer ${token}` } })
             .then(res => setBrands(res.data))
             .catch(err => console.error("Błąd ładowania marek", err));
+
+        axios.get(`${API_URL}/api/allegro/auth/accounts`, { headers: { Authorization: `Bearer ${token}` } })
+            .then(res => {
+                const list = Array.isArray(res.data?.accounts) ? res.data.accounts : [];
+                setAllegroAccounts(list);
+                if (list.length > 0) {
+                    const defAcc = list.find(a => a.isDefault) || list[0];
+                    setAllegroAccountId(prev => prev || defAcc.accountId);
+                }
+            })
+            .catch(err => console.error("Błąd ładowania kont Allegro", err));
     }, [token]);
 
     // Inicjalizacja PIM (Edycja) oraz Odzyskiwanie Wersji Roboczej
@@ -559,6 +582,9 @@ export const UnifiedProductPipelineView = ({
                     bdoEprCost: parseFloat(calcBdo.toFixed(4))
                 });
                 setAllegroOfferId(dbDraft?.allegroOfferId ? String(dbDraft.allegroOfferId) : '');
+                if (dbDraft?.allegroAccountId) {
+                    setAllegroAccountId(String(dbDraft.allegroAccountId));
+                }
                 setAllegroOfferCandidates([]);
                 setBrandSearchTerm(p.brand ? p.brand.name : (localDraft?.brandSearchTerm || ''));
                 setLiveEan(p.ean || "");
@@ -1067,7 +1093,8 @@ export const UnifiedProductPipelineView = ({
                 packagingCost: newProductForm.packagingCost,
                 bdoEprCost: newProductForm.bdoEprCost,
                 outboundTransportCost: newProductForm.outboundTransportCost,
-                ...(allegroOfferId ? { allegroOfferId: allegroOfferId.trim() } : {})
+                ...(allegroOfferId ? { allegroOfferId: allegroOfferId.trim() } : {}),
+                ...(allegroAccountId && allegroAccountId !== 'ALL' ? { allegroAccountId: allegroAccountId.trim() } : {})
             };
             
             await axios.post(`${API_URL}/api/offer-optimizer/save-draft`, {
@@ -1153,7 +1180,8 @@ export const UnifiedProductPipelineView = ({
                 sku: newProductForm.sku || '',
                 name: newProductForm.name || '',
                 baselinkerId: newProductForm.baselinkerId || '',
-                categoryId: newProductForm.allegroCategoryId || ''
+                categoryId: newProductForm.allegroCategoryId || '',
+                accountId: allegroAccountId || 'ALL'
             });
             const res = await axios.get(`${API_URL}/api/offer-optimizer/allegro-offers/search?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -1161,11 +1189,12 @@ export const UnifiedProductPipelineView = ({
             const foundOffers = Array.isArray(res.data?.offers) ? res.data.offers : [];
             setAllegroOfferCandidates(foundOffers);
             if (foundOffers.length === 0) {
-                alert('Nie znaleziono pasujących ofert na koncie Allegro dla tego SKU/EAN/nazwy. Możesz wpisać numer oferty (Offer ID) ręcznie.');
+                alert('Nie znaleziono pasujących ofert na wybranym koncie Allegro dla tego SKU/EAN/nazwy. Możesz wpisać numer oferty (Offer ID) ręcznie.');
             } else {
                 const best = foundOffers.find(o => o.eanMatch) || foundOffers[0];
                 if (best && (!allegroOfferId || foundOffers.length === 1 || best.eanMatch)) {
                     setAllegroOfferId(best.id);
+                    if (best.accountId) setAllegroAccountId(best.accountId);
                 }
             }
         } catch (err) {
@@ -1195,11 +1224,14 @@ export const UnifiedProductPipelineView = ({
             const effIncludeComp = overrideOptions.includeComposition !== undefined ? overrideOptions.includeComposition : allegroIncludeComposition;
             const effCustomSafety = overrideOptions.customSafetyText !== undefined ? overrideOptions.customSafetyText : null;
             const effOfferId = overrideOptions.offerId !== undefined ? overrideOptions.offerId : allegroOfferId;
+            const rawAcc = overrideOptions.accountId !== undefined ? overrideOptions.accountId : allegroAccountId;
+            const effAccountId = rawAcc && rawAcc !== 'ALL' ? String(rawAcc).trim() : undefined;
 
             const res = await axios.post(`${API_URL}/api/offer-optimizer/validate-allegro-params-export`, {
                 ean: targetEan,
                 productId: targetProductId,
                 offerId: effOfferId ? String(effOfferId).trim() : undefined,
+                accountId: effAccountId,
                 categoryId: newProductForm.allegroCategoryId || undefined,
                 features: newProductForm.features || {},
                 htmlContent: editorHtml,
@@ -1212,6 +1244,9 @@ export const UnifiedProductPipelineView = ({
             setAllegroParamsValidationResult(res.data);
             if (res.data?.offer?.id) {
                 setAllegroOfferId(String(res.data.offer.id));
+            }
+            if (res.data?.account?.id) {
+                setAllegroAccountId(String(res.data.account.id));
             }
             if (Array.isArray(res.data?.matchedCandidates) && res.data.matchedCandidates.length > 0) {
                 setAllegroOfferCandidates(res.data.matchedCandidates);
@@ -1238,6 +1273,7 @@ export const UnifiedProductPipelineView = ({
                 ean: targetEan,
                 productId: editingProduct,
                 offerId: allegroParamsValidationResult.offer.id,
+                accountId: allegroParamsValidationResult.account?.id || (allegroAccountId !== 'ALL' ? allegroAccountId : ''),
                 patchBody: allegroParamsValidationResult.patchBody,
                 exportToken: allegroParamsValidationResult.exportToken,
                 updatedFeatures: newProductForm.features || {},
@@ -1252,6 +1288,96 @@ export const UnifiedProductPipelineView = ({
             alert('Błąd wysyłki do Allegro API: ' + (err.response?.data?.error || err.message));
         } finally {
             setIsExportingAllegroParams(false);
+        }
+    };
+
+    const handleValidateAllegroContentExport = async (overrideOptions = {}) => {
+        setIsValidatingAllegroContent(true);
+        try {
+            let targetProductId = editingProduct;
+            let targetEan = effectiveEan || liveEan || newProductForm.ean;
+            if (!targetProductId && !targetEan) {
+                const saved = await handleCreateProduct();
+                targetProductId = saved?.id;
+                targetEan = saved?.ean;
+            }
+            if (!targetEan && !targetProductId) {
+                alert('Zapisz najpierw kartotekę produktu z kodem EAN.');
+                return;
+            }
+
+            const effIncludeImages = overrideOptions.includeImages !== undefined ? overrideOptions.includeImages : allegroExportIncludeImages;
+            const effIncludeDesc = overrideOptions.includeDescription !== undefined ? overrideOptions.includeDescription : allegroExportIncludeDescription;
+            const effAiFlags = overrideOptions.aiFlagsOverride !== undefined ? overrideOptions.aiFlagsOverride : allegroAiFlagsOverride;
+            const effOfferId = overrideOptions.offerId !== undefined ? overrideOptions.offerId : allegroOfferId;
+            const rawAcc = overrideOptions.accountId !== undefined ? overrideOptions.accountId : allegroAccountId;
+            const effAccountId = rawAcc && rawAcc !== 'ALL' ? String(rawAcc).trim() : undefined;
+
+            const res = await axios.post(`${API_URL}/api/offer-optimizer/validate-allegro-content-export`, {
+                ean: targetEan,
+                productId: targetProductId,
+                offerId: effOfferId ? String(effOfferId).trim() : undefined,
+                accountId: effAccountId,
+                htmlContent: editorHtml,
+                images: visionTickets,
+                includeImages: effIncludeImages,
+                includeDescription: effIncludeDesc,
+                aiFlagsOverride: effAiFlags
+            }, { headers: { Authorization: `Bearer ${token}` } });
+
+            setAllegroContentValidationResult(res.data);
+            if (res.data?.offer?.id) {
+                setAllegroOfferId(String(res.data.offer.id));
+            }
+            if (res.data?.account?.id) {
+                setAllegroAccountId(String(res.data.account.id));
+            }
+            if (Array.isArray(res.data?.matchedCandidates) && res.data.matchedCandidates.length > 0) {
+                setAllegroOfferCandidates(res.data.matchedCandidates);
+            }
+            if (overrideOptions.aiFlagsOverride === undefined && Array.isArray(res.data?.imagesPreview?.next)) {
+                const initialAiMap = {};
+                res.data.imagesPreview.next.forEach(img => {
+                    initialAiMap[img.slotIndex] = Boolean(img.isAiCoCreated);
+                });
+                setAllegroAiFlagsOverride(initialAiMap);
+            }
+            setAllegroContentPreviewDirty(false);
+            setShowAllegroContentModal(true);
+        } catch (err) {
+            console.error('[AllegroContentPreflight] Błąd:', err);
+            alert('Błąd przygotowania eksportu opisu i zdjęć do Allegro: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsValidatingAllegroContent(false);
+        }
+    };
+
+    const handleConfirmAllegroContentExport = async () => {
+        if (!allegroContentValidationResult?.offer?.id || !allegroContentValidationResult?.exportToken) return;
+        setIsExportingAllegroContent(true);
+        try {
+            const targetEan = effectiveEan || liveEan || newProductForm.ean;
+            const res = await axios.post(`${API_URL}/api/offer-optimizer/export-allegro-content`, {
+                ean: targetEan,
+                productId: editingProduct,
+                offerId: allegroContentValidationResult.offer.id,
+                accountId: allegroContentValidationResult.account?.id || (allegroAccountId !== 'ALL' ? allegroAccountId : ''),
+                htmlContent: editorHtml,
+                images: visionTickets,
+                includeImages: allegroExportIncludeImages,
+                includeDescription: allegroExportIncludeDescription,
+                aiFlagsOverride: allegroAiFlagsOverride,
+                exportToken: allegroContentValidationResult.exportToken
+            }, { headers: { Authorization: `Bearer ${token}` } });
+
+            alert(res.data?.message || 'Opis i zdjęcia zostały wysłane bezpośrednio do oferty Allegro!');
+            setShowAllegroContentModal(false);
+            if (fetchAppGlobalData) fetchAppGlobalData();
+        } catch (err) {
+            console.error('[AllegroContentExport] Błąd:', err);
+            alert('Błąd wysyłki opisu i zdjęć do Allegro API: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsExportingAllegroContent(false);
         }
     };
 
@@ -1752,6 +1878,16 @@ export const UnifiedProductPipelineView = ({
                                             >
                                                 {isValidatingAllegroParams ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
                                                 Wyślij Parametry Allegro
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleValidateAllegroContentExport()}
+                                                disabled={isValidatingAllegroContent}
+                                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase font-black tracking-widest rounded-md transition-all shadow-md flex items-center disabled:opacity-50"
+                                                title="Otwiera Pre-flight weryfikacji i wysyła gotowy opis oraz zdjęcia bezpośrednio na wybrane konto/ofertę Allegro"
+                                            >
+                                                {isValidatingAllegroContent ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Image className="w-4 h-4 mr-2" />}
+                                                Wyślij Opis i Zdjęcia Allegro
                                             </button>
                                         </div>
                                     </div>
@@ -2258,23 +2394,46 @@ export const UnifiedProductPipelineView = ({
                                                                     title="Przygotowuje podgląd Pre-flight i wysyła parametry, skład INCI oraz czyste ostrzeżenia bezpośrednio do Allegro API"
                                                                 >
                                                                     {isValidatingAllegroParams ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Send className="w-3 h-3 mr-1" />}
-                                                                    Wyślij do Allegro API
+                                                                    Wyślij Parametry
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleValidateAllegroContentExport()}
+                                                                    disabled={isValidatingAllegroContent}
+                                                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-sm text-[9px] font-bold uppercase transition-colors shadow-sm flex items-center disabled:opacity-50"
+                                                                    title="Przygotowuje podgląd Pre-flight i wysyła gotowy opis oraz zdjęcia bezpośrednio do Allegro API"
+                                                                >
+                                                                    {isValidatingAllegroContent ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Image className="w-3 h-3 mr-1" />}
+                                                                    Wyślij Opis i Zdjęcia
                                                                 </button>
                                                             </div>
                                                          </div>
 
-                                                         {/* Pasek powiązania oferty docelowej Allegro (Offer ID) */}
+                                                         {/* Pasek powiązania konta i oferty docelowej Allegro (Account + Offer ID) */}
                                                          <div className="mb-3 p-3 bg-white border border-amber-200 rounded-sm flex flex-col space-y-2">
-                                                             <div className="flex items-center space-x-2">
-                                                                 <span className="w-1/3 text-[10px] font-black text-amber-800 uppercase tracking-widest">
-                                                                     Docelowa Aukcja Allegro (Offer ID)
+                                                             <div className="flex flex-wrap items-center gap-2">
+                                                                 <span className="w-1/3 min-w-[180px] text-[10px] font-black text-amber-800 uppercase tracking-widest">
+                                                                     Konto &amp; Aukcja Allegro
                                                                  </span>
+                                                                 <select
+                                                                     value={allegroAccountId}
+                                                                     onChange={e => setAllegroAccountId(e.target.value)}
+                                                                     className="bg-slate-50 border border-slate-300 rounded-sm px-2.5 py-1.5 text-[11px] font-bold outline-none focus:border-amber-500 max-w-[220px]"
+                                                                     title="Wybierz konto Allegro, na którym znajduje się aukcja"
+                                                                 >
+                                                                     <option value="ALL">Wszystkie konta (szukaj)</option>
+                                                                     {allegroAccounts.map(acc => (
+                                                                         <option key={acc.accountId} value={acc.accountId}>
+                                                                             {acc.label} (#{acc.accountId}){acc.isDefault ? ' [Dom.]' : ''}
+                                                                         </option>
+                                                                     ))}
+                                                                 </select>
                                                                  <input
                                                                      type="text"
                                                                      value={allegroOfferId}
                                                                      onChange={e => setAllegroOfferId(e.target.value)}
-                                                                     placeholder="Wpisz Offer ID lub kliknij Znajdź (auto po SKU/EAN)..."
-                                                                     className="flex-1 bg-slate-50 border border-slate-300 rounded-sm px-3 py-1.5 text-[11px] font-mono font-bold outline-none focus:border-amber-500"
+                                                                     placeholder="Offer ID lub Znajdź..."
+                                                                     className="flex-1 min-w-[140px] bg-slate-50 border border-slate-300 rounded-sm px-3 py-1.5 text-[11px] font-mono font-bold outline-none focus:border-amber-500"
                                                                  />
                                                                  <button
                                                                      type="button"
@@ -2293,13 +2452,18 @@ export const UnifiedProductPipelineView = ({
                                                                      </span>
                                                                      <select
                                                                          value={allegroOfferId}
-                                                                         onChange={e => setAllegroOfferId(e.target.value)}
+                                                                         onChange={e => {
+                                                                             const nextOfferId = e.target.value;
+                                                                             setAllegroOfferId(nextOfferId);
+                                                                             const matched = allegroOfferCandidates.find(c => String(c.id) === String(nextOfferId));
+                                                                             if (matched?.accountId) setAllegroAccountId(String(matched.accountId));
+                                                                         }}
                                                                          className="flex-1 bg-amber-50/40 border border-amber-200 rounded-sm px-2.5 py-1.5 text-[11px] font-bold outline-none focus:border-amber-500"
                                                                      >
                                                                          <option value="">-- Wybierz aukcję z listy --</option>
                                                                          {allegroOfferCandidates.map(cand => (
-                                                                             <option key={cand.id} value={cand.id}>
-                                                                                 [{cand.status}]{cand.eanMatch ? ' [EAN OK]' : ''} {cand.id} — {cand.name}
+                                                                             <option key={`${cand.accountId || 'def'}-${cand.id}`} value={cand.id}>
+                                                                                 {cand.accountLabel ? `[${cand.accountLabel}] ` : ''}[{cand.status}]{cand.eanMatch ? ' [EAN OK]' : ''} {cand.id} — {cand.name}
                                                                              </option>
                                                                          ))}
                                                                      </select>
@@ -2613,7 +2777,9 @@ export const UnifiedProductPipelineView = ({
                                     <h3 className="font-black text-lg uppercase tracking-tight">Pre-Flight Eksportu Parametrów Bezpośrednio do Allegro API</h3>
                                     <p className="text-xs font-bold text-amber-800/80">
                                         Oferta #{allegroParamsValidationResult.offer?.id} ({allegroParamsValidationResult.offer?.status}) • Kategoria: {allegroParamsValidationResult.category?.id} — {allegroParamsValidationResult.category?.name}
-                                        {allegroParamsValidationResult.tokenClaims?.userName ? ` • Konto: ${allegroParamsValidationResult.tokenClaims.userName}` : ''}
+                                        {(allegroParamsValidationResult.account?.label || allegroParamsValidationResult.tokenClaims?.userName)
+                                            ? ` • Konto: ${allegroParamsValidationResult.account?.label || ''} (#${allegroParamsValidationResult.account?.id || allegroParamsValidationResult.tokenClaims?.userName})`
+                                            : ''}
                                     </p>
                                 </div>
                             </div>
@@ -2623,13 +2789,26 @@ export const UnifiedProductPipelineView = ({
                         </div>
 
                         <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50 space-y-5">
-                            {/* Wybór innej aukcji docelowej z listy lub ręcznie */}
+                            {/* Wybór konta i innej aukcji docelowej z listy lub ręcznie */}
                             <div className="bg-white p-4 rounded-md border border-slate-200 flex flex-wrap items-center justify-between gap-3">
                                 <div className="flex-1 min-w-[260px]">
                                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aukcja Allegro</div>
                                     <div className="text-sm font-black text-slate-800">{allegroParamsValidationResult.offer?.name}</div>
                                 </div>
-                                <div className="flex items-center space-x-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {allegroAccounts.length > 0 && (
+                                        <select
+                                            value={allegroAccountId === 'ALL' ? (allegroParamsValidationResult.account?.id || '') : allegroAccountId}
+                                            onChange={e => { setAllegroAccountId(e.target.value); setAllegroPreviewDirty(true); }}
+                                            className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs font-bold outline-none focus:border-amber-500"
+                                        >
+                                            {allegroAccounts.map(acc => (
+                                                <option key={acc.accountId} value={acc.accountId}>
+                                                    {acc.label} (#{acc.accountId})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
                                     <input
                                         type="text"
                                         value={allegroOfferId}
@@ -2641,6 +2820,7 @@ export const UnifiedProductPipelineView = ({
                                         type="button"
                                         onClick={() => handleValidateAllegroParamsExport({
                                             offerId: allegroOfferId,
+                                            accountId: allegroAccountId === 'ALL' ? '' : allegroAccountId,
                                             includeSafetyInfo: allegroIncludeSafety,
                                             customSafetyText: allegroCustomSafetyText,
                                             includeComposition: allegroIncludeComposition,
@@ -2857,6 +3037,272 @@ export const UnifiedProductPipelineView = ({
                                 >
                                     {isExportingAllegroParams ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
                                     {allegroParamsValidationResult.hasChanges ? 'Zatwierdź i wyślij do Allegro' : 'Brak zmian do wysłania'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showAllegroContentModal && allegroContentValidationResult && (
+                <div className="fixed inset-0 z-[215] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+                        <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-emerald-50 text-emerald-950 shrink-0">
+                            <div className="flex items-center space-x-4">
+                                <Image className="w-8 h-8 text-emerald-600" />
+                                <div>
+                                    <h3 className="font-black text-lg uppercase tracking-tight">Pre-Flight Eksportu Opisu i Zdjęć Bezpośrednio do Allegro API</h3>
+                                    <p className="text-xs font-bold text-emerald-800/80">
+                                        Oferta #{allegroContentValidationResult.offer?.id} ({allegroContentValidationResult.offer?.status})
+                                        {(allegroContentValidationResult.account?.label || allegroContentValidationResult.tokenClaims?.userName)
+                                            ? ` • Konto: ${allegroContentValidationResult.account?.label || ''} (#${allegroContentValidationResult.account?.id || allegroContentValidationResult.tokenClaims?.userName})`
+                                            : ''}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className={`px-4 py-2 rounded-md font-bold text-xs uppercase tracking-widest ${(allegroContentValidationResult.errors?.length || 0) === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                {(allegroContentValidationResult.errors?.length || 0) === 0 ? 'Gotowy do wysyłki' : 'Wykryto błędy'}
+                            </div>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50 space-y-5">
+                            {/* Wybór konta i docelowej oferty Allegro */}
+                            <div className="bg-white p-4 rounded-md border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex-1 min-w-[240px]">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aukcja Allegro</div>
+                                    <div className="text-sm font-black text-slate-800">{allegroContentValidationResult.offer?.name}</div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {allegroAccounts.length > 0 && (
+                                        <select
+                                            value={allegroAccountId === 'ALL' ? (allegroContentValidationResult.account?.id || '') : allegroAccountId}
+                                            onChange={e => { setAllegroAccountId(e.target.value); setAllegroContentPreviewDirty(true); }}
+                                            className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs font-bold outline-none focus:border-emerald-500"
+                                        >
+                                            {allegroAccounts.map(acc => (
+                                                <option key={acc.accountId} value={acc.accountId}>
+                                                    {acc.label} (#{acc.accountId})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    <input
+                                        type="text"
+                                        value={allegroOfferId}
+                                        onChange={e => { setAllegroOfferId(e.target.value); setAllegroContentPreviewDirty(true); }}
+                                        className="px-3 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs font-mono font-bold w-36 outline-none focus:border-emerald-500"
+                                        placeholder="Offer ID"
+                                    />
+                                    {allegroOfferCandidates.length > 0 && (
+                                        <select
+                                            value={allegroOfferId}
+                                            onChange={e => {
+                                                const nextId = e.target.value;
+                                                setAllegroOfferId(nextId);
+                                                const matched = allegroOfferCandidates.find(c => String(c.id) === String(nextId));
+                                                if (matched?.accountId) setAllegroAccountId(String(matched.accountId));
+                                                setAllegroContentPreviewDirty(true);
+                                            }}
+                                            className="px-2.5 py-1.5 bg-amber-50/50 border border-amber-200 rounded text-xs font-bold max-w-[240px] outline-none"
+                                        >
+                                            {allegroOfferCandidates.map(cand => (
+                                                <option key={`${cand.accountId || 'def'}-${cand.id}`} value={cand.id}>
+                                                    {cand.accountLabel ? `[${cand.accountLabel}] ` : ''}{cand.id} — {cand.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleValidateAllegroContentExport({
+                                            offerId: allegroOfferId,
+                                            accountId: allegroAccountId === 'ALL' ? '' : allegroAccountId,
+                                            includeImages: allegroExportIncludeImages,
+                                            includeDescription: allegroExportIncludeDescription,
+                                            aiFlagsOverride: allegroAiFlagsOverride
+                                        })}
+                                        disabled={isValidatingAllegroContent}
+                                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded text-[10px] font-black uppercase tracking-wider flex items-center"
+                                    >
+                                        {isValidatingAllegroContent ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+                                        Odśwież podgląd
+                                    </button>
+                                </div>
+                            </div>
+
+                            {allegroContentValidationResult.errors?.length > 0 && (
+                                <div className="p-4 bg-rose-100 border border-rose-200 rounded-md">
+                                    <h4 className="text-xs font-black text-rose-800 uppercase tracking-widest mb-2">Błędy blokujące wysyłkę:</h4>
+                                    <ul className="list-disc pl-5 text-xs font-bold text-rose-700 space-y-1">
+                                        {allegroContentValidationResult.errors.map((err, i) => <li key={i}>{err}</li>)}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {allegroContentValidationResult.warnings?.length > 0 && (
+                                <div className="p-4 bg-amber-50 border border-amber-200 rounded-md">
+                                    <h4 className="text-xs font-black text-amber-800 uppercase tracking-widest mb-2">Ostrzeżenia i ograniczenia (Trusted Content / Limity):</h4>
+                                    <ul className="list-disc pl-5 text-xs font-medium text-amber-800 space-y-1">
+                                        {allegroContentValidationResult.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                                    </ul>
+                                </div>
+                            )}
+
+                            {/* Zakres wysyłki i podgląd gotowych zdjęć */}
+                            <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm space-y-4">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest">
+                                            Gotowe zdjęcia do wysłania ({allegroContentValidationResult.imagesPreview?.next?.length || 0} / 16)
+                                        </h4>
+                                        <p className="text-[10px] text-slate-500 mt-0.5">
+                                            Obecnie na Allegro: {allegroContentValidationResult.imagesPreview?.current?.length || 0} zdjęć • Wymaga uploadu na CDN Allegro: {allegroContentValidationResult.imagesPreview?.needUploadCount || 0}
+                                        </p>
+                                    </div>
+                                    <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={allegroExportIncludeImages}
+                                            disabled={Boolean(allegroContentValidationResult.trusted?.imagesBlocked)}
+                                            onChange={e => {
+                                                setAllegroExportIncludeImages(e.target.checked);
+                                                setAllegroContentPreviewDirty(true);
+                                            }}
+                                            className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                        />
+                                        <span>Wyślij zdjęcia (`images`)</span>
+                                    </label>
+                                </div>
+
+                                {allegroContentValidationResult.imagesPreview?.next?.length > 0 ? (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                                        {allegroContentValidationResult.imagesPreview.next.map((img, idx) => (
+                                            <div key={`${img.slotIndex}-${idx}`} className="border border-slate-200 rounded-sm bg-slate-50 p-2 flex flex-col items-center">
+                                                <div className="w-full aspect-square bg-white border border-slate-200 rounded-sm overflow-hidden flex items-center justify-center mb-2">
+                                                    <img
+                                                        src={getSafeImageSrc(img.source)}
+                                                        alt={`Slot ${idx + 1}`}
+                                                        className="w-full h-full object-contain"
+                                                    />
+                                                </div>
+                                                <div className="w-full flex items-center justify-between text-[9px] font-bold text-slate-600">
+                                                    <span>#{idx + 1} {idx === 0 ? '(Min.)' : ''}</span>
+                                                    <span className={`px-1 rounded ${img.isAllegroHosted ? 'bg-slate-200 text-slate-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                        {img.isAllegroHosted ? 'CDN OK' : 'Upload'}
+                                                    </span>
+                                                </div>
+                                                <label className="mt-1.5 w-full flex items-center justify-center gap-1 text-[9px] font-bold text-indigo-700 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={allegroAiFlagsOverride[img.slotIndex] !== undefined ? Boolean(allegroAiFlagsOverride[img.slotIndex]) : Boolean(img.isAiCoCreated)}
+                                                        onChange={e => {
+                                                            setAllegroAiFlagsOverride(prev => ({ ...prev, [img.slotIndex]: e.target.checked }));
+                                                            setAllegroContentPreviewDirty(true);
+                                                        }}
+                                                        className="rounded border-slate-300"
+                                                    />
+                                                    <span>Oznacz AI Act</span>
+                                                </label>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-500">Brak zdjęć do wysłania.</p>
+                                )}
+                            </div>
+
+                            {/* Podgląd gotowego opisu Allegro (StandardizedDescription) */}
+                            <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest">
+                                            Gotowy opis strukturalny (`description.sections`: {allegroContentValidationResult.descriptionPreview?.sectionsCount || 0} sekcji)
+                                        </h4>
+                                        <p className="text-[10px] text-slate-500 mt-0.5">
+                                            Rozmiar UTF-8: {allegroContentValidationResult.descriptionPreview?.totalBytes || 0} / {allegroContentValidationResult.descriptionPreview?.maxBytes || 40000} bajtów • Obecnie na Allegro: {allegroContentValidationResult.descriptionPreview?.currentSections?.length || 0} sekcji
+                                        </p>
+                                    </div>
+                                    <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={allegroExportIncludeDescription}
+                                            disabled={Boolean(allegroContentValidationResult.trusted?.descriptionBlocked)}
+                                            onChange={e => {
+                                                setAllegroExportIncludeDescription(e.target.checked);
+                                                setAllegroContentPreviewDirty(true);
+                                            }}
+                                            className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                        />
+                                        <span>Wyślij opis (`description`)</span>
+                                    </label>
+                                </div>
+
+                                <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+                                    {(allegroContentValidationResult.descriptionPreview?.nextSections || []).map((sec, sIdx) => (
+                                        <div key={sIdx} className="p-3 bg-slate-50 border border-slate-200 rounded-sm">
+                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                                                Sekcja {sIdx + 1} ({(sec.items || []).map(it => it.type).join(' + ')})
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                                                {(sec.items || []).map((it, iIdx) => (
+                                                    it.type === 'IMAGE' ? (
+                                                        <div key={iIdx} className="bg-white border border-slate-200 rounded p-1.5 flex items-center justify-center max-h-28 overflow-hidden">
+                                                            <img src={getSafeImageSrc(it.url)} alt={`Sec ${sIdx + 1}`} className="max-h-24 object-contain" />
+                                                        </div>
+                                                    ) : (
+                                                        <div key={iIdx} className="bg-white border border-slate-200 rounded p-2.5 text-[11px] text-slate-700 prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: it.content }} />
+                                                    )
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-white border-t border-slate-200 flex flex-wrap justify-between items-center gap-3 shrink-0">
+                            <p className="text-xs text-slate-500 font-bold max-w-lg">
+                                Zatwierdzenie wysyła gotowe zdjęcia na <strong className="text-emerald-700">POST /sale/images</strong> i wykonuje <strong className="text-emerald-700">PATCH /sale/product-offers/{allegroContentValidationResult.offer?.id}</strong> (bez ruszania `productSet` ani parametrów).
+                            </p>
+                            <div className="flex items-center space-x-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAllegroContentModal(false)}
+                                    disabled={isExportingAllegroContent}
+                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
+                                >
+                                    Anuluj
+                                </button>
+                                {allegroContentPreviewDirty && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleValidateAllegroContentExport({
+                                            offerId: allegroOfferId,
+                                            accountId: allegroAccountId === 'ALL' ? '' : allegroAccountId,
+                                            includeImages: allegroExportIncludeImages,
+                                            includeDescription: allegroExportIncludeDescription,
+                                            aiFlagsOverride: allegroAiFlagsOverride
+                                        })}
+                                        disabled={isValidatingAllegroContent}
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md font-black text-xs uppercase tracking-widest flex items-center shadow-md disabled:opacity-50"
+                                    >
+                                        {isValidatingAllegroContent ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                                        Przelicz Pre-flight
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={handleConfirmAllegroContentExport}
+                                    disabled={
+                                        isExportingAllegroContent ||
+                                        isValidatingAllegroContent ||
+                                        allegroContentPreviewDirty ||
+                                        !allegroContentValidationResult.hasChanges ||
+                                        (allegroContentValidationResult.errors?.length || 0) > 0
+                                    }
+                                    className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md font-black text-xs uppercase tracking-widest transition-colors flex items-center shadow-lg disabled:opacity-50"
+                                >
+                                    {isExportingAllegroContent ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                                    {allegroContentValidationResult.hasChanges ? 'Zatwierdź i wyślij do Allegro' : 'Brak zmian do wysłania'}
                                 </button>
                             </div>
                         </div>

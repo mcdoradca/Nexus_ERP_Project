@@ -25,8 +25,11 @@ const AdminPanelView = ({
   const [tokenVerifyInfo, setTokenVerifyInfo] = useState(null);
   
   const [allegroAuthData, setAllegroAuthData] = useState(null);
+  const [allegroAccounts, setAllegroAccounts] = useState([]);
+  const [allegroAccountLabel, setAllegroAccountLabel] = useState('');
+  const [allegroSetAsDefault, setAllegroSetAsDefault] = useState(false);
   const [isAllegroPolling, setIsAllegroPolling] = useState(false);
-  const [allegroSuccess, setAllegroSuccess] = useState(false);
+  const [allegroSuccess, setAllegroSuccess] = useState('');
   const [allegroError, setAllegroError] = useState('');
   const pollInterval = React.useRef(null);
 
@@ -35,6 +38,15 @@ const AdminPanelView = ({
       if (pollInterval.current) clearInterval(pollInterval.current);
     };
   }, []);
+
+  const loadAllegroAccounts = React.useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/allegro/auth/accounts`, { headers: { Authorization: `Bearer ${token}` } });
+      setAllegroAccounts(Array.isArray(res.data?.accounts) ? res.data.accounts : []);
+    } catch (err) {
+      console.error('[AllegroAccounts] Błąd pobierania kont:', err);
+    }
+  }, [API_URL, token]);
   
   useEffect(() => {
     if (activeTab === 'ARCHIVE') {
@@ -48,30 +60,50 @@ const AdminPanelView = ({
            setBaseLinkerToken('');
          })
          .catch(err => console.error(err));
+       loadAllegroAccounts();
     } else if (activeTab === 'PHOTOROOM_DEBUG') {
        axios.get(`${API_URL}/api/photoroom/debug/list`, { headers: { Authorization: `Bearer ${token}` } })
          .then(res => setDebugImages(res.data.files || []))
          .catch(err => console.error(err));
     }
-  }, [activeTab, API_URL, token]);
+  }, [activeTab, API_URL, token, loadAllegroAccounts]);
 
-  const startAllegroAuth = async () => {
+  const startAllegroAuth = async (overrideLabel = null, overrideDefault = null) => {
     setAllegroError('');
-    setAllegroSuccess(false);
+    setAllegroSuccess('');
+    if (pollInterval.current) clearInterval(pollInterval.current);
     try {
-      const res = await axios.post(`${API_URL}/api/allegro/auth/start`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      const effectiveLabel = overrideLabel !== null ? overrideLabel : allegroAccountLabel;
+      const effectiveDefault = overrideDefault !== null ? overrideDefault : allegroSetAsDefault;
+      const res = await axios.post(
+        `${API_URL}/api/allegro/auth/start`,
+        { label: effectiveLabel || undefined, setAsDefault: Boolean(effectiveDefault) },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       if (res.data.success) {
         setAllegroAuthData(res.data);
         setIsAllegroPolling(true);
-        
+        const activeFlowId = res.data.flowId;
+
         pollInterval.current = setInterval(async () => {
           try {
-            const pollRes = await axios.post(`${API_URL}/api/allegro/auth/poll`, {}, { headers: { Authorization: `Bearer ${token}` } });
+            const pollRes = await axios.post(
+              `${API_URL}/api/allegro/auth/poll`,
+              { flowId: activeFlowId },
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
             if (pollRes.data.success) {
               clearInterval(pollInterval.current);
               setIsAllegroPolling(false);
-              setAllegroSuccess(true);
+              setAllegroSuccess(pollRes.data.message || 'Sukces! Token konta Allegro został zapisany w systemie PIM.');
               setAllegroAuthData(null);
+              setAllegroAccountLabel('');
+              setAllegroSetAsDefault(false);
+              if (Array.isArray(pollRes.data.accounts)) {
+                setAllegroAccounts(pollRes.data.accounts);
+              } else {
+                loadAllegroAccounts();
+              }
             }
           } catch (pollErr) {
             if (pollErr.response && pollErr.response.status === 202) {
@@ -86,6 +118,27 @@ const AdminPanelView = ({
       }
     } catch (err) {
       setAllegroError(err.response?.data?.error || 'Nie udało się nawiązać połączenia z API.');
+    }
+  };
+
+  const handleSetDefaultAllegroAccount = async (accountId) => {
+    setAllegroError('');
+    try {
+      const res = await axios.patch(`${API_URL}/api/allegro/auth/accounts/${encodeURIComponent(accountId)}/default`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      if (Array.isArray(res.data?.accounts)) setAllegroAccounts(res.data.accounts);
+    } catch (err) {
+      setAllegroError(err.response?.data?.error || 'Nie udało się zmienić domyślnego konta Allegro.');
+    }
+  };
+
+  const handleRemoveAllegroAccount = async (accountId, label) => {
+    if (!window.confirm(`Odłączyć konto Allegro "${label}" (#${accountId}) z Nexus ERP?`)) return;
+    setAllegroError('');
+    try {
+      const res = await axios.delete(`${API_URL}/api/allegro/auth/accounts/${encodeURIComponent(accountId)}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (Array.isArray(res.data?.accounts)) setAllegroAccounts(res.data.accounts);
+    } catch (err) {
+      setAllegroError(err.response?.data?.error || 'Nie udało się usunąć konta Allegro.');
     }
   };
 
@@ -422,15 +475,91 @@ const AdminPanelView = ({
                       </div>
                       
                       <div className="space-y-4">
-                         <p className="text-xs text-slate-500 font-bold mb-6">Użyj tego przycisku, gdy stracisz połączenie z Allegro (Device Flow). Wygenerowany zostanie link autoryzacyjny. Pamiętaj, by logować się na właściwe konto firmowe.</p>
-                         
+                         <p className="text-xs text-slate-500 font-bold mb-2">Podłącz dowolną liczbę kont sprzedawców Allegro w ramach jednej aplikacji API. Wszystkie tokeny OAuth2 są szyfrowane (AES-256-GCM) i nigdy nie są odsyłane do przeglądarki.</p>
+
+                         {allegroAccounts.length > 0 && (
+                           <div className="space-y-2 mb-4">
+                             <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                               Podłączone konta sprzedawców ({allegroAccounts.length})
+                             </div>
+                             {allegroAccounts.map(acc => (
+                               <div key={acc.accountId} className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-sm">
+                                 <div>
+                                   <div className="flex items-center gap-2">
+                                     <span className="text-xs font-black text-slate-900">{acc.label}</span>
+                                     <span className="text-[10px] font-mono bg-white border border-slate-300 px-1.5 py-0.5 rounded text-slate-600">#{acc.accountId}</span>
+                                     {acc.isDefault && (
+                                       <span className="text-[9px] font-black uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">Domyślne</span>
+                                     )}
+                                     <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${acc.hasWriteScope ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-800'}`}>
+                                       {acc.hasWriteScope ? 'offers:write OK' : 'Brak offers:write'}
+                                     </span>
+                                   </div>
+                                   <div className="text-[10px] text-slate-500 mt-1">
+                                     {acc.login ? `Login: ${acc.login} • ` : ''}
+                                     {acc.tokenExpiresAt ? `Ważność access tokena: ${new Date(acc.tokenExpiresAt).toLocaleString('pl-PL')}` : ''}
+                                   </div>
+                                 </div>
+                                 <div className="flex items-center gap-2">
+                                   {!acc.isDefault && (
+                                     <button
+                                       type="button"
+                                       onClick={() => handleSetDefaultAllegroAccount(acc.accountId)}
+                                       className="px-2.5 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-sm text-[10px] font-black uppercase hover:bg-slate-100"
+                                     >
+                                       Ustaw domyślne
+                                     </button>
+                                   )}
+                                   <button
+                                     type="button"
+                                     onClick={() => startAllegroAuth(acc.label, acc.isDefault)}
+                                     disabled={isAllegroPolling}
+                                     className="px-2.5 py-1.5 bg-orange-50 border border-orange-200 text-orange-700 rounded-sm text-[10px] font-black uppercase hover:bg-orange-100 disabled:opacity-50"
+                                   >
+                                     Odśwież sesję
+                                   </button>
+                                   <button
+                                     type="button"
+                                     onClick={() => handleRemoveAllegroAccount(acc.accountId, acc.label)}
+                                     className="p-1.5 bg-white border border-rose-200 text-rose-600 rounded-sm hover:bg-rose-50"
+                                     title="Odłącz konto"
+                                   >
+                                     <Trash2 className="w-3.5 h-3.5" />
+                                   </button>
+                                 </div>
+                               </div>
+                             ))}
+                           </div>
+                         )}
+
                          {!allegroAuthData && !isAllegroPolling && (
-                           <button 
-                              onClick={startAllegroAuth} 
-                              className="px-8 py-4 bg-orange-500 text-white rounded-sm text-[10px] font-black uppercase tracking-[0.2em] hover:bg-orange-600 shadow-xl shadow-orange-500/20 transition-all active:scale-95 flex items-center"
-                           >
-                              <RotateCcw className="w-4 h-4 mr-2" /> Wymuś Odświeżenie Sesji
-                           </button>
+                           <div className="p-4 bg-slate-50 border border-slate-200 rounded-sm space-y-3">
+                             <div className="flex flex-wrap gap-3 items-center">
+                               <input
+                                 type="text"
+                                 value={allegroAccountLabel}
+                                 onChange={e => setAllegroAccountLabel(e.target.value)}
+                                 placeholder="Nazwa własna konta (np. Konto Główne, Sklep B2B)"
+                                 className="flex-1 min-w-[240px] px-3 py-2 bg-white border border-slate-300 rounded-sm text-xs font-bold outline-none focus:border-orange-500"
+                               />
+                               <label className="flex items-center gap-1.5 text-xs font-bold text-slate-600 cursor-pointer">
+                                 <input
+                                   type="checkbox"
+                                   checked={allegroSetAsDefault}
+                                   onChange={e => setAllegroSetAsDefault(e.target.checked)}
+                                   className="rounded border-slate-300"
+                                 />
+                                 Ustaw jako domyślne
+                               </label>
+                             </div>
+                             <button
+                               type="button"
+                               onClick={() => startAllegroAuth()}
+                               className="px-8 py-3.5 bg-orange-500 text-white rounded-sm text-[10px] font-black uppercase tracking-[0.2em] hover:bg-orange-600 shadow-xl shadow-orange-500/20 transition-all active:scale-95 flex items-center"
+                             >
+                               <RotateCcw className="w-4 h-4 mr-2" /> {allegroAccounts.length > 0 ? 'Dodaj lub odśwież konto Allegro (Device Flow)' : 'Połącz konto Allegro (Device Flow)'}
+                             </button>
+                           </div>
                          )}
 
                          {allegroError && (
@@ -441,7 +570,7 @@ const AdminPanelView = ({
 
                          {allegroSuccess && (
                            <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-sm mt-4 flex items-center">
-                             <CheckCircle2 className="w-4 h-4 mr-2" /> Sukces! Token został zapisany w systemie PIM.
+                             <CheckCircle2 className="w-4 h-4 mr-2" /> {allegroSuccess}
                            </div>
                          )}
 
