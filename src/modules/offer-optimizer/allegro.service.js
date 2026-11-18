@@ -1050,28 +1050,100 @@ async function findSellerOffersForProduct({ ean = '', sku = '', name = '', basel
     return results;
 }
 
-/**
- * Pobiera pełne dane konkretnej oferty oraz (opcjonalnie) dane powiązanego produktu z Katalogu Allegro (trustedContent).
- */
-async function getOfferAndCatalogForParams(offerId, { accountId = null } = {}) {
-    if (!offerId) throw new Error('Brak numeru oferty Allegro (offerId).');
-    const cleanOfferId = String(offerId).trim();
-    const { token, claims, accountId: resolvedAccountId, accountLabel } = await ensureSellerWriteToken(accountId);
-
+async function tryFetchOfferOnAccount({ cleanOfferId, accountId = null, injectedPrisma = prisma, httpClient = apiClient }) {
+    const { token, claims, accountId: resolvedAccountId, accountLabel } = await ensureSellerWriteToken(accountId, injectedPrisma);
     const headers = buildAllegroHeaders(token, { 'Accept-Language': 'pl-PL' });
-
-    const offerRes = await apiClient.get(`https://api.allegro.pl/sale/product-offers/${encodeURIComponent(cleanOfferId)}`, {
+    const offerRes = await httpClient.get(`https://api.allegro.pl/sale/product-offers/${encodeURIComponent(cleanOfferId)}`, {
         headers,
         _allegroAccountId: resolvedAccountId,
         timeout: 15000
     });
-    const offer = offerRes.data;
+    return {
+        offer: offerRes.data,
+        token,
+        claims,
+        accountId: resolvedAccountId,
+        accountLabel
+    };
+}
+
+/**
+ * Pobiera pełne dane konkretnej oferty oraz (opcjonalnie) dane powiązanego produktu z Katalogu Allegro (trustedContent).
+ * Jeśli oferta zwraca 403/404 na wskazanym/domyślnym koncie, automatycznie sprawdza pozostałe konta z `ALLEGRO_ACCOUNTS_VAULT`.
+ */
+async function getOfferAndCatalogForParams(offerId, { accountId = null, allowCrossAccountFallback = true, injectedPrisma = prisma, httpClient = apiClient } = {}) {
+    if (!offerId) throw new Error('Brak numeru oferty Allegro (offerId).');
+    const cleanOfferId = String(offerId).trim();
+
+    let fetched = null;
+    const triedAccounts = new Set();
+    const triedLabels = [];
+
+    try {
+        fetched = await tryFetchOfferOnAccount({ cleanOfferId, accountId, injectedPrisma, httpClient });
+    } catch (primaryErr) {
+        const status = primaryErr.response?.status || primaryErr.statusCode;
+        const primaryAccKey = accountId ? String(accountId).trim() : '';
+        if (primaryAccKey) {
+            triedAccounts.add(primaryAccKey);
+            triedLabels.push(`#${primaryAccKey}`);
+        } else {
+            // Ustal ID domyślnego konta z błędu/Vault, aby uniknąć ponownej próby na tym samym koncie
+            try {
+                const def = await ensureSellerWriteToken(null, injectedPrisma);
+                if (def?.accountId) {
+                    triedAccounts.add(String(def.accountId));
+                    triedLabels.push(def.accountLabel || `#${def.accountId}`);
+                }
+            } catch (_) {
+                // ignorujemy przy fallbacku diagnostycznym
+            }
+        }
+
+        if (!allowCrossAccountFallback || (status !== 403 && status !== 404)) {
+            throw primaryErr;
+        }
+
+        const connectedAccounts = await listConnectedAllegroAccounts(injectedPrisma);
+        const candidates = connectedAccounts
+            .filter(acc => !triedAccounts.has(String(acc.accountId)))
+            .sort((a, b) => (b.hasWriteScope ? 1 : 0) - (a.hasWriteScope ? 1 : 0));
+
+        for (const acc of candidates) {
+            const candId = String(acc.accountId);
+            triedAccounts.add(candId);
+            triedLabels.push(acc.label || `#${candId}`);
+            try {
+                fetched = await tryFetchOfferOnAccount({ cleanOfferId, accountId: candId, injectedPrisma, httpClient });
+                if (fetched) break;
+            } catch (candErr) {
+                const candStatus = candErr.response?.status || candErr.statusCode;
+                if (candStatus !== 403 && candStatus !== 404) {
+                    throw candErr;
+                }
+            }
+        }
+
+        if (!fetched) {
+            const scopeHint = triedLabels.length > 0 ? triedLabels.join(', ') : 'domyślne';
+            const err = new Error(
+                `Nie znaleziono oferty #${cleanOfferId} na żadnym z autoryzowanych kont Allegro (${scopeHint}). ` +
+                `Jeśli aukcja należy do innego konta (np. drugiego konta firmowego Prosto_z_Wloch), podłącz jego token OAuth w Panelu Admina -> Integracje API.`
+            );
+            err.statusCode = 404;
+            err.code = 'ALLEGRO_OFFER_NOT_OWNED_BY_CONNECTED_ACCOUNTS';
+            throw err;
+        }
+    }
+
+    const { offer, token, claims, accountId: resolvedAccountId, accountLabel } = fetched;
     const productId = offer?.productSet?.[0]?.product?.id || null;
+    const headers = buildAllegroHeaders(token, { 'Accept-Language': 'pl-PL' });
 
     let catalogProduct = null;
     if (productId) {
         try {
-            const catRes = await apiClient.get(`https://api.allegro.pl/sale/products/${encodeURIComponent(productId)}`, {
+            const catRes = await httpClient.get(`https://api.allegro.pl/sale/products/${encodeURIComponent(productId)}`, {
                 headers,
                 _allegroAccountId: resolvedAccountId,
                 timeout: 12000

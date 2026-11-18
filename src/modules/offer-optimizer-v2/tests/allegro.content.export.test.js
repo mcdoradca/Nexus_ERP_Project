@@ -21,7 +21,8 @@ const {
     listConnectedAllegroAccounts,
     setDefaultAllegroAccount,
     removeAllegroAccount,
-    uploadImageToAllegro
+    uploadImageToAllegro,
+    getOfferAndCatalogForParams
 } = require('../../offer-optimizer/allegro.service');
 
 function makeMockJwt(payload) {
@@ -334,5 +335,93 @@ test('Allegro Content Export & Multi-Account Vault', async (t) => {
 
         const nestedPInLi = validateAllegroDescriptionHtml('<ul><li><p>Invalid</p></li></ul>');
         assert.strictEqual(nestedPInLi.valid, false);
+    });
+
+    await t.test('9. buildAllegroDescriptionSections wymusza stały układ A/B A/B ([IMAGE, TEXT]) dla wszystkich sekcji 1..6', () => {
+        const htmlContent = {
+            sekcja1: '<h2>S1</h2><p>Opis 1</p>',
+            sekcja2: '<h2>S2</h2><p>Opis 2</p>',
+            sekcja3: '<h2>S3</h2><p>Opis 3</p>',
+            sekcja4: '<h2>S4</h2><p>Opis 4</p>',
+            sekcja5: '<h2>S5</h2><p>Opis 5</p>',
+            sekcja6: '<h2>S6</h2><p>Opis 6</p>',
+            sekcja7: '<p>Dostawa i import</p>'
+        };
+        const imageUrls = Array.from({ length: 6 }, (_, i) => `https://a.allegroimg.com/original/slot/${i + 1}.jpg`);
+        const built = buildAllegroDescriptionSections({ htmlContent, imageUrls });
+
+        assert.strictEqual(built.sectionsCount, 7);
+        for (let i = 0; i < 6; i++) {
+            const sec = built.description.sections[i];
+            assert.strictEqual(sec.items.length, 2, `Sekcja ${i + 1} musi mieć 2 kolumny`);
+            assert.strictEqual(sec.items[0].type, 'IMAGE', `Sekcja ${i + 1}: zdjęcie musi być po lewej (items[0])`);
+            assert.strictEqual(sec.items[1].type, 'TEXT', `Sekcja ${i + 1}: opis musi być po prawej (items[1])`);
+        }
+        assert.deepStrictEqual(built.description.sections[6].items, [{ type: 'TEXT', content: '<p>Dostawa i import</p>' }]);
+    });
+
+    await t.test('10. getOfferAndCatalogForParams automatycznie rozwiązuje właściciela offerId między dwoma kontami i zgłasza brak podpiętego konta', async () => {
+        const mockPrisma = createInMemoryPrisma();
+        const jwtAccA = makeMockJwt({
+            user_name: '88110011',
+            scope: ['allegro:api:sale:offers:read', 'allegro:api:sale:offers:write'],
+            exp: Math.floor(Date.now() / 1000) + 3600
+        });
+        const jwtAccB = makeMockJwt({
+            user_name: '88110022',
+            scope: ['allegro:api:sale:offers:read', 'allegro:api:sale:offers:write'],
+            exp: Math.floor(Date.now() / 1000) + 3600
+        });
+        await saveAccountFromTokenData({ access_token: jwtAccA, refresh_token: 'ref-a', expires_in: 43200 }, { label: 'wenecja444', setAsDefault: true }, mockPrisma);
+        await saveAccountFromTokenData({ access_token: jwtAccB, refresh_token: 'ref-b', expires_in: 43200 }, { label: 'Prosto_z_Wloch', setAsDefault: false }, mockPrisma);
+
+        const httpMock = {
+            get: async (url, config) => {
+                if (url.includes('/sale/product-offers/19133046035')) {
+                    if (config._allegroAccountId === '88110011') {
+                        const err404 = new Error('Not found');
+                        err404.response = { status: 404 };
+                        throw err404;
+                    }
+                    if (config._allegroAccountId === '88110022') {
+                        return {
+                            data: {
+                                id: '19133046035',
+                                name: 'Oferta z konta Prosto_z_Wloch',
+                                productSet: [{ product: { id: 'prod-pzw-1' } }]
+                            }
+                        };
+                    }
+                }
+                if (url.includes('/sale/products/prod-pzw-1')) {
+                    assert.strictEqual(config._allegroAccountId, '88110022', 'Katalog produktu musi zostać pobrany tokenem konta właściciela');
+                    return { data: { id: 'prod-pzw-1', trustedContent: { paths: [] } } };
+                }
+                const notFound = new Error('Offer not found everywhere');
+                notFound.response = { status: 404 };
+                throw notFound;
+            }
+        };
+
+        const resolved = await getOfferAndCatalogForParams('19133046035', {
+            accountId: '88110011',
+            injectedPrisma: mockPrisma,
+            httpClient: httpMock
+        });
+        assert.strictEqual(resolved.offer.id, '19133046035');
+        assert.strictEqual(resolved.accountId, '88110022');
+        assert.strictEqual(resolved.accountLabel, 'Prosto_z_Wloch');
+        assert.strictEqual(resolved.catalogProduct.id, 'prod-pzw-1');
+
+        await assert.rejects(
+            () => getOfferAndCatalogForParams('99999999999', {
+                accountId: '88110011',
+                injectedPrisma: mockPrisma,
+                httpClient: httpMock
+            }),
+            err => err.statusCode === 404 &&
+                err.code === 'ALLEGRO_OFFER_NOT_OWNED_BY_CONNECTED_ACCOUNTS' &&
+                err.message.includes('Prosto_z_Wloch')
+        );
     });
 });

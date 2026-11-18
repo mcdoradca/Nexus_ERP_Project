@@ -1188,11 +1188,17 @@ export const UnifiedProductPipelineView = ({
             });
             const foundOffers = Array.isArray(res.data?.offers) ? res.data.offers : [];
             setAllegroOfferCandidates(foundOffers);
+            const currentTypedOfferId = String(allegroOfferId || '').trim();
             if (foundOffers.length === 0) {
-                alert('Nie znaleziono pasujących ofert na wybranym koncie Allegro dla tego SKU/EAN/nazwy. Możesz wpisać numer oferty (Offer ID) ręcznie.');
+                alert('Nie znaleziono pasujących ofert na wybranych kontach Allegro dla tego SKU/EAN/nazwy. Jeśli wpisujesz numer oferty z innego konta (np. Prosto_z_Wloch), upewnij się, że konto jest autoryzowane w Panelu Admina.');
+            } else if (currentTypedOfferId) {
+                const exactTypedMatch = foundOffers.find(o => String(o.id) === currentTypedOfferId);
+                if (exactTypedMatch?.accountId) {
+                    setAllegroAccountId(String(exactTypedMatch.accountId));
+                }
             } else {
                 const best = foundOffers.find(o => o.eanMatch) || foundOffers[0];
-                if (best && (!allegroOfferId || foundOffers.length === 1 || best.eanMatch)) {
+                if (best) {
                     setAllegroOfferId(best.id);
                     if (best.accountId) setAllegroAccountId(best.accountId);
                 }
@@ -1833,12 +1839,12 @@ export const UnifiedProductPipelineView = ({
                                     <div className="relative flex-grow w-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-slate-50 rounded-lg border border-slate-700 p-2">
                                         <div className="origin-top-left scale-[1.05] w-[95%] mx-auto">
                                             <TileSimulator customSections={[
-                                                { items: [ { type: 'TEXT', content: editorHtml.sekcja1 }, { type: 'IMAGE', content: (visionTickets && visionTickets[0]) ? (visionTickets[0].replacedUrl || visionTickets[0].originalUrl) : '' } ] },
-                                                { items: [ { type: 'TEXT', content: editorHtml.sekcja2 }, { type: 'IMAGE', content: (visionTickets && visionTickets[1]) ? (visionTickets[1].replacedUrl || visionTickets[1].originalUrl) : '' } ] },
-                                                { items: [ { type: 'TEXT', content: editorHtml.sekcja3 }, { type: 'IMAGE', content: (visionTickets && visionTickets[2]) ? (visionTickets[2].replacedUrl || visionTickets[2].originalUrl) : '' } ] },
-                                                { items: [ { type: 'TEXT', content: editorHtml.sekcja4 }, { type: 'IMAGE', content: (visionTickets && visionTickets[3]) ? (visionTickets[3].replacedUrl || visionTickets[3].originalUrl) : '' } ] },
-                                                { items: [ { type: 'TEXT', content: editorHtml.sekcja5 }, { type: 'IMAGE', content: (visionTickets && visionTickets[4]) ? (visionTickets[4].replacedUrl || visionTickets[4].originalUrl) : '' } ] },
-                                                { items: [ { type: 'TEXT', content: editorHtml.sekcja6 }, { type: 'IMAGE', content: (visionTickets && visionTickets[5]) ? (visionTickets[5].replacedUrl || visionTickets[5].originalUrl) : '' } ] }
+                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[0]) ? (visionTickets[0].replacedUrl || visionTickets[0].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja1 } ] },
+                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[1]) ? (visionTickets[1].replacedUrl || visionTickets[1].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja2 } ] },
+                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[2]) ? (visionTickets[2].replacedUrl || visionTickets[2].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja3 } ] },
+                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[3]) ? (visionTickets[3].replacedUrl || visionTickets[3].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja4 } ] },
+                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[4]) ? (visionTickets[4].replacedUrl || visionTickets[4].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja5 } ] },
+                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[5]) ? (visionTickets[5].replacedUrl || visionTickets[5].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja6 } ] }
                                             ]} />
                                         </div>
                                     </div>
@@ -2421,7 +2427,7 @@ export const UnifiedProductPipelineView = ({
                                                                      className="bg-slate-50 border border-slate-300 rounded-sm px-2.5 py-1.5 text-[11px] font-bold outline-none focus:border-amber-500 max-w-[220px]"
                                                                      title="Wybierz konto Allegro, na którym znajduje się aukcja"
                                                                  >
-                                                                     <option value="ALL">Wszystkie konta (szukaj)</option>
+                                                                     <option value="ALL">Wszystkie konta (auto / szukaj)</option>
                                                                      {allegroAccounts.map(acc => (
                                                                          <option key={acc.accountId} value={acc.accountId}>
                                                                              {acc.label} (#{acc.accountId}){acc.isDefault ? ' [Dom.]' : ''}
@@ -2445,6 +2451,11 @@ export const UnifiedProductPipelineView = ({
                                                                      Znajdź aukcję na Allegro
                                                                  </button>
                                                              </div>
+                                                             {allegroAccounts.length <= 1 && (
+                                                                 <div className="text-[10px] text-amber-800/90 font-medium bg-amber-50/70 border border-amber-200/80 rounded-sm px-2.5 py-1.5">
+                                                                     Autoryzowane konta Allegro w Vault: <strong>{allegroAccounts.length}</strong>. Aby aktualizować oferty z drugiego konta (np. <strong>Prosto_z_Wloch</strong>), podłącz je raz przez OAuth2 w <strong>Panelu Admina → Integracje API</strong>.
+                                                                 </div>
+                                                             )}
                                                              {allegroOfferCandidates.length > 0 && (
                                                                  <div className="flex items-center space-x-2 pt-1">
                                                                      <span className="w-1/3 text-[9px] font-bold text-slate-500 uppercase tracking-widest">

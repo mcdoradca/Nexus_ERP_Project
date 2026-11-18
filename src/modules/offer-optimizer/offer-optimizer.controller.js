@@ -1496,9 +1496,12 @@ const validateAllegroParamsExport = async (req, res) => {
             });
         }
 
-        const { offer, catalogProduct, accountLabel, tokenClaims } = await AllegroService.getOfferAndCatalogForParams(ctx.targetOfferId, {
+        const { offer, catalogProduct, accountId: resolvedAccountId, accountLabel, tokenClaims } = await AllegroService.getOfferAndCatalogForParams(ctx.targetOfferId, {
             accountId: ctx.effAccountId
         });
+        if (resolvedAccountId) {
+            ctx.effAccountId = resolvedAccountId;
+        }
         const offerCatId = offer?.category?.id ? String(offer.category.id) : null;
         const requestedCatId = categoryId ? String(categoryId).trim() : (product.allegroCategoryId ? String(product.allegroCategoryId).trim() : null);
         const effectiveCatId = offerCatId || requestedCatId;
@@ -1820,9 +1823,12 @@ const validateAllegroContentExport = async (req, res) => {
             });
         }
 
-        const { offer, catalogProduct, accountLabel, tokenClaims } = await AllegroService.getOfferAndCatalogForParams(ctx.targetOfferId, {
+        const { offer, catalogProduct, accountId: resolvedAccountId, accountLabel, tokenClaims } = await AllegroService.getOfferAndCatalogForParams(ctx.targetOfferId, {
             accountId: ctx.effAccountId
         });
+        if (resolvedAccountId) {
+            ctx.effAccountId = resolvedAccountId;
+        }
 
         const descriptor = buildCanonicalContentDescriptor({
             product,

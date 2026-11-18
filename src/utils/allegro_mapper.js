@@ -1425,12 +1425,12 @@ function buildAllegroDescriptionSections({
 
         const entries = [
             { key: 'sekcja1', text: s1, imgIdx: 0, imageFirst: true },
-            { key: 'sekcja2', text: s2, imgIdx: 1, imageFirst: false },
+            { key: 'sekcja2', text: s2, imgIdx: 1, imageFirst: true },
             { key: 'sekcja3', text: s3, imgIdx: 2, imageFirst: true },
-            { key: 'sekcja4', text: s4, imgIdx: 3, imageFirst: false },
+            { key: 'sekcja4', text: s4, imgIdx: 3, imageFirst: true },
             { key: 'sekcja5', text: s5, imgIdx: 4, imageFirst: true },
-            { key: 'sekcja6', text: s6, imgIdx: 5, imageFirst: false },
-            { key: 'sekcja7', text: s7, imgIdx: -1, imageFirst: false }
+            { key: 'sekcja6', text: s6, imgIdx: 5, imageFirst: true },
+            { key: 'sekcja7', text: s7, imgIdx: -1, imageFirst: true }
         ];
 
         for (const entry of entries) {
