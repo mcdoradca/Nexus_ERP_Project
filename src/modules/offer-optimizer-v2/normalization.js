@@ -1,3 +1,5 @@
+const cheerio = require('cheerio');
+
 /**
  * Normalizuje nazwę składnika (INCI) do spójnego formatu używanego w entryName.
  * Funkcja idempotentna. Używana podczas ingestu oraz w lookupie GATE-3.
@@ -194,4 +196,93 @@ function normalizeInciToLegalEnglish(rawInci) {
     return res.replace(/Contains:\s*:/gi, 'Contains:').replace(/\s{2,}/g, ' ').trim();
 }
 
-module.exports = { normalizeIngredientName, extractIngredientsFromChunk, normalizeInciToLegalEnglish };
+/**
+ * Sprawdza, czy czysty tekst samodzielnego akapitu to surowa stopka z pełnym składem INCI / WE 648/2004.
+ */
+function isRawInciFooterText(plainText) {
+    const clean = String(plainText || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!clean) return false;
+
+    if (/^(?:pełny\s+)?(?:skład(?:\s*\(\s*(?:zgodnie\s+z\s+rozp\.[^)]*|inci)\s*\)|\s+inci|\s*\/\s*inci)|składniki\s*(?:\(\s*inci\s*\)|inci)|ingredients\s*(?:\(\s*inci\s*\))?)\s*:/i.test(clean)) {
+        return true;
+    }
+
+    const matchPlainSklad = clean.match(/^skład\s*:\s*(.+)$/i);
+    if (matchPlainSklad) {
+        const rest = matchPlainSklad[1].trim();
+        if (rest.includes(',') || /\b(?:aqua|parfum|glycerin|sodium|surfactants|środki\s+powierzchniowo)\b/i.test(rest)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Usuwa z HTML Sekcji 3 (Moduł 3) końcowy akapit z pełną surową listą składników INCI / WE 648/2004,
+ * pozostawiając opisy mechanizmów działania kluczowych składników (⚙️) oraz synergii (⚡).
+ */
+function stripRawInciFooterFromSection3(htmlStr) {
+    if (!htmlStr || typeof htmlStr !== 'string') return htmlStr;
+    const raw = htmlStr.trim();
+    if (!raw) return htmlStr;
+
+    const $ = cheerio.load(raw, null, false);
+    let removedFooter = false;
+
+    $('p').each((_, el) => {
+        const $el = $(el);
+        if ($el.closest('li').length > 0) return;
+
+        const text = $el.text().replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+        if (isRawInciFooterText(text)) {
+            $el.remove();
+            removedFooter = true;
+            return;
+        }
+
+        const innerHtml = $el.html() || '';
+        const brSplit = innerHtml.split(/<br\s*\/?>|\r?\n/i);
+        if (brSplit.length > 1) {
+            const cutIdx = brSplit.findIndex(part => {
+                const partText = cheerio.load(part, null, false).text();
+                return isRawInciFooterText(partText);
+            });
+            if (cutIdx !== -1) {
+                const kept = brSplit.slice(0, cutIdx).join('<br>').replace(/(?:<br\s*\/?>|\s)+$/i, '').trim();
+                if (kept) {
+                    $el.html(kept);
+                } else {
+                    $el.remove();
+                }
+                removedFooter = true;
+            }
+        }
+    });
+
+    if (removedFooter) {
+        // Usuwa osierocone puste akapity na końcu pozostałe po wycięciu stopki INCI
+        const rootNodes = $.root().children().toArray();
+        for (let i = rootNodes.length - 1; i >= 0; i--) {
+            const $node = $(rootNodes[i]);
+            if (rootNodes[i].type === 'tag' && rootNodes[i].name === 'p') {
+                const nodeText = $node.text().replace(/\u00a0/g, ' ').trim();
+                if (!nodeText && $node.find('img').length === 0) {
+                    $node.remove();
+                    continue;
+                }
+            }
+            break;
+        }
+    }
+
+    return $.root().html().trim();
+}
+
+module.exports = {
+    normalizeIngredientName,
+    extractIngredientsFromChunk,
+    normalizeInciToLegalEnglish,
+    isRawInciFooterText,
+    stripRawInciFooterFromSection3
+};

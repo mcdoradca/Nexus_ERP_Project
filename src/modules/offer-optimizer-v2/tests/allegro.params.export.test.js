@@ -53,13 +53,37 @@ test('Allegro Params Export: czyszczenie ostrzeżeń, konwersja jednostek, INCI,
         assert.strictEqual(res.text, 'Chronić przed dziećmi. Stosować rękawice ochronne.');
     });
 
-    await t.test('3. extractCleanInciForAllegro oczyszcza przedrostki i odrzuca puste/nie-INCI placeholdery', () => {
+    await t.test('3. extractCleanInciForAllegro priorytetyzuje edytowany Skład/INCI z PIM przed starym draftem, oczyszcza przedrostki i odrzuca puste/nie-INCI placeholdery', () => {
         assert.strictEqual(extractCleanInciForAllegro({ features: { 'Skład': 'Koncentrat' } }), '');
         const clean = extractCleanInciForAllegro({
-            features: { 'Skład/INCI': 'Skład INCI: Aqua, Sodium Laureth Sulfate, Parfum, Linalool' }
+            features: { 'Skład/INCI': 'Skład INCI: Aqua, Sodium Laureth Sulfate, Parfum, Linalool' },
+            ingredientsInci: 'Stary Skład, Glycerin'
         });
-        assert.ok(clean.startsWith('Aqua, Sodium Laureth Sulfate'));
+        assert.ok(clean.startsWith('Aqua, Sodium Laureth Sulfate'), 'Musi priorytetyzować aktualne features["Skład/INCI"] nad przestarzałym ingredientsInci');
         assert.ok(!/Skład INCI:/i.test(clean));
+
+        // Placeholder 'Koncentrat' w 'Skład' nie powinien blokować poprawnego fallbacku ingredientsInci
+        const fallbackRes = extractCleanInciForAllegro({
+            features: { 'Skład': 'Koncentrat' },
+            ingredientsInci: 'Aqua, Glycerin'
+        });
+        assert.strictEqual(fallbackRes, 'Aqua, Glycerin');
+
+        // Tekstowy parametr kategorii 'Skład INCI' jest zasilany czystym INCI z Karty Technicznej PIM
+        const schemaWithInciParam = [
+            { id: '999001', name: 'Skład INCI', type: 'string', options: { describesProduct: true } }
+        ];
+        const built = buildAllegroParameterPatchPayload({
+            product: { ean: '8054633830741' },
+            features: { 'Skład/INCI': 'Skład INCI: AQUA, GLYCERIN, PARFUM' },
+            categoryParameters: schemaWithInciParam,
+            existingOffer: {
+                id: '19112062838',
+                productSet: [{ quantity: { value: 1 }, product: { id: 'prod-1', parameters: [] } }]
+            }
+        });
+        const inciParam = built.patchBody.productSet[0].product.parameters.find(p => p.id === '999001');
+        assert.deepStrictEqual(inciParam, { id: '999001', values: ['AQUA, GLYCERIN, PARFUM'] });
     });
 
     await t.test('4. Konwersja jednostek fizycznych pod schemat kategorii Allegro (ml <-> l, kg <-> g)', () => {

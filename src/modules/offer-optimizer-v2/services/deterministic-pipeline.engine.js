@@ -953,14 +953,7 @@ function tryBuildDeterministicSection3({
         ? `<p>Receptura produktu opiera się na <b>celowanym doborze związków powierzchniowo czynnych i składników funkcyjnych</b>, w której każdy element odpowiada za konkretny etap rozbijania i wypłukiwania zabrudzeń:</p>`
         : `<p>Formuła kosmetyku łączy <b>składniki oczyszczające, nawilżające oraz kondycjonujące</b>, które współpracują ze sobą dla zachowania równowagi hydrolipidowej i wysokiego komfortu aplikacji:</p>`;
 
-    const rawFooterComp = normalizeInciToLegalEnglish(detergentComposition || inci);
-    const inciFooter = rawFooterComp
-        ? (resolvedIsChemical
-            ? `<p><b>Skład (zgodnie z Rozp. WE 648/2004):</b> ${sanitizeHtmlClaimsAndStopwords(rawFooterComp)}</p>`
-            : `<p><b>Skład INCI:</b> ${sanitizeHtmlClaimsAndStopwords(rawFooterComp)}</p>`)
-        : '';
-
-    const section3Html = `${heading}${introP}<ul>${matchedBenefits.join('')}${detectedSynergies.join('')}</ul>${inciFooter}`;
+    const section3Html = `${heading}${introP}<ul>${matchedBenefits.join('')}${detectedSynergies.join('')}</ul>`;
 
     const a4ResultObj = {
         category_type: categoryType,

@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const cheerio = require('cheerio');
+const { isRawInciFooterText } = require('../normalization');
 
 // V1
 function ean_checksum(gtin) {
@@ -772,6 +774,22 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
     const isBathroomOrDescaler = /(?:łazienk|lazienk|sanitar|odkamien|anticalcare|armatur|prysznic|kabin|wanna|umywalk|bagno|citric\s+acid|lactic\s+acid|sulfamic\s+acid|formic\s+acid|phosphoric\s+acid|acetic\s+acid|kwas\s+)/i.test(`${prodName} ${inci} ${detComp}`);
     if (!isBathroomOrDescaler && /osad[a-ząćęłńóśźż]*\s+z\s+kamienia\s+i\s+mydła/i.test(`${s1} ${s2} ${s3} ${s4}`)) {
         errors.push('[Kalka łazienkowa] Wzmianka o "osadach z kamienia i mydła" w produkcie niebędącym kwasowym środkiem do łazienki lub odkamieniaczem.');
+    }
+
+    // 23. Zakaz doklejania surowej stopki pełnego składu INCI / WE 648/2004 na dole Sekcji 3
+    if (s3) {
+        const $s3 = cheerio.load(s3, null, false);
+        let hasRawInciFooterInS3 = false;
+        $s3('p').each((_, el) => {
+            const $el = $s3(el);
+            if ($el.closest('li').length > 0) return;
+            if (isRawInciFooterText($el.text())) {
+                hasRawInciFooterInS3 = true;
+            }
+        });
+        if (hasRawInciFooterInS3) {
+            errors.push('[Nadmiarowa stopka INCI w Sekcji 3] W Sekcji 3 (Moduł 3) niedozwolona jest surowa stopka pełnego składu "Skład INCI: ..." / "Skład (zgodnie z Rozp. WE 648/2004): ...". Pełny skład należy wyłącznie do Karty Technicznej PIM i parametrów Allegro.');
+        }
     }
 
     return { valid: errors.length === 0, errors };

@@ -437,4 +437,25 @@ test('Allegro Content Export & Multi-Account Vault', async (t) => {
                 err.message.includes('Prosto_z_Wloch')
         );
     });
+
+    await t.test('11. buildAllegroDescriptionSections usuwa surową stopkę Skład INCI / Rozp. 648 z Modułu 3 zachowując opisy składników ⚙️ i synergii ⚡', () => {
+        const htmlContent = {
+            sekcja1: '<h2>⭐ Intro</h2><p>Opis</p>',
+            sekcja3: '<h2>⚙️ Zaawansowany mechanizm nawilżania</h2>' +
+                '<ul>' +
+                '<li><p>⚙️ <b>Glycerin (gliceryna roślinna):</b> intensywnie nawilża naskórek.</p></li>' +
+                '<li><p>⚡ <b>Synergia Podwójnego Nawilżania:</b> wiąże wilgoć w naskórku.</p></li>' +
+                '</ul>' +
+                '<p><br></p>' +
+                '<p><b>Skład INCI:</b> AQUA, SODIUM LAURETH SULFATE, COCAMIDOPROPYL BETAINE, GLYCERIN</p>'
+        };
+        const imageUrls = Array.from({ length: 6 }, (_, i) => `https://a.allegroimg.com/original/slot/${i + 1}.jpg`);
+        const built = buildAllegroDescriptionSections({ htmlContent, imageUrls });
+        const s3Text = built.description.sections[1].items[1].content;
+
+        assert.ok(s3Text.includes('Glycerin (gliceryna roślinna)'));
+        assert.ok(s3Text.includes('Synergia Podwójnego Nawilżania'));
+        assert.strictEqual(/Skład INCI:/i.test(s3Text), false, 'Stopka Skład INCI nie może trafić do opisu Allegro');
+        assert.strictEqual(s3Text.includes('SODIUM LAURETH SULFATE'), false, 'Surowa lista INCI ze stopki musi zostać wycięta');
+    });
 });

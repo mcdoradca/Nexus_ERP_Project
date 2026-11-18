@@ -910,5 +910,63 @@ test('ADR-0174: Uniwersalność domenowa (brak kalki łazienkowej i pseudonauki 
             { productName: 'Dual Power środek do czyszczenia frytkownic 500 ml', inci: '5-15% Anionic surfactants, <5% Non-ionic surfactants' }
         );
         assert.strictEqual(/dwufazow|kamienia i mydła/i.test(sanitizedStr), false, `Sanitizer nie usunął zakazanych kalek na frytkownicy: ${sanitizedStr}`);
+        assert.strictEqual(/Skład INCI:|Skład \(zgodnie z Rozp/i.test(s3FallbackAirFryer.section_3_html), false, `Deterministyczny Moduł 3 nie może doklejać surowej stopki składu na dole: ${s3FallbackAirFryer.section_3_html}`);
+    });
+});
+
+test('ADR-0182: Moduł 3 (Sekcja 3) opisuje wyłącznie najważniejsze składniki i ich działanie bez surowej stopki INCI/648 na dole', async (t) => {
+    const deterministicEngine = require('../services/deterministic-pipeline.engine');
+    const { stripRawInciFooterFromSection3 } = require('../normalization');
+
+    await t.test('1. tryBuildDeterministicSection3 nie dokleja stopki <p><b>Skład INCI:</b>...</p> ani WE 648/2004 na końcu Modułu 3', () => {
+        const cosmeticS3 = deterministicEngine.tryBuildDeterministicSection3({
+            productName: 'Dermomed Argan żel pod prysznic 1000 ml',
+            isChemical: false,
+            inci: 'AQUA, SODIUM LAURETH SULFATE, SODIUM CHLORIDE, GLYCERIN, COCAMIDOPROPYL BETAINE, CITRIC ACID, PARFUM'
+        });
+        assert.strictEqual(cosmeticS3.canSkipA4, true);
+        assert.ok(cosmeticS3.section_3_html.includes('<li>⚙️'));
+        assert.strictEqual(/Skład INCI:/i.test(cosmeticS3.section_3_html), false, `Stopka Skład INCI nie może trafiać do Modułu 3: ${cosmeticS3.section_3_html}`);
+
+        const chemS3 = deterministicEngine.tryBuildDeterministicSection3({
+            productName: 'Dual Power odtłuszczacz do kuchni 750 ml',
+            isChemical: true,
+            detergentComposition: '<5% Anionic surfactants, <5% Non-ionic surfactants, Parfum'
+        });
+        assert.strictEqual(chemS3.canSkipA4, true);
+        assert.strictEqual(/Skład\s*\(zgodnie z Rozp/i.test(chemS3.section_3_html), false, `Stopka WE 648/2004 nie może trafiać do Modułu 3: ${chemS3.section_3_html}`);
+    });
+
+    await t.test('2. stripRawInciFooterFromSection3 bezpiecznie usuwa surowe stopki INCI zachowując akapity opisowe i punkty <li>', () => {
+        const legacyHtml = '<h2>⚙️ Zaawansowany mechanizm</h2>' +
+            '<p>Formuła kosmetyku łączy składniki myjące i nawilżające.</p>' +
+            '<ul><li><p>⚙️ <b>Glycerin (gliceryna roślinna):</b> naturalny humektant nawilżający.</p></li>' +
+            '<li><p>⚡ <b>Synergia Podwójnego Nawilżania:</b> zatrzymuje wilgoć.</p></li></ul>' +
+            '<p><br></p>' +
+            '<p>Skład INCI: AQUA, SODIUM LAURETH SULFATE, GLYCERIN</p>';
+        const stripped = stripRawInciFooterFromSection3(legacyHtml);
+        assert.ok(stripped.includes('Formuła kosmetyku łączy'));
+        assert.ok(stripped.includes('Glycerin (gliceryna roślinna)'));
+        assert.ok(stripped.includes('Synergia Podwójnego Nawilżania'));
+        assert.strictEqual(/Skład INCI:/i.test(stripped), false);
+        assert.strictEqual(stripped.includes('SODIUM LAURETH SULFATE'), false);
+        assert.strictEqual(/<p>\s*<br\s*\/?>\s*<\/p>$/i.test(stripped), false, 'Pusty akapit przed stopką również powinien zostać oczyszczony');
+
+        // Wariant w jednym akapicie oddzielonym <br>
+        const brVariant = '<p>Skład produktu dobrano z myślą o wrażliwej skórze.<br>Skład INCI: AQUA, PARFUM</p>';
+        assert.strictEqual(stripRawInciFooterFromSection3(brVariant), '<p>Skład produktu dobrano z myślą o wrażliwej skórze.</p>');
+    });
+
+    await t.test('3. validate_domain_and_chemical_logic wykrywa niedozwoloną stopkę Skład INCI w Sekcji 3', () => {
+        const res = v.validate_domain_and_chemical_logic({
+            section_1_html: '<h1>⭐ Żel pod prysznic 500 ml</h1><p>Delikatny żel.</p>',
+            section_3_html: '<h2>⚙️ Mechanizm</h2><ul><li>⚙️ <b>Glycerin:</b> nawilża skórę.</li></ul><p><b>Skład INCI:</b> AQUA, GLYCERIN</p>'
+        }, {
+            productName: 'Żel pod prysznic 500 ml',
+            isChemical: false,
+            inci: 'AQUA, GLYCERIN'
+        });
+        assert.strictEqual(res.valid, false);
+        assert.ok(res.errors.some(e => e.includes('Nadmiarowa stopka INCI w Sekcji 3')));
     });
 });

@@ -1,5 +1,5 @@
 const cheerio = require('cheerio');
-const { normalizeInciToLegalEnglish } = require('../modules/offer-optimizer-v2/normalization');
+const { normalizeInciToLegalEnglish, stripRawInciFooterFromSection3 } = require('../modules/offer-optimizer-v2/normalization');
 
 const MAX_SAFETY_TEXT_LEN = 5000;
 const MAX_ALLEGRO_DESCRIPTION_BYTES = 40000;
@@ -335,36 +335,44 @@ function extractSafetyInformationText({ htmlContent = null, descriptionHtml = ''
 
 /**
  * Przygotowuje czysty skład INCI w kanonicznej notacji angielskiej do wysłania przez API Allegro.
+ * Priorytetyzuje aktualne pola z Karty Technicznej PIM (features), a następnie fallback z offerDraft.ingredients_inci.
  */
 function extractCleanInciForAllegro({ features = {}, ingredientsInci = '' } = {}) {
-    const rawCandidate =
-        ingredientsInci ||
-        features['Skład/INCI'] ||
-        features['INCI'] ||
-        features['Skład'] ||
-        features['skład'] ||
-        features['SKŁAD'] ||
-        '';
+    const candidates = [
+        features?.['Skład/INCI'],
+        features?.['INCI'],
+        features?.['Skład'],
+        features?.['skład'],
+        features?.['SKŁAD'],
+        ingredientsInci
+    ];
 
-    if (!rawCandidate || typeof rawCandidate !== 'string') return '';
+    for (const rawCandidate of candidates) {
+        if (!rawCandidate || typeof rawCandidate !== 'string') continue;
 
-    let clean = stripHtmlAndEmoticons(rawCandidate)
-        .replace(/^(?:skład\s*\(zgodnie\s+z\s+rozp\.[^)]*\)|skład\s*inci|ingredients|inci|skład)\s*:?\s*/i, '')
-        .replace(/\n+/g, ', ')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
+        let clean = stripHtmlAndEmoticons(rawCandidate)
+            .replace(/^(?:skład\s*\(zgodnie\s+z\s+rozp\.[^)]*\)|pełny\s+skład(?:\s+inci)?|skład\s*inci|skład\s*\/\s*inci|ingredients|inci|skład)\s*:?\s*/i, '')
+            .replace(/\n+/g, ', ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
 
-    if (!clean || clean.length < 4 || NON_INCI_PLACEHOLDERS.has(normalizeTextKey(clean))) {
-        return '';
+        if (!clean || clean.length < 4 || NON_INCI_PLACEHOLDERS.has(normalizeTextKey(clean))) {
+            continue;
+        }
+
+        try {
+            clean = normalizeInciToLegalEnglish(clean);
+        } catch (_) {
+            // Fallback do oczyszczonego surowego ciągu w razie braku słownika
+        }
+
+        const trimmed = clean.trim();
+        if (trimmed.length >= 4 && !NON_INCI_PLACEHOLDERS.has(normalizeTextKey(trimmed))) {
+            return trimmed;
+        }
     }
 
-    try {
-        clean = normalizeInciToLegalEnglish(clean);
-    } catch (_) {
-        // Fallback do oczyszczonego surowego ciągu w razie braku słownika
-    }
-
-    return clean.trim();
+    return '';
 }
 
 /**
@@ -720,6 +728,16 @@ function resolvePimRawValueForParam(paramSchema, normalizedFeatureMap, product) 
     }
     if (normName === 'skladnik wiodacy') {
         return normalizedFeatureMap.get('skladniki wiodace (front)') || normalizedFeatureMap.get('skladnik aktywny') || null;
+    }
+    if (paramSchema?.type === 'string' && (normName === 'sklad' || normName === 'sklad inci' || normName === 'inci' || normName === 'sklad produktu' || normName === 'skladniki')) {
+        const cleanInci = extractCleanInciForAllegro({
+            features: {
+                'Skład/INCI': normalizedFeatureMap.get('sklad/inci') || '',
+                'INCI': normalizedFeatureMap.get('inci') || '',
+                'Skład': normalizedFeatureMap.get('sklad') || ''
+            }
+        });
+        return cleanInci || null;
     }
     return null;
 }
@@ -1417,7 +1435,9 @@ function buildAllegroDescriptionSections({
     if (htmlContent && typeof htmlContent === 'object') {
         const s1 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja1 || htmlContent.section_1_html || '');
         const s2 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja2 || htmlContent.section_2_html || '');
-        const s3 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja3 || htmlContent.section_3_html || '');
+        const s3 = sanitizeHtmlForAllegroDescription(
+            stripRawInciFooterFromSection3(htmlContent.sekcja3 || htmlContent.section_3_html || '')
+        );
         const s4 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja4 || htmlContent.section_4_html || '');
         const s5 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja5 || htmlContent.section_5_html || '');
         const s7 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja7 || htmlContent.section_7_html || '');

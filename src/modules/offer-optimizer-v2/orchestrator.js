@@ -5,7 +5,7 @@ const aiWrapper = require('./ai.wrapper');
 const { ean_checksum, route_chemical, validate_eu_responsible_person, gate_ingredients, hasBannedLilial } = require('./validators');
 const { FORBIDDEN_SOURCES, DATA_SOURCE_MODE } = require('./config/nodes.config');
 const baselinkerExtract = require('./baselinker.extract.js');
-const { normalizeIngredientName, normalizeInciToLegalEnglish } = require('./normalization.js');
+const { normalizeIngredientName, normalizeInciToLegalEnglish, stripRawInciFooterFromSection3 } = require('./normalization.js');
 const ragService = require('./knowledge.rag.service.js');
 const { validate_html_whitelist, scan_medical_claims_lexical, scan_biocidal_claims_lexical, scan_stopwords, emoji_structure_check, normalize_aeo_faq_labels, aeo_faq_check, validate_section5_compliance, validate_section6_compliance, validate_section3_ingredients_closed_world, validate_domain_and_chemical_logic } = require('./validators');
 const { PrismaClient } = require('@prisma/client');
@@ -182,6 +182,9 @@ const sanitizeSection3Html = (htmlStr, allowedSourcesStr = '') => {
             }
         }
     }
+
+    // Eliminacja surowej stopki pełnego składu INCI / WE 648/2004 z Sekcji 3 (pełny skład pozostaje w PIM i parametrach Allegro)
+    res = stripRawInciFooterFromSection3(res);
 
     return res;
 };
@@ -2428,15 +2431,8 @@ class Orchestrator {
                         result.section_3_html = `<h2>Mechanizm działania składników aktywnych</h2><ul>${a4Lis}</ul>`;
                     }
 
-                    const rawCompA6 = normalizeInciToLegalEnglish(this.state.extracted_data.detergent_composition?.value || this.state.extracted_data.inci?.value || '').replace(/<(\d)/g, '< $1').trim();
-                    if (rawCompA6 && result.section_3_html) {
-                        const compLabelA6 = isActualHouseholdChemicalA6 ? 'Skład (zgodnie z Rozp. WE 648/2004)' : 'Skład INCI';
-                        const compFooterHtml = `<p><b>${compLabelA6}:</b> ${rawCompA6}</p>`;
-                        if (/<p[^>]*>\s*<(?:b|strong)>\s*Skład\b[\s\S]*?<\/p>/i.test(result.section_3_html)) {
-                            result.section_3_html = result.section_3_html.replace(/<p[^>]*>\s*<(?:b|strong)>\s*Skład\b[\s\S]*?<\/p>/i, compFooterHtml);
-                        } else {
-                            result.section_3_html = `${result.section_3_html}${compFooterHtml}`;
-                        }
+                    if (result.section_3_html) {
+                        result.section_3_html = stripRawInciFooterFromSection3(result.section_3_html);
                     }
 
                     if (this.state.extracted_data.inci?.value && euData && euData.name) {
@@ -2879,6 +2875,7 @@ class Orchestrator {
                                 pimWarnings: this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'],
                                 pimUsage: this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia']
                             });
+                            if (i === 3) s = stripRawInciFooterFromSection3(s);
                             if (i === 6) s = sanitizeSection6Html(s);
                             s = deterministicEngine.normalizeEmojiAndStructure(s, i);
                             if (i === 2) s = normalize_aeo_faq_labels(s);
@@ -3215,7 +3212,7 @@ class Orchestrator {
                 title: sanitizedTitle,
                 description: brandResponsibleService.stripContactInfo(this.state.a10_result['section_1_html'] || ''),
                 description_extra1: brandResponsibleService.stripContactInfo(this.state.a10_result['section_2_html'] || ''),
-                description_extra2: brandResponsibleService.stripContactInfo(this.state.a10_result['section_3_html'] || ''),
+                description_extra2: brandResponsibleService.stripContactInfo(stripRawInciFooterFromSection3(this.state.a10_result['section_3_html'] || '')),
                 description_extra3: brandResponsibleService.stripContactInfo(this.state.a10_result['section_4_html'] || ''),
                 description_extra4: brandResponsibleService.stripContactInfo(s5),
                 extra_field_4245: brandResponsibleService.stripContactInfo(this.state.a10_result['section_7_html'] || ''),

@@ -11,6 +11,7 @@ const prisma = new PrismaClient();
 const EventBus = require('../../core/EventBus');
 const baselinkerExportAgent = require('../offer-optimizer-v2/baselinker.export.agent');
 const baselinkerExtract = require('../offer-optimizer-v2/baselinker.extract');
+const { stripRawInciFooterFromSection3 } = require('../offer-optimizer-v2/normalization');
 const {
     stripHtmlAndEmoticons,
     extractSafetyInformationText,
@@ -117,7 +118,7 @@ const analyzeSingle = async (req, res) => {
                 } else if (typeof draft.htmlContent === 'object') {
                     sekcja1 = draft.htmlContent.sekcja1 || '';
                     sekcja2 = draft.htmlContent.sekcja2 || '';
-                    sekcja3 = draft.htmlContent.sekcja3 || '';
+                    sekcja3 = stripRawInciFooterFromSection3(draft.htmlContent.sekcja3 || '');
                     sekcja4 = draft.htmlContent.sekcja4 || '';
                     sekcja5 = draft.htmlContent.sekcja5 || '';
                     sekcja6 = draft.htmlContent.sekcja6 || '';
@@ -126,7 +127,7 @@ const analyzeSingle = async (req, res) => {
             } else {
                 sekcja1 = draft.sekcja1 || '';
                 sekcja2 = draft.sekcja2 || '';
-                sekcja3 = draft.sekcja3 || '';
+                sekcja3 = stripRawInciFooterFromSection3(draft.sekcja3 || '');
                 sekcja4 = draft.sekcja4 || '';
                 sekcja5 = draft.sekcja5 || '';
                 sekcja6 = draft.sekcja6 || '';
@@ -299,9 +300,12 @@ const saveDraft = async (req, res) => {
                 k => typeof draftData.htmlContent[k] === 'string' && draftData.htmlContent[k].replace(/<[^>]*>/g, '').trim() !== ''
             ))
         );
-        const effectiveHtmlContent = hasIncomingHtml
+        const rawEffectiveHtmlContent = hasIncomingHtml
             ? draftData.htmlContent
             : (existingDraft.htmlContent || draftData.htmlContent);
+        const effectiveHtmlContent = (rawEffectiveHtmlContent && typeof rawEffectiveHtmlContent === 'object' && typeof rawEffectiveHtmlContent.sekcja3 === 'string')
+            ? { ...rawEffectiveHtmlContent, sekcja3: stripRawInciFooterFromSection3(rawEffectiveHtmlContent.sekcja3) }
+            : rawEffectiveHtmlContent;
 
         // Ochrona przed przypadkowym nadpisaniem wygenerowanych zdjęć samymi pustymi placeholderami
         const incomingTickets = Array.isArray(draftData.visionTickets) && draftData.visionTickets.length > 0
@@ -514,7 +518,7 @@ const exportToBaselinker = async (req, res) => {
                 newDescHtml = [
                     draftData.htmlContent.sekcja1 || '',
                     draftData.htmlContent.sekcja2 || '',
-                    draftData.htmlContent.sekcja3 || '',
+                    stripRawInciFooterFromSection3(draftData.htmlContent.sekcja3 || ''),
                     draftData.htmlContent.sekcja4 || '',
                     draftData.htmlContent.sekcja5 || '',
                     draftData.htmlContent.sekcja7 || ''
@@ -525,7 +529,7 @@ const exportToBaselinker = async (req, res) => {
             newDescHtml = [
                 draftData.sekcja1 || '',
                 draftData.sekcja2 || '',
-                draftData.sekcja3 || '',
+                stripRawInciFooterFromSection3(draftData.sekcja3 || ''),
                 draftData.sekcja4 || '',
                 draftData.sekcja5 || '',
                 draftData.sekcja7 || ''
@@ -928,7 +932,7 @@ const triggerUltimatePipeline = async (req, res) => {
                      const editorHtmlObj = {
                          sekcja1: orch.state.a10_result?.section_1_html || "",
                          sekcja2: orch.state.a10_result?.section_2_html || "",
-                         sekcja3: orch.state.a10_result?.section_3_html || "",
+                         sekcja3: stripRawInciFooterFromSection3(orch.state.a10_result?.section_3_html || ""),
                          sekcja4: orch.state.a10_result?.section_4_html || "",
                          sekcja5: orch.state.a10_result?.section_5_html || "",
                          sekcja6: orch.state.a10_result?.section_6_html || "",
