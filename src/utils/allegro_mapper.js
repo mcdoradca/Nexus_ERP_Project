@@ -36,12 +36,102 @@ function getTrustedPathsSet(catalogProduct) {
     ]);
 }
 
+function getOfferContentTrustFlags(catalogProduct) {
+    const trustedPaths = getTrustedPathsSet(catalogProduct);
+    return {
+        trustedPaths,
+        imagesBlockedByTrusted: trustedPaths.has('images') || trustedPaths.has('product.images'),
+        descriptionBlockedByTrusted: trustedPaths.has('description') || trustedPaths.has('product.description')
+    };
+}
+
 function normalizeOfferImageUrls(rawImages) {
     if (!Array.isArray(rawImages)) return [];
-    return rawImages
-        .map(img => (typeof img === 'string' ? img : (img && typeof img.url === 'string' ? img.url : '')))
-        .map(u => String(u || '').trim())
-        .filter(Boolean);
+    const seen = new Set();
+    const out = [];
+    for (const img of rawImages) {
+        const rawUrl = typeof img === 'string' ? img : (img && typeof img.url === 'string' ? img.url : '');
+        const clean = String(rawUrl || '').trim();
+        if (!clean || seen.has(clean)) continue;
+        seen.add(clean);
+        out.push(clean);
+    }
+    return out;
+}
+
+function cloneStandardizedDescription(rawDescription) {
+    if (!rawDescription || !Array.isArray(rawDescription.sections) || rawDescription.sections.length === 0) {
+        return null;
+    }
+    return {
+        sections: rawDescription.sections.map(section => ({
+            ...section,
+            items: Array.isArray(section?.items) ? section.items.map(item => ({ ...item })) : []
+        }))
+    };
+}
+
+/**
+ * Zabezpiecza własny opis i galerię edytowanej oferty przed nadpisaniem z Katalogu Produktów Allegro.
+ * Zgodnie z dokumentacją Allegro `PATCH /sale/product-offers/{offerId}` (`01`..`04`, `#4691`, `#12104`, `#11981`),
+ * przekazanie `productSet[].product.id` uruchamia resynchronizację z Katalogu (`request > product > offer`),
+ * dlatego wymagane jest jawne przekazanie `description`, `images` oraz `product.images = []` (poza polami `trustedContent`).
+ */
+function buildPreservedOfferContentForProductPatch({ existingOffer = {}, catalogProduct = null } = {}) {
+    const { imagesBlockedByTrusted, descriptionBlockedByTrusted } = getOfferContentTrustFlags(catalogProduct);
+    const currentOfferImages = normalizeOfferImageUrls(existingOffer?.images);
+    const clonedDescription = cloneStandardizedDescription(existingOffer?.description);
+    const warnings = [];
+
+    let preservedDescription = null;
+    if (descriptionBlockedByTrusted) {
+        warnings.push('Pole `description` jest oznaczone jako Trusted Content w Katalogu Allegro — pozostawiono obsługę katalogową opisu.');
+    } else if (clonedDescription) {
+        preservedDescription = clonedDescription;
+    } else {
+        warnings.push('Edytowana oferta nie posiada własnych sekcji w `description` — Allegro może zaktualizować opis z karty katalogowej.');
+    }
+
+    let preservedImages = null;
+    let suppressCatalogProductImages = false;
+    let preservedAiCoCreatedContent = null;
+
+    if (imagesBlockedByTrusted) {
+        warnings.push('Pole `images` jest oznaczone jako Trusted Content w Katalogu Allegro — nie zastosowano blokady zdjęć katalogowych.');
+    } else if (currentOfferImages.length > 0) {
+        preservedImages = currentOfferImages;
+        suppressCatalogProductImages = true;
+        const allowedSet = new Set(currentOfferImages);
+        const existingAiImages = Array.isArray(existingOffer?.aiCoCreatedContent?.images)
+            ? existingOffer.aiCoCreatedContent.images
+                .map(entry => (entry && typeof entry.url === 'string' ? entry.url.trim() : ''))
+                .filter(url => url && allowedSet.has(url))
+                .map(url => ({ url }))
+            : [];
+        if (existingAiImages.length > 0) {
+            preservedAiCoCreatedContent = { images: existingAiImages };
+        }
+    } else {
+        warnings.push('Edytowana oferta nie posiada własnych zdjęć w `images` — pominięto `product.images: []`, aby uniknąć wyczyszczenia galerii.');
+    }
+
+    return {
+        description: preservedDescription,
+        images: preservedImages,
+        suppressCatalogProductImages,
+        aiCoCreatedContent: preservedAiCoCreatedContent,
+        warnings,
+        summary: {
+            active: true,
+            productSetPatched: true,
+            imagesPreservedCount: preservedImages ? preservedImages.length : 0,
+            suppressCatalogProductImages,
+            imagesTrustedLocked: imagesBlockedByTrusted,
+            descriptionSectionsPreserved: preservedDescription ? preservedDescription.sections.length : 0,
+            descriptionTrustedLocked: descriptionBlockedByTrusted,
+            aiCoCreatedImagesPreserved: preservedAiCoCreatedContent ? preservedAiCoCreatedContent.images.length : 0
+        }
+    };
 }
 
 const NON_INCI_PLACEHOLDERS = new Set([
@@ -848,17 +938,37 @@ function buildAllegroParameterPatchPayload({
         patchBody.parameters = Array.from(mergedOfferMap.values());
     }
 
+    let preservedOfferFields = {
+        active: false,
+        productSetPatched: false,
+        imagesPreservedCount: 0,
+        suppressCatalogProductImages: false,
+        imagesTrustedLocked: false,
+        descriptionSectionsPreserved: 0,
+        descriptionTrustedLocked: false,
+        aiCoCreatedImagesPreserved: 0
+    };
+
     const needsProductSetPatch = productParamsChanged || safetyChanged || compositionChanged;
     if (needsProductSetPatch) {
         if (!primarySetItem || !primarySetItem.product?.id) {
             errors.push('Oferta na Allegro nie posiada przypisanego productSet[0].product.id — nie można bezpiecznie zaktualizować parametrów produktowych.');
         } else {
+            const preserved = buildPreservedOfferContentForProductPatch({ existingOffer, catalogProduct });
+            preservedOfferFields = preserved.summary;
+            if (preserved.warnings.length > 0) {
+                warnings.push(...preserved.warnings);
+            }
+
             const clonedSet = existingProductSet.map((item, idx) => {
                 if (idx !== 0) return item;
                 const updatedProduct = {
                     id: item.product.id,
                     parameters: Array.from(mergedProductMap.values())
                 };
+                if (preserved.suppressCatalogProductImages) {
+                    updatedProduct.images = [];
+                }
                 const updatedItem = {
                     quantity: item.quantity || { value: 1 },
                     product: updatedProduct
@@ -880,6 +990,16 @@ function buildAllegroParameterPatchPayload({
                 return updatedItem;
             });
             patchBody.productSet = clonedSet;
+
+            if (preserved.images) {
+                patchBody.images = preserved.images;
+            }
+            if (preserved.description) {
+                patchBody.description = preserved.description;
+            }
+            if (preserved.aiCoCreatedContent) {
+                patchBody.aiCoCreatedContent = preserved.aiCoCreatedContent;
+            }
         }
     }
 
@@ -897,6 +1017,7 @@ function buildAllegroParameterPatchPayload({
             blockedTrustedCount: diffRows.filter(r => r.status === 'BLOCKED_TRUSTED_CONTENT').length,
             errorCount: errors.length
         },
+        preservedOfferFields,
         diffRows,
         missingRequired,
         errors,
@@ -1150,9 +1271,7 @@ function buildAllegroContentPreflight({
 } = {}) {
     const errors = [];
     const warnings = [];
-    const trustedPaths = getTrustedPathsSet(catalogProduct);
-    const imagesBlockedByTrusted = trustedPaths.has('images') || trustedPaths.has('product.images');
-    const descriptionBlockedByTrusted = trustedPaths.has('description') || trustedPaths.has('product.description');
+    const { imagesBlockedByTrusted, descriptionBlockedByTrusted } = getOfferContentTrustFlags(catalogProduct);
 
     const currentOfferImages = normalizeOfferImageUrls(existingOffer?.images);
     const currentOfferDescription = existingOffer?.description && Array.isArray(existingOffer.description.sections)
@@ -1314,7 +1433,9 @@ module.exports = {
     AI_ACT_DISCLOSURE_HTML,
     isValidExportImageUrl,
     isAllegroHostedImageUrl,
+    getOfferContentTrustFlags,
     normalizeOfferImageUrls,
+    buildPreservedOfferContentForProductPatch,
     normalizeTextKey,
     mapAllegroParameters,
     stripHtmlAndEmoticons,

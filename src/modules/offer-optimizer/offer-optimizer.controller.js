@@ -1624,6 +1624,7 @@ const validateAllegroParamsExport = async (req, res) => {
             errors: patchResult.errors,
             warnings: patchResult.warnings,
             changesSummary: patchResult.changesSummary,
+            preservedOfferFields: patchResult.preservedOfferFields,
             safetyExtract: {
                 text: finalSafetyText,
                 source: customSafetyText ? 'operator_modal' : extractedSafety.source,
@@ -1674,7 +1675,10 @@ const exportAllegroParams = async (req, res) => {
             return res.status(400).json({ error: 'Brak zmian do wysłania na Allegro.' });
         }
 
-        exportLogger.info(`[ALLEGRO EXPORT PARAMS] Wysyłanie PATCH do oferty ${offerId} (Konto: ${effAccountId || 'domyślne'}, EAN: ${product.ean})`);
+        const preservedImagesCnt = Array.isArray(patchBody.images) ? patchBody.images.length : 0;
+        const preservedDescCnt = Array.isArray(patchBody.description?.sections) ? patchBody.description.sections.length : 0;
+        const suppressCatalogImgs = Boolean(patchBody.productSet?.[0]?.product && Array.isArray(patchBody.productSet[0].product.images) && patchBody.productSet[0].product.images.length === 0);
+        exportLogger.info(`[ALLEGRO EXPORT PARAMS] Wysyłanie PATCH do oferty ${offerId} (Konto: ${effAccountId || 'domyślne'}, EAN: ${product.ean}, Ochrona treści: zdjęcia=${preservedImagesCnt}, opisSekcje=${preservedDescCnt}, blokadaKataloguZdjec=${suppressCatalogImgs})`);
         const patchResult = await AllegroService.patchProductOffer(offerId, patchBody, {
             accountId: effAccountId || null
         });

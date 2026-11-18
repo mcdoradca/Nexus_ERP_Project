@@ -2853,6 +2853,41 @@ export const UnifiedProductPipelineView = ({
                                 </div>
                             )}
 
+                            {allegroParamsValidationResult.preservedOfferFields && (
+                                <div className={`p-4 rounded-md border ${allegroParamsValidationResult.preservedOfferFields.active ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-100 border-slate-200'}`}>
+                                    <div className="flex items-center space-x-2 mb-1.5">
+                                        <CheckCircle2 className={`w-4 h-4 ${allegroParamsValidationResult.preservedOfferFields.active ? 'text-emerald-600' : 'text-slate-500'}`} />
+                                        <h4 className={`text-xs font-black uppercase tracking-widest ${allegroParamsValidationResult.preservedOfferFields.active ? 'text-emerald-800' : 'text-slate-700'}`}>
+                                            Tarcza Ochrony Opisu i Zdjęć Aukcji (Allegro Catalog Guard)
+                                        </h4>
+                                    </div>
+                                    {allegroParamsValidationResult.preservedOfferFields.active ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-medium text-emerald-900">
+                                            <div>
+                                                <strong>Opis oferty:</strong>{' '}
+                                                {allegroParamsValidationResult.preservedOfferFields.descriptionTrustedLocked
+                                                    ? 'chroniony przez Trusted Content Katalogu'
+                                                    : allegroParamsValidationResult.preservedOfferFields.descriptionSectionsPreserved > 0
+                                                        ? `zachowany obecny opis z aukcji (${allegroParamsValidationResult.preservedOfferFields.descriptionSectionsPreserved} sekcji)`
+                                                        : 'brak własnego opisu w pobranej ofercie'}
+                                            </div>
+                                            <div>
+                                                <strong>Galeria zdjęć:</strong>{' '}
+                                                {allegroParamsValidationResult.preservedOfferFields.imagesTrustedLocked
+                                                    ? 'chroniona przez Trusted Content Katalogu'
+                                                    : allegroParamsValidationResult.preservedOfferFields.imagesPreservedCount > 0
+                                                        ? `zachowane ${allegroParamsValidationResult.preservedOfferFields.imagesPreservedCount} zdjęć z aukcji (blokada zdjęć katalogu: product.images = [])`
+                                                        : 'brak własnych zdjęć w pobranej ofercie'}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-slate-600 font-medium">
+                                            Aktualizacja dotyczy wyłącznie pól ofertowych (bez sekcji <code className="font-mono">productSet</code>) — Katalog Produktów nie zmodyfikuje opisu ani zdjęć aukcji.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Tabela zmian parametrów kategorii */}
                             <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm">
                                 <div className="flex items-center justify-between mb-3">
@@ -2996,7 +3031,7 @@ export const UnifiedProductPipelineView = ({
 
                         <div className="p-4 bg-white border-t border-slate-200 flex flex-wrap justify-between items-center gap-3 shrink-0">
                             <p className="text-xs text-slate-500 font-bold max-w-lg">
-                                Eksport wykonuje bezpieczne <strong className="text-amber-700">PATCH /sale/product-offers/{allegroParamsValidationResult.offer?.id}</strong> ze scaleniem istniejących parametrów i danych GPSR (RFC 7396).
+                                Eksport wykonuje bezpieczne <strong className="text-amber-700">PATCH /sale/product-offers/{allegroParamsValidationResult.offer?.id}</strong> ze scaleniem parametrów i danych GPSR (RFC 7396) oraz jawną ochroną obecnego opisu i zdjęć aukcji.
                             </p>
                             <div className="flex items-center space-x-3">
                                 <button

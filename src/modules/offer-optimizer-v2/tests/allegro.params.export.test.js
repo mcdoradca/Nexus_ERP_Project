@@ -226,5 +226,152 @@ test('Allegro Params Export: czyszczenie ostrzeżeń, konwersja jednostek, INCI,
         const appOnlyClaims = inspectTokenClaims(makeJwt({ scope: ['allegro:api:sale:offers:read'] }));
         assert.strictEqual(appOnlyClaims.isUserToken, false);
     });
+
+    await t.test('9. Eksport productSet (parametry/INCI/GPSR) zachowuje własny opis, zdjęcia i aiCoCreatedContent oferty oraz ustawia product.images: []', () => {
+        const categoryParameters = [
+            { id: '206338', name: 'Pojemność', type: 'float', unit: 'ml', options: { describesProduct: true } }
+        ];
+        const existingOffer = {
+            id: '1900000009',
+            images: [
+                'https://a.allegroimg.com/original/11aaaa/custom-1.jpg',
+                'https://a.allegroimg.com/original/11bbbb/custom-2.jpg',
+                'https://a.allegroimg.com/original/11aaaa/custom-1.jpg'
+            ],
+            aiCoCreatedContent: {
+                images: [
+                    { url: 'https://a.allegroimg.com/original/11bbbb/custom-2.jpg' },
+                    { url: 'https://a.allegroimg.com/original/11cccc/stale-non-offer.jpg' }
+                ]
+            },
+            description: {
+                sections: [
+                    { items: [{ type: 'TEXT', content: '<p>Mój opis z BaseLinkera</p>' }] },
+                    { items: [{ type: 'IMAGE', url: 'https://a.allegroimg.com/original/11aaaa/custom-1.jpg' }] }
+                ]
+            },
+            productSet: [
+                {
+                    quantity: { value: 1 },
+                    product: { id: 'prod-uuid-guard', parameters: [] }
+                }
+            ]
+        };
+
+        const built = buildAllegroParameterPatchPayload({
+            product: { ean: '8004120910364' },
+            features: { Pojemność: '750 ml' },
+            categoryParameters,
+            existingOffer,
+            catalogProduct: { id: 'prod-uuid-guard', trustedContent: { paths: [], productPaths: [] } },
+            safetyInfoPayload: { apply: true, description: 'Chronić przed dziećmi.' },
+            compositionPayload: { apply: true, components: [{ name: 'Płyn', ingredients: [{ name: 'Aqua' }] }] }
+        });
+
+        assert.strictEqual(built.errors.length, 0);
+        assert.strictEqual(built.hasChanges, true);
+        assert.deepStrictEqual(built.patchBody.productSet[0].product.images, [], 'Musi blokować zdjęcia z katalogu Allegro przez product.images = []');
+        assert.deepStrictEqual(built.patchBody.images, [
+            'https://a.allegroimg.com/original/11aaaa/custom-1.jpg',
+            'https://a.allegroimg.com/original/11bbbb/custom-2.jpg'
+        ], 'Musi zachować unikalne zdjęcia oferty w oryginalnej kolejności');
+        assert.deepStrictEqual(built.patchBody.description, existingOffer.description, 'Musi zachować oryginalny opis oferty');
+        assert.notStrictEqual(built.patchBody.description, existingOffer.description, 'Kopia opisu nie powinna dzielić referencji z wejściem');
+        assert.deepStrictEqual(built.patchBody.aiCoCreatedContent, {
+            images: [{ url: 'https://a.allegroimg.com/original/11bbbb/custom-2.jpg' }]
+        }, 'Musi zachować wyłącznie istniejące deklaracje AI obrazów');
+        assert.deepStrictEqual(built.preservedOfferFields, {
+            active: true,
+            productSetPatched: true,
+            imagesPreservedCount: 2,
+            suppressCatalogProductImages: true,
+            imagesTrustedLocked: false,
+            descriptionSectionsPreserved: 2,
+            descriptionTrustedLocked: false,
+            aiCoCreatedImagesPreserved: 1
+        });
+    });
+
+    await t.test('10. Trusted Content dla images/description wyłącza product.images: [] i własne nadpisania, ale nadal aktualizuje bezpieczne parametry', () => {
+        const categoryParameters = [
+            { id: '206338', name: 'Pojemność', type: 'float', unit: 'ml', options: { describesProduct: true } }
+        ];
+        const existingOffer = {
+            id: '1900000010',
+            images: ['https://a.allegroimg.com/original/11aaaa/offer-1.jpg'],
+            description: { sections: [{ items: [{ type: 'TEXT', content: '<p>Opis</p>' }] }] },
+            productSet: [{ quantity: { value: 1 }, product: { id: 'prod-trusted', parameters: [] } }]
+        };
+        const built = buildAllegroParameterPatchPayload({
+            product: { ean: '8004120910364' },
+            features: { Pojemność: '500 ml' },
+            categoryParameters,
+            existingOffer,
+            catalogProduct: { id: 'prod-trusted', trustedContent: { paths: ['images', 'description'], productPaths: [] } }
+        });
+
+        assert.strictEqual(built.errors.length, 0);
+        assert.strictEqual(built.patchBody.images, undefined);
+        assert.strictEqual(built.patchBody.description, undefined);
+        assert.strictEqual(built.patchBody.productSet[0].product.images, undefined);
+        assert.strictEqual(built.preservedOfferFields.imagesTrustedLocked, true);
+        assert.strictEqual(built.preservedOfferFields.descriptionTrustedLocked, true);
+        assert.ok(built.warnings.some(w => w.includes('Trusted Content')));
+    });
+
+    await t.test('11. Brak product.images: [] przy pustej galerii oraz brak nadmiarowych pól przy samych parametrach ofertowych lub braku zmian', () => {
+        const offerOnlySchema = [
+            { id: '229205', name: 'Stan opakowania', type: 'dictionary', options: { describesProduct: false }, dictionary: [{ id: '229205_1', value: 'oryginalne' }] }
+        ];
+        const offerWithRichContent = {
+            id: '1900000011',
+            parameters: [],
+            images: ['https://a.allegroimg.com/original/11aaaa/rich.jpg'],
+            description: { sections: [{ items: [{ type: 'TEXT', content: '<p>Bogaty opis</p>' }] }] },
+            productSet: [{ quantity: { value: 1 }, product: { id: 'prod-rich', parameters: [] } }]
+        };
+
+        // Scenariusz A: zmiana tylko parametru ofertowego -> bez productSet, bez opisu, bez zdjęć
+        const offerOnlyPatch = buildAllegroParameterPatchPayload({
+            product: { ean: '8004120910364' },
+            features: { 'Stan opakowania': 'oryginalne' },
+            categoryParameters: offerOnlySchema,
+            existingOffer: offerWithRichContent
+        });
+        assert.strictEqual(offerOnlyPatch.hasChanges, true);
+        assert.strictEqual(offerOnlyPatch.patchBody.productSet, undefined);
+        assert.strictEqual(offerOnlyPatch.patchBody.description, undefined);
+        assert.strictEqual(offerOnlyPatch.patchBody.images, undefined);
+        assert.strictEqual(offerOnlyPatch.preservedOfferFields.active, false);
+
+        // Scenariusz B: brak jakichkolwiek zmian -> pusty patchBody nawet przy bogatej ofercie
+        const noChangesPatch = buildAllegroParameterPatchPayload({
+            product: { ean: '8004120910364' },
+            features: {},
+            categoryParameters: offerOnlySchema,
+            existingOffer: offerWithRichContent
+        });
+        assert.strictEqual(noChangesPatch.hasChanges, false);
+        assert.deepStrictEqual(noChangesPatch.patchBody, {});
+
+        // Scenariusz C: oferta ma pustą galerię images: [] i aktualizujemy GPSR -> NIE wysyła product.images: []
+        const emptyGalleryOffer = {
+            id: '1900000012',
+            images: [],
+            description: { sections: [{ items: [{ type: 'TEXT', content: '<p>Opis</p>' }] }] },
+            productSet: [{ quantity: { value: 1 }, product: { id: 'prod-empty-img', parameters: [] } }]
+        };
+        const emptyGalleryPatch = buildAllegroParameterPatchPayload({
+            product: { ean: '8004120910364' },
+            features: {},
+            categoryParameters: [],
+            existingOffer: emptyGalleryOffer,
+            safetyInfoPayload: { apply: true, description: 'Ostrzeżenie.' }
+        });
+        assert.strictEqual(emptyGalleryPatch.patchBody.images, undefined);
+        assert.strictEqual(emptyGalleryPatch.patchBody.productSet[0].product.images, undefined);
+        assert.deepStrictEqual(emptyGalleryPatch.patchBody.description, emptyGalleryOffer.description);
+        assert.strictEqual(emptyGalleryPatch.preservedOfferFields.suppressCatalogProductImages, false);
+    });
 });
 
