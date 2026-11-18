@@ -1,3 +1,4 @@
+const cheerio = require('cheerio');
 const { normalizeInciToLegalEnglish } = require('../modules/offer-optimizer-v2/normalization');
 
 const MAX_SAFETY_TEXT_LEN = 5000;
@@ -1036,66 +1037,299 @@ function buildAllegroParameterPatchPayload({
     };
 }
 
+function escapeAllegroHtmlText(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function normalizeInlineWhitespace(str) {
+    return String(str || '').replace(/[\u00a0\s]+/g, ' ');
+}
+
+/**
+ * Zamienia tablicę runów `{ text, bold }` w poprawny fragment inline (wyłącznie tekst + zbalansowane `<b>...</b>`).
+ */
+function renderAllegroInlineRuns(runs) {
+    if (!Array.isArray(runs) || runs.length === 0) return '';
+    // Run pogrubienia zawierający wyłącznie spacje traktujemy jako zwykłą spację (brak pustych <b> </b>).
+    const prepared = runs
+        .map(r => {
+            const norm = normalizeInlineWhitespace(r.text);
+            if (!norm) return null;
+            return { text: norm, bold: Boolean(r.bold && norm.trim() !== '') };
+        })
+        .filter(Boolean);
+
+    // Scalanie sąsiednich runów o tym samym stanie `bold` z redukcją wielokrotnych spacji na styku
+    const merged = [];
+    for (const r of prepared) {
+        const prev = merged[merged.length - 1];
+        if (prev && prev.bold === r.bold) {
+            prev.text = normalizeInlineWhitespace(prev.text + r.text);
+        } else {
+            merged.push({ ...r });
+        }
+    }
+
+    // Przycięcie spacji na brzegach całego bloku
+    while (merged.length > 0 && merged[0].text.trim() === '') merged.shift();
+    while (merged.length > 0 && merged[merged.length - 1].text.trim() === '') merged.pop();
+    if (merged.length === 0) return '';
+
+    merged[0].text = merged[0].text.replace(/^\s+/, '');
+    merged[merged.length - 1].text = merged[merged.length - 1].text.replace(/\s+$/, '');
+
+    // Redukcja podwójnych spacji na styku sąsiednich runów
+    for (let i = 0; i < merged.length - 1; i++) {
+        if (/\s$/.test(merged[i].text) && /^\s/.test(merged[i + 1].text)) {
+            merged[i + 1].text = merged[i + 1].text.replace(/^\s+/, '');
+        }
+    }
+
+    return merged
+        .filter(r => r.text.length > 0)
+        .map(r => (r.bold ? `<b>${escapeAllegroHtmlText(r.text)}</b>` : escapeAllegroHtmlText(r.text)))
+        .join('');
+}
+
+/**
+ * Zbiera czysty tekst (bez tagów inline/blokowych) z węzła nagłówka h1/h2; <br> zamienia na spację.
+ */
+function extractPlainHeadingText(node) {
+    if (!node) return '';
+    if (node.type === 'text') return normalizeInlineWhitespace(node.data);
+    if (node.type !== 'tag') return '';
+    const tag = String(node.name || '').toLowerCase();
+    if (tag === 'script' || tag === 'style') return '';
+    if (tag === 'br') return ' ';
+    const children = Array.isArray(node.children) ? node.children : [];
+    return children.map(extractPlainHeadingText).join('');
+}
+
 /**
  * Mechaniczny adapter formatu HTML dla elementu TEXT w `StandardizedDescription` Allegro API.
- * Nie zmienia treści merytorycznej ani emotikonów — zamienia jedynie niedozwolone w API tagi (np. <strong> -> <b>, <br>, atrybuty)
- * na ścisłą białą listę Allegro: {h1, h2, p, ul, ol, li, b}.
+ * Parsuje DOM przez `cheerio` zamiast kruchych wyrażeń regularnych, spłaszcza TipTapowe `<li><p>...</p></li>`
+ * i emituje wyłącznie zbalansowane tagi z ścisłej białej listy Allegro: {h1, h2, p, ul, ol, li, b}.
  */
 function sanitizeHtmlForAllegroDescription(htmlStr) {
     if (!htmlStr || typeof htmlStr !== 'string') return '';
-    let clean = htmlStr
-        .replace(/<!--[\s\S]*?-->/g, '')
-        .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
-        .replace(/<strong\b[^>]*>/gi, '<b>')
-        .replace(/<\/strong>/gi, '</b>')
-        .replace(/<h([3-6])\b[^>]*>/gi, '<h2>')
-        .replace(/<\/h[3-6]>/gi, '</h2>');
+    const $ = cheerio.load(htmlStr, null, false);
+    const blocks = [];
+    let pendingParagraphRuns = [];
 
-    // Zamiana <br> poza listami na podział akapitów, a wewnątrz <li> na spację
-    clean = clean.replace(/<li\b[^>]*>([\s\S]*?)<\/li>/gi, (_, inner) => {
-        return `<li>${inner.replace(/<br\s*\/?>/gi, ' ')}</li>`;
-    });
-    clean = clean.replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, (_, inner) => {
-        const parts = inner.split(/<br\s*\/?>/gi).map(s => s.trim()).filter(Boolean);
-        return parts.map(part => `<p>${part}</p>`).join('');
-    });
-    clean = clean.replace(/<br\s*\/?>/gi, ' ');
+    const flushParagraph = () => {
+        const rendered = renderAllegroInlineRuns(pendingParagraphRuns);
+        pendingParagraphRuns = [];
+        if (rendered) {
+            blocks.push(`<p>${rendered}</p>`);
+        }
+    };
 
-    // Biała lista 7 dozwolonych tagów Allegro (bez żadnych atrybutów)
+    const collectFlatListItemRuns = (node, inBold, runsOut, nestedListsOut) => {
+        if (!node) return;
+        if (node.type === 'comment') return;
+        if (node.type === 'text') {
+            runsOut.push({ text: node.data, bold: inBold });
+            return;
+        }
+        if (node.type !== 'tag') return;
+        const rawTag = String(node.name || '').toLowerCase();
+        if (rawTag === 'script' || rawTag === 'style') return;
+        if (rawTag === 'br') {
+            runsOut.push({ text: ' ', bold: false });
+            return;
+        }
+        if (rawTag === 'ul' || rawTag === 'ol') {
+            nestedListsOut.push(node);
+            return;
+        }
+        const isInlineBold = rawTag === 'b' || rawTag === 'strong';
+        const isInnerBlock = rawTag === 'p' || rawTag === 'div' || rawTag === 'section' || rawTag === 'article' || rawTag === 'blockquote' || /^h[1-6]$/.test(rawTag);
+        if (isInnerBlock && runsOut.length > 0) {
+            runsOut.push({ text: ' ', bold: false });
+        }
+        const children = Array.isArray(node.children) ? node.children : [];
+        for (const child of children) {
+            collectFlatListItemRuns(child, inBold || isInlineBold, runsOut, nestedListsOut);
+        }
+        if (isInnerBlock) {
+            runsOut.push({ text: ' ', bold: false });
+        }
+    };
+
+    const extractListItems = (listNode) => {
+        const itemsHtml = [];
+        const children = Array.isArray(listNode.children) ? listNode.children : [];
+        for (const child of children) {
+            if (child.type === 'comment') continue;
+            if (child.type === 'text') {
+                const textRendered = renderAllegroInlineRuns([{ text: child.data, bold: false }]);
+                if (textRendered) itemsHtml.push(`<li>${textRendered}</li>`);
+                continue;
+            }
+            if (child.type !== 'tag') continue;
+            const childTag = String(child.name || '').toLowerCase();
+            if (childTag === 'script' || childTag === 'style') continue;
+            if (childTag === 'li') {
+                const liRuns = [];
+                const nestedLists = [];
+                for (const liChild of (child.children || [])) {
+                    collectFlatListItemRuns(liChild, false, liRuns, nestedLists);
+                }
+                const renderedLi = renderAllegroInlineRuns(liRuns);
+                if (renderedLi) {
+                    itemsHtml.push(`<li>${renderedLi}</li>`);
+                }
+                for (const nl of nestedLists) {
+                    itemsHtml.push(...extractListItems(nl));
+                }
+            } else if (childTag === 'ul' || childTag === 'ol') {
+                itemsHtml.push(...extractListItems(child));
+            } else {
+                const fallbackRuns = [];
+                const nestedLists = [];
+                collectFlatListItemRuns(child, false, fallbackRuns, nestedLists);
+                const renderedFallback = renderAllegroInlineRuns(fallbackRuns);
+                if (renderedFallback) itemsHtml.push(`<li>${renderedFallback}</li>`);
+                for (const nl of nestedLists) {
+                    itemsHtml.push(...extractListItems(nl));
+                }
+            }
+        }
+        return itemsHtml;
+    };
+
+    const walkNodes = (nodes, inBold) => {
+        for (const node of nodes) {
+            if (!node || node.type === 'comment') continue;
+            if (node.type === 'text') {
+                pendingParagraphRuns.push({ text: node.data, bold: inBold });
+                continue;
+            }
+            if (node.type !== 'tag') continue;
+
+            const tag = String(node.name || '').toLowerCase();
+            if (tag === 'script' || tag === 'style') continue;
+
+            if (tag === 'br') {
+                flushParagraph();
+                continue;
+            }
+
+            if (tag === 'h1' || /^h[2-6]$/.test(tag)) {
+                flushParagraph();
+                const outTag = tag === 'h1' ? 'h1' : 'h2';
+                const plainHeading = extractPlainHeadingText(node).replace(/\s+/g, ' ').trim();
+                if (plainHeading) {
+                    blocks.push(`<${outTag}>${escapeAllegroHtmlText(plainHeading)}</${outTag}>`);
+                }
+                continue;
+            }
+
+            if (tag === 'ul' || tag === 'ol') {
+                flushParagraph();
+                const listItems = extractListItems(node);
+                if (listItems.length > 0) {
+                    blocks.push(`<${tag}>${listItems.join('')}</${tag}>`);
+                }
+                continue;
+            }
+
+            if (tag === 'p' || tag === 'div' || tag === 'section' || tag === 'article' || tag === 'blockquote' || tag === 'header' || tag === 'footer') {
+                flushParagraph();
+                walkNodes(node.children || [], false);
+                flushParagraph();
+                continue;
+            }
+
+            if (tag === 'li') {
+                // Sierocy <li> poza listą zamieniamy bezpiecznie w akapit <p>
+                flushParagraph();
+                walkNodes(node.children || [], false);
+                flushParagraph();
+                continue;
+            }
+
+            const isBoldTag = tag === 'b' || tag === 'strong';
+            walkNodes(node.children || [], inBold || isBoldTag);
+        }
+    };
+
+    walkNodes($.root().contents().toArray(), false);
+    flushParagraph();
+
+    return blocks.join('');
+}
+
+/**
+ * Waliduje strukturę HTML wygenerowaną dla sekcji `TEXT` w `StandardizedDescription` Allegro API.
+ * Sprawdza zbalansowanie wszystkich tagów, zakaz atrybutów i reguły zagnieżdżania Allegro (`{h1, h2, p, ul, ol, li, b}`).
+ */
+function validateAllegroDescriptionHtml(htmlStr) {
+    if (htmlStr === undefined || htmlStr === null || htmlStr === '') {
+        return { valid: true, errors: [] };
+    }
+    const str = String(htmlStr);
+    const errors = [];
     const allowedTags = new Set(['h1', 'h2', 'p', 'ul', 'ol', 'li', 'b']);
-    clean = clean.replace(/<\/?([a-zA-Z0-9-]+)([^>]*)>/g, (match, rawTag) => {
-        const tag = String(rawTag).toLowerCase();
-        if (!allowedTags.has(tag)) return '';
-        return match.startsWith('</') ? `</${tag}>` : `<${tag}>`;
-    });
+    const stack = [];
+    const tagRegex = /<\/?([a-zA-Z0-9-]+)([^>]*)>/g;
+    let lastIndex = 0;
+    let match;
 
-    // Allegro zabrania zagnieżdżania tagów (np. <b>) wewnątrz <h1> oraz <h2>
-    clean = clean.replace(/<(h[12])>([\s\S]*?)<\/\1>/gi, (_, tag, inner) => {
-        const plainInner = inner.replace(/<\/?[a-z0-9]+>/gi, '').trim();
-        return plainInner ? `<${tag}>${plainInner}</${tag}>` : '';
-    });
+    while ((match = tagRegex.exec(str)) !== null) {
+        const textBetween = str.slice(lastIndex, match.index);
+        if (textBetween.includes('<')) {
+            errors.push('Niedomknięty lub niepoprawny znak "<" w treści HTML.');
+        }
+        lastIndex = tagRegex.lastIndex;
 
-    // Odwijanie list błędnie owiniętych w <p>
-    clean = clean.replace(/<p>\s*(<(?:ul|ol)>[\s\S]*?<\/(?:ul|ol)>)\s*<\/p>/gi, '$1');
+        const fullMatch = match[0];
+        const tag = String(match[1]).toLowerCase();
+        const attrs = String(match[2] || '').trim();
+        const isClosing = fullMatch.startsWith('</');
 
-    // Usuwanie pustych tagów (w tym <p>&nbsp;</p>)
-    clean = clean
-        .replace(/<p>(?:\s|&nbsp;)*<\/p>/gi, '')
-        .replace(/<li>(?:\s|&nbsp;)*<\/li>/gi, '')
-        .replace(/<(ul|ol)>(?:\s|&nbsp;)*<\/\1>/gi, '')
-        .trim();
+        if (!allowedTags.has(tag)) {
+            errors.push(`Niedozwolony tag HTML <${tag}> w opisie Allegro.`);
+            continue;
+        }
+        if (attrs) {
+            errors.push(`Tag <${tag}> zawiera niedozwolone atrybuty: ${attrs}.`);
+        }
 
-    if (!clean) return '';
+        if (isClosing) {
+            if (stack.length === 0 || stack[stack.length - 1] !== tag) {
+                errors.push(`Niezbalansowany tag zamykający </${tag}>.`);
+            } else {
+                stack.pop();
+            }
+            continue;
+        }
 
-    // Jeżeli istnieje goły tekst poza tagami blokowymi (h1, h2, p, ul, ol), owijamy go w <p>
-    const blockRegex = /(<(?:h1|h2|p|ul|ol)>[\s\S]*?<\/(?:h1|h2|p|ul|ol)>)/gi;
-    const chunks = clean.split(blockRegex).map(chunk => chunk.trim()).filter(Boolean);
-    const normalizedChunks = chunks.map(chunk => {
-        if (/^<(?:h1|h2|p|ul|ol)>/i.test(chunk)) return chunk;
-        return `<p>${chunk}</p>`;
-    });
+        const parent = stack.length > 0 ? stack[stack.length - 1] : null;
+        if ((tag === 'h1' || tag === 'h2' || tag === 'p' || tag === 'ul' || tag === 'ol') && parent !== null) {
+            errors.push(`Tag blokowy <${tag}> nie może być zagnieżdżony wewnątrz <${parent}>.`);
+        } else if (tag === 'li' && parent !== 'ul' && parent !== 'ol') {
+            errors.push(`Element <li> może występować wyłącznie wewnątrz <ul> lub <ol>.`);
+        } else if (tag === 'b' && parent !== 'p' && parent !== 'li') {
+            errors.push(`Tag <b> może występować wyłącznie wewnątrz <p> lub <li>.`);
+        }
+        stack.push(tag);
+    }
 
-    return normalizedChunks.join('');
+    if (str.slice(lastIndex).includes('<')) {
+        errors.push('Niedomknięty znak "<" na końcu treści HTML.');
+    }
+    if (stack.length > 0) {
+        errors.push(`Brakuje taga zamykającego dla: ${stack.map(t => `"${t}"`).join(', ')}.`);
+    }
+
+    return {
+        valid: errors.length === 0,
+        errors
+    };
 }
 
 /**
@@ -1351,6 +1585,16 @@ function buildAllegroContentPreflight({
         if (descBuild.exceedsLimit) {
             errors.push(`Opis przekracza limit REST API Allegro (${descBuild.totalBytes} / ${MAX_ALLEGRO_DESCRIPTION_BYTES} bajtów UTF-8).`);
         }
+        (descBuild.description?.sections || []).forEach((sec, sIdx) => {
+            (sec?.items || []).forEach((item, iIdx) => {
+                if (item?.type === 'TEXT') {
+                    const htmlCheck = validateAllegroDescriptionHtml(item.content);
+                    if (!htmlCheck.valid) {
+                        errors.push(`Nieprawidłowy HTML opisu w sekcji [${sIdx}].items[${iIdx}]: ${htmlCheck.errors.join(' ')}`);
+                    }
+                }
+            });
+        });
         if (!effectiveIncludeImages && currentOfferImages.length === 0) {
             warnings.push('Oferta na Allegro nie ma obecnie zdjęć, a wysyłka zdjęć jest wyłączona — opis zostanie wysłany wyłącznie jako sekcje tekstowe.');
         }
@@ -1446,6 +1690,7 @@ module.exports = {
     formatAllegroParamDisplay,
     buildAllegroParameterPatchPayload,
     sanitizeHtmlForAllegroDescription,
+    validateAllegroDescriptionHtml,
     collectPipelineImagesForAllegro,
     buildAllegroDescriptionSections,
     buildAllegroContentPreflight,

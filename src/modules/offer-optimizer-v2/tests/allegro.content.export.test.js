@@ -7,6 +7,7 @@ const {
     MAX_ALLEGRO_DESCRIPTION_BYTES,
     MAX_ALLEGRO_OFFER_IMAGES_BUSINESS,
     sanitizeHtmlForAllegroDescription,
+    validateAllegroDescriptionHtml,
     collectPipelineImagesForAllegro,
     buildAllegroDescriptionSections,
     buildAllegroContentPreflight,
@@ -289,5 +290,49 @@ test('Allegro Content Export & Multi-Account Vault', async (t) => {
         assert.strictEqual(calls[1].url, 'https://upload.allegro.pl/sale/images', 'JSON upload nie powinien dublować query param isAiCoCreated');
         assert.deepStrictEqual(calls[1].body, { url: 'https://cdn.example.com/product.png', isAiCoCreated: false });
         assert.strictEqual(calls[1].config.headers['Content-Type'], 'application/vnd.allegro.public.v1+json');
+    });
+
+    await t.test('7. Regresja TipTap <ul><li><p>...</p></li></ul>, zagnieżdżone listy, <br> wewnątrz <b> i encje &amp;/< bez błędu 422', () => {
+        const tiptapHtml =
+            '<h2>⚙️ Składniki i synergia &amp; pH &lt; 5.5</h2>' +
+            '<ul>' +
+            '<li><p>✔️ <strong>Kompleks nawilżający:</strong> opis działania<br>w nowej linii.</p></li>' +
+            '<li><p>✔️ <strong>Cocamidopropyl Betaine &amp; Acetate:</strong> łagodzi działanie.</p><p>Dodatkowe zdanie.</p></li>' +
+            '<li><p>✔️ Poziom 1</p><ul><li><p>Zagnieżdżony podpunkt</p></li></ul></li>' +
+            '<li><p>&nbsp;</p></li>' +
+            '</ul>' +
+            '<p></p>' +
+            '<p><strong>Pierwszy wers<br/>Drugi wers</strong> oraz <b> </b> test</p>' +
+            'Tekst bez paragrafu na końcu';
+
+        const out = sanitizeHtmlForAllegroDescription(tiptapHtml);
+        const check = validateAllegroDescriptionHtml(out);
+        assert.strictEqual(check.valid, true, `Wygenerowany HTML musi przejść walidację strukturalną, błędy: ${check.errors.join('; ')}`);
+        assert.ok(!out.includes('<li><p>'), 'Wewnątrz <li> nie może pozostać <p>');
+        assert.ok(!out.includes('<p></li>'), 'Nie może pojawić się uszkodzony fragment <p></li>');
+        assert.ok(!out.includes('</li></p>'), 'Nie może pojawić się uszkodzony fragment </li></p>');
+        assert.ok(out.includes('<h2>⚙️ Składniki i synergia &amp; pH &lt; 5.5</h2>'));
+        assert.ok(out.includes('<li>✔️ <b>Kompleks nawilżający:</b> opis działania w nowej linii.</li>'));
+        assert.ok(out.includes('<li>✔️ <b>Cocamidopropyl Betaine &amp; Acetate:</b> łagodzi działanie. Dodatkowe zdanie.</li>'));
+        assert.ok(out.includes('<li>✔️ Poziom 1</li><li>Zagnieżdżony podpunkt</li>'));
+        assert.ok(out.includes('<p><b>Pierwszy wers</b></p><p><b>Drugi wers</b> oraz test</p>'));
+        assert.ok(out.endsWith('<p>Tekst bez paragrafu na końcu</p>'));
+    });
+
+    await t.test('8. validateAllegroDescriptionHtml wykrywa niedomknięte, zagnieżdżone i niedozwolone tagi HTML', () => {
+        assert.strictEqual(validateAllegroDescriptionHtml('<p><b>Ok</b></p><ul><li>Item</li></ul>').valid, true);
+
+        const unclosedP = validateAllegroDescriptionHtml('<ul><li><p>Broken</p><p></li></ul></p>');
+        assert.strictEqual(unclosedP.valid, false);
+        assert.ok(unclosedP.errors.length > 0);
+
+        const boldInHeading = validateAllegroDescriptionHtml('<h2><b>Bad</b></h2>');
+        assert.strictEqual(boldInHeading.valid, false);
+
+        const attrP = validateAllegroDescriptionHtml('<p class="x">Test</p>');
+        assert.strictEqual(attrP.valid, false);
+
+        const nestedPInLi = validateAllegroDescriptionHtml('<ul><li><p>Invalid</p></li></ul>');
+        assert.strictEqual(nestedPInLi.valid, false);
     });
 });
