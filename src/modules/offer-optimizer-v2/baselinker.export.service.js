@@ -8,6 +8,66 @@ const { getBaseLinkerToken } = require('../../utils/secretVault');
 const { isValidExportImageUrl } = require('../../utils/allegro_mapper');
 const { stripRawInciFooterFromSection3 } = require('./normalization');
 
+const INTERNAL_BACK_IMAGE_KEYS = new Set([
+    'zdjęcie tyłu opakowania',
+    'zdjecie tylu opakowania',
+    '_backimageurl'
+]);
+
+/**
+ * Scala parametry z PIM, UI oraz (wyłącznie jako fallback braków) katalogu Allegro,
+ * gwarantując pierwszeństwo korekt operatora oraz usunięcie pól binarnych przed eksportem do BaseLinkera.
+ */
+function mergeFeaturesForBaselinker({ existingFeatures = {}, draftFeatures = null, hardFeatures = {}, featuresAuthoritative = false } = {}) {
+    const baseExisting = (existingFeatures && typeof existingFeatures === 'object' && !Array.isArray(existingFeatures))
+        ? existingFeatures
+        : {};
+    const hasDraftObj = Boolean(draftFeatures && typeof draftFeatures === 'object' && !Array.isArray(draftFeatures));
+
+    // Przy pełnym snapshocie z UI (`featuresAuthoritative`) nie wskrzeszamy kluczy celowo usuniętych przez operatora
+    const merged = featuresAuthoritative && hasDraftObj
+        ? { ...draftFeatures }
+        : { ...baseExisting, ...(hasDraftObj ? draftFeatures : {}) };
+
+    const presentNormKeys = new Set(
+        Object.keys(merged).map(k => String(k).toLowerCase().trim())
+    );
+    const deletedFromUiNormKeys = new Set(
+        featuresAuthoritative && hasDraftObj
+            ? Object.keys(baseExisting)
+                .map(k => String(k).toLowerCase().trim())
+                .filter(nk => !presentNormKeys.has(nk))
+            : []
+    );
+
+    if (hardFeatures && typeof hardFeatures === 'object' && !Array.isArray(hardFeatures)) {
+        for (const [k, v] of Object.entries(hardFeatures)) {
+            if (v === undefined || v === null || String(v).trim() === '') continue;
+            const normKey = String(k).toLowerCase().trim();
+            if (INTERNAL_BACK_IMAGE_KEYS.has(normKey)) continue;
+            if (deletedFromUiNormKeys.has(normKey)) continue;
+            if (!presentNormKeys.has(normKey)) {
+                merged[k] = v;
+                presentNormKeys.add(normKey);
+            } else {
+                const existingKey = Object.keys(merged).find(mk => String(mk).toLowerCase().trim() === normKey);
+                if (existingKey && (merged[existingKey] === undefined || merged[existingKey] === null || String(merged[existingKey]).trim() === '')) {
+                    merged[existingKey] = v;
+                }
+            }
+        }
+    }
+
+    for (const [key, val] of Object.entries(merged)) {
+        const normKey = String(key).toLowerCase().trim();
+        if (INTERNAL_BACK_IMAGE_KEYS.has(normKey) || (typeof val === 'string' && val.startsWith('data:image'))) {
+            delete merged[key];
+        }
+    }
+
+    return merged;
+}
+
 class BaselinkerExportService {
     
     /**
@@ -142,14 +202,14 @@ class BaselinkerExportService {
             existingFeatures = product.features;
         }
 
-        let finalFeatures = { ...existingFeatures, ...hardFeatures, ...(draftData.features || {}) };
-        
+        const finalFeatures = mergeFeaturesForBaselinker({
+            existingFeatures,
+            draftFeatures: draftData.features || null,
+            hardFeatures,
+            featuresAuthoritative: Boolean(draftData.featuresAuthoritative)
+        });
+
         for (const [key, val] of Object.entries(finalFeatures)) {
-            const normKey = String(key).toLowerCase().trim();
-            if (normKey === 'zdjęcie tyłu opakowania' || normKey === 'zdjecie tylu opakowania' || normKey === '_backimageurl' || (typeof val === 'string' && val.startsWith('data:image'))) {
-                delete finalFeatures[key];
-                continue;
-            }
             if (typeof val === 'string') {
                 finalFeatures[key] = this.encodeEmojis(val, false);
             }
@@ -257,4 +317,7 @@ class BaselinkerExportService {
     }
 }
 
-module.exports = new BaselinkerExportService();
+const baselinkerExportService = new BaselinkerExportService();
+baselinkerExportService.mergeFeaturesForBaselinker = mergeFeaturesForBaselinker;
+
+module.exports = baselinkerExportService;

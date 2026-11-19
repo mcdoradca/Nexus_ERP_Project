@@ -420,16 +420,6 @@ const validateBaselinkerExport = async (req, res) => {
             return res.status(404).json({ error: "Nie znaleziono produktu o podanym EAN." });
         }
 
-        // Fetch hard features from Allegro to feed the agent
-        let hardFeatures = {};
-        if (product.allegroCategoryId) {
-            try {
-                hardFeatures = await AllegroService.getProductParametersByEan(ean, product.allegroCategoryId);
-            } catch (err) {
-                console.warn("[BaselinkerExport] Błąd pobierania hardFeatures z Allegro:", err.message);
-            }
-        }
-
         // Wykorzystanie nowego deterministycznego serwisu zamiast Agentów AI (LLM)
         const baselinkerExportService = require('../offer-optimizer-v2/baselinker.export.service');
         const BaseLinkerService = require('./baselinker.service');
@@ -467,7 +457,7 @@ const validateBaselinkerExport = async (req, res) => {
             },
             title: draftData.title || "",
             sections: draftData.htmlContent || {},
-            parameters: { ...(product.features || {}), ...(hardFeatures || {}) },
+            parameters: generatedPayload?.text_fields?.features || {},
             agentPayload: generatedPayload,
             exportToken: exportToken // Przekazujemy na frontend
         };
@@ -541,7 +531,7 @@ const exportToBaselinker = async (req, res) => {
             newDescHtml += `\n\n${aiActDisclosure}`;
         }
 
-        const existingBeforeExport = await prisma.product.findUnique({ where: { ean }, select: { offerDraft: true } });
+        const existingBeforeExport = await prisma.product.findUnique({ where: { ean }, select: { offerDraft: true, features: true } });
         let preservedExistingDraft = {};
         try {
             preservedExistingDraft = typeof existingBeforeExport?.offerDraft === 'string'
@@ -549,19 +539,43 @@ const exportToBaselinker = async (req, res) => {
                 : (existingBeforeExport?.offerDraft || {});
         } catch (_) {}
 
+        let existingDbFeatures = {};
+        try {
+            existingDbFeatures = typeof existingBeforeExport?.features === 'string'
+                ? JSON.parse(existingBeforeExport.features)
+                : (existingBeforeExport?.features || {});
+        } catch (_) {}
+
         const mergedExportDraft = {
             ...preservedExistingDraft,
             ...draftData
         };
 
+        const productUpdateData = {
+            offerDraft: mergedExportDraft,
+            name: newTitle, // Nadpisujemy trzon!
+            descriptionHtml: newDescHtml, // Nadpisujemy trzon!
+            lastContentSource: 'OFFER_OPTIMIZER_AI' // Ustawiamy pieczątkę wysokiego zaufania
+        };
+
+        if (draftData.features && typeof draftData.features === 'object' && !Array.isArray(draftData.features) && (Object.keys(draftData.features).length > 0 || draftData.featuresAuthoritative)) {
+            const preservedInternalImages = {};
+            for (const [k, v] of Object.entries(existingDbFeatures)) {
+                const nk = String(k).toLowerCase().trim();
+                if ((nk === 'zdjęcie tyłu opakowania' || nk === 'zdjecie tylu opakowania' || nk === '_backimageurl') && v) {
+                    preservedInternalImages[k] = v;
+                }
+            }
+            productUpdateData.features = {
+                ...preservedInternalImages,
+                ...(draftData.featuresAuthoritative ? {} : existingDbFeatures),
+                ...draftData.features
+            };
+        }
+
         const product = await prisma.product.update({
             where: { ean },
-            data: { 
-                offerDraft: mergedExportDraft,
-                name: newTitle, // Nadpisujemy trzon!
-                descriptionHtml: newDescHtml, // Nadpisujemy trzon!
-                lastContentSource: 'OFFER_OPTIMIZER_AI' // Ustawiamy pieczątkę wysokiego zaufania
-            }
+            data: productUpdateData
         });
 
         const hasAgentPayload = product.offerDraft && product.offerDraft.agentPayload;
