@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('./offer-optimizer.controller');
+const vonHalskyController = require('./vonhalsky.controller');
 const multer = require('multer');
 
 // Rezerwujemy szybki RAM buffor dla obrazu bez jego zapisu na dysk
@@ -26,6 +27,11 @@ router.post('/validate-allegro-params-export', express.json({ limit: '50mb' }), 
 router.post('/export-allegro-params', express.json({ limit: '50mb' }), controller.exportAllegroParams);
 router.post('/validate-allegro-content-export', express.json({ limit: '50mb' }), controller.validateAllegroContentExport);
 router.post('/export-allegro-content', express.json({ limit: '50mb' }), controller.exportAllegroContent);
+router.get('/vonhalsky/categories', vonHalskyController.listCategories);
+router.get('/vonhalsky/categories/:categoryId/attributes', vonHalskyController.getCategoryAttributesEndpoint);
+router.get('/vonhalsky/offers/search', vonHalskyController.searchOffersAndHints);
+router.post('/validate-vonhalsky-export', express.json({ limit: '50mb' }), vonHalskyController.validateVonHalskyExport);
+router.post('/export-vonhalsky', express.json({ limit: '50mb' }), vonHalskyController.exportToVonHalsky);
 router.post('/generate-lifestyle', express.json({ limit: '50mb' }), controller.generateLifestyle);
 router.get('/generate-lifestyle/status/:jobId', controller.checkLifestyleStatus);
 router.post('/extract-back-label', express.json({ limit: '50mb' }), controller.extractBackLabel);

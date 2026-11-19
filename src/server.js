@@ -180,6 +180,7 @@ const offerOptimizerRoutes = require('./modules/offer-optimizer/offer-optimizer.
 const resiRoutes = require('./modules/resi/resi.routes');
 const aiTelemetryRoutes = require('./routes/ai-telemetry.routes');
 const allegroAuthRoutes = require('./routes/allegro-auth.routes');
+const vonHalskyRoutes = require('./routes/vonhalsky.routes');
 const sdsRoutes = require('./modules/sds/sds.routes');
 const adIntelligenceRoutes = require('./modules/ad-intelligence/ad-intelligence.routes');
 
@@ -277,6 +278,9 @@ app.use('/api/system/ai-telemetry', authenticateToken, aiTelemetryRoutes);
 
 // Autoryzacja Allegro Device Flow
 app.use('/api/allegro/auth', authenticateToken, allegroAuthRoutes);
+
+// Konfiguracja i weryfikacja InPost Von Halsky API
+app.use('/api/vonhalsky', authenticateToken, vonHalskyRoutes);
 
 // ENDPOINT DO TESTOWANIA SYSTEMU LOGOWANIA (FAZA 5)
 app.get('/api/test-error', (req, res, next) => {
@@ -485,7 +489,7 @@ app.get('/api/products/:id', authenticateToken, async (req, res) => {
     }
 });
 // --- System Settings API ---
-const SECRET_SETTING_KEYS = new Set(['BASELINKER_TOKEN', 'ALLEGRO_ACCESS_TOKEN', 'ALLEGRO_REFRESH_TOKEN', 'ALLEGRO_ACCOUNTS_VAULT', 'ELEVENLABS_API_KEY']);
+const SECRET_SETTING_KEYS = new Set(['BASELINKER_TOKEN', 'ALLEGRO_ACCESS_TOKEN', 'ALLEGRO_REFRESH_TOKEN', 'ALLEGRO_ACCOUNTS_VAULT', 'VONHALSKY_CONFIG_VAULT', 'ELEVENLABS_API_KEY']);
 
 app.get('/api/settings/:key', authenticateToken, async (req, res) => {
     if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });

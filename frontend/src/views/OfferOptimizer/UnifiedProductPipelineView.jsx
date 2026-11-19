@@ -5,6 +5,7 @@ import { StrictWysiwyg } from './components/HitlReviewer/StrictWysiwyg';
 import { TileSimulator } from './components/HitlReviewer/TileSimulator';
 import { ImageUploadBox } from './components/SingleAuctionFetcher/ImageUploadBox';
 import { PhotographicAuditorCard } from './components/VisionFeedback/PhotographicAuditorCard';
+import { VonHalskyExportModal } from './VonHalskyExportModal';
 import { requestLifestyleGeneration } from './services/lifestyleImageService';
 import { describeBaselinkerError, describeAutofillError } from '../../utils';
 import { 
@@ -204,6 +205,12 @@ export const UnifiedProductPipelineView = ({
     const [allegroExportIncludeDescription, setAllegroExportIncludeDescription] = useState(true);
     const [allegroAiFlagsOverride, setAllegroAiFlagsOverride] = useState({});
     const [allegroContentPreviewDirty, setAllegroContentPreviewDirty] = useState(false);
+
+    // STANY EKSPORTU DO INPOST VON HALSKY API
+    const [isValidatingVonHalsky, setIsValidatingVonHalsky] = useState(false);
+    const [isExportingVonHalsky, setIsExportingVonHalsky] = useState(false);
+    const [vonHalskyValidationResult, setVonHalskyValidationResult] = useState(null);
+    const [showVonHalskyModal, setShowVonHalskyModal] = useState(false);
 
     const handleExtractBackLabel = async (overrideImageUrl) => {
         const targetImg = overrideImageUrl || newProductForm?.features?.['Zdjęcie tyłu opakowania'];
@@ -1469,6 +1476,80 @@ export const UnifiedProductPipelineView = ({
         }
     };
 
+    const handleValidateVonHalskyExport = async (overrideOptions = {}) => {
+        const targetEan = String(effectiveEan || liveEan || newProductForm.ean || '').trim();
+        const targetProductId = editingProduct || undefined;
+        if (!targetEan && !targetProductId) {
+            alert('Wybierz lub zapisz produkt (EAN / ID) przed uruchomieniem Pre-flight Von Halsky.');
+            return;
+        }
+        setIsValidatingVonHalsky(true);
+        try {
+            const initialOverrides = overrideOptions.overrides || {
+                name: liveTitle || newProductForm.name || '',
+                brand: brandSearchTerm || '',
+                priceAmount: newProductForm.salePrice !== undefined && newProductForm.salePrice !== '' ? newProductForm.salePrice : undefined,
+                taxRateInfo: newProductForm.taxRate !== undefined && newProductForm.taxRate !== '' ? `${newProductForm.taxRate}%` : undefined,
+                stockQuantity: newProductForm.stock !== undefined && newProductForm.stock !== '' ? newProductForm.stock : undefined
+            };
+            const res = await axios.post(`${API_URL}/api/offer-optimizer/validate-vonhalsky-export`, {
+                ean: targetEan,
+                productId: targetProductId,
+                mode: overrideOptions.mode || 'auto',
+                offerId: overrideOptions.offerId || '',
+                categoryId: overrideOptions.categoryId || initialOverrides.categoryId || '',
+                htmlContent: editorHtml,
+                images: visionTickets,
+                features: newProductForm.features || {},
+                overrides: initialOverrides
+            }, { headers: { Authorization: `Bearer ${token}` } });
+
+            setVonHalskyValidationResult(res.data);
+            setShowVonHalskyModal(true);
+        } catch (err) {
+            console.error('[VonHalskyPreflight] Błąd:', err);
+            alert('Błąd przygotowania Pre-flight InPost Von Halsky: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsValidatingVonHalsky(false);
+        }
+    };
+
+    const handleConfirmVonHalskyExport = async ({ mode, offerId, categoryId, overrides, exportToken, confirmedTwice }) => {
+        if (confirmedTwice !== true || !exportToken) return;
+        setIsExportingVonHalsky(true);
+        try {
+            const targetEan = String(effectiveEan || liveEan || newProductForm.ean || '').trim();
+            const res = await axios.post(`${API_URL}/api/offer-optimizer/export-vonhalsky`, {
+                ean: targetEan,
+                productId: editingProduct || undefined,
+                mode,
+                offerId,
+                categoryId,
+                htmlContent: editorHtml,
+                images: visionTickets,
+                features: newProductForm.features || {},
+                overrides,
+                exportToken,
+                confirmedTwice: true
+            }, { headers: { Authorization: `Bearer ${token}` } });
+
+            const apiWarnings = Array.isArray(res.data?.warnings) && res.data.warnings.length > 0
+                ? `\n\nUwagi:\n- ${res.data.warnings.join('\n- ')}`
+                : '';
+            const valErrors = Array.isArray(res.data?.validationErrors) && res.data.validationErrors.length > 0
+                ? `\n\nUwagi walidacji oferty InPost:\n- ${res.data.validationErrors.map(e => e.validationMessage || e.validationCode).join('\n- ')}`
+                : '';
+            alert((res.data?.message || 'Oferta została wysłana do InPost Von Halsky!') + valErrors + apiWarnings);
+            setShowVonHalskyModal(false);
+            if (fetchAppGlobalData) fetchAppGlobalData();
+        } catch (err) {
+            console.error('[VonHalskyExport] Błąd:', err);
+            alert('Błąd wysyłki do InPost Von Halsky API: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setIsExportingVonHalsky(false);
+        }
+    };
+
     // === TUTAJ PRZENIESIONO PRZYCISK GENERUJ AEO ===
     const handleGenerateAEO = async () => {
         if (!editingProduct) {
@@ -1976,6 +2057,16 @@ export const UnifiedProductPipelineView = ({
                                             >
                                                 {isValidatingAllegroContent ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Image className="w-4 h-4 mr-2" />}
                                                 Wyślij Opis i Zdjęcia Allegro
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleValidateVonHalskyExport()}
+                                                disabled={isValidatingVonHalsky}
+                                                className="px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-slate-950 text-[10px] uppercase font-black tracking-widest rounded-md transition-all shadow-md flex items-center disabled:opacity-50"
+                                                title="Otwiera Pre-flight weryfikacji i (po dwukrotnym potwierdzeniu) wysyła ofertę do InPost Von Halsky API"
+                                            >
+                                                {isValidatingVonHalsky ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Package className="w-4 h-4 mr-2" />}
+                                                Wyślij do Von Halsky
                                             </button>
                                         </div>
                                     </div>
@@ -3459,6 +3550,20 @@ export const UnifiedProductPipelineView = ({
                         </div>
                     </div>
                 </div>
+            )}
+            {showVonHalskyModal && vonHalskyValidationResult && (
+                <VonHalskyExportModal
+                    isOpen={showVonHalskyModal}
+                    onClose={() => setShowVonHalskyModal(false)}
+                    validationResult={vonHalskyValidationResult}
+                    isValidating={isValidatingVonHalsky}
+                    isExporting={isExportingVonHalsky}
+                    onRevalidate={handleValidateVonHalskyExport}
+                    onConfirmExport={handleConfirmVonHalskyExport}
+                    token={token}
+                    API_URL={API_URL}
+                    getSafeImageSrc={getSafeImageSrc}
+                />
             )}
             {viewingImageUrl && (
                 <ImageModal 

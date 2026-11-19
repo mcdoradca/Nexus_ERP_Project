@@ -33,6 +33,27 @@ const AdminPanelView = ({
   const [allegroError, setAllegroError] = useState('');
   const pollInterval = React.useRef(null);
 
+  // Stany konfiguracji InPost Von Halsky API
+  const [vhConfig, setVhConfig] = useState(null);
+  const [vhEnv, setVhEnv] = useState('production');
+  const [vhClientId, setVhClientId] = useState('');
+  const [vhClientSecret, setVhClientSecret] = useState('');
+  const [vhOrgId, setVhOrgId] = useState('');
+  const [vhOrgName, setVhOrgName] = useState('');
+  const [vhApiBaseUrl, setVhApiBaseUrl] = useState('');
+  const [vhTokenUrl, setVhTokenUrl] = useState('');
+  const [vhDaysToShip, setVhDaysToShip] = useState('1');
+  const [vhDescFormat, setVhDescFormat] = useState('html');
+  const [vhMfrEmail, setVhMfrEmail] = useState('');
+  const [vhMfrPhone, setVhMfrPhone] = useState('');
+  const [vhReturnPolicy, setVhReturnPolicy] = useState('');
+  const [vhComplaintPolicy, setVhComplaintPolicy] = useState('');
+  const [isSavingVh, setIsSavingVh] = useState(false);
+  const [isVerifyingVh, setIsVerifyingVh] = useState(false);
+  const [vhMessage, setVhMessage] = useState('');
+  const [vhError, setVhError] = useState('');
+  const [vhVerifyInfo, setVhVerifyInfo] = useState(null);
+
   useEffect(() => {
     return () => {
       if (pollInterval.current) clearInterval(pollInterval.current);
@@ -45,6 +66,29 @@ const AdminPanelView = ({
       setAllegroAccounts(Array.isArray(res.data?.accounts) ? res.data.accounts : []);
     } catch (err) {
       console.error('[AllegroAccounts] Błąd pobierania kont:', err);
+    }
+  }, [API_URL, token]);
+
+  const loadVonHalskyConfig = React.useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/vonhalsky/config`, { headers: { Authorization: `Bearer ${token}` } });
+      const cfg = res.data?.config;
+      if (cfg) {
+        setVhConfig(cfg);
+        setVhEnv(cfg.environment || 'production');
+        setVhOrgId(cfg.organizationId || '');
+        setVhOrgName(cfg.organizationName || '');
+        setVhApiBaseUrl(cfg.apiBaseUrl || '');
+        setVhTokenUrl(cfg.tokenUrl || '');
+        setVhDaysToShip(String(cfg.defaultDaysToShip ?? 1));
+        setVhDescFormat(cfg.defaultDescriptionFormat || 'html');
+        setVhMfrEmail(cfg.defaultManufacturerEmail || '');
+        setVhMfrPhone(cfg.defaultManufacturerPhone || '');
+        setVhReturnPolicy(cfg.defaultReturnPolicy || '');
+        setVhComplaintPolicy(cfg.defaultComplaintPolicy || '');
+      }
+    } catch (err) {
+      console.error('[VonHalskyConfig] Błąd odczytu konfiguracji:', err);
     }
   }, [API_URL, token]);
   
@@ -61,12 +105,13 @@ const AdminPanelView = ({
          })
          .catch(err => console.error(err));
        loadAllegroAccounts();
+       loadVonHalskyConfig();
     } else if (activeTab === 'PHOTOROOM_DEBUG') {
        axios.get(`${API_URL}/api/photoroom/debug/list`, { headers: { Authorization: `Bearer ${token}` } })
          .then(res => setDebugImages(res.data.files || []))
          .catch(err => console.error(err));
     }
-  }, [activeTab, API_URL, token, loadAllegroAccounts]);
+  }, [activeTab, API_URL, token, loadAllegroAccounts, loadVonHalskyConfig]);
 
   const startAllegroAuth = async (overrideLabel = null, overrideDefault = null) => {
     setAllegroError('');
@@ -187,6 +232,72 @@ const AdminPanelView = ({
         setTokenError(err.response?.data?.error || 'Błąd weryfikacji lub zapisu tokena (poprzedni stan bazy został zachowany).');
      } finally {
         setIsSavingToken(false);
+     }
+  };
+
+  const handleSaveVonHalskyConfig = async () => {
+     setVhError('');
+     setVhMessage('');
+     setIsSavingVh(true);
+     try {
+        const payload = {
+           environment: vhEnv,
+           organizationId: vhOrgId.trim(),
+           organizationName: vhOrgName.trim(),
+           apiBaseUrl: vhApiBaseUrl.trim() || undefined,
+           tokenUrl: vhTokenUrl.trim() || undefined,
+           defaultDaysToShip: Number(vhDaysToShip) || 1,
+           defaultDescriptionFormat: vhDescFormat,
+           defaultManufacturerEmail: vhMfrEmail.trim(),
+           defaultManufacturerPhone: vhMfrPhone.trim(),
+           defaultReturnPolicy: vhReturnPolicy.trim(),
+           defaultComplaintPolicy: vhComplaintPolicy.trim()
+        };
+        if (vhClientId.trim()) payload.clientId = vhClientId.trim();
+        if (vhClientSecret.trim()) payload.clientSecret = vhClientSecret.trim();
+
+        const res = await axios.post(`${API_URL}/api/vonhalsky/config`, payload, {
+           headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.data?.config) {
+           setVhConfig(res.data.config);
+           setVhApiBaseUrl(res.data.config.apiBaseUrl || '');
+           setVhTokenUrl(res.data.config.tokenUrl || '');
+        }
+        setVhClientId('');
+        setVhClientSecret('');
+        setVhMessage(res.data?.message || 'Zapisano konfigurację InPost Von Halsky.');
+     } catch (err) {
+        setVhError(err.response?.data?.error || 'Błąd zapisu konfiguracji InPost Von Halsky.');
+     } finally {
+        setIsSavingVh(false);
+     }
+  };
+
+  const handleVerifyVonHalsky = async () => {
+     setVhError('');
+     setVhVerifyInfo(null);
+     setIsVerifyingVh(true);
+     try {
+        const candidate = {};
+        if (vhClientId.trim()) candidate.clientId = vhClientId.trim();
+        if (vhClientSecret.trim()) candidate.clientSecret = vhClientSecret.trim();
+        if (vhEnv) candidate.environment = vhEnv;
+        if (vhApiBaseUrl.trim()) candidate.apiBaseUrl = vhApiBaseUrl.trim();
+        if (vhTokenUrl.trim()) candidate.tokenUrl = vhTokenUrl.trim();
+
+        const res = await axios.post(`${API_URL}/api/vonhalsky/verify`, candidate, {
+           headers: { Authorization: `Bearer ${token}` }
+        });
+        setVhVerifyInfo(res.data);
+        if (res.data?.ok && Array.isArray(res.data.organizations) && res.data.organizations.length === 1 && !vhOrgId.trim()) {
+           setVhOrgId(res.data.organizations[0].id || '');
+           setVhOrgName(res.data.organizations[0].name || '');
+        }
+     } catch (err) {
+        setVhError(err.response?.data?.errorMessage || err.response?.data?.error || 'Błąd weryfikacji połączenia z InPost Von Halsky.');
+     } finally {
+        setIsVerifyingVh(false);
      }
   };
 
@@ -595,6 +706,224 @@ const AdminPanelView = ({
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Oczekuję na potwierdzenie w przeglądarce... (Polling)
                              </div>
                            </div>
+                         )}
+                      </div>
+                   </div>
+
+                   {/* Karta konfiguracji InPost Von Halsky API */}
+                   <div className="max-w-3xl bg-white border border-slate-300 rounded-sm p-10 shadow-[0_15px_40px_rgba(0,0,0,0.03)] focus-within:ring-4 focus-within:ring-yellow-500/10 transition-all mt-8">
+                      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+                         <div className="flex items-center">
+                            <div className="w-16 h-16 bg-yellow-50 rounded-sm flex items-center justify-center mr-6 border border-yellow-200 font-black text-xl text-yellow-700">
+                               VH
+                            </div>
+                            <div>
+                               <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">InPost Von Halsky API</h4>
+                               <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1">OAuth 2.1 Client Credentials • OpenAPI v1.7.12</p>
+                            </div>
+                         </div>
+                         <span className={`px-3 py-1 rounded text-[10px] font-black uppercase ${vhConfig?.configured ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                            {vhConfig?.configured ? `Połączono (${vhConfig.environment?.toUpperCase()})` : 'Oczekuje na Client ID / Secret'}
+                         </span>
+                      </div>
+
+                      <div className="space-y-4">
+                         <p className="text-xs text-slate-500 font-bold">
+                            Sekret <span className="font-mono">client_secret</span> jest szyfrowany (AES-256-GCM) w tabeli <span className="font-mono">SystemSetting</span> i nigdy nie wraca do przeglądarki. Domyślne ustawienia (wysyłka, GPSR, polityki) można zapisać już teraz przed uzyskaniem kluczy z portalu InPost.
+                         </p>
+
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                               <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Środowisko API</label>
+                               <select
+                                  value={vhEnv}
+                                  onChange={e => {
+                                     const nextEnv = e.target.value;
+                                     setVhEnv(nextEnv);
+                                     const preset = vhConfig?.environmentPresets?.[nextEnv];
+                                     if (preset) {
+                                        setVhApiBaseUrl(preset.apiBaseUrl);
+                                        setVhTokenUrl(preset.tokenUrl);
+                                     }
+                                  }}
+                                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-sm text-xs font-bold"
+                               >
+                                  <option value="production">PRODUCTION (api.inpost-group.com/inpsa)</option>
+                                  <option value="stage">STAGE / SANDBOX (stage-api.inpost-group.com/inpsa)</option>
+                               </select>
+                            </div>
+                            <div>
+                               <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Organization ID (UUID sklepu)</label>
+                               <input
+                                  type="text"
+                                  value={vhOrgId}
+                                  onChange={e => setVhOrgId(e.target.value)}
+                                  placeholder="Wykryje się automatycznie po teście połączenia"
+                                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-sm text-xs font-mono"
+                               />
+                            </div>
+                            <div>
+                               <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">
+                                  Client ID {vhConfig?.clientIdMasked ? `(zapisany: ${vhConfig.clientIdMasked})` : ''}
+                               </label>
+                               <input
+                                  type="text"
+                                  value={vhClientId}
+                                  onChange={e => setVhClientId(e.target.value)}
+                                  placeholder={vhConfig?.hasClientId ? 'Pozostaw puste, aby zachować obecny' : 'Wklej Client ID z InPost API Portal'}
+                                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-sm text-xs font-mono"
+                               />
+                            </div>
+                            <div>
+                               <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">
+                                  Client Secret {vhConfig?.hasClientSecret ? '(zaszyfrowany AES-256-GCM)' : ''}
+                               </label>
+                               <input
+                                  type="password"
+                                  value={vhClientSecret}
+                                  onChange={e => setVhClientSecret(e.target.value)}
+                                  placeholder={vhConfig?.hasClientSecret ? 'Pozostaw puste, aby zachować obecny' : 'Wklej Client Secret'}
+                                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-sm text-xs font-mono"
+                               />
+                            </div>
+                            <div>
+                               <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Domyślny czas wysyłki (dni, 0–60)</label>
+                               <input
+                                  type="number"
+                                  min="0"
+                                  max="60"
+                                  value={vhDaysToShip}
+                                  onChange={e => setVhDaysToShip(e.target.value)}
+                                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs font-mono"
+                               />
+                            </div>
+                            <div>
+                               <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Domyślny format opisu oferty</label>
+                               <select
+                                  value={vhDescFormat}
+                                  onChange={e => setVhDescFormat(e.target.value)}
+                                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs font-bold"
+                               >
+                                  <option value="html">Bezpieczny HTML (zalecany)</option>
+                                  <option value="plain">Czysty tekst strukturalny</option>
+                               </select>
+                            </div>
+                            <div>
+                               <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Domyślny e-mail GPSR producenta (fallback)</label>
+                               <input
+                                  type="email"
+                                  value={vhMfrEmail}
+                                  onChange={e => setVhMfrEmail(e.target.value)}
+                                  placeholder="np. gpsr@twojadomena.pl"
+                                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs"
+                               />
+                            </div>
+                            <div>
+                               <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Domyślny telefon GPSR (+48...)</label>
+                               <input
+                                  type="text"
+                                  value={vhMfrPhone}
+                                  onChange={e => setVhMfrPhone(e.target.value)}
+                                  placeholder="+48123456789"
+                                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs font-mono"
+                               />
+                            </div>
+                         </div>
+
+                         <details className="pt-1">
+                            <summary className="text-[11px] font-bold text-slate-600 cursor-pointer">
+                               Zaawansowane URL-e API / OAuth2 oraz domyślne polityki zwrotów i reklamacji
+                            </summary>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                               <input
+                                  type="text"
+                                  value={vhApiBaseUrl}
+                                  onChange={e => setVhApiBaseUrl(e.target.value)}
+                                  placeholder="https://api.inpost-group.com/inpsa"
+                                  className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs font-mono"
+                               />
+                               <input
+                                  type="text"
+                                  value={vhTokenUrl}
+                                  onChange={e => setVhTokenUrl(e.target.value)}
+                                  placeholder="https://api.inpost-group.com/oauth2/token"
+                                  className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs font-mono"
+                               />
+                               <textarea
+                                  rows={2}
+                                  value={vhReturnPolicy}
+                                  onChange={e => setVhReturnPolicy(e.target.value)}
+                                  placeholder="Domyślna polityka zwrotów (postSale.returnPolicy.description)"
+                                  className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs"
+                               />
+                               <textarea
+                                  rows={2}
+                                  value={vhComplaintPolicy}
+                                  onChange={e => setVhComplaintPolicy(e.target.value)}
+                                  placeholder="Domyślna polityka reklamacji (postSale.complaintPolicy.description)"
+                                  className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs"
+                               />
+                            </div>
+                         </details>
+
+                         <div className="flex flex-wrap items-center gap-3 pt-2">
+                            <button
+                               type="button"
+                               onClick={handleSaveVonHalskyConfig}
+                               disabled={isSavingVh}
+                               className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-sm text-[10px] font-black uppercase tracking-[0.18em] flex items-center disabled:opacity-50"
+                            >
+                               {isSavingVh ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                               Zapisz konfigurację Von Halsky
+                            </button>
+                            <button
+                               type="button"
+                               onClick={handleVerifyVonHalsky}
+                               disabled={isVerifyingVh}
+                               className="px-5 py-3 bg-yellow-400 hover:bg-yellow-300 text-slate-950 rounded-sm text-[10px] font-black uppercase tracking-[0.18em] flex items-center disabled:opacity-50"
+                            >
+                               {isVerifyingVh ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
+                               Testuj połączenie i pobierz organizacje
+                            </button>
+                         </div>
+
+                         {vhError && (
+                            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-sm">
+                               {vhError}
+                            </div>
+                         )}
+                         {vhMessage && (
+                            <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-sm flex items-center">
+                               <CheckCircle2 className="w-4 h-4 mr-2 shrink-0" /> {vhMessage}
+                            </div>
+                         )}
+                         {vhVerifyInfo && (
+                            <div className={`p-3.5 border text-xs font-bold rounded-sm space-y-2 ${vhVerifyInfo.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                               {vhVerifyInfo.ok ? (
+                                  <>
+                                     <div>
+                                        Połączenie OAuth 2.1 aktywne ({String(vhVerifyInfo.environment || '').toUpperCase()}). Wykryte organizacje ({vhVerifyInfo.organizations?.length || 0}):
+                                     </div>
+                                     <div className="flex flex-wrap gap-2">
+                                        {(vhVerifyInfo.organizations || []).map(org => (
+                                           <button
+                                              key={org.id}
+                                              type="button"
+                                              onClick={() => {
+                                                 setVhOrgId(org.id);
+                                                 setVhOrgName(org.name || '');
+                                              }}
+                                              className="px-2.5 py-1 bg-white border border-emerald-300 rounded text-[11px] text-emerald-900 hover:bg-emerald-100"
+                                           >
+                                              {org.name} ({org.id})
+                                           </button>
+                                        ))}
+                                     </div>
+                                  </>
+                               ) : (
+                                  <div>Test nieudany ({vhVerifyInfo.errorCode}): {vhVerifyInfo.errorMessage}</div>
+                               )}
+                            </div>
                          )}
                       </div>
                    </div>
