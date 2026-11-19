@@ -22,6 +22,7 @@ const {
     buildAllegroContentPreflight,
     buildAllegroContentPatchBody
 } = require('../../utils/allegro_mapper');
+const { trimOrNull, resolveProductByIdOrEan, buildNumericProductUpdateFields } = require('../../utils/productLookup');
 const { exportLogger } = require('../../utils/logger');
 const sharp = require('sharp');
 
@@ -94,7 +95,7 @@ const analyzeSingle = async (req, res) => {
         console.log(`[Vision API] Rozpoczęto natywną analizę dla EAN: ${ean}. Tryb: ${mode}`);
         
         // Faza 1: Sprawdzenie / Synchronizacja PIM
-        let product = await prisma.product.findUnique({ where: { ean } });
+        let product = await resolveProductByIdOrEan(prisma, { productId: req.body?.productId, ean });
         
         // Jeśli produktu nie ma w bazie lub nie jest zsynchronizowany, odrzucamy żądanie (brak lokalnych danych PIM)
         if (!product || !product.isSynced) {
@@ -208,10 +209,10 @@ const analyzeSingle = async (req, res) => {
 
 const regenerateTitle = async (req, res) => {
     try {
-        const { ean, currentTitle } = req.body;
-        if (!ean) return res.status(400).json({ error: "Wymagany EAN." });
+        const { ean, productId, currentTitle } = req.body;
+        if (!ean && !productId) return res.status(400).json({ error: "Wymagany EAN." });
 
-        const product = await prisma.product.findUnique({ where: { ean } });
+        const product = await resolveProductByIdOrEan(prisma, { productId, ean });
         if (!product) return res.status(404).json({ error: "Produkt nie znaleziony w PIM." });
 
         const featuresString = product.features ? JSON.stringify(product.features) : '';
@@ -278,12 +279,23 @@ const isValidOfferImageUrl = (url) => {
 
 const saveDraft = async (req, res) => {
     try {
-        const { ean, draftData } = req.body;
-        if (!ean || !draftData) return res.status(400).json({ error: "Brak EAN lub danych draftu" });
+        const { ean, productId, draftData } = req.body || {};
+        if ((!ean && !productId && !draftData?.id) || !draftData) {
+            return res.status(400).json({ error: "Brak EAN/ID produktu lub danych szkicu (draftData)." });
+        }
 
-        const existingProduct = await prisma.product.findUnique({ where: { ean } });
+        const existingProduct = await resolveProductByIdOrEan(prisma, {
+            productId: productId || draftData.id,
+            ean
+        });
+        if (!existingProduct) {
+            return res.status(404).json({
+                error: "Nie znaleziono produktu o podanym EAN/ID w bazie PIM. Zapisz najpierw kartotekę PIM (Nazwa, SKU, Marka, EAN)."
+            });
+        }
+
         let existingDraft = {};
-        if (existingProduct && existingProduct.offerDraft) {
+        if (existingProduct.offerDraft) {
             try {
                 existingDraft = typeof existingProduct.offerDraft === 'string'
                     ? JSON.parse(existingProduct.offerDraft)
@@ -330,11 +342,24 @@ const saveDraft = async (req, res) => {
 
         const updatePayload = {
             offerDraft: mergedDraftData,
+            ...buildNumericProductUpdateFields(draftData)
         };
 
+        // Automatyczne uzdrowienie EAN ze spacją w bazie (np. "8032680390036 "), o ile brak kolizji
+        const cleanExistingEan = trimOrNull(existingProduct.ean);
+        if (cleanExistingEan && cleanExistingEan !== existingProduct.ean) {
+            const eanCollision = await prisma.product.findUnique({
+                where: { ean: cleanExistingEan },
+                select: { id: true }
+            });
+            if (!eanCollision) {
+                updatePayload.ean = cleanExistingEan;
+            }
+        }
+
         // Synchronizacja głównych pól PIM (Tytuł, Opis HTML, Zdjęcia)
-        if (mergedDraftData.title) {
-            updatePayload.name = mergedDraftData.title;
+        if (mergedDraftData.title && typeof mergedDraftData.title === 'string' && mergedDraftData.title.trim() !== '') {
+            updatePayload.name = mergedDraftData.title.trim();
         }
         if (effectiveHtmlContent && hasIncomingHtml) {
             const fullHtml = typeof effectiveHtmlContent === 'object'
@@ -352,70 +377,88 @@ const saveDraft = async (req, res) => {
             }
         }
 
-        if (draftData.sku !== undefined && draftData.sku !== null && String(draftData.sku).trim() !== '') {
-            updatePayload.sku = String(draftData.sku).trim();
+        const cleanSku = trimOrNull(draftData.sku);
+        if (cleanSku) {
+            updatePayload.sku = cleanSku;
         }
+
         if (draftData.brandId !== undefined) {
-            updatePayload.brandId = (draftData.brandId && typeof draftData.brandId === 'string' && draftData.brandId.trim() !== '')
-                ? draftData.brandId.trim()
-                : null;
+            const cleanBrandId = trimOrNull(draftData.brandId);
+            if (cleanBrandId) {
+                const brandExists = await prisma.brand.findUnique({ where: { id: cleanBrandId }, select: { id: true } });
+                if (brandExists) {
+                    updatePayload.brandId = cleanBrandId;
+                }
+            } else {
+                updatePayload.brandId = null;
+            }
         }
+
         if (draftData.subiektId !== undefined) {
-            updatePayload.subiektId = (draftData.subiektId && typeof draftData.subiektId === 'string' && draftData.subiektId.trim() !== '')
-                ? draftData.subiektId.trim()
-                : null;
+            updatePayload.subiektId = trimOrNull(draftData.subiektId);
         }
         if (draftData.baselinkerId !== undefined) {
-            updatePayload.baselinkerId = (draftData.baselinkerId && typeof draftData.baselinkerId === 'string' && draftData.baselinkerId.trim() !== '')
-                ? draftData.baselinkerId.trim()
-                : null;
+            updatePayload.baselinkerId = trimOrNull(draftData.baselinkerId);
         }
         if (draftData.status !== undefined) updatePayload.status = draftData.status;
-        if (draftData.videoUrl !== undefined) updatePayload.videoUrl = draftData.videoUrl;
-        
-        if (draftData.weight !== undefined) updatePayload.weight = draftData.weight;
-        if (draftData.length !== undefined) updatePayload.length = draftData.length;
-        if (draftData.width !== undefined) updatePayload.width = draftData.width;
-        if (draftData.height !== undefined) updatePayload.height = draftData.height;
-        if (draftData.taxRate !== undefined) updatePayload.taxRate = draftData.taxRate;
-        if (draftData.stock !== undefined) updatePayload.stock = draftData.stock;
-        if (draftData.stockErpUnits !== undefined) updatePayload.stockErpUnits = draftData.stockErpUnits;
-        if (draftData.stockWmsUnits !== undefined) updatePayload.stockWmsUnits = draftData.stockWmsUnits;
-        if (draftData.allegroCategoryId !== undefined) {
-            updatePayload.allegroCategoryId = (draftData.allegroCategoryId && typeof draftData.allegroCategoryId === 'string' && draftData.allegroCategoryId.trim() !== '')
-                ? draftData.allegroCategoryId.trim()
-                : null;
-        }
-        if (draftData.features !== undefined) updatePayload.features = draftData.features;
+        if (draftData.videoUrl !== undefined) updatePayload.videoUrl = trimOrNull(draftData.videoUrl);
 
-        if (draftData.basePrice !== undefined) updatePayload.basePrice = draftData.basePrice;
-        if (draftData.salePrice !== undefined) updatePayload.salePrice = draftData.salePrice;
-        if (draftData.inboundTransportCost !== undefined) updatePayload.inboundTransportCost = draftData.inboundTransportCost;
-        if (draftData.packagingCost !== undefined) updatePayload.packagingCost = draftData.packagingCost;
-        if (draftData.bdoEprCost !== undefined) updatePayload.bdoEprCost = draftData.bdoEprCost;
-        if (draftData.outboundTransportCost !== undefined) updatePayload.outboundTransportCost = draftData.outboundTransportCost;
+        if (draftData.allegroCategoryId !== undefined) {
+            const cleanCatId = trimOrNull(draftData.allegroCategoryId);
+            if (cleanCatId) {
+                let categoryExists = await prisma.marketplaceCategory.findUnique({
+                    where: { id: cleanCatId },
+                    select: { id: true }
+                });
+                if (!categoryExists) {
+                    try {
+                        await AllegroService.fetchCategoryParameters(cleanCatId);
+                        categoryExists = await prisma.marketplaceCategory.findUnique({
+                            where: { id: cleanCatId },
+                            select: { id: true }
+                        });
+                    } catch (_) {}
+                }
+                if (categoryExists) {
+                    updatePayload.allegroCategoryId = cleanCatId;
+                }
+            } else {
+                updatePayload.allegroCategoryId = null;
+            }
+        }
+
+        if (draftData.features !== undefined && typeof draftData.features === 'object' && !Array.isArray(draftData.features)) {
+            updatePayload.features = draftData.features;
+        }
 
         const product = await prisma.product.update({
-            where: { ean },
+            where: { id: existingProduct.id },
             data: updatePayload
         });
         
         EventBus.publish('PRODUCT_DATA_UPDATED', { product, source: 'OFFER_OPTIMIZER_SAVE' });
         
-        res.status(200).json({ message: "Zapisano kopię roboczą oraz zaktualizowano twarde dane PIM" });
+        res.status(200).json({ message: "Zapisano kopię roboczą oraz zaktualizowano twarde dane PIM", product });
     } catch (e) {
+        if (e.code === 'P2002') {
+            return res.status(409).json({ error: `Konflikt unikalnego pola (SKU, EAN, BaseLinker ID lub Subiekt ID): ${e.meta?.target || e.message}` });
+        }
+        if (e.code === 'P2003') {
+            return res.status(400).json({ error: `Nieprawidłowe powiązanie (Marka lub Kategoria Allegro nie istnieje w słowniku): ${e.meta?.field_name || e.message}` });
+        }
+        console.error("[Controller.saveDraft] Błąd zapisu szkicu:", e);
         res.status(500).json({ error: e.message });
     }
 };
 
 const validateBaselinkerExport = async (req, res) => {
     try {
-        const { ean, draftData } = req.body;
+        const { ean, productId, draftData } = req.body;
         exportLogger.info(`[PIPELINE START] Uruchomiono walidację przed eksportem dla EAN: ${ean}`);
         
-        if (!ean || !draftData) return res.status(400).json({ error: "Brak danych" });
+        if ((!ean && !productId) || !draftData) return res.status(400).json({ error: "Brak danych" });
 
-        const product = await prisma.product.findUnique({ where: { ean } });
+        const product = await resolveProductByIdOrEan(prisma, { productId, ean });
         if (!product) {
             return res.status(404).json({ error: "Nie znaleziono produktu o podanym EAN." });
         }
@@ -531,7 +574,14 @@ const exportToBaselinker = async (req, res) => {
             newDescHtml += `\n\n${aiActDisclosure}`;
         }
 
-        const existingBeforeExport = await prisma.product.findUnique({ where: { ean }, select: { offerDraft: true, features: true } });
+        const existingBeforeExport = await resolveProductByIdOrEan(prisma, {
+            productId: req.body?.productId,
+            ean,
+            select: { id: true, ean: true, offerDraft: true, features: true }
+        });
+        if (!existingBeforeExport) {
+            return res.status(404).json({ error: "Nie znaleziono produktu o podanym EAN/ID w bazie PIM." });
+        }
         let preservedExistingDraft = {};
         try {
             preservedExistingDraft = typeof existingBeforeExport?.offerDraft === 'string'
@@ -574,7 +624,7 @@ const exportToBaselinker = async (req, res) => {
         }
 
         const product = await prisma.product.update({
-            where: { ean },
+            where: { id: existingBeforeExport.id },
             data: productUpdateData
         });
 
@@ -693,10 +743,13 @@ const generateLifestyle = async (req, res) => {
                 
                 if (ean) {
                     try {
-                        await prisma.product.update({
-                            where: { ean },
-                            data: { aiImageCost: { increment: 5.0 } }
-                        });
+                        const targetProd = await resolveProductByIdOrEan(prisma, { ean, select: { id: true } });
+                        if (targetProd) {
+                            await prisma.product.update({
+                                where: { id: targetProd.id },
+                                data: { aiImageCost: { increment: 5.0 } }
+                            });
+                        }
                     } catch (err) {
                         console.error("[Billing] Nie udalo sie zaktualizowac licznika kosztow AI dla ean:", ean, err);
                     }
@@ -761,13 +814,16 @@ const checkLifestyleStatus = (req, res) => {
 
 const triggerUltimatePipeline = async (req, res) => {
     try {
-        const { ean, hitlOverrides, forceRestart } = req.body;
-        if (!ean) return res.status(400).json({ error: "Wymagany kod EAN do inicjalizacji potoku." });
+        const { ean, productId, hitlOverrides, forceRestart } = req.body;
+        if (!ean && !productId) return res.status(400).json({ error: "Wymagany kod EAN do inicjalizacji potoku." });
 
-        console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta V2 dla EAN: ${ean}`);
-        
         // Oznaczamy istniejący produkt w bazie jako PROCESSING, zachowując dotychczasowe bilety zdjęć visionTickets
-        const existingProduct = await prisma.product.findUnique({ where: { ean } });
+        const existingProduct = await resolveProductByIdOrEan(prisma, { productId, ean });
+        const canonicalEan = trimOrNull(existingProduct?.ean) || trimOrNull(ean);
+        const productWhere = existingProduct ? { id: existingProduct.id } : { ean: canonicalEan };
+
+        console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta V2 dla EAN: ${canonicalEan}`);
+
         if (existingProduct) {
             let existingDraft = {};
             try {
@@ -777,7 +833,7 @@ const triggerUltimatePipeline = async (req, res) => {
             } catch (e) {}
 
             await prisma.product.update({
-                where: { ean },
+                where: { id: existingProduct.id },
                 data: {
                     offerDraft: {
                         ...existingDraft,
@@ -789,16 +845,16 @@ const triggerUltimatePipeline = async (req, res) => {
         }
 
         // Zwracamy HTTP 202 natychmiast
-        res.status(202).json({ status: "processing", ean, message: "Pipeline V2 uruchomiony w tle." });
+        res.status(202).json({ status: "processing", ean: canonicalEan, message: "Pipeline V2 uruchomiony w tle." });
 
         // Procesujemy w tle (V2 Orchestrator)
         (async () => {
             try {
                 const { Orchestrator } = require('../offer-optimizer-v2/orchestrator');
-                const orch = new Orchestrator(ean);
+                const orch = new Orchestrator(canonicalEan);
 
                 if (forceRestart) {
-                    console.log(`[Controller] Wymuszono restart potoku dla EAN: ${ean}. Ignorowanie poprzedniego stanu.`);
+                    console.log(`[Controller] Wymuszono restart potoku dla EAN: ${canonicalEan}. Ignorowanie poprzedniego stanu.`);
                 } else {
                     // Szukamy najświeższego stanu potoku (resume) w logach
                     const fs = require('fs');
@@ -809,7 +865,7 @@ const triggerUltimatePipeline = async (req, res) => {
                     
                     if (fs.existsSync(logsDir)) {
                         const files = fs.readdirSync(logsDir);
-                        const eanFiles = files.filter(f => f.startsWith(`state_PL-${ean}-`) && f.endsWith('.json'));
+                        const eanFiles = files.filter(f => f.startsWith(`state_PL-${canonicalEan}-`) && f.endsWith('.json'));
                         for (let f of eanFiles) {
                             const fp = path.join(logsDir, f);
                             const stats = fs.statSync(fp);
@@ -830,7 +886,7 @@ const triggerUltimatePipeline = async (req, res) => {
                         // uruchamia potok na nowo bez jawnych hitlOverrides, resetujemy flagę akcji,
                         // aby potok nie utknął ponownie w martwym punkcie HALT.
                         if (orch.state.next_action === 'HALT' && (!Array.isArray(hitlOverrides) || hitlOverrides.length === 0)) {
-                            console.log(`[Controller] Poprzedni stan potoku dla EAN: ${ean} zakończył się na HALT (${orch.state.hitl_alert || 'Brak opisu'}). Resetowanie next_action na RUN_EXTRACT w celu ponownego, czystego przejścia.`);
+                            console.log(`[Controller] Poprzedni stan potoku dla EAN: ${canonicalEan} zakończył się na HALT (${orch.state.hitl_alert || 'Brak opisu'}). Resetowanie next_action na RUN_EXTRACT w celu ponownego, czystego przejścia.`);
                             orch.state.next_action = 'RUN_EXTRACT';
                             orch.state.hitl_alert = null;
                             orch.state.aggregated_hitl_errors = [];
@@ -868,7 +924,7 @@ const triggerUltimatePipeline = async (req, res) => {
                 // Podczas ręcznej interpolacji ZAWSZE odpytujemy API Allegro o kategorię (nawet jeśli mamy już przypisaną w bazie), 
                 // ponieważ użytkownik/Allegro mógł ją w międzyczasie zaktualizować dla tego EAN-u.
                 let requiredSchema = [];
-                let catId = await AllegroService.findCategoryByEan(ean);
+                let catId = await AllegroService.findCategoryByEan(canonicalEan);
                 
                 if (!catId && existingProduct?.name) {
                     catId = await AllegroService.findMatchingCategoryByName(existingProduct.name);
@@ -910,21 +966,27 @@ const triggerUltimatePipeline = async (req, res) => {
                     imageUrl: frontImageUrl,
                     backImageUrl: backImageUrl,
                     images: galleryImages,
-                    ean: ean
+                    ean: canonicalEan
                 };
                 
                 await orch.run(localPimData);
 
+                const persistDraftStatusSafely = async (draftPatch) => {
+                    const targetRow = existingProduct || await resolveProductByIdOrEan(prisma, { productId, ean: canonicalEan, select: { id: true, offerDraft: true } });
+                    if (!targetRow) return;
+                    let existingRowDraft = {};
+                    try {
+                        const pCur = await prisma.product.findUnique({ where: { id: targetRow.id }, select: { offerDraft: true } });
+                        existingRowDraft = typeof pCur?.offerDraft === 'string' ? JSON.parse(pCur.offerDraft) : (pCur?.offerDraft || {});
+                    } catch (_) {}
+                    await prisma.product.update({
+                        where: { id: targetRow.id },
+                        data: { offerDraft: { ...existingRowDraft, ...draftPatch } }
+                    });
+                };
+
                 if (orch.state.next_action === 'HALT' && orch.state.hitl_alert) {
-                     let existingPausedDraft = {};
-                     try {
-                         const pCur = await prisma.product.findUnique({ where: { ean }, select: { offerDraft: true } });
-                         existingPausedDraft = typeof pCur?.offerDraft === 'string' ? JSON.parse(pCur.offerDraft) : (pCur?.offerDraft || {});
-                     } catch (_) {}
-                     await prisma.product.update({
-                         where: { ean },
-                         data: { offerDraft: { ...existingPausedDraft, status: 'HITL_PAUSED', error: orch.state.hitl_alert } }
-                     });
+                     await persistDraftStatusSafely({ status: 'HITL_PAUSED', error: orch.state.hitl_alert });
                      console.log(`[Controller] Zatrzymano na bramce HITL: ${orch.state.hitl_alert}`);
                      
                      // Zatrzymujemy potok ale informujemy frontend o alertach, by pozwolil overrideowac
@@ -936,7 +998,7 @@ const triggerUltimatePipeline = async (req, res) => {
                          || 'UNKNOWN';
                      socketService.broadcast('nexus-notification', {
                          type: 'PIPELINE_HITL_ALERT',
-                         ean: ean,
+                         ean: canonicalEan,
                          alert: orch.state.hitl_alert,
                          node: haltedNode,
                          candidates: orch.state.hitl_inci_candidates
@@ -944,7 +1006,7 @@ const triggerUltimatePipeline = async (req, res) => {
                 } else if (orch.state.final_offer) {
                      let freshProductForDraft = null;
                      try {
-                         freshProductForDraft = await prisma.product.findUnique({ where: { ean } });
+                         freshProductForDraft = await prisma.product.findUnique({ where: productWhere });
                      } catch (_) {}
                      let currentOfferDraft = {};
                      try {
@@ -964,7 +1026,7 @@ const triggerUltimatePipeline = async (req, res) => {
 
                      let freshProduct = null;
                      try {
-                         freshProduct = await prisma.product.findUnique({ where: { ean } });
+                         freshProduct = await prisma.product.findUnique({ where: productWhere });
                      } catch (pErr) {}
 
                      let updatedFeatures = {};
@@ -1038,7 +1100,7 @@ const triggerUltimatePipeline = async (req, res) => {
                      }
 
                      await prisma.product.update({
-                         where: { ean },
+                         where: productWhere,
                          data: { 
                              features: updatedFeatures,
                              offerDraft: { 
@@ -1049,11 +1111,11 @@ const triggerUltimatePipeline = async (req, res) => {
                              } 
                          }
                      });
-                     console.log(`[Controller] Sukces potoku V2 dla EAN: ${ean}`);
+                     console.log(`[Controller] Sukces potoku V2 dla EAN: ${canonicalEan}`);
                      // Powiadomienie socketowe dla frontendu (zachowanie kompatybilności wstecz)
                      socketService.broadcast('nexus-notification', {
                          type: 'PIPELINE_COMPLETE',
-                         ean: ean,
+                         ean: canonicalEan,
                          result: {
                              editorHtml: editorHtmlObj,
                              title: orch.state.final_offer.title || existingProduct?.name,
@@ -1064,35 +1126,28 @@ const triggerUltimatePipeline = async (req, res) => {
                      });
                 } else {
                      const errorMsg = orch.state.hitl_alert || 'Orchestrator V2 zakończył pracę, ale nie wygenerował wyniku A10';
-                     let existingErrDraft = {};
-                     try {
-                         const pCur = await prisma.product.findUnique({ where: { ean }, select: { offerDraft: true } });
-                         existingErrDraft = typeof pCur?.offerDraft === 'string' ? JSON.parse(pCur.offerDraft) : (pCur?.offerDraft || {});
-                     } catch (_) {}
-                     await prisma.product.update({
-                         where: { ean },
-                         data: { offerDraft: { ...existingErrDraft, status: 'ERROR', error: errorMsg } }
-                     });
+                     await persistDraftStatusSafely({ status: 'ERROR', error: errorMsg });
                      socketService.broadcast('nexus-notification', {
                          type: 'PIPELINE_ERROR',
-                         ean: ean,
+                         ean: canonicalEan,
                          error: errorMsg
                      });
                 }
             } catch (err) {
-                console.error(`[Controller] Błąd asynchronicznego potoku V2 dla: ${ean}`, err);
-                let existingCatchDraft = {};
+                console.error(`[Controller] Błąd asynchronicznego potoku V2 dla: ${canonicalEan}`, err);
                 try {
-                    const pCur = await prisma.product.findUnique({ where: { ean }, select: { offerDraft: true } });
-                    existingCatchDraft = typeof pCur?.offerDraft === 'string' ? JSON.parse(pCur.offerDraft) : (pCur?.offerDraft || {});
+                    const targetRow = existingProduct || await resolveProductByIdOrEan(prisma, { productId, ean: canonicalEan, select: { id: true, offerDraft: true } });
+                    if (targetRow) {
+                        const existingCatchDraft = typeof targetRow.offerDraft === 'string' ? JSON.parse(targetRow.offerDraft) : (targetRow.offerDraft || {});
+                        await prisma.product.update({
+                            where: { id: targetRow.id },
+                            data: { offerDraft: { ...existingCatchDraft, status: 'ERROR', error: err.message || 'Krytyczny błąd Orchestratora V2' } }
+                        });
+                    }
                 } catch (_) {}
-                await prisma.product.update({
-                    where: { ean },
-                    data: { offerDraft: { ...existingCatchDraft, status: 'ERROR', error: err.message || 'Krytyczny błąd Orchestratora V2' } }
-                });
                 socketService.broadcast('nexus-notification', {
                     type: 'PIPELINE_ERROR',
-                    ean: ean,
+                    ean: canonicalEan,
                     error: err.message || 'Krytyczny błąd Orchestratora V2'
                 });
             }
@@ -1109,8 +1164,8 @@ const triggerUltimatePipeline = async (req, res) => {
 const checkPipelineStatus = async (req, res) => {
     try {
         const { ean } = req.params;
-        const product = await prisma.product.findUnique({ 
-            where: { ean },
+        const product = await resolveProductByIdOrEan(prisma, {
+            ean,
             include: { brand: true, allegroCategory: true }
         });
         
@@ -1487,8 +1542,9 @@ const validateAllegroParamsExport = async (req, res) => {
             return res.status(400).json({ error: 'Wymagany kod EAN lub ID produktu.' });
         }
 
-        const product = await prisma.product.findUnique({
-            where: productId ? { id: String(productId) } : { ean: String(ean) },
+        const product = await resolveProductByIdOrEan(prisma, {
+            productId,
+            ean,
             include: { brand: true }
         });
         if (!product) {
@@ -1680,9 +1736,7 @@ const exportAllegroParams = async (req, res) => {
             return res.status(400).json({ error: 'Brak wymaganych danych lub tokenu autoryzacji Pre-flight.' });
         }
 
-        const product = await prisma.product.findUnique({
-            where: productId ? { id: String(productId) } : { ean: String(ean) }
-        });
+        const product = await resolveProductByIdOrEan(prisma, { productId, ean });
         if (!product) {
             return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM.' });
         }
@@ -1815,9 +1869,7 @@ const validateAllegroContentExport = async (req, res) => {
             return res.status(400).json({ error: 'Wymagany kod EAN lub ID produktu.' });
         }
 
-        const product = await prisma.product.findUnique({
-            where: productId ? { id: String(productId) } : { ean: String(ean) }
-        });
+        const product = await resolveProductByIdOrEan(prisma, { productId, ean });
         if (!product) {
             return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM.' });
         }
@@ -1929,9 +1981,7 @@ const exportAllegroContent = async (req, res) => {
             return res.status(400).json({ error: 'Brak wymaganych danych lub tokenu autoryzacji Pre-flight.' });
         }
 
-        const product = await prisma.product.findUnique({
-            where: productId ? { id: String(productId) } : { ean: String(ean) }
-        });
+        const product = await resolveProductByIdOrEan(prisma, { productId, ean });
         if (!product) {
             return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM.' });
         }

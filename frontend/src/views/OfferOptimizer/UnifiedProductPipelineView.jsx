@@ -674,7 +674,7 @@ export const UnifiedProductPipelineView = ({
     useEffect(() => {
         if (!socket) return;
         const handler = (data) => {
-            if (data.ean && effectiveEan && String(data.ean) !== String(effectiveEan).trim()) return;
+            if (data.ean && effectiveEan && String(data.ean).trim() !== String(effectiveEan).trim()) return;
 
             if (data.type === 'PIPELINE_COMPLETE') {
                 setPipelineStatus('SUCCESS');
@@ -798,19 +798,71 @@ export const UnifiedProductPipelineView = ({
     const handleCreateProduct = async (e) => {
         if(e) e.preventDefault();
         try {
-            if (!newProductForm.name || !newProductForm.sku || !newProductForm.brandId) {
-                throw new Error("Wypełnij wymagane pola: Nazwa, SKU i Marka przed zapisaniem.");
+            const cleanName = String(newProductForm.name || '').trim();
+            const cleanSku = String(newProductForm.sku || '').trim();
+            const cleanEan = String(newProductForm.ean || liveEan || '').trim();
+            let resolvedBrandId = String(newProductForm.brandId || '').trim();
+
+            if (!resolvedBrandId && brandSearchTerm && brandSearchTerm.trim()) {
+                const cleanBrandName = brandSearchTerm.trim();
+                const matchedBrand = brands.find(
+                    b => String(b.name || '').toLowerCase().trim() === cleanBrandName.toLowerCase()
+                );
+                if (matchedBrand) {
+                    resolvedBrandId = matchedBrand.id;
+                    setNewProductForm(prev => ({ ...prev, brandId: matchedBrand.id }));
+                } else {
+                    const brandRes = await axios.post(
+                        `${API_URL}/api/brands`,
+                        { name: cleanBrandName },
+                        { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                    if (brandRes?.data?.id) {
+                        resolvedBrandId = brandRes.data.id;
+                        setBrands(prev => [...prev, brandRes.data]);
+                        setNewProductForm(prev => ({ ...prev, brandId: brandRes.data.id }));
+                    }
+                }
             }
+
+            const missingFields = [];
+            if (!cleanName) missingFields.push('Nazwa');
+            if (!cleanSku) missingFields.push('SKU');
+            if (!resolvedBrandId) missingFields.push('Marka');
+            if (!editingProduct && !cleanEan) missingFields.push('EAN');
+
+            if (missingFields.length > 0) {
+                throw new Error(`Wypełnij wymagane pola: ${missingFields.join(', ')} przed zapisaniem.`);
+            }
+
+            const productPayload = {
+                ...newProductForm,
+                name: cleanName,
+                sku: cleanSku,
+                ean: cleanEan || newProductForm.ean,
+                brandId: resolvedBrandId
+            };
+
             let savedProduct;
             if (editingProduct) {
-                const res = await axios.patch(`${API_URL}/api/products/${editingProduct}`, newProductForm, { headers: { Authorization: `Bearer ${token}` } });
+                const res = await axios.patch(`${API_URL}/api/products/${editingProduct}`, productPayload, { headers: { Authorization: `Bearer ${token}` } });
                 savedProduct = res.data;
                 if (e) alert('Zaktualizowano kartotekę PIM.');
             } else {
-                const res = await axios.post(`${API_URL}/api/products`, newProductForm, { headers: { Authorization: `Bearer ${token}` } });
+                const res = await axios.post(`${API_URL}/api/products`, productPayload, { headers: { Authorization: `Bearer ${token}` } });
                 savedProduct = res.data;
                 setEditingProduct(savedProduct.id);
                 if (e) alert('Utworzono nową kartotekę PIM.');
+            }
+            if (savedProduct) {
+                setNewProductForm(prev => ({
+                    ...prev,
+                    id: savedProduct.id,
+                    ean: savedProduct.ean || cleanEan,
+                    sku: savedProduct.sku || cleanSku,
+                    name: savedProduct.name || cleanName,
+                    brandId: savedProduct.brandId || resolvedBrandId
+                }));
             }
             if (fetchAppGlobalData) fetchAppGlobalData();
             
@@ -1041,7 +1093,10 @@ export const UnifiedProductPipelineView = ({
                 console.log(`[Visual AI Multi-Slot] Pomijanie dispatchu generowania zdjęć (skipImages: ${skipImages}, isHitlResume: ${isHitlResume}, autoGenerateLifestyle: ${autoGenerateLifestyle})`);
             }
 
-            const payload = { ean: savedProd.ean };
+            const payload = {
+                ean: String(savedProd.ean || '').trim(),
+                productId: savedProd.id
+            };
             if (Array.isArray(hitlOverrides)) payload.hitlOverrides = hitlOverrides;
             if (forceRestart) payload.forceRestart = true;
 
@@ -1064,9 +1119,16 @@ export const UnifiedProductPipelineView = ({
     };
 
     const handleSaveDraft = async () => {
+        const targetEan = (effectiveEan || liveEan || newProductForm.ean || '').trim();
+        const targetProductId = editingProduct || newProductForm.id || null;
+        if (!targetEan && !targetProductId) {
+            alert('Uzupełnij kod EAN (lub zapisz najpierw kartotekę PIM) przed zapisaniem szkicu.');
+            return;
+        }
         setIsSavingDraft(true);
         try {
             const draftData = {
+                id: targetProductId,
                 title: liveTitle,
                 htmlContent: editorHtml,
                 images: visionTickets,
@@ -1098,7 +1160,8 @@ export const UnifiedProductPipelineView = ({
             };
             
             await axios.post(`${API_URL}/api/offer-optimizer/save-draft`, {
-                ean: effectiveEan || liveEan,
+                ean: targetEan,
+                productId: targetProductId,
                 draftData
             }, { headers: { Authorization: `Bearer ${token}` } });
             
@@ -1126,6 +1189,7 @@ export const UnifiedProductPipelineView = ({
             };
             const res = await axios.post(`${API_URL}/api/offer-optimizer/validate-baselinker-export`, {
                 ean: effectiveEan || liveEan,
+                productId: editingProduct || newProductForm.id || null,
                 draftData
             }, { headers: { Authorization: `Bearer ${token}` } });
             
@@ -1153,6 +1217,7 @@ export const UnifiedProductPipelineView = ({
             };
             const res = await axios.post(`${API_URL}/api/offer-optimizer/export-baselinker`, {
                 ean: effectiveEan || liveEan,
+                productId: editingProduct || newProductForm.id || null,
                 draftData,
                 exportToken: exportValidationResult ? exportValidationResult.exportToken : null
             }, { headers: { Authorization: `Bearer ${token}` } });
@@ -2087,8 +2152,12 @@ export const UnifiedProductPipelineView = ({
                                                  placeholder="Wpisz nazwę marki..."
                                                  value={brandSearchTerm}
                                                  onChange={(e) => {
-                                                    setBrandSearchTerm(e.target.value);
-                                                    setNewProductForm(prev => ({...prev, brandId: ''}));
+                                                    const typedBrand = e.target.value;
+                                                    setBrandSearchTerm(typedBrand);
+                                                    const exactBrand = brands.find(
+                                                        b => String(b.name || '').toLowerCase().trim() === typedBrand.toLowerCase().trim()
+                                                    );
+                                                    setNewProductForm(prev => ({ ...prev, brandId: exactBrand ? exactBrand.id : '' }));
                                                     setIsBrandDropdownOpen(true);
                                                  }}
                                                  onFocus={() => setIsBrandDropdownOpen(true)}

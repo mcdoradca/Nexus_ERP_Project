@@ -2,6 +2,7 @@ require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { logger } = require('./utils/logger');
 const { resolveBaseLinkerToken, encryptSecret, testBaseLinkerToken } = require('./utils/secretVault');
+const { trimOrNull, parseLocaleFloat, parseLocaleInt, resolveProductByIdOrEan } = require('./utils/productLookup');
 
 // Globalna Tarcza Ochronna Procesu Node.js (Zasada Nieśmiertelnego Serwera)
 let _serverInstance = null;
@@ -809,7 +810,8 @@ app.get('/api/products/baselinker-id', async (req, res) => {
 
 app.get('/api/products/autofill/:ean', async (req, res) => {
     try {
-        const { ean } = req.params;
+        const ean = String(req.params.ean || '').trim();
+        if (!ean) return res.status(400).json({ error: 'Wymagany kod EAN.' });
         
         // Inteligentne ustalanie kategorii Allegro ZANIM uderzymy w cokolwiek (bo to filar)
         const AllegroService = require('./modules/offer-optimizer/allegro.service');
@@ -827,7 +829,7 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
             }
         };
         
-        const existingProduct = await prisma.product.findUnique({ where: { ean } });
+        const existingProduct = await resolveProductByIdOrEan(prisma, { ean });
         if (existingProduct && existingProduct.allegroCategoryId) {
             globalAllegroCatId = existingProduct.allegroCategoryId;
         }
@@ -1023,34 +1025,41 @@ app.post('/api/products', authenticateToken, async (req, res) => {
     try {
         const { ean, sku, name, stock, salePrice, basePrice, inboundTransportCost, packagingCost, bdoEprCost, outboundTransportCost, brandId, status, subiektId, baselinkerId, imageUrl } = req.body;
         
-        let safeBrandId = (brandId === '' || brandId === undefined) ? null : brandId;
-        let safeSubiektId = (subiektId === '' || subiektId === undefined) ? null : subiektId;
-        let safeBaselinkerId = (baselinkerId === '' || baselinkerId === undefined) ? null : baselinkerId;
-        let safeAllegroCatId = (req.body.allegroCategoryId === '' || req.body.allegroCategoryId === undefined) ? null : req.body.allegroCategoryId;
+        const cleanEan = trimOrNull(ean);
+        const cleanSku = trimOrNull(sku);
+        const cleanName = trimOrNull(name);
+        if (!cleanEan || !cleanSku || !cleanName) {
+            return res.status(400).json({ error: 'Wypełnij wymagane pola: EAN, SKU i Nazwa.' });
+        }
+
+        let safeBrandId = trimOrNull(brandId);
+        let safeSubiektId = trimOrNull(subiektId);
+        let safeBaselinkerId = trimOrNull(baselinkerId);
+        let safeAllegroCatId = trimOrNull(req.body.allegroCategoryId);
 
         const newProduct = await prisma.product.create({
             data: {
-                ean, sku, name, brandId: safeBrandId, status: status || 'Aktywny',
-                stock: parseInt(stock) || 0,
-                salePrice: parseFloat(salePrice) || 0.0,
-                basePrice: parseFloat(basePrice) || 0.0,
-                inboundTransportCost: parseFloat(inboundTransportCost) || 0.0,
-                packagingCost: parseFloat(packagingCost) || 0.0,
-                bdoEprCost: parseFloat(bdoEprCost) || 0.0,
-                outboundTransportCost: parseFloat(outboundTransportCost) || 0.0,
+                ean: cleanEan, sku: cleanSku, name: cleanName, brandId: safeBrandId, status: status || 'Aktywny',
+                stock: parseLocaleInt(stock, 0),
+                salePrice: parseLocaleFloat(salePrice, 0.0),
+                basePrice: parseLocaleFloat(basePrice, 0.0),
+                inboundTransportCost: parseLocaleFloat(inboundTransportCost, 0.0),
+                packagingCost: parseLocaleFloat(packagingCost, 0.0),
+                bdoEprCost: parseLocaleFloat(bdoEprCost, 0.0),
+                outboundTransportCost: parseLocaleFloat(outboundTransportCost, 0.0),
                 subiektId: safeSubiektId, baselinkerId: safeBaselinkerId,
                 imageUrl: imageUrl || null,
-                weight: parseFloat(req.body.weight) || 0.0,
-                length: parseFloat(req.body.length) || 0.0,
-                width: parseFloat(req.body.width) || 0.0,
-                height: parseFloat(req.body.height) || 0.0,
-                taxRate: parseFloat(req.body.taxRate) || 23.0,
-                stockErpUnits: parseInt(req.body.stockErpUnits) || 0,
-                stockWmsUnits: parseInt(req.body.stockWmsUnits) || 0,
+                weight: parseLocaleFloat(req.body.weight, 0.0),
+                length: parseLocaleFloat(req.body.length, 0.0),
+                width: parseLocaleFloat(req.body.width, 0.0),
+                height: parseLocaleFloat(req.body.height, 0.0),
+                taxRate: parseLocaleFloat(req.body.taxRate, 23.0),
+                stockErpUnits: parseLocaleInt(req.body.stockErpUnits, 0),
+                stockWmsUnits: parseLocaleInt(req.body.stockWmsUnits, 0),
                 images: req.body.images || [],
                 descriptionHtml: req.body.descriptionHtml || null,
                 features: req.body.features || {},
-                videoUrl: req.body.videoUrl || null,
+                videoUrl: trimOrNull(req.body.videoUrl),
                 allegroCategoryId: safeAllegroCatId
             }
         });
@@ -1063,7 +1072,7 @@ app.post('/api/products', authenticateToken, async (req, res) => {
 
 app.patch('/api/products/:id', authenticateToken, async (req, res) => {
     try {
-        const payload = req.body;
+        const payload = { ...(req.body || {}) };
         
         // Nie aktualizujemy ID
         delete payload.id;
@@ -1084,24 +1093,49 @@ app.patch('/api/products/:id', authenticateToken, async (req, res) => {
         delete payload.aeoContent;
         
         const dataToUpdate = { ...payload };
-        if (payload.stock !== undefined) dataToUpdate.stock = parseFloat(payload.stock) || 0;
-        if (payload.salePrice !== undefined) dataToUpdate.salePrice = parseFloat(payload.salePrice) || 0.0;
-        if (payload.basePrice !== undefined) dataToUpdate.basePrice = parseFloat(payload.basePrice) || 0.0;
-        if (payload.inboundTransportCost !== undefined) dataToUpdate.inboundTransportCost = parseFloat(payload.inboundTransportCost) || 0.0;
-        if (payload.packagingCost !== undefined) dataToUpdate.packagingCost = parseFloat(payload.packagingCost) || 0.0;
-        if (payload.bdoEprCost !== undefined) dataToUpdate.bdoEprCost = parseFloat(payload.bdoEprCost) || 0.0;
-        if (payload.outboundTransportCost !== undefined) dataToUpdate.outboundTransportCost = parseFloat(payload.outboundTransportCost) || 0.0;
-        if (payload.weight !== undefined) dataToUpdate.weight = parseFloat(payload.weight) || 0.0;
-        if (payload.length !== undefined) dataToUpdate.length = parseFloat(payload.length) || 0.0;
-        if (payload.width !== undefined) dataToUpdate.width = parseFloat(payload.width) || 0.0;
-        if (payload.height !== undefined) dataToUpdate.height = parseFloat(payload.height) || 0.0;
-        if (payload.taxRate !== undefined) dataToUpdate.taxRate = parseFloat(payload.taxRate) || 23.0;
-        if (payload.stockErpUnits !== undefined) dataToUpdate.stockErpUnits = parseInt(payload.stockErpUnits) || 0;
-        if (payload.stockWmsUnits !== undefined) dataToUpdate.stockWmsUnits = parseInt(payload.stockWmsUnits) || 0;
+        if (payload.ean !== undefined) {
+            const cleanEan = trimOrNull(payload.ean);
+            if (cleanEan) {
+                const collision = await prisma.product.findUnique({ where: { ean: cleanEan }, select: { id: true } });
+                if (!collision || collision.id === req.params.id) {
+                    dataToUpdate.ean = cleanEan;
+                }
+            }
+        }
+        if (payload.sku !== undefined) {
+            const cleanSku = trimOrNull(payload.sku);
+            if (cleanSku) dataToUpdate.sku = cleanSku;
+        }
+        if (payload.name !== undefined) {
+            const cleanName = trimOrNull(payload.name);
+            if (cleanName) dataToUpdate.name = cleanName;
+        }
+        if (payload.brandId !== undefined) dataToUpdate.brandId = trimOrNull(payload.brandId);
+        if (payload.subiektId !== undefined) dataToUpdate.subiektId = trimOrNull(payload.subiektId);
+        if (payload.baselinkerId !== undefined) dataToUpdate.baselinkerId = trimOrNull(payload.baselinkerId);
+        if (payload.videoUrl !== undefined) dataToUpdate.videoUrl = trimOrNull(payload.videoUrl);
+
+        if (payload.stock !== undefined) dataToUpdate.stock = parseLocaleInt(payload.stock, 0);
+        if (payload.salePrice !== undefined) dataToUpdate.salePrice = parseLocaleFloat(payload.salePrice, 0.0);
+        if (payload.basePrice !== undefined) dataToUpdate.basePrice = parseLocaleFloat(payload.basePrice, 0.0);
+        if (payload.inboundTransportCost !== undefined) dataToUpdate.inboundTransportCost = parseLocaleFloat(payload.inboundTransportCost, 0.0);
+        if (payload.packagingCost !== undefined) dataToUpdate.packagingCost = parseLocaleFloat(payload.packagingCost, 0.0);
+        if (payload.bdoEprCost !== undefined) dataToUpdate.bdoEprCost = parseLocaleFloat(payload.bdoEprCost, 0.0);
+        if (payload.outboundTransportCost !== undefined) dataToUpdate.outboundTransportCost = parseLocaleFloat(payload.outboundTransportCost, 0.0);
+        if (payload.weight !== undefined) dataToUpdate.weight = parseLocaleFloat(payload.weight, 0.0);
+        if (payload.length !== undefined) dataToUpdate.length = parseLocaleFloat(payload.length, 0.0);
+        if (payload.width !== undefined) dataToUpdate.width = parseLocaleFloat(payload.width, 0.0);
+        if (payload.height !== undefined) dataToUpdate.height = parseLocaleFloat(payload.height, 0.0);
+        if (payload.taxRate !== undefined) dataToUpdate.taxRate = parseLocaleFloat(payload.taxRate, 23.0);
+        if (payload.stockErpUnits !== undefined) dataToUpdate.stockErpUnits = parseLocaleInt(payload.stockErpUnits, 0);
+        if (payload.stockWmsUnits !== undefined) dataToUpdate.stockWmsUnits = parseLocaleInt(payload.stockWmsUnits, 0);
         
         dataToUpdate.lastContentSource = 'PIM_UI_MANUAL';
 
-        if (dataToUpdate.allegroCategoryId === '') dataToUpdate.allegroCategoryId = null;
+        if (dataToUpdate.allegroCategoryId !== undefined) {
+            const cleanCatId = trimOrNull(dataToUpdate.allegroCategoryId);
+            dataToUpdate.allegroCategoryId = cleanCatId;
+        }
 
         const updatedProduct = await prisma.product.update({
             where: { id: req.params.id },
@@ -1171,15 +1205,15 @@ Zwróć TYLKO I WYŁĄCZNIE tablicę ID produktów (jako poprawny JSON, np. ["id
 // --- PIM: GŁĘBOKA SYNCHRONIZACJA Z BASELINKER ---
 app.post('/api/products/baselinker-sync/:ean', authenticateToken, async (req, res) => {
     try {
-        const { ean } = req.params;
+        const cleanEan = String(req.params.ean || '').trim();
         
-        const product = await prisma.product.findUnique({ where: { ean } });
+        const product = await resolveProductByIdOrEan(prisma, { ean: cleanEan });
         if (!product) {
-            return res.status(404).json({ error: `Produkt z EAN ${ean} nie istnieje w lokalnej bazie Nexusa.` });
+            return res.status(404).json({ error: `Produkt z EAN ${cleanEan} nie istnieje w lokalnej bazie Nexusa.` });
         }
 
         // KROK 1: Wydobycie cyfrowego klucza architektury systemu z PIM (Wymuszenie 2-step dance)
-        const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
+        const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(cleanEan);
 
         // KROK 2: Dekompozycja potężnych danych
         const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
