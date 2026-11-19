@@ -1159,7 +1159,14 @@ export const UnifiedProductPipelineView = ({
             
             skipNextAutosaveRef.current = true;
             localStorage.removeItem(DRAFT_KEY);
-            alert(res.data.message || 'Zlecono eksport i akceptację MDM! PIM -> BaseLinker.');
+            const serverWarnings = Array.isArray(res.data?.warnings) && res.data.warnings.length > 0
+                ? `\n\nUwagi z BaseLinkera:\n- ${res.data.warnings.join('\n- ')}`
+                : '';
+            const baseMsg = res.data?.message || 'Zlecono eksport i akceptację MDM! PIM -> BaseLinker.';
+            const alertText = serverWarnings && !baseMsg.includes('Ostrzeżenia z API BaseLinkera')
+                ? `${baseMsg}${serverWarnings}`
+                : baseMsg;
+            alert(alertText);
             setShowExportConfirm(false);
             if (fetchAppGlobalData) fetchAppGlobalData();
         } catch (err) {

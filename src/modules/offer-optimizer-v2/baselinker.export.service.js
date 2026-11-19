@@ -14,6 +14,219 @@ const INTERNAL_BACK_IMAGE_KEYS = new Set([
     '_backimageurl'
 ]);
 
+const INVENTORY_PARAMETERS_CACHE_TTL_MS = 10 * 60 * 1000;
+
+const FALLBACK_NUMBER_PARAMETER_NAMES = [
+    'Waga produktu z opakowaniem jednostkowym',
+    'Pojemność',
+    'EAN (GTIN)',
+    'Kod producenta',
+    'Liczba prań',
+    'Liczba sztuk w opakowaniu'
+];
+
+const FALLBACK_INVENTORY_PARAMETERS = FALLBACK_NUMBER_PARAMETER_NAMES.map((name, idx) => ({
+    parameter_key: `fallback_num_${idx}`,
+    type: 'number',
+    name_translations: { pl: name },
+    options: []
+}));
+
+function normalizeParameterName(name) {
+    return String(name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function trimDecimalTrailingZeros(numStr) {
+    if (!numStr.includes('.')) return numStr;
+    return numStr.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+}
+
+/**
+ * Konwertuje wartość parametru liczbowego (`type === "number"` w BaseLinker)
+ * z zapisu z przecinkiem/jednostką (np. "1,1", "1,200 kg", "1000,00 ml")
+ * na czysty string liczbowy akceptowany przez API i formularz BaseLinkera ("1.1", "1.2", "1000").
+ */
+function parseAndFormatNumericFeatureValue(keyName, rawVal) {
+    if (rawVal === undefined || rawVal === null) {
+        return { valid: true, value: '' };
+    }
+    if (typeof rawVal === 'number') {
+        if (!Number.isFinite(rawVal)) {
+            return { valid: false, value: String(rawVal) };
+        }
+        return { valid: true, value: trimDecimalTrailingZeros(String(rawVal)) };
+    }
+
+    const trimmed = String(rawVal).trim();
+    if (!trimmed) {
+        return { valid: true, value: '' };
+    }
+
+    // Czyste ciągi cyfr (np. EAN lub kody producenta z zerem wiodącym) pozostają nietknięte
+    if (/^\d+$/.test(trimmed)) {
+        return { valid: true, value: trimmed };
+    }
+
+    const numMatch = trimmed.match(/^(?:ok\.?\s*)?(\d+(?:\s\d{3})*(?:[.,]\d+)?)\s*(kg|g|ml|l|szt\.?|pra[nń]|pcs)?\.?$/i);
+    if (!numMatch) {
+        return { valid: false, value: trimmed };
+    }
+
+    let normalizedDigits = numMatch[1].replace(/\s+/g, '').replace(',', '.');
+    const unit = (numMatch[2] || '').toLowerCase();
+
+    if (unit === 'g' && normalizeParameterName(keyName) === 'waga produktu z opakowaniem jednostkowym') {
+        const parsedGrams = parseFloat(normalizedDigits);
+        if (!Number.isFinite(parsedGrams)) {
+            return { valid: false, value: trimmed };
+        }
+        normalizedDigits = (parsedGrams / 1000).toFixed(6);
+    }
+
+    return { valid: true, value: trimDecimalTrailingZeros(normalizedDigits) };
+}
+
+function matchPredefinedParameterOption(rawVal, options = [], isMultiselect = false) {
+    const strVal = rawVal === undefined || rawVal === null ? '' : String(rawVal).trim();
+    if (!strVal || !Array.isArray(options) || options.length === 0) {
+        return { matched: true, value: rawVal, unmatchedTokens: [] };
+    }
+
+    const optionLookup = new Map();
+    for (const opt of options) {
+        const translations = opt && typeof opt.value_translations === 'object' ? Object.values(opt.value_translations) : [];
+        for (const label of translations) {
+            if (typeof label !== 'string') continue;
+            const norm = normalizeParameterName(label);
+            if (norm && !optionLookup.has(norm)) {
+                optionLookup.set(norm, label);
+            }
+        }
+    }
+
+    if (optionLookup.size === 0) {
+        return { matched: true, value: rawVal, unmatchedTokens: [] };
+    }
+
+    const tokens = isMultiselect ? strVal.split(/[,;|]/).map(t => t.trim()).filter(Boolean) : [strVal];
+    const matchedValues = [];
+    const unmatchedTokens = [];
+
+    for (const token of tokens) {
+        const exact = optionLookup.get(normalizeParameterName(token));
+        if (exact !== undefined) {
+            if (!matchedValues.includes(exact)) matchedValues.push(exact);
+        } else {
+            unmatchedTokens.push(token);
+        }
+    }
+
+    if (unmatchedTokens.length > 0) {
+        return { matched: false, value: strVal, unmatchedTokens };
+    }
+
+    return {
+        matched: true,
+        value: isMultiselect ? matchedValues.join(', ') : matchedValues[0],
+        unmatchedTokens: []
+    };
+}
+
+/**
+ * Dopasowuje i normalizuje słownik `features` pod typy parametrów BaseLinkera (`getInventoryParameters`).
+ */
+function normalizeFeaturesForBaselinkerSchema(features = {}, parameters = []) {
+    const source = (features && typeof features === 'object' && !Array.isArray(features)) ? features : {};
+    const paramByNormName = new Map();
+
+    if (Array.isArray(parameters)) {
+        for (const param of parameters) {
+            if (!param || typeof param !== 'object') continue;
+            const names = [];
+            if (param.name_translations && typeof param.name_translations === 'object') {
+                names.push(...Object.values(param.name_translations));
+            }
+            if (param.parameter_key) {
+                names.push(param.parameter_key);
+            }
+            for (const name of names) {
+                const norm = normalizeParameterName(name);
+                if (norm && !paramByNormName.has(norm)) {
+                    paramByNormName.set(norm, param);
+                }
+            }
+        }
+    }
+
+    const normalizedFeatures = {};
+    const warnings = [];
+
+    for (const [key, rawVal] of Object.entries(source)) {
+        if (rawVal === undefined || rawVal === null) continue;
+        const paramDef = paramByNormName.get(normalizeParameterName(key));
+
+        if (!paramDef) {
+            normalizedFeatures[key] = rawVal;
+            continue;
+        }
+
+        if (paramDef.type === 'number') {
+            const parsed = parseAndFormatNumericFeatureValue(key, rawVal);
+            normalizedFeatures[key] = parsed.value;
+            if (!parsed.valid) {
+                warnings.push(`Parametr BaseLinker "${key}" ma typ liczbowy (number) – wartość "${String(rawVal)}" może zostać odrzucona przez BaseLinker.`);
+            }
+            continue;
+        }
+
+        if (paramDef.type === 'select' || paramDef.type === 'multiselect') {
+            const matchRes = matchPredefinedParameterOption(rawVal, paramDef.options, paramDef.type === 'multiselect');
+            normalizedFeatures[key] = matchRes.value;
+            if (!matchRes.matched) {
+                const sampleOptions = (paramDef.options || [])
+                    .slice(0, 5)
+                    .map(o => o?.value_translations?.pl || Object.values(o?.value_translations || {})[0])
+                    .filter(Boolean)
+                    .map(s => String(s).trim());
+                const allowedPreview = sampleOptions.length > 0 ? ` (przykładowe opcje w BL: ${sampleOptions.join(', ')})` : '';
+                warnings.push(`Parametr słownikowy BaseLinker "${key}" (${paramDef.type}): wartość "${matchRes.unmatchedTokens.join(', ')}" nie występuje na liście predefiniowanych opcji katalogu${allowedPreview}.`);
+            }
+            continue;
+        }
+
+        normalizedFeatures[key] = rawVal;
+    }
+
+    return { normalizedFeatures, warnings };
+}
+
+function formatBaselinkerApiWarnings(rawWarnings) {
+    if (!rawWarnings) return [];
+    if (Array.isArray(rawWarnings)) {
+        return rawWarnings.map(w => (typeof w === 'string' ? w : JSON.stringify(w))).filter(Boolean);
+    }
+    if (typeof rawWarnings === 'string') {
+        return rawWarnings.trim() ? [rawWarnings.trim()] : [];
+    }
+    if (typeof rawWarnings === 'object') {
+        const entries = Object.entries(rawWarnings);
+        if (entries.length === 0) return [];
+        const messages = [];
+        for (const [scope, detail] of entries) {
+            if (detail === undefined || detail === null || detail === '') continue;
+            if (typeof detail === 'object' && !Array.isArray(detail)) {
+                for (const [subKey, subVal] of Object.entries(detail)) {
+                    messages.push(`BaseLinker (${scope}.${subKey}): ${typeof subVal === 'string' ? subVal : JSON.stringify(subVal)}`);
+                }
+            } else {
+                messages.push(`BaseLinker (${scope}): ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`);
+            }
+        }
+        return messages;
+    }
+    return [];
+}
+
 /**
  * Scala parametry z PIM, UI oraz (wyłącznie jako fallback braków) katalogu Allegro,
  * gwarantując pierwszeństwo korekt operatora oraz usunięcie pól binarnych przed eksportem do BaseLinkera.
@@ -69,6 +282,55 @@ function mergeFeaturesForBaselinker({ existingFeatures = {}, draftFeatures = nul
 }
 
 class BaselinkerExportService {
+    constructor() {
+        this.inventoryParametersCache = new Map();
+    }
+
+    clearInventoryParametersCache() {
+        this.inventoryParametersCache.clear();
+    }
+
+    async callConnectorApi(method, parameters = {}, timeout = 30000) {
+        const token = await getBaseLinkerToken(prisma);
+        const params = new URLSearchParams();
+        params.append('method', method);
+        params.append('parameters', JSON.stringify(parameters));
+
+        const response = await axios.post('https://api.baselinker.com/connector.php', params.toString(), {
+            headers: { 'X-BLToken': token, 'Content-Type': 'application/x-www-form-urlencoded' },
+            timeout
+        });
+
+        if (response.data?.status === 'ERROR') {
+            throw new Error(`BaseLinker API Error: ${response.data.error_message || 'Nieznany błąd API'}`);
+        }
+        return response.data;
+    }
+
+    async fetchInventoryParameters(inventoryId) {
+        const invKey = String(inventoryId || '').trim();
+        if (!invKey) return FALLBACK_INVENTORY_PARAMETERS;
+
+        const cached = this.inventoryParametersCache.get(invKey);
+        if (cached && (Date.now() - cached.fetchedAt) < INVENTORY_PARAMETERS_CACHE_TTL_MS) {
+            return cached.parameters;
+        }
+
+        const numericInventoryId = parseInt(invKey, 10);
+        if (Number.isNaN(numericInventoryId)) {
+            return FALLBACK_INVENTORY_PARAMETERS;
+        }
+
+        try {
+            const res = await this.callConnectorApi('getInventoryParameters', { inventory_id: numericInventoryId }, 15000);
+            const parameters = Array.isArray(res?.parameters) ? res.parameters : [];
+            this.inventoryParametersCache.set(invKey, { parameters, fetchedAt: Date.now() });
+            return parameters;
+        } catch (err) {
+            exportLogger.warn(`[BaselinkerExportService] Fallback parametrów dla katalogu ${invKey} (błąd getInventoryParameters: ${err.message})`);
+            return FALLBACK_INVENTORY_PARAMETERS;
+        }
+    }
     
     /**
      * Koduje emoji i piktogramy na encje HTML chroniąc system przed błędami kodowania.
@@ -146,9 +408,9 @@ class BaselinkerExportService {
     }
 
     /**
-     * Buduje gotowy payload JSON (z kompresją zdjęć i mapowaniem) bez faktycznego wysyłania do API.
+     * Buduje gotowy payload JSON wraz z diagnostyką parametrów BaseLinkera (bez wysyłki do API).
      */
-    async buildPayload(inventoryId, productId, draftData, product) {
+    async buildPayloadWithDiagnostics(inventoryId, productId, draftData, product) {
         exportLogger.info(`[BaselinkerExportService] Budowanie payloadu dla EAN: ${product.ean}`);
         
         const payload = {
@@ -202,12 +464,18 @@ class BaselinkerExportService {
             existingFeatures = product.features;
         }
 
-        const finalFeatures = mergeFeaturesForBaselinker({
+        const mergedFeatures = mergeFeaturesForBaselinker({
             existingFeatures,
             draftFeatures: draftData.features || null,
             hardFeatures,
             featuresAuthoritative: Boolean(draftData.featuresAuthoritative)
         });
+
+        const inventoryParameters = await this.fetchInventoryParameters(inventoryId);
+        const { normalizedFeatures: finalFeatures, warnings } = normalizeFeaturesForBaselinkerSchema(
+            mergedFeatures,
+            inventoryParameters
+        );
 
         for (const [key, val] of Object.entries(finalFeatures)) {
             if (typeof val === 'string') {
@@ -267,6 +535,14 @@ class BaselinkerExportService {
             }
         }
 
+        return { payload, warnings };
+    }
+
+    /**
+     * Buduje gotowy payload JSON (z kompresją zdjęć i mapowaniem) bez faktycznego wysyłania do API.
+     */
+    async buildPayload(inventoryId, productId, draftData, product) {
+        const { payload } = await this.buildPayloadWithDiagnostics(inventoryId, productId, draftData, product);
         return payload;
     }
 
@@ -277,31 +553,33 @@ class BaselinkerExportService {
         exportLogger.info(`[BaselinkerExportService] Rozpoczynam eksport dla EAN: ${product.ean}`);
         
         try {
-            const payload = await this.buildPayload(inventoryId, productId, draftData, product);
+            const { payload, warnings: preflightWarnings } = await this.buildPayloadWithDiagnostics(
+                inventoryId,
+                productId,
+                draftData,
+                product
+            );
 
             // --- 5. EKSPORT DO BASELINKER API ---
-            const token = await getBaseLinkerToken(prisma);
-
-            const params = new URLSearchParams();
-            params.append('method', 'addInventoryProduct');
-            params.append('parameters', JSON.stringify(payload));
-            
             exportLogger.info(`[BaselinkerExportService] Wysyłanie ładunku do BaseLinker API dla EAN: ${product.ean}...`);
 
-            const response = await axios.post('https://api.baselinker.com/connector.php', params.toString(), {
-                headers: { 'X-BLToken': token, 'Content-Type': 'application/x-www-form-urlencoded' },
-                timeout: 30000 // Obrazy b64 ważą sporo
-            });
+            const responseData = await this.callConnectorApi('addInventoryProduct', payload, 30000);
+            const apiWarnings = formatBaselinkerApiWarnings(responseData?.warnings);
 
-            if (response.data.status === 'ERROR') {
-                throw new Error(`BaseLinker API Error: ${response.data.error_message}`);
+            if (apiWarnings.length > 0) {
+                exportLogger.warn(`[BaselinkerExportService] Ostrzeżenia BaseLinker API (addInventoryProduct) dla EAN ${product.ean}: ${apiWarnings.join(' | ')}`);
+            }
+            if (preflightWarnings.length > 0) {
+                exportLogger.warn(`[BaselinkerExportService] Ostrzeżenia schematu parametrów BaseLinkera dla EAN ${product.ean}: ${preflightWarnings.join(' | ')}`);
             }
 
             exportLogger.info(`[BaselinkerExportService] Zakończono sukcesem eksport dla EAN: ${product.ean}.`);
             
             return {
-                apiResponse: response.data,
-                agentPayload: payload // Zwracamy payload żeby symulować strukturę jaką wcześniej wypluwał AI Agent (na użytek frontendu/logów)
+                apiResponse: responseData,
+                agentPayload: payload, // Zwracamy payload żeby symulować strukturę jaką wcześniej wypluwał AI Agent (na użytek frontendu/logów)
+                preflightWarnings,
+                apiWarnings
             };
         } catch (error) {
             exportLogger.error(`[BaselinkerExportService] BŁĄD EKSPORTU dla EAN: ${product.ean} | Message: ${error.message}`);
@@ -319,5 +597,8 @@ class BaselinkerExportService {
 
 const baselinkerExportService = new BaselinkerExportService();
 baselinkerExportService.mergeFeaturesForBaselinker = mergeFeaturesForBaselinker;
+baselinkerExportService.normalizeFeaturesForBaselinkerSchema = normalizeFeaturesForBaselinkerSchema;
+baselinkerExportService.parseAndFormatNumericFeatureValue = parseAndFormatNumericFeatureValue;
+baselinkerExportService.formatBaselinkerApiWarnings = formatBaselinkerApiWarnings;
 
 module.exports = baselinkerExportService;

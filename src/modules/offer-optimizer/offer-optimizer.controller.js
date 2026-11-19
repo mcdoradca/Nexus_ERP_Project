@@ -433,7 +433,7 @@ const validateBaselinkerExport = async (req, res) => {
         }
         if (!inventoryId) inventoryId = "307";
         
-        const generatedPayload = await baselinkerExportService.buildPayload(
+        const { payload: generatedPayload, warnings: preflightWarnings } = await baselinkerExportService.buildPayloadWithDiagnostics(
             inventoryId,
             product.baselinkerId,
             draftData,
@@ -453,7 +453,7 @@ const validateBaselinkerExport = async (req, res) => {
             validation: {
                 is_valid: true,
                 errors: [],
-                warnings: []
+                warnings: Array.isArray(preflightWarnings) ? preflightWarnings : []
             },
             title: draftData.title || "",
             sections: draftData.htmlContent || {},
@@ -620,12 +620,21 @@ const exportToBaselinker = async (req, res) => {
             }
         }
 
+        const baselinkerExportService = require('../offer-optimizer-v2/baselinker.export.service');
+        const apiWarnings = baselinkerExportService.formatBaselinkerApiWarnings(response?.warnings);
+        if (apiWarnings.length > 0) {
+            exportLogger.warn(`[PIPELINE EXPORT] BaseLinker zwrócił ostrzeżenia API dla EAN ${ean}: ${apiWarnings.join(' | ')}`);
+        }
+
         let msg = "Zapisano AI w PIM i poprawnie wyeksportowano zautoryzowany ładunek do BaseLinkera!";
+        if (apiWarnings.length > 0) {
+            msg += `\n\nOstrzeżenia z API BaseLinkera:\n- ${apiWarnings.join('\n- ')}`;
+        }
 
         // Publikujemy zdarzenie czysto informacyjne. MDM nie będzie już samowolnie uderzał do zewnętrznego API.
         EventBus.publish('PRODUCT_CONTENT_OPTIMIZED', { ean, product });
 
-        res.status(200).json({ message: msg });
+        res.status(200).json({ message: msg, warnings: apiWarnings });
     } catch (e) {
         exportLogger.error(`[PIPELINE EXPORT ERROR] Błąd podczas eksportu (kontroler): ${e.message}`, { stack: e.stack });
         res.status(500).json({ error: e.message });
