@@ -17,6 +17,8 @@ const {
     extractSafetyInformationText,
     extractCleanInciForAllegro,
     buildAllegroParameterPatchPayload,
+    hasCompositionInPatchBody,
+    stripCompositionFromPatchBody,
     collectPipelineImagesForAllegro,
     buildAllegroDescriptionSections,
     buildAllegroContentPreflight,
@@ -1534,6 +1536,7 @@ const validateAllegroParamsExport = async (req, res) => {
             includeSafetyInfo = true,
             customSafetyText = null,
             includeComposition = true,
+            forceCompositionRetry = false,
             selectedParamIds = null,
             forceRefreshCategory = false
         } = req.body || {};
@@ -1622,15 +1625,21 @@ const validateAllegroParamsExport = async (req, res) => {
             description: finalSafetyText
         };
 
-        // 2. Ekstrakcja i walidacja INCI przez endpoint POST /ingredients/parse
+        // 2. Ekstrakcja i walidacja INCI przez endpoint POST /ingredients/parse + weryfikacja wsparcia kategorii
         const rawInci = extractCleanInciForAllegro({
             features: effectiveFeatures,
             ingredientsInci: existingDraft?.ingredients_inci || ''
         });
 
+        const catCompSupport = await AllegroService.getCategoryCompositionSupport(effectiveCatId);
+        const categorySupportsComp = catCompSupport.supported !== false;
+
         let compositionDiagnostics = {
             rawInci,
             supported: false,
+            parserValid: false,
+            categorySupported: categorySupportsComp,
+            categoryUnsupportedReason: catCompSupport.reason || null,
             components: null,
             warnings: [],
             errors: []
@@ -1645,9 +1654,14 @@ const validateAllegroParamsExport = async (req, res) => {
                     rawInci,
                     accountId: ctx.effAccountId
                 });
+                const parserValid = Boolean(parsedRes.supported);
                 compositionDiagnostics = {
                     rawInci,
-                    ...parsedRes
+                    ...parsedRes,
+                    parserValid,
+                    categorySupported: categorySupportsComp,
+                    categoryUnsupportedReason: catCompSupport.reason || null,
+                    supported: Boolean(parserValid && (categorySupportsComp || forceCompositionRetry))
                 };
             } catch (parseErr) {
                 compositionDiagnostics.errors = [parseErr.message || 'Błąd parsera składników Allegro (/ingredients/parse).'];
@@ -1669,6 +1683,12 @@ const validateAllegroParamsExport = async (req, res) => {
             safetyInfoPayload,
             compositionPayload
         });
+
+        if (compositionDiagnostics.rawInci && compositionDiagnostics.parserValid && !categorySupportsComp && !forceCompositionRetry) {
+            patchResult.warnings.unshift(
+                `Uwaga: Kategoria Allegro #${effectiveCatId} (${catSchema.name}) nie obsługuje jeszcze pola składu produktu (productSet[0].composition). Skład INCI został automatycznie pominięty, aby nie zablokować wysyłki pozostałych parametrów i GPSR.`
+            );
+        }
 
         if (offerCatId && requestedCatId && offerCatId !== requestedCatId) {
             patchResult.warnings.unshift(
@@ -1761,9 +1781,60 @@ const exportAllegroParams = async (req, res) => {
         const preservedDescCnt = Array.isArray(patchBody.description?.sections) ? patchBody.description.sections.length : 0;
         const suppressCatalogImgs = Boolean(patchBody.productSet?.[0]?.product && Array.isArray(patchBody.productSet[0].product.images) && patchBody.productSet[0].product.images.length === 0);
         exportLogger.info(`[ALLEGRO EXPORT PARAMS] Wysyłanie PATCH do oferty ${offerId} (Konto: ${effAccountId || 'domyślne'}, EAN: ${product.ean}, Ochrona treści: zdjęcia=${preservedImagesCnt}, opisSekcje=${preservedDescCnt}, blokadaKataloguZdjec=${suppressCatalogImgs})`);
-        const patchResult = await AllegroService.patchProductOffer(offerId, patchBody, {
-            accountId: effAccountId || null
-        });
+
+        const cleanCategoryId = categoryId ? String(categoryId).trim() : '';
+        let patchResult = null;
+        let compositionSkippedForCategory = false;
+        let compositionSkipWarning = null;
+        let skippedNoRemainingChanges = false;
+        let resolvedCategoryId = cleanCategoryId;
+
+        try {
+            patchResult = await AllegroService.patchProductOffer(offerId, patchBody, {
+                accountId: effAccountId || null
+            });
+            if (cleanCategoryId && hasCompositionInPatchBody(patchBody)) {
+                await AllegroService.clearCategoryCompositionUnsupported(cleanCategoryId);
+            }
+        } catch (patchErr) {
+            if (!hasCompositionInPatchBody(patchBody) || !AllegroService.isAllegroCompositionCategoryError(patchErr)) {
+                throw patchErr;
+            }
+
+            let latestOffer = null;
+            try {
+                const fetched = await AllegroService.getOfferAndCatalogForParams(offerId, {
+                    accountId: effAccountId || null
+                });
+                latestOffer = fetched?.offer || null;
+                if (!resolvedCategoryId && latestOffer?.category?.id) {
+                    resolvedCategoryId = String(latestOffer.category.id).trim();
+                }
+            } catch (fetchErr) {
+                exportLogger.warn(`[ALLEGRO EXPORT PARAMS] Nie udało się pobrać oferty ${offerId} przy fallbacku composition: ${fetchErr.message}`);
+            }
+
+            if (resolvedCategoryId) {
+                await AllegroService.markCategoryCompositionUnsupported(resolvedCategoryId, patchErr.message);
+            }
+
+            const stripped = stripCompositionFromPatchBody(patchBody, latestOffer);
+            compositionSkippedForCategory = true;
+            const catLabel = resolvedCategoryId ? `#${resolvedCategoryId}` : 'docelowa';
+
+            if (!stripped.hasRemainingChanges) {
+                skippedNoRemainingChanges = true;
+                compositionSkipWarning = `Kategoria Allegro ${catLabel} nie obsługuje jeszcze pola składu produktu (productSet[0].composition). Skład INCI został pominięty, a pozostałe parametry i GPSR w ofercie ${offerId} były już aktualne.`;
+                patchResult = { status: 'SKIPPED_COMPOSITION_UNSUPPORTED' };
+                exportLogger.warn(`[ALLEGRO EXPORT PARAMS] Oferta ${offerId} (kategoria ${catLabel}): pominięto INCI po 422, brak innych różnic do wysyłki.`);
+            } else {
+                compositionSkipWarning = `Kategoria Allegro ${catLabel} nie obsługuje jeszcze pola składu produktu (productSet[0].composition) — pominięto skład INCI, a pozostałe parametry i dane GPSR zostały wysłane ponownie.`;
+                exportLogger.warn(`[ALLEGRO EXPORT PARAMS] Fallback 422 composition dla oferty ${offerId} (kategoria ${catLabel}) — ponawiam PATCH bez productSet[].composition.`);
+                patchResult = await AllegroService.patchProductOffer(offerId, stripped.patchBody, {
+                    accountId: effAccountId || null
+                });
+            }
+        }
 
         const existingDraft = parseOfferDraftJson(product.offerDraft);
 
@@ -1776,15 +1847,16 @@ const exportAllegroParams = async (req, res) => {
                     timestamp: new Date().toISOString(),
                     accountId: effAccountId || null,
                     offerId: String(offerId),
-                    status: patchResult.status
+                    status: patchResult.status,
+                    compositionSkippedForCategory
                 }
             }
         };
         if (updatedFeatures && typeof updatedFeatures === 'object') {
             updateData.features = updatedFeatures;
         }
-        if (categoryId && String(categoryId).trim() !== '') {
-            updateData.allegroCategoryId = String(categoryId).trim();
+        if (resolvedCategoryId) {
+            updateData.allegroCategoryId = resolvedCategoryId;
         }
 
         await prisma.product.update({
@@ -1792,20 +1864,38 @@ const exportAllegroParams = async (req, res) => {
             data: updateData
         });
 
-        EventBus.publish('PRODUCT_ALLEGRO_PARAMS_EXPORTED', {
-            ean: product.ean,
-            accountId: effAccountId || null,
-            offerId: String(offerId),
-            status: patchResult.status
-        });
+        if (!skippedNoRemainingChanges) {
+            EventBus.publish('PRODUCT_ALLEGRO_PARAMS_EXPORTED', {
+                ean: product.ean,
+                accountId: effAccountId || null,
+                offerId: String(offerId),
+                status: patchResult.status,
+                compositionSkippedForCategory
+            });
+        }
+
+        let responseMessage;
+        if (skippedNoRemainingChanges) {
+            responseMessage = compositionSkipWarning;
+        } else if (compositionSkippedForCategory) {
+            responseMessage = patchResult.status === 'PENDING_TIMEOUT'
+                ? `Wysłano pozostałe parametry do oferty ${offerId} (Allegro nadal przetwarza zadanie w tle). Pominięto skład INCI — ${compositionSkipWarning}`
+                : `Częściowy sukces! Zaktualizowano parametry i dane GPSR w ofercie Allegro (${offerId}), pomijając skład INCI (kategoria ${resolvedCategoryId ? `#${resolvedCategoryId}` : ''} nie obsługuje jeszcze pola composition w API Allegro).`;
+        } else {
+            responseMessage = patchResult.status === 'PENDING_TIMEOUT'
+                ? `Wysłano aktualizację do oferty ${offerId} (Allegro nadal przetwarza zadanie w tle).`
+                : `Sukces! Zaktualizowano parametry i dane zgodności w ofercie Allegro (${offerId}).`;
+        }
 
         return res.status(200).json({
             status: patchResult.status,
             offerId: String(offerId),
             accountId: effAccountId || null,
-            message: patchResult.status === 'PENDING_TIMEOUT'
-                ? `Wysłano aktualizację do oferty ${offerId} (Allegro nadal przetwarza zadanie w tle).`
-                : `Sukces! Zaktualizowano parametry i dane zgodności w ofercie Allegro (${offerId}).`,
+            categoryId: resolvedCategoryId || null,
+            compositionSkippedForCategory,
+            skippedNoRemainingChanges,
+            warnings: compositionSkipWarning ? [compositionSkipWarning] : [],
+            message: responseMessage,
             patchResult
         });
     } catch (error) {

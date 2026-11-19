@@ -1319,10 +1319,14 @@ export const UnifiedProductPipelineView = ({
                 includeSafetyInfo: effIncludeSafety,
                 customSafetyText: effCustomSafety,
                 includeComposition: effIncludeComp,
+                forceCompositionRetry: Boolean(overrideOptions.forceCompositionRetry),
                 forceRefreshCategory: Boolean(overrideOptions.forceRefreshCategory)
             }, { headers: { Authorization: `Bearer ${token}` } });
 
             setAllegroParamsValidationResult(res.data);
+            if (overrideOptions.includeComposition === undefined) {
+                setAllegroIncludeComposition(Boolean(res.data?.compositionDiagnostics?.supported));
+            }
             if (res.data?.offer?.id) {
                 setAllegroOfferId(String(res.data.offer.id));
             }
@@ -1361,6 +1365,9 @@ export const UnifiedProductPipelineView = ({
                 categoryId: allegroParamsValidationResult.offer.categoryId
             }, { headers: { Authorization: `Bearer ${token}` } });
 
+            if (res.data?.compositionSkippedForCategory) {
+                setAllegroIncludeComposition(false);
+            }
             alert(res.data?.message || 'Parametry i dane zgodności zostały wysłane do oferty Allegro!');
             setShowAllegroParamsModal(false);
             if (fetchAppGlobalData) fetchAppGlobalData();
@@ -2914,6 +2921,7 @@ export const UnifiedProductPipelineView = ({
                                             includeSafetyInfo: allegroIncludeSafety,
                                             customSafetyText: allegroCustomSafetyText,
                                             includeComposition: allegroIncludeComposition,
+                                            forceCompositionRetry: Boolean(allegroIncludeComposition && allegroParamsValidationResult.compositionDiagnostics?.categorySupported === false),
                                             forceRefreshCategory: true
                                         })}
                                         disabled={isValidatingAllegroParams}
@@ -3047,10 +3055,19 @@ export const UnifiedProductPipelineView = ({
                                         <input
                                             type="checkbox"
                                             checked={allegroIncludeComposition}
-                                            disabled={!allegroParamsValidationResult.compositionDiagnostics?.supported}
+                                            disabled={!(allegroParamsValidationResult.compositionDiagnostics?.parserValid ?? allegroParamsValidationResult.compositionDiagnostics?.supported) || isValidatingAllegroParams}
                                             onChange={e => {
-                                                setAllegroIncludeComposition(e.target.checked);
-                                                setAllegroPreviewDirty(true);
+                                                const checked = e.target.checked;
+                                                const catUnsupported = allegroParamsValidationResult.compositionDiagnostics?.categorySupported === false;
+                                                setAllegroIncludeComposition(checked);
+                                                handleValidateAllegroParamsExport({
+                                                    offerId: allegroOfferId,
+                                                    accountId: allegroAccountId === 'ALL' ? '' : allegroAccountId,
+                                                    includeSafetyInfo: allegroIncludeSafety,
+                                                    customSafetyText: allegroCustomSafetyText,
+                                                    includeComposition: checked,
+                                                    forceCompositionRetry: Boolean(checked && catUnsupported)
+                                                });
                                             }}
                                             className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                         />
@@ -3062,10 +3079,18 @@ export const UnifiedProductPipelineView = ({
                                         <div className="text-[11px] font-mono bg-slate-50 p-2.5 rounded border border-slate-200 text-slate-700 max-h-24 overflow-y-auto">
                                             {allegroParamsValidationResult.compositionDiagnostics.rawInci}
                                         </div>
-                                        {allegroParamsValidationResult.compositionDiagnostics.supported ? (
+                                        {allegroParamsValidationResult.compositionDiagnostics.supported && allegroParamsValidationResult.compositionDiagnostics.categorySupported === false ? (
+                                            <div className="text-[11px] font-bold text-amber-800 bg-amber-50 p-2.5 rounded border border-amber-200">
+                                                Wymuszono ponowną próbę wysyłki składu INCI ({allegroParamsValidationResult.compositionDiagnostics.components?.[0]?.ingredients?.length || 0} składników) dla kategorii #{allegroParamsValidationResult.category?.id}. Jeśli Allegro nadal nie przyjmie składu w tej kategorii, system automatycznie pominie INCI i wyśle pozostałe parametry oraz GPSR.
+                                            </div>
+                                        ) : allegroParamsValidationResult.compositionDiagnostics.supported ? (
                                             <div className="text-[11px] font-bold text-emerald-700 flex items-center">
                                                 <CheckCircle2 className="w-4 h-4 mr-1.5" />
                                                 Zweryfikowano przez POST /ingredients/parse ({allegroParamsValidationResult.compositionDiagnostics.components?.[0]?.ingredients?.length || 0} składników INCI gotowych do wysyłki).
+                                            </div>
+                                        ) : allegroParamsValidationResult.compositionDiagnostics.parserValid && allegroParamsValidationResult.compositionDiagnostics.categorySupported === false ? (
+                                            <div className="text-[11px] font-bold text-amber-800 bg-amber-50 p-2.5 rounded border border-amber-200">
+                                                Kategoria Allegro #{allegroParamsValidationResult.category?.id} ({allegroParamsValidationResult.category?.name}) nie obsługuje jeszcze pola składu produktu (`productSet[0].composition`) w Allegro API — skład INCI ({allegroParamsValidationResult.compositionDiagnostics.components?.[0]?.ingredients?.length || 0} składników) został automatycznie pominięty, aby wysłać pozostałe parametry i GPSR. Możesz zaznaczyć „Dołącz skład INCI do PATCH” powyżej, aby wymusić test.
                                             </div>
                                         ) : (
                                             <div className="text-[11px] font-bold text-amber-700 bg-amber-50 p-2.5 rounded border border-amber-200">
@@ -3139,7 +3164,8 @@ export const UnifiedProductPipelineView = ({
                                             offerId: allegroOfferId,
                                             includeSafetyInfo: allegroIncludeSafety,
                                             customSafetyText: allegroCustomSafetyText,
-                                            includeComposition: allegroIncludeComposition
+                                            includeComposition: allegroIncludeComposition,
+                                            forceCompositionRetry: Boolean(allegroIncludeComposition && allegroParamsValidationResult.compositionDiagnostics?.categorySupported === false)
                                         })}
                                         disabled={isValidatingAllegroParams}
                                         className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-md font-black text-xs uppercase tracking-widest flex items-center shadow-md disabled:opacity-50"

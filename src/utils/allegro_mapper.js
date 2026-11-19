@@ -1055,6 +1055,98 @@ function buildAllegroParameterPatchPayload({
     };
 }
 
+/**
+ * Sprawdza, czy payload PATCH zawiera jakiekolwiek pole `composition` wewnątrz `productSet`.
+ */
+function hasCompositionInPatchBody(patchBody) {
+    return Boolean(
+        patchBody &&
+        Array.isArray(patchBody.productSet) &&
+        patchBody.productSet.some(item => item && item.composition !== undefined && item.composition !== null)
+    );
+}
+
+/**
+ * Porównuje znormalizowaną tablicę parametrów Allegro niezależnie od kolejności wpisów.
+ */
+function normalizeAllegroParamListSignature(params) {
+    if (!Array.isArray(params)) return '[]';
+    const normalized = params
+        .filter(Boolean)
+        .map(p => ({
+            id: String(p.id),
+            valuesIds: Array.isArray(p.valuesIds) ? [...p.valuesIds].map(String).sort() : null,
+            values: Array.isArray(p.values) ? [...p.values].map(String) : null,
+            rangeValue: p.rangeValue ? { from: String(p.rangeValue.from ?? ''), to: String(p.rangeValue.to ?? '') } : null
+        }))
+        .sort((a, b) => a.id.localeCompare(b.id));
+    return JSON.stringify(normalized);
+}
+
+/**
+ * Bezpiecznie usuwa `composition` z `patchBody.productSet` (np. po błędzie 422 kategorii nieobsługującej składu).
+ * Gdy dostarczono `existingOffer` i poza `composition` w `productSet` nie było innych zmian (`product.parameters`,
+ * `safetyInformation`, dodatkowe pozycje), zdejmuje również cały `productSet` oraz powiązane pola ochronne,
+ * zapobiegając pustym nadpisaniom RFC 7396.
+ */
+function stripCompositionFromPatchBody(patchBody, existingOffer = null) {
+    if (!patchBody || typeof patchBody !== 'object') {
+        return {
+            patchBody: {},
+            hadComposition: false,
+            hasRemainingChanges: false,
+            droppedEmptyProductSet: false
+        };
+    }
+
+    const cloned = JSON.parse(JSON.stringify(patchBody));
+    const hadComposition = hasCompositionInPatchBody(cloned);
+
+    if (Array.isArray(cloned.productSet)) {
+        cloned.productSet = cloned.productSet.map(item => {
+            if (!item || typeof item !== 'object') return item;
+            const rest = { ...item };
+            delete rest.composition;
+            return rest;
+        });
+    }
+
+    let droppedEmptyProductSet = false;
+    if (hadComposition && existingOffer && Array.isArray(cloned.productSet)) {
+        const origSet = Array.isArray(existingOffer.productSet) ? existingOffer.productSet : [];
+        let hasOtherProductSetChanges = cloned.productSet.length !== origSet.length;
+
+        if (!hasOtherProductSetChanges && cloned.productSet.length > 0) {
+            const nextItem = cloned.productSet[0];
+            const origItem = origSet[0] || {};
+            const nextParamsSig = normalizeAllegroParamListSignature(nextItem?.product?.parameters);
+            const origParamsSig = normalizeAllegroParamListSignature(origItem?.product?.parameters);
+            const nextSafetySig = JSON.stringify(nextItem?.safetyInformation || null);
+            const origSafetySig = JSON.stringify(origItem?.safetyInformation || null);
+
+            if (nextParamsSig !== origParamsSig || nextSafetySig !== origSafetySig) {
+                hasOtherProductSetChanges = true;
+            }
+        }
+
+        if (!hasOtherProductSetChanges) {
+            delete cloned.productSet;
+            delete cloned.images;
+            delete cloned.description;
+            delete cloned.aiCoCreatedContent;
+            droppedEmptyProductSet = true;
+        }
+    }
+
+    const hasRemainingChanges = Object.keys(cloned).length > 0;
+    return {
+        patchBody: cloned,
+        hadComposition,
+        hasRemainingChanges,
+        droppedEmptyProductSet
+    };
+}
+
 function escapeAllegroHtmlText(str) {
     return String(str || '')
         .replace(/&/g, '&amp;')
@@ -1710,6 +1802,8 @@ module.exports = {
     encodeParameterValue,
     formatAllegroParamDisplay,
     buildAllegroParameterPatchPayload,
+    hasCompositionInPatchBody,
+    stripCompositionFromPatchBody,
     sanitizeHtmlForAllegroDescription,
     validateAllegroDescriptionHtml,
     collectPipelineImagesForAllegro,

@@ -10,6 +10,8 @@ const { encryptSecret, decryptSecret } = require('../../utils/secretVault');
 const { isAllegroHostedImageUrl, normalizeOfferImageUrls } = require('../../utils/allegro_mapper');
 
 const ALLEGRO_VAULT_KEY = 'ALLEGRO_ACCOUNTS_VAULT';
+const ALLEGRO_COMPOSITION_UNSUPPORTED_KEY = 'ALLEGRO_COMPOSITION_UNSUPPORTED_CATEGORIES';
+const ALLEGRO_COMPOSITION_UNSUPPORTED_TTL_MS = 24 * 60 * 60 * 1000;
 const ALLEGRO_USER_AGENT = 'NexusSentinelv2/2.0 (+http://n-e-s.pl)';
 
 const apiClient = axios.create();
@@ -47,6 +49,155 @@ apiClient.interceptors.response.use(
 const tokenCacheByAccount = new Map(); // accountKey -> { token, expiry }
 const tokenRefreshPromises = new Map(); // accountKey -> Promise<string>
 const uploadedImageCache = new Map(); // sha256 -> { url, expiresAt }
+const unsupportedCompositionCategoryCache = new Map(); // categoryId -> { expiresAtMs, reason, updatedAt }
+
+/**
+ * Rozpoznaje błąd Allegro 422 informujący, że docelowa kategoria produktu nie obsługuje jeszcze pola `productSet[].composition`.
+ */
+function isAllegroCompositionCategoryError(error) {
+    if (!error) return false;
+    const status = error.statusCode || error.response?.status || null;
+    if (status !== null && status !== 422 && status !== 400) {
+        return false;
+    }
+
+    const patterns = [
+        /nie\s+można\s+podać\s+składników\s+dla\s+kategorii/i,
+        /nie\s+mozna\s+podac\s+skladnikow\s+dla\s+kategorii/i,
+        /(?:cannot|can\s+not)\s+(?:provide|specify)\s+(?:ingredients|composition)\s+for\s+(?:product\s+)?category/i,
+        /ingredients?\s+(?:cannot|can\s+not)\s+be\s+specified\s+for\s+(?:this\s+|the\s+|product\s+)?category/i,
+        /composition.*not\s+(?:supported|allowed)\s+(?:for|in)\s+(?:this\s+|the\s+|product\s+)?category/i
+    ];
+
+    const matchesText = (text) => typeof text === 'string' && patterns.some(rx => rx.test(text));
+
+    const allegroErrors = Array.isArray(error.allegroErrors)
+        ? error.allegroErrors
+        : (Array.isArray(error.response?.data?.errors) ? error.response.data.errors : []);
+
+    for (const item of allegroErrors) {
+        if (!item || typeof item !== 'object') continue;
+        if (matchesText(item.userMessage) || matchesText(item.message) || matchesText(item.details) || matchesText(item.code)) {
+            return true;
+        }
+    }
+
+    return matchesText(error.message || '');
+}
+
+async function readUnsupportedCompositionCategoriesMap(injectedPrisma = prisma, nowMs = Date.now()) {
+    const out = {};
+    if (!injectedPrisma?.systemSetting || typeof injectedPrisma.systemSetting.findUnique !== 'function') {
+        return out;
+    }
+    try {
+        const rec = await injectedPrisma.systemSetting.findUnique({ where: { key: ALLEGRO_COMPOSITION_UNSUPPORTED_KEY } });
+        if (rec?.value) {
+            const parsed = JSON.parse(rec.value);
+            const cats = parsed && typeof parsed.categories === 'object' && parsed.categories ? parsed.categories : {};
+            for (const [catId, entry] of Object.entries(cats)) {
+                if (entry && Number(entry.expiresAtMs) > nowMs) {
+                    out[String(catId)] = entry;
+                }
+            }
+        }
+    } catch (err) {
+        console.warn(`[AllegroService] Nie udało się odczytać cache kategorii composition: ${err.message}`);
+    }
+    return out;
+}
+
+async function writeUnsupportedCompositionCategoriesMap(categoriesMap, injectedPrisma = prisma) {
+    if (!injectedPrisma?.systemSetting || typeof injectedPrisma.systemSetting.upsert !== 'function') {
+        return;
+    }
+    try {
+        await injectedPrisma.systemSetting.upsert({
+            where: { key: ALLEGRO_COMPOSITION_UNSUPPORTED_KEY },
+            update: { value: JSON.stringify({ version: 1, categories: categoriesMap }) },
+            create: { key: ALLEGRO_COMPOSITION_UNSUPPORTED_KEY, value: JSON.stringify({ version: 1, categories: categoriesMap }) }
+        });
+    } catch (err) {
+        console.warn(`[AllegroService] Nie udało się zapisać cache kategorii composition: ${err.message}`);
+    }
+}
+
+/**
+ * Sprawdza, czy kategoria Allegro jest w lokalnym cache TTL jako nieobsługująca `productSet[].composition`.
+ */
+async function getCategoryCompositionSupport(categoryId, { injectedPrisma = prisma, nowMs = Date.now(), skipMemoryCache = false } = {}) {
+    const cleanCatId = categoryId ? String(categoryId).trim() : '';
+    if (!cleanCatId) {
+        return { supported: true, reason: null, cachedAt: null, expiresAt: null };
+    }
+
+    if (!skipMemoryCache) {
+        const memEntry = unsupportedCompositionCategoryCache.get(cleanCatId);
+        if (memEntry) {
+            if (Number(memEntry.expiresAtMs) > nowMs) {
+                return {
+                    supported: false,
+                    reason: memEntry.reason || null,
+                    cachedAt: memEntry.updatedAt || null,
+                    expiresAt: new Date(memEntry.expiresAtMs).toISOString()
+                };
+            }
+            unsupportedCompositionCategoryCache.delete(cleanCatId);
+        }
+    }
+
+    const dbMap = await readUnsupportedCompositionCategoriesMap(injectedPrisma, nowMs);
+    for (const [k, v] of Object.entries(dbMap)) {
+        unsupportedCompositionCategoryCache.set(k, v);
+    }
+
+    const dbEntry = dbMap[cleanCatId];
+    if (dbEntry && Number(dbEntry.expiresAtMs) > nowMs) {
+        return {
+            supported: false,
+            reason: dbEntry.reason || null,
+            cachedAt: dbEntry.updatedAt || null,
+            expiresAt: new Date(dbEntry.expiresAtMs).toISOString()
+        };
+    }
+
+    return { supported: true, reason: null, cachedAt: null, expiresAt: null };
+}
+
+/**
+ * Zapisuje kategorię Allegro w cache TTL (24h) jako nieobsługującą jeszcze `productSet[].composition`.
+ */
+async function markCategoryCompositionUnsupported(categoryId, reason = '', { injectedPrisma = prisma, ttlMs = ALLEGRO_COMPOSITION_UNSUPPORTED_TTL_MS, nowMs = Date.now() } = {}) {
+    const cleanCatId = categoryId ? String(categoryId).trim() : '';
+    if (!cleanCatId) return null;
+
+    const entry = {
+        expiresAtMs: nowMs + ttlMs,
+        reason: String(reason || 'Kategoria Allegro nie obsługuje pola składu produktu (composition).').slice(0, 350),
+        updatedAt: new Date(nowMs).toISOString()
+    };
+    unsupportedCompositionCategoryCache.set(cleanCatId, entry);
+
+    const dbMap = await readUnsupportedCompositionCategoriesMap(injectedPrisma, nowMs);
+    dbMap[cleanCatId] = entry;
+    await writeUnsupportedCompositionCategoriesMap(dbMap, injectedPrisma);
+    return entry;
+}
+
+/**
+ * Usuwa kategorię z cache nieobsługiwanych (np. gdy Allegro uruchomi wsparcie składu i PATCH przejdzie).
+ */
+async function clearCategoryCompositionUnsupported(categoryId, { injectedPrisma = prisma, nowMs = Date.now() } = {}) {
+    const cleanCatId = categoryId ? String(categoryId).trim() : '';
+    if (!cleanCatId) return;
+
+    unsupportedCompositionCategoryCache.delete(cleanCatId);
+    const dbMap = await readUnsupportedCompositionCategoriesMap(injectedPrisma, nowMs);
+    if (Object.prototype.hasOwnProperty.call(dbMap, cleanCatId)) {
+        delete dbMap[cleanCatId];
+        await writeUnsupportedCompositionCategoriesMap(dbMap, injectedPrisma);
+    }
+}
 
 function buildAllegroHeaders(token, extra = {}) {
     return {
@@ -1443,6 +1594,8 @@ async function patchProductOffer(offerId, patchBody, { pollMaxAttempts = 12, pol
 
 module.exports = {
     ALLEGRO_VAULT_KEY,
+    ALLEGRO_COMPOSITION_UNSUPPORTED_KEY,
+    ALLEGRO_COMPOSITION_UNSUPPORTED_TTL_MS,
     readAllegroAccountsVault,
     writeAllegroAccountsVault,
     listConnectedAllegroAccounts,
@@ -1463,6 +1616,10 @@ module.exports = {
     findSellerOffersForProduct,
     getOfferAndCatalogForParams,
     parseIngredientsWithAllegro,
+    isAllegroCompositionCategoryError,
+    getCategoryCompositionSupport,
+    markCategoryCompositionUnsupported,
+    clearCategoryCompositionUnsupported,
     uploadImageToAllegro,
     patchProductOffer,
     formatAllegroApiErrors,

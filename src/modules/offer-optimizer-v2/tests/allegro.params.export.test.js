@@ -9,10 +9,18 @@ const {
     extractCleanInciForAllegro,
     convertValueToParameterUnit,
     encodeParameterValue,
-    buildAllegroParameterPatchPayload
+    buildAllegroParameterPatchPayload,
+    hasCompositionInPatchBody,
+    stripCompositionFromPatchBody
 } = require('../../../utils/allegro_mapper');
 
-const { inspectTokenClaims } = require('../../offer-optimizer/allegro.service');
+const {
+    inspectTokenClaims,
+    isAllegroCompositionCategoryError,
+    getCategoryCompositionSupport,
+    markCategoryCompositionUnsupported,
+    clearCategoryCompositionUnsupported
+} = require('../../offer-optimizer/allegro.service');
 
 test('Allegro Params Export: czyszczenie ostrzeżeń, konwersja jednostek, INCI, RFC 7396 i bezpieczeństwo tokenu', async (t) => {
     await t.test('1. stripHtmlAndEmoticons & extractSafetyInformationText usuwają HTML, emotikony i podmiot UE bez utraty treści CLP/GPSR', () => {
@@ -396,6 +404,127 @@ test('Allegro Params Export: czyszczenie ostrzeżeń, konwersja jednostek, INCI,
         assert.strictEqual(emptyGalleryPatch.patchBody.productSet[0].product.images, undefined);
         assert.deepStrictEqual(emptyGalleryPatch.patchBody.description, emptyGalleryOffer.description);
         assert.strictEqual(emptyGalleryPatch.preservedOfferFields.suppressCatalogProductImages, false);
+    });
+
+    await t.test('12. stripCompositionFromPatchBody zdejmuje productSet[0].composition po 422, zachowując inne zmiany parametrów i GPSR', () => {
+        const categoryParameters = [
+            { id: '207570', name: 'Pojemność', type: 'float', unit: 'ml', options: { describesProduct: true } },
+            { id: '229205', name: 'Stan opakowania', type: 'dictionary', options: { describesProduct: false }, dictionary: [{ id: '229205_1', value: 'oryginalne' }] }
+        ];
+        const existingOffer = {
+            id: '19112067504',
+            parameters: [],
+            images: ['https://a.allegroimg.com/original/11aaaa/soap-1.jpg'],
+            description: { sections: [{ items: [{ type: 'TEXT', content: '<p>Opis mydła</p>' }] }] },
+            productSet: [{
+                quantity: { value: 1 },
+                composition: null,
+                product: { id: 'prod-253350', parameters: [] }
+            }]
+        };
+
+        // Scenariusz A: Zmiana składu + zmiana Pojemności (produkt) + zmiana Stanu opakowania (oferta) + GPSR -> zostają parametry, GPSR i ochrona zdjęć/opisu
+        const mixedBuilt = buildAllegroParameterPatchPayload({
+            product: { ean: '8032680390036' },
+            features: { Pojemność: '1000 ml', 'Stan opakowania': 'oryginalne' },
+            categoryParameters,
+            existingOffer,
+            safetyInfoPayload: { apply: true, description: 'Chronić przed dziećmi.' },
+            compositionPayload: { apply: true, components: [{ name: 'Mydło', ingredients: [{ name: 'AQUA' }] }] }
+        });
+        assert.strictEqual(hasCompositionInPatchBody(mixedBuilt.patchBody), true);
+
+        const mixedStripped = stripCompositionFromPatchBody(mixedBuilt.patchBody, existingOffer);
+        assert.strictEqual(mixedStripped.hadComposition, true);
+        assert.strictEqual(mixedStripped.hasRemainingChanges, true);
+        assert.strictEqual(mixedStripped.droppedEmptyProductSet, false);
+        assert.strictEqual(mixedStripped.patchBody.productSet[0].composition, undefined);
+        assert.strictEqual(mixedStripped.patchBody.productSet[0].safetyInformation.description, 'Chronić przed dziećmi.');
+        assert.ok(Array.isArray(mixedStripped.patchBody.parameters) && mixedStripped.patchBody.parameters.length === 1);
+        assert.ok(Array.isArray(mixedStripped.patchBody.images));
+
+        // Scenariusz B: Skład + zmiana tylko parametru ofertowego (productSet bez innych różnic) -> zdejmuje cały productSet oraz zbędne pola ochronne
+        const offerPlusCompBuilt = buildAllegroParameterPatchPayload({
+            product: { ean: '8032680390036' },
+            features: { 'Stan opakowania': 'oryginalne' },
+            categoryParameters,
+            existingOffer,
+            compositionPayload: { apply: true, components: [{ name: 'Mydło', ingredients: [{ name: 'AQUA' }] }] }
+        });
+        const offerStripped = stripCompositionFromPatchBody(offerPlusCompBuilt.patchBody, existingOffer);
+        assert.strictEqual(offerStripped.hadComposition, true);
+        assert.strictEqual(offerStripped.hasRemainingChanges, true);
+        assert.strictEqual(offerStripped.droppedEmptyProductSet, true);
+        assert.strictEqual(offerStripped.patchBody.productSet, undefined);
+        assert.strictEqual(offerStripped.patchBody.images, undefined);
+        assert.strictEqual(offerStripped.patchBody.description, undefined);
+        assert.strictEqual(offerStripped.patchBody.parameters.length, 1);
+
+        // Scenariusz C: Jedyną zmianą w całym PATCH było composition -> hasRemainingChanges === false
+        const compOnlyBuilt = buildAllegroParameterPatchPayload({
+            product: { ean: '8032680390036' },
+            features: {},
+            categoryParameters,
+            existingOffer,
+            compositionPayload: { apply: true, components: [{ name: 'Mydło', ingredients: [{ name: 'AQUA' }] }] }
+        });
+        const compOnlyStripped = stripCompositionFromPatchBody(compOnlyBuilt.patchBody, existingOffer);
+        assert.strictEqual(compOnlyStripped.hadComposition, true);
+        assert.strictEqual(compOnlyStripped.droppedEmptyProductSet, true);
+        assert.strictEqual(compOnlyStripped.hasRemainingChanges, false);
+        assert.deepStrictEqual(compOnlyStripped.patchBody, {});
+    });
+
+    await t.test('13. isAllegroCompositionCategoryError & 24h TTL cache kategorii nieobsługujących composition', async () => {
+        const plErr = new Error('Allegro API PATCH error (422): Nie można podać składników dla kategorii produktu (0) [productSet]');
+        plErr.statusCode = 422;
+        plErr.allegroErrors = [{ userMessage: 'Nie można podać składników dla kategorii produktu (0)', path: 'productSet' }];
+        assert.strictEqual(isAllegroCompositionCategoryError(plErr), true);
+
+        const enErr = new Error('Allegro API PATCH error (422): Ingredients cannot be specified for product category (0) [productSet]');
+        enErr.statusCode = 422;
+        assert.strictEqual(isAllegroCompositionCategoryError(enErr), true);
+
+        const unrelatedErr = new Error('Allegro API PATCH error (422): Niepoprawna wartość parametru Kod taryfy celnej');
+        unrelatedErr.statusCode = 422;
+        assert.strictEqual(isAllegroCompositionCategoryError(unrelatedErr), false);
+
+        const store = new Map();
+        const mockPrisma = {
+            systemSetting: {
+                async findUnique({ where }) {
+                    return store.get(where.key) || null;
+                },
+                async upsert({ where, update, create }) {
+                    const rec = store.has(where.key) ? { key: where.key, ...update } : { key: where.key, ...create };
+                    store.set(where.key, rec);
+                    return rec;
+                }
+            }
+        };
+
+        const testCatId = '253350-test-ttl';
+        const baseNow = 1700000000000;
+        await clearCategoryCompositionUnsupported(testCatId, { injectedPrisma: mockPrisma, nowMs: baseNow });
+        assert.strictEqual((await getCategoryCompositionSupport(testCatId, { injectedPrisma: mockPrisma, nowMs: baseNow })).supported, true);
+
+        await markCategoryCompositionUnsupported(testCatId, plErr.message, {
+            injectedPrisma: mockPrisma,
+            nowMs: baseNow,
+            ttlMs: 60_000
+        });
+
+        // Z pamięci i po pominięciu pamięci (z mockPrisma DB) przed upływem TTL
+        const activeMem = await getCategoryCompositionSupport(testCatId, { injectedPrisma: mockPrisma, nowMs: baseNow + 10_000 });
+        assert.strictEqual(activeMem.supported, false);
+        const activeDb = await getCategoryCompositionSupport(testCatId, { injectedPrisma: mockPrisma, nowMs: baseNow + 10_000, skipMemoryCache: true });
+        assert.strictEqual(activeDb.supported, false);
+
+        // Po wygaśnięciu TTL automatycznie wraca możliwość ponownej próby
+        const expired = await getCategoryCompositionSupport(testCatId, { injectedPrisma: mockPrisma, nowMs: baseNow + 61_000 });
+        assert.strictEqual(expired.supported, true);
+
+        await clearCategoryCompositionUnsupported(testCatId, { injectedPrisma: mockPrisma, nowMs: baseNow });
     });
 });
 
