@@ -1370,11 +1370,11 @@ const extractBackLabel = async (req, res) => {
                 updatedFeatures['Sposób użycia'] = extractionResult.usageInstructions;
             }
             if (extractionResult.pimFeatures) {
-                if (extractionResult.pimFeatures['Przeznaczenie']) {
-                    updatedFeatures['Przeznaczenie'] = extractionResult.pimFeatures['Przeznaczenie'];
+                if (extractionResult.pimFeatures['Przeznaczenie (Etykieta)']) {
+                    updatedFeatures['Przeznaczenie (Etykieta)'] = extractionResult.pimFeatures['Przeznaczenie (Etykieta)'];
                 }
-                if (extractionResult.pimFeatures['Cechy dodatkowe']) {
-                    updatedFeatures['Cechy dodatkowe'] = extractionResult.pimFeatures['Cechy dodatkowe'];
+                if (extractionResult.pimFeatures['Wyróżniki / Certyfikaty (Etykieta)']) {
+                    updatedFeatures['Wyróżniki / Certyfikaty (Etykieta)'] = extractionResult.pimFeatures['Wyróżniki / Certyfikaty (Etykieta)'];
                 }
                 if (extractionResult.pimFeatures['Producent']) {
                     updatedFeatures['Producent'] = extractionResult.pimFeatures['Producent'];

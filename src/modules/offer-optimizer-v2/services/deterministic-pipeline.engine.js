@@ -107,6 +107,7 @@ function detectHouseholdChemical({
         visionFeatures?.['Przeznaczenie (Front)'],
         visionFeatures?.['Wyróżniki (Etykieta Front)'],
         visionFeatures?.['Składniki wiodące (Front)'],
+        features?.['Przeznaczenie (Etykieta)'],
         features?.['Przeznaczenie'],
         features?.['Zastosowanie'],
         features?.['Kategoria']
@@ -1148,19 +1149,21 @@ function buildDeterministicSection5({
     let resolvedZapach = visionFeatures?.['Zapach'] || features?.['Zapach'] || features?.['Nuta zapachowa'] || '';
     let resolvedHero = visionFeatures?.['Składniki wiodące (Front)'] || '';
     const frontPrzeznaczenie = String(visionFeatures?.['Przeznaczenie (Front)'] || '').trim();
-    const backPrzeznaczenie = String(features?.['Przeznaczenie'] || features?.['Zastosowanie'] || '').trim();
+    const backPrzeznaczenie = String(features?.['Przeznaczenie (Etykieta)'] || features?.['Przeznaczenie'] || features?.['Zastosowanie'] || '').trim();
     const resolvedPrzeznaczenie = (backPrzeznaczenie.length > frontPrzeznaczenie.length) ? backPrzeznaczenie : (frontPrzeznaczenie || backPrzeznaczenie);
     const mergedWyroznikiParts = [
         visionFeatures?.['Wyróżniki (Etykieta Front)'],
+        features?.['Wyróżniki / Certyfikaty (Etykieta)'],
         features?.['Cechy dodatkowe'],
         features?.['Wyróżniki']
     ].filter(Boolean).join(', ');
     const seenWyroznikSet = new Set();
     const resolvedWyrozniki = mergedWyroznikiParts
-        .split(/[,;]+/)
+        .split(/[,;|]+/)
         .map(s => s.trim())
         .filter(s => {
             if (!s) return false;
+            if (/^(?:brak|brak\s+danych|brak\s+informacji|nie\s+dotyczy|n\/a|-)$/i.test(s)) return false;
             const k = s.toLowerCase();
             if (seenWyroznikSet.has(k)) return false;
             seenWyroznikSet.add(k);
@@ -1208,20 +1211,20 @@ function buildDeterministicSection5({
         addParam('Kluczowe składniki (z etykiety)', resolvedHero);
     }
     if (resolvedPrzeznaczenie) {
-        addParam('Przeznaczenie', resolvedPrzeznaczenie);
+        addParam('Zastosowanie i powierzchnie', resolvedPrzeznaczenie);
     }
     if (formattedWydajnosc && /\d/.test(String(formattedWydajnosc)) && !/^(?:długi\s+czas\s+użytkowania|wysoka(?:\s+wydajność)?|standardowa|duża|ekonomiczna)$/i.test(String(formattedWydajnosc).trim())) {
         addParam('Wydajność deklarowana', formattedWydajnosc);
     }
     if (resolvedWyrozniki) {
-        // Eliminacja pustych sloganów reklamowych z Cech dodatkowych (np. Siła wybielania, Potere Sbiancante)
+        // Eliminacja pustych sloganów reklamowych z wyróżników produktu (np. Siła wybielania, Potere Sbiancante)
         const cleanWyrozniki = String(resolvedWyrozniki)
             .split(/[,;]+/)
             .map(s => s.trim())
             .filter(s => s && !/(?:siła\s+wybielania|potere\s+sbiancante|ulepszona\s+formuła|formula\s+migliorata|aktywny\s+spray|spray\s+attivo|silna\s+formuła|super\s+moc|moc\s+czyszczenia|błyskawiczne\s+działanie)/i.test(s))
             .join(', ');
         if (cleanWyrozniki) {
-            addParam('Cechy dodatkowe', cleanWyrozniki);
+            addParam('Właściwości i wyróżniki', cleanWyrozniki);
         }
     }
     addParam('Kraj pochodzenia', resolvedCountry);

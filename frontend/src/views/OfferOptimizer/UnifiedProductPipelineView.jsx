@@ -16,6 +16,41 @@ import {
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
 
+const normalizeDictToken = (value) => String(value ?? '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
+
+const splitAllegroMultiChoiceValue = (rawVal, dictionary = []) => {
+    const strVal = rawVal === undefined || rawVal === null ? '' : String(rawVal).trim();
+    if (!strVal) {
+        return { validSelected: [], unknownTokens: [] };
+    }
+    const dictLookup = new Map();
+    if (Array.isArray(dictionary)) {
+        for (const item of dictionary) {
+            const label = typeof item?.value === 'string' ? item.value : String(item?.value ?? '');
+            const norm = normalizeDictToken(label);
+            if (norm && !dictLookup.has(norm)) {
+                dictLookup.set(norm, label);
+            }
+        }
+    }
+    const exactFull = dictLookup.get(normalizeDictToken(strVal));
+    if (exactFull !== undefined) {
+        return { validSelected: [exactFull], unknownTokens: [] };
+    }
+    const tokens = strVal.split(/[;,|]/).map(s => s.trim()).filter(Boolean);
+    const validSelected = [];
+    const unknownTokens = [];
+    for (const tok of tokens) {
+        const matched = dictLookup.get(normalizeDictToken(tok));
+        if (matched !== undefined) {
+            if (!validSelected.includes(matched)) validSelected.push(matched);
+        } else {
+            unknownTokens.push(tok);
+        }
+    }
+    return { validSelected, unknownTokens };
+};
+
 // Wklejenie komponentu ImageModal (ze starego OfferOptimizerView)
 const ImageModal = ({ url, onClose }) => {
     const [imgError, setImgError] = useState(false);
@@ -241,11 +276,11 @@ export const UnifiedProductPipelineView = ({
                         updatedFeatures['Sposób użycia'] = res.data.usageInstructions;
                     }
                     if (res.data.pimFeatures) {
-                        if (res.data.pimFeatures['Przeznaczenie']) {
-                            updatedFeatures['Przeznaczenie'] = res.data.pimFeatures['Przeznaczenie'];
+                        if (res.data.pimFeatures['Przeznaczenie (Etykieta)']) {
+                            updatedFeatures['Przeznaczenie (Etykieta)'] = res.data.pimFeatures['Przeznaczenie (Etykieta)'];
                         }
-                        if (res.data.pimFeatures['Cechy dodatkowe']) {
-                            updatedFeatures['Cechy dodatkowe'] = res.data.pimFeatures['Cechy dodatkowe'];
+                        if (res.data.pimFeatures['Wyróżniki / Certyfikaty (Etykieta)']) {
+                            updatedFeatures['Wyróżniki / Certyfikaty (Etykieta)'] = res.data.pimFeatures['Wyróżniki / Certyfikaty (Etykieta)'];
                         }
                         if (res.data.pimFeatures['Producent']) {
                             updatedFeatures['Producent'] = res.data.pimFeatures['Producent'];
@@ -2452,14 +2487,15 @@ export const UnifiedProductPipelineView = ({
                                                                 const CORE_PIM_KEYS = new Set([
                                                                     'skład/inci', 'skład', 'inci', 'ostrzeżenia', 'sposób użycia',
                                                                     'pojemność', 'pojemność / waga', 'waga',
-                                                                    'postać', 'zapach', 'dozownik', 'wydajność', 'przeznaczenie (front)', 
-                                                                    'wyróżniki (etykieta front)', 'kraj pochodzenia', 'informacje o bezpieczeństwie'
+                                                                    'postać', 'zapach', 'dozownik', 'wydajność', 'przeznaczenie (front)', 'przeznaczenie (etykieta)',
+                                                                    'wyróżniki (etykieta front)', 'wyróżniki / certyfikaty (etykieta)', 'kraj pochodzenia', 'informacje o bezpieczeństwie'
                                                                 ]);
                                                                 const HIDDEN_IMAGE_KEYS = new Set([
                                                                     'zdjęcie tyłu opakowania', 'zdjecie tylu opakowania', '_backimageurl'
                                                                 ]);
                                                                 const MULTILINE_PIM_KEYS = new Set([
-                                                                    'skład/inci', 'skład', 'inci', 'ostrzeżenia', 'sposób użycia', 'informacje o bezpieczeństwie'
+                                                                    'skład/inci', 'skład', 'inci', 'ostrzeżenia', 'sposób użycia', 'informacje o bezpieczeństwie',
+                                                                    'przeznaczenie (etykieta)', 'wyróżniki / certyfikaty (etykieta)'
                                                                 ]);
 
                                                                 return Object.entries(displayFeatures)
@@ -2509,7 +2545,7 @@ export const UnifiedProductPipelineView = ({
                                                             })()}
                                                             
                                                             <div className="flex items-center space-x-2 mt-2 pt-3 border-t border-emerald-200">
-                                                                <input type="text" id="new_pim_feat_key" placeholder="Nazwa (np. Cechy dodatkowe)" className="w-1/3 bg-white border border-emerald-200 rounded-sm px-3 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:border-emerald-500 placeholder:normal-case placeholder:tracking-normal" />
+                                                                <input type="text" id="new_pim_feat_key" placeholder="Nazwa (np. Kraj pochodzenia)" className="w-1/3 bg-white border border-emerald-200 rounded-sm px-3 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:border-emerald-500 placeholder:normal-case placeholder:tracking-normal" />
                                                                 <input type="text" id="new_pim_feat_val" placeholder="Wartość" className="flex-1 bg-white border border-emerald-200 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-emerald-500" onKeyDown={e => {
                                                                     if (e.key === 'Enter') {
                                                                         e.preventDefault();
@@ -2666,21 +2702,27 @@ export const UnifiedProductPipelineView = ({
                                                                 const isMultiChoice = Boolean(param.restrictions?.multipleChoices);
                                                                 const hasAmbiguous = Boolean(param.options?.ambiguousValueId);
                                                                 const featKeys = Object.keys(newProductForm.features || {});
-                                                                const matchedKey = featKeys.find(k => String(k).toLowerCase().trim() === String(param.name).toLowerCase().trim());
+                                                                const matchedKey = featKeys.find(k => normalizeDictToken(k) === normalizeDictToken(param.name));
                                                                 let val = matchedKey ? (newProductForm.features || {})[matchedKey] : '';
-                                                                if (val && param.dictionary && param.dictionary.length > 0 && !isMultiChoice) {
-                                                                    const dictMatch = param.dictionary.find(d => String(d.value).toLowerCase().trim() === String(val).toLowerCase().trim());
-                                                                    if (dictMatch) val = dictMatch.value;
+                                                                const hasDict = Array.isArray(param.dictionary) && param.dictionary.length > 0;
+                                                                const matchedSingleDict = (!isMultiChoice && hasDict && val)
+                                                                    ? param.dictionary.find(d => normalizeDictToken(d.value) === normalizeDictToken(val))
+                                                                    : null;
+                                                                if (matchedSingleDict) {
+                                                                    val = matchedSingleDict.value;
                                                                 }
-                                                                const hasVal = val !== '';
-                                                                const selectedMulti = isMultiChoice && val
-                                                                    ? String(val).split(/[;,]/).map(s => s.trim()).filter(Boolean)
-                                                                    : [];
-                                                                const isCustomAmbiguousVal = hasAmbiguous && val && param.dictionary && !param.dictionary.some(d => String(d.value).toLowerCase().trim() === String(val).toLowerCase().trim());
+                                                                const hasVal = val !== '' && val !== null && val !== undefined;
+                                                                const multiSplit = isMultiChoice && hasDict
+                                                                    ? splitAllegroMultiChoiceValue(val, param.dictionary)
+                                                                    : { validSelected: [], unknownTokens: [] };
+                                                                const validSelectedMulti = multiSplit.validSelected;
+                                                                const unknownMultiTokens = multiSplit.unknownTokens;
+                                                                const isCustomAmbiguousVal = Boolean(hasAmbiguous && hasVal && hasDict && !isMultiChoice && !matchedSingleDict);
+                                                                const hasUnknownSingleVal = Boolean(!isMultiChoice && hasVal && hasDict && !hasAmbiguous && !matchedSingleDict);
 
                                                                 return (
-                                                                 <div key={param.id} className={`flex items-center space-x-2 p-2 rounded-sm border ${hasVal ? 'bg-indigo-50/30 border-indigo-100' : 'bg-white border-slate-200'}`}>
-                                                                     <div className="w-1/3 text-[10px] font-bold text-slate-700 uppercase tracking-widest flex flex-col">
+                                                                 <div key={param.id} className={`flex items-start space-x-2 p-2 rounded-sm border ${(unknownMultiTokens.length > 0 || hasUnknownSingleVal) ? 'bg-amber-50/60 border-amber-300' : (hasVal ? 'bg-indigo-50/30 border-indigo-100' : 'bg-white border-slate-200')}`}>
+                                                                     <div className="w-1/3 text-[10px] font-bold text-slate-700 uppercase tracking-widest flex flex-col pt-1">
                                                                          <div className="flex items-center flex-wrap gap-1">
                                                                              <span>{param.name}{param.unit ? ` (${param.unit})` : ''}</span>
                                                                          </div>
@@ -2691,68 +2733,126 @@ export const UnifiedProductPipelineView = ({
                                                                              </span>
                                                                          </div>
                                                                      </div>
-                                                                     {param.dictionary && param.dictionary.length > 0 ? (
+                                                                     {hasDict ? (
                                                                          isMultiChoice ? (
-                                                                             <div className="flex-1 flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 bg-white border border-slate-300 rounded-sm">
-                                                                                 {param.dictionary.map(d => {
-                                                                                     const checked = selectedMulti.some(s => s.toLowerCase() === String(d.value).toLowerCase().trim());
-                                                                                     return (
-                                                                                         <label key={d.id} className={`cursor-pointer px-2 py-1 rounded text-[10px] font-bold border transition-colors ${checked ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-indigo-300'}`}>
-                                                                                             <input
-                                                                                                 type="checkbox"
-                                                                                                 className="hidden"
-                                                                                                 checked={checked}
-                                                                                                 onChange={() => {
-                                                                                                     const nextList = checked
-                                                                                                         ? selectedMulti.filter(s => s.toLowerCase() !== String(d.value).toLowerCase().trim())
-                                                                                                         : [...selectedMulti, d.value];
-                                                                                                     const updated = { ...(newProductForm.features || {}) };
-                                                                                                     if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
-                                                                                                     if (nextList.length > 0) updated[param.name] = nextList.join(', ');
-                                                                                                     else delete updated[param.name];
-                                                                                                     setNewProductForm({ ...newProductForm, features: updated });
-                                                                                                 }}
-                                                                                             />
-                                                                                             {d.value}
-                                                                                         </label>
-                                                                                     );
-                                                                                 })}
+                                                                             <div className="flex-1 flex flex-col space-y-1.5">
+                                                                                 <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1.5 bg-white border border-slate-300 rounded-sm">
+                                                                                     {param.dictionary.map(d => {
+                                                                                         const checked = validSelectedMulti.some(s => normalizeDictToken(s) === normalizeDictToken(d.value));
+                                                                                         return (
+                                                                                             <label key={d.id} className={`cursor-pointer px-2 py-1 rounded text-[10px] font-bold border transition-colors ${checked ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-700 border-slate-200 hover:border-indigo-300'}`}>
+                                                                                                 <input
+                                                                                                     type="checkbox"
+                                                                                                     className="hidden"
+                                                                                                     checked={checked}
+                                                                                                     onChange={() => {
+                                                                                                         const normOption = normalizeDictToken(d.value);
+                                                                                                         let nextList;
+                                                                                                         if (checked) {
+                                                                                                             nextList = validSelectedMulti.filter(s => normalizeDictToken(s) !== normOption);
+                                                                                                         } else if (normOption === 'brak') {
+                                                                                                             nextList = [d.value];
+                                                                                                         } else {
+                                                                                                             nextList = [
+                                                                                                                 ...validSelectedMulti.filter(s => normalizeDictToken(s) !== 'brak'),
+                                                                                                                 d.value
+                                                                                                             ];
+                                                                                                         }
+                                                                                                         const updated = { ...(newProductForm.features || {}) };
+                                                                                                         if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
+                                                                                                         if (nextList.length > 0) updated[param.name] = nextList.join(', ');
+                                                                                                         else delete updated[param.name];
+                                                                                                         setNewProductForm({ ...newProductForm, features: updated });
+                                                                                                     }}
+                                                                                                 />
+                                                                                                 {d.value}
+                                                                                             </label>
+                                                                                         );
+                                                                                     })}
+                                                                                 </div>
+                                                                                 {unknownMultiTokens.length > 0 && (
+                                                                                     <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-amber-100/80 border border-amber-300 rounded-sm text-[10px] text-amber-900">
+                                                                                         <div className="flex items-center space-x-1.5 min-w-0">
+                                                                                             <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                                                                                             <span className="truncate font-semibold" title={unknownMultiTokens.join(', ')}>
+                                                                                                 Wartość spoza słownika: „{unknownMultiTokens.join(', ')}”
+                                                                                             </span>
+                                                                                         </div>
+                                                                                         <button
+                                                                                             type="button"
+                                                                                             onClick={() => {
+                                                                                                 const updated = { ...(newProductForm.features || {}) };
+                                                                                                 if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
+                                                                                                 if (validSelectedMulti.length > 0) updated[param.name] = validSelectedMulti.join(', ');
+                                                                                                 else delete updated[param.name];
+                                                                                                 setNewProductForm({ ...newProductForm, features: updated });
+                                                                                             }}
+                                                                                             className="px-2 py-0.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-[9px] font-black uppercase tracking-wider shrink-0"
+                                                                                         >
+                                                                                             Wyczyść spoza słownika
+                                                                                         </button>
+                                                                                     </div>
+                                                                                 )}
                                                                              </div>
                                                                          ) : (
-                                                                             <div className="flex-1 flex space-x-2">
-                                                                                 <select
-                                                                                     className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500"
-                                                                                     value={isCustomAmbiguousVal ? '__CUSTOM__' : val}
-                                                                                     onChange={e => {
-                                                                                         const nextVal = e.target.value;
-                                                                                         const updated = { ...(newProductForm.features || {}) };
-                                                                                         if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
-                                                                                         if (nextVal === '__CUSTOM__') {
-                                                                                             updated[param.name] = val || 'Inna';
-                                                                                         } else if (!nextVal) {
-                                                                                             delete updated[param.name];
-                                                                                         } else {
-                                                                                             updated[param.name] = nextVal;
-                                                                                         }
-                                                                                         setNewProductForm({ ...newProductForm, features: updated });
-                                                                                     }}
-                                                                                 >
-                                                                                     <option value="">-- Wybierz ze słownika --</option>
-                                                                                     {param.dictionary.map(d => <option key={d.id} value={d.value}>{d.value}</option>)}
-                                                                                     {hasAmbiguous && <option value="__CUSTOM__">[Wpisz własną wartość (Inna)]</option>}
-                                                                                 </select>
-                                                                                 {(isCustomAmbiguousVal || val === 'Inna') && hasAmbiguous && (
-                                                                                     <input
-                                                                                         type="text"
-                                                                                         className="w-1/2 bg-white border border-indigo-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500"
-                                                                                         placeholder="Wpisz własną wartość..."
-                                                                                         value={val === 'Inna' ? '' : val}
+                                                                             <div className="flex-1 flex flex-col space-y-1.5">
+                                                                                 <div className="flex space-x-2">
+                                                                                     <select
+                                                                                         className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500"
+                                                                                         value={isCustomAmbiguousVal ? '__CUSTOM__' : (matchedSingleDict ? matchedSingleDict.value : '')}
                                                                                          onChange={e => {
-                                                                                             const updated = { ...(newProductForm.features || {}), [param.name]: e.target.value };
-                                                                                             if (!e.target.value) delete updated[param.name];
+                                                                                             const nextVal = e.target.value;
+                                                                                             const updated = { ...(newProductForm.features || {}) };
+                                                                                             if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
+                                                                                             if (nextVal === '__CUSTOM__') {
+                                                                                                 updated[param.name] = val || 'Inna';
+                                                                                             } else if (!nextVal) {
+                                                                                                 delete updated[param.name];
+                                                                                             } else {
+                                                                                                 updated[param.name] = nextVal;
+                                                                                             }
                                                                                              setNewProductForm({ ...newProductForm, features: updated });
                                                                                          }}
-                                                                                     />
+                                                                                     >
+                                                                                         <option value="">-- Wybierz ze słownika --</option>
+                                                                                         {param.dictionary.map(d => <option key={d.id} value={d.value}>{d.value}</option>)}
+                                                                                         {hasAmbiguous && <option value="__CUSTOM__">[Wpisz własną wartość (Inna)]</option>}
+                                                                                     </select>
+                                                                                     {(isCustomAmbiguousVal || val === 'Inna') && hasAmbiguous && (
+                                                                                         <input
+                                                                                             type="text"
+                                                                                             className="w-1/2 bg-white border border-indigo-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500"
+                                                                                             placeholder="Wpisz własną wartość..."
+                                                                                             value={val === 'Inna' ? '' : val}
+                                                                                             onChange={e => {
+                                                                                                 const updated = { ...(newProductForm.features || {}), [param.name]: e.target.value };
+                                                                                                 if (!e.target.value) delete updated[param.name];
+                                                                                                 setNewProductForm({ ...newProductForm, features: updated });
+                                                                                             }}
+                                                                                         />
+                                                                                     )}
+                                                                                 </div>
+                                                                                 {hasUnknownSingleVal && (
+                                                                                     <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-amber-100/80 border border-amber-300 rounded-sm text-[10px] text-amber-900">
+                                                                                         <div className="flex items-center space-x-1.5 min-w-0">
+                                                                                             <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                                                                                             <span className="truncate font-semibold" title={String(val)}>
+                                                                                                 Zapisana wartość spoza słownika: „{String(val)}”
+                                                                                             </span>
+                                                                                         </div>
+                                                                                         <button
+                                                                                             type="button"
+                                                                                             onClick={() => {
+                                                                                                 const updated = { ...(newProductForm.features || {}) };
+                                                                                                 if (matchedKey) delete updated[matchedKey];
+                                                                                                 delete updated[param.name];
+                                                                                                 setNewProductForm({ ...newProductForm, features: updated });
+                                                                                             }}
+                                                                                             className="px-2 py-0.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-[9px] font-black uppercase tracking-wider shrink-0"
+                                                                                         >
+                                                                                             Wyczyść
+                                                                                         </button>
+                                                                                     </div>
                                                                                  )}
                                                                              </div>
                                                                          )

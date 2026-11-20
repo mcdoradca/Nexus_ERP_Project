@@ -607,20 +607,27 @@ test('V4B scan_biocidal_claims_lexical & Deterministic Legal Sanitizer (Rozp. BP
         assert.ok(moldValidationResult.errors.some(e => e.includes('Błędny reżim stosowania')), 'Musi wykryć codzienne porządki dla chloru');
         assert.ok(moldValidationResult.errors.some(e => e.includes('Niedozwolony symbol Allegro')), 'Musi wykryć zabronioną ikonę ⛔');
 
-        // F6. Puryzm parametrów w Sekcji 5 (odsiewanie sloganów marketingowych)
+        // F6. Puryzm parametrów w Sekcji 5 (odsiewanie sloganów marketingowych i brak kolizji nazw z parametrami Allegro)
         const s5Slogans = deterministicEngine.buildDeterministicSection5({
             productName: 'Cif spray do usuwania pleśni 500 ml',
             brand: 'Cif',
             manufacturer: 'Unilever',
             capacity: '500 ml',
             features: {
-                'Cechy dodatkowe': 'Siła wybielania, Potere Sbiancante, Usuwa plamy z pleśni, Ulepszona formuła'
+                'Przeznaczenie (Etykieta)': 'Armatura i ceramika łazienkowa',
+                'Wyróżniki / Certyfikaty (Etykieta)': 'Siła wybielania, Potere Sbiancante, Usuwa plamy z pleśni, Ulepszona formuła',
+                'Cechy dodatkowe': 'brak'
             }
         });
         assert.strictEqual(s5Slogans.includes('Siła wybielania'), false, 'Siła wybielania musi zostać odfiltrowana');
         assert.strictEqual(s5Slogans.includes('Potere Sbiancante'), false, 'Potere Sbiancante musi zostać odfiltrowane');
         assert.strictEqual(s5Slogans.includes('Ulepszona formuła'), false, 'Ulepszona formuła musi zostać odfiltrowana');
         assert.ok(s5Slogans.includes('Usuwa plamy z pleśni'), 'Merytoryczna cecha "Usuwa plamy z pleśni" musi zostać zachowana');
+        assert.ok(s5Slogans.includes('Zastosowanie i powierzchnie:'), 'Sekcja 5 używa niekolizyjnej etykiety Zastosowanie i powierzchnie');
+        assert.ok(s5Slogans.includes('Właściwości i wyróżniki:'), 'Sekcja 5 używa niekolizyjnej etykiety Właściwości i wyróżniki');
+        assert.strictEqual(s5Slogans.includes('<b>Przeznaczenie:</b>'), false, 'Sekcja 5 nie może kolidować etykietą z parametrem słownikowym Przeznaczenie');
+        assert.strictEqual(s5Slogans.includes('<b>Cechy dodatkowe:</b>'), false, 'Sekcja 5 nie może kolidować etykietą z parametrem słownikowym Cechy dodatkowe');
+        assert.strictEqual(/Właściwości i wyróżniki:<\/b>[^<]*\bbrak\b/i.test(s5Slogans), false, 'Wartość słownikowa "brak" nie może trafiać do wyróżników w Sekcji 5');
 
         // F7. Sekcja 3: Cocamine Oxide i czystość Sodium Chloride
         const s3Inci = deterministicEngine.tryBuildDeterministicSection3({

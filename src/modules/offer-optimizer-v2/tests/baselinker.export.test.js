@@ -74,7 +74,7 @@ test('BaseLinker Export Service - buildPayload pomija sekcja6 GPSR z description
     }
 });
 
-test('BaseLinker Export Service - korekty parametrów PIM/Allegro mają pierwszeństwo przed hardFeatures, respektują usunięcia i filtrują obrazy base64', async () => {
+test('BaseLinker Export Service - tryb featuresAuthoritative wysyła ściśle 1:1 z kart UI bez doklejania hardFeatures, tryb legacy uzupełnia luki', async () => {
     const origFetchParams = baselinkerExportService.fetchInventoryParameters;
     baselinkerExportService.fetchInventoryParameters = async () => MOCK_INVENTORY_PARAMETERS;
 
@@ -109,19 +109,34 @@ test('BaseLinker Export Service - korekty parametrów PIM/Allegro mają pierwsze
     assert.strictEqual(mergedAuth.Waga, '1000');
     assert.strictEqual(mergedAuth.Zapach, 'Mango');
     assert.strictEqual(mergedAuth.Linia, 'Energy');
-    assert.strictEqual(mergedAuth.Pojemność, '1000,00 ml', 'Pusty parametr powinien zostać uzupełniony z fallbacku');
-    assert.strictEqual(mergedAuth.Marka, 'Dermomed', 'Nowy brakujący parametr z katalogu może uzupełnić lukę');
+    assert.strictEqual(mergedAuth.Pojemność, '', 'Tryb autorytatywny z UI nie może nadpisywać pustego pola z katalogu Allegro');
+    assert.strictEqual('Marka' in mergedAuth, false, 'Tryb autorytatywny z UI nie może doklejać kluczy nieobecnych w kartach UI');
     assert.strictEqual('Cechy' in mergedAuth, false, 'Klucz usunięty w UI nie może zostać wskrzeszony przez bazę ani katalog');
     assert.strictEqual('Zdjęcie tyłu opakowania' in mergedAuth, false, 'Klucz wewnętrznego zdjęcia nie może trafiać do parametrów BaseLinkera');
 
-    // Pełny test buildPayload z zaszczepionym starym katalogiem Allegro (hardFeatures)
-    const origGetParams = AllegroService.getProductParametersByEan;
-    AllegroService.getProductParametersByEan = async () => ({
-        Opakowanie: 'butelka',
-        Waga: '1200,00 g',
-        Zapach: 'egzotyczny',
-        Linia: 'Mango'
+    const mergedLegacy = baselinkerExportService.mergeFeaturesForBaselinker({
+        existingFeatures: { Opakowanie: 'butelka', Pojemność: '' },
+        draftFeatures: { Opakowanie: 'butelka z pompką' },
+        hardFeatures: { Opakowanie: 'butelka', Pojemność: '1000,00 ml', Marka: 'Dermomed' },
+        featuresAuthoritative: false
     });
+    assert.strictEqual(mergedLegacy.Opakowanie, 'butelka z pompką');
+    assert.strictEqual(mergedLegacy.Pojemność, '1000,00 ml', 'Tryb nie-autorytatywny uzupełnia puste pole z fallbacku');
+    assert.strictEqual(mergedLegacy.Marka, 'Dermomed', 'Tryb nie-autorytatywny uzupełnia brakujący parametr z katalogu');
+
+    // Pełny test buildPayload z zaszczepionym starym katalogiem Allegro (hardFeatures) — w trybie autorytatywnym Allegro NIE jest odpytywane
+    const origGetParams = AllegroService.getProductParametersByEan;
+    let allegroCatalogCalls = 0;
+    AllegroService.getProductParametersByEan = async () => {
+        allegroCatalogCalls++;
+        return {
+            Opakowanie: 'butelka',
+            Waga: '1200,00 g',
+            Zapach: 'egzotyczny',
+            Linia: 'Mango',
+            Marka: 'NiechcianaMarkaZKatalogu'
+        };
+    };
 
     try {
         const payload = await baselinkerExportService.buildPayload('307', '61592981', {
@@ -146,10 +161,12 @@ test('BaseLinker Export Service - korekty parametrów PIM/Allegro mają pierwsze
             }
         });
 
+        assert.strictEqual(allegroCatalogCalls, 0, 'W trybie featuresAuthoritative nie należy dociągać hardFeatures z Katalogu Allegro');
         assert.strictEqual(payload.text_fields.features.Opakowanie, 'butelka z pompką');
         assert.strictEqual(payload.text_fields.features.Waga, '1000');
         assert.strictEqual(payload.text_fields.features.Zapach, 'Mango');
         assert.strictEqual(payload.text_fields.features.Linia, 'Energy');
+        assert.strictEqual('Marka' in payload.text_fields.features, false);
         assert.strictEqual('Cechy' in payload.text_fields.features, false);
         assert.strictEqual('Zdjęcie tyłu opakowania' in payload.text_fields.features, false);
         assert.deepStrictEqual(payload.text_fields['features|pl|allegro_16402'], payload.text_fields.features);
@@ -313,6 +330,71 @@ test('BaseLinker Export Service - cache i fallback fetchInventoryParameters dzia
         assert.strictEqual(calls, 2, 'Drugie wywołanie w TTL powinno skorzystać z cache');
         assert.strictEqual(firstLive.length, MOCK_INVENTORY_PARAMETERS.length);
         assert.strictEqual(secondLive.length, MOCK_INVENTORY_PARAMETERS.length);
+    } finally {
+        baselinkerExportService.clearInventoryParametersCache();
+        baselinkerExportService.callConnectorApi = origCallConnector;
+    }
+});
+
+test('BaseLinker Export Service - automatyczne odświeżenie cache getInventoryParameters po dodaniu nowej opcji (np. Postać: "w płynie") oraz NFC', async () => {
+    const origCallConnector = baselinkerExportService.callConnectorApi;
+    baselinkerExportService.clearInventoryParametersCache();
+
+    let apiCalls = 0;
+    const updatedParamsWithWPlynie = MOCK_INVENTORY_PARAMETERS.map(p => (
+        p.parameter_key === 'bl_sys_2032'
+            ? {
+                ...p,
+                options: [
+                    ...p.options,
+                    { option_id: 'id_20', value_translations: { pl: 'w płynie' } }
+                ]
+            }
+            : p
+    ));
+
+    baselinkerExportService.callConnectorApi = async (method) => {
+        if (method === 'getInventoryParameters') {
+            apiCalls++;
+            // Pierwsze wywołanie zapełnia cache starym słownikiem bez "w płynie", drugie zwraca zaktualizowany słownik z BL
+            return {
+                status: 'SUCCESS',
+                parameters: apiCalls === 1 ? MOCK_INVENTORY_PARAMETERS : updatedParamsWithWPlynie
+            };
+        }
+        return { status: 'SUCCESS' };
+    };
+
+    try {
+        // 1. Zapełnienie cache starym słownikiem (bez opcji "w płynie")
+        await baselinkerExportService.fetchInventoryParameters('385');
+        assert.strictEqual(apiCalls, 1);
+
+        // 2. Operator dodaje w BL opcję "w płynie" i uruchamia walidację — system wykrywa niedopasowanie na cache i przeładowuje słownik na żywo
+        const nfdPostac = 'w płynie'.normalize('NFD');
+        const diag = await baselinkerExportService.buildPayloadWithDiagnostics(
+            '385',
+            '73002538',
+            {
+                title: 'Viakal odkamieniacz 470 ml',
+                htmlContent: { sekcja1: '<p>Opis</p>' },
+                images: [],
+                features: { Postać: nfdPostac },
+                featuresAuthoritative: true
+            },
+            { ean: '8006530224482', features: {} }
+        );
+
+        assert.strictEqual(apiCalls, 2, 'Przy niedopasowaniu opcji słownikowej na cache system musi odświeżyć słownik z BL');
+        assert.strictEqual(diag.payload.text_fields.features.Postać, 'w płynie');
+        assert.deepStrictEqual(diag.warnings, [], 'Po odświeżeniu słownika BL nie może być fałszywego ostrzeżenia dla "w płynie"');
+
+        // 3. Gdy forceRefresh trafi na awarię sieci, zachowany zostaje poprzedni słownik z cache zamiast pustego fallbacku
+        baselinkerExportService.callConnectorApi = async () => {
+            throw new Error('Temporary BL timeout');
+        };
+        const preservedOnErr = await baselinkerExportService.fetchInventoryParameters('385', { forceRefresh: true });
+        assert.ok(preservedOnErr.some(p => p.parameter_key === 'bl_sys_2032' && p.options.some(o => o.value_translations?.pl === 'w płynie')));
     } finally {
         baselinkerExportService.clearInventoryParametersCache();
         baselinkerExportService.callConnectorApi = origCallConnector;

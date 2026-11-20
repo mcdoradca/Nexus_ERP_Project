@@ -505,6 +505,17 @@ class Orchestrator {
         };
     }
 
+    resolveProductPurpose(product) {
+        const feats = product?.text_fields?.features || {};
+        return (
+            this.state.vision_extracted_features?.['Przeznaczenie (Front)'] ||
+            feats['Przeznaczenie (Etykieta)'] ||
+            feats['Przeznaczenie'] ||
+            feats['Przeznaczenie (Front)'] ||
+            undefined
+        );
+    }
+
     emitState() {
         const logDir = path.join(__dirname, 'logs');
         if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
@@ -729,12 +740,12 @@ class Orchestrator {
                         }
 
                         if (visionInciRes.pimFeatures) {
-                            if (visionInciRes.pimFeatures['Przeznaczenie']) {
-                                updatedFeatures['Przeznaczenie'] = visionInciRes.pimFeatures['Przeznaczenie'];
+                            if (visionInciRes.pimFeatures['Przeznaczenie (Etykieta)']) {
+                                updatedFeatures['Przeznaczenie (Etykieta)'] = visionInciRes.pimFeatures['Przeznaczenie (Etykieta)'];
                                 changed = true;
                             }
-                            if (visionInciRes.pimFeatures['Cechy dodatkowe']) {
-                                updatedFeatures['Cechy dodatkowe'] = visionInciRes.pimFeatures['Cechy dodatkowe'];
+                            if (visionInciRes.pimFeatures['Wyróżniki / Certyfikaty (Etykieta)']) {
+                                updatedFeatures['Wyróżniki / Certyfikaty (Etykieta)'] = visionInciRes.pimFeatures['Wyróżniki / Certyfikaty (Etykieta)'];
                                 changed = true;
                             }
                             if (visionInciRes.pimFeatures['Producent']) {
@@ -1822,7 +1833,7 @@ class Orchestrator {
                         }
                     }
                     if (ragText) {
-                        ragText += `\n[WYTYCZNA REKONTEKSTUALIZACJI DZIEDZINOWEJ DLA A4]: Słownik CosIng pochodzi z bazy kosmetycznej (WE 1223/2009), natomiast tutaj dopasowujesz mechanizm fizykochemiczny ściśle do produktu: "${product?.text_fields?.name || ''}" (${this.state.vision_extracted_features?.['Przeznaczenie (Front)'] || product?.text_fields?.features?.['Przeznaczenie'] || 'wg danych SKU'}), postać: "${this.state.vision_extracted_features?.['Postać'] || product?.text_fields?.features?.['Postać'] || 'nieokreślona'}". ZAKAZ przenoszenia cudzych zastosowań (np. kamienia wodnego i osadów z mydła do frytkownic lub kuchni, fug do WC, prania do powierzchni twardych) oraz ZAKAZ nazywania roztworów jednofazowych "dwufazowymi"!\n`;
+                        ragText += `\n[WYTYCZNA REKONTEKSTUALIZACJI DZIEDZINOWEJ DLA A4]: Słownik CosIng pochodzi z bazy kosmetycznej (WE 1223/2009), natomiast tutaj dopasowujesz mechanizm fizykochemiczny ściśle do produktu: "${product?.text_fields?.name || ''}" (${this.resolveProductPurpose(product) || 'wg danych SKU'}), postać: "${this.state.vision_extracted_features?.['Postać'] || product?.text_fields?.features?.['Postać'] || 'nieokreślona'}". ZAKAZ przenoszenia cudzych zastosowań (np. kamienia wodnego i osadów z mydła do frytkownic lub kuchni, fug do WC, prania do powierzchni twardych) oraz ZAKAZ nazywania roztworów jednofazowych "dwufazowymi"!\n`;
                     }
 
                     const englishInciForA4 = normalizeInciToLegalEnglish(this.state.extracted_data.inci?.value || '');
@@ -1832,7 +1843,7 @@ class Orchestrator {
                     const agent4Data = {
                         gtin_ean: this.gtin,
                         product_name: product?.text_fields?.name || undefined,
-                        product_purpose: this.state.vision_extracted_features?.['Przeznaczenie (Front)'] || product?.text_fields?.features?.['Przeznaczenie'] || product?.text_fields?.features?.['Przeznaczenie (Front)'] || undefined,
+                        product_purpose: this.resolveProductPurpose(product),
                         physical_form: this.state.vision_extracted_features?.['Postać'] || product?.text_fields?.features?.['Postać'] || undefined,
                         dispenser_type: this.state.vision_extracted_features?.['Dozownik'] || product?.text_fields?.features?.['Dozownik'] || undefined,
                         usage_instructions: this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia'] || undefined,
@@ -2753,7 +2764,7 @@ class Orchestrator {
                 const agent11Data = {
                     gtin_ean: this.gtin,
                     product_name: product?.text_fields?.name || undefined,
-                    product_purpose: this.state.vision_extracted_features?.['Przeznaczenie (Front)'] || product?.text_fields?.features?.['Przeznaczenie'] || product?.text_fields?.features?.['Przeznaczenie (Front)'] || undefined,
+                    product_purpose: this.resolveProductPurpose(product),
                     physical_form: this.state.vision_extracted_features?.['Postać'] || product?.text_fields?.features?.['Postać'] || undefined,
                     brand: extracted.brand?.value || undefined,
                     manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name || undefined,
@@ -3012,7 +3023,7 @@ class Orchestrator {
                     const agent10Data = {
                         gtin_ean: this.gtin,
                         product_name: product?.text_fields?.name || undefined,
-                        product_purpose: this.state.vision_extracted_features?.['Przeznaczenie (Front)'] || product?.text_fields?.features?.['Przeznaczenie'] || product?.text_fields?.features?.['Przeznaczenie (Front)'] || undefined,
+                        product_purpose: this.resolveProductPurpose(product),
                         physical_form: this.state.vision_extracted_features?.['Postać'] || product?.text_fields?.features?.['Postać'] || undefined,
                         brand: extracted.brand?.value || undefined,
                         manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name || undefined,

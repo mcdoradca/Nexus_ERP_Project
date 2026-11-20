@@ -138,7 +138,9 @@ test('Vision Extractor - extractInciFromBackPack testy jednostkowe', async (t) =
                 has_warnings_label: true,
                 warnings: 'Hasło ostrzegawcze – UWAGA. H315 – Działa drażniąco na skórę. H319 – Działa drażniąco na oczy. P102 – Chronić przed dziećmi. P280 – Stosować rękawice ochronne.',
                 has_usage_label: true,
-                usage_instructions: 'Załóż rękawice ochronne. Nanieś bezpośrednio na plamę, odczekaj 5 minut i wypierz.'
+                usage_instructions: 'Załóż rękawice ochronne. Nanieś bezpośrednio na plamę, odczekaj 5 minut i wypierz.',
+                target_surfaces: 'Armatura i ceramika łazienkowa: umywalka, wanna, prysznic',
+                certifications_and_claims: 'Formuła bez chloru, testowany dermatologicznie'
             },
             usage: { totalTokenCount: 150 }
         });
@@ -152,6 +154,10 @@ test('Vision Extractor - extractInciFromBackPack testy jednostkowe', async (t) =
         assert.strictEqual(res.pimFeatures['Skład/INCI'], res.inci);
         assert.strictEqual(res.pimFeatures['Ostrzeżenia'], res.warnings);
         assert.strictEqual(res.pimFeatures['Sposób użycia'], res.usageInstructions);
+        assert.strictEqual(res.pimFeatures['Przeznaczenie (Etykieta)'], 'Armatura i ceramika łazienkowa: umywalka, wanna, prysznic');
+        assert.strictEqual(res.pimFeatures['Wyróżniki / Certyfikaty (Etykieta)'], 'Formuła bez chloru, testowany dermatologicznie');
+        assert.strictEqual('Przeznaczenie' in res.pimFeatures, false, 'OCR kontretykiety nie może nadpisywać zastrzeżonego parametru słownikowego Przeznaczenie');
+        assert.strictEqual('Cechy dodatkowe' in res.pimFeatures, false, 'OCR kontretykiety nie może nadpisywać zastrzeżonego parametru słownikowego Cechy dodatkowe');
         assert.strictEqual(res.imageUrl, dataUri);
 
         aiWrapper.callAgentWithTelemetry = orgCall;

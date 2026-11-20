@@ -50,7 +50,7 @@ const FALLBACK_INVENTORY_PARAMETERS = [
 ];
 
 function normalizeParameterName(name) {
-    return String(name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    return String(name || '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 function trimDecimalTrailingZeros(numStr) {
@@ -223,6 +223,7 @@ function normalizeFeaturesForBaselinkerSchema(features = {}, parameters = []) {
 
     const normalizedFeatures = {};
     const warnings = [];
+    let hasUnmatchedDictionaryOption = false;
 
     for (const [key, rawVal] of Object.entries(source)) {
         if (rawVal === undefined || rawVal === null) continue;
@@ -246,6 +247,7 @@ function normalizeFeaturesForBaselinkerSchema(features = {}, parameters = []) {
             const matchRes = matchPredefinedParameterOption(rawVal, paramDef.options, paramDef.type === 'multiselect');
             normalizedFeatures[key] = matchRes.value;
             if (!matchRes.matched) {
+                hasUnmatchedDictionaryOption = true;
                 const sampleOptions = (paramDef.options || [])
                     .slice(0, 5)
                     .map(o => o?.value_translations?.pl || Object.values(o?.value_translations || {})[0])
@@ -264,7 +266,7 @@ function normalizeFeaturesForBaselinkerSchema(features = {}, parameters = []) {
         normalizedFeatures[key] = rawVal;
     }
 
-    return { normalizedFeatures, warnings };
+    return { normalizedFeatures, warnings, hasUnmatchedDictionaryOption };
 }
 
 function formatBaselinkerApiWarnings(rawWarnings) {
@@ -295,37 +297,29 @@ function formatBaselinkerApiWarnings(rawWarnings) {
 }
 
 /**
- * Scala parametry z PIM, UI oraz (wyłącznie jako fallback braków) katalogu Allegro,
- * gwarantując pierwszeństwo korekt operatora oraz usunięcie pól binarnych przed eksportem do BaseLinkera.
+ * Scala parametry z PIM, UI oraz (wyłącznie w trybie nie-autorytatywnym jako fallback braków) katalogu Allegro,
+ * gwarantując w trybie autorytatywnym UI ścisłe 1:1 z kartami operatora oraz usunięcie pól binarnych przed eksportem do BaseLinkera.
  */
 function mergeFeaturesForBaselinker({ existingFeatures = {}, draftFeatures = null, hardFeatures = {}, featuresAuthoritative = false } = {}) {
     const baseExisting = (existingFeatures && typeof existingFeatures === 'object' && !Array.isArray(existingFeatures))
         ? existingFeatures
         : {};
     const hasDraftObj = Boolean(draftFeatures && typeof draftFeatures === 'object' && !Array.isArray(draftFeatures));
+    const isStrictUiSnapshot = Boolean(featuresAuthoritative && hasDraftObj);
 
-    // Przy pełnym snapshocie z UI (`featuresAuthoritative`) nie wskrzeszamy kluczy celowo usuniętych przez operatora
-    const merged = featuresAuthoritative && hasDraftObj
+    // Przy pełnym snapshocie z UI (`featuresAuthoritative`) eksportujemy wyłącznie parametry obecne w kartach UI
+    const merged = isStrictUiSnapshot
         ? { ...draftFeatures }
         : { ...baseExisting, ...(hasDraftObj ? draftFeatures : {}) };
 
-    const presentNormKeys = new Set(
-        Object.keys(merged).map(k => String(k).toLowerCase().trim())
-    );
-    const deletedFromUiNormKeys = new Set(
-        featuresAuthoritative && hasDraftObj
-            ? Object.keys(baseExisting)
-                .map(k => String(k).toLowerCase().trim())
-                .filter(nk => !presentNormKeys.has(nk))
-            : []
-    );
-
-    if (hardFeatures && typeof hardFeatures === 'object' && !Array.isArray(hardFeatures)) {
+    if (!isStrictUiSnapshot && hardFeatures && typeof hardFeatures === 'object' && !Array.isArray(hardFeatures)) {
+        const presentNormKeys = new Set(
+            Object.keys(merged).map(k => String(k).toLowerCase().trim())
+        );
         for (const [k, v] of Object.entries(hardFeatures)) {
             if (v === undefined || v === null || String(v).trim() === '') continue;
             const normKey = String(k).toLowerCase().trim();
             if (INTERNAL_BACK_IMAGE_KEYS.has(normKey)) continue;
-            if (deletedFromUiNormKeys.has(normKey)) continue;
             if (!presentNormKeys.has(normKey)) {
                 merged[k] = v;
                 presentNormKeys.add(normKey);
@@ -374,12 +368,12 @@ class BaselinkerExportService {
         return response.data;
     }
 
-    async fetchInventoryParameters(inventoryId) {
+    async fetchInventoryParameters(inventoryId, { forceRefresh = false } = {}) {
         const invKey = String(inventoryId || '').trim();
         if (!invKey) return FALLBACK_INVENTORY_PARAMETERS;
 
         const cached = this.inventoryParametersCache.get(invKey);
-        if (cached && (Date.now() - cached.fetchedAt) < INVENTORY_PARAMETERS_CACHE_TTL_MS) {
+        if (!forceRefresh && cached && (Date.now() - cached.fetchedAt) < INVENTORY_PARAMETERS_CACHE_TTL_MS) {
             return cached.parameters;
         }
 
@@ -395,6 +389,9 @@ class BaselinkerExportService {
             return parameters;
         } catch (err) {
             exportLogger.warn(`[BaselinkerExportService] Fallback parametrów dla katalogu ${invKey} (błąd getInventoryParameters: ${err.message})`);
+            if (cached && Array.isArray(cached.parameters)) {
+                return cached.parameters;
+            }
             return FALLBACK_INVENTORY_PARAMETERS;
         }
     }
@@ -515,8 +512,14 @@ class BaselinkerExportService {
         }
 
         // --- 3. PARAMETRY ---
+        const hasAuthoritativeDraftFeatures = Boolean(
+            draftData.featuresAuthoritative &&
+            draftData.features &&
+            typeof draftData.features === 'object' &&
+            !Array.isArray(draftData.features)
+        );
         let hardFeatures = {};
-        if (product.allegroCategoryId) {
+        if (!hasAuthoritativeDraftFeatures && product.allegroCategoryId) {
             try {
                 hardFeatures = await AllegroService.getProductParametersByEan(product.ean, product.allegroCategoryId);
             } catch (e) {
@@ -538,11 +541,23 @@ class BaselinkerExportService {
             featuresAuthoritative: Boolean(draftData.featuresAuthoritative)
         });
 
-        const inventoryParameters = await this.fetchInventoryParameters(inventoryId);
-        const { normalizedFeatures: finalFeatures, warnings } = normalizeFeaturesForBaselinkerSchema(
+        const invKey = String(inventoryId || '').trim();
+        const hadCachedParameters = Boolean(invKey && this.inventoryParametersCache.has(invKey));
+        let inventoryParameters = await this.fetchInventoryParameters(inventoryId);
+        let { normalizedFeatures: finalFeatures, warnings, hasUnmatchedDictionaryOption } = normalizeFeaturesForBaselinkerSchema(
             mergedFeatures,
             inventoryParameters
         );
+
+        // Jeśli w pamięci RAM był starszy cache słownika i wykryto niedopasowanie opcji (np. operator właśnie dodał "w płynie" w BaseLinkerze),
+        // jednorazowo przeładowujemy świeży słownik z API przed zgłoszeniem ostrzeżenia.
+        if (hadCachedParameters && hasUnmatchedDictionaryOption) {
+            exportLogger.info(`[BaselinkerExportService] Wykryto niedopasowaną opcję słownikową na cache katalogu ${invKey} — odświeżam getInventoryParameters na żywo.`);
+            inventoryParameters = await this.fetchInventoryParameters(inventoryId, { forceRefresh: true });
+            const refreshed = normalizeFeaturesForBaselinkerSchema(mergedFeatures, inventoryParameters);
+            finalFeatures = refreshed.normalizedFeatures;
+            warnings = refreshed.warnings;
+        }
 
         for (const [key, val] of Object.entries(finalFeatures)) {
             if (typeof val === 'string') {

@@ -488,11 +488,11 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                 }
 
                 if (result.target_surfaces && typeof result.target_surfaces === 'string' && result.target_surfaces.trim().length >= 5) {
-                    pimFeatures['Przeznaczenie'] = sanitizeVisionFrontText(result.target_surfaces.trim());
+                    pimFeatures['Przeznaczenie (Etykieta)'] = sanitizeVisionFrontText(result.target_surfaces.trim());
                 }
 
                 if (result.certifications_and_claims && typeof result.certifications_and_claims === 'string' && result.certifications_and_claims.trim().length >= 5) {
-                    pimFeatures['Cechy dodatkowe'] = sanitizeVisionFrontText(result.certifications_and_claims.trim());
+                    pimFeatures['Wyróżniki / Certyfikaty (Etykieta)'] = sanitizeVisionFrontText(result.certifications_and_claims.trim());
                 }
 
                 if (result.manufacturer_name && typeof result.manufacturer_name === 'string' && result.manufacturer_name.trim().length >= 3) {
