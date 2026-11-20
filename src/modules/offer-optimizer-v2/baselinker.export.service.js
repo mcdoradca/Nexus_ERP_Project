@@ -25,12 +25,29 @@ const FALLBACK_NUMBER_PARAMETER_NAMES = [
     'Liczba sztuk w opakowaniu'
 ];
 
-const FALLBACK_INVENTORY_PARAMETERS = FALLBACK_NUMBER_PARAMETER_NAMES.map((name, idx) => ({
-    parameter_key: `fallback_num_${idx}`,
-    type: 'number',
-    name_translations: { pl: name },
-    options: []
-}));
+const FALLBACK_MULTISELECT_PARAMETER_NAMES = [
+    'Produkt nie zawiera',
+    'Cechy dodatkowe',
+    'Działanie',
+    'Typ skóry',
+    'Typ włosów',
+    'Materiał wykonania'
+];
+
+const FALLBACK_INVENTORY_PARAMETERS = [
+    ...FALLBACK_NUMBER_PARAMETER_NAMES.map((name, idx) => ({
+        parameter_key: `fallback_num_${idx}`,
+        type: 'number',
+        name_translations: { pl: name },
+        options: []
+    })),
+    ...FALLBACK_MULTISELECT_PARAMETER_NAMES.map((name, idx) => ({
+        parameter_key: `fallback_multi_${idx}`,
+        type: 'multiselect',
+        name_translations: { pl: name },
+        options: []
+    }))
+];
 
 function normalizeParameterName(name) {
     return String(name || '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -88,24 +105,52 @@ function parseAndFormatNumericFeatureValue(keyName, rawVal) {
 
 function matchPredefinedParameterOption(rawVal, options = [], isMultiselect = false) {
     const strVal = rawVal === undefined || rawVal === null ? '' : String(rawVal).trim();
-    if (!strVal || !Array.isArray(options) || options.length === 0) {
-        return { matched: true, value: rawVal, unmatchedTokens: [] };
+    if (!strVal) {
+        return { matched: true, partialMatch: false, value: rawVal, matchedValues: [], unmatchedTokens: [] };
     }
 
     const optionLookup = new Map();
-    for (const opt of options) {
-        const translations = opt && typeof opt.value_translations === 'object' ? Object.values(opt.value_translations) : [];
-        for (const label of translations) {
-            if (typeof label !== 'string') continue;
-            const norm = normalizeParameterName(label);
-            if (norm && !optionLookup.has(norm)) {
-                optionLookup.set(norm, label);
+    if (Array.isArray(options)) {
+        for (const opt of options) {
+            const translations = opt && typeof opt.value_translations === 'object' ? Object.values(opt.value_translations) : [];
+            for (const label of translations) {
+                if (typeof label !== 'string') continue;
+                const norm = normalizeParameterName(label);
+                if (norm && !optionLookup.has(norm)) {
+                    optionLookup.set(norm, label);
+                }
             }
         }
     }
 
+    // Gdy brak definicji opcji (np. fallback offline), dla multiselect nadal normalizujemy separator na wymagany w BL '|'
     if (optionLookup.size === 0) {
-        return { matched: true, value: rawVal, unmatchedTokens: [] };
+        if (isMultiselect) {
+            const deduped = [];
+            for (const token of strVal.split(/[,;|]/).map(t => t.trim()).filter(Boolean)) {
+                if (!deduped.includes(token)) deduped.push(token);
+            }
+            return {
+                matched: true,
+                partialMatch: false,
+                value: deduped.join('|'),
+                matchedValues: deduped,
+                unmatchedTokens: []
+            };
+        }
+        return { matched: true, partialMatch: false, value: rawVal, matchedValues: [strVal], unmatchedTokens: [] };
+    }
+
+    // Sprawdzenie pełnego dopasowania przed rozbiciem (chroni opcje słownika zawierające przecinek w nazwie)
+    const fullExact = optionLookup.get(normalizeParameterName(strVal));
+    if (fullExact !== undefined) {
+        return {
+            matched: true,
+            partialMatch: false,
+            value: fullExact,
+            matchedValues: [fullExact],
+            unmatchedTokens: []
+        };
     }
 
     const tokens = isMultiselect ? strVal.split(/[,;|]/).map(t => t.trim()).filter(Boolean) : [strVal];
@@ -122,12 +167,30 @@ function matchPredefinedParameterOption(rawVal, options = [], isMultiselect = fa
     }
 
     if (unmatchedTokens.length > 0) {
-        return { matched: false, value: strVal, unmatchedTokens };
+        // W multiselect ratujemy wszystkie poprawne opcje sklejone separatorem '|', zamiast oddawać cały parametr na odrzucenie przez BL
+        if (isMultiselect && matchedValues.length > 0) {
+            return {
+                matched: false,
+                partialMatch: true,
+                value: matchedValues.join('|'),
+                matchedValues,
+                unmatchedTokens
+            };
+        }
+        return {
+            matched: false,
+            partialMatch: false,
+            value: strVal,
+            matchedValues,
+            unmatchedTokens
+        };
     }
 
     return {
         matched: true,
-        value: isMultiselect ? matchedValues.join(', ') : matchedValues[0],
+        partialMatch: false,
+        value: isMultiselect ? matchedValues.join('|') : matchedValues[0],
+        matchedValues,
         unmatchedTokens: []
     };
 }
@@ -189,7 +252,11 @@ function normalizeFeaturesForBaselinkerSchema(features = {}, parameters = []) {
                     .filter(Boolean)
                     .map(s => String(s).trim());
                 const allowedPreview = sampleOptions.length > 0 ? ` (przykładowe opcje w BL: ${sampleOptions.join(', ')})` : '';
-                warnings.push(`Parametr słownikowy BaseLinker "${key}" (${paramDef.type}): wartość "${matchRes.unmatchedTokens.join(', ')}" nie występuje na liście predefiniowanych opcji katalogu${allowedPreview}.`);
+                if (matchRes.partialMatch) {
+                    warnings.push(`Parametr słownikowy BaseLinker "${key}" (${paramDef.type}): wysłano dopasowane wartości (${matchRes.matchedValues.map(v => String(v).trim()).join(', ')}), natomiast pominięto wartości spoza słownika katalogu: "${matchRes.unmatchedTokens.join(', ')}"${allowedPreview}.`);
+                } else {
+                    warnings.push(`Parametr słownikowy BaseLinker "${key}" (${paramDef.type}): wartość "${matchRes.unmatchedTokens.join(', ')}" nie występuje na liście predefiniowanych opcji katalogu${allowedPreview}.`);
+                }
             }
             continue;
         }

@@ -10,7 +10,25 @@ const MOCK_INVENTORY_PARAMETERS = [
     { parameter_key: 'bl_sys_2040', type: 'number', name_translations: { pl: 'EAN (GTIN)' }, options: [] },
     { parameter_key: 'bl_sys_2041', type: 'number', name_translations: { pl: 'Kod producenta' }, options: [] },
     { parameter_key: 'bl_sys_2044', type: 'number', name_translations: { pl: 'Pojemność' }, options: [] },
-    { parameter_key: 'bl_sys_2064', type: 'multiselect', name_translations: { pl: 'Cechy dodatkowe' }, options: [{ option_id: 'id_27', value_translations: { pl: ' bez aluminium' } }, { option_id: 'id_35', value_translations: { pl: 'hipoalergiczny' } }] }
+    { parameter_key: 'bl_sys_2064', type: 'multiselect', name_translations: { pl: 'Cechy dodatkowe' }, options: [{ option_id: 'id_27', value_translations: { pl: ' bez aluminium' } }, { option_id: 'id_35', value_translations: { pl: 'hipoalergiczny' } }] },
+    {
+        parameter_key: 'bl_sys_2855',
+        type: 'multiselect',
+        name_translations: { pl: 'Produkt nie zawiera' },
+        options: [
+            { option_id: 'id_1', value_translations: { pl: 'alkoholu' } },
+            { option_id: 'id_2', value_translations: { pl: 'aluminium' } },
+            { option_id: 'id_3', value_translations: { pl: 'amoniaku' } },
+            { option_id: 'id_5', value_translations: { pl: 'mydła' } },
+            { option_id: 'id_6', value_translations: { pl: 'olejów mineralnych' } },
+            { option_id: 'id_7', value_translations: { pl: 'parabenów' } },
+            { option_id: 'id_8', value_translations: { pl: 'parafiny' } },
+            { option_id: 'id_9', value_translations: { pl: 'PEG' } },
+            { option_id: 'id_11', value_translations: { pl: 'silikonów' } },
+            { option_id: 'id_14', value_translations: { pl: 'SLS' } },
+            { option_id: 'id_15', value_translations: { pl: 'substancji zapachowych' } }
+        ]
+    }
 ];
 
 test('BaseLinker Export Service - buildPayload pomija sekcja6 GPSR z description_extra4, wycina surową stopkę Skład INCI z sekcja3 i eksportuje 6 modułów', async () => {
@@ -159,9 +177,35 @@ test('BaseLinker Export Service - normalizacja parametrów liczbowych (Waga z op
     assert.strictEqual(normalizedFeatures['Kod producenta'], '04801320150', 'Kod z wiodącym zerem musi pozostać nietknięty');
     assert.strictEqual(normalizedFeatures.Postać, 'żel');
     assert.strictEqual(normalizedFeatures['Stan opakowania'], 'oryginalne');
-    assert.strictEqual(normalizedFeatures['Cechy dodatkowe'], ' bez aluminium, hipoalergiczny');
+    assert.strictEqual(normalizedFeatures['Cechy dodatkowe'], ' bez aluminium|hipoalergiczny', 'Multiselect w BaseLinker API musi używać separatora "|"');
     assert.strictEqual(normalizedFeatures.Waga, '1000');
     assert.deepStrictEqual(warnings, []);
+
+    // Regresja ADR-0188: pełne i częściowe dopasowanie multiselect "Produkt nie zawiera" (EAN 8032680390937)
+    const multiFull = baselinkerExportService.normalizeFeaturesForBaselinkerSchema({
+        'Produkt nie zawiera': 'parabenów, aluminium, amoniaku, mydła, olejów mineralnych, parafiny, PEG, silikonów, SLS, substancji zapachowych'
+    }, MOCK_INVENTORY_PARAMETERS);
+    assert.strictEqual(
+        multiFull.normalizedFeatures['Produkt nie zawiera'],
+        'parabenów|aluminium|amoniaku|mydła|olejów mineralnych|parafiny|PEG|silikonów|SLS|substancji zapachowych'
+    );
+    assert.deepStrictEqual(multiFull.warnings, []);
+
+    // Idempotentność dla wartości już rozdzielonych "|"
+    const multiIdempotent = baselinkerExportService.normalizeFeaturesForBaselinkerSchema({
+        'Produkt nie zawiera': multiFull.normalizedFeatures['Produkt nie zawiera']
+    }, MOCK_INVENTORY_PARAMETERS);
+    assert.strictEqual(multiIdempotent.normalizedFeatures['Produkt nie zawiera'], multiFull.normalizedFeatures['Produkt nie zawiera']);
+    assert.deepStrictEqual(multiIdempotent.warnings, []);
+
+    // Częściowe dopasowanie multiselect: wysyła dopasowane opcje sklejone "|" i zgłasza pominięte spoza słownika
+    const multiPartial = baselinkerExportService.normalizeFeaturesForBaselinkerSchema({
+        'Produkt nie zawiera': 'aluminium, fosforanów, parabenów, soli, SLS'
+    }, MOCK_INVENTORY_PARAMETERS);
+    assert.strictEqual(multiPartial.normalizedFeatures['Produkt nie zawiera'], 'aluminium|parabenów|SLS');
+    assert.strictEqual(multiPartial.warnings.length, 1);
+    assert.ok(multiPartial.warnings[0].includes('fosforanów, soli'));
+    assert.ok(multiPartial.warnings[0].includes('wysłano dopasowane wartości'));
 
     // Edge case'y jednostek kg/g/l oraz wartości niezgodne ze schematem
     assert.strictEqual(
@@ -251,6 +295,13 @@ test('BaseLinker Export Service - cache i fallback fetchInventoryParameters dzia
         const fallbackParams = await baselinkerExportService.fetchInventoryParameters('385');
         assert.strictEqual(calls, 1);
         assert.ok(fallbackParams.some(p => p.name_translations?.pl === 'Waga produktu z opakowaniem jednostkowym' && p.type === 'number'));
+        assert.ok(fallbackParams.some(p => p.name_translations?.pl === 'Produkt nie zawiera' && p.type === 'multiselect'));
+
+        // W trybie awaryjnego fallbacku (bez listy options) multiselect nadal normalizuje przecinki na '|'
+        const fallbackMulti = baselinkerExportService.normalizeFeaturesForBaselinkerSchema({
+            'Produkt nie zawiera': 'parabenów, aluminium, SLS'
+        }, fallbackParams);
+        assert.strictEqual(fallbackMulti.normalizedFeatures['Produkt nie zawiera'], 'parabenów|aluminium|SLS');
 
         // Ponowna próba z udanym API powinna użyć cache przy drugim wywołaniu
         baselinkerExportService.callConnectorApi = async () => {
