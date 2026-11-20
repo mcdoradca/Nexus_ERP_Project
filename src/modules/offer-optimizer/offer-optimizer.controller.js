@@ -1785,6 +1785,7 @@ const exportAllegroParams = async (req, res) => {
         const cleanCategoryId = categoryId ? String(categoryId).trim() : '';
         let patchResult = null;
         let compositionSkippedForCategory = false;
+        let compositionSkippedForValidation = false;
         let compositionSkipWarning = null;
         let skippedNoRemainingChanges = false;
         let resolvedCategoryId = cleanCategoryId;
@@ -1797,7 +1798,10 @@ const exportAllegroParams = async (req, res) => {
                 await AllegroService.clearCategoryCompositionUnsupported(cleanCategoryId);
             }
         } catch (patchErr) {
-            if (!hasCompositionInPatchBody(patchBody) || !AllegroService.isAllegroCompositionCategoryError(patchErr)) {
+            const isCategoryCompErr = AllegroService.isAllegroCompositionCategoryError(patchErr);
+            const isValidationCompErr = !isCategoryCompErr && AllegroService.isAllegroCompositionValidationError(patchErr);
+
+            if (!hasCompositionInPatchBody(patchBody) || (!isCategoryCompErr && !isValidationCompErr)) {
                 throw patchErr;
             }
 
@@ -1814,22 +1818,28 @@ const exportAllegroParams = async (req, res) => {
                 exportLogger.warn(`[ALLEGRO EXPORT PARAMS] Nie udało się pobrać oferty ${offerId} przy fallbacku composition: ${fetchErr.message}`);
             }
 
-            if (resolvedCategoryId) {
+            // Cache TTL kategorii uzupełniamy WYŁĄCZNIE gdy cała kategoria nie obsługuje composition (nie dla błędu konkretnego składu produktu!)
+            if (isCategoryCompErr && resolvedCategoryId) {
                 await AllegroService.markCategoryCompositionUnsupported(resolvedCategoryId, patchErr.message);
             }
 
             const stripped = stripCompositionFromPatchBody(patchBody, latestOffer);
-            compositionSkippedForCategory = true;
+            compositionSkippedForCategory = isCategoryCompErr;
+            compositionSkippedForValidation = isValidationCompErr;
             const catLabel = resolvedCategoryId ? `#${resolvedCategoryId}` : 'docelowa';
 
             if (!stripped.hasRemainingChanges) {
                 skippedNoRemainingChanges = true;
-                compositionSkipWarning = `Kategoria Allegro ${catLabel} nie obsługuje jeszcze pola składu produktu (productSet[0].composition). Skład INCI został pominięty, a pozostałe parametry i GPSR w ofercie ${offerId} były już aktualne.`;
-                patchResult = { status: 'SKIPPED_COMPOSITION_UNSUPPORTED' };
-                exportLogger.warn(`[ALLEGRO EXPORT PARAMS] Oferta ${offerId} (kategoria ${catLabel}): pominięto INCI po 422, brak innych różnic do wysyłki.`);
+                compositionSkipWarning = isCategoryCompErr
+                    ? `Kategoria Allegro ${catLabel} nie obsługuje jeszcze pola składu produktu (productSet[0].composition). Skład INCI został pominięty, a pozostałe parametry i GPSR w ofercie ${offerId} były już aktualne.`
+                    : `Allegro odrzuciło pole składu (composition) dla tej oferty (${patchErr.message}). Skład został pominięty, a pozostałe parametry i GPSR w ofercie ${offerId} były już aktualne.`;
+                patchResult = { status: isCategoryCompErr ? 'SKIPPED_COMPOSITION_UNSUPPORTED' : 'SKIPPED_COMPOSITION_VALIDATION' };
+                exportLogger.warn(`[ALLEGRO EXPORT PARAMS] Oferta ${offerId} (kategoria ${catLabel}): pominięto composition po 422 (${isCategoryCompErr ? 'category' : 'validation'}), brak innych różnic do wysyłki.`);
             } else {
-                compositionSkipWarning = `Kategoria Allegro ${catLabel} nie obsługuje jeszcze pola składu produktu (productSet[0].composition) — pominięto skład INCI, a pozostałe parametry i dane GPSR zostały wysłane ponownie.`;
-                exportLogger.warn(`[ALLEGRO EXPORT PARAMS] Fallback 422 composition dla oferty ${offerId} (kategoria ${catLabel}) — ponawiam PATCH bez productSet[].composition.`);
+                compositionSkipWarning = isCategoryCompErr
+                    ? `Kategoria Allegro ${catLabel} nie obsługuje jeszcze pola składu produktu (productSet[0].composition) — pominięto skład INCI, a pozostałe parametry i dane GPSR zostały wysłane ponownie.`
+                    : `Allegro odrzuciło format/język pola składu (composition) dla tego produktu (${patchErr.message}) — pominięto pole składu, a pozostałe parametry i dane GPSR zostały wysłane ponownie.`;
+                exportLogger.warn(`[ALLEGRO EXPORT PARAMS] Fallback 422 composition (${isCategoryCompErr ? 'category' : 'validation'}) dla oferty ${offerId} (kategoria ${catLabel}) — ponawiam PATCH bez productSet[].composition.`);
                 patchResult = await AllegroService.patchProductOffer(offerId, stripped.patchBody, {
                     accountId: effAccountId || null
                 });
@@ -1881,6 +1891,10 @@ const exportAllegroParams = async (req, res) => {
             responseMessage = patchResult.status === 'PENDING_TIMEOUT'
                 ? `Wysłano pozostałe parametry do oferty ${offerId} (Allegro nadal przetwarza zadanie w tle). Pominięto skład INCI — ${compositionSkipWarning}`
                 : `Częściowy sukces! Zaktualizowano parametry i dane GPSR w ofercie Allegro (${offerId}), pomijając skład INCI (kategoria ${resolvedCategoryId ? `#${resolvedCategoryId}` : ''} nie obsługuje jeszcze pola composition w API Allegro).`;
+        } else if (compositionSkippedForValidation) {
+            responseMessage = patchResult.status === 'PENDING_TIMEOUT'
+                ? `Wysłano pozostałe parametry do oferty ${offerId} (Allegro nadal przetwarza zadanie w tle). Pominięto pole składu — ${compositionSkipWarning}`
+                : `Częściowy sukces! Zaktualizowano parametry i dane GPSR w ofercie Allegro (${offerId}), pomijając pole składu odrzucone przez walidator Allegro (np. format detergentu zamiast INCI).`;
         } else {
             responseMessage = patchResult.status === 'PENDING_TIMEOUT'
                 ? `Wysłano aktualizację do oferty ${offerId} (Allegro nadal przetwarza zadanie w tle).`
@@ -1893,6 +1907,7 @@ const exportAllegroParams = async (req, res) => {
             accountId: effAccountId || null,
             categoryId: resolvedCategoryId || null,
             compositionSkippedForCategory,
+            compositionSkippedForValidation,
             skippedNoRemainingChanges,
             warnings: compositionSkipWarning ? [compositionSkipWarning] : [],
             message: responseMessage,

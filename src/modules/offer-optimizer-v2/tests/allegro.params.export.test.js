@@ -16,7 +16,9 @@ const {
 
 const {
     inspectTokenClaims,
+    evaluateParsedIngredientsResponse,
     isAllegroCompositionCategoryError,
+    isAllegroCompositionValidationError,
     getCategoryCompositionSupport,
     markCategoryCompositionUnsupported,
     clearCategoryCompositionUnsupported
@@ -525,6 +527,86 @@ test('Allegro Params Export: czyszczenie ostrzeżeń, konwersja jednostek, INCI,
         assert.strictEqual(expired.supported, true);
 
         await clearCategoryCompositionUnsupported(testCatId, { injectedPrisma: mockPrisma, nowMs: baseNow });
+    });
+
+    await t.test('14. Regresja ADR-0189 (#19111680577): evaluateParsedIngredientsResponse agreguje items[].warnings/errors i odrzuca składy detergentowe WE 648/2004, zachowując kosmetyczne INCI', () => {
+        // Scenariusz A: Dokładna odpowiedź z Allegro dla Dual Power Tabletki Wybielające (kat. 253359)
+        const detergentRes = evaluateParsedIngredientsResponse({
+            rawInci: '≥30% Chlorine-based bleaching agents. Contains: Troclosene sodium, dihydrate.',
+            productName: 'DUAL POWER TABLETKI WYBIELAJĄCE 40 SZT',
+            parsedProd: {
+                items: [{
+                    name: '≥30% Chlorine-based bleaching agents. Contains',
+                    ingredients: [{ name: 'Troclosene sodium' }, { name: 'dihydrate' }],
+                    warnings: [
+                        { code: 'UNKNOWN_INGREDIENT', message: 'Nie rozpoznaliśmy składu produktu.', context: 'Troclosene sodium' },
+                        { code: 'UNKNOWN_INGREDIENT', message: 'Nie rozpoznaliśmy składu produktu.', context: 'dihydrate' }
+                    ]
+                }]
+            }
+        });
+        assert.strictEqual(detergentRes.supported, false);
+        assert.strictEqual(detergentRes.warnings.length, 2);
+        assert.strictEqual(detergentRes.recognizedIngredients, 0);
+        assert.ok(detergentRes.unsupportedReason && detergentRes.unsupportedReason.includes('WE 648/2004'));
+
+        // Scenariusz B: Błąd składni w items[].errors (INVALID_INGREDIENT_CHARACTERS)
+        const errRes = evaluateParsedIngredientsResponse({
+            rawInci: '≥30% związki wybielające na bazie chloru, Troclosene sodium',
+            parsedProd: {
+                items: [{
+                    ingredients: [{ name: '≥30% związki wybielające na bazie chloru' }],
+                    errors: [{ code: 'INVALID_INGREDIENT_CHARACTERS', message: 'Skład zawiera niedozwolone słowa lub znaki.' }]
+                }]
+            }
+        });
+        assert.strictEqual(errRes.supported, false);
+        assert.strictEqual(errRes.errors.length, 1);
+
+        // Scenariusz C: Prawdziwy kosmetyk INCI (14/16 rozpoznanych, 2 pojedyncze ostrzeżenia) pozostaje supported: true
+        const cosmeticRes = evaluateParsedIngredientsResponse({
+            rawInci: 'AQUA, GLYCERIN, PARFUM, CI 42051',
+            productName: 'Dermomed Mydło',
+            parsedProd: {
+                items: [{
+                    ingredients: [
+                        { name: 'AQUA' }, { name: 'GLYCERIN' }, { name: 'PARFUM' }, { name: 'CI 42051' }
+                    ],
+                    warnings: [
+                        { code: 'UNKNOWN_INGREDIENT', context: 'CI 42051' }
+                    ]
+                }]
+            }
+        });
+        assert.strictEqual(cosmeticRes.supported, true);
+        assert.strictEqual(cosmeticRes.recognizedIngredients, 3);
+
+        // Scenariusz D: extractCleanInciForAllegro usuwa dopiski synonimowe w nawiasach kwadratowych [WATER]/[YELLOW 5] bez tłumaczenia INCI
+        const cleanedCosmetic = extractCleanInciForAllegro({
+            features: { 'Skład/INCI': 'AQUA [WATER], BUTYROSPERMUM PARKII (SHEA) BUTTER, CI 19140 [YELLOW 5], PARFUM' }
+        });
+        assert.strictEqual(cleanedCosmetic, 'AQUA, BUTYROSPERMUM PARKII (SHEA) BUTTER, CI 19140, PARFUM');
+    });
+
+    await t.test('15. isAllegroCompositionValidationError wykrywa błąd 422 języka wyłącznie dla ścieżki offer.modules.composition', () => {
+        const langErr = new Error('Allegro API PATCH error (422): Użyj języka odpowiedniego dla rynku, na którym wystawiasz ofertę. [offer.modules.composition.data.products[0].items[0].ingredients]');
+        langErr.statusCode = 422;
+        langErr.allegroErrors = [{
+            code: 'VALIDATION_ERROR',
+            path: 'offer.modules.composition.data.products[0].items[0].ingredients',
+            userMessage: 'Użyj języka odpowiedniego dla rynku, na którym wystawiasz ofertę.'
+        }];
+        assert.strictEqual(isAllegroCompositionCategoryError(langErr), false, 'Błąd językowy składu nie może oznaczać całej kategorii jako nieobsługującej composition');
+        assert.strictEqual(isAllegroCompositionValidationError(langErr), true);
+
+        // Mieszane błędy (composition + inny parametr) NIE mogą zostać zamaskowane jako błąd samego composition
+        const mixedErr = new Error('Mixed 422');
+        mixedErr.statusCode = 422;
+        mixedErr.allegroErrors = [
+            { path: 'offer.modules.composition.data.products[0].items[0].ingredients', userMessage: 'Błąd języka' },
+            { path: 'parameters[0]', userMessage: 'Brak wymaganego parametru' }
+        ];
+        assert.strictEqual(isAllegroCompositionValidationError(mixedErr), false);
     });
 });
 

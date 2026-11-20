@@ -85,6 +85,31 @@ function isAllegroCompositionCategoryError(error) {
     return matchesText(error.message || '');
 }
 
+/**
+ * Rozpoznaje błąd Allegro 422/400 dotyczący wyłącznie walidacji zawartości pola `composition`
+ * (np. `Użyj języka odpowiedniego dla rynku... [offer.modules.composition.data.products[0].items[0].ingredients]`),
+ * który dotyczy konkretnego składu produktu (np. deklaracji detergentu WE 648/2004), a nie blokady całej kategorii.
+ */
+function isAllegroCompositionValidationError(error) {
+    if (!error) return false;
+    const status = error.statusCode || error.response?.status || null;
+    if (status !== null && status !== 422 && status !== 400) {
+        return false;
+    }
+
+    const allegroErrors = Array.isArray(error.allegroErrors)
+        ? error.allegroErrors
+        : (Array.isArray(error.response?.data?.errors) ? error.response.data.errors : []);
+
+    const isCompositionPath = (pathStr) => typeof pathStr === 'string' && /(?:offer\.modules\.composition|productSet(?:\[\d+\])?\.composition)/i.test(pathStr);
+
+    if (allegroErrors.length > 0) {
+        return allegroErrors.every(item => item && typeof item === 'object' && isCompositionPath(item.path));
+    }
+
+    return isCompositionPath(error.message || '');
+}
+
 async function readUnsupportedCompositionCategoriesMap(injectedPrisma = prisma, nowMs = Date.now()) {
     const out = {};
     if (!injectedPrisma?.systemSetting || typeof injectedPrisma.systemSetting.findUnique !== 'function') {
@@ -1309,11 +1334,96 @@ async function getOfferAndCatalogForParams(offerId, { accountId = null, allowCro
 }
 
 /**
+ * Deterministycznie ocenia odpowiedź `POST /ingredients/parse` z Allegro API.
+ * Agreguje `errors` i `warnings` zarówno z poziomu `products[0]`, jak i z każdego `products[0].items[i]`,
+ * odrzucając deklaracje detergentów/biocydów (WE 648/2004) i nierozpoznane składy, przy jednoczesnym przepuszczaniu
+ * poprawnych składów kosmetycznych INCI.
+ */
+function evaluateParsedIngredientsResponse({ parsedProd = {}, rawInci = '', productName = 'Produkt' } = {}) {
+    const items = Array.isArray(parsedProd?.items) ? parsedProd.items : [];
+
+    const warnings = [
+        ...(Array.isArray(parsedProd?.warnings) ? parsedProd.warnings : []),
+        ...items.flatMap(item => (Array.isArray(item?.warnings) ? item.warnings : []))
+    ];
+    const errors = [
+        ...(Array.isArray(parsedProd?.errors) ? parsedProd.errors : []),
+        ...items.flatMap(item => (Array.isArray(item?.errors) ? item.errors : []))
+    ];
+
+    const detergentHeaderPattern = /(?:%|\bcontains\b|\bzawiera\b|bleaching\s+agents|surfactants|środki\s+powierzchniowo|związki\s+wybielające|rozjaśniacze\s+optyczne)/i;
+    const rawLooksLikeDetergent = /(?:(?:<|>|≤|≥|>=|<=)\s*\d+\s*%|\b\d+\s*[-–]\s*\d+\s*%|bleaching\s+agents|surfactants|środki\s+powierzchniowo\s+czynne|związki\s+wybielające)/i.test(String(rawInci || ''));
+
+    const corruptedItemNames = items
+        .map(item => String(item?.name || '').trim())
+        .filter(name => name && detergentHeaderPattern.test(name));
+
+    const components = items
+        .map((item, idx) => ({
+            name: item.name || (items.length === 1 ? (productName || 'Skład produktu').slice(0, 100) : `Składnik ${idx + 1}`),
+            ingredients: (Array.isArray(item.ingredients) ? item.ingredients : [])
+                .map(ing => ({ name: String(ing.name || '').trim() }))
+                .filter(ing => ing.name !== '')
+        }))
+        .filter(c => c.ingredients.length > 0);
+
+    const totalIngredients = components.reduce((sum, c) => sum + c.ingredients.length, 0);
+    const unknownContexts = Array.from(new Set(
+        warnings
+            .filter(w => w && w.code === 'UNKNOWN_INGREDIENT')
+            .map(w => String(w.context || w.message || '').trim())
+            .filter(Boolean)
+    ));
+    const unknownWarningsCount = warnings.filter(w => w && w.code === 'UNKNOWN_INGREDIENT').length;
+    const effectiveUnknownCount = unknownContexts.length > 0 ? unknownContexts.length : unknownWarningsCount;
+    const recognizedIngredients = Math.max(0, totalIngredients - effectiveUnknownCount);
+
+    let unsupportedReason = null;
+    if (components.length === 0 || totalIngredients === 0) {
+        unsupportedReason = 'Parser Allegro nie wyodrębnił żadnych składników INCI.';
+    } else if (errors.length > 0) {
+        const firstErr = errors[0]?.message || errors[0]?.code || 'Błąd składni składu INCI';
+        unsupportedReason = `Parser Allegro odrzucił skład (${firstErr}).`;
+    } else if (corruptedItemNames.length > 0) {
+        unsupportedReason = `Wykryto deklarację detergentu/WE 648/2004 zamiast kosmetycznego INCI (parser potraktował "${corruptedItemNames[0]}" jako nazwę pod-produktu) — pominięto pole composition, aby uniknąć błędu języka 422.`;
+    } else if (recognizedIngredients === 0 || (effectiveUnknownCount > 0 && (recognizedIngredients / totalIngredients) < 0.5)) {
+        const preview = unknownContexts.slice(0, 4).join(', ');
+        unsupportedReason = rawLooksLikeDetergent
+            ? `Skład w formacie detergentu WE 648/2004 nie jest rozpoznawany przez słownik kosmetyczny INCI Allegro (nierozpoznane: ${preview || effectiveUnknownCount}/${totalIngredients}) — pole composition zostało pominięte.`
+            : `Parser Allegro nie rozpoznał większości składników w standardzie INCI (${recognizedIngredients}/${totalIngredients} rozpoznanych${preview ? `; nieznane: ${preview}` : ''}) — pole composition zostało pominięte.`;
+    } else if (rawLooksLikeDetergent && effectiveUnknownCount > 0) {
+        const preview = unknownContexts.slice(0, 4).join(', ');
+        unsupportedReason = `Skład detergentu WE 648/2004 zawiera nierozpoznane elementy dla słownika INCI Allegro (${preview}) — pole composition zostało pominięte.`;
+    }
+
+    return {
+        supported: unsupportedReason === null,
+        unsupportedReason,
+        components: components.length > 0 ? components : null,
+        warnings,
+        errors,
+        totalIngredients,
+        recognizedIngredients,
+        unknownIngredients: unknownContexts,
+        rawResult: parsedProd
+    };
+}
+
+/**
  * Waliduje i parsuje listę składników INCI przez oficjalny endpoint Allegro `POST /ingredients/parse`.
  */
 async function parseIngredientsWithAllegro({ categoryId, productId = '1', productName = 'Produkt', rawInci = '', accountId = null } = {}) {
     if (!categoryId || !rawInci || String(rawInci).trim() === '') {
-        return { supported: false, components: null, warnings: [], errors: ['Brak kategorii lub składu INCI.'] };
+        return {
+            supported: false,
+            unsupportedReason: 'Brak kategorii lub składu INCI.',
+            components: null,
+            warnings: [],
+            errors: ['Brak kategorii lub składu INCI.'],
+            totalIngredients: 0,
+            recognizedIngredients: 0,
+            unknownIngredients: []
+        };
     }
     const { token, accountId: resolvedAccountId } = await ensureSellerWriteToken(accountId);
     const headers = buildAllegroHeaders(token, {
@@ -1333,28 +1443,7 @@ async function parseIngredientsWithAllegro({ categoryId, productId = '1', produc
     }, { headers, _allegroAccountId: resolvedAccountId, timeout: 15000 });
 
     const parsedProd = res.data?.products?.[0] || {};
-    const items = Array.isArray(parsedProd.items) ? parsedProd.items : [];
-    const warnings = Array.isArray(parsedProd.warnings) ? parsedProd.warnings : [];
-    const errors = Array.isArray(parsedProd.errors) ? parsedProd.errors : [];
-
-    const components = items
-        .map((item, idx) => ({
-            name: item.name || (items.length === 1 ? (productName || 'Skład produktu').slice(0, 100) : `Składnik ${idx + 1}`),
-            ingredients: (Array.isArray(item.ingredients) ? item.ingredients : [])
-                .map(ing => ({ name: String(ing.name || '').trim() }))
-                .filter(ing => ing.name !== '')
-        }))
-        .filter(c => c.ingredients.length > 0);
-
-    const hasUnknownWarning = warnings.some(w => w.code === 'UNKNOWN_INGREDIENT');
-
-    return {
-        supported: errors.length === 0 && !hasUnknownWarning && components.length > 0,
-        components: components.length > 0 ? components : null,
-        warnings,
-        errors,
-        rawResult: parsedProd
-    };
+    return evaluateParsedIngredientsResponse({ parsedProd, rawInci, productName });
 }
 
 /**
@@ -1616,7 +1705,9 @@ module.exports = {
     findSellerOffersForProduct,
     getOfferAndCatalogForParams,
     parseIngredientsWithAllegro,
+    evaluateParsedIngredientsResponse,
     isAllegroCompositionCategoryError,
+    isAllegroCompositionValidationError,
     getCategoryCompositionSupport,
     markCategoryCompositionUnsupported,
     clearCategoryCompositionUnsupported,

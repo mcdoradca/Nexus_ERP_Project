@@ -3185,7 +3185,7 @@ export const UnifiedProductPipelineView = ({
                                             </div>
                                         ) : (
                                             <div className="text-[11px] font-bold text-amber-700 bg-amber-50 p-2.5 rounded border border-amber-200">
-                                                Parser INCI Allegro (`/ingredients/parse`) nie rozpoznał tego formatu dla tej kategorii (np. chemia domowa WE 648/2004 zamiast kosmetycznego INCI) — pole `composition` zostało bezpiecznie pominięte, aby uniknąć błędu 422.
+                                                {allegroParamsValidationResult.compositionDiagnostics.unsupportedReason || 'Parser INCI Allegro (`/ingredients/parse`) nie rozpoznał tego formatu dla tej kategorii (np. chemia domowa WE 648/2004 zamiast kosmetycznego INCI) — pole `composition` zostało bezpiecznie pominięte, aby uniknąć błędu 422.'}
                                             </div>
                                         )}
                                     </>

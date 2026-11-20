@@ -366,6 +366,14 @@ function extractCleanInciForAllegro({ features = {}, ingredientsInci = '' } = {}
             // Fallback do oczyszczonego surowego ciągu w razie braku słownika
         }
 
+        // Usuwa wyłącznie amerykańskie/synonimowe dopiski FDA/CTFA w nawiasach kwadratowych (np. "AQUA [WATER]" -> "AQUA", "CI 19140 [YELLOW 5]" -> "CI 19140"),
+        // bez naruszania nazw INCI ani botanicznych nawiasów okrągłych.
+        clean = clean
+            .replace(/\s*\[[A-Za-z0-9\s/-]{1,40}\]/g, '')
+            .replace(/\s+,/g, ',')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+
         const trimmed = clean.trim();
         if (trimmed.length >= 4 && !NON_INCI_PLACEHOLDERS.has(normalizeTextKey(trimmed))) {
             return trimmed;
