@@ -139,6 +139,9 @@ KRYTYCZNE ZADANIA EKSTRAKCJI:
 7. Przeznaczenie frontowe: główne docelowe zastosowanie podane na froncie, przetłumaczone w 100% na język polski bez obcojęzycznych wtrąceń w nawiasach (np. "uniwersalne czyszczenie powierzchni", "do czyszczenia kuchni i łazienki", "do higieny jamy ustnej", "do tkanin kolorowych"). Jeśli brak, null.
 8. Kluczowe hasła i wyróżniki z etykiety: lista haseł z frontu PRZETŁUMACZONYCH W 100% NA NATURALNY JĘZYK POLSKI (np. zamiast włoskich "Formula Migliorata", "Spray Attivo", "Potere Sbiancante", "Schiuma Potente" zwróć wyłącznie polskie odpowiedniki: ["Ulepszona formuła", "Aktywny spray", "Siła wybielania", "Aktywna piana"]). KATEGORYCZNY ZAKAZ zwracania słów po włosku/niemiecku/angielsku ani dopisywania ich w nawiasach! Jeśli brak, pusta tablica [].
 9. Kluczowe składniki wyróżnione na froncie (Hero Ingredients): lista najważniejszych składników aktywnych, ekstraktów, olejków lub substancji czyszczących eksponowanych na przedniej etykiecie, przetłumaczona w 100% na język polski (np. ["Wybielacz", "Olej arganowy", "Mydło marsylskie", "Kwas hialuronowy", "Aktywny tlen", "Soda oczyszczona", "Aloes"]). Jeśli brak, pusta tablica [].
+10. Rodzaj opakowania ("opakowanie_rodzaj"): określ po polsku typ pojemnika ze zdjęcia (np. "plastikowa butelka z atomizerem", "butelka z pompką", "plastikowa butelka", "zapas / worek / doypack", "kartonik", "plastikowe pudełko", "puszka (spray)", "tubka", "słoik", "kanister"). Jeśli niepewne, null.
+11. Liczba sztuk ("liczba_sztuk"): wyłącznie jeśli na froncie wyraźnie podano liczbę sztuk/tabletek/kapsułek/wkładów (np. "40 szt.", "25 kapsułek", "12 szt."). Dla pojedynczej butelki bez oznaczenia wielopaku zwróć null.
+12. Kraj produkcji ("kraj_produkcji_etykieta"): wyłącznie jeśli wyraźnie widoczny na froncie (np. "Made in Italy" -> "Włochy", "Made in Germany" -> "Niemcy"). W przeciwnym razie null.
 UWAGA PRAWNA (BPR 528/2012): Jeśli na zagranicznym opakowaniu widnieje słowo "Igienizzante", "Antibatterico", "Sanitizing", "Antibacterial" lub "Antybakteryjny", tłumacz je wyłącznie jako "Higieniczna czystość" lub "Głębokie oczyszczanie" (zakaz przypisywania właściwości biobójczych/antybakteryjnych/przeciwwirusowych).`;
 
 const frontVisionSchema = {
@@ -158,7 +161,10 @@ const frontVisionSchema = {
         kluczowe_skladniki_front: {
             type: "array",
             items: { type: "string" }
-        }
+        },
+        opakowanie_rodzaj: { type: ["string", "null"] },
+        liczba_sztuk: { type: ["string", "null"] },
+        kraj_produkcji_etykieta: { type: ["string", "null"] }
     },
     required: ["postac", "dozownik"]
 };
@@ -256,7 +262,8 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
         const base64Data = buffer.toString('base64');
         const { result, usage } = await aiWrapper.callAgentWithTelemetry({
             agentId: "0",
-            prompt: FRONT_VISION_PROMPT,
+            systemInstruction: FRONT_VISION_PROMPT,
+            prompt: `Odczytaj cechy fizyczne z przedniej etykiety produktu (EAN: ${ean || 'N/A'}) zgodnie z instrukcjami systemowymi.`,
             schema: frontVisionSchema,
             image: {
                 mimeType: mimeType,
@@ -322,6 +329,15 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
                 .filter(Boolean)
                 .join(', ');
         }
+        if (result.opakowanie_rodzaj && String(result.opakowanie_rodzaj).trim().length > 0) {
+            pimFeatures['Opakowanie (Front)'] = String(result.opakowanie_rodzaj).trim();
+        }
+        if (result.liczba_sztuk && String(result.liczba_sztuk).trim().length > 0) {
+            pimFeatures['Liczba sztuk (Front)'] = String(result.liczba_sztuk).trim();
+        }
+        if (result.kraj_produkcji_etykieta && String(result.kraj_produkcji_etykieta).trim().length > 0) {
+            pimFeatures['Kraj pochodzenia (Front)'] = String(result.kraj_produkcji_etykieta).trim();
+        }
 
         onLog(`[VISION EXTRACTOR] Pomyślnie odczytano ${Object.keys(pimFeatures).length} cech z etykiety frontowej: ${Object.keys(pimFeatures).join(', ')}.`);
 
@@ -380,10 +396,14 @@ ZASADY ANALIZY (DOKTRYNA ZAMKNIĘTEGO ŚWIATA – ZERO ZGADYWANIA):
      * Zastosuj zgodność z BPR: słowa typu "igienizzante/antibatterico" tłumacz jako "higienicznie czyszczący".
    - Jeśli brak widocznej instrukcji użycia na zdjęciu, ustaw "usage_instructions": null.
 
-5. EKSTRAKCJA POWIERZCHNI DOCELOWYCH, CERTYFIKATÓW / TESTÓW ORAZ PRODUCENTA ("target_surfaces", "certifications_and_claims", "manufacturer_name"):
+5. EKSTRAKCJA POWIERZCHNI DOCELOWYCH, CERTYFIKATÓW / TESTÓW, PRODUCENTA I KRAJU ("target_surfaces", "certifications_and_claims", "manufacturer_name", "country_of_origin", "packaging_type", "pieces_count", "numeric_ph"):
    - W "target_surfaces" wypisz po polsku wszystkie powierzchnie i zastosowania wymienione w opisie na tylnej etykiecie (np. "do czyszczenia szyb, kryształów, luster oraz powierzchni plastikowych i laminowanych").
    - W "certifications_and_claims" wypisz po polsku wszystkie certyfikaty, badania i atuty środowiskowe z tylnej etykiety (np. "certyfikat Air Label Score A+ (minimalna emisja substancji do powietrza), testowany dermatologicznie, testowany na obecność niklu, rtęci, ołowiu i chromu, odpowiedni do planów H.A.C.C.P., butelka zawiera 30% plastiku z recyklingu").
-   - W "manufacturer_name" podaj pełną nazwę producenta z kontretykiety (np. "Italchimica S.r.l.").`;
+   - W "manufacturer_name" podaj pełną nazwę producenta z kontretykiety (np. "Italchimica S.r.l.").
+   - W "country_of_origin" podaj kraj produkcji po polsku wyłącznie jeśli wyraźnie widoczny na etykiecie (np. "Made in Italy" -> "Włochy"). W przeciwnym razie null.
+   - W "packaging_type" podaj rodzaj opakowania jeśli wyraźnie widoczny na etykiecie (np. "plastikowa butelka z atomizerem", "worek uzupełniający", "kartonik"). W przeciwnym razie null.
+   - W "pieces_count" podaj liczbę sztuk/porcji jeśli podano (np. "40 szt.", "25 tabletek"). W przeciwnym razie null.
+   - W "numeric_ph" podaj wyłącznie wydrukowaną na etykiecie liczbę pH (np. "5.5", "3.0"), NIE zgaduj! W przeciwnym razie null.`;
 
 const backPackInciSchema = {
     type: "object",
@@ -396,7 +416,11 @@ const backPackInciSchema = {
         usage_instructions: { type: ["string", "null"] },
         target_surfaces: { type: ["string", "null"] },
         certifications_and_claims: { type: ["string", "null"] },
-        manufacturer_name: { type: ["string", "null"] }
+        manufacturer_name: { type: ["string", "null"] },
+        country_of_origin: { type: ["string", "null"] },
+        packaging_type: { type: ["string", "null"] },
+        pieces_count: { type: ["string", "null"] },
+        numeric_ph: { type: ["string", "null"] }
     },
     required: ["has_ingredients_label", "inci"]
 };
@@ -445,7 +469,8 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
             const base64Data = bufferRes.buffer.toString('base64');
             const { result, usage } = await aiWrapper.callAgentWithTelemetry({
                 agentId: "0",
-                prompt: BACK_PACK_INCI_PROMPT,
+                systemInstruction: BACK_PACK_INCI_PROMPT,
+                prompt: `Przeanalizuj tylną etykietę produktu (EAN: ${ean || 'N/A'}) zgodnie z instrukcjami systemowymi.`,
                 schema: backPackInciSchema,
                 image: {
                     mimeType: bufferRes.mimeType,
@@ -497,6 +522,18 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
 
                 if (result.manufacturer_name && typeof result.manufacturer_name === 'string' && result.manufacturer_name.trim().length >= 3) {
                     pimFeatures['Producent'] = result.manufacturer_name.trim();
+                }
+                if (result.country_of_origin && typeof result.country_of_origin === 'string' && result.country_of_origin.trim().length >= 3) {
+                    pimFeatures['Kraj pochodzenia (Etykieta)'] = result.country_of_origin.trim();
+                }
+                if (result.packaging_type && typeof result.packaging_type === 'string' && result.packaging_type.trim().length >= 3) {
+                    pimFeatures['Opakowanie (Etykieta)'] = result.packaging_type.trim();
+                }
+                if (result.pieces_count && typeof result.pieces_count === 'string' && result.pieces_count.trim().length > 0) {
+                    pimFeatures['Liczba sztuk (Etykieta)'] = result.pieces_count.trim();
+                }
+                if (result.numeric_ph && typeof result.numeric_ph === 'string' && /^\d+(?:[.,]\d+)?$/.test(result.numeric_ph.trim())) {
+                    pimFeatures['pH (Etykieta)'] = result.numeric_ph.trim().replace(',', '.');
                 }
 
                 if (validInci) {

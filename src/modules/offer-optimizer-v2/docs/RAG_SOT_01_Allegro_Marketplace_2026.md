@@ -1,10 +1,10 @@
 # 📘 RAG SOT 01: ARCHITEKTURA I REGULAMIN ALLEGRO 2026 (MARKETPLACE RULES)
 
 **Klasyfikacja:** Single Source of Truth (SOT) – Moduł 1
-**Przeznaczenie:** Indeksowanie wektorowe dla `gemini-embedding-2` / Agenci: Agent 3 (SEO Title), Agent 6 (Copywriter), Agent 9 (Vision Auditor), Agent 10 (Sentinel)
-**Stan prawny:** Regulamin Allegro + dokumentacja Allegro REST API (stan na lipiec 2026 r.) + wytyczne UX Mobile First
+**Przeznaczenie:** Indeksowanie wektorowe dla `gemini-embedding-2` / Agenci: Agent 3 (SEO Title), Agent 6 (Copywriter), Agent 9 (Vision Auditor), Agent 10 (Sentinel), Agent 11 (Inspektor Domenowy)
+**Stan prawny:** Regulamin Allegro (w tym Załącznik nr 2) + dokumentacja Allegro REST API (stan na listopad 2026 r.) + wytyczne nowego zwijanego widoku oferty (Above-the-Fold) & Mobile First
 
-> **Nota o źródłach (higiena RAG):** Ten plik jest **jedynym źródłem prawdy** dla reguł technicznych Allegro (dozwolone tagi HTML, tytuł, miniatura) oraz **wzorca 6 sekcji**. Reguły prawne dot. treści (claims, medyczne, biocydy) → SOT 02/03. Numeracja agentów zgodna z plikiem Master Prompts (węzły 0–10).
+> **Nota o źródłach (higiena RAG):** Ten plik jest **jedynym źródłem prawdy** dla reguł technicznych Allegro (dozwolone tagi HTML, tytuł, miniatura, API, zwijany opis) oraz **wzorca 6 sekcji**. Reguły szczegółowe compliance/API 2026 zawiera także `ALLEGRO_2026_COMPLIANCE_AND_UX_SSOT.md`. Reguły prawne dot. treści (claims, medyczne, biocydy) → SOT 02/03. Numeracja agentów zgodna z plikiem Master Prompts (węzły 0–11).
 
 ---
 
@@ -23,10 +23,13 @@
 ## 2. TWARDE WYMOGI I STANDARDY INTEGRACJI (MANDATORY REQUIREMENTS)
 
 *   **Katalog Produktów Allegro (KPA):** Obowiązkowe powiązanie oferty z Produktem na podstawie prawidłowego, zarejestrowanego w GS1 kodu **GTIN/EAN**. Parametry w opisie autorskim nie mogą być sprzeczne ze specyfikacją KPA!
-*   **Zgodność z rzeczywistością:** Tytuł, opis, parametry i zdjęcia muszą dotyczyć wyłącznie oferowanego przedmiotu i nie mogą wprowadzać w błąd.
+*   **Zgodność z rzeczywistością i Załącznik nr 2 (wyłącznie o przedmiocie):** Tytuł, opis, parametry i zdjęcia muszą dotyczyć wyłącznie oferowanego przedmiotu i nie mogą wprowadzać w błąd. **Kategoryczny zakaz umieszczania w opisie oferty informacji o warunkach wysyłki („natychmiastowa wysyłka”, „wysyłka 24h”), płatnościach czy sekcji „O sprzedającym”** — służą do tego osobne zakładki systemowe Allegro.
+*   **Spójność Opis ↔ Katalog Parametrów Allegro:** Wartości opisane w tekście (postać fizyczna, pojemność/waga, zapach, przeznaczenie, liczba sztuk) muszą być w 100% zgodne z parametrami oferty w KPA.
 *   **Stan przedmiotu:** Obowiązek stosowania oficjalnego słownika stanów (np. `Nowy`, `Nowy z defektem`, `Używany`, `Odnowiony przez producenta`, `Powystawowy`).
 *   **Cena:** Wyłącznie w kwocie brutto (z VAT), w walucie docelowego Marketplace (`pl`, `cz`, `sk`, `hu`).
-*   **Reżim GPSR (Rozporządzenie UE 2023/988):** Obowiązkowe uzupełnienie w parametrach/API danych Producenta, Osoby Odpowiedzialnej w UE (dla importu) oraz załączenie instrukcji i ostrzeżeń bezpieczeństwa po polsku (lub w języku rynku docelowego).
+*   **Reżim GPSR (Rozporządzenie UE 2023/988) oraz Rewizja CLP (UE) 2024/2865 (art. 48a – sprzedaż na odległość):** Obowiązkowe uzupełnienie w parametrach/API danych Producenta (`responsibleProducer`), Osoby Odpowiedzialnej w UE (`responsiblePerson`), czystych ostrzeżeń tekstowych `safetyInformation` (zakaz HTML, emoji oraz ogólników „brak informacji”), a dla chemii CLP – czytelnej prezentacji hasła ostrzegawczego, zwrotów H/P/EUH oraz zdjęcia tylnej etykiety z piktogramami GHS i kodem UFI.
+*   **Pole składu `productSet[].composition` w API Allegro:** Wpisywane wyłącznie dla **kosmetyków (INCI)** walidowanych przez `POST /ingredients/parse` (po redukcji synonimów w nawiasach kwadratowych FDA/CTFA); detergenty WE 648/2004 i kategorie nieobsługujące `composition` nie mogą blokować aktualizacji parametrów i GPSR.
+*   **Oznaczanie AI (`aiCoCreatedContent`):** Zdjęcia lub materiały współtworzone przez AI należy oznaczać zgodnie z wymogami API Allegro i AI Act (UE) 2024/1689 art. 50.
 
 ---
 
@@ -44,16 +47,16 @@ Opis oferty na Allegro to **podzbiór HTML**. Dozwolone są **wyłącznie** tagi
 
 ---
 
-## 4. ARCHITEKTURA OPISU: 6 SEKCJI AEO Z OBOWIĄZKOWYMI EMOTIKONAMI
+## 4. ARCHITEKTURA OPISU: NOWY ZWIJANY WIDOK ALLEGRO (ABOVE-THE-FOLD) I 6 SEKCJI AEO
 
-Opis na Allegro musi być projektowany **linearnie pod Mobile First** (na smartfonie wiersze układają się jeden pod drugim od lewej do prawej). Obowiązuje zakaz szachownicy (zderzania zdjęć).
+W nowym interfejsie oferty Allegro opis produktu jest domyślnie **zwinięty przyciskiem „Rozwiń opis”** — przed rozwinięciem kupujący widzi wyłącznie górną część **Sekcji 1**. Ponadto opis na Allegro musi być projektowany **linearnie pod Mobile First** (na smartfonie wiersze układają się jeden pod drugim od lewej do prawej; limit payloadu: **40 000 bajtów**). Obowiązuje zakaz szachownicy (zderzania zdjęć).
 
 **Wymóg absolutny dla zautomatyzowanych Agentów:** Opis składa się z **dokładnie 6 sekcji modularnych**. Każdy **nagłówek** (`<h1>`/`<h2>`) oraz każdy **punkt listy** (`<li>`) jest poprzedzony **emotikonem** jako kotwicą wizualną. Emoji stoi PRZED tekstem nagłówka, poza wszelkimi tagami pogrubienia.
 
 **Zasada nagłówka:** Sekcja 1 może użyć `<h1>` (jeden raz, jako główny nagłówek opisu) LUB `<h2>` – oba czysto tekstowe, bez `<b>` w środku. Pozostałe sekcje: `<h2>`. Pogrubienia `<b>` wchodzą dopiero w `<p>`/`<li>` pod nagłówkiem.
 
 ### Wzorzec Struktury 6 Sekcji (Blueprint):
-1.  **Sekcja 1: `<h1>` [Emoji] [Tytuł oferty + USP + Pojemność/Waga]** — *Wiersz: Tylko tekst.* Pod nagłówkiem `<p>` z 2–3 zdaniami konkretu o formule i obietnicy wartości (z pogrubieniami kluczowych fraz). Bez lania wody.
+1.  **Sekcja 1 (KRYTYCZNA — ABOVE-THE-FOLD przed „Rozwiń opis”):** `<h2>` ⭐ [Nazwa produktu + kluczowa korzyść + pojemność/waga] (maks. 75 znaków) + zwięzły akapit `<p>` (**maks. 220 znaków**: typ wyrobu, pojemność/wydajność, główny efekt i przeznaczenie z 2–3 pogrubieniami `<b>`) + **3–4 krótkie punkty** `<ul><li>✔️ <b>[Hasło korzyści]:</b> [konkret ≤ 110 zn. z pogrubieniem <b>]</li></ul>`. Całość kluczowych argumentów zakupowych musi zmieścić się nad linią zgięcia! Bez lania wody i pustych klisz marketingowych.
 2.  **Sekcja 2: `<h2>` ❓ Najczęstsze pytania i odpowiedzi** — *Wiersz: Tekst po lewej (50%) + Zdjęcie po prawej (50%).* Lista `<ul>` z parami: `<li>❓ <b>Pytanie:</b> [naturalne zapytanie klienta wpisywane w Google lub zadawane asystentowi AI, zakończone '?' - SEO/GEO]</li>` oraz `<li>✔️ <b>Odpowiedź:</b> [bezpośrednia odpowiedź wskazująca produkt + merytoryczne rozwiązanie technologiczne]</li>`.
 3.  **Sekcja 3: `<h2>` ⚙️ Technical Benefits** — *Wiersz: Zdjęcie po lewej (50%) + Tekst po prawej (50%).* Lista `<ul>` z mechanizmami (np. System 2w1) i rolą składników INCI/aktywnych (nazwy pogrubione).
 4.  **Sekcja 4: `<h2>` 📝 Sposób użycia i rutyna** — *Wiersz: Tylko tekst lub Tekst + Zdjęcie.* Lista numerowana `<ol>`: dozowanie, obszar aplikacji, wmasowywanie, porady.

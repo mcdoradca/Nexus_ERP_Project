@@ -43,6 +43,5 @@ safety_signals_detected[], scraped_sources[] (max 6 domen).
 
 --- DANE SKU (blok dynamiczny) ---
 
-
 --- DANE SKU ---
 {{SKU_DATA}}

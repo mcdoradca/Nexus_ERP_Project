@@ -1079,13 +1079,13 @@ const triggerUltimatePipeline = async (req, res) => {
                          if (legacySkladVal && !baselinkerExtract.isValidInciValue(legacySkladVal) && !updatedFeatures['Postać']) {
                              updatedFeatures['Postać'] = legacySkladVal;
                          }
-                         if (orch.state.extracted_data.country_of_origin?.value) {
+                         if (orch.state.extracted_data.country_of_origin?.value && (!updatedFeatures['Kraj pochodzenia'] || String(updatedFeatures['Kraj pochodzenia']).trim() === '')) {
                              updatedFeatures['Kraj pochodzenia'] = orch.state.extracted_data.country_of_origin.value;
                          }
-                         if (orch.state.extracted_data.brand?.value) {
+                         if (orch.state.extracted_data.brand?.value && (!updatedFeatures['Marka'] || String(updatedFeatures['Marka']).trim() === '')) {
                              updatedFeatures['Marka'] = orch.state.extracted_data.brand.value;
                          }
-                         if (orch.state.extracted_data.capacity?.value) {
+                         if (orch.state.extracted_data.capacity?.value && (!updatedFeatures['Pojemność'] || String(updatedFeatures['Pojemność']).trim() === '')) {
                              updatedFeatures['Pojemność'] = orch.state.extracted_data.capacity.value;
                          }
                          if (orch.state.extracted_data.warnings?.value && (!updatedFeatures['Ostrzeżenia'] || String(updatedFeatures['Ostrzeżenia']).trim() === '')) {
@@ -1098,6 +1098,14 @@ const triggerUltimatePipeline = async (req, res) => {
                              const eu = orch.state.extracted_data.eu_responsible_person.data;
                              const euText = typeof eu === 'object' ? `${eu.name || ''} ${eu.address_eu || ''} ${eu.contact || ''}`.trim() : eu;
                              if (euText) updatedFeatures['INFORMACJE O BEZPIECZEŃSTWIE'] = euText;
+                         }
+                     }
+
+                     if (orch.state.auto_mapped_allegro_params && typeof orch.state.auto_mapped_allegro_params === 'object') {
+                         for (const [ak, av] of Object.entries(orch.state.auto_mapped_allegro_params)) {
+                             if (av !== undefined && av !== null && String(av).trim() !== '' && (!updatedFeatures[ak] || String(updatedFeatures[ak]).trim() === '')) {
+                                 updatedFeatures[ak] = av;
+                             }
                          }
                      }
 
@@ -1342,6 +1350,7 @@ const extractBackLabel = async (req, res) => {
 
         let updatedFeatures = {};
         let existingProduct = null;
+        let autoMappedParams = {};
         if (productId) {
             existingProduct = await prisma.product.findUnique({ where: { id: productId } }).catch(() => null);
         }
@@ -1370,14 +1379,40 @@ const extractBackLabel = async (req, res) => {
                 updatedFeatures['Sposób użycia'] = extractionResult.usageInstructions;
             }
             if (extractionResult.pimFeatures) {
-                if (extractionResult.pimFeatures['Przeznaczenie (Etykieta)']) {
-                    updatedFeatures['Przeznaczenie (Etykieta)'] = extractionResult.pimFeatures['Przeznaczenie (Etykieta)'];
+                const copyBackKeys = [
+                    'Przeznaczenie (Etykieta)',
+                    'Wyróżniki / Certyfikaty (Etykieta)',
+                    'Producent',
+                    'Kraj pochodzenia (Etykieta)',
+                    'Opakowanie (Etykieta)',
+                    'Liczba sztuk (Etykieta)',
+                    'pH (Etykieta)'
+                ];
+                for (const k of copyBackKeys) {
+                    if (extractionResult.pimFeatures[k]) {
+                        updatedFeatures[k] = extractionResult.pimFeatures[k];
+                    }
                 }
-                if (extractionResult.pimFeatures['Wyróżniki / Certyfikaty (Etykieta)']) {
-                    updatedFeatures['Wyróżniki / Certyfikaty (Etykieta)'] = extractionResult.pimFeatures['Wyróżniki / Certyfikaty (Etykieta)'];
-                }
-                if (extractionResult.pimFeatures['Producent']) {
-                    updatedFeatures['Producent'] = extractionResult.pimFeatures['Producent'];
+            }
+
+            if (existingProduct.allegroCategoryId) {
+                try {
+                    const cat = await prisma.marketplaceCategory.findUnique({
+                        where: { id: existingProduct.allegroCategoryId }
+                    });
+                    if (cat && Array.isArray(cat.parameters) && cat.parameters.length > 0) {
+                        const { mapPackagingFeaturesToAllegroSchema } = require('../offer-optimizer-v2/services/allegro-param-automapper.service');
+                        const autoRes = mapPackagingFeaturesToAllegroSchema({
+                            allegroSchema: cat.parameters,
+                            currentFeatures: updatedFeatures,
+                            visionBack: extractionResult.pimFeatures || {},
+                            product: existingProduct
+                        });
+                        updatedFeatures = autoRes.updatedFeatures;
+                        autoMappedParams = autoRes.mappedParams || {};
+                    }
+                } catch (mapErr) {
+                    console.warn('[extractBackLabel] Ostrzeżenie auto-mapowania Allegro:', mapErr.message);
                 }
             }
 
@@ -1392,6 +1427,7 @@ const extractBackLabel = async (req, res) => {
             inci: extractionResult.inci || null,
             warnings: extractionResult.warnings || null,
             usageInstructions: extractionResult.usageInstructions || null,
+            autoMappedParams,
             pimFeatures: {
                 ...(extractionResult.pimFeatures || {}),
                 'Zdjęcie tyłu opakowania': backImageUrl.trim()

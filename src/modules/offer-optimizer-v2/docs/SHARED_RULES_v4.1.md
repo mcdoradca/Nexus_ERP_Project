@@ -27,6 +27,7 @@ Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
 ## §C. EMOTIKONY I STRUKTURA 6 SEKCJI — WG SOT 01 §4 (egzekwuje: kod; zna: A4, A6, A7)
 Każdy <h1>/<h2>/<li> zaczyna się emotikonem (przed tekstem, poza tagami <b>).
 Wzorce nagłówków: s1 ⭐(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 ✍️ | s5 ⚖️ | s6 ⚠️.
+W NOWYM ZWIJANYM WIDOKU ALLEGRO (Above-the-Fold): przed rozwinięciem kupujący widzi jedynie górną część Sekcji 1 — otwierający akapit <p> w s1 utrzymuj ≤ 220 zn. (konkret: typ + pojemność/wydajność + główny efekt), po nim 3–4 krótkie punkty <li>✔️ <b>Hasło:</b> konkret</li>.
 Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>❓ <b>Pytanie:</b> …?</li>
 <li>✔️ <b>Odpowiedź:</b> …</li>. Dozwolone punktory ogólne: ⭐ ❓ ⚙️ ✍️ ⚖️ ⚠️ ✅ ✔️ ☑️ ❌ ➡️ ♻️ ⚡. Zakazane (clickbait oraz losowe): 🔥 😱 💥 😍 🚀 ☘ ☂️.
 Dyscyplina Sekcji 3 (Mechanizm działania i właściwości):
@@ -98,5 +99,5 @@ przenoszenia właściwości składnika na cały produkt.
 
 ## MAPA DYSTRYBUCJI PREFIKSÓW (Orkiestrator składa per węzeł):
 A1: §I | A4: §A §B §C §D §E §I §J | A5: §A §D §E §F | A6: §A §B §C §D §E §J | A7: §A §B §C §D §E §H §J |
-A8: §G | A9: §G | A10: §A §D §E §F §J §K (warstwa semantyczna i samonaprawa stop-words)
+A8: §G | A9: §G | A10: §A §D §E §F §J | A11: §A §D §E §J (audyt domenowy i UX Above-the-Fold)
 

@@ -37,7 +37,6 @@ compliance_check_passed, compliance_notes_pl.
 
 --- DANE SKU (dynamiczne) ---
 
-
 --- WSPÓLNE REGUŁY ---
 ## §G. AI ACT — WIZUALIA, Z KALENDARZEM SOT 08 §0 (A8, A9)
 Miniatura #1: RGB(255,255,255), produkt ≥85%, zero cieni/ramek/napisów/piktogramów

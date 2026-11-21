@@ -106,11 +106,12 @@ async function generateContentWithTimeout(params, timeoutMs = 90000, callLabel =
  * @param {Object} [params.schema] - Opcjonalny schemat JSON dla responseSchema
  * @returns {Object} Zwraca sparsowany obiekt JSON.
  */
-async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, onLog = () => {} }) {
+async function callAgentWithTelemetry({ agentId, prompt, systemInstruction = null, schema, image = null, onLog = () => {} }) {
     if (!agentId) {
         throw new Error("BŁĄD BLOKUJĄCY (S-7): Wywołanie LLM bez jawnego agentId.");
     }
     
+    const { systemInstruction: resolvedSystemInstruction, userContent } = splitPromptForCaching(prompt, systemInstruction);
     const { model, thinkingLevel, grounding, maxOutputTokens } = getNodeConfig(agentId);
     if (!process.env.GEMINI_API_KEY) {
         throw new Error("HITL: Brak klucza API (GEMINI_API_KEY) w środowisku.");
@@ -118,6 +119,9 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
 
     // --- BASE CONFIG (wspólna baza dla wszystkich ścieżek) ---
     const baseConfig = {};
+    if (resolvedSystemInstruction) {
+        baseConfig.systemInstruction = resolvedSystemInstruction;
+    }
     if (thinkingLevel) {
         baseConfig.thinkingConfig = {
             thinkingLevel: thinkingLevel
@@ -137,6 +141,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
     try {
         let response;
         let mergedUsage = null;
+        let activeConfig = { ...baseConfig };
 
         if (needsTwoStep) {
             // ==================================================================================
@@ -195,7 +200,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
                 return resp;
             };
 
-            groundedResponse = await executeStep1(prompt);
+            groundedResponse = await executeStep1(userContent);
             groundedCandidate = groundedResponse.candidates && groundedResponse.candidates[0];
             groundingUsage = groundedResponse.usageMetadata || {};
 
@@ -209,7 +214,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
             // Jeśli pierwsze podejście dało pusty wynik (np. twardy filtr RECITATION wyczyścił parts), wykonujemy 1 defensywny retry z dyrektywą parafrazowania
             if (!groundedText || groundedText.trim().length < 10) {
                 console.warn(`[DEFENSIVE AI] Krok 1 dla agenta ${agentId} zwrócił pusty tekst (${groundedText.length} znaków, finishReason: ${groundedCandidate?.finishReason || 'N/A'}). Podejmuję 1 defensywną próbę re-groundingu z dyrektywą parafrazowania...`);
-                const retryPrompt = `${prompt}\n\n[DODATKOWA DYREKTYWA ANTY-RECITATION]: Wyszukaj fakty w Google, ale podsumuj i sformułuj je własnymi słowami. Nie kopiuj dosłownych bloków tekstu ze stron drogerii 1:1, zmień szyk zdań, aby uniknąć blokady licencyjnej cytowań (RECITATION).`;
+                const retryPrompt = `${userContent}\n\n[DODATKOWA DYREKTYWA ANTY-RECITATION]: Wyszukaj fakty w Google, ale podsumuj i sformułuj je własnymi słowami. Nie kopiuj dosłownych bloków tekstu ze stron drogerii 1:1, zmień szyk zdań, aby uniknąć blokady licencyjnej cytowań (RECITATION).`;
                 try {
                     const retryResponse = await executeStep1(retryPrompt);
                     const retryCandidate = retryResponse.candidates && retryResponse.candidates[0];
@@ -242,6 +247,8 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
             delete structureConfig.thinkingConfig;
             // Usuwamy maxOutputTokens z Kroku 2 — pozwalamy mu swobodnie generować JSON
             delete structureConfig.maxOutputTokens;
+            delete structureConfig.systemInstruction;
+            activeConfig = structureConfig;
 
             const structurePrompt = `Jesteś precyzyjnym parserem danych. Na podstawie poniższego raportu badawczego, wyekstrahuj WYŁĄCZNIE dane, które FAKTYCZNIE znajdują się w tekście raportu. NIE wymyślaj, NIE dodawaj, NIE halucynuj żadnych danych. Jeśli konkretna informacja nie istnieje w raporcie, pozostaw odpowiednie pole puste (pusty string "") lub null.\n\n--- RAPORT BADAWCZY (JEDYNE ŹRÓDŁO PRAWDY) ---\n${groundedText}\n--- KONIEC RAPORTU ---\n\nZwróć ustrukturyzowany JSON zgodny ze schematem.`;
 
@@ -257,6 +264,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
                 promptTokenCount: (groundingUsage.promptTokenCount || 0) + (structureUsage.promptTokenCount || 0),
                 candidatesTokenCount: (groundingUsage.candidatesTokenCount || 0) + (structureUsage.candidatesTokenCount || 0),
                 thoughtsTokenCount: (groundingUsage.thoughtsTokenCount || 0) + (structureUsage.thoughtsTokenCount || 0),
+                cachedContentTokenCount: (groundingUsage.cachedContentTokenCount || 0) + (structureUsage.cachedContentTokenCount || 0),
                 totalTokenCount: (groundingUsage.totalTokenCount || 0) + (structureUsage.totalTokenCount || 0)
             };
 
@@ -275,10 +283,11 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
                 config.responseSchema = schema;
             }
 
-            let contentsPayload = prompt;
+            activeConfig = config;
+            let contentsPayload = userContent;
             if (image && image.base64) {
                 contentsPayload = [
-                    { text: prompt },
+                    { text: typeof userContent === 'string' ? userContent : prompt },
                     {
                         inlineData: {
                             mimeType: image.mimeType || 'image/jpeg',
@@ -301,7 +310,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
                 response = await generateContentWithTimeout({
                     model: model,
                     contents: contentsPayload,
-                    config: config
+                    config: activeConfig
                 }, standardTimeoutMs, `Agent_${agentId}_Standard`);
             } catch (apiError) {
                 // DEEP ERROR AUDIT
@@ -339,7 +348,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
                     
                     response = await ai.models.generateContent({
                         model: model,
-                        contents: prompt,
+                        contents: contentsPayload,
                         config: fallbackConfig
                     });
                 } else {
@@ -358,6 +367,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
             promptTokenCount: metadata.promptTokenCount || 0,
             candidatesTokenCount: metadata.candidatesTokenCount || 0,
             thoughtsTokenCount: metadata.thoughtsTokenCount || 0,
+            cachedContentTokenCount: metadata.cachedContentTokenCount || 0,
             totalTokenCount: metadata.totalTokenCount || 0
         };
 
@@ -386,13 +396,13 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
             console.warn(`[DEFENSIVE AI] Agent ${agentId} zablokowany przez filtr RECITATION (brak treści wyjściowej). Podejmuję 1 defensywną próbę z dyrektywą parafrazowania anty-recitation...`);
             onLog(`[AI WRAPPER - DEFENSIVE AI] Wykryto RECITATION dla agenta ${agentId}. Uruchamiam automatyczny retry z dyrektywą parafrazowania.`);
             
-            const retryPrompt = `${prompt}\n\n[DODATKOWA DYREKTYWA ANTY-RECITATION]: Poprzednia odpowiedź została zablokowana przez filtr praw autorskich/cytowań (RECITATION). Sformułuj całą treść zwięźle własnymi słowami w języku polskim. Bezwzględnie zachowaj kody P/H, parametry techniczne i strukturę JSON, ale nie kopiuj wielozdaniowych formułek prawnych ani całych zdań z internetu 1:1. Zmień szyk i konstrukcję zdań.`;
+            const retryPrompt = `${typeof userContent === 'string' ? userContent : prompt}\n\n[DODATKOWA DYREKTYWA ANTY-RECITATION]: Poprzednia odpowiedź została zablokowana przez filtr praw autorskich/cytowań (RECITATION). Sformułuj całą treść zwięźle własnymi słowami w języku polskim. Bezwzględnie zachowaj kody P/H, parametry techniczne i strukturę JSON, ale nie kopiuj wielozdaniowych formułek prawnych ani całych zdań z internetu 1:1. Zmień szyk i konstrukcję zdań.`;
             
             try {
                 const retryResponse = await generateContentWithTimeout({
                     model: model,
                     contents: retryPrompt,
-                    config: config
+                    config: activeConfig
                 }, 60000, `Agent_${agentId}_AntyRecitation_Retry`);
 
                 const retryCandidate = retryResponse.candidates && retryResponse.candidates[0];
@@ -412,6 +422,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
                         promptTokenCount: (prevMeta.promptTokenCount || 0) + (retryMeta.promptTokenCount || 0),
                         candidatesTokenCount: (prevMeta.candidatesTokenCount || 0) + (retryMeta.candidatesTokenCount || 0),
                         thoughtsTokenCount: (prevMeta.thoughtsTokenCount || 0) + (retryMeta.thoughtsTokenCount || 0),
+                        cachedContentTokenCount: (prevMeta.cachedContentTokenCount || 0) + (retryMeta.cachedContentTokenCount || 0),
                         totalTokenCount: (prevMeta.totalTokenCount || 0) + (retryMeta.totalTokenCount || 0)
                     };
 
@@ -479,7 +490,7 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
             parsedResult = responseText;
         }
 
-        const endMsg = `[V2 Wrapper] Agent ${agentId} zakończony w ${duration}ms. Tokeny: prompt=${usage.promptTokenCount}, output=${usage.candidatesTokenCount}, thinking=${usage.thoughtsTokenCount}, total=${usage.totalTokenCount}`;
+        const endMsg = `[V2 Wrapper] Agent ${agentId} zakończony w ${duration}ms. Tokeny: prompt=${usage.promptTokenCount}, output=${usage.candidatesTokenCount}, thinking=${usage.thoughtsTokenCount}, cached=${usage.cachedContentTokenCount}, total=${usage.totalTokenCount}`;
         console.log(endMsg);
         onLog(`[AI WRAPPER] ${endMsg}`);
 
@@ -498,10 +509,29 @@ async function callAgentWithTelemetry({ agentId, prompt, schema, image = null, o
     }
 }
 
+function splitPromptForCaching(prompt, explicitSystemInstruction = null) {
+    if (explicitSystemInstruction && typeof explicitSystemInstruction === 'string' && explicitSystemInstruction.trim()) {
+        return { systemInstruction: explicitSystemInstruction.trim(), userContent: prompt };
+    }
+    if (typeof prompt !== 'string') {
+        return { systemInstruction: null, userContent: prompt };
+    }
+    const splitMatch = prompt.match(/\n(?=(?:###?\s*(?:DANE WEJŚCIOWE|DANE WEJSCIOWE|DANE PRODUKTU|DANE DO (?:OCENY|AUDYTU|ANALIZY)|INPUT DATA|KONTEKST PRODUKTU)|---\s*(?:DANE SKU|DANE WEJŚCIOWE|DANE PRODUKTU|INPUT)))/i);
+    if (splitMatch && typeof splitMatch.index === 'number' && splitMatch.index >= 1024) {
+        const prefix = prompt.slice(0, splitMatch.index).trim();
+        const suffix = prompt.slice(splitMatch.index).trim();
+        if (prefix.length >= 1024 && suffix.length > 0) {
+            return { systemInstruction: prefix, userContent: suffix };
+        }
+    }
+    return { systemInstruction: null, userContent: prompt };
+}
+
 module.exports = {
     callAgentWithTelemetry,
     extractGroundedTextFromResponse,
     generateContentWithTimeout,
+    splitPromptForCaching,
     ai,
     Type,
     ThinkingLevel

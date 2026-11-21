@@ -1012,6 +1012,97 @@ JeĹ›li w wiarygodnych ĹşrĂłdĹ‚ach producenta/dystrybutora nie byĹ‚o
 }
 */
 
+/**
+ * Hybrydowy Auto-Fill parametrów kategorii Allegro:
+ * 1) Deterministycznie mapuje twarde dane produktu/Vision na schemat kategorii (0 tokenów LLM).
+ * 2) Jeśli po mapowaniu brakuje jeszcze pól wymaganych (required: true) i dostępny jest GEMINI_API_KEY,
+ *    wywołuje lekki fallback Flash AI ograniczony wyłącznie do faktów produktu i dozwolonych słowników.
+ */
+async function autofillMissingParameters(ean, productName, currentFeatures = {}, requiredSchema = [], extraContext = {}) {
+    const baseFeatures = (currentFeatures && typeof currentFeatures === 'object' && !Array.isArray(currentFeatures))
+        ? { ...currentFeatures }
+        : {};
+    const schema = Array.isArray(requiredSchema) ? requiredSchema : [];
+    const product = extraContext?.product || { ean, name: productName };
+
+    if (schema.length === 0) {
+        return baseFeatures;
+    }
+
+    const {
+        mapPackagingFeaturesToAllegroSchema,
+        matchDictionaryOption
+    } = require('../offer-optimizer-v2/services/allegro-param-automapper.service');
+
+    const detRes = mapPackagingFeaturesToAllegroSchema({
+        allegroSchema: schema,
+        currentFeatures: baseFeatures,
+        product
+    });
+
+    const resultFeatures = { ...detRes.updatedFeatures };
+    const missingRequiredParams = schema.filter(p => {
+        if (!p || !p.required) return false;
+        const val = resultFeatures[p.name];
+        return val === undefined || val === null || String(val).trim() === '';
+    });
+
+    if (missingRequiredParams.length === 0 || !process.env.GEMINI_API_KEY) {
+        return resultFeatures;
+    }
+
+    try {
+        const aiWrapper = require('../offer-optimizer-v2/ai.wrapper');
+        const schemaSummary = missingRequiredParams.map(p => ({
+            name: p.name,
+            type: p.type,
+            unit: p.unit || null,
+            multipleChoices: Boolean(p.restrictions?.multipleChoices),
+            dictionary: Array.isArray(p.dictionary) ? p.dictionary.slice(0, 60).map(d => d.value) : null
+        }));
+
+        const prompt = `Dopasuj brakujące wymagane parametry Allegro wyłącznie na podstawie znanych faktów produktu. Nie zgaduj danych spoza faktów (w razie braku zwróć null).\n` +
+            `Produkt: ${productName || ''}\nEAN: ${ean || ''}\nZnane cechy PIM/Vision: ${JSON.stringify(resultFeatures)}\n` +
+            `Brakujące parametry i słowniki: ${JSON.stringify(schemaSummary)}\n` +
+            `Zwróć JSON: { "features": { "NazwaParametru": "Wartość_ze_słownika_lub_tekst" } }.`;
+
+        const { result } = await aiWrapper.callAgentWithTelemetry({
+            agentId: '11',
+            systemInstruction: 'Jesteś inżynierem PIM Allegro. Dla parametrów słownikowych zwracaj wyłącznie dokładne wartości z podanej listy dictionary. Zero halucynacji.',
+            prompt,
+            schema: {
+                type: 'object',
+                properties: {
+                    features: { type: 'object' }
+                },
+                required: ['features']
+            }
+        });
+
+        const aiFeats = result?.features && typeof result.features === 'object' ? result.features : {};
+        for (const param of missingRequiredParams) {
+            const candidate = aiFeats[param.name];
+            if (candidate === undefined || candidate === null || String(candidate).trim() === '') continue;
+            if (resultFeatures[param.name] && String(resultFeatures[param.name]).trim() !== '') continue;
+
+            if (param.type === 'dictionary' && Array.isArray(param.dictionary) && param.dictionary.length > 0) {
+                const matched = matchDictionaryOption(String(candidate), param.dictionary, {
+                    multipleChoices: Boolean(param.restrictions?.multipleChoices)
+                });
+                if (matched) {
+                    resultFeatures[param.name] = Array.isArray(matched) ? matched.join(', ') : matched;
+                }
+            } else {
+                resultFeatures[param.name] = String(candidate).trim();
+            }
+        }
+    } catch (err) {
+        console.warn(`[AiService] Fallback AI Auto-Fill pominięty dla ${ean}: ${err.message}`);
+    }
+
+    return resultFeatures;
+}
+
 
 
 async function generateAEOContent(productName, originalDescription, intelligenceData) {
@@ -1435,6 +1526,7 @@ module.exports = {
     generateLifestyle,
     generateComplianceReport,
     generateWithRetry,
+    autofillMissingParameters,
     runNode1_Autofill,
     runNode2_Sentiment,
     runNode4_INCIParser,

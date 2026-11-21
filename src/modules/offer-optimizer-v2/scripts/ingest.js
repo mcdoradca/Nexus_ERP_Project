@@ -6,7 +6,8 @@ const ragService = require('../knowledge.rag.service');
 const docsDir = path.join(__dirname, '..', 'docs');
 
 const sotMap = {
-    'RAG_SOT_01_Allegro_Marketplace_2026.md': { module: 'SOT_01', agents: [], chunkType: 'GATE' },
+    'RAG_SOT_01_Allegro_Marketplace_2026.md': { module: 'SOT_01', agents: ['Agent_6_Copywriter', 'Agent_10_Sentinel', 'Agent_11_DomainInspector'], chunkType: 'GATE' },
+    'ALLEGRO_2026_COMPLIANCE_AND_UX_SSOT.md': { module: 'SOT_01_UX_2026', agents: ['Agent_6_Copywriter', 'Agent_10_Sentinel', 'Agent_11_DomainInspector'], chunkType: 'GATE' },
     'RAG_SOT_02_Prawo_Kosmetyczne_i_Chemiczne_UE.md': { module: 'SOT_02', agents: ['Agent_4_INCIParser', 'Agent_6_Copywriter'], chunkType: 'CONTEXT' },
     'RAG_SOT_03_Oswiadczenia_i_Claims_655_2013.md': { module: 'SOT_03', agents: [], chunkType: 'RULE' },
     'RAG_SOT_04_Bezpieczenstwo_i_Chemia_Formulacji.md': { module: 'SOT_04', agents: ['Agent_4_INCIParser'], chunkType: 'DICTIONARY_ENTRY' },
@@ -19,13 +20,22 @@ const sotMap = {
     'INCI_i_ich_dzialanie.md': { module: 'INCI_DICT', agents: ['Agent_4_INCIParser'], chunkType: 'DICTIONARY_ENTRY' }
 };
 
+function parseOnlyFilter(argv = process.argv.slice(2)) {
+    const onlyArg = argv.find(a => a.startsWith('--only='));
+    if (!onlyArg) return null;
+    const items = onlyArg.slice('--only='.length).split(',').map(s => s.trim()).filter(Boolean);
+    return items.length > 0 ? new Set(items) : null;
+}
+
 async function ingestAll() {
-    console.log("Rozpoczynam INGEST do wektorowej bazy...");
+    const onlyFilter = parseOnlyFilter();
+    const targetEntries = Object.entries(sotMap).filter(([filename]) => !onlyFilter || onlyFilter.has(filename));
+    console.log(`Rozpoczynam INGEST do wektorowej bazy (${targetEntries.length} plików${onlyFilter ? ', tryb selektywny --only' : ''})...`);
     const stats = [];
     let totalSourceChars = 0;
     let totalIngestedChars = 0;
 
-    for (const [filename, config] of Object.entries(sotMap)) {
+    for (const [filename, config] of targetEntries) {
         const filePath = path.join(docsDir, filename);
         if (!fs.existsSync(filePath)) {
             console.error(`BRAK PLIKU: ${filename}`);

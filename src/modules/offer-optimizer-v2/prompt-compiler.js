@@ -38,12 +38,12 @@ const nodeMap = {
     2: [],
     4: ['§A', '§B', '§C', '§I', '§J'],
     5: ['§A', '§D', '§E', '§F'],
-    6: ['§A', '§B', '§C', '§J'],
+    6: ['§A', '§B', '§C', '§D', '§E', '§J'],
     7: ['§A', '§B', '§C', '§H', '§J'],
     8: ['§G'],
     9: ['§G'],
     10: ['§A', '§D', '§E', '§F', '§J'],
-    11: ['§A', '§D', '§E', '§F', '§J']
+    11: ['§A', '§D', '§E', '§J']
 };
 
 const agentsToCompile = [1, 2, 4, 5, 6, 7, 8, 9, 10, 11];
@@ -67,7 +67,9 @@ for (const agentId of agentsToCompile) {
         continue;
     }
     
-    let basePrompt = fs.readFileSync(promptPath, 'utf8');
+    let basePrompt = fs.readFileSync(promptPath, 'utf8')
+        .replace(/\r?\n*---\s*DANE SKU[\s\S]*?\{\{SKU_DATA\}\}\s*$/i, '')
+        .trimEnd();
     
     // Extract patch for this agent if available
     let agentPatch = "";

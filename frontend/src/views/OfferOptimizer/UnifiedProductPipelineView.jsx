@@ -134,6 +134,8 @@ const ImageModal = ({ url, onClose }) => {
 
 
 
+const DEFAULT_SEKCJA_7 = '<p>Produkt pochodzi z europejskiej dystrybucji i jest dostarczany w fabrycznym, szczelnie zamkniętym opakowaniu producenta. Przed pierwszym użyciem zapoznaj się z etykietą oraz zaleceniami producenta zamieszczonymi na opakowaniu.</p>';
+
 export const UnifiedProductPipelineView = ({ 
   socket, 
   currentUser,
@@ -165,7 +167,7 @@ export const UnifiedProductPipelineView = ({
 
     const [liveTitle, setLiveTitle] = useState("");
     const [liveEan, setLiveEan] = useState("");
-    const [editorHtml, setEditorHtml] = useState({ sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę." });
+    const [editorHtml, setEditorHtml] = useState({ sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: DEFAULT_SEKCJA_7 });
     const [editorKey, setEditorKey] = useState(0);
     const [visionTickets, setVisionTickets] = useState(() => [
         { originalUrl: '', alerts: ["Wymagany nowy packshot wysokiej jakości"], isCompliant: false, replacedUrl: null },
@@ -276,14 +278,26 @@ export const UnifiedProductPipelineView = ({
                         updatedFeatures['Sposób użycia'] = res.data.usageInstructions;
                     }
                     if (res.data.pimFeatures) {
-                        if (res.data.pimFeatures['Przeznaczenie (Etykieta)']) {
-                            updatedFeatures['Przeznaczenie (Etykieta)'] = res.data.pimFeatures['Przeznaczenie (Etykieta)'];
+                        const pimKeys = [
+                            'Przeznaczenie (Etykieta)',
+                            'Wyróżniki / Certyfikaty (Etykieta)',
+                            'Producent',
+                            'Kraj pochodzenia (Etykieta)',
+                            'Opakowanie (Etykieta)',
+                            'Liczba sztuk (Etykieta)',
+                            'pH (Etykieta)'
+                        ];
+                        for (const pk of pimKeys) {
+                            if (res.data.pimFeatures[pk]) {
+                                updatedFeatures[pk] = res.data.pimFeatures[pk];
+                            }
                         }
-                        if (res.data.pimFeatures['Wyróżniki / Certyfikaty (Etykieta)']) {
-                            updatedFeatures['Wyróżniki / Certyfikaty (Etykieta)'] = res.data.pimFeatures['Wyróżniki / Certyfikaty (Etykieta)'];
-                        }
-                        if (res.data.pimFeatures['Producent']) {
-                            updatedFeatures['Producent'] = res.data.pimFeatures['Producent'];
+                    }
+                    if (res.data.autoMappedParams && typeof res.data.autoMappedParams === 'object') {
+                        for (const [ak, av] of Object.entries(res.data.autoMappedParams)) {
+                            if (av !== undefined && av !== null && String(av).trim() !== '' && (!updatedFeatures[ak] || String(updatedFeatures[ak]).trim() === '')) {
+                                updatedFeatures[ak] = av;
+                            }
                         }
                     }
                     return { ...prev, features: updatedFeatures };
@@ -373,7 +387,6 @@ export const UnifiedProductPipelineView = ({
 
     // Inicjalizacja PIM (Edycja) oraz Odzyskiwanie Wersji Roboczej
     const DRAFT_KEY = `nexus_pipeline_draft_${editingProduct || 'new'}`;
-    const DEFAULT_SEKCJA_7 = "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę.";
 
     const isValidMediaUrl = (url) => {
         if (!url || typeof url !== 'string') return false;
@@ -723,7 +736,7 @@ export const UnifiedProductPipelineView = ({
                 if (data.result) {
                     setEditorHtml(prev => ({
                         ...(data.result.editorHtml || {}),
-                        sekcja7: prev.sekcja7 !== undefined ? prev.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę."
+                        sekcja7: prev.sekcja7 !== undefined ? prev.sekcja7 : DEFAULT_SEKCJA_7
                     }));
                     setLiveTitle(data.result.title || "");
                     setEditorKey(prev => prev + 1);
@@ -760,22 +773,35 @@ export const UnifiedProductPipelineView = ({
                             return merged;
                         });
                     }
-                    setNewProductForm(prev => ({
-                        ...prev,
-                        features: {
-                            ...(prev.features || {}),
-                            ...(data.result.features || {})
-                        },
-                        aeoContent: data.result.aeoContent || prev.aeoContent || '',
-                        offerDraft: {
-                            title: data.result.title || "",
-                            htmlContent: {
-                                ...(data.result.editorHtml || {}),
-                                sekcja7: (prev.offerDraft && prev.offerDraft.htmlContent && prev.offerDraft.htmlContent.sekcja7 !== undefined) ? prev.offerDraft.htmlContent.sekcja7 : "Jesteśmy bezpośrednim importerem znanych, włoskich marek. Oferowany asortyment sprowadzamy prosto z Włoch i posiadamy go fizycznie w naszym polskim magazynie, co umożliwia natychmiastową wysyłkę."
-                            },
-                            images: (data.result.visionTickets && data.result.visionTickets.length > 0) ? data.result.visionTickets : (prev.offerDraft?.images || [])
+                    setNewProductForm(prev => {
+                        const nextFeatures = { ...(prev.features || {}) };
+                        const incomingFeatures = data.result.features && typeof data.result.features === 'object' ? data.result.features : {};
+                        const canonicalOverwriteKeys = new Set(['Skład/INCI', 'Ostrzeżenia', 'Sposób użycia']);
+                        for (const [fk, fv] of Object.entries(incomingFeatures)) {
+                            if (fv === undefined || fv === null || String(fv).trim() === '') continue;
+                            if (fk === 'INCI' || fk === 'Skład') continue;
+                            if (canonicalOverwriteKeys.has(fk) || !nextFeatures[fk] || String(nextFeatures[fk]).trim() === '') {
+                                nextFeatures[fk] = fv;
+                            }
                         }
-                    }));
+                        if (nextFeatures['Skład/INCI']) {
+                            delete nextFeatures['INCI'];
+                            delete nextFeatures['Skład'];
+                        }
+                        return {
+                            ...prev,
+                            features: nextFeatures,
+                            aeoContent: data.result.aeoContent || prev.aeoContent || '',
+                            offerDraft: {
+                                title: data.result.title || "",
+                                htmlContent: {
+                                    ...(data.result.editorHtml || {}),
+                                    sekcja7: (prev.offerDraft && prev.offerDraft.htmlContent && prev.offerDraft.htmlContent.sekcja7 !== undefined) ? prev.offerDraft.htmlContent.sekcja7 : DEFAULT_SEKCJA_7
+                                },
+                                images: (data.result.visionTickets && data.result.visionTickets.length > 0) ? data.result.visionTickets : (prev.offerDraft?.images || [])
+                            }
+                        };
+                    });
                     setEditorKey(prev => prev + 1);
                 }
             } else if (data.type === 'PIPELINE_ERROR') {

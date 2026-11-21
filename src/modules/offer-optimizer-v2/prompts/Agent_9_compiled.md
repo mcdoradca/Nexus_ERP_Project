@@ -51,7 +51,6 @@ KOD — model ich nie wypełnia.)
 
 --- FLAGI + OBRAZY (kanał natywny, dynamiczne) ---
 
-
 --- WSPÓLNE REGUŁY ---
 ## §G. AI ACT — WIZUALIA, Z KALENDARZEM SOT 08 §0 (A8, A9)
 Miniatura #1: RGB(255,255,255), produkt ≥85%, zero cieni/ramek/napisów/piktogramów

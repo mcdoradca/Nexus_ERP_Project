@@ -782,8 +782,8 @@ app.post('/api/products/:id/autofill-params', authenticateToken, async (req, res
             }
         }
         
-        // 3. Odpalenie Agenta AI do dogrzebywania brakujących parametrów z sieci (Tylko jeśli mamy schemat i braki)
-        const updatedFeatures = await aiService.autofillMissingParameters(product.ean, product.name, currentFeatures, requiredSchema);
+        // 3. Odpalenie Auto-Fill (deterministyczne mapowanie z opakowania/PIM + lekki fallback Flash AI dla braków wymaganych)
+        const updatedFeatures = await aiService.autofillMissingParameters(product.ean, product.name, currentFeatures, requiredSchema, { product });
         
         // Zapis w bazie
         const updatedProduct = await prisma.product.update({

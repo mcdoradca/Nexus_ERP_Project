@@ -61,7 +61,6 @@ JSON wg responseSchema: section_1_html, section_2_html, section_4_html (stringi 
 --- DANE WEJŚCIOWE {section_1_html, section_2_html, section_4_html, preserved_minor_flaws, product_category,
 net_capacity, dozowanie, scent_variant, customer_delights, real_life_use_cases} (dynamiczne) ---
 
-
 --- WSPÓLNE REGUŁY ---
 ## §A. STOP-WORDS ALLEGRO + UOKiK (egzekwuje: kod i A10; znają i przestrzegają: A4, A5, A6, A7, A10)
 Bezwzględny zakaz stosowania w opisie, tytułach i nagłówkach słów naruszających Regulamin Allegro 2026 i wytyczne UOKiK:
@@ -85,6 +84,7 @@ Wyłącznie: <h1> <h2> <p> <ul> <ol> <li> <b>.
 ## §C. EMOTIKONY I STRUKTURA 6 SEKCJI — WG SOT 01 §4 (egzekwuje: kod; zna: A4, A6, A7)
 Każdy <h1>/<h2>/<li> zaczyna się emotikonem (przed tekstem, poza tagami <b>).
 Wzorce nagłówków: s1 ⭐(h1 lub h2) | s2 ❓ | s3 ⚙️ | s4 ✍️ | s5 ⚖️ | s6 ⚠️.
+W NOWYM ZWIJANYM WIDOKU ALLEGRO (Above-the-Fold): przed rozwinięciem kupujący widzi jedynie górną część Sekcji 1 — otwierający akapit <p> w s1 utrzymuj ≤ 220 zn. (konkret: typ + pojemność/wydajność + główny efekt), po nim 3–4 krótkie punkty <li>✔️ <b>Hasło:</b> konkret</li>.
 Wzorzec par sekcji 2 (ujednolicono z SOT 01): <li>❓ <b>Pytanie:</b> …?</li>
 <li>✔️ <b>Odpowiedź:</b> …</li>. Dozwolone punktory ogólne: ⭐ ❓ ⚙️ ✍️ ⚖️ ⚠️ ✅ ✔️ ☑️ ❌ ➡️ ♻️ ⚡. Zakazane (clickbait oraz losowe): 🔥 😱 💥 😍 🚀 ☘ ☂️.
 Dyscyplina Sekcji 3 (Mechanizm działania i właściwości):

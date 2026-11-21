@@ -2,7 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const brandResponsibleService = require('../brand.responsible.service');
 const gpsrSafetyService = require('./gpsr.safety.service');
-const { normalizeInciToLegalEnglish } = require('../normalization');
+const { normalizeInciToLegalEnglish, stripRawInciFooterFromSection3 } = require('../normalization');
+const { classifyProductPhysicalForm } = require('./product-form.classifier');
 
 const INCI_MECH_PATH = path.join(__dirname, '..', 'data', 'reference', 'inci_mechanisms_pl.json');
 
@@ -933,7 +934,7 @@ function tryBuildDeterministicSection3({
     // Jeśli nie mamy ani jednej synergii z par ról, dodajemy uniwersalną synergię formuły przy >= 3 składnikach
     if (detectedSynergies.length === 0 && matchedBenefits.length >= 3) {
         if (resolvedIsChemical) {
-            detectedSynergies.push('<li>⚡ <b>Synergia Skutecznego Czyszczenia i Stabilności Formuły:</b> współdziałanie szybko działającej bazy myjącej z układami pomocniczymi <b>przyspiesza usuwanie zabrudzeń bez smug i gwarantuje długotrwałą świeżość roztworu w opakowaniu</b>.</li>');
+            detectedSynergies.push('<li>⚡ <b>Synergia Skutecznego Czyszczenia i Stabilności Formuły:</b> współdziałanie szybko działającej bazy myjącej z układami pomocniczymi <b>przyspiesza usuwanie zabrudzeń bez smug i zapewnia długotrwałą świeżość roztworu w opakowaniu</b>.</li>');
         } else {
             detectedSynergies.push('<li>⚡ <b>Synergia Oczyszczająco-Pielęgnująca:</b> zbilansowane połączenie bazy myjącej lub nośnikowej ze składnikami kondycjonującymi <b>zapewnia skuteczne działanie przy zachowaniu komfortu i miękkości naskórka</b>.</li>');
         }
@@ -970,6 +971,32 @@ function tryBuildDeterministicSection3({
         section3Html,
         section_3_html: section3Html
     };
+}
+
+function buildSection3FromA4Result(a4Result, isChemical = false) {
+    if (!a4Result || !Array.isArray(a4Result.technical_benefits_aeo) || a4Result.technical_benefits_aeo.length === 0) {
+        return '';
+    }
+    const formatBenefitLi = (raw, emojiPrefix = '⚙️') => {
+        const trimmed = String(raw || '').trim();
+        if (!trimmed) return '';
+        if (/^<li[\s>]/i.test(trimmed)) return trimmed;
+        return `<li>${emojiPrefix} ${trimmed}</li>`;
+    };
+    const benefitLis = a4Result.technical_benefits_aeo
+        .map(b => formatBenefitLi(b, '⚙️'))
+        .filter(Boolean);
+    const synergyLis = Array.isArray(a4Result.detected_synergies)
+        ? a4Result.detected_synergies.map(s => formatBenefitLi(s, '⚡')).filter(Boolean)
+        : [];
+    const heading = isChemical
+        ? '<h2>⚙️ Skład chemiczny i mechanizm działania aktywnej formuły</h2>'
+        : '<h2>⚙️ Składniki aktywne i mechanizm działania formuły</h2>';
+    const introP = isChemical
+        ? '<p>Receptura produktu opiera się na <b>celowanym doborze związków powierzchniowo czynnych i składników funkcyjnych</b>, w której każdy element odpowiada za konkretny etap rozbijania i wypłukiwania zabrudzeń:</p>'
+        : '<p>Formuła kosmetyku łączy <b>składniki oczyszczające, nawilżające oraz kondycjonujące</b>, które współpracują ze sobą dla zachowania równowagi hydrolipidowej i wysokiego komfortu aplikacji:</p>';
+    const rawHtml = `${heading}${introP}<ul>${benefitLis.join('')}${synergyLis.join('')}</ul>`;
+    return stripRawInciFooterFromSection3(rawHtml);
 }
 
 /**
@@ -1031,21 +1058,21 @@ function buildDeterministicSection5({
     const isInvalidManufacturer = (m) => !m || /^(?:null|undefined|brak|brak\s+danych|nieznany|nieznany\s+producent|unknown|n\/a|-)$/i.test(String(m).trim());
     let resolvedBrand = brand || features?.['Marka'] || features?.['Brand'] || visionFeatures?.['Marka'] || '';
     if (!resolvedBrand && cleanTitle) {
-        const brandMatch = cleanTitle.match(/^(Dual\s+Power|Chanteclair|Cif|Coccolino|Soft|Dermomed|Svelto|Lysoform|Spuma\s+di\s+Sciampagna|Tesori\s+d'Oriente|Felce\s+Azzurra|Quasar|Napisan|Winni's|Omino\s+Bianco|Smac|Vetril|Bref|Domestos|Ajax|Frosch|Ace)\b/i);
+        const brandMatch = cleanTitle.match(/^(Dual\s+Power|Chanteclair|Cif|Coccolino|Soft|Dermomed|Svelto|Lysoform|Spuma\s+di\s+Sciampagna|Tesori\s+d'Oriente|Felce\s+Azzurra|Quasar|Napisan|Winni's|Omino\s+Bianco|Smac|Vetril|Bref|Domestos|Ajax|Frosch|Ace|Viakal)\b/i);
         if (brandMatch) {
             resolvedBrand = brandMatch[1];
         }
     }
+    const registryEntity = brandResponsibleService.findResponsibleEntity(resolvedBrand, cleanTitle);
     const rawManufacturerCandidates = [manufacturer, features?.['Producent'], visionFeatures?.['Producent']];
     let resolvedManufacturer = rawManufacturerCandidates.find(c => !isInvalidManufacturer(c)) || '';
-    if (/^(?:unilever|unilever\s+europe\s+b\.?v\.?)$/i.test(String(resolvedManufacturer).trim()) ||
-        (!resolvedManufacturer && /^(?:cif|coccolino|svelto|lysoform|dove)$/i.test(String(resolvedBrand).trim()))) {
-        resolvedManufacturer = 'Unilever Italia Mkt. Operations S.r.l.';
-    } else if (!resolvedManufacturer && /^(?:dual\s*power|orizon|dermomed|chanteclair)$/i.test(String(resolvedBrand).trim())) {
-        resolvedManufacturer = /chanteclair/i.test(String(resolvedBrand)) ? 'Real Chimica S.r.l.' : 'Italchimica S.r.l.';
+    if (registryEntity && registryEntity.name && (!resolvedManufacturer || /^(?:unilever|unilever\s+europe\s+b\.?v\.?)$/i.test(String(resolvedManufacturer).trim()))) {
+        resolvedManufacturer = registryEntity.name;
     }
     const resolvedLine = line || features?.['Linia'] || visionFeatures?.['Linia'] || '';
-    const resolvedPostac = visionFeatures?.['Postać'] || features?.['Postać'] || features?.['Postac'] || features?.['Forma'] || '';
+    // Zatwierdzony parametr Allegro / PIM ma wyższy priorytet niż surowe przypuszczenie Vision (zgodność Opis <-> KPA)
+    const isValidParam = (v) => v !== undefined && v !== null && String(v).trim() !== '' && !/^(?:null|undefined|brak\s+danych|n\/a|-)$/i.test(String(v).trim());
+    const resolvedPostac = [features?.['Postać'], features?.['Postac'], features?.['Forma'], visionFeatures?.['Postać']].find(isValidParam) || '';
     const rawCap = capacity || visionFeatures?.['Pojemność / Waga'] || visionFeatures?.['Pojemność'] || visionFeatures?.['Waga'] || features?.['Pojemność'] || features?.['Waga'] || '';
     const resolvedCapacity = normalizeCapacityValue(rawCap, cleanTitle, visionFeatures);
 
@@ -1098,7 +1125,7 @@ function buildDeterministicSection5({
         }
     }
 
-    const resolvedDozownik = visionFeatures?.['Dozownik'] || features?.['Dozownik'] || features?.['Opakowanie'] || '';
+    const resolvedDozownik = [features?.['Dozownik'], visionFeatures?.['Dozownik'], features?.['Opakowanie produktu'], features?.['Opakowanie']].find(v => isValidParam(v) && !/^brak$/i.test(String(v).trim())) || '';
     const resolvedWydajnosc = visionFeatures?.['Wydajność'] || features?.['Wydajność'] || features?.['Liczba prań'] || '';
     const isFabricSoftener = /(?:płyn[a-ząćęłńóśźż]*\s+do\s+płukania|plyn[a-z]*\s+do\s+plukania|koncentrat[a-ząćęłńóśźż]*\s+do\s+płukania|ammorbidente|zmiękczacz[a-ząćęłńóśźż]*\s+do\s+tkanin)/i.test(`${cleanTitle} ${features?.['Kategoria'] || ''} ${resolvedLine}`) &&
         !/(?:płyn[a-ząćęłńóśźż]*\s+do\s+prania|żel[a-ząćęłńóśźż]*\s+do\s+prania|prosz[a-ząćęłńóśźż]*\s+do\s+prania|kapsułk[a-ząćęłńóśźż]*\s+do\s+prania|2w1|2\s*in\s*1|detersivo)/i.test(cleanTitle);
@@ -1145,8 +1172,8 @@ function buildDeterministicSection5({
         }
     }
 
-    const resolvedTwardosc = visionFeatures?.['Twardość włosia'] || features?.['Twardość włosia'] || '';
-    let resolvedZapach = visionFeatures?.['Zapach'] || features?.['Zapach'] || features?.['Nuta zapachowa'] || '';
+    const resolvedTwardosc = features?.['Twardość włosia'] || visionFeatures?.['Twardość włosia'] || '';
+    let resolvedZapach = [features?.['Zapach'], features?.['Nuta zapachowa'], visionFeatures?.['Zapach']].find(isValidParam) || '';
     let resolvedHero = visionFeatures?.['Składniki wiodące (Front)'] || '';
     const frontPrzeznaczenie = String(visionFeatures?.['Przeznaczenie (Front)'] || '').trim();
     const backPrzeznaczenie = String(features?.['Przeznaczenie (Etykieta)'] || features?.['Przeznaczenie'] || features?.['Zastosowanie'] || '').trim();
@@ -1170,10 +1197,17 @@ function buildDeterministicSection5({
             return true;
         })
         .join(', ');
-    let resolvedCountry = countryOfOrigin || features?.['Kraj pochodzenia'] || features?.['Kraj produkcji'] || '';
+    let resolvedCountry = countryOfOrigin || features?.['Kraj pochodzenia'] || features?.['Kraj produkcji'] || features?.['Kraj pochodzenia (Front)'] || features?.['Kraj pochodzenia (Etykieta)'] || visionFeatures?.['Kraj pochodzenia (Front)'] || '';
 
-    // Korekta konfliktu pochodzenia: Unilever Italia / włoskie linie z holenderskim prefiksem EAN 87
-    if ((/unilever\s+italia/i.test(resolvedManufacturer) || /italia|włoch/i.test(resolvedManufacturer) || /anticalcare|candeggina|sgrassatore|con\s+aceto/i.test(cleanTitle)) && (!resolvedCountry || /niderland|holand/i.test(resolvedCountry))) {
+    // Korekta wyłącznie gdy kraj pochodzenia jest pusty (wyciągamy z adresu w rejestrze producenta UE)
+    // albo gdy producent w rejestrze to włoski podmiot Unilever Italia przy holenderskim prefiksie EAN 87
+    if (!resolvedCountry && registryEntity && registryEntity.address_eu) {
+        const addrParts = String(registryEntity.address_eu).split(',').map(s => s.trim()).filter(Boolean);
+        const lastCountryPart = addrParts[addrParts.length - 1];
+        if (lastCountryPart && !/\d/.test(lastCountryPart) && lastCountryPart.length >= 3) {
+            resolvedCountry = lastCountryPart;
+        }
+    } else if (/unilever\s+italia/i.test(resolvedManufacturer) && /niderland|holand/i.test(resolvedCountry)) {
         resolvedCountry = 'Włochy';
     }
 
@@ -1265,20 +1299,25 @@ function buildDeterministicSection6({
         clpHPhrases: compliance?.clp_h_phrases
     }) || resolvedWarnings.some(w => /\b(H3\d{2}|P102|P264|P280|P305\+P351\+P338|EUH20[68]|Hasło ostrzegawcze)\b/i.test(String(w)));
 
-    const nameLower = String(productName || '').toLowerCase();
-    const postacLower = String(visionFeatures?.['Postać'] || '').toLowerCase();
-    const isArticle = /\b(szczoteczk|toothbrush|ni[cć]\s+dentystyczn|floss|czyścik|gąbk|akcesori)\b/i.test(nameLower + ' ' + postacLower);
-    const isDryPowder = /\b(talk|puder|proszek)\b/i.test(nameLower + ' ' + postacLower) && !resolvedIsChemical;
-    const hasHypochlorite = /(sodium\s+hypochlorite|podchloryn\s+sodu|candeggin|EUH206)/i.test(
-        `${nameLower} ${inci || ''} ${detergentComposition || ''} ${resolvedWarnings.join(' ')}`
-    );
+    const formClassification = classifyProductPhysicalForm({
+        productName,
+        inci,
+        detergentComposition,
+        visionFeatures,
+        features,
+        rawText: resolvedWarnings.join(' ')
+    });
 
     let storageParagraph = '';
-    if (isArticle) {
+    if (formClassification.isArticle) {
         storageParagraph = `<p>Przechowywać w <b>czystym, suchym i przewiewnym miejscu</b>, w sposób higieniczny, poza zasięgiem małych dzieci.</p>`;
-    } else if (isDryPowder) {
+    } else if (formClassification.isSolidChlorine) {
+        storageParagraph = `<p>Przechowywać wyłącznie w <b>szczelnie zamkniętym fabrycznym opakowaniu producenta</b>, w suchym, chłodnym i zacienionym miejscu, z dala od wilgoci, źródeł ciepła i bezpośredniego światła słonecznego oraz poza zasięgiem dzieci.</p>`;
+    } else if (formClassification.isDryPowder && !resolvedIsChemical) {
         storageParagraph = `<p>Przechowywać w <b>suchym miejscu w temperaturze pokojowej</b>, w szczelnie zamkniętym fabrycznym opakowaniu producenta, chroniąc przed wilgocią i dostępem dzieci.</p>`;
-    } else if (hasHypochlorite) {
+    } else if (formClassification.isDryPowder && resolvedIsChemical) {
+        storageParagraph = `<p>Przechowywać wyłącznie w <b>szczelnie zamkniętym fabrycznym opakowaniu producenta</b>, w suchym i chłodnym miejscu, chroniąc przed wilgocią oraz dostępem dzieci.</p>`;
+    } else if (formClassification.isLiquidHypochlorite) {
         storageParagraph = `<p>Przechowywać wyłącznie w <b>szczelnie zamkniętym fabrycznym opakowaniu producenta, w pozycji pionowej</b>, w chłodnym, suchym i zacienionym miejscu, z dala od źródeł ciepła oraz bezpośredniego światła słonecznego (aby zachować stabilność podchlorynu sodu), w miejscu niedostępnym dla dzieci.</p>`;
     } else if (resolvedIsChemical) {
         storageParagraph = `<p>Przechowywać wyłącznie w <b>szczelnie zamkniętym fabrycznym opakowaniu producenta</b>, w chłodnym i suchym miejscu, z dala od źródeł ciepła oraz w miejscu niedostępnym dla dzieci.</p>`;
@@ -1289,7 +1328,7 @@ function buildDeterministicSection6({
     const listItems = [];
     const labelTag = resolvedIsChemical
         ? '<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> '
-        : (isArticle ? '<li>⚠️ <b>Wytyczne bezpieczeństwa (GPSR):</b> ' : '<li>⚠️ <b>Środki ostrożności (GPSR):</b> ');
+        : (formClassification.isArticle ? '<li>⚠️ <b>Wytyczne bezpieczeństwa (GPSR):</b> ' : '<li>⚠️ <b>Środki ostrożności (GPSR):</b> ');
 
     const seenWarningCodes = new Set();
     const seenWarningBodies = new Set();
@@ -1365,10 +1404,10 @@ function buildDeterministicSection6({
     if (euResponsiblePerson && (euResponsiblePerson.name || typeof euResponsiblePerson === 'string')) {
         let normalizedEu = euResponsiblePerson;
         if (typeof euResponsiblePerson === 'object' && /unilever\s+europe\s+b\.?v\.?/i.test(String(euResponsiblePerson.name || ''))) {
-            normalizedEu = {
-                name: 'Unilever Italia Mkt. Operations S.r.l.',
-                address_eu: 'Via Paolo di Dono 3/A, 00142 Roma (RM), Włochy'
-            };
+            const itUnilever = brandResponsibleService.findResponsibleEntity('unilever', productName);
+            if (itUnilever && itUnilever.name && itUnilever.address_eu) {
+                normalizedEu = itUnilever;
+            }
         }
         const formattedEu = brandResponsibleService.formatForHtmlDescription(normalizedEu);
         if (formattedEu) {
@@ -1526,6 +1565,7 @@ module.exports = {
     buildDeterministicA2Result,
     buildDeterministicA5Result,
     tryBuildDeterministicSection3,
+    buildSection3FromA4Result,
     learnFromAgent4Output,
     buildDeterministicSection5,
     buildDeterministicSection6,

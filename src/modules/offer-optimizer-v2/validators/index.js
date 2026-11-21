@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const cheerio = require('cheerio');
 const { isRawInciFooterText } = require('../normalization');
+const { classifyProductPhysicalForm } = require('../services/product-form.classifier');
 
 // V1
 function ean_checksum(gtin) {
@@ -460,7 +461,15 @@ function validate_section5_compliance(html, options = {}) {
         }
     }
 
-    const isAnhydrousOrArticle = /\b(puder|pudru|talk|talku|proszek|proszku|shadow|cie[nń]|cienie|puder mineralny|szczoteczk|artyku[lł]|ni[cć] dentystyczn|olej\b|olejek\b)\b/i.test(JSON.stringify(options) + ' ' + html);
+    const formCheck = classifyProductPhysicalForm({
+        productName: options.product_name || options.name || options.productName,
+        category: options.category,
+        postac: options.postac || options.features?.['Postać'] || options.features?.postac,
+        inci: options.inci || options.features?.['Skład/INCI'] || options.features?.INCI,
+        features: options.features,
+        rawText: html
+    });
+    const isAnhydrousOrArticle = formCheck.isAnhydrousOrArticle;
 
     if (isAnhydrousOrArticle) {
         if (/<li[^>]*>[\s\S]*?pH:?[\s\S]*?<\/li>/i.test(html)) {
@@ -795,6 +804,56 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
     return { valid: errors.length === 0, errors };
 }
 
+/**
+ * Walidator UX Allegro 2026 (nowy zwijany widok oferty Above-the-Fold dla Sekcji 1).
+ * Sprawdza, czy pierwszy moduł opisu jest zwięzły i czytelny jeszcze przed kliknięciem "Rozwiń opis".
+ */
+function validate_section1_above_the_fold(html) {
+    if (!html || typeof html !== 'string' || !html.trim()) {
+        return { valid: false, warnings: ['Pusta Sekcja 1 opisu'], leadLength: 0, bulletCount: 0 };
+    }
+    const $ = cheerio.load(html, null, false);
+    const warnings = [];
+    const headingText = $('h1, h2').first().text().trim();
+    if (!headingText) {
+        warnings.push('Sekcja 1 nie zawiera nagłówka <h1> lub <h2>.');
+    } else if (!headingText.startsWith('⭐')) {
+        warnings.push('Nagłówek Sekcji 1 powinien zaczynać się od kotwicy ⭐.');
+    }
+
+    const firstParagraph = $('p').first();
+    const firstParagraphHtml = firstParagraph.html() || '';
+    const leadPlain = firstParagraph.text().replace(/\s+/g, ' ').trim();
+    const leadLength = leadPlain.length;
+    if (leadLength === 0) {
+        warnings.push('Sekcja 1 nie zawiera otwierającego akapitu <p> widocznego przed rozwinięciem opisu.');
+    } else if (leadLength > 280) {
+        warnings.push(`Pierwszy akapit Sekcji 1 ma ${leadLength} zn. (> 280 zn.) — w nowym zwijanym widoku Allegro nad zgięciem powinien mieścić się zwięzły konkret (≤ 220 zn.).`);
+    }
+    if (leadLength > 0 && !/<(?:b|strong)\b/i.test(firstParagraphHtml)) {
+        warnings.push('Pierwszy akapit Sekcji 1 nie zawiera pogrubień <b> dla kluczowych korzyści.');
+    }
+
+    const bullets = $('ul > li, ol > li');
+    const bulletCount = bullets.length;
+    if (bulletCount === 0) {
+        warnings.push('Sekcja 1 nie zawiera wypunktowania najważniejszych korzyści przed „Rozwiń opis”.');
+    } else if (bulletCount > 6) {
+        warnings.push(`Sekcja 1 zawiera zbyt wiele punktów (${bulletCount} > 6) — zalecane 3–4 zwięzłe punkty Above-the-Fold.`);
+    }
+
+    if (/\b(?:wysyłk[a-ząćęłńóśźż]*|kurier[a-ząćęłńóśźż]*|dostaw[a-ząćęłńóśźż]*\s+w\s+\d+|w\s+24\s*h|magazyn(?:ie|u)|jesteśmy\s+(?:bezpośrednim\s+)?importerem|zapraszamy\s+na\s+inne\s+aukcje|faktura\s+vat)\b/i.test(html) || scan_stopwords(html).length > 0) {
+        warnings.push('Sekcja 1 zawiera niedozwolone obietnice logistyczne, dane o sprzedającym lub stop-words (§A / Załącznik nr 2 Allegro).');
+    }
+
+    return {
+        valid: warnings.length === 0,
+        warnings,
+        leadLength,
+        bulletCount
+    };
+}
+
 module.exports = {
     ean_checksum,
     route_chemical,
@@ -815,5 +874,6 @@ module.exports = {
     validate_section5_compliance,
     validate_section6_compliance,
     validate_section3_ingredients_closed_world,
-    validate_domain_and_chemical_logic
+    validate_domain_and_chemical_logic,
+    validate_section1_above_the_fold
 };

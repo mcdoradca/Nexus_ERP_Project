@@ -7,13 +7,15 @@ const { FORBIDDEN_SOURCES, DATA_SOURCE_MODE } = require('./config/nodes.config')
 const baselinkerExtract = require('./baselinker.extract.js');
 const { normalizeIngredientName, normalizeInciToLegalEnglish, stripRawInciFooterFromSection3 } = require('./normalization.js');
 const ragService = require('./knowledge.rag.service.js');
-const { validate_html_whitelist, scan_medical_claims_lexical, scan_biocidal_claims_lexical, scan_stopwords, emoji_structure_check, normalize_aeo_faq_labels, aeo_faq_check, validate_section5_compliance, validate_section6_compliance, validate_section3_ingredients_closed_world, validate_domain_and_chemical_logic } = require('./validators');
+const { validate_html_whitelist, scan_medical_claims_lexical, scan_biocidal_claims_lexical, scan_stopwords, emoji_structure_check, normalize_aeo_faq_labels, aeo_faq_check, validate_section5_compliance, validate_section6_compliance, validate_section3_ingredients_closed_world, validate_domain_and_chemical_logic, validate_section1_above_the_fold } = require('./validators');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const visionExtractorService = require('./vision-extractor.service');
 const brandResponsibleService = require('./brand.responsible.service');
 const deterministicEngine = require('./services/deterministic-pipeline.engine');
 const googleSuggestFaqService = require('./services/google-suggest-faq.service');
+const { classifyProductPhysicalForm } = require('./services/product-form.classifier');
+const { mapPackagingFeaturesToAllegroSchema } = require('./services/allegro-param-automapper.service');
 
 const PHASE_1_GROUNDING = 'PHASE_1_GROUNDING';
 const PHASE_2_LEGAL = 'PHASE_2_LEGAL';
@@ -104,8 +106,16 @@ const sanitizeSection5Html = (htmlStr, pimData = {}) => {
     // 2. RYGOR FIZYKOCHEMICZNY PARAMETRU pH (Definicja: pH = -log[H3O+] w roztworze wodnym):
     // Odczyn pH istnieje wyłącznie w obecności wolnej fazy wodnej.
     // Czyste pudry mineralne (talk w proszku), pudry sypkie/prasowane, cienie do powiek, artykuły stałe (szczoteczki, nici), czyste oleje bezwodne fizykochemicznie NIE POSIADAJĄ pH.
-    const pimContext = (JSON.stringify(pimData || {}) + ' ' + htmlStr).toLowerCase();
-    const isAnhydrousOrArticle = /\b(puder|pudru|talk|talku|proszek|proszku|shadow|cie[nń]|cienie|puder mineralny|szczoteczk|artyku[lł]|ni[cć] dentystyczn|olej\b|olejek\b)\b/i.test(pimContext);
+    const isAnhydrousOrArticle = classifyProductPhysicalForm({
+        productName: pimData?.product_name || pimData?.name,
+        name: pimData?.name || pimData?.product_name,
+        category: pimData?.category,
+        postac: pimData?.postac || pimData?.features?.['Postać'],
+        packaging: pimData?.features?.['Opakowanie'],
+        features: pimData?.features || {},
+        visionFeatures: pimData?.vision_features || pimData?.visionFeatures || {},
+        rawText: htmlStr
+    }).isAnhydrousOrArticle;
 
     if (isAnhydrousOrArticle) {
         // Dla wyrobów bezwodnych / pudrów / artykułów usuwamy CAŁY punkt <li> z pH bez względu na treść
@@ -486,6 +496,203 @@ console.log = (...args) => {
     } catch(e) {}
 };
 
+const applyDeterministicSectionSanitizers = (sectionsObj, ctx = {}) => {
+    if (!sectionsObj || typeof sectionsObj !== 'object') return sectionsObj;
+    for (let i = 1; i <= 6; i++) {
+        const secKey = `section_${i}_html`;
+        if (sectionsObj[secKey]) {
+            let s = sectionsObj[secKey];
+            s = brandResponsibleService.stripContactInfo(s);
+            s = deterministicEngine.sanitizeHtmlClaimsAndStopwords(s, {
+                productName: ctx.productName,
+                inci: ctx.inci,
+                detergentComposition: ctx.detergentComposition,
+                pimWarnings: ctx.pimWarnings,
+                pimUsage: ctx.pimUsage
+            });
+            if (i === 3) s = stripRawInciFooterFromSection3(s);
+            if (i === 6) s = sanitizeSection6Html(s);
+            if (ctx.isFullPipelineRun !== false) {
+                s = deterministicEngine.normalizeEmojiAndStructure(s, i);
+            }
+            if (i === 2) s = normalize_aeo_faq_labels(s);
+            s = normalizeTags(s);
+            sectionsObj[secKey] = s;
+        }
+    }
+    return sectionsObj;
+};
+
+const computeComplianceAuditForSections = (sectionsObj = {}, ctx = {}) => {
+    const detectedStopwords = [];
+    const detectedMedical = [];
+    const detectedBiocidal = [];
+    const structuralErrors = [];
+    let allSixPresent = true;
+
+    for (let i = 1; i <= 6; i++) {
+        const secHtml = sectionsObj ? sectionsObj[`section_${i}_html`] : null;
+        if (!secHtml || typeof secHtml !== 'string' || secHtml.trim() === '') {
+            allSixPresent = false;
+            continue;
+        }
+        const hitsStop = scan_stopwords(secHtml);
+        detectedStopwords.push(...hitsStop.map(h => ({ section: `section_${i}_html`, word: h.word })));
+
+        const hitsMed = scan_medical_claims_lexical(secHtml);
+        detectedMedical.push(...hitsMed.map(h => ({ section: `section_${i}_html`, word: h.word })));
+
+        const hitsBio = scan_biocidal_claims_lexical(secHtml);
+        detectedBiocidal.push(...hitsBio.map(h => ({ section: `section_${i}_html`, word: h.word })));
+
+        const htmlVal = validate_html_whitelist(secHtml);
+        if (!htmlVal.valid) {
+            structuralErrors.push(`[Sekcja ${i} HTML] ${htmlVal.errors.join(', ')}`);
+        }
+        const emojiVal = emoji_structure_check(secHtml);
+        if (!emojiVal.valid) {
+            structuralErrors.push(`[Sekcja ${i} Emoji] ${emojiVal.errors.join(', ')}`);
+        }
+    }
+
+    if (sectionsObj?.section_2_html) {
+        const faqPreCheck = aeo_faq_check(sectionsObj.section_2_html);
+        if (!faqPreCheck.valid) {
+            structuralErrors.push(`[Sekcja 2 FAQ] ${faqPreCheck.errors.join(', ')}`);
+        }
+    }
+
+    const s1AboveFoldCheck = sectionsObj?.section_1_html
+        ? validate_section1_above_the_fold(sectionsObj.section_1_html)
+        : { valid: true, warnings: [], leadLength: 0, bulletCount: 0 };
+
+    const s5Check = validate_section5_compliance(sectionsObj?.section_5_html, {
+        is_medical_device: ctx.isMedicalDevice,
+        product_name: ctx.productName,
+        manufacturer: ctx.manufacturer,
+        require_manufacturer: Boolean(ctx.manufacturer)
+    });
+    const s6Check = validate_section6_compliance(sectionsObj?.section_6_html, {
+        has_eye_irritation: ctx.hasEyeIrritation,
+        has_sensitizers: ctx.hasSensitizers,
+        is_chemical: ctx.isChemical
+    });
+    const s3Check = validate_section3_ingredients_closed_world(sectionsObj?.section_3_html, ctx.allowedSourcesList || []);
+    const domainCheck = validate_domain_and_chemical_logic(sectionsObj || {}, {
+        productName: ctx.productName,
+        inci: ctx.inci,
+        detergentComposition: ctx.detergentComposition,
+        isChemical: ctx.isChemical,
+        pimWarnings: ctx.pimWarnings,
+        pimUsage: ctx.pimUsage,
+        requiresProtectiveGloves: ctx.requiresProtectiveGloves
+    });
+
+    const complianceIssues = [
+        ...s5Check.errors.map(e => `[Sekcja 5] ${e}`),
+        ...s6Check.errors.map(e => `[Sekcja 6] ${e}`),
+        ...s3Check.errors.map(e => `[Sekcja 3] ${e}`),
+        ...domainCheck.errors,
+        ...structuralErrors
+    ];
+
+    const uxWarnings = Array.isArray(s1AboveFoldCheck?.warnings) ? s1AboveFoldCheck.warnings : [];
+
+    let preAuditReport = '';
+    if (detectedBiocidal.length > 0) {
+        preAuditReport += `WYKRYTO NIELEGALNE ROSZCZENIA BIOBÓJCZE / ANTYBAKTERYJNE (Rozp. BPR 528/2012): ${detectedBiocidal.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK ZASTĄPIENIA ZWROTAMI O HIGIENICZNEJ CZYSTOŚCI / GŁĘBOKIM OCZYSZCZANIU.\n`;
+    }
+    if (detectedMedical.length > 0) {
+        preAuditReport += `WYKRYTO ZAKAZANE ROSZCZENIA MEDYCZNE / LECZNICZE (Rozp. 655/2013 & 1223/2009): ${detectedMedical.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM.\n`;
+    }
+    if (detectedStopwords.length > 0) {
+        preAuditReport += `WYKRYTO SŁOWA ZAKAZANE REGULAMINEM ALLEGRO (§A): ${detectedStopwords.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM W patches NA NEUTRALNE ODPOWIEDNIKI.\n`;
+    }
+    if (complianceIssues.length > 0) {
+        preAuditReport += `WYKRYTO NIEZGODNOŚCI PRAWNE I FORMALNE: ${complianceIssues.join(' | ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM W patches.\n`;
+    }
+    if (uxWarnings.length > 0) {
+        preAuditReport += `UWAGI UX ABOVE-THE-FOLD (Allegro 2026): ${uxWarnings.join(' | ')}.\n`;
+    }
+    if (!preAuditReport) {
+        preAuditReport = 'Automated checks passed.';
+    }
+
+    return {
+        detectedStopwords,
+        detectedMedical,
+        detectedBiocidal,
+        structuralErrors,
+        allSixPresent,
+        s1AboveFoldCheck,
+        s5Check,
+        s6Check,
+        s3Check,
+        domainCheck,
+        complianceIssues,
+        uxWarnings,
+        preAuditReport
+    };
+};
+
+const shouldEscalateToAgent10 = ({
+    rawInputText = '',
+    rawDraftHtml = '',
+    postA11Audit = null,
+    a11Result = null,
+    a11Status = 'OK',
+    isMedicalDevice = false,
+    isHighRiskChemistry = false
+} = {}) => {
+    if (a11Status !== 'OK') {
+        return { escalate: true, reason: `A11_STATUS_${a11Status}` };
+    }
+    if (!a11Result || !a11Result.product_identity || !a11Result.product_identity.exact_product_type) {
+        return { escalate: true, reason: 'A11_INCOMPLETE_PRODUCT_IDENTITY' };
+    }
+    if (a11Result?.escalate_to_pro === true) {
+        return { escalate: true, reason: a11Result.escalation_reason || 'A11_ESCALATE_TO_PRO' };
+    }
+    if (postA11Audit) {
+        if (!postA11Audit.allSixPresent) {
+            return { escalate: true, reason: 'MISSING_SECTIONS' };
+        }
+        if (postA11Audit.detectedBiocidal?.length > 0) {
+            return { escalate: true, reason: `BIOCIDAL_POST_A11: ${postA11Audit.detectedBiocidal.map(d => d.word).join(', ')}` };
+        }
+        if (postA11Audit.detectedMedical?.length > 0) {
+            return { escalate: true, reason: `MEDICAL_POST_A11: ${postA11Audit.detectedMedical.map(d => d.word).join(', ')}` };
+        }
+        if (postA11Audit.detectedStopwords?.length > 0) {
+            return { escalate: true, reason: `STOPWORDS_POST_A11: ${postA11Audit.detectedStopwords.map(d => d.word).join(', ')}` };
+        }
+        if (postA11Audit.complianceIssues?.length > 0) {
+            return { escalate: true, reason: `COMPLIANCE_POST_A11: ${postA11Audit.complianceIssues[0]}` };
+        }
+    }
+    if (isMedicalDevice === true) {
+        return { escalate: true, reason: 'MEDICAL_DEVICE_MDR' };
+    }
+    if (isHighRiskChemistry === true) {
+        return { escalate: true, reason: 'HIGH_RISK_CLP_OR_CORROSIVE' };
+    }
+    const combinedRaw = `${rawInputText || ''} ${rawDraftHtml || ''}`;
+    if (combinedRaw.trim()) {
+        const rawBio = scan_biocidal_claims_lexical(combinedRaw);
+        const rawMed = scan_medical_claims_lexical(combinedRaw);
+        const rawStop = scan_stopwords(combinedRaw);
+        if (rawBio.length > 0 || rawMed.length > 0 || rawStop.length > 0) {
+            const tags = [
+                rawBio.length ? `biocidal(${rawBio.map(x => x.word).join(',')})` : '',
+                rawMed.length ? `medical(${rawMed.map(x => x.word).join(',')})` : '',
+                rawStop.length ? `stopwords(${rawStop.map(x => x.word).join(',')})` : ''
+            ].filter(Boolean).join('; ');
+            return { escalate: true, reason: `RAW_RISK_DETECTED: ${tags}` };
+        }
+    }
+    return { escalate: false, reason: 'A11_AND_DETERMINISTIC_AUDIT_CLEAN' };
+};
+
 class Orchestrator {
     constructor(gtin) {
         this.gtin = gtin;
@@ -703,6 +910,7 @@ class Orchestrator {
                     );
 
                     if (visionInciRes && visionInciRes.found) {
+                        this.state.vision_back_features = visionInciRes.pimFeatures || {};
                         if (!product) product = { text_fields: {} };
                         if (!product.text_fields) product.text_fields = {};
                         const updatedFeatures = { ...(product.text_fields.features || {}) };
@@ -750,6 +958,22 @@ class Orchestrator {
                             }
                             if (visionInciRes.pimFeatures['Producent']) {
                                 updatedFeatures['Producent'] = visionInciRes.pimFeatures['Producent'];
+                                changed = true;
+                            }
+                            if (visionInciRes.pimFeatures['Kraj pochodzenia (Etykieta)']) {
+                                updatedFeatures['Kraj pochodzenia (Etykieta)'] = visionInciRes.pimFeatures['Kraj pochodzenia (Etykieta)'];
+                                changed = true;
+                            }
+                            if (visionInciRes.pimFeatures['Opakowanie (Etykieta)']) {
+                                updatedFeatures['Opakowanie (Etykieta)'] = visionInciRes.pimFeatures['Opakowanie (Etykieta)'];
+                                changed = true;
+                            }
+                            if (visionInciRes.pimFeatures['Liczba sztuk (Etykieta)']) {
+                                updatedFeatures['Liczba sztuk (Etykieta)'] = visionInciRes.pimFeatures['Liczba sztuk (Etykieta)'];
+                                changed = true;
+                            }
+                            if (visionInciRes.pimFeatures['pH (Etykieta)']) {
+                                updatedFeatures['pH (Etykieta)'] = visionInciRes.pimFeatures['pH (Etykieta)'];
                                 changed = true;
                             }
                         }
@@ -818,6 +1042,7 @@ class Orchestrator {
                         frontImageUrl
                     );
                     if (visionInciRes && visionInciRes.found) {
+                        this.state.vision_back_features = visionInciRes.pimFeatures || {};
                         if (!product) product = { text_fields: {} };
                         if (!product.text_fields) product.text_fields = {};
                         const updatedFeatures = { ...(product.text_fields.features || {}) };
@@ -850,6 +1075,40 @@ class Orchestrator {
                 } catch (vErr) {
                     console.warn(`[Orchestrator V2] Błąd samodzielnego skanowania tylnej etykiety: ${vErr.message}`);
                 }
+            }
+        }
+
+        if (Array.isArray(pimData?.allegro_schema) && pimData.allegro_schema.length > 0) {
+            try {
+                if (!product) product = { text_fields: {} };
+                if (!product.text_fields) product.text_fields = {};
+                const autoMapRes = mapPackagingFeaturesToAllegroSchema({
+                    allegroSchema: pimData.allegro_schema,
+                    currentFeatures: product.text_fields.features || {},
+                    visionFront: this.state.vision_extracted_features || {},
+                    visionBack: this.state.vision_back_features || product.text_fields.features || {},
+                    product
+                });
+                this.state.auto_mapped_allegro_params = autoMapRes.mappedParams || {};
+                const mappedKeys = Object.keys(this.state.auto_mapped_allegro_params);
+                if (mappedKeys.length > 0) {
+                    product.text_fields.features = autoMapRes.updatedFeatures;
+                    if (pimData) {
+                        pimData.features = { ...(pimData.features || {}), ...autoMapRes.updatedFeatures };
+                        if (pimData.text_fields) pimData.text_fields.features = autoMapRes.updatedFeatures;
+                    }
+                    try {
+                        await prisma.product.update({
+                            where: { ean: this.gtin },
+                            data: { features: autoMapRes.updatedFeatures }
+                        });
+                    } catch (dbErr) {
+                        console.warn(`[Orchestrator V2] Auto-mapper Allegro: ostrzeżenie zapisu do bazy PIM: ${dbErr.message}`);
+                    }
+                    console.log(`[Orchestrator V2] Auto-mapper Allegro uzupełnił ${mappedKeys.length} parametrów z etykiety: ${mappedKeys.join(', ')}`);
+                }
+            } catch (autoMapErr) {
+                console.warn(`[Orchestrator V2] Ostrzeżenie auto-mappera parametrów Allegro: ${autoMapErr.message}`);
             }
         }
 
@@ -1179,7 +1438,9 @@ class Orchestrator {
                 }
             }
             
-            let promptTemplate = fs.readFileSync(path.join(__dirname, 'docs', 'Agent_1_prompt_v4.md'), 'utf8');
+            const compiledA1Path = path.join(__dirname, 'prompts', 'Agent_1_compiled.md');
+            const docA1Path = path.join(__dirname, 'docs', 'Agent_1_prompt_v4.md');
+            let promptTemplate = fs.readFileSync(fs.existsSync(compiledA1Path) ? compiledA1Path : docA1Path, 'utf8');
             
             if (hasPimInci) {
                 promptTemplate = promptTemplate.replace(
@@ -1203,11 +1464,14 @@ class Orchestrator {
                     /(\s*\*\s*Podmiot Odpowiedzialny w UE \(wymóg GPSR - nazwa, pełny adres, mail\/WWW\)\.)/,
                     '\n     * Podmiot Odpowiedzialny w UE: POMIŃ (Podmiot odpowiedzialny został już w 100% zidentyfikowany i zarejestrowany w bazie - KATEGORYCZNY ZAKAZ wyszukiwania w sieci).'
                 );
+                const beforeGpsrReplace = promptTemplate;
                 promptTemplate = promptTemplate.replace(
-                    /3\. GPSR & PODMIOT ODPOWIEDZIALNY W UE[\s\S]*?(?=4\. CLP \(Klasyfikacja)/,
+                    /3\. GPSR & PODMIOT ODPOWIEDZIALNY W UE[\s\S]*?(?=4\. CLP\b)/,
                     `3. GPSR & PODMIOT ODPOWIEDZIALNY W UE (eu_responsible_person): ZNANY I ZMAPOWANY Z REJESTRU BAZY (${respName}).\n   - Podmiot odpowiedzialny w UE został już w 100% zidentyfikowany i zweryfikowany w rejestrze bazy: ${JSON.stringify(respData)}.\n   - KATEGORYCZNY ZAKAZ wykonywania jakichkolwiek zapytań w Google Search o podmiot odpowiedzialny, producenta, ich adresy lub telefony! Nie marnuj na to żadnych zapytań ani tokenów.\n   - W polu \`eu_responsible_person\` przepisz dokładnie ten obiekt przekazany w danych lub null, skupiając się wyłącznie na pozostałych brakach.\n`
                 );
-                promptTemplate += `\n\n### 🛡️ PODMIOT ODPOWIEDZIALNY W UE (GPSR) ZAPISANY W BAZIE:\nPodmiot odpowiedzialny: ${respName} (${JSON.stringify(respData)}). KATEGORYCZNY ZAKAZ generowania kwerend w Google Search dotyczących podmiotu odpowiedzialnego, producenta lub ich adresów.\n`;
+                if (beforeGpsrReplace === promptTemplate) {
+                    promptTemplate += `\n\n### 🛡️ PODMIOT ODPOWIEDZIALNY W UE (GPSR) ZAPISANY W BAZIE:\nPodmiot odpowiedzialny: ${respName} (${JSON.stringify(respData)}). KATEGORYCZNY ZAKAZ generowania kwerend w Google Search dotyczących podmiotu odpowiedzialnego, producenta lub ich adresów.\n`;
+                }
             }
 
             if (this.state.vision_extracted_features && Object.keys(this.state.vision_extracted_features).length > 0) {
@@ -1284,7 +1548,9 @@ class Orchestrator {
                     let countryVal = result.country_of_origin.value;
                     const mfrName = String(result.eu_responsible_person?.value?.name || this.state.extracted_data.eu_responsible_person?.data?.name || product?.text_fields?.features?.['Producent'] || '');
                     const prodName = String(extracted.product_name?.value || product?.text_fields?.name || '');
-                    if ((/unilever\s+italia/i.test(mfrName) || /italia|włoch/i.test(mfrName) || /anticalcare|candeggina|sgrassatore|con\s+aceto/i.test(prodName)) && /niderland|holand/i.test(countryVal)) {
+                    const regEntity = brandResponsibleService.findResponsibleEntity(extracted.brand?.value || product?.brand?.name, prodName);
+                    const isKnownItalianRegistry = Boolean(regEntity && /italia|w[łl]och|italy/i.test(`${regEntity.address_eu || ''} ${regEntity.country || ''}`));
+                    if ((isKnownItalianRegistry || /unilever\s+italia/i.test(mfrName) || /italia|włoch/i.test(mfrName) || /anticalcare|candeggina|sgrassatore|con\s+aceto/i.test(prodName)) && /niderland|holand/i.test(countryVal)) {
                         countryVal = 'Włochy';
                     }
                     this.state.extracted_data.country_of_origin = {
@@ -2367,6 +2633,32 @@ class Orchestrator {
                 /(?:sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|wodorotlenek\s+potasu|sodium\s+hypochlorite|podchloryn\s+sodu|candeggina|wybielacz|kwas\s+solny|hydrochloric\s+acid|kwas\s+fosforowy|phosphoric\s+acid|kwas\s+amidosulfonowy|sulfamic\s+acid|\bH314\b|\bH315\b|piekarnik|komink|grill|przypale[ńn]|muffa|pleś[ńn]|żrąc|rękawic|guanti)/i.test(`${product?.text_fields?.name || ''} ${this.state.extracted_data.inci?.value || ''} ${this.state.extracted_data.detergent_composition?.value || ''} ${pimWarningsVal || ''} ${pimUsageVal || ''}`)
             );
 
+            const euDataForA6 = this.state.extracted_data.eu_responsible_person?.data;
+            const canBuildDeterministicS3 = Boolean(
+                isFullPipelineRun && (
+                    this.state.deterministic_section_3_html ||
+                    (Array.isArray(this.state.a4_result?.technical_benefits_aeo) && this.state.a4_result.technical_benefits_aeo.length > 0)
+                )
+            );
+            const canBuildDeterministicS5S6 = Boolean(
+                isFullPipelineRun && this.state.extracted_data.inci?.value && euDataForA6?.name
+            );
+            const a6SchemaProps = {
+                section_1_html: { type: "string" },
+                section_2_html: { type: "string" },
+                section_4_html: { type: "string" }
+            };
+            const a6RequiredKeys = ["section_1_html", "section_2_html", "section_4_html"];
+            if (!canBuildDeterministicS3) {
+                a6SchemaProps.section_3_html = { type: "string" };
+                a6RequiredKeys.push("section_3_html");
+            }
+            if (!canBuildDeterministicS5S6) {
+                a6SchemaProps.section_5_html = { type: "string" };
+                a6SchemaProps.section_6_html = { type: "string" };
+                a6RequiredKeys.push("section_5_html", "section_6_html");
+            }
+
             const agent6Data = {
                 gtin_ean: this.gtin,
                 product_name: sanitizedNameForA6 || undefined,
@@ -2390,27 +2682,22 @@ class Orchestrator {
                 search_intent_faq_blueprint: searchIntentFaqBlueprint,
                 a1: this.state.a1_result ? { country_of_origin: this.state.a1_result.country_of_origin?.value || this.state.a1_result.country_of_origin || undefined, logistics: this.state.a1_result.logistics?.value || this.state.a1_result.logistics || undefined } : undefined,
                 a2: this.state.a2_result ? {
-                    application_context: this.state.a2_result.application_context,
-                    material_exclusions: this.state.a2_result.material_exclusions,
-                    chemical_synergy: this.state.a2_result.chemical_synergy
+                    sentiment_available: this.state.a2_result.sentiment_available,
+                    average_rating: this.state.a2_result.average_rating,
+                    social_proof_matrix: this.state.a2_result.social_proof_matrix,
+                    safety_signals_detected: this.state.a2_result.safety_signals_detected
                 } : undefined,
                 a4: this.state.a4_result,
-                a5: this.state.a5_result
+                a5: this.state.a5_result,
+                _required_sections: (canBuildDeterministicS3 || canBuildDeterministicS5S6) ? a6RequiredKeys : undefined
             };
             const prompt6Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_6_compiled.md'), 'utf8');
             const prompt6 = prompt6Template.replace('{{SKU_DATA}}', JSON.stringify(agent6Data, null, 2));
 
             const a6Schema = {
                 type: "object",
-                properties: {
-                    section_1_html: { type: "string" },
-                    section_2_html: { type: "string" },
-                    section_3_html: { type: "string" },
-                    section_4_html: { type: "string" },
-                    section_5_html: { type: "string" },
-                    section_6_html: { type: "string" }
-                },
-                required: ["section_1_html", "section_2_html", "section_3_html", "section_4_html", "section_5_html", "section_6_html"]
+                properties: a6SchemaProps,
+                required: a6RequiredKeys
             };
 
             try {
@@ -2435,11 +2722,7 @@ class Orchestrator {
                     if (this.state.deterministic_section_3_html) {
                         result.section_3_html = this.state.deterministic_section_3_html;
                     } else if ((!result.section_3_html || !String(result.section_3_html).trim()) && Array.isArray(this.state.a4_result?.technical_benefits_aeo) && this.state.a4_result.technical_benefits_aeo.length > 0) {
-                        const a4Lis = this.state.a4_result.technical_benefits_aeo.map(b => {
-                            const item = String(b || '').trim();
-                            return /^<li[\s>]/i.test(item) ? item : `<li>${item}</li>`;
-                        }).join('');
-                        result.section_3_html = `<h2>Mechanizm działania składników aktywnych</h2><ul>${a4Lis}</ul>`;
+                        result.section_3_html = deterministicEngine.buildSection3FromA4Result(this.state.a4_result, isActualHouseholdChemicalA6);
                     }
 
                     if (result.section_3_html) {
@@ -2744,38 +3027,108 @@ class Orchestrator {
             }
         }
 
-        // --- KROK 11: A11 (Kognitywny Inspektor Domenowo-Produktowy i Fact-Checker) ---
+        const buildPhase4AuditContext = () => {
+            const pimWarningsVal = this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'] || undefined;
+            const pimUsageVal = this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia'] || undefined;
+            const requiresGloves = Boolean(
+                this.state.gpsr_baseline?.detected_risks?.includes('PROTECTIVE_GLOVES_REQUIRED') ||
+                /(?:sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|wodorotlenek\s+potasu|sodium\s+hypochlorite|podchloryn\s+sodu|candeggina|wybielacz|kwas\s+solny|hydrochloric\s+acid|kwas\s+fosforowy|phosphoric\s+acid|kwas\s+amidosulfonowy|sulfamic\s+acid|\bH314\b|\bH315\b|piekarnik|komink|grill|przypale[ńn]|muffa|pleś[ńn]|żrąc|rękawic|guanti)/i.test(`${product?.text_fields?.name || ''} ${this.state.extracted_data.inci?.value || ''} ${this.state.extracted_data.detergent_composition?.value || ''} ${pimWarningsVal || ''} ${pimUsageVal || ''}`)
+            );
+            const isActualHouseholdChemical = deterministicEngine.detectHouseholdChemical({
+                isChemical: Boolean(this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL')),
+                a4CategoryType: this.state.a4_result?.category_type,
+                productName: product?.text_fields?.name,
+                category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
+                inci: this.state.extracted_data.inci?.value,
+                detergentComposition: this.state.extracted_data.detergent_composition?.value,
+                visionFeatures: this.state.vision_extracted_features || {},
+                features: product?.text_fields?.features || product?.features || {}
+            });
+            const isPlaceholderManuf = (m) => !m || /^(?:null|undefined|brak|brak\s+danych|nieznany|nieznany\s+producent|unknown|n\/a|-)$/i.test(String(m).trim());
+            const validManufacturer = [
+                extracted.manufacturer?.value,
+                product?.text_fields?.features?.['Producent'],
+                this.state.vision_extracted_features?.['Producent'],
+                this.state.extracted_data?.eu_responsible_person?.data?.name,
+                extracted.brand?.value || product?.brand?.name
+            ].find(m => !isPlaceholderManuf(m));
+
+            const hasEyeIrritation = Boolean(
+                this.state.gpsr_baseline?.warnings?.some(w => /\b(?:H319|H318)\b/i.test(String(w)))
+            );
+            const hasSensitizers = Boolean(
+                this.state.gpsr_baseline?.warnings?.some(w => /\bEUH208\b/i.test(String(w))) ||
+                /\bEUH208\b/i.test(String(pimWarningsVal || ''))
+            );
+            const allowedSourcesList = (this.state.extracted_data.inci?.value || '').split(',').map(s => s.trim());
+            if (this.state.extracted_data.detergent_composition?.value) {
+                allowedSourcesList.push(...this.state.extracted_data.detergent_composition.value.split(',').map(s => s.trim()));
+            }
+            const hazardStrings = [
+                ...(Array.isArray(this.state.gpsr_baseline?.warnings) ? this.state.gpsr_baseline.warnings : []),
+                ...(Array.isArray(this.state.extracted_data.compliance?.data?.clp_h_phrases) ? this.state.extracted_data.compliance.data.clp_h_phrases : []),
+                String(this.state.extracted_data.clp_signal_word?.value || ''),
+                String(this.state.extracted_data.compliance?.data?.clp_signal_word || ''),
+                String(pimWarningsVal || '')
+            ].join(' ');
+            const isHighRiskChemistry = Boolean(
+                /\b(?:H314|H318)\b|NIEBEZPIECZE[ŃN]STWO|PERICOLO|DANGER/i.test(hazardStrings) ||
+                product?.sds_required === true ||
+                requiresGloves
+            );
+            return {
+                isMedicalDevice: Boolean(product?.is_medical_device),
+                productName: product?.text_fields?.name || this.state.product_name,
+                manufacturer: validManufacturer,
+                hasEyeIrritation,
+                hasSensitizers,
+                isChemical: isActualHouseholdChemical,
+                inci: this.state.extracted_data.inci?.value,
+                detergentComposition: this.state.extracted_data.detergent_composition?.value,
+                pimWarnings: pimWarningsVal,
+                pimUsage: pimUsageVal,
+                requiresProtectiveGloves: requiresGloves,
+                allowedSourcesList,
+                isHighRiskChemistry
+            };
+        };
+
+        // --- KROK 11: A11 (Kognitywny Inspektor Domenowo-Produktowy, Fact-Checker i Allegro UX) ---
         if (this.state.next_action === 'RUN_A11') {
             if (this.state.node_status['A11'] === 'HITL_OVERRIDDEN') {
-                console.log('[Orchestrator] Węzeł A11 oznaczony jako HITL_OVERRIDDEN. Pomijam wywołanie LLM.');
+                console.log('[Orchestrator] Węzeł A11 oznaczony jako HITL_OVERRIDDEN. Pomijam wywołanie LLM i kieruję do A10.');
+                this.state.a11_escalation_reason = 'A11_HITL_OVERRIDDEN';
                 this.state.next_action = 'RUN_A10';
                 this.emitState();
             } else {
                 this.state.node_status['A11'] = 'RUNNING';
                 this.emitState();
 
-                const pimWarningsA11 = this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'] || undefined;
-                const pimUsageA11 = this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia'] || undefined;
-                const requiresGlovesA11 = Boolean(
-                    this.state.gpsr_baseline?.detected_risks?.includes('PROTECTIVE_GLOVES_REQUIRED') ||
-                    /(?:sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|wodorotlenek\s+potasu|sodium\s+hypochlorite|podchloryn\s+sodu|candeggina|wybielacz|kwas\s+solny|hydrochloric\s+acid|kwas\s+fosforowy|phosphoric\s+acid|kwas\s+amidosulfonowy|sulfamic\s+acid|\bH314\b|\bH315\b|piekarnik|komink|grill|przypale[ńn]|muffa|pleś[ńn]|żrąc|rękawic|guanti)/i.test(`${product?.text_fields?.name || ''} ${this.state.extracted_data.inci?.value || ''} ${this.state.extracted_data.detergent_composition?.value || ''} ${pimWarningsA11 || ''} ${pimUsageA11 || ''}`)
-                );
+                const auditCtxA11 = buildPhase4AuditContext();
+                const rawDraftHtmlA11 = [1, 2, 3, 4, 5, 6].map(i => this.state.a7_result?.[`section_${i}_html`] || '').join(' ');
+                const rawInputTextA11 = [
+                    product?.text_fields?.name || '',
+                    auditCtxA11.pimWarnings || '',
+                    auditCtxA11.pimUsage || ''
+                ].filter(Boolean).join(' ');
+                const preA11Audit = computeComplianceAuditForSections(this.state.a7_result || {}, auditCtxA11);
 
                 const agent11Data = {
                     gtin_ean: this.gtin,
                     product_name: product?.text_fields?.name || undefined,
                     product_purpose: this.resolveProductPurpose(product),
-                    physical_form: this.state.vision_extracted_features?.['Postać'] || product?.text_fields?.features?.['Postać'] || undefined,
+                    physical_form: product?.text_fields?.features?.['Postać'] || this.state.vision_extracted_features?.['Postać'] || undefined,
                     brand: extracted.brand?.value || undefined,
-                    manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name || undefined,
+                    manufacturer: auditCtxA11.manufacturer || undefined,
                     category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name || undefined,
                     scent_variant: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'] || undefined,
                     inci: normalizeInciToLegalEnglish(this.state.extracted_data.inci?.value || '') || undefined,
                     detergent_composition: this.state.extracted_data.detergent_composition?.value ? normalizeInciToLegalEnglish(this.state.extracted_data.detergent_composition.value) : undefined,
-                    pim_safety_warnings: pimWarningsA11,
-                    pim_usage_instructions: pimUsageA11,
-                    requires_protective_gloves: requiresGlovesA11,
+                    pim_safety_warnings: auditCtxA11.pimWarnings,
+                    pim_usage_instructions: auditCtxA11.pimUsage,
+                    requires_protective_gloves: auditCtxA11.requiresProtectiveGloves,
                     vision_features: this.state.vision_extracted_features || undefined,
+                    pre_audit_issues: [...preA11Audit.complianceIssues, ...preA11Audit.uxWarnings],
                     section_1_html: this.state.a7_result?.section_1_html,
                     section_2_html: this.state.a7_result?.section_2_html,
                     section_3_html: this.state.a7_result?.section_3_html,
@@ -2816,7 +3169,9 @@ class Orchestrator {
                                 },
                                 required: ["target_section", "find_exact", "replace_with", "justification"]
                             }
-                        }
+                        },
+                        escalate_to_pro: { type: "boolean" },
+                        escalation_reason: { type: "string" }
                     },
                     required: ["product_identity", "patches"]
                 };
@@ -2847,14 +3202,70 @@ class Orchestrator {
                                 console.log(`[Orchestrator V2] [A11 PATCH] Zaaplikowano patch w ${p.target_section}: "${p.justification}"`);
                             }
                         }
+                        if (isFullPipelineRun) {
+                            applyDeterministicSectionSanitizers(this.state.a7_result, {
+                                ...auditCtxA11,
+                                isFullPipelineRun
+                            });
+                        }
                     }
 
                     this.state.node_status['A11'] = 'OK';
-                    this.state.next_action = 'RUN_A10';
-                    this.emitState();
+                    const postA11Audit = computeComplianceAuditForSections(this.state.a7_result || {}, auditCtxA11);
+                    const decision = shouldEscalateToAgent10({
+                        rawInputText: rawInputTextA11,
+                        rawDraftHtml: rawDraftHtmlA11,
+                        postA11Audit,
+                        a11Result: result,
+                        a11Status: this.state.node_status['A11'],
+                        isMedicalDevice: auditCtxA11.isMedicalDevice,
+                        isHighRiskChemistry: auditCtxA11.isHighRiskChemistry
+                    });
+
+                    if (decision.escalate) {
+                        this.state.a11_escalation_reason = decision.reason;
+                        this.state.next_action = 'RUN_A10';
+                        this.emitState();
+                    } else {
+                        for (let i of [1, 2, 3, 4, 5, 6]) {
+                            let sec = this.state.a7_result?.[`section_${i}_html`];
+                            if (sec) {
+                                sec = normalizeTags(sec);
+                                this.state.a7_result[`section_${i}_html`] = sec;
+                                const err = runHtmlValidators(sec, 'A11');
+                                if (err && this.state.node_status['A11'] !== 'HITL_OVERRIDDEN') {
+                                    this.state.node_status['A11'] = 'HALTED_HITL_REQUIRED';
+                                    this.state.hitl_alert = err;
+                                    this.state.normalization_warnings.push(err);
+                                    this.state.next_action = 'HALT';
+                                    this.emitState();
+                                    return;
+                                }
+                            }
+                        }
+                        const faqGateA11 = applyAeoFaqGate(this.state.a7_result?.section_2_html, 'A11');
+                        if (this.state.a7_result) this.state.a7_result.section_2_html = faqGateA11.html;
+                        if (faqGateA11.halted) return;
+
+                        this.state.a10_result = { ...(this.state.a7_result || {}) };
+                        this.state.node_status['A10'] = 'SKIPPED_CLEAN';
+                        this.state.token_usage_per_node['A10'] = {
+                            promptTokenCount: 0,
+                            candidatesTokenCount: 0,
+                            thoughtsTokenCount: 0,
+                            cachedContentTokenCount: 0,
+                            totalTokenCount: 0,
+                            tokens_saved: true,
+                            skip_reason: decision.reason
+                        };
+                        this.state.next_action = 'FINISH';
+                        console.log(`[Orchestrator V2] A10 pominięty warunkowo (${decision.reason}) — sekcje czyste po A11 i audycie kodowym.`);
+                        this.emitState();
+                    }
                 } catch (e) {
-                    console.warn(`[Orchestrator V2] Ostrzeżenie: Błąd podczas wykonania Agenta 11 (${e.message}). Przekazuję stan do Agenta 10.`);
+                    console.warn(`[Orchestrator V2] Ostrzeżenie: Błąd podczas wykonania Agenta 11 (${e.message}). Eskaluję stan do Agenta 10.`);
                     this.state.node_status['A11'] = 'WARNING_FALLBACK';
+                    this.state.a11_escalation_reason = `A11_ERROR: ${e.message}`;
                     this.state.next_action = 'RUN_A10';
                     this.emitState();
                 }
@@ -2872,161 +3283,29 @@ class Orchestrator {
                 this.state.node_status['A10'] = 'RUNNING';
                 this.emitState();
 
+                const auditCtxA10 = buildPhase4AuditContext();
+                const pimWarningsA10 = auditCtxA10.pimWarnings;
+                const pimUsageA10 = auditCtxA10.pimUsage;
+                const requiresGlovesA10 = auditCtxA10.requiresProtectiveGloves;
+
                 // W pełnym przebiegu potoku wykonaj deterministyczną samonaprawę przed audytem
                 if (isFullPipelineRun && this.state.a7_result) {
-                    for (let i = 1; i <= 6; i++) {
-                        const secKey = `section_${i}_html`;
-                        if (this.state.a7_result[secKey]) {
-                            let s = this.state.a7_result[secKey];
-                            s = brandResponsibleService.stripContactInfo(s);
-                            s = deterministicEngine.sanitizeHtmlClaimsAndStopwords(s, {
-                                productName: product?.text_fields?.name || this.state.product_name,
-                                inci: this.state.extracted_data.inci?.value,
-                                detergentComposition: this.state.extracted_data.detergent_composition?.value,
-                                pimWarnings: this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'],
-                                pimUsage: this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia']
-                            });
-                            if (i === 3) s = stripRawInciFooterFromSection3(s);
-                            if (i === 6) s = sanitizeSection6Html(s);
-                            s = deterministicEngine.normalizeEmojiAndStructure(s, i);
-                            if (i === 2) s = normalize_aeo_faq_labels(s);
-                            s = normalizeTags(s);
-                            this.state.a7_result[secKey] = s;
-                        }
-                    }
+                    applyDeterministicSectionSanitizers(this.state.a7_result, {
+                        ...auditCtxA10,
+                        isFullPipelineRun
+                    });
                 }
 
-                // Generowanie realnego raportu pre-audytu kodowego na wszystkich 6 sekcjach
-                const detectedStopwords = [];
-                const detectedMedical = [];
-                const detectedBiocidal = [];
-                const structuralErrors = [];
-                let allSixPresent = true;
+                // Generowanie raportu pre-audytu kodowego przez współdzielony audytor DRY
+                const { preAuditReport } = computeComplianceAuditForSections(this.state.a7_result || {}, auditCtxA10);
 
-                for (let i = 1; i <= 6; i++) {
-                    const secHtml = this.state.a7_result ? this.state.a7_result['section_' + i + '_html'] : null;
-                    if (!secHtml || typeof secHtml !== 'string' || secHtml.trim() === '') {
-                        allSixPresent = false;
-                        continue;
-                    }
-                    const hitsStop = scan_stopwords(secHtml);
-                    detectedStopwords.push(...hitsStop.map(h => ({ section: `section_${i}_html`, word: h.word })));
-
-                    const hitsMed = scan_medical_claims_lexical(secHtml);
-                    detectedMedical.push(...hitsMed.map(h => ({ section: `section_${i}_html`, word: h.word })));
-
-                    const hitsBio = scan_biocidal_claims_lexical(secHtml);
-                    detectedBiocidal.push(...hitsBio.map(h => ({ section: `section_${i}_html`, word: h.word })));
-
-                    const htmlVal = validate_html_whitelist(secHtml);
-                    if (!htmlVal.valid) {
-                        structuralErrors.push(`[Sekcja ${i} HTML] ${htmlVal.errors.join(', ')}`);
-                    }
-                    const emojiVal = emoji_structure_check(secHtml);
-                    if (!emojiVal.valid) {
-                        structuralErrors.push(`[Sekcja ${i} Emoji] ${emojiVal.errors.join(', ')}`);
-                    }
-                }
-
-                if (this.state.a7_result?.section_2_html) {
-                    const faqPreCheck = aeo_faq_check(this.state.a7_result.section_2_html);
-                    if (!faqPreCheck.valid) {
-                        structuralErrors.push(`[Sekcja 2 FAQ] ${faqPreCheck.errors.join(', ')}`);
-                    }
-                }
-
-                // Weryfikacja zgodności prawnej sekcji 3, 5 i 6
-                const isPlaceholderManufA10 = (m) => !m || /^(?:null|undefined|brak|brak\s+danych|nieznany|nieznany\s+producent|unknown|n\/a|-)$/i.test(String(m).trim());
-                const validManufacturerA10 = [
-                    extracted.manufacturer?.value,
-                    product?.text_fields?.features?.['Producent'],
-                    this.state.vision_extracted_features?.['Producent'],
-                    this.state.extracted_data?.eu_responsible_person?.data?.name,
-                    extracted.brand?.value || product?.brand?.name
-                ].find(m => !isPlaceholderManufA10(m));
-
-                const s5Check = validate_section5_compliance(this.state.a7_result.section_5_html, {
-                    is_medical_device: product?.is_medical_device,
-                    product_name: product?.text_fields?.name,
-                    manufacturer: validManufacturerA10,
-                    require_manufacturer: Boolean(validManufacturerA10)
-                });
-                const isActualHouseholdChemicalA10 = deterministicEngine.detectHouseholdChemical({
-                    isChemical: Boolean(this.state.chemical_route_reasons?.includes('CATEGORY_CHEMICAL')),
-                    a4CategoryType: this.state.a4_result?.category_type,
-                    productName: product?.text_fields?.name,
-                    category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
-                    inci: this.state.extracted_data.inci?.value,
-                    detergentComposition: this.state.extracted_data.detergent_composition?.value,
-                    visionFeatures: this.state.vision_extracted_features || {},
-                    features: product?.text_fields?.features || product?.features || {}
-                });
-                const pimWarningsA10 = this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'] || undefined;
-                const pimUsageA10 = this.state.extracted_data.usage?.value || product?.text_fields?.features?.['Sposób użycia'] || undefined;
-                const hasActualEyeIrritationA10 = Boolean(
-                    this.state.gpsr_baseline?.warnings?.some(w => /\b(?:H319|H318)\b/i.test(String(w)))
-                );
-                const hasExplicitLabelEuh208A10 = Boolean(
-                    this.state.gpsr_baseline?.warnings?.some(w => /\bEUH208\b/i.test(String(w))) ||
-                    /\bEUH208\b/i.test(String(pimWarningsA10 || ''))
-                );
-                const s6Check = validate_section6_compliance(this.state.a7_result.section_6_html, {
-                    has_eye_irritation: hasActualEyeIrritationA10,
-                    has_sensitizers: hasExplicitLabelEuh208A10,
-                    is_chemical: isActualHouseholdChemicalA10
-                });
-                const allowedSourcesList = (this.state.extracted_data.inci?.value || '').split(',').map(s => s.trim());
-                if (this.state.extracted_data.detergent_composition?.value) {
-                    allowedSourcesList.push(...this.state.extracted_data.detergent_composition.value.split(',').map(s => s.trim()));
-                }
-                const requiresGlovesA10 = Boolean(
-                    this.state.gpsr_baseline?.detected_risks?.includes('PROTECTIVE_GLOVES_REQUIRED') ||
-                    /(?:sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|wodorotlenek\s+potasu|sodium\s+hypochlorite|podchloryn\s+sodu|candeggina|wybielacz|kwas\s+solny|hydrochloric\s+acid|kwas\s+fosforowy|phosphoric\s+acid|kwas\s+amidosulfonowy|sulfamic\s+acid|\bH314\b|\bH315\b|piekarnik|komink|grill|przypale[ńn]|muffa|pleś[ńn]|żrąc|rękawic|guanti)/i.test(`${product?.text_fields?.name || ''} ${this.state.extracted_data.inci?.value || ''} ${this.state.extracted_data.detergent_composition?.value || ''} ${pimWarningsA10 || ''} ${pimUsageA10 || ''}`)
-                );
-                const s3Check = validate_section3_ingredients_closed_world(this.state.a7_result.section_3_html, allowedSourcesList);
-                const domainCheck = validate_domain_and_chemical_logic(this.state.a7_result, {
-                    productName: product?.text_fields?.name,
-                    inci: this.state.extracted_data.inci?.value,
-                    detergentComposition: this.state.extracted_data.detergent_composition?.value,
-                    isChemical: isActualHouseholdChemicalA10,
-                    pimWarnings: pimWarningsA10,
-                    pimUsage: pimUsageA10,
-                    requiresProtectiveGloves: requiresGlovesA10
-                });
-
-                const complianceIssues = [
-                    ...s5Check.errors.map(e => `[Sekcja 5] ${e}`),
-                    ...s6Check.errors.map(e => `[Sekcja 6] ${e}`),
-                    ...s3Check.errors.map(e => `[Sekcja 3] ${e}`),
-                    ...domainCheck.errors,
-                    ...structuralErrors
-                ];
-
-                let preAuditReport = '';
-                if (detectedBiocidal.length > 0) {
-                    preAuditReport += `WYKRYTO NIELEGALNE ROSZCZENIA BIOBÓJCZE / ANTYBAKTERYJNE (Rozp. BPR 528/2012): ${detectedBiocidal.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK ZASTĄPIENIA ZWROTAMI O HIGIENICZNEJ CZYSTOŚCI / GŁĘBOKIM OCZYSZCZANIU.\n`;
-                }
-                if (detectedMedical.length > 0) {
-                    preAuditReport += `WYKRYTO ZAKAZANE ROSZCZENIA MEDYCZNE / LECZNICZE (Rozp. 655/2013 & 1223/2009): ${detectedMedical.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM.\n`;
-                }
-                if (detectedStopwords.length > 0) {
-                    preAuditReport += `WYKRYTO SŁOWA ZAKAZANE REGULAMINEM ALLEGRO (§A): ${detectedStopwords.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM W patches NA NEUTRALNE ODPOWIEDNIKI.\n`;
-                }
-                if (complianceIssues.length > 0) {
-                    preAuditReport += `WYKRYTO NIEZGODNOŚCI PRAWNE I FORMALNE: ${complianceIssues.join(' | ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM W patches.\n`;
-                }
-                if (!preAuditReport) {
-                    preAuditReport = "Automated checks passed.";
-                }
-
-                // ELIMINACJA FAST-PASS (Zgodnie z protokołem Dual-Agent QA: Agent 10 zawsze wykonuje audyt LLM)
                     const agent10Data = {
                         gtin_ean: this.gtin,
                         product_name: product?.text_fields?.name || undefined,
                         product_purpose: this.resolveProductPurpose(product),
-                        physical_form: this.state.vision_extracted_features?.['Postać'] || product?.text_fields?.features?.['Postać'] || undefined,
+                        physical_form: product?.text_fields?.features?.['Postać'] || this.state.vision_extracted_features?.['Postać'] || undefined,
                         brand: extracted.brand?.value || undefined,
-                        manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name || undefined,
+                        manufacturer: auditCtxA10.manufacturer || undefined,
                         scent_variant: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'] || undefined,
                         inci: normalizeInciToLegalEnglish(this.state.extracted_data.inci?.value || '') || undefined,
                         detergent_composition: this.state.extracted_data.detergent_composition?.value ? normalizeInciToLegalEnglish(this.state.extracted_data.detergent_composition.value) : undefined,
@@ -3034,6 +3313,7 @@ class Orchestrator {
                         pim_usage_instructions: pimUsageA10,
                         requires_protective_gloves: requiresGlovesA10,
                         vision_features: this.state.vision_extracted_features || undefined,
+                        a11_escalation_reason: this.state.a11_escalation_reason || undefined,
                         section_1_html: this.state.a7_result.section_1_html,
                         section_2_html: this.state.a7_result.section_2_html,
                         section_3_html: this.state.a7_result.section_3_html,
@@ -3279,9 +3559,8 @@ class Orchestrator {
                             sekcja7: this.state.final_offer.extra_field_4245
                         },
                         features: { 
+                            ...(this.state.auto_mapped_allegro_params || {}),
                             "Skład/INCI": this.state.final_offer.ingredients_inci,
-                            INCI: this.state.final_offer.ingredients_inci,
-                            "Skład": this.state.final_offer.ingredients_inci,
                             ...(this.state.extracted_data.warnings?.value ? { "Ostrzeżenia": this.state.extracted_data.warnings.value } : {}),
                             ...(this.state.extracted_data.usage?.value ? { "Sposób użycia": this.state.extracted_data.usage.value } : {})
                         }
@@ -3375,5 +3654,8 @@ module.exports = {
     PHASE_4_AUDIT,
     normalizeTags,
     sanitizeSection5Html,
-    sanitizeSection6Html
+    sanitizeSection6Html,
+    applyDeterministicSectionSanitizers,
+    computeComplianceAuditForSections,
+    shouldEscalateToAgent10
 };

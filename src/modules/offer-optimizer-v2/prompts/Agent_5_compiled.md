@@ -106,7 +106,6 @@ preserved_minor_flaws_for_pratfall[], safe_aeo_questions[], safe_aeo_answers[].
 
 --- DANE WEJŚCIOWE {A1, A2, A4} (dynamiczne) ---
 
-
 --- WSPÓLNE REGUŁY ---
 ## §A. STOP-WORDS ALLEGRO + UOKiK (egzekwuje: kod i A10; znają i przestrzegają: A4, A5, A6, A7, A10)
 Bezwzględny zakaz stosowania w opisie, tytułach i nagłówkach słów naruszających Regulamin Allegro 2026 i wytyczne UOKiK:

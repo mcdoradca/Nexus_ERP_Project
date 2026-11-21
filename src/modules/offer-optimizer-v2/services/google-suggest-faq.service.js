@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { classifyProductPhysicalForm } = require('./product-form.classifier');
 
 const CACHE_FILE_PATH = path.join(__dirname, '..', 'data', 'google_suggest_faq_cache.json');
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
@@ -57,16 +58,26 @@ function saveSuggestCache(cacheObj) {
 /**
  * Wykrywa kanoniczną frazę kategorii konsumenckiej po polsku (taką, jaką klienci wpisują w pasek Google).
  */
-function detectCanonicalSearchCategory({ productName = '', category = '', visionFeatures = {}, features = {}, isChemical = false } = {}) {
+function detectCanonicalSearchCategory({ productName = '', category = '', visionFeatures = {}, features = {}, isChemical = false, inci = '', detergentComposition = '' } = {}) {
     const combined = [
         productName,
         category,
         visionFeatures?.['Przeznaczenie (Front)'],
         visionFeatures?.['Postać'],
+        features?.['Postać'],
         features?.['Rodzaj'],
         features?.['Typ'],
         features?.['Zastosowanie']
     ].filter(Boolean).join(' ').toLowerCase();
+
+    const physicalForm = classifyProductPhysicalForm({
+        productName,
+        category,
+        visionFeatures,
+        features,
+        inci,
+        detergentComposition
+    });
 
     if (/(mleczko\s+do\s+czyszczenia|mleczko\s+czyszczące|mleczko\s+cif|crema\s+pulente)/i.test(combined)) {
         return { key: 'scouring_cream', labelPl: 'mleczko do czyszczenia', group: 'SURFACE_CLEANER' };
@@ -126,28 +137,28 @@ function detectCanonicalSearchCategory({ productName = '', category = '', vision
         return { key: 'mouthwash', labelPl: 'płyn do płukania jamy ustnej', group: 'ORAL_CARE' };
     }
     if (/(dezodorant|antyperspirant|roll-on|deodorante)/i.test(combined)) {
-        return { key: 'deodorant', labelPl: 'dezodorant', group: 'BODY_CARE' };
-    }
-    if (/(talk|puder\s+do\s+ciała|talco)/i.test(combined)) {
-        return { key: 'talcum_powder', labelPl: 'talk kosmetyczny do ciała', group: 'BODY_CARE' };
+        return { key: 'deodorant', labelPl: 'dezodorant', group: 'BODY_CARE', physicalForm };
     }
     if (/(mydło|mydlo|sapone)/i.test(combined)) {
-        return { key: 'soap', labelPl: 'mydło do rąk i ciała', group: 'BODY_CARE' };
-    }
-    if (/(szampon|shampoo)/i.test(combined)) {
-        return { key: 'shampoo', labelPl: 'szampon do włosów', group: 'HAIR_CARE' };
-    }
-    if (/(odżywk[ai]\s+do\s+włosów|maska\s+do\s+włosów|balsamo\s+capelli)/i.test(combined)) {
-        return { key: 'hair_conditioner', labelPl: 'odżywka do włosów', group: 'HAIR_CARE' };
-    }
-    if (/(krem\s+do\s+rąk|krem\s+do\s+twarzy|balsam\s+do\s+ciała|mleczko\s+do\s+ciała|crema\s+corpo|crema\s+mani)/i.test(combined)) {
-        return { key: 'body_cream', labelPl: 'balsam i krem pielęgnacyjny', group: 'BODY_CARE' };
+        return { key: 'soap', labelPl: 'mydło do rąk i ciała', group: 'BODY_CARE', physicalForm };
     }
     if (/(żel\s+pod\s+prysznic|zel\s+pod\s+prysznic|płyn\s+do\s+kąpieli|bagnodoccia|docciaschiuma|bagnoschiuma)/i.test(combined)) {
-        return { key: 'shower_gel', labelPl: 'żel pod prysznic i płyn do kąpieli', group: 'BODY_CARE' };
+        return { key: 'shower_gel', labelPl: 'żel pod prysznic i płyn do kąpieli', group: 'BODY_CARE', physicalForm };
+    }
+    if (/(szampon|shampoo)/i.test(combined)) {
+        return { key: 'shampoo', labelPl: 'szampon do włosów', group: 'HAIR_CARE', physicalForm };
+    }
+    if (/(odżywk[ai]\s+do\s+włosów|maska\s+do\s+włosów|balsamo\s+capelli)/i.test(combined)) {
+        return { key: 'hair_conditioner', labelPl: 'odżywka do włosów', group: 'HAIR_CARE', physicalForm };
+    }
+    if (/(krem\s+do\s+rąk|krem\s+do\s+twarzy|balsam\s+do\s+ciała|mleczko\s+do\s+ciała|crema\s+corpo|crema\s+mani)/i.test(combined)) {
+        return { key: 'body_cream', labelPl: 'balsam i krem pielęgnacyjny', group: 'BODY_CARE', physicalForm };
+    }
+    if (physicalForm.isDryPowder && /(talk|puder\s+do\s+ciała|talco)/i.test(combined)) {
+        return { key: 'talcum_powder', labelPl: 'talk kosmetyczny do ciała', group: 'BODY_CARE', physicalForm };
     }
 
-    return { key: 'general_cosmetic', labelPl: 'kosmetyk pielęgnacyjny', group: 'BODY_CARE' };
+    return { key: 'general_cosmetic', labelPl: 'kosmetyk pielęgnacyjny', group: 'BODY_CARE', physicalForm };
 }
 
 /**
@@ -415,7 +426,12 @@ function buildFourPillarQuestions({
         if (isWcSpecific) {
             questions.push(`Jak prawidłowo aplikować i spłukiwać ${shortBrandRef} pod obrzeżem muszli toaletowej oraz pod linią wody, aby uzyskać higieniczną czystość?`);
         } else if (isBathroomSpecific) {
-            questions.push(`Jak prawidłowo aplikować i spłukiwać żel na ceramice sanitarnej, wannach, umywalkach oraz fugach, aby uzyskać czystość bez zacieków?`);
+            const formWord = catInfo.physicalForm?.formAccusativePl || classifyProductPhysicalForm({
+                productName: naturalName,
+                postac: visionFeatures?.['Postać'],
+                dozownik: visionFeatures?.['Dozownik']
+            }).formAccusativePl || 'ten preparat';
+            questions.push(`Jak prawidłowo aplikować i spłukiwać ${formWord} na ceramice sanitarnej, wannach, umywalkach oraz fugach, aby uzyskać czystość bez zacieków?`);
         } else {
             questions.push(`Jak prawidłowo aplikować i zmywać ${shortBrandRef}, aby szybko usunąć zabrudzenia oraz osady bez zacieków?`);
         }
@@ -468,7 +484,7 @@ async function harvestSearchIntentFaq({
     inci = '',
     detergentComposition = ''
 } = {}) {
-    const catInfo = detectCanonicalSearchCategory({ productName, category, visionFeatures, features, isChemical });
+    const catInfo = detectCanonicalSearchCategory({ productName, category, visionFeatures, features, isChemical, inci, detergentComposition });
     const naturalName = formatNaturalProductName(productName, brand, capacity);
     const cleanBrand = String(brand || '').trim().toLowerCase();
     const cacheKey = `${cleanBrand || 'generic'}::${catInfo.key}`;
