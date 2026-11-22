@@ -3,6 +3,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { logger } = require('./utils/logger');
 const { resolveBaseLinkerToken, encryptSecret, testBaseLinkerToken } = require('./utils/secretVault');
 const { trimOrNull, parseLocaleFloat, parseLocaleInt, resolveProductByIdOrEan } = require('./utils/productLookup');
+const { resolveWorkspaceContext } = require('./middlewares/workspace.middleware');
+const workspaceService = require('./services/workspace.service');
 
 // Globalna Tarcza Ochronna Procesu Node.js (Zasada Nieśmiertelnego Serwera)
 let _serverInstance = null;
@@ -181,6 +183,7 @@ const resiRoutes = require('./modules/resi/resi.routes');
 const aiTelemetryRoutes = require('./routes/ai-telemetry.routes');
 const allegroAuthRoutes = require('./routes/allegro-auth.routes');
 const vonHalskyRoutes = require('./routes/vonhalsky.routes');
+const workspacesRoutes = require('./routes/workspaces.routes');
 const sdsRoutes = require('./modules/sds/sds.routes');
 const adIntelligenceRoutes = require('./modules/ad-intelligence/ad-intelligence.routes');
 
@@ -206,6 +209,12 @@ const sentinelService = require('./modules/campaigns/sentinel.service');
 io.on('connection', (socket) => {
     socketService.setOnlineUser(socket.id, socket.user.id);
     registerSocketHandlers(socket);
+
+    socket.on('join_workspace', (workspaceId) => {
+        if (workspaceId) {
+            socketService.joinWorkspace(socket, String(workspaceId).trim());
+        }
+    });
 
     socket.on('disconnect', () => {
         socketService.removeOnlineUser(socket.id);
@@ -255,14 +264,16 @@ app.use('/api/announcements', announcementsRoutes);
 app.use('/api/crm', crmRoutes);
 app.use('/api/influencers', influencersRoutes);
 
+app.use('/api/workspaces', authenticateToken, workspacesRoutes);
+
 app.use('/api/pricing', pricingRoutes);
-app.use('/api/analytics', authenticateToken, analyticsRoutes);
+app.use('/api/analytics', authenticateToken, resolveWorkspaceContext, analyticsRoutes);
 app.use('/api/portfolio', authenticateToken, portfolioRoutes);
-app.use('/api/rma', rmaRoutes);
+app.use('/api/rma', authenticateToken, resolveWorkspaceContext, rmaRoutes);
 app.use('/api/logistics', logisticsRoutes);
 app.use('/api/meetings', meetingsRoutes); // Zawiera cześć chronioną i publiczną
 // Faza 15: Integracja Optymalizatora Ofert
-app.use('/api/offer-optimizer', authenticateToken, offerOptimizerRoutes);
+app.use('/api/offer-optimizer', authenticateToken, resolveWorkspaceContext, offerOptimizerRoutes);
 
 // Resi Studio (Przetwarzanie obrazów AI)
 app.use('/api/resi', authenticateToken, resiRoutes);
@@ -274,13 +285,13 @@ app.use('/api/sds', authenticateToken, sdsRoutes);
 app.use('/api/ad-intelligence', adIntelligenceRoutes);
 
 // AI Telemetria i koszty tokenów
-app.use('/api/system/ai-telemetry', authenticateToken, aiTelemetryRoutes);
+app.use('/api/system/ai-telemetry', authenticateToken, resolveWorkspaceContext, aiTelemetryRoutes);
 
 // Autoryzacja Allegro Device Flow
-app.use('/api/allegro/auth', authenticateToken, allegroAuthRoutes);
+app.use('/api/allegro/auth', authenticateToken, resolveWorkspaceContext, allegroAuthRoutes);
 
 // Konfiguracja i weryfikacja InPost Von Halsky API
-app.use('/api/vonhalsky', authenticateToken, vonHalskyRoutes);
+app.use('/api/vonhalsky', authenticateToken, resolveWorkspaceContext, vonHalskyRoutes);
 
 // ENDPOINT DO TESTOWANIA SYSTEMU LOGOWANIA (FAZA 5)
 app.get('/api/test-error', (req, res, next) => {
@@ -435,11 +446,12 @@ app.post('/api/brands', authenticateToken, async (req, res) => {
     } catch (error) { res.status(500).json({ error: 'Blad' }); }
 });
 
-app.get('/api/products', authenticateToken, async (req, res) => {
+app.get('/api/products', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     try {
         const products = await prisma.product.findMany({ 
+            where: { workspaceId: req.workspaceId },
             select: { 
-               id: true, ean: true, sku: true, name: true, stock: true, 
+               id: true, workspaceId: true, ean: true, sku: true, name: true, stock: true, 
                salePrice: true, status: true, isSynced: true, createdAt: true,
                imageUrl: true, riskScore: true, targetMargin: true,
                brand: true,
@@ -464,10 +476,10 @@ app.get('/api/products', authenticateToken, async (req, res) => {
     }
 });
 
-app.get('/api/products/:id', authenticateToken, async (req, res) => {
+app.get('/api/products/:id', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     try {
-        const product = await prisma.product.findUnique({
-            where: { id: req.params.id },
+        const product = await prisma.product.findFirst({
+            where: { id: req.params.id, workspaceId: req.workspaceId },
             include: { 
                brand: true,
                bomElements: { include: { material: true } },
@@ -476,7 +488,7 @@ app.get('/api/products/:id', authenticateToken, async (req, res) => {
         });
         
         if (!product) {
-            return res.status(404).json({ error: 'Produkt nie znaleziony' });
+            return res.status(404).json({ error: 'Produkt nie znaleziony w wybranym kliencie' });
         }
         
         // Add DQS evaluation here too if it's expected
@@ -491,32 +503,49 @@ app.get('/api/products/:id', authenticateToken, async (req, res) => {
 // --- System Settings API ---
 const SECRET_SETTING_KEYS = new Set(['BASELINKER_TOKEN', 'ALLEGRO_ACCESS_TOKEN', 'ALLEGRO_REFRESH_TOKEN', 'ALLEGRO_ACCOUNTS_VAULT', 'VONHALSKY_CONFIG_VAULT', 'ELEVENLABS_API_KEY']);
 
-app.get('/api/settings/:key', authenticateToken, async (req, res) => {
+app.get('/api/settings/:key', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
     try {
         const key = String(req.params.key || '').trim();
         const setting = await prisma.systemSetting.findUnique({ where: { key } });
 
         if (key === 'BASELINKER_TOKEN') {
-            let resolved = { token: null, source: 'none', encrypted: false, updatedAt: setting?.updatedAt || null };
+            const wsId = req.workspaceId;
+            const reqAccountId = trimOrNull(req.query?.accountId) || null;
+            let resolved = { token: null, source: 'none', encrypted: false, updatedAt: null, accountId: null, accountLabel: null };
             let decryptError = null;
             try {
-                resolved = await resolveBaseLinkerToken(prisma);
+                resolved = await resolveBaseLinkerToken(prisma, { workspaceId: wsId, accountId: reqAccountId });
             } catch (vaultErr) {
                 decryptError = vaultErr.message;
             }
-            const auditSetting = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN_AUDIT' } });
-            let audit = null;
-            if (auditSetting?.value) {
-                try { audit = JSON.parse(auditSetting.value); } catch (_) { audit = null; }
+            const accounts = wsId ? await workspaceService.listIntegrationAccounts(prisma, wsId, 'BASELINKER') : [];
+            const lastAuditRow = wsId ? await prisma.securityAuditLog.findFirst({
+                where: { workspaceId: wsId, provider: 'BASELINKER' },
+                orderBy: { createdAt: 'desc' }
+            }) : null;
+            let audit = lastAuditRow ? {
+                updatedAt: lastAuditRow.createdAt,
+                updatedByUserId: lastAuditRow.userId,
+                ...(lastAuditRow.details && typeof lastAuditRow.details === 'object' ? lastAuditRow.details : {})
+            } : null;
+            if (!audit && req.workspace?.isDefault) {
+                const auditSetting = await prisma.systemSetting.findUnique({ where: { key: 'BASELINKER_TOKEN_AUDIT' } });
+                if (auditSetting?.value) {
+                    try { audit = JSON.parse(auditSetting.value); } catch (_) { audit = null; }
+                }
             }
             return res.json({
                 key: 'BASELINKER_TOKEN',
+                workspaceId: wsId,
+                accountId: resolved.accountId || null,
+                accountLabel: resolved.accountLabel || null,
+                accounts,
                 value: '',
                 configured: Boolean(resolved.token),
                 encrypted: Boolean(resolved.encrypted),
                 tokenSource: resolved.source,
-                updatedAt: resolved.updatedAt || setting?.updatedAt || null,
+                updatedAt: resolved.updatedAt || null,
                 decryptError,
                 audit
             });
@@ -535,22 +564,33 @@ app.get('/api/settings/:key', authenticateToken, async (req, res) => {
     } catch (error) { res.status(500).json({ error: 'Błąd serwera ustawień' }); }
 });
 
-app.post('/api/settings/BASELINKER_TOKEN/verify', authenticateToken, async (req, res) => {
+app.post('/api/settings/BASELINKER_TOKEN/verify', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
     try {
-        const resolved = await resolveBaseLinkerToken(prisma);
+        const wsId = req.workspaceId;
+        const accountId = trimOrNull(req.body?.accountId || req.query?.accountId) || null;
+        const resolved = await resolveBaseLinkerToken(prisma, { workspaceId: wsId, accountId });
         if (!resolved.token) {
             return res.status(200).json({
                 ok: false,
                 source: 'none',
                 encrypted: false,
+                workspaceId: wsId,
                 errorCode: 'MISSING_TOKEN',
-                errorMessage: 'Brak skonfigurowanego tokena BASELINKER_TOKEN w systemie.'
+                errorMessage: 'Brak skonfigurowanego tokena BASELINKER_TOKEN dla wybranego klienta.'
             });
         }
         const check = await testBaseLinkerToken(resolved.token);
+        if (check.ok && resolved.accountId) {
+            await prisma.integrationAccount.update({
+                where: { id: resolved.accountId },
+                data: { lastVerifiedAt: new Date() }
+            }).catch(() => {});
+        }
         return res.json({
             ok: check.ok,
+            workspaceId: wsId,
+            accountId: resolved.accountId || null,
             source: resolved.source,
             encrypted: resolved.encrypted,
             updatedAt: resolved.updatedAt,
@@ -563,15 +603,16 @@ app.post('/api/settings/BASELINKER_TOKEN/verify', authenticateToken, async (req,
     }
 });
 
-app.post('/api/settings', authenticateToken, async (req, res) => {
+app.post('/api/settings', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
     try {
-        const { key, value, confirmOverwrite } = req.body;
+        const { key, value, confirmOverwrite, accountId = null, label = null } = req.body;
         if (!key || typeof key !== 'string') {
             return res.status(400).json({ error: 'Nieprawidłowy klucz ustawień.' });
         }
 
         if (key === 'BASELINKER_TOKEN') {
+            const wsId = req.workspaceId;
             const candidate = typeof value === 'string' ? value.trim() : '';
 
             // 1. Pre-flight: weryfikacja nowego tokena w API Base.com ZANIM dotkniemy bazy danych
@@ -583,11 +624,27 @@ app.post('/api/settings', authenticateToken, async (req, res) => {
                 });
             }
 
-            // 2. Blokada przypadkowego nadpisania działającego tokena w bazie
+            // 2. Blokada przypadkowego nadpisania działającego tokena w bieżącym workspace (lub wskazanego konta)
+            let existingRow = null;
+            if (wsId) {
+                existingRow = await prisma.integrationAccount.findFirst({
+                    where: {
+                        workspaceId: wsId,
+                        provider: 'BASELINKER',
+                        isActive: true,
+                        ...(accountId ? { id: accountId } : {})
+                    },
+                    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }]
+                });
+            }
+
             let existingActive = false;
             try {
-                const existing = await resolveBaseLinkerToken(prisma);
-                if (existing.source === 'db' && existing.token) {
+                const existing = await resolveBaseLinkerToken(prisma, {
+                    workspaceId: wsId,
+                    accountId: existingRow?.id || null
+                });
+                if (existing.source === 'db' && existing.token && existingRow) {
                     const existingCheck = await testBaseLinkerToken(existing.token);
                     existingActive = existingCheck.ok;
                 }
@@ -596,42 +653,52 @@ app.post('/api/settings', authenticateToken, async (req, res) => {
             }
             if (existingActive && confirmOverwrite !== true) {
                 return res.status(409).json({
-                    error: 'W bazie istnieje już aktywny, działający token BaseLinkera. Zaznacz potwierdzenie nadpisania, aby go zastąpić.',
+                    error: 'U wybranego klienta istnieje już aktywny, działający token BaseLinkera. Zaznacz potwierdzenie nadpisania, aby go zastąpić.',
                     requiresOverwriteConfirm: true
                 });
             }
 
-            // 3. Szyfrowanie AES-256-GCM przed zapisem i zapis śladu audytowego (bez bajtów sekretu)
-            const encryptedPayload = encryptSecret(candidate);
-            const saved = await prisma.systemSetting.upsert({
-                where: { key: 'BASELINKER_TOKEN' },
-                update: { value: encryptedPayload },
-                create: { key: 'BASELINKER_TOKEN', value: encryptedPayload }
+            // 3. Zapis w skarbcu IntegrationAccount (AES-256-GCM + AAD per workspace)
+            const savedAcc = await workspaceService.upsertIntegrationAccount(prisma, {
+                workspaceId: wsId,
+                accountId: existingRow?.id || null,
+                provider: 'BASELINKER',
+                label: (typeof label === 'string' && label.trim()) ? label.trim() : (existingRow?.label || 'Konto BaseLinker'),
+                externalAccountId: verification.inventories?.[0]?.inventory_id ? String(verification.inventories[0].inventory_id) : null,
+                environment: 'production',
+                isDefault: existingRow ? existingRow.isDefault : true,
+                credentialsObj: { token: candidate },
+                metadata: { inventories: verification.inventories, inventoriesCount: verification.inventories.length },
+                lastVerifiedAt: new Date(),
+                userId: req.user.id
             });
+
+            const baselinkerExportService = require('./modules/offer-optimizer-v2/baselinker.export.service');
+            baselinkerExportService.clearInventoryParametersCache(wsId);
 
             const auditRecord = {
                 updatedByUserId: req.user.id,
                 updatedByEmail: req.user.email || null,
                 updatedAt: new Date().toISOString(),
-                inventoriesCount: verification.inventories.length
+                inventoriesCount: verification.inventories.length,
+                workspaceId: wsId
             };
-            await prisma.systemSetting.upsert({
-                where: { key: 'BASELINKER_TOKEN_AUDIT' },
-                update: { value: JSON.stringify(auditRecord) },
-                create: { key: 'BASELINKER_TOKEN_AUDIT', value: JSON.stringify(auditRecord) }
-            });
 
-            logger.info('[SECURITY AUDIT] Zaktualizowano i zaszyfrowano BASELINKER_TOKEN', {
+            logger.info('[SECURITY AUDIT] Zaktualizowano i zaszyfrowano BASELINKER_TOKEN w IntegrationAccount', {
                 userId: req.user.id,
+                workspaceId: wsId,
+                integrationAccountId: savedAcc.id,
                 inventoriesCount: verification.inventories.length
             });
 
             return res.json({
                 key: 'BASELINKER_TOKEN',
+                workspaceId: wsId,
+                account: savedAcc,
                 configured: true,
                 encrypted: true,
                 tokenSource: 'db',
-                updatedAt: saved.updatedAt,
+                updatedAt: savedAcc.updatedAt,
                 inventories: verification.inventories,
                 audit: auditRecord
             });
@@ -652,9 +719,9 @@ app.post('/api/settings', authenticateToken, async (req, res) => {
 // --- PIM API ---
 const pimAiService = require('./modules/offer-optimizer/ai.service');
 
-app.post('/api/products/:id/aeo', authenticateToken, async (req, res) => {
+app.post('/api/products/:id/aeo', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     try {
-        const product = await prisma.product.findUnique({ where: { id: req.params.id }, include: { brand: true } });
+        const product = await prisma.product.findFirst({ where: { id: req.params.id, workspaceId: req.workspaceId }, include: { brand: true } });
         if (!product) return res.status(404).json({ error: 'Produkt nie istnieje' });
         
         const aeoContent = await pimAiService.generateAEOContent(
@@ -675,9 +742,9 @@ app.post('/api/products/:id/aeo', authenticateToken, async (req, res) => {
     }
 });
 
-app.get('/api/products/:id/sync-category-bl', authenticateToken, async (req, res) => {
+app.get('/api/products/:id/sync-category-bl', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     try {
-        const product = await prisma.product.findUnique({ where: { id: req.params.id } });
+        const product = await prisma.product.findFirst({ where: { id: req.params.id, workspaceId: req.workspaceId } });
         if (!product || !product.ean) {
             return res.status(400).json({ error: 'Produkt nie posiada kodu EAN. Odnalezienie docelowej kategorii Allegro jest niemożliwe.' });
         }
@@ -688,13 +755,13 @@ app.get('/api/products/:id/sync-category-bl', authenticateToken, async (req, res
         let allegroCatId = null;
         
         if (product.ean) {
-             allegroCatId = await allegroService.findCategoryByEan(product.ean);
+             allegroCatId = await allegroService.findCategoryByEan(product.ean, { workspaceId: req.workspaceId });
         }
         
         // Plan B: Wyszukiwanie heurystyczne po nazwie produktu (AI Matching Allegro)
         if (!allegroCatId && product.name) {
              console.log(`[SyncCategory] EAN nie zadziałał, próba dopasowania po nazwie: ${product.name}`);
-             allegroCatId = await allegroService.findMatchingCategoryByName(product.name);
+             allegroCatId = await allegroService.findMatchingCategoryByName(product.name, { workspaceId: req.workspaceId });
         }
         
         if (!allegroCatId) {
@@ -702,7 +769,7 @@ app.get('/api/products/:id/sync-category-bl', authenticateToken, async (req, res
         }
         
         // Automatycznie zaciągamy słownik z Allegro (Filar 2)
-        await allegroService.fetchCategoryParameters(allegroCatId);
+        await allegroService.fetchCategoryParameters(allegroCatId, { workspaceId: req.workspaceId });
         
         // Aktualizujemy produkt w Nexusa
         const updated = await prisma.product.update({
@@ -727,9 +794,9 @@ app.get('/api/categories/:id', authenticateToken, async (req, res) => {
 });
 
 // Endpoint: Hybrydowe uzupełnianie parametrów z BaseLinkera oraz przez Web Research Agenta (PXM Auto-Fill)
-app.post('/api/products/:id/autofill-params', authenticateToken, async (req, res) => {
+app.post('/api/products/:id/autofill-params', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     try {
-        const product = await prisma.product.findUnique({ where: { id: req.params.id } });
+        const product = await prisma.product.findFirst({ where: { id: req.params.id, workspaceId: req.workspaceId } });
         if (!product || !product.ean || !product.baselinkerId) {
             return res.status(400).json({ error: 'Produkt musi posiadać zsynchronizowany BaseLinker ID oraz wpisany EAN do uruchomienia Agenta PXM.' });
         }
@@ -740,14 +807,19 @@ app.post('/api/products/:id/autofill-params', authenticateToken, async (req, res
         const BaseLinkerService = require('./modules/offer-optimizer/baselinker.service');
         const aiService = require('./modules/offer-optimizer/ai.service');
         const allegroService = require('./modules/offer-optimizer/allegro.service');
+        const wsContext = { workspaceId: req.workspaceId };
         
-        const blData = await BaseLinkerService.fetchDeepProductData(product.baselinkerInventoryId || await BaseLinkerService.getInventories(), product.baselinkerId);
+        const blData = await BaseLinkerService.fetchDeepProductData(
+            product.baselinkerInventoryId || await BaseLinkerService.getInventories(wsContext),
+            product.baselinkerId,
+            wsContext
+        );
         if (blData.features && Object.keys(blData.features).length > 0) {
             currentFeatures = { ...currentFeatures, ...blData.features };
         }
         
         // 1.5 Pobranie twardych, słownikowych parametrów z Katalogu Allegro API
-        const hardCatalogFeatures = await allegroService.getProductParametersByEan(product.ean);
+        const hardCatalogFeatures = await allegroService.getProductParametersByEan(product.ean, wsContext);
         if (hardCatalogFeatures && Object.keys(hardCatalogFeatures).length > 0) {
             currentFeatures = { ...currentFeatures, ...hardCatalogFeatures };
         }
@@ -758,8 +830,8 @@ app.post('/api/products/:id/autofill-params', authenticateToken, async (req, res
         
         // Zabezpieczenie 1: Jeśli produkt nie miał w ogóle kategorii, znajdź ją w locie
         if (!catId) {
-            catId = await allegroService.findCategoryByEan(product.ean);
-            if (!catId && product.name) catId = await allegroService.findMatchingCategoryByName(product.name);
+            catId = await allegroService.findCategoryByEan(product.ean, wsContext);
+            if (!catId && product.name) catId = await allegroService.findMatchingCategoryByName(product.name, wsContext);
             if (catId) {
                 await prisma.product.update({ where: { id: product.id }, data: { allegroCategoryId: catId } });
                 product.allegroCategoryId = catId;
@@ -773,7 +845,7 @@ app.post('/api/products/:id/autofill-params', authenticateToken, async (req, res
             // Jeśli kategorii nie ma w DB lub ma pustą strukturę parametrów -> fetch z API Allegro
             if (!category || !category.parameters || (Array.isArray(category.parameters) && category.parameters.length === 0)) {
                 console.log(`[PXM Auto-Fill] Brak parametrów dla kategorii ${catId}, doczytuję na żywo z Allegro API...`);
-                await allegroService.fetchCategoryParameters(catId);
+                await allegroService.fetchCategoryParameters(catId, wsContext);
                 category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
             }
             
@@ -783,7 +855,7 @@ app.post('/api/products/:id/autofill-params', authenticateToken, async (req, res
         }
         
         // 3. Odpalenie Auto-Fill (deterministyczne mapowanie z opakowania/PIM + lekki fallback Flash AI dla braków wymaganych)
-        const updatedFeatures = await aiService.autofillMissingParameters(product.ean, product.name, currentFeatures, requiredSchema, { product });
+        const updatedFeatures = await aiService.autofillMissingParameters(product.ean, product.name, currentFeatures, requiredSchema, { product, workspaceId: req.workspaceId });
         
         // Zapis w bazie
         const updatedProduct = await prisma.product.update({
@@ -797,14 +869,14 @@ app.post('/api/products/:id/autofill-params', authenticateToken, async (req, res
     }
 });
 
-app.get('/api/products/baselinker-id', async (req, res) => {
+app.get('/api/products/baselinker-id', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     try {
         const { ean, sku } = req.query;
         if (!ean || !sku) {
             return res.status(400).json({ error: 'EAN and SKU are required' });
         }
         
-        const { productId } = await BaseLinkerService.fetchProductIdByEanAndSku(ean, sku);
+        const { productId } = await BaseLinkerService.fetchProductIdByEanAndSku(ean, sku, null, { workspaceId: req.workspaceId });
         res.json({ productId });
     } catch (error) {
         console.error('[API] /api/products/baselinker-id error:', error.message);
@@ -812,10 +884,11 @@ app.get('/api/products/baselinker-id', async (req, res) => {
     }
 });
 
-app.get('/api/products/autofill/:ean', async (req, res) => {
+app.get('/api/products/autofill/:ean', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     try {
         const ean = String(req.params.ean || '').trim();
         if (!ean) return res.status(400).json({ error: 'Wymagany kod EAN.' });
+        const wsContext = { workspaceId: req.workspaceId };
         
         // Inteligentne ustalanie kategorii Allegro ZANIM uderzymy w cokolwiek (bo to filar)
         const AllegroService = require('./modules/offer-optimizer/allegro.service');
@@ -824,7 +897,7 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
         const ensureAllegroSynced = async () => {
             if (globalAllegroCatId && !isAllegroSynced) {
                 try {
-                    await AllegroService.fetchCategoryParameters(globalAllegroCatId);
+                    await AllegroService.fetchCategoryParameters(globalAllegroCatId, wsContext);
                     console.log(`[AutoFill] Zsynchronizowano kategorię Allegro: ${globalAllegroCatId}`);
                     isAllegroSynced = true;
                 } catch (err) {
@@ -833,12 +906,12 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
             }
         };
         
-        const existingProduct = await resolveProductByIdOrEan(prisma, { ean });
+        const existingProduct = await resolveProductByIdOrEan(prisma, { ean, workspaceId: req.workspaceId });
         if (existingProduct && existingProduct.allegroCategoryId) {
             globalAllegroCatId = existingProduct.allegroCategoryId;
         }
         if (!globalAllegroCatId) {
-            globalAllegroCatId = await AllegroService.findCategoryByEan(ean).catch(() => null) || null;
+            globalAllegroCatId = await AllegroService.findCategoryByEan(ean, wsContext).catch(() => null) || null;
         }
 
         // --- POBRANIE TWARDYCH PARAMETRÓW Z ALLEGRO PRZED BASELINKEREM ---
@@ -847,7 +920,7 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
         let allegroBrand = '';
         
         try {
-            const allegroFeatures = await AllegroService.getProductParametersByEan(ean);
+            const allegroFeatures = await AllegroService.getProductParametersByEan(ean, wsContext);
             if (allegroFeatures && Object.keys(allegroFeatures).length > 0) {
                 globalMergedFeatures = { ...globalMergedFeatures, ...allegroFeatures };
                 
@@ -865,8 +938,8 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
         let blFetchError = null;
         // 0. BaseLinker Integration (PRIORYTET)
         try {
-            const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
-            const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
+            const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean, null, wsContext);
+            const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId, wsContext);
             
             // --- EKSTRAKCJA LOKALNA (z BaseLinkera) ---
             const baselinkerExtract = require('./modules/offer-optimizer-v2/baselinker.extract.js');
@@ -915,7 +988,7 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
 
             // Jeśli po EAN nie ma w Allegro, próbujemy jeszcze po nazwie z BaseLinkera
             if (!globalAllegroCatId && deepData.name) {
-                globalAllegroCatId = await AllegroService.findMatchingCategoryByName(deepData.name).catch(() => null) || null;
+                globalAllegroCatId = await AllegroService.findMatchingCategoryByName(deepData.name, wsContext).catch(() => null) || null;
             }
             
             // Spróbujmy wyciągnąć brand
@@ -930,11 +1003,11 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
 
             let existingProductIdToReturn = existingProduct ? existingProduct.id : null;
             if (!existingProductIdToReturn && deepData.baselinkerId) {
-                const byBl = await prisma.product.findUnique({ where: { baselinkerId: String(deepData.baselinkerId) } });
+                const byBl = await prisma.product.findFirst({ where: { workspaceId: req.workspaceId, baselinkerId: String(deepData.baselinkerId) } });
                 if (byBl) existingProductIdToReturn = byBl.id;
             }
             if (!existingProductIdToReturn && deepData.sku) {
-                const bySku = await prisma.product.findUnique({ where: { sku: deepData.sku } });
+                const bySku = await prisma.product.findFirst({ where: { workspaceId: req.workspaceId, sku: deepData.sku } });
                 if (bySku) existingProductIdToReturn = bySku.id;
             }
 
@@ -1024,7 +1097,7 @@ app.get('/api/products/autofill/:ean', async (req, res) => {
     }
 });
 
-app.post('/api/products', authenticateToken, async (req, res) => {
+app.post('/api/products', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Brak uprawnien' });
     try {
         const { ean, sku, name, stock, salePrice, basePrice, inboundTransportCost, packagingCost, bdoEprCost, outboundTransportCost, brandId, status, subiektId, baselinkerId, imageUrl } = req.body;
@@ -1043,6 +1116,7 @@ app.post('/api/products', authenticateToken, async (req, res) => {
 
         const newProduct = await prisma.product.create({
             data: {
+                workspaceId: req.workspaceId,
                 ean: cleanEan, sku: cleanSku, name: cleanName, brandId: safeBrandId, status: status || 'Aktywny',
                 stock: parseLocaleInt(stock, 0),
                 salePrice: parseLocaleFloat(salePrice, 0.0),
@@ -1074,12 +1148,21 @@ app.post('/api/products', authenticateToken, async (req, res) => {
     } catch (error) { res.status(500).json({ error: 'Blad zapisu w bazie danych (Prisma): ' + error.message, details: error.message }); }
 });
 
-app.patch('/api/products/:id', authenticateToken, async (req, res) => {
+app.patch('/api/products/:id', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     try {
+        const ownedProduct = await prisma.product.findFirst({
+            where: { id: req.params.id, workspaceId: req.workspaceId },
+            select: { id: true, workspaceId: true }
+        });
+        if (!ownedProduct) {
+            return res.status(404).json({ error: 'Produkt nie znaleziony w wybranym kliencie.' });
+        }
+
         const payload = { ...(req.body || {}) };
         
-        // Nie aktualizujemy ID
+        // Nie aktualizujemy ID ani przynależności do klienta
         delete payload.id;
+        delete payload.workspaceId;
         delete payload.createdAt;
         delete payload.updatedAt;
         delete payload.bomElements; // BOM jest zagnieżdżony, nie aktualizujemy go tutaj
@@ -1100,7 +1183,10 @@ app.patch('/api/products/:id', authenticateToken, async (req, res) => {
         if (payload.ean !== undefined) {
             const cleanEan = trimOrNull(payload.ean);
             if (cleanEan) {
-                const collision = await prisma.product.findUnique({ where: { ean: cleanEan }, select: { id: true } });
+                const collision = await prisma.product.findFirst({
+                    where: { workspaceId: req.workspaceId, ean: cleanEan },
+                    select: { id: true }
+                });
                 if (!collision || collision.id === req.params.id) {
                     dataToUpdate.ean = cleanEan;
                 }
@@ -1155,10 +1241,15 @@ app.patch('/api/products/:id', authenticateToken, async (req, res) => {
     }
 });
 
-app.delete('/api/products/:id', authenticateToken, async (req, res) => {
+app.delete('/api/products/:id', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     if (req.user.role !== 'ADMIN' && req.user.department !== 'PREZES') return res.status(403).json({ error: 'Brak uprawnień do usuwania produktów' });
     try {
-        await prisma.product.delete({ where: { id: req.params.id } });
+        const ownedProduct = await prisma.product.findFirst({
+            where: { id: req.params.id, workspaceId: req.workspaceId },
+            select: { id: true }
+        });
+        if (!ownedProduct) return res.status(404).json({ error: 'Produkt nie istnieje w wybranym kliencie.' });
+        await prisma.product.delete({ where: { id: ownedProduct.id } });
         EventBus.publish('PRODUCT_DATA_UPDATED', { product: { id: req.params.id, deleted: true }, source: 'PIM_UI_DELETE' });
         res.status(200).json({ status: 'Deleted' });
     } catch (error) {
@@ -1207,20 +1298,21 @@ Zwróć TYLKO I WYŁĄCZNIE tablicę ID produktów (jako poprawny JSON, np. ["id
 });
 
 // --- PIM: GŁĘBOKA SYNCHRONIZACJA Z BASELINKER ---
-app.post('/api/products/baselinker-sync/:ean', authenticateToken, async (req, res) => {
+app.post('/api/products/baselinker-sync/:ean', authenticateToken, resolveWorkspaceContext, async (req, res) => {
     try {
         const cleanEan = String(req.params.ean || '').trim();
+        const wsContext = { workspaceId: req.workspaceId };
         
-        const product = await resolveProductByIdOrEan(prisma, { ean: cleanEan });
+        const product = await resolveProductByIdOrEan(prisma, { ean: cleanEan, workspaceId: req.workspaceId });
         if (!product) {
-            return res.status(404).json({ error: `Produkt z EAN ${cleanEan} nie istnieje w lokalnej bazie Nexusa.` });
+            return res.status(404).json({ error: `Produkt z EAN ${cleanEan} nie istnieje w lokalnej bazie Nexusa dla wybranego klienta.` });
         }
 
         // KROK 1: Wydobycie cyfrowego klucza architektury systemu z PIM (Wymuszenie 2-step dance)
-        const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(cleanEan);
+        const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(cleanEan, null, wsContext);
 
         // KROK 2: Dekompozycja potężnych danych
-        const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
+        const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId, wsContext);
 
         // KROK 3: Aktualizacja bazy Nexusa
         const existingFeatures = (product && typeof product.features === 'object') ? product.features : {};
@@ -1355,62 +1447,70 @@ app.post('/api/allegro-sentinel/trigger', authenticateToken, async (req, res) =>
     }
 });
 
-// --- TŁO: CRON JOB BASELINKER SYNC (FAZA 33) ---
+// --- TŁO: CRON JOB BASELINKER SYNC (FAZA 33 - Multi-Workspace, wyłącznie stany i ceny!) ---
 cron.schedule('0 5 * * *', async () => {
-    console.log('[CRON Worker] Uruchamiam cykliczną interpolację i synchronizację z BaseLinkerem (05:00 AM)...');
+    console.log('[CRON Worker] Uruchamiam cykliczną synchronizację stanów/cen z BaseLinkerem (05:00 AM)...');
     try {
-        const resolvedBl = await resolveBaseLinkerToken(prisma);
-        if (!resolvedBl.token || resolvedBl.token.length < 5) return;
-        const blCronToken = resolvedBl.token;
-        
-        // Namierz Default Inventory
-        const invFormData = new URLSearchParams();
-        invFormData.append('method', 'getInventories');
-        invFormData.append('parameters', JSON.stringify({}));
-        const invRes = await fetch('https://api.baselinker.com/connector.php', { method: 'POST', headers: { 'X-BLToken': blCronToken }, body: invFormData });
-        const invData = await invRes.json();
-        if (invData.status !== 'SUCCESS' || !invData.inventories || invData.inventories.length === 0) return;
-        const targetInventoryId = invData.inventories[0].inventory_id;
+        const activeWorkspaces = await prisma.workspace.findMany({ where: { isActive: true }, select: { id: true, name: true } });
+        for (const ws of activeWorkspaces) {
+            try {
+                const resolvedBl = await resolveBaseLinkerToken(prisma, { workspaceId: ws.id });
+                if (!resolvedBl.token || resolvedBl.token.length < 5) continue;
+                const blCronToken = resolvedBl.token;
 
-        // Baza PIM Nexusa - Znajdź połączone artykuły
-        const linkedProducts = await prisma.product.findMany({ where: { baselinkerId: { not: null } } });
-        if (linkedProducts.length === 0) return console.log('[CRON Worker] Brak rekordów PIM w puli synchronizacji.');
-        
-        // Zabezpieczenie przed limitami poprzez paczkowanie zapytań (paginacja tablic w pamięci RAM)
-        for (let i = 0; i < linkedProducts.length; i += 100) {
-            const chunk = linkedProducts.slice(i, i + 100);
-            const chunkIds = chunk.map(p => p.baselinkerId);
-            
-            const reqFormData = new URLSearchParams();
-            reqFormData.append('method', 'getInventoryProductsData');
-            reqFormData.append('parameters', JSON.stringify({ "inventory_id": targetInventoryId, "products": chunkIds }));
-            
-            const chunkRes = await fetch('https://api.baselinker.com/connector.php', { method: 'POST', headers: { 'X-BLToken': blCronToken }, body: reqFormData });
-            const chunkData = await chunkRes.json();
-            
-            if (chunkData.status === 'SUCCESS' && chunkData.products) {
-                // Odświeżanie w wektorowej bazie
-                for (const p of chunk) {
-                    const zew = chunkData.products[p.baselinkerId];
-                    if (zew) {
-                        let zewStock = p.stock;
-                        if (zew.stock) zewStock = Object.values(zew.stock).reduce((a, b) => a + Number(b), 0);
-                        
-                        let zewSalePrice = p.salePrice;
-                        if (zew.prices && Object.keys(zew.prices).length > 0) zewSalePrice = parseFloat(zew.prices[Object.keys(zew.prices)[0]]);
-                        
-                        await prisma.product.update({
-                            where: { id: p.id },
-                            data: { stock: zewStock, salePrice: zewSalePrice }
-                        });
+                // Namierz Default Inventory
+                const invFormData = new URLSearchParams();
+                invFormData.append('method', 'getInventories');
+                invFormData.append('parameters', JSON.stringify({}));
+                const invRes = await fetch('https://api.baselinker.com/connector.php', { method: 'POST', headers: { 'X-BLToken': blCronToken }, body: invFormData });
+                const invData = await invRes.json();
+                if (invData.status !== 'SUCCESS' || !invData.inventories || invData.inventories.length === 0) continue;
+                const targetInventoryId = invData.inventories[0].inventory_id;
+
+                // Baza PIM Nexusa - Znajdź połączone artykuły wybranego klienta
+                const linkedProducts = await prisma.product.findMany({
+                    where: { workspaceId: ws.id, baselinkerId: { not: null } }
+                });
+                if (linkedProducts.length === 0) continue;
+
+                // Zabezpieczenie przed limitami poprzez paczkowanie zapytań (paginacja tablic w pamięci RAM)
+                for (let i = 0; i < linkedProducts.length; i += 100) {
+                    const chunk = linkedProducts.slice(i, i + 100);
+                    const chunkIds = chunk.map(p => p.baselinkerId);
+
+                    const reqFormData = new URLSearchParams();
+                    reqFormData.append('method', 'getInventoryProductsData');
+                    reqFormData.append('parameters', JSON.stringify({ "inventory_id": targetInventoryId, "products": chunkIds }));
+
+                    const chunkRes = await fetch('https://api.baselinker.com/connector.php', { method: 'POST', headers: { 'X-BLToken': blCronToken }, body: reqFormData });
+                    const chunkData = await chunkRes.json();
+
+                    if (chunkData.status === 'SUCCESS' && chunkData.products) {
+                        for (const p of chunk) {
+                            const zew = chunkData.products[p.baselinkerId];
+                            if (zew) {
+                                let zewStock = p.stock;
+                                if (zew.stock) zewStock = Object.values(zew.stock).reduce((a, b) => a + Number(b), 0);
+
+                                let zewSalePrice = p.salePrice;
+                                if (zew.prices && Object.keys(zew.prices).length > 0) zewSalePrice = parseFloat(zew.prices[Object.keys(zew.prices)[0]]);
+
+                                await prisma.product.update({
+                                    where: { id: p.id },
+                                    data: { stock: zewStock, salePrice: zewSalePrice }
+                                });
+                            }
+                        }
                     }
+
+                    // Ochrona przed Rate Limitem (API limit = max 100 req / minute dla niektórych endpoints)
+                    await new Promise(r => setTimeout(r, 1500));
                 }
+                console.log(`[CRON Worker] Synchronizacja BaseLinkera dla klienta "${ws.name}" (${ws.id}) zakończona sukcesem ✅`);
+            } catch (wsErr) {
+                console.error(`[CRON Worker] Błąd synchronizacji BaseLinker dla klienta "${ws.name}" (${ws.id}):`, wsErr.message);
             }
-            
-            // Ochrona przed Rate Limitem (API limit = max 100 req / minute dla niektórych endpoints)
-            await new Promise(r => setTimeout(r, 1500));
         }
-        console.log('[CRON Worker] Synchronizacja BaseLinkera Zakończona Sukcesem ✅');
     } catch (eee) {
         console.error('[CRON Worker] Zakończono nieznane zadanie lub wystąpił błąd synchronizacji BaseLinker:', eee.message);
     }

@@ -29,9 +29,10 @@ function parseLocaleInt(val, fallback = null) {
 
 /**
  * Rozwiązuje rekord `Product` po `productId`/`id` lub `ean` (w tym przyciętym `ean.trim()`),
+ * z opcjonalnym twardym scopingiem po `workspaceId` (klucz złożony `[workspaceId, ean]`),
  * chroniąc przed błędem Prisma P2025, gdy w bazie znajdują się nadmiarowe spacje (np. "8032680390036 ").
  */
-async function resolveProductByIdOrEan(prisma, { id = null, productId = null, ean = null, include = undefined, select = undefined } = {}) {
+async function resolveProductByIdOrEan(prisma, { id = null, productId = null, ean = null, workspaceId = null, include = undefined, select = undefined } = {}) {
     if (!prisma || !prisma.product) return null;
 
     const queryOpts = {};
@@ -41,14 +42,30 @@ async function resolveProductByIdOrEan(prisma, { id = null, productId = null, ea
         queryOpts.select = select;
     }
 
+    const cleanWorkspaceId = trimOrNull(workspaceId);
+    const matchesWorkspace = (rec) => {
+        if (!rec) return false;
+        if (!cleanWorkspaceId) return true;
+        if (rec.workspaceId === undefined) return true;
+        return rec.workspaceId === cleanWorkspaceId;
+    };
+
     const targetId = trimOrNull(productId || id);
     if (targetId) {
         try {
-            const byId = await prisma.product.findUnique({
-                where: { id: targetId },
-                ...queryOpts
-            });
-            if (byId) return byId;
+            if (cleanWorkspaceId && typeof prisma.product.findFirst === 'function') {
+                const byIdScoped = await prisma.product.findFirst({
+                    where: { id: targetId, workspaceId: cleanWorkspaceId },
+                    ...queryOpts
+                });
+                if (byIdScoped) return byIdScoped;
+            } else if (typeof prisma.product.findUnique === 'function') {
+                const byId = await prisma.product.findUnique({
+                    where: { id: targetId },
+                    ...queryOpts
+                });
+                if (byId && matchesWorkspace(byId)) return byId;
+            }
         } catch (_) {}
     }
 
@@ -56,41 +73,63 @@ async function resolveProductByIdOrEan(prisma, { id = null, productId = null, ea
     const cleanEan = rawEan.trim();
     if (!cleanEan) return null;
 
+    const findBySingleEan = async (candidateEan) => {
+        if (!candidateEan) return null;
+        if (typeof prisma.product.findFirst === 'function') {
+            try {
+                const row = await prisma.product.findFirst({
+                    where: cleanWorkspaceId ? { workspaceId: cleanWorkspaceId, ean: candidateEan } : { ean: candidateEan },
+                    ...queryOpts
+                });
+                if (row) return row;
+            } catch (_) {}
+        }
+        if (typeof prisma.product.findUnique === 'function') {
+            try {
+                const uniqueWhere = cleanWorkspaceId
+                    ? { workspaceId_ean: { workspaceId: cleanWorkspaceId, ean: candidateEan } }
+                    : { ean: candidateEan };
+                const row = await prisma.product.findUnique({
+                    where: uniqueWhere,
+                    ...queryOpts
+                });
+                if (row && matchesWorkspace(row)) return row;
+            } catch (_) {}
+        }
+        return null;
+    };
+
     if (rawEan) {
-        try {
-            const exact = await prisma.product.findUnique({
-                where: { ean: rawEan },
-                ...queryOpts
-            });
-            if (exact) return exact;
-        } catch (_) {}
+        const exact = await findBySingleEan(rawEan);
+        if (exact) return exact;
     }
 
     if (cleanEan !== rawEan) {
-        try {
-            const trimmedMatch = await prisma.product.findUnique({
-                where: { ean: cleanEan },
-                ...queryOpts
-            });
-            if (trimmedMatch) return trimmedMatch;
-        } catch (_) {}
+        const trimmedMatch = await findBySingleEan(cleanEan);
+        if (trimmedMatch) return trimmedMatch;
     }
 
     // Fallback dla starszych rekordów ze spacją na początku/końcu w kolumnie Product.ean
-    const fallbackOpts = {};
-    if (include) {
-        fallbackOpts.include = include;
-    } else if (select) {
-        fallbackOpts.select = { ...select, ean: true };
+    if (typeof prisma.product.findMany === 'function') {
+        const fallbackOpts = {};
+        if (include) {
+            fallbackOpts.include = include;
+        } else if (select) {
+            fallbackOpts.select = { ...select, ean: true };
+        }
+
+        const candidates = await prisma.product.findMany({
+            where: cleanWorkspaceId
+                ? { workspaceId: cleanWorkspaceId, ean: { contains: cleanEan } }
+                : { ean: { contains: cleanEan } },
+            take: 10,
+            ...fallbackOpts
+        });
+
+        return candidates.find(p => String(p?.ean || '').trim() === cleanEan) || null;
     }
 
-    const candidates = await prisma.product.findMany({
-        where: { ean: { contains: cleanEan } },
-        take: 10,
-        ...fallbackOpts
-    });
-
-    return candidates.find(p => String(p?.ean || '').trim() === cleanEan) || null;
+    return null;
 }
 
 const NOT_NULL_FLOAT_FIELDS = [

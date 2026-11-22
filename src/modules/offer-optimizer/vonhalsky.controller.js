@@ -4,6 +4,8 @@ const defaultPrisma = new PrismaClient();
 const defaultEventBus = require('../../core/EventBus');
 const { exportLogger: defaultExportLogger } = require('../../utils/logger');
 const { resolveProductByIdOrEan, trimOrNull } = require('../../utils/productLookup');
+const workspaceService = require('../../services/workspace.service');
+const { signScopedExportToken, verifyAndConsumeScopedExportToken } = require('../../utils/exportTokenGuard');
 const defaultVonHalskyService = require('./vonhalsky.service');
 const { buildVonHalskyOfferPayload, isValidUuid } = require('../../utils/vonhalsky_mapper');
 
@@ -98,12 +100,16 @@ function createVonHalskyController({
     eventBus = defaultEventBus,
     exportLogger = defaultExportLogger
 } = {}) {
-    async function resolveOrganizationContext(cfg, requestedOrgId = null) {
+    async function resolveOrganizationContext(cfg, requestedOrgId = null, workspaceId = null, accountId = null) {
         const directOrg = trimOrNull(requestedOrgId) || trimOrNull(cfg?.organizationId) || '';
         if (directOrg && isValidUuid(directOrg)) {
             return { organizationId: directOrg, organizations: [], autoDetected: false };
         }
-        const orgs = await vonHalskyService.getOrganizations({ injectedPrisma: prisma });
+        const orgs = await vonHalskyService.getOrganizations({
+            injectedPrisma: prisma,
+            workspaceId: cfg?.workspaceId || workspaceId || null,
+            accountId: cfg?.accountId || accountId || null
+        });
         if (orgs.length === 1 && orgs[0]?.id) {
             return {
                 organizationId: String(orgs[0].id),
@@ -128,8 +134,10 @@ function createVonHalskyController({
             const q = String(req.query?.q || '').trim().toLowerCase();
             const forceRefresh = req.query?.forceRefresh === 'true';
             const limit = Math.min(Math.max(Number(req.query?.limit) || 100, 1), 300);
+            const workspaceId = req.workspaceId || null;
+            const accountId = trimOrNull(req.query?.accountId) || null;
 
-            const cfg = await vonHalskyService.getConfig(prisma);
+            const cfg = await vonHalskyService.getConfig(prisma, { workspaceId, accountId });
             if (!cfg.clientId || !cfg.clientSecret) {
                 return res.status(200).json({
                     apiConnected: false,
@@ -139,7 +147,13 @@ function createVonHalskyController({
                 });
             }
 
-            const data = await vonHalskyService.getCategories({ depth: 10, forceRefresh, injectedPrisma: prisma });
+            const data = await vonHalskyService.getCategories({
+                depth: 10,
+                forceRefresh,
+                workspaceId,
+                accountId: cfg.accountId || accountId,
+                injectedPrisma: prisma
+            });
             let leaves = data.flatLeaves || [];
             if (q) {
                 const terms = q.split(/\s+/).filter(Boolean);
@@ -174,9 +188,11 @@ function createVonHalskyController({
                 return res.status(400).json({ error: 'Wymagany poprawny identyfikator UUID kategorii Von Halsky.' });
             }
             const forceRefresh = req.query?.forceRefresh === 'true';
+            const workspaceId = req.workspaceId || null;
+            const accountId = trimOrNull(req.query?.accountId) || null;
             const [category, attributes] = await Promise.all([
-                vonHalskyService.getCategoryDetails(categoryId, { injectedPrisma: prisma }),
-                vonHalskyService.getCategoryAttributes(categoryId, { forceRefresh, injectedPrisma: prisma })
+                vonHalskyService.getCategoryDetails(categoryId, { injectedPrisma: prisma, workspaceId, accountId }),
+                vonHalskyService.getCategoryAttributes(categoryId, { forceRefresh, injectedPrisma: prisma, workspaceId, accountId })
             ]);
             return res.status(200).json({ category, attributes });
         } catch (error) {
@@ -193,8 +209,10 @@ function createVonHalskyController({
      */
     const searchOffersAndHints = async (req, res) => {
         try {
-            const { ean = '', sku = '', name = '', mpn = '', organizationId = '' } = req.query || {};
-            const cfg = await vonHalskyService.getConfig(prisma);
+            const { ean = '', sku = '', name = '', mpn = '', organizationId = '', accountId = '' } = req.query || {};
+            const workspaceId = req.workspaceId || null;
+            const reqAccountId = trimOrNull(accountId) || null;
+            const cfg = await vonHalskyService.getConfig(prisma, { workspaceId, accountId: reqAccountId });
             if (!cfg.clientId || !cfg.clientSecret) {
                 return res.status(200).json({
                     apiConnected: false,
@@ -204,7 +222,7 @@ function createVonHalskyController({
                 });
             }
 
-            const orgCtx = await resolveOrganizationContext(cfg, organizationId);
+            const orgCtx = await resolveOrganizationContext(cfg, organizationId, workspaceId, cfg.accountId || reqAccountId);
             if (!orgCtx.organizationId) {
                 return res.status(400).json({
                     error: 'Nie wybrano Organization ID dla Von Halsky. Ustaw domyślną organizację w Panelu Admina.',
@@ -218,6 +236,8 @@ function createVonHalskyController({
                     ean,
                     sku,
                     externalId: sku,
+                    workspaceId,
+                    accountId: cfg.accountId || reqAccountId,
                     injectedPrisma: prisma
                 }),
                 vonHalskyService.getOfferHints({
@@ -226,6 +246,8 @@ function createVonHalskyController({
                     mpn: mpn || sku,
                     name,
                     limit: 5,
+                    workspaceId,
+                    accountId: cfg.accountId || reqAccountId,
                     injectedPrisma: prisma
                 }).catch(hintErr => {
                     console.warn('[VonHalskyController] Błąd pobierania hints (non-blocking):', hintErr.message);
@@ -252,7 +274,7 @@ function createVonHalskyController({
     /**
      * Wspólna logika budowania pełnego kontekstu Pre-flight (reużywana w validate i export).
      */
-    async function preparePreflightState(reqBody = {}) {
+    async function preparePreflightState(reqBody = {}, { workspaceId = null, accountId = null } = {}) {
         const {
             ean,
             productId,
@@ -275,16 +297,18 @@ function createVonHalskyController({
         const product = await resolveProductByIdOrEan(prisma, {
             productId,
             ean,
+            workspaceId,
             include: { brand: true }
         });
         if (!product) {
-            const err = new Error('Nie znaleziono produktu w bazie PIM.');
+            const err = new Error('Nie znaleziono produktu w bazie PIM wybranego klienta.');
             err.statusCode = 404;
             throw err;
         }
 
         const existingDraft = parseOfferDraftJson(product.offerDraft);
-        const cfg = await vonHalskyService.getConfig(prisma);
+        const effAccountId = trimOrNull(accountId) || trimOrNull(reqBody?.accountId) || trimOrNull(existingDraft.vonhalskyAccountId) || null;
+        const cfg = await vonHalskyService.getConfig(prisma, { workspaceId, accountId: effAccountId });
         const apiConnected = Boolean(cfg.clientId && cfg.clientSecret);
 
         const effectiveHtmlContent = htmlContent || existingDraft.htmlContent || null;
@@ -337,11 +361,17 @@ function createVonHalskyController({
         let targetOfferId = trimOrNull(offerId) || (mode !== 'create' ? trimOrNull(existingDraft.vonhalskyOfferId) : '') || '';
         let targetCategoryId = trimOrNull(categoryId) || trimOrNull(mergedOverrides.categoryId) || trimOrNull(existingDraft.vonhalskyCategoryId) || '';
 
+        const reqScopeOpts = {
+            workspaceId: cfg.workspaceId || workspaceId || null,
+            accountId: cfg.accountId || effAccountId || null,
+            injectedPrisma: prisma
+        };
+
         if (!apiConnected) {
             preflightApiErrors.push('Integracja InPost Von Halsky nie ma jeszcze skonfigurowanego Client ID i Client Secret. Uzupełnij dane dostępowe w Panelu Administracyjnym -> Integracje API (tryb podglądu offline).');
         } else {
             try {
-                const orgCtx = await resolveOrganizationContext(cfg, resolvedOrgId);
+                const orgCtx = await resolveOrganizationContext(cfg, resolvedOrgId, reqScopeOpts.workspaceId, reqScopeOpts.accountId);
                 resolvedOrgId = orgCtx.organizationId;
                 organizationsList = orgCtx.organizations || [];
                 if (!resolvedOrgId) {
@@ -355,7 +385,7 @@ function createVonHalskyController({
                 // 1. Rozpoznanie istniejącej oferty
                 if (targetOfferId && isValidUuid(targetOfferId) && mode !== 'create') {
                     try {
-                        existingOfferDetails = await vonHalskyService.getOfferDetails(resolvedOrgId, targetOfferId, { injectedPrisma: prisma });
+                        existingOfferDetails = await vonHalskyService.getOfferDetails(resolvedOrgId, targetOfferId, reqScopeOpts);
                         existingOffer = existingOfferDetails?.offer || null;
                     } catch (offerErr) {
                         if (offerErr.statusCode === 404) {
@@ -372,11 +402,11 @@ function createVonHalskyController({
                             ean: product.ean,
                             sku: product.sku,
                             externalId: product.sku || product.id,
-                            injectedPrisma: prisma
+                            ...reqScopeOpts
                         });
                         if (matchedOffers.length > 0 && mode !== 'create') {
                             targetOfferId = matchedOffers[0].id;
-                            existingOfferDetails = await vonHalskyService.getOfferDetails(resolvedOrgId, targetOfferId, { injectedPrisma: prisma });
+                            existingOfferDetails = await vonHalskyService.getOfferDetails(resolvedOrgId, targetOfferId, reqScopeOpts);
                             existingOffer = existingOfferDetails?.offer || null;
                         }
                     } catch (searchErr) {
@@ -392,7 +422,7 @@ function createVonHalskyController({
                         mpn: product.sku,
                         name: product.name,
                         limit: 5,
-                        injectedPrisma: prisma
+                        ...reqScopeOpts
                     });
                     hints = hintRes.data || [];
                     primaryHint = hints[0] || null;
@@ -409,8 +439,8 @@ function createVonHalskyController({
                 if (targetCategoryId && isValidUuid(targetCategoryId)) {
                     try {
                         const [catDet, catAttrs] = await Promise.all([
-                            vonHalskyService.getCategoryDetails(targetCategoryId, { injectedPrisma: prisma }),
-                            vonHalskyService.getCategoryAttributes(targetCategoryId, { injectedPrisma: prisma })
+                            vonHalskyService.getCategoryDetails(targetCategoryId, reqScopeOpts),
+                            vonHalskyService.getCategoryAttributes(targetCategoryId, reqScopeOpts)
                         ]);
                         categoryDetails = catDet;
                         attributeDefinitions = Array.isArray(catAttrs) ? catAttrs : [];
@@ -469,7 +499,9 @@ function createVonHalskyController({
      */
     const validateVonHalskyExport = async (req, res) => {
         try {
-            const state = await preparePreflightState(req.body || {});
+            const workspaceId = req.workspaceId || null;
+            const accountId = trimOrNull(req.body?.accountId || req.query?.accountId) || null;
+            const state = await preparePreflightState(req.body || {}, { workspaceId, accountId });
             const targetOfferId = state.built.mode === 'update' ? (state.existingOffer?.id || '') : '';
 
             let exportToken = null;
@@ -481,16 +513,39 @@ function createVonHalskyController({
                     payload: state.built.payload,
                     binaryAttachments: state.built.binaryAttachments
                 });
-                exportToken = signVonHalskyExportToken({
-                    ean: state.product.ean,
-                    mode: state.built.mode,
-                    organizationId: state.resolvedOrgId,
-                    offerId: targetOfferId,
-                    payloadObj: fingerprint
-                });
+                if (workspaceId) {
+                    exportToken = signScopedExportToken({
+                        workspaceId,
+                        userId: req.user?.id || '',
+                        provider: 'VONHALSKY',
+                        integrationAccountId: state.cfg.accountId || '',
+                        targetId: `${state.resolvedOrgId}:${targetOfferId}`,
+                        ean: state.product.ean,
+                        payloadObj: fingerprint
+                    });
+                } else {
+                    exportToken = signVonHalskyExportToken({
+                        ean: state.product.ean,
+                        mode: state.built.mode,
+                        organizationId: state.resolvedOrgId,
+                        offerId: targetOfferId,
+                        payloadObj: fingerprint
+                    });
+                }
             }
 
             return res.status(200).json({
+                workspace: req.workspace ? {
+                    id: req.workspace.id,
+                    name: req.workspace.name,
+                    slug: req.workspace.slug,
+                    badgeColor: req.workspace.badgeColor
+                } : null,
+                account: {
+                    id: state.cfg.accountId || null,
+                    label: state.cfg.label || 'InPost Von Halsky',
+                    environment: state.cfg.environment
+                },
                 apiConnected: state.apiConnected,
                 environment: state.cfg.environment,
                 apiBaseUrl: state.cfg.apiBaseUrl,
@@ -545,6 +600,8 @@ function createVonHalskyController({
     const exportToVonHalsky = async (req, res) => {
         try {
             const body = req.body || {};
+            const workspaceId = req.workspaceId || null;
+            const accountId = trimOrNull(body.accountId) || null;
 
             // Bramka #1: Bezwarunkowe dwukrotne potwierdzenie operatora
             if (body.confirmedTwice !== true) {
@@ -561,7 +618,7 @@ function createVonHalskyController({
                 });
             }
 
-            const state = await preparePreflightState(body);
+            const state = await preparePreflightState(body, { workspaceId, accountId });
             if (!state.apiConnected) {
                 return res.status(412).json({
                     error: 'Brak skonfigurowanych danych dostępowych InPost Von Halsky (Client ID / Client Secret).',
@@ -592,21 +649,39 @@ function createVonHalskyController({
                 binaryAttachments: state.built.binaryAttachments
             });
 
-            // Bramka #2: Kryptograficzna weryfikacja podpisu HMAC-SHA256 i niezmienności ładunku
+            // Bramka #2: Kryptograficzna weryfikacja podpisu HMAC-SHA256, zgodności klienta/konta i niezmienności ładunku
             try {
-                verifyVonHalskyExportToken(body.exportToken, {
-                    ean: state.product.ean,
-                    mode: state.built.mode,
-                    organizationId: state.resolvedOrgId,
-                    offerId: targetOfferId,
-                    payloadObj: fingerprint
-                });
+                if (workspaceId) {
+                    verifyAndConsumeScopedExportToken(body.exportToken, {
+                        workspaceId,
+                        userId: req.user?.id || '',
+                        provider: 'VONHALSKY',
+                        integrationAccountId: state.cfg.accountId || '',
+                        targetId: `${state.resolvedOrgId}:${targetOfferId}`,
+                        ean: state.product.ean,
+                        payloadObj: fingerprint
+                    });
+                } else {
+                    verifyVonHalskyExportToken(body.exportToken, {
+                        ean: state.product.ean,
+                        mode: state.built.mode,
+                        organizationId: state.resolvedOrgId,
+                        offerId: targetOfferId,
+                        payloadObj: fingerprint
+                    });
+                }
             } catch (tokenErr) {
-                return res.status(409).json({
+                return res.status(tokenErr.statusCode || 409).json({
                     error: tokenErr.message,
-                    code: 'INVALID_EXPORT_TOKEN'
+                    code: tokenErr.code || 'INVALID_EXPORT_TOKEN'
                 });
             }
+
+            const execOpts = {
+                workspaceId: state.cfg.workspaceId || workspaceId || null,
+                accountId: state.cfg.accountId || accountId || null,
+                injectedPrisma: prisma
+            };
 
             let finalOfferId = targetOfferId;
             let commandId = null;
@@ -617,13 +692,13 @@ function createVonHalskyController({
             const exportWarnings = [...state.warnings];
 
             if (state.built.mode === 'create') {
-                exportLogger.info(`[VONHALSKY EXPORT] POST nowa oferta dla EAN=${state.product.ean}, org=${state.resolvedOrgId}, env=${state.cfg.environment}`);
-                const created = await vonHalskyService.createOffer(state.resolvedOrgId, state.built.payload, { injectedPrisma: prisma });
+                exportLogger.info(`[VONHALSKY EXPORT] POST nowa oferta dla EAN=${state.product.ean}, org=${state.resolvedOrgId}, env=${state.cfg.environment}, ws=${execOpts.workspaceId || 'legacy'}`);
+                const created = await vonHalskyService.createOffer(state.resolvedOrgId, state.built.payload, execOpts);
                 finalOfferId = created.offerId;
                 commandId = created.commandId || null;
 
                 if (commandId) {
-                    const polled = await vonHalskyService.pollCommandStatus(state.resolvedOrgId, commandId, { injectedPrisma: prisma });
+                    const polled = await vonHalskyService.pollCommandStatus(state.resolvedOrgId, commandId, execOpts);
                     commandStatus = polled.status;
                     commandErrors = Array.isArray(polled.errors) ? polled.errors : [];
                     if (commandStatus === 'FAILURE') {
@@ -638,9 +713,9 @@ function createVonHalskyController({
                     }
                 }
             } else {
-                exportLogger.info(`[VONHALSKY EXPORT] PATCH oferta=${finalOfferId} dla EAN=${state.product.ean}, org=${state.resolvedOrgId}, env=${state.cfg.environment}`);
+                exportLogger.info(`[VONHALSKY EXPORT] PATCH oferta=${finalOfferId} dla EAN=${state.product.ean}, org=${state.resolvedOrgId}, env=${state.cfg.environment}, ws=${execOpts.workspaceId || 'legacy'}`);
                 if (Object.keys(state.built.payload).length > 0) {
-                    const patched = await vonHalskyService.patchOffer(state.resolvedOrgId, finalOfferId, state.built.payload, { injectedPrisma: prisma });
+                    const patched = await vonHalskyService.patchOffer(state.resolvedOrgId, finalOfferId, state.built.payload, execOpts);
                     offerMetadata = patched?.metadata || null;
                     offerStatus = patched?.offer?.status || null;
                 }
@@ -655,7 +730,7 @@ function createVonHalskyController({
                             source: att.source,
                             fileName: att.fileName,
                             priority: att.priority,
-                            injectedPrisma: prisma
+                            ...execOpts
                         });
                         uploadedAttachments.push({
                             fileName: att.fileName,
@@ -673,7 +748,7 @@ function createVonHalskyController({
             // Odczyt aktualnych metadanych oferty (validationErrors / rejectionReasons)
             if (finalOfferId && !offerMetadata) {
                 try {
-                    const refreshed = await vonHalskyService.getOfferDetails(state.resolvedOrgId, finalOfferId, { injectedPrisma: prisma });
+                    const refreshed = await vonHalskyService.getOfferDetails(state.resolvedOrgId, finalOfferId, execOpts);
                     offerMetadata = refreshed?.metadata || null;
                     offerStatus = refreshed?.offer?.status || offerStatus;
                 } catch (refErr) {
@@ -685,6 +760,7 @@ function createVonHalskyController({
             const nextDraft = {
                 ...state.existingDraft,
                 vonhalskyOfferId: finalOfferId || state.existingDraft.vonhalskyOfferId || null,
+                vonhalskyAccountId: state.cfg.accountId || state.existingDraft.vonhalskyAccountId || null,
                 vonhalskyOrganizationId: state.resolvedOrgId,
                 vonhalskyCategoryId: state.built.preview.categoryId || state.existingDraft.vonhalskyCategoryId || null,
                 vonhalskyExternalId: state.built.preview.externalId || state.existingDraft.vonhalskyExternalId || null,
@@ -695,6 +771,7 @@ function createVonHalskyController({
                     timestamp: new Date().toISOString(),
                     mode: state.built.mode,
                     environment: state.cfg.environment,
+                    accountId: state.cfg.accountId || null,
                     organizationId: state.resolvedOrgId,
                     offerId: finalOfferId,
                     commandId,
@@ -711,7 +788,25 @@ function createVonHalskyController({
                 data: { offerDraft: nextDraft }
             });
 
+            if (workspaceId) {
+                await workspaceService.recordSecurityAudit(prisma, {
+                    workspaceId,
+                    userId: req.user?.id || null,
+                    action: 'EXPORT_VONHALSKY',
+                    provider: 'VONHALSKY',
+                    integrationAccountId: state.cfg.accountId || null,
+                    entityId: finalOfferId || state.product.id,
+                    details: {
+                        ean: state.product.ean,
+                        mode: state.built.mode,
+                        organizationId: state.resolvedOrgId,
+                        environment: state.cfg.environment
+                    }
+                });
+            }
+
             eventBus.publish('PRODUCT_VONHALSKY_EXPORTED', {
+                workspaceId: workspaceId || null,
                 ean: state.product.ean,
                 productId: state.product.id,
                 environment: state.cfg.environment,
@@ -729,6 +824,12 @@ function createVonHalskyController({
 
             return res.status(200).json({
                 status: commandStatus || 'SUCCESS',
+                workspaceId: workspaceId || null,
+                account: {
+                    id: state.cfg.accountId || null,
+                    label: state.cfg.label || 'InPost Von Halsky',
+                    environment: state.cfg.environment
+                },
                 mode: state.built.mode,
                 environment: state.cfg.environment,
                 organizationId: state.resolvedOrgId,

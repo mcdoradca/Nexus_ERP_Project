@@ -347,12 +347,28 @@ class BaselinkerExportService {
         this.inventoryParametersCache = new Map();
     }
 
-    clearInventoryParametersCache() {
-        this.inventoryParametersCache.clear();
+    _cacheKey(inventoryId, context = {}) {
+        const invKey = String(inventoryId || '').trim();
+        const wsKey = context?.workspaceId || 'default';
+        const accKey = context?.accountId || 'default';
+        return `${wsKey}:${accKey}:${invKey}`;
     }
 
-    async callConnectorApi(method, parameters = {}, timeout = 30000) {
-        const token = await getBaseLinkerToken(prisma);
+    clearInventoryParametersCache(workspaceId = null, accountId = null) {
+        if (!workspaceId) {
+            this.inventoryParametersCache.clear();
+            return;
+        }
+        const prefix = `${workspaceId}:${accountId ? `${accountId}:` : ''}`;
+        for (const k of this.inventoryParametersCache.keys()) {
+            if (k.startsWith(prefix)) {
+                this.inventoryParametersCache.delete(k);
+            }
+        }
+    }
+
+    async callConnectorApi(method, parameters = {}, timeout = 30000, context = {}) {
+        const token = await getBaseLinkerToken(prisma, context || {});
         const params = new URLSearchParams();
         params.append('method', method);
         params.append('parameters', JSON.stringify(parameters));
@@ -368,11 +384,12 @@ class BaselinkerExportService {
         return response.data;
     }
 
-    async fetchInventoryParameters(inventoryId, { forceRefresh = false } = {}) {
+    async fetchInventoryParameters(inventoryId, { forceRefresh = false, workspaceId = null, accountId = null } = {}) {
         const invKey = String(inventoryId || '').trim();
         if (!invKey) return FALLBACK_INVENTORY_PARAMETERS;
 
-        const cached = this.inventoryParametersCache.get(invKey);
+        const cacheKey = this._cacheKey(invKey, { workspaceId, accountId });
+        const cached = this.inventoryParametersCache.get(cacheKey);
         if (!forceRefresh && cached && (Date.now() - cached.fetchedAt) < INVENTORY_PARAMETERS_CACHE_TTL_MS) {
             return cached.parameters;
         }
@@ -383,9 +400,9 @@ class BaselinkerExportService {
         }
 
         try {
-            const res = await this.callConnectorApi('getInventoryParameters', { inventory_id: numericInventoryId }, 15000);
+            const res = await this.callConnectorApi('getInventoryParameters', { inventory_id: numericInventoryId }, 15000, { workspaceId, accountId });
             const parameters = Array.isArray(res?.parameters) ? res.parameters : [];
-            this.inventoryParametersCache.set(invKey, { parameters, fetchedAt: Date.now() });
+            this.inventoryParametersCache.set(cacheKey, { parameters, fetchedAt: Date.now() });
             return parameters;
         } catch (err) {
             exportLogger.warn(`[BaselinkerExportService] Fallback parametrów dla katalogu ${invKey} (błąd getInventoryParameters: ${err.message})`);
@@ -474,8 +491,11 @@ class BaselinkerExportService {
     /**
      * Buduje gotowy payload JSON wraz z diagnostyką parametrów BaseLinkera (bez wysyłki do API).
      */
-    async buildPayloadWithDiagnostics(inventoryId, productId, draftData, product) {
-        exportLogger.info(`[BaselinkerExportService] Budowanie payloadu dla EAN: ${product.ean}`);
+    async buildPayloadWithDiagnostics(inventoryId, productId, draftData, product, context = {}) {
+        exportLogger.info(`[BaselinkerExportService] Budowanie payloadu dla EAN: ${product.ean}`, {
+            workspaceId: context?.workspaceId || 'default',
+            accountId: context?.accountId || null
+        });
         
         const payload = {
             inventory_id: inventoryId,
@@ -521,7 +541,10 @@ class BaselinkerExportService {
         let hardFeatures = {};
         if (!hasAuthoritativeDraftFeatures && product.allegroCategoryId) {
             try {
-                hardFeatures = await AllegroService.getProductParametersByEan(product.ean, product.allegroCategoryId);
+                hardFeatures = await AllegroService.getProductParametersByEan(product.ean, {
+                    workspaceId: context?.workspaceId || null,
+                    accountId: context?.allegroAccountId || null
+                });
             } catch (e) {
                 exportLogger.warn(`[BaselinkerExportService] Błąd pobierania hardFeatures z Allegro: ${e.message}`);
             }
@@ -542,8 +565,12 @@ class BaselinkerExportService {
         });
 
         const invKey = String(inventoryId || '').trim();
-        const hadCachedParameters = Boolean(invKey && this.inventoryParametersCache.has(invKey));
-        let inventoryParameters = await this.fetchInventoryParameters(inventoryId);
+        const cacheKey = this._cacheKey(invKey, context);
+        const hadCachedParameters = Boolean(invKey && this.inventoryParametersCache.has(cacheKey));
+        let inventoryParameters = await this.fetchInventoryParameters(inventoryId, {
+            workspaceId: context?.workspaceId || null,
+            accountId: context?.accountId || null
+        });
         let { normalizedFeatures: finalFeatures, warnings, hasUnmatchedDictionaryOption } = normalizeFeaturesForBaselinkerSchema(
             mergedFeatures,
             inventoryParameters
@@ -553,7 +580,11 @@ class BaselinkerExportService {
         // jednorazowo przeładowujemy świeży słownik z API przed zgłoszeniem ostrzeżenia.
         if (hadCachedParameters && hasUnmatchedDictionaryOption) {
             exportLogger.info(`[BaselinkerExportService] Wykryto niedopasowaną opcję słownikową na cache katalogu ${invKey} — odświeżam getInventoryParameters na żywo.`);
-            inventoryParameters = await this.fetchInventoryParameters(inventoryId, { forceRefresh: true });
+            inventoryParameters = await this.fetchInventoryParameters(inventoryId, {
+                forceRefresh: true,
+                workspaceId: context?.workspaceId || null,
+                accountId: context?.accountId || null
+            });
             const refreshed = normalizeFeaturesForBaselinkerSchema(mergedFeatures, inventoryParameters);
             finalFeatures = refreshed.normalizedFeatures;
             warnings = refreshed.warnings;
@@ -623,29 +654,33 @@ class BaselinkerExportService {
     /**
      * Buduje gotowy payload JSON (z kompresją zdjęć i mapowaniem) bez faktycznego wysyłania do API.
      */
-    async buildPayload(inventoryId, productId, draftData, product) {
-        const { payload } = await this.buildPayloadWithDiagnostics(inventoryId, productId, draftData, product);
+    async buildPayload(inventoryId, productId, draftData, product, context = {}) {
+        const { payload } = await this.buildPayloadWithDiagnostics(inventoryId, productId, draftData, product, context);
         return payload;
     }
 
     /**
      * Główna metoda kompilująca parametry, sekcje, zdjęcia i ładunek w jeden poprawny format JSON dla BaseLinker
      */
-    async exportToBaselinker(inventoryId, productId, draftData, product) {
-        exportLogger.info(`[BaselinkerExportService] Rozpoczynam eksport dla EAN: ${product.ean}`);
+    async exportToBaselinker(inventoryId, productId, draftData, product, context = {}) {
+        exportLogger.info(`[BaselinkerExportService] Rozpoczynam eksport dla EAN: ${product.ean}`, {
+            workspaceId: context?.workspaceId || 'default',
+            accountId: context?.accountId || null
+        });
         
         try {
             const { payload, warnings: preflightWarnings } = await this.buildPayloadWithDiagnostics(
                 inventoryId,
                 productId,
                 draftData,
-                product
+                product,
+                context
             );
 
             // --- 5. EKSPORT DO BASELINKER API ---
             exportLogger.info(`[BaselinkerExportService] Wysyłanie ładunku do BaseLinker API dla EAN: ${product.ean}...`);
 
-            const responseData = await this.callConnectorApi('addInventoryProduct', payload, 30000);
+            const responseData = await this.callConnectorApi('addInventoryProduct', payload, 30000, context);
             const apiWarnings = formatBaselinkerApiWarnings(responseData?.warnings);
 
             if (apiWarnings.length > 0) {

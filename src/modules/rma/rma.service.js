@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const axios = require('axios');
 const { resolveBaseLinkerToken } = require('../../utils/secretVault');
+const { ensureDefaultWorkspace } = require('../../services/workspace.service');
 
 async function executeFraudBlacklistProtocol(profile) {
     console.log(`[FRAUD AGENT] Klient ${profile.allegroLogin} spełnił warunki ryzyka. Przekazano do weryfikacji ręcznej.`);
@@ -31,48 +32,75 @@ async function executeFraudBlacklistProtocol(profile) {
     }
 }
 
-// Flaga i stan zapobiegająca Race Condition
-let isRmaSyncRunning = false;
-let syncProgress = {
-    processedTotal: 0,
-    currentDate: null
-};
+// Stan i blokady wyścigów izolowane per workspaceId
+const syncStateByWorkspace = new Map();
 
-const getSyncStatus = () => {
+function getOrCreateSyncState(key) {
+    if (!syncStateByWorkspace.has(key)) {
+        syncStateByWorkspace.set(key, {
+            isRunning: false,
+            processedTotal: 0,
+            currentDate: null
+        });
+    }
+    return syncStateByWorkspace.get(key);
+}
+
+const getSyncStatus = (workspaceId = null) => {
+    const key = workspaceId || 'default';
+    const state = syncStateByWorkspace.get(key);
     return {
-        isRunning: isRmaSyncRunning,
-        processedTotal: syncProgress.processedTotal,
-        currentDate: syncProgress.currentDate
+        workspaceId: workspaceId || null,
+        isRunning: Boolean(state?.isRunning),
+        processedTotal: state?.processedTotal || 0,
+        currentDate: state?.currentDate || null
     };
 };
 
-async function syncReturnsFromBaselinker(forceDateFrom = null) {
-    if (isRmaSyncRunning) {
-        console.log('[RMA] Proces synchronizacji już trwa. Pomijam uruchomienie...');
+async function syncReturnsFromBaselinker(forceDateFrom = null, workspaceId = null) {
+    let targetWs = null;
+    if (workspaceId) {
+        targetWs = await prisma.workspace.findFirst({ where: { id: workspaceId, isActive: true } });
+    } else {
+        targetWs = await ensureDefaultWorkspace(prisma);
+    }
+    if (!targetWs) {
+        console.log(`[RMA TELEMETRY] Pominięto sync zwrotów — nieaktywny lub nieznany workspace (${workspaceId || 'default'}).`);
+        return false;
+    }
+
+    const wsId = targetWs.id;
+    const syncState = getOrCreateSyncState(wsId);
+    if (syncState.isRunning) {
+        console.log(`[RMA] Proces synchronizacji dla workspace ${wsId} już trwa. Pomijam uruchomienie...`);
         return false;
     }
     
-    isRmaSyncRunning = true;
-    syncProgress.processedTotal = 0;
-    syncProgress.currentDate = null;
+    syncState.isRunning = true;
+    syncState.processedTotal = 0;
+    syncState.currentDate = null;
 
     try {
-        const resolvedToken = await resolveBaseLinkerToken(prisma);
+        const resolvedToken = await resolveBaseLinkerToken(prisma, { workspaceId: wsId });
         const blToken = resolvedToken.token;
         if (!blToken) {
-            console.log("[RMA TELEMETRY] BŁĄD: Brak tokena BASELINKER_TOKEN ani w .env, ani w bazie danych.");
+            console.log(`[RMA TELEMETRY] Klient "${targetWs.name}" (${wsId}) nie ma skonfigurowanego tokena BaseLinker — pomijam sync zwrotów.`);
             return false;
         }
-        console.log(`[RMA TELEMETRY] Token BaseLinker odczytany bezpiecznie (źródło: ${resolvedToken.source}, szyfrowany: ${resolvedToken.encrypted}).`);
+        console.log(`[RMA TELEMETRY] Token BaseLinker dla workspace ${wsId} odczytany bezpiecznie (źródło: ${resolvedToken.source}, szyfrowany: ${resolvedToken.encrypted}).`);
 
-        const lastLogSetting = await prisma.systemSetting.findUnique({ where: { key: 'rma_last_return_date' } });
+        const watermarkKey = `rma_last_return_date:${wsId}`;
+        let lastLogSetting = await prisma.systemSetting.findUnique({ where: { key: watermarkKey } });
+        if (!lastLogSetting && targetWs.isDefault) {
+            lastLogSetting = await prisma.systemSetting.findUnique({ where: { key: 'rma_last_return_date' } });
+        }
         // Domyślnie cofamy się o 30 dni jeśli brak historii
-        const lastDate = forceDateFrom || (lastLogSetting ? parseInt(lastLogSetting.value) : Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60));
+        const lastDate = forceDateFrom || (lastLogSetting ? parseInt(lastLogSetting.value, 10) : Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60));
 
         let currentDateFrom = lastDate;
         let hasMore = true;
         let maxDateProcessed = currentDateFrom;
-        console.log(`[RMA TELEMETRY] START PĘTLI. lastDate/forceDateFrom: ${lastDate} (${new Date(lastDate * 1000).toISOString()})`);
+        console.log(`[RMA TELEMETRY] START PĘTLI (${wsId}). lastDate/forceDateFrom: ${lastDate} (${new Date(lastDate * 1000).toISOString()})`);
 
         while (hasMore) {
             const apiParams = { date_from: currentDateFrom };
@@ -115,8 +143,8 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
                 }
             }
 
-            syncProgress.processedTotal += returns.length;
-            syncProgress.currentDate = new Date(maxDateProcessed * 1000).toISOString();
+            syncState.processedTotal += returns.length;
+            syncState.currentDate = new Date(maxDateProcessed * 1000).toISOString();
 
             // Izolowanie zwrotów wyłącznie z Allegro
             const allegroReturns = returns.filter(r => r.order_return_source === 'allegro');
@@ -126,9 +154,14 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
                 const login = rmaData.customer_login || rmaData.customer_email;
                 if (!login) continue;
 
-                // Sprawdzenie, czy ten konkretny zwrot już kiedykolwiek był pobrany
+                // Sprawdzenie, czy ten konkretny zwrot już kiedykolwiek był pobrany w kontekście danego klienta (workspaceId)
                 const existingReturn = await prisma.returnRecord.findUnique({
-                    where: { baselinkerId: rmaData.return_id.toString() }
+                    where: {
+                        workspaceId_baselinkerId: {
+                            workspaceId: wsId,
+                            baselinkerId: rmaData.return_id.toString()
+                        }
+                    }
                 });
 
                 let profile = null;
@@ -139,12 +172,18 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
                 if (!existingReturn) {
                     // Aktualizacja profilu Ryzyka (CustomerRiskProfile)
                     profile = await prisma.customerRiskProfile.upsert({
-                        where: { allegroLogin: login },
+                        where: {
+                            workspaceId_allegroLogin: {
+                                workspaceId: wsId,
+                                allegroLogin: login
+                            }
+                        },
                         update: {
                             totalReturns: { increment: 1 },
                             lastReturnDate: new Date(rmaData.date_add * 1000)
                         },
                         create: {
+                            workspaceId: wsId,
                             allegroLogin: login,
                             maskedEmail: rmaData.customer_email || 'brak@danych.pl',
                             totalReturns: 1,
@@ -152,10 +191,12 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
                         }
                     });
 
-                    // Zasilanie analityki PIM (Zliczanie zwrotów na SKU)
+                    // Zasilanie analityki PIM (Zliczanie zwrotów na SKU w obrębie danego klienta)
                     if (product?.ean || product?.sku) {
                         try {
-                            const condition = product.ean ? { ean: product.ean } : { sku: product.sku };
+                            const condition = product.ean
+                                ? { workspaceId: wsId, ean: product.ean }
+                                : { workspaceId: wsId, sku: product.sku };
                             await prisma.product.updateMany({
                                 where: condition,
                                 data: {
@@ -175,13 +216,19 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
 
                 // Rejestracja/Aktualizacja Rekordu Zwrotu (nadpisuje status lub kwotę jeśli zwrot powrócił w syncu)
                 await prisma.returnRecord.upsert({
-                    where: { baselinkerId: rmaData.return_id.toString() },
+                    where: {
+                        workspaceId_baselinkerId: {
+                            workspaceId: wsId,
+                            baselinkerId: rmaData.return_id.toString()
+                        }
+                    },
                     update: {
                         refundAmount: parseFloat(rmaData.refund_done) || 0.0,
                         reason: reasonComment,
                         status: rmaData.status_id?.toString() || 'UPDATED'
                     },
                     create: {
+                        workspaceId: wsId,
                         baselinkerId: rmaData.return_id.toString(),
                         orderId: rmaData.order_id?.toString() || 'BRAK',
                         customerLogin: login,
@@ -205,21 +252,21 @@ async function syncReturnsFromBaselinker(forceDateFrom = null) {
             }
         }
 
-        console.log(`[RMA TELEMETRY] Zapis stanu na koniec procesu. maxDateProcessed: ${maxDateProcessed}, lastDate: ${lastDate}`);
-        // Zapis ostatecznego wskaźnika
+        console.log(`[RMA TELEMETRY] Zapis stanu na koniec procesu (${wsId}). maxDateProcessed: ${maxDateProcessed}, lastDate: ${lastDate}`);
+        // Zapis ostatecznego wskaźnika izolowanego per workspace
         if (maxDateProcessed > lastDate) {
             await prisma.systemSetting.upsert({
-                where: { key: 'rma_last_return_date' },
+                where: { key: watermarkKey },
                 update: { value: maxDateProcessed.toString() },
-                create: { key: 'rma_last_return_date', value: maxDateProcessed.toString() }
+                create: { key: watermarkKey, value: maxDateProcessed.toString() }
             });
         }
 
     } catch (err) {
         console.error('[RMA Fraud Agent] TWARDY BŁĄD pobierania logów z BL:', err.stack || err.message);
     } finally {
-        isRmaSyncRunning = false;
-        console.log(`[RMA TELEMETRY] Flaga isRmaSyncRunning ustawiona na FALSE. Wyjście z demona.`);
+        syncState.isRunning = false;
+        console.log(`[RMA TELEMETRY] Flaga isRunning dla workspace ${wsId} ustawiona na FALSE. Wyjście z demona.`);
     }
 }
 

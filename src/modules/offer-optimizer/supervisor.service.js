@@ -28,13 +28,14 @@ class SupervisorService {
   /**
    * Wyzwalacz dodający zadanie do kolejki. Zastępuje bezpośrednie wywołanie EAN Pipeline.
    */
-  async enqueueTask(taskType, ean, payload = {}) {
+  async enqueueTask(taskType, ean, payload = {}, workspaceId = null) {
     // Tarcza Błędów: Sprawdzenie limitu dziennego (MAX 3)
     const today = new Date();
     today.setHours(0,0,0,0);
     const failuresToday = await prisma.agentQueue.count({
         where: {
             ean: ean,
+            ...(workspaceId ? { workspaceId } : {}),
             status: 'ERROR',
             createdAt: { gte: today }
         }
@@ -51,6 +52,7 @@ class SupervisorService {
         taskType,
         ean,
         payload,
+        ...(workspaceId ? { workspaceId } : {}),
         status: 'PENDING'
       }
     });
@@ -99,7 +101,9 @@ class SupervisorService {
       console.log(`[Supervisor] Zadanie ID: ${task.id} zakończone pomyślnie.`);
       
       if (task.taskType === 'EAN_PIPELINE') {
-          const finalProduct = await prisma.product.findUnique({ where: { ean: task.ean } });
+          const finalProduct = await prisma.product.findFirst({
+              where: task.workspaceId ? { workspaceId: task.workspaceId, ean: task.ean } : { ean: task.ean }
+          });
           
           let resultPayload = {};
           if (finalProduct && finalProduct.offerDraft) {
@@ -113,7 +117,7 @@ class SupervisorService {
                };
           }
           
-          socketService.broadcast('nexus-notification', {
+          socketService.emitToWorkspace(task.workspaceId || null, 'nexus-notification', {
               type: 'PIPELINE_COMPLETE',
               ean: task.ean,
               result: resultPayload
@@ -124,12 +128,12 @@ class SupervisorService {
       await prisma.agentQueue.update({ where: { id: task.id }, data: { status: 'ERROR', payload: { error: error.message, stack: error.stack } } });
       
       if (task.taskType === 'EAN_PIPELINE') {
-          await prisma.product.update({
-              where: { ean: task.ean },
+          await prisma.product.updateMany({
+              where: task.workspaceId ? { workspaceId: task.workspaceId, ean: task.ean } : { ean: task.ean },
               data: { offerDraft: { status: 'ERROR', error: error.message } }
           }).catch(() => {});
           
-          socketService.broadcast('nexus-notification', {
+          socketService.emitToWorkspace(task.workspaceId || null, 'nexus-notification', {
               type: 'PIPELINE_ERROR',
               ean: task.ean,
               error: error.message || "Błąd wewnętrzny serwera podczas procesowania EAN Pipeline."
@@ -164,12 +168,16 @@ class SupervisorService {
    */
   async _orchestrateEanPipeline(task) {
     const ean = task.ean;
-    let product = await prisma.product.findUnique({ where: { ean }, include: { brand: true } });
+    const wsId = task.workspaceId || null;
+    let product = await prisma.product.findFirst({
+        where: wsId ? { workspaceId: wsId, ean } : { ean },
+        include: { brand: true }
+    });
 
     // Zapewnienie bazowych danych z zewnętrznych systemów
     if (!product || !product.isSynced) {
         console.log(`[Supervisor] Produkt ${ean} nie jest zsynchronizowany. Pobieranie z PIM/BaseLinker...`);
-        product = await this._syncProduct(ean, product);
+        product = await this._syncProduct(ean, product, wsId);
     }
 
     const broadcastStatus = (phase, nodesActive, nodeStatuses, nextAction = null, hitl = null) => {
@@ -182,7 +190,7 @@ class SupervisorService {
             hitl_alert: hitl
         };
         console.log(`[Supervisor Node 0] Status:`, JSON.stringify(payload));
-        socketService.broadcast('nexus-notification', { type: 'PIPELINE_STATUS', ean, payload });
+        socketService.emitToWorkspace(wsId, 'nexus-notification', { type: 'PIPELINE_STATUS', ean, payload });
     };
 
     const traceLog = (stage, detailData) => {
@@ -212,8 +220,8 @@ class SupervisorService {
         // --- 1. Ustalenie Kategori Allegro & Zbudowanie Schematu ---
         let requiredSchema = [];
         // Zawsze odpytujemy API o aktualną kategorię (katalog Allegro mógł się zmienić)
-        let catId = await AllegroService.findCategoryByEan(ean);
-        if (!catId && product.name) catId = await AllegroService.findMatchingCategoryByName(product.name);
+        let catId = await AllegroService.findCategoryByEan(ean, { workspaceId: wsId });
+        if (!catId && product.name) catId = await AllegroService.findMatchingCategoryByName(product.name, { workspaceId: wsId });
         
         if (catId) {
             await prisma.product.update({ where: { id: product.id }, data: { allegroCategoryId: catId } });
@@ -226,7 +234,7 @@ class SupervisorService {
         if (catId) {
             let category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
             if (!category || !category.parameters || (Array.isArray(category.parameters) && category.parameters.length === 0)) {
-                await AllegroService.fetchCategoryParameters(catId);
+                await AllegroService.fetchCategoryParameters(catId, { workspaceId: wsId });
                 category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
             }
             if (category && category.parameters) requiredSchema = category.parameters;
@@ -452,9 +460,10 @@ ${fullSot09}
 
   // --- Implementacje delegatów (Zachowane do kompatybilności wewnętrznej) ---
 
-  async _syncProduct(ean, product) {
-    const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean);
-    const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId);
+  async _syncProduct(ean, product, workspaceId = null) {
+    const blContext = workspaceId ? { workspaceId } : {};
+    const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean, null, blContext);
+    const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId, blContext);
     let brandId = product ? product.brandId : null;
     
     let defaultBrand = await prisma.brand.findUnique({ where: { name: 'PIM-IMPORT' } });
@@ -468,9 +477,23 @@ ${fullSot09}
         stock: deepData.stock
     };
     if (!product) {
-        return prisma.product.create({ data: { ean, sku: ean, name: deepData.name, brandId, ...deepPayload } });
+        let targetWsId = workspaceId;
+        if (!targetWsId) {
+            const defWs = await prisma.workspace.findFirst({ where: { isDefault: true, isActive: true } });
+            targetWsId = defWs?.id;
+        }
+        return prisma.product.create({
+            data: {
+                ean,
+                sku: ean,
+                name: deepData.name,
+                brandId,
+                ...(targetWsId ? { workspaceId: targetWsId } : {}),
+                ...deepPayload
+            }
+        });
     }
-    return prisma.product.update({ where: { ean }, data: deepPayload });
+    return prisma.product.update({ where: { id: product.id }, data: deepPayload });
   }
 }
 

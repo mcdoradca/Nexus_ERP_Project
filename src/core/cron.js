@@ -1,33 +1,42 @@
 const cron = require('node-cron');
+const prisma = require('./prisma');
 const AnalyticsService = require('../modules/analytics/analytics.service');
 const RmaService = require('../modules/rma/rma.service');
 const LogisticsService = require('../modules/logistics/logistics.service');
 
 function initCronJobs() {
     // Odciążenie bazy OLTP (Threat 3 z poprawki.md)
-    // Asynchroniczne przeliczanie True Net Margin każdej nocy o 04:00 w tle.
-    // Dzięki temu, w ciągu dnia system uniknie "wielowymiarowych ułamków" 
-    // podczas aktywnych operacji handlowców na Tablicy Kanban.
+    // Asynchroniczne przeliczanie True Net Margin każdej nocy o 04:00 w tle (niezależnie per aktywny workspace).
     cron.schedule('0 4 * * *', async () => {
         console.log('[CRON] Rozpoczynam asynchroniczne wyliczanie True Net Margin (odciążenie OLTP)...');
         try {
-            // Skalowanie God-Mode (asynchroniczny bufor dla Dashboardu)
-            // Przy wdrożeniu pełnej hurtowni danych, tutaj zrzucimy wyniki do Redisa
-            // Aktualnie symulujemy asynchroniczne odpalenie algorytmu
-            await AnalyticsService.generateGodModeReport();
-            console.log('[CRON] Zakończono wyliczanie analityki biznesowej w tle.');
+            const workspaces = await prisma.workspace.findMany({ where: { isActive: true }, select: { id: true, name: true } });
+            for (const ws of workspaces) {
+                try {
+                    await AnalyticsService.generateGodModeReport(null, ws.id);
+                    console.log(`[CRON] Zakończono wyliczanie analityki biznesowej w tle dla klienta "${ws.name}" (${ws.id}).`);
+                } catch (wsErr) {
+                    console.warn(`[CRON] Analityka God-Mode dla klienta "${ws.name}" (${ws.id}) pominięta/błąd: ${wsErr.message}`);
+                }
+            }
         } catch (error) {
             console.error('[CRON] Błąd podczas wyliczania God-Mode w tle:', error.message);
         }
     });
 
     // Sub-Moduł: NEXUS FRAUD PREVENTION (Tarcza Anty-Wyłudzeniowa)
-    // Synchronizacja Dziennika Zwrotów BaseLinker metodą getOrderReturns.
-    // Uruchamiany 2 razy dziennie w celu ochrony limitów API.
+    // Synchronizacja Dziennika Zwrotów BaseLinker metodą getOrderReturns (izolowana pętla po wszystkich aktywnych klientach).
     cron.schedule('0 6,18 * * *', async () => {
-        console.log('[CRON] RMA Agent: Odpytywanie dziennika zwrotów BaseLinkera...');
+        console.log('[CRON] RMA Agent: Odpytywanie dziennika zwrotów BaseLinkera dla aktywnych klientów...');
         try {
-            await RmaService.syncReturnsFromBaselinker();
+            const workspaces = await prisma.workspace.findMany({ where: { isActive: true }, select: { id: true, name: true } });
+            for (const ws of workspaces) {
+                try {
+                    await RmaService.syncReturnsFromBaselinker(null, ws.id);
+                } catch (wsErr) {
+                    console.error(`[CRON] Błąd RMA dla klienta "${ws.name}" (${ws.id}):`, wsErr.message);
+                }
+            }
         } catch (error) {
             console.error('[CRON] Błąd w module RMA:', error.message);
         }

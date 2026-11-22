@@ -41,6 +41,23 @@ const socketService = {
             if (uid === userId) io.to(sockId).emit(event, data);
         }
     },
+    joinWorkspace: (socket, workspaceId) => {
+        if (!socket || !workspaceId) return;
+        for (const room of socket.rooms) {
+            if (typeof room === 'string' && room.startsWith('workspace:')) {
+                socket.leave(room);
+            }
+        }
+        socket.join(`workspace:${workspaceId}`);
+    },
+    emitToWorkspace: (workspaceId, event, data) => {
+        if (!io) return;
+        if (!workspaceId) {
+            io.emit(event, data);
+            return;
+        }
+        io.to(`workspace:${workspaceId}`).emit(event, { ...data, workspaceId });
+    },
     broadcast: (event, data) => {
         if (!io) return;
         io.emit(event, data);

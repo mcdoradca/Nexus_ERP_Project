@@ -265,8 +265,9 @@ model CampaignAsset {
 
 model Product {
   id                    String               @id @default(uuid())
-  ean                   String               @unique
-  sku                   String               @unique
+  workspaceId           String
+  ean                   String
+  sku                   String
   name                  String
   stock                 Int                  @default(0)
   salePrice             Float                @default(0.0)
@@ -276,8 +277,8 @@ model Product {
   bdoEprCost            Float                @default(0.0)
   outboundTransportCost Float                @default(0.0)
   status                String               @default("Aktywny")
-  subiektId             String?              @unique
-  baselinkerId          String?              @unique
+  subiektId             String?
+  baselinkerId          String?
   isSynced              Boolean              @default(false)
   brandId               String?
   createdAt             DateTime             @default(now())
@@ -307,6 +308,7 @@ model Product {
   riskScore             Float                @default(0.0)
   supplierId            String?
   returnCount           Int                  @default(0)
+  workspace             Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   campaignsAsMain       Campaign[]           @relation("CampaignPromotedProduct")
   campaignProducts      CampaignProduct[]
   dealsIRM              DealIRM[]            @relation("LokowanyProdukt")
@@ -315,6 +317,11 @@ model Product {
   supplier              Supplier?            @relation("ProductSupplier", fields: [supplierId], references: [id])
   bomElements           ProductBom[]         @relation("ProductBomElements")
 
+  @@unique([workspaceId, ean])
+  @@unique([workspaceId, sku])
+  @@unique([workspaceId, subiektId])
+  @@unique([workspaceId, baselinkerId])
+  @@index([workspaceId])
   @@index([brandId])
   @@index([sku])
   @@index([ean])
@@ -533,7 +540,8 @@ model Supplier {
 
 model CustomerRiskProfile {
   id             String         @id @default(uuid())
-  allegroLogin   String         @unique
+  workspaceId    String
+  allegroLogin   String
   maskedEmail    String?
   totalReturns   Int            @default(0)
   fraudScore     Float          @default(0.0)
@@ -542,12 +550,17 @@ model CustomerRiskProfile {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   reviewStatus   String         @default("SAFE")
+  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   returnRecords  ReturnRecord[]
+
+  @@unique([workspaceId, allegroLogin])
+  @@index([workspaceId])
 }
 
 model ReturnRecord {
   id              String              @id @default(uuid())
-  baselinkerId    String              @unique
+  workspaceId     String
+  baselinkerId    String
   orderId         String
   productId       String?
   productEan      String?
@@ -559,8 +572,11 @@ model ReturnRecord {
   refundAmount    Float               @default(0.0)
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
-  customerProfile CustomerRiskProfile @relation(fields: [customerLogin], references: [allegroLogin])
+  workspace       Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customerProfile CustomerRiskProfile @relation(fields: [workspaceId, customerLogin], references: [workspaceId, allegroLogin])
 
+  @@unique([workspaceId, baselinkerId])
+  @@index([workspaceId])
   @@index([customerLogin])
   @@index([productId])
 }
@@ -627,19 +643,22 @@ enum TaskPriority {
 }
 
 model AgentMetric {
-  id                      String   @id @default(uuid())
-  agentId                 String   // np. 'Agent_1_INCI', 'Agent_11_Autofill'
-  modelName               String   // np. 'gemini-3.1-pro-preview'
-  promptTokens            Int      @default(0)
-  completionTokens        Int      @default(0)
-  totalTokens             Int      @default(0)
-  thoughtsTokenCount      Int      @default(0)
-  cachedContentTokenCount Int      @default(0)
-  isSuccess               Boolean  @default(true)
-  attemptNumber           Int      @default(1)
+  id                      String     @id @default(uuid())
+  workspaceId             String?
+  agentId                 String     // np. 'Agent_1_INCI', 'Agent_11_Autofill'
+  modelName               String     // np. 'gemini-3.1-pro-preview'
+  promptTokens            Int        @default(0)
+  completionTokens        Int        @default(0)
+  totalTokens             Int        @default(0)
+  thoughtsTokenCount      Int        @default(0)
+  cachedContentTokenCount Int        @default(0)
+  isSuccess               Boolean    @default(true)
+  attemptNumber           Int        @default(1)
   failureReason           String?
-  createdAt               DateTime @default(now())
+  createdAt               DateTime   @default(now())
+  workspace               Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
+  @@index([workspaceId, createdAt])
   @@index([agentId])
   @@index([createdAt])
 }
@@ -660,15 +679,18 @@ model KnowledgeDocument {
 }
 
 model AgentQueue {
-  id        String   @id @default(uuid())
-  taskType  String   // np. 'EAN_PIPELINE', 'AEO_GENERATION'
-  ean       String?
-  payload   Json?
-  status    String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, ERROR
-  priority  Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String     @id @default(uuid())
+  workspaceId String?
+  taskType    String     // np. 'EAN_PIPELINE', 'AEO_GENERATION'
+  ean         String?
+  payload     Json?
+  status      String     @default("PENDING") // PENDING, PROCESSING, COMPLETED, ERROR
+  priority    Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
+  @@index([workspaceId, status])
   @@index([status])
 }
 
@@ -681,4 +703,60 @@ model AgentCache {
   updatedAt DateTime @updatedAt
 
   @@index([cacheKey])
+}
+
+model Workspace {
+  id                   String                @id @default(uuid())
+  slug                 String                @unique
+  name                 String
+  badgeColor           String                @default("#4f46e5")
+  isDefault            Boolean               @default(false)
+  isActive             Boolean               @default(true)
+  settings             Json?                 @default("{}")
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  integrations         IntegrationAccount[]
+  products             Product[]
+  returnRecords        ReturnRecord[]
+  customerRiskProfiles CustomerRiskProfile[]
+  agentMetrics         AgentMetric[]
+  agentQueueTasks      AgentQueue[]
+  securityAuditLogs    SecurityAuditLog[]
+}
+
+model IntegrationAccount {
+  id                String    @id @default(uuid())
+  workspaceId       String
+  provider          String    // 'BASELINKER' | 'ALLEGRO' | 'VONHALSKY'
+  label             String
+  externalAccountId String?
+  environment       String    @default("production")
+  isDefault         Boolean   @default(false)
+  isActive          Boolean   @default(true)
+  credentialsEnc    String
+  metadata          Json?     @default("{}")
+  lastVerifiedAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  workspace         Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, provider])
+  @@index([workspaceId, provider, isDefault])
+}
+
+model SecurityAuditLog {
+  id                   String     @id @default(uuid())
+  workspaceId          String?
+  userId               String?
+  action               String
+  provider             String?
+  integrationAccountId String?
+  entityId             String?
+  status               String     @default("SUCCESS")
+  details              Json?
+  createdAt            DateTime   @default(now())
+  workspace            Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([action, createdAt])
 }

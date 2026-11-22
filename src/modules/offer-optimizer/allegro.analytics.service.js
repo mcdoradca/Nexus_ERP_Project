@@ -51,11 +51,11 @@ async function fetchOfferStatistics(offerId) {
 /**
  * Zderza dane z Allegro z twardymi zyskami z BaseLinker/Prisma
  */
-async function fuseTrafficWithSales(ean, offerId) {
+async function fuseTrafficWithSales(ean, offerId, { workspaceId = null } = {}) {
     const stats = await fetchOfferStatistics(offerId);
     
-    const product = await prisma.product.findUnique({
-        where: { ean }
+    const product = await prisma.product.findFirst({
+        where: workspaceId ? { workspaceId, ean } : { ean }
     });
 
     if (!product) {

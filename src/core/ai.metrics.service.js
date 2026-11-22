@@ -18,7 +18,7 @@ class AiMetricsService {
     /**
      * Zapisuje użycie tokenów agenta AI w bazie Prisma oraz weryfikuje budżet.
      */
-    static async logUsage(agentId, modelName, usageMetadata, isSuccess = true, attemptNumber = 1, failureReason = null) {
+    static async logUsage(agentId, modelName, usageMetadata, isSuccess = true, attemptNumber = 1, failureReason = null, workspaceId = null) {
         try {
             const promptTokens = usageMetadata?.promptTokenCount || 0;
             const completionTokens = usageMetadata?.candidatesTokenCount || 0;
@@ -37,7 +37,8 @@ class AiMetricsService {
                     cachedContentTokenCount,
                     isSuccess,
                     attemptNumber,
-                    failureReason
+                    failureReason,
+                    ...(workspaceId ? { workspaceId } : {})
                 }
             });
             console.log(`[Telemetria] Zarejestrowano koszt dla ${agentId} (${modelName}): ${totalTokens} tk. Sukces: ${isSuccess}, Próba: ${attemptNumber}`);

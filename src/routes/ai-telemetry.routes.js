@@ -26,7 +26,11 @@ function calculateCost(modelName, promptTokens, completionTokens, cachedTokens =
 
 router.get('/stats', async (req, res) => {
     try {
+        const where = (req.workspaceId && req.query?.scope !== 'all')
+            ? { workspaceId: req.workspaceId }
+            : {};
         const metrics = await prisma.agentMetric.findMany({
+            where,
             orderBy: { createdAt: 'desc' },
             take: 10000 
         });

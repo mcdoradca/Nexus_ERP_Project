@@ -15,8 +15,8 @@ class AnalyticsService {
      * Symuluje zaawansowane wyliczenia na bazie danych w PIM.
      * @param {string} sku - Opcjonalne SKU do analizy
      */
-    static async generateGodModeReport(sku = null) {
-        console.log(`[Sentinel Analytics] 🧠 Rozpoczynam dekonstrukcję ROI dla ${sku ? sku : 'całego portfela'}...`);
+    static async generateGodModeReport(sku = null, workspaceId = null) {
+        console.log(`[Sentinel Analytics] 🧠 Rozpoczynam dekonstrukcję ROI dla ${sku ? sku : 'całego portfela'} (workspace: ${workspaceId || 'all'})...`);
 
         // W rzeczywistości tutaj odpytywalibyśmy BaseLinker API o zamówienia z ostatnich 90 dni
         // oraz Allegro Ads API o koszty kliknięć. Na potrzeby Nexus Sentinel, analizujemy 
@@ -27,6 +27,7 @@ class AnalyticsService {
             // Użytkownik mógł wpisać SKU lub EAN
             product = await prisma.product.findFirst({ 
                 where: { 
+                    ...(workspaceId ? { workspaceId } : {}),
                     OR: [
                         { sku: sku },
                         { ean: sku }
@@ -36,7 +37,10 @@ class AnalyticsService {
         } else {
             // Jeśli nie podano SKU, bierzemy pierwszą aktywną Lokomotywę
             product = await prisma.product.findFirst({ 
-                where: { salePrice: { gt: 0 } },
+                where: {
+                    ...(workspaceId ? { workspaceId } : {}),
+                    salePrice: { gt: 0 }
+                },
                 orderBy: { stock: 'desc' }
             });
         }
@@ -86,7 +90,8 @@ class AnalyticsService {
         console.log(`[Sentinel Analytics] 📡 Pobieram prawdziwe zamówienia z BaseLinker dla EAN/SKU: ${product.sku}...`);
         let realOrders = [];
         try {
-            const blResponse = await BaseLinkerService.rawCall('getOrders', { get_unconfirmed_orders: true });
+            const effWsId = workspaceId || product.workspaceId || null;
+            const blResponse = await BaseLinkerService.rawCall('getOrders', { get_unconfirmed_orders: true }, effWsId ? { workspaceId: effWsId } : {});
             realOrders = blResponse.orders || [];
         } catch (err) {
             console.error('[Sentinel Analytics] ❌ Błąd pobierania zamówień BL:', err.message);
@@ -167,11 +172,11 @@ class AnalyticsService {
     /**
      * Odtworzona metoda Demand Forecast. Analizuje popyt opierając się na twardych metrykach.
      */
-    static async generateDemandForecast(productId) {
-        console.log(`[DemandForecast] 🧠 Inicjalizacja prognozy popytu dla produktu: ${productId}...`);
+    static async generateDemandForecast(productId, workspaceId = null) {
+        console.log(`[DemandForecast] 🧠 Inicjalizacja prognozy popytu dla produktu: ${productId} (workspace: ${workspaceId || 'any'})...`);
         
-        const product = await prisma.product.findUnique({
-            where: { id: productId },
+        const product = await prisma.product.findFirst({
+            where: workspaceId ? { id: productId, workspaceId } : { id: productId },
             include: {
                 dealsIRM: true,
                 campaignsAsMain: true
@@ -179,7 +184,7 @@ class AnalyticsService {
         });
 
         if (!product) {
-            throw new Error(`Produkt ${productId} nie istnieje w bazie PIM.`);
+            throw new Error(`Produkt ${productId} nie istnieje w bazie PIM wybranego klienta.`);
         }
 
         const salePrice = parseFloat(product.salePrice) || 0;
@@ -191,7 +196,8 @@ class AnalyticsService {
         const profitNetto = netSalePrice - trueCost;
         const marginPercent = salePrice > 0 ? (profitNetto / netSalePrice) * 100 : 0;
 
-        const recentSales90Days = product.ean ? await BaseLinkerService.getRecentSalesForEan(product.ean, 90) : 0;
+        const effWsId = workspaceId || product.workspaceId || null;
+        const recentSales90Days = product.ean ? await BaseLinkerService.getRecentSalesForEan(product.ean, 90, effWsId ? { workspaceId: effWsId } : {}) : 0;
 
         const contextUsed = {
             stock: product.stock,

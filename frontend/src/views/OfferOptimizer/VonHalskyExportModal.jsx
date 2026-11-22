@@ -35,8 +35,11 @@ export const VonHalskyExportModal = ({
     onConfirmExport,
     token,
     API_URL,
-    getSafeImageSrc
+    getSafeImageSrc,
+    activeWorkspace = null,
+    accounts = []
 }) => {
+    const [selectedAccountId, setSelectedAccountId] = useState('');
     const [mode, setMode] = useState('auto');
     const [offerId, setOfferId] = useState('');
     const [categoryId, setCategoryId] = useState('');
@@ -82,6 +85,7 @@ export const VonHalskyExportModal = ({
     useEffect(() => {
         if (!validationResult) return;
         const p = validationResult.preview || {};
+        setSelectedAccountId(validationResult.account?.id || '');
         setMode(validationResult.mode || 'create');
         setOfferId(validationResult.offer?.id || '');
         setCategoryId(p.categoryId || '');
@@ -180,8 +184,9 @@ export const VonHalskyExportModal = ({
         if (!token) return;
         setIsSearchingCategories(true);
         try {
+            const accQuery = selectedAccountId ? `&accountId=${encodeURIComponent(selectedAccountId)}` : '';
             const res = await axios.get(
-                `${API_URL}/api/offer-optimizer/vonhalsky/categories?q=${encodeURIComponent(categorySearch.trim())}&limit=50`,
+                `${API_URL}/api/offer-optimizer/vonhalsky/categories?q=${encodeURIComponent(categorySearch.trim())}&limit=50${accQuery}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setCategoryResults(Array.isArray(res.data?.categories) ? res.data.categories : []);
@@ -194,11 +199,13 @@ export const VonHalskyExportModal = ({
 
     const triggerRevalidate = (extra = {}) => {
         setConfirmStep(0);
+        const effAccountId = extra.accountId !== undefined ? extra.accountId : selectedAccountId;
         const effMode = extra.mode !== undefined ? extra.mode : mode;
         const effOfferId = extra.offerId !== undefined ? extra.offerId : offerId;
         const baseOverrides = buildCurrentOverrides();
         const mergedOverrides = extra.overrides ? { ...baseOverrides, ...extra.overrides } : baseOverrides;
         onRevalidate({
+            accountId: effAccountId,
             mode: effMode,
             offerId: effOfferId,
             categoryId: mergedOverrides.categoryId,
@@ -226,6 +233,10 @@ export const VonHalskyExportModal = ({
     const envBadgeColor = validationResult.environment === 'stage'
         ? 'bg-amber-100 text-amber-800 border-amber-300'
         : 'bg-emerald-100 text-emerald-800 border-emerald-300';
+    const wsName = activeWorkspace?.name || validationResult.workspace?.name || 'Domyślny';
+    const wsColor = activeWorkspace?.badgeColor || validationResult.workspace?.badgeColor || '#4f46e5';
+    const selectedAccountObj = accounts.find(a => a.id === selectedAccountId);
+    const accountLabel = validationResult.account?.label || selectedAccountObj?.label || 'Domyślne konto Von Halsky';
 
     return (
         <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
@@ -241,6 +252,13 @@ export const VonHalskyExportModal = ({
                                 <h3 className="text-sm font-black uppercase tracking-widest">
                                     Pre-flight: InPost Von Halsky API (v1.7.12)
                                 </h3>
+                                <span
+                                    className="px-2 py-0.5 text-[10px] font-black uppercase rounded border text-white flex items-center gap-1.5"
+                                    style={{ backgroundColor: `${wsColor}cc`, borderColor: wsColor }}
+                                >
+                                    <span className="w-2 h-2 rounded-full bg-white" />
+                                    {wsName} → {accountLabel}
+                                </span>
                                 <span className={`px-2 py-0.5 text-[10px] font-black uppercase rounded border ${envBadgeColor}`}>
                                     {validationResult.environment === 'stage' ? 'STAGE' : 'PRODUCTION'}
                                 </span>
@@ -266,6 +284,35 @@ export const VonHalskyExportModal = ({
 
                 {/* Treść główna */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-slate-50">
+                    {/* Pasek konta docelowego i klienta */}
+                    <div
+                        className="p-3.5 rounded-lg border-2 flex flex-wrap items-center justify-between gap-3 bg-white"
+                        style={{ borderColor: wsColor }}
+                    >
+                        <div className="flex items-center gap-2 text-xs font-black text-slate-900">
+                            <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: wsColor }} />
+                            <span>KLIENT: <span className="uppercase">{wsName}</span> → KONTO VON HALSKY: <span className="uppercase text-amber-700">{accountLabel}</span></span>
+                        </div>
+                        {accounts.length > 0 && (
+                            <select
+                                value={selectedAccountId}
+                                onChange={e => {
+                                    const nextId = e.target.value;
+                                    setSelectedAccountId(nextId);
+                                    triggerRevalidate({ accountId: nextId });
+                                }}
+                                disabled={isValidating || isExporting}
+                                className="px-3 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs font-bold outline-none focus:border-amber-500"
+                            >
+                                {accounts.map(acc => (
+                                    <option key={acc.id} value={acc.id}>
+                                        {acc.label} ({String(acc.environment || 'production').toUpperCase()}){acc.isDefault ? ' [Dom.]' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
+
                     {/* Błędy blokujące */}
                     {errors.length > 0 && (
                         <div className="p-4 bg-rose-50 border border-rose-300 rounded-lg space-y-1.5">
@@ -928,7 +975,13 @@ export const VonHalskyExportModal = ({
                 {/* Panel 2. kroku dwukrotnego potwierdzenia */}
                 {confirmStep === 1 && canProceedStep1 && (
                     <div className="px-6 py-4 bg-amber-50 border-t-2 border-amber-400 flex flex-wrap items-center justify-between gap-4 shrink-0">
-                        <div className="space-y-0.5 max-w-2xl">
+                        <div className="space-y-1 max-w-2xl">
+                            <div
+                                className="inline-flex items-center gap-2 px-2.5 py-1 rounded text-[11px] font-black uppercase tracking-wider text-white shadow-sm"
+                                style={{ backgroundColor: wsColor }}
+                            >
+                                KLIENT: {wsName} → KONTO: {accountLabel}
+                            </div>
                             <div className="text-xs font-black text-amber-900 uppercase tracking-wider flex items-center">
                                 <AlertTriangle className="w-4 h-4 mr-2 text-amber-600" />
                                 Drugie (ostateczne) potwierdzenie wysyłki do InPost Von Halsky (Krok 2/2)
@@ -949,6 +1002,7 @@ export const VonHalskyExportModal = ({
                             <button
                                 type="button"
                                 onClick={() => onConfirmExport({
+                                    accountId: selectedAccountId || validationResult.account?.id || '',
                                     mode: validationResult.mode,
                                     offerId: validationResult.offer?.id || '',
                                     categoryId: preview.categoryId || categoryId.trim(),

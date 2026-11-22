@@ -147,8 +147,8 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     let dbProduct = null;
     try {
         if (ean) {
-            dbProduct = await prisma.product.findUnique({ 
-                where: { ean },
+            dbProduct = await prisma.product.findFirst({ 
+                where: options?.workspaceId ? { workspaceId: options.workspaceId, ean } : { ean },
                 include: { brand: true } 
             });
             if (dbProduct) {

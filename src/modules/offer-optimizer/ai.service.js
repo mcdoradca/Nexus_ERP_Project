@@ -852,7 +852,9 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
     let categoryType = 'COSMETICS_BEAUTY';
     try {
         if (ean) {
-            const product = await prisma.product.findUnique({ where: { ean } });
+            const product = await prisma.product.findFirst({
+                where: options?.workspaceId ? { workspaceId: options.workspaceId, ean } : { ean }
+            });
             if (product) {
                 const featuresString = product.features ? JSON.stringify(product.features) : '';
                 const draftString = product.offerDraft ? JSON.stringify(product.offerDraft) : '';

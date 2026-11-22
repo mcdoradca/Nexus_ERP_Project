@@ -694,8 +694,9 @@ const shouldEscalateToAgent10 = ({
 };
 
 class Orchestrator {
-    constructor(gtin) {
+    constructor(gtin, options = {}) {
         this.gtin = gtin;
+        this.workspaceId = options?.workspaceId || null;
         this.state = {
             pipeline_id: "PL-" + gtin + "-" + Date.now(),
             timestamp_utc: new Date().toISOString(),
@@ -730,7 +731,7 @@ class Orchestrator {
         
         try {
             const socketService = require('../../core/socket');
-            socketService.broadcast('nexus-notification', { 
+            socketService.emitToWorkspace(this.workspaceId, 'nexus-notification', { 
                 type: 'PIPELINE_STATUS', 
                 ean: this.gtin, 
                 payload: {
@@ -825,8 +826,8 @@ class Orchestrator {
 
                     if (hasNew) {
                         try {
-                            await prisma.product.update({
-                                where: { ean: this.gtin },
+                            await prisma.product.updateMany({
+                                where: this.workspaceId ? { workspaceId: this.workspaceId, ean: this.gtin } : { ean: this.gtin },
                                 data: { features: currentFeatures }
                             });
                             console.log(`[Orchestrator V2] Zapisano ${Object.keys(visionResult.pimFeatures).length} cech z etykiety frontowej do bazy PIM (Prisma).`);
@@ -986,8 +987,8 @@ class Orchestrator {
                             }
 
                             try {
-                                await prisma.product.update({
-                                    where: { ean: this.gtin },
+                                await prisma.product.updateMany({
+                                    where: this.workspaceId ? { workspaceId: this.workspaceId, ean: this.gtin } : { ean: this.gtin },
                                     data: { features: updatedFeatures }
                                 });
                                 console.log(`[Orchestrator V2] Zapisano odczytane z tylnej etykiety parametry (Skład/INCI, Ostrzeżenia, Sposób użycia) do bazy PIM (Prisma).`);
@@ -1064,8 +1065,8 @@ class Orchestrator {
                             if (pimData.text_fields) pimData.text_fields.features = updatedFeatures;
                         }
                         try {
-                            await prisma.product.update({
-                                where: { ean: this.gtin },
+                            await prisma.product.updateMany({
+                                where: this.workspaceId ? { workspaceId: this.workspaceId, ean: this.gtin } : { ean: this.gtin },
                                 data: { features: updatedFeatures }
                             });
                         } catch (dbErr) {
@@ -1098,8 +1099,8 @@ class Orchestrator {
                         if (pimData.text_fields) pimData.text_fields.features = autoMapRes.updatedFeatures;
                     }
                     try {
-                        await prisma.product.update({
-                            where: { ean: this.gtin },
+                        await prisma.product.updateMany({
+                            where: this.workspaceId ? { workspaceId: this.workspaceId, ean: this.gtin } : { ean: this.gtin },
                             data: { features: autoMapRes.updatedFeatures }
                         });
                     } catch (dbErr) {
@@ -3544,7 +3545,7 @@ class Orchestrator {
         if (this.state.final_offer) {
             try {
                 const socketService = require('../../core/socket');
-                socketService.broadcast('nexus-notification', {
+                socketService.emitToWorkspace(this.workspaceId, 'nexus-notification', {
                     type: 'PIPELINE_COMPLETE',
                     ean: this.gtin,
                     result: {

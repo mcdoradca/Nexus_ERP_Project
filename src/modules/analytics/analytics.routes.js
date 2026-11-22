@@ -9,8 +9,8 @@ router.get('/forecast/:productId', analyticsController.getProductForecast);
 // GET /api/analytics/god-mode
 router.get('/god-mode', async (req, res) => {
     try {
-        console.log(`[API] Wczytywanie Nexus Sentinel God-Mode Analytics dla: Cały portfel`);
-        const report = await AnalyticsService.generateGodModeReport(null);
+        console.log(`[API] Wczytywanie Nexus Sentinel God-Mode Analytics dla: Cały portfel (ws=${req.workspaceId || 'all'})`);
+        const report = await AnalyticsService.generateGodModeReport(null, req.workspaceId || null);
         res.json({ success: true, data: report });
     } catch (error) {
         console.error('[API] Błąd God-Mode Analytics:', error.message);
@@ -26,8 +26,8 @@ router.get('/god-mode', async (req, res) => {
 router.get('/god-mode/:sku', async (req, res) => {
     try {
         const sku = req.params.sku;
-        console.log(`[API] Wczytywanie Nexus Sentinel God-Mode Analytics dla: ${sku}`);
-        const report = await AnalyticsService.generateGodModeReport(sku);
+        console.log(`[API] Wczytywanie Nexus Sentinel God-Mode Analytics dla: ${sku} (ws=${req.workspaceId || 'all'})`);
+        const report = await AnalyticsService.generateGodModeReport(sku, req.workspaceId || null);
         res.json({ success: true, data: report });
     } catch (error) {
         console.error('[API] Błąd God-Mode Analytics:', error.message);

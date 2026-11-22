@@ -25,6 +25,8 @@ const {
     buildAllegroContentPatchBody
 } = require('../../utils/allegro_mapper');
 const { trimOrNull, resolveProductByIdOrEan, buildNumericProductUpdateFields } = require('../../utils/productLookup');
+const workspaceService = require('../../services/workspace.service');
+const { signScopedExportToken, verifyAndConsumeScopedExportToken } = require('../../utils/exportTokenGuard');
 const { exportLogger } = require('../../utils/logger');
 const sharp = require('sharp');
 
@@ -97,7 +99,7 @@ const analyzeSingle = async (req, res) => {
         console.log(`[Vision API] Rozpoczęto natywną analizę dla EAN: ${ean}. Tryb: ${mode}`);
         
         // Faza 1: Sprawdzenie / Synchronizacja PIM
-        let product = await resolveProductByIdOrEan(prisma, { productId: req.body?.productId, ean });
+        let product = await resolveProductByIdOrEan(prisma, { productId: req.body?.productId, ean, workspaceId: req.workspaceId || null });
         
         // Jeśli produktu nie ma w bazie lub nie jest zsynchronizowany, odrzucamy żądanie (brak lokalnych danych PIM)
         if (!product || !product.isSynced) {
@@ -214,7 +216,7 @@ const regenerateTitle = async (req, res) => {
         const { ean, productId, currentTitle } = req.body;
         if (!ean && !productId) return res.status(400).json({ error: "Wymagany EAN." });
 
-        const product = await resolveProductByIdOrEan(prisma, { productId, ean });
+        const product = await resolveProductByIdOrEan(prisma, { productId, ean, workspaceId: req.workspaceId || null });
         if (!product) return res.status(404).json({ error: "Produkt nie znaleziony w PIM." });
 
         const featuresString = product.features ? JSON.stringify(product.features) : '';
@@ -288,7 +290,8 @@ const saveDraft = async (req, res) => {
 
         const existingProduct = await resolveProductByIdOrEan(prisma, {
             productId: productId || draftData.id,
-            ean
+            ean,
+            workspaceId: req.workspaceId || null
         });
         if (!existingProduct) {
             return res.status(404).json({
@@ -347,11 +350,11 @@ const saveDraft = async (req, res) => {
             ...buildNumericProductUpdateFields(draftData)
         };
 
-        // Automatyczne uzdrowienie EAN ze spacją w bazie (np. "8032680390036 "), o ile brak kolizji
+        // Automatyczne uzdrowienie EAN ze spacją w bazie (np. "8032680390036 "), o ile brak kolizji w obrębie tego klienta
         const cleanExistingEan = trimOrNull(existingProduct.ean);
         if (cleanExistingEan && cleanExistingEan !== existingProduct.ean) {
-            const eanCollision = await prisma.product.findUnique({
-                where: { ean: cleanExistingEan },
+            const eanCollision = await prisma.product.findFirst({
+                where: { workspaceId: existingProduct.workspaceId, ean: cleanExistingEan },
                 select: { id: true }
             });
             if (!eanCollision) {
@@ -414,7 +417,7 @@ const saveDraft = async (req, res) => {
                 });
                 if (!categoryExists) {
                     try {
-                        await AllegroService.fetchCategoryParameters(cleanCatId);
+                        await AllegroService.fetchCategoryParameters(cleanCatId, { workspaceId: req.workspaceId || null });
                         categoryExists = await prisma.marketplaceCategory.findUnique({
                             where: { id: cleanCatId },
                             select: { id: true }
@@ -453,17 +456,45 @@ const saveDraft = async (req, res) => {
     }
 };
 
+async function resolveBaselinkerAccountContext(workspaceId, requestedAccountId = null) {
+    if (!workspaceId) {
+        return { id: null, label: 'Konto Domyślne BaseLinker' };
+    }
+    const cleanReqAcc = trimOrNull(requestedAccountId);
+    const decrypted = await workspaceService.getDecryptedIntegrationAccount(prisma, {
+        workspaceId,
+        provider: 'BASELINKER',
+        accountId: cleanReqAcc || null
+    });
+    if (cleanReqAcc && !decrypted) {
+        const err = new Error('Wybrane konto BaseLinker nie istnieje u tego klienta.');
+        err.statusCode = 404;
+        throw err;
+    }
+    if (!decrypted) {
+        return { id: '', label: 'Brak skonfigurowanego konta BaseLinker' };
+    }
+    return {
+        id: decrypted.id,
+        label: decrypted.label || 'BaseLinker'
+    };
+}
+
 const validateBaselinkerExport = async (req, res) => {
     try {
-        const { ean, productId, draftData } = req.body;
-        exportLogger.info(`[PIPELINE START] Uruchomiono walidację przed eksportem dla EAN: ${ean}`);
+        const { ean, productId, draftData, baselinkerAccountId = null, accountId = null } = req.body || {};
+        const wsId = req.workspaceId || null;
+        exportLogger.info(`[PIPELINE START] Uruchomiono walidację przed eksportem dla EAN: ${ean}`, { workspaceId: wsId || 'legacy' });
         
         if ((!ean && !productId) || !draftData) return res.status(400).json({ error: "Brak danych" });
 
-        const product = await resolveProductByIdOrEan(prisma, { productId, ean });
+        const product = await resolveProductByIdOrEan(prisma, { productId, ean, workspaceId: wsId });
         if (!product) {
             return res.status(404).json({ error: "Nie znaleziono produktu o podanym EAN." });
         }
+
+        const blAcc = await resolveBaselinkerAccountContext(wsId, baselinkerAccountId || accountId);
+        const blContext = { workspaceId: wsId, accountId: blAcc?.id || null };
 
         // Wykorzystanie nowego deterministycznego serwisu zamiast Agentów AI (LLM)
         const baselinkerExportService = require('../offer-optimizer-v2/baselinker.export.service');
@@ -471,7 +502,7 @@ const validateBaselinkerExport = async (req, res) => {
         
         let inventoryId = product.baselinkerInventoryId;
         if (!inventoryId && product.baselinkerId) {
-            inventoryId = await BaseLinkerService.resolveInventoryId(product.baselinkerId);
+            inventoryId = await BaseLinkerService.resolveInventoryId(product.baselinkerId, blContext);
             if (inventoryId) {
                 await prisma.product.update({ where: { id: product.id }, data: { baselinkerInventoryId: parseInt(inventoryId, 10) } });
             }
@@ -482,19 +513,40 @@ const validateBaselinkerExport = async (req, res) => {
             inventoryId,
             product.baselinkerId,
             draftData,
-            product
+            product,
+            blContext
         );
         
         exportLogger.info(`[NEXUS EXPORT] Wygenerowano deterministyczny payload dla EAN: ${ean}`);
 
         // --- HARD LOCK: Generowanie Tokenu Eksportu ---
-        const timestamp = Date.now();
-        const payloadToSign = `${ean}:${timestamp}`;
-        const signature = crypto.createHmac('sha256', EXPORT_SECRET).update(payloadToSign).digest('hex');
-        const exportToken = Buffer.from(JSON.stringify({ ean, timestamp, signature })).toString('base64');
+        let exportToken;
+        if (wsId) {
+            exportToken = signScopedExportToken({
+                workspaceId: wsId,
+                userId: req.user?.id || '',
+                provider: 'BASELINKER',
+                integrationAccountId: blAcc?.id || '',
+                targetId: String(product.id),
+                ean: product.ean || ean,
+                payloadObj: { ean: product.ean || ean }
+            });
+        } else {
+            const timestamp = Date.now();
+            const payloadToSign = `${ean}:${timestamp}`;
+            const signature = crypto.createHmac('sha256', EXPORT_SECRET).update(payloadToSign).digest('hex');
+            exportToken = Buffer.from(JSON.stringify({ ean, timestamp, signature })).toString('base64');
+        }
         exportLogger.info(`[NEXUS EXPORT] Wygenerowano Export Token dla EAN: ${ean}`);
 
         const mappedResult = {
+            workspace: req.workspace ? {
+                id: req.workspace.id,
+                name: req.workspace.name,
+                slug: req.workspace.slug,
+                badgeColor: req.workspace.badgeColor
+            } : null,
+            account: blAcc,
             validation: {
                 is_valid: true,
                 errors: [],
@@ -504,40 +556,74 @@ const validateBaselinkerExport = async (req, res) => {
             sections: draftData.htmlContent || {},
             parameters: generatedPayload?.text_fields?.features || {},
             agentPayload: generatedPayload,
+            requiresDoubleConfirmation: true,
             exportToken: exportToken // Przekazujemy na frontend
         };
 
         return res.status(200).json(mappedResult);
     } catch (e) {
         exportLogger.error(`[PIPELINE START ERROR] Błąd podczas walidacji: ${e.message}`, { stack: e.stack });
-        return res.status(500).json({ error: e.message });
+        return res.status(e.statusCode || 500).json({ error: e.message });
     }
 };
 
 
 const exportToBaselinker = async (req, res) => {
     try {
-        const { ean, draftData, exportToken } = req.body;
+        const { ean, draftData, exportToken, baselinkerAccountId = null, accountId = null, confirmedTwice } = req.body || {};
+        const wsId = req.workspaceId || null;
         if (!ean || !draftData || !exportToken) return res.status(400).json({ error: "Brak danych lub brak tokenu eksportu! Wymagana uprzednia walidacja." });
+        if (confirmedTwice === false) {
+            return res.status(400).json({ error: "Eksport do BaseLinkera wymaga dwukrotnego potwierdzenia przez operatora." });
+        }
+
+        const existingBeforeExport = await resolveProductByIdOrEan(prisma, {
+            productId: req.body?.productId,
+            ean,
+            workspaceId: wsId,
+            select: { id: true, ean: true, offerDraft: true, features: true }
+        });
+        if (!existingBeforeExport) {
+            return res.status(404).json({ error: "Nie znaleziono produktu o podanym EAN/ID w bazie PIM." });
+        }
+
+        const blAcc = await resolveBaselinkerAccountContext(wsId, baselinkerAccountId || accountId);
+        const blContext = { workspaceId: wsId, accountId: blAcc?.id || null };
 
         // --- HARD LOCK: Weryfikacja Tokenu Eksportu ---
-        try {
-            const decodedToken = JSON.parse(Buffer.from(exportToken, 'base64').toString('utf8'));
-            const { ean: tokenEan, timestamp, signature } = decodedToken;
-            
-            if (tokenEan !== ean) {
-                return res.status(403).json({ error: "Niezgodność EAN w tokenie eksportu." });
+        if (wsId) {
+            try {
+                verifyAndConsumeScopedExportToken(exportToken, {
+                    workspaceId: wsId,
+                    userId: req.user?.id || '',
+                    provider: 'BASELINKER',
+                    integrationAccountId: blAcc?.id || '',
+                    targetId: String(existingBeforeExport.id),
+                    ean: existingBeforeExport.ean || ean,
+                    payloadObj: { ean: existingBeforeExport.ean || ean }
+                });
+            } catch (tokErr) {
+                return res.status(tokErr.statusCode || 403).json({ error: tokErr.message, code: tokErr.code || 'INVALID_EXPORT_TOKEN' });
             }
-            if (Date.now() - timestamp > 5 * 60 * 1000) {
-                return res.status(403).json({ error: "Token eksportu wygasł. Zwaliduj ofertę ponownie." });
+        } else {
+            try {
+                const decodedToken = JSON.parse(Buffer.from(exportToken, 'base64').toString('utf8'));
+                const { ean: tokenEan, timestamp, signature } = decodedToken;
+                
+                if (tokenEan !== ean) {
+                    return res.status(403).json({ error: "Niezgodność EAN w tokenie eksportu." });
+                }
+                if (Date.now() - timestamp > 5 * 60 * 1000) {
+                    return res.status(403).json({ error: "Token eksportu wygasł. Zwaliduj ofertę ponownie." });
+                }
+                
+                const expectedSignature = crypto.createHmac('sha256', EXPORT_SECRET).update(`${tokenEan}:${timestamp}`).digest('hex');
+                if (signature !== expectedSignature) {
+                    return res.status(403).json({ error: "Nieważny podpis tokenu eksportu." });
+                }
+            } catch (err) {
+                return res.status(403).json({ error: "Krytyczny błąd weryfikacji tokenu eksportu." });
             }
-            
-            const expectedSignature = crypto.createHmac('sha256', EXPORT_SECRET).update(`${tokenEan}:${timestamp}`).digest('hex');
-            if (signature !== expectedSignature) {
-                return res.status(403).json({ error: "Nieważny podpis tokenu eksportu." });
-            }
-        } catch (err) {
-            return res.status(403).json({ error: "Krytyczny błąd weryfikacji tokenu eksportu." });
         }
         // ----------------------------------------------
 
@@ -576,14 +662,6 @@ const exportToBaselinker = async (req, res) => {
             newDescHtml += `\n\n${aiActDisclosure}`;
         }
 
-        const existingBeforeExport = await resolveProductByIdOrEan(prisma, {
-            productId: req.body?.productId,
-            ean,
-            select: { id: true, ean: true, offerDraft: true, features: true }
-        });
-        if (!existingBeforeExport) {
-            return res.status(404).json({ error: "Nie znaleziono produktu o podanym EAN/ID w bazie PIM." });
-        }
         let preservedExistingDraft = {};
         try {
             preservedExistingDraft = typeof existingBeforeExport?.offerDraft === 'string'
@@ -632,10 +710,10 @@ const exportToBaselinker = async (req, res) => {
 
         const hasAgentPayload = product.offerDraft && product.offerDraft.agentPayload;
         
+        const BaseLinkerService = require('./baselinker.service');
         let inventoryId = product.baselinkerInventoryId;
         if (!inventoryId && product.baselinkerId) {
-            const BaseLinkerService = require('./baselinker.service');
-            inventoryId = await BaseLinkerService.resolveInventoryId(product.baselinkerId);
+            inventoryId = await BaseLinkerService.resolveInventoryId(product.baselinkerId, blContext);
             if (inventoryId) {
                 await prisma.product.update({ where: { id: product.id }, data: { baselinkerInventoryId: parseInt(inventoryId, 10) } });
             }
@@ -654,12 +732,16 @@ const exportToBaselinker = async (req, res) => {
             product.offerDraft.images = exportImages;
         }
 
-        exportLogger.info(`[PIPELINE EXPORT] Użytkownik pomyślnie przeszedł 2 etapy autoryzacji. Rozpoczynam wysyłkę do BaseLinkera dla EAN: ${ean}.`);
+        exportLogger.info(`[PIPELINE EXPORT] Użytkownik pomyślnie przeszedł autoryzację. Rozpoczynam wysyłkę do BaseLinkera dla EAN: ${ean}.`, {
+            workspaceId: wsId || 'legacy',
+            accountId: blAcc?.id || null
+        });
         
         const response = await BaseLinkerService.exportOfferToBaselinker(
             inventoryId,
             product.baselinkerId || (hasAgentPayload && product.offerDraft.agentPayload.product_id ? product.offerDraft.agentPayload.product_id : ""),
-            product.offerDraft
+            product.offerDraft,
+            blContext
         );
         
         if (response && response.product_id) {
@@ -678,18 +760,30 @@ const exportToBaselinker = async (req, res) => {
             exportLogger.warn(`[PIPELINE EXPORT] BaseLinker zwrócił ostrzeżenia API dla EAN ${ean}: ${apiWarnings.join(' | ')}`);
         }
 
+        if (wsId) {
+            await workspaceService.recordSecurityAudit(prisma, {
+                workspaceId: wsId,
+                userId: req.user?.id || null,
+                action: 'EXPORT_BASELINKER',
+                provider: 'BASELINKER',
+                integrationAccountId: blAcc?.id || null,
+                entityId: response?.product_id?.toString() || product.baselinkerId || product.id,
+                details: { ean, inventoryId, warningsCount: apiWarnings.length }
+            });
+        }
+
         let msg = "Zapisano AI w PIM i poprawnie wyeksportowano zautoryzowany ładunek do BaseLinkera!";
         if (apiWarnings.length > 0) {
             msg += `\n\nOstrzeżenia z API BaseLinkera:\n- ${apiWarnings.join('\n- ')}`;
         }
 
         // Publikujemy zdarzenie czysto informacyjne. MDM nie będzie już samowolnie uderzał do zewnętrznego API.
-        EventBus.publish('PRODUCT_CONTENT_OPTIMIZED', { ean, product });
+        EventBus.publish('PRODUCT_CONTENT_OPTIMIZED', { ean, product, workspaceId: wsId });
 
-        res.status(200).json({ message: msg, warnings: apiWarnings });
+        res.status(200).json({ message: msg, warnings: apiWarnings, account: blAcc, workspaceId: wsId });
     } catch (e) {
         exportLogger.error(`[PIPELINE EXPORT ERROR] Błąd podczas eksportu (kontroler): ${e.message}`, { stack: e.stack });
-        res.status(500).json({ error: e.message });
+        res.status(e.statusCode || 500).json({ error: e.message });
     }
 };
 
@@ -819,12 +913,14 @@ const triggerUltimatePipeline = async (req, res) => {
         const { ean, productId, hitlOverrides, forceRestart } = req.body;
         if (!ean && !productId) return res.status(400).json({ error: "Wymagany kod EAN do inicjalizacji potoku." });
 
-        // Oznaczamy istniejący produkt w bazie jako PROCESSING, zachowując dotychczasowe bilety zdjęć visionTickets
-        const existingProduct = await resolveProductByIdOrEan(prisma, { productId, ean });
-        const canonicalEan = trimOrNull(existingProduct?.ean) || trimOrNull(ean);
-        const productWhere = existingProduct ? { id: existingProduct.id } : { ean: canonicalEan };
+        const wsId = req.workspaceId || null;
 
-        console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta V2 dla EAN: ${canonicalEan}`);
+        // Oznaczamy istniejący produkt w bazie jako PROCESSING, zachowując dotychczasowe bilety zdjęć visionTickets
+        const existingProduct = await resolveProductByIdOrEan(prisma, { productId, ean, workspaceId: wsId });
+        const canonicalEan = trimOrNull(existingProduct?.ean) || trimOrNull(ean);
+        const effWsId = existingProduct?.workspaceId || wsId || null;
+
+        console.log(`[Controller] Rozpoczynam Asynchroniczne Wykonanie Master Agenta V2 dla EAN: ${canonicalEan} (workspace: ${effWsId || 'legacy'})`);
 
         if (existingProduct) {
             let existingDraft = {};
@@ -847,13 +943,13 @@ const triggerUltimatePipeline = async (req, res) => {
         }
 
         // Zwracamy HTTP 202 natychmiast
-        res.status(202).json({ status: "processing", ean: canonicalEan, message: "Pipeline V2 uruchomiony w tle." });
+        res.status(202).json({ status: "processing", ean: canonicalEan, workspaceId: effWsId, message: "Pipeline V2 uruchomiony w tle." });
 
         // Procesujemy w tle (V2 Orchestrator)
         (async () => {
             try {
                 const { Orchestrator } = require('../offer-optimizer-v2/orchestrator');
-                const orch = new Orchestrator(canonicalEan);
+                const orch = new Orchestrator(canonicalEan, { workspaceId: effWsId });
 
                 if (forceRestart) {
                     console.log(`[Controller] Wymuszono restart potoku dla EAN: ${canonicalEan}. Ignorowanie poprzedniego stanu.`);
@@ -926,10 +1022,10 @@ const triggerUltimatePipeline = async (req, res) => {
                 // Podczas ręcznej interpolacji ZAWSZE odpytujemy API Allegro o kategorię (nawet jeśli mamy już przypisaną w bazie), 
                 // ponieważ użytkownik/Allegro mógł ją w międzyczasie zaktualizować dla tego EAN-u.
                 let requiredSchema = [];
-                let catId = await AllegroService.findCategoryByEan(canonicalEan);
+                let catId = await AllegroService.findCategoryByEan(canonicalEan, { workspaceId: effWsId });
                 
                 if (!catId && existingProduct?.name) {
-                    catId = await AllegroService.findMatchingCategoryByName(existingProduct.name);
+                    catId = await AllegroService.findMatchingCategoryByName(existingProduct.name, { workspaceId: effWsId });
                 }
 
                 if (catId && existingProduct) {
@@ -946,7 +1042,7 @@ const triggerUltimatePipeline = async (req, res) => {
                 if (catId) {
                     let category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
                     if (!category || !category.parameters || (Array.isArray(category.parameters) && category.parameters.length === 0)) {
-                        await AllegroService.fetchCategoryParameters(catId);
+                        await AllegroService.fetchCategoryParameters(catId, { workspaceId: effWsId });
                         category = await prisma.marketplaceCategory.findUnique({ where: { id: catId } });
                     }
                     if (category && category.parameters) {
@@ -974,7 +1070,7 @@ const triggerUltimatePipeline = async (req, res) => {
                 await orch.run(localPimData);
 
                 const persistDraftStatusSafely = async (draftPatch) => {
-                    const targetRow = existingProduct || await resolveProductByIdOrEan(prisma, { productId, ean: canonicalEan, select: { id: true, offerDraft: true } });
+                    const targetRow = existingProduct || await resolveProductByIdOrEan(prisma, { productId, ean: canonicalEan, workspaceId: effWsId, select: { id: true, offerDraft: true } });
                     if (!targetRow) return;
                     let existingRowDraft = {};
                     try {
@@ -998,7 +1094,7 @@ const triggerUltimatePipeline = async (req, res) => {
                      const haltedNode = nodeKeysReversed.find(k => haltedStatuses.includes(orch.state.node_status[k]))
                          || nodeKeysReversed.find(k => !nonHaltingStatuses.includes(orch.state.node_status[k]))
                          || 'UNKNOWN';
-                     socketService.broadcast('nexus-notification', {
+                     socketService.emitToWorkspace(effWsId, 'nexus-notification', {
                          type: 'PIPELINE_HITL_ALERT',
                          ean: canonicalEan,
                          alert: orch.state.hitl_alert,
@@ -1008,7 +1104,7 @@ const triggerUltimatePipeline = async (req, res) => {
                 } else if (orch.state.final_offer) {
                      let freshProductForDraft = null;
                      try {
-                         freshProductForDraft = await prisma.product.findUnique({ where: productWhere });
+                         freshProductForDraft = await resolveProductByIdOrEan(prisma, { productId: existingProduct?.id || productId, ean: canonicalEan, workspaceId: effWsId });
                      } catch (_) {}
                      let currentOfferDraft = {};
                      try {
@@ -1026,10 +1122,7 @@ const triggerUltimatePipeline = async (req, res) => {
                          sekcja7: orch.state.a10_result?.section_7_html || ""
                      };
 
-                     let freshProduct = null;
-                     try {
-                         freshProduct = await prisma.product.findUnique({ where: productWhere });
-                     } catch (pErr) {}
+                     let freshProduct = freshProductForDraft;
 
                      let updatedFeatures = {};
                      try {
@@ -1109,21 +1202,24 @@ const triggerUltimatePipeline = async (req, res) => {
                          }
                      }
 
-                     await prisma.product.update({
-                         where: productWhere,
-                         data: { 
-                             features: updatedFeatures,
-                             offerDraft: { 
-                                 ...currentOfferDraft,
-                                 status: 'COMPLETE', 
-                                 title: orch.state.final_offer.title || existingProduct?.name || "Nowy Tytuł", 
-                                 htmlContent: editorHtmlObj
-                             } 
-                         }
-                     });
+                     const targetIdToUpdate = freshProduct?.id || existingProduct?.id;
+                     if (targetIdToUpdate) {
+                         await prisma.product.update({
+                             where: { id: targetIdToUpdate },
+                             data: { 
+                                 features: updatedFeatures,
+                                 offerDraft: { 
+                                     ...currentOfferDraft,
+                                     status: 'COMPLETE', 
+                                     title: orch.state.final_offer.title || existingProduct?.name || "Nowy Tytuł", 
+                                     htmlContent: editorHtmlObj
+                                 } 
+                             }
+                         });
+                     }
                      console.log(`[Controller] Sukces potoku V2 dla EAN: ${canonicalEan}`);
-                     // Powiadomienie socketowe dla frontendu (zachowanie kompatybilności wstecz)
-                     socketService.broadcast('nexus-notification', {
+                     // Powiadomienie socketowe dla frontendu (izolowane na workspace klienta)
+                     socketService.emitToWorkspace(effWsId, 'nexus-notification', {
                          type: 'PIPELINE_COMPLETE',
                          ean: canonicalEan,
                          result: {
@@ -1137,7 +1233,7 @@ const triggerUltimatePipeline = async (req, res) => {
                 } else {
                      const errorMsg = orch.state.hitl_alert || 'Orchestrator V2 zakończył pracę, ale nie wygenerował wyniku A10';
                      await persistDraftStatusSafely({ status: 'ERROR', error: errorMsg });
-                     socketService.broadcast('nexus-notification', {
+                     socketService.emitToWorkspace(effWsId, 'nexus-notification', {
                          type: 'PIPELINE_ERROR',
                          ean: canonicalEan,
                          error: errorMsg
@@ -1146,7 +1242,7 @@ const triggerUltimatePipeline = async (req, res) => {
             } catch (err) {
                 console.error(`[Controller] Błąd asynchronicznego potoku V2 dla: ${canonicalEan}`, err);
                 try {
-                    const targetRow = existingProduct || await resolveProductByIdOrEan(prisma, { productId, ean: canonicalEan, select: { id: true, offerDraft: true } });
+                    const targetRow = existingProduct || await resolveProductByIdOrEan(prisma, { productId, ean: canonicalEan, workspaceId: effWsId, select: { id: true, offerDraft: true } });
                     if (targetRow) {
                         const existingCatchDraft = typeof targetRow.offerDraft === 'string' ? JSON.parse(targetRow.offerDraft) : (targetRow.offerDraft || {});
                         await prisma.product.update({
@@ -1155,7 +1251,7 @@ const triggerUltimatePipeline = async (req, res) => {
                         });
                     }
                 } catch (_) {}
-                socketService.broadcast('nexus-notification', {
+                socketService.emitToWorkspace(effWsId, 'nexus-notification', {
                     type: 'PIPELINE_ERROR',
                     ean: canonicalEan,
                     error: err.message || 'Krytyczny błąd Orchestratora V2'
@@ -1176,6 +1272,7 @@ const checkPipelineStatus = async (req, res) => {
         const { ean } = req.params;
         const product = await resolveProductByIdOrEan(prisma, {
             ean,
+            workspaceId: req.workspaceId || null,
             include: { brand: true, allegroCategory: true }
         });
         
@@ -1333,7 +1430,7 @@ const extractBackLabel = async (req, res) => {
         const onLog = (msg) => {
             console.log(msg);
             if (ean) {
-                socketService.broadcast('nexus-notification', {
+                socketService.emitToWorkspace(req.workspaceId || null, 'nexus-notification', {
                     type: 'PIPELINE_LOG',
                     ean,
                     agentId: 'Vision Back-Pack OCR',
@@ -1349,14 +1446,12 @@ const extractBackLabel = async (req, res) => {
         );
 
         let updatedFeatures = {};
-        let existingProduct = null;
+        const existingProduct = await resolveProductByIdOrEan(prisma, {
+            productId,
+            ean,
+            workspaceId: req.workspaceId || null
+        });
         let autoMappedParams = {};
-        if (productId) {
-            existingProduct = await prisma.product.findUnique({ where: { id: productId } }).catch(() => null);
-        }
-        if (!existingProduct && ean) {
-            existingProduct = await prisma.product.findUnique({ where: { ean: String(ean).trim() } }).catch(() => null);
-        }
 
         if (existingProduct) {
             try {
@@ -1487,17 +1582,17 @@ function verifyAllegroExportToken(token, { ean, offerId, accountId = '', payload
     }
 }
 
-async function resolveAllegroOfferContext({ product, existingDraft, requestedOfferId, requestedAccountId, categoryId }) {
+async function resolveAllegroOfferContext({ product, existingDraft, requestedOfferId, requestedAccountId, categoryId, workspaceId = null }) {
     let effAccountId = requestedAccountId && String(requestedAccountId).trim() !== '' && String(requestedAccountId).trim().toUpperCase() !== 'ALL'
         ? String(requestedAccountId).trim()
         : (existingDraft?.allegroAccountId ? String(existingDraft.allegroAccountId).trim() : null);
 
     let authCheck;
     if (requestedAccountId && String(requestedAccountId).trim().toUpperCase() === 'ALL') {
-        authCheck = await AllegroService.ensureSellerWriteToken(null);
+        authCheck = await AllegroService.ensureSellerWriteToken(null, prisma, workspaceId);
         effAccountId = authCheck.accountId;
     } else {
-        authCheck = await AllegroService.ensureSellerWriteToken(effAccountId);
+        authCheck = await AllegroService.ensureSellerWriteToken(effAccountId, prisma, workspaceId);
         effAccountId = authCheck.accountId;
     }
 
@@ -1512,7 +1607,8 @@ async function resolveAllegroOfferContext({ product, existingDraft, requestedOff
             name: product.name,
             baselinkerId: product.baselinkerId,
             categoryId: categoryId || product.allegroCategoryId || '',
-            accountId: searchAcc
+            accountId: searchAcc,
+            workspaceId
         });
         if (matchedCandidates.length > 0) {
             targetOfferId = matchedCandidates[0].id;
@@ -1526,6 +1622,7 @@ async function resolveAllegroOfferContext({ product, existingDraft, requestedOff
         targetOfferId,
         effAccountId,
         accountLabel: authCheck.accountLabel,
+        integrationAccountId: authCheck.integrationAccountId || null,
         tokenClaims: authCheck.claims,
         matchedCandidates
     };
@@ -1534,10 +1631,11 @@ async function resolveAllegroOfferContext({ product, existingDraft, requestedOff
 const searchAllegroOffers = async (req, res) => {
     try {
         const { ean = '', sku = '', name = '', baselinkerId = '', categoryId = '', accountId = '' } = req.query || {};
+        const wsId = req.workspaceId || null;
         const reqAcc = String(accountId || '').trim();
         let tokenClaims = null;
         if (!reqAcc || reqAcc.toUpperCase() !== 'ALL') {
-            const auth = await AllegroService.ensureSellerWriteToken(reqAcc || null);
+            const auth = await AllegroService.ensureSellerWriteToken(reqAcc || null, prisma, wsId);
             tokenClaims = auth.claims;
         }
         const offers = await AllegroService.findSellerOffersForProduct({
@@ -1546,9 +1644,10 @@ const searchAllegroOffers = async (req, res) => {
             name,
             baselinkerId,
             categoryId,
-            accountId: reqAcc || null
+            accountId: reqAcc || null,
+            workspaceId: wsId
         });
-        return res.status(200).json({ offers, tokenClaims });
+        return res.status(200).json({ offers, tokenClaims, workspaceId: wsId });
     } catch (error) {
         const status = error.statusCode || error.response?.status || 500;
         return res.status(status).json({
@@ -1581,13 +1680,15 @@ const validateAllegroParamsExport = async (req, res) => {
             return res.status(400).json({ error: 'Wymagany kod EAN lub ID produktu.' });
         }
 
+        const wsId = req.workspaceId || null;
         const product = await resolveProductByIdOrEan(prisma, {
             productId,
             ean,
+            workspaceId: wsId,
             include: { brand: true }
         });
         if (!product) {
-            return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM.' });
+            return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM wybranego klienta.' });
         }
 
         const existingDraft = parseOfferDraftJson(product.offerDraft);
@@ -1599,7 +1700,8 @@ const validateAllegroParamsExport = async (req, res) => {
                 existingDraft,
                 requestedOfferId: offerId,
                 requestedAccountId: accountId,
-                categoryId
+                categoryId,
+                workspaceId: wsId
             });
         } catch (authErr) {
             return res.status(authErr.statusCode || 403).json({
@@ -1617,7 +1719,8 @@ const validateAllegroParamsExport = async (req, res) => {
         }
 
         const { offer, catalogProduct, accountId: resolvedAccountId, accountLabel, tokenClaims } = await AllegroService.getOfferAndCatalogForParams(ctx.targetOfferId, {
-            accountId: ctx.effAccountId
+            accountId: ctx.effAccountId,
+            workspaceId: wsId
         });
         if (resolvedAccountId) {
             ctx.effAccountId = resolvedAccountId;
@@ -1631,7 +1734,9 @@ const validateAllegroParamsExport = async (req, res) => {
         }
 
         const catSchema = await AllegroService.getCategoryParametersFull(effectiveCatId, {
-            forceRefresh: Boolean(forceRefreshCategory)
+            forceRefresh: Boolean(forceRefreshCategory),
+            workspaceId: wsId,
+            accountId: ctx.effAccountId
         });
 
         let dbFeatures = {};
@@ -1688,7 +1793,8 @@ const validateAllegroParamsExport = async (req, res) => {
                     productId: product.ean,
                     productName: offer?.name || product.name,
                     rawInci,
-                    accountId: ctx.effAccountId
+                    accountId: ctx.effAccountId,
+                    workspaceId: wsId
                 });
                 const parserValid = Boolean(parsedRes.supported);
                 compositionDiagnostics = {
@@ -1732,14 +1838,30 @@ const validateAllegroParamsExport = async (req, res) => {
             );
         }
 
-        const exportToken = signAllegroExportToken({
-            ean: product.ean,
-            offerId: ctx.targetOfferId,
-            accountId: ctx.effAccountId,
-            payloadObj: patchResult.patchBody
-        });
+        const exportToken = wsId
+            ? signScopedExportToken({
+                workspaceId: wsId,
+                userId: req.user?.id || '',
+                provider: 'ALLEGRO_PARAMS',
+                integrationAccountId: ctx.effAccountId || '',
+                targetId: String(ctx.targetOfferId),
+                ean: product.ean,
+                payloadObj: patchResult.patchBody
+            })
+            : signAllegroExportToken({
+                ean: product.ean,
+                offerId: ctx.targetOfferId,
+                accountId: ctx.effAccountId,
+                payloadObj: patchResult.patchBody
+            });
 
         return res.status(200).json({
+            workspace: req.workspace ? {
+                id: req.workspace.id,
+                name: req.workspace.name,
+                slug: req.workspace.slug,
+                badgeColor: req.workspace.badgeColor
+            } : null,
             offer: {
                 id: String(offer.id),
                 name: offer.name,
@@ -1775,6 +1897,7 @@ const validateAllegroParamsExport = async (req, res) => {
             compositionPreview: patchResult.compositionPreview,
             patchBody: patchResult.patchBody,
             hasChanges: patchResult.hasChanges,
+            requiresDoubleConfirmation: true,
             exportToken
         });
     } catch (error) {
@@ -1787,26 +1910,42 @@ const validateAllegroParamsExport = async (req, res) => {
 
 const exportAllegroParams = async (req, res) => {
     try {
-        const { ean, productId, offerId, accountId = '', patchBody, exportToken, updatedFeatures, categoryId } = req.body || {};
+        const { ean, productId, offerId, accountId = '', patchBody, exportToken, updatedFeatures, categoryId, confirmedTwice } = req.body || {};
+        const wsId = req.workspaceId || null;
         if ((!ean && !productId) || !offerId || !patchBody || !exportToken) {
             return res.status(400).json({ error: 'Brak wymaganych danych lub tokenu autoryzacji Pre-flight.' });
         }
+        if (confirmedTwice === false) {
+            return res.status(400).json({ error: 'Eksport parametrów do Allegro wymaga dwukrotnego potwierdzenia przez operatora.' });
+        }
 
-        const product = await resolveProductByIdOrEan(prisma, { productId, ean });
+        const product = await resolveProductByIdOrEan(prisma, { productId, ean, workspaceId: wsId });
         if (!product) {
-            return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM.' });
+            return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM wybranego klienta.' });
         }
 
         const effAccountId = accountId ? String(accountId).trim() : '';
         try {
-            verifyAllegroExportToken(exportToken, {
-                ean: product.ean,
-                offerId: String(offerId),
-                accountId: effAccountId,
-                payloadObj: patchBody
-            });
+            if (wsId) {
+                verifyAndConsumeScopedExportToken(exportToken, {
+                    workspaceId: wsId,
+                    userId: req.user?.id || '',
+                    provider: 'ALLEGRO_PARAMS',
+                    integrationAccountId: effAccountId,
+                    targetId: String(offerId),
+                    ean: product.ean,
+                    payloadObj: patchBody
+                });
+            } else {
+                verifyAllegroExportToken(exportToken, {
+                    ean: product.ean,
+                    offerId: String(offerId),
+                    accountId: effAccountId,
+                    payloadObj: patchBody
+                });
+            }
         } catch (tokErr) {
-            return res.status(403).json({ error: tokErr.message });
+            return res.status(tokErr.statusCode || 403).json({ error: tokErr.message, code: tokErr.code || 'INVALID_EXPORT_TOKEN' });
         }
 
         if (!patchBody || (Object.keys(patchBody).length === 0)) {
@@ -1816,7 +1955,7 @@ const exportAllegroParams = async (req, res) => {
         const preservedImagesCnt = Array.isArray(patchBody.images) ? patchBody.images.length : 0;
         const preservedDescCnt = Array.isArray(patchBody.description?.sections) ? patchBody.description.sections.length : 0;
         const suppressCatalogImgs = Boolean(patchBody.productSet?.[0]?.product && Array.isArray(patchBody.productSet[0].product.images) && patchBody.productSet[0].product.images.length === 0);
-        exportLogger.info(`[ALLEGRO EXPORT PARAMS] Wysyłanie PATCH do oferty ${offerId} (Konto: ${effAccountId || 'domyślne'}, EAN: ${product.ean}, Ochrona treści: zdjęcia=${preservedImagesCnt}, opisSekcje=${preservedDescCnt}, blokadaKataloguZdjec=${suppressCatalogImgs})`);
+        exportLogger.info(`[ALLEGRO EXPORT PARAMS] Wysyłanie PATCH do oferty ${offerId} (Workspace: ${wsId || 'legacy'}, Konto: ${effAccountId || 'domyślne'}, EAN: ${product.ean}, Ochrona treści: zdjęcia=${preservedImagesCnt}, opisSekcje=${preservedDescCnt}, blokadaKataloguZdjec=${suppressCatalogImgs})`);
 
         const cleanCategoryId = categoryId ? String(categoryId).trim() : '';
         let patchResult = null;
@@ -1828,7 +1967,8 @@ const exportAllegroParams = async (req, res) => {
 
         try {
             patchResult = await AllegroService.patchProductOffer(offerId, patchBody, {
-                accountId: effAccountId || null
+                accountId: effAccountId || null,
+                workspaceId: wsId
             });
             if (cleanCategoryId && hasCompositionInPatchBody(patchBody)) {
                 await AllegroService.clearCategoryCompositionUnsupported(cleanCategoryId);
@@ -1844,7 +1984,8 @@ const exportAllegroParams = async (req, res) => {
             let latestOffer = null;
             try {
                 const fetched = await AllegroService.getOfferAndCatalogForParams(offerId, {
-                    accountId: effAccountId || null
+                    accountId: effAccountId || null,
+                    workspaceId: wsId
                 });
                 latestOffer = fetched?.offer || null;
                 if (!resolvedCategoryId && latestOffer?.category?.id) {
@@ -1877,7 +2018,8 @@ const exportAllegroParams = async (req, res) => {
                     : `Allegro odrzuciło format/język pola składu (composition) dla tego produktu (${patchErr.message}) — pominięto pole składu, a pozostałe parametry i dane GPSR zostały wysłane ponownie.`;
                 exportLogger.warn(`[ALLEGRO EXPORT PARAMS] Fallback 422 composition (${isCategoryCompErr ? 'category' : 'validation'}) dla oferty ${offerId} (kategoria ${catLabel}) — ponawiam PATCH bez productSet[].composition.`);
                 patchResult = await AllegroService.patchProductOffer(offerId, stripped.patchBody, {
-                    accountId: effAccountId || null
+                    accountId: effAccountId || null,
+                    workspaceId: wsId
                 });
             }
         }
@@ -1910,8 +2052,20 @@ const exportAllegroParams = async (req, res) => {
             data: updateData
         });
 
+        if (wsId) {
+            await workspaceService.recordSecurityAudit(prisma, {
+                workspaceId: wsId,
+                userId: req.user?.id || null,
+                action: 'EXPORT_ALLEGRO_PARAMS',
+                provider: 'ALLEGRO',
+                entityId: String(offerId),
+                details: { ean: product.ean, accountId: effAccountId || null, status: patchResult.status }
+            });
+        }
+
         if (!skippedNoRemainingChanges) {
             EventBus.publish('PRODUCT_ALLEGRO_PARAMS_EXPORTED', {
+                workspaceId: wsId,
                 ean: product.ean,
                 accountId: effAccountId || null,
                 offerId: String(offerId),
@@ -2010,9 +2164,10 @@ const validateAllegroContentExport = async (req, res) => {
             return res.status(400).json({ error: 'Wymagany kod EAN lub ID produktu.' });
         }
 
-        const product = await resolveProductByIdOrEan(prisma, { productId, ean });
+        const wsId = req.workspaceId || null;
+        const product = await resolveProductByIdOrEan(prisma, { productId, ean, workspaceId: wsId });
         if (!product) {
-            return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM.' });
+            return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM wybranego klienta.' });
         }
 
         const existingDraft = parseOfferDraftJson(product.offerDraft);
@@ -2024,7 +2179,8 @@ const validateAllegroContentExport = async (req, res) => {
                 existingDraft,
                 requestedOfferId: offerId,
                 requestedAccountId: accountId,
-                categoryId: product.allegroCategoryId || ''
+                categoryId: product.allegroCategoryId || '',
+                workspaceId: wsId
             });
         } catch (authErr) {
             return res.status(authErr.statusCode || 403).json({
@@ -2042,7 +2198,8 @@ const validateAllegroContentExport = async (req, res) => {
         }
 
         const { offer, catalogProduct, accountId: resolvedAccountId, accountLabel, tokenClaims } = await AllegroService.getOfferAndCatalogForParams(ctx.targetOfferId, {
-            accountId: ctx.effAccountId
+            accountId: ctx.effAccountId,
+            workspaceId: wsId
         });
         if (resolvedAccountId) {
             ctx.effAccountId = resolvedAccountId;
@@ -2071,14 +2228,30 @@ const validateAllegroContentExport = async (req, res) => {
             aiFlagsOverride
         });
 
-        const exportToken = signAllegroExportToken({
-            ean: product.ean,
-            offerId: ctx.targetOfferId,
-            accountId: ctx.effAccountId,
-            payloadObj: descriptor.tokenDigestObj
-        });
+        const exportToken = wsId
+            ? signScopedExportToken({
+                workspaceId: wsId,
+                userId: req.user?.id || '',
+                provider: 'ALLEGRO_CONTENT',
+                integrationAccountId: ctx.effAccountId || '',
+                targetId: String(ctx.targetOfferId),
+                ean: product.ean,
+                payloadObj: descriptor.tokenDigestObj
+            })
+            : signAllegroExportToken({
+                ean: product.ean,
+                offerId: ctx.targetOfferId,
+                accountId: ctx.effAccountId,
+                payloadObj: descriptor.tokenDigestObj
+            });
 
         return res.status(200).json({
+            workspace: req.workspace ? {
+                id: req.workspace.id,
+                name: req.workspace.name,
+                slug: req.workspace.slug,
+                badgeColor: req.workspace.badgeColor
+            } : null,
             offer: {
                 id: String(offer.id),
                 name: offer.name,
@@ -2092,6 +2265,7 @@ const validateAllegroContentExport = async (req, res) => {
             },
             matchedCandidates: ctx.matchedCandidates,
             tokenClaims,
+            requiresDoubleConfirmation: true,
             ...preflight,
             exportToken
         });
@@ -2115,14 +2289,19 @@ const exportAllegroContent = async (req, res) => {
             includeImages = true,
             includeDescription = true,
             aiFlagsOverride = null,
-            exportToken
+            exportToken,
+            confirmedTwice
         } = req.body || {};
 
+        const wsId = req.workspaceId || null;
         if ((!ean && !productId) || !offerId || !exportToken) {
             return res.status(400).json({ error: 'Brak wymaganych danych lub tokenu autoryzacji Pre-flight.' });
         }
+        if (confirmedTwice === false) {
+            return res.status(400).json({ error: 'Eksport opisu i zdjęć do Allegro wymaga dwukrotnego potwierdzenia przez operatora.' });
+        }
 
-        const product = await resolveProductByIdOrEan(prisma, { productId, ean });
+        const product = await resolveProductByIdOrEan(prisma, { productId, ean, workspaceId: wsId });
         if (!product) {
             return res.status(404).json({ error: 'Nie znaleziono produktu w bazie PIM.' });
         }
@@ -2141,18 +2320,31 @@ const exportAllegroContent = async (req, res) => {
         });
 
         try {
-            verifyAllegroExportToken(exportToken, {
-                ean: product.ean,
-                offerId: String(offerId),
-                accountId: effAccountId,
-                payloadObj: descriptor.tokenDigestObj
-            });
+            if (wsId) {
+                verifyAndConsumeScopedExportToken(exportToken, {
+                    workspaceId: wsId,
+                    userId: req.user?.id || '',
+                    provider: 'ALLEGRO_CONTENT',
+                    integrationAccountId: effAccountId,
+                    targetId: String(offerId),
+                    ean: product.ean,
+                    payloadObj: descriptor.tokenDigestObj
+                });
+            } else {
+                verifyAllegroExportToken(exportToken, {
+                    ean: product.ean,
+                    offerId: String(offerId),
+                    accountId: effAccountId,
+                    payloadObj: descriptor.tokenDigestObj
+                });
+            }
         } catch (tokErr) {
-            return res.status(403).json({ error: tokErr.message });
+            return res.status(tokErr.statusCode || 403).json({ error: tokErr.message, code: tokErr.code || 'INVALID_EXPORT_TOKEN' });
         }
 
         const { offer, catalogProduct } = await AllegroService.getOfferAndCatalogForParams(offerId, {
-            accountId: effAccountId || null
+            accountId: effAccountId || null,
+            workspaceId: wsId
         });
 
         const preflightCheck = buildAllegroContentPreflight({
@@ -2177,13 +2369,14 @@ const exportAllegroContent = async (req, res) => {
 
         let uploadedImages = [];
         if (preflightCheck.effectiveIncludeImages) {
-            exportLogger.info(`[ALLEGRO EXPORT CONTENT] Upload ${descriptor.collected.images.length} zdjęć na upload.allegro.pl dla oferty ${offerId} (konto: ${effAccountId || 'domyślne'})`);
+            exportLogger.info(`[ALLEGRO EXPORT CONTENT] Upload ${descriptor.collected.images.length} zdjęć na upload.allegro.pl dla oferty ${offerId} (workspace: ${wsId || 'legacy'}, konto: ${effAccountId || 'domyślne'})`);
             const batchResults = [];
             for (const item of descriptor.collected.images) {
                 const upRes = await AllegroService.uploadImageToAllegro({
                     source: item.source,
                     isAiCoCreated: item.isAiCoCreated,
-                    accountId: effAccountId || null
+                    accountId: effAccountId || null,
+                    workspaceId: wsId
                 });
                 batchResults.push(upRes);
             }
@@ -2219,9 +2412,10 @@ const exportAllegroContent = async (req, res) => {
             return res.status(400).json({ error: 'Brak zmian do wysłania na Allegro.' });
         }
 
-        exportLogger.info(`[ALLEGRO EXPORT CONTENT] Wysyłanie PATCH (opis/zdjęcia) do oferty ${offerId} (Konto: ${effAccountId || 'domyślne'}, EAN: ${product.ean})`);
+        exportLogger.info(`[ALLEGRO EXPORT CONTENT] Wysyłanie PATCH (opis/zdjęcia) do oferty ${offerId} (Workspace: ${wsId || 'legacy'}, Konto: ${effAccountId || 'domyślne'}, EAN: ${product.ean})`);
         const patchResult = await AllegroService.patchProductOffer(offerId, patchBody, {
-            accountId: effAccountId || null
+            accountId: effAccountId || null,
+            workspaceId: wsId
         });
 
         await prisma.product.update({
@@ -2244,7 +2438,25 @@ const exportAllegroContent = async (req, res) => {
             }
         });
 
+        if (wsId) {
+            await workspaceService.recordSecurityAudit(prisma, {
+                workspaceId: wsId,
+                userId: req.user?.id || null,
+                action: 'EXPORT_ALLEGRO_CONTENT',
+                provider: 'ALLEGRO',
+                entityId: String(offerId),
+                details: {
+                    ean: product.ean,
+                    accountId: effAccountId || null,
+                    uploadedImagesCount: uploadedImages.length,
+                    sectionsCount: builtDesc ? builtDesc.sectionsCount : 0,
+                    status: patchResult.status
+                }
+            });
+        }
+
         EventBus.publish('PRODUCT_ALLEGRO_CONTENT_EXPORTED', {
+            workspaceId: wsId,
             ean: product.ean,
             accountId: effAccountId || null,
             offerId: String(offerId),

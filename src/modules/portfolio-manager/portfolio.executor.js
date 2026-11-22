@@ -122,6 +122,7 @@ class PortfolioExecutor {
                 stock: Math.min(parseInt(p1Db.stock || 0), parseInt(p2Db.stock || 0)) || 0, // Dostępność równa najsłabszemu ogniwowi
                 status: "Szkic Zestawu",
                 isSynced: false,
+                workspaceId: p1Db.workspaceId,
                 brandId: p1Db.brandId, // Dziedziczymy markę z Lokomotywy
                 features: p1Db.features || p1.features || {}, // Dziedziczymy parametry z Lokomotywy
                 descriptionHtml: `<div style="padding:20px; text-align:center; background:#f0f4ff; color:#2b52d6; border-radius:8px;"><h3>⏳ Sieć Agentów AI pracuje nad tym zestawem...</h3><p>Trwa łączenie zdjęć przez Agenta Graficznego oraz pisanie opisu przez Copywritera (Gemini 3.1 Pro).</p><p><b>Proszę czekać, zawartość zaktualizuje się automatycznie za około 30-40 sekund...</b></p></div>`,
@@ -130,7 +131,7 @@ class PortfolioExecutor {
 
             // Tworzymy lub aktualizujemy produkt w bazie Prisma (PIM)
             const newBundle = await prisma.product.upsert({
-                where: { sku: bundleSku },
+                where: { workspaceId_sku: { workspaceId: p1Db.workspaceId, sku: bundleSku } },
                 update: bundleData,
                 create: bundleData
             });

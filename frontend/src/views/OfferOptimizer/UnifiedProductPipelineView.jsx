@@ -143,7 +143,8 @@ export const UnifiedProductPipelineView = ({
   editingProduct, 
   setEditingProduct,
   onClose,
-  fetchAppGlobalData
+  fetchAppGlobalData,
+  activeWorkspace = null
 }) => {
     // === STANY PIM ===
     const [newProductForm, setNewProductForm] = useState({
@@ -215,6 +216,9 @@ export const UnifiedProductPipelineView = ({
     // NOWE STANY EKSPORTU BASELINKER
     const [isValidatingExport, setIsValidatingExport] = useState(false);
     const [exportValidationResult, setExportValidationResult] = useState(null);
+    const [baselinkerAccounts, setBaselinkerAccounts] = useState([]);
+    const [baselinkerAccountId, setBaselinkerAccountId] = useState('');
+    const [blConfirmStep, setBlConfirmStep] = useState(0);
     const [isExtractingBackLabel, setIsExtractingBackLabel] = useState(false);
     const backImageFileInputRef = useRef(null);
 
@@ -228,6 +232,7 @@ export const UnifiedProductPipelineView = ({
     const [isExportingAllegroParams, setIsExportingAllegroParams] = useState(false);
     const [allegroParamsValidationResult, setAllegroParamsValidationResult] = useState(null);
     const [showAllegroParamsModal, setShowAllegroParamsModal] = useState(false);
+    const [allegroParamsConfirmStep, setAllegroParamsConfirmStep] = useState(0);
     const [allegroIncludeSafety, setAllegroIncludeSafety] = useState(true);
     const [allegroCustomSafetyText, setAllegroCustomSafetyText] = useState('');
     const [allegroIncludeComposition, setAllegroIncludeComposition] = useState(true);
@@ -238,16 +243,27 @@ export const UnifiedProductPipelineView = ({
     const [isExportingAllegroContent, setIsExportingAllegroContent] = useState(false);
     const [allegroContentValidationResult, setAllegroContentValidationResult] = useState(null);
     const [showAllegroContentModal, setShowAllegroContentModal] = useState(false);
+    const [allegroContentConfirmStep, setAllegroContentConfirmStep] = useState(0);
     const [allegroExportIncludeImages, setAllegroExportIncludeImages] = useState(true);
     const [allegroExportIncludeDescription, setAllegroExportIncludeDescription] = useState(true);
     const [allegroAiFlagsOverride, setAllegroAiFlagsOverride] = useState({});
     const [allegroContentPreviewDirty, setAllegroContentPreviewDirty] = useState(false);
 
     // STANY EKSPORTU DO INPOST VON HALSKY API
+    const [vonHalskyAccounts, setVonHalskyAccounts] = useState([]);
+    const [vonHalskyAccountId, setVonHalskyAccountId] = useState('');
     const [isValidatingVonHalsky, setIsValidatingVonHalsky] = useState(false);
     const [isExportingVonHalsky, setIsExportingVonHalsky] = useState(false);
     const [vonHalskyValidationResult, setVonHalskyValidationResult] = useState(null);
     const [showVonHalskyModal, setShowVonHalskyModal] = useState(false);
+
+    useEffect(() => {
+        if (allegroPreviewDirty) setAllegroParamsConfirmStep(0);
+    }, [allegroPreviewDirty]);
+
+    useEffect(() => {
+        if (allegroContentPreviewDirty) setAllegroContentConfirmStep(0);
+    }, [allegroContentPreviewDirty]);
 
     const handleExtractBackLabel = async (overrideImageUrl) => {
         const targetImg = overrideImageUrl || newProductForm?.features?.['Zdjęcie tyłu opakowania'];
@@ -367,7 +383,7 @@ export const UnifiedProductPipelineView = ({
             setIsBrandDropdownOpen(false);
         } catch(err) { alert('Błąd tworzenia marki'); }
     };
-    // Ładowanie marek oraz podłączonych kont Allegro
+    // Ładowanie marek oraz podłączonych kont BaseLinker / Allegro / Von Halsky klienta
     useEffect(() => {
         axios.get(`${API_URL}/api/brands`, { headers: { Authorization: `Bearer ${token}` } })
             .then(res => setBrands(res.data))
@@ -383,7 +399,33 @@ export const UnifiedProductPipelineView = ({
                 }
             })
             .catch(err => console.error("Błąd ładowania kont Allegro", err));
-    }, [token]);
+
+        if (activeWorkspace?.id) {
+            axios.get(`${API_URL}/api/workspaces/${encodeURIComponent(activeWorkspace.id)}/integrations?provider=BASELINKER`, {
+                headers: { Authorization: `Bearer ${token}`, 'X-Workspace-Id': activeWorkspace.id }
+            })
+                .then(res => {
+                    const list = Array.isArray(res.data?.accounts) ? res.data.accounts : [];
+                    setBaselinkerAccounts(list);
+                    if (list.length > 0) {
+                        const defBl = list.find(a => a.isDefault) || list[0];
+                        setBaselinkerAccountId(prev => prev || defBl.id);
+                    }
+                })
+                .catch(err => console.error("Błąd ładowania kont BaseLinker", err));
+        }
+
+        axios.get(`${API_URL}/api/vonhalsky/accounts`, { headers: { Authorization: `Bearer ${token}` } })
+            .then(res => {
+                const list = Array.isArray(res.data?.accounts) ? res.data.accounts : [];
+                setVonHalskyAccounts(list);
+                if (list.length > 0) {
+                    const defVh = list.find(a => a.isDefault) || list[0];
+                    setVonHalskyAccountId(prev => prev || defVh.id);
+                }
+            })
+            .catch(err => console.error("Błąd ładowania kont Von Halsky", err));
+    }, [token, activeWorkspace?.id]);
 
     // Inicjalizacja PIM (Edycja) oraz Odzyskiwanie Wersji Roboczej
     const DRAFT_KEY = `nexus_pipeline_draft_${editingProduct || 'new'}`;
@@ -1245,9 +1287,13 @@ export const UnifiedProductPipelineView = ({
         }
     };
 
-    const handleValidateExport = async () => {
+    const handleValidateExport = async (overrideOptions = {}) => {
         setIsValidatingExport(true);
+        setBlConfirmStep(0);
         try {
+            const effBlAccountId = overrideOptions.baselinkerAccountId !== undefined
+                ? overrideOptions.baselinkerAccountId
+                : baselinkerAccountId;
             const draftData = {
                 title: liveTitle,
                 htmlContent: editorHtml,
@@ -1258,10 +1304,14 @@ export const UnifiedProductPipelineView = ({
             const res = await axios.post(`${API_URL}/api/offer-optimizer/validate-baselinker-export`, {
                 ean: effectiveEan || liveEan,
                 productId: editingProduct || newProductForm.id || null,
+                baselinkerAccountId: effBlAccountId || undefined,
                 draftData
             }, { headers: { Authorization: `Bearer ${token}` } });
             
             setExportValidationResult(res.data);
+            if (res.data?.account?.id) {
+                setBaselinkerAccountId(String(res.data.account.id));
+            }
             setShowExportConfirm(true);
         } catch (err) {
             console.error(err);
@@ -1272,6 +1322,7 @@ export const UnifiedProductPipelineView = ({
     };
 
     const handleConfirmExport = async () => {
+        if (blConfirmStep !== 1) return;
         setIsExporting(true);
         try {
             const draftData = {
@@ -1286,8 +1337,10 @@ export const UnifiedProductPipelineView = ({
             const res = await axios.post(`${API_URL}/api/offer-optimizer/export-baselinker`, {
                 ean: effectiveEan || liveEan,
                 productId: editingProduct || newProductForm.id || null,
+                baselinkerAccountId: exportValidationResult?.account?.id || baselinkerAccountId || undefined,
                 draftData,
-                exportToken: exportValidationResult ? exportValidationResult.exportToken : null
+                exportToken: exportValidationResult ? exportValidationResult.exportToken : null,
+                confirmedTwice: true
             }, { headers: { Authorization: `Bearer ${token}` } });
             
             skipNextAutosaveRef.current = true;
@@ -1300,6 +1353,7 @@ export const UnifiedProductPipelineView = ({
                 ? `${baseMsg}${serverWarnings}`
                 : baseMsg;
             alert(alertText);
+            setBlConfirmStep(0);
             setShowExportConfirm(false);
             if (fetchAppGlobalData) fetchAppGlobalData();
         } catch (err) {
@@ -1407,6 +1461,7 @@ export const UnifiedProductPipelineView = ({
             if (overrideOptions.customSafetyText === undefined) {
                 setAllegroCustomSafetyText(res.data?.safetyExtract?.text || '');
             }
+            setAllegroParamsConfirmStep(0);
             setAllegroPreviewDirty(false);
             setShowAllegroParamsModal(true);
         } catch (err) {
@@ -1419,6 +1474,7 @@ export const UnifiedProductPipelineView = ({
 
     const handleConfirmAllegroParamsExport = async () => {
         if (!allegroParamsValidationResult?.offer?.id || !allegroParamsValidationResult?.exportToken) return;
+        if (allegroParamsConfirmStep !== 1) return;
         setIsExportingAllegroParams(true);
         try {
             const targetEan = effectiveEan || liveEan || newProductForm.ean;
@@ -1429,6 +1485,7 @@ export const UnifiedProductPipelineView = ({
                 accountId: allegroParamsValidationResult.account?.id || (allegroAccountId !== 'ALL' ? allegroAccountId : ''),
                 patchBody: allegroParamsValidationResult.patchBody,
                 exportToken: allegroParamsValidationResult.exportToken,
+                confirmedTwice: true,
                 updatedFeatures: newProductForm.features || {},
                 categoryId: allegroParamsValidationResult.offer.categoryId
             }, { headers: { Authorization: `Bearer ${token}` } });
@@ -1437,6 +1494,7 @@ export const UnifiedProductPipelineView = ({
                 setAllegroIncludeComposition(false);
             }
             alert(res.data?.message || 'Parametry i dane zgodności zostały wysłane do oferty Allegro!');
+            setAllegroParamsConfirmStep(0);
             setShowAllegroParamsModal(false);
             if (fetchAppGlobalData) fetchAppGlobalData();
         } catch (err) {
@@ -1498,6 +1556,7 @@ export const UnifiedProductPipelineView = ({
                 });
                 setAllegroAiFlagsOverride(initialAiMap);
             }
+            setAllegroContentConfirmStep(0);
             setAllegroContentPreviewDirty(false);
             setShowAllegroContentModal(true);
         } catch (err) {
@@ -1510,6 +1569,7 @@ export const UnifiedProductPipelineView = ({
 
     const handleConfirmAllegroContentExport = async () => {
         if (!allegroContentValidationResult?.offer?.id || !allegroContentValidationResult?.exportToken) return;
+        if (allegroContentConfirmStep !== 1) return;
         setIsExportingAllegroContent(true);
         try {
             const targetEan = effectiveEan || liveEan || newProductForm.ean;
@@ -1523,10 +1583,12 @@ export const UnifiedProductPipelineView = ({
                 includeImages: allegroExportIncludeImages,
                 includeDescription: allegroExportIncludeDescription,
                 aiFlagsOverride: allegroAiFlagsOverride,
-                exportToken: allegroContentValidationResult.exportToken
+                exportToken: allegroContentValidationResult.exportToken,
+                confirmedTwice: true
             }, { headers: { Authorization: `Bearer ${token}` } });
 
             alert(res.data?.message || 'Opis i zdjęcia zostały wysłane bezpośrednio do oferty Allegro!');
+            setAllegroContentConfirmStep(0);
             setShowAllegroContentModal(false);
             if (fetchAppGlobalData) fetchAppGlobalData();
         } catch (err) {
@@ -1546,6 +1608,9 @@ export const UnifiedProductPipelineView = ({
         }
         setIsValidatingVonHalsky(true);
         try {
+            const effAccountId = overrideOptions.accountId !== undefined
+                ? overrideOptions.accountId
+                : (vonHalskyAccountId || undefined);
             const initialOverrides = overrideOptions.overrides || {
                 name: liveTitle || newProductForm.name || '',
                 brand: brandSearchTerm || '',
@@ -1556,6 +1621,7 @@ export const UnifiedProductPipelineView = ({
             const res = await axios.post(`${API_URL}/api/offer-optimizer/validate-vonhalsky-export`, {
                 ean: targetEan,
                 productId: targetProductId,
+                accountId: effAccountId,
                 mode: overrideOptions.mode || 'auto',
                 offerId: overrideOptions.offerId || '',
                 categoryId: overrideOptions.categoryId || initialOverrides.categoryId || '',
@@ -1566,6 +1632,9 @@ export const UnifiedProductPipelineView = ({
             }, { headers: { Authorization: `Bearer ${token}` } });
 
             setVonHalskyValidationResult(res.data);
+            if (res.data?.account?.id) {
+                setVonHalskyAccountId(String(res.data.account.id));
+            }
             setShowVonHalskyModal(true);
         } catch (err) {
             console.error('[VonHalskyPreflight] Błąd:', err);
@@ -1575,7 +1644,7 @@ export const UnifiedProductPipelineView = ({
         }
     };
 
-    const handleConfirmVonHalskyExport = async ({ mode, offerId, categoryId, overrides, exportToken, confirmedTwice }) => {
+    const handleConfirmVonHalskyExport = async ({ accountId, mode, offerId, categoryId, overrides, exportToken, confirmedTwice }) => {
         if (confirmedTwice !== true || !exportToken) return;
         setIsExportingVonHalsky(true);
         try {
@@ -1583,6 +1652,7 @@ export const UnifiedProductPipelineView = ({
             const res = await axios.post(`${API_URL}/api/offer-optimizer/export-vonhalsky`, {
                 ean: targetEan,
                 productId: editingProduct || undefined,
+                accountId: accountId || vonHalskyValidationResult?.account?.id || vonHalskyAccountId || undefined,
                 mode,
                 offerId,
                 categoryId,
@@ -2977,7 +3047,12 @@ export const UnifiedProductPipelineView = ({
                     
                     </div>
                 </div>
-            {showExportConfirm && (
+            {showExportConfirm && (() => {
+                const wsColor = activeWorkspace?.badgeColor || exportValidationResult?.workspace?.badgeColor || '#4f46e5';
+                const wsName = activeWorkspace?.name || exportValidationResult?.workspace?.name || 'Domyślny';
+                const selectedBlAcc = baselinkerAccounts.find(a => a.id === baselinkerAccountId);
+                const blAccLabel = exportValidationResult?.account?.label || selectedBlAcc?.label || 'Domyślne konto BaseLinker';
+                return (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
                         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-rose-50 text-rose-600 shrink-0">
@@ -2985,15 +3060,51 @@ export const UnifiedProductPipelineView = ({
                                 <ShieldAlert className="w-8 h-8" />
                                 <div>
                                     <h3 className="font-black text-lg uppercase tracking-tight">Weryfikacja przed Eksportem do BaseLinker</h3>
-                                    <p className="text-xs font-bold opacity-80 uppercase tracking-widest">Agent Walidator zweryfikował dane</p>
+                                    <p className="text-xs font-bold opacity-80 uppercase tracking-widest">
+                                        Agent Walidator zweryfikował dane • Klient: {wsName}
+                                    </p>
                                 </div>
                             </div>
                             <div className={`px-4 py-2 rounded-md font-bold text-xs uppercase tracking-widest ${exportValidationResult?.validation?.is_valid ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                                 {exportValidationResult?.validation?.is_valid ? 'Zatwierdzony do Eksportu' : 'Wykryto Błędy'}
                             </div>
                         </div>
-                        
+
                         <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50">
+                            {/* Pasek klienta i konta docelowego BaseLinker */}
+                            <div className="mb-4 p-3.5 bg-white rounded-md border-2 flex flex-wrap items-center justify-between gap-3" style={{ borderColor: wsColor }}>
+                                <div className="flex items-center gap-2 text-xs font-black text-slate-900">
+                                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: wsColor }} />
+                                    <span>KLIENT: <span className="uppercase">{wsName}</span> → KONTO BASELINKER: <span className="uppercase text-rose-700">{blAccLabel}</span></span>
+                                </div>
+                                {baselinkerAccounts.length > 0 && (
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            value={baselinkerAccountId || exportValidationResult?.account?.id || ''}
+                                            onChange={e => {
+                                                setBaselinkerAccountId(e.target.value);
+                                                setBlConfirmStep(0);
+                                            }}
+                                            className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs font-bold outline-none focus:border-rose-500"
+                                        >
+                                            {baselinkerAccounts.map(acc => (
+                                                <option key={acc.id} value={acc.id}>
+                                                    {acc.label}{acc.isDefault ? ' [Dom.]' : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleValidateExport({ baselinkerAccountId })}
+                                            disabled={isValidatingExport || isExporting}
+                                            className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded text-[10px] font-black uppercase tracking-wider flex items-center"
+                                        >
+                                            {isValidatingExport ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+                                            Przelicz dla konta
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                             {exportValidationResult && (
                                 <div className="space-y-6">
                                     {exportValidationResult.validation?.errors?.length > 0 && (
@@ -3024,7 +3135,7 @@ export const UnifiedProductPipelineView = ({
                                         <input 
                                             type="text" 
                                             value={exportValidationResult.title || ""}
-                                            onChange={(e) => setExportValidationResult(prev => ({ ...prev, title: e.target.value }))}
+                                            onChange={(e) => { setExportValidationResult(prev => ({ ...prev, title: e.target.value })); setBlConfirmStep(0); }}
                                             className={`w-full p-3 border rounded-sm font-bold outline-none ${exportValidationResult.title?.length > 75 ? 'border-rose-400 focus:border-rose-500 bg-rose-50' : 'border-slate-300 focus:border-indigo-500'}`}
                                         />
                                     </div>
@@ -3056,31 +3167,71 @@ export const UnifiedProductPipelineView = ({
                             )}
                         </div>
                         
+                        {blConfirmStep === 1 && exportValidationResult?.exportToken && !(exportValidationResult?.validation?.errors?.length > 0) && !(exportValidationResult?.title?.length > 75) && (
+                            <div className="px-6 py-4 bg-amber-50 border-t-2 border-amber-400 flex flex-wrap items-center justify-between gap-4 shrink-0">
+                                <div className="space-y-1 max-w-xl">
+                                    <div
+                                        className="inline-flex items-center gap-2 px-2.5 py-1 rounded text-[11px] font-black uppercase tracking-wider text-white shadow-sm"
+                                        style={{ backgroundColor: wsColor }}
+                                    >
+                                        KLIENT: {wsName} → KONTO: {blAccLabel}
+                                    </div>
+                                    <div className="text-xs font-black text-amber-900 uppercase tracking-wider">
+                                        Drugie potwierdzenie wysyłki do BaseLinker (Krok 2/2)
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setBlConfirmStep(0)}
+                                        disabled={isExporting}
+                                        className="px-4 py-2 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-md font-bold text-xs uppercase tracking-widest disabled:opacity-50"
+                                    >
+                                        Wróć
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleConfirmExport}
+                                        disabled={isExporting}
+                                        className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-md font-black text-xs uppercase tracking-widest flex items-center shadow-lg disabled:opacity-50"
+                                    >
+                                        {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                                        Tak, potwierdzam po raz drugi — Wyślij do BaseLinker
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="p-4 bg-white border-t border-slate-200 flex justify-between items-center shrink-0">
                             <p className="text-xs text-slate-500 font-bold max-w-lg">
-                                Potwierdzając eksport, zgadzasz się na permanentne <strong className="text-rose-600">nadpisanie twardych danych PIM</strong> oraz wysłanie danych do systemu BaseLinker.
+                                Potwierdzając eksport, zgadzasz się na permanentne <strong className="text-rose-600">nadpisanie twardych danych PIM</strong> oraz wysłanie danych do systemu BaseLinker ({wsName}).
                             </p>
                             <div className="flex space-x-3">
                                 <button 
-                                    onClick={() => setShowExportConfirm(false)}
+                                    type="button"
+                                    onClick={() => { setBlConfirmStep(0); setShowExportConfirm(false); }}
                                     disabled={isExporting}
                                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
                                 >
                                     Anuluj
                                 </button>
-                                <button 
-                                    onClick={handleConfirmExport}
-                                    disabled={isExporting || (exportValidationResult && exportValidationResult.title?.length > 75)}
-                                    className="px-6 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-md font-black text-xs uppercase tracking-widest transition-colors flex items-center shadow-lg disabled:opacity-50"
-                                >
-                                    {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                                    Zatwierdź Eksport
-                                </button>
+                                {blConfirmStep === 0 && (
+                                    <button 
+                                        type="button"
+                                        onClick={() => setBlConfirmStep(1)}
+                                        disabled={isExporting || isValidatingExport || !exportValidationResult?.exportToken || (exportValidationResult?.validation?.errors?.length > 0) || (exportValidationResult && exportValidationResult.title?.length > 75)}
+                                        className="px-6 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-md font-black text-xs uppercase tracking-widest transition-colors flex items-center shadow-lg disabled:opacity-50"
+                                    >
+                                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                                        Potwierdź dane (Krok 1/2)
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
                 </div>
-            )}
+                );
+            })()}
             {showAllegroParamsModal && allegroParamsValidationResult && (
                 <div className="fixed inset-0 z-[210] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden">
@@ -3103,6 +3254,27 @@ export const UnifiedProductPipelineView = ({
                         </div>
 
                         <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50 space-y-5">
+                            {/* Pasek klienta i konta docelowego Allegro */}
+                            <div
+                                className="p-3.5 bg-white rounded-md border-2 flex flex-wrap items-center justify-between gap-3"
+                                style={{ borderColor: activeWorkspace?.badgeColor || allegroParamsValidationResult.workspace?.badgeColor || '#4f46e5' }}
+                            >
+                                <div className="flex items-center gap-2 text-xs font-black text-slate-900">
+                                    <span
+                                        className="w-3 h-3 rounded-full shrink-0"
+                                        style={{ backgroundColor: activeWorkspace?.badgeColor || allegroParamsValidationResult.workspace?.badgeColor || '#4f46e5' }}
+                                    />
+                                    <span>
+                                        KLIENT: <span className="uppercase">{activeWorkspace?.name || allegroParamsValidationResult.workspace?.name || 'Domyślny'}</span>
+                                        {' → '}
+                                        KONTO ALLEGRO: <span className="uppercase text-amber-700">{allegroParamsValidationResult.account?.label || 'Domyślne'} (#{allegroParamsValidationResult.account?.id || allegroParamsValidationResult.tokenClaims?.userName || '?'})</span>
+                                    </span>
+                                </div>
+                                <span className="text-[11px] font-mono font-bold text-slate-600">
+                                    Aukcja #{allegroParamsValidationResult.offer?.id}
+                                </span>
+                            </div>
+
                             {/* Wybór konta i innej aukcji docelowej z listy lub ręcznie */}
                             <div className="bg-white p-4 rounded-md border border-slate-200 flex flex-wrap items-center justify-between gap-3">
                                 <div className="flex-1 min-w-[260px]">
@@ -3361,6 +3533,41 @@ export const UnifiedProductPipelineView = ({
                             </div>
                         </div>
 
+                        {allegroParamsConfirmStep === 1 && !allegroPreviewDirty && allegroParamsValidationResult.hasChanges && (allegroParamsValidationResult.errors?.length || 0) === 0 && (
+                            <div className="px-6 py-4 bg-amber-50 border-t-2 border-amber-400 flex flex-wrap items-center justify-between gap-4 shrink-0">
+                                <div className="space-y-1 max-w-2xl">
+                                    <div
+                                        className="inline-flex items-center gap-2 px-2.5 py-1 rounded text-[11px] font-black uppercase tracking-wider text-white shadow-sm"
+                                        style={{ backgroundColor: activeWorkspace?.badgeColor || allegroParamsValidationResult.workspace?.badgeColor || '#4f46e5' }}
+                                    >
+                                        KLIENT: {activeWorkspace?.name || allegroParamsValidationResult.workspace?.name || 'Domyślny'} → KONTO ALLEGRO: {allegroParamsValidationResult.account?.label || 'Domyślne'} (#{allegroParamsValidationResult.account?.id || '?'})
+                                    </div>
+                                    <div className="text-xs font-black text-amber-900 uppercase tracking-wider">
+                                        Drugie potwierdzenie PATCH parametrów na aukcję #{allegroParamsValidationResult.offer?.id} (Krok 2/2)
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAllegroParamsConfirmStep(0)}
+                                        disabled={isExportingAllegroParams}
+                                        className="px-4 py-2 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-md font-bold text-xs uppercase tracking-widest disabled:opacity-50"
+                                    >
+                                        Wróć
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleConfirmAllegroParamsExport}
+                                        disabled={isExportingAllegroParams}
+                                        className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-md font-black text-xs uppercase tracking-widest flex items-center shadow-lg disabled:opacity-50"
+                                    >
+                                        {isExportingAllegroParams ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                                        Tak, potwierdzam po raz drugi — Wyślij do Allegro
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="p-4 bg-white border-t border-slate-200 flex flex-wrap justify-between items-center gap-3 shrink-0">
                             <p className="text-xs text-slate-500 font-bold max-w-lg">
                                 Eksport wykonuje bezpieczne <strong className="text-amber-700">PATCH /sale/product-offers/{allegroParamsValidationResult.offer?.id}</strong> ze scaleniem parametrów i danych GPSR (RFC 7396) oraz jawną ochroną obecnego opisu i zdjęć aukcji.
@@ -3368,7 +3575,7 @@ export const UnifiedProductPipelineView = ({
                             <div className="flex items-center space-x-3">
                                 <button
                                     type="button"
-                                    onClick={() => setShowAllegroParamsModal(false)}
+                                    onClick={() => { setAllegroParamsConfirmStep(0); setShowAllegroParamsModal(false); }}
                                     disabled={isExportingAllegroParams}
                                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
                                 >
@@ -3391,21 +3598,23 @@ export const UnifiedProductPipelineView = ({
                                         Przelicz Pre-flight
                                     </button>
                                 )}
-                                <button
-                                    type="button"
-                                    onClick={handleConfirmAllegroParamsExport}
-                                    disabled={
-                                        isExportingAllegroParams ||
-                                        isValidatingAllegroParams ||
-                                        allegroPreviewDirty ||
-                                        !allegroParamsValidationResult.hasChanges ||
-                                        (allegroParamsValidationResult.errors?.length || 0) > 0
-                                    }
-                                    className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-md font-black text-xs uppercase tracking-widest transition-colors flex items-center shadow-lg disabled:opacity-50"
-                                >
-                                    {isExportingAllegroParams ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                                    {allegroParamsValidationResult.hasChanges ? 'Zatwierdź i wyślij do Allegro' : 'Brak zmian do wysłania'}
-                                </button>
+                                {allegroParamsConfirmStep === 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setAllegroParamsConfirmStep(1)}
+                                        disabled={
+                                            isExportingAllegroParams ||
+                                            isValidatingAllegroParams ||
+                                            allegroPreviewDirty ||
+                                            !allegroParamsValidationResult.hasChanges ||
+                                            (allegroParamsValidationResult.errors?.length || 0) > 0
+                                        }
+                                        className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-md font-black text-xs uppercase tracking-widest transition-colors flex items-center shadow-lg disabled:opacity-50"
+                                    >
+                                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                                        {allegroParamsValidationResult.hasChanges ? 'Potwierdź dane (Krok 1/2)' : 'Brak zmian do wysłania'}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -3433,6 +3642,27 @@ export const UnifiedProductPipelineView = ({
                         </div>
 
                         <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50 space-y-5">
+                            {/* Pasek klienta i konta docelowego Allegro */}
+                            <div
+                                className="p-3.5 bg-white rounded-md border-2 flex flex-wrap items-center justify-between gap-3"
+                                style={{ borderColor: activeWorkspace?.badgeColor || allegroContentValidationResult.workspace?.badgeColor || '#4f46e5' }}
+                            >
+                                <div className="flex items-center gap-2 text-xs font-black text-slate-900">
+                                    <span
+                                        className="w-3 h-3 rounded-full shrink-0"
+                                        style={{ backgroundColor: activeWorkspace?.badgeColor || allegroContentValidationResult.workspace?.badgeColor || '#4f46e5' }}
+                                    />
+                                    <span>
+                                        KLIENT: <span className="uppercase">{activeWorkspace?.name || allegroContentValidationResult.workspace?.name || 'Domyślny'}</span>
+                                        {' → '}
+                                        KONTO ALLEGRO: <span className="uppercase text-emerald-700">{allegroContentValidationResult.account?.label || 'Domyślne'} (#{allegroContentValidationResult.account?.id || allegroContentValidationResult.tokenClaims?.userName || '?'})</span>
+                                    </span>
+                                </div>
+                                <span className="text-[11px] font-mono font-bold text-slate-600">
+                                    Aukcja #{allegroContentValidationResult.offer?.id}
+                                </span>
+                            </div>
+
                             {/* Wybór konta i docelowej oferty Allegro */}
                             <div className="bg-white p-4 rounded-md border border-slate-200 flex flex-wrap items-center justify-between gap-3">
                                 <div className="flex-1 min-w-[240px]">
@@ -3627,6 +3857,41 @@ export const UnifiedProductPipelineView = ({
                             </div>
                         </div>
 
+                        {allegroContentConfirmStep === 1 && !allegroContentPreviewDirty && allegroContentValidationResult.hasChanges && (allegroContentValidationResult.errors?.length || 0) === 0 && (
+                            <div className="px-6 py-4 bg-amber-50 border-t-2 border-amber-400 flex flex-wrap items-center justify-between gap-4 shrink-0">
+                                <div className="space-y-1 max-w-2xl">
+                                    <div
+                                        className="inline-flex items-center gap-2 px-2.5 py-1 rounded text-[11px] font-black uppercase tracking-wider text-white shadow-sm"
+                                        style={{ backgroundColor: activeWorkspace?.badgeColor || allegroContentValidationResult.workspace?.badgeColor || '#4f46e5' }}
+                                    >
+                                        KLIENT: {activeWorkspace?.name || allegroContentValidationResult.workspace?.name || 'Domyślny'} → KONTO ALLEGRO: {allegroContentValidationResult.account?.label || 'Domyślne'} (#{allegroContentValidationResult.account?.id || '?'})
+                                    </div>
+                                    <div className="text-xs font-black text-amber-900 uppercase tracking-wider">
+                                        Drugie potwierdzenie wysyłki opisu i zdjęć na aukcję #{allegroContentValidationResult.offer?.id} (Krok 2/2)
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAllegroContentConfirmStep(0)}
+                                        disabled={isExportingAllegroContent}
+                                        className="px-4 py-2 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-md font-bold text-xs uppercase tracking-widest disabled:opacity-50"
+                                    >
+                                        Wróć
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleConfirmAllegroContentExport}
+                                        disabled={isExportingAllegroContent}
+                                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-black text-xs uppercase tracking-widest flex items-center shadow-lg disabled:opacity-50"
+                                    >
+                                        {isExportingAllegroContent ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                                        Tak, potwierdzam po raz drugi — Wyślij do Allegro
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="p-4 bg-white border-t border-slate-200 flex flex-wrap justify-between items-center gap-3 shrink-0">
                             <p className="text-xs text-slate-500 font-bold max-w-lg">
                                 Zatwierdzenie wysyła gotowe zdjęcia na <strong className="text-emerald-700">POST /sale/images</strong> i wykonuje <strong className="text-emerald-700">PATCH /sale/product-offers/{allegroContentValidationResult.offer?.id}</strong> (bez ruszania `productSet` ani parametrów).
@@ -3634,7 +3899,7 @@ export const UnifiedProductPipelineView = ({
                             <div className="flex items-center space-x-3">
                                 <button
                                     type="button"
-                                    onClick={() => setShowAllegroContentModal(false)}
+                                    onClick={() => { setAllegroContentConfirmStep(0); setShowAllegroContentModal(false); }}
                                     disabled={isExportingAllegroContent}
                                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-bold text-xs uppercase tracking-widest transition-colors disabled:opacity-50"
                                 >
@@ -3657,21 +3922,23 @@ export const UnifiedProductPipelineView = ({
                                         Przelicz Pre-flight
                                     </button>
                                 )}
-                                <button
-                                    type="button"
-                                    onClick={handleConfirmAllegroContentExport}
-                                    disabled={
-                                        isExportingAllegroContent ||
-                                        isValidatingAllegroContent ||
-                                        allegroContentPreviewDirty ||
-                                        !allegroContentValidationResult.hasChanges ||
-                                        (allegroContentValidationResult.errors?.length || 0) > 0
-                                    }
-                                    className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md font-black text-xs uppercase tracking-widest transition-colors flex items-center shadow-lg disabled:opacity-50"
-                                >
-                                    {isExportingAllegroContent ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                                    {allegroContentValidationResult.hasChanges ? 'Zatwierdź i wyślij do Allegro' : 'Brak zmian do wysłania'}
-                                </button>
+                                {allegroContentConfirmStep === 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setAllegroContentConfirmStep(1)}
+                                        disabled={
+                                            isExportingAllegroContent ||
+                                            isValidatingAllegroContent ||
+                                            allegroContentPreviewDirty ||
+                                            !allegroContentValidationResult.hasChanges ||
+                                            (allegroContentValidationResult.errors?.length || 0) > 0
+                                        }
+                                        className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md font-black text-xs uppercase tracking-widest transition-colors flex items-center shadow-lg disabled:opacity-50"
+                                    >
+                                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                                        {allegroContentValidationResult.hasChanges ? 'Potwierdź dane (Krok 1/2)' : 'Brak zmian do wysłania'}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -3689,6 +3956,8 @@ export const UnifiedProductPipelineView = ({
                     token={token}
                     API_URL={API_URL}
                     getSafeImageSrc={getSafeImageSrc}
+                    activeWorkspace={activeWorkspace}
+                    accounts={vonHalskyAccounts}
                 />
             )}
             {viewingImageUrl && (

@@ -1,8 +1,15 @@
+const crypto = require('crypto');
 const axios = require('axios');
 const FormData = require('form-data');
 const sharp = require('sharp');
 const { PrismaClient } = require('@prisma/client');
-const { encryptSecret, decryptSecret } = require('../../utils/secretVault');
+const {
+    encryptSecret,
+    decryptSecret,
+    encryptSecretWithAad,
+    decryptSecretWithAad,
+    buildIntegrationAad
+} = require('../../utils/secretVault');
 const { trimOrNull, parseLocaleInt } = require('../../utils/productLookup');
 
 const prisma = new PrismaClient();
@@ -101,13 +108,109 @@ function buildVonHalskyApiError(error, fallbackMessage = 'Błąd komunikacji z I
 }
 
 /**
- * Odczytuje pełną konfigurację Von Halsky (priorytet: zaszyfrowany SystemSetting -> fallback .env).
+ * Odczytuje pełną konfigurację Von Halsky:
+ * - W trybie Multi-Workspace (`workspaceId` + tabela `IntegrationAccount`): wyłącznie z `IntegrationAccount` (AES-256-GCM + AAD, fail-closed bez dziedziczenia `.env` między klientami).
+ * - W trybie legacy/unit-test (bez `workspaceId`): z `SystemSetting.VONHALSKY_CONFIG_VAULT` -> fallback `.env`.
  */
-async function getConfig(injectedPrisma = prisma) {
+async function getConfig(injectedPrisma = prisma, opts = {}) {
+    const cleanWsId = trimOrNull(opts?.workspaceId);
+    const cleanAccId = trimOrNull(opts?.accountId);
     const envName = normalizeEnvironment(process.env.VONHALSKY_ENV || 'production');
     const envDefaults = getEnvDefaults(envName);
 
+    const emptyWsConfig = {
+        workspaceId: cleanWsId || null,
+        accountId: cleanAccId || null,
+        label: 'InPost Von Halsky',
+        isDefault: false,
+        environment: 'production',
+        apiBaseUrl: ENVIRONMENTS.production.apiBaseUrl,
+        tokenUrl: ENVIRONMENTS.production.tokenUrl,
+        clientId: '',
+        clientSecret: '',
+        organizationId: '',
+        organizationName: '',
+        scope: DEFAULT_SCOPES,
+        defaultDaysToShip: 1,
+        defaultDescriptionFormat: 'html',
+        defaultManufacturerEmail: '',
+        defaultManufacturerPhone: '',
+        defaultReturnPolicy: '',
+        defaultComplaintPolicy: '',
+        source: 'none',
+        updatedAt: null,
+        audit: null
+    };
+
+    if (cleanWsId && injectedPrisma?.integrationAccount && typeof injectedPrisma.integrationAccount.findFirst === 'function') {
+        try {
+            const where = { workspaceId: cleanWsId, provider: 'VONHALSKY', isActive: true };
+            if (cleanAccId) {
+                where.id = cleanAccId;
+            }
+            const row = await injectedPrisma.integrationAccount.findFirst({
+                where,
+                orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }]
+            });
+            if (!row) {
+                if (cleanAccId) {
+                    const err = new Error(`Wybrane konto InPost Von Halsky (${cleanAccId}) nie należy do tego klienta lub nie istnieje.`);
+                    err.statusCode = 404;
+                    err.code = 'VONHALSKY_ACCOUNT_NOT_FOUND';
+                    throw err;
+                }
+                return emptyWsConfig;
+            }
+
+            let creds = {};
+            if (row.credentialsEnc) {
+                const plain = decryptSecretWithAad(
+                    row.credentialsEnc,
+                    buildIntegrationAad(row.workspaceId, 'VONHALSKY', row.id)
+                );
+                creds = JSON.parse(plain || '{}');
+            }
+            const meta = (row.metadata && typeof row.metadata === 'object') ? row.metadata : {};
+            const effEnv = normalizeEnvironment(row.environment || 'production');
+            const effDefaults = getEnvDefaults(effEnv);
+            const effClientId = trimOrNull(creds.clientId) || '';
+            const effClientSecret = trimOrNull(creds.clientSecret) || '';
+
+            return {
+                workspaceId: row.workspaceId,
+                accountId: row.id,
+                label: row.label || 'InPost Von Halsky',
+                isDefault: Boolean(row.isDefault),
+                environment: effEnv,
+                apiBaseUrl: trimOrNull(meta.apiBaseUrl) || effDefaults.apiBaseUrl,
+                tokenUrl: trimOrNull(meta.tokenUrl) || effDefaults.tokenUrl,
+                clientId: effClientId,
+                clientSecret: effClientSecret,
+                organizationId: trimOrNull(meta.organizationId || row.externalAccountId) || '',
+                organizationName: trimOrNull(meta.organizationName) || '',
+                scope: trimOrNull(meta.scope) || DEFAULT_SCOPES,
+                defaultDaysToShip: parseLocaleInt(meta.defaultDaysToShip) ?? 1,
+                defaultDescriptionFormat: meta.defaultDescriptionFormat === 'plain' ? 'plain' : 'html',
+                defaultManufacturerEmail: trimOrNull(meta.defaultManufacturerEmail) || '',
+                defaultManufacturerPhone: trimOrNull(meta.defaultManufacturerPhone) || '',
+                defaultReturnPolicy: trimOrNull(meta.defaultReturnPolicy) || '',
+                defaultComplaintPolicy: trimOrNull(meta.defaultComplaintPolicy) || '',
+                source: (effClientId && effClientSecret) ? 'db' : 'partial',
+                updatedAt: row.updatedAt || null,
+                audit: meta.audit || null
+            };
+        } catch (err) {
+            if (err.code === 'VONHALSKY_ACCOUNT_NOT_FOUND') throw err;
+            console.error('[VonHalskyService] Błąd odczytu IntegrationAccount Von Halsky:', err.message);
+            return emptyWsConfig;
+        }
+    }
+
     const envConfig = {
+        workspaceId: null,
+        accountId: null,
+        label: 'InPost Von Halsky Domyślny',
+        isDefault: true,
         environment: envName,
         apiBaseUrl: trimOrNull(process.env.VONHALSKY_API_BASE_URL) || envDefaults.apiBaseUrl,
         tokenUrl: trimOrNull(process.env.VONHALSKY_TOKEN_URL) || envDefaults.tokenUrl,
@@ -151,6 +254,10 @@ async function getConfig(injectedPrisma = prisma) {
             : (envConfig.clientId && envConfig.clientSecret ? 'env' : 'partial');
 
         return {
+            workspaceId: null,
+            accountId: null,
+            label: 'InPost Von Halsky Domyślny',
+            isDefault: true,
             environment: effEnv,
             apiBaseUrl: trimOrNull(parsed.apiBaseUrl) || effDefaults.apiBaseUrl,
             tokenUrl: trimOrNull(parsed.tokenUrl) || effDefaults.tokenUrl,
@@ -178,9 +285,13 @@ async function getConfig(injectedPrisma = prisma) {
 /**
  * Zwraca bezpieczną (bez `clientSecret`) konfigurację do wyświetlenia w Panelu Admina i Pre-flight.
  */
-async function getPublicConfig(injectedPrisma = prisma) {
-    const cfg = await getConfig(injectedPrisma);
+async function getPublicConfig(injectedPrisma = prisma, opts = {}) {
+    const cfg = await getConfig(injectedPrisma, opts);
     return {
+        workspaceId: cfg.workspaceId || null,
+        accountId: cfg.accountId || null,
+        label: cfg.label || 'InPost Von Halsky',
+        isDefault: Boolean(cfg.isDefault),
         configured: Boolean(cfg.clientId && cfg.clientSecret),
         hasClientId: Boolean(cfg.clientId),
         hasClientSecret: Boolean(cfg.clientSecret),
@@ -205,11 +316,97 @@ async function getPublicConfig(injectedPrisma = prisma) {
 }
 
 /**
- * Zapisuje konfigurację Von Halsky w `SystemSetting` z szyfrowaniem `clientSecret` (AES-256-GCM).
- * Pozwala zapisać ustawienia domyślne (np. polityki, dni wysyłki, e-mail GPSR) jeszcze przed otrzymaniem `clientId`/`clientSecret`.
+ * Lista kont Von Halsky przypisanych do danego klienta (workspaceId) bez ujawniania sekretów.
  */
-async function saveConfig(input = {}, auditUser = null, injectedPrisma = prisma) {
-    const existing = await getConfig(injectedPrisma);
+async function listAccounts(workspaceId, injectedPrisma = prisma) {
+    const cleanWsId = trimOrNull(workspaceId);
+    if (!cleanWsId || !injectedPrisma?.integrationAccount) {
+        const single = await getPublicConfig(injectedPrisma);
+        return single.configured || single.organizationId || single.defaultManufacturerEmail ? [single] : [];
+    }
+    const rows = await injectedPrisma.integrationAccount.findMany({
+        where: { workspaceId: cleanWsId, provider: 'VONHALSKY', isActive: true },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }]
+    });
+    const out = [];
+    for (const row of rows) {
+        const cfg = await getPublicConfig(injectedPrisma, { workspaceId: cleanWsId, accountId: row.id });
+        out.push(cfg);
+    }
+    return out;
+}
+
+/**
+ * Usuwa konto Von Halsky z wybranego workspace i czyści cache tokenów.
+ */
+async function deleteAccount(workspaceId, accountId, injectedPrisma = prisma) {
+    const cleanWsId = trimOrNull(workspaceId);
+    const cleanAccId = trimOrNull(accountId);
+    if (!cleanWsId || !cleanAccId || !injectedPrisma?.integrationAccount) {
+        const err = new Error('Brak workspaceId lub accountId do usunięcia konta Von Halsky.');
+        err.statusCode = 400;
+        throw err;
+    }
+    const row = await injectedPrisma.integrationAccount.findFirst({
+        where: { id: cleanAccId, workspaceId: cleanWsId, provider: 'VONHALSKY' }
+    });
+    if (!row) {
+        const err = new Error('Wybrane konto Von Halsky nie istnieje u tego klienta.');
+        err.statusCode = 404;
+        throw err;
+    }
+    await injectedPrisma.$transaction(async (tx) => {
+        await tx.integrationAccount.delete({ where: { id: row.id } });
+        if (row.isDefault) {
+            const next = await tx.integrationAccount.findFirst({
+                where: { workspaceId: cleanWsId, provider: 'VONHALSKY', isActive: true },
+                orderBy: { createdAt: 'asc' }
+            });
+            if (next) {
+                await tx.integrationAccount.update({ where: { id: next.id }, data: { isDefault: true } });
+            }
+        }
+    });
+    for (const k of tokenCache.keys()) {
+        if (k.startsWith(`${cleanWsId}:${cleanAccId}|`)) tokenCache.delete(k);
+    }
+    for (const k of tokenInflight.keys()) {
+        if (k.startsWith(`${cleanWsId}:${cleanAccId}|`)) tokenInflight.delete(k);
+    }
+    return listAccounts(cleanWsId, injectedPrisma);
+}
+
+/**
+ * Zapisuje konfigurację Von Halsky w `IntegrationAccount` (z AAD per workspace/account) lub `SystemSetting` (legacy).
+ */
+async function saveConfig(input = {}, auditUser = null, injectedPrisma = prisma, opts = {}) {
+    const cleanWsId = trimOrNull(opts?.workspaceId || input?.workspaceId);
+    const requestedAccId = trimOrNull(opts?.accountId || input?.accountId);
+    const createNew = Boolean(input?.createNew);
+
+    const existing = createNew
+        ? await getConfig(injectedPrisma, { workspaceId: cleanWsId, accountId: '__non_existent__' }).catch(() => ({
+            workspaceId: cleanWsId,
+            accountId: null,
+            label: trimOrNull(input?.label) || 'InPost Von Halsky',
+            isDefault: Boolean(input?.isDefault),
+            environment: 'production',
+            apiBaseUrl: ENVIRONMENTS.production.apiBaseUrl,
+            tokenUrl: ENVIRONMENTS.production.tokenUrl,
+            clientId: '',
+            clientSecret: '',
+            organizationId: '',
+            organizationName: '',
+            scope: DEFAULT_SCOPES,
+            defaultDaysToShip: 1,
+            defaultDescriptionFormat: 'html',
+            defaultManufacturerEmail: '',
+            defaultManufacturerPhone: '',
+            defaultReturnPolicy: '',
+            defaultComplaintPolicy: ''
+        }))
+        : await getConfig(injectedPrisma, { workspaceId: cleanWsId, accountId: requestedAccId });
+
     const environment = normalizeEnvironment(input.environment || existing.environment);
     const preset = getEnvDefaults(environment);
 
@@ -227,7 +424,6 @@ async function saveConfig(input = {}, auditUser = null, injectedPrisma = prisma)
     const customApiBase = input.apiBaseUrl !== undefined ? trimOrNull(input.apiBaseUrl) : null;
     const customTokenUrl = input.tokenUrl !== undefined ? trimOrNull(input.tokenUrl) : null;
 
-    // Gdy użytkownik przełącza środowisko bez podawania własnych URL-i, przełączamy na preset środowiska
     const envChanged = environment !== existing.environment;
     const resolvedApiBase = customApiBase
         ? customApiBase.replace(/\/+$/, '')
@@ -252,6 +448,108 @@ async function saveConfig(input = {}, auditUser = null, injectedPrisma = prisma)
         : existing.defaultDaysToShip;
     const safeDays = (daysToShipParsed !== null && daysToShipParsed >= 0 && daysToShipParsed <= 60) ? daysToShipParsed : 1;
 
+    const resolvedOrgId = input.organizationId !== undefined ? (trimOrNull(input.organizationId) || '') : existing.organizationId;
+    const resolvedOrgName = input.organizationName !== undefined ? (trimOrNull(input.organizationName) || '') : existing.organizationName;
+    const resolvedScope = input.scope !== undefined ? (trimOrNull(input.scope) || DEFAULT_SCOPES) : existing.scope;
+    const resolvedDescFmt = input.defaultDescriptionFormat === 'plain'
+        ? 'plain'
+        : (input.defaultDescriptionFormat === 'html' ? 'html' : existing.defaultDescriptionFormat);
+    const resolvedMfgEmail = input.defaultManufacturerEmail !== undefined
+        ? (trimOrNull(input.defaultManufacturerEmail) || '')
+        : existing.defaultManufacturerEmail;
+    const resolvedMfgPhone = input.defaultManufacturerPhone !== undefined
+        ? (trimOrNull(input.defaultManufacturerPhone) || '')
+        : existing.defaultManufacturerPhone;
+    const resolvedRetPolicy = input.defaultReturnPolicy !== undefined
+        ? (trimOrNull(input.defaultReturnPolicy) || '')
+        : existing.defaultReturnPolicy;
+    const resolvedCompPolicy = input.defaultComplaintPolicy !== undefined
+        ? (trimOrNull(input.defaultComplaintPolicy) || '')
+        : existing.defaultComplaintPolicy;
+
+    const auditObj = {
+        updatedAt: new Date().toISOString(),
+        updatedByUserId: auditUser?.id || null,
+        updatedByEmail: auditUser?.email || null
+    };
+
+    if (cleanWsId && injectedPrisma?.integrationAccount) {
+        const existingCount = await injectedPrisma.integrationAccount.count({
+            where: { workspaceId: cleanWsId, provider: 'VONHALSKY', isActive: true }
+        });
+        const targetId = (!createNew && existing.accountId) ? existing.accountId : crypto.randomUUID();
+        const isExistingRow = Boolean(!createNew && existing.accountId);
+        const shouldBeDefault = input.isDefault === true || (!isExistingRow && existingCount === 0);
+        const nextLabel = (typeof input.label === 'string' && input.label.trim())
+            ? input.label.trim().slice(0, 80)
+            : (existing.label || resolvedOrgName || `InPost Von Halsky (${environment.toUpperCase()})`);
+
+        const enc = encryptSecretWithAad(
+            JSON.stringify({ clientId: nextClientId, clientSecret: nextClientSecretPlain }),
+            buildIntegrationAad(cleanWsId, 'VONHALSKY', targetId)
+        );
+        const metaPayload = {
+            apiBaseUrl: resolvedApiBase,
+            tokenUrl: resolvedTokenUrl,
+            organizationId: resolvedOrgId,
+            organizationName: resolvedOrgName,
+            scope: resolvedScope,
+            defaultDaysToShip: safeDays,
+            defaultDescriptionFormat: resolvedDescFmt,
+            defaultManufacturerEmail: resolvedMfgEmail,
+            defaultManufacturerPhone: resolvedMfgPhone,
+            defaultReturnPolicy: resolvedRetPolicy,
+            defaultComplaintPolicy: resolvedCompPolicy,
+            audit: auditObj
+        };
+
+        await injectedPrisma.$transaction(async (tx) => {
+            if (shouldBeDefault) {
+                await tx.integrationAccount.updateMany({
+                    where: { workspaceId: cleanWsId, provider: 'VONHALSKY', isDefault: true, NOT: { id: targetId } },
+                    data: { isDefault: false }
+                });
+            }
+            if (isExistingRow) {
+                await tx.integrationAccount.update({
+                    where: { id: targetId },
+                    data: {
+                        label: nextLabel,
+                        externalAccountId: resolvedOrgId || null,
+                        environment,
+                        isDefault: shouldBeDefault ? true : existing.isDefault,
+                        credentialsEnc: enc,
+                        metadata: metaPayload
+                    }
+                });
+            } else {
+                await tx.integrationAccount.create({
+                    data: {
+                        id: targetId,
+                        workspaceId: cleanWsId,
+                        provider: 'VONHALSKY',
+                        label: nextLabel,
+                        externalAccountId: resolvedOrgId || null,
+                        environment,
+                        isDefault: shouldBeDefault,
+                        isActive: true,
+                        credentialsEnc: enc,
+                        metadata: metaPayload
+                    }
+                });
+            }
+        });
+
+        for (const k of tokenCache.keys()) {
+            if (k.startsWith(`${cleanWsId}:`)) tokenCache.delete(k);
+        }
+        for (const k of tokenInflight.keys()) {
+            if (k.startsWith(`${cleanWsId}:`)) tokenInflight.delete(k);
+        }
+
+        return getPublicConfig(injectedPrisma, { workspaceId: cleanWsId, accountId: targetId });
+    }
+
     const storedPayload = {
         version: 1,
         environment,
@@ -259,30 +557,16 @@ async function saveConfig(input = {}, auditUser = null, injectedPrisma = prisma)
         tokenUrl: resolvedTokenUrl,
         clientId: nextClientId,
         clientSecretEnc: nextClientSecretPlain ? encryptSecret(nextClientSecretPlain) : '',
-        organizationId: input.organizationId !== undefined ? (trimOrNull(input.organizationId) || '') : existing.organizationId,
-        organizationName: input.organizationName !== undefined ? (trimOrNull(input.organizationName) || '') : existing.organizationName,
-        scope: input.scope !== undefined ? (trimOrNull(input.scope) || DEFAULT_SCOPES) : existing.scope,
+        organizationId: resolvedOrgId,
+        organizationName: resolvedOrgName,
+        scope: resolvedScope,
         defaultDaysToShip: safeDays,
-        defaultDescriptionFormat: input.defaultDescriptionFormat === 'plain'
-            ? 'plain'
-            : (input.defaultDescriptionFormat === 'html' ? 'html' : existing.defaultDescriptionFormat),
-        defaultManufacturerEmail: input.defaultManufacturerEmail !== undefined
-            ? (trimOrNull(input.defaultManufacturerEmail) || '')
-            : existing.defaultManufacturerEmail,
-        defaultManufacturerPhone: input.defaultManufacturerPhone !== undefined
-            ? (trimOrNull(input.defaultManufacturerPhone) || '')
-            : existing.defaultManufacturerPhone,
-        defaultReturnPolicy: input.defaultReturnPolicy !== undefined
-            ? (trimOrNull(input.defaultReturnPolicy) || '')
-            : existing.defaultReturnPolicy,
-        defaultComplaintPolicy: input.defaultComplaintPolicy !== undefined
-            ? (trimOrNull(input.defaultComplaintPolicy) || '')
-            : existing.defaultComplaintPolicy,
-        audit: {
-            updatedAt: new Date().toISOString(),
-            updatedByUserId: auditUser?.id || null,
-            updatedByEmail: auditUser?.email || null
-        }
+        defaultDescriptionFormat: resolvedDescFmt,
+        defaultManufacturerEmail: resolvedMfgEmail,
+        defaultManufacturerPhone: resolvedMfgPhone,
+        defaultReturnPolicy: resolvedRetPolicy,
+        defaultComplaintPolicy: resolvedCompPolicy,
+        audit: auditObj
     };
 
     await injectedPrisma.systemSetting.upsert({
@@ -299,10 +583,10 @@ async function saveConfig(input = {}, auditUser = null, injectedPrisma = prisma)
 }
 
 /**
- * Pobiera token Bearer OAuth 2.1 (grant_type=client_credentials) z cache i deduplikacją zapytań.
+ * Pobiera token Bearer OAuth 2.1 (grant_type=client_credentials) z cache (izolowanego per workspace+account) i deduplikacją zapytań.
  */
-async function getAccessToken({ forceRefresh = false, configOverride = null, httpClient = axios, injectedPrisma = prisma } = {}) {
-    const cfg = configOverride || await getConfig(injectedPrisma);
+async function getAccessToken({ forceRefresh = false, configOverride = null, httpClient = axios, injectedPrisma = prisma, workspaceId = null, accountId = null } = {}) {
+    const cfg = configOverride || await getConfig(injectedPrisma, { workspaceId, accountId });
     if (!cfg.clientId || !cfg.clientSecret) {
         const err = new Error('Brak skonfigurowanych danych dostępowych InPost Von Halsky (Client ID / Client Secret). Uzupełnij je w Panelu Administracyjnym -> Integracje API.');
         err.statusCode = 412;
@@ -310,7 +594,9 @@ async function getAccessToken({ forceRefresh = false, configOverride = null, htt
         throw err;
     }
 
-    const cacheKey = `${cfg.tokenUrl}|${cfg.clientId}|${cfg.scope}`;
+    const wsKey = cfg.workspaceId || workspaceId || 'legacy';
+    const accKey = cfg.accountId || accountId || 'default';
+    const cacheKey = `${wsKey}:${accKey}|${cfg.environment}|${cfg.tokenUrl}|${cfg.clientId}|${cfg.scope}`;
     const now = Date.now();
 
     if (!forceRefresh) {
@@ -384,15 +670,19 @@ async function apiRequest({
     acceptLanguage = 'pl',
     timeout = 25000,
     configOverride = null,
+    workspaceId = null,
+    accountId = null,
     httpClient = axios,
     injectedPrisma = prisma,
     _retryAuth = false,
     _retryRateLimitCount = 0
 } = {}) {
-    const cfg = configOverride || await getConfig(injectedPrisma);
+    const cfg = configOverride || await getConfig(injectedPrisma, { workspaceId, accountId });
     const token = await getAccessToken({
         forceRefresh: _retryAuth,
         configOverride: cfg,
+        workspaceId: cfg.workspaceId || workspaceId,
+        accountId: cfg.accountId || accountId,
         httpClient,
         injectedPrisma
     });
@@ -435,6 +725,8 @@ async function apiRequest({
                 acceptLanguage,
                 timeout,
                 configOverride: cfg,
+                workspaceId: cfg.workspaceId || workspaceId,
+                accountId: cfg.accountId || accountId,
                 httpClient,
                 injectedPrisma,
                 _retryAuth: true,
@@ -453,6 +745,8 @@ async function apiRequest({
                 acceptLanguage,
                 timeout,
                 configOverride: cfg,
+                workspaceId: cfg.workspaceId || workspaceId,
+                accountId: cfg.accountId || accountId,
                 httpClient,
                 injectedPrisma,
                 _retryAuth,
@@ -471,9 +765,11 @@ async function getOrganizations(opts = {}) {
 /**
  * Weryfikuje połączenie (OAuth2 + GET /v1/organizations) przed lub po zapisaniu konfiguracji.
  */
-async function verifyConnection(candidateOverride = null, { httpClient = axios, injectedPrisma = prisma } = {}) {
+async function verifyConnection(candidateOverride = null, { httpClient = axios, injectedPrisma = prisma, workspaceId = null, accountId = null } = {}) {
     try {
-        const baseCfg = await getConfig(injectedPrisma);
+        const effWsId = workspaceId || candidateOverride?.workspaceId || null;
+        const effAccId = accountId || candidateOverride?.accountId || null;
+        const baseCfg = await getConfig(injectedPrisma, { workspaceId: effWsId, accountId: effAccId });
         let cfg = baseCfg;
         if (candidateOverride && typeof candidateOverride === 'object') {
             const effEnv = normalizeEnvironment(candidateOverride.environment || baseCfg.environment);
@@ -498,7 +794,13 @@ async function verifyConnection(candidateOverride = null, { httpClient = axios, 
             };
         }
 
-        const orgs = await getOrganizations({ configOverride: cfg, httpClient, injectedPrisma });
+        const orgs = await getOrganizations({
+            configOverride: cfg,
+            workspaceId: effWsId,
+            accountId: effAccId,
+            httpClient,
+            injectedPrisma
+        });
         return {
             ok: true,
             environment: cfg.environment,
@@ -548,8 +850,8 @@ function flattenCategoryTree(nodes = [], parentTrail = [], outLeaves = [], byId 
     return { flatLeaves: outLeaves, byId };
 }
 
-async function getCategories({ categoryId = null, depth = 10, forceRefresh = false, configOverride = null, httpClient = axios, injectedPrisma = prisma } = {}) {
-    const cfg = configOverride || await getConfig(injectedPrisma);
+async function getCategories({ categoryId = null, depth = 10, forceRefresh = false, configOverride = null, workspaceId = null, accountId = null, httpClient = axios, injectedPrisma = prisma } = {}) {
+    const cfg = configOverride || await getConfig(injectedPrisma, { workspaceId, accountId });
     const cacheKey = `${cfg.environment}:${cfg.apiBaseUrl}:${categoryId || 'ROOT'}:${depth}`;
     const cached = categoryTreeCache.get(cacheKey);
     if (!forceRefresh && cached && (Date.now() - cached.fetchedAtMs) < CATEGORY_CACHE_TTL_MS) {
@@ -564,6 +866,8 @@ async function getCategories({ categoryId = null, depth = 10, forceRefresh = fal
         path: '/v1/categories',
         params,
         configOverride: cfg,
+        workspaceId: cfg.workspaceId || workspaceId,
+        accountId: cfg.accountId || accountId,
         httpClient,
         injectedPrisma
     });
@@ -585,8 +889,8 @@ async function getCategoryDetails(categoryId, opts = {}) {
     return res.data;
 }
 
-async function getCategoryAttributes(categoryId, { forceRefresh = false, configOverride = null, httpClient = axios, injectedPrisma = prisma } = {}) {
-    const cfg = configOverride || await getConfig(injectedPrisma);
+async function getCategoryAttributes(categoryId, { forceRefresh = false, configOverride = null, workspaceId = null, accountId = null, httpClient = axios, injectedPrisma = prisma } = {}) {
+    const cfg = configOverride || await getConfig(injectedPrisma, { workspaceId, accountId });
     const cacheKey = `${cfg.environment}:${cfg.apiBaseUrl}:${categoryId}`;
     const cached = categoryAttrCache.get(cacheKey);
     if (!forceRefresh && cached && (Date.now() - cached.fetchedAtMs) < ATTR_CACHE_TTL_MS) {
@@ -597,6 +901,8 @@ async function getCategoryAttributes(categoryId, { forceRefresh = false, configO
         method: 'GET',
         path: `/v1/categories/${encodeURIComponent(categoryId)}/attributes`,
         configOverride: cfg,
+        workspaceId: cfg.workspaceId || workspaceId,
+        accountId: cfg.accountId || accountId,
         httpClient,
         injectedPrisma
     });
@@ -951,6 +1257,8 @@ module.exports = {
     buildVonHalskyApiError,
     getConfig,
     getPublicConfig,
+    listAccounts,
+    deleteAccount,
     saveConfig,
     getAccessToken,
     apiRequest,

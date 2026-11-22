@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Users, Settings, Archive, RotateCcw, Search, CloudLightning, Save, CheckCircle2, Trash2, ShoppingCart, ExternalLink, Loader2, Image, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Plus, Users, Archive, RotateCcw, CloudLightning, Save, CheckCircle2, Trash2, ShoppingCart, ExternalLink, Loader2, Image, ShieldCheck, AlertTriangle, Layers, Edit3, History, X } from 'lucide-react';
 import { getInitials, getDepartmentColor } from '../utils';
+
+const WORKSPACE_COLOR_PRESETS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#0f172a'];
 
 const AdminPanelView = ({
   users,
@@ -10,30 +12,53 @@ const AdminPanelView = ({
   setEditingUser,
   setIsUserEditModalOpen,
   token,
-  API_URL
+  API_URL,
+  activeWorkspace,
+  workspaces = [],
+  onWorkspacesChanged
 }) => {
   const [activeTab, setActiveTab] = useState('USERS'); // 'USERS' | 'ARCHIVE' | 'INTEGRATIONS' | 'PHOTOROOM_DEBUG'
   const [archivedTasks, setArchivedTasks] = useState([]);
   const [debugImages, setDebugImages] = useState([]);
+
+  // Multi-Workspace States
+  const [adminWorkspaces, setAdminWorkspaces] = useState(workspaces);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(() => activeWorkspace?.id || workspaces[0]?.id || '');
+  const [isWsModalOpen, setIsWsModalOpen] = useState(false);
+  const [wsForm, setWsForm] = useState({ id: '', name: '', badgeColor: '#4f46e5', isDefault: false });
+  const [isSavingWs, setIsSavingWs] = useState(false);
+  const [wsError, setWsError] = useState('');
+
+  // Multi-Account BaseLinker States
+  const [blAccounts, setBlAccounts] = useState([]);
+  const [blEditingAccountId, setBlEditingAccountId] = useState('');
+  const [blLabel, setBlLabel] = useState('BaseLinker Główny');
+  const [blSetAsDefault, setBlSetAsDefault] = useState(true);
   const [baseLinkerToken, setBaseLinkerToken] = useState('');
-  const [tokenMeta, setTokenMeta] = useState(null);
-  const [confirmOverwrite, setConfirmOverwrite] = useState(false);
   const [isSavingToken, setIsSavingToken] = useState(false);
-  const [isVerifyingToken, setIsVerifyingToken] = useState(false);
+  const [verifyingBlId, setVerifyingBlId] = useState('');
   const [tokenSaved, setTokenSaved] = useState(false);
   const [tokenError, setTokenError] = useState('');
   const [tokenVerifyInfo, setTokenVerifyInfo] = useState(null);
-  
+
+  // Per-Workspace Allegro OAuth2 States
   const [allegroAuthData, setAllegroAuthData] = useState(null);
   const [allegroAccounts, setAllegroAccounts] = useState([]);
   const [allegroAccountLabel, setAllegroAccountLabel] = useState('');
   const [allegroSetAsDefault, setAllegroSetAsDefault] = useState(false);
+  const [allegroCustomClientId, setAllegroCustomClientId] = useState('');
+  const [allegroCustomClientSecret, setAllegroCustomClientSecret] = useState('');
   const [isAllegroPolling, setIsAllegroPolling] = useState(false);
   const [allegroSuccess, setAllegroSuccess] = useState('');
   const [allegroError, setAllegroError] = useState('');
   const pollInterval = React.useRef(null);
 
-  // Stany konfiguracji InPost Von Halsky API
+  // Per-Workspace Multi-Account InPost Von Halsky API States
+  const [vhAccounts, setVhAccounts] = useState([]);
+  const [vhEditingAccountId, setVhEditingAccountId] = useState('');
+  const [vhCreateNew, setVhCreateNew] = useState(false);
+  const [vhLabel, setVhLabel] = useState('InPost Von Halsky Główny');
+  const [vhIsDefault, setVhIsDefault] = useState(true);
   const [vhConfig, setVhConfig] = useState(null);
   const [vhEnv, setVhEnv] = useState('production');
   const [vhClientId, setVhClientId] = useState('');
@@ -54,76 +79,274 @@ const AdminPanelView = ({
   const [vhError, setVhError] = useState('');
   const [vhVerifyInfo, setVhVerifyInfo] = useState(null);
 
+  // Security Audit Logs
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState(false);
+
+  useEffect(() => {
+    if (Array.isArray(workspaces) && workspaces.length > 0) {
+      setAdminWorkspaces(workspaces);
+      setSelectedWorkspaceId(prev => {
+        if (prev && workspaces.some(w => w.id === prev)) return prev;
+        return activeWorkspace?.id || workspaces[0]?.id || '';
+      });
+    }
+  }, [workspaces, activeWorkspace?.id]);
+
+  const selectedWs = adminWorkspaces.find(w => w.id === selectedWorkspaceId) || activeWorkspace || null;
+
+  const getWsHeaders = React.useCallback((overrideWsId = null) => {
+    const wsId = overrideWsId || selectedWorkspaceId;
+    return {
+      Authorization: `Bearer ${token}`,
+      ...(wsId ? { 'X-Workspace-Id': wsId } : {})
+    };
+  }, [token, selectedWorkspaceId]);
+
   useEffect(() => {
     return () => {
       if (pollInterval.current) clearInterval(pollInterval.current);
     };
   }, []);
 
-  const loadAllegroAccounts = React.useCallback(async () => {
+  const refreshWorkspacesList = React.useCallback(async (overrideList = null) => {
+    if (Array.isArray(overrideList)) {
+      setAdminWorkspaces(overrideList);
+      if (onWorkspacesChanged) await onWorkspacesChanged(overrideList);
+      return overrideList;
+    }
     try {
-      const res = await axios.get(`${API_URL}/api/allegro/auth/accounts`, { headers: { Authorization: `Bearer ${token}` } });
+      const list = onWorkspacesChanged
+        ? await onWorkspacesChanged()
+        : (await axios.get(`${API_URL}/api/workspaces`, { headers: { Authorization: `Bearer ${token}` } })).data?.workspaces;
+      if (Array.isArray(list)) {
+        setAdminWorkspaces(list);
+        return list;
+      }
+    } catch (err) {
+      console.error('[Workspaces] Błąd odświeżania listy klientów:', err);
+    }
+    return [];
+  }, [API_URL, token, onWorkspacesChanged]);
+
+  const loadBaseLinkerAccounts = React.useCallback(async (wsId = selectedWorkspaceId) => {
+    if (!wsId) return;
+    try {
+      const res = await axios.get(`${API_URL}/api/workspaces/${encodeURIComponent(wsId)}/integrations?provider=BASELINKER`, {
+        headers: { Authorization: `Bearer ${token}`, 'X-Workspace-Id': wsId }
+      });
+      setBlAccounts(Array.isArray(res.data?.accounts) ? res.data.accounts : []);
+    } catch (err) {
+      console.error('[BaseLinkerAccounts] Błąd pobierania kont:', err);
+    }
+  }, [API_URL, token, selectedWorkspaceId]);
+
+  const loadAllegroAccounts = React.useCallback(async (wsId = selectedWorkspaceId) => {
+    if (!wsId) return;
+    try {
+      const res = await axios.get(`${API_URL}/api/allegro/auth/accounts`, {
+        headers: { Authorization: `Bearer ${token}`, 'X-Workspace-Id': wsId }
+      });
       setAllegroAccounts(Array.isArray(res.data?.accounts) ? res.data.accounts : []);
     } catch (err) {
       console.error('[AllegroAccounts] Błąd pobierania kont:', err);
     }
-  }, [API_URL, token]);
+  }, [API_URL, token, selectedWorkspaceId]);
 
-  const loadVonHalskyConfig = React.useCallback(async () => {
+  const applyVonHalskyConfigToForm = (cfg) => {
+    setVhConfig(cfg || null);
+    setVhEnv(cfg?.environment || 'production');
+    setVhOrgId(cfg?.organizationId || '');
+    setVhOrgName(cfg?.organizationName || '');
+    setVhApiBaseUrl(cfg?.apiBaseUrl || '');
+    setVhTokenUrl(cfg?.tokenUrl || '');
+    setVhDaysToShip(String(cfg?.defaultDaysToShip ?? 1));
+    setVhDescFormat(cfg?.defaultDescriptionFormat || 'html');
+    setVhMfrEmail(cfg?.defaultManufacturerEmail || '');
+    setVhMfrPhone(cfg?.defaultManufacturerPhone || '');
+    setVhReturnPolicy(cfg?.defaultReturnPolicy || '');
+    setVhComplaintPolicy(cfg?.defaultComplaintPolicy || '');
+    if (cfg?.label) setVhLabel(cfg.label);
+    if (typeof cfg?.isDefault === 'boolean') setVhIsDefault(cfg.isDefault);
+  };
+
+  const loadVonHalskyAccountsAndConfig = React.useCallback(async (wsId = selectedWorkspaceId, targetAccountId = null) => {
+    if (!wsId) return;
     try {
-      const res = await axios.get(`${API_URL}/api/vonhalsky/config`, { headers: { Authorization: `Bearer ${token}` } });
-      const cfg = res.data?.config;
-      if (cfg) {
-        setVhConfig(cfg);
-        setVhEnv(cfg.environment || 'production');
-        setVhOrgId(cfg.organizationId || '');
-        setVhOrgName(cfg.organizationName || '');
-        setVhApiBaseUrl(cfg.apiBaseUrl || '');
-        setVhTokenUrl(cfg.tokenUrl || '');
-        setVhDaysToShip(String(cfg.defaultDaysToShip ?? 1));
-        setVhDescFormat(cfg.defaultDescriptionFormat || 'html');
-        setVhMfrEmail(cfg.defaultManufacturerEmail || '');
-        setVhMfrPhone(cfg.defaultManufacturerPhone || '');
-        setVhReturnPolicy(cfg.defaultReturnPolicy || '');
-        setVhComplaintPolicy(cfg.defaultComplaintPolicy || '');
+      const headers = { Authorization: `Bearer ${token}`, 'X-Workspace-Id': wsId };
+      const accRes = await axios.get(`${API_URL}/api/vonhalsky/accounts`, { headers });
+      const list = Array.isArray(accRes.data?.accounts) ? accRes.data.accounts : [];
+      setVhAccounts(list);
+
+      const chosenId = targetAccountId || list.find(a => a.isDefault)?.id || list[0]?.id || '';
+      setVhEditingAccountId(chosenId);
+      setVhCreateNew(list.length === 0);
+
+      const cfgUrl = chosenId
+        ? `${API_URL}/api/vonhalsky/config?accountId=${encodeURIComponent(chosenId)}`
+        : `${API_URL}/api/vonhalsky/config`;
+      const res = await axios.get(cfgUrl, { headers });
+      applyVonHalskyConfigToForm(res.data?.config || null);
+      if (!chosenId) {
+        setVhLabel('InPost Von Halsky Główny');
+        setVhIsDefault(true);
       }
     } catch (err) {
       console.error('[VonHalskyConfig] Błąd odczytu konfiguracji:', err);
     }
-  }, [API_URL, token]);
-  
+  }, [API_URL, token, selectedWorkspaceId]);
+
+  const loadAuditLogs = React.useCallback(async (wsId = selectedWorkspaceId) => {
+    if (!wsId) return;
+    setIsLoadingAuditLogs(true);
+    try {
+      const res = await axios.get(`${API_URL}/api/workspaces/${encodeURIComponent(wsId)}/audit-logs?limit=50`, {
+        headers: { Authorization: `Bearer ${token}`, 'X-Workspace-Id': wsId }
+      });
+      setAuditLogs(Array.isArray(res.data?.logs) ? res.data.logs : []);
+    } catch (err) {
+      console.error('[AuditLogs] Błąd odczytu dziennika zdarzeń:', err);
+    } finally {
+      setIsLoadingAuditLogs(false);
+    }
+  }, [API_URL, token, selectedWorkspaceId]);
+
   useEffect(() => {
     if (activeTab === 'ARCHIVE') {
        axios.get(`${API_URL}/api/tasks/archive/list`, { headers: { Authorization: `Bearer ${token}` } })
          .then(res => setArchivedTasks(res.data))
          .catch(err => console.error(err));
     } else if (activeTab === 'INTEGRATIONS') {
-       axios.get(`${API_URL}/api/settings/BASELINKER_TOKEN`, { headers: { Authorization: `Bearer ${token}` } })
-         .then(res => {
-           setTokenMeta(res.data || null);
-           setBaseLinkerToken('');
-         })
-         .catch(err => console.error(err));
-       loadAllegroAccounts();
-       loadVonHalskyConfig();
+       refreshWorkspacesList();
     } else if (activeTab === 'PHOTOROOM_DEBUG') {
        axios.get(`${API_URL}/api/photoroom/debug/list`, { headers: { Authorization: `Bearer ${token}` } })
          .then(res => setDebugImages(res.data.files || []))
          .catch(err => console.error(err));
     }
-  }, [activeTab, API_URL, token, loadAllegroAccounts, loadVonHalskyConfig]);
+  }, [activeTab, API_URL, token]);
+
+  useEffect(() => {
+    if (activeTab !== 'INTEGRATIONS' || !selectedWorkspaceId) return;
+    if (pollInterval.current) {
+      clearInterval(pollInterval.current);
+      pollInterval.current = null;
+    }
+    setIsAllegroPolling(false);
+    setAllegroAuthData(null);
+    setAllegroError('');
+    setAllegroSuccess('');
+    setTokenError('');
+    setTokenVerifyInfo(null);
+    setBaseLinkerToken('');
+    setBlEditingAccountId('');
+    setBlLabel('BaseLinker Główny');
+    setBlSetAsDefault(true);
+    setVhError('');
+    setVhMessage('');
+    setVhVerifyInfo(null);
+    setVhClientId('');
+    setVhClientSecret('');
+
+    loadBaseLinkerAccounts(selectedWorkspaceId);
+    loadAllegroAccounts(selectedWorkspaceId);
+    loadVonHalskyAccountsAndConfig(selectedWorkspaceId);
+  }, [activeTab, selectedWorkspaceId, loadBaseLinkerAccounts, loadAllegroAccounts, loadVonHalskyAccountsAndConfig]);
+
+  useEffect(() => {
+    if (activeTab === 'INTEGRATIONS' && selectedWorkspaceId && showAuditLogs) {
+      loadAuditLogs(selectedWorkspaceId);
+    }
+  }, [activeTab, selectedWorkspaceId, showAuditLogs, loadAuditLogs]);
+
+  const handleOpenCreateWorkspace = () => {
+    setWsError('');
+    setWsForm({ id: '', name: '', badgeColor: '#0ea5e9', isDefault: false });
+    setIsWsModalOpen(true);
+  };
+
+  const handleOpenEditWorkspace = () => {
+    if (!selectedWs) return;
+    setWsError('');
+    setWsForm({
+      id: selectedWs.id,
+      name: selectedWs.name || '',
+      badgeColor: selectedWs.badgeColor || '#4f46e5',
+      isDefault: Boolean(selectedWs.isDefault)
+    });
+    setIsWsModalOpen(true);
+  };
+
+  const handleSaveWorkspace = async (e) => {
+    e.preventDefault();
+    if (!wsForm.name.trim()) {
+      setWsError('Nazwa klienta jest wymagana.');
+      return;
+    }
+    setWsError('');
+    setIsSavingWs(true);
+    try {
+      let res;
+      if (wsForm.id) {
+        res = await axios.patch(
+          `${API_URL}/api/workspaces/${encodeURIComponent(wsForm.id)}`,
+          { name: wsForm.name.trim(), badgeColor: wsForm.badgeColor, isDefault: wsForm.isDefault },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        res = await axios.post(
+          `${API_URL}/api/workspaces`,
+          { name: wsForm.name.trim(), badgeColor: wsForm.badgeColor, isDefault: wsForm.isDefault },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+      await refreshWorkspacesList(res.data?.workspaces);
+      if (res.data?.workspace?.id) {
+        setSelectedWorkspaceId(res.data.workspace.id);
+      }
+      setIsWsModalOpen(false);
+    } catch (err) {
+      setWsError(err.response?.data?.error || 'Nie udało się zapisać klienta.');
+    } finally {
+      setIsSavingWs(false);
+    }
+  };
+
+  const handleArchiveWorkspace = async () => {
+    if (!selectedWs || selectedWs.isDefault) return;
+    if (!window.confirm(`Zarchiwizować klienta "${selectedWs.name}"? Dostęp do jego produktów i kluczy API zostanie wyłączony.`)) return;
+    try {
+      const res = await axios.delete(`${API_URL}/api/workspaces/${encodeURIComponent(selectedWs.id)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const updated = await refreshWorkspacesList(res.data?.workspaces);
+      const fallback = updated.find(w => w.isDefault) || updated[0];
+      if (fallback) setSelectedWorkspaceId(fallback.id);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Nie udało się zarchiwizować klienta.');
+    }
+  };
 
   const startAllegroAuth = async (overrideLabel = null, overrideDefault = null) => {
+    if (!selectedWorkspaceId) return;
     setAllegroError('');
     setAllegroSuccess('');
     if (pollInterval.current) clearInterval(pollInterval.current);
     try {
+      const targetWsId = selectedWorkspaceId;
       const effectiveLabel = overrideLabel !== null ? overrideLabel : allegroAccountLabel;
       const effectiveDefault = overrideDefault !== null ? overrideDefault : allegroSetAsDefault;
+      const body = {
+        label: effectiveLabel || undefined,
+        setAsDefault: Boolean(effectiveDefault)
+      };
+      if (allegroCustomClientId.trim()) body.customClientId = allegroCustomClientId.trim();
+      if (allegroCustomClientSecret.trim()) body.customClientSecret = allegroCustomClientSecret.trim();
+
       const res = await axios.post(
         `${API_URL}/api/allegro/auth/start`,
-        { label: effectiveLabel || undefined, setAsDefault: Boolean(effectiveDefault) },
-        { headers: { Authorization: `Bearer ${token}` } }
+        body,
+        { headers: getWsHeaders(targetWsId) }
       );
       if (res.data.success) {
         setAllegroAuthData(res.data);
@@ -135,20 +358,23 @@ const AdminPanelView = ({
             const pollRes = await axios.post(
               `${API_URL}/api/allegro/auth/poll`,
               { flowId: activeFlowId },
-              { headers: { Authorization: `Bearer ${token}` } }
+              { headers: getWsHeaders(targetWsId) }
             );
             if (pollRes.data.success) {
               clearInterval(pollInterval.current);
               setIsAllegroPolling(false);
-              setAllegroSuccess(pollRes.data.message || 'Sukces! Token konta Allegro został zapisany w systemie PIM.');
+              setAllegroSuccess(pollRes.data.message || 'Sukces! Token konta Allegro został zapisany w skarbcu klienta.');
               setAllegroAuthData(null);
               setAllegroAccountLabel('');
               setAllegroSetAsDefault(false);
+              setAllegroCustomClientId('');
+              setAllegroCustomClientSecret('');
               if (Array.isArray(pollRes.data.accounts)) {
                 setAllegroAccounts(pollRes.data.accounts);
               } else {
-                loadAllegroAccounts();
+                loadAllegroAccounts(targetWsId);
               }
+              refreshWorkspacesList();
             }
           } catch (pollErr) {
             if (pollErr.response && pollErr.response.status === 202) {
@@ -169,78 +395,218 @@ const AdminPanelView = ({
   const handleSetDefaultAllegroAccount = async (accountId) => {
     setAllegroError('');
     try {
-      const res = await axios.patch(`${API_URL}/api/allegro/auth/accounts/${encodeURIComponent(accountId)}/default`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.patch(
+        `${API_URL}/api/allegro/auth/accounts/${encodeURIComponent(accountId)}/default`,
+        {},
+        { headers: getWsHeaders() }
+      );
       if (Array.isArray(res.data?.accounts)) setAllegroAccounts(res.data.accounts);
+      refreshWorkspacesList();
     } catch (err) {
       setAllegroError(err.response?.data?.error || 'Nie udało się zmienić domyślnego konta Allegro.');
     }
   };
 
   const handleRemoveAllegroAccount = async (accountId, label) => {
-    if (!window.confirm(`Odłączyć konto Allegro "${label}" (#${accountId}) z Nexus ERP?`)) return;
+    if (!window.confirm(`Odłączyć konto Allegro "${label}" (#${accountId}) od klienta "${selectedWs?.name}"?`)) return;
     setAllegroError('');
     try {
-      const res = await axios.delete(`${API_URL}/api/allegro/auth/accounts/${encodeURIComponent(accountId)}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.delete(`${API_URL}/api/allegro/auth/accounts/${encodeURIComponent(accountId)}`, {
+        headers: getWsHeaders()
+      });
       if (Array.isArray(res.data?.accounts)) setAllegroAccounts(res.data.accounts);
+      refreshWorkspacesList();
     } catch (err) {
       setAllegroError(err.response?.data?.error || 'Nie udało się usunąć konta Allegro.');
     }
   };
 
-  const handleVerifyToken = async () => {
+  const handleVerifyBlAccount = async (accountId) => {
+     if (!selectedWorkspaceId || !accountId) return;
      setTokenError('');
      setTokenVerifyInfo(null);
-     setIsVerifyingToken(true);
+     setVerifyingBlId(accountId);
      try {
-        const res = await axios.post(`${API_URL}/api/settings/BASELINKER_TOKEN/verify`, {}, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await axios.post(
+          `${API_URL}/api/workspaces/${encodeURIComponent(selectedWorkspaceId)}/integrations/${encodeURIComponent(accountId)}/verify`,
+          {},
+          { headers: getWsHeaders() }
+        );
         setTokenVerifyInfo(res.data);
+        loadBaseLinkerAccounts(selectedWorkspaceId);
      } catch (err) {
         setTokenError(err.response?.data?.errorMessage || err.response?.data?.error || 'Nie udało się zweryfikować tokena BaseLinker.');
      } finally {
-        setIsVerifyingToken(false);
+        setVerifyingBlId('');
+     }
+  };
+
+  const handleSetDefaultBlAccount = async (accountId) => {
+     if (!selectedWorkspaceId || !accountId) return;
+     setTokenError('');
+     try {
+        const res = await axios.patch(
+          `${API_URL}/api/workspaces/${encodeURIComponent(selectedWorkspaceId)}/integrations/${encodeURIComponent(accountId)}`,
+          { isDefault: true },
+          { headers: getWsHeaders() }
+        );
+        if (Array.isArray(res.data?.accounts)) {
+          setBlAccounts(res.data.accounts);
+        } else {
+          loadBaseLinkerAccounts(selectedWorkspaceId);
+        }
+        refreshWorkspacesList();
+     } catch (err) {
+        setTokenError(err.response?.data?.error || 'Nie udało się zmienić domyślnego konta BaseLinker.');
+     }
+  };
+
+  const handleDeleteBlAccount = async (acc) => {
+     if (!selectedWorkspaceId || !acc?.id) return;
+     if (!window.confirm(`Usunąć konto BaseLinker "${acc.label}" z klienta "${selectedWs?.name}"?`)) return;
+     setTokenError('');
+     try {
+        const res = await axios.delete(
+          `${API_URL}/api/workspaces/${encodeURIComponent(selectedWorkspaceId)}/integrations/${encodeURIComponent(acc.id)}`,
+          { headers: getWsHeaders() }
+        );
+        if (Array.isArray(res.data?.accounts)) {
+          setBlAccounts(res.data.accounts);
+        } else {
+          loadBaseLinkerAccounts(selectedWorkspaceId);
+        }
+        if (blEditingAccountId === acc.id) {
+          setBlEditingAccountId('');
+          setBlLabel('BaseLinker Główny');
+        }
+        refreshWorkspacesList();
+     } catch (err) {
+        setTokenError(err.response?.data?.error || 'Nie udało się usunąć konta BaseLinker.');
      }
   };
 
   const handleSaveToken = async () => {
+     if (!selectedWorkspaceId) return;
      setTokenError('');
      setTokenSaved(false);
      setTokenVerifyInfo(null);
      const trimmed = baseLinkerToken.trim();
      if (trimmed.length < 25) {
-        setTokenError(`Token jest zbyt krótki (${trimmed.length} zn.). Wklej pełny, ważny token API z Base.com — baza danych nie została zmieniona.`);
+        setTokenError(`Token jest zbyt krótki (${trimmed.length} zn.). Wklej pełny, ważny token API z Base.com — skarbiec nie został zmieniony.`);
         return;
      }
      setIsSavingToken(true);
      try {
         const res = await axios.post(
-          `${API_URL}/api/settings`,
-          { key: 'BASELINKER_TOKEN', value: trimmed, confirmOverwrite },
-          { headers: { Authorization: `Bearer ${token}` } }
+          `${API_URL}/api/workspaces/${encodeURIComponent(selectedWorkspaceId)}/integrations/baselinker`,
+          {
+            ...(blEditingAccountId ? { accountId: blEditingAccountId } : {}),
+            label: blLabel.trim() || 'BaseLinker Główny',
+            token: trimmed,
+            isDefault: Boolean(blSetAsDefault)
+          },
+          { headers: getWsHeaders() }
         );
         setBaseLinkerToken('');
-        setConfirmOverwrite(false);
-        setTokenMeta(res.data || null);
+        setBlEditingAccountId('');
+        setBlLabel('BaseLinker Główny');
+        if (Array.isArray(res.data?.accounts)) {
+          setBlAccounts(res.data.accounts);
+        } else {
+          loadBaseLinkerAccounts(selectedWorkspaceId);
+        }
         setTokenVerifyInfo({
           ok: true,
-          source: res.data?.tokenSource || 'db',
+          source: 'vault',
           encrypted: true,
           inventories: res.data?.inventories || []
         });
         setTokenSaved(true);
+        refreshWorkspacesList();
         setTimeout(() => setTokenSaved(false), 5000);
      } catch (err) {
-        setTokenError(err.response?.data?.error || 'Błąd weryfikacji lub zapisu tokena (poprzedni stan bazy został zachowany).');
+        setTokenError(err.response?.data?.error || 'Błąd weryfikacji lub zapisu tokena BaseLinker.');
      } finally {
         setIsSavingToken(false);
      }
   };
 
+  const handleSelectVhAccount = async (acc) => {
+     if (!selectedWorkspaceId || !acc?.id) return;
+     setVhError('');
+     setVhMessage('');
+     setVhVerifyInfo(null);
+     setVhCreateNew(false);
+     setVhEditingAccountId(acc.id);
+     setVhClientId('');
+     setVhClientSecret('');
+     try {
+        const res = await axios.get(
+          `${API_URL}/api/vonhalsky/config?accountId=${encodeURIComponent(acc.id)}`,
+          { headers: getWsHeaders() }
+        );
+        applyVonHalskyConfigToForm(res.data?.config || null);
+     } catch (err) {
+        setVhError(err.response?.data?.error || 'Nie udało się wczytać konta Von Halsky.');
+     }
+  };
+
+  const handleStartNewVhAccount = () => {
+     setVhError('');
+     setVhMessage('');
+     setVhVerifyInfo(null);
+     setVhCreateNew(true);
+     setVhEditingAccountId('');
+     setVhLabel('');
+     setVhIsDefault(vhAccounts.length === 0);
+     setVhClientId('');
+     setVhClientSecret('');
+     setVhOrgId('');
+     setVhOrgName('');
+     setVhConfig(null);
+  };
+
+  const handleSetDefaultVhAccount = async (accId) => {
+     if (!selectedWorkspaceId || !accId) return;
+     setVhError('');
+     try {
+        await axios.patch(
+          `${API_URL}/api/workspaces/${encodeURIComponent(selectedWorkspaceId)}/integrations/${encodeURIComponent(accId)}`,
+          { isDefault: true },
+          { headers: getWsHeaders() }
+        );
+        await loadVonHalskyAccountsAndConfig(selectedWorkspaceId, accId);
+        refreshWorkspacesList();
+     } catch (err) {
+        setVhError(err.response?.data?.error || 'Nie udało się ustawić domyślnego konta Von Halsky.');
+     }
+  };
+
+  const handleDeleteVhAccount = async (acc) => {
+     if (!selectedWorkspaceId || !acc?.id) return;
+     if (!window.confirm(`Usunąć konto InPost Von Halsky "${acc.label}" z klienta "${selectedWs?.name}"?`)) return;
+     setVhError('');
+     try {
+        await axios.delete(`${API_URL}/api/vonhalsky/accounts/${encodeURIComponent(acc.id)}`, {
+          headers: getWsHeaders()
+        });
+        await loadVonHalskyAccountsAndConfig(selectedWorkspaceId);
+        refreshWorkspacesList();
+     } catch (err) {
+        setVhError(err.response?.data?.error || 'Nie udało się usunąć konta Von Halsky.');
+     }
+  };
+
   const handleSaveVonHalskyConfig = async () => {
+     if (!selectedWorkspaceId) return;
      setVhError('');
      setVhMessage('');
      setIsSavingVh(true);
      try {
         const payload = {
+           ...(vhCreateNew ? { createNew: true } : (vhEditingAccountId ? { accountId: vhEditingAccountId } : {})),
+           label: vhLabel.trim() || 'InPost Von Halsky',
+           isDefault: Boolean(vhIsDefault),
            environment: vhEnv,
            organizationId: vhOrgId.trim(),
            organizationName: vhOrgName.trim(),
@@ -257,16 +623,18 @@ const AdminPanelView = ({
         if (vhClientSecret.trim()) payload.clientSecret = vhClientSecret.trim();
 
         const res = await axios.post(`${API_URL}/api/vonhalsky/config`, payload, {
-           headers: { Authorization: `Bearer ${token}` }
+           headers: getWsHeaders()
         });
+        setVhCreateNew(false);
         if (res.data?.config) {
-           setVhConfig(res.data.config);
-           setVhApiBaseUrl(res.data.config.apiBaseUrl || '');
-           setVhTokenUrl(res.data.config.tokenUrl || '');
+           applyVonHalskyConfigToForm(res.data.config);
+           if (res.data.config.accountId) setVhEditingAccountId(res.data.config.accountId);
         }
         setVhClientId('');
         setVhClientSecret('');
         setVhMessage(res.data?.message || 'Zapisano konfigurację InPost Von Halsky.');
+        await loadVonHalskyAccountsAndConfig(selectedWorkspaceId, res.data?.config?.accountId || vhEditingAccountId);
+        refreshWorkspacesList();
      } catch (err) {
         setVhError(err.response?.data?.error || 'Błąd zapisu konfiguracji InPost Von Halsky.');
      } finally {
@@ -275,11 +643,13 @@ const AdminPanelView = ({
   };
 
   const handleVerifyVonHalsky = async () => {
+     if (!selectedWorkspaceId) return;
      setVhError('');
      setVhVerifyInfo(null);
      setIsVerifyingVh(true);
      try {
         const candidate = {};
+        if (!vhCreateNew && vhEditingAccountId) candidate.accountId = vhEditingAccountId;
         if (vhClientId.trim()) candidate.clientId = vhClientId.trim();
         if (vhClientSecret.trim()) candidate.clientSecret = vhClientSecret.trim();
         if (vhEnv) candidate.environment = vhEnv;
@@ -287,7 +657,7 @@ const AdminPanelView = ({
         if (vhTokenUrl.trim()) candidate.tokenUrl = vhTokenUrl.trim();
 
         const res = await axios.post(`${API_URL}/api/vonhalsky/verify`, candidate, {
-           headers: { Authorization: `Bearer ${token}` }
+           headers: getWsHeaders()
         });
         setVhVerifyInfo(res.data);
         if (res.data?.ok && Array.isArray(res.data.organizations) && res.data.organizations.length === 1 && !vhOrgId.trim()) {
@@ -475,83 +845,249 @@ const AdminPanelView = ({
                   </tbody>
                 </table>
             ) : activeTab === 'INTEGRATIONS' ? (
-                <div className="p-12">
-                   <div className="max-w-3xl bg-white border border-slate-300 rounded-sm p-10 shadow-[0_15px_40px_rgba(0,0,0,0.03)] focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all">
-                      <div className="flex items-center mb-8">
+                <div className="p-8 md:p-10 space-y-8 bg-slate-50/40">
+                   {/* Wybór i zarządzanie przestrzeniami klientów (Multi-Workspace) */}
+                   <div className="max-w-4xl bg-white border border-slate-300 rounded-sm p-8 shadow-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+                         <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-indigo-50 rounded-sm flex items-center justify-center border border-indigo-200">
+                               <Layers className="w-6 h-6 text-indigo-600" />
+                            </div>
+                            <div>
+                               <h4 className="text-lg font-black text-slate-900 uppercase tracking-tighter">Przestrzenie Klientów (Multi-Workspace Vault)</h4>
+                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-0.5">
+                                 Każdy klient posiada izolowane klucze BaseLinker, Allegro, Von Halsky oraz katalog PIM/RMA
+                               </p>
+                            </div>
+                         </div>
+                         <div className="flex items-center gap-2">
+                            <button
+                               type="button"
+                               onClick={handleOpenCreateWorkspace}
+                               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-sm text-[10px] font-black uppercase tracking-widest flex items-center shadow-sm"
+                            >
+                               <Plus className="w-3.5 h-3.5 mr-1.5" /> Nowy Klient
+                            </button>
+                            {selectedWs && (
+                               <button
+                                  type="button"
+                                  onClick={handleOpenEditWorkspace}
+                                  className="px-3 py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-sm text-[10px] font-black uppercase tracking-widest flex items-center"
+                               >
+                                  <Edit3 className="w-3.5 h-3.5 mr-1.5" /> Edytuj
+                               </button>
+                            )}
+                            {selectedWs && !selectedWs.isDefault && (
+                               <button
+                                  type="button"
+                                  onClick={handleArchiveWorkspace}
+                                  className="px-3 py-2 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-sm text-[10px] font-black uppercase tracking-widest flex items-center"
+                               >
+                                  <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Archiwizuj
+                               </button>
+                            )}
+                         </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2.5">
+                         {adminWorkspaces.map(ws => {
+                            const isSelected = ws.id === selectedWorkspaceId;
+                            const s = ws.integrationsSummary || {};
+                            return (
+                               <button
+                                  key={ws.id}
+                                  type="button"
+                                  onClick={() => setSelectedWorkspaceId(ws.id)}
+                                  className={`px-4 py-2.5 rounded-sm border text-left transition-all flex items-center gap-3 ${
+                                    isSelected
+                                      ? 'bg-slate-900 text-white border-slate-900 shadow-md'
+                                      : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-300'
+                                  }`}
+                               >
+                                  <span className="w-3 h-3 rounded-full shrink-0 border border-white/40" style={{ backgroundColor: ws.badgeColor || '#4f46e5' }} />
+                                  <div>
+                                     <div className="text-xs font-black flex items-center gap-1.5">
+                                        {ws.name}
+                                        {ws.isDefault && (
+                                           <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${isSelected ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-700'}`}>Domyślny</span>
+                                        )}
+                                     </div>
+                                     <div className={`text-[9px] font-mono mt-0.5 ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                                        PIM: {ws.productCount ?? 0} • BL:{s.baselinkerCount ?? 0} AL:{s.allegroCount ?? 0} VH:{s.vonhalskyCount ?? 0}
+                                     </div>
+                                  </div>
+                               </button>
+                            );
+                         })}
+                      </div>
+
+                      {selectedWs && (
+                         <div className="mt-4 px-4 py-2.5 rounded-sm border flex items-center justify-between text-xs font-bold"
+                              style={{ borderColor: selectedWs.badgeColor || '#4f46e5', backgroundColor: `${selectedWs.badgeColor || '#4f46e5'}10` }}>
+                            <span className="flex items-center gap-2 text-slate-800">
+                               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: selectedWs.badgeColor || '#4f46e5' }} />
+                               Konfigurujesz skarbiec API dla klienta: <strong className="uppercase">{selectedWs.name}</strong>
+                               <span className="text-[10px] font-mono text-slate-500">({selectedWs.slug})</span>
+                            </span>
+                            <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                               Szyfrowanie AES-256-GCM + AAD
+                            </span>
+                         </div>
+                      )}
+                   </div>
+
+                   {/* Karta BaseLinker (Multi-Account w wybranym kliencie) */}
+                   <div className="max-w-4xl bg-white border border-slate-300 rounded-sm p-10 shadow-[0_15px_40px_rgba(0,0,0,0.03)] focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all">
+                      <div className="flex items-center mb-6">
                          <div className="w-16 h-16 bg-blue-50 rounded-sm flex items-center justify-center mr-6 border border-blue-100">
                             <CloudLightning className="w-8 h-8 text-blue-600 drop-shadow-sm" />
                          </div>
                          <div>
-                            <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Połączenie BaseLinker</h4>
-                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1">Główny Token Personalny / X-BLToken</p>
+                            <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Połączenia BaseLinker — {selectedWs?.name || 'Klient'}</h4>
+                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1">Izolowane Tokeny X-BLToken • Szyfrowanie AES-256-GCM</p>
                          </div>
                       </div>
                       
                       <div className="space-y-4">
-                         <p className="text-xs text-slate-500 font-bold mb-4">Wklej tutaj swój wygenerowany BaseLinker Token. Przed zapisem backend przetestuje połączenie z Base.com, zaszyfruje token (AES-256-GCM) i nigdy nie odeśle go z powrotem do przeglądarki.</p>
+                         <p className="text-xs text-slate-500 font-bold">
+                            Przed zapisem backend testuje token w Base.com (`getInventories`), szyfruje go osobno dla klienta <strong>{selectedWs?.name}</strong> z podpisem AAD i nigdy nie zwraca jawnego sekretu do przeglądarki.
+                         </p>
 
-                         {tokenMeta && (
-                           <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-sm text-xs">
-                             <div className="flex items-center gap-2 text-slate-700 font-bold">
-                               <ShieldCheck className={`w-4 h-4 ${tokenMeta.configured ? 'text-emerald-600' : 'text-amber-500'}`} />
-                               <span>
-                                 Status: {tokenMeta.configured
-                                   ? `Zapisany (${tokenMeta.tokenSource === 'env' ? 'ENV serwera' : tokenMeta.encrypted ? 'Szyfrowany AES-256-GCM w bazie' : 'Legacy w bazie'})`
-                                   : 'Brak aktywnego klucza'}
-                               </span>
-                               {tokenMeta.updatedAt && (
-                                 <span className="text-[11px] font-normal text-slate-500">
-                                   • Zmiana: {new Date(tokenMeta.updatedAt).toLocaleString('pl-PL')}
-                                 </span>
-                               )}
-                             </div>
-                             <button
-                               type="button"
-                               onClick={handleVerifyToken}
-                               disabled={isVerifyingToken}
-                               className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-sm text-[10px] font-black uppercase tracking-wider hover:bg-slate-100 disabled:opacity-50 flex items-center"
-                             >
-                               {isVerifyingToken ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
-                               Testuj połączenie
-                             </button>
-                           </div>
+                         {blAccounts.length > 0 ? (
+                            <div className="space-y-2 mb-4">
+                               <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                  Konta BaseLinker klienta ({blAccounts.length})
+                               </div>
+                               {blAccounts.map(acc => (
+                                  <div key={acc.id} className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-sm">
+                                     <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                           <span className="text-xs font-black text-slate-900">{acc.label}</span>
+                                           <span className="text-[10px] font-mono bg-white border border-slate-300 px-1.5 py-0.5 rounded text-slate-600">{acc.maskedCredential || '••••'}</span>
+                                           {acc.isDefault && (
+                                              <span className="text-[9px] font-black uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">Domyślne</span>
+                                           )}
+                                           {acc.configured && (
+                                              <span className="text-[9px] font-black uppercase bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">AES-256-GCM OK</span>
+                                           )}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 mt-1">
+                                           {acc.lastVerifiedAt ? `Zweryfikowano: ${new Date(acc.lastVerifiedAt).toLocaleString('pl-PL')}` : 'Brak ostatniego testu'}
+                                           {Array.isArray(acc.metadata?.inventories) && acc.metadata.inventories.length > 0
+                                              ? ` • Katalogi: ${acc.metadata.inventories.map(i => `${i.name} [#${i.inventory_id}]`).join(', ')}`
+                                              : ''}
+                                        </div>
+                                     </div>
+                                     <div className="flex items-center gap-2">
+                                        <button
+                                           type="button"
+                                           onClick={() => handleVerifyBlAccount(acc.id)}
+                                           disabled={verifyingBlId === acc.id}
+                                           className="px-2.5 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-sm text-[10px] font-black uppercase hover:bg-slate-100 disabled:opacity-50 flex items-center"
+                                        >
+                                           {verifyingBlId === acc.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+                                           Testuj
+                                        </button>
+                                        {!acc.isDefault && (
+                                           <button
+                                              type="button"
+                                              onClick={() => handleSetDefaultBlAccount(acc.id)}
+                                              className="px-2.5 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-sm text-[10px] font-black uppercase hover:bg-slate-100"
+                                           >
+                                              Ustaw domyślne
+                                           </button>
+                                        )}
+                                        <button
+                                           type="button"
+                                           onClick={() => {
+                                              setBlEditingAccountId(acc.id);
+                                              setBlLabel(acc.label || 'BaseLinker');
+                                              setBlSetAsDefault(Boolean(acc.isDefault));
+                                              setBaseLinkerToken('');
+                                           }}
+                                           className="px-2.5 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-sm text-[10px] font-black uppercase hover:bg-blue-100"
+                                        >
+                                           Podmień token
+                                        </button>
+                                        <button
+                                           type="button"
+                                           onClick={() => handleDeleteBlAccount(acc)}
+                                           className="p-1.5 bg-white border border-rose-200 text-rose-600 rounded-sm hover:bg-rose-50"
+                                           title="Usuń konto BaseLinker"
+                                        >
+                                           <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                     </div>
+                                  </div>
+                               ))}
+                            </div>
+                         ) : (
+                            <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-sm flex items-center gap-2">
+                               <AlertTriangle className="w-4 h-4 shrink-0" />
+                               Klient {selectedWs?.name} nie ma jeszcze skonfigurowanego tokena BaseLinker (fail-closed: nie odziedziczy klucza innego klienta).
+                            </div>
                          )}
 
-                         <div className="flex space-x-4">
-                            <input
-                               id="bl_personal_api_token_once"
-                               name="bl_personal_api_token_once"
-                               type="password"
-                               autoComplete="new-password"
-                               data-lpignore="true"
-                               data-1p-ignore="true"
-                               data-form-type="other"
-                               placeholder="Wklej pełny token Base.com (pole celowo zawsze puste)"
-                               className="flex-1 px-6 py-4 bg-slate-50 border border-slate-400 rounded-sm text-sm font-mono text-slate-900 focus:border-blue-500 focus:bg-white outline-none transition-all placeholder:text-slate-400"
-                               value={baseLinkerToken}
-                               onChange={(e) => setBaseLinkerToken(e.target.value)}
-                            />
-                            <button
-                               type="button"
-                               onClick={handleSaveToken}
-                               disabled={isSavingToken}
-                               className="px-8 py-4 bg-slate-900 text-white rounded-sm text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 shadow-xl shadow-slate-900/10 transition-all active:scale-95 flex items-center hover:shadow-indigo-500/20 disabled:opacity-50"
-                            >
-                               {isSavingToken ? <><Loader2 className="w-4 h-4 mr-2 animate-spin"/> Weryfikacja...</> : tokenSaved ? <><CheckCircle2 className="w-4 h-4 mr-2 text-emerald-400"/> Zapisano i Zweryfikowano</> : <><Save className="w-4 h-4 mr-2"/> Zweryfikuj i Zapisz</>}
-                            </button>
+                         <div className="p-4 bg-slate-50 border border-slate-200 rounded-sm space-y-3">
+                            {blEditingAccountId && (
+                               <div className="flex items-center justify-between text-xs font-bold text-blue-800 bg-blue-50 border border-blue-200 px-3 py-2 rounded-sm">
+                                  <span>Tryb aktualizacji klucza dla konta: <strong>{blLabel}</strong></span>
+                                  <button
+                                     type="button"
+                                     onClick={() => {
+                                        setBlEditingAccountId('');
+                                        setBlLabel('BaseLinker Główny');
+                                     }}
+                                     className="text-[10px] uppercase font-black underline"
+                                  >
+                                     Dodaj jako nowe konto
+                                  </button>
+                               </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                               <input
+                                  type="text"
+                                  value={blLabel}
+                                  onChange={e => setBlLabel(e.target.value)}
+                                  placeholder="Nazwa własna konta BL (np. Konto Główne)"
+                                  className="md:col-span-5 px-3 py-2.5 bg-white border border-slate-300 rounded-sm text-xs font-bold outline-none focus:border-blue-500"
+                               />
+                               <label className="md:col-span-7 flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer select-none">
+                                  <input
+                                     type="checkbox"
+                                     checked={blSetAsDefault}
+                                     onChange={e => setBlSetAsDefault(e.target.checked)}
+                                     className="rounded border-slate-300"
+                                  />
+                                  Ustaw jako domyślne konto BaseLinker dla klienta {selectedWs?.name}
+                               </label>
+                            </div>
+
+                            <div className="flex flex-wrap gap-3">
+                               <input
+                                  id="bl_personal_api_token_once"
+                                  name="bl_personal_api_token_once"
+                                  type="password"
+                                  autoComplete="new-password"
+                                  data-lpignore="true"
+                                  data-1p-ignore="true"
+                                  data-form-type="other"
+                                  placeholder="Wklej pełny token Base.com (pole celowo zawsze puste)"
+                                  className="flex-1 min-w-[260px] px-5 py-3.5 bg-white border border-slate-400 rounded-sm text-sm font-mono text-slate-900 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400"
+                                  value={baseLinkerToken}
+                                  onChange={(e) => setBaseLinkerToken(e.target.value)}
+                               />
+                               <button
+                                  type="button"
+                                  onClick={handleSaveToken}
+                                  disabled={isSavingToken}
+                                  className="px-7 py-3.5 bg-slate-900 text-white rounded-sm text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 shadow-lg transition-all active:scale-95 flex items-center disabled:opacity-50"
+                               >
+                                  {isSavingToken ? <><Loader2 className="w-4 h-4 mr-2 animate-spin"/> Weryfikacja...</> : tokenSaved ? <><CheckCircle2 className="w-4 h-4 mr-2 text-emerald-400"/> Zapisano i Zweryfikowano</> : <><Save className="w-4 h-4 mr-2"/> {blEditingAccountId ? 'Podmień i Zapisz' : 'Zweryfikuj i Dodaj'}</>}
+                               </button>
+                            </div>
                          </div>
-
-                         {tokenMeta?.configured && tokenMeta?.tokenSource === 'db' && (
-                           <label className="flex items-center gap-2 text-xs text-slate-600 font-semibold cursor-pointer select-none pt-1">
-                             <input
-                               type="checkbox"
-                               checked={confirmOverwrite}
-                               onChange={(e) => setConfirmOverwrite(e.target.checked)}
-                               className="rounded border-slate-400"
-                             />
-                             Świadomie potwierdzam zastąpienie obecnego tokena w bazie (wymagane tylko jeśli obecny token działa)
-                           </label>
-                         )}
 
                          {tokenError && (
                            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-sm flex items-start gap-2">
@@ -564,7 +1100,7 @@ const AdminPanelView = ({
                            <div className={`p-3.5 border text-xs font-bold rounded-sm ${tokenVerifyInfo.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
                              {tokenVerifyInfo.ok ? (
                                <span>
-                                 Połączenie z Base.com aktywne (źródło: {tokenVerifyInfo.source === 'env' ? 'ENV' : 'baza AES-256-GCM'}). Wykryte katalogi ({tokenVerifyInfo.inventories?.length || 0}): {(tokenVerifyInfo.inventories || []).map(i => `${i.name} [#${i.inventory_id}]`).join(', ') || 'brak'}.
+                                 Połączenie z Base.com aktywne (AES-256-GCM). Wykryte katalogi ({tokenVerifyInfo.inventories?.length || 0}): {(tokenVerifyInfo.inventories || []).map(i => `${i.name} [#${i.inventory_id}]`).join(', ') || 'brak'}.
                                </span>
                              ) : (
                                <span>Test połączenia nieudany ({tokenVerifyInfo.errorCode}): {tokenVerifyInfo.errorMessage}</span>
@@ -574,19 +1110,22 @@ const AdminPanelView = ({
                       </div>
                    </div>
 
-                   <div className="max-w-3xl bg-white border border-slate-300 rounded-sm p-10 shadow-[0_15px_40px_rgba(0,0,0,0.03)] focus-within:ring-4 focus-within:ring-orange-500/10 transition-all mt-8">
-                      <div className="flex items-center mb-8">
+                   {/* Karta Autoryzacji Allegro (Per-Workspace) */}
+                   <div className="max-w-4xl bg-white border border-slate-300 rounded-sm p-10 shadow-[0_15px_40px_rgba(0,0,0,0.03)] focus-within:ring-4 focus-within:ring-orange-500/10 transition-all">
+                      <div className="flex items-center mb-6">
                          <div className="w-16 h-16 bg-orange-50 rounded-sm flex items-center justify-center mr-6 border border-orange-100">
                             <ShoppingCart className="w-8 h-8 text-orange-500 drop-shadow-sm" />
                          </div>
                          <div>
-                            <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Autoryzacja Allegro</h4>
-                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1">OAuth2 Device Flow / Odświeżanie Tokenu</p>
+                            <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Autoryzacja Allegro — {selectedWs?.name || 'Klient'}</h4>
+                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1">OAuth2 Device Flow • Opcjonalne własne App Client ID / Secret klienta</p>
                          </div>
                       </div>
                       
                       <div className="space-y-4">
-                         <p className="text-xs text-slate-500 font-bold mb-2">Podłącz dowolną liczbę kont sprzedawców Allegro w ramach jednej aplikacji API. Wszystkie tokeny OAuth2 są szyfrowane (AES-256-GCM) i nigdy nie są odsyłane do przeglądarki.</p>
+                         <p className="text-xs text-slate-500 font-bold mb-2">
+                            Podłącz dowolną liczbę kont sprzedawców Allegro dla klienta <strong>{selectedWs?.name}</strong>. Konta są całkowicie odizolowane od pozostałych klientów w systemie.
+                         </p>
 
                          {allegroAccounts.length > 0 && (
                            <div className="space-y-2 mb-4">
@@ -596,7 +1135,7 @@ const AdminPanelView = ({
                              {allegroAccounts.map(acc => (
                                <div key={acc.accountId} className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-sm">
                                  <div>
-                                   <div className="flex items-center gap-2">
+                                   <div className="flex items-center gap-2 flex-wrap">
                                      <span className="text-xs font-black text-slate-900">{acc.label}</span>
                                      <span className="text-[10px] font-mono bg-white border border-slate-300 px-1.5 py-0.5 rounded text-slate-600">#{acc.accountId}</span>
                                      {acc.isDefault && (
@@ -605,6 +1144,9 @@ const AdminPanelView = ({
                                      <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${acc.hasWriteScope ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-800'}`}>
                                        {acc.hasWriteScope ? 'offers:write OK' : 'Brak offers:write'}
                                      </span>
+                                     {acc.hasCustomApp && (
+                                       <span className="text-[9px] font-black uppercase bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Własna App OAuth</span>
+                                     )}
                                    </div>
                                    <div className="text-[10px] text-slate-500 mt-1">
                                      {acc.login ? `Login: ${acc.login} • ` : ''}
@@ -663,6 +1205,30 @@ const AdminPanelView = ({
                                  Ustaw jako domyślne
                                </label>
                              </div>
+
+                             <details className="pt-1">
+                               <summary className="text-[11px] font-bold text-slate-600 cursor-pointer select-none">
+                                 Opcjonalnie: użyj własnej aplikacji Allegro klienta (custom Client ID &amp; Secret)
+                               </summary>
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2.5">
+                                 <input
+                                   type="text"
+                                   value={allegroCustomClientId}
+                                   onChange={e => setAllegroCustomClientId(e.target.value)}
+                                   placeholder="Własny ALLEGRO_CLIENT_ID (puste = domyślny z serwera)"
+                                   className="px-3 py-2 bg-white border border-slate-300 rounded-sm text-xs font-mono"
+                                 />
+                                 <input
+                                   type="password"
+                                   autoComplete="new-password"
+                                   value={allegroCustomClientSecret}
+                                   onChange={e => setAllegroCustomClientSecret(e.target.value)}
+                                   placeholder="Własny ALLEGRO_CLIENT_SECRET (szyfrowany AES-256-GCM)"
+                                   className="px-3 py-2 bg-white border border-slate-300 rounded-sm text-xs font-mono"
+                                 />
+                               </div>
+                             </details>
+
                              <button
                                type="button"
                                onClick={() => startAllegroAuth()}
@@ -710,29 +1276,118 @@ const AdminPanelView = ({
                       </div>
                    </div>
 
-                   {/* Karta konfiguracji InPost Von Halsky API */}
-                   <div className="max-w-3xl bg-white border border-slate-300 rounded-sm p-10 shadow-[0_15px_40px_rgba(0,0,0,0.03)] focus-within:ring-4 focus-within:ring-yellow-500/10 transition-all mt-8">
+                   {/* Karta konfiguracji InPost Von Halsky API (Multi-Account w wybranym kliencie) */}
+                   <div className="max-w-4xl bg-white border border-slate-300 rounded-sm p-10 shadow-[0_15px_40px_rgba(0,0,0,0.03)] focus-within:ring-4 focus-within:ring-yellow-500/10 transition-all">
                       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                          <div className="flex items-center">
                             <div className="w-16 h-16 bg-yellow-50 rounded-sm flex items-center justify-center mr-6 border border-yellow-200 font-black text-xl text-yellow-700">
                                VH
                             </div>
                             <div>
-                               <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">InPost Von Halsky API</h4>
+                               <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">InPost Von Halsky API — {selectedWs?.name || 'Klient'}</h4>
                                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-1">OAuth 2.1 Client Credentials • OpenAPI v1.7.12</p>
                             </div>
                          </div>
-                         <span className={`px-3 py-1 rounded text-[10px] font-black uppercase ${vhConfig?.configured ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                            {vhConfig?.configured ? `Połączono (${vhConfig.environment?.toUpperCase()})` : 'Oczekuje na Client ID / Secret'}
-                         </span>
+                         <div className="flex items-center gap-2">
+                            <span className={`px-3 py-1 rounded text-[10px] font-black uppercase ${vhConfig?.configured ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                               {vhConfig?.configured ? `Połączono (${vhConfig.environment?.toUpperCase()})` : 'Oczekuje na Client ID / Secret'}
+                            </span>
+                            <button
+                               type="button"
+                               onClick={handleStartNewVhAccount}
+                               className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-sm text-[10px] font-black uppercase tracking-wider flex items-center"
+                            >
+                               <Plus className="w-3 h-3 mr-1" /> Nowe konto VH
+                            </button>
+                         </div>
                       </div>
 
                       <div className="space-y-4">
                          <p className="text-xs text-slate-500 font-bold">
-                            Sekret <span className="font-mono">client_secret</span> jest szyfrowany (AES-256-GCM) w tabeli <span className="font-mono">SystemSetting</span> i nigdy nie wraca do przeglądarki. Domyślne ustawienia (wysyłka, GPSR, polityki) można zapisać już teraz przed uzyskaniem kluczy z portalu InPost.
+                            Sekret <span className="font-mono">client_secret</span> jest szyfrowany (AES-256-GCM + AAD) w skarbcu klienta <strong>{selectedWs?.name}</strong> i nigdy nie wraca do przeglądarki.
                          </p>
 
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         {vhAccounts.length > 0 && (
+                            <div className="space-y-2">
+                               <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                  Zapisane konta InPost Von Halsky ({vhAccounts.length})
+                               </div>
+                               {vhAccounts.map(acc => (
+                                  <div
+                                     key={acc.id}
+                                     className={`flex flex-wrap items-center justify-between gap-3 p-3 border rounded-sm ${
+                                        !vhCreateNew && vhEditingAccountId === acc.id
+                                           ? 'bg-yellow-50/70 border-yellow-400'
+                                           : 'bg-slate-50 border-slate-200'
+                                     }`}
+                                  >
+                                     <div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                           <span className="text-xs font-black text-slate-900">{acc.label}</span>
+                                           <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">{String(acc.environment || 'production').toUpperCase()}</span>
+                                           {acc.isDefault && <span className="text-[9px] font-black uppercase bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">Domyślne</span>}
+                                           <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${acc.configured ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-800'}`}>
+                                              {acc.configured ? 'Klucze OK' : 'Brak sekretów'}
+                                           </span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 font-mono mt-1">
+                                           {acc.maskedCredential ? `ClientID: ${acc.maskedCredential} • ` : ''}
+                                           {acc.externalAccountId ? `Org: ${acc.externalAccountId}` : 'Org: auto-detekcja'}
+                                        </div>
+                                     </div>
+                                     <div className="flex items-center gap-2">
+                                        <button
+                                           type="button"
+                                           onClick={() => handleSelectVhAccount(acc)}
+                                           className="px-2.5 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-sm text-[10px] font-black uppercase hover:bg-slate-100"
+                                        >
+                                           Edytuj
+                                        </button>
+                                        {!acc.isDefault && (
+                                           <button
+                                              type="button"
+                                              onClick={() => handleSetDefaultVhAccount(acc.id)}
+                                              className="px-2.5 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-sm text-[10px] font-black uppercase hover:bg-slate-100"
+                                           >
+                                              Ustaw domyślne
+                                           </button>
+                                        )}
+                                        <button
+                                           type="button"
+                                           onClick={() => handleDeleteVhAccount(acc)}
+                                           className="p-1.5 bg-white border border-rose-200 text-rose-600 rounded-sm hover:bg-rose-50"
+                                           title="Usuń konto Von Halsky"
+                                        >
+                                           <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                     </div>
+                                  </div>
+                               ))}
+                            </div>
+                         )}
+
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                            <div>
+                               <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Nazwa konta Von Halsky (etykieta)</label>
+                               <input
+                                  type="text"
+                                  value={vhLabel}
+                                  onChange={e => setVhLabel(e.target.value)}
+                                  placeholder="np. Sklep Główny / Konto B2B"
+                                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-sm text-xs font-bold"
+                               />
+                            </div>
+                            <div className="flex items-end pb-2">
+                               <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
+                                  <input
+                                     type="checkbox"
+                                     checked={vhIsDefault}
+                                     onChange={e => setVhIsDefault(e.target.checked)}
+                                     className="rounded border-slate-300"
+                                  />
+                                  Ustaw jako domyślne konto Von Halsky tego klienta
+                               </label>
+                            </div>
                             <div>
                                <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Środowisko API</label>
                                <select
@@ -780,6 +1435,7 @@ const AdminPanelView = ({
                                </label>
                                <input
                                   type="password"
+                                  autoComplete="new-password"
                                   value={vhClientSecret}
                                   onChange={e => setVhClientSecret(e.target.value)}
                                   placeholder={vhConfig?.hasClientSecret ? 'Pozostaw puste, aby zachować obecny' : 'Wklej Client Secret'}
@@ -874,7 +1530,7 @@ const AdminPanelView = ({
                                className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-sm text-[10px] font-black uppercase tracking-[0.18em] flex items-center disabled:opacity-50"
                             >
                                {isSavingVh ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                               Zapisz konfigurację Von Halsky
+                               {vhCreateNew ? 'Dodaj nowe konto Von Halsky' : 'Zapisz konto Von Halsky'}
                             </button>
                             <button
                                type="button"
@@ -927,6 +1583,149 @@ const AdminPanelView = ({
                          )}
                       </div>
                    </div>
+
+                   {/* Dziennik Zdarzeń Bezpieczeństwa (Audit Log) */}
+                   <div className="max-w-4xl bg-white border border-slate-300 rounded-sm p-6 shadow-sm">
+                      <div className="flex items-center justify-between gap-3">
+                         <div className="flex items-center gap-3">
+                            <History className="w-5 h-5 text-slate-600" />
+                            <div>
+                               <h5 className="text-xs font-black uppercase tracking-widest text-slate-800">
+                                  Dziennik Zdarzeń Bezpieczeństwa — {selectedWs?.name || 'Klient'}
+                               </h5>
+                               <p className="text-[10px] text-slate-500 font-bold">
+                                  Audyt zapisu/usunięcia tokenów, testów połączeń i ręcznych eksportów
+                               </p>
+                            </div>
+                         </div>
+                         <button
+                            type="button"
+                            onClick={() => {
+                               const next = !showAuditLogs;
+                               setShowAuditLogs(next);
+                               if (next && selectedWorkspaceId) loadAuditLogs(selectedWorkspaceId);
+                            }}
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-sm text-[10px] font-black uppercase tracking-wider"
+                         >
+                            {showAuditLogs ? 'Ukryj dziennik' : 'Pokaż dziennik'}
+                         </button>
+                      </div>
+
+                      {showAuditLogs && (
+                         <div className="mt-4 border-t border-slate-200 pt-3">
+                            {isLoadingAuditLogs ? (
+                               <div className="py-4 text-xs text-slate-500 flex items-center gap-2">
+                                  <Loader2 className="w-4 h-4 animate-spin" /> Ładowanie logów bezpieczeństwa...
+                               </div>
+                            ) : auditLogs.length === 0 ? (
+                               <div className="py-4 text-xs text-slate-500 font-bold">Brak zarejestrowanych zdarzeń dla tego klienta.</div>
+                            ) : (
+                               <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 text-[11px]">
+                                  {auditLogs.map(log => (
+                                     <div key={log.id} className="py-2 flex flex-wrap items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                           <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${log.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                              {log.status}
+                                           </span>
+                                           <span className="font-mono font-bold text-slate-800">{log.action}</span>
+                                           {log.provider && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">{log.provider}</span>}
+                                           {(log.integrationAccountId || log.entityId) && (
+                                              <span className="text-slate-400 font-mono">
+                                                 [{[log.integrationAccountId, log.entityId].filter(Boolean).join(':')}]
+                                              </span>
+                                           )}
+                                        </div>
+                                        <span className="text-[10px] text-slate-400 font-mono">
+                                           {new Date(log.createdAt).toLocaleString('pl-PL')}
+                                        </span>
+                                     </div>
+                                  ))}
+                               </div>
+                            )}
+                         </div>
+                      )}
+                   </div>
+
+                   {/* Modal Tworzenia / Edycji Przestrzeni Klienta */}
+                   {isWsModalOpen && (
+                      <div className="fixed inset-0 z-[220] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+                         <form onSubmit={handleSaveWorkspace} className="bg-white rounded-lg shadow-2xl border border-slate-300 w-full max-w-md overflow-hidden">
+                            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+                               <h4 className="text-xs font-black uppercase tracking-widest">
+                                  {wsForm.id ? 'Edycja Przestrzeni Klienta' : 'Nowa Przestrzeń Klienta'}
+                               </h4>
+                               <button type="button" onClick={() => setIsWsModalOpen(false)} className="text-slate-400 hover:text-white">
+                                  <X className="w-4 h-4" />
+                               </button>
+                            </div>
+                            <div className="p-6 space-y-4">
+                               <div>
+                                  <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Nazwa Klienta *</label>
+                                  <input
+                                     type="text"
+                                     value={wsForm.name}
+                                     onChange={e => setWsForm(prev => ({ ...prev, name: e.target.value }))}
+                                     placeholder="np. Klient B — BioPharma Sp. z o.o."
+                                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs font-bold outline-none focus:border-indigo-500"
+                                     autoFocus
+                                  />
+                               </div>
+                               <div>
+                                  <label className="text-[10px] font-black uppercase text-slate-500 block mb-1.5">Kolor etykiety ostrzegawczej</label>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                     {WORKSPACE_COLOR_PRESETS.map(col => (
+                                        <button
+                                           key={col}
+                                           type="button"
+                                           onClick={() => setWsForm(prev => ({ ...prev, badgeColor: col }))}
+                                           className={`w-7 h-7 rounded-full border-2 transition-transform ${wsForm.badgeColor === col ? 'border-slate-900 scale-110' : 'border-transparent'}`}
+                                           style={{ backgroundColor: col }}
+                                           title={col}
+                                        />
+                                     ))}
+                                     <input
+                                        type="color"
+                                        value={wsForm.badgeColor}
+                                        onChange={e => setWsForm(prev => ({ ...prev, badgeColor: e.target.value }))}
+                                        className="w-8 h-8 rounded cursor-pointer border border-slate-300"
+                                     />
+                                  </div>
+                               </div>
+                               <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                                  <input
+                                     type="checkbox"
+                                     checked={Boolean(wsForm.isDefault)}
+                                     onChange={e => setWsForm(prev => ({ ...prev, isDefault: e.target.checked }))}
+                                     className="rounded border-slate-300"
+                                  />
+                                  Ustaw jako domyślną przestrzeń po zalogowaniu
+                               </label>
+                               {wsError && (
+                                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-sm">
+                                     {wsError}
+                                  </div>
+                               )}
+                            </div>
+                            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+                               <button
+                                  type="button"
+                                  onClick={() => setIsWsModalOpen(false)}
+                                  className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-sm text-[10px] font-black uppercase"
+                               >
+                                  Anuluj
+                               </button>
+                               <button
+                                  type="submit"
+                                  disabled={isSavingWs}
+                                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-sm text-[10px] font-black uppercase flex items-center disabled:opacity-50"
+                               >
+                                  {isSavingWs ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-1.5" />}
+                                  {wsForm.id ? 'Zapisz zmiany' : 'Utwórz klienta'}
+                               </button>
+                            </div>
+                         </form>
+                      </div>
+                   )}
                 </div>
             ) : activeTab === 'PHOTOROOM_DEBUG' ? (
                 <div className="p-8">

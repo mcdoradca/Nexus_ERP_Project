@@ -28,7 +28,8 @@ import {
   PlayCircle, StopCircle, Cloud, CloudLightning, Target, Zap, 
   Loader2, Paperclip, Send, Users, User, DollarSign, ArrowRight, CheckCircle2,
   Trash2, Mail, Lock, Shield, Eye, EyeOff, Check, Filter, Calendar, Briefcase, TrendingUp,
-  Package, Database, Image, FileText, Bot, BarChart3, LogOut, CheckSquare, CheckCircle, BookOpen
+  Package, Database, Image, FileText, Bot, BarChart3, LogOut, CheckSquare, CheckCircle, BookOpen,
+  ChevronDown, Layers
 } from 'lucide-react';
 
 import { getInitials, getDepartmentColor, describeBaselinkerError, describeAutofillError } from './utils';
@@ -44,6 +45,28 @@ function App() {
   }, [activeTab]);
   const [token, setToken] = useState(localStorage.getItem('aps_token'));
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+
+  // Multi-Workspace States
+  const [workspaces, setWorkspaces] = useState([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
+    const saved = localStorage.getItem('nexus_workspace_id') || '';
+    if (saved) {
+      axios.defaults.headers.common['X-Workspace-Id'] = saved;
+    }
+    return saved;
+  });
+  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
+  const workspaceMenuRef = useRef(null);
+  const activeWorkspaceIdRef = useRef(activeWorkspaceId);
+
+  const activeWorkspace = useMemo(() => {
+    return (
+      workspaces.find(w => w.id === activeWorkspaceId) ||
+      workspaces.find(w => w.isDefault) ||
+      workspaces[0] ||
+      null
+    );
+  }, [workspaces, activeWorkspaceId]);
   
   // Data States
   const [tasks, setTasks] = useState([]);
@@ -151,6 +174,89 @@ function App() {
 
   const filteredBrands = brands.filter(b => b.name.toLowerCase().includes(brandSearchTerm.toLowerCase()));
 
+  // Synchronizacja nagłówka X-Workspace-Id dla Axios i natywnego fetch()
+  useEffect(() => {
+    activeWorkspaceIdRef.current = activeWorkspaceId;
+    if (activeWorkspaceId) {
+      localStorage.setItem('nexus_workspace_id', activeWorkspaceId);
+      axios.defaults.headers.common['X-Workspace-Id'] = activeWorkspaceId;
+    } else {
+      delete axios.defaults.headers.common['X-Workspace-Id'];
+    }
+  }, [activeWorkspaceId]);
+
+  useEffect(() => {
+    const reqInterceptor = axios.interceptors.request.use((config) => {
+      const wsId = activeWorkspaceIdRef.current || localStorage.getItem('nexus_workspace_id');
+      if (wsId) {
+        config.headers = config.headers || {};
+        if (!config.headers['X-Workspace-Id'] && !config.headers['x-workspace-id']) {
+          config.headers['X-Workspace-Id'] = wsId;
+        }
+      }
+      return config;
+    });
+
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input, init = {}) => {
+      const wsId = activeWorkspaceIdRef.current || localStorage.getItem('nexus_workspace_id');
+      const rawUrl = typeof input === 'string' ? input : (input instanceof Request ? input.url : '');
+      const isApiCall = rawUrl && (rawUrl.startsWith(API_URL) || rawUrl.startsWith('/api/'));
+      if (wsId && isApiCall) {
+        const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
+        if (!headers.has('X-Workspace-Id')) {
+          headers.set('X-Workspace-Id', wsId);
+        }
+        return originalFetch(input, { ...init, headers });
+      }
+      return originalFetch(input, init);
+    };
+
+    return () => {
+      axios.interceptors.request.eject(reqInterceptor);
+      window.fetch = originalFetch;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleWsOutsideClick = (event) => {
+      if (workspaceMenuRef.current && !workspaceMenuRef.current.contains(event.target)) {
+        setIsWorkspaceMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleWsOutsideClick);
+    return () => document.removeEventListener('mousedown', handleWsOutsideClick);
+  }, []);
+
+  const loadWorkspaces = React.useCallback(async (overrideList = null) => {
+    if (!token && !overrideList) return [];
+    try {
+      let list = overrideList;
+      if (!Array.isArray(list)) {
+        const res = await axios.get(`${API_URL}/api/workspaces`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        list = Array.isArray(res.data?.workspaces) ? res.data.workspaces : [];
+      }
+      setWorkspaces(list);
+      if (list.length > 0) {
+        const currentId = activeWorkspaceIdRef.current || localStorage.getItem('nexus_workspace_id');
+        const matched = list.find(w => w.id === currentId);
+        const target = matched || list.find(w => w.isDefault) || list[0];
+        if (target && target.id !== currentId) {
+          activeWorkspaceIdRef.current = target.id;
+          localStorage.setItem('nexus_workspace_id', target.id);
+          axios.defaults.headers.common['X-Workspace-Id'] = target.id;
+          setActiveWorkspaceId(target.id);
+        }
+      }
+      return list;
+    } catch (err) {
+      console.error('[Workspaces] Błąd pobierania listy klientów:', err);
+      return [];
+    }
+  }, [token]);
+
   useEffect(() => {
     if (token) {
       const newSocket = io(API_URL, { 
@@ -158,7 +264,17 @@ function App() {
         auth: { token } 
       });
       setSocket(newSocket);
-      fetchData();
+
+      newSocket.on('connect', () => {
+        const wsId = activeWorkspaceIdRef.current || localStorage.getItem('nexus_workspace_id');
+        if (wsId) {
+          newSocket.emit('join_workspace', wsId);
+        }
+      });
+
+      loadWorkspaces().then(() => {
+        fetchData();
+      });
 
       newSocket.on('receive_direct_message', (msg) => {
         fetchUnreadCount();
@@ -174,9 +290,22 @@ function App() {
     }
   }, [token]);
 
-  const fetchData = async () => {
+  useEffect(() => {
+    if (socket && activeWorkspaceId) {
+      socket.emit('join_workspace', activeWorkspaceId);
+    }
+  }, [socket, activeWorkspaceId]);
+
+  const fetchData = async (overrideWorkspaceId = null) => {
     try {
-      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const explicitWsId = typeof overrideWorkspaceId === 'string' && overrideWorkspaceId.trim() ? overrideWorkspaceId.trim() : '';
+      const effWsId = explicitWsId || activeWorkspaceIdRef.current || localStorage.getItem('nexus_workspace_id');
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(effWsId ? { 'X-Workspace-Id': effWsId } : {})
+        }
+      };
       const [t, p, c, u, b, pr, n, co] = await Promise.all([
         axios.get(`${API_URL}/api/tasks`, config),
         axios.get(`${API_URL}/api/projects`, config),
@@ -199,6 +328,25 @@ function App() {
     } catch (err) {
       if (err.response?.status === 401) handleLogout();
     }
+  };
+
+  const handleSwitchWorkspace = async (nextWorkspaceId) => {
+    setIsWorkspaceMenuOpen(false);
+    if (!nextWorkspaceId || nextWorkspaceId === activeWorkspaceIdRef.current) return;
+    activeWorkspaceIdRef.current = nextWorkspaceId;
+    localStorage.setItem('nexus_workspace_id', nextWorkspaceId);
+    axios.defaults.headers.common['X-Workspace-Id'] = nextWorkspaceId;
+    setActiveWorkspaceId(nextWorkspaceId);
+    setEditingProduct(null);
+    localStorage.removeItem('aps_editing_product');
+    setProducts([]);
+    if (activeTab === 'unifiedHub') {
+      setActiveTab('products');
+    }
+    if (socket) {
+      socket.emit('join_workspace', nextWorkspaceId);
+    }
+    await fetchData(nextWorkspaceId);
   };
 
   const fetchUnreadCount = async () => {
@@ -226,8 +374,10 @@ function App() {
   const handleLogout = React.useCallback(() => {
     localStorage.removeItem('aps_token');
     localStorage.removeItem('aps_user');
+    localStorage.removeItem('aps_editing_product');
     setToken(null);
     setCurrentUser(null);
+    setWorkspaces([]);
   }, []);
 
   useEffect(() => {
@@ -1254,8 +1404,8 @@ function App() {
         
         {/* HEADER (Minimalist) */}
         <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 shrink-0 z-40">
-           {/* Breadcrumb / Context */}
-           <div className="flex items-center gap-3">
+           {/* Breadcrumb / Context + Workspace Switcher */}
+           <div className="flex items-center gap-3 min-w-0">
              <div className="md:hidden flex items-center">
                <img src="/logo.jpg" alt="NeS Logo" className="w-6 h-6 rounded mr-2" />
                <span className="font-semibold text-sm">NeS</span>
@@ -1265,6 +1415,87 @@ function App() {
                <span className="text-slate-300 mx-2">/</span>
                <span className="font-semibold text-slate-800 capitalize">{activeTab.replace('-', ' ')}</span>
              </div>
+
+             {/* Multi-Workspace Client Switcher */}
+             {workspaces.length > 0 && (
+               <div className="relative ml-2" ref={workspaceMenuRef}>
+                 <button
+                   type="button"
+                   onClick={() => setIsWorkspaceMenuOpen(prev => !prev)}
+                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-all text-xs font-bold text-slate-800 shadow-sm"
+                   style={activeWorkspace && !activeWorkspace.isDefault ? { borderColor: activeWorkspace.badgeColor || '#4f46e5', backgroundColor: `${activeWorkspace.badgeColor || '#4f46e5'}12` } : undefined}
+                   title="Aktywna przestrzeń klienta (izolowane PIM, BaseLinker, Allegro, Von Halsky, RMA)"
+                 >
+                   <span
+                     className="w-2.5 h-2.5 rounded-full shrink-0"
+                     style={{ backgroundColor: activeWorkspace?.badgeColor || '#4f46e5' }}
+                   />
+                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 hidden sm:inline">Klient:</span>
+                   <span className="font-black truncate max-w-[160px]">{activeWorkspace?.name || 'Domyślny'}</span>
+                   {activeWorkspace && (
+                     <span className="hidden xl:inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">
+                       {activeWorkspace.productCount ?? 0} prod.
+                     </span>
+                   )}
+                   <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isWorkspaceMenuOpen ? 'rotate-180' : ''}`} />
+                 </button>
+
+                 {isWorkspaceMenuOpen && (
+                   <div className="absolute left-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 z-[110] overflow-hidden">
+                     <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 flex items-center gap-1.5">
+                         <Layers className="w-3.5 h-3.5 text-indigo-600" /> Przestrzeń Klienta (Multi-Workspace)
+                       </span>
+                       <span className="text-[10px] font-bold text-slate-400">{workspaces.length}</span>
+                     </div>
+                     <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+                       {workspaces.map(ws => {
+                         const isCurrent = ws.id === activeWorkspace?.id;
+                         const summary = ws.integrationsSummary || {};
+                         return (
+                           <button
+                             key={ws.id}
+                             type="button"
+                             onClick={() => handleSwitchWorkspace(ws.id)}
+                             className={`w-full text-left px-4 py-3 flex items-center justify-between hover:bg-slate-50 transition-colors ${isCurrent ? 'bg-indigo-50/60' : ''}`}
+                           >
+                             <div className="min-w-0 pr-2">
+                               <div className="flex items-center gap-2">
+                                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ws.badgeColor || '#4f46e5' }} />
+                                 <span className="text-xs font-black text-slate-900 truncate">{ws.name}</span>
+                                 {ws.isDefault && (
+                                   <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">Dom.</span>
+                                 )}
+                               </div>
+                               <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-2 font-mono">
+                                 <span>PIM: {ws.productCount ?? 0}</span>
+                                 <span>•</span>
+                                 <span>BL:{summary.baselinkerCount ?? 0} AL:{summary.allegroCount ?? 0} VH:{summary.vonhalskyCount ?? 0}</span>
+                               </div>
+                             </div>
+                             {isCurrent && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
+                           </button>
+                         );
+                       })}
+                     </div>
+                     {currentUser?.role === 'ADMIN' && (
+                       <div className="p-2.5 bg-slate-50 border-t border-slate-200">
+                         <button
+                           type="button"
+                           onClick={() => {
+                             setIsWorkspaceMenuOpen(false);
+                             setActiveTab('admin');
+                           }}
+                           className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5"
+                         >
+                           <Settings className="w-3.5 h-3.5" /> Zarządzaj klientami i kluczami API
+                         </button>
+                       </div>
+                     )}
+                   </div>
+                 )}
+               </div>
+             )}
            </div>
            
            {/* Actions */}
@@ -1331,15 +1562,16 @@ function App() {
             {activeTab === 'dashboard' && <EmployeeDashboardView currentUser={currentUser} tasks={tasks} notifications={notifications} campaigns={campaigns} API_URL={API_URL} onSelectTask={setSelectedTask} />}
             {activeTab === 'kanban' && <KanbanView tasks={tasks} projects={projects} campaigns={campaigns} selectedFilterId={selectedFilterId} setSelectedFilterId={setSelectedFilterId} setIsNewTaskModalOpen={setIsNewTaskModalOpen} setSelectedTask={setSelectedTask} devMode={devMode} />}
             {activeTab === 'campaigns' && <CampaignsView campaigns={campaigns} brands={brands} companies={companies} timelineRange={timelineRange} setTimelineRange={setTimelineRange} setSelectedCampaign={setSelectedCampaign} setIsNewCampaignModalOpen={setIsNewCampaignModalOpen} devMode={devMode} />}
-            {activeTab === 'allegro-ads' && <AllegroAdsMonitor token={token} API_URL={API_URL} />}
-            {activeTab === 'portfolio' && <PortfolioManagerView token={token} API_URL={API_URL} />}
-            {activeTab === 'sentinel' && <GodModeAnalyticsView token={token} API_URL={API_URL} />}
-            {activeTab === 'zero-bleed' && <ZeroBleedHubView token={token} API_URL={API_URL} />}
+            {activeTab === 'allegro-ads' && <AllegroAdsMonitor key={activeWorkspaceId || 'default'} token={token} API_URL={API_URL} />}
+            {activeTab === 'portfolio' && <PortfolioManagerView key={activeWorkspaceId || 'default'} token={token} API_URL={API_URL} />}
+            {activeTab === 'sentinel' && <GodModeAnalyticsView key={activeWorkspaceId || 'default'} token={token} API_URL={API_URL} />}
+            {activeTab === 'zero-bleed' && <ZeroBleedHubView key={activeWorkspaceId || 'default'} token={token} API_URL={API_URL} />}
             {activeTab === 'meetings' && <MeetingDashboardView token={token} API_URL={API_URL} />}
             {activeTab === 'mtool' && <MToolView token={token} API_URL={API_URL} currentUser={currentUser} campaigns={campaigns} socket={socket} />}
             {activeTab === 'projects' && <ProjectsView projects={projects} tasks={tasks} currentUser={currentUser} setIsNewProjectModalOpen={setIsNewProjectModalOpen} setSelectedProject={setSelectedProject} devMode={devMode} />}
             {activeTab === 'crm' && <CrmView token={token} API_URL={API_URL} currentUser={currentUser} fetchAppGlobalData={fetchData} />}
             {activeTab === 'products' && <ProductsView 
+              key={activeWorkspaceId || 'default'}
               products={products} 
               currentUser={currentUser} 
               fetchAppGlobalData={fetchData}
@@ -1350,18 +1582,32 @@ function App() {
               }}
             />}
             {activeTab === 'unifiedHub' && <UnifiedProductPipelineView
+                key={`${activeWorkspaceId || 'default'}-${editingProduct || 'new'}`}
                 socket={socket}
                 currentUser={currentUser}
                 token={token}
                 editingProduct={editingProduct}
                 setEditingProduct={setEditingProduct}
                 fetchAppGlobalData={fetchData}
+                activeWorkspace={activeWorkspace}
                 onClose={() => setActiveTab('products')}
             />}
 
             {activeTab === 'chat' && renderChatInterface()}
             {activeTab === 'knowledge' && <KnowledgeBasePanel token={token} API_URL={API_URL} />}
-            {activeTab === 'admin' && <AdminPanelView users={users} setUsers={setUsers} setIsNewUserModalOpen={setIsNewUserModalOpen} setEditingUser={setEditingUser} setIsUserEditModalOpen={setIsUserEditModalOpen} token={token} API_URL={API_URL} />}
+            {activeTab === 'admin' && <AdminPanelView
+              key={activeWorkspaceId || 'default'}
+              users={users}
+              setUsers={setUsers}
+              setIsNewUserModalOpen={setIsNewUserModalOpen}
+              setEditingUser={setEditingUser}
+              setIsUserEditModalOpen={setIsUserEditModalOpen}
+              token={token}
+              API_URL={API_URL}
+              activeWorkspace={activeWorkspace}
+              workspaces={workspaces}
+              onWorkspacesChanged={loadWorkspaces}
+            />}
         </main>
       </div>
 

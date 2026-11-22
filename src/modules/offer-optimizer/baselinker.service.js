@@ -6,39 +6,38 @@ const { getBaseLinkerToken } = require('../../utils/secretVault');
 
 const BASELINKER_API_URL = 'https://api.baselinker.com/connector.php';
 
-// Rate Limiter Configuration (50 requests per 120 seconds)
+// Rate Limiter Configuration (50 requests per 120 seconds per workspace+account)
 const REQUESTS_LIMIT = 50;
 const WINDOW_MS = 120 * 1000;
-let requestTimestamps = [];
+const requestTimestampsByKey = new Map();
 
 /**
- * Globalna funkcja wypychająca payload z odpowiednim nagłówkiem bezpieczeństwa.
+ * Globalna funkcja wypychająca payload z odpowiednim nagłówkiem bezpieczeństwa (w izolacji per workspace + accountId).
  */
-async function callBaseLinkerApi(method, parameters = {}, retries = 3, backoff = 1000) {
-    // Rygorystyczna aplikacja Rate Limitera
+async function callBaseLinkerApi(method, parameters = {}, retries = 3, backoff = 1000, context = {}) {
+    const limiterKey = `${context?.workspaceId || 'default'}:${context?.accountId || 'default'}`;
     const now = Date.now();
-    requestTimestamps = requestTimestamps.filter(t => now - t < WINDOW_MS);
-    
+    let requestTimestamps = (requestTimestampsByKey.get(limiterKey) || []).filter(t => now - t < WINDOW_MS);
+
     if (requestTimestamps.length >= REQUESTS_LIMIT) {
         // Blokujemy ponawianie do upływu pełnych 120s od ostatniego zapytania!
         const newest = requestTimestamps[requestTimestamps.length - 1];
         const waitTime = WINDOW_MS - (now - newest);
-        
-        console.log(`[Rate Limiter BaseLinker] Limit ${REQUESTS_LIMIT} zapytań / 120s osiągnięty. Rygorystyczna pauza API na ${waitTime}ms...`);
-        
+
+        console.log(`[Rate Limiter BaseLinker:${limiterKey}] Limit ${REQUESTS_LIMIT} zapytań / 120s osiągnięty. Rygorystyczna pauza API na ${waitTime}ms...`);
+
         if (waitTime > 0) {
             await new Promise(r => setTimeout(r, waitTime));
         }
-        
-        // Po odczekaniu pełnego cooldownu, resetujemy całą historię dla nowej transzy zapytań
-        requestTimestamps = [];
-        requestTimestamps.push(Date.now());
+
+        requestTimestamps = [Date.now()];
     } else {
         requestTimestamps.push(now);
     }
+    requestTimestampsByKey.set(limiterKey, requestTimestamps);
 
     try {
-        const token = await getBaseLinkerToken(prisma);
+        const token = await getBaseLinkerToken(prisma, context || {});
 
         const params = new URLSearchParams();
         params.append('method', method);
@@ -54,6 +53,8 @@ async function callBaseLinkerApi(method, parameters = {}, retries = 3, backoff =
 
         if (method === 'setInventoryProductFields' || method === 'addInventoryProduct') {
             exportLogger.info(`[BaseLinkerService] Wywołanie API: ${method}`, {
+                workspaceId: context?.workspaceId || 'default',
+                accountId: context?.accountId || null,
                 parameters,
                 responseStatus: response.data?.status
             });
@@ -66,7 +67,7 @@ async function callBaseLinkerApi(method, parameters = {}, retries = 3, backoff =
                 if (retries > 0) {
                     console.warn(`[BaseLinkerService] Limit zapytań API. Oczekiwanie ${backoff}ms... Pozostało prób: ${retries}`);
                     await new Promise(res => setTimeout(res, backoff));
-                    return callBaseLinkerApi(method, parameters, retries - 1, backoff * 2);
+                    return callBaseLinkerApi(method, parameters, retries - 1, backoff * 2, context);
                 }
             }
             throw new Error(errMsg || 'BaseLinker zwraca status błędu API');
@@ -78,7 +79,7 @@ async function callBaseLinkerApi(method, parameters = {}, retries = 3, backoff =
             if (retries > 0) {
                 console.warn(`[BaseLinkerService] Limit zapytań HTTP 429. Oczekiwanie ${backoff}ms... Pozostało prób: ${retries}`);
                 await new Promise(res => setTimeout(res, backoff));
-                return callBaseLinkerApi(method, parameters, retries - 1, backoff * 2);
+                return callBaseLinkerApi(method, parameters, retries - 1, backoff * 2, context);
             }
         }
         console.error(`[BaseLinkerService] Critical API Fault - ${method}:`, error.message);
@@ -90,24 +91,24 @@ async function callBaseLinkerApi(method, parameters = {}, retries = 3, backoff =
  * Zbiór funkcji wykonawczych API BaseLinkera do manipulacji Ofertami.
  */
 class BaseLinkerService {
-    
+
     // Metoda wystawiona dla innych serwisów (np. Portfolio Managera) do bezpośrednich zapytań z ochroną limitów 429
-    static async rawCall(method, parameters = {}) {
-        return await callBaseLinkerApi(method, parameters);
+    static async rawCall(method, parameters = {}, context = {}) {
+        return await callBaseLinkerApi(method, parameters, 3, 1000, context);
     }
 
     // Pobiera wyselekcjonowane oferty z magazynu źródłowego do zasilenia silnika Optymalizatora AI
-    static async getInventoryProducts(inventoryId, productIds = []) {
+    static async getInventoryProducts(inventoryId, productIds = [], context = {}) {
         const payload = {
             inventory_id: inventoryId,
             products: productIds
         };
-        const res = await callBaseLinkerApi('getInventoryProductsData', payload);
+        const res = await callBaseLinkerApi('getInventoryProductsData', payload, 3, 1000, context);
         return res.products;
     }
 
     // Aplikuje finalny zrekonstruowany StandardizedDescription JSON do wewnątrz BaseLinkera
-    static async updateProductDescriptionAndTitle(inventoryId, productId, newTitle, newDescriptionHtml) {
+    static async updateProductDescriptionAndTitle(inventoryId, productId, newTitle, newDescriptionHtml, context = {}) {
         const payload = {
             inventory_id: inventoryId,
             products: {
@@ -120,24 +121,24 @@ class BaseLinkerService {
             }
         };
 
-        const res = await callBaseLinkerApi('setInventoryProductFields', payload);
+        const res = await callBaseLinkerApi('setInventoryProductFields', payload, 3, 1000, context);
         return res;
     }
     // Pozyskuje baselinkerInventoryId przeszukując wszystkie katalogi po baselinkerId
-    static async resolveInventoryId(productId) {
+    static async resolveInventoryId(productId, context = {}) {
         if (!productId) return null;
-        
+
         try {
-            const res = await callBaseLinkerApi('getInventories', {});
+            const res = await callBaseLinkerApi('getInventories', {}, 3, 1000, context);
             if (!res || !res.inventories || res.inventories.length === 0) return null;
-            
+
             for (const inv of res.inventories) {
                 const invId = inv.inventory_id;
-                const data = await callBaseLinkerApi('getInventoryProductsList', { 
-                    inventory_id: invId, 
-                    filter_id: parseInt(productId) 
-                });
-                
+                const data = await callBaseLinkerApi('getInventoryProductsList', {
+                    inventory_id: invId,
+                    filter_id: parseInt(productId)
+                }, 3, 1000, context);
+
                 if (data && data.products && Object.keys(data.products).length > 0) {
                     console.log(`[BaseLinkerService] Znaleziono baselinkerInventoryId: ${invId} dla produktu: ${productId}`);
                     return invId.toString();
@@ -146,7 +147,7 @@ class BaseLinkerService {
         } catch (err) {
             console.error(`[BaseLinkerService] Błąd podczas rozwiązywania inventoryId dla produktu ${productId}:`, err.message);
         }
-        
+
         return null;
     }
     
@@ -169,7 +170,7 @@ class BaseLinkerService {
         });
     }
 
-    static async exportOfferToBaselinker(inventoryId, productId, draftData) {
+    static async exportOfferToBaselinker(inventoryId, productId, draftData, context = {}) {
         // Przekierowanie do nowego, deterministycznego serwisu eksportującego v2
         const baselinkerExportService = require('../offer-optimizer-v2/baselinker.export.service');
         
@@ -178,29 +179,33 @@ class BaseLinkerService {
         // Jeśli nie mamy pełnego obiektu produktu (np. ean), pobieramy EAN z bazy aby mieć dane dla Allegro.
         let product = {};
         if (productId) {
-            const dbProd = await prisma.product.findFirst({ where: { baselinkerId: productId.toString() } });
+            const dbProd = await prisma.product.findFirst({
+                where: context?.workspaceId
+                    ? { workspaceId: context.workspaceId, baselinkerId: productId.toString() }
+                    : { baselinkerId: productId.toString() }
+            });
             if (dbProd) product = dbProd;
         }
 
-        const result = await baselinkerExportService.exportToBaselinker(inventoryId, productId, draftData, product);
+        const result = await baselinkerExportService.exportToBaselinker(inventoryId, productId, draftData, product, context);
         return result.apiResponse;
     }
 
     // --- ETAP 1 PIM: Wydobycie ID na podstawie EAN ---
-    static async getInventories() {
-        const res = await callBaseLinkerApi('getInventories');
+    static async getInventories(context = {}) {
+        const res = await callBaseLinkerApi('getInventories', {}, 3, 1000, context);
         if (res.inventories && res.inventories.length > 0) {
             return res.inventories[0].inventory_id;
         }
         throw new Error("BaseLinker: Brak skonfigurowanych magazynów (Inventories).");
     }
 
-    static async getAllInventoriesData() {
-        return await callBaseLinkerApi('getInventories');
+    static async getAllInventoriesData(context = {}) {
+        return await callBaseLinkerApi('getInventories', {}, 3, 1000, context);
     }
 
     // --- ETAP 4: Analityka i Sprzedaż Historyczna ---
-    static async getRecentSalesForEan(ean, days = 30) {
+    static async getRecentSalesForEan(ean, days = 30, context = {}) {
         if (!ean) return 0;
         
         try {
@@ -220,7 +225,7 @@ class BaseLinkerService {
                     payload.id_from = idFrom;
                 }
                 
-                const res = await callBaseLinkerApi('getOrders', payload);
+                const res = await callBaseLinkerApi('getOrders', payload, 3, 1000, context);
                 
                 if (!res.orders || res.orders.length === 0) {
                     break;
@@ -248,15 +253,15 @@ class BaseLinkerService {
         }
     }
 
-    static async fetchProductIdByEan(ean, inventoryId = null) {
-        if (!inventoryId) inventoryId = await this.getInventories();
+    static async fetchProductIdByEan(ean, inventoryId = null, context = {}) {
+        if (!inventoryId) inventoryId = await this.getInventories(context);
 
         const payload = {
             inventory_id: inventoryId,
             filter_ean: ean
         };
         
-        const res = await callBaseLinkerApi('getInventoryProductsList', payload);
+        const res = await callBaseLinkerApi('getInventoryProductsList', payload, 3, 1000, context);
         
         if (!res.products || Object.keys(res.products).length === 0) {
             throw new Error(`Produkt z kodem EAN ${ean} nie istnieje w PIM BaseLinker (Widmo/Brak wyniku).`);
@@ -266,8 +271,8 @@ class BaseLinkerService {
         return { inventoryId, productId: parseInt(productIds[0], 10) };
     }
 
-    static async fetchProductIdByEanAndSku(ean, sku, inventoryId = null) {
-        if (!inventoryId) inventoryId = await this.getInventories();
+    static async fetchProductIdByEanAndSku(ean, sku, inventoryId = null, context = {}) {
+        if (!inventoryId) inventoryId = await this.getInventories(context);
 
         const payload = {
             inventory_id: inventoryId,
@@ -275,7 +280,7 @@ class BaseLinkerService {
             filter_sku: sku
         };
         
-        const res = await callBaseLinkerApi('getInventoryProductsList', payload);
+        const res = await callBaseLinkerApi('getInventoryProductsList', payload, 3, 1000, context);
         
         if (!res.products || Object.keys(res.products).length === 0) {
             throw new Error(`Produkt z EAN ${ean} oraz SKU ${sku} nie istnieje w PIM BaseLinker.`);
@@ -285,25 +290,25 @@ class BaseLinkerService {
         return { inventoryId, productId: parseInt(productIds[0], 10) };
     }
 
-    static extraFieldsCache = null;
-    static extraFieldsCacheTime = 0;
+    static extraFieldsCacheByKey = new Map();
 
-    static async getExtraFieldsDictionary() {
+    static async getExtraFieldsDictionary(context = {}) {
+        const cacheKey = `${context?.workspaceId || 'default'}:${context?.accountId || 'default'}`;
         const now = Date.now();
-        if (this.extraFieldsCache && (now - this.extraFieldsCacheTime < 3600 * 1000)) {
-            return this.extraFieldsCache;
+        const cached = this.extraFieldsCacheByKey.get(cacheKey);
+        if (cached && (now - cached.fetchedAt < 3600 * 1000)) {
+            return cached.dict;
         }
         
         try {
-            const res = await callBaseLinkerApi('getInventoryExtraFields');
+            const res = await callBaseLinkerApi('getInventoryExtraFields', {}, 3, 1000, context);
             const dict = {};
             if (res.extra_fields) {
                 res.extra_fields.forEach(f => {
                     dict[`extra_field_${f.extra_field_id}`] = f.name;
                 });
             }
-            this.extraFieldsCache = dict;
-            this.extraFieldsCacheTime = now;
+            this.extraFieldsCacheByKey.set(cacheKey, { dict, fetchedAt: now });
             return dict;
         } catch (error) {
             console.error(`[BaseLinkerService] Błąd przy pobieraniu słownika extra_fields:`, error.message);
@@ -312,13 +317,13 @@ class BaseLinkerService {
     }
 
     // --- ETAP 2 PIM: Głębokie wyciąganie danych (Dekompilacja struktury BL) ---
-    static async fetchDeepProductData(inventoryId, productId) {
+    static async fetchDeepProductData(inventoryId, productId, context = {}) {
         const [res, extraFieldsDict] = await Promise.all([
             callBaseLinkerApi('getInventoryProductsData', {
                 inventory_id: inventoryId,
                 products: [productId]
-            }),
-            this.getExtraFieldsDictionary()
+            }, 3, 1000, context),
+            this.getExtraFieldsDictionary(context)
         ]);
 
         if (!res.products || !res.products[productId]) {

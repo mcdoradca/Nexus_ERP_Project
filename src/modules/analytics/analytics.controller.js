@@ -3,7 +3,7 @@ const analyticsService = require('./analytics.service');
 async function getProductForecast(req, res) {
     try {
         const { productId } = req.params;
-        const forecast = await analyticsService.generateDemandForecast(productId);
+        const forecast = await analyticsService.generateDemandForecast(productId, req.workspaceId || null);
         res.status(200).json({ success: true, data: forecast });
     } catch (err) {
         console.error("Analytics Controller Error:", err.message);
