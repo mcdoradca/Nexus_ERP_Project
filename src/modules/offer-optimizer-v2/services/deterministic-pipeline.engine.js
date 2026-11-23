@@ -8,6 +8,13 @@ const {
     sanitizeLabelHighlights,
     sanitizeAllegroMarketingText
 } = require('./allegro-compliance.policy');
+const {
+    CANONICAL_ACRONYMS,
+    POLISH_CONNECTOR_WORDS,
+    isNoRinseFormula,
+    hasDeclaredOdorNeutralizer,
+    detectRawCatalogNameLeak
+} = require('./label-truth.helpers');
 
 const INCI_MECH_PATH = path.join(__dirname, '..', 'data', 'reference', 'inci_mechanisms_pl.json');
 
@@ -204,6 +211,18 @@ function normalizeCapacityValue(rawCapacity, productName = '', visionFeatures = 
     return rawStr;
 }
 
+const CANONICAL_PROPER_NOUNS = new Set([
+    'cif', 'candeggina', 'chanteclair', 'felce', 'azzurra', 'paglieri', 'bref', 'ajax',
+    'domestos', 'ariel', 'persil', 'lenor', 'coccolino', 'dash', 'finish', 'fairy',
+    'vanish', 'omino', 'bianco', 'spuma', 'sciampagna', 'tesori', 'oriente', 'milmil',
+    'intesa', 'malizia', 'borotalco', 'nivea', 'dove', 'colgate', 'palmolive', 'frosch',
+    'ludwik', 'somat', 'pronto', 'sidolux', 'vileda', 'heitmann', 'beckmann', 'harpic',
+    'kret', 'tytan', 'unilever', 'henkel', 'marsiglia', 'argan', 'sensitive', 'classico', 'soft',
+    'viakal', 'bagno', 'express', 'vetro', 'doccia', 'fiori', 'primavera', 'quasar', 'smac',
+    'vetril', 'lysoform', 'svelto', 'ace', 'dual', 'power', 'dermomed', 'winni', 'napisan', 'amuchina',
+    'talco', 'iris'
+]);
+
 /**
  * 2. TARCZA PRAWNA: SANITYZACJA TYTUŁU OFERTY (BPR 528/2012, Claim Compliance 655/2013, Stop-words Allegro 2026)
  * Żaden z oferowanych produktów nie jest produktem biobójczym — eliminujemy wszelkie sugestie biobójczości z tytułów.
@@ -212,27 +231,20 @@ function sanitizeOfferTitle(rawTitle) {
     if (!rawTitle || typeof rawTitle !== 'string') return rawTitle;
     let title = rawTitle.trim();
 
-    // Naprawa częstych literówek z katalogów hurtowych (np. CANDEGINA -> Candeggina)
-    title = title.replace(/\bcandegina\b/gi, 'Candeggina');
+    // Naprawa częstych literówek z katalogów hurtowych (np. CANDEGINA -> Candeggina, expres -> Express)
+    title = title
+        .replace(/\bcandegina\b/gi, 'Candeggina')
+        .replace(/\bexpres\b/gi, 'Express');
 
     // Jeśli cały tytuł lub pojedyncze słowa w tytule są zapisane KRZYKLIWYM CAPS LOCKIEM
     // (np. "CIF ŚRODEK WIELOFUNKCYJNY CANDEGINA 650 ML" lub "CIF ŻEL DO ŁAZIENEK Candeggina 750 ml"),
     // konwertujemy je na estetyczny zapis mieszany z zachowaniem wielkich liter dla marek i skrótów.
-    const properNouns = new Set([
-        'cif', 'candeggina', 'chanteclair', 'felce', 'azzurra', 'paglieri', 'bref', 'ajax',
-        'domestos', 'ariel', 'persil', 'lenor', 'coccolino', 'dash', 'finish', 'fairy',
-        'vanish', 'omino', 'bianco', 'spuma', 'sciampagna', 'tesori', 'oriente', 'milmil',
-        'intesa', 'malizia', 'borotalco', 'nivea', 'dove', 'colgate', 'palmolive', 'frosch',
-        'ludwik', 'somat', 'pronto', 'sidolux', 'vileda', 'heitmann', 'beckmann', 'harpic',
-        'kret', 'tytan', 'unilever', 'henkel', 'marsiglia', 'argan', 'sensitive', 'classico', 'soft'
-    ]);
-    const acronyms = new Set(['wc', 'uv', 'spf', 'ph', 'led', 'xxl', 'xl', 'bio', 'eco', '3d']);
     const words = title.split(/\s+/);
     title = words.map((w, idx) => {
         const cleanW = w.replace(/[^a-ząćęłńóśźż0-9]/gi, '').toLowerCase();
         if (!cleanW) return w;
-        if (acronyms.has(cleanW)) return w.toUpperCase();
-        if (properNouns.has(cleanW)) {
+        if (CANONICAL_ACRONYMS.has(cleanW)) return w.toUpperCase();
+        if (CANONICAL_PROPER_NOUNS.has(cleanW)) {
             return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
         }
         const lettersInW = w.replace(/[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, '');
@@ -305,6 +317,111 @@ function sanitizeOfferTitle(rawTitle) {
         .trim();
 
     return title;
+}
+
+function resolveCanonicalProductName({
+    productName = '',
+    brand = '',
+    capacity = '',
+    visionFeatures = {},
+    features = {},
+    line = ''
+} = {}) {
+    const rawName = String(productName || '').trim();
+    const officialFrontName = String(
+        visionFeatures?.['Nazwa produktu (Etykieta Front)'] ||
+        features?.['Nazwa produktu (Etykieta Front)'] ||
+        ''
+    ).trim();
+    const officialBackName = String(
+        features?.['Nazwa produktu (Kontretykieta)'] || ''
+    ).trim();
+    const officialLine = String(
+        visionFeatures?.['Linia produktowa (Front)'] ||
+        features?.['Linia produktowa (Front)'] ||
+        line ||
+        features?.['Linia'] ||
+        ''
+    ).trim();
+    const officialVariant = String(
+        visionFeatures?.['Wariant (Etykieta Front)'] ||
+        features?.['Wariant (Etykieta Front)'] ||
+        ''
+    ).trim();
+
+    let baseOfficialName = officialFrontName || officialBackName;
+    if (!baseOfficialName && officialLine && brand) {
+        const composed = [brand, officialLine, officialVariant].filter(Boolean).join(' ').trim();
+        if (composed.split(/\s+/).length >= 2) {
+            baseOfficialName = composed;
+        }
+    }
+
+    const resolvedCap = normalizeCapacityValue(
+        capacity || visionFeatures?.['Pojemność / Waga'] || visionFeatures?.['Pojemność'] || features?.['Pojemność'] || '',
+        rawName,
+        visionFeatures
+    );
+
+    if (!baseOfficialName) {
+        return rawName ? sanitizeOfferTitle(rawName) : (brand || '');
+    }
+
+    let cleanOfficial = sanitizeOfferTitle(baseOfficialName);
+    if (resolvedCap && !/\b\d+(?:[.,]\d+)?\s*(?:ml|l|g|kg|szt\.?)\b/i.test(cleanOfficial)) {
+        // zachowaj bez dublowania pojemności w samym trzonie nazwy
+    }
+
+    // Jeśli nazwa frontowa nie zawiera jeszcze pełnego wariantu (np. tylko marka + linia z kontretykiety), uzupełnij
+    if (officialVariant && !cleanOfficial.toLowerCase().includes(officialVariant.toLowerCase())) {
+        cleanOfficial = `${cleanOfficial} ${officialVariant}`.trim();
+    }
+
+    const officialTokensLower = cleanOfficial
+        .toLowerCase()
+        .replace(/[^a-ząćęłńóśźż0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(Boolean);
+    const officialTokenSet = new Set(officialTokensLower);
+
+    // Wyciągnij słowa opisujące rodzaj produktu z surowej nazwy ERP, usuwając duplikaty, literówki, pojemności i ucięte skróty
+    const rawSanitized = sanitizeOfferTitle(rawName)
+        .replace(/\b\d+(?:[.,]\d+)?\s*(?:ml|l|g|kg|szt\.?|kaps\.?)\b/gi, '')
+        .trim();
+    const descriptorWords = [];
+    for (const token of rawSanitized.split(/\s+/).filter(Boolean)) {
+        const cleanTok = token.toLowerCase().replace(/[^a-ząćęłńóśźż0-9]/g, '');
+        if (!cleanTok) continue;
+        if (officialTokenSet.has(cleanTok)) continue;
+        if (brand && cleanTok === brand.toLowerCase().trim()) continue;
+        // Odrzuć 1-3 literowe ucięte skróty wyrazów z oficjalnej nazwy (np. "fi" dla "Fiori", "pr" dla "Primavera")
+        const isTruncatedPrefix = cleanTok.length <= 3 && !POLISH_CONNECTOR_WORDS.has(cleanTok) &&
+            officialTokensLower.some(ot => ot.length > cleanTok.length && ot.startsWith(cleanTok));
+        if (isTruncatedPrefix) continue;
+        // Odrzuć samotny spójnik na końcu lub początku bez kontekstu później
+        descriptorWords.push(token.toLowerCase());
+    }
+
+    let descriptorPhrase = descriptorWords.join(' ').trim();
+    const rawDispenser = String(visionFeatures?.['Dozownik'] || features?.['Dozownik'] || visionFeatures?.['Postać'] || features?.['Postać'] || '').toLowerCase();
+    const isSprayDispenser = /\bspray\b|\batomizer\b|\bspryskiwacz\b/i.test(rawDispenser);
+    if (isSprayDispenser && descriptorPhrase && !/\bspray/i.test(`${cleanOfficial} ${descriptorPhrase}`)) {
+        descriptorPhrase = `${descriptorPhrase} w sprayu`.trim();
+    }
+
+    const purposeText = String(visionFeatures?.['Przeznaczenie (Front)'] || features?.['Przeznaczenie (Front)'] || '').toLowerCase();
+    const hasBathroomHint = /łazienk|lazienk|sanitar|bagno/i.test(`${rawName} ${purposeText} ${features?.['Rodzaj'] || ''}`);
+    if (hasBathroomHint && !/do\s+łazien/i.test(`${cleanOfficial} ${descriptorPhrase}`) && !/\błazienk/i.test(descriptorPhrase)) {
+        descriptorPhrase = descriptorPhrase ? `${descriptorPhrase} do łazienki` : 'do łazienki';
+    }
+
+    const parts = [cleanOfficial];
+    if (descriptorPhrase) parts.push(descriptorPhrase);
+    if (resolvedCap && !new RegExp(`\\b${resolvedCap.replace(/\s+/g, '\\s*')}\\b`, 'i').test(parts.join(' '))) {
+        parts.push(resolvedCap);
+    }
+
+    return parts.join(' ').replace(/\s{2,}/g, ' ').trim();
 }
 
 /**
@@ -835,17 +952,34 @@ function tryBuildDeterministicSection3({
             }
         }
 
-        // Konsolidacja Parfum i alergenów zapachowych w jeden spójny punkt ⚙️ (eliminacja duplikacji dwóch punktów o zapachu)
+        // Konsolidacja Parfum i alergenów zapachowych w jeden spójny punkt ⚙️ (bez fałszywej neutralizacji zapachów przez samo Parfum)
         if (dbKey === 'parfum' || dbKey === 'fragrance_allergens') {
-            const allergenLabel = detectedAllergenNames.length > 0 ? `: ${detectedAllergenNames.join(', ')}` : '';
+            const hasRealNeutralizer = hasDeclaredOdorNeutralizer({
+                productName,
+                inci,
+                detergentComposition,
+                visionFeatures,
+                features
+            });
+            const headerLabel = detectedAllergenNames.length === 0
+                ? 'Kompozycja zapachowa (Parfum):'
+                : (detectedAllergenNames.length === 1
+                    ? `Kompozycja zapachowa (Parfum) oraz alergen zapachowy ${detectedAllergenNames[0]}:`
+                    : `Kompozycja zapachowa (Parfum) oraz alergeny zapachowe (${detectedAllergenNames.join(', ')}):`);
+
             if (isDishwashing && resolvedIsChemical) {
-                return `<li>⚙️ <b>Kompozycja zapachowa i nuty aromatyczne (Parfum${allergenLabel}):</b> neutralizuje uciążliwe zapachy kuchenne (np. po rybach, czosnku, cebuli i smażonym tłuszczu) w kąpieli wodnej podczas zmywania oraz <b>całkowicie spłukuje się wraz z wodą, pozostawiając naczynia higienicznie czyste i bezwonne w kontakcie z żywnością</b>.</li>`;
+                return hasRealNeutralizer
+                    ? `<li>⚙️ <b>${headerLabel}</b> neutralizuje uciążliwe zapachy kuchenne (np. po rybach, czosnku, cebuli) w kąpieli wodnej podczas zmywania oraz <b>całkowicie spłukuje się wraz z wodą, pozostawiając naczynia higienicznie czyste i bezwonne w kontakcie z żywnością</b>.</li>`
+                    : `<li>⚙️ <b>${headerLabel}</b> nadaje przyjemny aromat podczas zmywania oraz <b>całkowicie spłukuje się wraz z wodą, pozostawiając naczynia czyste i bezwonne w kontakcie z żywnością</b>.</li>`;
             }
             if (resolvedIsChemical) {
-                const activityNoun = isLaundry ? 'praniu' : 'czyszczeniu';
-                return `<li>⚙️ <b>Kompozycja zapachowa (Parfum${allergenLabel}):</b> starannie dobrana frakcja aromatyczna, która <b>neutralizuje woń surowców chemicznych oraz nieprzyjemne zapachy</b>, pozostawiając po ${activityNoun} wyczuwalną świeżość.</li>`;
+                const activityNoun = isLaundry ? 'praniu' : 'sprzątaniu';
+                const scentText = hasRealNeutralizer
+                    ? `wspiera ograniczanie nieprzyjemnych woni i <b>pozostawia po ${activityNoun} przyjemny, świeży zapach</b>.`
+                    : `nadają preparatowi <b>przyjemny, świeży zapach podczas ${activityNoun}</b> i po jego zakończeniu.`;
+                return `<li>⚙️ <b>${headerLabel}</b> ${scentText}</li>`;
             }
-            return `<li>⚙️ <b>Kompozycja zapachowa (Parfum${allergenLabel}):</b> starannie dobrany bukiet aromatyczny, który <b>neutralizuje woń bazy surowcowej i buduje przyjemny profil zapachowy produktu</b> podczas aplikacji.</li>`;
+            return `<li>⚙️ <b>${headerLabel}</b> kompozycja aromatyczna nadająca formule <b>przyjemny profil zapachowy</b> podczas aplikacji.</li>`;
         }
 
         if (dbKey === 'preservatives') {
@@ -1094,7 +1228,14 @@ function buildDeterministicSection5({
     grossWeight = null,
     contentProfile = null
 } = {}) {
-    const cleanTitle = sanitizeOfferTitle(productName || '');
+    const cleanTitle = resolveCanonicalProductName({
+        productName: productName || '',
+        brand: brand || features?.['Marka'] || visionFeatures?.['Marka'] || '',
+        capacity,
+        visionFeatures,
+        features,
+        line
+    });
     const items = [];
     const presetIdx = Number(contentProfile?.presetIndex || 0);
     const paramBullet = presetIdx > 0 && ['➡️', '☑️', '✔️', '✅'].includes(contentProfile?.bulletEmoji)
@@ -1139,7 +1280,7 @@ function buildDeterministicSection5({
     if (registryEntity && registryEntity.name && (!resolvedManufacturer || /^(?:unilever|unilever\s+europe\s+b\.?v\.?)$/i.test(String(resolvedManufacturer).trim()))) {
         resolvedManufacturer = registryEntity.name;
     }
-    const resolvedLine = line || features?.['Linia'] || visionFeatures?.['Linia'] || '';
+    const resolvedLine = visionFeatures?.['Linia produktowa (Front)'] || features?.['Linia produktowa (Front)'] || line || features?.['Linia'] || visionFeatures?.['Linia'] || '';
     // Zatwierdzony parametr Allegro / PIM ma wyższy priorytet niż surowe przypuszczenie Vision (zgodność Opis <-> KPA)
     const isValidParam = (v) => v !== undefined && v !== null && String(v).trim() !== '' && !/^(?:null|undefined|brak\s+danych|n\/a|-)$/i.test(String(v).trim());
     const resolvedPostac = [features?.['Postać'], features?.['Postac'], features?.['Forma'], visionFeatures?.['Postać']].find(isValidParam) || '';
@@ -1248,13 +1389,16 @@ function buildDeterministicSection5({
     const frontPrzeznaczenie = String(visionFeatures?.['Przeznaczenie (Front)'] || '').trim();
     const backPrzeznaczenie = String(features?.['Przeznaczenie (Etykieta)'] || features?.['Przeznaczenie'] || features?.['Zastosowanie'] || '').trim();
     const resolvedPrzeznaczenie = (backPrzeznaczenie.length > frontPrzeznaczenie.length) ? backPrzeznaczenie : (frontPrzeznaczenie || backPrzeznaczenie);
-    const mergedWyroznikiParts = [
+    const noRinseDetected = isNoRinseFormula({ productName: cleanTitle, visionFeatures, features });
+    const rawWyroznikiParts = [
+        ...(noRinseDetected ? ['Bez spłukiwania'] : []),
         visionFeatures?.['Wyróżniki (Etykieta Front)'],
         features?.['Wyróżniki (Etykieta Front)'],
         features?.['Wyróżniki / Certyfikaty (Etykieta)'],
         features?.['Cechy dodatkowe'],
         features?.['Wyróżniki']
-    ].filter(Boolean).join(', ');
+    ].filter(Boolean);
+    const mergedWyroznikiParts = rawWyroznikiParts.join(', ');
     const filteredWyrozniki = sanitizeLabelHighlights(mergedWyroznikiParts, {
         isMedicalDevice,
         brand: brand || features?.['Marka'] || visionFeatures?.['Marka'],
@@ -1351,9 +1495,18 @@ function buildDeterministicSection6({
     visionFeatures = {},
     features = {}
 } = {}) {
-    const resolvedWarnings = (Array.isArray(mandatoryWarnings) && mandatoryWarnings.length > 0)
+    const resolvedWarnings = [...((Array.isArray(mandatoryWarnings) && mandatoryWarnings.length > 0)
         ? mandatoryWarnings
-        : (Array.isArray(mandatorySafetyWarnings) ? mandatorySafetyWarnings : []);
+        : (Array.isArray(mandatorySafetyWarnings) ? mandatorySafetyWarnings : []))];
+
+    const pictoCodes = gpsrSafetyService.resolveClpPictogramsList(compliance, { ...features, ...visionFeatures });
+    for (let idx = pictoCodes.length - 1; idx >= 0; idx--) {
+        const ghsCode = pictoCodes[idx];
+        if (!resolvedWarnings.some(w => new RegExp(`\\b${ghsCode}\\b`, 'i').test(String(w)))) {
+            const pictoText = gpsrSafetyService.formatClpPictogramWarning(ghsCode);
+            if (pictoText) resolvedWarnings.unshift(pictoText);
+        }
+    }
     const resolvedIsChemical = detectHouseholdChemical({
         isChemical,
         productName,
@@ -1625,6 +1778,10 @@ module.exports = {
     loadMechanismsDb,
     cleanFeaturesForPrompt,
     detectHouseholdChemical,
+    isNoRinseFormula,
+    hasDeclaredOdorNeutralizer,
+    resolveCanonicalProductName,
+    detectRawCatalogNameLeak,
     normalizeCapacityValue,
     sanitizeOfferTitle,
     sanitizeHtmlClaimsAndStopwords,

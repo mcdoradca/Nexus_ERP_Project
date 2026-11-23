@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { classifyProductPhysicalForm } = require('./product-form.classifier');
+const { sanitizeOfferTitle, resolveCanonicalProductName, isNoRinseFormula } = require('./deterministic-pipeline.engine');
 
 const CACHE_FILE_PATH = path.join(__dirname, '..', 'data', 'google_suggest_faq_cache.json');
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 dni
@@ -162,43 +163,15 @@ function detectCanonicalSearchCategory({ productName = '', category = '', vision
 }
 
 /**
- * Buduje naturalną, czytelnie odmienioną polską nazwę produktu (bez WIELKICH LITER z katalogu ERP).
+ * Buduje naturalną, czytelnie odmienioną polską nazwę produktu (bez WIELKICH LITER z katalogu ERP i bez literówek).
  */
-function formatNaturalProductName(productName = '', brand = '', capacity = '') {
-    let clean = String(productName || '').trim();
-    if (!clean) return brand || 'ten produkt';
+function formatNaturalProductName(productName = '', brand = '', capacity = '', options = {}) {
+    const baseSource = options?.canonicalName && String(options.canonicalName).trim()
+        ? String(options.canonicalName).trim()
+        : String(productName || '').trim();
+    if (!baseSource) return brand || 'ten produkt';
 
-    const properNouns = new Set([
-        'cif', 'candeggina', 'chanteclair', 'felce', 'azzurra', 'paglieri', 'bref', 'ajax',
-        'domestos', 'ariel', 'persil', 'lenor', 'coccolino', 'dash', 'finish', 'fairy',
-        'vanish', 'omino', 'bianco', 'spuma', 'sciampagna', 'tesori', 'oriente', 'milmil',
-        'intesa', 'malizia', 'borotalco', 'nivea', 'dove', 'colgate', 'palmolive', 'frosch',
-        'ludwik', 'somat', 'pronto', 'sidolux', 'vileda', 'heitmann', 'beckmann', 'harpic',
-        'kret', 'tytan', 'unilever', 'henkel', 'marsiglia', 'argan', 'sensitive', 'classico', 'soft'
-    ]);
-    const acronyms = new Set(['wc', 'uv', 'spf', 'ph', 'led', 'xxl', 'xl', 'bio', 'eco', '3d']);
-
-    // Normalizacja słowo po słowie: likwidacja pojedynczych słów pisanych CAPS LOCKIEM (np. "CIF ŻEL DO ŁAZIENEK Candeggina")
-    // oraz przywrócenie wielkiej litery dla nazw własnych (np. "candeggina" -> "Candeggina").
-    const words = clean.split(/\s+/);
-    clean = words.map((w, idx) => {
-        const cleanW = w.replace(/[^a-ząćęłńóśźż0-9]/gi, '').toLowerCase();
-        if (!cleanW) return w;
-        if (acronyms.has(cleanW)) return w.toUpperCase();
-        if (properNouns.has(cleanW)) {
-            return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-        }
-        const lettersInW = w.replace(/[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, '');
-        const upperInW = w.replace(/[^A-ZĄĆĘŁŃÓŚŹŻ]/g, '');
-        if (lettersInW.length >= 2 && upperInW.length === lettersInW.length) {
-            const lowerW = w.toLowerCase();
-            return idx === 0 ? lowerW.charAt(0).toUpperCase() + lowerW.slice(1) : lowerW;
-        }
-        if (idx === 0) {
-            return w.charAt(0).toUpperCase() + w.slice(1);
-        }
-        return w;
-    }).join(' ');
+    let clean = sanitizeOfferTitle(baseSource);
 
     // Przywrócenie poprawnej wielkiej litery dla marki
     if (brand && typeof brand === 'string' && brand.trim().length > 1) {
@@ -207,14 +180,7 @@ function formatNaturalProductName(productName = '', brand = '', capacity = '') {
         clean = clean.replace(new RegExp(`\\b${escapedBrand}\\b`, 'gi'), brandTrim);
     }
 
-    // Normalizacja jednostek (w tym ułamków poniżej 1 L / 1 kg, np. "0,500 l" -> "500 ml")
     clean = clean
-        .replace(/\b0[.,](\d{1,3})\s*(?:l|litr[a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, (_, dec) => `${Math.round(parseFloat(`0.${dec}`) * 1000)} ml`)
-        .replace(/\b0[.,](\d{1,3})\s*kg(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, (_, dec) => `${Math.round(parseFloat(`0.${dec}`) * 1000)} g`)
-        .replace(/\b(\d+(?:[.,]\d+)?)\s*ML\b/gi, '$1 ml')
-        .replace(/\b(\d+(?:[.,]\d+)?)\s*G\b/gi, '$1 g')
-        .replace(/\b(\d+(?:[.,]\d+)?)\s*KG\b/gi, '$1 kg')
-        .replace(/\b(\d+(?:[.,]\d+)?)\s*L\b/gi, '$1 l')
         .replace(/\bWC\b/gi, 'WC')
         .replace(/\s{2,}/g, ' ')
         .trim();
@@ -329,6 +295,7 @@ function buildFourPillarQuestions({
     capacity = '',
     scent = '',
     visionFeatures = {},
+    features = {},
     inci = '',
     detergentComposition = '',
     googleSuggestions = [],
@@ -339,6 +306,7 @@ function buildFourPillarQuestions({
     const hasAcid = /(citric\s+acid|kwas\s+cytrynowy|sulfamic|amidosulfonow|formic|mrówkow|phosphoric|fosforow|hydrochloric|solny|lactic|mlekow|acetic|octow|anticalcare|odkamieniacz)/i.test(combinedInci + ' ' + naturalName);
     const hasOpticalBrighteners = /(optical\s+brightener|fluorescent\s+brightener|rozjaśniacz)/i.test(combinedInci);
     const hasAluminum = /(aluminum\s+chlorohydrate|aluminum\s+sesquichlorohydrate|sole\s+aluminium)/i.test(combinedInci);
+    const noRinse = isNoRinseFormula({ productName: naturalName, visionFeatures, features });
     const frontPurpose = visionFeatures?.['Przeznaczenie (Front)'] || '';
     const frontWashCount = visionFeatures?.['Wydajność'] || '';
     const cleanScent = String(scent || '').replace(/\s*\([^)]*\)\s*/g, '').trim();
@@ -553,11 +521,27 @@ function buildFourPillarQuestions({
                 postac: visionFeatures?.['Postać'],
                 dozownik: visionFeatures?.['Dozownik']
             }).formAccusativePl || 'ten preparat';
+            if (noRinse) {
+                questions.push(pickVariant(
+                    `Czy ${shortBrandRef} wymaga spłukiwania wodą po czyszczeniu ceramiki sanitarnej, wanny i umywalki?`,
+                    `Jak prawidłowo aplikować i przecierać ${formWord} o formule bez spłukiwania, aby uniknąć smug?`,
+                    `Jak używać ${formWord} bez spłukiwania w kabinie prysznicowej i na armaturze łazienkowej?`,
+                    `Na czym polega szybka aplikacja bez spłukiwania wodą przy użyciu ${shortBrandRef}?`
+                ));
+            } else {
+                questions.push(pickVariant(
+                    `Jak prawidłowo aplikować i spłukiwać ${formWord} na ceramice sanitarnej, wannach, umywalkach oraz fugach, aby uzyskać czystość bez zacieków?`,
+                    `Po jakim czasie zmyć wodą ${formWord} z powierzchni wanny, umywalki i glazury, aby nie pozostały smugi?`,
+                    `Jak używać ${formWord} podczas mycia kabiny prysznicowej i ceramiki sanitarnej dla szybkiego efektu bez smug?`,
+                    `Jaki jest zalecany czas kontaktu przed spłukaniem, gdy nakładasz ${formWord} w łazience?`
+                ));
+            }
+        } else if (noRinse) {
             questions.push(pickVariant(
-                `Jak prawidłowo aplikować i spłukiwać ${formWord} na ceramice sanitarnej, wannach, umywalkach oraz fugach, aby uzyskać czystość bez zacieków?`,
-                `Po jakim czasie zmyć wodą ${formWord} z powierzchni wanny, umywalki i glazury, aby nie pozostały smugi?`,
-                `Jak używać ${formWord} podczas mycia kabiny prysznicowej i ceramiki sanitarnej dla szybkiego efektu bez smug?`,
-                `Jaki jest zalecany czas kontaktu przed spłukaniem, gdy nakładasz ${formWord} w łazience?`
+                `Czy ${shortBrandRef} wymaga spłukiwania wodą po zastosowaniu na zmywalnej powierzchni?`,
+                `Jak prawidłowo rozpylić i przetrzeć ${shortBrandRef} bez spłukiwania, aby uniknąć smug?`,
+                `Jak działa formuła bez spłukiwania w ${shortBrandRef} przy codziennym sprzątaniu?`,
+                `W jaki sposób wykończyć czyszczenie za pomocą ${shortBrandRef} bez konieczności spłukiwania wodą?`
             ));
         } else {
             questions.push(pickVariant(
@@ -671,7 +655,8 @@ async function harvestSearchIntentFaq({
     variantIndex = 0
 } = {}) {
     const catInfo = detectCanonicalSearchCategory({ productName, category, visionFeatures, features, isChemical, inci, detergentComposition });
-    const naturalName = formatNaturalProductName(productName, brand, capacity);
+    const canonicalName = resolveCanonicalProductName({ productName, brand, capacity, visionFeatures, features });
+    const naturalName = formatNaturalProductName(productName, brand, capacity, { canonicalName });
     const cleanBrand = String(brand || '').trim().toLowerCase();
     const cacheKey = `${cleanBrand || 'generic'}::${catInfo.key}`;
 
@@ -716,6 +701,7 @@ async function harvestSearchIntentFaq({
         capacity,
         scent,
         visionFeatures,
+        features,
         inci,
         detergentComposition,
         googleSuggestions,

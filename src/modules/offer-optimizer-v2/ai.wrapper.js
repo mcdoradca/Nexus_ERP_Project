@@ -98,15 +98,78 @@ async function generateContentWithTimeout(params, timeoutMs = 90000, callLabel =
     }
 }
 
+function sanitizeContentsForLog(contentsPayload) {
+    if (!Array.isArray(contentsPayload)) return contentsPayload;
+    return contentsPayload.map((part) => {
+        if (part && typeof part === 'object' && part.inlineData && typeof part.inlineData.data === 'string') {
+            return {
+                inlineData: {
+                    mimeType: part.inlineData.mimeType || 'image/jpeg',
+                    data: `[BASE64_OMITTED:${part.inlineData.data.length}chars]`
+                }
+            };
+        }
+        return part;
+    });
+}
+
+function buildMultimodalContents(promptText, image = null, images = null) {
+    const validImages = Array.isArray(images)
+        ? images.filter(img => img && typeof img.base64 === 'string' && img.base64.trim().length > 0)
+        : [];
+    if (validImages.length > 0) {
+        const parts = [{ text: promptText }];
+        for (const img of validImages) {
+            if (img.label && typeof img.label === 'string' && img.label.trim().length > 0) {
+                parts.push({ text: img.label.trim() });
+            }
+            parts.push({
+                inlineData: {
+                    mimeType: img.mimeType || 'image/jpeg',
+                    data: img.base64
+                }
+            });
+        }
+        return parts;
+    }
+    if (image && typeof image.base64 === 'string' && image.base64.trim().length > 0) {
+        return [
+            { text: promptText },
+            {
+                inlineData: {
+                    mimeType: image.mimeType || 'image/jpeg',
+                    data: image.base64
+                }
+            }
+        ];
+    }
+    return promptText;
+}
+
+function appendTextToContents(baseContents, extraText) {
+    if (!Array.isArray(baseContents)) {
+        return `${String(baseContents || '')}${extraText}`;
+    }
+    const cloned = baseContents.map(part => (part && typeof part === 'object' ? { ...part } : part));
+    if (cloned[0] && typeof cloned[0] === 'object' && typeof cloned[0].text === 'string') {
+        cloned[0].text = `${cloned[0].text}${extraText}`;
+    } else {
+        cloned.unshift({ text: extraText });
+    }
+    return cloned;
+}
+
 /**
  * Wrapper telemetrii i wykonania dla modelu Gemini.
  * @param {Object} params
  * @param {string} params.agentId - Jawny identyfikator agenta (S-7)
  * @param {string} params.prompt - Złożony prompt
  * @param {Object} [params.schema] - Opcjonalny schemat JSON dla responseSchema
+ * @param {Object|null} [params.image] - Pojedynczy obraz { mimeType, base64 }
+ * @param {Array|null} [params.images] - Lista obrazów [{ mimeType, base64, label }]
  * @returns {Object} Zwraca sparsowany obiekt JSON.
  */
-async function callAgentWithTelemetry({ agentId, prompt, systemInstruction = null, schema, image = null, onLog = () => {} }) {
+async function callAgentWithTelemetry({ agentId, prompt, systemInstruction = null, schema, image = null, images = null, onLog = () => {} }) {
     if (!agentId) {
         throw new Error("BŁĄD BLOKUJĄCY (S-7): Wywołanie LLM bez jawnego agentId.");
     }
@@ -284,21 +347,11 @@ async function callAgentWithTelemetry({ agentId, prompt, systemInstruction = nul
             }
 
             activeConfig = config;
-            let contentsPayload = userContent;
-            if (image && image.base64) {
-                contentsPayload = [
-                    { text: typeof userContent === 'string' ? userContent : prompt },
-                    {
-                        inlineData: {
-                            mimeType: image.mimeType || 'image/jpeg',
-                            data: image.base64
-                        }
-                    }
-                ];
-            }
+            const basePromptText = typeof userContent === 'string' ? userContent : prompt;
+            const contentsPayload = buildMultimodalContents(basePromptText, image, images);
 
-            const requestPayload = { model: model, contents: contentsPayload, config: config };
-            const payloadDump = JSON.stringify(requestPayload, null, 2);
+            const requestPayloadForLog = { model: model, contents: sanitizeContentsForLog(contentsPayload), config: config };
+            const payloadDump = JSON.stringify(requestPayloadForLog, null, 2);
             onLog(`\n[AI WRAPPER - RAW REQUEST DUMP (Agent ${agentId})]\n${payloadDump}\n[END RAW REQUEST DUMP]\n`);
             console.log(`[AI WRAPPER - RAW REQUEST DUMP (Agent ${agentId})] Payload size: ${payloadDump.length} bytes`);
 
@@ -396,12 +449,16 @@ async function callAgentWithTelemetry({ agentId, prompt, systemInstruction = nul
             console.warn(`[DEFENSIVE AI] Agent ${agentId} zablokowany przez filtr RECITATION (brak treści wyjściowej). Podejmuję 1 defensywną próbę z dyrektywą parafrazowania anty-recitation...`);
             onLog(`[AI WRAPPER - DEFENSIVE AI] Wykryto RECITATION dla agenta ${agentId}. Uruchamiam automatyczny retry z dyrektywą parafrazowania.`);
             
-            const retryPrompt = `${typeof userContent === 'string' ? userContent : prompt}\n\n[DODATKOWA DYREKTYWA ANTY-RECITATION]: Poprzednia odpowiedź została zablokowana przez filtr praw autorskich/cytowań (RECITATION). Sformułuj całą treść zwięźle własnymi słowami w języku polskim. Bezwzględnie zachowaj kody P/H, parametry techniczne i strukturę JSON, ale nie kopiuj wielozdaniowych formułek prawnych ani całych zdań z internetu 1:1. Zmień szyk i konstrukcję zdań.`;
+            const basePromptForRetry = typeof userContent === 'string' ? userContent : prompt;
+            const retryDirective = `\n\n[DODATKOWA DYREKTYWA ANTY-RECITATION]: Poprzednia odpowiedź została zablokowana przez filtr praw autorskich/cytowań (RECITATION). Sformułuj całą treść zwięźle własnymi słowami w języku polskim. Bezwzględnie zachowaj kody P/H, parametry techniczne i strukturę JSON, ale nie kopiuj wielozdaniowych formułek prawnych ani całych zdań z internetu 1:1. Zmień szyk i konstrukcję zdań.`;
+            const retryContents = needsTwoStep
+                ? `${basePromptForRetry}${retryDirective}`
+                : appendTextToContents(buildMultimodalContents(basePromptForRetry, image, images), retryDirective);
             
             try {
                 const retryResponse = await generateContentWithTimeout({
                     model: model,
-                    contents: retryPrompt,
+                    contents: retryContents,
                     config: activeConfig
                 }, 60000, `Agent_${agentId}_AntyRecitation_Retry`);
 

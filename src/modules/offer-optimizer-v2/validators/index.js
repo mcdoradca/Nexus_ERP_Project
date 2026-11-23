@@ -3,6 +3,8 @@ const cheerio = require('cheerio');
 const { isRawInciFooterText } = require('../normalization');
 const { classifyProductPhysicalForm } = require('../services/product-form.classifier');
 const { scanStrictStopwords, scanAllegroComplianceRisks } = require('../services/allegro-compliance.policy');
+const { isNoRinseFormula, hasDeclaredOdorNeutralizer, detectRawCatalogNameLeak } = require('../services/label-truth.helpers');
+const gpsrSafetyService = require('../services/gpsr.safety.service');
 
 // V1
 function ean_checksum(gtin) {
@@ -781,6 +783,114 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
         });
         if (hasRawInciFooterInS3) {
             errors.push('[Nadmiarowa stopka INCI w Sekcji 3] W Sekcji 3 (Moduł 3) niedozwolona jest surowa stopka pełnego składu "Skład INCI: ..." / "Skład (zgodnie z Rozp. WE 648/2004): ...". Pełny skład należy wyłącznie do Karty Technicznej PIM i parametrów Allegro.');
+        }
+    }
+
+    const extractCheckChunks = (htmlStr) => {
+        if (!htmlStr) return [];
+        const $doc = cheerio.load(htmlStr, null, false);
+        const rawBlocks = [];
+        $doc('li, p').each((_, el) => {
+            const $el = $doc(el);
+            if (el.tagName === 'p' && $el.closest('li').length > 0) return;
+            const txt = $el.text().replace(/\s+/g, ' ').trim();
+            if (txt) rawBlocks.push(txt);
+        });
+        if (rawBlocks.length === 0) {
+            const plain = String(htmlStr).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            if (plain) rawBlocks.push(plain);
+        }
+        const sentences = [];
+        for (const blk of rawBlocks) {
+            for (const part of blk.split(/(?<=[.!?])\s+/)) {
+                const p = part.trim();
+                if (p) sentences.push(p);
+            }
+        }
+        return { rawBlocks, sentences };
+    };
+
+    const s5 = String(sectionsObj.section_5_html || '');
+    const noRinseNegationRe = /(?:bez\s+(?:konieczności\s+)?spłukiwania|nie\s+wymaga\s+spłukiwania|bez\s+spłukiwania)/i;
+    const activeSurfaceRinseRe = /\b(?:dokładnie\s+spłucz(?:\s+(?:powierzchnię|ceramikę|armaturę|kabinę|wannę|umywalkę|całość))?(?:\s+(?:czystą\s+)?wodą)?|spłucz\s+(?:powierzchnię|ceramikę|armaturę|kabinę|wannę|umywalkę|całość)\s*(?:czystą\s+)?wodą|należy\s+(?:następnie\s+)?spłukać\s+(?:powierzchnię|całość|czystą\s+wodą|wodą)|wymaga\s+(?:dokładnego\s+)?spłukania(?:\s+wodą)?|obficie\s+spłucz\s+(?:powierzchnię|całość)?\s*wodą)\b/i;
+    const bodyRinseOnlyRe = /\b(?:spłucz|umyj)\s+(?:ręce|dłonie|oczy|skórę)\b/i;
+
+    // 24. Formuła bez spłukiwania (SENZA RISCIACQUO) — zakaz nakazu spłukiwania powierzchni i obowiązkowy wyróżnik w Sekcji 5
+    const isNoRinse = context.isNoRinse === true || isNoRinseFormula({
+        productName: context.productName,
+        visionFeatures: context.visionFeatures,
+        features: context.features
+    });
+    if (isNoRinse) {
+        const s2Chunks = extractCheckChunks(s2);
+        const s4Chunks = extractCheckChunks(s4);
+        const rinseConflictChunk = [...(s2Chunks.sentences || []), ...(s4Chunks.sentences || [])].find(chunk =>
+            activeSurfaceRinseRe.test(chunk) &&
+            !noRinseNegationRe.test(chunk) &&
+            !(bodyRinseOnlyRe.test(chunk) && !/(?:powierzchn|ceramik|armatur|wann|umywalk|kabin)/i.test(chunk))
+        );
+        if (rinseConflictChunk) {
+            errors.push(`[Sprzeczność z etykietą – Bez spłukiwania] Etykieta deklaruje formułę bez spłukiwania (Senza Risciacquo), natomiast w opisie (FAQ/Sposób użycia) pojawia się nakaz spłukiwania wodą: "${rinseConflictChunk.slice(0, 140)}".`);
+        }
+        if (s5 && !/bez\s+spłukiwania/i.test(s5)) {
+            errors.push('[Brak wyróżnika Bez spłukiwania w Sekcji 5] Dla produktu z deklaracją bez spłukiwania (Senza Risciacquo) pole "Właściwości i wyróżniki" w Sekcji 5 musi zawierać "Bez spłukiwania".');
+        }
+    }
+
+    // 25. Wewnętrzna sprzeczność FAQ (s2) vs Sposób użycia (s4) w kwestii spłukiwania
+    if (s2 && s4 && noRinseNegationRe.test(s2)) {
+        const s4Chunks = extractCheckChunks(s4);
+        const s4RinseConflict = (s4Chunks.sentences || []).find(chunk =>
+            activeSurfaceRinseRe.test(chunk) &&
+            !noRinseNegationRe.test(chunk) &&
+            !(bodyRinseOnlyRe.test(chunk) && !/(?:powierzchn|ceramik|armatur|wann|umywalk|kabin)/i.test(chunk))
+        );
+        if (s4RinseConflict) {
+            errors.push(`[Sprzeczność wewnętrzna FAQ vs Sposób użycia] Sekcja 2 (FAQ) wskazuje na użycie bez spłukiwania, podczas gdy Sekcja 4 (Sposób użycia) nakazuje spłukiwanie wodą: "${s4RinseConflict.slice(0, 140)}".`);
+        }
+    }
+
+    // 26. Fałsz chemiczny: Parfum ani alergeny zapachowe (Hexyl Cinnamal, Linalool itp.) nie neutralizują chemicznie woni
+    const hasNeutralizer = hasDeclaredOdorNeutralizer({
+        productName: context.productName,
+        inci: context.inci,
+        detergentComposition: context.detergentComposition,
+        visionFeatures: context.visionFeatures,
+        features: context.features
+    });
+    if (!hasNeutralizer) {
+        const fragranceEntityRe = /\b(?:parfum|kompozycj[aęi]\s+zapachow|hexyl\s+cinnamal|linalool|limonene|citronellol|geraniol|coumarin|alergen\w*\s+zapachow)/i;
+        const odorNeutralizeRe = /\bneutralizuj[a-ząćęłńóśźż]*\s+(?:[a-ząćęłńóśźż]+\s+){0,2}(?:wo[ńn][a-ząćęłńóśźż]*|zapach[a-ząćęłńóśźż]*)\b/i;
+        for (const secHtml of [s1, s2, s3]) {
+            const { rawBlocks } = extractCheckChunks(secHtml);
+            for (const blk of (rawBlocks || [])) {
+                if (fragranceEntityRe.test(blk) && odorNeutralizeRe.test(blk)) {
+                    errors.push(`[Fałsz chemiczny – Parfum/Alergen] Kompozycja zapachowa (Parfum) ani alergen zapachowy (np. Hexyl Cinnamal) nie neutralizują chemicznie woni — nadają wyłącznie zapach (brak deklaracji pochłaniacza/neutralizatora zapachów na etykiecie). Fragment: "${blk.slice(0, 140)}".`);
+                    break;
+                }
+            }
+        }
+    }
+
+    // 27. Wyciek surowej nazwy ERP / literówki z katalogu zamiast oficjalnej nazwy z etykiety
+    const rawProdName = String(context.rawProductName || '').trim();
+    const canonProdName = String(context.canonicalProductName || '').trim();
+    const rawCatalogLeak = detectRawCatalogNameLeak(`${s1}\n${s2}\n${s4}\n${s5}`, rawProdName, canonProdName);
+    if (rawCatalogLeak) {
+        errors.push(`[Wyciek surowej nazwy ERP / literówka z katalogu] (${rawCatalogLeak}) — w treści pozostała zniekształcona nazwa katalogowa z ERP zamiast oficjalnej nazwy z etykiety "${canonProdName}".`);
+    }
+
+    // 28. Zgodność CLP w Sekcji 6: zadeklarowane na kontretykiecie piktogramy GHS0x muszą być obecne w s6
+    const declaredClpPictos = Array.isArray(context.clpPictograms)
+        ? context.clpPictograms
+        : gpsrSafetyService.resolveClpPictogramsList(null, { ...(context.features || {}), ...(context.visionFeatures || {}) });
+    if (s6 && Array.isArray(declaredClpPictos) && declaredClpPictos.length > 0) {
+        const s6Upper = s6.toUpperCase();
+        for (const code of declaredClpPictos) {
+            const normalizedCode = String(code || '').trim().toUpperCase();
+            if (/^GHS0[1-9]$/.test(normalizedCode) && !s6Upper.includes(normalizedCode)) {
+                errors.push(`[Brak piktogramu CLP ${normalizedCode} w Sekcji 6] Kontretykieta zawiera piktogram zagrożenia ${normalizedCode}, którego brakuje w Sekcji 6 (GPSR/CLP).`);
+            }
         }
     }
 

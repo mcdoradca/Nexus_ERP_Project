@@ -129,8 +129,14 @@ DOKTRYNA ZAMKNIĘTEGO ŚWIATA I ONTOLOGII PRODUKTU:
 - Zwracaj wyłącznie dane w 100% pewne i czytelne z grafiki.
 
 KRYTYCZNE ZADANIA EKSTRAKCJI:
+0. Oficjalna identyfikacja produktu z przedniej etykiety:
+   - "marka_front": dokładna nazwa marki z logo na froncie (np. "Viakal", "Cif", "Chanteclair", "Felce Azzurra").
+   - "linia_produktowa_front": nazwa linii/submarki produktu z frontu (np. "Bagno Express", "Vetro Doccia Express", "Candeggina"). Jeśli brak, null.
+   - "wariant_etykieta_front": oryginalna, pełna nazwa wariantu zapachowego lub wersji z frontu (np. "Fiori di Primavera", "Lavanda", "Classico"). Jeśli brak, null.
+   - "pelna_nazwa_etykieta": spójna oficjalna nazwa produktu odczytana 1:1 z opakowania (Marka + Linia + Wariant, np. "Viakal Bagno Express Fiori di Primavera"). BEZWZGLĘDNIE pomijaj hasła reklamowe typu "Nr 1", "N°1 Contro il Calcare", "Nowość", "Format XXL".
+   - "bez_splukiwania": ustaw true WYŁĄCZNIE wtedy, gdy na froncie widnieje wyraźne oznaczenie formuły bez spłukiwania ("SENZA RISCIACQUO", "Bez spłukiwania", "No Rinse", "Sans rinçage", "Ohne Ausspülen"); w przeciwnym razie false lub null.
 1. Pojemność lub waga: odczytaj dokładną wartość z jednostką (np. "650 ml", "750 ml", "1.5 l", "500 g", "1.5 kg"). Jeśli brak, null.
-2. Wariant zapachowy lub wersja: odczytaj nazwę rzeczywistej nuty zapachowej dla kosmetyków i chemii (np. "Lawenda", "Cytryna i mięta", "Ocean Fresh").
+2. Wariant zapachowy lub wersja: odczytaj nazwę rzeczywistej nuty zapachowej dla kosmetyków i chemii (np. "Lawenda", "Cytryna i mięta", "Wiosenne kwiaty", "Ocean Fresh").
    - DLA ARTYKUŁÓW BEZWONNYCH (SZCZOTECZKI DO ZĘBÓW, AKCESORIA) ZAWSZE NULL!
    - KATEGORYCZNY ZAKAZ wpisywania składników chemicznych/czyszczących jako zapachu! Napisy typu "con Candeggina" (z wybielaczem), "con Bicarbonato" (z sodą), "con Aceto" (z octem), "con Ammoniaca" (z amoniakiem) oznaczają SKŁADNIK AKTYWNY (wpisz "Wybielacz", "Soda oczyszczona" lub "Ocet" do kluczowe_skladniki_front), a dla zapach_wariant zwróć null (chyba że obok podano rzeczywistą nutę zapachową np. Cytryna, Eukaliptus).
 3. Twardość włosia (dla szczoteczek do zębów i pędzli): odczytaj stopień twardości (np. "Soft", "Medium", "Hard", "Ultra Soft", "Średnia", "Miękka", "Twarda"). Jeśli produkt nie posiada włosia, null.
@@ -138,7 +144,7 @@ KRYTYCZNE ZADANIA EKSTRAKCJI:
 5. Typ dozownika / zamknięcia: wskaż widoczny mechanizm po polsku (np. "pompka", "atomizer / spray", "korek / nakrętka", "nakrętka z miarką", "brak").
 6. Wydajność lub liczba użyć: jeśli podano liczbę prań, kapsułek lub doz (np. "40 prań", "60 kapsułek", "100 doz"), wpisz po polsku. W przeciwnym razie null.
 7. Przeznaczenie frontowe: główne docelowe zastosowanie podane na froncie, przetłumaczone w 100% na język polski bez obcojęzycznych wtrąceń w nawiasach (np. "uniwersalne czyszczenie powierzchni", "do czyszczenia kuchni i łazienki", "do higieny jamy ustnej", "do tkanin kolorowych"). Jeśli brak, null.
-8. Zweryfikowane wyróżniki i certyfikaty użytkowe z etykiety ("glowne_hasla_front"): lista WYŁĄCZNIE obiektywnych, weryfikowalnych faktów użytkowych, testów i certyfikatów widocznych na froncie PRZETŁUMACZONYCH W 100% NA RZECZOWY JĘZYK POLSKI (np. ["Testowany dermatologicznie", "Bez smug", "Bez chloru", "Butelka w 30% z plastiku z recyklingu", "Ogranicza powstawanie kropel i zacieków", "Neutralizuje nieprzyjemne zapachy"]). KATEGORYCZNY ZAKAZ przepisywania haseł reklamowych, rankingów ("Nr 1", "N°1", "Najlepiej sprzedający się", "Il più venduto", "Bestseller"), rekomendacji obcych marek ("Raccomandato da Ideal Standard", "Polecany przez..."), etykiet rozmiaru/hype ("Format XXL", "Mega", "Nowość", "Ulepszona formuła", "Formula potente", "Luxury", "Premium", "100%"), zwrotów sprzedażowych ("do Twojej łazienki") ani obcojęzycznych sloganów! Jeśli na froncie są wyłącznie slogany reklamowe, zwróć pustą tablicę [].
+8. Zweryfikowane wyróżniki i certyfikaty użytkowe z etykiety ("glowne_hasla_front"): lista WYŁĄCZNIE obiektywnych, weryfikowalnych faktów użytkowych, testów i certyfikatów widocznych na froncie PRZETŁUMACZONYCH W 100% NA RZECZOWY JĘZYK POLSKI (np. ["Bez spłukiwania", "Testowany dermatologicznie", "Bez smug", "Bez chloru", "Butelka w 30% z plastiku z recyklingu", "Ogranicza powstawanie kropel i zacieków", "Neutralizuje nieprzyjemne zapachy"]). Jeśli na froncie widnieje "SENZA RISCIACQUO", OBOWIĄZKOWO umieść "Bez spłukiwania" na liście. KATEGORYCZNY ZAKAZ przepisywania haseł reklamowych, rankingów ("Nr 1", "N°1", "Najlepiej sprzedający się", "Il più venduto", "Bestseller"), rekomendacji obcych marek ("Raccomandato da Ideal Standard", "Polecany przez..."), etykiet rozmiaru/hype ("Format XXL", "Mega", "Nowość", "Ulepszona formuła", "Formula potente", "Luxury", "Premium", "100%"), zwrotów sprzedażowych ("do Twojej łazienki") ani obcojęzycznych sloganów! Jeśli na froncie są wyłącznie slogany reklamowe, zwróć pustą tablicę [].
 9. Kluczowe składniki wyróżnione na froncie (Hero Ingredients): lista najważniejszych składników aktywnych, ekstraktów, olejków lub substancji czyszczących eksponowanych na przedniej etykiecie, przetłumaczona w 100% na język polski (np. ["Wybielacz", "Olej arganowy", "Mydło marsylskie", "Kwas hialuronowy", "Aktywny tlen", "Soda oczyszczona", "Aloes"]). Jeśli brak, pusta tablica [].
 10. Rodzaj opakowania ("opakowanie_rodzaj"): określ po polsku typ pojemnika ze zdjęcia (np. "plastikowa butelka z atomizerem", "butelka z pompką", "plastikowa butelka", "zapas / worek / doypack", "kartonik", "plastikowe pudełko", "puszka (spray)", "tubka", "słoik", "kanister"). Jeśli niepewne, null.
 11. Liczba sztuk ("liczba_sztuk"): wyłącznie jeśli na froncie wyraźnie podano liczbę sztuk/tabletek/kapsułek/wkładów (np. "40 szt.", "25 kapsułek", "12 szt."). Dla pojedynczej butelki bez oznaczenia wielopaku zwróć null.
@@ -148,6 +154,11 @@ UWAGA PRAWNA (BPR 528/2012 & Allegro 2026): Jeśli na zagranicznym opakowaniu wi
 const frontVisionSchema = {
     type: "object",
     properties: {
+        marka_front: { type: ["string", "null"] },
+        linia_produktowa_front: { type: ["string", "null"] },
+        wariant_etykieta_front: { type: ["string", "null"] },
+        pelna_nazwa_etykieta: { type: ["string", "null"] },
+        bez_splukiwania: { type: ["boolean", "null"] },
         pojemnosc_waga: { type: ["string", "null"] },
         zapach_wariant: { type: ["string", "null"] },
         twardosc_wlosia: { type: ["string", "null"] },
@@ -275,6 +286,21 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
         });
 
         const pimFeatures = {};
+        if (result.marka_front && String(result.marka_front).trim().length > 0) {
+            pimFeatures['Marka'] = String(result.marka_front).trim();
+        }
+        if (result.linia_produktowa_front && String(result.linia_produktowa_front).trim().length > 0) {
+            const cleanLine = sanitizeVisionFrontText(String(result.linia_produktowa_front).trim());
+            if (cleanLine) pimFeatures['Linia produktowa (Front)'] = cleanLine;
+        }
+        if (result.wariant_etykieta_front && String(result.wariant_etykieta_front).trim().length > 0) {
+            const cleanVariant = sanitizeVisionFrontText(String(result.wariant_etykieta_front).trim());
+            if (cleanVariant) pimFeatures['Wariant (Etykieta Front)'] = cleanVariant;
+        }
+        if (result.pelna_nazwa_etykieta && String(result.pelna_nazwa_etykieta).trim().length > 0) {
+            const cleanOfficial = sanitizeVisionFrontText(String(result.pelna_nazwa_etykieta).trim());
+            if (cleanOfficial) pimFeatures['Nazwa produktu (Etykieta Front)'] = cleanOfficial;
+        }
         if (result.pojemnosc_waga && String(result.pojemnosc_waga).trim().length > 0) {
             const val = String(result.pojemnosc_waga).trim();
             pimFeatures['Pojemność / Waga'] = val;
@@ -328,6 +354,17 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
                 pimFeatures['Wyróżniki (Etykieta Front)'] = cleanedHighlights.text;
             }
         }
+        const isFrontNoRinse = result.bez_splukiwania === true ||
+            /(?:senza\s+risciacquo|bez\s+spłukiwania|no\s+rinse)/i.test(JSON.stringify(result.glowne_hasla_front || []));
+        if (isFrontNoRinse) {
+            pimFeatures['Bez spłukiwania (Etykieta Front)'] = 'Tak';
+            const existingHighlights = pimFeatures['Wyróżniki (Etykieta Front)'] || '';
+            if (!/\bbez\s+spłukiwania\b/i.test(existingHighlights)) {
+                pimFeatures['Wyróżniki (Etykieta Front)'] = existingHighlights
+                    ? `Bez spłukiwania, ${existingHighlights}`
+                    : 'Bez spłukiwania';
+            }
+        }
         if (Array.isArray(result.kluczowe_skladniki_front) && result.kluczowe_skladniki_front.length > 0) {
             pimFeatures['Składniki wiodące (Front)'] = result.kluczowe_skladniki_front
                 .map(s => sanitizeVisionFrontText(String(s).trim()))
@@ -351,6 +388,11 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
             pimFeatures,
             usage,
             imageUrl: successfulUrl,
+            capturedImage: {
+                mimeType,
+                base64: base64Data,
+                url: successfulUrl
+            },
             skipped: false
         };
     } catch (err) {
@@ -386,22 +428,33 @@ ZASADY ANALIZY (DOKTRYNA ZAMKNIĘTEGO ŚWIATA – ZERO ZGADYWANIA):
      * ZASADA 1:1 (ABC -> ABC): Przepisz każdy składnik i konserwant obecny na etykiecie bez dodawania ani pomijania jakiegokolwiek związku.
    - Jeśli skład nie jest widoczny lub nieczytelny: ustaw "has_ingredients_label": false oraz "inci": null.
 
-3. EKSTRAKCJA OSTRZEŻEŃ BEZPIECZEŃSTWA ("warnings"):
+3. EKSTRAKCJA OSTRZEŻEŃ BEZPIECZEŃSTWA ("warnings") I PIKTOGRAMÓW ("clp_pictograms"):
+   - W "clp_pictograms" zwróć tablicę oficjalnych kodów widocznych na etykiecie piktogramów zagrożenia CLP w czerwonej rombowej ramce:
+     * wykrzyknik = "GHS07"
+     * substancja żrąca = "GHS05"
+     * płomień = "GHS02"
+     * środowisko = "GHS09"
+     * zagrożenie zdrowia = "GHS08"
+     * czaszka = "GHS06"
+     * utleniacz = "GHS03", butla gazu = "GHS04", wybuchowy = "GHS01"
+     * Jeśli brak piktogramów CLP na etykiecie, zwróć [].
    - Jeśli na etykiecie widoczne są ostrzeżenia bezpieczeństwa, piktogramy z opisem CLP lub środki ostrożności:
      * Ustaw "has_back_label": true.
      * Przetłumacz je wiernie w 100% na język polski (1:1 dokładnie to, co deklaruje producent na etykiecie) z zachowaniem oficjalnych, kompletnych kodów H/P/EUH (np. P101, P102, P103, P301+P330+P331, P303+P361+P353, P305+P351+P338, EUH206, EUH208 — zachowaj oba zdania w jednym zwrocie bez rozdzielania!).
+     * Każdy odrębny punkt bezpieczeństwa oraz dodatkowe zdania z kontretykiety (np. "Nie wdychać rozpylonej cieczy.", "Nie mieszać z wybielaczami ani z innymi produktami czyszczącymi.", "Dokładnie umyć ręce po użyciu.") oddzielaj znakiem nowej linii (\n) lub pełną kropką i wielką literą.
      * KATEGORYCZNY ZAKAZ wrzucania do pola "warnings" sekcji składników chemicznych ("Contains / Zawiera: wodorotlenek sodu, alkohole C12-14..." / "Composizione chimica") ani numerów alarmowych Centro Antiveleni — skład należy wyłącznie do pola "inci"! (UWAGA: zwrot uczuleniowy EUH208 typu "Zawiera mieszaninę ... Może powodować wystąpienie reakcji alergicznej" JEST ostrzeżeniem i należy do "warnings" w dokładnym zakresie podanym przez producenta — nie dopisuj substancji spoza EUH208!).
-     * KATEGORYCZNY ZAKAZ ZGADYWANIA I DOPISYWANIA ŚRODKÓW OCHRONY LUB ZAGROŻEŃ SPOZA ETYKIETY (np. zakaz dopisywania maski, okularów czy H319, jeśli etykieta ich nie wymienia!).
+     * KATEGORYCZNY ZAKAZ ZGADYWANIA I DOPISYWANIA ŚRODKÓW OCHRONY LUB ZAGROŻEŃ SPOZA ETYKIETY (np. zakaz dopisywania P280/rękawic ochronnych, maski, okularów czy H319, jeśli etykieta ich wyraźnie nie wymienia!).
    - Jeśli brak widocznych ostrzeżeń na zdjęciu, ustaw "warnings": null.
 
 4. EKSTRAKCJA SPOSOBU UŻYCIA ("usage_instructions"):
-   - Jeśli na etykiecie widoczna jest instrukcja użycia / dozowania ("Modo d'uso", "Istruzioni per l'uso", "Sposób użycia", "Gebrauchsanweisung"):
+   - Jeśli na etykiecie widoczna jest instrukcja użycia / dozowania ("Modo d'uso", "Istruzioni per l'uso", "Sposób użycia", "Gebrauchsanweisung") lub piktogramowe kafelki kroków (np. "SPRUZZA -> PASSA -> FATTO!"):
      * Ustaw "has_back_label": true.
-     * Przetłumacz ją wiernie i kompletnie (1:1 ABC -> ABC) na naturalny język polski z zachowaniem wszystkich sekcji, temperatur (np. "nawet na zimno"), czasów działania, spłukiwania (np. "wodą zdatną do picia") oraz uwag typu "postępować zgodnie z instrukcją obsługi urządzenia". Kategoryczny zakaz przeinaczania lub wymyślania etapów spoza etykiety producenta!
+     * Przetłumacz ją wiernie i kompletnie (1:1 ABC -> ABC) na naturalny język polski z zachowaniem wszystkich sekcji, temperatur (np. "nawet na zimno"), czasów działania, spłukiwania lub BRAKU spłukiwania (np. gdy kafelki pokazują "SPRUZZA -> PASSA -> FATTO!" albo front deklaruje "SENZA RISCIACQUO / Bez spłukiwania") oraz uwag typu "postępować zgodnie z instrukcją obsługi urządzenia". KATEGORYCZNY ZAKAZ halucynowania etapu "i spłukać" z pamięci o innym produkcie tej samej marki!
      * Zastosuj zgodność z BPR: słowa typu "igienizzante/antibatterico" tłumacz jako "higienicznie czyszczący".
    - Jeśli brak widocznej instrukcji użycia na zdjęciu, ustaw "usage_instructions": null.
 
-5. EKSTRAKCJA POWIERZCHNI DOCELOWYCH, CERTYFIKATÓW / TESTÓW, PRODUCENTA I KRAJU ("target_surfaces", "certifications_and_claims", "manufacturer_name", "country_of_origin", "packaging_type", "pieces_count", "numeric_ph"):
+5. EKSTRAKCJA NAZWY Z KONTRETYKIETY, POWIERZCHNI DOCELOWYCH, CERTYFIKATÓW / TESTÓW, PRODUCENTA I KRAJU ("oficjalna_nazwa_kontretykieta", "target_surfaces", "certifications_and_claims", "manufacturer_name", "country_of_origin", "packaging_type", "pieces_count", "numeric_ph"):
+   - W "oficjalna_nazwa_kontretykieta" podaj dokładną nazwę produktu występującą w nagłówku opisu na kontretykiecie (np. "Viakal Bagno Express"). W przeciwnym razie null.
    - W "target_surfaces" wypisz po polsku wszystkie powierzchnie i zastosowania wymienione w opisie na tylnej etykiecie (np. "do czyszczenia szyb, kryształów, luster oraz powierzchni plastikowych i laminowanych").
    - W "certifications_and_claims" wypisz po polsku WYŁĄCZNIE obiektywne, weryfikowalne certyfikaty, testy laboratoryjne i fakty materiałowe z tylnej etykiety (np. "certyfikat Air Label Score A+ (minimalna emisja substancji do powietrza), testowany dermatologicznie, testowany na obecność niklu, rtęci, ołowiu i chromu, odpowiedni do planów H.A.C.C.P., butelka zawiera 30% plastiku z recyklingu"). KATEGORYCZNY ZAKAZ przepisywania haseł reklamowych, rankingów rynkowych ("Najlepiej sprzedający się produkt we Włoszech", "*il più venduto in Italia", "Nr 1"), rekomendacji obcych marek ani obietnic skuteczności! Jeśli brak zweryfikowanych certyfikatów/faktów, ustaw null.
    - W "manufacturer_name" podaj pełną nazwę producenta z kontretykiety (np. "Italchimica S.r.l.").
@@ -418,7 +471,12 @@ const backPackInciSchema = {
         inci: { type: ["string", "null"] },
         raw_composition_text: { type: ["string", "null"] },
         warnings: { type: ["string", "null"] },
+        clp_pictograms: {
+            type: "array",
+            items: { type: "string" }
+        },
         usage_instructions: { type: ["string", "null"] },
+        oficjalna_nazwa_kontretykieta: { type: ["string", "null"] },
         target_surfaces: { type: ["string", "null"] },
         certifications_and_claims: { type: ["string", "null"] },
         manufacturer_name: { type: ["string", "null"] },
@@ -439,13 +497,13 @@ const backPackInciSchema = {
  * @param {string|null} skipFrontUrl - Opcjonalny URL zdjęcia frontowego do pominięcia
  * @returns {Promise<{ found: boolean, inci: string|null, warnings: string|null, usageInstructions: string|null, pimFeatures: Object, raw: string|null, imageUrl: string|null, usage: Object|null }>}
  */
-async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog = () => {}, skipFrontUrl = null) {
+async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog = () => {}, skipFrontUrl = null, options = {}) {
     const rawCandidateUrls = Array.isArray(imageUrlOrCandidates)
         ? imageUrlOrCandidates.filter(u => typeof u === 'string' && u.trim().length > 0)
         : (typeof imageUrlOrCandidates === 'string' && imageUrlOrCandidates.trim().length > 0 ? [imageUrlOrCandidates.trim()] : []);
 
     if (rawCandidateUrls.length === 0) {
-        return { found: false, inci: null, warnings: null, usageInstructions: null, pimFeatures: {}, raw: null, imageUrl: null, reason: 'Brak dostępnych zdjęć do analizy etykiety' };
+        return { found: false, inci: null, warnings: null, usageInstructions: null, clpPictograms: [], pimFeatures: {}, raw: null, imageUrl: null, reason: 'Brak dostępnych zdjęć do analizy etykiety' };
     }
 
     // Jeśli posiadamy więcej niż 1 zdjęcie i znamy już URL zdjęcia frontowego (zbadanego w extractFrontPackFeatures),
@@ -453,6 +511,24 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
     const candidateUrls = (skipFrontUrl && rawCandidateUrls.length > 1)
         ? rawCandidateUrls.filter(u => u.trim() !== skipFrontUrl.trim())
         : rawCandidateUrls;
+
+    const frontCtx = options?.frontContext && typeof options.frontContext === 'object' ? options.frontContext : null;
+    const frontImageAsset = options?.frontImage && typeof options.frontImage.base64 === 'string' && options.frontImage.base64.trim().length > 0
+        ? options.frontImage
+        : null;
+
+    let frontContextNote = '';
+    if (frontCtx && Object.keys(frontCtx).length > 0) {
+        const frontSummaryParts = [];
+        if (frontCtx['Nazwa produktu (Etykieta Front)']) frontSummaryParts.push(`Nazwa frontowa: ${frontCtx['Nazwa produktu (Etykieta Front)']}`);
+        if (frontCtx['Bez spłukiwania (Etykieta Front)'] === 'Tak' || /bez\s+spłukiwania/i.test(frontCtx['Wyróżniki (Etykieta Front)'] || '')) {
+            frontSummaryParts.push('KRYTYCZNY FAKT Z FRONTU: Produkt ma formułę BEZ SPŁUKIWANIA (SENZA RISCIACQUO) — NIE WOLNO dopisywać etapu spłukiwania wodą, jeśli kafelki/tekst kontretykiety pokazują przetarcie bez spłukiwania!');
+        }
+        if (frontCtx['Wyróżniki (Etykieta Front)']) frontSummaryParts.push(`Wyróżniki frontowe: ${frontCtx['Wyróżniki (Etykieta Front)']}`);
+        if (frontSummaryParts.length > 0) {
+            frontContextNote = `\n\nKONTEKST Z FRONTU OPAKOWANIA (do zachowania spójności 1:1):\n- ${frontSummaryParts.join('\n- ')}`;
+        }
+    }
 
     let bestPartialResult = null;
 
@@ -472,22 +548,40 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
         try {
             onLog(`[VISION BACK-PACK OCR] Analiza multimodalna Gemini 3.8 Flash Vision (Skład / Ostrzeżenia / Sposób użycia) dla zdjęcia${label}...`);
             const base64Data = bufferRes.buffer.toString('base64');
-            const { result, usage } = await aiWrapper.callAgentWithTelemetry({
+            const backPromptText = `Przeanalizuj tylną etykietę produktu (EAN: ${ean || 'N/A'}) zgodnie z instrukcjami systemowymi.${frontContextNote}`;
+            const callPayload = {
                 agentId: "0",
                 systemInstruction: BACK_PACK_INCI_PROMPT,
-                prompt: `Przeanalizuj tylną etykietę produktu (EAN: ${ean || 'N/A'}) zgodnie z instrukcjami systemowymi.`,
+                prompt: backPromptText,
                 schema: backPackInciSchema,
-                image: {
+                onLog
+            };
+            if (frontImageAsset) {
+                callPayload.images = [
+                    {
+                        label: 'ZDJĘCIE 1 (KONTEKST FRONTU OPAKOWANIA):',
+                        mimeType: frontImageAsset.mimeType || 'image/jpeg',
+                        base64: frontImageAsset.base64
+                    },
+                    {
+                        label: 'ZDJĘCIE 2 (GŁÓWNA KONTRETYKIETA DO EKSTRAKCJI INCI / OSTRZEŻEŃ / SPOSOBU UŻYCIA / PIKTOGRAMÓW):',
+                        mimeType: bufferRes.mimeType,
+                        base64: base64Data
+                    }
+                ];
+            } else {
+                callPayload.image = {
                     mimeType: bufferRes.mimeType,
                     base64: base64Data
-                },
-                onLog
-            });
+                };
+            }
+            const { result, usage } = await aiWrapper.callAgentWithTelemetry(callPayload);
 
             if (result) {
                 let validInci = null;
                 let validWarnings = null;
                 let validUsage = null;
+                let validPictograms = [];
                 const pimFeatures = {};
 
                 if (result.has_ingredients_label && result.inci && typeof result.inci === 'string') {
@@ -501,13 +595,24 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                     }
                 }
 
+                if (Array.isArray(result.clp_pictograms) && result.clp_pictograms.length > 0) {
+                    validPictograms = [...new Set(
+                        result.clp_pictograms
+                            .map(c => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''))
+                            .filter(c => /^GHS0[1-9]$/.test(c))
+                    )];
+                    if (validPictograms.length > 0) {
+                        pimFeatures['Piktogramy CLP (Etykieta)'] = validPictograms.join(', ');
+                    }
+                }
+
                 if (result.warnings && typeof result.warnings === 'string' && result.warnings.trim().length >= 5) {
                     validWarnings = result.warnings.trim()
                         .replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
                         .replace(/\bKONTATKT?U\b/gi, 'KONTAKTU')
                         .replace(/W\s+PRZYPADKU\s+(?:KONTAKTU|KONTATKU)\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ')
                         .replace(/\s*(?:Zawiera|Contains|Contiene|Skład\s+chemiczny|Composizione\s+chimica)\s*[:–-]?\s*(?:wodorotlenek|alkohol|sodium|alcoli|fosfonian)[^.\n]*\.?/gi, '')
-                        .replace(/\s{2,}/g, ' ')
+                        .replace(/[ \t]{2,}/g, ' ')
                         .trim();
                     pimFeatures['Ostrzeżenia'] = validWarnings;
                 }
@@ -515,6 +620,11 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                 if (result.usage_instructions && typeof result.usage_instructions === 'string' && result.usage_instructions.trim().length >= 5) {
                     validUsage = sanitizeVisionFrontText(result.usage_instructions.trim());
                     pimFeatures['Sposób użycia'] = validUsage;
+                }
+
+                if (result.oficjalna_nazwa_kontretykieta && typeof result.oficjalna_nazwa_kontretykieta === 'string' && result.oficjalna_nazwa_kontretykieta.trim().length >= 2) {
+                    const cleanBackName = sanitizeVisionFrontText(result.oficjalna_nazwa_kontretykieta.trim());
+                    if (cleanBackName) pimFeatures['Nazwa produktu (Kontretykieta)'] = cleanBackName;
                 }
 
                 if (result.target_surfaces && typeof result.target_surfaces === 'string' && result.target_surfaces.trim().length >= 5) {
@@ -546,29 +656,41 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                 }
 
                 if (validInci) {
-                    onLog(`[VISION BACK-PACK OCR SUKCES] Odczytano dane z tylnej etykiety${label} (Skład/INCI: TAK, Ostrzeżenia: ${validWarnings ? 'TAK' : 'NIE'}, Sposób użycia: ${validUsage ? 'TAK' : 'NIE'}).`);
+                    onLog(`[VISION BACK-PACK OCR SUKCES] Odczytano dane z tylnej etykiety${label} (Skład/INCI: TAK, Ostrzeżenia: ${validWarnings ? 'TAK' : 'NIE'}, Sposób użycia: ${validUsage ? 'TAK' : 'NIE'}, CLP: ${validPictograms.join(',') || 'brak'}).`);
                     return {
                         found: true,
                         inci: validInci,
                         warnings: validWarnings,
                         usageInstructions: validUsage,
+                        clpPictograms: validPictograms,
                         pimFeatures,
                         raw: result.raw_composition_text || null,
                         imageUrl: currentUrl,
+                        capturedImage: {
+                            mimeType: bufferRes.mimeType,
+                            base64: base64Data,
+                            url: currentUrl
+                        },
                         usage
                     };
                 }
 
-                if ((validWarnings || validUsage) && !bestPartialResult) {
-                    onLog(`[VISION BACK-PACK OCR INFO] Odczytano Ostrzeżenia/Sposób użycia ze zdjęcia${label} (brak pełnego INCI na tym ujęciu).`);
+                if ((validWarnings || validUsage || validPictograms.length > 0) && !bestPartialResult) {
+                    onLog(`[VISION BACK-PACK OCR INFO] Odczytano Ostrzeżenia/Sposób użycia/CLP ze zdjęcia${label} (brak pełnego INCI na tym ujęciu).`);
                     bestPartialResult = {
                         found: true,
                         inci: null,
                         warnings: validWarnings,
                         usageInstructions: validUsage,
+                        clpPictograms: validPictograms,
                         pimFeatures,
                         raw: result.raw_composition_text || null,
                         imageUrl: currentUrl,
+                        capturedImage: {
+                            mimeType: bufferRes.mimeType,
+                            base64: base64Data,
+                            url: currentUrl
+                        },
                         usage
                     };
                 }
@@ -582,7 +704,7 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
         return bestPartialResult;
     }
 
-    return { found: false, inci: null, warnings: null, usageInstructions: null, pimFeatures: {}, raw: null, imageUrl: null };
+    return { found: false, inci: null, warnings: null, usageInstructions: null, clpPictograms: [], pimFeatures: {}, raw: null, imageUrl: null };
 }
 
 module.exports = {

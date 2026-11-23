@@ -62,6 +62,57 @@ class GpsrSafetyService {
             'alcohol denat.', 'isopropyl alcohol', 'butane', 'isobutane', 'propane',
             'acetone', 'ethyl acetate'
         ];
+
+        this.clpPictogramLabels = {
+            GHS01: 'GHS01 (materiał wybuchowy)',
+            GHS02: 'GHS02 (płomień)',
+            GHS03: 'GHS03 (materiał utleniający)',
+            GHS04: 'GHS04 (gaz pod ciśnieniem)',
+            GHS05: 'GHS05 (działanie żrące)',
+            GHS06: 'GHS06 (toksyczność ostra)',
+            GHS07: 'GHS07 (wykrzyknik)',
+            GHS08: 'GHS08 (zagrożenie dla zdrowia)',
+            GHS09: 'GHS09 (zagrożenie dla środowiska)'
+        };
+    }
+
+    resolveClpPictogramsList(compliance = null, features = {}) {
+        const rawSources = [
+            ...(Array.isArray(compliance?.clp_pictograms) ? compliance.clp_pictograms : (compliance?.clp_pictograms ? [compliance.clp_pictograms] : [])),
+            features?.['Piktogramy CLP (Etykieta)'],
+            features?.['Piktogramy CLP'],
+            features?.['Piktogram CLP']
+        ].filter(Boolean);
+        const codes = [];
+        const seen = new Set();
+        for (const src of rawSources) {
+            const parts = Array.isArray(src) ? src : String(src).split(/[,;|/\s]+/);
+            for (const p of parts) {
+                const match = String(p || '').toUpperCase().match(/GHS0[1-9]/);
+                if (match && !seen.has(match[0])) {
+                    seen.add(match[0]);
+                    codes.push(match[0]);
+                }
+            }
+        }
+        return codes;
+    }
+
+    formatClpPictogramWarning(code) {
+        const upper = String(code || '').toUpperCase().trim();
+        if (!/^GHS0[1-9]$/.test(upper)) return null;
+        return `Piktogram zagrożenia – ${this.clpPictogramLabels[upper] || upper}.`;
+    }
+
+    splitWarningSentencesPreservingAbbreviations(rawClause) {
+        if (!rawClause || typeof rawClause !== 'string') return [];
+        const protectedText = rawClause
+            .replace(/\b(np|ok|itd|itp|art|ust|pkt|rozp|tel|dr|mgr|s\.r\.l|sp)\./gi, (m, abbr) => `${abbr}__DOT__`)
+            .replace(/\b([A-Z]\.[a-z]\.[a-z]?)\./g, (m) => m.replace(/\./g, '__DOT__'));
+        return protectedText
+            .split(/(?<=[.!?])\s+(?=[A-ZĄĆĘŁŃÓŚŹŻ])/)
+            .map(s => s.replace(/__DOT__/g, '.').trim())
+            .filter(Boolean);
     }
 
     _loadSdsKnowledge() {
@@ -137,8 +188,8 @@ class GpsrSafetyService {
             .trim();
         if (!clean || clean.length < 4) return true;
 
-        // Jeżeli wpis zaczyna się od kodu CLP/H/EUH, nie jest urwanym fragmentem bez kodu
-        if (/^(?:P\d{3}|H\d{3}|EUH\d{3}|Hasło\s+ostrzegawcze)\b/i.test(clean)) {
+        // Jeżeli wpis zaczyna się od kodu CLP/H/EUH lub opisu piktogramu GHS, nie jest urwanym fragmentem bez kodu
+        if (/^(?:P\d{3}|H\d{3}|EUH\d{3}|Hasło\s+ostrzegawcze|Piktogram\s+zagrożenia)\b/i.test(clean)) {
             return false;
         }
 
@@ -510,6 +561,15 @@ class GpsrSafetyService {
                 detectedRisks.push('PROTECTIVE_GLOVES_REQUIRED');
             }
 
+            // 0. Piktogramy zagrożenia CLP (wyłącznie gdy zostały jawnie odczytane z etykiety / SDS / compliance)
+            const clpPictograms = this.resolveClpPictogramsList(compliance, features);
+            for (const ghsCode of clpPictograms) {
+                const pictoLine = this.formatClpPictogramWarning(ghsCode);
+                if (pictoLine) {
+                    warnings.push(pictoLine);
+                }
+            }
+
             // 1. Hasło ostrzegawcze (DANGER / WARNING wg CLP) - format z myślnikiem wg standardu Allegro
             if (isClassifiedChemical) {
                 let signalWord = compliance?.clp_signal_word || 'UWAGA';
@@ -644,14 +704,28 @@ class GpsrSafetyService {
             }
 
             // 11b. Wstrzyknięcie specyficznych ostrzeżeń odczytanych bezpośrednio z tylnej etykiety opakowania (features['Ostrzeżenia'])
-            // Dzielimy wyłącznie po znakach nowej linii lub granicach kodów CLP/sekcji (NIGDY po kropce wewnątrz zdań CLP!)
+            // Najpierw dzielimy po znakach nowej linii / granicach bloków INCI, a następnie rozbijamy sklejone jednolinijkowe zdania po kropce z ochroną skrótów.
             if (rawPimWarnings) {
-                const labelClauses = rawPimWarnings
-                    .split(/(?:\r?\n|(?=\s+(?:Hasło\s+ostrzegawcze|P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3}|Zawiera\b|Contains\b|Contiene\b|Skład(?:\s+INCI)?\b|INCI\b|Ingredients\b|Ingredienti\b|Composizione\b)\b))/i)
+                const rawChunks = rawPimWarnings
+                    .split(/\r?\n+/)
                     .map(s => s.replace(/\s+(?:Zawiera|Contains|Contiene|Skład(?:\s+chemiczny|\s+INCI)?|INCI|Ingredients|Ingredienti|Composizione(?:\s+chimica)?)\b[\s\S]*$/i, '').trim())
-                    .map(s => this.normalizeClpPhraseText(s))
-                    .filter(s => s.length >= 6);
-                for (const clause of labelClauses) {
+                    .filter(Boolean);
+
+                const sentenceCandidates = [];
+                for (const chunk of rawChunks) {
+                    const splitSentences = this.splitWarningSentencesPreservingAbbreviations(chunk);
+                    for (const sent of splitSentences) {
+                        const subByCode = sent.split(/(?=\s+(?:Hasło\s+ostrzegawcze|P\d{3}(?:\+P\d{3})*|H\d{3}(?:\+H\d{3})*|EUH\d{3})\b)/i);
+                        for (const sub of subByCode) {
+                            const norm = this.normalizeClpPhraseText(sub);
+                            if (norm && norm.length >= 6) {
+                                sentenceCandidates.push(norm);
+                            }
+                        }
+                    }
+                }
+
+                for (const clause of sentenceCandidates) {
                     if (this.isOrphanClpOrRawIngredientFragment(clause)) {
                         continue;
                     }

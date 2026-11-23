@@ -95,8 +95,8 @@
     "parfum": {
       "names": ["parfum", "fragrance", "aroma", "kompozycja zapachowa", "perfume"],
       "role": "fragrance",
-      "cosmetic_html": "<li>⚙️ <b>Parfum (Kompozycja zapachowa):</b> starannie dobrany bukiet zapachowy, który <b>neutralizuje woń bazy surowcowej</b> i pozostawia na skórze lub włosach przyjemny aromat.</li>",
-      "chemical_html": "<li>⚙️ <b>Parfum (Kompozycja zapachowa):</b> starannie dobrana frakcja aromatyczna, która <b>neutralizuje woń surowców chemicznych oraz nieprzyjemne zapachy</b>, pozostawiając po sprzątaniu wyczuwalną, długotrwałą świeżość.</li>"
+      "cosmetic_html": "<li>⚙️ <b>Parfum (Kompozycja zapachowa):</b> kompozycja zapachowa nadająca produktowi <b>przyjemny, świeży aromat</b> podczas aplikacji.</li>",
+      "chemical_html": "<li>⚙️ <b>Parfum (Kompozycja zapachowa):</b> kompozycja zapachowa nadająca preparatowi <b>przyjemny, świeży zapach</b> podczas sprzątania i po jego zakończeniu.</li>"
     },
     "panthenol": {
       "names": ["panthenol", "pantenol", "prowitamina b5", "d-panthenol"],
