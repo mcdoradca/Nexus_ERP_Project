@@ -26,6 +26,11 @@ const {
 } = require('../../utils/allegro_mapper');
 const { trimOrNull, resolveProductByIdOrEan, buildNumericProductUpdateFields } = require('../../utils/productLookup');
 const workspaceService = require('../../services/workspace.service');
+const {
+    resolveWorkspaceContentProfile,
+    resolveOrderedVisibleDescriptionSections,
+    loadSiblingCopyFingerprints
+} = require('../../services/workspaceContentProfile.service');
 const { signScopedExportToken, verifyAndConsumeScopedExportToken } = require('../../utils/exportTokenGuard');
 const { exportLogger } = require('../../utils/logger');
 const sharp = require('sharp');
@@ -115,7 +120,7 @@ const analyzeSingle = async (req, res) => {
         if (product.offerDraft && Object.keys(product.offerDraft).length > 0 && !forceRegenerate) {
             console.log("[PIM] Zwracam zapisaną kopię roboczą z bazy!");
             
-            let sekcja1 = '', sekcja2 = '', sekcja3 = '', sekcja4 = '', sekcja5 = '', sekcja6 = '', sekcja7 = '';
+            let sekcja1 = '', sekcja2 = '', sekcja3 = '', sekcja4 = '', sekcja5 = '', sekcja6 = '', sekcjaTips = '', sekcja7 = '';
             const draft = product.offerDraft;
             if (draft.htmlContent) {
                 if (typeof draft.htmlContent === 'string') {
@@ -127,6 +132,7 @@ const analyzeSingle = async (req, res) => {
                     sekcja4 = draft.htmlContent.sekcja4 || '';
                     sekcja5 = draft.htmlContent.sekcja5 || '';
                     sekcja6 = draft.htmlContent.sekcja6 || '';
+                    sekcjaTips = draft.htmlContent.sekcjaTips || '';
                     sekcja7 = draft.htmlContent.sekcja7 || '';
                 }
             } else {
@@ -136,13 +142,14 @@ const analyzeSingle = async (req, res) => {
                 sekcja4 = draft.sekcja4 || '';
                 sekcja5 = draft.sekcja5 || '';
                 sekcja6 = draft.sekcja6 || '';
+                sekcjaTips = draft.sekcjaTips || '';
                 sekcja7 = draft.sekcja7 || '';
             }
 
             return res.status(200).json({
                 title: product.offerDraft.title || product.name,
                 ean: product.ean,
-                htmlContent: { sekcja1, sekcja2, sekcja3, sekcja4, sekcja5, sekcja6, sekcja7 },
+                htmlContent: { sekcja1, sekcja2, sekcja3, sekcja4, sekcja5, sekcja6, sekcjaTips, sekcja7 },
                 images: ((product.offerDraft.visionTickets?.length ? product.offerDraft.visionTickets : null) || (product.offerDraft.images?.length ? product.offerDraft.images : null) || product.images || []).map(img => {
                     if (typeof img === 'string') return { originalUrl: img, isCompliant: true, alerts: [] };
                     return {
@@ -216,13 +223,22 @@ const regenerateTitle = async (req, res) => {
         const { ean, productId, currentTitle } = req.body;
         if (!ean && !productId) return res.status(400).json({ error: "Wymagany EAN." });
 
-        const product = await resolveProductByIdOrEan(prisma, { productId, ean, workspaceId: req.workspaceId || null });
+        const wsId = req.workspaceId || null;
+        const product = await resolveProductByIdOrEan(prisma, { productId, ean, workspaceId: wsId });
         if (!product) return res.status(404).json({ error: "Produkt nie znaleziony w PIM." });
+
+        const contentProfile = req.workspace ? resolveWorkspaceContentProfile(req.workspace) : null;
+        const fingerprints = wsId
+            ? await loadSiblingCopyFingerprints(prisma, { ean: product.ean, currentWorkspaceId: wsId })
+            : { used_titles: [] };
 
         const featuresString = product.features ? JSON.stringify(product.features) : '';
         const textContent = `NAZWA: ${product.name}\n\nCECHY TECHNICZNE PIM: ${featuresString}\n\nOPIS HTML: ${product.descriptionHtml || ''}`;
 
-        const payload = await AiService.generateTitleOnly(textContent, currentTitle || product.name);
+        const payload = await AiService.generateTitleOnly(textContent, currentTitle || product.name, {
+            contentProfile,
+            avoidTitles: fingerprints.used_titles
+        });
         res.status(200).json({ title: payload.title });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -313,7 +329,7 @@ const saveDraft = async (req, res) => {
         // Ochrona przed przypadkowym nadpisaniem istniejącego opisu pustymi sekcjami
         const hasIncomingHtml = draftData.htmlContent && (
             (typeof draftData.htmlContent === 'string' && draftData.htmlContent.replace(/<[^>]*>/g, '').trim() !== '') ||
-            (typeof draftData.htmlContent === 'object' && ['sekcja1', 'sekcja2', 'sekcja3', 'sekcja4', 'sekcja5', 'sekcja6'].some(
+            (typeof draftData.htmlContent === 'object' && ['sekcja1', 'sekcja2', 'sekcja3', 'sekcja4', 'sekcja5', 'sekcja6', 'sekcjaTips', 'sekcja7'].some(
                 k => typeof draftData.htmlContent[k] === 'string' && draftData.htmlContent[k].replace(/<[^>]*>/g, '').trim() !== ''
             ))
         );
@@ -494,7 +510,8 @@ const validateBaselinkerExport = async (req, res) => {
         }
 
         const blAcc = await resolveBaselinkerAccountContext(wsId, baselinkerAccountId || accountId);
-        const blContext = { workspaceId: wsId, accountId: blAcc?.id || null };
+        const contentProfile = req.workspace ? resolveWorkspaceContentProfile(req.workspace) : null;
+        const blContext = { workspaceId: wsId, accountId: blAcc?.id || null, contentProfile };
 
         // Wykorzystanie nowego deterministycznego serwisu zamiast Agentów AI (LLM)
         const baselinkerExportService = require('../offer-optimizer-v2/baselinker.export.service');
@@ -588,7 +605,8 @@ const exportToBaselinker = async (req, res) => {
         }
 
         const blAcc = await resolveBaselinkerAccountContext(wsId, baselinkerAccountId || accountId);
-        const blContext = { workspaceId: wsId, accountId: blAcc?.id || null };
+        const contentProfile = req.workspace ? resolveWorkspaceContentProfile(req.workspace) : null;
+        const blContext = { workspaceId: wsId, accountId: blAcc?.id || null, contentProfile };
 
         // --- HARD LOCK: Weryfikacja Tokenu Eksportu ---
         if (wsId) {
@@ -636,25 +654,12 @@ const exportToBaselinker = async (req, res) => {
             if (typeof draftData.htmlContent === 'string') {
                 newDescHtml = draftData.htmlContent;
             } else if (typeof draftData.htmlContent === 'object') {
-                newDescHtml = [
-                    draftData.htmlContent.sekcja1 || '',
-                    draftData.htmlContent.sekcja2 || '',
-                    stripRawInciFooterFromSection3(draftData.htmlContent.sekcja3 || ''),
-                    draftData.htmlContent.sekcja4 || '',
-                    draftData.htmlContent.sekcja5 || '',
-                    draftData.htmlContent.sekcja7 || ''
-                ].filter(Boolean).join('\n\n');
+                const orderedBlSections = resolveOrderedVisibleDescriptionSections(draftData.htmlContent, contentProfile);
+                newDescHtml = orderedBlSections.map(s => s.html).filter(Boolean).join('\n\n');
             }
         } else {
-            // fallback if flat (bez sekcja6 GPSR w treści opisu oferty)
-            newDescHtml = [
-                draftData.sekcja1 || '',
-                draftData.sekcja2 || '',
-                stripRawInciFooterFromSection3(draftData.sekcja3 || ''),
-                draftData.sekcja4 || '',
-                draftData.sekcja5 || '',
-                draftData.sekcja7 || ''
-            ].filter(Boolean).join('\n\n');
+            const orderedBlSections = resolveOrderedVisibleDescriptionSections(draftData, contentProfile);
+            newDescHtml = orderedBlSections.map(s => s.html).filter(Boolean).join('\n\n');
         }
 
         const aiActDisclosure = `<p>Zdjęcia aranżacyjne: tła wygenerowane cyfrowo. Wygląd produktu i opakowania jest autentyczny.</p>`;
@@ -805,6 +810,9 @@ const generateLifestyle = async (req, res) => {
             imageIndex
         });
 
+        const wsId = req.workspaceId || null;
+        const wsObj = req.workspace || null;
+
         // Zwracamy HTTP 202 natychmiast z jobId
         res.status(202).json({
             status: 'PROCESSING',
@@ -817,15 +825,12 @@ const generateLifestyle = async (req, res) => {
             try {
                 console.log(`[Lifestyle AI Async] Rozpoczęto przetwarzanie zadania ${jobId} dla EAN: ${ean}, Slot: ${imageIndex}`);
                 
-                let scenography = null;
-                // V2 nie korzysta już ze scenography od Agenta 8, używamy totalnego losowania.
-                
                 const PhotoroomServiceV2 = require('../offer-optimizer-v2/photoroom.service');
                 const socketService = require('../../core/socket');
                 
                 const onLog = (msg) => {
                     const logObj = { time: new Date().toLocaleTimeString(), agentId: `Agent 11 (Slot ${Number(imageIndex) + 1})`, message: msg, ean, imageIndex: Number(imageIndex) };
-                    socketService.broadcast('nexus-notification', {
+                    socketService.emitToWorkspace(wsId, 'nexus-notification', {
                         type: 'LIFESTYLE_LOG',
                         jobId,
                         imageIndex: Number(imageIndex),
@@ -833,13 +838,18 @@ const generateLifestyle = async (req, res) => {
                     });
                 };
                 
-                const aiResult = await PhotoroomServiceV2.generateLifestyle(imageBase64, sourceImageUrl, ean, imageIndex, onLog);
+                const aiResult = await PhotoroomServiceV2.generateLifestyle(imageBase64, sourceImageUrl, ean, imageIndex, onLog, {
+                    workspaceId: wsId,
+                    workspaceSettings: wsObj?.settings,
+                    workspaceIsDefault: wsObj?.isDefault,
+                    workspaceSlug: wsObj?.slug
+                });
                 const newImageBase64 = aiResult.base64;
                 const visualTrendReport = aiResult.visualTrendReport;
                 
                 if (ean) {
                     try {
-                        const targetProd = await resolveProductByIdOrEan(prisma, { ean, select: { id: true } });
+                        const targetProd = await resolveProductByIdOrEan(prisma, { ean, workspaceId: wsId, select: { id: true } });
                         if (targetProd) {
                             await prisma.product.update({
                                 where: { id: targetProd.id },
@@ -943,27 +953,40 @@ const triggerUltimatePipeline = async (req, res) => {
         }
 
         // Zwracamy HTTP 202 natychmiast
+        const reqWorkspace = req.workspace || null;
         res.status(202).json({ status: "processing", ean: canonicalEan, workspaceId: effWsId, message: "Pipeline V2 uruchomiony w tle." });
 
         // Procesujemy w tle (V2 Orchestrator)
         (async () => {
             try {
                 const { Orchestrator } = require('../offer-optimizer-v2/orchestrator');
-                const orch = new Orchestrator(canonicalEan, { workspaceId: effWsId });
+                const orch = new Orchestrator(canonicalEan, {
+                    workspaceId: effWsId,
+                    workspaceSettings: reqWorkspace?.settings,
+                    workspaceIsDefault: reqWorkspace?.isDefault,
+                    workspaceSlug: reqWorkspace?.slug
+                });
 
                 if (forceRestart) {
                     console.log(`[Controller] Wymuszono restart potoku dla EAN: ${canonicalEan}. Ignorowanie poprzedniego stanu.`);
                 } else {
-                    // Szukamy najświeższego stanu potoku (resume) w logach
+                    // Szukamy najświeższego stanu potoku (resume) w logach izolowanego na workspace klienta
                     const fs = require('fs');
                     const path = require('path');
                     const logsDir = path.join(__dirname, '../offer-optimizer-v2/logs');
                     let latestState = null;
                     let latestMtime = 0;
+                    const wsTag = effWsId ? String(effWsId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 12) : '';
+                    const allowLegacyDefaultResume = !effWsId || Boolean(reqWorkspace?.isDefault);
                     
                     if (fs.existsSync(logsDir)) {
                         const files = fs.readdirSync(logsDir);
-                        const eanFiles = files.filter(f => f.startsWith(`state_PL-${canonicalEan}-`) && f.endsWith('.json'));
+                        const scopedPrefix = wsTag ? `state_PL-${wsTag}-${canonicalEan}-` : null;
+                        const legacyPrefix = `state_PL-${canonicalEan}-`;
+                        let eanFiles = scopedPrefix ? files.filter(f => f.startsWith(scopedPrefix) && f.endsWith('.json')) : [];
+                        if (eanFiles.length === 0 && allowLegacyDefaultResume) {
+                            eanFiles = files.filter(f => f.startsWith(legacyPrefix) && f.endsWith('.json'));
+                        }
                         for (let f of eanFiles) {
                             const fp = path.join(logsDir, f);
                             const stats = fs.statSync(fp);
@@ -1119,7 +1142,8 @@ const triggerUltimatePipeline = async (req, res) => {
                          sekcja4: orch.state.a10_result?.section_4_html || "",
                          sekcja5: orch.state.a10_result?.section_5_html || "",
                          sekcja6: orch.state.a10_result?.section_6_html || "",
-                         sekcja7: orch.state.a10_result?.section_7_html || ""
+                         sekcjaTips: orch.state.a10_result?.section_tips_html || orch.state.final_offer?.section_tips_html || "",
+                         sekcja7: orch.state.a10_result?.section_7_html || orch.state.final_offer?.extra_field_4245 || orch.workspaceContentProfile?.defaultSekcja7 || ""
                      };
 
                      let freshProduct = freshProductForDraft;
@@ -2113,7 +2137,7 @@ const exportAllegroParams = async (req, res) => {
     }
 };
 
-function buildCanonicalContentDescriptor({ product, existingDraft, htmlContent, images, aiFlagsOverride, includeImages, includeDescription }) {
+function buildCanonicalContentDescriptor({ product, existingDraft, htmlContent, images, aiFlagsOverride, includeImages, includeDescription, contentProfile = null }) {
     const effectiveHtmlContent = htmlContent || existingDraft?.htmlContent || null;
     const effectiveDescriptionHtml = product?.descriptionHtml || '';
     const effectiveDraftImages = (Array.isArray(images) && images.length > 0)
@@ -2134,7 +2158,15 @@ function buildCanonicalContentDescriptor({ product, existingDraft, htmlContent, 
         includeDescription: Boolean(includeDescription),
         images: collected.images.map(i => ({ source: i.source, isAiCoCreated: i.isAiCoCreated })),
         htmlContent: effectiveHtmlContent,
-        descriptionHtml: effectiveDescriptionHtml
+        descriptionHtml: effectiveDescriptionHtml,
+        ...(contentProfile ? {
+            layoutKey: {
+                sectionOrder: contentProfile.sectionOrder,
+                hiddenSections: contentProfile.hiddenSections,
+                imageTextLayout: contentProfile.imageTextLayout,
+                includeTipsSection: contentProfile.includeTipsSection
+            }
+        } : {})
     };
 
     return {
@@ -2205,6 +2237,7 @@ const validateAllegroContentExport = async (req, res) => {
             ctx.effAccountId = resolvedAccountId;
         }
 
+        const contentProfile = req.workspace ? resolveWorkspaceContentProfile(req.workspace) : null;
         const descriptor = buildCanonicalContentDescriptor({
             product,
             existingDraft,
@@ -2212,7 +2245,8 @@ const validateAllegroContentExport = async (req, res) => {
             images,
             aiFlagsOverride,
             includeImages,
-            includeDescription
+            includeDescription,
+            contentProfile
         });
 
         const preflight = buildAllegroContentPreflight({
@@ -2225,7 +2259,8 @@ const validateAllegroContentExport = async (req, res) => {
             productImages: product.images,
             includeImages,
             includeDescription,
-            aiFlagsOverride
+            aiFlagsOverride,
+            contentProfile
         });
 
         const exportToken = wsId
@@ -2309,6 +2344,7 @@ const exportAllegroContent = async (req, res) => {
         const existingDraft = parseOfferDraftJson(product.offerDraft);
         const effAccountId = accountId ? String(accountId).trim() : '';
 
+        const contentProfile = req.workspace ? resolveWorkspaceContentProfile(req.workspace) : null;
         const descriptor = buildCanonicalContentDescriptor({
             product,
             existingDraft,
@@ -2316,7 +2352,8 @@ const exportAllegroContent = async (req, res) => {
             images,
             aiFlagsOverride,
             includeImages,
-            includeDescription
+            includeDescription,
+            contentProfile
         });
 
         try {
@@ -2357,7 +2394,8 @@ const exportAllegroContent = async (req, res) => {
             productImages: product.images,
             includeImages,
             includeDescription,
-            aiFlagsOverride
+            aiFlagsOverride,
+            contentProfile
         });
 
         if (preflightCheck.errors.length > 0) {
@@ -2393,7 +2431,8 @@ const exportAllegroContent = async (req, res) => {
                 htmlContent: descriptor.effectiveHtmlContent,
                 descriptionHtml: descriptor.effectiveDescriptionHtml,
                 imageUrls: imageUrlsForDescription,
-                appendAiDisclosure: uploadedImages.some(u => u.isAiCoCreated)
+                appendAiDisclosure: uploadedImages.some(u => u.isAiCoCreated),
+                contentProfile
             });
             if (builtDesc.exceedsLimit || builtDesc.sectionsCount === 0) {
                 return res.status(400).json({ error: 'Finalny opis po podstawieniu zdjęć przekracza limit 40 000 bajtów lub jest pusty.' });

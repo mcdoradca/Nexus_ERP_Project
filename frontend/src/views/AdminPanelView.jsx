@@ -1,9 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Users, Archive, RotateCcw, CloudLightning, Save, CheckCircle2, Trash2, ShoppingCart, ExternalLink, Loader2, Image, ShieldCheck, AlertTriangle, Layers, Edit3, History, X } from 'lucide-react';
+import { Plus, Users, Archive, RotateCcw, CloudLightning, Save, CheckCircle2, Trash2, ShoppingCart, ExternalLink, Loader2, Image, ShieldCheck, AlertTriangle, Layers, Edit3, History, X, ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react';
 import { getInitials, getDepartmentColor } from '../utils';
 
 const WORKSPACE_COLOR_PRESETS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#0f172a'];
+
+const DEFAULT_SECTION_DEFS_FALLBACK = [
+  { key: 'sekcja1', label: 'Moduł 1: Mocne strony i wstęp (Above-the-Fold)', canHide: false },
+  { key: 'sekcja2', label: 'Moduł 2: FAQ / Najczęstsze pytania', canHide: true },
+  { key: 'sekcja3', label: 'Moduł 3: Składniki aktywne i działanie', canHide: true },
+  { key: 'sekcja4', label: 'Moduł 4: Sposób użycia i dawkowanie', canHide: true },
+  { key: 'sekcja5', label: 'Moduł 5: Specyfikacja techniczna i parametry', canHide: true },
+  { key: 'sekcjaTips', label: 'Moduł dodatkowy: Porady i praktyczne tipy', canHide: true },
+  { key: 'sekcja7', label: 'Moduł 7: Informacja o dystrybucji i opakowaniu', canHide: true }
+];
+
+const DEFAULT_CONTENT_PRESETS_FALLBACK = [
+  {
+    presetId: 'DEFAULT_CLASSIC',
+    name: 'Klasyczny Domyślny (Włoska ramka)',
+    shortDesc: 'Domyślny układ 6 modułów z włoską ramką na zdjęciach AI.',
+    bulletEmoji: '✔️',
+    imageTextLayout: 'IMAGE_LEFT',
+    sectionOrder: ['sekcja1', 'sekcja2', 'sekcja3', 'sekcja4', 'sekcja5', 'sekcja7'],
+    hiddenSections: [],
+    includeTipsSection: false,
+    tipsSectionTitle: 'Praktyczne porady i wskazówki użycia',
+    defaultSekcja7: '<p>Produkt pochodzi z włoskiej dystrybucji i jest dostarczany w fabrycznym, szczelnie zamkniętym opakowaniu producenta. Przed pierwszym użyciem zapoznaj się z etykietą oraz zaleceniami zamieszczonymi na opakowaniu.</p>',
+    defaultFrameStyle: 'ITALIAN_TRICOLOR'
+  },
+  {
+    presetId: 'EXPERT_TECHNICAL',
+    name: 'Ekspert Techniczny (Bez FAQ + Porady + Naprzemienny)',
+    shortDesc: 'Ukryte FAQ, sekcja porad użytkowych, naprzemienny układ kafelków, zdjęcia bez ramki.',
+    bulletEmoji: '✅',
+    imageTextLayout: 'ALTERNATING',
+    sectionOrder: ['sekcja1', 'sekcja3', 'sekcja5', 'sekcja4', 'sekcjaTips', 'sekcja7', 'sekcja2'],
+    hiddenSections: ['sekcja2'],
+    includeTipsSection: true,
+    tipsSectionTitle: 'Praktyczne wskazówki i triki zastosowania',
+    defaultSekcja7: '<p>Artykuł z dystrybucji europejskiej w nienaruszonym opakowaniu fabrycznym producenta. Przed rozpoczęciem stosowania zweryfikuj oznaczenia etykiety i kartę parametrów.</p>',
+    defaultFrameStyle: 'CLEAN_NONE'
+  }
+];
 
 const AdminPanelView = ({
   users,
@@ -24,8 +63,16 @@ const AdminPanelView = ({
   // Multi-Workspace States
   const [adminWorkspaces, setAdminWorkspaces] = useState(workspaces);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(() => activeWorkspace?.id || workspaces[0]?.id || '');
+  const [contentCatalog, setContentCatalog] = useState({ presets: DEFAULT_CONTENT_PRESETS_FALLBACK, sections: DEFAULT_SECTION_DEFS_FALLBACK });
   const [isWsModalOpen, setIsWsModalOpen] = useState(false);
-  const [wsForm, setWsForm] = useState({ id: '', name: '', badgeColor: '#4f46e5', isDefault: false });
+  const [wsForm, setWsForm] = useState({
+    id: '',
+    name: '',
+    badgeColor: '#4f46e5',
+    isDefault: false,
+    contentProfile: { ...DEFAULT_CONTENT_PRESETS_FALLBACK[0] },
+    visualProfile: { frameStyle: 'CLEAN_NONE', showAiBadge: true }
+  });
   const [isSavingWs, setIsSavingWs] = useState(false);
   const [wsError, setWsError] = useState('');
 
@@ -219,6 +266,16 @@ const AdminPanelView = ({
          .catch(err => console.error(err));
     } else if (activeTab === 'INTEGRATIONS') {
        refreshWorkspacesList();
+       axios.get(`${API_URL}/api/workspaces/content-presets`, { headers: { Authorization: `Bearer ${token}` } })
+         .then(res => {
+           if (res.data?.presets?.length) {
+             setContentCatalog({
+               presets: res.data.presets,
+               sections: Array.isArray(res.data.sections) && res.data.sections.length ? res.data.sections : DEFAULT_SECTION_DEFS_FALLBACK
+             });
+           }
+         })
+         .catch(() => {});
     } else if (activeTab === 'PHOTOROOM_DEBUG') {
        axios.get(`${API_URL}/api/photoroom/debug/list`, { headers: { Authorization: `Bearer ${token}` } })
          .then(res => setDebugImages(res.data.files || []))
@@ -259,22 +316,109 @@ const AdminPanelView = ({
     }
   }, [activeTab, selectedWorkspaceId, showAuditLogs, loadAuditLogs]);
 
+  const buildFormProfileFromPreset = (presetObj, overrides = {}) => {
+    const base = presetObj || DEFAULT_CONTENT_PRESETS_FALLBACK[0];
+    const orderSrc = Array.isArray(overrides.sectionOrder) && overrides.sectionOrder.length > 0
+      ? overrides.sectionOrder
+      : (base.sectionOrder || ['sekcja1', 'sekcja2', 'sekcja3', 'sekcja4', 'sekcja5', 'sekcja7']);
+    const normalizedOrder = [...orderSrc.filter(k => k !== 'sekcja6')];
+    for (const k of ['sekcja1', 'sekcja2', 'sekcja3', 'sekcja4', 'sekcja5', 'sekcjaTips', 'sekcja7']) {
+      if (!normalizedOrder.includes(k)) normalizedOrder.push(k);
+    }
+    return {
+      presetId: base.presetId || 'DEFAULT_CLASSIC',
+      writingTone: overrides.writingTone || base.writingTone || '',
+      titleStyle: overrides.titleStyle || base.titleStyle || '',
+      titleInstruction: overrides.titleInstruction || base.titleInstruction || '',
+      headingStyle: overrides.headingStyle || base.headingStyle || '',
+      bulletEmoji: overrides.bulletEmoji || base.bulletEmoji || '✔️',
+      imageTextLayout: overrides.imageTextLayout || base.imageTextLayout || 'IMAGE_LEFT',
+      sectionOrder: normalizedOrder,
+      hiddenSections: Array.isArray(overrides.hiddenSections)
+        ? overrides.hiddenSections.filter(k => k !== 'sekcja1' && k !== 'sekcja6')
+        : (base.hiddenSections || []),
+      includeTipsSection: typeof overrides.includeTipsSection === 'boolean' ? overrides.includeTipsSection : Boolean(base.includeTipsSection),
+      tipsSectionTitle: overrides.tipsSectionTitle || base.tipsSectionTitle || 'Praktyczne wskazówki użycia',
+      defaultSekcja7: overrides.defaultSekcja7 !== undefined ? overrides.defaultSekcja7 : (base.defaultSekcja7 || '')
+    };
+  };
+
   const handleOpenCreateWorkspace = () => {
     setWsError('');
-    setWsForm({ id: '', name: '', badgeColor: '#0ea5e9', isDefault: false });
+    const nonDefaultPresets = (contentCatalog.presets || []).filter(p => p.presetId !== 'DEFAULT_CLASSIC');
+    const usedIds = new Set(adminWorkspaces.map(w => w.settings?.contentProfile?.presetId).filter(Boolean));
+    const nextPreset = nonDefaultPresets.find(p => !usedIds.has(p.presetId)) || nonDefaultPresets[0] || contentCatalog.presets[0];
+    setWsForm({
+      id: '',
+      name: '',
+      badgeColor: '#0ea5e9',
+      isDefault: false,
+      contentProfile: buildFormProfileFromPreset(nextPreset),
+      visualProfile: { frameStyle: 'CLEAN_NONE', showAiBadge: true }
+    });
     setIsWsModalOpen(true);
   };
 
   const handleOpenEditWorkspace = () => {
     if (!selectedWs) return;
     setWsError('');
+    const curContent = selectedWs.settings?.contentProfile || {};
+    const curVisual = selectedWs.settings?.visualProfile || {};
+    const matchedPreset = (contentCatalog.presets || []).find(p => p.presetId === curContent.presetId)
+      || (selectedWs.isDefault ? contentCatalog.presets[0] : (contentCatalog.presets[1] || contentCatalog.presets[0]));
+    const fallbackFrame = selectedWs.isDefault ? 'ITALIAN_TRICOLOR' : 'CLEAN_NONE';
     setWsForm({
       id: selectedWs.id,
       name: selectedWs.name || '',
       badgeColor: selectedWs.badgeColor || '#4f46e5',
-      isDefault: Boolean(selectedWs.isDefault)
+      isDefault: Boolean(selectedWs.isDefault),
+      contentProfile: buildFormProfileFromPreset(matchedPreset, curContent),
+      visualProfile: {
+        frameStyle: curVisual.frameStyle || fallbackFrame,
+        showAiBadge: typeof curVisual.showAiBadge === 'boolean' ? curVisual.showAiBadge : true
+      }
     });
     setIsWsModalOpen(true);
+  };
+
+  const handleWsPresetChange = (nextPresetId) => {
+    const presetObj = (contentCatalog.presets || []).find(p => p.presetId === nextPresetId);
+    if (!presetObj) return;
+    setWsForm(prev => ({
+      ...prev,
+      contentProfile: buildFormProfileFromPreset(presetObj),
+      visualProfile: {
+        ...prev.visualProfile,
+        frameStyle: presetObj.defaultFrameStyle || (prev.isDefault ? 'ITALIAN_TRICOLOR' : 'CLEAN_NONE')
+      }
+    }));
+  };
+
+  const handleMoveSectionOrder = (sectionKey, delta) => {
+    setWsForm(prev => {
+      const order = [...(prev.contentProfile?.sectionOrder || [])];
+      const idx = order.indexOf(sectionKey);
+      const nextIdx = idx + delta;
+      if (idx < 0 || nextIdx < 0 || nextIdx >= order.length) return prev;
+      [order[idx], order[nextIdx]] = [order[nextIdx], order[idx]];
+      return {
+        ...prev,
+        contentProfile: { ...prev.contentProfile, sectionOrder: order }
+      };
+    });
+  };
+
+  const handleToggleSectionVisibility = (sectionKey) => {
+    if (sectionKey === 'sekcja1' || sectionKey === 'sekcja6') return;
+    setWsForm(prev => {
+      const hidden = new Set(prev.contentProfile?.hiddenSections || []);
+      if (hidden.has(sectionKey)) hidden.delete(sectionKey);
+      else hidden.add(sectionKey);
+      return {
+        ...prev,
+        contentProfile: { ...prev.contentProfile, hiddenSections: Array.from(hidden) }
+      };
+    });
   };
 
   const handleSaveWorkspace = async (e) => {
@@ -286,17 +430,21 @@ const AdminPanelView = ({
     setWsError('');
     setIsSavingWs(true);
     try {
+      const settingsPayload = {
+        contentProfile: wsForm.contentProfile,
+        visualProfile: wsForm.visualProfile
+      };
       let res;
       if (wsForm.id) {
         res = await axios.patch(
           `${API_URL}/api/workspaces/${encodeURIComponent(wsForm.id)}`,
-          { name: wsForm.name.trim(), badgeColor: wsForm.badgeColor, isDefault: wsForm.isDefault },
+          { name: wsForm.name.trim(), badgeColor: wsForm.badgeColor, isDefault: wsForm.isDefault, settings: settingsPayload },
           { headers: { Authorization: `Bearer ${token}` } }
         );
       } else {
         res = await axios.post(
           `${API_URL}/api/workspaces`,
-          { name: wsForm.name.trim(), badgeColor: wsForm.badgeColor, isDefault: wsForm.isDefault },
+          { name: wsForm.name.trim(), badgeColor: wsForm.badgeColor, isDefault: wsForm.isDefault, settings: settingsPayload },
           { headers: { Authorization: `Bearer ${token}` } }
         );
       }
@@ -922,16 +1070,29 @@ const AdminPanelView = ({
                       </div>
 
                       {selectedWs && (
-                         <div className="mt-4 px-4 py-2.5 rounded-sm border flex items-center justify-between text-xs font-bold"
+                         <div className="mt-4 px-4 py-2.5 rounded-sm border flex flex-wrap items-center justify-between gap-2 text-xs font-bold"
                               style={{ borderColor: selectedWs.badgeColor || '#4f46e5', backgroundColor: `${selectedWs.badgeColor || '#4f46e5'}10` }}>
                             <span className="flex items-center gap-2 text-slate-800">
                                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: selectedWs.badgeColor || '#4f46e5' }} />
                                Konfigurujesz skarbiec API dla klienta: <strong className="uppercase">{selectedWs.name}</strong>
                                <span className="text-[10px] font-mono text-slate-500">({selectedWs.slug})</span>
                             </span>
-                            <span className="text-[10px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                               Szyfrowanie AES-256-GCM + AAD
-                            </span>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                               <span className="text-[9px] font-black uppercase bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded">
+                                  Styl: {selectedWs.settings?.contentProfile?.presetId || 'DEFAULT'}
+                               </span>
+                               <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${selectedWs.settings?.visualProfile?.frameStyle === 'CLEAN_NONE' ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-800'}`}>
+                                  Zdjęcia AI: {selectedWs.settings?.visualProfile?.frameStyle === 'CLEAN_NONE' ? 'Bez ramki i marki' : 'Włoska ramka + marka'}
+                               </span>
+                               {selectedWs.settings?.contentProfile?.includeTipsSection && (
+                                  <span className="text-[9px] font-black uppercase bg-violet-100 text-violet-700 px-2 py-0.5 rounded">
+                                     + Porady i tipy
+                                  </span>
+                               )}
+                               <span className="text-[9px] font-black uppercase text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                                  AES-256-GCM + AAD
+                               </span>
+                            </div>
                          </div>
                       )}
                    </div>
@@ -1649,8 +1810,8 @@ const AdminPanelView = ({
                    {/* Modal Tworzenia / Edycji Przestrzeni Klienta */}
                    {isWsModalOpen && (
                       <div className="fixed inset-0 z-[220] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-                         <form onSubmit={handleSaveWorkspace} className="bg-white rounded-lg shadow-2xl border border-slate-300 w-full max-w-md overflow-hidden">
-                            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+                         <form onSubmit={handleSaveWorkspace} className="bg-white rounded-lg shadow-2xl border border-slate-300 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+                            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
                                <h4 className="text-xs font-black uppercase tracking-widest">
                                   {wsForm.id ? 'Edycja Przestrzeni Klienta' : 'Nowa Przestrzeń Klienta'}
                                </h4>
@@ -1658,39 +1819,42 @@ const AdminPanelView = ({
                                   <X className="w-4 h-4" />
                                </button>
                             </div>
-                            <div className="p-6 space-y-4">
-                               <div>
-                                  <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Nazwa Klienta *</label>
-                                  <input
-                                     type="text"
-                                     value={wsForm.name}
-                                     onChange={e => setWsForm(prev => ({ ...prev, name: e.target.value }))}
-                                     placeholder="np. Klient B — BioPharma Sp. z o.o."
-                                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs font-bold outline-none focus:border-indigo-500"
-                                     autoFocus
-                                  />
-                               </div>
-                               <div>
-                                  <label className="text-[10px] font-black uppercase text-slate-500 block mb-1.5">Kolor etykiety ostrzegawczej</label>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                     {WORKSPACE_COLOR_PRESETS.map(col => (
-                                        <button
-                                           key={col}
-                                           type="button"
-                                           onClick={() => setWsForm(prev => ({ ...prev, badgeColor: col }))}
-                                           className={`w-7 h-7 rounded-full border-2 transition-transform ${wsForm.badgeColor === col ? 'border-slate-900 scale-110' : 'border-transparent'}`}
-                                           style={{ backgroundColor: col }}
-                                           title={col}
-                                        />
-                                     ))}
+                            <div className="p-6 space-y-5 overflow-y-auto">
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                     <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Nazwa Klienta *</label>
                                      <input
-                                        type="color"
-                                        value={wsForm.badgeColor}
-                                        onChange={e => setWsForm(prev => ({ ...prev, badgeColor: e.target.value }))}
-                                        className="w-8 h-8 rounded cursor-pointer border border-slate-300"
+                                        type="text"
+                                        value={wsForm.name}
+                                        onChange={e => setWsForm(prev => ({ ...prev, name: e.target.value }))}
+                                        placeholder="np. Klient B — BioPharma Sp. z o.o."
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs font-bold outline-none focus:border-indigo-500"
+                                        autoFocus
                                      />
                                   </div>
+                                  <div>
+                                     <label className="text-[10px] font-black uppercase text-slate-500 block mb-1.5">Kolor etykiety ostrzegawczej</label>
+                                     <div className="flex items-center gap-2 flex-wrap">
+                                        {WORKSPACE_COLOR_PRESETS.map(col => (
+                                           <button
+                                              key={col}
+                                              type="button"
+                                              onClick={() => setWsForm(prev => ({ ...prev, badgeColor: col }))}
+                                              className={`w-6 h-6 rounded-full border-2 transition-transform ${wsForm.badgeColor === col ? 'border-slate-900 scale-110' : 'border-transparent'}`}
+                                              style={{ backgroundColor: col }}
+                                              title={col}
+                                           />
+                                        ))}
+                                        <input
+                                           type="color"
+                                           value={wsForm.badgeColor}
+                                           onChange={e => setWsForm(prev => ({ ...prev, badgeColor: e.target.value }))}
+                                           className="w-7 h-7 rounded cursor-pointer border border-slate-300"
+                                        />
+                                     </div>
+                                  </div>
                                </div>
+
                                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
                                   <input
                                      type="checkbox"
@@ -1700,13 +1864,203 @@ const AdminPanelView = ({
                                   />
                                   Ustaw jako domyślną przestrzeń po zalogowaniu
                                </label>
+
+                               {/* Profil unikalności opisów i zdjęć AI klienta */}
+                               <div className="border-t border-slate-200 pt-4 space-y-4">
+                                  <div className="flex items-center justify-between">
+                                     <h5 className="text-[11px] font-black uppercase tracking-wider text-slate-800">
+                                        Unikalność Opisów, Układu Sekcji i Zdjęć AI Klienta
+                                     </h5>
+                                     <span className="text-[9px] font-bold text-slate-500">
+                                        Chroni przed powielaniem treści między firmami
+                                     </span>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Styl pisania i szablon układu</label>
+                                        <select
+                                           value={wsForm.contentProfile?.presetId || 'EXPERT_TECHNICAL'}
+                                           onChange={e => handleWsPresetChange(e.target.value)}
+                                           className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs font-bold outline-none focus:border-indigo-500"
+                                        >
+                                           {(contentCatalog.presets || []).map(p => (
+                                              <option key={p.presetId} value={p.presetId}>{p.name}</option>
+                                           ))}
+                                        </select>
+                                        <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                                           {(contentCatalog.presets || []).find(p => p.presetId === wsForm.contentProfile?.presetId)?.shortDesc || ''}
+                                        </p>
+                                     </div>
+
+                                     <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Zdjęcia AI — ramka i napis marki</label>
+                                        <select
+                                           value={wsForm.visualProfile?.frameStyle || 'CLEAN_NONE'}
+                                           onChange={e => setWsForm(prev => ({
+                                             ...prev,
+                                             visualProfile: { ...prev.visualProfile, frameStyle: e.target.value }
+                                           }))}
+                                           className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs font-bold outline-none focus:border-indigo-500"
+                                        >
+                                           <option value="CLEAN_NONE">Bez ramki i bez nazwy marki (kolejni klienci)</option>
+                                           <option value="ITALIAN_TRICOLOR">Włoska ramka + nazwa marki (konto główne)</option>
+                                        </select>
+                                        <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                                           Prompt Photoroom pozostaje oryginalny; opcja usuwa kolorową ramkę i napis marki z boku zdjęcia.
+                                        </p>
+                                     </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Układ kafelków (Zdjęcie vs Tekst)</label>
+                                        <select
+                                           value={wsForm.contentProfile?.imageTextLayout || 'IMAGE_LEFT'}
+                                           onChange={e => setWsForm(prev => ({
+                                             ...prev,
+                                             contentProfile: { ...prev.contentProfile, imageTextLayout: e.target.value }
+                                           }))}
+                                           className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs font-bold outline-none focus:border-indigo-500"
+                                        >
+                                           <option value="IMAGE_LEFT">Zdjęcie zawsze po lewej / pierwsze</option>
+                                           <option value="ALTERNATING">Naprzemiennie (raz zdjęcie, raz tekst)</option>
+                                           <option value="TEXT_LEFT">Tekst zawsze po lewej / pierwszy</option>
+                                        </select>
+                                     </div>
+
+                                     <div>
+                                        <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">Punktor w listach</label>
+                                        <select
+                                           value={wsForm.contentProfile?.bulletEmoji || '✔️'}
+                                           onChange={e => setWsForm(prev => ({
+                                             ...prev,
+                                             contentProfile: { ...prev.contentProfile, bulletEmoji: e.target.value }
+                                           }))}
+                                           className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs font-bold outline-none focus:border-indigo-500"
+                                        >
+                                           <option value="✔️">✔️ Klasyczny haczyk</option>
+                                           <option value="✅">✅ Zielony kwadrat</option>
+                                           <option value="☑️">☑️ Pole wyboru</option>
+                                           <option value="➡️">➡️ Strzałka</option>
+                                        </select>
+                                     </div>
+                                  </div>
+
+                                  <div className="bg-slate-50 border border-slate-200 rounded-sm p-3 space-y-2.5">
+                                     <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer">
+                                        <input
+                                           type="checkbox"
+                                           checked={Boolean(wsForm.contentProfile?.includeTipsSection)}
+                                           onChange={e => setWsForm(prev => ({
+                                             ...prev,
+                                             contentProfile: { ...prev.contentProfile, includeTipsSection: e.target.checked }
+                                           }))}
+                                           className="rounded border-slate-300"
+                                        />
+                                        Generuj własną sekcję dodatkową: „Porady i tipy”
+                                     </label>
+                                     {wsForm.contentProfile?.includeTipsSection && (
+                                        <div>
+                                           <label className="text-[9px] font-black uppercase text-slate-500 block mb-1">Nagłówek sekcji porad</label>
+                                           <input
+                                              type="text"
+                                              value={wsForm.contentProfile?.tipsSectionTitle || ''}
+                                              onChange={e => setWsForm(prev => ({
+                                                ...prev,
+                                                contentProfile: { ...prev.contentProfile, tipsSectionTitle: e.target.value }
+                                              }))}
+                                              placeholder="np. Praktyczne wskazówki i triki zastosowania"
+                                              className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-sm text-xs font-bold outline-none focus:border-indigo-500"
+                                           />
+                                        </div>
+                                     )}
+                                  </div>
+
+                                  <div>
+                                     <label className="text-[10px] font-black uppercase text-slate-500 block mb-1.5">
+                                        Kolejność i widoczność sekcji opisu w eksporcie
+                                     </label>
+                                     <div className="space-y-1.5">
+                                        {(wsForm.contentProfile?.sectionOrder || []).map((secKey, idx, arr) => {
+                                           const meta = (contentCatalog.sections || DEFAULT_SECTION_DEFS_FALLBACK).find(s => s.key === secKey) || { key: secKey, label: secKey, canHide: secKey !== 'sekcja1' };
+                                           const isHidden = (wsForm.contentProfile?.hiddenSections || []).includes(secKey);
+                                           return (
+                                              <div key={secKey} className={`flex items-center justify-between gap-2 px-3 py-2 rounded-sm border text-xs ${isHidden ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-white border-slate-300 text-slate-800'}`}>
+                                                 <span className="font-bold flex items-center gap-2">
+                                                    <span className="text-[10px] font-mono text-slate-400 w-4">{idx + 1}.</span>
+                                                    {meta.label}
+                                                    {secKey === 'sekcjaTips' && !wsForm.contentProfile?.includeTipsSection && (
+                                                       <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">Wyłączona</span>
+                                                    )}
+                                                 </span>
+                                                 <div className="flex items-center gap-1">
+                                                    <button
+                                                       type="button"
+                                                       disabled={idx === 0}
+                                                       onClick={() => handleMoveSectionOrder(secKey, -1)}
+                                                       className="p-1 rounded border border-slate-200 hover:bg-slate-100 disabled:opacity-30"
+                                                       title="Przesuń wyżej"
+                                                    >
+                                                       <ArrowUp className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
+                                                       type="button"
+                                                       disabled={idx === arr.length - 1}
+                                                       onClick={() => handleMoveSectionOrder(secKey, 1)}
+                                                       className="p-1 rounded border border-slate-200 hover:bg-slate-100 disabled:opacity-30"
+                                                       title="Przesuń niżej"
+                                                    >
+                                                       <ArrowDown className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    {meta.canHide ? (
+                                                       <button
+                                                          type="button"
+                                                          onClick={() => handleToggleSectionVisibility(secKey)}
+                                                          className={`px-2 py-1 rounded text-[9px] font-black uppercase flex items-center gap-1 border ${isHidden ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}
+                                                       >
+                                                          {isHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                                          {isHidden ? 'Ukryta' : 'Widoczna'}
+                                                       </button>
+                                                    ) : (
+                                                       <span className="px-2 py-1 text-[9px] font-black uppercase bg-slate-100 text-slate-500 rounded border border-slate-200">
+                                                          Zawsze widoczna
+                                                       </span>
+                                                    )}
+                                                 </div>
+                                              </div>
+                                           );
+                                        })}
+                                        <div className="px-3 py-2 rounded-sm border border-emerald-200 bg-emerald-50 text-emerald-800 text-[11px] font-bold flex items-center justify-between">
+                                           <span>⚠️ Moduł 6: Ostrzeżenia CLP i bezpieczeństwo GPSR (z etykiety produktu)</span>
+                                           <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-white border border-emerald-200 rounded">Nienaruszalna prawnie</span>
+                                        </div>
+                                     </div>
+                                  </div>
+
+                                  <div>
+                                     <label className="text-[10px] font-black uppercase text-slate-500 block mb-1">
+                                        Domyślna treść Modułu 7 (dystrybucja i opakowanie producenta)
+                                     </label>
+                                     <textarea
+                                        rows={2}
+                                        value={wsForm.contentProfile?.defaultSekcja7 || ''}
+                                        onChange={e => setWsForm(prev => ({
+                                          ...prev,
+                                          contentProfile: { ...prev.contentProfile, defaultSekcja7: e.target.value }
+                                        }))}
+                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-sm text-xs font-medium outline-none focus:border-indigo-500"
+                                     />
+                                  </div>
+                               </div>
+
                                {wsError && (
                                   <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-sm">
                                      {wsError}
                                   </div>
                                )}
                             </div>
-                            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+                            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 shrink-0">
                                <button
                                   type="button"
                                   onClick={() => setIsWsModalOpen(false)}

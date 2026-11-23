@@ -4,6 +4,11 @@ const {
     decryptSecretWithAad,
     buildIntegrationAad
 } = require('../utils/secretVault');
+const {
+    resolveWorkspaceContentProfile,
+    resolveWorkspaceVisualProfile,
+    pickAutoProfileForNewWorkspace
+} = require('./workspaceContentProfile.service');
 
 const VALID_PROVIDERS = new Set(['BASELINKER', 'ALLEGRO', 'VONHALSKY']);
 const VALID_HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -137,7 +142,11 @@ async function listWorkspacesWithIntegrationSummary(prisma) {
             badgeColor: ws.badgeColor,
             isDefault: ws.isDefault,
             isActive: ws.isActive,
-            settings: ws.settings || {},
+            settings: {
+                ...(ws.settings && typeof ws.settings === 'object' ? ws.settings : {}),
+                contentProfile: resolveWorkspaceContentProfile(ws),
+                visualProfile: resolveWorkspaceVisualProfile(ws)
+            },
             productCount: ws._count?.products || 0,
             integrationsSummary: {
                 baselinkerCount: byProvider.BASELINKER,
@@ -148,6 +157,36 @@ async function listWorkspacesWithIntegrationSummary(prisma) {
             updatedAt: ws.updatedAt
         };
     });
+}
+
+function mergeAndNormalizeWorkspaceSettings(existingSettings = {}, incomingSettings = {}, meta = {}) {
+    const base = existingSettings && typeof existingSettings === 'object' && !Array.isArray(existingSettings)
+        ? existingSettings
+        : {};
+    const inc = incomingSettings && typeof incomingSettings === 'object' && !Array.isArray(incomingSettings)
+        ? incomingSettings
+        : {};
+    const mergedRaw = {
+        ...base,
+        ...inc,
+        ...(inc.contentProfile || base.contentProfile
+            ? { contentProfile: { ...(base.contentProfile || {}), ...(inc.contentProfile || {}) } }
+            : {}),
+        ...(inc.visualProfile || base.visualProfile
+            ? { visualProfile: { ...(base.visualProfile || {}), ...(inc.visualProfile || {}) } }
+            : {})
+    };
+    const dummyWs = {
+        id: meta.id || '',
+        slug: meta.slug || '',
+        isDefault: Boolean(meta.isDefault),
+        settings: mergedRaw
+    };
+    return {
+        ...mergedRaw,
+        contentProfile: resolveWorkspaceContentProfile(dummyWs),
+        visualProfile: resolveWorkspaceVisualProfile(dummyWs)
+    };
 }
 
 async function createWorkspace(prisma, { name, slug = null, badgeColor = '#4f46e5', isDefault = false, settings = {}, userId = null }) {
@@ -164,6 +203,16 @@ async function createWorkspace(prisma, { name, slug = null, badgeColor = '#4f46e
         baseSlug = `${baseSlug}-${crypto.randomBytes(2).toString('hex')}`;
     }
 
+    const existingWorkspaces = await prisma.workspace.findMany({
+        where: { isActive: true },
+        select: { id: true, settings: true, isDefault: true }
+    });
+    const autoProfiles = pickAutoProfileForNewWorkspace(existingWorkspaces, Boolean(isDefault));
+    const normalizedSettings = mergeAndNormalizeWorkspaceSettings(autoProfiles, settings, {
+        slug: baseSlug,
+        isDefault: Boolean(isDefault)
+    });
+
     const safeColor = VALID_HEX_COLOR.test(String(badgeColor || '').trim()) ? String(badgeColor).trim() : '#4f46e5';
 
     const created = await prisma.$transaction(async (tx) => {
@@ -177,7 +226,7 @@ async function createWorkspace(prisma, { name, slug = null, badgeColor = '#4f46e
                 badgeColor: safeColor,
                 isDefault: Boolean(isDefault),
                 isActive: true,
-                settings: settings && typeof settings === 'object' ? settings : {}
+                settings: normalizedSettings
             }
         });
     });
@@ -187,7 +236,13 @@ async function createWorkspace(prisma, { name, slug = null, badgeColor = '#4f46e
         userId,
         action: 'WORKSPACE_CREATED',
         entityId: created.id,
-        details: { name: created.name, slug: created.slug, isDefault: created.isDefault }
+        details: {
+            name: created.name,
+            slug: created.slug,
+            isDefault: created.isDefault,
+            presetId: normalizedSettings.contentProfile?.presetId,
+            frameStyle: normalizedSettings.visualProfile?.frameStyle
+        }
     });
 
     return created;
@@ -209,7 +264,11 @@ async function updateWorkspace(prisma, workspaceId, { name, badgeColor, isDefaul
         data.badgeColor = String(badgeColor).trim();
     }
     if (settings && typeof settings === 'object' && !Array.isArray(settings)) {
-        data.settings = { ...(existing.settings && typeof existing.settings === 'object' ? existing.settings : {}), ...settings };
+        data.settings = mergeAndNormalizeWorkspaceSettings(existing.settings, settings, {
+            id: existing.id,
+            slug: existing.slug,
+            isDefault: isDefault === true ? true : existing.isDefault
+        });
     }
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -225,7 +284,13 @@ async function updateWorkspace(prisma, workspaceId, { name, badgeColor, isDefaul
         userId,
         action: 'WORKSPACE_UPDATED',
         entityId: updated.id,
-        details: { name: updated.name, badgeColor: updated.badgeColor, isDefault: updated.isDefault }
+        details: {
+            name: updated.name,
+            badgeColor: updated.badgeColor,
+            isDefault: updated.isDefault,
+            presetId: updated.settings?.contentProfile?.presetId,
+            frameStyle: updated.settings?.visualProfile?.frameStyle
+        }
     });
 
     return updated;

@@ -17,6 +17,7 @@ const EventBus = require('../../core/EventBus');
 dotenv.config();
 const AiMetricsService = require('../../core/ai.metrics.service');
 const socketService = require('../../core/socket');
+const deterministicEngine = require('../offer-optimizer-v2/services/deterministic-pipeline.engine');
 
 // Zabezpieczony Agent WAF do zdjÄ™Ä‡
 const imageHttpsAgent = new https.Agent({ 
@@ -768,7 +769,7 @@ async function auditOfferImages(primaryImageUrl, galleryUrls = []) {
     }
 }
 
-async function generateTitleOnly(textContent, currentTitle) {
+async function generateTitleOnly(textContent, currentTitle, options = {}) {
     const model = genAI.getGenerativeModel({
         model: "gemini-3.8-flash",
         tools: [{ googleSearch: {} }],
@@ -785,36 +786,47 @@ async function generateTitleOnly(textContent, currentTitle) {
         }
     });
 
-    const promptText = `JesteĹ› ekspertem SEO ds. e-commerce (Allegro).
-Wygeneruj CAĹKOWICIE NOWY, inny niĹĽ obecny, mocno zoptymalizowany pod kÄ…tem konwersji i sĹ‚Ăłw kluczowych tytuĹ‚ dla poniĹĽszego produktu.
-Obecny tytuĹ‚, ktĂłry nam nie pasuje: "${currentTitle}"
+    const contentProfile = options?.contentProfile || null;
+    const avoidTitles = Array.isArray(options?.avoidTitles) ? options.avoidTitles.filter(Boolean).slice(0, 8) : [];
+    const styleDirective = contentProfile?.titleInstruction
+        ? `\nWYTYCZNA UKŁADU TYTUŁU DLA TEGO KLIENTA: ${contentProfile.titleInstruction}`
+        : '';
+    const avoidBlock = avoidTitles.length > 0
+        ? `\nZAKAZ POWIELANIA PONIŻSZYCH TYTUŁÓW Z INNYCH KONT (użyj innej kolejności i innych słów kluczowych):\n- ${avoidTitles.join('\n- ')}`
+        : '';
 
-Zanim zaczniesz generowaÄ‡, uĹĽyj Google Search (Google Trends/sklepy e-commerce), aby zbadaÄ‡, jakie sĹ‚owa kluczowe dla tego typu kosmetyku/produktu trendujÄ… najmocniej na polskim rynku. Wybierz najbardziej trafne.
+    const promptText = `Jesteś ekspertem SEO ds. e-commerce (Allegro).
+Wygeneruj CAŁKOWICIE NOWY, inny niż obecny, mocno zoptymalizowany pod kątem konwersji i słów kluczowych tytuł dla poniższego produktu.
+Obecny tytuł, który nam nie pasuje: "${currentTitle}"${styleDirective}${avoidBlock}
+
+Zanim zaczniesz generować, użyj Google Search (Google Trends/sklepy e-commerce), aby zbadać, jakie słowa kluczowe dla tego typu produktu trendują najmocniej na polskim rynku. Wybierz najbardziej trafne.
 
 Zasady:
-1. UĹĽywaj jÄ™zyka potocznego kupujÄ…cych i najczÄ™stszych wyszukiwaĹ„, zbadanych w Google.
-2. TytuĹ‚ MUSI mieÄ‡ min 12, max 75 znakĂłw.
-3. BÄ…dĹş kreatywny, przetasuj kolejnoĹ›Ä‡ sĹ‚Ăłw kluczowych lub wyciÄ…gnij ukryte benefity.
-4. Bez sĹ‚Ăłw typu 'hit', 'nowoĹ›Ä‡'.
+1. Używaj języka potocznego kupujących i najczęstszych wyszukań, zbadanych w Google.
+2. Tytuł MUSI mieć min 12, max 75 znaków.
+3. Bądź kreatywny, przetasuj kolejność słów kluczowych lub wyciągnij ukryte benefity.
+4. Bez słów typu 'hit', 'nowość', 'super', 'gwarancja', 'oryginalny', 'oryginał', 'antybakteryjny', 'dezynfekujący'.
+5. Nie używaj CAPS LOCKA (zachowaj wielkie litery marek oraz małe jednostki: ml, l, g, kg).
 
 DANE PRODUKTU:
 ${textContent}
 
-Odpowiedz wyĹ‚Ä…cznie czystym obiektem JSON:
-{ "title": "Nowy wygenerowany tytuĹ‚" }
+Odpowiedz wyłącznie czystym obiektem JSON:
+{ "title": "Nowy wygenerowany tytuł" }
 `;
 
     try {
         const parsed = await generateWithRetry(model, promptText, 2, "Agent_Title", true);
         if (parsed && parsed.title) {
-            return parsed;
+            return {
+                title: deterministicEngine.sanitizeOfferTitle(parsed.title) || parsed.title
+            };
         }
-        throw new Error(`Brak prawidĹ‚owej struktury JSON w odpowiedzi dla tytuĹ‚u. Otrzymano: ${JSON.stringify(parsed)}`);
+        throw new Error(`Brak prawidłowej struktury JSON w odpowiedzi dla tytułu. Otrzymano: ${JSON.stringify(parsed)}`);
     } catch (error) {
         console.error("[AiService] Generative Title Error:", error.message);
-        // Ostatnia deska ratunku - zwracamy tytuĹ‚ oryginalny ze wskazaniem audytu
         if (currentTitle) {
-            return { title: currentTitle };
+            return { title: deterministicEngine.sanitizeOfferTitle(currentTitle) || currentTitle };
         }
         throw new Error("Generative API Title Failed: " + error.message);
     }

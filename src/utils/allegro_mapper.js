@@ -1,5 +1,6 @@
 const cheerio = require('cheerio');
 const { normalizeInciToLegalEnglish, stripRawInciFooterFromSection3 } = require('../modules/offer-optimizer-v2/normalization');
+const { resolveOrderedVisibleDescriptionSections } = require('../services/workspaceContentProfile.service');
 
 const MAX_SAFETY_TEXT_LEN = 5000;
 const MAX_ALLEGRO_DESCRIPTION_BYTES = 40000;
@@ -1528,34 +1529,20 @@ function buildAllegroDescriptionSections({
     htmlContent = null,
     descriptionHtml = '',
     imageUrls = [],
-    appendAiDisclosure = false
+    appendAiDisclosure = false,
+    contentProfile = null
 } = {}) {
     const rawSections = [];
 
     if (htmlContent && typeof htmlContent === 'object') {
-        const s1 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja1 || htmlContent.section_1_html || '');
-        const s2 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja2 || htmlContent.section_2_html || '');
-        const s3 = sanitizeHtmlForAllegroDescription(
-            stripRawInciFooterFromSection3(htmlContent.sekcja3 || htmlContent.section_3_html || '')
-        );
-        const s4 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja4 || htmlContent.section_4_html || '');
-        const s5 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja5 || htmlContent.section_5_html || '');
-        const s7 = sanitizeHtmlForAllegroDescription(htmlContent.sekcja7 || htmlContent.section_7_html || '');
+        const orderedEntries = resolveOrderedVisibleDescriptionSections(htmlContent, contentProfile, {
+            availableImageCount: Array.isArray(imageUrls) ? imageUrls.length : 0
+        });
 
-        // Moduł 6 (sekcja6 / GPSR) jest celowo pomijany w opisie — trafia wyłącznie do pola safetyInformation (GPSR).
-        // Stały układ A/B (IMAGE po lewej, TEXT po prawej) wykorzystujący wszystkie 6 zdjęć (indexy 0..5):
-        // S1 <- Zdjęcie 2, S2 <- Zdjęcie 3, S3 <- Zdjęcie 4, S4 <- Zdjęcie 5, S5 <- Zdjęcie 6, S7 <- Zdjęcie 1.
-        const entries = [
-            { key: 'sekcja1', text: s1, imgIdx: 1, imageFirst: true },
-            { key: 'sekcja2', text: s2, imgIdx: 2, imageFirst: true },
-            { key: 'sekcja3', text: s3, imgIdx: 3, imageFirst: true },
-            { key: 'sekcja4', text: s4, imgIdx: 4, imageFirst: true },
-            { key: 'sekcja5', text: s5, imgIdx: 5, imageFirst: true },
-            { key: 'sekcja7', text: s7, imgIdx: 0, imageFirst: true }
-        ];
-
-        for (const entry of entries) {
-            if (!entry.text) continue;
+        // Moduł 6 (sekcja6 / GPSR) jest celowo wyłączany przez resolver z opisu oferty — trafia wyłącznie do safetyInformation.
+        for (const entry of orderedEntries) {
+            const cleanText = sanitizeHtmlForAllegroDescription(entry.html || '');
+            if (!cleanText) continue;
             const imgUrl = (entry.imgIdx >= 0 && Array.isArray(imageUrls) && imageUrls[entry.imgIdx])
                 ? String(imageUrls[entry.imgIdx]).trim()
                 : '';
@@ -1563,13 +1550,13 @@ function buildAllegroDescriptionSections({
             if (imgUrl) {
                 if (entry.imageFirst) {
                     items.push({ type: 'IMAGE', url: imgUrl });
-                    items.push({ type: 'TEXT', content: entry.text });
+                    items.push({ type: 'TEXT', content: cleanText });
                 } else {
-                    items.push({ type: 'TEXT', content: entry.text });
+                    items.push({ type: 'TEXT', content: cleanText });
                     items.push({ type: 'IMAGE', url: imgUrl });
                 }
             } else {
-                items.push({ type: 'TEXT', content: entry.text });
+                items.push({ type: 'TEXT', content: cleanText });
             }
             rawSections.push({ items });
         }
@@ -1622,7 +1609,8 @@ function buildAllegroContentPreflight({
     productImages = [],
     includeImages = true,
     includeDescription = true,
-    aiFlagsOverride = null
+    aiFlagsOverride = null,
+    contentProfile = null
 } = {}) {
     const errors = [];
     const warnings = [];
@@ -1679,7 +1667,8 @@ function buildAllegroContentPreflight({
             htmlContent,
             descriptionHtml,
             imageUrls: descriptionImageUrls,
-            appendAiDisclosure: hasAiImages
+            appendAiDisclosure: hasAiImages,
+            contentProfile
         })
         : { description: currentOfferDescription, sectionsCount: currentOfferDescription.sections.length, totalBytes: Buffer.byteLength(JSON.stringify(currentOfferDescription), 'utf8'), exceedsLimit: false };
 
@@ -1688,7 +1677,8 @@ function buildAllegroContentPreflight({
             htmlContent,
             descriptionHtml,
             imageUrls: simulatedCdnImageUrls,
-            appendAiDisclosure: hasAiImages
+            appendAiDisclosure: hasAiImages,
+            contentProfile
         })
         : descBuildPreview;
 

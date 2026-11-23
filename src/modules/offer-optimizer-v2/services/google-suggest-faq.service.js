@@ -331,7 +331,8 @@ function buildFourPillarQuestions({
     visionFeatures = {},
     inci = '',
     detergentComposition = '',
-    googleSuggestions = []
+    googleSuggestions = [],
+    variantIndex = 0
 } = {}) {
     const combinedInci = `${inci || ''} ${detergentComposition || ''} ${JSON.stringify(visionFeatures || {})}`.toLowerCase();
     const hasBleach = /(sodium\s+hypochlorite|podchloryn\s+sodu|candeggin|wybielacz)/i.test(combinedInci + ' ' + naturalName);
@@ -343,118 +344,302 @@ function buildFourPillarQuestions({
     const cleanScent = String(scent || '').replace(/\s*\([^)]*\)\s*/g, '').trim();
     const scentPhrase = formatPolishScentPhrase(cleanScent);
     const shortBrandRef = brand ? `preparat ${brand}` : 'ten preparat';
+    const altVariant = Math.abs(Number(variantIndex) || 0) % 4;
     const isWcSpecific = catInfo.key === 'wc_cleaner';
     const isBathroomSpecific = catInfo.key === 'bathroom_cleaner' ||
         (/(łazienk|lazienk|sanitar|bagno)/i.test(`${naturalName} ${frontPurpose}`) && !isWcSpecific && !/(kuchni|cucina)/i.test(`${naturalName} ${frontPurpose}`));
     const isKitchenSpecific = catInfo.key === 'kitchen_cleaner' ||
         (/(kuchni|kuchenn|cucina|piekarnik|grill)/i.test(`${naturalName} ${frontPurpose}`) && !/(łazienk|lazienk|bagno)/i.test(`${naturalName} ${frontPurpose}`));
 
+    const pickVariant = (v0, v1, v2, v3) => {
+        if (altVariant === 1 && v1) return v1;
+        if (altVariant === 2 && v2) return v2;
+        if (altVariant === 3 && v3) return v3;
+        return v0;
+    };
+
     const questions = [];
 
     if (catInfo.group === 'LAUNDRY') {
-        // FILAR 1: Intencja AI Shopping / Discovery ("Znajdź mi dobry płyn/proszek do prania z zapachem który długo się utrzymuje")
         if (scentPhrase) {
-            questions.push(`Co sprawia, że ${naturalName} skutecznie odświeża tkaniny i pozostawia na ubraniach długo utrzymujący się aromat (${scentPhrase})?`);
+            questions.push(pickVariant(
+                `Co sprawia, że ${naturalName} skutecznie odświeża tkaniny i pozostawia na ubraniach długo utrzymujący się aromat (${scentPhrase})?`,
+                `W jaki sposób ${naturalName} pielęgnuje włókna podczas prania i utrwala nutę zapachową (${scentPhrase})?`,
+                `Dlaczego ${naturalName} sprawdza się w domowym praniu i jak długo na tekstyliach wyczuwalny jest profil (${scentPhrase})?`,
+                `Jakie właściwości użytkowe ma ${naturalName} w codziennej pielęgnacji tkanin (${scentPhrase})?`
+            ));
         } else {
-            questions.push(`Co sprawia, że ${naturalName} skutecznie usuwa plamy już w niskich temperaturach i zapewnia długotrwałą świeżość prania?`);
+            questions.push(pickVariant(
+                `Co sprawia, że ${naturalName} skutecznie usuwa plamy już w niskich temperaturach i zapewnia długotrwałą świeżość prania?`,
+                `W jakich temperaturach prania działa ${naturalName} i jak radzi sobie z codziennymi zabrudzeniami tkanin?`,
+                `Jakie rodzaje zabrudzeń usuwa ${naturalName} w cyklu prania automatycznego oraz ręcznego?`,
+                `Co wyróżnia działanie użytkowe formuły ${naturalName} przy regularnym praniu ubrań?`
+            ));
         }
 
-        // FILAR 2: Intencja Instruktażowa Google ("Jak stosować proszek do prania Soft?" / "Czy płyn do prania wlewa się do bębna czy szuflady?")
         if (catInfo.key === 'laundry_powder') {
-            questions.push(`Jak prawidłowo stosować i dozować ten proszek do prania w pralce automatycznej oraz podczas prania ręcznego?`);
+            questions.push(pickVariant(
+                `Jak prawidłowo stosować i dozować ten proszek do prania w pralce automatycznej oraz podczas prania ręcznego?`,
+                `Ile proszku odmierzyć do pralki w zależności od stopnia zabrudzenia i twardości wody?`,
+                `Do której komory szuflady pralki wsypać ten proszek i jak przygotować roztwór do namaczania?`,
+                `Jak dobrać dawkę tego proszku przy pełnym wsadzie bębna oraz praniu ręcznym?`
+            ));
         } else if (catInfo.key === 'fabric_softener' || catInfo.key === 'laundry_perfume') {
-            questions.push(`Jak dozować ${shortBrandRef} do przegródki pralki, aby uzyskać miękkość tkanin i trwały zapach po wysuszeniu?`);
+            questions.push(pickVariant(
+                `Jak dozować ${shortBrandRef} do przegródki pralki, aby uzyskać miękkość tkanin i trwały zapach po wysuszeniu?`,
+                `Gdzie wlać ${shortBrandRef} w szufladzie pralki i jaką miarkę stosować na pojedynczy cykl płukania?`,
+                `Jaką ilość płynu do płukania odmierzyć na standardowy załadunek, aby nie przeciążyć włókien?`,
+                `Czy ${shortBrandRef} nadaje się także do ostatniego płukania podczas prania ręcznego i w jakiej ilości?`
+            ));
         } else {
-            questions.push(`Jak prawidłowo dozować ten detergent – do szuflady pralki czy bezpośrednio do bębna?`);
+            questions.push(pickVariant(
+                `Jak prawidłowo dozować ten detergent – do szuflady pralki czy bezpośrednio do bębna?`,
+                `Jaką dawkę płynu dobrać na pojedyncze pranie i gdzie wlać preparat przed uruchomieniem programu?`,
+                `Jak dostosować ilość detergentu do poziomu zabrudzenia ubrań oraz objętości bębna?`,
+                `W jaki sposób poprawnie aplikować ten środek do prania w programach krótkich i standardowych?`
+            ));
         }
 
-        // FILAR 3: Intencja Kompatybilności i Bezpieczeństwa Tkanin (z Google PAA + wykluczenia fizykochemiczne)
         if (catInfo.key === 'fabric_softener' || catInfo.key === 'laundry_perfume') {
-            questions.push(`Do jakich rodzajów tkanin nadaje się ${shortBrandRef} i jak wpływa na miękkość oraz ułatwianie prasowania ubrań?`);
+            questions.push(pickVariant(
+                `Do jakich rodzajów tkanin nadaje się ${shortBrandRef} i jak wpływa na miękkość oraz ułatwianie prasowania ubrań?`,
+                `Czy po użyciu ${shortBrandRef} włókna łatwiej się rozprostowują podczas suszenia i prasowania?`,
+                `Jakie materiały można płukać z użyciem tej formuły, a przy jakich tkaninach funkcyjnych lepiej zachować ostrożność?`,
+                `Do jakich ubrań i tekstyliów domowych sprawdzi się ten koncentrat zmiękczający na etapie płukania?`
+            ));
         } else if (hasOpticalBrighteners) {
-            questions.push(`Do jakich rodzajów tkanin przeznaczony jest ${shortBrandRef} i dlaczego nie należy stosować go do wełny, jedwabiu oraz czarnych ubrań?`);
+            questions.push(pickVariant(
+                `Do jakich rodzajów tkanin przeznaczony jest ${shortBrandRef} i dlaczego nie należy stosować go do wełny, jedwabiu oraz czarnych ubrań?`,
+                `Jakie tkaniny zachowają intensywność bieli przy użyciu ${shortBrandRef}, a jakich delikatnych materiałów należy unikać?`,
+                `Dlaczego formuły zawierającej rozjaśniacze nie powinno się używać do czarnej odzieży, wełny i jedwabiu?`,
+                `Do jakich wsadów prania najlepiej używać ${shortBrandRef} oraz jakie włókna są wykluczone z etykiety?`
+            ));
         } else {
-            questions.push(`Do jakich rodzajów tkanin i kolorów nadaje się ten środek piorący, a jakich delikatnych włókien (np. wełny lub jedwabiu) należy unikać?`);
+            questions.push(pickVariant(
+                `Do jakich rodzajów tkanin i kolorów nadaje się ten środek piorący, a jakich delikatnych włókien (np. wełny lub jedwabiu) należy unikać?`,
+                `Jakie materiały można bezpiecznie prać z tym środkiem oraz czy sprawdza się przy praniu codziennej odzieży?`,
+                `Do jakiego koloru ubrań przewidziano tę recepturę i jakich tkanin wymagających specjalistycznych płynów nie prać w tym programie?`,
+                `Czy ten produkt nadaje się do bawełny i tkanin mieszanych oraz jak chroni włókna wrażliwe?`
+            ));
         }
 
-        // FILAR 4: Intencja Wydajności Opakowania ("Na ile prań wystarcza..." / "Na ile cykli płukania...")
         if (catInfo.key === 'fabric_softener' || catInfo.key === 'laundry_perfume') {
             const rinseCount = frontWashCount ? String(frontWashCount).replace(/pra[ńn]/i, 'płukań') : null;
             if (rinseCount) {
-                questions.push(`Na ile cykli płukania wystarcza opakowanie (${rinseCount}) przy standardowym załadunku pralki?`);
+                questions.push(pickVariant(
+                    `Na ile cykli płukania wystarcza opakowanie (${rinseCount}) przy standardowym załadunku pralki?`,
+                    `Jaką wydajność (${rinseCount}) deklaruje etykieta produktu i od czego zależy rzeczywista liczba płukań?`,
+                    `Ile cyklów płukania można wykonać z jednej butelki (${rinseCount}) przy codziennym użytkowaniu?`,
+                    `Na jak wiele użyć wystarcza opakowanie o wydajności ${rinseCount}?`
+                ));
             } else {
-                questions.push(`Jaka jest wydajność opakowania${capacity ? ` ${capacity}` : ''} i jak prawidłowo dozować koncentrat do przegródki na płyn zmiękczający?`);
+                questions.push(pickVariant(
+                    `Jaka jest wydajność opakowania${capacity ? ` ${capacity}` : ''} i jak prawidłowo dozować koncentrat do przegródki na płyn zmiękczający?`,
+                    `Jak ekonomicznie korzystać z butelki${capacity ? ` ${capacity}` : ''} przy regularnych cyklach płukania?`,
+                    `Jak przechowywać opakowanie${capacity ? ` ${capacity}` : ''}, aby aromat i konsystencja pozostały stabilne do ostatniego użycia?`,
+                    `Co wpływa na wydajność produktu${capacity ? ` ${capacity}` : ''} przy różnych twardościach wody?`
+                ));
             }
         } else if (frontWashCount) {
-            questions.push(`Na ile cykli prania wystarcza opakowanie (${frontWashCount}) przy standardowym załadunku pralki?`);
+            questions.push(pickVariant(
+                `Na ile cykli prania wystarcza opakowanie (${frontWashCount}) przy standardowym załadunku pralki?`,
+                `Jaką liczbę prań (${frontWashCount}) przewidziano na etykiecie przy typowym wsadzie bębna?`,
+                `Jak wydajne jest opakowanie (${frontWashCount}) przy przestrzeganiu zaleceń dozowania?`,
+                `Ile standardowych prań wykonasz z jednego opakowania (${frontWashCount})?`
+            ));
         } else {
-            questions.push(`Jaka jest wydajność opakowania${capacity ? ` ${capacity}` : ''} i które składniki aktywne odpowiadają za rozpuszczanie zabrudzeń?`);
+            questions.push(pickVariant(
+                `Jaka jest wydajność opakowania${capacity ? ` ${capacity}` : ''} i które składniki aktywne odpowiadają za rozpuszczanie zabrudzeń?`,
+                `Na jak długo wystarcza pojemność${capacity ? ` ${capacity}` : ''} oraz jakie surfaktanty budują działanie myjące receptury?`,
+                `Jakie składniki odpowiadają za skuteczność prania i jak najlepiej wykorzystać pojemność${capacity ? ` ${capacity}` : ''}?`,
+                `Co znajduje się w bazie czyszczącej formuły i jaka jest praktyczna wydajność opakowania${capacity ? ` ${capacity}` : ''}?`
+            ));
         }
     } else if (catInfo.group === 'SURFACE_CLEANER' || catInfo.group === 'DISH_CLEANER') {
-        // FILAR 1: Intencja AI Shopping / Skuteczność czyszczenia (z rozdzieleniem WC, Łazienki i Kuchni)
         if (isWcSpecific) {
             if (hasBleach && !hasAcid) {
-                questions.push(`Jakie przebarwienia, zżółknięcia i osady organiczne usuwa ${naturalName} w muszli toaletowej oraz co sprawia, że przywraca ceramice WC higieniczną czystość?`);
+                questions.push(pickVariant(
+                    `Jakie przebarwienia, zżółknięcia i osady organiczne usuwa ${naturalName} w muszli toaletowej oraz co sprawia, że przywraca ceramice WC higieniczną czystość?`,
+                    `Z jakimi osadami organicznymi w muszli klozetowej radzi sobie ${naturalName} bez zawartości kwasów?`,
+                    `Jak ${naturalName} oczyszcza wnętrze muszli toaletowej i niweluje zżółknięcia na ceramice sanitarnej?`,
+                    `Co sprawia, że ${naturalName} utrzymuje higieniczną czystość wewnątrz muszli WC?`
+                ));
             } else {
-                questions.push(`Jakie osady i zabrudzenia usuwa ${naturalName} w muszli toaletowej oraz co sprawia, że przywraca ceramice WC higieniczną czystość?`);
+                questions.push(pickVariant(
+                    `Jakie osady i zabrudzenia usuwa ${naturalName} w muszli toaletowej oraz co sprawia, że przywraca ceramice WC higieniczną czystość?`,
+                    `W jaki sposób ${naturalName} rozpuszcza zabrudzenia wewnątrz muszli WC i pod jej kołnierzem?`,
+                    `Jakie zanieczyszczenia na ceramice toaletowej skutecznie usuwa ${naturalName}?`,
+                    `Jak działa formuła ${naturalName} przy czyszczeniu wnętrza muszli klozetowej?`
+                ));
             }
         } else if (isBathroomSpecific) {
-            questions.push(`Jakie osady i zabrudzenia usuwa ${naturalName} w łazience oraz co sprawia, że przywraca ceramice sanitarnej higieniczną czystość?`);
+            questions.push(pickVariant(
+                `Jakie osady i zabrudzenia usuwa ${naturalName} w łazience oraz co sprawia, że przywraca ceramice sanitarnej higieniczną czystość?`,
+                `Czy ${naturalName} dobrze radzi sobie z zaciekami z wody i nalotem z mydła na powierzchniach łazienkowych?`,
+                `Jakie typy codziennych osadów sanitarnych usuwa ${naturalName} bez rysowania ceramiki?`,
+                `W czym tkwi skuteczność ${naturalName} przy porządkach w kabinie prysznicowej, na wannie i umywalce?`
+            ));
         } else if (isKitchenSpecific) {
-            questions.push(`Jakie zabrudzenia tłuszczowe i osady usuwa ${naturalName} w kuchni bez pozostawiania smug?`);
+            questions.push(pickVariant(
+                `Jakie zabrudzenia tłuszczowe i osady usuwa ${naturalName} w kuchni bez pozostawiania smug?`,
+                `Jak ${naturalName} rozbija zaschnięty tłuszcz na powierzchniach kuchennych i okapie?`,
+                `Z jakimi plamami i zabrudzeniami kuchennymi najlepiej radzi sobie ${naturalName}?`,
+                `Czy ${naturalName} pozwala szybko oczyścić powierzchnie kuchenne bez uciążliwego polerowania?`
+            ));
         } else if (frontPurpose) {
             const cleanPurpose = String(frontPurpose).replace(/^(?:do\s+)?/i, 'do ').trim();
-            questions.push(`Jakie zabrudzenia usuwa ${naturalName} (${cleanPurpose}) i jak działa jego formuła czyszcząca?`);
+            questions.push(pickVariant(
+                `Jakie zabrudzenia usuwa ${naturalName} (${cleanPurpose}) i jak działa jego formuła czyszcząca?`,
+                `Jak sprawdza się ${naturalName} w zastosowaniach ${cleanPurpose} i jakie zanieczyszczenia rozpuszcza?`,
+                `Co sprawia, że ${naturalName} skutecznie czyści powierzchnie (${cleanPurpose})?`,
+                `Jak działa kompozycja składników w ${naturalName} przy zadaniach ${cleanPurpose}?`
+            ));
         } else {
-            questions.push(`Jakie zabrudzenia usuwa ${naturalName} i jak działa jego aktywna formuła czyszcząca?`);
+            questions.push(pickVariant(
+                `Jakie zabrudzenia usuwa ${naturalName} i jak działa jego aktywna formuła czyszcząca?`,
+                `Do jakich codziennych zadań porządkowych przeznaczony jest ${naturalName} i jak rozbija brud?`,
+                `W jaki sposób aktywna baza ${naturalName} usuwa plamy, osady i naloty z powierzchni?`,
+                `Co wyróżnia działanie użytkowe produktu ${naturalName} podczas domowego sprzątania?`
+            ));
         }
 
-        // FILAR 2: Intencja z Google Autocomplete ("czy mleczko cif rysuje" / kompatybilność powierzchniowa + zakaz armatury i tkanin przy chlorze)
         if (catInfo.key === 'scouring_cream') {
-            questions.push(`Czy to mleczko czyszczące rysuje powierzchnie i na jakich materiałach można je bezpiecznie stosować?`);
+            questions.push(pickVariant(
+                `Czy to mleczko czyszczące rysuje powierzchnie i na jakich materiałach można je bezpiecznie stosować?`,
+                `Jak dobrać miękką gąbkę lub ściereczkę do tego mleczka, aby bezpiecznie czyścić emalię i ceramikę bez zarysowań?`,
+                `Na jakich powierzchniach sprawdza się to mleczko z mikrocząsteczkami, a jakich delikatnych tworzyw unikać?`,
+                `Jak bezpiecznie testować i stosować mleczko czyszczące na powierzchniach gładkich?`
+            ));
         } else if (hasBleach) {
-            questions.push(`Do jakich powierzchni nadaje się ten preparat z aktywnym wybielaczem, a dlaczego nie wolno stosować go na armaturze chromowanej, metalach, drewnie, marmurze ani na jakichkolwiek tkaninach?`);
+            questions.push(pickVariant(
+                `Do jakich powierzchni nadaje się ten preparat z aktywnym wybielaczem, a dlaczego nie wolno stosować go na armaturze chromowanej, metalach, drewnie, marmurze ani na jakichkolwiek tkaninach?`,
+                `Jakich materiałów nie należy czyścić tym środkiem zawierającym podchloryn sodu (armatura, metale, tekstylia, kamień naturalny)?`,
+                `Gdzie wolno bezpiecznie aplikować ten preparat z aktywnym chlorem, a przed czym chronić metal, drewno i ubrania?`,
+                `Dlaczego w przypadku tego środka z wybielaczem należy omijać baterie łazienkowe, aluminium i tkaniny?`
+            ));
         } else if (catInfo.key === 'descaler') {
-            questions.push(`Czy ${shortBrandRef} skutecznie usuwa kamień wodny oraz osady z mydła i na jakich powierzchniach kwasowrażliwych (np. marmur, wapień) nie należy go stosować?`);
+            questions.push(pickVariant(
+                `Czy ${shortBrandRef} skutecznie usuwa kamień wodny oraz osady z mydła i na jakich powierzchniach kwasowrażliwych (np. marmur, wapień) nie należy go stosować?`,
+                `Które powierzchnie odporne można bezpiecznie odkamieniać tym środkiem, a dlaczego marmur i wapień są wykluczone?`,
+                `Jak bezpiecznie stosować ten odkamieniacz w łazience i czego bezwzględnie omijać ze względu na kwasową recepturę?`,
+                `Jakiego kontaktu z kamieniem naturalnym, aluminium i uszkodzoną emalią należy unikać podczas używania ${shortBrandRef}?`
+            ));
         } else if (frontPurpose) {
-            questions.push(`Do jakich elementów i powierzchni przeznaczony jest ${shortBrandRef} oraz jakich materiałów i podzespołów należy unikać podczas czyszczenia?`);
+            questions.push(pickVariant(
+                `Do jakich elementów i powierzchni przeznaczony jest ${shortBrandRef} oraz jakich materiałów i podzespołów należy unikać podczas czyszczenia?`,
+                `Jakie materiały domowe tolerują aplikację tego środka, a kiedy warto zachować ostrożność?`,
+                `Gdzie najlepiej wykorzystać ${shortBrandRef}, aby uzyskać czystą powierzchnię bez uszkodzenia podłoża?`,
+                `Które powierzchnie w domu można myć tym środkiem zgodnie z etykietą producenta?`
+            ));
         } else {
-            questions.push(`Do jakich powierzchni przeznaczony jest ${shortBrandRef} i na jakich delikatnych materiałach należy zachować ostrożność?`);
+            questions.push(pickVariant(
+                `Do jakich powierzchni przeznaczony jest ${shortBrandRef} i na jakich delikatnych materiałach należy zachować ostrożność?`,
+                `Na jakich powierzchniach zmywalnych sprawdzi się ${shortBrandRef} i gdzie warto zrobić próbę na mało widocznym fragmencie?`,
+                `Czy ten środek nadaje się do codziennych zmywalnych powierzchni i jakich tworzyw unikać?`,
+                `Jak dopasować powierzchnię do działania ${shortBrandRef}, aby zachować estetykę czyszczonych elementów?`
+            ));
         }
 
-        // FILAR 3: Intencja Instruktażowa ("Jak stosować... i jak spłukiwać?")
         if (isWcSpecific) {
-            questions.push(`Jak prawidłowo aplikować i spłukiwać ${shortBrandRef} pod obrzeżem muszli toaletowej oraz pod linią wody, aby uzyskać higieniczną czystość?`);
+            questions.push(pickVariant(
+                `Jak prawidłowo aplikować i spłukiwać ${shortBrandRef} pod obrzeżem muszli toaletowej oraz pod linią wody, aby uzyskać higieniczną czystość?`,
+                `Jak długo pozostawić preparat w muszli klozetowej przed spłukaniem i wyszczotkowaniem?`,
+                `W jaki sposób nanieść produkt w trudno dostępne miejsce pod kołnierzem muszli WC?`,
+                `Jak przebiega prawidłowy schemat aplikacji w toalecie krok po kroku zgodnie z etykietą?`
+            ));
         } else if (isBathroomSpecific) {
             const formWord = catInfo.physicalForm?.formAccusativePl || classifyProductPhysicalForm({
                 productName: naturalName,
                 postac: visionFeatures?.['Postać'],
                 dozownik: visionFeatures?.['Dozownik']
             }).formAccusativePl || 'ten preparat';
-            questions.push(`Jak prawidłowo aplikować i spłukiwać ${formWord} na ceramice sanitarnej, wannach, umywalkach oraz fugach, aby uzyskać czystość bez zacieków?`);
+            questions.push(pickVariant(
+                `Jak prawidłowo aplikować i spłukiwać ${formWord} na ceramice sanitarnej, wannach, umywalkach oraz fugach, aby uzyskać czystość bez zacieków?`,
+                `Po jakim czasie zmyć wodą ${formWord} z powierzchni wanny, umywalki i glazury, aby nie pozostały smugi?`,
+                `Jak używać ${formWord} podczas mycia kabiny prysznicowej i ceramiki sanitarnej dla szybkiego efektu bez smug?`,
+                `Jaki jest zalecany czas kontaktu przed spłukaniem, gdy nakładasz ${formWord} w łazience?`
+            ));
         } else {
-            questions.push(`Jak prawidłowo aplikować i zmywać ${shortBrandRef}, aby szybko usunąć zabrudzenia oraz osady bez zacieków?`);
+            questions.push(pickVariant(
+                `Jak prawidłowo aplikować i zmywać ${shortBrandRef}, aby szybko usunąć zabrudzenia oraz osady bez zacieków?`,
+                `Czy po aplikacji środka wystarczy przetrzeć powierzchnię wilgotną ściereczką i wytrzeć do sucha?`,
+                `Jak aplikować produkt na pionowe oraz poziome powierzchnie zmywalne zgodnie z etykietą?`,
+                `W jakiej kolejności nanieść i zmyć preparat, aby powierzchnia pozostała czysta i bez smug?`
+            ));
         }
 
-        // FILAR 4: Intencja Składnikowa / Zapachowa z Google Suggest (z poprawną fleksją "o świeżym zapachu" i bez powtarzania pełnej nazwy)
-        questions.push(`Jakie składniki aktywne odpowiadają za działanie formuły${scentPhrase ? ` ${scentPhrase}` : ''} i jak wydajne jest opakowanie${capacity ? ` ${capacity}` : ''}?`);
+        questions.push(pickVariant(
+            `Jakie składniki aktywne odpowiadają za działanie formuły${scentPhrase ? ` ${scentPhrase}` : ''} i jak wydajne jest opakowanie${capacity ? ` ${capacity}` : ''}?`,
+            `Które związki czynne w składzie budują siłę czyszczącą${scentPhrase ? ` (${scentPhrase})` : ''} oraz na jak długo wystarcza pojemność${capacity ? ` ${capacity}` : ''}?`,
+            `Co odpowiada za rozpuszczanie brudu i jaka jest praktyczna wydajność opakowania${capacity ? ` ${capacity}` : ''}?`,
+            `Jak przechowywać opakowanie${capacity ? ` ${capacity}` : ''} i jakie kluczowe składniki pracują podczas czyszczenia?`
+        ));
     } else if (catInfo.group === 'ORAL_CARE') {
-        questions.push(`Jakie korzyści w codziennej higienie jamy ustnej i ochronie szkliwa zapewnia ${naturalName}?`);
-        questions.push(`Jak prawidłowo stosować ten produkt podczas codziennego mycia zębów, aby zadbać o dziąsła i świeży oddech?`);
-        questions.push(`Dla kogo przeznaczony jest ${shortBrandRef} i czy sprawdza się przy wrażliwych zębach oraz dziąsłach?`);
-        questions.push(`Na jak długo wystarcza opakowanie${capacity ? ` ${capacity}` : ''} przy regularnym stosowaniu rano i wieczorem?`);
+        questions.push(pickVariant(
+            `Jakie korzyści w codziennej higienie jamy ustnej i ochronie szkliwa zapewnia ${naturalName}?`,
+            `W jaki sposób ${naturalName} wspiera codzienną higienę jamy ustnej i uczucie czystości zębów?`,
+            `Co wyróżnia stosowanie ${naturalName} w porannej i wieczornej rutynie mycia zębów?`,
+            `Jakie funkcje higieniczne spełnia ${naturalName} podczas codziennego szczotkowania i pielęgnacji?`
+        ));
+        questions.push(pickVariant(
+            `Jak prawidłowo stosować ten produkt podczas codziennego mycia zębów, aby zadbać o dziąsła i świeży oddech?`,
+            `Na jakie nawyki i czas szczotkowania zwrócić uwagę przy codziennym używaniu tego artykułu higienicznego?`,
+            `Jak włączyć ten produkt do codziennej higieny jamy ustnej, aby skutecznie usuwać osad nazębny?`,
+            `W jaki sposób aplikować produkt podczas rutynowego mycia zębów?`
+        ));
+        questions.push(pickVariant(
+            `Dla kogo przeznaczony jest ${shortBrandRef} i czy sprawdza się przy wrażliwych zębach oraz dziąsłach?`,
+            `Kto szczególnie skorzysta z parametrów użytkowych tego produktu w codziennej higienie?`,
+            `Jak ten wyrób sprawdza się przy delikatnej linii dziąseł i codziennej pielęgnacji jamy ustnej?`,
+            `Jakie właściwości z etykiety decydują o dopasowaniu produktu do potrzeb użytkownika?`
+        ));
+        questions.push(pickVariant(
+            `Na jak długo wystarcza opakowanie${capacity ? ` ${capacity}` : ''} przy regularnym stosowaniu rano i wieczorem?`,
+            `Jak wygląda wydajność opakowania${capacity ? ` ${capacity}` : ''} w codziennym rytmie higieny domowej?`,
+            `Jak bezpiecznie przechowywać produkt po użyciu, aby zachować higienę i właściwości użytkowe?`,
+            `Co zyskujesz pod względem wydajności w opakowaniu${capacity ? ` ${capacity}` : ''} przy regularnym używaniu?`
+        ));
     } else {
-        // BODY_CARE / HAIR_CARE / KOSMETYKI
-        questions.push(`Jakie właściwości pielęgnacyjne ma ${naturalName} i co sprawia, że jego aromat${scentPhrase ? ` (${scentPhrase})` : ''} przyjemnie utrzymuje się na skórze?`);
-        questions.push(`Jak prawidłowo stosować ten kosmetyk podczas codziennej kąpieli lub pielęgnacji, aby nie przesuszać naskórka?`);
+        questions.push(pickVariant(
+            `Jakie właściwości pielęgnacyjne ma ${naturalName} i co sprawia, że jego aromat${scentPhrase ? ` (${scentPhrase})` : ''} przyjemnie utrzymuje się na skórze?`,
+            `Jak ${naturalName} oczyszcza skórę w codziennej pielęgnacji i czym charakteryzuje się jego profil zapachowy${scentPhrase ? ` (${scentPhrase})` : ''}?`,
+            `Dlaczego ${naturalName} sprawdza się pod prysznicem i w pielęgnacji dłoni, pozostawiając nutę${scentPhrase ? ` (${scentPhrase})` : ''}?`,
+            `Jakie odczucia na skórze oraz cechy użytkowe oferuje ${naturalName} przy regularnym stosowaniu?`
+        ));
+        questions.push(pickVariant(
+            `Jak prawidłowo stosować ten kosmetyk podczas codziennej kąpieli lub pielęgnacji, aby nie przesuszać naskórka?`,
+            `W jaki sposób aplikować ten kosmetyk na wilgotną skórę i jak dokładnie go spłukać po umyciu?`,
+            `Jaka ilość produktu wystarcza na jedno mycie, aby uzyskać miękką pianę i komfort naskórka?`,
+            `Jak wpleść ten kosmetyk w codzienny rytuał kąpieli zgodnie z zaleceniem na opakowaniu?`
+        ));
         if (catInfo.key === 'deodorant') {
-            questions.push(`Czy ${shortBrandRef} ${hasAluminum ? 'zawiera sole glinu (aluminium)' : 'ma formułę bez soli aluminium'} i czy pozostawia ślady na ubraniach?`);
+            questions.push(pickVariant(
+                `Czy ${shortBrandRef} ${hasAluminum ? 'zawiera sole glinu (aluminium)' : 'ma formułę bez soli aluminium'} i czy pozostawia ślady na ubraniach?`,
+                `Jak formuła tego dezodorantu zachowuje się na skórze oraz tekstyliach pod kątem komfortu noszenia?`,
+                `Czy receptura ${hasAluminum ? 'z solami glinu' : 'bez soli aluminium'} szybko wysycha po aplikacji pod pachami?`,
+                `Co warto wiedzieć o składzie i aplikacji tego dezodorantu przed założeniem odzieży?`
+            ));
         } else if (catInfo.key === 'talcum_powder') {
-            questions.push(`Do jakiego typu skóry przeznaczony jest ${shortBrandRef} i jak bezpiecznie aplikować sypki puder mineralny po kąpieli?`);
+            questions.push(pickVariant(
+                `Do jakiego typu skóry przeznaczony jest ${shortBrandRef} i jak bezpiecznie aplikować sypki puder mineralny po kąpieli?`,
+                `Jak nakładać sypki puder pielęgnacyjny po osuszeniu skóry i na co uważać przy aplikacji blisko twarzy?`,
+                `Czy ten talk mineralny sprawdza się do odświeżania i osuszania skóry po kąpieli?`,
+                `Dla jakich partii ciała i jakiego rodzaju skóry przewidziano ten sypki talk kosmetyczny?`
+            ));
         } else {
-            questions.push(`Do jakiego typu skóry lub włosów najlepiej sprawdza się ${shortBrandRef} i czy nadaje się do codziennego użytku?`);
+            questions.push(pickVariant(
+                `Do jakiego typu skóry lub włosów najlepiej sprawdza się ${shortBrandRef} i czy nadaje się do codziennego użytku?`,
+                `Czy ta formuła pielęgnacyjna może być używana każdego dnia przez domowników przy częstym myciu?`,
+                `Dla jakiej skóry opracowano ten kosmetyk i czy zapewnia uczucie miękkości po zmyciu?`,
+                `Kto najlepiej wykorzysta właściwości oczyszczająco-kondycjonujące tego kosmetyku na co dzień?`
+            ));
         }
-        questions.push(`Jakie składniki kondycjonujące zawiera formuła i na jak długo wystarcza opakowanie${capacity ? ` ${capacity}` : ''}?`);
+        questions.push(pickVariant(
+            `Jakie składniki kondycjonujące zawiera formuła i na jak długo wystarcza opakowanie${capacity ? ` ${capacity}` : ''}?`,
+            `Które składniki ze składu INCI odpowiadają za komfort skóry oraz na ile użyć wystarcza${capacity ? ` ${capacity}` : ''}?`,
+            `Jakie substancje myjące i nawilżające zastosowano w składzie oraz jak wydajne jest opakowanie${capacity ? ` ${capacity}` : ''}?`,
+            `Jak dbać o przechowywanie opakowania${capacity ? ` ${capacity}` : ''} i które składniki INCI wspierają kondycję naskórka?`
+        ));
     }
 
     return {
@@ -482,7 +667,8 @@ async function harvestSearchIntentFaq({
     visionFeatures = {},
     features = {},
     inci = '',
-    detergentComposition = ''
+    detergentComposition = '',
+    variantIndex = 0
 } = {}) {
     const catInfo = detectCanonicalSearchCategory({ productName, category, visionFeatures, features, isChemical, inci, detergentComposition });
     const naturalName = formatNaturalProductName(productName, brand, capacity);
@@ -532,7 +718,8 @@ async function harvestSearchIntentFaq({
         visionFeatures,
         inci,
         detergentComposition,
-        googleSuggestions
+        googleSuggestions,
+        variantIndex
     });
 }
 

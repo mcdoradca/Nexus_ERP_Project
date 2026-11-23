@@ -7,6 +7,7 @@ const AllegroService = require('../offer-optimizer/allegro.service');
 const { getBaseLinkerToken } = require('../../utils/secretVault');
 const { isValidExportImageUrl } = require('../../utils/allegro_mapper');
 const { stripRawInciFooterFromSection3 } = require('./normalization');
+const { resolveOrderedVisibleDescriptionSections } = require('../../services/workspaceContentProfile.service');
 
 const INTERNAL_BACK_IMAGE_KEYS = new Set([
     'zdjęcie tyłu opakowania',
@@ -507,18 +508,43 @@ class BaselinkerExportService {
             payload.product_id = productId;
         }
 
-        // --- 1. KOMPILACJA SEKCJI OPISU (6 modułów — bez sekcja6 GPSR) ---
-        payload.text_fields["description"] = this.encodeEmojis(draftData.htmlContent?.sekcja1 || draftData.sekcja1 || "", true);
-        payload.text_fields["description_extra1"] = this.encodeEmojis(draftData.htmlContent?.sekcja2 || draftData.sekcja2 || "", true);
-        const sec3 = stripRawInciFooterFromSection3(draftData.htmlContent?.sekcja3 || draftData.sekcja3 || "");
-        payload.text_fields["description_extra2"] = this.encodeEmojis(sec3, true);
-        payload.text_fields["description_extra3"] = this.encodeEmojis(draftData.htmlContent?.sekcja4 || draftData.sekcja4 || "", true);
-        
-        // Moduł 6 (sekcja6 / GPSR) jest wyłączony z opisu oferty (pozostaje wyłącznie pod kluczem GPSR).
-        const sec5 = draftData.htmlContent?.sekcja5 || draftData.sekcja5 || "";
-        payload.text_fields["description_extra4"] = this.encodeEmojis(sec5, true);
-        
-        payload.text_fields["extra_field_4245"] = this.encodeEmojis(draftData.htmlContent?.sekcja7 || draftData.sekcja7 || "", true);
+        // --- 1. KOMPILACJA SEKCJI OPISU (z uwzględnieniem kolejności, ukrywania i sekcji porad — nigdy sekcja6 GPSR) ---
+        const blProfile = context?.contentProfile || null;
+        const hasCustomBlProfile = Boolean(
+            blProfile && (
+                (Array.isArray(blProfile.hiddenSections) && blProfile.hiddenSections.length > 0) ||
+                Boolean(blProfile.includeTipsSection) ||
+                (Array.isArray(blProfile.sectionOrder) && JSON.stringify(blProfile.sectionOrder.slice(0, 6)) !== JSON.stringify(['sekcja1', 'sekcja2', 'sekcja3', 'sekcja4', 'sekcja5', 'sekcja7'])) ||
+                Boolean(draftData.htmlContent?.sekcjaTips || draftData.sekcjaTips)
+            )
+        );
+        const BL_FIELD_SLOTS = ['description', 'description_extra1', 'description_extra2', 'description_extra3', 'description_extra4', 'extra_field_4245'];
+
+        if (hasCustomBlProfile && (draftData.htmlContent || draftData.sekcja1)) {
+            const orderedEntries = resolveOrderedVisibleDescriptionSections(draftData.htmlContent || draftData, blProfile);
+            for (let idx = 0; idx < BL_FIELD_SLOTS.length; idx++) {
+                const fieldKey = BL_FIELD_SLOTS[idx];
+                if (idx < BL_FIELD_SLOTS.length - 1) {
+                    const entryHtml = orderedEntries[idx]?.html || '';
+                    payload.text_fields[fieldKey] = this.encodeEmojis(entryHtml, true);
+                } else {
+                    const tailHtml = orderedEntries.slice(idx).map(e => e.html).filter(Boolean).join('\n\n');
+                    payload.text_fields[fieldKey] = this.encodeEmojis(tailHtml, true);
+                }
+            }
+        } else {
+            payload.text_fields["description"] = this.encodeEmojis(draftData.htmlContent?.sekcja1 || draftData.sekcja1 || "", true);
+            payload.text_fields["description_extra1"] = this.encodeEmojis(draftData.htmlContent?.sekcja2 || draftData.sekcja2 || "", true);
+            const sec3 = stripRawInciFooterFromSection3(draftData.htmlContent?.sekcja3 || draftData.sekcja3 || "");
+            payload.text_fields["description_extra2"] = this.encodeEmojis(sec3, true);
+            payload.text_fields["description_extra3"] = this.encodeEmojis(draftData.htmlContent?.sekcja4 || draftData.sekcja4 || "", true);
+
+            // Moduł 6 (sekcja6 / GPSR) jest wyłączony z opisu oferty (pozostaje wyłącznie pod kluczem GPSR).
+            const sec5 = draftData.htmlContent?.sekcja5 || draftData.sekcja5 || "";
+            payload.text_fields["description_extra4"] = this.encodeEmojis(sec5, true);
+
+            payload.text_fields["extra_field_4245"] = this.encodeEmojis(draftData.htmlContent?.sekcja7 || draftData.sekcja7 || "", true);
+        }
 
         // --- 2. WALIDACJA TYTUŁU API (GEO) ---
         if (draftData.title) {

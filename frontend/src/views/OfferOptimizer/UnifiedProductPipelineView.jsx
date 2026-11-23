@@ -162,13 +162,18 @@ export const UnifiedProductPipelineView = ({
     const [categorySchema, setCategorySchema] = useState(null);
     const [brands, setBrands] = useState([]);
     
+    const wsContentProfile = activeWorkspace?.settings?.contentProfile || null;
+    const workspaceDefaultSekcja7 = (wsContentProfile?.defaultSekcja7 && String(wsContentProfile.defaultSekcja7).trim())
+        ? wsContentProfile.defaultSekcja7
+        : DEFAULT_SEKCJA_7;
+
     // === STANY PIPELINE (OFFER OPTIMIZER) ===
     const [isDashboardActive, setIsDashboardActive] = useState(false);
     const [productData, setProductData] = useState(null); 
 
     const [liveTitle, setLiveTitle] = useState("");
     const [liveEan, setLiveEan] = useState("");
-    const [editorHtml, setEditorHtml] = useState({ sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: DEFAULT_SEKCJA_7 });
+    const [editorHtml, setEditorHtml] = useState({ sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcjaTips: "", sekcja7: workspaceDefaultSekcja7 });
     const [editorKey, setEditorKey] = useState(0);
     const [visionTickets, setVisionTickets] = useState(() => [
         { originalUrl: '', alerts: ["Wymagany nowy packshot wysokiej jakości"], isCompliant: false, replacedUrl: null },
@@ -462,10 +467,10 @@ export const UnifiedProductPipelineView = ({
         const extractHtmlSections = (rawHtmlContent) => {
             if (!rawHtmlContent) return null;
             if (typeof rawHtmlContent === 'string' && rawHtmlContent.replace(/<[^>]*>/g, '').trim() !== '') {
-                return { sekcja1: rawHtmlContent, sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: DEFAULT_SEKCJA_7 };
+                return { sekcja1: rawHtmlContent, sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcjaTips: "", sekcja7: workspaceDefaultSekcja7 };
             }
             if (typeof rawHtmlContent === 'object') {
-                const hasAny = ['sekcja1', 'sekcja2', 'sekcja3', 'sekcja4', 'sekcja5', 'sekcja6'].some(
+                const hasAny = ['sekcja1', 'sekcja2', 'sekcja3', 'sekcja4', 'sekcja5', 'sekcja6', 'sekcjaTips'].some(
                     k => typeof rawHtmlContent[k] === 'string' && rawHtmlContent[k].replace(/<[^>]*>/g, '').trim() !== ''
                 );
                 if (hasAny) {
@@ -476,7 +481,8 @@ export const UnifiedProductPipelineView = ({
                         sekcja4: rawHtmlContent.sekcja4 || "",
                         sekcja5: rawHtmlContent.sekcja5 || "",
                         sekcja6: rawHtmlContent.sekcja6 || "",
-                        sekcja7: rawHtmlContent.sekcja7 !== undefined ? rawHtmlContent.sekcja7 : DEFAULT_SEKCJA_7
+                        sekcjaTips: rawHtmlContent.sekcjaTips || "",
+                        sekcja7: rawHtmlContent.sekcja7 !== undefined ? rawHtmlContent.sekcja7 : workspaceDefaultSekcja7
                     };
                 }
             }
@@ -659,7 +665,7 @@ export const UnifiedProductPipelineView = ({
                 const localSections = extractHtmlSections(localDraft?.editorHtml);
                 const pimSections = extractHtmlSections(p.descriptionHtml);
                 const resolvedHtml = dbSections || localSections || pimSections || {
-                    sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcja7: DEFAULT_SEKCJA_7
+                    sekcja1: "", sekcja2: "", sekcja3: "", sekcja4: "", sekcja5: "", sekcja6: "", sekcjaTips: "", sekcja7: workspaceDefaultSekcja7
                 };
                 setEditorHtml(resolvedHtml);
 
@@ -688,7 +694,7 @@ export const UnifiedProductPipelineView = ({
                 setEditorKey(prev => prev + 1);
             })
             .catch(err => alert("Błąd wczytywania produktu z bazy"));
-    }, [editingProduct, token, DRAFT_KEY]);
+    }, [editingProduct, token, DRAFT_KEY, workspaceDefaultSekcja7]);
 
     const isQuotaExceededRef = useRef(false);
     const skipNextAutosaveRef = useRef(false);
@@ -778,7 +784,8 @@ export const UnifiedProductPipelineView = ({
                 if (data.result) {
                     setEditorHtml(prev => ({
                         ...(data.result.editorHtml || {}),
-                        sekcja7: prev.sekcja7 !== undefined ? prev.sekcja7 : DEFAULT_SEKCJA_7
+                        sekcjaTips: data.result.editorHtml?.sekcjaTips || prev.sekcjaTips || "",
+                        sekcja7: (data.result.editorHtml?.sekcja7 && String(data.result.editorHtml.sekcja7).trim()) ? data.result.editorHtml.sekcja7 : (prev.sekcja7 !== undefined ? prev.sekcja7 : workspaceDefaultSekcja7)
                     }));
                     setLiveTitle(data.result.title || "");
                     setEditorKey(prev => prev + 1);
@@ -838,7 +845,10 @@ export const UnifiedProductPipelineView = ({
                                 title: data.result.title || "",
                                 htmlContent: {
                                     ...(data.result.editorHtml || {}),
-                                    sekcja7: (prev.offerDraft && prev.offerDraft.htmlContent && prev.offerDraft.htmlContent.sekcja7 !== undefined) ? prev.offerDraft.htmlContent.sekcja7 : DEFAULT_SEKCJA_7
+                                    sekcjaTips: data.result.editorHtml?.sekcjaTips || prev.offerDraft?.htmlContent?.sekcjaTips || "",
+                                    sekcja7: (data.result.editorHtml?.sekcja7 && String(data.result.editorHtml.sekcja7).trim())
+                                        ? data.result.editorHtml.sekcja7
+                                        : ((prev.offerDraft && prev.offerDraft.htmlContent && prev.offerDraft.htmlContent.sekcja7 !== undefined) ? prev.offerDraft.htmlContent.sekcja7 : workspaceDefaultSekcja7)
                                 },
                                 images: (data.result.visionTickets && data.result.visionTickets.length > 0) ? data.result.visionTickets : (prev.offerDraft?.images || [])
                             }
@@ -902,7 +912,7 @@ export const UnifiedProductPipelineView = ({
         };
         socket.on('nexus-notification', handler);
         return () => socket.off('nexus-notification', handler);
-    }, [socket, effectiveEan, generatingSlots]);
+    }, [socket, effectiveEan, generatingSlots, workspaceDefaultSekcja7]);
 
     // Handle Create Product
     const handleCreateProduct = async (e) => {
@@ -2127,19 +2137,46 @@ export const UnifiedProductPipelineView = ({
 
                                 {/* Symulator przeniesiony na lewo i powiększony */}
                                 <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl overflow-hidden h-[600px] relative flex-shrink-0 flex flex-col">
-                                    <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-4 flex items-center flex-shrink-0">
-                                        <Box className="w-4 h-4 mr-2 text-indigo-400" /> Symulator Układu Kafelków
-                                    </h2>
+                                    <div className="flex items-center justify-between mb-4 flex-shrink-0 gap-2">
+                                        <h2 className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center">
+                                            <Box className="w-4 h-4 mr-2 text-indigo-400" /> Symulator Układu Kafelków
+                                        </h2>
+                                        {wsContentProfile?.presetId && (
+                                            <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
+                                                Układ: {wsContentProfile.imageTextLayout === 'TEXT_LEFT' ? 'Tekst ←' : wsContentProfile.imageTextLayout === 'ALTERNATING' ? 'Naprzemiennie' : 'Zdjęcie ←'}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="relative flex-grow w-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-slate-50 rounded-lg border border-slate-700 p-2">
                                         <div className="origin-top-left scale-[1.05] w-[95%] mx-auto">
-                                            <TileSimulator customSections={[
-                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[1]) ? (visionTickets[1].replacedUrl || visionTickets[1].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja1 } ] },
-                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[2]) ? (visionTickets[2].replacedUrl || visionTickets[2].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja2 } ] },
-                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[3]) ? (visionTickets[3].replacedUrl || visionTickets[3].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja3 } ] },
-                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[4]) ? (visionTickets[4].replacedUrl || visionTickets[4].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja4 } ] },
-                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[5]) ? (visionTickets[5].replacedUrl || visionTickets[5].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja5 } ] },
-                                                { items: [ { type: 'IMAGE', content: (visionTickets && visionTickets[0]) ? (visionTickets[0].replacedUrl || visionTickets[0].originalUrl) : '' }, { type: 'TEXT', content: editorHtml.sekcja7 } ] }
-                                            ]} />
+                                            <TileSimulator customSections={(() => {
+                                                const defaultOrder = ['sekcja1', 'sekcja2', 'sekcja3', 'sekcja4', 'sekcja5', 'sekcja7'];
+                                                const hiddenSet = new Set((wsContentProfile?.hiddenSections || []).filter(k => k !== 'sekcja1' && k !== 'sekcja6'));
+                                                const order = Array.isArray(wsContentProfile?.sectionOrder) && wsContentProfile.sectionOrder.length > 0
+                                                    ? wsContentProfile.sectionOrder.filter(k => k !== 'sekcja6')
+                                                    : defaultOrder;
+                                                const slotByKey = { sekcja1: 1, sekcja2: 2, sekcja3: 3, sekcja4: 4, sekcja5: 5, sekcja7: 0 };
+                                                const getTicketImg = (idx) => (visionTickets && visionTickets[idx]) ? (visionTickets[idx].replacedUrl || visionTickets[idx].originalUrl) : '';
+                                                const visibleKeys = order.filter(key => {
+                                                    if (hiddenSet.has(key)) return false;
+                                                    if (key === 'sekcjaTips') {
+                                                        return Boolean(wsContentProfile?.includeTipsSection || (editorHtml.sekcjaTips && editorHtml.sekcjaTips.replace(/<[^>]*>/g, '').trim()));
+                                                    }
+                                                    return true;
+                                                });
+                                                const usedSlots = new Set(visibleKeys.map(k => slotByKey[k]).filter(s => s !== undefined));
+                                                const freeSlotForTips = [2, 4, 3, 5, 1, 0].find(s => !usedSlots.has(s));
+                                                const layout = wsContentProfile?.imageTextLayout || 'IMAGE_LEFT';
+                                                return visibleKeys.map((key, idx) => {
+                                                    const imgSlot = slotByKey[key] !== undefined ? slotByKey[key] : (freeSlotForTips ?? -1);
+                                                    const imgContent = imgSlot >= 0 ? getTicketImg(imgSlot) : '';
+                                                    const imgItem = { type: 'IMAGE', content: imgContent };
+                                                    const textItem = { type: 'TEXT', content: editorHtml[key] || '' };
+                                                    if (imgSlot < 0) return { items: [textItem] };
+                                                    const imageFirst = layout === 'TEXT_LEFT' ? false : (layout === 'ALTERNATING' ? (idx % 2 === 0) : true);
+                                                    return { items: imageFirst ? [imgItem, textItem] : [textItem, imgItem] };
+                                                });
+                                            })()} />
                                         </div>
                                     </div>
                                 </div>
@@ -2202,25 +2239,60 @@ export const UnifiedProductPipelineView = ({
                                         </div>
                                     </div>
                                     <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar flex-grow" style={{ minHeight: '600px' }}>
-                                        {[
-                                            { key: 'sekcja1', label: 'Moduł 1: Mocne Strony (Zdjęcie 2)' },
-                                            { key: 'sekcja2', label: 'Moduł 2: FAQ / Pytania (Zdjęcie 3)' },
-                                            { key: 'sekcja3', label: 'Moduł 3: Detale i Skład INCI (Zdjęcie 4)' },
-                                            { key: 'sekcja4', label: 'Moduł 4: Sposób użycia (Zdjęcie 5)' },
-                                            { key: 'sekcja5', label: 'Moduł 5: Specyfikacja Techniczna (Zdjęcie 6)' },
-                                            { key: 'sekcja6', label: 'Moduł 6: Bezpieczeństwo / GPSR (tylko pole GPSR — nie idzie do opisu)' },
-                                            { key: 'sekcja7', label: 'Moduł 7: Reklama (Zdjęcie 1)' }
-                                        ].map((sec) => (
-                                            <div key={`${editorKey}-${sec.key}`}>
-                                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">{sec.label}</label>
-                                                <div className="bg-slate-50 rounded-lg overflow-hidden border border-slate-700">
-                                                    <StrictWysiwyg 
-                                                        initialContent={editorHtml[sec.key] || ""} 
-                                                        onChange={html => setEditorHtml(prev => ({ ...prev, [sec.key]: html }))} 
-                                                    />
-                                                </div>
-                                            </div>
-                                        ))}
+                                        {(() => {
+                                            const labelByKey = {
+                                                sekcja1: 'Moduł 1: Mocne Strony (Zdjęcie 2)',
+                                                sekcja2: 'Moduł 2: FAQ / Pytania (Zdjęcie 3)',
+                                                sekcja3: 'Moduł 3: Detale i Skład INCI (Zdjęcie 4)',
+                                                sekcja4: 'Moduł 4: Sposób użycia (Zdjęcie 5)',
+                                                sekcja5: 'Moduł 5: Specyfikacja Techniczna (Zdjęcie 6)',
+                                                sekcjaTips: 'Moduł dodatkowy: Porady i praktyczne tipy',
+                                                sekcja7: 'Moduł 7: Reklama / Dystrybucja (Zdjęcie 1)'
+                                            };
+                                            const hiddenSet = new Set((wsContentProfile?.hiddenSections || []).filter(k => k !== 'sekcja1' && k !== 'sekcja6'));
+                                            const baseOrder = Array.isArray(wsContentProfile?.sectionOrder) && wsContentProfile.sectionOrder.length > 0
+                                                ? wsContentProfile.sectionOrder.filter(k => k !== 'sekcja6')
+                                                : ['sekcja1', 'sekcja2', 'sekcja3', 'sekcja4', 'sekcja5', 'sekcja7'];
+                                            const orderedKeys = [...baseOrder];
+                                            if ((wsContentProfile?.includeTipsSection || (editorHtml.sekcjaTips && editorHtml.sekcjaTips.replace(/<[^>]*>/g, '').trim())) && !orderedKeys.includes('sekcjaTips')) {
+                                                orderedKeys.splice(Math.max(orderedKeys.length - 1, 1), 0, 'sekcjaTips');
+                                            }
+                                            for (const stdKey of ['sekcja1', 'sekcja2', 'sekcja3', 'sekcja4', 'sekcja5', 'sekcja7']) {
+                                                if (!orderedKeys.includes(stdKey)) orderedKeys.push(stdKey);
+                                            }
+                                            orderedKeys.push('sekcja6');
+                                            return orderedKeys
+                                                .filter(key => key !== 'sekcjaTips' || wsContentProfile?.includeTipsSection || (editorHtml.sekcjaTips && editorHtml.sekcjaTips.replace(/<[^>]*>/g, '').trim()))
+                                                .map((key) => {
+                                                    const isHidden = key !== 'sekcja6' && hiddenSet.has(key);
+                                                    const label = key === 'sekcja6'
+                                                        ? 'Moduł 6: Bezpieczeństwo / GPSR (tylko pole GPSR — nie idzie do opisu)'
+                                                        : (labelByKey[key] || key);
+                                                    return (
+                                                        <div key={`${editorKey}-${key}`} className={isHidden ? 'opacity-65' : ''}>
+                                                            <div className="flex items-center justify-between gap-2 mb-2">
+                                                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">{label}</label>
+                                                                {isHidden && (
+                                                                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                                                                        Ukryta w eksporcie tego klienta
+                                                                    </span>
+                                                                )}
+                                                                {key === 'sekcja6' && (
+                                                                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                                                                        Nienaruszalna sekcja prawna z etykiety
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="bg-slate-50 rounded-lg overflow-hidden border border-slate-700">
+                                                                <StrictWysiwyg 
+                                                                    initialContent={editorHtml[key] || ""} 
+                                                                    onChange={html => setEditorHtml(prev => ({ ...prev, [key]: html }))} 
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                });
+                                        })()}
                                     </div>
                                 </div>
                             </div>

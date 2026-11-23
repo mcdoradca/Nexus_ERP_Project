@@ -8,6 +8,7 @@ const {
     collectPipelineImagesForAllegro
 } = require('./allegro_mapper');
 const { stripRawInciFooterFromSection3 } = require('../modules/offer-optimizer-v2/normalization');
+const { resolveOrderedVisibleDescriptionSections } = require('../services/workspaceContentProfile.service');
 const { parseLocaleFloat, parseLocaleInt, trimOrNull } = require('./productLookup');
 const BrandResponsibleService = require('../modules/offer-optimizer-v2/brand.responsible.service');
 
@@ -270,7 +271,8 @@ function buildVonHalskyDescription({
     htmlContent = null,
     descriptionHtml = '',
     customDescription = null,
-    format = 'html'
+    format = 'html',
+    contentProfile = null
 } = {}) {
     const warnings = [];
     const safeFormat = ALLOWED_DESCRIPTION_FORMATS.includes(String(format || '').toLowerCase())
@@ -292,15 +294,9 @@ function buildVonHalskyDescription({
     let source = 'empty';
 
     if (htmlContent && typeof htmlContent === 'object') {
-        const rawSec = [
-            htmlContent.sekcja1 || htmlContent.section_1_html || '',
-            htmlContent.sekcja2 || htmlContent.section_2_html || '',
-            stripRawInciFooterFromSection3(htmlContent.sekcja3 || htmlContent.section_3_html || ''),
-            htmlContent.sekcja4 || htmlContent.section_4_html || '',
-            htmlContent.sekcja5 || htmlContent.section_5_html || '',
-            htmlContent.sekcja7 || htmlContent.section_7_html || ''
-        ];
-        for (const chunk of rawSec) {
+        const orderedEntries = resolveOrderedVisibleDescriptionSections(htmlContent, contentProfile);
+        for (const entry of orderedEntries) {
+            const chunk = entry.html;
             if (!chunk || typeof chunk !== 'string') continue;
             const cleaned = safeFormat === 'html'
                 ? sanitizeHtmlForAllegroDescription(chunk)
@@ -1039,7 +1035,8 @@ function buildVonHalskyOfferPayload({
     draftImages = [],
     features = null,
     config = null,
-    overrides = {}
+    overrides = {},
+    contentProfile = null
 } = {}) {
     const errors = [];
     const warnings = [];
@@ -1083,7 +1080,8 @@ function buildVonHalskyOfferPayload({
         htmlContent,
         descriptionHtml: product.descriptionHtml || '',
         customDescription: ov.description,
-        format: ov.descriptionFormat || config?.defaultDescriptionFormat || 'html'
+        format: ov.descriptionFormat || config?.defaultDescriptionFormat || 'html',
+        contentProfile
     });
     warnings.push(...descResult.warnings);
     if ((safeMode === 'create' || sections.includeDescription) && !descResult.description) {

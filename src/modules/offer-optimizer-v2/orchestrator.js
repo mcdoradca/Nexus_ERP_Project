@@ -16,6 +16,12 @@ const deterministicEngine = require('./services/deterministic-pipeline.engine');
 const googleSuggestFaqService = require('./services/google-suggest-faq.service');
 const { classifyProductPhysicalForm } = require('./services/product-form.classifier');
 const { mapPackagingFeaturesToAllegroSchema } = require('./services/allegro-param-automapper.service');
+const {
+    resolveWorkspaceContentProfile,
+    loadSiblingPackagingFactsForEan,
+    loadSiblingCopyFingerprints,
+    evaluateCrossWorkspaceDuplication
+} = require('../../services/workspaceContentProfile.service');
 
 const PHASE_1_GROUNDING = 'PHASE_1_GROUNDING';
 const PHASE_2_LEGAL = 'PHASE_2_LEGAL';
@@ -520,6 +526,20 @@ const applyDeterministicSectionSanitizers = (sectionsObj, ctx = {}) => {
             sectionsObj[secKey] = s;
         }
     }
+    if (sectionsObj.section_tips_html && typeof sectionsObj.section_tips_html === 'string') {
+        let sTips = brandResponsibleService.stripContactInfo(sectionsObj.section_tips_html);
+        sTips = deterministicEngine.sanitizeHtmlClaimsAndStopwords(sTips, {
+            productName: ctx.productName,
+            inci: ctx.inci,
+            detergentComposition: ctx.detergentComposition,
+            pimWarnings: ctx.pimWarnings,
+            pimUsage: ctx.pimUsage
+        });
+        if (ctx.isFullPipelineRun !== false) {
+            sTips = deterministicEngine.normalizeEmojiAndStructure(sTips, 1);
+        }
+        sectionsObj.section_tips_html = normalizeTags(sTips);
+    }
     return sectionsObj;
 };
 
@@ -553,6 +573,17 @@ const computeComplianceAuditForSections = (sectionsObj = {}, ctx = {}) => {
         if (!emojiVal.valid) {
             structuralErrors.push(`[Sekcja ${i} Emoji] ${emojiVal.errors.join(', ')}`);
         }
+    }
+
+    if (sectionsObj?.section_tips_html && typeof sectionsObj.section_tips_html === 'string' && sectionsObj.section_tips_html.trim()) {
+        const tipsHtml = sectionsObj.section_tips_html;
+        detectedStopwords.push(...scan_stopwords(tipsHtml).map(h => ({ section: 'section_tips_html', word: h.word })));
+        detectedMedical.push(...scan_medical_claims_lexical(tipsHtml).map(h => ({ section: 'section_tips_html', word: h.word })));
+        detectedBiocidal.push(...scan_biocidal_claims_lexical(tipsHtml).map(h => ({ section: 'section_tips_html', word: h.word })));
+        const tipsHtmlVal = validate_html_whitelist(tipsHtml);
+        if (!tipsHtmlVal.valid) structuralErrors.push(`[Sekcja Porady HTML] ${tipsHtmlVal.errors.join(', ')}`);
+        const tipsEmojiVal = emoji_structure_check(tipsHtml);
+        if (!tipsEmojiVal.valid) structuralErrors.push(`[Sekcja Porady Emoji] ${tipsEmojiVal.errors.join(', ')}`);
     }
 
     if (sectionsObj?.section_2_html) {
@@ -697,8 +728,22 @@ class Orchestrator {
     constructor(gtin, options = {}) {
         this.gtin = gtin;
         this.workspaceId = options?.workspaceId || null;
+        this.workspaceIsDefault = options?.workspaceIsDefault;
+        this.workspaceSlug = options?.workspaceSlug || null;
+        this.workspaceSettings = options?.workspaceSettings || null;
+        this.workspaceContentProfile = resolveWorkspaceContentProfile(
+            this.workspaceId
+                ? {
+                    id: this.workspaceId,
+                    isDefault: this.workspaceIsDefault,
+                    slug: this.workspaceSlug,
+                    settings: this.workspaceSettings
+                }
+                : null
+        );
+        const wsTag = this.workspaceId ? String(this.workspaceId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 12) : '';
         this.state = {
-            pipeline_id: "PL-" + gtin + "-" + Date.now(),
+            pipeline_id: wsTag ? `PL-${wsTag}-${gtin}-${Date.now()}` : `PL-${gtin}-${Date.now()}`,
             timestamp_utc: new Date().toISOString(),
             current_phase: PHASE_1_GROUNDING,
             node_status: {},
@@ -781,12 +826,61 @@ class Orchestrator {
         this.state.node_status['EXTRACT'] = 'RUNNING';
         this.emitState();
 
+        if (this.workspaceId && !this.workspaceSettings && prisma?.workspace?.findUnique) {
+            try {
+                const wsRow = await prisma.workspace.findUnique({
+                    where: { id: this.workspaceId },
+                    select: { id: true, slug: true, isDefault: true, settings: true }
+                });
+                if (wsRow) {
+                    this.workspaceIsDefault = wsRow.isDefault;
+                    this.workspaceSlug = wsRow.slug;
+                    this.workspaceSettings = wsRow.settings;
+                    this.workspaceContentProfile = resolveWorkspaceContentProfile(wsRow);
+                }
+            } catch (wsErr) {
+                console.warn(`[Orchestrator V2] Ostrzeżenie odczytu profilu klienta: ${wsErr.message}`);
+            }
+        }
+
         const blData = await loadProductDataAsync(this.gtin, pimData);
         let product = null;
         if (blData && blData.products) {
             product = Object.values(blData.products)[0];
         } else {
             product = blData;
+        }
+
+        // Współdzielenie WYŁĄCZNIE obiektywnych, potwierdzonych faktów z etykiety opakowania (nigdy opisów ani zdjęć!)
+        if (this.workspaceId && prisma?.product?.findMany) {
+            try {
+                const siblingFacts = await loadSiblingPackagingFactsForEan(prisma, {
+                    ean: this.gtin,
+                    currentWorkspaceId: this.workspaceId
+                });
+                if (siblingFacts.siblingCount > 0 && siblingFacts.features && Object.keys(siblingFacts.features).length > 0) {
+                    if (!product) product = { text_fields: {} };
+                    if (!product.text_fields) product.text_fields = {};
+                    const currFeats = { ...(product.text_fields.features || {}) };
+                    let copiedFactsCount = 0;
+                    for (const [fk, fv] of Object.entries(siblingFacts.features)) {
+                        if (fv && (!currFeats[fk] || String(currFeats[fk]).trim() === '')) {
+                            currFeats[fk] = fv;
+                            copiedFactsCount++;
+                        }
+                    }
+                    if (copiedFactsCount > 0) {
+                        product.text_fields.features = currFeats;
+                        if (pimData) {
+                            pimData.features = { ...(pimData.features || {}), ...currFeats };
+                            if (pimData.text_fields) pimData.text_fields.features = currFeats;
+                        }
+                        console.log(`[Orchestrator V2] Uzupełniono ${copiedFactsCount} brakujących faktów z etykiety produktu EAN ${this.gtin} na podstawie zweryfikowanych danych opakowania.`);
+                    }
+                }
+            } catch (factErr) {
+                console.warn(`[Orchestrator V2] Ostrzeżenie odczytu współdzielonych faktów opakowania: ${factErr.message}`);
+            }
         }
 
         // =========================================================================
@@ -2608,6 +2702,7 @@ class Orchestrator {
                 ? deterministicEngine.normalizeCapacityValue(rawCapForA6, product?.text_fields?.name, this.state.vision_extracted_features || {})
                 : undefined;
 
+            const wsContentProfile = this.workspaceContentProfile || resolveWorkspaceContentProfile(null);
             let searchIntentFaqBlueprint = undefined;
             try {
                 searchIntentFaqBlueprint = await googleSuggestFaqService.harvestSearchIntentFaq({
@@ -2620,11 +2715,20 @@ class Orchestrator {
                     visionFeatures: this.state.vision_extracted_features || {},
                     features: product?.text_fields?.features || {},
                     inci: this.state.extracted_data.inci?.value,
-                    detergentComposition: this.state.extracted_data.detergent_composition?.value
+                    detergentComposition: this.state.extracted_data.detergent_composition?.value,
+                    variantIndex: wsContentProfile.presetIndex || 0
                 });
                 this.state.search_intent_faq_blueprint = searchIntentFaqBlueprint;
             } catch (faqErr) {
                 console.warn('[Orchestrator V2] Ostrzeżenie harvestera Google Suggest FAQ:', faqErr.message);
+            }
+
+            let siblingFingerprints = { count: 0, used_titles: [], used_s1_openings: [], used_faq_questions: [], used_s4_openings: [], used_tips_openings: [], _siblingPlainBlocks: [] };
+            if (this.workspaceId && prisma?.product?.findMany) {
+                siblingFingerprints = await loadSiblingCopyFingerprints(prisma, {
+                    ean: this.gtin,
+                    currentWorkspaceId: this.workspaceId
+                });
             }
 
             const pimWarningsVal = this.state.extracted_data.warnings?.value || product?.text_fields?.features?.['Ostrzeżenia'] || undefined;
@@ -2659,6 +2763,37 @@ class Orchestrator {
                 a6SchemaProps.section_6_html = { type: "string" };
                 a6RequiredKeys.push("section_5_html", "section_6_html");
             }
+            if (wsContentProfile.includeTipsSection) {
+                a6SchemaProps.section_tips_html = { type: "string" };
+                a6RequiredKeys.push("section_tips_html");
+            }
+            if (this.workspaceId && (wsContentProfile.presetId !== 'DEFAULT_CLASSIC' || siblingFingerprints.count > 0)) {
+                a6SchemaProps.suggested_offer_title = { type: "string" };
+            }
+
+            const hasNonDefaultStyle = Boolean(
+                this.workspaceId ||
+                wsContentProfile.presetId !== 'DEFAULT_CLASSIC' ||
+                wsContentProfile.includeTipsSection
+            );
+            const stylePayloadBlock = hasNonDefaultStyle ? {
+                preset_id: wsContentProfile.presetId,
+                writing_tone: wsContentProfile.writingTone,
+                heading_style: wsContentProfile.headingStyle,
+                title_instruction: wsContentProfile.titleInstruction,
+                bullet_emoji: wsContentProfile.bulletEmoji,
+                include_tips_section: wsContentProfile.includeTipsSection,
+                tips_section_title: wsContentProfile.tipsSectionTitle
+            } : undefined;
+
+            const antiDuplicationBlock = siblingFingerprints.count > 0 ? {
+                sibling_offers_count: siblingFingerprints.count,
+                used_titles: siblingFingerprints.used_titles,
+                used_s1_openings: siblingFingerprints.used_s1_openings,
+                used_faq_questions: siblingFingerprints.used_faq_questions,
+                used_s4_openings: siblingFingerprints.used_s4_openings,
+                used_tips_openings: siblingFingerprints.used_tips_openings
+            } : undefined;
 
             const agent6Data = {
                 gtin_ean: this.gtin,
@@ -2690,7 +2825,9 @@ class Orchestrator {
                 } : undefined,
                 a4: this.state.a4_result,
                 a5: this.state.a5_result,
-                _required_sections: (canBuildDeterministicS3 || canBuildDeterministicS5S6) ? a6RequiredKeys : undefined
+                workspace_style_profile: stylePayloadBlock,
+                cross_workspace_anti_duplication: antiDuplicationBlock,
+                _required_sections: (canBuildDeterministicS3 || canBuildDeterministicS5S6 || wsContentProfile.includeTipsSection) ? a6RequiredKeys : undefined
             };
             const prompt6Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_6_compiled.md'), 'utf8');
             const prompt6 = prompt6Template.replace('{{SKU_DATA}}', JSON.stringify(agent6Data, null, 2));
@@ -2702,17 +2839,59 @@ class Orchestrator {
             };
 
             try {
-                const { result, usage } = await aiWrapper.callAgentWithTelemetry({
+                let { result, usage } = await aiWrapper.callAgentWithTelemetry({
                     agentId: "6", prompt: prompt6, schema: a6Schema // temp domyślne dla copywritera
                 });
+
+                if (siblingFingerprints.count > 0 && result && typeof result === 'object') {
+                    const dupCheck = evaluateCrossWorkspaceDuplication(result, siblingFingerprints, 0.45);
+                    this.state.anti_duplication_report = dupCheck;
+                    if (dupCheck.isTooSimilar) {
+                        console.warn(`[Orchestrator V2] Antyduplikacja między kontami: wykryto podobieństwo ${Math.round(dupCheck.maxSimilarity * 100)}% dla sekcji ${dupCheck.flaggedSections.map(f => f.section).join(', ')} (EAN: ${this.gtin}). Uruchamiam przeformułowanie marketingowe (1 próba).`);
+                        const retryData = {
+                            ...agent6Data,
+                            anti_duplication_retry_feedback: `Poprzedni szkic był zbyt podobny do opisów na innych kontach (${dupCheck.flaggedSections.map(f => `${f.section}: ${Math.round(f.similarity * 100)}%`).join(', ')}). Przepisz CAŁKOWICIE OD NOWA szyk zdań, nagłówki i sformułowania w sekcjach marketingowych i FAQ, bez zmiany faktów z etykiety i bez dotykania Sekcji 6 (Ostrzeżenia).`
+                        };
+                        const retryPrompt6 = prompt6Template.replace('{{SKU_DATA}}', JSON.stringify(retryData, null, 2));
+                        const retryRes = await aiWrapper.callAgentWithTelemetry({
+                            agentId: "6", prompt: retryPrompt6, schema: a6Schema
+                        });
+                        if (retryRes && retryRes.result && typeof retryRes.result === 'object') {
+                            result = retryRes.result;
+                            if (retryRes.usage) {
+                                usage = {
+                                    ...(usage || {}),
+                                    promptTokenCount: (usage?.promptTokenCount || 0) + (retryRes.usage.promptTokenCount || 0),
+                                    candidatesTokenCount: (usage?.candidatesTokenCount || 0) + (retryRes.usage.candidatesTokenCount || 0),
+                                    totalTokenCount: (usage?.totalTokenCount || 0) + (retryRes.usage.totalTokenCount || 0)
+                                };
+                            }
+                            this.state.anti_duplication_report = {
+                                ...evaluateCrossWorkspaceDuplication(result, siblingFingerprints, 0.45),
+                                retried: true
+                            };
+                        }
+                    }
+                }
                 
                 const warnings = [];
-                const allowedKeysA6 = ['section_1_html', 'section_2_html', 'section_3_html', 'section_4_html', 'section_5_html', 'section_6_html'];
+                const allowedKeysA6 = ['section_1_html', 'section_2_html', 'section_3_html', 'section_4_html', 'section_5_html', 'section_6_html', 'section_tips_html', 'suggested_offer_title'];
                 for (let k of Object.keys(result)) {
                     if (!allowedKeysA6.includes(k)) {
                         warnings.push('A6_FIELD_REJECTED: ' + k);
                         delete result[k];
                     }
+                }
+                if (typeof result.suggested_offer_title === 'string' && result.suggested_offer_title.trim()) {
+                    const cleanSugTitle = deterministicEngine.sanitizeOfferTitle(result.suggested_offer_title.trim());
+                    const badTitle = !cleanSugTitle || cleanSugTitle.length < 12 || cleanSugTitle.length > 75 ||
+                        scan_stopwords(cleanSugTitle).length > 0 || scan_biocidal_claims_lexical(cleanSugTitle).length > 0;
+                    const alreadyUsed = siblingFingerprints.used_titles.some(t => t.toLowerCase() === String(cleanSugTitle || '').toLowerCase());
+                    if (!badTitle && !alreadyUsed) {
+                        if (!this.state.extracted_data.product_name) this.state.extracted_data.product_name = { source: 'a6_styled', matched_key: null };
+                        this.state.extracted_data.product_name.value = cleanSugTitle;
+                    }
+                    delete result.suggested_offer_title;
                 }
                 if (warnings.length > 0) this.state.normalization_warnings = [...(this.state.normalization_warnings || []), ...warnings];
 
@@ -2723,7 +2902,7 @@ class Orchestrator {
                     if (this.state.deterministic_section_3_html) {
                         result.section_3_html = this.state.deterministic_section_3_html;
                     } else if ((!result.section_3_html || !String(result.section_3_html).trim()) && Array.isArray(this.state.a4_result?.technical_benefits_aeo) && this.state.a4_result.technical_benefits_aeo.length > 0) {
-                        result.section_3_html = deterministicEngine.buildSection3FromA4Result(this.state.a4_result, isActualHouseholdChemicalA6);
+                        result.section_3_html = deterministicEngine.buildSection3FromA4Result(this.state.a4_result, isActualHouseholdChemicalA6, wsContentProfile);
                     }
 
                     if (result.section_3_html) {
@@ -2754,7 +2933,8 @@ class Orchestrator {
                             features: product?.text_fields?.features || {},
                             isMedicalDevice: product?.is_medical_device,
                             grossWeight: product?.weight || product?.text_fields?.features?.['Waga brutto'] || product?.text_fields?.features?.['Waga z opakowaniem jednostkowym'] || this.state.extracted_data?.logistics?.data?.gross_weight_kg || this.state.extracted_data?.['Waga']?.value,
-                            weight: product?.weight
+                            weight: product?.weight,
+                            contentProfile: wsContentProfile
                         });
 
                         result.section_6_html = deterministicEngine.buildDeterministicSection6({
@@ -2855,6 +3035,20 @@ class Orchestrator {
                         result[k] = result[k].replace(/\bDO OCZÓW\b/gi, 'DO OCZU').replace(/::+/g, ':');
                     }
                 }
+                if (result.section_tips_html && typeof result.section_tips_html === 'string') {
+                    let tips = brandResponsibleService.stripContactInfo(result.section_tips_html);
+                    tips = deterministicEngine.sanitizeHtmlClaimsAndStopwords(tips, {
+                        productName: product?.text_fields?.name || this.state.product_name,
+                        inci: this.state.extracted_data.inci?.value,
+                        detergentComposition: this.state.extracted_data.detergent_composition?.value,
+                        pimWarnings: pimWarningsVal,
+                        pimUsage: pimUsageVal
+                    });
+                    if (isFullPipelineRun) {
+                        tips = deterministicEngine.normalizeEmojiAndStructure(tips, 1);
+                    }
+                    result.section_tips_html = tips.replace(/\bDO OCZÓW\b/gi, 'DO OCZU').replace(/::+/g, ':');
+                }
 
                 this.state.token_usage_per_node['A6'] = usage;
                 this.state.a6_result = result;
@@ -2882,6 +3076,19 @@ class Orchestrator {
                                 return;
                             }
                         }
+                    }
+                }
+                if (result.section_tips_html) {
+                    const secTips = normalizeTags(result.section_tips_html);
+                    result.section_tips_html = secTips;
+                    const errTips = runHtmlValidators(secTips, 'A6');
+                    if (errTips && this.state.node_status['A6'] !== 'HITL_OVERRIDDEN') {
+                        this.state.node_status['A6'] = 'HALTED_HITL_REQUIRED';
+                        this.state.hitl_alert = errTips;
+                        this.state.normalization_warnings.push(errTips);
+                        this.state.next_action = 'HALT';
+                        this.emitState();
+                        return;
                     }
                 }
 
@@ -2980,7 +3187,8 @@ class Orchestrator {
                         section_3_html: this.state.a6_result.section_3_html, // frozen
                         section_4_html: result.section_4_html,
                         section_5_html: this.state.a6_result.section_5_html, // frozen
-                        section_6_html: this.state.a6_result.section_6_html  // frozen
+                        section_6_html: this.state.a6_result.section_6_html, // frozen
+                        ...(this.state.a6_result.section_tips_html ? { section_tips_html: this.state.a6_result.section_tips_html } : {})
                     };
                     this.state.a7_result = a7_res_full;
 
@@ -3135,7 +3343,8 @@ class Orchestrator {
                     section_3_html: this.state.a7_result?.section_3_html,
                     section_4_html: this.state.a7_result?.section_4_html,
                     section_5_html: this.state.a7_result?.section_5_html,
-                    section_6_html: this.state.a7_result?.section_6_html
+                    section_6_html: this.state.a7_result?.section_6_html,
+                    ...(this.state.a7_result?.section_tips_html ? { section_tips_html: this.state.a7_result.section_tips_html } : {})
                 };
 
                 const a11Schema = {
@@ -3193,7 +3402,7 @@ class Orchestrator {
                     console.log(`[Orchestrator V2] Agent 11 zidentyfikował produkt: "${result.product_identity?.exact_product_type}", reżim: "${result.product_identity?.primary_regime}". Wykryte kwestie:`, result.domain_issues_detected || []);
 
                     const patchesA11 = result.patches || [];
-                    const allowedSectionsA11 = ['section_1_html', 'section_2_html', 'section_3_html', 'section_4_html', 'section_5_html', 'section_6_html'];
+                    const allowedSectionsA11 = ['section_1_html', 'section_2_html', 'section_3_html', 'section_4_html', 'section_5_html', 'section_6_html', 'section_tips_html'];
 
                     if (this.state.a7_result) {
                         for (let p of patchesA11) {
@@ -3321,6 +3530,7 @@ class Orchestrator {
                         section_4_html: this.state.a7_result.section_4_html,
                         section_5_html: this.state.a7_result.section_5_html,
                         section_6_html: this.state.a7_result.section_6_html,
+                        ...(this.state.a7_result?.section_tips_html ? { section_tips_html: this.state.a7_result.section_tips_html } : {}),
                         audit_report: preAuditReport
                     };
                     
@@ -3368,7 +3578,7 @@ class Orchestrator {
                         console.log("[DEBUG A10] a7_result na poczatku:", this.state.a7_result);
                         const patches = result.patches || [];
                         
-                        const allowedSectionsA10 = ['section_1_html', 'section_2_html', 'section_3_html', 'section_4_html', 'section_5_html', 'section_6_html'];
+                        const allowedSectionsA10 = ['section_1_html', 'section_2_html', 'section_3_html', 'section_4_html', 'section_5_html', 'section_6_html', 'section_tips_html'];
                         for (let p of patches) {
                             if (!allowedSectionsA10.includes(p.target_section)) {
                                 warnings.push('A10_PATCH_ON_UNKNOWN_SECTION: ' + p.target_section);
@@ -3500,6 +3710,9 @@ class Orchestrator {
             const faqSchema = deterministicEngine.extractFaqJsonLdFromSection2(this.state.a10_result['section_2_html'] || '');
             this.state.faq_schema_jsonld = faqSchema.jsonLdObject;
             
+            const wsProfileFinish = this.workspaceContentProfile || resolveWorkspaceContentProfile(null);
+            const rawSec7Finish = this.state.a10_result['section_7_html'] || wsProfileFinish.defaultSekcja7 || '';
+            const rawTipsFinish = this.state.a10_result['section_tips_html'] || '';
             const offer = {
                 title: sanitizedTitle,
                 description: brandResponsibleService.stripContactInfo(this.state.a10_result['section_1_html'] || ''),
@@ -3507,7 +3720,8 @@ class Orchestrator {
                 description_extra2: brandResponsibleService.stripContactInfo(stripRawInciFooterFromSection3(this.state.a10_result['section_3_html'] || '')),
                 description_extra3: brandResponsibleService.stripContactInfo(this.state.a10_result['section_4_html'] || ''),
                 description_extra4: brandResponsibleService.stripContactInfo(s5),
-                extra_field_4245: brandResponsibleService.stripContactInfo(this.state.a10_result['section_7_html'] || ''),
+                extra_field_4245: brandResponsibleService.stripContactInfo(rawSec7Finish),
+                section_tips_html: brandResponsibleService.stripContactInfo(rawTipsFinish),
                 faq_schema_jsonld: faqSchema.jsonLdObject || undefined,
                 faq_schema_script_tag: faqSchema.scriptTag || undefined,
                 ingredients_inci: normalizeInciToLegalEnglish(this.state.extracted_data.inci?.value || '') || this.state.extracted_data.inci?.value,
@@ -3521,6 +3735,7 @@ class Orchestrator {
                     description_extra3: { source: 'pipeline', matched_key: 'section_4' },
                     description_extra4: { source: 'pipeline', matched_key: 'section_5' },
                     extra_field_4245: { source: 'pipeline', matched_key: 'section_7' },
+                    section_tips_html: { source: 'pipeline', matched_key: 'section_tips' },
                     ingredients_inci: { source: 'baselinker', matched_key: null },
                     eu_responsible_person: { source: this.state.extracted_data.eu_responsible_person.source, matched_key: null },
                     safety_warnings: { source: 'a5', matched_key: null }
@@ -3533,7 +3748,8 @@ class Orchestrator {
             
             const outDir = path.join(__dirname, 'out');
             if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-            fs.writeFileSync(path.join(outDir, `offer_${this.gtin}.json`), JSON.stringify(offer, null, 2));
+            const outWsTag = this.workspaceId ? `${String(this.workspaceId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 12)}_` : '';
+            fs.writeFileSync(path.join(outDir, `offer_${outWsTag}${this.gtin}.json`), JSON.stringify(offer, null, 2));
             
             try {
                 this.writeBackToBaseLinker(offer);
@@ -3557,6 +3773,7 @@ class Orchestrator {
                             sekcja4: this.state.final_offer.description_extra3,
                             sekcja5: this.state.final_offer.description_extra4,
                             sekcja6: brandResponsibleService.stripContactInfo(this.state.a10_result?.['section_6_html'] || ''),
+                            sekcjaTips: this.state.final_offer.section_tips_html || '',
                             sekcja7: this.state.final_offer.extra_field_4245
                         },
                         features: { 

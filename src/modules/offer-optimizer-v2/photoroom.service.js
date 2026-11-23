@@ -9,6 +9,7 @@ const opentype = require('opentype.js');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const PromptMasterService = require('./prompt-master.service');
+const { resolveWorkspaceVisualProfile } = require('../../services/workspaceContentProfile.service');
 
 let FONT = null;
 try {
@@ -120,7 +121,105 @@ async function padToSquare(imageBuffer, onLog = () => {}) {
 }
 
 // Główna usługa wywoływana przez kontroler
-async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0, onLog = () => {}) {
+async function applyClientFrameAndWatermark(resultBuffer, {
+    brandName = null,
+    frameStyle = 'ITALIAN_TRICOLOR',
+    showAiBadge = true
+} = {}) {
+    const rawMetadata = await sharp(resultBuffer).metadata();
+    const W = rawMetadata.width;
+    const H = rawMetadata.height;
+    const scale = Math.min(W, H) / 1080;
+    const MAX_BYTES = 1.9 * 1024 * 1024;
+
+    const svgOverlays = [];
+
+    if (frameStyle === 'ITALIAN_TRICOLOR') {
+        const thickness = Math.max(2, Math.round(18 * scale));
+        const segmentW = W / 3;
+        const cleanBrand = brandName ? String(brandName).trim().toUpperCase() : null;
+
+        if (cleanBrand) {
+            const brandPath = textToPathData(cleanBrand, Math.round(28 * scale));
+            const brandY = (H / 2) + (brandPath.width / 2);
+            const padding = Math.round(60 * scale);
+            const gapHeight = brandPath.width + padding;
+            let topRectHeight = (H / 2) - (gapHeight / 2);
+            const bottomRectY = (H / 2) + (gapHeight / 2);
+            let bottomRectHeight = H - bottomRectY;
+
+            if (topRectHeight < 0) topRectHeight = 0;
+            if (bottomRectHeight < 0) bottomRectHeight = 0;
+
+            svgOverlays.push(`
+          <!-- Lewa ramka (Zielona) - Przerwana na środku dla marki -->
+          <rect x="0" y="0" width="${thickness}" height="${topRectHeight}" fill="#009246" />
+          <rect x="0" y="${bottomRectY}" width="${thickness}" height="${bottomRectHeight}" fill="#009246" />
+          
+          <!-- Tekst Marki jako Czyste Krzywe SVG -->
+          <g transform="translate(${Math.round(20 * scale)}, ${brandY}) rotate(-90)">
+            <path d="${brandPath.d}" fill="#009246" stroke="#FFFFFF" stroke-width="${1.5 * scale}" />
+          </g>`);
+        } else {
+            svgOverlays.push(`
+          <!-- Pełna lewa ramka (Zielona) -->
+          <rect x="0" y="0" width="${thickness}" height="${H}" fill="#009246" />`);
+        }
+
+        svgOverlays.push(`
+          <!-- Prawa ramka (Czerwona) -->
+          <rect x="${W - thickness}" y="0" width="${thickness}" height="${H}" fill="#CE2B37" />
+          
+          <!-- Górna ramka (Zielony, Biały, Czerwony) -->
+          <rect x="0" y="0" width="${segmentW}" height="${thickness}" fill="#009246" />
+          <rect x="${segmentW}" y="0" width="${segmentW}" height="${thickness}" fill="#FFFFFF" />
+          <rect x="${segmentW * 2}" y="0" width="${W - segmentW * 2}" height="${thickness}" fill="#CE2B37" />
+          
+          <!-- Dolna ramka (Zielony, Biały, Czerwony) -->
+          <rect x="0" y="${H - thickness}" width="${segmentW}" height="${thickness}" fill="#009246" />
+          <rect x="${segmentW}" y="${H - thickness}" width="${segmentW}" height="${thickness}" fill="#FFFFFF" />
+          <rect x="${segmentW * 2}" y="${H - thickness}" width="${W - segmentW * 2}" height="${thickness}" fill="#CE2B37" />`);
+    }
+
+    if (showAiBadge !== false) {
+        const aiPath = textToPathData('AI', Math.round(22 * scale));
+        svgOverlays.push(`
+          <!-- Znacznik AI -->
+          <g transform="translate(${W - Math.round(140 * scale)}, ${H - Math.round(80 * scale)})">
+            <rect x="0" y="0" width="${Math.round(100 * scale)}" height="${Math.round(40 * scale)}" rx="${Math.round(20 * scale)}" fill="rgba(0,0,0,0.65)" />
+            <g transform="translate(${Math.round(15 * scale)}, ${Math.round(28 * scale)})">
+                <path d="${aiPath.d}" fill="white" />
+            </g>
+            <g transform="translate(${Math.round(50 * scale)}, ${Math.round(4 * scale)}) scale(${1.33 * scale})">
+              <path d="M10 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8z" fill="white" />
+              <path d="M19 3c0 1.66-1.34 3-3 3 1.66 0 3 1.34 3 3 0-1.66 1.34-3 3-3-1.66 0-3-1.34-3-3z" fill="white" />
+              <path d="M17 15c0 1.1-0.9 2-2 2 1.1 0 2 0.9 2 2 0-1.1 0.9-2 2-2-1.1 0-2-0.9-2-2z" fill="white" />
+            </g>
+          </g>`);
+    }
+
+    const svgFrame = svgOverlays.length > 0
+        ? `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${svgOverlays.join('\n')}</svg>`
+        : null;
+
+    let quality = 95;
+    let pipeline = svgFrame
+        ? sharp(resultBuffer).composite([{ input: Buffer.from(svgFrame) }])
+        : sharp(resultBuffer);
+    let compositedBuffer = await pipeline.jpeg({ quality }).toBuffer();
+
+    while (compositedBuffer.length > MAX_BYTES && quality > 10) {
+        quality -= 10;
+        const retryPipe = svgFrame
+            ? sharp(resultBuffer).composite([{ input: Buffer.from(svgFrame) }])
+            : sharp(resultBuffer);
+        compositedBuffer = await retryPipe.jpeg({ quality }).toBuffer();
+    }
+
+    return compositedBuffer;
+}
+
+async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imageIndex = 0, onLog = () => {}, options = {}) {
     const photoroomKey = process.env.PHOTOROOM_API_KEY;
     if (!photoroomKey || photoroomKey === "TBD") {
         throw new Error("Brak klucza PHOTOROOM API V2 w zmiennych środowiskowych (.env). Upewnij się, że przeładowałeś serwer na VPS po dopisaniu klucza.");
@@ -231,6 +330,8 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         ...fd.getHeaders()
     };
 
+    const wsTag = options?.workspaceId ? String(options.workspaceId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 12) : '';
+
     try {
         const response = await axios.post(PHOTOROOM_ENDPOINT, fd, {
             headers: headers,
@@ -250,7 +351,10 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
                 require('fs').mkdirSync(debugDir, { recursive: true });
             }
             const safeEan = ean || 'unknown';
-            const rawApiPath = require('path').join(debugDir, `photoroom_debug_raw_api_${safeEan}_slot_${slot}.jpg`);
+            const debugName = wsTag
+                ? `photoroom_debug_raw_api_${wsTag}_${safeEan}_slot_${slot}.jpg`
+                : `photoroom_debug_raw_api_${safeEan}_slot_${slot}.jpg`;
+            const rawApiPath = require('path').join(debugDir, debugName);
             require('fs').writeFileSync(rawApiPath, resultBuffer);
             onLog(`[DEBUG] Zapisano czysty obraz bezpośrednio z API (przed cropem) do: ${rawApiPath}`);
         } catch (e) {
@@ -263,97 +367,47 @@ async function generatePhotoroomLifestyle(imageBase64, sourceImageUrl, ean, imag
         const rawMetadata = await sharp(resultBuffer).metadata();
         onLog(`[API SUCCESS] Odebrano poprawny obraz z Photoroom V2. Wymiary skorygowane RAW: ${rawMetadata.width}x${rawMetadata.height}. Rozpoczynam post-processing (Sharp)...`);
 
-        // --- POST-PROCESSING: Włoska ramka i znak wodny AI (Sharp + opentype.js) ---
-        const brand = (dbProduct && dbProduct.brand && dbProduct.brand.name) 
-            ? dbProduct.brand.name.toUpperCase() 
+        // --- POST-PROCESSING: Włoska ramka lub czysty obraz klienta (bez ramki i napisu marki) ---
+        let visualProfile = { frameStyle: 'ITALIAN_TRICOLOR', showAiBadge: true };
+        if (options?.workspaceSettings || options?.workspaceSlug !== undefined || options?.workspaceIsDefault !== undefined) {
+            visualProfile = resolveWorkspaceVisualProfile({
+                id: options?.workspaceId || '',
+                slug: options?.workspaceSlug || '',
+                isDefault: Boolean(options?.workspaceIsDefault),
+                settings: options?.workspaceSettings || {}
+            }, { workspaceId: options?.workspaceId || null });
+        } else if (options?.workspaceId && prisma?.workspace?.findUnique) {
+            try {
+                const wsRow = await prisma.workspace.findUnique({
+                    where: { id: options.workspaceId },
+                    select: { id: true, slug: true, isDefault: true, settings: true }
+                });
+                if (wsRow) {
+                    visualProfile = resolveWorkspaceVisualProfile(wsRow, { workspaceId: options.workspaceId });
+                }
+            } catch (wsErr) {
+                console.warn('[Photoroom V2] Ostrzeżenie odczytu profilu wizualnego klienta:', wsErr.message);
+            }
+        }
+
+        const brand = (dbProduct && dbProduct.brand && dbProduct.brand.name)
+            ? dbProduct.brand.name.toUpperCase()
             : null;
 
-        const W = rawMetadata.width;
-        const H = rawMetadata.height;
-        const scale = Math.min(W, H) / 1080;
-        const thickness = Math.max(2, Math.round(18 * scale));
+        onLog(`[POST-PROCESSING] Tryb oprawy klienta: ${visualProfile.frameStyle === 'CLEAN_NONE' ? 'Czysty obraz (bez ramki i bez nazwy marki)' : 'Klasyczna włoska ramka + nazwa marki'}`);
 
-        const aiPath = textToPathData('AI', Math.round(22 * scale));
-
-        let leftFrameSvg = '';
-        if (brand) {
-            const brandPath = textToPathData(brand, Math.round(28 * scale));
-            const brandY = (H / 2) + (brandPath.width / 2);
-            
-            const padding = Math.round(60 * scale);
-            const gapHeight = brandPath.width + padding;
-            let topRectHeight = (H / 2) - (gapHeight / 2);
-            let bottomRectY = (H / 2) + (gapHeight / 2);
-            let bottomRectHeight = H - bottomRectY;
-
-            if (topRectHeight < 0) topRectHeight = 0;
-            if (bottomRectHeight < 0) bottomRectHeight = 0;
-
-            leftFrameSvg = `
-          <!-- Lewa ramka (Zielona) - Przerwana na środku dla marki -->
-          <rect x="0" y="0" width="${thickness}" height="${topRectHeight}" fill="#009246" />
-          <rect x="0" y="${bottomRectY}" width="${thickness}" height="${bottomRectHeight}" fill="#009246" />
-          
-          <!-- Tekst Marki jako Czyste Krzywe SVG -->
-          <g transform="translate(${Math.round(20 * scale)}, ${brandY}) rotate(-90)">
-            <path d="${brandPath.d}" fill="#009246" stroke="#FFFFFF" stroke-width="${1.5 * scale}" />
-          </g>`;
-        }
-
-        const segmentW = W / 3;
-
-        const svgFrame = `
-        <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-          <!-- Prawa ramka (Czerwona) -->
-          <rect x="${W - thickness}" y="0" width="${thickness}" height="${H}" fill="#CE2B37" />
-          
-          <!-- Górna ramka (Zielony, Biały, Czerwony) -->
-          <rect x="0" y="0" width="${segmentW}" height="${thickness}" fill="#009246" />
-          <rect x="${segmentW}" y="0" width="${segmentW}" height="${thickness}" fill="#FFFFFF" />
-          <rect x="${segmentW * 2}" y="0" width="${W - segmentW * 2}" height="${thickness}" fill="#CE2B37" />
-          
-          <!-- Dolna ramka (Zielony, Biały, Czerwony) -->
-          <rect x="0" y="${H - thickness}" width="${segmentW}" height="${thickness}" fill="#009246" />
-          <rect x="${segmentW}" y="${H - thickness}" width="${segmentW}" height="${thickness}" fill="#FFFFFF" />
-          <rect x="${segmentW * 2}" y="${H - thickness}" width="${W - segmentW * 2}" height="${thickness}" fill="#CE2B37" />
-
-${leftFrameSvg}
-
-          <!-- Znacznik AI -->
-          <g transform="translate(${W - Math.round(140 * scale)}, ${H - Math.round(80 * scale)})">
-            <rect x="0" y="0" width="${Math.round(100 * scale)}" height="${Math.round(40 * scale)}" rx="${Math.round(20 * scale)}" fill="rgba(0,0,0,0.65)" />
-            <g transform="translate(${Math.round(15 * scale)}, ${Math.round(28 * scale)})">
-                <path d="${aiPath.d}" fill="white" />
-            </g>
-            <g transform="translate(${Math.round(50 * scale)}, ${Math.round(4 * scale)}) scale(${1.33 * scale})">
-              <path d="M10 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8z" fill="white" />
-              <path d="M19 3c0 1.66-1.34 3-3 3 1.66 0 3 1.34 3 3 0-1.66 1.34-3 3-3-1.66 0-3-1.34-3-3z" fill="white" />
-              <path d="M17 15c0 1.1-0.9 2-2 2 1.1 0 2 0.9 2 2 0-1.1 0.9-2 2-2-1.1 0-2-0.9-2-2z" fill="white" />
-            </g>
-          </g>
-        </svg>`;
-
-        let quality = 95;
-        let compositedBuffer = await sharp(resultBuffer)
-            .composite([{ input: Buffer.from(svgFrame) }])
-            .jpeg({ quality })
-            .toBuffer();
-            
-        const MAX_BYTES = 1.9 * 1024 * 1024;
-        while (compositedBuffer.length > MAX_BYTES && quality > 10) {
-            quality -= 10;
-            compositedBuffer = await sharp(resultBuffer)
-                .composite([{ input: Buffer.from(svgFrame) }])
-                .jpeg({ quality })
-                .toBuffer();
-        }
+        const compositedBuffer = await applyClientFrameAndWatermark(resultBuffer, {
+            brandName: brand,
+            frameStyle: visualProfile.frameStyle,
+            showAiBadge: visualProfile.showAiBadge
+        });
 
         const base64Output = `data:image/jpeg;base64,${compositedBuffer.toString('base64')}`;
         onLog(`[GOTOWE] Zakończono post-processing. Zwracam Base64 zdjęcia.`);
 
         return {
             base64: base64Output,
-            visualTrendReport: `Wygenerowano za pomocą V2 Prompt Master. Agent ID: 11.`
+            visualTrendReport: `Wygenerowano za pomocą V2 Prompt Master (${visualProfile.frameStyle === 'CLEAN_NONE' ? 'Bez ramki' : 'Ramka IT'}). Agent ID: 11.`
         };
 
     } catch (err) {
@@ -369,5 +423,6 @@ ${leftFrameSvg}
 }
 
 module.exports = {
-    generateLifestyle: generatePhotoroomLifestyle
+    generateLifestyle: generatePhotoroomLifestyle,
+    applyClientFrameAndWatermark
 };

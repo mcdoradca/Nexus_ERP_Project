@@ -973,28 +973,61 @@ function tryBuildDeterministicSection3({
     };
 }
 
-function buildSection3FromA4Result(a4Result, isChemical = false) {
+function buildSection3FromA4Result(a4Result, isChemical = false, contentProfile = null) {
     if (!a4Result || !Array.isArray(a4Result.technical_benefits_aeo) || a4Result.technical_benefits_aeo.length === 0) {
         return '';
     }
-    const formatBenefitLi = (raw, emojiPrefix = '⚙️') => {
+    const presetIdx = Number(contentProfile?.presetIndex || 0);
+    const preferredBullet = contentProfile?.bulletEmoji && ['✔️', '✅', '☑️', '➡️'].includes(contentProfile.bulletEmoji)
+        ? '⚙️'
+        : '⚙️';
+    const formatBenefitLi = (raw, emojiPrefix = preferredBullet) => {
         const trimmed = String(raw || '').trim();
         if (!trimmed) return '';
         if (/^<li[\s>]/i.test(trimmed)) return trimmed;
         return `<li>${emojiPrefix} ${trimmed}</li>`;
     };
     const benefitLis = a4Result.technical_benefits_aeo
-        .map(b => formatBenefitLi(b, '⚙️'))
+        .map(b => formatBenefitLi(b, preferredBullet))
         .filter(Boolean);
     const synergyLis = Array.isArray(a4Result.detected_synergies)
         ? a4Result.detected_synergies.map(s => formatBenefitLi(s, '⚡')).filter(Boolean)
         : [];
-    const heading = isChemical
-        ? '<h2>⚙️ Skład chemiczny i mechanizm działania aktywnej formuły</h2>'
-        : '<h2>⚙️ Składniki aktywne i mechanizm działania formuły</h2>';
-    const introP = isChemical
-        ? '<p>Receptura produktu opiera się na <b>celowanym doborze związków powierzchniowo czynnych i składników funkcyjnych</b>, w której każdy element odpowiada za konkretny etap rozbijania i wypłukiwania zabrudzeń:</p>'
-        : '<p>Formuła kosmetyku łączy <b>składniki oczyszczające, nawilżające oraz kondycjonujące</b>, które współpracują ze sobą dla zachowania równowagi hydrolipidowej i wysokiego komfortu aplikacji:</p>';
+
+    const chemHeadings = [
+        '<h2>⚙️ Skład chemiczny i mechanizm działania aktywnej formuły</h2>',
+        '<h2>⚙️ Budowa formuły i działanie poszczególnych składników</h2>',
+        '<h2>⚙️ Związki aktywne odpowiedzialne za skuteczność czyszczenia</h2>',
+        '<h2>⚙️ Jak składniki aktywne rozpuszczają zabrudzenia i osady</h2>',
+        '<h2>⚙️ Skład funkcyjny i profil działania receptury</h2>',
+        '<h2>⚙️ Rola poszczególnych komponentów w działaniu środka</h2>'
+    ];
+    const chemLeads = [
+        '<p>Receptura produktu opiera się na <b>celowanym doborze związków powierzchniowo czynnych i składników funkcyjnych</b>, w której każdy element odpowiada za konkretny etap rozbijania i wypłukiwania zabrudzeń:</p>',
+        '<p>Poniższe zestawienie wyjaśnia, jaką rolę w działaniu użytkowym pełnią <b>główne związki czynne</b> z deklarowanego składu preparatu:</p>',
+        '<p>Skuteczność myjącą wyrobu buduje <b>połączenie surfaktantów i substancji wspomagających</b>, pracujących wspólnie na powierzchni zastosowania:</p>',
+        '<p>Każdy ze składników ujętych w formule spełnia <b>określoną funkcję technologiczną</b> podczas usuwania osadów oraz codziennych zanieczyszczeń:</p>'
+    ];
+    const cosmHeadings = [
+        '<h2>⚙️ Składniki aktywne i mechanizm działania formuły</h2>',
+        '<h2>⚙️ Kompozycja składników pielęgnacyjnych i ich rola</h2>',
+        '<h2>⚙️ Jak działają kluczowe składniki z listy INCI</h2>',
+        '<h2>⚙️ Aktywne komponenty formuły i komfort pielęgnacji</h2>',
+        '<h2>⚙️ Profil składników myjących i kondycjonujących</h2>',
+        '<h2>⚙️ Analiza składników funkcyjnych zawartych w kosmetyku</h2>'
+    ];
+    const cosmLeads = [
+        '<p>Formuła kosmetyku łączy <b>składniki oczyszczające, nawilżające oraz kondycjonujące</b>, które współpracują ze sobą dla zachowania równowagi hydrolipidowej i wysokiego komfortu aplikacji:</p>',
+        '<p>Zestawienie wyjaśnia znaczenie <b>najważniejszych substancji ze składu INCI</b> w codziennej pielęgnacji oraz utrzymaniu komfortu skóry:</p>',
+        '<p>Działanie produktu opiera się na <b>zrównoważonej bazie myjącej i dodatkach pielęgnacyjnych</b> dobranych z myślą o łagodnym oczyszczaniu:</p>',
+        '<p>Wewnątrz receptury wykorzystano <b>składniki odpowiadające zarówno za oczyszczanie, jak i pielęgnacyjne wygładzenie</b> naskórka:</p>'
+    ];
+
+    const headingList = isChemical ? chemHeadings : cosmHeadings;
+    const leadList = isChemical ? chemLeads : cosmLeads;
+    const heading = presetIdx > 0 ? headingList[presetIdx % headingList.length] : headingList[0];
+    const introP = presetIdx > 0 ? leadList[presetIdx % leadList.length] : leadList[0];
+
     const rawHtml = `${heading}${introP}<ul>${benefitLis.join('')}${synergyLis.join('')}</ul>`;
     return stripRawInciFooterFromSection3(rawHtml);
 }
@@ -1023,10 +1056,15 @@ function buildDeterministicSection5({
     visionFeatures = {},
     isMedicalDevice = false,
     weight = null,
-    grossWeight = null
+    grossWeight = null,
+    contentProfile = null
 } = {}) {
     const cleanTitle = sanitizeOfferTitle(productName || '');
     const items = [];
+    const presetIdx = Number(contentProfile?.presetIndex || 0);
+    const paramBullet = presetIdx > 0 && ['➡️', '☑️', '✔️', '✅'].includes(contentProfile?.bulletEmoji)
+        ? contentProfile.bulletEmoji
+        : '➡️';
 
     const cleanItalianAndClaims = (str) => {
         if (!str || typeof str !== 'string') return '';
@@ -1052,7 +1090,7 @@ function buildDeterministicSection5({
         if (trimmed.length > 0 && /^[a-ząćęłńóśźż]/.test(trimmed) && /^[A-ZĄĆĘŁŃÓŚŹŻ0-9]/.test(val.trim())) {
             trimmed = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
         }
-        items.push(`<li>➡️ <b>${label}:</b> ${trimmed}</li>`);
+        items.push(`<li>${paramBullet} <b>${label}:</b> ${trimmed}</li>`);
     };
 
     const isInvalidManufacturer = (m) => !m || /^(?:null|undefined|brak|brak\s+danych|nieznany|nieznany\s+producent|unknown|n\/a|-)$/i.test(String(m).trim());
@@ -1267,7 +1305,17 @@ function buildDeterministicSection5({
         addParam('Kod EAN (GTIN)', String(gtin));
     }
 
-    return `<h2>⚖️ Specyfikacja techniczna i parametry produktu</h2><ul>${items.join('')}</ul>`;
+    const s5Headings = [
+        '<h2>⚖️ Specyfikacja techniczna i parametry produktu</h2>',
+        '<h2>⚖️ Karta danych technicznych i specyfikacja wyrobu</h2>',
+        '<h2>⚖️ Najważniejsze parametry produktu z etykiety</h2>',
+        '<h2>⚖️ Dane techniczne i charakterystyka opakowania</h2>',
+        '<h2>⚖️ Parametry użytkowe oraz dane producenta</h2>',
+        '<h2>⚖️ Zestawienie parametrów produktu</h2>'
+    ];
+    const s5Heading = presetIdx > 0 ? s5Headings[presetIdx % s5Headings.length] : s5Headings[0];
+
+    return `${s5Heading}<ul>${items.join('')}</ul>`;
 }
 
 /**

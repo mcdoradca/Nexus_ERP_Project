@@ -8,6 +8,7 @@ const workspaceService = require('../../services/workspace.service');
 const { signScopedExportToken, verifyAndConsumeScopedExportToken } = require('../../utils/exportTokenGuard');
 const defaultVonHalskyService = require('./vonhalsky.service');
 const { buildVonHalskyOfferPayload, isValidUuid } = require('../../utils/vonhalsky_mapper');
+const { resolveWorkspaceContentProfile } = require('../../services/workspaceContentProfile.service');
 
 const EXPORT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 const EXPORT_TOKEN_TTL_MS = 5 * 60 * 1000;
@@ -274,7 +275,7 @@ function createVonHalskyController({
     /**
      * Wspólna logika budowania pełnego kontekstu Pre-flight (reużywana w validate i export).
      */
-    async function preparePreflightState(reqBody = {}, { workspaceId = null, accountId = null } = {}) {
+    async function preparePreflightState(reqBody = {}, { workspaceId = null, accountId = null, workspace = null } = {}) {
         const {
             ean,
             productId,
@@ -455,6 +456,17 @@ function createVonHalskyController({
             ? 'create'
             : ((existingOffer && existingOffer.id) ? 'update' : 'create');
 
+        let resolvedWs = workspace;
+        if (!resolvedWs && workspaceId && prisma?.workspace?.findUnique) {
+            try {
+                resolvedWs = await prisma.workspace.findUnique({
+                    where: { id: workspaceId },
+                    select: { id: true, slug: true, isDefault: true, settings: true }
+                });
+            } catch (_) {}
+        }
+        const contentProfile = resolvedWs ? resolveWorkspaceContentProfile(resolvedWs) : null;
+
         const built = buildVonHalskyOfferPayload({
             mode: effectiveMode,
             product,
@@ -469,7 +481,8 @@ function createVonHalskyController({
             overrides: {
                 ...mergedOverrides,
                 ...(targetCategoryId ? { categoryId: targetCategoryId } : {})
-            }
+            },
+            contentProfile
         });
 
         const allErrors = [...preflightApiErrors, ...built.errors];
@@ -501,7 +514,7 @@ function createVonHalskyController({
         try {
             const workspaceId = req.workspaceId || null;
             const accountId = trimOrNull(req.body?.accountId || req.query?.accountId) || null;
-            const state = await preparePreflightState(req.body || {}, { workspaceId, accountId });
+            const state = await preparePreflightState(req.body || {}, { workspaceId, accountId, workspace: req.workspace || null });
             const targetOfferId = state.built.mode === 'update' ? (state.existingOffer?.id || '') : '';
 
             let exportToken = null;
@@ -618,7 +631,7 @@ function createVonHalskyController({
                 });
             }
 
-            const state = await preparePreflightState(body, { workspaceId, accountId });
+            const state = await preparePreflightState(body, { workspaceId, accountId, workspace: req.workspace || null });
             if (!state.apiConnected) {
                 return res.status(412).json({
                     error: 'Brak skonfigurowanych danych dostępowych InPost Von Halsky (Client ID / Client Secret).',

@@ -3,6 +3,7 @@ const router = express.Router();
 const prisma = require('../core/prisma');
 const { requireSuperUser } = require('../middlewares/auth.middleware');
 const workspaceService = require('../services/workspace.service');
+const { getPublicContentPresetsCatalog } = require('../services/workspaceContentProfile.service');
 const { testBaseLinkerToken } = require('../utils/secretVault');
 const VonHalskyService = require('../modules/offer-optimizer/vonhalsky.service');
 const baselinkerExportService = require('../modules/offer-optimizer-v2/baselinker.export.service');
@@ -11,6 +12,15 @@ router.get('/', async (req, res) => {
     try {
         const workspaces = await workspaceService.listWorkspacesWithIntegrationSummary(prisma);
         return res.json({ success: true, workspaces });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+router.get('/content-presets', async (req, res) => {
+    try {
+        const catalog = getPublicContentPresetsCatalog();
+        return res.json({ success: true, ...catalog });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
     }
