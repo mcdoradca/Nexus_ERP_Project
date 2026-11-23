@@ -1,5 +1,6 @@
 const prisma = require('../../../core/prisma');
 const AllegroService = require('../../offer-optimizer/allegro.service');
+const { runBatchUpserts } = require('../utils/batch.helpers');
 const {
     round2,
     utcDayMidnight,
@@ -63,7 +64,8 @@ async function syncAllegroAnalytics({
     days = 60,
     fxRates = {},
     injectedPrisma = prisma,
-    allegroApi = null
+    allegroApi = null,
+    onProgress = null
 } = {}) {
     if (!workspaceId) {
         throw new Error('Wymagany jest identyfikator klienta (workspaceId) do synchronizacji Allegro.');
@@ -158,8 +160,8 @@ async function syncAllegroAnalytics({
             continue;
         }
 
-        const reqOpts = (params = {}) => ({
-            headers: buildHeaders(token),
+        const reqOpts = (params = {}, extraHeaders = {}) => ({
+            headers: buildHeaders(token, extraHeaders),
             params,
             _allegroAccountId: accId,
             _allegroWorkspaceId: workspaceId,
@@ -247,6 +249,7 @@ async function syncAllegroAnalytics({
             }
         }
 
+        const offerSnapPayloads = new Map();
         for (const off of allOffers) {
             const oid = String(off?.id || '').trim();
             if (!oid) continue;
@@ -271,68 +274,71 @@ async function syncAllegroAnalytics({
             }
             const cleanSku = off?.external?.id ? String(off.external.id).trim() : null;
 
-            await injectedPrisma.analyticsDailyOfferSnapshot.upsert({
-                where: {
-                    workspaceId_platform_snapshotDate_externalOfferId: {
-                        workspaceId,
-                        platform: 'ALLEGRO',
-                        snapshotDate: todayMidnight,
-                        externalOfferId: oid
-                    }
-                },
-                update: {
-                    accountId: accId,
-                    sku: cleanSku,
-                    name: off?.name ? String(off.name).slice(0, 250) : null,
-                    status: pubStatus,
-                    stock: Number.isFinite(stockAvail) ? stockAvail : 0,
-                    pricePln,
-                    currency,
-                    visitsCount,
-                    watchersCount,
-                    sold30d,
-                    isPromoted,
-                    promoPackage,
-                    hasBadge: badgedOfferIds.has(oid),
-                    marketplaces: marketplacesList,
-                    meta: {
-                        categoryId: off?.category?.id || null,
-                        startingAt: off?.publication?.startingAt || null,
-                        startedAt: off?.publication?.startedAt || null,
-                        endedAt: off?.publication?.endedAt || null,
-                        quotes
-                    }
-                },
-                create: {
+            const snapData = {
+                accountId: accId,
+                sku: cleanSku,
+                name: off?.name ? String(off.name).slice(0, 250) : null,
+                status: pubStatus,
+                stock: Number.isFinite(stockAvail) ? stockAvail : 0,
+                pricePln,
+                currency,
+                visitsCount,
+                watchersCount,
+                sold30d,
+                isPromoted,
+                promoPackage,
+                hasBadge: badgedOfferIds.has(oid),
+                marketplaces: marketplacesList,
+                meta: {
+                    categoryId: off?.category?.id || null,
+                    startingAt: off?.publication?.startingAt || null,
+                    startedAt: off?.publication?.startedAt || null,
+                    endedAt: off?.publication?.endedAt || null,
+                    quotes
+                }
+            };
+            offerSnapPayloads.set(oid, {
+                oid,
+                updateData: snapData,
+                createData: {
                     workspaceId,
                     platform: 'ALLEGRO',
-                    accountId: accId,
                     snapshotDate: todayMidnight,
                     externalOfferId: oid,
-                    sku: cleanSku,
-                    name: off?.name ? String(off.name).slice(0, 250) : null,
-                    status: pubStatus,
-                    stock: Number.isFinite(stockAvail) ? stockAvail : 0,
-                    pricePln,
-                    currency,
-                    visitsCount,
-                    watchersCount,
-                    sold30d,
-                    isPromoted,
-                    promoPackage,
-                    hasBadge: badgedOfferIds.has(oid),
-                    marketplaces: marketplacesList,
-                    meta: {
-                        categoryId: off?.category?.id || null,
-                        startingAt: off?.publication?.startingAt || null,
-                        startedAt: off?.publication?.startedAt || null,
-                        endedAt: off?.publication?.endedAt || null,
-                        quotes
-                    }
+                    ...snapData
                 }
             });
-            accOffersCount++;
-            totalSnapshotsSaved++;
+        }
+
+        if (offerSnapPayloads.size > 0) {
+            const savedOffers = await runBatchUpserts(
+                Array.from(offerSnapPayloads.values()),
+                (item) => injectedPrisma.analyticsDailyOfferSnapshot.upsert({
+                    where: {
+                        workspaceId_platform_snapshotDate_externalOfferId: {
+                            workspaceId,
+                            platform: 'ALLEGRO',
+                            snapshotDate: todayMidnight,
+                            externalOfferId: item.oid
+                        }
+                    },
+                    update: item.updateData,
+                    create: item.createData
+                }),
+                {
+                    prismaClient: injectedPrisma,
+                    chunkSize: 50,
+                    onItemError: (err, item) => warnings.push(`[${accLabel}] Błąd zapisu oferty Allegro ${item.oid}: ${err.message}`)
+                }
+            );
+            accOffersCount += savedOffers;
+            totalSnapshotsSaved += savedOffers;
+            onProgress?.({
+                platform: 'ALLEGRO',
+                stage: 'OFFERS',
+                message: `[${accLabel}] Zapisano ${accOffersCount} ofert Allegro (visits/watchers/promocje)...`,
+                snapshotsDelta: savedOffers
+            });
         }
 
         // D. Zdarzenia 24h ofert (GET /sale/offer-events) — bez fałszywych OFFER_VIEWED/CLICKED
@@ -358,6 +364,7 @@ async function syncAllegroAnalytics({
                 const forms = Array.isArray(cfRes?.data?.checkoutForms) ? cfRes.data.checkoutForms : [];
                 if (forms.length === 0) break;
 
+                const pageOrderPayloads = new Map();
                 for (const cf of forms) {
                     const cfId = String(cf?.id || '').trim();
                     if (!cfId) continue;
@@ -407,73 +414,72 @@ async function syncAllegroAnalytics({
                     const shipCostOrig = parseFloat(cf?.delivery?.cost?.amount || 0) || 0;
                     const isSmart = Boolean(cf?.delivery?.isSmart);
 
-                    await injectedPrisma.analyticsOrder.upsert({
-                        where: {
-                            workspaceId_platform_externalOrderId: {
-                                workspaceId,
-                                platform: 'ALLEGRO',
-                                externalOrderId: cfId
-                            }
-                        },
-                        update: {
-                            originChannel: 'ALLEGRO',
-                            accountId: accId,
-                            marketplaceOrderId: cfId,
-                            sourceMode: 'API',
-                            importBatchId: batch.id,
-                            orderDate,
-                            status: isCancelled ? 'CANCELLED' : 'CONFIRMED',
-                            paymentStatus: cf?.payment?.finishedAt ? 'PAID' : 'NOT_PAID',
-                            paymentMethod: cf?.payment?.type ? String(cf.payment.type) : null,
-                            deliveryMethod: cf?.delivery?.method?.name ? String(cf.delivery.method.name).slice(0, 120) : null,
-                            deliveryCountry: String(cf?.delivery?.address?.countryCode || mkId.split('-')[1] || 'PL').toUpperCase().slice(0, 8),
-                            marketplace: mkId,
-                            currency: summaryCurrency,
-                            fxRateToPln: fxRate,
-                            isSmart,
-                            totalGmvOriginal: round2(itemsOrigSum),
-                            totalGmvPln: round2(itemsOrigSum * fxRate),
-                            shippingPln: round2(shipCostOrig * fxRate),
-                            discountMerchantPln: round2(discountOrigSum * fxRate),
-                            items: cleanItems,
-                            rawMeta: {
-                                fulfillmentStatus: fulfillStatus || null,
-                                checkoutStatus: rawStatus || null
-                            }
-                        },
-                        create: {
+                    const orderCommonData = {
+                        originChannel: 'ALLEGRO',
+                        accountId: accId,
+                        marketplaceOrderId: cfId,
+                        sourceMode: 'API',
+                        importBatchId: batch.id,
+                        orderDate,
+                        status: isCancelled ? 'CANCELLED' : 'CONFIRMED',
+                        paymentStatus: cf?.payment?.finishedAt ? 'PAID' : 'NOT_PAID',
+                        paymentMethod: cf?.payment?.type ? String(cf.payment.type) : null,
+                        deliveryMethod: cf?.delivery?.method?.name ? String(cf.delivery.method.name).slice(0, 120) : null,
+                        deliveryCountry: String(cf?.delivery?.address?.countryCode || mkId.split('-')[1] || 'PL').toUpperCase().slice(0, 8),
+                        marketplace: mkId,
+                        currency: summaryCurrency,
+                        fxRateToPln: fxRate,
+                        isSmart,
+                        totalGmvOriginal: round2(itemsOrigSum),
+                        totalGmvPln: round2(itemsOrigSum * fxRate),
+                        shippingPln: round2(shipCostOrig * fxRate),
+                        discountMerchantPln: round2(discountOrigSum * fxRate),
+                        items: cleanItems,
+                        rawMeta: {
+                            fulfillmentStatus: fulfillStatus || null,
+                            checkoutStatus: rawStatus || null
+                        }
+                    };
+                    pageOrderPayloads.set(cfId, {
+                        cfId,
+                        updateData: orderCommonData,
+                        createData: {
                             workspaceId,
                             platform: 'ALLEGRO',
-                            originChannel: 'ALLEGRO',
-                            accountId: accId,
                             externalOrderId: cfId,
-                            marketplaceOrderId: cfId,
-                            sourceMode: 'API',
-                            importBatchId: batch.id,
-                            orderDate,
-                            status: isCancelled ? 'CANCELLED' : 'CONFIRMED',
-                            paymentStatus: cf?.payment?.finishedAt ? 'PAID' : 'NOT_PAID',
-                            paymentMethod: cf?.payment?.type ? String(cf.payment.type) : null,
-                            deliveryMethod: cf?.delivery?.method?.name ? String(cf.delivery.method.name).slice(0, 120) : null,
-                            deliveryCountry: String(cf?.delivery?.address?.countryCode || mkId.split('-')[1] || 'PL').toUpperCase().slice(0, 8),
-                            marketplace: mkId,
-                            currency: summaryCurrency,
-                            fxRateToPln: fxRate,
-                            isSmart,
-                            totalGmvOriginal: round2(itemsOrigSum),
-                            totalGmvPln: round2(itemsOrigSum * fxRate),
-                            shippingPln: round2(shipCostOrig * fxRate),
-                            discountMerchantPln: round2(discountOrigSum * fxRate),
-                            items: cleanItems,
-                            rawMeta: {
-                                fulfillmentStatus: fulfillStatus || null,
-                                checkoutStatus: rawStatus || null
-                            }
+                            ...orderCommonData
                         }
                     });
+                }
 
-                    accOrdersCount++;
-                    totalOrdersImported++;
+                if (pageOrderPayloads.size > 0) {
+                    const savedOrders = await runBatchUpserts(
+                        Array.from(pageOrderPayloads.values()),
+                        (item) => injectedPrisma.analyticsOrder.upsert({
+                            where: {
+                                workspaceId_platform_externalOrderId: {
+                                    workspaceId,
+                                    platform: 'ALLEGRO',
+                                    externalOrderId: item.cfId
+                                }
+                            },
+                            update: item.updateData,
+                            create: item.createData
+                        }),
+                        {
+                            prismaClient: injectedPrisma,
+                            chunkSize: 50,
+                            onItemError: (err, item) => warnings.push(`[${accLabel}] Błąd zapisu zamówienia Allegro ${item.cfId}: ${err.message}`)
+                        }
+                    );
+                    accOrdersCount += savedOrders;
+                    totalOrdersImported += savedOrders;
+                    onProgress?.({
+                        platform: 'ALLEGRO',
+                        stage: 'ORDERS',
+                        message: `[${accLabel}] Zapisano ${accOrdersCount} zamówień Allegro...`,
+                        ordersDelta: savedOrders
+                    });
                 }
 
                 if (forms.length < limit || offset + forms.length >= Number(cfRes?.data?.totalCount || 0)) break;
@@ -505,6 +511,7 @@ async function syncAllegroAnalytics({
                 const entries = Array.isArray(bRes?.data?.billingEntries) ? bRes.data.billingEntries : [];
                 if (entries.length === 0) break;
 
+                const pageBillingPayloads = new Map();
                 for (const be of entries) {
                     const beId = String(be?.id || '').trim();
                     if (!beId) continue;
@@ -517,54 +524,63 @@ async function syncAllegroAnalytics({
                     const amountPln = round2(rawAmt * fx);
                     const entryDate = be?.occurredAt ? new Date(be.occurredAt) : new Date();
 
-                    await injectedPrisma.analyticsFinancialEntry.upsert({
-                        where: {
-                            workspaceId_platform_externalEntryId: {
-                                workspaceId,
-                                platform: 'ALLEGRO',
-                                externalEntryId: beId
-                            }
-                        },
-                        update: {
-                            accountId: accId,
-                            entryDate,
-                            entryTypeCode: typeId,
-                            entryTypeName: String(typeName).slice(0, 200),
-                            category,
-                            offerId: be?.offer?.id ? String(be.offer.id) : null,
-                            orderId: be?.order?.id ? String(be.order.id) : null,
-                            amountPln,
-                            currency: cur,
-                            taxRate: be?.tax?.percentage !== undefined ? Number(be.tax.percentage) : null,
-                            importBatchId: batch.id,
-                            meta: {
-                                offerName: be?.offer?.name || null,
-                                balanceAfter: be?.balance?.amount || null
-                            }
-                        },
-                        create: {
+                    const billCommonData = {
+                        accountId: accId,
+                        entryDate,
+                        entryTypeCode: typeId,
+                        entryTypeName: String(typeName).slice(0, 200),
+                        category,
+                        offerId: be?.offer?.id ? String(be.offer.id) : null,
+                        orderId: be?.order?.id ? String(be.order.id) : null,
+                        amountPln,
+                        currency: cur,
+                        taxRate: be?.tax?.percentage !== undefined ? Number(be.tax.percentage) : null,
+                        importBatchId: batch.id,
+                        meta: {
+                            offerName: be?.offer?.name || null,
+                            balanceAfter: be?.balance?.amount || null
+                        }
+                    };
+                    pageBillingPayloads.set(beId, {
+                        beId,
+                        updateData: billCommonData,
+                        createData: {
                             workspaceId,
                             platform: 'ALLEGRO',
-                            accountId: accId,
                             externalEntryId: beId,
-                            entryDate,
-                            entryTypeCode: typeId,
-                            entryTypeName: String(typeName).slice(0, 200),
-                            category,
-                            offerId: be?.offer?.id ? String(be.offer.id) : null,
-                            orderId: be?.order?.id ? String(be.order.id) : null,
-                            amountPln,
-                            currency: cur,
-                            taxRate: be?.tax?.percentage !== undefined ? Number(be.tax.percentage) : null,
-                            importBatchId: batch.id,
-                            meta: {
-                                offerName: be?.offer?.name || null,
-                                balanceAfter: be?.balance?.amount || null
-                            }
+                            ...billCommonData
                         }
                     });
-                    accBillingCount++;
-                    totalFinancialEntries++;
+                }
+
+                if (pageBillingPayloads.size > 0) {
+                    const savedBillings = await runBatchUpserts(
+                        Array.from(pageBillingPayloads.values()),
+                        (item) => injectedPrisma.analyticsFinancialEntry.upsert({
+                            where: {
+                                workspaceId_platform_externalEntryId: {
+                                    workspaceId,
+                                    platform: 'ALLEGRO',
+                                    externalEntryId: item.beId
+                                }
+                            },
+                            update: item.updateData,
+                            create: item.createData
+                        }),
+                        {
+                            prismaClient: injectedPrisma,
+                            chunkSize: 50,
+                            onItemError: (err, item) => warnings.push(`[${accLabel}] Błąd zapisu operacji bilingowej ${item.beId}: ${err.message}`)
+                        }
+                    );
+                    accBillingCount += savedBillings;
+                    totalFinancialEntries += savedBillings;
+                    onProgress?.({
+                        platform: 'ALLEGRO',
+                        stage: 'BILLING',
+                        message: `[${accLabel}] Zapisano ${accBillingCount} operacji bilingowych Allegro...`,
+                        financialDelta: savedBillings
+                    });
                 }
 
                 if (entries.length < limit) break;
@@ -604,7 +620,10 @@ async function syncAllegroAnalytics({
         }
 
         try {
-            const issRes = await http.get('https://api.allegro.pl/sale/issues', reqOpts({ limit: 50 }));
+            const issRes = await http.get(
+                'https://api.allegro.pl/sale/issues',
+                reqOpts({ limit: 50 }, { Accept: 'application/vnd.allegro.beta.v1+json' })
+            );
             const issues = Array.isArray(issRes?.data?.issues) ? issRes.data.issues : [];
             const openOnes = issues.filter(i => !/CLOSED|FINISHED|RESOLVED/i.test(String(i?.currentState?.status || i?.status || '')));
             openIssuesCount = openOnes.length;
@@ -630,7 +649,10 @@ async function syncAllegroAnalytics({
         }
 
         try {
-            const retRes = await http.get('https://api.allegro.pl/order/customer-returns', reqOpts({ limit: 100 }));
+            const retRes = await http.get(
+                'https://api.allegro.pl/order/customer-returns',
+                reqOpts({ limit: 100 }, { Accept: 'application/vnd.allegro.beta.v1+json' })
+            );
             const rets = Array.isArray(retRes?.data?.customerReturns) ? retRes.data.customerReturns : [];
             returnsCount = rets.length;
             const reasonsAgg = {};

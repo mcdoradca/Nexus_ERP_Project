@@ -50,7 +50,15 @@ Rozszerzono `prisma/schema.prisma` o relacje na `Workspace` i 6 dedykowanych mod
 ---
 
 ## 4. Weryfikacja po wdrożeniu
-- `node --check` dla wszystkich 12 zmodyfikowanych i nowych plików backendowych: **PASS**.
-- `node --test --test-reporter=spec src/modules/sales-intelligence/tests/sales-intelligence.test.js`: **8/8 PASS** (m.in. jednolita reguła `stock <= 2`, deduplikacja Omnichannel, Basket Lift / Smart! 49.90 / Zero Fake COGS, importer CP1250/CSV/Ads/Billing, mocki konektorów z 403 i `invalid_scope` fallback, 8-arkuszowy `.XLSX`, oraz live test izolacji Multi-Workspace w PostgreSQL z wycofaniem paczki i sprzątaniem).
+- `node --check` dla wszystkich zmodyfikowanych i nowych plików backendowych: **PASS**.
+- `node --test --test-reporter=spec src/modules/sales-intelligence/tests/sales-intelligence.test.js`: **9/9 PASS** (m.in. jednolita reguła `stock <= 2`, deduplikacja Omnichannel, Basket Lift / Smart! 49.90 / Zero Fake COGS, importer CP1250/CSV/Ads/Billing, mocki konektorów z 403, nagłówkiem `beta.v1` dla `/sale/issues` i `/order/customer-returns` oraz `invalid_scope` fallback, 8-arkuszowy `.XLSX`, batch upsert z fallbackiem oraz asynchroniczna kolejka jobów synchronizacji, a także live test izolacji Multi-Workspace w PostgreSQL z wycofaniem paczki i sprzątaniem).
 - Suita regresyjna `node --test src/modules/offer-optimizer-v2/tests/*.test.js`: **344/344 PASS**.
-- `vite build` (`npm --prefix frontend run build`): **PASS**; `eslint` dla `frontend/src/views/SalesIntelligence/*.{js,jsx}`: **0 błędów, 0 ostrzeżeń**.
+- `vite build` (`npm --prefix frontend run build`): **PASS** (`2.58s`); `eslint` dla `frontend/src/views/SalesIntelligence/*.{js,jsx}`: **0 błędów, 0 ostrzeżeń**.
+
+---
+
+## 5. Optymalizacja produkcyjna i poprawki UI (`2026-11-23` — Hotfix)
+- **Paczkowany zapis Prisma (`utils/batch.helpers.js`):** Wprowadzono `runBatchUpserts` (paczki po 50 rekordów w `$transaction` z pojedynczym fallbackiem per element) dla konektorów BaseLinker, Allegro i Von Halsky, skracając wielominutowe zapisy tysięcy rekordów do pojedynczych sekund.
+- **Asynchroniczna kolejka synchronizacji API (`POST /sync` -> `202 Accepted` + `GET /sync/status`):** Zlikwidowano ryzyko timeoutu HTTP i wielominutowe pauzy rate limitera (`50 req / 120s` BaseLinker): tryb szybki (`deepMode: false`) pomija domyślnie ciężkie logi per SKU i SLA paczek (dostępne pod opcjonalnym checkboxem „Tryb głęboki”), a `DataSourcesTab.jsx` odpytuje co 2 s żywy postęp (`%`, etap, liczniki zamówień/ofert/bilingów) i po zakończeniu automatycznie odświeża dashboard.
+- **Naprawa Allegro Beta HTTP `406` (`connectors/allegro.connector.js`):** Wymuszono nagłówek `Accept: application/vnd.allegro.beta.v1+json` dla wywołań `GET /sale/issues` oraz `GET /order/customer-returns`.
+- **Naprawa Recharts v3 F12 (`OverviewTab.jsx`, `SkuDeepDiveModal.jsx`):** Dodano `min-w-0`, jawne wymiary `height`, `minWidth={0}` i `initialDimension` do `<ResponsiveContainer>` oraz puste stany, eliminując błędy `width(-1) height(-1)` w konsoli przeglądarki.

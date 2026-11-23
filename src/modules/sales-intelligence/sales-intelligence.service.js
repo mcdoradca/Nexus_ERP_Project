@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const prisma = require('../../core/prisma');
 const AllegroService = require('../offer-optimizer/allegro.service');
 const VonHalskyService = require('../offer-optimizer/vonhalsky.service');
@@ -7,6 +8,30 @@ const { syncVonHalskyAnalytics } = require('./connectors/vonhalsky.connector');
 const { importFilesForWorkspace, deleteImportBatch } = require('./importers/csv-importer.service');
 const { runSalesIntelligenceAnalysis, deduplicateOrders } = require('./engine/analytics.engine');
 const { buildExecutiveXlsxBuffer, buildExecutiveCsvString } = require('./export.service');
+
+// Rejestr aktywnych/ostatnich zadań synchronizacji API w izolacji per workspaceId
+const syncJobsByWorkspace = new Map();
+const STALE_SYNC_JOB_MS = 20 * 60 * 1000;
+
+function getSyncJobStatus(workspaceId) {
+    if (!workspaceId) return null;
+    const job = syncJobsByWorkspace.get(String(workspaceId));
+    if (!job) return null;
+    if (job.status === 'RUNNING') {
+        const lastUpdateMs = new Date(job.updatedAt || job.startedAt).getTime();
+        if (Number.isFinite(lastUpdateMs) && Date.now() - lastUpdateMs > STALE_SYNC_JOB_MS) {
+            job.status = 'FAILED';
+            job.error = 'Przekroczono maksymalny czas oczekiwania na synchronizację (20 min).';
+            job.stageMessage = job.error;
+            job.finishedAt = new Date().toISOString();
+            job.updatedAt = job.finishedAt;
+        }
+    }
+    return {
+        ...job,
+        counters: { ...(job.counters || {}) }
+    };
+}
 
 /**
  * Ładuje pełny zestaw danych analitycznych z bazy PostgreSQL dla wskazanego klienta (`workspaceId`).
@@ -261,6 +286,7 @@ async function getStatus(workspaceId, injectedPrisma = prisma) {
             latestOrderDate
         },
         monthlyCoverage: Object.values(monthlyCoverageMap),
+        activeSyncJob: getSyncJobStatus(workspaceId),
         batches: batches.map(b => ({
             id: b.id,
             platform: b.platform,
@@ -279,6 +305,7 @@ async function getStatus(workspaceId, injectedPrisma = prisma) {
 
 /**
  * Uruchamia synchronizację na żądanie dla wskazanych platform (`['BASELINKER', 'ALLEGRO', 'VONHALSKY']`).
+ * Domyślnie używa szybkiego trybu (bez ciężkich zapytań per SKU `getInventoryProductLogs`, chyba że `deepMode: true`).
  */
 async function syncPlatforms(workspaceId, body = {}, injectedPrisma = prisma) {
     if (!workspaceId) {
@@ -292,16 +319,23 @@ async function syncPlatforms(workspaceId, body = {}, injectedPrisma = prisma) {
         : ['BASELINKER', 'ALLEGRO', 'VONHALSKY'];
 
     const days = Math.min(Math.max(Number(body.days) || 60, 1), 180);
-    const fetchProductLogsTopN = body.fetchProductLogsTopN !== undefined ? Number(body.fetchProductLogsTopN) : 30;
-    const includeCourierSla = Boolean(body.includeCourierSla);
+    const deepMode = Boolean(body.deepMode);
+    const fetchProductLogsTopN = body.fetchProductLogsTopN !== undefined
+        ? Number(body.fetchProductLogsTopN)
+        : (deepMode ? 20 : 0);
+    const includeCourierSla = body.includeCourierSla !== undefined
+        ? Boolean(body.includeCourierSla)
+        : deepMode;
     const stockoutThreshold = body.stockoutThreshold !== undefined ? Number(body.stockoutThreshold) : 2;
     const accountId = body.accountId || null;
+    const onProgress = typeof body.onProgress === 'function' ? body.onProgress : null;
 
     const results = {};
     const allWarnings = [];
     const allScopeWarnings = [];
 
     if (requested.includes('BASELINKER')) {
+        onProgress?.({ platform: 'BASELINKER', stage: 'START', message: 'Pobieranie danych Base.com / BaseLinker...' });
         try {
             const blRes = await syncBaseLinkerAnalytics({
                 workspaceId,
@@ -312,10 +346,12 @@ async function syncPlatforms(workspaceId, body = {}, injectedPrisma = prisma) {
                 includeReturns: true,
                 includeCourierSla,
                 stockoutThreshold,
-                injectedPrisma
+                injectedPrisma,
+                onProgress
             });
             results.BASELINKER = blRes;
             if (Array.isArray(blRes.warnings)) allWarnings.push(...blRes.warnings);
+            onProgress?.({ platform: 'BASELINKER', stage: 'DONE', message: `Zakończono BaseLinker (${blRes.ordersImported || 0} zam., ${blRes.snapshotsSaved || 0} stanów).` });
         } catch (err) {
             results.BASELINKER = { platform: 'BASELINKER', error: err.message };
             allWarnings.push(`BaseLinker sync error: ${err.message}`);
@@ -323,16 +359,19 @@ async function syncPlatforms(workspaceId, body = {}, injectedPrisma = prisma) {
     }
 
     if (requested.includes('ALLEGRO')) {
+        onProgress?.({ platform: 'ALLEGRO', stage: 'START', message: 'Pobieranie ofert, zamówień i bilingów Allegro...' });
         try {
             const alRes = await syncAllegroAnalytics({
                 workspaceId,
                 accountId,
                 days: Math.min(days, 60),
-                injectedPrisma
+                injectedPrisma,
+                onProgress
             });
             results.ALLEGRO = alRes;
             if (Array.isArray(alRes.warnings)) allWarnings.push(...alRes.warnings);
             if (Array.isArray(alRes.scopeWarnings)) allScopeWarnings.push(...alRes.scopeWarnings);
+            onProgress?.({ platform: 'ALLEGRO', stage: 'DONE', message: `Zakończono Allegro (${alRes.snapshotsSaved || 0} ofert, ${alRes.ordersImported || 0} zam.).` });
         } catch (err) {
             results.ALLEGRO = { platform: 'ALLEGRO', error: err.message };
             allWarnings.push(`Allegro sync error: ${err.message}`);
@@ -340,16 +379,19 @@ async function syncPlatforms(workspaceId, body = {}, injectedPrisma = prisma) {
     }
 
     if (requested.includes('VONHALSKY')) {
+        onProgress?.({ platform: 'VONHALSKY', stage: 'START', message: 'Pobieranie danych InPost Von Halsky...' });
         try {
             const vhRes = await syncVonHalskyAnalytics({
                 workspaceId,
                 accountId,
                 days,
-                injectedPrisma
+                injectedPrisma,
+                onProgress
             });
             results.VONHALSKY = vhRes;
             if (Array.isArray(vhRes.warnings)) allWarnings.push(...vhRes.warnings);
             if (Array.isArray(vhRes.scopeWarnings)) allScopeWarnings.push(...vhRes.scopeWarnings);
+            onProgress?.({ platform: 'VONHALSKY', stage: 'DONE', message: `Zakończono InPost Von Halsky (${vhRes.snapshotsSaved || 0} ofert, ${vhRes.ordersImported || 0} zam.).` });
         } catch (err) {
             results.VONHALSKY = { platform: 'VONHALSKY', error: err.message };
             allWarnings.push(`InPost Von Halsky sync error: ${err.message}`);
@@ -362,6 +404,100 @@ async function syncPlatforms(workspaceId, body = {}, injectedPrisma = prisma) {
         results,
         warnings: allWarnings,
         scopeWarnings: allScopeWarnings
+    };
+}
+
+/**
+ * Uruchamia asynchroniczne zadanie synchronizacji API w tle dla wskazanego klienta (`workspaceId`)
+ * i natychmiast zwraca identyfikator/status zadania do pollingu przez frontend.
+ */
+function startSyncJob(workspaceId, body = {}, injectedPrisma = prisma, deps = {}) {
+    if (!workspaceId) {
+        const err = new Error('Brak kontekstu klienta (workspaceId).');
+        err.statusCode = 400;
+        throw err;
+    }
+
+    const existing = getSyncJobStatus(workspaceId);
+    if (existing && existing.status === 'RUNNING') {
+        return {
+            accepted: true,
+            alreadyRunning: true,
+            job: existing
+        };
+    }
+
+    const requested = Array.isArray(body.platforms) && body.platforms.length > 0
+        ? body.platforms.map(p => String(p).toUpperCase())
+        : ['BASELINKER', 'ALLEGRO', 'VONHALSKY'];
+
+    const nowIso = new Date().toISOString();
+    const job = {
+        jobId: crypto.randomUUID(),
+        workspaceId: String(workspaceId),
+        status: 'RUNNING',
+        startedAt: nowIso,
+        updatedAt: nowIso,
+        finishedAt: null,
+        platforms: requested,
+        deepMode: Boolean(body.deepMode),
+        days: Math.min(Math.max(Number(body.days) || 60, 1), 180),
+        progressPct: 5,
+        currentPlatform: requested[0] || null,
+        stageMessage: 'Uruchamianie synchronizacji API...',
+        counters: { orders: 0, snapshots: 0, financial: 0 },
+        results: {},
+        warnings: [],
+        scopeWarnings: [],
+        syncedAt: null,
+        error: null
+    };
+    syncJobsByWorkspace.set(String(workspaceId), job);
+
+    const runner = typeof deps.runSync === 'function' ? deps.runSync : syncPlatforms;
+    void (async () => {
+        try {
+            const totalPlatforms = Math.max(1, requested.length);
+            const onProgress = (evt = {}) => {
+                const idx = evt.platform ? requested.indexOf(evt.platform) : -1;
+                const safeIdx = idx >= 0 ? idx : 0;
+                const basePct = Math.round((safeIdx / totalPlatforms) * 90) + 5;
+                const boost = evt.stage === 'DONE'
+                    ? Math.round(90 / totalPlatforms)
+                    : Math.min(Math.round(80 / totalPlatforms), (job.progressPct - basePct) + 6);
+
+                job.updatedAt = new Date().toISOString();
+                if (evt.platform) job.currentPlatform = evt.platform;
+                if (evt.message) job.stageMessage = evt.message;
+                job.progressPct = Math.min(96, Math.max(job.progressPct, basePct + boost));
+                if (evt.ordersDelta) job.counters.orders += Number(evt.ordersDelta || 0);
+                if (evt.snapshotsDelta) job.counters.snapshots += Number(evt.snapshotsDelta || 0);
+                if (evt.financialDelta) job.counters.financial += Number(evt.financialDelta || 0);
+            };
+
+            const syncRes = await runner(workspaceId, { ...body, onProgress }, injectedPrisma);
+            job.results = syncRes?.results || {};
+            job.warnings = Array.isArray(syncRes?.warnings) ? syncRes.warnings : [];
+            job.scopeWarnings = Array.isArray(syncRes?.scopeWarnings) ? syncRes.scopeWarnings : [];
+            job.syncedAt = syncRes?.syncedAt || new Date().toISOString();
+            job.progressPct = 100;
+            job.status = 'COMPLETED';
+            job.stageMessage = 'Synchronizacja API zakończona.';
+            job.finishedAt = new Date().toISOString();
+            job.updatedAt = job.finishedAt;
+        } catch (err) {
+            job.status = 'FAILED';
+            job.error = err.message || 'Nieznany błąd synchronizacji API.';
+            job.stageMessage = `Błąd synchronizacji: ${job.error}`;
+            job.finishedAt = new Date().toISOString();
+            job.updatedAt = job.finishedAt;
+        }
+    })();
+
+    return {
+        accepted: true,
+        alreadyRunning: false,
+        job: getSyncJobStatus(workspaceId)
     };
 }
 
@@ -538,6 +674,8 @@ module.exports = {
     getDashboard,
     getStatus,
     syncPlatforms,
+    startSyncJob,
+    getSyncJobStatus,
     importUploadedFiles: (workspaceId, files, opts = {}, injectedPrisma = prisma) =>
         importFilesForWorkspace({ workspaceId, files, ...opts, injectedPrisma }),
     removeImportBatch: (workspaceId, batchId, injectedPrisma = prisma) => deleteImportBatch(workspaceId, batchId, injectedPrisma),

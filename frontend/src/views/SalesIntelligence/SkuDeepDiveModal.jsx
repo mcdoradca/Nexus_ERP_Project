@@ -139,12 +139,12 @@ export default function SkuDeepDiveModal({ API_URL, token, skuOrEan, queryParams
 
                             {/* Wykres osi czasu migawek */}
                             {(data.snapshotsTimeline || []).length > 0 && (
-                                <div className="bg-white rounded-xl border border-slate-200 p-4">
+                                <div className="bg-white rounded-xl border border-slate-200 p-4 min-w-0">
                                     <h4 className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5 mb-2">
                                         <TrendingUp className="w-4 h-4 text-indigo-600" /> Oś Czasu Migawek (Stan vs Cena vs Odwiedziny Allegro)
                                     </h4>
-                                    <div className="h-52">
-                                        <ResponsiveContainer width="100%" height="100%">
+                                    <div className="w-full min-w-0" style={{ height: 208 }}>
+                                        <ResponsiveContainer width="100%" height={208} minWidth={0} initialDimension={{ width: 640, height: 208 }}>
                                             <ComposedChart data={data.snapshotsTimeline}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                                 <XAxis dataKey="date" tick={{ fontSize: 10 }} />

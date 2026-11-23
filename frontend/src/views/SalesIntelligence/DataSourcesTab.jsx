@@ -1,8 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import {
     RefreshCw, UploadCloud, CheckCircle2, AlertTriangle,
-    Trash2, Copy, Check, Database, FileSpreadsheet, ShieldAlert
+    Trash2, Copy, Check, Database, FileSpreadsheet, ShieldAlert, Loader2
 } from 'lucide-react';
 import {
     fmtInt, fmtShortDate, fmtDateTime, BASELINKER_CSV_COLUMNS_GUIDE
@@ -20,8 +20,9 @@ export default function DataSourcesTab({
         VONHALSKY: true
     });
     const [syncDays, setSyncDays] = useState(60);
-    const [isSyncing, setIsSyncing] = useState(false);
-    const [syncResult, setSyncResult] = useState(null);
+    const [deepMode, setDeepMode] = useState(false);
+    const [isSubmittingSync, setIsSubmittingSync] = useState(false);
+    const [localSyncJob, setLocalSyncJob] = useState(null);
     const [syncError, setSyncError] = useState(null);
 
     const [isDragging, setIsDragging] = useState(false);
@@ -37,6 +38,45 @@ export default function DataSourcesTab({
     const monthlyCoverage = statusData?.monthlyCoverage || [];
     const batches = statusData?.batches || [];
 
+    const serverJob = statusData?.activeSyncJob || null;
+    const effectiveJob = (() => {
+        if (!localSyncJob) return serverJob;
+        if (!serverJob) return localSyncJob;
+        const localMs = new Date(localSyncJob.updatedAt || localSyncJob.startedAt || 0).getTime();
+        const serverMs = new Date(serverJob.updatedAt || serverJob.startedAt || 0).getTime();
+        return localMs >= serverMs ? localSyncJob : serverJob;
+    })();
+    const isSyncRunning = effectiveJob?.status === 'RUNNING';
+
+    useEffect(() => {
+        if (!isSyncRunning) return undefined;
+        let cancelled = false;
+
+        const pollStatus = async () => {
+            try {
+                const res = await axios.get(`${API_URL}/api/sales-intelligence/sync/status`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (cancelled) return;
+                const job = res.data?.job || null;
+                if (job) {
+                    setLocalSyncJob(job);
+                    if (job.status === 'COMPLETED' || job.status === 'FAILED') {
+                        await onRefreshAll();
+                    }
+                }
+            } catch {
+                // ignore transient network error, next poll will retry
+            }
+        };
+
+        const intervalId = setInterval(pollStatus, 2000);
+        return () => {
+            cancelled = true;
+            clearInterval(intervalId);
+        };
+    }, [isSyncRunning, API_URL, token, onRefreshAll]);
+
     const togglePlatform = (key) => {
         setSelectedPlatforms(prev => ({ ...prev, [key]: !prev[key] }));
     };
@@ -49,21 +89,23 @@ export default function DataSourcesTab({
             setSyncError('Wybierz przynajmniej jedną platformę do synchronizacji.');
             return;
         }
-        setIsSyncing(true);
+        setIsSubmittingSync(true);
         setSyncError(null);
-        setSyncResult(null);
         try {
             const res = await axios.post(
                 `${API_URL}/api/sales-intelligence/sync`,
-                { platforms, days: Number(syncDays) || 60, fetchProductLogsTopN: 30, includeCourierSla: true },
+                { platforms, days: Number(syncDays) || 60, deepMode },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            setSyncResult(res.data);
-            await onRefreshAll();
+            if (res.data?.job) {
+                setLocalSyncJob(res.data.job);
+            } else {
+                await onRefreshAll();
+            }
         } catch (err) {
-            setSyncError(err.response?.data?.error || err.message || 'Błąd synchronizacji API.');
+            setSyncError(err.response?.data?.error || err.message || 'Błąd uruchomienia synchronizacji API.');
         } finally {
-            setIsSyncing(false);
+            setIsSubmittingSync(false);
         }
     };
 
@@ -135,9 +177,20 @@ export default function DataSourcesTab({
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
+                        <label className="text-[11px] text-slate-600 inline-flex items-center gap-1.5 mr-2 cursor-pointer" title="Dociąga też historię logów stanów Base.com dla Top 20 SKU oraz czasy paczek kurierskich (wolniejsze z uwagi na limit zapytań Base.com)">
+                            <input
+                                type="checkbox"
+                                checked={deepMode}
+                                onChange={e => setDeepMode(e.target.checked)}
+                                disabled={isSubmittingSync || isSyncRunning}
+                                className="rounded border-slate-300 text-indigo-600"
+                            />
+                            Tryb głęboki (logi + SLA)
+                        </label>
                         <select
                             value={syncDays}
                             onChange={e => setSyncDays(Number(e.target.value))}
+                            disabled={isSubmittingSync || isSyncRunning}
                             className="text-xs border border-slate-300 rounded-lg px-2.5 py-2 bg-white"
                         >
                             <option value={30}>Zakres: ostatnie 30 dni</option>
@@ -147,11 +200,13 @@ export default function DataSourcesTab({
                         <button
                             type="button"
                             onClick={handleSyncNow}
-                            disabled={isSyncing}
+                            disabled={isSubmittingSync || isSyncRunning}
                             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg inline-flex items-center gap-2 shadow-sm"
                         >
-                            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                            {isSyncing ? 'Synchronizuję API...' : 'Synchronizuj wybrane API'}
+                            <RefreshCw className={`w-3.5 h-3.5 ${(isSubmittingSync || isSyncRunning) ? 'animate-spin' : ''}`} />
+                            {isSyncRunning
+                                ? `Synchronizuję (${effectiveJob?.progressPct || 0}%)...`
+                                : (isSubmittingSync ? 'Uruchamiam...' : 'Synchronizuj wybrane API')}
                         </button>
                     </div>
                 </div>
@@ -213,25 +268,62 @@ export default function DataSourcesTab({
                     </div>
                 )}
 
-                {syncResult && (
-                    <div className="mt-4 space-y-2">
-                        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-                            <span>Synchronizacja zakończona ({fmtDateTime(syncResult.syncedAt)}).</span>
+                {isSyncRunning && effectiveJob && (
+                    <div className="mt-4 p-4 rounded-xl bg-indigo-50 border border-indigo-200 space-y-2">
+                        <div className="flex items-center justify-between text-xs font-semibold text-indigo-900">
+                            <span className="inline-flex items-center gap-2">
+                                <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                                {effectiveJob.stageMessage || 'Trwa synchronizacja w tle...'}
+                            </span>
+                            <span className="font-mono">{effectiveJob.progressPct || 0}%</span>
                         </div>
-                        {Array.isArray(syncResult.scopeWarnings) && syncResult.scopeWarnings.length > 0 && (
+                        <div className="w-full h-2 bg-indigo-100 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-indigo-600 transition-all duration-300"
+                                style={{ width: `${Math.min(100, Math.max(5, Number(effectiveJob.progressPct) || 5))}%` }}
+                            />
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between text-[11px] text-indigo-800">
+                            <span>Aktywna platforma: <strong>{effectiveJob.currentPlatform || '—'}</strong></span>
+                            <span>
+                                Zapisano na bieżąco: <strong>{fmtInt(effectiveJob.counters?.orders || 0)}</strong> zam. •{' '}
+                                <strong>{fmtInt(effectiveJob.counters?.snapshots || 0)}</strong> ofert/stanów •{' '}
+                                <strong>{fmtInt(effectiveJob.counters?.financial || 0)}</strong> bilingów
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                {effectiveJob?.status === 'FAILED' && (
+                    <div className="mt-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0" /> Synchronizacja przerwana: {effectiveJob.error || effectiveJob.stageMessage}
+                    </div>
+                )}
+
+                {effectiveJob?.status === 'COMPLETED' && (
+                    <div className="mt-4 space-y-2">
+                        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex flex-wrap items-center justify-between gap-2">
+                            <span className="inline-flex items-center gap-2">
+                                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                                <span>Synchronizacja zakończona ({fmtDateTime(effectiveJob.syncedAt || effectiveJob.finishedAt)}).</span>
+                            </span>
+                            <span className="text-[11px] font-medium">
+                                Zapisano: {fmtInt(effectiveJob.counters?.orders || 0)} zam. • {fmtInt(effectiveJob.counters?.snapshots || 0)} ofert/stanów • {fmtInt(effectiveJob.counters?.financial || 0)} bilingów
+                            </span>
+                        </div>
+                        {Array.isArray(effectiveJob.scopeWarnings) && effectiveJob.scopeWarnings.length > 0 && (
                             <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1">
                                 <div className="font-bold flex items-center gap-1.5">
                                     <ShieldAlert className="w-4 h-4 text-amber-600" /> Ostrzeżenia uprawnień OAuth (Scope):
                                 </div>
-                                {syncResult.scopeWarnings.map((sw, idx) => (
+                                {effectiveJob.scopeWarnings.map((sw, idx) => (
                                     <div key={idx} className="text-[11px]">• {sw.message}</div>
                                 ))}
                             </div>
                         )}
-                        {Array.isArray(syncResult.warnings) && syncResult.warnings.length > 0 && (
+                        {Array.isArray(effectiveJob.warnings) && effectiveJob.warnings.length > 0 && (
                             <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-700 space-y-1 max-h-36 overflow-y-auto">
-                                {syncResult.warnings.map((w, idx) => <div key={idx}>• {w}</div>)}
+                                {effectiveJob.warnings.map((w, idx) => <div key={idx}>• {w}</div>)}
                             </div>
                         )}
                     </div>

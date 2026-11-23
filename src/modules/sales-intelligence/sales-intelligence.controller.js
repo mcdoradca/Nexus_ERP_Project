@@ -27,10 +27,20 @@ exports.getStatus = async (req, res) => {
 
 exports.syncPlatforms = async (req, res) => {
     try {
-        const result = await SalesIntelligenceService.syncPlatforms(req.workspaceId, req.body || {});
-        return res.json(result);
+        const result = SalesIntelligenceService.startSyncJob(req.workspaceId, req.body || {});
+        return res.status(202).json(result);
     } catch (err) {
         console.error('[SalesIntelligence] syncPlatforms error:', err.message);
+        return res.status(resolveStatusCode(err)).json({ error: err.message });
+    }
+};
+
+exports.getSyncStatus = async (req, res) => {
+    try {
+        const job = SalesIntelligenceService.getSyncJobStatus(req.workspaceId);
+        return res.json({ workspaceId: req.workspaceId, job });
+    } catch (err) {
+        console.error('[SalesIntelligence] getSyncStatus error:', err.message);
         return res.status(resolveStatusCode(err)).json({ error: err.message });
     }
 };

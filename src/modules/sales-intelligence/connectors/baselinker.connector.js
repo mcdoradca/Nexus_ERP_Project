@@ -1,5 +1,6 @@
 const prisma = require('../../../core/prisma');
 const BaseLinkerService = require('../../offer-optimizer/baselinker.service');
+const { runBatchUpserts } = require('../utils/batch.helpers');
 const {
     round2,
     utcDayMidnight,
@@ -104,14 +105,15 @@ async function syncBaseLinkerAnalytics({
     workspaceId,
     accountId = null,
     days = 90,
-    fetchProductLogsTopN = 30,
+    fetchProductLogsTopN = 0,
     includePurchaseOrders = true,
     includeReturns = true,
     includeCourierSla = false,
     stockoutThreshold = 2,
     fxRates = {},
     injectedPrisma = prisma,
-    baseLinkerApi = null
+    baseLinkerApi = null,
+    onProgress = null
 } = {}) {
     if (!workspaceId) {
         throw new Error('Wymagany jest identyfikator klienta (workspaceId) do synchronizacji BaseLinker.');
@@ -225,6 +227,7 @@ async function syncBaseLinkerAnalytics({
 
             let newInPage = 0;
             let maxTsInPage = cursorTs;
+            const pageOrderPayloads = new Map();
 
             for (const ord of batchOrders) {
                 const oid = String(ord?.order_id || '').trim();
@@ -295,82 +298,80 @@ async function syncBaseLinkerAnalytics({
                 const externalOrderId = oid;
                 const marketplaceOrderId = ord.external_order_id ? String(ord.external_order_id).trim() : null;
 
-                await injectedPrisma.analyticsOrder.upsert({
-                    where: {
-                        workspaceId_platform_externalOrderId: {
-                            workspaceId,
-                            platform: 'BASELINKER',
-                            externalOrderId
-                        }
-                    },
-                    update: {
-                        originChannel,
-                        accountId: effAccountId,
-                        marketplaceOrderId,
-                        sourceMode: 'API',
-                        importBatchId: batch.id,
-                        orderDate,
-                        status: isCancelled ? 'CANCELLED' : 'CONFIRMED',
-                        paymentStatus: Number(ord.payment_done || 0) > 0 ? 'PAID' : 'NOT_PAID',
-                        paymentMethod: ord.payment_method ? String(ord.payment_method).slice(0, 120) : null,
-                        deliveryMethod: ord.delivery_method ? String(ord.delivery_method).slice(0, 120) : null,
-                        deliveryCountry: String(ord.delivery_country_code || 'PL').toUpperCase().slice(0, 8),
-                        marketplace,
-                        currency,
-                        fxRateToPln: fxRate,
-                        isSmart,
-                        totalGmvOriginal: round2(itemsOrigSum),
-                        totalGmvPln: round2(itemsOrigSum * fxRate),
-                        shippingPln: round2(shippingOrig * fxRate),
-                        commissionPln,
-                        items: cleanItems,
-                        rawMeta: {
-                            orderSource: ord.order_source || null,
-                            orderSourceId: ord.order_source_id || null,
-                            orderStatusId: ord.order_status_id || null,
-                            confirmed: Boolean(ord.confirmed),
-                            dateInStatus: ord.date_in_status || null
-                        }
-                    },
-                    create: {
+                const commonData = {
+                    originChannel,
+                    accountId: effAccountId,
+                    marketplaceOrderId,
+                    sourceMode: 'API',
+                    importBatchId: batch.id,
+                    orderDate,
+                    status: isCancelled ? 'CANCELLED' : 'CONFIRMED',
+                    paymentStatus: Number(ord.payment_done || 0) > 0 ? 'PAID' : 'NOT_PAID',
+                    paymentMethod: ord.payment_method ? String(ord.payment_method).slice(0, 120) : null,
+                    deliveryMethod: ord.delivery_method ? String(ord.delivery_method).slice(0, 120) : null,
+                    deliveryCountry: String(ord.delivery_country_code || 'PL').toUpperCase().slice(0, 8),
+                    marketplace,
+                    currency,
+                    fxRateToPln: fxRate,
+                    isSmart,
+                    totalGmvOriginal: round2(itemsOrigSum),
+                    totalGmvPln: round2(itemsOrigSum * fxRate),
+                    shippingPln: round2(shippingOrig * fxRate),
+                    commissionPln,
+                    items: cleanItems,
+                    rawMeta: {
+                        orderSource: ord.order_source || null,
+                        orderSourceId: ord.order_source_id || null,
+                        orderStatusId: ord.order_status_id || null,
+                        confirmed: Boolean(ord.confirmed),
+                        dateInStatus: ord.date_in_status || null
+                    }
+                };
+
+                pageOrderPayloads.set(externalOrderId, {
+                    externalOrderId,
+                    updateData: commonData,
+                    createData: {
                         workspaceId,
                         platform: 'BASELINKER',
-                        originChannel,
-                        accountId: effAccountId,
                         externalOrderId,
-                        marketplaceOrderId,
-                        sourceMode: 'API',
-                        importBatchId: batch.id,
-                        orderDate,
-                        status: isCancelled ? 'CANCELLED' : 'CONFIRMED',
-                        paymentStatus: Number(ord.payment_done || 0) > 0 ? 'PAID' : 'NOT_PAID',
-                        paymentMethod: ord.payment_method ? String(ord.payment_method).slice(0, 120) : null,
-                        deliveryMethod: ord.delivery_method ? String(ord.delivery_method).slice(0, 120) : null,
-                        deliveryCountry: String(ord.delivery_country_code || 'PL').toUpperCase().slice(0, 8),
-                        marketplace,
-                        currency,
-                        fxRateToPln: fxRate,
-                        isSmart,
-                        totalGmvOriginal: round2(itemsOrigSum),
-                        totalGmvPln: round2(itemsOrigSum * fxRate),
-                        shippingPln: round2(shippingOrig * fxRate),
-                        commissionPln,
-                        items: cleanItems,
-                        rawMeta: {
-                            orderSource: ord.order_source || null,
-                            orderSourceId: ord.order_source_id || null,
-                            orderStatusId: ord.order_status_id || null,
-                            confirmed: Boolean(ord.confirmed),
-                            dateInStatus: ord.date_in_status || null
-                        }
+                        ...commonData
                     }
                 });
 
-                accOrdersCount++;
-                totalOrdersImported++;
                 if (includeCourierSla && recentOrderIdsForSla.length < 25 && !isCancelled) {
                     recentOrderIdsForSla.push({ orderId: oid, ordTs });
                 }
+            }
+
+            if (pageOrderPayloads.size > 0) {
+                const savedOrders = await runBatchUpserts(
+                    Array.from(pageOrderPayloads.values()),
+                    (item) => injectedPrisma.analyticsOrder.upsert({
+                        where: {
+                            workspaceId_platform_externalOrderId: {
+                                workspaceId,
+                                platform: 'BASELINKER',
+                                externalOrderId: item.externalOrderId
+                            }
+                        },
+                        update: item.updateData,
+                        create: item.createData
+                    }),
+                    {
+                        prismaClient: injectedPrisma,
+                        chunkSize: 50,
+                        onItemError: (err, item) => warnings.push(`[${acc.label}] Błąd zapisu zamówienia ${item.externalOrderId}: ${err.message}`)
+                    }
+                );
+                accOrdersCount += savedOrders;
+                totalOrdersImported += savedOrders;
+                onProgress?.({
+                    platform: 'BASELINKER',
+                    stage: 'ORDERS',
+                    message: `[${acc.label}] Zapisano ${accOrdersCount} zamówień BaseLinker (str. ${page + 1})...`,
+                    ordersDelta: savedOrders
+                });
             }
 
             if (batchOrders.length < 100 || newInPage === 0) break;
@@ -402,54 +403,70 @@ async function syncBaseLinkerAnalytics({
                 const entries = Object.entries(prodsObj);
                 if (entries.length === 0) break;
 
+                const pageSnapPayloads = new Map();
                 for (const [pidKey, prod] of entries) {
                     const pid = String(prod?.id || pidKey).trim();
+                    if (!pid) continue;
                     const stockVal = parseStockTotal(prod?.stock);
                     const priceVal = parseFirstPrice(prod?.prices);
                     const cleanSku = String(prod?.sku || '').trim() || null;
                     const cleanEan = String(prod?.ean || '').trim() || null;
                     catalogPidToMeta[pid] = { sku: cleanSku, ean: cleanEan, name: prod?.name || null, inventoryId: invId };
 
-                    await injectedPrisma.analyticsDailyOfferSnapshot.upsert({
-                        where: {
-                            workspaceId_platform_snapshotDate_externalOfferId: {
-                                workspaceId,
-                                platform: 'BASELINKER',
-                                snapshotDate: todayMidnight,
-                                externalOfferId: pid
-                            }
-                        },
-                        update: {
-                            accountId: effAccountId,
-                            sku: cleanSku,
-                            ean: cleanEan,
-                            baselinkerProductId: pid,
-                            name: prod?.name ? String(prod.name).slice(0, 250) : null,
-                            status: stockVal <= stockoutThreshold ? 'SOLDOUT' : 'ACTIVE',
-                            stock: stockVal,
-                            pricePln: round2(priceVal),
-                            currency: 'PLN',
-                            meta: { inventoryId: invId, inventoryName: inv.name || null }
-                        },
-                        create: {
+                    const snapData = {
+                        accountId: effAccountId,
+                        sku: cleanSku,
+                        ean: cleanEan,
+                        baselinkerProductId: pid,
+                        name: prod?.name ? String(prod.name).slice(0, 250) : null,
+                        status: stockVal <= stockoutThreshold ? 'SOLDOUT' : 'ACTIVE',
+                        stock: stockVal,
+                        pricePln: round2(priceVal),
+                        currency: 'PLN',
+                        meta: { inventoryId: invId, inventoryName: inv.name || null }
+                    };
+                    pageSnapPayloads.set(pid, {
+                        pid,
+                        updateData: snapData,
+                        createData: {
                             workspaceId,
                             platform: 'BASELINKER',
-                            accountId: effAccountId,
                             snapshotDate: todayMidnight,
                             externalOfferId: pid,
-                            sku: cleanSku,
-                            ean: cleanEan,
-                            baselinkerProductId: pid,
-                            name: prod?.name ? String(prod.name).slice(0, 250) : null,
-                            status: stockVal <= stockoutThreshold ? 'SOLDOUT' : 'ACTIVE',
-                            stock: stockVal,
-                            pricePln: round2(priceVal),
-                            currency: 'PLN',
-                            meta: { inventoryId: invId, inventoryName: inv.name || null }
+                            ...snapData
                         }
                     });
-                    accSnapshotsCount++;
-                    totalSnapshotsSaved++;
+                }
+
+                if (pageSnapPayloads.size > 0) {
+                    const savedSnaps = await runBatchUpserts(
+                        Array.from(pageSnapPayloads.values()),
+                        (item) => injectedPrisma.analyticsDailyOfferSnapshot.upsert({
+                            where: {
+                                workspaceId_platform_snapshotDate_externalOfferId: {
+                                    workspaceId,
+                                    platform: 'BASELINKER',
+                                    snapshotDate: todayMidnight,
+                                    externalOfferId: item.pid
+                                }
+                            },
+                            update: item.updateData,
+                            create: item.createData
+                        }),
+                        {
+                            prismaClient: injectedPrisma,
+                            chunkSize: 50,
+                            onItemError: (err, item) => warnings.push(`[${acc.label}] Błąd zapisu migawki ${item.pid}: ${err.message}`)
+                        }
+                    );
+                    accSnapshotsCount += savedSnaps;
+                    totalSnapshotsSaved += savedSnaps;
+                    onProgress?.({
+                        platform: 'BASELINKER',
+                        stage: 'SNAPSHOTS',
+                        message: `[${acc.label}] Zapisano ${accSnapshotsCount} stanów katalogu BaseLinker...`,
+                        snapshotsDelta: savedSnaps
+                    });
                 }
 
                 if (entries.length < 1000) break;

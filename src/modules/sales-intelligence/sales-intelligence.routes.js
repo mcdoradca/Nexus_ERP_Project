@@ -28,6 +28,7 @@ function handleMultipartUpload(req, res, next) {
 router.get('/dashboard', SalesIntelligenceController.getDashboard);
 router.get('/status', SalesIntelligenceController.getStatus);
 router.post('/sync', SalesIntelligenceController.syncPlatforms);
+router.get('/sync/status', SalesIntelligenceController.getSyncStatus);
 router.post('/import', handleMultipartUpload, SalesIntelligenceController.importFiles);
 router.delete('/imports/:batchId', SalesIntelligenceController.deleteImportBatch);
 router.get('/sku/:skuOrEan', SalesIntelligenceController.getSkuDeepDive);

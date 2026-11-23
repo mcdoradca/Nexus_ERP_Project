@@ -1,5 +1,6 @@
 const prisma = require('../../../core/prisma');
 const VonHalskyService = require('../../offer-optimizer/vonhalsky.service');
+const { runBatchUpserts } = require('../utils/batch.helpers');
 const {
     round2,
     utcDayMidnight,
@@ -24,7 +25,8 @@ async function syncVonHalskyAnalytics({
     days = 90,
     fxRates = {},
     injectedPrisma = prisma,
-    vonHalskyApi = null
+    vonHalskyApi = null,
+    onProgress = null
 } = {}) {
     if (!workspaceId) {
         throw new Error('Wymagany jest identyfikator klienta (workspaceId) do synchronizacji InPost Von Halsky.');
@@ -215,6 +217,7 @@ async function syncVonHalskyAnalytics({
             warnings.push(`[${accLabel}] Nie udało się pobrać zdarzeń ofert Von Halsky: ${err.message}`);
         }
 
+        const offerSnapPayloads = new Map();
         for (const item of offersList) {
             const off = item?.offer || item;
             if (!off?.id) continue;
@@ -229,64 +232,69 @@ async function syncVonHalskyAnalytics({
             const offerStatus = String(off?.status || 'PENDING').toUpperCase();
             const inPriceProgram = priceProgramOfferIds.has(oid) || Boolean(off?.priceProgram?.mode && off.priceProgram.mode !== 'NONE');
 
-            await injectedPrisma.analyticsDailyOfferSnapshot.upsert({
-                where: {
-                    workspaceId_platform_snapshotDate_externalOfferId: {
-                        workspaceId,
-                        platform: 'VONHALSKY',
-                        snapshotDate: todayMidnight,
-                        externalOfferId: oid
-                    }
-                },
-                update: {
-                    accountId: accId,
-                    sku: off?.product?.sku ? String(off.product.sku).trim() : (off?.externalId ? String(off.externalId).trim() : null),
-                    ean: off?.product?.ean ? String(off.product.ean).trim() : null,
-                    name: off?.product?.name ? String(off.product.name).slice(0, 250) : null,
-                    status: offerStatus,
-                    stock: Number.isFinite(stockQty) ? stockQty : 0,
-                    pricePln: round2(grossOrig * fx),
-                    promotionPricePln: promoOrig !== null ? round2(promoOrig * fx) : null,
-                    currency,
-                    isPromoted: Boolean(off?.promotion && promoOrig !== null),
-                    inPriceProgram,
-                    rejectionReasons: Array.isArray(detMeta.rejectionReasons) ? detMeta.rejectionReasons : [],
-                    validationErrors: Array.isArray(detMeta.validationErrors) ? detMeta.validationErrors : [],
-                    meta: {
-                        externalId: off.externalId || null,
-                        categoryId: off?.product?.categoryId || null,
-                        daysToShip: off?.shippingTime?.daysToShip ?? null,
-                        priceProgramMode: off?.priceProgram?.mode || null
-                    }
-                },
-                create: {
+            const snapData = {
+                accountId: accId,
+                sku: off?.product?.sku ? String(off.product.sku).trim() : (off?.externalId ? String(off.externalId).trim() : null),
+                ean: off?.product?.ean ? String(off.product.ean).trim() : null,
+                name: off?.product?.name ? String(off.product.name).slice(0, 250) : null,
+                status: offerStatus,
+                stock: Number.isFinite(stockQty) ? stockQty : 0,
+                pricePln: round2(grossOrig * fx),
+                promotionPricePln: promoOrig !== null ? round2(promoOrig * fx) : null,
+                currency,
+                isPromoted: Boolean(off?.promotion && promoOrig !== null),
+                inPriceProgram,
+                rejectionReasons: Array.isArray(detMeta.rejectionReasons) ? detMeta.rejectionReasons : [],
+                validationErrors: Array.isArray(detMeta.validationErrors) ? detMeta.validationErrors : [],
+                meta: {
+                    externalId: off.externalId || null,
+                    categoryId: off?.product?.categoryId || null,
+                    daysToShip: off?.shippingTime?.daysToShip ?? null,
+                    priceProgramMode: off?.priceProgram?.mode || null
+                }
+            };
+            offerSnapPayloads.set(oid, {
+                oid,
+                updateData: snapData,
+                createData: {
                     workspaceId,
                     platform: 'VONHALSKY',
-                    accountId: accId,
                     snapshotDate: todayMidnight,
                     externalOfferId: oid,
-                    sku: off?.product?.sku ? String(off.product.sku).trim() : (off?.externalId ? String(off.externalId).trim() : null),
-                    ean: off?.product?.ean ? String(off.product.ean).trim() : null,
-                    name: off?.product?.name ? String(off.product.name).slice(0, 250) : null,
-                    status: offerStatus,
-                    stock: Number.isFinite(stockQty) ? stockQty : 0,
-                    pricePln: round2(grossOrig * fx),
-                    promotionPricePln: promoOrig !== null ? round2(promoOrig * fx) : null,
-                    currency,
-                    isPromoted: Boolean(off?.promotion && promoOrig !== null),
-                    inPriceProgram,
-                    rejectionReasons: Array.isArray(detMeta.rejectionReasons) ? detMeta.rejectionReasons : [],
-                    validationErrors: Array.isArray(detMeta.validationErrors) ? detMeta.validationErrors : [],
-                    meta: {
-                        externalId: off.externalId || null,
-                        categoryId: off?.product?.categoryId || null,
-                        daysToShip: off?.shippingTime?.daysToShip ?? null,
-                        priceProgramMode: off?.priceProgram?.mode || null
-                    }
+                    ...snapData
                 }
             });
-            accOffersCount++;
-            totalSnapshotsSaved++;
+        }
+
+        if (offerSnapPayloads.size > 0) {
+            const savedOffers = await runBatchUpserts(
+                Array.from(offerSnapPayloads.values()),
+                (item) => injectedPrisma.analyticsDailyOfferSnapshot.upsert({
+                    where: {
+                        workspaceId_platform_snapshotDate_externalOfferId: {
+                            workspaceId,
+                            platform: 'VONHALSKY',
+                            snapshotDate: todayMidnight,
+                            externalOfferId: item.oid
+                        }
+                    },
+                    update: item.updateData,
+                    create: item.createData
+                }),
+                {
+                    prismaClient: injectedPrisma,
+                    chunkSize: 50,
+                    onItemError: (err, item) => warnings.push(`[${accLabel}] Błąd zapisu oferty Von Halsky ${item.oid}: ${err.message}`)
+                }
+            );
+            accOffersCount += savedOffers;
+            totalSnapshotsSaved += savedOffers;
+            onProgress?.({
+                platform: 'VONHALSKY',
+                stage: 'OFFERS',
+                message: `[${accLabel}] Zapisano ${accOffersCount} ofert InPost Von Halsky...`,
+                snapshotsDelta: savedOffers
+            });
         }
 
         // 4. Zamówienia, zdarzenia SLA oraz posprzedaż v2 (wymaga api:orders:read)
@@ -330,6 +338,7 @@ async function syncVonHalskyAnalytics({
                     const orders = ordRes.data || [];
                     if (orders.length === 0) break;
 
+                    const pageOrderPayloads = new Map();
                     for (const ord of orders) {
                         const oid = String(ord?.id || '').trim();
                         if (!oid) continue;
@@ -389,79 +398,75 @@ async function syncVonHalskyAnalytics({
                         const shipOrig = parseFloat(ord?.delivery?.price?.amount || 0) || 0;
                         const sla = slaTimestampsByOrderId[oid] || {};
 
-                        await injectedPrisma.analyticsOrder.upsert({
-                            where: {
-                                workspaceId_platform_externalOrderId: {
-                                    workspaceId,
-                                    platform: 'VONHALSKY',
-                                    externalOrderId: oid
-                                }
-                            },
-                            update: {
-                                originChannel: 'VONHALSKY',
-                                accountId: accId,
-                                marketplaceOrderId: oid,
-                                sourceMode: 'API',
-                                importBatchId: batch.id,
-                                orderDate,
-                                status: isCancelled ? 'CANCELLED' : 'CONFIRMED',
-                                paymentStatus: ord?.paymentDetails?.payments?.[0]?.paymentDate ? 'PAID' : 'NOT_PAID',
-                                paymentMethod: ord?.paymentDetails?.selectedPaymentType ? String(ord.paymentDetails.selectedPaymentType) : null,
-                                deliveryMethod: ord?.delivery?.deliveryType ? String(ord.delivery.deliveryType) : null,
-                                deliveryCountry: 'PL',
-                                marketplace: 'inpost-vonhalsky',
-                                currency,
-                                fxRateToPln: fx,
-                                isSmart: false,
-                                totalGmvOriginal: round2(itemsOrigSum),
-                                totalGmvPln: round2(itemsOrigSum * fx),
-                                shippingPln: round2(shipOrig * fx),
-                                discountMerchantPln: round2(merchantDiscountOrig * fx),
-                                discountPlatformPln: round2(platformDiscountOrig * fx),
-                                acceptedAt: sla.acceptedAt || null,
-                                shippedAt: sla.shippedAt || null,
-                                items: cleanItems,
-                                rawMeta: {
-                                    vonHalskyStatus: ordStatus,
-                                    deliveryPoint: ord?.delivery?.deliveryPoint || null
-                                }
-                            },
-                            create: {
+                        const ordCommonData = {
+                            originChannel: 'VONHALSKY',
+                            accountId: accId,
+                            marketplaceOrderId: oid,
+                            sourceMode: 'API',
+                            importBatchId: batch.id,
+                            orderDate,
+                            status: isCancelled ? 'CANCELLED' : 'CONFIRMED',
+                            paymentStatus: ord?.paymentDetails?.payments?.[0]?.paymentDate ? 'PAID' : 'NOT_PAID',
+                            paymentMethod: ord?.paymentDetails?.selectedPaymentType ? String(ord.paymentDetails.selectedPaymentType) : null,
+                            deliveryMethod: ord?.delivery?.deliveryType ? String(ord.delivery.deliveryType) : null,
+                            deliveryCountry: 'PL',
+                            marketplace: 'inpost-vonhalsky',
+                            currency,
+                            fxRateToPln: fx,
+                            isSmart: false,
+                            totalGmvOriginal: round2(itemsOrigSum),
+                            totalGmvPln: round2(itemsOrigSum * fx),
+                            shippingPln: round2(shipOrig * fx),
+                            discountMerchantPln: round2(merchantDiscountOrig * fx),
+                            discountPlatformPln: round2(platformDiscountOrig * fx),
+                            acceptedAt: sla.acceptedAt || null,
+                            shippedAt: sla.shippedAt || null,
+                            items: cleanItems,
+                            rawMeta: {
+                                vonHalskyStatus: ordStatus,
+                                deliveryPoint: ord?.delivery?.deliveryPoint || null
+                            }
+                        };
+                        pageOrderPayloads.set(oid, {
+                            oid,
+                            updateData: ordCommonData,
+                            createData: {
                                 workspaceId,
                                 platform: 'VONHALSKY',
-                                originChannel: 'VONHALSKY',
-                                accountId: accId,
                                 externalOrderId: oid,
-                                marketplaceOrderId: oid,
-                                sourceMode: 'API',
-                                importBatchId: batch.id,
-                                orderDate,
-                                status: isCancelled ? 'CANCELLED' : 'CONFIRMED',
-                                paymentStatus: ord?.paymentDetails?.payments?.[0]?.paymentDate ? 'PAID' : 'NOT_PAID',
-                                paymentMethod: ord?.paymentDetails?.selectedPaymentType ? String(ord.paymentDetails.selectedPaymentType) : null,
-                                deliveryMethod: ord?.delivery?.deliveryType ? String(ord.delivery.deliveryType) : null,
-                                deliveryCountry: 'PL',
-                                marketplace: 'inpost-vonhalsky',
-                                currency,
-                                fxRateToPln: fx,
-                                isSmart: false,
-                                totalGmvOriginal: round2(itemsOrigSum),
-                                totalGmvPln: round2(itemsOrigSum * fx),
-                                shippingPln: round2(shipOrig * fx),
-                                discountMerchantPln: round2(merchantDiscountOrig * fx),
-                                discountPlatformPln: round2(platformDiscountOrig * fx),
-                                acceptedAt: sla.acceptedAt || null,
-                                shippedAt: sla.shippedAt || null,
-                                items: cleanItems,
-                                rawMeta: {
-                                    vonHalskyStatus: ordStatus,
-                                    deliveryPoint: ord?.delivery?.deliveryPoint || null
-                                }
+                                ...ordCommonData
                             }
                         });
+                    }
 
-                        accOrdersCount++;
-                        totalOrdersImported++;
+                    if (pageOrderPayloads.size > 0) {
+                        const savedOrders = await runBatchUpserts(
+                            Array.from(pageOrderPayloads.values()),
+                            (item) => injectedPrisma.analyticsOrder.upsert({
+                                where: {
+                                    workspaceId_platform_externalOrderId: {
+                                        workspaceId,
+                                        platform: 'VONHALSKY',
+                                        externalOrderId: item.oid
+                                    }
+                                },
+                                update: item.updateData,
+                                create: item.createData
+                            }),
+                            {
+                                prismaClient: injectedPrisma,
+                                chunkSize: 50,
+                                onItemError: (err, item) => warnings.push(`[${accLabel}] Błąd zapisu zamówienia Von Halsky ${item.oid}: ${err.message}`)
+                            }
+                        );
+                        accOrdersCount += savedOrders;
+                        totalOrdersImported += savedOrders;
+                        onProgress?.({
+                            platform: 'VONHALSKY',
+                            stage: 'ORDERS',
+                            message: `[${accLabel}] Zapisano ${accOrdersCount} zamówień InPost Von Halsky...`,
+                            ordersDelta: savedOrders
+                        });
                     }
 
                     const total = Number(ordRes?.page?.total || 0);

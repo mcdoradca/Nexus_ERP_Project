@@ -162,55 +162,67 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
 
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm min-w-0">
                     <div className="flex items-center justify-between mb-3">
                         <div>
                             <h3 className="text-sm font-bold text-slate-900">Rachunek P&L Waterfall (Zweryfikowane COGS)</h3>
                             <p className="text-xs text-slate-500">Rozbicie od obrotu brutto do zysku netto po VAT, zakupie, logistyce, prowizjach i Ads</p>
                         </div>
                     </div>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={pnlChartData} margin={{ top: 10, right: 16, left: 10, bottom: 20 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" height={50} />
-                                <YAxis tick={{ fontSize: 11 }} />
-                                <RechartsTooltip formatter={(v) => fmtPln(v)} />
-                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                    {pnlChartData.map((entry, idx) => {
-                                        const isPositive = entry.value >= 0;
-                                        const color = idx === pnlChartData.length - 1
-                                            ? (isPositive ? '#059669' : '#e11d48')
-                                            : (isPositive ? '#4f46e5' : '#f43f5e');
-                                        return <Cell key={entry.name} fill={color} />;
-                                    })}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
+                    <div className="w-full min-w-0" style={{ height: 256 }}>
+                        {pnlChartData.length === 0 ? (
+                            <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                                Brak danych kosztowych lub zamówień do wykreślenia rachunku P&amp;L.
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height={256} minWidth={0} initialDimension={{ width: 520, height: 256 }}>
+                                <BarChart data={pnlChartData} margin={{ top: 10, right: 16, left: 10, bottom: 20 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" height={50} />
+                                    <YAxis tick={{ fontSize: 11 }} />
+                                    <RechartsTooltip formatter={(v) => fmtPln(v)} />
+                                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                        {pnlChartData.map((entry, idx) => {
+                                            const isPositive = entry.value >= 0;
+                                            const color = idx === pnlChartData.length - 1
+                                                ? (isPositive ? '#059669' : '#e11d48')
+                                                : (isPositive ? '#4f46e5' : '#f43f5e');
+                                            return <Cell key={entry.name} fill={color} />;
+                                        })}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm min-w-0">
                     <div className="flex items-center justify-between mb-3">
                         <div>
                             <h3 className="text-sm font-bold text-slate-900">Trend Miesięczny: Obrót GMV vs Zamówienia i Starty Braków</h3>
                             <p className="text-xs text-slate-500">Korelacja dynamiki sprzedaży z momentami wejścia produktów w próg wyłączenia (≤ {threshold} szt.)</p>
                         </div>
                     </div>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={trendData} margin={{ top: 10, right: 16, left: 10, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                                <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
-                                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
-                                <RechartsTooltip />
-                                <Legend wrapperStyle={{ fontSize: 11 }} />
-                                <Bar yAxisId="left" dataKey="gmvPln" name="Obrót GMV (PLN)" fill="#4f46e5" radius={[4, 4, 0, 0]} />
-                                <Line yAxisId="right" type="monotone" dataKey="orders" name="Zamówienia" stroke="#059669" strokeWidth={2} dot={false} />
-                                <Line yAxisId="right" type="monotone" dataKey="stockoutStarts" name="Starty braków" stroke="#e11d48" strokeWidth={2} />
-                            </ComposedChart>
-                        </ResponsiveContainer>
+                    <div className="w-full min-w-0" style={{ height: 256 }}>
+                        {trendData.length === 0 ? (
+                            <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                                Brak danych trendu miesięcznego w wybranym okresie.
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height={256} minWidth={0} initialDimension={{ width: 520, height: 256 }}>
+                                <ComposedChart data={trendData} margin={{ top: 10, right: 16, left: 10, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                                    <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
+                                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
+                                    <RechartsTooltip />
+                                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                                    <Bar yAxisId="left" dataKey="gmvPln" name="Obrót GMV (PLN)" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                                    <Line yAxisId="right" type="monotone" dataKey="orders" name="Zamówienia" stroke="#059669" strokeWidth={2} dot={false} />
+                                    <Line yAxisId="right" type="monotone" dataKey="stockoutStarts" name="Starty braków" stroke="#e11d48" strokeWidth={2} />
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        )}
                     </div>
                 </div>
             </div>

@@ -2,6 +2,8 @@ const { describe, it, after } = require('node:test');
 const assert = require('node:assert/strict');
 const XLSX = require('xlsx');
 
+const { runBatchUpserts } = require('../utils/batch.helpers');
+
 const prisma = require('../../../core/prisma');
 const {
     normalizeCurrencyCode,
@@ -472,8 +474,9 @@ describe('Sales Intelligence Module — Unit, Engine, Connector & Multi-Workspac
         assert.equal(blRes.openPurchaseOrdersCount, 1);
         assert.equal(blRes.loggedProductsCount, 1);
 
-        // 2. Allegro mock connector z symulacją 403 na billing-entries
+        // 2. Allegro mock connector z symulacją 403 na billing-entries + weryfikacją nagłówka beta.v1 dla issues & customer-returns
         const mockPrismaAl = createInMemoryPrismaMock();
+        const acceptHeadersSeen = {};
         const alRes = await syncAllegroAnalytics({
             workspaceId: 'ws_mock_1',
             days: 30,
@@ -482,7 +485,15 @@ describe('Sales Intelligence Module — Unit, Engine, Connector & Multi-Workspac
                 listConnectedAllegroAccounts: async () => [{ accountId: 'al_1', label: 'Konto Allegro Mock', login: 'mock' }],
                 getAllegroToken: async () => 'mock-token',
                 apiClient: {
-                    get: async (url) => {
+                    get: async (url, config = {}) => {
+                        if (url.includes('/sale/issues')) {
+                            acceptHeadersSeen.issues = config?.headers?.Accept;
+                            return { data: { issues: [] } };
+                        }
+                        if (url.includes('/order/customer-returns')) {
+                            acceptHeadersSeen.customerReturns = config?.headers?.Accept;
+                            return { data: { customerReturns: [] } };
+                        }
                         if (url.includes('/billing/billing-entries')) {
                             const err = new Error('Missing scope allegro:api:billing:read');
                             err.response = { status: 403 };
@@ -524,6 +535,8 @@ describe('Sales Intelligence Module — Unit, Engine, Connector & Multi-Workspac
                 }
             }
         });
+        assert.equal(acceptHeadersSeen.issues, 'application/vnd.allegro.beta.v1+json');
+        assert.equal(acceptHeadersSeen.customerReturns, 'application/vnd.allegro.beta.v1+json');
         assert.equal(alRes.snapshotsSaved, 1);
         assert.equal(alRes.ordersImported, 1);
         assert.ok(alRes.scopeWarnings.some(w => w.requiredScope === 'allegro:api:billing:read'));
@@ -662,5 +675,74 @@ describe('Sales Intelligence Module — Unit, Engine, Connector & Multi-Workspac
 
         const dashAAfter = await SalesIntelligenceService.getDashboard(wsA.id, {}, prisma);
         assert.equal(dashAAfter.dataCounts.rawOrdersCount, 0);
+    });
+
+    it('Batch upsert helper handles $transaction chunking & per-item fallback; async sync job queue guards duplicates & isolates workspaces', async () => {
+        const persisted = new Map();
+        const skippedErrs = [];
+
+        const processed = await runBatchUpserts(
+            [1, 2, 3, 4],
+            async (n) => {
+                if (n === 2) throw new Error('Bad row 2');
+                persisted.set(n, true);
+                return n;
+            },
+            {
+                prismaClient: {
+                    $transaction: async (ops) => Promise.all(ops)
+                },
+                chunkSize: 2,
+                onItemError: (err, item) => skippedErrs.push(`${item}:${err.message}`)
+            }
+        );
+
+        assert.equal(processed, 3); // 1, 3, 4 zapisane mimo błędu wiersza 2 w pierwszej paczce
+        assert.deepEqual(Array.from(persisted.keys()).sort((a, b) => a - b), [1, 3, 4]);
+        assert.equal(skippedErrs.length, 1);
+
+        // Asynchroniczny job synchronizacji + blokada duplikatów + izolacja po workspaceId
+        let releaseSync;
+        const syncBlocker = new Promise((resolve) => {
+            releaseSync = resolve;
+        });
+
+        const started = SalesIntelligenceService.startSyncJob(
+            'ws_async_1',
+            { platforms: ['BASELINKER'], days: 30, deepMode: false },
+            prisma,
+            {
+                runSync: async (_wsId, opts) => {
+                    opts.onProgress?.({ platform: 'BASELINKER', stage: 'ORDERS', message: 'Pobieram zamówienia...', ordersDelta: 120 });
+                    await syncBlocker;
+                    return {
+                        syncedAt: new Date().toISOString(),
+                        results: { BASELINKER: { ordersImported: 120 } },
+                        warnings: [],
+                        scopeWarnings: []
+                    };
+                }
+            }
+        );
+
+        assert.equal(started.accepted, true);
+        assert.equal(started.alreadyRunning, false);
+        assert.equal(started.job.status, 'RUNNING');
+
+        // Drugi request dla tego samego workspace w trakcie działania zwraca alreadyRunning: true
+        const duplicate = SalesIntelligenceService.startSyncJob('ws_async_1', { platforms: ['BASELINKER'] }, prisma);
+        assert.equal(duplicate.alreadyRunning, true);
+        assert.equal(duplicate.job.jobId, started.job.jobId);
+
+        // Inny workspace nie widzi joba ws_async_1
+        assert.equal(SalesIntelligenceService.getSyncJobStatus('ws_async_other'), null);
+
+        releaseSync();
+        await new Promise(r => setTimeout(r, 30));
+
+        const doneJob = SalesIntelligenceService.getSyncJobStatus('ws_async_1');
+        assert.equal(doneJob.status, 'COMPLETED');
+        assert.equal(doneJob.progressPct, 100);
+        assert.equal(doneJob.counters.orders, 120);
     });
 });
