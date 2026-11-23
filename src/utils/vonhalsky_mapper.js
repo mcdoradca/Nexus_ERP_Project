@@ -11,6 +11,7 @@ const { stripRawInciFooterFromSection3 } = require('../modules/offer-optimizer-v
 const { resolveOrderedVisibleDescriptionSections } = require('../services/workspaceContentProfile.service');
 const { parseLocaleFloat, parseLocaleInt, trimOrNull } = require('./productLookup');
 const BrandResponsibleService = require('../modules/offer-optimizer-v2/brand.responsible.service');
+const { auditOfferDraftCompliance } = require('../modules/offer-optimizer-v2/services/allegro-compliance.policy');
 
 // Twarde limity i kontrakty wprost z docs/openapi.json (InPost Von Halsky API v1.7.12)
 const MAX_PRODUCT_NAME_LEN = 150;
@@ -1086,6 +1087,19 @@ function buildVonHalskyOfferPayload({
     warnings.push(...descResult.warnings);
     if ((safeMode === 'create' || sections.includeDescription) && !descResult.description) {
         errors.push('Wymagany jest opis produktu (product.description). Wygeneruj moduły AEO lub uzupełnij opis.');
+    }
+
+    if (sections.includeTitle || sections.includeDescription) {
+        const vhCompliance = auditOfferDraftCompliance({
+            title: sections.includeTitle ? finalName : '',
+            htmlContent: sections.includeDescription ? htmlContent : null,
+            descriptionHtml: sections.includeDescription ? (product.descriptionHtml || '') : '',
+            brand: product.brand?.name || product.brandName || effectiveFeatures?.Marka || '',
+            productName: finalName || product.name || ''
+        });
+        if (vhCompliance.warnings.length > 0) {
+            warnings.push(...vhCompliance.warnings);
+        }
     }
 
     // 3. Marka

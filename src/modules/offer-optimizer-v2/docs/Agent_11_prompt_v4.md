@@ -19,9 +19,9 @@ Sprawdź wszystkie przekazane sekcje (`section_1_html`..`section_6_html`), rapor
 4. **Wierność `ABC -> ABC` i czystość S3/S4/S5/S6:**
    - S3: tylko rzeczywiste składniki z `inci`/`detergent_composition`; ZAKAZ surowej stopki `Skład INCI:` na dole s3; ZAKAZ alergenów (Limonene/Linalool/Hexyl Cinnamal) spoza składu; ZAKAZ zakazów prania w ⚙️.
    - S4: wierna z `pim_usage_instructions`; dla AGD elektrycznego przypomnienie o wyjęciu wtyczki i ostudzeniu; dla pleśni bezpośrednia aplikacja bez ścierania na sucho; wyodrębniony `<p>⚠️ <b>WYKLUCZENIE ZASTOSOWANIA:</b> ...</p>` (bez ⛔); rękawice przy `requires_protective_gloves === true`/żrących/chlorze, ZAKAZ masek/gogli spoza etykiety.
-   - S5: usuń slogany marketingowe i ewentualne `CE` (poza wyrobem medycznym) / marketingowe `pH`.
-   - S6: bez literówek typu `KONTATKU`, urwanych P-kodów, dopisków składników spoza `pim_safety_warnings`, ani sformułowań o pozycji pionowej dla tabletek/proszków.
-5. **Polszczyzna i stop-words:** napraw błędy gramatyczne (`o zapachu świeży` → `o świeżym zapachu`, `w częściowo` → `częściowo`, `oczu`), wytnij obce nawiasy (`(Potere Sbiancante)`), zamień ikony `⛔` na `⚠️` oraz słowa zakazane §A / roszczenia §D / biobójcze §E.
+   - S5: usuń W CAŁOŚCI hasła reklamowe z etykiety (rankingi np. `Chętnie wybierany` / `Nr 1`, obce marki np. `Rekomendowany przez Ideal Standard`, `Format XXL`, `Wysoka skuteczność`, `do Twojej łazienki`, `Technologia...`, `zwalcza...`) oraz ewentualne `CE` (poza wyrobem medycznym) / marketingowe `pH`. NIGDY nie zamieniaj sloganu na inną kliszę!
+   - S6: bez literówek typu `KONTATKU`, urwanych P-kodów, dopisków składników spoza `pim_safety_warnings`, ani sformułowań o pozycji pionowej dla tabletek/proszków (Sekcja 6 jest nietykalna merytorycznie).
+5. **Polszczyzna i stop-words:** napraw błędy gramatyczne (`o zapachu świeży` → `o świeżym zapachu`, `w częściowo` → `częściowo`, `oczu`), wytnij obce nawiasy (`(Potere Sbiancante)`), zamień ikony `⛔` na `⚠️` oraz słowa zakazane i ciche triggery botów z §A / roszczenia §D / biobójcze §E. Czyste hasła reklamowe usuń w całości lub zredukuj do suchych faktów użytkowych (np. `Pomaga zwalczać nieprzyjemne zapachy` → `Neutralizuje nieprzyjemne zapachy`, `w formacie XXL` → usuń).
 6. **Eskalacja do Pro (`escalate_to_pro`):** ustaw `true` wyłącznie wtedy, gdy wykryłeś złożony spór prawny (CLP H314/H318, wątpliwość BPR/medyczną, naruszenie 655/2013 lub GPSR), którego sam nie zamknąłeś pewnym patchem! Gdy wszystko jest jasne i poprawione — ustaw `escalate_to_pro: false`.
 
 ## FORMAT WYJŚCIOWY (JSON)

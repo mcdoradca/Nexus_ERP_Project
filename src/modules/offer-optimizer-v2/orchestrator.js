@@ -7,7 +7,7 @@ const { FORBIDDEN_SOURCES, DATA_SOURCE_MODE } = require('./config/nodes.config')
 const baselinkerExtract = require('./baselinker.extract.js');
 const { normalizeIngredientName, normalizeInciToLegalEnglish, stripRawInciFooterFromSection3 } = require('./normalization.js');
 const ragService = require('./knowledge.rag.service.js');
-const { validate_html_whitelist, scan_medical_claims_lexical, scan_biocidal_claims_lexical, scan_stopwords, emoji_structure_check, normalize_aeo_faq_labels, aeo_faq_check, validate_section5_compliance, validate_section6_compliance, validate_section3_ingredients_closed_world, validate_domain_and_chemical_logic, validate_section1_above_the_fold } = require('./validators');
+const { validate_html_whitelist, scan_medical_claims_lexical, scan_biocidal_claims_lexical, scan_stopwords, scan_allegro_implicit_risks, emoji_structure_check, normalize_aeo_faq_labels, aeo_faq_check, validate_section5_compliance, validate_section6_compliance, validate_section3_ingredients_closed_world, validate_domain_and_chemical_logic, validate_section1_above_the_fold } = require('./validators');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const visionExtractorService = require('./vision-extractor.service');
@@ -16,6 +16,7 @@ const deterministicEngine = require('./services/deterministic-pipeline.engine');
 const googleSuggestFaqService = require('./services/google-suggest-faq.service');
 const { classifyProductPhysicalForm } = require('./services/product-form.classifier');
 const { mapPackagingFeaturesToAllegroSchema } = require('./services/allegro-param-automapper.service');
+const { sanitizeLabelHighlights } = require('./services/allegro-compliance.policy');
 const {
     resolveWorkspaceContentProfile,
     loadSiblingPackagingFactsForEan,
@@ -163,6 +164,17 @@ const sanitizeSection5Html = (htmlStr, pimData = {}) => {
             }
         }
     }
+
+    // 3b. Puryzm techniczny wiersza "Właściwości i wyróżniki" w Sekcji 5 (odfiltrowanie sloganów z etykiet, obcych marek i hype'u XXL)
+    res = res.replace(/(<li[^>]*>\s*(?:➡️|☑️|✔️|✅|⚖️|📊|\*|-)?\s*(?:<b>|<strong>)\s*(?:Właściwości\s+i\s+wyróżniki|Wyróżniki(?:\s+i\s+cechy)?|Cechy\s+dodatkowe)\s*:?\s*(?:<\/b>|<\/strong>)\s*)([\s\S]*?)(<\/li>)/gi, (_, prefix, rawBody, suffix) => {
+        const plainBody = String(rawBody || '').replace(/<\/?[a-zA-Z][^>]*>/g, '').trim();
+        const filtered = sanitizeLabelHighlights(plainBody, {
+            isMedicalDevice,
+            brand: pimData?.brand,
+            productName: pimData?.product_name || pimData?.name
+        });
+        return filtered.text ? `${prefix}${filtered.text}${suffix}` : '';
+    });
 
     // 4. Eliminacja ewentualnych pustych list <ul></ul> powstałych po usunięciu elementów
     res = res.replace(/<ul[^>]*>\s*<\/ul>/gi, '');
@@ -511,12 +523,25 @@ const applyDeterministicSectionSanitizers = (sectionsObj, ctx = {}) => {
             s = brandResponsibleService.stripContactInfo(s);
             s = deterministicEngine.sanitizeHtmlClaimsAndStopwords(s, {
                 productName: ctx.productName,
+                brand: ctx.brand,
                 inci: ctx.inci,
                 detergentComposition: ctx.detergentComposition,
                 pimWarnings: ctx.pimWarnings,
-                pimUsage: ctx.pimUsage
+                pimUsage: ctx.pimUsage,
+                isSafetySection: i === 6,
+                sectionType: i === 6 ? 'section6' : (i === 5 ? 'section5' : 'description')
             });
             if (i === 3) s = stripRawInciFooterFromSection3(s);
+            if (i === 5) {
+                s = sanitizeSection5Html(s, {
+                    product_name: ctx.productName,
+                    brand: ctx.brand,
+                    manufacturer: ctx.manufacturer,
+                    is_medical_device: ctx.isMedicalDevice,
+                    category: ctx.category,
+                    features: ctx.features
+                });
+            }
             if (i === 6) s = sanitizeSection6Html(s);
             if (ctx.isFullPipelineRun !== false) {
                 s = deterministicEngine.normalizeEmojiAndStructure(s, i);
@@ -530,10 +555,13 @@ const applyDeterministicSectionSanitizers = (sectionsObj, ctx = {}) => {
         let sTips = brandResponsibleService.stripContactInfo(sectionsObj.section_tips_html);
         sTips = deterministicEngine.sanitizeHtmlClaimsAndStopwords(sTips, {
             productName: ctx.productName,
+            brand: ctx.brand,
             inci: ctx.inci,
             detergentComposition: ctx.detergentComposition,
             pimWarnings: ctx.pimWarnings,
-            pimUsage: ctx.pimUsage
+            pimUsage: ctx.pimUsage,
+            isSafetySection: false,
+            sectionType: 'description'
         });
         if (ctx.isFullPipelineRun !== false) {
             sTips = deterministicEngine.normalizeEmojiAndStructure(sTips, 1);
@@ -545,6 +573,7 @@ const applyDeterministicSectionSanitizers = (sectionsObj, ctx = {}) => {
 
 const computeComplianceAuditForSections = (sectionsObj = {}, ctx = {}) => {
     const detectedStopwords = [];
+    const detectedImplicitRisks = [];
     const detectedMedical = [];
     const detectedBiocidal = [];
     const structuralErrors = [];
@@ -558,6 +587,18 @@ const computeComplianceAuditForSections = (sectionsObj = {}, ctx = {}) => {
         }
         const hitsStop = scan_stopwords(secHtml);
         detectedStopwords.push(...hitsStop.map(h => ({ section: `section_${i}_html`, word: h.word })));
+
+        const secType = i === 6 ? 'section6' : (i === 5 ? 'section5' : 'description');
+        const hitsImplicit = scan_allegro_implicit_risks(secHtml, {
+            sectionType: secType,
+            brand: ctx.brand,
+            productName: ctx.productName
+        });
+        for (const h of hitsImplicit) {
+            if (!hitsStop.some(s => s.word.toLowerCase() === h.word.toLowerCase())) {
+                detectedImplicitRisks.push({ section: `section_${i}_html`, word: h.word, category: h.category, label: h.label });
+            }
+        }
 
         const hitsMed = scan_medical_claims_lexical(secHtml);
         detectedMedical.push(...hitsMed.map(h => ({ section: `section_${i}_html`, word: h.word })));
@@ -577,7 +618,13 @@ const computeComplianceAuditForSections = (sectionsObj = {}, ctx = {}) => {
 
     if (sectionsObj?.section_tips_html && typeof sectionsObj.section_tips_html === 'string' && sectionsObj.section_tips_html.trim()) {
         const tipsHtml = sectionsObj.section_tips_html;
-        detectedStopwords.push(...scan_stopwords(tipsHtml).map(h => ({ section: 'section_tips_html', word: h.word })));
+        const tipsStops = scan_stopwords(tipsHtml);
+        detectedStopwords.push(...tipsStops.map(h => ({ section: 'section_tips_html', word: h.word })));
+        for (const h of scan_allegro_implicit_risks(tipsHtml, { sectionType: 'description', brand: ctx.brand, productName: ctx.productName })) {
+            if (!tipsStops.some(s => s.word.toLowerCase() === h.word.toLowerCase())) {
+                detectedImplicitRisks.push({ section: 'section_tips_html', word: h.word, category: h.category, label: h.label });
+            }
+        }
         detectedMedical.push(...scan_medical_claims_lexical(tipsHtml).map(h => ({ section: 'section_tips_html', word: h.word })));
         detectedBiocidal.push(...scan_biocidal_claims_lexical(tipsHtml).map(h => ({ section: 'section_tips_html', word: h.word })));
         const tipsHtmlVal = validate_html_whitelist(tipsHtml);
@@ -637,7 +684,10 @@ const computeComplianceAuditForSections = (sectionsObj = {}, ctx = {}) => {
         preAuditReport += `WYKRYTO ZAKAZANE ROSZCZENIA MEDYCZNE / LECZNICZE (Rozp. 655/2013 & 1223/2009): ${detectedMedical.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM.\n`;
     }
     if (detectedStopwords.length > 0) {
-        preAuditReport += `WYKRYTO SŁOWA ZAKAZANE REGULAMINEM ALLEGRO (§A): ${detectedStopwords.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM W patches NA NEUTRALNE ODPOWIEDNIKI.\n`;
+        preAuditReport += `WYKRYTO SŁOWA ZAKAZANE REGULAMINEM ALLEGRO (§A): ${detectedStopwords.map(d => `${d.section}: "${d.word}"`).join(', ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM W patches NA NEUTRALNE ODPOWIEDNIKI LUB USUNIĘCIA.\n`;
+    }
+    if (detectedImplicitRisks.length > 0) {
+        preAuditReport += `WYKRYTO RYZYKOWNE SLOGANY MARKETINGOWE / BOT-TRIGGERY ALLEGRO 2026: ${detectedImplicitRisks.map(d => `${d.section}: "${d.word}" [${d.label}]`).join(', ')}. USUŃ LUB PRZEREDAGUJ NA RZECZOWY FAKT TECHNICZNY BEZ OBCEJ MARKI, RANKINGU, FORMATU XXL I PITCHU.\n`;
     }
     if (complianceIssues.length > 0) {
         preAuditReport += `WYKRYTO NIEZGODNOŚCI PRAWNE I FORMALNE: ${complianceIssues.join(' | ')}. BEZWZGLĘDNY OBOWIĄZEK SAMONAPRAWY PATCHEM W patches.\n`;
@@ -651,6 +701,7 @@ const computeComplianceAuditForSections = (sectionsObj = {}, ctx = {}) => {
 
     return {
         detectedStopwords,
+        detectedImplicitRisks,
         detectedMedical,
         detectedBiocidal,
         structuralErrors,
@@ -696,6 +747,9 @@ const shouldEscalateToAgent10 = ({
         }
         if (postA11Audit.detectedStopwords?.length > 0) {
             return { escalate: true, reason: `STOPWORDS_POST_A11: ${postA11Audit.detectedStopwords.map(d => d.word).join(', ')}` };
+        }
+        if (postA11Audit.detectedImplicitRisks?.length > 0) {
+            return { escalate: true, reason: `IMPLICIT_ALLEGRO_RISK_POST_A11: ${postA11Audit.detectedImplicitRisks.slice(0, 5).map(d => d.word).join(', ')}` };
         }
         if (postA11Audit.complianceIssues?.length > 0) {
             return { escalate: true, reason: `COMPLIANCE_POST_A11: ${postA11Audit.complianceIssues[0]}` };
@@ -2022,10 +2076,13 @@ class Orchestrator {
                     brand: extracted.brand?.value || undefined
                 };
                 if (this.state.vision_extracted_features && Object.keys(this.state.vision_extracted_features).length > 0) {
-                    agent2Data.physical_grounding_context = {
-                        ...this.state.vision_extracted_features,
-                        _instruction: "UWAGA: Poniższe parametry fizyczne z etykiety frontowej packshotu służą wyłącznie jako kotwica weryfikacyjna wariantu (aby odrzucić opinie dotyczące innych formatów, np. saszetek uzupełniających lub innych wariantów zapachowych). ZAKAZ ograniczania analizy VoC tylko do nich. Przeanalizuj pełne, holistyczne doświadczenia klientów z działania, właściwości i użytkowania produktu na rynku."
-                    };
+                    const cleanedVisionA2 = deterministicEngine.cleanFeaturesForPrompt(this.state.vision_extracted_features);
+                    if (Object.keys(cleanedVisionA2).length > 0) {
+                        agent2Data.physical_grounding_context = {
+                            ...cleanedVisionA2,
+                            _instruction: "UWAGA: Poniższe parametry fizyczne z etykiety frontowej packshotu służą wyłącznie jako kotwica weryfikacyjna wariantu (aby odrzucić opinie dotyczące innych formatów, np. saszetek uzupełniających lub innych wariantów zapachowych). ZAKAZ ograniczania analizy VoC tylko do nich. Przeanalizuj pełne, holistyczne doświadczenia klientów z działania, właściwości i użytkowania produktu na rynku."
+                        };
+                    }
                 }
                 
                 const prompt2Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_2_compiled.md'), 'utf8');
@@ -2215,10 +2272,13 @@ class Orchestrator {
                         compliance: complianceData
                     };
                     if (this.state.vision_extracted_features && Object.keys(this.state.vision_extracted_features).length > 0) {
-                        agent4Data.physical_grounding_context = {
-                            ...this.state.vision_extracted_features,
-                            _instruction: "UWAGA: Poniższe cechy fizyczne (postać, zapach, przeznaczenie) wyznaczają realny obiekt użycia i stan skupienia formuły. Opisz mechanizm działania składników z INCI ściśle w kontekście tego produktu i powierzchni z instrukcji — bez kalek z innych kategorii i bez zmyślania składników."
-                        };
+                        const cleanedVisionA4 = deterministicEngine.cleanFeaturesForPrompt(this.state.vision_extracted_features);
+                        if (Object.keys(cleanedVisionA4).length > 0) {
+                            agent4Data.physical_grounding_context = {
+                                ...cleanedVisionA4,
+                                _instruction: "UWAGA: Poniższe cechy fizyczne (postać, zapach, przeznaczenie) wyznaczają realny obiekt użycia i stan skupienia formuły. Opisz mechanizm działania składników z INCI ściśle w kontekście tego produktu i powierzchni z instrukcji — bez kalek z innych kategorii i bez zmyślania składników."
+                            };
+                        }
                     }
 
                     const prompt4Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_4_compiled.md'), 'utf8');
@@ -2517,10 +2577,13 @@ class Orchestrator {
                     a4: this.state.a4_result
                 };
                 if (this.state.vision_extracted_features && Object.keys(this.state.vision_extracted_features).length > 0) {
-                    agent5Data.physical_grounding_context = {
-                        ...this.state.vision_extracted_features,
-                        _instruction: "UWAGA: W parach pytań i odpowiedzi FAQ (Sekcja 2) zachowaj pełną różnorodność tematyczną (skuteczność, typ skóry/powierzchni, sposób aplikacji, przechowywanie, bezpieczeństwo składników). Maksymalnie jedno pytanie może nawiązywać do dozownika/opakowania. ZAKAZ tworzenia powtarzalnych, szablonowych pytań wyłącznie o butelkę lub dozownik."
-                    };
+                    const cleanedVisionA5 = deterministicEngine.cleanFeaturesForPrompt(this.state.vision_extracted_features);
+                    if (Object.keys(cleanedVisionA5).length > 0) {
+                        agent5Data.physical_grounding_context = {
+                            ...cleanedVisionA5,
+                            _instruction: "UWAGA: W parach pytań i odpowiedzi FAQ (Sekcja 2) zachowaj pełną różnorodność tematyczną (skuteczność, typ skóry/powierzchni, sposób aplikacji, przechowywanie, bezpieczeństwo składników). Maksymalnie jedno pytanie może nawiązywać do dozownika/opakowania. ZAKAZ tworzenia powtarzalnych, szablonowych pytań wyłącznie o butelkę lub dozownik."
+                        };
+                    }
                 }
                 const prompt5Template = fs.readFileSync(path.join(__dirname, 'prompts', 'Agent_5_compiled.md'), 'utf8');
                 const prompt5 = prompt5Template.replace('{{SKU_DATA}}', JSON.stringify(agent5Data, null, 2));
@@ -3024,10 +3087,13 @@ class Orchestrator {
                         result[k] = brandResponsibleService.stripContactInfo(result[k]);
                         result[k] = deterministicEngine.sanitizeHtmlClaimsAndStopwords(result[k], {
                             productName: product?.text_fields?.name || this.state.product_name,
+                            brand: extracted.brand?.value || product?.brand?.name,
                             inci: this.state.extracted_data.inci?.value,
                             detergentComposition: this.state.extracted_data.detergent_composition?.value,
                             pimWarnings: pimWarningsVal,
-                            pimUsage: pimUsageVal
+                            pimUsage: pimUsageVal,
+                            isSafetySection: idx === 6,
+                            sectionType: idx === 6 ? 'section6' : (idx === 5 ? 'section5' : 'description')
                         });
                         if (isFullPipelineRun) {
                             result[k] = deterministicEngine.normalizeEmojiAndStructure(result[k], idx);
@@ -3039,10 +3105,13 @@ class Orchestrator {
                     let tips = brandResponsibleService.stripContactInfo(result.section_tips_html);
                     tips = deterministicEngine.sanitizeHtmlClaimsAndStopwords(tips, {
                         productName: product?.text_fields?.name || this.state.product_name,
+                        brand: extracted.brand?.value || product?.brand?.name,
                         inci: this.state.extracted_data.inci?.value,
                         detergentComposition: this.state.extracted_data.detergent_composition?.value,
                         pimWarnings: pimWarningsVal,
-                        pimUsage: pimUsageVal
+                        pimUsage: pimUsageVal,
+                        isSafetySection: false,
+                        sectionType: 'description'
                     });
                     if (isFullPipelineRun) {
                         tips = deterministicEngine.normalizeEmojiAndStructure(tips, 1);
@@ -3137,7 +3206,7 @@ class Orchestrator {
                     product_name: product?.text_fields?.name || undefined,
                     brand: extracted.brand?.value || undefined,
                     scent_variant: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'] || undefined,
-                    vision_features: this.state.vision_extracted_features || undefined,
+                    vision_features: deterministicEngine.cleanFeaturesForPrompt(this.state.vision_extracted_features || {}),
                     section_1_html: this.state.a6_result.section_1_html,
                     section_2_html: this.state.a6_result.section_2_html,
                     section_4_html: this.state.a6_result.section_4_html
@@ -3288,6 +3357,7 @@ class Orchestrator {
             return {
                 isMedicalDevice: Boolean(product?.is_medical_device),
                 productName: product?.text_fields?.name || this.state.product_name,
+                brand: extracted.brand?.value || product?.brand?.name || this.state.extracted_data?.brand?.value,
                 manufacturer: validManufacturer,
                 hasEyeIrritation,
                 hasSensitizers,
@@ -3336,7 +3406,7 @@ class Orchestrator {
                     pim_safety_warnings: auditCtxA11.pimWarnings,
                     pim_usage_instructions: auditCtxA11.pimUsage,
                     requires_protective_gloves: auditCtxA11.requiresProtectiveGloves,
-                    vision_features: this.state.vision_extracted_features || undefined,
+                    vision_features: deterministicEngine.cleanFeaturesForPrompt(this.state.vision_extracted_features || {}),
                     pre_audit_issues: [...preA11Audit.complianceIssues, ...preA11Audit.uxWarnings],
                     section_1_html: this.state.a7_result?.section_1_html,
                     section_2_html: this.state.a7_result?.section_2_html,
@@ -3522,7 +3592,7 @@ class Orchestrator {
                         pim_safety_warnings: pimWarningsA10,
                         pim_usage_instructions: pimUsageA10,
                         requires_protective_gloves: requiresGlovesA10,
-                        vision_features: this.state.vision_extracted_features || undefined,
+                        vision_features: deterministicEngine.cleanFeaturesForPrompt(this.state.vision_extracted_features || {}),
                         a11_escalation_reason: this.state.a11_escalation_reason || undefined,
                         section_1_html: this.state.a7_result.section_1_html,
                         section_2_html: this.state.a7_result.section_2_html,
@@ -3645,10 +3715,13 @@ class Orchestrator {
                             if (sec) {
                                 sec = deterministicEngine.sanitizeHtmlClaimsAndStopwords(sec, {
                                     productName: product?.text_fields?.name || this.state.product_name,
+                                    brand: extracted.brand?.value || product?.brand?.name,
                                     inci: this.state.extracted_data.inci?.value,
                                     detergentComposition: this.state.extracted_data.detergent_composition?.value,
                                     pimWarnings: pimWarningsA10,
-                                    pimUsage: pimUsageA10
+                                    pimUsage: pimUsageA10,
+                                    isSafetySection: i === 6,
+                                    sectionType: i === 6 ? 'section6' : (i === 5 ? 'section5' : 'description')
                                 });
                                 if (i === 6) sec = sanitizeSection6Html(sec);
                                 if (isFullPipelineRun) {

@@ -210,7 +210,7 @@
       "names": ["alcohols, c12-18, ethoxylated", "alcohols, c12-14, ethoxylated", "c12-15 pareth-7", "trideceth-9", "niejonowe środki powierzchniowo czynne", "non-ionic surfactants", "nonionic surfactants"],
       "role": "nonionic_surfactant",
       "cosmetic_html": "<li>⚙️ <b>Niejonowy emulgator (Ethoxylated Alcohols):</b> łączy fazę wodną z olejkami zapachowymi, zapewniając <b>klarowność i stabilność formuły</b>.</li>",
-      "chemical_html": "<li>⚙️ <b>Niejonowe środki powierzchniowo czynne:</b> obniżają napięcie powierzchniowe roztworu, dzięki czemu <b>błyskawicznie zwilżają czyszczoną powierzchnię, ułatwiają odspajanie zabrudzeń i zapewniają łatwe spłukiwanie bez smug</b>.</li>"
+      "chemical_html": "<li>⚙️ <b>Niejonowe środki powierzchniowo czynne:</b> obniżają napięcie powierzchniowe roztworu, dzięki czemu <b>szybko zwilżają czyszczoną powierzchnię, ułatwiają odspajanie zabrudzeń i zapewniają łatwe spłukiwanie bez smug</b>.</li>"
     },
     "cationic surfactants": {
       "names": ["kationowe środki powierzchniowo czynne", "cationic surfactants", "dihydrogenated tallowoylethyl hydroxyethylmonium methosulfate", "esterquat"],
@@ -258,7 +258,7 @@
       "names": ["sodium hypochlorite", "podchloryn sodu", "wybielacz", "candeggina", "aktywny chlor", "środki wybielające na bazie chloru", "związki wybielające na bazie chloru", "chlorine-based bleaching agents"],
       "role": "chlorine_bleach",
       "cosmetic_html": "<li>⚙️ <b>Sodium Hypochlorite:</b> składnik oczyszczający i rozjaśniający.</li>",
-      "chemical_html": "<li>⚙️ <b>Sodium Hypochlorite (Podchloryn sodu – aktywny wybielacz):</b> silny związek utleniający i wybielający, który <b>błyskawicznie rozkłada uporczywe przebarwienia oraz osady organiczne</b>, przywracając ceramice sanitarnej i zmywalnym powierzchniom <b>higieniczną czystość oraz śnieżną biel</b>.</li>"
+      "chemical_html": "<li>⚙️ <b>Sodium Hypochlorite (Podchloryn sodu – aktywny wybielacz):</b> silny związek utleniający i wybielający, który <b>szybko rozkłada uporczywe przebarwienia oraz osady organiczne</b>, przywracając ceramice sanitarnej i zmywalnym powierzchniom <b>higieniczną czystość oraz śnieżną biel</b>.</li>"
     },
     "sodium c14-17 alkyl sec sulfonate": {
       "names": ["sodium c14-17 alkyl sec sulfonate", "secondary alkane sulfonate", "alkanosulfonian sodu"],

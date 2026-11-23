@@ -3,6 +3,7 @@ const https = require('https');
 const aiWrapper = require('./ai.wrapper.js');
 const baselinkerExtract = require('./baselinker.extract.js');
 const { normalizeInciToLegalEnglish } = require('./normalization.js');
+const { sanitizeLabelHighlights, sanitizeAllegroMarketingText } = require('./services/allegro-compliance.policy');
 
 const imageHttpsAgent = new https.Agent({ 
     rejectUnauthorized: false,
@@ -137,12 +138,12 @@ KRYTYCZNE ZADANIA EKSTRAKCJI:
 5. Typ dozownika / zamknięcia: wskaż widoczny mechanizm po polsku (np. "pompka", "atomizer / spray", "korek / nakrętka", "nakrętka z miarką", "brak").
 6. Wydajność lub liczba użyć: jeśli podano liczbę prań, kapsułek lub doz (np. "40 prań", "60 kapsułek", "100 doz"), wpisz po polsku. W przeciwnym razie null.
 7. Przeznaczenie frontowe: główne docelowe zastosowanie podane na froncie, przetłumaczone w 100% na język polski bez obcojęzycznych wtrąceń w nawiasach (np. "uniwersalne czyszczenie powierzchni", "do czyszczenia kuchni i łazienki", "do higieny jamy ustnej", "do tkanin kolorowych"). Jeśli brak, null.
-8. Kluczowe hasła i wyróżniki z etykiety: lista haseł z frontu PRZETŁUMACZONYCH W 100% NA NATURALNY JĘZYK POLSKI (np. zamiast włoskich "Formula Migliorata", "Spray Attivo", "Potere Sbiancante", "Schiuma Potente" zwróć wyłącznie polskie odpowiedniki: ["Ulepszona formuła", "Aktywny spray", "Siła wybielania", "Aktywna piana"]). KATEGORYCZNY ZAKAZ zwracania słów po włosku/niemiecku/angielsku ani dopisywania ich w nawiasach! Jeśli brak, pusta tablica [].
+8. Zweryfikowane wyróżniki i certyfikaty użytkowe z etykiety ("glowne_hasla_front"): lista WYŁĄCZNIE obiektywnych, weryfikowalnych faktów użytkowych, testów i certyfikatów widocznych na froncie PRZETŁUMACZONYCH W 100% NA RZECZOWY JĘZYK POLSKI (np. ["Testowany dermatologicznie", "Bez smug", "Bez chloru", "Butelka w 30% z plastiku z recyklingu", "Ogranicza powstawanie kropel i zacieków", "Neutralizuje nieprzyjemne zapachy"]). KATEGORYCZNY ZAKAZ przepisywania haseł reklamowych, rankingów ("Nr 1", "N°1", "Najlepiej sprzedający się", "Il più venduto", "Bestseller"), rekomendacji obcych marek ("Raccomandato da Ideal Standard", "Polecany przez..."), etykiet rozmiaru/hype ("Format XXL", "Mega", "Nowość", "Ulepszona formuła", "Formula potente", "Luxury", "Premium", "100%"), zwrotów sprzedażowych ("do Twojej łazienki") ani obcojęzycznych sloganów! Jeśli na froncie są wyłącznie slogany reklamowe, zwróć pustą tablicę [].
 9. Kluczowe składniki wyróżnione na froncie (Hero Ingredients): lista najważniejszych składników aktywnych, ekstraktów, olejków lub substancji czyszczących eksponowanych na przedniej etykiecie, przetłumaczona w 100% na język polski (np. ["Wybielacz", "Olej arganowy", "Mydło marsylskie", "Kwas hialuronowy", "Aktywny tlen", "Soda oczyszczona", "Aloes"]). Jeśli brak, pusta tablica [].
 10. Rodzaj opakowania ("opakowanie_rodzaj"): określ po polsku typ pojemnika ze zdjęcia (np. "plastikowa butelka z atomizerem", "butelka z pompką", "plastikowa butelka", "zapas / worek / doypack", "kartonik", "plastikowe pudełko", "puszka (spray)", "tubka", "słoik", "kanister"). Jeśli niepewne, null.
 11. Liczba sztuk ("liczba_sztuk"): wyłącznie jeśli na froncie wyraźnie podano liczbę sztuk/tabletek/kapsułek/wkładów (np. "40 szt.", "25 kapsułek", "12 szt."). Dla pojedynczej butelki bez oznaczenia wielopaku zwróć null.
 12. Kraj produkcji ("kraj_produkcji_etykieta"): wyłącznie jeśli wyraźnie widoczny na froncie (np. "Made in Italy" -> "Włochy", "Made in Germany" -> "Niemcy"). W przeciwnym razie null.
-UWAGA PRAWNA (BPR 528/2012): Jeśli na zagranicznym opakowaniu widnieje słowo "Igienizzante", "Antibatterico", "Sanitizing", "Antibacterial" lub "Antybakteryjny", tłumacz je wyłącznie jako "Higieniczna czystość" lub "Głębokie oczyszczanie" (zakaz przypisywania właściwości biobójczych/antybakteryjnych/przeciwwirusowych).`;
+UWAGA PRAWNA (BPR 528/2012 & Allegro 2026): Jeśli na zagranicznym opakowaniu widnieje słowo "Igienizzante", "Antibatterico", "Sanitizing", "Antibacterial" lub "Antybakteryjny", tłumacz je wyłącznie jako "Higieniczna czystość" lub "Głębokie oczyszczanie" (zakaz przypisywania właściwości biobójczych/antybakteryjnych/przeciwwirusowych). Pomijaj wszelkie hasła reklamowe producenta, rankingi rynkowe i nazwy obcych firm rekomendujących.`;
 
 const frontVisionSchema = {
     type: "object",
@@ -185,21 +186,22 @@ function sanitizeVisionFrontText(str) {
         .replace(/\busuwa\s+(?:nawet\s+|do\s+)?100\s*%/gi, (m) => /^[A-Z]/.test(m) ? 'Skutecznie usuwa całość' : 'skutecznie usuwa całość')
         .replace(/\bw\s+100\s*%/gi, 'w pełni')
         .replace(/(?<!\d)(?:100|99[.,]9)\s*%\s*/g, '')
-        // 3. Usuwanie obcojęzycznych wtrąceń w nawiasach np. "(multiuso)", "(Potere Sbiancante)", "(Schiuma Potente)", "(Spray Attivo)", "(z wybielaczem)"
+        // 3. Usuwanie obcojęzycznych wtrąceń i czystych sloganów z etykiety
         .replace(/\s*\(\s*(?:multiuso|potere\s+sbiancante|schiuma\s+potente|spray\s+attivo|formula\s+migliorata|azione\s+sgrassante|senza\s+aloni|senza\s+risciacquo|con\s+candeggina|candeggina|z\s+wybielaczem|pulito\s+profondo|profumo\s+di\s+pulito)\s*\)/gi, '')
-        // 4. Tłumaczenie włoskich sloganów z etykiety frontowej na naturalny język polski
-        .replace(/\bformula\s+migliorata\b/gi, 'Ulepszona formuła')
-        .replace(/\bspray\s+attivo\b/gi, 'Aktywny spray')
-        .replace(/\bpotere\s+sbiancante\b/gi, 'Właściwości wybielające')
-        .replace(/\bschiuma\s+potente\b/gi, 'Aktywna piana')
+        // 4. Neutralizacja włoskich haseł z etykiety na rzeczowe fakty użytkowe (bez sloganów reklamowych)
+        .replace(/\bformula\s+migliorata\b/gi, '')
+        .replace(/\bspray\s+attivo\b/gi, '')
+        .replace(/\bpotere\s+sbiancante\b/gi, '')
+        .replace(/\bschiuma\s+potente\b/gi, '')
         .replace(/\bazione\s+sgrassante\b/gi, 'Działanie odtłuszczające')
         .replace(/\bsenza\s+aloni\b/gi, 'Bez smug')
         .replace(/\bsenza\s+risciacquo\b/gi, 'Bez spłukiwania')
-        .replace(/\bprofumo\s+di\s+pulito\b/gi, 'Świeży zapach czystości')
+        .replace(/\bprofumo\s+di\s+pulito\b/gi, '')
         .replace(/\bpulito\s+profondo\b/gi, 'Głębokie czyszczenie')
         .replace(/\bcon\s+candeggina\b/gi, 'z wybielaczem')
         .replace(/\bcandeggina\b/gi, 'Wybielacz')
-        .replace(/\bmultiuso\b/gi, 'wielofunkcyjny')
+        .replace(/\bmultiuso\b/gi, 'wielofunkcyjny');
+    cleaned = sanitizeAllegroMarketingText(cleaned, { isFeatureHighlight: true })
         .replace(/\s{2,}/g, ' ')
         .trim();
     if (cleaned.length > 0 && /^[a-ząćęłńóśźż]/.test(cleaned) && /^[A-ZĄĆĘŁŃÓŚŹŻ0-9]/.test(str.trim())) {
@@ -315,13 +317,16 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
             pimFeatures['Wydajność'] = String(result.wydajnosc_liczba_uzyc).trim();
         }
         if (result.przeznaczenie_front && String(result.przeznaczenie_front).trim().length > 0) {
-            pimFeatures['Przeznaczenie (Front)'] = sanitizeVisionFrontText(String(result.przeznaczenie_front).trim());
+            const cleanPurpose = sanitizeVisionFrontText(String(result.przeznaczenie_front).trim());
+            if (cleanPurpose) pimFeatures['Przeznaczenie (Front)'] = cleanPurpose;
         }
         if (Array.isArray(result.glowne_hasla_front) && result.glowne_hasla_front.length > 0) {
-            pimFeatures['Wyróżniki (Etykieta Front)'] = result.glowne_hasla_front
-                .map(s => sanitizeVisionFrontText(String(s).trim()))
-                .filter(Boolean)
-                .join(', ');
+            const cleanedHighlights = sanitizeLabelHighlights(
+                result.glowne_hasla_front.map(s => String(s || '').trim()).filter(Boolean)
+            );
+            if (cleanedHighlights.text) {
+                pimFeatures['Wyróżniki (Etykieta Front)'] = cleanedHighlights.text;
+            }
         }
         if (Array.isArray(result.kluczowe_skladniki_front) && result.kluczowe_skladniki_front.length > 0) {
             pimFeatures['Składniki wiodące (Front)'] = result.kluczowe_skladniki_front
@@ -398,7 +403,7 @@ ZASADY ANALIZY (DOKTRYNA ZAMKNIĘTEGO ŚWIATA – ZERO ZGADYWANIA):
 
 5. EKSTRAKCJA POWIERZCHNI DOCELOWYCH, CERTYFIKATÓW / TESTÓW, PRODUCENTA I KRAJU ("target_surfaces", "certifications_and_claims", "manufacturer_name", "country_of_origin", "packaging_type", "pieces_count", "numeric_ph"):
    - W "target_surfaces" wypisz po polsku wszystkie powierzchnie i zastosowania wymienione w opisie na tylnej etykiecie (np. "do czyszczenia szyb, kryształów, luster oraz powierzchni plastikowych i laminowanych").
-   - W "certifications_and_claims" wypisz po polsku wszystkie certyfikaty, badania i atuty środowiskowe z tylnej etykiety (np. "certyfikat Air Label Score A+ (minimalna emisja substancji do powietrza), testowany dermatologicznie, testowany na obecność niklu, rtęci, ołowiu i chromu, odpowiedni do planów H.A.C.C.P., butelka zawiera 30% plastiku z recyklingu").
+   - W "certifications_and_claims" wypisz po polsku WYŁĄCZNIE obiektywne, weryfikowalne certyfikaty, testy laboratoryjne i fakty materiałowe z tylnej etykiety (np. "certyfikat Air Label Score A+ (minimalna emisja substancji do powietrza), testowany dermatologicznie, testowany na obecność niklu, rtęci, ołowiu i chromu, odpowiedni do planów H.A.C.C.P., butelka zawiera 30% plastiku z recyklingu"). KATEGORYCZNY ZAKAZ przepisywania haseł reklamowych, rankingów rynkowych ("Najlepiej sprzedający się produkt we Włoszech", "*il più venduto in Italia", "Nr 1"), rekomendacji obcych marek ani obietnic skuteczności! Jeśli brak zweryfikowanych certyfikatów/faktów, ustaw null.
    - W "manufacturer_name" podaj pełną nazwę producenta z kontretykiety (np. "Italchimica S.r.l.").
    - W "country_of_origin" podaj kraj produkcji po polsku wyłącznie jeśli wyraźnie widoczny na etykiecie (np. "Made in Italy" -> "Włochy"). W przeciwnym razie null.
    - W "packaging_type" podaj rodzaj opakowania jeśli wyraźnie widoczny na etykiecie (np. "plastikowa butelka z atomizerem", "worek uzupełniający", "kartonik"). W przeciwnym razie null.
@@ -513,11 +518,15 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                 }
 
                 if (result.target_surfaces && typeof result.target_surfaces === 'string' && result.target_surfaces.trim().length >= 5) {
-                    pimFeatures['Przeznaczenie (Etykieta)'] = sanitizeVisionFrontText(result.target_surfaces.trim());
+                    const cleanSurfaces = sanitizeVisionFrontText(result.target_surfaces.trim());
+                    if (cleanSurfaces) pimFeatures['Przeznaczenie (Etykieta)'] = cleanSurfaces;
                 }
 
                 if (result.certifications_and_claims && typeof result.certifications_and_claims === 'string' && result.certifications_and_claims.trim().length >= 5) {
-                    pimFeatures['Wyróżniki / Certyfikaty (Etykieta)'] = sanitizeVisionFrontText(result.certifications_and_claims.trim());
+                    const filteredCerts = sanitizeLabelHighlights(result.certifications_and_claims.trim());
+                    if (filteredCerts.text) {
+                        pimFeatures['Wyróżniki / Certyfikaty (Etykieta)'] = filteredCerts.text;
+                    }
                 }
 
                 if (result.manufacturer_name && typeof result.manufacturer_name === 'string' && result.manufacturer_name.trim().length >= 3) {

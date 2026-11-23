@@ -4,6 +4,10 @@ const brandResponsibleService = require('../brand.responsible.service');
 const gpsrSafetyService = require('./gpsr.safety.service');
 const { normalizeInciToLegalEnglish, stripRawInciFooterFromSection3 } = require('../normalization');
 const { classifyProductPhysicalForm } = require('./product-form.classifier');
+const {
+    sanitizeLabelHighlights,
+    sanitizeAllegroMarketingText
+} = require('./allegro-compliance.policy');
 
 const INCI_MECH_PATH = path.join(__dirname, '..', 'data', 'reference', 'inci_mechanisms_pl.json');
 
@@ -71,10 +75,19 @@ function cleanFeaturesForPrompt(featuresObj) {
         }
 
         const isCapKey = /(pojemno[sś][cć]|waga|capacity|weight)/i.test(keyLower);
+        const isHighlightKey = /(wyr[oó][żz]nik|wyroznik|certyfikat|cechy\s+dodatkowe|has[lł])/i.test(keyLower);
         if (isCapKey) {
             cleaned[rawKey] = normalizeCapacityValue(valStr, featuresObj?.['Nazwa'] || '', featuresObj);
+        } else if (isHighlightKey) {
+            const sanitizedHighlights = sanitizeLabelHighlights(valStr, {
+                isMedicalDevice: Boolean(featuresObj?.is_medical_device),
+                productName: featuresObj?.['Nazwa'] || ''
+            });
+            if (sanitizedHighlights.text) {
+                cleaned[rawKey] = sanitizedHighlights.text;
+            }
         } else {
-            cleaned[rawKey] = isInciOrLabelKey ? valStr : sanitizeHtmlClaimsAndStopwords(valStr);
+            cleaned[rawKey] = isInciOrLabelKey ? valStr : sanitizeHtmlClaimsAndStopwords(valStr, { productName: featuresObj?.['Nazwa'] || '' });
         }
     }
     return cleaned;
@@ -273,14 +286,17 @@ function sanitizeOfferTitle(rawTitle) {
         })
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:leczy|goi\s+rany|antybiotyk[a-ząćęłńóśźż]*|lekarstwo)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'Pielęgnacja');
 
-    // C. Eliminacja słów zakazanych przez Regulamin Allegro 2026 (§A Stop-words) z tytułu (z pełnymi polskimi granicami słów Unicode)
+    // C. Eliminacja słów i zwrotów zakazanych przez Regulamin Allegro 2026 (§A + polityka ukrytych ryzyk) z tytułu
     title = title
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:w\s+)?100\s*%/gi, '')
-        .replace(/(?<!\d)100\s*%/g, '')
+        .replace(/(?<!\d)(?:100|99[.,]9)\s*%/g, '')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:100%\s*)?(?:orygina[łl][a-ząćęłńóśźż]*|oryginaln[a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:gwarancj[a-ząćęłńóśźż]*|gwarantuj[a-ząćęłńóśźż]*|niezawodn[a-ząćęłńóśźż]*|cudown[a-ząćęłńóśźż]*|magiczn[a-ząćęłńóśźż]*|najlepsz[a-ząćęłńóśźż]*|bezkonkurencyjn[a-ząćęłńóśźż]*|niezrównan[a-ząćęłńóśźż]*|rewelacyjn[a-ząćęłńóśźż]*|rewelacj[a-ząćęłńóśźż]*|ekstra|numer\s+1|nr\s+1)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:hit\s+cenowy|super\s+cena|niska\s+cena|cena\s+hurtowa|najniższa\s+cena|darmowa\s+dostawa|szybka\s+wysyłka|wysyłka\s+24h|kup\s+teraz|zamów\s+teraz|tylko\s+u\s+nas)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:bestseller[a-ząćęłńóśźż]*|promocj[a-ząćęłńóśźż]*|promocyjn[a-ząćęłńóśźż]*|wyprzeda[żz][a-ząćęłńóśźż]*|okazj[a-ząćęłńóśźż]*|okazyjn[a-ząćęłńóśźż]*|gratis[a-ząćęłńóśźż]*|rabat[a-ząćęłńóśźż]*|upust[a-ząćęłńóśźż]*|zniżk[a-ząćęłńóśźż]*|najtaniej|tanio|tani[a-ząćęłńóśźż]*|allegro|aukcj[a-ząćęłńóśźż]*|polecam[a-ząćęłńóśźż]*|nowoś[ćc][a-ząćęłńóśźż]*|mega|super|hit)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '');
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:gwarancj[a-ząćęłńóśźż]*|gwarantuj[a-ząćęłńóśźż]*|niezawodn[a-ząćęłńóśźż]*|cudown[a-ząćęłńóśźż]*|magiczn[a-ząćęłńóśźż]*|najlepsz[a-ząćęłńóśźż]*|bezkonkurencyjn[a-ząćęłńóśźż]*|niezrównan[a-ząćęłńóśźż]*|rewelacyjn[a-ząćęłńóśźż]*|rewelacj[a-ząćęłńóśźż]*|ekstra|numer\s*#?\s*1|nr\s*#?\s*1|n°\s*1|chętnie\s+wybieran[a-ząćęłńóśźż]*|najlepiej\s+sprzedając[a-ząćęłńóśźż]*\s+się|lider\s+rynku)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:rekomendowan|polecan|zatwierdzon)[a-ząćęłńóśźż]*\s+przez\s+[A-Za-zĄĆĘŁŃÓŚŹŻ0-9&.-]+(?:\s+[A-Za-zĄĆĘŁŃÓŚŹŻ0-9&.-]+){0,3}(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:w\s+)?(?:formacie|format|opakowaniu|opakowanie|rozmiarze|rozmiar|wersji|wersja)\s+(?:XXL|Jumbo|Maxi|Mega|Family)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:nowa\s+)?(?:ulepszona|mocniejsza)\s+formuł[a-ząćęłńóśźż]*(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:hit\s+cenowy|super\s+cena|niska\s+cena|cena\s+hurtowa|najniższa\s+cena|darmowa\s+dostawa|natychmiastowa\s+wysyłka|szybka\s+wysyłka|wysyłka\s+24h|wysyłka\s+tego\s+samego\s+dnia|kup\s+teraz|zamów\s+teraz|tylko\s+u\s+nas|jakość\s+premium|klasa\s+premium)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:bestseller[a-ząćęłńóśźż]*|promocj[a-ząćęłńóśźż]*|promocyjn[a-ząćęłńóśźż]*|wyprzeda[żz][a-ząćęłńóśźż]*|okazj[a-ząćęłńóśźż]*|okazyjn[a-ząćęłńóśźż]*|gratis[a-ząćęłńóśźż]*|rabat[a-ząćęłńóśźż]*|upust[a-ząćęłńóśźż]*|zniżk[a-ząćęłńóśźż]*|najtaniej|tanio|tani[a-ząćęłńóśźż]*|allegro|aukcj[a-ząćęłńóśźż]*|polecam[a-ząćęłńóśźż]*|nowoś[ćc][a-ząćęłńóśźż]*|mega|super|hit|błyskawiczn[a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, '');
 
     // Czyszczenie nadmiarowych spacji i wiszących myślników
     title = title
@@ -299,6 +315,24 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
     if (!htmlStr || typeof htmlStr !== 'string') return htmlStr;
     // Zabezpieczenie progów stężeń (<5%, <15%, <30%) przed błędną interpretacją jako tagi HTML (<5>)
     let res = htmlStr.replace(/<(\d)/g, '< $1');
+    const isSafetySec = context?.isSafetySection === true || context?.sectionType === 'section6';
+
+    // KROK 0: Ochrona Sekcji 6 (ostrzeżenia CLP/GPSR są nietykalne merytorycznie — wyłącznie zakaz kontaktu i "oryginalny")
+    if (isSafetySec) {
+        return res
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])w\s+oryginalnym\s+opakowaniu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'w fabrycznym opakowaniu producenta')
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])oryginaln(e|ego|ym|ych)\s+opakowani(e|a|u|ach)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'fabryczne opakowanie producenta')
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])oryginaln(y|a|e|ym|ych|ego|ej|ą)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => `fabryczn${s.toLowerCase()}`)
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])orygina[łl][a-ząćęłńóśźż]*(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'produkt fabryczny')
+            .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
+            .replace(/https?:\/\/[^\s<>"']+/gi, '')
+            .replace(/\bwww\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s<>"']*)?/gi, '')
+            .replace(/(?<![a-zA-Z0-9@])[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.(?:com|it|pl|eu|de|fr|org|net|nl)(?:\/[^\s<>"']*)?(?![a-zA-Z0-9])/gi, '')
+            .replace(/\bDO OCZÓW\b/gi, 'DO OCZU')
+            .replace(/\bKONTATKT?U\b/gi, 'KONTAKTU')
+            .replace(/::+/g, ':')
+            .replace(/\s{2,}/g, ' ');
+    }
 
     // --- KROK A: TARCZA ANTY-BIOBÓJCZA (Rozp. UE 528/2012 BPR & Ustawa o produktach biobójczych) ---
     res = res
@@ -383,13 +417,14 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
             if (low === 'ie') return 'skutecznie';
             return `skuteczn${low}`;
         })
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:rewelacj[a-ząćęłńóśźż]*|numer\s+1|nr\s+1|ekstra)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wysoka skuteczność')
-        // Promocje, ceny, CTA (z granicami słów Unicode, co chroni polskie wyrazy typu "sprzątania", "pytania", "czytania")
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:najniższa\s+cena|nisk[a-ząćęłńóśźż]*\s+cen[a-ząćęłńóśźż]*|super\s+cen[a-ząćęłńóśźż]*|cen[a-ząćęłńóśźż]*\s+hurtow[a-ząćęłńóśźż]*|darmow[a-ząćęłńóśźż]*\s+dostaw[a-ząćęłńóśźż]*|za\s+darmo|kup\s+teraz|kupuj\s+teraz|zamów\s+teraz|dodaj\s+do\s+koszyka|tylko\s+u\s+nas|sprawdź\s+to|szybka\s+wysyłka|wysyłk[a-ząćęłńóśźż]*\s+24h|hit[a-ząćęłńóśźż]*\s+cenow[a-ząćęłńóśźż]*|lepsze\s+niż|w\s+stylu)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wysoka wydajność')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:gratis[a-ząćęłńóśźż]*|darmow[a-ząćęłńóśźż]*|najtaniej|tanio|tani[a-ząćęłńóśźż]*|promocj[a-ząćęłńóśźż]*|promocyjn[a-ząćęłńóśźż]*|wyprzeda[żz][a-ząćęłńóśźż]*|bestseller[a-ząćęłńóśźż]*|nowoś[ćc][a-ząćęłńóśźż]*|rabat[a-ząćęłńóśźż]*|upust[a-ząćęłńóśźż]*|zniżk[a-ząćęłńóśźż]*|kliknij|allegro|aukcj[a-ząćęłńóśźż]*|odpowiednik|zamiennik)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'produkt')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:okazj[a-ząćęłńóśźż]*|okazyjn[a-ząćęłńóśźż]*|prezent[a-ząćęłńóśźż]*|hit[a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wybór')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])polecam(y)?(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'zaleca się')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:mega|super)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wysoce');
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])polecam(y)?(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'zaleca się');
+
+    // --- KROK C2: CENTRALNA POLITYKA ZGODNOŚCI ALLEGRO (rankingi, obce marki, hype XXL, technologia, 2. osoba, ciche triggery — BEZ podmiany na "wysoka skuteczność") ---
+    res = sanitizeAllegroMarketingText(res, {
+        isSafetySection: isSafetySec,
+        brand: context?.brand,
+        productName: context?.productName
+    });
 
     // --- KROK D: ELIMINACJA OBCOJĘZYCZNYCH WTRĄCEŃ W NAWIASACH (np. "(Potere Sbiancante)", "(Schiuma Potente)", "(multiuso)") ---
     res = res
@@ -470,7 +505,7 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
         .replace(/(?:w\s+codziennych\s+porządkach|w\s+regularnych\s+porządkach)/gi, 'w doraźnych zabiegach czyszczących')
         .replace(/wiele\s+tygodni\s+regularnych\s+porządków/gi, 'wiele doraźnych zabiegów czyszczących')
         // Eliminacja kalek pralniczych
-        .replace(/rozpuszczają\s+zaschnięty\s+tłuszcz,\s+oleje\s+i\s+sebum\s+już\s+w\s+niskich\s+temperaturach\s*\(od\s*20[–-]30\s*°?\s*C\)/gi, 'błyskawicznie zwilżają czyszczoną powierzchnię, ułatwiając odspajanie zabrudzeń organicznych oraz ich spłukiwanie bez smug')
+        .replace(/rozpuszczają\s+zaschnięty\s+tłuszcz,\s+oleje\s+i\s+sebum\s+już\s+w\s+niskich\s+temperaturach\s*\(od\s*20[–-]30\s*°?\s*C\)/gi, 'szybko zwilżają czyszczoną powierzchnię, ułatwiając odspajanie zabrudzeń organicznych oraz ich spłukiwanie bez smug')
         .replace(/już\s+w\s+niskich\s+temperaturach\s*\(od\s*20[–-]30\s*°?\s*C\)/gi, 'podczas codziennego zmywania i czyszczenia')
         .replace(/chronią\s+grzałkę\s+pralki\s+przed\s+kamieniem\s+i\s+zapobiegają\s+szarzeniu\s+tkanin/gi, 'wiążą jony twardości wody, zapobiegając powstawaniu zacieków wapiennych na armaturze i ceramice')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])tłuszcz,\s*oleje\s+i\s+sebum(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'tłuszcz, oleje i zabrudzenia organiczne');
@@ -767,7 +802,7 @@ function tryBuildDeterministicSection3({
 
         if (isToiletWc && resolvedIsChemical) {
             if (dbKey === 'sodium hypochlorite') {
-                return '<li>⚙️ <b>Sodium Hypochlorite (Podchloryn sodu – aktywny wybielacz):</b> silny związek utleniający i wybielający, który <b>błyskawicznie rozkłada uporczywe przebarwienia, zżółknięcia oraz osady organiczne w muszli toaletowej</b>, przywracając ceramice WC <b>higieniczną czystość oraz śnieżną biel</b>.</li>';
+                return '<li>⚙️ <b>Sodium Hypochlorite (Podchloryn sodu – aktywny wybielacz):</b> silny związek utleniający i wybielający, który <b>szybko rozkłada uporczywe przebarwienia, zżółknięcia oraz osady organiczne w muszli toaletowej</b>, przywracając ceramice WC <b>higieniczną czystość oraz śnieżną biel</b>.</li>';
             }
             if (dbKey === 'sodium hydroxide') {
                 return '<li>⚙️ <b>Sodium Hydroxide (Wodorotlenek sodu):</b> regulator zasadowego pH i składnik alkaliczny, który <b>wspomaga rozkładanie osadów organicznych w muszli toaletowej</b> oraz stabilizuje trwałość i skuteczność podchlorynu sodu w formule żelu.</li>';
@@ -784,7 +819,7 @@ function tryBuildDeterministicSection3({
 
         if (isMoldOrGrout && resolvedIsChemical) {
             if (dbKey === 'sodium hypochlorite') {
-                return '<li>⚙️ <b>Sodium Hypochlorite (Podchloryn sodu – aktywny wybielacz):</b> silny związek utleniający i wybielający, który <b>błyskawicznie rozkłada uporczywe przebarwienia, ciemne naloty w fugach oraz osady organiczne</b>, przywracając ceramice sanitarnej i zmywalnym powierzchniom <b>higieniczną czystość oraz śnieżną biel</b>.</li>';
+                return '<li>⚙️ <b>Sodium Hypochlorite (Podchloryn sodu – aktywny wybielacz):</b> silny związek utleniający i wybielający, który <b>szybko rozkłada uporczywe przebarwienia, ciemne naloty w fugach oraz osady organiczne</b>, przywracając ceramice sanitarnej i zmywalnym powierzchniom <b>higieniczną czystość oraz śnieżną biel</b>.</li>';
             }
             if (dbKey === 'cocamine oxide') {
                 return '<li>⚙️ <b>Cocamine Oxide (Tlenek kokaminy):</b> wysoce odporny na utleniacze surfaktant amfoteryczny, który <b>generuje gęstą, aktywną pianę utrzymującą preparat na pionowych ścianach i wnikającą głęboko w porowate fugi</b>.</li>';
@@ -894,7 +929,7 @@ function tryBuildDeterministicSection3({
         if (isGlassOrMirrorSpray) {
             matchedBenefits.unshift(
                 hasAirLabelOrNatural
-                    ? '<li>⚙️ <b>Technologia niskiej emisji lotnych związków (certyfikat Air Label Score A+):</b> zoptymalizowana czystość parowania ogranicza uwalnianie substancji do powietrza w pomieszczeniu, <b>zapewniając komfort oddechowy i przyjazny mikroklimat podczas sprzątania</b>.</li>'
+                    ? '<li>⚙️ <b>Układ niskiej emisji lotnych związków (certyfikat Air Label Score A+):</b> zoptymalizowana czystość parowania ogranicza uwalnianie substancji do powietrza w pomieszczeniu, <b>zapewniając komfort oddechowy i przyjazny mikroklimat podczas sprzątania</b>.</li>'
                     : '<li>⚙️ <b>Układ antystatyczno-nabłyszczający do gładkich tafli:</b> przyspiesza równomierne wysychanie rozpylonej mgiełki po przetarciu suchą ściereczką, <b>nadając powierzchniom krystaliczny połysk bez konieczności długiego polerowania</b>.</li>'
             );
             matchedBenefits.unshift(
@@ -1068,12 +1103,9 @@ function buildDeterministicSection5({
 
     const cleanItalianAndClaims = (str) => {
         if (!str || typeof str !== 'string') return '';
-        return sanitizeHtmlClaimsAndStopwords(str, { productName: cleanTitle })
+        return sanitizeHtmlClaimsAndStopwords(str, { productName: cleanTitle, brand: brand || features?.['Marka'] })
             .replace(/\s*\(\s*(?:multiuso|potere\s+sbiancante|schiuma\s+potente|spray\s+attivo|formula\s+migliorata|azione\s+sgrassante|senza\s+aloni|senza\s+risciacquo|con\s+candeggina|candeggina|z\s+wybielaczem|pulito\s+profondo|profumo\s+di\s+pulito)\s*\)/gi, '')
-            .replace(/\bformula\s+migliorata\b/gi, 'Ulepszona formuła')
-            .replace(/\bspray\s+attivo\b/gi, 'Aktywny spray')
-            .replace(/\bpotere\s+sbiancante\b/gi, 'Siła wybielania')
-            .replace(/\bschiuma\s+potente\b/gi, 'Aktywna piana')
+            .replace(/\b(?:formula\s+migliorata|spray\s+attivo|potere\s+sbiancante|schiuma\s+potente)\b/gi, '')
             .replace(/\bazione\s+sgrassante\b/gi, 'Działanie odtłuszczające')
             .replace(/\bsenza\s+aloni\b/gi, 'Bez smug')
             .replace(/\bsenza\s+risciacquo\b/gi, 'Bez spłukiwania')
@@ -1218,23 +1250,17 @@ function buildDeterministicSection5({
     const resolvedPrzeznaczenie = (backPrzeznaczenie.length > frontPrzeznaczenie.length) ? backPrzeznaczenie : (frontPrzeznaczenie || backPrzeznaczenie);
     const mergedWyroznikiParts = [
         visionFeatures?.['Wyróżniki (Etykieta Front)'],
+        features?.['Wyróżniki (Etykieta Front)'],
         features?.['Wyróżniki / Certyfikaty (Etykieta)'],
         features?.['Cechy dodatkowe'],
         features?.['Wyróżniki']
     ].filter(Boolean).join(', ');
-    const seenWyroznikSet = new Set();
-    const resolvedWyrozniki = mergedWyroznikiParts
-        .split(/[,;|]+/)
-        .map(s => s.trim())
-        .filter(s => {
-            if (!s) return false;
-            if (/^(?:brak|brak\s+danych|brak\s+informacji|nie\s+dotyczy|n\/a|-)$/i.test(s)) return false;
-            const k = s.toLowerCase();
-            if (seenWyroznikSet.has(k)) return false;
-            seenWyroznikSet.add(k);
-            return true;
-        })
-        .join(', ');
+    const filteredWyrozniki = sanitizeLabelHighlights(mergedWyroznikiParts, {
+        isMedicalDevice,
+        brand: brand || features?.['Marka'] || visionFeatures?.['Marka'],
+        productName: productName || features?.['Nazwa']
+    });
+    const resolvedWyrozniki = filteredWyrozniki.text;
     let resolvedCountry = countryOfOrigin || features?.['Kraj pochodzenia'] || features?.['Kraj produkcji'] || features?.['Kraj pochodzenia (Front)'] || features?.['Kraj pochodzenia (Etykieta)'] || visionFeatures?.['Kraj pochodzenia (Front)'] || '';
 
     // Korekta wyłącznie gdy kraj pochodzenia jest pusty (wyciągamy z adresu w rejestrze producenta UE)
@@ -1289,15 +1315,7 @@ function buildDeterministicSection5({
         addParam('Wydajność deklarowana', formattedWydajnosc);
     }
     if (resolvedWyrozniki) {
-        // Eliminacja pustych sloganów reklamowych z wyróżników produktu (np. Siła wybielania, Potere Sbiancante)
-        const cleanWyrozniki = String(resolvedWyrozniki)
-            .split(/[,;]+/)
-            .map(s => s.trim())
-            .filter(s => s && !/(?:siła\s+wybielania|potere\s+sbiancante|ulepszona\s+formuła|formula\s+migliorata|aktywny\s+spray|spray\s+attivo|silna\s+formuła|super\s+moc|moc\s+czyszczenia|błyskawiczne\s+działanie)/i.test(s))
-            .join(', ');
-        if (cleanWyrozniki) {
-            addParam('Właściwości i wyróżniki', cleanWyrozniki);
-        }
+        items.push(`<li>${paramBullet} <b>Właściwości i wyróżniki:</b> ${resolvedWyrozniki}</li>`);
     }
     addParam('Kraj pochodzenia', resolvedCountry);
     addParam('Stan opakowania', 'Fabryczne opakowanie producenta');

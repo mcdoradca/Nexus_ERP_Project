@@ -1,6 +1,7 @@
 const cheerio = require('cheerio');
 const { normalizeInciToLegalEnglish, stripRawInciFooterFromSection3 } = require('../modules/offer-optimizer-v2/normalization');
 const { resolveOrderedVisibleDescriptionSections } = require('../services/workspaceContentProfile.service');
+const { auditOfferDraftCompliance } = require('../modules/offer-optimizer-v2/services/allegro-compliance.policy');
 
 const MAX_SAFETY_TEXT_LEN = 5000;
 const MAX_ALLEGRO_DESCRIPTION_BYTES = 40000;
@@ -1711,6 +1712,18 @@ function buildAllegroContentPreflight({
         }
     }
 
+    let complianceAudit = { clean: true, totalIssues: 0, issues: [], warnings: [] };
+    if (effectiveIncludeDescription) {
+        complianceAudit = auditOfferDraftCompliance({
+            title: existingOffer?.name || '',
+            htmlContent,
+            descriptionHtml
+        });
+        if (complianceAudit.warnings.length > 0) {
+            warnings.push(...complianceAudit.warnings);
+        }
+    }
+
     const imagesNeedUploadCount = effectiveIncludeImages
         ? collected.images.filter(img => !img.isAllegroHosted).length
         : 0;
@@ -1729,6 +1742,7 @@ function buildAllegroContentPreflight({
         hasChanges,
         errors,
         warnings,
+        complianceAudit,
         trusted: {
             imagesBlocked: imagesBlockedByTrusted,
             descriptionBlocked: descriptionBlockedByTrusted

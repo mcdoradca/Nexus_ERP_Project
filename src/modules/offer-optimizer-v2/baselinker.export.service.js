@@ -8,6 +8,7 @@ const { getBaseLinkerToken } = require('../../utils/secretVault');
 const { isValidExportImageUrl } = require('../../utils/allegro_mapper');
 const { stripRawInciFooterFromSection3 } = require('./normalization');
 const { resolveOrderedVisibleDescriptionSections } = require('../../services/workspaceContentProfile.service');
+const { auditOfferDraftCompliance } = require('./services/allegro-compliance.policy');
 
 const INTERNAL_BACK_IMAGE_KEYS = new Set([
     'zdjęcie tyłu opakowania',
@@ -674,7 +675,18 @@ class BaselinkerExportService {
             }
         }
 
-        return { payload, warnings };
+        const complianceAudit = auditOfferDraftCompliance({
+            title: draftData?.title || '',
+            htmlContent: draftData?.htmlContent || (draftData?.sekcja1 ? draftData : null),
+            descriptionHtml: payload.text_fields?.description || '',
+            brand: product?.brand?.name || mergedFeatures?.Marka || '',
+            productName: product?.name || draftData?.title || ''
+        });
+        if (complianceAudit.warnings.length > 0) {
+            warnings.push(...complianceAudit.warnings);
+        }
+
+        return { payload, warnings, complianceAudit };
     }
 
     /**

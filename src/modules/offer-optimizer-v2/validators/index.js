@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const cheerio = require('cheerio');
 const { isRawInciFooterText } = require('../normalization');
 const { classifyProductPhysicalForm } = require('../services/product-form.classifier');
+const { scanStrictStopwords, scanAllegroComplianceRisks } = require('../services/allegro-compliance.policy');
 
 // V1
 function ean_checksum(gtin) {
@@ -45,41 +46,14 @@ function route_chemical(pim) {
     return { is_chemical: reasons.length > 0, reasons };
 }
 
-// V3 — Słowa i frazy zakazane przez Regulamin Allegro (Stan na 2026 r.) + UOKiK Overpromising
+// V3 — Słowa i frazy zakazane przez Regulamin Allegro (Stan na 2026 r.) + UOKiK Overpromising (delegowane do SSOT allegro-compliance.policy)
 function scan_stopwords(html) {
-    if (!html) return [];
-    const stopwords = [
-        // Gwarancje, oświadczenia pewnościowe i autentyczność (najdłuższe frazy najpierw)
-        'gwarancj[aeiłąę]* najniższej ceny', 'gwarancj[aeiłąę]* jakoś[ćc]i', 'gwarancj[aeiłąę]* satysfakcji', 'gwarancj[aeiłąę]* zwrotu',
-        'gwarancj[aeiłąę]*', 'gwarantuj[a-ząćęłńóśźż]*',
-        'udowodnion[a-ząćęłńóśźż]* skutecznoś[ćc]', 'w 100% udowodnion[a-ząćęłńóśźż]*', '100% udowodnion[a-ząćęłńóśźż]*',
-        'pewnoś[ćc] działania', 'pewnoś[ćc] zakupu', '100% pewnoś[ćc]i',
-        'w\\s+100\\s*%', '(?<!\\d)100\\s*%', 'najlepsz[a-ząćęłńóśźż]*', 'bezkonkurencyjn[a-ząćęłńóśźż]*', 'niezrównan[a-ząćęłńóśźż]*', 'rewelacyjn[a-ząćęłńóśźż]*', 'rewelacj[a-ząćęłńóśźż]*', 'numer\\s+1', 'nr\\s+1', 'ekstra', 'cudown[a-ząćęłńóśźż]*', 'magiczn[a-ząćęłńóśźż]*', 'niezawodn[a-ząćęłńóśźż]*',
-        'oryginalnoś[ćc][a-ząćęłńóśźż]*', 'oryginaln[a-ząćęłńóśźż]*', 'orygina[łl][a-ząćęłńóśźż]*',
+    return scanStrictStopwords(html);
+}
 
-        // Promocje, ceny, rabaty
-        'najniższa cena', 'nisk[a-ząćęłńóśźż]* cen[a-ząćęłńóśźż]*', 'super cen[a-ząćęłńóśźż]*', 'cen[a-ząćęłńóśźż]* hurtow[a-ząćęłńóśźż]*',
-        'gratis[a-ząćęłńóśźż]*', 'darmow[a-ząćęłńóśźż]* dostaw[a-ząćęłńóśźż]*', 'darmow[a-ząćęłńóśźż]*', 'za darmo',
-        'tanio', 'tani[a-ząćęłńóśźż]*', 'najtaniej',
-        'promocj[aeiłąę]*', 'promocyjn[a-ząćęłńóśźż]*', 'wyprzeda[żz][a-ząćęłńóśźż]*',
-        'hit[a-ząćęłńóśźż]* cenow[a-ząćęłńóśźż]*', 'hit[a-ząćęłńóśźż]*',
-        'prezent[a-ząćęłńóśźż]*', 'okazj[aeiłąę]*', 'okazyjn[a-ząćęłńóśźż]*',
-        'bestseller[a-ząćęłńóśźż]*', 'nowoś[ćc][a-ząćęłńóśźż]*',
-        'mega', 'super', 'rabat[a-ząćęłńóśźż]*', 'upust[a-ząćęłńóśźż]*', 'zniżk[aeiłąę]*',
-
-        // CTA, platformowe i manipulacyjne
-        'kup teraz', 'kupuj teraz', 'zamów teraz', 'kliknij', 'dodaj do koszyka',
-        'polecam[a-ząćęłńóśźż]*', 'sprawdź to', 'tylko u nas',
-        'allegro', 'aukcj[aeiłąę]*', 'wysyłk[a-ząćęłńóśźż]* 24h', 'szybka wysyłka',
-        'w stylu', 'odpowiednik', 'zamiennik', 'lepsze niż'
-    ];
-    const pattern = new RegExp(`(^|[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(${stopwords.join('|')})(?=[^a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ]|$)`, 'gi');
-    const hits = [];
-    let match;
-    while ((match = pattern.exec(html)) !== null) {
-        hits.push({ word: match[2], index: match.index + match[1].length });
-    }
-    return hits;
+// V3b — Pełny skaner ryzyk niejawnych i botowych Allegro 2026 (rankingi, obce marki, hype XXL, technologie, 2. osoba, greenwashing, obce slogany)
+function scan_allegro_implicit_risks(html, options = {}) {
+    return scanAllegroComplianceRisks(html, options);
 }
 
 // V4 — Roszczenia medyczne (WE 1223/2009, 655/2013) oraz nieautoryzowane roszczenia biobójcze (BPR 528/2012)
@@ -488,6 +462,15 @@ function validate_section5_compliance(html, options = {}) {
         }
     }
 
+    const s5Risks = scanAllegroComplianceRisks(html, {
+        sectionType: 'section5',
+        brand: options.brand,
+        productName: options.product_name || options.name || options.productName
+    });
+    for (const r of s5Risks) {
+        errors.push(`[Sekcja 5 Marketing/Allegro] Niedozwolone lub ryzykowne sformułowanie w specyfikacji technicznej: "${r.word}" (${r.label})`);
+    }
+
     return { valid: errors.length === 0, errors };
 }
 
@@ -842,8 +825,10 @@ function validate_section1_above_the_fold(html) {
         warnings.push(`Sekcja 1 zawiera zbyt wiele punktów (${bulletCount} > 6) — zalecane 3–4 zwięzłe punkty Above-the-Fold.`);
     }
 
-    if (/\b(?:wysyłk[a-ząćęłńóśźż]*|kurier[a-ząćęłńóśźż]*|dostaw[a-ząćęłńóśźż]*\s+w\s+\d+|w\s+24\s*h|magazyn(?:ie|u)|jesteśmy\s+(?:bezpośrednim\s+)?importerem|zapraszamy\s+na\s+inne\s+aukcje|faktura\s+vat)\b/i.test(html) || scan_stopwords(html).length > 0) {
-        warnings.push('Sekcja 1 zawiera niedozwolone obietnice logistyczne, dane o sprzedającym lub stop-words (§A / Załącznik nr 2 Allegro).');
+    if (/\b(?:wysyłk[a-ząćęłńóśźż]*|kurier[a-ząćęłńóśźż]*|dostaw[a-ząćęłńóśźż]*\s+w\s+\d+|w\s+24\s*h|magazyn(?:ie|u)|jesteśmy\s+(?:bezpośrednim\s+)?importerem|zapraszamy\s+na\s+inne\s+aukcje|faktura\s+vat)\b/i.test(html) ||
+        scan_stopwords(html).length > 0 ||
+        scanAllegroComplianceRisks(html, { sectionType: 'description' }).length > 0) {
+        warnings.push('Sekcja 1 zawiera niedozwolone obietnice logistyczne, dane o sprzedającym, slogany marketingowe lub stop-words (§A / Załącznik nr 2 Allegro).');
     }
 
     return {
@@ -858,6 +843,7 @@ module.exports = {
     ean_checksum,
     route_chemical,
     scan_stopwords,
+    scan_allegro_implicit_risks,
     scan_medical_claims_lexical,
     scan_biocidal_claims_lexical,
     validate_html_whitelist,
