@@ -5,9 +5,30 @@ import {
 } from 'recharts';
 import {
     TrendingUp, AlertTriangle, DollarSign, ShoppingBag, PackageX,
-    Sparkles, ArrowUpRight, ArrowDownRight, ExternalLink, Search
+    Sparkles, ArrowUpRight, ArrowDownRight, ExternalLink, Search, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { fmtPln, fmtInt, fmtNum, fmtPct, SEVERITY_META } from './formatters';
+import MetricTooltip from './MetricTooltip';
+import { METRIC_TOOLTIPS } from './metricTooltips';
+import { useSortableData } from './useSortableData';
+
+const SEVERITY_RANK = { CRITICAL: 3, HIGH: 2, MEDIUM: 1 };
+
+const QUEUE_ACCESSORS = {
+    priorityImpact: (item) => (SEVERITY_RANK[item.severity] || 0) * 1e9 + Number(item.impactPln || 0),
+    impactPln: (item) => Number(item.impactPln || 0),
+    severity: (item) => SEVERITY_RANK[item.severity] || 0,
+    sku: (item) => item.sku || '',
+    category: (item) => item.category || ''
+};
+
+const SPIKE_ACCESSORS = {
+    absChange: (ev) => Math.abs(Number(ev.changePct || 0)),
+    changePct: (ev) => Number(ev.changePct || 0),
+    week: (ev) => ev.week || '',
+    weekUnits: (ev) => Number(ev.weekUnits || 0),
+    sku: (ev) => ev.sku || ''
+};
 
 export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
     const [queueFilter, setQueueFilter] = useState('ALL');
@@ -23,11 +44,23 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
         return list.filter(item => item.category === queueFilter || item.platform === queueFilter);
     }, [analysis, queueFilter]);
 
+    const { sortedItems: sortedQueue, sortConfig: queueSort, requestSort: requestQueueSort } = useSortableData(
+        filteredQueue,
+        { key: 'priorityImpact', direction: 'desc' },
+        QUEUE_ACCESSORS
+    );
+
     const filteredSpikes = useMemo(() => {
         const list = analysis?.spikesAndDrops || [];
         if (spikeFilter === 'ALL') return list;
         return list.filter(item => item.type === spikeFilter);
     }, [analysis, spikeFilter]);
+
+    const { sortedItems: sortedSpikes, sortConfig: spikeSort, requestSort: requestSpikeSort } = useSortableData(
+        filteredSpikes,
+        { key: 'absChange', direction: 'desc' },
+        SPIKE_ACCESSORS
+    );
 
     const pnlChartData = useMemo(() => {
         return (analysis?.pnlWaterfall || []).map(item => ({
@@ -53,12 +86,14 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                     <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                        <span>Obrót Brutto (GMV)</span>
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiGmv}><span>Obrót Brutto (GMV)</span></MetricTooltip>
                         <TrendingUp className="w-4 h-4 text-indigo-600" />
                     </div>
                     <div className="mt-2 text-2xl font-bold text-slate-900">{fmtPln(kpis.totalGmvPln)}</div>
                     <div className="mt-2 flex items-center justify-between text-xs text-slate-600">
-                        <span>Pełny potencjał: <strong>{fmtPln(kpis.fullPotentialGmvPln)}</strong></span>
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiFullPotential}>
+                            <span>Pełny potencjał: <strong>{fmtPln(kpis.fullPotentialGmvPln)}</strong></span>
+                        </MetricTooltip>
                         <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold">
                             Realizacja: {fmtPct(kpis.potentialRealizedPct)}
                         </span>
@@ -70,21 +105,23 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
 
                 <div className="bg-white rounded-xl border border-rose-200 p-4 shadow-sm">
                     <div className="flex items-center justify-between text-xs font-semibold text-rose-700 uppercase tracking-wide">
-                        <span>Straty przez Braki (stan ≤ {threshold} szt.)</span>
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiLostByStockout}>
+                            <span>Straty przez Braki (stan ≤ {threshold} szt.)</span>
+                        </MetricTooltip>
                         <PackageX className="w-4 h-4 text-rose-600" />
                     </div>
                     <div className="mt-2 text-2xl font-bold text-rose-700">{fmtPln(kpis.totalLostGmvPln)}</div>
                     <div className="mt-2 grid grid-cols-3 gap-1 text-[11px] text-slate-600">
                         <div className="bg-rose-50/60 px-1.5 py-1 rounded">
-                            <div className="text-slate-500">Bezp.</div>
+                            <div className="text-slate-500"><MetricTooltip text={METRIC_TOOLTIPS.kpiLostDirect}><span>Bezp.</span></MetricTooltip></div>
                             <div className="font-semibold text-slate-800">{fmtPln(kpis.totalLostDirectPln)}</div>
                         </div>
                         <div className="bg-rose-50/60 px-1.5 py-1 rounded">
-                            <div className="text-slate-500">Cross-Sell</div>
+                            <div className="text-slate-500"><MetricTooltip text={METRIC_TOOLTIPS.kpiLostCrossSell}><span>Cross-Sell</span></MetricTooltip></div>
                             <div className="font-semibold text-slate-800">{fmtPln(kpis.totalLostCrossSellPln)}</div>
                         </div>
                         <div className="bg-rose-50/60 px-1.5 py-1 rounded">
-                            <div className="text-slate-500">Trafność</div>
+                            <div className="text-slate-500"><MetricTooltip text={METRIC_TOOLTIPS.kpiLostRelevance}><span>Trafność</span></MetricTooltip></div>
                             <div className="font-semibold text-slate-800">{fmtPln(kpis.totalLostRelevancePln)}</div>
                         </div>
                     </div>
@@ -95,14 +132,14 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
 
                 <div className="bg-white rounded-xl border border-emerald-200 p-4 shadow-sm">
                     <div className="flex items-center justify-between text-xs font-semibold text-emerald-700 uppercase tracking-wide">
-                        <span>Zweryfikowany Zysk Netto (PIM COGS)</span>
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiNetProfit}><span>Zweryfikowany Zysk Netto (PIM COGS)</span></MetricTooltip>
                         <DollarSign className="w-4 h-4 text-emerald-600" />
                     </div>
                     <div className="mt-2 text-2xl font-bold text-emerald-700">{fmtPln(kpis.verifiedNetProfitPln)}</div>
                     <div className="mt-2 flex items-center justify-between text-xs text-slate-600">
                         <span>Marża netto: <strong>{fmtPct(kpis.verifiedNetMarginPct)}</strong></span>
                         <span className={`px-2 py-0.5 rounded-full font-semibold ${(meta.cogsCoveragePct || 0) >= 80 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                            COGS w PIM: {fmtPct(meta.cogsCoveragePct)}
+                            <MetricTooltip text={METRIC_TOOLTIPS.kpiCogsCoverage}><span>COGS w PIM: {fmtPct(meta.cogsCoveragePct)}</span></MetricTooltip>
                         </span>
                     </div>
                     <div className="mt-1 text-[11px] text-slate-500">
@@ -112,25 +149,33 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
 
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                     <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                        <span>Reklamy, ROAS, POAS & GMROI</span>
+                        <span>Reklamy, ROAS, POAS &amp; GMROI</span>
                         <Sparkles className="w-4 h-4 text-violet-600" />
                     </div>
                     <div className="mt-2 flex items-baseline gap-3">
-                        <span className="text-2xl font-bold text-slate-900">ROAS {kpis.roas !== null ? `${fmtNum(kpis.roas, 2)}x` : '—'}</span>
-                        <span className="text-sm font-semibold text-violet-700">POAS {kpis.poas !== null ? `${fmtNum(kpis.poas, 2)}x` : '—'}</span>
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiRoas}>
+                            <span className="text-2xl font-bold text-slate-900">ROAS {kpis.roas !== null ? `${fmtNum(kpis.roas, 2)}x` : '—'}</span>
+                        </MetricTooltip>
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiPoas}>
+                            <span className="text-sm font-semibold text-violet-700">POAS {kpis.poas !== null ? `${fmtNum(kpis.poas, 2)}x` : '—'}</span>
+                        </MetricTooltip>
                     </div>
                     <div className="mt-2 flex items-center justify-between text-xs text-slate-600">
                         <span>Koszt Ads: <strong>{fmtPln(kpis.effectiveAdsSpendPln)}</strong></span>
-                        <span>TACOS: <strong>{fmtPct(kpis.tacosPct)}</strong></span>
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiTacos}>
+                            <span>TACOS: <strong>{fmtPct(kpis.tacosPct)}</strong></span>
+                        </MetricTooltip>
                     </div>
                     <div className="mt-1 text-[11px] text-slate-500">
-                        GMROI kapitału magazynowego: <strong>{kpis.gmroi !== null ? `${fmtNum(kpis.gmroi, 2)}x` : '—'}</strong>
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiGmroi}>
+                            <span>GMROI kapitału magazynowego: <strong>{kpis.gmroi !== null ? `${fmtNum(kpis.gmroi, 2)}x` : '—'}</strong></span>
+                        </MetricTooltip>
                     </div>
                 </div>
 
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                     <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                        <span>Koszyki Wieloprzedmiotowe (2+)</span>
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiMultiShare}><span>Koszyki Wieloprzedmiotowe (2+)</span></MetricTooltip>
                         <ShoppingBag className="w-4 h-4 text-sky-600" />
                     </div>
                     <div className="mt-2 text-2xl font-bold text-slate-900">{fmtPct(kpis.multiOrdersSharePct)}</div>
@@ -139,13 +184,15 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
                         <span>Solo: <strong>{fmtPln(kpis.avgBasketSoloPln)}</strong></span>
                     </div>
                     <div className="mt-1 text-[11px] text-slate-500">
-                        Wygenerowany Cross-Sell: <strong>{fmtPln(kpis.crossSellTotalPln)}</strong> ({fmtInt(kpis.anchorsCount)} Kotwic)
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiCrossSell}>
+                            <span>Wygenerowany Cross-Sell: <strong>{fmtPln(kpis.crossSellTotalPln)}</strong> ({fmtInt(kpis.anchorsCount)} Kotwic)</span>
+                        </MetricTooltip>
                     </div>
                 </div>
 
                 <div className="bg-white rounded-xl border border-amber-200 p-4 shadow-sm">
                     <div className="flex items-center justify-between text-xs font-semibold text-amber-800 uppercase tracking-wide">
-                        <span>Budżet ROP & Krytyczne Alerty</span>
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiRopBudget}><span>Budżet ROP &amp; Krytyczne Alerty</span></MetricTooltip>
                         <AlertTriangle className="w-4 h-4 text-amber-600" />
                     </div>
                     <div className="mt-2 text-2xl font-bold text-slate-900">{fmtPln(kpis.recommendedPurchaseBudgetPln)}</div>
@@ -155,7 +202,9 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
                         <span className="px-2 py-0.5 rounded bg-sky-100 text-sky-800 font-semibold">Luki InPost: {fmtInt(kpis.crossChannelGapsCount)}</span>
                     </div>
                     <div className="mt-1 text-[11px] text-slate-500">
-                        Smart! martwa strefa: <strong>{fmtInt(kpis.deadZoneSmartCount)}</strong> • Błędy ID: <strong>{fmtInt(kpis.brokenIdSkusCount)}</strong>
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiActionAlerts}>
+                            <span>Smart! martwa strefa: <strong>{fmtInt(kpis.deadZoneSmartCount)}</strong> • Błędy ID: <strong>{fmtInt(kpis.brokenIdSkusCount)}</strong></span>
+                        </MetricTooltip>
                     </div>
                 </div>
             </div>
@@ -165,7 +214,9 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm min-w-0">
                     <div className="flex items-center justify-between mb-3">
                         <div>
-                            <h3 className="text-sm font-bold text-slate-900">Rachunek P&L Waterfall (Zweryfikowane COGS)</h3>
+                            <h3 className="text-sm font-bold text-slate-900">
+                                <MetricTooltip text={METRIC_TOOLTIPS.chartPnlWaterfall}><span>Rachunek P&amp;L Waterfall (Zweryfikowane COGS)</span></MetricTooltip>
+                            </h3>
                             <p className="text-xs text-slate-500">Rozbicie od obrotu brutto do zysku netto po VAT, zakupie, logistyce, prowizjach i Ads</p>
                         </div>
                     </div>
@@ -199,7 +250,9 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm min-w-0">
                     <div className="flex items-center justify-between mb-3">
                         <div>
-                            <h3 className="text-sm font-bold text-slate-900">Trend Miesięczny: Obrót GMV vs Zamówienia i Starty Braków</h3>
+                            <h3 className="text-sm font-bold text-slate-900">
+                                <MetricTooltip text={METRIC_TOOLTIPS.chartMonthlyTrend}><span>Trend Miesięczny: Obrót GMV vs Zamówienia i Starty Braków</span></MetricTooltip>
+                            </h3>
                             <p className="text-xs text-slate-500">Korelacja dynamiki sprzedaży z momentami wejścia produktów w próg wyłączenia (≤ {threshold} szt.)</p>
                         </div>
                     </div>
@@ -230,7 +283,9 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
             {/* Markets & Channels */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-900 mb-3">Rynki i Waluty (Przeliczenie PLN)</h3>
+                    <h3 className="text-sm font-bold text-slate-900 mb-3">
+                        <MetricTooltip text={METRIC_TOOLTIPS.sectionMarkets}><span>Rynki i Waluty (Przeliczenie PLN)</span></MetricTooltip>
+                    </h3>
                     <div className="grid grid-cols-2 gap-3">
                         {(analysis?.marketBreakdown || []).map(m => (
                             <div key={m.code} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
@@ -245,7 +300,9 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
                 </div>
 
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <h3 className="text-sm font-bold text-slate-900 mb-3">Kanały Sprzedaży (Zdeduplikowane Omnichannel)</h3>
+                    <h3 className="text-sm font-bold text-slate-900 mb-3">
+                        <MetricTooltip text={METRIC_TOOLTIPS.sectionChannels}><span>Kanały Sprzedaży (Zdeduplikowane Omnichannel)</span></MetricTooltip>
+                    </h3>
                     <div className="grid grid-cols-2 gap-3">
                         {(analysis?.channelBreakdown || []).map(c => (
                             <div key={c.channel} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
@@ -265,28 +322,53 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
                 <div className="xl:col-span-2 bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                         <div>
-                            <h3 className="text-sm font-bold text-slate-900">Priorytetowa Kolejka Decyzyjna</h3>
-                            <p className="text-xs text-slate-500">Konkretne decyzje uszeregowane wg priorytetu i wpływu finansowego PLN</p>
+                            <h3 className="text-sm font-bold text-slate-900">
+                                <MetricTooltip text={METRIC_TOOLTIPS.sectionActionQueue}><span>Priorytetowa Kolejka Decyzyjna</span></MetricTooltip>
+                            </h3>
+                            <p className="text-xs text-slate-500">Konkretne decyzje z sortowaniem po priorytecie, wpływie PLN lub SKU</p>
                         </div>
-                        <select
-                            value={queueFilter}
-                            onChange={e => setQueueFilter(e.target.value)}
-                            className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white"
-                        >
-                            <option value="ALL">Wszystkie kategorie ({(analysis?.actionQueue || []).length})</option>
-                            <option value="PROCUREMENT">Pilne domówienia Kotwic</option>
-                            <option value="BLEEDING_PROMO">Krwawiące promowania / Ads</option>
-                            <option value="SMART_BUNDLE">Martwa strefa Smart!</option>
-                            <option value="EXPANSION">Luki InPost Von Halsky</option>
-                            <option value="DEAD_STOCK">Leżaki magazynowe</option>
-                        </select>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-[11px]">
+                                {[
+                                    { k: 'priorityImpact', l: 'Priorytet' },
+                                    { k: 'impactPln', l: 'Wpływ PLN' },
+                                    { k: 'sku', l: 'SKU', dir: 'asc' },
+                                    { k: 'category', l: 'Kategoria', dir: 'asc' }
+                                ].map(opt => {
+                                    const active = queueSort.key === opt.k;
+                                    return (
+                                        <button
+                                            key={opt.k}
+                                            type="button"
+                                            onClick={() => requestQueueSort(opt.k, opt.dir || 'desc')}
+                                            className={`px-2 py-1 rounded-md inline-flex items-center gap-1 font-medium transition-colors ${active ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                                        >
+                                            {opt.l}
+                                            {active && (queueSort.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <select
+                                value={queueFilter}
+                                onChange={e => setQueueFilter(e.target.value)}
+                                className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white"
+                            >
+                                <option value="ALL">Wszystkie kategorie ({(analysis?.actionQueue || []).length})</option>
+                                <option value="PROCUREMENT">Pilne domówienia Kotwic</option>
+                                <option value="BLEEDING_PROMO">Krwawiące promowania / Ads</option>
+                                <option value="SMART_BUNDLE">Martwa strefa Smart!</option>
+                                <option value="EXPANSION">Luki InPost Von Halsky</option>
+                                <option value="DEAD_STOCK">Leżaki magazynowe</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div className="divide-y divide-slate-100 max-h-[420px] overflow-y-auto">
-                        {filteredQueue.length === 0 ? (
+                        {sortedQueue.length === 0 ? (
                             <div className="py-8 text-center text-xs text-slate-500">Brak pilnych alertów w wybranej kategorii.</div>
                         ) : (
-                            filteredQueue.map((item, idx) => {
+                            sortedQueue.map((item, idx) => {
                                 const sev = SEVERITY_META[item.severity] || SEVERITY_META.MEDIUM;
                                 return (
                                     <div key={`${item.sku || 'item'}-${idx}`} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -332,9 +414,11 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
                 </div>
 
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                         <div>
-                            <h3 className="text-sm font-bold text-slate-900">Detektor Skoków i Spadków</h3>
+                            <h3 className="text-sm font-bold text-slate-900">
+                                <MetricTooltip text={METRIC_TOOLTIPS.sectionSpikesDrops}><span>Detektor Skoków i Spadków</span></MetricTooltip>
+                            </h3>
                             <p className="text-xs text-slate-500">Root-Cause anomalii tygodniowych</p>
                         </div>
                         <select
@@ -347,11 +431,32 @@ export default function OverviewTab({ analysis, onSelectSku, onOpenProduct }) {
                             <option value="DROP">Tylko spadki (-45%)</option>
                         </select>
                     </div>
-                    <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
-                        {filteredSpikes.length === 0 ? (
+                    <div className="flex flex-wrap gap-1 mb-3 text-[10px]">
+                        {[
+                            { k: 'absChange', l: 'Siła zmiany' },
+                            { k: 'changePct', l: 'Zmiana %' },
+                            { k: 'week', l: 'Tydzień' },
+                            { k: 'sku', l: 'SKU', dir: 'asc' }
+                        ].map(opt => {
+                            const active = spikeSort.key === opt.k;
+                            return (
+                                <button
+                                    key={opt.k}
+                                    type="button"
+                                    onClick={() => requestSpikeSort(opt.k, opt.dir || 'desc')}
+                                    className={`px-2 py-0.5 rounded border inline-flex items-center gap-1 ${active ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                                >
+                                    {opt.l}
+                                    {active && (spikeSort.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div className="space-y-2.5 max-h-[385px] overflow-y-auto pr-1">
+                        {sortedSpikes.length === 0 ? (
                             <div className="py-8 text-center text-xs text-slate-500">Brak wykrytych anomalii tygodniowych w tym okresie.</div>
                         ) : (
-                            filteredSpikes.slice(0, 35).map((ev, i) => {
+                            sortedSpikes.slice(0, 45).map((ev, i) => {
                                 const isSpike = ev.type === 'SPIKE';
                                 return (
                                     <div key={`${ev.sku}-${ev.week}-${i}`} className="p-2.5 rounded-lg border border-slate-100 bg-slate-50/70">

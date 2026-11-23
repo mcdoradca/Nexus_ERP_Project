@@ -173,6 +173,7 @@ async function syncBaseLinkerAnalytics({
 
     let minOrderDate = null;
     let maxOrderDate = null;
+    const mergedOrderSources = {};
 
     for (const acc of targetAccounts) {
         const ctx = acc.id ? { workspaceId, accountId: acc.id } : { workspaceId };
@@ -186,6 +187,11 @@ async function syncBaseLinkerAnalytics({
         try {
             const srcRes = await callApi('getOrderSources', {}, ctx);
             sourcesDict = srcRes?.sources || {};
+            for (const [srcGroup, mapping] of Object.entries(sourcesDict)) {
+                if (mapping && typeof mapping === 'object') {
+                    mergedOrderSources[srcGroup] = { ...(mergedOrderSources[srcGroup] || {}), ...mapping };
+                }
+            }
         } catch (err) {
             warnings.push(`[${acc.label}] Nie udało się pobrać słownika źródeł zamówień: ${err.message}`);
         }
@@ -298,6 +304,15 @@ async function syncBaseLinkerAnalytics({
                 const externalOrderId = oid;
                 const marketplaceOrderId = ord.external_order_id ? String(ord.external_order_id).trim() : null;
 
+                const orderSrcLower = String(ord.order_source || '').toLowerCase().trim();
+                const orderSrcIdStr = ord.order_source_id !== undefined && ord.order_source_id !== null
+                    ? String(ord.order_source_id).trim()
+                    : '';
+                const rawSrcNameVal = orderSrcIdStr ? sourcesDict?.[orderSrcLower]?.[orderSrcIdStr] : null;
+                const orderSourceName = typeof rawSrcNameVal === 'string'
+                    ? rawSrcNameVal.trim()
+                    : (rawSrcNameVal?.name ? String(rawSrcNameVal.name).trim() : null);
+
                 const commonData = {
                     originChannel,
                     accountId: effAccountId,
@@ -322,6 +337,7 @@ async function syncBaseLinkerAnalytics({
                     rawMeta: {
                         orderSource: ord.order_source || null,
                         orderSourceId: ord.order_source_id || null,
+                        orderSourceName,
                         orderStatusId: ord.order_status_id || null,
                         confirmed: Boolean(ord.confirmed),
                         dateInStatus: ord.date_in_status || null
@@ -657,6 +673,7 @@ async function syncBaseLinkerAnalytics({
                 ordersImported: totalOrdersImported,
                 snapshotsSaved: totalSnapshotsSaved,
                 returnsFound: totalReturnsFound,
+                orderSources: mergedOrderSources,
                 openPurchaseOrdersBySku,
                 productLogsByProductId: productLogsSummary
             }

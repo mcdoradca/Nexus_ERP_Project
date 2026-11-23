@@ -3,7 +3,7 @@ const prisma = require('../../core/prisma');
 const AllegroService = require('../offer-optimizer/allegro.service');
 const VonHalskyService = require('../offer-optimizer/vonhalsky.service');
 const { syncBaseLinkerAnalytics } = require('./connectors/baselinker.connector');
-const { syncAllegroAnalytics } = require('./connectors/allegro.connector');
+const { syncAllegroAnalytics, resolveAllegroAccountLabel } = require('./connectors/allegro.connector');
 const { syncVonHalskyAnalytics } = require('./connectors/vonhalsky.connector');
 const { importFilesForWorkspace, deleteImportBatch } = require('./importers/csv-importer.service');
 const { runSalesIntelligenceAnalysis, deduplicateOrders } = require('./engine/analytics.engine');
@@ -234,7 +234,7 @@ async function getStatus(workspaceId, injectedPrisma = prisma) {
         }),
         injectedPrisma.analyticsOrder.findMany({
             where: { workspaceId },
-            select: { orderDate: true, platform: true, sourceMode: true }
+            select: { orderDate: true, platform: true, sourceMode: true, originChannel: true, rawMeta: true }
         }),
         injectedPrisma.analyticsAdsMetric.count({ where: { workspaceId } }),
         injectedPrisma.analyticsFinancialEntry.count({ where: { workspaceId } }),
@@ -269,11 +269,59 @@ async function getStatus(workspaceId, injectedPrisma = prisma) {
         }
     }
 
+    const resolvedAllegroAccounts = await Promise.all(
+        allegroAccounts.map(async (a) => {
+            const accId = a.accountId || a.integrationAccountId || 'default';
+            const res = await resolveAllegroAccountLabel({
+                acc: { accountId: accId, label: a.label, login: a.login || a.allegroLogin },
+                workspaceId,
+                injectedPrisma,
+                skipRemoteMe: true,
+                persistToIntegration: false
+            });
+            return {
+                id: accId,
+                label: res.displayLabel,
+                login: res.login || a.login || a.allegroLogin || null
+            };
+        })
+    );
+
+    const directLoginsSet = new Set(
+        resolvedAllegroAccounts
+            .map(a => String(a.login || '').toLowerCase().trim())
+            .filter(Boolean)
+    );
+
+    // Zbieramy wszystkie konta Allegro wykryte przez Base.com (żeby wskazać brakujące połączenia OAuth)
+    const blAllegroMap = new Map();
+    const lastBlBatch = batches.find(b => b.platform === 'BASELINKER' && b.status === 'COMPLETED' && b.summary?.orderSources?.allegro);
+    if (lastBlBatch?.summary?.orderSources?.allegro) {
+        for (const [sid, nm] of Object.entries(lastBlBatch.summary.orderSources.allegro)) {
+            const cleanName = typeof nm === 'string' ? nm.trim() : (nm?.name ? String(nm.name).trim() : '');
+            if (cleanName) blAllegroMap.set(String(sid), cleanName);
+        }
+    }
+    for (const o of ordersSummaryRows) {
+        if (o.platform === 'BASELINKER' && o.originChannel === 'ALLEGRO' && o.rawMeta?.orderSourceId) {
+            const sid = String(o.rawMeta.orderSourceId);
+            const nm = o.rawMeta.orderSourceName ? String(o.rawMeta.orderSourceName).trim() : '';
+            if (nm && !blAllegroMap.has(sid)) blAllegroMap.set(sid, nm);
+        }
+    }
+
+    const blAllegroSources = Array.from(blAllegroMap.entries()).map(([id, name]) => ({
+        id,
+        name,
+        hasDirectOAuth: directLoginsSet.has(name.toLowerCase())
+    }));
+
     return {
         workspaceId,
         accounts: {
             BASELINKER: blAccountsRows.map(a => ({ id: a.id, label: a.label, isDefault: a.isDefault })),
-            ALLEGRO: allegroAccounts.map(a => ({ id: a.accountId || a.integrationAccountId || 'default', label: a.label || a.allegroLogin || 'Allegro', login: a.allegroLogin || null })),
+            ALLEGRO: resolvedAllegroAccounts,
+            BASELINKER_ALLEGRO_SOURCES: blAllegroSources,
             VONHALSKY: vonHalskyAccounts.filter(a => a.configured).map(a => ({ id: a.accountId || 'default', label: a.label || 'Von Halsky', organizationId: a.organizationId || null }))
         },
         totals: {

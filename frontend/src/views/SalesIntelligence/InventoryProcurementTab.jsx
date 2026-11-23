@@ -1,6 +1,35 @@
 import React, { useState, useMemo } from 'react';
 import { PackageCheck, PackageX, Boxes, Clock, Search, ExternalLink } from 'lucide-react';
 import { fmtPln, fmtInt, fmtNum, ROLE_META } from './formatters';
+import MetricTooltip from './MetricTooltip';
+import SortableTh from './SortableTh';
+import { METRIC_TOOLTIPS } from './metricTooltips';
+import { useSortableData } from './useSortableData';
+
+const ROP_ACCESSORS = {
+    name: (s) => s.name || s.sku || '',
+    roleAbc: (s) => `${s.role || 'SOLO'} ${s.abcXyz || 'CZ'}`,
+    currentStock: (s) => s.currentStock,
+    sellableStock: (s) => s.sellableStock,
+    openPoQty: (s) => Number(s.openPoQty || 0),
+    dailyVelocityWhenActive: (s) => Number(s.dailyVelocityWhenActive || 0),
+    daysOfInventory: (s) => s.daysOfInventory,
+    recommendedRop: (s) => Number(s.recommendedRop || 0),
+    recommendedOrderQty: (s) => Number(s.recommendedOrderQty || 0),
+    purchaseBudgetPln: (s) => s.purchaseBudgetPln,
+    stockoutDays: (s) => Number(s.stockoutDays || 0),
+    totalLostGmvPln: (s) => Number(s.totalLostGmvPln || 0),
+    defaultPriority: (s) => (s.isCurrentlyUnavailable ? 1e12 : 0) + (s.recommendedOrderQty > 0 ? 1e9 : 0) + Number(s.totalLostGmvPln || 0)
+};
+
+const DEAD_STOCK_ACCESSORS = {
+    name: (d) => d.name || d.sku || '',
+    currentStock: (d) => Number(d.currentStock || 0),
+    daysSinceLastSale: (d) => Number(d.daysSinceLastSale || 0),
+    daysOfInventory: (d) => d.daysOfInventory,
+    frozenCapitalPln: (d) => d.frozenCapitalPln,
+    recommendedAction: (d) => d.recommendedAction || ''
+};
 
 export default function InventoryProcurementTab({ analysis, onSelectSku, onOpenProduct }) {
     const [searchText, setSearchText] = useState('');
@@ -11,26 +40,32 @@ export default function InventoryProcurementTab({ analysis, onSelectSku, onOpenP
     const kpis = analysis?.kpis || {};
     const threshold = meta.stockoutThreshold ?? 2;
 
-    const procurementSkus = useMemo(() => {
+    const filteredProcurementSkus = useMemo(() => {
         const q = searchText.trim().toLowerCase();
-        return [...(analysis?.skus || [])]
-            .filter(s => {
-                if (statusFilter === 'UNAVAILABLE' && !s.isCurrentlyUnavailable) return false;
-                if (statusFilter === 'NEED_ORDER' && !(s.recommendedOrderQty > 0)) return false;
-                if (statusFilter === 'WITH_OUTAGES' && !(s.stockoutDays > 0)) return false;
-                if (abcFilter !== 'ALL' && s.abcClass !== abcFilter) return false;
-                if (q) {
-                    const hay = `${s.sku || ''} ${s.ean || ''} ${s.name || ''}`.toLowerCase();
-                    if (!hay.includes(q)) return false;
-                }
-                return true;
-            })
-            .sort((a, b) => {
-                if (a.isCurrentlyUnavailable !== b.isCurrentlyUnavailable) return a.isCurrentlyUnavailable ? -1 : 1;
-                if ((b.recommendedOrderQty > 0) !== (a.recommendedOrderQty > 0)) return b.recommendedOrderQty > 0 ? 1 : -1;
-                return (b.totalLostGmvPln || 0) - (a.totalLostGmvPln || 0);
-            });
+        return (analysis?.skus || []).filter(s => {
+            if (statusFilter === 'UNAVAILABLE' && !s.isCurrentlyUnavailable) return false;
+            if (statusFilter === 'NEED_ORDER' && !(s.recommendedOrderQty > 0)) return false;
+            if (statusFilter === 'WITH_OUTAGES' && !(s.stockoutDays > 0)) return false;
+            if (abcFilter !== 'ALL' && s.abcClass !== abcFilter) return false;
+            if (q) {
+                const hay = `${s.sku || ''} ${s.ean || ''} ${s.name || ''}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
     }, [analysis, searchText, statusFilter, abcFilter]);
+
+    const { sortedItems: procurementSkus, sortConfig: ropSort, requestSort: requestRopSort } = useSortableData(
+        filteredProcurementSkus,
+        { key: 'defaultPriority', direction: 'desc' },
+        ROP_ACCESSORS
+    );
+
+    const { sortedItems: sortedDeadStock, sortConfig: deadSort, requestSort: requestDeadSort } = useSortableData(
+        analysis?.deadStockItems || [],
+        { key: 'frozenCapitalPln', direction: 'desc' },
+        DEAD_STOCK_ACCESSORS
+    );
 
     const abcSummary = useMemo(() => {
         const map = { AX: 0, AY: 0, AZ: 0, BX: 0, BY: 0, BZ: 0, CX: 0, CY: 0, CZ: 0 };
@@ -57,19 +92,19 @@ export default function InventoryProcurementTab({ analysis, onSelectSku, onOpenP
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
                     <div className="bg-white/10 rounded-lg px-3 py-2">
-                        <div className="text-[11px] text-slate-300">Zablokowane teraz</div>
+                        <div className="text-[11px] text-slate-300"><MetricTooltip text={METRIC_TOOLTIPS.filterStockoutThreshold}><span>Zablokowane teraz</span></MetricTooltip></div>
                         <div className="text-lg font-bold text-rose-300">{fmtInt(kpis.unavailableNowCount)} SKU</div>
                     </div>
                     <div className="bg-white/10 rounded-lg px-3 py-2">
-                        <div className="text-[11px] text-slate-300">Łączne dni braku</div>
+                        <div className="text-[11px] text-slate-300"><MetricTooltip text={METRIC_TOOLTIPS.colStockoutDays}><span>Łączne dni braku</span></MetricTooltip></div>
                         <div className="text-lg font-bold">{fmtInt(kpis.totalStockoutDays)} d</div>
                     </div>
                     <div className="bg-white/10 rounded-lg px-3 py-2">
-                        <div className="text-[11px] text-slate-300">Strata 3-częściowa</div>
+                        <div className="text-[11px] text-slate-300"><MetricTooltip text={METRIC_TOOLTIPS.kpiLostByStockout}><span>Strata 3-częściowa</span></MetricTooltip></div>
                         <div className="text-lg font-bold text-amber-300">{fmtPln(kpis.totalLostGmvPln)}</div>
                     </div>
                     <div className="bg-white/10 rounded-lg px-3 py-2">
-                        <div className="text-[11px] text-slate-300">Budżet zakupu ROP</div>
+                        <div className="text-[11px] text-slate-300"><MetricTooltip text={METRIC_TOOLTIPS.kpiRopBudget}><span>Budżet zakupu ROP</span></MetricTooltip></div>
                         <div className="text-lg font-bold text-emerald-300">{fmtPln(kpis.recommendedPurchaseBudgetPln)}</div>
                     </div>
                 </div>
@@ -81,10 +116,10 @@ export default function InventoryProcurementTab({ analysis, onSelectSku, onOpenP
                     <div>
                         <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                             <PackageCheck className="w-4 h-4 text-indigo-600" />
-                            Planer Zatowarowania ROP & Analiza Przerw w Dostępności
+                            Planer Zatowarowania ROP &amp; Analiza Przerw w Dostępności
                         </h3>
                         <p className="text-xs text-slate-500">
-                            Lead Time: {meta.leadTimeDays || 14} dni • Bufor bezpieczeństwa: {Math.round((meta.safetyBufferPct || 0.25) * 100)}% (+10 pp dla Kotwic)
+                            Lead Time: {meta.leadTimeDays || 14} dni • Bufor bezpieczeństwa: {Math.round((meta.safetyBufferPct || 0.25) * 100)}% (+10 pp dla Kotwic) • Kliknij dowolny nagłówek kolumny, aby posortować
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -125,18 +160,18 @@ export default function InventoryProcurementTab({ analysis, onSelectSku, onOpenP
                     <table className="min-w-full text-xs divide-y divide-slate-200">
                         <thead className="bg-slate-50 sticky top-0 z-10 text-slate-600 font-semibold">
                             <tr>
-                                <th className="px-3 py-2 text-left">Produkt / SKU</th>
-                                <th className="px-2 py-2 text-center">Rola / ABC</th>
-                                <th className="px-2 py-2 text-right">Stan fiz.</th>
-                                <th className="px-2 py-2 text-right">Zapas sprzed.</th>
-                                <th className="px-2 py-2 text-right">PO w drodze</th>
-                                <th className="px-2 py-2 text-right">Tempo/d</th>
-                                <th className="px-2 py-2 text-right">DOI (dni)</th>
-                                <th className="px-2 py-2 text-right">ROP</th>
-                                <th className="px-2 py-2 text-right">Domów (szt.)</th>
-                                <th className="px-2 py-2 text-right">Budżet PLN</th>
-                                <th className="px-2 py-2 text-right">Dni braku</th>
-                                <th className="px-2 py-2 text-right">Utracony GMV</th>
+                                <SortableTh label="Produkt / SKU" sortKey="name" defaultDirection="asc" sortConfig={ropSort} onSort={requestRopSort} tooltip={METRIC_TOOLTIPS.colProductSku} className="px-3 py-2" />
+                                <SortableTh label="Rola / ABC" sortKey="roleAbc" defaultDirection="asc" align="center" sortConfig={ropSort} onSort={requestRopSort} tooltip={METRIC_TOOLTIPS.colRoleAbc} className="px-2 py-2" />
+                                <SortableTh label="Stan fiz." sortKey="currentStock" align="right" sortConfig={ropSort} onSort={requestRopSort} tooltip={METRIC_TOOLTIPS.colPhysicalStock} className="px-2 py-2" />
+                                <SortableTh label="Zapas sprzed." sortKey="sellableStock" align="right" sortConfig={ropSort} onSort={requestRopSort} tooltip={METRIC_TOOLTIPS.colSellableStock} className="px-2 py-2" />
+                                <SortableTh label="PO w drodze" sortKey="openPoQty" align="right" sortConfig={ropSort} onSort={requestRopSort} tooltip={METRIC_TOOLTIPS.colOpenPo} className="px-2 py-2" />
+                                <SortableTh label="Tempo/d" sortKey="dailyVelocityWhenActive" align="right" sortConfig={ropSort} onSort={requestRopSort} tooltip={METRIC_TOOLTIPS.colDailyVelocity} className="px-2 py-2" />
+                                <SortableTh label="DOI (dni)" sortKey="daysOfInventory" defaultDirection="asc" align="right" sortConfig={ropSort} onSort={requestRopSort} tooltip={METRIC_TOOLTIPS.colDoi} className="px-2 py-2" />
+                                <SortableTh label="ROP" sortKey="recommendedRop" align="right" sortConfig={ropSort} onSort={requestRopSort} tooltip={METRIC_TOOLTIPS.colRop} className="px-2 py-2" />
+                                <SortableTh label="Domów (szt.)" sortKey="recommendedOrderQty" align="right" sortConfig={ropSort} onSort={requestRopSort} tooltip={METRIC_TOOLTIPS.colSuggestedOrder} className="px-2 py-2" />
+                                <SortableTh label="Budżet PLN" sortKey="purchaseBudgetPln" align="right" sortConfig={ropSort} onSort={requestRopSort} tooltip={METRIC_TOOLTIPS.colPurchaseBudget} className="px-2 py-2" />
+                                <SortableTh label="Dni braku" sortKey="stockoutDays" align="right" sortConfig={ropSort} onSort={requestRopSort} tooltip={METRIC_TOOLTIPS.colStockoutDays} className="px-2 py-2" />
+                                <SortableTh label="Utracony GMV" sortKey="totalLostGmvPln" align="right" sortConfig={ropSort} onSort={requestRopSort} tooltip={METRIC_TOOLTIPS.colLostTotalGmv} className="px-2 py-2" />
                                 <th className="px-2 py-2 text-center">Akcje</th>
                             </tr>
                         </thead>
@@ -218,7 +253,8 @@ export default function InventoryProcurementTab({ analysis, onSelectSku, onOpenP
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                     <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-3">
-                        <Boxes className="w-4 h-4 text-indigo-600" /> Macierz Portfela ABC-XYZ
+                        <Boxes className="w-4 h-4 text-indigo-600" />
+                        <MetricTooltip text={METRIC_TOOLTIPS.colRoleAbc}><span>Macierz Portfela ABC-XYZ</span></MetricTooltip>
                     </h3>
                     <div className="grid grid-cols-3 gap-2 text-center text-xs">
                         {['AX', 'AY', 'AZ', 'BX', 'BY', 'BZ', 'CX', 'CY', 'CZ'].map(cell => (
@@ -238,28 +274,31 @@ export default function InventoryProcurementTab({ analysis, onSelectSku, onOpenP
                     <div className="flex items-center justify-between mb-3">
                         <div>
                             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-amber-600" /> Leżaki Magazynowe (Zamrożony Kapitał: {fmtPln(kpis.deadStockFrozenPln)})
+                                <Clock className="w-4 h-4 text-amber-600" />
+                                <MetricTooltip text={METRIC_TOOLTIPS.colFrozenCapital}>
+                                    <span>Leżaki Magazynowe (Zamrożony Kapitał: {fmtPln(kpis.deadStockFrozenPln)})</span>
+                                </MetricTooltip>
                             </h3>
                             <p className="text-xs text-slate-500">Produkty o zerowej lub minimalnej rotacji (&ge; 60 dni bez sprzedaży lub DOI &gt; 150 dni)</p>
                         </div>
                         <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-bold">
-                            {fmtInt((analysis?.deadStockItems || []).length)} pozycji
+                            {fmtInt(sortedDeadStock.length)} pozycji
                         </span>
                     </div>
                     <div className="overflow-x-auto max-h-72 overflow-y-auto">
                         <table className="min-w-full text-xs divide-y divide-slate-200">
                             <thead className="bg-amber-50/70 text-slate-700 font-semibold sticky top-0">
                                 <tr>
-                                    <th className="px-3 py-2 text-left">SKU / Nazwa</th>
-                                    <th className="px-2 py-2 text-right">Stan</th>
-                                    <th className="px-2 py-2 text-right">Dni bez sprz.</th>
-                                    <th className="px-2 py-2 text-right">DOI</th>
-                                    <th className="px-2 py-2 text-right">Zamrożone COGS</th>
-                                    <th className="px-2 py-2 text-left">Rekomendacja</th>
+                                    <SortableTh label="SKU / Nazwa" sortKey="name" defaultDirection="asc" sortConfig={deadSort} onSort={requestDeadSort} tooltip={METRIC_TOOLTIPS.colProductSku} className="px-3 py-2" />
+                                    <SortableTh label="Stan" sortKey="currentStock" align="right" sortConfig={deadSort} onSort={requestDeadSort} tooltip={METRIC_TOOLTIPS.colPhysicalStock} className="px-2 py-2" />
+                                    <SortableTh label="Dni bez sprz." sortKey="daysSinceLastSale" align="right" sortConfig={deadSort} onSort={requestDeadSort} tooltip={METRIC_TOOLTIPS.colDaysSinceLastSale} className="px-2 py-2" />
+                                    <SortableTh label="DOI" sortKey="daysOfInventory" align="right" sortConfig={deadSort} onSort={requestDeadSort} tooltip={METRIC_TOOLTIPS.colDoi} className="px-2 py-2" />
+                                    <SortableTh label="Zamrożone COGS" sortKey="frozenCapitalPln" align="right" sortConfig={deadSort} onSort={requestDeadSort} tooltip={METRIC_TOOLTIPS.colFrozenCapital} className="px-2 py-2" />
+                                    <SortableTh label="Rekomendacja" sortKey="recommendedAction" defaultDirection="asc" sortConfig={deadSort} onSort={requestDeadSort} tooltip={METRIC_TOOLTIPS.colDeadStockAction} className="px-2 py-2" />
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {(analysis?.deadStockItems || []).slice(0, 80).map(d => (
+                                {sortedDeadStock.slice(0, 120).map(d => (
                                     <tr key={d.sku} className="hover:bg-amber-50/30">
                                         <td className="px-3 py-2">
                                             <button type="button" onClick={() => onSelectSku(d.sku)} className="font-semibold text-slate-900 hover:text-indigo-600 text-left">
@@ -276,7 +315,7 @@ export default function InventoryProcurementTab({ analysis, onSelectSku, onOpenP
                                         </td>
                                     </tr>
                                 ))}
-                                {(analysis?.deadStockItems || []).length === 0 && (
+                                {sortedDeadStock.length === 0 && (
                                     <tr>
                                         <td colSpan={6} className="py-6 text-center text-slate-500">
                                             <PackageX className="w-5 h-5 mx-auto mb-1 text-slate-400" />

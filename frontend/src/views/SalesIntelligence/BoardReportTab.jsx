@@ -1,12 +1,37 @@
 import React from 'react';
 import { Printer, FileSpreadsheet, FileText } from 'lucide-react';
 import { fmtPln, fmtInt, fmtNum, fmtPct, fmtDateTime } from './formatters';
+import MetricTooltip from './MetricTooltip';
+import SortableTh from './SortableTh';
+import { METRIC_TOOLTIPS } from './metricTooltips';
+import { useSortableData } from './useSortableData';
+
+const REPORT_ACCESSORS = {
+    name: (s) => s.name || s.sku || '',
+    roleAbc: (s) => `${s.role || 'SOLO'} ${s.abcXyz || 'CZ'}`,
+    currentStock: (s) => s.currentStock,
+    totalUnits: (s) => Number(s.totalUnits || 0),
+    totalRevenuePln: (s) => Number(s.totalRevenuePln || 0),
+    verifiedNetProfitPln: (s) => s.verifiedNetProfitPln,
+    stockoutDays: (s) => Number(s.stockoutDays || 0),
+    lostDirectPln: (s) => Number(s.lostDirectPln || 0),
+    lostCrossSellPln: (s) => Number(s.lostCrossSellPln || 0),
+    lostRelevancePln: (s) => Number(s.lostRelevancePln || 0),
+    totalLostGmvPln: (s) => Number(s.totalLostGmvPln || 0),
+    recommendedOrderQty: (s) => Number(s.recommendedOrderQty || 0)
+};
 
 export default function BoardReportTab({ analysis, workspaceName, onExportXlsx, onExportCsv }) {
     const meta = analysis?.meta || {};
     const kpis = analysis?.kpis || {};
     const threshold = meta.stockoutThreshold ?? 2;
     const allSkus = analysis?.skus || [];
+
+    const { sortedItems: sortedSkus, sortConfig: reportSort, requestSort: requestReportSort } = useSortableData(
+        allSkus,
+        { key: 'totalRevenuePln', direction: 'desc' },
+        REPORT_ACCESSORS
+    );
 
     const topCompare = [...allSkus]
         .sort((a, b) => (b.totalRevenuePln + b.totalLostGmvPln) - (a.totalRevenuePln + a.totalLostGmvPln))
@@ -42,7 +67,7 @@ export default function BoardReportTab({ analysis, workspaceName, onExportXlsx, 
                 <div>
                     <h3 className="text-sm font-bold text-slate-900">Generator Raportu Zarządczego (PDF A4 / Excel XLSX / CSV)</h3>
                     <p className="text-xs text-slate-500">
-                        Zawiera pełny wykaz 100% SKU ({fmtInt(allSkus.length)} pozycji) z sumą kontrolną bez żadnego dzielenia stanów 0 vs 1–{threshold}.
+                        Zawiera pełny wykaz 100% SKU ({fmtInt(allSkus.length)} pozycji) z sumą kontrolną bez żadnego dzielenia stanów 0 vs 1–{threshold}. Kliknij nagłówek kolumny, aby posortować przed wydrukiem.
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -84,29 +109,33 @@ export default function BoardReportTab({ analysis, workspaceName, onExportXlsx, 
                     </div>
                     <div className="text-right text-xs text-slate-500">
                         <div>Wygenerowano: {fmtDateTime(analysis?.generatedAt)}</div>
-                        <div>Pokrycie COGS w PIM: <strong>{fmtPct(meta.cogsCoveragePct)}</strong></div>
+                        <div>
+                            <MetricTooltip text={METRIC_TOOLTIPS.kpiCogsCoverage}>
+                                <span>Pokrycie COGS w PIM: <strong>{fmtPct(meta.cogsCoveragePct)}</strong></span>
+                            </MetricTooltip>
+                        </div>
                     </div>
                 </div>
 
                 {/* Podsumowanie Zarządcze KPI */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-                        <div className="text-[11px] text-slate-500">Obrót Zrealizowany (GMV)</div>
+                        <div className="text-[11px] text-slate-500"><MetricTooltip text={METRIC_TOOLTIPS.kpiGmv}><span>Obrót Zrealizowany (GMV)</span></MetricTooltip></div>
                         <div className="text-base font-bold text-slate-900">{fmtPln(kpis.totalGmvPln)}</div>
                         <div className="text-[10px] text-slate-500">Potencjał: {fmtPln(kpis.fullPotentialGmvPln)}</div>
                     </div>
                     <div className="p-3 rounded-lg bg-rose-50 border border-rose-200">
-                        <div className="text-[11px] text-rose-700">Utracony GMV (stan &le; {threshold} szt.)</div>
+                        <div className="text-[11px] text-rose-700"><MetricTooltip text={METRIC_TOOLTIPS.kpiLostByStockout}><span>Utracony GMV (stan &le; {threshold} szt.)</span></MetricTooltip></div>
                         <div className="text-base font-bold text-rose-800">{fmtPln(kpis.totalLostGmvPln)}</div>
                         <div className="text-[10px] text-rose-700">{fmtInt(kpis.totalStockoutDays)} dni przerw</div>
                     </div>
                     <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-                        <div className="text-[11px] text-emerald-700">Zweryfikowany Zysk Netto</div>
+                        <div className="text-[11px] text-emerald-700"><MetricTooltip text={METRIC_TOOLTIPS.kpiNetProfit}><span>Zweryfikowany Zysk Netto</span></MetricTooltip></div>
                         <div className="text-base font-bold text-emerald-800">{fmtPln(kpis.verifiedNetProfitPln)}</div>
                         <div className="text-[10px] text-emerald-700">Marża: {fmtPct(kpis.verifiedNetMarginPct)}</div>
                     </div>
                     <div className="p-3 rounded-lg bg-indigo-50 border border-indigo-200">
-                        <div className="text-[11px] text-indigo-700">Budżet Zatowarowania ROP</div>
+                        <div className="text-[11px] text-indigo-700"><MetricTooltip text={METRIC_TOOLTIPS.kpiRopBudget}><span>Budżet Zatowarowania ROP</span></MetricTooltip></div>
                         <div className="text-base font-bold text-indigo-900">{fmtPln(kpis.recommendedPurchaseBudgetPln)}</div>
                         <div className="text-[10px] text-indigo-700">ROAS: {kpis.roas !== null ? `${fmtNum(kpis.roas, 2)}x` : '—'} | POAS: {kpis.poas !== null ? `${fmtNum(kpis.poas, 2)}x` : '—'}</div>
                     </div>
@@ -146,22 +175,22 @@ export default function BoardReportTab({ analysis, workspaceName, onExportXlsx, 
                         <table className="min-w-full text-[11px] divide-y divide-slate-200">
                             <thead className="bg-slate-100 text-slate-700 font-semibold">
                                 <tr>
-                                    <th className="px-2 py-1.5 text-left">SKU / Nazwa</th>
-                                    <th className="px-2 py-1.5 text-center">Rola / ABC</th>
-                                    <th className="px-2 py-1.5 text-right">Stan (szt.)</th>
-                                    <th className="px-2 py-1.5 text-right">Szt. sprz.</th>
-                                    <th className="px-2 py-1.5 text-right">GMV [PLN]</th>
-                                    <th className="px-2 py-1.5 text-right">Zysk Netto</th>
-                                    <th className="px-2 py-1.5 text-right">Dni braku (&le;{threshold})</th>
-                                    <th className="px-2 py-1.5 text-right">Strata Bezp.</th>
-                                    <th className="px-2 py-1.5 text-right">Utr. Cross-Sell</th>
-                                    <th className="px-2 py-1.5 text-right">Kara Trafn.</th>
-                                    <th className="px-2 py-1.5 text-right">Strata Razem</th>
-                                    <th className="px-2 py-1.5 text-right">Domów ROP</th>
+                                    <SortableTh label="SKU / Nazwa" sortKey="name" defaultDirection="asc" sortConfig={reportSort} onSort={requestReportSort} tooltip={METRIC_TOOLTIPS.colProductSku} className="px-2 py-1.5" />
+                                    <SortableTh label="Rola / ABC" sortKey="roleAbc" defaultDirection="asc" align="center" sortConfig={reportSort} onSort={requestReportSort} tooltip={METRIC_TOOLTIPS.colRoleAbc} className="px-2 py-1.5" />
+                                    <SortableTh label="Stan (szt.)" sortKey="currentStock" align="right" sortConfig={reportSort} onSort={requestReportSort} tooltip={METRIC_TOOLTIPS.colPhysicalStock} className="px-2 py-1.5" />
+                                    <SortableTh label="Szt. sprz." sortKey="totalUnits" align="right" sortConfig={reportSort} onSort={requestReportSort} tooltip={METRIC_TOOLTIPS.colUnitsSold} className="px-2 py-1.5" />
+                                    <SortableTh label="GMV [PLN]" sortKey="totalRevenuePln" align="right" sortConfig={reportSort} onSort={requestReportSort} tooltip={METRIC_TOOLTIPS.colGmvPln} className="px-2 py-1.5" />
+                                    <SortableTh label="Zysk Netto" sortKey="verifiedNetProfitPln" align="right" sortConfig={reportSort} onSort={requestReportSort} tooltip={METRIC_TOOLTIPS.colNetProfitSku} className="px-2 py-1.5" />
+                                    <SortableTh label={`Dni braku (≤${threshold})`} sortKey="stockoutDays" align="right" sortConfig={reportSort} onSort={requestReportSort} tooltip={METRIC_TOOLTIPS.colStockoutDays} className="px-2 py-1.5" />
+                                    <SortableTh label="Strata Bezp." sortKey="lostDirectPln" align="right" sortConfig={reportSort} onSort={requestReportSort} tooltip={METRIC_TOOLTIPS.colLostDirectCol} className="px-2 py-1.5" />
+                                    <SortableTh label="Utr. Cross-Sell" sortKey="lostCrossSellPln" align="right" sortConfig={reportSort} onSort={requestReportSort} tooltip={METRIC_TOOLTIPS.colLostCrossCol} className="px-2 py-1.5" />
+                                    <SortableTh label="Kara Trafn." sortKey="lostRelevancePln" align="right" sortConfig={reportSort} onSort={requestReportSort} tooltip={METRIC_TOOLTIPS.colLostRelevanceCol} className="px-2 py-1.5" />
+                                    <SortableTh label="Strata Razem" sortKey="totalLostGmvPln" align="right" sortConfig={reportSort} onSort={requestReportSort} tooltip={METRIC_TOOLTIPS.colLostTotalGmv} className="px-2 py-1.5" />
+                                    <SortableTh label="Domów ROP" sortKey="recommendedOrderQty" align="right" sortConfig={reportSort} onSort={requestReportSort} tooltip={METRIC_TOOLTIPS.colSuggestedOrder} className="px-2 py-1.5" />
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {allSkus.map(s => (
+                                {sortedSkus.map(s => (
                                     <tr key={s.skuKey}>
                                         <td className="px-2 py-1 max-w-[210px] truncate">
                                             <span className="font-mono text-slate-500 mr-1">{s.sku}</span>

@@ -1,6 +1,40 @@
 import React, { useState, useMemo } from 'react';
 import { Layers, Link2, ArrowLeftRight, Search, ExternalLink } from 'lucide-react';
 import { fmtPln, fmtInt, fmtNum, fmtPct, ROLE_META } from './formatters';
+import MetricTooltip from './MetricTooltip';
+import SortableTh from './SortableTh';
+import { METRIC_TOOLTIPS } from './metricTooltips';
+import { useSortableData } from './useSortableData';
+
+const PAIR_ACCESSORS = {
+    nameA: (p) => p.nameA || p.skuKeyA || '',
+    nameB: (p) => p.nameB || p.skuKeyB || '',
+    coCount: (p) => Number(p.coCount || 0),
+    confidencePct: (p) => Number(p.confidencePct || 0),
+    lift: (p) => Number(p.lift || 0),
+    avgBasketPln: (p) => Number(p.avgBasketPln || 0),
+    recommendation: (p) => p.recommendation || ''
+};
+
+const GAP_ACCESSORS = {
+    name: (g) => g.name || g.sku || '',
+    allegroRevenuePln: (g) => Number(g.allegroRevenuePln || 0),
+    currentStock: (g) => g.currentStock,
+    vonHalskyStatus: (g) => g.vonHalskyStatus || '',
+    gapReason: (g) => g.gapReason || '',
+    estimatedMonthlyOpportunityPln: (g) => Number(g.estimatedMonthlyOpportunityPln || 0)
+};
+
+const PORTFOLIO_ACCESSORS = {
+    name: (s) => s.name || s.sku || '',
+    role: (s) => s.role || 'SOLO',
+    ordersCount: (s) => Number(s.ordersCount || 0),
+    avgMultiShare: (s) => Number(s.avgMultiShare || 0),
+    avgPricePln: (s) => Number(s.avgPricePln || 0),
+    totalRevenuePln: (s) => Number(s.totalRevenuePln || 0),
+    crossSellGeneratedPln: (s) => Number(s.crossSellGeneratedPln || 0),
+    soloUnderSmartCount: (s) => Number(s.soloUnderSmartCount || 0)
+};
 
 export default function BasketPortfolioTab({ analysis, onSelectSku, onOpenProduct }) {
     const [roleFilter, setRoleFilter] = useState('ALL');
@@ -21,27 +55,53 @@ export default function BasketPortfolioTab({ analysis, onSelectSku, onOpenProduc
         });
     }, [analysis, roleFilter, skuSearch]);
 
+    const { sortedItems: sortedPairs, sortConfig: pairSort, requestSort: requestPairSort } = useSortableData(
+        analysis?.pairs || [],
+        { key: 'coCount', direction: 'desc' },
+        PAIR_ACCESSORS
+    );
+
+    const { sortedItems: sortedGaps, sortConfig: gapSort, requestSort: requestGapSort } = useSortableData(
+        analysis?.crossChannelGaps || [],
+        { key: 'estimatedMonthlyOpportunityPln', direction: 'desc' },
+        GAP_ACCESSORS
+    );
+
+    const { sortedItems: sortedPortfolio, sortConfig: portSort, requestSort: requestPortSort } = useSortableData(
+        filteredSkus,
+        { key: 'totalRevenuePln', direction: 'desc' },
+        PORTFOLIO_ACCESSORS
+    );
+
     return (
         <div className="space-y-6">
             {/* Statystyki koszykowe */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="text-xs font-semibold text-slate-500 uppercase">Kotwice vs Dopełniacze</div>
+                    <div className="text-xs font-semibold text-slate-500 uppercase">
+                        <MetricTooltip text={METRIC_TOOLTIPS.colRole}><span>Kotwice vs Dopełniacze</span></MetricTooltip>
+                    </div>
                     <div className="mt-2 text-2xl font-bold text-indigo-700">{fmtInt(kpis.anchorsCount)} / {fmtInt(kpis.fillersCount)}</div>
                     <div className="text-[11px] text-slate-500 mt-1">Produkty otwierające koszyki 2+ vs doczepiane</div>
                 </div>
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="text-xs font-semibold text-slate-500 uppercase">Udział Koszyków 2+</div>
+                    <div className="text-xs font-semibold text-slate-500 uppercase">
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiMultiShare}><span>Udział Koszyków 2+</span></MetricTooltip>
+                    </div>
                     <div className="mt-2 text-2xl font-bold text-slate-900">{fmtPct(kpis.multiOrdersSharePct)}</div>
                     <div className="text-[11px] text-slate-500 mt-1">{fmtInt(kpis.multiOrdersCount)} zamówień wielopozycyjnych</div>
                 </div>
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="text-xs font-semibold text-slate-500 uppercase">Śr. Koszyk 2+ vs Solo</div>
+                    <div className="text-xs font-semibold text-slate-500 uppercase">
+                        <MetricTooltip text={METRIC_TOOLTIPS.colAvgBasket}><span>Śr. Koszyk 2+ vs Solo</span></MetricTooltip>
+                    </div>
                     <div className="mt-2 text-2xl font-bold text-emerald-700">{fmtPln(kpis.avgBasketMultiPln)}</div>
                     <div className="text-[11px] text-slate-500 mt-1">Koszyk 1-sztukowy: {fmtPln(kpis.avgBasketSoloPln)}</div>
                 </div>
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="text-xs font-semibold text-slate-500 uppercase">Cross-Sell Wygenerowany</div>
+                    <div className="text-xs font-semibold text-slate-500 uppercase">
+                        <MetricTooltip text={METRIC_TOOLTIPS.kpiCrossSell}><span>Cross-Sell Wygenerowany</span></MetricTooltip>
+                    </div>
                     <div className="mt-2 text-2xl font-bold text-slate-900">{fmtPln(kpis.crossSellTotalPln)}</div>
                     <div className="text-[11px] text-slate-500 mt-1">Obrót sąsiednich produktów przy Kotwicach</div>
                 </div>
@@ -52,7 +112,9 @@ export default function BasketPortfolioTab({ analysis, onSelectSku, onOpenProduc
                 <div className="mb-3">
                     <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                         <Link2 className="w-4 h-4 text-indigo-600" />
-                        Pary Koszykowe & Zestawy pod Próg Smart! ({fmtNum(smartThreshold, 2)} zł)
+                        <MetricTooltip text={METRIC_TOOLTIPS.colLift}>
+                            <span>Pary Koszykowe &amp; Zestawy pod Próg Smart! ({fmtNum(smartThreshold, 2)} zł)</span>
+                        </MetricTooltip>
                     </h3>
                     <p className="text-xs text-slate-500">
                         Współczynnik Lift &ge; 1.5 oznacza silną synergię zakupową — idealny kandydat na Zestaw Kup Razem lub pakiet pod darmową dostawę Smart!
@@ -62,17 +124,17 @@ export default function BasketPortfolioTab({ analysis, onSelectSku, onOpenProduc
                     <table className="min-w-full text-xs divide-y divide-slate-200">
                         <thead className="bg-slate-50 sticky top-0 text-slate-700 font-semibold">
                             <tr>
-                                <th className="px-3 py-2 text-left">Produkt A (Główny)</th>
-                                <th className="px-3 py-2 text-left">Produkt B (Współkupowany)</th>
-                                <th className="px-2 py-2 text-right">Wspólne zam.</th>
-                                <th className="px-2 py-2 text-right">Confidence</th>
-                                <th className="px-2 py-2 text-right">Lift</th>
-                                <th className="px-2 py-2 text-right">Śr. koszyk</th>
-                                <th className="px-3 py-2 text-left">Rekomendacja</th>
+                                <SortableTh label="Produkt A (Główny)" sortKey="nameA" defaultDirection="asc" sortConfig={pairSort} onSort={requestPairSort} tooltip={METRIC_TOOLTIPS.colProductSku} className="px-3 py-2" />
+                                <SortableTh label="Produkt B (Współkupowany)" sortKey="nameB" defaultDirection="asc" sortConfig={pairSort} onSort={requestPairSort} tooltip={METRIC_TOOLTIPS.colProductSku} className="px-3 py-2" />
+                                <SortableTh label="Wspólne zam." sortKey="coCount" align="right" sortConfig={pairSort} onSort={requestPairSort} tooltip={METRIC_TOOLTIPS.colPairCoCount} className="px-2 py-2" />
+                                <SortableTh label="Confidence" sortKey="confidencePct" align="right" sortConfig={pairSort} onSort={requestPairSort} tooltip={METRIC_TOOLTIPS.colConfidence} className="px-2 py-2" />
+                                <SortableTh label="Lift" sortKey="lift" align="right" sortConfig={pairSort} onSort={requestPairSort} tooltip={METRIC_TOOLTIPS.colLift} className="px-2 py-2" />
+                                <SortableTh label="Śr. koszyk" sortKey="avgBasketPln" align="right" sortConfig={pairSort} onSort={requestPairSort} tooltip={METRIC_TOOLTIPS.colAvgBasket} className="px-2 py-2" />
+                                <SortableTh label="Rekomendacja" sortKey="recommendation" defaultDirection="asc" sortConfig={pairSort} onSort={requestPairSort} className="px-3 py-2" />
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {(analysis?.pairs || []).map((p, idx) => (
+                            {sortedPairs.map((p, idx) => (
                                 <tr key={`${p.skuKeyA}-${p.skuKeyB}-${idx}`} className="hover:bg-slate-50">
                                     <td className="px-3 py-2 max-w-[220px]">
                                         <button type="button" onClick={() => onSelectSku(p.skuKeyA)} className="font-semibold text-slate-900 hover:text-indigo-600 truncate block text-left">
@@ -97,7 +159,7 @@ export default function BasketPortfolioTab({ analysis, onSelectSku, onOpenProduc
                                     <td className="px-3 py-2 text-[11px] text-slate-700">{p.recommendation}</td>
                                 </tr>
                             ))}
-                            {(analysis?.pairs || []).length === 0 && (
+                            {sortedPairs.length === 0 && (
                                 <tr>
                                     <td colSpan={7} className="py-6 text-center text-slate-500">
                                         Za mało wielopozycyjnych zamówień do wyznaczenia istotnych par koszykowych.
@@ -114,7 +176,9 @@ export default function BasketPortfolioTab({ analysis, onSelectSku, onOpenProduc
                 <div className="mb-3">
                     <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                         <ArrowLeftRight className="w-4 h-4 text-sky-600" />
-                        Luki Ekspansji Cross-Channel (Allegro &rarr; InPost Von Halsky)
+                        <MetricTooltip text={METRIC_TOOLTIPS.colGapOpportunity}>
+                            <span>Luki Ekspansji Cross-Channel (Allegro &rarr; InPost Von Halsky)</span>
+                        </MetricTooltip>
                     </h3>
                     <p className="text-xs text-slate-500">
                         Bestsellery generujące obrót na Allegro (&ge; 300 PLN), których brakuje lub które są odrzucone na InPost Von Halsky.
@@ -124,17 +188,17 @@ export default function BasketPortfolioTab({ analysis, onSelectSku, onOpenProduc
                     <table className="min-w-full text-xs divide-y divide-slate-200">
                         <thead className="bg-sky-50/60 sticky top-0 text-slate-700 font-semibold">
                             <tr>
-                                <th className="px-3 py-2 text-left">SKU / Produkt</th>
-                                <th className="px-2 py-2 text-right">Obrót Allegro</th>
-                                <th className="px-2 py-2 text-right">Stan</th>
-                                <th className="px-2 py-2 text-center">Status Von Halsky</th>
-                                <th className="px-3 py-2 text-left">Diagnoza luki</th>
-                                <th className="px-2 py-2 text-right">Szac. potencjał/mc</th>
+                                <SortableTh label="SKU / Produkt" sortKey="name" defaultDirection="asc" sortConfig={gapSort} onSort={requestGapSort} tooltip={METRIC_TOOLTIPS.colProductSku} className="px-3 py-2" />
+                                <SortableTh label="Obrót Allegro" sortKey="allegroRevenuePln" align="right" sortConfig={gapSort} onSort={requestGapSort} tooltip={METRIC_TOOLTIPS.colGmvPln} className="px-2 py-2" />
+                                <SortableTh label="Stan" sortKey="currentStock" align="right" sortConfig={gapSort} onSort={requestGapSort} tooltip={METRIC_TOOLTIPS.colPhysicalStock} className="px-2 py-2" />
+                                <SortableTh label="Status Von Halsky" sortKey="vonHalskyStatus" defaultDirection="asc" align="center" sortConfig={gapSort} onSort={requestGapSort} className="px-2 py-2" />
+                                <SortableTh label="Diagnoza luki" sortKey="gapReason" defaultDirection="asc" sortConfig={gapSort} onSort={requestGapSort} className="px-3 py-2" />
+                                <SortableTh label="Szac. potencjał/mc" sortKey="estimatedMonthlyOpportunityPln" align="right" sortConfig={gapSort} onSort={requestGapSort} tooltip={METRIC_TOOLTIPS.colGapOpportunity} className="px-2 py-2" />
                                 <th className="px-2 py-2 text-center">Akcja</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {(analysis?.crossChannelGaps || []).map(g => (
+                            {sortedGaps.map(g => (
                                 <tr key={g.sku} className="hover:bg-sky-50/30">
                                     <td className="px-3 py-2">
                                         <button type="button" onClick={() => onSelectSku(g.sku)} className="font-semibold text-slate-900 hover:text-indigo-600 text-left">
@@ -164,7 +228,7 @@ export default function BasketPortfolioTab({ analysis, onSelectSku, onOpenProduc
                                     </td>
                                 </tr>
                             ))}
-                            {(analysis?.crossChannelGaps || []).length === 0 && (
+                            {sortedGaps.length === 0 && (
                                 <tr>
                                     <td colSpan={7} className="py-6 text-center text-slate-500">
                                         Brak wykrytych luk między Allegro a InPost Von Halsky.
@@ -181,7 +245,9 @@ export default function BasketPortfolioTab({ analysis, onSelectSku, onOpenProduc
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                     <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                         <Layers className="w-4 h-4 text-indigo-600" />
-                        Klasyfikacja Portfela SKU (Kotwice / Dopełniacze / Soliści)
+                        <MetricTooltip text={METRIC_TOOLTIPS.colRole}>
+                            <span>Klasyfikacja Portfela SKU (Kotwice / Dopełniacze / Soliści)</span>
+                        </MetricTooltip>
                     </h3>
                     <div className="flex items-center gap-2">
                         <div className="relative">
@@ -210,18 +276,18 @@ export default function BasketPortfolioTab({ analysis, onSelectSku, onOpenProduc
                     <table className="min-w-full text-xs divide-y divide-slate-200">
                         <thead className="bg-slate-50 sticky top-0 text-slate-600 font-semibold">
                             <tr>
-                                <th className="px-3 py-2 text-left">SKU / Nazwa</th>
-                                <th className="px-2 py-2 text-center">Rola</th>
-                                <th className="px-2 py-2 text-right">Zamówienia (2+)</th>
-                                <th className="px-2 py-2 text-right">Udział 2+</th>
-                                <th className="px-2 py-2 text-right">Śr. cena</th>
-                                <th className="px-2 py-2 text-right">Obrót własny</th>
-                                <th className="px-2 py-2 text-right">Wygenerowany Cross-Sell</th>
-                                <th className="px-2 py-2 text-right">Solo &lt; Smart!</th>
+                                <SortableTh label="SKU / Nazwa" sortKey="name" defaultDirection="asc" sortConfig={portSort} onSort={requestPortSort} tooltip={METRIC_TOOLTIPS.colProductSku} className="px-3 py-2" />
+                                <SortableTh label="Rola" sortKey="role" defaultDirection="asc" align="center" sortConfig={portSort} onSort={requestPortSort} tooltip={METRIC_TOOLTIPS.colRole} className="px-2 py-2" />
+                                <SortableTh label="Zamówienia (2+)" sortKey="ordersCount" align="right" sortConfig={portSort} onSort={requestPortSort} tooltip={METRIC_TOOLTIPS.colOrdersMulti} className="px-2 py-2" />
+                                <SortableTh label="Udział 2+" sortKey="avgMultiShare" align="right" sortConfig={portSort} onSort={requestPortSort} tooltip={METRIC_TOOLTIPS.colMultiShare} className="px-2 py-2" />
+                                <SortableTh label="Śr. cena" sortKey="avgPricePln" align="right" sortConfig={portSort} onSort={requestPortSort} tooltip={METRIC_TOOLTIPS.colAvgPrice} className="px-2 py-2" />
+                                <SortableTh label="Obrót własny" sortKey="totalRevenuePln" align="right" sortConfig={portSort} onSort={requestPortSort} tooltip={METRIC_TOOLTIPS.colGmvPln} className="px-2 py-2" />
+                                <SortableTh label="Cross-Sell" sortKey="crossSellGeneratedPln" align="right" sortConfig={portSort} onSort={requestPortSort} tooltip={METRIC_TOOLTIPS.colCrossSellGenerated} className="px-2 py-2" />
+                                <SortableTh label="Solo < Smart!" sortKey="soloUnderSmartCount" align="right" sortConfig={portSort} onSort={requestPortSort} tooltip={METRIC_TOOLTIPS.colSoloUnderSmart} className="px-2 py-2" />
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {filteredSkus.slice(0, 200).map(s => {
+                            {sortedPortfolio.slice(0, 200).map(s => {
                                 const rm = ROLE_META[s.role] || ROLE_META.SOLO;
                                 return (
                                     <tr key={s.skuKey} className="hover:bg-slate-50">

@@ -7,6 +7,19 @@ import {
 import {
     fmtInt, fmtShortDate, fmtDateTime, BASELINKER_CSV_COLUMNS_GUIDE
 } from './formatters';
+import MetricTooltip from './MetricTooltip';
+import SortableTh from './SortableTh';
+import { METRIC_TOOLTIPS } from './metricTooltips';
+import { useSortableData } from './useSortableData';
+
+const BATCH_ACCESSORS = {
+    createdAt: (b) => new Date(b.createdAt || 0).getTime(),
+    platform: (b) => b.platform || '',
+    source: (b) => b.fileName || b.sourceType || '',
+    status: (b) => b.status || '',
+    recordsImported: (b) => Number(b.recordsImported || 0),
+    dateRangeStart: (b) => (b.dateRangeStart ? new Date(b.dateRangeStart).getTime() : null)
+};
 
 export default function DataSourcesTab({
     API_URL,
@@ -33,10 +46,17 @@ export default function DataSourcesTab({
     const [deletingBatchId, setDeletingBatchId] = useState(null);
     const fileInputRef = useRef(null);
 
-    const accounts = statusData?.accounts || { BASELINKER: [], ALLEGRO: [], VONHALSKY: [] };
+    const accounts = statusData?.accounts || { BASELINKER: [], ALLEGRO: [], BASELINKER_ALLEGRO_SOURCES: [], VONHALSKY: [] };
+    const blAllegroSources = accounts.BASELINKER_ALLEGRO_SOURCES || [];
     const totals = statusData?.totals || {};
     const monthlyCoverage = statusData?.monthlyCoverage || [];
     const batches = statusData?.batches || [];
+
+    const { sortedItems: sortedBatches, sortConfig: batchSort, requestSort: requestBatchSort } = useSortableData(
+        batches,
+        { key: 'createdAt', direction: 'desc' },
+        BATCH_ACCESSORS
+    );
 
     const serverJob = statusData?.activeSyncJob || null;
     const effectiveJob = (() => {
@@ -177,7 +197,7 @@ export default function DataSourcesTab({
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <label className="text-[11px] text-slate-600 inline-flex items-center gap-1.5 mr-2 cursor-pointer" title="Dociąga też historię logów stanów Base.com dla Top 20 SKU oraz czasy paczek kurierskich (wolniejsze z uwagi na limit zapytań Base.com)">
+                        <label className="text-[11px] text-slate-600 inline-flex items-center gap-1.5 mr-2 cursor-pointer">
                             <input
                                 type="checkbox"
                                 checked={deepMode}
@@ -185,7 +205,7 @@ export default function DataSourcesTab({
                                 disabled={isSubmittingSync || isSyncRunning}
                                 className="rounded border-slate-300 text-indigo-600"
                             />
-                            Tryb głęboki (logi + SLA)
+                            <MetricTooltip text={METRIC_TOOLTIPS.syncDeepMode}><span>Tryb głęboki (logi + SLA)</span></MetricTooltip>
                         </label>
                         <select
                             value={syncDays}
@@ -255,6 +275,31 @@ export default function DataSourcesTab({
                                 </span>
                             </div>
                             <p className="text-[11px] text-slate-500 mt-1.5">{card.hint}</p>
+                            {card.accs.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                    {card.accs.map(a => (
+                                        <span key={a.id} className="px-2 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-semibold text-slate-800">
+                                            {a.label}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            {card.key === 'ALLEGRO' && blAllegroSources.length > 0 && (
+                                <div className="mt-2 text-[10px] text-slate-600 space-y-0.5">
+                                    <div className="font-semibold text-slate-700">Konta Allegro wykryte w Base.com:</div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {blAllegroSources.map(s => (
+                                            <span
+                                                key={s.id}
+                                                className={`px-1.5 py-0.5 rounded border ${s.hasDirectOAuth ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}
+                                                title={s.hasDirectOAuth ? 'Podpięto bezpośrednie Allegro API' : 'Wchodzi wyłącznie przez Base.com — brak bezpośredniego tokena OAuth Allegro w Panelu Admina'}
+                                            >
+                                                {s.name} ({s.hasDirectOAuth ? 'API + Base.com' : 'tylko Base.com — brak OAuth'})
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             <div className="mt-2 text-[11px] text-slate-700 font-medium">
                                 W bazie: <strong>{fmtInt(card.ordersCnt)}</strong> zamówień
                             </div>
@@ -427,7 +472,11 @@ export default function DataSourcesTab({
             <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
-                        <h3 className="text-sm font-bold text-slate-900">Mapa Pokrycia Danych 24-Miesięcznych (API vs Archiwum CSV)</h3>
+                        <h3 className="text-sm font-bold text-slate-900">
+                            <MetricTooltip text={METRIC_TOOLTIPS.coverage24m}>
+                                <span>Mapa Pokrycia Danych 24-Miesięcznych (API vs Archiwum CSV)</span>
+                            </MetricTooltip>
+                        </h3>
                         <p className="text-xs text-slate-500">
                             Od {fmtShortDate(totals.earliestOrderDate)} do {fmtShortDate(totals.latestOrderDate)} • Łącznie {fmtInt(totals.totalOrders)} rekordów zamówień, {fmtInt(totals.dailySnapshots)} migawek, {fmtInt(totals.financialEntries)} wpisów bilingowych, {fmtInt(totals.adsMetrics)} wierszy Ads.
                         </p>
@@ -462,17 +511,17 @@ export default function DataSourcesTab({
                     <table className="min-w-full text-xs divide-y divide-slate-200">
                         <thead className="bg-slate-50 sticky top-0 text-slate-600 font-semibold">
                             <tr>
-                                <th className="px-3 py-2 text-left">Data</th>
-                                <th className="px-2 py-2 text-left">Platforma</th>
-                                <th className="px-2 py-2 text-left">Źródło / Plik</th>
-                                <th className="px-2 py-2 text-center">Status</th>
-                                <th className="px-2 py-2 text-right">Zaimportowano</th>
-                                <th className="px-2 py-2 text-left">Zakres dat</th>
+                                <SortableTh label="Data" sortKey="createdAt" sortConfig={batchSort} onSort={requestBatchSort} className="px-3 py-2" />
+                                <SortableTh label="Platforma" sortKey="platform" defaultDirection="asc" sortConfig={batchSort} onSort={requestBatchSort} className="px-2 py-2" />
+                                <SortableTh label="Źródło / Plik" sortKey="source" defaultDirection="asc" sortConfig={batchSort} onSort={requestBatchSort} className="px-2 py-2" />
+                                <SortableTh label="Status" sortKey="status" defaultDirection="asc" align="center" sortConfig={batchSort} onSort={requestBatchSort} className="px-2 py-2" />
+                                <SortableTh label="Zaimportowano" sortKey="recordsImported" align="right" sortConfig={batchSort} onSort={requestBatchSort} className="px-2 py-2" />
+                                <SortableTh label="Zakres dat" sortKey="dateRangeStart" sortConfig={batchSort} onSort={requestBatchSort} className="px-2 py-2" />
                                 <th className="px-2 py-2 text-center">Cofnij</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {batches.map(b => (
+                            {sortedBatches.map(b => (
                                 <tr key={b.id} className="hover:bg-slate-50">
                                     <td className="px-3 py-2 whitespace-nowrap text-slate-600">{fmtDateTime(b.createdAt)}</td>
                                     <td className="px-2 py-2 font-semibold">{b.platform}</td>
@@ -499,7 +548,7 @@ export default function DataSourcesTab({
                                     </td>
                                 </tr>
                             ))}
-                            {batches.length === 0 && (
+                            {sortedBatches.length === 0 && (
                                 <tr><td colSpan={7} className="py-6 text-center text-slate-500">Brak historii synchronizacji i importów.</td></tr>
                             )}
                         </tbody>

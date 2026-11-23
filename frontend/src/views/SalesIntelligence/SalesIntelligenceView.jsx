@@ -12,6 +12,8 @@ import PlatformDetailsTab from './PlatformDetailsTab';
 import DataSourcesTab from './DataSourcesTab';
 import BoardReportTab from './BoardReportTab';
 import SkuDeepDiveModal from './SkuDeepDiveModal';
+import MetricTooltip from './MetricTooltip';
+import { METRIC_TOOLTIPS } from './metricTooltips';
 
 const SUB_TABS = [
     { id: 'overview', label: 'Przegląd i Decyzje', icon: BarChart3 },
@@ -175,7 +177,9 @@ export default function SalesIntelligenceView({ token, API_URL, activeWorkspace,
                 <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
                     <div className="flex flex-wrap items-end gap-3">
                         <div>
-                            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Rynek / Waluta</label>
+                            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
+                                <MetricTooltip text={METRIC_TOOLTIPS.filterMarket}>Rynek / Waluta</MetricTooltip>
+                            </label>
                             <select
                                 value={marketFilter}
                                 onChange={e => setMarketFilter(e.target.value)}
@@ -203,8 +207,8 @@ export default function SalesIntelligenceView({ token, API_URL, activeWorkspace,
                             />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1" title="Jednolity stan graniczny wyłączenia aukcji (0–N szt. to BRAK W OFERCIE)">
-                                Próg braku (≤ szt.)
+                            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
+                                <MetricTooltip text={METRIC_TOOLTIPS.filterStockoutThreshold}>Próg braku (≤ szt.)</MetricTooltip>
                             </label>
                             <input
                                 type="number"
@@ -216,7 +220,9 @@ export default function SalesIntelligenceView({ token, API_URL, activeWorkspace,
                             />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Próg Smart! (zł)</label>
+                            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
+                                <MetricTooltip text={METRIC_TOOLTIPS.filterSmartThreshold}>Próg Smart! (zł)</MetricTooltip>
+                            </label>
                             <input
                                 type="number"
                                 step="0.1"
@@ -227,7 +233,9 @@ export default function SalesIntelligenceView({ token, API_URL, activeWorkspace,
                             />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Lead Time (dni)</label>
+                            <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">
+                                <MetricTooltip text={METRIC_TOOLTIPS.filterLeadTime}>Lead Time (dni)</MetricTooltip>
+                            </label>
                             <input
                                 type="number"
                                 min={1}

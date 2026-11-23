@@ -1,6 +1,39 @@
-import React from 'react';
-import { Flame, ShieldAlert, Truck, CreditCard, Megaphone, Award, AlertCircle } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Flame, ShieldAlert, Truck, CreditCard, Megaphone, Award, AlertCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import { fmtPln, fmtInt, fmtNum, fmtPct, fmtShortDate } from './formatters';
+import MetricTooltip from './MetricTooltip';
+import SortableTh from './SortableTh';
+import { METRIC_TOOLTIPS } from './metricTooltips';
+import { useSortableData } from './useSortableData';
+
+const BLEEDING_ACCESSORS = {
+    promoAndAdsCostPln: (b) => Number(b.promoAndAdsCostPln || 0),
+    currentStock: (b) => b.currentStock,
+    verifiedNetProfitPln: (b) => b.verifiedNetProfitPln,
+    sku: (b) => b.sku || ''
+};
+
+const TECH_ACCESSORS = {
+    soloUnderSmartCount: (s) => Number(s.soloUnderSmartCount || 0),
+    sku: (s) => s.sku || '',
+    name: (s) => s.name || ''
+};
+
+const FUNNEL_ACCESSORS = {
+    sku: (s) => s.sku || '',
+    deltaVisits: (s) => Number(s.deltaVisits || 0),
+    deltaWatchers: (s) => Number(s.deltaWatchers || 0),
+    ordersCount: (s) => Number(s.ordersCount || 0),
+    conversionRatePct: (s) => s.conversionRatePct
+};
+
+const ADS_ACCESSORS = {
+    campaignName: (c) => c.campaignName || '',
+    clicks: (c) => Number(c.clicks || 0),
+    costNetPln: (c) => Number(c.costNetPln || 0),
+    adRevenuePln: (c) => Number(c.adRevenuePln || 0),
+    roas: (c) => Number(c.roas || 0)
+};
 
 export default function PlatformDetailsTab({ analysis, onSelectSku }) {
     const platform = analysis?.meta?.platform || 'ALL';
@@ -14,49 +47,74 @@ export default function PlatformDetailsTab({ analysis, onSelectSku }) {
     const showVonHalsky = platform === 'ALL' || platform === 'VONHALSKY';
     const showBase = platform === 'ALL' || platform === 'BASELINKER';
 
-    const technicalIssues = (analysis?.skus || []).filter(
-        s => s.brokenAuctionContinuity || s.parallelAuctionsDetected || s.soloUnderSmartCount >= 3
+    const technicalIssuesRaw = useMemo(() => {
+        return (analysis?.skus || []).filter(
+            s => s.brokenAuctionContinuity || s.parallelAuctionsDetected || s.soloUnderSmartCount >= 3
+        );
+    }, [analysis]);
+
+    const allegroFunnelRaw = useMemo(() => {
+        return (analysis?.skus || []).filter(s => s.deltaVisits > 0 || s.allegroOfferIds?.length > 0);
+    }, [analysis]);
+
+    const { sortedItems: sortedBleeding, sortConfig: bleedSort, requestSort: requestBleedSort } = useSortableData(
+        analysis?.bleedingOffers || [],
+        { key: 'promoAndAdsCostPln', direction: 'desc' },
+        BLEEDING_ACCESSORS
     );
 
-    const allegroFunnelSkus = (analysis?.skus || [])
-        .filter(s => s.deltaVisits > 0 || s.allegroOfferIds?.length > 0)
-        .sort((a, b) => (b.deltaVisits || 0) - (a.deltaVisits || 0))
-        .slice(0, 60);
+    const { sortedItems: sortedTechIssues, sortConfig: techSort, requestSort: requestTechSort } = useSortableData(
+        technicalIssuesRaw,
+        { key: 'soloUnderSmartCount', direction: 'desc' },
+        TECH_ACCESSORS
+    );
+
+    const { sortedItems: sortedFunnel, sortConfig: funnelSort, requestSort: requestFunnelSort } = useSortableData(
+        allegroFunnelRaw,
+        { key: 'deltaVisits', direction: 'desc' },
+        FUNNEL_ACCESSORS
+    );
+
+    const { sortedItems: sortedAds, sortConfig: adsSort, requestSort: requestAdsSort } = useSortableData(
+        analysis?.adsCampaigns || [],
+        { key: 'costNetPln', direction: 'desc' },
+        ADS_ACCESSORS
+    );
 
     return (
         <div className="space-y-6">
-            {/* SEKJA ALLEGRO */}
+            {/* SEKCJA ALLEGRO */}
             {showAllegro && (
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 text-base font-bold text-slate-900">
                         <Award className="w-5 h-5 text-orange-600" />
-                        Diagnostyka Allegro (Bilingi, Krwawienie, Lejek Odwiedzin, Ads & Jakość 30d)
+                        Diagnostyka Allegro (Bilingi, Krwawienie, Lejek Odwiedzin, Ads &amp; Jakość 30d)
                     </div>
 
                     {/* Bilingi opłat */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                         <div className="bg-white rounded-xl border border-slate-200 p-3">
-                            <div className="text-[11px] text-slate-500">Prowizje (brutto)</div>
+                            <div className="text-[11px] text-slate-500"><MetricTooltip text={METRIC_TOOLTIPS.feeCommission}><span>Prowizje (brutto)</span></MetricTooltip></div>
                             <div className="text-sm font-bold text-slate-900 mt-1">{fmtPln(fees.commissionPln)}</div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-3">
-                            <div className="text-[11px] text-slate-500">Zwroty prowizji</div>
+                            <div className="text-[11px] text-slate-500"><MetricTooltip text={METRIC_TOOLTIPS.feeRefunds}><span>Zwroty prowizji</span></MetricTooltip></div>
                             <div className="text-sm font-bold text-emerald-700 mt-1">+{fmtPln(fees.commissionRefundPln)}</div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-3">
-                            <div className="text-[11px] text-slate-500">Allegro Smart!</div>
+                            <div className="text-[11px] text-slate-500"><MetricTooltip text={METRIC_TOOLTIPS.feeSmart}><span>Allegro Smart!</span></MetricTooltip></div>
                             <div className="text-sm font-bold text-slate-900 mt-1">{fmtPln(fees.smartFeePln)}</div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-3">
-                            <div className="text-[11px] text-slate-500">Wyróżnienia & Promo</div>
+                            <div className="text-[11px] text-slate-500"><MetricTooltip text={METRIC_TOOLTIPS.feePromo}><span>Wyróżnienia &amp; Promo</span></MetricTooltip></div>
                             <div className="text-sm font-bold text-rose-700 mt-1">{fmtPln(fees.promoFeePln)}</div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-3">
-                            <div className="text-[11px] text-slate-500">Ads (Biling)</div>
+                            <div className="text-[11px] text-slate-500"><MetricTooltip text={METRIC_TOOLTIPS.feeAdsBilling}><span>Ads (Biling)</span></MetricTooltip></div>
                             <div className="text-sm font-bold text-violet-700 mt-1">{fmtPln(fees.adsBillingPln)}</div>
                         </div>
                         <div className="bg-white rounded-xl border border-slate-200 p-3">
-                            <div className="text-[11px] text-slate-500">Abonament / Inne</div>
+                            <div className="text-[11px] text-slate-500"><MetricTooltip text={METRIC_TOOLTIPS.feeSubOther}><span>Abonament / Inne</span></MetricTooltip></div>
                             <div className="text-sm font-bold text-slate-900 mt-1">{fmtPln((fees.subscriptionPln || 0) + (fees.otherPln || 0))}</div>
                         </div>
                     </div>
@@ -64,14 +122,37 @@ export default function PlatformDetailsTab({ analysis, onSelectSku }) {
                     {/* Krwawiące oferty + Techniczne błędy aukcji */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <div className="bg-white rounded-xl border border-rose-200 p-4 shadow-sm">
-                            <h4 className="text-xs font-bold text-rose-800 uppercase flex items-center gap-1.5 mb-2">
-                                <Flame className="w-4 h-4 text-rose-600" /> Krwawiące Oferty ({(analysis?.bleedingOffers || []).length})
-                            </h4>
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <h4 className="text-xs font-bold text-rose-800 uppercase flex items-center gap-1.5">
+                                    <Flame className="w-4 h-4 text-rose-600" />
+                                    <MetricTooltip text={METRIC_TOOLTIPS.kpiActionAlerts}><span>Krwawiące Oferty ({sortedBleeding.length})</span></MetricTooltip>
+                                </h4>
+                                <div className="flex gap-1 text-[10px]">
+                                    {[
+                                        { k: 'promoAndAdsCostPln', l: 'Koszt' },
+                                        { k: 'currentStock', l: 'Stan', dir: 'asc' },
+                                        { k: 'sku', l: 'SKU', dir: 'asc' }
+                                    ].map(opt => {
+                                        const active = bleedSort.key === opt.k;
+                                        return (
+                                            <button
+                                                key={opt.k}
+                                                type="button"
+                                                onClick={() => requestBleedSort(opt.k, opt.dir || 'desc')}
+                                                className={`px-2 py-0.5 rounded border inline-flex items-center gap-1 ${active ? 'bg-rose-50 border-rose-300 text-rose-800 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                                            >
+                                                {opt.l}
+                                                {active && (bleedSort.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                             <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 text-xs">
-                                {(analysis?.bleedingOffers || []).length === 0 ? (
+                                {sortedBleeding.length === 0 ? (
                                     <div className="py-6 text-center text-slate-500">Brak ofert przepalających wyróżnienia / Ads.</div>
                                 ) : (
-                                    (analysis?.bleedingOffers || []).map((b, i) => (
+                                    sortedBleeding.map((b, i) => (
                                         <div key={`${b.sku}-${i}`} className="py-2 flex justify-between items-start gap-2">
                                             <div>
                                                 <button type="button" onClick={() => onSelectSku(b.sku)} className="font-semibold text-slate-900 hover:text-indigo-600 text-left">
@@ -90,14 +171,39 @@ export default function PlatformDetailsTab({ analysis, onSelectSku }) {
                         </div>
 
                         <div className="bg-white rounded-xl border border-amber-200 p-4 shadow-sm">
-                            <h4 className="text-xs font-bold text-amber-900 uppercase flex items-center gap-1.5 mb-2">
-                                <AlertCircle className="w-4 h-4 text-amber-600" /> Audyt ID Aukcji, Kanibalizacji & Martwej Strefy Smart! ({fmtNum(deadZoneMin, 0)}–{fmtNum(smartThreshold - 0.01, 2)} zł)
-                            </h4>
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <h4 className="text-xs font-bold text-amber-900 uppercase flex items-center gap-1.5">
+                                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                                    <MetricTooltip text={METRIC_TOOLTIPS.colSoloUnderSmart}>
+                                        <span>Audyt ID Aukcji &amp; Martwa Strefa Smart! ({fmtNum(deadZoneMin, 0)}–{fmtNum(smartThreshold - 0.01, 2)} zł)</span>
+                                    </MetricTooltip>
+                                </h4>
+                                <div className="flex gap-1 text-[10px]">
+                                    {[
+                                        { k: 'soloUnderSmartCount', l: 'Zam. < Smart!' },
+                                        { k: 'sku', l: 'SKU', dir: 'asc' },
+                                        { k: 'name', l: 'Nazwa', dir: 'asc' }
+                                    ].map(opt => {
+                                        const active = techSort.key === opt.k;
+                                        return (
+                                            <button
+                                                key={opt.k}
+                                                type="button"
+                                                onClick={() => requestTechSort(opt.k, opt.dir || 'desc')}
+                                                className={`px-2 py-0.5 rounded border inline-flex items-center gap-1 ${active ? 'bg-amber-50 border-amber-300 text-amber-900 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                                            >
+                                                {opt.l}
+                                                {active && (techSort.direction === 'asc' ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />)}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                             <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 text-xs">
-                                {technicalIssues.length === 0 ? (
+                                {sortedTechIssues.length === 0 ? (
                                     <div className="py-6 text-center text-slate-500">Brak wykrytych problemów ciągłości ID lub martwej strefy Smart!.</div>
                                 ) : (
-                                    technicalIssues.slice(0, 60).map(s => (
+                                    sortedTechIssues.slice(0, 80).map(s => (
                                         <div key={s.skuKey} className="py-2 flex justify-between items-start gap-2">
                                             <div>
                                                 <button type="button" onClick={() => onSelectSku(s.sku)} className="font-semibold text-slate-900 hover:text-indigo-600 text-left">
@@ -120,20 +226,24 @@ export default function PlatformDetailsTab({ analysis, onSelectSku }) {
                     {/* Lejek konwersji & Kampanie Allegro Ads */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                            <h4 className="text-xs font-bold text-slate-800 uppercase mb-2">Lejek Ruchu Allegro (&Delta; Odwiedziny &rarr; Obserwujący &rarr; CR%)</h4>
+                            <h4 className="text-xs font-bold text-slate-800 uppercase mb-2">
+                                <MetricTooltip text={METRIC_TOOLTIPS.colConversionRate}>
+                                    <span>Lejek Ruchu Allegro (&Delta; Odwiedziny &rarr; Obserwujący &rarr; CR%)</span>
+                                </MetricTooltip>
+                            </h4>
                             <div className="overflow-x-auto max-h-64 overflow-y-auto">
                                 <table className="min-w-full text-xs divide-y divide-slate-200">
-                                    <thead className="bg-slate-50 sticky top-0">
+                                    <thead className="bg-slate-50 sticky top-0 text-slate-600 font-semibold">
                                         <tr>
-                                            <th className="px-2 py-1.5 text-left">SKU</th>
-                                            <th className="px-2 py-1.5 text-right">Odwiedziny</th>
-                                            <th className="px-2 py-1.5 text-right">&Delta; Obserw.</th>
-                                            <th className="px-2 py-1.5 text-right">Zam.</th>
-                                            <th className="px-2 py-1.5 text-right">CR %</th>
+                                            <SortableTh label="SKU" sortKey="sku" defaultDirection="asc" sortConfig={funnelSort} onSort={requestFunnelSort} tooltip={METRIC_TOOLTIPS.colProductSku} className="px-2 py-1.5" />
+                                            <SortableTh label="Odwiedziny" sortKey="deltaVisits" align="right" sortConfig={funnelSort} onSort={requestFunnelSort} tooltip={METRIC_TOOLTIPS.colVisitsDelta} className="px-2 py-1.5" />
+                                            <SortableTh label="Δ Obserw." sortKey="deltaWatchers" align="right" sortConfig={funnelSort} onSort={requestFunnelSort} tooltip={METRIC_TOOLTIPS.colWatchersDelta} className="px-2 py-1.5" />
+                                            <SortableTh label="Zam." sortKey="ordersCount" align="right" sortConfig={funnelSort} onSort={requestFunnelSort} tooltip={METRIC_TOOLTIPS.colOrdersMulti} className="px-2 py-1.5" />
+                                            <SortableTh label="CR %" sortKey="conversionRatePct" align="right" sortConfig={funnelSort} onSort={requestFunnelSort} tooltip={METRIC_TOOLTIPS.colConversionRate} className="px-2 py-1.5" />
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {allegroFunnelSkus.map(s => (
+                                        {sortedFunnel.slice(0, 120).map(s => (
                                             <tr key={s.skuKey}>
                                                 <td className="px-2 py-1.5">
                                                     <button type="button" onClick={() => onSelectSku(s.sku)} className="font-mono text-indigo-700 hover:underline">{s.sku}</button>
@@ -144,7 +254,7 @@ export default function PlatformDetailsTab({ analysis, onSelectSku }) {
                                                 <td className="px-2 py-1.5 text-right font-semibold">{s.conversionRatePct !== null ? fmtPct(s.conversionRatePct) : '—'}</td>
                                             </tr>
                                         ))}
-                                        {allegroFunnelSkus.length === 0 && (
+                                        {sortedFunnel.length === 0 && (
                                             <tr><td colSpan={5} className="py-6 text-center text-slate-500">Zsynchronizuj API Allegro lub wgraj CSV Allegro Analytics, aby zobaczyć ruch.</td></tr>
                                         )}
                                     </tbody>
@@ -154,21 +264,22 @@ export default function PlatformDetailsTab({ analysis, onSelectSku }) {
 
                         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                             <h4 className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5 mb-2">
-                                <Megaphone className="w-4 h-4 text-violet-600" /> Kampanie Allegro Ads (z importów CSV / XLSX)
+                                <Megaphone className="w-4 h-4 text-violet-600" />
+                                <MetricTooltip text={METRIC_TOOLTIPS.kpiRoas}><span>Kampanie Allegro Ads (z importów CSV / XLSX)</span></MetricTooltip>
                             </h4>
                             <div className="overflow-x-auto max-h-64 overflow-y-auto">
                                 <table className="min-w-full text-xs divide-y divide-slate-200">
-                                    <thead className="bg-slate-50 sticky top-0">
+                                    <thead className="bg-slate-50 sticky top-0 text-slate-600 font-semibold">
                                         <tr>
-                                            <th className="px-2 py-1.5 text-left">Kampania</th>
-                                            <th className="px-2 py-1.5 text-right">Kliknięcia</th>
-                                            <th className="px-2 py-1.5 text-right">Koszt netto</th>
-                                            <th className="px-2 py-1.5 text-right">Przychód</th>
-                                            <th className="px-2 py-1.5 text-right">ROAS</th>
+                                            <SortableTh label="Kampania" sortKey="campaignName" defaultDirection="asc" sortConfig={adsSort} onSort={requestAdsSort} className="px-2 py-1.5" />
+                                            <SortableTh label="Kliknięcia" sortKey="clicks" align="right" sortConfig={adsSort} onSort={requestAdsSort} tooltip={METRIC_TOOLTIPS.colAdsClicks} className="px-2 py-1.5" />
+                                            <SortableTh label="Koszt netto" sortKey="costNetPln" align="right" sortConfig={adsSort} onSort={requestAdsSort} className="px-2 py-1.5" />
+                                            <SortableTh label="Przychód" sortKey="adRevenuePln" align="right" sortConfig={adsSort} onSort={requestAdsSort} className="px-2 py-1.5" />
+                                            <SortableTh label="ROAS" sortKey="roas" align="right" sortConfig={adsSort} onSort={requestAdsSort} tooltip={METRIC_TOOLTIPS.colAdsRoas} className="px-2 py-1.5" />
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {(analysis?.adsCampaigns || []).map(c => (
+                                        {sortedAds.map(c => (
                                             <tr key={c.campaignName}>
                                                 <td className="px-2 py-1.5 font-medium text-slate-800 truncate max-w-[180px]">{c.campaignName}</td>
                                                 <td className="px-2 py-1.5 text-right font-mono">{fmtInt(c.clicks)} ({fmtPct(c.ctrPct)})</td>
@@ -177,7 +288,7 @@ export default function PlatformDetailsTab({ analysis, onSelectSku }) {
                                                 <td className="px-2 py-1.5 text-right font-bold">{fmtNum(c.roas, 2)}x</td>
                                             </tr>
                                         ))}
-                                        {(analysis?.adsCampaigns || []).length === 0 && (
+                                        {sortedAds.length === 0 && (
                                             <tr><td colSpan={5} className="py-6 text-center text-slate-500">Wgraj raport CSV/XLSX z panelu Allegro Ads w zakładce Źródła API i CSV.</td></tr>
                                         )}
                                     </tbody>
@@ -193,7 +304,7 @@ export default function PlatformDetailsTab({ analysis, onSelectSku }) {
                 <div className="space-y-4 pt-2 border-t border-slate-200">
                     <div className="flex items-center gap-2 text-base font-bold text-slate-900">
                         <Truck className="w-5 h-5 text-amber-500" />
-                        Diagnostyka InPost Von Halsky (OpenAPI v1.7.12: Oferty, Program Cenowy, SLA & Posprzedaż v2)
+                        Diagnostyka InPost Von Halsky (OpenAPI v1.7.12: Oferty, Program Cenowy, SLA &amp; Posprzedaż v2)
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -211,7 +322,8 @@ export default function PlatformDetailsTab({ analysis, onSelectSku }) {
 
                         <div className="bg-white rounded-xl border border-slate-200 p-4">
                             <div className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
-                                <CreditCard className="w-4 h-4 text-emerald-600" /> Program Cenowy InPost (Discount Split)
+                                <CreditCard className="w-4 h-4 text-emerald-600" />
+                                <MetricTooltip text={METRIC_TOOLTIPS.vhPriceProgram}><span>Program Cenowy InPost (Discount Split)</span></MetricTooltip>
                             </div>
                             <div className="mt-3 space-y-2 text-xs">
                                 <div className="flex justify-between"><span>Zamówienia w programie:</span><strong>{fmtInt(vh.programOrdersCount)}</strong></div>
@@ -221,7 +333,9 @@ export default function PlatformDetailsTab({ analysis, onSelectSku }) {
                         </div>
 
                         <div className="bg-white rounded-xl border border-slate-200 p-4">
-                            <div className="text-xs font-bold text-slate-700 uppercase">Logistyka APM / Kurier & Czasy SLA</div>
+                            <div className="text-xs font-bold text-slate-700 uppercase">
+                                <MetricTooltip text={METRIC_TOOLTIPS.vhSlaTimes}><span>Logistyka APM / Kurier &amp; Czasy SLA</span></MetricTooltip>
+                            </div>
                             <div className="mt-3 space-y-2 text-xs">
                                 <div className="flex justify-between"><span>Paczkomat (APM) vs Kurier:</span><strong>{fmtInt(vh.deliveryMix?.APM || 0)} / {fmtInt(vh.deliveryMix?.COURIER || 0)}</strong></div>
                                 <div className="flex justify-between"><span>Śr. czas akceptacji zamówienia:</span><strong>{vh.avgAcceptHours !== null && vh.avgAcceptHours !== undefined ? `${fmtNum(vh.avgAcceptHours, 1)} h` : '—'}</strong></div>
@@ -250,7 +364,7 @@ export default function PlatformDetailsTab({ analysis, onSelectSku }) {
             {(showAllegro || showVonHalsky || showBase) && (
                 <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
                     <h4 className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5 mb-3">
-                        <ShieldAlert className="w-4 h-4 text-indigo-600" /> Migawki Jakości, Zwrotów, Sporów (/sale/issues) & Alerty Posprzedażowe
+                        <ShieldAlert className="w-4 h-4 text-indigo-600" /> Migawki Jakości, Zwrotów, Sporów (/sale/issues) &amp; Alerty Posprzedażowe
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                         {(analysis?.qualitySnapshots || []).map(q => (

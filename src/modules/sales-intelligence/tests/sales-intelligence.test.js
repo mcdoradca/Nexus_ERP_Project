@@ -24,7 +24,7 @@ const {
     deleteImportBatch
 } = require('../importers/csv-importer.service');
 const { classifyBaseLinkerOrigin, parseBaseLinkerProductLogs, syncBaseLinkerAnalytics } = require('../connectors/baselinker.connector');
-const { classifyAllegroBillingCategory, syncAllegroAnalytics } = require('../connectors/allegro.connector');
+const { classifyAllegroBillingCategory, resolveAllegroAccountLabel, syncAllegroAnalytics } = require('../connectors/allegro.connector');
 const { syncVonHalskyAnalytics } = require('../connectors/vonhalsky.connector');
 const { buildExecutiveXlsxBuffer, buildExecutiveCsvString } = require('../export.service');
 const SalesIntelligenceService = require('../sales-intelligence.service');
@@ -744,5 +744,87 @@ describe('Sales Intelligence Module — Unit, Engine, Connector & Multi-Workspac
         assert.equal(doneJob.status, 'COMPLETED');
         assert.equal(doneJob.progressPct, 100);
         assert.equal(doneJob.counters.orders, 120);
+    });
+
+    it('Resolves generic Allegro account label "Konto #50233197" to login "wenecja444 (#50233197)" via BaseLinker auction matching when GET /me fails', async () => {
+        const fakePrismaWithBlOrders = {
+            ...createInMemoryPrismaMock(),
+            analyticsDailyOfferSnapshot: {
+                upsert: async () => ({}),
+                findMany: async () => [{ externalOfferId: '17803388871' }]
+            },
+            analyticsOrder: {
+                upsert: async () => ({}),
+                findMany: async () => ([
+                    {
+                        rawMeta: { orderSourceId: 16402, orderSourceName: 'wenecja444' },
+                        items: [{ auctionId: '17803388871' }]
+                    },
+                    {
+                        rawMeta: { orderSourceId: 16742, orderSourceName: 'Prosto_z_Wloch' },
+                        items: [{ auctionId: '99999999999' }]
+                    }
+                ])
+            },
+            analyticsImportBatch: {
+                create: async ({ data }) => ({ id: 'b_label_1', ...data }),
+                update: async ({ data }) => data,
+                findFirst: async () => ({ summary: { orderSources: { allegro: { '16402': 'wenecja444', '16742': 'Prosto_z_Wloch' } } } })
+            }
+        };
+
+        // Bezpośrednie wywołanie resolveAllegroAccountLabel (np. w getStatus lub przy GET /me = 403)
+        const resolved = await resolveAllegroAccountLabel({
+            acc: { accountId: '50233197', label: 'Konto #50233197', login: null },
+            token: 'tok',
+            http: {
+                get: async () => {
+                    const e = new Error('Forbidden');
+                    e.response = { status: 403 };
+                    throw e;
+                }
+            },
+            workspaceId: 'ws_label_test',
+            injectedPrisma: fakePrismaWithBlOrders,
+            persistToIntegration: false
+        });
+        assert.equal(resolved.login, 'wenecja444');
+        assert.equal(resolved.displayLabel, 'wenecja444 (#50233197)');
+
+        // W pełnym syncAllegroAnalytics nawet wcześniejsze 403 (/sale/badges) przed pobraniem ofert dostają przepisany prefiks [wenecja444 (#50233197)]
+        const alSync = await syncAllegroAnalytics({
+            workspaceId: 'ws_label_test',
+            days: 30,
+            injectedPrisma: fakePrismaWithBlOrders,
+            allegroApi: {
+                listConnectedAllegroAccounts: async () => [{ accountId: '50233197', label: 'Konto #50233197', login: null }],
+                getAllegroToken: async () => 'tok',
+                apiClient: {
+                    get: async (url) => {
+                        if (url.includes('/me') || url.includes('/sale/badges')) {
+                            const err = new Error('Forbidden');
+                            err.response = { status: 403 };
+                            throw err;
+                        }
+                        if (url.includes('/sale/offers')) {
+                            return {
+                                data: {
+                                    offers: [{
+                                        id: '17803388871',
+                                        name: 'Test Wenecja',
+                                        sellingMode: { price: { amount: '50.00', currency: 'PLN' } },
+                                        stock: { available: 10 },
+                                        publication: { status: 'ACTIVE' }
+                                    }],
+                                    totalCount: 1
+                                }
+                            };
+                        }
+                        return { data: {} };
+                    }
+                }
+            }
+        });
+        assert.ok(alSync.scopeWarnings.some(w => w.account === 'wenecja444 (#50233197)' && w.message.startsWith('[wenecja444 (#50233197)]')));
     });
 });

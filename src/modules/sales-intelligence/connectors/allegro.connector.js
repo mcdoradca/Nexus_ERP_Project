@@ -51,6 +51,147 @@ function buildHeaders(token, extra = {}) {
 }
 
 /**
+ * Rozwiązuje czytelną nazwę konta Allegro (np. "wenecja444 (#50233197)") z loginu,
+ * endpointu GET /me lub przez dopasowanie aukcji do źródeł BaseLinkera (orderSources).
+ */
+async function resolveAllegroAccountLabel({
+    acc = {},
+    token = null,
+    http = null,
+    workspaceId = null,
+    injectedPrisma = prisma,
+    extraOfferIds = [],
+    skipRemoteMe = false,
+    persistToIntegration = true
+} = {}) {
+    const accId = String(acc.accountId || acc.externalAccountId || '');
+    const genericLabelRx = /^Konto\s*#?\d*$/i;
+    const rawLogin = acc.login ? String(acc.login).trim() : '';
+    const rawLabel = acc.label ? String(acc.label).trim() : '';
+
+    let resolvedLogin = rawLogin || (!genericLabelRx.test(rawLabel) ? rawLabel : '');
+
+    if (!resolvedLogin && !skipRemoteMe && token && http?.get) {
+        try {
+            const meRes = await http.get('https://api.allegro.pl/me', {
+                headers: buildHeaders(token),
+                _allegroAccountId: accId,
+                _allegroWorkspaceId: workspaceId,
+                timeout: 10000
+            });
+            const loginFromMe = meRes?.data?.login ? String(meRes.data.login).trim() : '';
+            if (loginFromMe) resolvedLogin = loginFromMe;
+        } catch (_) {
+            // Brak uprawnienia profile:read (403) lub błąd sieci — przechodzimy do dopasowania z BaseLinker
+        }
+    }
+
+    if (!resolvedLogin && workspaceId && typeof injectedPrisma?.analyticsOrder?.findMany === 'function') {
+        try {
+            const offerIdSet = new Set(
+                (Array.isArray(extraOfferIds) ? extraOfferIds : []).map(id => String(id).trim()).filter(Boolean)
+            );
+            if (typeof injectedPrisma?.analyticsDailyOfferSnapshot?.findMany === 'function' && accId) {
+                const snaps = await injectedPrisma.analyticsDailyOfferSnapshot.findMany({
+                    where: { workspaceId, platform: 'ALLEGRO', accountId: accId },
+                    select: { externalOfferId: true },
+                    take: 500
+                });
+                for (const s of snaps) {
+                    if (s?.externalOfferId) offerIdSet.add(String(s.externalOfferId).trim());
+                }
+            }
+
+            if (offerIdSet.size > 0) {
+                let blSourcesDict = {};
+                if (typeof injectedPrisma?.analyticsImportBatch?.findFirst === 'function') {
+                    const lastBlBatch = await injectedPrisma.analyticsImportBatch.findFirst({
+                        where: { workspaceId, platform: 'BASELINKER', status: 'COMPLETED' },
+                        orderBy: { createdAt: 'desc' },
+                        select: { summary: true }
+                    });
+                    blSourcesDict = lastBlBatch?.summary?.orderSources?.allegro || {};
+                }
+
+                const blOrders = await injectedPrisma.analyticsOrder.findMany({
+                    where: { workspaceId, platform: 'BASELINKER', originChannel: 'ALLEGRO' },
+                    select: { rawMeta: true, items: true },
+                    orderBy: { orderDate: 'desc' },
+                    take: 800
+                });
+
+                const hitsByName = new Map();
+                for (const ord of blOrders) {
+                    const srcId = ord?.rawMeta?.orderSourceId !== undefined && ord?.rawMeta?.orderSourceId !== null
+                        ? String(ord.rawMeta.orderSourceId)
+                        : '';
+                    const dictVal = srcId ? blSourcesDict[srcId] : null;
+                    const dictName = typeof dictVal === 'string' ? dictVal.trim() : (dictVal?.name ? String(dictVal.name).trim() : '');
+                    const srcName = (ord?.rawMeta?.orderSourceName && String(ord.rawMeta.orderSourceName).trim()) || dictName;
+                    if (!srcName) continue;
+
+                    const itemsArr = Array.isArray(ord.items) ? ord.items : [];
+                    for (const it of itemsArr) {
+                        if (it?.auctionId && offerIdSet.has(String(it.auctionId).trim())) {
+                            hitsByName.set(srcName, (hitsByName.get(srcName) || 0) + 1);
+                        }
+                    }
+                }
+
+                let bestName = '';
+                let bestCount = 0;
+                for (const [nm, cnt] of hitsByName.entries()) {
+                    if (cnt > bestCount) {
+                        bestName = nm;
+                        bestCount = cnt;
+                    }
+                }
+                if (bestName) resolvedLogin = bestName;
+            }
+        } catch (_) {
+            // Nie przerywamy synchronizacji w razie braku dopasowania w BaseLinker
+        }
+    }
+
+    if (
+        resolvedLogin &&
+        persistToIntegration &&
+        workspaceId &&
+        accId &&
+        typeof injectedPrisma?.integrationAccount?.findFirst === 'function' &&
+        typeof injectedPrisma?.integrationAccount?.update === 'function'
+    ) {
+        try {
+            const row = await injectedPrisma.integrationAccount.findFirst({
+                where: { workspaceId, provider: 'ALLEGRO', externalAccountId: accId },
+                select: { id: true, label: true, metadata: true }
+            });
+            if (row && (genericLabelRx.test(String(row.label || '')) || !row.metadata?.login)) {
+                const oldMeta = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+                await injectedPrisma.integrationAccount.update({
+                    where: { id: row.id },
+                    data: {
+                        label: resolvedLogin,
+                        metadata: { ...oldMeta, login: resolvedLogin }
+                    }
+                });
+            }
+        } catch (_) {
+            // Ignorujemy błąd zapisu pomocniczej etykiety
+        }
+    }
+
+    const displayLabel = resolvedLogin
+        ? (accId && !resolvedLogin.includes(accId) ? `${resolvedLogin} (#${accId})` : resolvedLogin)
+        : (rawLabel || (accId ? `Konto #${accId}` : 'Allegro'));
+
+    return {
+        login: resolvedLogin || null,
+        displayLabel
+    };
+}
+
+/**
  * Synchronizuje dane analityczne bezpośrednio z Allegro REST API (Multi-Workspace + multi-account):
  * - Oferty i statystyki (`GET /sale/offers`: visitsCount, watchersCount, stock.available, stock.sold, marketplaces)
  * - Zdarzenia 24h (`GET /sale/offer-events`), Odznaki (`GET /sale/badges`), Reguły cen (`GET /sale/price-automation/rules`)
@@ -151,7 +292,9 @@ async function syncAllegroAnalytics({
 
     for (const acc of accounts) {
         const accId = String(acc.accountId);
-        const accLabel = acc.label || acc.login || `Konto #${accId}`;
+        let accLabel = acc.login
+            ? `${acc.login} (#${accId})`
+            : (acc.label || `Konto #${accId}`);
         let token;
         try {
             token = await svc.getAllegroToken(false, accId, injectedPrisma, workspaceId);
@@ -159,6 +302,17 @@ async function syncAllegroAnalytics({
             warnings.push(`[${accLabel}] Nie udało się pobrać tokena OAuth: ${err.message}`);
             continue;
         }
+
+        const resolvedInitial = await resolveAllegroAccountLabel({
+            acc,
+            token,
+            http,
+            workspaceId,
+            injectedPrisma,
+            skipRemoteMe: false,
+            persistToIntegration: true
+        });
+        accLabel = resolvedInitial.displayLabel;
 
         const reqOpts = (params = {}, extraHeaders = {}) => ({
             headers: buildHeaders(token, extraHeaders),
@@ -211,6 +365,38 @@ async function syncAllegroAnalytics({
             }
         } catch (err) {
             recordScopeOrApiError(accLabel, 'GET /sale/offers', 'allegro:api:sale:offers:read', err);
+        }
+
+        // Jeżeli wcześniej etykieta była generyczna ("Konto #..."), dopasowujemy ją na podstawie świeżo pobranych aukcji i źródeł BaseLinkera
+        if (!resolvedInitial.login && allOffers.length > 0) {
+            const refined = await resolveAllegroAccountLabel({
+                acc,
+                token,
+                http,
+                workspaceId,
+                injectedPrisma,
+                extraOfferIds: allOffers.map(o => o?.id).filter(Boolean),
+                skipRemoteMe: true,
+                persistToIntegration: true
+            });
+            if (refined.displayLabel && refined.displayLabel !== accLabel) {
+                const prevPrefix = `[${accLabel}]`;
+                const nextPrefix = `[${refined.displayLabel}]`;
+                for (let wi = 0; wi < warnings.length; wi++) {
+                    if (warnings[wi].startsWith(prevPrefix)) {
+                        warnings[wi] = nextPrefix + warnings[wi].slice(prevPrefix.length);
+                    }
+                }
+                for (const sw of scopeWarnings) {
+                    if (sw.account === accLabel) {
+                        sw.account = refined.displayLabel;
+                        if (sw.message.startsWith(prevPrefix)) {
+                            sw.message = nextPrefix + sw.message.slice(prevPrefix.length);
+                        }
+                    }
+                }
+                accLabel = refined.displayLabel;
+            }
         }
 
         // Sprawdzamy nadchodzące opłaty promowania dla maksymalnie 100 aktywnych ofert (batch po 20)
@@ -746,5 +932,6 @@ async function syncAllegroAnalytics({
 
 module.exports = {
     classifyAllegroBillingCategory,
+    resolveAllegroAccountLabel,
     syncAllegroAnalytics
 };

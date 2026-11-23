@@ -5,6 +5,8 @@ import {
     ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip
 } from 'recharts';
 import { fmtPln, fmtInt, fmtNum, fmtPct, fmtDateTime, ROLE_META } from './formatters';
+import MetricTooltip from './MetricTooltip';
+import { METRIC_TOOLTIPS } from './metricTooltips';
 
 export default function SkuDeepDiveModal({ API_URL, token, skuOrEan, queryParams, onClose, onOpenProduct }) {
     const [data, setData] = useState(null);
@@ -102,7 +104,9 @@ export default function SkuDeepDiveModal({ API_URL, token, skuOrEan, queryParams
                             {/* Karty ekonomii SKU */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 <div className="p-3 rounded-xl border border-slate-200 bg-slate-50">
-                                    <div className="text-[11px] text-slate-500">Stan & Zapas sprzedażowy</div>
+                                    <div className="text-[11px] text-slate-500">
+                                        <MetricTooltip text={METRIC_TOOLTIPS.colSellableStock}><span>Stan &amp; Zapas sprzedażowy</span></MetricTooltip>
+                                    </div>
                                     <div className={`text-lg font-bold mt-0.5 ${sku.isCurrentlyUnavailable ? 'text-rose-700' : 'text-slate-900'}`}>
                                         {sku.currentStock ?? '—'} szt. ({sku.isCurrentlyUnavailable ? `BRAK ≤ ${threshold}` : `Sprzed.: ${sku.sellableStock}`})
                                     </div>
@@ -110,7 +114,9 @@ export default function SkuDeepDiveModal({ API_URL, token, skuOrEan, queryParams
                                 </div>
 
                                 <div className="p-3 rounded-xl border border-slate-200 bg-slate-50">
-                                    <div className="text-[11px] text-slate-500">Sprzedaż & Rola Koszykowa</div>
+                                    <div className="text-[11px] text-slate-500">
+                                        <MetricTooltip text={METRIC_TOOLTIPS.colRole}><span>Sprzedaż &amp; Rola Koszykowa</span></MetricTooltip>
+                                    </div>
                                     <div className="text-lg font-bold text-slate-900 mt-0.5">{fmtPln(sku.totalRevenuePln)}</div>
                                     <div className="mt-0.5 flex items-center gap-1.5">
                                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${roleInfo.badgeClass}`}>{roleInfo.label}</span>
@@ -119,7 +125,9 @@ export default function SkuDeepDiveModal({ API_URL, token, skuOrEan, queryParams
                                 </div>
 
                                 <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/50">
-                                    <div className="text-[11px] text-emerald-700">Zweryfikowany Zysk Netto (PIM)</div>
+                                    <div className="text-[11px] text-emerald-700">
+                                        <MetricTooltip text={METRIC_TOOLTIPS.colNetProfitSku}><span>Zweryfikowany Zysk Netto (PIM)</span></MetricTooltip>
+                                    </div>
                                     <div className="text-lg font-bold text-emerald-800 mt-0.5">
                                         {sku.hasVerifiedCogs ? fmtPln(sku.verifiedNetProfitPln) : 'Brak COGS w PIM'}
                                     </div>
@@ -129,7 +137,9 @@ export default function SkuDeepDiveModal({ API_URL, token, skuOrEan, queryParams
                                 </div>
 
                                 <div className="p-3 rounded-xl border border-rose-200 bg-rose-50/50">
-                                    <div className="text-[11px] text-rose-700">Straty przez braki (stan &le; {threshold})</div>
+                                    <div className="text-[11px] text-rose-700">
+                                        <MetricTooltip text={METRIC_TOOLTIPS.colLostTotalGmv}><span>Straty przez braki (stan &le; {threshold})</span></MetricTooltip>
+                                    </div>
                                     <div className="text-lg font-bold text-rose-800 mt-0.5">{fmtPln(sku.totalLostGmvPln)}</div>
                                     <div className="text-[11px] text-rose-700">
                                         {sku.stockoutDays} dni przerw • Spadek trafności: {fmtPct(sku.relevanceDropPct)}
@@ -141,7 +151,8 @@ export default function SkuDeepDiveModal({ API_URL, token, skuOrEan, queryParams
                             {(data.snapshotsTimeline || []).length > 0 && (
                                 <div className="bg-white rounded-xl border border-slate-200 p-4 min-w-0">
                                     <h4 className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5 mb-2">
-                                        <TrendingUp className="w-4 h-4 text-indigo-600" /> Oś Czasu Migawek (Stan vs Cena vs Odwiedziny Allegro)
+                                        <TrendingUp className="w-4 h-4 text-indigo-600" />
+                                        <MetricTooltip text={METRIC_TOOLTIPS.colVisitsDelta}><span>Oś Czasu Migawek (Stan vs Cena vs Odwiedziny Allegro)</span></MetricTooltip>
                                     </h4>
                                     <div className="w-full min-w-0" style={{ height: 208 }}>
                                         <ResponsiveContainer width="100%" height={208} minWidth={0} initialDimension={{ width: 640, height: 208 }}>
@@ -163,7 +174,9 @@ export default function SkuDeepDiveModal({ API_URL, token, skuOrEan, queryParams
                             {/* Pary koszykowe + Ostatnie zamówienia */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                 <div className="rounded-xl border border-slate-200 p-4">
-                                    <h4 className="text-xs font-bold text-slate-800 uppercase mb-2">Najczęstsi Partnerzy Koszykowi</h4>
+                                    <h4 className="text-xs font-bold text-slate-800 uppercase mb-2">
+                                        <MetricTooltip text={METRIC_TOOLTIPS.colLift}><span>Najczęstsi Partnerzy Koszykowi</span></MetricTooltip>
+                                    </h4>
                                     <div className="space-y-2 text-xs">
                                         {(data.relatedPairs || []).map((p, i) => {
                                             const partnerName = p.skuKeyA === sku.skuKey ? p.nameB : p.nameA;
