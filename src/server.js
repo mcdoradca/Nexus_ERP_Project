@@ -189,6 +189,7 @@ const adIntelligenceRoutes = require('./modules/ad-intelligence/ad-intelligence.
 
 const pricingRoutes = require('./modules/pricing/pricing.routes');
 const analyticsRoutes = require('./modules/analytics/analytics.routes');
+const salesIntelligenceRoutes = require('./modules/sales-intelligence/sales-intelligence.routes');
 const portfolioRoutes = require('./modules/portfolio-manager/portfolio.routes');
 const rmaRoutes = require('./modules/rma/rma.routes');
 const logisticsRoutes = require('./modules/logistics/logistics.routes');
@@ -268,6 +269,7 @@ app.use('/api/workspaces', authenticateToken, workspacesRoutes);
 
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/analytics', authenticateToken, resolveWorkspaceContext, analyticsRoutes);
+app.use('/api/sales-intelligence', authenticateToken, resolveWorkspaceContext, salesIntelligenceRoutes);
 app.use('/api/portfolio', authenticateToken, portfolioRoutes);
 app.use('/api/rma', authenticateToken, resolveWorkspaceContext, rmaRoutes);
 app.use('/api/logistics', logisticsRoutes);

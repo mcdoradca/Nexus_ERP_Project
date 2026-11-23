@@ -583,9 +583,9 @@ async function saveConfig(input = {}, auditUser = null, injectedPrisma = prisma,
 }
 
 /**
- * Pobiera token Bearer OAuth 2.1 (grant_type=client_credentials) z cache (izolowanego per workspace+account) i deduplikacją zapytań.
+ * Pobiera token Bearer OAuth 2.1 (grant_type=client_credentials) z cache (izolowanego per workspace+account+scope) i deduplikacją zapytań.
  */
-async function getAccessToken({ forceRefresh = false, configOverride = null, httpClient = axios, injectedPrisma = prisma, workspaceId = null, accountId = null } = {}) {
+async function getAccessToken({ forceRefresh = false, configOverride = null, scopeOverride = null, httpClient = axios, injectedPrisma = prisma, workspaceId = null, accountId = null } = {}) {
     const cfg = configOverride || await getConfig(injectedPrisma, { workspaceId, accountId });
     if (!cfg.clientId || !cfg.clientSecret) {
         const err = new Error('Brak skonfigurowanych danych dostępowych InPost Von Halsky (Client ID / Client Secret). Uzupełnij je w Panelu Administracyjnym -> Integracje API.');
@@ -594,9 +594,10 @@ async function getAccessToken({ forceRefresh = false, configOverride = null, htt
         throw err;
     }
 
+    const effectiveScope = trimOrNull(scopeOverride) || cfg.scope || '';
     const wsKey = cfg.workspaceId || workspaceId || 'legacy';
     const accKey = cfg.accountId || accountId || 'default';
-    const cacheKey = `${wsKey}:${accKey}|${cfg.environment}|${cfg.tokenUrl}|${cfg.clientId}|${cfg.scope}`;
+    const cacheKey = `${wsKey}:${accKey}|${cfg.environment}|${cfg.tokenUrl}|${cfg.clientId}|${effectiveScope}`;
     const now = Date.now();
 
     if (!forceRefresh) {
@@ -615,8 +616,8 @@ async function getAccessToken({ forceRefresh = false, configOverride = null, htt
             params.append('grant_type', 'client_credentials');
             params.append('client_id', cfg.clientId);
             params.append('client_secret', cfg.clientSecret);
-            if (cfg.scope) {
-                params.append('scope', cfg.scope);
+            if (effectiveScope) {
+                params.append('scope', effectiveScope);
             }
 
             const response = await httpClient.post(cfg.tokenUrl, params.toString(), {
@@ -641,7 +642,7 @@ async function getAccessToken({ forceRefresh = false, configOverride = null, htt
             tokenCache.set(cacheKey, {
                 accessToken,
                 expiresAtMs: Date.now() + (expiresInSec * 1000),
-                scope: data.scope || cfg.scope
+                scope: data.scope || effectiveScope
             });
             return accessToken;
         } catch (err) {
@@ -670,6 +671,7 @@ async function apiRequest({
     acceptLanguage = 'pl',
     timeout = 25000,
     configOverride = null,
+    scopeOverride = null,
     workspaceId = null,
     accountId = null,
     httpClient = axios,
@@ -681,6 +683,7 @@ async function apiRequest({
     const token = await getAccessToken({
         forceRefresh: _retryAuth,
         configOverride: cfg,
+        scopeOverride,
         workspaceId: cfg.workspaceId || workspaceId,
         accountId: cfg.accountId || accountId,
         httpClient,
@@ -725,6 +728,7 @@ async function apiRequest({
                 acceptLanguage,
                 timeout,
                 configOverride: cfg,
+                scopeOverride,
                 workspaceId: cfg.workspaceId || workspaceId,
                 accountId: cfg.accountId || accountId,
                 httpClient,
@@ -745,6 +749,7 @@ async function apiRequest({
                 acceptLanguage,
                 timeout,
                 configOverride: cfg,
+                scopeOverride,
                 workspaceId: cfg.workspaceId || workspaceId,
                 accountId: cfg.accountId || accountId,
                 httpClient,
@@ -1240,6 +1245,253 @@ async function getDepositTypes(opts = {}) {
     return res.data;
 }
 
+/**
+ * Zdarzenia ofert InPost Von Halsky (OpenAPI v1.7.12): CREATED, REJECTED, REOPENED, CLOSED, PUBLISHED, VALIDATION_FAILED, SOLDOUT, UPDATED.
+ */
+async function listOfferEvents({ organizationId, untilId = null, offerEventType = null, limit = 100, ...opts } = {}) {
+    const params = {
+        limit: Math.min(Math.max(Number(limit) || 100, 1), 1000)
+    };
+    if (trimOrNull(untilId)) params.untilId = trimOrNull(untilId);
+    if (Array.isArray(offerEventType) && offerEventType.length > 0) {
+        params.eventType = offerEventType;
+    } else if (trimOrNull(offerEventType)) {
+        params.eventType = [trimOrNull(offerEventType)];
+    }
+
+    const res = await apiRequest({
+        method: 'GET',
+        path: `/v1/organizations/${encodeURIComponent(organizationId)}/offers/events`,
+        params,
+        ...opts
+    });
+    return {
+        data: Array.isArray(res.data?.data) ? res.data.data : []
+    };
+}
+
+/**
+ * Lista dostępnych kampanii cenowych InPost Von Halsky (np. PRICE_HIT / Cenowy Sztos).
+ */
+async function listCampaigns({ limit = 30, offset = 0, ...opts } = {}) {
+    const params = {
+        limit: Math.min(Math.max(Number(limit) || 30, 1), 30),
+        offset: Math.max(Number(offset) || 0, 0)
+    };
+    const res = await apiRequest({
+        method: 'GET',
+        path: '/v1/campaigns',
+        params,
+        ...opts
+    });
+    return {
+        page: res.data?.page || null,
+        data: Array.isArray(res.data?.data) ? res.data.data : []
+    };
+}
+
+/**
+ * Deklaracje udziału ofert organizacji w programie cenowym i kampaniach.
+ */
+async function listCampaignDeclarations({ organizationId, limit = 30, offset = 0, offerIds = null, ...opts } = {}) {
+    const params = {
+        limit: Math.min(Math.max(Number(limit) || 30, 1), 30),
+        offset: Math.max(Number(offset) || 0, 0)
+    };
+    if (Array.isArray(offerIds) && offerIds.length > 0) {
+        params.offerIds = offerIds;
+    }
+    const res = await apiRequest({
+        method: 'GET',
+        path: `/v1/organizations/${encodeURIComponent(organizationId)}/campaigns/declarations`,
+        params,
+        ...opts
+    });
+    return {
+        page: res.data?.page || null,
+        data: Array.isArray(res.data?.data) ? res.data.data : []
+    };
+}
+
+/**
+ * Lista zamówień InPost Von Halsky (wymaga zakresu api:orders:read).
+ */
+async function listOrders({
+    organizationId,
+    orderStatus = null,
+    paymentStatus = null,
+    updatedAtGte = null,
+    limit = 30,
+    offset = 0,
+    sort = ['-createdAt'],
+    ...opts
+} = {}) {
+    const params = {
+        limit: Math.min(Math.max(Number(limit) || 30, 1), 30),
+        offset: Math.max(Number(offset) || 0, 0),
+        sort
+    };
+    if (Array.isArray(orderStatus) && orderStatus.length > 0) params.orderStatus = orderStatus;
+    if (Array.isArray(paymentStatus) && paymentStatus.length > 0) params.paymentStatus = paymentStatus;
+    if (trimOrNull(updatedAtGte)) params.updatedAtGte = trimOrNull(updatedAtGte);
+
+    const res = await apiRequest({
+        method: 'GET',
+        path: `/v1/organizations/${encodeURIComponent(organizationId)}/orders`,
+        params,
+        ...opts
+    });
+    return {
+        page: res.data?.page || null,
+        data: Array.isArray(res.data?.data) ? res.data.data : []
+    };
+}
+
+/**
+ * Zdarzenia zamówień InPost Von Halsky (CREATED, ACCEPTED, SHIPPED, REFUSED, CANCELLED, RETURN_CREATED).
+ */
+async function listOrderEvents({ organizationId, untilId = null, orderEventType = null, limit = 100, ...opts } = {}) {
+    const params = {
+        limit: Math.min(Math.max(Number(limit) || 100, 1), 1000)
+    };
+    if (trimOrNull(untilId)) params.untilId = trimOrNull(untilId);
+    if (Array.isArray(orderEventType) && orderEventType.length > 0) {
+        params.eventType = orderEventType;
+    } else if (trimOrNull(orderEventType)) {
+        params.eventType = [trimOrNull(orderEventType)];
+    }
+
+    const res = await apiRequest({
+        method: 'GET',
+        path: `/v1/organizations/${encodeURIComponent(organizationId)}/orders/events`,
+        params,
+        ...opts
+    });
+    return {
+        data: Array.isArray(res.data?.data) ? res.data.data : []
+    };
+}
+
+/**
+ * Zwroty konsumenckie v2 (wymaga zakresu api:orders:read).
+ */
+async function listReturnsV2({ organizationId, status = null, limit = 30, offset = 0, ...opts } = {}) {
+    const params = {
+        limit: Math.min(Math.max(Number(limit) || 30, 1), 30),
+        offset: Math.max(Number(offset) || 0, 0)
+    };
+    if (Array.isArray(status) && status.length > 0) params.status = status;
+
+    const res = await apiRequest({
+        method: 'GET',
+        path: `/v2/organizations/${encodeURIComponent(organizationId)}/returns`,
+        params,
+        ...opts
+    });
+    return {
+        page: res.data?.page || null,
+        items: Array.isArray(res.data?.items) ? res.data.items : (Array.isArray(res.data?.data) ? res.data.data : [])
+    };
+}
+
+/**
+ * Reklamacje v2 (wymaga zakresu api:orders:read).
+ */
+async function listClaimsV2({
+    organizationId,
+    states = null,
+    submissionDateFrom = null,
+    submissionDateTo = null,
+    limit = 30,
+    offset = 0,
+    sort = ['-submission_date'],
+    ...opts
+} = {}) {
+    const params = {
+        limit: Math.min(Math.max(Number(limit) || 30, 1), 30),
+        offset: Math.max(Number(offset) || 0, 0),
+        sort
+    };
+    if (Array.isArray(states) && states.length > 0) params.states = states;
+    if (trimOrNull(submissionDateFrom)) params.submissionDateFrom = trimOrNull(submissionDateFrom);
+    if (trimOrNull(submissionDateTo)) params.submissionDateTo = trimOrNull(submissionDateTo);
+
+    const res = await apiRequest({
+        method: 'GET',
+        path: `/v2/organizations/${encodeURIComponent(organizationId)}/claims`,
+        params,
+        ...opts
+    });
+    return {
+        page: res.data?.page || null,
+        items: Array.isArray(res.data?.items) ? res.data.items : (Array.isArray(res.data?.data) ? res.data.data : [])
+    };
+}
+
+/**
+ * Zwroty płatności (Refundy) v2 (wymaga zakresu api:orders:read).
+ */
+async function listRefundsV2({
+    organizationId,
+    caseStatus = null,
+    refundPaymentStatus = null,
+    submissionDateFrom = null,
+    submissionDateTo = null,
+    limit = 30,
+    offset = 0,
+    sortBy = null,
+    sortOrder = 'DESC',
+    ...opts
+} = {}) {
+    const params = {
+        limit: Math.min(Math.max(Number(limit) || 30, 1), 30),
+        offset: Math.max(Number(offset) || 0, 0)
+    };
+    if (trimOrNull(caseStatus)) params.status = trimOrNull(caseStatus);
+    if (trimOrNull(refundPaymentStatus)) params.refundPaymentStatus = trimOrNull(refundPaymentStatus);
+    if (trimOrNull(submissionDateFrom)) params.submissionDateFrom = trimOrNull(submissionDateFrom);
+    if (trimOrNull(submissionDateTo)) params.submissionDateTo = trimOrNull(submissionDateTo);
+    if (trimOrNull(sortBy)) params.sortBy = trimOrNull(sortBy);
+    if (trimOrNull(sortOrder)) params.sortOrder = trimOrNull(sortOrder);
+
+    const res = await apiRequest({
+        method: 'GET',
+        path: `/v2/organizations/${encodeURIComponent(organizationId)}/refunds`,
+        params,
+        ...opts
+    });
+    return {
+        page: res.data?.page || null,
+        items: Array.isArray(res.data?.items) ? res.data.items : (Array.isArray(res.data?.data) ? res.data.data : [])
+    };
+}
+
+/**
+ * Pobiera słowniki posprzedażowe v2 (z defensywną obsługą błędów per słownik).
+ */
+async function getPostSalesDictionaries(opts = {}) {
+    const dictPaths = {
+        claimTypes: '/v2/dictionaries/claim-types',
+        refundReasons: '/v2/dictionaries/refund-reasons',
+        returnRejectReasons: '/v2/dictionaries/return-reject-reasons',
+        claimRejectReasons: '/v2/dictionaries/claim-reject-reasons'
+    };
+    const out = {};
+    const entries = await Promise.allSettled(
+        Object.entries(dictPaths).map(async ([key, path]) => {
+            const res = await apiRequest({ method: 'GET', path, ...opts });
+            return [key, res.data?.data || res.data || []];
+        })
+    );
+    for (const settled of entries) {
+        if (settled.status === 'fulfilled') {
+            const [k, v] = settled.value;
+            out[k] = v;
+        }
+    }
+    return out;
+}
+
 function clearCaches() {
     tokenCache.clear();
     tokenInflight.clear();
@@ -1283,5 +1535,14 @@ module.exports = {
     getCommandStatus,
     pollCommandStatus,
     getDepositTypes,
+    listOfferEvents,
+    listCampaigns,
+    listCampaignDeclarations,
+    listOrders,
+    listOrderEvents,
+    listReturnsV2,
+    listClaimsV2,
+    listRefundsV2,
+    getPostSalesDictionaries,
     clearCaches
 };

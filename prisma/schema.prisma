@@ -706,22 +706,28 @@ model AgentCache {
 }
 
 model Workspace {
-  id                   String                @id @default(uuid())
-  slug                 String                @unique
-  name                 String
-  badgeColor           String                @default("#4f46e5")
-  isDefault            Boolean               @default(false)
-  isActive             Boolean               @default(true)
-  settings             Json?                 @default("{}")
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  integrations         IntegrationAccount[]
-  products             Product[]
-  returnRecords        ReturnRecord[]
-  customerRiskProfiles CustomerRiskProfile[]
-  agentMetrics         AgentMetric[]
-  agentQueueTasks      AgentQueue[]
-  securityAuditLogs    SecurityAuditLog[]
+  id                        String                        @id @default(uuid())
+  slug                      String                        @unique
+  name                      String
+  badgeColor                String                        @default("#4f46e5")
+  isDefault                 Boolean                       @default(false)
+  isActive                  Boolean                       @default(true)
+  settings                  Json?                         @default("{}")
+  createdAt                 DateTime                      @default(now())
+  updatedAt                 DateTime                      @updatedAt
+  integrations              IntegrationAccount[]
+  products                  Product[]
+  returnRecords             ReturnRecord[]
+  customerRiskProfiles      CustomerRiskProfile[]
+  agentMetrics              AgentMetric[]
+  agentQueueTasks           AgentQueue[]
+  securityAuditLogs         SecurityAuditLog[]
+  analyticsOrders           AnalyticsOrder[]
+  analyticsOfferSnapshots   AnalyticsDailyOfferSnapshot[]
+  analyticsFinancialEntries AnalyticsFinancialEntry[]
+  analyticsAdsMetrics       AnalyticsAdsMetric[]
+  analyticsQualitySnapshots AnalyticsQualitySnapshot[]
+  analyticsImportBatches    AnalyticsImportBatch[]
 }
 
 model IntegrationAccount {
@@ -759,4 +765,189 @@ model SecurityAuditLog {
 
   @@index([workspaceId, createdAt])
   @@index([action, createdAt])
+}
+
+model AnalyticsImportBatch {
+  id              String    @id @default(uuid())
+  workspaceId     String
+  platform        String    // 'BASELINKER' | 'ALLEGRO' | 'VONHALSKY' | 'OMNICHANNEL'
+  sourceType      String    // 'API_SYNC' | 'CSV_BASELINKER_ARCHIVE' | 'CSV_ALLEGRO_ADS' | 'CSV_ALLEGRO_ANALYTICS' | 'CSV_VONHALSKY' | 'JSON_LEGACY'
+  fileName        String?
+  accountId       String?
+  status          String    @default("COMPLETED")
+  recordsImported Int       @default(0)
+  recordsSkipped  Int       @default(0)
+  dateRangeStart  DateTime?
+  dateRangeEnd    DateTime?
+  warnings        Json?     @default("[]")
+  summary         Json?     @default("{}")
+  createdAt       DateTime  @default(now())
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, platform])
+}
+
+model AnalyticsOrder {
+  id                  String    @id @default(uuid())
+  workspaceId         String
+  platform            String    // 'BASELINKER' | 'ALLEGRO' | 'VONHALSKY'
+  originChannel       String    // 'ALLEGRO' | 'VONHALSKY' | 'SHOP' | 'OTHER'
+  accountId           String?
+  externalOrderId     String
+  marketplaceOrderId  String?
+  sourceMode          String    @default("API") // 'API' | 'CSV' | 'JSON'
+  importBatchId       String?
+  orderDate           DateTime
+  status              String    @default("CONFIRMED")
+  paymentStatus       String?
+  paymentMethod       String?
+  deliveryMethod      String?
+  deliveryCountry     String?   @default("PL")
+  marketplace         String?   @default("allegro-pl")
+  currency            String    @default("PLN")
+  fxRateToPln         Float     @default(1.0)
+  isSmart             Boolean   @default(false)
+  totalGmvOriginal    Float     @default(0.0)
+  totalGmvPln         Float     @default(0.0)
+  shippingPln         Float     @default(0.0)
+  discountMerchantPln Float     @default(0.0)
+  discountPlatformPln Float     @default(0.0)
+  commissionPln       Float?
+  acceptedAt          DateTime?
+  shippedAt           DateTime?
+  deliveredAt         DateTime?
+  items               Json      @default("[]")
+  rawMeta             Json?     @default("{}")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  workspace           Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, platform, externalOrderId])
+  @@index([workspaceId, orderDate])
+  @@index([workspaceId, platform, orderDate])
+  @@index([workspaceId, marketplaceOrderId])
+  @@index([importBatchId])
+}
+
+model AnalyticsDailyOfferSnapshot {
+  id                  String    @id @default(uuid())
+  workspaceId         String
+  platform            String    // 'BASELINKER' | 'ALLEGRO' | 'VONHALSKY'
+  accountId           String?
+  snapshotDate        DateTime
+  externalOfferId     String
+  sku                 String?
+  ean                 String?
+  baselinkerProductId String?
+  name                String?
+  status              String    @default("ACTIVE")
+  stock               Int       @default(0)
+  pricePln            Float     @default(0.0)
+  promotionPricePln   Float?
+  currency            String    @default("PLN")
+  visitsCount         Int?
+  watchersCount       Int?
+  sold30d             Int?
+  isPromoted          Boolean   @default(false)
+  promoPackage        String?
+  hasBadge            Boolean   @default(false)
+  inPriceProgram      Boolean   @default(false)
+  marketplaces        Json?     @default("[]")
+  rejectionReasons    Json?     @default("[]")
+  validationErrors    Json?     @default("[]")
+  meta                Json?     @default("{}")
+  createdAt           DateTime  @default(now())
+  workspace           Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, platform, snapshotDate, externalOfferId])
+  @@index([workspaceId, platform, snapshotDate])
+  @@index([workspaceId, sku, snapshotDate])
+  @@index([workspaceId, ean, snapshotDate])
+}
+
+model AnalyticsFinancialEntry {
+  id              String    @id @default(uuid())
+  workspaceId     String
+  platform        String    // 'ALLEGRO' | 'BASELINKER' | 'VONHALSKY'
+  accountId       String?
+  externalEntryId String
+  entryDate       DateTime
+  entryTypeCode   String
+  entryTypeName   String?
+  category        String    // 'COMMISSION' | 'COMMISSION_REFUND' | 'SMART' | 'PROMO_FEE' | 'ADS' | 'SUBSCRIPTION' | 'RETURN_COST' | 'OTHER'
+  offerId         String?
+  orderId         String?
+  sku             String?
+  ean             String?
+  amountPln       Float     @default(0.0)
+  currency        String    @default("PLN")
+  taxRate         Float?
+  importBatchId   String?
+  meta            Json?     @default("{}")
+  createdAt       DateTime  @default(now())
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, platform, externalEntryId])
+  @@index([workspaceId, platform, entryDate])
+  @@index([workspaceId, category, entryDate])
+  @@index([workspaceId, offerId])
+  @@index([importBatchId])
+}
+
+model AnalyticsAdsMetric {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  platform      String    @default("ALLEGRO")
+  accountId     String?
+  periodStart   DateTime
+  periodEnd     DateTime
+  campaignName  String
+  adGroupName   String?
+  offerId       String?
+  sku           String?
+  ean           String?
+  productName   String?
+  impressions   Int       @default(0)
+  clicks        Int       @default(0)
+  costNetPln    Float     @default(0.0)
+  costGrossPln  Float     @default(0.0)
+  adRevenuePln  Float     @default(0.0)
+  unitsSold     Int       @default(0)
+  ctr           Float     @default(0.0)
+  cpcPln        Float     @default(0.0)
+  roas          Float     @default(0.0)
+  importBatchId String?
+  sourceRowHash String
+  createdAt     DateTime  @default(now())
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, platform, sourceRowHash])
+  @@index([workspaceId, periodStart, periodEnd])
+  @@index([workspaceId, offerId])
+  @@index([workspaceId, sku])
+  @@index([importBatchId])
+}
+
+model AnalyticsQualitySnapshot {
+  id                   String    @id @default(uuid())
+  workspaceId          String
+  platform             String    // 'ALLEGRO' | 'VONHALSKY' | 'BASELINKER'
+  accountId            String    @default("default")
+  snapshotDate         DateTime
+  qualityScore         Float?
+  maxQualityScore      Float?
+  qualityGrade         String?
+  openIssuesCount      Int       @default(0)
+  returnsCount         Int       @default(0)
+  claimsCount          Int       @default(0)
+  negativeRatingsCount Int       @default(0)
+  positiveRatingsCount Int       @default(0)
+  metricsJson          Json?     @default("{}")
+  issuesSample         Json?     @default("[]")
+  createdAt            DateTime  @default(now())
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, platform, accountId, snapshotDate])
+  @@index([workspaceId, platform, snapshotDate])
 }

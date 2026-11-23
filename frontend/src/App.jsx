@@ -16,6 +16,7 @@ import AllegroAdsMonitor from './views/AllegroAdsMonitor';
 import PortfolioManagerView from './views/PortfolioManagerView';
 import GodModeAnalyticsView from './views/GodModeAnalyticsView';
 import ZeroBleedHubView from './views/ZeroBleedHubView';
+import SalesIntelligenceView from './views/SalesIntelligence/SalesIntelligenceView';
 import PublicBookingView from './views/PublicBookingView';
 import MeetingDashboardView from './views/MeetingDashboardView';
 import EmployeeDashboardView from './views/EmployeeDashboardView';
@@ -983,6 +984,7 @@ function App() {
     const ALL_MODULES = [
       { id: 'kanban', label: 'Tablica Wydarzeń (Zadania)' },
       { id: 'campaigns', label: 'Centrum Kampanii' },
+      { id: 'sales-intelligence', label: 'Analityka Sprzedaży PRO (OMNI)' },
       { id: 'mtool', label: 'Narzędzia MTool' },
       { id: 'crm', label: 'Katalog Firm (CRM)' },
       { id: 'projects', label: 'Projekty' },
@@ -1329,8 +1331,11 @@ function App() {
             </button>
           )}
 
-          {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('campaigns')) && (
+          {(currentUser?.role === 'ADMIN' || currentUser?.accessibleModules?.includes('campaigns') || currentUser?.accessibleModules?.includes('sales-intelligence')) && (
             <>
+              <button onClick={() => setActiveTab('sales-intelligence')} title="Centrum Analityki PRO" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'sales-intelligence' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+                <TrendingUp className="w-5 h-5" />
+              </button>
               <button onClick={() => setActiveTab('allegro-ads')} title="Mózg Ads" className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${activeTab === 'allegro-ads' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
                 <Bot className="w-5 h-5" />
               </button>
@@ -1564,6 +1569,18 @@ function App() {
             {activeTab === 'campaigns' && <CampaignsView campaigns={campaigns} brands={brands} companies={companies} timelineRange={timelineRange} setTimelineRange={setTimelineRange} setSelectedCampaign={setSelectedCampaign} setIsNewCampaignModalOpen={setIsNewCampaignModalOpen} devMode={devMode} />}
             {activeTab === 'allegro-ads' && <AllegroAdsMonitor key={activeWorkspaceId || 'default'} token={token} API_URL={API_URL} />}
             {activeTab === 'portfolio' && <PortfolioManagerView key={activeWorkspaceId || 'default'} token={token} API_URL={API_URL} />}
+            {activeTab === 'sales-intelligence' && (
+              <SalesIntelligenceView
+                key={activeWorkspaceId || 'default'}
+                token={token}
+                API_URL={API_URL}
+                activeWorkspace={activeWorkspace}
+                onOpenProduct={(id) => {
+                  setEditingProduct(id);
+                  setActiveTab('unifiedHub');
+                }}
+              />
+            )}
             {activeTab === 'sentinel' && <GodModeAnalyticsView key={activeWorkspaceId || 'default'} token={token} API_URL={API_URL} />}
             {activeTab === 'zero-bleed' && <ZeroBleedHubView key={activeWorkspaceId || 'default'} token={token} API_URL={API_URL} />}
             {activeTab === 'meetings' && <MeetingDashboardView token={token} API_URL={API_URL} />}

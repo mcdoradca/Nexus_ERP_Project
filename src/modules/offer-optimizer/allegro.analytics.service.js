@@ -1,60 +1,110 @@
 const { getAllegroToken, apiClient } = require('./allegro.service');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../../core/prisma');
 
 /**
- * Serwis analityczny (Deep Research Agent)
- * Pobiera rzeczywiste statystyki ofert (odsłony, kliknięcia, koszty) 
- * bezpośrednio z REST API Allegro oraz Allegro Ads API, aby zasilić Mózg Biddingowy.
+ * Serwis analityczny Allegro (Read-Only)
+ * Pobiera rzeczywiste statystyki oferty (visitsCount, watchersCount, stock.available, stock.sold)
+ * z GET /sale/offers oraz wylicza przyrosty dzienne na bazie migawek AnalyticsDailyOfferSnapshot.
  */
-
-async function fetchOfferStatistics(offerId) {
-    if (!offerId) throw new Error("Brak offerId do analizy statystyk.");
+async function fetchOfferStatistics(offerId, opts = {}) {
+    if (!offerId) throw new Error('Brak offerId do analizy statystyk.');
+    const cleanOfferId = String(offerId).trim();
+    const {
+        workspaceId = null,
+        accountId = null,
+        injectedPrisma = prisma,
+        httpClient = apiClient
+    } = opts || {};
 
     try {
-        const token = await getAllegroToken();
-        
-        console.log(`[AllegroAnalytics] Pobieranie rzeczywistych statystyk dla oferty: ${offerId}`);
-        // Endpoint analityczny Allegro dla sprzedawców:
-        const response = await apiClient.get(`https://api.allegro.pl/sale/offer-events?offerId=${offerId}`, {
+        const token = await getAllegroToken(false, accountId, injectedPrisma, workspaceId);
+
+        console.log(`[AllegroAnalytics] Pobieranie rzeczywistych statystyk dla oferty: ${cleanOfferId}`);
+        const response = await httpClient.get('https://api.allegro.pl/sale/offers', {
+            params: { 'offer.id': cleanOfferId, limit: 1 },
             headers: {
                 'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/vnd.allegro.public.v1+json'
-            }
+            },
+            _allegroAccountId: accountId || null,
+            _allegroWorkspaceId: workspaceId || null,
+            timeout: 15000
         });
 
-        // Agregacja twardych logów (odsłony)
-        let totalImpressions = 0;
-        let totalClicks = 0; // Jeśli API zwróci zdarzenia kliknięcia z zewnętrznych źródeł
-        
-        if (response.data && response.data.offerEvents) {
-            response.data.offerEvents.forEach(event => {
-                if (event.type === 'OFFER_VIEWED') totalImpressions += 1;
-                if (event.type === 'OFFER_CLICKED') totalClicks += 1;
-            });
+        const offer = Array.isArray(response?.data?.offers) ? response.data.offers[0] : null;
+        const totalVisits = Number(offer?.stats?.visitsCount || 0);
+        const watchersCount = Number(offer?.stats?.watchersCount || 0);
+        const availableStock = offer?.stock?.available !== undefined ? Number(offer.stock.available) : null;
+        const sold30d = offer?.stock?.sold !== undefined ? Number(offer.stock.sold) : 0;
+        const publicationStatus = offer?.publication?.status || null;
+
+        let deltaVisits = null;
+        let deltaWatchers = null;
+        if (workspaceId && injectedPrisma?.analyticsDailyOfferSnapshot) {
+            try {
+                const snapshots = await injectedPrisma.analyticsDailyOfferSnapshot.findMany({
+                    where: {
+                        workspaceId,
+                        platform: 'ALLEGRO',
+                        externalOfferId: cleanOfferId
+                    },
+                    orderBy: { snapshotDate: 'asc' },
+                    take: 60
+                });
+                const withVisits = snapshots.filter(s => typeof s.visitsCount === 'number');
+                if (withVisits.length >= 2) {
+                    const first = withVisits[0];
+                    const last = withVisits[withVisits.length - 1];
+                    deltaVisits = Math.max(0, Number(last.visitsCount || 0) - Number(first.visitsCount || 0));
+                    deltaWatchers = Number(last.watchersCount || 0) - Number(first.watchersCount || 0);
+                }
+            } catch (snapErr) {
+                console.warn(`[AllegroAnalytics] Nie udało się wyliczyć delty z migawek dla ${cleanOfferId}: ${snapErr.message}`);
+            }
         }
 
+        const effectiveVisits = deltaVisits !== null ? deltaVisits : totalVisits;
+        const conversionRate = effectiveVisits > 0 ? (sold30d / effectiveVisits) : 0;
+
         return {
-            offerId,
-            impressions: totalImpressions,
-            clicks: totalClicks,
-            ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) : 0
+            offerId: cleanOfferId,
+            visitsCount: totalVisits,
+            watchersCount,
+            availableStock,
+            sold30d,
+            publicationStatus,
+            deltaVisits,
+            deltaWatchers,
+            impressions: effectiveVisits,
+            clicks: effectiveVisits,
+            ctr: conversionRate
         };
     } catch (error) {
-        console.warn(`[AllegroAnalytics] Brak bezpośrednich danych statystycznych dla ${offerId} lub błąd uprawnień:`, error.message);
-        // Fallback do zera, kategoryczny zakaz Math.random()
-        return { offerId, impressions: 0, clicks: 0, ctr: 0 };
+        console.warn(`[AllegroAnalytics] Brak bezpośrednich danych statystycznych dla ${cleanOfferId} lub błąd uprawnień:`, error.message);
+        return {
+            offerId: cleanOfferId,
+            visitsCount: 0,
+            watchersCount: 0,
+            availableStock: null,
+            sold30d: 0,
+            publicationStatus: null,
+            deltaVisits: null,
+            deltaWatchers: null,
+            impressions: 0,
+            clicks: 0,
+            ctr: 0
+        };
     }
 }
 
 /**
- * Zderza dane z Allegro z twardymi zyskami z BaseLinker/Prisma
+ * Zderza rzeczywiste statystyki oferty Allegro z kosztami produktu w bazie PIM (Product.basePrice).
  */
-async function fuseTrafficWithSales(ean, offerId, { workspaceId = null } = {}) {
-    const stats = await fetchOfferStatistics(offerId);
-    
-    const product = await prisma.product.findFirst({
+async function fuseTrafficWithSales(ean, offerId, { workspaceId = null, accountId = null, stockoutThreshold = 2, injectedPrisma = prisma } = {}) {
+    const stats = await fetchOfferStatistics(offerId, { workspaceId, accountId, injectedPrisma });
+
+    const product = await injectedPrisma.product.findFirst({
         where: workspaceId ? { workspaceId, ean } : { ean }
     });
 
@@ -62,22 +112,31 @@ async function fuseTrafficWithSales(ean, offerId, { workspaceId = null } = {}) {
         throw new Error(`Produkt ${ean} nie istnieje w bazie PIM.`);
     }
 
-    // Załóżmy, że zysk mamy wyliczony w systemie (salePrice - cogs - prowizja)
-    // Twarde wyliczenie bez symulacji
-    const cogs = product.cogs || 0;
-    const salePrice = product.salePrice || 0;
-    const margin = salePrice - cogs; // uproszczenie do celów architektonicznych
+    const basePrice = Number(product.basePrice || 0);
+    const hasVerifiedCogs = basePrice > 0;
+    const salePrice = Number(product.salePrice || 0);
+    const taxRate = Number(product.taxRate || 23);
+    const netSalePrice = salePrice / (1 + (taxRate / 100));
+    const margin = hasVerifiedCogs ? (netSalePrice - basePrice) : null;
+    const effectiveStock = stats.availableStock !== null ? stats.availableStock : Number(product.stock || 0);
 
     return {
         ean,
-        offerId,
+        offerId: String(offerId),
+        visitsCount: stats.visitsCount,
+        watchersCount: stats.watchersCount,
+        sold30d: stats.sold30d,
         impressions: stats.impressions,
         clicks: stats.clicks,
         ctr: stats.ctr,
         salePrice,
-        cogs,
+        basePrice: hasVerifiedCogs ? basePrice : null,
+        hasVerifiedCogs,
         margin,
-        warning: stats.impressions > 1000 && product.stock === 0 ? 'Przepalanie ruchu! Brak zapasu.' : null
+        stock: effectiveStock,
+        warning: stats.visitsCount > 200 && effectiveStock <= stockoutThreshold
+            ? `Przepalanie ruchu przy braku w ofercie (stan ${effectiveStock} ≤ ${stockoutThreshold} szt.).`
+            : null
     };
 }
 
