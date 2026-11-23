@@ -134,7 +134,7 @@ const ImageModal = ({ url, onClose }) => {
 
 
 
-const DEFAULT_SEKCJA_7 = '<p>Produkt pochodzi z europejskiej dystrybucji i jest dostarczany w fabrycznym, szczelnie zamkniętym opakowaniu producenta. Przed pierwszym użyciem zapoznaj się z etykietą oraz zaleceniami producenta zamieszczonymi na opakowaniu.</p>';
+const DEFAULT_SEKCJA_7 = '<p>Produkt pochodzi z włoskiej dystrybucji i jest dostarczany w fabrycznym, szczelnie zamkniętym opakowaniu producenta. Przed pierwszym użyciem zapoznaj się z etykietą oraz zaleceniami zamieszczonymi na opakowaniu.</p>';
 
 export const UnifiedProductPipelineView = ({ 
   socket, 
