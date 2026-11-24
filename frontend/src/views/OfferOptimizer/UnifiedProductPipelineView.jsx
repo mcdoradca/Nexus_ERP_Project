@@ -8,6 +8,12 @@ import { PhotographicAuditorCard } from './components/VisionFeedback/Photographi
 import { VonHalskyExportModal } from './VonHalskyExportModal';
 import { requestLifestyleGeneration } from './services/lifestyleImageService';
 import { describeBaselinkerError, describeAutofillError } from '../../utils';
+import {
+  normalizeNumericValueForAllegroParam,
+  normalizeFeaturesForAllegroSchema,
+  validateNumericAllegroParamValue,
+  getNumericPlaceholderForParam
+} from './utils/allegroParamFormatter';
 import { 
   Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp, Search,
   Hash, CloudLightning, Loader2, Package, Image, PlayCircle, FileText, CheckCircle2, Zap,
@@ -160,6 +166,8 @@ export const UnifiedProductPipelineView = ({
     const [brandSearchTerm, setBrandSearchTerm] = useState('');
     const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
     const [categorySchema, setCategorySchema] = useState(null);
+    const [featuresHydrationRev, setFeaturesHydrationRev] = useState(0);
+    const categorySchemaRef = useRef(null);
     const [brands, setBrands] = useState([]);
     
     const wsContentProfile = activeWorkspace?.settings?.contentProfile || null;
@@ -684,6 +692,7 @@ export const UnifiedProductPipelineView = ({
                     images: fallbackImages,
                     bdoEprCost: parseFloat(calcBdo.toFixed(4))
                 });
+                setFeaturesHydrationRev(r => r + 1);
                 setAllegroOfferId(dbDraft?.allegroOfferId ? String(dbDraft.allegroOfferId) : '');
                 if (dbDraft?.allegroAccountId) {
                     setAllegroAccountId(String(dbDraft.allegroAccountId));
@@ -761,6 +770,10 @@ export const UnifiedProductPipelineView = ({
     }, [newProductForm, editorHtml, liveTitle, visionTickets, brandSearchTerm, DRAFT_KEY]);
 
     useEffect(() => {
+        categorySchemaRef.current = categorySchema;
+    }, [categorySchema]);
+
+    useEffect(() => {
         if (newProductForm?.allegroCategoryId && token) {
             axios.get(`${API_URL}/api/categories/${newProductForm.allegroCategoryId}`, { headers: { Authorization: `Bearer ${token}` } })
                 .then(res => setCategorySchema(res.data))
@@ -769,6 +782,19 @@ export const UnifiedProductPipelineView = ({
             setCategorySchema(null);
         }
     }, [newProductForm?.allegroCategoryId, token]);
+
+    // Automatyczne przeliczenie istniejących zabrudzonych parametrów liczbowych (np. "600 Ml" -> "0.6" dla L, "0,650 kg" -> "0.65" dla KG) po załadowaniu schematu lub danych produktu
+    useEffect(() => {
+        const schemaParams = categorySchema?.parameters;
+        if (!Array.isArray(schemaParams) || schemaParams.length === 0) return;
+        setNewProductForm(prev => {
+            const normRes = normalizeFeaturesForAllegroSchema(prev.features, schemaParams, {
+                productName: prev.name,
+                visionFeatures: prev.features
+            });
+            return normRes.changed ? { ...prev, features: normRes.features } : prev;
+        });
+    }, [categorySchema, featuresHydrationRev]);
 
     // Jednolite źródło prawdy dla EAN produktu w całym widoku
     const effectiveEan = (newProductForm?.ean ? String(newProductForm.ean).trim() : '') || (liveEan ? String(liveEan).trim() : '');
@@ -823,20 +849,27 @@ export const UnifiedProductPipelineView = ({
                         });
                     }
                     setNewProductForm(prev => {
-                        const nextFeatures = { ...(prev.features || {}) };
+                        const schemaParams = categorySchemaRef.current?.parameters;
+                        const nextFeaturesRaw = { ...(prev.features || {}) };
                         const incomingFeatures = data.result.features && typeof data.result.features === 'object' ? data.result.features : {};
                         const canonicalOverwriteKeys = new Set(['Skład/INCI', 'Ostrzeżenia', 'Sposób użycia']);
                         for (const [fk, fv] of Object.entries(incomingFeatures)) {
                             if (fv === undefined || fv === null || String(fv).trim() === '') continue;
                             if (fk === 'INCI' || fk === 'Skład') continue;
-                            if (canonicalOverwriteKeys.has(fk) || !nextFeatures[fk] || String(nextFeatures[fk]).trim() === '') {
-                                nextFeatures[fk] = fv;
+                            if (canonicalOverwriteKeys.has(fk) || !nextFeaturesRaw[fk] || String(nextFeaturesRaw[fk]).trim() === '') {
+                                nextFeaturesRaw[fk] = fv;
                             }
                         }
-                        if (nextFeatures['Skład/INCI']) {
-                            delete nextFeatures['INCI'];
-                            delete nextFeatures['Skład'];
+                        if (nextFeaturesRaw['Skład/INCI']) {
+                            delete nextFeaturesRaw['INCI'];
+                            delete nextFeaturesRaw['Skład'];
                         }
+                        const nextFeatures = (Array.isArray(schemaParams) && schemaParams.length > 0)
+                            ? normalizeFeaturesForAllegroSchema(nextFeaturesRaw, schemaParams, {
+                                productName: prev.name,
+                                visionFeatures: nextFeaturesRaw
+                            }).features
+                            : nextFeaturesRaw;
                         return {
                             ...prev,
                             features: nextFeatures,
@@ -899,7 +932,18 @@ export const UnifiedProductPipelineView = ({
                                 }
                             }
                             
-                            return hasChanges ? { ...prev, features: updatedFeatures } : prev;
+                            if (hasChanges) {
+                                const schemaParams = categorySchemaRef.current?.parameters;
+                                if (Array.isArray(schemaParams) && schemaParams.length > 0) {
+                                    const normRes = normalizeFeaturesForAllegroSchema(updatedFeatures, schemaParams, {
+                                        productName: prev.name,
+                                        visionFeatures: updatedFeatures
+                                    });
+                                    return { ...prev, features: normRes.features };
+                                }
+                                return { ...prev, features: updatedFeatures };
+                            }
+                            return prev;
                         });
                     }
                 }
@@ -955,8 +999,16 @@ export const UnifiedProductPipelineView = ({
                 throw new Error(`Wypełnij wymagane pola: ${missingFields.join(', ')} przed zapisaniem.`);
             }
 
+            const normalizedFeaturesPayload = (Array.isArray(categorySchema?.parameters) && categorySchema.parameters.length > 0)
+                ? normalizeFeaturesForAllegroSchema(newProductForm.features || {}, categorySchema.parameters, {
+                    productName: cleanName,
+                    visionFeatures: newProductForm.features || {}
+                }).features
+                : newProductForm.features;
+
             const productPayload = {
                 ...newProductForm,
+                features: normalizedFeaturesPayload,
                 name: cleanName,
                 sku: cleanSku,
                 ean: cleanEan || newProductForm.ean,
@@ -1780,6 +1832,7 @@ export const UnifiedProductPipelineView = ({
                 stockWmsUnits: stockWmsUnits !== undefined ? stockWmsUnits : prev.stockWmsUnits,
                 allegroCategoryId: allegroCategoryId || prev.allegroCategoryId
             }));
+            setFeaturesHydrationRev(r => r + 1);
             setLiveEan(newProductForm.ean);
 
             // Logika biletów wizualnych dla Slotu 1:
@@ -2760,7 +2813,17 @@ export const UnifiedProductPipelineView = ({
                                                                         btn.disabled = true;
                                                                         
                                                                         const res = await axios.post(`${API_URL}/api/products/${editingProduct}/autofill-params`, {}, { headers: { Authorization: `Bearer ${token}` } });
-                                                                        setNewProductForm(prev => ({...prev, features: res.data.features}));
+                                                                        setNewProductForm(prev => {
+                                                                            const schemaParams = categorySchema?.parameters;
+                                                                            const nextFeats = (Array.isArray(schemaParams) && schemaParams.length > 0)
+                                                                                ? normalizeFeaturesForAllegroSchema(res.data.features || {}, schemaParams, {
+                                                                                    productName: prev.name,
+                                                                                    visionFeatures: res.data.features || {}
+                                                                                }).features
+                                                                                : res.data.features;
+                                                                            return { ...prev, features: nextFeats };
+                                                                        });
+                                                                        setFeaturesHydrationRev(r => r + 1);
                                                                         
                                                                         btn.innerHTML = prevText;
                                                                         btn.disabled = false;
@@ -2887,9 +2950,19 @@ export const UnifiedProductPipelineView = ({
                                                                 const unknownMultiTokens = multiSplit.unknownTokens;
                                                                 const isCustomAmbiguousVal = Boolean(hasAmbiguous && hasVal && hasDict && !isMultiChoice && !matchedSingleDict);
                                                                 const hasUnknownSingleVal = Boolean(!isMultiChoice && hasVal && hasDict && !hasAmbiguous && !matchedSingleDict);
+                                                                const isNumericParam = param.type === 'float' || param.type === 'integer';
+                                                                const fallbackNumSources = [
+                                                                    newProductForm.name,
+                                                                    newProductForm.features?.['Pojemność / Waga'],
+                                                                    newProductForm.features?.['Pojemność'],
+                                                                    newProductForm.features?.['Waga']
+                                                                ].filter(Boolean).join(' ');
+                                                                const numericValidation = isNumericParam
+                                                                    ? validateNumericAllegroParamValue(val, param, { fallbackSources: fallbackNumSources })
+                                                                    : { valid: true, warning: null, canAutoConvert: false, suggestedValue: null };
 
                                                                 return (
-                                                                 <div key={param.id} className={`flex items-start space-x-2 p-2 rounded-sm border ${(unknownMultiTokens.length > 0 || hasUnknownSingleVal) ? 'bg-amber-50/60 border-amber-300' : (hasVal ? 'bg-indigo-50/30 border-indigo-100' : 'bg-white border-slate-200')}`}>
+                                                                 <div key={param.id} className={`flex items-start space-x-2 p-2 rounded-sm border ${(unknownMultiTokens.length > 0 || hasUnknownSingleVal || !numericValidation.valid) ? 'bg-amber-50/60 border-amber-300' : (hasVal ? 'bg-indigo-50/30 border-indigo-100' : 'bg-white border-slate-200')}`}>
                                                                      <div className="w-1/3 text-[10px] font-bold text-slate-700 uppercase tracking-widest flex flex-col pt-1">
                                                                          <div className="flex items-center flex-wrap gap-1">
                                                                              <span>{param.name}{param.unit ? ` (${param.unit})` : ''}</span>
@@ -3024,6 +3097,65 @@ export const UnifiedProductPipelineView = ({
                                                                                  )}
                                                                              </div>
                                                                          )
+                                                                     ) : isNumericParam ? (
+                                                                         <div className="flex-1 flex flex-col space-y-1">
+                                                                             <div className="flex items-stretch">
+                                                                                 <input
+                                                                                     type="text"
+                                                                                     inputMode={param.type === 'integer' ? 'numeric' : 'decimal'}
+                                                                                     className={`flex-1 bg-white border ${!numericValidation.valid ? 'border-amber-400 focus:border-amber-600' : 'border-slate-300 focus:border-indigo-500'} ${param.unit ? 'rounded-l-sm border-r-0' : 'rounded-sm'} px-3 py-2 text-[11px] font-bold outline-none`}
+                                                                                     placeholder={getNumericPlaceholderForParam(param)}
+                                                                                     value={val}
+                                                                                     onChange={e => {
+                                                                                         const updated = { ...(newProductForm.features || {}), [param.name]: e.target.value };
+                                                                                         if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
+                                                                                         if (!e.target.value) delete updated[param.name];
+                                                                                         setNewProductForm({ ...newProductForm, features: updated });
+                                                                                     }}
+                                                                                     onBlur={e => {
+                                                                                         const rawInput = e.target.value;
+                                                                                         if (!rawInput || !rawInput.trim()) return;
+                                                                                         const normRes = normalizeNumericValueForAllegroParam(rawInput, param, {
+                                                                                             fallbackSources: fallbackNumSources,
+                                                                                             enforceBounds: true
+                                                                                         });
+                                                                                         if (normRes.ok && normRes.value !== null && (normRes.value !== String(rawInput).trim() || (matchedKey && matchedKey !== param.name))) {
+                                                                                             const updated = { ...(newProductForm.features || {}), [param.name]: normRes.value };
+                                                                                             if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
+                                                                                             setNewProductForm({ ...newProductForm, features: updated });
+                                                                                         }
+                                                                                     }}
+                                                                                 />
+                                                                                 {param.unit && (
+                                                                                     <span className="px-2.5 py-2 bg-slate-100 border border-slate-300 rounded-r-sm text-[10px] font-black text-slate-600 flex items-center select-none shrink-0">
+                                                                                         {param.unit}
+                                                                                     </span>
+                                                                                 )}
+                                                                             </div>
+                                                                             {!numericValidation.valid && (
+                                                                                 <div className="flex items-center justify-between gap-2 px-2.5 py-1 bg-amber-100/80 border border-amber-300 rounded-sm text-[10px] text-amber-900">
+                                                                                     <div className="flex items-center space-x-1.5 min-w-0">
+                                                                                         <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                                                                                         <span className="truncate font-semibold" title={numericValidation.warning}>
+                                                                                             {numericValidation.warning}
+                                                                                         </span>
+                                                                                     </div>
+                                                                                     {numericValidation.canAutoConvert && numericValidation.suggestedValue && (
+                                                                                         <button
+                                                                                             type="button"
+                                                                                             onClick={() => {
+                                                                                                 const updated = { ...(newProductForm.features || {}), [param.name]: numericValidation.suggestedValue };
+                                                                                                 if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
+                                                                                                 setNewProductForm({ ...newProductForm, features: updated });
+                                                                                             }}
+                                                                                             className="px-2 py-0.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-[9px] font-black uppercase tracking-wider shrink-0"
+                                                                                         >
+                                                                                             Przelicz na {numericValidation.suggestedValue}
+                                                                                         </button>
+                                                                                     )}
+                                                                                 </div>
+                                                                             )}
+                                                                         </div>
                                                                      ) : (
                                                                          <input type="text" className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" placeholder={`Wpisz wartość (${param.type}${param.unit ? ', ' + param.unit : ''}${param.type === 'range' ? ', format: od-do' : ''})`} value={val} onChange={e => {
                                                                              const updated = {...(newProductForm.features || {}), [param.name]: e.target.value};

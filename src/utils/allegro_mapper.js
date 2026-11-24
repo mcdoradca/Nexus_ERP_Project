@@ -396,7 +396,7 @@ function convertValueToParameterUnit(rawVal, param) {
     if (!rawStr) return { error: 'Pusta wartość liczbowa' };
 
     // Wyciągnij liczbę oraz ewentualną jednostkę źródłową z tekstu
-    const match = rawStr.match(/(-?\d+(?:[.,]\d+)?)\s*(ml|l|litr(?:y|ów)?|g|gr|kg|mm|cm|m|szt\.?)?/i);
+    const match = rawStr.match(/(-?\d+(?:[.,]\d+)?)\s*(ml|cl|l|litr(?:y|ów)?|mg|dag|dkg|g|gr|kg|mm|cm|m|szt\.?)?/i);
     if (!match) {
         return { error: `Nie można sparsować liczby z "${rawStr}"` };
     }
@@ -407,14 +407,28 @@ function convertValueToParameterUnit(rawVal, param) {
     }
 
     const srcUnitRaw = match[2] ? match[2].toLowerCase() : '';
-    const srcUnit = srcUnitRaw.startsWith('litr') ? 'l' : (srcUnitRaw === 'gr' ? 'g' : srcUnitRaw.replace(/\.$/, ''));
+    const srcUnit = srcUnitRaw.startsWith('litr')
+        ? 'l'
+        : (srcUnitRaw === 'gr' ? 'g' : (srcUnitRaw === 'dkg' ? 'dag' : srcUnitRaw.replace(/\.$/, '')));
     const targetUnit = param.unit ? String(param.unit).toLowerCase().trim() : '';
 
     if (targetUnit && srcUnit && srcUnit !== targetUnit) {
         // Przeliczanie jednostek objętości
         if (srcUnit === 'ml' && targetUnit === 'l') num = num / 1000;
+        else if (srcUnit === 'cl' && targetUnit === 'l') num = num / 100;
         else if (srcUnit === 'l' && targetUnit === 'ml') num = num * 1000;
+        else if (srcUnit === 'cl' && targetUnit === 'ml') num = num * 10;
+        else if (srcUnit === 'ml' && targetUnit === 'cl') num = num / 10;
+        else if (srcUnit === 'l' && targetUnit === 'cl') num = num * 100;
         // Przeliczanie jednostek masy
+        else if (srcUnit === 'mg' && targetUnit === 'g') num = num / 1000;
+        else if (srcUnit === 'g' && targetUnit === 'mg') num = num * 1000;
+        else if (srcUnit === 'mg' && targetUnit === 'kg') num = num / 1000000;
+        else if (srcUnit === 'kg' && targetUnit === 'mg') num = num * 1000000;
+        else if (srcUnit === 'dag' && targetUnit === 'g') num = num * 10;
+        else if (srcUnit === 'g' && targetUnit === 'dag') num = num / 10;
+        else if (srcUnit === 'dag' && targetUnit === 'kg') num = num / 100;
+        else if (srcUnit === 'kg' && targetUnit === 'dag') num = num * 100;
         else if (srcUnit === 'g' && targetUnit === 'kg') num = num / 1000;
         else if (srcUnit === 'kg' && targetUnit === 'g') num = num * 1000;
         // Przeliczanie jednostek długości
@@ -427,6 +441,9 @@ function convertValueToParameterUnit(rawVal, param) {
     }
 
     const restrictions = param.restrictions || {};
+    const precision = param.type === 'integer'
+        ? 0
+        : (typeof restrictions.precision === 'number' && restrictions.precision >= 0 ? Math.min(8, restrictions.precision) : 4);
     if (param.type === 'integer') {
         num = Math.round(num);
     } else if (typeof restrictions.precision === 'number' && restrictions.precision >= 0) {
@@ -443,7 +460,7 @@ function convertValueToParameterUnit(rawVal, param) {
 
     const formatted = param.type === 'integer'
         ? String(num)
-        : String(num).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
+        : num.toFixed(precision).replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
 
     return { value: formatted };
 }

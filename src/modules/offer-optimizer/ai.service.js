@@ -1045,7 +1045,8 @@ async function autofillMissingParameters(ean, productName, currentFeatures = {},
 
     const {
         mapPackagingFeaturesToAllegroSchema,
-        matchDictionaryOption
+        matchDictionaryOption,
+        normalizeNumericValueForAllegroParam
     } = require('../offer-optimizer-v2/services/allegro-param-automapper.service');
 
     const detRes = mapPackagingFeaturesToAllegroSchema({
@@ -1105,6 +1106,14 @@ async function autofillMissingParameters(ean, productName, currentFeatures = {},
                 });
                 if (matched) {
                     resultFeatures[param.name] = Array.isArray(matched) ? matched.join(', ') : matched;
+                }
+            } else if (param.type === 'float' || param.type === 'integer') {
+                const normNum = normalizeNumericValueForAllegroParam(candidate, param, {
+                    fallbackSources: productName || '',
+                    enforceBounds: true
+                });
+                if (normNum.ok && normNum.value !== null) {
+                    resultFeatures[param.name] = normNum.value;
                 }
             } else {
                 resultFeatures[param.name] = String(candidate).trim();

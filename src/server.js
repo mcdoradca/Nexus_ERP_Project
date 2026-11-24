@@ -5,6 +5,30 @@ const { resolveBaseLinkerToken, encryptSecret, testBaseLinkerToken } = require('
 const { trimOrNull, parseLocaleFloat, parseLocaleInt, resolveProductByIdOrEan } = require('./utils/productLookup');
 const { resolveWorkspaceContext } = require('./middlewares/workspace.middleware');
 const workspaceService = require('./services/workspace.service');
+const { normalizeNumericFeaturesForAllegroSchema } = require('./modules/offer-optimizer-v2/services/allegro-param-automapper.service');
+
+async function normalizeFeaturesAgainstCategoryId(features, categoryId, productName = '') {
+    if (!features || typeof features !== 'object' || Array.isArray(features) || !categoryId) {
+        return features;
+    }
+    try {
+        const category = await prisma.marketplaceCategory.findUnique({
+            where: { id: String(categoryId).trim() },
+            select: { parameters: true }
+        });
+        if (!category || !Array.isArray(category.parameters) || category.parameters.length === 0) {
+            return features;
+        }
+        const normRes = normalizeNumericFeaturesForAllegroSchema(features, category.parameters, {
+            productName,
+            visionFeatures: features
+        });
+        return normRes.features;
+    } catch (err) {
+        console.warn(`[normalizeFeaturesAgainstCategoryId] Ostrzeżenie normalizacji dla kategorii ${categoryId}:`, err.message);
+        return features;
+    }
+}
 
 // Globalna Tarcza Ochronna Procesu Node.js (Zasada Nieśmiertelnego Serwera)
 let _serverInstance = null;
@@ -1014,6 +1038,7 @@ app.get('/api/products/autofill/:ean', authenticateToken, resolveWorkspaceContex
             }
 
             await ensureAllegroSynced();
+            deepData.features = await normalizeFeaturesAgainstCategoryId(deepData.features, globalAllegroCatId, deepData.name || '');
 
             return res.status(200).json({ 
                 name: deepData.name || '', 
@@ -1044,6 +1069,7 @@ app.get('/api/products/autofill/:ean', authenticateToken, resolveWorkspaceContex
 
         // Helper dla darmowych baz uodporniający Nexusa na pady serwerów zewnętrznych.
         await ensureAllegroSynced();
+        globalMergedFeatures = await normalizeFeaturesAgainstCategoryId(globalMergedFeatures, globalAllegroCatId, existingProduct?.name || '');
 
         const safeFetch = async (url) => {
             try {
@@ -1115,6 +1141,11 @@ app.post('/api/products', authenticateToken, resolveWorkspaceContext, async (req
         let safeSubiektId = trimOrNull(subiektId);
         let safeBaselinkerId = trimOrNull(baselinkerId);
         let safeAllegroCatId = trimOrNull(req.body.allegroCategoryId);
+        const normalizedFeaturesOnCreate = await normalizeFeaturesAgainstCategoryId(
+            req.body.features || {},
+            safeAllegroCatId,
+            cleanName
+        );
 
         const newProduct = await prisma.product.create({
             data: {
@@ -1138,7 +1169,7 @@ app.post('/api/products', authenticateToken, resolveWorkspaceContext, async (req
                 stockWmsUnits: parseLocaleInt(req.body.stockWmsUnits, 0),
                 images: req.body.images || [],
                 descriptionHtml: req.body.descriptionHtml || null,
-                features: req.body.features || {},
+                features: normalizedFeaturesOnCreate || {},
                 videoUrl: trimOrNull(req.body.videoUrl),
                 allegroCategoryId: safeAllegroCatId
             }
@@ -1154,7 +1185,7 @@ app.patch('/api/products/:id', authenticateToken, resolveWorkspaceContext, async
     try {
         const ownedProduct = await prisma.product.findFirst({
             where: { id: req.params.id, workspaceId: req.workspaceId },
-            select: { id: true, workspaceId: true }
+            select: { id: true, workspaceId: true, allegroCategoryId: true, name: true }
         });
         if (!ownedProduct) {
             return res.status(404).json({ error: 'Produkt nie znaleziony w wybranym kliencie.' });
@@ -1227,6 +1258,17 @@ app.patch('/api/products/:id', authenticateToken, resolveWorkspaceContext, async
         if (dataToUpdate.allegroCategoryId !== undefined) {
             const cleanCatId = trimOrNull(dataToUpdate.allegroCategoryId);
             dataToUpdate.allegroCategoryId = cleanCatId;
+        }
+
+        const effectiveCatIdForNorm = dataToUpdate.allegroCategoryId !== undefined
+            ? dataToUpdate.allegroCategoryId
+            : ownedProduct.allegroCategoryId;
+        if (dataToUpdate.features && effectiveCatIdForNorm) {
+            dataToUpdate.features = await normalizeFeaturesAgainstCategoryId(
+                dataToUpdate.features,
+                effectiveCatIdForNorm,
+                dataToUpdate.name || ownedProduct.name || ''
+            );
         }
 
         const updatedProduct = await prisma.product.update({

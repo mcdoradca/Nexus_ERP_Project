@@ -114,21 +114,222 @@ function matchDictionaryOption(candidates, dictionary = [], options = {}) {
     return null;
 }
 
+const UNIT_FAMILIES = {
+    ml: { family: 'volume', toBase: 1 },
+    cl: { family: 'volume', toBase: 10 },
+    l: { family: 'volume', toBase: 1000 },
+    mg: { family: 'mass', toBase: 0.001 },
+    g: { family: 'mass', toBase: 1 },
+    dag: { family: 'mass', toBase: 10 },
+    kg: { family: 'mass', toBase: 1000 },
+    mm: { family: 'length', toBase: 1 },
+    cm: { family: 'length', toBase: 10 },
+    m: { family: 'length', toBase: 1000 },
+    szt: { family: 'count', toBase: 1 }
+};
+
+function normalizeUnitToken(unitRaw = '') {
+    const clean = String(unitRaw || '')
+        .toLowerCase()
+        .replace(/ł/g, 'l')
+        .replace(/ń/g, 'n')
+        .replace(/ą/g, 'a')
+        .replace(/ę/g, 'e')
+        .replace(/ć/g, 'c')
+        .replace(/ś/g, 's')
+        .replace(/ź|ż/g, 'z')
+        .replace(/[.]/g, '')
+        .trim();
+    if (!clean) return '';
+    if (clean === 'ml' || clean.startsWith('mililitr')) return 'ml';
+    if (clean === 'cl' || clean.startsWith('centylitr')) return 'cl';
+    if (clean === 'l' || clean.startsWith('litr') || clean === 'dm3') return 'l';
+    if (clean === 'mg' || clean.startsWith('miligram')) return 'mg';
+    if (clean === 'g' || clean === 'gr' || clean.startsWith('gram')) return 'g';
+    if (clean === 'dag' || clean === 'dkg' || clean.startsWith('dekagram')) return 'dag';
+    if (clean === 'kg' || clean.startsWith('kilogram')) return 'kg';
+    if (clean === 'mm' || clean.startsWith('milimetr')) return 'mm';
+    if (clean === 'cm' || clean.startsWith('centymetr')) return 'cm';
+    if (clean === 'm' || clean.startsWith('metr')) return 'm';
+    if (/^(?:szt|sztuk|pcs|kaps|kapsu|tab|tablet|pran|pranie|cykl|uzyc|myci|aplikacj|dozow|wklad|chustec|saszet)/.test(clean)) return 'szt';
+    return clean;
+}
+
+function convertBetweenUnits(num, srcUnitRaw = '', targetUnitRaw = '') {
+    if (!Number.isFinite(num)) return null;
+    const srcUnit = normalizeUnitToken(srcUnitRaw);
+    const targetUnit = normalizeUnitToken(targetUnitRaw);
+    if (!targetUnit || !srcUnit || srcUnit === targetUnit) return num;
+
+    const srcSpec = UNIT_FAMILIES[srcUnit];
+    const targetSpec = UNIT_FAMILIES[targetUnit];
+    if (!srcSpec || !targetSpec || srcSpec.family !== targetSpec.family) {
+        return null;
+    }
+    return (num * srcSpec.toBase) / targetSpec.toBase;
+}
+
+function formatNumericForAllegro(num, paramSchema = {}, { enforceBounds = true } = {}) {
+    if (!Number.isFinite(num)) {
+        return { ok: false, value: null, error: 'Nieprawidłowa wartość liczbowa' };
+    }
+    const restrictions = paramSchema?.restrictions || {};
+    const paramType = paramSchema?.type || 'float';
+    const precision = paramType === 'integer'
+        ? 0
+        : (typeof restrictions.precision === 'number' && restrictions.precision >= 0
+            ? Math.min(8, restrictions.precision)
+            : 4);
+
+    const factor = Math.pow(10, precision);
+    let rounded = Math.round(num * factor) / factor;
+    if (Math.abs(rounded) === 0) rounded = 0;
+
+    if (enforceBounds) {
+        const targetUnit = normalizeUnitToken(paramSchema?.unit || '');
+        if (typeof restrictions.min === 'number' && rounded < restrictions.min) {
+            return { ok: false, value: null, error: `Wartość ${rounded} poniżej minimum (${restrictions.min}${targetUnit ? ' ' + targetUnit : ''})` };
+        }
+        if (typeof restrictions.max === 'number' && rounded > restrictions.max) {
+            return { ok: false, value: null, error: `Wartość ${rounded} powyżej maksimum (${restrictions.max}${targetUnit ? ' ' + targetUnit : ''})` };
+        }
+    }
+
+    const formatted = precision === 0
+        ? String(Math.round(rounded))
+        : rounded.toFixed(precision).replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+
+    return { ok: true, value: formatted, numericValue: rounded, error: null };
+}
+
+function normalizeNumericValueForAllegroParam(rawVal, paramSchema = {}, { fallbackSources = '', enforceBounds = true } = {}) {
+    if (!paramSchema || (paramSchema.type !== 'float' && paramSchema.type !== 'integer')) {
+        return { ok: false, value: null, converted: false, error: 'Parametr nie jest typu liczbowego' };
+    }
+    if (rawVal === undefined || rawVal === null) {
+        return { ok: false, value: null, converted: false, error: 'Brak wartości liczbowej' };
+    }
+    const rawStr = String(rawVal).trim();
+    if (!rawStr) {
+        return { ok: false, value: null, converted: false, error: 'Pusta wartość liczbowa' };
+    }
+
+    const numUnitMatch = rawStr.match(/^(?:ok\.?\s*)?(-?\d+(?:\s\d{3})*(?:[.,]\d+)?)\s*(ml|mililitr(?:y|ów|a)?|cl|centylitr(?:y|ów|a)?|l|litr(?:y|ów|a)?|dm3|mg|miligram(?:y|ów|a)?|g|gr|gram(?:y|ów|a)?|dag|dkg|dekagram(?:y|ów|a)?|kg|kilogram(?:y|ów|a)?|mm|milimetr(?:y|ów|a)?|cm|centymetr(?:y|ów|a)?|m|metr(?:y|ów|a)?|szt\.?|sztuk(?:i|a)?|pcs|kapsuł(?:ek|ki)|tabletek|tabletki|tabs|caps|pra[nń]|pranie|płuka[nń]|płukanie|cykl(?:i|e)|uży[cć]|użycia)?\.?$/i);
+    if (!numUnitMatch) {
+        return { ok: false, value: null, converted: false, error: `Nie można sparsować liczby z "${rawStr}"` };
+    }
+
+    const numStr = numUnitMatch[1].replace(/\s+/g, '').replace(',', '.');
+    const parsedNum = parseFloat(numStr);
+    if (!Number.isFinite(parsedNum)) {
+        return { ok: false, value: null, converted: false, error: `Nieprawidłowa liczba "${rawStr}"` };
+    }
+
+    const targetUnit = normalizeUnitToken(paramSchema.unit || '');
+    const explicitSrcUnit = normalizeUnitToken(numUnitMatch[2] || '');
+    const restrictions = paramSchema.restrictions || {};
+    let convertedNum = parsedNum;
+
+    if (explicitSrcUnit) {
+        if (targetUnit && explicitSrcUnit !== targetUnit) {
+            const c = convertBetweenUnits(parsedNum, explicitSrcUnit, targetUnit);
+            if (c === null) {
+                return { ok: false, value: null, converted: false, error: `Niezgodna jednostka "${explicitSrcUnit}" dla parametru w "${targetUnit}"` };
+            }
+            convertedNum = c;
+        }
+    } else if (targetUnit && parsedNum > 0) {
+        const fbStr = String(fallbackSources || '');
+        const numEscaped = String(parsedNum).replace('.', '[.,]');
+        if (targetUnit === 'l') {
+            const fallbackMentionsMl = fbStr && new RegExp(`\\b${numEscaped}\\s*ml\\b`, 'i').test(fbStr);
+            const exceedsMaxAsLitres = typeof restrictions.max === 'number' &&
+                parsedNum > restrictions.max &&
+                (parsedNum / 1000) <= restrictions.max &&
+                (typeof restrictions.min !== 'number' || (parsedNum / 1000) >= restrictions.min);
+            if (fallbackMentionsMl || exceedsMaxAsLitres) {
+                convertedNum = parsedNum / 1000;
+            }
+        } else if (targetUnit === 'kg') {
+            const fallbackMentionsG = fbStr && new RegExp(`\\b${numEscaped}\\s*(?:g|gr)\\b`, 'i').test(fbStr);
+            const exceedsMaxAsKg = typeof restrictions.max === 'number' &&
+                parsedNum > restrictions.max &&
+                (parsedNum / 1000) <= restrictions.max &&
+                (typeof restrictions.min !== 'number' || (parsedNum / 1000) >= restrictions.min);
+            if (fallbackMentionsG || exceedsMaxAsKg) {
+                convertedNum = parsedNum / 1000;
+            }
+        }
+    }
+
+    const formattedRes = formatNumericForAllegro(convertedNum, paramSchema, { enforceBounds });
+    if (!formattedRes.ok) {
+        return { ok: false, value: null, converted: false, error: formattedRes.error };
+    }
+
+    return {
+        ok: true,
+        value: formattedRes.value,
+        numericValue: formattedRes.numericValue,
+        converted: formattedRes.value !== rawStr,
+        error: null
+    };
+}
+
+function normalizeNumericFeaturesForAllegroSchema(features = {}, allegroSchema = [], { productName = '', visionFeatures = {} } = {}) {
+    if (!features || typeof features !== 'object' || Array.isArray(features) || !Array.isArray(allegroSchema) || allegroSchema.length === 0) {
+        return { features: features || {}, changed: false, reformattedParams: {} };
+    }
+    const nextFeatures = { ...features };
+    const fallbackSources = [
+        productName,
+        visionFeatures?.['Pojemność / Waga'],
+        visionFeatures?.['Pojemność'],
+        visionFeatures?.['Waga'],
+        nextFeatures['Pojemność / Waga'],
+        nextFeatures['Waga']
+    ].filter(Boolean).join(' ');
+
+    let changed = false;
+    const reformattedParams = {};
+
+    for (const param of allegroSchema) {
+        if (!param || !param.name || (param.type !== 'float' && param.type !== 'integer')) continue;
+        const matchedKey = findExistingFeatureKey(nextFeatures, param.name);
+        if (!matchedKey) continue;
+        const currentVal = nextFeatures[matchedKey];
+        if (currentVal === undefined || currentVal === null || String(currentVal).trim() === '') continue;
+
+        const norm = normalizeNumericValueForAllegroParam(currentVal, param, { fallbackSources, enforceBounds: true });
+        if (norm.ok && norm.value !== null) {
+            if (norm.value !== String(currentVal).trim() || matchedKey !== param.name) {
+                if (matchedKey !== param.name) delete nextFeatures[matchedKey];
+                nextFeatures[param.name] = norm.value;
+                reformattedParams[param.name] = norm.value;
+                changed = true;
+            }
+        }
+    }
+
+    return { features: nextFeatures, changed, reformattedParams };
+}
+
 /**
- * Parsuje i przelicza ilość (pojemność l/ml lub wagę kg/g lub liczbę sztuk) pod docelową jednostkę parametru Allegro.
+ * Parsuje i przelicza ilość (pojemność l/ml lub wagę kg/g lub wymiary mm/cm/m lub liczbę sztuk) pod docelową jednostkę parametru Allegro.
  */
 function parseQuantityToUnit(rawValue, targetUnit = '', paramType = 'float', options = {}) {
     if (rawValue === undefined || rawValue === null) return null;
     const rawStr = String(rawValue).trim();
     if (!rawStr) return null;
 
-    const unitLower = String(targetUnit || '').toLowerCase().trim();
-    const isWeightParam = Boolean(options.isWeight) || ['kg', 'g'].includes(unitLower);
+    const unitLower = normalizeUnitToken(targetUnit || '');
+    const isWeightParam = Boolean(options.isWeight) || ['kg', 'g', 'mg', 'dag'].includes(unitLower);
     const isVolumeParam = Boolean(options.isVolume) || ['l', 'ml', 'cl'].includes(unitLower);
-    const isCountParam = Boolean(options.isCount) || unitLower === 'szt.' || unitLower === 'szt';
+    const isLengthParam = Boolean(options.isLength) || ['mm', 'cm', 'm'].includes(unitLower);
+    const isCountParam = Boolean(options.isCount) || unitLower === 'szt';
 
     if (isCountParam) {
-        const strippedMeasureStr = rawStr.replace(/\b\d+(?:[.,]\d+)?\s*(?:ml|l|litr(?:y|ów|a)?|cl|g|gr|kg|cm|mm|%)\b/gi, ' ');
+        const strippedMeasureStr = rawStr.replace(/\b\d+(?:[.,]\d+)?\s*(?:ml|l|litr(?:y|ów|a)?|cl|mg|g|gr|dag|dkg|kg|cm|mm|m|%)\b/gi, ' ');
         const countRegex = options.requireExplicitUnit
             ? /\b(\d+)\s*(?:szt\.?|kapsuł(?:ek|ki)|tabletek|tabletki|tabs|caps|pra[nń]|pranie|płuka[nń]|płukanie|uży[cć]|użycia|cykl(?:i|e)|my[cć]|aplikacj[ie]|dozowa[nń]|wkład(?:ów|y)|chusteczek|saszetek)\b/i
             : /\b(\d+)\s*(?:szt\.?|kapsuł(?:ek|ki)|tabletek|tabletki|tabs|caps|pra[nń]|płuka[nń]|uży[cć]|wkład(?:ów|y)|chusteczek|saszetek)?\b/i;
@@ -139,20 +340,24 @@ function parseQuantityToUnit(rawValue, targetUnit = '', paramType = 'float', opt
         return String(n);
     }
 
-    const matches = Array.from(rawStr.matchAll(/(\d+(?:[.,]\d+)?)\s*(ml|l|litr(?:y|ów|a)?|cl|g|gr|kg)\b/gi));
+    const matches = Array.from(rawStr.matchAll(/(\d+(?:[.,]\d+)?)\s*(ml|mililitr(?:y|ów|a)?|cl|centylitr(?:y|ów|a)?|l|litr(?:y|ów|a)?|mg|miligram(?:y|ów|a)?|dag|dkg|g|gr|kg|mm|cm|m)\b/gi));
     let selectedNum = null;
     let selectedUnit = '';
 
     if (matches.length > 0) {
         for (const m of matches) {
-            const uRaw = m[2].toLowerCase();
-            const u = uRaw.startsWith('litr') ? 'l' : (uRaw === 'gr' ? 'g' : uRaw);
-            if (isWeightParam && (u === 'kg' || u === 'g')) {
+            const u = normalizeUnitToken(m[2]);
+            if (isWeightParam && ['kg', 'g', 'mg', 'dag'].includes(u)) {
                 selectedNum = parseFloat(m[1].replace(',', '.'));
                 selectedUnit = u;
                 break;
             }
-            if (isVolumeParam && (u === 'ml' || u === 'l' || u === 'cl')) {
+            if (isVolumeParam && ['ml', 'l', 'cl'].includes(u)) {
+                selectedNum = parseFloat(m[1].replace(',', '.'));
+                selectedUnit = u;
+                break;
+            }
+            if (isLengthParam && ['mm', 'cm', 'm'].includes(u)) {
                 selectedNum = parseFloat(m[1].replace(',', '.'));
                 selectedUnit = u;
                 break;
@@ -172,20 +377,17 @@ function parseQuantityToUnit(rawValue, targetUnit = '', paramType = 'float', opt
 
     let converted = selectedNum;
     if (unitLower && selectedUnit && selectedUnit !== unitLower) {
-        if (selectedUnit === 'ml' && unitLower === 'l') converted = selectedNum / 1000;
-        else if (selectedUnit === 'cl' && unitLower === 'l') converted = selectedNum / 100;
-        else if (selectedUnit === 'l' && unitLower === 'ml') converted = selectedNum * 1000;
-        else if (selectedUnit === 'cl' && unitLower === 'ml') converted = selectedNum * 10;
-        else if (selectedUnit === 'g' && unitLower === 'kg') converted = selectedNum / 1000;
-        else if (selectedUnit === 'kg' && unitLower === 'g') converted = selectedNum * 1000;
-        else if (selectedUnit !== unitLower) return null;
+        const c = convertBetweenUnits(selectedNum, selectedUnit, unitLower);
+        if (c === null) return null;
+        converted = c;
     }
 
-    if (paramType === 'integer') {
-        return String(Math.round(converted));
-    }
-    const rounded = Math.round(converted * 10000) / 10000;
-    return String(rounded).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
+    const formatted = formatNumericForAllegro(
+        converted,
+        { type: paramType, unit: targetUnit, restrictions: typeof options.precision === 'number' ? { precision: options.precision } : {} },
+        { enforceBounds: false }
+    );
+    return formatted.ok ? formatted.value : null;
 }
 
 function extractFreeFromDeclarations(textSources = '', inciText = '') {
@@ -461,8 +663,26 @@ function mapPackagingFeaturesToAllegroSchema({
 
         const existingKey = findExistingFeatureKey(baseFeatures, paramName);
         if (existingKey && !isEmptyOrPlaceholder(baseFeatures[existingKey], allowWordBrakAsExisting)) {
-            skippedExisting.push(paramName);
-            continue;
+            if (param.type === 'float' || param.type === 'integer') {
+                const normRes = normalizeNumericValueForAllegroParam(baseFeatures[existingKey], param, {
+                    fallbackSources: [productName, rawCapacityText, rawWeightNetText, rawGrossWeight, rawPiecesText].filter(Boolean).join(' '),
+                    enforceBounds: true
+                });
+                if (normRes.ok && normRes.value !== null) {
+                    if (normRes.value !== String(baseFeatures[existingKey]).trim() || existingKey !== paramName) {
+                        if (existingKey !== paramName) delete baseFeatures[existingKey];
+                        baseFeatures[paramName] = normRes.value;
+                        mappedParams[paramName] = normRes.value;
+                    } else {
+                        skippedExisting.push(paramName);
+                    }
+                    continue;
+                }
+                // Gdy istniejąca wartość ma niezgodną jednostkę lub śmieci tekstowe, spróbuj odzyskać czystą wartość z twardych pól poniżej
+            } else {
+                skippedExisting.push(paramName);
+                continue;
+            }
         }
 
         const isDict = param.type === 'dictionary' && Array.isArray(param.dictionary) && param.dictionary.length > 0;
@@ -493,11 +713,11 @@ function mapPackagingFeaturesToAllegroSchema({
                 resolvedValue = String(hintFeatures['Linia']).trim();
             }
         } else if (normParamName === 'pojemnosc' || normParamName === 'pojemnosc opakowania') {
-            resolvedValue = parseQuantityToUnit(rawCapacityText, param.unit || 'l', param.type || 'float', { isVolume: true });
+            resolvedValue = parseQuantityToUnit(rawCapacityText, param.unit || 'l', param.type || 'float', { isVolume: true, precision: param.restrictions?.precision });
         } else if (normParamName === 'waga' || normParamName === 'waga produktu') {
-            resolvedValue = parseQuantityToUnit(rawWeightNetText || rawGrossWeight, param.unit || 'kg', param.type || 'float', { isWeight: true });
+            resolvedValue = parseQuantityToUnit(rawWeightNetText || rawGrossWeight, param.unit || 'kg', param.type || 'float', { isWeight: true, precision: param.restrictions?.precision });
         } else if (String(param.id) === '17448' || normParamName === 'waga produktu z opakowaniem jednostkowym') {
-            resolvedValue = parseQuantityToUnit(rawGrossWeight, param.unit || 'kg', param.type || 'float', { isWeight: true });
+            resolvedValue = parseQuantityToUnit(rawGrossWeight, param.unit || 'kg', param.type || 'float', { isWeight: true, precision: param.restrictions?.precision });
         } else if (normParamName === 'liczba sztuk w opakowaniu' || normParamName === 'liczba sztuk') {
             const parsedCount = parseQuantityToUnit(rawPiecesText, 'szt.', 'integer', { isCount: true });
             if (parsedCount) {
@@ -597,5 +817,10 @@ function mapPackagingFeaturesToAllegroSchema({
 module.exports = {
     mapPackagingFeaturesToAllegroSchema,
     matchDictionaryOption,
-    parseQuantityToUnit
+    parseQuantityToUnit,
+    normalizeUnitToken,
+    convertBetweenUnits,
+    formatNumericForAllegro,
+    normalizeNumericValueForAllegroParam,
+    normalizeNumericFeaturesForAllegroSchema
 };
