@@ -5,7 +5,7 @@ const aiWrapper = require('./ai.wrapper');
 const { ean_checksum, route_chemical, validate_eu_responsible_person, gate_ingredients, hasBannedLilial } = require('./validators');
 const { FORBIDDEN_SOURCES, DATA_SOURCE_MODE } = require('./config/nodes.config');
 const baselinkerExtract = require('./baselinker.extract.js');
-const { normalizeIngredientName, normalizeInciToLegalEnglish, stripRawInciFooterFromSection3 } = require('./normalization.js');
+const { normalizeIngredientName, normalizeInciToLegalEnglish, stripRawInciFooterFromSection3, stripMarketingScareAndFillerBulletsFromSection3 } = require('./normalization.js');
 const ragService = require('./knowledge.rag.service.js');
 const { validate_html_whitelist, scan_medical_claims_lexical, scan_biocidal_claims_lexical, scan_stopwords, scan_allegro_implicit_risks, emoji_structure_check, normalize_aeo_faq_labels, aeo_faq_check, validate_section5_compliance, validate_section6_compliance, validate_section3_ingredients_closed_world, validate_domain_and_chemical_logic, validate_section1_above_the_fold } = require('./validators');
 const { PrismaClient } = require('@prisma/client');
@@ -212,8 +212,9 @@ const sanitizeSection3Html = (htmlStr, allowedSourcesStr = '') => {
         }
     }
 
-    // Eliminacja surowej stopki pełnego składu INCI / WE 648/2004 z Sekcji 3 (pełny skład pozostaje w PIM i parametrach Allegro)
+    // Eliminacja surowej stopki pełnego składu INCI / WE 648/2004 oraz słów-straszaków i wypełniaczy z Sekcji 3 (pełny skład pozostaje w PIM i parametrach Allegro)
     res = stripRawInciFooterFromSection3(res);
+    res = stripMarketingScareAndFillerBulletsFromSection3(res);
 
     return res;
 };
@@ -532,7 +533,10 @@ const applyDeterministicSectionSanitizers = (sectionsObj, ctx = {}) => {
                 isSafetySection: i === 6,
                 sectionType: i === 6 ? 'section6' : (i === 5 ? 'section5' : 'description')
             });
-            if (i === 3) s = stripRawInciFooterFromSection3(s);
+            if (i === 3) {
+                s = stripRawInciFooterFromSection3(s);
+                s = stripMarketingScareAndFillerBulletsFromSection3(s);
+            }
             if (i === 5) {
                 s = sanitizeSection5Html(s, {
                     product_name: ctx.productName,
@@ -724,6 +728,65 @@ const computeComplianceAuditForSections = (sectionsObj = {}, ctx = {}) => {
     };
 };
 
+/**
+ * Deterministycznie aplikuje patch typu find_exact -> replace_with na HTML sekcji.
+ * Obsługuje dopasowanie dosłowne oraz równoważność tagów <b>/<strong>, <i>/<em>
+ * i drobnych różnic białych znaków, aby patche A11/A10 nie przepadały po cichu.
+ */
+const applySectionPatch = (htmlStr, findExact, replaceWith = '') => {
+    if (!htmlStr || typeof htmlStr !== 'string' || !findExact || typeof findExact !== 'string') {
+        return { html: htmlStr, applied: false, mode: 'none' };
+    }
+    const replacement = replaceWith === undefined || replaceWith === null ? '' : String(replaceWith);
+    if (htmlStr.includes(findExact)) {
+        return {
+            html: htmlStr.split(findExact).join(replacement),
+            applied: true,
+            mode: 'exact'
+        };
+    }
+
+    const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const tagTokenRe = /(<\/?(?:b|strong|i|em)>)/gi;
+    const buildPattern = (str, normalizeSpaces = false) => str.split(tagTokenRe).map((part) => {
+        if (!part) return '';
+        if (/^<(?:b|strong)>$/i.test(part)) return '<(?:b|strong)>';
+        if (/^<\/(?:b|strong)>$/i.test(part)) return '<\\/(?:b|strong)>';
+        if (/^<(?:i|em)>$/i.test(part)) return '<(?:i|em)>';
+        if (/^<\/(?:i|em)>$/i.test(part)) return '<\\/(?:i|em)>';
+        if (normalizeSpaces) {
+            return part.split(/\s+/).map(escapeRegex).join('\\s+');
+        }
+        return escapeRegex(part);
+    }).join('');
+
+    try {
+        const tagEquivRe = new RegExp(buildPattern(findExact, false), 'g');
+        if (tagEquivRe.test(htmlStr)) {
+            tagEquivRe.lastIndex = 0;
+            return {
+                html: htmlStr.replace(tagEquivRe, () => replacement),
+                applied: true,
+                mode: 'tag_equivalent'
+            };
+        }
+        if (findExact.trim().length >= 12) {
+            const wsRe = new RegExp(buildPattern(findExact.trim(), true), 'g');
+            if (wsRe.test(htmlStr)) {
+                wsRe.lastIndex = 0;
+                return {
+                    html: htmlStr.replace(wsRe, () => replacement),
+                    applied: true,
+                    mode: 'whitespace_tag_equivalent'
+                };
+            }
+        }
+    } catch {
+        // fallback: no match
+    }
+    return { html: htmlStr, applied: false, mode: 'none' };
+};
+
 const shouldEscalateToAgent10 = ({
     rawInputText = '',
     rawDraftHtml = '',
@@ -732,7 +795,8 @@ const shouldEscalateToAgent10 = ({
     a11Status = 'OK',
     isMedicalDevice = false,
     isHighRiskChemistry = false,
-    hasFrontBackUsageConflict = false
+    hasFrontBackUsageConflict = false,
+    unappliedPatchesCount = 0
 } = {}) => {
     if (a11Status !== 'OK') {
         return { escalate: true, reason: `A11_STATUS_${a11Status}` };
@@ -742,6 +806,9 @@ const shouldEscalateToAgent10 = ({
     }
     if (a11Result?.escalate_to_pro === true) {
         return { escalate: true, reason: a11Result.escalation_reason || 'A11_ESCALATE_TO_PRO' };
+    }
+    if (Number(unappliedPatchesCount) > 0) {
+        return { escalate: true, reason: `A11_UNAPPLIED_PATCHES (${Number(unappliedPatchesCount)})` };
     }
     if (hasFrontBackUsageConflict && (!postA11Audit || (postA11Audit.domainCheck?.errors || []).some(e => /spłukiwania|FAQ vs Sposób użycia/i.test(e)))) {
         return { escalate: true, reason: 'FRONT_BACK_RINSE_CONFLICT_UNRESOLVED' };
@@ -875,8 +942,16 @@ class Orchestrator {
         const candidateSpecs = [];
         const frontUrl = pimData?.imageUrl || product?.imageUrl || (Array.isArray(pimData?.images) ? pimData.images[0] : null) || (Array.isArray(product?.images) ? product.images[0] : null);
         const backUrl = pimData?.backImageUrl || product?.backImageUrl || product?.text_fields?.features?.['Zdjęcie tyłu opakowania'] || product?.text_fields?.features?.['_backImageUrl'] || (Array.isArray(pimData?.images) ? pimData.images[1] : null) || (Array.isArray(product?.images) ? product.images[1] : null);
-        if (frontUrl) candidateSpecs.push({ url: frontUrl, label: 'ZDJĘCIE FRONTU OPAKOWANIA (ŹRÓDŁO PRAWDY)' });
-        if (backUrl && backUrl !== frontUrl) candidateSpecs.push({ url: backUrl, label: 'ZDJĘCIE TYŁU / KONTRETYKIETY (SKŁAD, CLP, SPOSÓB UŻYCIA)' });
+        const cacheResolvedAsset = (isFrontFlag, mimeType, base64) => {
+            if (!base64) return;
+            if (isFrontFlag && !this._frontImageAsset?.base64) {
+                this._frontImageAsset = { mimeType: mimeType || 'image/jpeg', base64 };
+            } else if (!isFrontFlag && !this._backImageAsset?.base64) {
+                this._backImageAsset = { mimeType: mimeType || 'image/jpeg', base64 };
+            }
+        };
+        if (frontUrl) candidateSpecs.push({ url: frontUrl, label: 'ZDJĘCIE FRONTU OPAKOWANIA (ŹRÓDŁO PRAWDY)', isFront: true });
+        if (backUrl && backUrl !== frontUrl) candidateSpecs.push({ url: backUrl, label: 'ZDJĘCIE TYŁU / KONTRETYKIETY (SKŁAD, CLP, SPOSÓB UŻYCIA)', isFront: false });
 
         for (const spec of candidateSpecs.slice(0, 2)) {
             try {
@@ -884,6 +959,7 @@ class Orchestrator {
                 if (!rawUrl) continue;
                 const dataMatch = rawUrl.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/);
                 if (dataMatch) {
+                    cacheResolvedAsset(spec.isFront, dataMatch[1], dataMatch[2]);
                     auditImages.push({
                         label: spec.label,
                         mimeType: dataMatch[1],
@@ -895,9 +971,11 @@ class Orchestrator {
                     if (typeof visionExtractorService.fetchImageAsBase64 === 'function') {
                         const fetched = await visionExtractorService.fetchImageAsBase64(rawUrl);
                         if (fetched?.base64) {
+                            const mime = fetched.mimeType || 'image/jpeg';
+                            cacheResolvedAsset(spec.isFront, mime, fetched.base64);
                             auditImages.push({
                                 label: spec.label,
-                                mimeType: fetched.mimeType || 'image/jpeg',
+                                mimeType: mime,
                                 base64: fetched.base64
                             });
                         }
@@ -906,10 +984,12 @@ class Orchestrator {
                         if (resp.ok) {
                             const buf = Buffer.from(await resp.arrayBuffer());
                             const mime = (resp.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+                            const b64 = buf.toString('base64');
+                            cacheResolvedAsset(spec.isFront, mime, b64);
                             auditImages.push({
                                 label: spec.label,
                                 mimeType: mime,
-                                base64: buf.toString('base64')
+                                base64: b64
                             });
                         }
                     }
@@ -2467,10 +2547,12 @@ class Orchestrator {
                         required: ["category_type", "technical_benefits_aeo", "detected_synergies", "mandatory_clp_warnings"]
                     };
 
+                    const creatorImagesA4 = await this._resolveAuditImages(product, pimData);
                     const { result, usage } = await aiWrapper.callAgentWithTelemetry({
                         agentId: "4",
                         prompt: prompt4,
-                        schema: a4Schema
+                        schema: a4Schema,
+                        ...(creatorImagesA4 ? { images: creatorImagesA4 } : {})
                     });
 
                     const allowedKeysA4 = ['category_type', 'technical_benefits_aeo', 'detected_synergies', 'mandatory_clp_warnings'];
@@ -3081,8 +3163,12 @@ class Orchestrator {
             };
 
             try {
+                const creatorImagesA6 = await this._resolveAuditImages(product, pimData);
                 let { result, usage } = await aiWrapper.callAgentWithTelemetry({
-                    agentId: "6", prompt: prompt6, schema: a6Schema // temp domyślne dla copywritera
+                    agentId: "6",
+                    prompt: prompt6,
+                    schema: a6Schema, // temp domyślne dla copywritera
+                    ...(creatorImagesA6 ? { images: creatorImagesA6 } : {})
                 });
 
                 if (siblingFingerprints.count > 0 && result && typeof result === 'object') {
@@ -3096,7 +3182,10 @@ class Orchestrator {
                         };
                         const retryPrompt6 = prompt6Template.replace('{{SKU_DATA}}', JSON.stringify(retryData, null, 2));
                         const retryRes = await aiWrapper.callAgentWithTelemetry({
-                            agentId: "6", prompt: retryPrompt6, schema: a6Schema
+                            agentId: "6",
+                            prompt: retryPrompt6,
+                            schema: a6Schema,
+                            ...(creatorImagesA6 ? { images: creatorImagesA6 } : {})
                         });
                         if (retryRes && retryRes.result && typeof retryRes.result === 'object') {
                             result = retryRes.result;
@@ -3144,11 +3233,17 @@ class Orchestrator {
                     if (this.state.deterministic_section_3_html) {
                         result.section_3_html = this.state.deterministic_section_3_html;
                     } else if ((!result.section_3_html || !String(result.section_3_html).trim()) && Array.isArray(this.state.a4_result?.technical_benefits_aeo) && this.state.a4_result.technical_benefits_aeo.length > 0) {
-                        result.section_3_html = deterministicEngine.buildSection3FromA4Result(this.state.a4_result, isActualHouseholdChemicalA6, wsContentProfile);
+                        result.section_3_html = deterministicEngine.buildSection3FromA4Result(this.state.a4_result, isActualHouseholdChemicalA6, wsContentProfile, {
+                            productName: sanitizedNameForA6 || product?.text_fields?.name,
+                            category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
+                            visionFeatures: this.state.vision_extracted_features || {},
+                            features: product?.text_fields?.features || {}
+                        });
                     }
 
                     if (result.section_3_html) {
                         result.section_3_html = stripRawInciFooterFromSection3(result.section_3_html);
+                        result.section_3_html = stripMarketingScareAndFillerBulletsFromSection3(result.section_3_html);
                     }
 
                     if (this.state.extracted_data.inci?.value && euData && euData.name) {
@@ -3276,6 +3371,10 @@ class Orchestrator {
                             isSafetySection: idx === 6,
                             sectionType: idx === 6 ? 'section6' : (idx === 5 ? 'section5' : 'description')
                         });
+                        if (idx === 3) {
+                            result[k] = stripRawInciFooterFromSection3(result[k]);
+                            result[k] = stripMarketingScareAndFillerBulletsFromSection3(result[k]);
+                        }
                         if (isFullPipelineRun) {
                             result[k] = deterministicEngine.normalizeEmojiAndStructure(result[k], idx);
                         }
@@ -3689,13 +3788,33 @@ class Orchestrator {
 
                     const patchesA11 = result.patches || [];
                     const allowedSectionsA11 = ['section_1_html', 'section_2_html', 'section_3_html', 'section_4_html', 'section_5_html', 'section_6_html', 'section_tips_html'];
+                    const unappliedPatchesA11 = [];
 
                     if (this.state.a7_result) {
                         for (let p of patchesA11) {
-                            if (!allowedSectionsA11.includes(p.target_section)) continue;
+                            if (!allowedSectionsA11.includes(p?.target_section)) {
+                                unappliedPatchesA11.push(p?.target_section || 'UNKNOWN_SECTION');
+                                const warnMsg = `A11_PATCH_NOT_FOUND: nieznana sekcja "${p?.target_section || ''}"`;
+                                console.warn(`[Orchestrator V2] [A11 PATCH] ${warnMsg}`);
+                                this.state.normalization_warnings = [...(this.state.normalization_warnings || []), warnMsg];
+                                continue;
+                            }
                             if (this.state.a7_result[p.target_section] && p.find_exact) {
-                                this.state.a7_result[p.target_section] = this.state.a7_result[p.target_section].split(p.find_exact).join(p.replace_with);
-                                console.log(`[Orchestrator V2] [A11 PATCH] Zaaplikowano patch w ${p.target_section}: "${p.justification}"`);
+                                const patchRes = applySectionPatch(this.state.a7_result[p.target_section], p.find_exact, p.replace_with);
+                                if (patchRes.applied) {
+                                    this.state.a7_result[p.target_section] = patchRes.html;
+                                    console.log(`[Orchestrator V2] [A11 PATCH] Zaaplikowano patch (${patchRes.mode}) w ${p.target_section}: "${p.justification}"`);
+                                } else {
+                                    unappliedPatchesA11.push(`${p.target_section}:${p.justification || 'no_match'}`);
+                                    const warnMsg = `A11_PATCH_NOT_FOUND: ${p.target_section} (${p.justification || 'brak dopasowania find_exact'})`;
+                                    console.warn(`[Orchestrator V2] [A11 PATCH] ${warnMsg}`);
+                                    this.state.normalization_warnings = [...(this.state.normalization_warnings || []), warnMsg];
+                                }
+                            } else {
+                                unappliedPatchesA11.push(`${p.target_section}:empty_target_or_find`);
+                                const warnMsg = `A11_PATCH_NOT_FOUND: ${p.target_section} (pusta sekcja lub find_exact)`;
+                                console.warn(`[Orchestrator V2] [A11 PATCH] ${warnMsg}`);
+                                this.state.normalization_warnings = [...(this.state.normalization_warnings || []), warnMsg];
                             }
                         }
                         if (isFullPipelineRun) {
@@ -3716,7 +3835,8 @@ class Orchestrator {
                         a11Status: this.state.node_status['A11'],
                         isMedicalDevice: auditCtxA11.isMedicalDevice,
                         isHighRiskChemistry: auditCtxA11.isHighRiskChemistry,
-                        hasFrontBackUsageConflict: auditCtxA11.hasFrontBackUsageConflict
+                        hasFrontBackUsageConflict: auditCtxA11.hasFrontBackUsageConflict,
+                        unappliedPatchesCount: unappliedPatchesA11.length
                     });
 
                     if (decision.escalate) {
@@ -3881,8 +4001,14 @@ class Orchestrator {
                                 continue;
                             }
                             if (finalDoc[p.target_section] && p.find_exact) {
-                                finalDoc[p.target_section] = finalDoc[p.target_section].split(p.find_exact).join(p.replace_with);
-                                console.log("[DEBUG A10] finalDoc po patchu na " + p.target_section + ":", finalDoc[p.target_section]);
+                                const patchRes = applySectionPatch(finalDoc[p.target_section], p.find_exact, p.replace_with);
+                                if (patchRes.applied) {
+                                    finalDoc[p.target_section] = patchRes.html;
+                                    console.log("[DEBUG A10] finalDoc po patchu (" + patchRes.mode + ") na " + p.target_section + ":", finalDoc[p.target_section]);
+                                } else {
+                                    warnings.push('A10_PATCH_NOT_FOUND: ' + p.target_section);
+                                    console.warn(`[Orchestrator V2] [A10 PATCH] A10_PATCH_NOT_FOUND w ${p.target_section}: "${p.justification || ''}"`);
+                                }
                             }
                         }
 
@@ -3949,6 +4075,10 @@ class Orchestrator {
                                     isSafetySection: i === 6,
                                     sectionType: i === 6 ? 'section6' : (i === 5 ? 'section5' : 'description')
                                 });
+                                if (i === 3) {
+                                    sec = stripRawInciFooterFromSection3(sec);
+                                    sec = stripMarketingScareAndFillerBulletsFromSection3(sec);
+                                }
                                 if (i === 6) sec = sanitizeSection6Html(sec);
                                 if (isFullPipelineRun) {
                                     sec = deterministicEngine.normalizeEmojiAndStructure(sec, i);
@@ -4175,5 +4305,6 @@ module.exports = {
     sanitizeSection6Html,
     applyDeterministicSectionSanitizers,
     computeComplianceAuditForSections,
-    shouldEscalateToAgent10
+    shouldEscalateToAgent10,
+    applySectionPatch
 };

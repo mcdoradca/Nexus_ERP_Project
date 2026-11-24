@@ -27,7 +27,7 @@ const patchContent = fs.existsSync(patchPath) ? fs.readFileSync(patchPath, 'utf8
 
 // Parse SHARED_RULES sections
 const sections = {};
-const sectionRegex = /## (§[A-J])[^\n]*(?:\n(?!## (?:§|MAPA))[^\n]*)*(?:\n|$)/g;
+const sectionRegex = /## (§[A-K])[^\n]*(?:\n(?!## (?:§|MAPA))[^\n]*)*(?:\n|$)/g;
 let match;
 while ((match = sectionRegex.exec(sharedRulesContent)) !== null) {
     sections[match[1]] = match[0].trim();
@@ -36,14 +36,14 @@ while ((match = sectionRegex.exec(sharedRulesContent)) !== null) {
 const nodeMap = {
     1: ['§I'],
     2: [],
-    4: ['§A', '§B', '§C', '§I', '§J'],
+    4: ['§A', '§B', '§C', '§I', '§J', '§K'],
     5: ['§A', '§D', '§E', '§F'],
-    6: ['§A', '§B', '§C', '§D', '§E', '§J'],
-    7: ['§A', '§B', '§C', '§H', '§J'],
+    6: ['§A', '§B', '§C', '§D', '§E', '§J', '§K'],
+    7: ['§A', '§B', '§C', '§H', '§J', '§K'],
     8: ['§G'],
     9: ['§G'],
-    10: ['§A', '§D', '§E', '§F', '§J'],
-    11: ['§A', '§D', '§E', '§J']
+    10: ['§A', '§D', '§E', '§F', '§J', '§K'],
+    11: ['§A', '§D', '§E', '§J', '§K']
 };
 
 const agentsToCompile = [1, 2, 4, 5, 6, 7, 8, 9, 10, 11];

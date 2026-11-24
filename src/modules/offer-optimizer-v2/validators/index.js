@@ -3,7 +3,14 @@ const cheerio = require('cheerio');
 const { isRawInciFooterText } = require('../normalization');
 const { classifyProductPhysicalForm } = require('../services/product-form.classifier');
 const { scanStrictStopwords, scanAllegroComplianceRisks } = require('../services/allegro-compliance.policy');
-const { isNoRinseFormula, hasDeclaredOdorNeutralizer, detectRawCatalogNameLeak } = require('../services/label-truth.helpers');
+const {
+    isNoRinseFormula,
+    hasDeclaredOdorNeutralizer,
+    detectRawCatalogNameLeak,
+    FRAGRANCE_ALLERGEN_MOLECULES,
+    FILLER_OR_PRESERVATIVE_HEADINGS_REGEX,
+    isFabricSoftenerProduct
+} = require('../services/label-truth.helpers');
 const gpsrSafetyService = require('../services/gpsr.safety.service');
 
 // V1
@@ -891,6 +898,95 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
             if (/^GHS0[1-9]$/.test(normalizedCode) && !s6Upper.includes(normalizedCode)) {
                 errors.push(`[Brak piktogramu CLP ${normalizedCode} w Sekcji 6] Kontretykieta zawiera piktogram zagrożenia ${normalizedCode}, którego brakuje w Sekcji 6 (GPSR/CLP).`);
             }
+        }
+    }
+
+    // 29. Separacja Marketing vs Prawo i zakaz słów-straszaków / konserwantów w treści marketingowej (s1–s4, sTips — §K)
+    // UWAGA: Sekcja 6 (Bezpieczeństwo CLP/GPSR/EUH208) celowo NIE podlega temu skanowaniu!
+    const sTips = String(sectionsObj.section_tips_html || '');
+    const marketingHtmlList = [
+        { name: 'Sekcja 1', html: s1 },
+        { name: 'Sekcja 2 FAQ', html: s2 },
+        { name: 'Sekcja 3', html: s3 },
+        { name: 'Sekcja 4', html: s4 },
+        { name: 'Sekcja Porady', html: sTips }
+    ];
+    const scareWordPatterns = [
+        { re: /(?<![a-ząćęłńóśźż])alergen[a-ząćęłńóśźż]*(?![a-ząćęłńóśźż])/i, label: 'słowo-straszak "alergen"' },
+        { re: /(?<![a-ząćęłńóśźż])reakcj[aęiy]\s+alergiczn[a-ząćęłńóśźż]*(?![a-ząćęłńóśźż])/i, label: 'fraza "reakcja alergiczna"' },
+        { re: /(?<![a-ząćęłńóśźż])może\s+powodować\s+(?:wystąpienie\s+)?(?:reakcj|uczuleni)/i, label: 'ostrzeżenie o uczuleniu' },
+        { re: /\bEUH\s*208\b/i, label: 'zwrot CLP EUH208 poza Sekcją 6' },
+        { re: /(?<![a-ząćęłńóśźż])wymog(?:i|ami|ów|om)?\s+detergentow[a-ząćęłńóśźż]*(?![a-ząćęłńóśźż])/i, label: 'formułka prawna "wymogi detergentowe"' },
+        { re: /(?<![a-ząćęłńóśźż])(?:zgodnie\s+z\s+)?(?:rozp\.|rozporządzeniem)\s*(?:\(?\s*WE\s*\)?\s*)?(?:nr\s*)?648\s*\/\s*2004\b/i, label: 'powołanie na Rozp. WE 648/2004' },
+        { re: /(?<![a-ząćęłńóśźż])ujawnion[aeyą]\s+zgodnie\s+z(?![a-ząćęłńóśźż])/i, label: 'biurokratyczna formuła "ujawnione zgodnie z"' },
+        { re: /\b(?:benzisothiazolinone|methylisothiazolinone|methylchloroisothiazolinone|bronopol|phenoxyethanol|dmdm\s+hydantoin|isothiazolinon[ey]?|sodium\s+pyrithione)\b/i, label: 'nazwa technicznego konserwantu (BIT/MIT itp.)' },
+        { re: /(?<![a-ząćęłńóśźż])(?:stabilizator(?:em|y)?\s+mikrobiologiczn[a-ząćęłńóśźż]*|układ(?:em|u)?\s+konserwując[a-ząćęłńóśźż]*|konserwant(?:em|y|ów)?\s+(?:formulacj|formuł|produkt)|środ(?:ek|ki|ków)\s+konserwując[a-ząćęłńóśźż]*|konserwacj[aęiy]\s+produktu)(?![a-ząćęłńóśźż])/i, label: 'terminologia konserwująca w opisie marketingowym' },
+        { re: /(?<![a-ząćęłńóśźż])przed\s+rozwojem\s+(?:bakterii|grzybów|drobnoustrojów|mikroorganizmów)(?![a-ząćęłńóśźż])/i, label: 'straszenie rozwojem bakterii/grzybów' },
+        { re: /(?<![a-ząćęłńóśźż])chroni(?:ć)?\s+(?:płyn|produkt|formułę|żel|środek)\s+przed\s+(?:zepsuciem|namnażaniem|bakteriami)(?![a-ząćęłńóśźż])/i, label: 'straszenie zepsuciem produktu' }
+    ];
+    for (const secEntry of marketingHtmlList) {
+        if (!secEntry.html) continue;
+        const plain = secEntry.html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+        const plainNoNegations = plain.replace(/(?<![a-ząćęłńóśźż])(?:bez|woln[aeyoą]\s+od|nie\s+zawiera(?:ją)?)\s+(?:dodatku\s+)?(?:alergen[óo]w|konserwant[óo]w|barwnik[óo]w|substancji\s+zapachowych)(?![a-ząćęłńóśźż])/gi, '');
+        for (const pat of scareWordPatterns) {
+            const match = plainNoNegations.match(pat.re);
+            if (match) {
+                errors.push(`[Słowo-straszak / Prawny żargon w marketingu – ${secEntry.name}] Wykryto niedozwolony zwrot (${pat.label}): "${match[0]}". Takie sformułowania obniżają konwersję i należą wyłącznie do danych prawnych/PIM/Sekcji 6, nigdy do opisu sprzedażowego.`);
+                break;
+            }
+        }
+    }
+
+    // 30. Zakaz cząsteczek alergenów zapachowych oraz kafelków wypełniaczy/wody/soli/konserwantów w Sekcji 3 (s3 — §K)
+    if (s3) {
+        try {
+            const $s3 = cheerio.load(s3);
+            const allergenRe = new RegExp(`\\b(?:${FRAGRANCE_ALLERGEN_MOLECULES.map(m => m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'i');
+            $s3('li').each((_, el) => {
+                const fullText = $s3(el).text().replace(/\s+/g, ' ').trim();
+                const boldHeading = $s3(el).find('b, strong').first().text().replace(/\s+/g, ' ').trim();
+                const colonIdx = fullText.indexOf(':');
+                const colonHeading = colonIdx > 0 && colonIdx <= 65 ? fullText.slice(0, colonIdx).replace(/^[\W_⚙️⚡•✅]+/u, '').trim() : '';
+                const candidateHeading = (boldHeading || colonHeading).replace(/^(?:⚙️|⚡|✅|✔️|➡️)\s*/u, '').trim();
+                if (candidateHeading && FILLER_OR_PRESERVATIVE_HEADINGS_REGEX.test(candidateHeading)) {
+                    errors.push(`[Wypełniacz / Konserwant w Sekcji 3] Kafelek "${candidateHeading}" opisuje wodę, sól, barwnik lub konserwant zamiast składnika budującego realną korzyść dla klienta.`);
+                }
+                const allergenHit = fullText.match(allergenRe);
+                if (allergenHit) {
+                    errors.push(`[Cząsteczka alergenu zapachowego w Sekcji 3] Wykryto cząsteczkę zapachową "${allergenHit[0]}" w treści marketingowej. Cząsteczki alergenów należą wyłącznie do pełnego INCI w PIM i kontretykiety, nie do Sekcji 3.`);
+                }
+            });
+        } catch {
+            // fallback na wypadek nietypowego HTML
+        }
+    }
+
+    // 31. Jakość copywritingu, gramatyka, szablony FAQ oraz kontekstowość płynów do płukania (§K)
+    const isSoftenerCtx = isFabricSoftenerProduct({
+        productName: context.productName || '',
+        category: context.features?.['Kategoria'] || '',
+        visionFeatures: context.visionFeatures || {},
+        features: context.features || {}
+    });
+    for (const secEntry of marketingHtmlList) {
+        if (!secEntry.html) continue;
+        if (/(?<![a-ząćęłńóśźż])(?:rozpuszczalnik(?:iem)?\s+nośnikow[a-ząćęłńóśźż]*|regulator(?:em)?\s+lepkości|modyfikator(?:em)?\s+reologii|baza\s+nośnikow[aą]|celowan(?:ego|y|ym)\s+dobor(?:u|ze)\s+związków\s+powierzchniowo\s+czynnych)(?![a-ząćęłńóśźż])/i.test(secEntry.html)) {
+            errors.push(`[Żargon laboratoryjny – ${secEntry.name}] Unikaj sztucznych sformułowań technologicznych ("rozpuszczalnik nośnikowy", "regulator lepkości", "celowany dobór związków"). Opisuj realną korzyść użytkową prostym językiem.`);
+        }
+        if (/\bpodczas\s+(?:sprzątaniu|praniu|płukaniu|czyszczeniu|zmywaniu|prasowaniu|myciu\s+naczyniach)\b/i.test(secEntry.html)) {
+            errors.push(`[Błąd gramatyczny – ${secEntry.name}] Niepoprawna odmiana po słowie "podczas" (np. "podczas sprzątaniu" zamiast "podczas sprzątania").`);
+        }
+        if (/<(?:p|li|h[1-4]|div)[^>]*>(?:\s*<[^>]+>)*\s*fabryczn[aeyoą](?![a-ząćęłńóśźżA-ZĄĆĘŁŃÓŚŹŻ])/.test(secEntry.html)) {
+            errors.push(`[Błąd wielkości litery – ${secEntry.name}] Zdanie/blok zaczyna się od małej litery "fabryczny..." zamiast wielkiej litery.`);
+        }
+    }
+    if (s2 && /\(\s*o\s+zapachu\s+[^)]{2,50}\)/i.test(s2)) {
+        errors.push('[Szablonowe FAQ w Sekcji 2] Wykryto robotyczną wstawkę w nawiasie "(o zapachu ...)" w pytaniu/odpowiedzi FAQ. Sformułuj naturalne zdanie po polsku.');
+    }
+    if (isSoftenerCtx && s3) {
+        const s3Plain = s3.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+        if (/(?<![a-ząćęłńóśźż])(?:rozbijani[aeu]\s+zabrudzeń|usuwani[aeu]\s+(?:tłuszczu|brudu|plam|osadów\s+mineralnych|kamienia)|odspajani[aeu]\s+zabrudzeń|etap\s+czyszczenia|skuteczność\s+czyszczenia|czyszczącej\s+powierzchnie)(?![a-ząćęłńóśźż])/i.test(s3Plain)) {
+            errors.push('[Błąd domenowy Sekcji 3 – Płyn do płukania] Płyn/koncentrat do płukania tkanin nie służy do "rozbijania zabrudzeń" ani "etapu czyszczenia". Skup się wyłącznie na miękkości włókien, łatwości prasowania i zapachu.');
         }
     }
 

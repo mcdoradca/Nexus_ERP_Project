@@ -36,7 +36,7 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
    
    B. KOSMETYKI PIELĘGNACYJNE I MYJĄCE (kremy, balsamy, szampony, mydła):
       - Użytek zewnętrzny; procedura ochrony oczu przy preparatach myjących z surfaktantami (szampony/żele); ochrona przeciwsłoneczna przy kwasach/retinoidach.
-      - KATEGORYCZNY ZAKAZ dopisywania list składników INCI ani wykazu alergenów zapachowych z INCI (np. Linalool, Limonene, Coumarin) do ostrzeżeń GPSR — pełny skład INCI należy wyłącznie do Sekcji 3!
+      - KATEGORYCZNY ZAKAZ dopisywania list składników INCI ani wykazu alergenów zapachowych z INCI (np. Linalool, Limonene, Coumarin) do ostrzeżeń GPSR — pełny skład INCI należy wyłącznie do Karty Technicznej PIM, parametrów Allegro oraz zdjęcia kontretykiety (NIGDY do ostrzeżeń GPSR ani jako surowa stopka w Sekcji 3)!
       - Kategoryczny ZAKAZ generowania ostrzeżeń o łatwopalności czy źródłach ciepła (P210) dla emulsji i roztworów wodnych (nielotne alkohole emulgujące jak cetearyl/stearyl/benzyl alcohol nie są palne!).
    
    C. KAPSUŁKI DO PRANIA (laundry pods/capsules) — bezwzględny unijny standard A.I.S.E. / Rozp. 1297/2014:
@@ -47,21 +47,12 @@ i — przede wszystkim — konsumenta przed wprowadzeniem w błąd co do bezpiec
    
    D. CHEMIA GOSPODARCZA, DETERGENTY, PŁYNY DO PRANIA I AEROZOLE (Rozp. 1272/2008 CLP, Rozp. 648/2004):
       - Ostrzeżenia łatwopalności P210 WYŁĄCZNIE dla gazów nośnych (butan/propan), aerozoli i spirytusu >60%.
-      - 🚨 BEZWZGLĘDNA DYREKTYWA EKSPERCKA CLP (ZAKAZ GUBIENIA KLUCZOWYCH KODÓW I ZNIEKSZTAŁCANIA INTERPUNKCJI):
-        Jako audytor prawny ponosisz pełną odpowiedzialność za zgodność z prawem UE. Pominięcie obowiązkowych procedur ratunkowych naraża zdrowie konsumenta i stanowi kardynalny błąd prawny!
-        Dla mieszanin sklasyfikowanych jako stwarzające zagrożenie (płyny do prania z surfaktantami, kapsułki, preparaty czyszczące, aerozole, produkty ze zwrotami H lub kartą SDS), lista mandatory_safety_warnings MUSI tworzyć kompletną, prawnie domkniętą sekwencję w standardowym formacie tagów Allegro (<li>➡️ <b>Ostrzeżenie CLP/GPSR:</b> [Treść]</li>):
-        1) Hasło ostrzegawcze: Hasło ostrzegawcze – UWAGA (lub NIEBEZPIECZEŃSTWO). (ZAKAZ DWUKROPKA po słowie 'ostrzegawcze' — obowiązuje myślnik!).
-        2) Zwrot wskazujący rodzaj zagrożenia: H319 – Działa drażniąco na oczy (lub odpowiedni zwrot H).
-        3) Kompletna, zamknięta pętla prewencji i procedur ratowniczych:
-           - P101 – W razie konieczności zasięgnięcia porady lekarza należy pokazać pojemnik lub etykietę. (Zgodnie z art. 17 ust. 1 Rozp. CLP kod P101 jest OBLIGATORYJNY obok P102 dla produktów konsumenckich stwarzających zagrożenie — KATEGORYCZNY ZAKAZ POMIJANIA!).
-           - P102 – Chronić przed dziećmi.
-           - P264 – Dokładnie umyć ręce po użyciu. (obowiązkowa prewencja ogólna przy H319/H318 — KATEGORYCZNY ZAKAZ POMIJANIA!).
-           - P280 – Stosować rękawice ochronne. (OBOWIĄZKOWE przy środkach żrących, silnie zasadowych/kwasowych, z podchlorynem sodu, wodorotlenkiem sodu/potasu, do piekarników/przypaleń/pleśni, przy klasyfikacji H314/H315 lub gdy w `pim_safety_warnings` / `pim_usage_instructions` widnieje wymóg rękawic; KATEGORYCZNY ZAKAZ zmyślania przemysłowych masek, półmasek, gogli i okularów ochronnych dla chemii domowej spoza etykiety!).
-           - P302+P352 – W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ: Umyć dużą ilością wody. (obowiązkowe przy H315 / podrażnieniu skóry / wymaganych rękawicach).
-           - P301+P312 – W PRZYPADKU POŁKNIĘCIA: W przypadku złego samopoczucia skontaktować się z OŚRODKIEM ZATRUĆ lub lekarzem. (Standardowe zabezpieczenie ratunkowe OBOWIĄZKOWE dla detergentów, kapsułek, płynów oraz preparatów aerozolowych — KATEGORYCZNY ZAKAZ POMIJANIA!).
-           - P305+P351+P338 – W PRZYPADKU DOSTANIA SIĘ DO OCZU: Ostrożnie płukać wodą przez kilka minut. Wyjąć soczewki kontaktowe, jeżeli są i można je łatwo usunąć. Nadal płukać.
-           - P337+P313 – W przypadku utrzymywania się działania drażniącego na oczy: Zasięgnąć porady/zgłosić się pod opiekę lekarza. (obowiązkowe domknięcie procedury ratunkowej przy H319).
-        4) Zwrot uzupełniający EUH208: umieszczaj WYŁĄCZNIE wtedy, gdy tylna etykieta producenta (`pim_safety_warnings`) jawnie podaje oficjalną deklarację `EUH208`. KATEGORYCZNY ZAKAZ tworzenia lub dopisywania do ostrzeżeń GPSR list alergenów/konserwantów ze składu `inci` ani surowego wyliczenia `Zawiera: [składniki]`!
+      - 🚨 ZASADA ZGODNOŚCI PRAWNEJ CLP 1:1 (SSOT `ABC -> ABC` + ZAKAZ DOPISYWANIA I ZAKAZ POMIJANIA KODÓW Z ETYKIETY):
+        Dla mieszanin sklasyfikowanych jako stwarzające zagrożenie (produkty ze zwrotami H, piktogramem GHS lub kartą SDS w `pim_safety_warnings` / zdjęciu kontretykiety), lista `mandatory_safety_warnings` MUSI wiernie odwzorowywać **dokładnie te i tylko te** elementy oznakowania CLP, które znajdują się na etykiecie producenta / w karcie SDS (w oficjalnym polskim brzmieniu wg Załączników III i IV do Rozp. WE 1272/2008 i standardowym formacie tagów Allegro `Ostrzeżenie CLP/GPSR:`):
+        1) Hasło ostrzegawcze: `Hasło ostrzegawcze – UWAGA` lub `Hasło ostrzegawcze – NIEBEZPIECZEŃSTWO` dokładnie wg etykiety/SDS (myślnik `–`, bez dwukropka po słowie `ostrzegawcze`). Jeśli etykieta nie klasyfikuje mieszaniny jako stwarzającej zagrożenie (brak piktogramów/hasła/H), NIE wymyślaj hasła ani kodów CLP.
+        2) Piktogram(y) zagrożenia (np. GHS07, GHS05, GHS09) oraz zwroty `H` dokładnie w zakresie widocznym na kontretykiecie lub w SDS (nie gub żadnego zwrotu H z etykiety i nie dopisuj zwrotów H spoza etykiety).
+        3) Zwroty `P` dokładnie 1:1 wg etykiety / `pim_safety_warnings` / SDS (nie gub P101/P102/P264/P280/P301+P312/P302+P352/P305+P351+P338/P337+P313, jeśli widnieją na etykiecie lub wynikają z jej pełnej sekwencji ratunkowej; KATEGORYCZNY ZAKAZ zmyślania przemysłowych masek, półmasek, gogli i okularów ochronnych dla chemii domowej spoza etykiety!).
+        4) Zwrot uzupełniający `EUH208`: umieszczaj WYŁĄCZNIE w tej prawnej sekcji (`mandatory_safety_warnings` -> `sekcja6` / `safetyInformation`, NIGDY w treści marketingowej!) i WYŁĄCZNIE wtedy, gdy tylna etykieta producenta (`pim_safety_warnings` / zdjęcie) jawnie podaje oficjalną deklarację `EUH208`. KATEGORYCZNY ZAKAZ przenoszenia zwrotów `EUH208`, list alergenów (`Alergeny: ...`) ani słów-straszaków do sekcji marketingowych 1–4 ani tworzenia ze składu INCI nieoficjalnych wyliczeń spoza etykiety!
       - 🚨 KATEGORYCZNY ZAKAZ ROZSZCZEPIANIA FORMULARZY KOMBINOWANYCH CLP NA OSOBNE KODY:
         Zgodnie z Załącznikiem IV do Rozp. CLP (WE 1272/2008) procedury ratunkowe łączone stanowią jedną, spójną całość: P301+P312, P305+P351+P338 oraz P337+P313.
         KATEGORYCZNY ZAKAZ rozbijania ich na pojedyncze kody w osobnych liniach (P301, P312, P305, P351, P338, P337, P313) i tworzenia urwanych zdań w rodzaju 'P301 – W PRZYPADKU POŁKNIĘCIA:'!

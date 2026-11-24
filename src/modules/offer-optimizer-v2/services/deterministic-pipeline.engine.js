@@ -2,7 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const brandResponsibleService = require('../brand.responsible.service');
 const gpsrSafetyService = require('./gpsr.safety.service');
-const { normalizeInciToLegalEnglish, stripRawInciFooterFromSection3 } = require('../normalization');
+const {
+    normalizeInciToLegalEnglish,
+    stripRawInciFooterFromSection3,
+    stripMarketingScareAndFillerBulletsFromSection3
+} = require('../normalization');
 const { classifyProductPhysicalForm } = require('./product-form.classifier');
 const {
     sanitizeLabelHighlights,
@@ -13,7 +17,10 @@ const {
     POLISH_CONNECTOR_WORDS,
     isNoRinseFormula,
     hasDeclaredOdorNeutralizer,
-    detectRawCatalogNameLeak
+    detectRawCatalogNameLeak,
+    isPureFillerIngredient,
+    isFabricSoftenerProduct,
+    resolveSection3HeadingAndLead
 } = require('./label-truth.helpers');
 
 const INCI_MECH_PATH = path.join(__dirname, '..', 'data', 'reference', 'inci_mechanisms_pl.json');
@@ -435,12 +442,19 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
     const isSafetySec = context?.isSafetySection === true || context?.sectionType === 'section6';
 
     // KROK 0: Ochrona Sekcji 6 (ostrzeżenia CLP/GPSR są nietykalne merytorycznie — wyłącznie zakaz kontaktu i "oryginalny")
+    const matchInitialCase = (matchedStr, lowerText) => {
+        if (!lowerText) return lowerText;
+        return /^[A-ZĄĆĘŁŃÓŚŹŻ]/.test(String(matchedStr || ''))
+            ? lowerText.charAt(0).toUpperCase() + lowerText.slice(1)
+            : lowerText;
+    };
+
     if (isSafetySec) {
         return res
-            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])w\s+oryginalnym\s+opakowaniu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'w fabrycznym opakowaniu producenta')
-            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])oryginaln(e|ego|ym|ych)\s+opakowani(e|a|u|ach)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'fabryczne opakowanie producenta')
-            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])oryginaln(y|a|e|ym|ych|ego|ej|ą)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => `fabryczn${s.toLowerCase()}`)
-            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])orygina[łl][a-ząćęłńóśźż]*(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'produkt fabryczny')
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])w\s+oryginalnym\s+opakowaniu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'w fabrycznym opakowaniu producenta'))
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])oryginaln(e|ego|ym|ych)\s+opakowani(e|a|u|ach)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'fabryczne opakowanie producenta'))
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])oryginaln(y|a|e|ym|ych|ego|ej|ą)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m, s) => matchInitialCase(m, `fabryczn${s.toLowerCase()}`))
+            .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])orygina[łl][a-ząćęłńóśźż]*(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'produkt fabryczny'))
             .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
             .replace(/https?:\/\/[^\s<>"']+/gi, '')
             .replace(/\bwww\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s<>"']*)?/gi, '')
@@ -454,62 +468,59 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
     // --- KROK A: TARCZA ANTY-BIOBÓJCZA (Rozp. UE 528/2012 BPR & Ustawa o produktach biobójczych) ---
     res = res
         // Frazy złożone z procentami i drobnoustrojami
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:zabija|usuwa|eliminuje|likwiduje|zwalcza|niszczy)\s+(?:do\s+|nawet\s+)?(?:99[.,]9%\s*)?(?:bakteri[eią]|wirusy|wirusów|zarazki|zarazków|drobnoustroje|drobnoustrojów|mikroby|mikrobów|grzyby|grzybów|pleśń|pleśni)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'skutecznie usuwa zanieczyszczenia i osady')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:zabija|usuwa|eliminuje|likwiduje|zwalcza|niszczy)\s+(?:do\s+|nawet\s+)?(?:99[.,]9%\s*)?(?:bakteri[eią]|wirusy|wirusów|zarazki|zarazków|drobnoustroje|drobnoustrojów|mikroby|mikrobów|grzyby|grzybów|pleśń|pleśni)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'skutecznie usuwa zanieczyszczenia i osady'))
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])99[.,]9%\s*(?:bakterii|wirusów|zarazków|drobnoustrojów|mikrobów|grzybów|pleśni)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'codziennych zabrudzeń i osadów')
         // Przymiotniki i przysłówki biobójcze / antybakteryjne / przeciwwirusowe
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:antybakteryjn|przeciwbakteryjn|bakteriobójcz)(y|a|e|ym|ych|ego|ej|ą|o)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, suffix) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:antybakteryjn|przeciwbakteryjn|bakteriobójcz)(y|a|e|ym|ych|ego|ej|ą|o)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m, suffix) => {
             const s = suffix.toLowerCase();
-            if (s === 'o') return 'higienicznie';
-            return `higienicznie oczyszczając${s}`;
+            return matchInitialCase(m, s === 'o' ? 'higienicznie' : `higienicznie oczyszczając${s}`);
         })
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:przeciwwirusow|antywirusow|wirusobójcz)(y|a|e|ym|ych|ego|ej|ą|o)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, suffix) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:przeciwwirusow|antywirusow|wirusobójcz)(y|a|e|ym|ych|ego|ej|ą|o)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m, suffix) => {
             const s = suffix.toLowerCase();
-            if (s === 'o') return 'głęboko';
-            return `głęboko oczyszczając${s}`;
+            return matchInitialCase(m, s === 'o' ? 'głęboko' : `głęboko oczyszczając${s}`);
         })
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:biobójcz|grzybobójcz|pleśniobójcz|przeciwgrzybicz)(y|a|e|ym|ych|ego|ej|ą|o)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, suffix) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:biobójcz|grzybobójcz|pleśniobójcz|przeciwgrzybicz)(y|a|e|ym|ych|ego|ej|ą|o)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m, suffix) => {
             const s = suffix.toLowerCase();
-            if (s === 'o') return 'intensywnie';
-            return `intensywnie czyszcząc${s}`;
+            return matchInitialCase(m, s === 'o' ? 'intensywnie' : `intensywnie czyszcząc${s}`);
         })
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekuj|odkażaj|sterylizuj)(ący|ąca|ące|ącego|ącej|ącym|ących)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, suffix) => {
-            return `higienicznie czyszcząc${suffix.slice(2).toLowerCase()}`;
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekuj|odkażaj|sterylizuj)(ący|ąca|ące|ącego|ącej|ącym|ących)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m, suffix) => {
+            return matchInitialCase(m, `higienicznie czyszcząc${suffix.slice(2).toLowerCase()}`);
         })
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekuje|odkaża|sterylizuje)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'zapewnia higieniczną czystość')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekują|odkażają|sterylizują)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'zapewniają higieniczną czystość')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekować|odkażać|sterylizować)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'higienicznie oczyszczać')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekcj|odkażani|sterylizacj)(a|i|ę|ą|e|u|em)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, suffix) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekuje|odkaża|sterylizuje)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'zapewnia higieniczną czystość'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekują|odkażają|sterylizują)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'zapewniają higieniczną czystość'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekować|odkażać|sterylizować)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'higienicznie oczyszczać'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:dezynfekcj|odkażani|sterylizacj)(a|i|ę|ą|e|u|em)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m, suffix) => {
             const s = suffix.toLowerCase();
-            if (s === 'i' || s === 'a') return 'higienicznej czystości';
-            if (s === 'ą' || s === 'em') return 'higienicznym oczyszczaniem';
-            return 'higieniczną czystość';
+            if (s === 'i' || s === 'a') return matchInitialCase(m, 'higienicznej czystości');
+            if (s === 'ą' || s === 'em') return matchInitialCase(m, 'higienicznym oczyszczaniem');
+            return matchInitialCase(m, 'higieniczną czystość');
         })
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:antibatteric[oaie]|igienizzant[ei]|disinfettant[ei])(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'higienicznie oczyszczający');
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:antibatteric[oaie]|igienizzant[ei]|disinfettant[ei])(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'higienicznie oczyszczający'));
 
     // --- KROK B: TARCZA ANTY-MEDYCZNA (Rozp. WE 1223/2009 i 655/2013) ---
     res = res
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])likwiduje\s+(?:łuszczycę|egzemę|trądzik|azs)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'pielęgnuje skórę wymagającą i skłonną do podrażnień')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])regeneruje\s+tkanki\s+chorobowe(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wspiera naturalną odnowę naskórka')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])zapobiega\s+chorobom(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wspiera utrzymanie dobrej kondycji skóry')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])goi\s+rany(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wspomaga regenerację naskórka')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:wyleczy[a-ząćęłńóśźż]*|uzdrawia[a-ząćęłńóśźż]*|lecz(?:y|ą|yć|ący|ąca|ące|enie|niczy|nicza|nicze))(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'pielęgnuje i koi')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])terapi(a|i|ę|ą)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => {
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])likwiduje\s+(?:łuszczycę|egzemę|trądzik|azs)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'pielęgnuje skórę wymagającą i skłonną do podrażnień'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])regeneruje\s+tkanki\s+chorobowe(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'wspiera naturalną odnowę naskórka'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])zapobiega\s+chorobom(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'wspiera utrzymanie dobrej kondycji skóry'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])goi\s+rany(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'wspomaga regenerację naskórka'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:wyleczy[a-ząćęłńóśźż]*|uzdrawia[a-ząćęłńóśźż]*|lecz(?:y|ą|yć|ący|ąca|ące|enie|niczy|nicza|nicze))(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'pielęgnuje i koi'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])terapi(a|i|ę|ą)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m, s) => {
             const low = s.toLowerCase();
-            if (low === 'i') return 'kuracji pielęgnacyjnej';
-            if (low === 'ę') return 'kurację pielęgnacyjną';
-            if (low === 'ą') return 'kuracją pielęgnacyjną';
-            return 'kuracja pielęgnacyjna';
+            if (low === 'i') return matchInitialCase(m, 'kuracji pielęgnacyjnej');
+            if (low === 'ę') return matchInitialCase(m, 'kurację pielęgnacyjną');
+            if (low === 'ą') return matchInitialCase(m, 'kuracją pielęgnacyjną');
+            return matchInitialCase(m, 'kuracja pielęgnacyjna');
         })
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:lekarstw[a-ząćęłńóśźż]*|antybiotyk[a-ząćęłńóśźż]*|diagnozuj[a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'preparat pielęgnacyjny');
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:lekarstw[a-ząćęłńóśźż]*|antybiotyk[a-ząćęłńóśźż]*|diagnozuj[a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'preparat pielęgnacyjny'));
 
     // --- KROK C: TARCZA STOP-WORDS ALLEGRO 2026 & UOKiK OVERPROMISING (§A) Z GRANICAMI UNICODE ---
     res = res
         // Oryginalny / oryginał -> fabryczny / producenta
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])w\s+oryginalnym\s+opakowaniu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'w fabrycznym opakowaniu producenta')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])oryginaln(e|ego|ym|ych)\s+opakowani(e|a|u|ach)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'fabryczne opakowanie producenta')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:gwarancj[a-ząćęłńóśźż]*\s+oryginalnoś[ćc][a-ząćęłńóśźż]*|oryginalnoś[ćc][a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'autentyczność receptury')
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])oryginaln(y|a|e|ym|ych|ego|ej|ą)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => `fabryczn${s.toLowerCase()}`)
-        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])orygina[łl][a-ząćęłńóśźż]*(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'produkt fabryczny')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])w\s+oryginalnym\s+opakowaniu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'w fabrycznym opakowaniu producenta'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])oryginaln(e|ego|ym|ych)\s+opakowani(e|a|u|ach)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'fabryczne opakowanie producenta'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])(?:gwarancj[a-ząćęłńóśźż]*\s+oryginalnoś[ćc][a-ząćęłńóśźż]*|oryginalnoś[ćc][a-ząćęłńóśźż]*)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'autentyczność receptury'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])oryginaln(y|a|e|ym|ych|ego|ej|ą)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m, s) => matchInitialCase(m, `fabryczn${s.toLowerCase()}`))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])orygina[łl][a-ząćęłńóśźż]*(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'produkt fabryczny'))
         // Gwarancje i obietnice pewnościowe
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])gwarancj[a-ząćęłńóśźż]*\s+(?:najniższej\s+ceny|jakoś[ćc]i|satysfakcji|zwrotu)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'wysoki standard wykonania')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])gwarantuj(e|ą|emy)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (_, s) => (s.toLowerCase() === 'ą' ? 'zapewniają' : 'zapewnia'))
@@ -583,6 +594,9 @@ function sanitizeHtmlClaimsAndStopwords(htmlStr, context = {}) {
         .replace(/oraz\s+tkaniny\s+kolorowe/gi, 'oraz wszelkie tkaniny i tekstylia')
         .replace(/W\s+PRZYPADKU\s+(?:KONTAKTU|KONTATKU)\s+ZE\s+SKÓRĄ/gi, 'W PRZYPADKU STYCZNOŚCI ZE SKÓRĄ')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])w\s+częściowo(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, 'częściowo')
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])podczas\s+sprzątaniu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'podczas sprzątania'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])podczas\s+praniu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'podczas prania'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])podczas\s+płukaniu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, m => matchInitialCase(m, 'podczas płukania'))
         .replace(/Brak\s+zdjęcia\s+w\s+slocie\s*#\d+/gi, '')
         .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])spłucz\s+obficie\s+czyszczoną\s+powierzchnię\s+bieżącą\s+wodą(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/gi, (m) => /^[A-Z]/.test(m) ? 'Przetrzyj czyszczoną powierzchnię czystą, wilgotną ściereczką lub spłucz wodą' : 'przetrzyj czyszczoną powierzchnię czystą, wilgotną ściereczką lub spłucz wodą')
         // Higiena interpunkcyjna
@@ -876,42 +890,34 @@ function tryBuildDeterministicSection3({
     const matchedRoles = new Set();
     const usedDbKeys = new Set();
 
-    // Kolekcjonujemy specyficzne alergeny zapachowe i konserwanty obecne w rzeczywistym INCI produktu
-    const detectedAllergenNames = [];
-    const detectedPreservativeNames = [];
-    const stripGroupWrapper = (str) => String(str || '')
-        .replace(/^(?:środki\s+konserwujące|konserwant(?:y)?|conservante|preservative(?:s)?|kompozycja\s+zapachowa|parfum|profumo|fragrance|zawiera|contains|contiene)\s*[:(]?\s*/i, '')
-        .replace(/[()[\]]+/g, '')
-        .replace(/^[\s,;/]+|[\s,;/]+$/g, '')
-        .trim();
-
-    const subTokens = rawSource
-        .split(/[,;\n/()]+/)
-        .map(s => stripGroupWrapper(s.replace(/^\d+\.\s*/, '')))
-        .filter(Boolean);
-
-    for (const item of subTokens) {
-        const lowerItem = item.toLowerCase().trim();
-        const allergenEntry = db.ingredients?.['fragrance_allergens'];
-        if (allergenEntry && allergenEntry.names.some(n => lowerItem === n || (n.length >= 4 && lowerItem.includes(n)))) {
-            const capName = item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
-            if (!detectedAllergenNames.includes(capName)) detectedAllergenNames.push(capName);
-        }
-        const presEntry = db.ingredients?.['preservatives'];
-        if (presEntry && presEntry.names.some(n => lowerItem === n || (n.length >= 4 && lowerItem.includes(n)))) {
-            const capName = item.charAt(0).toUpperCase() + item.slice(1).toLowerCase();
-            if (!detectedPreservativeNames.includes(capName)) detectedPreservativeNames.push(capName);
-        }
-    }
-
     const contextStr = `${productName || ''} ${category || ''} ${JSON.stringify(visionFeatures || {})} ${JSON.stringify(features || {})}`;
     const isDishwashing = /(?:do\s+(?:mycia\s+)?naczyń|do\s+naczyn|płyn\s+do\s+naczyń|plyn\s+do\s+naczyn|\bpiatti\b|dishwash|zmywani[ea]\s+naczyń|do\s+zmywarek|lavastoviglie)/i.test(contextStr);
     const isLaundry = /(?:do\s+prania|do\s+płukania|płyn\s+do\s+prania|żel\s+do\s+prania|proszek\s+do\s+prania|kapsułk[ai]\s+do\s+prania|bucato|lavatrice|ammorbidente)/i.test(contextStr);
+    const isFabricSoftener = isFabricSoftenerProduct({ productName, category, visionFeatures, features, contextStr });
     const isToiletWc = /(?:żel\s+do\s+wc|płyn\s+do\s+wc|kostk[ai]\s+do\s+wc|wc\s+gel|do\s+toalet|muszl[ia]\s+toaletow)/i.test(contextStr) &&
         !/(?:pleś[ńn]|muffa|do\s+fug|odgrzybiacz)/i.test(contextStr);
     const isMoldOrGrout = /(?:pleś[ńn]|muffa|grzyb|do\s+fug|odgrzybiacz)/i.test(contextStr);
 
+    const rawScentCandidate = String(
+        visionFeatures?.['Zapach'] || features?.['Zapach'] || features?.['Nuta zapachowa'] || ''
+    ).replace(/\s*\([^)]*\)/g, '').trim();
+    const cleanScentNote = (rawScentCandidate && !/^(?:brak|nieokreślony|null|undefined|neutralny|wybielacz|candeggina|soda|ocet)$/i.test(rawScentCandidate) && !/(?:candeggin|wybielacz|ammoniac)/i.test(rawScentCandidate))
+        ? rawScentCandidate
+        : '';
+
     const formatBulletHtml = (dbKey, entry) => {
+        // Separacja Marketing vs Prawo (§K): pomijamy wodę, sól, barwniki, konserwanty i surowe alergeny zapachowe w Sekcji 3
+        if (
+            entry?.skip_in_marketing_s3 === true ||
+            dbKey === 'aqua' ||
+            dbKey === 'sodium chloride' ||
+            dbKey === 'preservatives' ||
+            dbKey === 'fragrance_allergens' ||
+            ['preservative', 'viscosity_controller', 'fragrance_component', 'colorant'].includes(entry?.role)
+        ) {
+            return '';
+        }
+
         let htmlBullet = resolvedIsChemical
             ? (entry.chemical_html || entry.cosmetic_html)
             : (entry.cosmetic_html || entry.chemical_html);
@@ -943,6 +949,15 @@ function tryBuildDeterministicSection3({
             }
         }
 
+        if (isFabricSoftener && resolvedIsChemical) {
+            if (dbKey === 'nonionic surfactants' || dbKey === 'non-ionic surfactants' || /niejonowe\s+środki/i.test(htmlBullet)) {
+                return '<li>⚙️ <b>Niejonowe środki powierzchniowo czynne:</b> emulgatory wspomagające równomierne rozprowadzenie składników pielęgnujących oraz kompozycji zapachowej w wodzie podczas cyklu płukania, dzięki czemu <b>tkaniny pozostają miękkie i świeże</b>.</li>';
+            }
+            if (dbKey === 'anionic surfactants' || dbKey === 'sodium dodecylbenzenesulfonate' || /anionowe\s+środki/i.test(htmlBullet)) {
+                return '<li>⚙️ <b>Anionowe środki powierzchniowo czynne:</b> składnik pomocniczy stabilizujący konsystencję koncentratu, wspierający <b>równomierne rozprowadzenie emulsji w wodzie do płukania</b>.</li>';
+            }
+        }
+
         if (isDishwashing && resolvedIsChemical) {
             if (dbKey === 'sodium dodecylbenzenesulfonate') {
                 return '<li>⚙️ <b>Anionowe środki powierzchniowo czynne (np. Sodium Dodecylbenzenesulfonate):</b> główne cząsteczki odtłuszczające, które <b>obniżają napięcie powierzchniowe wody (także chłodnej), emulgują tłuszcz oraz zaschnięte resztki jedzenia i ułatwiają ich spłukanie z naczyń bez zacieków</b>.</li>';
@@ -952,8 +967,8 @@ function tryBuildDeterministicSection3({
             }
         }
 
-        // Konsolidacja Parfum i alergenów zapachowych w jeden spójny punkt ⚙️ (bez fałszywej neutralizacji zapachów przez samo Parfum)
-        if (dbKey === 'parfum' || dbKey === 'fragrance_allergens') {
+        // Czysty opis zapachu Parfum bez straszenia alergenami ani regułek WE 648/2004
+        if (dbKey === 'parfum') {
             const hasRealNeutralizer = hasDeclaredOdorNeutralizer({
                 productName,
                 inci,
@@ -961,41 +976,31 @@ function tryBuildDeterministicSection3({
                 visionFeatures,
                 features
             });
-            const headerLabel = detectedAllergenNames.length === 0
-                ? 'Kompozycja zapachowa (Parfum):'
-                : (detectedAllergenNames.length === 1
-                    ? `Kompozycja zapachowa (Parfum) oraz alergen zapachowy ${detectedAllergenNames[0]}:`
-                    : `Kompozycja zapachowa (Parfum) oraz alergeny zapachowe (${detectedAllergenNames.join(', ')}):`);
+            const noteBadge = cleanScentNote ? ` (${cleanScentNote})` : '';
 
             if (isDishwashing && resolvedIsChemical) {
                 return hasRealNeutralizer
-                    ? `<li>⚙️ <b>${headerLabel}</b> neutralizuje uciążliwe zapachy kuchenne (np. po rybach, czosnku, cebuli) w kąpieli wodnej podczas zmywania oraz <b>całkowicie spłukuje się wraz z wodą, pozostawiając naczynia higienicznie czyste i bezwonne w kontakcie z żywnością</b>.</li>`
-                    : `<li>⚙️ <b>${headerLabel}</b> nadaje przyjemny aromat podczas zmywania oraz <b>całkowicie spłukuje się wraz z wodą, pozostawiając naczynia czyste i bezwonne w kontakcie z żywnością</b>.</li>`;
+                    ? `<li>⚙️ <b>Kompozycja zapachowa (Parfum):</b> neutralizuje uciążliwe zapachy kuchenne (np. po rybach, czosnku, cebuli) w kąpieli wodnej podczas zmywania oraz <b>całkowicie spłukuje się wraz z wodą, pozostawiając naczynia higienicznie czyste i bezwonne w kontakcie z żywnością</b>.</li>`
+                    : `<li>⚙️ <b>Kompozycja zapachowa (Parfum):</b> nadaje przyjemny aromat${noteBadge} podczas zmywania oraz <b>całkowicie spłukuje się wraz z wodą, pozostawiając naczynia czyste i bezwonne w kontakcie z żywnością</b>.</li>`;
+            }
+            if (isFabricSoftener) {
+                return `<li>⚙️ <b>Kompozycja zapachowa (Parfum):</b> otula płukane tkaniny przyjemnym aromatem${noteBadge}, <b>zapewniając długotrwałą świeżość ubrań po wysuszeniu</b>.</li>`;
             }
             if (resolvedIsChemical) {
-                const activityNoun = isLaundry ? 'praniu' : 'sprzątaniu';
+                const activityNoun = isLaundry ? 'prania' : 'sprzątania';
                 const scentText = hasRealNeutralizer
-                    ? `wspiera ograniczanie nieprzyjemnych woni i <b>pozostawia po ${activityNoun} przyjemny, świeży zapach</b>.`
-                    : `nadają preparatowi <b>przyjemny, świeży zapach podczas ${activityNoun}</b> i po jego zakończeniu.`;
-                return `<li>⚙️ <b>${headerLabel}</b> ${scentText}</li>`;
+                    ? `wspiera ograniczanie nieprzyjemnych woni i <b>pozostawia po ${isLaundry ? 'praniu' : 'sprzątaniu'} przyjemny, świeży zapach${noteBadge}</b>.`
+                    : `nadaje preparatowi <b>przyjemny, świeży zapach${noteBadge} podczas ${activityNoun}</b> i po jego zakończeniu.`;
+                return `<li>⚙️ <b>Kompozycja zapachowa (Parfum):</b> ${scentText}</li>`;
             }
-            return `<li>⚙️ <b>${headerLabel}</b> kompozycja aromatyczna nadająca formule <b>przyjemny profil zapachowy</b> podczas aplikacji.</li>`;
+            return `<li>⚙️ <b>Kompozycja zapachowa (Parfum):</b> nadaje formule <b>przyjemny profil zapachowy${noteBadge}</b> podczas aplikacji.</li>`;
         }
 
-        if (dbKey === 'preservatives') {
-            if (detectedPreservativeNames.length > 0) {
-                htmlBullet = htmlBullet.replace(/<b>(Stabilizator mikrobiologiczny|Układ konserwujący)(?:\s*\([^)]*\))?:<\/b>/i, `<b>$1 (${detectedPreservativeNames.join(' / ')}):</b>`);
-            }
-        }
         return htmlBullet;
     };
 
     const markIngredientUsed = (dbKey, entry) => {
         usedDbKeys.add(dbKey);
-        if (dbKey === 'parfum' || dbKey === 'fragrance_allergens') {
-            usedDbKeys.add('parfum');
-            usedDbKeys.add('fragrance_allergens');
-        }
         if (isToiletWc && (dbKey === 'sodium dodecylbenzenesulfonate' || dbKey === 'sodium laureth sulfate')) {
             usedDbKeys.add('sodium dodecylbenzenesulfonate');
             usedDbKeys.add('sodium laureth sulfate');
@@ -1040,27 +1045,33 @@ function tryBuildDeterministicSection3({
         }
     }
 
-    // KROK 2: Dopasowujemy składniki z listy INCI / składu detergentowego
+    // KROK 2: Dopasowujemy aktywne składniki z listy INCI / składu detergentowego (maks. 6, zasada "Less is More")
     for (const item of rawItems) {
+        if (isPureFillerIngredient(item)) continue;
         const hit = matchSingleIngredient(item);
         if (hit) {
             markIngredientUsed(hit.dbKey, hit.entry);
             const htmlBullet = formatBulletHtml(hit.dbKey, hit.entry);
-            if (htmlBullet && !matchedBenefits.includes(htmlBullet) && matchedBenefits.length < 10) {
+            if (htmlBullet && !matchedBenefits.includes(htmlBullet) && matchedBenefits.length < 6) {
                 matchedBenefits.push(htmlBullet);
             }
         }
     }
 
-    // KROK 2b: Jeżeli dla chemii gospodarczej deklaracja składu (Rozp. 648/2004) wymienia wyłącznie konserwanty/kompozycję zapachową
-    // (ponieważ lotne rozpuszczalniki glikolowe/alkoholowe i surfaktanty < 0,2% nie podlegają progowi procentowemu na etykiecie),
-    // uzupełniamy punkty ⚙️ o rzeczywisty mechanizm bazy czyszczącej z etykiety, aby Sekcja 3 NIGDY nie składała się wyłącznie z konserwantów!
+    // KROK 2b: Jeżeli dla chemii gospodarczej deklaracja składu (Rozp. 648/2004) wymienia wyłącznie kompozycję zapachową
+    // (ponieważ składniki powierzchniowo czynne < 0,2% nie widnieją w wykazie na etykiecie),
+    // uzupełniamy punkty ⚙️ o rzeczywisty mechanizm bazy użytkowej dopasowany do typu wyrobu.
     const hasActiveCleaningRole = Array.from(matchedRoles).some(r => !['preservative', 'fragrance', 'fragrance_component', 'colorant'].includes(r));
     if (resolvedIsChemical && !hasActiveCleaningRole && matchedBenefits.length > 0) {
         const isGlassOrMirrorSpray = /(?:do\s+szyb|do\s+szkła|do\s+luster|vetri|glass|cristalli|specchi)/i.test(contextStr);
         const hasAirLabelOrNatural = /(?:air\s*label|jakoś[ćc]\s+powietrza|orizon|pulito\s+che\s+respira|surowc[eó]w\s+pochodzenia\s+naturalnego|natural\s+origin)/i.test(contextStr);
 
-        if (isGlassOrMirrorSpray) {
+        if (isFabricSoftener) {
+            matchedBenefits.unshift(
+                '<li>⚙️ <b>Składniki zmiękczające tkaniny:</b> wygładzają mikrowłókna ubrań w trakcie płukania, <b>zapewniając puszystą miękkość i łatwiejsze prasowanie</b>.</li>'
+            );
+            matchedRoles.add('cationic_conditioner');
+        } else if (isGlassOrMirrorSpray) {
             matchedBenefits.unshift(
                 hasAirLabelOrNatural
                     ? '<li>⚙️ <b>Układ niskiej emisji lotnych związków (certyfikat Air Label Score A+):</b> zoptymalizowana czystość parowania ogranicza uwalnianie substancji do powietrza w pomieszczeniu, <b>zapewniając komfort oddechowy i przyjazny mikroklimat podczas sprzątania</b>.</li>'
@@ -1082,7 +1093,7 @@ function tryBuildDeterministicSection3({
         }
     }
 
-    // KROK 3: Dopasowujemy synergie na podstawie wykrytych ról fizykochemicznych
+    // KROK 3: Dopasowujemy wyłącznie rzeczywiste synergie na podstawie wykrytych par ról (max 2, zero sztucznej waty)
     const detectedSynergies = [];
     for (const syn of db.synergies || []) {
         if (Array.isArray(syn.required_roles) && syn.required_roles.every(r => matchedRoles.has(r))) {
@@ -1094,37 +1105,30 @@ function tryBuildDeterministicSection3({
                     synHtml = '<li>⚡ <b>Synergia Zwilżania i Zagęszczania (Surfaktanty Anionowe + Amfoteryczne):</b> współdziałanie obu grup związków powierzchniowo czynnych <b>zwiększa efektywność odrywania osadów organicznych i utrzymuje gęstą konsystencję żelu na pionowych ściankach muszli toaletowej</b>.</li>';
                 }
             }
-            if (synHtml && detectedSynergies.length < 3) {
+            if (synHtml && detectedSynergies.length < 2) {
                 detectedSynergies.push(synHtml);
             }
         }
     }
 
-    // Jeśli nie mamy ani jednej synergii z par ról, dodajemy uniwersalną synergię formuły przy >= 3 składnikach
-    if (detectedSynergies.length === 0 && matchedBenefits.length >= 3) {
-        if (resolvedIsChemical) {
-            detectedSynergies.push('<li>⚡ <b>Synergia Skutecznego Czyszczenia i Stabilności Formuły:</b> współdziałanie szybko działającej bazy myjącej z układami pomocniczymi <b>przyspiesza usuwanie zabrudzeń bez smug i zapewnia długotrwałą świeżość roztworu w opakowaniu</b>.</li>');
-        } else {
-            detectedSynergies.push('<li>⚡ <b>Synergia Oczyszczająco-Pielęgnująca:</b> zbilansowane połączenie bazy myjącej lub nośnikowej ze składnikami kondycjonującymi <b>zapewnia skuteczne działanie przy zachowaniu komfortu i miękkości naskórka</b>.</li>');
-        }
-    }
-
-    // Warunek bezpieczeństwa: pomijamy LLM Agenta 4, gdy rozpoznaliśmy min. 3 składniki
-    // (lub wszystkie składniki z krótkiego składu wraz z wyróżnikiem frontowym).
-    const minRequiredMatches = Math.min(3, rawItems.length);
-    if (matchedBenefits.length < minRequiredMatches || (unmatchedFrontHero && matchedBenefits.length < 3)) {
+    // Warunek bezpieczeństwa: pomijamy LLM Agenta 4, gdy rozpoznaliśmy min. 2 realne składniki aktywne (lub wszystkie z krótkiej formuły)
+    const functionalRawItems = rawItems.filter(it => !isPureFillerIngredient(it));
+    const minRequiredMatches = functionalRawItems.length > 0
+        ? Math.min(2, functionalRawItems.length)
+        : Math.min(2, rawItems.length);
+    if (matchedBenefits.length < minRequiredMatches || (unmatchedFrontHero && matchedBenefits.length < 2)) {
         return { canSkipA4: false };
     }
 
-    const heading = resolvedIsChemical
-        ? `<h2>⚙️ Skład chemiczny i mechanizm działania aktywnej formuły</h2>`
-        : `<h2>⚙️ Składniki aktywne i mechanizm działania formuły</h2>`;
+    const { heading, introP } = resolveSection3HeadingAndLead({
+        isChemical: resolvedIsChemical,
+        isFabricSoftener,
+        presetIdx: 0
+    });
 
-    const introP = resolvedIsChemical
-        ? `<p>Receptura produktu opiera się na <b>celowanym doborze związków powierzchniowo czynnych i składników funkcyjnych</b>, w której każdy element odpowiada za konkretny etap rozbijania i wypłukiwania zabrudzeń:</p>`
-        : `<p>Formuła kosmetyku łączy <b>składniki oczyszczające, nawilżające oraz kondycjonujące</b>, które współpracują ze sobą dla zachowania równowagi hydrolipidowej i wysokiego komfortu aplikacji:</p>`;
-
-    const section3Html = `${heading}${introP}<ul>${matchedBenefits.join('')}${detectedSynergies.join('')}</ul>`;
+    const section3Html = stripMarketingScareAndFillerBulletsFromSection3(
+        stripRawInciFooterFromSection3(`${heading}${introP}<ul>${matchedBenefits.join('')}${detectedSynergies.join('')}</ul>`)
+    );
 
     const a4ResultObj = {
         category_type: categoryType,
@@ -1142,14 +1146,12 @@ function tryBuildDeterministicSection3({
     };
 }
 
-function buildSection3FromA4Result(a4Result, isChemical = false, contentProfile = null) {
+function buildSection3FromA4Result(a4Result, isChemical = false, contentProfile = null, productCtx = {}) {
     if (!a4Result || !Array.isArray(a4Result.technical_benefits_aeo) || a4Result.technical_benefits_aeo.length === 0) {
         return '';
     }
     const presetIdx = Number(contentProfile?.presetIndex || 0);
-    const preferredBullet = contentProfile?.bulletEmoji && ['✔️', '✅', '☑️', '➡️'].includes(contentProfile.bulletEmoji)
-        ? '⚙️'
-        : '⚙️';
+    const preferredBullet = '⚙️';
     const formatBenefitLi = (raw, emojiPrefix = preferredBullet) => {
         const trimmed = String(raw || '').trim();
         if (!trimmed) return '';
@@ -1163,42 +1165,21 @@ function buildSection3FromA4Result(a4Result, isChemical = false, contentProfile 
         ? a4Result.detected_synergies.map(s => formatBenefitLi(s, '⚡')).filter(Boolean)
         : [];
 
-    const chemHeadings = [
-        '<h2>⚙️ Skład chemiczny i mechanizm działania aktywnej formuły</h2>',
-        '<h2>⚙️ Budowa formuły i działanie poszczególnych składników</h2>',
-        '<h2>⚙️ Związki aktywne odpowiedzialne za skuteczność czyszczenia</h2>',
-        '<h2>⚙️ Jak składniki aktywne rozpuszczają zabrudzenia i osady</h2>',
-        '<h2>⚙️ Skład funkcyjny i profil działania receptury</h2>',
-        '<h2>⚙️ Rola poszczególnych komponentów w działaniu środka</h2>'
-    ];
-    const chemLeads = [
-        '<p>Receptura produktu opiera się na <b>celowanym doborze związków powierzchniowo czynnych i składników funkcyjnych</b>, w której każdy element odpowiada za konkretny etap rozbijania i wypłukiwania zabrudzeń:</p>',
-        '<p>Poniższe zestawienie wyjaśnia, jaką rolę w działaniu użytkowym pełnią <b>główne związki czynne</b> z deklarowanego składu preparatu:</p>',
-        '<p>Skuteczność myjącą wyrobu buduje <b>połączenie surfaktantów i substancji wspomagających</b>, pracujących wspólnie na powierzchni zastosowania:</p>',
-        '<p>Każdy ze składników ujętych w formule spełnia <b>określoną funkcję technologiczną</b> podczas usuwania osadów oraz codziennych zanieczyszczeń:</p>'
-    ];
-    const cosmHeadings = [
-        '<h2>⚙️ Składniki aktywne i mechanizm działania formuły</h2>',
-        '<h2>⚙️ Kompozycja składników pielęgnacyjnych i ich rola</h2>',
-        '<h2>⚙️ Jak działają kluczowe składniki z listy INCI</h2>',
-        '<h2>⚙️ Aktywne komponenty formuły i komfort pielęgnacji</h2>',
-        '<h2>⚙️ Profil składników myjących i kondycjonujących</h2>',
-        '<h2>⚙️ Analiza składników funkcyjnych zawartych w kosmetyku</h2>'
-    ];
-    const cosmLeads = [
-        '<p>Formuła kosmetyku łączy <b>składniki oczyszczające, nawilżające oraz kondycjonujące</b>, które współpracują ze sobą dla zachowania równowagi hydrolipidowej i wysokiego komfortu aplikacji:</p>',
-        '<p>Zestawienie wyjaśnia znaczenie <b>najważniejszych substancji ze składu INCI</b> w codziennej pielęgnacji oraz utrzymaniu komfortu skóry:</p>',
-        '<p>Działanie produktu opiera się na <b>zrównoważonej bazie myjącej i dodatkach pielęgnacyjnych</b> dobranych z myślą o łagodnym oczyszczaniu:</p>',
-        '<p>Wewnątrz receptury wykorzystano <b>składniki odpowiadające zarówno za oczyszczanie, jak i pielęgnacyjne wygładzenie</b> naskórka:</p>'
-    ];
+    const isSoftener = isFabricSoftenerProduct({
+        productName: productCtx?.productName || '',
+        category: productCtx?.category || '',
+        visionFeatures: productCtx?.visionFeatures || {},
+        features: productCtx?.features || {}
+    });
 
-    const headingList = isChemical ? chemHeadings : cosmHeadings;
-    const leadList = isChemical ? chemLeads : cosmLeads;
-    const heading = presetIdx > 0 ? headingList[presetIdx % headingList.length] : headingList[0];
-    const introP = presetIdx > 0 ? leadList[presetIdx % leadList.length] : leadList[0];
+    const { heading, introP } = resolveSection3HeadingAndLead({
+        isChemical,
+        isFabricSoftener: isSoftener,
+        presetIdx
+    });
 
     const rawHtml = `${heading}${introP}<ul>${benefitLis.join('')}${synergyLis.join('')}</ul>`;
-    return stripRawInciFooterFromSection3(rawHtml);
+    return stripMarketingScareAndFillerBulletsFromSection3(stripRawInciFooterFromSection3(rawHtml));
 }
 
 /**

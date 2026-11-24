@@ -329,12 +329,23 @@ function buildFourPillarQuestions({
     const questions = [];
 
     if (catInfo.group === 'LAUNDRY') {
-        if (scentPhrase) {
+        if (catInfo.key === 'fabric_softener' || catInfo.key === 'laundry_perfume') {
             questions.push(pickVariant(
-                `Co sprawia, że ${naturalName} skutecznie odświeża tkaniny i pozostawia na ubraniach długo utrzymujący się aromat (${scentPhrase})?`,
-                `W jaki sposób ${naturalName} pielęgnuje włókna podczas prania i utrwala nutę zapachową (${scentPhrase})?`,
-                `Dlaczego ${naturalName} sprawdza się w domowym praniu i jak długo na tekstyliach wyczuwalny jest profil (${scentPhrase})?`,
-                `Jakie właściwości użytkowe ma ${naturalName} w codziennej pielęgnacji tkanin (${scentPhrase})?`
+                scentPhrase
+                    ? `Jak ${naturalName} zmiękcza tkaniny i na czym polega profil zapachowy ${scentPhrase.replace(/^o\s+/i, '')}?`
+                    : `Jak ${naturalName} zmiękcza tkaniny i ułatwia codzienne prasowanie ubrań?`,
+                scentPhrase
+                    ? `W jaki sposób ${naturalName} pielęgnuje włókna podczas płukania i utrwala świeżość ${scentPhrase}?`
+                    : `W jaki sposób ${naturalName} pielęgnuje włókna podczas płukania i nadaje ubraniom świeżość?`,
+                `Dlaczego ${naturalName} poprawia miękkość tekstyliów i zapobiega ich elektryzowaniu?`,
+                `Jakie właściwości użytkowe ma ${naturalName} podczas płukania domowej odzieży i ręczników?`
+            ));
+        } else if (scentPhrase) {
+            questions.push(pickVariant(
+                `Jak ${naturalName} usuwa zabrudzenia w praniu i jak utrzymuje się świeżość ${scentPhrase}?`,
+                `W jaki sposób ${naturalName} pielęgnuje włókna podczas prania ${scentPhrase}?`,
+                `Dlaczego ${naturalName} sprawdza się w codziennym praniu i chroni kolory oraz świeżość tkanin?`,
+                `Jakie właściwości użytkowe ma ${naturalName} w codziennej pielęgnacji pranych ubrań?`
             ));
         } else {
             questions.push(pickVariant(
@@ -457,9 +468,9 @@ function buildFourPillarQuestions({
         } else if (frontPurpose) {
             const cleanPurpose = String(frontPurpose).replace(/^(?:do\s+)?/i, 'do ').trim();
             questions.push(pickVariant(
-                `Jakie zabrudzenia usuwa ${naturalName} (${cleanPurpose}) i jak działa jego formuła czyszcząca?`,
-                `Jak sprawdza się ${naturalName} w zastosowaniach ${cleanPurpose} i jakie zanieczyszczenia rozpuszcza?`,
-                `Co sprawia, że ${naturalName} skutecznie czyści powierzchnie (${cleanPurpose})?`,
+                `Jakie zabrudzenia usuwa ${naturalName} w zastosowaniach ${cleanPurpose} i jak działa jego formuła?`,
+                `Jak sprawdza się ${naturalName} ${cleanPurpose} i jakie zanieczyszczenia rozpuszcza?`,
+                `Co sprawia, że ${naturalName} skutecznie czyści powierzchnie ${cleanPurpose}?`,
                 `Jak działa kompozycja składników w ${naturalName} przy zadaniach ${cleanPurpose}?`
             ));
         } else {
@@ -553,8 +564,8 @@ function buildFourPillarQuestions({
         }
 
         questions.push(pickVariant(
-            `Jakie składniki aktywne odpowiadają za działanie formuły${scentPhrase ? ` ${scentPhrase}` : ''} i jak wydajne jest opakowanie${capacity ? ` ${capacity}` : ''}?`,
-            `Które związki czynne w składzie budują siłę czyszczącą${scentPhrase ? ` (${scentPhrase})` : ''} oraz na jak długo wystarcza pojemność${capacity ? ` ${capacity}` : ''}?`,
+            `Jakie składniki aktywne odpowiadają za działanie formuły i jak wydajne jest opakowanie${capacity ? ` ${capacity}` : ''}?`,
+            `Które związki czynne w składzie budują siłę czyszczącą oraz na jak długo wystarcza pojemność${capacity ? ` ${capacity}` : ''}?`,
             `Co odpowiada za rozpuszczanie brudu i jaka jest praktyczna wydajność opakowania${capacity ? ` ${capacity}` : ''}?`,
             `Jak przechowywać opakowanie${capacity ? ` ${capacity}` : ''} i jakie kluczowe składniki pracują podczas czyszczenia?`
         ));
@@ -585,9 +596,13 @@ function buildFourPillarQuestions({
         ));
     } else {
         questions.push(pickVariant(
-            `Jakie właściwości pielęgnacyjne ma ${naturalName} i co sprawia, że jego aromat${scentPhrase ? ` (${scentPhrase})` : ''} przyjemnie utrzymuje się na skórze?`,
-            `Jak ${naturalName} oczyszcza skórę w codziennej pielęgnacji i czym charakteryzuje się jego profil zapachowy${scentPhrase ? ` (${scentPhrase})` : ''}?`,
-            `Dlaczego ${naturalName} sprawdza się pod prysznicem i w pielęgnacji dłoni, pozostawiając nutę${scentPhrase ? ` (${scentPhrase})` : ''}?`,
+            scentPhrase
+                ? `Jakie właściwości pielęgnacyjne ma ${naturalName} ${scentPhrase} i jak sprawdza się na skórze?`
+                : `Jakie właściwości pielęgnacyjne ma ${naturalName} i jak sprawdza się w codziennej pielęgnacji?`,
+            scentPhrase
+                ? `Jak ${naturalName} oczyszcza skórę w codziennej pielęgnacji i czym wyróżnia się profil ${scentPhrase}?`
+                : `Jak ${naturalName} oczyszcza skórę w codziennej pielęgnacji i jakie daje odczucie na naskórku?`,
+            `Dlaczego ${naturalName} sprawdza się pod prysznicem i podczas codziennej pielęgnacji dłoni?`,
             `Jakie odczucia na skórze oraz cechy użytkowe oferuje ${naturalName} przy regularnym stosowaniu?`
         ));
         questions.push(pickVariant(
@@ -714,5 +729,6 @@ module.exports = {
     formatNaturalProductName,
     formatPolishScentPhrase,
     filterAndCleanGoogleSuggestions,
+    buildFourPillarQuestions,
     harvestSearchIntentFaq
 };

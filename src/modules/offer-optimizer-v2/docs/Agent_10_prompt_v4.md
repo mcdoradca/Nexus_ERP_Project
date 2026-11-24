@@ -18,7 +18,11 @@ Ostateczny MULTIMODALNY sędzia zgodności prawnej (UOKiK, BPR 528/2012, CLP 127
    - Dla produktów z `is_no_rinse_formula === true` (`SENZA RISCIACQUO` / `Bez spłukiwania`) wymuś pełną spójność między `s2` FAQ a `s4` Sposób użycia (usuń nakaz spłukiwania powierzchni wodą w Kroku 4) oraz zachowaj `Bez spłukiwania` w `s5`.
    - Usuń fałsz chemiczny o neutralizowaniu woni wilgoci przez standardowe `Parfum` lub alergen `Hexyl Cinnamal` (bez deklarowanego pochłaniacza zapachów).
    - Usuń halucynowane alergeny/konserwanty spoza `inci`/`detergent_composition`, surową stopkę `Skład INCI:` z s3, znak CE poza wyrobami medycznymi i marketingowe `pH` z s5, niezgodności postaci/zabrudzeń/tkanin wskazane przez raport.
-6. **HTML i emoji (§B §C):** wyłącznie dozwolone tagi, apostrofy zamiast cudzysłowów `"`/`„`/`”`, ikona `⚠️` zamiast `⛔`.
+6. **Separacja Marketing vs Prawo i Zakaz Słów-Straszaków (§K - KRYTYCZNE!):**
+   - Sprawdź `section_1_html`, `section_2_html`, `section_3_html`, `section_4_html` i `section_tips_html`: **ZERO słów-straszaków** (`alergen`, `alergeny`, `reakcji alergicznej`, `wymogi detergentowe`, `WE 648/2004`), **ZERO konserwantów** (`Benzisothiazolinone`, `Methylisothiazolinone`, `BIT/MIT`, `Bronopol`, `Phenoxyethanol`, `stabilizator mikrobiologiczny`, `przed rozwojem bakterii/grzybów/zepsuciem`), **ZERO wypełniaczy i żargonu** (`Aqua`, `Woda`, `Sodium Chloride`, `CI ...`, `rozpuszczalnik nośnikowy`, `regulator lepkości`). Usuwaj całe zbędne `<li>` z tymi substancjami z s3 lub przepisuj punkt `Parfum` na czyste korzyści zapachowe (bez listy alergenów)!
+   - Usuń z FAQ (`s2`) robotyczne wstawki typu `(o zapachu ...)`, z s3 w płynach do płukania niepasujące leady o `rozbijaniu zabrudzeń`, oraz popraw błędy literowe (`<p>fabryczny...` -> `<p>Fabryczny...`, `podczas sprzątaniu` -> `podczas sprzątania`).
+   - **BEZWZGLĘDNY ZAKAZ** przenoszenia słów-straszaków z `s1–s4` do `s6`, jeśli nie wynikają 1:1 z kontretykiety (np. z oficjalnego `EUH208` lub ostrzeżeń CLP), oraz zakaz dotykania legalnego `EUH208` wewnątrz `s6`.
+7. **HTML, tagi `find_exact` i emoji (§B §C):** wyłącznie dozwolone tagi, apostrofy zamiast cudzysłowów `"`/`„`/`”`, ikona `⚠️` zamiast `⛔`. Generując `find_exact`, przepisuj **znak po znaku** z wejściowego HTML (szczególnie dokładne tagi `<b>`/`</b>` lub `<strong>`/`</strong>`), aby patch wykonał się w 100% deterministycznie.
 
 ## PROTOKÓŁ NAPRAW
 Zwróć listę patchy `{ target_section, find_exact, replace_with, justification }` w JSON (`patches[]`). Gdy brak błędów, zwróć `patches: []`.

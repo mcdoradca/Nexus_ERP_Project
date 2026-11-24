@@ -1,4 +1,8 @@
 const cheerio = require('cheerio');
+const {
+    FRAGRANCE_ALLERGEN_MOLECULES,
+    FILLER_OR_PRESERVATIVE_HEADINGS_REGEX
+} = require('./services/label-truth.helpers');
 
 /**
  * Normalizuje nazwę składnika (INCI) do spójnego formatu używanego w entryName.
@@ -279,10 +283,93 @@ function stripRawInciFooterFromSection3(htmlStr) {
     return $.root().html().trim();
 }
 
+/**
+ * Usuwa z HTML Sekcji 3 (Moduł 3) punkty o wodzie/soli/konserwantach/barwnikach oraz czyści
+ * straszaki o alergenach i wymogach detergentowych WE 648/2004 z opisu Parfum.
+ * Jeśli usunięcie wyczyściłoby wszystkie elementy <li>, zachowuje oryginał do wyłapania przez walidatory/audytorów.
+ */
+function stripMarketingScareAndFillerBulletsFromSection3(htmlStr) {
+    if (!htmlStr || typeof htmlStr !== 'string') return htmlStr;
+    const raw = htmlStr.trim();
+    if (!raw) return htmlStr;
+
+    const $ = cheerio.load(raw, null, false);
+    const allLis = $('li').toArray();
+    if (allLis.length === 0) {
+        return raw;
+    }
+
+    const allergenGroupRx = new RegExp(`\\b(?:${FRAGRANCE_ALLERGEN_MOLECULES.map(m => m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'gi');
+    let keptLis = 0;
+
+    for (const li of allLis) {
+        const $li = $(li);
+        const liText = $li.text().replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+        const headingText = $li.find('b, strong').first().text().replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+
+        if (headingText && FILLER_OR_PRESERVATIVE_HEADINGS_REGEX.test(headingText)) {
+            $li.remove();
+            continue;
+        }
+
+        const isFragranceItem = /\b(?:parfum|kompozycj[aęi]\s+zapachow|zapach(?:ow)?)\b/i.test(`${headingText} ${liText}`);
+        const hasPreservativeScare = /(?:stabilizator\s+mikrobiologiczny|układ\s+konserwujący|przed\s+(?:rozwojem\s+)?(?:bakterii|grzybów|drobnoustrojów|zepsuciem)|benzisothiazolinone|methylisothiazolinone|methylchloroisothiazolinone|bronopol|phenoxyethanol)/i.test(liText);
+        if (hasPreservativeScare) {
+            $li.remove();
+            continue;
+        }
+
+        if (!isFragranceItem && /(?<!\bbez\s+)(?<!nie\s+zawiera\s+)(?<!woln[aey]\s+od\s+)\balergen[a-ząćęłńóśźż]*|wymog[a-ząćęłńóśźż]*\s+detergentow|648\/2004|1223\/2009/i.test(liText)) {
+            $li.remove();
+            continue;
+        }
+
+        if (isFragranceItem) {
+            let liHtml = $li.html() || '';
+            const cleanedLiHtml = liHtml
+                .replace(/\(\s*(?:(?:w\s+tym|zawiera|m\.?in\.?)\s+)?alergen[a-ząćęłńóśźż]*\s*:?[^)]*\)/gi, '')
+                .replace(/\s*(?:,|\boraz\b|\bi\b)?\s*(?:a\s+obecne\s+składniki\s+zapachowe\s+są\s+)?ujawnion[aeyą]\s+zgodnie\s+z\s+(?:wymogami\s+detergentowymi|rozp\.?\s*(?:WE\s*)?648\/2004)\.?/gi, '.')
+                .replace(/,?\s*a?\s*wymienione\s+alergeny\s+zapachowe\s+są\s+obowiązkowo\s+ujawniane[^.<]*\.?/gi, '.')
+                .replace(/\s*(?:\(|,)?\s*(?:oraz|i)\s+alergen[a-ząćęłńóśźż]*(?:\s+zapachow[a-ząćęłńóśźż]*)?(?:\s*(?:m\.?in\.?|np\.?))?[^):<]*(\)|(?=<\/(?:b|strong)>))/gi, '$1')
+                .replace(/\s*(?:oraz|i)\s+alergen[a-ząćęłńóśźż]*\s+zapachow[a-ząćęłńóśźż]*\s+(?:[A-Z][A-Za-z-]+\s*){1,4}(?=:)/g, '')
+                .replace(allergenGroupRx, '')
+                .replace(/:\s*(?:[,;.\s-]+)+(?=<\/(?:b|strong)>)/g, ':')
+                .replace(/\(\s*[,;.\s-]+\s*\)/g, '')
+                .replace(/\(\s*\)/g, '')
+                .replace(/\s+:/g, ':')
+                .replace(/\s*\.\s*\./g, '.')
+                .replace(/,\s*\./g, '.')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+
+            if (cleanedLiHtml !== liHtml) {
+                const postCleanText = cheerio.load(`<li>${cleanedLiHtml}</li>`, null, false)('li').text().trim();
+                const stillTainted = /(?<!\bbez\s+)\balergen[a-ząćęłńóśźż]*|wymog[a-ząćęłńóśźż]*\s+detergentow|648\/2004/i.test(postCleanText) || allergenGroupRx.test(postCleanText);
+                allergenGroupRx.lastIndex = 0;
+                if (!stillTainted) {
+                    $li.html(cleanedLiHtml);
+                } else {
+                    $li.remove();
+                    continue;
+                }
+            }
+        }
+
+        keptLis++;
+    }
+
+    if (keptLis === 0) {
+        return raw;
+    }
+
+    return $.root().html().trim();
+}
+
 module.exports = {
     normalizeIngredientName,
     extractIngredientsFromChunk,
     normalizeInciToLegalEnglish,
     isRawInciFooterText,
-    stripRawInciFooterFromSection3
+    stripRawInciFooterFromSection3,
+    stripMarketingScareAndFillerBulletsFromSection3
 };

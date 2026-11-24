@@ -4,13 +4,13 @@ const nodesConfig = {
     0: { model: 'gemini-3.8-flash' },
     1: { model: 'gemini-3.8-flash', grounding: true },
     2: { model: 'gemini-3.8-flash' },
-    4: { model: 'gemini-3.8-flash' },
+    4: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.LOW },
     5: { model: 'gemini-3.8-flash' },
-    6: { model: 'gemini-3.8-flash' },
+    6: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.LOW },
     7: { model: 'gemini-3.8-flash' },
     9: { model: 'gemini-3.8-flash' },
     10: { model: 'gemini-3.1-pro-preview', thinkingLevel: ThinkingLevel.MEDIUM },
-    11: { model: 'gemini-3.8-flash' }
+    11: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.LOW }
 };
 
 function getNodeConfig(agentId) {

@@ -390,20 +390,28 @@ async function callAgentWithTelemetry({ agentId, prompt, systemInstruction = nul
                     || apiError.status === 412 
                     || errStr.includes('FAILED_PRECONDITION')
                     || errStr.includes('412');
+                const isThinkingUnsupported = Boolean(
+                    activeConfig?.thinkingConfig &&
+                    (apiError.status === 400 || errStr.includes('400') || errStr.includes('INVALID_ARGUMENT')) &&
+                    /thinking/i.test(errStr)
+                );
 
-                if (isRegionBlocked) {
-                    const warnMsg = `[DEFENSIVE AI] Zablokowano zaawansowane parametry dla agenta ${agentId} przez restrykcję regionu/API (status: ${apiError.status || 'N/A'}). Uruchamiam cichy Fallback (degradacja do czystego modelu).`;
+                if (isRegionBlocked || isThinkingUnsupported) {
+                    const reasonLabel = isRegionBlocked ? 'restrykcję regionu/API' : 'brak obsługi thinkingConfig przez model';
+                    const warnMsg = `[DEFENSIVE AI] Zablokowano zaawansowane parametry dla agenta ${agentId} przez ${reasonLabel} (status: ${apiError.status || 'N/A'}). Uruchamiam cichy Fallback (degradacja bez thinkingConfig${isRegionBlocked ? ' i tools' : ''}).`;
                     console.warn(warnMsg);
                     onLog(`[AI WRAPPER - OSTRZEŻENIE] ${warnMsg}`);
-                    const fallbackConfig = { ...config };
-                    delete fallbackConfig.tools;
+                    const fallbackConfig = { ...activeConfig };
+                    if (isRegionBlocked) {
+                        delete fallbackConfig.tools;
+                    }
                     delete fallbackConfig.thinkingConfig;
                     
-                    response = await ai.models.generateContent({
+                    response = await generateContentWithTimeout({
                         model: model,
                         contents: contentsPayload,
                         config: fallbackConfig
-                    });
+                    }, standardTimeoutMs, `Agent_${agentId}_Fallback`);
                 } else {
                     throw apiError;
                 }

@@ -35,9 +35,10 @@ test('Konfiguracja węzłów: Brak wycofanych parametrów próbkowania (temperat
     }
 });
 
-test('Konfiguracja węzłów: Precyzyjna taksonomia - thinkingLevel MEDIUM dla modeli Pro (A10 Sentinel - ADR-0173)', () => {
+test('Konfiguracja węzłów: Precyzyjna taksonomia - thinkingLevel MEDIUM dla Pro i LOW dla kreatorów/audytora Flash (ADR-0198)', () => {
     const proNodes = [10];
-    const flashNodes = [1, 2, 4, 5, 6, 7, 9, 11];
+    const thinkingFlashNodes = [4, 6, 11];
+    const plainFlashNodes = [1, 2, 5, 7, 9];
     
     for (const id of proNodes) {
         const cfg = getNodeConfig(id);
@@ -45,7 +46,13 @@ test('Konfiguracja węzłów: Precyzyjna taksonomia - thinkingLevel MEDIUM dla m
         assert.strictEqual(cfg.thinkingLevel, ThinkingLevel.MEDIUM, `Węzeł Pro ${id} wymaga ThinkingLevel.MEDIUM`);
     }
 
-    for (const id of flashNodes) {
+    for (const id of thinkingFlashNodes) {
+        const cfg = getNodeConfig(id);
+        assert.strictEqual(cfg.model, 'gemini-3.8-flash', `Węzeł Flash ${id} musi używać gemini-3.8-flash`);
+        assert.strictEqual(cfg.thinkingLevel, ThinkingLevel.LOW, `Węzeł Flash ${id} wymaga ThinkingLevel.LOW dla spójności semantycznej i audytowej`);
+    }
+
+    for (const id of plainFlashNodes) {
         const cfg = getNodeConfig(id);
         assert.strictEqual(cfg.model, 'gemini-3.8-flash', `Węzeł Flash ${id} musi używać gemini-3.8-flash`);
         assert.strictEqual(cfg.thinkingLevel, undefined, `Węzeł Flash ${id} nie może posiadać thinkingLevel`);
@@ -62,7 +69,8 @@ test('Ochrona przed błędem 400: Żaden węzeł nie używa ThinkingLevel.MINIMA
         const cfg = getNodeConfig(id);
         assert.notStrictEqual(cfg.thinkingLevel, ThinkingLevel.MINIMAL, `Węzeł ${id} nie może używać MINIMAL - odrzucane przez Google API`);
         if (cfg.thinkingLevel) {
-            assert.strictEqual(cfg.thinkingLevel, ThinkingLevel.MEDIUM, `Węzeł Pro ${id} musi używać MEDIUM`);
+            const expected = Number(id) === 10 ? ThinkingLevel.MEDIUM : ThinkingLevel.LOW;
+            assert.strictEqual(cfg.thinkingLevel, expected, `Węzeł ${id} musi używać ${expected}`);
         }
     }
 });
