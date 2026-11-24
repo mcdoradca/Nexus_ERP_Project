@@ -1199,6 +1199,91 @@ async function getProductParametersByEan(ean, opts = {}) {
 }
 
 /**
+ * Pobiera oficjalne informacje o produkcie w globalnym Katalogu Produktów Allegro po EAN (`mode=GTIN`):
+ * nazwę katalogową (`name`), `productId`, `categoryId` oraz parametry twarde.
+ */
+async function getCatalogProductInfoByEan(ean, opts = {}) {
+    const cleanEan = String(ean || '').trim();
+    if (!cleanEan) {
+        return { found: false, productId: null, name: null, categoryId: null, parameters: {} };
+    }
+    const { workspaceId = null, accountId = null } = (opts && typeof opts === 'object') ? opts : {};
+    try {
+        const token = await getAllegroToken(false, accountId, prisma, workspaceId);
+        const response = await apiClient.get(`https://api.allegro.pl/sale/products?phrase=${encodeURIComponent(cleanEan)}&mode=GTIN`, {
+            headers: {
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.allegro.public.v1+json'
+            },
+            _allegroAccountId: accountId || null,
+            _allegroWorkspaceId: workspaceId || null,
+            timeout: 15000
+        });
+
+        const products = Array.isArray(response?.data?.products) ? response.data.products : [];
+        if (products.length === 0) {
+            return { found: false, productId: null, name: null, categoryId: null, parameters: {} };
+        }
+
+        const product = products[0];
+        const parameters = {};
+        if (Array.isArray(product.parameters)) {
+            product.parameters.forEach((p) => {
+                if (p?.valuesLabels && p.valuesLabels.length > 0) {
+                    parameters[p.name] = p.valuesLabels[0];
+                } else if (p?.values && p.values.length > 0) {
+                    parameters[p.name] = p.values[0];
+                }
+            });
+        }
+
+        return {
+            found: true,
+            productId: product.id || null,
+            name: product.name ? String(product.name).trim() : null,
+            categoryId: product.category?.id ? String(product.category.id) : null,
+            parameters
+        };
+    } catch (error) {
+        console.warn(`[AllegroService] Nie udało się pobrać karty katalogowej po EAN ${cleanEan}: ${error.message}`);
+        return { found: false, productId: null, name: null, categoryId: null, parameters: {} };
+    }
+}
+
+/**
+ * Zwraca listę kategorii sugerowanych przez Allegro dla proponowanego tytułu oferty (`GET /sale/matching-categories`).
+ * Pozwala zweryfikować, czy tytuł kieruje algorytm Trafności/Ads w docelową kategorię produktu.
+ */
+async function getMatchingCategoriesForTitle(title, opts = {}) {
+    const cleanTitle = String(title || '').trim();
+    if (!cleanTitle) return [];
+    const { workspaceId = null, accountId = null } = (opts && typeof opts === 'object') ? opts : {};
+    try {
+        const token = await getAllegroToken(false, accountId, prisma, workspaceId);
+        const response = await apiClient.get(`https://api.allegro.pl/sale/matching-categories?name=${encodeURIComponent(cleanTitle)}`, {
+            headers: {
+                'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/vnd.allegro.public.v1+json'
+            },
+            _allegroAccountId: accountId || null,
+            _allegroWorkspaceId: workspaceId || null,
+            timeout: 10000
+        });
+
+        const matching = Array.isArray(response?.data?.matchingCategories) ? response.data.matchingCategories : [];
+        return matching.slice(0, 5).map(cat => ({
+            id: cat?.id ? String(cat.id) : null,
+            name: cat?.name || null
+        })).filter(c => c.id);
+    } catch (error) {
+        console.warn(`[AllegroService] Ostrzeżenie matching-categories dla "${cleanTitle.slice(0, 40)}": ${error.message}`);
+        return [];
+    }
+}
+
+/**
  * Szuka rekomendowanej kategorii Allegro na podstawie nazwy produktu (Smart Fallback).
  */
 async function findMatchingCategoryByName(name, opts = {}) {
@@ -2044,6 +2129,8 @@ module.exports = {
     getCategoryParametersFull,
     findCategoryByEan,
     findMatchingCategoryByName,
+    getMatchingCategoriesForTitle,
+    getCatalogProductInfoByEan,
     getProductParametersByEan,
     findSellerOffersForProduct,
     getOfferAndCatalogForParams,

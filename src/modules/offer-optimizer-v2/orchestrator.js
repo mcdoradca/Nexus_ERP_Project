@@ -14,6 +14,7 @@ const visionExtractorService = require('./vision-extractor.service');
 const brandResponsibleService = require('./brand.responsible.service');
 const deterministicEngine = require('./services/deterministic-pipeline.engine');
 const googleSuggestFaqService = require('./services/google-suggest-faq.service');
+const titleOptimizer = require('./services/title-optimizer.service');
 const { classifyProductPhysicalForm } = require('./services/product-form.classifier');
 const { mapPackagingFeaturesToAllegroSchema } = require('./services/allegro-param-automapper.service');
 const { sanitizeLabelHighlights } = require('./services/allegro-compliance.policy');
@@ -3089,9 +3090,54 @@ class Orchestrator {
                 a6SchemaProps.section_tips_html = { type: "string" };
                 a6RequiredKeys.push("section_tips_html");
             }
-            if (this.workspaceId && (wsContentProfile.presetId !== 'DEFAULT_CLASSIC' || siblingFingerprints.count > 0)) {
-                a6SchemaProps.suggested_offer_title = { type: "string" };
+            // Tytuł SEO/Ads jest generowany w A6 dla wszystkich kont (bez wymuszania w required[], by nie psuć wąskich kontraktów)
+            a6SchemaProps.suggested_offer_title = { type: "string" };
+
+            let allegroCatalogInfoA6 = null;
+            if (DATA_SOURCE_MODE !== 'fixture' && this.gtin && !this.state.allegro_catalog_name) {
+                try {
+                    const allegroSvc = require('../offer-optimizer/allegro.service');
+                    if (typeof allegroSvc.getCatalogProductInfoByEan === 'function') {
+                        allegroCatalogInfoA6 = await allegroSvc.getCatalogProductInfoByEan(this.gtin, {
+                            workspaceId: this.workspaceId || null
+                        });
+                        if (allegroCatalogInfoA6?.found && allegroCatalogInfoA6.name) {
+                            this.state.allegro_catalog_name = allegroCatalogInfoA6.name;
+                            if (allegroCatalogInfoA6.categoryId) {
+                                this.state.allegro_catalog_category_id = allegroCatalogInfoA6.categoryId;
+                            }
+                        }
+                    }
+                } catch (catErr) {
+                    console.warn(`[Orchestrator V2] Ostrzeżenie odczytu karty Katalogu Allegro dla ${this.gtin}: ${catErr.message}`);
+                }
             }
+
+            let titleSignalsA6 = { suggested_phrases: [] };
+            try {
+                titleSignalsA6 = await googleSuggestFaqService.harvestTitleKeywordSignals({
+                    productName: sanitizedNameForA6 || product?.text_fields?.name,
+                    brand: extracted.brand?.value || product?.brand?.name,
+                    category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name,
+                    scent: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'],
+                    isChemical: isActualHouseholdChemicalA6,
+                    visionFeatures: this.state.vision_extracted_features || {},
+                    features: product?.text_fields?.features || {},
+                    inci: this.state.extracted_data.inci?.value,
+                    detergentComposition: this.state.extracted_data.detergent_composition?.value,
+                    offlineOnly: DATA_SOURCE_MODE === 'fixture'
+                });
+            } catch (sigErr) {
+                console.warn(`[Orchestrator V2] Ostrzeżenie harvestera fraz tytułu dla ${this.gtin}: ${sigErr.message}`);
+            }
+            this.state.title_keyword_hints = Array.isArray(titleSignalsA6?.suggested_phrases) ? titleSignalsA6.suggested_phrases : [];
+
+            const titleSeoContext = {
+                target_length: '58-74 znaki (twardy limit max 75 znaków)',
+                title_instruction: wsContentProfile.titleInstruction,
+                allegro_catalog_name: this.state.allegro_catalog_name || undefined,
+                google_buyer_phrases: this.state.title_keyword_hints
+            };
 
             const hasNonDefaultStyle = Boolean(
                 this.workspaceId ||
@@ -3140,6 +3186,7 @@ class Orchestrator {
                 features: deterministicEngine.cleanFeaturesForPrompt(product?.text_fields?.features || {}),
                 vision_features: deterministicEngine.cleanFeaturesForPrompt(this.state.vision_extracted_features || {}),
                 search_intent_faq_blueprint: searchIntentFaqBlueprint,
+                title_seo_context: titleSeoContext,
                 a1: this.state.a1_result ? { country_of_origin: this.state.a1_result.country_of_origin?.value || this.state.a1_result.country_of_origin || undefined, logistics: this.state.a1_result.logistics?.value || this.state.a1_result.logistics || undefined } : undefined,
                 a2: this.state.a2_result ? {
                     sentiment_available: this.state.a2_result.sentiment_available,
@@ -3213,14 +3260,21 @@ class Orchestrator {
                         delete result[k];
                     }
                 }
+                this.state.suggested_offer_title = null;
                 if (typeof result.suggested_offer_title === 'string' && result.suggested_offer_title.trim()) {
-                    const cleanSugTitle = deterministicEngine.sanitizeOfferTitle(result.suggested_offer_title.trim());
-                    const badTitle = !cleanSugTitle || cleanSugTitle.length < 12 || cleanSugTitle.length > 75 ||
-                        scan_stopwords(cleanSugTitle).length > 0 || scan_biocidal_claims_lexical(cleanSugTitle).length > 0;
-                    const alreadyUsed = siblingFingerprints.used_titles.some(t => t.toLowerCase() === String(cleanSugTitle || '').toLowerCase());
-                    if (!badTitle && !alreadyUsed) {
-                        if (!this.state.extracted_data.product_name) this.state.extracted_data.product_name = { source: 'a6_styled', matched_key: null };
-                        this.state.extracted_data.product_name.value = cleanSugTitle;
+                    const candidateSugTitle = titleOptimizer.compressTitleToAllegroLimit(result.suggested_offer_title.trim(), {
+                        maxLen: titleOptimizer.MAX_ALLEGRO_TITLE_LEN,
+                        brand: extracted.brand?.value || product?.brand?.name || '',
+                        capacity: normalizedCapForA6 || rawCapForA6 || ''
+                    });
+                    const titleVal = titleOptimizer.validateAllegroOfferTitle(candidateSugTitle, {
+                        brand: extracted.brand?.value || product?.brand?.name || ''
+                    });
+                    const alreadyUsed = siblingFingerprints.used_titles.some(t => t.toLowerCase() === String(candidateSugTitle || '').toLowerCase());
+                    if (titleVal.valid && !alreadyUsed) {
+                        this.state.suggested_offer_title = candidateSugTitle;
+                    } else {
+                        warnings.push(`A6_TITLE_REJECTED: ${!titleVal.valid ? titleVal.errors.join('; ') : 'duplicate_title'}`);
                     }
                     delete result.suggested_offer_title;
                 }
@@ -4131,12 +4185,57 @@ class Orchestrator {
             const s5 = this.state.a10_result['section_5_html'] || '';
             const s6 = this.state.a10_result['section_6_html'] || '';
             const canonicalTitleFinish = this.resolveCanonicalNameForProduct(product);
-            const sanitizedTitle = canonicalTitleFinish || (this.state.extracted_data.product_name?.value
+            const fallbackExtractedTitle = this.state.extracted_data.product_name?.value
                 ? deterministicEngine.sanitizeOfferTitle(this.state.extracted_data.product_name.value)
-                : this.state.extracted_data.product_name?.value);
-            if (this.state.extracted_data.product_name && sanitizedTitle) {
-                this.state.extracted_data.product_name.value = sanitizedTitle;
+                : this.state.extracted_data.product_name?.value;
+            const resolvedCanonicalName = canonicalTitleFinish || fallbackExtractedTitle || '';
+            this.state.canonical_product_name = resolvedCanonicalName;
+            if (this.state.extracted_data.product_name && resolvedCanonicalName) {
+                this.state.extracted_data.product_name.value = resolvedCanonicalName;
             }
+
+            const finishBrand = this.state.extracted_data.brand?.value || product?.brand?.name || '';
+            const finishCap = this.state.extracted_data.capacity?.value || this.state.vision_extracted_features?.['Pojemność / Waga'] || this.state.vision_extracted_features?.['Pojemność'] || '';
+            const finishScent = this.state.vision_extracted_features?.['Zapach'] || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || '';
+            const finishCategory = product?.text_fields?.features?.['Kategoria'] || product?.category?.name || '';
+
+            let finalAllegroTitle = '';
+            let usedA6SeoTitle = false;
+            if (this.state.suggested_offer_title && typeof this.state.suggested_offer_title === 'string') {
+                const compressedSug = titleOptimizer.compressTitleToAllegroLimit(this.state.suggested_offer_title, {
+                    maxLen: titleOptimizer.MAX_ALLEGRO_TITLE_LEN,
+                    brand: finishBrand,
+                    capacity: finishCap
+                });
+                const sugVal = titleOptimizer.validateAllegroOfferTitle(compressedSug, { brand: finishBrand });
+                if (sugVal.valid) {
+                    finalAllegroTitle = compressedSug;
+                    usedA6SeoTitle = true;
+                }
+            }
+            if (!finalAllegroTitle) {
+                finalAllegroTitle = titleOptimizer.buildDeterministicAllegroTitle({
+                    canonicalName: resolvedCanonicalName,
+                    rawName: product?.text_fields?.name || this.state.raw_erp_product_name || '',
+                    allegroCatalogName: this.state.allegro_catalog_name || '',
+                    brand: finishBrand,
+                    capacity: finishCap,
+                    scent: finishScent,
+                    category: finishCategory,
+                    visionFeatures: this.state.vision_extracted_features || {},
+                    features: product?.text_fields?.features || {},
+                    keywordHints: this.state.title_keyword_hints || [],
+                    maxLen: titleOptimizer.MAX_ALLEGRO_TITLE_LEN
+                });
+            }
+            if ([...String(finalAllegroTitle || '')].length > titleOptimizer.MAX_ALLEGRO_TITLE_LEN) {
+                finalAllegroTitle = titleOptimizer.compressTitleToAllegroLimit(finalAllegroTitle, {
+                    maxLen: titleOptimizer.MAX_ALLEGRO_TITLE_LEN,
+                    brand: finishBrand,
+                    capacity: finishCap
+                });
+            }
+
             const faqSchema = deterministicEngine.extractFaqJsonLdFromSection2(this.state.a10_result['section_2_html'] || '');
             this.state.faq_schema_jsonld = faqSchema.jsonLdObject;
             
@@ -4144,7 +4243,8 @@ class Orchestrator {
             const rawSec7Finish = this.state.a10_result['section_7_html'] || wsProfileFinish.defaultSekcja7 || '';
             const rawTipsFinish = this.state.a10_result['section_tips_html'] || '';
             const offer = {
-                title: sanitizedTitle,
+                title: finalAllegroTitle || resolvedCanonicalName,
+                canonical_product_name: resolvedCanonicalName || finalAllegroTitle,
                 description: brandResponsibleService.stripContactInfo(this.state.a10_result['section_1_html'] || ''),
                 description_extra1: brandResponsibleService.stripContactInfo(this.state.a10_result['section_2_html'] || ''),
                 description_extra2: brandResponsibleService.stripContactInfo(stripRawInciFooterFromSection3(this.state.a10_result['section_3_html'] || '')),
@@ -4158,7 +4258,7 @@ class Orchestrator {
                 eu_responsible_person: this.state.extracted_data.eu_responsible_person,
                 safety_warnings: this.state.a5_result?.mandatory_safety_warnings || [],
                 source_map: {
-                    title: { source: 'baselinker', matched_key: null },
+                    title: { source: usedA6SeoTitle ? 'a6_seo_title' : 'deterministic_seo_title', matched_key: null },
                     description: { source: 'pipeline', matched_key: 'section_1' },
                     description_extra1: { source: 'pipeline', matched_key: 'section_2' },
                     description_extra2: { source: 'pipeline', matched_key: 'section_3' },

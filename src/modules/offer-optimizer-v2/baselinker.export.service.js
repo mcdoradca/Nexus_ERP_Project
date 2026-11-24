@@ -9,6 +9,7 @@ const { isValidExportImageUrl } = require('../../utils/allegro_mapper');
 const { stripRawInciFooterFromSection3 } = require('./normalization');
 const { resolveOrderedVisibleDescriptionSections } = require('../../services/workspaceContentProfile.service');
 const { auditOfferDraftCompliance } = require('./services/allegro-compliance.policy');
+const { compressTitleToAllegroLimit } = require('./services/title-optimizer.service');
 
 const INTERNAL_BACK_IMAGE_KEYS = new Set([
     'zdjęcie tyłu opakowania',
@@ -547,9 +548,12 @@ class BaselinkerExportService {
             payload.text_fields["extra_field_4245"] = this.encodeEmojis(draftData.htmlContent?.sekcja7 || draftData.sekcja7 || "", true);
         }
 
-        // --- 2. WALIDACJA TYTUŁU API (GEO) ---
+        // --- 2. WALIDACJA TYTUŁU API (GEO / ALLEGRO ≤75 ZN.) ---
         if (draftData.title) {
-            const cleanTitle = this.encodeEmojis(draftData.title, false);
+            const encodedTitle = this.encodeEmojis(draftData.title, false);
+            const cleanTitle = [...String(encodedTitle || '')].length > 75
+                ? compressTitleToAllegroLimit(encodedTitle, { maxLen: 75 })
+                : encodedTitle;
             payload.text_fields["name|pl|allegro_0"] = cleanTitle;
             payload.text_fields["name|pl|allegro_16402"] = cleanTitle;
             

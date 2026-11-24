@@ -724,11 +724,115 @@ async function harvestSearchIntentFaq({
     });
 }
 
+/**
+ * Zbiera zakupowe frazy wyszukiwań klientów PL pod budowę tytułów Allegro SEO i Allegro Ads.
+ * W trybie `offlineOnly` (lub DATA_SOURCE_MODE === 'fixture') nie wykonuje zapytań sieciowych i nie mutuje cache.
+ */
+async function harvestTitleKeywordSignals({
+    productName = '',
+    brand = '',
+    category = '',
+    scent = '',
+    isChemical = false,
+    visionFeatures = {},
+    features = {},
+    inci = '',
+    detergentComposition = '',
+    offlineOnly = false
+} = {}) {
+    const catInfo = detectCanonicalSearchCategory({
+        productName,
+        category,
+        visionFeatures,
+        features,
+        isChemical,
+        inci,
+        detergentComposition
+    });
+    const cleanBrand = String(brand || '').trim();
+    const cleanBrandLower = cleanBrand.toLowerCase();
+    const isFixture = offlineOnly === true || process.env.DATA_SOURCE_MODE === 'fixture';
+
+    let rawSuggestions = [];
+    const cacheKey = `title::${cleanBrandLower || 'generic'}::${catInfo.key}`;
+    const cache = loadSuggestCache();
+    const cachedEntry = cache[cacheKey];
+
+    if (cachedEntry && Array.isArray(cachedEntry.suggestions) && (Date.now() - (cachedEntry.timestamp || 0) < CACHE_TTL_MS)) {
+        rawSuggestions = cachedEntry.suggestions;
+    } else if (!isFixture) {
+        try {
+            const baseCat = catInfo.labelPl;
+            const seedQueries = [
+                `${baseCat} `,
+                `${baseCat} do `
+            ];
+            if (cleanBrand.length >= 2) {
+                seedQueries.push(`${cleanBrand} ${baseCat.split(' ')[0]} `);
+            }
+            const results = await Promise.all(seedQueries.map(q => fetchGoogleAutocompleteSingle(q)));
+            rawSuggestions = filterAndCleanGoogleSuggestions(results.flat(), cleanBrand);
+            cache[cacheKey] = {
+                timestamp: Date.now(),
+                category_pl: catInfo.labelPl,
+                suggestions: rawSuggestions
+            };
+            saveSuggestCache(cache);
+        } catch (err) {
+            console.warn('[GoogleSuggestTitle] Fallback offline po błędzie sieci:', err.message);
+            rawSuggestions = [];
+        }
+    }
+
+    const phraseSet = new Set();
+    const addSafePhrase = (val) => {
+        const s = sanitizeOfferTitle(String(val || '').trim()).toLowerCase();
+        if (!s || s.length < 4 || s.length > 45) return;
+        if (PROHIBITED_SUGGEST_TERMS_REGEX.test(s)) return;
+        if (/\b(?:opinie|cena|skład|forum|rossmann|biedronka|lidl|hebe|allegro|ceneo|olx)\b/i.test(s)) return;
+        phraseSet.add(s);
+    };
+
+    addSafePhrase(catInfo.labelPl);
+    if (catInfo.key === 'descaler') {
+        addSafePhrase('odkamieniacz do łazienki');
+        addSafePhrase('odkamieniacz do kabin i armatury');
+    } else if (catInfo.key === 'bathroom_cleaner') {
+        addSafePhrase('płyn do czyszczenia łazienki');
+        addSafePhrase('spray do armatury i ceramiki');
+    } else if (catInfo.key === 'fabric_softener') {
+        addSafePhrase('płyn do płukania tkanin');
+        addSafePhrase('koncentrat do płukania ubrań');
+    } else if (catInfo.key === 'soap') {
+        addSafePhrase('mydło w płynie do rąk');
+    } else if (catInfo.key === 'shower_gel') {
+        addSafePhrase('żel pod prysznic do ciała');
+    }
+
+    const cleanScentStr = String(scent || visionFeatures?.['Zapach'] || features?.['Zapach'] || '').replace(/\s*\([^)]*\)\s*/g, '').trim();
+    if (cleanScentStr && !/^(?:brak|neutralny|bezzapachowy|classic|classico)$/i.test(cleanScentStr)) {
+        addSafePhrase(formatPolishScentPhrase(cleanScentStr));
+    }
+
+    for (const s of rawSuggestions) {
+        addSafePhrase(s);
+    }
+
+    return {
+        category_key: catInfo.key,
+        category_pl: catInfo.labelPl,
+        group: catInfo.group,
+        suggested_phrases: [...phraseSet].slice(0, 8),
+        source: rawSuggestions.length > 0 ? 'google_suggest_cache_or_live' : 'offline_canonical_taxonomy'
+    };
+}
+
 module.exports = {
     detectCanonicalSearchCategory,
     formatNaturalProductName,
     formatPolishScentPhrase,
     filterAndCleanGoogleSuggestions,
     buildFourPillarQuestions,
-    harvestSearchIntentFaq
+    harvestSearchIntentFaq,
+    harvestTitleKeywordSignals
 };

@@ -1,0 +1,34 @@
+# ADR-0199: Silnik Optymalizacji Tytułów Allegro SEO i Allegro Ads (Limit ≤75 zn., Allegro Catalog API, Google Suggest PL)
+
+- **Status:** Accepted
+- **Data:** 2026-11-24
+- **Moduły:** `offer-optimizer-v2` (`services/title-optimizer.service.js`, `services/google-suggest-faq.service.js`, `orchestrator.js`, `baselinker.export.service.js`, `docs/Agent_6_prompt_v4.md`), `offer-optimizer` (`allegro.service.js`, `ai.service.js`, `offer-optimizer.controller.js`, `title-validate.js`), `frontend` (`utils/allegroTitleValidator.js`, `components/HitlReviewer/TitleValidator.jsx`)
+
+## Kontekst
+Audyt powstawania tytułów ofert Allegro wykazał cztery błędy powodujące przekraczanie twardego limitu 75 znaków (np. 80-znakowy tytuł Viakal w [offer_8700216405348.json](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/out/offer_8700216405348.json)) oraz marnowanie budżetu fraz pod trafność i kampanie Allegro Ads (np. 30–34 znakowe tytuły Dermomed/Viakal):
+1. W [orchestrator.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/orchestrator.js) `suggested_offer_title` było włączane wyłącznie dla kont dodatkowych (`presetId !== 'DEFAULT_CLASSIC'`), a etap `FINISH` nadpisywał `extracted_data.product_name.value` oraz `offer.title` surową sklejką z `resolveCanonicalNameForProduct(product)`.
+2. Brakowało wspólnego kompresora i walidatora tytułów w potoku V2, generatorze `generateTitleOnly` ([ai.service.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer/ai.service.js)), bramce `validateExport` ([offer-optimizer.controller.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer/offer-optimizer.controller.js)) oraz eksporcie [baselinker.export.service.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/baselinker.export.service.js).
+3. Nazwa produktu w **Katalogu Produktów Allegro** (`GET /sale/products?phrase={ean}&mode=GTIN` → `product.name`) oraz weryfikacja trafności przez `GET /sale/matching-categories?name=...` nie były przekazywane przy budowie tytułu.
+4. [TitleValidator.jsx](file:///z:/Nexus_ERP_Project/frontend/src/views/OfferOptimizer/components/HitlReviewer/TitleValidator.jsx) akceptował 30-znakowe tytuły jako „Idealna długość”, a przy wklejaniu ucinał znaki w połowie wyrazu (`slice(0, 75)`).
+
+Jednocześnie zweryfikowano oficjalną dokumentację Allegro API (2025/2026): **Allegro Analytics**, **Planer kampanii Allegro Ads** oraz raporty wyszukiwanych haseł Ads **nie mają publicznego REST API** dla standardowych kont sprzedawców, a `GET /offers/listing` jest zablokowany dla niezweryfikowanych aplikacji (`403`). Wobec braku kont firmowych Google Ads API / TradeWatch zastosowano w 100% autentyczne źródła dostępne bez płatnych/agencyjnych dostępów.
+
+## Podjęta Decyzja
+1. **Centralny Silnik Tytułów SEO/Ads ([title-optimizer.service.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/services/title-optimizer.service.js)):**
+   - Dodano `validateAllegroOfferTitle` (twardy limit `12–75` zn., cel `58–74` zn., blokada słów §A/biobójczych/medycznych, logistyki, linków i literówek ERP `expres`/`candegina`, detekcja duplikatów polskich rdzeni i CAPS LOCKA), `deduplicateTitleWords`, `compressTitleToAllegroLimit` (bezstratna redukcja powtórzeń i zwrotów typu `do łazienki` przy `Bagno`, brak ucinania w połowie słowa, ochrona marki i pojemności na końcu), `buildDeterministicAllegroTitle` (wzbogacanie krótkich tytułów <55 zn. z faktów produktu i fraz zakupowych PL) oraz `scoreTitleForAllegroAds`.
+   - Utrzymano wsteczną kompatybilność [title-validate.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer/title-validate.js) poprzez delegację do `validateAllegroOfferTitle`.
+2. **Natywne Źródła Fraz (Zero Mocków i Halucynacji API):**
+   - W [allegro.service.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer/allegro.service.js) dodano `getCatalogProductInfoByEan` (pobiera `product.name` i `categoryId` z `GET /sale/products?phrase={ean}&mode=GTIN`) oraz `getMatchingCategoriesForTitle` (`GET /sale/matching-categories?name=...`).
+   - W [google-suggest-faq.service.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/services/google-suggest-faq.service.js) dodano `harvestTitleKeywordSignals` zbierające polskie frazy zakupowe pod Allegro Ads/Trafność (z 30-dniowym cache i czystym trybem `offlineOnly` na czas testów).
+3. **Naprawa Przepływu w Orkiestratorze V2, AI Title Service i Eksporcie:**
+   - W [Agent_6_prompt_v4.md](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/docs/Agent_6_prompt_v4.md) zaktualizowano dyrektywę `suggested_offer_title` pod Allegro Ads (Lejek Słów, `58–74` zn., twardo `≤75` zn.).
+   - W [orchestrator.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/orchestrator.js) udostępniono `suggested_offer_title` w `a6Schema.properties` dla **wszystkich** kont (bez naruszania `required[]`), przekazano `title_seo_context` do Agenta 6, zapisano zwalidowany tytuł w `this.state.suggested_offer_title` (oddzielnie od `canonical_product_name` do Sekcji 5), a w `FINISH` użyto `suggested_offer_title` lub deterministycznego `buildDeterministicAllegroTitle` z twardą ochroną `≤75` zn.
+   - Zaktualizowano `generateTitleOnly` ([ai.service.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer/ai.service.js) — 1-krokowy retry naprawczy + deterministyczny fallback ≤75 zn.), `regenerateTitle` i `validateExport` ([offer-optimizer.controller.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer/offer-optimizer.controller.js)) oraz bramkę `name|pl|allegro_0` w [baselinker.export.service.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/baselinker.export.service.js).
+4. **Frontend UI:**
+   - Dodano moduł [allegroTitleValidator.js](file:///z:/Nexus_ERP_Project/frontend/src/views/OfferOptimizer/utils/allegroTitleValidator.js) (`validateAllegroTitleClient`, `smartTrimTitleTo75`) i odświeżono [TitleValidator.jsx](file:///z:/Nexus_ERP_Project/frontend/src/views/OfferOptimizer/components/HitlReviewer/TitleValidator.jsx) (alert >75 zn., przycisk `Skróć mądrze do ≤75 zn.`, ostrzeżenie SEO `<55` zn., brak cichego cięcia w połowie słowa).
+
+## Weryfikacja
+- **Kompilacja i ochrona promptów (`prompt-compiler.js`):** PASS (10 promptów, 3874 polskie diakrytyki, `PROMPTS_GUARD_OK`).
+- **Składnia JS (`node --check`):** PASS dla wszystkich 8 zmodyfikowanych plików backendowych oraz nowego pliku testowego.
+- **Testy backendowe (`node --test src/modules/offer-optimizer-v2/tests/*.test.js`):** **`366/366 PASS`** (`# pass 366`, `# fail 0`, `# skipped 0`, `# cancelled 0`), w tym nowa suita [title.optimizer.and.ads.seo.test.js](file:///z:/Nexus_ERP_Project/src/modules/offer-optimizer-v2/tests/title.optimizer.and.ads.seo.test.js).
+- **Frontend (`eslint` + `vite build`):** 0 błędów `eslint` dla `allegroTitleValidator.js` i `TitleValidator.jsx`; `npm run build` PASS (`2.57s`).

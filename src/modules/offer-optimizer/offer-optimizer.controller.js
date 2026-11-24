@@ -12,6 +12,8 @@ const EventBus = require('../../core/EventBus');
 const baselinkerExportAgent = require('../offer-optimizer-v2/baselinker.export.agent');
 const baselinkerExtract = require('../offer-optimizer-v2/baselinker.extract');
 const { stripRawInciFooterFromSection3 } = require('../offer-optimizer-v2/normalization');
+const googleSuggestFaqService = require('../offer-optimizer-v2/services/google-suggest-faq.service');
+const titleOptimizer = require('../offer-optimizer-v2/services/title-optimizer.service');
 const {
     stripHtmlAndEmoticons,
     extractSafetyInformationText,
@@ -232,14 +234,73 @@ const regenerateTitle = async (req, res) => {
             ? await loadSiblingCopyFingerprints(prisma, { ean: product.ean, currentWorkspaceId: wsId })
             : { used_titles: [] };
 
+        const prodFeatures = (product.features && typeof product.features === 'object') ? product.features : {};
+        const brandName = prodFeatures['Marka'] || product.brand?.name || '';
+        const capVal = prodFeatures['Pojemność'] || prodFeatures['Pojemność / Waga'] || '';
+
+        let allegroCatalogInfo = { found: false, name: null, categoryId: null };
+        if (product.ean && process.env.DATA_SOURCE_MODE !== 'fixture') {
+            try {
+                allegroCatalogInfo = await AllegroService.getCatalogProductInfoByEan(product.ean, { workspaceId: wsId });
+            } catch (catErr) {
+                exportLogger.warn(`[TitleRegenerate] Ostrzeżenie odczytu karty Katalogu Allegro dla ${product.ean}: ${catErr.message}`);
+            }
+        }
+
+        let titleSignals = { suggested_phrases: [] };
+        try {
+            titleSignals = await googleSuggestFaqService.harvestTitleKeywordSignals({
+                productName: product.name,
+                brand: brandName,
+                category: prodFeatures['Kategoria'] || '',
+                scent: prodFeatures['Zapach'] || prodFeatures['Nuta zapachowa'] || '',
+                features: prodFeatures,
+                inci: prodFeatures['Skład/INCI'] || prodFeatures['Skład'] || '',
+                offlineOnly: process.env.DATA_SOURCE_MODE === 'fixture'
+            });
+        } catch (sigErr) {
+            exportLogger.warn(`[TitleRegenerate] Ostrzeżenie Google Suggest dla ${product.ean}: ${sigErr.message}`);
+        }
+
         const featuresString = product.features ? JSON.stringify(product.features) : '';
         const textContent = `NAZWA: ${product.name}\n\nCECHY TECHNICZNE PIM: ${featuresString}\n\nOPIS HTML: ${product.descriptionHtml || ''}`;
 
         const payload = await AiService.generateTitleOnly(textContent, currentTitle || product.name, {
             contentProfile,
-            avoidTitles: fingerprints.used_titles
+            avoidTitles: fingerprints.used_titles,
+            allegroCatalogName: allegroCatalogInfo?.name,
+            keywordHints: titleSignals?.suggested_phrases || [],
+            brand: brandName,
+            capacity: capVal
         });
-        res.status(200).json({ title: payload.title });
+
+        let matchingCategories = [];
+        const targetCategoryId = product.allegroCategoryId || allegroCatalogInfo?.categoryId || null;
+        if (payload?.title && targetCategoryId && process.env.DATA_SOURCE_MODE !== 'fixture') {
+            try {
+                matchingCategories = await AllegroService.getMatchingCategoriesForTitle(payload.title, { workspaceId: wsId });
+            } catch {
+                matchingCategories = [];
+            }
+        }
+
+        const seoScore = titleOptimizer.scoreTitleForAllegroAds(payload.title, {
+            targetCategoryId,
+            matchingCategories,
+            keywordHints: titleSignals?.suggested_phrases || [],
+            brand: brandName
+        });
+
+        res.status(200).json({
+            title: payload.title,
+            validation: payload.validation || seoScore,
+            seoScore,
+            sources: {
+                allegroCatalogName: allegroCatalogInfo?.name || null,
+                keywordHints: titleSignals?.suggested_phrases || [],
+                matchingCategories
+            }
+        });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -556,6 +617,13 @@ const validateBaselinkerExport = async (req, res) => {
         }
         exportLogger.info(`[NEXUS EXPORT] Wygenerowano Export Token dla EAN: ${ean}`);
 
+        const titleValidationExport = titleOptimizer.validateAllegroOfferTitle(draftData.title || '');
+        const exportValidationErrors = [...titleValidationExport.errors];
+        const exportValidationWarnings = [
+            ...(Array.isArray(preflightWarnings) ? preflightWarnings : []),
+            ...titleValidationExport.warnings
+        ];
+
         const mappedResult = {
             workspace: req.workspace ? {
                 id: req.workspace.id,
@@ -565,9 +633,9 @@ const validateBaselinkerExport = async (req, res) => {
             } : null,
             account: blAcc,
             validation: {
-                is_valid: true,
-                errors: [],
-                warnings: Array.isArray(preflightWarnings) ? preflightWarnings : []
+                is_valid: exportValidationErrors.length === 0,
+                errors: exportValidationErrors,
+                warnings: exportValidationWarnings
             },
             title: draftData.title || "",
             sections: draftData.htmlContent || {},

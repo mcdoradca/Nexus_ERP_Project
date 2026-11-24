@@ -18,6 +18,7 @@ dotenv.config();
 const AiMetricsService = require('../../core/ai.metrics.service');
 const socketService = require('../../core/socket');
 const deterministicEngine = require('../offer-optimizer-v2/services/deterministic-pipeline.engine');
+const titleOptimizer = require('../offer-optimizer-v2/services/title-optimizer.service');
 
 // Zabezpieczony Agent WAF do zdjÄ™Ä‡
 const imageHttpsAgent = new https.Agent({ 
@@ -788,45 +789,94 @@ async function generateTitleOnly(textContent, currentTitle, options = {}) {
 
     const contentProfile = options?.contentProfile || null;
     const avoidTitles = Array.isArray(options?.avoidTitles) ? options.avoidTitles.filter(Boolean).slice(0, 8) : [];
+    const allegroCatalogName = options?.allegroCatalogName ? String(options.allegroCatalogName).trim() : '';
+    const keywordHints = Array.isArray(options?.keywordHints) ? options.keywordHints.filter(Boolean).slice(0, 8) : [];
+    const brand = options?.brand ? String(options.brand).trim() : '';
+    const capacity = options?.capacity ? String(options.capacity).trim() : '';
+
     const styleDirective = contentProfile?.titleInstruction
         ? `\nWYTYCZNA UKŁADU TYTUŁU DLA TEGO KLIENTA: ${contentProfile.titleInstruction}`
         : '';
+    const catalogBlock = allegroCatalogName
+        ? `\nOFICJALNA NAZWA W KATALOGU PRODUKTÓW ALLEGRO (odniesienie GTIN): "${allegroCatalogName}"`
+        : '';
+    const hintsBlock = keywordHints.length > 0
+        ? `\nREALNE FRAZY KUPUJĄCYCH PL POD ALLEGRO ADS I TRAFNOŚĆ (wpleć naturalnie, bez spamu): ${keywordHints.join(' | ')}`
+        : '';
     const avoidBlock = avoidTitles.length > 0
-        ? `\nZAKAZ POWIELANIA PONIŻSZYCH TYTUŁÓW Z INNYCH KONT (użyj innej kolejności i innych słów kluczowych):\n- ${avoidTitles.join('\n- ')}`
+        ? `\nZAKAZ POWIELANIA PONIŻSZYCH TYTUŁÓW Z INNYCH KONT (użyj innej kolejności i innych fraz):\n- ${avoidTitles.join('\n- ')}`
         : '';
 
-    const promptText = `Jesteś ekspertem SEO ds. e-commerce (Allegro).
-Wygeneruj CAŁKOWICIE NOWY, inny niż obecny, mocno zoptymalizowany pod kątem konwersji i słów kluczowych tytuł dla poniższego produktu.
-Obecny tytuł, który nam nie pasuje: "${currentTitle}"${styleDirective}${avoidBlock}
+    const promptText = `Jesteś ekspertem SEO e-commerce i Allegro Ads.
+Wygeneruj JEDEN zoptymalizowany pod Allegro Ads (oferty sponsorowane automatycznie dobierane po tytule) oraz algorytm Trafności tytuł oferty dla poniższego produktu.
+Obecny tytuł, który wymaga poprawy: "${currentTitle || ''}"${styleDirective}${catalogBlock}${hintsBlock}${avoidBlock}
 
-Zanim zaczniesz generować, użyj Google Search (Google Trends/sklepy e-commerce), aby zbadać, jakie słowa kluczowe dla tego typu produktu trendują najmocniej na polskim rynku. Wybierz najbardziej trafne.
-
-Zasady:
-1. Używaj języka potocznego kupujących i najczęstszych wyszukań, zbadanych w Google.
-2. Tytuł MUSI mieć min 12, max 75 znaków.
-3. Bądź kreatywny, przetasuj kolejność słów kluczowych lub wyciągnij ukryte benefity.
-4. Bez słów typu 'hit', 'nowość', 'super', 'gwarancja', 'oryginalny', 'oryginał', 'antybakteryjny', 'dezynfekujący'.
-5. Nie używaj CAPS LOCKA (zachowaj wielkie litery marek oraz małe jednostki: ml, l, g, kg).
+ZASADY KRYTYCZNE (ALLEGRO 2026):
+1. TWARDY LIMIT DŁUGOŚCI: od 12 do MAKSYMALNIE 75 znaków (wliczając spacje). CEL OPTYMALNY: 58–74 znaki!
+2. ZASADA LEJKA SŁÓW: najważniejsza polska fraza produktowa + Marka/Linia na początku -> kluczowe zastosowanie / postać / zapach po polsku w środku -> pojemność/waga (np. 470 ml, 2 l) na końcu.
+3. ZERO zbędnych włoskich podtytułów, jeśli wypychają polskie słowa kluczowe lub zbliżają tytuł do 75 znaków.
+4. ZERO słów zakazanych (§A/BPR): hit, nowość, promocja, okazja, gratis, tanio, najtaniej, gwarancja, oryginalny, oryginał, antybakteryjny, dezynfekujący, 100%, wysyłka 24h.
+5. ZERO CAPS LOCKA (zachowaj wielkie litery marek/skrótów oraz małe jednostki: ml, l, g, kg), ZERO powtórzonych słów o tym samym rdzeniu i ZERO znaków ozdobnych (!, *, [], |).
 
 DANE PRODUKTU:
 ${textContent}
 
 Odpowiedz wyłącznie czystym obiektem JSON:
-{ "title": "Nowy wygenerowany tytuł" }
+{ "title": "Wygenerowany tytuł 58-74 znaków" }
 `;
 
     try {
-        const parsed = await generateWithRetry(model, promptText, 2, "Agent_Title", true);
-        if (parsed && parsed.title) {
-            return {
-                title: deterministicEngine.sanitizeOfferTitle(parsed.title) || parsed.title
-            };
+        let parsed = await generateWithRetry(model, promptText, 2, "Agent_Title", true);
+        let rawTitle = parsed?.title ? String(parsed.title).trim() : '';
+        let validation = titleOptimizer.validateAllegroOfferTitle(rawTitle, { brand });
+
+        // Jeśli model przekroczył 75 znaków lub naruszył zasady SEO/compliance, wykonaj 1 precyzyjną próbę naprawy
+        if (!validation.valid || validation.length > titleOptimizer.MAX_ALLEGRO_TITLE_LEN) {
+            const repairPrompt = `${promptText}\n\n[KOREKTA WYMAGANA]: Twój poprzedni tytuł "${rawTitle}" (${validation.length} zn.) nie przeszedł walidacji: ${validation.errors.join(' | ')}. Skróć lub popraw go tak, aby miał ściśle 58–74 znaków (MAX 75) i zero błędów.`;
+            try {
+                const repaired = await generateWithRetry(model, repairPrompt, 1, "Agent_Title_Repair", true);
+                if (repaired?.title) {
+                    rawTitle = String(repaired.title).trim();
+                }
+            } catch (repairErr) {
+                console.warn('[AiService] Próba korekty tytułu nie powiodła się, stosuję kompresję deterministyczną:', repairErr.message);
+            }
         }
-        throw new Error(`Brak prawidłowej struktury JSON w odpowiedzi dla tytułu. Otrzymano: ${JSON.stringify(parsed)}`);
+
+        const safeTitle = titleOptimizer.compressTitleToAllegroLimit(rawTitle || currentTitle || '', {
+            maxLen: titleOptimizer.MAX_ALLEGRO_TITLE_LEN,
+            brand,
+            capacity
+        });
+        const finalValidation = titleOptimizer.validateAllegroOfferTitle(safeTitle, { brand });
+        const finalTitle = finalValidation.valid
+            ? safeTitle
+            : titleOptimizer.buildDeterministicAllegroTitle({
+                canonicalName: safeTitle || currentTitle || '',
+                allegroCatalogName,
+                brand,
+                capacity,
+                keywordHints
+            });
+
+        return {
+            title: finalTitle,
+            validation: titleOptimizer.validateAllegroOfferTitle(finalTitle, { brand })
+        };
     } catch (error) {
         console.error("[AiService] Generative Title Error:", error.message);
-        if (currentTitle) {
-            return { title: deterministicEngine.sanitizeOfferTitle(currentTitle) || currentTitle };
+        const fallbackTitle = titleOptimizer.buildDeterministicAllegroTitle({
+            canonicalName: currentTitle || '',
+            allegroCatalogName,
+            brand,
+            capacity,
+            keywordHints
+        });
+        if (fallbackTitle) {
+            return {
+                title: fallbackTitle,
+                validation: titleOptimizer.validateAllegroOfferTitle(fallbackTitle, { brand })
+            };
         }
         throw new Error("Generative API Title Failed: " + error.message);
     }
