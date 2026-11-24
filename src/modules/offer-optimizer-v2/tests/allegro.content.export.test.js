@@ -458,4 +458,83 @@ test('Allegro Content Export & Multi-Account Vault', async (t) => {
         assert.strictEqual(/Skład INCI:/i.test(s3Text), false, 'Stopka Skład INCI nie może trafić do opisu Allegro');
         assert.strictEqual(s3Text.includes('SODIUM LAURETH SULFATE'), false, 'Surowa lista INCI ze stopki musi zostać wycięta');
     });
+
+    await t.test('12. buildAllegroContentPreflight i buildAllegroContentPatchBody obsługują tytuł (name), tryb samego tytułu, limit ≤75 zn. i trustedContent', () => {
+        const existingOffer = {
+            id: '1900000991',
+            name: 'Stary Tytuł Przed Optymalizacją SEO',
+            images: ['https://a.allegroimg.com/original/1.jpg'],
+            description: { sections: [{ items: [{ type: 'TEXT', content: '<p>Opis</p>' }] }] },
+            productSet: [{ quantity: { value: 1 }, product: { id: 'uuid-title-1' } }]
+        };
+        const newValidTitle = 'Chante Clair Uniwersalny Odtłuszczacz Marsylia 600 ml';
+
+        // 1) Aktualizacja samego tytułu w Pre-flight i PATCH Content
+        const titleOnlyPreflight = buildAllegroContentPreflight({
+            existingOffer,
+            catalogProduct: { id: 'uuid-title-1', trustedContent: { paths: [], productPaths: [] } },
+            htmlContent: { sekcja1: '<p>Nowy opis</p>' },
+            includeImages: false,
+            includeDescription: false,
+            includeTitle: true,
+            title: newValidTitle,
+            brand: 'Chante Clair'
+        });
+        assert.strictEqual(titleOnlyPreflight.errors.length, 0);
+        assert.strictEqual(titleOnlyPreflight.effectiveIncludeTitle, true);
+        assert.strictEqual(titleOnlyPreflight.titlePreview.willUpdate, true);
+        assert.strictEqual(titleOnlyPreflight.hasChanges, true);
+
+        const titleOnlyPatch = buildAllegroContentPatchBody({
+            existingOffer,
+            includeImages: false,
+            includeDescription: false,
+            includeTitle: true,
+            title: titleOnlyPreflight.titlePreview.next
+        });
+        assert.deepStrictEqual(titleOnlyPatch, { name: newValidTitle });
+
+        // 2) Tytuł powyżej 75 znaków blokuje Pre-flight
+        const invalidPreflight = buildAllegroContentPreflight({
+            existingOffer,
+            catalogProduct: { id: 'uuid-title-1', trustedContent: { paths: [] } },
+            htmlContent: { sekcja1: '<p>Nowy opis</p>' },
+            draftImages: [{ originalUrl: 'https://example.com/1.jpg' }],
+            includeImages: true,
+            includeDescription: true,
+            includeTitle: true,
+            title: 'Chante Clair Uniwersalny Odtłuszczacz Biały Marsylia Ekstra Duży Zapas Ponad 75 Znaków Tutaj'
+        });
+        assert.ok(invalidPreflight.errors.some(e => e.includes('75') && e.includes('Tytuł oferty')));
+        assert.strictEqual(invalidPreflight.titlePreview.willUpdate, false);
+
+        // 3) Trusted Content na name blokuje wyłącznie tytuł i przepuszcza opis/zdjęcia
+        const trustedPreflight = buildAllegroContentPreflight({
+            existingOffer,
+            catalogProduct: { id: 'uuid-title-1', trustedContent: { paths: ['name'] } },
+            htmlContent: { sekcja1: '<p>Nowy opis testowy</p>' },
+            draftImages: [{ originalUrl: 'https://example.com/1.jpg' }],
+            includeImages: true,
+            includeDescription: true,
+            includeTitle: true,
+            title: newValidTitle
+        });
+        assert.strictEqual(trustedPreflight.trusted.titleBlocked, true);
+        assert.strictEqual(trustedPreflight.effectiveIncludeTitle, false);
+        assert.strictEqual(trustedPreflight.hasChanges, true);
+        assert.ok(trustedPreflight.warnings.some(w => w.includes('Trusted Content') && w.includes('name')));
+
+        // 4) Identyczny tytuł nie powoduje zbędnej zmiany
+        const identicalTitlePreflight = buildAllegroContentPreflight({
+            existingOffer,
+            catalogProduct: { id: 'uuid-title-1', trustedContent: { paths: [] } },
+            includeImages: false,
+            includeDescription: false,
+            includeTitle: true,
+            title: 'Stary Tytuł Przed Optymalizacją SEO'
+        });
+        assert.strictEqual(identicalTitlePreflight.titlePreview.changed, false);
+        assert.strictEqual(identicalTitlePreflight.titlePreview.willUpdate, false);
+        assert.strictEqual(identicalTitlePreflight.hasChanges, false);
+    });
 });

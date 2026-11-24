@@ -117,6 +117,30 @@ function isAllegroCompositionValidationError(error) {
     return isCompositionPath(error.message || '');
 }
 
+/**
+ * Rozpoznaje błąd Allegro 422/400 dotyczący wyłącznie pola tytułu oferty (`name` / `offer.name`),
+ * np. gdy aukcja ma aktywne oferty/licytację lub zablokowaną zmianę nazwy na poziomie Allegro.
+ */
+function isAllegroTitleEditError(error) {
+    if (!error) return false;
+    const status = error.statusCode || error.response?.status || null;
+    if (status !== null && status !== 422 && status !== 400) {
+        return false;
+    }
+
+    const allegroErrors = Array.isArray(error.allegroErrors)
+        ? error.allegroErrors
+        : (Array.isArray(error.response?.data?.errors) ? error.response.data.errors : []);
+
+    const isTitlePath = (pathStr) => typeof pathStr === 'string' && /^(?:offer\.)?name$/i.test(pathStr.trim());
+
+    if (allegroErrors.length > 0) {
+        return allegroErrors.every(item => item && typeof item === 'object' && isTitlePath(item.path));
+    }
+
+    return /\[(?:offer\.)?name\]/i.test(String(error.message || ''));
+}
+
 async function readUnsupportedCompositionCategoriesMap(injectedPrisma = prisma, nowMs = Date.now()) {
     const out = {};
     if (!injectedPrisma?.systemSetting || typeof injectedPrisma.systemSetting.findUnique !== 'function') {
@@ -2138,6 +2162,7 @@ module.exports = {
     evaluateParsedIngredientsResponse,
     isAllegroCompositionCategoryError,
     isAllegroCompositionValidationError,
+    isAllegroTitleEditError,
     getCategoryCompositionSupport,
     markCategoryCompositionUnsupported,
     clearCategoryCompositionUnsupported,

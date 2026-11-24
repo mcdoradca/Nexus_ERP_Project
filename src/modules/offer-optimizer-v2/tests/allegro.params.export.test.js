@@ -19,6 +19,7 @@ const {
     evaluateParsedIngredientsResponse,
     isAllegroCompositionCategoryError,
     isAllegroCompositionValidationError,
+    isAllegroTitleEditError,
     getCategoryCompositionSupport,
     markCategoryCompositionUnsupported,
     clearCategoryCompositionUnsupported
@@ -607,6 +608,123 @@ test('Allegro Params Export: czyszczenie ostrzeżeń, konwersja jednostek, INCI,
             { path: 'parameters[0]', userMessage: 'Brak wymaganego parametru' }
         ];
         assert.strictEqual(isAllegroCompositionValidationError(mixedErr), false);
+    });
+
+    await t.test('16. buildAllegroParameterPatchPayload obsługuje titlePayload (patchBody.name), wykrywa identyczny tytuł, blokuje >75 zn. i szanuje trustedContent', () => {
+        const categoryParameters = [
+            { id: '11323', name: 'Stan', type: 'dictionary', required: true, options: { describesProduct: false }, dictionary: [{ id: '11323_1', value: 'Nowy' }] }
+        ];
+        const existingOffer = {
+            id: '1900000777',
+            name: 'Stary Tytuł Oferty Allegro 500 ml',
+            parameters: [{ id: '11323', valuesIds: ['11323_1'], values: ['Nowy'] }],
+            productSet: [{ quantity: { value: 1 }, product: { id: 'prod-777', parameters: [] } }]
+        };
+        const validNewTitle = 'Viakal Bagno Express Odkamieniacz Spray Łazienka 470 ml';
+
+        // 1) Tryb aktualizacji samego tytułu przy niezmienionych parametrach
+        const titleOnlyBuilt = buildAllegroParameterPatchPayload({
+            product: { ean: '8700216906159', name: validNewTitle },
+            features: { Stan: 'Nowy' },
+            categoryParameters,
+            existingOffer,
+            catalogProduct: { id: 'prod-777', trustedContent: { paths: [] } },
+            titlePayload: { apply: true, title: validNewTitle, brand: 'Viakal' }
+        });
+        assert.strictEqual(titleOnlyBuilt.errors.length, 0);
+        assert.strictEqual(titleOnlyBuilt.hasChanges, true);
+        assert.strictEqual(titleOnlyBuilt.changesSummary.titleChanged, true);
+        assert.strictEqual(titleOnlyBuilt.titlePreview.willUpdate, true);
+        assert.strictEqual(titleOnlyBuilt.patchBody.name, validNewTitle);
+        assert.strictEqual(titleOnlyBuilt.patchBody.productSet, undefined, 'Aktualizacja samego tytułu nie może dotykać productSet');
+        assert.strictEqual(titleOnlyBuilt.patchBody.parameters, undefined);
+
+        // 2) Tytuł identyczny z ofertą -> brak patchBody.name i brak zbędnej zmiany
+        const sameTitleBuilt = buildAllegroParameterPatchPayload({
+            product: { ean: '8700216906159', name: 'Stary Tytuł Oferty Allegro 500 ml' },
+            features: { Stan: 'Nowy' },
+            categoryParameters,
+            existingOffer,
+            titlePayload: { apply: true, title: 'Stary Tytuł Oferty Allegro 500 ml' }
+        });
+        assert.strictEqual(sameTitleBuilt.patchBody.name, undefined);
+        assert.strictEqual(sameTitleBuilt.changesSummary.titleChanged, false);
+        assert.strictEqual(sameTitleBuilt.hasChanges, false);
+
+        // 3) Tytuł przekraczający 75 znaków blokuje eksport czytelnym błędem
+        const tooLongTitle = 'Viakal Bagno Express Bardzo Długi Tytuł Oferty Który Zdecydowanie Przekracza Limit 75 Znaków';
+        const tooLongBuilt = buildAllegroParameterPatchPayload({
+            product: { ean: '8700216906159' },
+            features: { Stan: 'Nowy' },
+            categoryParameters,
+            existingOffer,
+            titlePayload: { apply: true, title: tooLongTitle }
+        });
+        assert.ok(tooLongBuilt.errors.some(e => e.includes('75') && e.includes('Tytuł oferty')));
+        assert.strictEqual(tooLongBuilt.patchBody.name, undefined);
+
+        // 4) Trusted Content na name nie blokuje pozostałych parametrów, ale ostrzega i pomija pole name
+        const trustedBuilt = buildAllegroParameterPatchPayload({
+            product: { ean: '8700216906159' },
+            features: {},
+            categoryParameters,
+            existingOffer: {
+                id: '1900000778',
+                name: 'Tytuł Katalogowy Produktu Allegro',
+                parameters: []
+            },
+            catalogProduct: { id: 'prod-778', trustedContent: { paths: ['name'] } },
+            titlePayload: { apply: true, title: validNewTitle }
+        });
+        assert.strictEqual(trustedBuilt.titlePreview.blockedByTrusted, true);
+        assert.strictEqual(trustedBuilt.effectiveIncludeTitle, false);
+        assert.strictEqual(trustedBuilt.patchBody.name, undefined);
+        assert.ok(trustedBuilt.warnings.some(w => w.includes('Trusted Content') && w.includes('name')));
+    });
+
+    await t.test('17. stripCompositionFromPatchBody zachowuje patchBody.name i raportuje hasRemainingChanges, a isAllegroTitleEditError wykrywa błąd 422 pola name', () => {
+        const existingOffer = {
+            id: '1900000888',
+            productSet: [{
+                quantity: { value: 1 },
+                product: { id: 'prod-888', parameters: [{ id: '248811', valuesIds: ['1'] }] },
+                composition: { components: [] }
+            }]
+        };
+        const patchWithTitleAndComp = {
+            name: 'Viakal Bagno Express Spray Łazienka 470 ml',
+            productSet: [{
+                quantity: { value: 1 },
+                product: { id: 'prod-888', parameters: [{ id: '248811', valuesIds: ['1'] }] },
+                composition: { components: [{ name: 'Spray', ingredients: [{ name: 'Aqua' }] }] }
+            }],
+            images: ['https://a.allegroimg.com/original/a.jpg']
+        };
+
+        const stripped = stripCompositionFromPatchBody(patchWithTitleAndComp, existingOffer);
+        assert.strictEqual(stripped.hadComposition, true);
+        assert.strictEqual(stripped.droppedEmptyProductSet, true);
+        assert.strictEqual(stripped.hasRemainingChanges, true, 'Pozostałe pole name musi utrzymać hasRemainingChanges=true');
+        assert.strictEqual(stripped.patchBody.name, 'Viakal Bagno Express Spray Łazienka 470 ml');
+        assert.strictEqual(stripped.patchBody.productSet, undefined);
+
+        const titleErr422 = new Error('Allegro API PATCH error (422): Nie można zmienić tytułu oferty z licytacją [offer.name]');
+        titleErr422.statusCode = 422;
+        titleErr422.allegroErrors = [{ path: 'offer.name', userMessage: 'Nie można zmienić nazwy oferty' }];
+        assert.strictEqual(isAllegroTitleEditError(titleErr422), true);
+
+        const directNameErr = new Error('422');
+        directNameErr.statusCode = 422;
+        directNameErr.allegroErrors = [{ path: 'name', userMessage: 'Edycja zablokowana' }];
+        assert.strictEqual(isAllegroTitleEditError(directNameErr), true);
+
+        const mixedErr = new Error('Mixed 422');
+        mixedErr.statusCode = 422;
+        mixedErr.allegroErrors = [
+            { path: 'offer.name', userMessage: 'Błąd tytułu' },
+            { path: 'parameters[0]', userMessage: 'Błąd parametru' }
+        ];
+        assert.strictEqual(isAllegroTitleEditError(mixedErr), false);
     });
 });
 

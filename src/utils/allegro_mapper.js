@@ -2,6 +2,7 @@ const cheerio = require('cheerio');
 const { normalizeInciToLegalEnglish, stripRawInciFooterFromSection3 } = require('../modules/offer-optimizer-v2/normalization');
 const { resolveOrderedVisibleDescriptionSections } = require('../services/workspaceContentProfile.service');
 const { auditOfferDraftCompliance } = require('../modules/offer-optimizer-v2/services/allegro-compliance.policy');
+const { validateAllegroOfferTitle } = require('../modules/offer-optimizer-v2/services/title-optimizer.service');
 
 const MAX_SAFETY_TEXT_LEN = 5000;
 const MAX_ALLEGRO_DESCRIPTION_BYTES = 40000;
@@ -44,7 +45,73 @@ function getOfferContentTrustFlags(catalogProduct) {
     return {
         trustedPaths,
         imagesBlockedByTrusted: trustedPaths.has('images') || trustedPaths.has('product.images'),
-        descriptionBlockedByTrusted: trustedPaths.has('description') || trustedPaths.has('product.description')
+        descriptionBlockedByTrusted: trustedPaths.has('description') || trustedPaths.has('product.description'),
+        titleBlockedByTrusted: trustedPaths.has('name') || trustedPaths.has('product.name')
+    };
+}
+
+/**
+ * Waliduje i porównuje zmianę tytułu oferty (`name` w `PATCH /sale/product-offers/{offerId}`)
+ * pod kątem limitów Allegro (12–75 zn., min. 3 słowa, compliance) oraz blokady `trustedContent`.
+ */
+function evaluateAllegroOfferTitleUpdate({
+    existingOffer = {},
+    catalogProduct = null,
+    nextTitle = '',
+    includeTitle = false,
+    brand = ''
+} = {}) {
+    const { titleBlockedByTrusted } = getOfferContentTrustFlags(catalogProduct);
+    const currentTitle = String(existingOffer?.name || '').trim();
+    const cleanNext = String(nextTitle || '').replace(/\s+/g, ' ').trim();
+    const validation = cleanNext ? validateAllegroOfferTitle(cleanNext, { brand }) : null;
+    const differs = Boolean(cleanNext && cleanNext !== currentTitle);
+
+    const errors = [];
+    const warnings = [];
+    let effectiveIncludeTitle = Boolean(includeTitle && cleanNext);
+    let changed = false;
+
+    if (includeTitle) {
+        if (!cleanNext) {
+            effectiveIncludeTitle = false;
+        } else if (titleBlockedByTrusted && differs) {
+            effectiveIncludeTitle = false;
+            warnings.push('Pole `name` (tytuł oferty) jest chronione przez Trusted Content w Katalogu Allegro — aktualizacja tytułu została zablokowana w Pre-flight.');
+        } else if (differs) {
+            if (validation && !validation.valid) {
+                for (const err of (validation.errors || [])) {
+                    errors.push(`[Tytuł oferty (name)] ${err}`);
+                }
+                changed = true;
+            } else {
+                changed = true;
+                for (const w of (validation?.warnings || [])) {
+                    warnings.push(`[Tytuł oferty (name)] ${w}`);
+                }
+            }
+        }
+    }
+
+    const willUpdate = Boolean(effectiveIncludeTitle && changed && (!validation || validation.valid));
+    const displayTarget = cleanNext || currentTitle;
+
+    return {
+        effectiveIncludeTitle,
+        blockedByTrusted: titleBlockedByTrusted,
+        changed,
+        nextTitleForPatch: willUpdate ? cleanNext : null,
+        errors,
+        warnings,
+        titlePreview: {
+            current: currentTitle,
+            next: displayTarget,
+            changed: differs,
+            willUpdate,
+            blockedByTrusted: titleBlockedByTrusted,
+            length: [...displayTarget].length,
+            validation
+        }
     };
 }
 
@@ -780,7 +847,8 @@ function buildAllegroParameterPatchPayload({
     catalogProduct = null,
     selectedParamIds = null,
     safetyInfoPayload = null,
-    compositionPayload = null
+    compositionPayload = null,
+    titlePayload = null
 } = {}) {
     const errors = [];
     const warnings = [];
@@ -979,9 +1047,34 @@ function buildAllegroParameterPatchPayload({
         }
     }
 
+    const shouldApplyTitle = Boolean(
+        titlePayload &&
+        typeof titlePayload === 'object' &&
+        titlePayload.apply &&
+        typeof titlePayload.title === 'string' &&
+        titlePayload.title.trim() !== ''
+    );
+    const titleEval = evaluateAllegroOfferTitleUpdate({
+        existingOffer,
+        catalogProduct,
+        nextTitle: titlePayload?.title || '',
+        includeTitle: shouldApplyTitle,
+        brand: titlePayload?.brand || product?.brand?.name || normalizedFeatureMap.get('marka') || ''
+    });
+    if (titleEval.errors.length > 0) {
+        errors.push(...titleEval.errors);
+    }
+    if (titleEval.warnings.length > 0) {
+        warnings.push(...titleEval.warnings);
+    }
+    const titleChanged = Boolean(titleEval.nextTitleForPatch);
+
     const patchBody = {};
     if (offerParamsChanged) {
         patchBody.parameters = Array.from(mergedOfferMap.values());
+    }
+    if (titleChanged) {
+        patchBody.name = titleEval.nextTitleForPatch;
     }
 
     let preservedOfferFields = {
@@ -1051,12 +1144,13 @@ function buildAllegroParameterPatchPayload({
 
     return {
         patchBody,
-        hasChanges: offerParamsChanged || productParamsChanged || safetyChanged || compositionChanged,
+        hasChanges: offerParamsChanged || productParamsChanged || safetyChanged || compositionChanged || titleChanged,
         changesSummary: {
             offerParamsChanged,
             productParamsChanged,
             safetyChanged,
             compositionChanged,
+            titleChanged,
             toAddCount: diffRows.filter(r => r.status === 'ADD').length,
             toUpdateCount: diffRows.filter(r => r.status === 'UPDATE').length,
             unchangedCount: diffRows.filter(r => r.status === 'UNCHANGED').length,
@@ -1064,6 +1158,8 @@ function buildAllegroParameterPatchPayload({
             errorCount: errors.length
         },
         preservedOfferFields,
+        titlePreview: titleEval.titlePreview,
+        effectiveIncludeTitle: titleEval.effectiveIncludeTitle,
         diffRows,
         missingRequired,
         errors,
@@ -1628,11 +1724,29 @@ function buildAllegroContentPreflight({
     includeImages = true,
     includeDescription = true,
     aiFlagsOverride = null,
-    contentProfile = null
+    contentProfile = null,
+    title = '',
+    includeTitle = false,
+    brand = ''
 } = {}) {
     const errors = [];
     const warnings = [];
-    const { imagesBlockedByTrusted, descriptionBlockedByTrusted } = getOfferContentTrustFlags(catalogProduct);
+    const { imagesBlockedByTrusted, descriptionBlockedByTrusted, titleBlockedByTrusted } = getOfferContentTrustFlags(catalogProduct);
+
+    const titleEval = evaluateAllegroOfferTitleUpdate({
+        existingOffer,
+        catalogProduct,
+        nextTitle: title,
+        includeTitle: Boolean(includeTitle),
+        brand
+    });
+    if (titleEval.errors.length > 0) {
+        errors.push(...titleEval.errors);
+    }
+    if (titleEval.warnings.length > 0) {
+        warnings.push(...titleEval.warnings);
+    }
+    const titleChanged = Boolean(titleEval.nextTitleForPatch);
 
     const currentOfferImages = normalizeOfferImageUrls(existingOffer?.images);
     const currentOfferDescription = existingOffer?.description && Array.isArray(existingOffer.description.sections)
@@ -1732,7 +1846,9 @@ function buildAllegroContentPreflight({
     let complianceAudit = { clean: true, totalIssues: 0, issues: [], warnings: [] };
     if (effectiveIncludeDescription) {
         complianceAudit = auditOfferDraftCompliance({
-            title: existingOffer?.name || '',
+            title: (titleEval.effectiveIncludeTitle && titleEval.titlePreview?.next)
+                ? titleEval.titlePreview.next
+                : (existingOffer?.name || ''),
             htmlContent,
             descriptionHtml
         });
@@ -1753,7 +1869,7 @@ function buildAllegroContentPreflight({
     const nextDescJson = JSON.stringify(descBuild.description);
     const descriptionChanged = effectiveIncludeDescription && (imagesNeedUploadCount > 0 || currentDescJson !== nextDescJson);
 
-    const hasChanges = (imagesChanged || descriptionChanged) && (effectiveIncludeImages || effectiveIncludeDescription);
+    const hasChanges = ((imagesChanged || descriptionChanged) && (effectiveIncludeImages || effectiveIncludeDescription)) || titleChanged;
 
     return {
         hasChanges,
@@ -1762,10 +1878,13 @@ function buildAllegroContentPreflight({
         complianceAudit,
         trusted: {
             imagesBlocked: imagesBlockedByTrusted,
-            descriptionBlocked: descriptionBlockedByTrusted
+            descriptionBlocked: descriptionBlockedByTrusted,
+            titleBlocked: titleBlockedByTrusted
         },
         effectiveIncludeImages,
         effectiveIncludeDescription,
+        effectiveIncludeTitle: titleEval.effectiveIncludeTitle,
+        titlePreview: titleEval.titlePreview,
         imagesPreview: {
             current: currentOfferImages,
             next: collected.images,
@@ -1791,7 +1910,9 @@ function buildAllegroContentPatchBody({
     uploadedImages = [],
     description = null,
     includeImages = true,
-    includeDescription = true
+    includeDescription = true,
+    title = null,
+    includeTitle = false
 } = {}) {
     const patchBody = {};
     if (includeImages) {
@@ -1809,6 +1930,9 @@ function buildAllegroContentPatchBody({
     if (includeDescription && description && Array.isArray(description.sections) && description.sections.length > 0) {
         patchBody.description = description;
     }
+    if (includeTitle && typeof title === 'string' && title.trim().length > 0) {
+        patchBody.name = title.replace(/\s+/g, ' ').trim();
+    }
     return patchBody;
 }
 
@@ -1820,6 +1944,7 @@ module.exports = {
     isValidExportImageUrl,
     isAllegroHostedImageUrl,
     getOfferContentTrustFlags,
+    evaluateAllegroOfferTitleUpdate,
     normalizeOfferImageUrls,
     buildPreservedOfferContentForProductPatch,
     normalizeTextKey,

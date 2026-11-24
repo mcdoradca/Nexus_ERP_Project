@@ -246,6 +246,7 @@ export const UnifiedProductPipelineView = ({
     const [allegroParamsValidationResult, setAllegroParamsValidationResult] = useState(null);
     const [showAllegroParamsModal, setShowAllegroParamsModal] = useState(false);
     const [allegroParamsConfirmStep, setAllegroParamsConfirmStep] = useState(0);
+    const [allegroParamsIncludeTitle, setAllegroParamsIncludeTitle] = useState(true);
     const [allegroIncludeSafety, setAllegroIncludeSafety] = useState(true);
     const [allegroCustomSafetyText, setAllegroCustomSafetyText] = useState('');
     const [allegroIncludeComposition, setAllegroIncludeComposition] = useState(true);
@@ -259,6 +260,7 @@ export const UnifiedProductPipelineView = ({
     const [allegroContentConfirmStep, setAllegroContentConfirmStep] = useState(0);
     const [allegroExportIncludeImages, setAllegroExportIncludeImages] = useState(true);
     const [allegroExportIncludeDescription, setAllegroExportIncludeDescription] = useState(true);
+    const [allegroContentIncludeTitle, setAllegroContentIncludeTitle] = useState(true);
     const [allegroAiFlagsOverride, setAllegroAiFlagsOverride] = useState({});
     const [allegroContentPreviewDirty, setAllegroContentPreviewDirty] = useState(false);
 
@@ -698,6 +700,8 @@ export const UnifiedProductPipelineView = ({
                     setAllegroAccountId(String(dbDraft.allegroAccountId));
                 }
                 setAllegroOfferCandidates([]);
+                setAllegroParamsIncludeTitle(true);
+                setAllegroContentIncludeTitle(true);
                 setBrandSearchTerm(p.brand ? p.brand.name : (localDraft?.brandSearchTerm || ''));
                 setLiveEan(p.ean || "");
                 setEditorKey(prev => prev + 1);
@@ -1485,6 +1489,8 @@ export const UnifiedProductPipelineView = ({
                 return;
             }
 
+            const effIncludeTitle = overrideOptions.includeTitle !== undefined ? overrideOptions.includeTitle : allegroParamsIncludeTitle;
+            const effTitle = overrideOptions.title !== undefined ? overrideOptions.title : liveTitle;
             const effIncludeSafety = overrideOptions.includeSafetyInfo !== undefined ? overrideOptions.includeSafetyInfo : allegroIncludeSafety;
             const effIncludeComp = overrideOptions.includeComposition !== undefined ? overrideOptions.includeComposition : allegroIncludeComposition;
             const effCustomSafety = overrideOptions.customSafetyText !== undefined ? overrideOptions.customSafetyText : null;
@@ -1500,6 +1506,8 @@ export const UnifiedProductPipelineView = ({
                 categoryId: newProductForm.allegroCategoryId || undefined,
                 features: newProductForm.features || {},
                 htmlContent: editorHtml,
+                title: effTitle,
+                includeTitle: effIncludeTitle,
                 includeSafetyInfo: effIncludeSafety,
                 customSafetyText: effCustomSafety,
                 includeComposition: effIncludeComp,
@@ -1510,6 +1518,9 @@ export const UnifiedProductPipelineView = ({
             setAllegroParamsValidationResult(res.data);
             if (overrideOptions.includeComposition === undefined) {
                 setAllegroIncludeComposition(Boolean(res.data?.compositionDiagnostics?.supported));
+            }
+            if (overrideOptions.includeTitle === undefined && res.data?.titlePreview?.blockedByTrusted) {
+                setAllegroParamsIncludeTitle(false);
             }
             if (res.data?.offer?.id) {
                 setAllegroOfferId(String(res.data.offer.id));
@@ -1549,13 +1560,18 @@ export const UnifiedProductPipelineView = ({
                 exportToken: allegroParamsValidationResult.exportToken,
                 confirmedTwice: true,
                 updatedFeatures: newProductForm.features || {},
-                categoryId: allegroParamsValidationResult.offer.categoryId
+                categoryId: allegroParamsValidationResult.offer.categoryId,
+                title: liveTitle
             }, { headers: { Authorization: `Bearer ${token}` } });
 
             if (res.data?.compositionSkippedForCategory) {
                 setAllegroIncludeComposition(false);
             }
-            alert(res.data?.message || 'Parametry i dane zgodności zostały wysłane do oferty Allegro!');
+            const serverWarnings = Array.isArray(res.data?.warnings) && res.data.warnings.length > 0
+                ? res.data.warnings.filter(w => w && !String(res.data?.message || '').includes(w))
+                : [];
+            const warnSuffix = serverWarnings.length > 0 ? `\n\nUwagi:\n- ${serverWarnings.join('\n- ')}` : '';
+            alert((res.data?.message || 'Parametry i dane zgodności zostały wysłane do oferty Allegro!') + warnSuffix);
             setAllegroParamsConfirmStep(0);
             setShowAllegroParamsModal(false);
             if (fetchAppGlobalData) fetchAppGlobalData();
@@ -1584,6 +1600,8 @@ export const UnifiedProductPipelineView = ({
 
             const effIncludeImages = overrideOptions.includeImages !== undefined ? overrideOptions.includeImages : allegroExportIncludeImages;
             const effIncludeDesc = overrideOptions.includeDescription !== undefined ? overrideOptions.includeDescription : allegroExportIncludeDescription;
+            const effIncludeTitle = overrideOptions.includeTitle !== undefined ? overrideOptions.includeTitle : allegroContentIncludeTitle;
+            const effTitle = overrideOptions.title !== undefined ? overrideOptions.title : liveTitle;
             const effAiFlags = overrideOptions.aiFlagsOverride !== undefined ? overrideOptions.aiFlagsOverride : allegroAiFlagsOverride;
             const effOfferId = overrideOptions.offerId !== undefined ? overrideOptions.offerId : allegroOfferId;
             const rawAcc = overrideOptions.accountId !== undefined ? overrideOptions.accountId : allegroAccountId;
@@ -1596,12 +1614,21 @@ export const UnifiedProductPipelineView = ({
                 accountId: effAccountId,
                 htmlContent: editorHtml,
                 images: visionTickets,
+                title: effTitle,
                 includeImages: effIncludeImages,
                 includeDescription: effIncludeDesc,
+                includeTitle: effIncludeTitle,
                 aiFlagsOverride: effAiFlags
             }, { headers: { Authorization: `Bearer ${token}` } });
 
-            setAllegroContentValidationResult(res.data);
+            setAllegroContentValidationResult({
+                ...res.data,
+                _validatedTitle: effTitle,
+                _validatedIncludeTitle: effIncludeTitle
+            });
+            if (overrideOptions.includeTitle === undefined && res.data?.titlePreview?.blockedByTrusted) {
+                setAllegroContentIncludeTitle(false);
+            }
             if (res.data?.offer?.id) {
                 setAllegroOfferId(String(res.data.offer.id));
             }
@@ -1642,14 +1669,20 @@ export const UnifiedProductPipelineView = ({
                 accountId: allegroContentValidationResult.account?.id || (allegroAccountId !== 'ALL' ? allegroAccountId : ''),
                 htmlContent: editorHtml,
                 images: visionTickets,
+                title: allegroContentValidationResult._validatedTitle !== undefined ? allegroContentValidationResult._validatedTitle : liveTitle,
                 includeImages: allegroExportIncludeImages,
                 includeDescription: allegroExportIncludeDescription,
+                includeTitle: allegroContentValidationResult._validatedIncludeTitle !== undefined ? allegroContentValidationResult._validatedIncludeTitle : allegroContentIncludeTitle,
                 aiFlagsOverride: allegroAiFlagsOverride,
                 exportToken: allegroContentValidationResult.exportToken,
                 confirmedTwice: true
             }, { headers: { Authorization: `Bearer ${token}` } });
 
-            alert(res.data?.message || 'Opis i zdjęcia zostały wysłane bezpośrednio do oferty Allegro!');
+            const serverWarnings = Array.isArray(res.data?.warnings) && res.data.warnings.length > 0
+                ? res.data.warnings.filter(w => w && !String(res.data?.message || '').includes(w))
+                : [];
+            const warnSuffix = serverWarnings.length > 0 ? `\n\nUwagi:\n- ${serverWarnings.join('\n- ')}` : '';
+            alert((res.data?.message || 'Opis i zdjęcia zostały wysłane bezpośrednio do oferty Allegro!') + warnSuffix);
             setAllegroContentConfirmStep(0);
             setShowAllegroContentModal(false);
             if (fetchAppGlobalData) fetchAppGlobalData();
@@ -1893,6 +1926,75 @@ export const UnifiedProductPipelineView = ({
     const inputClass = "w-full bg-slate-50 border border-slate-300 text-slate-800 text-sm font-bold rounded-sm px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner";
 
     const filteredBrands = brands.filter(b => b.name && b.name.toLowerCase().includes((brandSearchTerm || '').toLowerCase()));
+
+    const renderAllegroTitlePreviewCard = ({ titlePreview, includeChecked, onToggleInclude }) => {
+        if (!titlePreview) return null;
+        const currentLen = [...(titlePreview.current || '')].length;
+        const nextLen = titlePreview.length ?? [...(titlePreview.next || '')].length;
+        const isInvalid = Boolean(includeChecked && !titlePreview.blockedByTrusted && titlePreview.changed && titlePreview.validation && !titlePreview.validation.valid);
+        let statusLabel = 'BEZ ZMIAN';
+        let statusClass = 'bg-slate-100 text-slate-600';
+        if (titlePreview.blockedByTrusted) {
+            statusLabel = 'TRUSTED (BLOKADA)';
+            statusClass = 'bg-amber-100 text-amber-800';
+        } else if (isInvalid) {
+            statusLabel = 'BŁĄD WALIDACJI';
+            statusClass = 'bg-rose-100 text-rose-700';
+        } else if (titlePreview.willUpdate) {
+            statusLabel = 'AKTUALIZUJ';
+            statusClass = 'bg-indigo-100 text-indigo-700';
+        } else if (titlePreview.changed && !includeChecked) {
+            statusLabel = 'POMINIĘTY';
+            statusClass = 'bg-amber-100 text-amber-800';
+        }
+        return (
+            <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center space-x-2">
+                        <h4 className="text-xs font-black text-slate-700 uppercase tracking-widest">
+                            Tytuł oferty Allegro (name)
+                        </h4>
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${statusClass}`}>
+                            {statusLabel}
+                        </span>
+                    </div>
+                    <label className="flex items-center space-x-2 text-xs font-bold text-slate-700 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={Boolean(includeChecked)}
+                            disabled={Boolean(titlePreview.blockedByTrusted)}
+                            onChange={e => onToggleInclude(e.target.checked)}
+                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span>Wyślij tytuł oferty (name)</span>
+                    </label>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-sm">
+                        <div className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                            <span>Obecnie na Allegro</span>
+                            <span className="font-mono">{currentLen} / 75 zn.</span>
+                        </div>
+                        <div className="font-bold text-slate-700 break-words">{titlePreview.current || '—'}</div>
+                    </div>
+                    <div className={`p-3 border rounded-sm ${isInvalid ? 'bg-rose-50 border-rose-200' : (titlePreview.willUpdate ? 'bg-indigo-50/60 border-indigo-200' : 'bg-slate-50 border-slate-200')}`}>
+                        <div className="flex items-center justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+                            <span>Nowy tytuł z PIM</span>
+                            <span className={`font-mono ${nextLen > 75 || nextLen < 12 ? 'text-rose-600 font-black' : 'text-slate-600'}`}>{nextLen} / 75 zn.</span>
+                        </div>
+                        <div className={`font-black break-words ${isInvalid ? 'text-rose-700' : (titlePreview.willUpdate ? 'text-indigo-800' : 'text-slate-700')}`}>
+                            {titlePreview.next || '—'}
+                        </div>
+                    </div>
+                </div>
+                {titlePreview.validation?.errors?.length > 0 && includeChecked && titlePreview.changed && !titlePreview.blockedByTrusted && (
+                    <div className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-sm p-2.5">
+                        {titlePreview.validation.errors.join(' ')}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     return (
         <div className="flex-1 flex flex-col p-4 bg-slate-900 h-full w-full relative min-h-0 overflow-hidden">
@@ -2264,7 +2366,7 @@ export const UnifiedProductPipelineView = ({
                                                 onClick={() => handleValidateAllegroParamsExport()}
                                                 disabled={isValidatingAllegroParams}
                                                 className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-[10px] uppercase font-black tracking-widest rounded-md transition-all shadow-md flex items-center disabled:opacity-50"
-                                                title="Waliduje parametry kategorii, skład INCI oraz czyste ostrzeżenia bez emotikonów i wysyła je bezpośrednio do Allegro REST API"
+                                                title="Waliduje tytuł oferty (name), parametry kategorii, skład INCI oraz czyste ostrzeżenia bez emotikonów i wysyła je bezpośrednio do Allegro REST API"
                                             >
                                                 {isValidatingAllegroParams ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
                                                 Wyślij Parametry Allegro
@@ -2274,7 +2376,7 @@ export const UnifiedProductPipelineView = ({
                                                 onClick={() => handleValidateAllegroContentExport()}
                                                 disabled={isValidatingAllegroContent}
                                                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] uppercase font-black tracking-widest rounded-md transition-all shadow-md flex items-center disabled:opacity-50"
-                                                title="Otwiera Pre-flight weryfikacji i wysyła gotowy opis oraz zdjęcia bezpośrednio na wybrane konto/ofertę Allegro"
+                                                title="Otwiera Pre-flight weryfikacji i wysyła gotowy tytuł, opis oraz zdjęcia bezpośrednio na wybrane konto/ofertę Allegro"
                                             >
                                                 {isValidatingAllegroContent ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Image className="w-4 h-4 mr-2" />}
                                                 Wyślij Opis i Zdjęcia Allegro
@@ -2841,7 +2943,7 @@ export const UnifiedProductPipelineView = ({
                                                                     onClick={() => handleValidateAllegroParamsExport()}
                                                                     disabled={isValidatingAllegroParams}
                                                                     className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-sm text-[9px] font-bold uppercase transition-colors shadow-sm flex items-center disabled:opacity-50"
-                                                                    title="Przygotowuje podgląd Pre-flight i wysyła parametry, skład INCI oraz czyste ostrzeżenia bezpośrednio do Allegro API"
+                                                                    title="Przygotowuje podgląd Pre-flight i wysyła tytuł oferty, parametry, skład INCI oraz czyste ostrzeżenia bezpośrednio do Allegro API"
                                                                 >
                                                                     {isValidatingAllegroParams ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Send className="w-3 h-3 mr-1" />}
                                                                     Wyślij Parametry
@@ -2851,7 +2953,7 @@ export const UnifiedProductPipelineView = ({
                                                                     onClick={() => handleValidateAllegroContentExport()}
                                                                     disabled={isValidatingAllegroContent}
                                                                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-sm text-[9px] font-bold uppercase transition-colors shadow-sm flex items-center disabled:opacity-50"
-                                                                    title="Przygotowuje podgląd Pre-flight i wysyła gotowy opis oraz zdjęcia bezpośrednio do Allegro API"
+                                                                    title="Przygotowuje podgląd Pre-flight i wysyła gotowy tytuł, opis oraz zdjęcia bezpośrednio do Allegro API"
                                                                 >
                                                                     {isValidatingAllegroContent ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Image className="w-3 h-3 mr-1" />}
                                                                     Wyślij Opis i Zdjęcia
@@ -3511,6 +3613,8 @@ export const UnifiedProductPipelineView = ({
                                         onClick={() => handleValidateAllegroParamsExport({
                                             offerId: allegroOfferId,
                                             accountId: allegroAccountId === 'ALL' ? '' : allegroAccountId,
+                                            includeTitle: allegroParamsIncludeTitle,
+                                            title: liveTitle,
                                             includeSafetyInfo: allegroIncludeSafety,
                                             customSafetyText: allegroCustomSafetyText,
                                             includeComposition: allegroIncludeComposition,
@@ -3578,6 +3682,15 @@ export const UnifiedProductPipelineView = ({
                                     )}
                                 </div>
                             )}
+
+                            {renderAllegroTitlePreviewCard({
+                                titlePreview: allegroParamsValidationResult.titlePreview,
+                                includeChecked: allegroParamsIncludeTitle,
+                                onToggleInclude: (checked) => {
+                                    setAllegroParamsIncludeTitle(checked);
+                                    setAllegroPreviewDirty(true);
+                                }
+                            })}
 
                             {/* Tabela zmian parametrów kategorii */}
                             <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm">
@@ -3656,6 +3769,8 @@ export const UnifiedProductPipelineView = ({
                                                 handleValidateAllegroParamsExport({
                                                     offerId: allegroOfferId,
                                                     accountId: allegroAccountId === 'ALL' ? '' : allegroAccountId,
+                                                    includeTitle: allegroParamsIncludeTitle,
+                                                    title: liveTitle,
                                                     includeSafetyInfo: allegroIncludeSafety,
                                                     customSafetyText: allegroCustomSafetyText,
                                                     includeComposition: checked,
@@ -3774,7 +3889,7 @@ export const UnifiedProductPipelineView = ({
 
                         <div className="p-4 bg-white border-t border-slate-200 flex flex-wrap justify-between items-center gap-3 shrink-0">
                             <p className="text-xs text-slate-500 font-bold max-w-lg">
-                                Eksport wykonuje bezpieczne <strong className="text-amber-700">PATCH /sale/product-offers/{allegroParamsValidationResult.offer?.id}</strong> ze scaleniem parametrów i danych GPSR (RFC 7396) oraz jawną ochroną obecnego opisu i zdjęć aukcji.
+                                Eksport wykonuje bezpieczne <strong className="text-amber-700">PATCH /sale/product-offers/{allegroParamsValidationResult.offer?.id}</strong> ze scaleniem tytułu (`name`), parametrów i danych GPSR (RFC 7396) oraz jawną ochroną obecnego opisu i zdjęć aukcji.
                             </p>
                             <div className="flex items-center space-x-3">
                                 <button
@@ -3790,6 +3905,8 @@ export const UnifiedProductPipelineView = ({
                                         type="button"
                                         onClick={() => handleValidateAllegroParamsExport({
                                             offerId: allegroOfferId,
+                                            includeTitle: allegroParamsIncludeTitle,
+                                            title: liveTitle,
                                             includeSafetyInfo: allegroIncludeSafety,
                                             customSafetyText: allegroCustomSafetyText,
                                             includeComposition: allegroIncludeComposition,
@@ -3918,6 +4035,8 @@ export const UnifiedProductPipelineView = ({
                                         onClick={() => handleValidateAllegroContentExport({
                                             offerId: allegroOfferId,
                                             accountId: allegroAccountId === 'ALL' ? '' : allegroAccountId,
+                                            includeTitle: allegroContentIncludeTitle,
+                                            title: liveTitle,
                                             includeImages: allegroExportIncludeImages,
                                             includeDescription: allegroExportIncludeDescription,
                                             aiFlagsOverride: allegroAiFlagsOverride
@@ -3948,6 +4067,15 @@ export const UnifiedProductPipelineView = ({
                                     </ul>
                                 </div>
                             )}
+
+                            {renderAllegroTitlePreviewCard({
+                                titlePreview: allegroContentValidationResult.titlePreview,
+                                includeChecked: allegroContentIncludeTitle,
+                                onToggleInclude: (checked) => {
+                                    setAllegroContentIncludeTitle(checked);
+                                    setAllegroContentPreviewDirty(true);
+                                }
+                            })}
 
                             {/* Zakres wysyłki i podgląd gotowych zdjęć */}
                             <div className="bg-white p-5 rounded-md border border-slate-200 shadow-sm space-y-4">
@@ -4098,7 +4226,7 @@ export const UnifiedProductPipelineView = ({
 
                         <div className="p-4 bg-white border-t border-slate-200 flex flex-wrap justify-between items-center gap-3 shrink-0">
                             <p className="text-xs text-slate-500 font-bold max-w-lg">
-                                Zatwierdzenie wysyła gotowe zdjęcia na <strong className="text-emerald-700">POST /sale/images</strong> i wykonuje <strong className="text-emerald-700">PATCH /sale/product-offers/{allegroContentValidationResult.offer?.id}</strong> (bez ruszania `productSet` ani parametrów).
+                                Zatwierdzenie wysyła gotowe zdjęcia na <strong className="text-emerald-700">POST /sale/images</strong> i wykonuje <strong className="text-emerald-700">PATCH /sale/product-offers/{allegroContentValidationResult.offer?.id}</strong> (aktualizacja tytułu, opisu i zdjęć — bez ruszania `productSet` ani parametrów).
                             </p>
                             <div className="flex items-center space-x-3">
                                 <button
@@ -4115,6 +4243,8 @@ export const UnifiedProductPipelineView = ({
                                         onClick={() => handleValidateAllegroContentExport({
                                             offerId: allegroOfferId,
                                             accountId: allegroAccountId === 'ALL' ? '' : allegroAccountId,
+                                            includeTitle: allegroContentIncludeTitle,
+                                            title: liveTitle,
                                             includeImages: allegroExportIncludeImages,
                                             includeDescription: allegroExportIncludeDescription,
                                             aiFlagsOverride: allegroAiFlagsOverride
