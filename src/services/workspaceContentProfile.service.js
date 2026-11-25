@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { stripRawInciFooterFromSection3 } = require('../modules/offer-optimizer-v2/normalization');
+const { validateDosageYieldMath } = require('../modules/offer-optimizer-v2/services/label-truth.helpers');
 
 const DEFAULT_SEKCJA_7_PL = '<p>Produkt pochodzi z włoskiej dystrybucji i jest dostarczany w fabrycznym, szczelnie zamkniętym opakowaniu producenta. Przed pierwszym użyciem zapoznaj się z etykietą oraz zaleceniami zamieszczonymi na opakowaniu.</p>';
 
@@ -144,7 +145,10 @@ const PACKAGING_FACT_FEATURE_KEYS = new Set([
     'INCI',
     'Skład',
     'Ostrzeżenia',
+    'Ostrzeżenia (Etykieta)',
     'Sposób użycia',
+    'Sposób użycia (Etykieta)',
+    'Pojemność nakrętki (Etykieta)',
     'Producent',
     'Kraj pochodzenia',
     'Kraj pochodzenia (Front)',
@@ -160,15 +164,23 @@ const PACKAGING_FACT_FEATURE_KEYS = new Set([
     'Waga z opakowaniem jednostkowym',
     'Waga produktu z opakowaniem jednostkowym',
     'Postać',
+    'Postać (Etykieta)',
+    'Postać (Front)',
     'Postac',
     'Forma',
     'Dozownik',
+    'Dozownik (Etykieta)',
     'Opakowanie',
     'Opakowanie produktu',
+    'Opakowanie (Front)',
     'Opakowanie (Etykieta)',
     'Zapach',
     'Nuta zapachowa',
     'Linia',
+    'Linia produktowa (Front)',
+    'Wariant (Etykieta Front)',
+    'Nazwa produktu (Etykieta Front)',
+    'Nazwa produktu (Kontretykieta)',
     'Przeznaczenie (Front)',
     'Przeznaczenie (Etykieta)',
     'Przeznaczenie',
@@ -176,6 +188,9 @@ const PACKAGING_FACT_FEATURE_KEYS = new Set([
     'Składniki wiodące (Front)',
     'Wyróżniki (Etykieta Front)',
     'Wyróżniki / Certyfikaty (Etykieta)',
+    'Bez spłukiwania (Etykieta Front)',
+    'Piktogramy CLP (Etykieta)',
+    'Liczba sztuk (Front)',
     'Liczba sztuk (Etykieta)',
     'Liczba sztuk w opakowaniu',
     'Liczba prań',
@@ -516,6 +531,18 @@ function extractVerifiedPackagingFacts(product = {}) {
             const s = String(v).trim();
             if (!s) continue;
             features[k] = v;
+        }
+        const capCandidate = features['Pojemność / Waga'] || features['Pojemność'] || '';
+        const yieldCandidate = features['Wydajność'] || features['Liczba prań'] || '';
+        if (features['Sposób użycia']) {
+            const mathCheck = validateDosageYieldMath({
+                capacityText: capCandidate,
+                yieldText: yieldCandidate,
+                usageText: features['Sposób użycia']
+            });
+            if (!mathCheck.valid) {
+                delete features['Sposób użycia'];
+            }
         }
     }
     return {

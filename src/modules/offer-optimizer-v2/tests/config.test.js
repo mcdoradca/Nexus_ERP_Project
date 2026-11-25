@@ -23,7 +23,7 @@ test('Konfiguracja węzłów: A5 zoptymalizowana (Flash bez thinkingLevel)', () 
 });
 
 test('Konfiguracja węzłów: Brak wycofanych parametrów próbkowania (temperature, top_p, top_k, thinkingBudget)', () => {
-    const nodeIds = [1, 2, 4, 5, 6, 7, 9, 10, 11];
+    const nodeIds = [0, 1, 2, 4, 5, 6, 7, 9, 10, 11];
     for (const id of nodeIds) {
         const cfg = getNodeConfig(id);
         assert.strictEqual(cfg.temperature, undefined, `Węzeł ${id} nie może zawierać parametru temperature`);
@@ -37,7 +37,7 @@ test('Konfiguracja węzłów: Brak wycofanych parametrów próbkowania (temperat
 
 test('Konfiguracja węzłów: Precyzyjna taksonomia - thinkingLevel MEDIUM dla Pro i LOW dla kreatorów/audytora Flash (ADR-0198)', () => {
     const proNodes = [10];
-    const thinkingFlashNodes = [4, 6, 11];
+    const thinkingFlashNodes = [0, 4, 6, 11];
     const plainFlashNodes = [1, 2, 5, 7, 9];
     
     for (const id of proNodes) {
@@ -64,7 +64,7 @@ test('Konfiguracja węzłów: Precyzyjna taksonomia - thinkingLevel MEDIUM dla P
 });
 
 test('Ochrona przed błędem 400: Żaden węzeł nie używa ThinkingLevel.MINIMAL (nieobsługiwanego przez API)', () => {
-    const nodeIds = [1, 2, 4, 5, 6, 7, 9, 10, 11];
+    const nodeIds = [0, 1, 2, 4, 5, 6, 7, 9, 10, 11];
     for (const id of nodeIds) {
         const cfg = getNodeConfig(id);
         assert.notStrictEqual(cfg.thinkingLevel, ThinkingLevel.MINIMAL, `Węzeł ${id} nie może używać MINIMAL - odrzucane przez Google API`);

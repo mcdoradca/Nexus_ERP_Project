@@ -20,6 +20,9 @@ const {
     detectRawCatalogNameLeak,
     isPureFillerIngredient,
     isFabricSoftenerProduct,
+    isGenericCategoryWordNotLine,
+    resolveLabelPhysicalForm,
+    normalizeFabricSoftenerTerminology,
     resolveSection3HeadingAndLead
 } = require('./label-truth.helpers');
 
@@ -391,25 +394,94 @@ function resolveCanonicalProductName({
         .filter(Boolean);
     const officialTokenSet = new Set(officialTokensLower);
 
-    // Wyciągnij słowa opisujące rodzaj produktu z surowej nazwy ERP, usuwając duplikaty, literówki, pojemności i ucięte skróty
+    const brandTokensLower = String(brand || '')
+        .toLowerCase()
+        .replace(/[^a-ząćęłńóśźż0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(Boolean);
+    const brandTokenSet = new Set(brandTokensLower);
+    if (brandTokensLower.length > 1) {
+        brandTokenSet.add(brandTokensLower.join(''));
+    }
+
+    const labelForm = resolveLabelPhysicalForm({
+        visionFeatures,
+        features,
+        officialLabelName: baseOfficialName,
+        rawProductName: rawName
+    });
+    const isSoftener = isFabricSoftenerProduct({
+        productName: `${baseOfficialName} ${rawName}`,
+        line: officialLine,
+        visionFeatures,
+        features
+    });
+
+    const scentDoubletTranslations = [
+        { it: 'peonia', pl: ['piwonia', 'piwonii'] },
+        { it: 'magnolia', pl: ['magnolia', 'magnolii'] },
+        { it: 'orchidea', pl: ['orchidea', 'orchidei'] },
+        { it: 'fico', pl: ['figa', 'figi'] },
+        { it: 'vaniglia', pl: ['wanilia', 'wanilii'] },
+        { it: 'muschio', pl: ['piżmo', 'pizmo', 'piżma'] },
+        { it: 'bianco', pl: ['białe', 'biale'] },
+        { it: 'lavanda', pl: ['lawenda', 'lawendy'] },
+        { it: 'marsiglia', pl: ['marsylskie', 'marsylskiego'] },
+        { it: 'limone', pl: ['cytryna', 'cytryny'] },
+        { it: 'loto', pl: ['lotos', 'lotosu'] },
+        { it: 'arancio', pl: ['pomarańcza', 'pomarańczy', 'pomaranczy'] },
+        { it: 'narciso', pl: ['narcyz', 'narcyza'] }
+    ];
+    const coveredPolishScentSet = new Set();
+    const officialJoinedLower = cleanOfficial.toLowerCase();
+    for (const pair of scentDoubletTranslations) {
+        if (officialJoinedLower.includes(pair.it)) {
+            for (const plWord of pair.pl) coveredPolishScentSet.add(plWord);
+        }
+    }
+
+    // Wyciągnij słowa opisujące rodzaj produktu z surowej nazwy ERP, usuwając duplikaty, literówki, pojemności, gołe liczby prań i sprzeczne formy
     const rawSanitized = sanitizeOfferTitle(rawName)
+        .replace(/\b\d+\s+\d{1,2}\s*(?:ml|l|g|kg)\b/gi, '')
         .replace(/\b\d+(?:[.,]\d+)?\s*(?:ml|l|g|kg|szt\.?|kaps\.?)\b/gi, '')
+        .replace(/\b\d{1,4}\s*(?:pra[nń]|płuka[nń]|p\.?|pł\.?)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, '')
+        .replace(/\s+\d{1,3}\s*$/g, '')
         .trim();
     const descriptorWords = [];
     for (const token of rawSanitized.split(/\s+/).filter(Boolean)) {
         const cleanTok = token.toLowerCase().replace(/[^a-ząćęłńóśźż0-9]/g, '');
         if (!cleanTok) continue;
         if (officialTokenSet.has(cleanTok)) continue;
-        if (brand && cleanTok === brand.toLowerCase().trim()) continue;
+        if (brandTokenSet.has(cleanTok)) continue;
+        if (coveredPolishScentSet.has(cleanTok)) continue;
+        if (/^(?:konc\.?|oryg\.?|włoski|wloski|italiano|p\.?|pł\.?)$/i.test(token.trim())) continue;
+        if (/^\d+$/.test(cleanTok)) continue;
+
+        // Ochrona spójności postaci fizycznej z prawdą etykietową (np. eliminacja "żel" przy płynie Detersivo)
+        if (labelForm.canonicalForm === 'płyn' && /^(?:żel|zel|żelowy|żelowa|żelowe)$/i.test(cleanTok)) {
+            continue;
+        }
+        if (labelForm.canonicalForm === 'żel' && /^(?:proszek|płyn)$/i.test(cleanTok) && !/\bmydł/i.test(rawSanitized)) {
+            continue;
+        }
+        if (labelForm.canonicalForm === 'proszek' && /^(?:płyn|żel|zel|kapsułki)$/i.test(cleanTok)) {
+            continue;
+        }
+
         // Odrzuć 1-3 literowe ucięte skróty wyrazów z oficjalnej nazwy (np. "fi" dla "Fiori", "pr" dla "Primavera")
         const isTruncatedPrefix = cleanTok.length <= 3 && !POLISH_CONNECTOR_WORDS.has(cleanTok) &&
             officialTokensLower.some(ot => ot.length > cleanTok.length && ot.startsWith(cleanTok));
         if (isTruncatedPrefix) continue;
-        // Odrzuć samotny spójnik na końcu lub początku bez kontekstu później
-        descriptorWords.push(token.toLowerCase());
+        if (!descriptorWords.includes(token.toLowerCase())) {
+            descriptorWords.push(token.toLowerCase());
+        }
     }
 
     let descriptorPhrase = descriptorWords.join(' ').trim();
+    if (isSoftener && descriptorPhrase) {
+        descriptorPhrase = normalizeFabricSoftenerTerminology(descriptorPhrase)
+            .replace(/\bdo\s+prania\b/gi, 'do płukania tkanin');
+    }
     const rawDispenser = String(visionFeatures?.['Dozownik'] || features?.['Dozownik'] || visionFeatures?.['Postać'] || features?.['Postać'] || '').toLowerCase();
     const isSprayDispenser = /\bspray\b|\batomizer\b|\bspryskiwacz\b/i.test(rawDispenser);
     if (isSprayDispenser && descriptorPhrase && !/\bspray/i.test(`${cleanOfficial} ${descriptorPhrase}`)) {
@@ -1261,10 +1333,24 @@ function buildDeterministicSection5({
     if (registryEntity && registryEntity.name && (!resolvedManufacturer || /^(?:unilever|unilever\s+europe\s+b\.?v\.?)$/i.test(String(resolvedManufacturer).trim()))) {
         resolvedManufacturer = registryEntity.name;
     }
-    const resolvedLine = visionFeatures?.['Linia produktowa (Front)'] || features?.['Linia produktowa (Front)'] || line || features?.['Linia'] || visionFeatures?.['Linia'] || '';
-    // Zatwierdzony parametr Allegro / PIM ma wyższy priorytet niż surowe przypuszczenie Vision (zgodność Opis <-> KPA)
+    const candidateLine = visionFeatures?.['Linia produktowa (Front)'] || features?.['Linia produktowa (Front)'] || line || features?.['Linia'] || visionFeatures?.['Linia'] || '';
+    const resolvedLine = isGenericCategoryWordNotLine(candidateLine) ? '' : candidateLine;
     const isValidParam = (v) => v !== undefined && v !== null && String(v).trim() !== '' && !/^(?:null|undefined|brak\s+danych|n\/a|-)$/i.test(String(v).trim());
-    const resolvedPostac = [features?.['Postać'], features?.['Postac'], features?.['Forma'], visionFeatures?.['Postać']].find(isValidParam) || '';
+    const labelFormS5 = resolveLabelPhysicalForm({
+        visionFeatures,
+        features,
+        officialLabelName: visionFeatures?.['Nazwa produktu (Etykieta Front)'] || features?.['Nazwa produktu (Etykieta Front)'] || features?.['Nazwa produktu (Kontretykieta)'],
+        rawProductName: cleanTitle || productName
+    });
+    let resolvedPostac = '';
+    if (labelFormS5.isVerifiedFromLabel && labelFormS5.canonicalForm) {
+        resolvedPostac = labelFormS5.canonicalForm;
+    } else {
+        const rawPostacCand = [visionFeatures?.['Postać (Etykieta)'], features?.['Postać (Etykieta)'], features?.['Postać'], features?.['Postac'], features?.['Forma'], visionFeatures?.['Postać']].find(isValidParam) || '';
+        resolvedPostac = /^(?:płyn\s+żel|żel\s+płyn|płyn\/żel|żel\/płyn)$/i.test(String(rawPostacCand).trim())
+            ? (labelFormS5.canonicalForm || 'płyn')
+            : rawPostacCand;
+    }
     const rawCap = capacity || visionFeatures?.['Pojemność / Waga'] || visionFeatures?.['Pojemność'] || visionFeatures?.['Waga'] || features?.['Pojemność'] || features?.['Waga'] || '';
     const resolvedCapacity = normalizeCapacityValue(rawCap, cleanTitle, visionFeatures);
 
@@ -1317,10 +1403,15 @@ function buildDeterministicSection5({
         }
     }
 
-    const resolvedDozownik = [features?.['Dozownik'], visionFeatures?.['Dozownik'], features?.['Opakowanie produktu'], features?.['Opakowanie']].find(v => isValidParam(v) && !/^brak$/i.test(String(v).trim())) || '';
+    const resolvedDozownik = [visionFeatures?.['Dozownik (Etykieta)'], features?.['Dozownik (Etykieta)'], features?.['Dozownik'], visionFeatures?.['Dozownik'], features?.['Opakowanie produktu'], features?.['Opakowanie']].find(v => isValidParam(v) && !/^brak$/i.test(String(v).trim())) || '';
     const resolvedWydajnosc = visionFeatures?.['Wydajność'] || features?.['Wydajność'] || features?.['Liczba prań'] || '';
-    const isFabricSoftener = /(?:płyn[a-ząćęłńóśźż]*\s+do\s+płukania|plyn[a-z]*\s+do\s+plukania|koncentrat[a-ząćęłńóśźż]*\s+do\s+płukania|ammorbidente|zmiękczacz[a-ząćęłńóśźż]*\s+do\s+tkanin)/i.test(`${cleanTitle} ${features?.['Kategoria'] || ''} ${resolvedLine}`) &&
-        !/(?:płyn[a-ząćęłńóśźż]*\s+do\s+prania|żel[a-ząćęłńóśźż]*\s+do\s+prania|prosz[a-ząćęłńóśźż]*\s+do\s+prania|kapsułk[a-ząćęłńóśźż]*\s+do\s+prania|2w1|2\s*in\s*1|detersivo)/i.test(cleanTitle);
+    const isFabricSoftener = isFabricSoftenerProduct({
+        productName: cleanTitle,
+        category: features?.['Kategoria'] || '',
+        line: resolvedLine,
+        visionFeatures,
+        features
+    });
 
     let formattedWydajnosc = resolvedWydajnosc;
     if (isFabricSoftener && formattedWydajnosc) {
@@ -1369,7 +1460,10 @@ function buildDeterministicSection5({
     let resolvedHero = visionFeatures?.['Składniki wiodące (Front)'] || '';
     const frontPrzeznaczenie = String(visionFeatures?.['Przeznaczenie (Front)'] || '').trim();
     const backPrzeznaczenie = String(features?.['Przeznaczenie (Etykieta)'] || features?.['Przeznaczenie'] || features?.['Zastosowanie'] || '').trim();
-    const resolvedPrzeznaczenie = (backPrzeznaczenie.length > frontPrzeznaczenie.length) ? backPrzeznaczenie : (frontPrzeznaczenie || backPrzeznaczenie);
+    let resolvedPrzeznaczenie = (backPrzeznaczenie.length > frontPrzeznaczenie.length) ? backPrzeznaczenie : (frontPrzeznaczenie || backPrzeznaczenie);
+    if (isFabricSoftener && resolvedPrzeznaczenie) {
+        resolvedPrzeznaczenie = normalizeFabricSoftenerTerminology(resolvedPrzeznaczenie);
+    }
     const noRinseDetected = isNoRinseFormula({ productName: cleanTitle, visionFeatures, features });
     const rawWyroznikiParts = [
         ...(noRinseDetected ? ['Bez spłukiwania'] : []),
@@ -1382,10 +1476,19 @@ function buildDeterministicSection5({
     const mergedWyroznikiParts = rawWyroznikiParts.join(', ');
     const filteredWyrozniki = sanitizeLabelHighlights(mergedWyroznikiParts, {
         isMedicalDevice,
-        brand: brand || features?.['Marka'] || visionFeatures?.['Marka'],
-        productName: productName || features?.['Nazwa']
+        brand: resolvedBrand,
+        productName: cleanTitle || productName || features?.['Nazwa'],
+        normalizeCase: true,
+        maxItems: 5
     });
-    const resolvedWyrozniki = filteredWyrozniki.text;
+    let resolvedWyrozniki = filteredWyrozniki.text;
+    if (resolvedHero && resolvedWyrozniki) {
+        const heroLowerSet = new Set(String(resolvedHero).split(/[,;]+/).map(s => s.trim().toLowerCase()).filter(Boolean));
+        const dedupedItems = filteredWyrozniki.items.filter(it => !heroLowerSet.has(it.toLowerCase()));
+        if (dedupedItems.length > 0) {
+            resolvedWyrozniki = dedupedItems.join(', ');
+        }
+    }
     let resolvedCountry = countryOfOrigin || features?.['Kraj pochodzenia'] || features?.['Kraj produkcji'] || features?.['Kraj pochodzenia (Front)'] || features?.['Kraj pochodzenia (Etykieta)'] || visionFeatures?.['Kraj pochodzenia (Front)'] || '';
 
     // Korekta wyłącznie gdy kraj pochodzenia jest pusty (wyciągamy z adresu w rejestrze producenta UE)

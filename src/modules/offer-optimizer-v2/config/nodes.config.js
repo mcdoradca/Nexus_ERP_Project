@@ -1,7 +1,7 @@
 const { ThinkingLevel } = require('@google/genai');
 
 const nodesConfig = {
-    0: { model: 'gemini-3.8-flash' },
+    0: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.LOW },
     1: { model: 'gemini-3.8-flash', grounding: true },
     2: { model: 'gemini-3.8-flash' },
     4: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.LOW },

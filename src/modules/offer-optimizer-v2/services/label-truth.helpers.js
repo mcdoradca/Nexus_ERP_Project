@@ -115,6 +115,258 @@ function isFabricSoftenerProduct({ productName = '', category = '', line = '', v
     return Boolean(isSoftener && !isWashDetergent);
 }
 
+const GENERIC_PRODUCT_CATEGORY_LINE_REGEX = /^(?:detersivo(?:\s+liquido|\s+lavatrice)?|ammorbidente(?:\s+concentrato)?|lavatrice|bucato|detergente|płyn(?:\s+do\s+(?:prania|płukania|naczyń|mycia|szyb|podłóg))?|żel(?:\s+do\s+(?:prania|wc|łazienek|mycia))?|koncentrat(?:\s+do\s+płukania)?|proszek(?:\s+do\s+prania)?|środek\s+czyszczący|srodek\s+czyszczacy)$/i;
+
+function isGenericCategoryWordNotLine(val = '') {
+    const clean = String(val || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return false;
+    return GENERIC_PRODUCT_CATEGORY_LINE_REGEX.test(clean);
+}
+
+function normalizeCanonicalFormName(raw = '', { allowPassthrough = false } = {}) {
+    const low = String(raw || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!low) return '';
+    if (/^(?:płyn\s+żel|żel\s+płyn|płyn\/żel|żel\/płyn|płyn\s*-\s*żel)$/i.test(low)) return 'HYBRID_AMBIGUOUS';
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:spray|w\s+sprayu|atomizer|aerozol)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(low)) return 'spray';
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:żel|w\s+żelu|zel|gel|in\s+gel)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(low)) return 'żel';
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:piank[aęi]|w\s+piance)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(low)) return 'pianka';
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:proszek|w\s+proszku)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(low)) return 'proszek';
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])kapsułk[a-ząćęłńóśźż]*(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(low)) return 'kapsułki';
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])tabletk[a-ząćęłńóśźż]*(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(low)) return 'tabletki';
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])mleczk[oau](?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(low)) return 'mleczko';
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:krem|w\s+kremie)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(low)) return 'krem';
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:kostk[aęi]|w\s+kostce)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(low)) return 'kostka';
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])chusteczk[a-ząćęłńóśźż]*(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(low)) return 'chusteczki';
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:płyn|w\s+płynie|mydło\s+w\s+płynie)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(low)) return 'płyn';
+    return allowPassthrough && low.length <= 25 ? low : '';
+}
+
+/**
+ * Wyznacza kanoniczną postać fizyczną wyrobu z poszanowaniem hierarchii prawdy etykietowej (Label-Truth SSOT).
+ * Jeśli etykieta (Vision `Postać (Etykieta)` lub oficjalna nazwa `Detersivo`/`Ammorbidente`/`Sapone Liquido` bez słowa `Gel`)
+ * jednoznacznie wskazuje `płyn`, koryguje błędne aukcyjne `'żel'` lub `'Płyn Żel'` bez nadpisywania ważnej edycji operatora w innych kategoriach.
+ */
+function resolveLabelPhysicalForm({ visionFeatures = {}, features = {}, officialLabelName = '', rawProductName = '' } = {}) {
+    const explicitLabelPostacRaw = [
+        visionFeatures?.['Postać (Etykieta)'],
+        features?.['Postać (Etykieta)'],
+        visionFeatures?.['Postać (Front)'],
+        features?.['Postać (Front)']
+    ].find(v => v !== undefined && v !== null && String(v).trim() !== '');
+
+    const officialFrontAndBack = [
+        officialLabelName,
+        visionFeatures?.['Nazwa produktu (Etykieta Front)'],
+        features?.['Nazwa produktu (Etykieta Front)'],
+        visionFeatures?.['Nazwa produktu (Kontretykieta)'],
+        features?.['Nazwa produktu (Kontretykieta)'],
+        visionFeatures?.['Linia produktowa (Front)'],
+        features?.['Linia produktowa (Front)'],
+        visionFeatures?.['Wariant (Etykieta Front)'],
+        features?.['Wariant (Etykieta Front)']
+    ].filter(Boolean).join(' ').trim();
+
+    const hasGelWordOnLabel = /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:gel|żel|zel|in\s+gel)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(`${officialFrontAndBack} ${explicitLabelPostacRaw || ''}`);
+    const hasExplicitLiquidLabelCategory = /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:detersivo(?:\s+liquido)?|ammorbidente(?:\s+concentrato)?|sapone\s+liquido|liquido)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(officialFrontAndBack);
+
+    if (hasExplicitLiquidLabelCategory && !hasGelWordOnLabel) {
+        return {
+            canonicalForm: 'płyn',
+            isVerifiedFromLabel: true,
+            source: 'official_label_name'
+        };
+    }
+
+    if (explicitLabelPostacRaw) {
+        const normExplicit = normalizeCanonicalFormName(explicitLabelPostacRaw, { allowPassthrough: true });
+        if (normExplicit && normExplicit !== 'HYBRID_AMBIGUOUS') {
+            return {
+                canonicalForm: normExplicit,
+                isVerifiedFromLabel: true,
+                source: 'label_postac_field'
+            };
+        }
+    }
+
+    if (hasGelWordOnLabel && /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:gel|żel|in\s+gel)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(officialFrontAndBack)) {
+        return {
+            canonicalForm: 'żel',
+            isVerifiedFromLabel: true,
+            source: 'official_label_name'
+        };
+    }
+
+    const visionPostacRaw = visionFeatures?.['Postać'];
+    const featPostacRaw = features?.['Postać'] || features?.['Postac'] || features?.['Forma'];
+    const rawFallback = [visionPostacRaw, featPostacRaw].find(v => v !== undefined && v !== null && String(v).trim() !== '');
+    if (rawFallback) {
+        const normFb = normalizeCanonicalFormName(rawFallback, { allowPassthrough: true });
+        if (normFb === 'HYBRID_AMBIGUOUS') {
+            return {
+                canonicalForm: /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:gel|żel)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(`${officialFrontAndBack}`) ? 'żel' : 'płyn',
+                isVerifiedFromLabel: false,
+                source: 'hybrid_disambiguated'
+            };
+        }
+        return {
+            canonicalForm: normFb,
+            isVerifiedFromLabel: false,
+            source: visionPostacRaw ? 'vision_postac' : 'features_postac'
+        };
+    }
+
+    const rawNameNorm = normalizeCanonicalFormName(rawProductName, { allowPassthrough: false });
+    if (rawNameNorm === 'HYBRID_AMBIGUOUS') {
+        return { canonicalForm: 'płyn', isVerifiedFromLabel: false, source: 'raw_name_hybrid' };
+    }
+    return {
+        canonicalForm: rawNameNorm || '',
+        isVerifiedFromLabel: false,
+        source: rawNameNorm ? 'raw_name' : 'none'
+    };
+}
+
+/**
+ * Konwertuje błędne określenia prania (np. dosłowne tłumaczenia ikonek `In lavatrice` / `A mano`)
+ * na poprawną terminologię płukania dla płynów/koncentratów do płukania tkanin.
+ */
+function normalizeFabricSoftenerTerminology(text = '') {
+    if (!text || typeof text !== 'string') return text;
+    return String(text)
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])płakanie(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, (m) => (/^[A-Z]/.test(m) ? 'Płukanie' : 'płukanie'))
+        .replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])płukannie(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, (m) => (/^[A-Z]/.test(m) ? 'Płukanie' : 'płukanie'))
+        .replace(/(?<![a-ząćęłńóśźż])do\s+prania\s+i\s+płukania(?![a-ząćęłńóśźż])/gi, 'do płukania i zmiękczania')
+        .replace(/(?<![a-ząćęłńóśźż])w\s+praniu\s+w\s+pralce(?![a-ząćęłńóśźż])/gi, (m) => (/^[A-Z]/.test(m) ? 'Podczas płukania w pralce' : 'podczas płukania w pralce'))
+        .replace(/(?<![a-ząćęłńóśźż])w\s+praniu\s+ręcznym(?![a-ząćęłńóśźż])/gi, (m) => (/^[A-Z]/.test(m) ? 'W płukaniu ręcznym' : 'w płukaniu ręcznym'))
+        .replace(/(?<![a-ząćęłńóśźż])prać\s+w\s+pralce(?![a-ząćęłńóśźż])/gi, (m) => (/^[A-Z]/.test(m) ? 'Płukać w pralce' : 'płukać w pralce'))
+        .replace(/(?<![a-ząćęłńóśźż])pranie\s+w\s+pralce\s+i\s+ręczne(?![a-ząćęłńóśźż])/gi, (m) => (/^[A-Z]/.test(m) ? 'Płukanie w pralce i płukanie ręczne' : 'płukanie w pralce i płukanie ręczne'))
+        .replace(/(?<![a-ząćęłńóśźż])pranie\s+w\s+pralce(?![a-ząćęłńóśźż])/gi, (m) => (/^[A-Z]/.test(m) ? 'Płukanie w pralce' : 'płukanie w pralce'))
+        .replace(/(?<![a-ząćęłńóśźż])praniu\s+w\s+pralce(?![a-ząćęłńóśźż])/gi, 'płukaniu w pralce')
+        .replace(/(?<![a-ząćęłńóśźż])prania\s+w\s+pralce(?![a-ząćęłńóśźż])/gi, 'płukania w pralce')
+        .replace(/(?<![a-ząćęłńóśźż])pranie\s+ręczne(?![a-ząćęłńóśźż])/gi, (m) => (/^[A-Z]/.test(m) ? 'Płukanie ręczne' : 'płukanie ręczne'))
+        .replace(/(?<![a-ząćęłńóśźż])praniu\s+ręcznym(?![a-ząćęłńóśźż])/gi, 'płukaniu ręcznym')
+        .replace(/(?<![a-ząćęłńóśźż])prania\s+ręcznego(?![a-ząćęłńóśźż])/gi, 'płukania ręcznego')
+        .replace(/(?<![a-ząćęłńóśźż])prać\s+ręcznie(?![a-ząćęłńóśźż])/gi, (m) => (/^[A-Z]/.test(m) ? 'Płukać ręcznie' : 'płukać ręcznie'))
+        .replace(/(?<![a-ząćęłńóśźż])(płukani[aeu]\s+w\s+pralce(?:\s+oraz|\s+i)?)\s+ręczne(?![a-ząćęłńóśźż])/gi, '$1 płukanie ręczne');
+}
+
+function parseTotalVolumeMl(capacityText = '') {
+    const raw = String(capacityText || '').trim();
+    if (!raw) return null;
+    if (/\b(?:szt\.?|kaps\.?|kapsuł|tablet|tabs|g\b|kg\b|gram)/i.test(raw) && !/\b(?:ml|l|litr)\b/i.test(raw)) {
+        return null;
+    }
+    const unitMatch = raw.match(/(\d+(?:[.,]\d+)?)\s*(ml|cl|l|litr[a-ząćęłńóśźż]*)\b/i);
+    if (unitMatch) {
+        const val = parseFloat(unitMatch[1].replace(',', '.'));
+        if (!Number.isFinite(val) || val <= 0) return null;
+        const unit = unitMatch[2].toLowerCase();
+        if (unit.startsWith('ml')) return val;
+        if (unit === 'cl') return val * 10;
+        return val * 1000;
+    }
+    if (/^\d+(?:[.,]\d+)?$/.test(raw)) {
+        const num = parseFloat(raw.replace(',', '.'));
+        if (!Number.isFinite(num) || num <= 0) return null;
+        return num <= 20 ? num * 1000 : num;
+    }
+    return null;
+}
+
+function parseDeclaredCycleCount(yieldText = '') {
+    const raw = String(yieldText || '').trim();
+    if (!raw) return null;
+    const match = raw.match(/(?<![0-9a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(\d{1,4})\s*(?:pra[nń]|pranie|płuka[nń]|płukanie|cykl(?:i|e)?(?:\s+(?:płukania|prania))?|lavaggi|washes|doz|uży[cć])?(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/i);
+    if (!match) return null;
+    const n = parseInt(match[1], 10);
+    return Number.isFinite(n) && n >= 2 && n <= 1000 ? n : null;
+}
+
+/**
+ * Waliduje spójność matematyczną instrukcji dozowania w ml względem pojemności opakowania i deklarowanej liczby prań/płukań.
+ * Wykrywa halucynacje tabel dozowania (np. 68 ml jako standard dla wsadu 4-5 kg przy butelce 2250 ml / 50 prań, gdzie 2250/50 = 45 ml).
+ */
+function validateDosageYieldMath({ capacityText = '', yieldText = '', usageText = '' } = {}) {
+    const totalVolumeMl = parseTotalVolumeMl(capacityText);
+    const declaredCycles = parseDeclaredCycleCount(yieldText);
+    const plain = String(usageText || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+
+    if (!totalVolumeMl || !declaredCycles || !plain) {
+        return { valid: true };
+    }
+
+    const expectedDoseMl = totalVolumeMl / declaredCycles;
+    if (!Number.isFinite(expectedDoseMl) || expectedDoseMl < 8 || expectedDoseMl > 250) {
+        return { valid: true };
+    }
+
+    // Usuń wzmianki o pojemności nakrętki, dopiskach +10/+15 ml, dawkowaniu ręcznym w X litrach wody oraz samej pojemności opakowania
+    const sanitizedForMachine = plain
+        .replace(/(?:pojemność\s+nakrętki(?:\s+wynosi)?|1\s*nakrętka|pełna\s+nakrętka|nakrętka)\s*(?:=|wynosi|:)?\s*\d+(?:[.,]\d+)?\s*ml/gi, ' ')
+        .replace(/(?:\+|dodaj(?:\s+kolejne|\s+dodatkowo)?|dodatkow[ey]\w*)\s*\d+(?:[.,]\d+)?\s*ml/gi, ' ')
+        .replace(/(?:prani[ea]\s+ręczn[ey]|płukani[ea]\s+ręczn[ey]|rozpuść|rozprowadź)[^.;\n]*?\d+(?:[.,]\d+)?\s*ml\s*(?:[^.;\n]*?\bw\s*\d+\s*(?:l|litr)|\bna\s*\d+\s*l)/gi, ' ');
+
+    const machineDoseMatches = [];
+    const mlRx = /\b(\d+(?:[.,]\d+)?)\s*ml\b/gi;
+    let m;
+    while ((m = mlRx.exec(sanitizedForMachine)) !== null) {
+        const val = parseFloat(m[1].replace(',', '.'));
+        if (!Number.isFinite(val) || val < 10 || val > 250) continue;
+        if (Math.abs(val - totalVolumeMl) < 1) continue;
+        // Pomijamy wartości występujące bezpośrednio przed "w X litrach wody" / "na X l wody"
+        const afterSnippet = sanitizedForMachine.slice(m.index, m.index + 65);
+        if (/\b(?:w|na)\s+\d+(?:[.,]\d+)?\s*(?:l|litr)/i.test(afterSnippet)) continue;
+        machineDoseMatches.push(val);
+    }
+
+    if (machineDoseMatches.length === 0) {
+        return { valid: true };
+    }
+
+    // Sprawdź czy dla wsadu 4-5 kg podano wyraźnie dawkę dla wody średniej
+    let actualMediumDoseMl = null;
+    const load45Block = sanitizedForMachine.match(/(?:wsad(?:u|zie)?|pralki?)[^.]{0,25}\b4\s*[–\/-]\s*5\s*kg\b([^.;]{0,140})/i);
+    if (load45Block && load45Block[1]) {
+        const medMatch = load45Block[1].match(/(?:woda\s+średnia|średniej(?:\s+twardości)?|śr\.)\s*(?::|=|to|wynosi)?\s*(\d+(?:[.,]\d+)?)\s*ml/i);
+        if (medMatch) {
+            actualMediumDoseMl = parseFloat(medMatch[1].replace(',', '.'));
+        }
+    }
+
+    const hasDoseNearExpected = machineDoseMatches.some(d => Math.abs(d - expectedDoseMl) <= Math.max(4, expectedDoseMl * 0.15));
+    const minMachineDose = Math.min(...machineDoseMatches);
+    const maxImpliedCyclesFromMin = totalVolumeMl / minMachineDose;
+
+    if (actualMediumDoseMl !== null && Math.abs(actualMediumDoseMl - expectedDoseMl) > Math.max(5, expectedDoseMl * 0.2)) {
+        return {
+            valid: false,
+            expectedDoseMl: Math.round(expectedDoseMl * 10) / 10,
+            actualMediumDoseMl,
+            impliedCycles: Math.round(totalVolumeMl / actualMediumDoseMl),
+            declaredCycles,
+            totalVolumeMl,
+            reason: `Dla pojemności ${totalVolumeMl} ml i wydajności ${declaredCycles} prań/płukań dawka standardowa (4-5 kg, woda średnia) powinna wynosić ok. ${Math.round(expectedDoseMl * 10) / 10} ml, a podano ${actualMediumDoseMl} ml (co starczyłoby na ok. ${Math.round(totalVolumeMl / actualMediumDoseMl)} cykli).`
+        };
+    }
+
+    if (machineDoseMatches.length >= 2 && !hasDoseNearExpected && maxImpliedCyclesFromMin < declaredCycles * 0.85) {
+        return {
+            valid: false,
+            expectedDoseMl: Math.round(expectedDoseMl * 10) / 10,
+            actualMediumDoseMl: minMachineDose,
+            impliedCycles: Math.round(maxImpliedCyclesFromMin),
+            declaredCycles,
+            totalVolumeMl,
+            reason: `Dla pojemności ${totalVolumeMl} ml i wydajności ${declaredCycles} prań/płukań dawka standardowa wynosi ok. ${Math.round(expectedDoseMl * 10) / 10} ml, natomiast najmniejsza dawka do pralki w instrukcji (${minMachineDose} ml) daje maksymalnie ok. ${Math.round(maxImpliedCyclesFromMin)} cykli.`
+        };
+    }
+
+    return {
+        valid: true,
+        expectedDoseMl: Math.round(expectedDoseMl * 10) / 10
+    };
+}
+
 function resolveSection3HeadingAndLead({ isChemical = false, isFabricSoftener = false, presetIdx = 0 } = {}) {
     const idx = Number(presetIdx || 0);
     if (isFabricSoftener) {
@@ -185,5 +437,9 @@ module.exports = {
     FILLER_OR_PRESERVATIVE_HEADINGS_REGEX,
     isPureFillerIngredient,
     isFabricSoftenerProduct,
+    isGenericCategoryWordNotLine,
+    resolveLabelPhysicalForm,
+    normalizeFabricSoftenerTerminology,
+    validateDosageYieldMath,
     resolveSection3HeadingAndLead
 };

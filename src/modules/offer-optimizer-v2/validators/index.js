@@ -2,14 +2,17 @@ const crypto = require('crypto');
 const cheerio = require('cheerio');
 const { isRawInciFooterText } = require('../normalization');
 const { classifyProductPhysicalForm } = require('../services/product-form.classifier');
-const { scanStrictStopwords, scanAllegroComplianceRisks } = require('../services/allegro-compliance.policy');
+const { scanStrictStopwords, scanAllegroComplianceRisks, getHighlightSemanticCluster } = require('../services/allegro-compliance.policy');
 const {
     isNoRinseFormula,
     hasDeclaredOdorNeutralizer,
     detectRawCatalogNameLeak,
     FRAGRANCE_ALLERGEN_MOLECULES,
     FILLER_OR_PRESERVATIVE_HEADINGS_REGEX,
-    isFabricSoftenerProduct
+    isFabricSoftenerProduct,
+    isGenericCategoryWordNotLine,
+    resolveLabelPhysicalForm,
+    validateDosageYieldMath
 } = require('../services/label-truth.helpers');
 const gpsrSafetyService = require('../services/gpsr.safety.service');
 
@@ -480,6 +483,80 @@ function validate_section5_compliance(html, options = {}) {
         errors.push(`[Sekcja 5 Marketing/Allegro] Niedozwolone lub ryzykowne sformułowanie w specyfikacji technicznej: "${r.word}" (${r.label})`);
     }
 
+    const plainS5 = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:płyn\s*[\/+-]?\s*żel|żel\s*[\/+-]?\s*płyn)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(plainS5)) {
+        errors.push('[Sekcja 5 Specyfikacja] Niedozwolona hybrydowa postać "płyn żel" / "żel płyn" — użyj jednej zweryfikowanej postaci z etykiety.');
+    }
+
+    const s5VisionFeats = options.vision_features || options.visionFeatures || {};
+    const s5Features = options.features || {};
+    const s5LabelForm = resolveLabelPhysicalForm({
+        visionFeatures: s5VisionFeats,
+        features: s5Features,
+        officialLabelName: options.official_label_name || s5VisionFeats['Nazwa produktu (Etykieta Front)'] || s5VisionFeats['Nazwa produktu (Kontretykieta)'] || s5Features['Nazwa produktu (Etykieta Front)'] || '',
+        rawProductName: options.product_name || options.name || options.productName || ''
+    });
+
+    const isSoftenerS5 = isFabricSoftenerProduct({
+        productName: options.product_name || options.name || options.productName || '',
+        category: options.category || s5Features['Kategoria'] || '',
+        visionFeatures: s5VisionFeats,
+        features: s5Features
+    });
+    if (isSoftenerS5 && /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:prać\s+w\s+pralce|prani[eu]\s+w\s+pralce|prać\s+ręcznie|prani[eu]\s+ręczn[eym]+|płakanie|płukannie)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(plainS5)) {
+        errors.push('[Sekcja 5 Specyfikacja – Płyn do płukania] Wykryto błędne określenie "prać w pralce" / "pranie" lub literówkę ("płakanie") zamiast "płukanie".');
+    }
+
+    try {
+        const $s5 = cheerio.load(html);
+        $s5('li').each((_, el) => {
+            const itemText = $s5(el).text().replace(/\s+/g, ' ').replace(/^[\W_➡️•✔️✅]+/u, '').trim();
+            const colonIdx = itemText.indexOf(':');
+            if (colonIdx <= 0) return;
+            const key = itemText.slice(0, colonIdx).trim();
+            const val = itemText.slice(colonIdx + 1).trim();
+            if (!val) return;
+
+            if (/^linia\s+produktowa$/i.test(key) && isGenericCategoryWordNotLine(val)) {
+                errors.push(`[Sekcja 5 Specyfikacja] Generyczne słowo kategorii "${val}" nie może występować jako "Linia produktowa".`);
+            }
+
+            if (/^posta[cć]\s+fizyczna$/i.test(key) && s5LabelForm.isVerifiedFromLabel && s5LabelForm.canonicalForm) {
+                const vLow = val.toLowerCase();
+                let formMismatch = /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:płyn\s*[\/+-]?\s*żel|żel\s*[\/+-]?\s*płyn)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(vLow);
+                if (!formMismatch && s5LabelForm.canonicalForm === 'płyn' && /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:żel|zel|w\s+żelu|proszek|w\s+proszku|tabletki|kapsułki|kostka)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(vLow) && !/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])płyn/i.test(vLow)) {
+                    formMismatch = true;
+                } else if (!formMismatch && s5LabelForm.canonicalForm === 'żel' && /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:proszek|w\s+proszku|tabletki|kapsułki|kostka)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(vLow)) {
+                    formMismatch = true;
+                } else if (!formMismatch && s5LabelForm.canonicalForm === 'proszek' && /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:płyn|w\s+płynie|żel|w\s+żelu|spray|w\s+sprayu)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(vLow)) {
+                    formMismatch = true;
+                } else if (!formMismatch && s5LabelForm.canonicalForm === 'w sprayu' && /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:żel|w\s+żelu|proszek|w\s+proszku|tabletki|kapsułki|kostka)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(vLow)) {
+                    formMismatch = true;
+                }
+                if (formMismatch) {
+                    errors.push(`[Sekcja 5 Specyfikacja] Niezgodna postać fizyczna "${val}" względem etykiety produktu ("${s5LabelForm.canonicalForm}").`);
+                }
+            }
+
+            if (/^(?:właściwości\s+i\s+wyróżniki|cechy\s+dodatkowe)$/i.test(key)) {
+                const parts = val.split(/[;,]+/).map(s => s.trim()).filter(Boolean);
+                const seenClusters = new Map();
+                for (const part of parts) {
+                    const cluster = getHighlightSemanticCluster(part);
+                    if (cluster) {
+                        if (seenClusters.has(cluster)) {
+                            errors.push(`[Sekcja 5 Specyfikacja] Semantyczny duplikat w "${key}" (klaster ${cluster}): "${part}" powiela "${seenClusters.get(cluster)}".`);
+                        } else {
+                            seenClusters.set(cluster, part);
+                        }
+                    }
+                }
+            }
+        });
+    } catch {
+        // fallback na wypadek nietypowego HTML
+    }
+
     return { valid: errors.length === 0, errors };
 }
 
@@ -593,6 +670,7 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
     const s2 = String(sectionsObj.section_2_html || '');
     const s3 = String(sectionsObj.section_3_html || '');
     const s4 = String(sectionsObj.section_4_html || '');
+    const s5 = String(sectionsObj.section_5_html || '');
     const s6 = String(sectionsObj.section_6_html || '');
     const allHtml = `${s1}\n${s2}\n${s3}\n${s4}\n${s6}`;
 
@@ -710,12 +788,26 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
     }
 
     // 15. Błąd pojęciowo-technologiczny: płyn do płukania tkanin (ammorbidente) to nie detergent piorący
-    const isPureFabricSoftener = /(?:płyn[a-ząćęłńóśźż]*\s+do\s+płukania|plyn[a-z]*\s+do\s+plukania|koncentrat[a-ząćęłńóśźż]*\s+do\s+płukania|ammorbidente|zmiękczacz[a-ząćęłńóśźż]*\s+do\s+tkanin)/i.test(`${prodName} ${allHtml}`) &&
-        !/(?:płyn[a-ząćęłńóśźż]*\s+do\s+prania|żel[a-ząćęłńóśźż]*\s+do\s+prania|prosz[a-ząćęłńóśźż]*\s+do\s+prania|kapsułk[a-ząćęłńóśźż]*\s+do\s+prania|2w1|2\s*in\s*1|detersivo)/i.test(prodName);
+    const isPureFabricSoftener = isFabricSoftenerProduct({
+        productName: prodName,
+        category: context.features?.['Kategoria'] || '',
+        visionFeatures: context.visionFeatures || {},
+        features: context.features || {}
+    }) || (
+        /(?:płyn[a-ząćęłńóśźż]*\s+do\s+płukania|plyn[a-z]*\s+do\s+plukania|koncentrat[a-ząćęłńóśźż]*\s+do\s+płukania|ammorbidente|zmiękczacz[a-ząćęłńóśźż]*\s+do\s+tkanin)/i.test(`${prodName} ${allHtml}`) &&
+        !/(?:płyn[a-ząćęłńóśźż]*\s+do\s+prania|żel[a-ząćęłńóśźż]*\s+do\s+prania|prosz[a-ząćęłńóśźż]*\s+do\s+prania|kapsułk[a-ząćęłńóśźż]*\s+do\s+prania|2w1|2\s*in\s*1|detersivo)/i.test(prodName)
+    );
 
     if (isPureFabricSoftener) {
-        if (/\b\d+\s*prań\b/i.test(allHtml) || /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])cykl[a-ząćęłńóśźż]*\s+prania(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/i.test(allHtml) || /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])po\s+każdym\s+praniu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/i.test(allHtml) || /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])środ(?:ek|ka|kiem)\s+piorąc/i.test(allHtml)) {
-            errors.push('[Błąd pojęciowo-technologiczny] Płyn do płukania tkanin (ammorbidente) nie jest detergentem piorącym. Wydajność musi być podana w cyklach płukania (np. "65 cykli płukania" / "65 płukań"), a nie w praniach.');
+        const softenerAuditHtml = `${allHtml}\n${s5}`;
+        if (
+            /(?<![0-9a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])\d+\s*pra[nń](?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/i.test(allHtml) ||
+            /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])cykl[a-ząćęłńóśźż]*\s+prania(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/i.test(allHtml) ||
+            /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])po\s+każdym\s+praniu(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])/i.test(allHtml) ||
+            /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ0-9])środ(?:ek|ka|kiem)\s+piorąc/i.test(allHtml) ||
+            /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:prać\s+w\s+pralce|prani[eu]\s+w\s+pralce|prać\s+ręcznie|prani[eu]\s+ręczn[eym]+|płakanie|płukannie)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(softenerAuditHtml)
+        ) {
+            errors.push('[Błąd pojęciowo-technologiczny] Płyn do płukania tkanin (ammorbidente) nie jest detergentem piorącym. Używaj wyłącznie terminologii "płukanie" / "cykle płukania" (ZAKAZ "prać w pralce", "pranie ręczne", "w praniach").');
         }
     }
 
@@ -817,7 +909,6 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
         return { rawBlocks, sentences };
     };
 
-    const s5 = String(sectionsObj.section_5_html || '');
     const noRinseNegationRe = /(?:bez\s+(?:konieczności\s+)?spłukiwania|nie\s+wymaga\s+spłukiwania|bez\s+spłukiwania)/i;
     const activeSurfaceRinseRe = /\b(?:dokładnie\s+spłucz(?:\s+(?:powierzchnię|ceramikę|armaturę|kabinę|wannę|umywalkę|całość))?(?:\s+(?:czystą\s+)?wodą)?|spłucz\s+(?:powierzchnię|ceramikę|armaturę|kabinę|wannę|umywalkę|całość)\s*(?:czystą\s+)?wodą|należy\s+(?:następnie\s+)?spłukać\s+(?:powierzchnię|całość|czystą\s+wodą|wodą)|wymaga\s+(?:dokładnego\s+)?spłukania(?:\s+wodą)?|obficie\s+spłucz\s+(?:powierzchnię|całość)?\s*wodą)\b/i;
     const bodyRinseOnlyRe = /\b(?:spłucz|umyj)\s+(?:ręce|dłonie|oczy|skórę)\b/i;
@@ -987,6 +1078,39 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
         const s3Plain = s3.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
         if (/(?<![a-ząćęłńóśźż])(?:rozbijani[aeu]\s+zabrudzeń|usuwani[aeu]\s+(?:tłuszczu|brudu|plam|osadów\s+mineralnych|kamienia)|odspajani[aeu]\s+zabrudzeń|etap\s+czyszczenia|skuteczność\s+czyszczenia|czyszczącej\s+powierzchnie)(?![a-ząćęłńóśźż])/i.test(s3Plain)) {
             errors.push('[Błąd domenowy Sekcji 3 – Płyn do płukania] Płyn/koncentrat do płukania tkanin nie służy do "rozbijania zabrudzeń" ani "etapu czyszczenia". Skup się wyłącznie na miękkości włókien, łatwości prasowania i zapachu.');
+        }
+    }
+
+    // 32. Spójność postaci fizycznej etykiety z opisem i Sekcją 5 (zakaz "płyn żel" / "żel" na płynie Detersivo)
+    const labelFormCheck = resolveLabelPhysicalForm({
+        visionFeatures: context.visionFeatures || {},
+        features: context.features || {},
+        officialLabelName: context.canonicalProductName || prodName,
+        rawProductName: context.rawProductName || prodName
+    });
+    if (labelFormCheck.isVerifiedFromLabel && labelFormCheck.canonicalForm) {
+        const combinedFormAuditHtml = `${s1} ${s2} ${s4} ${s5}`.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+        if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:płyn\s*[\/+-]?\s*żel|żel\s*[\/+-]?\s*płyn)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(combinedFormAuditHtml)) {
+            errors.push(`[Niespójność postaci fizycznej z etykietą] Wykryto sprzeczną zbitkę "płyn żel" — etykieta definiuje postać produktu jako "${labelFormCheck.canonicalForm}".`);
+        } else if (labelFormCheck.canonicalForm === 'płyn' && /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:postać(?:\s+fizyczna)?\s*:\s*żel|dozować\s+żel|żel\s+do\s+prania|piorący\s+żel)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(combinedFormAuditHtml)) {
+            errors.push('[Niespójność postaci fizycznej z etykietą] Etykieta określa produkt jako płyn (Detersivo / Ammorbidente bez "Gel"), a opis lub specyfikacja używa błędnej postaci "żel".');
+        }
+    }
+
+    // 33. Walidacja matematyki dozowania w Sekcji 4 względem pojemności i deklarowanej wydajności
+    const capForMath = context.capacity || context.visionFeatures?.['Pojemność / Waga'] || context.visionFeatures?.['Pojemność'] || context.features?.['Pojemność / Waga'] || context.features?.['Pojemność'] || prodName;
+    const yieldForMath = context.yield || context.visionFeatures?.['Wydajność'] || context.features?.['Wydajność'] || context.features?.['Liczba prań'] || '';
+    const capMatchForMath = String(capForMath || '').match(/(\d+(?:[.,]\d+)?)\s*(ml|l)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i);
+    const yieldMatchForMath = String(yieldForMath || '').match(/(\d+)\s*(?:pra[ńn]|cykl[iaów]*\s*płukania|płuka[ńn]|płuk\.?|wash(?:es)?|lavaggi)/i);
+    if (s4 && capMatchForMath && yieldMatchForMath) {
+        const s4Plain = s4.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+        const dosageAudit = validateDosageYieldMath({
+            capacityText: `${capMatchForMath[1]} ${capMatchForMath[2]}`,
+            yieldText: `${yieldMatchForMath[1]} prań`,
+            usageText: s4Plain
+        });
+        if (!dosageAudit.valid) {
+            errors.push(`[Błąd matematyki dozowania vs wydajność w Sekcji 4] ${dosageAudit.reason} Zweryfikuj tabelę dozowania na kontretykiecie.`);
         }
     }
 

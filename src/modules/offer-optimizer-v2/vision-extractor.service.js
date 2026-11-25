@@ -4,6 +4,13 @@ const aiWrapper = require('./ai.wrapper.js');
 const baselinkerExtract = require('./baselinker.extract.js');
 const { normalizeInciToLegalEnglish } = require('./normalization.js');
 const { sanitizeLabelHighlights, sanitizeAllegroMarketingText } = require('./services/allegro-compliance.policy');
+const {
+    isGenericCategoryWordNotLine,
+    isFabricSoftenerProduct,
+    normalizeFabricSoftenerTerminology,
+    resolveLabelPhysicalForm,
+    validateDosageYieldMath
+} = require('./services/label-truth.helpers');
 
 const imageHttpsAgent = new https.Agent({ 
     rejectUnauthorized: false,
@@ -130,17 +137,17 @@ DOKTRYNA ZAMKNIĘTEGO ŚWIATA I ONTOLOGII PRODUKTU:
 
 KRYTYCZNE ZADANIA EKSTRAKCJI:
 0. Oficjalna identyfikacja produktu z przedniej etykiety:
-   - "marka_front": dokładna nazwa marki z logo na froncie (np. "Viakal", "Cif", "Chanteclair", "Felce Azzurra").
-   - "linia_produktowa_front": nazwa linii/submarki produktu z frontu (np. "Bagno Express", "Vetro Doccia Express", "Candeggina"). Jeśli brak, null.
-   - "wariant_etykieta_front": oryginalna, pełna nazwa wariantu zapachowego lub wersji z frontu (np. "Fiori di Primavera", "Lavanda", "Classico"). Jeśli brak, null.
-   - "pelna_nazwa_etykieta": spójna oficjalna nazwa produktu odczytana 1:1 z opakowania (Marka + Linia + Wariant, np. "Viakal Bagno Express Fiori di Primavera"). BEZWZGLĘDNIE pomijaj hasła reklamowe typu "Nr 1", "N°1 Contro il Calcare", "Nowość", "Format XXL".
+   - "marka_front": dokładna nazwa marki z logo na froncie (np. "Viakal", "Cif", "Chanteclair", "Felce Azzurra", "Soft").
+   - "linia_produktowa_front": nazwa submarki lub kolekcji produktu z frontu (np. "Bagno Express", "Vetro Doccia Express", "i Concentrati", "Classico"). KATEGORYCZNY ZAKAZ wpisywania ogólnych włoskich lub polskich słów oznaczających sam rodzaj produktu ("Detersivo", "Detersivo Liquido", "Ammorbidente", "Lavatrice", "Bucato", "Detergente", "Płyn do prania", "Płyn do płukania")! Jeśli na etykiecie obok marki i wariantu widnieje tylko nazwa kategorii (np. "Soft Detersivo Total Black"), zwróć null.
+   - "wariant_etykieta_front": oryginalna, pełna nazwa wariantu zapachowego lub wersji z frontu (np. "Fiori di Primavera", "Lavanda", "Classico", "Total Black"). Jeśli brak, null.
+   - "pelna_nazwa_etykieta": spójna oficjalna nazwa produktu odczytana 1:1 z opakowania (Marka + Linia + Wariant, np. "Viakal Bagno Express Fiori di Primavera", "Soft Detersivo Total Black"). BEZWZGLĘDNIE pomijaj hasła reklamowe typu "Nr 1", "N°1 Contro il Calcare", "Nowość", "Format XXL".
    - "bez_splukiwania": ustaw true WYŁĄCZNIE wtedy, gdy na froncie widnieje wyraźne oznaczenie formuły bez spłukiwania ("SENZA RISCIACQUO", "Bez spłukiwania", "No Rinse", "Sans rinçage", "Ohne Ausspülen"); w przeciwnym razie false lub null.
-1. Pojemność lub waga: odczytaj dokładną wartość z jednostką (np. "650 ml", "750 ml", "1.5 l", "500 g", "1.5 kg"). Jeśli brak, null.
+1. Pojemność lub waga: odczytaj dokładną wartość z jednostką (np. "650 ml", "750 ml", "1.5 l", "2,25 l", "2250 ml", "500 g", "1.5 kg"). Jeśli brak, null.
 2. Wariant zapachowy lub wersja: odczytaj nazwę rzeczywistej nuty zapachowej dla kosmetyków i chemii (np. "Lawenda", "Cytryna i mięta", "Wiosenne kwiaty", "Ocean Fresh").
    - DLA ARTYKUŁÓW BEZWONNYCH (SZCZOTECZKI DO ZĘBÓW, AKCESORIA) ZAWSZE NULL!
    - KATEGORYCZNY ZAKAZ wpisywania składników chemicznych/czyszczących jako zapachu! Napisy typu "con Candeggina" (z wybielaczem), "con Bicarbonato" (z sodą), "con Aceto" (z octem), "con Ammoniaca" (z amoniakiem) oznaczają SKŁADNIK AKTYWNY (wpisz "Wybielacz", "Soda oczyszczona" lub "Ocet" do kluczowe_skladniki_front), a dla zapach_wariant zwróć null (chyba że obok podano rzeczywistą nutę zapachową np. Cytryna, Eukaliptus).
 3. Twardość włosia (dla szczoteczek do zębów i pędzli): odczytaj stopień twardości (np. "Soft", "Medium", "Hard", "Ultra Soft", "Średnia", "Miękka", "Twarda"). Jeśli produkt nie posiada włosia, null.
-4. Postać fizyczna: precyzyjnie określ postać po polsku (np. "płyn", "żel", "pianka", "spray", "proszek", "kapsułki", "tabletki", "krem", "balsam", "mleczko", "chusteczki", "szczoteczka manualna", "wyrób higieniczny").
+4. Postać fizyczna: precyzyjnie określ postać po polsku na podstawie tego, co widnieje na etykiecie ("płyn", "żel", "pianka", "spray", "proszek", "kapsułki", "tabletki", "krem", "balsam", "mleczko", "chusteczki", "szczoteczka manualna", "wyrób higieniczny"). KRYTYCZNA ZASADA ETYKIETOWA: włoski detergent płynny opisany jako "Detersivo", "Detersivo liquido" lub "Ammorbidente" w butelce BEZ wyraźnego napisu "Gel" / "Żel" na froncie ma postać "płyn" (NIGDY nie wpisuj "żel" ani hybrydy "płyn żel"!). "żel" zwracaj WYŁĄCZNIE wtedy, gdy etykieta wyraźnie deklaruje formę żelową ("Gel" / "Żel").
 5. Typ dozownika / zamknięcia: wskaż widoczny mechanizm po polsku (np. "pompka", "atomizer / spray", "korek / nakrętka", "nakrętka z miarką", "brak").
 6. Wydajność lub liczba użyć: jeśli podano liczbę prań, kapsułek lub doz (np. "40 prań", "60 kapsułek", "100 doz"), wpisz po polsku. W przeciwnym razie null.
 7. Przeznaczenie frontowe: główne docelowe zastosowanie podane na froncie, przetłumaczone w 100% na język polski bez obcojęzycznych wtrąceń w nawiasach (np. "uniwersalne czyszczenie powierzchni", "do czyszczenia kuchni i łazienki", "do higieny jamy ustnej", "do tkanin kolorowych"). Jeśli brak, null.
@@ -291,7 +298,9 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
         }
         if (result.linia_produktowa_front && String(result.linia_produktowa_front).trim().length > 0) {
             const cleanLine = sanitizeVisionFrontText(String(result.linia_produktowa_front).trim());
-            if (cleanLine) pimFeatures['Linia produktowa (Front)'] = cleanLine;
+            if (cleanLine && !isGenericCategoryWordNotLine(cleanLine)) {
+                pimFeatures['Linia produktowa (Front)'] = cleanLine;
+            }
         }
         if (result.wariant_etykieta_front && String(result.wariant_etykieta_front).trim().length > 0) {
             const cleanVariant = sanitizeVisionFrontText(String(result.wariant_etykieta_front).trim());
@@ -334,10 +343,25 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
             }
         }
         if (result.postac && String(result.postac).trim().length > 0) {
-            pimFeatures['Postać'] = sanitizeVisionFrontText(String(result.postac).trim());
+            const cleanPostac = sanitizeVisionFrontText(String(result.postac).trim());
+            if (cleanPostac) {
+                pimFeatures['Postać'] = cleanPostac;
+                pimFeatures['Postać (Etykieta)'] = cleanPostac;
+            }
+        }
+        const labelFormResolved = resolveLabelPhysicalForm({
+            visionFeatures: pimFeatures,
+            officialLabelName: pimFeatures['Nazwa produktu (Etykieta Front)'] || ''
+        });
+        if (labelFormResolved.isVerifiedFromLabel && labelFormResolved.canonicalForm &&
+            (!pimFeatures['Postać (Etykieta)'] || /^(?:żel|zel|płyn\s+żel)$/i.test(pimFeatures['Postać (Etykieta)']))) {
+            pimFeatures['Postać (Etykieta)'] = labelFormResolved.canonicalForm;
+            pimFeatures['Postać'] = labelFormResolved.canonicalForm;
         }
         if (result.dozownik && String(result.dozownik).trim().length > 0) {
-            pimFeatures['Dozownik'] = String(result.dozownik).trim();
+            const cleanDozownik = String(result.dozownik).trim();
+            pimFeatures['Dozownik'] = cleanDozownik;
+            pimFeatures['Dozownik (Etykieta)'] = cleanDozownik;
         }
         if (result.wydajnosc_liczba_uzyc && String(result.wydajnosc_liczba_uzyc).trim().length > 0) {
             pimFeatures['Wydajność'] = String(result.wydajnosc_liczba_uzyc).trim();
@@ -446,21 +470,27 @@ ZASADY ANALIZY (DOKTRYNA ZAMKNIĘTEGO ŚWIATA – ZERO ZGADYWANIA):
      * KATEGORYCZNY ZAKAZ ZGADYWANIA I DOPISYWANIA ŚRODKÓW OCHRONY LUB ZAGROŻEŃ SPOZA ETYKIETY (np. zakaz dopisywania P280/rękawic ochronnych, maski, okularów czy H319, jeśli etykieta ich wyraźnie nie wymienia!).
    - Jeśli brak widocznych ostrzeżeń na zdjęciu, ustaw "warnings": null.
 
-4. EKSTRAKCJA SPOSOBU UŻYCIA ("usage_instructions"):
-   - Jeśli na etykiecie widoczna jest instrukcja użycia / dozowania ("Modo d'uso", "Istruzioni per l'uso", "Sposób użycia", "Gebrauchsanweisung") lub piktogramowe kafelki kroków (np. "SPRUZZA -> PASSA -> FATTO!"):
+4. EKSTRAKCJA SPOSOBU UŻYCIA ("usage_instructions", "cap_capacity_ml"):
+   - Jeśli na etykiecie widoczna jest instrukcja użycia / tabela dozowania ("CONSIGLI D'USO", "HOW TO USE", "Modo d'uso", "Istruzioni per l'uso", "Sposób użycia", "Gebrauchsanweisung") lub piktogramowe kafelki kroków (np. "SPRUZZA -> PASSA -> FATTO!"):
      * Ustaw "has_back_label": true.
-     * Przetłumacz ją wiernie i kompletnie (1:1 ABC -> ABC) na naturalny język polski z zachowaniem wszystkich sekcji, temperatur (np. "nawet na zimno"), czasów działania, spłukiwania lub BRAKU spłukiwania (np. gdy kafelki pokazują "SPRUZZA -> PASSA -> FATTO!" albo front deklaruje "SENZA RISCIACQUO / Bez spłukiwania") oraz uwag typu "postępować zgodnie z instrukcją obsługi urządzenia". KATEGORYCZNY ZAKAZ halucynowania etapu "i spłukać" z pamięci o innym produkcie tej samej marki!
+     * Przepisz i przetłumacz DOKŁADNIE każdą komórkę tabeli dozowania — wiersz po wierszu i kolumna po kolumnie!
+     * Odczytaj pojemność nakrętki z rysunku/opisu na etykiecie ("1 tappo = X ml", np. "nakrętka = 50 ml") i zapisz ją również w polu "cap_capacity_ml". KATEGORYCZNY ZAKAZ zgadywania "75 ml" lub "60 ml", jeśli na zdjęciu widnieje inna wartość lub jej brak!
+     * Jeśli tabela rozróżnia dwa poziomy zabrudzeń (np. zabrudzenia średnie "sporco medio" i mocne "sporco ostinato / difficile") oraz twardość wody ("dolce/miękka", "media/średnia", "dura/twarda") dla różnych wsadów pralki ("4-5 kg", "6-8 kg" / "6-7 kg") i prania/płukania ręcznego ("a mano" w 10 l wody), zachowaj WSZYSTKIE te poziomy i dokładne liczby w ml!
+     * WERYFIKACJA MATEMATYCZNA PRZED ZWROTEM: jeśli znana jest pojemność butelki i deklarowana liczba cykli (np. 2250 ml / 50 prań = 45 ml na 1 standardowy cykl dla wsadu 4-5 kg, woda średnia, zabrudzenia średnie), standardowa dawka w Twoim odczycie MUSI zgadzać się z tym ilorazem! Jeśli odczytane cyfry dają sprzeczny wynik (np. 68 ml zamiast 45 ml), spójrz uważnie na zdjęcie jeszcze raz i odczytaj prawidłowe cyfry z kontretykiety (nigdy nie zmyślaj tabeli z innych produktów!).
+     * Dla płynów i koncentratów do płukania tkanin ("Ammorbidente") tłumacz nagłówki ikonek pralki i miski ("In lavatrice" / "A mano") wyłącznie jako "Płukanie w pralce" oraz "Płukanie ręczne" — KATEGORYCZNY ZAKAZ pisania "Pranie w pralce" lub "prać w pralce"!
+     * Zachowaj wszystkie temperatury (np. "nawet na zimno"), czasy działania, spłukiwanie lub BRAK spłukiwania (np. gdy kafelki pokazują "SPRUZZA -> PASSA -> FATTO!" albo front deklaruje "SENZA RISCIACQUO / Bez spłukiwania") oraz uwagi typu "postępować zgodnie z instrukcją obsługi urządzenia". KATEGORYCZNY ZAKAZ halucynowania etapu "i spłukać" z pamięci o innym produkcie tej samej marki!
      * Zastosuj zgodność z BPR: słowa typu "igienizzante/antibatterico" tłumacz jako "higienicznie czyszczący".
    - Jeśli brak widocznej instrukcji użycia na zdjęciu, ustaw "usage_instructions": null.
 
-5. EKSTRAKCJA NAZWY Z KONTRETYKIETY, POWIERZCHNI DOCELOWYCH, CERTYFIKATÓW / TESTÓW, PRODUCENTA I KRAJU ("oficjalna_nazwa_kontretykieta", "target_surfaces", "certifications_and_claims", "manufacturer_name", "country_of_origin", "packaging_type", "pieces_count", "numeric_ph"):
-   - W "oficjalna_nazwa_kontretykieta" podaj dokładną nazwę produktu występującą w nagłówku opisu na kontretykiecie (np. "Viakal Bagno Express"). W przeciwnym razie null.
-   - W "target_surfaces" wypisz po polsku wszystkie powierzchnie i zastosowania wymienione w opisie na tylnej etykiecie (np. "do czyszczenia szyb, kryształów, luster oraz powierzchni plastikowych i laminowanych").
+5. EKSTRAKCJA NAZWY Z KONTRETYKIETY, POSTACI, POWIERZCHNI DOCELOWYCH, CERTYFIKATÓW / TESTÓW, PRODUCENTA I KRAJU ("oficjalna_nazwa_kontretykieta", "postac_kontretykieta", "target_surfaces", "certifications_and_claims", "manufacturer_name", "country_of_origin", "packaging_type", "pieces_count", "numeric_ph"):
+   - W "oficjalna_nazwa_kontretykieta" podaj dokładną nazwę produktu występującą w nagłówku opisu na kontretykiecie (np. "Viakal Bagno Express", "Soft Detersivo Total Black"). W przeciwnym razie null.
+   - W "postac_kontretykieta" podaj postać fizyczną wynikającą z tekstu etykiety ("płyn" dla "Detersivo liquido"/"Ammorbidente" bez słowa "Gel", "żel" tylko gdy etykieta wyraźnie pisze "Gel"/"Żel").
+   - W "target_surfaces" wypisz po polsku wszystkie powierzchnie i zastosowania wymienione w opisie na tylnej etykiecie (dla płynu do płukania: "tkaniny, płukanie w pralce i płukanie ręczne" — nigdy "pranie w pralce"!).
    - W "certifications_and_claims" wypisz po polsku WYŁĄCZNIE obiektywne, weryfikowalne certyfikaty, testy laboratoryjne i fakty materiałowe z tylnej etykiety (np. "certyfikat Air Label Score A+ (minimalna emisja substancji do powietrza), testowany dermatologicznie, testowany na obecność niklu, rtęci, ołowiu i chromu, odpowiedni do planów H.A.C.C.P., butelka zawiera 30% plastiku z recyklingu"). KATEGORYCZNY ZAKAZ przepisywania haseł reklamowych, rankingów rynkowych ("Najlepiej sprzedający się produkt we Włoszech", "*il più venduto in Italia", "Nr 1"), rekomendacji obcych marek ani obietnic skuteczności! Jeśli brak zweryfikowanych certyfikatów/faktów, ustaw null.
    - W "manufacturer_name" podaj pełną nazwę producenta z kontretykiety (np. "Italchimica S.r.l.").
    - W "country_of_origin" podaj kraj produkcji po polsku wyłącznie jeśli wyraźnie widoczny na etykiecie (np. "Made in Italy" -> "Włochy"). W przeciwnym razie null.
    - W "packaging_type" podaj rodzaj opakowania jeśli wyraźnie widoczny na etykiecie (np. "plastikowa butelka z atomizerem", "worek uzupełniający", "kartonik"). W przeciwnym razie null.
-   - W "pieces_count" podaj liczbę sztuk/porcji jeśli podano (np. "40 szt.", "25 tabletek"). W przeciwnym razie null.
+   - W "pieces_count" podaj liczbę fizycznych sztuk/tabletek/kapsułek WYŁĄCZNIE gdy jest to produkt sztukowy (np. "40 kapsułek", "25 tabletek"). Dla płynów i żeli w butelce NIE wpisuj liczby prań do pieces_count — zwróć null!
    - W "numeric_ph" podaj wyłącznie wydrukowaną na etykiecie liczbę pH (np. "5.5", "3.0"), NIE zgaduj! W przeciwnym razie null.`;
 
 const backPackInciSchema = {
@@ -476,7 +506,9 @@ const backPackInciSchema = {
             items: { type: "string" }
         },
         usage_instructions: { type: ["string", "null"] },
+        cap_capacity_ml: { type: ["string", "null"] },
         oficjalna_nazwa_kontretykieta: { type: ["string", "null"] },
+        postac_kontretykieta: { type: ["string", "null"] },
         target_surfaces: { type: ["string", "null"] },
         certifications_and_claims: { type: ["string", "null"] },
         manufacturer_name: { type: ["string", "null"] },
@@ -518,9 +550,29 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
         : null;
 
     let frontContextNote = '';
+    const isSoftenerFromFront = isFabricSoftenerProduct({
+        productName: frontCtx?.['Nazwa produktu (Etykieta Front)'] || options?.productName || '',
+        line: frontCtx?.['Linia produktowa (Front)'] || '',
+        visionFeatures: frontCtx || {}
+    });
     if (frontCtx && Object.keys(frontCtx).length > 0) {
         const frontSummaryParts = [];
         if (frontCtx['Nazwa produktu (Etykieta Front)']) frontSummaryParts.push(`Nazwa frontowa: ${frontCtx['Nazwa produktu (Etykieta Front)']}`);
+        const frontCapVal = frontCtx['Pojemność / Waga'] || frontCtx['Pojemność'] || '';
+        const frontYieldVal = frontCtx['Wydajność'] || frontCtx['Liczba prań'] || '';
+        const frontPostacVal = frontCtx['Postać (Etykieta)'] || frontCtx['Postać'] || '';
+        if (frontCapVal) frontSummaryParts.push(`Pojemność z frontu: ${frontCapVal}`);
+        if (frontYieldVal) frontSummaryParts.push(`Deklarowana wydajność z frontu: ${frontYieldVal}`);
+        if (frontPostacVal) frontSummaryParts.push(`Postać fizyczna z etykiety: ${frontPostacVal}`);
+        if (frontCapVal && frontYieldVal) {
+            const mathProbe = validateDosageYieldMath({ capacityText: frontCapVal, yieldText: frontYieldVal, usageText: 'probe' });
+            if (mathProbe.expectedDoseMl) {
+                frontSummaryParts.push(`MATEMATYCZNA KOTWICA DOZOWANIA (Rozp. 648/2004): ${frontCapVal} / ${frontYieldVal} = ok. ${mathProbe.expectedDoseMl} ml na 1 standardowy cykl (wsad 4-5 kg, woda średnia, zabrudzenia średnie). Zweryfikuj odczytane liczby w tabeli z tą kotwicą i NIGDY nie zgaduj wyższych dawek z innych produktów!`);
+            }
+        }
+        if (isSoftenerFromFront) {
+            frontSummaryParts.push('KATEGORIA: PŁYN DO PŁUKANIA TKANIN (Ammorbidente) — używaj terminologii Płukanie w pralce / Płukanie ręczne (ZAKAZ "Pranie w pralce" / "prać w pralce")!');
+        }
         if (frontCtx['Bez spłukiwania (Etykieta Front)'] === 'Tak' || /bez\s+spłukiwania/i.test(frontCtx['Wyróżniki (Etykieta Front)'] || '')) {
             frontSummaryParts.push('KRYTYCZNY FAKT Z FRONTU: Produkt ma formułę BEZ SPŁUKIWANIA (SENZA RISCIACQUO) — NIE WOLNO dopisywać etapu spłukiwania wodą, jeśli kafelki/tekst kontretykiety pokazują przetarcie bez spłukiwania!');
         }
@@ -615,11 +667,24 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                         .replace(/[ \t]{2,}/g, ' ')
                         .trim();
                     pimFeatures['Ostrzeżenia'] = validWarnings;
+                    pimFeatures['Ostrzeżenia (Etykieta)'] = validWarnings;
                 }
 
                 if (result.usage_instructions && typeof result.usage_instructions === 'string' && result.usage_instructions.trim().length >= 5) {
                     validUsage = sanitizeVisionFrontText(result.usage_instructions.trim());
+                    if (isSoftenerFromFront) {
+                        validUsage = normalizeFabricSoftenerTerminology(validUsage);
+                    }
                     pimFeatures['Sposób użycia'] = validUsage;
+                    pimFeatures['Sposób użycia (Etykieta)'] = validUsage;
+                }
+
+                if (result.cap_capacity_ml && typeof result.cap_capacity_ml === 'string' && result.cap_capacity_ml.trim().length >= 1) {
+                    const capVal = String(result.cap_capacity_ml).trim();
+                    const capDigits = capVal.match(/\d+(?:[.,]\d+)?/);
+                    if (capDigits) {
+                        pimFeatures['Pojemność nakrętki (Etykieta)'] = `${capDigits[0].replace(',', '.')} ml`;
+                    }
                 }
 
                 if (result.oficjalna_nazwa_kontretykieta && typeof result.oficjalna_nazwa_kontretykieta === 'string' && result.oficjalna_nazwa_kontretykieta.trim().length >= 2) {
@@ -627,8 +692,18 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                     if (cleanBackName) pimFeatures['Nazwa produktu (Kontretykieta)'] = cleanBackName;
                 }
 
+                if (result.postac_kontretykieta && typeof result.postac_kontretykieta === 'string' && result.postac_kontretykieta.trim().length >= 2) {
+                    const cleanBackPostac = sanitizeVisionFrontText(result.postac_kontretykieta.trim());
+                    if (cleanBackPostac && !/^(?:płyn\s+żel|żel\s+płyn)$/i.test(cleanBackPostac)) {
+                        pimFeatures['Postać (Etykieta)'] = cleanBackPostac;
+                    }
+                }
+
                 if (result.target_surfaces && typeof result.target_surfaces === 'string' && result.target_surfaces.trim().length >= 5) {
-                    const cleanSurfaces = sanitizeVisionFrontText(result.target_surfaces.trim());
+                    let cleanSurfaces = sanitizeVisionFrontText(result.target_surfaces.trim());
+                    if (isSoftenerFromFront) {
+                        cleanSurfaces = normalizeFabricSoftenerTerminology(cleanSurfaces);
+                    }
                     if (cleanSurfaces) pimFeatures['Przeznaczenie (Etykieta)'] = cleanSurfaces;
                 }
 
@@ -649,7 +724,10 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                     pimFeatures['Opakowanie (Etykieta)'] = result.packaging_type.trim();
                 }
                 if (result.pieces_count && typeof result.pieces_count === 'string' && result.pieces_count.trim().length > 0) {
-                    pimFeatures['Liczba sztuk (Etykieta)'] = result.pieces_count.trim();
+                    const cleanPieces = result.pieces_count.trim();
+                    if (!/\b(?:pra[nń]|pranie|płuka[nń]|płukanie|lavagg|wash|cykl)/i.test(cleanPieces)) {
+                        pimFeatures['Liczba sztuk (Etykieta)'] = cleanPieces;
+                    }
                 }
                 if (result.numeric_ph && typeof result.numeric_ph === 'string' && /^\d+(?:[.,]\d+)?$/.test(result.numeric_ph.trim())) {
                     pimFeatures['pH (Etykieta)'] = result.numeric_ph.trim().replace(',', '.');

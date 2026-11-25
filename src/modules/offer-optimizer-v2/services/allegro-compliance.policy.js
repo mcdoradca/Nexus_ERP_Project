@@ -443,8 +443,10 @@ const LABEL_DROP_PATTERNS = [
     /(?:wysok[a-ząćęłńóśźż]*\s+skutecznoś[ćc]|wysok[a-ząćęłńóśźż]*\s+wydajnoś[ćc]|do\s+Twojej\s+|dla\s+Twojej\s+|dla\s+Twojego\s+|dla\s+Twoich\s+|gwarancj|gwarantuj|najlepsz|rewelacyj|cudown|magiczn|niezrównan|orygina[łl]|oryginaln)/i,
     // Roszczenia BPR / biobójcze w wyróżnikach (Sekcja 5 nie może zawierać "antybakteryjny")
     /(?:antybakteryjn|przeciwbakteryjn|dezynfekuj|dezynfekcj|odkażaj|biobójcz|bakteriobójcz|wirusobójcz|grzybobójcz|antibatteric|igienizzant|disinfettant)/i,
-    // Greenwashing bez oficjalnego certyfikatu (np. "w pełni naturalne cząsteczki")
+    // Greenwashing bez oficjalnego certyfikatu (np. "w pełni naturalne cząsteczk")
     /(?:w\s+pełni\s+naturaln|100%\s*eko|\bwolne\s+od\s+chemii|\bbez\s+chemii|\bnietestowan[a-ząćęłńóśźż]*\s+na\s+zwierzętach|\bcruelty[\\s-]+free)/i,
+    // Puste ogólniki bez konkretnego parametru użytkowego / powtarzane slogany opakowań
+    /^(?:skuteczne\s+usuwanie\s+(?:plam|brudu|zabrudzeń|tłuszczu)|usuwanie\s+plam|miękkie\s+i\s+pachnące\s+pranie|pachnące\s+pranie|świeże\s+pranie|czystość\s+i\s+świeżość|(?:do\s+|aż\s+do\s+)?\d{2,3}\s+dni\s+świeżości|długotrwała\s+świeżość|włoski\s+produkt|produkt\s+włoski)$/i,
     // Obcojęzyczne niesprzekładalne hasła i etykiety kategorii
     /(?:deodorante\s+per\s+ambiente|air\s+freshener|diffusore\s+ambiente|ambient\s+diffuser|room\s*&\s*fabric\s+spray|un\s+profumo\s+che\s+avvolge|ti\s+profuma\s+del\s+pulito|scudo\s+antisporco|fragranze\s+selezionate|made\s+in\s+italy|\bin\s+italia\b|sul\s+mercato\s+italiano|ravviva\s+colore|no\s+yellow|anti\s+giallo|shampoo\s+secco|dry\s+shampoo|crema\s+depilatoria|gambe\s*&\s*corpo|hair\s+removal|legs\s*&\s*body|volume\s*&\s*lucentezza|original\s+classic|per\s+pennello\s+rasature|\buomo\b|\blady\b|\bin\s+pink\b|\bneutro\b|\bfiori\s+di\s+mandorlo|\b40\s+lavaggi\b|shampoo\s*&\s*shower\s+foam|\bpulito\s+profondo\b|\bprofumo\s+di\s+pulito\b|\bmultiuso\b)/i
 ];
@@ -513,6 +515,39 @@ function normalizeHighlightItem(rawItem, options = {}) {
     return item;
 }
 
+const HIGHLIGHT_SEMANTIC_CLUSTERS = [
+    { id: 'LOW_TEMP', rx: /(?:nisk(?:ich|iej|a)\s+temperatur|na\s+zimno|w\s+zimnej\s+wodzie|\b(?:15|20|30)\s*°?\s*c\b)/i },
+    { id: 'CONCENTRATE', rx: /(?:\bkoncentrat\b|skoncentrowan[aey]\b|formuła\s+koncentratu)/i },
+    { id: 'DERMATOLOGY', rx: /dermatologicz/i },
+    { id: 'HEAVY_METALS_TEST', rx: /(?:nikl|niklu|chrom|kobalt)/i },
+    { id: 'SCENT_CAPSULES', rx: /(?:perełk[ai]\s+zapachow|mikrokapsułk[ai]\s+zapachow|kapsułk[ai]\s+zapachow)/i },
+    { id: 'GRADUAL_SCENT', rx: /(?:stopniowe\s+uwalnianie\s+zapachu|uwalnia\s+zapach\s+stopniowo)/i },
+    { id: 'NO_STREAKS', rx: /(?:\bbez\s+smug\b|nie\s+zostawia\s+smug|brak\s+smug)/i },
+    { id: 'NO_RINSE', rx: /(?:bez\s+spłukiwania|nie\s+wymaga\s+spłukiwania)/i },
+    { id: 'ODOR_NEUTRALIZE', rx: /neutralizuj[a-ząćęłńóśźż]*\s+(?:nieprzyjemne\s+)?zapach/i },
+    { id: 'COLOR_DARK_PROTECT', rx: /(?:odświeża\s+czerń|chroni\s+czerń|ochrona\s+czerni|ochrona\s+ciemnych)/i },
+    { id: 'RECYCLABLE_PACKAGING', rx: /nadając[aey]\s+się\s+do\s+recyklingu/i },
+    { id: 'RECYCLED_CONTENT', rx: /(?:z\s+plastiku\s+z\s+recyklingu|opakowanie\s+z\s+recyklingu|plastik\s+w\s+co\s+najmniej\s+\d+\s*%\s+z\s+recyklingu|wykonan[aey]\s+z\s+recyklingu|\bz\s+recyklingu\b)/i }
+];
+
+function getHighlightSemanticCluster(text = '') {
+    const clean = String(text || '').trim();
+    if (!clean) return null;
+    for (const c of HIGHLIGHT_SEMANTIC_CLUSTERS) {
+        if (c.rx.test(clean)) return c.id;
+    }
+    return null;
+}
+
+function scoreHighlightSpecificity(text = '') {
+    let score = 0;
+    if (/\d+\s*(?:°\s*C|%)/i.test(text)) score += 3;
+    else if (/\d/.test(text)) score += 2;
+    if (/^[A-ZĄĆĘŁŃÓŚŹŻ]/.test(text)) score += 1;
+    if (!/\([^)]*\)/.test(text)) score += 1;
+    return score;
+}
+
 /**
  * Filtruje i normalizuje listę wyróżników z etykiety (tekst rozdzielony przecinkami/średnikami lub tablica stringów).
  */
@@ -524,24 +559,53 @@ function sanitizeLabelHighlights(rawInput, options = {}) {
     const items = [];
     const dropped = [];
     const seen = new Set();
+    const clusterWinners = new Map();
 
     for (const raw of rawItems) {
-        const normalized = normalizeHighlightItem(raw, options);
+        let normalized = normalizeHighlightItem(raw, options);
         if (!normalized) {
             dropped.push(raw);
             continue;
         }
+        if (options.normalizeCase === true && /^[a-ząćęłńóśźż]/.test(normalized)) {
+            normalized = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+        }
+
         const key = normalized.toLowerCase();
-        // Unikamy duplikatów typu "Neutralizuje zapachy" + "Neutralizuje nieprzyjemne zapachy"
-        const isDuplicateSemantic = seen.has(key) || (key.includes('neutralizuje') && key.includes('zapach') && Array.from(seen).some(s => s.includes('neutralizuje') && s.includes('zapach')));
-        if (isDuplicateSemantic) continue;
+        if (seen.has(key)) {
+            dropped.push(raw);
+            continue;
+        }
+
+        const cluster = getHighlightSemanticCluster(normalized);
+        if (cluster) {
+            if (clusterWinners.has(cluster)) {
+                const prev = clusterWinners.get(cluster);
+                if (scoreHighlightSpecificity(normalized) > scoreHighlightSpecificity(prev.text)) {
+                    items[prev.index] = normalized;
+                    seen.delete(prev.text.toLowerCase());
+                    seen.add(key);
+                    clusterWinners.set(cluster, { index: prev.index, text: normalized });
+                    dropped.push(prev.text);
+                } else {
+                    dropped.push(raw);
+                }
+                continue;
+            }
+            clusterWinners.set(cluster, { index: items.length, text: normalized });
+        }
+
         seen.add(key);
         items.push(normalized);
     }
 
+    const limitedItems = (typeof options.maxItems === 'number' && options.maxItems > 0)
+        ? items.slice(0, options.maxItems)
+        : items;
+
     return {
-        items,
-        text: items.join(', '),
+        items: limitedItems,
+        text: limitedItems.join(', '),
         dropped
     };
 }
@@ -725,6 +789,7 @@ module.exports = {
     scanStrictStopwords,
     scanAllegroComplianceRisks,
     normalizeHighlightItem,
+    getHighlightSemanticCluster,
     sanitizeLabelHighlights,
     sanitizeAllegroMarketingText,
     auditOfferDraftCompliance,

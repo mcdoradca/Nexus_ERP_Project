@@ -1093,6 +1093,36 @@ async function autofillMissingParameters(ean, productName, currentFeatures = {},
         return baseFeatures;
     }
 
+    const mergedHintFeatures = {
+        ...(product?.features && typeof product.features === 'object' ? product.features : {}),
+        ...(product?.text_fields?.features && typeof product.text_fields.features === 'object' ? product.text_fields.features : {}),
+        ...baseFeatures
+    };
+    const extractedLabelFront = {};
+    const extractedLabelBack = {};
+    for (const [k, v] of Object.entries(mergedHintFeatures)) {
+        if (v === undefined || v === null || String(v).trim() === '') continue;
+        if (/\(Front\)|\(Etykieta\s*Front\)/i.test(k)) {
+            extractedLabelFront[k] = v;
+        } else if (/\(Etykieta\)|\(Kontretykieta\)|\(Etykieta\s*Tył\)/i.test(k)) {
+            extractedLabelBack[k] = v;
+        }
+    }
+    if (mergedHintFeatures['Postać (Etykieta)']) {
+        extractedLabelFront['Postać (Etykieta)'] = mergedHintFeatures['Postać (Etykieta)'];
+    }
+    if (mergedHintFeatures['Postać (Front)']) {
+        extractedLabelFront['Postać (Front)'] = mergedHintFeatures['Postać (Front)'];
+    }
+
+    const { resolveLabelPhysicalForm } = require('../offer-optimizer-v2/services/label-truth.helpers');
+    const verifiedForm = resolveLabelPhysicalForm({
+        visionFeatures: { ...extractedLabelBack, ...extractedLabelFront },
+        features: mergedHintFeatures,
+        officialLabelName: mergedHintFeatures['Nazwa produktu (Etykieta Front)'] || mergedHintFeatures['Nazwa produktu (Kontretykieta)'] || '',
+        rawProductName: productName || ''
+    });
+
     const {
         mapPackagingFeaturesToAllegroSchema,
         matchDictionaryOption,
@@ -1102,6 +1132,8 @@ async function autofillMissingParameters(ean, productName, currentFeatures = {},
     const detRes = mapPackagingFeaturesToAllegroSchema({
         allegroSchema: schema,
         currentFeatures: baseFeatures,
+        visionFront: extractedLabelFront,
+        visionBack: extractedLabelBack,
         product
     });
 
@@ -1126,9 +1158,13 @@ async function autofillMissingParameters(ean, productName, currentFeatures = {},
             dictionary: Array.isArray(p.dictionary) ? p.dictionary.slice(0, 60).map(d => d.value) : null
         }));
 
+        const verifiedFormRule = verifiedForm.isVerifiedFromLabel && verifiedForm.canonicalForm
+            ? `\nBEZWZGLĘDNA REGUŁA ETYKIETY: Etykieta produktu potwierdza postać fizyczną "${verifiedForm.canonicalForm}" (powód: ${verifiedForm.reason}). Jeśli wśród parametrów jest "Postać" lub "Typ", bezwzględny ZAKAZ zwracania "żel" gdy etykieta wskazuje "płyn".`
+            : '';
+
         const prompt = `Dopasuj brakujące wymagane parametry Allegro wyłącznie na podstawie znanych faktów produktu. Nie zgaduj danych spoza faktów (w razie braku zwróć null).\n` +
             `Produkt: ${productName || ''}\nEAN: ${ean || ''}\nZnane cechy PIM/Vision: ${JSON.stringify(resultFeatures)}\n` +
-            `Brakujące parametry i słowniki: ${JSON.stringify(schemaSummary)}\n` +
+            `Brakujące parametry i słowniki: ${JSON.stringify(schemaSummary)}${verifiedFormRule}\n` +
             `Zwróć JSON: { "features": { "NazwaParametru": "Wartość_ze_słownika_lub_tekst" } }.`;
 
         const { result } = await aiWrapper.callAgentWithTelemetry({

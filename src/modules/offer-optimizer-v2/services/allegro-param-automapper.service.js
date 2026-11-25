@@ -2,6 +2,7 @@ const { normalizeIngredientName } = require('../normalization');
 const brandResponsibleService = require('../brand.responsible.service');
 const { classifyProductPhysicalForm } = require('./product-form.classifier');
 const { ean_checksum } = require('../validators');
+const { resolveLabelPhysicalForm } = require('./label-truth.helpers');
 
 function normalizeKey(str = '') {
     return String(str || '')
@@ -329,10 +330,15 @@ function parseQuantityToUnit(rawValue, targetUnit = '', paramType = 'float', opt
     const isCountParam = Boolean(options.isCount) || unitLower === 'szt';
 
     if (isCountParam) {
-        const strippedMeasureStr = rawStr.replace(/\b\d+(?:[.,]\d+)?\s*(?:ml|l|litr(?:y|ów|a)?|cl|mg|g|gr|dag|dkg|kg|cm|mm|m|%)\b/gi, ' ');
+        let strippedMeasureStr = rawStr
+            .replace(/\b\d+\s+\d{1,3}\s*(?:ml|l|litr(?:y|ów|a)?|cl|mg|g|gr|dag|dkg|kg|cm|mm|m)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, ' ')
+            .replace(/\b\d+(?:[.,]\d+)?\s*(?:ml|l|litr(?:y|ów|a)?|cl|mg|g|gr|dag|dkg|kg|cm|mm|m|%)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, ' ');
+        if (options.excludeCycles) {
+            strippedMeasureStr = strippedMeasureStr.replace(/\b\d+\s*(?:pra[nń]|pranie|płuka[nń]|płukanie|cykl(?:i|e|u)?(?:\s+(?:płukania|prania))?|lavaggi|wash(?:es)?)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, ' ');
+        }
         const countRegex = options.requireExplicitUnit
-            ? /\b(\d+)\s*(?:szt\.?|kapsuł(?:ek|ki)|tabletek|tabletki|tabs|caps|pra[nń]|pranie|płuka[nń]|płukanie|uży[cć]|użycia|cykl(?:i|e)|my[cć]|aplikacj[ie]|dozowa[nń]|wkład(?:ów|y)|chusteczek|saszetek)\b/i
-            : /\b(\d+)\s*(?:szt\.?|kapsuł(?:ek|ki)|tabletek|tabletki|tabs|caps|pra[nń]|płuka[nń]|uży[cć]|wkład(?:ów|y)|chusteczek|saszetek)?\b/i;
+            ? /\b(\d+)\s*(?:szt\.?|kapsuł(?:ek|ki)|tabletek|tabletki|tabs|caps|pra[nń]|pranie|płuka[nń]|płukanie|uży[cć]|użycia|cykl(?:i|e)|my[cć]|aplikacj[ie]|dozowa[nń]|wkład(?:ów|y)|chusteczek|saszetek)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i
+            : /\b(\d+)\s*(?:szt\.?|kapsuł(?:ek|ki)|tabletek|tabletki|tabs|caps|pra[nń]|płuka[nń]|uży[cć]|wkład(?:ów|y)|chusteczek|saszetek)?(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i;
         const countMatch = strippedMeasureStr.match(countRegex);
         if (!countMatch) return null;
         const n = parseInt(countMatch[1], 10);
@@ -424,15 +430,19 @@ function extractFreeFromDeclarations(textSources = '', inciText = '') {
     return hits;
 }
 
-function buildPostacCandidates(formInfo, rawPostac = '') {
+function buildPostacCandidates(formInfo, rawPostac = '', options = {}) {
     const raw = String(rawPostac || '').trim();
     const candidates = [];
-    if (raw) candidates.push(raw);
+    const isHybridRaw = /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:płyn\s*[\/+-]?\s*żel|żel\s*[\/+-]?\s*płyn)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(raw);
+    const contradictsStrictLiquid = Boolean(options.strictLiquid) && /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:żel|zel|w\s+żelu|proszek|tabletki|kapsułki|kostka)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(raw);
+    if (raw && !isHybridRaw && !contradictsStrictLiquid) {
+        candidates.push(raw);
+    }
 
     const map = {
         spray: ['w sprayu', 'spray', 'płyn', 'w płynie'],
         gel: ['żel', 'w żelu', 'płyn', 'w płynie'],
-        liquid: ['w płynie', 'płyn', 'żel'],
+        liquid: options.strictLiquid ? ['w płynie', 'płyn'] : ['w płynie', 'płyn', 'żel'],
         foam: ['pianka', 'w piance', 'w płynie', 'płyn'],
         cream_milk: ['mleczko', 'krem', 'w płynie'],
         powder: ['w proszku', 'proszek', 'puder', 'granulki'],
@@ -557,18 +567,38 @@ function mapPackagingFeaturesToAllegroSchema({
     };
 
     const productName = String(product?.name || product?.text_fields?.name || hintFeatures['Nazwa'] || '').trim();
+    const officialLabelName = String(
+        vFront['Nazwa produktu (Etykieta Front)'] ||
+        vBack['Nazwa produktu (Kontretykieta)'] ||
+        hintFeatures['Nazwa produktu (Etykieta Front)'] ||
+        hintFeatures['Nazwa produktu (Kontretykieta)'] ||
+        ''
+    ).trim();
     const inciText = String(
         hintFeatures['Skład/INCI'] || vBack['Skład/INCI'] || hintFeatures['INCI'] || hintFeatures['Skład'] || ''
     ).trim();
+    const labelForm = resolveLabelPhysicalForm({
+        visionFeatures: { ...vBack, ...vFront },
+        features: hintFeatures,
+        officialLabelName,
+        rawProductName: productName
+    });
+    const strictLiquid = Boolean(labelForm.isVerifiedFromLabel && labelForm.canonicalForm === 'płyn');
+    const effectivePostacHint = labelForm.isVerifiedFromLabel
+        ? labelForm.canonicalForm
+        : (vFront['Postać'] || hintFeatures['Postać'] || '');
     const formInfo = classifyProductPhysicalForm({
         productName,
         category: hintFeatures['Kategoria'] || product?.category?.name || '',
-        postac: vFront['Postać'] || hintFeatures['Postać'] || '',
+        postac: effectivePostacHint,
         dozownik: vFront['Dozownik'] || hintFeatures['Dozownik'] || '',
         packaging: vFront['Opakowanie (Front)'] || vBack['Opakowanie (Etykieta)'] || hintFeatures['Opakowanie produktu'] || '',
         inci: inciText,
         features: hintFeatures
     });
+    if (strictLiquid && (formInfo.form === 'gel' || formInfo.form === 'cream_milk' || formInfo.form === 'unknown')) {
+        formInfo.form = 'liquid';
+    }
 
     const mappedParams = {};
     const skippedExisting = [];
@@ -616,13 +646,13 @@ function mapPackagingFeaturesToAllegroSchema({
         product?.weight && Number(product.weight) > 0 ? `${product.weight} kg` : ''
     ].find(Boolean) || '';
 
-    const rawPiecesText = [
+    const rawPiecesExplicitText = [
         vFront['Liczba sztuk (Front)'],
         vBack['Liczba sztuk (Etykieta)'],
         hintFeatures['Liczba sztuk (Front)'],
-        hintFeatures['Liczba sztuk'],
-        productName
-    ].filter(Boolean).join(' ');
+        hintFeatures['Liczba sztuk']
+    ].filter(v => v && !/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:pra[nń]|pranie|płuka[nń]|płukanie|lavaggi|washes)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(String(v))).join(' ');
+    const rawPiecesText = [rawPiecesExplicitText, productName].filter(Boolean).join(' ');
 
     const rawScent = String(
         hintFeatures['Zapach'] || hintFeatures['Nuta zapachowa'] || vFront['Zapach'] || ''
@@ -662,26 +692,48 @@ function mapPackagingFeaturesToAllegroSchema({
         );
 
         const existingKey = findExistingFeatureKey(baseFeatures, paramName);
+        let overrideExistingKey = null;
         if (existingKey && !isEmptyOrPlaceholder(baseFeatures[existingKey], allowWordBrakAsExisting)) {
-            if (param.type === 'float' || param.type === 'integer') {
-                const normRes = normalizeNumericValueForAllegroParam(baseFeatures[existingKey], param, {
-                    fallbackSources: [productName, rawCapacityText, rawWeightNetText, rawGrossWeight, rawPiecesText].filter(Boolean).join(' '),
-                    enforceBounds: true
-                });
-                if (normRes.ok && normRes.value !== null) {
-                    if (normRes.value !== String(baseFeatures[existingKey]).trim() || existingKey !== paramName) {
-                        if (existingKey !== paramName) delete baseFeatures[existingKey];
-                        baseFeatures[paramName] = normRes.value;
-                        mappedParams[paramName] = normRes.value;
-                    } else {
-                        skippedExisting.push(paramName);
+            let shouldOverrideExistingWithLabel = false;
+            if (labelForm.isVerifiedFromLabel && labelForm.canonicalForm && (normParamName === 'postac' || normParamName === 'typ')) {
+                const currLow = String(baseFeatures[existingKey]).trim().toLowerCase();
+                const hasHybrid = /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:płyn\s*[\/+-]?\s*żel|żel\s*[\/+-]?\s*płyn)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(currLow);
+                const contradictsLiquid = labelForm.canonicalForm === 'płyn' &&
+                    /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:żel|zel|w\s+żelu|krem|w\s+kremie|mleczko|proszek|w\s+proszku|puder|kapsułki|tabletki|kostka|pianka)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(currLow);
+                const contradictsGel = labelForm.canonicalForm === 'żel' &&
+                    /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:proszek|w\s+proszku|tabletki|kapsułki|kostka|puder)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(currLow);
+                const contradictsPowder = labelForm.canonicalForm === 'proszek' &&
+                    /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:płyn|w\s+płynie|żel|w\s+żelu|spray|w\s+sprayu)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(currLow);
+                const contradictsSpray = labelForm.canonicalForm === 'w sprayu' &&
+                    /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:żel|w\s+żelu|proszek|w\s+proszku|tabletki|kapsułki|kostka)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(currLow);
+                const notInDictionary = param.type === 'dictionary' && Array.isArray(param.dictionary) && param.dictionary.length > 0 &&
+                    !param.dictionary.some(d => normalizeKey(d.value) === normalizeKey(currLow));
+                if (hasHybrid || contradictsLiquid || contradictsGel || contradictsPowder || contradictsSpray || (normParamName === 'postac' && notInDictionary)) {
+                    shouldOverrideExistingWithLabel = true;
+                    overrideExistingKey = existingKey;
+                }
+            }
+            if (!shouldOverrideExistingWithLabel) {
+                if (param.type === 'float' || param.type === 'integer') {
+                    const normRes = normalizeNumericValueForAllegroParam(baseFeatures[existingKey], param, {
+                        fallbackSources: [productName, rawCapacityText, rawWeightNetText, rawGrossWeight, rawPiecesText].filter(Boolean).join(' '),
+                        enforceBounds: true
+                    });
+                    if (normRes.ok && normRes.value !== null) {
+                        if (normRes.value !== String(baseFeatures[existingKey]).trim() || existingKey !== paramName) {
+                            if (existingKey !== paramName) delete baseFeatures[existingKey];
+                            baseFeatures[paramName] = normRes.value;
+                            mappedParams[paramName] = normRes.value;
+                        } else {
+                            skippedExisting.push(paramName);
+                        }
+                        continue;
                     }
+                    // Gdy istniejąca wartość ma niezgodną jednostkę lub śmieci tekstowe, spróbuj odzyskać czystą wartość z twardych pól poniżej
+                } else {
+                    skippedExisting.push(paramName);
                     continue;
                 }
-                // Gdy istniejąca wartość ma niezgodną jednostkę lub śmieci tekstowe, spróbuj odzyskać czystą wartość z twardych pól poniżej
-            } else {
-                skippedExisting.push(paramName);
-                continue;
             }
         }
 
@@ -719,17 +771,19 @@ function mapPackagingFeaturesToAllegroSchema({
         } else if (String(param.id) === '17448' || normParamName === 'waga produktu z opakowaniem jednostkowym') {
             resolvedValue = parseQuantityToUnit(rawGrossWeight, param.unit || 'kg', param.type || 'float', { isWeight: true, precision: param.restrictions?.precision });
         } else if (normParamName === 'liczba sztuk w opakowaniu' || normParamName === 'liczba sztuk') {
-            const parsedCount = parseQuantityToUnit(rawPiecesText, 'szt.', 'integer', { isCount: true });
+            const parsedCount =
+                parseQuantityToUnit(rawPiecesExplicitText, 'szt.', 'integer', { isCount: true, excludeCycles: true }) ||
+                parseQuantityToUnit(productName, 'szt.', 'integer', { isCount: true, excludeCycles: true, requireExplicitUnit: true });
             if (parsedCount) {
                 resolvedValue = parsedCount;
             } else if (formInfo.form !== 'tablet' && formInfo.form !== 'capsule' && !/\bx\s*\d+\b|\b\d+-?pak\b/i.test(productName)) {
                 resolvedValue = '1';
             }
         } else if (normParamName === 'liczba pran' || normParamName === 'liczba uzyc') {
-            const rawYield = [vFront['Wydajność'], hintFeatures['Wydajność'], hintFeatures['Liczba prań'], productName].filter(Boolean).join(' ');
+            const rawYield = [vFront['Wydajność'], hintFeatures['Wydajność'], hintFeatures['Liczba prań'], vBack['Liczba prań (Etykieta)'], hintFeatures['Liczba prań (Etykieta)'], productName].filter(Boolean).join(' ');
             resolvedValue = parseQuantityToUnit(rawYield, 'szt.', 'integer', { isCount: true, requireExplicitUnit: true });
         } else if (normParamName === 'postac') {
-            const postacCandidates = buildPostacCandidates(formInfo, vFront['Postać'] || hintFeatures['Postać']);
+            const postacCandidates = buildPostacCandidates(formInfo, effectivePostacHint, { strictLiquid });
             resolvedValue = isDict ? matchDictionaryOption(postacCandidates, param.dictionary) : (postacCandidates[0] || null);
         } else if (normParamName === 'opakowanie' || normParamName === 'opakowanie produktu') {
             const packCandidates = buildPackagingCandidates(
@@ -749,11 +803,13 @@ function mapPackagingFeaturesToAllegroSchema({
         } else if (normParamName === 'rodzaj' || normParamName === 'typ' || normParamName === 'przeznaczenie' || normParamName === 'zastosowanie') {
             const candList = [
                 ...buildPurposeAndTypeCandidates(purposeTextSources),
-                ...buildPostacCandidates(formInfo, vFront['Postać'] || hintFeatures['Postać'])
+                ...buildPostacCandidates(formInfo, effectivePostacHint, { strictLiquid })
             ];
             if (isDict) {
                 const matched = matchDictionaryOption(candList, param.dictionary, { multipleChoices: isMulti });
                 resolvedValue = Array.isArray(matched) ? matched.join(', ') : matched;
+            } else if (overrideExistingKey && labelForm.isVerifiedFromLabel && labelForm.canonicalForm) {
+                resolvedValue = labelForm.canonicalForm;
             }
         } else if (normParamName === 'produkt nie zawiera') {
             if (isDict) {
@@ -799,6 +855,9 @@ function mapPackagingFeaturesToAllegroSchema({
         }
 
         if (resolvedValue !== null && resolvedValue !== undefined && String(resolvedValue).trim() !== '') {
+            if (overrideExistingKey && overrideExistingKey !== paramName) {
+                delete baseFeatures[overrideExistingKey];
+            }
             baseFeatures[paramName] = String(resolvedValue).trim();
             mappedParams[paramName] = baseFeatures[paramName];
         } else if (param.required) {

@@ -18,6 +18,13 @@ const titleOptimizer = require('./services/title-optimizer.service');
 const { classifyProductPhysicalForm } = require('./services/product-form.classifier');
 const { mapPackagingFeaturesToAllegroSchema } = require('./services/allegro-param-automapper.service');
 const { sanitizeLabelHighlights } = require('./services/allegro-compliance.policy');
+const {
+    isGenericCategoryWordNotLine,
+    resolveLabelPhysicalForm,
+    normalizeFabricSoftenerTerminology,
+    isFabricSoftenerProduct,
+    validateDosageYieldMath
+} = require('./services/label-truth.helpers');
 const gpsrSafetyService = require('./services/gpsr.safety.service');
 const {
     resolveWorkspaceContentProfile,
@@ -167,16 +174,54 @@ const sanitizeSection5Html = (htmlStr, pimData = {}) => {
         }
     }
 
-    // 3b. Puryzm techniczny wiersza "Właściwości i wyróżniki" w Sekcji 5 (odfiltrowanie sloganów z etykiet, obcych marek i hype'u XXL)
+    // 3b. Puryzm techniczny wiersza "Właściwości i wyróżniki" w Sekcji 5 (odfiltrowanie sloganów, duplikatów semantycznych, obcych marek i hype'u XXL)
     res = res.replace(/(<li[^>]*>\s*(?:➡️|☑️|✔️|✅|⚖️|📊|\*|-)?\s*(?:<b>|<strong>)\s*(?:Właściwości\s+i\s+wyróżniki|Wyróżniki(?:\s+i\s+cechy)?|Cechy\s+dodatkowe)\s*:?\s*(?:<\/b>|<\/strong>)\s*)([\s\S]*?)(<\/li>)/gi, (_, prefix, rawBody, suffix) => {
         const plainBody = String(rawBody || '').replace(/<\/?[a-zA-Z][^>]*>/g, '').trim();
         const filtered = sanitizeLabelHighlights(plainBody, {
             isMedicalDevice,
             brand: pimData?.brand,
-            productName: pimData?.product_name || pimData?.name
+            productName: pimData?.product_name || pimData?.name,
+            normalizeCase: true,
+            maxItems: 5
         });
         return filtered.text ? `${prefix}${filtered.text}${suffix}` : '';
     });
+
+    // 3c. Puryzm domenowy Sekcji 5: usuwanie generycznej linii produktu, korekta postaci z etykiety (np. żel -> płyn dla Detersivo) oraz terminologii płynów do płukania
+    res = res.replace(/<li[^>]*>\s*(?:➡️|☑️|✔️|✅|⚖️|📊|\*|-)?\s*(?:<b>|<strong>)\s*Linia\s+produktowa:?\s*(?:<\/b>|<\/strong>)\s*([\s\S]*?)<\/li>/gi, (full, body) => {
+        const plainLine = String(body || '').replace(/<\/?[a-zA-Z][^>]*>/g, '').trim();
+        return isGenericCategoryWordNotLine(plainLine) ? '' : full;
+    });
+
+    const labelFormS5 = resolveLabelPhysicalForm({
+        visionFeatures: pimData?.vision_features || pimData?.visionFeatures || {},
+        features: pimData?.features || {},
+        officialLabelName: (pimData?.vision_features || pimData?.visionFeatures || {})?.['Nazwa produktu (Etykieta Front)']
+            || pimData?.features?.['Nazwa produktu (Etykieta Front)']
+            || pimData?.features?.['Nazwa produktu (Kontretykieta)']
+            || '',
+        rawProductName: pimData?.product_name || pimData?.name || ''
+    });
+
+    if (labelFormS5.isVerifiedFromLabel && labelFormS5.canonicalForm === 'płyn') {
+        res = res.replace(/(<li[^>]*>\s*(?:➡️|☑️|✔️|✅|⚖️|📊|\*|-)?\s*(?:<b>|<strong>)\s*Postać(?:\s+fizyczna)?:?\s*(?:<\/b>|<\/strong>)\s*)(?:<b>|<strong>)?\s*(?:żel|w\s+żelu|płyn\s+żel|żel\s+płyn)\s*(?:<\/b>|<\/strong>)?(\s*<\/li>)/gi, '$1płyn$2');
+        res = res.replace(/(<li[^>]*>\s*(?:➡️|☑️|✔️|✅|⚖️|📊|\*|-)?\s*(?:<b>|<strong>)\s*Nazwa\s+produktu:?\s*(?:<\/b>|<\/strong>)\s*[\s\S]*?<\/li>)/gi, (full) =>
+            full.replace(/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:płyn\s*[\/+-]?\s*żel|żel\s*[\/+-]?\s*płyn)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/gi, 'płyn')
+        );
+    }
+
+    const isSoftenerS5 = isFabricSoftenerProduct({
+        productName: pimData?.product_name || pimData?.name || '',
+        category: pimData?.category || pimData?.features?.['Kategoria'] || '',
+        visionFeatures: pimData?.vision_features || pimData?.visionFeatures || {},
+        features: pimData?.features || {},
+        contextStr: res
+    });
+    if (isSoftenerS5) {
+        res = res.replace(/(<li[^>]*>\s*(?:➡️|☑️|✔️|✅|⚖️|📊|\*|-)?\s*(?:<b>|<strong>)\s*(?:Zastosowanie\s+i\s+powierzchnie|Przeznaczenie|Nazwa\s+produktu|Wydajność(?:\s+deklarowana)?)\s*:?\s*(?:<\/b>|<\/strong>)\s*[\s\S]*?<\/li>)/gi, (full) =>
+            normalizeFabricSoftenerTerminology(full)
+        );
+    }
 
     // 4. Eliminacja ewentualnych pustych list <ul></ul> powstałych po usunięciu elementów
     res = res.replace(/<ul[^>]*>\s*<\/ul>/gi, '');
@@ -545,7 +590,8 @@ const applyDeterministicSectionSanitizers = (sectionsObj, ctx = {}) => {
                     manufacturer: ctx.manufacturer,
                     is_medical_device: ctx.isMedicalDevice,
                     category: ctx.category,
-                    features: ctx.features
+                    features: ctx.features,
+                    vision_features: ctx.visionFeatures
                 });
             }
             if (i === 6) s = sanitizeSection6Html(s);
@@ -652,9 +698,12 @@ const computeComplianceAuditForSections = (sectionsObj = {}, ctx = {}) => {
 
     const s5Check = validate_section5_compliance(sectionsObj?.section_5_html, {
         is_medical_device: ctx.isMedicalDevice,
-        product_name: ctx.productName,
+        product_name: ctx.canonicalProductName || ctx.productName,
+        brand: ctx.brand,
         manufacturer: ctx.manufacturer,
-        require_manufacturer: Boolean(ctx.manufacturer)
+        require_manufacturer: Boolean(ctx.manufacturer),
+        features: ctx.features,
+        vision_features: ctx.visionFeatures
     });
     const s6Check = validate_section6_compliance(sectionsObj?.section_6_html, {
         has_eye_irritation: ctx.hasEyeIrritation,
@@ -675,7 +724,9 @@ const computeComplianceAuditForSections = (sectionsObj = {}, ctx = {}) => {
         isNoRinse: ctx.isNoRinse,
         visionFeatures: ctx.visionFeatures,
         features: ctx.features,
-        clpPictograms: ctx.clpPictograms
+        clpPictograms: ctx.clpPictograms,
+        capacity: ctx.capacity,
+        yield: ctx.yield
     });
 
     const complianceIssues = [
@@ -1103,6 +1154,17 @@ class Orchestrator {
                         }
                     }
                     if (copiedFactsCount > 0) {
+                        const siblingLabelForm = resolveLabelPhysicalForm({
+                            visionFeatures: currFeats,
+                            features: currFeats,
+                            officialLabelName: currFeats['Nazwa produktu (Etykieta Front)'] || currFeats['Nazwa produktu (Kontretykieta)'] || ''
+                        });
+                        if (siblingLabelForm.isVerifiedFromLabel && siblingLabelForm.canonicalForm) {
+                            const currFormNorm = String(currFeats['Postać'] || '').toLowerCase().trim();
+                            if (!currFormNorm || /^(?:płyn\s+żel|żel\s+płyn)$/i.test(currFormNorm) || (siblingLabelForm.canonicalForm === 'płyn' && /^(?:żel|zel|w\s+żelu)$/i.test(currFormNorm))) {
+                                currFeats['Postać'] = siblingLabelForm.canonicalForm;
+                            }
+                        }
                         product.text_fields.features = currFeats;
                         if (pimData) {
                             pimData.features = { ...(pimData.features || {}), ...currFeats };
@@ -1147,11 +1209,26 @@ class Orchestrator {
                 if (!visionResult.skipped && visionResult.pimFeatures && Object.keys(visionResult.pimFeatures).length > 0) {
                     let currentFeatures = { ...(product?.text_fields?.features || {}) };
                     let hasNew = false;
+                    const frontVisionForm = resolveLabelPhysicalForm({
+                        visionFeatures: visionResult.pimFeatures,
+                        features: currentFeatures,
+                        officialLabelName: visionResult.pimFeatures['Nazwa produktu (Etykieta Front)'] || currentFeatures['Nazwa produktu (Etykieta Front)'] || ''
+                    });
                     for (const [k, v] of Object.entries(visionResult.pimFeatures)) {
-                        // ZASADA NIENARUSZALNOŚCI: Nie nadpisujemy wartości zdefiniowanych ręcznie przez operatora w PIM
-                        if (v && (!currentFeatures[k] || String(currentFeatures[k]).trim() === '')) {
+                        const isDedicatedLabelKey = /\((?:Front|Etykieta|Etykieta Front|Kontretykieta)\)$/i.test(k);
+                        if (!v) continue;
+                        if (!currentFeatures[k] || String(currentFeatures[k]).trim() === '') {
                             currentFeatures[k] = v;
                             hasNew = true;
+                        } else if (isDedicatedLabelKey && String(currentFeatures[k]).trim() !== String(v).trim()) {
+                            currentFeatures[k] = v;
+                            hasNew = true;
+                        } else if (k === 'Postać' && frontVisionForm.isVerifiedFromLabel && frontVisionForm.canonicalForm) {
+                            const currFormLower = String(currentFeatures[k] || '').toLowerCase().trim();
+                            if (/^(?:płyn\s+żel|żel\s+płyn)$/i.test(currFormLower) || (frontVisionForm.canonicalForm === 'płyn' && /^(?:żel|zel|w\s+żelu)$/i.test(currFormLower))) {
+                                currentFeatures[k] = frontVisionForm.canonicalForm;
+                                hasNew = true;
+                            }
                         }
                     }
 
@@ -1195,6 +1272,20 @@ class Orchestrator {
                 this.state.node_warnings['A0'] = `Błąd analizy wizualnej: ${vErr.message}`;
             }
 
+            if (!this.state.vision_extracted_features || Object.keys(this.state.vision_extracted_features).length === 0) {
+                const featMap = product?.text_fields?.features || {};
+                const seededVision = {};
+                for (const [fk, fv] of Object.entries(featMap)) {
+                    if (fv === undefined || fv === null || String(fv).trim() === '') continue;
+                    if (/\((?:Front|Etykieta|Etykieta\s*Front|Etykieta\s*Tył|Kontretykieta)\)/i.test(fk)) {
+                        seededVision[fk] = fv;
+                    }
+                }
+                if (Object.keys(seededVision).length > 0) {
+                    this.state.vision_extracted_features = seededVision;
+                }
+            }
+
             const resolveResponsiblePerson = (extractedBrand, productName, descResult) => {
                 if (descResult && descResult.name && descResult.address_eu && descResult.contact) {
                     return { source: 'description', data: descResult };
@@ -1228,20 +1319,40 @@ class Orchestrator {
 
             const hasValidInci = Boolean(interimExtracted.inci?.value && baselinkerExtract.isValidInciValue(interimExtracted.inci.value));
             const hasValidWarnings = Boolean(interimExtracted.warnings?.value && String(interimExtracted.warnings.value).trim().length > 5);
-            const hasValidUsage = Boolean(interimExtracted.usage?.value && String(interimExtracted.usage.value).trim().length > 5);
+            const rawExistingUsage = interimExtracted.usage?.value ? String(interimExtracted.usage.value).trim() : '';
+            const hasVerifiedLabelUsage = Boolean(product?.text_fields?.features?.['Sposób użycia (Etykieta)']);
+            const dosageMathCheckPhase1 = validateDosageYieldMath({
+                capacityText: interimExtracted.capacity?.value || this.state.vision_extracted_features?.['Pojemność / Waga'] || product?.text_fields?.features?.['Pojemność'] || product?.text_fields?.name || '',
+                yieldText: this.state.vision_extracted_features?.['Wydajność'] || product?.text_fields?.features?.['Wydajność'] || product?.text_fields?.features?.['Liczba prań'] || '',
+                usageText: rawExistingUsage
+            });
+            let hasValidUsage = Boolean(rawExistingUsage.length > 5 && dosageMathCheckPhase1.valid);
+            if (hasValidUsage && !hasVerifiedLabelUsage && DATA_SOURCE_MODE !== 'fixture' && (dedicatedBackImg || backPackCandidates.length > 1)) {
+                hasValidUsage = false;
+            }
+            if (!dosageMathCheckPhase1.valid) {
+                console.warn(`[Orchestrator V2] Wykryto niezgodność matematyczną starej instrukcji użycia (${dosageMathCheckPhase1.reason}). Wymuszam ponowny odczyt z kontretykiety!`);
+                this.state.back_pack_vision_done = false;
+            }
 
             if ((!hasValidInci || !hasValidWarnings || !hasValidUsage) && backPackCandidates.length > 0 && !this.state.back_pack_vision_done) {
                 this.state.back_pack_vision_done = true;
                 try {
-                    console.log(`[Orchestrator V2] Brak pełnych danych tylnej etykiety w PIM (INCI:${hasValidInci}, Ostrzeżenia:${hasValidWarnings}, Sposób użycia:${hasValidUsage}). Uruchamianie Agenta 0 (Vision Back-of-Pack OCR) na ${backPackCandidates.length} zdjęciach...`);
+                    console.log(`[Orchestrator V2] Brak pełnych lub spójnych danych tylnej etykiety w PIM (INCI:${hasValidInci}, Ostrzeżenia:${hasValidWarnings}, Sposób użycia:${hasValidUsage}). Uruchamianie Agenta 0 (Vision Back-of-Pack OCR) na ${backPackCandidates.length} zdjęciach...`);
+                    const backFrontCtx = {
+                        ...(product?.text_fields?.features || {}),
+                        ...(this.state.vision_extracted_features || {}),
+                        ...(interimExtracted.capacity?.value ? { 'Pojemność': interimExtracted.capacity.value } : {})
+                    };
                     const visionInciRes = await visionExtractorService.extractInciFromBackPack(
                         backPackCandidates,
                         this.gtin,
                         (msg) => console.log(msg),
                         dedicatedBackImg ? frontImageUrl : frontImageUrl,
                         {
-                            frontContext: this.state.vision_extracted_features || {},
-                            frontImage: this._frontImageAsset || null
+                            frontContext: backFrontCtx,
+                            frontImage: this._frontImageAsset || null,
+                            productName: product?.text_fields?.name || ''
                         }
                     );
 
@@ -1271,58 +1382,59 @@ class Orchestrator {
                             changed = true;
                         }
 
-                        if (visionInciRes.warnings && !hasValidWarnings) {
+                        if (visionInciRes.warnings) {
                             const vWarn = visionInciRes.warnings;
-                            console.log(`[Orchestrator V2] Vision Extractor odczytał Ostrzeżenia ze zdjęcia tyłu: ${vWarn.substring(0, 80)}...`);
-                            updatedFeatures['Ostrzeżenia'] = vWarn;
-                            interimExtracted.warnings = { value: vWarn, source: 'vision_packshot', matched_key: 'Ostrzeżenia' };
-                            changed = true;
+                            if (!hasValidWarnings || !updatedFeatures['Ostrzeżenia (Etykieta)']) {
+                                console.log(`[Orchestrator V2] Vision Extractor odczytał Ostrzeżenia ze zdjęcia tyłu: ${vWarn.substring(0, 80)}...`);
+                                updatedFeatures['Ostrzeżenia'] = vWarn;
+                                updatedFeatures['Ostrzeżenia (Etykieta)'] = vWarn;
+                                interimExtracted.warnings = { value: vWarn, source: 'vision_packshot', matched_key: 'Ostrzeżenia' };
+                                changed = true;
+                            }
                         }
 
-                        if (visionInciRes.usageInstructions && !hasValidUsage) {
+                        if (visionInciRes.usageInstructions) {
                             const vUsage = visionInciRes.usageInstructions;
                             console.log(`[Orchestrator V2] Vision Extractor odczytał Sposób użycia ze zdjęcia tyłu: ${vUsage.substring(0, 80)}...`);
                             updatedFeatures['Sposób użycia'] = vUsage;
+                            updatedFeatures['Sposób użycia (Etykieta)'] = vUsage;
                             interimExtracted.usage = { value: vUsage, source: 'vision_packshot', matched_key: 'Sposób użycia' };
                             changed = true;
                         }
 
                         if (visionInciRes.pimFeatures) {
-                            if (visionInciRes.pimFeatures['Przeznaczenie (Etykieta)']) {
-                                updatedFeatures['Przeznaczenie (Etykieta)'] = visionInciRes.pimFeatures['Przeznaczenie (Etykieta)'];
-                                changed = true;
+                            const backSyncKeys = [
+                                'Przeznaczenie (Etykieta)',
+                                'Wyróżniki / Certyfikaty (Etykieta)',
+                                'Producent',
+                                'Kraj pochodzenia (Etykieta)',
+                                'Opakowanie (Etykieta)',
+                                'Liczba sztuk (Etykieta)',
+                                'pH (Etykieta)',
+                                'Piktogramy CLP (Etykieta)',
+                                'Nazwa produktu (Kontretykieta)',
+                                'Pojemność nakrętki (Etykieta)',
+                                'Postać (Etykieta)',
+                                'Sposób użycia (Etykieta)',
+                                'Ostrzeżenia (Etykieta)'
+                            ];
+                            for (const bk of backSyncKeys) {
+                                if (visionInciRes.pimFeatures[bk]) {
+                                    updatedFeatures[bk] = visionInciRes.pimFeatures[bk];
+                                    changed = true;
+                                }
                             }
-                            if (visionInciRes.pimFeatures['Wyróżniki / Certyfikaty (Etykieta)']) {
-                                updatedFeatures['Wyróżniki / Certyfikaty (Etykieta)'] = visionInciRes.pimFeatures['Wyróżniki / Certyfikaty (Etykieta)'];
-                                changed = true;
-                            }
-                            if (visionInciRes.pimFeatures['Producent']) {
-                                updatedFeatures['Producent'] = visionInciRes.pimFeatures['Producent'];
-                                changed = true;
-                            }
-                            if (visionInciRes.pimFeatures['Kraj pochodzenia (Etykieta)']) {
-                                updatedFeatures['Kraj pochodzenia (Etykieta)'] = visionInciRes.pimFeatures['Kraj pochodzenia (Etykieta)'];
-                                changed = true;
-                            }
-                            if (visionInciRes.pimFeatures['Opakowanie (Etykieta)']) {
-                                updatedFeatures['Opakowanie (Etykieta)'] = visionInciRes.pimFeatures['Opakowanie (Etykieta)'];
-                                changed = true;
-                            }
-                            if (visionInciRes.pimFeatures['Liczba sztuk (Etykieta)']) {
-                                updatedFeatures['Liczba sztuk (Etykieta)'] = visionInciRes.pimFeatures['Liczba sztuk (Etykieta)'];
-                                changed = true;
-                            }
-                            if (visionInciRes.pimFeatures['pH (Etykieta)']) {
-                                updatedFeatures['pH (Etykieta)'] = visionInciRes.pimFeatures['pH (Etykieta)'];
-                                changed = true;
-                            }
-                            if (visionInciRes.pimFeatures['Piktogramy CLP (Etykieta)']) {
-                                updatedFeatures['Piktogramy CLP (Etykieta)'] = visionInciRes.pimFeatures['Piktogramy CLP (Etykieta)'];
-                                changed = true;
-                            }
-                            if (visionInciRes.pimFeatures['Nazwa produktu (Kontretykieta)']) {
-                                updatedFeatures['Nazwa produktu (Kontretykieta)'] = visionInciRes.pimFeatures['Nazwa produktu (Kontretykieta)'];
-                                changed = true;
+                            const backLabelForm = resolveLabelPhysicalForm({
+                                visionFeatures: { ...(this.state.vision_extracted_features || {}), ...(visionInciRes.pimFeatures || {}) },
+                                features: updatedFeatures,
+                                officialLabelName: updatedFeatures['Nazwa produktu (Etykieta Front)'] || updatedFeatures['Nazwa produktu (Kontretykieta)'] || ''
+                            });
+                            if (backLabelForm.isVerifiedFromLabel && backLabelForm.canonicalForm) {
+                                const currFormNorm = String(updatedFeatures['Postać'] || '').toLowerCase().trim();
+                                if (!currFormNorm || /^(?:płyn\s+żel|żel\s+płyn)$/i.test(currFormNorm) || (backLabelForm.canonicalForm === 'płyn' && /^(?:żel|zel|w\s+żelu)$/i.test(currFormNorm))) {
+                                    updatedFeatures['Postać'] = backLabelForm.canonicalForm;
+                                    changed = true;
+                                }
                             }
                         }
 
@@ -1395,22 +1507,40 @@ class Orchestrator {
             || product?.text_fields?.features?.['Zdjęcie tyłu opakowania']
             || product?.text_fields?.features?.['_backImageUrl']
             || null;
-        if (standaloneBackImg && !this.state.back_pack_vision_done) {
+        if (standaloneBackImg) {
             const checkExtracted = baselinkerExtract.extractFromFeatures(product);
             const hasVInci = Boolean(checkExtracted.inci?.value && baselinkerExtract.isValidInciValue(checkExtracted.inci.value));
             const hasVWarn = Boolean(checkExtracted.warnings?.value && String(checkExtracted.warnings.value).trim().length > 5);
-            const hasVUsage = Boolean(checkExtracted.usage?.value && String(checkExtracted.usage.value).trim().length > 5);
-            if (!hasVInci || !hasVWarn || !hasVUsage) {
+            const rawStandaloneUsage = checkExtracted.usage?.value ? String(checkExtracted.usage.value).trim() : '';
+            const standaloneMath = validateDosageYieldMath({
+                capacityText: checkExtracted.capacity?.value || product?.text_fields?.features?.['Pojemność'] || product?.text_fields?.name || '',
+                yieldText: product?.text_fields?.features?.['Wydajność'] || product?.text_fields?.features?.['Liczba prań'] || '',
+                usageText: rawStandaloneUsage
+            });
+            let hasVUsage = Boolean(rawStandaloneUsage.length > 5 && standaloneMath.valid);
+            if (hasVUsage && !product?.text_fields?.features?.['Sposób użycia (Etykieta)'] && DATA_SOURCE_MODE !== 'fixture') {
+                hasVUsage = false;
+            }
+            if (!standaloneMath.valid) {
+                this.state.back_pack_vision_done = false;
+            }
+            if ((!hasVInci || !hasVWarn || !hasVUsage) && !this.state.back_pack_vision_done) {
                 this.state.back_pack_vision_done = true;
                 try {
+                    const standaloneFrontCtx = {
+                        ...(product?.text_fields?.features || {}),
+                        ...(this.state.vision_extracted_features || {}),
+                        ...(checkExtracted.capacity?.value ? { 'Pojemność': checkExtracted.capacity.value } : {})
+                    };
                     const visionInciRes = await visionExtractorService.extractInciFromBackPack(
                         [standaloneBackImg],
                         this.gtin,
                         (msg) => console.log(msg),
                         frontImageUrl,
                         {
-                            frontContext: this.state.vision_extracted_features || {},
-                            frontImage: this._frontImageAsset || null
+                            frontContext: standaloneFrontCtx,
+                            frontImage: this._frontImageAsset || null,
+                            productName: product?.text_fields?.name || ''
                         }
                     );
                     if (visionInciRes?.capturedImage?.base64) {
@@ -1427,17 +1557,20 @@ class Orchestrator {
                             updatedFeatures['INCI'] = visionInciRes.inci;
                             updatedFeatures['Skład'] = visionInciRes.inci;
                         }
-                        if (visionInciRes.warnings && !hasVWarn) {
+                        if (visionInciRes.warnings && (!hasVWarn || !updatedFeatures['Ostrzeżenia (Etykieta)'])) {
                             updatedFeatures['Ostrzeżenia'] = visionInciRes.warnings;
+                            updatedFeatures['Ostrzeżenia (Etykieta)'] = visionInciRes.warnings;
                         }
-                        if (visionInciRes.usageInstructions && !hasVUsage) {
+                        if (visionInciRes.usageInstructions) {
                             updatedFeatures['Sposób użycia'] = visionInciRes.usageInstructions;
+                            updatedFeatures['Sposób użycia (Etykieta)'] = visionInciRes.usageInstructions;
                         }
-                        if (visionInciRes.pimFeatures?.['Piktogramy CLP (Etykieta)']) {
-                            updatedFeatures['Piktogramy CLP (Etykieta)'] = visionInciRes.pimFeatures['Piktogramy CLP (Etykieta)'];
-                        }
-                        if (visionInciRes.pimFeatures?.['Nazwa produktu (Kontretykieta)']) {
-                            updatedFeatures['Nazwa produktu (Kontretykieta)'] = visionInciRes.pimFeatures['Nazwa produktu (Kontretykieta)'];
+                        if (visionInciRes.pimFeatures) {
+                            for (const bk of ['Piktogramy CLP (Etykieta)', 'Nazwa produktu (Kontretykieta)', 'Przeznaczenie (Etykieta)', 'Wyróżniki / Certyfikaty (Etykieta)', 'Pojemność nakrętki (Etykieta)', 'Postać (Etykieta)']) {
+                                if (visionInciRes.pimFeatures[bk]) {
+                                    updatedFeatures[bk] = visionInciRes.pimFeatures[bk];
+                                }
+                            }
                         }
                         const standaloneNoRinseFront = deterministicEngine.isNoRinseFormula({
                             productName: product?.text_fields?.name,
@@ -3320,7 +3453,10 @@ class Orchestrator {
                             line: extracted.line?.value || product?.text_fields?.features?.['Linia'],
                             inci: this.state.extracted_data.inci?.value,
                             detergentComposition: this.state.extracted_data.detergent_composition?.value,
-                            visionFeatures: this.state.vision_extracted_features || {},
+                            visionFeatures: {
+                                ...(this.state.vision_back_features || {}),
+                                ...(this.state.vision_extracted_features || {})
+                            },
                             features: product?.text_fields?.features || {},
                             isMedicalDevice: product?.is_medical_device,
                             grossWeight: product?.weight || product?.text_fields?.features?.['Waga brutto'] || product?.text_fields?.features?.['Waga z opakowaniem jednostkowym'] || this.state.extracted_data?.logistics?.data?.gross_weight_kg || this.state.extracted_data?.['Waga']?.value,
@@ -3338,7 +3474,10 @@ class Orchestrator {
                             },
                             inci: this.state.extracted_data.inci?.value,
                             features: product?.text_fields?.features || {},
-                            visionFeatures: this.state.vision_extracted_features || {}
+                            visionFeatures: {
+                                ...(this.state.vision_back_features || {}),
+                                ...(this.state.vision_extracted_features || {})
+                            }
                         });
                     }
                 }
@@ -3375,10 +3514,14 @@ class Orchestrator {
                 if (result.section_5_html) {
                     const pimPayload = {
                         ...(this.state.pim_data || {}),
-                        product_name: this.state.product_name,
-                        name: this.state.product_name,
-                        category: this.state.category_path,
-                        features: this.state.features,
+                        product_name: sanitizedNameForA6 || product?.text_fields?.name || this.state.product_name,
+                        name: sanitizedNameForA6 || product?.text_fields?.name || this.state.product_name,
+                        category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name || this.state.category_path,
+                        features: product?.text_fields?.features || this.state.features || {},
+                        vision_features: {
+                            ...(this.state.vision_back_features || {}),
+                            ...(this.state.vision_extracted_features || {})
+                        },
                         manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name,
                         brand: extracted.brand?.value || this.state.extracted_data?.brand?.value,
                         eu_responsible_person: this.state.extracted_data?.eu_responsible_person?.data
@@ -3694,7 +3837,10 @@ class Orchestrator {
                 ...(product?.features || {}),
                 ...(product?.text_fields?.features || {})
             };
-            const visionFeatsForAudit = this.state.vision_extracted_features || {};
+            const visionFeatsForAudit = {
+                ...(this.state.vision_back_features || {}),
+                ...(this.state.vision_extracted_features || {})
+            };
             const isNoRinse = deterministicEngine.isNoRinseFormula({
                 productName: canonicalProductName || rawProductName,
                 visionFeatures: visionFeatsForAudit,
@@ -3708,6 +3854,14 @@ class Orchestrator {
                 !/(?:bez\s+(?:konieczności\s+)?spłukiwania|nie\s+wymaga\s+spłukiwania|bez\s+spłukiwania)/i.test(String(pimUsageVal || '')) &&
                 !/\bspłucz\s+(?:ręce|dłonie|oczy|skórę)\b/i.test(String(pimUsageVal || ''));
             const hasFrontBackUsageConflict = Boolean(this.state.front_back_usage_conflict || (isNoRinse && hasBackRinseInUsage));
+            const resolvedFormCtx = resolveLabelPhysicalForm({
+                visionFeatures: visionFeatsForAudit,
+                features: mergedFeaturesForAudit,
+                officialLabelName: visionFeatsForAudit['Nazwa produktu (Etykieta Front)'] || visionFeatsForAudit['Nazwa produktu (Kontretykieta)'] || mergedFeaturesForAudit['Nazwa produktu (Etykieta Front)'] || mergedFeaturesForAudit['Nazwa produktu (Kontretykieta)'] || '',
+                rawProductName: rawProductName
+            });
+            const capacityCtx = extracted?.capacity?.value || visionFeatsForAudit['Pojemność / Waga'] || visionFeatsForAudit['Pojemność'] || mergedFeaturesForAudit['Pojemność / Waga'] || mergedFeaturesForAudit['Pojemność'] || undefined;
+            const yieldCtx = visionFeatsForAudit['Wydajność'] || mergedFeaturesForAudit['Wydajność'] || mergedFeaturesForAudit['Liczba prań'] || undefined;
 
             return {
                 isMedicalDevice: Boolean(product?.is_medical_device),
@@ -3730,7 +3884,10 @@ class Orchestrator {
                 visionFeatures: visionFeatsForAudit,
                 features: mergedFeaturesForAudit,
                 clpPictograms,
-                hasFrontBackUsageConflict
+                hasFrontBackUsageConflict,
+                physicalForm: resolvedFormCtx.canonicalForm || mergedFeaturesForAudit['Postać'] || visionFeatsForAudit['Postać'] || undefined,
+                capacity: capacityCtx,
+                yield: yieldCtx
             };
         };
 
@@ -3763,7 +3920,9 @@ class Orchestrator {
                     clp_pictograms: auditCtxA11.clpPictograms,
                     front_back_usage_conflict: auditCtxA11.hasFrontBackUsageConflict,
                     product_purpose: this.resolveProductPurpose(product),
-                    physical_form: product?.text_fields?.features?.['Postać'] || this.state.vision_extracted_features?.['Postać'] || undefined,
+                    physical_form: auditCtxA11.physicalForm || product?.text_fields?.features?.['Postać'] || this.state.vision_extracted_features?.['Postać'] || undefined,
+                    net_capacity: auditCtxA11.capacity || undefined,
+                    product_yield: auditCtxA11.yield || undefined,
                     brand: extracted.brand?.value || undefined,
                     manufacturer: auditCtxA11.manufacturer || undefined,
                     category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name || undefined,
@@ -3979,7 +4138,9 @@ class Orchestrator {
                         clp_pictograms: auditCtxA10.clpPictograms,
                         front_back_usage_conflict: auditCtxA10.hasFrontBackUsageConflict,
                         product_purpose: this.resolveProductPurpose(product),
-                        physical_form: product?.text_fields?.features?.['Postać'] || this.state.vision_extracted_features?.['Postać'] || undefined,
+                        physical_form: auditCtxA10.physicalForm || product?.text_fields?.features?.['Postać'] || this.state.vision_extracted_features?.['Postać'] || undefined,
+                        net_capacity: auditCtxA10.capacity || undefined,
+                        product_yield: auditCtxA10.yield || undefined,
                         brand: extracted.brand?.value || undefined,
                         manufacturer: auditCtxA10.manufacturer || undefined,
                         scent_variant: extracted.scent?.value || product?.text_fields?.features?.['Zapach'] || product?.text_fields?.features?.['Nuta zapachowa'] || this.state.vision_extracted_features?.['Zapach'] || undefined,
@@ -4078,11 +4239,13 @@ class Orchestrator {
                         }
                         if (finalDoc.section_5_html) {
                             finalDoc.section_5_html = sanitizeSection5Html(finalDoc.section_5_html, {
-                                product_name: this.state.product_name,
-                                category: this.state.category_path,
-                                features: this.state.features,
-                                manufacturer: extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name,
-                                brand: extracted.brand?.value || this.state.extracted_data?.brand?.value,
+                                product_name: auditCtxA10.canonicalProductName || product?.text_fields?.name || this.state.product_name,
+                                name: auditCtxA10.canonicalProductName || product?.text_fields?.name || this.state.product_name,
+                                category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name || this.state.category_path,
+                                features: product?.text_fields?.features || this.state.features || {},
+                                vision_features: auditCtxA10.visionFeatures || {},
+                                manufacturer: auditCtxA10.manufacturer || extracted.manufacturer?.value || product?.text_fields?.features?.['Producent'] || this.state.extracted_data?.eu_responsible_person?.data?.name,
+                                brand: auditCtxA10.brand || extracted.brand?.value || this.state.extracted_data?.brand?.value,
                                 eu_responsible_person: this.state.extracted_data?.eu_responsible_person?.data
                             });
                         }
@@ -4132,6 +4295,18 @@ class Orchestrator {
                                 if (i === 3) {
                                     sec = stripRawInciFooterFromSection3(sec);
                                     sec = stripMarketingScareAndFillerBulletsFromSection3(sec);
+                                }
+                                if (i === 5) {
+                                    sec = sanitizeSection5Html(sec, {
+                                        product_name: auditCtxA10.canonicalProductName || product?.text_fields?.name || this.state.product_name,
+                                        name: auditCtxA10.canonicalProductName || product?.text_fields?.name || this.state.product_name,
+                                        category: product?.text_fields?.features?.['Kategoria'] || product?.category?.name || this.state.category_path,
+                                        features: product?.text_fields?.features || this.state.features || {},
+                                        vision_features: auditCtxA10.visionFeatures || {},
+                                        manufacturer: auditCtxA10.manufacturer,
+                                        brand: auditCtxA10.brand,
+                                        is_medical_device: auditCtxA10.isMedicalDevice
+                                    });
                                 }
                                 if (i === 6) sec = sanitizeSection6Html(sec);
                                 if (isFullPipelineRun) {
