@@ -992,7 +992,13 @@ class Orchestrator {
         }
 
         const candidateSpecs = [];
-        const frontUrl = pimData?.imageUrl || product?.imageUrl || (Array.isArray(pimData?.images) ? pimData.images[0] : null) || (Array.isArray(product?.images) ? product.images[0] : null);
+        const frontUrl = pimData?.frontLabelImageUrl
+            || product?.text_fields?.features?.['Zdjęcie frontu opakowania']
+            || product?.text_fields?.features?.['_frontImageUrl']
+            || pimData?.imageUrl
+            || product?.imageUrl
+            || (Array.isArray(pimData?.images) ? pimData.images[0] : null)
+            || (Array.isArray(product?.images) ? product.images[0] : null);
         const backUrl = pimData?.backImageUrl || product?.backImageUrl || product?.text_fields?.features?.['Zdjęcie tyłu opakowania'] || product?.text_fields?.features?.['_backImageUrl'] || (Array.isArray(pimData?.images) ? pimData.images[1] : null) || (Array.isArray(product?.images) ? product.images[1] : null);
         const cacheResolvedAsset = (isFrontFlag, mimeType, base64) => {
             if (!base64) return;
@@ -1182,13 +1188,29 @@ class Orchestrator {
         // KROK 0: ANALIZA WIZUALNA PRZEDNIEJ ETYKIETY (GEMINI VISION AI -> PIM SSOT)
         // =========================================================================
         const candidateImages = [];
-        if (pimData?.imageUrl) candidateImages.push(pimData.imageUrl);
+        const dedicatedFrontImg = pimData?.frontLabelImageUrl
+            || product?.text_fields?.features?.['Zdjęcie frontu opakowania']
+            || product?.text_fields?.features?.['_frontImageUrl']
+            || null;
+        if (dedicatedFrontImg) candidateImages.push(dedicatedFrontImg);
+        if (pimData?.imageUrl && !candidateImages.includes(pimData.imageUrl)) candidateImages.push(pimData.imageUrl);
         if (Array.isArray(pimData?.images)) {
             for (const img of pimData.images) {
                 if (img && !candidateImages.includes(img)) candidateImages.push(img);
             }
         }
         const frontImageUrl = candidateImages.length > 0 ? candidateImages[0] : null;
+
+        const hasFreshPreScannedFront = Boolean(
+            product?.text_fields?.features?.['_labelsPreScannedAt'] &&
+            product?.text_fields?.features?.['Nazwa produktu (Etykieta Front)'] &&
+            !product?.text_fields?.features?.['Ostrzeżenie OCR (Etykieta)'] &&
+            DATA_SOURCE_MODE !== 'fixture'
+        );
+        if (hasFreshPreScannedFront && this.state.node_status['A0'] !== 'OK') {
+            this.state.node_status['A0'] = 'OK';
+            console.log('[Orchestrator V2] Wykorzystuję wstępnie zeskanowane dane etykiety frontowej (_labelsPreScannedAt). Pomijam duplikujący skan A0.');
+        }
 
         if (frontImageUrl && this.state.node_status['A0'] !== 'OK') {
             this.state.node_status['A0'] = 'RUNNING';
@@ -1416,13 +1438,24 @@ class Orchestrator {
                                 'Pojemność nakrętki (Etykieta)',
                                 'Postać (Etykieta)',
                                 'Sposób użycia (Etykieta)',
-                                'Ostrzeżenia (Etykieta)'
+                                'Ostrzeżenia (Etykieta)',
+                                'Ostrzeżenie OCR (Etykieta)'
                             ];
                             for (const bk of backSyncKeys) {
                                 if (visionInciRes.pimFeatures[bk]) {
                                     updatedFeatures[bk] = visionInciRes.pimFeatures[bk];
                                     changed = true;
                                 }
+                            }
+                            if (visionInciRes.ocrDiagnostics && !visionInciRes.ocrDiagnostics.ocrQualityWarning && updatedFeatures['Ostrzeżenie OCR (Etykieta)']) {
+                                delete updatedFeatures['Ostrzeżenie OCR (Etykieta)'];
+                                changed = true;
+                            }
+                            if (visionInciRes.ocrDiagnostics?.dosageTableLegibility === 'LOW_UNREADABLE' && !visionInciRes.ocrDiagnostics?.dosageMathValid) {
+                                delete updatedFeatures['Sposób użycia'];
+                                delete updatedFeatures['Sposób użycia (Etykieta)'];
+                                delete updatedFeatures['Pojemność nakrętki (Etykieta)'];
+                                changed = true;
                             }
                             const backLabelForm = resolveLabelPhysicalForm({
                                 visionFeatures: { ...(this.state.vision_extracted_features || {}), ...(visionInciRes.pimFeatures || {}) },
@@ -1566,10 +1599,18 @@ class Orchestrator {
                             updatedFeatures['Sposób użycia (Etykieta)'] = visionInciRes.usageInstructions;
                         }
                         if (visionInciRes.pimFeatures) {
-                            for (const bk of ['Piktogramy CLP (Etykieta)', 'Nazwa produktu (Kontretykieta)', 'Przeznaczenie (Etykieta)', 'Wyróżniki / Certyfikaty (Etykieta)', 'Pojemność nakrętki (Etykieta)', 'Postać (Etykieta)']) {
+                            for (const bk of ['Piktogramy CLP (Etykieta)', 'Nazwa produktu (Kontretykieta)', 'Przeznaczenie (Etykieta)', 'Wyróżniki / Certyfikaty (Etykieta)', 'Pojemność nakrętki (Etykieta)', 'Postać (Etykieta)', 'Ostrzeżenie OCR (Etykieta)']) {
                                 if (visionInciRes.pimFeatures[bk]) {
                                     updatedFeatures[bk] = visionInciRes.pimFeatures[bk];
                                 }
+                            }
+                            if (visionInciRes.ocrDiagnostics && !visionInciRes.ocrDiagnostics.ocrQualityWarning && updatedFeatures['Ostrzeżenie OCR (Etykieta)']) {
+                                delete updatedFeatures['Ostrzeżenie OCR (Etykieta)'];
+                            }
+                            if (visionInciRes.ocrDiagnostics?.dosageTableLegibility === 'LOW_UNREADABLE' && !visionInciRes.ocrDiagnostics?.dosageMathValid) {
+                                delete updatedFeatures['Sposób użycia'];
+                                delete updatedFeatures['Sposób użycia (Etykieta)'];
+                                delete updatedFeatures['Pojemność nakrętki (Etykieta)'];
                             }
                         }
                         const standaloneNoRinseFront = deterministicEngine.isNoRinseFormula({

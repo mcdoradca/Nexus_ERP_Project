@@ -62,7 +62,9 @@ function cleanFeaturesForPrompt(featuresObj) {
     const blacklistedKeys = [
         'kod karty', 'szablon', 'template', 'html', 'opis_html', 'opis html',
         'allegro_html', 'baselinker_html', 'style', 'css', 'svg', 'baner',
-        'zdjęcie tyłu opakowania', 'zdjecie tylu opakowania', '_backimageurl'
+        'zdjęcie tyłu opakowania', 'zdjecie tylu opakowania', '_backimageurl',
+        'zdjęcie frontu opakowania', 'zdjecie frontu opakowania', '_frontimageurl',
+        'ostrzeżenie ocr (etykieta)', 'ostrzezenie ocr (etykieta)', '_labelsprescannedat'
     ];
 
     for (const [rawKey, rawVal] of Object.entries(featuresObj)) {

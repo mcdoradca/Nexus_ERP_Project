@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { getNodeConfig } = require('../config/nodes.config.js');
-const { ThinkingLevel } = require('@google/genai');
+const { ThinkingLevel, MediaResolution } = require('@google/genai');
 
 test('Zabezpieczenie przed regresją kompilatora: brak parametrów w promptach', () => {
     const promptsDir = path.join(__dirname, '../prompts');
@@ -61,6 +61,14 @@ test('Konfiguracja węzłów: Precyzyjna taksonomia - thinkingLevel MEDIUM dla P
     // A1 musi mieć włączony grounding (Google Search)
     const cfgA1 = getNodeConfig(1);
     assert.strictEqual(cfgA1.grounding, true, 'Węzeł A1 musi mieć włączony grounding dla OSINT');
+
+    // Węzeł 0 (Vision OCR) oraz eskalacja 0_pro wymagają MEDIA_RESOLUTION_HIGH (ADR-0202)
+    const cfgA0 = getNodeConfig(0);
+    assert.strictEqual(cfgA0.mediaResolution, MediaResolution.MEDIA_RESOLUTION_HIGH, 'Węzeł 0 (Vision) musi wymuszać MEDIA_RESOLUTION_HIGH');
+    const cfgA0Pro = getNodeConfig('0_pro');
+    assert.strictEqual(cfgA0Pro.model, 'gemini-3.1-pro-preview', 'Eskalacja 0_pro musi używać gemini-3.1-pro-preview');
+    assert.strictEqual(cfgA0Pro.thinkingLevel, ThinkingLevel.MEDIUM, 'Eskalacja 0_pro musi używać ThinkingLevel.MEDIUM');
+    assert.strictEqual(cfgA0Pro.mediaResolution, MediaResolution.MEDIA_RESOLUTION_HIGH, 'Eskalacja 0_pro musi używać MEDIA_RESOLUTION_HIGH');
 });
 
 test('Ochrona przed błędem 400: Żaden węzeł nie używa ThinkingLevel.MINIMAL (nieobsługiwanego przez API)', () => {

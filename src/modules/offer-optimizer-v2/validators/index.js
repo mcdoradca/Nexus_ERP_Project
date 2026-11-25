@@ -1114,6 +1114,20 @@ function validate_domain_and_chemical_logic(sectionsObj = {}, context = {}) {
         }
     }
 
+    // 34. Zakaz halucynowania "odczynu alkalicznego" / "zasadowego pH" bez potwierdzenia na etykiecie lub w silnie zasadowym składzie
+    const marketingPlainNoS6 = `${s1} ${s2} ${s3} ${s4}`.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    if (/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:odczyn(?:u|em)?\s+(?:alkaliczn|zasadow)[a-ząćęłńóśźż]*|alkaliczn[aeyoą]\s+(?:odczyn|pH|formuł[aęy])|zasadow[aeyoą]\s+pH)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(marketingPlainNoS6)) {
+        const labelPhRaw = context.visionFeatures?.['pH (Etykieta)'] || context.features?.['pH (Etykieta)'] || '';
+        const labelPhNum = parseFloat(String(labelPhRaw).replace(',', '.'));
+        const hasAlkalineEvidence = (Number.isFinite(labelPhNum) && labelPhNum >= 8) ||
+            /(?:sodium\s+hydroxide|potassium\s+hydroxide|wodorotlenek\s+sodu|wodorotlenek\s+potasu|sodium\s+carbonate|węglan\s+sodu|sodium\s+hypochlorite|podchloryn\s+sodu|sodium\s+metasilicate|krzemian\s+sodu|ammoni[aeu]|amoniak|candeggina|wybielacz|odtłuszczacz|sgrassatore|piekarnik|grill|alkaliczn|zasadow)/i.test(
+                `${prodName} ${inci} ${detComp} ${context.pimWarnings || ''} ${context.pimUsage || ''}`
+            );
+        if (!hasAlkalineEvidence) {
+            errors.push('[Niepotwierdzony odczyn chemiczny w opisie] Wykryto deklarację o "odczynie alkalicznym" / "zasadowym pH", której nie potwierdza skład INCI ani parametry etykiety.');
+        }
+    }
+
     return { valid: errors.length === 0, errors };
 }
 

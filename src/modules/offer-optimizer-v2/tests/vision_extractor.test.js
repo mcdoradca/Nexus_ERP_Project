@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { fetchImageBuffer, extractFrontPackFeatures, extractInciFromBackPack } = require('../vision-extractor.service.js');
+const sharp = require('sharp');
+const { fetchImageBuffer, extractFrontPackFeatures, extractInciFromBackPack, prepareBackLabelImageSet, BACK_PACK_INCI_PROMPT } = require('../vision-extractor.service.js');
 
 test('Vision Extractor - fetchImageBuffer testy jednostkowe', async (t) => {
     await t.test('Odrzucenie pustego lub niepoprawnego URL', async () => {
@@ -184,5 +185,100 @@ test('Vision Extractor - extractInciFromBackPack testy jednostkowe', async (t) =
         assert.strictEqual(res.inci, null);
 
         aiWrapper.callAgentWithTelemetry = orgCall;
+    });
+
+    await t.test('ADR-0202: prepareBackLabelImageSet tworzy zoom-cropy ROI dla normalnych zdjęć i wykrywa niską rozdzielczość (<1000px)', async () => {
+        const lowResBuf = await sharp({
+            create: { width: 800, height: 800, channels: 3, background: { r: 255, g: 255, b: 255 } }
+        })
+            .composite([{
+                input: await sharp({
+                    create: { width: 420, height: 560, channels: 3, background: { r: 25, g: 25, b: 25 } }
+                }).png().toBuffer(),
+                left: 190,
+                top: 120
+            }])
+            .jpeg({ quality: 90 })
+            .toBuffer();
+
+        const prepared = await prepareBackLabelImageSet(lowResBuf, 'image/jpeg');
+        assert.strictEqual(prepared.width, 800);
+        assert.strictEqual(prepared.height, 800);
+        assert.strictEqual(prepared.isLowResolution, true);
+        assert.ok(prepared.mainLabelCrop && prepared.mainLabelCrop.base64.length > 100);
+        assert.ok(prepared.dosageZoomCrop && prepared.dosageZoomCrop.base64.length > 100);
+
+        const tinyPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+        const tinyPrep = await prepareBackLabelImageSet(tinyPng, 'image/png');
+        assert.strictEqual(tinyPrep.mainLabelCrop, null);
+        assert.strictEqual(tinyPrep.dosageZoomCrop, null);
+    });
+
+    await t.test('ADR-0202: Zero-Guessing prompt, auto-eskalacja Flash -> Pro oraz blokada niepewnej nakrętki', async () => {
+        assert.strictEqual(/75\s*ml/i.test(BACK_PACK_INCI_PROMPT), false, 'Prompt OCR nie może zawierać liczby 75 ml jako przykładu');
+        assert.strictEqual(/68\s*ml/i.test(BACK_PACK_INCI_PROMPT), false, 'Prompt OCR nie może zawierać liczby 68 ml jako przykładu');
+
+        const aiWrapper = require('../ai.wrapper.js');
+        const orgCall = aiWrapper.callAgentWithTelemetry;
+
+        const imgBuf = await sharp({
+            create: { width: 800, height: 800, channels: 3, background: { r: 30, g: 30, b: 30 } }
+        }).jpeg({ quality: 90 }).toBuffer();
+        const dataUri = `data:image/jpeg;base64,${imgBuf.toString('base64')}`;
+
+        const calls = [];
+        aiWrapper.callAgentWithTelemetry = async (payload) => {
+            calls.push(payload);
+            if (calls.length === 1) {
+                assert.strictEqual(payload.agentId, '0');
+                assert.strictEqual(/= ok\. 45 ml/i.test(payload.prompt), false, 'frontContextNote nie może podpowiadać wyliczonej liczby 45 ml');
+                assert.ok(Array.isArray(payload.images) && payload.images.length === 2, 'Model podstawowy powinien dostać pełne zdjęcie + zoom-crop dolnej strefy');
+                return {
+                    result: {
+                        has_ingredients_label: true,
+                        has_back_label: true,
+                        inci: '5-15% Anionic surfactants, <5% Non-ionic surfactants, Soap, Enzymes, Optical brighteners, Perfumes, Methylchloroisothiazolinone, Methylisothiazolinone',
+                        warnings: 'H319 – Działa drażniąco na oczy. P102 – Chronić przed dziećmi.',
+                        usage_instructions: 'DOZOWANIE (1 nakrętka = 75 ml): Wsad 4-5 kg: woda średnia 68 ml.',
+                        cap_capacity_ml: '75 ml',
+                        cap_capacity_legible: true,
+                        dosage_table_legibility: 'MEDIUM',
+                        unreadable_fields: []
+                    },
+                    usage: { totalTokenCount: 200 }
+                };
+            }
+            assert.strictEqual(payload.agentId, '0_pro', 'Niezgodność matematyki dozowania powinna automatycznie eskalować do 0_pro');
+            assert.ok(Array.isArray(payload.images) && payload.images.length === 3, 'Eskalacja Pro powinna dostać pełny pakiet zdjęć ROI');
+            return {
+                result: {
+                    has_ingredients_label: true,
+                    has_back_label: true,
+                    inci: '5-15% Anionic surfactants, <5% Non-ionic surfactants, Soap, Enzymes, Optical brighteners, Perfumes, Methylchloroisothiazolinone, Methylisothiazolinone',
+                    warnings: 'H319 – Działa drażniąco na oczy. P102 – Chronić przed dziećmi.',
+                    usage_instructions: 'Pranie w pralce (nakrętka = 75 ml): wsad 4-5 kg woda miękka 35 ml, woda średnia 45 ml, woda twarda 60 ml.',
+                    cap_capacity_ml: null,
+                    cap_capacity_legible: false,
+                    dosage_table_legibility: 'MEDIUM',
+                    unreadable_fields: ['cap_capacity_ml']
+                },
+                usage: { totalTokenCount: 300 }
+            };
+        };
+
+        try {
+            const res = await extractInciFromBackPack([dataUri], '8003640022274', () => {}, null, {
+                frontContext: { 'Pojemność': '2250 ml', 'Wydajność': '50 prań', 'Postać (Etykieta)': 'płyn' }
+            });
+            assert.strictEqual(calls.length, 2);
+            assert.strictEqual(res.ocrDiagnostics?.escalatedToPro, true);
+            assert.strictEqual(res.ocrDiagnostics?.modelUsed, 'gemini-3.1-pro-preview');
+            assert.strictEqual(res.ocrDiagnostics?.capCapacityLegible, false);
+            assert.strictEqual(res.pimFeatures['Pojemność nakrętki (Etykieta)'], undefined);
+            assert.strictEqual(/nakrętka\s*=\s*75\s*ml/i.test(res.usageInstructions || ''), false, 'Nieczytelna objętość nakrętki musi zostać wycięta');
+            assert.ok(res.pimFeatures['Ostrzeżenie OCR (Etykieta)'], 'Brak czytelnej nakrętki na zdjęciu niskiej rozdzielczości musi generować ostrzeżenie OCR');
+        } finally {
+            aiWrapper.callAgentWithTelemetry = orgCall;
+        }
     });
 });

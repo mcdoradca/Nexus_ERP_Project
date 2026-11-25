@@ -14,7 +14,13 @@ const { compressTitleToAllegroLimit } = require('./services/title-optimizer.serv
 const INTERNAL_BACK_IMAGE_KEYS = new Set([
     'zdjęcie tyłu opakowania',
     'zdjecie tylu opakowania',
-    '_backimageurl'
+    '_backimageurl',
+    'zdjęcie frontu opakowania',
+    'zdjecie frontu opakowania',
+    '_frontimageurl',
+    'ostrzeżenie ocr (etykieta)',
+    'ostrzezenie ocr (etykieta)',
+    '_labelsprescannedat'
 ]);
 
 const INVENTORY_PARAMETERS_CACHE_TTL_MS = 10 * 60 * 1000;

@@ -1,7 +1,8 @@
-const { ThinkingLevel } = require('@google/genai');
+const { ThinkingLevel, MediaResolution } = require('@google/genai');
 
 const nodesConfig = {
-    0: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.LOW },
+    0: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.LOW, mediaResolution: MediaResolution.MEDIA_RESOLUTION_HIGH },
+    '0_pro': { model: 'gemini-3.1-pro-preview', thinkingLevel: ThinkingLevel.MEDIUM, mediaResolution: MediaResolution.MEDIA_RESOLUTION_HIGH },
     1: { model: 'gemini-3.8-flash', grounding: true },
     2: { model: 'gemini-3.8-flash' },
     4: { model: 'gemini-3.8-flash', thinkingLevel: ThinkingLevel.LOW },

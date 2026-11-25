@@ -83,7 +83,9 @@ test('BaseLinker Export Service - tryb featuresAuthoritative wysyła ściśle 1:
             Opakowanie: 'butelka',
             Waga: '1200',
             Cechy: 'brak',
-            'Zdjęcie tyłu opakowania': 'data:image/jpeg;base64,/9j/4AAQSkZJRg=='
+            'Zdjęcie tyłu opakowania': 'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+            'Zdjęcie frontu opakowania': 'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+            'Ostrzeżenie OCR (Etykieta)': 'Niska rozdzielczość'
         },
         draftFeatures: {
             Opakowanie: 'butelka z pompką',
@@ -91,7 +93,9 @@ test('BaseLinker Export Service - tryb featuresAuthoritative wysyła ściśle 1:
             Zapach: 'Mango',
             Linia: 'Energy',
             Pojemność: '',
-            'Zdjęcie tyłu opakowania': 'data:image/jpeg;base64,/9j/4AAQSkZJRg=='
+            'Zdjęcie tyłu opakowania': 'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+            'Zdjęcie frontu opakowania': 'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+            'Ostrzeżenie OCR (Etykieta)': 'Niska rozdzielczość'
         },
         hardFeatures: {
             Opakowanie: 'butelka',
@@ -113,6 +117,8 @@ test('BaseLinker Export Service - tryb featuresAuthoritative wysyła ściśle 1:
     assert.strictEqual('Marka' in mergedAuth, false, 'Tryb autorytatywny z UI nie może doklejać kluczy nieobecnych w kartach UI');
     assert.strictEqual('Cechy' in mergedAuth, false, 'Klucz usunięty w UI nie może zostać wskrzeszony przez bazę ani katalog');
     assert.strictEqual('Zdjęcie tyłu opakowania' in mergedAuth, false, 'Klucz wewnętrznego zdjęcia nie może trafiać do parametrów BaseLinkera');
+    assert.strictEqual('Zdjęcie frontu opakowania' in mergedAuth, false, 'Klucz wewnętrznego zdjęcia frontu nie może trafiać do parametrów BaseLinkera');
+    assert.strictEqual('Ostrzeżenie OCR (Etykieta)' in mergedAuth, false, 'Wewnętrzne ostrzeżenie OCR nie może trafiać do parametrów BaseLinkera');
 
     const mergedLegacy = baselinkerExportService.mergeFeaturesForBaselinker({
         existingFeatures: { Opakowanie: 'butelka', Pojemność: '' },

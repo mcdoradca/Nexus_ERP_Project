@@ -308,3 +308,22 @@ test('ADR-0201: Płyn do płukania (Ammorbidente) — blokada "prać w pralce" /
     });
     assert.equal(validSoftenerFaq.errors.some(e => /Ammorbidente|nie jest detergentem piorącym/i.test(e)), false, `Legalne FAQ nie powinno wywołać błędu: ${validSoftenerFaq.errors.join('; ')}`);
 });
+
+test('ADR-0202: Check 34 blokuje niepotwierdzony skład/etykietą "odczyn alkaliczny" na Soft Detersivo Total Black', () => {
+    const hallucinatedPhS4 = validate_domain_and_chemical_logic({
+        section_4_html: '<h2>✍️ Sposób użycia</h2><ol><li>✍️ <b>Krok 1:</b> Sortuj odzież.</li></ol><p>⚠️ <b>WYKLUCZENIE ZASTOSOWANIA:</b> Ze względu na odczyn alkaliczny produkt nie jest przeznaczony do prania wełny oraz jedwabiu naturalnego.</p>'
+    }, {
+        productName: 'Soft Detersivo Total Black płyn do prania 2250 ml',
+        detergentComposition: '5-15% Anionic surfactants, <5% Non-ionic surfactants, Soap, Enzymes, Optical brighteners, Perfume, Methylchloroisothiazolinone, Methylisothiazolinone'
+    });
+    assert.equal(hallucinatedPhS4.valid, false);
+    assert.ok(hallucinatedPhS4.errors.some(e => /odczyn/i.test(e)));
+
+    const cleanExclusionS4 = validate_domain_and_chemical_logic({
+        section_4_html: '<h2>✍️ Sposób użycia</h2><ol><li>✍️ <b>Krok 1:</b> Sortuj odzież.</li></ol><p>⚠️ <b>WYKLUCZENIE ZASTOSOWANIA:</b> Ze względu na formułę enzymatyczną nie stosować do wełny, jedwabiu ani tkanin jasnych i białych.</p>'
+    }, {
+        productName: 'Soft Detersivo Total Black płyn do prania 2250 ml',
+        detergentComposition: '5-15% Anionic surfactants, <5% Non-ionic surfactants, Soap, Enzymes, Optical brighteners, Perfume, Methylchloroisothiazolinone, Methylisothiazolinone'
+    });
+    assert.equal(cleanExclusionS4.errors.some(e => /odczyn/i.test(e)), false);
+});

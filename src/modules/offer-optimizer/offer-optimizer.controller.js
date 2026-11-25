@@ -765,7 +765,7 @@ const exportToBaselinker = async (req, res) => {
             const preservedInternalImages = {};
             for (const [k, v] of Object.entries(existingDbFeatures)) {
                 const nk = String(k).toLowerCase().trim();
-                if ((nk === 'zdjęcie tyłu opakowania' || nk === 'zdjecie tylu opakowania' || nk === '_backimageurl') && v) {
+                if ((nk === 'zdjęcie tyłu opakowania' || nk === 'zdjecie tylu opakowania' || nk === '_backimageurl' || nk === 'zdjęcie frontu opakowania' || nk === 'zdjecie frontu opakowania' || nk === '_frontimageurl') && v) {
                     preservedInternalImages[k] = v;
                 }
             }
@@ -1141,7 +1141,10 @@ const triggerUltimatePipeline = async (req, res) => {
                     }
                 }
                 
-                const frontImageUrl = existingProduct?.imageUrl || (Array.isArray(existingProduct?.images) && existingProduct.images.length > 0 ? existingProduct.images[0] : null);
+                const frontImageUrl = featuresObj?.['Zdjęcie frontu opakowania']
+                    || featuresObj?.['_frontImageUrl']
+                    || existingProduct?.imageUrl
+                    || (Array.isArray(existingProduct?.images) && existingProduct.images.length > 0 ? existingProduct.images[0] : null);
                 const backImageUrl = featuresObj?.['Zdjęcie tyłu opakowania'] || featuresObj?.['_backImageUrl'] || null;
                 const galleryImages = Array.isArray(existingProduct?.images) ? [...existingProduct.images] : [];
 
@@ -1153,6 +1156,7 @@ const triggerUltimatePipeline = async (req, res) => {
                     },
                     allegro_schema: requiredSchema,
                     imageUrl: frontImageUrl,
+                    frontLabelImageUrl: featuresObj?.['Zdjęcie frontu opakowania'] || featuresObj?.['_frontImageUrl'] || null,
                     backImageUrl: backImageUrl,
                     images: galleryImages,
                     ean: canonicalEan
@@ -1508,171 +1512,243 @@ const generateItalianFrame = async (req, res) => {
     }
 };
 
+async function runUnifiedLabelExtraction(req, { ean = null, productId = null, frontImageUrl = null, backImageUrl = null, mode = 'both' } = {}) {
+    const visionExtractorService = require('../offer-optimizer-v2/vision-extractor.service');
+    const baselinkerExtract = require('../offer-optimizer-v2/baselinker.extract');
+    const socketService = require('../../core/socket');
+    const { normalizeCapacityValue } = require('../offer-optimizer-v2/services/deterministic-pipeline.engine');
+    const { resolveLabelPhysicalForm } = require('../offer-optimizer-v2/services/label-truth.helpers');
+
+    const normalizedMode = ['front', 'back', 'both'].includes(String(mode || '').toLowerCase())
+        ? String(mode).toLowerCase()
+        : 'both';
+
+    const onLog = (msg) => {
+        console.log(msg);
+        if (ean) {
+            socketService.emitToWorkspace(req.workspaceId || null, 'nexus-notification', {
+                type: 'PIPELINE_LOG',
+                ean,
+                agentId: 'Vision Label OCR',
+                message: msg
+            });
+        }
+    };
+
+    const existingProduct = await resolveProductByIdOrEan(prisma, {
+        productId,
+        ean,
+        workspaceId: req.workspaceId || null
+    });
+
+    let existingFeaturesObj = {};
+    if (existingProduct) {
+        try {
+            const rawFeatures = existingProduct.features;
+            existingFeaturesObj = typeof rawFeatures === 'string' ? JSON.parse(rawFeatures) : { ...(rawFeatures || {}) };
+        } catch (_) {
+            existingFeaturesObj = {};
+        }
+    }
+
+    let updatedFeatures = { ...existingFeaturesObj };
+    let frontFeatures = {};
+    let backFeatures = {};
+    let frontFound = false;
+    let backFound = false;
+    let extractionBackRes = null;
+    let autoMappedParams = {};
+
+    const effectiveFrontImg = (typeof frontImageUrl === 'string' && frontImageUrl.trim())
+        ? frontImageUrl.trim()
+        : (updatedFeatures['Zdjęcie frontu opakowania']
+            || updatedFeatures['_frontImageUrl']
+            || existingProduct?.imageUrl
+            || (Array.isArray(existingProduct?.images) && existingProduct.images.length > 0 ? existingProduct.images[0] : null));
+
+    const effectiveBackImg = (typeof backImageUrl === 'string' && backImageUrl.trim())
+        ? backImageUrl.trim()
+        : (updatedFeatures['Zdjęcie tyłu opakowania'] || updatedFeatures['_backImageUrl'] || null);
+
+    if (normalizedMode !== 'back' && effectiveFrontImg) {
+        if (typeof frontImageUrl === 'string' && frontImageUrl.trim()) {
+            updatedFeatures['Zdjęcie frontu opakowania'] = frontImageUrl.trim();
+        }
+        const frontRes = await visionExtractorService.extractFrontPackFeatures([effectiveFrontImg], ean || existingProduct?.ean || null, onLog);
+        if (frontRes && !frontRes.skipped && frontRes.pimFeatures && Object.keys(frontRes.pimFeatures).length > 0) {
+            frontFound = true;
+            frontFeatures = { ...frontRes.pimFeatures };
+            for (const [fk, fv] of Object.entries(frontFeatures)) {
+                if (!fv) continue;
+                updatedFeatures[fk] = fv;
+            }
+        }
+    }
+
+    if (normalizedMode !== 'front' && effectiveBackImg) {
+        updatedFeatures['Zdjęcie tyłu opakowania'] = effectiveBackImg;
+
+        const frontContext = {
+            ...updatedFeatures,
+            ...(existingProduct?.name && !updatedFeatures['Nazwa produktu (Etykieta Front)'] ? {} : {})
+        };
+        if (!frontContext['Pojemność / Waga'] && updatedFeatures['Pojemność']) {
+            frontContext['Pojemność / Waga'] = normalizeCapacityValue(updatedFeatures['Pojemność'], existingProduct?.name || '', updatedFeatures);
+        }
+
+        extractionBackRes = await visionExtractorService.extractInciFromBackPack(
+            [effectiveBackImg],
+            ean || existingProduct?.ean || null,
+            onLog,
+            null,
+            {
+                frontContext,
+                productName: existingProduct?.name || ''
+            }
+        );
+
+        if (extractionBackRes && extractionBackRes.found) {
+            backFound = true;
+            backFeatures = { ...(extractionBackRes.pimFeatures || {}) };
+
+            if (extractionBackRes.inci && baselinkerExtract.isValidInciValue(extractionBackRes.inci)) {
+                updatedFeatures['Skład/INCI'] = extractionBackRes.inci;
+                delete updatedFeatures['INCI'];
+                delete updatedFeatures['Skład'];
+            }
+            if (extractionBackRes.warnings) {
+                updatedFeatures['Ostrzeżenia'] = extractionBackRes.warnings;
+                updatedFeatures['Ostrzeżenia (Etykieta)'] = extractionBackRes.warnings;
+            }
+            if (extractionBackRes.usageInstructions) {
+                updatedFeatures['Sposób użycia'] = extractionBackRes.usageInstructions;
+                updatedFeatures['Sposób użycia (Etykieta)'] = extractionBackRes.usageInstructions;
+            }
+            const copyBackKeys = [
+                'Przeznaczenie (Etykieta)',
+                'Wyróżniki / Certyfikaty (Etykieta)',
+                'Producent',
+                'Kraj pochodzenia (Etykieta)',
+                'Opakowanie (Etykieta)',
+                'Liczba sztuk (Etykieta)',
+                'pH (Etykieta)',
+                'Piktogramy CLP (Etykieta)',
+                'Nazwa produktu (Kontretykieta)',
+                'Pojemność nakrętki (Etykieta)',
+                'Postać (Etykieta)',
+                'Sposób użycia (Etykieta)',
+                'Ostrzeżenia (Etykieta)',
+                'Ostrzeżenie OCR (Etykieta)'
+            ];
+            for (const k of copyBackKeys) {
+                if (backFeatures[k]) {
+                    updatedFeatures[k] = backFeatures[k];
+                }
+            }
+
+            if (extractionBackRes.ocrDiagnostics && !extractionBackRes.ocrDiagnostics.ocrQualityWarning) {
+                delete updatedFeatures['Ostrzeżenie OCR (Etykieta)'];
+            }
+            if (extractionBackRes.ocrDiagnostics?.capCapacityLegible === false) {
+                delete updatedFeatures['Pojemność nakrętki (Etykieta)'];
+            }
+            if (extractionBackRes.ocrDiagnostics?.dosageTableLegibility === 'LOW_UNREADABLE' && !extractionBackRes.ocrDiagnostics?.dosageMathValid) {
+                delete updatedFeatures['Sposób użycia'];
+                delete updatedFeatures['Sposób użycia (Etykieta)'];
+                delete updatedFeatures['Pojemność nakrętki (Etykieta)'];
+            }
+        }
+    }
+
+    const resolvedForm = resolveLabelPhysicalForm({
+        visionFeatures: { ...frontFeatures, ...backFeatures },
+        features: updatedFeatures,
+        officialLabelName: updatedFeatures['Nazwa produktu (Etykieta Front)'] || updatedFeatures['Nazwa produktu (Kontretykieta)'] || ''
+    });
+    if (resolvedForm.isVerifiedFromLabel && resolvedForm.canonicalForm) {
+        updatedFeatures['Postać'] = resolvedForm.canonicalForm;
+    }
+
+    if (extractionBackRes?.ocrDiagnostics?.ocrQualityWarning) {
+        delete updatedFeatures['_labelsPreScannedAt'];
+    } else if (frontFound || backFound) {
+        updatedFeatures['_labelsPreScannedAt'] = new Date().toISOString();
+    }
+
+    if (existingProduct?.allegroCategoryId && (frontFound || backFound)) {
+        try {
+            const cat = await prisma.marketplaceCategory.findUnique({
+                where: { id: existingProduct.allegroCategoryId }
+            });
+            if (cat && Array.isArray(cat.parameters) && cat.parameters.length > 0) {
+                const { mapPackagingFeaturesToAllegroSchema } = require('../offer-optimizer-v2/services/allegro-param-automapper.service');
+                const autoRes = mapPackagingFeaturesToAllegroSchema({
+                    allegroSchema: cat.parameters,
+                    currentFeatures: updatedFeatures,
+                    visionFront: { ...updatedFeatures, ...frontFeatures },
+                    visionBack: backFeatures,
+                    product: existingProduct
+                });
+                updatedFeatures = autoRes.updatedFeatures;
+                autoMappedParams = autoRes.mappedParams || {};
+            }
+        } catch (mapErr) {
+            console.warn('[extractLabels] Ostrzeżenie auto-mapowania Allegro:', mapErr.message);
+        }
+    }
+
+    if (existingProduct && (frontFound || backFound || effectiveBackImg || (typeof frontImageUrl === 'string' && frontImageUrl.trim()))) {
+        await prisma.product.update({
+            where: { id: existingProduct.id },
+            data: { features: updatedFeatures }
+        }).catch((dbErr) => console.warn('[extractLabels] Ostrzeżenie zapisu do DB:', dbErr.message));
+    }
+
+    return {
+        found: Boolean(frontFound || backFound),
+        frontFound,
+        backFound,
+        inci: extractionBackRes?.inci || updatedFeatures['Skład/INCI'] || null,
+        warnings: extractionBackRes?.warnings || updatedFeatures['Ostrzeżenia'] || null,
+        usageInstructions: extractionBackRes
+            ? (extractionBackRes.usageInstructions || null)
+            : (updatedFeatures['Sposób użycia'] || null),
+        autoMappedParams,
+        frontFeatures,
+        backFeatures,
+        ocrDiagnostics: extractionBackRes?.ocrDiagnostics || null,
+        updatedFeatures,
+        pimFeatures: {
+            ...frontFeatures,
+            ...backFeatures,
+            ...(typeof frontImageUrl === 'string' && frontImageUrl.trim() ? { 'Zdjęcie frontu opakowania': frontImageUrl.trim() } : {}),
+            ...(effectiveBackImg ? { 'Zdjęcie tyłu opakowania': effectiveBackImg } : {})
+        }
+    };
+}
+
+const extractLabels = async (req, res) => {
+    try {
+        const { ean, productId, frontImageUrl, backImageUrl, mode = 'both' } = req.body || {};
+        if (mode === 'back' && (!backImageUrl || typeof backImageUrl !== 'string' || !backImageUrl.trim())) {
+            return res.status(400).json({ error: 'Wymagane zdjęcie tyłu opakowania (backImageUrl).' });
+        }
+        const payload = await runUnifiedLabelExtraction(req, { ean, productId, frontImageUrl, backImageUrl, mode });
+        return res.status(200).json(payload);
+    } catch (error) {
+        console.error('[extractLabels] Błąd analizy etykiet:', error);
+        return res.status(500).json({ error: error.message || 'Błąd analizy etykiet przez Vision AI.' });
+    }
+};
+
 const extractBackLabel = async (req, res) => {
     try {
         const { ean, backImageUrl, productId } = req.body || {};
         if (!backImageUrl || typeof backImageUrl !== 'string' || !backImageUrl.trim()) {
             return res.status(400).json({ error: 'Wymagane zdjęcie tyłu opakowania (backImageUrl).' });
         }
-
-        const visionExtractorService = require('../offer-optimizer-v2/vision-extractor.service');
-        const baselinkerExtract = require('../offer-optimizer-v2/baselinker.extract');
-        const socketService = require('../../core/socket');
-
-        const onLog = (msg) => {
-            console.log(msg);
-            if (ean) {
-                socketService.emitToWorkspace(req.workspaceId || null, 'nexus-notification', {
-                    type: 'PIPELINE_LOG',
-                    ean,
-                    agentId: 'Vision Back-Pack OCR',
-                    message: msg
-                });
-            }
-        };
-
-        const existingProduct = await resolveProductByIdOrEan(prisma, {
-            productId,
-            ean,
-            workspaceId: req.workspaceId || null
-        });
-
-        let existingFeaturesObj = {};
-        if (existingProduct) {
-            try {
-                const rawFeatures = existingProduct.features;
-                existingFeaturesObj = typeof rawFeatures === 'string' ? JSON.parse(rawFeatures) : { ...(rawFeatures || {}) };
-            } catch (_) {
-                existingFeaturesObj = {};
-            }
-        }
-
-        const frontContext = {
-            ...existingFeaturesObj,
-            ...(existingProduct?.name && !existingFeaturesObj['Nazwa produktu (Etykieta Front)'] ? { 'Nazwa produktu (Etykieta Front)': existingFeaturesObj['Nazwa produktu (Etykieta Front)'] || undefined } : {})
-        };
-        if (!frontContext['Pojemność / Waga'] && existingFeaturesObj['Pojemność']) {
-            const { normalizeCapacityValue } = require('../offer-optimizer-v2/services/deterministic-pipeline.engine');
-            frontContext['Pojemność / Waga'] = normalizeCapacityValue(existingFeaturesObj['Pojemność'], existingProduct?.name || '', existingFeaturesObj);
-        }
-
-        let frontImage = null;
-        const frontImgCandidate = existingProduct?.imageUrl || (Array.isArray(existingProduct?.images) ? existingProduct.images[0] : null);
-        if (frontImgCandidate && typeof frontImgCandidate === 'string' && frontImgCandidate.trim() !== backImageUrl.trim()) {
-            try {
-                const frontBuf = await visionExtractorService.fetchImageBuffer(frontImgCandidate.trim(), 8000, () => {});
-                if (frontBuf?.buffer) {
-                    frontImage = {
-                        mimeType: frontBuf.mimeType || 'image/jpeg',
-                        base64: frontBuf.buffer.toString('base64')
-                    };
-                }
-            } catch (_) {
-                // Opcjonalny kontekst zdjęcia frontowego — brak sieci nie przerywa skanu tyłu
-            }
-        }
-
-        const extractionResult = await visionExtractorService.extractInciFromBackPack(
-            [backImageUrl.trim()],
-            ean || null,
-            onLog,
-            null,
-            {
-                frontContext,
-                frontImage,
-                productName: existingProduct?.name || ''
-            }
-        );
-
-        let updatedFeatures = { ...existingFeaturesObj };
-        let autoMappedParams = {};
-
-        if (existingProduct) {
-            updatedFeatures['Zdjęcie tyłu opakowania'] = backImageUrl.trim();
-            if (extractionResult.inci && baselinkerExtract.isValidInciValue(extractionResult.inci)) {
-                updatedFeatures['Skład/INCI'] = extractionResult.inci;
-                delete updatedFeatures['INCI'];
-                delete updatedFeatures['Skład'];
-            }
-            if (extractionResult.warnings) {
-                updatedFeatures['Ostrzeżenia'] = extractionResult.warnings;
-                updatedFeatures['Ostrzeżenia (Etykieta)'] = extractionResult.warnings;
-            }
-            if (extractionResult.usageInstructions) {
-                updatedFeatures['Sposób użycia'] = extractionResult.usageInstructions;
-                updatedFeatures['Sposób użycia (Etykieta)'] = extractionResult.usageInstructions;
-            }
-            if (extractionResult.pimFeatures) {
-                const copyBackKeys = [
-                    'Przeznaczenie (Etykieta)',
-                    'Wyróżniki / Certyfikaty (Etykieta)',
-                    'Producent',
-                    'Kraj pochodzenia (Etykieta)',
-                    'Opakowanie (Etykieta)',
-                    'Liczba sztuk (Etykieta)',
-                    'pH (Etykieta)',
-                    'Piktogramy CLP (Etykieta)',
-                    'Nazwa produktu (Kontretykieta)',
-                    'Pojemność nakrętki (Etykieta)',
-                    'Postać (Etykieta)',
-                    'Sposób użycia (Etykieta)',
-                    'Ostrzeżenia (Etykieta)'
-                ];
-                for (const k of copyBackKeys) {
-                    if (extractionResult.pimFeatures[k]) {
-                        updatedFeatures[k] = extractionResult.pimFeatures[k];
-                    }
-                }
-                const { resolveLabelPhysicalForm } = require('../offer-optimizer-v2/services/label-truth.helpers');
-                const resolvedForm = resolveLabelPhysicalForm({
-                    visionFeatures: extractionResult.pimFeatures,
-                    features: updatedFeatures,
-                    officialLabelName: updatedFeatures['Nazwa produktu (Etykieta Front)'] || extractionResult.pimFeatures['Nazwa produktu (Kontretykieta)'] || ''
-                });
-                if (resolvedForm.isVerifiedFromLabel && resolvedForm.canonicalForm) {
-                    updatedFeatures['Postać'] = resolvedForm.canonicalForm;
-                }
-            }
-
-            if (existingProduct.allegroCategoryId) {
-                try {
-                    const cat = await prisma.marketplaceCategory.findUnique({
-                        where: { id: existingProduct.allegroCategoryId }
-                    });
-                    if (cat && Array.isArray(cat.parameters) && cat.parameters.length > 0) {
-                        const { mapPackagingFeaturesToAllegroSchema } = require('../offer-optimizer-v2/services/allegro-param-automapper.service');
-                        const autoRes = mapPackagingFeaturesToAllegroSchema({
-                            allegroSchema: cat.parameters,
-                            currentFeatures: updatedFeatures,
-                            visionFront: existingFeaturesObj,
-                            visionBack: extractionResult.pimFeatures || {},
-                            product: existingProduct
-                        });
-                        updatedFeatures = autoRes.updatedFeatures;
-                        autoMappedParams = autoRes.mappedParams || {};
-                    }
-                } catch (mapErr) {
-                    console.warn('[extractBackLabel] Ostrzeżenie auto-mapowania Allegro:', mapErr.message);
-                }
-            }
-
-            await prisma.product.update({
-                where: { id: existingProduct.id },
-                data: { features: updatedFeatures }
-            }).catch((dbErr) => console.warn('[extractBackLabel] Ostrzeżenie zapisu do DB:', dbErr.message));
-        }
-
-        return res.status(200).json({
-            found: Boolean(extractionResult.found),
-            inci: extractionResult.inci || null,
-            warnings: extractionResult.warnings || null,
-            usageInstructions: extractionResult.usageInstructions || null,
-            autoMappedParams,
-            pimFeatures: {
-                ...(extractionResult.pimFeatures || {}),
-                'Zdjęcie tyłu opakowania': backImageUrl.trim()
-            }
-        });
+        const payload = await runUnifiedLabelExtraction(req, { ean, productId, backImageUrl, mode: 'back' });
+        return res.status(200).json(payload);
     } catch (error) {
         console.error('[extractBackLabel] Błąd analizy zdjęcia tyłu opakowania:', error);
         return res.status(500).json({ error: error.message || 'Błąd analizy zdjęcia tyłu opakowania przez Vision AI.' });
@@ -2801,6 +2877,7 @@ module.exports = {
     exportToBaselinker,
     generateLifestyle,
     checkLifestyleStatus,
+    extractLabels,
     extractBackLabel,
     triggerUltimatePipeline,
     checkPipelineStatus,

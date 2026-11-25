@@ -1,4 +1,4 @@
-const { GoogleGenAI, Type, ThinkingLevel } = require('@google/genai');
+const { GoogleGenAI, Type, ThinkingLevel, MediaResolution } = require('@google/genai');
 const aiMetricsService = require('../../core/ai.metrics.service');
 const { getNodeConfig } = require('./config/nodes.config.js');
 
@@ -169,13 +169,18 @@ function appendTextToContents(baseContents, extraText) {
  * @param {Array|null} [params.images] - Lista obrazów [{ mimeType, base64, label }]
  * @returns {Object} Zwraca sparsowany obiekt JSON.
  */
-async function callAgentWithTelemetry({ agentId, prompt, systemInstruction = null, schema, image = null, images = null, onLog = () => {} }) {
+async function callAgentWithTelemetry({ agentId, prompt, systemInstruction = null, schema, image = null, images = null, mediaResolution = null, onLog = () => {} }) {
     if (!agentId) {
         throw new Error("BŁĄD BLOKUJĄCY (S-7): Wywołanie LLM bez jawnego agentId.");
     }
     
     const { systemInstruction: resolvedSystemInstruction, userContent } = splitPromptForCaching(prompt, systemInstruction);
-    const { model, thinkingLevel, grounding, maxOutputTokens } = getNodeConfig(agentId);
+    const { model, thinkingLevel, grounding, maxOutputTokens, mediaResolution: nodeMediaResolution } = getNodeConfig(agentId);
+    const hasMultimodalImages = Boolean(
+        (image && typeof image.base64 === 'string' && image.base64.trim().length > 0) ||
+        (Array.isArray(images) && images.some(img => img && typeof img.base64 === 'string' && img.base64.trim().length > 0))
+    );
+    const effectiveMediaResolution = hasMultimodalImages ? (mediaResolution || nodeMediaResolution || null) : null;
     if (!process.env.GEMINI_API_KEY) {
         throw new Error("HITL: Brak klucza API (GEMINI_API_KEY) w środowisku.");
     }
@@ -190,13 +195,16 @@ async function callAgentWithTelemetry({ agentId, prompt, systemInstruction = nul
             thinkingLevel: thinkingLevel
         };
     }
+    if (effectiveMediaResolution) {
+        baseConfig.mediaResolution = effectiveMediaResolution;
+    }
     if (maxOutputTokens !== undefined) {
         baseConfig.maxOutputTokens = maxOutputTokens;
     }
 
     const needsTwoStep = grounding && schema;
 
-    const startMsg = `[V2 Wrapper] Uruchamianie agenta: ${agentId}, model: ${model}, thinking: ${thinkingLevel}, grounding: ${!!grounding}, schema: ${!!schema}${needsTwoStep ? ', mode: TWO-STEP' : ''}`;
+    const startMsg = `[V2 Wrapper] Uruchamianie agenta: ${agentId}, model: ${model}, thinking: ${thinkingLevel}, mediaResolution: ${effectiveMediaResolution || 'DEFAULT'}, grounding: ${!!grounding}, schema: ${!!schema}${needsTwoStep ? ', mode: TWO-STEP' : ''}`;
     console.log(startMsg);
     onLog(`[AI WRAPPER] ${startMsg}`);
     const startTime = Date.now();
@@ -395,17 +403,29 @@ async function callAgentWithTelemetry({ agentId, prompt, systemInstruction = nul
                     (apiError.status === 400 || errStr.includes('400') || errStr.includes('INVALID_ARGUMENT')) &&
                     /thinking/i.test(errStr)
                 );
+                const isMediaResUnsupported = Boolean(
+                    activeConfig?.mediaResolution &&
+                    (apiError.status === 400 || errStr.includes('400') || errStr.includes('INVALID_ARGUMENT')) &&
+                    /media_?resolution/i.test(errStr)
+                );
 
-                if (isRegionBlocked || isThinkingUnsupported) {
-                    const reasonLabel = isRegionBlocked ? 'restrykcję regionu/API' : 'brak obsługi thinkingConfig przez model';
-                    const warnMsg = `[DEFENSIVE AI] Zablokowano zaawansowane parametry dla agenta ${agentId} przez ${reasonLabel} (status: ${apiError.status || 'N/A'}). Uruchamiam cichy Fallback (degradacja bez thinkingConfig${isRegionBlocked ? ' i tools' : ''}).`;
+                if (isRegionBlocked || isThinkingUnsupported || isMediaResUnsupported) {
+                    const reasonLabel = isRegionBlocked
+                        ? 'restrykcję regionu/API'
+                        : (isMediaResUnsupported ? 'brak obsługi mediaResolution przez model' : 'brak obsługi thinkingConfig przez model');
+                    const warnMsg = `[DEFENSIVE AI] Zablokowano zaawansowane parametry dla agenta ${agentId} przez ${reasonLabel} (status: ${apiError.status || 'N/A'}). Uruchamiam cichy Fallback.`;
                     console.warn(warnMsg);
                     onLog(`[AI WRAPPER - OSTRZEŻENIE] ${warnMsg}`);
                     const fallbackConfig = { ...activeConfig };
                     if (isRegionBlocked) {
                         delete fallbackConfig.tools;
                     }
-                    delete fallbackConfig.thinkingConfig;
+                    if (isThinkingUnsupported || isRegionBlocked) {
+                        delete fallbackConfig.thinkingConfig;
+                    }
+                    if (isMediaResUnsupported || isRegionBlocked) {
+                        delete fallbackConfig.mediaResolution;
+                    }
                     
                     response = await generateContentWithTimeout({
                         model: model,

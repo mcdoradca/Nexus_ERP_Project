@@ -34,6 +34,7 @@ router.post('/validate-vonhalsky-export', express.json({ limit: '50mb' }), vonHa
 router.post('/export-vonhalsky', express.json({ limit: '50mb' }), vonHalskyController.exportToVonHalsky);
 router.post('/generate-lifestyle', express.json({ limit: '50mb' }), controller.generateLifestyle);
 router.get('/generate-lifestyle/status/:jobId', controller.checkLifestyleStatus);
+router.post('/extract-labels', express.json({ limit: '50mb' }), controller.extractLabels);
 router.post('/extract-back-label', express.json({ limit: '50mb' }), controller.extractBackLabel);
 router.post('/pipeline/trigger', express.json({ limit: '50mb' }), controller.triggerUltimatePipeline);
 router.get('/pipeline/status/:ean', controller.checkPipelineStatus);

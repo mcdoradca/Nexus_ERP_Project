@@ -201,6 +201,8 @@ const PACKAGING_FACT_FEATURE_KEYS = new Set([
     'Kod producenta',
     'Zdjęcie tyłu opakowania',
     '_backImageUrl',
+    'Zdjęcie frontu opakowania',
+    '_frontImageUrl',
     'INFORMACJE O BEZPIECZEŃSTWIE'
 ]);
 

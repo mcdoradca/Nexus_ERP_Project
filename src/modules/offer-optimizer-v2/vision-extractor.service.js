@@ -1,5 +1,6 @@
 const axios = require('axios');
 const https = require('https');
+const sharp = require('sharp');
 const aiWrapper = require('./ai.wrapper.js');
 const baselinkerExtract = require('./baselinker.extract.js');
 const { normalizeInciToLegalEnglish } = require('./normalization.js');
@@ -121,6 +122,154 @@ async function fetchImageBuffer(url, timeoutMs = 15000, onLog = () => {}) {
     }
 
     throw new Error(`Wszystkie ${fetchTiers.length} strategie pobierania obrazu zawiodły. Ostatni błąd: ${lastError ? lastError.message : 'Brak odpowiedzi'}`);
+}
+
+/**
+ * Przycina zbędne białe marginesy packshotu dla etykiety frontowej, zachowując pełną czytelność tekstu.
+ */
+async function prepareFrontLabelImage(buffer, mimeType = 'image/jpeg') {
+    const fallback = {
+        mimeType: mimeType || 'image/jpeg',
+        base64: buffer.toString('base64'),
+        width: null,
+        height: null,
+        trimmed: false
+    };
+    try {
+        const meta = await sharp(buffer).metadata();
+        const width = meta?.width || null;
+        const height = meta?.height || null;
+        if (!width || !height || width < 160 || height < 160) {
+            return { ...fallback, width, height };
+        }
+        let workBuf = buffer;
+        let trimmed = false;
+        try {
+            const trimmedRes = await sharp(buffer)
+                .trim({ threshold: 20 })
+                .jpeg({ quality: 93, mozjpeg: true })
+                .toBuffer({ resolveWithObject: true });
+            const tw = trimmedRes?.info?.width || 0;
+            const th = trimmedRes?.info?.height || 0;
+            if (tw >= 140 && th >= 140 && (tw * th) <= (width * height * 0.92)) {
+                workBuf = trimmedRes.data;
+                trimmed = true;
+            }
+        } catch (_) {
+            // Bezpieczny fallback do pełnego obrazu frontu
+        }
+        return {
+            mimeType: trimmed ? 'image/jpeg' : (mimeType || 'image/jpeg'),
+            base64: workBuf.toString('base64'),
+            width,
+            height,
+            trimmed
+        };
+    } catch (_) {
+        return fallback;
+    }
+}
+
+/**
+ * Przygotowuje zestaw obrazów kontretykiety (pełne ujęcie + zbliżenia ROI z powiększeniem Lanczos3),
+ * aby drobny druk składu INCI i tabeli dozowania nie gubił się na białych marginesach packshotu.
+ */
+async function prepareBackLabelImageSet(buffer, mimeType = 'image/jpeg') {
+    const fallback = {
+        fullImage: {
+            label: 'ZDJĘCIE 1 (PEŁNA KONTRETYKIETA PRODUKTU):',
+            mimeType: mimeType || 'image/jpeg',
+            base64: buffer.toString('base64')
+        },
+        mainLabelCrop: null,
+        dosageZoomCrop: null,
+        width: null,
+        height: null,
+        isLowResolution: false,
+        trimmed: false
+    };
+    try {
+        const meta = await sharp(buffer).metadata();
+        const width = meta?.width || null;
+        const height = meta?.height || null;
+        if (!width || !height || width < 160 || height < 160) {
+            return { ...fallback, width, height };
+        }
+        const isLowResolution = Math.max(width, height) < 1000;
+
+        let workBuf = buffer;
+        let workW = width;
+        let workH = height;
+        let trimmed = false;
+        try {
+            const trimmedRes = await sharp(buffer).trim({ threshold: 20 }).png().toBuffer({ resolveWithObject: true });
+            const tw = trimmedRes?.info?.width || 0;
+            const th = trimmedRes?.info?.height || 0;
+            if (tw >= 120 && th >= 120 && (tw * th) <= (width * height * 0.92)) {
+                workBuf = trimmedRes.data;
+                workW = tw;
+                workH = th;
+                trimmed = true;
+            }
+        } catch (_) {
+            // Obraz bez jednolitych marginesów
+        }
+
+        const cropLeft = Math.max(0, Math.floor(workW * 0.04));
+        const cropWidth = Math.max(100, Math.min(workW - cropLeft, Math.ceil(workW * 0.92)));
+
+        let mainLabelCrop = null;
+        try {
+            const mainTop = Math.max(0, Math.floor(workH * 0.22));
+            const mainHeight = Math.max(80, Math.min(workH - mainTop, Math.ceil(workH * 0.75)));
+            const mainTargetWidth = Math.min(2000, Math.max(cropWidth, 1400));
+            const mainBuf = await sharp(workBuf)
+                .extract({ left: cropLeft, top: mainTop, width: cropWidth, height: mainHeight })
+                .resize({ width: mainTargetWidth, kernel: 'lanczos3', withoutEnlargement: false })
+                .sharpen({ sigma: 0.9 })
+                .jpeg({ quality: 93 })
+                .toBuffer();
+            mainLabelCrop = {
+                label: 'ZBLIŻENIE 1 (GŁÓWNA STREFA KONTRETYKIETY – OSTRZEŻENIA, INCI, TABELA):',
+                mimeType: 'image/jpeg',
+                base64: mainBuf.toString('base64')
+            };
+        } catch (_) {
+            mainLabelCrop = null;
+        }
+
+        let dosageZoomCrop = null;
+        try {
+            const doseTop = Math.max(0, Math.floor(workH * 0.48));
+            const doseHeight = Math.max(60, Math.min(workH - doseTop, Math.ceil(workH * 0.49)));
+            const doseTargetWidth = Math.min(2200, Math.max(cropWidth, 1600));
+            const doseBuf = await sharp(workBuf)
+                .extract({ left: cropLeft, top: doseTop, width: cropWidth, height: doseHeight })
+                .resize({ width: doseTargetWidth, kernel: 'lanczos3', withoutEnlargement: false })
+                .sharpen({ sigma: 1.1 })
+                .jpeg({ quality: 94 })
+                .toBuffer();
+            dosageZoomCrop = {
+                label: 'ZBLIŻENIE 2 (POWIĘKSZONA DOLNA CZĘŚĆ ETYKIETY – TABELA DOZOWANIA, IKONA NAKRĘTKI, POJEMNOŚĆ):',
+                mimeType: 'image/jpeg',
+                base64: doseBuf.toString('base64')
+            };
+        } catch (_) {
+            dosageZoomCrop = null;
+        }
+
+        return {
+            fullImage: fallback.fullImage,
+            mainLabelCrop,
+            dosageZoomCrop,
+            width,
+            height,
+            isLowResolution,
+            trimmed
+        };
+    } catch (_) {
+        return fallback;
+    }
 }
 
 const FRONT_VISION_PROMPT = `# [AGENT 0 - FRONT-PACK VISION EXTRACTOR v1.0]
@@ -280,14 +429,15 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
         onLog(`[VISION EXTRACTOR] Obraz pobrany pomyślnie (${(buffer.length / 1024).toFixed(1)} KB, MIME: ${mimeType}, ${tierUsed}). Uruchamianie analizy Vision AI (Agent 0)...`);
         
         const base64Data = buffer.toString('base64');
+        const preparedFront = await prepareFrontLabelImage(buffer, mimeType);
         const { result, usage } = await aiWrapper.callAgentWithTelemetry({
             agentId: "0",
             systemInstruction: FRONT_VISION_PROMPT,
             prompt: `Odczytaj cechy fizyczne z przedniej etykiety produktu (EAN: ${ean || 'N/A'}) zgodnie z instrukcjami systemowymi.`,
             schema: frontVisionSchema,
             image: {
-                mimeType: mimeType,
-                base64: base64Data
+                mimeType: preparedFront.mimeType,
+                base64: preparedFront.base64
             },
             onLog
         });
@@ -412,6 +562,9 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
             pimFeatures,
             usage,
             imageUrl: successfulUrl,
+            sourceResolution: preparedFront.width && preparedFront.height
+                ? { width: preparedFront.width, height: preparedFront.height }
+                : null,
             capturedImage: {
                 mimeType,
                 base64: base64Data,
@@ -470,16 +623,23 @@ ZASADY ANALIZY (DOKTRYNA ZAMKNIĘTEGO ŚWIATA – ZERO ZGADYWANIA):
      * KATEGORYCZNY ZAKAZ ZGADYWANIA I DOPISYWANIA ŚRODKÓW OCHRONY LUB ZAGROŻEŃ SPOZA ETYKIETY (np. zakaz dopisywania P280/rękawic ochronnych, maski, okularów czy H319, jeśli etykieta ich wyraźnie nie wymienia!).
    - Jeśli brak widocznych ostrzeżeń na zdjęciu, ustaw "warnings": null.
 
-4. EKSTRAKCJA SPOSOBU UŻYCIA ("usage_instructions", "cap_capacity_ml"):
-   - Jeśli na etykiecie widoczna jest instrukcja użycia / tabela dozowania ("CONSIGLI D'USO", "HOW TO USE", "Modo d'uso", "Istruzioni per l'uso", "Sposób użycia", "Gebrauchsanweisung") lub piktogramowe kafelki kroków (np. "SPRUZZA -> PASSA -> FATTO!"):
-     * Ustaw "has_back_label": true.
+4. EKSTRAKCJA SPOSOBU UŻYCIA I OCENA CZYTELNOŚCI ("usage_instructions", "cap_capacity_ml", "cap_capacity_legible", "dosage_table_legibility", "unreadable_fields"):
+   - Jeśli otrzymasz dodatkowe zdjęcie zbliżenia ("ZBLIŻENIE 1" / "ZBLIŻENIE 2"), wykorzystaj je równolegle z pełnym zdjęciem do precyzyjnego odczytu drobnego druku w tabeli dozowania i przy ikonie nakrętki.
+   - DOKTRYNA ZERO ZGADYWANIA (KRYTYCZNE):
+     * Odczytaj każdą liczbę i każdą komórkę tabeli WYŁĄCZNIE wtedy, gdy jej cyfry są faktycznie rozróżnialne na zdjęciu!
+     * Oceń czytelność tabeli dozowania w polu "dosage_table_legibility":
+       - "HIGH": wszystkie nagłówki i liczby w ml są wyraźne i jednoznaczne;
+       - "MEDIUM": większość liczb jest czytelna, pojedyncze cyfry wymagają uważnego odczytu ze zbliżenia;
+       - "LOW_UNREADABLE": rozdzielczość lub kompresja powoduje rozmycie bądź zlewanie się cyfr w komórkach;
+       - "NOT_PRESENT": na etykiecie w ogóle nie ma tabeli dozowania w ml.
+     * Pojemność nakrętki ("cap_capacity_ml", "cap_capacity_legible"): odczytaj wartość przy ikonie nakrętki WYŁĄCZNIE wtedy, gdy cyfry są wyraźnie czytelne. Jeśli rysunek lub liczba przy nakrętce są nieostre albo nieczytelne, ustaw "cap_capacity_legible": false, "cap_capacity_ml": null, dopisz "cap_capacity_ml" do "unreadable_fields" i NIE WPISUJ żadnej objętości nakrętki do "usage_instructions"!
+     * Jeśli "dosage_table_legibility" ma wartość "LOW_UNREADABLE", dopisz "dosage_table" do "unreadable_fields" i NIE KONFABULUJ liczb w komórkach tabeli z pamięci — przepisz wyłącznie czytelne zalecenia słowne lub oznacz wątpliwe wartości jako "[nieczytelne na zdjęciu]".
+   - Jeśli tabela dozowania jest czytelna ("HIGH" lub "MEDIUM"):
      * Przepisz i przetłumacz DOKŁADNIE każdą komórkę tabeli dozowania — wiersz po wierszu i kolumna po kolumnie!
-     * Odczytaj pojemność nakrętki z rysunku/opisu na etykiecie ("1 tappo = X ml", np. "nakrętka = 50 ml") i zapisz ją również w polu "cap_capacity_ml". KATEGORYCZNY ZAKAZ zgadywania "75 ml" lub "60 ml", jeśli na zdjęciu widnieje inna wartość lub jej brak!
-     * Jeśli tabela rozróżnia dwa poziomy zabrudzeń (np. zabrudzenia średnie "sporco medio" i mocne "sporco ostinato / difficile") oraz twardość wody ("dolce/miękka", "media/średnia", "dura/twarda") dla różnych wsadów pralki ("4-5 kg", "6-8 kg" / "6-7 kg") i prania/płukania ręcznego ("a mano" w 10 l wody), zachowaj WSZYSTKIE te poziomy i dokładne liczby w ml!
-     * WERYFIKACJA MATEMATYCZNA PRZED ZWROTEM: jeśli znana jest pojemność butelki i deklarowana liczba cykli (np. 2250 ml / 50 prań = 45 ml na 1 standardowy cykl dla wsadu 4-5 kg, woda średnia, zabrudzenia średnie), standardowa dawka w Twoim odczycie MUSI zgadzać się z tym ilorazem! Jeśli odczytane cyfry dają sprzeczny wynik (np. 68 ml zamiast 45 ml), spójrz uważnie na zdjęcie jeszcze raz i odczytaj prawidłowe cyfry z kontretykiety (nigdy nie zmyślaj tabeli z innych produktów!).
-     * Dla płynów i koncentratów do płukania tkanin ("Ammorbidente") tłumacz nagłówki ikonek pralki i miski ("In lavatrice" / "A mano") wyłącznie jako "Płukanie w pralce" oraz "Płukanie ręczne" — KATEGORYCZNY ZAKAZ pisania "Pranie w pralce" lub "prać w pralce"!
-     * Zachowaj wszystkie temperatury (np. "nawet na zimno"), czasy działania, spłukiwanie lub BRAK spłukiwania (np. gdy kafelki pokazują "SPRUZZA -> PASSA -> FATTO!" albo front deklaruje "SENZA RISCIACQUO / Bez spłukiwania") oraz uwagi typu "postępować zgodnie z instrukcją obsługi urządzenia". KATEGORYCZNY ZAKAZ halucynowania etapu "i spłukać" z pamięci o innym produkcie tej samej marki!
-     * Zastosuj zgodność z BPR: słowa typu "igienizzante/antibatterico" tłumacz jako "higienicznie czyszczący".
+     * Rozróżnij wszystkie poziomy zabrudzeń ("sporco normale / średnie zabrudzenia" i "molto sporco / mocne zabrudzenia"), twardość wody ("dolce/miękka", "media/średnia", "dura/twarda"), wszystkie wsady pralki (np. "4-5 kg", "6-8 kg", dopiski typu "MAXI 9-10 kg") oraz pranie/płukanie ręczne ("a mano" w litrach wody).
+   - Dla płynów i koncentratów do płukania tkanin ("Ammorbidente") tłumacz nagłówki ikonek pralki i miski ("In lavatrice" / "A mano") wyłącznie jako "Płukanie w pralce" oraz "Płukanie ręczne" — KATEGORYCZNY ZAKAZ pisania "Pranie w pralce" lub "prać w pralce"!
+   - Zachowaj wszystkie temperatury (np. "nawet na zimno"), czasy działania, spłukiwanie lub BRAK spłukiwania (np. gdy kafelki pokazują "SPRUZZA -> PASSA -> FATTO!" albo front deklaruje "SENZA RISCIACQUO / Bez spłukiwania") oraz uwagi typu "postępować zgodnie z instrukcją obsługi urządzenia". KATEGORYCZNY ZAKAZ halucynowania etapu "i spłukać" z pamięci o innym produkcie tej samej marki!
+   - Zastosuj zgodność z BPR: słowa typu "igienizzante/antibatterico" tłumacz jako "higienicznie czyszczący".
    - Jeśli brak widocznej instrukcji użycia na zdjęciu, ustaw "usage_instructions": null.
 
 5. EKSTRAKCJA NAZWY Z KONTRETYKIETY, POSTACI, POWIERZCHNI DOCELOWYCH, CERTYFIKATÓW / TESTÓW, PRODUCENTA I KRAJU ("oficjalna_nazwa_kontretykieta", "postac_kontretykieta", "target_surfaces", "certifications_and_claims", "manufacturer_name", "country_of_origin", "packaging_type", "pieces_count", "numeric_ph"):
@@ -507,6 +667,12 @@ const backPackInciSchema = {
         },
         usage_instructions: { type: ["string", "null"] },
         cap_capacity_ml: { type: ["string", "null"] },
+        cap_capacity_legible: { type: ["boolean", "null"] },
+        dosage_table_legibility: { type: ["string", "null"] },
+        unreadable_fields: {
+            type: "array",
+            items: { type: "string" }
+        },
         oficjalna_nazwa_kontretykieta: { type: ["string", "null"] },
         postac_kontretykieta: { type: ["string", "null"] },
         target_surfaces: { type: ["string", "null"] },
@@ -545,9 +711,6 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
         : rawCandidateUrls;
 
     const frontCtx = options?.frontContext && typeof options.frontContext === 'object' ? options.frontContext : null;
-    const frontImageAsset = options?.frontImage && typeof options.frontImage.base64 === 'string' && options.frontImage.base64.trim().length > 0
-        ? options.frontImage
-        : null;
 
     let frontContextNote = '';
     const isSoftenerFromFront = isFabricSoftenerProduct({
@@ -555,21 +718,15 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
         line: frontCtx?.['Linia produktowa (Front)'] || '',
         visionFeatures: frontCtx || {}
     });
+    const frontCapVal = frontCtx?.['Pojemność / Waga'] || frontCtx?.['Pojemność'] || '';
+    const frontYieldVal = frontCtx?.['Wydajność'] || frontCtx?.['Liczba prań'] || '';
     if (frontCtx && Object.keys(frontCtx).length > 0) {
         const frontSummaryParts = [];
         if (frontCtx['Nazwa produktu (Etykieta Front)']) frontSummaryParts.push(`Nazwa frontowa: ${frontCtx['Nazwa produktu (Etykieta Front)']}`);
-        const frontCapVal = frontCtx['Pojemność / Waga'] || frontCtx['Pojemność'] || '';
-        const frontYieldVal = frontCtx['Wydajność'] || frontCtx['Liczba prań'] || '';
         const frontPostacVal = frontCtx['Postać (Etykieta)'] || frontCtx['Postać'] || '';
         if (frontCapVal) frontSummaryParts.push(`Pojemność z frontu: ${frontCapVal}`);
         if (frontYieldVal) frontSummaryParts.push(`Deklarowana wydajność z frontu: ${frontYieldVal}`);
         if (frontPostacVal) frontSummaryParts.push(`Postać fizyczna z etykiety: ${frontPostacVal}`);
-        if (frontCapVal && frontYieldVal) {
-            const mathProbe = validateDosageYieldMath({ capacityText: frontCapVal, yieldText: frontYieldVal, usageText: 'probe' });
-            if (mathProbe.expectedDoseMl) {
-                frontSummaryParts.push(`MATEMATYCZNA KOTWICA DOZOWANIA (Rozp. 648/2004): ${frontCapVal} / ${frontYieldVal} = ok. ${mathProbe.expectedDoseMl} ml na 1 standardowy cykl (wsad 4-5 kg, woda średnia, zabrudzenia średnie). Zweryfikuj odczytane liczby w tabeli z tą kotwicą i NIGDY nie zgaduj wyższych dawek z innych produktów!`);
-            }
-        }
         if (isSoftenerFromFront) {
             frontSummaryParts.push('KATEGORIA: PŁYN DO PŁUKANIA TKANIN (Ammorbidente) — używaj terminologii Płukanie w pralce / Płukanie ręczne (ZAKAZ "Pranie w pralce" / "prać w pralce")!');
         }
@@ -578,7 +735,7 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
         }
         if (frontCtx['Wyróżniki (Etykieta Front)']) frontSummaryParts.push(`Wyróżniki frontowe: ${frontCtx['Wyróżniki (Etykieta Front)']}`);
         if (frontSummaryParts.length > 0) {
-            frontContextNote = `\n\nKONTEKST Z FRONTU OPAKOWANIA (do zachowania spójności 1:1):\n- ${frontSummaryParts.join('\n- ')}`;
+            frontContextNote = `\n\nKONTEKST Z FRONTU OPAKOWANIA (wyłącznie dla spójności ontologicznej — bez zgadywania liczb ze zdjęcia):\n- ${frontSummaryParts.join('\n- ')}`;
         }
     }
 
@@ -598,8 +755,9 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
         }
 
         try {
-            onLog(`[VISION BACK-PACK OCR] Analiza multimodalna Gemini 3.8 Flash Vision (Skład / Ostrzeżenia / Sposób użycia) dla zdjęcia${label}...`);
+            onLog(`[VISION BACK-PACK OCR] Analiza multimodalna Flash HIGH (Skład / Ostrzeżenia / Sposób użycia) dla zdjęcia${label}...`);
             const base64Data = bufferRes.buffer.toString('base64');
+            const prepared = await prepareBackLabelImageSet(bufferRes.buffer, bufferRes.mimeType);
             const backPromptText = `Przeanalizuj tylną etykietę produktu (EAN: ${ean || 'N/A'}) zgodnie z instrukcjami systemowymi.${frontContextNote}`;
             const callPayload = {
                 agentId: "0",
@@ -608,18 +766,10 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                 schema: backPackInciSchema,
                 onLog
             };
-            if (frontImageAsset) {
+            if (prepared.dosageZoomCrop) {
                 callPayload.images = [
-                    {
-                        label: 'ZDJĘCIE 1 (KONTEKST FRONTU OPAKOWANIA):',
-                        mimeType: frontImageAsset.mimeType || 'image/jpeg',
-                        base64: frontImageAsset.base64
-                    },
-                    {
-                        label: 'ZDJĘCIE 2 (GŁÓWNA KONTRETYKIETA DO EKSTRAKCJI INCI / OSTRZEŻEŃ / SPOSOBU UŻYCIA / PIKTOGRAMÓW):',
-                        mimeType: bufferRes.mimeType,
-                        base64: base64Data
-                    }
+                    prepared.fullImage,
+                    prepared.dosageZoomCrop
                 ];
             } else {
                 callPayload.image = {
@@ -627,7 +777,77 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                     base64: base64Data
                 };
             }
-            const { result, usage } = await aiWrapper.callAgentWithTelemetry(callPayload);
+            let { result, usage } = await aiWrapper.callAgentWithTelemetry(callPayload);
+            let modelUsed = 'gemini-3.8-flash';
+            let escalatedToPro = false;
+            const escalationReasons = [];
+
+            if (result) {
+                const rawLegibility = String(result.dosage_table_legibility || '').toUpperCase().trim();
+                const rawUsageProbe = typeof result.usage_instructions === 'string' ? result.usage_instructions.trim() : '';
+                const hasDosingSignal = /(?:pral|wsad|dozow|woda\s+(?:miękk|średn|tward)|\d+\s*ml)/i.test(rawUsageProbe);
+                const capIllegible = result.cap_capacity_legible === false && hasDosingSignal;
+                const flashMath = (frontCapVal && frontYieldVal && rawUsageProbe)
+                    ? validateDosageYieldMath({ capacityText: frontCapVal, yieldText: frontYieldVal, usageText: rawUsageProbe })
+                    : { valid: true };
+
+                if (rawLegibility === 'LOW_UNREADABLE') escalationReasons.push('DOSAGE_TABLE_LOW_UNREADABLE');
+                if (capIllegible) escalationReasons.push('CAP_CAPACITY_ILLEGIBLE');
+                if (!flashMath.valid) escalationReasons.push(`DOSAGE_MATH_MISMATCH: ${flashMath.reason}`);
+                if (prepared.isLowResolution && rawLegibility === 'MEDIUM' && hasDosingSignal) {
+                    escalationReasons.push(`LOW_SOURCE_RESOLUTION (${prepared.width}x${prepared.height})`);
+                }
+
+                if (escalationReasons.length > 0 && options.disableProEscalation !== true) {
+                    onLog(`[VISION BACK-PACK OCR] Wykryto niejednoznaczny odczyt lub niską czytelność (${escalationReasons.join('; ')}). Auto-eskalacja na gemini-3.1-pro-preview (MEDIA_RESOLUTION_HIGH)...`);
+                    try {
+                        const proImages = [prepared.fullImage, prepared.mainLabelCrop, prepared.dosageZoomCrop].filter(Boolean);
+                        const proPayload = {
+                            agentId: '0_pro',
+                            systemInstruction: BACK_PACK_INCI_PROMPT,
+                            prompt: `${backPromptText}\n\nUWAGA AUDYTORA JAKOŚCI: Pierwszy odczyt oznaczył niepewność (${escalationReasons.map(r => r.split(':')[0]).join(', ')}). Zweryfikuj uważnie załączone zbliżenia etykiety. Jeśli konkretne cyfry nakrętki lub komórek tabeli są na obrazie nieostre albo nieczytelne, KATEGORYCZNIE NIE ZGADUJ — ustaw cap_capacity_legible: false oraz/lub dosage_table_legibility: "LOW_UNREADABLE".`,
+                            schema: backPackInciSchema,
+                            onLog
+                        };
+                        if (proImages.length > 1) {
+                            proPayload.images = proImages;
+                        } else {
+                            proPayload.image = {
+                                mimeType: prepared.fullImage.mimeType,
+                                base64: prepared.fullImage.base64
+                            };
+                        }
+                        const proRes = await aiWrapper.callAgentWithTelemetry(proPayload);
+                        if (proRes?.result) {
+                            const rPro = proRes.result;
+                            result = {
+                                ...result,
+                                ...rPro,
+                                inci: rPro.inci || result.inci,
+                                warnings: rPro.warnings || result.warnings,
+                                clp_pictograms: Array.isArray(rPro.clp_pictograms) && rPro.clp_pictograms.length > 0 ? rPro.clp_pictograms : result.clp_pictograms,
+                                usage_instructions: rPro.usage_instructions !== undefined ? rPro.usage_instructions : result.usage_instructions,
+                                cap_capacity_ml: rPro.cap_capacity_ml !== undefined ? rPro.cap_capacity_ml : result.cap_capacity_ml,
+                                cap_capacity_legible: rPro.cap_capacity_legible !== undefined ? rPro.cap_capacity_legible : result.cap_capacity_legible,
+                                dosage_table_legibility: rPro.dosage_table_legibility || result.dosage_table_legibility,
+                                unreadable_fields: Array.isArray(rPro.unreadable_fields) ? rPro.unreadable_fields : result.unreadable_fields
+                            };
+                            escalatedToPro = true;
+                            modelUsed = 'gemini-3.1-pro-preview';
+                            if (proRes.usage) {
+                                usage = {
+                                    promptTokenCount: (usage?.promptTokenCount || 0) + (proRes.usage.promptTokenCount || 0),
+                                    candidatesTokenCount: (usage?.candidatesTokenCount || 0) + (proRes.usage.candidatesTokenCount || 0),
+                                    thoughtsTokenCount: (usage?.thoughtsTokenCount || 0) + (proRes.usage.thoughtsTokenCount || 0),
+                                    totalTokenCount: (usage?.totalTokenCount || 0) + (proRes.usage.totalTokenCount || 0)
+                                };
+                            }
+                        }
+                    } catch (proErr) {
+                        onLog(`[VISION BACK-PACK OCR OSTRZEŻENIE] Auto-eskalacja na model Pro nie powiodła się (${proErr.message}). Używam odczytu modelu podstawowego.`);
+                    }
+                }
+            }
 
             if (result) {
                 let validInci = null;
@@ -675,11 +895,17 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                     if (isSoftenerFromFront) {
                         validUsage = normalizeFabricSoftenerTerminology(validUsage);
                     }
+                    if (result.cap_capacity_legible === false) {
+                        validUsage = validUsage
+                            .replace(/\(\s*(?:1\s*)?(?:nakrętka|pojemność\s+nakrętki(?:\s+wynosi)?)\s*(?:=|wynosi|:)?\s*\d+(?:[.,]\d+)?\s*ml\s*\)/gi, '')
+                            .replace(/\s{2,}/g, ' ')
+                            .trim();
+                    }
                     pimFeatures['Sposób użycia'] = validUsage;
                     pimFeatures['Sposób użycia (Etykieta)'] = validUsage;
                 }
 
-                if (result.cap_capacity_ml && typeof result.cap_capacity_ml === 'string' && result.cap_capacity_ml.trim().length >= 1) {
+                if (result.cap_capacity_legible !== false && result.cap_capacity_ml && typeof result.cap_capacity_ml === 'string' && result.cap_capacity_ml.trim().length >= 1) {
                     const capVal = String(result.cap_capacity_ml).trim();
                     const capDigits = capVal.match(/\d+(?:[.,]\d+)?/);
                     if (capDigits) {
@@ -733,8 +959,54 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                     pimFeatures['pH (Etykieta)'] = result.numeric_ph.trim().replace(',', '.');
                 }
 
+                const finalLegibility = String(result.dosage_table_legibility || '').toUpperCase().trim() || null;
+                const finalUnreadableFields = Array.isArray(result.unreadable_fields)
+                    ? result.unreadable_fields.map(x => String(x || '').trim()).filter(Boolean)
+                    : [];
+                const finalMathCheck = (frontCapVal && frontYieldVal && validUsage)
+                    ? validateDosageYieldMath({ capacityText: frontCapVal, yieldText: frontYieldVal, usageText: validUsage })
+                    : { valid: true };
+
+                let ocrQualityWarning = null;
+                if (finalLegibility === 'LOW_UNREADABLE' || !finalMathCheck.valid || (result.cap_capacity_legible === false && /(?:pral|wsad|dozow)/i.test(validUsage || ''))) {
+                    const resInfo = prepared.width && prepared.height ? `${prepared.width}x${prepared.height} px` : 'nieznana rozdzielczość';
+                    const warnReasons = [];
+                    if (finalLegibility === 'LOW_UNREADABLE') {
+                        warnReasons.push(`tabela dozowania na zdjęciu tyłu (${resInfo}) jest nieostra/nieczytelna`);
+                    }
+                    if (result.cap_capacity_legible === false) {
+                        warnReasons.push('objętość nakrętki przy ikonie korka nie jest czytelna na zdjęciu');
+                    }
+                    if (!finalMathCheck.valid && finalMathCheck.reason) {
+                        warnReasons.push(finalMathCheck.reason);
+                    }
+                    ocrQualityWarning = `Wymagana weryfikacja lub ostrzejsze zdjęcie tyłu (>=1600 px): ${warnReasons.join('; ')}.`;
+                    pimFeatures['Ostrzeżenie OCR (Etykieta)'] = ocrQualityWarning;
+
+                    if (finalLegibility === 'LOW_UNREADABLE' && !finalMathCheck.valid) {
+                        validUsage = null;
+                        delete pimFeatures['Sposób użycia'];
+                        delete pimFeatures['Sposób użycia (Etykieta)'];
+                    }
+                }
+
+                const ocrDiagnostics = {
+                    modelUsed,
+                    escalatedToPro,
+                    escalationReasons,
+                    dosageTableLegibility: finalLegibility,
+                    capCapacityLegible: result.cap_capacity_legible !== undefined ? result.cap_capacity_legible : null,
+                    unreadableFields: finalUnreadableFields,
+                    sourceWidth: prepared.width,
+                    sourceHeight: prepared.height,
+                    isLowResolution: prepared.isLowResolution,
+                    dosageMathValid: finalMathCheck.valid,
+                    dosageMathReason: finalMathCheck.reason || null,
+                    ocrQualityWarning
+                };
+
                 if (validInci) {
-                    onLog(`[VISION BACK-PACK OCR SUKCES] Odczytano dane z tylnej etykiety${label} (Skład/INCI: TAK, Ostrzeżenia: ${validWarnings ? 'TAK' : 'NIE'}, Sposób użycia: ${validUsage ? 'TAK' : 'NIE'}, CLP: ${validPictograms.join(',') || 'brak'}).`);
+                    onLog(`[VISION BACK-PACK OCR SUKCES] (${modelUsed}) Odczytano dane z tylnej etykiety${label} (Skład/INCI: TAK, Ostrzeżenia: ${validWarnings ? 'TAK' : 'NIE'}, Sposób użycia: ${validUsage ? 'TAK' : 'NIE'}, CLP: ${validPictograms.join(',') || 'brak'}, Czytelność tabeli: ${finalLegibility || 'N/A'}).`);
                     return {
                         found: true,
                         inci: validInci,
@@ -742,6 +1014,7 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                         usageInstructions: validUsage,
                         clpPictograms: validPictograms,
                         pimFeatures,
+                        ocrDiagnostics,
                         raw: result.raw_composition_text || null,
                         imageUrl: currentUrl,
                         capturedImage: {
@@ -753,8 +1026,8 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                     };
                 }
 
-                if ((validWarnings || validUsage || validPictograms.length > 0) && !bestPartialResult) {
-                    onLog(`[VISION BACK-PACK OCR INFO] Odczytano Ostrzeżenia/Sposób użycia/CLP ze zdjęcia${label} (brak pełnego INCI na tym ujęciu).`);
+                if ((validWarnings || validUsage || validPictograms.length > 0 || ocrQualityWarning) && !bestPartialResult) {
+                    onLog(`[VISION BACK-PACK OCR INFO] Odczytano częściowe dane z kontretykiety${label} (brak pełnego INCI na tym ujęciu).`);
                     bestPartialResult = {
                         found: true,
                         inci: null,
@@ -762,6 +1035,7 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                         usageInstructions: validUsage,
                         clpPictograms: validPictograms,
                         pimFeatures,
+                        ocrDiagnostics,
                         raw: result.raw_composition_text || null,
                         imageUrl: currentUrl,
                         capturedImage: {
@@ -782,13 +1056,15 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
         return bestPartialResult;
     }
 
-    return { found: false, inci: null, warnings: null, usageInstructions: null, clpPictograms: [], pimFeatures: {}, raw: null, imageUrl: null };
+    return { found: false, inci: null, warnings: null, usageInstructions: null, clpPictograms: [], pimFeatures: {}, ocrDiagnostics: null, raw: null, imageUrl: null };
 }
 
 module.exports = {
     extractFrontPackFeatures,
     extractInciFromBackPack,
     fetchImageBuffer,
+    prepareFrontLabelImage,
+    prepareBackLabelImageSet,
     sanitizeVisionFrontText,
     FRONT_VISION_PROMPT,
     frontVisionSchema,

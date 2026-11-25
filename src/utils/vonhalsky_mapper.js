@@ -51,7 +51,12 @@ const INTERNAL_FEATURE_KEYS = new Set([
     'zdjecie tylu opakowania',
     '_backimageurl',
     'backimageurl',
-    'zdjecie tylu'
+    'zdjecie tylu',
+    'zdjecie frontu opakowania',
+    '_frontimageurl',
+    'frontimageurl',
+    'ostrzezenie ocr (etykieta)',
+    '_labelsprescannedat'
 ]);
 
 // Słownik synonimów nazw atrybutów PL <-> EN do inteligentnego mapowania PIM -> Von Halsky
