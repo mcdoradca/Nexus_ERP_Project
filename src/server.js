@@ -6,6 +6,7 @@ const { trimOrNull, parseLocaleFloat, parseLocaleInt, resolveProductByIdOrEan } 
 const { resolveWorkspaceContext } = require('./middlewares/workspace.middleware');
 const workspaceService = require('./services/workspace.service');
 const { normalizeNumericFeaturesForAllegroSchema } = require('./modules/offer-optimizer-v2/services/allegro-param-automapper.service');
+const { mergeFeaturesWithLabelPrecedence } = require('./modules/offer-optimizer-v2/services/label-truth.helpers');
 
 async function normalizeFeaturesAgainstCategoryId(features, categoryId, productName = '') {
     if (!features || typeof features !== 'object' || Array.isArray(features) || !categoryId) {
@@ -841,14 +842,15 @@ app.post('/api/products/:id/autofill-params', authenticateToken, resolveWorkspac
             wsContext
         );
         if (blData.features && Object.keys(blData.features).length > 0) {
-            currentFeatures = { ...currentFeatures, ...blData.features };
+            currentFeatures = mergeFeaturesWithLabelPrecedence(currentFeatures, blData.features);
         }
         
         // 1.5 Pobranie twardych, słownikowych parametrów z Katalogu Allegro API
         const hardCatalogFeatures = await allegroService.getProductParametersByEan(product.ean, wsContext);
         if (hardCatalogFeatures && Object.keys(hardCatalogFeatures).length > 0) {
-            currentFeatures = { ...currentFeatures, ...hardCatalogFeatures };
+            currentFeatures = mergeFeaturesWithLabelPrecedence(currentFeatures, hardCatalogFeatures);
         }
+        currentFeatures = mergeFeaturesWithLabelPrecedence(currentFeatures, {});
         
         // 2. Pobranie schematu wymogów Allegro (Lazy Fetch)
         let requiredSchema = [];
@@ -948,7 +950,7 @@ app.get('/api/products/autofill/:ean', authenticateToken, resolveWorkspaceContex
         try {
             const allegroFeatures = await AllegroService.getProductParametersByEan(ean, wsContext);
             if (allegroFeatures && Object.keys(allegroFeatures).length > 0) {
-                globalMergedFeatures = { ...globalMergedFeatures, ...allegroFeatures };
+                globalMergedFeatures = mergeFeaturesWithLabelPrecedence(globalMergedFeatures, allegroFeatures);
                 
                 // Szukamy Marki w twardych parametrach Allegro
                 const fKeys = Object.keys(allegroFeatures);
@@ -962,7 +964,7 @@ app.get('/api/products/autofill/:ean', authenticateToken, resolveWorkspaceContex
         }
 
         let blFetchError = null;
-        // 0. BaseLinker Integration (PRIORYTET)
+        // 0. BaseLinker Integration (PRIORYTET dla brakujących danych — etykieta nadrzędna!)
         try {
             const { inventoryId, productId } = await BaseLinkerService.fetchProductIdByEan(ean, null, wsContext);
             const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId, wsContext);
@@ -977,11 +979,11 @@ app.get('/api/products/autofill/:ean', authenticateToken, resolveWorkspaceContex
             };
             const extracted = baselinkerExtract.extractFromFeatures(fakeProduct);
             
-            // Głębokie łączenie z nową zmienną (baza + allegro parameters + nowości z baselinkera)
-            let mergedFeatures = { ...globalMergedFeatures, ...(deepData.features || {}) };
+            // Łączenie z poszanowaniem hierarchii prawdy (istniejące odczyty etykiety i PIM mają pierwszeństwo)
+            let mergedFeatures = mergeFeaturesWithLabelPrecedence(globalMergedFeatures, deepData.features || {});
             
-            // Nadpisz brakujące parametry tymi wyciągniętymi bezpośrednio z HTML/struktury
-            if (extracted.inci && extracted.inci.value) {
+            // Uzupełnij wyłącznie brakujące parametry tymi wyciągniętymi bezpośrednio z HTML/struktury
+            if (extracted.inci && extracted.inci.value && !mergedFeatures['Skład/INCI']) {
                 mergedFeatures['Skład/INCI'] = extracted.inci.value;
                 delete mergedFeatures['INCI'];
                 delete mergedFeatures['Skład'];
@@ -989,27 +991,27 @@ app.get('/api/products/autofill/:ean', authenticateToken, resolveWorkspaceContex
             if (extracted.postac && extracted.postac.value && !mergedFeatures['Postać']) {
                 mergedFeatures['Postać'] = extracted.postac.value;
             }
-            if (extracted.mpn && extracted.mpn.value) {
+            if (extracted.mpn && extracted.mpn.value && !mergedFeatures['MPN']) {
                 mergedFeatures['MPN'] = extracted.mpn.value;
             }
             if (extracted.brand && extracted.brand.value && !deepData.manufacturer) {
                 deepData.manufacturer = extracted.brand.value;
             }
-            if (extracted.capacity && extracted.capacity.value) {
+            if (extracted.capacity && extracted.capacity.value && !mergedFeatures['Pojemność']) {
                 mergedFeatures['Pojemność'] = extracted.capacity.value;
             }
-            if (extracted.usage && extracted.usage.value) {
+            if (extracted.usage && extracted.usage.value && !mergedFeatures['Sposób użycia']) {
                 mergedFeatures['Sposób użycia'] = extracted.usage.value;
             }
-            if (extracted.warnings && extracted.warnings.value) {
+            if (extracted.warnings && extracted.warnings.value && !mergedFeatures['Ostrzeżenia']) {
                 mergedFeatures['Ostrzeżenia'] = extracted.warnings.value;
             }
-            if (extracted.line && extracted.line.value) {
+            if (extracted.line && extracted.line.value && !mergedFeatures['Linia']) {
                 mergedFeatures['Linia'] = extracted.line.value;
             }
             
-            // Zapisz połączone parametry z powrotem do deepData
-            deepData.features = mergedFeatures;
+            // Zapisz połączone parametry z powrotem do deepData po walidacji SSOT
+            deepData.features = mergeFeaturesWithLabelPrecedence(existingFeatures, mergedFeatures);
             // --- KONIEC EKSTRAKCJI ---
 
             // Jeśli po EAN nie ma w Allegro, próbujemy jeszcze po nazwie z BaseLinkera
@@ -1069,6 +1071,7 @@ app.get('/api/products/autofill/:ean', authenticateToken, resolveWorkspaceContex
 
         // Helper dla darmowych baz uodporniający Nexusa na pady serwerów zewnętrznych.
         await ensureAllegroSynced();
+        globalMergedFeatures = mergeFeaturesWithLabelPrecedence(existingFeatures, globalMergedFeatures);
         globalMergedFeatures = await normalizeFeaturesAgainstCategoryId(globalMergedFeatures, globalAllegroCatId, existingProduct?.name || '');
 
         const safeFetch = async (url) => {
@@ -1358,9 +1361,9 @@ app.post('/api/products/baselinker-sync/:ean', authenticateToken, resolveWorkspa
         // KROK 2: Dekompozycja potężnych danych
         const deepData = await BaseLinkerService.fetchDeepProductData(inventoryId, productId, wsContext);
 
-        // KROK 3: Aktualizacja bazy Nexusa
+        // KROK 3: Aktualizacja bazy Nexusa z zachowaniem pierwszeństwa danych z etykiety
         const existingFeatures = (product && typeof product.features === 'object') ? product.features : {};
-        const mergedFeatures = { ...existingFeatures, ...(deepData.features || {}) };
+        const mergedFeatures = mergeFeaturesWithLabelPrecedence(existingFeatures, deepData.features || {});
         
         const updated = await prisma.product.update({
             where: { id: product.id },

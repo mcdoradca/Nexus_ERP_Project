@@ -2,7 +2,11 @@ const { normalizeIngredientName } = require('../normalization');
 const brandResponsibleService = require('../brand.responsible.service');
 const { classifyProductPhysicalForm } = require('./product-form.classifier');
 const { ean_checksum } = require('../validators');
-const { resolveLabelPhysicalForm } = require('./label-truth.helpers');
+const {
+    resolveLabelPhysicalForm,
+    sanitizeScentValue,
+    extractVerifiedLabelYield
+} = require('./label-truth.helpers');
 
 function normalizeKey(str = '') {
     return String(str || '')
@@ -535,6 +539,94 @@ function buildPurposeAndTypeCandidates(textSources = '') {
     return candidates;
 }
 
+function stripNegativeExclusionClauses(text = '') {
+    return String(text || '')
+        .replace(/(?:nie\s+(?:stosować|używać|nadaje\s+się|przeznaczon\w*|prać)|wykluczeni[ae]\s+zastosowania|non\s+adatto\s+a|non\s+usare\s+su|do\s+not\s+use\s+on)[^.!?\n]*(?:[.!?\n]|$)/gi, ' ');
+}
+
+function buildWashTypeCandidates({ usageText = '', purposeTextSources = '', productName = '' } = {}) {
+    const positiveText = stripNegativeExclusionClauses(`${usageText} ${purposeTextSources} ${productName}`);
+    const hasMachine = /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:w\s+pralce|pralk[ai]|pralce\s+automatycznej|automatyczn\w*|lavatrice|wsad\s*\d)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(positiveText);
+    const hasHand = /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:prani[aeu]\s+ręczn\w*|ręczn(?:ie|e|ego)|a\s+mano|hand\s*wash)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(positiveText);
+    if (hasMachine && hasHand) return ['uniwersalne', 'automatyczne'];
+    if (hasMachine) return ['automatyczne', 'uniwersalne'];
+    if (hasHand) return ['ręczne'];
+    return [];
+}
+
+function buildFabricColorTargetCandidates({ officialLabelName = '', variantFront = '', purposeTextSources = '', usageText = '', productName = '' } = {}) {
+    const positiveText = `${officialLabelName} ${variantFront} ${productName} ${stripNegativeExclusionClauses(`${purposeTextSources} ${usageText}`)}`;
+    if (/(?:total\s+black|do\s+(?:tkanin\s+)?(?:czarnych|ciemnych)|do\s+czarnego|\bcapi\s+(?:neri|scuri)\b|\bneri\s+e\s+scuri\b)/i.test(positiveText)) {
+        return ['czarnego', 'uniwersalne'];
+    }
+    const mentionsUniversal = /(?:wszystk(?:ich|ie)\s+(?:rodzaj\w*\s+)?tkanin|białych\s+i\s+kolorowych|kolorowych\s+i\s+białych|kolorów\s+i\s+białych|tutti\s+i\s+capi|ogni\s+tipo\s+di\s+tessut|uniwersal\w*)/i.test(positiveText);
+    if (mentionsUniversal) {
+        return ['uniwersalne'];
+    }
+    const mentionsColor = /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:do\s+(?:tkanin\s+)?kolor\w*|tkanin\w*\s+kolor\w*|colorati|capi\s+colorati|color)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(positiveText);
+    const mentionsWhite = /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:do\s+(?:tkanin\s+)?biał\w*|tkanin\w*\s+biał\w*|capi\s+bianchi|\bbianchi\b)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(positiveText);
+    if (mentionsColor && !mentionsWhite) return ['kolorów'];
+    if (mentionsWhite && !mentionsColor) return ['białego'];
+    if (/(?:lavatrice|detersivo|płyn\s+do\s+prania|żel\s+do\s+prania|proszek\s+do\s+prania|kapsułki\s+do\s+prania)/i.test(positiveText)) {
+        return ['uniwersalne'];
+    }
+    return [];
+}
+
+function buildCechyDodatkoweCandidates({
+    productName = '',
+    officialLabelName = '',
+    variantFront = '',
+    labelClaimsText = '',
+    usageText = '',
+    inciText = '',
+    dispenser = '',
+    formInfo = {}
+} = {}) {
+    const positiveText = [
+        productName,
+        officialLabelName,
+        variantFront,
+        labelClaimsText,
+        stripNegativeExclusionClauses(usageText)
+    ].filter(Boolean).join(' ');
+
+    const featureCands = [];
+    if (formInfo.isRefill) featureCands.push('zapas');
+    if (/koncentrat|concentrat/i.test(positiveText)) featureCands.push('koncentrat');
+    if (/ekolog|eco|natural/i.test(labelClaimsText)) featureCands.push('ekologiczny', 'ekologiczne');
+    if (/biodegradowaln/i.test(positiveText)) featureCands.push('biodegradowalny');
+    if (/hipoalergiczn|ipoallergenic/i.test(positiveText)) featureCands.push('hipoalergiczne');
+    if (/bez\s+chloru|senza\s+cloro/i.test(labelClaimsText) && !/(sodium\s+hypochlorite|troclosene)/i.test(inciText)) {
+        featureCands.push('bez chloru');
+    }
+    if (/bez\s+fosforan|senza\s+fosfat/i.test(positiveText)) featureCands.push('bez fosforanów');
+    if (/bez\s+wybielacza|senza\s+candeggina/i.test(positiveText)) {
+        featureCands.push('bez wybielacza');
+    } else if (/(?:z\s+wybielaczem|zawiera\s+wybielacz|\bcandeggina\b)/i.test(positiveText)) {
+        featureCands.push('z wybielaczem');
+    }
+    if (/bez\s+smug/i.test(labelClaimsText)) featureCands.push('bez smug');
+    if (/bezzapachow|senza\s+profumo/i.test(labelClaimsText)) featureCands.push('bezzapachowy');
+    if (/(?:nisk(?:ich|iej)\s+temperatur|na\s+zimno|a\s+freddo|\b(?:20|30)\s*°\s*c\b)/i.test(positiveText)) {
+        featureCands.push('skuteczny w niskiej temperaturze');
+    }
+    if (/(?:odplamia|smacchiant|sgrassator|odtłuszcz|usuwani[ea]\s+plam|trudne\s+plamy)/i.test(positiveText)) {
+        featureCands.push('z odplamiaczem');
+    }
+    if (/odzież\w*\s+sportow|capi\s+sportivi|\bsport\b/i.test(positiveText)) {
+        featureCands.push('do odzieży sportowej');
+    }
+    if (/(?:do\s+)?tkanin\w*\s+syntetyczn|capi\s+sintetici/i.test(positiveText)) {
+        featureCands.push('do tkanin syntetycznych');
+    }
+    if (/\b(?:atomizer|pompk|dozownik)\b/i.test(dispenser || '') && !formInfo.isRefill) {
+        featureCands.push('dozownik');
+    }
+    if (/recykling|riciclat/i.test(labelClaimsText)) featureCands.push('opakowanie z recyklingu');
+    return featureCands;
+}
+
 /**
  * Deterministycznie mapuje cechy odczytane z opakowania (Vision Front/Back) i z twardych pól PIM
  * na konkretny schemat kategorii Allegro (`allegroSchema`).
@@ -601,8 +693,52 @@ function mapPackagingFeaturesToAllegroSchema({
     }
 
     const mappedParams = {};
+    const overriddenParams = {};
+    const cleanedInvalidParams = [];
     const skippedExisting = [];
     const unmatchedRequired = [];
+
+    const hasExplicitLabelEvidence = Boolean(
+        hintFeatures['_labelsPreScannedAt'] ||
+        Object.keys(vFront).length > 0 ||
+        Object.keys(vBack).length > 0
+    );
+    const verifiedLabelYield = extractVerifiedLabelYield({
+        visionFront: vFront,
+        visionBack: vBack,
+        features: hintFeatures
+    });
+    const verifiedLabelCapacitySource = [
+        vFront['Pojemność / Waga'],
+        vFront['Pojemność'],
+        vBack['Pojemność / Waga (Etykieta)'],
+        hasExplicitLabelEvidence ? hintFeatures['Pojemność / Waga'] : ''
+    ].filter(Boolean).join(' ').trim();
+    const verifiedLabelWeightSource = [
+        vFront['Waga'],
+        !formInfo.hasAqueousSignal ? vFront['Pojemność / Waga'] : '',
+        (!formInfo.hasAqueousSignal && hasExplicitLabelEvidence) ? hintFeatures['Pojemność / Waga'] : ''
+    ].filter(Boolean).join(' ').trim();
+    const verifiedLabelCountry = String(
+        vFront['Kraj pochodzenia (Front)'] ||
+        vFront['Kraj produkcji (Etykieta)'] ||
+        vBack['Kraj pochodzenia (Etykieta)'] ||
+        ''
+    ).trim();
+    const verifiedLabelPackaging = String(
+        vFront['Opakowanie (Front)'] ||
+        vBack['Opakowanie (Etykieta)'] ||
+        ''
+    ).trim();
+    const verifiedLabelDispenser = String(
+        vFront['Dozownik'] ||
+        vBack['Dozownik (Etykieta)'] ||
+        ''
+    ).trim();
+    const verifiedLabelPiecesText = [
+        vFront['Liczba sztuk (Front)'],
+        vBack['Liczba sztuk (Etykieta)']
+    ].filter(v => v && !/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:pra[nń]|pranie|płuka[nń]|płukanie|lavaggi|washes)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(String(v))).join(' ').trim();
 
     const rawBrand = String(
         product?.brand?.name || hintFeatures['Marka'] || vFront['Marka'] || ''
@@ -610,9 +746,8 @@ function mapPackagingFeaturesToAllegroSchema({
     const responsibleEntity = brandResponsibleService.findResponsibleEntity(rawBrand, productName);
 
     let extractedCountry = String(
+        verifiedLabelCountry ||
         hintFeatures['Kraj pochodzenia'] ||
-        vFront['Kraj pochodzenia (Front)'] ||
-        vBack['Kraj pochodzenia (Etykieta)'] ||
         ''
     ).trim();
     if (!extractedCountry && responsibleEntity?.address_eu) {
@@ -654,14 +789,20 @@ function mapPackagingFeaturesToAllegroSchema({
     ].filter(v => v && !/(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:pra[nń]|pranie|płuka[nń]|płukanie|lavaggi|washes)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(String(v))).join(' ');
     const rawPiecesText = [rawPiecesExplicitText, productName].filter(Boolean).join(' ');
 
-    const rawScent = String(
-        hintFeatures['Zapach'] || hintFeatures['Nuta zapachowa'] || vFront['Zapach'] || ''
-    ).trim();
-    const validScent = rawScent &&
-        !formInfo.isArticle &&
-        !/^(?:soft|medium|hard|ultra\s*soft|brak|null|candeggina|wybielacz)$/i.test(rawScent)
-        ? rawScent
+    const labelScentRaw = String(vFront['Zapach'] || vBack['Zapach (Etykieta)'] || '').trim();
+    const labelScentRes = labelScentRaw ? sanitizeScentValue(labelScentRaw) : { valid: false, value: null };
+    const fallbackScentRaw = String(hintFeatures['Zapach'] || hintFeatures['Nuta zapachowa'] || '').trim();
+    const fallbackScentRes = fallbackScentRaw ? sanitizeScentValue(fallbackScentRaw) : { valid: false, value: null };
+    const validScent = !formInfo.isArticle
+        ? (labelScentRes.valid ? labelScentRes.value : (fallbackScentRes.valid ? fallbackScentRes.value : ''))
         : '';
+
+    const variantFront = String(vFront['Wariant (Etykieta Front)'] || hintFeatures['Wariant (Etykieta Front)'] || '').trim();
+    const usageTextSources = [
+        vBack['Sposób użycia (Etykieta)'],
+        hintFeatures['Sposób użycia (Etykieta)'],
+        hintFeatures['Sposób użycia']
+    ].filter(Boolean).join(' ');
 
     const labelClaimsText = [
         vFront['Wyróżniki (Etykieta Front)'],
@@ -682,6 +823,17 @@ function mapPackagingFeaturesToAllegroSchema({
         hintFeatures['Przeznaczenie']
     ].filter(Boolean).join(' ');
 
+    const traitCandidates = buildCechyDodatkoweCandidates({
+        productName,
+        officialLabelName,
+        variantFront,
+        labelClaimsText,
+        usageText: usageTextSources,
+        inciText,
+        dispenser: verifiedLabelDispenser || hintFeatures['Dozownik'] || '',
+        formInfo
+    });
+
     for (const param of schema) {
         if (!param || !param.name) continue;
         const paramName = param.name;
@@ -690,13 +842,18 @@ function mapPackagingFeaturesToAllegroSchema({
             Array.isArray(param.dictionary) &&
             param.dictionary.some(d => normalizeKey(d.value) === 'brak')
         );
+        const isDict = param.type === 'dictionary' && Array.isArray(param.dictionary) && param.dictionary.length > 0;
+        const isMulti = Boolean(param.restrictions?.multipleChoices);
 
         const existingKey = findExistingFeatureKey(baseFeatures, paramName);
         let overrideExistingKey = null;
         if (existingKey && !isEmptyOrPlaceholder(baseFeatures[existingKey], allowWordBrakAsExisting)) {
+            const existingRawVal = baseFeatures[existingKey];
             let shouldOverrideExistingWithLabel = false;
+            let overrideReason = null;
+
             if (labelForm.isVerifiedFromLabel && labelForm.canonicalForm && (normParamName === 'postac' || normParamName === 'typ')) {
-                const currLow = String(baseFeatures[existingKey]).trim().toLowerCase();
+                const currLow = String(existingRawVal).trim().toLowerCase();
                 const hasHybrid = /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:płyn\s*[\/+-]?\s*żel|żel\s*[\/+-]?\s*płyn)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(currLow);
                 const contradictsLiquid = labelForm.canonicalForm === 'płyn' &&
                     /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:żel|zel|w\s+żelu|krem|w\s+kremie|mleczko|proszek|w\s+proszku|puder|kapsułki|tabletki|kostka|pianka)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(currLow);
@@ -706,13 +863,125 @@ function mapPackagingFeaturesToAllegroSchema({
                     /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:płyn|w\s+płynie|żel|w\s+żelu|spray|w\s+sprayu)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(currLow);
                 const contradictsSpray = labelForm.canonicalForm === 'w sprayu' &&
                     /(?<![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])(?:żel|w\s+żelu|proszek|w\s+proszku|tabletki|kapsułki|kostka)(?![a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ])/i.test(currLow);
-                const notInDictionary = param.type === 'dictionary' && Array.isArray(param.dictionary) && param.dictionary.length > 0 &&
-                    !param.dictionary.some(d => normalizeKey(d.value) === normalizeKey(currLow));
+                const notInDictionary = isDict && !param.dictionary.some(d => normalizeKey(d.value) === normalizeKey(currLow));
                 if (hasHybrid || contradictsLiquid || contradictsGel || contradictsPowder || contradictsSpray || (normParamName === 'postac' && notInDictionary)) {
                     shouldOverrideExistingWithLabel = true;
                     overrideExistingKey = existingKey;
+                    overrideReason = 'label_form_ssot';
+                }
+            } else if ((normParamName === 'liczba pran' || normParamName === 'liczba uzyc') && verifiedLabelYield.count !== null) {
+                const currCount = parseQuantityToUnit(existingRawVal, param.unit || 'szt.', 'integer', { isCount: true });
+                const labelCountStr = String(verifiedLabelYield.count);
+                const minB = param.restrictions?.min;
+                const maxB = param.restrictions?.max;
+                const inBounds = (minB === undefined || verifiedLabelYield.count >= minB) && (maxB === undefined || verifiedLabelYield.count <= maxB);
+                if (inBounds && currCount !== labelCountStr) {
+                    shouldOverrideExistingWithLabel = true;
+                    overrideExistingKey = existingKey;
+                    overrideReason = `label_yield_ssot:${verifiedLabelYield.source}`;
+                }
+            } else if ((normParamName === 'pojemnosc' || normParamName === 'pojemnosc opakowania') && verifiedLabelCapacitySource) {
+                const labelCap = parseQuantityToUnit(verifiedLabelCapacitySource, param.unit || 'l', param.type || 'float', { isVolume: true, precision: param.restrictions?.precision });
+                const currNorm = normalizeNumericValueForAllegroParam(existingRawVal, param, { enforceBounds: true });
+                if (labelCap && (!currNorm.ok || currNorm.value !== labelCap)) {
+                    shouldOverrideExistingWithLabel = true;
+                    overrideExistingKey = existingKey;
+                    overrideReason = 'label_capacity_ssot';
+                }
+            } else if ((normParamName === 'waga' || normParamName === 'waga produktu') && !formInfo.hasAqueousSignal && verifiedLabelWeightSource) {
+                const labelW = parseQuantityToUnit(verifiedLabelWeightSource, param.unit || 'kg', param.type || 'float', { isWeight: true, precision: param.restrictions?.precision });
+                const currNorm = normalizeNumericValueForAllegroParam(existingRawVal, param, { enforceBounds: true });
+                if (labelW && (!currNorm.ok || currNorm.value !== labelW)) {
+                    shouldOverrideExistingWithLabel = true;
+                    overrideExistingKey = existingKey;
+                    overrideReason = 'label_weight_ssot';
+                }
+            } else if ((normParamName === 'kraj pochodzenia' || normParamName === 'kraj produkcji') && verifiedLabelCountry) {
+                const labelCountry = isDict ? matchDictionaryOption([verifiedLabelCountry], param.dictionary) : verifiedLabelCountry;
+                if (labelCountry && normalizeKey(labelCountry) !== normalizeKey(existingRawVal)) {
+                    shouldOverrideExistingWithLabel = true;
+                    overrideExistingKey = existingKey;
+                    overrideReason = 'label_country_ssot';
+                }
+            } else if ((normParamName === 'opakowanie' || normParamName === 'opakowanie produktu') && verifiedLabelPackaging) {
+                const labelPackCands = buildPackagingCandidates(verifiedLabelPackaging, verifiedLabelDispenser, formInfo);
+                const labelPack = isDict ? matchDictionaryOption(labelPackCands, param.dictionary) : (labelPackCands[0] || null);
+                if (labelPack && normalizeKey(labelPack) !== normalizeKey(existingRawVal)) {
+                    shouldOverrideExistingWithLabel = true;
+                    overrideExistingKey = existingKey;
+                    overrideReason = 'label_packaging_ssot';
+                }
+            } else if ((normParamName === 'liczba sztuk w opakowaniu' || normParamName === 'liczba sztuk')) {
+                const labelPieces = verifiedLabelPiecesText
+                    ? parseQuantityToUnit(verifiedLabelPiecesText, 'szt.', 'integer', { isCount: true, excludeCycles: true })
+                    : null;
+                if (labelPieces && labelPieces !== String(existingRawVal).trim()) {
+                    shouldOverrideExistingWithLabel = true;
+                    overrideExistingKey = existingKey;
+                    overrideReason = 'label_pieces_ssot';
+                } else if (!verifiedLabelPiecesText && formInfo.form !== 'tablet' && formInfo.form !== 'capsule' &&
+                    (/(?:pra[nń]|pranie|lavaggi|washes)/i.test(String(existingRawVal)) ||
+                     (verifiedLabelYield.count !== null && Number(existingRawVal) === verifiedLabelYield.count && Number(existingRawVal) > 1))) {
+                    shouldOverrideExistingWithLabel = true;
+                    overrideExistingKey = existingKey;
+                    overrideReason = 'label_pieces_not_washes_ssot';
+                }
+            } else if (normParamName === 'zapach' || normParamName === 'nuta zapachowa') {
+                const currScent = sanitizeScentValue(existingRawVal);
+                if (formInfo.isArticle || !currScent.valid) {
+                    if (validScent) {
+                        shouldOverrideExistingWithLabel = true;
+                        overrideExistingKey = existingKey;
+                        overrideReason = 'invalid_scent_replaced';
+                    } else {
+                        delete baseFeatures[existingKey];
+                        if (existingKey !== paramName) delete baseFeatures[paramName];
+                        cleanedInvalidParams.push(paramName);
+                        continue;
+                    }
+                } else if (labelScentRes.valid && labelScentRes.value && normalizeKey(labelScentRes.value) !== normalizeKey(currScent.value)) {
+                    shouldOverrideExistingWithLabel = true;
+                    overrideExistingKey = existingKey;
+                    overrideReason = 'label_scent_ssot';
+                } else if (currScent.translated && currScent.value) {
+                    const normalizedTranslated = isDict ? matchDictionaryOption([currScent.value], param.dictionary) : currScent.value;
+                    if (normalizedTranslated && normalizedTranslated !== existingRawVal) {
+                        const prevVal = baseFeatures[existingKey];
+                        if (existingKey !== paramName) delete baseFeatures[existingKey];
+                        baseFeatures[paramName] = normalizedTranslated;
+                        mappedParams[paramName] = normalizedTranslated;
+                        overriddenParams[paramName] = { from: prevVal, to: normalizedTranslated, reason: 'scent_translated_pl' };
+                        continue;
+                    }
+                }
+            } else if (normParamName === 'cechy dodatkowe' && isDict && isMulti && traitCandidates.length > 0) {
+                const existingValidTokens = String(existingRawVal || '')
+                    .split(/[,;|]/)
+                    .map(s => s.trim())
+                    .filter(Boolean)
+                    .map(tok => matchDictionaryOption([tok], param.dictionary))
+                    .filter(Boolean);
+                const labelMatched = matchDictionaryOption(traitCandidates, param.dictionary, { multipleChoices: true }) || [];
+                const mergedList = [];
+                const seenOpt = new Set();
+                for (const opt of [...existingValidTokens, ...(Array.isArray(labelMatched) ? labelMatched : [labelMatched])]) {
+                    const normOpt = normalizeKey(opt);
+                    if (opt && normOpt && !seenOpt.has(normOpt)) {
+                        seenOpt.add(normOpt);
+                        mergedList.push(opt);
+                    }
+                }
+                const mergedStr = mergedList.join(', ');
+                if (mergedList.length > 0 && normalizeKey(mergedStr) !== normalizeKey(existingRawVal)) {
+                    const prevVal = baseFeatures[existingKey];
+                    if (existingKey !== paramName) delete baseFeatures[existingKey];
+                    baseFeatures[paramName] = mergedStr;
+                    mappedParams[paramName] = mergedStr;
+                    overriddenParams[paramName] = { from: prevVal, to: mergedStr, reason: 'label_traits_merged' };
+                    continue;
                 }
             }
+
             if (!shouldOverrideExistingWithLabel) {
                 if (param.type === 'float' || param.type === 'integer') {
                     const normRes = normalizeNumericValueForAllegroParam(baseFeatures[existingKey], param, {
@@ -734,11 +1003,15 @@ function mapPackagingFeaturesToAllegroSchema({
                     skippedExisting.push(paramName);
                     continue;
                 }
+            } else {
+                overriddenParams[paramName] = {
+                    from: existingRawVal,
+                    to: null,
+                    reason: overrideReason || 'label_truth_override'
+                };
             }
         }
 
-        const isDict = param.type === 'dictionary' && Array.isArray(param.dictionary) && param.dictionary.length > 0;
-        const isMulti = Boolean(param.restrictions?.multipleChoices);
         let resolvedValue = null;
 
         if (normParamName === 'stan') {
@@ -765,14 +1038,16 @@ function mapPackagingFeaturesToAllegroSchema({
                 resolvedValue = String(hintFeatures['Linia']).trim();
             }
         } else if (normParamName === 'pojemnosc' || normParamName === 'pojemnosc opakowania') {
-            resolvedValue = parseQuantityToUnit(rawCapacityText, param.unit || 'l', param.type || 'float', { isVolume: true, precision: param.restrictions?.precision });
+            const capSource = verifiedLabelCapacitySource || rawCapacityText;
+            resolvedValue = parseQuantityToUnit(capSource, param.unit || 'l', param.type || 'float', { isVolume: true, precision: param.restrictions?.precision });
         } else if (normParamName === 'waga' || normParamName === 'waga produktu') {
-            resolvedValue = parseQuantityToUnit(rawWeightNetText || rawGrossWeight, param.unit || 'kg', param.type || 'float', { isWeight: true, precision: param.restrictions?.precision });
+            const weightSource = (!formInfo.hasAqueousSignal && verifiedLabelWeightSource) ? verifiedLabelWeightSource : (rawWeightNetText || rawGrossWeight);
+            resolvedValue = parseQuantityToUnit(weightSource, param.unit || 'kg', param.type || 'float', { isWeight: true, precision: param.restrictions?.precision });
         } else if (String(param.id) === '17448' || normParamName === 'waga produktu z opakowaniem jednostkowym') {
             resolvedValue = parseQuantityToUnit(rawGrossWeight, param.unit || 'kg', param.type || 'float', { isWeight: true, precision: param.restrictions?.precision });
         } else if (normParamName === 'liczba sztuk w opakowaniu' || normParamName === 'liczba sztuk') {
             const parsedCount =
-                parseQuantityToUnit(rawPiecesExplicitText, 'szt.', 'integer', { isCount: true, excludeCycles: true }) ||
+                parseQuantityToUnit(verifiedLabelPiecesText || rawPiecesExplicitText, 'szt.', 'integer', { isCount: true, excludeCycles: true }) ||
                 parseQuantityToUnit(productName, 'szt.', 'integer', { isCount: true, excludeCycles: true, requireExplicitUnit: true });
             if (parsedCount) {
                 resolvedValue = parsedCount;
@@ -780,15 +1055,19 @@ function mapPackagingFeaturesToAllegroSchema({
                 resolvedValue = '1';
             }
         } else if (normParamName === 'liczba pran' || normParamName === 'liczba uzyc') {
-            const rawYield = [vFront['Wydajność'], hintFeatures['Wydajność'], hintFeatures['Liczba prań'], vBack['Liczba prań (Etykieta)'], hintFeatures['Liczba prań (Etykieta)'], productName].filter(Boolean).join(' ');
-            resolvedValue = parseQuantityToUnit(rawYield, 'szt.', 'integer', { isCount: true, requireExplicitUnit: true });
+            if (verifiedLabelYield.count !== null) {
+                resolvedValue = String(verifiedLabelYield.count);
+            } else {
+                const rawYield = [vFront['Wydajność'], hintFeatures['Wydajność'], hintFeatures['Liczba prań'], vBack['Liczba prań (Etykieta)'], hintFeatures['Liczba prań (Etykieta)'], productName].filter(Boolean).join(' ');
+                resolvedValue = parseQuantityToUnit(rawYield, 'szt.', 'integer', { isCount: true, requireExplicitUnit: true });
+            }
         } else if (normParamName === 'postac') {
             const postacCandidates = buildPostacCandidates(formInfo, effectivePostacHint, { strictLiquid });
             resolvedValue = isDict ? matchDictionaryOption(postacCandidates, param.dictionary) : (postacCandidates[0] || null);
         } else if (normParamName === 'opakowanie' || normParamName === 'opakowanie produktu') {
             const packCandidates = buildPackagingCandidates(
-                vFront['Opakowanie (Front)'] || vBack['Opakowanie (Etykieta)'] || hintFeatures['Opakowanie (Front)'],
-                vFront['Dozownik'] || hintFeatures['Dozownik'],
+                verifiedLabelPackaging || hintFeatures['Opakowanie (Front)'],
+                verifiedLabelDispenser || hintFeatures['Dozownik'],
                 formInfo
             );
             resolvedValue = isDict ? matchDictionaryOption(packCandidates, param.dictionary) : (packCandidates[0] || null);
@@ -799,6 +1078,27 @@ function mapPackagingFeaturesToAllegroSchema({
         } else if (normParamName === 'zapach' || normParamName === 'nuta zapachowa') {
             if (validScent) {
                 resolvedValue = isDict ? matchDictionaryOption([validScent], param.dictionary) : validScent;
+            }
+        } else if (normParamName === 'rodzaj prania') {
+            const washCandidates = buildWashTypeCandidates({ usageText: usageTextSources, purposeTextSources, productName });
+            if (washCandidates.length > 0) {
+                resolvedValue = isDict ? matchDictionaryOption(washCandidates, param.dictionary) : washCandidates[0];
+            }
+        } else if (normParamName === 'zastosowanie do') {
+            const targetCandidates = buildFabricColorTargetCandidates({
+                officialLabelName,
+                variantFront,
+                purposeTextSources,
+                usageText: usageTextSources,
+                productName
+            });
+            if (targetCandidates.length > 0) {
+                if (isDict) {
+                    const matched = matchDictionaryOption(targetCandidates, param.dictionary, { multipleChoices: isMulti });
+                    resolvedValue = Array.isArray(matched) ? matched.join(', ') : matched;
+                } else {
+                    resolvedValue = targetCandidates[0];
+                }
             }
         } else if (normParamName === 'rodzaj' || normParamName === 'typ' || normParamName === 'przeznaczenie' || normParamName === 'zastosowanie') {
             const candList = [
@@ -820,28 +1120,9 @@ function mapPackagingFeaturesToAllegroSchema({
                 }
             }
         } else if (normParamName === 'cechy dodatkowe') {
-            if (isDict) {
-                const featureCands = [];
-                if (formInfo.isRefill) featureCands.push('zapas');
-                if (/koncentrat|concentrat/i.test(`${productName} ${labelClaimsText}`)) featureCands.push('koncentrat');
-                if (/ekolog|eco|natural/i.test(labelClaimsText)) featureCands.push('ekologiczny', 'ekologiczne');
-                if (/biodegradowaln/i.test(labelClaimsText)) featureCands.push('biodegradowalny');
-                if (/hipoalergiczn/i.test(labelClaimsText)) featureCands.push('hipoalergiczne');
-                if (/bez\s+chloru|senza\s+cloro/i.test(labelClaimsText) && !/(sodium\s+hypochlorite|troclosene)/i.test(inciText)) {
-                    featureCands.push('bez chloru');
-                }
-                if (/bez\s+fosforan/i.test(labelClaimsText)) featureCands.push('bez fosforanów');
-                if (/bez\s+wybielacza/i.test(labelClaimsText)) featureCands.push('bez wybielacza');
-                if (/bez\s+smug/i.test(labelClaimsText)) featureCands.push('bez smug');
-                if (/bezzapachow/i.test(labelClaimsText)) featureCands.push('bezzapachowy');
-                if (/\b(?:atomizer|pompk|dozownik)\b/i.test(vFront['Dozownik'] || '') && !formInfo.isRefill) {
-                    featureCands.push('dozownik');
-                }
-                if (/recykling/i.test(labelClaimsText)) featureCands.push('opakowanie z recyklingu');
-                if (featureCands.length > 0) {
-                    const matched = matchDictionaryOption(featureCands, param.dictionary, { multipleChoices: true });
-                    resolvedValue = Array.isArray(matched) ? matched.join(', ') : matched;
-                }
+            if (isDict && traitCandidates.length > 0) {
+                const matched = matchDictionaryOption(traitCandidates, param.dictionary, { multipleChoices: true });
+                resolvedValue = Array.isArray(matched) ? matched.join(', ') : matched;
             }
         }
 
@@ -860,14 +1141,24 @@ function mapPackagingFeaturesToAllegroSchema({
             }
             baseFeatures[paramName] = String(resolvedValue).trim();
             mappedParams[paramName] = baseFeatures[paramName];
-        } else if (param.required) {
-            unmatchedRequired.push(paramName);
+            if (overriddenParams[paramName]) {
+                overriddenParams[paramName].to = baseFeatures[paramName];
+            }
+        } else {
+            if (overriddenParams[paramName]) {
+                delete overriddenParams[paramName];
+            }
+            if (param.required) {
+                unmatchedRequired.push(paramName);
+            }
         }
     }
 
     return {
         updatedFeatures: baseFeatures,
         mappedParams,
+        overriddenParams,
+        cleanedInvalidParams,
         skippedExisting,
         unmatchedRequired
     };

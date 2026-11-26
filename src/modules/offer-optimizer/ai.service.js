@@ -1098,24 +1098,13 @@ async function autofillMissingParameters(ean, productName, currentFeatures = {},
         ...(product?.text_fields?.features && typeof product.text_fields.features === 'object' ? product.text_fields.features : {}),
         ...baseFeatures
     };
-    const extractedLabelFront = {};
-    const extractedLabelBack = {};
-    for (const [k, v] of Object.entries(mergedHintFeatures)) {
-        if (v === undefined || v === null || String(v).trim() === '') continue;
-        if (/\(Front\)|\(Etykieta\s*Front\)/i.test(k)) {
-            extractedLabelFront[k] = v;
-        } else if (/\(Etykieta\)|\(Kontretykieta\)|\(Etykieta\s*Tył\)/i.test(k)) {
-            extractedLabelBack[k] = v;
-        }
-    }
-    if (mergedHintFeatures['Postać (Etykieta)']) {
-        extractedLabelFront['Postać (Etykieta)'] = mergedHintFeatures['Postać (Etykieta)'];
-    }
-    if (mergedHintFeatures['Postać (Front)']) {
-        extractedLabelFront['Postać (Front)'] = mergedHintFeatures['Postać (Front)'];
-    }
+    const {
+        resolveLabelPhysicalForm,
+        extractLabelEvidenceSubsets,
+        sanitizeScentValue
+    } = require('../offer-optimizer-v2/services/label-truth.helpers');
 
-    const { resolveLabelPhysicalForm } = require('../offer-optimizer-v2/services/label-truth.helpers');
+    const { visionFront: extractedLabelFront, visionBack: extractedLabelBack } = extractLabelEvidenceSubsets(mergedHintFeatures);
     const verifiedForm = resolveLabelPhysicalForm({
         visionFeatures: { ...extractedLabelBack, ...extractedLabelFront },
         features: mergedHintFeatures,
@@ -1165,6 +1154,7 @@ async function autofillMissingParameters(ean, productName, currentFeatures = {},
         const prompt = `Dopasuj brakujące wymagane parametry Allegro wyłącznie na podstawie znanych faktów produktu. Nie zgaduj danych spoza faktów (w razie braku zwróć null).\n` +
             `Produkt: ${productName || ''}\nEAN: ${ean || ''}\nZnane cechy PIM/Vision: ${JSON.stringify(resultFeatures)}\n` +
             `Brakujące parametry i słowniki: ${JSON.stringify(schemaSummary)}${verifiedFormRule}\n` +
+            `ZASADA POLA ZAPACH: do "Zapach" / "Nuta zapachowa" wpisuj wyłącznie rzeczywistą polską nutę zapachową (NIGDY funkcji/wariantów typu "Pulito Profondo", "Total Black", "delikatny", "uniwersalny" — w razie braku zwróć null).\n` +
             `Zwróć JSON: { "features": { "NazwaParametru": "Wartość_ze_słownika_lub_tekst" } }.`;
 
         const { result } = await aiWrapper.callAgentWithTelemetry({
@@ -1185,6 +1175,24 @@ async function autofillMissingParameters(ean, productName, currentFeatures = {},
             const candidate = aiFeats[param.name];
             if (candidate === undefined || candidate === null || String(candidate).trim() === '') continue;
             if (resultFeatures[param.name] && String(resultFeatures[param.name]).trim() !== '') continue;
+            const normPName = String(param.name || '').toLowerCase().trim();
+            const isScentParam = normPName === 'zapach' || normPName === 'nuta zapachowa';
+
+            if (isScentParam) {
+                const scentCheck = sanitizeScentValue(candidate);
+                if (!scentCheck.valid || !scentCheck.value) continue;
+                if (param.type === 'dictionary' && Array.isArray(param.dictionary) && param.dictionary.length > 0) {
+                    const matched = matchDictionaryOption(scentCheck.value, param.dictionary, {
+                        multipleChoices: Boolean(param.restrictions?.multipleChoices)
+                    });
+                    if (matched) {
+                        resultFeatures[param.name] = Array.isArray(matched) ? matched.join(', ') : matched;
+                    }
+                } else {
+                    resultFeatures[param.name] = scentCheck.value;
+                }
+                continue;
+            }
 
             if (param.type === 'dictionary' && Array.isArray(param.dictionary) && param.dictionary.length > 0) {
                 const matched = matchDictionaryOption(String(candidate), param.dictionary, {

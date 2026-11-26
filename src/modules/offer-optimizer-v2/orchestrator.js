@@ -23,7 +23,8 @@ const {
     resolveLabelPhysicalForm,
     normalizeFabricSoftenerTerminology,
     isFabricSoftenerProduct,
-    validateDosageYieldMath
+    validateDosageYieldMath,
+    extractLabelEvidenceSubsets
 } = require('./services/label-truth.helpers');
 const gpsrSafetyService = require('./services/gpsr.safety.service');
 const {
@@ -1653,16 +1654,23 @@ class Orchestrator {
             try {
                 if (!product) product = { text_fields: {} };
                 if (!product.text_fields) product.text_fields = {};
+                const labelSubsets = extractLabelEvidenceSubsets(
+                    product.text_fields.features || {},
+                    this.state.vision_extracted_features || {},
+                    this.state.vision_back_features || {}
+                );
                 const autoMapRes = mapPackagingFeaturesToAllegroSchema({
                     allegroSchema: pimData.allegro_schema,
                     currentFeatures: product.text_fields.features || {},
-                    visionFront: this.state.vision_extracted_features || {},
-                    visionBack: this.state.vision_back_features || product.text_fields.features || {},
+                    visionFront: labelSubsets.visionFront,
+                    visionBack: labelSubsets.visionBack,
                     product
                 });
                 this.state.auto_mapped_allegro_params = autoMapRes.mappedParams || {};
                 const mappedKeys = Object.keys(this.state.auto_mapped_allegro_params);
-                if (mappedKeys.length > 0) {
+                const overriddenKeys = Object.keys(autoMapRes.overriddenParams || {});
+                const cleanedInvalid = Array.isArray(autoMapRes.cleanedInvalidParams) ? autoMapRes.cleanedInvalidParams : [];
+                if (mappedKeys.length > 0 || overriddenKeys.length > 0 || cleanedInvalid.length > 0) {
                     product.text_fields.features = autoMapRes.updatedFeatures;
                     if (pimData) {
                         pimData.features = { ...(pimData.features || {}), ...autoMapRes.updatedFeatures };
@@ -1676,7 +1684,7 @@ class Orchestrator {
                     } catch (dbErr) {
                         console.warn(`[Orchestrator V2] Auto-mapper Allegro: ostrzeżenie zapisu do bazy PIM: ${dbErr.message}`);
                     }
-                    console.log(`[Orchestrator V2] Auto-mapper Allegro uzupełnił ${mappedKeys.length} parametrów z etykiety: ${mappedKeys.join(', ')}`);
+                    console.log(`[Orchestrator V2] Auto-mapper Allegro uzupełnił ${mappedKeys.length} parametrów z etykiety (nadpisania: ${overriddenKeys.length}, wyczyszczono błędne: ${cleanedInvalid.length}): ${[...mappedKeys, ...cleanedInvalid].join(', ')}`);
                 }
             } catch (autoMapErr) {
                 console.warn(`[Orchestrator V2] Ostrzeżenie auto-mappera parametrów Allegro: ${autoMapErr.message}`);

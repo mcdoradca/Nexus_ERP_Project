@@ -9,10 +9,15 @@ import { VonHalskyExportModal } from './VonHalskyExportModal';
 import { requestLifestyleGeneration } from './services/lifestyleImageService';
 import { describeBaselinkerError, describeAutofillError } from '../../utils';
 import {
+  normalizeParamKeyToken,
   normalizeNumericValueForAllegroParam,
   normalizeFeaturesForAllegroSchema,
   validateNumericAllegroParamValue,
-  getNumericPlaceholderForParam
+  getNumericPlaceholderForParam,
+  sanitizeScentValueFrontend,
+  detectLabelAllegroConflicts,
+  syncFeaturesFromLabelTruth,
+  syncLinkedFeatureOnEdit
 } from './utils/allegroParamFormatter';
 import { 
   Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp, Search,
@@ -236,6 +241,7 @@ export const UnifiedProductPipelineView = ({
     const [isExtractingBackLabel, setIsExtractingBackLabel] = useState(false);
     const [isExtractingBothLabels, setIsExtractingBothLabels] = useState(false);
     const [labelOcrDiagnostics, setLabelOcrDiagnostics] = useState(null);
+    const [showLabelSsotDetails, setShowLabelSsotDetails] = useState(false);
     const frontImageFileInputRef = useRef(null);
     const backImageFileInputRef = useRef(null);
 
@@ -324,10 +330,23 @@ export const UnifiedProductPipelineView = ({
             if (res.data && (res.data.found || diag?.ocrQualityWarning)) {
                 setNewProductForm(prev => {
                     const baseFeats = { ...(prev.features || {}) };
-                    const merged = {
-                        ...baseFeats,
-                        ...(res.data.updatedFeatures && typeof res.data.updatedFeatures === 'object' ? res.data.updatedFeatures : {})
-                    };
+                    const hasBackendSnapshot = Boolean(res.data.updatedFeatures && typeof res.data.updatedFeatures === 'object');
+                    let merged;
+                    if (hasBackendSnapshot) {
+                        merged = { ...res.data.updatedFeatures };
+                        const serverControlledDropKeys = new Set([
+                            'INCI', 'Skład', 'Zapach', 'Nuta zapachowa',
+                            'Sposób użycia', 'Sposób użycia (Etykieta)',
+                            'Pojemność nakrętki (Etykieta)', 'Ostrzeżenie OCR (Etykieta)', '_labelsPreScannedAt'
+                        ]);
+                        for (const [bk, bv] of Object.entries(baseFeats)) {
+                            if (!Object.prototype.hasOwnProperty.call(merged, bk) && !serverControlledDropKeys.has(bk) && bv !== undefined && bv !== null && String(bv).trim() !== '') {
+                                merged[bk] = bv;
+                            }
+                        }
+                    } else {
+                        merged = { ...baseFeats };
+                    }
                     if (overrideFrontImg) merged['Zdjęcie frontu opakowania'] = overrideFrontImg;
                     if (overrideBackImg) merged['Zdjęcie tyłu opakowania'] = overrideBackImg;
 
@@ -358,6 +377,14 @@ export const UnifiedProductPipelineView = ({
                                 merged[ak] = av;
                             }
                         }
+                    }
+                    const schemaParams = categorySchema?.parameters || [];
+                    merged = syncFeaturesFromLabelTruth(merged, schemaParams).features;
+                    if (schemaParams.length > 0) {
+                        merged = normalizeFeaturesForAllegroSchema(merged, schemaParams, {
+                            productName: prev.name,
+                            visionFeatures: merged
+                        }).features;
                     }
                     return { ...prev, features: merged };
                 });
@@ -2972,66 +2999,138 @@ export const UnifiedProductPipelineView = ({
                                                                     }
                                                                 });
 
+                                                                const allegroSchemaNormKeys = new Set(
+                                                                    (categorySchema?.parameters || []).map(p => normalizeParamKeyToken(p.name))
+                                                                );
                                                                 const CORE_PIM_KEYS = new Set([
-                                                                    'skład/inci', 'skład', 'inci', 'ostrzeżenia', 'sposób użycia',
-                                                                    'pojemność', 'pojemność / waga', 'waga',
-                                                                    'postać', 'zapach', 'dozownik', 'wydajność', 'przeznaczenie (front)', 'przeznaczenie (etykieta)',
-                                                                    'wyróżniki (etykieta front)', 'wyróżniki / certyfikaty (etykieta)', 'kraj pochodzenia', 'informacje o bezpieczeństwie'
+                                                                    'sklad inci', 'sklad', 'inci', 'ostrzezenia', 'sposob uzycia', 'informacje o bezpieczenstwie'
                                                                 ]);
                                                                 const HIDDEN_IMAGE_KEYS = new Set([
-                                                                    'zdjęcie tyłu opakowania', 'zdjecie tylu opakowania', '_backimageurl',
-                                                                    'zdjęcie frontu opakowania', 'zdjecie frontu opakowania', '_frontimageurl',
-                                                                    'ostrzeżenie ocr (etykieta)', 'ostrzezenie ocr (etykieta)', '_labelsprescannedat'
+                                                                    'zdjecie tylu opakowania', 'backimageurl',
+                                                                    'zdjecie frontu opakowania', 'frontimageurl',
+                                                                    'ostrzezenie ocr etykieta', 'labelsprescannedat'
+                                                                ]);
+                                                                const LABEL_SSOT_SHADOW_KEYS = new Set([
+                                                                    'dozownik etykieta', 'sposob uzycia etykieta', 'ostrzezenia etykieta',
+                                                                    'postac etykieta', 'kraj pochodzenia etykieta', 'kraj pochodzenia front',
+                                                                    'kraj produkcji etykieta', 'opakowanie etykieta', 'opakowanie front',
+                                                                    'liczba pran etykieta', 'liczba sztuk etykieta', 'liczba sztuk front',
+                                                                    'nazwa produktu kontretykieta', 'nazwa produktu etykieta front',
+                                                                    'linia produktowa front', 'wariant etykieta front'
                                                                 ]);
                                                                 const MULTILINE_PIM_KEYS = new Set([
-                                                                    'skład/inci', 'skład', 'inci', 'ostrzeżenia', 'sposób użycia', 'informacje o bezpieczeństwie',
-                                                                    'przeznaczenie (etykieta)', 'wyróżniki / certyfikaty (etykieta)'
+                                                                    'sklad inci', 'sklad', 'inci', 'ostrzezenia', 'sposob uzycia',
+                                                                    'informacje o bezpieczenstwie', 'przeznaczenie etykieta', 'wyrozniki certyfikaty etykieta'
                                                                 ]);
 
-                                                                return Object.entries(displayFeatures)
-                                                                    .filter(([k]) => {
-                                                                        const normK = String(k).toLowerCase().trim();
-                                                                        if (HIDDEN_IMAGE_KEYS.has(normK)) return false;
-                                                                        if (CORE_PIM_KEYS.has(normK)) return true;
-                                                                        return !categorySchema?.parameters?.some(p => String(p.name).toLowerCase().trim() === normK);
-                                                                    })
-                                                                    .map(([k, v]) => {
-                                                                        const displayVal = typeof v === 'object' ? JSON.stringify(v) : (v ?? '');
-                                                                        const normK = String(k).toLowerCase().trim();
-                                                                        const isMultiline = MULTILINE_PIM_KEYS.has(normK);
-                                                                        const placeholderMap = {
-                                                                            'skład/inci': 'Skład INCI / skład detergentu (odczytywany ze zdjęcia tyłu lub wpisany ręcznie)...',
-                                                                            'ostrzeżenia': 'Ostrzeżenia CLP / BHP z tylnej etykiety (np. Chronić przed dziećmi. Stosować rękawice ochronne)...',
-                                                                            'sposób użycia': 'Instrukcja użycia i dozowania z tylnej etykiety...'
-                                                                        };
-                                                                        return (
-                                                                            <div key={k} className="flex items-start space-x-2 group">
-                                                                                <input type="text" value={k} readOnly className="w-1/3 bg-white border border-emerald-200 rounded-sm px-3 py-2 text-[10px] font-bold text-emerald-700 uppercase tracking-widest shadow-sm" />
-                                                                                {isMultiline ? (
-                                                                                    <textarea
-                                                                                        rows={2}
-                                                                                        value={displayVal}
-                                                                                        placeholder={placeholderMap[normK] || 'Wpisz wartość...'}
-                                                                                        onChange={e => {
-                                                                                            const updated = {...newProductForm.features, [k]: e.target.value};
-                                                                                            setNewProductForm({...newProductForm, features: updated});
-                                                                                        }}
-                                                                                        className="flex-1 bg-white border border-emerald-200 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-emerald-500 shadow-sm resize-y"
-                                                                                    />
-                                                                                ) : (
-                                                                                    <input type="text" value={displayVal} placeholder="Wpisz wartość..." onChange={e => {
-                                                                                        const updated = {...newProductForm.features, [k]: e.target.value};
-                                                                                        setNewProductForm({...newProductForm, features: updated});
-                                                                                    }} className="flex-1 bg-white border border-emerald-200 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-emerald-500 shadow-sm" />
+                                                                const isShadowOrDuplicatedLinkedKey = (normTok) => {
+                                                                    if (LABEL_SSOT_SHADOW_KEYS.has(normTok)) return true;
+                                                                    if (normTok === 'wydajnosc' && (allegroSchemaNormKeys.has('liczba pran') || allegroSchemaNormKeys.has('liczba uzyc'))) return true;
+                                                                    if (normTok === 'pojemnosc waga' && (allegroSchemaNormKeys.has('pojemnosc') || allegroSchemaNormKeys.has('pojemnosc opakowania') || allegroSchemaNormKeys.has('waga'))) return true;
+                                                                    return false;
+                                                                };
+
+                                                                const allVisibleEntries = Object.entries(displayFeatures).filter(([k]) => {
+                                                                    const normTok = normalizeParamKeyToken(k);
+                                                                    if (HIDDEN_IMAGE_KEYS.has(normTok)) return false;
+                                                                    if (CORE_PIM_KEYS.has(normTok)) return true;
+                                                                    return !allegroSchemaNormKeys.has(normTok);
+                                                                });
+
+                                                                const primaryPimEntries = [];
+                                                                const labelSsotEntries = [];
+                                                                for (const entry of allVisibleEntries) {
+                                                                    const normTok = normalizeParamKeyToken(entry[0]);
+                                                                    if (isShadowOrDuplicatedLinkedKey(normTok)) {
+                                                                        labelSsotEntries.push(entry);
+                                                                    } else {
+                                                                        primaryPimEntries.push(entry);
+                                                                    }
+                                                                }
+
+                                                                return (
+                                                                    <>
+                                                                        {primaryPimEntries.map(([k, v]) => {
+                                                                            const displayVal = typeof v === 'object' ? JSON.stringify(v) : (v ?? '');
+                                                                            const normTok = normalizeParamKeyToken(k);
+                                                                            const isMultiline = MULTILINE_PIM_KEYS.has(normTok);
+                                                                            const placeholderMap = {
+                                                                                'sklad inci': 'Skład INCI / skład detergentu (odczytywany ze zdjęcia tyłu lub wpisany ręcznie)...',
+                                                                                'ostrzezenia': 'Ostrzeżenia CLP / BHP z tylnej etykiety (np. Chronić przed dziećmi. Stosować rękawice ochronne)...',
+                                                                                'sposob uzycia': 'Instrukcja użycia i dozowania z tylnej etykiety...'
+                                                                            };
+                                                                            return (
+                                                                                <div key={k} className="flex items-start space-x-2 group">
+                                                                                    <input type="text" value={k} readOnly className="w-1/3 bg-white border border-emerald-200 rounded-sm px-3 py-2 text-[10px] font-bold text-emerald-700 uppercase tracking-widest shadow-sm" />
+                                                                                    {isMultiline ? (
+                                                                                        <textarea
+                                                                                            rows={2}
+                                                                                            value={displayVal}
+                                                                                            placeholder={placeholderMap[normTok] || 'Wpisz wartość...'}
+                                                                                            onChange={e => {
+                                                                                                const updated = syncLinkedFeatureOnEdit(newProductForm.features || {}, k, e.target.value, categorySchema?.parameters || []);
+                                                                                                setNewProductForm({ ...newProductForm, features: updated });
+                                                                                            }}
+                                                                                            className="flex-1 bg-white border border-emerald-200 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-emerald-500 shadow-sm resize-y"
+                                                                                        />
+                                                                                    ) : (
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            value={displayVal}
+                                                                                            placeholder="Wpisz wartość..."
+                                                                                            onChange={e => {
+                                                                                                const updated = syncLinkedFeatureOnEdit(newProductForm.features || {}, k, e.target.value, categorySchema?.parameters || []);
+                                                                                                setNewProductForm({ ...newProductForm, features: updated });
+                                                                                            }}
+                                                                                            className="flex-1 bg-white border border-emerald-200 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-emerald-500 shadow-sm"
+                                                                                        />
+                                                                                    )}
+                                                                                    <button type="button" onClick={() => {
+                                                                                        const updated = { ...newProductForm.features };
+                                                                                        delete updated[k];
+                                                                                        setNewProductForm({ ...newProductForm, features: updated });
+                                                                                    }} className="p-2 text-emerald-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"><X className="w-4 h-4" /></button>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+
+                                                                        {labelSsotEntries.length > 0 && (
+                                                                            <div className="mt-2 pt-2 border-t border-emerald-200/80">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setShowLabelSsotDetails(s => !s)}
+                                                                                    className="w-full flex items-center justify-between px-2.5 py-1.5 bg-emerald-100/70 hover:bg-emerald-100 border border-emerald-200 rounded-sm text-[9px] font-black text-emerald-800 uppercase tracking-widest transition-colors"
+                                                                                >
+                                                                                    <span className="flex items-center">
+                                                                                        <ChevronRight className={`w-3.5 h-3.5 mr-1.5 transition-transform ${showLabelSsotDetails ? 'rotate-90' : ''}`} />
+                                                                                        Odczyt z etykiety (SSOT) ({labelSsotEntries.length})
+                                                                                    </span>
+                                                                                    <span className="text-[8px] font-bold text-emerald-700 normal-case tracking-normal">
+                                                                                        {showLabelSsotDetails ? 'Ukryj pola referencyjne' : 'Pokaż zmapowane pola etykiety'}
+                                                                                    </span>
+                                                                                </button>
+                                                                                {showLabelSsotDetails && (
+                                                                                    <div className="mt-2 flex flex-col space-y-1.5 pl-2 border-l-2 border-emerald-300">
+                                                                                        {labelSsotEntries.map(([sk, sv]) => {
+                                                                                            const sVal = typeof sv === 'object' ? JSON.stringify(sv) : (sv ?? '');
+                                                                                            return (
+                                                                                                <div key={sk} className="flex items-center space-x-2 group">
+                                                                                                    <span className="w-1/3 bg-emerald-100/60 border border-emerald-200 rounded-sm px-2.5 py-1.5 text-[9px] font-bold text-emerald-800 uppercase tracking-wider truncate" title={sk}>{sk}</span>
+                                                                                                    <input type="text" readOnly value={sVal} className="flex-1 bg-white/80 border border-emerald-200/80 rounded-sm px-2.5 py-1.5 text-[10px] font-semibold text-slate-700 outline-none" />
+                                                                                                    <button type="button" onClick={() => {
+                                                                                                        const updated = { ...newProductForm.features };
+                                                                                                        delete updated[sk];
+                                                                                                        setNewProductForm({ ...newProductForm, features: updated });
+                                                                                                    }} className="p-1.5 text-emerald-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100" title="Usuń wpis referencyjny"><X className="w-3.5 h-3.5" /></button>
+                                                                                                </div>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
                                                                                 )}
-                                                                                <button type="button" onClick={() => {
-                                                                                    const updated = {...newProductForm.features};
-                                                                                    delete updated[k];
-                                                                                    setNewProductForm({...newProductForm, features: updated});
-                                                                                }} className="p-2 text-emerald-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"><X className="w-4 h-4" /></button>
                                                                             </div>
-                                                                        );
-                                                                    });
+                                                                        )}
+                                                                    </>
+                                                                );
                                                             })()}
                                                             
                                                             <div className="flex items-center space-x-2 mt-2 pt-3 border-t border-emerald-200">
@@ -3083,13 +3182,14 @@ export const UnifiedProductPipelineView = ({
                                                                         
                                                                         const res = await axios.post(`${API_URL}/api/products/${editingProduct}/autofill-params`, {}, { headers: { Authorization: `Bearer ${token}` } });
                                                                         setNewProductForm(prev => {
-                                                                            const schemaParams = categorySchema?.parameters;
-                                                                            const nextFeats = (Array.isArray(schemaParams) && schemaParams.length > 0)
-                                                                                ? normalizeFeaturesForAllegroSchema(res.data.features || {}, schemaParams, {
+                                                                            const schemaParams = categorySchema?.parameters || [];
+                                                                            let nextFeats = syncFeaturesFromLabelTruth(res.data.features || {}, schemaParams).features;
+                                                                            if (schemaParams.length > 0) {
+                                                                                nextFeats = normalizeFeaturesForAllegroSchema(nextFeats, schemaParams, {
                                                                                     productName: prev.name,
-                                                                                    visionFeatures: res.data.features || {}
-                                                                                }).features
-                                                                                : res.data.features;
+                                                                                    visionFeatures: nextFeats
+                                                                                }).features;
+                                                                            }
                                                                             return { ...prev, features: nextFeats };
                                                                         });
                                                                         setFeaturesHydrationRev(r => r + 1);
@@ -3195,6 +3295,39 @@ export const UnifiedProductPipelineView = ({
                                                              )}
                                                          </div>
                                                          
+                                                         {(() => {
+                                                            const labelAllegroConflicts = detectLabelAllegroConflicts(newProductForm.features || {}, categorySchema?.parameters || []);
+                                                            const conflictByParamName = new Map(labelAllegroConflicts.map(c => [c.paramName, c]));
+                                                            return (
+                                                         <>
+                                                         {labelAllegroConflicts.length > 0 && (
+                                                             <div className="mb-3 p-3 bg-amber-50 border border-amber-300 rounded-sm flex flex-col space-y-2">
+                                                                 <div className="flex items-center justify-between gap-2">
+                                                                     <div className="flex items-center space-x-2 text-[10px] font-black text-amber-900 uppercase tracking-wider">
+                                                                         <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                                                                         <span>Wykryto rozbieżności z etykietą / walidacją ({labelAllegroConflicts.length})</span>
+                                                                     </div>
+                                                                     <button
+                                                                         type="button"
+                                                                         onClick={() => {
+                                                                             setNewProductForm(prev => {
+                                                                                 const synced = syncFeaturesFromLabelTruth(prev.features || {}, categorySchema?.parameters || []);
+                                                                                 return { ...prev, features: synced.features };
+                                                                             });
+                                                                             setFeaturesHydrationRev(r => r + 1);
+                                                                         }}
+                                                                         className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-sm text-[9px] font-black uppercase tracking-wider flex items-center shrink-0 shadow-sm"
+                                                                     >
+                                                                         <RefreshCw className="w-3 h-3 mr-1" /> Zsynchronizuj z etykietą
+                                                                     </button>
+                                                                 </div>
+                                                                 <ul className="text-[10px] text-amber-900 space-y-0.5 pl-6 list-disc">
+                                                                     {labelAllegroConflicts.slice(0, 5).map(c => (
+                                                                         <li key={c.paramName}>{c.message}</li>
+                                                                     ))}
+                                                                 </ul>
+                                                             </div>
+                                                         )}
                                                          <div className="flex flex-col space-y-2">
                                                              {categorySchema?.parameters && categorySchema.parameters.map(param => {
                                                                 const isRequired = param.required;
@@ -3229,9 +3362,16 @@ export const UnifiedProductPipelineView = ({
                                                                 const numericValidation = isNumericParam
                                                                     ? validateNumericAllegroParamValue(val, param, { fallbackSources: fallbackNumSources })
                                                                     : { valid: true, warning: null, canAutoConvert: false, suggestedValue: null };
+                                                                const paramConflict = conflictByParamName.get(param.name) || null;
+                                                                const normParamToken = normalizeParamKeyToken(param.name);
+                                                                const isScentField = normParamToken === 'zapach' || normParamToken === 'nuta zapachowa';
+                                                                const inlineScentCheck = (isScentField && hasVal && !hasDict)
+                                                                    ? sanitizeScentValueFrontend(val)
+                                                                    : { valid: true, value: val, translated: false };
+                                                                const hasRowAlert = Boolean(unknownMultiTokens.length > 0 || hasUnknownSingleVal || !numericValidation.valid || paramConflict || !inlineScentCheck.valid || inlineScentCheck.translated);
 
                                                                 return (
-                                                                 <div key={param.id} className={`flex items-start space-x-2 p-2 rounded-sm border ${(unknownMultiTokens.length > 0 || hasUnknownSingleVal || !numericValidation.valid) ? 'bg-amber-50/60 border-amber-300' : (hasVal ? 'bg-indigo-50/30 border-indigo-100' : 'bg-white border-slate-200')}`}>
+                                                                 <div key={param.id} className={`flex items-start space-x-2 p-2 rounded-sm border ${hasRowAlert ? 'bg-amber-50/60 border-amber-300' : (hasVal ? 'bg-indigo-50/30 border-indigo-100' : 'bg-white border-slate-200')}`}>
                                                                      <div className="w-1/3 text-[10px] font-bold text-slate-700 uppercase tracking-widest flex flex-col pt-1">
                                                                          <div className="flex items-center flex-wrap gap-1">
                                                                              <span>{param.name}{param.unit ? ` (${param.unit})` : ''}</span>
@@ -3376,9 +3516,8 @@ export const UnifiedProductPipelineView = ({
                                                                                      placeholder={getNumericPlaceholderForParam(param)}
                                                                                      value={val}
                                                                                      onChange={e => {
-                                                                                         const updated = { ...(newProductForm.features || {}), [param.name]: e.target.value };
+                                                                                         const updated = syncLinkedFeatureOnEdit(newProductForm.features || {}, param.name, e.target.value, categorySchema?.parameters || []);
                                                                                          if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
-                                                                                         if (!e.target.value) delete updated[param.name];
                                                                                          setNewProductForm({ ...newProductForm, features: updated });
                                                                                      }}
                                                                                      onBlur={e => {
@@ -3389,7 +3528,7 @@ export const UnifiedProductPipelineView = ({
                                                                                              enforceBounds: true
                                                                                          });
                                                                                          if (normRes.ok && normRes.value !== null && (normRes.value !== String(rawInput).trim() || (matchedKey && matchedKey !== param.name))) {
-                                                                                             const updated = { ...(newProductForm.features || {}), [param.name]: normRes.value };
+                                                                                             const updated = syncLinkedFeatureOnEdit(newProductForm.features || {}, param.name, normRes.value, categorySchema?.parameters || []);
                                                                                              if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
                                                                                              setNewProductForm({ ...newProductForm, features: updated });
                                                                                          }
@@ -3413,7 +3552,7 @@ export const UnifiedProductPipelineView = ({
                                                                                          <button
                                                                                              type="button"
                                                                                              onClick={() => {
-                                                                                                 const updated = { ...(newProductForm.features || {}), [param.name]: numericValidation.suggestedValue };
+                                                                                                 const updated = syncLinkedFeatureOnEdit(newProductForm.features || {}, param.name, numericValidation.suggestedValue, categorySchema?.parameters || []);
                                                                                                  if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
                                                                                                  setNewProductForm({ ...newProductForm, features: updated });
                                                                                              }}
@@ -3424,14 +3563,76 @@ export const UnifiedProductPipelineView = ({
                                                                                      )}
                                                                                  </div>
                                                                              )}
+                                                                             {paramConflict && (
+                                                                                 <div className="flex items-center justify-between gap-2 px-2.5 py-1 bg-amber-100/80 border border-amber-300 rounded-sm text-[10px] text-amber-900">
+                                                                                     <div className="flex items-center space-x-1.5 min-w-0">
+                                                                                         <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                                                                                         <span className="truncate font-semibold" title={paramConflict.message}>
+                                                                                             Etykieta ({paramConflict.labelSource}): „{paramConflict.labelValue}”
+                                                                                         </span>
+                                                                                     </div>
+                                                                                     <button
+                                                                                         type="button"
+                                                                                         onClick={() => {
+                                                                                             const updated = syncLinkedFeatureOnEdit(newProductForm.features || {}, param.name, paramConflict.labelValue, categorySchema?.parameters || []);
+                                                                                             if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
+                                                                                             setNewProductForm({ ...newProductForm, features: updated });
+                                                                                         }}
+                                                                                         className="px-2 py-0.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-[9px] font-black uppercase tracking-wider shrink-0"
+                                                                                     >
+                                                                                         Ustaw {paramConflict.labelValue}
+                                                                                     </button>
+                                                                                 </div>
+                                                                             )}
                                                                          </div>
                                                                      ) : (
-                                                                         <input type="text" className="flex-1 bg-white border border-slate-300 rounded-sm px-3 py-2 text-[11px] font-bold outline-none focus:border-indigo-500" placeholder={`Wpisz wartość (${param.type}${param.unit ? ', ' + param.unit : ''}${param.type === 'range' ? ', format: od-do' : ''})`} value={val} onChange={e => {
-                                                                             const updated = {...(newProductForm.features || {}), [param.name]: e.target.value};
-                                                                             if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
-                                                                             if (!e.target.value) delete updated[param.name];
-                                                                             setNewProductForm({...newProductForm, features: updated});
-                                                                         }} />
+                                                                         <div className="flex-1 flex flex-col space-y-1">
+                                                                             <input type="text" className={`w-full bg-white border ${(!inlineScentCheck.valid || inlineScentCheck.translated || paramConflict) ? 'border-amber-400 focus:border-amber-600' : 'border-slate-300 focus:border-indigo-500'} rounded-sm px-3 py-2 text-[11px] font-bold outline-none`} placeholder={`Wpisz wartość (${param.type}${param.unit ? ', ' + param.unit : ''}${param.type === 'range' ? ', format: od-do' : ''})`} value={val} onChange={e => {
+                                                                                 const updated = syncLinkedFeatureOnEdit(newProductForm.features || {}, param.name, e.target.value, categorySchema?.parameters || []);
+                                                                                 if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
+                                                                                 setNewProductForm({...newProductForm, features: updated});
+                                                                             }} />
+                                                                             {(!inlineScentCheck.valid || inlineScentCheck.translated) && (
+                                                                                 <div className="flex items-center justify-between gap-2 px-2.5 py-1 bg-amber-100/80 border border-amber-300 rounded-sm text-[10px] text-amber-900">
+                                                                                     <div className="flex items-center space-x-1.5 min-w-0">
+                                                                                         <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                                                                                         <span className="truncate font-semibold">
+                                                                                             {!inlineScentCheck.valid
+                                                                                                 ? `„${val}” nie jest nutą zapachową (funkcja/wariant produktu)`
+                                                                                                 : `Sugerowane tłumaczenie PL: „${inlineScentCheck.value}”`}
+                                                                                         </span>
+                                                                                     </div>
+                                                                                     <button
+                                                                                         type="button"
+                                                                                         onClick={() => {
+                                                                                             const nextScent = !inlineScentCheck.valid ? '' : inlineScentCheck.value;
+                                                                                             const updated = syncLinkedFeatureOnEdit(newProductForm.features || {}, param.name, nextScent, categorySchema?.parameters || []);
+                                                                                             if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
+                                                                                             setNewProductForm({ ...newProductForm, features: updated });
+                                                                                         }}
+                                                                                         className="px-2 py-0.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-[9px] font-black uppercase tracking-wider shrink-0"
+                                                                                     >
+                                                                                         {!inlineScentCheck.valid ? 'Wyczyść' : `Zmień na ${inlineScentCheck.value}`}
+                                                                                     </button>
+                                                                                 </div>
+                                                                             )}
+                                                                             {paramConflict && !isScentField && (
+                                                                                 <div className="flex items-center justify-between gap-2 px-2.5 py-1 bg-amber-100/80 border border-amber-300 rounded-sm text-[10px] text-amber-900">
+                                                                                     <span className="truncate font-semibold">{paramConflict.message}</span>
+                                                                                     <button
+                                                                                         type="button"
+                                                                                         onClick={() => {
+                                                                                             const updated = syncLinkedFeatureOnEdit(newProductForm.features || {}, param.name, paramConflict.labelValue, categorySchema?.parameters || []);
+                                                                                             if (matchedKey && matchedKey !== param.name) delete updated[matchedKey];
+                                                                                             setNewProductForm({ ...newProductForm, features: updated });
+                                                                                         }}
+                                                                                         className="px-2 py-0.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-[9px] font-black uppercase tracking-wider shrink-0"
+                                                                                     >
+                                                                                         Ustaw z etykiety
+                                                                                     </button>
+                                                                                 </div>
+                                                                             )}
+                                                                         </div>
                                                                      )}
                                                                  </div>
                                                                 );
@@ -3470,6 +3671,9 @@ export const UnifiedProductPipelineView = ({
                                                                <Zap className="w-3 h-3 mr-1" /> {categorySchema ? 'Wypełnij wymagane wartości z oficjalnego słownika Allegro.' : 'Pobierz kategorię Allegro, aby załadować interaktywny formularz parametrów.'}
                                                             </p>
                                                          </div>
+                                                         </>
+                                                           );
+                                                        })()}
                                                       </div>
                                                  </div>
                                               </div>

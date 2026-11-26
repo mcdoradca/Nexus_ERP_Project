@@ -10,7 +10,10 @@ const {
     isFabricSoftenerProduct,
     normalizeFabricSoftenerTerminology,
     resolveLabelPhysicalForm,
-    validateDosageYieldMath
+    validateDosageYieldMath,
+    sanitizeScentValue,
+    filterHeroIngredients,
+    extractVerifiedLabelYield
 } = require('./services/label-truth.helpers');
 
 const imageHttpsAgent = new https.Agent({ 
@@ -292,8 +295,9 @@ KRYTYCZNE ZADANIA EKSTRAKCJI:
    - "pelna_nazwa_etykieta": spójna oficjalna nazwa produktu odczytana 1:1 z opakowania (Marka + Linia + Wariant, np. "Viakal Bagno Express Fiori di Primavera", "Soft Detersivo Total Black"). BEZWZGLĘDNIE pomijaj hasła reklamowe typu "Nr 1", "N°1 Contro il Calcare", "Nowość", "Format XXL".
    - "bez_splukiwania": ustaw true WYŁĄCZNIE wtedy, gdy na froncie widnieje wyraźne oznaczenie formuły bez spłukiwania ("SENZA RISCIACQUO", "Bez spłukiwania", "No Rinse", "Sans rinçage", "Ohne Ausspülen"); w przeciwnym razie false lub null.
 1. Pojemność lub waga: odczytaj dokładną wartość z jednostką (np. "650 ml", "750 ml", "1.5 l", "2,25 l", "2250 ml", "500 g", "1.5 kg"). Jeśli brak, null.
-2. Wariant zapachowy lub wersja: odczytaj nazwę rzeczywistej nuty zapachowej dla kosmetyków i chemii (np. "Lawenda", "Cytryna i mięta", "Wiosenne kwiaty", "Ocean Fresh").
-   - DLA ARTYKUŁÓW BEZWONNYCH (SZCZOTECZKI DO ZĘBÓW, AKCESORIA) ZAWSZE NULL!
+2. Wyłącznie rzeczywista nuta zapachowa ("zapach_wariant"): podaj WYŁĄCZNIE rzeczywistą nutę zapachową zadeklarowaną na etykiecie i przetłumaczoną na język polski (np. "Lawenda", "Białe piżmo", "Mydło marsylskie", "Cytryna i mięta", "Wiosenne kwiaty", "Talk i irys").
+   - JEŚLI PRODUKT NIE POSIADA WYRAŹNIE WSKAZANEJ NUTY ZAPACHOWEJ (lub jest artykułem bezwonnym typu szczoteczka do zębów), ZWRÓĆ NULL!
+   - KATEGORYCZNY ZAKAZ wpisywania w zapach_wariant nazwy wariantu/funkcji produktu, przeznaczenia kolorystycznego ani ogólnych określeń reklamowych: "Pulito Profondo", "Głębokie czyszczenie", "Extra Smacchiante", "Sgrassatore", "Total Black", "Color", "Bianchi", "Classico", "Universale", "Delicato", "Delikatny", "Sensitive", "Concentrato", "Lavatrice", "Profumo di pulito"!
    - KATEGORYCZNY ZAKAZ wpisywania składników chemicznych/czyszczących jako zapachu! Napisy typu "con Candeggina" (z wybielaczem), "con Bicarbonato" (z sodą), "con Aceto" (z octem), "con Ammoniaca" (z amoniakiem) oznaczają SKŁADNIK AKTYWNY (wpisz "Wybielacz", "Soda oczyszczona" lub "Ocet" do kluczowe_skladniki_front), a dla zapach_wariant zwróć null (chyba że obok podano rzeczywistą nutę zapachową np. Cytryna, Eukaliptus).
 3. Twardość włosia (dla szczoteczek do zębów i pędzli): odczytaj stopień twardości (np. "Soft", "Medium", "Hard", "Ultra Soft", "Średnia", "Miękka", "Twarda"). Jeśli produkt nie posiada włosia, null.
 4. Postać fizyczna: precyzyjnie określ postać po polsku na podstawie tego, co widnieje na etykiecie ("płyn", "żel", "pianka", "spray", "proszek", "kapsułki", "tabletki", "krem", "balsam", "mleczko", "chusteczki", "szczoteczka manualna", "wyrób higieniczny"). KRYTYCZNA ZASADA ETYKIETOWA: włoski detergent płynny opisany jako "Detersivo", "Detersivo liquido" lub "Ammorbidente" w butelce BEZ wyraźnego napisu "Gel" / "Żel" na froncie ma postać "płyn" (NIGDY nie wpisuj "żel" ani hybrydy "płyn żel"!). "żel" zwracaj WYŁĄCZNIE wtedy, gdy etykieta wyraźnie deklaruje formę żelową ("Gel" / "Żel").
@@ -301,7 +305,7 @@ KRYTYCZNE ZADANIA EKSTRAKCJI:
 6. Wydajność lub liczba użyć: jeśli podano liczbę prań, kapsułek lub doz (np. "40 prań", "60 kapsułek", "100 doz"), wpisz po polsku. W przeciwnym razie null.
 7. Przeznaczenie frontowe: główne docelowe zastosowanie podane na froncie, przetłumaczone w 100% na język polski bez obcojęzycznych wtrąceń w nawiasach (np. "uniwersalne czyszczenie powierzchni", "do czyszczenia kuchni i łazienki", "do higieny jamy ustnej", "do tkanin kolorowych"). Jeśli brak, null.
 8. Zweryfikowane wyróżniki i certyfikaty użytkowe z etykiety ("glowne_hasla_front"): lista WYŁĄCZNIE obiektywnych, weryfikowalnych faktów użytkowych, testów i certyfikatów widocznych na froncie PRZETŁUMACZONYCH W 100% NA RZECZOWY JĘZYK POLSKI (np. ["Bez spłukiwania", "Testowany dermatologicznie", "Bez smug", "Bez chloru", "Butelka w 30% z plastiku z recyklingu", "Ogranicza powstawanie kropel i zacieków", "Neutralizuje nieprzyjemne zapachy"]). Jeśli na froncie widnieje "SENZA RISCIACQUO", OBOWIĄZKOWO umieść "Bez spłukiwania" na liście. KATEGORYCZNY ZAKAZ przepisywania haseł reklamowych, rankingów ("Nr 1", "N°1", "Najlepiej sprzedający się", "Il più venduto", "Bestseller"), rekomendacji obcych marek ("Raccomandato da Ideal Standard", "Polecany przez..."), etykiet rozmiaru/hype ("Format XXL", "Mega", "Nowość", "Ulepszona formuła", "Formula potente", "Luxury", "Premium", "100%"), zwrotów sprzedażowych ("do Twojej łazienki") ani obcojęzycznych sloganów! Jeśli na froncie są wyłącznie slogany reklamowe, zwróć pustą tablicę [].
-9. Kluczowe składniki wyróżnione na froncie (Hero Ingredients): lista najważniejszych składników aktywnych, ekstraktów, olejków lub substancji czyszczących eksponowanych na przedniej etykiecie, przetłumaczona w 100% na język polski (np. ["Wybielacz", "Olej arganowy", "Mydło marsylskie", "Kwas hialuronowy", "Aktywny tlen", "Soda oczyszczona", "Aloes"]). Jeśli brak, pusta tablica [].
+9. Kluczowe składniki wyróżnione na froncie (Hero Ingredients): lista WYŁĄCZNIE rzeczywistych substancji aktywnych, ekstraktów, olejków lub związków chemicznych eksponowanych na przedniej etykiecie, przetłumaczona na język polski (np. ["Wybielacz", "Olej arganowy", "Mydło marsylskie", "Kwas hialuronowy", "Aktywny tlen", "Soda oczyszczona", "Aloes"]). KATEGORYCZNY ZAKAZ wpisywania do kluczowe_skladniki_front ogólnych nazw funkcji/kategorii produktu typu "Odtłuszczacz" ("con Sgrassatore"), "Odplamiacz" ("Smacchiante"), "Odkamieniacz" lub "Detergent" — te umieść w glowne_hasla_front (np. "Formuła odtłuszczająca", "Działanie odplamiające"). Jeśli brak rzeczywistych składników wyróżnionych na froncie, zwróć pustą tablicę [].
 10. Rodzaj opakowania ("opakowanie_rodzaj"): określ po polsku typ pojemnika ze zdjęcia (np. "plastikowa butelka z atomizerem", "butelka z pompką", "plastikowa butelka", "zapas / worek / doypack", "kartonik", "plastikowe pudełko", "puszka (spray)", "tubka", "słoik", "kanister"). Jeśli niepewne, null.
 11. Liczba sztuk ("liczba_sztuk"): wyłącznie jeśli na froncie wyraźnie podano liczbę sztuk/tabletek/kapsułek/wkładów (np. "40 szt.", "25 kapsułek", "12 szt."). Dla pojedynczej butelki bez oznaczenia wielopaku zwróć null.
 12. Kraj produkcji ("kraj_produkcji_etykieta"): wyłącznie jeśli wyraźnie widoczny na froncie (np. "Made in Italy" -> "Włochy", "Made in Germany" -> "Niemcy"). W przeciwnym razie null.
@@ -336,6 +340,26 @@ const frontVisionSchema = {
     },
     required: ["postac", "dozownik"]
 };
+
+/**
+ * Chroni oficjalne nazwy własne i warianty z etykiety (np. "Pulito Profondo", "Extra Smacchiante", "Total Black")
+ * wyłącznie przed naruszeniami BPR 528/2012, "100%" oraz hasłami marketingowymi ("Nr 1", "Format XXL"),
+ * NIE tłumacząc oryginalnych włoskich/angielskich nazw linii ani wariantów.
+ */
+function sanitizeVisionOfficialName(str) {
+    if (!str || typeof str !== 'string') return str;
+    let cleaned = str
+        .replace(/\b(antybakteryjn[a-ząćęłńóśźż]*|przeciwbakteryjn[a-ząćęłńóśźż]*|antibatteric[oaie]|antibacterial)\b/gi, 'higienicznie oczyszczający')
+        .replace(/\b(przeciwwirusow[a-ząćęłńóśźż]*|antywirusow[a-ząćęłńóśźż]*|wirusobójcz[a-ząćęłńóśźż]*|antiviral)\b/gi, 'głęboko oczyszczający')
+        .replace(/\b(biobójcz[a-ząćęłńóśźż]*|bakteriobójcz[a-ząćęłńóśźż]*|grzybobójcz[a-ząćęłńóśźż]*|pleśniobójcz[a-ząćęłńóśźż]*)\b/gi, 'intensywnie czyszczący')
+        .replace(/\b(dezynfekuj[a-ząćęłńóśźż]*|dezynfekcj[a-ząćęłńóśźż]*|odkażaj[a-ząćęłńóśźż]*|odkaża[a-ząćęłńóśźż]*|igienizzante|disinfettante|sanitizing)\b/gi, 'zapewniający higieniczną czystość')
+        .replace(/\b(zabija|usuwa|eliminuje|likwiduje)\s+(?:do\s+)?99[.,]9%\s*(?:bakterii|wirusów|zarazków|drobnoustrojów|mikrobów)\b/gi, 'skutecznie usuwa zanieczyszczenia i osady')
+        .replace(/(?<!\d)(?:100|99[.,]9)\s*%\s*/g, '');
+    cleaned = sanitizeAllegroMarketingText(cleaned, { isFeatureHighlight: false })
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    return cleaned;
+}
 
 function sanitizeVisionFrontText(str) {
     if (!str || typeof str !== 'string') return str;
@@ -447,17 +471,17 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
             pimFeatures['Marka'] = String(result.marka_front).trim();
         }
         if (result.linia_produktowa_front && String(result.linia_produktowa_front).trim().length > 0) {
-            const cleanLine = sanitizeVisionFrontText(String(result.linia_produktowa_front).trim());
+            const cleanLine = sanitizeVisionOfficialName(String(result.linia_produktowa_front).trim());
             if (cleanLine && !isGenericCategoryWordNotLine(cleanLine)) {
                 pimFeatures['Linia produktowa (Front)'] = cleanLine;
             }
         }
         if (result.wariant_etykieta_front && String(result.wariant_etykieta_front).trim().length > 0) {
-            const cleanVariant = sanitizeVisionFrontText(String(result.wariant_etykieta_front).trim());
+            const cleanVariant = sanitizeVisionOfficialName(String(result.wariant_etykieta_front).trim());
             if (cleanVariant) pimFeatures['Wariant (Etykieta Front)'] = cleanVariant;
         }
         if (result.pelna_nazwa_etykieta && String(result.pelna_nazwa_etykieta).trim().length > 0) {
-            const cleanOfficial = sanitizeVisionFrontText(String(result.pelna_nazwa_etykieta).trim());
+            const cleanOfficial = sanitizeVisionOfficialName(String(result.pelna_nazwa_etykieta).trim());
             if (cleanOfficial) pimFeatures['Nazwa produktu (Etykieta Front)'] = cleanOfficial;
         }
         if (result.pojemnosc_waga && String(result.pojemnosc_waga).trim().length > 0) {
@@ -477,7 +501,7 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
             pimFeatures['Twardość włosia'] = String(result.twardosc_wlosia).trim();
         }
         if (result.zapach_wariant && String(result.zapach_wariant).trim().length > 0) {
-            const rawZapach = sanitizeVisionFrontText(String(result.zapach_wariant).trim());
+            const rawZapach = sanitizeVisionOfficialName(String(result.zapach_wariant).trim());
             // Tarcza ontologiczna 1: Jeśli do zapachu omyłkowo trafiło oznaczenie twardości włosia (np. MEDIUM, SOFT, HARD), przenieś do Twardość włosia
             if (/^(soft|medium|hard|ultra\s*soft|extra\s*soft|średni[a|e]?|miękki[a|e]?|tward[y|a|e]?)$/i.test(rawZapach)) {
                 pimFeatures['Twardość włosia'] = rawZapach;
@@ -489,7 +513,10 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
                     result.kluczowe_skladniki_front = [...heroList, cleanHero];
                 }
             } else {
-                pimFeatures['Zapach'] = rawZapach;
+                const scentRes = sanitizeScentValue(rawZapach);
+                if (scentRes.valid && scentRes.value) {
+                    pimFeatures['Zapach'] = scentRes.value;
+                }
             }
         }
         if (result.postac && String(result.postac).trim().length > 0) {
@@ -540,10 +567,20 @@ async function extractFrontPackFeatures(imageUrlOrCandidates, ean = null, onLog 
             }
         }
         if (Array.isArray(result.kluczowe_skladniki_front) && result.kluczowe_skladniki_front.length > 0) {
-            pimFeatures['Składniki wiodące (Front)'] = result.kluczowe_skladniki_front
+            const rawHero = result.kluczowe_skladniki_front
                 .map(s => sanitizeVisionFrontText(String(s).trim()))
-                .filter(Boolean)
-                .join(', ');
+                .filter(Boolean);
+            const filteredHero = filterHeroIngredients(rawHero);
+            if (filteredHero.ingredients.length > 0) {
+                pimFeatures['Składniki wiodące (Front)'] = filteredHero.ingredients.join(', ');
+            }
+            if (filteredHero.movedToHighlights.length > 0) {
+                const currentHL = pimFeatures['Wyróżniki (Etykieta Front)'] ? [pimFeatures['Wyróżniki (Etykieta Front)']] : [];
+                const mergedHL = sanitizeLabelHighlights([...currentHL, ...filteredHero.movedToHighlights]);
+                if (mergedHL.text) {
+                    pimFeatures['Wyróżniki (Etykieta Front)'] = mergedHL.text;
+                }
+            }
         }
         if (result.opakowanie_rodzaj && String(result.opakowanie_rodzaj).trim().length > 0) {
             pimFeatures['Opakowanie (Front)'] = String(result.opakowanie_rodzaj).trim();
@@ -903,6 +940,12 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                     }
                     pimFeatures['Sposób użycia'] = validUsage;
                     pimFeatures['Sposób użycia (Etykieta)'] = validUsage;
+                    const backYield = extractVerifiedLabelYield({
+                        visionBack: { 'Sposób użycia (Etykieta)': validUsage }
+                    });
+                    if (backYield.count !== null) {
+                        pimFeatures['Liczba prań (Etykieta)'] = String(backYield.count);
+                    }
                 }
 
                 if (result.cap_capacity_legible !== false && result.cap_capacity_ml && typeof result.cap_capacity_ml === 'string' && result.cap_capacity_ml.trim().length >= 1) {
@@ -914,7 +957,7 @@ async function extractInciFromBackPack(imageUrlOrCandidates, ean = null, onLog =
                 }
 
                 if (result.oficjalna_nazwa_kontretykieta && typeof result.oficjalna_nazwa_kontretykieta === 'string' && result.oficjalna_nazwa_kontretykieta.trim().length >= 2) {
-                    const cleanBackName = sanitizeVisionFrontText(result.oficjalna_nazwa_kontretykieta.trim());
+                    const cleanBackName = sanitizeVisionOfficialName(result.oficjalna_nazwa_kontretykieta.trim());
                     if (cleanBackName) pimFeatures['Nazwa produktu (Kontretykieta)'] = cleanBackName;
                 }
 
@@ -1066,6 +1109,7 @@ module.exports = {
     prepareFrontLabelImage,
     prepareBackLabelImageSet,
     sanitizeVisionFrontText,
+    sanitizeVisionOfficialName,
     FRONT_VISION_PROMPT,
     frontVisionSchema,
     BACK_PACK_INCI_PROMPT,

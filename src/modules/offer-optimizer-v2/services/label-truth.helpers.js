@@ -427,6 +427,465 @@ function resolveSection3HeadingAndLead({ isChemical = false, isFabricSoftener = 
     };
 }
 
+function normalizeScentCompareToken(val = '') {
+    return String(val || '')
+        .toLowerCase()
+        .replace(/ł/g, 'l')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+const INVALID_SCENT_NORMALIZED_SET = new Set([
+    // Twardość włosia i ogólne parametry artykułów higienicznych
+    'soft', 'medium', 'hard', 'ultra soft', 'extra soft',
+    'sredni', 'srednia', 'srednie', 'miekki', 'miekka', 'miekkie', 'twardy', 'twarda', 'twarde',
+    // Samodzielne substancje chemiczne / czyszczące (nie nuty zapachowe)
+    'candeggina', 'con candeggina', 'wybielacz', 'z wybielaczem',
+    'bicarbonato', 'con bicarbonato', 'soda', 'soda oczyszczona', 'z soda',
+    'aceto', 'con aceto', 'ocet', 'z octem',
+    'ammoniaca', 'con ammoniaca', 'amoniak', 'z amoniakiem',
+    'chlor',
+    // Funkcje produktu, linie kolorystyczne, warianty i puste przymiotniki
+    'pulito profondo', 'glebokie czyszczenie', 'dokladne czyszczenie',
+    'extra smacchiante', 'smacchiante', 'odplamiacz', 'z odplamiaczem',
+    'sgrassatore', 'con sgrassatore', 'odtluszczacz',
+    'anticalcare', 'odkamieniacz', 'igienizzante', 'antibatterico', 'disinfettante',
+    'total black', 'black', 'nero', 'neri', 'scuri', 'czarny', 'czarne', 'do czarnego', 'do ciemnych',
+    'bianchi', 'bianco', 'biale', 'do bialego',
+    'color', 'colorati', 'kolor', 'kolory', 'do kolorow',
+    'classico', 'klasyczny', 'universale', 'uniwersalny', 'uniwersalna', 'uniwersalne',
+    'delicato', 'delikatny', 'delikatna', 'delikatne', 'sensitive', 'wrazliwy',
+    'concentrato', 'koncentrat', 'lavatrice', 'bucato', 'detersivo', 'ammorbidente',
+    'profumo di pulito', 'zapach czystosci', 'swiezy zapach', 'swiezy', 'swiezosc', 'czystosc', 'czysty',
+    'oryginalny', 'original', 'originale', 'standard', 'standardowy',
+    'natural', 'naturalny', 'ekologiczny', 'eco', 'bio',
+    'active', 'power', 'max', 'plus', 'pro', 'ultra', 'extra', 'express', 'rapid',
+    'multi', 'multiuso', 'wielofunkcyjny',
+    'bezzapachowy', 'bez zapachu', 'brak zapachu',
+    'mocny', 'intensywny', 'lagodny', 'neutralny',
+    'inne', 'inny', 'inna', 'brak', 'brak danych', 'nie dotyczy', 'null', 'n a', 'unknown', 'nieznany'
+]);
+
+const FUNCTIONAL_SCENT_SUBSTRING_RE = /(?<![a-z0-9])(?:pulito\s+profondo|extra\s+smacchiante|glebokie\s+czyszczenie|dokladne\s+czyszczenie|total\s+black|profumo\s+di\s+pulito|do\s+prania|do\s+plukania|ochrona\s+kolor(?:u|ow)|usuwanie\s+plam|usuwa\s+plamy|z\s+wybielaczem|con\s+candeggina|sgrassatore)(?![a-z0-9])/i;
+
+const ITALIAN_EN_SCENT_TRANSLATIONS = {
+    'lavanda': 'Lawenda',
+    'lavanda e camomilla': 'Lawenda i rumianek',
+    'camomilla': 'Rumianek',
+    'muschio bianco': 'Białe piżmo',
+    'sapone di marsiglia': 'Mydło marsylskie',
+    'marsiglia': 'Mydło marsylskie',
+    'fiori di primavera': 'Wiosenne kwiaty',
+    'fiori di loto': 'Kwiat lotosu',
+    'fiori di cotone': 'Kwiat bawełny',
+    'cotone': 'Bawełna',
+    'talco e iris': 'Talk i irys',
+    'talco': 'Talk',
+    'iris': 'Irys',
+    'limone': 'Cytryna',
+    'limone e menta': 'Cytryna i mięta',
+    'agrumi': 'Cytrusy',
+    'arancia': 'Pomarańcza',
+    'brezza marina': 'Morska bryza',
+    'fresco marino': 'Morska bryza',
+    'oceano': 'Ocean',
+    'ocean fresh': 'Morska bryza',
+    'vaniglia': 'Wanilia',
+    'peonia': 'Piwonia',
+    'rosa': 'Róża',
+    'orchidea': 'Orchidea',
+    'gelsomino': 'Jaśmin',
+    'mandorla': 'Migdał',
+    'mandorla dolce': 'Słodki migdał',
+    'argan': 'Argan',
+    'aloe': 'Aloes',
+    'aloe vera': 'Aloes',
+    'eucalipto': 'Eukaliptus',
+    'menta': 'Mięta',
+    'pino': 'Sosna',
+    'bergamotto': 'Bergamotka',
+    'cocco': 'Kokos',
+    'pesca': 'Brzoskwinia',
+    'frutti rossi': 'Czerwone owoce',
+    'fiori bianchi': 'Białe kwiaty',
+    'fiori di ciliegio': 'Kwiat wiśni',
+    'sandalo': 'Drzewo sandałowe',
+    'ambra': 'Bursztyn',
+    'karite': 'Masło shea',
+    'burro di karite': 'Masło shea',
+    'melograno': 'Granat',
+    'fiordaliso': 'Chaber',
+    'mughetto': 'Konwalia',
+    'cedro': 'Cedr'
+};
+
+/**
+ * Waliduje i normalizuje wartość pola Zapach:
+ * - odrzuca nazwy funkcji/wariantów produktu (np. "Pulito Profondo", "Głębokie czyszczenie", "Total Black") i puste ogólniki ("delikatny", "uniwersalny");
+ * - tłumaczy autentyczne włoskie/angielskie nuty zapachowe na język polski.
+ */
+function sanitizeScentValue(rawVal = '') {
+    const original = String(rawVal ?? '').replace(/\s+/g, ' ').trim();
+    if (!original || original === '-') {
+        return { valid: false, value: null, original, translated: false, rejectedReason: 'empty_or_placeholder' };
+    }
+    const norm = normalizeScentCompareToken(original);
+    if (!norm) {
+        return { valid: false, value: null, original, translated: false, rejectedReason: 'empty_or_placeholder' };
+    }
+    if (INVALID_SCENT_NORMALIZED_SET.has(norm)) {
+        return { valid: false, value: null, original, translated: false, rejectedReason: 'non_scent_token' };
+    }
+    if (FUNCTIONAL_SCENT_SUBSTRING_RE.test(norm)) {
+        return { valid: false, value: null, original, translated: false, rejectedReason: 'functional_claim_not_scent' };
+    }
+
+    if (Object.prototype.hasOwnProperty.call(ITALIAN_EN_SCENT_TRANSLATIONS, norm)) {
+        const translatedVal = ITALIAN_EN_SCENT_TRANSLATIONS[norm];
+        return {
+            valid: true,
+            value: translatedVal,
+            original,
+            translated: normalizeScentCompareToken(translatedVal) !== norm,
+            rejectedReason: null
+        };
+    }
+
+    const compoundParts = original.split(/\s+(?:e|i|&)\s+/i).map(p => p.trim()).filter(Boolean);
+    if (compoundParts.length === 2) {
+        const n0 = normalizeScentCompareToken(compoundParts[0]);
+        const n1 = normalizeScentCompareToken(compoundParts[1]);
+        const t0 = ITALIAN_EN_SCENT_TRANSLATIONS[n0];
+        const t1 = ITALIAN_EN_SCENT_TRANSLATIONS[n1];
+        if (t0 && t1) {
+            const joined = `${t0} i ${t1.charAt(0).toLowerCase() + t1.slice(1)}`;
+            return {
+                valid: true,
+                value: joined,
+                original,
+                translated: true,
+                rejectedReason: null
+            };
+        }
+    }
+
+    return {
+        valid: true,
+        value: original,
+        original,
+        translated: false,
+        rejectedReason: null
+    };
+}
+
+/**
+ * Odfiltrowuje słowa oznaczające funkcję produktu lub typ detergentu z listy „Składniki wiodące (Front)”
+ * (np. „Odtłuszczacz” z „con Sgrassatore”) i konwertuje je do rzeczowych wyróżników użytkowych.
+ */
+function filterHeroIngredients(rawList = []) {
+    const rawItems = Array.isArray(rawList)
+        ? rawList
+        : String(rawList || '').split(/[,;]/);
+
+    const ingredients = [];
+    const seenIng = new Set();
+    const movedToHighlights = [];
+    const seenHighlights = new Set();
+
+    const addHighlight = (text) => {
+        const key = normalizeScentCompareToken(text);
+        if (text && key && !seenHighlights.has(key)) {
+            seenHighlights.add(key);
+            movedToHighlights.push(text);
+        }
+    };
+
+    for (const raw of rawItems) {
+        const trimmed = String(raw || '').replace(/\s+/g, ' ').trim();
+        if (!trimmed) continue;
+        const norm = normalizeScentCompareToken(trimmed);
+        if (!norm) continue;
+
+        if (/^(?:odtluszczacz|sgrassatore|con sgrassatore|degreaser|dzialanie odtluszczajace|formula odtluszczajaca)$/.test(norm)) {
+            addHighlight('Formuła odtłuszczająca');
+            continue;
+        }
+        if (/^(?:odplamiacz|smacchiante|extra smacchiante|stain remover|dzialanie odplamiajace)$/.test(norm)) {
+            addHighlight('Działanie odplamiające');
+            continue;
+        }
+        if (/^(?:odkamieniacz|anticalcare|descaler|dzialanie odkamieniajace)$/.test(norm)) {
+            addHighlight('Działanie odkamieniające');
+            continue;
+        }
+        if (/^(?:detergent|detersivo|detersivo liquido|plyn do prania|plyn do plukania|ammorbidente|srodek czyszczacy|formula|koncentrat|concentrato|lavatrice|bucato|pulito profondo|glebokie czyszczenie)$/.test(norm)) {
+            continue;
+        }
+        if (!seenIng.has(norm)) {
+            seenIng.add(norm);
+            ingredients.push(trimmed);
+        }
+    }
+
+    return { ingredients, movedToHighlights };
+}
+
+function parseStrictYieldCount(rawVal = '') {
+    const raw = String(rawVal || '').trim();
+    if (!raw) return null;
+    if (/\b(?:ml|cl|l|litr|g|kg|mg|dag|mm|cm)\b/i.test(raw) && !/\b(?:pra[nń]|pranie|płuka[nń]|płukanie|cykl|lavaggi|washes|doz|uży[cć])/i.test(raw)) {
+        return null;
+    }
+    return parseDeclaredCycleCount(raw);
+}
+
+function parseYieldFromUsageInstructions(usageText = '') {
+    const raw = String(usageText || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return null;
+    const explicitMatch = raw.match(/(?:standardowa\s+liczba\s+pra[nń]|standardowa\s+liczba\s+płuka[nń]|liczba\s+pra[nń]|liczba\s+płuka[nń]|wydajność|wystarcza\s+na)\s*[:=]?\s*(\d{1,4})\b/i);
+    if (explicitMatch) {
+        const n = parseInt(explicitMatch[1], 10);
+        if (Number.isFinite(n) && n >= 2 && n <= 1000) return n;
+    }
+    const bottleMatch = raw.match(/(?:pozwala\s+na\s+wykonanie|wystarcza\s+na)\s+(?:ok\.?\s+)?(\d{1,4})\s+(?:standardowych\s+)?(?:cykl[iaey]|pra[nń]|płuka[nń])/i);
+    if (bottleMatch) {
+        const n = parseInt(bottleMatch[1], 10);
+        if (Number.isFinite(n) && n >= 2 && n <= 1000) return n;
+    }
+    return null;
+}
+
+function hasVerifiedLabelMarkers(features = {}) {
+    if (!features || typeof features !== 'object') return false;
+    if (features['_labelsPreScannedAt']) return true;
+    const keys = Object.keys(features);
+    return keys.some((k) => {
+        if (/zdjęcie\s+(?:frontu|tyłu)\s+opakowania/i.test(k)) return false;
+        return /\((?:Etykieta|Front|Kontretykieta|Etykieta\s*Front|Etykieta\s*Tył)\)/i.test(k);
+    });
+}
+
+/**
+ * Ekstrahuje zweryfikowaną liczbę prań / płukań wyłącznie z twardych dowodów etykietowych
+ * (NIGDY ze surowego pola Allegro/BaseLinker `features['Liczba prań']`).
+ */
+function extractVerifiedLabelYield({ visionFront = {}, visionBack = {}, features = {} } = {}) {
+    const vFront = visionFront && typeof visionFront === 'object' ? visionFront : {};
+    const vBack = visionBack && typeof visionBack === 'object' ? visionBack : {};
+    const feats = features && typeof features === 'object' ? features : {};
+
+    const directCandidates = [
+        { source: 'visionFront.Wydajność', raw: vFront['Wydajność'] },
+        { source: 'visionFront.Wydajność (Front)', raw: vFront['Wydajność (Front)'] },
+        { source: 'visionBack.Liczba prań (Etykieta)', raw: vBack['Liczba prań (Etykieta)'] },
+        { source: 'visionFront.Liczba prań (Etykieta)', raw: vFront['Liczba prań (Etykieta)'] }
+    ];
+    for (const cand of directCandidates) {
+        if (cand.raw === undefined || cand.raw === null || String(cand.raw).trim() === '') continue;
+        const count = parseStrictYieldCount(cand.raw);
+        if (count !== null) {
+            return { count, source: cand.source, raw: String(cand.raw).trim() };
+        }
+    }
+
+    const usageCandidates = [
+        { source: 'visionBack.Sposób użycia (Etykieta)', raw: vBack['Sposób użycia (Etykieta)'] },
+        { source: 'visionBack.Sposób użycia', raw: vBack['Sposób użycia'] },
+        { source: 'visionFront.Sposób użycia (Etykieta)', raw: vFront['Sposób użycia (Etykieta)'] }
+    ];
+    for (const uCand of usageCandidates) {
+        if (!uCand.raw) continue;
+        const count = parseYieldFromUsageInstructions(uCand.raw);
+        if (count !== null) {
+            return { count, source: uCand.source, raw: String(uCand.raw).trim() };
+        }
+    }
+
+    if (hasVerifiedLabelMarkers(feats)) {
+        const featDirect = [
+            { source: 'features.Liczba prań (Etykieta)', raw: feats['Liczba prań (Etykieta)'] },
+            { source: 'features.Wydajność', raw: feats['Wydajność'] },
+            { source: 'features.Wydajność (Front)', raw: feats['Wydajność (Front)'] }
+        ];
+        for (const fCand of featDirect) {
+            if (!fCand.raw) continue;
+            const count = parseStrictYieldCount(fCand.raw);
+            if (count !== null) {
+                return { count, source: fCand.source, raw: String(fCand.raw).trim() };
+            }
+        }
+        if (feats['Sposób użycia (Etykieta)']) {
+            const count = parseYieldFromUsageInstructions(feats['Sposób użycia (Etykieta)']);
+            if (count !== null) {
+                return { count, source: 'features.Sposób użycia (Etykieta)', raw: String(feats['Sposób użycia (Etykieta)']).trim() };
+            }
+        }
+    }
+
+    return { count: null, source: null, raw: null };
+}
+
+/**
+ * Czysto oddziela pola odczytane z etykiet (Front/Back Vision) od pól BaseLinkera/Allegro,
+ * aby automapper nie mylił starych wpisów magazynowych z prawdą etykietową.
+ */
+function extractLabelEvidenceSubsets(features = {}, explicitFront = {}, explicitBack = {}) {
+    const feats = features && typeof features === 'object' && !Array.isArray(features) ? features : {};
+    const expFront = explicitFront && typeof explicitFront === 'object' ? explicitFront : {};
+    const expBack = explicitBack && typeof explicitBack === 'object' ? explicitBack : {};
+
+    const visionFront = {};
+    const visionBack = {};
+
+    const hasFrontMarkers = Boolean(
+        feats['_labelsPreScannedAt'] ||
+        Object.keys(expFront).length > 0 ||
+        Object.keys(feats).some(k => /\((?:Front|Etykieta\s*Front)\)/i.test(k))
+    );
+    const hasBackMarkers = Boolean(
+        feats['_labelsPreScannedAt'] ||
+        Object.keys(expBack).length > 0 ||
+        Object.keys(feats).some(k => /\((?:Etykieta|Kontretykieta|Etykieta\s*Tył)\)/i.test(k))
+    );
+
+    const SHARED_FRONT_LABEL_KEYS = new Set(['Pojemność / Waga', 'Wydajność', 'Dozownik']);
+    for (const [k, v] of Object.entries(feats)) {
+        if (v === undefined || v === null || String(v).trim() === '') continue;
+        if (/zdjęcie\s+(?:frontu|tyłu)\s+opakowania|^_/i.test(k)) continue;
+        if (/\(Front\)|\(Etykieta\s*Front\)/i.test(k)) {
+            visionFront[k] = v;
+        } else if (/\(Etykieta\)|\(Kontretykieta\)|\(Etykieta\s*Tył\)/i.test(k)) {
+            visionBack[k] = v;
+        } else if (hasFrontMarkers && SHARED_FRONT_LABEL_KEYS.has(k)) {
+            visionFront[k] = v;
+        }
+    }
+    if (hasFrontMarkers && feats['Marka']) {
+        visionFront['Marka'] = feats['Marka'];
+    }
+    if (hasBackMarkers && feats['Skład/INCI']) {
+        visionBack['Skład/INCI'] = feats['Skład/INCI'];
+    }
+
+    for (const [k, v] of Object.entries(expFront)) {
+        if (v !== undefined && v !== null && String(v).trim() !== '') {
+            visionFront[k] = v;
+        }
+    }
+    for (const [k, v] of Object.entries(expBack)) {
+        if (v !== undefined && v !== null && String(v).trim() !== '') {
+            visionBack[k] = v;
+        }
+    }
+
+    const hasLabelEvidence = Boolean(
+        hasVerifiedLabelMarkers(feats) ||
+        Object.keys(visionFront).length > 0 ||
+        Object.keys(visionBack).length > 0
+    );
+
+    return { visionFront, visionBack, hasLabelEvidence };
+}
+
+const PROTECTED_CORE_PIM_KEYS_NORM = new Set([
+    'sklad inci', 'ostrzezenia', 'sposob uzycia', 'wydajnosc',
+    'pojemnosc waga', 'dozownik', 'producent'
+]);
+
+const PROTECTED_SSOT_ALLEGRO_KEYS_NORM = new Set([
+    'postac', 'typ', 'pojemnosc', 'pojemnosc opakowania', 'waga', 'waga produktu',
+    'liczba pran', 'liczba uzyc', 'kraj pochodzenia', 'kraj produkcji',
+    'opakowanie', 'opakowanie produktu', 'marka', 'liczba sztuk w opakowaniu', 'liczba sztuk',
+    'rodzaj prania', 'zastosowanie do', 'zapach', 'nuta zapachowa'
+]);
+
+function isProtectedLabelTechnicalKey(key = '') {
+    return /^_/.test(key) ||
+        /zdjęcie\s+(?:frontu|tyłu)\s+opakowania/i.test(key) ||
+        /\((?:Etykieta|Front|Kontretykieta|Etykieta\s*Front|Etykieta\s*Tył)\)/i.test(key);
+}
+
+function findNormalizedObjectKey(obj = {}, targetNorm = '') {
+    return Object.keys(obj || {}).find(k => normalizeScentCompareToken(k) === targetNorm) || null;
+}
+
+/**
+ * Scala dane zewnętrzne (BaseLinker / Katalog Allegro API) z istniejącymi cechami produktu przy ścisłym priorytecie Etykiety:
+ * - Zewnętrzne źródła uzupełniają WYŁĄCZNIE puste braki i nie nadpisują kluczy etykietowych ani spójnych wartości PIM.
+ * - Odrzuca z zewnętrznego źródła błędne wartości pola Zapach (np. "Pulito Profondo", "delikatny").
+ */
+function mergeFeaturesWithLabelPrecedence(existingFeatures = {}, incomingExternalFeatures = {}, options = {}) {
+    const existing = (existingFeatures && typeof existingFeatures === 'object' && !Array.isArray(existingFeatures))
+        ? { ...existingFeatures }
+        : {};
+    const incoming = (incomingExternalFeatures && typeof incomingExternalFeatures === 'object' && !Array.isArray(incomingExternalFeatures))
+        ? incomingExternalFeatures
+        : {};
+
+    const hasLabelEvidence = hasVerifiedLabelMarkers(existing) ||
+        Boolean(existing['Zdjęcie frontu opakowania'] || existing['Zdjęcie tyłu opakowania']);
+
+    for (const [extKey, extVal] of Object.entries(incoming)) {
+        if (extVal === undefined || extVal === null || String(extVal).trim() === '') continue;
+        if (isProtectedLabelTechnicalKey(extKey)) continue;
+
+        const normExtKey = normalizeScentCompareToken(extKey);
+
+        if ((normExtKey === 'inci' || normExtKey === 'sklad') && existing['Skład/INCI']) {
+            continue;
+        }
+
+        if (normExtKey === 'zapach' || normExtKey === 'nuta zapachowa') {
+            const incomingScent = sanitizeScentValue(extVal);
+            const existingScentKey = findNormalizedObjectKey(existing, normExtKey) || findNormalizedObjectKey(existing, 'zapach');
+            const existingScentVal = existingScentKey ? existing[existingScentKey] : '';
+            const existingScentCheck = sanitizeScentValue(existingScentVal);
+
+            if (!existingScentVal || !existingScentCheck.valid) {
+                if (existingScentKey && existingScentVal && !existingScentCheck.valid) {
+                    delete existing[existingScentKey];
+                }
+                if (incomingScent.valid && incomingScent.value) {
+                    existing[existingScentKey || extKey] = incomingScent.value;
+                }
+            }
+            continue;
+        }
+
+        const existingKey = findNormalizedObjectKey(existing, normExtKey);
+        const existingVal = existingKey ? existing[existingKey] : undefined;
+        const hasNonEmptyExisting = existingVal !== undefined && existingVal !== null && String(existingVal).trim() !== '';
+
+        if (hasNonEmptyExisting) {
+            if (PROTECTED_CORE_PIM_KEYS_NORM.has(normExtKey)) continue;
+            if (hasLabelEvidence && PROTECTED_SSOT_ALLEGRO_KEYS_NORM.has(normExtKey)) continue;
+            // Nawet bez pełnego skanu nie nadpisujemy już uzupełnionych twardych parametrów katalogowych
+            if (PROTECTED_SSOT_ALLEGRO_KEYS_NORM.has(normExtKey)) continue;
+        }
+
+        if (!hasNonEmptyExisting) {
+            existing[existingKey || extKey] = typeof extVal === 'string' ? extVal.trim() : extVal;
+        }
+    }
+
+    if (options.cleanInvalidExistingScent !== false) {
+        for (const scentAlias of ['Zapach', 'zapach', 'Nuta zapachowa', 'nuta zapachowa']) {
+            if (existing[scentAlias] === undefined) continue;
+            const checked = sanitizeScentValue(existing[scentAlias]);
+            if (!checked.valid) {
+                delete existing[scentAlias];
+            } else if (checked.translated && checked.value) {
+                existing[scentAlias] = checked.value;
+            }
+        }
+    }
+
+    return existing;
+}
+
 module.exports = {
     CANONICAL_ACRONYMS,
     POLISH_CONNECTOR_WORDS,
@@ -441,5 +900,10 @@ module.exports = {
     resolveLabelPhysicalForm,
     normalizeFabricSoftenerTerminology,
     validateDosageYieldMath,
-    resolveSection3HeadingAndLead
+    resolveSection3HeadingAndLead,
+    sanitizeScentValue,
+    filterHeroIngredients,
+    extractVerifiedLabelYield,
+    extractLabelEvidenceSubsets,
+    mergeFeaturesWithLabelPrecedence
 };

@@ -1517,7 +1517,13 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
     const baselinkerExtract = require('../offer-optimizer-v2/baselinker.extract');
     const socketService = require('../../core/socket');
     const { normalizeCapacityValue } = require('../offer-optimizer-v2/services/deterministic-pipeline.engine');
-    const { resolveLabelPhysicalForm } = require('../offer-optimizer-v2/services/label-truth.helpers');
+    const {
+        resolveLabelPhysicalForm,
+        extractLabelEvidenceSubsets,
+        sanitizeScentValue,
+        extractVerifiedLabelYield,
+        isFabricSoftenerProduct
+    } = require('../offer-optimizer-v2/services/label-truth.helpers');
 
     const normalizedMode = ['front', 'back', 'both'].includes(String(mode || '').toLowerCase())
         ? String(mode).toLowerCase()
@@ -1669,6 +1675,31 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
         updatedFeatures['Postać'] = resolvedForm.canonicalForm;
     }
 
+    if (frontFound && !frontFeatures['Zapach'] && updatedFeatures['Zapach']) {
+        const scentCheck = sanitizeScentValue(updatedFeatures['Zapach']);
+        if (!scentCheck.valid) {
+            delete updatedFeatures['Zapach'];
+        } else if (scentCheck.translated && scentCheck.value) {
+            updatedFeatures['Zapach'] = scentCheck.value;
+        }
+    }
+    if (backFound && !updatedFeatures['Wydajność']) {
+        const backYield = extractVerifiedLabelYield({
+            visionFront: frontFeatures,
+            visionBack: backFeatures,
+            features: updatedFeatures
+        });
+        if (backYield.count !== null) {
+            const isSoftener = isFabricSoftenerProduct({
+                productName: existingProduct?.name || '',
+                line: updatedFeatures['Linia produktowa (Front)'] || '',
+                visionFeatures: { ...frontFeatures, ...backFeatures },
+                features: updatedFeatures
+            });
+            updatedFeatures['Wydajność'] = `${backYield.count} ${isSoftener ? 'płukań' : 'prań'}`;
+        }
+    }
+
     if (extractionBackRes?.ocrDiagnostics?.ocrQualityWarning) {
         delete updatedFeatures['_labelsPreScannedAt'];
     } else if (frontFound || backFound) {
@@ -1682,15 +1713,25 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
             });
             if (cat && Array.isArray(cat.parameters) && cat.parameters.length > 0) {
                 const { mapPackagingFeaturesToAllegroSchema } = require('../offer-optimizer-v2/services/allegro-param-automapper.service');
+                const labelSubsets = extractLabelEvidenceSubsets(updatedFeatures, frontFeatures, backFeatures);
                 const autoRes = mapPackagingFeaturesToAllegroSchema({
                     allegroSchema: cat.parameters,
                     currentFeatures: updatedFeatures,
-                    visionFront: { ...updatedFeatures, ...frontFeatures },
-                    visionBack: backFeatures,
+                    visionFront: labelSubsets.visionFront,
+                    visionBack: labelSubsets.visionBack,
                     product: existingProduct
                 });
                 updatedFeatures = autoRes.updatedFeatures;
                 autoMappedParams = autoRes.mappedParams || {};
+                if (updatedFeatures['Liczba prań'] && !updatedFeatures['Wydajność']) {
+                    const isSoftener = isFabricSoftenerProduct({
+                        productName: existingProduct?.name || '',
+                        line: updatedFeatures['Linia produktowa (Front)'] || '',
+                        visionFeatures: { ...frontFeatures, ...backFeatures },
+                        features: updatedFeatures
+                    });
+                    updatedFeatures['Wydajność'] = `${updatedFeatures['Liczba prań']} ${isSoftener ? 'płukań' : 'prań'}`;
+                }
             }
         } catch (mapErr) {
             console.warn('[extractLabels] Ostrzeżenie auto-mapowania Allegro:', mapErr.message);
