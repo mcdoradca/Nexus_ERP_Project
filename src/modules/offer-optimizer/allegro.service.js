@@ -1116,10 +1116,7 @@ async function fetchCategoryParameters(categoryId, { workspaceId = null, account
         });
         const categoryName = catResponse.data.name || `Kategoria ${categoryId}`;
 
-        // Zapis Cache'u w bazie (Lazy Caching)
-        const { PrismaClient } = require('@prisma/client');
-        const prisma = new PrismaClient();
-        
+        // Zapis Cache'u w bazie (Lazy Caching) przy użyciu współdzielonego klienta Prisma
         const marketplaceCategory = await prisma.marketplaceCategory.upsert({
             where: { id: categoryId },
             update: {
@@ -1493,48 +1490,70 @@ async function ensureSellerWriteToken(accountId = null, injectedPrisma = prisma,
 /**
  * Pobiera pełny schemat parametrów kategorii Allegro (z options, restrictions, requiredIf i pełnym słownikiem).
  */
-async function getCategoryParametersFull(categoryId, { forceRefresh = false, workspaceId = null, accountId = null } = {}) {
+async function getCategoryParametersFull(categoryId, {
+    forceRefresh = false,
+    workspaceId = null,
+    accountId = null,
+    injectedPrisma = prisma,
+    injectedApiClient = apiClient,
+    injectedGetToken = getAllegroToken
+} = {}) {
     if (!categoryId) throw new Error('Brak categoryId do pobrania parametrów kategorii.');
     const catIdStr = String(categoryId).trim();
 
-    let category = await prisma.marketplaceCategory.findUnique({ where: { id: catIdStr } });
+    let category = await injectedPrisma.marketplaceCategory.findUnique({ where: { id: catIdStr } });
     const hasValidCachedParams = category && Array.isArray(category.parameters) && category.parameters.length > 0;
 
     let refreshed = false;
     if (!hasValidCachedParams || forceRefresh) {
-        const token = await getAllegroToken(false, accountId, prisma, workspaceId);
-        const [paramsRes, catRes] = await Promise.all([
-            apiClient.get(`https://api.allegro.pl/sale/categories/${encodeURIComponent(catIdStr)}/parameters`, {
-                headers: {
-                    'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/vnd.allegro.public.v1+json'
-                },
-                _allegroAccountId: accountId || null,
-                _allegroWorkspaceId: workspaceId || null,
-                timeout: 15000
-            }),
-            apiClient.get(`https://api.allegro.pl/sale/categories/${encodeURIComponent(catIdStr)}`, {
-                headers: {
-                    'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/vnd.allegro.public.v1+json'
-                },
-                _allegroAccountId: accountId || null,
-                _allegroWorkspaceId: workspaceId || null,
-                timeout: 15000
-            }).catch(() => null)
-        ]);
+        try {
+            const token = await injectedGetToken(false, accountId, injectedPrisma, workspaceId);
+            const [paramsRes, catRes] = await Promise.all([
+                injectedApiClient.get(`https://api.allegro.pl/sale/categories/${encodeURIComponent(catIdStr)}/parameters`, {
+                    headers: {
+                        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/vnd.allegro.public.v1+json'
+                    },
+                    _allegroAccountId: accountId || null,
+                    _allegroWorkspaceId: workspaceId || null,
+                    timeout: 15000
+                }),
+                injectedApiClient.get(`https://api.allegro.pl/sale/categories/${encodeURIComponent(catIdStr)}`, {
+                    headers: {
+                        'User-Agent': 'NexusSentinelv2/2.0 (+http://n-e-s.pl)',
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/vnd.allegro.public.v1+json'
+                    },
+                    _allegroAccountId: accountId || null,
+                    _allegroWorkspaceId: workspaceId || null,
+                    timeout: 15000
+                }).catch(() => null)
+            ]);
 
-        const rawParams = Array.isArray(paramsRes.data?.parameters) ? paramsRes.data.parameters : [];
-        const categoryName = catRes?.data?.name || category?.name || `Kategoria ${catIdStr}`;
+            const rawParams = Array.isArray(paramsRes.data?.parameters) ? paramsRes.data.parameters : [];
+            const categoryName = catRes?.data?.name || category?.name || `Kategoria ${catIdStr}`;
 
-        category = await prisma.marketplaceCategory.upsert({
-            where: { id: catIdStr },
-            update: { name: categoryName, parameters: rawParams },
-            create: { id: catIdStr, name: categoryName, parameters: rawParams }
-        });
-        refreshed = true;
+            category = await injectedPrisma.marketplaceCategory.upsert({
+                where: { id: catIdStr },
+                update: { name: categoryName, parameters: rawParams },
+                create: { id: catIdStr, name: categoryName, parameters: rawParams }
+            });
+            refreshed = true;
+        } catch (err) {
+            if (hasValidCachedParams) {
+                console.warn(`[AllegroService] Nie udało się odświeżyć kategorii ${catIdStr} z Allegro API (${err.message}). Zwracam zbuforowany schemat.`);
+                return {
+                    id: category.id,
+                    name: category.name,
+                    parameters: category.parameters,
+                    refreshed: false,
+                    staleFallback: true,
+                    refreshError: err.message
+                };
+            }
+            throw err;
+        }
     }
 
     return {

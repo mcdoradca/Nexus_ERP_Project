@@ -171,6 +171,10 @@ export const UnifiedProductPipelineView = ({
     const [brandSearchTerm, setBrandSearchTerm] = useState('');
     const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
     const [categorySchema, setCategorySchema] = useState(null);
+    const [isLoadingCategorySchema, setIsLoadingCategorySchema] = useState(false);
+    const [categorySchemaError, setCategorySchemaError] = useState(null);
+    const [categorySchemaRefreshRev, setCategorySchemaRefreshRev] = useState(0);
+    const forceCategoryRefreshRef = useRef(false);
     const [featuresHydrationRev, setFeaturesHydrationRev] = useState(0);
     const categorySchemaRef = useRef(null);
     const [brands, setBrands] = useState([]);
@@ -868,14 +872,55 @@ export const UnifiedProductPipelineView = ({
     }, [categorySchema]);
 
     useEffect(() => {
-        if (newProductForm?.allegroCategoryId && token) {
-            axios.get(`${API_URL}/api/categories/${newProductForm.allegroCategoryId}`, { headers: { Authorization: `Bearer ${token}` } })
-                .then(res => setCategorySchema(res.data))
-                .catch(err => setCategorySchema(null));
-        } else {
+        const cleanCatId = String(newProductForm?.allegroCategoryId || '').trim();
+        if (!cleanCatId || !token) {
             setCategorySchema(null);
+            setCategorySchemaError(null);
+            setIsLoadingCategorySchema(false);
+            return;
         }
-    }, [newProductForm?.allegroCategoryId, token]);
+        if (!/^\d+$/.test(cleanCatId)) {
+            setCategorySchema(null);
+            setCategorySchemaError('ID kategorii Allegro musi składać się wyłącznie z cyfr.');
+            setIsLoadingCategorySchema(false);
+            return;
+        }
+
+        let cancelled = false;
+        const shouldForceRefresh = forceCategoryRefreshRef.current;
+        forceCategoryRefreshRef.current = false;
+        const delayMs = shouldForceRefresh ? 0 : 350;
+
+        const timer = setTimeout(async () => {
+            if (cancelled) return;
+            setIsLoadingCategorySchema(true);
+            setCategorySchemaError(null);
+            try {
+                const refreshQuery = shouldForceRefresh ? '?refresh=true' : '';
+                const res = await axios.get(`${API_URL}/api/categories/${encodeURIComponent(cleanCatId)}${refreshQuery}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!cancelled) {
+                    setCategorySchema(res.data);
+                    setCategorySchemaError(null);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setCategorySchema(null);
+                    setCategorySchemaError(err.response?.data?.error || err.message || 'Nie udało się pobrać schematu kategorii z Allegro.');
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsLoadingCategorySchema(false);
+                }
+            }
+        }, delayMs);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [newProductForm?.allegroCategoryId, token, categorySchemaRefreshRev]);
 
     // Automatyczne przeliczenie istniejących zabrudzonych parametrów liczbowych (np. "600 Ml" -> "0.6" dla L, "0,650 kg" -> "0.65" dla KG) po załadowaniu schematu lub danych produktu
     useEffect(() => {
@@ -1549,11 +1594,17 @@ export const UnifiedProductPipelineView = ({
                 if (exactTypedMatch?.accountId) {
                     setAllegroAccountId(String(exactTypedMatch.accountId));
                 }
+                if (exactTypedMatch?.categoryId) {
+                    setNewProductForm(prev => (String(prev.allegroCategoryId || '').trim() ? prev : { ...prev, allegroCategoryId: String(exactTypedMatch.categoryId) }));
+                }
             } else {
                 const best = foundOffers.find(o => o.eanMatch) || foundOffers[0];
                 if (best) {
                     setAllegroOfferId(best.id);
                     if (best.accountId) setAllegroAccountId(best.accountId);
+                    if (best.categoryId) {
+                        setNewProductForm(prev => (String(prev.allegroCategoryId || '').trim() ? prev : { ...prev, allegroCategoryId: String(best.categoryId) }));
+                    }
                 }
             }
         } catch (err) {
@@ -2845,8 +2896,23 @@ export const UnifiedProductPipelineView = ({
                                              <label className="text-[10px] font-black text-indigo-700 uppercase tracking-widest mb-3 flex items-center">
                                                 <Target className="w-4 h-4 mr-2" /> ID Kategorii Allegro (Data Quality Score)
                                              </label>
-                                             <div className="flex space-x-4">
+                                             <div className="flex space-x-3">
                                                 <input type="text" placeholder="Np. 257745" className={`${inputClass} flex-1`} value={newProductForm.allegroCategoryId || ''} onChange={e => setNewProductForm({...newProductForm, allegroCategoryId: e.target.value})} />
+                                                {/^\d+$/.test(String(newProductForm.allegroCategoryId || '').trim()) && (
+                                                    <button
+                                                        type="button"
+                                                        disabled={isLoadingCategorySchema}
+                                                        onClick={() => {
+                                                            forceCategoryRefreshRef.current = true;
+                                                            setCategorySchemaRefreshRev(r => r + 1);
+                                                        }}
+                                                        className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black text-[10px] uppercase tracking-widest rounded-sm transition-all whitespace-nowrap shadow-sm flex items-center"
+                                                        title="Pobierz lub odśwież schemat parametrów tej kategorii z Allegro API"
+                                                    >
+                                                        {isLoadingCategorySchema ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-1.5" />}
+                                                        {categorySchema ? 'Odśwież schemat' : 'Pobierz schemat'}
+                                                    </button>
+                                                )}
                                                 {editingProduct && (
                                                    <button type="button" onClick={async () => {
                                                       try {
@@ -2861,6 +2927,18 @@ export const UnifiedProductPipelineView = ({
                                                    </button>
                                                 )}
                                              </div>
+                                             {categorySchema?.name && (
+                                                <p className="text-[10px] text-emerald-700 mt-2 font-bold flex items-center">
+                                                   <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                                                   Załadowano schemat: {categorySchema.name} ({Array.isArray(categorySchema.parameters) ? categorySchema.parameters.length : 0} parametrów)
+                                                </p>
+                                             )}
+                                             {categorySchemaError && (
+                                                <p className="text-[10px] text-rose-700 mt-2 font-bold flex items-center">
+                                                   <AlertTriangle className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                                                   {categorySchemaError}
+                                                </p>
+                                             )}
                                              <p className="text-[9px] text-indigo-500 mt-2 font-bold uppercase tracking-widest">
                                                 Przypisanie ID pozwoli na dynamiczną ewaluację brakujących parametrów wymaganych do skutecznej syndykacji na Marketplace Allegro.
                                              </p>
@@ -3169,7 +3247,16 @@ export const UnifiedProductPipelineView = ({
                                                          <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 flex flex-wrap items-center justify-between gap-2">
                                                             <div className="flex items-center space-x-3">
                                                                 <span>Katalog Parametrów Allegro ({Object.keys(newProductForm.features || {}).filter(k => categorySchema?.parameters?.some(p => String(p.name).toLowerCase().trim() === String(k).toLowerCase().trim())).length})</span>
-                                                                {categorySchema && <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-[9px] flex items-center"><Zap className="w-3 h-3 mr-1"/> Schema: {categorySchema.name}</span>}
+                                                                {isLoadingCategorySchema && (
+                                                                    <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-[9px] flex items-center">
+                                                                        <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Pobieram schemat z Allegro...
+                                                                    </span>
+                                                                )}
+                                                                {!isLoadingCategorySchema && categorySchema && (
+                                                                    <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-[9px] flex items-center">
+                                                                        <Zap className="w-3 h-3 mr-1"/> Schema: {categorySchema.name}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <div className="flex items-center space-x-2">
                                                                 <button type="button" onClick={async () => {
@@ -3281,6 +3368,9 @@ export const UnifiedProductPipelineView = ({
                                                                              setAllegroOfferId(nextOfferId);
                                                                              const matched = allegroOfferCandidates.find(c => String(c.id) === String(nextOfferId));
                                                                              if (matched?.accountId) setAllegroAccountId(String(matched.accountId));
+                                                                             if (matched?.categoryId) {
+                                                                                 setNewProductForm(prev => (String(prev.allegroCategoryId || '').trim() ? prev : { ...prev, allegroCategoryId: String(matched.categoryId) }));
+                                                                             }
                                                                          }}
                                                                          className="flex-1 bg-amber-50/40 border border-amber-200 rounded-sm px-2.5 py-1.5 text-[11px] font-bold outline-none focus:border-amber-500"
                                                                      >
@@ -3295,6 +3385,28 @@ export const UnifiedProductPipelineView = ({
                                                              )}
                                                          </div>
                                                          
+                                                         {categorySchemaError && (
+                                                             <div className="mb-3 p-3 bg-rose-50 border border-rose-300 rounded-sm flex items-center justify-between gap-2 text-[10px] text-rose-900">
+                                                                 <div className="flex items-center space-x-2 min-w-0">
+                                                                     <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                                                                     <span className="font-semibold">{categorySchemaError}</span>
+                                                                 </div>
+                                                                 {/^\d+$/.test(String(newProductForm?.allegroCategoryId || '').trim()) && (
+                                                                     <button
+                                                                         type="button"
+                                                                         disabled={isLoadingCategorySchema}
+                                                                         onClick={() => {
+                                                                             forceCategoryRefreshRef.current = true;
+                                                                             setCategorySchemaRefreshRev(r => r + 1);
+                                                                         }}
+                                                                         className="px-2.5 py-1 bg-rose-700 hover:bg-rose-800 disabled:opacity-50 text-white rounded-sm text-[9px] font-black uppercase tracking-wider flex items-center shrink-0 shadow-sm"
+                                                                     >
+                                                                         <RefreshCw className="w-3 h-3 mr-1" /> Ponów pobranie
+                                                                     </button>
+                                                                 )}
+                                                             </div>
+                                                         )}
+
                                                          {(() => {
                                                             const labelAllegroConflicts = detectLabelAllegroConflicts(newProductForm.features || {}, categorySchema?.parameters || []);
                                                             const conflictByParamName = new Map(labelAllegroConflicts.map(c => [c.paramName, c]));

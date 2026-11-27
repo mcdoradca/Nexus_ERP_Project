@@ -810,13 +810,39 @@ app.get('/api/products/:id/sync-category-bl', authenticateToken, resolveWorkspac
     }
 });
 
-app.get('/api/categories/:id', authenticateToken, async (req, res) => {
+app.get('/api/categories/:id', authenticateToken, resolveWorkspaceContext, async (req, res) => {
+    const cleanId = String(req.params.id || '').trim();
+    if (!/^\d+$/.test(cleanId)) {
+        return res.status(400).json({ error: 'ID kategorii Allegro musi składać się wyłącznie z cyfr.' });
+    }
     try {
-        const category = await prisma.marketplaceCategory.findUnique({ where: { id: req.params.id } });
-        if (!category) return res.status(404).json({ error: 'Kategoria nie została zbuforowana' });
-        res.status(200).json(category);
+        const forceRefresh = String(req.query?.refresh || '').toLowerCase() === 'true' || req.query?.refresh === '1';
+        const accountId = req.query?.accountId ? String(req.query.accountId).trim() : null;
+        const allegroService = require('./modules/offer-optimizer/allegro.service');
+        const category = await allegroService.getCategoryParametersFull(cleanId, {
+            forceRefresh,
+            workspaceId: req.workspaceId,
+            accountId
+        });
+        return res.status(200).json(category);
     } catch (error) {
-        res.status(500).json({ error: 'Błąd pobierania kategorii z cache', details: error.message });
+        const upstreamStatus = error.statusCode || error.response?.status || null;
+        if (upstreamStatus === 404) {
+            return res.status(404).json({
+                error: `Kategoria Allegro o ID ${cleanId} nie istnieje w API Allegro.`,
+                details: error.message
+            });
+        }
+        if (upstreamStatus === 401 || upstreamStatus === 403) {
+            return res.status(502).json({
+                error: 'Brak aktywnej autoryzacji Allegro dla pobrania schematu kategorii. Sprawdź połączenie OAuth2 w Panelu Admina.',
+                details: error.message
+            });
+        }
+        return res.status(502).json({
+            error: `Nie udało się pobrać schematu kategorii ${cleanId} z Allegro API.`,
+            details: error.message
+        });
     }
 });
 
