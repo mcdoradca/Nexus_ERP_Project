@@ -78,7 +78,7 @@ const ImageModal = ({ url, onClose }) => {
     
     if (!url) return null;
 
-    const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
+    const token = localStorage.getItem('aps_token') || localStorage.getItem('token') || '';
     const proxyUrl = url.startsWith('http') ? `${import.meta.env.PROD ? '' : `http://${window.location.hostname}:3001`}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(url)}&token=${token}` : url;
 
     return (
@@ -117,7 +117,7 @@ const ImageModal = ({ url, onClose }) => {
                                 }
 
                                 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
-                                const token = localStorage.getItem('token') || localStorage.getItem('aps_token') || '';
+                                const token = localStorage.getItem('aps_token') || localStorage.getItem('token') || '';
                                 const res = await fetch(`${API_URL}/api/offer-optimizer/proxy-image?url=${encodeURIComponent(url)}`, {
                                     headers: { 'Authorization': `Bearer ${token}` }
                                 });

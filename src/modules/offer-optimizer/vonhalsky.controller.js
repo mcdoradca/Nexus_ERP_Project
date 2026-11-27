@@ -174,7 +174,8 @@ function createVonHalskyController({
             console.error('[VonHalskyController] listCategories error:', error.message);
             return res.status(error.statusCode || 500).json({
                 error: error.message || 'Błąd pobierania kategorii InPost Von Halsky.',
-                code: error.code || null
+                code: error.code || null,
+                authScope: 'EXTERNAL_INTEGRATION'
             });
         }
     };
@@ -200,7 +201,8 @@ function createVonHalskyController({
             console.error('[VonHalskyController] getCategoryAttributes error:', error.message);
             return res.status(error.statusCode || 500).json({
                 error: error.message || 'Błąd pobierania atrybutów kategorii Von Halsky.',
-                code: error.code || null
+                code: error.code || null,
+                authScope: 'EXTERNAL_INTEGRATION'
             });
         }
     };
@@ -267,7 +269,8 @@ function createVonHalskyController({
             console.error('[VonHalskyController] searchOffersAndHints error:', error.message);
             return res.status(error.statusCode || 500).json({
                 error: error.message || 'Błąd wyszukiwania ofert w InPost Von Halsky.',
-                code: error.code || null
+                code: error.code || null,
+                authScope: 'EXTERNAL_INTEGRATION'
             });
         }
     };
@@ -601,7 +604,8 @@ function createVonHalskyController({
             console.error('[VonHalskyController] validateVonHalskyExport error:', error.message);
             return res.status(error.statusCode || 500).json({
                 error: error.message || 'Błąd przygotowania Pre-flight dla InPost Von Halsky.',
-                code: error.code || null
+                code: error.code || null,
+                authScope: 'EXTERNAL_INTEGRATION'
             });
         }
     };
@@ -860,6 +864,7 @@ function createVonHalskyController({
             return res.status(error.statusCode || 500).json({
                 error: error.message || 'Błąd eksportu oferty do InPost Von Halsky.',
                 code: error.code || null,
+                authScope: 'EXTERNAL_INTEGRATION',
                 details: error.vonHalskyDetails || null
             });
         }

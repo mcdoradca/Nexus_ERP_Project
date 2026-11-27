@@ -25,4 +25,21 @@ async function login(req, res) {
     }
 }
 
-module.exports = { login };
+async function refresh(req, res) {
+    try {
+        if (!req.user) {
+            return res.status(401).json({
+                error: 'Brak autoryzacji',
+                code: 'AUTH_SESSION_REQUIRED',
+                authScope: 'NEXUS_SESSION'
+            });
+        }
+        const session = authService.refreshUserSession(req.user);
+        return res.status(200).json(session);
+    } catch (error) {
+        console.error('[Auth Controller] Refresh Error:', error);
+        return res.status(500).json({ error: 'Nie udało się odświeżyć sesji użytkownika.' });
+    }
+}
+
+module.exports = { login, refresh };

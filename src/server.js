@@ -134,7 +134,8 @@ app.use(cors({
             callback(new Error('Niedozwolone origin'));
         }
     },
-    credentials: true
+    credentials: true,
+    exposedHeaders: ['X-Nexus-Refreshed-Token', 'X-Nexus-Auth-Error']
 }));
 
 app.set('trust proxy', 1);

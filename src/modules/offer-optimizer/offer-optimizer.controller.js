@@ -2064,6 +2064,7 @@ const searchAllegroOffers = async (req, res) => {
         return res.status(status).json({
             error: error.message || 'Błąd wyszukiwania ofert Allegro.',
             code: error.code || null,
+            authScope: 'EXTERNAL_INTEGRATION',
             missingScopes: error.missingScopes || null
         });
     }
@@ -2120,6 +2121,7 @@ const validateAllegroParamsExport = async (req, res) => {
             return res.status(authErr.statusCode || 403).json({
                 error: authErr.message,
                 code: authErr.code || 'ALLEGRO_AUTH_ERROR',
+                authScope: 'EXTERNAL_INTEGRATION',
                 missingScopes: authErr.missingScopes || null
             });
         }
@@ -2328,7 +2330,7 @@ const validateAllegroParamsExport = async (req, res) => {
         exportLogger.error(`[ALLEGRO PREFLIGHT ERROR] ${error.message}`, { stack: error.stack });
         const status = error.statusCode || error.response?.status || 500;
         const msg = error.response?.data ? AllegroService.formatAllegroApiErrors(error.response.data) : error.message;
-        return res.status(status).json({ error: msg, code: error.code || null });
+        return res.status(status).json({ error: msg, code: error.code || null, authScope: 'EXTERNAL_INTEGRATION' });
     }
 };
 
@@ -2593,6 +2595,8 @@ const exportAllegroParams = async (req, res) => {
         const status = error.statusCode || error.response?.status || 500;
         return res.status(status).json({
             error: error.message || 'Błąd wysyłki parametrów do Allegro.',
+            code: error.code || null,
+            authScope: 'EXTERNAL_INTEGRATION',
             allegroErrors: error.allegroErrors || null
         });
     }
@@ -2687,6 +2691,7 @@ const validateAllegroContentExport = async (req, res) => {
             return res.status(authErr.statusCode || 403).json({
                 error: authErr.message,
                 code: authErr.code || 'ALLEGRO_AUTH_ERROR',
+                authScope: 'EXTERNAL_INTEGRATION',
                 missingScopes: authErr.missingScopes || null
             });
         }
@@ -2782,7 +2787,7 @@ const validateAllegroContentExport = async (req, res) => {
         exportLogger.error(`[ALLEGRO CONTENT PREFLIGHT ERROR] ${error.message}`, { stack: error.stack });
         const status = error.statusCode || error.response?.status || 500;
         const msg = error.response?.data ? AllegroService.formatAllegroApiErrors(error.response.data) : error.message;
-        return res.status(status).json({ error: msg, code: error.code || null });
+        return res.status(status).json({ error: msg, code: error.code || null, authScope: 'EXTERNAL_INTEGRATION' });
     }
 };
 
@@ -3051,6 +3056,8 @@ const exportAllegroContent = async (req, res) => {
         const status = error.statusCode || error.response?.status || 500;
         return res.status(status).json({
             error: error.message || 'Błąd wysyłki opisu i zdjęć do Allegro.',
+            code: error.code || null,
+            authScope: 'EXTERNAL_INTEGRATION',
             allegroErrors: error.allegroErrors || null
         });
     }

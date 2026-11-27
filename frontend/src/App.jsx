@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 
 import { getInitials, getDepartmentColor, describeBaselinkerError, describeAutofillError } from './utils';
+import { getActiveAuthToken, shouldProactivelyRefreshToken, isNexusSessionAuthError } from './utils/authSession';
 
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001');
 
@@ -44,8 +45,32 @@ function App() {
   useEffect(() => {
       localStorage.setItem('aps_last_tab', activeTab);
   }, [activeTab]);
-  const [token, setToken] = useState(localStorage.getItem('aps_token'));
+  const [token, setToken] = useState(() => getActiveAuthToken());
+  const tokenRef = useRef(token);
+  const isLoggingOutRef = useRef(false);
+  const isRefreshingTokenRef = useRef(false);
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+
+  useEffect(() => {
+    tokenRef.current = token;
+    if (token) {
+      isLoggingOutRef.current = false;
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      delete axios.defaults.headers.common['Authorization'];
+    }
+  }, [token]);
+
+  const applyRefreshedTokenSilently = React.useCallback((nextToken) => {
+    if (typeof nextToken !== 'string') return false;
+    const clean = nextToken.trim();
+    if (clean.length <= 20 || !tokenRef.current || isLoggingOutRef.current) return false;
+    if (tokenRef.current === clean) return false;
+    localStorage.setItem('aps_token', clean);
+    tokenRef.current = clean;
+    axios.defaults.headers.common['Authorization'] = `Bearer ${clean}`;
+    return true;
+  }, []);
 
   // Multi-Workspace States
   const [workspaces, setWorkspaces] = useState([]);
@@ -195,6 +220,15 @@ function App() {
           config.headers['X-Workspace-Id'] = wsId;
         }
       }
+      const reqUrl = String(config?.url || '');
+      const isPublicOrLogin = reqUrl.includes('/api/auth/login') || reqUrl.includes('/api/public/');
+      if (!isPublicOrLogin) {
+        const freshToken = tokenRef.current || getActiveAuthToken();
+        if (freshToken) {
+          config.headers = config.headers || {};
+          config.headers.Authorization = `Bearer ${freshToken}`;
+        }
+      }
       return config;
     });
 
@@ -203,10 +237,17 @@ function App() {
       const wsId = activeWorkspaceIdRef.current || localStorage.getItem('nexus_workspace_id');
       const rawUrl = typeof input === 'string' ? input : (input instanceof Request ? input.url : '');
       const isApiCall = rawUrl && (rawUrl.startsWith(API_URL) || rawUrl.startsWith('/api/'));
-      if (wsId && isApiCall) {
+      if (isApiCall) {
         const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
-        if (!headers.has('X-Workspace-Id')) {
+        if (wsId && !headers.has('X-Workspace-Id')) {
           headers.set('X-Workspace-Id', wsId);
+        }
+        const isPublicOrLogin = rawUrl.includes('/api/auth/login') || rawUrl.includes('/api/public/');
+        if (!isPublicOrLogin) {
+          const freshToken = tokenRef.current || getActiveAuthToken();
+          if (freshToken && (headers.has('Authorization') || !rawUrl.includes('/api/auth/'))) {
+            headers.set('Authorization', `Bearer ${freshToken}`);
+          }
         }
         return originalFetch(input, { ...init, headers });
       }
@@ -262,7 +303,7 @@ function App() {
     if (token) {
       const newSocket = io(API_URL, { 
         path: '/api/socket.io',
-        auth: { token } 
+        auth: (cb) => cb({ token: tokenRef.current || getActiveAuthToken() || token })
       });
       setSocket(newSocket);
 
@@ -298,12 +339,14 @@ function App() {
   }, [socket, activeWorkspaceId]);
 
   const fetchData = async (overrideWorkspaceId = null) => {
+    const activeToken = tokenRef.current || getActiveAuthToken();
+    if (!activeToken || isLoggingOutRef.current) return;
     try {
       const explicitWsId = typeof overrideWorkspaceId === 'string' && overrideWorkspaceId.trim() ? overrideWorkspaceId.trim() : '';
       const effWsId = explicitWsId || activeWorkspaceIdRef.current || localStorage.getItem('nexus_workspace_id');
       const config = {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${activeToken}`,
           ...(effWsId ? { 'X-Workspace-Id': effWsId } : {})
         }
       };
@@ -327,7 +370,9 @@ function App() {
       setCompanies(co.data);
       fetchUnreadCount();
     } catch (err) {
-      if (err.response?.status === 401) handleLogout();
+      if (!isNexusSessionAuthError(err)) {
+        console.error('[fetchData] Błąd pobierania danych ERP:', err?.message || err);
+      }
     }
   };
 
@@ -351,18 +396,40 @@ function App() {
   };
 
   const fetchUnreadCount = async () => {
+    const activeToken = tokenRef.current || getActiveAuthToken();
+    if (!activeToken || isLoggingOutRef.current) return;
     try {
-      const res = await axios.get(`${API_URL}/api/chat/unread`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.get(`${API_URL}/api/chat/unread`, { headers: { Authorization: `Bearer ${activeToken}` } });
       setUnreadDMs({ total: res.data.totalUnread, perUser: res.data.unreadPerUser });
-    } catch (err) { console.error('Błąd pobierania liczby wiadomości', err); }
+    } catch (err) {
+      if (!isNexusSessionAuthError(err)) {
+        console.error('Błąd pobierania liczby wiadomości', err);
+      }
+    }
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       const res = await axios.post(`${API_URL}/api/auth/login`, loginForm);
+      const prevUserId = currentUser?.id ? String(currentUser.id) : (() => {
+        try {
+          const parsed = JSON.parse(localStorage.getItem('aps_user') || 'null');
+          return parsed?.id ? String(parsed.id) : null;
+        } catch {
+          return null;
+        }
+      })();
+      const nextUserId = res.data?.user?.id ? String(res.data.user.id) : null;
+      if (prevUserId && nextUserId && prevUserId !== nextUserId) {
+        localStorage.removeItem('aps_editing_product');
+        setEditingProduct(null);
+      }
+      isLoggingOutRef.current = false;
       localStorage.setItem('aps_token', res.data.token);
       localStorage.setItem('aps_user', JSON.stringify(res.data.user));
+      tokenRef.current = res.data.token;
+      axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
       setToken(res.data.token);
       setCurrentUser(res.data.user);
     } catch (err) { 
@@ -372,10 +439,17 @@ function App() {
     }
   };
 
-  const handleLogout = React.useCallback(() => {
+  const handleLogout = React.useCallback((opts = null) => {
+    const keepEditing = Boolean(opts && typeof opts === 'object' && opts.preserveEditingProduct === true);
+    isLoggingOutRef.current = true;
+    tokenRef.current = null;
+    delete axios.defaults.headers.common['Authorization'];
     localStorage.removeItem('aps_token');
     localStorage.removeItem('aps_user');
-    localStorage.removeItem('aps_editing_product');
+    if (!keepEditing) {
+      localStorage.removeItem('aps_editing_product');
+      setEditingProduct(null);
+    }
     setToken(null);
     setCurrentUser(null);
     setWorkspaces([]);
@@ -383,17 +457,63 @@ function App() {
 
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        const refreshedHeader = response?.headers?.['x-nexus-refreshed-token']
+          || (typeof response?.headers?.get === 'function' ? response.headers.get('x-nexus-refreshed-token') : null);
+        if (refreshedHeader) {
+          applyRefreshedTokenSilently(refreshedHeader);
+        }
+        return response;
+      },
       (error) => {
-        if (error.response?.status === 401 && error.config && !error.config.url.includes('/api/auth/login')) {
+        if (isNexusSessionAuthError(error) && !isLoggingOutRef.current) {
+          isLoggingOutRef.current = true;
           console.warn('[Axios Interceptor] Wykryto wygasłą sesję (401). Automatyczne wylogowanie.');
-          handleLogout();
+          handleLogout({ preserveEditingProduct: true });
         }
         return Promise.reject(error);
       }
     );
     return () => axios.interceptors.response.eject(interceptor);
-  }, [handleLogout]);
+  }, [handleLogout, applyRefreshedTokenSilently]);
+
+  useEffect(() => {
+    if (!token) return;
+    const tryProactiveRefresh = async () => {
+      const activeToken = tokenRef.current || getActiveAuthToken();
+      if (!activeToken || isLoggingOutRef.current || isRefreshingTokenRef.current) return;
+      if (!shouldProactivelyRefreshToken(activeToken)) return;
+      isRefreshingTokenRef.current = true;
+      try {
+        const res = await axios.post(
+          `${API_URL}/api/auth/refresh`,
+          {},
+          { headers: { Authorization: `Bearer ${activeToken}` } }
+        );
+        if (res?.data?.token) {
+          applyRefreshedTokenSilently(res.data.token);
+        }
+      } catch (refreshErr) {
+        console.warn('[Auth Refresh] Pominięto ciche odświeżenie sesji:', refreshErr?.message || refreshErr);
+      } finally {
+        isRefreshingTokenRef.current = false;
+      }
+    };
+
+    tryProactiveRefresh();
+    const intervalId = setInterval(tryProactiveRefresh, 10 * 60 * 1000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        tryProactiveRefresh();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [token, applyRefreshedTokenSilently]);
 
   // --- HANDLERS ---
   const handleCreateTask = async (e) => {
