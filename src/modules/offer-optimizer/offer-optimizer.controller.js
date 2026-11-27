@@ -11,6 +11,12 @@ const prisma = new PrismaClient();
 const EventBus = require('../../core/EventBus');
 const baselinkerExportAgent = require('../offer-optimizer-v2/baselinker.export.agent');
 const baselinkerExtract = require('../offer-optimizer-v2/baselinker.extract');
+const {
+    BACK_LABEL_IMAGE_KEYS,
+    BACK_LABEL_LEGACY_ALIAS_KEYS,
+    isInternalLabelImageKey,
+    collectBackLabelImagesFromFeatures
+} = require('../offer-optimizer-v2/services/label-truth.helpers');
 const { stripRawInciFooterFromSection3 } = require('../offer-optimizer-v2/normalization');
 const googleSuggestFaqService = require('../offer-optimizer-v2/services/google-suggest-faq.service');
 const titleOptimizer = require('../offer-optimizer-v2/services/title-optimizer.service');
@@ -764,8 +770,7 @@ const exportToBaselinker = async (req, res) => {
         if (draftData.features && typeof draftData.features === 'object' && !Array.isArray(draftData.features) && (Object.keys(draftData.features).length > 0 || draftData.featuresAuthoritative)) {
             const preservedInternalImages = {};
             for (const [k, v] of Object.entries(existingDbFeatures)) {
-                const nk = String(k).toLowerCase().trim();
-                if ((nk === 'zdjęcie tyłu opakowania' || nk === 'zdjecie tylu opakowania' || nk === '_backimageurl' || nk === 'zdjęcie frontu opakowania' || nk === 'zdjecie frontu opakowania' || nk === '_frontimageurl') && v) {
+                if (isInternalLabelImageKey(k) && v) {
                     preservedInternalImages[k] = v;
                 }
             }
@@ -1145,7 +1150,8 @@ const triggerUltimatePipeline = async (req, res) => {
                     || featuresObj?.['_frontImageUrl']
                     || existingProduct?.imageUrl
                     || (Array.isArray(existingProduct?.images) && existingProduct.images.length > 0 ? existingProduct.images[0] : null);
-                const backImageUrl = featuresObj?.['Zdjęcie tyłu opakowania'] || featuresObj?.['_backImageUrl'] || null;
+                const backImageUrls = collectBackLabelImagesFromFeatures(featuresObj);
+                const backImageUrl = backImageUrls[0] || null;
                 const galleryImages = Array.isArray(existingProduct?.images) ? [...existingProduct.images] : [];
 
                 const localPimData = {
@@ -1158,6 +1164,7 @@ const triggerUltimatePipeline = async (req, res) => {
                     imageUrl: frontImageUrl,
                     frontLabelImageUrl: featuresObj?.['Zdjęcie frontu opakowania'] || featuresObj?.['_frontImageUrl'] || null,
                     backImageUrl: backImageUrl,
+                    backImageUrls: backImageUrls,
                     images: galleryImages,
                     ean: canonicalEan
                 };
@@ -1517,6 +1524,8 @@ async function runUnifiedLabelExtraction(req, {
     productId = null,
     frontImageUrl = null,
     backImageUrl = null,
+    backImageUrls = null,
+    backImageSlots = null,
     mode = 'both',
     currentFeatures = null,
     allegroCategoryId = null,
@@ -1591,9 +1600,65 @@ async function runUnifiedLabelExtraction(req, {
             || existingProduct?.imageUrl
             || (Array.isArray(existingProduct?.images) && existingProduct.images.length > 0 ? existingProduct.images[0] : null));
 
-    const effectiveBackImg = (typeof backImageUrl === 'string' && backImageUrl.trim())
-        ? backImageUrl.trim()
-        : (updatedFeatures['Zdjęcie tyłu opakowania'] || updatedFeatures['_backImageUrl'] || null);
+    const hasExplicitBackSlots = Array.isArray(backImageSlots);
+    const hasExplicitBackUrls = Array.isArray(backImageUrls);
+    const touchedBackSlotKeys = [];
+
+    if (normalizedMode !== 'front') {
+        if (hasExplicitBackSlots) {
+            for (let i = 0; i < BACK_LABEL_IMAGE_KEYS.length; i++) {
+                const slotKey = BACK_LABEL_IMAGE_KEYS[i];
+                const aliasKey = BACK_LABEL_LEGACY_ALIAS_KEYS[i];
+                const rawSlot = backImageSlots[i];
+                const slotVal = typeof rawSlot === 'string' ? rawSlot.trim() : '';
+                if (slotVal) {
+                    updatedFeatures[slotKey] = slotVal;
+                    touchedBackSlotKeys.push(slotKey);
+                } else {
+                    if (Object.prototype.hasOwnProperty.call(updatedFeatures, slotKey)) {
+                        delete updatedFeatures[slotKey];
+                        removedKeysSet.add(slotKey);
+                    }
+                    if (aliasKey && Object.prototype.hasOwnProperty.call(updatedFeatures, aliasKey)) {
+                        delete updatedFeatures[aliasKey];
+                        removedKeysSet.add(aliasKey);
+                    }
+                }
+            }
+        } else if (hasExplicitBackUrls) {
+            const cleanUrls = backImageUrls
+                .filter(u => typeof u === 'string' && u.trim())
+                .map(u => u.trim())
+                .slice(0, BACK_LABEL_IMAGE_KEYS.length);
+            for (let i = 0; i < BACK_LABEL_IMAGE_KEYS.length; i++) {
+                const slotKey = BACK_LABEL_IMAGE_KEYS[i];
+                const aliasKey = BACK_LABEL_LEGACY_ALIAS_KEYS[i];
+                if (cleanUrls[i]) {
+                    updatedFeatures[slotKey] = cleanUrls[i];
+                    touchedBackSlotKeys.push(slotKey);
+                } else {
+                    if (Object.prototype.hasOwnProperty.call(updatedFeatures, slotKey)) {
+                        delete updatedFeatures[slotKey];
+                        removedKeysSet.add(slotKey);
+                    }
+                    if (aliasKey && Object.prototype.hasOwnProperty.call(updatedFeatures, aliasKey)) {
+                        delete updatedFeatures[aliasKey];
+                        removedKeysSet.add(aliasKey);
+                    }
+                }
+            }
+        } else if (typeof backImageUrl === 'string' && backImageUrl.trim()) {
+            updatedFeatures[BACK_LABEL_IMAGE_KEYS[0]] = backImageUrl.trim();
+            touchedBackSlotKeys.push(BACK_LABEL_IMAGE_KEYS[0]);
+        }
+    }
+
+    const effectiveBackImages = collectBackLabelImagesFromFeatures(
+        updatedFeatures,
+        (!hasExplicitBackSlots && !hasExplicitBackUrls && typeof backImageUrl === 'string' && backImageUrl.trim())
+            ? [backImageUrl.trim()]
+            : []
+    );
 
     if (normalizedMode !== 'back' && effectiveFrontImg) {
         if (typeof frontImageUrl === 'string' && frontImageUrl.trim()) {
@@ -1608,9 +1673,7 @@ async function runUnifiedLabelExtraction(req, {
         }
     }
 
-    if (normalizedMode !== 'front' && effectiveBackImg) {
-        updatedFeatures['Zdjęcie tyłu opakowania'] = effectiveBackImg;
-
+    if (normalizedMode !== 'front' && effectiveBackImages.length > 0) {
         const frontContext = {
             ...updatedFeatures
         };
@@ -1619,13 +1682,14 @@ async function runUnifiedLabelExtraction(req, {
         }
 
         extractionBackRes = await visionExtractorService.extractInciFromBackPack(
-            [effectiveBackImg],
+            effectiveBackImages,
             ean || existingProduct?.ean || null,
             onLog,
             null,
             {
                 frontContext,
-                productName: productName || existingProduct?.name || ''
+                productName: productName || existingProduct?.name || '',
+                combineAllImages: effectiveBackImages.length > 1
             }
         );
 
@@ -1779,11 +1843,21 @@ async function runUnifiedLabelExtraction(req, {
         }
     }
 
-    if (existingProduct && (frontFound || backFound || effectiveBackImg || (typeof frontImageUrl === 'string' && frontImageUrl.trim()))) {
+    const hasBackSaveMutation = normalizedMode !== 'front' && (effectiveBackImages.length > 0 || hasExplicitBackSlots || hasExplicitBackUrls);
+    if (existingProduct && (frontFound || backFound || hasBackSaveMutation || (typeof frontImageUrl === 'string' && frontImageUrl.trim()))) {
         await prisma.product.update({
             where: { id: existingProduct.id },
             data: { features: updatedFeatures }
         }).catch((dbErr) => console.warn('[extractLabels] Ostrzeżenie zapisu do DB:', dbErr.message));
+    }
+
+    const activeBackFeaturesMap = {};
+    if (normalizedMode !== 'front') {
+        for (const bk of BACK_LABEL_IMAGE_KEYS) {
+            if (typeof updatedFeatures[bk] === 'string' && updatedFeatures[bk].trim()) {
+                activeBackFeaturesMap[bk] = updatedFeatures[bk].trim();
+            }
+        }
     }
 
     const scanProducedKeys = new Set([
@@ -1797,7 +1871,7 @@ async function runUnifiedLabelExtraction(req, {
         ...(extractionBackRes?.usageInstructions ? ['Sposób użycia', 'Sposób użycia (Etykieta)'] : []),
         ...(backFound && updatedFeatures['Wydajność'] ? ['Wydajność'] : []),
         ...(typeof frontImageUrl === 'string' && frontImageUrl.trim() ? ['Zdjęcie frontu opakowania'] : []),
-        ...(effectiveBackImg ? ['Zdjęcie tyłu opakowania'] : []),
+        ...(normalizedMode !== 'front' ? touchedBackSlotKeys : []),
         ...(updatedFeatures['_labelsPreScannedAt'] ? ['_labelsPreScannedAt'] : [])
     ]);
     const appliedFeatures = {};
@@ -1814,6 +1888,7 @@ async function runUnifiedLabelExtraction(req, {
         mode: normalizedMode,
         frontFound,
         backFound,
+        backImagesCount: normalizedMode !== 'front' ? effectiveBackImages.length : collectBackLabelImagesFromFeatures(updatedFeatures).length,
         inci: extractionBackRes?.inci || updatedFeatures['Skład/INCI'] || null,
         warnings: extractionBackRes?.warnings || updatedFeatures['Ostrzeżenia'] || null,
         usageInstructions: extractionBackRes
@@ -1830,18 +1905,25 @@ async function runUnifiedLabelExtraction(req, {
             ...frontFeatures,
             ...backFeatures,
             ...(typeof frontImageUrl === 'string' && frontImageUrl.trim() ? { 'Zdjęcie frontu opakowania': frontImageUrl.trim() } : {}),
-            ...(effectiveBackImg ? { 'Zdjęcie tyłu opakowania': effectiveBackImg } : {})
+            ...activeBackFeaturesMap
         }
     };
 }
 
+function hasAnyBackInputValue({ backImageUrl = null, backImageUrls = null, backImageSlots = null } = {}) {
+    if (typeof backImageUrl === 'string' && backImageUrl.trim().length > 0) return true;
+    if (Array.isArray(backImageUrls) && backImageUrls.some(u => typeof u === 'string' && u.trim().length > 0)) return true;
+    if (Array.isArray(backImageSlots) && backImageSlots.some(u => typeof u === 'string' && u.trim().length > 0)) return true;
+    return false;
+}
+
 const extractLabels = async (req, res) => {
     try {
-        const { ean, productId, frontImageUrl, backImageUrl, mode = 'both', currentFeatures = null, allegroCategoryId = null, productName = null } = req.body || {};
-        if (mode === 'back' && (!backImageUrl || typeof backImageUrl !== 'string' || !backImageUrl.trim())) {
-            return res.status(400).json({ error: 'Wymagane zdjęcie tyłu opakowania (backImageUrl).' });
+        const { ean, productId, frontImageUrl, backImageUrl, backImageUrls = null, backImageSlots = null, mode = 'both', currentFeatures = null, allegroCategoryId = null, productName = null } = req.body || {};
+        if (mode === 'back' && !hasAnyBackInputValue({ backImageUrl, backImageUrls, backImageSlots })) {
+            return res.status(400).json({ error: 'Wymagane przynajmniej jedno zdjęcie tyłu lub boku opakowania (backImageUrl / backImageUrls).' });
         }
-        const payload = await runUnifiedLabelExtraction(req, { ean, productId, frontImageUrl, backImageUrl, mode, currentFeatures, allegroCategoryId, productName });
+        const payload = await runUnifiedLabelExtraction(req, { ean, productId, frontImageUrl, backImageUrl, backImageUrls, backImageSlots, mode, currentFeatures, allegroCategoryId, productName });
         return res.status(200).json(payload);
     } catch (error) {
         console.error('[extractLabels] Błąd analizy etykiet:', error);
@@ -1851,11 +1933,11 @@ const extractLabels = async (req, res) => {
 
 const extractBackLabel = async (req, res) => {
     try {
-        const { ean, backImageUrl, productId, currentFeatures = null, allegroCategoryId = null, productName = null } = req.body || {};
-        if (!backImageUrl || typeof backImageUrl !== 'string' || !backImageUrl.trim()) {
-            return res.status(400).json({ error: 'Wymagane zdjęcie tyłu opakowania (backImageUrl).' });
+        const { ean, backImageUrl, backImageUrls = null, backImageSlots = null, productId, currentFeatures = null, allegroCategoryId = null, productName = null } = req.body || {};
+        if (!hasAnyBackInputValue({ backImageUrl, backImageUrls, backImageSlots })) {
+            return res.status(400).json({ error: 'Wymagane przynajmniej jedno zdjęcie tyłu lub boku opakowania (backImageUrl / backImageUrls).' });
         }
-        const payload = await runUnifiedLabelExtraction(req, { ean, productId, backImageUrl, mode: 'back', currentFeatures, allegroCategoryId, productName });
+        const payload = await runUnifiedLabelExtraction(req, { ean, productId, backImageUrl, backImageUrls, backImageSlots, mode: 'back', currentFeatures, allegroCategoryId, productName });
         return res.status(200).json(payload);
     } catch (error) {
         console.error('[extractBackLabel] Błąd analizy zdjęcia tyłu opakowania:', error);

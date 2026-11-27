@@ -5,7 +5,11 @@ const { pathToFileURL } = require('node:url');
 
 const {
     sanitizeClientCurrentFeatures,
-    mergeFrontScanFeaturesSafely
+    mergeFrontScanFeaturesSafely,
+    BACK_LABEL_IMAGE_KEYS,
+    isInternalLabelImageKey,
+    extractBackLabelSlotsFromFeatures,
+    collectBackLabelImagesFromFeatures
 } = require('../services/label-truth.helpers');
 
 const SCHEMA_SAMPLE = [
@@ -208,4 +212,113 @@ test('ADR-0205: sanitizeClientCurrentFeatures i frontend mergeLabelExtractionRes
     assert.equal(mergedAfterBack['Skład/INCI'], '<5% Oxygen-based bleaching agents');
     assert.equal(mergedAfterBack['Sposób użycia'], 'Dozować 50 ml na cykl.');
     assert.equal(mergedAfterBack['Pojemność'], '0.9');
+});
+
+test('ADR-0206: 3 sloty zdjęć tyłu/boków — helpery SSOT, zachowanie w trybie front oraz bezstratne scalanie UI', async () => {
+    assert.deepEqual(BACK_LABEL_IMAGE_KEYS, [
+        'Zdjęcie tyłu opakowania',
+        'Zdjęcie tyłu opakowania 2',
+        'Zdjęcie tyłu opakowania 3'
+    ]);
+    assert.equal(isInternalLabelImageKey('Zdjęcie tyłu opakowania 2'), true);
+    assert.equal(isInternalLabelImageKey('Zdjęcie tyłu opakowania 3'), true);
+    assert.equal(isInternalLabelImageKey('_backImageUrl2'), true);
+    assert.equal(isInternalLabelImageKey('_backImageUrl3'), true);
+
+    const featWith3Sides = {
+        'Zdjęcie frontu opakowania': 'data:image/jpeg;base64,FRONT',
+        'Zdjęcie tyłu opakowania': 'data:image/jpeg;base64,SIDE1',
+        'Zdjęcie tyłu opakowania 2': 'data:image/jpeg;base64,SIDE2',
+        'Zdjęcie tyłu opakowania 3': 'data:image/jpeg;base64,SIDE3',
+        'Skład/INCI': '5-15% Oxygen-based bleaching agents',
+        'Producent': 'Procter & Gamble'
+    };
+
+    assert.deepEqual(
+        extractBackLabelSlotsFromFeatures(featWith3Sides),
+        ['data:image/jpeg;base64,SIDE1', 'data:image/jpeg;base64,SIDE2', 'data:image/jpeg;base64,SIDE3']
+    );
+    assert.deepEqual(
+        collectBackLabelImagesFromFeatures(featWith3Sides),
+        ['data:image/jpeg;base64,SIDE1', 'data:image/jpeg;base64,SIDE2', 'data:image/jpeg;base64,SIDE3']
+    );
+
+    const cleaned = sanitizeClientCurrentFeatures(featWith3Sides);
+    assert.equal(cleaned['Zdjęcie tyłu opakowania'], undefined);
+    assert.equal(cleaned['Zdjęcie tyłu opakowania 2'], undefined);
+    assert.equal(cleaned['Zdjęcie tyłu opakowania 3'], undefined);
+    assert.equal(cleaned['Skład/INCI'], '5-15% Oxygen-based bleaching agents');
+
+    const { updatedFeatures: afterFront } = mergeFrontScanFeaturesSafely(featWith3Sides, {
+        'Nazwa produktu (Etykieta Front)': 'Dash Polvere Lavatrice',
+        'Zdjęcie tyłu opakowania 2': 'SHOULD_NOT_OVERWRITE',
+        'Zdjęcie tyłu opakowania 3': 'SHOULD_NOT_OVERWRITE'
+    });
+    assert.equal(afterFront['Zdjęcie tyłu opakowania'], 'data:image/jpeg;base64,SIDE1');
+    assert.equal(afterFront['Zdjęcie tyłu opakowania 2'], 'data:image/jpeg;base64,SIDE2');
+    assert.equal(afterFront['Zdjęcie tyłu opakowania 3'], 'data:image/jpeg;base64,SIDE3');
+
+    const moduleUrl = pathToFileURL(
+        path.resolve(__dirname, '../../../../frontend/src/views/OfferOptimizer/utils/allegroParamFormatter.js')
+    ).href;
+    const fmt = await import(moduleUrl);
+
+    assert.deepEqual(
+        fmt.getBackLabelSlotsFromFeatures({
+            'Zdjęcie tyłu opakowania': 'IMG1',
+            'Zdjęcie tyłu opakowania 3': 'IMG3'
+        }),
+        ['IMG1', '', 'IMG3']
+    );
+
+    const stripped = fmt.stripHeavyImagesFromFeatures(featWith3Sides);
+    assert.equal(stripped['Zdjęcie tyłu opakowania 2'], undefined);
+    assert.equal(stripped['Zdjęcie tyłu opakowania 3'], undefined);
+    assert.equal(stripped['Producent'], 'Procter & Gamble');
+
+    // Usunięcie slotu 2 i dodanie slotów 1+3 przy skanie tyłu/boków
+    const afterBackScan = fmt.mergeLabelExtractionResponseIntoFeatures(
+        {
+            'Zdjęcie frontu opakowania': 'FRONT_IMG',
+            'Zdjęcie tyłu opakowania': 'OLD1',
+            'Zdjęcie tyłu opakowania 2': 'OLD2',
+            'Zdjęcie tyłu opakowania 3': 'OLD3'
+        },
+        {
+            found: true,
+            mode: 'back',
+            inci: '5-15% Oxygen-based bleaching agents',
+            removedKeys: ['Zdjęcie tyłu opakowania 2']
+        },
+        {
+            mode: 'back',
+            overrideBackSlots: ['NEW1', '', 'NEW3'],
+            allegroSchema: SCHEMA_SAMPLE,
+            productName: 'Dash Proszek do prania'
+        }
+    );
+    assert.equal(afterBackScan['Zdjęcie frontu opakowania'], 'FRONT_IMG');
+    assert.equal(afterBackScan['Zdjęcie tyłu opakowania'], 'NEW1');
+    assert.equal(afterBackScan['Zdjęcie tyłu opakowania 2'], undefined);
+    assert.equal(afterBackScan['Zdjęcie tyłu opakowania 3'], 'NEW3');
+
+    // Kolejny skan przodu nie kasuje żadnego ze slotów tyłu/boków
+    const afterFollowUpFront = fmt.mergeLabelExtractionResponseIntoFeatures(
+        afterBackScan,
+        {
+            found: true,
+            mode: 'front',
+            appliedFeatures: { 'Nazwa produktu (Etykieta Front)': 'Dash Polvere' },
+            removedKeys: ['Zdjęcie tyłu opakowania 3']
+        },
+        {
+            mode: 'front',
+            overrideFrontImg: 'NEW_FRONT_IMG',
+            allegroSchema: SCHEMA_SAMPLE,
+            productName: 'Dash Proszek do prania'
+        }
+    );
+    assert.equal(afterFollowUpFront['Zdjęcie frontu opakowania'], 'NEW_FRONT_IMG');
+    assert.equal(afterFollowUpFront['Zdjęcie tyłu opakowania'], 'NEW1');
+    assert.equal(afterFollowUpFront['Zdjęcie tyłu opakowania 3'], 'NEW3');
 });

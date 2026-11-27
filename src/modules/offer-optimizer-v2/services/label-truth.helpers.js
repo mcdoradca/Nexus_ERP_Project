@@ -658,12 +658,80 @@ function parseYieldFromUsageInstructions(usageText = '') {
     return null;
 }
 
+const FRONT_LABEL_IMAGE_KEY = 'Zdjęcie frontu opakowania';
+const BACK_LABEL_IMAGE_KEYS = [
+    'Zdjęcie tyłu opakowania',
+    'Zdjęcie tyłu opakowania 2',
+    'Zdjęcie tyłu opakowania 3'
+];
+const BACK_LABEL_LEGACY_ALIAS_KEYS = [
+    '_backImageUrl',
+    '_backImageUrl2',
+    '_backImageUrl3'
+];
+const INTERNAL_LABEL_IMAGE_KEY_RE = /^(?:zdjęcie\s+(?:frontu|tyłu)\s+opakowania(?:\s*[23])?|zdjecie\s+(?:frontu|tylu)\s+opakowania(?:\s*[23])?|_frontimageurl|_backimageurl[23]?|frontimageurl|backimageurl[23]?|zdjęcie\s+tyłu(?:\s*[23])?|zdjecie\s+tylu(?:\s*[23])?)$/i;
+
+/**
+ * Sprawdza, czy klucz cechy PIM jest wewnętrznym kluczem obrazu etykiety (front lub tył/boki 1-3).
+ */
+function isInternalLabelImageKey(key = '') {
+    return INTERNAL_LABEL_IMAGE_KEY_RE.test(String(key || '').trim());
+}
+
+/**
+ * Zwraca dokładnie 3 sloty zdjęć tyłu/boków opakowania w kolejności kanonicznej [Tył, Bok 1, Bok 2].
+ */
+function extractBackLabelSlotsFromFeatures(features = {}) {
+    const feats = features && typeof features === 'object' && !Array.isArray(features) ? features : {};
+    return BACK_LABEL_IMAGE_KEYS.map((key, idx) => {
+        const primary = feats[key];
+        const alias = feats[BACK_LABEL_LEGACY_ALIAS_KEYS[idx]];
+        const chosen = (typeof primary === 'string' && primary.trim())
+            ? primary.trim()
+            : ((typeof alias === 'string' && alias.trim()) ? alias.trim() : null);
+        return chosen;
+    });
+}
+
+/**
+ * Zbiera zdeduplikowaną listę zdjęć tyłu/boków z dodatkowych URL-i oraz ze wszystkich 3 slotów etykiety w features.
+ */
+function collectBackLabelImagesFromFeatures(features = {}, extraUrls = [], options = {}) {
+    const maxCount = Number.isInteger(options?.maxCount) && options.maxCount > 0 ? options.maxCount : 3;
+    const feats = features && typeof features === 'object' && !Array.isArray(features) ? features : {};
+    const extras = Array.isArray(extraUrls)
+        ? extraUrls
+        : (typeof extraUrls === 'string' ? [extraUrls] : []);
+
+    const rawOrdered = [
+        ...extras,
+        feats[BACK_LABEL_IMAGE_KEYS[0]],
+        feats[BACK_LABEL_LEGACY_ALIAS_KEYS[0]],
+        feats[BACK_LABEL_IMAGE_KEYS[1]],
+        feats[BACK_LABEL_LEGACY_ALIAS_KEYS[1]],
+        feats[BACK_LABEL_IMAGE_KEYS[2]],
+        feats[BACK_LABEL_LEGACY_ALIAS_KEYS[2]]
+    ];
+
+    const seen = new Set();
+    const collected = [];
+    for (const candidate of rawOrdered) {
+        if (typeof candidate !== 'string') continue;
+        const trimmed = candidate.trim();
+        if (!trimmed || seen.has(trimmed)) continue;
+        seen.add(trimmed);
+        collected.push(trimmed);
+        if (collected.length >= maxCount) break;
+    }
+    return collected;
+}
+
 function hasVerifiedLabelMarkers(features = {}) {
     if (!features || typeof features !== 'object') return false;
     if (features['_labelsPreScannedAt']) return true;
     const keys = Object.keys(features);
     return keys.some((k) => {
-        if (/zdjęcie\s+(?:frontu|tyłu)\s+opakowania/i.test(k)) return false;
+        if (isInternalLabelImageKey(k)) return false;
         return /\((?:Etykieta|Front|Kontretykieta|Etykieta\s*Front|Etykieta\s*Tył)\)/i.test(k);
     });
 }
@@ -754,7 +822,7 @@ function extractLabelEvidenceSubsets(features = {}, explicitFront = {}, explicit
     const SHARED_FRONT_LABEL_KEYS = new Set(['Pojemność / Waga', 'Wydajność', 'Dozownik']);
     for (const [k, v] of Object.entries(feats)) {
         if (v === undefined || v === null || String(v).trim() === '') continue;
-        if (/zdjęcie\s+(?:frontu|tyłu)\s+opakowania|^_/i.test(k)) continue;
+        if (isInternalLabelImageKey(k) || /^_/i.test(k)) continue;
         if (/\(Front\)|\(Etykieta\s*Front\)/i.test(k)) {
             visionFront[k] = v;
         } else if (/\(Etykieta\)|\(Kontretykieta\)|\(Etykieta\s*Tył\)/i.test(k)) {
@@ -804,7 +872,7 @@ const PROTECTED_SSOT_ALLEGRO_KEYS_NORM = new Set([
 
 function isProtectedLabelTechnicalKey(key = '') {
     return /^_/.test(key) ||
-        /zdjęcie\s+(?:frontu|tyłu)\s+opakowania/i.test(key) ||
+        isInternalLabelImageKey(key) ||
         /\((?:Etykieta|Front|Kontretykieta|Etykieta\s*Front|Etykieta\s*Tył)\)/i.test(key);
 }
 
@@ -826,7 +894,7 @@ function mergeFeaturesWithLabelPrecedence(existingFeatures = {}, incomingExterna
         : {};
 
     const hasLabelEvidence = hasVerifiedLabelMarkers(existing) ||
-        Boolean(existing['Zdjęcie frontu opakowania'] || existing['Zdjęcie tyłu opakowania']);
+        Boolean(existing[FRONT_LABEL_IMAGE_KEY] || collectBackLabelImagesFromFeatures(existing).length > 0);
 
     for (const [extKey, extVal] of Object.entries(incoming)) {
         if (extVal === undefined || extVal === null || String(extVal).trim() === '') continue;
@@ -904,7 +972,13 @@ const FRONT_PROTECTED_BACK_KEYS = new Set([
     'Liczba sztuk (Etykieta)',
     'Liczba prań (Etykieta)',
     'pH (Etykieta)',
-    'Producent'
+    'Producent',
+    'Zdjęcie tyłu opakowania',
+    'Zdjęcie tyłu opakowania 2',
+    'Zdjęcie tyłu opakowania 3',
+    '_backImageUrl',
+    '_backImageUrl2',
+    '_backImageUrl3'
 ]);
 
 /**
@@ -917,7 +991,7 @@ function sanitizeClientCurrentFeatures(rawFeatures = {}) {
     const clean = {};
     for (const [k, v] of Object.entries(rawFeatures)) {
         if (v === undefined || v === null) continue;
-        if (/^(?:zdjęcie\s+(?:frontu|tyłu)\s+opakowania|zdjecie\s+(?:frontu|tylu)\s+opakowania|_frontimageurl|_backimageurl)$/i.test(String(k).trim())) {
+        if (isInternalLabelImageKey(k)) {
             continue;
         }
         if (typeof v === 'string') {
@@ -1025,5 +1099,11 @@ module.exports = {
     extractLabelEvidenceSubsets,
     mergeFeaturesWithLabelPrecedence,
     sanitizeClientCurrentFeatures,
-    mergeFrontScanFeaturesSafely
+    mergeFrontScanFeaturesSafely,
+    FRONT_LABEL_IMAGE_KEY,
+    BACK_LABEL_IMAGE_KEYS,
+    BACK_LABEL_LEGACY_ALIAS_KEYS,
+    isInternalLabelImageKey,
+    extractBackLabelSlotsFromFeatures,
+    collectBackLabelImagesFromFeatures
 };

@@ -700,6 +700,31 @@ export function syncLinkedFeatureOnEdit(features = {}, editedKey = '', newValue 
     return next;
 }
 
+export const BACK_LABEL_SLOT_KEYS = [
+    'Zdjęcie tyłu opakowania',
+    'Zdjęcie tyłu opakowania 2',
+    'Zdjęcie tyłu opakowania 3'
+];
+
+export const BACK_LABEL_LEGACY_ALIAS_KEYS_FE = [
+    '_backImageUrl',
+    '_backImageUrl2',
+    '_backImageUrl3'
+];
+
+export const INTERNAL_LABEL_IMAGE_KEY_RE_FE = /^(?:zdjęcie\s+(?:frontu|tyłu)\s+opakowania(?:\s*[23])?|zdjecie\s+(?:frontu|tylu)\s+opakowania(?:\s*[23])?|_frontimageurl|_backimageurl[23]?|frontimageurl|backimageurl[23]?|zdjęcie\s+tyłu(?:\s*[23])?|zdjecie\s+tylu(?:\s*[23])?)$/i;
+
+export function getBackLabelSlotsFromFeatures(features = {}) {
+    const feats = (features && typeof features === 'object' && !Array.isArray(features)) ? features : {};
+    return BACK_LABEL_SLOT_KEYS.map((slotKey, idx) => {
+        const primary = feats[slotKey];
+        const alias = feats[BACK_LABEL_LEGACY_ALIAS_KEYS_FE[idx]];
+        if (typeof primary === 'string' && primary.trim()) return primary.trim();
+        if (typeof alias === 'string' && alias.trim()) return alias.trim();
+        return '';
+    });
+}
+
 const FRONT_SCAN_PROTECTED_BACK_KEYS_FE = new Set([
     'Skład/INCI',
     'Ostrzeżenia',
@@ -716,7 +741,13 @@ const FRONT_SCAN_PROTECTED_BACK_KEYS_FE = new Set([
     'Liczba sztuk (Etykieta)',
     'Liczba prań (Etykieta)',
     'pH (Etykieta)',
-    'Producent'
+    'Producent',
+    'Zdjęcie tyłu opakowania',
+    'Zdjęcie tyłu opakowania 2',
+    'Zdjęcie tyłu opakowania 3',
+    '_backImageUrl',
+    '_backImageUrl2',
+    '_backImageUrl3'
 ]);
 
 export function stripHeavyImagesFromFeatures(features = {}) {
@@ -726,7 +757,7 @@ export function stripHeavyImagesFromFeatures(features = {}) {
     const clean = {};
     for (const [k, v] of Object.entries(features)) {
         if (v === undefined || v === null) continue;
-        if (/^(?:zdjęcie\s+(?:frontu|tyłu)\s+opakowania|zdjecie\s+(?:frontu|tylu)\s+opakowania|_frontimageurl|_backimageurl)$/i.test(String(k).trim())) {
+        if (INTERNAL_LABEL_IMAGE_KEY_RE_FE.test(String(k).trim())) {
             continue;
         }
         if (typeof v === 'string') {
@@ -743,7 +774,7 @@ export function stripHeavyImagesFromFeatures(features = {}) {
 export function mergeLabelExtractionResponseIntoFeatures(
     prevFeatures = {},
     responseData = {},
-    { mode = 'both', overrideFrontImg = null, overrideBackImg = null, allegroSchema = [], productName = '' } = {}
+    { mode = 'both', overrideFrontImg = null, overrideBackImg = null, overrideBackSlots = null, allegroSchema = [], productName = '' } = {}
 ) {
     let merged = (prevFeatures && typeof prevFeatures === 'object' && !Array.isArray(prevFeatures))
         ? { ...prevFeatures }
@@ -782,7 +813,22 @@ export function mergeLabelExtractionResponseIntoFeatures(
     }
 
     if (overrideFrontImg) merged['Zdjęcie frontu opakowania'] = overrideFrontImg;
-    if (overrideBackImg) merged['Zdjęcie tyłu opakowania'] = overrideBackImg;
+    if (effectiveMode !== 'front') {
+        if (overrideBackImg) merged['Zdjęcie tyłu opakowania'] = overrideBackImg;
+        if (Array.isArray(overrideBackSlots)) {
+            BACK_LABEL_SLOT_KEYS.forEach((slotKey, idx) => {
+                const slotVal = overrideBackSlots[idx];
+                if (typeof slotVal === 'string' && slotVal.trim()) {
+                    merged[slotKey] = slotVal.trim();
+                } else if (slotVal === '' || slotVal === null) {
+                    delete merged[slotKey];
+                    if (BACK_LABEL_LEGACY_ALIAS_KEYS_FE[idx]) {
+                        delete merged[BACK_LABEL_LEGACY_ALIAS_KEYS_FE[idx]];
+                    }
+                }
+            });
+        }
+    }
 
     if (effectiveMode !== 'front') {
         const diag = data.ocrDiagnostics || null;

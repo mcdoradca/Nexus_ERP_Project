@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const sharp = require('sharp');
-const { fetchImageBuffer, extractFrontPackFeatures, extractInciFromBackPack, prepareBackLabelImageSet, BACK_PACK_INCI_PROMPT } = require('../vision-extractor.service.js');
+const { fetchImageBuffer, extractFrontPackFeatures, extractInciFromBackPack, prepareBackLabelImageSet, capMultimodalImagePayload, BACK_PACK_INCI_PROMPT } = require('../vision-extractor.service.js');
 
 test('Vision Extractor - fetchImageBuffer testy jednostkowe', async (t) => {
     await t.test('Odrzucenie pustego lub niepoprawnego URL', async () => {
@@ -277,6 +277,95 @@ test('Vision Extractor - extractInciFromBackPack testy jednostkowe', async (t) =
             assert.strictEqual(res.pimFeatures['Pojemność nakrętki (Etykieta)'], undefined);
             assert.strictEqual(/nakrętka\s*=\s*75\s*ml/i.test(res.usageInstructions || ''), false, 'Nieczytelna objętość nakrętki musi zostać wycięta');
             assert.ok(res.pimFeatures['Ostrzeżenie OCR (Etykieta)'], 'Brak czytelnej nakrętki na zdjęciu niskiej rozdzielczości musi generować ostrzeżenie OCR');
+        } finally {
+            aiWrapper.callAgentWithTelemetry = orgCall;
+        }
+    });
+
+    await t.test('ADR-0206: Holistyczny OCR wielościenny (combineAllImages) wysyła 3 ścianki naraz, scala dane i respektuje budżet payloadu', async () => {
+        const aiWrapper = require('../ai.wrapper.js');
+        const orgCall = aiWrapper.callAgentWithTelemetry;
+
+        const makeSideDataUri = async (r, g, b) => {
+            const buf = await sharp({
+                create: { width: 600, height: 600, channels: 3, background: { r: 250, g: 250, b: 250 } }
+            })
+                .composite([{
+                    input: await sharp({
+                        create: { width: 380, height: 420, channels: 3, background: { r, g, b } }
+                    }).png().toBuffer(),
+                    left: 110,
+                    top: 90
+                }])
+                .jpeg({ quality: 90 })
+                .toBuffer();
+            return `data:image/jpeg;base64,${buf.toString('base64')}`;
+        };
+
+        const side1 = await makeSideDataUri(20, 30, 40);
+        const side2 = await makeSideDataUri(40, 20, 30);
+        const side3 = await makeSideDataUri(30, 40, 20);
+
+        const budgetTest = capMultimodalImagePayload(
+            [{ base64: 'AAAA' }, { base64: 'BBBB' }, { base64: 'CCCC' }],
+            [{ base64: 'DDDDDD' }, { base64: 'EEEEEEEEEEEE' }],
+            20
+        );
+        assert.strictEqual(budgetTest.length, 4, 'Budżet powinien zachować wszystkie 3 pełne obrazy i dołożyć tylko mieszczący się zoom-crop');
+
+        const calls = [];
+        aiWrapper.callAgentWithTelemetry = async (payload) => {
+            calls.push(payload);
+            if (calls.length === 1) {
+                assert.strictEqual(payload.agentId, '0');
+                assert.ok(/3\s+załączone\s+ścianki/i.test(payload.prompt));
+                assert.ok(Array.isArray(payload.images) && payload.images.length === 6, '3 ścianki + 3 zbliżenia dolne powinny trafić razem do Flash');
+                return {
+                    result: {
+                        has_ingredients_label: true,
+                        has_back_label: true,
+                        inci: '5-15% Oxygen-based bleaching agents, Anionic surfactants, <5% Non-ionic surfactants, Enzymes, Optical brighteners, Perfumes',
+                        warnings: 'UWAGA. H319 – Działa drażniąco na oczy. P102 – Chronić przed dziećmi.',
+                        usage_instructions: 'Pranie w pralce: 75 g na cykl 4-5 kg.',
+                        dosage_table_legibility: 'LOW_UNREADABLE',
+                        cap_capacity_legible: null,
+                        unreadable_fields: ['dosage_table'],
+                        manufacturer_name: 'Dash Italia S.r.l.'
+                    },
+                    usage: { totalTokenCount: 300 }
+                };
+            }
+            assert.strictEqual(payload.agentId, '0_pro');
+            assert.ok(Array.isArray(payload.images) && payload.images.length === 9, 'Auto-eskalacja Pro dla 3 ścianek otrzymuje 3 pełne + 6 zbliżeń ROI');
+            return {
+                result: {
+                    has_ingredients_label: true,
+                    has_back_label: true,
+                    inci: '5-15% Oxygen-based bleaching agents, Anionic surfactants, <5% Non-ionic surfactants, Enzymes, Optical brighteners, Perfumes',
+                    warnings: 'UWAGA. H319 – Działa drażniąco na oczy. P102 – Chronić przed dziećmi.',
+                    usage_instructions: 'Pranie w pralce: wsad 4-5 kg woda miękka 65 g, woda średnia 80 g, woda twarda 105 g.',
+                    dosage_table_legibility: 'HIGH',
+                    cap_capacity_legible: true,
+                    unreadable_fields: [],
+                    manufacturer_name: 'Dash Italia S.r.l.'
+                },
+                usage: { totalTokenCount: 450 }
+            };
+        };
+
+        try {
+            const res = await extractInciFromBackPack([side1, side2, side3], '8001090123456', () => {}, null, {
+                combineAllImages: true
+            });
+            assert.strictEqual(calls.length, 2);
+            assert.strictEqual(res.found, true);
+            assert.strictEqual(res.ocrDiagnostics?.imagesAnalyzedCount, 3);
+            assert.strictEqual(res.ocrDiagnostics?.escalatedToPro, true);
+            assert.strictEqual(res.capturedImages?.length, 3);
+            assert.strictEqual(res.imageUrls?.length, 3);
+            assert.strictEqual(res.pimFeatures['Producent'], 'Dash Italia S.r.l.');
+            assert.ok(res.usageInstructions.includes('woda średnia 80 g'));
+            assert.strictEqual(res.usage?.totalTokenCount, 750);
         } finally {
             aiWrapper.callAgentWithTelemetry = orgCall;
         }

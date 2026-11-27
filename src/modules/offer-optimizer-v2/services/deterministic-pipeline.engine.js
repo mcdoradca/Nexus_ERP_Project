@@ -63,6 +63,8 @@ function cleanFeaturesForPrompt(featuresObj) {
         'kod karty', 'szablon', 'template', 'html', 'opis_html', 'opis html',
         'allegro_html', 'baselinker_html', 'style', 'css', 'svg', 'baner',
         'zdjęcie tyłu opakowania', 'zdjecie tylu opakowania', '_backimageurl',
+        'zdjęcie tyłu opakowania 2', 'zdjecie tylu opakowania 2', '_backimageurl2',
+        'zdjęcie tyłu opakowania 3', 'zdjecie tylu opakowania 3', '_backimageurl3',
         'zdjęcie frontu opakowania', 'zdjecie frontu opakowania', '_frontimageurl',
         'ostrzeżenie ocr (etykieta)', 'ostrzezenie ocr (etykieta)', '_labelsprescannedat'
     ];

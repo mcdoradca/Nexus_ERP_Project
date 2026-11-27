@@ -24,7 +24,8 @@ const {
     normalizeFabricSoftenerTerminology,
     isFabricSoftenerProduct,
     validateDosageYieldMath,
-    extractLabelEvidenceSubsets
+    extractLabelEvidenceSubsets,
+    collectBackLabelImagesFromFeatures
 } = require('./services/label-truth.helpers');
 const gpsrSafetyService = require('./services/gpsr.safety.service');
 const {
@@ -929,6 +930,7 @@ class Orchestrator {
         const wsTag = this.workspaceId ? String(this.workspaceId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 12) : '';
         this._frontImageAsset = null;
         this._backImageAsset = null;
+        this._backImageAssets = [];
         this.state = {
             pipeline_id: wsTag ? `PL-${wsTag}-${gtin}-${Date.now()}` : `PL-${gtin}-${Date.now()}`,
             timestamp_utc: new Date().toISOString(),
@@ -981,7 +983,19 @@ class Orchestrator {
                 base64: this._frontImageAsset.base64
             });
         }
-        if (this._backImageAsset?.base64) {
+        if (Array.isArray(this._backImageAssets) && this._backImageAssets.length > 0) {
+            this._backImageAssets.forEach((asset, idx) => {
+                if (asset?.base64) {
+                    auditImages.push({
+                        label: idx === 0
+                            ? 'ZDJĘCIE TYŁU / KONTRETYKIETY (SKŁAD, CLP, SPOSÓB UŻYCIA)'
+                            : `ZDJĘCIE BOKU ${idx} / KONTRETYKIETY (SKŁAD, CLP, SPOSÓB UŻYCIA)`,
+                        mimeType: asset.mimeType || 'image/jpeg',
+                        base64: asset.base64
+                    });
+                }
+            });
+        } else if (this._backImageAsset?.base64) {
             auditImages.push({
                 label: 'ZDJĘCIE TYŁU / KONTRETYKIETY (SKŁAD, CLP, SPOSÓB UŻYCIA)',
                 mimeType: this._backImageAsset.mimeType || 'image/jpeg',
@@ -1000,19 +1014,49 @@ class Orchestrator {
             || product?.imageUrl
             || (Array.isArray(pimData?.images) ? pimData.images[0] : null)
             || (Array.isArray(product?.images) ? product.images[0] : null);
-        const backUrl = pimData?.backImageUrl || product?.backImageUrl || product?.text_fields?.features?.['Zdjęcie tyłu opakowania'] || product?.text_fields?.features?.['_backImageUrl'] || (Array.isArray(pimData?.images) ? pimData.images[1] : null) || (Array.isArray(product?.images) ? product.images[1] : null);
+        const dedicatedBackUrls = collectBackLabelImagesFromFeatures(
+            product?.text_fields?.features || {},
+            [
+                pimData?.backImageUrl,
+                ...(Array.isArray(pimData?.backImageUrls) ? pimData.backImageUrls : []),
+                product?.backImageUrl,
+                ...(Array.isArray(product?.backImageUrls) ? product.backImageUrls : [])
+            ]
+        );
+        if (dedicatedBackUrls.length === 0) {
+            const galleryFallback = (Array.isArray(pimData?.images) ? pimData.images[1] : null)
+                || (Array.isArray(product?.images) ? product.images[1] : null);
+            if (galleryFallback) dedicatedBackUrls.push(galleryFallback);
+        }
         const cacheResolvedAsset = (isFrontFlag, mimeType, base64) => {
             if (!base64) return;
             if (isFrontFlag && !this._frontImageAsset?.base64) {
                 this._frontImageAsset = { mimeType: mimeType || 'image/jpeg', base64 };
-            } else if (!isFrontFlag && !this._backImageAsset?.base64) {
-                this._backImageAsset = { mimeType: mimeType || 'image/jpeg', base64 };
+            } else if (!isFrontFlag) {
+                const assetObj = { mimeType: mimeType || 'image/jpeg', base64 };
+                if (!this._backImageAsset?.base64) {
+                    this._backImageAsset = assetObj;
+                }
+                if (!Array.isArray(this._backImageAssets)) {
+                    this._backImageAssets = [];
+                }
+                this._backImageAssets.push(assetObj);
             }
         };
         if (frontUrl) candidateSpecs.push({ url: frontUrl, label: 'ZDJĘCIE FRONTU OPAKOWANIA (ŹRÓDŁO PRAWDY)', isFront: true });
-        if (backUrl && backUrl !== frontUrl) candidateSpecs.push({ url: backUrl, label: 'ZDJĘCIE TYŁU / KONTRETYKIETY (SKŁAD, CLP, SPOSÓB UŻYCIA)', isFront: false });
+        dedicatedBackUrls.forEach((bUrl, bIdx) => {
+            if (bUrl && bUrl !== frontUrl) {
+                candidateSpecs.push({
+                    url: bUrl,
+                    label: bIdx === 0
+                        ? 'ZDJĘCIE TYŁU / KONTRETYKIETY (SKŁAD, CLP, SPOSÓB UŻYCIA)'
+                        : `ZDJĘCIE BOKU ${bIdx} / KONTRETYKIETY (SKŁAD, CLP, SPOSÓB UŻYCIA)`,
+                    isFront: false
+                });
+            }
+        });
 
-        for (const spec of candidateSpecs.slice(0, 2)) {
+        for (const spec of candidateSpecs.slice(0, 4)) {
             try {
                 const rawUrl = String(spec.url || '').trim();
                 if (!rawUrl) continue;
@@ -1330,14 +1374,20 @@ class Orchestrator {
             const interimEu = resolveResponsiblePerson(interimBrandName, productName, interimDesc);
 
             // --- BACK-OF-PACK VISION OCR (Skład/INCI + Ostrzeżenia + Sposób użycia) ---
-            const dedicatedBackImg = pimData?.backImageUrl
-                || product?.text_fields?.features?.['Zdjęcie tyłu opakowania']
-                || product?.text_fields?.features?.['_backImageUrl']
-                || null;
-            const backPackCandidates = [];
-            if (dedicatedBackImg) backPackCandidates.push(dedicatedBackImg);
-            for (const img of candidateImages) {
-                if (img && !backPackCandidates.includes(img)) backPackCandidates.push(img);
+            const dedicatedBackImgs = collectBackLabelImagesFromFeatures(
+                product?.text_fields?.features || {},
+                [
+                    pimData?.backImageUrl,
+                    ...(Array.isArray(pimData?.backImageUrls) ? pimData.backImageUrls : [])
+                ]
+            );
+            const dedicatedBackImg = dedicatedBackImgs[0] || null;
+            const useCombinedMultiSide = dedicatedBackImgs.length > 1;
+            const backPackCandidates = [...dedicatedBackImgs];
+            if (!useCombinedMultiSide) {
+                for (const img of candidateImages) {
+                    if (img && !backPackCandidates.includes(img)) backPackCandidates.push(img);
+                }
             }
 
             const hasValidInci = Boolean(interimExtracted.inci?.value && baselinkerExtract.isValidInciValue(interimExtracted.inci.value));
@@ -1371,16 +1421,21 @@ class Orchestrator {
                         backPackCandidates,
                         this.gtin,
                         (msg) => console.log(msg),
-                        dedicatedBackImg ? frontImageUrl : frontImageUrl,
+                        frontImageUrl,
                         {
                             frontContext: backFrontCtx,
                             frontImage: this._frontImageAsset || null,
-                            productName: product?.text_fields?.name || ''
+                            productName: product?.text_fields?.name || '',
+                            combineAllImages: useCombinedMultiSide
                         }
                     );
 
-                    if (visionInciRes?.capturedImage?.base64) {
+                    if (Array.isArray(visionInciRes?.capturedImages) && visionInciRes.capturedImages.length > 0) {
+                        this._backImageAssets = visionInciRes.capturedImages;
+                        this._backImageAsset = visionInciRes.capturedImage || visionInciRes.capturedImages[0];
+                    } else if (visionInciRes?.capturedImage?.base64) {
                         this._backImageAsset = visionInciRes.capturedImage;
+                        this._backImageAssets = [visionInciRes.capturedImage];
                     }
 
                     if (visionInciRes && visionInciRes.found) {
@@ -1537,11 +1592,15 @@ class Orchestrator {
             this.emitState();
         }
 
-        const standaloneBackImg = pimData?.backImageUrl
-            || product?.text_fields?.features?.['Zdjęcie tyłu opakowania']
-            || product?.text_fields?.features?.['_backImageUrl']
-            || null;
-        if (standaloneBackImg) {
+        const standaloneBackImgs = collectBackLabelImagesFromFeatures(
+            product?.text_fields?.features || {},
+            [
+                pimData?.backImageUrl,
+                ...(Array.isArray(pimData?.backImageUrls) ? pimData.backImageUrls : [])
+            ]
+        );
+        const standaloneBackImg = standaloneBackImgs[0] || null;
+        if (standaloneBackImgs.length > 0) {
             const checkExtracted = baselinkerExtract.extractFromFeatures(product);
             const hasVInci = Boolean(checkExtracted.inci?.value && baselinkerExtract.isValidInciValue(checkExtracted.inci.value));
             const hasVWarn = Boolean(checkExtracted.warnings?.value && String(checkExtracted.warnings.value).trim().length > 5);
@@ -1567,25 +1626,32 @@ class Orchestrator {
                         ...(checkExtracted.capacity?.value ? { 'Pojemność': checkExtracted.capacity.value } : {})
                     };
                     const visionInciRes = await visionExtractorService.extractInciFromBackPack(
-                        [standaloneBackImg],
+                        standaloneBackImgs,
                         this.gtin,
                         (msg) => console.log(msg),
                         frontImageUrl,
                         {
                             frontContext: standaloneFrontCtx,
                             frontImage: this._frontImageAsset || null,
-                            productName: product?.text_fields?.name || ''
+                            productName: product?.text_fields?.name || '',
+                            combineAllImages: standaloneBackImgs.length > 1
                         }
                     );
-                    if (visionInciRes?.capturedImage?.base64) {
+                    if (Array.isArray(visionInciRes?.capturedImages) && visionInciRes.capturedImages.length > 0) {
+                        this._backImageAssets = visionInciRes.capturedImages;
+                        this._backImageAsset = visionInciRes.capturedImage || visionInciRes.capturedImages[0];
+                    } else if (visionInciRes?.capturedImage?.base64) {
                         this._backImageAsset = visionInciRes.capturedImage;
+                        this._backImageAssets = [visionInciRes.capturedImage];
                     }
                     if (visionInciRes && visionInciRes.found) {
                         this.state.vision_back_features = visionInciRes.pimFeatures || {};
                         if (!product) product = { text_fields: {} };
                         if (!product.text_fields) product.text_fields = {};
                         const updatedFeatures = { ...(product.text_fields.features || {}) };
-                        updatedFeatures['Zdjęcie tyłu opakowania'] = standaloneBackImg;
+                        if (standaloneBackImg && !updatedFeatures['Zdjęcie tyłu opakowania']) {
+                            updatedFeatures['Zdjęcie tyłu opakowania'] = standaloneBackImg;
+                        }
                         if (visionInciRes.inci && !hasVInci) {
                             updatedFeatures['Skład/INCI'] = visionInciRes.inci;
                             updatedFeatures['INCI'] = visionInciRes.inci;

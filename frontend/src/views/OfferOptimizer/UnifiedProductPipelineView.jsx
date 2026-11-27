@@ -19,7 +19,9 @@ import {
   syncFeaturesFromLabelTruth,
   syncLinkedFeatureOnEdit,
   stripHeavyImagesFromFeatures,
-  mergeLabelExtractionResponseIntoFeatures
+  mergeLabelExtractionResponseIntoFeatures,
+  BACK_LABEL_SLOT_KEYS,
+  getBackLabelSlotsFromFeatures
 } from './utils/allegroParamFormatter';
 import { 
   Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp, Search,
@@ -249,7 +251,7 @@ export const UnifiedProductPipelineView = ({
     const [labelOcrDiagnostics, setLabelOcrDiagnostics] = useState(null);
     const [showLabelSsotDetails, setShowLabelSsotDetails] = useState(false);
     const frontImageFileInputRef = useRef(null);
-    const backImageFileInputRef = useRef(null);
+    const backImageFileInputRefs = useRef([null, null, null]);
 
     // STANY EKSPORTU PARAMETRÓW ORAZ OPISU I ZDJĘĆ BEZPOŚREDNIO DO ALLEGRO REST API
     const [allegroAccounts, setAllegroAccounts] = useState([]);
@@ -296,25 +298,35 @@ export const UnifiedProductPipelineView = ({
         if (allegroContentPreviewDirty) setAllegroContentConfirmStep(0);
     }, [allegroContentPreviewDirty]);
 
-    const handleExtractLabels = async (mode = 'both', overrideFrontImg = null, overrideBackImg = null) => {
+    const handleExtractLabels = async (mode = 'both', overrideFrontImg = null, overrideBackSlots = null) => {
         if (isExtractingFrontLabel || isExtractingBackLabel || isExtractingBothLabels) {
             alert('Trwa już odczyt etykiety — poczekaj chwilę na zakończenie bieżącego skanu.');
             return;
         }
 
         const frontImg = overrideFrontImg || newProductForm?.features?.['Zdjęcie frontu opakowania'] || newProductForm?.imageUrl || '';
-        const backImg = overrideBackImg || newProductForm?.features?.['Zdjęcie tyłu opakowania'] || '';
+        const currentBackSlots = getBackLabelSlotsFromFeatures(newProductForm?.features || {});
+        let effectiveBackSlots = currentBackSlots;
+        if (Array.isArray(overrideBackSlots)) {
+            effectiveBackSlots = BACK_LABEL_SLOT_KEYS.map((_, idx) => {
+                const val = overrideBackSlots[idx];
+                return typeof val === 'string' && val.trim() ? val.trim() : '';
+            });
+        } else if (typeof overrideBackSlots === 'string' && overrideBackSlots.trim()) {
+            effectiveBackSlots = [overrideBackSlots.trim(), currentBackSlots[1], currentBackSlots[2]];
+        }
+        const activeBackImages = effectiveBackSlots.filter(Boolean);
 
         if (mode === 'front' && !frontImg) {
             alert('Najpierw wgraj zdjęcie frontu opakowania (lub główną miniaturę).');
             return;
         }
-        if (mode === 'back' && !backImg) {
-            alert('Najpierw wgraj zdjęcie tyłu opakowania.');
+        if (mode === 'back' && activeBackImages.length === 0) {
+            alert('Najpierw wgraj przynajmniej jedno zdjęcie tyłu lub boku opakowania.');
             return;
         }
-        if (mode === 'both' && !frontImg && !backImg) {
-            alert('Wgraj przynajmniej jedno zdjęcie etykiety (front lub tył opakowania).');
+        if (mode === 'both' && !frontImg && activeBackImages.length === 0) {
+            alert('Wgraj przynajmniej jedno zdjęcie etykiety (front lub tył/boki opakowania).');
             return;
         }
 
@@ -327,7 +339,9 @@ export const UnifiedProductPipelineView = ({
                 ean: (newProductForm?.ean ? String(newProductForm.ean).trim() : '') || (liveEan ? String(liveEan).trim() : ''),
                 productId: editingProduct || undefined,
                 frontImageUrl: (mode !== 'back' && frontImg) ? frontImg : undefined,
-                backImageUrl: (mode !== 'front' && backImg) ? backImg : undefined,
+                backImageUrl: (mode !== 'front' && activeBackImages[0]) ? activeBackImages[0] : undefined,
+                backImageUrls: (mode !== 'front' && activeBackImages.length > 0) ? activeBackImages : undefined,
+                backImageSlots: (mode !== 'front') ? effectiveBackSlots.map(v => v || null) : undefined,
                 mode,
                 currentFeatures: stripHeavyImagesFromFeatures(newProductForm?.features || {}),
                 allegroCategoryId: newProductForm?.allegroCategoryId || undefined,
@@ -349,7 +363,7 @@ export const UnifiedProductPipelineView = ({
                     features: mergeLabelExtractionResponseIntoFeatures(prev.features || {}, res.data, {
                         mode,
                         overrideFrontImg,
-                        overrideBackImg,
+                        overrideBackSlots: mode !== 'front' ? effectiveBackSlots : null,
                         allegroSchema: categorySchema?.parameters || [],
                         productName: prev.name
                     })
@@ -370,10 +384,12 @@ export const UnifiedProductPipelineView = ({
 
     const handleExtractBackLabel = (overrideImageUrl) => handleExtractLabels('back', null, overrideImageUrl);
 
-    const compressLabelFileToDataUrl = (file, callback) => {
+    const compressLabelFileToDataUrl = (file, callback, onError = () => {}) => {
         const reader = new FileReader();
+        reader.onerror = () => onError();
         reader.onloadend = () => {
             const img = new window.Image();
+            img.onerror = () => onError();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 const MAX_DIM = 2400; // Maksymalna ostrość pod drobny druk tabel dozowania i INCI
@@ -402,6 +418,10 @@ export const UnifiedProductPipelineView = ({
         reader.readAsDataURL(file);
     };
 
+    const compressLabelFileToDataUrlAsync = (file) => new Promise((resolve) => {
+        compressLabelFileToDataUrl(file, resolve, () => resolve(null));
+    });
+
     const handleFrontImageFileChange = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -418,20 +438,40 @@ export const UnifiedProductPipelineView = ({
         e.target.value = '';
     };
 
-    const handleBackImageFileChange = (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        compressLabelFileToDataUrl(file, (compressedBase64) => {
-            setNewProductForm(prev => ({
-                ...prev,
-                features: {
-                    ...(prev.features || {}),
-                    'Zdjęcie tyłu opakowania': compressedBase64
-                }
-            }));
-            handleExtractLabels('back', null, compressedBase64);
-        });
+    const handleBackSlotFileChange = async (slotIndex, e) => {
+        const files = Array.from(e.target.files || []).slice(0, BACK_LABEL_SLOT_KEYS.length);
         e.target.value = '';
+        if (files.length === 0) return;
+
+        const compressedList = (await Promise.all(files.map(f => compressLabelFileToDataUrlAsync(f)))).filter(Boolean);
+        if (compressedList.length === 0) return;
+
+        setNewProductForm(prev => {
+            const nextFeatures = { ...(prev.features || {}) };
+            const targetKey = BACK_LABEL_SLOT_KEYS[slotIndex];
+            nextFeatures[targetKey] = compressedList[0];
+
+            if (compressedList.length > 1) {
+                let extraIdx = 1;
+                const order = [
+                    ...BACK_LABEL_SLOT_KEYS.map((_, i) => i).filter(i => i > slotIndex),
+                    ...BACK_LABEL_SLOT_KEYS.map((_, i) => i).filter(i => i < slotIndex)
+                ];
+                for (const candidateIdx of order) {
+                    if (extraIdx >= compressedList.length) break;
+                    const candidateKey = BACK_LABEL_SLOT_KEYS[candidateIdx];
+                    if (!nextFeatures[candidateKey]) {
+                        nextFeatures[candidateKey] = compressedList[extraIdx++];
+                    }
+                }
+                for (const candidateIdx of order) {
+                    if (extraIdx >= compressedList.length) break;
+                    nextFeatures[BACK_LABEL_SLOT_KEYS[candidateIdx]] = compressedList[extraIdx++];
+                }
+            }
+
+            return { ...prev, features: nextFeatures };
+        });
     };
 
     const brandDropdownRef = useRef(null);
@@ -781,17 +821,10 @@ export const UnifiedProductPipelineView = ({
 
              const { offerDraft: _omitDraft, images: _omitImages, imageUrl: rawImgUrl, ...lightweightForm } = newProductForm;
              const safeFeatures = { ...(lightweightForm.features || {}) };
-             if (typeof safeFeatures['Zdjęcie tyłu opakowania'] === 'string' && safeFeatures['Zdjęcie tyłu opakowania'].startsWith('data:image')) {
-                 delete safeFeatures['Zdjęcie tyłu opakowania'];
-             }
-             if (typeof safeFeatures['_backImageUrl'] === 'string' && safeFeatures['_backImageUrl'].startsWith('data:image')) {
-                 delete safeFeatures['_backImageUrl'];
-             }
-             if (typeof safeFeatures['Zdjęcie frontu opakowania'] === 'string' && safeFeatures['Zdjęcie frontu opakowania'].startsWith('data:image')) {
-                 delete safeFeatures['Zdjęcie frontu opakowania'];
-             }
-             if (typeof safeFeatures['_frontImageUrl'] === 'string' && safeFeatures['_frontImageUrl'].startsWith('data:image')) {
-                 delete safeFeatures['_frontImageUrl'];
+             for (const bkKey of [...BACK_LABEL_SLOT_KEYS, '_backImageUrl', '_backImageUrl2', '_backImageUrl3', 'Zdjęcie frontu opakowania', '_frontImageUrl']) {
+                 if (typeof safeFeatures[bkKey] === 'string' && safeFeatures[bkKey].startsWith('data:image')) {
+                     delete safeFeatures[bkKey];
+                 }
              }
              const safeForm = {
                  ...lightweightForm,
@@ -2568,200 +2601,253 @@ export const UnifiedProductPipelineView = ({
                     <div className="p-8 space-y-12">
                         
                                         
-                                        <div className="flex flex-col md:flex-row gap-6 mb-6">
-                                           {/* Stabilna Główna Miniaturka */}
-                                           {/* Panel Skanera Etykiet Przód + Tył (SSOT przed startem potoku) */}
-                                           <div className="flex flex-col space-y-2 shrink-0">
-                                              <div className="flex space-x-3 items-stretch">
-                                                 {/* Slot 1: Zdjęcie frontu etykiety */}
-                                                 <div className="w-52 shrink-0 bg-indigo-50/60 border border-indigo-200 rounded-sm p-3 shadow-sm flex flex-col items-center justify-between">
-                                                    <div className="w-full flex items-center justify-between border-b border-indigo-200 pb-2 mb-2">
-                                                       <span className="text-[9px] font-black text-indigo-800 uppercase tracking-widest">Zdjęcie frontu etykiety</span>
-                                                       {newProductForm.features?.['Zdjęcie frontu opakowania'] && (
-                                                          <button
-                                                             type="button"
-                                                             onClick={() => {
-                                                                const updated = { ...(newProductForm.features || {}) };
-                                                                delete updated['Zdjęcie frontu opakowania'];
-                                                                setNewProductForm(prev => ({ ...prev, features: updated }));
-                                                             }}
-                                                             className="text-indigo-400 hover:text-rose-500 transition-colors"
-                                                             title="Usuń dedykowane zdjęcie frontu (wróci główna miniatura)"
-                                                          >
-                                                             <X className="w-3.5 h-3.5" />
-                                                          </button>
-                                                       )}
-                                                    </div>
+                                        <div className="flex flex-col xl:flex-row gap-6 mb-6">
+                                           {/* Panel Skanera Etykiet Przód (1) + Tył i boki (3) (SSOT przed startem potoku) */}
+                                           {(() => {
+                                              const backSlots = getBackLabelSlotsFromFeatures(newProductForm?.features || {});
+                                              const activeBackCount = backSlots.filter(Boolean).length;
+                                              const backSlotConfigs = [
+                                                 { idx: 0, key: BACK_LABEL_SLOT_KEYS[0], label: 'Tył', hint: 'Główny tył' },
+                                                 { idx: 1, key: BACK_LABEL_SLOT_KEYS[1], label: 'Bok 1', hint: 'Lewy / bok' },
+                                                 { idx: 2, key: BACK_LABEL_SLOT_KEYS[2], label: 'Bok 2', hint: 'Prawy / bok' }
+                                              ];
+                                              return (
+                                                 <div className="flex flex-col space-y-2 shrink-0">
+                                                    <div className="flex flex-col sm:flex-row gap-3 items-stretch">
+                                                       {/* Slot Front: Zdjęcie frontu etykiety */}
+                                                       <div className="w-full sm:w-48 shrink-0 bg-indigo-50/60 border border-indigo-200 rounded-sm p-3 shadow-sm flex flex-col items-center justify-between">
+                                                          <div className="w-full flex items-center justify-between border-b border-indigo-200 pb-2 mb-2">
+                                                             <span className="text-[9px] font-black text-indigo-800 uppercase tracking-widest">Front etykiety</span>
+                                                             {newProductForm.features?.['Zdjęcie frontu opakowania'] && (
+                                                                <button
+                                                                   type="button"
+                                                                   onClick={() => {
+                                                                      const updated = { ...(newProductForm.features || {}) };
+                                                                      delete updated['Zdjęcie frontu opakowania'];
+                                                                      setNewProductForm(prev => ({ ...prev, features: updated }));
+                                                                   }}
+                                                                   className="text-indigo-400 hover:text-rose-500 transition-colors"
+                                                                   title="Usuń dedykowane zdjęcie frontu (wróci główna miniatura)"
+                                                                >
+                                                                   <X className="w-3.5 h-3.5" />
+                                                                </button>
+                                                             )}
+                                                          </div>
 
-                                                    <input
-                                                       type="file"
-                                                       accept="image/*"
-                                                       ref={frontImageFileInputRef}
-                                                       onChange={handleFrontImageFileChange}
-                                                       className="hidden"
-                                                    />
-
-                                                    {getSafeImageSrc(newProductForm.features?.['Zdjęcie frontu opakowania'] || newProductForm.imageUrl) ? (
-                                                       <div className="w-full flex flex-col items-center space-y-2">
-                                                          <img
-                                                             src={getSafeImageSrc(newProductForm.features?.['Zdjęcie frontu opakowania'] || newProductForm.imageUrl)}
-                                                             alt="Zdjęcie frontu etykiety"
-                                                             onClick={() => setViewingImageUrl(newProductForm.features?.['Zdjęcie frontu opakowania'] || newProductForm.imageUrl)}
-                                                             className="w-full h-28 object-contain bg-white border border-indigo-200 rounded-sm cursor-pointer hover:opacity-90 transition-opacity"
-                                                             title="Kliknij, aby powiększyć przednią etykietę"
+                                                          <input
+                                                             type="file"
+                                                             accept="image/*"
+                                                             ref={frontImageFileInputRef}
+                                                             onChange={handleFrontImageFileChange}
+                                                             className="hidden"
                                                           />
-                                                          <div className="w-full flex space-x-1.5">
+
+                                                          {getSafeImageSrc(newProductForm.features?.['Zdjęcie frontu opakowania'] || newProductForm.imageUrl) ? (
+                                                             <div className="w-full flex flex-col items-center space-y-2">
+                                                                <img
+                                                                   src={getSafeImageSrc(newProductForm.features?.['Zdjęcie frontu opakowania'] || newProductForm.imageUrl)}
+                                                                   alt="Zdjęcie frontu etykiety"
+                                                                   onClick={() => setViewingImageUrl(newProductForm.features?.['Zdjęcie frontu opakowania'] || newProductForm.imageUrl)}
+                                                                   className="w-full h-24 object-contain bg-white border border-indigo-200 rounded-sm cursor-pointer hover:opacity-90 transition-opacity"
+                                                                   title="Kliknij, aby powiększyć przednią etykietę"
+                                                                />
+                                                                <div className="w-full flex space-x-1.5">
+                                                                   <button
+                                                                      type="button"
+                                                                      onClick={() => frontImageFileInputRef.current?.click()}
+                                                                      className="flex-1 py-1.5 px-2 bg-white hover:bg-indigo-100 text-indigo-800 border border-indigo-300 rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors"
+                                                                   >
+                                                                      Zmień
+                                                                   </button>
+                                                                   <button
+                                                                      type="button"
+                                                                      disabled={isExtractingFrontLabel || isExtractingBackLabel || isExtractingBothLabels}
+                                                                      onClick={() => handleExtractLabels('front')}
+                                                                      className="flex-1 py-1.5 px-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors flex items-center justify-center"
+                                                                      title="Odczytaj oficjalną nazwę, postać, pojemność i wydajność z frontu"
+                                                                   >
+                                                                      {isExtractingFrontLabel ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                                                                      {isExtractingFrontLabel ? 'Skan...' : 'Skanuj'}
+                                                                   </button>
+                                                                </div>
+                                                             </div>
+                                                          ) : (
                                                              <button
                                                                 type="button"
                                                                 onClick={() => frontImageFileInputRef.current?.click()}
-                                                                className="flex-1 py-1.5 px-2 bg-white hover:bg-indigo-100 text-indigo-800 border border-indigo-300 rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors"
+                                                                className="w-full h-32 border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-white/80 hover:bg-indigo-50 rounded-sm flex flex-col items-center justify-center p-2.5 text-center transition-colors"
                                                              >
-                                                                Zmień
+                                                                {isExtractingFrontLabel ? (
+                                                                   <Loader2 className="w-6 h-6 text-indigo-600 animate-spin mb-1.5" />
+                                                                ) : (
+                                                                   <Image className="w-6 h-6 text-indigo-500 mb-1.5" />
+                                                                )}
+                                                                <span className="text-[9px] font-black text-indigo-800 uppercase tracking-wider leading-tight">
+                                                                   Wgraj front etykiety
+                                                                </span>
+                                                                <span className="text-[8px] font-bold text-indigo-600 mt-1 leading-tight">
+                                                                   Auto-OCR: Nazwa, Postać, Pojemność
+                                                                </span>
                                                              </button>
-                                                             <button
-                                                                type="button"
-                                                                disabled={isExtractingFrontLabel || isExtractingBackLabel || isExtractingBothLabels}
-                                                                onClick={() => handleExtractLabels('front')}
-                                                                className="flex-1 py-1.5 px-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors flex items-center justify-center"
-                                                                title="Odczytaj oficjalną nazwę, postać, pojemność i wydajność z frontu"
-                                                             >
-                                                                {isExtractingFrontLabel ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
-                                                                {isExtractingFrontLabel ? 'Skan...' : 'Skanuj Front'}
-                                                             </button>
-                                                          </div>
-                                                       </div>
-                                                    ) : (
-                                                       <button
-                                                          type="button"
-                                                          onClick={() => frontImageFileInputRef.current?.click()}
-                                                          className="w-full h-32 border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-white/80 hover:bg-indigo-50 rounded-sm flex flex-col items-center justify-center p-3 text-center transition-colors"
-                                                       >
-                                                          {isExtractingFrontLabel ? (
-                                                             <Loader2 className="w-6 h-6 text-indigo-600 animate-spin mb-1.5" />
-                                                          ) : (
-                                                             <Image className="w-6 h-6 text-indigo-500 mb-1.5" />
                                                           )}
-                                                          <span className="text-[9px] font-black text-indigo-800 uppercase tracking-wider leading-tight">
-                                                             Wgraj front etykiety
-                                                          </span>
-                                                          <span className="text-[8px] font-bold text-indigo-600 mt-1 leading-tight">
-                                                             Auto-OCR: Nazwa, Postać, Pojemność, Wydajność
-                                                          </span>
-                                                       </button>
-                                                    )}
-                                                 </div>
+                                                       </div>
 
-                                                 {/* Slot 2: Zdjęcie tyłu opakowania */}
-                                                 <div className="w-52 shrink-0 bg-emerald-50/60 border border-emerald-200 rounded-sm p-3 shadow-sm flex flex-col items-center justify-between">
-                                                    <div className="w-full flex items-center justify-between border-b border-emerald-200 pb-2 mb-2">
-                                                       <span className="text-[9px] font-black text-emerald-800 uppercase tracking-widest">Zdjęcie tyłu opakowania</span>
-                                                       {newProductForm.features?.['Zdjęcie tyłu opakowania'] && (
-                                                          <button
-                                                             type="button"
-                                                             onClick={() => {
-                                                                const updated = { ...(newProductForm.features || {}) };
-                                                                delete updated['Zdjęcie tyłu opakowania'];
-                                                                setNewProductForm(prev => ({ ...prev, features: updated }));
-                                                             }}
-                                                             className="text-emerald-400 hover:text-rose-500 transition-colors"
-                                                             title="Usuń zdjęcie tyłu opakowania"
-                                                          >
-                                                             <X className="w-3.5 h-3.5" />
-                                                          </button>
-                                                       )}
-                                                    </div>
+                                                       {/* Panel Tył + 2 Boki (3 sloty dla kartonów i opakowań wielościennych) */}
+                                                       <div className="w-full sm:w-[27rem] shrink-0 bg-emerald-50/60 border border-emerald-200 rounded-sm p-3 shadow-sm flex flex-col justify-between space-y-2">
+                                                          <div className="w-full flex items-center justify-between border-b border-emerald-200 pb-2">
+                                                             <div className="flex items-center space-x-2">
+                                                                <span className="text-[9px] font-black text-emerald-800 uppercase tracking-widest">Tył i boki opakowania</span>
+                                                                <span className="px-1.5 py-0.5 rounded-sm bg-emerald-100 border border-emerald-200 text-[8px] font-black text-emerald-800 tabular-nums">
+                                                                   {activeBackCount}/3
+                                                                </span>
+                                                             </div>
+                                                             {activeBackCount > 0 && (
+                                                                <button
+                                                                   type="button"
+                                                                   onClick={() => {
+                                                                      const updated = { ...(newProductForm.features || {}) };
+                                                                      BACK_LABEL_SLOT_KEYS.forEach((k) => delete updated[k]);
+                                                                      delete updated['_backImageUrl'];
+                                                                      delete updated['_backImageUrl2'];
+                                                                      delete updated['_backImageUrl3'];
+                                                                      setNewProductForm(prev => ({ ...prev, features: updated }));
+                                                                   }}
+                                                                   className="text-emerald-500 hover:text-rose-500 transition-colors text-[8px] font-black uppercase tracking-wider flex items-center"
+                                                                   title="Usuń wszystkie zdjęcia tyłu i boków"
+                                                                >
+                                                                   <X className="w-3.5 h-3.5 mr-0.5" /> Wyczyść
+                                                                </button>
+                                                             )}
+                                                          </div>
 
-                                                    <input
-                                                       type="file"
-                                                       accept="image/*"
-                                                       ref={backImageFileInputRef}
-                                                       onChange={handleBackImageFileChange}
-                                                       className="hidden"
-                                                    />
+                                                          <div className="grid grid-cols-3 gap-2 w-full">
+                                                             {backSlotConfigs.map((slot) => {
+                                                                const slotImg = backSlots[slot.idx];
+                                                                const safeSlotSrc = getSafeImageSrc(slotImg);
+                                                                return (
+                                                                   <div key={slot.key} className="bg-white/90 border border-emerald-200 rounded-sm p-1.5 flex flex-col justify-between">
+                                                                      <input
+                                                                         type="file"
+                                                                         accept="image/*"
+                                                                         multiple
+                                                                         ref={(el) => { backImageFileInputRefs.current[slot.idx] = el; }}
+                                                                         onChange={(e) => handleBackSlotFileChange(slot.idx, e)}
+                                                                         className="hidden"
+                                                                      />
+                                                                      <div className="flex items-center justify-between mb-1">
+                                                                         <span className="text-[8px] font-black text-emerald-800 uppercase tracking-wider">{slot.label}</span>
+                                                                         {slotImg && (
+                                                                            <button
+                                                                               type="button"
+                                                                               onClick={() => {
+                                                                                  const updated = { ...(newProductForm.features || {}) };
+                                                                                  delete updated[slot.key];
+                                                                                  if (slot.idx === 0) delete updated['_backImageUrl'];
+                                                                                  if (slot.idx === 1) delete updated['_backImageUrl2'];
+                                                                                  if (slot.idx === 2) delete updated['_backImageUrl3'];
+                                                                                  setNewProductForm(prev => ({ ...prev, features: updated }));
+                                                                               }}
+                                                                               className="text-emerald-400 hover:text-rose-500 transition-colors"
+                                                                               title={`Usuń zdjęcie (${slot.label})`}
+                                                                            >
+                                                                               <X className="w-3 h-3" />
+                                                                            </button>
+                                                                         )}
+                                                                      </div>
 
-                                                    {getSafeImageSrc(newProductForm.features?.['Zdjęcie tyłu opakowania']) ? (
-                                                       <div className="w-full flex flex-col items-center space-y-2">
-                                                          <img
-                                                             src={getSafeImageSrc(newProductForm.features?.['Zdjęcie tyłu opakowania'])}
-                                                             alt="Zdjęcie tyłu opakowania"
-                                                             onClick={() => setViewingImageUrl(newProductForm.features?.['Zdjęcie tyłu opakowania'])}
-                                                             className="w-full h-28 object-contain bg-white border border-emerald-200 rounded-sm cursor-pointer hover:opacity-90 transition-opacity"
-                                                             title="Kliknij, aby powiększyć tylną etykietę"
-                                                          />
-                                                          <div className="w-full flex space-x-1.5">
+                                                                      {safeSlotSrc ? (
+                                                                         <div className="flex flex-col space-y-1">
+                                                                            <img
+                                                                               src={safeSlotSrc}
+                                                                               alt={`Zdjęcie etykiety — ${slot.label}`}
+                                                                               onClick={() => setViewingImageUrl(slotImg)}
+                                                                               className="w-full h-20 object-contain bg-white border border-emerald-100 rounded-sm cursor-pointer hover:opacity-90 transition-opacity"
+                                                                               title={`Kliknij, aby powiększyć (${slot.label})`}
+                                                                            />
+                                                                            <button
+                                                                               type="button"
+                                                                               onClick={() => backImageFileInputRefs.current[slot.idx]?.click()}
+                                                                               className="w-full py-1 px-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-sm text-[8px] font-black uppercase tracking-wider transition-colors"
+                                                                            >
+                                                                               Zmień
+                                                                            </button>
+                                                                         </div>
+                                                                      ) : (
+                                                                         <button
+                                                                            type="button"
+                                                                            onClick={() => backImageFileInputRefs.current[slot.idx]?.click()}
+                                                                            className="w-full h-24 border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-white hover:bg-emerald-50 rounded-sm flex flex-col items-center justify-center p-1 text-center transition-colors"
+                                                                            title={`Wgraj zdjęcie: ${slot.label} (${slot.hint})`}
+                                                                         >
+                                                                            <Plus className="w-4 h-4 text-emerald-500 mb-1" />
+                                                                            <span className="text-[8px] font-black text-emerald-800 uppercase tracking-wider leading-tight">
+                                                                               {slot.label}
+                                                                            </span>
+                                                                            <span className="text-[7px] font-bold text-emerald-600 mt-0.5 leading-tight">
+                                                                               {slot.hint}
+                                                                            </span>
+                                                                         </button>
+                                                                      )}
+                                                                   </div>
+                                                                );
+                                                             })}
+                                                          </div>
+
+                                                          <div className="space-y-1 pt-1">
                                                              <button
                                                                 type="button"
-                                                                onClick={() => backImageFileInputRef.current?.click()}
-                                                                className="flex-1 py-1.5 px-2 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors"
-                                                             >
-                                                                Zmień
-                                                             </button>
-                                                             <button
-                                                                type="button"
-                                                                disabled={isExtractingBackLabel || isExtractingFrontLabel || isExtractingBothLabels}
+                                                                disabled={activeBackCount === 0 || isExtractingBackLabel || isExtractingFrontLabel || isExtractingBothLabels}
                                                                 onClick={() => handleExtractLabels('back')}
-                                                                className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors flex items-center justify-center"
-                                                                title="Odczytaj Skład/INCI, Ostrzeżenia i Sposób użycia przez Agent Vision"
+                                                                className="w-full py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors flex items-center justify-center"
+                                                                title="Odczytaj łącznie Skład/INCI, Ostrzeżenia CLP i Sposób użycia ze wszystkich wgranych zdjęć tyłu i boków"
                                                              >
-                                                                {isExtractingBackLabel ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
-                                                                {isExtractingBackLabel ? 'Skan...' : 'Skanuj Tył'}
+                                                                {isExtractingBackLabel ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                                                                {isExtractingBackLabel
+                                                                   ? `Skanuję ${activeBackCount} ${activeBackCount === 1 ? 'ściankę' : 'ścianki'}...`
+                                                                   : (activeBackCount <= 1 ? `Skanuj Tył (${activeBackCount}/3)` : `Skanuj Tył i boki (${activeBackCount}/3)`)}
                                                              </button>
+                                                             <div className="text-[8px] font-semibold text-emerald-700 text-center leading-tight">
+                                                                Wgraj 1–3 zdjęcia (możesz zaznaczyć kilka plików naraz), a następnie kliknij Skanuj.
+                                                             </div>
                                                           </div>
                                                        </div>
-                                                    ) : (
-                                                       <button
-                                                          type="button"
-                                                          onClick={() => backImageFileInputRef.current?.click()}
-                                                          className="w-full h-32 border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-white/80 hover:bg-emerald-50 rounded-sm flex flex-col items-center justify-center p-3 text-center transition-colors"
-                                                       >
-                                                          {isExtractingBackLabel ? (
-                                                             <Loader2 className="w-6 h-6 text-emerald-600 animate-spin mb-1.5" />
-                                                          ) : (
-                                                             <Image className="w-6 h-6 text-emerald-500 mb-1.5" />
-                                                          )}
-                                                          <span className="text-[9px] font-black text-emerald-800 uppercase tracking-wider leading-tight">
-                                                             Wgraj tył opakowania
-                                                          </span>
-                                                          <span className="text-[8px] font-bold text-emerald-600 mt-1 leading-tight">
-                                                             Auto-OCR: Skład/INCI, Ostrzeżenia, Sposób użycia
-                                                          </span>
-                                                       </button>
-                                                    )}
-                                                 </div>
-                                              </div>
-
-                                              <button
-                                                 type="button"
-                                                 disabled={isExtractingBothLabels || isExtractingFrontLabel || isExtractingBackLabel}
-                                                 onClick={() => handleExtractLabels('both')}
-                                                 className="w-full py-2 px-3 bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-700 hover:to-emerald-700 disabled:opacity-50 text-white rounded-sm text-[10px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center justify-center"
-                                                 title="Uruchamia sekwencyjnie skan frontu (MEDIA_RESOLUTION_HIGH) i kontretykiety (z wycinkami ROI i auto-eskalacją Pro)"
-                                              >
-                                                 {isExtractingBothLabels ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
-                                                 {isExtractingBothLabels ? 'Skanuję Przód + Tył (OCR High-Res)...' : 'Skanuj Przód + Tył (AI SSOT)'}
-                                              </button>
-
-                                              {labelOcrDiagnostics && (
-                                                 <div className={`w-full max-w-[26.75rem] rounded-sm p-2 border text-[10px] leading-snug ${labelOcrDiagnostics.ocrQualityWarning ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-                                                    <div className="flex items-center justify-between font-bold">
-                                                       <span className="flex items-center">
-                                                          {labelOcrDiagnostics.ocrQualityWarning ? (
-                                                             <AlertTriangle className="w-3.5 h-3.5 mr-1 text-amber-600 shrink-0" />
-                                                          ) : (
-                                                             <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600 shrink-0" />
-                                                          )}
-                                                          {labelOcrDiagnostics.modelUsed ? `OCR: ${labelOcrDiagnostics.modelUsed}${labelOcrDiagnostics.escalatedToPro ? ' (Auto-eskalacja Pro)' : ''}` : 'Diagnostyka OCR'}
-                                                       </span>
-                                                       {labelOcrDiagnostics.sourceWidth && labelOcrDiagnostics.sourceHeight && (
-                                                          <span className="text-[9px] font-mono opacity-80">{labelOcrDiagnostics.sourceWidth}×{labelOcrDiagnostics.sourceHeight}px</span>
-                                                       )}
                                                     </div>
-                                                    {labelOcrDiagnostics.ocrQualityWarning && (
-                                                       <div className="mt-1 font-medium text-amber-900">{labelOcrDiagnostics.ocrQualityWarning}</div>
+
+                                                    <button
+                                                       type="button"
+                                                       disabled={isExtractingBothLabels || isExtractingFrontLabel || isExtractingBackLabel}
+                                                       onClick={() => handleExtractLabels('both')}
+                                                       className="w-full py-2 px-3 bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-700 hover:to-emerald-700 disabled:opacity-50 text-white rounded-sm text-[10px] font-black uppercase tracking-widest shadow-sm transition-all flex items-center justify-center"
+                                                       title="Uruchamia sekwencyjnie skan frontu (MEDIA_RESOLUTION_HIGH) i wszystkich zdjęć tyłu/boków (z wycinkami ROI i auto-eskalacją Pro)"
+                                                    >
+                                                       {isExtractingBothLabels ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />}
+                                                       {isExtractingBothLabels ? 'Skanuję Przód + Tył i boki (OCR High-Res)...' : 'Skanuj Przód + Tył i boki (AI SSOT)'}
+                                                    </button>
+
+                                                    {labelOcrDiagnostics && (
+                                                       <div className={`w-full rounded-sm p-2 border text-[10px] leading-snug ${labelOcrDiagnostics.ocrQualityWarning ? 'bg-amber-50 border-amber-300 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+                                                          <div className="flex items-center justify-between font-bold">
+                                                             <span className="flex items-center">
+                                                                {labelOcrDiagnostics.ocrQualityWarning ? (
+                                                                   <AlertTriangle className="w-3.5 h-3.5 mr-1 text-amber-600 shrink-0" />
+                                                                ) : (
+                                                                   <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600 shrink-0" />
+                                                                )}
+                                                                {labelOcrDiagnostics.modelUsed ? `OCR: ${labelOcrDiagnostics.modelUsed}${labelOcrDiagnostics.escalatedToPro ? ' (Auto-eskalacja Pro)' : ''}` : 'Diagnostyka OCR'}
+                                                                {labelOcrDiagnostics.imagesAnalyzedCount > 1 ? ` (${labelOcrDiagnostics.imagesAnalyzedCount} ścianki)` : ''}
+                                                             </span>
+                                                             {labelOcrDiagnostics.sourceWidth && labelOcrDiagnostics.sourceHeight && (
+                                                                <span className="text-[9px] font-mono opacity-80">{labelOcrDiagnostics.sourceWidth}×{labelOcrDiagnostics.sourceHeight}px</span>
+                                                             )}
+                                                          </div>
+                                                          {labelOcrDiagnostics.ocrQualityWarning && (
+                                                             <div className="mt-1 font-medium text-amber-900">{labelOcrDiagnostics.ocrQualityWarning}</div>
+                                                          )}
+                                                       </div>
                                                     )}
                                                  </div>
-                                              )}
-                                           </div>
+                                              );
+                                           })()}
                                            
                                            {/* Moduł API EAN */}
                                            <div className="flex-1 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-sm flex flex-col justify-center">
@@ -3011,7 +3097,7 @@ export const UnifiedProductPipelineView = ({
                                                                 <Database className="w-4 h-4 mr-1 text-emerald-600"/>
                                                                 <span>Karta Techniczna i Skład (Parametry PIM)</span>
                                                             </div>
-                                                            {newProductForm.features?.['Zdjęcie tyłu opakowania'] && (
+                                                            {getBackLabelSlotsFromFeatures(newProductForm.features || {}).some(Boolean) && (
                                                                 <button
                                                                     type="button"
                                                                     disabled={isExtractingBackLabel || isExtractingFrontLabel || isExtractingBothLabels}
@@ -3019,7 +3105,7 @@ export const UnifiedProductPipelineView = ({
                                                                     className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors flex items-center shadow-sm"
                                                                 >
                                                                     {isExtractingBackLabel ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
-                                                                    {isExtractingBackLabel ? 'Odczytuję etykietę...' : 'Odczytaj z tyłu opakowania (AI)'}
+                                                                    {isExtractingBackLabel ? 'Odczytuję etykietę...' : 'Odczytaj z tyłu / boków (AI)'}
                                                                 </button>
                                                             )}
                                                          </div>
@@ -3046,7 +3132,8 @@ export const UnifiedProductPipelineView = ({
                                                                     'sklad inci', 'sklad', 'inci', 'ostrzezenia', 'sposob uzycia', 'informacje o bezpieczenstwie'
                                                                 ]);
                                                                 const HIDDEN_IMAGE_KEYS = new Set([
-                                                                    'zdjecie tylu opakowania', 'backimageurl',
+                                                                    'zdjecie tylu opakowania', 'zdjecie tylu opakowania 2', 'zdjecie tylu opakowania 3',
+                                                                    'backimageurl', 'backimageurl2', 'backimageurl3',
                                                                     'zdjecie frontu opakowania', 'frontimageurl',
                                                                     'ostrzezenie ocr etykieta', 'labelsprescannedat'
                                                                 ]);
