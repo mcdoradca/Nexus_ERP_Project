@@ -1512,7 +1512,16 @@ const generateItalianFrame = async (req, res) => {
     }
 };
 
-async function runUnifiedLabelExtraction(req, { ean = null, productId = null, frontImageUrl = null, backImageUrl = null, mode = 'both' } = {}) {
+async function runUnifiedLabelExtraction(req, {
+    ean = null,
+    productId = null,
+    frontImageUrl = null,
+    backImageUrl = null,
+    mode = 'both',
+    currentFeatures = null,
+    allegroCategoryId = null,
+    productName = null
+} = {}) {
     const visionExtractorService = require('../offer-optimizer-v2/vision-extractor.service');
     const baselinkerExtract = require('../offer-optimizer-v2/baselinker.extract');
     const socketService = require('../../core/socket');
@@ -1522,7 +1531,9 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
         extractLabelEvidenceSubsets,
         sanitizeScentValue,
         extractVerifiedLabelYield,
-        isFabricSoftenerProduct
+        isFabricSoftenerProduct,
+        sanitizeClientCurrentFeatures,
+        mergeFrontScanFeaturesSafely
     } = require('../offer-optimizer-v2/services/label-truth.helpers');
 
     const normalizedMode = ['front', 'back', 'both'].includes(String(mode || '').toLowerCase())
@@ -1557,7 +1568,15 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
         }
     }
 
+    const cleanClientFeatures = sanitizeClientCurrentFeatures(currentFeatures);
     let updatedFeatures = { ...existingFeaturesObj };
+    for (const [ck, cv] of Object.entries(cleanClientFeatures)) {
+        if (cv !== undefined && cv !== null && String(cv).trim() !== '') {
+            updatedFeatures[ck] = cv;
+        }
+    }
+    const beforeScanFeatures = { ...updatedFeatures };
+    const removedKeysSet = new Set();
     let frontFeatures = {};
     let backFeatures = {};
     let frontFound = false;
@@ -1584,10 +1603,8 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
         if (frontRes && !frontRes.skipped && frontRes.pimFeatures && Object.keys(frontRes.pimFeatures).length > 0) {
             frontFound = true;
             frontFeatures = { ...frontRes.pimFeatures };
-            for (const [fk, fv] of Object.entries(frontFeatures)) {
-                if (!fv) continue;
-                updatedFeatures[fk] = fv;
-            }
+            const { updatedFeatures: mergedFront } = mergeFrontScanFeaturesSafely(updatedFeatures, frontFeatures);
+            updatedFeatures = mergedFront;
         }
     }
 
@@ -1595,11 +1612,10 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
         updatedFeatures['Zdjęcie tyłu opakowania'] = effectiveBackImg;
 
         const frontContext = {
-            ...updatedFeatures,
-            ...(existingProduct?.name && !updatedFeatures['Nazwa produktu (Etykieta Front)'] ? {} : {})
+            ...updatedFeatures
         };
         if (!frontContext['Pojemność / Waga'] && updatedFeatures['Pojemność']) {
-            frontContext['Pojemność / Waga'] = normalizeCapacityValue(updatedFeatures['Pojemność'], existingProduct?.name || '', updatedFeatures);
+            frontContext['Pojemność / Waga'] = normalizeCapacityValue(updatedFeatures['Pojemność'], productName || existingProduct?.name || '', updatedFeatures);
         }
 
         extractionBackRes = await visionExtractorService.extractInciFromBackPack(
@@ -1609,7 +1625,7 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
             null,
             {
                 frontContext,
-                productName: existingProduct?.name || ''
+                productName: productName || existingProduct?.name || ''
             }
         );
 
@@ -1621,6 +1637,8 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
                 updatedFeatures['Skład/INCI'] = extractionBackRes.inci;
                 delete updatedFeatures['INCI'];
                 delete updatedFeatures['Skład'];
+                removedKeysSet.add('INCI');
+                removedKeysSet.add('Skład');
             }
             if (extractionBackRes.warnings) {
                 updatedFeatures['Ostrzeżenia'] = extractionBackRes.warnings;
@@ -1637,6 +1655,7 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
                 'Kraj pochodzenia (Etykieta)',
                 'Opakowanie (Etykieta)',
                 'Liczba sztuk (Etykieta)',
+                'Liczba prań (Etykieta)',
                 'pH (Etykieta)',
                 'Piktogramy CLP (Etykieta)',
                 'Nazwa produktu (Kontretykieta)',
@@ -1654,14 +1673,19 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
 
             if (extractionBackRes.ocrDiagnostics && !extractionBackRes.ocrDiagnostics.ocrQualityWarning) {
                 delete updatedFeatures['Ostrzeżenie OCR (Etykieta)'];
+                removedKeysSet.add('Ostrzeżenie OCR (Etykieta)');
             }
             if (extractionBackRes.ocrDiagnostics?.capCapacityLegible === false) {
                 delete updatedFeatures['Pojemność nakrętki (Etykieta)'];
+                removedKeysSet.add('Pojemność nakrętki (Etykieta)');
             }
             if (extractionBackRes.ocrDiagnostics?.dosageTableLegibility === 'LOW_UNREADABLE' && !extractionBackRes.ocrDiagnostics?.dosageMathValid) {
                 delete updatedFeatures['Sposób użycia'];
                 delete updatedFeatures['Sposób użycia (Etykieta)'];
                 delete updatedFeatures['Pojemność nakrętki (Etykieta)'];
+                removedKeysSet.add('Sposób użycia');
+                removedKeysSet.add('Sposób użycia (Etykieta)');
+                removedKeysSet.add('Pojemność nakrętki (Etykieta)');
             }
         }
     }
@@ -1679,6 +1703,7 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
         const scentCheck = sanitizeScentValue(updatedFeatures['Zapach']);
         if (!scentCheck.valid) {
             delete updatedFeatures['Zapach'];
+            removedKeysSet.add('Zapach');
         } else if (scentCheck.translated && scentCheck.value) {
             updatedFeatures['Zapach'] = scentCheck.value;
         }
@@ -1691,7 +1716,7 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
         });
         if (backYield.count !== null) {
             const isSoftener = isFabricSoftenerProduct({
-                productName: existingProduct?.name || '',
+                productName: productName || existingProduct?.name || '',
                 line: updatedFeatures['Linia produktowa (Front)'] || '',
                 visionFeatures: { ...frontFeatures, ...backFeatures },
                 features: updatedFeatures
@@ -1702,15 +1727,26 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
 
     if (extractionBackRes?.ocrDiagnostics?.ocrQualityWarning) {
         delete updatedFeatures['_labelsPreScannedAt'];
+        removedKeysSet.add('_labelsPreScannedAt');
     } else if (frontFound || backFound) {
         updatedFeatures['_labelsPreScannedAt'] = new Date().toISOString();
     }
 
-    if (existingProduct?.allegroCategoryId && (frontFound || backFound)) {
+    const effectiveCategoryId = String(existingProduct?.allegroCategoryId || allegroCategoryId || '').trim();
+    const effectiveProductForMap = existingProduct || {
+        ean: ean || '',
+        name: productName || updatedFeatures['Nazwa produktu (Etykieta Front)'] || updatedFeatures['Nazwa produktu (Kontretykieta)'] || ''
+    };
+    if (effectiveCategoryId && (frontFound || backFound)) {
         try {
-            const cat = await prisma.marketplaceCategory.findUnique({
-                where: { id: existingProduct.allegroCategoryId }
-            });
+            let cat = null;
+            try {
+                cat = await AllegroService.getCategoryParametersFull(effectiveCategoryId, {
+                    workspaceId: req.workspaceId || null
+                });
+            } catch (_) {
+                cat = await prisma.marketplaceCategory.findUnique({ where: { id: effectiveCategoryId } });
+            }
             if (cat && Array.isArray(cat.parameters) && cat.parameters.length > 0) {
                 const { mapPackagingFeaturesToAllegroSchema } = require('../offer-optimizer-v2/services/allegro-param-automapper.service');
                 const labelSubsets = extractLabelEvidenceSubsets(updatedFeatures, frontFeatures, backFeatures);
@@ -1719,13 +1755,18 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
                     currentFeatures: updatedFeatures,
                     visionFront: labelSubsets.visionFront,
                     visionBack: labelSubsets.visionBack,
-                    product: existingProduct
+                    product: effectiveProductForMap
                 });
                 updatedFeatures = autoRes.updatedFeatures;
                 autoMappedParams = autoRes.mappedParams || {};
+                if (Array.isArray(autoRes.cleanedInvalidParams)) {
+                    for (const rk of autoRes.cleanedInvalidParams) {
+                        removedKeysSet.add(rk);
+                    }
+                }
                 if (updatedFeatures['Liczba prań'] && !updatedFeatures['Wydajność']) {
                     const isSoftener = isFabricSoftenerProduct({
-                        productName: existingProduct?.name || '',
+                        productName: effectiveProductForMap.name || '',
                         line: updatedFeatures['Linia produktowa (Front)'] || '',
                         visionFeatures: { ...frontFeatures, ...backFeatures },
                         features: updatedFeatures
@@ -1745,8 +1786,32 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
         }).catch((dbErr) => console.warn('[extractLabels] Ostrzeżenie zapisu do DB:', dbErr.message));
     }
 
+    const scanProducedKeys = new Set([
+        ...Object.keys(frontFeatures || {}),
+        ...(frontFeatures?.['Postać (Etykieta)'] ? ['Postać (Front)'] : []),
+        ...Object.keys(backFeatures || {}),
+        ...Object.keys(autoMappedParams || {}),
+        ...(resolvedForm.isVerifiedFromLabel ? ['Postać'] : []),
+        ...(extractionBackRes?.inci ? ['Skład/INCI'] : []),
+        ...(extractionBackRes?.warnings ? ['Ostrzeżenia', 'Ostrzeżenia (Etykieta)'] : []),
+        ...(extractionBackRes?.usageInstructions ? ['Sposób użycia', 'Sposób użycia (Etykieta)'] : []),
+        ...(backFound && updatedFeatures['Wydajność'] ? ['Wydajność'] : []),
+        ...(typeof frontImageUrl === 'string' && frontImageUrl.trim() ? ['Zdjęcie frontu opakowania'] : []),
+        ...(effectiveBackImg ? ['Zdjęcie tyłu opakowania'] : []),
+        ...(updatedFeatures['_labelsPreScannedAt'] ? ['_labelsPreScannedAt'] : [])
+    ]);
+    const appliedFeatures = {};
+    for (const [uk, uv] of Object.entries(updatedFeatures)) {
+        if (uv === undefined || uv === null || String(uv).trim() === '') continue;
+        if (beforeScanFeatures[uk] !== uv || scanProducedKeys.has(uk)) {
+            appliedFeatures[uk] = uv;
+        }
+        removedKeysSet.delete(uk);
+    }
+
     return {
         found: Boolean(frontFound || backFound),
+        mode: normalizedMode,
         frontFound,
         backFound,
         inci: extractionBackRes?.inci || updatedFeatures['Skład/INCI'] || null,
@@ -1755,6 +1820,8 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
             ? (extractionBackRes.usageInstructions || null)
             : (updatedFeatures['Sposób użycia'] || null),
         autoMappedParams,
+        appliedFeatures,
+        removedKeys: Array.from(removedKeysSet),
         frontFeatures,
         backFeatures,
         ocrDiagnostics: extractionBackRes?.ocrDiagnostics || null,
@@ -1770,11 +1837,11 @@ async function runUnifiedLabelExtraction(req, { ean = null, productId = null, fr
 
 const extractLabels = async (req, res) => {
     try {
-        const { ean, productId, frontImageUrl, backImageUrl, mode = 'both' } = req.body || {};
+        const { ean, productId, frontImageUrl, backImageUrl, mode = 'both', currentFeatures = null, allegroCategoryId = null, productName = null } = req.body || {};
         if (mode === 'back' && (!backImageUrl || typeof backImageUrl !== 'string' || !backImageUrl.trim())) {
             return res.status(400).json({ error: 'Wymagane zdjęcie tyłu opakowania (backImageUrl).' });
         }
-        const payload = await runUnifiedLabelExtraction(req, { ean, productId, frontImageUrl, backImageUrl, mode });
+        const payload = await runUnifiedLabelExtraction(req, { ean, productId, frontImageUrl, backImageUrl, mode, currentFeatures, allegroCategoryId, productName });
         return res.status(200).json(payload);
     } catch (error) {
         console.error('[extractLabels] Błąd analizy etykiet:', error);
@@ -1784,11 +1851,11 @@ const extractLabels = async (req, res) => {
 
 const extractBackLabel = async (req, res) => {
     try {
-        const { ean, backImageUrl, productId } = req.body || {};
+        const { ean, backImageUrl, productId, currentFeatures = null, allegroCategoryId = null, productName = null } = req.body || {};
         if (!backImageUrl || typeof backImageUrl !== 'string' || !backImageUrl.trim()) {
             return res.status(400).json({ error: 'Wymagane zdjęcie tyłu opakowania (backImageUrl).' });
         }
-        const payload = await runUnifiedLabelExtraction(req, { ean, productId, backImageUrl, mode: 'back' });
+        const payload = await runUnifiedLabelExtraction(req, { ean, productId, backImageUrl, mode: 'back', currentFeatures, allegroCategoryId, productName });
         return res.status(200).json(payload);
     } catch (error) {
         console.error('[extractBackLabel] Błąd analizy zdjęcia tyłu opakowania:', error);

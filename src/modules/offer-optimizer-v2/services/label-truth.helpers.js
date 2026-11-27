@@ -886,6 +886,124 @@ function mergeFeaturesWithLabelPrecedence(existingFeatures = {}, incomingExterna
     return existing;
 }
 
+const FRONT_PROTECTED_BACK_KEYS = new Set([
+    'Skład/INCI',
+    'INCI',
+    'Skład',
+    'Ostrzeżenia',
+    'Ostrzeżenia (Etykieta)',
+    'Sposób użycia',
+    'Sposób użycia (Etykieta)',
+    'Pojemność nakrętki (Etykieta)',
+    'Piktogramy CLP (Etykieta)',
+    'Nazwa produktu (Kontretykieta)',
+    'Przeznaczenie (Etykieta)',
+    'Wyróżniki / Certyfikaty (Etykieta)',
+    'Kraj pochodzenia (Etykieta)',
+    'Opakowanie (Etykieta)',
+    'Liczba sztuk (Etykieta)',
+    'Liczba prań (Etykieta)',
+    'pH (Etykieta)',
+    'Producent'
+]);
+
+/**
+ * Odfiltrowuje ciężkie obrazy Data URI / klucze zdjęć z cech przekazywanych przez UI do ponownego skanu etykiety.
+ */
+function sanitizeClientCurrentFeatures(rawFeatures = {}) {
+    if (!rawFeatures || typeof rawFeatures !== 'object' || Array.isArray(rawFeatures)) {
+        return {};
+    }
+    const clean = {};
+    for (const [k, v] of Object.entries(rawFeatures)) {
+        if (v === undefined || v === null) continue;
+        if (/^(?:zdjęcie\s+(?:frontu|tyłu)\s+opakowania|zdjecie\s+(?:frontu|tylu)\s+opakowania|_frontimageurl|_backimageurl)$/i.test(String(k).trim())) {
+            continue;
+        }
+        if (typeof v === 'string') {
+            const trimmed = v.trim();
+            if (!trimmed || /^data:image\//i.test(trimmed)) continue;
+            clean[k] = v;
+        } else {
+            clean[k] = v;
+        }
+    }
+    return clean;
+}
+
+/**
+ * Bezstratnie nakłada odczyty etykiety frontowej na istniejący słownik cech (np. po wcześniejszym skanie tyłu):
+ * - nigdy nie usuwa ani nie nadpisuje pól kontretykiety (INCI, ostrzeżenia, sposób użycia, pH, CLP, nakrętka, producent);
+ * - nie nadpisuje zweryfikowanej `Postać (Etykieta)` z tyłu (zapisuje odczyt frontu do `Postać (Front)`);
+ * - nie nadpisuje znormalizowanej słownikowej `Marka` ani przeliczonej `Pojemność`/`Waga` surowym napisem z frontu.
+ */
+function mergeFrontScanFeaturesSafely(existingFeatures = {}, frontFeatures = {}) {
+    const updated = (existingFeatures && typeof existingFeatures === 'object' && !Array.isArray(existingFeatures))
+        ? { ...existingFeatures }
+        : {};
+    const fFeats = (frontFeatures && typeof frontFeatures === 'object' && !Array.isArray(frontFeatures))
+        ? frontFeatures
+        : {};
+    const appliedKeysSet = new Set();
+
+    for (const [fk, rawVal] of Object.entries(fFeats)) {
+        if (rawVal === undefined || rawVal === null || String(rawVal).trim() === '') continue;
+        if (FRONT_PROTECTED_BACK_KEYS.has(fk)) continue;
+
+        if (fk === 'Postać (Etykieta)') {
+            updated['Postać (Front)'] = rawVal;
+            appliedKeysSet.add('Postać (Front)');
+            if (!updated['Postać (Etykieta)'] || String(updated['Postać (Etykieta)']).trim() === '') {
+                updated['Postać (Etykieta)'] = rawVal;
+                appliedKeysSet.add('Postać (Etykieta)');
+            }
+            continue;
+        }
+
+        if (fk === 'Postać') {
+            if (!updated['Postać'] || String(updated['Postać']).trim() === '') {
+                updated['Postać'] = rawVal;
+                appliedKeysSet.add('Postać');
+            }
+            continue;
+        }
+
+        if (fk === 'Pojemność' || fk === 'Waga') {
+            if (!updated[fk] || String(updated[fk]).trim() === '') {
+                updated[fk] = rawVal;
+                appliedKeysSet.add(fk);
+            }
+            continue;
+        }
+
+        if (fk === 'Marka') {
+            const currBrand = String(updated['Marka'] || '').trim();
+            if (!currBrand || /^(?:inna|inny|nieznany|nieznana|brak)$/i.test(currBrand)) {
+                updated['Marka'] = rawVal;
+                appliedKeysSet.add('Marka');
+            }
+            continue;
+        }
+
+        if (fk === 'Zapach') {
+            const scentRes = sanitizeScentValue(rawVal);
+            if (scentRes.valid && scentRes.value) {
+                updated['Zapach'] = scentRes.value;
+                appliedKeysSet.add('Zapach');
+            }
+            continue;
+        }
+
+        updated[fk] = rawVal;
+        appliedKeysSet.add(fk);
+    }
+
+    return {
+        updatedFeatures: updated,
+        appliedFrontKeys: Array.from(appliedKeysSet)
+    };
+}
+
 module.exports = {
     CANONICAL_ACRONYMS,
     POLISH_CONNECTOR_WORDS,
@@ -905,5 +1023,7 @@ module.exports = {
     filterHeroIngredients,
     extractVerifiedLabelYield,
     extractLabelEvidenceSubsets,
-    mergeFeaturesWithLabelPrecedence
+    mergeFeaturesWithLabelPrecedence,
+    sanitizeClientCurrentFeatures,
+    mergeFrontScanFeaturesSafely
 };

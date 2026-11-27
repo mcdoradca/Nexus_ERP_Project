@@ -699,3 +699,132 @@ export function syncLinkedFeatureOnEdit(features = {}, editedKey = '', newValue 
 
     return next;
 }
+
+const FRONT_SCAN_PROTECTED_BACK_KEYS_FE = new Set([
+    'Skład/INCI',
+    'Ostrzeżenia',
+    'Ostrzeżenia (Etykieta)',
+    'Sposób użycia',
+    'Sposób użycia (Etykieta)',
+    'Pojemność nakrętki (Etykieta)',
+    'Piktogramy CLP (Etykieta)',
+    'Nazwa produktu (Kontretykieta)',
+    'Przeznaczenie (Etykieta)',
+    'Wyróżniki / Certyfikaty (Etykieta)',
+    'Kraj pochodzenia (Etykieta)',
+    'Opakowanie (Etykieta)',
+    'Liczba sztuk (Etykieta)',
+    'Liczba prań (Etykieta)',
+    'pH (Etykieta)',
+    'Producent'
+]);
+
+export function stripHeavyImagesFromFeatures(features = {}) {
+    if (!features || typeof features !== 'object' || Array.isArray(features)) {
+        return {};
+    }
+    const clean = {};
+    for (const [k, v] of Object.entries(features)) {
+        if (v === undefined || v === null) continue;
+        if (/^(?:zdjęcie\s+(?:frontu|tyłu)\s+opakowania|zdjecie\s+(?:frontu|tylu)\s+opakowania|_frontimageurl|_backimageurl)$/i.test(String(k).trim())) {
+            continue;
+        }
+        if (typeof v === 'string') {
+            const trimmed = v.trim();
+            if (!trimmed || /^data:image\//i.test(trimmed)) continue;
+            clean[k] = v;
+        } else {
+            clean[k] = v;
+        }
+    }
+    return clean;
+}
+
+export function mergeLabelExtractionResponseIntoFeatures(
+    prevFeatures = {},
+    responseData = {},
+    { mode = 'both', overrideFrontImg = null, overrideBackImg = null, allegroSchema = [], productName = '' } = {}
+) {
+    let merged = (prevFeatures && typeof prevFeatures === 'object' && !Array.isArray(prevFeatures))
+        ? { ...prevFeatures }
+        : {};
+    const data = responseData && typeof responseData === 'object' ? responseData : {};
+    const effectiveMode = String(data.mode || mode || 'both').toLowerCase();
+
+    const removedKeys = Array.isArray(data.removedKeys) ? data.removedKeys : [];
+    for (const rk of removedKeys) {
+        if (effectiveMode === 'front' && FRONT_SCAN_PROTECTED_BACK_KEYS_FE.has(rk)) {
+            continue;
+        }
+        delete merged[rk];
+    }
+
+    if (data.appliedFeatures && typeof data.appliedFeatures === 'object') {
+        for (const [ak, av] of Object.entries(data.appliedFeatures)) {
+            if (av === undefined || av === null || String(av).trim() === '') continue;
+            if (effectiveMode === 'front' && FRONT_SCAN_PROTECTED_BACK_KEYS_FE.has(ak)) continue;
+            merged[ak] = av;
+        }
+    } else {
+        const pimFeats = data.pimFeatures && typeof data.pimFeatures === 'object' ? data.pimFeatures : {};
+        for (const [pk, pv] of Object.entries(pimFeats)) {
+            if (pv === undefined || pv === null || String(pv).trim() === '') continue;
+            if (effectiveMode === 'front' && FRONT_SCAN_PROTECTED_BACK_KEYS_FE.has(pk)) continue;
+            merged[pk] = pv;
+        }
+        const updFeats = data.updatedFeatures && typeof data.updatedFeatures === 'object' ? data.updatedFeatures : {};
+        for (const [uk, uv] of Object.entries(updFeats)) {
+            if (uv === undefined || uv === null || String(uv).trim() === '') continue;
+            if (!Object.prototype.hasOwnProperty.call(merged, uk) || String(merged[uk]).trim() === '') {
+                merged[uk] = uv;
+            }
+        }
+    }
+
+    if (overrideFrontImg) merged['Zdjęcie frontu opakowania'] = overrideFrontImg;
+    if (overrideBackImg) merged['Zdjęcie tyłu opakowania'] = overrideBackImg;
+
+    if (effectiveMode !== 'front') {
+        const diag = data.ocrDiagnostics || null;
+        if (data.inci) {
+            merged['Skład/INCI'] = data.inci;
+            delete merged['INCI'];
+            delete merged['Skład'];
+        }
+        if (data.warnings) {
+            merged['Ostrzeżenia'] = data.warnings;
+            merged['Ostrzeżenia (Etykieta)'] = data.warnings;
+        }
+        if (data.usageInstructions) {
+            merged['Sposób użycia'] = data.usageInstructions;
+            merged['Sposób użycia (Etykieta)'] = data.usageInstructions;
+        }
+        if (diag && !diag.ocrQualityWarning) {
+            delete merged['Ostrzeżenie OCR (Etykieta)'];
+        }
+        if (diag?.dosageTableLegibility === 'LOW_UNREADABLE' && !diag?.dosageMathValid) {
+            delete merged['Sposób użycia'];
+            delete merged['Sposób użycia (Etykieta)'];
+            delete merged['Pojemność nakrętki (Etykieta)'];
+        }
+    }
+
+    if (data.autoMappedParams && typeof data.autoMappedParams === 'object') {
+        for (const [ak, av] of Object.entries(data.autoMappedParams)) {
+            if (av !== undefined && av !== null && String(av).trim() !== '') {
+                merged[ak] = av;
+            }
+        }
+    }
+
+    const schemaParams = Array.isArray(allegroSchema) ? allegroSchema : [];
+    merged = syncFeaturesFromLabelTruth(merged, schemaParams).features;
+    if (schemaParams.length > 0) {
+        merged = normalizeFeaturesForAllegroSchema(merged, schemaParams, {
+            productName,
+            visionFeatures: merged
+        }).features;
+    }
+
+    return merged;
+}

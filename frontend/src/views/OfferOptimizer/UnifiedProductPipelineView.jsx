@@ -17,7 +17,9 @@ import {
   sanitizeScentValueFrontend,
   detectLabelAllegroConflicts,
   syncFeaturesFromLabelTruth,
-  syncLinkedFeatureOnEdit
+  syncLinkedFeatureOnEdit,
+  stripHeavyImagesFromFeatures,
+  mergeLabelExtractionResponseIntoFeatures
 } from './utils/allegroParamFormatter';
 import { 
   Rocket, ShieldAlert, Cpu, Type, X, Download, RefreshCw, Save, Send, Database, Box, Tag, Layers, TrendingUp, Search,
@@ -295,6 +297,11 @@ export const UnifiedProductPipelineView = ({
     }, [allegroContentPreviewDirty]);
 
     const handleExtractLabels = async (mode = 'both', overrideFrontImg = null, overrideBackImg = null) => {
+        if (isExtractingFrontLabel || isExtractingBackLabel || isExtractingBothLabels) {
+            alert('Trwa już odczyt etykiety — poczekaj chwilę na zakończenie bieżącego skanu.');
+            return;
+        }
+
         const frontImg = overrideFrontImg || newProductForm?.features?.['Zdjęcie frontu opakowania'] || newProductForm?.imageUrl || '';
         const backImg = overrideBackImg || newProductForm?.features?.['Zdjęcie tyłu opakowania'] || '';
 
@@ -321,7 +328,10 @@ export const UnifiedProductPipelineView = ({
                 productId: editingProduct || undefined,
                 frontImageUrl: (mode !== 'back' && frontImg) ? frontImg : undefined,
                 backImageUrl: (mode !== 'front' && backImg) ? backImg : undefined,
-                mode
+                mode,
+                currentFeatures: stripHeavyImagesFromFeatures(newProductForm?.features || {}),
+                allegroCategoryId: newProductForm?.allegroCategoryId || undefined,
+                productName: newProductForm?.name || undefined
             }, { headers: { Authorization: `Bearer ${token}` } });
 
             const diag = res.data?.ocrDiagnostics || (
@@ -329,69 +339,21 @@ export const UnifiedProductPipelineView = ({
                     ? { ocrQualityWarning: res.data.updatedFeatures['Ostrzeżenie OCR (Etykieta)'] }
                     : null
             );
-            setLabelOcrDiagnostics(diag);
+            if (mode !== 'front') {
+                setLabelOcrDiagnostics(diag);
+            }
 
             if (res.data && (res.data.found || diag?.ocrQualityWarning)) {
-                setNewProductForm(prev => {
-                    const baseFeats = { ...(prev.features || {}) };
-                    const hasBackendSnapshot = Boolean(res.data.updatedFeatures && typeof res.data.updatedFeatures === 'object');
-                    let merged;
-                    if (hasBackendSnapshot) {
-                        merged = { ...res.data.updatedFeatures };
-                        const serverControlledDropKeys = new Set([
-                            'INCI', 'Skład', 'Zapach', 'Nuta zapachowa',
-                            'Sposób użycia', 'Sposób użycia (Etykieta)',
-                            'Pojemność nakrętki (Etykieta)', 'Ostrzeżenie OCR (Etykieta)', '_labelsPreScannedAt'
-                        ]);
-                        for (const [bk, bv] of Object.entries(baseFeats)) {
-                            if (!Object.prototype.hasOwnProperty.call(merged, bk) && !serverControlledDropKeys.has(bk) && bv !== undefined && bv !== null && String(bv).trim() !== '') {
-                                merged[bk] = bv;
-                            }
-                        }
-                    } else {
-                        merged = { ...baseFeats };
-                    }
-                    if (overrideFrontImg) merged['Zdjęcie frontu opakowania'] = overrideFrontImg;
-                    if (overrideBackImg) merged['Zdjęcie tyłu opakowania'] = overrideBackImg;
-
-                    if (res.data.inci) {
-                        merged['Skład/INCI'] = res.data.inci;
-                        delete merged['INCI'];
-                        delete merged['Skład'];
-                    }
-                    if (res.data.warnings) {
-                        merged['Ostrzeżenia'] = res.data.warnings;
-                        merged['Ostrzeżenia (Etykieta)'] = res.data.warnings;
-                    }
-                    if (res.data.usageInstructions) {
-                        merged['Sposób użycia'] = res.data.usageInstructions;
-                        merged['Sposób użycia (Etykieta)'] = res.data.usageInstructions;
-                    }
-                    if (diag && !diag.ocrQualityWarning) {
-                        delete merged['Ostrzeżenie OCR (Etykieta)'];
-                    }
-                    if (diag?.dosageTableLegibility === 'LOW_UNREADABLE' && !diag?.dosageMathValid) {
-                        delete merged['Sposób użycia'];
-                        delete merged['Sposób użycia (Etykieta)'];
-                        delete merged['Pojemność nakrętki (Etykieta)'];
-                    }
-                    if (res.data.autoMappedParams && typeof res.data.autoMappedParams === 'object') {
-                        for (const [ak, av] of Object.entries(res.data.autoMappedParams)) {
-                            if (av !== undefined && av !== null && String(av).trim() !== '') {
-                                merged[ak] = av;
-                            }
-                        }
-                    }
-                    const schemaParams = categorySchema?.parameters || [];
-                    merged = syncFeaturesFromLabelTruth(merged, schemaParams).features;
-                    if (schemaParams.length > 0) {
-                        merged = normalizeFeaturesForAllegroSchema(merged, schemaParams, {
-                            productName: prev.name,
-                            visionFeatures: merged
-                        }).features;
-                    }
-                    return { ...prev, features: merged };
-                });
+                setNewProductForm(prev => ({
+                    ...prev,
+                    features: mergeLabelExtractionResponseIntoFeatures(prev.features || {}, res.data, {
+                        mode,
+                        overrideFrontImg,
+                        overrideBackImg,
+                        allegroSchema: categorySchema?.parameters || [],
+                        productName: prev.name
+                    })
+                }));
                 setFeaturesHydrationRev(r => r + 1);
             } else {
                 alert('Agent Vision nie wykrył czytelnych danych na przekazanych zdjęciach. Upewnij się, że zdjęcia etykiet są wyraźne, lub uzupełnij pola ręcznie.');
@@ -2658,7 +2620,7 @@ export const UnifiedProductPipelineView = ({
                                                              </button>
                                                              <button
                                                                 type="button"
-                                                                disabled={isExtractingFrontLabel || isExtractingBothLabels}
+                                                                disabled={isExtractingFrontLabel || isExtractingBackLabel || isExtractingBothLabels}
                                                                 onClick={() => handleExtractLabels('front')}
                                                                 className="flex-1 py-1.5 px-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors flex items-center justify-center"
                                                                 title="Odczytaj oficjalną nazwę, postać, pojemność i wydajność z frontu"
@@ -2736,7 +2698,7 @@ export const UnifiedProductPipelineView = ({
                                                              </button>
                                                              <button
                                                                 type="button"
-                                                                disabled={isExtractingBackLabel || isExtractingBothLabels}
+                                                                disabled={isExtractingBackLabel || isExtractingFrontLabel || isExtractingBothLabels}
                                                                 onClick={() => handleExtractLabels('back')}
                                                                 className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors flex items-center justify-center"
                                                                 title="Odczytaj Skład/INCI, Ostrzeżenia i Sposób użycia przez Agent Vision"
@@ -3052,7 +3014,7 @@ export const UnifiedProductPipelineView = ({
                                                             {newProductForm.features?.['Zdjęcie tyłu opakowania'] && (
                                                                 <button
                                                                     type="button"
-                                                                    disabled={isExtractingBackLabel}
+                                                                    disabled={isExtractingBackLabel || isExtractingFrontLabel || isExtractingBothLabels}
                                                                     onClick={() => handleExtractBackLabel()}
                                                                     className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-sm text-[9px] font-black uppercase tracking-wider transition-colors flex items-center shadow-sm"
                                                                 >
